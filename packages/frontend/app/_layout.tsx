@@ -116,7 +116,7 @@ function RootLayout() {
     <AppErrorBoundary>
       <BloomThemeProvider
         defaultMode="system"
-        defaultColorPreset="yellow"
+        defaultColorPreset="blue"
         persistKey={BLOOM_THEME_PERSIST_KEY}
         storage={BLOOM_THEME_STORAGE}
         fonts={false}
