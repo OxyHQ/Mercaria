@@ -1,6 +1,6 @@
-# Marketplace API
+# Mercaria API
 
-Express + TypeScript backend for Marketplace.
+Express + TypeScript backend for Mercaria.
 
 This is the **base shell** — it provides the bootstrap, auth, real-time, and
 notification infrastructure. The marketplace domain (listings, buy/sell, shops)
@@ -9,7 +9,7 @@ is built on top of it (see `HANDOFF.md` in the repo root).
 ## What's here
 
 - Express bootstrap with graceful shutdown, process-level error handling, and CORS
-- MongoDB/Mongoose connection (`src/lib/db.ts`, db name `marketplace-{NODE_ENV}`)
+- MongoDB/Mongoose connection (`src/lib/db.ts`, db name `mercaria-{NODE_ENV}`)
 - Redis client (optional) for rate-limit store + Socket.IO scaling
 - Oxy auth via `@oxyhq/core/server` (`src/middleware/auth.ts`)
 - Socket.IO with authenticated per-user rooms (`src/socket.ts`)

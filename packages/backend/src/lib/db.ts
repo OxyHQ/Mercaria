@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { log } from './logger.js';
 
-const APP_NAME = "marketplace";
+const APP_NAME = "mercaria";
 
 function getDatabaseName(): string {
   const env = process.env.NODE_ENV || "development";
@@ -38,7 +38,7 @@ function setupConnectionListeners(): void {
 
 export async function connectDB() {
   // Read MONGODB_URI here, after dotenv.config() has been called
-  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/marketplace';
+  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mercaria';
 
   if (!MONGODB_URI) {
     throw new Error('Please define the MONGODB_URI environment variable inside .env');

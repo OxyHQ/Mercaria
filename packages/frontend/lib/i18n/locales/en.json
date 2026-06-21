@@ -23,8 +23,8 @@
     "processing": "Processing..."
   },
   "home": {
-    "title": "Marketplace",
-    "emptyTitle": "Marketplace is coming soon",
+    "title": "Mercaria",
+    "emptyTitle": "Mercaria is coming soon",
     "emptySubtitle": "Buy and sell new and secondhand items — listings will appear here."
   },
   "nav": {
@@ -33,7 +33,7 @@
   },
   "login": {
     "title": "Sign in or sign up",
-    "subtitle": "to continue to Marketplace",
+    "subtitle": "to continue to Mercaria",
     "emailPlaceholder": "Email",
     "passwordPlaceholder": "Password",
     "forgotPassword": "Forgot password?",
@@ -41,14 +41,14 @@
     "signingIn": "Signing in...",
     "footerText": "Don't have an account?",
     "footerLink": "Sign up",
-    "termsPrefix": "By continuing, you agree to Marketplace's ",
+    "termsPrefix": "By continuing, you agree to Mercaria's ",
     "termsOfService": "Terms of Service",
     "termsAnd": " and ",
     "privacyPolicy": "Privacy Policy"
   },
   "register": {
     "title": "Create Oxy Account",
-    "subtitle": "Sign up to get started with Marketplace",
+    "subtitle": "Sign up to get started with Mercaria",
     "firstNamePlaceholder": "First Name",
     "lastNamePlaceholder": "Last Name (Optional)",
     "emailPlaceholder": "Email",
@@ -77,7 +77,7 @@
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "Manage your Marketplace preferences",
+    "subtitle": "Manage your Mercaria preferences",
     "account": {
       "title": "Account Settings",
       "description": "Manage your account"
@@ -135,7 +135,7 @@
   },
   "feedback": {
     "title": "Send Feedback",
-    "subtitle": "Help us improve Marketplace",
+    "subtitle": "Help us improve Mercaria",
     "typeQuestion": "What type of feedback?",
     "bugReport": "Bug Report",
     "bugDescription": "Something is broken or not working",
@@ -159,7 +159,7 @@
     "characterCount": "{{count}}/1000 characters",
     "submitButton": "Submit Feedback",
     "submitting": "Submitting...",
-    "footerText": "Your feedback helps us improve Marketplace. Thank you for taking the time to share your thoughts.",
+    "footerText": "Your feedback helps us improve Mercaria. Thank you for taking the time to share your thoughts.",
     "selectType": "Please select a feedback type",
     "enterMessage": "Please enter your feedback message",
     "moreDetails": "Please provide more details (at least 10 characters)",
@@ -174,6 +174,6 @@
     "permissionDenied": "Notifications are blocked. Please enable them in your device settings to receive push notifications."
   },
   "welcome": {
-    "appName": "Marketplace"
+    "appName": "Mercaria"
   }
 }

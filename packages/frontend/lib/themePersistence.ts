@@ -7,7 +7,7 @@ import { webLocalStorage, type BloomThemeStorage } from '@oxyhq/bloom/theme';
  * (`{ mode?, colorPreset? }` as JSON). `BloomThemeProvider` writes it; the key
  * lives here so writers and readers can never drift.
  */
-export const BLOOM_THEME_PERSIST_KEY = 'marketplace.bloom.theme';
+export const BLOOM_THEME_PERSIST_KEY = 'mercaria.bloom.theme';
 
 /**
  * Platform-selected storage adapter for Bloom theme persistence.

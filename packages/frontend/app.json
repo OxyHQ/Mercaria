@@ -1,12 +1,12 @@
 {
   "expo": {
     "owner": "oxyhq",
-    "name": "Marketplace",
-    "slug": "marketplace",
+    "name": "Mercaria",
+    "slug": "mercaria",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon-512.png",
-    "scheme": "marketplace",
+    "scheme": "mercaria",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/icon-512.png",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "so.oxy.marketplace",
+      "bundleIdentifier": "co.mercaria.app",
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
@@ -28,7 +28,7 @@
         "monochromeImage": "./assets/adaptive-icon-monochrome.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "so.oxy.marketplace",
+      "package": "co.mercaria.app",
       "predictiveBackGestureEnabled": false
     },
     "web": {

@@ -1,6 +1,6 @@
 /**
  * Centralized API routes configuration.
- * All Marketplace API endpoints are defined here for easy maintenance.
+ * All Mercaria API endpoints are defined here for easy maintenance.
  */
 
 export const API_ROUTES = {

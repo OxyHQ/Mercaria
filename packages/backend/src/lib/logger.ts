@@ -1,5 +1,5 @@
 /**
- * Structured Logger for Marketplace API
+ * Structured Logger for Mercaria API
  *
  * Uses pino for production-grade JSON logging with:
  * - Automatic pretty printing in development
@@ -79,8 +79,8 @@ export function sanitizeForLog(value: string): string {
   return value
     // Bearer tokens
     .replace(/Bearer\s+[a-zA-Z0-9._-]+/gi, 'Bearer [REDACTED]')
-    // Marketplace developer keys
-    .replace(/marketplace_sk_[a-zA-Z0-9_-]+/g, 'marketplace_sk_[REDACTED]')
+    // Mercaria developer keys
+    .replace(/mercaria_sk_[a-zA-Z0-9_-]+/g, 'mercaria_sk_[REDACTED]')
     // Generic sk- / key- prefixed secrets
     .replace(/sk-[a-zA-Z0-9_-]{20,}/g, 'sk-[REDACTED]')
     .replace(/key-[a-zA-Z0-9]{20,}/g, 'key-[REDACTED]');

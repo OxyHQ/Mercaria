@@ -1,7 +1,7 @@
 {
-  "name": "@marketplace/shared-types",
+  "name": "@mercaria/shared-types",
   "version": "1.0.0",
-  "description": "Shared TypeScript types for the Marketplace frontend and backend",
+  "description": "Shared TypeScript types for the Mercaria frontend and backend",
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

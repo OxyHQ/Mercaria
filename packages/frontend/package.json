@@ -1,10 +1,10 @@
 {
-  "name": "@marketplace/frontend",
+  "name": "@mercaria/frontend",
   "main": "index",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start --clear --tunnel",
-    "dev": "expo start --scheme marketplace",
+    "dev": "expo start --scheme mercaria",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
@@ -18,7 +18,7 @@
   "dependencies": {
     "@expo/html-elements": "^0.13.8",
     "@expo/vector-icons": "^15.0.3",
-    "@marketplace/shared-types": "workspace:*",
+    "@mercaria/shared-types": "workspace:*",
     "@hugeicons/react-native": "^1.0.11",
     "@oxyhq/bloom": "^0.9.1",
     "@oxyhq/core": "^3.6.0",

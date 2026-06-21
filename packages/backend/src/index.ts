@@ -57,9 +57,9 @@ initSocket(server);
 
 // CORS — restricted to known origins
 const PRODUCTION_ORIGINS = [
-  'https://marketplace.oxy.so',
-  'https://console.marketplace.oxy.so',
-  'https://gateway.marketplace.oxy.so',
+  'https://mercaria.co',
+  'https://console.mercaria.co',
+  'https://gateway.mercaria.co',
 ];
 
 const DEV_ORIGINS = [
@@ -119,7 +119,7 @@ app.use('/listings', listingsRouter);
 // Root route
 app.get('/', (_req, res) => {
   res.json({
-    message: 'Marketplace API',
+    message: 'Mercaria API',
     version: '1.0.0',
     endpoints: [
       '/health',

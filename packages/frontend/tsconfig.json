@@ -7,10 +7,10 @@
       "@/*": [
         "./*"
       ],
-      "@marketplace/shared-types": [
+      "@mercaria/shared-types": [
         "../shared-types/src"
       ],
-      "@marketplace/shared-types/*": [
+      "@mercaria/shared-types/*": [
         "../shared-types/src/*"
       ]
     }

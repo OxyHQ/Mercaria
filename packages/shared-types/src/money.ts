@@ -1,11 +1,11 @@
 /**
- * Money DTO for the Marketplace.
+ * Money DTO for the Mercaria.
  *
  * Amounts are represented as integer minor units (e.g. cents) to avoid floating
  * point rounding errors. `currency` is an ISO-4217 alphabetic code.
  */
 
-/** ISO-4217 alphabetic currency codes supported by the Marketplace. */
+/** ISO-4217 alphabetic currency codes supported by the Mercaria. */
 export type CurrencyCode = 'USD' | 'EUR' | 'GBP';
 
 /**

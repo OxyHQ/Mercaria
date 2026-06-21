@@ -9,16 +9,16 @@ await esbuild.build({
   outfile: 'dist/index.js',
   // Keep node_modules external EXCEPT:
   //   - @oxyhq/*       — their ESM builds have missing .js extensions, so bundle them
-  //   - @marketplace/* — first-party workspace packages (e.g. shared-types); inline
+  //   - @mercaria/* — first-party workspace packages (e.g. shared-types); inline
   //                      them so the runtime image has no dependency on their dist or
   //                      build-time devDependencies.
   plugins: [{
     name: 'externalize-third-party',
     setup(build) {
       const inline = (path: string) =>
-        path.startsWith('@oxyhq/') || path.startsWith('@marketplace/');
+        path.startsWith('@oxyhq/') || path.startsWith('@mercaria/');
       // Let first-party / @oxyhq packages be bundled.
-      build.onResolve({ filter: /^(@oxyhq|@marketplace)\// }, () => undefined);
+      build.onResolve({ filter: /^(@oxyhq|@mercaria)\// }, () => undefined);
       // Externalize all other bare imports (third-party node_modules).
       build.onResolve({ filter: /^[^./]/ }, args => {
         if (inline(args.path)) return undefined;

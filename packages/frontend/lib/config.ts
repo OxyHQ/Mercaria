@@ -9,10 +9,10 @@ import { Platform } from 'react-native';
 
 // Default API URLs for different environments
 export const DEV_API_BASE_URL = 'http://localhost:3001';
-export const STAGING_API_BASE_URL = 'https://staging-api.marketplace.oxy.so';
-export const PROD_API_BASE_URL = 'https://api.marketplace.oxy.so';
+export const STAGING_API_BASE_URL = 'https://staging-api.mercaria.co';
+export const PROD_API_BASE_URL = 'https://api.mercaria.co';
 
-// Oxy SSO client id for Marketplace (registered via seed-oxy-applications.ts).
+// Oxy SSO client id for Mercaria (registered via seed-oxy-applications.ts).
 // The oxy_dk_ publicKey is a public client identifier and is safe to commit; it is
 // the committed fallback used when EXPO_PUBLIC_OXY_CLIENT_ID is not injected at build.
 export const OXY_CLIENT_ID =

@@ -3,13 +3,13 @@ import type {
   ListingQuery,
   PaginatedResponse,
   ApiResponse,
-} from '@marketplace/shared-types';
+} from '@mercaria/shared-types';
 import apiClient from './client';
 
 /**
  * Listings API client.
  *
- * Typed against the shared `@marketplace/shared-types` contract so the frontend
+ * Typed against the shared `@mercaria/shared-types` contract so the frontend
  * and backend agree on the listing/pagination shapes. This is the seam the
  * marketplace domain (browse, search, listing detail) is built on.
  */

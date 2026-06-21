@@ -18,7 +18,7 @@
     "incremental": true,
     "isolatedModules": true
   },
-  // @marketplace/shared-types resolves through the workspace symlink to its
+  // @mercaria/shared-types resolves through the workspace symlink to its
   // built declarations (packages/shared-types/dist/index.d.ts, produced by the
   // root postinstall). Declaration files are exempt from `rootDir`, so no path
   // alias is needed here and the package's compiled `src/**` is not pulled into

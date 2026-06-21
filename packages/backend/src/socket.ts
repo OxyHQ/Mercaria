@@ -7,9 +7,9 @@ import { log } from './lib/logger.js';
 
 const ALLOWED_ORIGINS = [
   process.env.WEB_URL || 'http://localhost:3000',
-  'https://marketplace.oxy.so',
-  'https://console.marketplace.oxy.so',
-  'https://gateway.marketplace.oxy.so',
+  'https://mercaria.co',
+  'https://console.mercaria.co',
+  'https://gateway.mercaria.co',
 ];
 
 let io: Server | null = null;

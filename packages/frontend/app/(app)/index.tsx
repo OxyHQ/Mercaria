@@ -2,7 +2,7 @@ import { View, ScrollView } from "react-native";
 import Head from "expo-router/head";
 import { ShoppingBag } from "lucide-react-native";
 import { Text } from "@/components/ui/text";
-import { MarketplaceWordmark } from "@/components/ui/marketplace-wordmark";
+import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useColorScheme } from "@/lib/useColorScheme";
 
@@ -13,16 +13,16 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-background">
       <Head>
-        <title>Marketplace</title>
+        <title>Mercaria</title>
         <meta
           name="description"
-          content="Marketplace — buy and sell new and secondhand items."
+          content="Mercaria — buy and sell new and secondhand items."
         />
       </Head>
 
       {/* Header */}
       <View className="h-14 flex-row items-center border-b border-border/40 px-4">
-        <MarketplaceWordmark width={160} color={colors.foreground} />
+        <MercariaWordmark width={160} color={colors.foreground} />
       </View>
 
       <ScrollView

@@ -1,14 +1,14 @@
 import { Text as RNText } from "react-native";
 import { useColorScheme } from "@/lib/useColorScheme";
 
-export interface MarketplaceWordmarkProps {
+export interface MercariaWordmarkProps {
   width?: number;
   height?: number;
   color?: string;
 }
 
 /**
- * Marketplace brand wordmark.
+ * Mercaria brand wordmark.
  *
  * Rendered as styled text in the app's brand font (Inter) rather than a
  * hand-traced SVG so it stays crisp at any size and inherits theme colors.
@@ -16,7 +16,7 @@ export interface MarketplaceWordmarkProps {
  * type scale is derived from the requested width to keep callers' sizing
  * expectations roughly intact).
  */
-export function MarketplaceWordmark({ width = 96, height, color }: MarketplaceWordmarkProps) {
+export function MercariaWordmark({ width = 96, height, color }: MercariaWordmarkProps) {
   const { colors } = useColorScheme();
   const fill = color ?? colors.foreground;
 
@@ -36,7 +36,7 @@ export function MarketplaceWordmark({ width = 96, height, color }: MarketplaceWo
         color: fill,
       }}
     >
-      Marketplace
+      Mercaria
     </RNText>
   );
 }

@@ -1,7 +1,7 @@
 {
-  "name": "@marketplace/backend",
+  "name": "@mercaria/backend",
   "version": "1.0.0",
-  "description": "Marketplace API — buy/sell marketplace backend by Oxy",
+  "description": "Mercaria API — buy/sell marketplace backend by Oxy",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -15,7 +15,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@marketplace/shared-types": "workspace:*",
+    "@mercaria/shared-types": "workspace:*",
     "@oxyhq/core": "^3.6.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "cors": "^2.8.5",

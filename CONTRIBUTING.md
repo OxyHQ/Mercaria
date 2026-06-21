@@ -1,4 +1,4 @@
-# Contributing to Marketplace
+# Contributing to Mercaria
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@
 ## Getting Started
 
 ```bash
-git clone git@github.com:OxyHQ/Marketplace.git && cd Marketplace
+git clone git@github.com:OxyHQ/Mercaria.git && cd Mercaria
 bun install                                # installs all workspaces
 cp packages/backend/.env.example packages/backend/.env      # fill in your values
 bun run dev:api                             # API only
@@ -69,11 +69,11 @@ chore: bump dependencies
 ## Testing
 
 ```bash
-bun run --filter @marketplace/backend test
+bun run --filter @mercaria/backend test
 ```
 
 Tests use **Vitest**. Place test files next to source as `*.test.ts`.
 
 ## Database
 
-MongoDB with Mongoose. Database name follows `marketplace-{NODE_ENV}`. The connection URI is shared across the Oxy ecosystem — the `dbName` is passed to `mongoose.connect()`, not embedded in the URI.
+MongoDB with Mongoose. Database name follows `mercaria-{NODE_ENV}`. The connection URI is shared across the Oxy ecosystem — the `dbName` is passed to `mongoose.connect()`, not embedded in the URI.

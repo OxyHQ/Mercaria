@@ -24,7 +24,7 @@ import type { DrawerNavigationProp } from "@react-navigation/drawer";
 import { SettingsSidebar } from "@/components/settings/settings-sidebar";
 import { UserAvatar } from "@/components/user-avatar";
 import { useOxy, showSignInModal } from "@oxyhq/services";
-import { MarketplaceWordmark } from "@/components/ui/marketplace-wordmark";
+import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -160,7 +160,7 @@ const MainSidebar = React.memo(function MainSidebar() {
         style={{ width: 48, paddingTop: insets.top, paddingBottom: insets.bottom }}
       >
         <View className="h-14 items-center justify-center">
-          <MarketplaceWordmark width={28} color={colors.foreground} />
+          <MercariaWordmark width={28} color={colors.foreground} />
         </View>
         <View className="flex-col items-center gap-1 py-1">
           <NavItem icon={Home} label={t("nav.home")} onPress={goHome} collapsed />
@@ -203,7 +203,7 @@ const MainSidebar = React.memo(function MainSidebar() {
       {/* Header */}
       <View className="h-14 flex-row items-center px-4">
         <Pressable onPress={goHome} className="rounded-xl p-1 active:bg-muted">
-          <MarketplaceWordmark width={140} color={colors.foreground} />
+          <MercariaWordmark width={140} color={colors.foreground} />
         </Pressable>
         {isLargeScreen && (
           <View className="ml-auto">

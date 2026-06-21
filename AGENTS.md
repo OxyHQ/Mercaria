@@ -1,6 +1,6 @@
-# Marketplace — Project Conventions
+# Mercaria — Project Conventions
 
-Marketplace is a buy/sell app by [Oxy](https://oxy.so) — users buy and sell both
+Mercaria is a buy/sell app by [Oxy](https://oxy.so) — users buy and sell both
 **new** items (from shops) and **secondhand** items (from people), eBay / Wallapop
 style. This repo currently contains the **base shell** only; the marketplace
 domain (listings, buy/sell, shops, search) is built on top of it.
@@ -11,7 +11,7 @@ See `HANDOFF.md` for the deferred work (infra, Oxy client registration, the doma
 
 - `packages/frontend/` — Expo app (React Native + Web), expo-router, NativeWind 5
 - `packages/backend/` — Express backend API (TypeScript, MongoDB/Mongoose, Socket.IO)
-- `packages/shared-types/` — `@marketplace/shared-types`: TypeScript domain DTOs
+- `packages/shared-types/` — `@mercaria/shared-types`: TypeScript domain DTOs
   (`Listing`, `ListingCondition`, `Seller`, `Money`, `ApiResponse`, pagination)
   shared by both frontend and backend. Build with `bun run build:shared-types`.
 
@@ -27,7 +27,7 @@ Bun workspaces. **Always use `bun`, never npm/yarn. Use `bunx`, not `npx`.**
 ## MongoDB Database Naming
 
 All Oxy ecosystem apps share the same MongoDB cluster. Each app uses its own
-database named `{appName}-{NODE_ENV}` (here: `marketplace-production`). The
+database named `{appName}-{NODE_ENV}` (here: `mercaria-production`). The
 `dbName` is passed to `mongoose.connect()` (see `packages/backend/src/lib/db.ts`), NOT
 embedded in `MONGODB_URI`.
 

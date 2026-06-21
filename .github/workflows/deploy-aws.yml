@@ -1,8 +1,8 @@
-# AWS deploy workflow for the Marketplace API.
+# AWS deploy workflow for the Mercaria API.
 # Builds the linux/arm64 backend image, pushes it to ECR, and forces a new ECS
 # deployment. AWS access is via the OIDC role oxy-github-deploy — no stored keys.
 #
-# NOTE (handoff): the ECS service `marketplace`, its task definition, ALB
+# NOTE (handoff): the ECS service `mercaria`, its task definition, ALB
 # listener rule, ECR repo, and SSM parameter wiring do NOT exist yet. They live
 # in oxy-infra (terraform-uswest2/) and must be provisioned there before this
 # workflow can deploy. Until then this builds + pushes the image and skips the
@@ -24,7 +24,7 @@ permissions:
 env:
   AWS_REGION: us-west-2
   ECR_REGISTRY: 237343248947.dkr.ecr.us-west-2.amazonaws.com
-  APP: marketplace
+  APP: mercaria
   CLUSTER: oxy-cluster
   DOCKERFILE: Dockerfile
 
@@ -40,9 +40,9 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bun run --filter @marketplace/backend lint
+      - run: bun run --filter @mercaria/backend lint
 
-      - run: bun run --filter @marketplace/backend test
+      - run: bun run --filter @mercaria/backend test
 
       - run: bun run build:backend
 

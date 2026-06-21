@@ -1,6 +1,6 @@
-# Marketplace App
+# Mercaria App
 
-Expo app for web, iOS, and Android — the **base shell** for Marketplace.
+Expo app for web, iOS, and Android — the **base shell** for Mercaria.
 
 The marketplace domain (listings, buy/sell, shops, search) is built on top of
 this base (see `HANDOFF.md` in the repo root). Right now the home screen is a
@@ -44,7 +44,7 @@ bun run android
 ## API config
 
 Configured in `lib/config.ts` (respects `EXPO_PUBLIC_API_URL`). Production API:
-`https://api.marketplace.oxy.so`.
+`https://api.mercaria.co`.
 
 ## Build
 

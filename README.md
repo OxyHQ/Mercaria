@@ -1,4 +1,4 @@
-# Marketplace
+# Mercaria
 
 A buy/sell marketplace by [Oxy](https://oxy.so) — for new items from shops and secondhand items from people (eBay / Wallapop style).
 
@@ -50,7 +50,7 @@ cd packages/frontend && bunx tsc --noEmit
 ## Tests
 
 ```bash
-bun run --filter @marketplace/backend test   # Vitest
+bun run --filter @mercaria/backend test   # Vitest
 ```
 
 ## Conventions
@@ -59,4 +59,4 @@ bun run --filter @marketplace/backend test   # Vitest
 - Frontend styling via NativeWind classNames (not inline styles where a class exists).
 - State via Zustand; data fetching via TanStack Query; routing via expo-router.
 - Backend auth uses `@oxyhq/core/server` middleware — do not hand-roll auth.
-- MongoDB database name follows `marketplace-{NODE_ENV}` (passed to `mongoose.connect()`).
+- MongoDB database name follows `mercaria-{NODE_ENV}` (passed to `mongoose.connect()`).

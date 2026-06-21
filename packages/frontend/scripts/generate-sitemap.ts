@@ -1,5 +1,5 @@
 /**
- * Auto-generated sitemap.xml for Marketplace
+ * Auto-generated sitemap.xml for Mercaria
  * Run: bun run generate-sitemap
  */
 
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const SITE_URL = 'https://marketplace.oxy.so';
+const SITE_URL = 'https://mercaria.co';
 const CURRENT_DATE = new Date().toISOString().split('T')[0];
 
 interface SitemapURL {
@@ -49,7 +49,7 @@ function generateSitemapXML(urls: SitemapURL[]): string {
 }
 
 async function generateSitemap() {
-  console.log('🗺️  Generating sitemap.xml for Marketplace...');
+  console.log('🗺️  Generating sitemap.xml for Mercaria...');
 
   const sitemapXML = generateSitemapXML(staticRoutes);
 

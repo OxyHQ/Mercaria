@@ -9,7 +9,7 @@ import { log } from './logger.js';
 
 export const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:contact@marketplace.oxy.so';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:contact@mercaria.co';
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);

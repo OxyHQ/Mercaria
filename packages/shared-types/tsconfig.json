@@ -1,6 +1,6 @@
 {
   // ---------------------------------------------------------------------------
-  // @marketplace/shared-types
+  // @mercaria/shared-types
   //
   // Type definitions shared by BOTH the backend (Node/Bun) and the frontend
   // (Metro/Expo bundler). It is the only emitting leaf both runtimes consume at

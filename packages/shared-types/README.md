@@ -1,7 +1,7 @@
-# @marketplace/shared-types
+# @mercaria/shared-types
 
-Shared TypeScript types for the Marketplace monorepo. Imported by both
-`@marketplace/frontend` and `@marketplace/backend` so the API contract lives in a
+Shared TypeScript types for the Mercaria monorepo. Imported by both
+`@mercaria/frontend` and `@mercaria/backend` so the API contract lives in a
 single place.
 
 ## Contents
@@ -18,7 +18,7 @@ single place.
 ## Usage
 
 ```ts
-import type { Listing, ApiResponse } from '@marketplace/shared-types';
+import type { Listing, ApiResponse } from '@mercaria/shared-types';
 ```
 
 ## Build

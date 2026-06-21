@@ -1,7 +1,7 @@
 {
-  "name": "marketplace-monorepo",
+  "name": "mercaria-monorepo",
   "version": "1.0.0",
-  "description": "Marketplace — buy/sell marketplace by Oxy",
+  "description": "Mercaria — buy/sell marketplace by Oxy",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -9,19 +9,19 @@
   "packageManager": "bun@1.3.14",
   "scripts": {
     "dev": "bun run --filter '*' dev",
-    "dev:frontend": "bun run --filter @marketplace/frontend dev -- --clear --tunnel",
-    "dev:backend": "bun run --filter @marketplace/backend dev",
+    "dev:frontend": "bun run --filter @mercaria/frontend dev -- --clear --tunnel",
+    "dev:backend": "bun run --filter @mercaria/backend dev",
     "build": "bun run build:shared-types && bun run build:backend && bun run build:frontend",
-    "build:shared-types": "bun run --filter @marketplace/shared-types build",
-    "build:frontend": "bun run --filter @marketplace/frontend build",
-    "build:backend": "bun run build:shared-types && bun run --filter @marketplace/backend build",
-    "start:frontend": "bun run --filter @marketplace/frontend start",
-    "start:backend": "bun run --filter @marketplace/backend start",
+    "build:shared-types": "bun run --filter @mercaria/shared-types build",
+    "build:frontend": "bun run --filter @mercaria/frontend build",
+    "build:backend": "bun run build:shared-types && bun run --filter @mercaria/backend build",
+    "start:frontend": "bun run --filter @mercaria/frontend start",
+    "start:backend": "bun run --filter @mercaria/backend start",
     "lint": "bun run --filter '*' lint",
-    "android": "bun run --filter @marketplace/frontend android",
-    "ios": "bun run --filter @marketplace/frontend ios",
-    "web": "bun run --filter @marketplace/frontend web",
-    "postinstall": "bun run --filter @marketplace/shared-types build"
+    "android": "bun run --filter @mercaria/frontend android",
+    "ios": "bun run --filter @mercaria/frontend ios",
+    "web": "bun run --filter @mercaria/frontend web",
+    "postinstall": "bun run --filter @mercaria/shared-types build"
   },
   "keywords": [
     "monorepo",

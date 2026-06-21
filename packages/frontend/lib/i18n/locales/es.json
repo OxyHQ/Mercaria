@@ -23,8 +23,8 @@
     "processing": "Procesando..."
   },
   "home": {
-    "title": "Marketplace",
-    "emptyTitle": "Marketplace llegará pronto",
+    "title": "Mercaria",
+    "emptyTitle": "Mercaria llegará pronto",
     "emptySubtitle": "Compra y vende artículos nuevos y de segunda mano — los anuncios aparecerán aquí."
   },
   "nav": {
@@ -33,7 +33,7 @@
   },
   "login": {
     "title": "Inicia sesión o regístrate",
-    "subtitle": "para continuar en Marketplace",
+    "subtitle": "para continuar en Mercaria",
     "emailPlaceholder": "Correo electrónico",
     "passwordPlaceholder": "Contraseña",
     "forgotPassword": "¿Olvidaste tu contraseña?",
@@ -48,7 +48,7 @@
   },
   "register": {
     "title": "Crear cuenta de Oxy",
-    "subtitle": "Regístrate para empezar con Marketplace",
+    "subtitle": "Regístrate para empezar con Mercaria",
     "firstNamePlaceholder": "Nombre",
     "lastNamePlaceholder": "Apellido (opcional)",
     "emailPlaceholder": "Correo electrónico",
@@ -77,7 +77,7 @@
   },
   "settings": {
     "title": "Ajustes",
-    "subtitle": "Administra tus preferencias de Marketplace",
+    "subtitle": "Administra tus preferencias de Mercaria",
     "account": {
       "title": "Ajustes de la cuenta",
       "description": "Administra tu cuenta"
@@ -135,7 +135,7 @@
   },
   "feedback": {
     "title": "Enviar comentarios",
-    "subtitle": "Ayúdanos a mejorar Marketplace",
+    "subtitle": "Ayúdanos a mejorar Mercaria",
     "typeQuestion": "¿Qué tipo de comentario?",
     "bugReport": "Reporte de error",
     "bugDescription": "Algo no funciona o está roto",
@@ -159,7 +159,7 @@
     "characterCount": "{{count}}/1000 caracteres",
     "submitButton": "Enviar comentario",
     "submitting": "Enviando...",
-    "footerText": "Tus comentarios nos ayudan a mejorar Marketplace. Gracias por tomarte el tiempo de compartirlos.",
+    "footerText": "Tus comentarios nos ayudan a mejorar Mercaria. Gracias por tomarte el tiempo de compartirlos.",
     "selectType": "Selecciona un tipo de comentario",
     "enterMessage": "Escribe tu comentario",
     "moreDetails": "Proporciona más detalles (al menos 10 caracteres)",
@@ -174,6 +174,6 @@
     "permissionDenied": "Las notificaciones están bloqueadas. Actívalas en los ajustes de tu dispositivo para recibir notificaciones push."
   },
   "welcome": {
-    "appName": "Marketplace"
+    "appName": "Mercaria"
   }
 }

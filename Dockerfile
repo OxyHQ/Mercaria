@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1.7
 #
-# Production image for the @marketplace/backend service.
+# Production image for the @mercaria/backend service.
 #
 # Multi-stage, multi-arch. `node:22-alpine` and `oven/bun` are multi-arch
 # manifests, so this image builds natively on AWS Graviton (linux/arm64) as well
 # as x86_64 — Docker selects the right base layer per target platform.
 #
 # Build context is the monorepo ROOT (bun workspaces):
-#   docker build -t marketplace-backend:test .
+#   docker build -t mercaria-backend:test .
 #
 # Pipeline:
 #   build: bun install --frozen-lockfile (incl. devDependencies for the build)
@@ -16,7 +16,7 @@
 #          && reinstall production-only deps
 #   run:   node packages/backend/dist/index.js
 #
-# @marketplace/shared-types is a first-party workspace package; the API bundle
+# @mercaria/shared-types is a first-party workspace package; the API bundle
 # INLINES it (see packages/backend/build.ts), so the runtime image needs neither
 # its dist nor its build-time devDependencies.
 
@@ -53,7 +53,7 @@ COPY packages/shared-types ./packages/shared-types
 
 # Deterministic install from the lockfile, including devDependencies (esbuild,
 # TypeScript) required to bundle the API. The root postinstall builds
-# @marketplace/shared-types.
+# @mercaria/shared-types.
 RUN bun install --frozen-lockfile
 
 # Copy the source needed to build the API.
@@ -61,7 +61,7 @@ COPY packages/backend ./packages/backend
 
 # Build shared-types then bundle the API with esbuild ->
 # packages/backend/dist/index.js (externalizes third-party node_modules, inlines
-# @oxyhq/* and @marketplace/*; see packages/backend/build.ts).
+# @oxyhq/* and @mercaria/*; see packages/backend/build.ts).
 RUN bun run build:backend
 
 # Fail fast if the expected entry point was not emitted.

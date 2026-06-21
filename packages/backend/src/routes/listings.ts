@@ -4,16 +4,16 @@ import type {
   ListingQuery,
   PaginatedResponse,
   ApiResponse,
-} from '@marketplace/shared-types';
+} from '@mercaria/shared-types';
 import { optionalAuth } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 
 /**
  * Listings API.
  *
- * This is the seam for the Marketplace domain (listings persistence, search,
+ * This is the seam for the Mercaria domain (listings persistence, search,
  * buy/sell). It currently serves an empty, correctly-typed result set so the
- * shared `@marketplace/shared-types` contract is exercised end to end while the
+ * shared `@mercaria/shared-types` contract is exercised end to end while the
  * domain (models, queries, shops) is built on top.
  */
 const router = Router();

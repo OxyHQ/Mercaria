@@ -4,7 +4,7 @@ const { withNativeWind } = require('nativewind/metro');
 
 // Monorepo roots: this package lives at packages/frontend, so the workspace
 // root is two levels up. Metro must watch the root and resolve from the hoisted
-// root node_modules so it can follow the @marketplace/shared-types workspace
+// root node_modules so it can follow the @mercaria/shared-types workspace
 // symlink to its source.
 const projectRoot = __dirname;
 const monorepoRoot = path.resolve(projectRoot, "../..");
@@ -19,7 +19,7 @@ module.exports = (() => {
   const config = getDefaultConfig(projectRoot);
 
   // Watch the whole monorepo so changes in sibling workspace packages
-  // (e.g. @marketplace/shared-types) trigger a rebuild.
+  // (e.g. @mercaria/shared-types) trigger a rebuild.
   config.watchFolders = [monorepoRoot];
 
   // Resolve modules from both this package and the hoisted root node_modules.
@@ -31,7 +31,7 @@ module.exports = (() => {
   // Resolve the workspace dependency to shared-types SOURCE so live edits are
   // picked up without a rebuild. Falls through to node_modules/dist otherwise.
   config.resolver.extraNodeModules = {
-    "@marketplace/shared-types": path.resolve(monorepoRoot, "packages/shared-types/src"),
+    "@mercaria/shared-types": path.resolve(monorepoRoot, "packages/shared-types/src"),
   };
 
   // Enable package exports for zod v4 compatibility

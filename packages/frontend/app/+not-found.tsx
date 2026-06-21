@@ -6,8 +6,8 @@ export default function NotFoundScreen() {
   return (
     <>
       <Head>
-        <title>404 - Page Not Found | Marketplace</title>
-        <meta name="description" content="The page you're looking for doesn't exist. Return to Marketplace to keep browsing." />
+        <title>404 - Page Not Found | Mercaria</title>
+        <meta name="description" content="The page you're looking for doesn't exist. Return to Mercaria to keep browsing." />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <Stack.Screen options={{ title: 'Oops!' }} />

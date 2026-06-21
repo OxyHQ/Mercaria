@@ -31,14 +31,14 @@ jobs:
           # Public, compile-time Expo env. EXPO_PUBLIC_OXY_CLIENT_ID is the
           # registered Oxy RP client id (handoff: register it and set this repo
           # variable before the SSO RP flow works); the API URL points at the
-          # marketplace backend.
+          # Mercaria backend.
           EXPO_PUBLIC_OXY_CLIENT_ID: ${{ vars.EXPO_PUBLIC_OXY_CLIENT_ID }}
           EXPO_PUBLIC_OXY_API_URL: ${{ vars.EXPO_PUBLIC_OXY_API_URL || 'https://api.oxy.so' }}
-          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://api.marketplace.oxy.so' }}
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://api.mercaria.co' }}
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '3.114.0'
-          command: pages deploy packages/frontend/dist --project-name=marketplace --branch=main
+          command: pages deploy packages/frontend/dist --project-name=mercaria --branch=main

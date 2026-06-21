@@ -15,6 +15,6 @@
 ## Checklist
 
 - [ ] TypeScript compiles (`tsc --noEmit`)
-- [ ] Tests pass (`bun run --filter @marketplace/backend test`)
+- [ ] Tests pass (`bun run --filter @mercaria/backend test`)
 - [ ] Lint passes
 - [ ] `bun.lock` committed in the same commit as any `package.json` change

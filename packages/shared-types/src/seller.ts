@@ -1,5 +1,5 @@
 /**
- * Seller DTO for the Marketplace.
+ * Seller DTO for the Mercaria.
  *
  * A seller is the public-facing identity that owns a listing. It is backed by an
  * Oxy user account (`oxyUserId`); display fields are denormalized onto the DTO so
@@ -8,7 +8,7 @@
 
 /** Public seller identity attached to listings. */
 export interface Seller {
-  /** Stable seller id (Marketplace-scoped). */
+  /** Stable seller id (Mercaria-scoped). */
   id: string;
   /** Owning Oxy user account id. */
   oxyUserId: string;

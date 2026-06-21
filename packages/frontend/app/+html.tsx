@@ -33,10 +33,10 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
 
         {/* Primary Meta Tags */}
-        <meta name="title" content="Marketplace" />
+        <meta name="title" content="Mercaria" />
         <meta
           name="description"
-          content="Marketplace by Oxy — buy and sell new and secondhand items from shops and people near you."
+          content="Mercaria by Oxy — buy and sell new and secondhand items from shops and people near you."
         />
         <meta
           name="keywords"
@@ -45,21 +45,21 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Open Graph / Facebook Meta Tags for social sharing */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://marketplace.oxy.so/" />
-        <meta property="og:title" content="Marketplace" />
+        <meta property="og:url" content="https://mercaria.co/" />
+        <meta property="og:title" content="Mercaria" />
         <meta
           property="og:description"
-          content="Marketplace by Oxy — buy and sell new and secondhand items from shops and people near you."
+          content="Mercaria by Oxy — buy and sell new and secondhand items from shops and people near you."
         />
         <meta property="og:image" content="/og-image.png" />
 
         {/* Twitter Card Meta Tags */}
         <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:url" content="https://marketplace.oxy.so/" />
-        <meta property="twitter:title" content="Marketplace" />
+        <meta property="twitter:url" content="https://mercaria.co/" />
+        <meta property="twitter:title" content="Mercaria" />
         <meta
           property="twitter:description"
-          content="Marketplace by Oxy — buy and sell new and secondhand items from shops and people near you."
+          content="Mercaria by Oxy — buy and sell new and secondhand items from shops and people near you."
         />
         <meta property="twitter:image" content="/og-image.png" />
 
@@ -82,7 +82,7 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="apple-touch-icon" sizes="120x120" href="/icon-192.png" />
 
         {/* Apple Mobile Web App */}
-        <meta name="apple-mobile-web-app-title" content="Marketplace" />
+        <meta name="apple-mobile-web-app-title" content="Mercaria" />
 
         {/* Disable body scrolling for native-like feel on web */}
         <ScrollViewStyleReset />
@@ -98,10 +98,10 @@ export default function Root({ children }: PropsWithChildren) {
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'WebApplication',
-              name: 'Marketplace',
-              url: 'https://marketplace.oxy.so',
+              name: 'Mercaria',
+              url: 'https://mercaria.co',
               description:
-                'Marketplace by Oxy — buy and sell new and secondhand items from shops and people near you.',
+                'Mercaria by Oxy — buy and sell new and secondhand items from shops and people near you.',
               applicationCategory: 'ShoppingApplication',
               operatingSystem: 'Web, iOS, Android',
               offers: {

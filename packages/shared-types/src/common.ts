@@ -1,6 +1,6 @@
 /**
  * Common utility types, API envelope and pagination contracts shared across the
- * Marketplace frontend and backend.
+ * Mercaria frontend and backend.
  */
 
 /** ISO-8601 timestamps present on every persisted entity. */

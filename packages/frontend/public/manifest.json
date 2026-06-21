@@ -1,7 +1,7 @@
 {
-  "name": "Marketplace - Buy & Sell by Oxy",
-  "short_name": "Marketplace",
-  "description": "Marketplace by Oxy — buy and sell new and secondhand items.",
+  "name": "Mercaria - Buy & Sell by Oxy",
+  "short_name": "Mercaria",
+  "description": "Mercaria by Oxy — buy and sell new and secondhand items.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#040711",

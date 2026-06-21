@@ -1,5 +1,5 @@
 /**
- * Listing DTO and its supporting enums for the Marketplace — the core domain
+ * Listing DTO and its supporting enums for the Mercaria — the core domain
  * entity shared between the frontend and backend.
  */
 

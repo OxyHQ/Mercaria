@@ -1,11 +1,11 @@
 {
-  "package": "marketplace",
-  "displayName": "Marketplace",
-  "shortName": "marketplace",
-  "repo": "https://github.com/OxyHQ/Marketplace",
+  "package": "mercaria",
+  "displayName": "Mercaria",
+  "shortName": "mercaria",
+  "repo": "https://github.com/OxyHQ/Mercaria",
   "category": "app",
   "versions": ["main"],
   "defaultVersion": "main",
   "docsPath": "docs/",
-  "description": "Marketplace — buy/sell marketplace by Oxy."
+  "description": "Mercaria — buy/sell marketplace by Oxy."
 }

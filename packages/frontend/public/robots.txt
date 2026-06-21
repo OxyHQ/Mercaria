@@ -1,4 +1,4 @@
-# Marketplace by Oxy - Robots.txt
+# Mercaria by Oxy - Robots.txt
 
 # Google, Bing, and major search engines
 User-agent: Googlebot
@@ -32,6 +32,6 @@ Disallow: /reset-password
 Disallow: /forgot-password
 
 # Sitemaps
-Sitemap: https://marketplace.oxy.so/sitemap.xml
+Sitemap: https://mercaria.co/sitemap.xml
 
-# Host: https://marketplace.oxy.so
+# Host: https://mercaria.co

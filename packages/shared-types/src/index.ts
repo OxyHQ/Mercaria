@@ -1,8 +1,8 @@
 /**
- * @marketplace/shared-types
+ * @mercaria/shared-types
  *
- * TypeScript types shared between the Marketplace frontend (`@marketplace/frontend`)
- * and backend (`@marketplace/backend`) to keep the API contract in one place.
+ * TypeScript types shared between the Mercaria frontend (`@mercaria/frontend`)
+ * and backend (`@mercaria/backend`) to keep the API contract in one place.
  */
 
 // Common API envelope, pagination and utility types.

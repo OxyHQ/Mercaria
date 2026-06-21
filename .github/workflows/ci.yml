@@ -31,10 +31,10 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Lint API
-        run: bun run --filter @marketplace/backend lint
+        run: bun run --filter @mercaria/backend lint
 
       - name: Run API tests
-        run: bun run --filter @marketplace/backend test
+        run: bun run --filter @mercaria/backend test
 
   build-api:
     name: Build API
