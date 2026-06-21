@@ -9,7 +9,7 @@
     "scheme": "mercaria",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/icon-512.png",
+      "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#040711"
     },

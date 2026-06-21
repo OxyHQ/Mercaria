@@ -10,6 +10,7 @@ import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
 import { AppErrorBoundary } from '@/components/error-boundary';
+import AppSplashScreen from '@/components/AppSplashScreen';
 import { Toaster } from '@/components/sonner';
 import { KeyboardProvider } from '@/lib/keyboard';
 import { useColorScheme } from '@/lib/useColorScheme';
@@ -120,6 +121,7 @@ function RootLayout() {
         persistKey={BLOOM_THEME_PERSIST_KEY}
         storage={BLOOM_THEME_STORAGE}
         fonts={false}
+        onFontsLoading={<AppSplashScreen />}
       >
         <OxyProvider
           baseURL={OXY_API_URL}
