@@ -1,0 +1,11 @@
+{
+  "package": "marketplace",
+  "displayName": "Marketplace",
+  "shortName": "marketplace",
+  "repo": "https://github.com/OxyHQ/Marketplace",
+  "category": "app",
+  "versions": ["main"],
+  "defaultVersion": "main",
+  "docsPath": "docs/",
+  "description": "Marketplace — buy/sell marketplace by Oxy."
+}

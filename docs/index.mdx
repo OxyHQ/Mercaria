@@ -1,0 +1,26 @@
+# Marketplace
+
+A buy/sell marketplace by [Oxy](https://oxy.so) — for new items from shops and
+secondhand items from people (eBay / Wallapop style).
+
+This documentation covers the **base shell**. The marketplace domain (listings,
+buy/sell, shops, search) is built on top of it — see `HANDOFF.md` in the repo
+root for the deferred work.
+
+## Architecture
+
+- `packages/frontend/` — Expo app (React Native + Web), expo-router, NativeWind 5
+- `packages/backend/` — Express backend API (TypeScript, MongoDB/Mongoose, Socket.IO)
+
+Auth and SSO are handled entirely by the Oxy SDK (`@oxyhq/core`,
+`@oxyhq/services`, `@oxyhq/auth`). The backend uses `@oxyhq/core/server`
+middleware. See the repo `AGENTS.md` for the full conventions.
+
+## Local development
+
+```bash
+bun install
+cp packages/backend/.env.example packages/backend/.env
+bun run dev:api    # Express API on :3001
+bun run dev:app    # Expo app
+```

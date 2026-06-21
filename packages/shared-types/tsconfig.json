@@ -1,0 +1,37 @@
+{
+  // ---------------------------------------------------------------------------
+  // @marketplace/shared-types
+  //
+  // Type definitions shared by BOTH the backend (Node/Bun) and the frontend
+  // (Metro/Expo bundler). It is the only emitting leaf both runtimes consume at
+  // the same time, so its compiled output (dist/index.js + dist/index.d.ts) must
+  // be safe for each.
+  //
+  // The backend imports it as a compiled dependency and runs the emitted output
+  // in the Docker/ECS image; Metro consumes the same emitted JS + declarations.
+  // The package is type-only at runtime (interfaces + const enums-free unions),
+  // so the emitted JS is effectively empty re-exports — both bundlers are happy.
+  // ---------------------------------------------------------------------------
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

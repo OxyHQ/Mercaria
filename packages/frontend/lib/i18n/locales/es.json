@@ -1,0 +1,179 @@
+{
+  "common": {
+    "or": "O",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "save": "Guardar",
+    "saving": "Guardando...",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "continue": "Continuar",
+    "back": "Atrás",
+    "create": "Crear",
+    "search": "Buscar...",
+    "comingSoon": "¡Próximamente!",
+    "noResults": "No se encontraron resultados",
+    "user": "Usuario",
+    "done": "Listo",
+    "tryAgain": "Reintentar",
+    "processing": "Procesando..."
+  },
+  "home": {
+    "title": "Marketplace",
+    "emptyTitle": "Marketplace llegará pronto",
+    "emptySubtitle": "Compra y vende artículos nuevos y de segunda mano — los anuncios aparecerán aquí."
+  },
+  "nav": {
+    "home": "Inicio",
+    "settings": "Ajustes"
+  },
+  "login": {
+    "title": "Inicia sesión o regístrate",
+    "subtitle": "para continuar en Marketplace",
+    "emailPlaceholder": "Correo electrónico",
+    "passwordPlaceholder": "Contraseña",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "signInButton": "Iniciar sesión",
+    "signingIn": "Iniciando sesión...",
+    "footerText": "¿No tienes una cuenta?",
+    "footerLink": "Regístrate",
+    "termsPrefix": "Al continuar, aceptas los ",
+    "termsOfService": "Términos de servicio",
+    "termsAnd": " y la ",
+    "privacyPolicy": "Política de privacidad"
+  },
+  "register": {
+    "title": "Crear cuenta de Oxy",
+    "subtitle": "Regístrate para empezar con Marketplace",
+    "firstNamePlaceholder": "Nombre",
+    "lastNamePlaceholder": "Apellido (opcional)",
+    "emailPlaceholder": "Correo electrónico",
+    "passwordPlaceholder": "Contraseña (mín. 8 caracteres)",
+    "confirmPasswordPlaceholder": "Confirmar contraseña",
+    "createAccountButton": "Continuar",
+    "creatingAccount": "Creando cuenta...",
+    "footerText": "¿Ya tienes una cuenta?",
+    "footerLink": "Iniciar sesión",
+    "termsPrefix": "Al continuar, aceptas los ",
+    "termsOfService": "Términos de servicio",
+    "termsAnd": " y la ",
+    "privacyPolicy": "Política de privacidad"
+  },
+  "errors": {
+    "emailRequired": "Introduce tu correo electrónico",
+    "passwordRequired": "Introduce tu contraseña",
+    "passwordsDoNotMatch": "Las contraseñas no coinciden",
+    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
+    "loginFailed": "Error al iniciar sesión",
+    "loginError": "Error de inicio de sesión",
+    "failedToLogin": "No se pudo iniciar sesión. Inténtalo de nuevo.",
+    "registrationError": "Error de registro",
+    "registrationFailed": "El registro falló",
+    "failedToRegister": "No se pudo registrar. Inténtalo de nuevo."
+  },
+  "settings": {
+    "title": "Ajustes",
+    "subtitle": "Administra tus preferencias de Marketplace",
+    "account": {
+      "title": "Ajustes de la cuenta",
+      "description": "Administra tu cuenta"
+    },
+    "appLanguage": {
+      "title": "Idioma de la app",
+      "description": "Cambia el idioma de la aplicación"
+    },
+    "appearance": {
+      "title": "Apariencia",
+      "description": "Elige tu esquema de color preferido",
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    },
+    "accentColor": {
+      "title": "Color de la app"
+    },
+    "sections": {
+      "account": "Cuenta",
+      "general": "General",
+      "feedback": "Comentarios"
+    }
+  },
+  "sidebar": {
+    "account": "Cuenta",
+    "settings": "Ajustes",
+    "logOut": "Cerrar sesión",
+    "termsOfService": "Términos de servicio",
+    "privacyPolicy": "Política de privacidad"
+  },
+  "forgotPassword": {
+    "title": "Restablecer contraseña",
+    "subtitle": "Introduce tu correo para restablecer tu contraseña",
+    "emailPlaceholder": "Correo electrónico",
+    "sending": "Enviando...",
+    "checkEmail": "Revisa tu correo",
+    "sentInstructions": "Enviamos instrucciones para restablecer la contraseña a",
+    "returnToSignIn": "Volver a iniciar sesión",
+    "tryAnotherEmail": "Probar otro correo",
+    "checkEmailToast": "Revisa tu correo para ver las instrucciones para restablecer tu contraseña.",
+    "failedToSend": "No se pudo enviar el correo. Inténtalo de nuevo."
+  },
+  "resetPassword": {
+    "title": "Crear nueva contraseña",
+    "subtitle": "Introduce tu nueva contraseña",
+    "newPasswordPlaceholder": "Nueva contraseña (mín. 8 caracteres)",
+    "confirmPasswordPlaceholder": "Confirmar nueva contraseña",
+    "resetButton": "Restablecer contraseña",
+    "resetting": "Restableciendo contraseña...",
+    "invalidToken": "Token de restablecimiento inválido o ausente",
+    "enterNewPassword": "Introduce una nueva contraseña",
+    "successMessage": "Tu contraseña se restableció correctamente. Inicia sesión con tu nueva contraseña.",
+    "failedToReset": "No se pudo restablecer la contraseña. Inténtalo de nuevo."
+  },
+  "feedback": {
+    "title": "Enviar comentarios",
+    "subtitle": "Ayúdanos a mejorar Marketplace",
+    "typeQuestion": "¿Qué tipo de comentario?",
+    "bugReport": "Reporte de error",
+    "bugDescription": "Algo no funciona o está roto",
+    "featureRequest": "Solicitud de función",
+    "featureDescription": "Sugiere una nueva función",
+    "improvement": "Mejora",
+    "improvementDescription": "Mejora una funcionalidad existente",
+    "other": "Otro",
+    "otherDescription": "Comentarios generales",
+    "rateExperience": "¿Cómo calificarías tu experiencia? (Opcional)",
+    "veryPoor": "Muy mala",
+    "poor": "Mala",
+    "average": "Regular",
+    "good": "Buena",
+    "excellent": "Excelente",
+    "yourFeedback": "Tu comentario",
+    "bugPlaceholder": "Describe el error que encontraste. ¿Qué pasó? ¿Qué esperabas que pasara?",
+    "featurePlaceholder": "Describe la función que te gustaría ver. ¿Cómo te ayudaría?",
+    "improvementPlaceholder": "¿Qué te gustaría que mejoráramos? ¿Cómo podríamos hacerlo mejor?",
+    "otherPlaceholder": "Comparte tus ideas con nosotros...",
+    "characterCount": "{{count}}/1000 caracteres",
+    "submitButton": "Enviar comentario",
+    "submitting": "Enviando...",
+    "footerText": "Tus comentarios nos ayudan a mejorar Marketplace. Gracias por tomarte el tiempo de compartirlos.",
+    "selectType": "Selecciona un tipo de comentario",
+    "enterMessage": "Escribe tu comentario",
+    "moreDetails": "Proporciona más detalles (al menos 10 caracteres)",
+    "thankYou": "¡Gracias por tus comentarios!",
+    "submitFailed": "No se pudo enviar el comentario"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "subtitle": "Administra tus preferencias de notificación",
+    "pushNotifications": "Notificaciones push",
+    "pushDescription": "Recibe alertas sobre nuevos mensajes y actualizaciones",
+    "permissionDenied": "Las notificaciones están bloqueadas. Actívalas en los ajustes de tu dispositivo para recibir notificaciones push."
+  },
+  "welcome": {
+    "appName": "Marketplace"
+  }
+}

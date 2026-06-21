@@ -1,0 +1,179 @@
+{
+  "common": {
+    "or": "OR",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "saving": "Saving...",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "continue": "Continue",
+    "back": "Back",
+    "create": "Create",
+    "search": "Search...",
+    "comingSoon": "Coming soon!",
+    "noResults": "No results found",
+    "user": "User",
+    "done": "Done",
+    "tryAgain": "Try Again",
+    "processing": "Processing..."
+  },
+  "home": {
+    "title": "Marketplace",
+    "emptyTitle": "Marketplace is coming soon",
+    "emptySubtitle": "Buy and sell new and secondhand items — listings will appear here."
+  },
+  "nav": {
+    "home": "Home",
+    "settings": "Settings"
+  },
+  "login": {
+    "title": "Sign in or sign up",
+    "subtitle": "to continue to Marketplace",
+    "emailPlaceholder": "Email",
+    "passwordPlaceholder": "Password",
+    "forgotPassword": "Forgot password?",
+    "signInButton": "Sign in",
+    "signingIn": "Signing in...",
+    "footerText": "Don't have an account?",
+    "footerLink": "Sign up",
+    "termsPrefix": "By continuing, you agree to Marketplace's ",
+    "termsOfService": "Terms of Service",
+    "termsAnd": " and ",
+    "privacyPolicy": "Privacy Policy"
+  },
+  "register": {
+    "title": "Create Oxy Account",
+    "subtitle": "Sign up to get started with Marketplace",
+    "firstNamePlaceholder": "First Name",
+    "lastNamePlaceholder": "Last Name (Optional)",
+    "emailPlaceholder": "Email",
+    "passwordPlaceholder": "Password (min 8 characters)",
+    "confirmPasswordPlaceholder": "Confirm Password",
+    "createAccountButton": "Continue",
+    "creatingAccount": "Creating account...",
+    "footerText": "Already have an account?",
+    "footerLink": "Sign in",
+    "termsPrefix": "By continuing, you agree to Oxy's ",
+    "termsOfService": "Terms of Service",
+    "termsAnd": " and ",
+    "privacyPolicy": "Privacy Policy"
+  },
+  "errors": {
+    "emailRequired": "Please enter your email address",
+    "passwordRequired": "Please enter your password",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "loginFailed": "Login Failed",
+    "loginError": "Login Error",
+    "failedToLogin": "Failed to login. Please try again.",
+    "registrationError": "Registration Error",
+    "registrationFailed": "Registration Failed",
+    "failedToRegister": "Failed to register. Please try again."
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your Marketplace preferences",
+    "account": {
+      "title": "Account Settings",
+      "description": "Manage your account"
+    },
+    "appLanguage": {
+      "title": "App Language",
+      "description": "Change the app's display language"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "description": "Choose your preferred color scheme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "accentColor": {
+      "title": "App Color"
+    },
+    "sections": {
+      "account": "Account",
+      "general": "General",
+      "feedback": "Feedback"
+    }
+  },
+  "sidebar": {
+    "account": "Account",
+    "settings": "Settings",
+    "logOut": "Log out",
+    "termsOfService": "Terms of Service",
+    "privacyPolicy": "Privacy Policy"
+  },
+  "forgotPassword": {
+    "title": "Reset password",
+    "subtitle": "Enter your email to reset your password",
+    "emailPlaceholder": "Email",
+    "sending": "Sending...",
+    "checkEmail": "Check your email",
+    "sentInstructions": "We've sent password reset instructions to",
+    "returnToSignIn": "Return to Sign in",
+    "tryAnotherEmail": "Try another email",
+    "checkEmailToast": "Check your email for instructions to reset your password.",
+    "failedToSend": "Failed to send reset email. Please try again."
+  },
+  "resetPassword": {
+    "title": "Create new password",
+    "subtitle": "Enter your new password",
+    "newPasswordPlaceholder": "New Password (min 8 characters)",
+    "confirmPasswordPlaceholder": "Confirm New Password",
+    "resetButton": "Reset Password",
+    "resetting": "Resetting password...",
+    "invalidToken": "Invalid or missing reset token",
+    "enterNewPassword": "Please enter a new password",
+    "successMessage": "Your password has been reset successfully. Please sign in with your new password.",
+    "failedToReset": "Failed to reset password. Please try again."
+  },
+  "feedback": {
+    "title": "Send Feedback",
+    "subtitle": "Help us improve Marketplace",
+    "typeQuestion": "What type of feedback?",
+    "bugReport": "Bug Report",
+    "bugDescription": "Something is broken or not working",
+    "featureRequest": "Feature Request",
+    "featureDescription": "Suggest a new feature",
+    "improvement": "Improvement",
+    "improvementDescription": "Enhance existing functionality",
+    "other": "Other",
+    "otherDescription": "General feedback or comments",
+    "rateExperience": "How would you rate your experience? (Optional)",
+    "veryPoor": "Very poor",
+    "poor": "Poor",
+    "average": "Average",
+    "good": "Good",
+    "excellent": "Excellent",
+    "yourFeedback": "Your feedback",
+    "bugPlaceholder": "Describe the bug you encountered. What happened? What did you expect to happen?",
+    "featurePlaceholder": "Describe the feature you'd like to see. How would it help you?",
+    "improvementPlaceholder": "What would you like us to improve? How could we make it better?",
+    "otherPlaceholder": "Share your thoughts with us...",
+    "characterCount": "{{count}}/1000 characters",
+    "submitButton": "Submit Feedback",
+    "submitting": "Submitting...",
+    "footerText": "Your feedback helps us improve Marketplace. Thank you for taking the time to share your thoughts.",
+    "selectType": "Please select a feedback type",
+    "enterMessage": "Please enter your feedback message",
+    "moreDetails": "Please provide more details (at least 10 characters)",
+    "thankYou": "Thank you for your feedback!",
+    "submitFailed": "Failed to submit feedback"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Manage your notification preferences",
+    "pushNotifications": "Push Notifications",
+    "pushDescription": "Receive alerts about new messages and updates",
+    "permissionDenied": "Notifications are blocked. Please enable them in your device settings to receive push notifications."
+  },
+  "welcome": {
+    "appName": "Marketplace"
+  }
+}

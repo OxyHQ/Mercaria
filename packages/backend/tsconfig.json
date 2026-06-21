@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022"],
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": false,
+    "sourceMap": false,
+    "types": ["node"],
+    "incremental": true,
+    "isolatedModules": true
+  },
+  // @marketplace/shared-types resolves through the workspace symlink to its
+  // built declarations (packages/shared-types/dist/index.d.ts, produced by the
+  // root postinstall). Declaration files are exempt from `rootDir`, so no path
+  // alias is needed here and the package's compiled `src/**` is not pulled into
+  // this program. The runtime build inlines it via esbuild (see build.ts).
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
