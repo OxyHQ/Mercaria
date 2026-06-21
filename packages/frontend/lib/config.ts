@@ -12,6 +12,13 @@ export const DEV_API_BASE_URL = 'http://localhost:3001';
 export const STAGING_API_BASE_URL = 'https://staging-api.marketplace.oxy.so';
 export const PROD_API_BASE_URL = 'https://api.marketplace.oxy.so';
 
+// Oxy SSO client id for Marketplace (registered via seed-oxy-applications.ts).
+// The oxy_dk_ publicKey is a public client identifier and is safe to commit; it is
+// the committed fallback used when EXPO_PUBLIC_OXY_CLIENT_ID is not injected at build.
+export const OXY_CLIENT_ID =
+  process.env.EXPO_PUBLIC_OXY_CLIENT_ID ??
+  'oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c';
+
 const ENV = {
   dev: {
     apiUrl: DEV_API_BASE_URL,
