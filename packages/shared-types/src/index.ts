@@ -16,3 +16,6 @@ export * from './seller';
 
 // Listing domain entity, enums and request payloads.
 export * from './listing';
+
+// Product browse/feed DTOs (ProductSummary, Shelf, Feed).
+export * from './product';

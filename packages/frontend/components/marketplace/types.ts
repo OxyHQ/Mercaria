@@ -1,22 +1,12 @@
 import type { CurrencyCode, Money } from "@mercaria/shared-types";
 
 /**
- * View-model for a product card. Reuses the shared `Money` DTO (integer minor
- * units) so price formatting stays consistent with the rest of the marketplace.
+ * Product cards consume the canonical server-serialized `ProductSummary` DTO
+ * directly — single source of truth in `@mercaria/shared-types`, no local
+ * view-model duplication. Re-exported here so marketplace components import the
+ * card type from a single place alongside their formatting helpers.
  */
-export interface ProductCardModel {
-  id: string;
-  title: string;
-  brand: string;
-  imageUrl: string;
-  /** Average rating, 0–5. */
-  rating: number;
-  reviewCount: number;
-  /** Current asking price. */
-  price: Money;
-  /** Original price when the item is on sale (omit when not discounted). */
-  compareAtPrice?: Money;
-}
+export type { ProductSummary } from "@mercaria/shared-types";
 
 /** ISO-4217 currency code → display symbol. */
 const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {

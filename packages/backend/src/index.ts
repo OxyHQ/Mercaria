@@ -14,6 +14,7 @@ import authRouter from './routes/auth.js';
 import feedbackRouter from './routes/feedback.js';
 import notificationsRouter from './routes/notifications.js';
 import listingsRouter from './routes/listings.js';
+import feedRouter from './routes/feed.js';
 
 // Socket.io
 import { initSocket } from './socket.js';
@@ -115,6 +116,7 @@ app.use('/auth', authRouter);
 app.use('/feedback', feedbackRouter);
 app.use('/notifications', notificationsRouter);
 app.use('/listings', listingsRouter);
+app.use('/feed', feedRouter);
 
 // Root route
 app.get('/', (_req, res) => {
@@ -127,6 +129,7 @@ app.get('/', (_req, res) => {
       '/feedback',
       '/notifications',
       '/listings',
+      '/feed',
     ]
   });
 });

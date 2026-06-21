@@ -5,7 +5,7 @@ import { BlurView } from "expo-blur";
 import { Heart } from "lucide-react-native";
 import { Text } from "@/components/ui/text";
 import { ReviewStars } from "./ReviewStars";
-import { formatMoney, formatReviewCount, type ProductCardModel } from "./types";
+import { formatMoney, formatReviewCount, type ProductSummary } from "./types";
 
 /** Light color used for content drawn over the image (badge text, heart). */
 const ON_IMAGE_LIGHT = "#FFFFFF";
@@ -19,22 +19,25 @@ const FAVORITE_BLUR_INTENSITY = 25;
 const HEART_SIZE = 18;
 
 export interface ProductCardProps {
-  product: ProductCardModel;
-  /** Initial saved/favorited state. */
+  product: ProductSummary;
+  /**
+   * Initial saved/favorited state. Overrides `product.saved` when provided;
+   * otherwise the card seeds from the DTO's `saved` flag.
+   */
   saved?: boolean;
   onPress?: (id: string) => void;
   onToggleSave?: (id: string, nextSaved: boolean) => void;
 }
 
-function isOnSale(product: ProductCardModel): boolean {
+function isOnSale(product: ProductSummary): boolean {
   return (
     product.compareAtPrice !== undefined &&
     product.compareAtPrice.amount > product.price.amount
   );
 }
 
-export function ProductCard({ product, saved = false, onPress, onToggleSave }: ProductCardProps) {
-  const [isSaved, setIsSaved] = useState(saved);
+export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCardProps) {
+  const [isSaved, setIsSaved] = useState(saved ?? product.saved ?? false);
   const onSale = isOnSale(product);
   const discountPercent =
     onSale && product.compareAtPrice

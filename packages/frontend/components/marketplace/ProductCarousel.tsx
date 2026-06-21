@@ -12,7 +12,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { Text } from "@/components/ui/text";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { ProductCard } from "./ProductCard";
-import type { ProductCardModel } from "./types";
+import type { ProductSummary } from "./types";
 
 /** Responsive breakpoints (px) for how many cards are visible at once. */
 const SM_BREAKPOINT = 640;
@@ -29,7 +29,7 @@ const DESKTOP_CARDS_VISIBLE = 4;
 const ARROW_ICON_SIZE = 20;
 
 export interface ProductCarouselProps {
-  items: ProductCardModel[];
+  items: ProductSummary[];
   /** Optional inline heading rendered above the row. */
   title?: string;
   onPressItem?: (id: string) => void;

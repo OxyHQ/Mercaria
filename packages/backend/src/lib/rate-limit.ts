@@ -21,7 +21,8 @@ import { log } from './logger.js';
 export type RateLimitScope =
   | 'general'
   | 'feedback'
-  | 'listings';
+  | 'listings'
+  | 'feed';
 
 /**
  * Build a rate-limit middleware for a scope. The scope drives a unique

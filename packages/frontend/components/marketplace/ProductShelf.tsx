@@ -1,11 +1,11 @@
 import { View } from "react-native";
 import { Text } from "@/components/ui/text";
 import { ProductCarousel } from "./ProductCarousel";
-import type { ProductCardModel } from "./types";
+import type { ProductSummary } from "./types";
 
 export interface ProductShelfProps {
   title: string;
-  items: ProductCardModel[];
+  items: ProductSummary[];
   onPressItem?: (id: string) => void;
   onToggleSaveItem?: (id: string, nextSaved: boolean) => void;
 }
