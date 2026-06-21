@@ -4,6 +4,8 @@ import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
 import { Text } from "@/components/ui/text";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { ProductShelf } from "@/components/marketplace/ProductShelf";
+import { MerchantCarousel } from "@/components/marketplace/MerchantCarousel";
+import { CategoryCarousel } from "@/components/marketplace/CategoryCarousel";
 import { useFeed } from "@/lib/hooks/use-feed";
 
 /** Number of placeholder shelves shown while the feed loads. */
@@ -80,11 +82,35 @@ export default function HomeScreen() {
 
         {isError && !data ? <FeedError onRetry={() => refetch()} /> : null}
 
-        {data
-          ? data.shelves.map((shelf) => (
-              <ProductShelf key={shelf.id} title={shelf.title} items={shelf.products} />
-            ))
-          : null}
+        {/* Defensive: a feed that is partial or in transition (hot-reload, an
+            older cached payload) must never crash the home. Guard the section
+            list and each section's items against undefined. */}
+        {(data?.sections ?? []).map((section) => {
+          if (section.kind === "products") {
+            return (
+              <ProductShelf
+                key={section.id}
+                title={section.title}
+                items={section.products ?? []}
+              />
+            );
+          }
+          if (section.kind === "categories") {
+            return (
+              <CategoryCarousel
+                key={section.id}
+                categories={section.categories ?? []}
+              />
+            );
+          }
+          return (
+            <MerchantCarousel
+              key={section.id}
+              title={section.title}
+              merchants={section.merchants ?? []}
+            />
+          );
+        })}
       </ScrollView>
     </View>
   );

@@ -52,18 +52,27 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
   };
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => onPress?.(product.id)}
-      className="group flex flex-col gap-2"
-    >
+    // The card itself is NOT a button. Navigation lives in two SEPARATE,
+    // sibling interactive zones (the image link and the text link), and the
+    // favorite button is a SIBLING of the image link — never nested inside
+    // another interactive element (avoids invalid `<button>`-in-`<button>` on
+    // web). `group` is kept here so the image still scales on hover.
+    <View className="group flex flex-col gap-2">
       {/* Image block */}
       <View className="relative aspect-square overflow-hidden rounded-2xl bg-card">
-        <Image
-          source={{ uri: product.imageUrl }}
-          contentFit="cover"
-          className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105"
-        />
+        {/* Image navigation link — fills the block, sits beneath the favorite. */}
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={product.title}
+          onPress={() => onPress?.(product.id)}
+          className="absolute inset-0"
+        >
+          <Image
+            source={{ uri: product.imageUrl }}
+            contentFit="cover"
+            className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105"
+          />
+        </Pressable>
 
         {/* 1px inset border */}
         <View
@@ -94,7 +103,8 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
           </View>
         ) : null}
 
-        {/* Favorite button */}
+        {/* Favorite button — SIBLING of the image link (rendered last so it
+            stacks on top and receives presses). Not nested in any link. */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add to saved items"
@@ -126,8 +136,13 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
         </Pressable>
       </View>
 
-      {/* Text block */}
-      <View className="flex flex-col pl-1">
+      {/* Text block — its own separate navigation link. */}
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={product.title}
+        onPress={() => onPress?.(product.id)}
+        className="flex flex-col pl-1"
+      >
         <Text numberOfLines={1} className="text-xs text-foreground/70">
           {product.brand}
         </Text>
@@ -154,7 +169,7 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
             </Text>
           ) : null}
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }

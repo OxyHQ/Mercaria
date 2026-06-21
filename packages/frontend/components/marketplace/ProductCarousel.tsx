@@ -1,32 +1,19 @@
-import { useRef } from "react";
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  View,
-  useWindowDimensions,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from "react-native";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { View } from "react-native";
 import { Text } from "@/components/ui/text";
-import { useColorScheme } from "@/lib/useColorScheme";
+import { Carousel } from "./Carousel";
 import { ProductCard } from "./ProductCard";
 import type { ProductSummary } from "./types";
 
-/** Responsive breakpoints (px) for how many cards are visible at once. */
+/** Responsive breakpoints (px), measured against the carousel's own width. */
 const SM_BREAKPOINT = 640;
-const LG_BREAKPOINT = 1024;
-/** Horizontal padding applied to the scroll content. */
-const CONTENT_PADDING = 16;
-/** Gap between adjacent cards. */
+const MD_BREAKPOINT = 768;
+/** Gap between adjacent cards (kept in sync with the carousel's slot gap). */
 const CARD_GAP = 12;
-/** Visible-card divisors per breakpoint (smaller = more cards peek). */
-const PHONE_CARDS_VISIBLE = 2.4;
+/** How many cards are visible at once per breakpoint (a fractional value lets
+ *  the next card peek). Tuned to the reference: ~3.3 on phones, 3 at sm, 4 at md+. */
+const PHONE_CARDS_VISIBLE = 3.3;
 const TABLET_CARDS_VISIBLE = 3;
 const DESKTOP_CARDS_VISIBLE = 4;
-/** Arrow button icon size. */
-const ARROW_ICON_SIZE = 20;
 
 export interface ProductCarouselProps {
   items: ProductSummary[];
@@ -36,94 +23,52 @@ export interface ProductCarouselProps {
   onToggleSaveItem?: (id: string, nextSaved: boolean) => void;
 }
 
-function computeItemWidth(viewportWidth: number): number {
-  if (viewportWidth >= LG_BREAKPOINT) {
-    return Math.floor(viewportWidth / DESKTOP_CARDS_VISIBLE - CARD_GAP);
-  }
-  if (viewportWidth >= SM_BREAKPOINT) {
-    return Math.floor(viewportWidth / TABLET_CARDS_VISIBLE - CARD_GAP);
-  }
-  return Math.floor(viewportWidth / PHONE_CARDS_VISIBLE);
+/**
+ * Responsive card width from the MEASURED carousel width (passed by `Carousel`
+ * via `onLayout`). Using the carousel's real on-screen width — not the window
+ * width — keeps cards correctly sized when a sidebar narrows the content area.
+ */
+function computeItemWidth(carouselWidth: number): number {
+  const visible =
+    carouselWidth >= MD_BREAKPOINT
+      ? DESKTOP_CARDS_VISIBLE
+      : carouselWidth >= SM_BREAKPOINT
+        ? TABLET_CARDS_VISIBLE
+        : PHONE_CARDS_VISIBLE;
+  return Math.floor(carouselWidth / visible - CARD_GAP);
 }
 
+/**
+ * A horizontally scrollable row of product cards with a responsive item width.
+ * The scroll + web-arrow behavior lives entirely in the generic `Carousel`;
+ * this component only supplies the responsive width function and renders a
+ * `ProductCard` per item.
+ */
 export function ProductCarousel({
   items,
   title,
   onPressItem,
   onToggleSaveItem,
 }: ProductCarouselProps) {
-  const { width } = useWindowDimensions();
-  const { colors } = useColorScheme();
-  const scrollRef = useRef<ScrollView>(null);
-  // Mutable scroll metrics kept in refs so updating them never re-renders.
-  const scrollX = useRef(0);
-  const contentWidth = useRef(0);
-
-  const itemWidth = computeItemWidth(width);
-  const showArrows = Platform.OS === "web" && width >= SM_BREAKPOINT;
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollX.current = event.nativeEvent.contentOffset.x;
-    contentWidth.current = event.nativeEvent.contentSize.width;
-  };
-
-  const scrollByViewport = (direction: 1 | -1) => {
-    const maxX = Math.max(0, contentWidth.current - width);
-    const nextX = Math.min(maxX, Math.max(0, scrollX.current + direction * width));
-    scrollRef.current?.scrollTo({ x: nextX, animated: true });
-  };
-
   return (
-    <View className="relative">
+    <View>
       {title ? (
         <Text className="px-4 pb-3 text-lg font-bold text-foreground">{title}</Text>
       ) : null}
 
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        contentContainerStyle={{ paddingHorizontal: CONTENT_PADDING }}
-      >
-        {items.map((item, index) => (
-          <View
-            key={item.id}
-            style={{
-              width: itemWidth,
-              marginRight: index < items.length - 1 ? CARD_GAP : 0,
-            }}
-          >
-            <ProductCard
-              product={item}
-              onPress={onPressItem}
-              onToggleSave={onToggleSaveItem}
-            />
-          </View>
-        ))}
-      </ScrollView>
-
-      {showArrows ? (
-        <>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go to the previous item"
-            onPress={() => scrollByViewport(-1)}
-            className="absolute left-2 top-1/2 -mt-5 h-10 w-10 items-center justify-center rounded-full border border-border bg-card web:shadow"
-          >
-            <ChevronLeft size={ARROW_ICON_SIZE} color={colors.foreground} />
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go to the next item"
-            onPress={() => scrollByViewport(1)}
-            className="absolute right-2 top-1/2 -mt-5 h-10 w-10 items-center justify-center rounded-full border border-border bg-card web:shadow"
-          >
-            <ChevronRight size={ARROW_ICON_SIZE} color={colors.foreground} />
-          </Pressable>
-        </>
-      ) : null}
+      <Carousel
+        items={items}
+        keyExtractor={(product) => product.id}
+        itemWidth={computeItemWidth}
+        gap={CARD_GAP}
+        renderItem={(product) => (
+          <ProductCard
+            product={product}
+            onPress={onPressItem}
+            onToggleSave={onToggleSaveItem}
+          />
+        )}
+      />
     </View>
   );
 }
