@@ -1,13 +1,11 @@
 import { View, ScrollView } from "react-native";
 import Head from "expo-router/head";
-import { ShoppingBag } from "lucide-react-native";
-import { Text } from "@/components/ui/text";
 import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
-import { useTranslation } from "@/hooks/useTranslation";
 import { useColorScheme } from "@/lib/useColorScheme";
+import { ProductShelf } from "@/components/marketplace/ProductShelf";
+import { NEW_ARRIVALS, ON_SALE } from "@/components/marketplace/mockProducts";
 
 export default function HomeScreen() {
-  const { t } = useTranslation();
   const { colors } = useColorScheme();
 
   return (
@@ -27,18 +25,11 @@ export default function HomeScreen() {
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-4 pb-24 pt-3"
+        contentContainerClassName="pb-24 pt-4"
         keyboardShouldPersistTaps="handled"
       >
-        <View className="items-center justify-center py-24">
-          <ShoppingBag size={64} color={colors.mutedForeground} strokeWidth={1.5} />
-          <Text className="mt-4 text-base font-semibold text-foreground">
-            {t("home.emptyTitle")}
-          </Text>
-          <Text className="mt-1 text-center text-sm text-muted-foreground">
-            {t("home.emptySubtitle")}
-          </Text>
-        </View>
+        <ProductShelf title="New arrivals" items={NEW_ARRIVALS} />
+        <ProductShelf title="On sale" items={ON_SALE} />
       </ScrollView>
     </View>
   );
