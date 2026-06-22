@@ -521,3 +521,32 @@ export const webPushSubscriptionSchema = z.object({
 export const webPushSubscriptionDeleteSchema = z.object({
   endpoint: z.string().trim().min(1),
 });
+
+// ---------------------------------------------------------------------------
+// FX rates + currency preference
+// ---------------------------------------------------------------------------
+
+/** A single supported currency code (mirrors `CurrencyCode`). */
+const currencyEnum = z.enum(['FAIR', 'USD', 'EUR', 'GBP']);
+
+/**
+ * Query for `GET /rates`. `base` defaults to the canonical FAIR; `quote` is an
+ * optional comma list (e.g. `USD,EUR`) parsed + validated in the controller.
+ */
+export const ratesQuerySchema = z
+  .object({
+    base: currencyEnum.optional().default('FAIR'),
+    quote: z.string().trim().min(1).optional(),
+  })
+  .passthrough();
+
+/**
+ * Body for `PUT /me/currency-preference`. Display-only preference; never affects
+ * stored amounts. `secondaryCurrency` may be explicitly `null` to clear it.
+ */
+export const updateCurrencyPreferenceSchema = z
+  .object({
+    secondaryCurrency: currencyEnum.nullable().optional(),
+    dualDisplayEnabled: z.boolean().optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });

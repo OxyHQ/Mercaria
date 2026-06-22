@@ -9,6 +9,8 @@
  * deeply frozen so no code can mutate config at runtime.
  */
 
+import type { CurrencyCode } from '@mercaria/shared-types';
+
 /**
  * Parse an integer environment variable, falling back to `fallback` when the
  * variable is unset, empty, or not a finite integer.
@@ -20,6 +22,32 @@ function intEnv(name: string, fallback: number): number {
   }
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+/**
+ * Parse a finite floating-point environment variable, falling back to
+ * `fallback` when the variable is unset, empty, or not a finite number. Used
+ * for decimal tunables (e.g. FX rates like `0.49`) that `intEnv` would truncate.
+ */
+function numEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') {
+    return fallback;
+  }
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+/**
+ * Parse a string environment variable, falling back to `fallback` when the
+ * variable is unset or empty after trimming. Returns the TRIMMED value.
+ */
+function strEnv(name: string, fallback: string): string {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') {
+    return fallback;
+  }
+  return raw.trim();
 }
 
 /**
@@ -36,6 +64,28 @@ function boolEnv(name: string, fallback: boolean): boolean {
 }
 
 const MINUTE_MS = 60_000;
+
+/** The FX rate provider strategy. */
+type FxProviderName = 'faircoin_explorer' | 'static';
+
+/** The two valid FX provider identifiers, used to validate the env value. */
+const FX_PROVIDERS: readonly FxProviderName[] = ['faircoin_explorer', 'static'];
+
+/**
+ * Resolve the configured FX provider. Defaults to the live FairCoin Explorer in
+ * production and the static dev fallback otherwise (mirrors `mockPayEnabled`).
+ * An explicitly-set but invalid `FX_PROVIDER` falls back to the default rather
+ * than throwing at import time.
+ */
+function resolveFxProvider(): FxProviderName {
+  const fallback: FxProviderName =
+    process.env.NODE_ENV === 'production' ? 'faircoin_explorer' : 'static';
+  const raw = process.env.FX_PROVIDER?.trim();
+  if (!raw) {
+    return fallback;
+  }
+  return FX_PROVIDERS.includes(raw as FxProviderName) ? (raw as FxProviderName) : fallback;
+}
 
 export interface PaginationConfig {
   /** Default page size when the client does not specify a `limit`. */
@@ -111,12 +161,33 @@ export interface OrdersConfig {
   readonly lowStockThreshold: number;
 }
 
+export interface FxConfig {
+  /**
+   * Which rate provider to use. `'faircoin_explorer'` hits the live FairCoin
+   * Explorer (FAIR→USD only); `'static'` uses the env-configured `staticRates`.
+   */
+  readonly provider: FxProviderName;
+  /** TTL (seconds) the resolved rates are cached for (Redis + in-process). */
+  readonly cacheTtlSeconds: number;
+  /** Base URL of the FairCoin Explorer (the `/api/price` endpoint is appended). */
+  readonly faircoinExplorerBaseUrl: string;
+  /** Per-request timeout (ms) for the upstream provider fetch. */
+  readonly requestTimeoutMs: number;
+  /**
+   * Dev/last-resort fallback rates: how many fiat units ONE FAIR is worth
+   * (`1 FAIR = staticRates[X]` of currency X). FAIR→FAIR is always 1 and is
+   * never stored here. Keyed by the non-FAIR `CurrencyCode`s.
+   */
+  readonly staticRates: Readonly<Partial<Record<Exclude<CurrencyCode, 'FAIR'>, number>>>;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
   readonly orders: OrdersConfig;
+  readonly fx: FxConfig;
 }
 
 /**
@@ -155,5 +226,16 @@ export const config: AppConfig = Object.freeze({
     }),
     idempotencyTtlMs: intEnv('CHECKOUT_IDEMPOTENCY_TTL_MS', 10 * MINUTE_MS),
     lowStockThreshold: intEnv('LOW_STOCK_THRESHOLD', 5),
+  }),
+  fx: Object.freeze({
+    provider: resolveFxProvider(),
+    cacheTtlSeconds: intEnv('FX_CACHE_TTL_SECONDS', 300),
+    faircoinExplorerBaseUrl: strEnv('FX_FAIRCOIN_EXPLORER_BASE_URL', 'https://explorer.fairco.in'),
+    requestTimeoutMs: intEnv('FX_REQUEST_TIMEOUT_MS', 5_000),
+    staticRates: Object.freeze({
+      USD: numEnv('FX_STATIC_RATE_USD', 0.49),
+      EUR: numEnv('FX_STATIC_RATE_EUR', 0.45),
+      GBP: numEnv('FX_STATIC_RATE_GBP', 0.39),
+    }),
   }),
 });

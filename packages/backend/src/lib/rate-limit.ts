@@ -29,7 +29,8 @@ export type RateLimitScope =
   | 'orders'
   | 'reviews'
   | 'admin'
-  | 'search';
+  | 'search'
+  | 'rates';
 
 /**
  * Build a rate-limit middleware for a scope. The scope drives a unique

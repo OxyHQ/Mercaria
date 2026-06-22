@@ -32,6 +32,7 @@ import { config } from '../config/index.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 import { getOrCreate as getOrCreateSellerProfile } from './seller-profile.service.js';
+import { convertToFair } from './fx.service.js';
 
 /** The default variant title for single-variant (P2P) listings. */
 const DEFAULT_VARIANT_TITLE = 'Default Title';
@@ -180,6 +181,10 @@ export async function createP2PListing(
 
   const quantity = input.quantity ?? 1;
 
+  // FAIR is canonical: a fiat-priced submission is converted to FAIR before
+  // anything is persisted (fails closed if no rate). A FAIR input is unchanged.
+  const price = await convertToFair(input.price);
+
   const listing = await Listing.create({
     ownerType: 'user',
     oxyUserId,
@@ -193,8 +198,8 @@ export async function createP2PListing(
     tags: input.tags ?? [],
     options: [],
     priceRange: {
-      min: { amount: input.price.amount, currency: input.price.currency },
-      max: { amount: input.price.amount, currency: input.price.currency },
+      min: { amount: price.amount, currency: price.currency },
+      max: { amount: price.amount, currency: price.currency },
     },
     hasInventory: quantity > 0,
     variantCount: 1,
@@ -207,7 +212,7 @@ export async function createP2PListing(
     listingId,
     title: DEFAULT_VARIANT_TITLE,
     optionValues: [],
-    price: { amount: input.price.amount, currency: input.price.currency },
+    price: { amount: price.amount, currency: price.currency },
     inventory: { tracked: true, available: quantity, committed: 0, levels: [] },
     position: 0,
   });
@@ -276,6 +281,29 @@ function resolveStoreVariants(input: CreateStoreProductInput): NormalizedVariant
 }
 
 /**
+ * Normalize each variant's `price` (and optional `compareAtPrice`) to the
+ * canonical FAIR currency before persistence — a fiat-priced submission is
+ * converted to FAIR (fails closed if no rate); a FAIR input is unchanged. The
+ * option/inventory shape from `resolveStoreVariants` is preserved untouched.
+ */
+async function toFairVariants(variants: NormalizedVariant[]): Promise<NormalizedVariant[]> {
+  return Promise.all(
+    variants.map(async (variant) => {
+      const price = await convertToFair(variant.price);
+      const compareAtPrice =
+        variant.compareAtPrice !== undefined
+          ? await convertToFair(variant.compareAtPrice)
+          : undefined;
+      return {
+        ...variant,
+        price,
+        ...(compareAtPrice !== undefined ? { compareAtPrice } : {}),
+      };
+    }),
+  );
+}
+
+/**
  * Create a store product. Creates the `Listing` (`ownerType: 'store'`, with the
  * supplied selectable `options[]`) plus its variants, then increments the store's
  * `productCount`. Returns the new listing's id.
@@ -285,13 +313,16 @@ export async function createStoreProduct(
   input: CreateStoreProductInput,
 ): Promise<string> {
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
-  const variants = resolveStoreVariants(input);
+  const normalized = resolveStoreVariants(input);
 
-  if (variants.length > config.catalog.maxVariantsPerProduct) {
+  if (normalized.length > config.catalog.maxVariantsPerProduct) {
     throw validationError(
       `A product may have at most ${config.catalog.maxVariantsPerProduct} variants`,
     );
   }
+
+  // Convert every variant price/compareAtPrice to canonical FAIR before insert.
+  const variants = await toFairVariants(normalized);
 
   const first = variants[0];
   const listing = await Listing.create({
@@ -383,11 +414,12 @@ export async function updateListing(
   if (patch.handle !== undefined) listing.handle = patch.handle;
   if (patch.seo !== undefined) listing.seo = patch.seo;
 
-  // P2P price update flows through the single variant.
+  // P2P price update flows through the single variant (converted to FAIR first).
   if (patch.price !== undefined && listing.ownerType === 'user') {
     const variant = await ProductVariant.findOne({ listingId }).sort({ position: 1 });
     if (variant) {
-      variant.price = { amount: patch.price.amount, currency: patch.price.currency };
+      const price = await convertToFair(patch.price);
+      variant.price = { amount: price.amount, currency: price.currency };
       await variant.save();
     }
   }
@@ -432,15 +464,21 @@ export async function addVariant(
     );
   }
 
+  // FAIR is canonical: convert the submitted price/compareAtPrice before insert.
+  const price = await convertToFair(input.price);
+  const compareAtPrice = input.compareAtPrice
+    ? await convertToFair(input.compareAtPrice)
+    : undefined;
+
   const created = await ProductVariant.create({
     listingId,
     title: variantTitleFromOptions(input.optionValues),
     optionValues: input.optionValues.map((o) => ({ name: o.name, value: o.value })),
     ...(input.sku ? { sku: input.sku } : {}),
     ...(input.barcode ? { barcode: input.barcode } : {}),
-    price: { amount: input.price.amount, currency: input.price.currency },
-    ...(input.compareAtPrice
-      ? { compareAtPrice: { amount: input.compareAtPrice.amount, currency: input.compareAtPrice.currency } }
+    price: { amount: price.amount, currency: price.currency },
+    ...(compareAtPrice
+      ? { compareAtPrice: { amount: compareAtPrice.amount, currency: compareAtPrice.currency } }
       : {}),
     inventory: {
       tracked: input.inventory.tracked ?? true,
@@ -493,14 +531,17 @@ export async function updateVariant(
   if (patch.title !== undefined) variant.title = patch.title;
   if (patch.sku !== undefined) variant.sku = patch.sku;
   if (patch.barcode !== undefined) variant.barcode = patch.barcode;
+  // FAIR is canonical: convert any submitted price/compareAtPrice before assign.
   if (patch.price !== undefined) {
-    variant.price = { amount: patch.price.amount, currency: patch.price.currency };
+    const price = await convertToFair(patch.price);
+    variant.price = { amount: price.amount, currency: price.currency };
   }
   if (patch.compareAtPrice !== undefined) {
     if (patch.compareAtPrice === null) {
       variant.compareAtPrice = undefined;
     } else {
-      variant.compareAtPrice = { amount: patch.compareAtPrice.amount, currency: patch.compareAtPrice.currency };
+      const compareAtPrice = await convertToFair(patch.compareAtPrice);
+      variant.compareAtPrice = { amount: compareAtPrice.amount, currency: compareAtPrice.currency };
     }
   }
   if (patch.optionValues !== undefined) {

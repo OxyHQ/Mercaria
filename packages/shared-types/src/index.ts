@@ -49,3 +49,9 @@ export * from './order';
 
 // Review DTOs (Review, ReviewTargetType, CreateReviewInput, RatingAggregate, …).
 export * from './review';
+
+// FX rate DTO (FxRates) — FAIR is canonical; rates drive the conversion boundaries.
+export * from './fx';
+
+// Consumer dual-display currency preference (CurrencyPreference, UpdateCurrencyPreferenceInput).
+export * from './user-preference';
