@@ -14,8 +14,12 @@ import type {
   CreateStoreProductVariantInput,
   UpdateListingInput,
   Listing as ListingDTO,
+  InventoryLevelDTO,
 } from '@mercaria/shared-types';
 import { Listing, type IListing } from '../../models/listing.js';
+import { ProductVariant } from '../../models/product-variant.js';
+import { Location, type ILocation } from '../../models/location.js';
+import { InventoryLevel, type IInventoryLevelDoc } from '../../models/inventory-level.js';
 import {
   createStoreProduct,
   updateListing,
@@ -23,6 +27,7 @@ import {
   addVariant,
   updateVariant,
   removeVariant,
+  resolveDefaultLocationId,
   type UpdateVariantInput,
 } from '../../services/catalog-write.service.js';
 import { setAvailable } from '../../services/inventory.service.js';
@@ -182,17 +187,98 @@ export async function deleteVariant(req: Request, res: Response): Promise<void> 
   }
 }
 
-/** PATCH /admin/stores/:storeId/products/:id/variants/:variantId/inventory — set available. */
+/**
+ * PATCH /admin/stores/:storeId/products/:id/variants/:variantId/inventory — set
+ * available at the store's DEFAULT location (legacy single-location endpoint).
+ */
 export async function setVariantInventory(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
     const listingId = String((listing as { _id: unknown })._id);
     const body = req.body as { available: number };
-    await setAvailable(routeParam(req, 'variantId'), listingId, body.available);
+    const locationId = await resolveDefaultLocationId(storeId(req));
+    await setAvailable(routeParam(req, 'variantId'), listingId, locationId, body.available);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto);
   } catch (err) {
     log.general.error({ err, variantId: req.params.variantId }, 'Failed to set inventory');
     respondWithError(res, err, 'Failed to set inventory');
+  }
+}
+
+/** Assert a variant belongs to the listing, else NOT_FOUND. */
+async function assertVariantInListing(variantId: string, listingId: string): Promise<void> {
+  const exists = await ProductVariant.exists({ _id: variantId, listingId });
+  if (!exists) {
+    throw notFound('Variant not found');
+  }
+}
+
+/** Build the per-location `InventoryLevelDTO[]` for a variant (joins location names). */
+async function variantLevelDTOs(variantId: string): Promise<InventoryLevelDTO[]> {
+  const levels = await InventoryLevel.find({ variantId })
+    .sort({ createdAt: 1 })
+    .lean<IInventoryLevelDoc[]>();
+  if (levels.length === 0) {
+    return [];
+  }
+
+  const locationIds = [...new Set(levels.map((l) => l.locationId))];
+  const locations = await Location.find({ _id: { $in: locationIds } })
+    .select('name')
+    .lean<Pick<ILocation, '_id' | 'name'>[]>();
+  const nameById = new Map(locations.map((l) => [String(l._id), l.name]));
+
+  return levels.map((level) => ({
+    locationId: level.locationId,
+    locationName: nameById.get(level.locationId) ?? 'Unknown location',
+    available: level.available,
+  }));
+}
+
+/**
+ * GET /admin/stores/:storeId/products/:id/variants/:variantId/levels — the
+ * variant's per-location available stock (store products only).
+ */
+export async function listVariantLevels(req: Request, res: Response): Promise<void> {
+  try {
+    const listing = await loadStoreProduct(req);
+    const listingId = String((listing as { _id: unknown })._id);
+    const variantId = routeParam(req, 'variantId');
+    await assertVariantInListing(variantId, listingId);
+    sendSuccess(res, await variantLevelDTOs(variantId));
+  } catch (err) {
+    log.general.error({ err, variantId: req.params.variantId }, 'Failed to list inventory levels');
+    respondWithError(res, err, 'Failed to load inventory levels');
+  }
+}
+
+/**
+ * PATCH /admin/stores/:storeId/products/:id/variants/:variantId/levels/:locationId
+ * — absolute-set available at one location (store products only). Verifies the
+ * location belongs to the store before writing. Returns the updated levels.
+ */
+export async function setVariantLevelInventory(req: Request, res: Response): Promise<void> {
+  try {
+    const listing = await loadStoreProduct(req);
+    const listingId = String((listing as { _id: unknown })._id);
+    const variantId = routeParam(req, 'variantId');
+    const locationId = routeParam(req, 'locationId');
+    await assertVariantInListing(variantId, listingId);
+
+    const location = await Location.exists({ _id: locationId, storeId: storeId(req) });
+    if (!location) {
+      throw notFound('Location not found');
+    }
+
+    const body = req.body as { available: number };
+    await setAvailable(variantId, listingId, locationId, body.available);
+    sendSuccess(res, await variantLevelDTOs(variantId));
+  } catch (err) {
+    log.general.error(
+      { err, variantId: req.params.variantId, locationId: req.params.locationId },
+      'Failed to set inventory level',
+    );
+    respondWithError(res, err, 'Failed to set inventory level');
   }
 }

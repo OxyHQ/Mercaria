@@ -116,6 +116,53 @@ export const setInventorySchema = z.object({
   available: z.number().int().nonnegative(),
 });
 
+/** Body for store `PATCH /products/:id/variants/:variantId/levels/:locationId`. */
+export const setLevelInventorySchema = z.object({
+  available: z.number().int().nonnegative(),
+});
+
+// ---------------------------------------------------------------------------
+// Locations (store inventory locations)
+// ---------------------------------------------------------------------------
+
+/** The kind of place a location represents (mirrors `LocationType`). */
+const locationTypeSchema = z.enum(['warehouse', 'retail', 'pop_up', 'virtual']);
+
+/** Optional physical address for a location (the whole address is optional). */
+const locationAddressSchema = z.object({
+  label: z.string().trim().min(1).max(120).optional(),
+  recipientName: z.string().trim().min(1).max(200),
+  line1: z.string().trim().min(1).max(300),
+  line2: z.string().trim().min(1).max(300).optional(),
+  city: z.string().trim().min(1).max(150),
+  region: z.string().trim().min(1).max(150).optional(),
+  postalCode: z.string().trim().min(1).max(40),
+  country: z.string().trim().min(2).max(2),
+  phone: z.string().trim().min(1).max(40).optional(),
+});
+
+/** Body for `POST /admin/stores/:storeId/locations` (CreateLocationInput). */
+export const createLocationSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  type: locationTypeSchema.optional(),
+  address: locationAddressSchema.optional(),
+  isDefault: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  fulfillsOnlineOrders: z.boolean().optional(),
+});
+
+/** Body for `PATCH /admin/stores/:storeId/locations/:id` (UpdateLocationInput). */
+export const updateLocationSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    type: locationTypeSchema.optional(),
+    address: locationAddressSchema.optional(),
+    isDefault: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+    fulfillsOnlineOrders: z.boolean().optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
 // ---------------------------------------------------------------------------
 // Store + members
 // ---------------------------------------------------------------------------
@@ -137,6 +184,7 @@ const storePermissionSchema = z.enum([
   'products:read',
   'products:write',
   'inventory:write',
+  'locations:write',
   'orders:read',
   'orders:fulfill',
   'stats:read',

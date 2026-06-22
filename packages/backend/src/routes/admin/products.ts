@@ -7,6 +7,7 @@ import {
   createVariantSchema,
   updateVariantSchema,
   setInventorySchema,
+  setLevelInventorySchema,
 } from '../../middleware/schemas.js';
 import {
   listProducts,
@@ -18,6 +19,8 @@ import {
   patchVariant,
   deleteVariant,
   setVariantInventory,
+  listVariantLevels,
+  setVariantLevelInventory,
 } from '../../controllers/admin/products-admin.controller.js';
 
 /**
@@ -66,7 +69,7 @@ router.delete(
   deleteVariant,
 );
 
-// Inventory absolute-set (admin restock).
+// Inventory absolute-set at the default location (admin restock).
 router.patch(
   '/:id/variants/:variantId/inventory',
   requireStorePermission('inventory:write'),
@@ -74,6 +77,24 @@ router.patch(
   validateObjectId('variantId'),
   validateBody(setInventorySchema),
   setVariantInventory,
+);
+
+// Multi-location inventory levels (per-variant per-location stock).
+router.get(
+  '/:id/variants/:variantId/levels',
+  requireStorePermission('products:read'),
+  validateObjectId('id'),
+  validateObjectId('variantId'),
+  listVariantLevels,
+);
+router.patch(
+  '/:id/variants/:variantId/levels/:locationId',
+  requireStorePermission('inventory:write'),
+  validateObjectId('id'),
+  validateObjectId('variantId'),
+  validateObjectId('locationId'),
+  validateBody(setLevelInventorySchema),
+  setVariantLevelInventory,
 );
 
 export default router;

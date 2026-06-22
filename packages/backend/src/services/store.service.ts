@@ -18,6 +18,7 @@ import type {
   UpdateMemberInput,
 } from '@mercaria/shared-types';
 import { Store, ALL_STORE_PERMISSIONS, type IStore, type IStoreMember } from '../models/store.js';
+import { Location } from '../models/location.js';
 import { ensureUniqueSlug } from '../utils/slug.js';
 import { sendNotification } from '../lib/notification-service.js';
 import { conflict, forbidden, notFound, validationError } from '../lib/errors/error-codes.js';
@@ -65,6 +66,17 @@ export async function createStore(
     defaultCurrency: input.defaultCurrency ?? 'FAIR',
     status: 'active',
     members: [member],
+  });
+
+  // Every store starts with exactly one default location; store inventory routes
+  // here until the owner adds more locations.
+  await Location.create({
+    storeId: String(store._id),
+    name: 'Default',
+    type: 'warehouse',
+    isDefault: true,
+    isActive: true,
+    fulfillsOnlineOrders: true,
   });
 
   return store.toObject();

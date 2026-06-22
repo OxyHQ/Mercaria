@@ -25,6 +25,8 @@ import type {
 import { Listing, type IListing, type IListingImage } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
 import { Store } from '../models/store.js';
+import { Location, type ILocation } from '../models/location.js';
+import { InventoryLevel } from '../models/inventory-level.js';
 import { Category, type ICategory } from '../models/category.js';
 import { config } from '../config/index.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
@@ -32,6 +34,50 @@ import { getOrCreate as getOrCreateSellerProfile } from './seller-profile.servic
 
 /** The default variant title for single-variant (P2P) listings. */
 const DEFAULT_VARIANT_TITLE = 'Default Title';
+
+/**
+ * Resolve a store's default `Location` id — the `isDefault` location, falling
+ * back to ANY active location. Throws NOT_FOUND if the store has no location
+ * (every store gets one at creation + via the migration backfill). Owned HERE
+ * (not in `inventory.service`) so both the catalog write path and inventory
+ * routing share one implementation WITHOUT an import cycle (`inventory.service`
+ * already imports this module for `syncListingFacets`).
+ */
+export async function resolveDefaultLocationId(storeId: string): Promise<string> {
+  const def = await Location.findOne({ storeId, isDefault: true })
+    .select('_id')
+    .lean<Pick<ILocation, '_id'> | null>();
+  if (def) {
+    return String(def._id);
+  }
+  const anyActive = await Location.findOne({ storeId, isActive: true })
+    .select('_id')
+    .lean<Pick<ILocation, '_id'> | null>();
+  if (!anyActive) {
+    throw notFound('No location for store');
+  }
+  return String(anyActive._id);
+}
+
+/**
+ * Recompute and persist a store variant's scalar `inventory.{available,committed}`
+ * as the SUM over its `InventoryLevel` rows. This is the ONE place the rollup is
+ * computed; `inventory.service.rollupVariant` delegates here (the dependency only
+ * flows inventory → catalog-write, never back, so no cycle). When a variant has
+ * no level rows (e.g. an untracked or P2P variant), the sums are 0.
+ */
+export async function recomputeVariantScalarFromLevels(variantId: string): Promise<void> {
+  const [agg] = await InventoryLevel.aggregate<{ available: number; committed: number }>([
+    { $match: { variantId } },
+    { $group: { _id: null, available: { $sum: '$available' }, committed: { $sum: '$committed' } } },
+  ]);
+  const available = agg?.available ?? 0;
+  const committed = agg?.committed ?? 0;
+  await ProductVariant.updateOne(
+    { _id: variantId },
+    { $set: { 'inventory.available': available, 'inventory.committed': committed } },
+  );
+}
 
 /** Resolve a category slug to its id + denormalized `[ancestor..., slug]` path. */
 async function resolveCategory(
@@ -247,8 +293,22 @@ export async function createStoreProduct(
 
   const listingId = String(listing._id);
 
-  await ProductVariant.insertMany(
+  const inserted = await ProductVariant.insertMany(
     variants.map((v) => ({ ...v, listingId })),
+  );
+
+  // Stock each store variant at the store's default location. The variant scalar
+  // `available` (set from `insertMany`) already equals the requested value, and
+  // the single level row's `available` matches it, so the rollup is consistent.
+  const defaultLocationId = await resolveDefaultLocationId(storeId);
+  await InventoryLevel.insertMany(
+    inserted.map((doc, index) => ({
+      variantId: String(doc._id),
+      listingId,
+      locationId: defaultLocationId,
+      available: variants[index].inventory.available,
+      committed: 0,
+    })),
   );
 
   await syncListingFacets(listingId);
@@ -355,6 +415,18 @@ export async function addVariant(
     position: existingCount,
   });
 
+  // Store variants are added only through this path (the listing is `ownerType:
+  // 'store'`). Stock the new variant at the store's default location so the level
+  // sum matches the scalar `available` just written.
+  const defaultLocationId = await resolveDefaultLocationId(String(listing.storeId));
+  await InventoryLevel.create({
+    variantId: String(created._id),
+    listingId,
+    locationId: defaultLocationId,
+    available: input.inventory.available,
+    committed: 0,
+  });
+
   await syncListingFacets(listingId);
   return String(created._id);
 }
@@ -398,7 +470,32 @@ export async function updateVariant(
   if (patch.inventory?.tracked !== undefined) {
     variant.inventory.tracked = patch.inventory.tracked;
   }
+
+  // `inventory.available` routing differs by ownership: a STORE variant's stock
+  // lives in `InventoryLevel` (the scalar is a rollup), so the absolute set goes
+  // to the store's default location's level and the scalar is recomputed. A P2P
+  // variant keeps the scalar as the single source of truth.
   if (patch.inventory?.available !== undefined) {
+    const owner = await Listing.findById(listingId)
+      .select('ownerType storeId')
+      .lean<Pick<IListing, 'ownerType' | 'storeId'> | null>();
+    if (owner?.ownerType === 'store' && owner.storeId) {
+      const locationId = await resolveDefaultLocationId(String(owner.storeId));
+      await InventoryLevel.updateOne(
+        { variantId, locationId },
+        {
+          $set: { available: patch.inventory.available },
+          $setOnInsert: { listingId, committed: 0 },
+        },
+        { upsert: true },
+      );
+      // `variant.save()` below would persist a stale in-memory scalar; recompute
+      // from the levels AFTER it so the rollup is authoritative.
+      await variant.save();
+      await recomputeVariantScalarFromLevels(variantId);
+      await syncListingFacets(listingId);
+      return;
+    }
     variant.inventory.available = patch.inventory.available;
   }
 

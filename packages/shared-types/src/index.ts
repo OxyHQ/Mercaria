@@ -26,6 +26,12 @@ export * from './product';
 // Store (shop) admin-facing DTOs (Store, StoreMember, StoreRole, StorePermission).
 export * from './store';
 
+// Location DTOs (Location, LocationType, LocationAddress, Create/UpdateLocationInput).
+export * from './location';
+
+// Inventory DTOs (InventoryLevelDTO).
+export * from './inventory';
+
 // Category taxonomy tree DTO (CategoryNode).
 export * from './category';
 

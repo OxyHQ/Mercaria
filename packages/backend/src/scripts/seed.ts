@@ -28,6 +28,8 @@ import { Store, ALL_STORE_PERMISSIONS, type IStoreMember } from '../models/store
 import { SellerProfile } from '../models/seller-profile.js';
 import { Listing } from '../models/listing.js';
 import { ProductVariant } from '../models/product-variant.js';
+import { Location } from '../models/location.js';
+import { InventoryLevel } from '../models/inventory-level.js';
 import { minorUnitsPerMajor } from '../utils/money.js';
 import type { Money } from '@mercaria/shared-types';
 
@@ -248,13 +250,17 @@ async function seed(): Promise<void> {
 
   await connectDB();
 
-  log.general.info('Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant)');
+  log.general.info(
+    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel)',
+  );
   await Promise.all([
     Category.deleteMany({}),
     Store.deleteMany({}),
     SellerProfile.deleteMany({}),
     Listing.deleteMany({}),
     ProductVariant.deleteMany({}),
+    Location.deleteMany({}),
+    InventoryLevel.deleteMany({}),
   ]);
 
   // 1. Category taxonomy. Top-level uses its pill image; children get ancestorSlugs.
@@ -328,6 +334,17 @@ async function seed(): Promise<void> {
     });
     const storeId = String(store._id);
 
+    // Every store gets a default location; store inventory routes here.
+    const defaultLocation = await Location.create({
+      storeId,
+      name: 'Default',
+      type: 'warehouse',
+      isDefault: true,
+      isActive: true,
+      fulfillsOnlineOrders: true,
+    });
+    const defaultLocationId = String(defaultLocation._id);
+
     for (const [index, product] of storeSpec.products.entries()) {
       const ref = categoryRef(product.categorySlug);
       const listing = await Listing.create({
@@ -354,7 +371,7 @@ async function seed(): Promise<void> {
       });
       listingCount += 1;
 
-      await ProductVariant.create({
+      const variant = await ProductVariant.create({
         listingId: String(listing._id),
         title: 'Default Title',
         optionValues: [],
@@ -367,6 +384,16 @@ async function seed(): Promise<void> {
         position: 0,
       });
       variantCount += 1;
+
+      // Store variant: stock at the store's default location. The level sum
+      // equals the variant scalar `available`, keeping the rollup consistent.
+      await InventoryLevel.create({
+        variantId: String(variant._id),
+        listingId: String(listing._id),
+        locationId: defaultLocationId,
+        available: product.available,
+        committed: 0,
+      });
     }
   }
 
