@@ -1,0 +1,37 @@
+# Mercaria by Oxy - Robots.txt
+
+# Google, Bing, and major search engines
+User-agent: Googlebot
+User-agent: Bingbot
+User-agent: Slurp
+User-agent: DuckDuckBot
+Allow: /
+Disallow: /settings/
+Disallow: /reset-password
+Disallow: /forgot-password
+Crawl-delay: 0
+
+# Public, indexable entry points
+Allow: /
+Allow: /login
+Allow: /register
+
+# Block aggressive scraping bots
+User-agent: AhrefsBot
+User-agent: SemrushBot
+User-agent: MJ12bot
+User-agent: DotBot
+User-agent: BLEXBot
+Disallow: /
+
+# All other bots
+User-agent: *
+Allow: /
+Disallow: /settings/
+Disallow: /reset-password
+Disallow: /forgot-password
+
+# Sitemaps
+Sitemap: https://mercaria.co/sitemap.xml
+
+# Host: https://mercaria.co
