@@ -34,6 +34,39 @@ export type StorePermission =
   | 'draft_orders:write'
   | 'refunds:write';
 
+/**
+ * Store-wide policy documents + the return window. `returnWindowDays` and
+ * `shippingNote` predate B7; the three long-form policy bodies are added in B7.
+ */
+export interface StorePolicies {
+  /** Return window in days. */
+  returnWindowDays: number;
+  /** Optional free-form shipping note. */
+  shippingNote?: string;
+  /** Long-form refund policy body, when set. */
+  refundPolicy?: string;
+  /** Long-form privacy policy body, when set. */
+  privacyPolicy?: string;
+  /** Long-form terms-of-service body, when set. */
+  termsOfService?: string;
+}
+
+/**
+ * Store notification preferences (B7). Controls the store-facing alerts the
+ * backend may raise; defaults are on so a store opts OUT rather than in.
+ */
+export interface StoreNotificationSettings {
+  /** Whether to raise low-stock alerts for tracked variants. */
+  lowStockAlerts: boolean;
+  /** Whether to send the store order-confirmation/update emails. */
+  orderEmails: boolean;
+  /**
+   * Per-store low-stock threshold override (units `available` at or below which
+   * a tracked variant is "low stock"). Absent ⇒ the platform default applies.
+   */
+  lowStockThreshold?: number;
+}
+
 /** A member of a store, backed by an Oxy user account. */
 export interface StoreMember {
   /** Owning Oxy user account id. */
@@ -69,12 +102,7 @@ export interface Store extends Timestamps {
   /** Store members and their roles. */
   members: StoreMember[];
   /** Store-wide policies. */
-  policies: {
-    /** Return window in days. */
-    returnWindowDays: number;
-    /** Optional free-form shipping note. */
-    shippingNote?: string;
-  };
+  policies: StorePolicies;
   /** Default currency for new products in this store. */
   defaultCurrency: CurrencyCode;
   /**
@@ -82,6 +110,11 @@ export interface Store extends Timestamps {
    * before B4 may lack it; the API falls back to defaults).
    */
   taxSettings?: TaxSettings;
+  /**
+   * Store notification preferences. Optional for back-compat reads (stores
+   * created before B7 may lack it; the API falls back to the on-by-default shape).
+   */
+  notificationSettings?: StoreNotificationSettings;
   /** Aggregate rating, 0–5. */
   rating: number;
   /** Number of reviews contributing to `rating`. */
@@ -100,16 +133,36 @@ export interface CreateStoreInput {
   defaultCurrency?: CurrencyCode;
 }
 
-/** Partial payload accepted when updating an existing store. */
+/** Partial policy payload accepted by the core update + settings update paths. */
+export type UpdateStorePoliciesInput = {
+  returnWindowDays?: number;
+  shippingNote?: string;
+  refundPolicy?: string;
+  privacyPolicy?: string;
+  termsOfService?: string;
+};
+
+/** Partial notification-settings payload accepted by the settings update path. */
+export type UpdateStoreNotificationSettingsInput = Partial<StoreNotificationSettings>;
+
+/** Partial payload accepted when updating an existing store's core profile. */
 export type UpdateStoreInput = Partial<CreateStoreInput> & {
   textTone?: TextTone;
-  policies?: {
-    returnWindowDays?: number;
-    shippingNote?: string;
-  };
+  policies?: UpdateStorePoliciesInput;
   status?: Store['status'];
   taxSettings?: UpdateTaxSettingsInput;
 };
+
+/**
+ * Partial payload accepted by `PATCH /admin/stores/:storeId/settings` (B7).
+ * Updates the store's policies, notification preferences and (optionally) tax
+ * settings in one call. At least one field must be supplied.
+ */
+export interface UpdateStoreSettingsInput {
+  policies?: UpdateStorePoliciesInput;
+  notificationSettings?: UpdateStoreNotificationSettingsInput;
+  taxSettings?: UpdateTaxSettingsInput;
+}
 
 /** Payload accepted when inviting a member to a store. */
 export interface InviteMemberInput {

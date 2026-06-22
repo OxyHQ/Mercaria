@@ -10,12 +10,18 @@
 
 import type { Request, Response } from 'express';
 import { getRequiredOxyUserId } from '@oxyhq/core/server';
-import type { CreateStoreInput, UpdateStoreInput, Store as StoreDTO } from '@mercaria/shared-types';
+import type {
+  CreateStoreInput,
+  UpdateStoreInput,
+  UpdateStoreSettingsInput,
+  Store as StoreDTO,
+} from '@mercaria/shared-types';
 import type { IStore } from '../../models/store.js';
 import {
   createStore,
   listStoresForUser,
   updateStore,
+  updateStoreSettings,
 } from '../../services/store.service.js';
 import { sendSuccess } from '../../utils/api-response.js';
 import { respondWithError } from '../../lib/errors/error-codes.js';
@@ -42,6 +48,9 @@ export function toStoreDTO(store: IStore): StoreDTO {
     policies: {
       returnWindowDays: store.policies.returnWindowDays,
       ...(store.policies.shippingNote ? { shippingNote: store.policies.shippingNote } : {}),
+      ...(store.policies.refundPolicy ? { refundPolicy: store.policies.refundPolicy } : {}),
+      ...(store.policies.privacyPolicy ? { privacyPolicy: store.policies.privacyPolicy } : {}),
+      ...(store.policies.termsOfService ? { termsOfService: store.policies.termsOfService } : {}),
     },
     defaultCurrency: store.defaultCurrency as StoreDTO['defaultCurrency'],
     taxSettings: {
@@ -49,6 +58,13 @@ export function toStoreDTO(store: IStore): StoreDTO {
       chargeTaxOnProducts: store.taxSettings?.chargeTaxOnProducts ?? true,
       ...(store.taxSettings?.taxRegistrationId
         ? { taxRegistrationId: store.taxSettings.taxRegistrationId }
+        : {}),
+    },
+    notificationSettings: {
+      lowStockAlerts: store.notificationSettings?.lowStockAlerts ?? true,
+      orderEmails: store.notificationSettings?.orderEmails ?? true,
+      ...(store.notificationSettings?.lowStockThreshold !== undefined
+        ? { lowStockThreshold: store.notificationSettings.lowStockThreshold }
         : {}),
     },
     rating: store.rating,
@@ -107,5 +123,24 @@ export async function updateStoreHandler(req: Request, res: Response): Promise<v
   } catch (err) {
     log.general.error({ err }, 'Failed to update store');
     respondWithError(res, err, 'Failed to update store');
+  }
+}
+
+/** PATCH /admin/stores/:storeId/settings — update policies/notifications/tax. */
+export async function updateStoreSettingsHandler(req: Request, res: Response): Promise<void> {
+  const store = req.store;
+  if (!store) {
+    respondWithError(res, undefined, 'Store not loaded');
+    return;
+  }
+  try {
+    const updated = await updateStoreSettings(
+      String((store as { _id: unknown })._id),
+      req.body as UpdateStoreSettingsInput,
+    );
+    sendSuccess(res, toStoreDTO(updated));
+  } catch (err) {
+    log.general.error({ err }, 'Failed to update store settings');
+    respondWithError(res, err, 'Failed to update store settings');
   }
 }

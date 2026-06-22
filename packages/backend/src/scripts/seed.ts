@@ -41,6 +41,7 @@ import { nextOrderNumber } from '../models/counter.js';
 import { process as processRefund } from '../services/refund.service.js';
 import { createCollection, setCollectionProducts } from '../services/collection.service.js';
 import { minorUnitsPerMajor } from '../utils/money.js';
+import { config } from '../config/index.js';
 import type { Money } from '@mercaria/shared-types';
 
 // FAKE dev owner — there is NO real Oxy account behind this id. Used only so the
@@ -333,6 +334,7 @@ async function seed(): Promise<void> {
   let taxRateCount = 0;
   let customerCount = 0;
   let posOrderCount = 0;
+  let storefrontOrderCount = 0;
   let refundCount = 0;
 
   // 2 + 3. Stores and their products (ownerType 'store').
@@ -594,6 +596,87 @@ async function seed(): Promise<void> {
           DEV_OWNER_OXY_USER_ID,
         );
         refundCount += 1;
+
+        // 3g. A handful of ONLINE storefront paid orders, staggered across the
+        // last few weeks, so the B7 reports return non-trivial data: the summary
+        // shows both `storefront` and `pos` channels, the sales-over-time report
+        // spans multiple day buckets, and top-products has a real units ranking.
+        // Each references a real seeded product of this store.
+        const DAY_MS = 86_400_000;
+        const storefrontSpecs: { title: string; quantity: number; daysAgo: number }[] = [
+          { title: 'Franny', quantity: 1, daysAgo: 2 },
+          { title: 'Beni Top', quantity: 3, daysAgo: 5 },
+          { title: 'Mopit Top', quantity: 1, daysAgo: 5 },
+          { title: 'Franny', quantity: 2, daysAgo: 12 },
+          { title: 'Beni Top', quantity: 1, daysAgo: 20 },
+        ];
+        for (const spec of storefrontSpecs) {
+          const listingId = listingIdByTitle.get(spec.title);
+          if (!listingId) continue;
+          const variant = await ProductVariant.findOne({ listingId }).lean<{
+            _id: mongoose.Types.ObjectId;
+            title: string;
+            price: Money;
+          } | null>();
+          if (!variant) continue;
+
+          const paidAt = new Date(now.getTime() - spec.daysAgo * DAY_MS);
+          const lineTotal: Money = {
+            amount: variant.price.amount * spec.quantity,
+            currency: variant.price.currency,
+          };
+          const grandTotal: Money = {
+            amount: lineTotal.amount + config.orders.shippingRates.standard,
+            currency: lineTotal.currency,
+          };
+          await Order.create({
+            orderNumber: await nextOrderNumber(),
+            buyerOxyUserId: POS_CUSTOMER_OXY_USER_ID,
+            sellerType: 'store',
+            storeId,
+            sourceChannel: 'storefront',
+            items: [
+              {
+                listingId,
+                variantId: String(variant._id),
+                title: spec.title,
+                variantTitle: variant.title,
+                optionValues: [],
+                unitPrice: variant.price,
+                quantity: spec.quantity,
+                lineTotal,
+                locationId: defaultLocationId,
+              },
+            ],
+            shippingAddressSnapshot: {
+              recipientName: 'Mara Vidal',
+              line1: 'Carrer de Mallorca 1',
+              city: 'Barcelona',
+              postalCode: '08001',
+              country: 'ES',
+            },
+            shipping: {
+              method: 'standard',
+              label: 'Standard shipping',
+              cost: { amount: config.orders.shippingRates.standard, currency: lineTotal.currency },
+              trackingNumber: null,
+            },
+            totals: {
+              subtotal: lineTotal,
+              discountTotal: fair(0),
+              shipping: { amount: config.orders.shippingRates.standard, currency: lineTotal.currency },
+              tax: fair(0),
+              grandTotal,
+            },
+            appliedDiscounts: [],
+            taxLines: [],
+            status: 'paid',
+            statusHistory: [{ status: 'paid', at: paidAt, byOxyUserId: DEV_OWNER_OXY_USER_ID, note: 'storefront sale' }],
+            payment: { status: 'paid', provider: 'oxy_pay', paidAt },
+            checkoutGroupId: new mongoose.Types.ObjectId().toString(),
+          });
+          storefrontOrderCount += 1;
+        }
       }
     }
   }
@@ -654,6 +737,7 @@ async function seed(): Promise<void> {
       taxRates: taxRateCount,
       customers: customerCount,
       posOrders: posOrderCount,
+      storefrontOrders: storefrontOrderCount,
       refunds: refundCount,
     },
     'Mercaria catalog seed complete',

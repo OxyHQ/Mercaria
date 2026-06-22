@@ -51,12 +51,23 @@ const ALL_PERMISSIONS: readonly StorePermission[] = [
   'refunds:write',
 ];
 
-/** Permissions an admin holds — everything except store-level destructive ops. */
+/**
+ * Permissions an admin holds — everything EXCEPT `store:manage`. `store:manage`
+ * is the only store-level destructive op (rename/handle/brand, status, ownership
+ * transfer); an admin runs the whole business (members, settings, discounts,
+ * refunds, tax, locations, collections) but cannot reconfigure the store itself.
+ */
 const ADMIN_PERMISSIONS: readonly StorePermission[] = ALL_PERMISSIONS.filter(
   (p) => p !== 'store:manage',
 );
 
-/** Permissions staff hold by default (staff run the POS). */
+/**
+ * Permissions staff hold by default — the OPERATIONAL set: run the shop floor +
+ * POS, but NOT configure the business. Staff get products/inventory (read+write),
+ * orders (read+fulfill), customers (read+write), draft orders (POS), and stats —
+ * and are DENIED `members:manage`, `store:manage`, `settings:write`,
+ * `discounts:write`, `refunds:write`, `locations:write` and `collections:write`.
+ */
 const STAFF_PERMISSIONS: readonly StorePermission[] = [
   'products:read',
   'products:write',
@@ -70,13 +81,32 @@ const STAFF_PERMISSIONS: readonly StorePermission[] = [
 ];
 
 /**
- * Default permission set granted by each role. A member's EFFECTIVE permissions
- * are these defaults UNIONed with their explicit `permissions[]` grants.
+ * Final B7 role → default-permission matrix. A member's EFFECTIVE permissions are
+ * these defaults UNIONed with their explicit `permissions[]` grants.
  *
- * - `owner` — every permission (including `store:manage`).
- * - `admin` — everything except `store:manage` (store delete / ownership transfer).
- * - `staff` — products (read/write), inventory:write, orders (read/fulfill),
- *   stats:read, customers (read/write), draft_orders:write (POS).
+ * | permission         | owner | admin | staff |
+ * |--------------------|:-----:|:-----:|:-----:|
+ * | store:manage       |   ✓   |       |       |
+ * | members:manage     |   ✓   |   ✓   |       |
+ * | settings:write     |   ✓   |   ✓   |       |
+ * | discounts:write    |   ✓   |   ✓   |       |
+ * | refunds:write      |   ✓   |   ✓   |       |
+ * | locations:write    |   ✓   |   ✓   |       |
+ * | collections:write  |   ✓   |   ✓   |       |
+ * | products:read      |   ✓   |   ✓   |   ✓   |
+ * | products:write     |   ✓   |   ✓   |   ✓   |
+ * | inventory:write    |   ✓   |   ✓   |   ✓   |
+ * | orders:read        |   ✓   |   ✓   |   ✓   |
+ * | orders:fulfill     |   ✓   |   ✓   |   ✓   |
+ * | stats:read         |   ✓   |   ✓   |   ✓   |
+ * | customers:read     |   ✓   |   ✓   |   ✓   |
+ * | customers:write    |   ✓   |   ✓   |   ✓   |
+ * | draft_orders:write |   ✓   |   ✓   |   ✓   |
+ *
+ * - `owner` — every permission (16/16, incl. `store:manage`).
+ * - `admin` — every permission EXCEPT `store:manage` (15/16).
+ * - `staff` — the operational shop-floor + POS set (9/16); cannot configure the
+ *   business (no manage/settings/discounts/refunds/locations/collections).
  */
 export const ROLE_PERMISSIONS: Record<StoreRole, StorePermission[]> = {
   owner: [...ALL_PERMISSIONS],

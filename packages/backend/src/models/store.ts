@@ -47,6 +47,22 @@ export interface IStoreTaxSettings {
   chargeTaxOnProducts: boolean;
 }
 
+/** Store-wide policy documents + the return window (B7 expands the policy bodies). */
+export interface IStorePolicies {
+  returnWindowDays: number;
+  shippingNote?: string;
+  refundPolicy?: string;
+  privacyPolicy?: string;
+  termsOfService?: string;
+}
+
+/** Store notification preferences (B7). */
+export interface IStoreNotificationSettings {
+  lowStockAlerts: boolean;
+  orderEmails: boolean;
+  lowStockThreshold?: number;
+}
+
 export interface IStore {
   _id: mongoose.Types.ObjectId;
   handle: string;
@@ -58,12 +74,10 @@ export interface IStore {
   textTone: TextTone;
   status: (typeof STORE_STATUSES)[number];
   members: IStoreMember[];
-  policies: {
-    returnWindowDays: number;
-    shippingNote?: string;
-  };
+  policies: IStorePolicies;
   defaultCurrency: string;
   taxSettings: IStoreTaxSettings;
+  notificationSettings: IStoreNotificationSettings;
   rating: number;
   reviewCount: number;
   productCount: number;
@@ -97,12 +111,20 @@ const StoreSchema = new Schema<IStore>(
     policies: {
       returnWindowDays: { type: Number, default: 30 },
       shippingNote: { type: String },
+      refundPolicy: { type: String },
+      privacyPolicy: { type: String },
+      termsOfService: { type: String },
     },
     defaultCurrency: { type: String, enum: CURRENCY_CODES as string[], default: 'FAIR' },
     taxSettings: {
       pricesIncludeTax: { type: Boolean, default: false },
       taxRegistrationId: { type: String },
       chargeTaxOnProducts: { type: Boolean, default: true },
+    },
+    notificationSettings: {
+      lowStockAlerts: { type: Boolean, default: true },
+      orderEmails: { type: Boolean, default: true },
+      lowStockThreshold: { type: Number },
     },
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },

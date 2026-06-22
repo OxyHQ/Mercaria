@@ -70,3 +70,6 @@ export * from './fx';
 
 // Consumer dual-display currency preference (CurrencyPreference, UpdateCurrencyPreferenceInput).
 export * from './user-preference';
+
+// Store report/analytics DTOs (ReportSummary, SalesReportPoint, TopProduct, …).
+export * from './report';

@@ -14,10 +14,18 @@
 import type {
   CreateStoreInput,
   UpdateStoreInput,
+  UpdateStoreSettingsInput,
+  UpdateStorePoliciesInput,
   InviteMemberInput,
   UpdateMemberInput,
 } from '@mercaria/shared-types';
-import { Store, ALL_STORE_PERMISSIONS, type IStore, type IStoreMember } from '../models/store.js';
+import {
+  Store,
+  ALL_STORE_PERMISSIONS,
+  type IStore,
+  type IStoreMember,
+  type IStorePolicies,
+} from '../models/store.js';
 import { Location } from '../models/location.js';
 import { ensureUniqueSlug } from '../utils/slug.js';
 import { sendNotification } from '../lib/notification-service.js';
@@ -30,6 +38,20 @@ const DEFAULT_BRAND_COLOR = '#1D4ED8';
 /** Count the owners currently on a store. */
 function ownerCount(store: Pick<IStore, 'members'>): number {
   return store.members.filter((m) => m.role === 'owner').length;
+}
+
+/**
+ * Apply a partial policies patch onto a store's `policies` sub-document in place.
+ * Only the supplied fields are touched; absent fields keep their current value.
+ * Shared by the core store update (`PATCH /admin/stores/:storeId`) and the
+ * settings update (`PATCH /admin/stores/:storeId/settings`).
+ */
+function applyPolicyPatch(policies: IStorePolicies, patch: UpdateStorePoliciesInput): void {
+  if (patch.returnWindowDays !== undefined) policies.returnWindowDays = patch.returnWindowDays;
+  if (patch.shippingNote !== undefined) policies.shippingNote = patch.shippingNote;
+  if (patch.refundPolicy !== undefined) policies.refundPolicy = patch.refundPolicy;
+  if (patch.privacyPolicy !== undefined) policies.privacyPolicy = patch.privacyPolicy;
+  if (patch.termsOfService !== undefined) policies.termsOfService = patch.termsOfService;
 }
 
 /**
@@ -117,12 +139,63 @@ export async function updateStore(
   if (patch.textTone !== undefined) store.textTone = patch.textTone;
   if (patch.status !== undefined) store.status = patch.status;
   if (patch.policies !== undefined) {
-    if (patch.policies.returnWindowDays !== undefined) {
-      store.policies.returnWindowDays = patch.policies.returnWindowDays;
+    applyPolicyPatch(store.policies, patch.policies);
+  }
+
+  await store.save();
+  return store.toObject();
+}
+
+/**
+ * Update a store's settings: long-form policies and notification preferences
+ * (and, optionally, tax settings) in one call. Only supplied fields are touched;
+ * absent fields keep their current value (defaulting an absent `notificationSettings`
+ * block on a pre-B7 store to the on-by-default shape). Gated on `settings:write`.
+ */
+export async function updateStoreSettings(
+  storeId: string,
+  patch: UpdateStoreSettingsInput,
+): Promise<IStore> {
+  const store = await Store.findById(storeId);
+  if (!store) {
+    throw notFound('Store not found');
+  }
+
+  if (patch.policies !== undefined) {
+    applyPolicyPatch(store.policies, patch.policies);
+  }
+
+  if (patch.notificationSettings !== undefined) {
+    const current = store.notificationSettings ?? { lowStockAlerts: true, orderEmails: true };
+    if (patch.notificationSettings.lowStockAlerts !== undefined) {
+      current.lowStockAlerts = patch.notificationSettings.lowStockAlerts;
     }
-    if (patch.policies.shippingNote !== undefined) {
-      store.policies.shippingNote = patch.policies.shippingNote;
+    if (patch.notificationSettings.orderEmails !== undefined) {
+      current.orderEmails = patch.notificationSettings.orderEmails;
     }
+    if (patch.notificationSettings.lowStockThreshold !== undefined) {
+      current.lowStockThreshold = patch.notificationSettings.lowStockThreshold;
+    }
+    store.notificationSettings = current;
+  }
+
+  if (patch.taxSettings !== undefined) {
+    const currentTax = {
+      pricesIncludeTax: store.taxSettings?.pricesIncludeTax ?? false,
+      chargeTaxOnProducts: store.taxSettings?.chargeTaxOnProducts ?? true,
+      ...(store.taxSettings?.taxRegistrationId
+        ? { taxRegistrationId: store.taxSettings.taxRegistrationId }
+        : {}),
+    };
+    store.taxSettings = {
+      pricesIncludeTax: patch.taxSettings.pricesIncludeTax ?? currentTax.pricesIncludeTax,
+      chargeTaxOnProducts: patch.taxSettings.chargeTaxOnProducts ?? currentTax.chargeTaxOnProducts,
+      ...(patch.taxSettings.taxRegistrationId !== undefined
+        ? { taxRegistrationId: patch.taxSettings.taxRegistrationId }
+        : currentTax.taxRegistrationId
+          ? { taxRegistrationId: currentTax.taxRegistrationId }
+          : {}),
+    };
   }
 
   await store.save();

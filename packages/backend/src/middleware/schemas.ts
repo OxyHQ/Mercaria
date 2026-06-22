@@ -395,6 +395,22 @@ const storePermissionSchema = z.enum([
   'refunds:write',
 ]);
 
+/** Partial store-policies patch (core update + settings update). */
+const storePoliciesSchema = z.object({
+  returnWindowDays: z.number().int().nonnegative().optional(),
+  shippingNote: z.string().max(2_000).optional(),
+  refundPolicy: z.string().max(20_000).optional(),
+  privacyPolicy: z.string().max(20_000).optional(),
+  termsOfService: z.string().max(20_000).optional(),
+});
+
+/** Partial notification-settings patch (settings update). */
+const storeNotificationSettingsSchema = z.object({
+  lowStockAlerts: z.boolean().optional(),
+  orderEmails: z.boolean().optional(),
+  lowStockThreshold: z.number().int().nonnegative().optional(),
+});
+
 /** Body for `PATCH /admin/stores/:storeId` (UpdateStoreInput). */
 export const updateStoreSchema = z
   .object({
@@ -406,10 +422,20 @@ export const updateStoreSchema = z
     defaultCurrency: currencySchema.optional(),
     textTone: z.enum(['light', 'dark']).optional(),
     status: z.enum(['active', 'suspended', 'closed']).optional(),
-    policies: z
+    policies: storePoliciesSchema.optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+/** Body for `PATCH /admin/stores/:storeId/settings` (UpdateStoreSettingsInput). */
+export const updateStoreSettingsSchema = z
+  .object({
+    policies: storePoliciesSchema.optional(),
+    notificationSettings: storeNotificationSettingsSchema.optional(),
+    taxSettings: z
       .object({
-        returnWindowDays: z.number().int().nonnegative().optional(),
-        shippingNote: z.string().max(2_000).optional(),
+        pricesIncludeTax: z.boolean().optional(),
+        taxRegistrationId: z.string().trim().min(1).max(120).optional(),
+        chargeTaxOnProducts: z.boolean().optional(),
       })
       .optional(),
   })
@@ -674,6 +700,37 @@ export const createRefundSchema = z.object({
   refundShipping: z.boolean().optional(),
   idempotencyKey: z.string().trim().min(1).max(200).optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Reports (store analytics)
+// ---------------------------------------------------------------------------
+
+/** Time-bucket granularity for the sales-over-time report. */
+const salesReportIntervalSchema = z.enum(['day', 'week', 'month']);
+
+/**
+ * Query for `GET /admin/stores/:storeId/reports/sales`. `from`/`to` are ISO
+ * datetimes (defaulted + clamped server-side); `interval` defaults to `day`.
+ */
+export const salesReportQuerySchema = z
+  .object({
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
+    interval: salesReportIntervalSchema.optional(),
+  })
+  .passthrough();
+
+/**
+ * Query for `GET /admin/stores/:storeId/reports/top-products`. `from`/`to` are
+ * ISO datetimes (defaulted + clamped server-side); `limit` defaults to 10.
+ */
+export const topProductsQuerySchema = z
+  .object({
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
+    limit: z.coerce.number().int().positive().optional(),
+  })
+  .passthrough();
 
 // ---------------------------------------------------------------------------
 // Pagination query

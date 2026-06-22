@@ -90,6 +90,68 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(staff.has('customers:write')).toBe(true);
     expect(staff.has('draft_orders:write')).toBe(true);
   });
+
+  it('locks the FINAL B7 matrix: exact owner(16)/admin(15)/staff(9) sets', () => {
+    // The canonical 16-permission catalog.
+    const ALL: StorePermission[] = [
+      'store:manage',
+      'members:manage',
+      'products:read',
+      'products:write',
+      'inventory:write',
+      'locations:write',
+      'collections:write',
+      'discounts:write',
+      'settings:write',
+      'orders:read',
+      'orders:fulfill',
+      'stats:read',
+      'customers:read',
+      'customers:write',
+      'draft_orders:write',
+      'refunds:write',
+    ];
+
+    // owner = all 16.
+    expect(new Set(ROLE_PERMISSIONS.owner)).toEqual(new Set(ALL));
+    expect(ROLE_PERMISSIONS.owner.length).toBe(16);
+
+    // admin = all 15 except store:manage.
+    expect(new Set(ROLE_PERMISSIONS.admin)).toEqual(
+      new Set(ALL.filter((p) => p !== 'store:manage')),
+    );
+    expect(ROLE_PERMISSIONS.admin.length).toBe(15);
+
+    // staff = the exact 9 operational permissions.
+    const STAFF_ALLOWED: StorePermission[] = [
+      'products:read',
+      'products:write',
+      'inventory:write',
+      'orders:read',
+      'orders:fulfill',
+      'stats:read',
+      'customers:read',
+      'customers:write',
+      'draft_orders:write',
+    ];
+    const STAFF_DENIED: StorePermission[] = [
+      'store:manage',
+      'members:manage',
+      'settings:write',
+      'discounts:write',
+      'refunds:write',
+      'locations:write',
+      'collections:write',
+    ];
+    expect(new Set(ROLE_PERMISSIONS.staff)).toEqual(new Set(STAFF_ALLOWED));
+    expect(ROLE_PERMISSIONS.staff.length).toBe(9);
+    const staffSet = new Set(ROLE_PERMISSIONS.staff);
+    for (const denied of STAFF_DENIED) {
+      expect(staffSet.has(denied)).toBe(false);
+    }
+    // The allowed + denied sets together are exactly the 16-permission catalog.
+    expect(STAFF_ALLOWED.length + STAFF_DENIED.length).toBe(16);
+  });
 });
 
 describe('effectivePermissions', () => {

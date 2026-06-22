@@ -4,6 +4,7 @@ import { loadStore, requireStorePermission } from '../../middleware/store-authz.
 import {
   createStoreSchema,
   updateStoreSchema,
+  updateStoreSettingsSchema,
   updateTaxSettingsSchema,
 } from '../../middleware/schemas.js';
 import {
@@ -11,6 +12,7 @@ import {
   listMyStores,
   getStoreHandler,
   updateStoreHandler,
+  updateStoreSettingsHandler,
 } from '../../controllers/admin/store-admin.controller.js';
 import { patchStoreTaxSettings } from '../../controllers/admin/tax-rates-admin.controller.js';
 import membersRouter from './members.js';
@@ -23,6 +25,7 @@ import taxRatesRouter from './tax-rates.js';
 import customersRouter from './customers.js';
 import draftOrdersRouter from './draft-orders.js';
 import refundsRouter from './refunds.js';
+import reportsRouter from './reports.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -50,12 +53,20 @@ router.patch(
   updateStoreHandler,
 );
 
-// Store tax settings (PATCH only): gated on `settings:write`.
+// Store settings (policies/notifications/tax): gated on `settings:write`. The
+// dedicated `/settings/tax` path stays for the focused B4 tax-only update; the
+// broader `/settings` path patches policies + notification prefs (+ tax) at once.
 router.patch(
   '/:storeId/settings/tax',
   requireStorePermission('settings:write'),
   validateBody(updateTaxSettingsSchema),
   patchStoreTaxSettings,
+);
+router.patch(
+  '/:storeId/settings',
+  requireStorePermission('settings:write'),
+  validateBody(updateStoreSettingsSchema),
+  updateStoreSettingsHandler,
 );
 
 router.use('/:storeId/members', membersRouter);
@@ -68,5 +79,6 @@ router.use('/:storeId/tax-rates', taxRatesRouter);
 router.use('/:storeId/customers', customersRouter);
 router.use('/:storeId/draft-orders', draftOrdersRouter);
 router.use('/:storeId/refunds', refundsRouter);
+router.use('/:storeId/reports', reportsRouter);
 
 export default router;
