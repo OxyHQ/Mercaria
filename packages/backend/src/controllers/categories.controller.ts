@@ -11,7 +11,8 @@ import { Category, type ICategory } from '../models/category.js';
 import { searchListingsCursor } from '../services/search.service.js';
 import { hydrateListings } from '../services/catalog-hydration.service.js';
 import { parsePagination } from '../utils/pagination.js';
-import { sendSuccess, sendError, ErrorCodes } from '../utils/api-response.js';
+import { sendSuccess } from '../utils/api-response.js';
+import { respondWithError, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 /** Build the nested `CategoryNode` tree from a flat list of categories. */
@@ -61,7 +62,7 @@ export async function getCategoryTree(_req: Request, res: Response): Promise<voi
     sendSuccess(res, buildTree(categories));
   } catch (err) {
     log.general.error({ err }, 'Failed to load category tree');
-    sendError(res, ErrorCodes.INTERNAL_ERROR, 'Failed to load categories', 500);
+    respondWithError(res, err, 'Failed to load categories');
   }
 }
 
@@ -71,8 +72,7 @@ export async function getCategoryListings(req: Request, res: Response): Promise<
   try {
     const category = await Category.findOne({ slug, isActive: true }).lean<ICategory | null>();
     if (!category) {
-      sendError(res, ErrorCodes.NOT_FOUND, 'Category not found', 404);
-      return;
+      throw notFound('Category not found');
     }
 
     const { limit } = parsePagination(req.query);
@@ -87,6 +87,6 @@ export async function getCategoryListings(req: Request, res: Response): Promise<
     sendSuccess(res, page);
   } catch (err) {
     log.general.error({ err, slug }, 'Failed to load category listings');
-    sendError(res, ErrorCodes.INTERNAL_ERROR, 'Failed to load category listings', 500);
+    respondWithError(res, err, 'Failed to load category listings');
   }
 }

@@ -1,103 +1,28 @@
 import { Router } from 'express';
-import { Feedback } from '../models/feedback.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { log } from '../lib/logger.js';
+import { validateBody, validateObjectId } from '../middleware/validate.js';
+import { feedbackSchema } from '../middleware/schemas.js';
+import {
+  submitFeedback,
+  listMyFeedback,
+  getMyFeedback,
+} from '../controllers/feedback.controller.js';
 
+/**
+ * Feedback API — the authenticated user's submitted product feedback.
+ *
+ * `POST /feedback` submits; `GET /feedback` lists the caller's history
+ * (paginated); `GET /feedback/:id` reads a single item. Ownership is enforced in
+ * `feedback.service` (every query is scoped to the caller's Oxy user id).
+ * Metered on the dedicated `'feedback'` scope.
+ */
 const router = Router();
 
-// All feedback routes are rate-limited and require authentication.
-router.use(makeRateLimiter('feedback'), authenticateToken);
+router.use(authenticateToken);
 
-/**
- * POST /feedback
- * Submit new feedback
- */
-router.post('/', async (req, res) => {
-  try {
-    const { type, rating, message, email, metadata } = req.body;
-
-    if (!type || !message) {
-      res.status(400).json({ error: 'Type and message are required' });
-      return;
-    }
-
-    const validTypes = ['bug', 'feature', 'improvement', 'other'];
-    if (!validTypes.includes(type)) {
-      res.status(400).json({ error: 'Invalid feedback type' });
-      return;
-    }
-
-    if (rating !== undefined && (rating < 1 || rating > 5)) {
-      res.status(400).json({ error: 'Rating must be between 1 and 5' });
-      return;
-    }
-
-    const feedback = new Feedback({
-      oxyUserId: req.user!.id,
-      type,
-      rating,
-      message,
-      email,
-      metadata,
-      status: 'pending'
-    });
-
-    await feedback.save();
-
-    res.status(201).json({
-      success: true,
-      feedback: {
-        id: feedback._id,
-        type: feedback.type,
-        message: feedback.message,
-        createdAt: feedback.createdAt
-      }
-    });
-  } catch (error: unknown) {
-    log.general.error({ err: error }, 'Error submitting feedback');
-    res.status(500).json({ error: 'Failed to submit feedback' });
-  }
-});
-
-/**
- * GET /feedback
- * Get user's feedback history
- */
-router.get('/', async (req, res) => {
-  try {
-    const feedback = await Feedback.find({ oxyUserId: req.user!.id })
-      .sort({ createdAt: -1 })
-      .limit(50);
-
-    res.json(feedback);
-  } catch (error: unknown) {
-    log.general.error({ err: error }, 'Error fetching feedback');
-    res.status(500).json({ error: 'Failed to fetch feedback' });
-  }
-});
-
-/**
- * GET /feedback/:id
- * Get specific feedback by ID
- */
-router.get('/:id', async (req, res) => {
-  try {
-    const feedback = await Feedback.findOne({
-      _id: req.params.id,
-      oxyUserId: req.user!.id
-    });
-
-    if (!feedback) {
-      res.status(404).json({ error: 'Feedback not found' });
-      return;
-    }
-
-    res.json(feedback);
-  } catch (error: unknown) {
-    log.general.error({ err: error }, 'Error fetching feedback');
-    res.status(500).json({ error: 'Failed to fetch feedback' });
-  }
-});
+router.post('/', makeRateLimiter('feedback'), validateBody(feedbackSchema), submitFeedback);
+router.get('/', makeRateLimiter('feedback'), listMyFeedback);
+router.get('/:id', makeRateLimiter('feedback'), validateObjectId('id'), getMyFeedback);
 
 export default router;

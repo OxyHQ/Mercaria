@@ -15,8 +15,15 @@ import { Listing as ListingModel, type IListing } from '../models/listing.js';
 import { searchListingsOffset, searchListingsCursor } from '../services/search.service.js';
 import { hydrateListings } from '../services/catalog-hydration.service.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
-import { sendSuccess, sendPaginated, sendError, ErrorCodes } from '../utils/api-response.js';
+import { sendSuccess, sendPaginated } from '../utils/api-response.js';
+import { respondWithError, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
+
+/**
+ * Listing statuses publicly viewable on the product-detail page. `draft` and
+ * `archived` are owner/admin-only and 404 on the public read path.
+ */
+const PUBLICLY_VIEWABLE_STATUSES: readonly IListing['status'][] = ['active', 'sold'];
 
 /** Coerce + validate the browse query string into a typed `ListingQuery`. */
 const listingQuerySchema = z
@@ -62,14 +69,13 @@ function toListingQuery(parsed: z.infer<typeof listingQuerySchema>): ListingQuer
 
 /** GET /listings — browse/search. Cursor for infinite `newest`, offset otherwise. */
 export async function browseListings(req: Request, res: Response): Promise<void> {
-  const parsed = listingQuerySchema.safeParse(req.query);
-  if (!parsed.success) {
-    sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues.map((i) => i.message).join('; '), 400);
-    return;
-  }
-  const query = toListingQuery(parsed.data);
-
   try {
+    const parsed = listingQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      throw validationError(parsed.error.issues.map((i) => i.message).join('; '));
+    }
+    const query = toListingQuery(parsed.data);
+
     // Infinite path: newest sort with a cursor present → CursorPage.
     if (query.sort === 'newest' && query.cursor) {
       const { limit } = parsePagination(req.query);
@@ -90,7 +96,7 @@ export async function browseListings(req: Request, res: Response): Promise<void>
     sendPaginated(res, data, buildPagination(page, limit, result.total));
   } catch (err) {
     log.general.error({ err }, 'Failed to browse listings');
-    sendError(res, ErrorCodes.INTERNAL_ERROR, 'Failed to load listings', 500);
+    respondWithError(res, err, 'Failed to load listings');
   }
 }
 
@@ -99,14 +105,13 @@ export async function getListingById(req: Request, res: Response): Promise<void>
   const id = req.params.id;
   try {
     const doc = await ListingModel.findById(id).lean<IListing | null>();
-    if (!doc) {
-      sendError(res, ErrorCodes.NOT_FOUND, 'Listing not found', 404);
-      return;
+    if (!doc || !PUBLICLY_VIEWABLE_STATUSES.includes(doc.status)) {
+      throw notFound('Listing not found');
     }
     const [dto] = await hydrateListings([doc], { viewerId: req.user?.id });
     sendSuccess(res, dto);
   } catch (err) {
     log.general.error({ err, listingId: id }, 'Failed to load listing');
-    sendError(res, ErrorCodes.INTERNAL_ERROR, 'Failed to load listing', 500);
+    respondWithError(res, err, 'Failed to load listing');
   }
 }

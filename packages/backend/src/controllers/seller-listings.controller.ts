@@ -23,7 +23,7 @@ import {
 } from '../services/catalog-write.service.js';
 import { hydrateListings } from '../services/catalog-hydration.service.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
-import { sendSuccess, sendPaginated, sendError, ErrorCodes } from '../utils/api-response.js';
+import { sendSuccess, sendPaginated } from '../utils/api-response.js';
 import { respondWithError, forbidden, notFound } from '../lib/errors/error-codes.js';
 import { routeParam } from '../utils/request.js';
 import { log } from '../lib/logger.js';
@@ -95,8 +95,7 @@ export async function getMyListing(req: Request, res: Response): Promise<void> {
     await loadOwnedListing(id, oxyUserId);
     const dto = await hydrateById(id, oxyUserId);
     if (!dto) {
-      sendError(res, ErrorCodes.NOT_FOUND, 'Listing not found', 404);
-      return;
+      throw notFound('Listing not found');
     }
     sendSuccess(res, dto);
   } catch (err) {

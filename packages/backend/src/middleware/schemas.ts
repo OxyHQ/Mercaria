@@ -272,9 +272,14 @@ export const checkoutSchema = z.object({
   shippingSelections: z.record(z.string(), shippingMethodSchema).optional(),
 });
 
-/** Body for store `PATCH /admin/stores/:storeId/orders/:id/status`. */
+/**
+ * Body for store `PATCH /admin/stores/:storeId/orders/:id/status`. Restricted to
+ * the fulfilment subset — a store may advance an order along
+ * processing/shipped/delivered or cancel it, but `paid`/`refunded` are payment
+ * outcomes and MUST NOT be settable via this route.
+ */
 export const orderStatusPatchSchema = z.object({
-  status: orderStatusSchema,
+  status: z.enum(['processing', 'shipped', 'delivered', 'cancelled']),
   trackingNumber: z.string().trim().min(1).optional(),
   note: z.string().trim().max(2000).optional(),
 });
@@ -329,3 +334,56 @@ export const createReviewSchema = z
       (o.targetType === 'seller' && !!o.sellerOxyUserId),
     { message: 'targetType requires the matching target id' },
   );
+
+// ---------------------------------------------------------------------------
+// Feedback
+// ---------------------------------------------------------------------------
+
+/** Body for `POST /feedback` (CreateFeedbackInput). Mirrors the `IFeedback` model. */
+export const feedbackSchema = z.object({
+  type: z.enum(['bug', 'feature', 'improvement', 'other']),
+  rating: z.number().int().min(1).max(5).optional(),
+  message: z.string().trim().min(1).max(10_000),
+  email: z.string().trim().email().max(320).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+/** Query for `GET /notifications` (`page`/`limit` + optional `status`/`type` filter). */
+export const notificationListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().optional(),
+    status: z.enum(['pending', 'sent', 'read', 'dismissed']).optional(),
+    type: z.string().trim().min(1).optional(),
+  })
+  .passthrough();
+
+/** Body for `POST /notifications/push-token` (register/update an Expo push token). */
+export const pushTokenSchema = z.object({
+  token: z.string().trim().min(1),
+  deviceId: z.string().trim().min(1).optional(),
+  platform: z.enum(['ios', 'android', 'web']).optional(),
+});
+
+/** Body for `DELETE /notifications/push-token` (deactivate an Expo push token). */
+export const pushTokenDeleteSchema = z.object({
+  token: z.string().trim().min(1),
+});
+
+/** Body for `POST /notifications/web-push-subscription` (save a browser subscription). */
+export const webPushSubscriptionSchema = z.object({
+  endpoint: z.string().trim().min(1),
+  keys: z.object({
+    p256dh: z.string().trim().min(1),
+    auth: z.string().trim().min(1),
+  }),
+});
+
+/** Body for `DELETE /notifications/web-push-subscription` (deactivate a subscription). */
+export const webPushSubscriptionDeleteSchema = z.object({
+  endpoint: z.string().trim().min(1),
+});

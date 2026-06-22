@@ -7,7 +7,8 @@
 
 import type { Request, Response } from 'express';
 import { getFeed } from '../services/feed.service.js';
-import { sendSuccess, sendError, ErrorCodes } from '../utils/api-response.js';
+import { sendSuccess } from '../utils/api-response.js';
+import { respondWithError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 /** GET /feed — the DB-backed home feed. PUBLIC; viewerId (optional) drives `saved`. */
@@ -17,6 +18,6 @@ export async function getHomeFeed(req: Request, res: Response): Promise<void> {
     sendSuccess(res, feed);
   } catch (err) {
     log.general.error({ err }, 'Failed to build home feed');
-    sendError(res, ErrorCodes.INTERNAL_ERROR, 'Failed to load feed', 500);
+    respondWithError(res, err, 'Failed to load feed');
   }
 }

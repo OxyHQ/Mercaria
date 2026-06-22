@@ -12,7 +12,8 @@ import { Store, type IStore } from '../models/store.js';
 import { Listing as ListingModel, type IListing } from '../models/listing.js';
 import { hydrateListings, toMerchantSummary } from '../services/catalog-hydration.service.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
-import { sendSuccess, sendError, ErrorCodes } from '../utils/api-response.js';
+import { sendSuccess } from '../utils/api-response.js';
+import { respondWithError, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 /** Response shape for the public store page. */
@@ -28,8 +29,7 @@ export async function getStoreByHandle(req: Request, res: Response): Promise<voi
   try {
     const store = await Store.findOne({ handle }).lean<IStore | null>();
     if (!store || store.status === 'closed') {
-      sendError(res, ErrorCodes.NOT_FOUND, 'Store not found', 404);
-      return;
+      throw notFound('Store not found');
     }
 
     const storeId = String((store as { _id: unknown })._id);
@@ -55,6 +55,6 @@ export async function getStoreByHandle(req: Request, res: Response): Promise<voi
     sendSuccess(res, body);
   } catch (err) {
     log.general.error({ err, handle }, 'Failed to load store');
-    sendError(res, ErrorCodes.INTERNAL_ERROR, 'Failed to load store', 500);
+    respondWithError(res, err, 'Failed to load store');
   }
 }
