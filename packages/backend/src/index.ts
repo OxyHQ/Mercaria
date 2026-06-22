@@ -73,6 +73,8 @@ const PRODUCTION_ORIGINS = [
   'https://mercaria.co',
   'https://console.mercaria.co',
   'https://gateway.mercaria.co',
+  'https://dashboard.mercaria.co',
+  'https://pos.mercaria.co',
 ];
 
 const DEV_ORIGINS = [
@@ -81,6 +83,14 @@ const DEV_ORIGINS = [
   'http://localhost:8081',
   'exp://localhost:8081',
   'http://10.0.2.2:8081',
+  // Sibling Expo web apps run on incrementing ports (frontend 8081,
+  // dashboard 8082, pos 8083) when started concurrently.
+  'http://localhost:8082',
+  'exp://localhost:8082',
+  'http://10.0.2.2:8082',
+  'http://localhost:8083',
+  'exp://localhost:8083',
+  'http://10.0.2.2:8083',
 ];
 
 const allowedOrigins = [

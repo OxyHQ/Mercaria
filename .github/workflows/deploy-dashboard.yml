@@ -1,0 +1,53 @@
+name: Deploy Dashboard
+
+# HANDOFF: before this deploy can go live, the following must be created/registered:
+#   - Cloudflare Pages project named `mercaria-dashboard`
+#   - Custom domain `dashboard.mercaria.co` attached to that Pages project + DNS
+#   - Oxy RP client id for the dashboard registered, and the repo variable
+#     `EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD` set to it
+# Until those exist `wrangler pages deploy` will fail and SSO will not work.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-dashboard.yml'
+      - 'packages/dashboard/**'
+      - 'packages/ui/**'
+      - 'packages/shared-types/**'
+      - 'package.json'
+      - 'bun.lock'
+
+jobs:
+  deploy-dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.14'
+      - run: bun install --frozen-lockfile
+      - name: Build dashboard (Expo web export)
+        run: bun run build:dashboard
+        timeout-minutes: 60
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+          NODE_ENV: production
+          # Public, compile-time Expo env. EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD is
+          # the registered Oxy RP client id for the dashboard (handoff: register
+          # it and set this repo variable before the SSO RP flow works); the API
+          # URL points at the Mercaria backend.
+          EXPO_PUBLIC_OXY_CLIENT_ID: ${{ vars.EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD }}
+          EXPO_PUBLIC_OXY_API_URL: ${{ vars.EXPO_PUBLIC_OXY_API_URL || 'https://api.oxy.so' }}
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://api.mercaria.co' }}
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '3.114.0'
+          command: pages deploy packages/dashboard/dist --project-name=mercaria-dashboard --branch=main
