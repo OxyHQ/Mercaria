@@ -10,6 +10,7 @@
 import type { Timestamps } from './common';
 import type { CurrencyCode } from './money';
 import type { TextTone } from './product';
+import type { TaxSettings, UpdateTaxSettingsInput } from './tax';
 
 /** A member's role within a store. */
 export type StoreRole = 'owner' | 'admin' | 'staff';
@@ -23,6 +24,8 @@ export type StorePermission =
   | 'inventory:write'
   | 'locations:write'
   | 'collections:write'
+  | 'discounts:write'
+  | 'settings:write'
   | 'orders:read'
   | 'orders:fulfill'
   | 'stats:read';
@@ -70,6 +73,11 @@ export interface Store extends Timestamps {
   };
   /** Default currency for new products in this store. */
   defaultCurrency: CurrencyCode;
+  /**
+   * Store-level tax behavior. Optional for back-compat reads (stores created
+   * before B4 may lack it; the API falls back to defaults).
+   */
+  taxSettings?: TaxSettings;
   /** Aggregate rating, 0–5. */
   rating: number;
   /** Number of reviews contributing to `rating`. */
@@ -96,6 +104,7 @@ export type UpdateStoreInput = Partial<CreateStoreInput> & {
     shippingNote?: string;
   };
   status?: Store['status'];
+  taxSettings?: UpdateTaxSettingsInput;
 };
 
 /** Payload accepted when inviting a member to a store. */

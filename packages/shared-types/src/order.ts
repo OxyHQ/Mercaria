@@ -13,6 +13,8 @@ import type { Money } from './money';
 import type { Seller } from './seller';
 import type { MerchantSummary } from './product';
 import type { Timestamps } from './common';
+import type { DiscountAllocation } from './discount';
+import type { TaxLine } from './tax';
 
 /**
  * Lifecycle status of an order.
@@ -80,6 +82,8 @@ export interface OrderItem {
   quantity: number;
   /** `unitPrice * quantity`. */
   lineTotal: Money;
+  /** Total discount attributed to this line (FAIR minor units), when discounted. */
+  discountTotal?: Money;
 }
 
 /** Who fulfils an order: an individual P2P seller or a store. */
@@ -162,11 +166,19 @@ export interface Order extends Timestamps {
   totals: {
     /** Sum of every line total. */
     subtotal: Money;
-    /** Shipping cost added to the subtotal. */
+    /** Total of every applied discount allocation (0 when none). */
+    discountTotal: Money;
+    /** Shipping cost added to the order. */
     shipping: Money;
-    /** `subtotal + shipping`. */
+    /** Total tax added to the order (0 when none / tax-inclusive). */
+    tax: Money;
+    /** `subtotal - discountTotal + tax + shipping`. */
     grandTotal: Money;
   };
+  /** Per-discount breakdown of every reduction applied (empty when none). */
+  appliedDiscounts?: DiscountAllocation[];
+  /** Per-rate tax breakdown (empty when none). */
+  taxLines?: TaxLine[];
   /** Current lifecycle status. */
   status: OrderStatus;
   /** Audit trail of every status transition. */
@@ -209,6 +221,11 @@ export interface CheckoutInput {
    * `standard`.
    */
   shippingSelections?: Record<string, ShippingMethod>;
+  /**
+   * Discount codes to apply at checkout, merged with any codes already pinned to
+   * the cart. Only honored for store-owned seller groups; ignored for P2P.
+   */
+  discountCodes?: string[];
 }
 
 /** Result of a successful checkout: the group id + a summary of each new order. */

@@ -24,6 +24,8 @@ export interface ICart {
   items: ICartItem[];
   /** The single currency every line in this cart shares. */
   currency: string;
+  /** Discount codes pinned to the cart, pending application at checkout (normalized uppercase). */
+  pendingDiscountCodes: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +46,7 @@ const CartSchema = new Schema<ICart>(
     oxyUserId: { type: String, required: true },
     items: { type: [CartItemSchema], default: [] },
     currency: { type: String, enum: CURRENCY_CODES as string[], required: true },
+    pendingDiscountCodes: { type: [String], default: [] },
   },
   { timestamps: true },
 );

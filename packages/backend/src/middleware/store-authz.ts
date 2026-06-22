@@ -40,6 +40,8 @@ const ALL_PERMISSIONS: readonly StorePermission[] = [
   'inventory:write',
   'locations:write',
   'collections:write',
+  'discounts:write',
+  'settings:write',
   'orders:read',
   'orders:fulfill',
   'stats:read',

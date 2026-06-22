@@ -8,11 +8,22 @@
 
 import type { Request, Response } from 'express';
 import { getRequiredOxyUserId } from '@oxyhq/core/server';
-import type { AddCartItemInput, UpdateCartItemInput } from '@mercaria/shared-types';
+import type {
+  AddCartItemInput,
+  UpdateCartItemInput,
+  ApplyCartDiscountInput,
+} from '@mercaria/shared-types';
 import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { routeParam } from '../utils/request.js';
-import { getCart, addItem, updateItem, removeItem } from '../services/cart.service.js';
+import {
+  getCart,
+  addItem,
+  updateItem,
+  removeItem,
+  applyDiscountCode,
+  removeDiscountCode,
+} from '../services/cart.service.js';
 import { log } from '../lib/logger.js';
 
 /** GET /cart — the buyer's hydrated cart. */
@@ -63,5 +74,31 @@ export async function deleteCartItem(req: Request, res: Response): Promise<void>
   } catch (err) {
     log.general.error({ err, variantId }, 'Failed to remove cart item');
     respondWithError(res, err, 'Failed to remove cart item');
+  }
+}
+
+/** POST /cart/discount — pin a discount code to the cart. */
+export async function applyCartDiscount(req: Request, res: Response): Promise<void> {
+  try {
+    const oxyUserId = getRequiredOxyUserId(req);
+    const { code } = req.body as ApplyCartDiscountInput;
+    const cart = await applyDiscountCode(oxyUserId, code);
+    sendSuccess(res, cart);
+  } catch (err) {
+    log.general.error({ err }, 'Failed to apply cart discount');
+    respondWithError(res, err, 'Failed to apply discount code');
+  }
+}
+
+/** DELETE /cart/discount/:code — remove a pinned discount code from the cart. */
+export async function deleteCartDiscount(req: Request, res: Response): Promise<void> {
+  const code = routeParam(req, 'code');
+  try {
+    const oxyUserId = getRequiredOxyUserId(req);
+    const cart = await removeDiscountCode(oxyUserId, code);
+    sendSuccess(res, cart);
+  } catch (err) {
+    log.general.error({ err, code }, 'Failed to remove cart discount');
+    respondWithError(res, err, 'Failed to remove discount code');
   }
 }

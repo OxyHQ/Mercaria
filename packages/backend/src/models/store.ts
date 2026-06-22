@@ -19,6 +19,8 @@ const STORE_PERMISSIONS: readonly StorePermission[] = [
   'inventory:write',
   'locations:write',
   'collections:write',
+  'discounts:write',
+  'settings:write',
   'orders:read',
   'orders:fulfill',
   'stats:read',
@@ -32,6 +34,13 @@ export interface IStoreMember {
   permissions: StorePermission[];
   invitedBy?: string;
   joinedAt: Date;
+}
+
+/** Store-level tax behavior (B4). */
+export interface IStoreTaxSettings {
+  pricesIncludeTax: boolean;
+  taxRegistrationId?: string;
+  chargeTaxOnProducts: boolean;
 }
 
 export interface IStore {
@@ -50,6 +59,7 @@ export interface IStore {
     shippingNote?: string;
   };
   defaultCurrency: string;
+  taxSettings: IStoreTaxSettings;
   rating: number;
   reviewCount: number;
   productCount: number;
@@ -85,6 +95,11 @@ const StoreSchema = new Schema<IStore>(
       shippingNote: { type: String },
     },
     defaultCurrency: { type: String, enum: CURRENCY_CODES as string[], default: 'FAIR' },
+    taxSettings: {
+      pricesIncludeTax: { type: Boolean, default: false },
+      taxRegistrationId: { type: String },
+      chargeTaxOnProducts: { type: Boolean, default: true },
+    },
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     productCount: { type: Number, default: 0 },

@@ -2,20 +2,28 @@ import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { validateBody, validateObjectId } from '../middleware/validate.js';
-import { addCartItemSchema, updateCartItemSchema } from '../middleware/schemas.js';
+import {
+  addCartItemSchema,
+  updateCartItemSchema,
+  applyCartDiscountSchema,
+} from '../middleware/schemas.js';
 import {
   getMyCart,
   addCartItem,
   updateCartItem,
   deleteCartItem,
+  applyCartDiscount,
+  deleteCartDiscount,
 } from '../controllers/cart.controller.js';
 
 /**
  * Cart API — the authenticated buyer's basket.
  *
- * `GET /cart` returns the hydrated cart (live prices/availability/subtotal).
- * `POST /cart/items` adds/increments a variant; `PATCH|DELETE /cart/items/:variantId`
- * set quantity / remove a line. Metered on the dedicated `'cart'` scope.
+ * `GET /cart` returns the hydrated cart (live prices/availability/subtotal +
+ * pending-discount preview). `POST /cart/items` adds/increments a variant;
+ * `PATCH|DELETE /cart/items/:variantId` set quantity / remove a line.
+ * `POST /cart/discount` pins a code; `DELETE /cart/discount/:code` removes it.
+ * Metered on the dedicated `'cart'` scope.
  */
 const router = Router();
 
@@ -36,5 +44,12 @@ router.delete(
   validateObjectId('variantId'),
   deleteCartItem,
 );
+router.post(
+  '/discount',
+  makeRateLimiter('cart'),
+  validateBody(applyCartDiscountSchema),
+  applyCartDiscount,
+);
+router.delete('/discount/:code', makeRateLimiter('cart'), deleteCartDiscount);
 
 export default router;

@@ -40,17 +40,19 @@ function mockRes(): Response & { status: ReturnType<typeof vi.fn>; json: ReturnT
 }
 
 describe('ROLE_PERMISSIONS matrix', () => {
-  it('owner holds every permission including store:manage, members:manage, locations:write and collections:write', () => {
+  it('owner holds every permission including store:manage, members:manage, locations:write, collections:write, discounts:write and settings:write', () => {
     const owner = new Set(ROLE_PERMISSIONS.owner);
     expect(owner.has('store:manage')).toBe(true);
     expect(owner.has('members:manage')).toBe(true);
     expect(owner.has('products:write')).toBe(true);
     expect(owner.has('locations:write')).toBe(true);
     expect(owner.has('collections:write')).toBe(true);
-    expect(owner.size).toBe(10);
+    expect(owner.has('discounts:write')).toBe(true);
+    expect(owner.has('settings:write')).toBe(true);
+    expect(owner.size).toBe(12);
   });
 
-  it('admin holds everything except store:manage (incl. locations:write, collections:write)', () => {
+  it('admin holds everything except store:manage (incl. discounts:write, settings:write)', () => {
     const admin = new Set(ROLE_PERMISSIONS.admin);
     expect(admin.has('store:manage')).toBe(false);
     expect(admin.has('members:manage')).toBe(true);
@@ -58,14 +60,18 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(admin.has('inventory:write')).toBe(true);
     expect(admin.has('locations:write')).toBe(true);
     expect(admin.has('collections:write')).toBe(true);
+    expect(admin.has('discounts:write')).toBe(true);
+    expect(admin.has('settings:write')).toBe(true);
   });
 
-  it('staff is limited to products/inventory/orders/stats (no manage perms)', () => {
+  it('staff is limited to products/inventory/orders/stats (no manage perms, no discounts/settings)', () => {
     const staff = new Set(ROLE_PERMISSIONS.staff);
     expect(staff.has('store:manage')).toBe(false);
     expect(staff.has('members:manage')).toBe(false);
     expect(staff.has('locations:write')).toBe(false);
     expect(staff.has('collections:write')).toBe(false);
+    expect(staff.has('discounts:write')).toBe(false);
+    expect(staff.has('settings:write')).toBe(false);
     expect(staff.has('products:read')).toBe(true);
     expect(staff.has('products:write')).toBe(true);
     expect(staff.has('inventory:write')).toBe(true);

@@ -3,13 +3,16 @@
  *
  * `mongodb-memory-server` is not available, so the cart/inventory services, the
  * Listing/ProductVariant/Address/Order/Counter models, the order-hydration
- * summarizer, the media chokepoint and Redis are all mocked. Tests assert the F4
- * checkout contract: multi-seller split (one order per seller, shared
- * `checkoutGroupId`), reservation rollback on a later out-of-stock line,
- * idempotent replay via Redis, and that totals = subtotal + shipping.
+ * summarizer, the media chokepoint, the pricing engine, the Discount model and
+ * Redis are all mocked. Tests assert the F4 checkout contract: multi-seller split
+ * (one order per seller, shared `checkoutGroupId`), reservation rollback on a
+ * later out-of-stock line, idempotent replay via Redis, the B4 totals shape
+ * (subtotal/discountTotal/shipping/tax/grandTotal), and that a redeemed discount's
+ * usage increments EXACTLY once on a fresh checkout (never on replay).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { PricingResult } from '../pricing.service.js';
 
 const getCart = vi.fn();
 const clearCart = vi.fn();
@@ -24,6 +27,8 @@ const nextOrderNumber = vi.fn();
 const summarizeOrders = vi.fn();
 const getRedisClient = vi.fn();
 const enqueueOrderEvent = vi.fn();
+const calculateTotals = vi.fn();
+const discountUpdateOne = vi.fn();
 
 vi.mock('../cart.service.js', () => ({
   getCart: (...args: unknown[]) => getCart(...args),
@@ -58,12 +63,20 @@ vi.mock('../../models/counter.js', () => ({
   nextOrderNumber: (...args: unknown[]) => nextOrderNumber(...args),
 }));
 
+vi.mock('../../models/discount.js', () => ({
+  Discount: { updateOne: (...args: unknown[]) => discountUpdateOne(...args) },
+}));
+
 vi.mock('../order-hydration.service.js', () => ({
   summarizeOrders: (...args: unknown[]) => summarizeOrders(...args),
 }));
 
 vi.mock('../catalog-hydration.service.js', () => ({
   resolveMedia: (value: string) => `resolved:${value}`,
+}));
+
+vi.mock('../pricing.service.js', () => ({
+  calculateTotals: (...args: unknown[]) => calculateTotals(...args),
 }));
 
 vi.mock('../../queue/producers.js', () => ({
@@ -78,6 +91,25 @@ vi.mock('../../lib/redis.js', () => ({
 import { checkout } from '../checkout.service.js';
 import { isMercariaError, outOfStock } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
+
+/**
+ * A deterministic pricing result for a group: subtotal = sum of line totals,
+ * zero discount/tax by default, grandTotal = subtotal (checkout adds shipping
+ * afterward). `perLineDiscount` mirrors the group's line count.
+ */
+function pricingResultFor(lineCount: number, subtotal: number): PricingResult {
+  const currency = 'FAIR' as const;
+  return {
+    subtotal: { amount: subtotal, currency },
+    discountTotal: { amount: 0, currency },
+    tax: { amount: 0, currency },
+    shipping: { amount: 0, currency },
+    grandTotal: { amount: subtotal, currency },
+    appliedDiscounts: [],
+    taxLines: [],
+    perLineDiscount: Array.from({ length: lineCount }, () => ({ amount: 0, currency })),
+  };
+}
 
 const USER = 'buyer-1';
 const ADDRESS_ID = '000000000000000000000a01';
@@ -147,6 +179,12 @@ beforeEach(() => {
   summarizeOrders.mockReset();
   getRedisClient.mockReset().mockReturnValue(null);
   enqueueOrderEvent.mockReset().mockResolvedValue(undefined);
+  discountUpdateOne.mockReset().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+  // Default pricing: zero discount/tax, subtotal derived from the group's lines.
+  calculateTotals.mockReset().mockImplementation((input: { lines: { unitPrice: { amount: number }; quantity: number }[] }) => {
+    const subtotal = input.lines.reduce((s, l) => s + l.unitPrice.amount * l.quantity, 0);
+    return Promise.resolve(pricingResultFor(input.lines.length, subtotal));
+  });
 });
 
 describe('checkout.service.checkout — multi-seller split', () => {
@@ -267,7 +305,7 @@ describe('checkout.service.checkout — idempotent replay', () => {
 });
 
 describe('checkout.service.checkout — totals', () => {
-  it('sets grandTotal = subtotal + standard shipping', async () => {
+  it('sets grandTotal = pricing.grandTotal + standard shipping (B4 shape)', async () => {
     const L1 = '000000000000000000000501';
     const V1 = '000000000000000000000601';
 
@@ -289,11 +327,109 @@ describe('checkout.service.checkout — totals', () => {
     await checkout(USER, { addressId: ADDRESS_ID });
 
     const doc = orderCreate.mock.calls[0][0] as {
-      totals: { subtotal: { amount: number }; shipping: { amount: number }; grandTotal: { amount: number } };
+      totals: {
+        subtotal: { amount: number };
+        discountTotal: { amount: number };
+        shipping: { amount: number };
+        tax: { amount: number };
+        grandTotal: { amount: number };
+      };
     };
-    // subtotal 5000 + standard shipping 500 = 5500.
+    // subtotal 5000, no discount/tax + standard shipping 500 = 5500.
     expect(doc.totals.subtotal.amount).toBe(5000);
+    expect(doc.totals.discountTotal.amount).toBe(0);
     expect(doc.totals.shipping.amount).toBe(500);
+    expect(doc.totals.tax.amount).toBe(0);
     expect(doc.totals.grandTotal.amount).toBe(5500);
+  });
+});
+
+describe('checkout.service.checkout — discounts', () => {
+  /** Set up a single-store-group checkout whose pricing applies a code discount. */
+  function arrangeDiscountedCheckout(): { L1: string; V1: string } {
+    const L1 = '000000000000000000000701';
+    const V1 = '000000000000000000000801';
+
+    getCart.mockResolvedValueOnce({
+      id: 'cart-1',
+      currency: 'FAIR',
+      items: [cartItem({ listingId: L1, variantId: V1, amount: 1000, quantity: 1 })],
+      subtotal: { amount: 1000, currency: 'FAIR' },
+      pendingDiscountCodes: ['WELCOME15'],
+    });
+    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
+    listingFind.mockReturnValueOnce(leanOf([listingDoc(L1, { ownerType: 'store', storeId: 'store-A' })]));
+    variantFind.mockReturnValueOnce(leanOf([variantDoc(V1, L1)]));
+    nextOrderNumber.mockResolvedValue('MRC-000020');
+    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
+      Promise.resolve({ toObject: () => ({ ...doc, _id: 'order-1' }) }),
+    );
+    summarizeOrders.mockResolvedValue([{ id: 'o1', orderNumber: 'MRC-000020', status: 'pending_payment' }]);
+
+    // Pricing returns a 15% order discount on the 1000 line.
+    calculateTotals.mockReset().mockResolvedValue({
+      subtotal: { amount: 1000, currency: 'FAIR' },
+      discountTotal: { amount: 150, currency: 'FAIR' },
+      tax: { amount: 0, currency: 'FAIR' },
+      shipping: { amount: 0, currency: 'FAIR' },
+      grandTotal: { amount: 850, currency: 'FAIR' },
+      appliedDiscounts: [
+        {
+          discountId: 'd1',
+          code: 'WELCOME15',
+          title: 'Welcome 15% off',
+          valueType: 'percentage',
+          amount: { amount: 150, currency: 'FAIR' },
+          target: 'order',
+        },
+      ],
+      taxLines: [],
+      perLineDiscount: [{ amount: 150, currency: 'FAIR' }],
+    } satisfies PricingResult);
+
+    return { L1, V1 };
+  }
+
+  it('persists the discount on the order and increments usage exactly once', async () => {
+    arrangeDiscountedCheckout();
+
+    await checkout(USER, { addressId: ADDRESS_ID });
+
+    const doc = orderCreate.mock.calls[0][0] as {
+      totals: { discountTotal: { amount: number }; grandTotal: { amount: number } };
+      appliedDiscounts: { code: string }[];
+      items: { discountTotal?: { amount: number } }[];
+    };
+    expect(doc.totals.discountTotal.amount).toBe(150);
+    // grandTotal = pricing.grandTotal (850) + standard shipping (500).
+    expect(doc.totals.grandTotal.amount).toBe(1350);
+    expect(doc.appliedDiscounts).toHaveLength(1);
+    expect(doc.appliedDiscounts[0].code).toBe('WELCOME15');
+    expect(doc.items[0].discountTotal?.amount).toBe(150);
+
+    // Usage incremented EXACTLY once for the redeemed code, via a guarded $inc.
+    expect(discountUpdateOne).toHaveBeenCalledTimes(1);
+    const [filter, update, options] = discountUpdateOne.mock.calls[0];
+    expect((filter as { 'codes.code': string })['codes.code']).toBe('WELCOME15');
+    expect(update).toEqual({ $inc: { 'codes.$[c].usageCount': 1 } });
+    expect(options).toEqual({ arrayFilters: [{ 'c.code': 'WELCOME15' }] });
+  });
+
+  it('does NOT increment usage on an idempotent Redis replay', async () => {
+    const storedGroupId = 'group-prior-2';
+    const redis = {
+      set: vi.fn().mockResolvedValue(null), // claim lost → already exists
+      get: vi.fn().mockResolvedValue(storedGroupId),
+    };
+    getRedisClient.mockReturnValue(redis);
+
+    orderFind.mockReturnValueOnce(leanOf([{ _id: 'o1', checkoutGroupId: storedGroupId }]));
+    summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000020', status: 'paid' }]);
+
+    await checkout(USER, { addressId: ADDRESS_ID, discountCodes: ['WELCOME15'] }, 'idem-key-2');
+
+    // Replay returns the prior orders — no pricing, no creation, no usage increment.
+    expect(orderCreate).not.toHaveBeenCalled();
+    expect(discountUpdateOne).not.toHaveBeenCalled();
   });
 });

@@ -44,6 +44,13 @@ export function toStoreDTO(store: IStore): StoreDTO {
       ...(store.policies.shippingNote ? { shippingNote: store.policies.shippingNote } : {}),
     },
     defaultCurrency: store.defaultCurrency as StoreDTO['defaultCurrency'],
+    taxSettings: {
+      pricesIncludeTax: store.taxSettings?.pricesIncludeTax ?? false,
+      chargeTaxOnProducts: store.taxSettings?.chargeTaxOnProducts ?? true,
+      ...(store.taxSettings?.taxRegistrationId
+        ? { taxRegistrationId: store.taxSettings.taxRegistrationId }
+        : {}),
+    },
     rating: store.rating,
     reviewCount: store.reviewCount,
     productCount: store.productCount,

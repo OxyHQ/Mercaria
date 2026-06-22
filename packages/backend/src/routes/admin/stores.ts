@@ -1,18 +1,25 @@
 import { Router } from 'express';
 import { validateBody, validateObjectId } from '../../middleware/validate.js';
 import { loadStore, requireStorePermission } from '../../middleware/store-authz.js';
-import { createStoreSchema, updateStoreSchema } from '../../middleware/schemas.js';
+import {
+  createStoreSchema,
+  updateStoreSchema,
+  updateTaxSettingsSchema,
+} from '../../middleware/schemas.js';
 import {
   createStoreHandler,
   listMyStores,
   getStoreHandler,
   updateStoreHandler,
 } from '../../controllers/admin/store-admin.controller.js';
+import { patchStoreTaxSettings } from '../../controllers/admin/tax-rates-admin.controller.js';
 import membersRouter from './members.js';
 import productsRouter from './products.js';
 import ordersRouter from './orders.js';
 import locationsRouter from './locations.js';
 import collectionsRouter from './collections.js';
+import discountsRouter from './discounts.js';
+import taxRatesRouter from './tax-rates.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -40,10 +47,20 @@ router.patch(
   updateStoreHandler,
 );
 
+// Store tax settings (PATCH only): gated on `settings:write`.
+router.patch(
+  '/:storeId/settings/tax',
+  requireStorePermission('settings:write'),
+  validateBody(updateTaxSettingsSchema),
+  patchStoreTaxSettings,
+);
+
 router.use('/:storeId/members', membersRouter);
 router.use('/:storeId/products', productsRouter);
 router.use('/:storeId/orders', ordersRouter);
 router.use('/:storeId/locations', locationsRouter);
 router.use('/:storeId/collections', collectionsRouter);
+router.use('/:storeId/discounts', discountsRouter);
+router.use('/:storeId/tax-rates', taxRatesRouter);
 
 export default router;

@@ -31,6 +31,8 @@ import { ProductVariant } from '../models/product-variant.js';
 import { Location } from '../models/location.js';
 import { InventoryLevel } from '../models/inventory-level.js';
 import { Collection } from '../models/collection.js';
+import { Discount } from '../models/discount.js';
+import { TaxRate } from '../models/tax-rate.js';
 import { createCollection, setCollectionProducts } from '../services/collection.service.js';
 import { minorUnitsPerMajor } from '../utils/money.js';
 import type { Money } from '@mercaria/shared-types';
@@ -257,7 +259,7 @@ async function seed(): Promise<void> {
   await connectDB();
 
   log.general.info(
-    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel, Collection)',
+    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel, Collection, Discount, TaxRate)',
   );
   await Promise.all([
     Category.deleteMany({}),
@@ -268,6 +270,8 @@ async function seed(): Promise<void> {
     Location.deleteMany({}),
     InventoryLevel.deleteMany({}),
     Collection.deleteMany({}),
+    Discount.deleteMany({}),
+    TaxRate.deleteMany({}),
   ]);
 
   // 1. Category taxonomy. Top-level uses its pill image; children get ancestorSlugs.
@@ -315,6 +319,8 @@ async function seed(): Promise<void> {
   let listingCount = 0;
   let variantCount = 0;
   let collectionCount = 0;
+  let discountCount = 0;
+  let taxRateCount = 0;
 
   // 2 + 3. Stores and their products (ownerType 'store').
   for (const storeSpec of STORES) {
@@ -442,6 +448,46 @@ async function seed(): Promise<void> {
       });
 
       collectionCount += 2;
+
+      // 3c. Demo discounts for the first store: one CODE (`WELCOME15`, 15% off the
+      // order) and one AUTOMATIC (5% off every order). Both stack with nothing.
+      await Discount.create({
+        storeId,
+        title: 'Welcome 15% off',
+        method: 'code',
+        codes: [{ code: 'WELCOME15', usageCount: 0 }],
+        valueType: 'percentage',
+        value: 1500,
+        appliesTo: { scope: 'order' },
+        combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: false },
+        startsAt: now,
+        isActive: true,
+      });
+      await Discount.create({
+        storeId,
+        title: 'Always-on 5% off',
+        method: 'automatic',
+        codes: [],
+        valueType: 'percentage',
+        value: 500,
+        appliesTo: { scope: 'order' },
+        combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: false },
+        startsAt: now,
+        isActive: true,
+      });
+      discountCount += 2;
+
+      // 3d. Demo tax rate for the first store: 8% US sales tax (country-wide).
+      await TaxRate.create({
+        storeId,
+        name: 'US Sales Tax',
+        rateBps: 800,
+        region: { country: 'US' },
+        appliesToShipping: false,
+        priority: 0,
+        isActive: true,
+      });
+      taxRateCount += 1;
     }
   }
 
@@ -497,6 +543,8 @@ async function seed(): Promise<void> {
       listings: listingCount,
       variants: variantCount,
       collections: collectionCount,
+      discounts: discountCount,
+      taxRates: taxRateCount,
     },
     'Mercaria catalog seed complete',
   );

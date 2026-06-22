@@ -25,8 +25,11 @@ import type {
 import { Cart, type ICart } from '../models/cart.js';
 import { Listing, type IListing } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
+import { Discount } from '../models/discount.js';
 import { resolveMedia } from './catalog-hydration.service.js';
-import { multiplyMoney, sumMoney } from '../utils/money.js';
+import { calculateTotals, type PricingLine } from './pricing.service.js';
+import { normalizeDiscountCode } from './discount.service.js';
+import { multiplyMoney, sumMoney, zeroMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 
@@ -54,13 +57,22 @@ function clampQuantity(requested: number, tracked: boolean, available: number): 
  * Build the hydrated `Cart` DTO for a stored cart document, reading live prices
  * and availability from the variants. A line whose variant/listing is gone, or
  * whose live `available` is below its quantity, is flagged `stale`.
+ *
+ * When the cart carries `pendingDiscountCodes`, a read-only pricing PREVIEW is
+ * run (per store represented in the cart) to surface `discountTotal`/`taxPreview`/
+ * `total`. The preview is presentation-only — checkout re-computes authoritatively.
  */
 async function buildCartDTO(cart: ICart): Promise<CartDTO> {
   const currency = cart.currency as CurrencyCode;
   const id = String(cart._id);
+  const pendingDiscountCodes = [...(cart.pendingDiscountCodes ?? [])];
 
   if (cart.items.length === 0) {
-    return { id, items: [], currency, subtotal: { amount: 0, currency } };
+    const empty: CartDTO = { id, items: [], currency, subtotal: { amount: 0, currency } };
+    if (pendingDiscountCodes.length > 0) {
+      empty.pendingDiscountCodes = pendingDiscountCodes;
+    }
+    return empty;
   }
 
   const variantIds = cart.items.map((i) => String(i.variantId));
@@ -127,7 +139,83 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
     currency,
   );
 
-  return { id, items, currency, subtotal };
+  const dto: CartDTO = { id, items, currency, subtotal };
+
+  if (pendingDiscountCodes.length > 0) {
+    dto.pendingDiscountCodes = pendingDiscountCodes;
+    const preview = await previewDiscounts(cart, listingById, variantById, currency);
+    dto.discountTotal = preview.discountTotal;
+    dto.taxPreview = preview.taxPreview;
+    dto.total = preview.total;
+  }
+
+  return dto;
+}
+
+/**
+ * Run a read-only pricing PREVIEW of the cart's pending discount codes. Only
+ * STORE-owned lines participate (P2P lines get no discount/tax); lines are grouped
+ * per store and each group is priced via `calculateTotals({ preview: true })`. The
+ * per-store previews are summed. Presentation only — checkout is authoritative.
+ */
+async function previewDiscounts(
+  cart: ICart,
+  listingById: Map<string, IListing>,
+  variantById: Map<string, IProductVariant>,
+  currency: CurrencyCode,
+): Promise<{ discountTotal: Money; taxPreview: Money; total: Money }> {
+  const codes = [...(cart.pendingDiscountCodes ?? [])];
+
+  // Group store-owned lines per store id.
+  const linesByStore = new Map<string, PricingLine[]>();
+  for (const item of cart.items) {
+    const listing = listingById.get(String(item.listingId));
+    const variant = variantById.get(String(item.variantId));
+    if (!listing || !variant || listing.ownerType !== 'store' || !listing.storeId) {
+      continue;
+    }
+    const storeId = String(listing.storeId);
+    const line: PricingLine = {
+      listingId: String(listing._id),
+      variantId: String(variant._id),
+      ...(listing.productType ? { productType: listing.productType } : {}),
+      collectionIds: [...(listing.collectionIds ?? [])],
+      unitPrice: toMoney(variant.price),
+      quantity: item.quantity,
+    };
+    const existing = linesByStore.get(storeId);
+    if (existing) {
+      existing.push(line);
+    } else {
+      linesByStore.set(storeId, [line]);
+    }
+  }
+
+  let discount = 0;
+  let tax = 0;
+  let subtotalPriced = 0;
+  for (const [storeId, lines] of linesByStore) {
+    const result = await calculateTotals({
+      storeId,
+      lines,
+      currency,
+      discountCodes: codes,
+      preview: true,
+    });
+    discount += result.discountTotal.amount;
+    tax += result.tax.amount;
+    subtotalPriced += result.subtotal.amount;
+  }
+
+  const discountTotal: Money = { amount: discount, currency };
+  const taxPreview: Money = { amount: tax, currency };
+  // Preview grand total over the priced (store-owned) lines: subtotal − discount + tax.
+  const total: Money =
+    linesByStore.size === 0
+      ? zeroMoney(currency)
+      : { amount: subtotalPriced - discount + tax, currency };
+
+  return { discountTotal, taxPreview, total };
 }
 
 /** Load the buyer's stored cart, or `null` if they have none yet. */
@@ -304,10 +392,73 @@ export async function removeItem(oxyUserId: string, variantId: string): Promise<
 
 /**
  * Empty the buyer's cart (used by F4 checkout once orders are created). Removes
- * all line items; the cart document is retained.
+ * all line items; the cart document is retained. Pending discount codes are also
+ * cleared — they were one-shot inputs to the checkout that just consumed them.
  */
 export async function clearCart(oxyUserId: string): Promise<void> {
-  await Cart.updateOne({ oxyUserId }, { $set: { items: [] } });
+  await Cart.updateOne({ oxyUserId }, { $set: { items: [], pendingDiscountCodes: [] } });
+}
+
+/**
+ * Pin a discount code to the cart (idempotent; deduped). The code must exist on an
+ * ACTIVE, in-window discount for a store represented by a store-owned line in the
+ * cart, else VALIDATION_ERROR. The code is normalized (trim + uppercase). Returns
+ * the freshly hydrated cart (with the discount preview).
+ */
+export async function applyDiscountCode(oxyUserId: string, code: string): Promise<CartDTO> {
+  const normalized = normalizeDiscountCode(code);
+  if (normalized.length === 0) {
+    throw validationError('Discount code is required');
+  }
+
+  const cart = await Cart.findOne({ oxyUserId });
+  if (!cart || cart.items.length === 0) {
+    throw conflict('Cart is empty');
+  }
+
+  // The distinct store ids of the cart's store-owned listings.
+  const listingIds = cart.items.map((i) => String(i.listingId));
+  const listings = await Listing.find({ _id: { $in: listingIds }, ownerType: 'store' })
+    .select('storeId')
+    .lean<Pick<IListing, '_id' | 'storeId'>[]>();
+  const storeIds = [...new Set(listings.map((l) => String(l.storeId)).filter((s) => s.length > 0))];
+  if (storeIds.length === 0) {
+    throw validationError('No store items in cart to apply a discount to');
+  }
+
+  const now = new Date();
+  const discount = await Discount.findOne({
+    storeId: { $in: storeIds },
+    isActive: true,
+    'codes.code': normalized,
+    startsAt: { $lte: now },
+    $or: [{ endsAt: { $exists: false } }, { endsAt: null }, { endsAt: { $gte: now } }],
+  }).lean();
+  if (!discount) {
+    throw validationError('Discount code is not valid for the items in your cart');
+  }
+
+  if (!(cart.pendingDiscountCodes ?? []).includes(normalized)) {
+    cart.pendingDiscountCodes = [...(cart.pendingDiscountCodes ?? []), normalized];
+    await cart.save();
+  }
+  return getCart(oxyUserId);
+}
+
+/** Remove a pinned discount code from the cart. Returns the freshly hydrated cart. */
+export async function removeDiscountCode(oxyUserId: string, code: string): Promise<CartDTO> {
+  const normalized = normalizeDiscountCode(code);
+  const cart = await Cart.findOne({ oxyUserId });
+  if (!cart) {
+    throw notFound('Cart not found');
+  }
+
+  const before = (cart.pendingDiscountCodes ?? []).length;
+  cart.pendingDiscountCodes = (cart.pendingDiscountCodes ?? []).filter((c) => c !== normalized);
+  if (cart.pendingDiscountCodes.length !== before) {
+    await cart.save();
+  }
+  return getCart(oxyUserId);
 }
 
 /**

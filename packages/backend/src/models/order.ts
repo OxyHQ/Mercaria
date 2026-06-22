@@ -59,6 +59,26 @@ export interface IOrderItem {
   unitPrice: IMoney;
   quantity: number;
   lineTotal: IMoney;
+  /** Total discount attributed to this line; absent on un-discounted lines. */
+  discountTotal?: IMoney;
+}
+
+/** One discount's contribution to the order (persisted for exact refundability). */
+export interface IDiscountAllocation {
+  discountId: string;
+  code?: string;
+  title: string;
+  valueType: string;
+  amount: IMoney;
+  target: 'order' | 'line';
+  targetLineIndex?: number;
+}
+
+/** One applied tax rate's contribution to the order. */
+export interface ITaxLine {
+  name: string;
+  rateBps: number;
+  amount: IMoney;
 }
 
 export interface IOrderStatusEvent {
@@ -106,9 +126,15 @@ export interface IOrder {
   shipping: IShippingSnapshot;
   totals: {
     subtotal: IMoney;
+    /** Total of every applied discount allocation; absent on pre-B4 orders. */
+    discountTotal?: IMoney;
     shipping: IMoney;
+    /** Total tax added; absent on pre-B4 orders. */
+    tax?: IMoney;
     grandTotal: IMoney;
   };
+  appliedDiscounts: IDiscountAllocation[];
+  taxLines: ITaxLine[];
   status: OrderStatus;
   statusHistory: IOrderStatusEvent[];
   payment: IPaymentInfo;
@@ -137,6 +163,32 @@ const OrderItemSchema = new Schema<IOrderItem>(
     unitPrice: { type: MoneySchema, required: true },
     quantity: { type: Number, required: true },
     lineTotal: { type: MoneySchema, required: true },
+    // Optional (back-compat): pre-B4 items carry no per-line discount.
+    discountTotal: { type: MoneySchema, required: false },
+  },
+  { _id: false },
+);
+
+/** One discount's contribution to the order (target 'order' or a specific 'line'). */
+const DiscountAllocationSchema = new Schema<IDiscountAllocation>(
+  {
+    discountId: { type: String, required: true },
+    code: { type: String },
+    title: { type: String, required: true },
+    valueType: { type: String, required: true },
+    amount: { type: MoneySchema, required: true },
+    target: { type: String, enum: ['order', 'line'], required: true },
+    targetLineIndex: { type: Number },
+  },
+  { _id: false },
+);
+
+/** One applied tax rate's contribution to the order. */
+const TaxLineSchema = new Schema<ITaxLine>(
+  {
+    name: { type: String, required: true },
+    rateBps: { type: Number, required: true },
+    amount: { type: MoneySchema, required: true },
   },
   { _id: false },
 );
@@ -198,9 +250,15 @@ const OrderSchema = new Schema<IOrder>(
     shipping: { type: ShippingSnapshotSchema, required: true },
     totals: {
       subtotal: { type: MoneySchema, required: true },
+      // Optional (back-compat): pre-B4 orders carry no discount/tax totals; the
+      // hydration falls back to zero. Services always write them on new orders.
+      discountTotal: { type: MoneySchema, required: false },
       shipping: { type: MoneySchema, required: true },
+      tax: { type: MoneySchema, required: false },
       grandTotal: { type: MoneySchema, required: true },
     },
+    appliedDiscounts: { type: [DiscountAllocationSchema], default: [] },
+    taxLines: { type: [TaxLineSchema], default: [] },
     status: {
       type: String,
       enum: ORDER_STATUSES as string[],

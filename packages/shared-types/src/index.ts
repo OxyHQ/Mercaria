@@ -23,6 +23,12 @@ export * from './listing';
 // Product/merchant browse/feed DTOs (ProductSummary, MerchantSummary, FeedSection, Feed).
 export * from './product';
 
+// Tax DTOs (TaxRate, TaxLine, TaxRegion, TaxSettings, Create/UpdateTaxRateInput, …).
+export * from './tax';
+
+// Discount DTOs (Discount, DiscountAllocation, DiscountMethod, DiscountValueType, …).
+export * from './discount';
+
 // Store (shop) admin-facing DTOs (Store, StoreMember, StoreRole, StorePermission).
 export * from './store';
 

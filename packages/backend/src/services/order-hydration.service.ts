@@ -22,6 +22,8 @@ import type {
   PaymentInfo,
   AddressSnapshot,
   OrderStatusEvent,
+  DiscountAllocation,
+  TaxLine,
 } from '@mercaria/shared-types';
 import {
   type IOrder,
@@ -30,6 +32,8 @@ import {
   type IShippingSnapshot,
   type IPaymentInfo,
   type IOrderStatusEvent,
+  type IDiscountAllocation,
+  type ITaxLine,
 } from '../models/order.js';
 import { SellerProfile, type ISellerProfile } from '../models/seller-profile.js';
 import { Store, type IStore } from '../models/store.js';
@@ -82,7 +86,33 @@ export function toOrderItemDTO(item: IOrderItem): OrderItem {
   if (item.imageUrl) {
     dto.imageUrl = item.imageUrl;
   }
+  if (item.discountTotal) {
+    dto.discountTotal = toMoney(item.discountTotal);
+  }
   return dto;
+}
+
+/** Map a persisted discount allocation to the `DiscountAllocation` DTO. */
+function toDiscountAllocation(allocation: IDiscountAllocation): DiscountAllocation {
+  const dto: DiscountAllocation = {
+    discountId: String(allocation.discountId),
+    title: allocation.title,
+    valueType: allocation.valueType as DiscountAllocation['valueType'],
+    amount: toMoney(allocation.amount),
+    target: allocation.target,
+  };
+  if (allocation.code) {
+    dto.code = allocation.code;
+  }
+  if (allocation.targetLineIndex !== undefined) {
+    dto.targetLineIndex = allocation.targetLineIndex;
+  }
+  return dto;
+}
+
+/** Map a persisted tax line to the `TaxLine` DTO. */
+function toTaxLine(line: ITaxLine): TaxLine {
+  return { name: line.name, rateBps: line.rateBps, amount: toMoney(line.amount) };
 }
 
 /** Map the persisted address snapshot to the `AddressSnapshot` DTO (omit absent optionals). */
@@ -209,6 +239,9 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
   const { oxyProfiles, sellerProfileByUser, storeById } = await loadSellerContext(orders);
 
   return orders.map((order) => {
+    // Zero in the order's settlement currency — the back-compat fallback for the
+    // discount/tax totals on pre-B4 orders that predate those fields.
+    const zero: Money = { amount: 0, currency: toMoney(order.totals.subtotal).currency };
     const dto: OrderDTO = {
       id: String((order as { _id: mongoose.Types.ObjectId })._id),
       orderNumber: order.orderNumber,
@@ -219,9 +252,13 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
       shipping: toShippingInfo(order.shipping),
       totals: {
         subtotal: toMoney(order.totals.subtotal),
+        discountTotal: order.totals.discountTotal ? toMoney(order.totals.discountTotal) : zero,
         shipping: toMoney(order.totals.shipping),
+        tax: order.totals.tax ? toMoney(order.totals.tax) : zero,
         grandTotal: toMoney(order.totals.grandTotal),
       },
+      appliedDiscounts: (order.appliedDiscounts ?? []).map(toDiscountAllocation),
+      taxLines: (order.taxLines ?? []).map(toTaxLine),
       status: order.status,
       statusHistory: order.statusHistory.map(toStatusEvent),
       payment: toPaymentInfo(order.payment),

@@ -21,18 +21,30 @@ import type {
   Money,
   ShippingMethod,
   OrderSellerType,
+  DiscountAllocation,
+  TaxLine,
 } from '@mercaria/shared-types';
 import type { Cart } from '@mercaria/shared-types';
-import { Order, type IOrder, type IOrderItem, type IAddressSnapshot } from '../models/order.js';
+import {
+  Order,
+  type IOrder,
+  type IOrderItem,
+  type IAddressSnapshot,
+  type IDiscountAllocation,
+  type ITaxLine,
+} from '../models/order.js';
 import { Listing, type IListing } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
 import { Address, type IAddress } from '../models/address.js';
+import { Discount } from '../models/discount.js';
 import { nextOrderNumber } from '../models/counter.js';
 import { getCart, clearCart } from './cart.service.js';
 import { reserve, release } from './inventory.service.js';
 import { summarizeOrders } from './order-hydration.service.js';
 import { resolveMedia } from './catalog-hydration.service.js';
-import { multiplyMoney, addMoney, sumMoney } from '../utils/money.js';
+import { calculateTotals, type PricingLine, type PricingResult } from './pricing.service.js';
+import { normalizeDiscountCode } from './discount.service.js';
+import { multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { enqueueOrderEvent } from '../queue/producers.js';
@@ -82,7 +94,9 @@ interface OrderCreateDoc {
   items: IOrderItem[];
   shippingAddressSnapshot: IAddressSnapshot;
   shipping: { method: ShippingMethod; label: string; cost: Money; trackingNumber: null };
-  totals: { subtotal: Money; shipping: Money; grandTotal: Money };
+  totals: { subtotal: Money; discountTotal: Money; shipping: Money; tax: Money; grandTotal: Money };
+  appliedDiscounts: IDiscountAllocation[];
+  taxLines: ITaxLine[];
   status: 'pending_payment';
   statusHistory: { status: 'pending_payment'; at: Date; byOxyUserId: string }[];
   payment: { status: 'unpaid'; provider: 'oxy_pay' };
@@ -155,10 +169,12 @@ async function summarizePriorGroup(
 
 /**
  * Build the immutable line item snapshots for a group: title/variant/options/
- * unit price are frozen here and never re-read after the order is placed.
+ * unit price are frozen here and never re-read after the order is placed. The
+ * pricing engine's `perLineDiscount` (aligned to `group.lines` order) is stamped
+ * onto each item's `discountTotal` (only when non-zero).
  */
-function buildItems(group: SellerGroup): IOrderItem[] {
-  return group.lines.map(({ cartItem, listing, variant }) => {
+function buildItems(group: SellerGroup, perLineDiscount: Money[]): IOrderItem[] {
+  return group.lines.map(({ cartItem, listing, variant }, index) => {
     const unitPrice: Money = cartItem.unitPrice;
     const item: IOrderItem = {
       listingId: String((listing as { _id: mongoose.Types.ObjectId })._id),
@@ -170,12 +186,88 @@ function buildItems(group: SellerGroup): IOrderItem[] {
       quantity: cartItem.quantity,
       lineTotal: multiplyMoney(unitPrice, cartItem.quantity),
     };
+    const lineDiscount = perLineDiscount[index];
+    if (lineDiscount && lineDiscount.amount > 0) {
+      item.discountTotal = lineDiscount;
+    }
     const imageUrl = firstImageUrl(listing);
     if (imageUrl !== undefined) {
       item.imageUrl = imageUrl;
     }
     return item;
   });
+}
+
+/** Build the `PricingLine[]` for a group from its resolved lines (input order preserved). */
+function buildPricingLines(group: SellerGroup): PricingLine[] {
+  return group.lines.map(({ cartItem, listing, variant }) => {
+    const line: PricingLine = {
+      listingId: String((listing as { _id: mongoose.Types.ObjectId })._id),
+      variantId: String((variant as { _id: mongoose.Types.ObjectId })._id),
+      collectionIds: [...(listing.collectionIds ?? [])],
+      unitPrice: cartItem.unitPrice,
+      quantity: cartItem.quantity,
+    };
+    if (listing.productType) {
+      line.productType = listing.productType;
+    }
+    return line;
+  });
+}
+
+/** Map the engine's discount allocations to persisted order sub-documents. */
+function toOrderAllocations(allocations: DiscountAllocation[]): IDiscountAllocation[] {
+  return allocations.map((a) => ({
+    discountId: a.discountId,
+    ...(a.code ? { code: a.code } : {}),
+    title: a.title,
+    valueType: a.valueType,
+    amount: a.amount,
+    target: a.target,
+    ...(a.targetLineIndex !== undefined ? { targetLineIndex: a.targetLineIndex } : {}),
+  }));
+}
+
+/** Map the engine's tax lines to persisted order sub-documents. */
+function toOrderTaxLines(taxLines: TaxLine[]): ITaxLine[] {
+  return taxLines.map((t) => ({ name: t.name, rateBps: t.rateBps, amount: t.amount }));
+}
+
+/**
+ * Increment the `usageCount` of every redeemed discount code, EXACTLY once per
+ * checkout (called only on the fresh-claim success path — never on a replay/
+ * converge). Each `$inc` is GUARDED: the filter requires the redeemed code AND, if
+ * a `usageLimits.totalMax` exists, that current usage is still below it (an
+ * `$expr` over the summed code usageCounts). A guarded update that matches 0 docs
+ * because the ceiling was raced is logged as a warning — it never fails checkout.
+ */
+async function incrementDiscountUsage(codes: string[]): Promise<void> {
+  for (const code of codes) {
+    try {
+      const result = await Discount.updateOne(
+        {
+          'codes.code': code,
+          $or: [
+            { 'usageLimits.totalMax': { $exists: false } },
+            { 'usageLimits.totalMax': null },
+            {
+              $expr: {
+                $lt: [{ $sum: '$codes.usageCount' }, '$usageLimits.totalMax'],
+              },
+            },
+          ],
+        },
+        { $inc: { 'codes.$[c].usageCount': 1 } },
+        { arrayFilters: [{ 'c.code': code }] },
+      );
+      if (result.matchedCount === 0) {
+        log.general.warn({ code }, 'Discount usage increment skipped (usage ceiling reached)');
+      }
+    } catch (err) {
+      // A usage-count bookkeeping failure must never fail a completed checkout.
+      log.general.warn({ err, code }, 'Failed to increment discount usage count');
+    }
+  }
 }
 
 /**
@@ -294,21 +386,56 @@ export async function checkout(
     throw err;
   }
 
+  // 5b. Resolve the discount codes to apply: checkout input ∪ cart-pinned codes
+  // (normalized + deduped). Only store groups consult them; P2P groups ignore them.
+  const discountCodes = [
+    ...new Set(
+      [...(input.discountCodes ?? []), ...(cart.pendingDiscountCodes ?? [])]
+        .map((code) => normalizeDiscountCode(code))
+        .filter((code) => code.length > 0),
+    ),
+  ];
+  const shippingCountry = address.country;
+  const shippingRegion = address.region;
+  const shippingPostal = address.postalCode;
+
   // 6-7. Build + create one order per group (durable idempotency via 11000).
+  // The pricing engine computes discount→tax→grand in FAIR (shipping = 0); the
+  // flat config shipping cost is added AFTER (so grandTotal = pricing.grandTotal
+  // + shippingCost). The codes that actually produced an allocation are collected
+  // so their usageCount can be incremented EXACTLY once on the fresh-claim path.
   const checkoutGroupId = new mongoose.Types.ObjectId().toString();
   const groupEntries = [...groups.entries()];
   const created: IOrder[] = [];
+  const appliedCodes = new Set<string>();
 
   try {
     for (const [sellerKey, group] of groupEntries) {
       const method = input.shippingSelections?.[sellerKey] ?? 'standard';
       const cost: Money = { amount: config.orders.shippingRates[method], currency: cart.currency };
-      const items = buildItems(group);
-      const subtotal = sumMoney(
-        items.map((i) => i.lineTotal as Money),
-        cart.currency,
-      );
-      const grandTotal = addMoney(subtotal, cost);
+
+      // Store groups consult discounts/taxes; P2P groups price with no storeId.
+      const pricing: PricingResult = await calculateTotals({
+        ...(group.storeId ? { storeId: group.storeId } : {}),
+        lines: buildPricingLines(group),
+        currency: cart.currency,
+        discountCodes: group.storeId ? discountCodes : [],
+        customerId: oxyUserId,
+        shippingAddress: { country: shippingCountry, region: shippingRegion, postalCode: shippingPostal },
+      });
+
+      for (const allocation of pricing.appliedDiscounts) {
+        if (allocation.code) {
+          appliedCodes.add(allocation.code);
+        }
+      }
+
+      const items = buildItems(group, pricing.perLineDiscount);
+      // grandTotal = (subtotal − discount + tax) from pricing, plus flat shipping.
+      const grandTotal: Money = {
+        amount: pricing.grandTotal.amount + cost.amount,
+        currency: cart.currency,
+      };
       const orderNumber = await nextOrderNumber();
 
       const doc: OrderCreateDoc = {
@@ -320,7 +447,15 @@ export async function checkout(
         items,
         shippingAddressSnapshot,
         shipping: { method, label: SHIPPING_LABELS[method], cost, trackingNumber: null },
-        totals: { subtotal, shipping: cost, grandTotal },
+        totals: {
+          subtotal: pricing.subtotal,
+          discountTotal: pricing.discountTotal,
+          shipping: cost,
+          tax: pricing.tax,
+          grandTotal,
+        },
+        appliedDiscounts: toOrderAllocations(pricing.appliedDiscounts),
+        taxLines: toOrderTaxLines(pricing.taxLines),
         status: 'pending_payment',
         statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: oxyUserId }],
         payment: { status: 'unpaid', provider: 'oxy_pay' },
@@ -369,7 +504,11 @@ export async function checkout(
     }
   }
 
-  // 9. Empty the cart now that orders exist.
+  // 9. Increment redeemed discount usage EXACTLY once — this runs only on the
+  // fresh-claim success path (the replay/11000-converge paths return early above,
+  // so they never reach here), keeping redemption counts idempotent. Then empty
+  // the cart now that orders exist.
+  await incrementDiscountUsage([...appliedCodes]);
   await clearCart(oxyUserId);
 
   // 10. Best-effort: notify buyer + seller of each placed order. A notification

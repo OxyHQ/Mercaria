@@ -50,6 +50,17 @@ export interface Cart {
   currency: CurrencyCode;
   /** Sum of every line total (always in `currency`). */
   subtotal: Money;
+  /** Discount codes pinned to the cart, pending application at checkout. */
+  pendingDiscountCodes?: string[];
+  /**
+   * PREVIEW total of the pending discounts over store-owned lines (presentation
+   * only; checkout re-computes authoritatively). Present when codes are pinned.
+   */
+  discountTotal?: Money;
+  /** PREVIEW tax over the discounted store-owned lines (presentation only). */
+  taxPreview?: Money;
+  /** PREVIEW grand total `subtotal - discountTotal + taxPreview` (presentation only). */
+  total?: Money;
 }
 
 /** Body for `POST /cart/items` — add (or increment) a variant in the cart. */

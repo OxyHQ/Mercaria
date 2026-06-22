@@ -249,6 +249,119 @@ export const setCollectionProductsSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Discounts (store promotions)
+// ---------------------------------------------------------------------------
+
+/** The scope a discount or a buy/get leg targets. */
+const discountScopeSchema = z.enum(['order', 'products', 'collections']);
+/** A buy/get leg only ever targets products or collections (never the whole order). */
+const discountLegScopeSchema = z.enum(['products', 'collections']);
+/** Basis points, 0..10000 (10000 = 100%). */
+const bpsSchema = z.number().int().min(0).max(10_000);
+
+/** A BOGO/free-item buy or get leg (DiscountLegInput). */
+const discountLegSchema = z.object({
+  quantity: z.number().int().positive(),
+  scope: discountLegScopeSchema,
+  productIds: z.array(z.string().trim().min(1)).optional(),
+  collectionIds: z.array(z.string().trim().min(1)).optional(),
+  discountPercent: bpsSchema.optional(),
+});
+
+/** What a discount applies to (DiscountAppliesTo). */
+const discountAppliesToSchema = z.object({
+  scope: discountScopeSchema,
+  productIds: z.array(z.string().trim().min(1)).optional(),
+  collectionIds: z.array(z.string().trim().min(1)).optional(),
+});
+
+/** A minimum requirement (DiscountMinimumRequirement). */
+const discountMinimumRequirementSchema = z.object({
+  type: z.enum(['none', 'subtotal', 'quantity']),
+  value: z.number().int().nonnegative(),
+});
+
+/** Customer eligibility (DiscountCustomerEligibility). */
+const discountCustomerEligibilitySchema = z.object({
+  type: z.enum(['all', 'groups', 'customers']),
+  customerIds: z.array(z.string().trim().min(1)).optional(),
+  groupTags: z.array(z.string().trim().min(1)).optional(),
+});
+
+/** Usage limits (DiscountUsageLimits). */
+const discountUsageLimitsSchema = z.object({
+  totalMax: z.number().int().positive().optional(),
+  perCustomerMax: z.number().int().positive().optional(),
+});
+
+/** Combinability flags (DiscountCombinesWith, all optional in input). */
+const discountCombinesWithSchema = z.object({
+  orderDiscounts: z.boolean().optional(),
+  productDiscounts: z.boolean().optional(),
+  shippingDiscounts: z.boolean().optional(),
+});
+
+/** Body for `POST /admin/stores/:storeId/discounts` (CreateDiscountInput). */
+export const createDiscountSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  method: z.enum(['code', 'automatic']),
+  codes: z.array(z.string().trim().min(1).max(60)).optional(),
+  valueType: z.enum(['percentage', 'fixed_amount', 'bogo', 'free_item']),
+  value: z.number().int().nonnegative(),
+  appliesTo: discountAppliesToSchema,
+  buy: discountLegSchema.optional(),
+  get: discountLegSchema.optional(),
+  minimumRequirement: discountMinimumRequirementSchema.optional(),
+  customerEligibility: discountCustomerEligibilitySchema.optional(),
+  usageLimits: discountUsageLimitsSchema.optional(),
+  combinesWith: discountCombinesWithSchema.optional(),
+  startsAt: z.string().datetime().optional(),
+  endsAt: z.string().datetime().optional(),
+  isActive: z.boolean().optional(),
+});
+
+/** Body for `PATCH /admin/stores/:storeId/discounts/:id` (UpdateDiscountInput). */
+export const updateDiscountSchema = createDiscountSchema
+  .partial()
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+// ---------------------------------------------------------------------------
+// Tax rates + tax settings
+// ---------------------------------------------------------------------------
+
+/** The geographic scope a tax rate applies to (TaxRegion). */
+const taxRegionSchema = z.object({
+  country: z.string().trim().min(2).max(2).optional(),
+  region: z.string().trim().min(1).max(150).optional(),
+  postalCodePattern: z.string().trim().min(1).max(200).optional(),
+});
+
+/** Body for `POST /admin/stores/:storeId/tax-rates` (CreateTaxRateInput). */
+export const createTaxRateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  rateBps: bpsSchema,
+  region: taxRegionSchema,
+  appliesToShipping: z.boolean().optional(),
+  productTypeScope: z.array(z.string().trim().min(1)).optional(),
+  priority: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+});
+
+/** Body for `PATCH /admin/stores/:storeId/tax-rates/:id` (UpdateTaxRateInput). */
+export const updateTaxRateSchema = createTaxRateSchema
+  .partial()
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+/** Body for `PATCH /admin/stores/:storeId/settings/tax` (UpdateTaxSettingsInput). */
+export const updateTaxSettingsSchema = z
+  .object({
+    pricesIncludeTax: z.boolean().optional(),
+    taxRegistrationId: z.string().trim().min(1).max(120).optional(),
+    chargeTaxOnProducts: z.boolean().optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+// ---------------------------------------------------------------------------
 // Store + members
 // ---------------------------------------------------------------------------
 
@@ -271,6 +384,8 @@ const storePermissionSchema = z.enum([
   'inventory:write',
   'locations:write',
   'collections:write',
+  'discounts:write',
+  'settings:write',
   'orders:read',
   'orders:fulfill',
   'stats:read',
@@ -349,6 +464,11 @@ export const updateCartItemSchema = z.object({
   quantity: z.number().int().nonnegative(),
 });
 
+/** Body for `POST /cart/discount` (ApplyCartDiscountInput). */
+export const applyCartDiscountSchema = z.object({
+  code: z.string().trim().min(1),
+});
+
 // ---------------------------------------------------------------------------
 // Address
 // ---------------------------------------------------------------------------
@@ -404,6 +524,7 @@ const orderStatusSchema = z.enum([
 export const checkoutSchema = z.object({
   addressId: z.string().trim().min(1),
   shippingSelections: z.record(z.string(), shippingMethodSchema).optional(),
+  discountCodes: z.array(z.string().trim().min(1)).optional(),
 });
 
 /**
