@@ -1,0 +1,25 @@
+{
+  // ---------------------------------------------------------------------------
+  // @mercaria/ui
+  //
+  // Source-only shared UI package (NO dist build). Both `tsc --noEmit` here and
+  // the consuming frontend resolve this package straight from `src/`. It mirrors
+  // the frontend's compiler setup (expo base + strict + NativeWind className
+  // typing via `nativewind-env.d.ts`) so types are identical on both sides.
+  // ---------------------------------------------------------------------------
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@mercaria/shared-types": ["../shared-types/src"],
+      "@mercaria/shared-types/*": ["../shared-types/src/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "nativewind-env.d.ts"
+  ]
+}

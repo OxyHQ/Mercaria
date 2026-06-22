@@ -7,6 +7,10 @@
 @source "./components/**/*.{js,jsx,ts,tsx}";
 @source "./lib/**/*.{js,jsx,ts,tsx}";
 @source "./hooks/**/*.{js,jsx,ts,tsx}";
+/* Source-consumed shared UI package — scan its component classes. The canonical
+   @theme/:root token block below mirrors @mercaria/ui/theme/global.css; keep the
+   two in sync (a cross-package CSS @import through Metro/NativeWind is fragile). */
+@source "../ui/src/**/*.{js,jsx,ts,tsx}";
 @source "../../node_modules/@oxyhq/services/lib/**/*.{js,jsx}";
 @source "../../node_modules/@oxyhq/bloom/lib/**/*.{js,jsx}";
 

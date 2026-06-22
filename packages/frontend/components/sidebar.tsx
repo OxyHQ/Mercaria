@@ -6,8 +6,7 @@ import {
   Linking,
   useWindowDimensions,
 } from "react-native";
-import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
+import { Button, DropdownMenu, Text, useColorScheme } from "@mercaria/ui";
 import {
   Home,
   Settings,
@@ -26,8 +25,6 @@ import { UserAvatar } from "@/components/user-avatar";
 import { useOxy, showSignInModal } from "@oxyhq/services";
 import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
 import { Logo } from "@/components/Logo";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
-import { useColorScheme } from "@/lib/useColorScheme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cn } from "@/lib/utils";
 

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@mercaria/ui";
 import { cn } from "@/lib/utils";
 
 export interface AuthInputProps extends React.ComponentPropsWithoutRef<typeof Input> {

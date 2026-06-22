@@ -1,8 +1,7 @@
 import { View, Pressable } from 'react-native';
-import { Text } from '@/components/ui/text';
+import { DropdownMenu, Text } from '@mercaria/ui';
 import { useTranslation } from '@/hooks/useTranslation';
 import { ChevronDown, Globe2 } from 'lucide-react-native';
-import * as DropdownMenu from '@/components/ui/dropdown-menu';
 
 const SUPPORTED_LOCALES = [
   { code: 'en-US', label: 'English', nativeLabel: 'English' },

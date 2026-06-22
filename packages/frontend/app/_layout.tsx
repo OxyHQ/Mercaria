@@ -13,7 +13,8 @@ import { AppErrorBoundary } from '@/components/error-boundary';
 import AppSplashScreen from '@/components/AppSplashScreen';
 import { Toaster } from '@/components/sonner';
 import { KeyboardProvider } from '@/lib/keyboard';
-import { useColorScheme } from '@/lib/useColorScheme';
+import { useColorScheme } from '@mercaria/ui';
+import { AppFxProvider } from '@/lib/fx';
 import { setTokenGetter } from '@/lib/api/client';
 import { OXY_CLIENT_ID } from '@/lib/config';
 import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
@@ -49,7 +50,9 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
 
   return (
     <ImageResolverProvider value={resolveImageSource}>
-      {children}
+      {/* FX provider sits inside Oxy/Query (so the /rates query + bearer token
+          work) and supplies display-side dual-currency state to PriceDisplay. */}
+      <AppFxProvider>{children}</AppFxProvider>
     </ImageResolverProvider>
   );
 }

@@ -17,6 +17,7 @@
     "build:backend": "bun run build:shared-types && bun run --filter @mercaria/backend build",
     "start:frontend": "bun run --filter @mercaria/frontend start",
     "start:backend": "bun run --filter @mercaria/backend start",
+    "typecheck:ui": "bun run --filter @mercaria/ui typecheck",
     "lint": "bun run --filter '*' lint",
     "android": "bun run --filter @mercaria/frontend android",
     "ios": "bun run --filter @mercaria/frontend ios",

@@ -19,6 +19,7 @@
     "@expo/html-elements": "^0.13.8",
     "@expo/vector-icons": "^15.0.3",
     "@mercaria/shared-types": "workspace:*",
+    "@mercaria/ui": "workspace:*",
     "@hugeicons/react-native": "^1.0.11",
     "@oxyhq/bloom": "^0.9.1",
     "@oxyhq/core": "^3.6.0",

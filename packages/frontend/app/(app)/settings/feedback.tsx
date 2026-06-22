@@ -1,8 +1,6 @@
 import { View, Platform, Pressable, ActivityIndicator } from "react-native";
 import { KeyboardAwareScrollView } from "@/lib/keyboard";
-import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Button, Text, Textarea } from "@mercaria/ui";
 import { useState } from "react";
 import { useOxy } from "@oxyhq/services";
 import { useRouter } from "expo-router";

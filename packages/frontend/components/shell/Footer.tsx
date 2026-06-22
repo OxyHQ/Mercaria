@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Pressable } from "react-native";
-import { Text } from "@/components/ui/text";
+import { Text } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
 
 const FOOTER_LINKS = ["About", "Help", "Privacy", "Terms"] as const;

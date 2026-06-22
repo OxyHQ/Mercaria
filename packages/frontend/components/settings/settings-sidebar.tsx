@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Pressable } from "react-native";
-import { Text } from "@/components/ui/text";
+import { Text } from "@mercaria/ui";
 import { BaseSidebar } from "@/components/base-sidebar";
 import { useRouter, usePathname } from "expo-router";
 import { useTranslation } from "@/hooks/useTranslation";

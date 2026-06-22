@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@mercaria/ui";
 
 export function SidebarSkeleton() {
   return (

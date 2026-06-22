@@ -1,6 +1,5 @@
 import { View, useWindowDimensions } from "react-native";
-import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
+import { Button, Text } from "@mercaria/ui";
 import { useNavigation } from "expo-router";
 import { useRouter } from "expo-router";
 import { DrawerNavigationProp } from "@react-navigation/drawer";

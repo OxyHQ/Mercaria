@@ -2,7 +2,7 @@ import React, { useCallback, useState } from "react";
 import { View, Pressable, TextInput } from "react-native";
 import { Search } from "lucide-react-native";
 import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
-import { useColorScheme } from "@/lib/useColorScheme";
+import { useColorScheme } from "@mercaria/ui";
 
 /* ================================================================
    HeroSearch — wordmark + large search bar (content-area header)

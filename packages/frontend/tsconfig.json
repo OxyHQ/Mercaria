@@ -12,6 +12,12 @@
       ],
       "@mercaria/shared-types/*": [
         "../shared-types/src/*"
+      ],
+      "@mercaria/ui": [
+        "../ui/src"
+      ],
+      "@mercaria/ui/*": [
+        "../ui/src/*"
       ]
     }
   },

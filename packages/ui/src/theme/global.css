@@ -1,0 +1,65 @@
+/* ---------------------------------------------------------------------------
+ * @mercaria/ui — shared theme CSS (CANONICAL source of truth).
+ *
+ * This is the component-styling base every Mercaria app shares: the Tailwind
+ * v4 / NativeWind `@import` layers, the `@theme { --color-*: var(--*) }` aliases
+ * that mirror the shared Tailwind preset (`./tailwind.preset.js`), and the
+ * `:root` design-token defaults (e.g. `--radius`).
+ *
+ * It deliberately does NOT include any app-specific document overrides (the
+ * web html/body/#root document-scroll rules) or app `@source` globs — those are
+ * owned by each app's own `global.css`. Apps either `@import` this file or keep
+ * an in-sync copy of this block; the Mercaria frontend currently mirrors this
+ * block inline (CSS `@import` of a sibling-package file through Metro/NativeWind
+ * is fragile) and adds `@source "../ui/src/**/*.{ts,tsx}"` so Tailwind scans the
+ * shared components. Keep the two in sync via this file.
+ * ------------------------------------------------------------------------- */
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+@import "nativewind/theme";
+
+@theme {
+  --font-sans: Inter, sans-serif;
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: hsl(0 0% 100%);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+}
+
+@layer base {
+  :root {
+    --radius: 1rem;
+  }
+}

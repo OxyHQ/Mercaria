@@ -1,6 +1,5 @@
 import { View } from "react-native";
-import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
+import { Button, Text } from "@mercaria/ui";
 import { useOxy } from "@oxyhq/services";
 import { useTranslation } from "@/hooks/useTranslation";
 import { ChevronRight } from "lucide-react-native";

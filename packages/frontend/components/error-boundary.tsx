@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Pressable, ScrollView, Platform } from 'react-native';
-import { Text } from '@/components/ui/text';
+import { Text } from '@mercaria/ui';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;

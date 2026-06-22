@@ -1,5 +1,5 @@
 import { Text as RNText } from "react-native";
-import { useColorScheme } from "@/lib/useColorScheme";
+import { useColorScheme } from "@mercaria/ui";
 
 export interface MercariaWordmarkProps {
   width?: number;

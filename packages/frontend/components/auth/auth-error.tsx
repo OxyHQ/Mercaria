@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View } from "react-native";
-import { Text } from "@/components/ui/text";
+import { Text } from "@mercaria/ui";
 import { cn } from "@/lib/utils";
 
 export interface AuthErrorProps {

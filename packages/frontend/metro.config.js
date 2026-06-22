@@ -28,10 +28,12 @@ module.exports = (() => {
     path.resolve(monorepoRoot, "node_modules"),
   ];
 
-  // Resolve the workspace dependency to shared-types SOURCE so live edits are
-  // picked up without a rebuild. Falls through to node_modules/dist otherwise.
+  // Resolve workspace UI/type dependencies to their SOURCE so live edits are
+  // picked up without a rebuild. `@mercaria/ui` is source-only (no dist build);
+  // shared-types falls through to node_modules/dist otherwise.
   config.resolver.extraNodeModules = {
     "@mercaria/shared-types": path.resolve(monorepoRoot, "packages/shared-types/src"),
+    "@mercaria/ui": path.resolve(monorepoRoot, "packages/ui/src"),
   };
 
   // Enable package exports for zod v4 compatibility

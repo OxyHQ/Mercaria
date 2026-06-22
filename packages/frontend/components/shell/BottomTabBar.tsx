@@ -19,7 +19,7 @@ import { LogIn, type LucideIcon } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 
 import { UserAvatar } from "@/components/user-avatar";
-import { useColorScheme } from "@/lib/useColorScheme";
+import { useColorScheme } from "@mercaria/ui";
 import { useTheme } from "@oxyhq/bloom/theme";
 import { useOxy, showSignInModal } from "@oxyhq/services";
 import {

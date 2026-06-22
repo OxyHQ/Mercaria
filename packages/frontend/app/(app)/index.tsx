@@ -1,14 +1,16 @@
 import { View, ScrollView, Pressable, Platform } from "react-native";
 import Head from "expo-router/head";
-import { Text } from "@/components/ui/text";
+import {
+  CategoryCarousel,
+  CategoryPills,
+  MerchantCarousel,
+  ProductShelf,
+  Text,
+  useColorScheme,
+} from "@mercaria/ui";
 import { HeroSearch } from "@/components/shell/HeroSearch";
 import { Footer } from "@/components/shell/Footer";
-import { ProductShelf } from "@/components/marketplace/ProductShelf";
-import { MerchantCarousel } from "@/components/marketplace/MerchantCarousel";
-import { CategoryCarousel } from "@/components/marketplace/CategoryCarousel";
-import { CategoryPills } from "@/components/marketplace/CategoryPills";
 import { useFeed } from "@/lib/hooks/use-feed";
-import { useColorScheme } from "@/lib/useColorScheme";
 
 /** Spread (px) of the gutter-color mask around the rounded frame. Paints a ring
  *  of the gutter color over any content bleeding into the thin gutter + corners. */
