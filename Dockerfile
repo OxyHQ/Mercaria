@@ -51,6 +51,13 @@ COPY package.json bun.lock bunfig.toml ./
 COPY packages/backend/package.json ./packages/backend/package.json
 COPY packages/frontend/package.json ./packages/frontend/package.json
 COPY packages/shared-types/package.json ./packages/shared-types/package.json
+# The Expo apps + shared UI lib are part of the bun workspace graph (frontend
+# depends on @mercaria/ui), so their manifests MUST be present for
+# `bun install --frozen-lockfile` to resolve the `workspace:*` links — even
+# though the API bundle never imports them and their source is not copied.
+COPY packages/ui/package.json ./packages/ui/package.json
+COPY packages/dashboard/package.json ./packages/dashboard/package.json
+COPY packages/pos/package.json ./packages/pos/package.json
 
 # Copy shared-types source before install so its `postinstall` (tsc) can build
 # the package's dist during `bun install`.
