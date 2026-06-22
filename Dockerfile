@@ -26,9 +26,14 @@
 FROM node:22-alpine AS builder
 
 # Toolchain for any dependency that needs a node-gyp fallback when a prebuilt
-# binary is unavailable for the target arch. Confined to the builder stage so it
-# never reaches the runtime image.
-RUN apk add --no-cache python3 make g++ libc6-compat
+# binary is unavailable for the target arch (e.g. ws's optional native
+# accelerators bufferutil/utf-8-validate, which have no musl-arm64 prebuild).
+# Confined to the builder stage so it never reaches the runtime image.
+# node-gyp is installed explicitly (pinned) so the install step never has to
+# fetch it on the fly via `bunx node-gyp@latest` — that on-demand fetch races
+# and intermittently fails with ENOENT on `.bin/node-gyp`, breaking the build.
+RUN apk add --no-cache python3 make g++ libc6-compat \
+ && npm install -g node-gyp@10
 
 # Bun is the package manager / script runner at build time; the runtime stays
 # Node. The musl build from the matching alpine image works on amd64 and arm64.
