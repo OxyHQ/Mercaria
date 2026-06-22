@@ -1,7 +1,7 @@
 import mongoose, { Schema, Model, Document } from 'mongoose';
 
 export interface IFeedback extends Document {
-  oxyUserId: mongoose.Types.ObjectId;
+  oxyUserId: string;
   type: 'bug' | 'feature' | 'improvement' | 'other';
   rating?: number;
   message: string;
@@ -10,7 +10,7 @@ export interface IFeedback extends Document {
     platform?: string;
     appVersion?: string;
     deviceInfo?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   status: 'pending' | 'reviewed' | 'resolved';
   createdAt: Date;
@@ -18,7 +18,8 @@ export interface IFeedback extends Document {
 }
 
 const FeedbackSchema = new Schema<IFeedback>({
-  oxyUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  // Oxy users are EXTERNAL (no local `User` collection) — stored as a String.
+  oxyUserId: { type: String, required: true, index: true },
   type: {
     type: String,
     enum: ['bug', 'feature', 'improvement', 'other'],

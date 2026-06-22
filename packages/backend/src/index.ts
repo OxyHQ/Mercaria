@@ -214,17 +214,18 @@ connectDB()
         } else {
           log.general.info('Redis not configured (REDIS_URL not set) — rate limiting disabled');
         }
-      });
+      }).catch((err) => log.general.error({ err }, 'Redis readiness import failed'));
 
       // Start marketplace queue workers when Redis is configured; otherwise
       // async jobs run inline via the producers.
       import('./queue/connection.js').then(({ isQueueEnabled }) => {
         if (isQueueEnabled()) {
-          import('./queue/workers.js').then(({ startWorkers }) => startWorkers());
+          import('./queue/workers.js').then(({ startWorkers }) => startWorkers())
+            .catch((err) => log.general.error({ err }, 'startWorkers import failed'));
         } else {
           log.general.info('Marketplace queue disabled (REDIS_URL not set) — async jobs run inline');
         }
-      });
+      }).catch((err) => log.general.error({ err }, 'Queue connection import failed'));
     });
 
     // Graceful shutdown handler

@@ -33,7 +33,7 @@ export type NotificationStatus = 'pending' | 'sent' | 'read' | 'dismissed';
 export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
 
 export interface INotification extends Document {
-  oxyUserId: mongoose.Types.ObjectId;
+  oxyUserId: string;
   type: NotificationType;
   title: string;
   body: string;
@@ -51,11 +51,12 @@ export interface INotification extends Document {
 }
 
 const NotificationSchema = new Schema<INotification>({
+  // Oxy users are EXTERNAL (no local `User` collection). Stored as a String
+  // (the ecosystem convention) — never coerced to an ObjectId. NO inline index:
+  // it is the leading field of the compound indexes below (prefix-covered).
   oxyUserId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
+    type: String,
     required: true,
-    index: true,
   },
   type: {
     type: String,

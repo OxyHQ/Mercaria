@@ -146,7 +146,8 @@ export const config: AppConfig = Object.freeze({
   }),
   orders: Object.freeze({
     reservationTtlMs: intEnv('RESERVATION_TTL_MS', 15 * MINUTE_MS),
-    mockPayEnabled: boolEnv('MOCK_PAY_ENABLED', process.env.NODE_ENV !== 'production'),
+    mockPayEnabled:
+      process.env.NODE_ENV === 'production' ? false : boolEnv('MOCK_PAY_ENABLED', true),
     shippingRates: Object.freeze({
       standard: intEnv('SHIPPING_RATE_STANDARD', 500),
       express: intEnv('SHIPPING_RATE_EXPRESS', 1500),

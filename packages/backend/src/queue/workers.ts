@@ -118,17 +118,22 @@ export function startWorkers(): void {
 }
 
 /**
- * Close workers, repeatable schedules, producer queues, and the connection.
- * Safe to call when nothing started.
+ * Close workers, producer queues, and the connection. Safe to call when nothing
+ * started. The shared repeatable schedules are removed ONLY if THIS process
+ * registered them (i.e. it started workers) — a web-only process (Redis
+ * configured but workers never started) must not unregister fleet-wide schedules.
  */
 export async function shutdownQueues(): Promise<void> {
+  const didStartWorkers = workersStarted;
   if (!workersStarted && !isQueueEnabled()) {
     return;
   }
 
-  await removeSchedules().catch((err) =>
-    log.general.warn({ err }, 'Failed to remove marketplace repeatable jobs'),
-  );
+  if (didStartWorkers) {
+    await removeSchedules().catch((err) =>
+      log.general.warn({ err }, 'Failed to remove marketplace repeatable jobs'),
+    );
+  }
 
   const workers: Array<Worker<MarketplaceEventJobData> | Worker<MaintenanceJobData>> = [];
   if (eventsWorker) workers.push(eventsWorker);

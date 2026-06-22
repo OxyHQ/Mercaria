@@ -188,7 +188,7 @@ export async function setVariantInventory(req: Request, res: Response): Promise<
     const listing = await loadStoreProduct(req);
     const listingId = String((listing as { _id: unknown })._id);
     const body = req.body as { available: number };
-    await setAvailable(routeParam(req, 'variantId'), body.available);
+    await setAvailable(routeParam(req, 'variantId'), listingId, body.available);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto);
   } catch (err) {

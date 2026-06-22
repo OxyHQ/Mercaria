@@ -1,7 +1,7 @@
 import mongoose, { Schema, Model, Document } from 'mongoose';
 
 export interface IWebPushSubscription extends Document {
-  oxyUserId: mongoose.Types.ObjectId;
+  oxyUserId: string;
   endpoint: string;
   keys: {
     p256dh: string;
@@ -14,9 +14,9 @@ export interface IWebPushSubscription extends Document {
 
 const WebPushSubscriptionSchema = new Schema<IWebPushSubscription>(
   {
+    // Oxy users are EXTERNAL (no local `User` collection) — stored as a String.
     oxyUserId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
+      type: String,
       required: true,
       index: true,
     },

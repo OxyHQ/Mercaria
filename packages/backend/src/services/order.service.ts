@@ -19,7 +19,7 @@ import type {
   OrderStatus,
   OrderSummary,
 } from '@mercaria/shared-types';
-import { Order, type IOrder } from '../models/order.js';
+import { Order, type IOrder, type IOrderStatusEvent } from '../models/order.js';
 import { SellerProfile } from '../models/seller-profile.js';
 import { Store, type IStore } from '../models/store.js';
 import { Listing, type IListing } from '../models/listing.js';
@@ -83,23 +83,65 @@ function toMoney(value: { amount: number; currency: string }): Money {
  *     committed) else RELEASE the reservation; `refunded` also marks payment
  *     refunded.
  *
- * Accepts a NON-lean mongoose document (it calls `.save()`).
+ * The status flip is an atomic compare-and-swap (`findOneAndUpdate` guarded on
+ * the CURRENT status), executed BEFORE any inventory/salesCount side-effects.
+ * Only the winning caller (whose CAS matched the pre-transition status) runs the
+ * side-effects, so a buyer `cancel` racing the expire-reservations sweep — or
+ * any multi-process double-invoke — runs them AT MOST ONCE: the loser's CAS
+ * matches nothing and throws CONFLICT before touching inventory. The passed-in
+ * mongoose doc is then mutated in memory to mirror the persisted state (callers
+ * re-hydrate via `order.toObject()`); `.save()` is NOT called — the CAS already
+ * persisted the change.
  */
 export async function transition(
   order: HydratedDocument<IOrder>,
   next: OrderStatus,
   opts: TransitionOptions,
 ): Promise<IOrder> {
-  if (!TRANSITIONS[order.status].includes(next)) {
-    throw conflict(`Cannot transition order from ${order.status} to ${next}`);
+  const current = order.status;
+  if (!TRANSITIONS[current].includes(next)) {
+    throw conflict(`Cannot transition order from ${current} to ${next}`);
   }
 
+  // The pre-transition payment state drives restock-vs-release on cancel/refund.
+  const wasPaid = order.payment.status === 'paid';
+
+  // Build the status event + any payment/shipping `$set` fields BEFORE the CAS.
+  const event: IOrderStatusEvent = { status: next, at: new Date() };
+  if (opts.actorOxyUserId) {
+    event.byOxyUserId = opts.actorOxyUserId;
+  }
+  if (opts.note) {
+    event.note = opts.note;
+  }
+
+  const setFields: Record<string, unknown> = { status: next };
+  const paidAt = new Date();
+  if (next === 'paid') {
+    setFields['payment.status'] = 'paid';
+    setFields['payment.paidAt'] = paidAt;
+  } else if (next === 'refunded') {
+    setFields['payment.status'] = 'refunded';
+  }
+  if (opts.trackingNumber) {
+    setFields['shipping.trackingNumber'] = opts.trackingNumber;
+  }
+
+  // Atomic CAS gate: only succeeds if the order is still at `current`.
+  const updated = await Order.findOneAndUpdate(
+    { _id: order._id, status: current },
+    { $set: setFields, $push: { statusHistory: event } },
+    { new: true },
+  );
+  if (!updated) {
+    throw conflict(`Order ${String(order._id)} was concurrently transitioned`);
+  }
+
+  // CAS won — run the inventory side-effects + salesCount bump exactly once.
   if (next === 'paid') {
     for (const item of order.items) {
       await commit(item.variantId, item.quantity);
     }
-    order.payment.status = 'paid';
-    order.payment.paidAt = new Date();
     if (order.sellerType === 'user' && order.sellerOxyUserId) {
       await SellerProfile.updateOne(
         { oxyUserId: order.sellerOxyUserId },
@@ -110,7 +152,6 @@ export async function transition(
       await Store.updateOne({ _id: order.storeId }, { $inc: { salesCount: 1 } });
     }
   } else if (next === 'cancelled' || next === 'refunded') {
-    const wasPaid = order.payment.status === 'paid';
     for (const item of order.items) {
       if (wasPaid) {
         await restock(item.variantId, item.quantity);
@@ -118,25 +159,21 @@ export async function transition(
         await release(item.variantId, item.quantity);
       }
     }
-    if (next === 'refunded') {
-      order.payment.status = 'refunded';
-    }
   }
 
+  // Mirror the persisted state onto the in-memory doc so callers that
+  // re-hydrate via `order.toObject()` see the new values.
+  order.status = next;
+  order.statusHistory.push(event);
+  if (next === 'paid') {
+    order.payment.status = 'paid';
+    order.payment.paidAt = paidAt;
+  } else if (next === 'refunded') {
+    order.payment.status = 'refunded';
+  }
   if (opts.trackingNumber) {
     order.shipping.trackingNumber = opts.trackingNumber;
   }
-
-  const event: IOrder['statusHistory'][number] = { status: next, at: new Date() };
-  if (opts.actorOxyUserId) {
-    event.byOxyUserId = opts.actorOxyUserId;
-  }
-  if (opts.note) {
-    event.note = opts.note;
-  }
-  order.statusHistory.push(event);
-  order.status = next;
-  await order.save();
 
   log.general.info(
     { orderId: String(order._id), status: next, actor: opts.actorOxyUserId },

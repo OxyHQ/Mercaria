@@ -9,7 +9,6 @@
  * `getFavoritedListingIds` is the batched lookup hydration uses to set `saved`.
  */
 
-import mongoose from 'mongoose';
 import type { Listing as ListingDTO } from '@mercaria/shared-types';
 import { Favorite } from '../models/favorite.js';
 import { Listing, type IListing } from '../models/listing.js';
@@ -48,7 +47,7 @@ export async function toggle(oxyUserId: string, listingId: string): Promise<Togg
     return { saved: false };
   }
 
-  await Favorite.create({ oxyUserId, listingId: new mongoose.Types.ObjectId(listingId) });
+  await Favorite.create({ oxyUserId, listingId });
   await Listing.updateOne({ _id: listingId }, { $inc: { favoriteCount: 1 } });
   return { saved: true };
 }
@@ -65,7 +64,7 @@ export async function save(oxyUserId: string, listingId: string): Promise<Toggle
     return { saved: true };
   }
 
-  await Favorite.create({ oxyUserId, listingId: new mongoose.Types.ObjectId(listingId) });
+  await Favorite.create({ oxyUserId, listingId });
   await Listing.updateOne({ _id: listingId }, { $inc: { favoriteCount: 1 } });
   return { saved: true };
 }

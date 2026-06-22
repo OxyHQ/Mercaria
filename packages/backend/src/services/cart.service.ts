@@ -15,7 +15,6 @@
  *     cart is a soft wishlist-to-buy.
  */
 
-import mongoose from 'mongoose';
 import type {
   AddCartItemInput,
   Cart as CartDTO,
@@ -23,7 +22,7 @@ import type {
   CurrencyCode,
   Money,
 } from '@mercaria/shared-types';
-import { Cart, type ICart, type ICartItem } from '../models/cart.js';
+import { Cart, type ICart } from '../models/cart.js';
 import { Listing, type IListing } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
 import { resolveMedia } from './catalog-hydration.service.js';
@@ -199,8 +198,8 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
       currency: variantCurrency,
       items: [
         {
-          listingId: new mongoose.Types.ObjectId(input.listingId),
-          variantId: new mongoose.Types.ObjectId(input.variantId),
+          listingId: input.listingId,
+          variantId: input.variantId,
           quantity,
           addedAt: new Date(),
         },
@@ -232,11 +231,11 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
     existing.quantity = quantity;
   } else {
     cart.items.push({
-      listingId: new mongoose.Types.ObjectId(input.listingId),
-      variantId: new mongoose.Types.ObjectId(input.variantId),
+      listingId: input.listingId,
+      variantId: input.variantId,
       quantity,
       addedAt: new Date(),
-    } as ICartItem);
+    });
   }
 
   await cart.save();

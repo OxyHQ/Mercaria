@@ -36,7 +36,7 @@ import { multiplyMoney, addMoney, sumMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { enqueueOrderEvent } from '../queue/producers.js';
-import { conflict, notFound } from '../lib/errors/error-codes.js';
+import { conflict, notFound, isMercariaError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 /** Human label shown for each shipping method on the order. */
@@ -218,7 +218,7 @@ export async function checkout(
         holdsRedisClaim = true;
       }
     } catch (err) {
-      if (err instanceof Error && err.name === 'MercariaError') {
+      if (isMercariaError(err)) {
         throw err;
       }
       log.general.warn({ err }, 'Redis idempotency fast-path failed; falling back to durable path');

@@ -16,6 +16,8 @@ const release = vi.fn();
 const restock = vi.fn();
 const sellerProfileUpdateOne = vi.fn();
 const storeUpdateOne = vi.fn();
+const enqueueOrderEvent = vi.fn();
+const findOneAndUpdate = vi.fn();
 
 vi.mock('../inventory.service.js', () => ({
   commit: (...args: unknown[]) => commit(...args),
@@ -29,6 +31,7 @@ vi.mock('../../models/order.js', () => ({
     find: vi.fn(),
     countDocuments: vi.fn(),
     aggregate: vi.fn(),
+    findOneAndUpdate: (...args: unknown[]) => findOneAndUpdate(...args),
   },
 }));
 
@@ -51,6 +54,10 @@ vi.mock('../../models/product-variant.js', () => ({
 vi.mock('../order-hydration.service.js', () => ({
   hydrateOrders: vi.fn().mockResolvedValue([]),
   summarizeOrders: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../../queue/producers.js', () => ({
+  enqueueOrderEvent: (...args: unknown[]) => enqueueOrderEvent(...args),
 }));
 
 import { transition } from '../order.service.js';
@@ -89,6 +96,12 @@ beforeEach(() => {
   restock.mockReset().mockResolvedValue(undefined);
   sellerProfileUpdateOne.mockReset().mockResolvedValue(undefined);
   storeUpdateOne.mockReset().mockResolvedValue(undefined);
+  enqueueOrderEvent.mockReset().mockResolvedValue(undefined);
+  // Default: the atomic CAS WINS — resolve a non-null persisted doc reflecting
+  // the requested status. Tests that simulate a lost CAS override per-call.
+  findOneAndUpdate.mockReset().mockImplementation((filter: { _id: unknown }, update: { $set: { status: OrderStatus } }) =>
+    Promise.resolve({ _id: filter._id, status: update.$set.status }),
+  );
 });
 
 describe('order.service.transition — legal transitions', () => {
@@ -109,7 +122,7 @@ describe('order.service.transition — legal transitions', () => {
       const doc = mockOrder(from, { paymentStatus });
       await transition(doc, to, { actorOxyUserId: 'actor-1' });
       expect(doc.status).toBe(to);
-      expect(doc.save).toHaveBeenCalledTimes(1);
+      expect(findOneAndUpdate).toHaveBeenCalledTimes(1);
     });
   }
 });
@@ -130,7 +143,8 @@ describe('order.service.transition — illegal transitions', () => {
       await expect(transition(doc, to, {})).rejects.toSatisfy(
         (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
       );
-      expect(doc.save).not.toHaveBeenCalled();
+      // Illegal transitions reject on the in-memory table check, before the CAS.
+      expect(findOneAndUpdate).not.toHaveBeenCalled();
     });
   }
 });
@@ -170,5 +184,31 @@ describe('order.service.transition — inventory effects', () => {
     expect(release).not.toHaveBeenCalled();
     expect(commit).not.toHaveBeenCalled();
     expect(doc.payment.status).toBe('refunded');
+  });
+});
+
+describe('order.service.transition — atomic CAS (side effects run at most once)', () => {
+  it('a concurrent double-cancel releases the reservation EXACTLY once (the loser CONFLICTs, no second release)', async () => {
+    // First CAS WINS (truthy persisted doc), second CAS LOSES (null — already moved off `pending_payment`).
+    findOneAndUpdate
+      .mockReset()
+      .mockResolvedValueOnce({ _id: 'order-1', status: 'cancelled' })
+      .mockResolvedValueOnce(null);
+
+    const doc1 = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
+    const doc2 = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
+
+    // Winner: releases the 2 lines once.
+    await transition(doc1, 'cancelled', {});
+    // Loser: CAS matched nothing → CONFLICT, no inventory effect.
+    await expect(transition(doc2, 'cancelled', {})).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
+    );
+
+    // Released ONCE for the 2 lines (v1, v2) — not 4 (which a double-run would produce).
+    expect(release).toHaveBeenCalledTimes(2);
+    expect(release).toHaveBeenCalledWith('v1', 2);
+    expect(release).toHaveBeenCalledWith('v2', 1);
+    expect(findOneAndUpdate).toHaveBeenCalledTimes(2);
   });
 });

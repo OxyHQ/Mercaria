@@ -11,6 +11,7 @@
 
 import mongoose from 'mongoose';
 import Expo, { type ExpoPushMessage, type ExpoPushReceiptId } from 'expo-server-sdk';
+import { WebPushError } from 'web-push';
 import { Notification, type INotification, type NotificationType, type NotificationChannel, type NotificationPriority } from '../models/notification.js';
 import { PushToken } from '../models/push-token.js';
 import { WebPushSubscription } from '../models/web-push-subscription.js';
@@ -20,6 +21,13 @@ import { log } from './logger.js';
 
 // ── Expo push singleton ──────────────────────────────────────────────
 const expo = new Expo();
+
+/**
+ * Push-endpoint HTTP statuses that mean a web-push subscription is permanently
+ * dead (expired or unknown) and should be deactivated rather than retried.
+ */
+const HTTP_GONE = 410;
+const HTTP_NOT_FOUND = 404;
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -51,20 +59,18 @@ async function resolveChannels(userId: string, explicit?: NotificationChannel[])
   // Default: always in_app
   const channels: NotificationChannel[] = ['in_app'];
 
-  const userObjectId = new mongoose.Types.ObjectId(userId);
-
   // Check in parallel: push tokens and web push subscriptions
   const [hasPushTokens, hasWebPushSubs] = await Promise.all([
     // Push: check if user has any active Expo push tokens
     PushToken.exists({
-      oxyUserId: userObjectId,
+      oxyUserId: userId,
       active: true,
     }).catch(() => null),
 
     // Web push: check if user has any active browser push subscriptions (only if VAPID configured)
     VAPID_PUBLIC_KEY
       ? WebPushSubscription.exists({
-          oxyUserId: userObjectId,
+          oxyUserId: userId,
           active: true,
         }).catch(() => null)
       : null,
@@ -104,7 +110,7 @@ async function deliverInApp(notification: INotification): Promise<boolean> {
  */
 async function deliverPush(userId: string, notification: INotification): Promise<boolean> {
   const tokens = await PushToken.find({
-    oxyUserId: new mongoose.Types.ObjectId(userId),
+    oxyUserId: userId,
     active: true,
   }).lean();
 
@@ -154,16 +160,19 @@ async function deliverPush(userId: string, notification: INotification): Promise
             receiptIds.push(ticket.id);
           }
         } else {
-          // ticket.status === 'error'
-          const errorDetail = ticket as { status: 'error'; message: string; details?: { error: string } };
+          // ticket.status === 'error' — `chunk[i]` is the matching ExpoPushMessage.
+          // Each message was built with a single-token `to`, so normalize the
+          // `ExpoPushToken | ExpoPushToken[]` union back to one token string.
+          const messageTo = chunk[i]?.to;
+          const failedToken = Array.isArray(messageTo) ? messageTo[0] : messageTo;
           log.general.warn(
-            { userId, token: (chunk[i] as any).to, error: errorDetail.message, errorCode: errorDetail.details?.error },
+            { userId, token: failedToken, error: ticket.message, errorCode: ticket.details?.error },
             'Expo push ticket error',
           );
 
           // Deactivate tokens that are permanently invalid
-          if (errorDetail.details?.error === 'DeviceNotRegistered') {
-            await PushToken.updateOne({ token: (chunk[i] as any).to }, { $set: { active: false } });
+          if (ticket.details?.error === 'DeviceNotRegistered' && failedToken) {
+            await PushToken.updateOne({ token: failedToken }, { $set: { active: false } });
           }
         }
       }
@@ -230,7 +239,7 @@ async function deliverWebPush(userId: string, notification: INotification): Prom
   if (!VAPID_PUBLIC_KEY) return false;
 
   const subscriptions = await WebPushSubscription.find({
-    oxyUserId: new mongoose.Types.ObjectId(userId),
+    oxyUserId: userId,
     active: true,
   }).lean();
 
@@ -252,8 +261,11 @@ async function deliverWebPush(userId: string, notification: INotification): Prom
           { endpoint: sub.endpoint, keys: sub.keys },
           payload,
         );
-      } catch (error: any) {
-        if (error?.statusCode === 410 || error?.statusCode === 404) {
+      } catch (error: unknown) {
+        const isGone =
+          error instanceof WebPushError &&
+          (error.statusCode === HTTP_GONE || error.statusCode === HTTP_NOT_FOUND);
+        if (isGone) {
           // Subscription expired or invalid — deactivate
           await WebPushSubscription.updateOne({ _id: sub._id }, { $set: { active: false } });
           log.general.info({ userId, endpoint: sub.endpoint }, 'Web push subscription expired, deactivated');
@@ -290,7 +302,7 @@ export async function sendNotification(options: SendNotificationOptions): Promis
 
   // Persist the notification
   const notification = await Notification.create({
-    oxyUserId: new mongoose.Types.ObjectId(userId),
+    oxyUserId: userId,
     type,
     title,
     body: body.slice(0, 4000), // Cap body length
@@ -349,14 +361,14 @@ export async function sendNotification(options: SendNotificationOptions): Promis
 
 export async function getUnreadCount(userId: string): Promise<number> {
   return Notification.countDocuments({
-    oxyUserId: new mongoose.Types.ObjectId(userId),
+    oxyUserId: userId,
     status: { $in: ['pending', 'sent'] },
   });
 }
 
 export async function markAsRead(notificationId: string, userId: string): Promise<boolean> {
   const result = await Notification.updateOne(
-    { _id: notificationId, oxyUserId: new mongoose.Types.ObjectId(userId) },
+    { _id: notificationId, oxyUserId: userId },
     { $set: { status: 'read', readAt: new Date() } },
   );
   return result.modifiedCount > 0;
@@ -365,7 +377,7 @@ export async function markAsRead(notificationId: string, userId: string): Promis
 export async function markAllAsRead(userId: string): Promise<number> {
   const result = await Notification.updateMany(
     {
-      oxyUserId: new mongoose.Types.ObjectId(userId),
+      oxyUserId: userId,
       status: { $in: ['pending', 'sent'] },
     },
     { $set: { status: 'read', readAt: new Date() } },
@@ -375,7 +387,7 @@ export async function markAllAsRead(userId: string): Promise<number> {
 
 export async function dismissNotification(notificationId: string, userId: string): Promise<boolean> {
   const result = await Notification.updateOne(
-    { _id: notificationId, oxyUserId: new mongoose.Types.ObjectId(userId) },
+    { _id: notificationId, oxyUserId: userId },
     { $set: { status: 'dismissed' } },
   );
   return result.modifiedCount > 0;

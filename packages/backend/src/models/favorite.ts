@@ -13,7 +13,7 @@ import mongoose, { Schema, Model } from 'mongoose';
 export interface IFavorite {
   _id: mongoose.Types.ObjectId;
   oxyUserId: string;
-  listingId: mongoose.Types.ObjectId;
+  listingId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,7 +21,8 @@ export interface IFavorite {
 const FavoriteSchema = new Schema<IFavorite>(
   {
     oxyUserId: { type: String, required: true },
-    listingId: { type: Schema.Types.ObjectId, ref: 'Listing', required: true },
+    // Cross-collection refs are stored as Strings ecosystem-wide.
+    listingId: { type: String, required: true },
   },
   { timestamps: true },
 );

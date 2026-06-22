@@ -15,7 +15,9 @@ const ALLOWED_ORIGINS = [
 let io: Server | null = null;
 
 export function initSocket(server: http.Server) {
-  io = new Server(server, {
+  // Hold the instance in a local const so the async adapter callback below
+  // references a provably-defined server (no module-level non-null assertion).
+  const socketServer = new Server(server, {
     cors: {
       origin: ALLOWED_ORIGINS,
       methods: ['GET', 'POST'],
@@ -23,6 +25,7 @@ export function initSocket(server: http.Server) {
     },
     transports: ['websocket', 'polling'],
   });
+  io = socketServer;
 
   // Attach Redis adapter for horizontal scaling
   const pubClient = getRedisClient();
@@ -30,7 +33,7 @@ export function initSocket(server: http.Server) {
   if (pubClient && subClient) {
     Promise.all([pubClient.connect(), subClient.connect()])
       .then(() => {
-        io!.adapter(createAdapter(pubClient, subClient));
+        socketServer.adapter(createAdapter(pubClient, subClient));
         log.general.info('Socket.IO Redis adapter attached');
       })
       .catch((err) => {
@@ -42,9 +45,9 @@ export function initSocket(server: http.Server) {
   // `handshake.auth.token` and sets `socket.data.userId`. Unauthenticated
   // connections are rejected. This is the ONLY source of the room identity —
   // clients can no longer name the room they join.
-  io.use(oxyClient.authSocket());
+  socketServer.use(oxyClient.authSocket());
 
-  io.on('connection', (socket) => {
+  socketServer.on('connection', (socket) => {
     const userId = (socket.data as { userId?: string }).userId;
     if (!userId) {
       // authSocket() guarantees userId, but fail closed if it is ever missing.
@@ -60,7 +63,7 @@ export function initSocket(server: http.Server) {
     socket.on('subscribe-notifications', () => {});
   });
 
-  return io;
+  return socketServer;
 }
 
 export function getIO(): Server | null {

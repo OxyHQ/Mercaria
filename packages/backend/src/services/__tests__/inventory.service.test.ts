@@ -12,12 +12,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const updateOne = vi.fn();
 const findById = vi.fn();
+const findOne = vi.fn();
 const syncListingFacets = vi.fn().mockResolvedValue([]);
 
 vi.mock('../../models/product-variant.js', () => ({
   ProductVariant: {
     updateOne: (...args: unknown[]) => updateOne(...args),
     findById: (...args: unknown[]) => findById(...args),
+    findOne: (...args: unknown[]) => findOne(...args),
   },
 }));
 
@@ -44,6 +46,7 @@ function metaDoc(tracked: boolean): unknown {
 beforeEach(() => {
   updateOne.mockReset();
   findById.mockReset();
+  findOne.mockReset();
   syncListingFacets.mockClear();
 });
 
@@ -137,27 +140,42 @@ describe('inventory.service.commit', () => {
 });
 
 describe('inventory.service.setAvailable', () => {
-  it('absolute-sets available on a tracked variant and resyncs facets', async () => {
+  it('absolute-sets available on a tracked variant (scoped to its listing) and resyncs facets', async () => {
     const save = vi.fn().mockResolvedValue(undefined);
-    findById.mockResolvedValueOnce({
+    findOne.mockResolvedValueOnce({
       _id: VARIANT_ID,
       listingId: LISTING_ID,
       inventory: { tracked: true, available: 1, committed: 0 },
       save,
     });
 
-    await setAvailable(VARIANT_ID, 25);
+    await setAvailable(VARIANT_ID, LISTING_ID, 25);
 
+    expect(findOne).toHaveBeenCalledWith({ _id: VARIANT_ID, listingId: LISTING_ID });
     expect(save).toHaveBeenCalledTimes(1);
     expect(syncListingFacets).toHaveBeenCalledWith(LISTING_ID);
   });
 
-  it('rejects a negative or non-integer available', async () => {
-    await expect(setAvailable(VARIANT_ID, -1)).rejects.toSatisfy((err: unknown) =>
+  it('rejects a negative or non-integer available before any lookup', async () => {
+    await expect(setAvailable(VARIANT_ID, LISTING_ID, -1)).rejects.toSatisfy((err: unknown) =>
       isMercariaError(err) && err.code === ErrorCodes.OUT_OF_STOCK,
     );
-    await expect(setAvailable(VARIANT_ID, 1.5)).rejects.toSatisfy((err: unknown) =>
+    await expect(setAvailable(VARIANT_ID, LISTING_ID, 1.5)).rejects.toSatisfy((err: unknown) =>
       isMercariaError(err) && err.code === ErrorCodes.OUT_OF_STOCK,
     );
+  });
+
+  it('IDOR regression: a variant on a DIFFERENT listing resolves to NOT_FOUND with NO stock write', async () => {
+    const OTHER_LISTING_ID = '000000000000000000000099';
+    // The scoped `findOne({ _id, listingId })` matches nothing for another store's listing.
+    findOne.mockResolvedValueOnce(null);
+
+    await expect(setAvailable(VARIANT_ID, OTHER_LISTING_ID, 25)).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND,
+    );
+
+    expect(findOne).toHaveBeenCalledWith({ _id: VARIANT_ID, listingId: OTHER_LISTING_ID });
+    // No stock write and no facet resync happened.
+    expect(syncListingFacets).not.toHaveBeenCalled();
   });
 });

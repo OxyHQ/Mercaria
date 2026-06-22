@@ -220,6 +220,11 @@ const P2P_LISTINGS: P2PSpec[] = [
 ];
 
 async function seed(): Promise<void> {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
+    log.general.error('Refusing to seed in production without ALLOW_PROD_SEED=true');
+    process.exit(1);
+  }
+
   await connectDB();
 
   log.general.info('Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant)');

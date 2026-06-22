@@ -181,14 +181,21 @@ export async function restock(variantId: string, qty: number): Promise<void> {
 
 /**
  * Admin absolute-set of `available` units on a TRACKED variant (e.g. restock).
- * Untracked variants ignore the value (always available). Recomputes the parent
- * listing's facets so `hasInventory`/`priceRange` reflect the new state.
+ * Scoped to `listingId` so a store member can only set inventory on a variant
+ * belonging to a listing they own — a variant whose `listingId` does not match
+ * resolves to NOT_FOUND. Untracked variants ignore the value (always available).
+ * Recomputes the parent listing's facets so `hasInventory`/`priceRange` reflect
+ * the new state.
  */
-export async function setAvailable(variantId: string, available: number): Promise<void> {
+export async function setAvailable(
+  variantId: string,
+  listingId: string,
+  available: number,
+): Promise<void> {
   if (available < 0 || !Number.isInteger(available)) {
     throw outOfStock('available must be a non-negative integer');
   }
-  const variant = await ProductVariant.findById(variantId);
+  const variant = await ProductVariant.findOne({ _id: variantId, listingId });
   if (!variant) {
     throw notFound('Variant not found');
   }

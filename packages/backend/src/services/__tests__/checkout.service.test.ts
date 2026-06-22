@@ -23,6 +23,7 @@ const orderFind = vi.fn();
 const nextOrderNumber = vi.fn();
 const summarizeOrders = vi.fn();
 const getRedisClient = vi.fn();
+const enqueueOrderEvent = vi.fn();
 
 vi.mock('../cart.service.js', () => ({
   getCart: (...args: unknown[]) => getCart(...args),
@@ -63,6 +64,10 @@ vi.mock('../order-hydration.service.js', () => ({
 
 vi.mock('../catalog-hydration.service.js', () => ({
   resolveMedia: (value: string) => `resolved:${value}`,
+}));
+
+vi.mock('../../queue/producers.js', () => ({
+  enqueueOrderEvent: (...args: unknown[]) => enqueueOrderEvent(...args),
 }));
 
 vi.mock('../../lib/redis.js', () => ({
@@ -141,6 +146,7 @@ beforeEach(() => {
   nextOrderNumber.mockReset();
   summarizeOrders.mockReset();
   getRedisClient.mockReset().mockReturnValue(null);
+  enqueueOrderEvent.mockReset().mockResolvedValue(undefined);
 });
 
 describe('checkout.service.checkout — multi-seller split', () => {

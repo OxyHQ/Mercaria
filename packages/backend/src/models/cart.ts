@@ -12,8 +12,8 @@ import mongoose, { Schema, Model } from 'mongoose';
 import { CURRENCY_CODES } from './schemas/money-schema.js';
 
 export interface ICartItem {
-  listingId: mongoose.Types.ObjectId;
-  variantId: mongoose.Types.ObjectId;
+  listingId: string;
+  variantId: string;
   quantity: number;
   addedAt: Date;
 }
@@ -30,8 +30,9 @@ export interface ICart {
 
 const CartItemSchema = new Schema<ICartItem>(
   {
-    listingId: { type: Schema.Types.ObjectId, ref: 'Listing', required: true },
-    variantId: { type: Schema.Types.ObjectId, ref: 'ProductVariant', required: true },
+    // Cross-collection refs are stored as Strings ecosystem-wide.
+    listingId: { type: String, required: true },
+    variantId: { type: String, required: true },
     quantity: { type: Number, required: true, min: 1 },
     addedAt: { type: Date, default: Date.now },
   },

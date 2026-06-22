@@ -8,10 +8,23 @@ const router = Router();
 // ============== HEALTH STATE CACHE ==============
 // Avoid recomputing the snapshot on every probe.
 
-let healthCache: { data: any; expiry: number } | null = null;
+interface HealthSnapshot {
+  status: 'healthy' | 'degraded';
+  timestamp: string;
+  uptime: number;
+  mongodb: 'connected' | 'connecting' | 'disconnecting' | 'disconnected';
+  redis: 'connected' | 'unavailable';
+  memory: {
+    rss: number;
+    heapUsed: number;
+    heapTotal: number;
+  };
+}
+
+let healthCache: { data: HealthSnapshot; expiry: number } | null = null;
 const HEALTH_CACHE_TTL_MS = 10_000; // 10 seconds
 
-function getHealthSnapshot() {
+function getHealthSnapshot(): HealthSnapshot {
   if (healthCache && healthCache.expiry > Date.now()) {
     return healthCache.data;
   }
@@ -28,7 +41,7 @@ function getHealthSnapshot() {
 
   const isHealthy = mongoState === 1;
 
-  const snapshot = {
+  const snapshot: HealthSnapshot = {
     status: isHealthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     uptime: Math.round(process.uptime()),

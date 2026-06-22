@@ -33,6 +33,9 @@ jobs:
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
 
+      - name: Typecheck API
+        run: bun run --filter @mercaria/backend typecheck
+
       - name: Run API tests
         run: bun run --filter @mercaria/backend test
 

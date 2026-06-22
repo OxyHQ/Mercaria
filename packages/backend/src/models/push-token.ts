@@ -1,7 +1,7 @@
 import mongoose, { Schema, Model, Document } from 'mongoose';
 
 export interface IPushToken extends Document {
-  oxyUserId: mongoose.Types.ObjectId;
+  oxyUserId: string;
   token: string;
   deviceId?: string;
   platform?: 'ios' | 'android' | 'web';
@@ -13,9 +13,9 @@ export interface IPushToken extends Document {
 
 const PushTokenSchema = new Schema<IPushToken>(
   {
+    // Oxy users are EXTERNAL (no local `User` collection) — stored as a String.
     oxyUserId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
+      type: String,
       required: true,
       index: true,
     },

@@ -188,7 +188,7 @@ const StatusEventSchema = new Schema<IOrderStatusEvent>(
 
 const OrderSchema = new Schema<IOrder>(
   {
-    orderNumber: { type: String, required: true, unique: true },
+    orderNumber: { type: String, required: true },
     buyerOxyUserId: { type: String, required: true },
     sellerType: { type: String, enum: SELLER_TYPES as string[], required: true },
     sellerOxyUserId: { type: String },
@@ -205,11 +205,10 @@ const OrderSchema = new Schema<IOrder>(
       type: String,
       enum: ORDER_STATUSES as string[],
       default: 'pending_payment',
-      index: true,
     },
     statusHistory: { type: [StatusEventSchema], default: [] },
     payment: { type: PaymentSchema, default: () => ({}) },
-    checkoutGroupId: { type: String, index: true },
+    checkoutGroupId: { type: String },
     idempotencyKey: { type: String },
   },
   { timestamps: true },
@@ -221,6 +220,8 @@ OrderSchema.index({ sellerOxyUserId: 1, status: 1, createdAt: -1 });
 OrderSchema.index({ orderNumber: 1 }, { unique: true });
 OrderSchema.index({ checkoutGroupId: 1 });
 OrderSchema.index({ 'payment.status': 1, createdAt: 1 });
+// Serves the expire-reservations sweep: { status: 'pending_payment', createdAt: { $lt } }.
+OrderSchema.index({ status: 1, createdAt: 1 });
 OrderSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
 
 export const Order: Model<IOrder> =
