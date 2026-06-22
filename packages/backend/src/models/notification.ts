@@ -1,15 +1,32 @@
 import mongoose, { Schema, Model, Document } from 'mongoose';
 
-export type NotificationType =
-  | 'trigger_result'
-  | 'proactive_insight'
-  | 'daily_briefing'
-  | 'price_alert'
-  | 'integration_event'
-  | 'reminder'
-  | 'agent_task_complete'
-  | 'chat_response_ready'
-  | 'oxy_service';
+/**
+ * Every supported notification type. Declared ONCE as a const tuple so the
+ * `NotificationType` union and the schema `enum` cannot drift apart.
+ */
+export const NOTIFICATION_TYPES = [
+  'trigger_result',
+  'proactive_insight',
+  'daily_briefing',
+  'price_alert',
+  'integration_event',
+  'reminder',
+  'agent_task_complete',
+  'chat_response_ready',
+  'oxy_service',
+  // Marketplace (order lifecycle + reviews + store).
+  'order_placed',
+  'order_paid',
+  'order_shipped',
+  'order_delivered',
+  'order_cancelled',
+  'listing_sold',
+  'review_received',
+  'store_member_invited',
+  'low_inventory',
+] as const;
+
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 export type NotificationChannel = 'push' | 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'in_app';
 export type NotificationStatus = 'pending' | 'sent' | 'read' | 'dismissed';
@@ -43,7 +60,7 @@ const NotificationSchema = new Schema<INotification>({
   type: {
     type: String,
     required: true,
-    enum: ['trigger_result', 'proactive_insight', 'daily_briefing', 'price_alert', 'integration_event', 'reminder', 'agent_task_complete', 'chat_response_ready', 'oxy_service'],
+    enum: NOTIFICATION_TYPES as unknown as string[],
   },
   title: { type: String, required: true },
   body: { type: String, required: true },
@@ -73,8 +90,12 @@ const NotificationSchema = new Schema<INotification>({
 
 // Query by user + status for notification feed
 NotificationSchema.index({ oxyUserId: 1, status: 1, createdAt: -1 });
-// Unread count query
-NotificationSchema.index({ oxyUserId: 1, status: { $in: ['pending', 'sent'] } as any });
+// Unread-count + unread-feed query: a PARTIAL index covering only the unread
+// states (`pending`/`sent`), serving `getUnreadCount` / `markAllAsRead`.
+const UNREAD_INDEX_OPTIONS: mongoose.IndexOptions = {
+  partialFilterExpression: { status: { $in: ['pending', 'sent'] } },
+};
+NotificationSchema.index({ oxyUserId: 1, createdAt: -1 }, UNREAD_INDEX_OPTIONS);
 // TTL: auto-delete dismissed/expired notifications after 90 days
 NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60, partialFilterExpression: { status: 'dismissed' } });
 

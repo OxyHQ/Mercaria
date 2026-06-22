@@ -125,8 +125,33 @@ export interface CategoryFeedSection {
   categories: Category[];
 }
 
+/** A small round category "pill" (circular image + label) shown above the feed. */
+export interface CategoryPill {
+  /** Category id this pill links to. */
+  id: string;
+  /** Display name (e.g. "Women"). */
+  name: string;
+  /** Category slug for the `/categories/<id>` route. */
+  slug: string;
+  /** Circular pill image URL. */
+  imageUrl: string;
+}
+
+/** A home-feed section holding a single horizontal row of category pills. */
+export interface CategoryPillsFeedSection {
+  kind: 'category-pills';
+  /** Stable section id. */
+  id: string;
+  /** Ordered pills. */
+  pills: CategoryPill[];
+}
+
 /** A single home-feed section, discriminated by `kind`. */
-export type FeedSection = ProductFeedSection | MerchantFeedSection | CategoryFeedSection;
+export type FeedSection =
+  | ProductFeedSection
+  | MerchantFeedSection
+  | CategoryFeedSection
+  | CategoryPillsFeedSection;
 
 /** The home feed: an ordered list of sections rendered top-to-bottom. */
 export interface Feed {

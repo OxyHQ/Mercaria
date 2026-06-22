@@ -3,8 +3,8 @@ import { Carousel } from "./Carousel";
 import { CategoryCard } from "./CategoryCard";
 import type { Category, CategoryTile } from "@mercaria/shared-types";
 
-/** Fixed slot width (px) for each category card in the carousel. */
-const CATEGORY_CARD_WIDTH = 330;
+/** Fixed category-card slot width via Tailwind class (no JS measuring). */
+const CATEGORY_SLOT_CLASS = "w-[330px] mr-3";
 
 export interface CategoryCarouselProps {
   categories: Category[];
@@ -28,7 +28,7 @@ export function CategoryCarousel({
       <Carousel
         items={categories ?? []}
         keyExtractor={(category) => category.id}
-        itemWidth={CATEGORY_CARD_WIDTH}
+        slotClassName={CATEGORY_SLOT_CLASS}
         renderItem={(category) => (
           <CategoryCard
             category={category}

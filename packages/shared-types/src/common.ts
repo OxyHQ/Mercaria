@@ -52,6 +52,19 @@ export interface PaginatedResponse<T> {
   pagination: Pagination;
 }
 
+/**
+ * Cursor-paginated list envelope, used for infinite feeds where offset paging
+ * is inappropriate (e.g. the home feed). The cursor is opaque to the client.
+ */
+export interface CursorPage<T> {
+  /** The page of items. */
+  data: T[];
+  /** Opaque cursor to fetch the next page; absent when no further pages exist. */
+  nextCursor?: string;
+  /** Whether another page exists after this one. */
+  hasMore: boolean;
+}
+
 /** Query parameters accepted by paginated list endpoints. */
 export interface PaginationParams {
   /** 1-based page index (defaults to 1 server-side). */

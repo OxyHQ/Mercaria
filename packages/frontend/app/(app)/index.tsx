@@ -1,12 +1,18 @@
-import { View, ScrollView, Pressable } from "react-native";
+import { View, ScrollView, Pressable, Platform } from "react-native";
 import Head from "expo-router/head";
-import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
 import { Text } from "@/components/ui/text";
-import { useColorScheme } from "@/lib/useColorScheme";
+import { HeroSearch } from "@/components/shell/HeroSearch";
+import { Footer } from "@/components/shell/Footer";
 import { ProductShelf } from "@/components/marketplace/ProductShelf";
 import { MerchantCarousel } from "@/components/marketplace/MerchantCarousel";
 import { CategoryCarousel } from "@/components/marketplace/CategoryCarousel";
+import { CategoryPills } from "@/components/marketplace/CategoryPills";
 import { useFeed } from "@/lib/hooks/use-feed";
+import { useColorScheme } from "@/lib/useColorScheme";
+
+/** Spread (px) of the gutter-color mask around the rounded frame. Paints a ring
+ *  of the gutter color over any content bleeding into the thin gutter + corners. */
+const GUTTER_MASK_SPREAD = 40;
 
 /** Number of placeholder shelves shown while the feed loads. */
 const SKELETON_SHELF_COUNT = 2;
@@ -54,63 +60,133 @@ function FeedError({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-export default function HomeScreen() {
-  const { colors } = useColorScheme();
-  const { data, isLoading, isError, refetch } = useFeed();
+interface FeedBodyProps {
+  data: ReturnType<typeof useFeed>["data"];
+  isLoading: boolean;
+  isError: boolean;
+  refetch: () => void;
+}
 
+/** The feed content — identical on web and native, only its scroll host differs. */
+function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
   return (
-    <View className="flex-1 bg-background">
-      <Head>
-        <title>Mercaria</title>
-        <meta
-          name="description"
-          content="Mercaria — buy and sell new and secondhand items."
-        />
-      </Head>
+    <>
+      {/* Hero search header (provides branding — replaces the old top bar) */}
+      <HeroSearch />
 
-      {/* Header */}
-      <View className="h-14 flex-row items-center border-b border-border/40 px-4">
-        <MercariaWordmark width={160} color={colors.foreground} />
-      </View>
+      {isLoading && !data ? <FeedSkeleton /> : null}
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="pb-24 pt-4"
-        keyboardShouldPersistTaps="handled"
-      >
-        {isLoading && !data ? <FeedSkeleton /> : null}
+      {isError && !data ? <FeedError onRetry={refetch} /> : null}
 
-        {isError && !data ? <FeedError onRetry={() => refetch()} /> : null}
-
-        {/* Defensive: a feed that is partial or in transition (hot-reload, an
-            older cached payload) must never crash the home. Guard the section
-            list and each section's items against undefined. */}
-        {(data?.sections ?? []).map((section) => {
-          if (section.kind === "products") {
-            return (
-              <ProductShelf
-                key={section.id}
-                title={section.title}
-                items={section.products ?? []}
-              />
-            );
-          }
-          if (section.kind === "categories") {
-            return (
-              <CategoryCarousel
-                key={section.id}
-                categories={section.categories ?? []}
-              />
-            );
-          }
+      {/* Defensive: a feed that is partial or in transition (hot-reload, an
+          older cached payload) must never crash the home. Guard the section
+          list and each section's items against undefined. */}
+      {(data?.sections ?? []).map((section) => {
+        if (section.kind === "category-pills") {
+          return <CategoryPills key={section.id} pills={section.pills ?? []} />;
+        }
+        if (section.kind === "products") {
           return (
-            <MerchantCarousel
+            <ProductShelf
               key={section.id}
               title={section.title}
-              merchants={section.merchants ?? []}
+              items={section.products ?? []}
             />
           );
-        })}
+        }
+        if (section.kind === "categories") {
+          return (
+            <CategoryCarousel
+              key={section.id}
+              categories={section.categories ?? []}
+            />
+          );
+        }
+        return (
+          <MerchantCarousel
+            key={section.id}
+            title={section.title}
+            merchants={section.merchants ?? []}
+          />
+        );
+      })}
+
+      <Footer />
+    </>
+  );
+}
+
+export default function HomeScreen() {
+  const { data, isLoading, isError, refetch } = useFeed();
+  const { colors } = useColorScheme();
+  const isWeb = Platform.OS === "web";
+  const onRetry = () => refetch();
+
+  const head = (
+    <Head>
+      <title>Mercaria</title>
+      <meta
+        name="description"
+        content="Mercaria — buy and sell new and secondhand items."
+      />
+    </Head>
+  );
+
+  // WEB: the feed flows in normal document flow (no vertical ScrollView) so the
+  // BODY scrolls — scrolling works from anywhere, incl. over the sticky rail and
+  // gutter (Shop's pattern, pure NativeWind classes, zero scroll JS).
+  if (isWeb) {
+    return (
+      <>
+        {head}
+        {/* Decorative rounded-panel frame + bleed mask (desktop only, gated by
+            CSS `max-md:hidden` — no JS width check). A STICKY overlay pinned to
+            the viewport; the negative bottom margin gives it ~0 layout height so
+            it doesn't push the feed, while it frames the viewport and stays put as
+            the body scrolls under it. The `boxShadow` paints a ring of the GUTTER
+            color (Bloom `background` token — not hardcoded) around the rounded
+            rect, masking any feed content that bleeds into the thin gutter +
+            rounded corners; `clipPath: inset(-12px)` keeps that ring from
+            spilling onto the rail. `pointer-events-none` passes clicks. */}
+        <View
+          pointerEvents="none"
+          className="max-md:hidden web:sticky web:top-2 z-30 h-[calc(100dvh-16px)] w-full rounded-3xl border border-border web:[margin-bottom:calc(-100dvh+16px)] web:[clip-path:inset(-12px)]"
+          style={{
+            boxShadow: `0 0 0 ${GUTTER_MASK_SPREAD}px ${colors.background}`,
+          }}
+        />
+        {/* The content panel flows in the document and scrolls with the body,
+            passing under the sticky frame. Full-bleed below md, rounded card panel
+            at md+. The feed is centered (`mx-auto max-w-[2000px]`). */}
+        <View className="relative w-full bg-card pb-24 web:min-h-screen web:overflow-x-clip md:rounded-3xl">
+          <View className="web:mx-auto web:w-full web:max-w-[2000px]">
+            <FeedBody
+              data={data}
+              isLoading={isLoading}
+              isError={isError}
+              refetch={onRetry}
+            />
+          </View>
+        </View>
+      </>
+    );
+  }
+
+  // NATIVE: a single full-height ScrollView (no document scroll on native).
+  return (
+    <View className="flex-1 bg-card">
+      {head}
+      <ScrollView
+        className="flex-1 bg-card"
+        contentContainerClassName="pb-24"
+        keyboardShouldPersistTaps="handled"
+      >
+        <FeedBody
+          data={data}
+          isLoading={isLoading}
+          isError={isError}
+          refetch={onRetry}
+        />
       </ScrollView>
     </View>
   );

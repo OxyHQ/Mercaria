@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text } from 'react-native';
+import axios from 'axios';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { showSignInModal } from '@oxyhq/services';
 import { AuthContainer, AuthLogo, AuthInput, AuthButton, AuthError } from '@/components/auth';
 import apiClient from '@/lib/api/client';
 import { toast } from '@/components/sonner';
@@ -13,13 +15,7 @@ export default function ResetPasswordScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!token) {
-      setError(t('resetPassword.invalidToken'));
-    }
-  }, [token]);
+  const [error, setError] = useState(token ? '' : t('resetPassword.invalidToken'));
 
   const handleResetPassword = async () => {
     setError('');
@@ -54,10 +50,13 @@ export default function ResetPasswordScreen() {
       });
 
       toast.success(t('resetPassword.successMessage'));
-      router.replace('/login');
-    } catch (error: any) {
-      console.error('Reset password error:', error);
-      const errorMessage = error.response?.data?.error || t('resetPassword.failedToReset');
+      router.replace('/');
+      showSignInModal();
+    } catch (error: unknown) {
+      const errorMessage =
+        (axios.isAxiosError(error) && typeof error.response?.data?.error === 'string'
+          ? error.response.data.error
+          : undefined) ?? t('resetPassword.failedToReset');
       setError(errorMessage);
 
       toast.error(errorMessage);

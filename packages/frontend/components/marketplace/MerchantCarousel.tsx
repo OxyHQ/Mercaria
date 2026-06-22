@@ -4,8 +4,8 @@ import { Carousel } from "./Carousel";
 import { MerchantCard } from "./MerchantCard";
 import type { MerchantSummary } from "@mercaria/shared-types";
 
-/** Fixed slot width (px) for each merchant card in the carousel. */
-const MERCHANT_CARD_WIDTH = 330;
+/** Fixed merchant-card slot width via Tailwind class (no JS measuring). */
+const MERCHANT_SLOT_CLASS = "w-[330px] mr-3";
 
 export interface MerchantCarouselProps {
   title: string;
@@ -31,7 +31,7 @@ export function MerchantCarousel({
       <Carousel
         items={merchants}
         keyExtractor={(merchant) => merchant.id}
-        itemWidth={MERCHANT_CARD_WIDTH}
+        slotClassName={MERCHANT_SLOT_CLASS}
         renderItem={(merchant) => (
           <MerchantCard
             merchant={merchant}

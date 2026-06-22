@@ -22,7 +22,14 @@ export type RateLimitScope =
   | 'general'
   | 'feedback'
   | 'listings'
-  | 'feed';
+  | 'feed'
+  | 'stores'
+  | 'cart'
+  | 'checkout'
+  | 'orders'
+  | 'reviews'
+  | 'admin'
+  | 'search';
 
 /**
  * Build a rate-limit middleware for a scope. The scope drives a unique

@@ -15,6 +15,16 @@ import feedbackRouter from './routes/feedback.js';
 import notificationsRouter from './routes/notifications.js';
 import listingsRouter from './routes/listings.js';
 import feedRouter from './routes/feed.js';
+import categoriesRouter from './routes/categories.js';
+import storesRouter from './routes/stores.js';
+import favoritesRouter from './routes/favorites.js';
+import cartRouter from './routes/cart.js';
+import addressesRouter from './routes/addresses.js';
+import checkoutRouter from './routes/checkout.js';
+import ordersRouter from './routes/orders.js';
+import reviewsRouter from './routes/reviews.js';
+import sellerRouter from './routes/seller.js';
+import adminRouter from './routes/admin/index.js';
 
 // Socket.io
 import { initSocket } from './socket.js';
@@ -117,6 +127,16 @@ app.use('/feedback', feedbackRouter);
 app.use('/notifications', notificationsRouter);
 app.use('/listings', listingsRouter);
 app.use('/feed', feedRouter);
+app.use('/categories', categoriesRouter);
+app.use('/stores', storesRouter);
+app.use('/favorites', favoritesRouter);
+app.use('/cart', cartRouter);
+app.use('/addresses', addressesRouter);
+app.use('/checkout', checkoutRouter);
+app.use('/orders', ordersRouter);
+app.use('/reviews', reviewsRouter);
+app.use('/seller', sellerRouter);
+app.use('/admin', adminRouter);
 
 // Root route
 app.get('/', (_req, res) => {
@@ -130,6 +150,16 @@ app.get('/', (_req, res) => {
       '/notifications',
       '/listings',
       '/feed',
+      '/categories',
+      '/stores',
+      '/favorites',
+      '/cart',
+      '/addresses',
+      '/checkout',
+      '/orders',
+      '/reviews',
+      '/seller',
+      '/admin',
     ]
   });
 });
@@ -185,6 +215,16 @@ connectDB()
           log.general.info('Redis not configured (REDIS_URL not set) — rate limiting disabled');
         }
       });
+
+      // Start marketplace queue workers when Redis is configured; otherwise
+      // async jobs run inline via the producers.
+      import('./queue/connection.js').then(({ isQueueEnabled }) => {
+        if (isQueueEnabled()) {
+          import('./queue/workers.js').then(({ startWorkers }) => startWorkers());
+        } else {
+          log.general.info('Marketplace queue disabled (REDIS_URL not set) — async jobs run inline');
+        }
+      });
     });
 
     // Graceful shutdown handler
@@ -214,6 +254,11 @@ connectDB()
           await new Promise<void>((resolve) => io.close(() => resolve()));
           log.general.info('Socket.IO closed');
         }
+
+        // Stop marketplace queue workers BEFORE closing Redis.
+        const { shutdownQueues } = await import('./queue/workers.js');
+        await shutdownQueues();
+        log.general.info('Marketplace queues closed');
 
         // Close Redis connections
         const { closeRedis } = await import('./lib/redis.js');

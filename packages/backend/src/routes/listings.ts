@@ -1,20 +1,17 @@
 import { Router } from 'express';
-import type {
-  Listing,
-  ListingQuery,
-  PaginatedResponse,
-  ApiResponse,
-} from '@mercaria/shared-types';
 import { optionalAuth } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
+import { validateObjectId } from '../middleware/validate.js';
+import { browseListings, getListingById } from '../controllers/listings.controller.js';
+import { listListingReviews } from '../controllers/reviews.controller.js';
 
 /**
- * Listings API.
+ * Listings API — DB-backed browse/search + product detail.
  *
- * This is the seam for the Mercaria domain (listings persistence, search,
- * buy/sell). It currently serves an empty, correctly-typed result set so the
- * shared `@mercaria/shared-types` contract is exercised end to end while the
- * domain (models, queries, shops) is built on top.
+ * PUBLIC: `optionalAuth` attaches the viewer (when present) so `saved` can be
+ * hydrated; it never blocks anonymous access. The `'listings'` scope rate-limits
+ * the router; the browse route additionally composes the `'search'` scope so
+ * heavier search traffic is metered on its own `rl:search:` counter.
  */
 const router = Router();
 
@@ -22,47 +19,21 @@ router.use(makeRateLimiter('listings'), optionalAuth);
 
 /**
  * GET /listings
- * Search/browse listings. Returns a paginated page of listings.
+ * Browse/search listings. Offset-paginated for default/`price_*` sort; returns a
+ * cursor page for `newest` sort when a cursor is supplied.
  */
-router.get('/', (req, res) => {
-  const page = Math.max(1, Number.parseInt(String(req.query.page ?? '1'), 10) || 1);
-  const limit = Math.min(50, Math.max(1, Number.parseInt(String(req.query.limit ?? '20'), 10) || 20));
-
-  // Echo the parsed query so the typed contract is visible at the seam.
-  const query: ListingQuery = {
-    q: typeof req.query.q === 'string' ? req.query.q : undefined,
-    category: typeof req.query.category === 'string' ? req.query.category : undefined,
-  };
-  void query;
-
-  const items: Listing[] = [];
-
-  const body: PaginatedResponse<Listing> = {
-    data: items,
-    pagination: {
-      page,
-      limit,
-      total: items.length,
-      pages: 0,
-      hasNextPage: false,
-      hasPreviousPage: page > 1,
-    },
-  };
-
-  res.status(200).json(body);
-});
+router.get('/', makeRateLimiter('search'), browseListings);
 
 /**
  * GET /listings/:id
- * Fetch a single listing by id.
+ * The product detail page — a single fully-hydrated listing.
  */
-router.get('/:id', (_req, res) => {
-  const body: ApiResponse<Listing> = {
-    success: false,
-    error: 'not_found',
-    message: 'Listing not found',
-  };
-  res.status(404).json(body);
-});
+router.get('/:id', validateObjectId('id'), getListingById);
+
+/**
+ * GET /listings/:id/reviews
+ * A listing's published reviews (paginated, newest first).
+ */
+router.get('/:id/reviews', validateObjectId('id'), listListingReviews);
 
 export default router;

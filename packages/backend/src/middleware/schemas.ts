@@ -1,0 +1,331 @@
+/**
+ * Domain request schemas (Zod).
+ *
+ * The reusable validation FACTORIES live in `validate.ts`; this module holds the
+ * concrete per-endpoint schemas (listing, store, member, variant, inventory,
+ * seller-prefs) that those factories consume. Each schema parses into a shape
+ * assignable to the matching `@mercaria/shared-types` input DTO, so controllers
+ * pass `req.body` straight to a service without re-shaping.
+ *
+ * `Money` input is `{ amount: int ≥ 0, currency: enum }`.
+ */
+
+import { z } from 'zod';
+
+/** Supported currency codes (mirrors `CurrencyCode`). */
+const currencySchema = z.enum(['USD', 'EUR', 'GBP']);
+
+/** `Money` input: integer minor units, non-negative, with a supported currency. */
+const moneySchema = z.object({
+  amount: z.number().int().nonnegative(),
+  currency: currencySchema,
+});
+
+/** A single `{ name, value }` option assignment. */
+const optionValueSchema = z.object({
+  name: z.string().trim().min(1),
+  value: z.string().trim().min(1),
+});
+
+/** A selectable option and its allowed values. */
+const listingOptionSchema = z.object({
+  name: z.string().trim().min(1),
+  values: z.array(z.string().trim().min(1)).min(1),
+});
+
+// ---------------------------------------------------------------------------
+// P2P listing
+// ---------------------------------------------------------------------------
+
+/** Body for `POST /seller/listings` (CreateP2PListingInput). */
+export const createP2PListingSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().max(10_000),
+  price: moneySchema,
+  condition: z.enum(['new', 'used']),
+  category: z.string().trim().min(1),
+  imageFileIds: z.array(z.string().trim().min(1)),
+  tags: z.array(z.string().trim().min(1)).optional(),
+  quantity: z.number().int().nonnegative().optional(),
+});
+
+/** Body for `PATCH /seller/listings/:id` and store `PATCH /products/:id` (UpdateListingInput). */
+export const updateListingSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().max(10_000).optional(),
+    price: moneySchema.optional(),
+    condition: z.enum(['new', 'used']).optional(),
+    category: z.string().trim().min(1).optional(),
+    imageFileIds: z.array(z.string().trim().min(1)).optional(),
+    tags: z.array(z.string().trim().min(1)).optional(),
+    quantity: z.number().int().nonnegative().optional(),
+    status: z.enum(['draft', 'active', 'sold', 'archived']).optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+// ---------------------------------------------------------------------------
+// Store product + variants
+// ---------------------------------------------------------------------------
+
+/** A variant supplied when creating a store product (CreateStoreProductVariantInput). */
+const createStoreProductVariantSchema = z.object({
+  optionValues: z.array(optionValueSchema),
+  price: moneySchema,
+  compareAtPrice: moneySchema.optional(),
+  sku: z.string().trim().min(1).optional(),
+  inventory: z.object({
+    tracked: z.boolean().optional(),
+    available: z.number().int().nonnegative(),
+  }),
+});
+
+/** Body for store `POST /products` (CreateStoreProductInput). */
+export const createStoreProductSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().max(10_000),
+  category: z.string().trim().min(1),
+  imageFileIds: z.array(z.string().trim().min(1)),
+  tags: z.array(z.string().trim().min(1)).optional(),
+  options: z.array(listingOptionSchema),
+  variants: z.array(createStoreProductVariantSchema).min(1),
+});
+
+/** Body for store `POST /products/:id/variants` (add a variant). */
+export const createVariantSchema = createStoreProductVariantSchema;
+
+/** Body for store `PATCH /products/:id/variants/:variantId` (update a variant). */
+export const updateVariantSchema = z
+  .object({
+    title: z.string().trim().min(1).optional(),
+    sku: z.string().trim().min(1).optional(),
+    price: moneySchema.optional(),
+    compareAtPrice: moneySchema.nullable().optional(),
+    optionValues: z.array(optionValueSchema).optional(),
+    inventory: z
+      .object({
+        tracked: z.boolean().optional(),
+        available: z.number().int().nonnegative().optional(),
+      })
+      .optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+/** Body for store `PATCH /products/:id/variants/:variantId/inventory`. */
+export const setInventorySchema = z.object({
+  available: z.number().int().nonnegative(),
+});
+
+// ---------------------------------------------------------------------------
+// Store + members
+// ---------------------------------------------------------------------------
+
+/** Body for `POST /admin/stores` (CreateStoreInput). */
+export const createStoreSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().max(5_000).optional(),
+  brandColor: z.string().trim().min(1).optional(),
+  logoFileId: z.string().trim().min(1).optional(),
+  coverFileId: z.string().trim().min(1).optional(),
+  defaultCurrency: currencySchema.optional(),
+});
+
+const storeRoleSchema = z.enum(['owner', 'admin', 'staff']);
+const storePermissionSchema = z.enum([
+  'store:manage',
+  'members:manage',
+  'products:read',
+  'products:write',
+  'inventory:write',
+  'orders:read',
+  'orders:fulfill',
+  'stats:read',
+]);
+
+/** Body for `PATCH /admin/stores/:storeId` (UpdateStoreInput). */
+export const updateStoreSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    description: z.string().max(5_000).optional(),
+    brandColor: z.string().trim().min(1).optional(),
+    logoFileId: z.string().trim().min(1).optional(),
+    coverFileId: z.string().trim().min(1).optional(),
+    defaultCurrency: currencySchema.optional(),
+    textTone: z.enum(['light', 'dark']).optional(),
+    status: z.enum(['active', 'suspended', 'closed']).optional(),
+    policies: z
+      .object({
+        returnWindowDays: z.number().int().nonnegative().optional(),
+        shippingNote: z.string().max(2_000).optional(),
+      })
+      .optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+/** Body for `POST /admin/stores/:storeId/members` (InviteMemberInput). */
+export const inviteMemberSchema = z.object({
+  oxyUserId: z.string().trim().min(1),
+  role: storeRoleSchema,
+  permissions: z.array(storePermissionSchema).optional(),
+});
+
+/** Body for `PATCH /admin/stores/:storeId/members/:oxyUserId` (UpdateMemberInput). */
+export const updateMemberSchema = z
+  .object({
+    role: storeRoleSchema.optional(),
+    permissions: z.array(storePermissionSchema).optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+// ---------------------------------------------------------------------------
+// Seller profile prefs
+// ---------------------------------------------------------------------------
+
+/** Body for `PATCH /seller/me` (shipping/return preferences). */
+export const sellerPrefsSchema = z
+  .object({
+    shippingPrefs: z
+      .object({
+        note: z.string().max(2_000).optional(),
+        handlingDays: z.number().int().nonnegative().optional(),
+      })
+      .optional(),
+    returnPrefs: z
+      .object({
+        accepts: z.boolean().optional(),
+        windowDays: z.number().int().nonnegative().optional(),
+      })
+      .optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+// ---------------------------------------------------------------------------
+// Cart
+// ---------------------------------------------------------------------------
+
+/** Body for `POST /cart/items` (AddCartItemInput). */
+export const addCartItemSchema = z.object({
+  listingId: z.string().trim().min(1),
+  variantId: z.string().trim().min(1),
+  quantity: z.number().int().positive(),
+});
+
+/** Body for `PATCH /cart/items/:variantId` (UpdateCartItemInput). 0 removes the line. */
+export const updateCartItemSchema = z.object({
+  quantity: z.number().int().nonnegative(),
+});
+
+// ---------------------------------------------------------------------------
+// Address
+// ---------------------------------------------------------------------------
+
+/** Body for `POST /addresses` (CreateAddressInput). */
+export const createAddressSchema = z.object({
+  label: z.string().trim().min(1).max(120).optional(),
+  recipientName: z.string().trim().min(1).max(200),
+  line1: z.string().trim().min(1).max(300),
+  line2: z.string().trim().min(1).max(300).optional(),
+  city: z.string().trim().min(1).max(150),
+  region: z.string().trim().min(1).max(150).optional(),
+  postalCode: z.string().trim().min(1).max(40),
+  country: z.string().trim().min(2).max(2),
+  phone: z.string().trim().min(1).max(40).optional(),
+});
+
+/** Body for `PATCH /addresses/:id` (UpdateAddressInput). */
+export const updateAddressSchema = z
+  .object({
+    label: z.string().trim().min(1).max(120).optional(),
+    recipientName: z.string().trim().min(1).max(200).optional(),
+    line1: z.string().trim().min(1).max(300).optional(),
+    line2: z.string().trim().min(1).max(300).optional(),
+    city: z.string().trim().min(1).max(150).optional(),
+    region: z.string().trim().min(1).max(150).optional(),
+    postalCode: z.string().trim().min(1).max(40).optional(),
+    country: z.string().trim().min(2).max(2).optional(),
+    phone: z.string().trim().min(1).max(40).optional(),
+    isDefault: z.boolean().optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+// ---------------------------------------------------------------------------
+// Orders / checkout
+// ---------------------------------------------------------------------------
+
+/** A shipping method selectable at checkout. */
+const shippingMethodSchema = z.enum(['standard', 'express', 'pickup']);
+
+/** Every order status (used by status-patch + order list filters). */
+const orderStatusSchema = z.enum([
+  'pending_payment',
+  'paid',
+  'processing',
+  'shipped',
+  'delivered',
+  'cancelled',
+  'refunded',
+]);
+
+/** Body for `POST /checkout` (CheckoutInput). */
+export const checkoutSchema = z.object({
+  addressId: z.string().trim().min(1),
+  shippingSelections: z.record(z.string(), shippingMethodSchema).optional(),
+});
+
+/** Body for store `PATCH /admin/stores/:storeId/orders/:id/status`. */
+export const orderStatusPatchSchema = z.object({
+  status: orderStatusSchema,
+  trackingNumber: z.string().trim().min(1).optional(),
+  note: z.string().trim().max(2000).optional(),
+});
+
+/** Body for seller `PATCH /seller/orders/:id/fulfill`. */
+export const fulfillOrderSchema = z.object({
+  status: z.enum(['processing', 'shipped', 'delivered']),
+  trackingNumber: z.string().trim().min(1).optional(),
+});
+
+/** Query for order list endpoints (`page`/`limit` + optional `status` filter). */
+export const orderListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().optional(),
+    status: orderStatusSchema.optional(),
+  })
+  .passthrough();
+
+// ---------------------------------------------------------------------------
+// Pagination query
+// ---------------------------------------------------------------------------
+
+/** Reusable offset-pagination query (`page`/`limit`). */
+export const paginationQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().optional(),
+  })
+  .passthrough();
+
+// ---------------------------------------------------------------------------
+// Reviews
+// ---------------------------------------------------------------------------
+
+/** Body for `POST /reviews` (CreateReviewInput). The target id must match the type. */
+export const createReviewSchema = z
+  .object({
+    targetType: z.enum(['listing', 'store', 'seller']),
+    listingId: z.string().trim().min(1).optional(),
+    storeId: z.string().trim().min(1).optional(),
+    sellerOxyUserId: z.string().trim().min(1).optional(),
+    orderId: z.string().trim().min(1).optional(),
+    rating: z.number().int().min(1).max(5),
+    title: z.string().trim().min(1).max(200).optional(),
+    body: z.string().trim().max(5000).optional(),
+  })
+  .refine(
+    (o) =>
+      (o.targetType === 'listing' && !!o.listingId) ||
+      (o.targetType === 'store' && !!o.storeId) ||
+      (o.targetType === 'seller' && !!o.sellerOxyUserId),
+    { message: 'targetType requires the matching target id' },
+  );

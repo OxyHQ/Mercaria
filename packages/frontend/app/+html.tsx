@@ -1,4 +1,3 @@
-import { ScrollViewStyleReset } from 'expo-router/html';
 import { type PropsWithChildren } from 'react';
 import { getSsoCallbackBootstrapScript } from '@oxyhq/core';
 
@@ -84,8 +83,13 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Apple Mobile Web App */}
         <meta name="apple-mobile-web-app-title" content="Mercaria" />
 
-        {/* Disable body scrolling for native-like feel on web */}
-        <ScrollViewStyleReset />
+        {/* NOTE: Expo Router's <ScrollViewStyleReset /> is intentionally OMITTED.
+            It locks `html, body { overflow: hidden; height: 100% }` for a
+            native-like fixed viewport, which prevents document-level scrolling.
+            Mercaria scrolls the DOCUMENT (Shop-style) so scrolling works from
+            anywhere — over the sticky rail and gutter included. The natural
+            document scroll + the `html, body, #root` rules in `global.css` are
+            all that's needed; no runtime JS. */}
 
         {/* Preconnect to important domains for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

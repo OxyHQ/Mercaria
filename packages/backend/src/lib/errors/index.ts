@@ -8,6 +8,12 @@ export {
   MercariaError,
   isMercariaError,
   toMercariaError,
+  notFound,
+  forbidden,
+  conflict,
+  validationError,
+  outOfStock,
+  respondWithError,
   type MercariaErrorCode,
   type MercariaErrorParams,
 } from './error-codes.js';

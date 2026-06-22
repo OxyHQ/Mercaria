@@ -127,6 +127,14 @@ function RootLayout() {
           baseURL={OXY_API_URL}
           clientId={OXY_CLIENT_ID}
           authRedirectUri={Platform.OS !== 'web' ? AUTH_REDIRECT_URI : undefined}
+          // Mercaria is a marketplace: anonymous visitors must be able to browse
+          // listings/shops/search without being force-redirected to auth. Sign-in
+          // is only required to buy or sell. `disableAutoSso` suppresses ONLY the
+          // terminal cold-boot SSO bounce for anonymous visitors; all session
+          // restore steps (callback consume, FedCM/silent, silent-iframe,
+          // stored-session, cookie restore) still run, so a returning signed-in
+          // user is silently restored.
+          disableAutoSso
         >
           <AppContent />
         </OxyProvider>
