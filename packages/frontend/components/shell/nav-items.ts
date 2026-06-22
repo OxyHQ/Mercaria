@@ -63,3 +63,13 @@ export function isNavItemActive(item: NavItem, pathname: string): boolean {
   }
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
+
+/**
+ * Whether the trailing auth/avatar tab should be marked active. Account/profile
+ * routes (`/@handle`) belong to the signed-in user, so they light up the auth
+ * tab rather than any nav destination. Kept here so the `/@` route knowledge
+ * lives in the nav model alongside {@link isNavItemActive}, not in the bar.
+ */
+export function isAuthTabActive(pathname: string): boolean {
+  return pathname.startsWith("/@");
+}

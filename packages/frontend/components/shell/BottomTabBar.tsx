@@ -22,7 +22,12 @@ import { UserAvatar } from "@/components/user-avatar";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useTheme } from "@oxyhq/bloom/theme";
 import { useOxy, showSignInModal } from "@oxyhq/services";
-import { NAV_ITEMS, isNavItemActive, type NavItem } from "./nav-items";
+import {
+  NAV_ITEMS,
+  isNavItemActive,
+  isAuthTabActive,
+  type NavItem,
+} from "./nav-items";
 
 /**
  * Floating-pill bottom tab bar — a faithful port of Mention's `BottomBar`
@@ -167,7 +172,7 @@ export function BottomTabBar() {
   const activeIndex =
     navActiveIndex >= 0
       ? navActiveIndex
-      : pathname.startsWith("/@")
+      : isAuthTabActive(pathname)
         ? AUTH_TAB_INDEX
         : -1;
 
