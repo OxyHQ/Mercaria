@@ -36,7 +36,9 @@ import { TaxRate } from '../models/tax-rate.js';
 import { Customer } from '../models/customer.js';
 import { DraftOrder } from '../models/draft-order.js';
 import { Order } from '../models/order.js';
+import { Refund } from '../models/refund.js';
 import { nextOrderNumber } from '../models/counter.js';
+import { process as processRefund } from '../services/refund.service.js';
 import { createCollection, setCollectionProducts } from '../services/collection.service.js';
 import { minorUnitsPerMajor } from '../utils/money.js';
 import type { Money } from '@mercaria/shared-types';
@@ -263,7 +265,7 @@ async function seed(): Promise<void> {
   await connectDB();
 
   log.general.info(
-    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel, Collection, Discount, TaxRate, Customer, DraftOrder, Order)',
+    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel, Collection, Discount, TaxRate, Customer, DraftOrder, Order, Refund)',
   );
   await Promise.all([
     Category.deleteMany({}),
@@ -279,6 +281,7 @@ async function seed(): Promise<void> {
     Customer.deleteMany({}),
     DraftOrder.deleteMany({}),
     Order.deleteMany({}),
+    Refund.deleteMany({}),
   ]);
 
   // 1. Category taxonomy. Top-level uses its pill image; children get ancestorSlugs.
@@ -330,6 +333,7 @@ async function seed(): Promise<void> {
   let taxRateCount = 0;
   let customerCount = 0;
   let posOrderCount = 0;
+  let refundCount = 0;
 
   // 2 + 3. Stores and their products (ownerType 'store').
   for (const storeSpec of STORES) {
@@ -512,7 +516,7 @@ async function seed(): Promise<void> {
         : null;
 
       if (posListingId && posVariant) {
-        const posQuantity = 1;
+        const posQuantity = 2;
         const unitPrice = posVariant.price;
         const lineTotal: Money = {
           amount: unitPrice.amount * posQuantity,
@@ -532,7 +536,7 @@ async function seed(): Promise<void> {
         });
         customerCount += 1;
 
-        await Order.create({
+        const posOrder = await Order.create({
           orderNumber: await nextOrderNumber(),
           buyerOxyUserId: POS_CUSTOMER_OXY_USER_ID,
           sellerType: 'store',
@@ -575,6 +579,21 @@ async function seed(): Promise<void> {
           checkoutGroupId: new mongoose.Types.ObjectId().toString(),
         });
         posOrderCount += 1;
+
+        // 3f. A sample PARTIAL refund on that paid POS sale: refund + restock one
+        // of the two units. The refund (1-unit net) < grandTotal (2 units) so the
+        // order lands in `partially_refunded`; stock for the variant rises by 1;
+        // an RMA-numbered Refund doc is created; the customer's totalSpent drops.
+        await processRefund(
+          storeId,
+          String(posOrder._id),
+          {
+            lineItems: [{ variantId: String(posVariant._id), quantity: 1, restock: true }],
+            reason: 'Customer returned one unit',
+          },
+          DEV_OWNER_OXY_USER_ID,
+        );
+        refundCount += 1;
       }
     }
   }
@@ -635,6 +654,7 @@ async function seed(): Promise<void> {
       taxRates: taxRateCount,
       customers: customerCount,
       posOrders: posOrderCount,
+      refunds: refundCount,
     },
     'Mercaria catalog seed complete',
   );

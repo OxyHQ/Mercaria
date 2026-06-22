@@ -48,6 +48,7 @@ const ALL_PERMISSIONS: readonly StorePermission[] = [
   'customers:read',
   'customers:write',
   'draft_orders:write',
+  'refunds:write',
 ];
 
 /** Permissions an admin holds — everything except store-level destructive ops. */

@@ -1,20 +1,29 @@
 import { Router } from 'express';
 import { validateBody, validateObjectId, validateQuery } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
-import { orderListQuerySchema, orderStatusPatchSchema } from '../../middleware/schemas.js';
+import {
+  orderListQuerySchema,
+  orderStatusPatchSchema,
+  createRefundSchema,
+} from '../../middleware/schemas.js';
 import {
   listStoreOrders,
   getStoreOrder,
   patchStoreOrderStatusHandler,
   getStoreStats,
 } from '../../controllers/admin/orders-admin.controller.js';
+import {
+  createOrderRefund,
+  listOrderRefunds,
+} from '../../controllers/admin/refunds-admin.controller.js';
 
 /**
  * Store orders sub-router, mounted at `/admin/stores/:storeId/orders`.
  *
  * `mergeParams` so `:storeId` is visible. The parent router already ran
  * `authenticateToken` → `loadStore`. Reads require `orders:read`; the stats
- * dashboard requires `stats:read`; status patches require `orders:fulfill`.
+ * dashboard requires `stats:read`; status patches require `orders:fulfill`;
+ * processing a refund requires `refunds:write`.
  *
  * `/stats` is registered BEFORE `/:id` so the literal path is not captured by
  * the `:id` param route.
@@ -30,6 +39,19 @@ router.patch(
   validateObjectId('id'),
   validateBody(orderStatusPatchSchema),
   patchStoreOrderStatusHandler,
+);
+router.post(
+  '/:id/refunds',
+  requireStorePermission('refunds:write'),
+  validateObjectId('id'),
+  validateBody(createRefundSchema),
+  createOrderRefund,
+);
+router.get(
+  '/:id/refunds',
+  requireStorePermission('orders:read'),
+  validateObjectId('id'),
+  listOrderRefunds,
 );
 
 export default router;

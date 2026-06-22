@@ -23,6 +23,13 @@ const DRAFT_ORDER_NUMBER_PREFIX = 'MRC-DRAFT-';
 /** Zero-padding width of the numeric portion of a draft order number. */
 const DRAFT_ORDER_NUMBER_PAD = 6;
 
+/** The sequence name used for RMA (refund/return) numbers. */
+const RMA_COUNTER_ID = 'rma';
+/** Prefix prepended to every RMA number. */
+const RMA_NUMBER_PREFIX = 'RMA-';
+/** Zero-padding width of the numeric portion of an RMA number. */
+const RMA_NUMBER_PAD = 6;
+
 export interface ICounter {
   /** The sequence name (e.g. `'order'`). */
   _id: string;
@@ -67,4 +74,12 @@ export async function nextOrderNumber(): Promise<string> {
  */
 export async function nextDraftOrderNumber(): Promise<string> {
   return nextSequence(DRAFT_ORDER_COUNTER_ID, DRAFT_ORDER_NUMBER_PREFIX, DRAFT_ORDER_NUMBER_PAD);
+}
+
+/**
+ * Atomically allocate the next RMA (refund/return) number (`RMA-<zero-padded seq>`).
+ * Two concurrent callers always receive distinct numbers.
+ */
+export async function nextRmaNumber(): Promise<string> {
+  return nextSequence(RMA_COUNTER_ID, RMA_NUMBER_PREFIX, RMA_NUMBER_PAD);
 }

@@ -32,6 +32,7 @@ const ORDER_STATUSES: readonly OrderStatus[] = [
   'delivered',
   'cancelled',
   'refunded',
+  'partially_refunded',
 ];
 const PAYMENT_STATUSES: readonly PaymentInfo['status'][] = [
   'unpaid',

@@ -59,6 +59,9 @@ export * from './customer';
 // Draft order DTOs (DraftOrder, DraftOrderLineItem, DraftOrderStatus, POS inputs).
 export * from './draft-order';
 
+// Refund/Return DTOs (Refund, RefundLineItem, RefundStatus, CreateRefundInput).
+export * from './refund';
+
 // Review DTOs (Review, ReviewTargetType, CreateReviewInput, RatingAggregate, …).
 export * from './review';
 

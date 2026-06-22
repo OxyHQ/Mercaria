@@ -20,6 +20,7 @@ import type {
   OrderSummary,
 } from '@mercaria/shared-types';
 import { Order, type IOrder, type IOrderStatusEvent } from '../models/order.js';
+import { Refund, type IRefund } from '../models/refund.js';
 import { SellerProfile } from '../models/seller-profile.js';
 import { Store, type IStore } from '../models/store.js';
 import { Listing, type IListing } from '../models/listing.js';
@@ -40,12 +41,13 @@ import { log } from '../lib/logger.js';
  */
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending_payment: ['paid', 'cancelled'],
-  paid: ['processing', 'cancelled', 'refunded'],
+  paid: ['processing', 'cancelled', 'refunded', 'partially_refunded'],
   processing: ['shipped', 'cancelled'],
   shipped: ['delivered'],
-  delivered: ['refunded'],
+  delivered: ['refunded', 'partially_refunded'],
   cancelled: [],
   refunded: [],
+  partially_refunded: ['refunded'],
 };
 
 /**
@@ -164,10 +166,31 @@ export async function transition(
       }
     }
   } else if (next === 'cancelled' || next === 'refunded') {
-    for (const item of order.items) {
-      if (wasPaid) {
-        await restock(item.variantId, item.quantity, item.locationId);
-      } else {
+    if (wasPaid) {
+      // A `refund.service` refund may have ALREADY restocked some units per-line.
+      // Subtract those so a later full cancel/refund restocks only the remainder
+      // — never the units a refund already returned (no double-restock).
+      const refunds = await Refund.find({ orderId: String(order._id) }).lean<IRefund[]>();
+      const restockedQtyByVariant = new Map<string, number>();
+      for (const refund of refunds) {
+        for (const line of refund.lineItems) {
+          if (line.restock) {
+            restockedQtyByVariant.set(
+              line.variantId,
+              (restockedQtyByVariant.get(line.variantId) ?? 0) + line.quantity,
+            );
+          }
+        }
+      }
+      for (const item of order.items) {
+        const alreadyRestocked = restockedQtyByVariant.get(item.variantId) ?? 0;
+        const remainingQty = Math.max(0, item.quantity - alreadyRestocked);
+        if (remainingQty > 0) {
+          await restock(item.variantId, remainingQty, item.locationId);
+        }
+      }
+    } else {
+      for (const item of order.items) {
         await release(item.variantId, item.quantity, item.locationId);
       }
     }
@@ -409,6 +432,7 @@ function zeroCounts(): Record<OrderStatus, number> {
     delivered: 0,
     cancelled: 0,
     refunded: 0,
+    partially_refunded: 0,
   };
 }
 

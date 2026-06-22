@@ -392,6 +392,7 @@ const storePermissionSchema = z.enum([
   'customers:read',
   'customers:write',
   'draft_orders:write',
+  'refunds:write',
 ]);
 
 /** Body for `PATCH /admin/stores/:storeId` (UpdateStoreInput). */
@@ -521,6 +522,7 @@ const orderStatusSchema = z.enum([
   'delivered',
   'cancelled',
   'refunded',
+  'partially_refunded',
 ]);
 
 /** Body for `POST /checkout` (CheckoutInput). */
@@ -651,6 +653,27 @@ export const draftOrderListQuerySchema = z
     status: z.enum(['open', 'completed', 'cancelled']).optional(),
   })
   .passthrough();
+
+// ---------------------------------------------------------------------------
+// Refunds / returns
+// ---------------------------------------------------------------------------
+
+/** A line in a `CreateRefundInput` (the server computes the refundable amount). */
+export const refundLineInputSchema = z.object({
+  variantId: z.string().trim().min(1),
+  quantity: z.number().int().positive(),
+  restock: z.boolean().optional(),
+  locationId: z.string().trim().min(1).optional(),
+});
+
+/** Body for `POST /admin/stores/:storeId/orders/:id/refunds` (CreateRefundInput). */
+export const createRefundSchema = z.object({
+  type: z.enum(['refund', 'return']).optional(),
+  reason: z.string().trim().max(2000).optional(),
+  lineItems: z.array(refundLineInputSchema).min(1),
+  refundShipping: z.boolean().optional(),
+  idempotencyKey: z.string().trim().min(1).max(200).optional(),
+});
 
 // ---------------------------------------------------------------------------
 // Pagination query

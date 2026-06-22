@@ -27,6 +27,7 @@ const STORE_PERMISSIONS: readonly StorePermission[] = [
   'customers:read',
   'customers:write',
   'draft_orders:write',
+  'refunds:write',
 ];
 const STORE_STATUSES = ['active', 'suspended', 'closed'] as const;
 const TEXT_TONES: readonly TextTone[] = ['light', 'dark'];

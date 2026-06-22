@@ -21,7 +21,9 @@ import type { TaxLine } from './tax';
  *
  * `pending_payment` (stock reserved, awaiting pay) → `paid` (sale committed) →
  * `processing` → `shipped` → `delivered`; `cancelled` and `refunded` are
- * terminal exits. Allowed transitions are enforced server-side.
+ * terminal exits. `partially_refunded` is a non-terminal partial-refund state: a
+ * paid/delivered order with SOME amount refunded that can still progress to a
+ * full `refunded`. Allowed transitions are enforced server-side.
  */
 export type OrderStatus =
   | 'pending_payment'
@@ -30,7 +32,8 @@ export type OrderStatus =
   | 'shipped'
   | 'delivered'
   | 'cancelled'
-  | 'refunded';
+  | 'refunded'
+  | 'partially_refunded';
 
 /** Payment state + provider reference for an order. */
 export interface PaymentInfo {

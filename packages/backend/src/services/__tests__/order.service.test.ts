@@ -19,6 +19,7 @@ const storeUpdateOne = vi.fn();
 const enqueueOrderEvent = vi.fn();
 const findOneAndUpdate = vi.fn();
 const upsertCustomerOnPaid = vi.fn();
+const refundFind = vi.fn();
 
 vi.mock('../inventory.service.js', () => ({
   commit: (...args: unknown[]) => commit(...args),
@@ -38,6 +39,10 @@ vi.mock('../../models/order.js', () => ({
     aggregate: vi.fn(),
     findOneAndUpdate: (...args: unknown[]) => findOneAndUpdate(...args),
   },
+}));
+
+vi.mock('../../models/refund.js', () => ({
+  Refund: { find: (...args: unknown[]) => refundFind(...args) },
 }));
 
 vi.mock('../../models/seller-profile.js', () => ({
@@ -105,6 +110,8 @@ beforeEach(() => {
   storeUpdateOne.mockReset().mockResolvedValue(undefined);
   enqueueOrderEvent.mockReset().mockResolvedValue(undefined);
   upsertCustomerOnPaid.mockReset().mockResolvedValue(undefined);
+  // No prior refunds by default → transition restocks each line at its full qty.
+  refundFind.mockReset().mockReturnValue({ lean: () => Promise.resolve([]) });
   // Default: the atomic CAS WINS — resolve a non-null persisted doc reflecting
   // the requested status. Tests that simulate a lost CAS override per-call.
   findOneAndUpdate.mockReset().mockImplementation((filter: { _id: unknown }, update: { $set: { status: OrderStatus } }) =>
@@ -206,6 +213,22 @@ describe('order.service.transition — inventory effects', () => {
     expect(release).not.toHaveBeenCalled();
     expect(commit).not.toHaveBeenCalled();
     expect(doc.payment.status).toBe('refunded');
+  });
+
+  it('does NOT double-restock units a prior refund already restocked', async () => {
+    // A prior Refund restocked the full 2 units of v1 (v2 untouched). A later full
+    // refund/cancel through transition must restock only the REMAINING units:
+    // v1 remaining 0 → NOT called; v2 remaining 1 → restock('v2', 1, undefined).
+    refundFind.mockReturnValue({
+      lean: () => Promise.resolve([{ lineItems: [{ variantId: 'v1', quantity: 2, restock: true }] }]),
+    });
+    const doc = mockOrder('paid', { paymentStatus: 'paid' });
+    await transition(doc, 'refunded', { actorOxyUserId: 'actor-1' });
+    // Total restock calls across refund(2)+transition(1) units === 2 === ordered.
+    expect(restock).toHaveBeenCalledTimes(1);
+    expect(restock).toHaveBeenCalledWith('v2', 1, undefined);
+    expect(restock).not.toHaveBeenCalledWith('v1', 0, undefined);
+    expect(release).not.toHaveBeenCalled();
   });
 });
 

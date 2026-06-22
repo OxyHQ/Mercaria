@@ -142,6 +142,25 @@ export async function upsertOnPaid(
   );
 }
 
+/**
+ * Decrement a store customer's lifetime `totalSpent` when one of their store
+ * orders is refunded (mirrors the `upsertOnPaid` bump, in reverse). A single
+ * `updateOne` `$inc`s `stats.totalSpent.amount` by `-refundAmount.amount`. It is
+ * NOT an upsert: if no customer record matches (e.g. a P2P order, or a store
+ * order whose buyer was never related), the update is a no-op. `orderCount` is
+ * intentionally left untouched — a refund does not un-count the order.
+ */
+export async function decrementOnRefund(
+  storeId: string,
+  buyerOxyUserId: string,
+  refundAmount: Money,
+): Promise<void> {
+  await Customer.updateOne(
+    { storeId, oxyUserId: buyerOxyUserId },
+    { $inc: { 'stats.totalSpent.amount': -refundAmount.amount } },
+  );
+}
+
 /** Params accepted by `resolveOrCreate` at the POS register. */
 interface ResolveOrCreateParams {
   oxyUserId?: string;

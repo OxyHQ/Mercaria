@@ -52,7 +52,8 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(owner.has('customers:read')).toBe(true);
     expect(owner.has('customers:write')).toBe(true);
     expect(owner.has('draft_orders:write')).toBe(true);
-    expect(owner.size).toBe(15);
+    expect(owner.has('refunds:write')).toBe(true);
+    expect(owner.size).toBe(16);
   });
 
   it('admin holds everything except store:manage (incl. discounts:write, settings:write)', () => {
@@ -65,6 +66,7 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(admin.has('collections:write')).toBe(true);
     expect(admin.has('discounts:write')).toBe(true);
     expect(admin.has('settings:write')).toBe(true);
+    expect(admin.has('refunds:write')).toBe(true);
   });
 
   it('staff covers products/inventory/orders/stats + customers/draft_orders (POS), with no manage/discounts/settings', () => {
@@ -75,6 +77,8 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(staff.has('collections:write')).toBe(false);
     expect(staff.has('discounts:write')).toBe(false);
     expect(staff.has('settings:write')).toBe(false);
+    // Refunds are owner/admin only — staff run the POS but do not refund.
+    expect(staff.has('refunds:write')).toBe(false);
     expect(staff.has('products:read')).toBe(true);
     expect(staff.has('products:write')).toBe(true);
     expect(staff.has('inventory:write')).toBe(true);
