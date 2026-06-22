@@ -53,6 +53,12 @@ export * from './address';
 // Order DTOs (Order, OrderItem, OrderStatus, CheckoutInput, CheckoutResult, …).
 export * from './order';
 
+// Customer DTOs (Customer, CreateCustomerInput, UpdateCustomerInput).
+export * from './customer';
+
+// Draft order DTOs (DraftOrder, DraftOrderLineItem, DraftOrderStatus, POS inputs).
+export * from './draft-order';
+
 // Review DTOs (Review, ReviewTargetType, CreateReviewInput, RatingAggregate, …).
 export * from './review';
 

@@ -19,6 +19,7 @@ import type {
   OrderStatus,
   ShippingMethod,
   OrderSellerType,
+  OrderSourceChannel,
   PaymentInfo,
 } from '@mercaria/shared-types';
 import { MoneySchema } from './schemas/money-schema.js';
@@ -42,6 +43,7 @@ const PAYMENT_STATUSES: readonly PaymentInfo['status'][] = [
 const PAYMENT_PROVIDERS: readonly PaymentInfo['provider'][] = ['oxy_pay'];
 const SHIPPING_METHODS: readonly ShippingMethod[] = ['standard', 'express', 'pickup'];
 const SELLER_TYPES: readonly OrderSellerType[] = ['user', 'store'];
+const SOURCE_CHANNELS: readonly OrderSourceChannel[] = ['storefront', 'pos', 'draft'];
 
 /** A persisted `{ amount, currency }` sub-document. */
 interface IMoney {
@@ -61,6 +63,8 @@ export interface IOrderItem {
   lineTotal: IMoney;
   /** Total discount attributed to this line; absent on un-discounted lines. */
   discountTotal?: IMoney;
+  /** The store location this line's stock commits at (POS); absent → default location. */
+  locationId?: string;
 }
 
 /** One discount's contribution to the order (persisted for exact refundability). */
@@ -121,6 +125,8 @@ export interface IOrder {
   sellerType: OrderSellerType;
   sellerOxyUserId?: string;
   storeId?: string;
+  customerId?: string;
+  sourceChannel: OrderSourceChannel;
   items: IOrderItem[];
   shippingAddressSnapshot: IAddressSnapshot;
   shipping: IShippingSnapshot;
@@ -165,6 +171,8 @@ const OrderItemSchema = new Schema<IOrderItem>(
     lineTotal: { type: MoneySchema, required: true },
     // Optional (back-compat): pre-B4 items carry no per-line discount.
     discountTotal: { type: MoneySchema, required: false },
+    // Optional (POS): the location the line commits at; absent → default location.
+    locationId: { type: String },
   },
   { _id: false },
 );
@@ -245,6 +253,9 @@ const OrderSchema = new Schema<IOrder>(
     sellerType: { type: String, enum: SELLER_TYPES as string[], required: true },
     sellerOxyUserId: { type: String },
     storeId: { type: String },
+    customerId: { type: String },
+    // Additive/back-compat: pre-B5 orders default to the online storefront.
+    sourceChannel: { type: String, enum: SOURCE_CHANNELS as string[], default: 'storefront' },
     items: { type: [OrderItemSchema], default: [] },
     shippingAddressSnapshot: { type: AddressSnapshotSchema, required: true },
     shipping: { type: ShippingSnapshotSchema, required: true },
@@ -274,6 +285,8 @@ const OrderSchema = new Schema<IOrder>(
 
 OrderSchema.index({ buyerOxyUserId: 1, createdAt: -1 });
 OrderSchema.index({ storeId: 1, status: 1, createdAt: -1 });
+// Serves a store customer's order history (storeId + customerId, newest first).
+OrderSchema.index({ storeId: 1, customerId: 1, createdAt: -1 });
 OrderSchema.index({ sellerOxyUserId: 1, status: 1, createdAt: -1 });
 OrderSchema.index({ orderNumber: 1 }, { unique: true });
 OrderSchema.index({ checkoutGroupId: 1 });

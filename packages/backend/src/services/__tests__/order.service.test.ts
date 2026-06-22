@@ -18,11 +18,16 @@ const sellerProfileUpdateOne = vi.fn();
 const storeUpdateOne = vi.fn();
 const enqueueOrderEvent = vi.fn();
 const findOneAndUpdate = vi.fn();
+const upsertCustomerOnPaid = vi.fn();
 
 vi.mock('../inventory.service.js', () => ({
   commit: (...args: unknown[]) => commit(...args),
   release: (...args: unknown[]) => release(...args),
   restock: (...args: unknown[]) => restock(...args),
+}));
+
+vi.mock('../customer.service.js', () => ({
+  upsertOnPaid: (...args: unknown[]) => upsertCustomerOnPaid(...args),
 }));
 
 vi.mock('../../models/order.js', () => ({
@@ -75,9 +80,11 @@ function mockOrder(
   const doc = {
     _id: 'order-1',
     status,
+    buyerOxyUserId: 'buyer-1',
     sellerType: options.sellerType ?? 'user',
     sellerOxyUserId: options.sellerType === 'store' ? undefined : 'seller-X',
     storeId: options.sellerType === 'store' ? 'store-A' : undefined,
+    totals: { grandTotal: { amount: 9000, currency: 'FAIR' } },
     payment: { status: options.paymentStatus ?? 'unpaid', provider: 'oxy_pay' as const },
     shipping: { method: 'standard' as const, label: 'Standard shipping', cost: { amount: 500, currency: 'FAIR' }, trackingNumber: null as string | null },
     statusHistory: [] as IOrder['statusHistory'],
@@ -97,6 +104,7 @@ beforeEach(() => {
   sellerProfileUpdateOne.mockReset().mockResolvedValue(undefined);
   storeUpdateOne.mockReset().mockResolvedValue(undefined);
   enqueueOrderEvent.mockReset().mockResolvedValue(undefined);
+  upsertCustomerOnPaid.mockReset().mockResolvedValue(undefined);
   // Default: the atomic CAS WINS — resolve a non-null persisted doc reflecting
   // the requested status. Tests that simulate a lost CAS override per-call.
   findOneAndUpdate.mockReset().mockImplementation((filter: { _id: unknown }, update: { $set: { status: OrderStatus } }) =>
@@ -154,8 +162,9 @@ describe('order.service.transition — inventory effects', () => {
     const doc = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
     await transition(doc, 'cancelled', { actorOxyUserId: 'actor-1' });
     expect(release).toHaveBeenCalledTimes(2);
-    expect(release).toHaveBeenCalledWith('v1', 2);
-    expect(release).toHaveBeenCalledWith('v2', 1);
+    // Items carry no locationId → the 3rd arg is undefined (default location).
+    expect(release).toHaveBeenCalledWith('v1', 2, undefined);
+    expect(release).toHaveBeenCalledWith('v2', 1, undefined);
     expect(restock).not.toHaveBeenCalled();
     expect(commit).not.toHaveBeenCalled();
   });
@@ -164,8 +173,8 @@ describe('order.service.transition — inventory effects', () => {
     const doc = mockOrder('pending_payment', { sellerType: 'user' });
     await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
     expect(commit).toHaveBeenCalledTimes(2);
-    expect(commit).toHaveBeenCalledWith('v1', 2);
-    expect(commit).toHaveBeenCalledWith('v2', 1);
+    expect(commit).toHaveBeenCalledWith('v1', 2, undefined);
+    expect(commit).toHaveBeenCalledWith('v2', 1, undefined);
     expect(sellerProfileUpdateOne).toHaveBeenCalledWith(
       { oxyUserId: 'seller-X' },
       { $inc: { salesCount: 1 } },
@@ -175,12 +184,25 @@ describe('order.service.transition — inventory effects', () => {
     expect(doc.payment.paidAt).toBeInstanceOf(Date);
   });
 
+  it('paid (store seller) bumps store salesCount and relates the customer via upsertOnPaid exactly once', async () => {
+    const doc = mockOrder('pending_payment', { sellerType: 'store' });
+    await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
+    expect(storeUpdateOne).toHaveBeenCalledWith({ _id: 'store-A' }, { $inc: { salesCount: 1 } });
+    expect(upsertCustomerOnPaid).toHaveBeenCalledTimes(1);
+    expect(upsertCustomerOnPaid).toHaveBeenCalledWith('store-A', 'buyer-1', {
+      amount: 9000,
+      currency: 'FAIR',
+    });
+    // P2P seller-profile path is NOT taken for a store order.
+    expect(sellerProfileUpdateOne).not.toHaveBeenCalled();
+  });
+
   it('refund of a paid order restocks each line (not release/commit) and marks payment refunded', async () => {
     const doc = mockOrder('paid', { paymentStatus: 'paid' });
     await transition(doc, 'refunded', { actorOxyUserId: 'actor-1' });
     expect(restock).toHaveBeenCalledTimes(2);
-    expect(restock).toHaveBeenCalledWith('v1', 2);
-    expect(restock).toHaveBeenCalledWith('v2', 1);
+    expect(restock).toHaveBeenCalledWith('v1', 2, undefined);
+    expect(restock).toHaveBeenCalledWith('v2', 1, undefined);
     expect(release).not.toHaveBeenCalled();
     expect(commit).not.toHaveBeenCalled();
     expect(doc.payment.status).toBe('refunded');
@@ -207,8 +229,8 @@ describe('order.service.transition — atomic CAS (side effects run at most once
 
     // Released ONCE for the 2 lines (v1, v2) — not 4 (which a double-run would produce).
     expect(release).toHaveBeenCalledTimes(2);
-    expect(release).toHaveBeenCalledWith('v1', 2);
-    expect(release).toHaveBeenCalledWith('v2', 1);
+    expect(release).toHaveBeenCalledWith('v1', 2, undefined);
+    expect(release).toHaveBeenCalledWith('v2', 1, undefined);
     expect(findOneAndUpdate).toHaveBeenCalledTimes(2);
   });
 });

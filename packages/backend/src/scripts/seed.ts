@@ -33,6 +33,10 @@ import { InventoryLevel } from '../models/inventory-level.js';
 import { Collection } from '../models/collection.js';
 import { Discount } from '../models/discount.js';
 import { TaxRate } from '../models/tax-rate.js';
+import { Customer } from '../models/customer.js';
+import { DraftOrder } from '../models/draft-order.js';
+import { Order } from '../models/order.js';
+import { nextOrderNumber } from '../models/counter.js';
 import { createCollection, setCollectionProducts } from '../services/collection.service.js';
 import { minorUnitsPerMajor } from '../utils/money.js';
 import type { Money } from '@mercaria/shared-types';
@@ -259,7 +263,7 @@ async function seed(): Promise<void> {
   await connectDB();
 
   log.general.info(
-    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel, Collection, Discount, TaxRate)',
+    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel, Collection, Discount, TaxRate, Customer, DraftOrder, Order)',
   );
   await Promise.all([
     Category.deleteMany({}),
@@ -272,6 +276,9 @@ async function seed(): Promise<void> {
     Collection.deleteMany({}),
     Discount.deleteMany({}),
     TaxRate.deleteMany({}),
+    Customer.deleteMany({}),
+    DraftOrder.deleteMany({}),
+    Order.deleteMany({}),
   ]);
 
   // 1. Category taxonomy. Top-level uses its pill image; children get ancestorSlugs.
@@ -321,6 +328,8 @@ async function seed(): Promise<void> {
   let collectionCount = 0;
   let discountCount = 0;
   let taxRateCount = 0;
+  let customerCount = 0;
+  let posOrderCount = 0;
 
   // 2 + 3. Stores and their products (ownerType 'store').
   for (const storeSpec of STORES) {
@@ -488,6 +497,85 @@ async function seed(): Promise<void> {
         isActive: true,
       });
       taxRateCount += 1;
+
+      // 3e. A sample store customer + one completed POS sale (sourceChannel 'pos').
+      // Demonstrates the B5 register flow: a draft converts to a paid Order related
+      // to a Customer whose lifetime stats reflect that order.
+      const POS_CUSTOMER_OXY_USER_ID = '000000000000000000000003';
+      const posListingId = listingIdByTitle.get('Mopit Top');
+      const posVariant = posListingId
+        ? await ProductVariant.findOne({ listingId: posListingId }).lean<{
+            _id: mongoose.Types.ObjectId;
+            title: string;
+            price: Money;
+          } | null>()
+        : null;
+
+      if (posListingId && posVariant) {
+        const posQuantity = 1;
+        const unitPrice = posVariant.price;
+        const lineTotal: Money = {
+          amount: unitPrice.amount * posQuantity,
+          currency: unitPrice.currency,
+        };
+        const now2 = new Date();
+
+        const posCustomer = await Customer.create({
+          storeId,
+          oxyUserId: POS_CUSTOMER_OXY_USER_ID,
+          isWalkIn: false,
+          displayName: 'Mara Vidal',
+          email: 'mara.vidal@example.com',
+          tags: ['vip', 'in-store'],
+          groupTags: [],
+          stats: { orderCount: 1, totalSpent: lineTotal, lastOrderAt: now2 },
+        });
+        customerCount += 1;
+
+        await Order.create({
+          orderNumber: await nextOrderNumber(),
+          buyerOxyUserId: POS_CUSTOMER_OXY_USER_ID,
+          sellerType: 'store',
+          storeId,
+          customerId: String(posCustomer._id),
+          sourceChannel: 'pos',
+          items: [
+            {
+              listingId: posListingId,
+              variantId: String(posVariant._id),
+              title: 'Mopit Top',
+              variantTitle: posVariant.title,
+              optionValues: [],
+              unitPrice,
+              quantity: posQuantity,
+              lineTotal,
+              locationId: defaultLocationId,
+            },
+          ],
+          shippingAddressSnapshot: {
+            recipientName: 'Mara Vidal',
+            line1: 'In-store',
+            city: 'Barcelona',
+            postalCode: '08001',
+            country: 'ES',
+          },
+          shipping: { method: 'pickup', label: 'Pickup', cost: fair(0), trackingNumber: null },
+          totals: {
+            subtotal: lineTotal,
+            discountTotal: fair(0),
+            shipping: fair(0),
+            tax: fair(0),
+            grandTotal: lineTotal,
+          },
+          appliedDiscounts: [],
+          taxLines: [],
+          status: 'paid',
+          statusHistory: [{ status: 'paid', at: now2, byOxyUserId: DEV_OWNER_OXY_USER_ID, note: 'pos sale' }],
+          payment: { status: 'paid', provider: 'oxy_pay', paidAt: now2 },
+          checkoutGroupId: new mongoose.Types.ObjectId().toString(),
+        });
+        posOrderCount += 1;
+      }
     }
   }
 
@@ -545,6 +633,8 @@ async function seed(): Promise<void> {
       collections: collectionCount,
       discounts: discountCount,
       taxRates: taxRateCount,
+      customers: customerCount,
+      posOrders: posOrderCount,
     },
     'Mercaria catalog seed complete',
   );

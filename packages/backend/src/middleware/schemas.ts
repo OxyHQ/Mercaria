@@ -389,6 +389,9 @@ const storePermissionSchema = z.enum([
   'orders:read',
   'orders:fulfill',
   'stats:read',
+  'customers:read',
+  'customers:write',
+  'draft_orders:write',
 ]);
 
 /** Body for `PATCH /admin/stores/:storeId` (UpdateStoreInput). */
@@ -551,6 +554,101 @@ export const orderListQuerySchema = z
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().optional(),
     status: orderStatusSchema.optional(),
+  })
+  .passthrough();
+
+// ---------------------------------------------------------------------------
+// Customers (store-scoped buyer records)
+// ---------------------------------------------------------------------------
+
+/** An `AddressSnapshot` accepted on a customer/draft (mirrors `createAddressSchema`). */
+const addressSnapshotSchema = z.object({
+  label: z.string().trim().min(1).max(120).optional(),
+  recipientName: z.string().trim().min(1).max(200),
+  line1: z.string().trim().min(1).max(300),
+  line2: z.string().trim().min(1).max(300).optional(),
+  city: z.string().trim().min(1).max(150),
+  region: z.string().trim().min(1).max(150).optional(),
+  postalCode: z.string().trim().min(1).max(40),
+  country: z.string().trim().min(2).max(2),
+  phone: z.string().trim().min(1).max(40).optional(),
+});
+
+/** Body for `POST /admin/stores/:storeId/customers` (CreateCustomerInput). */
+export const createCustomerSchema = z.object({
+  oxyUserId: z.string().trim().min(1).optional(),
+  displayName: z.string().trim().min(1).max(200).optional(),
+  email: z.string().trim().email().max(320).optional(),
+  phone: z.string().trim().min(1).max(40).optional(),
+  defaultAddress: addressSnapshotSchema.optional(),
+  tags: z.array(z.string().trim().min(1).max(60)).optional(),
+  groupTags: z.array(z.string().trim().min(1).max(60)).optional(),
+  notes: z.string().trim().max(5_000).optional(),
+});
+
+/** Body for `PATCH /admin/stores/:storeId/customers/:id` (UpdateCustomerInput). */
+export const updateCustomerSchema = createCustomerSchema
+  .partial()
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+/** Query for `GET /admin/stores/:storeId/customers` (`page`/`limit` + optional `search`). */
+export const customerListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().optional(),
+    search: z.string().trim().min(1).max(200).optional(),
+  })
+  .passthrough();
+
+// ---------------------------------------------------------------------------
+// Draft orders (POS)
+// ---------------------------------------------------------------------------
+
+/** Body for `POST /admin/stores/:storeId/draft-orders` (CreateDraftOrderInput). */
+export const createDraftOrderSchema = z.object({
+  locationId: z.string().trim().min(1).optional(),
+  customerId: z.string().trim().min(1).optional(),
+});
+
+/** Body for `POST .../draft-orders/:id/lines` (AddDraftLineInput). */
+export const addDraftLineSchema = z.object({
+  listingId: z.string().trim().min(1),
+  variantId: z.string().trim().min(1),
+  quantity: z.number().int().positive(),
+});
+
+/** Body for `PATCH .../draft-orders/:id/lines/:variantId` (UpdateDraftLineInput). 0 removes. */
+export const updateDraftLineSchema = z.object({
+  quantity: z.number().int().nonnegative(),
+});
+
+/** Body for `POST .../draft-orders/:id/discounts` (ApplyDraftDiscountsInput). */
+export const applyDraftDiscountsSchema = z.object({
+  codes: z.array(z.string().trim().min(1)),
+});
+
+/** Body for `POST .../draft-orders/:id/customer` (SetDraftCustomerInput). */
+export const setDraftCustomerSchema = z.object({
+  customerId: z.string().trim().min(1),
+});
+
+/** Body for `PATCH /admin/stores/:storeId/draft-orders/:id` (UpdateDraftOrderInput). */
+export const updateDraftOrderSchema = z
+  .object({
+    note: z.string().trim().max(2_000).optional(),
+    shippingAddress: addressSnapshotSchema.optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+/** Body for `POST .../draft-orders/:id/complete` (CompleteDraftOrderInput — empty). */
+export const completeDraftOrderSchema = z.object({});
+
+/** Query for `GET /admin/stores/:storeId/draft-orders` (`page`/`limit` + optional `status`). */
+export const draftOrderListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().optional(),
+    status: z.enum(['open', 'completed', 'cancelled']).optional(),
   })
   .passthrough();
 

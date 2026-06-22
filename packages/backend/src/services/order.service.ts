@@ -25,6 +25,7 @@ import { Store, type IStore } from '../models/store.js';
 import { Listing, type IListing } from '../models/listing.js';
 import { ProductVariant } from '../models/product-variant.js';
 import { commit, release, restock } from './inventory.service.js';
+import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { hydrateOrders, summarizeOrders } from './order-hydration.service.js';
 import { enqueueOrderEvent } from '../queue/producers.js';
 import type { OrderEvent } from '../queue/types.js';
@@ -138,9 +139,12 @@ export async function transition(
   }
 
   // CAS won — run the inventory side-effects + salesCount bump exactly once.
+  // Each line commits/releases/restocks at its own `locationId` when set (POS
+  // sales reserve at the register location); storefront items carry none and
+  // resolve the store's default location, unchanged.
   if (next === 'paid') {
     for (const item of order.items) {
-      await commit(item.variantId, item.quantity);
+      await commit(item.variantId, item.quantity, item.locationId);
     }
     if (order.sellerType === 'user' && order.sellerOxyUserId) {
       await SellerProfile.updateOne(
@@ -150,13 +154,21 @@ export async function transition(
       );
     } else if (order.sellerType === 'store' && order.storeId) {
       await Store.updateOne({ _id: order.storeId }, { $inc: { salesCount: 1 } });
+      // Relate the store buyer + bump their lifetime aggregates (exactly once).
+      if (order.buyerOxyUserId) {
+        await upsertCustomerOnPaid(
+          order.storeId,
+          order.buyerOxyUserId,
+          toMoney(order.totals.grandTotal),
+        );
+      }
     }
   } else if (next === 'cancelled' || next === 'refunded') {
     for (const item of order.items) {
       if (wasPaid) {
-        await restock(item.variantId, item.quantity);
+        await restock(item.variantId, item.quantity, item.locationId);
       } else {
-        await release(item.variantId, item.quantity);
+        await release(item.variantId, item.quantity, item.locationId);
       }
     }
   }

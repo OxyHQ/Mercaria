@@ -89,6 +89,9 @@ export function toOrderItemDTO(item: IOrderItem): OrderItem {
   if (item.discountTotal) {
     dto.discountTotal = toMoney(item.discountTotal);
   }
+  if (item.locationId) {
+    dto.locationId = item.locationId;
+  }
   return dto;
 }
 
@@ -247,6 +250,8 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
       orderNumber: order.orderNumber,
       buyerOxyUserId: String(order.buyerOxyUserId),
       sellerType: order.sellerType,
+      // Back-compat: pre-B5 orders carry no sourceChannel → online storefront.
+      sourceChannel: order.sourceChannel ?? 'storefront',
       items: order.items.map(toOrderItemDTO),
       shippingAddress: toAddressSnapshot(order.shippingAddressSnapshot),
       shipping: toShippingInfo(order.shipping),
@@ -278,6 +283,10 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
       if (store) {
         dto.store = toMerchantSummary(store, []);
       }
+    }
+
+    if (order.customerId) {
+      dto.customerId = String(order.customerId);
     }
 
     return dto;

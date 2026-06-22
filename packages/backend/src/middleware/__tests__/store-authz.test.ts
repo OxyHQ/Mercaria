@@ -49,7 +49,10 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(owner.has('collections:write')).toBe(true);
     expect(owner.has('discounts:write')).toBe(true);
     expect(owner.has('settings:write')).toBe(true);
-    expect(owner.size).toBe(12);
+    expect(owner.has('customers:read')).toBe(true);
+    expect(owner.has('customers:write')).toBe(true);
+    expect(owner.has('draft_orders:write')).toBe(true);
+    expect(owner.size).toBe(15);
   });
 
   it('admin holds everything except store:manage (incl. discounts:write, settings:write)', () => {
@@ -64,7 +67,7 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(admin.has('settings:write')).toBe(true);
   });
 
-  it('staff is limited to products/inventory/orders/stats (no manage perms, no discounts/settings)', () => {
+  it('staff covers products/inventory/orders/stats + customers/draft_orders (POS), with no manage/discounts/settings', () => {
     const staff = new Set(ROLE_PERMISSIONS.staff);
     expect(staff.has('store:manage')).toBe(false);
     expect(staff.has('members:manage')).toBe(false);
@@ -78,6 +81,10 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(staff.has('orders:read')).toBe(true);
     expect(staff.has('orders:fulfill')).toBe(true);
     expect(staff.has('stats:read')).toBe(true);
+    // Staff run the POS: customers + draft orders.
+    expect(staff.has('customers:read')).toBe(true);
+    expect(staff.has('customers:write')).toBe(true);
+    expect(staff.has('draft_orders:write')).toBe(true);
   });
 });
 

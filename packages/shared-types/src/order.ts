@@ -84,10 +84,21 @@ export interface OrderItem {
   lineTotal: Money;
   /** Total discount attributed to this line (FAIR minor units), when discounted. */
   discountTotal?: Money;
+  /**
+   * The store location this line's stock is committed at (POS sales). Absent for
+   * storefront orders, which commit at the store's default location.
+   */
+  locationId?: string;
 }
 
 /** Who fulfils an order: an individual P2P seller or a store. */
 export type OrderSellerType = 'user' | 'store';
+
+/**
+ * The channel an order originated from: the online `storefront`, an in-store
+ * `pos` sale, or a `draft` order converted to a sale.
+ */
+export type OrderSourceChannel = 'storefront' | 'pos' | 'draft';
 
 /**
  * Immutable copy of the buyer's shipping destination at checkout. Snapshotted so
@@ -152,6 +163,10 @@ export interface Order extends Timestamps {
   sellerOxyUserId?: string;
   /** Store id, for store orders. */
   storeId?: string;
+  /** The store customer this order relates to, when one was attached (POS/draft). */
+  customerId?: string;
+  /** The channel the order originated from (defaults to `storefront`). */
+  sourceChannel: OrderSourceChannel;
   /** Hydrated P2P seller identity, for `sellerType: 'user'`. */
   seller?: Seller;
   /** Hydrated store identity, for `sellerType: 'store'`. */

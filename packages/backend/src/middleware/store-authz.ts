@@ -45,6 +45,9 @@ const ALL_PERMISSIONS: readonly StorePermission[] = [
   'orders:read',
   'orders:fulfill',
   'stats:read',
+  'customers:read',
+  'customers:write',
+  'draft_orders:write',
 ];
 
 /** Permissions an admin holds — everything except store-level destructive ops. */
@@ -52,7 +55,7 @@ const ADMIN_PERMISSIONS: readonly StorePermission[] = ALL_PERMISSIONS.filter(
   (p) => p !== 'store:manage',
 );
 
-/** Permissions staff hold by default. */
+/** Permissions staff hold by default (staff run the POS). */
 const STAFF_PERMISSIONS: readonly StorePermission[] = [
   'products:read',
   'products:write',
@@ -60,6 +63,9 @@ const STAFF_PERMISSIONS: readonly StorePermission[] = [
   'orders:read',
   'orders:fulfill',
   'stats:read',
+  'customers:read',
+  'customers:write',
+  'draft_orders:write',
 ];
 
 /**
@@ -68,7 +74,8 @@ const STAFF_PERMISSIONS: readonly StorePermission[] = [
  *
  * - `owner` — every permission (including `store:manage`).
  * - `admin` — everything except `store:manage` (store delete / ownership transfer).
- * - `staff` — products (read/write), inventory:write, orders (read/fulfill), stats:read.
+ * - `staff` — products (read/write), inventory:write, orders (read/fulfill),
+ *   stats:read, customers (read/write), draft_orders:write (POS).
  */
 export const ROLE_PERMISSIONS: Record<StoreRole, StorePermission[]> = {
   owner: [...ALL_PERMISSIONS],

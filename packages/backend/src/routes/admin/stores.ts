@@ -20,6 +20,8 @@ import locationsRouter from './locations.js';
 import collectionsRouter from './collections.js';
 import discountsRouter from './discounts.js';
 import taxRatesRouter from './tax-rates.js';
+import customersRouter from './customers.js';
+import draftOrdersRouter from './draft-orders.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -62,5 +64,7 @@ router.use('/:storeId/locations', locationsRouter);
 router.use('/:storeId/collections', collectionsRouter);
 router.use('/:storeId/discounts', discountsRouter);
 router.use('/:storeId/tax-rates', taxRatesRouter);
+router.use('/:storeId/customers', customersRouter);
+router.use('/:storeId/draft-orders', draftOrdersRouter);
 
 export default router;

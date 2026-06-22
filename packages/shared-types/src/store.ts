@@ -28,7 +28,10 @@ export type StorePermission =
   | 'settings:write'
   | 'orders:read'
   | 'orders:fulfill'
-  | 'stats:read';
+  | 'stats:read'
+  | 'customers:read'
+  | 'customers:write'
+  | 'draft_orders:write';
 
 /** A member of a store, backed by an Oxy user account. */
 export interface StoreMember {
