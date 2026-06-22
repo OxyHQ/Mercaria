@@ -137,12 +137,12 @@ async function loadCart(oxyUserId: string): Promise<ICart | null> {
 
 /**
  * Get the buyer's cart, hydrated with live unit prices, availability and a
- * subtotal. Returns an empty cart (no document yet) as an empty USD cart.
+ * subtotal. Returns an empty cart (no document yet) as an empty FAIR cart.
  */
 export async function getCart(oxyUserId: string): Promise<CartDTO> {
   const cart = await loadCart(oxyUserId);
   if (!cart) {
-    return { id: '', items: [], currency: 'USD', subtotal: { amount: 0, currency: 'USD' } };
+    return { id: '', items: [], currency: 'FAIR', subtotal: { amount: 0, currency: 'FAIR' } };
   }
   return buildCartDTO(cart);
 }

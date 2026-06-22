@@ -79,7 +79,7 @@ function mockOrder(
     sellerOxyUserId: options.sellerType === 'store' ? undefined : 'seller-X',
     storeId: options.sellerType === 'store' ? 'store-A' : undefined,
     payment: { status: options.paymentStatus ?? 'unpaid', provider: 'oxy_pay' as const },
-    shipping: { method: 'standard' as const, label: 'Standard shipping', cost: { amount: 500, currency: 'USD' }, trackingNumber: null as string | null },
+    shipping: { method: 'standard' as const, label: 'Standard shipping', cost: { amount: 500, currency: 'FAIR' }, trackingNumber: null as string | null },
     statusHistory: [] as IOrder['statusHistory'],
     items: [
       { variantId: 'v1', quantity: 2 },

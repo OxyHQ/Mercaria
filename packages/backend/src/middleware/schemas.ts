@@ -13,7 +13,7 @@
 import { z } from 'zod';
 
 /** Supported currency codes (mirrors `CurrencyCode`). */
-const currencySchema = z.enum(['USD', 'EUR', 'GBP']);
+const currencySchema = z.enum(['FAIR', 'USD', 'EUR', 'GBP']);
 
 /** `Money` input: integer minor units, non-negative, with a supported currency. */
 const moneySchema = z.object({

@@ -94,10 +94,10 @@ function cartItem(overrides: { listingId: string; variantId: string; amount?: nu
     variantId: overrides.variantId,
     title: 'Thing',
     variantTitle: 'Default Title',
-    unitPrice: { amount: overrides.amount ?? 1000, currency: 'USD' as const },
+    unitPrice: { amount: overrides.amount ?? 1000, currency: 'FAIR' as const },
     quantity: overrides.quantity ?? 1,
     available: 10,
-    lineTotal: { amount: (overrides.amount ?? 1000) * (overrides.quantity ?? 1), currency: 'USD' as const },
+    lineTotal: { amount: (overrides.amount ?? 1000) * (overrides.quantity ?? 1), currency: 'FAIR' as const },
   };
 }
 
@@ -118,7 +118,7 @@ function variantDoc(id: string, listingId: string) {
     listingId,
     title: 'Default Title',
     optionValues: [],
-    price: { amount: 1000, currency: 'USD' },
+    price: { amount: 1000, currency: 'FAIR' },
     inventory: { tracked: true, available: 10, committed: 0 },
   };
 }
@@ -160,13 +160,13 @@ describe('checkout.service.checkout — multi-seller split', () => {
 
     getCart.mockResolvedValueOnce({
       id: 'cart-1',
-      currency: 'USD',
+      currency: 'FAIR',
       items: [
         cartItem({ listingId: L1, variantId: V1 }),
         cartItem({ listingId: L2, variantId: V2 }),
         cartItem({ listingId: L3, variantId: V3 }),
       ],
-      subtotal: { amount: 3000, currency: 'USD' },
+      subtotal: { amount: 3000, currency: 'FAIR' },
     });
     addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
     listingFind.mockReturnValueOnce(
@@ -211,12 +211,12 @@ describe('checkout.service.checkout — reservation rollback', () => {
 
     getCart.mockResolvedValueOnce({
       id: 'cart-1',
-      currency: 'USD',
+      currency: 'FAIR',
       items: [
         cartItem({ listingId: L1, variantId: V1, quantity: 2 }),
         cartItem({ listingId: L2, variantId: V2, quantity: 5 }),
       ],
-      subtotal: { amount: 7000, currency: 'USD' },
+      subtotal: { amount: 7000, currency: 'FAIR' },
     });
     addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
     listingFind.mockReturnValueOnce(
@@ -273,9 +273,9 @@ describe('checkout.service.checkout — totals', () => {
 
     getCart.mockResolvedValueOnce({
       id: 'cart-1',
-      currency: 'USD',
+      currency: 'FAIR',
       items: [cartItem({ listingId: L1, variantId: V1, amount: 2500, quantity: 2 })], // line 5000
-      subtotal: { amount: 5000, currency: 'USD' },
+      subtotal: { amount: 5000, currency: 'FAIR' },
     });
     addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
     listingFind.mockReturnValueOnce(leanOf([listingDoc(L1, { ownerType: 'store', storeId: 'store-A' })]));

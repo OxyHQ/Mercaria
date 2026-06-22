@@ -1,4 +1,8 @@
-import type { CurrencyCode, Money } from "@mercaria/shared-types";
+import {
+  CURRENCY_PRECISION,
+  CURRENCY_SYMBOLS,
+  type Money,
+} from "@mercaria/shared-types";
 
 /**
  * Product cards consume the canonical server-serialized `ProductSummary` DTO
@@ -8,24 +12,23 @@ import type { CurrencyCode, Money } from "@mercaria/shared-types";
  */
 export type { ProductSummary } from "@mercaria/shared-types";
 
-/** ISO-4217 currency code → display symbol. */
-const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
-  USD: "$",
-  EUR: "€",
-  GBP: "£",
-};
-
-/** Number of minor units in one major unit (cents per dollar/euro/pound). */
-const MINOR_UNITS_PER_MAJOR = 100;
+/** Radix used to derive minor units from a currency's decimal precision. */
+const DECIMAL_RADIX = 10;
+/** Fraction digits shown by default — 8dp FAIR is unwieldy, so 2dp reads cleanly. */
+const DISPLAY_FRACTION_DIGITS = 2;
 
 /**
- * Format a `Money` value (integer minor units) as a display string, e.g.
+ * Format a `Money` value (integer minor units) as a precision-aware display
+ * string. The major value is derived from the currency's precision
+ * (`CURRENCY_PRECISION`), so FAIR (8dp) and USD (2dp) both render correctly,
+ * then shown with 2 fraction digits for readability. E.g.
+ * `{ amount: 14_800_000_000, currency: "FAIR" }` → `"⊜148.00"` and
  * `{ amount: 14800, currency: "USD" }` → `"$148.00"`.
  */
 export function formatMoney(money: Money): string {
   const symbol = CURRENCY_SYMBOLS[money.currency];
-  const major = money.amount / MINOR_UNITS_PER_MAJOR;
-  return `${symbol}${major.toFixed(2)}`;
+  const major = money.amount / DECIMAL_RADIX ** CURRENCY_PRECISION[money.currency];
+  return `${symbol}${major.toFixed(DISPLAY_FRACTION_DIGITS)}`;
 }
 
 /** Threshold above which review counts are abbreviated with a "K" suffix. */

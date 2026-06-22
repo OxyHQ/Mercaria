@@ -11,7 +11,7 @@ import { Schema } from 'mongoose';
 import type { CurrencyCode } from '@mercaria/shared-types';
 
 /** The set of supported currency codes, mirrored from the `CurrencyCode` DTO. */
-export const CURRENCY_CODES: readonly CurrencyCode[] = ['USD', 'EUR', 'GBP'];
+export const CURRENCY_CODES: readonly CurrencyCode[] = ['FAIR', 'USD', 'EUR', 'GBP'];
 
 /** Embedded `{ amount, currency }` sub-schema (no own `_id`). */
 export const MoneySchema = new Schema(

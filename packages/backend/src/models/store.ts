@@ -82,7 +82,7 @@ const StoreSchema = new Schema<IStore>(
       returnWindowDays: { type: Number, default: 30 },
       shippingNote: { type: String },
     },
-    defaultCurrency: { type: String, enum: CURRENCY_CODES as string[], default: 'USD' },
+    defaultCurrency: { type: String, enum: CURRENCY_CODES as string[], default: 'FAIR' },
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     productCount: { type: Number, default: 0 },

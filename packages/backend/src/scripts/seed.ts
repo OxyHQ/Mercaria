@@ -6,6 +6,15 @@
  * collections. Mirrors the imagery + structure of `lib/mock-products.ts` so the
  * DB-backed `/feed` produces the same shelves the frontend already consumes.
  *
+ * Prices are stored in FAIR (⊜) — the canonical settlement currency — as integer
+ * minor units at FAIR's 8-decimal precision (1 ⊜ = 100_000_000 minor units). The
+ * spec `price`/`compareAtPrice` fields below are MAJOR-unit FAIR values (e.g.
+ * 125 = ⊜125.00) and the `fair()` builder scales them via
+ * `minorUnitsPerMajor('FAIR')`. Because this seed `deleteMany`s the marketplace
+ * collections first, RE-RUNNING IT is the dev migration path for the currency
+ * change (no separate rescale migration here — that combined migration is a
+ * later B2 deliverable).
+ *
  * Run from `packages/backend`:
  *   NODE_ENV=development bun src/scripts/seed.ts
  */
@@ -19,6 +28,8 @@ import { Store, ALL_STORE_PERMISSIONS, type IStoreMember } from '../models/store
 import { SellerProfile } from '../models/seller-profile.js';
 import { Listing } from '../models/listing.js';
 import { ProductVariant } from '../models/product-variant.js';
+import { minorUnitsPerMajor } from '../utils/money.js';
+import type { Money } from '@mercaria/shared-types';
 
 // FAKE dev owner — there is NO real Oxy account behind this id. Used only so the
 // seeded stores/P2P listings have a deterministic owner in development.
@@ -26,7 +37,17 @@ const DEV_OWNER_OXY_USER_ID = '000000000000000000000001';
 // A second FAKE dev seller for P2P listings.
 const DEV_SELLER_OXY_USER_ID = '000000000000000000000002';
 
-const USD = 'USD' as const;
+/** Canonical settlement currency for all seeded prices. */
+const SEED_CURRENCY = 'FAIR' as const;
+
+/**
+ * Build a FAIR `Money` from a MAJOR-unit value (e.g. `fair(125)` = ⊜125.00),
+ * scaling to integer minor units via the currency-precision map. Keeps the seed
+ * free of hardcoded `1e8` magic and precision-aware if FAIR's precision changes.
+ */
+function fair(major: number): Money {
+  return { amount: major * minorUnitsPerMajor(SEED_CURRENCY), currency: SEED_CURRENCY };
+}
 
 function categoryAsset(file: string): string {
   return `https://shopify-assets.shopifycdn.com/shop-assets/static_uploads/shop-categories/${file}.png?width=640`;
@@ -130,7 +151,7 @@ const IMG = {
   huhaBikini: 'https://cdn.shopify.com/s/files/1/0053/2244/0790/files/HUHA-Ecomm-1594-WebRes.jpg?width=384',
 } as const;
 
-/** A store-product spec for the seed. */
+/** A store-product spec for the seed. `price`/`compareAtPrice` are MAJOR-unit FAIR (⊜). */
 interface StoreProductSpec {
   title: string;
   description: string;
@@ -167,9 +188,9 @@ const STORES: StoreSpec[] = [
     rating: 4.9,
     reviewCount: 1400,
     products: [
-      { title: 'Mopit Top', description: 'Sculptural knit top in marrón.', categorySlug: 'shirts', image: IMG.palomaMopit, price: 12500, available: 8 },
-      { title: 'Franny', description: 'Drop 5 ready-to-wear piece.', categorySlug: 'dresses', image: IMG.palomaFranny, price: 18900, available: 5 },
-      { title: 'Beni Top', description: 'Negro knit top.', categorySlug: 'shirts', image: IMG.palomaBeni, price: 7900, compareAtPrice: 9900, available: 12 },
+      { title: 'Mopit Top', description: 'Sculptural knit top in marrón.', categorySlug: 'shirts', image: IMG.palomaMopit, price: 125, available: 8 },
+      { title: 'Franny', description: 'Drop 5 ready-to-wear piece.', categorySlug: 'dresses', image: IMG.palomaFranny, price: 189, available: 5 },
+      { title: 'Beni Top', description: 'Negro knit top.', categorySlug: 'shirts', image: IMG.palomaBeni, price: 79, compareAtPrice: 99, available: 12 },
     ],
   },
   {
@@ -183,14 +204,14 @@ const STORES: StoreSpec[] = [
     rating: 4.7,
     reviewCount: 128,
     products: [
-      { title: 'Jenna Cotton Pant', description: 'Relaxed cotton pant in stone.', categorySlug: 'pants', image: IMG.nililotanJenna, price: 39000, available: 6 },
-      { title: 'Shon Cotton Pant', description: 'Vintage washed admiral blue cotton pant.', categorySlug: 'pants', image: IMG.nililotanShon, price: 39000, available: 4 },
-      { title: 'Leather Ballet Flat', description: 'Black leather ballet flat.', categorySlug: 'sneakers', image: IMG.nililotanBalletFlat, price: 42500, compareAtPrice: 55000, available: 3 },
+      { title: 'Jenna Cotton Pant', description: 'Relaxed cotton pant in stone.', categorySlug: 'pants', image: IMG.nililotanJenna, price: 390, available: 6 },
+      { title: 'Shon Cotton Pant', description: 'Vintage washed admiral blue cotton pant.', categorySlug: 'pants', image: IMG.nililotanShon, price: 390, available: 4 },
+      { title: 'Leather Ballet Flat', description: 'Black leather ballet flat.', categorySlug: 'sneakers', image: IMG.nililotanBalletFlat, price: 425, compareAtPrice: 550, available: 3 },
     ],
   },
 ];
 
-/** P2P (secondhand) listing specs. */
+/** P2P (secondhand) listing specs. `price` is a MAJOR-unit FAIR (⊜) value. */
 interface P2PSpec {
   title: string;
   description: string;
@@ -206,7 +227,7 @@ const P2P_LISTINGS: P2PSpec[] = [
     description: 'Worn twice, freshly laundered. Size M.',
     categorySlug: 'dresses',
     image: IMG.lakeKimono,
-    price: 6500,
+    price: 65,
     available: 1,
   },
   {
@@ -214,7 +235,7 @@ const P2P_LISTINGS: P2PSpec[] = [
     description: 'New without tags, never worn. Size S.',
     categorySlug: 'shirts',
     image: IMG.huhaBikini,
-    price: 1800,
+    price: 18,
     available: 1,
   },
 ];
@@ -300,7 +321,7 @@ async function seed(): Promise<void> {
       status: 'active',
       members: [member],
       policies: { returnWindowDays: 30 },
-      defaultCurrency: USD,
+      defaultCurrency: SEED_CURRENCY,
       rating: storeSpec.rating,
       reviewCount: storeSpec.reviewCount,
       productCount: storeSpec.products.length,
@@ -322,8 +343,8 @@ async function seed(): Promise<void> {
         tags: [storeSpec.name.toLowerCase(), product.categorySlug],
         options: [],
         priceRange: {
-          min: { amount: product.price, currency: USD },
-          max: { amount: product.price, currency: USD },
+          min: fair(product.price),
+          max: fair(product.price),
         },
         hasInventory: product.available > 0,
         variantCount: 1,
@@ -338,9 +359,9 @@ async function seed(): Promise<void> {
         title: 'Default Title',
         optionValues: [],
         sku: `${slugify(storeSpec.handle)}-${slugify(product.title)}`,
-        price: { amount: product.price, currency: USD },
+        price: fair(product.price),
         ...(product.compareAtPrice
-          ? { compareAtPrice: { amount: product.compareAtPrice, currency: USD } }
+          ? { compareAtPrice: fair(product.compareAtPrice) }
           : {}),
         inventory: { tracked: true, available: product.available, committed: 0, levels: [] },
         position: 0,
@@ -373,8 +394,8 @@ async function seed(): Promise<void> {
       tags: ['secondhand', spec.categorySlug],
       options: [],
       priceRange: {
-        min: { amount: spec.price, currency: USD },
-        max: { amount: spec.price, currency: USD },
+        min: fair(spec.price),
+        max: fair(spec.price),
       },
       hasInventory: spec.available > 0,
       variantCount: 1,
@@ -386,7 +407,7 @@ async function seed(): Promise<void> {
       listingId: String(listing._id),
       title: 'Default Title',
       optionValues: [],
-      price: { amount: spec.price, currency: USD },
+      price: fair(spec.price),
       inventory: { tracked: true, available: spec.available, committed: 0, levels: [] },
       position: 0,
     });

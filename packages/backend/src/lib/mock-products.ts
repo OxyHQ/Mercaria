@@ -13,6 +13,10 @@
  * All image URLs are real, public Shopify CDN assets (merchant covers/logos and
  * product/category imagery on `cdn.shopify.com` / `shopify-assets.shopifycdn.com`)
  * so every tile and thumbnail resolves fast and looks like Shop.
+ *
+ * Prices are FAIR (⊜), the canonical settlement currency, in integer minor units
+ * at FAIR's 8-decimal precision (1 ⊜ = 100_000_000 minor units). The human
+ * magnitudes mirror the catalog (e.g. ⊜148.00 = 14_800_000_000 minor units).
  */
 
 import type {
@@ -93,7 +97,7 @@ const NEW_ARRIVALS_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.lakeKimono,
     rating: 4.9,
     reviewCount: 349,
-    price: { amount: 14800, currency: 'USD' },
+    price: { amount: 14_800_000_000, currency: 'FAIR' },
   },
   {
     id: 'na-2',
@@ -102,7 +106,7 @@ const NEW_ARRIVALS_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.aviatorSweatshirt,
     rating: 4.6,
     reviewCount: 504,
-    price: { amount: 17500, currency: 'USD' },
+    price: { amount: 17_500_000_000, currency: 'FAIR' },
   },
   {
     id: 'na-3',
@@ -111,7 +115,7 @@ const NEW_ARRIVALS_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.palomaMopit,
     rating: 4.8,
     reviewCount: 1183,
-    price: { amount: 12500, currency: 'USD' },
+    price: { amount: 12_500_000_000, currency: 'FAIR' },
   },
   {
     id: 'na-4',
@@ -120,7 +124,7 @@ const NEW_ARRIVALS_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.nililotanJenna,
     rating: 4.7,
     reviewCount: 285,
-    price: { amount: 39000, currency: 'USD' },
+    price: { amount: 39_000_000_000, currency: 'FAIR' },
   },
   {
     id: 'na-5',
@@ -129,7 +133,7 @@ const NEW_ARRIVALS_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.telfarBolero,
     rating: 4.9,
     reviewCount: 1750,
-    price: { amount: 16000, currency: 'USD' },
+    price: { amount: 16_000_000_000, currency: 'FAIR' },
   },
   {
     id: 'na-6',
@@ -138,7 +142,7 @@ const NEW_ARRIVALS_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.agAdria,
     rating: 4.4,
     reviewCount: 1390,
-    price: { amount: 24500, currency: 'USD' },
+    price: { amount: 24_500_000_000, currency: 'FAIR' },
   },
 ];
 
@@ -151,8 +155,8 @@ const ON_SALE_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.ondoSocks,
     rating: 4.7,
     reviewCount: 10260,
-    price: { amount: 4940, currency: 'USD' },
-    compareAtPrice: { amount: 5200, currency: 'USD' },
+    price: { amount: 4_940_000_000, currency: 'FAIR' },
+    compareAtPrice: { amount: 5_200_000_000, currency: 'FAIR' },
   },
   {
     id: 'os-2',
@@ -161,8 +165,8 @@ const ON_SALE_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.huhaBikini,
     rating: 4.8,
     reviewCount: 863,
-    price: { amount: 2400, currency: 'USD' },
-    compareAtPrice: { amount: 3200, currency: 'USD' },
+    price: { amount: 2_400_000_000, currency: 'FAIR' },
+    compareAtPrice: { amount: 3_200_000_000, currency: 'FAIR' },
   },
   {
     id: 'os-3',
@@ -171,8 +175,8 @@ const ON_SALE_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.jwpeiSaraWhite,
     rating: 4.6,
     reviewCount: 11500,
-    price: { amount: 8900, currency: 'USD' },
-    compareAtPrice: { amount: 12000, currency: 'USD' },
+    price: { amount: 8_900_000_000, currency: 'FAIR' },
+    compareAtPrice: { amount: 12_000_000_000, currency: 'FAIR' },
   },
   {
     id: 'os-4',
@@ -181,8 +185,8 @@ const ON_SALE_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.nililotanBalletFlat,
     rating: 4.7,
     reviewCount: 128,
-    price: { amount: 42500, currency: 'USD' },
-    compareAtPrice: { amount: 55000, currency: 'USD' },
+    price: { amount: 42_500_000_000, currency: 'FAIR' },
+    compareAtPrice: { amount: 55_000_000_000, currency: 'FAIR' },
   },
   {
     id: 'os-5',
@@ -191,8 +195,8 @@ const ON_SALE_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.palomaBeni,
     rating: 4.9,
     reviewCount: 1400,
-    price: { amount: 7900, currency: 'USD' },
-    compareAtPrice: { amount: 9900, currency: 'USD' },
+    price: { amount: 7_900_000_000, currency: 'FAIR' },
+    compareAtPrice: { amount: 9_900_000_000, currency: 'FAIR' },
   },
   {
     id: 'os-6',
@@ -201,8 +205,8 @@ const ON_SALE_PRODUCTS: ProductSummary[] = [
     imageUrl: PRODUCT_IMAGES.agHattie,
     rating: 4.4,
     reviewCount: 13900,
-    price: { amount: 16500, currency: 'USD' },
-    compareAtPrice: { amount: 22500, currency: 'USD' },
+    price: { amount: 16_500_000_000, currency: 'FAIR' },
+    compareAtPrice: { amount: 22_500_000_000, currency: 'FAIR' },
   },
 ];
 

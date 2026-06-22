@@ -75,7 +75,7 @@ function variantDoc(overrides: { available?: number; tracked?: boolean; currency
     _id: VARIANT_ID,
     listingId: LISTING_ID,
     title: 'Default Title',
-    price: { amount: overrides.amount ?? 1500, currency: overrides.currency ?? 'USD' },
+    price: { amount: overrides.amount ?? 1500, currency: overrides.currency ?? 'FAIR' },
     inventory: {
       tracked: overrides.tracked ?? true,
       available: overrides.available ?? 10,
@@ -97,7 +97,7 @@ interface MockCartItem {
 }
 
 /** A mock cart document whose `items` array is mutated in place by the service. */
-function mockCartDoc(items: MockCartItem[], currency = 'USD') {
+function mockCartDoc(items: MockCartItem[], currency = 'FAIR') {
   const doc = {
     _id: CART_ID,
     oxyUserId: USER,
@@ -174,7 +174,7 @@ describe('cart.service.addItem', () => {
 
     const existing = mockCartDoc(
       [{ listingId: LISTING_ID, variantId: '00000000000000000000aaaa', quantity: 1, addedAt: new Date() }],
-      'USD',
+      'FAIR',
     );
     cartFindOne.mockResolvedValueOnce(existing);
 
@@ -190,7 +190,7 @@ describe('cart.service.revalidate', () => {
     const cart: ICart = {
       _id: CART_ID,
       oxyUserId: USER,
-      currency: 'USD',
+      currency: 'FAIR',
       items: [
         { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 5, addedAt: new Date() },
       ],
@@ -206,10 +206,10 @@ describe('cart.service.revalidate', () => {
 
     expect(dto.items).toHaveLength(1);
     expect(dto.items[0].stale).toBe(true);
-    expect(dto.items[0].unitPrice).toEqual({ amount: 1500, currency: 'USD' });
-    expect(dto.items[0].lineTotal).toEqual({ amount: 7500, currency: 'USD' });
+    expect(dto.items[0].unitPrice).toEqual({ amount: 1500, currency: 'FAIR' });
+    expect(dto.items[0].lineTotal).toEqual({ amount: 7500, currency: 'FAIR' });
     // subtotal = sum of line totals = 1500 * 5 = 7500.
-    expect(dto.subtotal).toEqual({ amount: 7500, currency: 'USD' });
+    expect(dto.subtotal).toEqual({ amount: 7500, currency: 'FAIR' });
   });
 
   it('subtotal sums multiple line totals at live prices', async () => {
@@ -218,7 +218,7 @@ describe('cart.service.revalidate', () => {
     const cart: ICart = {
       _id: CART_ID,
       oxyUserId: USER,
-      currency: 'USD',
+      currency: 'FAIR',
       items: [
         { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2, addedAt: new Date() },
         { listingId: LISTING_2, variantId: VARIANT_2, quantity: 1, addedAt: new Date() },
@@ -240,16 +240,16 @@ describe('cart.service.revalidate', () => {
     const dto = await revalidate(cart);
 
     // line totals: 1000*2 + 2500*1 = 4500.
-    expect(dto.subtotal).toEqual({ amount: 4500, currency: 'USD' });
+    expect(dto.subtotal).toEqual({ amount: 4500, currency: 'FAIR' });
     expect(dto.items.every((i) => i.stale === undefined)).toBe(true);
   });
 });
 
 describe('cart.service.getCart', () => {
-  it('returns an empty USD cart when the buyer has no cart document', async () => {
+  it('returns an empty FAIR cart when the buyer has no cart document', async () => {
     cartFindOne.mockReturnValueOnce(leanOf(null));
     const dto = await getCart(USER);
     expect(dto.items).toEqual([]);
-    expect(dto.subtotal).toEqual({ amount: 0, currency: 'USD' });
+    expect(dto.subtotal).toEqual({ amount: 0, currency: 'FAIR' });
   });
 });

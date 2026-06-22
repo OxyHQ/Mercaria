@@ -62,7 +62,7 @@ export async function createStore(
     brandColor: input.brandColor ?? DEFAULT_BRAND_COLOR,
     ...(input.logoFileId ? { logoFileId: input.logoFileId } : {}),
     ...(input.coverFileId ? { coverFileId: input.coverFileId } : {}),
-    defaultCurrency: input.defaultCurrency ?? 'USD',
+    defaultCurrency: input.defaultCurrency ?? 'FAIR',
     status: 'active',
     members: [member],
   });

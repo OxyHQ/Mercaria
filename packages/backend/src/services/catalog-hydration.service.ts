@@ -182,7 +182,7 @@ export function toProductSummary(
     ? toMoney(cheapest.price)
     : listing.priceRange?.min
       ? toMoney(listing.priceRange.min)
-      : { amount: 0, currency: 'USD' as Money['currency'] };
+      : { amount: 0, currency: 'FAIR' as Money['currency'] };
 
   const summary: ProductSummary = {
     id: String((listing as { _id: mongoose.Types.ObjectId })._id),
@@ -308,7 +308,7 @@ export async function hydrateListings(
 
     const priceFallback: Money = listing.priceRange?.min
       ? toMoney(listing.priceRange.min)
-      : { amount: 0, currency: 'USD' };
+      : { amount: 0, currency: 'FAIR' };
     const price = cheapest ? toMoney(cheapest.price) : priceFallback;
     const quantity = variants.reduce((sum, v) => sum + Math.max(0, v.inventory.available), 0);
 

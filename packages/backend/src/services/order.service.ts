@@ -425,7 +425,7 @@ export async function storeStats(storeId: string): Promise<StoreStats> {
 
   const currency = (store?.defaultCurrency ??
     paidOrders[0]?.totals.grandTotal.currency ??
-    'USD') as Money['currency'];
+    'FAIR') as Money['currency'];
   const revenue =
     paidOrders.length > 0
       ? sumMoney(
