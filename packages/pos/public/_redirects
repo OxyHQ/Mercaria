@@ -1,0 +1,3 @@
+# SPA routing is handled by _worker.js.
+# This file is intentionally empty so the catch-all rule does not interfere
+# with asset requests for non-existent files (stale hashed bundles).
