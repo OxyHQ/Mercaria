@@ -30,10 +30,27 @@ import { InventoryLevel } from '../models/inventory-level.js';
 import { Category, type ICategory } from '../models/category.js';
 import { config } from '../config/index.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
+import { log } from '../lib/logger.js';
 import { getOrCreate as getOrCreateSellerProfile } from './seller-profile.service.js';
 
 /** The default variant title for single-variant (P2P) listings. */
 const DEFAULT_VARIANT_TITLE = 'Default Title';
+
+/**
+ * After a STORE product/variant mutation, recompute which AUTOMATED collections of
+ * the store the listing belongs to. Best-effort: a membership recompute failure must
+ * not fail the write. Uses a DYNAMIC import of `collection.service` to break the
+ * import cycle (`collection.service` imports `syncListingFacets`/types from here),
+ * mirroring `inventory.service`'s dynamic import of the queue producers.
+ */
+async function recomputeCollectionMembership(listingId: string): Promise<void> {
+  try {
+    const { recomputeAutomatedMembershipForListing } = await import('./collection.service.js');
+    await recomputeAutomatedMembershipForListing(listingId);
+  } catch (err) {
+    log.general.warn({ err, listingId }, 'Failed to recompute automated collection membership');
+  }
+}
 
 /**
  * Resolve a store's default `Location` id — the `isDefault` location, falling
@@ -212,6 +229,7 @@ interface NormalizedVariant {
   title: string;
   optionValues: { name: string; value: string }[];
   sku?: string;
+  barcode?: string;
   price: Money;
   compareAtPrice?: Money;
   inventory: { tracked: boolean; available: number; committed: number; levels: [] };
@@ -242,6 +260,9 @@ function resolveStoreVariants(input: CreateStoreProductInput): NormalizedVariant
       };
       if (v.sku) {
         variant.sku = v.sku;
+      }
+      if (v.barcode) {
+        variant.barcode = v.barcode;
       }
       if (v.compareAtPrice) {
         variant.compareAtPrice = { amount: v.compareAtPrice.amount, currency: v.compareAtPrice.currency };
@@ -288,6 +309,10 @@ export async function createStoreProduct(
     priceRange: { min: first.price, max: first.price },
     hasInventory: false,
     variantCount: variants.length,
+    ...(input.vendor ? { vendor: input.vendor } : {}),
+    ...(input.productType ? { productType: input.productType } : {}),
+    ...(input.handle ? { handle: input.handle } : {}),
+    ...(input.seo ? { seo: input.seo } : {}),
     publishedAt: new Date(),
   });
 
@@ -313,6 +338,7 @@ export async function createStoreProduct(
 
   await syncListingFacets(listingId);
   await Store.updateOne({ _id: storeId }, { $inc: { productCount: 1 } });
+  await recomputeCollectionMembership(listingId);
 
   return listingId;
 }
@@ -351,6 +377,12 @@ export async function updateListing(
     listing.images = toListingImages(patch.imageFileIds);
   }
 
+  // Store-product merchandising fields (no-op for P2P listings, which never set them).
+  if (patch.vendor !== undefined) listing.vendor = patch.vendor;
+  if (patch.productType !== undefined) listing.productType = patch.productType;
+  if (patch.handle !== undefined) listing.handle = patch.handle;
+  if (patch.seo !== undefined) listing.seo = patch.seo;
+
   // P2P price update flows through the single variant.
   if (patch.price !== undefined && listing.ownerType === 'user') {
     const variant = await ProductVariant.findOne({ listingId }).sort({ position: 1 });
@@ -370,6 +402,9 @@ export async function updateListing(
 
   await listing.save();
   await syncListingFacets(listingId);
+  if (listing.ownerType === 'store') {
+    await recomputeCollectionMembership(listingId);
+  }
 }
 
 /** Archive a listing (soft-delete). Used by P2P DELETE and store DELETE. */
@@ -402,6 +437,7 @@ export async function addVariant(
     title: variantTitleFromOptions(input.optionValues),
     optionValues: input.optionValues.map((o) => ({ name: o.name, value: o.value })),
     ...(input.sku ? { sku: input.sku } : {}),
+    ...(input.barcode ? { barcode: input.barcode } : {}),
     price: { amount: input.price.amount, currency: input.price.currency },
     ...(input.compareAtPrice
       ? { compareAtPrice: { amount: input.compareAtPrice.amount, currency: input.compareAtPrice.currency } }
@@ -428,6 +464,7 @@ export async function addVariant(
   });
 
   await syncListingFacets(listingId);
+  await recomputeCollectionMembership(listingId);
   return String(created._id);
 }
 
@@ -435,6 +472,7 @@ export async function addVariant(
 export interface UpdateVariantInput {
   title?: string;
   sku?: string;
+  barcode?: string;
   price?: Money;
   compareAtPrice?: Money | null;
   optionValues?: { name: string; value: string }[];
@@ -454,6 +492,7 @@ export async function updateVariant(
 
   if (patch.title !== undefined) variant.title = patch.title;
   if (patch.sku !== undefined) variant.sku = patch.sku;
+  if (patch.barcode !== undefined) variant.barcode = patch.barcode;
   if (patch.price !== undefined) {
     variant.price = { amount: patch.price.amount, currency: patch.price.currency };
   }
@@ -494,6 +533,7 @@ export async function updateVariant(
       await variant.save();
       await recomputeVariantScalarFromLevels(variantId);
       await syncListingFacets(listingId);
+      await recomputeCollectionMembership(listingId);
       return;
     }
     variant.inventory.available = patch.inventory.available;
@@ -501,6 +541,7 @@ export async function updateVariant(
 
   await variant.save();
   await syncListingFacets(listingId);
+  await recomputeCollectionMembership(listingId);
 }
 
 /**
@@ -517,4 +558,5 @@ export async function removeVariant(listingId: string, variantId: string): Promi
     throw notFound('Variant not found');
   }
   await syncListingFacets(listingId);
+  await recomputeCollectionMembership(listingId);
 }

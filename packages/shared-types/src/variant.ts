@@ -30,6 +30,8 @@ export interface ProductVariantDTO {
   optionValues: VariantOptionValue[];
   /** Stock-keeping unit, when set by the seller. */
   sku?: string;
+  /** Barcode (UPC/EAN/ISBN, etc.), when set by the seller. */
+  barcode?: string;
   /** This variant's price. */
   price: Money;
   /** Original price when this variant is on sale (omitted when not discounted). */

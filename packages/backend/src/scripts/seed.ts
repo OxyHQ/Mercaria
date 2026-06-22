@@ -30,6 +30,8 @@ import { Listing } from '../models/listing.js';
 import { ProductVariant } from '../models/product-variant.js';
 import { Location } from '../models/location.js';
 import { InventoryLevel } from '../models/inventory-level.js';
+import { Collection } from '../models/collection.js';
+import { createCollection, setCollectionProducts } from '../services/collection.service.js';
 import { minorUnitsPerMajor } from '../utils/money.js';
 import type { Money } from '@mercaria/shared-types';
 
@@ -162,6 +164,10 @@ interface StoreProductSpec {
   price: number;
   compareAtPrice?: number;
   available: number;
+  /** Merchandising product type (e.g. `Knitwear`). */
+  productType?: string;
+  /** Extra tags beyond the default `[storeName, categorySlug]` (e.g. `['sale']`). */
+  extraTags?: string[];
 }
 
 /** A store spec for the seed. */
@@ -190,9 +196,9 @@ const STORES: StoreSpec[] = [
     rating: 4.9,
     reviewCount: 1400,
     products: [
-      { title: 'Mopit Top', description: 'Sculptural knit top in marrón.', categorySlug: 'shirts', image: IMG.palomaMopit, price: 125, available: 8 },
-      { title: 'Franny', description: 'Drop 5 ready-to-wear piece.', categorySlug: 'dresses', image: IMG.palomaFranny, price: 189, available: 5 },
-      { title: 'Beni Top', description: 'Negro knit top.', categorySlug: 'shirts', image: IMG.palomaBeni, price: 79, compareAtPrice: 99, available: 12 },
+      { title: 'Mopit Top', description: 'Sculptural knit top in marrón.', categorySlug: 'shirts', image: IMG.palomaMopit, price: 125, available: 8, productType: 'Knitwear' },
+      { title: 'Franny', description: 'Drop 5 ready-to-wear piece.', categorySlug: 'dresses', image: IMG.palomaFranny, price: 189, available: 5, productType: 'Dresses' },
+      { title: 'Beni Top', description: 'Negro knit top.', categorySlug: 'shirts', image: IMG.palomaBeni, price: 79, compareAtPrice: 99, available: 12, productType: 'Knitwear', extraTags: ['sale'] },
     ],
   },
   {
@@ -206,9 +212,9 @@ const STORES: StoreSpec[] = [
     rating: 4.7,
     reviewCount: 128,
     products: [
-      { title: 'Jenna Cotton Pant', description: 'Relaxed cotton pant in stone.', categorySlug: 'pants', image: IMG.nililotanJenna, price: 390, available: 6 },
-      { title: 'Shon Cotton Pant', description: 'Vintage washed admiral blue cotton pant.', categorySlug: 'pants', image: IMG.nililotanShon, price: 390, available: 4 },
-      { title: 'Leather Ballet Flat', description: 'Black leather ballet flat.', categorySlug: 'sneakers', image: IMG.nililotanBalletFlat, price: 425, compareAtPrice: 550, available: 3 },
+      { title: 'Jenna Cotton Pant', description: 'Relaxed cotton pant in stone.', categorySlug: 'pants', image: IMG.nililotanJenna, price: 390, available: 6, productType: 'Pants' },
+      { title: 'Shon Cotton Pant', description: 'Vintage washed admiral blue cotton pant.', categorySlug: 'pants', image: IMG.nililotanShon, price: 390, available: 4, productType: 'Pants' },
+      { title: 'Leather Ballet Flat', description: 'Black leather ballet flat.', categorySlug: 'sneakers', image: IMG.nililotanBalletFlat, price: 425, compareAtPrice: 550, available: 3, productType: 'Shoes', extraTags: ['sale'] },
     ],
   },
 ];
@@ -251,7 +257,7 @@ async function seed(): Promise<void> {
   await connectDB();
 
   log.general.info(
-    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel)',
+    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel, Collection)',
   );
   await Promise.all([
     Category.deleteMany({}),
@@ -261,6 +267,7 @@ async function seed(): Promise<void> {
     ProductVariant.deleteMany({}),
     Location.deleteMany({}),
     InventoryLevel.deleteMany({}),
+    Collection.deleteMany({}),
   ]);
 
   // 1. Category taxonomy. Top-level uses its pill image; children get ancestorSlugs.
@@ -307,6 +314,7 @@ async function seed(): Promise<void> {
   const now = new Date();
   let listingCount = 0;
   let variantCount = 0;
+  let collectionCount = 0;
 
   // 2 + 3. Stores and their products (ownerType 'store').
   for (const storeSpec of STORES) {
@@ -345,6 +353,9 @@ async function seed(): Promise<void> {
     });
     const defaultLocationId = String(defaultLocation._id);
 
+    // Title → listing id for this store, so collections can reference products by title.
+    const listingIdByTitle = new Map<string, string>();
+
     for (const [index, product] of storeSpec.products.entries()) {
       const ref = categoryRef(product.categorySlug);
       const listing = await Listing.create({
@@ -357,8 +368,10 @@ async function seed(): Promise<void> {
         categoryId: ref.categoryId,
         categorySlugs: ref.categorySlugs,
         images: [{ fileId: product.image, position: 0 }],
-        tags: [storeSpec.name.toLowerCase(), product.categorySlug],
+        tags: [storeSpec.name.toLowerCase(), product.categorySlug, ...(product.extraTags ?? [])],
         options: [],
+        vendor: storeSpec.name,
+        ...(product.productType ? { productType: product.productType } : {}),
         priceRange: {
           min: fair(product.price),
           max: fair(product.price),
@@ -370,6 +383,7 @@ async function seed(): Promise<void> {
         publishedAt: new Date(now.getTime() - index * 1000),
       });
       listingCount += 1;
+      listingIdByTitle.set(product.title, String(listing._id));
 
       const variant = await ProductVariant.create({
         listingId: String(listing._id),
@@ -394,6 +408,40 @@ async function seed(): Promise<void> {
         available: product.available,
         committed: 0,
       });
+    }
+
+    // 3b. Demo collections for the first store (Paloma Wool): one MANUAL
+    // (Editor's Picks: Mopit + Franny) and one AUTOMATED (On Sale: tag = 'sale').
+    // Routed through the service so membership materializes onto Listing.collectionIds.
+    if (storeSpec.handle === 'palomawool') {
+      await createCollection(storeId, {
+        title: "Editor's Picks",
+        handle: 'editors-picks',
+        type: 'manual',
+        sortOrder: 'manual',
+      });
+      const editorPicks = [listingIdByTitle.get('Mopit Top'), listingIdByTitle.get('Franny')].filter(
+        (id): id is string => typeof id === 'string',
+      );
+      const editorsCollection = await Collection.findOne({ storeId, handle: 'editors-picks' }).lean<
+        { _id: mongoose.Types.ObjectId } | null
+      >();
+      if (editorsCollection) {
+        await setCollectionProducts(storeId, String(editorsCollection._id), editorPicks);
+      }
+
+      await createCollection(storeId, {
+        title: 'On Sale',
+        handle: 'on-sale',
+        type: 'automated',
+        rules: {
+          appliesDisjunctively: false,
+          conditions: [{ field: 'tag', operator: 'contains', value: 'sale' }],
+        },
+        sortOrder: 'price_asc',
+      });
+
+      collectionCount += 2;
     }
   }
 
@@ -448,6 +496,7 @@ async function seed(): Promise<void> {
       sellerProfiles: 1,
       listings: listingCount,
       variants: variantCount,
+      collections: collectionCount,
     },
     'Mercaria catalog seed complete',
   );

@@ -54,6 +54,15 @@ function buildFilter(query: ListingQuery): ListingFilter {
   if (query.condition) {
     filter.condition = query.condition;
   }
+  if (query.vendor) {
+    filter.vendor = query.vendor;
+  }
+  if (query.productType) {
+    filter.productType = query.productType;
+  }
+  if (query.collectionId) {
+    filter.collectionIds = query.collectionId;
+  }
   if (query.inStock) {
     filter.hasInventory = true;
   }

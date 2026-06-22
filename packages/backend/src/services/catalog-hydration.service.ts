@@ -75,6 +75,9 @@ function toVariantDTO(variant: IProductVariant): ProductVariantDTO {
   if (variant.sku) {
     dto.sku = variant.sku;
   }
+  if (variant.barcode) {
+    dto.barcode = variant.barcode;
+  }
   if (variant.compareAtPrice) {
     dto.compareAtPrice = toMoney(variant.compareAtPrice);
   }
@@ -357,6 +360,25 @@ export async function hydrateListings(
       if (store) {
         dto.store = toMerchantSummary(store, listingsByStore.get(String(listing.storeId)) ?? [listing]);
       }
+    }
+
+    if (listing.vendor) {
+      dto.vendor = listing.vendor;
+    }
+    if (listing.productType) {
+      dto.productType = listing.productType;
+    }
+    if (listing.handle) {
+      dto.handle = listing.handle;
+    }
+    if (listing.seo && (listing.seo.title || listing.seo.description)) {
+      const seo: { title?: string; description?: string } = {};
+      if (listing.seo.title) seo.title = listing.seo.title;
+      if (listing.seo.description) seo.description = listing.seo.description;
+      dto.seo = seo;
+    }
+    if (listing.collectionIds && listing.collectionIds.length > 0) {
+      dto.collectionIds = [...listing.collectionIds];
     }
 
     return dto;

@@ -87,6 +87,16 @@ export interface Listing extends Timestamps {
   quantity: number;
   /** Whether the current viewer has saved/favorited this listing. */
   saved?: boolean;
+  /** Manufacturer/brand (store products). */
+  vendor?: string;
+  /** Merchandising product type (store products). */
+  productType?: string;
+  /** URL-safe handle (store products); unique per store. */
+  handle?: string;
+  /** SEO overrides (store products). */
+  seo?: { title?: string; description?: string };
+  /** Collection ids this listing belongs to (store products). */
+  collectionIds?: string[];
 }
 
 /** Payload accepted when an individual user creates a P2P (secondhand) listing. */
@@ -110,6 +120,8 @@ export interface CreateStoreProductVariantInput {
   price: Money;
   compareAtPrice?: Money;
   sku?: string;
+  /** Barcode (UPC/EAN/ISBN, etc.). */
+  barcode?: string;
   inventory: {
     /** Whether stock is tracked (defaults true). */
     tracked?: boolean;
@@ -130,11 +142,27 @@ export interface CreateStoreProductInput {
   options: ListingOption[];
   /** Concrete variants for the product (at least one). */
   variants: CreateStoreProductVariantInput[];
+  /** Manufacturer/brand. */
+  vendor?: string;
+  /** Merchandising product type. */
+  productType?: string;
+  /** URL-safe handle (unique per store). */
+  handle?: string;
+  /** SEO overrides. */
+  seo?: { title?: string; description?: string };
 }
 
 /** Partial payload accepted when updating an existing listing. */
 export type UpdateListingInput = Partial<CreateP2PListingInput> & {
   status?: ListingStatus;
+  /** Manufacturer/brand (store products). */
+  vendor?: string;
+  /** Merchandising product type (store products). */
+  productType?: string;
+  /** URL-safe handle (store products); unique per store. */
+  handle?: string;
+  /** SEO overrides (store products). */
+  seo?: { title?: string; description?: string };
 };
 
 /** Filter/sort parameters accepted by the listing search/browse endpoint. */
@@ -153,6 +181,12 @@ export interface ListingQuery {
   storeId?: string;
   /** Restrict to user-owned (P2P) or store-owned listings. */
   ownerType?: ListingOwnerType;
+  /** Restrict to a single vendor/brand. */
+  vendor?: string;
+  /** Restrict to a single product type. */
+  productType?: string;
+  /** Restrict to listings in a single collection. */
+  collectionId?: string;
   /** Geo radius filter (P2P proximity browse). */
   near?: { lng: number; lat: number; radiusM: number };
   /** Restrict to listings with available stock. */

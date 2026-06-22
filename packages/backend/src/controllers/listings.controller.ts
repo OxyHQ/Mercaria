@@ -35,6 +35,9 @@ const listingQuerySchema = z
     maxPrice: z.coerce.number().int().nonnegative().optional(),
     storeId: z.string().trim().min(1).optional(),
     ownerType: z.enum(['user', 'store']).optional(),
+    vendor: z.string().trim().min(1).optional(),
+    productType: z.string().trim().min(1).optional(),
+    collectionId: z.string().trim().min(1).optional(),
     inStock: z.coerce.boolean().optional(),
     cursor: z.string().trim().min(1).optional(),
     sort: z.enum(['newest', 'price_asc', 'price_desc']).optional(),
@@ -54,6 +57,9 @@ function toListingQuery(parsed: z.infer<typeof listingQuerySchema>): ListingQuer
   if (typeof parsed.maxPrice === 'number') query.maxPrice = parsed.maxPrice;
   if (parsed.storeId) query.storeId = parsed.storeId;
   if (parsed.ownerType) query.ownerType = parsed.ownerType;
+  if (parsed.vendor) query.vendor = parsed.vendor;
+  if (parsed.productType) query.productType = parsed.productType;
+  if (parsed.collectionId) query.collectionId = parsed.collectionId;
   if (parsed.inStock) query.inStock = parsed.inStock;
   if (parsed.cursor) query.cursor = parsed.cursor;
   if (parsed.sort) query.sort = parsed.sort;

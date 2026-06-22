@@ -57,6 +57,16 @@ export interface IListing {
   variantCount: number;
   /** GeoJSON point, only set for P2P listings with a location. */
   location?: IGeoPoint;
+  /** Manufacturer/brand (store products). */
+  vendor?: string;
+  /** Merchandising product type (store products). */
+  productType?: string;
+  /** URL-safe handle (store products); unique per store when set. */
+  handle?: string;
+  /** SEO overrides (store products). */
+  seo?: { title?: string; description?: string };
+  /** Collection ids this listing belongs to (denormalized membership). */
+  collectionIds: string[];
   rating: number;
   reviewCount: number;
   favoriteCount: number;
@@ -109,6 +119,14 @@ const ListingSchema = new Schema<IListing>(
       },
       coordinates: { type: [Number] },
     },
+    vendor: { type: String },
+    productType: { type: String },
+    handle: { type: String },
+    seo: {
+      title: { type: String },
+      description: { type: String },
+    },
+    collectionIds: { type: [String], default: [] },
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     favoriteCount: { type: Number, default: 0 },
@@ -153,6 +171,17 @@ ListingSchema.index({ ownerType: 1, storeId: 1, status: 1, publishedAt: -1, _id:
 ListingSchema.index({ ownerType: 1, oxyUserId: 1, status: 1, publishedAt: -1, _id: -1 });
 ListingSchema.index({ location: '2dsphere' });
 ListingSchema.index({ title: 'text', description: 'text', tags: 'text' });
+ListingSchema.index({ storeId: 1, vendor: 1 });
+ListingSchema.index({ storeId: 1, productType: 1 });
+// Partial (not sparse): a compound sparse index still indexes docs where only
+// `handle` is missing because `storeId` is always present, so multiple
+// handle-less store products would collide on `{ storeId, handle: null }`.
+// Index — and enforce per-store uniqueness — only for products that have a handle.
+ListingSchema.index(
+  { storeId: 1, handle: 1 },
+  { unique: true, partialFilterExpression: { handle: { $type: 'string' } } },
+);
+ListingSchema.index({ collectionIds: 1 });
 
 export const Listing: Model<IListing> =
   mongoose.models.Listing || mongoose.model<IListing>('Listing', ListingSchema);

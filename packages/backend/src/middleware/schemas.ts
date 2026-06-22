@@ -33,6 +33,12 @@ const listingOptionSchema = z.object({
   values: z.array(z.string().trim().min(1)).min(1),
 });
 
+/** SEO override (title/description) shared by store products and collections. */
+const seoSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(500).optional(),
+});
+
 // ---------------------------------------------------------------------------
 // P2P listing
 // ---------------------------------------------------------------------------
@@ -61,6 +67,10 @@ export const updateListingSchema = z
     tags: z.array(z.string().trim().min(1)).optional(),
     quantity: z.number().int().nonnegative().optional(),
     status: z.enum(['draft', 'active', 'sold', 'archived']).optional(),
+    vendor: z.string().trim().min(1).optional(),
+    productType: z.string().trim().min(1).optional(),
+    handle: z.string().trim().min(1).optional(),
+    seo: seoSchema.optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
 
@@ -74,6 +84,7 @@ const createStoreProductVariantSchema = z.object({
   price: moneySchema,
   compareAtPrice: moneySchema.optional(),
   sku: z.string().trim().min(1).optional(),
+  barcode: z.string().trim().min(1).optional(),
   inventory: z.object({
     tracked: z.boolean().optional(),
     available: z.number().int().nonnegative(),
@@ -89,6 +100,10 @@ export const createStoreProductSchema = z.object({
   tags: z.array(z.string().trim().min(1)).optional(),
   options: z.array(listingOptionSchema),
   variants: z.array(createStoreProductVariantSchema).min(1),
+  vendor: z.string().trim().min(1).optional(),
+  productType: z.string().trim().min(1).optional(),
+  handle: z.string().trim().min(1).optional(),
+  seo: seoSchema.optional(),
 });
 
 /** Body for store `POST /products/:id/variants` (add a variant). */
@@ -99,6 +114,7 @@ export const updateVariantSchema = z
   .object({
     title: z.string().trim().min(1).optional(),
     sku: z.string().trim().min(1).optional(),
+    barcode: z.string().trim().min(1).optional(),
     price: moneySchema.optional(),
     compareAtPrice: moneySchema.nullable().optional(),
     optionValues: z.array(optionValueSchema).optional(),
@@ -164,6 +180,75 @@ export const updateLocationSchema = z
   .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
 
 // ---------------------------------------------------------------------------
+// Collections (store merchandising collections)
+// ---------------------------------------------------------------------------
+
+/** A single automated-collection rule (CollectionRule). */
+const collectionRuleSchema = z.object({
+  field: z.enum([
+    'title',
+    'productType',
+    'vendor',
+    'tag',
+    'price',
+    'categorySlug',
+    'compareAtPrice',
+    'inventory',
+  ]),
+  operator: z.enum([
+    'equals',
+    'not_equals',
+    'contains',
+    'starts_with',
+    'ends_with',
+    'gt',
+    'lt',
+    'gte',
+    'lte',
+  ]),
+  value: z.string().trim().min(1),
+});
+
+/** The order products are returned in within a collection (CollectionSortOrder). */
+const collectionSortOrderSchema = z.enum([
+  'manual',
+  'best_selling',
+  'price_asc',
+  'price_desc',
+  'created_desc',
+  'title_asc',
+]);
+
+/** Body for `POST /admin/stores/:storeId/collections` (CreateCollectionInput). */
+export const createCollectionSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  handle: z.string().trim().min(1).max(120),
+  description: z.string().max(5_000).optional(),
+  imageFileId: z.string().trim().min(1).optional(),
+  type: z.enum(['manual', 'automated']),
+  productIds: z.array(z.string().trim().min(1)).optional(),
+  rules: z
+    .object({
+      appliesDisjunctively: z.boolean().optional(),
+      conditions: z.array(collectionRuleSchema),
+    })
+    .optional(),
+  sortOrder: collectionSortOrderSchema.optional(),
+  seo: seoSchema.optional(),
+  isPublished: z.boolean().optional(),
+});
+
+/** Body for `PATCH /admin/stores/:storeId/collections/:id` (UpdateCollectionInput). */
+export const updateCollectionSchema = createCollectionSchema
+  .partial()
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+/** Body for `POST /admin/stores/:storeId/collections/:id/products` (SetCollectionProductsInput). */
+export const setCollectionProductsSchema = z.object({
+  productIds: z.array(z.string().trim().min(1)),
+});
+
+// ---------------------------------------------------------------------------
 // Store + members
 // ---------------------------------------------------------------------------
 
@@ -185,6 +270,7 @@ const storePermissionSchema = z.enum([
   'products:write',
   'inventory:write',
   'locations:write',
+  'collections:write',
   'orders:read',
   'orders:fulfill',
   'stats:read',

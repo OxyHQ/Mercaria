@@ -40,22 +40,24 @@ function mockRes(): Response & { status: ReturnType<typeof vi.fn>; json: ReturnT
 }
 
 describe('ROLE_PERMISSIONS matrix', () => {
-  it('owner holds every permission including store:manage, members:manage and locations:write', () => {
+  it('owner holds every permission including store:manage, members:manage, locations:write and collections:write', () => {
     const owner = new Set(ROLE_PERMISSIONS.owner);
     expect(owner.has('store:manage')).toBe(true);
     expect(owner.has('members:manage')).toBe(true);
     expect(owner.has('products:write')).toBe(true);
     expect(owner.has('locations:write')).toBe(true);
-    expect(owner.size).toBe(9);
+    expect(owner.has('collections:write')).toBe(true);
+    expect(owner.size).toBe(10);
   });
 
-  it('admin holds everything except store:manage (incl. locations:write)', () => {
+  it('admin holds everything except store:manage (incl. locations:write, collections:write)', () => {
     const admin = new Set(ROLE_PERMISSIONS.admin);
     expect(admin.has('store:manage')).toBe(false);
     expect(admin.has('members:manage')).toBe(true);
     expect(admin.has('products:write')).toBe(true);
     expect(admin.has('inventory:write')).toBe(true);
     expect(admin.has('locations:write')).toBe(true);
+    expect(admin.has('collections:write')).toBe(true);
   });
 
   it('staff is limited to products/inventory/orders/stats (no manage perms)', () => {
@@ -63,6 +65,7 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(staff.has('store:manage')).toBe(false);
     expect(staff.has('members:manage')).toBe(false);
     expect(staff.has('locations:write')).toBe(false);
+    expect(staff.has('collections:write')).toBe(false);
     expect(staff.has('products:read')).toBe(true);
     expect(staff.has('products:write')).toBe(true);
     expect(staff.has('inventory:write')).toBe(true);

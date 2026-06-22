@@ -12,6 +12,7 @@ import membersRouter from './members.js';
 import productsRouter from './products.js';
 import ordersRouter from './orders.js';
 import locationsRouter from './locations.js';
+import collectionsRouter from './collections.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -43,5 +44,6 @@ router.use('/:storeId/members', membersRouter);
 router.use('/:storeId/products', productsRouter);
 router.use('/:storeId/orders', ordersRouter);
 router.use('/:storeId/locations', locationsRouter);
+router.use('/:storeId/collections', collectionsRouter);
 
 export default router;

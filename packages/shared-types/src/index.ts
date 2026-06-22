@@ -29,6 +29,9 @@ export * from './store';
 // Location DTOs (Location, LocationType, LocationAddress, Create/UpdateLocationInput).
 export * from './location';
 
+// Collection DTOs (Collection, CollectionType, CollectionSortOrder, CollectionRule, …).
+export * from './collection';
+
 // Inventory DTOs (InventoryLevelDTO).
 export * from './inventory';
 

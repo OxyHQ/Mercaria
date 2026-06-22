@@ -27,6 +27,7 @@ export interface IProductVariant {
   title: string;
   optionValues: IVariantOptionValue[];
   sku?: string;
+  barcode?: string;
   price: { amount: number; currency: string };
   compareAtPrice?: { amount: number; currency: string };
   inventory: {
@@ -64,6 +65,7 @@ const ProductVariantSchema = new Schema<IProductVariant>(
     title: { type: String, default: 'Default Title' },
     optionValues: { type: [VariantOptionValueSchema], default: [] },
     sku: { type: String },
+    barcode: { type: String },
     price: { type: MoneySchema, required: true },
     compareAtPrice: { type: MoneySchema },
     inventory: {
@@ -80,6 +82,7 @@ const ProductVariantSchema = new Schema<IProductVariant>(
 ProductVariantSchema.index({ listingId: 1, position: 1 });
 ProductVariantSchema.index({ listingId: 1, 'inventory.available': 1 });
 ProductVariantSchema.index({ sku: 1 }, { sparse: true });
+ProductVariantSchema.index({ barcode: 1 }, { sparse: true });
 
 export const ProductVariant: Model<IProductVariant> =
   mongoose.models.ProductVariant ||
