@@ -18,6 +18,9 @@ const listingFindById = vi.fn();
 const listingFind = vi.fn();
 const variantFindById = vi.fn();
 const variantFind = vi.fn();
+const storeFind = vi.fn();
+const sellerProfileFind = vi.fn();
+const getProfilesMock = vi.fn();
 
 vi.mock('../../models/cart.js', () => ({
   Cart: {
@@ -41,6 +44,22 @@ vi.mock('../../models/product-variant.js', () => ({
   },
 }));
 
+vi.mock('../../models/store.js', () => ({
+  Store: {
+    find: (...args: unknown[]) => storeFind(...args),
+  },
+}));
+
+vi.mock('../../models/seller-profile.js', () => ({
+  SellerProfile: {
+    find: (...args: unknown[]) => sellerProfileFind(...args),
+  },
+}));
+
+vi.mock('../oxy-user.service.js', () => ({
+  getProfiles: (...args: unknown[]) => getProfilesMock(...args),
+}));
+
 vi.mock('../catalog-hydration.service.js', () => ({
   resolveMedia: (value: string) => `resolved:${value}`,
 }));
@@ -54,6 +73,7 @@ const USER = 'user-1';
 const LISTING_ID = '000000000000000000000001';
 const VARIANT_ID = '000000000000000000000002';
 const CART_ID = '000000000000000000000003';
+const STORE_ID = '0000000000000000000000a1';
 
 /** Build a `.lean()`-able query stub resolving to `value`. */
 function leanOf<T>(value: T) {
@@ -65,7 +85,23 @@ function listingDoc(overrides: Record<string, unknown> = {}) {
     _id: LISTING_ID,
     title: 'Cool Thing',
     status: 'active',
+    ownerType: 'store',
+    storeId: STORE_ID,
     images: [{ fileId: 'img-1', position: 0 }],
+    ...overrides,
+  };
+}
+
+/** A store document fixture for the cart's vendor-grouping lookups. */
+function storeDoc(overrides: Record<string, unknown> = {}) {
+  return {
+    _id: STORE_ID,
+    handle: 'cool-store',
+    name: 'Cool Store',
+    brandColor: '#1D4ED8',
+    logoFileId: 'logo-1',
+    rating: 4.5,
+    reviewCount: 12,
     ...overrides,
   };
 }
@@ -116,6 +152,15 @@ beforeEach(() => {
   listingFind.mockReset();
   variantFindById.mockReset();
   variantFind.mockReset();
+  storeFind.mockReset();
+  sellerProfileFind.mockReset();
+  getProfilesMock.mockReset();
+
+  // Defaults for the vendor-grouping batch loads: one store, no P2P sellers.
+  // Individual tests override `storeFind`/`getProfilesMock` as needed.
+  storeFind.mockReturnValue(leanOf([storeDoc()]));
+  sellerProfileFind.mockReturnValue(leanOf([]));
+  getProfilesMock.mockResolvedValue(new Map());
 });
 
 describe('cart.service.addItem', () => {
@@ -242,6 +287,81 @@ describe('cart.service.revalidate', () => {
     // line totals: 1000*2 + 2500*1 = 4500.
     expect(dto.subtotal).toEqual({ amount: 4500, currency: 'FAIR' });
     expect(dto.items.every((i) => i.stale === undefined)).toBe(true);
+  });
+});
+
+describe('cart.service groups', () => {
+  it('groups lines by store vendor with a per-group subtotal', async () => {
+    const cart: ICart = {
+      _id: CART_ID,
+      oxyUserId: USER,
+      currency: 'FAIR',
+      items: [{ listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2, addedAt: new Date() }],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as unknown as ICart;
+
+    variantFind.mockReturnValueOnce(leanOf([variantDoc({ amount: 1500, available: 10 })]));
+    listingFind.mockReturnValueOnce(leanOf([listingDoc()]));
+    storeFind.mockReturnValueOnce(leanOf([storeDoc()]));
+
+    const dto = await revalidate(cart);
+
+    expect(dto.groups).toHaveLength(1);
+    const group = dto.groups[0];
+    expect(group.vendor).toMatchObject({
+      kind: 'store',
+      id: STORE_ID,
+      handle: 'cool-store',
+      name: 'Cool Store',
+      brandColor: '#1D4ED8',
+      logoUrl: 'resolved:logo-1',
+      rating: 4.5,
+      reviewCount: 12,
+    });
+    expect(group.items).toHaveLength(1);
+    expect(group.subtotal).toEqual({ amount: 3000, currency: 'FAIR' });
+  });
+
+  it('groups a P2P (user-owned) line under a seller vendor from the Oxy profile', async () => {
+    const SELLER_USER = 'seller-9';
+    const P2P_LISTING = '0000000000000000000000d2';
+    const P2P_VARIANT = '0000000000000000000000e2';
+    const cart: ICart = {
+      _id: CART_ID,
+      oxyUserId: USER,
+      currency: 'FAIR',
+      items: [{ listingId: P2P_LISTING, variantId: P2P_VARIANT, quantity: 1, addedAt: new Date() }],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as unknown as ICart;
+
+    variantFind.mockReturnValueOnce(
+      leanOf([{ ...variantDoc({ amount: 4000, available: 5 }), _id: P2P_VARIANT, listingId: P2P_LISTING }]),
+    );
+    listingFind.mockReturnValueOnce(
+      leanOf([
+        listingDoc({ _id: P2P_LISTING, ownerType: 'user', storeId: undefined, oxyUserId: SELLER_USER }),
+      ]),
+    );
+    // No store; this seller has no SellerProfile (so no rating) but a resolvable Oxy profile.
+    storeFind.mockReturnValueOnce(leanOf([]));
+    sellerProfileFind.mockReturnValueOnce(leanOf([]));
+    getProfilesMock.mockResolvedValueOnce(
+      new Map([[SELLER_USER, { id: SELLER_USER, username: 'jane', displayName: 'Jane Doe', avatar: 'av-1' }]]),
+    );
+
+    const dto = await revalidate(cart);
+
+    expect(dto.groups).toHaveLength(1);
+    expect(dto.groups[0].vendor).toEqual({
+      kind: 'user',
+      id: SELLER_USER,
+      username: 'jane',
+      name: 'Jane Doe',
+      logoUrl: 'resolved:av-1',
+    });
+    expect(dto.groups[0].subtotal).toEqual({ amount: 4000, currency: 'FAIR' });
   });
 });
 

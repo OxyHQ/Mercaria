@@ -70,6 +70,13 @@ export interface Collection extends Timestamps {
   description?: string;
   /** Oxy media file id (or absolute URL) of the collection image. */
   imageFileId?: string;
+  /**
+   * Resolved, absolute collection image URL, derived from `imageFileId` through
+   * the media chokepoint. Present on PUBLIC store-collection responses (store
+   * page tiles/pills); omitted from admin responses, which carry only the raw
+   * `imageFileId`.
+   */
+  imageUrl?: string;
   /** Whether membership is hand-picked (`manual`) or rule-derived (`automated`). */
   type: CollectionType;
   /** Hand-picked, ordered product ids (manual collections). */

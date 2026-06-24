@@ -24,6 +24,21 @@ export interface ReviewAuthor {
 }
 
 /**
+ * Minimal product context attached to a review when the review is listed in a
+ * PRODUCT-centric context (e.g. a store's reviews sheet, which renders the
+ * reviewed product's thumbnail + title on each card). Only populated by the
+ * store-reviews serializer; `undefined` on a listing's own reviews page.
+ */
+export interface ReviewProduct {
+  /** The reviewed listing id (route target for the thumbnail link). */
+  id: string;
+  /** The reviewed product/variant title shown on the card. */
+  title: string;
+  /** Resolved URL of the listing's first image (empty string when none). */
+  imageUrl: string;
+}
+
+/**
  * A published (or hidden) review of a listing/store/seller, with the relevant
  * target id set and the author hydrated for display.
  */
@@ -34,6 +49,12 @@ export interface Review extends Timestamps {
   authorOxyUserId: string;
   /** Hydrated author identity, when the Oxy profile resolves. */
   author?: ReviewAuthor;
+  /**
+   * Minimal reviewed-product context, populated ONLY when the review is served
+   * in a product-centric list (the store reviews sheet). Left `undefined` on a
+   * listing's own reviews page, where the product is already in context.
+   */
+  product?: ReviewProduct;
   /** What this review targets. */
   targetType: ReviewTargetType;
   /** The reviewed listing id, for `targetType: 'listing'`. */

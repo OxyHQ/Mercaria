@@ -43,7 +43,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "Cart",
     icon: ShoppingCart,
     href: "/cart",
-    available: false,
+    available: true,
   },
   { key: "deals", label: "Deals", icon: Tag, href: "/offers", available: false },
   { key: "saved", label: "Saved", icon: Heart, href: "/saved", available: false },

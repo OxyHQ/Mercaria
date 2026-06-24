@@ -110,3 +110,52 @@ export {
   MerchantCarousel,
   type MerchantCarouselProps,
 } from "./components/marketplace/MerchantCarousel";
+export {
+  SectionHeader,
+  type SectionHeaderProps,
+} from "./components/marketplace/SectionHeader";
+export {
+  QuantityStepper,
+  type QuantityStepperProps,
+} from "./components/marketplace/QuantityStepper";
+export {
+  CartLineItem,
+  type CartLineItemProps,
+} from "./components/marketplace/CartLineItem";
+export {
+  MerchantCartCard,
+  type MerchantCartCardProps,
+} from "./components/marketplace/MerchantCartCard";
+export { CartShelf, type CartShelfProps } from "./components/marketplace/CartShelf";
+
+// ---------------------------------------------------------------------------
+// Product detail page (PDP) presentational components
+// ---------------------------------------------------------------------------
+export { IncentiveHalo, type IncentiveHaloProps } from "./components/marketplace/IncentiveHalo";
+export {
+  MerchantHeader,
+  type MerchantHeaderProps,
+} from "./components/marketplace/MerchantHeader";
+export { DemandPill, type DemandPillProps } from "./components/marketplace/DemandPill";
+export { OfferCard, type OfferCardProps } from "./components/marketplace/OfferCard";
+export { RatingLine, type RatingLineProps } from "./components/marketplace/RatingLine";
+export {
+  ProductGallery,
+  type ProductGalleryImage,
+  type ProductGalleryProps,
+} from "./components/marketplace/ProductGallery";
+export {
+  VariantSwatches,
+  type VariantSwatchImage,
+  type VariantSwatchesProps,
+} from "./components/marketplace/VariantSwatches";
+export {
+  PurchaseOptions,
+  type PurchaseOptionsProps,
+} from "./components/marketplace/PurchaseOptions";
+export { ReviewCard, type ReviewCardProps } from "./components/marketplace/ReviewCard";
+export {
+  ReviewSummaryCard,
+  type RatingDistribution,
+  type ReviewSummaryCardProps,
+} from "./components/marketplace/ReviewSummaryCard";

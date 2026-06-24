@@ -3,8 +3,9 @@ import { Carousel } from "./Carousel";
 import { CategoryCard } from "./CategoryCard";
 import type { Category, CategoryTile } from "@mercaria/shared-types";
 
-/** Fixed category-card slot width via Tailwind class (no JS measuring). */
-const CATEGORY_SLOT_CLASS = "w-[330px] mr-3";
+/** Fixed category-card slot width via Tailwind class (no JS measuring). The
+ *  inter-card gap is owned by the Carousel's content container. */
+const CATEGORY_SLOT_CLASS = "w-[330px]";
 
 export interface CategoryCarouselProps {
   categories: Category[];

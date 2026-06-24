@@ -18,7 +18,7 @@ import {
   getCollectionByHandle,
   listCollectionProducts,
 } from '../services/collection.service.js';
-import { hydrateListings } from '../services/catalog-hydration.service.js';
+import { hydrateListings, resolveMedia } from '../services/catalog-hydration.service.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError, notFound } from '../lib/errors/error-codes.js';
@@ -61,6 +61,21 @@ export function toCollectionDTO(collection: ICollection): CollectionDTO {
   return dto;
 }
 
+/**
+ * Serialize a collection for the PUBLIC store-collection endpoints: the shared
+ * `toCollectionDTO` plus a resolved, absolute `imageUrl` derived from
+ * `imageFileId` through the media chokepoint (so store-page tiles/pills render
+ * without a second resolve). Admin responses use `toCollectionDTO` directly and
+ * are unaffected — they keep only the raw `imageFileId`.
+ */
+function toPublicCollectionDTO(collection: ICollection): CollectionDTO {
+  const dto = toCollectionDTO(collection);
+  if (collection.imageFileId !== undefined) {
+    dto.imageUrl = resolveMedia(collection.imageFileId);
+  }
+  return dto;
+}
+
 /** Resolve a public store by handle, else NOT_FOUND (closed stores are hidden). */
 async function resolvePublicStore(handle: string): Promise<IStore> {
   const store = await Store.findOne({ handle }).lean<IStore | null>();
@@ -84,7 +99,7 @@ export async function listStorePublicCollections(req: Request, res: Response): P
     const store = await resolvePublicStore(handle);
     const storeId = String((store as { _id: unknown })._id);
     const collections = await listCollections(storeId, { publishedOnly: true });
-    sendSuccess(res, collections.map(toCollectionDTO));
+    sendSuccess(res, collections.map(toPublicCollectionDTO));
   } catch (err) {
     log.general.error({ err, handle }, 'Failed to list store collections');
     respondWithError(res, err, 'Failed to load collections');
@@ -111,7 +126,7 @@ export async function getStorePublicCollection(req: Request, res: Response): Pro
     const products = await hydrateListings(listings, { viewerId: req.user?.id });
 
     const body: CollectionPageResponse = {
-      collection: toCollectionDTO(collection),
+      collection: toPublicCollectionDTO(collection),
       products,
       pagination: buildPagination(page, limit, total),
     };

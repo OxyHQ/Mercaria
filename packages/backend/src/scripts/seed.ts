@@ -37,9 +37,11 @@ import { Customer } from '../models/customer.js';
 import { DraftOrder } from '../models/draft-order.js';
 import { Order } from '../models/order.js';
 import { Refund } from '../models/refund.js';
+import { Review } from '../models/review.js';
 import { nextOrderNumber } from '../models/counter.js';
 import { process as processRefund } from '../services/refund.service.js';
 import { createCollection, setCollectionProducts } from '../services/collection.service.js';
+import { recomputeAggregate } from '../services/review.service.js';
 import { minorUnitsPerMajor } from '../utils/money.js';
 import { config } from '../config/index.js';
 import type { Money } from '@mercaria/shared-types';
@@ -164,15 +166,238 @@ const IMG = {
   huhaBikini: 'https://cdn.shopify.com/s/files/1/0053/2244/0790/files/HUHA-Ecomm-1594-WebRes.jpg?width=384',
 } as const;
 
-/** A store-product spec for the seed. `price`/`compareAtPrice` are MAJOR-unit FAIR (⊜). */
+/** The single option axis name for the multi-variant beauty product. */
+const SHADE_OPTION_NAME = 'Shade';
+
+/** Shopify CDN base for the Brilliant Eye Brightener per-shade product imagery. */
+const EYE_BRIGHTENER_IMG_BASE = 'https://cdn.shopify.com/s/files/1/0582/2885/files/';
+/** Width applied to each gallery/swatch image. */
+const EYE_BRIGHTENER_IMG_WIDTH = 800;
+
+/**
+ * Brilliant Eye Brightener shades, in fixed swatch order, mapped to their real
+ * (verified-200) CDN image file. The PDP's swatch component cycles the listing
+ * `gallery` images by index, so shade order here MUST equal gallery order — the
+ * derived `EYE_BRIGHTENER_GALLERY` keeps that 1:1 alignment automatically.
+ */
+const EYE_BRIGHTENER_SHADE_FILES: readonly { shade: string; file: string }[] = [
+  { shade: 'Muna', file: '0607_Web_Assets_PDP_BEB_Muna_Updated.jpg?v=1686098841' },
+  { shade: 'Stella', file: '0607_Web_Assets_PDP_BEB_Stella_Updated.jpg?v=1686098841' },
+  { shade: 'Gia', file: '0607_Web_Assets_PDP_BEB_Gia_Updated.jpg?v=1686098841' },
+  { shade: 'Estrella', file: '0607_Web_Assets_PDP_BEB_Estrella_Updated.jpg?v=1686098841' },
+  { shade: 'Racquel', file: '0607_Web_Assets_PDP_BEB_Raquel_Updated.jpg?v=1686098841' },
+  { shade: 'Betty', file: '0607_Web_Assets_PDP_BEB_Betty_Updated.jpg?v=1686098841' },
+  { shade: 'Callie', file: '0607_Web_Assets_PDP_BEB_Cali_Updated.jpg?v=1686098841' },
+  { shade: 'Emma', file: '0607_Web_Assets_PDP_BEB_Emma_Updated.jpg?v=1686098841' },
+  { shade: 'Anise', file: '0607_Web_Assets_PDP_BEB_Anise_Updated.jpg?v=1762181890' },
+  { shade: 'Pili', file: '0607_Web_Assets_PDP_BEB_Pili_Updated.jpg?v=1686098841' },
+  { shade: 'Tara', file: '0607_Web_Assets_PDP_BEB_Tara_Updated.jpg?v=1686098841' },
+  { shade: 'Mieko', file: '0607_Web_Assets_PDP_BEB_Mieko_Updated.jpg?v=1686098841' },
+  { shade: 'Aurora', file: '0607_Web_Assets_PDP_BEB_Aurora_Updated.jpg?v=1686098841' },
+  { shade: 'Aylin', file: '0607_Web_Assets_PDP_BEB_Aylin_Updated.jpg?v=1686098841' },
+  { shade: 'Shenna', file: '0607_Web_Assets_PDP_BEB_Shenna_Updated.jpg?v=1686098841' },
+  { shade: 'Izzy', file: '0607_Web_Assets_PDP_BEB_Izzy_Updated.jpg?v=1686098841' },
+  { shade: 'Thrive Turquoise', file: '10thAnniversary_PDP_ThriveTurq_Component.jpg?v=1741292677' },
+  { shade: 'Trish', file: '10thAnniversary_PDP_Trish_Component.jpg?v=1741292722' },
+] as const;
+
+/**
+ * Shade names for the Brilliant Eye Brightener (the `Shade` option `values`),
+ * in fixed swatch order. Order drives swatch order on the PDP.
+ */
+const EYE_BRIGHTENER_SHADES: readonly string[] = EYE_BRIGHTENER_SHADE_FILES.map((s) => s.shade);
+
+/**
+ * Gallery imagery for the multi-variant beauty product (Brilliant Eye
+ * Brightener). The PDP cycles these images across the shade swatches by index,
+ * so this is the same order as `EYE_BRIGHTENER_SHADES` — swatch[i] shows
+ * shade[i]'s image.
+ */
+const EYE_BRIGHTENER_GALLERY: readonly string[] = EYE_BRIGHTENER_SHADE_FILES.map(
+  (s) => `${EYE_BRIGHTENER_IMG_BASE}${s.file}&width=${EYE_BRIGHTENER_IMG_WIDTH}`,
+);
+
+/** Base shade price (MAJOR-unit FAIR ⊜) for every Brilliant Eye Brightener variant. */
+const EYE_BRIGHTENER_PRICE = 26;
+/** Original (pre-sale) price for the shades flagged on sale. */
+const EYE_BRIGHTENER_COMPARE_AT_PRICE = 34;
+/** Per-variant stock for an in-stock shade. */
+const EYE_BRIGHTENER_STOCK = 14;
+/** Shades that are sold out (`available: 0` ⇒ `inStock: false`). */
+const EYE_BRIGHTENER_SOLD_OUT_SHADES: readonly string[] = ['Gia', 'Emma', 'Aurora', 'Izzy'];
+/** Shades currently on sale (carry a `compareAtPrice`). */
+const EYE_BRIGHTENER_SALE_SHADES: readonly string[] = ['Stella', 'Betty'];
+
+/**
+ * Review distribution for the Brilliant Eye Brightener, keyed by star value.
+ * Counts are chosen to total {@link EYE_BRIGHTENER_REVIEW_COUNT} and average
+ * ≈4.6, mirroring the original Shop PDP's distribution (≈82% 5★ / 7% 4★ / 5% 3★
+ * / 3% 2★ / 4% 1★). The aggregate persisted on the listing is recomputed from
+ * the seeded docs, so these are the single source of truth for the seeded rating.
+ */
+const EYE_BRIGHTENER_REVIEW_DISTRIBUTION: Readonly<Record<1 | 2 | 3 | 4 | 5, number>> = {
+  5: 33,
+  4: 3,
+  3: 2,
+  2: 1,
+  1: 1,
+} as const;
+
+/** Total seeded reviews for the Brilliant Eye Brightener (sum of the distribution). */
+const EYE_BRIGHTENER_REVIEW_COUNT = Object.values(EYE_BRIGHTENER_REVIEW_DISTRIBUTION).reduce(
+  (sum, count) => sum + count,
+  0,
+);
+
+/** Newest seeded review is this many days old; the rest spread back from here. */
+const REVIEW_SPREAD_DAYS = 60;
+/** Milliseconds in one day, for spreading `createdAt` across the review window. */
+const DAY_MS = 86_400_000;
+
+/**
+ * A handful of secondary review distributions for single-variant store products,
+ * so they aren't all empty next to the headline multi-variant product. Keyed by
+ * product title; each value totals 3–8 reviews skewed positive.
+ */
+const SECONDARY_REVIEW_DISTRIBUTIONS: Readonly<
+  Record<string, Readonly<Record<1 | 2 | 3 | 4 | 5, number>>>
+> = {
+  'Mopit Top': { 5: 5, 4: 2, 3: 1, 2: 0, 1: 0 },
+  Franny: { 5: 4, 4: 1, 3: 0, 2: 0, 1: 0 },
+  'Jenna Cotton Pant': { 5: 3, 4: 2, 3: 0, 2: 1, 1: 0 },
+};
+
+/**
+ * Rotating makeup-review snippets (`title` + `body`) cycled across the seeded
+ * reviews by index, so each review reads like a real short product review.
+ */
+const REVIEW_SNIPPETS: readonly { title: string; body: string }[] = [
+  { title: 'Gorgeous everyday glow', body: 'Blends in seconds with my fingertips and lasts all day. My new go-to.' },
+  { title: 'Brightens tired eyes', body: 'Instantly makes me look more awake. A little goes a long way.' },
+  { title: 'Buttery and natural', body: 'Creamy formula that never looks cakey or settles into fine lines.' },
+  { title: 'Perfect inner-corner pop', body: 'The shimmer is subtle but noticeable — great for a no-makeup makeup look.' },
+  { title: 'Holy grail highlighter', body: "I've repurchased three times. Works on eyes, cheeks, and brow bone." },
+  { title: 'Lit-from-within finish', body: 'Catches the light beautifully without any chunky glitter. Love it.' },
+  { title: 'So easy to use', body: 'No brushes needed. Swipe, blend, done. Travels great too.' },
+  { title: 'Lovely on mature skin', body: 'Doesn’t emphasize texture at all, which most highlighters do on me.' },
+  { title: 'Wears all day', body: 'Still glowing after a 10-hour shift. Impressive staying power.' },
+  { title: 'Beautiful shade range', body: 'Found my exact match. Pigment is true to the swatch.' },
+  { title: 'Subtle but effective', body: 'Just the right amount of shine for the office. Not over the top.' },
+  { title: 'Good, not life-changing', body: 'Nice glow but I expected a touch more pigment for the price.' },
+  { title: 'Creased a little on me', body: 'Pretty color, but it moved into my crease by midday. Primer helped.' },
+  { title: 'Not for me', body: 'The shimmer was too sheer for what I wanted. Might suit others though.' },
+  { title: 'Disappointed', body: 'Arrived fine but the formula felt drier than I remembered. Wouldn’t reorder.' },
+] as const;
+
+/** Build the per-shade variant specs for the Brilliant Eye Brightener. */
+function buildEyeBrightenerVariants(): StoreVariantSpec[] {
+  return EYE_BRIGHTENER_SHADES.map((shade) => {
+    const variant: StoreVariantSpec = {
+      optionValues: [{ name: SHADE_OPTION_NAME, value: shade }],
+      price: EYE_BRIGHTENER_PRICE,
+      available: EYE_BRIGHTENER_SOLD_OUT_SHADES.includes(shade) ? 0 : EYE_BRIGHTENER_STOCK,
+    };
+    if (EYE_BRIGHTENER_SALE_SHADES.includes(shade)) {
+      variant.compareAtPrice = EYE_BRIGHTENER_COMPARE_AT_PRICE;
+    }
+    return variant;
+  });
+}
+
+/** A persisted-review spec built for the seed (one document per entry). */
+interface SeedReviewDoc {
+  authorOxyUserId: string;
+  targetType: 'listing';
+  listingId: string;
+  rating: number;
+  title: string;
+  body: string;
+  status: 'published';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Build the published-review documents for one listing from a star-bucket
+ * distribution. Ratings are expanded from the distribution (newest first), each
+ * paired with a rotating snippet and a deterministic fake author id, and
+ * `createdAt` is spread back over {@link REVIEW_SPREAD_DAYS} from `now`. The
+ * author ids do NOT map to real Oxy accounts — the read layer's profile
+ * hydration omits them, which the PDP renders as an anonymous review.
+ */
+function buildListingReviews(
+  listingId: string,
+  distribution: Readonly<Record<1 | 2 | 3 | 4 | 5, number>>,
+  now: Date,
+): SeedReviewDoc[] {
+  // Expand the distribution highest-star-first into a flat rating list.
+  const ratings: number[] = [];
+  for (const star of [5, 4, 3, 2, 1] as const) {
+    for (let i = 0; i < distribution[star]; i += 1) {
+      ratings.push(star);
+    }
+  }
+
+  const total = ratings.length;
+  const stepMs = total > 1 ? (REVIEW_SPREAD_DAYS * DAY_MS) / (total - 1) : 0;
+
+  return ratings.map((rating, index) => {
+    const snippet = REVIEW_SNIPPETS[index % REVIEW_SNIPPETS.length];
+    // Newest review is `now`; each subsequent one steps further into the past.
+    const createdAt = new Date(now.getTime() - index * stepMs);
+    // Deterministic fake author id (1-based, zero-padded to a 24-char hex id).
+    const authorOxyUserId = (index + 1).toString(16).padStart(24, '0');
+    return {
+      authorOxyUserId,
+      targetType: 'listing',
+      listingId,
+      rating,
+      title: snippet.title,
+      body: snippet.body,
+      status: 'published',
+      createdAt,
+      updatedAt: createdAt,
+    };
+  });
+}
+
+/**
+ * A single variant within a multi-variant store product. `price`/`compareAtPrice`
+ * are MAJOR-unit FAIR (⊜); `available` is the per-variant stock (0 = sold out).
+ * `optionValues` assigns this variant's value for each of the product's options
+ * (e.g. `[{ name: 'Shade', value: 'Stella' }]`).
+ */
+interface StoreVariantSpec {
+  optionValues: { name: string; value: string }[];
+  price: number;
+  compareAtPrice?: number;
+  available: number;
+}
+
+/**
+ * A store-product spec for the seed. `price`/`compareAtPrice` are MAJOR-unit FAIR (⊜).
+ *
+ * Single-variant products set only `price`/`available` (one default variant with
+ * `optionValues: []`). Multi-variant products instead declare `options` (the
+ * option axes, e.g. `Shade`) AND `variants` (one spec per concrete SKU); when
+ * present, the product-level `price`/`available` act as the denormalized
+ * faceting fallback and are NOT used to build a variant.
+ */
 interface StoreProductSpec {
   title: string;
   description: string;
   categorySlug: string;
+  /** Primary image; also the first gallery image when `gallery` is set. */
   image: string;
+  /** Extra gallery images beyond `image` (the PDP cycles these across swatches). */
+  gallery?: string[];
   price: number;
   compareAtPrice?: number;
   available: number;
+  /** Option axes (e.g. `{ name: 'Shade', values: [...] }`). Empty ⇒ single default variant. */
+  options?: { name: string; values: string[] }[];
+  /** One spec per concrete SKU. Required (and only used) when `options` is set. */
+  variants?: StoreVariantSpec[];
   /** Merchandising product type (e.g. `Knitwear`). */
   productType?: string;
   /** Extra tags beyond the default `[storeName, categorySlug]` (e.g. `['sale']`). */
@@ -226,6 +451,34 @@ const STORES: StoreSpec[] = [
       { title: 'Leather Ballet Flat', description: 'Black leather ballet flat.', categorySlug: 'sneakers', image: IMG.nililotanBalletFlat, price: 425, compareAtPrice: 550, available: 3, productType: 'Shoes', extraTags: ['sale'] },
     ],
   },
+  {
+    handle: 'milkmakeup',
+    name: 'Milk Makeup',
+    description: 'Clean, vegan, cruelty-free beauty made for life on the go.',
+    brandColor: 'rgb(214,71,107)',
+    textTone: 'light',
+    logoFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/milkmakeup.myshopify.com/1716557836/milk-makeup-logo-white.png?width=480',
+    coverFileId: 'https://cdn.shopify.com/s/files/1/0270/0589/3681/files/MILK-MAKEUP-Brilliant-Eye-Brightener-Cover_800x.jpg?width=800',
+    rating: 4.8,
+    reviewCount: 5200,
+    products: [
+      {
+        title: 'Brilliant Eye Brightener',
+        description:
+          'A creamy, multi-use highlighter for eyes, cheeks, and brow bone. Swipe on and blend with fingertips for an instant lit-from-within glow.',
+        categorySlug: 'lotion-moisturizer',
+        image: EYE_BRIGHTENER_GALLERY[0],
+        gallery: [...EYE_BRIGHTENER_GALLERY.slice(1)],
+        // Product-level price/available are the denormalized faceting fallback
+        // for a multi-variant product (the variants below are the real SKUs).
+        price: EYE_BRIGHTENER_PRICE,
+        available: EYE_BRIGHTENER_STOCK,
+        productType: 'Makeup',
+        options: [{ name: SHADE_OPTION_NAME, values: [...EYE_BRIGHTENER_SHADES] }],
+        variants: buildEyeBrightenerVariants(),
+      },
+    ],
+  },
 ];
 
 /** P2P (secondhand) listing specs. `price` is a MAJOR-unit FAIR (⊜) value. */
@@ -266,7 +519,7 @@ async function seed(): Promise<void> {
   await connectDB();
 
   log.general.info(
-    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel, Collection, Discount, TaxRate, Customer, DraftOrder, Order, Refund)',
+    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel, Collection, Discount, TaxRate, Customer, DraftOrder, Order, Refund, Review)',
   );
   await Promise.all([
     Category.deleteMany({}),
@@ -283,6 +536,7 @@ async function seed(): Promise<void> {
     DraftOrder.deleteMany({}),
     Order.deleteMany({}),
     Refund.deleteMany({}),
+    Review.deleteMany({}),
   ]);
 
   // 1. Category taxonomy. Top-level uses its pill image; children get ancestorSlugs.
@@ -336,6 +590,7 @@ async function seed(): Promise<void> {
   let posOrderCount = 0;
   let storefrontOrderCount = 0;
   let refundCount = 0;
+  let reviewCount = 0;
 
   // 2 + 3. Stores and their products (ownerType 'store').
   for (const storeSpec of STORES) {
@@ -379,6 +634,29 @@ async function seed(): Promise<void> {
 
     for (const [index, product] of storeSpec.products.entries()) {
       const ref = categoryRef(product.categorySlug);
+
+      // Normalize single- vs multi-variant specs into one list of variants to
+      // create. A spec WITHOUT `variants` is a single default variant built from
+      // the product-level `price`/`compareAtPrice`/`available`.
+      const variantSpecs: StoreVariantSpec[] = product.variants ?? [
+        {
+          optionValues: [],
+          price: product.price,
+          ...(product.compareAtPrice ? { compareAtPrice: product.compareAtPrice } : {}),
+          available: product.available,
+        },
+      ];
+
+      // Denormalized price faceting spans every variant's price.
+      const variantPrices = variantSpecs.map((v) => v.price);
+      const minPrice = Math.min(...variantPrices);
+      const maxPrice = Math.max(...variantPrices);
+      // The listing has inventory if ANY variant has stock.
+      const hasInventory = variantSpecs.some((v) => v.available > 0);
+
+      // Gallery: primary image first, then any extra frames, all at increasing positions.
+      const galleryFileIds = [product.image, ...(product.gallery ?? [])];
+
       const listing = await Listing.create({
         ownerType: 'store',
         storeId,
@@ -388,17 +666,17 @@ async function seed(): Promise<void> {
         status: 'active',
         categoryId: ref.categoryId,
         categorySlugs: ref.categorySlugs,
-        images: [{ fileId: product.image, position: 0 }],
+        images: galleryFileIds.map((fileId, position) => ({ fileId, position })),
         tags: [storeSpec.name.toLowerCase(), product.categorySlug, ...(product.extraTags ?? [])],
-        options: [],
+        options: product.options ?? [],
         vendor: storeSpec.name,
         ...(product.productType ? { productType: product.productType } : {}),
         priceRange: {
-          min: fair(product.price),
-          max: fair(product.price),
+          min: fair(minPrice),
+          max: fair(maxPrice),
         },
-        hasInventory: product.available > 0,
-        variantCount: 1,
+        hasInventory,
+        variantCount: variantSpecs.length,
         rating: storeSpec.rating,
         reviewCount: 0,
         publishedAt: new Date(now.getTime() - index * 1000),
@@ -406,29 +684,68 @@ async function seed(): Promise<void> {
       listingCount += 1;
       listingIdByTitle.set(product.title, String(listing._id));
 
-      const variant = await ProductVariant.create({
-        listingId: String(listing._id),
-        title: 'Default Title',
-        optionValues: [],
-        sku: `${slugify(storeSpec.handle)}-${slugify(product.title)}`,
-        price: fair(product.price),
-        ...(product.compareAtPrice
-          ? { compareAtPrice: fair(product.compareAtPrice) }
-          : {}),
-        inventory: { tracked: true, available: product.available, committed: 0, levels: [] },
-        position: 0,
-      });
-      variantCount += 1;
+      // One ProductVariant + matching InventoryLevel per spec. A multi-variant
+      // SKU's title is its joined option values (e.g. `Stella`); a default
+      // variant keeps the `Default Title` sentinel. The SKU stays unique by
+      // suffixing the slugified option values.
+      for (const [variantIndex, variantSpec] of variantSpecs.entries()) {
+        const optionSlug = variantSpec.optionValues.map((o) => slugify(o.value)).join('-');
+        const sku = optionSlug
+          ? `${slugify(storeSpec.handle)}-${slugify(product.title)}-${optionSlug}`
+          : `${slugify(storeSpec.handle)}-${slugify(product.title)}`;
+        const variantTitle =
+          variantSpec.optionValues.length > 0
+            ? variantSpec.optionValues.map((o) => o.value).join(' / ')
+            : 'Default Title';
 
-      // Store variant: stock at the store's default location. The level sum
-      // equals the variant scalar `available`, keeping the rollup consistent.
-      await InventoryLevel.create({
-        variantId: String(variant._id),
-        listingId: String(listing._id),
-        locationId: defaultLocationId,
-        available: product.available,
-        committed: 0,
-      });
+        const variant = await ProductVariant.create({
+          listingId: String(listing._id),
+          title: variantTitle,
+          optionValues: variantSpec.optionValues,
+          sku,
+          price: fair(variantSpec.price),
+          ...(variantSpec.compareAtPrice
+            ? { compareAtPrice: fair(variantSpec.compareAtPrice) }
+            : {}),
+          inventory: { tracked: true, available: variantSpec.available, committed: 0, levels: [] },
+          position: variantIndex,
+        });
+        variantCount += 1;
+
+        // Store variant: stock at the store's default location. The level sum
+        // equals the variant scalar `available`, keeping the rollup consistent.
+        await InventoryLevel.create({
+          variantId: String(variant._id),
+          listingId: String(listing._id),
+          locationId: defaultLocationId,
+          available: variantSpec.available,
+          committed: 0,
+        });
+      }
+    }
+
+    // 3a. Seed published reviews for this store's reviewable products. The
+    // headline multi-variant product (Brilliant Eye Brightener) gets the full
+    // ~4.6-avg distribution; a few single-variant products get a small positive
+    // set so they aren't all empty. Each reviewed listing's denormalized
+    // `{ rating, reviewCount }` aggregate is recomputed from the inserted docs.
+    const reviewPlan: { title: string; distribution: Readonly<Record<1 | 2 | 3 | 4 | 5, number>> }[] = [
+      { title: 'Brilliant Eye Brightener', distribution: EYE_BRIGHTENER_REVIEW_DISTRIBUTION },
+      ...Object.entries(SECONDARY_REVIEW_DISTRIBUTIONS).map(([title, distribution]) => ({
+        title,
+        distribution,
+      })),
+    ];
+    for (const plan of reviewPlan) {
+      const reviewedListingId = listingIdByTitle.get(plan.title);
+      if (!reviewedListingId) continue;
+      const reviews = buildListingReviews(reviewedListingId, plan.distribution, now);
+      if (reviews.length === 0) continue;
+      await Review.insertMany(reviews);
+      reviewCount += reviews.length;
+      // Recompute the denormalized aggregate so the listing's stored
+      // `{ rating, reviewCount }` matches the seeded reviews.
+      await recomputeAggregate('listing', reviewedListingId);
     }
 
     // 3b. Demo collections for the first store (Paloma Wool): one MANUAL
@@ -739,6 +1056,7 @@ async function seed(): Promise<void> {
       posOrders: posOrderCount,
       storefrontOrders: storefrontOrderCount,
       refunds: refundCount,
+      reviews: reviewCount,
     },
     'Mercaria catalog seed complete',
   );

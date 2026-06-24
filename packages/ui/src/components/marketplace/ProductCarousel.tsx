@@ -5,8 +5,9 @@ import { ProductCard } from "./ProductCard";
 import type { ProductSummary } from "../../lib/format";
 
 /** Fixed, responsive product-card slot width (Shop sizes cards by class, not
- *  by layout math): 154px on phones, 192px from md up, plus the inter-card gap. */
-const PRODUCT_SLOT_CLASS = "w-[154px] md:w-[192px] mr-3";
+ *  by layout math): 154px on phones, 192px from md up. The inter-card gap is
+ *  owned by the Carousel's content container (gap-2 web:sm:gap-4). */
+const PRODUCT_SLOT_CLASS = "w-[154px] md:w-[192px]";
 
 export interface ProductCarouselProps {
   items: ProductSummary[];
@@ -30,7 +31,9 @@ export function ProductCarousel({
   return (
     <View>
       {title ? (
-        <Text className="px-4 pb-3 text-lg font-bold text-foreground">{title}</Text>
+        <Text className="px-4 pb-3 text-lg font-semibold text-foreground md:px-5 md:text-[22px] md:font-bold md:leading-7">
+          {title}
+        </Text>
       ) : null}
 
       <Carousel

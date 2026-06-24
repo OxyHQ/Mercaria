@@ -19,6 +19,7 @@ import type {
   RatingAggregate,
   Review as ReviewDTO,
   ReviewAuthor,
+  ReviewProduct,
   ReviewTargetType,
 } from '@mercaria/shared-types';
 import { Review, type IReview } from '../models/review.js';
@@ -135,8 +136,18 @@ function toReviewAuthor(profile: OxyProfile | undefined): ReviewAuthor | undefin
   return author;
 }
 
-/** Map a persisted review doc + the resolved author profile to the `Review` DTO. */
-function toReviewDTO(doc: IReview, authorProfiles: Map<string, OxyProfile>): ReviewDTO {
+/**
+ * Map a persisted review doc + the resolved author profile to the `Review` DTO.
+ *
+ * `products` is an optional map of `listingId → ReviewProduct` used only by the
+ * store-reviews serializer to attach minimal product context to each card; it is
+ * absent (so `dto.product` stays undefined) on a listing's own reviews page.
+ */
+function toReviewDTO(
+  doc: IReview,
+  authorProfiles: Map<string, OxyProfile>,
+  products?: Map<string, ReviewProduct>,
+): ReviewDTO {
   const authorOxyUserId = String(doc.authorOxyUserId);
   const dto: ReviewDTO = {
     id: String((doc as { _id: mongoose.Types.ObjectId })._id),
@@ -157,6 +168,12 @@ function toReviewDTO(doc: IReview, authorProfiles: Map<string, OxyProfile>): Rev
   if (doc.orderId) dto.orderId = String(doc.orderId);
   if (doc.title) dto.title = doc.title;
   if (doc.body) dto.body = doc.body;
+  if (products && doc.listingId) {
+    const product = products.get(String(doc.listingId));
+    if (product) {
+      dto.product = product;
+    }
+  }
   return dto;
 }
 
@@ -363,16 +380,70 @@ export async function listReviews(
 }
 
 /**
- * List a store's reviews by its public handle. Resolves the store first (404 if
- * none), then delegates to {@link listReviews}.
+ * List a store's PRODUCT reviews by its public handle (the Shopify-style store
+ * sheet shows the reviews of the store's LISTINGS, each card carrying a product
+ * thumbnail + title — NOT the rare `targetType: 'store'` reviews).
+ *
+ * Resolves the store (404 if none) → its listing ids → the published
+ * `targetType: 'listing'` reviews on those listings (newest first, paginated) →
+ * hydrates each review's author AND its minimal product context. Listings are
+ * fetched ONCE into a `listingId → ReviewProduct` map (no N+1) and the first
+ * image is resolved through the media chokepoint.
  */
 export async function listReviewsForStoreHandle(
   handle: string,
-  pagination: ReviewListParams,
+  { page, limit }: ReviewListParams,
 ): Promise<ReviewPage> {
   const store = await Store.findOne({ handle }).select('_id').lean<{ _id: mongoose.Types.ObjectId } | null>();
   if (!store) {
     throw notFound('Store not found');
   }
-  return listReviews({ targetType: 'store', targetId: String(store._id) }, pagination);
+
+  const storeId = String(store._id);
+  const listingIds = (
+    await Listing.find({ storeId }).select('_id').lean<{ _id: mongoose.Types.ObjectId }[]>()
+  ).map((l) => String(l._id));
+
+  if (listingIds.length === 0) {
+    return { data: [], total: 0 };
+  }
+
+  const filter = {
+    targetType: 'listing' as const,
+    listingId: { $in: listingIds },
+    status: 'published',
+  };
+
+  const [docs, total] = await Promise.all([
+    Review.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean<IReview[]>(),
+    Review.countDocuments(filter),
+  ]);
+
+  const authorIds = [...new Set(docs.map((d) => String(d.authorOxyUserId)))];
+  const reviewedListingIds = [
+    ...new Set(docs.map((d) => (d.listingId ? String(d.listingId) : '')).filter(Boolean)),
+  ];
+
+  const [authorProfiles, listingDocs] = await Promise.all([
+    getProfiles(authorIds),
+    Listing.find({ _id: { $in: reviewedListingIds } })
+      .select('_id title images')
+      .lean<Pick<IListing, '_id' | 'title' | 'images'>[]>(),
+  ]);
+
+  const products = new Map<string, ReviewProduct>();
+  for (const listing of listingDocs) {
+    const firstImage = listing.images.find((img) => img.position === 0) ?? listing.images[0];
+    products.set(String(listing._id), {
+      id: String(listing._id),
+      title: listing.title,
+      imageUrl: firstImage ? resolveMedia(firstImage.fileId, 'thumb') : '',
+    });
+  }
+
+  return { data: docs.map((d) => toReviewDTO(d, authorProfiles, products)), total };
 }

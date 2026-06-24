@@ -18,15 +18,20 @@
 import type {
   AddCartItemInput,
   Cart as CartDTO,
+  CartGroup,
   CartItemDTO,
+  CartVendor,
   CurrencyCode,
   Money,
 } from '@mercaria/shared-types';
 import { Cart, type ICart } from '../models/cart.js';
 import { Listing, type IListing } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
+import { Store, type IStore } from '../models/store.js';
+import { SellerProfile, type ISellerProfile } from '../models/seller-profile.js';
 import { Discount } from '../models/discount.js';
 import { resolveMedia } from './catalog-hydration.service.js';
+import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { calculateTotals, type PricingLine } from './pricing.service.js';
 import { normalizeDiscountCode } from './discount.service.js';
 import { multiplyMoney, sumMoney, zeroMoney } from '../utils/money.js';
@@ -45,6 +50,152 @@ function firstImageUrl(listing: IListing | undefined): string | undefined {
   }
   const first = [...listing.images].sort((a, b) => a.position - b.position)[0];
   return first ? resolveMedia(first.fileId, 'thumb') : undefined;
+}
+
+/**
+ * Build the per-vendor `CartGroup[]` for a cart's hydrated `items`, grouping each
+ * line by its listing's owning vendor (store id, or seller Oxy user id for P2P).
+ *
+ * Vendor identity is batch-loaded ONCE for the whole cart (no N+1): stores for
+ * store-owned listings, and seller profiles + Oxy profiles for user-owned ones —
+ * mirroring `catalog-hydration.service`. The listing docs are reused from the
+ * caller (already fetched to compute live price/availability), so this adds no
+ * per-item DB round-trip. Groups are returned in first-seen line order; each
+ * group's items preserve cart order; the subtotal sums the group's `lineTotal`s.
+ */
+async function buildGroups(
+  items: CartItemDTO[],
+  listingById: Map<string, IListing>,
+  currency: CurrencyCode,
+): Promise<CartGroup[]> {
+  // Vendor keys, in first-seen order, plus the owner ids to batch-load.
+  const storeIds = new Set<string>();
+  const sellerUserIds = new Set<string>();
+  for (const item of items) {
+    const listing = listingById.get(item.listingId);
+    if (!listing) {
+      continue;
+    }
+    if (listing.ownerType === 'store' && listing.storeId) {
+      storeIds.add(String(listing.storeId));
+    } else if (listing.ownerType === 'user' && listing.oxyUserId) {
+      sellerUserIds.add(String(listing.oxyUserId));
+    }
+  }
+
+  const [storeDocs, sellerProfileDocs, oxyProfiles] = await Promise.all([
+    storeIds.size > 0
+      ? Store.find({ _id: { $in: [...storeIds] } }).lean<IStore[]>()
+      : Promise.resolve([] as IStore[]),
+    sellerUserIds.size > 0
+      ? SellerProfile.find({ oxyUserId: { $in: [...sellerUserIds] } }).lean<ISellerProfile[]>()
+      : Promise.resolve([] as ISellerProfile[]),
+    getProfiles([...sellerUserIds]),
+  ]);
+
+  const storeById = new Map(storeDocs.map((s) => [String(s._id), s]));
+  const sellerProfileByUser = new Map(sellerProfileDocs.map((p) => [String(p.oxyUserId), p]));
+
+  // Accumulate lines per vendor key, preserving first-seen vendor order.
+  const order: string[] = [];
+  const linesByVendor = new Map<string, CartItemDTO[]>();
+  const vendorByKey = new Map<string, CartVendor>();
+
+  for (const item of items) {
+    const listing = listingById.get(item.listingId);
+    if (!listing) {
+      continue;
+    }
+
+    let key: string | undefined;
+    let vendor: CartVendor | undefined;
+
+    if (listing.ownerType === 'store' && listing.storeId) {
+      const storeId = String(listing.storeId);
+      const store = storeById.get(storeId);
+      if (store) {
+        key = `store:${storeId}`;
+        vendor = toStoreVendor(store);
+      }
+    } else if (listing.ownerType === 'user' && listing.oxyUserId) {
+      const oxyUserId = String(listing.oxyUserId);
+      key = `user:${oxyUserId}`;
+      vendor = toSellerVendor(oxyUserId, sellerProfileByUser.get(oxyUserId), oxyProfiles.get(oxyUserId));
+    }
+
+    if (!key || !vendor) {
+      continue;
+    }
+
+    const bucket = linesByVendor.get(key);
+    if (bucket) {
+      bucket.push(item);
+    } else {
+      order.push(key);
+      linesByVendor.set(key, [item]);
+      vendorByKey.set(key, vendor);
+    }
+  }
+
+  return order.map((key) => {
+    const groupItems = linesByVendor.get(key) ?? [];
+    const vendor = vendorByKey.get(key);
+    if (!vendor) {
+      throw new Error(`Cart group vendor missing for key ${key}`);
+    }
+    return {
+      vendor,
+      items: groupItems,
+      subtotal: sumMoney(
+        groupItems.map((i) => i.lineTotal),
+        currency,
+      ),
+    };
+  });
+}
+
+/** Project a store document onto the `CartVendor` header shape. */
+function toStoreVendor(store: IStore): CartVendor {
+  const vendor: CartVendor = {
+    kind: 'store',
+    id: String(store._id),
+    handle: store.handle,
+    name: store.name,
+    brandColor: store.brandColor,
+    rating: store.rating,
+    reviewCount: store.reviewCount,
+  };
+  if (store.logoFileId) {
+    vendor.logoUrl = resolveMedia(store.logoFileId);
+  }
+  return vendor;
+}
+
+/**
+ * Project a P2P seller (its Mercaria profile aggregates + Oxy identity) onto the
+ * `CartVendor` header shape. Display name/username/avatar come from the Oxy
+ * profile (falling back to the user id when it failed to load); rating/reviewCount
+ * are surfaced only once the seller has reviews.
+ */
+function toSellerVendor(
+  oxyUserId: string,
+  profile: ISellerProfile | undefined,
+  oxyProfile: OxyProfile | undefined,
+): CartVendor {
+  const vendor: CartVendor = {
+    kind: 'user',
+    id: oxyUserId,
+    username: oxyProfile?.username ?? oxyUserId,
+    name: oxyProfile?.displayName ?? oxyUserId,
+  };
+  if (oxyProfile?.avatar) {
+    vendor.logoUrl = resolveMedia(oxyProfile.avatar);
+  }
+  if (profile && profile.reviewCount > 0) {
+    vendor.rating = profile.rating;
+    vendor.reviewCount = profile.reviewCount;
+  }
+  return vendor;
 }
 
 /** Clamp a requested quantity to `[1, maxQuantityPerItem]` and the live ceiling. */
@@ -68,7 +219,7 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
   const pendingDiscountCodes = [...(cart.pendingDiscountCodes ?? [])];
 
   if (cart.items.length === 0) {
-    const empty: CartDTO = { id, items: [], currency, subtotal: { amount: 0, currency } };
+    const empty: CartDTO = { id, items: [], groups: [], currency, subtotal: { amount: 0, currency } };
     if (pendingDiscountCodes.length > 0) {
       empty.pendingDiscountCodes = pendingDiscountCodes;
     }
@@ -139,7 +290,9 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
     currency,
   );
 
-  const dto: CartDTO = { id, items, currency, subtotal };
+  const groups = await buildGroups(items, listingById, currency);
+
+  const dto: CartDTO = { id, items, groups, currency, subtotal };
 
   if (pendingDiscountCodes.length > 0) {
     dto.pendingDiscountCodes = pendingDiscountCodes;
@@ -230,7 +383,7 @@ async function loadCart(oxyUserId: string): Promise<ICart | null> {
 export async function getCart(oxyUserId: string): Promise<CartDTO> {
   const cart = await loadCart(oxyUserId);
   if (!cart) {
-    return { id: '', items: [], currency: 'FAIR', subtotal: { amount: 0, currency: 'FAIR' } };
+    return { id: '', items: [], groups: [], currency: 'FAIR', subtotal: { amount: 0, currency: 'FAIR' } };
   }
   return buildCartDTO(cart);
 }

@@ -28,6 +28,9 @@ export default function AppLayout() {
           <View className="flex-1 bg-background">
             <Stack screenOptions={SCREEN_OPTIONS}>
               <Stack.Screen name="index" />
+              <Stack.Screen name="stores/[handle]" />
+              <Stack.Screen name="products/[id]" />
+              <Stack.Screen name="cart" />
               <Stack.Screen name="settings/index" />
               <Stack.Screen name="settings/general" />
               <Stack.Screen name="settings/feedback" />
@@ -46,8 +49,10 @@ export default function AppLayout() {
   // NativeWind `md:` breakpoints (768px), NOT JS width measurement.
   //  - Shell: block + full-bleed below md; a 2-col grid [76px rail | 1fr] at md+.
   //  - Rail: hidden below md, sticky full-height at md+.
-  //  - Content: gutter inset at md+ (`md:p-2 md:pl-0`); bottom padding below md so
-  //    the floating pill doesn't cover the last row.
+  //  - Content: gutter inset at md+ (`md:p-2 md:pl-0`). Floating-pill clearance
+  //    below md lives INSIDE each page's themed ScreenShell surface (its
+  //    `pb-24`), NOT on this wrapper — so the brand surface reaches the bottom
+  //    edge instead of leaving an un-themed strip under the pill.
   //  - Bottom bar: floating pill visible below md, hidden at md+.
   // The home screen's rounded panel + bleed mask are themselves gated to desktop.
   return (
@@ -57,11 +62,12 @@ export default function AppLayout() {
           <View className="sticky top-0 z-40 hidden h-screen md:flex md:row-start-1 md:col-start-1">
             <NavRail />
           </View>
-          <View className="min-w-0 max-md:pb-[88px] md:col-start-2 md:row-start-1 md:p-2 md:pl-0">
+          <View className="min-w-0 md:col-start-2 md:row-start-1 md:p-2 md:pl-0">
             {/* `<Slot>` (no absolute scene wrapper) so the route flows in normal
-                document flow and the body scrolls / the sticky shell works. The
-                bottom padding clears the floating pill (12px gap + 56px height +
-                breathing room) below md. */}
+                document flow and the body scrolls / the sticky shell works.
+                Floating-pill clearance below md comes from the page's themed
+                ScreenShell `pb-24` (96px > 12px gap + 56px pill), keeping the
+                clearance inside the brand surface — no un-themed strip. */}
             <Slot />
           </View>
           {/* Floating pill overlay below md. The wrapper is a fixed,

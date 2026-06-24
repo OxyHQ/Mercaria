@@ -1,20 +1,20 @@
-import { View, ScrollView, Pressable, Platform } from "react-native";
+import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
+import { useRouter } from "expo-router";
 import {
+  CartShelf,
   CategoryCarousel,
   CategoryPills,
   MerchantCarousel,
   ProductShelf,
   Text,
-  useColorScheme,
 } from "@mercaria/ui";
+import type { CartVendor } from "@mercaria/shared-types";
+import { ScreenShell } from "@/components/shell/ScreenShell";
 import { HeroSearch } from "@/components/shell/HeroSearch";
 import { Footer } from "@/components/shell/Footer";
 import { useFeed } from "@/lib/hooks/use-feed";
-
-/** Spread (px) of the gutter-color mask around the rounded frame. Paints a ring
- *  of the gutter color over any content bleeding into the thin gutter + corners. */
-const GUTTER_MASK_SPREAD = 40;
+import { useCart } from "@/lib/hooks/use-cart";
 
 /** Number of placeholder shelves shown while the feed loads. */
 const SKELETON_SHELF_COUNT = 2;
@@ -71,10 +71,33 @@ interface FeedBodyProps {
 
 /** The feed content — identical on web and native, only its scroll host differs. */
 function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
+  const router = useRouter();
+  const { data: cart } = useCart();
+
+  const onPressVendor = (vendor: CartVendor) => {
+    if (vendor.kind === "store" && vendor.handle) {
+      router.push(`/stores/${vendor.handle}` as Parameters<typeof router.push>[0]);
+    }
+  };
+
+  const onCheckout = () => {
+    router.push("/cart" as Parameters<typeof router.push>[0]);
+  };
+
+  const onPressProduct = (id: string) => {
+    router.push(`/products/${id}` as Parameters<typeof router.push>[0]);
+  };
+
   return (
     <>
       {/* Hero search header (provides branding — replaces the old top bar) */}
       <HeroSearch />
+
+      <CartShelf
+        groups={cart?.groups ?? []}
+        onPressVendor={onPressVendor}
+        onCheckout={onCheckout}
+      />
 
       {isLoading && !data ? <FeedSkeleton /> : null}
 
@@ -93,6 +116,7 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
               key={section.id}
               title={section.title}
               items={section.products ?? []}
+              onPressItem={onPressProduct}
             />
           );
         }
@@ -109,6 +133,9 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
             key={section.id}
             title={section.title}
             merchants={section.merchants ?? []}
+            onPressMerchant={(handle) =>
+              router.push(`/stores/${handle}` as Parameters<typeof router.push>[0])
+            }
           />
         );
       })}
@@ -120,76 +147,23 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
 
 export default function HomeScreen() {
   const { data, isLoading, isError, refetch } = useFeed();
-  const { colors } = useColorScheme();
-  const isWeb = Platform.OS === "web";
   const onRetry = () => refetch();
 
-  const head = (
-    <Head>
-      <title>Mercaria</title>
-      <meta
-        name="description"
-        content="Mercaria — buy and sell new and secondhand items."
-      />
-    </Head>
-  );
-
-  // WEB: the feed flows in normal document flow (no vertical ScrollView) so the
-  // BODY scrolls — scrolling works from anywhere, incl. over the sticky rail and
-  // gutter (Shop's pattern, pure NativeWind classes, zero scroll JS).
-  if (isWeb) {
-    return (
-      <>
-        {head}
-        {/* Decorative rounded-panel frame + bleed mask (desktop only, gated by
-            CSS `max-md:hidden` — no JS width check). A STICKY overlay pinned to
-            the viewport; the negative bottom margin gives it ~0 layout height so
-            it doesn't push the feed, while it frames the viewport and stays put as
-            the body scrolls under it. The `boxShadow` paints a ring of the GUTTER
-            color (Bloom `background` token — not hardcoded) around the rounded
-            rect, masking any feed content that bleeds into the thin gutter +
-            rounded corners; `clipPath: inset(-12px)` keeps that ring from
-            spilling onto the rail. `pointer-events-none` passes clicks. */}
-        <View
-          pointerEvents="none"
-          className="max-md:hidden web:sticky web:top-2 z-30 h-[calc(100dvh-16px)] w-full rounded-3xl border border-border web:[margin-bottom:calc(-100dvh+16px)] web:[clip-path:inset(-12px)]"
-          style={{
-            boxShadow: `0 0 0 ${GUTTER_MASK_SPREAD}px ${colors.background}`,
-          }}
-        />
-        {/* The content panel flows in the document and scrolls with the body,
-            passing under the sticky frame. Full-bleed below md, rounded card panel
-            at md+. The feed is centered (`mx-auto max-w-[2000px]`). */}
-        <View className="relative w-full bg-card pb-24 web:min-h-screen web:overflow-x-clip md:rounded-3xl">
-          <View className="web:mx-auto web:w-full web:max-w-[2000px]">
-            <FeedBody
-              data={data}
-              isLoading={isLoading}
-              isError={isError}
-              refetch={onRetry}
-            />
-          </View>
-        </View>
-      </>
-    );
-  }
-
-  // NATIVE: a single full-height ScrollView (no document scroll on native).
   return (
-    <View className="flex-1 bg-card">
-      {head}
-      <ScrollView
-        className="flex-1 bg-card"
-        contentContainerClassName="pb-24"
-        keyboardShouldPersistTaps="handled"
-      >
-        <FeedBody
-          data={data}
-          isLoading={isLoading}
-          isError={isError}
-          refetch={onRetry}
+    <ScreenShell>
+      <Head>
+        <title>Mercaria</title>
+        <meta
+          name="description"
+          content="Mercaria — buy and sell new and secondhand items."
         />
-      </ScrollView>
-    </View>
+      </Head>
+      <FeedBody
+        data={data}
+        isLoading={isLoading}
+        isError={isError}
+        refetch={onRetry}
+      />
+    </ScreenShell>
   );
 }

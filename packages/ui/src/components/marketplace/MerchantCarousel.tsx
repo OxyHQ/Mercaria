@@ -1,11 +1,12 @@
 import { View } from "react-native";
-import { Text } from "../ui/text";
 import { Carousel } from "./Carousel";
 import { MerchantCard } from "./MerchantCard";
+import { SectionHeader } from "./SectionHeader";
 import type { MerchantSummary } from "@mercaria/shared-types";
 
-/** Fixed merchant-card slot width via Tailwind class (no JS measuring). */
-const MERCHANT_SLOT_CLASS = "w-[330px] mr-3";
+/** Fixed merchant-card slot width via Tailwind class (no JS measuring). The
+ *  inter-card gap is owned by the Carousel's content container. */
+const MERCHANT_SLOT_CLASS = "w-[330px]";
 
 export interface MerchantCarouselProps {
   title: string;
@@ -27,7 +28,7 @@ export function MerchantCarousel({
 }: MerchantCarouselProps) {
   return (
     <View className="mb-6">
-      <Text className="px-4 pb-3 text-lg font-bold text-foreground">{title}</Text>
+      <SectionHeader title={title} />
       <Carousel
         items={merchants}
         keyExtractor={(merchant) => merchant.id}

@@ -56,6 +56,139 @@
 
   --color-surface: var(--surface);
   --color-surface-foreground: var(--surface-foreground);
+
+  /* ── Shopify "Shop" design tokens (additive) ───────────────────────────────
+   * Mirrors the JS preset (`./tailwind.preset.js`). These power the Shopify PDP
+   * class names (`gap-space-16`, `rounded-radius-28`, `text-headerBold`,
+   * `bg-bg-fill`, `border-border-secondary`, …) while resolving to Mercaria's
+   * existing runtime theme vars, so dark/light still work. Keep in sync with the
+   * frontend app's mirrored copy. */
+
+  /* Spacing — `space-N` = N px (gap-/p-/px-/w-/h-/min-h-/size-space-N). */
+  --spacing-space-0: 0px;
+  --spacing-space-2: 2px;
+  --spacing-space-4: 4px;
+  --spacing-space-6: 6px;
+  --spacing-space-8: 8px;
+  --spacing-space-10: 10px;
+  --spacing-space-12: 12px;
+  --spacing-space-16: 16px;
+  --spacing-space-20: 20px;
+  --spacing-space-24: 24px;
+  --spacing-space-32: 32px;
+  --spacing-space-36: 36px;
+  --spacing-space-40: 40px;
+  --spacing-space-48: 48px;
+  --spacing-space-64: 64px;
+
+  /* Border radius — `rounded-radius-N`. */
+  --radius-radius-8: 8px;
+  --radius-radius-12: 12px;
+  --radius-radius-16: 16px;
+  --radius-radius-20: 20px;
+  --radius-radius-28: 28px;
+  --radius-radius-max: 9999px;
+
+  /* Typography — `text-<key>` bakes size + line-height + font-weight. */
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 400;
+  --text-captionMedium: 12px;
+  --text-captionMedium--line-height: 16px;
+  --text-captionMedium--font-weight: 500;
+  --text-captionBold: 12px;
+  --text-captionBold--line-height: 16px;
+  --text-captionBold--font-weight: 700;
+  --text-badge: 11px;
+  --text-badge--line-height: 14px;
+  --text-badge--font-weight: 500;
+  --text-badgeBold: 11px;
+  --text-badgeBold--line-height: 14px;
+  --text-badgeBold--font-weight: 700;
+  --text-bodySmall: 14px;
+  --text-bodySmall--line-height: 20px;
+  --text-bodySmall--font-weight: 400;
+  --text-body: 16px;
+  --text-body--line-height: 24px;
+  --text-body--font-weight: 400;
+  --text-bodyTitleSmall: 14px;
+  --text-bodyTitleSmall--line-height: 20px;
+  --text-bodyTitleSmall--font-weight: 600;
+  --text-bodyTitleLarge: 18px;
+  --text-bodyTitleLarge--line-height: 24px;
+  --text-bodyTitleLarge--font-weight: 700;
+  --text-subtitle: 18px;
+  --text-subtitle--line-height: 24px;
+  --text-subtitle--font-weight: 600;
+  --text-sectionTitle: 22px;
+  --text-sectionTitle--line-height: 28px;
+  --text-sectionTitle--font-weight: 700;
+  --text-header: 28px;
+  --text-header--line-height: 32px;
+  --text-header--font-weight: 400;
+  --text-headerBold: 28px;
+  --text-headerBold--line-height: 32px;
+  --text-headerBold--font-weight: 700;
+  --text-buttonSmall: 13px;
+  --text-buttonSmall--line-height: 16px;
+  --text-buttonSmall--font-weight: 600;
+  --text-buttonMedium: 14px;
+  --text-buttonMedium--line-height: 20px;
+  --text-buttonMedium--font-weight: 600;
+  --text-buttonLarge: 16px;
+  --text-buttonLarge--line-height: 20px;
+  --text-buttonLarge--font-weight: 600;
+
+  /* Font weight — matching `font-<key>` so `font-X text-X` pairs resolve. */
+  --font-weight-caption: 400;
+  --font-weight-captionMedium: 500;
+  --font-weight-captionBold: 700;
+  --font-weight-badge: 500;
+  --font-weight-badgeBold: 700;
+  --font-weight-bodySmall: 400;
+  --font-weight-body: 400;
+  --font-weight-bodyTitleSmall: 600;
+  --font-weight-bodyTitleLarge: 700;
+  --font-weight-subtitle: 600;
+  --font-weight-sectionTitle: 700;
+  --font-weight-header: 400;
+  --font-weight-headerBold: 700;
+  --font-weight-buttonSmall: 600;
+  --font-weight-buttonMedium: 600;
+  --font-weight-buttonLarge: 600;
+
+  /* Colors — Shopify semantic names mapped to Mercaria runtime vars. */
+  --color-text: var(--foreground);
+  --color-text-secondary: var(--muted-foreground);
+  --color-text-tertiary: var(--muted-foreground);
+  --color-text-brand: var(--primary);
+  --color-text-inverse: var(--background);
+  --color-text-fixed-light: #ffffff;
+  --color-text-fixed-dark: #111111;
+  --color-text-placeholder: var(--muted-foreground);
+  --color-bg: var(--background);
+  --color-bg-fill: var(--card);
+  --color-bg-fill-secondary: var(--secondary);
+  --color-bg-fill-secondary-hover: var(--secondary);
+  --color-bg-fill-brand: var(--primary);
+  --color-bg-fill-brand-hover: var(--primary);
+  --color-bg-fill-inverse: var(--foreground);
+  --color-bg-fill-inverse-hover: var(--foreground);
+  --color-bg-fill-hover: var(--muted);
+  --color-brand: var(--primary);
+  --color-fill-fixed-dark: #111111;
+  --color-fill-fixed-light: #ffffff;
+  --color-border-secondary: var(--border);
+  --color-border-tertiary: var(--border);
+  --color-border-input: var(--border);
+  --color-border-input-active: var(--ring);
+  --color-border-image: var(--border);
+  --color-overlay-inverse-04: rgba(0, 0, 0, 0.04);
+  --color-overlay-inverse-06: rgba(0, 0, 0, 0.06);
+  --color-overlay-fixed-icon: rgba(0, 0, 0, 0.45);
+  --color-overlay-fixed-dark-20: rgba(0, 0, 0, 0.2);
+  --color-overlay-fixed-dark-40: rgba(0, 0, 0, 0.4);
+  --color-overlay-highlight: rgba(255, 255, 255, 0.6);
 }
 
 @layer base {

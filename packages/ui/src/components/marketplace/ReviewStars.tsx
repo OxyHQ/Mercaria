@@ -4,12 +4,12 @@ import { useColorScheme } from "../../lib/useColorScheme";
 
 /** Fixed gold fill for the rated portion of the stars (documented constant). */
 const STAR_COLOR = "#FFB800";
-/** Default star edge length in px. */
-const DEFAULT_SIZE = 14;
+/** Default star edge length in px (Shop sizes the rating stars at ~12px). */
+const DEFAULT_SIZE = 12;
 /** Number of stars in the rating row. */
 const STAR_COUNT = 5;
-/** Gap between stars in px. */
-const STAR_GAP = 1;
+/** Gap between stars in px (Shop gap-space-2 → gap-0.5 → 2px). */
+const STAR_GAP = 2;
 /** Canonical 5-point star path, traced inside a 24×24 viewBox. */
 const STAR_PATH =
   "M12 2.5l2.92 5.92 6.53.95-4.72 4.6 1.11 6.51L12 17.42 6.16 20.5l1.11-6.51-4.72-4.6 6.53-.95L12 2.5z";

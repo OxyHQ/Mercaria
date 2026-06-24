@@ -22,10 +22,11 @@ export function HeroSearch() {
   }, [query]);
 
   return (
-    <View className="items-center bg-background px-4 py-10">
-      <MercariaWordmark width={220} color={colors.foreground} />
+    <View className="items-center px-4 pb-4 pt-6">
+      <MercariaWordmark width={188} color={colors.foreground} />
 
-      <View className="mt-4 w-full max-w-2xl flex-row items-center rounded-full border border-border bg-card px-5 py-3">
+      <View className="mt-3 w-full max-w-xl flex-row items-center rounded-full border border-border bg-secondary px-4 py-2 web:transition focus-within:border-primary">
+        <Search size={18} color={colors.mutedForeground} />
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -33,16 +34,16 @@ export function HeroSearch() {
           returnKeyType="search"
           placeholder="What are you shopping for today?"
           placeholderTextColor={colors.mutedForeground}
-          className="flex-1 text-base text-foreground"
+          className="ml-2 flex-1 text-sm text-foreground"
           accessibilityLabel="Search"
         />
         <Pressable
           onPress={handleSubmit}
           accessibilityRole="button"
           accessibilityLabel="Search"
-          className="ml-2 h-10 w-10 items-center justify-center rounded-full bg-primary active:opacity-80 web:transition"
+          className="ml-2 h-8 w-8 items-center justify-center rounded-full bg-primary active:opacity-80 web:transition"
         >
-          <Search size={20} color={colors.primaryForeground} />
+          <Search size={16} color={colors.primaryForeground} />
         </Pressable>
       </View>
     </View>

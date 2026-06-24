@@ -19,9 +19,10 @@ import { LogIn, type LucideIcon } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 
 import { UserAvatar } from "@/components/user-avatar";
-import { useColorScheme } from "@mercaria/ui";
+import { Text, useColorScheme } from "@mercaria/ui";
 import { useTheme } from "@oxyhq/bloom/theme";
 import { useOxy, showSignInModal } from "@oxyhq/services";
+import { useCart } from "@/lib/hooks/use-cart";
 import {
   NAV_ITEMS,
   isNavItemActive,
@@ -213,12 +214,18 @@ export function BottomTabBar() {
     borderRadius: INDICATOR_RADIUS,
   }));
 
+  const { data: cart } = useCart();
+  const cartCount = cart?.items.reduce((n, i) => n + i.quantity, 0) ?? 0;
+
+  /** Maximum badge count shown numerically; above this threshold "9+" is shown. */
+  const MAX_BADGE_COUNT = 9;
+
   // Tab-root switch. Only navigate to routes that actually exist today;
   // pressing an unavailable item is a safe no-op (no missing-route navigation).
   const handlePress = useCallback(
     (item: NavItem) => {
       triggerHaptic();
-      if (item.available && item.href === "/") router.push("/");
+      if (item.available) router.push(item.href as Parameters<typeof router.push>[0]);
     },
     [router],
   );
@@ -264,10 +271,22 @@ export function BottomTabBar() {
           accessibilityLabel={item.label}
           accessibilityState={{ selected: isNavItemActive(item, pathname) }}
         >
-          <TabIcon
-            icon={item.icon}
-            isActive={isNavItemActive(item, pathname)}
-          />
+          <View className="relative items-center justify-center">
+            <TabIcon
+              icon={item.icon}
+              isActive={isNavItemActive(item, pathname)}
+            />
+            {item.key === "cart" && cartCount > 0 ? (
+              <View
+                pointerEvents="none"
+                className="absolute -right-0.5 -top-0.5 h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1"
+              >
+                <Text className="text-[10px] font-bold text-primary-foreground">
+                  {cartCount > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : cartCount}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </Pressable>
       ))}
       <AuthTab isActive={activeIndex === AUTH_TAB_INDEX} />

@@ -1,6 +1,6 @@
 import { View } from "react-native";
-import { Text } from "../ui/text";
 import { ProductCarousel } from "./ProductCarousel";
+import { SectionHeader } from "./SectionHeader";
 import type { ProductSummary } from "../../lib/format";
 
 export interface ProductShelfProps {
@@ -22,7 +22,7 @@ export function ProductShelf({
 }: ProductShelfProps) {
   return (
     <View className="mb-6">
-      <Text className="px-4 pb-3 text-lg font-bold text-foreground">{title}</Text>
+      <SectionHeader title={title} />
       <ProductCarousel
         items={items}
         onPressItem={onPressItem}

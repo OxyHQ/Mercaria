@@ -10,10 +10,6 @@ import { formatMoney, formatReviewCount, type ProductSummary } from "../../lib/f
 
 /** Light color used for content drawn over the image (badge text, heart). */
 const ON_IMAGE_LIGHT = "#FFFFFF";
-/** Subtle dark image overlay (documented allowed overlay constant). */
-const IMAGE_OVERLAY = "rgba(0,0,0,0.04)";
-/** Opaque-ish dark backdrop for the sale badge (documented overlay constant). */
-const SALE_BADGE_BG = "rgba(0,0,0,0.75)";
 /** Blur intensity for the native favorite-button backdrop. */
 const FAVORITE_BLUR_INTENSITY = 25;
 /** Heart icon size for the favorite button. */
@@ -60,7 +56,7 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
     // web). `group` is kept here so the image still scales on hover.
     <View className="group flex flex-col gap-2">
       {/* Image block */}
-      <View className="relative aspect-square overflow-hidden rounded-2xl bg-card">
+      <View className="relative aspect-square overflow-hidden rounded-[20px] bg-card web:shadow-sm">
         {/* Image navigation link — fills the block, sits beneath the favorite. */}
         <Pressable
           accessibilityRole="link"
@@ -75,25 +71,23 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
           />
         </Pressable>
 
-        {/* 1px inset border */}
+        {/* Subtle dark wash over the image (Shop bg-bg-overlay-inverse-04). */}
         <View
           pointerEvents="none"
-          className="absolute inset-0 rounded-2xl border border-border"
+          className="absolute inset-0 rounded-[20px] bg-black/[0.04]"
         />
 
-        {/* Subtle dark overlay */}
+        {/* Hairline inner border */}
         <View
           pointerEvents="none"
-          className="absolute inset-0 rounded-2xl"
-          style={{ backgroundColor: IMAGE_OVERLAY }}
+          className="absolute inset-0 rounded-[20px] border border-border"
         />
 
         {/* Sale badge */}
         {onSale ? (
           <View
             pointerEvents="none"
-            className="absolute left-3 top-3 rounded-full px-1.5 py-0.5"
-            style={{ backgroundColor: SALE_BADGE_BG }}
+            className="absolute left-3 top-3 rounded-full bg-black/75 px-1.5 py-0.5"
           >
             <Text
               className="text-[10px] font-bold"
@@ -126,7 +120,7 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
               />
             </BlurView>
           ) : (
-            <View className="rounded-full bg-black/30 p-2">
+            <View className="rounded-full bg-black/40 p-2 web:backdrop-blur-md">
               <Heart
                 size={HEART_SIZE}
                 color={ON_IMAGE_LIGHT}
@@ -142,19 +136,19 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
         accessibilityRole="link"
         accessibilityLabel={product.title}
         onPress={() => onPress?.(product.id)}
-        className="flex flex-col pl-1"
+        className="flex flex-col pl-1 leading-4"
       >
-        <Text numberOfLines={1} className="text-xs text-foreground/70">
+        <Text numberOfLines={1} className="text-xs text-muted-foreground">
           {product.brand}
         </Text>
-        <Text numberOfLines={1} className="text-sm font-semibold text-foreground">
+        <Text numberOfLines={1} className="text-xs font-bold text-foreground">
           {product.title}
         </Text>
 
         {/* Review row */}
         <View className="flex-row items-center gap-1">
           <ReviewStars rating={product.rating} count={product.reviewCount} />
-          <Text className="text-xs text-foreground">
+          <Text className="text-xs font-medium text-muted-foreground">
             {`(${formatReviewCount(product.reviewCount)})`}
           </Text>
         </View>
@@ -162,10 +156,10 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
         {/* Price row. The primary FAIR figure (plus the optional dual-currency
             secondary, driven by FxContext) renders via PriceDisplay; the
             compare-at strikethrough stays a plain formatted figure. */}
-        <View className="flex-row items-center gap-1">
-          <PriceDisplay price={product.price} />
+        <View className="mt-0.5 flex-row items-center gap-1">
+          <PriceDisplay price={product.price} primaryClassName="text-xs font-bold" />
           {onSale && product.compareAtPrice ? (
-            <Text className="text-sm font-normal text-muted-foreground line-through">
+            <Text className="text-xs font-normal text-muted-foreground line-through">
               {formatMoney(product.compareAtPrice)}
             </Text>
           ) : null}

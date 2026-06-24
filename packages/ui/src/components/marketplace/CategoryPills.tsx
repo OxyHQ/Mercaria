@@ -52,7 +52,7 @@ function CategoryPillChip({ pill, onPressPill }: CategoryPillChipProps) {
       accessibilityRole="link"
       accessibilityLabel={pill.name}
       onPress={() => onPressPill?.(pill.id, pill.slug)}
-      className="h-11 flex-row items-center gap-2 rounded-full border border-border bg-card pl-1.5 pr-4 web:shadow-sm"
+      className="h-11 flex-row items-center gap-2 rounded-full bg-secondary py-2 pl-1.5 pr-3"
     >
       {/* Round 32px category image with a 1px border ring. */}
       <View className="relative h-8 w-8 overflow-hidden rounded-full bg-secondary">

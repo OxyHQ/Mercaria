@@ -8,6 +8,7 @@ import { Logo } from "@/components/Logo";
 import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 import { useOxy, showSignInModal } from "@oxyhq/services";
+import { useCart } from "@/lib/hooks/use-cart";
 import { NAV_ITEMS, isNavItemActive, type NavItem } from "./nav-items";
 
 const IS_WEB = Platform.OS === "web";
@@ -67,19 +68,23 @@ function RailTooltip({ label, anchor }: { label: string; anchor: AnchorRect | nu
    Rail item — square icon button with active pill + web hover tooltip
    ================================================================ */
 
+/** Maximum badge count shown as a number; above this threshold "9+" is shown. */
+const MAX_BADGE_COUNT = 9;
+
 interface NavRailItemProps {
   icon: LucideIcon;
   label: string;
   isActive: boolean;
   onPress: () => void;
+  badgeCount?: number;
 }
 
-function NavRailItem({ icon: Icon, label, isActive, onPress }: NavRailItemProps) {
+function NavRailItem({ icon: Icon, label, isActive, onPress, badgeCount }: NavRailItemProps) {
   const { colors } = useColorScheme();
   const [anchor, setAnchor] = useState<AnchorRect | null>(null);
 
   return (
-    <View className="items-center justify-center">
+    <View className="relative items-center justify-center">
       <Pressable
         onPress={onPress}
         onHoverIn={IS_WEB ? (e) => setAnchor(rectFromHover(e)) : undefined}
@@ -98,6 +103,17 @@ function NavRailItem({ icon: Icon, label, isActive, onPress }: NavRailItemProps)
           style={isActive ? undefined : { opacity: 0.35 }}
         />
       </Pressable>
+
+      {badgeCount !== undefined && badgeCount > 0 ? (
+        <View
+          pointerEvents="none"
+          className="absolute -right-0.5 -top-0.5 h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1"
+        >
+          <Text className="text-[10px] font-bold text-primary-foreground">
+            {badgeCount > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : badgeCount}
+          </Text>
+        </View>
+      ) : null}
 
       <RailTooltip label={label} anchor={anchor} />
     </View>
@@ -150,6 +166,9 @@ function AuthRailItem() {
 export function NavRail() {
   const router = useRouter();
   const pathname = usePathname();
+  const { data: cart } = useCart();
+
+  const cartCount = cart?.items.reduce((n, i) => n + i.quantity, 0) ?? 0;
 
   const goHome = useCallback(() => router.push("/"), [router]);
 
@@ -157,7 +176,7 @@ export function NavRail() {
     (item: NavItem) => {
       // Only navigate to routes that actually exist. Unavailable destinations
       // are intentional no-ops until their screens are built.
-      if (item.available && item.href === "/") router.push("/");
+      if (item.available) router.push(item.href as Parameters<typeof router.push>[0]);
     },
     [router]
   );
@@ -186,6 +205,7 @@ export function NavRail() {
             label={item.label}
             isActive={isNavItemActive(item, pathname)}
             onPress={() => handlePress(item)}
+            badgeCount={item.key === "cart" ? cartCount : undefined}
           />
         ))}
       </View>

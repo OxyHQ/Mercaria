@@ -14,7 +14,7 @@ const Text = React.forwardRef<RNText, TextProps>(
     return (
       <RNText
         className={cn(
-          "text-base leading-7 text-foreground web:select-text font-sans",
+          "text-base text-foreground web:select-text font-sans",
           textClass,
           className
         )}

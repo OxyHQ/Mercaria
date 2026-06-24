@@ -68,8 +68,16 @@ export function Carousel<T>({
   const viewportWidth = useRef(0);
 
   // Defensive: tolerate an undefined `items` (partial/in-transition feed data)
-  // so the carousel never crashes on `.map`.
-  const safeItems = items ?? [];
+  // AND non-unique keys (a backend that returns the same listing twice, or
+  // overlapping feed sections) so the carousel never crashes on `.map` or on
+  // React's duplicate-key check. Keep the first occurrence of each key.
+  const seenKeys = new Set<string>();
+  const safeItems = (items ?? []).filter((item) => {
+    const key = keyExtractor(item);
+    if (seenKeys.has(key)) return false;
+    seenKeys.add(key);
+    return true;
+  });
 
   const arrowsEnabled = showArrows ?? Platform.OS === "web";
 
@@ -103,6 +111,7 @@ export function Carousel<T>({
         onContentSizeChange={(w) => {
           contentWidth.current = w;
         }}
+        contentContainerClassName="gap-2 web:sm:gap-4"
         contentContainerStyle={{ paddingHorizontal: contentPadding }}
       >
         {safeItems.map((item) => (
@@ -118,7 +127,7 @@ export function Carousel<T>({
             accessibilityRole="button"
             accessibilityLabel="Go to the previous item"
             onPress={() => scrollByViewport(-1)}
-            className="absolute left-2 top-1/2 -mt-5 hidden h-10 w-10 items-center justify-center rounded-full border border-border bg-card web:flex web:shadow"
+            className="absolute left-2 top-1/2 hidden items-center justify-center rounded-full border-[0.5px] border-border bg-card p-2.5 web:-translate-y-1/2 web:shadow-md web:sm:flex"
           >
             <ChevronLeft size={ARROW_ICON_SIZE} color={colors.foreground} />
           </Pressable>
@@ -126,7 +135,7 @@ export function Carousel<T>({
             accessibilityRole="button"
             accessibilityLabel="Go to the next item"
             onPress={() => scrollByViewport(1)}
-            className="absolute right-2 top-1/2 -mt-5 hidden h-10 w-10 items-center justify-center rounded-full border border-border bg-card web:flex web:shadow"
+            className="absolute right-2 top-1/2 hidden items-center justify-center rounded-full border-[0.5px] border-border bg-card p-2.5 web:-translate-y-1/2 web:shadow-md web:sm:flex"
           >
             <ChevronRight size={ARROW_ICON_SIZE} color={colors.foreground} />
           </Pressable>
