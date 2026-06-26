@@ -1,38 +1,44 @@
 import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import { Platform, ScrollView, View } from "react-native";
-import { cn, useColorScheme } from "@mercaria/ui";
+import { ContentPanel } from "@oxyhq/bloom/content-panel";
+import { cn } from "@mercaria/ui";
 
-/** Spread (px) of the gutter-color mask around the rounded frame. Paints a ring
- *  of the gutter color over any content bleeding into the thin gutter + corners. */
-export const GUTTER_MASK_SPREAD = 40;
+import { useIsMdWeb } from "@/lib/hooks/use-is-md-web";
 
 interface ScreenShellProps {
   children: ReactNode;
-  /** Override the panel surface bg (default "bg-card"). Applied to the web
-   *  panel, the native outer View, and the native ScrollView so a caller can
-   *  recolor the whole surface (e.g. a store's brand tint). */
+  /** Override the panel surface bg (default "bg-card"). Lets a caller recolor
+   *  the whole surface (e.g. a store's brand tint). */
   surfaceClassName?: string;
-  /** Inline style for the panel surface, applied alongside `surfaceClassName`
-   *  to the web panel, the native outer View, and the native ScrollView. An
-   *  inline `backgroundColor` wins over the className bg, letting a caller paint
-   *  the whole surface a dynamic color (e.g. a store's runtime brand color). */
+  /** Inline style for the panel surface, applied alongside `surfaceClassName`.
+   *  An inline `backgroundColor` wins over the className bg, letting a caller
+   *  paint the whole surface a dynamic color (e.g. a store's runtime brand
+   *  color). */
   surfaceStyle?: StyleProp<ViewStyle>;
-  /** Extra classes merged onto the inner centered content wrapper on both
-   *  platforms. */
+  /** Extra classes merged onto the inner centered content wrapper. */
   contentClassName?: string;
 }
 
 /**
- * The shared page shell: a rounded `bg-card` panel + sticky gutter "bleed mask"
- * on web (desktop), and a single full-height `ScrollView` on native. Every page
- * renders its body inside this so the panel / mask / scroll behavior is
- * identical (Shop.app pattern — only the nav rail lives outside the panel).
+ * The shared page shell: a thin wrapper over Bloom's `ContentPanel` (the framed
+ * app-content surface). Every page renders its body inside this so the rounded
+ * panel, the web sticky bleed-mask + border frame, and the centered content
+ * column stay identical across screens (Shop.app pattern — only the nav rail
+ * lives outside the panel).
  *
- * The platform split is intentional and unchanged from the original inline home
- * shell: web = document-flow panel + sticky mask (the BODY scrolls); native =
- * one ScrollView (no document scroll). Pages keep their own `<Head>` — the shell
- * never renders one.
+ * `ContentPanel` owns the surface, the corner radius, and (on web) the sticky
+ * gutter mask + continuous border. Scroll, however, is an app concern that
+ * `ContentPanel` deliberately does NOT own, so the platform split lives here:
+ *
+ * - WEB: the BODY scrolls (document-scroll model). `ContentPanel` frames the
+ *   content at the `md` breakpoint (`useIsMdWeb`, replacing the old
+ *   `max-md:hidden` CSS gate) and pins its sticky overlays to the viewport — an
+ *   inner `ScrollView` would break that, so the web path has none.
+ * - NATIVE: there is no document scroll, so the body lives in a single
+ *   full-height `ScrollView` inside the panel (matching the original shell).
+ *
+ * Pages keep their own `<Head>` — the shell never renders one.
  */
 export function ScreenShell({
   children,
@@ -40,60 +46,44 @@ export function ScreenShell({
   surfaceStyle,
   contentClassName,
 }: ScreenShellProps) {
-  const { colors } = useColorScheme();
-  const isWeb = Platform.OS === "web";
+  const framed = useIsMdWeb();
 
-  // WEB: the content flows in normal document flow (no vertical ScrollView) so
-  // the BODY scrolls — scrolling works from anywhere, incl. over the sticky rail
-  // and gutter (Shop's pattern, pure NativeWind classes, zero scroll JS).
-  if (isWeb) {
+  // NATIVE: a single full-height ScrollView inside the panel (no document
+  // scroll on native). Reproduces the original shell's ScrollView props so
+  // native screens behave identically; `ContentPanel` now paints the surface.
+  if (Platform.OS !== "web") {
     return (
-      <>
-        {/* Decorative rounded-panel frame + bleed mask (desktop only, gated by
-            CSS `max-md:hidden` — no JS width check). A STICKY overlay pinned to
-            the viewport; the negative bottom margin gives it ~0 layout height so
-            it doesn't push the content, while it frames the viewport and stays put
-            as the body scrolls under it. The `boxShadow` paints a ring of the
-            GUTTER color (Bloom `background` token — not hardcoded) around the
-            rounded rect, masking any content that bleeds into the thin gutter +
-            rounded corners; `clipPath: inset(-12px)` keeps that ring from
-            spilling onto the rail. `pointer-events-none` passes clicks. */}
-        <View
-          pointerEvents="none"
-          className="max-md:hidden web:sticky web:top-2 z-30 h-[calc(100dvh-16px)] w-full rounded-3xl border border-border web:[margin-bottom:calc(-100dvh+16px)] web:[clip-path:inset(-12px)]"
-          style={{
-            boxShadow: `0 0 0 ${GUTTER_MASK_SPREAD}px ${colors.background}`,
-          }}
-        />
-        {/* The content panel flows in the document and scrolls with the body,
-            passing under the sticky frame. Full-bleed below md, rounded card panel
-            at md+. The content is centered (`mx-auto max-w-[2000px]`). */}
-        <View
-          className={cn(
-            "relative w-full pb-24 web:min-h-screen web:overflow-x-clip md:rounded-3xl",
-            surfaceClassName,
-          )}
-          style={surfaceStyle}
+      <ContentPanel
+        framed={false}
+        surfaceClassName={surfaceClassName}
+        surfaceStyle={surfaceStyle}
+      >
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="pb-24"
+          keyboardShouldPersistTaps="handled"
         >
-          <View className={cn("web:mx-auto web:w-full web:max-w-[2000px]", contentClassName)}>
-            {children}
-          </View>
-        </View>
-      </>
+          <View className={contentClassName}>{children}</View>
+        </ScrollView>
+      </ContentPanel>
     );
   }
 
-  // NATIVE: a single full-height ScrollView (no document scroll on native).
+  // WEB: the content flows in the document and scrolls with the body, passing
+  // under the panel's sticky frame. The content is centered (`mx-auto
+  // max-w-[2000px]`) with the bottom clearance (`pb-24`) the rail / bottom bar
+  // need.
   return (
-    <View className={cn("flex-1", surfaceClassName)} style={surfaceStyle}>
-      <ScrollView
-        className={cn("flex-1", surfaceClassName)}
-        style={surfaceStyle}
-        contentContainerClassName="pb-24"
-        keyboardShouldPersistTaps="handled"
-      >
-        <View className={contentClassName}>{children}</View>
-      </ScrollView>
-    </View>
+    <ContentPanel
+      framed={framed}
+      surfaceClassName={surfaceClassName}
+      surfaceStyle={surfaceStyle}
+      contentClassName={cn(
+        "web:mx-auto web:w-full web:max-w-[2000px] pb-24",
+        contentClassName,
+      )}
+    >
+      {children}
+    </ContentPanel>
   );
 }
