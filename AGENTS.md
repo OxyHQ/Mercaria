@@ -91,13 +91,22 @@ Database: `mercaria-production` (passed to `mongoose.connect()` via `dbName`, NO
 ## Deploy
 
 - **API** → AWS ECS Fargate, `.github/workflows/deploy-aws.yml` (`linux/arm64`, ECR `oxy/mercaria`). ECS service + task def + ALB rule + ECR repo + SSM params must be provisioned in `oxy-infra` first (handoff).
-- **Storefront web** → CF Pages project `mercaria`, `.github/workflows/deploy-cloudflare.yml`.
-- **Dashboard web** → CF Pages project `mercaria-dashboard` + DNS `dashboard.mercaria.co` (handoff).
-- **POS web** → CF Pages project `mercaria-pos` + DNS `pos.mercaria.co` (handoff).
+- **Web apps → Cloudflare Workers (Static Assets), NOT Pages.** Each app deploys a
+  Worker (`mercaria` / `mercaria-dashboard` / `mercaria-pos`) via `bunx wrangler@4 deploy`
+  using the per-package `wrangler.jsonc`. Workflows: `deploy-cloudflare.yml` (storefront,
+  `mercaria.co`), `deploy-dashboard.yml` (`dashboard.mercaria.co`), `deploy-pos.yml`
+  (`pos.mercaria.co`). Pages was abandoned because its `*.pages.dev` production URL cannot
+  be removed; Workers `workers_dev:false` + `preview_urls:false` serve ONLY the custom domain.
+- **wrangler.jsonc per app is advanced-mode static assets:** `main: ./dist/_worker.js`
+  (the repo's SPA/MIME-fix worker), `assets.binding: ASSETS`, `run_worker_first: true`,
+  `not_found_handling: single-page-application`. `public/.assetsignore` (`_worker.js`) stops
+  the script being re-uploaded as an asset. Do NOT use `cloudflare/wrangler-action` — its
+  `npm i wrangler` chokes on the monorepo's `workspace:*` deps; run `bunx wrangler` directly.
+- Custom domains are Worker Custom Domains (managed DNS + cert), bound on the `mercaria.co`
+  zone. No `*.pages.dev` / `*.workers.dev` is exposed anywhere.
 - CI (`.github/workflows/ci.yml`) runs lint + tests + API build + app build on every push/PR.
 
 ### Deploy handoff
 
 - Register 2 Oxy RP client IDs (dashboard, POS): `EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD`, `EXPO_PUBLIC_OXY_CLIENT_ID_POS`.
-- Create CF Pages projects `mercaria-dashboard` + `mercaria-pos` + DNS records.
 - Provision ECS service, task def, ALB rule, ECR repo, SSM params in `oxy-infra`.
