@@ -45,10 +45,8 @@ jobs:
           EXPO_PUBLIC_OXY_API_URL: ${{ vars.EXPO_PUBLIC_OXY_API_URL || 'https://api.oxy.so' }}
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://api.mercaria.co' }}
       - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: '4'
-          workingDirectory: packages/pos
-          command: deploy
+        working-directory: packages/pos
+        run: bunx wrangler@4 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
