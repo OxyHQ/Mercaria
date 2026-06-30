@@ -553,6 +553,22 @@ export async function clearCart(oxyUserId: string): Promise<void> {
 }
 
 /**
+ * Remove a specific set of line items from the buyer's cart, leaving every other
+ * line (and the pending discount codes) intact. Used by a PER-SELLER checkout
+ * that places only some groups and keeps the rest in the cart. A no-op when
+ * `variantIds` is empty.
+ */
+export async function removeCartLines(oxyUserId: string, variantIds: string[]): Promise<void> {
+  if (variantIds.length === 0) {
+    return;
+  }
+  await Cart.updateOne(
+    { oxyUserId },
+    { $pull: { items: { variantId: { $in: variantIds } } } },
+  );
+}
+
+/**
  * Pin a discount code to the cart (idempotent; deduped). The code must exist on an
  * ACTIVE, in-window discount for a store represented by a store-owned line in the
  * cart, else VALIDATION_ERROR. The code is normalized (trim + uppercase). Returns

@@ -86,7 +86,9 @@ export default function FeedbackScreen() {
         toast.error(error.error || t('feedback.submitFailed'));
       }
     } catch (error) {
-      console.error("Error submitting feedback:", error);
+      if (__DEV__) {
+        console.error("Error submitting feedback:", error);
+      }
       toast.error(t('feedback.submitFailed'));
     } finally {
       setSubmitting(false);

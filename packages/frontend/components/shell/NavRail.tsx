@@ -51,10 +51,13 @@ function RailTooltip({ label, anchor }: { label: string; anchor: AnchorRect | nu
   const top = anchor.y + anchor.height / 2;
 
   return createPortal(
+    // `position: fixed` and the `-50%` percentage translate are web-only CSS that
+    // React Native's `ViewStyle` doesn't model, so they live in NativeWind web
+    // arbitrary classes; only RN-valid numeric keys stay in `style`.
     <View
       pointerEvents="none"
-      style={{ position: "fixed", left, top, transform: [{ translateY: "-50%" }], zIndex: 2147483647 }}
-      className="rounded-md bg-foreground px-2.5 py-1"
+      style={{ left, top, zIndex: 2147483647 }}
+      className="web:fixed web:[transform:translateY(-50%)] rounded-md bg-foreground px-2.5 py-1"
     >
       <Text className="text-xs font-medium text-background" numberOfLines={1}>
         {label}

@@ -99,6 +99,8 @@
     "sections": {
       "account": "Account",
       "general": "General",
+      "orders": "Orders",
+      "addresses": "Addresses",
       "feedback": "Feedback"
     }
   },

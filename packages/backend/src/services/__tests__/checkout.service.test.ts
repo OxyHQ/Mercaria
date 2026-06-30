@@ -16,6 +16,7 @@ import type { PricingResult } from '../pricing.service.js';
 
 const getCart = vi.fn();
 const clearCart = vi.fn();
+const removeCartLines = vi.fn();
 const reserve = vi.fn();
 const release = vi.fn();
 const listingFind = vi.fn();
@@ -33,6 +34,7 @@ const discountUpdateOne = vi.fn();
 vi.mock('../cart.service.js', () => ({
   getCart: (...args: unknown[]) => getCart(...args),
   clearCart: (...args: unknown[]) => clearCart(...args),
+  removeCartLines: (...args: unknown[]) => removeCartLines(...args),
 }));
 
 vi.mock('../inventory.service.js', () => ({
@@ -168,6 +170,7 @@ const addressDoc = {
 beforeEach(() => {
   getCart.mockReset();
   clearCart.mockReset().mockResolvedValue(undefined);
+  removeCartLines.mockReset().mockResolvedValue(undefined);
   reserve.mockReset().mockResolvedValue(undefined);
   release.mockReset().mockResolvedValue(undefined);
   listingFind.mockReset();
@@ -431,5 +434,70 @@ describe('checkout.service.checkout — discounts', () => {
     // Replay returns the prior orders — no pricing, no creation, no usage increment.
     expect(orderCreate).not.toHaveBeenCalled();
     expect(discountUpdateOne).not.toHaveBeenCalled();
+  });
+});
+
+describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
+  const L1 = '000000000000000000000901';
+  const L2 = '000000000000000000000902';
+  const V1 = '000000000000000000000a01';
+  const V2 = '000000000000000000000a02';
+
+  /** A two-store cart (store-A line V1, store-B line V2) ready to check out. */
+  function arrangeTwoStoreCart(): void {
+    getCart.mockResolvedValueOnce({
+      id: 'cart-1',
+      currency: 'FAIR',
+      items: [
+        cartItem({ listingId: L1, variantId: V1 }),
+        cartItem({ listingId: L2, variantId: V2 }),
+      ],
+      subtotal: { amount: 2000, currency: 'FAIR' },
+    });
+    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
+    listingFind.mockReturnValueOnce(
+      leanOf([
+        listingDoc(L1, { ownerType: 'store', storeId: 'store-A' }),
+        listingDoc(L2, { ownerType: 'store', storeId: 'store-B' }),
+      ]),
+    );
+    variantFind.mockReturnValueOnce(leanOf([variantDoc(V1, L1), variantDoc(V2, L2)]));
+    nextOrderNumber.mockResolvedValue('MRC-000030');
+    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
+      Promise.resolve({ toObject: () => ({ ...doc, _id: `order-${doc.orderNumber}` }) }),
+    );
+    summarizeOrders.mockResolvedValue([{ id: 'o1', orderNumber: 'MRC-000030', status: 'pending_payment' }]);
+  }
+
+  it('places only the requested seller group and removes just its lines (rest stays in cart)', async () => {
+    arrangeTwoStoreCart();
+
+    const result = await checkout(USER, { addressId: ADDRESS_ID, sellerKeys: ['store:store-A'] });
+
+    // Only store-A's single line is reserved + ordered.
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(reserve).toHaveBeenCalledWith(V1, 1);
+    expect(orderCreate).toHaveBeenCalledTimes(1);
+    expect((orderCreate.mock.calls[0][0] as { storeId: string }).storeId).toBe('store-A');
+    expect(result.orders).toHaveLength(1);
+
+    // Partial checkout: remove only the placed line, keep the rest — never clearCart.
+    expect(removeCartLines).toHaveBeenCalledWith(USER, [V1]);
+    expect(clearCart).not.toHaveBeenCalled();
+  });
+
+  it('rejects when no cart group matches sellerKeys, without touching stock or cart', async () => {
+    arrangeTwoStoreCart();
+
+    await expect(
+      checkout(USER, { addressId: ADDRESS_ID, sellerKeys: ['store:store-ZZZ'] }),
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
+    );
+
+    expect(reserve).not.toHaveBeenCalled();
+    expect(orderCreate).not.toHaveBeenCalled();
+    expect(removeCartLines).not.toHaveBeenCalled();
+    expect(clearCart).not.toHaveBeenCalled();
   });
 });

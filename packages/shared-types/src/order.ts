@@ -234,6 +234,14 @@ export interface CheckoutInput {
   /** The saved address to ship to (snapshotted onto each order). */
   addressId: string;
   /**
+   * Restrict the checkout to these seller groups, keyed exactly like the order
+   * grouping (`store:<storeId>` or `user:<oxyUserId>`). When provided, only the
+   * matching cart lines are placed (one order per listed group) and every other
+   * line stays in the cart. When absent, the WHOLE cart is checked out and
+   * emptied — the original behavior.
+   */
+  sellerKeys?: string[];
+  /**
    * Per-seller shipping method selection, keyed by the seller group key
    * (`store:<storeId>` or `user:<oxyUserId>`). Absent groups default to
    * `standard`.

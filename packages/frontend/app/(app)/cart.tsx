@@ -17,7 +17,6 @@ import {
 } from "@mercaria/ui";
 import type { CartGroup, CartVendor } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
-import { toast } from "@/components/sonner";
 import { useCart, useUpdateCartItem, useRemoveCartItem } from "@/lib/hooks/use-cart";
 import { useFeed } from "@/lib/hooks/use-feed";
 
@@ -141,8 +140,16 @@ function CartBody() {
     removeItem.mutate(variantId);
   };
 
-  const onCheckout = () => {
-    toast("Checkout coming soon");
+  // Per-vendor checkout: place just this seller's group (the rest stay in cart).
+  const onCheckout = (vendor: CartVendor) => {
+    router.push(
+      `/checkout?seller=${vendor.kind}:${vendor.id}` as Parameters<typeof router.push>[0],
+    );
+  };
+
+  // Whole-cart checkout: place every group (one order per seller).
+  const onCheckoutAll = () => {
+    router.push("/checkout" as Parameters<typeof router.push>[0]);
   };
 
   // Bottom recommendation shelf: flatten product-feed-section products.
@@ -186,6 +193,27 @@ function CartBody() {
               onCheckout={onCheckout}
             />
           ))}
+
+          {/* Whole-cart checkout — only meaningful with more than one vendor
+              (with a single group the per-vendor button already does this). */}
+          {groups.length > 1 && cart ? (
+            <View className="mb-4 rounded-3xl border border-border bg-card p-4 web:shadow">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-muted-foreground">Cart total</Text>
+                <PriceDisplay price={cart.subtotal} primaryClassName="text-base font-bold" />
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Check out everything in your cart"
+                onPress={onCheckoutAll}
+                className="mt-4 items-center rounded-full bg-primary py-3.5 web:hover:opacity-90 active:opacity-90"
+              >
+                <Text className="text-sm font-semibold text-primary-foreground">
+                  Checkout everything
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       )}
 

@@ -181,9 +181,15 @@ async function deliverPush(userId: string, notification: INotification): Promise
     }
   }
 
-  // Fire-and-forget receipt checking (delayed)
+  // Fire-and-forget receipt checking (delayed). A receipt-check failure is
+  // non-fatal (best-effort cleanup of bad tokens), but it must be logged, never
+  // swallowed silently.
   if (receiptIds.length > 0) {
-    setTimeout(() => checkPushReceipts(receiptIds).catch(() => {}), 15_000);
+    setTimeout(() => {
+      checkPushReceipts(receiptIds).catch((err: unknown) => {
+        log.general.warn({ err }, 'Expo push receipt check failed');
+      });
+    }, 15_000);
   }
 
   // Update lastUsedAt for active tokens

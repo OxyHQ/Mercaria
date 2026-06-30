@@ -31,8 +31,12 @@ export default function AppLayout() {
               <Stack.Screen name="stores/[handle]" />
               <Stack.Screen name="products/[id]" />
               <Stack.Screen name="cart" />
+              <Stack.Screen name="checkout" />
+              <Stack.Screen name="orders/index" />
+              <Stack.Screen name="orders/[id]" />
               <Stack.Screen name="settings/index" />
               <Stack.Screen name="settings/general" />
+              <Stack.Screen name="settings/addresses" />
               <Stack.Screen name="settings/feedback" />
               <Stack.Screen name="notifications" />
               <Stack.Screen name="forgot-password" />

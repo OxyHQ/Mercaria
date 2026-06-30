@@ -10,6 +10,13 @@ export const queryKeys = {
   cart: {
     all: ["cart"] as const,
   },
+  addresses: {
+    all: ["addresses"] as const,
+  },
+  orders: {
+    list: (page: number) => ["orders", "list", page] as const,
+    detail: (id: string) => ["orders", "detail", id] as const,
+  },
   stores: {
     detail: (handle: string) => ["stores", handle] as const,
     collections: (handle: string) => ["stores", handle, "collections"] as const,

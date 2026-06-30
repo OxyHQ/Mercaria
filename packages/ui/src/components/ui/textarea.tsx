@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Platform, TextInput } from 'react-native';
+import { TextInput } from 'react-native';
 import { cn } from '../../lib/cn';
 
 interface TextareaProps extends React.ComponentPropsWithoutRef<typeof TextInput> {
@@ -12,7 +12,7 @@ const Textarea = React.forwardRef<TextInput, TextareaProps>(
       <TextInput
         ref={ref}
         className={cn(
-          'text-base text-foreground web:flex web:w-full lg:text-sm',
+          'text-base text-foreground web:flex web:w-full lg:text-sm web:[field-sizing:content]',
           variant === 'default' && [
             'native:min-h-[80px] native:text-md native:leading-[1.25] min-h-[60px] rounded-xl border border-input bg-background px-3.5 py-2.5',
             'web:ring-offset-background web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
@@ -25,10 +25,7 @@ const Textarea = React.forwardRef<TextInput, TextareaProps>(
         multiline
         scrollEnabled={false}
         textAlignVertical="top"
-        style={[
-          Platform.OS === 'web' ? ({ fieldSizing: 'content' } as any) : undefined,
-          style,
-        ]}
+        style={style}
         {...props}
       />
     );
