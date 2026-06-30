@@ -1,11 +1,11 @@
 name: Deploy POS
 
-# HANDOFF: before this deploy can go live, the following must be created/registered:
-#   - Cloudflare Pages project named `mercaria-pos`
-#   - Custom domain `pos.mercaria.co` attached to that Pages project + DNS
-#   - Oxy RP client id for the POS app registered, and the repo variable
-#     `EXPO_PUBLIC_OXY_CLIENT_ID_POS` set to it
-# Until those exist `wrangler pages deploy` will fail and SSO will not work.
+# Deploys the POS web bundle to a Cloudflare Worker (Static Assets) named
+# `mercaria-pos`. `workers_dev`/`preview_urls` are disabled in wrangler.jsonc so
+# the app is served ONLY via the custom domain `pos.mercaria.co` — no
+# `*.workers.dev` / `*.pages.dev` URL is ever exposed.
+# HANDOFF: the Oxy RP client id for the POS app must be registered and the repo
+# variable `EXPO_PUBLIC_OXY_CLIENT_ID_POS` set to it for the SSO RP flow to work.
 
 on:
   workflow_dispatch:
@@ -44,10 +44,11 @@ jobs:
           EXPO_PUBLIC_OXY_CLIENT_ID: ${{ vars.EXPO_PUBLIC_OXY_CLIENT_ID_POS }}
           EXPO_PUBLIC_OXY_API_URL: ${{ vars.EXPO_PUBLIC_OXY_API_URL || 'https://api.oxy.so' }}
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://api.mercaria.co' }}
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: '3.114.0'
-          command: pages deploy packages/pos/dist --project-name=mercaria-pos --branch=main
+          wranglerVersion: '4'
+          workingDirectory: packages/pos
+          command: deploy

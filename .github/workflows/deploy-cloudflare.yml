@@ -35,10 +35,15 @@ jobs:
           EXPO_PUBLIC_OXY_CLIENT_ID: ${{ vars.EXPO_PUBLIC_OXY_CLIENT_ID }}
           EXPO_PUBLIC_OXY_API_URL: ${{ vars.EXPO_PUBLIC_OXY_API_URL || 'https://api.oxy.so' }}
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://api.mercaria.co' }}
-      - name: Deploy to Cloudflare Pages
+      # Deploys to a Cloudflare Worker (Static Assets) named `mercaria`.
+      # `workers_dev`/`preview_urls` are disabled in wrangler.jsonc so the app is
+      # served ONLY via the custom domain `mercaria.co` — no `*.workers.dev` /
+      # `*.pages.dev` URL is ever exposed.
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: '3.114.0'
-          command: pages deploy packages/frontend/dist --project-name=mercaria --branch=main
+          wranglerVersion: '4'
+          workingDirectory: packages/frontend
+          command: deploy

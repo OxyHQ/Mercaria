@@ -1,0 +1,10 @@
+{
+  "name": "mercaria-pos",
+  "compatibility_date": "2026-06-30",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "workers_dev": false,
+  "preview_urls": false
+}
