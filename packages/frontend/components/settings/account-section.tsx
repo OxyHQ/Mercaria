@@ -1,20 +1,22 @@
 import { View } from "react-native";
 import { Button, Text } from "@mercaria/ui";
 import { useOxy } from "@oxyhq/services";
+import { useRouter } from "expo-router";
 import { useTranslation } from "@/hooks/useTranslation";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronRight, Package, MapPin } from "lucide-react-native";
 
 export function AccountSection() {
   const { user, showBottomSheet } = useOxy();
   const { t } = useTranslation();
+  const router = useRouter();
 
-  const displayName = user?.name?.first
-    ? user.name.last
-      ? `${user.name.first} ${user.name.last}`
-      : user.name.first
-    : user?.username || t('common.user');
+  // The API resolves the canonical display string; render it directly rather
+  // than recomposing from first/last/full (Oxy name contract).
+  const displayName = user?.name?.displayName;
+  const initial = (displayName?.[0] ?? "U").toUpperCase();
 
-  const initial = (user?.name?.first?.[0] || user?.username?.[0] || "U").toUpperCase();
+  const go = (route: string) => () =>
+    router.push(route as Parameters<typeof router.push>[0]);
 
   return (
     <View className="gap-6">
@@ -29,6 +31,32 @@ export function AccountSection() {
             <Text className="text-sm text-muted-foreground">{user.email}</Text>
           )}
         </View>
+      </View>
+
+      {/* Commerce shortcuts */}
+      <View className="gap-2">
+        <Button
+          variant="outline"
+          onPress={go("/(app)/orders")}
+          className="flex-row items-center justify-between"
+        >
+          <View className="flex-row items-center gap-2">
+            <Package size={16} className="text-muted-foreground" />
+            <Text className="text-sm font-medium">{t("settings.sections.orders")}</Text>
+          </View>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </Button>
+        <Button
+          variant="outline"
+          onPress={go("/(app)/settings/addresses")}
+          className="flex-row items-center justify-between"
+        >
+          <View className="flex-row items-center gap-2">
+            <MapPin size={16} className="text-muted-foreground" />
+            <Text className="text-sm font-medium">{t("settings.sections.addresses")}</Text>
+          </View>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </Button>
       </View>
 
       {/* Manage Account */}

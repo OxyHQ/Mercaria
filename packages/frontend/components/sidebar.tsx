@@ -142,13 +142,9 @@ const MainSidebar = React.memo(function MainSidebar() {
     pathname === "/(app)" ||
     (pathname.startsWith("/(app)") && !pathname.includes("/settings"));
 
-  const displayName = React.useMemo(() => {
-    if (!user) return t("common.user");
-    if (user.name?.first) {
-      return user.name.last ? `${user.name.first} ${user.name.last}` : user.name.first;
-    }
-    return user.username || t("common.user");
-  }, [user, t]);
+  // Render the API-resolved canonical display string directly (Oxy name
+  // contract); fall back to a generic label only when signed out.
+  const displayName = user?.name?.displayName ?? t("common.user");
 
   /* ───────────────── Collapsed (desktop) ───────────────── */
   if (isCollapsed) {

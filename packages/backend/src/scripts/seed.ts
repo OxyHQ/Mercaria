@@ -230,10 +230,10 @@ const EYE_BRIGHTENER_SALE_SHADES: readonly string[] = ['Stella', 'Betty'];
 
 /**
  * Review distribution for the Brilliant Eye Brightener, keyed by star value.
- * Counts are chosen to total {@link EYE_BRIGHTENER_REVIEW_COUNT} and average
- * ≈4.6, mirroring the original Shop PDP's distribution (≈82% 5★ / 7% 4★ / 5% 3★
- * / 3% 2★ / 4% 1★). The aggregate persisted on the listing is recomputed from
- * the seeded docs, so these are the single source of truth for the seeded rating.
+ * Counts total 40 and average ≈4.6, mirroring the original Shop PDP's
+ * distribution (≈82% 5★ / 7% 4★ / 5% 3★ / 3% 2★ / 4% 1★). The aggregate
+ * persisted on the listing is recomputed from the seeded docs, so these are the
+ * single source of truth for the seeded rating.
  */
 const EYE_BRIGHTENER_REVIEW_DISTRIBUTION: Readonly<Record<1 | 2 | 3 | 4 | 5, number>> = {
   5: 33,
@@ -242,12 +242,6 @@ const EYE_BRIGHTENER_REVIEW_DISTRIBUTION: Readonly<Record<1 | 2 | 3 | 4 | 5, num
   2: 1,
   1: 1,
 } as const;
-
-/** Total seeded reviews for the Brilliant Eye Brightener (sum of the distribution). */
-const EYE_BRIGHTENER_REVIEW_COUNT = Object.values(EYE_BRIGHTENER_REVIEW_DISTRIBUTION).reduce(
-  (sum, count) => sum + count,
-  0,
-);
 
 /** Newest seeded review is this many days old; the rest spread back from here. */
 const REVIEW_SPREAD_DAYS = 60;

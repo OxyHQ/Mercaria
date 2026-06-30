@@ -9,9 +9,7 @@ interface UserAvatarProps {
 export function UserAvatar({ size = 24 }: UserAvatarProps) {
   const { user, oxyServices } = useOxy();
 
-  const initial = (
-    user?.name?.first?.[0] || user?.username?.[0] || "U"
-  ).toUpperCase();
+  const initial = (user?.name?.displayName?.[0] ?? "U").toUpperCase();
 
   const avatarUrl = user?.avatar
     ? oxyServices.getFileDownloadUrl(user.avatar, "thumb")

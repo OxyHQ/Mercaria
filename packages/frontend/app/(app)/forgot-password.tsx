@@ -33,7 +33,9 @@ export default function ForgotPasswordScreen() {
       toast.success(t('forgotPassword.checkEmailToast'));
       router.back();
     } catch (error: any) {
-      console.error('Reset password error:', error);
+      if (__DEV__) {
+        console.error('Reset password error:', error);
+      }
       const errorMessage = error.response?.data?.error || t('forgotPassword.failedToSend');
       setError(errorMessage);
 

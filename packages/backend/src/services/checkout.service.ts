@@ -38,7 +38,7 @@ import { ProductVariant, type IProductVariant } from '../models/product-variant.
 import { Address, type IAddress } from '../models/address.js';
 import { Discount } from '../models/discount.js';
 import { nextOrderNumber } from '../models/counter.js';
-import { getCart, clearCart } from './cart.service.js';
+import { getCart, clearCart, removeCartLines } from './cart.service.js';
 import { reserve, release } from './inventory.service.js';
 import { summarizeOrders } from './order-hydration.service.js';
 import { resolveMedia } from './catalog-hydration.service.js';
@@ -372,6 +372,23 @@ export async function checkout(
     }
   }
 
+  // 4b. Per-seller checkout: when `sellerKeys` is given, keep only the requested
+  // groups and place those (the rest stay in the cart). At least one must match.
+  if (input.sellerKeys && input.sellerKeys.length > 0) {
+    const wanted = new Set(input.sellerKeys);
+    for (const key of [...groups.keys()]) {
+      if (!wanted.has(key)) {
+        groups.delete(key);
+      }
+    }
+    if (groups.size === 0) {
+      throw conflict('No matching cart items for the selected seller(s)');
+    }
+  }
+  // Whether this checkout placed the WHOLE cart (empty it) or just some groups
+  // (remove only the placed lines, keeping the rest).
+  const isPartialCheckout = Boolean(input.sellerKeys && input.sellerKeys.length > 0);
+
   // 5. Reserve every line across ALL groups; roll back on any failure.
   const reserved: Reservation[] = [];
   try {
@@ -509,7 +526,15 @@ export async function checkout(
   // so they never reach here), keeping redemption counts idempotent. Then empty
   // the cart now that orders exist.
   await incrementDiscountUsage([...appliedCodes]);
-  await clearCart(oxyUserId);
+  if (isPartialCheckout) {
+    // Remove only the lines that were just placed; the rest stay in the cart.
+    const placedVariantIds = [...groups.values()].flatMap((group) =>
+      group.lines.map((line) => line.cartItem.variantId),
+    );
+    await removeCartLines(oxyUserId, placedVariantIds);
+  } else {
+    await clearCart(oxyUserId);
+  }
 
   // 10. Best-effort: notify buyer + seller of each placed order. A notification
   // failure must never fail a completed checkout.

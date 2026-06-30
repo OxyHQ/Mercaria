@@ -554,6 +554,7 @@ const orderStatusSchema = z.enum([
 /** Body for `POST /checkout` (CheckoutInput). */
 export const checkoutSchema = z.object({
   addressId: z.string().trim().min(1),
+  sellerKeys: z.array(z.string().trim().min(1)).optional(),
   shippingSelections: z.record(z.string(), shippingMethodSchema).optional(),
   discountCodes: z.array(z.string().trim().min(1)).optional(),
 });

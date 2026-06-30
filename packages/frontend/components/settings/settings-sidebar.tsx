@@ -8,6 +8,8 @@ import {
   User,
   Settings2,
   MessageSquarePlus,
+  Package,
+  MapPin,
   ArrowLeft,
   type LucideIcon,
 } from "lucide-react-native";
@@ -21,6 +23,8 @@ interface SettingsSection {
 
 const SECTIONS: SettingsSection[] = [
   { id: "account", route: "/(app)/settings", icon: User, labelKey: "settings.sections.account" },
+  { id: "orders", route: "/(app)/orders", icon: Package, labelKey: "settings.sections.orders" },
+  { id: "addresses", route: "/(app)/settings/addresses", icon: MapPin, labelKey: "settings.sections.addresses" },
   { id: "general", route: "/(app)/settings/general", icon: Settings2, labelKey: "settings.sections.general" },
   { id: "feedback", route: "/(app)/settings/feedback", icon: MessageSquarePlus, labelKey: "settings.sections.feedback" },
 ];
@@ -33,6 +37,8 @@ export const SettingsSidebar = React.memo(function SettingsSidebar() {
   const activeId = React.useMemo(() => {
     if (pathname.includes("/settings/general")) return "general";
     if (pathname.includes("/settings/feedback")) return "feedback";
+    if (pathname.includes("/settings/addresses")) return "addresses";
+    if (pathname.includes("/orders")) return "orders";
     return "account";
   }, [pathname]);
 

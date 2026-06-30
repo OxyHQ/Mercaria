@@ -99,6 +99,8 @@
     "sections": {
       "account": "Cuenta",
       "general": "General",
+      "orders": "Pedidos",
+      "addresses": "Direcciones",
       "feedback": "Comentarios"
     }
   },
