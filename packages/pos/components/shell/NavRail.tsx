@@ -2,12 +2,11 @@ import React, { useCallback, useState } from "react";
 import { View, Pressable, Platform, type LayoutRectangle } from "react-native";
 import { createPortal } from "react-dom";
 import { useRouter, usePathname } from "expo-router";
-import { LogIn, type LucideIcon } from "lucide-react-native";
+import { type LucideIcon } from "lucide-react-native";
 import { Text, useColorScheme } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
-import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
-import { useOxy, showSignInModal } from "@oxyhq/services";
+import { ProfileButton, showSignInModal, useAuth } from "@oxyhq/services";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { NAV_ITEMS, isNavItemActive, type NavItem } from "./nav-items";
 
@@ -84,47 +83,20 @@ function NavRailItem({ icon: Icon, label, isActive, onPress }: NavRailItemProps)
   );
 }
 
-function AuthRailItem() {
-  const { colors } = useColorScheme();
-  const { isAuthenticated } = useOxy();
-  const [anchor, setAnchor] = useState<AnchorRect | null>(null);
-
-  const label = isAuthenticated ? "Account" : "Sign in";
-  const onPress = useCallback(() => {
-    if (!isAuthenticated) showSignInModal();
-  }, [isAuthenticated]);
-
-  return (
-    <View className="items-center justify-center">
-      <Pressable
-        onPress={onPress}
-        onHoverIn={IS_WEB ? (e) => setAnchor(rectFromHover(e)) : undefined}
-        onHoverOut={IS_WEB ? () => setAnchor(null) : undefined}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        className={cn(
-          "h-12 w-12 items-center justify-center rounded-2xl web:transition",
-          "active:bg-secondary web:hover:bg-secondary",
-        )}
-      >
-        {isAuthenticated ? (
-          <UserAvatar size={32} />
-        ) : (
-          <LogIn size={22} color={colors.foreground} style={{ opacity: 0.35 }} />
-        )}
-      </Pressable>
-      <RailTooltip label={label} anchor={anchor} />
-    </View>
-  );
-}
-
 /** NavRail — vertical icon rail (web/desktop ≥768). Items gated by permission. */
 export function NavRail() {
   const router = useRouter();
   const pathname = usePathname();
   const { can } = useActiveStoreContext();
+  const { showBottomSheet } = useAuth();
 
   const goHome = useCallback(() => router.push("/"), [router]);
+
+  // POS has no per-user settings route, so "Manage account" opens the SDK's
+  // built-in ManageAccount bottom sheet instead of navigating to an app screen.
+  const handleManage = useCallback(() => {
+    showBottomSheet?.("ManageAccount");
+  }, [showBottomSheet]);
 
   const handlePress = useCallback(
     (item: NavItem) => {
@@ -158,7 +130,15 @@ export function NavRail() {
         ))}
       </View>
 
-      <AuthRailItem />
+      {/* Account trigger. ProfileButton owns all three auth states (undetermined
+          skeleton, signed-in avatar + account switcher, signed-out "Sign in")
+          and the device-account switcher menu. Collapsed to a bare avatar for
+          the 76px rail. */}
+      <ProfileButton
+        expanded={false}
+        onNavigateManage={handleManage}
+        onAddAccount={showSignInModal}
+      />
     </View>
   );
 }
