@@ -126,18 +126,17 @@ function RootLayout() {
         fonts={false}
         onFontsLoading={<AppSplashScreen />}
       >
+        {/* Mercaria is a marketplace: anonymous visitors must be able to browse
+            listings/shops/search without being force-redirected to auth. Sign-in
+            is only required to buy or sell. The SDK cold boot now owns this: a
+            truly first-time anonymous visitor is never force-bounced to `/sso`,
+            while a returning visitor whose local session lapsed still earns one
+            terminal establish bounce so a central-only cross-domain session is
+            silently restored. No provider flag is needed. */}
         <OxyProvider
           baseURL={OXY_API_URL}
           clientId={OXY_CLIENT_ID}
           authRedirectUri={Platform.OS !== 'web' ? AUTH_REDIRECT_URI : undefined}
-          // Mercaria is a marketplace: anonymous visitors must be able to browse
-          // listings/shops/search without being force-redirected to auth. Sign-in
-          // is only required to buy or sell. `disableAutoSso` suppresses ONLY the
-          // terminal cold-boot SSO bounce for anonymous visitors; all session
-          // restore steps (callback consume, FedCM/silent, silent-iframe,
-          // stored-session, cookie restore) still run, so a returning signed-in
-          // user is silently restored.
-          disableAutoSso
         >
           <AppContent />
         </OxyProvider>
