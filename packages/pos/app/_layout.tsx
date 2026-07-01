@@ -1,7 +1,10 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
+import {
+  preventNativeSplashAutoHide,
+  useHideNativeSplashWhenReady,
+} from "@oxyhq/expo-splash";
 import { useCallback, useEffect } from "react";
 import { OxyProvider, useOxy } from "@oxyhq/services";
 import { BloomThemeProvider } from "@oxyhq/bloom/theme";
@@ -27,7 +30,12 @@ export const unstable_settings = {
   initialRouteName: "(app)",
 };
 
-SplashScreen.preventAutoHideAsync();
+// Hold the native OS splash (Oxy family "Instagram, from Meta" pattern): Mercaria's
+// own logo centered on the dark brand background with the Oxy symbol pinned to the
+// bottom — configured by `@oxyhq/expo-splash` in `app.config.js`. The custom
+// `AppSplashScreen` React overlay is gated to web only. No-op on web (the helper
+// guards `Platform.OS === 'web'`).
+preventNativeSplashAutoHide();
 
 const AUTH_REDIRECT_URI = Linking.createURL("/");
 
@@ -85,10 +93,15 @@ function RootLayout() {
     if (error) throw error;
   }, [error]);
 
-  useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
+  // NATIVE readiness flips on font-load ALONE — never on the custom splash fade
+  // (which only exists on web). The shared hook hides the held OS splash once
+  // ready; it is a no-op on web (the OS splash was never held there). Gating
+  // native readiness on the web-only fade would hang the OS splash forever.
+  useHideNativeSplashWhenReady(loaded);
 
+  // On native the held OS splash covers this null render until fonts load; on web
+  // the custom <AppSplashScreen> below (via BloomThemeProvider `onFontsLoading`)
+  // owns the loading visual.
   if (!loaded) return null;
 
   return (
@@ -99,7 +112,7 @@ function RootLayout() {
         persistKey={BLOOM_THEME_PERSIST_KEY}
         storage={BLOOM_THEME_STORAGE}
         fonts={false}
-        onFontsLoading={<AppSplashScreen />}
+        onFontsLoading={Platform.OS === "web" ? <AppSplashScreen /> : null}
       >
         {/* The dashboard REQUIRES login — there is no anonymous browse path, so
             it does NOT set `disableAutoSso`. The SDK cold boot owns callback
