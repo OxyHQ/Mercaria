@@ -268,9 +268,9 @@ evidence (Mention only *tolerates* one bounce; no existing opt‑out anywhere) a
 (threads into `runColdBoot`, skips **only** the terminal bounce; callback‑consume / FedCM
 / stored‑session restore still run, so a returning user is silently restored).
 
-- Published: **`@oxyhq/services@10.4.0`**, **`@oxyhq/auth@4.2.0`** (core unchanged 3.7.1).
-- Mercaria: bumped `@oxyhq/services ^10.4.0` and passes `disableAutoSso` in
-  `app/_layout.tsx`. Default behavior for every other app is unchanged.
+- Published: **`@oxyhq/services@10.4.0`** (core unchanged 3.7.1). Later migrated to device-first `@oxyhq/services@19` (zero-cookie; legacy web auth package removed).
+- Mercaria: bumped `@oxyhq/services ^10.4.0` and passed `disableAutoSso` in
+  `app/_layout.tsx`. Superseded by the device-first cutover (no SSO bounce).
 
 ---
 
@@ -306,9 +306,8 @@ reset (so document scroll works on the served app, not just via hand‑applied C
 identified and verified in‑browser, being applied.
 
 **Not pushed.** Everything is in the working tree pending the user's visual sign‑off; SDK
-packages (`@oxyhq/services@10.4.0`, `@oxyhq/auth@4.2.0`) were published as the upstream
-fix. There is one pre‑existing, unrelated `tsc` error in `app/(app)/reset-password.tsx:57`
-(`/login` typed‑route) to clear before the next push.
+packages were published as the upstream fix. Device-first migration (`@oxyhq/services@19`,
+`@oxyhq/core@9`, legacy web auth package removed) completed separately.
 
 **Reference files:** `/tmp/mercaria-shop-shell.md` (Shop shell mapped to NativeWind),
 `/tmp/mercaria-real-mock.md` (real Shopify image catalog).

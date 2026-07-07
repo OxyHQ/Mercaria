@@ -114,12 +114,9 @@ function RootLayout() {
         fonts={false}
         onFontsLoading={Platform.OS === "web" ? <AppSplashScreen /> : null}
       >
-        {/* The dashboard REQUIRES login — there is no anonymous browse path, so
-            it does NOT set `disableAutoSso`. The SDK cold boot owns callback
-            consume, FedCM/silent restore, stored-session restore and the SSO
-            bounce so a returning admin is restored (or bounced to auth) for
-            free; the auth gate in `(app)/_layout.tsx` renders the sign-in
-            screen for an unauthenticated visitor. */}
+        {/* POS requires login — no anonymous surface. The SDK device-first cold
+            boot restores sessions from persisted device credentials; the auth
+            gate renders sign-in when unauthenticated. */}
         <OxyProvider
           baseURL={OXY_API_URL}
           clientId={OXY_CLIENT_ID}

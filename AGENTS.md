@@ -29,7 +29,7 @@ Domain DTOs (`Listing`, `ListingCondition`, `Seller`, `Money`, `CurrencyCode`, `
 
 - **Frontend / Dashboard / POS**: Expo SDK 56, NativeWind 5 (Tailwind v4 + postcss), Reanimated, Zustand, TanStack Query, expo-router
 - **Backend**: Express, TypeScript, MongoDB/Mongoose, Redis (optional), Socket.IO
-- **Auth**: `@oxyhq/core` (incl. `@oxyhq/core/server`), `@oxyhq/services`, `@oxyhq/auth` (web SSO RP)
+- **Auth**: `@oxyhq/core` (incl. `@oxyhq/core/server`), `@oxyhq/services` (device-first session)
 - **UI**: `@oxyhq/bloom` + `@mercaria/ui`
 - **Client IDs**: storefront `EXPO_PUBLIC_OXY_CLIENT_ID`, dashboard `EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD`, POS `EXPO_PUBLIC_OXY_CLIENT_ID_POS`
 

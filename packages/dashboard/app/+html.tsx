@@ -1,14 +1,8 @@
 import { type PropsWithChildren } from "react";
-import { getSsoCallbackBootstrapScript } from "@oxyhq/core";
-
-const SSO_CALLBACK_BOOTSTRAP_SCRIPT = getSsoCallbackBootstrapScript();
 
 /**
  * Root HTML component for static rendering.
- *
- * The Oxy SSO callback bootstrap MUST run before the SPA hydrates so the SDK can
- * intercept and consume `/__oxy/sso-callback`. Don't wrap the app with Providers
- * here — that belongs in `_layout.tsx`.
+ * Don't wrap the app with Providers here — that belongs in `_layout.tsx`.
  */
 export default function Root({ children }: PropsWithChildren) {
   return (
@@ -16,9 +10,6 @@ export default function Root({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-
-        {/* Oxy SSO callback bootstrap — must run before the SPA hydrates. */}
-        <script dangerouslySetInnerHTML={{ __html: SSO_CALLBACK_BOOTSTRAP_SCRIPT }} />
 
         <meta
           name="viewport"

@@ -11,13 +11,13 @@ import { ScreenLoading } from "@/components/shell/Screen";
  *  - once resolved with no user, render a clean sign-in screen;
  *  - once authenticated, render the app.
  *
- * The root `OxyProvider` (no `disableAutoSso`) owns session restore / SSO bounce;
- * this component only renders the right surface for the resolved state.
+ * The root `OxyProvider` owns device-first session restore; this component only
+ * renders the right surface for the resolved state.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useOxy();
+  const { isAuthenticated, isAuthResolved } = useOxy();
 
-  if (isLoading) {
+  if (!isAuthResolved) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <ScreenLoading />
