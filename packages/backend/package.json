@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@mercaria/shared-types": "workspace:*",
-    "@oxyhq/core": "^5.2.1",
+    "@oxyhq/core": "^9.0.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "bullmq": "^5.34.0",
     "cors": "^2.8.5",

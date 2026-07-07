@@ -126,13 +126,10 @@ function RootLayout() {
         fonts={false}
         onFontsLoading={<AppSplashScreen />}
       >
-        {/* Mercaria is a marketplace: anonymous visitors must be able to browse
-            listings/shops/search without being force-redirected to auth. Sign-in
-            is only required to buy or sell. The SDK cold boot now owns this: a
-            truly first-time anonymous visitor is never force-bounced to `/sso`,
-            while a returning visitor whose local session lapsed still earns one
-            terminal establish bounce so a central-only cross-domain session is
-            silently restored. No provider flag is needed. */}
+        {/* Mercaria is a marketplace: anonymous visitors browse listings without
+            being redirected to sign in. The SDK device-first cold boot restores
+            returning sessions from persisted device credentials; sign-in is only
+            required to buy or sell. */}
         <OxyProvider
           baseURL={OXY_API_URL}
           clientId={OXY_CLIENT_ID}

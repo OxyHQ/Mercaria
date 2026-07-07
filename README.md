@@ -10,7 +10,7 @@ This repository is the **base shell**: the proven Oxy Expo + Express monorepo wi
 
 - **Frontend**: Expo (SDK 56) + React Native Web + NativeWind 5 (Tailwind v4) + Reanimated + Zustand + TanStack Query
 - **Backend**: Express + TypeScript + MongoDB/Mongoose + Redis (optional) + Socket.IO
-- **Auth**: Oxy (`@oxyhq/core`, `@oxyhq/services`, `@oxyhq/auth`) — SSO/cold-boot handled entirely by the SDK
+- **Auth**: Oxy (`@oxyhq/core`, `@oxyhq/services`) — device-first session handled entirely by the SDK
 - **UI**: `@oxyhq/bloom` shared component library
 - **Infra**: AWS ECS Fargate (API) + Cloudflare Pages (web) — see `HANDOFF.md`
 
