@@ -2,6 +2,7 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css";
 @import "nativewind/theme";
+@import "@oxyhq/bloom/design-tokens/theme.css";
 
 @source "./app/**/*.{js,jsx,ts,tsx}";
 @source "./components/**/*.{js,jsx,ts,tsx}";
@@ -75,13 +76,8 @@
   --spacing-space-48: 48px;
   --spacing-space-64: 64px;
 
-  /* Border radius — `rounded-radius-N`. */
-  --radius-radius-8: 8px;
-  --radius-radius-12: 12px;
+  /* Mercaria-local radius extension; Bloom provides the rest. */
   --radius-radius-16: 16px;
-  --radius-radius-20: 20px;
-  --radius-radius-28: 28px;
-  --radius-radius-max: 9999px;
 
   /* Typography — `text-<key>` bakes size + line-height + font-weight. */
   --text-caption: 12px;
