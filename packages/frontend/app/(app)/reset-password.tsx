@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text } from 'react-native';
 import axios from 'axios';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { showSignInModal } from '@oxyhq/services';
+import { openAccountDialog } from '@oxyhq/services';
 import { AuthContainer, AuthLogo, AuthInput, AuthButton, AuthError } from '@/components/auth';
 import apiClient from '@/lib/api/client';
 import { toast } from '@/components/sonner';
@@ -51,7 +51,7 @@ export default function ResetPasswordScreen() {
 
       toast.success(t('resetPassword.successMessage'));
       router.replace('/');
-      showSignInModal();
+      openAccountDialog();
     } catch (error: unknown) {
       const errorMessage =
         (axios.isAxiosError(error) && typeof error.response?.data?.error === 'string'

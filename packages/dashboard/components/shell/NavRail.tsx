@@ -6,7 +6,7 @@ import { type LucideIcon } from "lucide-react-native";
 import { Text, useColorScheme } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
-import { ProfileButton, showSignInModal } from "@oxyhq/services";
+import { ProfileButton, openAccountDialog } from "@oxyhq/services";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { NAV_ITEMS, isNavItemActive, type NavItem } from "./nav-items";
 
@@ -132,7 +132,7 @@ export function NavRail() {
       <ProfileButton
         expanded={false}
         onNavigateManage={goSettings}
-        onAddAccount={showSignInModal}
+        onAddAccount={() => openAccountDialog()}
       />
     </View>
   );

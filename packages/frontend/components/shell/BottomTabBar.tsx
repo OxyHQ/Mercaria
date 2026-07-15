@@ -21,7 +21,7 @@ import * as Haptics from "expo-haptics";
 import { UserAvatar } from "@/components/user-avatar";
 import { Text, useColorScheme } from "@mercaria/ui";
 import { useTheme } from "@oxyhq/bloom/theme";
-import { useOxy, showSignInModal } from "@oxyhq/services";
+import { useOxy, openAccountDialog } from "@oxyhq/services";
 import { useCart } from "@/lib/hooks/use-cart";
 import {
   NAV_ITEMS,
@@ -126,7 +126,7 @@ function AuthTab({ isActive }: AuthTabProps) {
 
   const onPress = useCallback(() => {
     triggerHaptic();
-    if (!isAuthenticated) showSignInModal();
+    if (!isAuthenticated) openAccountDialog();
   }, [isAuthenticated]);
 
   return (

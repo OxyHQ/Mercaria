@@ -1,6 +1,6 @@
 import React from "react";
 import { View } from "react-native";
-import { useOxy, showSignInModal } from "@oxyhq/services";
+import { useOxy, openAccountDialog } from "@oxyhq/services";
 import { Text, Button } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
 import { ScreenLoading } from "@/components/shell/Screen";
@@ -46,7 +46,7 @@ function SignInScreen() {
           Sign in with your Oxy account to manage your store — products, orders,
           inventory, customers, discounts and reports.
         </Text>
-        <Button className="mt-8 w-full" onPress={() => showSignInModal()}>
+        <Button className="mt-8 w-full" onPress={() => openAccountDialog()}>
           <Text className="font-semibold text-primary-foreground">Sign in</Text>
         </Button>
       </View>
