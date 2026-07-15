@@ -69,5 +69,9 @@
   },
   "dependencies": {
     "@oxyhq/core": "^12.1.1"
-  }
+  },
+  "trustedDependencies": [
+    "@parcel/watcher",
+    "@swc/core"
+  ]
 }

@@ -37,6 +37,9 @@ import { log } from '../lib/logger.js';
 /** Order statuses that count as a completed/qualifying purchase for a review. */
 const PURCHASED_STATUSES = ['paid', 'processing', 'shipped', 'delivered'] as const;
 
+/** A Mongo filter document (Mongoose 9 dropped the `FilterQuery` export). */
+type ReviewFilter = Record<string, unknown>;
+
 /** Average rating rounded to ONE decimal place. */
 function roundRating(avg: number): number {
   return Math.round(avg * 10) / 10;
@@ -358,7 +361,7 @@ export async function listReviews(
   { targetType, targetId }: ReviewTarget,
   { page, limit }: ReviewListParams,
 ): Promise<ReviewPage> {
-  const filter = {
+  const filter: ReviewFilter = {
     targetType,
     [targetIdField(targetType)]: targetId,
     status: 'published',
@@ -408,8 +411,8 @@ export async function listReviewsForStoreHandle(
     return { data: [], total: 0 };
   }
 
-  const filter = {
-    targetType: 'listing' as const,
+  const filter: ReviewFilter = {
+    targetType: 'listing',
     listingId: { $in: listingIds },
     status: 'published',
   };
