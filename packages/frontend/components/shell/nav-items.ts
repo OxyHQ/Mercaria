@@ -9,7 +9,7 @@ import {
 
 /**
  * Canonical navigation model for the Shop-style shell, shared by the desktop
- * {@link NavRail} and the mobile {@link BottomTabBar} so both render the exact
+ * {@link Sidebar} and the mobile {@link BottomTabBar} so both render the exact
  * same set of destinations.
  *
  * `href` is the route this item is *intended* to point at. Only items whose
