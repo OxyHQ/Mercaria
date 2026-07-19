@@ -28,6 +28,7 @@ import ratesRouter from './routes/rates.js';
 import meRouter from './routes/me.js';
 import adminRouter from './routes/admin/index.js';
 import channelsOauthRouter from './routes/channels-oauth.js';
+import channelsWebhooksRouter from './routes/channels-webhooks.js';
 
 // Socket.io
 import { initSocket } from './socket.js';
@@ -92,6 +93,8 @@ const DEV_ORIGINS = [
   'http://localhost:8083',
   'exp://localhost:8083',
   'http://10.0.2.2:8083',
+  'http://localhost:8092',
+  'exp://localhost:8092',
 ];
 
 const allowedOrigins = [
@@ -125,6 +128,11 @@ app.use((_req, res, next) => {
   next();
 });
 
+// Inbound connector webhooks (server-to-server). MUST be mounted BEFORE the
+// global express.json() so the RAW request body survives for HMAC verification
+// (the router mounts its own express.raw parser for that path).
+app.use('/channels/webhooks', channelsWebhooksRouter);
+
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -154,6 +162,7 @@ app.use('/me', meRouter);
 app.use('/admin', adminRouter);
 // Public connector OAuth callback (server-to-server; no browser CORS, no session).
 app.use('/channels/oauth', channelsOauthRouter);
+// (Inbound connector webhooks are mounted above, before express.json.)
 
 // Root route
 app.get('/', (_req, res) => {
@@ -180,6 +189,7 @@ app.get('/', (_req, res) => {
       '/me',
       '/admin',
       '/channels/oauth',
+      '/channels/webhooks',
     ]
   });
 });

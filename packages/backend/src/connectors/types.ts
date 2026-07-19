@@ -166,4 +166,18 @@ export interface ConnectorProvider {
    * variant in `shopCurrency` (the shop's validated native currency).
    */
   normalizeProduct(raw: unknown, shopCurrency: CurrencyCode): NormalizedProduct;
+
+  /**
+   * Register the provider's product webhooks (create/update/delete) pointing at
+   * `address` (the public inbound-webhook URL). Returns the platform's ids for the
+   * created subscriptions, to persist on the `Connection` and delete on
+   * disconnect. The set of topics is the provider's own concern.
+   */
+  registerWebhooks(auth: ConnectorAuth, params: { address: string }): Promise<string[]>;
+
+  /**
+   * Delete the given webhook subscriptions by their platform ids. Idempotent: an
+   * already-absent subscription is treated as success (not an error).
+   */
+  deleteWebhooks(auth: ConnectorAuth, webhookIds: string[]): Promise<void>;
 }

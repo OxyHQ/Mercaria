@@ -25,6 +25,7 @@ import type {
   CreateStoreProductInput,
   CreateStoreProductVariantInput,
   CurrencyCode,
+  SyncProgressEvent,
   SyncRun as SyncRunDTO,
   SyncSettings as SyncSettingsDTO,
   UpdateListingInput,
@@ -38,12 +39,35 @@ import { Category } from '../models/category.js';
 import { createStoreProduct, updateListing } from './catalog-write.service.js';
 import { encryptSecret, decryptSecret } from '../lib/connector-crypto.js';
 import { getConnectorProvider } from '../connectors/registry.js';
-import type { ConnectorCredentials, NormalizedProduct, NormalizedVariant } from '../connectors/types.js';
+import type {
+  ConnectorAuth,
+  ConnectorCredentials,
+  NormalizedProduct,
+  NormalizedVariant,
+} from '../connectors/types.js';
 import { createOAuthState } from '../connectors/oauth-state.js';
-import { getOAuthRedirectUri } from '../connectors/config.js';
+import { getOAuthRedirectUri, getWebhookAddress } from '../connectors/config.js';
 import { getShopifyCredentials } from '../connectors/shopify/config.js';
+import { getIO } from '../socket.js';
 import { notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
+
+/** Product-delete webhook payload (Shopify sends only `{ id }` on delete). */
+const webhookDeletePayloadSchema = z.object({ id: z.union([z.number(), z.string()]) });
+
+/**
+ * Broadcast a live sync-progress tick to the connection's store room. Best-effort:
+ * a no-op when Socket.IO is not initialized (e.g. a worker-only process, or tests),
+ * and it never throws into the caller. Membership of the `store:${storeId}` room is
+ * enforced server-side at subscribe time (see `socket.ts`).
+ */
+function emitSyncProgress(storeId: string, event: SyncProgressEvent): void {
+  const io = getIO();
+  if (!io) {
+    return;
+  }
+  io.to(`store:${storeId}`).emit('sync:progress', event);
+}
 
 /** Env var: the Mercaria category slug imported products are filed under (Fase 1). */
 const DEFAULT_CATEGORY_ENV = 'CONNECTOR_DEFAULT_CATEGORY_SLUG';
@@ -179,10 +203,43 @@ export function buildConnectAuthorizeUrl(params: {
 }
 
 /**
+ * Register the provider's product webhooks for a connection and persist their ids
+ * onto `conn.webhookIds`. Best-effort: a registration failure logs and leaves the
+ * connection working WITHOUT real-time sync (backfill + scheduled re-sync still
+ * apply) — it never fails the connect. Any previously-registered webhooks are
+ * removed first (idempotent) so a reconnect never accumulates duplicates.
+ */
+async function registerConnectionWebhooks(conn: IConnection, auth: ConnectorAuth): Promise<void> {
+  const provider = getConnectorProvider(conn.provider);
+  try {
+    if (conn.webhookIds.length > 0) {
+      await provider
+        .deleteWebhooks(auth, conn.webhookIds)
+        .catch((err) =>
+          log.general.warn(
+            { err, connectionId: String(conn._id) },
+            'Failed to remove stale connector webhooks before re-registering',
+          ),
+        );
+    }
+    const ids = await provider.registerWebhooks(auth, { address: getWebhookAddress(conn.provider) });
+    await Connection.updateOne({ _id: conn._id }, { $set: { webhookIds: ids } });
+    conn.webhookIds = ids;
+  } catch (err) {
+    log.general.warn(
+      { err, connectionId: String(conn._id) },
+      'Failed to register connector webhooks (real-time sync disabled for this connection)',
+    );
+  }
+}
+
+/**
  * Complete an OAuth connect: exchange the authorization code, validate the shop
  * currency is supported, encrypt the token, and upsert the `{ storeId, provider }`
  * connection. `storeId` is resolved server-side (from the signed state), never
- * from a request body. Returns the persisted connection.
+ * from a request body. After persisting, registers the platform's product
+ * webhooks (best-effort) and — when product pull is already enabled for this
+ * connection — enqueues an initial backfill. Returns the persisted connection.
  */
 export async function connectAndVerify(
   storeId: string,
@@ -218,6 +275,30 @@ export async function connectAndVerify(
     },
     { new: true, upsert: true, setDefaultsOnInsert: true },
   );
+
+  // Real-time sync: register the platform's product webhooks (best-effort).
+  await registerConnectionWebhooks(conn, {
+    accessToken: result.accessToken,
+    shopDomain: result.shopDomain,
+  });
+
+  // Initial import: enqueue a backfill when product pull is already enabled for
+  // this connection (a fresh connection defaults `products: 'off'` and imports
+  // only after the merchant configures + syncs). The producer's inline fallback
+  // keeps this working without Redis.
+  if (
+    conn.syncSettings.products === 'pull' ||
+    conn.syncSettings.products === 'bidirectional'
+  ) {
+    const { enqueueConnectionBackfill } = await import('../queue/producers.js');
+    await enqueueConnectionBackfill({ storeId, connectionId: String(conn._id) }).catch((err) =>
+      log.general.warn(
+        { err, connectionId: String(conn._id) },
+        'Failed to enqueue connect-time backfill',
+      ),
+    );
+  }
+
   return conn;
 }
 
@@ -260,12 +341,31 @@ export async function updateSyncSettings(
 }
 
 /**
- * Disconnect a connection: mark it disconnected, drop the encrypted credentials
- * (no token at rest) and any registered webhook ids. The record is KEPT so the
- * `source` provenance on already-imported listings stays meaningful. Scoped by
- * `{ _id, storeId }`.
+ * Disconnect a connection: delete the platform webhooks (best-effort, while the
+ * credentials are still present), then mark it disconnected, drop the encrypted
+ * credentials (no token at rest) and any registered webhook ids. The record is
+ * KEPT so the `source` provenance on already-imported listings stays meaningful.
+ * Scoped by `{ _id, storeId }`.
  */
 export async function disconnect(storeId: string, connectionId: string): Promise<IConnection> {
+  const existing = await Connection.findOne({ _id: connectionId, storeId });
+  if (!existing) {
+    throw notFound('Connection not found');
+  }
+
+  // Best-effort: remove the platform webhooks while we still hold the credentials.
+  if (existing.webhookIds.length > 0 && existing.credentials && existing.shopDomain) {
+    try {
+      const provider = getConnectorProvider(existing.provider);
+      await provider.deleteWebhooks(decryptAuth(existing), existing.webhookIds);
+    } catch (err) {
+      log.general.warn(
+        { err, connectionId: String(existing._id) },
+        'Failed to delete connector webhooks on disconnect',
+      );
+    }
+  }
+
   const conn = await Connection.findOneAndUpdate(
     { _id: connectionId, storeId },
     { $set: { status: 'disconnected', webhookIds: [] }, $unset: { credentials: '' } },
@@ -292,8 +392,12 @@ async function resolveImportCategorySlug(): Promise<string> {
   return slug;
 }
 
-/** Decrypt a connection's stored credentials into `ConnectorCredentials`. */
-function decryptCredentials(conn: IConnection, shopCurrency: CurrencyCode): ConnectorCredentials {
+/**
+ * Decrypt a connection's stored token into `ConnectorAuth` (access token + shop
+ * domain). Used by the auth-only paths (webhook register/delete) that do not need
+ * the shop currency.
+ */
+function decryptAuth(conn: IConnection): ConnectorAuth {
   if (!conn.credentials) {
     throw validationError('Connection has no stored credentials');
   }
@@ -304,7 +408,12 @@ function decryptCredentials(conn: IConnection, shopCurrency: CurrencyCode): Conn
   if (!parsed.success) {
     throw validationError('Stored connection credentials are malformed');
   }
-  return { accessToken: parsed.data.accessToken, shopDomain: conn.shopDomain, shopCurrency };
+  return { accessToken: parsed.data.accessToken, shopDomain: conn.shopDomain };
+}
+
+/** Decrypt a connection's stored credentials into `ConnectorCredentials` (adds currency). */
+function decryptCredentials(conn: IConnection, shopCurrency: CurrencyCode): ConnectorCredentials {
+  return { ...decryptAuth(conn), shopCurrency };
 }
 
 /** Map a normalized variant to the store-product variant input. */
@@ -453,6 +562,7 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
 
   const run = await SyncRun.create({ connectionId: String(conn._id), kind: 'backfill' });
   const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'started', counts });
 
   try {
     let cursor: string | undefined;
@@ -475,6 +585,8 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
         }
       }
       cursor = page.nextCursor;
+      // Live tick after each page so the dashboard shows running progress.
+      emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'running', counts });
     } while (cursor);
 
     run.counts = counts;
@@ -485,6 +597,7 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
       { _id: conn._id },
       { $set: { lastSyncAt: new Date(), status: 'connected' } },
     );
+    emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'completed', counts });
   } catch (err) {
     run.counts = counts;
     run.status = 'failed';
@@ -492,8 +605,135 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
     run.finishedAt = new Date();
     await run.save();
     await Connection.updateOne({ _id: conn._id }, { $set: { status: 'error' } });
+    emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'failed', counts });
     log.general.error({ err, connectionId: String(conn._id) }, 'Connector backfill failed');
   }
 
   return run;
+}
+
+/**
+ * Validate that a connection is backfillable, then ENQUEUE an initial backfill.
+ * The validation runs synchronously so the API caller gets a proper 404/400; the
+ * import itself runs on the `marketplace-sync` queue (or inline when Redis is off,
+ * via the producer's inline fallback). Scoped by `{ _id, storeId }` — no
+ * cross-store access.
+ */
+export async function requestBackfill(storeId: string, connectionId: string): Promise<void> {
+  const conn = await Connection.findOne({ _id: connectionId, storeId });
+  if (!conn) {
+    throw notFound('Connection not found');
+  }
+  if (conn.mode !== 'pull') {
+    throw validationError('Backfill is only supported for pull connections');
+  }
+  if (conn.syncSettings.products !== 'pull' && conn.syncSettings.products !== 'bidirectional') {
+    throw validationError('Product pull is not enabled for this connection');
+  }
+  const { enqueueConnectionBackfill } = await import('../queue/producers.js');
+  await enqueueConnectionBackfill({ storeId, connectionId });
+}
+
+/**
+ * Archive the listing mapped to `externalId` for `conn` (soft-delete — never a
+ * hard-delete, so order history + provenance survive). Returns true when a listing
+ * was actually archived (an already-archived or unmapped id is a no-op).
+ */
+async function archiveSourcedListing(conn: IConnection, externalId: string): Promise<boolean> {
+  const result = await Listing.updateOne(
+    {
+      storeId: conn.storeId,
+      'source.connectionId': String(conn._id),
+      'source.externalId': externalId,
+    },
+    { $set: { status: 'archived' } },
+  );
+  return result.modifiedCount > 0;
+}
+
+/**
+ * Process ONE inbound platform webhook (already HMAC-verified at the ingress
+ * route). `products/create` + `products/update` upsert the single product through
+ * the SAME sync path as backfill (respecting `overriddenFields`); `products/delete`
+ * ARCHIVES the mapped listing. Records a `webhook` `SyncRun` and emits live
+ * progress. Best-effort: a modeled failure is recorded on the run + logged and does
+ * NOT throw (Shopify re-delivers failed webhooks; the upsert is idempotent).
+ */
+export async function processConnectorWebhook(job: {
+  connectionId: string;
+  topic: string;
+  payload: unknown;
+}): Promise<void> {
+  const conn = await Connection.findById(job.connectionId);
+  if (!conn) {
+    log.general.warn(
+      { connectionId: job.connectionId, topic: job.topic },
+      'Webhook for unknown connection (ignored)',
+    );
+    return;
+  }
+  if (conn.status !== 'connected') {
+    log.general.warn(
+      { connectionId: job.connectionId, status: conn.status },
+      'Webhook for a non-connected connection (ignored)',
+    );
+    return;
+  }
+  // Respect the per-connection product direction: no product pull ⇒ ignore.
+  if (conn.syncSettings.products !== 'pull' && conn.syncSettings.products !== 'bidirectional') {
+    log.general.info(
+      { connectionId: job.connectionId, topic: job.topic },
+      'Product pull disabled — webhook ignored',
+    );
+    return;
+  }
+
+  const connectionId = String(conn._id);
+  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const run = await SyncRun.create({ connectionId, kind: 'webhook' });
+  emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'started', counts });
+
+  try {
+    if (job.topic === 'products/delete') {
+      const parsed = webhookDeletePayloadSchema.safeParse(job.payload);
+      if (!parsed.success) {
+        throw validationError('Malformed product-delete webhook payload');
+      }
+      const archived = await archiveSourcedListing(conn, String(parsed.data.id));
+      counts[archived ? 'updated' : 'skipped'] += 1;
+    } else {
+      // products/create | products/update — upsert the single product.
+      if (!conn.shopCurrency || !isSupportedCurrency(conn.shopCurrency)) {
+        throw validationError('Connection has no supported shop currency');
+      }
+      const provider = getConnectorProvider(conn.provider);
+      const product = provider.normalizeProduct(job.payload, conn.shopCurrency);
+      const categorySlug = await resolveImportCategorySlug();
+      const outcome = await importProduct(conn, product, {
+        categorySlug,
+        autoPublish: conn.syncSettings.autoPublish,
+        respectOverrides: conn.syncSettings.conflictPolicy === 'respect_overrides',
+      });
+      counts[outcome] += 1;
+    }
+
+    run.counts = counts;
+    run.status = 'completed';
+    run.finishedAt = new Date();
+    await run.save();
+    await Connection.updateOne({ _id: conn._id }, { $set: { lastSyncAt: new Date() } });
+    emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'completed', counts });
+  } catch (err) {
+    counts.failed += 1;
+    run.counts = counts;
+    run.status = 'failed';
+    run.error = err instanceof Error ? err.message : 'Webhook processing failed';
+    run.finishedAt = new Date();
+    await run.save();
+    emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'failed', counts });
+    log.general.error(
+      { err, connectionId, topic: job.topic },
+      'Failed to process connector webhook',
+    );
+  }
 }

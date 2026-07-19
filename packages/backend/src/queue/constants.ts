@@ -29,6 +29,14 @@ export const MARKETPLACE_EVENTS_QUEUE = 'marketplace-events';
  */
 export const MARKETPLACE_MAINTENANCE_QUEUE = 'marketplace-maintenance';
 
+/**
+ * Connector sync work: initial catalog backfills (`connection.backfill`) and
+ * inbound-webhook processing (`webhook.process`). Both talk to external commerce
+ * platforms (Shopify, …), so this queue is separate from the fast event queue —
+ * a slow/failing external API must never starve order-event notifications.
+ */
+export const MARKETPLACE_SYNC_QUEUE = 'marketplace-sync';
+
 // --- Events worker tunables -------------------------------------------------
 
 /** Total attempts for an event job (1 initial + retries). */
@@ -50,6 +58,25 @@ export const MAINTENANCE_JOB_ATTEMPTS = 3;
  * maintenance job (reservation sweep, aggregate sweep) never overlaps itself.
  */
 export const MAINTENANCE_WORKER_CONCURRENCY = 1;
+
+// --- Sync worker tunables ---------------------------------------------------
+
+/** Total attempts for a connector-sync job (1 initial + retries). */
+export const SYNC_JOB_ATTEMPTS = 3;
+
+/**
+ * Base delay for the sync exponential backoff (ms). Larger than the events base:
+ * a failed external-API call (rate limit, transient 5xx) should back off well
+ * clear of the platform's own retry/limit windows before retrying.
+ */
+export const SYNC_BACKOFF_BASE_MS = 10 * MS_PER_SECOND;
+
+/**
+ * Concurrency for the sync worker (per process). Modest — external platforms
+ * enforce their own per-app rate limits, so a low ceiling keeps us well within
+ * them while still overlapping a backfill with live webhook processing.
+ */
+export const SYNC_WORKER_CONCURRENCY = 3;
 
 // --- Job retention ----------------------------------------------------------
 
@@ -91,3 +118,7 @@ export const JOB_LOW_INVENTORY_ALERT = 'low-inventory-alert';
 export const JOB_EXPIRE_RESERVATIONS = 'expire-reservations';
 /** Job name: daily full rating-aggregate sweep (repeatable). */
 export const JOB_RECOMPUTE_AGGREGATES_SWEEP = 'recompute-aggregates-sweep';
+/** Job name: run an initial catalog backfill for a `pull` connection. */
+export const JOB_CONNECTION_BACKFILL = 'connection.backfill';
+/** Job name: process one inbound platform webhook (product create/update/delete). */
+export const JOB_WEBHOOK_PROCESS = 'webhook.process';

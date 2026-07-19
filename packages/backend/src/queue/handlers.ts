@@ -23,6 +23,8 @@ import type {
   OrderEventNotificationJob,
   OrderEvent,
   LowInventoryAlertJob,
+  ConnectionBackfillJob,
+  WebhookProcessJob,
 } from './types.js';
 
 /** Store-member permissions that grant inventory/low-stock visibility. */
@@ -254,4 +256,25 @@ export async function handleAggregateSweep(): Promise<void> {
   }
 
   log.general.info({ recomputed }, 'Rating-aggregate sweep complete');
+}
+
+/**
+ * Run an initial catalog backfill for a `pull` connection. Delegates to the
+ * connector-sync service (dynamic import to avoid a static
+ * handlers→connector-sync→queue-producers cycle at module-load, mirroring the
+ * review-service delegation above).
+ */
+export async function handleConnectionBackfill(job: ConnectionBackfillJob): Promise<void> {
+  const { runBackfill } = await import('../services/connector-sync.service.js');
+  await runBackfill(job.storeId, job.connectionId);
+}
+
+/**
+ * Process one inbound platform webhook (product create/update/delete). Delegates
+ * to the connector-sync service (dynamic import — same cycle-breaking reason as
+ * {@link handleConnectionBackfill}).
+ */
+export async function handleWebhookProcess(job: WebhookProcessJob): Promise<void> {
+  const { processConnectorWebhook } = await import('../services/connector-sync.service.js');
+  await processConnectorWebhook(job);
 }

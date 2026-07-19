@@ -39,6 +39,7 @@ export interface ShopifyHttpResponse {
 export interface ShopifyTransport {
   get(url: string, headers: Record<string, string>): Promise<ShopifyHttpResponse>;
   post(url: string, headers: Record<string, string>, body: string): Promise<ShopifyHttpResponse>;
+  del(url: string, headers: Record<string, string>): Promise<ShopifyHttpResponse>;
 }
 
 /** Only the Shopify shop namespace may ever be contacted. */
@@ -91,11 +92,22 @@ async function readBounded(stream: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-/** The real transport: `safeFetch` for GET, an IP-pinned https request for POST. */
+/**
+ * The real transport: `safeFetch` for the body-less GET/DELETE (it re-validates
+ * every hop + pins the connection to the validated IP), and an IP-pinned https
+ * request for POST (which `safeFetch` cannot carry a request body for).
+ */
 export const shopifyTransport: ShopifyTransport = {
   async get(url, headers) {
     assertShopifyHost(url);
     const result = await safeFetch(url, { method: 'GET', headers });
+    const body = await readBounded(result.response);
+    return { status: result.status, headers: flattenHeaders(result.headers), body };
+  },
+
+  async del(url, headers) {
+    assertShopifyHost(url);
+    const result = await safeFetch(url, { method: 'DELETE', headers });
     const body = await readBounded(result.response);
     return { status: result.status, headers: flattenHeaders(result.headers), body };
   },

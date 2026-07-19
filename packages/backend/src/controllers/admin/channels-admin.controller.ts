@@ -15,10 +15,9 @@ import {
   listConnections,
   buildConnectAuthorizeUrl,
   updateSyncSettings,
-  runBackfill,
+  requestBackfill,
   disconnect,
   toConnectionDTO,
-  toSyncRunDTO,
 } from '../../services/connector-sync.service.js';
 import { isImplementedProvider } from '../../connectors/registry.js';
 import { sendSuccess } from '../../utils/api-response.js';
@@ -87,12 +86,15 @@ export async function patchChannelSettingsHandler(req: Request, res: Response): 
 
 /**
  * POST /admin/stores/:storeId/channels/:connectionId/sync — trigger a backfill.
- * Runs inline for now (a queue is a later phase); returns the resulting SyncRun.
+ * Validates the connection synchronously (404/400), then ENQUEUES the backfill on
+ * the `marketplace-sync` queue (inline fallback when Redis is off). Progress is
+ * delivered over the `store:${storeId}` Socket.IO room (`sync:progress`).
  */
 export async function syncChannelHandler(req: Request, res: Response): Promise<void> {
   try {
-    const run = await runBackfill(storeId(req), routeParam(req, 'connectionId'));
-    sendSuccess(res, toSyncRunDTO(run), 202);
+    const connectionId = routeParam(req, 'connectionId');
+    await requestBackfill(storeId(req), connectionId);
+    sendSuccess(res, { status: 'enqueued', connectionId }, 202);
   } catch (err) {
     log.general.error({ err, connectionId: req.params.connectionId }, 'Failed to run channel sync');
     respondWithError(res, err, 'Failed to run channel sync');
