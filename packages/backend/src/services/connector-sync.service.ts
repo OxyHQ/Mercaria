@@ -65,7 +65,7 @@ import { createOAuthState } from '../connectors/oauth-state.js';
 import { getOAuthRedirectUri, getWebhookAddress } from '../connectors/config.js';
 import { getShopifyCredentials } from '../connectors/shopify/config.js';
 import { getIO } from '../socket.js';
-import { notFound, validationError } from '../lib/errors/error-codes.js';
+import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 /** Product-delete webhook payload (Shopify sends only `{ id }` on delete). */
@@ -93,8 +93,20 @@ function emitSyncProgress(storeId: string, event: SyncProgressEvent): void {
 /** Env var: the Mercaria category slug imported products are filed under (Fase 1). */
 const DEFAULT_CATEGORY_ENV = 'CONNECTOR_DEFAULT_CATEGORY_SLUG';
 
-/** The decrypted credential blob shape (Shopify OAuth / API key). */
-const credentialsSchema = z.object({ accessToken: z.string().min(1) });
+/**
+ * The two provider-native decrypted credential blob shapes:
+ *  - `{ accessToken }`                 — an OAuth token (Shopify).
+ *  - `{ consumerKey, consumerSecret }` — an API key/secret pair (WooCommerce).
+ * `decryptAuth` folds both into `ConnectorAuth.accessToken` (the WooCommerce pair
+ * joins into the `"consumerKey:consumerSecret"` HTTP Basic userinfo the provider
+ * base64-encodes), so every downstream data path stays provider-agnostic. The two
+ * shapes are disjoint, so a sequential `safeParse` picks the right one unambiguously.
+ */
+const oauthCredentialsSchema = z.object({ accessToken: z.string().min(1) });
+const apiKeyCredentialsSchema = z.object({
+  consumerKey: z.string().min(1),
+  consumerSecret: z.string().min(1),
+});
 
 /** True when a raw currency string is a supported Mercaria `CurrencyCode`. */
 function isSupportedCurrency(code: string): code is CurrencyCode {
@@ -209,6 +221,9 @@ export function buildConnectAuthorizeUrl(params: {
   shopDomain: string;
 }): string {
   const provider = getConnectorProvider(params.providerId);
+  if (provider.credentialStrategy !== 'oauth') {
+    throw validationError(`Provider ${params.providerId} does not support OAuth connect`);
+  }
   const state = createOAuthState({
     storeId: params.storeId,
     provider: params.providerId,
@@ -346,6 +361,75 @@ export async function connectAndVerify(
 }
 
 /**
+ * Complete an API-KEY connect (WooCommerce and any future `credentialStrategy:
+ * 'api_key'` provider): verify the merchant-supplied `{ consumerKey,
+ * consumerSecret }` against the platform (`verifyConnection`, which also reports
+ * the shop currency), validate the currency is supported, encrypt the credential
+ * pair, and upsert the `{ storeId, provider }` connection as a `pull` channel.
+ *
+ * No OAuth code exchange and no webhook registration — WooCommerce's pull-only
+ * first cut relies on backfill + scheduled re-sync (real-time webhooks are not
+ * built). A fresh connection defaults `products: 'off'`; the merchant enables
+ * `products: 'pull'` via `updateSyncSettings`, then `runBackfill` imports the
+ * catalog — the SAME pull path Shopify uses.
+ *
+ * `storeId`/`providerId` are resolved server-side (route param + loaded store);
+ * only the credentials come from the body, and they are validated + encrypted,
+ * never spread into the document. Refuses to hijack an existing connection created
+ * in a different mode (e.g. a WooCommerce push-in link from the WordPress plugin).
+ */
+export async function connectWithApiKey(
+  storeId: string,
+  providerId: ConnectorProviderId,
+  params: { shopDomain: string; consumerKey: string; consumerSecret: string },
+): Promise<IConnection> {
+  const provider = getConnectorProvider(providerId);
+  if (provider.credentialStrategy !== 'api_key') {
+    throw validationError(`Provider ${providerId} does not support API-key connect`);
+  }
+
+  const existing = await Connection.findOne({ storeId, provider: providerId });
+  if (existing && existing.mode !== 'pull') {
+    throw conflict('A connection already exists for this provider in a different mode');
+  }
+
+  // Verify the credentials AND read the shop currency in one call. The provider
+  // encodes the API key/secret as the `"consumerKey:consumerSecret"` Basic userinfo.
+  const identity = await provider.verifyConnection({
+    accessToken: `${params.consumerKey}:${params.consumerSecret}`,
+    shopDomain: params.shopDomain,
+  });
+  if (!isSupportedCurrency(identity.shopCurrency)) {
+    throw validationError(`Shop currency ${identity.shopCurrency} is not supported by Mercaria`);
+  }
+
+  const credentials = encryptSecret(
+    JSON.stringify({ consumerKey: params.consumerKey, consumerSecret: params.consumerSecret }),
+  );
+
+  const conn = await Connection.findOneAndUpdate(
+    { storeId, provider: providerId },
+    {
+      $set: {
+        mode: 'pull',
+        status: 'connected',
+        credentials,
+        externalShopId: identity.externalShopId,
+        shopDomain: identity.shopDomain,
+        shopCurrency: identity.shopCurrency,
+        scopes: [],
+        connectedAt: new Date(),
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+  if (!conn) {
+    throw notFound('Connection not found');
+  }
+  return conn;
+}
+
+/**
  * Update a connection's `syncSettings` from an explicit field whitelist. Scoped
  * by `{ _id, storeId }` (no cross-store access). Never spreads the request body.
  */
@@ -447,11 +531,19 @@ function decryptAuth(conn: IConnection): ConnectorAuth {
   if (!conn.shopDomain) {
     throw validationError('Connection has no shop domain');
   }
-  const parsed = credentialsSchema.safeParse(JSON.parse(decryptSecret(conn.credentials)));
-  if (!parsed.success) {
-    throw validationError('Stored connection credentials are malformed');
+  const raw: unknown = JSON.parse(decryptSecret(conn.credentials));
+  const oauth = oauthCredentialsSchema.safeParse(raw);
+  if (oauth.success) {
+    return { accessToken: oauth.data.accessToken, shopDomain: conn.shopDomain };
   }
-  return { accessToken: parsed.data.accessToken, shopDomain: conn.shopDomain };
+  const apiKey = apiKeyCredentialsSchema.safeParse(raw);
+  if (apiKey.success) {
+    return {
+      accessToken: `${apiKey.data.consumerKey}:${apiKey.data.consumerSecret}`,
+      shopDomain: conn.shopDomain,
+    };
+  }
+  throw validationError('Stored connection credentials are malformed');
 }
 
 /** Decrypt a connection's stored credentials into `ConnectorCredentials` (adds currency). */

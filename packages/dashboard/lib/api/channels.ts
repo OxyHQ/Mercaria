@@ -40,6 +40,33 @@ export async function connectChannel(
   return unwrap(data);
 }
 
+/** Input for an API-key channel connect (WooCommerce): site URL + REST key pair. */
+export interface ConnectKeyInput {
+  /** The merchant's WooCommerce site URL (must be `https://`). */
+  shopDomain: string;
+  /** WooCommerce REST API consumer key. */
+  consumerKey: string;
+  /** WooCommerce REST API consumer secret. */
+  consumerSecret: string;
+}
+
+/**
+ * POST to connect an API-key provider (WooCommerce). Unlike the OAuth `connect`
+ * flow there is no browser redirect — the server verifies the credentials against
+ * the merchant's site and returns the established (credential-free) `Connection`.
+ */
+export async function connectKeyChannel(
+  storeId: string,
+  provider: ConnectorProviderId,
+  input: ConnectKeyInput,
+): Promise<Connection> {
+  const { data } = await apiClient.post<ApiResponse<Connection>>(
+    `${base(storeId)}/${provider}/connect-key`,
+    input,
+  );
+  return unwrap(data);
+}
+
 /** PATCH a connection's sync settings (whitelisted `UpdateSyncSettingsInput`). */
 export async function updateChannelSettings(
   storeId: string,

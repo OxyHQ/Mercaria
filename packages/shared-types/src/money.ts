@@ -7,16 +7,44 @@
 
 /**
  * Currency codes supported by Mercaria (FAIR is the canonical settlement
- * currency). FAIR (FairCoin, symbol ⊜) is NOT an ISO-4217 code; USD/EUR/GBP are.
+ * currency). FAIR (FairCoin, symbol ⊜) is NOT an ISO-4217 code; the rest are.
  * FAIR is listed first so it is the canonical default everywhere it is implied.
+ *
+ * Every non-FAIR code is a CATALOG/PRESENTMENT currency: shops may enter and
+ * import prices in it and buyers may display in it, but nothing is ever SETTLED
+ * in it (settlement is always FAIR). This broad set exists so catalogs imported
+ * from WooCommerce/Shopify shops in these countries ingest without rejection.
  */
-export type CurrencyCode = 'FAIR' | 'USD' | 'EUR' | 'GBP' | 'CAD' | 'AUD';
+export type CurrencyCode =
+  | 'FAIR'
+  | 'USD'
+  | 'EUR'
+  | 'GBP'
+  | 'CAD'
+  | 'AUD'
+  | 'JPY'
+  | 'CHF'
+  | 'CNY'
+  | 'SEK'
+  | 'NOK'
+  | 'DKK'
+  | 'PLN'
+  | 'MXN'
+  | 'BRL'
+  | 'INR'
+  | 'NZD'
+  | 'ZAR'
+  | 'SGD'
+  | 'HKD'
+  | 'AED';
 
 /**
  * Decimal precision per currency — the number of fraction digits in the major
  * unit, i.e. `log10(minor units per major unit)`. FAIR uses 8 decimals
- * (1 ⊜ = 100_000_000 minor units); the fiat codes use 2 (cents). Formatting and
- * rounding are precision-aware via this single source of truth.
+ * (1 ⊜ = 100_000_000 minor units); most fiat codes use 2 (cents). The value is
+ * the currency's ISO-4217 minor unit, so zero-decimal currencies (e.g. JPY) use
+ * 0 — `¥100` is 100 minor units, not 10_000. Formatting and rounding are
+ * precision-aware via this single source of truth.
  */
 export const CURRENCY_PRECISION: Record<CurrencyCode, number> = {
   FAIR: 8,
@@ -25,11 +53,32 @@ export const CURRENCY_PRECISION: Record<CurrencyCode, number> = {
   GBP: 2,
   CAD: 2,
   AUD: 2,
+  // JPY has NO minor unit (ISO-4217 exponent 0): 1 ¥ = 1 minor unit.
+  JPY: 0,
+  CHF: 2,
+  CNY: 2,
+  SEK: 2,
+  NOK: 2,
+  DKK: 2,
+  PLN: 2,
+  MXN: 2,
+  BRL: 2,
+  INR: 2,
+  NZD: 2,
+  ZAR: 2,
+  SGD: 2,
+  HKD: 2,
+  AED: 2,
 };
 
 /**
  * Display symbol per currency. Single source of truth — the frontend formatter
- * imports these instead of redeclaring its own map.
+ * imports these instead of redeclaring its own map. Where a bare glyph is shared
+ * by several currencies (the `$` and `¥` families) the symbol is disambiguated
+ * with a country prefix (`CA$`, `MX$`, `CN¥`, …) so a marketplace showing a
+ * secondary currency never renders two different currencies identically. The
+ * Scandinavian krona/krone codes genuinely share `kr` in real-world usage and
+ * are left as `kr`.
  */
 export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   FAIR: '⊜',
@@ -38,6 +87,21 @@ export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   GBP: '£',
   CAD: 'CA$',
   AUD: 'A$',
+  JPY: '¥',
+  CHF: 'Fr',
+  CNY: 'CN¥',
+  SEK: 'kr',
+  NOK: 'kr',
+  DKK: 'kr',
+  PLN: 'zł',
+  MXN: 'MX$',
+  BRL: 'R$',
+  INR: '₹',
+  NZD: 'NZ$',
+  ZAR: 'R',
+  SGD: 'S$',
+  HKD: 'HK$',
+  AED: 'د.إ',
 };
 
 /**

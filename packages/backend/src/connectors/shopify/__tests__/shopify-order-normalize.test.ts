@@ -164,8 +164,8 @@ describe('normalizeShopifyOrder — status + currency edge cases', () => {
   });
 
   it('falls back both money sides to the shop currency when presentment is unsupported', () => {
-    // JPY is not a supported Mercaria currency → presentment collapses to shop.
-    const order = normalizeShopifyOrder(dualCurrencyOrder({ presentment_currency: 'JPY' }), 'USD');
+    // THB is not a supported Mercaria currency → presentment collapses to shop.
+    const order = normalizeShopifyOrder(dualCurrencyOrder({ presentment_currency: 'THB' }), 'USD');
     expect(order.presentmentCurrency).toBe('USD');
     expect(order.totals.grandTotal.presentment).toEqual(order.totals.grandTotal.shop);
     expect(order.fxRate).toBeUndefined();

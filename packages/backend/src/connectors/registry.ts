@@ -10,10 +10,12 @@ import type { ConnectorProviderId } from '@mercaria/shared-types';
 import { notFound } from '../lib/errors/error-codes.js';
 import type { ConnectorProvider } from './types.js';
 import { shopifyProvider } from './shopify/index.js';
+import { wooCommerceProvider } from './woocommerce/index.js';
 
 /** The implemented providers, keyed by id. */
 const PROVIDERS: Partial<Record<ConnectorProviderId, ConnectorProvider>> = {
   shopify: shopifyProvider,
+  woocommerce: wooCommerceProvider,
 };
 
 /** Resolve a provider by id, or throw NOT_FOUND when it is not available. */
