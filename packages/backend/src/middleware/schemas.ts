@@ -13,7 +13,7 @@
 import { z } from 'zod';
 
 /** Supported currency codes (mirrors `CurrencyCode`). */
-const currencySchema = z.enum(['FAIR', 'USD', 'EUR', 'GBP']);
+const currencySchema = z.enum(['FAIR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD']);
 
 /** `Money` input: integer minor units, non-negative, with a supported currency. */
 const moneySchema = z.object({
@@ -827,7 +827,7 @@ export const webPushSubscriptionDeleteSchema = z.object({
 // ---------------------------------------------------------------------------
 
 /** A single supported currency code (mirrors `CurrencyCode`). */
-const currencyEnum = z.enum(['FAIR', 'USD', 'EUR', 'GBP']);
+const currencyEnum = z.enum(['FAIR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD']);
 
 /**
  * Query for `GET /rates`. `base` defaults to the canonical FAIR; `quote` is an
@@ -846,6 +846,7 @@ export const ratesQuerySchema = z
  */
 export const updateCurrencyPreferenceSchema = z
   .object({
+    preferredCurrency: currencyEnum.nullable().optional(),
     secondaryCurrency: currencyEnum.nullable().optional(),
     dualDisplayEnabled: z.boolean().optional(),
   })

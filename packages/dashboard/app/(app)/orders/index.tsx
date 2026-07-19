@@ -126,7 +126,7 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
           {new Date(order.createdAt).toLocaleDateString()}
         </Text>
       </View>
-      <PriceDisplay price={order.grandTotal} primaryClassName="text-sm font-semibold" />
+      <PriceDisplay price={order.grandTotal.shop} primaryClassName="text-sm font-semibold" />
       <OrderStatusBadge status={order.status} />
     </Pressable>
   );

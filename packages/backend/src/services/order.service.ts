@@ -19,7 +19,7 @@ import type {
   OrderStatus,
   OrderSummary,
 } from '@mercaria/shared-types';
-import { Order, type IOrder, type IOrderStatusEvent } from '../models/order.js';
+import { Order, type IOrder, type IOrderStatusEvent, type IOrderSettlement } from '../models/order.js';
 import { Refund, type IRefund } from '../models/refund.js';
 import { SellerProfile } from '../models/seller-profile.js';
 import { Store, type IStore } from '../models/store.js';
@@ -28,9 +28,10 @@ import { ProductVariant } from '../models/product-variant.js';
 import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { hydrateOrders, summarizeOrders } from './order-hydration.service.js';
+import { convertToFair } from './fx.service.js';
 import { enqueueOrderEvent } from '../queue/producers.js';
 import type { OrderEvent } from '../queue/types.js';
-import { zeroMoney, sumMoney } from '../utils/money.js';
+import { zeroMoney, sumMoney, minorUnitsPerMajor } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { conflict, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
@@ -79,6 +80,22 @@ function toMoney(value: { amount: number; currency: string }): Money {
 }
 
 /**
+ * Compute the shop→FAIR settlement snapshot for a paid order's shop grand total.
+ * FAIR is the canonical settlement currency: the amount is converted via
+ * `convertToFair` (the ONLY remaining FAIR-conversion write path; fails closed if
+ * no rate), and `rate` is FAIR per 1 unit of the shop currency, derived from the
+ * converted major values (1 when the shop total is zero, so a free order settles
+ * cleanly).
+ */
+async function computeSettlement(shopGrandTotal: Money): Promise<IOrderSettlement> {
+  const amount = await convertToFair(shopGrandTotal);
+  const shopMajor = shopGrandTotal.amount / minorUnitsPerMajor(shopGrandTotal.currency);
+  const fairMajor = amount.amount / minorUnitsPerMajor('FAIR');
+  const rate = shopMajor > 0 ? fairMajor / shopMajor : 1;
+  return { amount, rate, asOf: new Date().toISOString() };
+}
+
+/**
  * Transition an order to `next`, enforcing the allowed-transition graph and
  * running the matching inventory effect:
  *   - `paid`: commit every line (sale finalized) + bump the seller's salesCount.
@@ -120,9 +137,13 @@ export async function transition(
 
   const setFields: Record<string, unknown> = { status: next };
   const paidAt = new Date();
+  // The shop→FAIR settlement snapshot, computed once at the `paid` transition.
+  let settlement: IOrderSettlement | undefined;
   if (next === 'paid') {
     setFields['payment.status'] = 'paid';
     setFields['payment.paidAt'] = paidAt;
+    settlement = await computeSettlement(toMoney(order.totals.grandTotal.shop));
+    setFields.settlement = settlement;
   } else if (next === 'refunded') {
     setFields['payment.status'] = 'refunded';
   }
@@ -158,10 +179,11 @@ export async function transition(
       await Store.updateOne({ _id: order.storeId }, { $inc: { salesCount: 1 } });
       // Relate the store buyer + bump their lifetime aggregates (exactly once).
       if (order.buyerOxyUserId) {
+        // Customer lifetime spend aggregates in the store's SHOP currency.
         await upsertCustomerOnPaid(
           order.storeId,
           order.buyerOxyUserId,
-          toMoney(order.totals.grandTotal),
+          toMoney(order.totals.grandTotal.shop),
         );
       }
     }
@@ -203,6 +225,9 @@ export async function transition(
   if (next === 'paid') {
     order.payment.status = 'paid';
     order.payment.paidAt = paidAt;
+    if (settlement) {
+      order.settlement = settlement;
+    }
   } else if (next === 'refunded') {
     order.payment.status = 'refunded';
   }
@@ -459,13 +484,16 @@ export async function storeStats(storeId: string): Promise<StoreStats> {
     }
   }
 
+  // Revenue is summed in the store's SHOP currency (never mixing currencies).
   const currency = (store?.defaultCurrency ??
-    paidOrders[0]?.totals.grandTotal.currency ??
+    paidOrders[0]?.totals.grandTotal.shop.currency ??
     'FAIR') as Money['currency'];
   const revenue =
     paidOrders.length > 0
       ? sumMoney(
-          paidOrders.map((o) => toMoney(o.totals.grandTotal)),
+          paidOrders
+            .filter((o) => o.totals.grandTotal.shop.currency === currency)
+            .map((o) => toMoney(o.totals.grandTotal.shop)),
           currency,
         )
       : zeroMoney(currency);

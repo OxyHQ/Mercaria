@@ -13,6 +13,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PricingResult } from '../pricing.service.js';
+import type { DualMoney, Money } from '@mercaria/shared-types';
 
 const getCart = vi.fn();
 const clearCart = vi.fn();
@@ -21,6 +22,7 @@ const reserve = vi.fn();
 const release = vi.fn();
 const listingFind = vi.fn();
 const variantFind = vi.fn();
+const storeFind = vi.fn();
 const addressFindOne = vi.fn();
 const orderCreate = vi.fn();
 const orderFind = vi.fn();
@@ -48,6 +50,10 @@ vi.mock('../../models/listing.js', () => ({
 
 vi.mock('../../models/product-variant.js', () => ({
   ProductVariant: { find: (...args: unknown[]) => variantFind(...args) },
+}));
+
+vi.mock('../../models/store.js', () => ({
+  Store: { find: (...args: unknown[]) => storeFind(...args) },
 }));
 
 vi.mock('../../models/address.js', () => ({
@@ -94,22 +100,28 @@ import { checkout } from '../checkout.service.js';
 import { isMercariaError, outOfStock } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
 
+/** A `DualMoney` in FAIR where shop == presentment (a same-currency checkout). */
+function fairDual(amount: number): DualMoney {
+  const money: Money = { amount, currency: 'FAIR' };
+  return { shop: { ...money }, presentment: { ...money } };
+}
+
 /**
  * A deterministic pricing result for a group: subtotal = sum of line totals,
  * zero discount/tax by default, grandTotal = subtotal (checkout adds shipping
- * afterward). `perLineDiscount` mirrors the group's line count.
+ * afterward). `perLineDiscount` mirrors the group's line count. Totals are
+ * `DualMoney` (shop == presentment in these FAIR fixtures).
  */
 function pricingResultFor(lineCount: number, subtotal: number): PricingResult {
-  const currency = 'FAIR' as const;
   return {
-    subtotal: { amount: subtotal, currency },
-    discountTotal: { amount: 0, currency },
-    tax: { amount: 0, currency },
-    shipping: { amount: 0, currency },
-    grandTotal: { amount: subtotal, currency },
+    subtotal: fairDual(subtotal),
+    discountTotal: fairDual(0),
+    tax: fairDual(0),
+    shipping: fairDual(0),
+    grandTotal: fairDual(subtotal),
     appliedDiscounts: [],
     taxLines: [],
-    perLineDiscount: Array.from({ length: lineCount }, () => ({ amount: 0, currency })),
+    perLineDiscount: Array.from({ length: lineCount }, () => fairDual(0)),
   };
 }
 
@@ -145,14 +157,14 @@ function listingDoc(id: string, owner: { ownerType: 'store'; storeId: string } |
   };
 }
 
-/** A variant doc. */
-function variantDoc(id: string, listingId: string) {
+/** A variant doc. Its NATIVE `price` drives pricing/order money (default ⊜1000). */
+function variantDoc(id: string, listingId: string, amount = 1000) {
   return {
     _id: id,
     listingId,
     title: 'Default Title',
     optionValues: [],
-    price: { amount: 1000, currency: 'FAIR' },
+    price: { amount, currency: 'FAIR' },
     inventory: { tracked: true, available: 10, committed: 0 },
   };
 }
@@ -175,6 +187,8 @@ beforeEach(() => {
   release.mockReset().mockResolvedValue(undefined);
   listingFind.mockReset();
   variantFind.mockReset();
+  // No store docs found → shop currency falls back to a line's native currency (FAIR).
+  storeFind.mockReset().mockReturnValue({ select: () => ({ lean: () => Promise.resolve([]) }) });
   addressFindOne.mockReset();
   orderCreate.mockReset();
   orderFind.mockReset();
@@ -320,7 +334,8 @@ describe('checkout.service.checkout — totals', () => {
     });
     addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
     listingFind.mockReturnValueOnce(leanOf([listingDoc(L1, { ownerType: 'store', storeId: 'store-A' })]));
-    variantFind.mockReturnValueOnce(leanOf([variantDoc(V1, L1)]));
+    // Native variant price ⊜2500 × 2 = the ⊜5000 line the mock pricing sums.
+    variantFind.mockReturnValueOnce(leanOf([variantDoc(V1, L1, 2500)]));
     nextOrderNumber.mockResolvedValueOnce('MRC-000010');
     orderCreate.mockImplementation((doc: Record<string, unknown>) =>
       Promise.resolve({ toObject: () => ({ ...doc, _id: 'order-1' }) }),
@@ -331,19 +346,21 @@ describe('checkout.service.checkout — totals', () => {
 
     const doc = orderCreate.mock.calls[0][0] as {
       totals: {
-        subtotal: { amount: number };
-        discountTotal: { amount: number };
-        shipping: { amount: number };
-        tax: { amount: number };
-        grandTotal: { amount: number };
+        subtotal: { shop: { amount: number } };
+        discountTotal: { shop: { amount: number } };
+        shipping: { shop: { amount: number } };
+        tax: { shop: { amount: number } };
+        grandTotal: { shop: { amount: number }; presentment: { amount: number } };
       };
     };
-    // subtotal 5000, no discount/tax + standard shipping 500 = 5500.
-    expect(doc.totals.subtotal.amount).toBe(5000);
-    expect(doc.totals.discountTotal.amount).toBe(0);
-    expect(doc.totals.shipping.amount).toBe(500);
-    expect(doc.totals.tax.amount).toBe(0);
-    expect(doc.totals.grandTotal.amount).toBe(5500);
+    // subtotal 5000, no discount/tax + standard shipping 500 = 5500 (shop side).
+    expect(doc.totals.subtotal.shop.amount).toBe(5000);
+    expect(doc.totals.discountTotal.shop.amount).toBe(0);
+    expect(doc.totals.shipping.shop.amount).toBe(500);
+    expect(doc.totals.tax.shop.amount).toBe(0);
+    expect(doc.totals.grandTotal.shop.amount).toBe(5500);
+    // FAIR shop == FAIR presentment, so the presentment grand total matches.
+    expect(doc.totals.grandTotal.presentment.amount).toBe(5500);
   });
 });
 
@@ -369,13 +386,13 @@ describe('checkout.service.checkout — discounts', () => {
     );
     summarizeOrders.mockResolvedValue([{ id: 'o1', orderNumber: 'MRC-000020', status: 'pending_payment' }]);
 
-    // Pricing returns a 15% order discount on the 1000 line.
+    // Pricing returns a 15% order discount on the 1000 line (shop == presentment).
     calculateTotals.mockReset().mockResolvedValue({
-      subtotal: { amount: 1000, currency: 'FAIR' },
-      discountTotal: { amount: 150, currency: 'FAIR' },
-      tax: { amount: 0, currency: 'FAIR' },
-      shipping: { amount: 0, currency: 'FAIR' },
-      grandTotal: { amount: 850, currency: 'FAIR' },
+      subtotal: fairDual(1000),
+      discountTotal: fairDual(150),
+      tax: fairDual(0),
+      shipping: fairDual(0),
+      grandTotal: fairDual(850),
       appliedDiscounts: [
         {
           discountId: 'd1',
@@ -387,7 +404,7 @@ describe('checkout.service.checkout — discounts', () => {
         },
       ],
       taxLines: [],
-      perLineDiscount: [{ amount: 150, currency: 'FAIR' }],
+      perLineDiscount: [fairDual(150)],
     } satisfies PricingResult);
 
     return { L1, V1 };
@@ -399,16 +416,16 @@ describe('checkout.service.checkout — discounts', () => {
     await checkout(USER, { addressId: ADDRESS_ID });
 
     const doc = orderCreate.mock.calls[0][0] as {
-      totals: { discountTotal: { amount: number }; grandTotal: { amount: number } };
+      totals: { discountTotal: { shop: { amount: number } }; grandTotal: { shop: { amount: number } } };
       appliedDiscounts: { code: string }[];
-      items: { discountTotal?: { amount: number } }[];
+      items: { discountTotal?: { shop: { amount: number } } }[];
     };
-    expect(doc.totals.discountTotal.amount).toBe(150);
+    expect(doc.totals.discountTotal.shop.amount).toBe(150);
     // grandTotal = pricing.grandTotal (850) + standard shipping (500).
-    expect(doc.totals.grandTotal.amount).toBe(1350);
+    expect(doc.totals.grandTotal.shop.amount).toBe(1350);
     expect(doc.appliedDiscounts).toHaveLength(1);
     expect(doc.appliedDiscounts[0].code).toBe('WELCOME15');
-    expect(doc.items[0].discountTotal?.amount).toBe(150);
+    expect(doc.items[0].discountTotal?.shop.amount).toBe(150);
 
     // Usage incremented EXACTLY once for the redeemed code, via a guarded $inc.
     expect(discountUpdateOne).toHaveBeenCalledTimes(1);

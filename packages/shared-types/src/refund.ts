@@ -12,7 +12,7 @@
  */
 
 import type { Timestamps } from './common';
-import type { Money } from './money';
+import type { DualMoney } from './money';
 
 /** Whether the record is a money-only refund or a return (RMA workflow). */
 export type RefundType = 'refund' | 'return';
@@ -35,8 +35,11 @@ export interface RefundLineItem {
   variantId: string;
   /** Number of units refunded on this line. */
   quantity: number;
-  /** The refunded amount for this line (the discounted net for `quantity` units). */
-  amount: Money;
+  /**
+   * The refunded amount for this line (the discounted net for `quantity` units),
+   * in shop + presentment currency — derived from the order item's `DualMoney`.
+   */
+  amount: DualMoney;
   /** Whether these units were returned to inventory. */
   restock: boolean;
   /** The store location the units were restocked at (POS); absent → default location. */
@@ -61,10 +64,13 @@ export interface Refund extends Timestamps {
   reason?: string;
   /** The refunded lines. */
   lineItems: RefundLineItem[];
-  /** Shipping cost refunded, when shipping was included. */
-  refundShipping?: Money;
-  /** Total refunded = sum of every line amount (+ shipping when included). */
-  totalRefunded: Money;
+  /** Shipping cost refunded (shop + presentment), when shipping was included. */
+  refundShipping?: DualMoney;
+  /**
+   * Total refunded = sum of every line amount (+ shipping when included), in shop
+   * + presentment currency. Reports/customer-stats sum the SHOP side.
+   */
+  totalRefunded: DualMoney;
   /** Human-friendly return-merchandise authorization number, when assigned. */
   rmaNumber?: string;
   /** ISO-8601 time any line was restocked, when one was. */

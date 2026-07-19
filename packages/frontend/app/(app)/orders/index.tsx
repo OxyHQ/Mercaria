@@ -55,7 +55,7 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
           {new Date(order.createdAt).toLocaleDateString()}
         </Text>
       </View>
-      <PriceDisplay price={order.grandTotal} primaryClassName="text-sm font-bold" />
+      <PriceDisplay price={order.grandTotal.presentment} primaryClassName="text-sm font-bold" />
       <ChevronRight size={18} className="text-muted-foreground" />
     </Pressable>
   );

@@ -1,7 +1,6 @@
 import { View } from "react-native";
 import {
   CURRENCY_PRECISION,
-  CURRENCY_SYMBOLS,
   type CurrencyCode,
   type Money,
 } from "@mercaria/shared-types";
@@ -10,41 +9,73 @@ import { cn } from "../lib/cn";
 import { formatMoney } from "../lib/format";
 import { useFx } from "./FxContext";
 
-/** Radix used to derive a currency's major value from its decimal precision. */
+/** Radix used to convert between a currency's major value and its minor units. */
 const DECIMAL_RADIX = 10;
-/** Fraction digits shown for the secondary fiat figure (clean 2dp display). */
-const SECONDARY_FRACTION_DIGITS = 2;
 /** Prefix marking the secondary figure as an approximate conversion. */
 const APPROX_PREFIX = "≈ ";
+/** The canonical pivot currency — every display rate is quoted per 1 FAIR. */
+const FAIR: CurrencyCode = "FAIR";
+
+/**
+ * FAIR-pivot rate for `currency`: the number of units of `currency` per 1 FAIR.
+ * FAIR is itself the pivot, so its rate is exactly 1; every other code is looked
+ * up in the display-side `rates` map. Returns `undefined` when no rate is known.
+ */
+function fairPivotRate(
+  currency: CurrencyCode,
+  rates: Record<string, number>,
+): number | undefined {
+  return currency === FAIR ? 1 : rates[currency];
+}
+
+/**
+ * Convert a stored `Money` (any native currency) into `target` via the FAIR
+ * pivot — `targetMajor = nativeMajor / rate[native] * rate[target]` — then
+ * re-quantize to the target currency's integer minor units. Returns the input
+ * unchanged when it is already in `target` (no float round-trip), and `null`
+ * when a needed rate is missing so the caller can fall back to the native amount
+ * rather than fabricate a figure. Presentation-only; never mutates stored money.
+ */
+function convertMoney(
+  price: Money,
+  target: CurrencyCode,
+  rates: Record<string, number>,
+): Money | null {
+  if (price.currency === target) {
+    return price;
+  }
+  const nativeRate = fairPivotRate(price.currency, rates);
+  const targetRate = fairPivotRate(target, rates);
+  if (nativeRate === undefined || targetRate === undefined || nativeRate === 0) {
+    return null;
+  }
+  const nativeMajor = price.amount / DECIMAL_RADIX ** CURRENCY_PRECISION[price.currency];
+  const targetMajor = (nativeMajor / nativeRate) * targetRate;
+  const targetMinor = Math.round(targetMajor * DECIMAL_RADIX ** CURRENCY_PRECISION[target]);
+  return { amount: targetMinor, currency: target };
+}
 
 export interface PriceDisplayProps {
-  /** The canonical price (FAIR). The primary figure is always this amount. */
+  /**
+   * The stored price in its NATIVE currency (FAIR, or a store's own fiat). It is
+   * converted to the shopper's chosen display currency for the primary figure.
+   */
   price: Money;
   /** Optional classes for the wrapping row. */
   className?: string;
-  /** Optional classes for the primary (FAIR) figure. */
+  /** Optional classes for the primary (display-currency) figure. */
   primaryClassName?: string;
   /** Optional classes for the secondary (converted fiat) figure. */
   secondaryClassName?: string;
 }
 
 /**
- * Convert the FAIR major value to a secondary currency using a display-side
- * rate (units of the secondary currency per 1 FAIR) and format it with the
- * secondary currency's symbol and 2dp. Presentation-only — never re-quantizes
- * stored money.
- */
-function formatSecondary(price: Money, currency: CurrencyCode, rate: number): string {
-  const fairMajor = price.amount / DECIMAL_RADIX ** CURRENCY_PRECISION[price.currency];
-  const secondaryMajor = fairMajor * rate;
-  return `${CURRENCY_SYMBOLS[currency]}${secondaryMajor.toFixed(SECONDARY_FRACTION_DIGITS)}`;
-}
-
-/**
- * Dual-currency price label. Always renders the canonical FAIR figure
- * (`⊜X.XX`). When dual display is enabled, a secondary currency is selected,
- * and a rate for it is available, it additionally renders an approximate
- * converted fiat figure (`≈ <symbol>Y.YY`). Purely presentational: it reads the
+ * Dual-currency price label. Renders the stored `price` converted into the
+ * shopper's chosen PRIMARY display currency (FAIR by default) as the main
+ * figure, and — when dual display is enabled and a distinct secondary currency
+ * is chosen — an approximate converted secondary figure (`≈ <symbol>Y.YY`).
+ * Conversion pivots through FAIR using the context rates; a missing rate falls
+ * back gracefully to the native amount. Purely presentational: it reads the
  * display-side FX state from context and never fetches.
  */
 export function PriceDisplay({
@@ -53,21 +84,29 @@ export function PriceDisplay({
   primaryClassName,
   secondaryClassName,
 }: PriceDisplayProps) {
-  const { secondaryCurrency, dualDisplayEnabled, rates } = useFx();
+  const { primaryCurrency, secondaryCurrency, dualDisplayEnabled, rates } = useFx();
 
-  const rate =
-    secondaryCurrency !== null ? rates[secondaryCurrency] : undefined;
-  const showSecondary =
-    dualDisplayEnabled && secondaryCurrency !== null && rate !== undefined;
+  // Primary: convert to the shopper's display currency; if a needed rate is
+  // missing, gracefully render the native amount rather than crash or fabricate.
+  const primaryMoney = convertMoney(price, primaryCurrency, rates) ?? price;
+
+  // Secondary: only when enabled, a distinct secondary is chosen (no point
+  // showing the same currency twice), and it can actually be converted.
+  const secondaryMoney =
+    dualDisplayEnabled &&
+    secondaryCurrency !== null &&
+    secondaryCurrency !== primaryMoney.currency
+      ? convertMoney(price, secondaryCurrency, rates)
+      : null;
 
   return (
     <View className={cn("flex-row items-baseline gap-1", className)}>
       <Text className={cn("text-sm font-semibold text-foreground", primaryClassName)}>
-        {formatMoney(price)}
+        {formatMoney(primaryMoney)}
       </Text>
-      {showSecondary ? (
+      {secondaryMoney !== null ? (
         <Text className={cn("text-xs text-muted-foreground", secondaryClassName)}>
-          {`${APPROX_PREFIX}${formatSecondary(price, secondaryCurrency, rate)}`}
+          {`${APPROX_PREFIX}${formatMoney(secondaryMoney)}`}
         </Text>
       ) : null}
     </View>

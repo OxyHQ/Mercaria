@@ -65,7 +65,12 @@ function leanOf<T>(value: T) {
   return { lean: () => Promise.resolve(value) };
 }
 
-/** A persisted order item snapshot. */
+/** A FAIR `DualMoney` where shop == presentment (a same-currency order). */
+function dual(amount: number) {
+  return { shop: { amount, currency: 'FAIR' }, presentment: { amount, currency: 'FAIR' } };
+}
+
+/** A persisted order item snapshot (money fields are `DualMoney`). */
 function item(
   variantId: string,
   unitAmount: number,
@@ -74,12 +79,12 @@ function item(
 ) {
   const it: Record<string, unknown> = {
     variantId,
-    unitPrice: { amount: unitAmount, currency: 'FAIR' },
+    unitPrice: dual(unitAmount),
     quantity,
-    lineTotal: { amount: unitAmount * quantity, currency: 'FAIR' },
+    lineTotal: dual(unitAmount * quantity),
   };
   if (options.discountAmount !== undefined) {
-    it.discountTotal = { amount: options.discountAmount, currency: 'FAIR' };
+    it.discountTotal = dual(options.discountAmount);
   }
   if (options.locationId !== undefined) {
     it.locationId = options.locationId;
@@ -90,11 +95,7 @@ function item(
 /** A mock paid store order doc (lean shape). */
 function mockOrder(overrides: Record<string, unknown> = {}) {
   const items = (overrides.items as unknown[]) ?? [item('v1', 1000, 2)];
-  const grandTotal =
-    (overrides.grandTotal as { amount: number; currency: string }) ?? {
-      amount: 2000,
-      currency: 'FAIR',
-    };
+  const grandTotal = (overrides.grandTotal as ReturnType<typeof dual>) ?? dual(2000);
   return {
     _id: ORDER_ID,
     buyerOxyUserId: BUYER,
@@ -102,7 +103,7 @@ function mockOrder(overrides: Record<string, unknown> = {}) {
     storeId: STORE,
     status: 'paid' as const,
     items,
-    shipping: { method: 'standard', label: 'Standard', cost: { amount: 500, currency: 'FAIR' }, trackingNumber: null },
+    shipping: { method: 'standard', label: 'Standard', cost: dual(500), trackingNumber: null },
     totals: { grandTotal },
     payment: { status: 'paid' as const, provider: 'oxy_pay' as const },
     ...overrides,
@@ -168,7 +169,7 @@ describe('refund.service.process', () => {
   it('full refund: flips to refunded + payment.status refunded and decrements the customer once', async () => {
     // Single-line order, qty 1; refunding the 1 unit covers the grand total.
     orderFindById.mockReturnValueOnce(
-      leanOf(mockOrder({ items: [item('v1', 2000, 1)], grandTotal: { amount: 2000, currency: 'FAIR' } })),
+      leanOf(mockOrder({ items: [item('v1', 2000, 1)], grandTotal: dual(2000) })),
     );
     wireCreateEcho();
 
@@ -190,7 +191,7 @@ describe('refund.service.process', () => {
       leanOf([
         {
           lineItems: [{ variantId: 'v1', quantity: 2 }],
-          totalRefunded: { amount: 2000, currency: 'FAIR' },
+          totalRefunded: dual(2000),
         },
       ]),
     );
@@ -212,8 +213,8 @@ describe('refund.service.process', () => {
 
     await process(STORE, ORDER_ID, { lineItems: [{ variantId: 'v1', quantity: 1 }] }, ACTOR);
 
-    const doc = refundCreate.mock.calls[0][0] as { lineItems: { amount: { amount: number } }[] };
-    expect(doc.lineItems[0].amount.amount).toBe(800);
+    const doc = refundCreate.mock.calls[0][0] as { lineItems: { amount: { shop: { amount: number } } }[] };
+    expect(doc.lineItems[0].amount.shop.amount).toBe(800);
   });
 
   it('is idempotent: a replayed idempotency key returns the prior refund without re-creating/re-restocking', async () => {
@@ -224,8 +225,8 @@ describe('refund.service.process', () => {
         orderId: ORDER_ID,
         type: 'refund',
         status: 'refunded',
-        lineItems: [{ variantId: 'v1', quantity: 1, amount: { amount: 1000, currency: 'FAIR' }, restock: true }],
-        totalRefunded: { amount: 1000, currency: 'FAIR' },
+        lineItems: [{ variantId: 'v1', quantity: 1, amount: dual(1000), restock: true }],
+        totalRefunded: dual(1000),
         createdAt: new Date('2026-06-22T00:00:00.000Z'),
         updatedAt: new Date('2026-06-22T00:00:00.000Z'),
       }),

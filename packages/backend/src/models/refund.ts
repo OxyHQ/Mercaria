@@ -16,7 +16,7 @@
 
 import mongoose, { Schema, Model } from 'mongoose';
 import type { RefundType, RefundStatus } from '@mercaria/shared-types';
-import { MoneySchema } from './schemas/money-schema.js';
+import { DualMoneySchema } from './schemas/money-schema.js';
 
 const REFUND_TYPES: readonly RefundType[] = ['refund', 'return'];
 const REFUND_STATUSES: readonly RefundStatus[] = [
@@ -28,17 +28,17 @@ const REFUND_STATUSES: readonly RefundStatus[] = [
   'cancelled',
 ];
 
-/** A persisted `{ amount, currency }` sub-document. */
-interface IMoney {
-  amount: number;
-  currency: string;
+/** A persisted `{ shop, presentment }` dual-currency sub-document. */
+interface IDualMoney {
+  shop: { amount: number; currency: string };
+  presentment: { amount: number; currency: string };
 }
 
 /** One refunded line: the variant, quantity, computed amount and restock flag. */
 export interface IRefundLineItem {
   variantId: string;
   quantity: number;
-  amount: IMoney;
+  amount: IDualMoney;
   restock: boolean;
   /** The store location the units were restocked at; absent → default location. */
   locationId?: string;
@@ -53,8 +53,8 @@ export interface IRefund {
   status: RefundStatus;
   reason?: string;
   lineItems: IRefundLineItem[];
-  refundShipping?: IMoney;
-  totalRefunded: IMoney;
+  refundShipping?: IDualMoney;
+  totalRefunded: IDualMoney;
   restockedAt?: Date;
   processedByOxyUserId?: string;
   rmaNumber?: string;
@@ -67,7 +67,7 @@ const RefundLineItemSchema = new Schema<IRefundLineItem>(
   {
     variantId: { type: String, required: true },
     quantity: { type: Number, required: true },
-    amount: { type: MoneySchema, required: true },
+    amount: { type: DualMoneySchema, required: true },
     restock: { type: Boolean, default: false },
     locationId: { type: String },
   },
@@ -83,8 +83,8 @@ const RefundSchema = new Schema<IRefund>(
     status: { type: String, enum: REFUND_STATUSES as string[], default: 'refunded' },
     reason: { type: String },
     lineItems: { type: [RefundLineItemSchema], default: [] },
-    refundShipping: { type: MoneySchema, required: false },
-    totalRefunded: { type: MoneySchema, required: true },
+    refundShipping: { type: DualMoneySchema, required: false },
+    totalRefunded: { type: DualMoneySchema, required: true },
     restockedAt: { type: Date },
     processedByOxyUserId: { type: String },
     rmaNumber: { type: String },

@@ -1,15 +1,15 @@
 /**
- * Cart model — a buyer's single-currency basket, one per Oxy user.
+ * Cart model — a buyer's basket, one per Oxy user.
  *
  * Each embedded `CartItem` stores ONLY the variant reference + quantity — NEVER
  * a price. Prices and availability are read LIVE from the variant at view/
- * checkout time, so the cart can never serve a stale price. The cart's
- * `currency` pins it to a single currency; `cart.service` rejects adding a
- * variant priced in a different currency.
+ * checkout time, so the cart can never serve a stale price. The cart is NOT pinned
+ * to a currency: at hydration each variant's NATIVE price is converted into the
+ * buyer's PRESENTMENT currency (their preferred currency, or FAIR), so one cart
+ * can hold items priced in different native currencies.
  */
 
 import mongoose, { Schema, Model } from 'mongoose';
-import { CURRENCY_CODES } from './schemas/money-schema.js';
 
 export interface ICartItem {
   listingId: string;
@@ -22,8 +22,6 @@ export interface ICart {
   _id: mongoose.Types.ObjectId;
   oxyUserId: string;
   items: ICartItem[];
-  /** The single currency every line in this cart shares. */
-  currency: string;
   /** Discount codes pinned to the cart, pending application at checkout (normalized uppercase). */
   pendingDiscountCodes: string[];
   createdAt: Date;
@@ -45,7 +43,6 @@ const CartSchema = new Schema<ICart>(
   {
     oxyUserId: { type: String, required: true },
     items: { type: [CartItemSchema], default: [] },
-    currency: { type: String, enum: CURRENCY_CODES as string[], required: true },
     pendingDiscountCodes: { type: [String], default: [] },
   },
   { timestamps: true },

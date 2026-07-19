@@ -6,12 +6,15 @@
  * preview, the checkout order-build loop and any future quote endpoint ALL go
  * through it, so the buyer is never shown a total the checkout disagrees with.
  *
- * Everything is computed in INTEGER FAIR minor units (the currency is taken from
- * the input). Half-even rounding runs through the shared `utils/money` helpers
- * (`percentOf`, `roundMoney`, `allocateProportionally`). The engine reconciles
- * residual minor units so the SUM of every per-line `(lineTotal − discount + tax)`
- * EXACTLY equals `grandTotal` — it throws an internal error rather than ship an
- * off-by-one.
+ * Everything is computed in INTEGER minor units of the SHOP (settlement) currency
+ * (`input.currency`): native line prices are converted to the shop currency up
+ * front, so all math is single-currency. Half-even rounding runs through the
+ * shared `utils/money` helpers (`percentOf`, `roundMoney`, `allocateProportionally`).
+ * The engine reconciles residual minor units so the SUM of every per-line
+ * `(lineTotal − discount + tax)` EXACTLY equals the shop `grandTotal` — it throws
+ * an internal error rather than ship an off-by-one. Every returned total is
+ * `DualMoney`: the shop side plus a `presentment` side converted with the provided
+ * `rates` (a presentment equal to the shop currency is byte-identical).
  *
  * COMBINABILITY RULE (deterministic):
  *   Discounts are partitioned into ORDER-level (`appliesTo.scope === 'order'`) and
@@ -28,6 +31,8 @@
 import type {
   CurrencyCode,
   DiscountAllocation,
+  DualMoney,
+  FxRates,
   Money,
   TaxLine,
 } from '@mercaria/shared-types';
@@ -35,7 +40,6 @@ import { Discount, type IDiscount } from '../models/discount.js';
 import { TaxRate, type ITaxRate } from '../models/tax-rate.js';
 import { Store, type IStoreTaxSettings } from '../models/store.js';
 import {
-  zeroMoney,
   multiplyMoney,
   sumMoney,
   percentOf,
@@ -43,6 +47,7 @@ import {
   roundMinorUnits,
   allocateProportionally,
 } from '../utils/money.js';
+import { convert, toDualMoney } from './fx.service.js';
 import { log } from '../lib/logger.js';
 
 /** Basis-point denominator: 10_000 bps = 100% (mirrors `utils/money`). */
@@ -77,10 +82,30 @@ export interface PricingShippingAddress {
 export interface PricingInput {
   /** The owning store (when a store group); absent for P2P groups → no discounts/taxes. */
   storeId?: string;
-  /** The priced lines, in display order (the result mirrors this order). */
+  /**
+   * The priced lines, in display order (the result mirrors this order). Each
+   * line's `unitPrice` may be in its NATIVE currency; the engine converts it to
+   * `currency` (the shop currency) before pricing, so mixed-currency groups
+   * settle consistently.
+   */
   lines: PricingLine[];
-  /** Settlement currency for every amount. */
+  /**
+   * The SHOP (settlement) currency every amount is priced in — the store's
+   * `defaultCurrency` (or, for a P2P group, the seller's listing currency).
+   */
   currency: CurrencyCode;
+  /**
+   * The buyer's PRESENTMENT currency (what they see/pay). Every result total is
+   * returned as `DualMoney` (shop + presentment); a presentment equal to the shop
+   * currency yields byte-identical sides.
+   */
+  presentmentCurrency: CurrencyCode;
+  /**
+   * FAIR-based rates covering the shop, presentment and every line-native
+   * currency. Provided by the caller so checkout can snapshot the SAME rates onto
+   * the order for reproducibility.
+   */
+  rates: FxRates;
   /** Discount codes the buyer is redeeming (case-insensitive). */
   discountCodes?: string[];
   /** The buyer's Oxy user id, for customer-eligibility gating. */
@@ -93,24 +118,30 @@ export interface PricingInput {
   preview?: boolean;
 }
 
-/** The authoritative totals for one seller group. */
+/**
+ * The authoritative totals for one seller group. Every total is `DualMoney` (the
+ * settlement `shop` side + the buyer's `presentment` side). The discount/tax
+ * BREAKDOWN lines (`appliedDiscounts`/`taxLines`) carry SHOP-currency amounts —
+ * they are the settlement/refund basis; the presentment figure a buyer sees is
+ * the dual `discountTotal`/`tax` totals.
+ */
 export interface PricingResult {
   /** Sum of every line total. */
-  subtotal: Money;
+  subtotal: DualMoney;
   /** Total of every discount allocation (equals `sum(perLineDiscount)`). */
-  discountTotal: Money;
+  discountTotal: DualMoney;
   /** Total tax added (0 when tax-inclusive or no rate matched). */
-  tax: Money;
+  tax: DualMoney;
   /** Shipping (a Moovo seam — always zero here; checkout adds the config cost). */
-  shipping: Money;
+  shipping: DualMoney;
   /** `subtotal − discountTotal + tax + shipping`. */
-  grandTotal: Money;
-  /** One allocation per applied discount/affected line (persisted on the order). */
+  grandTotal: DualMoney;
+  /** One allocation per applied discount/affected line (persisted on the order; SHOP currency). */
   appliedDiscounts: DiscountAllocation[];
-  /** One tax line per added rate (informational lines when tax-inclusive). */
+  /** One tax line per added rate (informational lines when tax-inclusive; SHOP currency). */
   taxLines: TaxLine[];
-  /** Discount attributed to each input line, in input order. */
-  perLineDiscount: Money[];
+  /** Discount attributed to each input line, in input order (shop + presentment). */
+  perLineDiscount: DualMoney[];
 }
 
 /** A discount classified for the combinability decision. */
@@ -120,7 +151,7 @@ interface ApplicableDiscount {
   code?: string;
   /** `order` (whole order) or `line` (specific lines). */
   level: 'order' | 'line';
-  /** The total amount this discount removes (FAIR minor units). */
+  /** The total amount this discount removes (shop-currency minor units). */
   amount: number;
   /** Per-line removal for a line-scoped discount (input order); empty for order-level. */
   perLine: number[];
@@ -133,9 +164,20 @@ interface ApplicableDiscount {
  * `grandTotal === subtotal`, all arrays empty, `perLineDiscount` all-zero.
  */
 export async function calculateTotals(input: PricingInput): Promise<PricingResult> {
-  const { currency, lines } = input;
+  const { currency, presentmentCurrency, rates } = input;
 
-  // 1. Subtotal + per-line totals.
+  // Wrap a SHOP-currency minor-unit amount as `DualMoney` (shop + presentment).
+  const dual = (amount: number): DualMoney =>
+    toDualMoney({ amount, currency }, presentmentCurrency, rates);
+
+  // Convert every line's native unit price into the SHOP currency up front, so
+  // all downstream math is single-currency (a same-currency line is unchanged).
+  const lines: PricingLine[] = input.lines.map((line) => ({
+    ...line,
+    unitPrice: convert(line.unitPrice, currency, rates),
+  }));
+
+  // 1. Subtotal + per-line totals (SHOP currency).
   const lineTotals = lines.map((line) => multiplyMoney(line.unitPrice, line.quantity).amount);
   const subtotal = sumMoney(
     lines.map((line) => multiplyMoney(line.unitPrice, line.quantity)),
@@ -145,14 +187,14 @@ export async function calculateTotals(input: PricingInput): Promise<PricingResul
   // No store → no discounts/taxes (pure P2P group).
   if (!input.storeId) {
     return {
-      subtotal,
-      discountTotal: zeroMoney(currency),
-      tax: zeroMoney(currency),
-      shipping: zeroMoney(currency),
-      grandTotal: subtotal,
+      subtotal: dual(subtotal.amount),
+      discountTotal: dual(0),
+      tax: dual(0),
+      shipping: dual(0),
+      grandTotal: dual(subtotal.amount),
       appliedDiscounts: [],
       taxLines: [],
-      perLineDiscount: lines.map(() => zeroMoney(currency)),
+      perLineDiscount: lines.map(() => dual(0)),
     };
   }
 
@@ -210,14 +252,14 @@ export async function calculateTotals(input: PricingInput): Promise<PricingResul
   reconcileExactness({ lineTotals, perLineDiscount, perLineTax, grandTotalAmount, shipping });
 
   const result: PricingResult = {
-    subtotal,
-    discountTotal: { amount: discountTotal, currency },
-    tax: { amount: taxTotal, currency },
-    shipping: zeroMoney(currency),
-    grandTotal: { amount: grandTotalAmount, currency },
+    subtotal: dual(subtotal.amount),
+    discountTotal: dual(discountTotal),
+    tax: dual(taxTotal),
+    shipping: dual(shipping),
+    grandTotal: dual(grandTotalAmount),
     appliedDiscounts: allocations.map((a) => ({ ...a, amount: { ...a.amount } })),
     taxLines,
-    perLineDiscount: perLineDiscount.map((amount) => ({ amount, currency })),
+    perLineDiscount: perLineDiscount.map((amount) => dual(amount)),
   };
   return result;
 }
@@ -277,7 +319,7 @@ function applyDiscounts(args: ApplyDiscountsArgs): ApplyDiscountsResult {
     if (!passesGates(discount, { subtotal, totalQuantity, input })) {
       continue;
     }
-    const computed = computeDiscount(discount, { lines, lineTotals, subtotal });
+    const computed = computeDiscount(discount, { lines, lineTotals, subtotal, currency });
     if (computed.amount <= 0) {
       continue;
     }
@@ -386,9 +428,9 @@ interface ComputedDiscount {
 /** Compute a discount's removal amount + per-line attribution (clamped to bases). */
 function computeDiscount(
   discount: IDiscount,
-  ctx: { lines: PricingLine[]; lineTotals: number[]; subtotal: number },
+  ctx: { lines: PricingLine[]; lineTotals: number[]; subtotal: number; currency: CurrencyCode },
 ): ComputedDiscount {
-  const { lines, lineTotals, subtotal } = ctx;
+  const { lines, lineTotals, subtotal, currency } = ctx;
   const orderLevel = discount.appliesTo.scope === 'order';
 
   // The indices of the lines a product-level discount applies to.
@@ -405,7 +447,7 @@ function computeDiscount(
 
   if (orderLevel) {
     if (discount.valueType === 'percentage') {
-      const amount = percentOf({ amount: subtotal, currency: 'FAIR' }, discount.value).amount;
+      const amount = percentOf({ amount: subtotal, currency }, discount.value).amount;
       return { level: 'order', amount: Math.min(amount, subtotal), perLine: [] };
     }
     // fixed_amount, clamped to subtotal.
@@ -424,7 +466,7 @@ function computeDiscount(
     let amount = 0;
     for (const i of matchedIndices) {
       const take = Math.min(
-        percentOf({ amount: lineTotals[i], currency: 'FAIR' }, discount.value).amount,
+        percentOf({ amount: lineTotals[i], currency }, discount.value).amount,
         lineTotals[i],
       );
       perLine[i] = take;
@@ -436,7 +478,7 @@ function computeDiscount(
   // fixed_amount product-level: clamp to the matched base, distribute across matched lines.
   const capped = Math.min(discount.value, matchedBase);
   const matchedWeights = lines.map((_, i) => (matchedIndices.includes(i) ? lineTotals[i] : 0));
-  const parts = allocateProportionally({ amount: capped, currency: 'FAIR' }, matchedWeights);
+  const parts = allocateProportionally({ amount: capped, currency }, matchedWeights);
   for (let i = 0; i < parts.length; i += 1) {
     perLine[i] = parts[i].amount;
   }

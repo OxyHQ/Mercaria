@@ -33,17 +33,45 @@ Domain DTOs (`Listing`, `ListingCondition`, `Seller`, `Money`, `CurrencyCode`, `
 - **UI**: `@oxyhq/bloom` + `@mercaria/ui`
 - **Client IDs**: storefront `EXPO_PUBLIC_OXY_CLIENT_ID`, dashboard `EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD`, POS `EXPO_PUBLIC_OXY_CLIENT_ID_POS`
 
-## Currency — FairCoin (FAIR, ⊜)
+## Currency — multi-currency (presentment + shop), FAIR settlement
 
-FairCoin (`FAIR`, symbol **⊜**) is the OFFICIAL canonical currency — the only stored/settlement currency in Mercaria.
+Mercaria is **multi-currency** (Shopify-Markets style: presentment + shop). FairCoin
+(`FAIR`, symbol **⊜**) is the canonical **SETTLEMENT** currency, NOT the stored catalog
+currency. The currency set is data-driven: `CurrencyCode`, `CURRENCY_PRECISION`,
+`CURRENCY_SYMBOLS`, `ALL_CURRENCY_CODES` in `@mercaria/shared-types`; adding a code there
+propagates (the Mongo `MoneySchema` enum reads `ALL_CURRENCY_CODES`).
 
-- ALL prices stored as integer minor units in FAIR (precision 8 dp).
-- `CurrencyCode`, `CURRENCY_PRECISION`, and `CURRENCY_SYMBOLS` live in `@mercaria/shared-types`.
-- The backend NEVER converts stored FAIR money for display.
-- Two conversion boundaries (FAIR is always what gets stored):
-  1. **WRITE-side (catalog)** — stores may enter prices in EUR/USD; backend calls `convertToFair` and stores FAIR.
-  2. **DISPLAY-side (storefront only)** — `PriceDisplay`/`FxContext` show ⊜ + optional secondary fiat. FX source: FairCoin Explorer API (`explorer.fairco.in/api/price`; 1 FAIR in USD), Redis-cached with last-good/stale fallback. `StaticFxProvider` for dev/tests.
-- `PriceDisplay` and `FxContext` live in `@mercaria/ui`. Do NOT duplicate them in apps.
+- **Catalog stores NATIVE currency.** `catalog-write.service` persists a variant/listing
+  price in its own `.currency` exactly as given — it does NOT convert to FAIR. (The old
+  8 `convertToFair` catalog calls were removed.)
+- **`DualMoney { shop, presentment }`** (shared-types) carries every TRANSACTED amount on
+  orders/refunds: `shop` = the store's settlement currency (`Store.defaultCurrency`; for a
+  P2P order the seller's listing currency) — the basis for reports/payout; `presentment` =
+  what the buyer saw and paid (their `preferredCurrency`, else FAIR). Order line
+  `unitPrice`/`lineTotal`/`discountTotal`, `totals.*`, `shipping.cost`, and refund line
+  amounts/`totalRefunded` are all `DualMoney`. The order also snapshots `fxRate`
+  (shop→presentment) for reproducibility.
+- **Pricing engine** (`pricing.service.calculateTotals`) prices in the SHOP currency
+  (converting native line prices to it) and returns `DualMoney` for every total; it takes a
+  `presentmentCurrency` + FAIR-based `rates` from the caller. Discount/tax BREAKDOWN lines
+  (`appliedDiscounts`/`taxLines`) stay single-currency SHOP amounts (the settlement/refund
+  basis).
+- **Cart** is not currency-pinned: it holds items priced in different native currencies and
+  converts each to the buyer's presentment currency at hydration (`addItem` no longer rejects
+  a differing currency).
+- **Reports/customer stats** sum the SHOP side, `$match`ed to the store's `defaultCurrency`
+  (`report.service`, `order.storeStats`, `customer.stats.totalSpent`) — never mixing
+  currencies.
+- **Settlement seam** (`order.service.transition('paid')`): converts the order's shop
+  grandTotal → FAIR via `convertToFair` and persists `settlement` (FAIR amount + rate). This
+  is the **ONLY** remaining `convertToFair` use (fails closed if no rate).
+- **FX service** (`fx.service`): `getRates`/`convert` pivot through FAIR for any pair;
+  `toDualMoney`/`pairRate` build the presentment side. FX source: FairCoin Explorer API
+  (`explorer.fairco.in/api/price`; 1 FAIR in USD), Redis-cached with last-good/stale
+  fallback; `StaticFxProvider` for dev/tests. `getRates` never throws.
+- **DISPLAY** — `PriceDisplay`/`FxContext` (in `@mercaria/ui`, do NOT duplicate) convert a
+  native `Money` to the chosen display currency (primary = preferred/FAIR + optional
+  secondary fiat).
 
 ## Payments
 

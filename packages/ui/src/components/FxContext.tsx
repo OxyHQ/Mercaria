@@ -4,27 +4,37 @@ import type { CurrencyCode } from "@mercaria/shared-types";
 /**
  * Display-side FX state shared with presentational price components.
  *
- * This is PRESENTATION ONLY. Mercaria always stores amounts in the canonical
- * currency (FAIR); this context never affects stored money — it only carries
- * what a consumer optionally sees alongside the FAIR figure:
- *  - `secondaryCurrency` — the fiat to show next to FAIR (`null` = none chosen).
+ * This is PRESENTATION ONLY — it never affects the amounts Mercaria stores. A
+ * stored price carries its NATIVE currency (FAIR by default, but a store may
+ * price in EUR/USD/…); this context tells the price components which currency to
+ * SHOW it in and supplies the FAIR-pivot rates to convert with:
+ *  - `primaryCurrency` — the shopper's chosen display currency (FAIR by default).
+ *  - `secondaryCurrency` — an optional fiat shown alongside the primary (`null` = none).
  *  - `dualDisplayEnabled` — whether to render the secondary figure at all.
- *  - `rates` — quote code → units of that quote per 1 FAIR (mirrors `FxRates.rates`).
+ *  - `rates` — quote code → units of that quote per 1 FAIR (`rates.USD = 0.49`
+ *    means `1 FAIR = 0.49 USD`); FAIR itself is the pivot with an implicit rate
+ *    of 1, so it is not a key. Any native→display conversion pivots through FAIR.
  *
  * The provider value is supplied by the app shell (which fetches `/rates` and
- * resolves the shopper's preference); components here never fetch.
+ * resolves the shopper's persisted preference); components here never fetch.
  */
 export interface FxContextValue {
-  /** Secondary fiat currency to display alongside FAIR, or `null` for none. */
+  /** The shopper's chosen PRIMARY display currency. Defaults to canonical FAIR. */
+  primaryCurrency: CurrencyCode;
+  /** Optional secondary fiat currency to display alongside the primary, or `null`. */
   secondaryCurrency: CurrencyCode | null;
-  /** Whether to render the dual (FAIR + secondary) figure at all. */
+  /** Whether to render the secondary (primary + secondary) figure at all. */
   dualDisplayEnabled: boolean;
   /** Quote code → units of that quote per 1 FAIR (presentation-only multipliers). */
   rates: Record<string, number>;
 }
 
-/** Inert default: no secondary currency, dual display off, no rates. */
+/**
+ * Inert default: display in canonical FAIR, no secondary, no rates. Chosen so a
+ * price rendered outside any provider still shows its stored FAIR amount.
+ */
 const DEFAULT_FX_VALUE: FxContextValue = {
+  primaryCurrency: "FAIR",
   secondaryCurrency: null,
   dualDisplayEnabled: false,
   rates: {},

@@ -80,8 +80,15 @@ import { ErrorCodes } from '../../utils/api-response.js';
 /** A mock order doc with a mutable status/payment/history + a spied `save`. */
 function mockOrder(
   status: OrderStatus,
-  options: { paymentStatus?: 'unpaid' | 'paid'; sellerType?: 'user' | 'store' } = {},
+  options: {
+    paymentStatus?: 'unpaid' | 'paid';
+    sellerType?: 'user' | 'store';
+    grandTotalCurrency?: string;
+    grandTotalAmount?: number;
+  } = {},
 ) {
+  const gtAmount = options.grandTotalAmount ?? 9000;
+  const gtCurrency = options.grandTotalCurrency ?? 'FAIR';
   const doc = {
     _id: 'order-1',
     status,
@@ -89,9 +96,16 @@ function mockOrder(
     sellerType: options.sellerType ?? 'user',
     sellerOxyUserId: options.sellerType === 'store' ? undefined : 'seller-X',
     storeId: options.sellerType === 'store' ? 'store-A' : undefined,
-    totals: { grandTotal: { amount: 9000, currency: 'FAIR' } },
+    // DualMoney grandTotal: shop == presentment for these fixtures. The paid
+    // transition settles the SHOP side to FAIR and relates the customer in it.
+    totals: {
+      grandTotal: {
+        shop: { amount: gtAmount, currency: gtCurrency },
+        presentment: { amount: gtAmount, currency: gtCurrency },
+      },
+    },
     payment: { status: options.paymentStatus ?? 'unpaid', provider: 'oxy_pay' as const },
-    shipping: { method: 'standard' as const, label: 'Standard shipping', cost: { amount: 500, currency: 'FAIR' }, trackingNumber: null as string | null },
+    shipping: { method: 'standard' as const, label: 'Standard shipping', cost: { shop: { amount: 500, currency: 'FAIR' }, presentment: { amount: 500, currency: 'FAIR' } }, trackingNumber: null as string | null },
     statusHistory: [] as IOrder['statusHistory'],
     items: [
       { variantId: 'v1', quantity: 2 },
@@ -229,6 +243,36 @@ describe('order.service.transition — inventory effects', () => {
     expect(restock).toHaveBeenCalledWith('v2', 1, undefined);
     expect(restock).not.toHaveBeenCalledWith('v1', 0, undefined);
     expect(release).not.toHaveBeenCalled();
+  });
+});
+
+describe('order.service.transition — settlement (shop → FAIR)', () => {
+  it('a FAIR-shop order settles 1:1 with a FAIR settlement snapshot + rate 1', async () => {
+    const doc = mockOrder('pending_payment', { sellerType: 'user' });
+    await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
+
+    const setFields = (findOneAndUpdate.mock.calls[0][1] as { $set: Record<string, unknown> }).$set;
+    const settlement = setFields.settlement as { amount: { amount: number; currency: string }; rate: number };
+    expect(settlement.amount).toEqual({ amount: 9000, currency: 'FAIR' });
+    expect(settlement.rate).toBe(1);
+    expect(doc.settlement?.amount.currency).toBe('FAIR');
+  });
+
+  it('a non-FAIR (EUR) shop order converts the grand total to FAIR at settlement', async () => {
+    // €45.00 shop grand total; static FAIR→EUR rate 0.45 → 100 FAIR (1e10 minor).
+    const doc = mockOrder('pending_payment', {
+      sellerType: 'user',
+      grandTotalCurrency: 'EUR',
+      grandTotalAmount: 4500,
+    });
+    await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
+
+    const setFields = (findOneAndUpdate.mock.calls[0][1] as { $set: Record<string, unknown> }).$set;
+    const settlement = setFields.settlement as { amount: { amount: number; currency: string }; rate: number };
+    expect(settlement.amount.currency).toBe('FAIR');
+    expect(settlement.amount.amount).toBe(10_000_000_000);
+    // FAIR per 1 EUR = 100 FAIR / €45 ≈ 2.222…
+    expect(settlement.rate).toBeCloseTo(100 / 45, 6);
   });
 });
 

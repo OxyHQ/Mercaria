@@ -9,21 +9,18 @@
  */
 
 import type { Request, Response } from 'express';
-import type { CurrencyCode } from '@mercaria/shared-types';
+import { ALL_CURRENCY_CODES, type CurrencyCode } from '@mercaria/shared-types';
 import { getRates as resolveRates } from '../services/fx.service.js';
 import { sendSuccess, sendError, ErrorCodes } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
-
-/** The currency codes a client may request (mirrors `CurrencyCode`). */
-const CURRENCY_CODES: readonly CurrencyCode[] = ['FAIR', 'USD', 'EUR', 'GBP'];
 
 /** Default quotes when the caller omits `quote`. */
 const DEFAULT_QUOTES: readonly CurrencyCode[] = ['USD', 'EUR'];
 
 /** Narrow an arbitrary string to a `CurrencyCode`, or `null` if unsupported. */
 function toCurrencyCode(value: string): CurrencyCode | null {
-  return (CURRENCY_CODES as readonly string[]).includes(value) ? (value as CurrencyCode) : null;
+  return (ALL_CURRENCY_CODES as readonly string[]).includes(value) ? (value as CurrencyCode) : null;
 }
 
 /** GET /rates — conversion rates for dual-currency display (PUBLIC). */

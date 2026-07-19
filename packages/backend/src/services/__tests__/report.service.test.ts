@@ -139,6 +139,30 @@ describe('report.service.getSummary', () => {
     const summary = await getSummary(STORE_ID);
     expect(summary.revenue.currency).toBe('FAIR');
   });
+
+  it('scopes the revenue + refund aggregations to the store shop currency (never mixes currencies)', async () => {
+    stubStoreCurrency('EUR');
+    orderAggregate.mockResolvedValue([]);
+    refundAggregate.mockResolvedValue([]);
+
+    await getSummary(STORE_ID);
+
+    // The revenue pipeline sums the SHOP side, matched to the store's EUR currency.
+    const orderPipelines = orderAggregate.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(
+      orderPipelines.some(
+        (p) =>
+          p.includes('totals.grandTotal.shop.currency') &&
+          p.includes('totals.grandTotal.shop.amount') &&
+          p.includes('"EUR"'),
+      ),
+    ).toBe(true);
+    // The refund pipeline sums the SHOP refund side, matched to EUR too.
+    const refundPipeline = JSON.stringify(refundAggregate.mock.calls[0][0]);
+    expect(refundPipeline).toContain('totalRefunded.shop.currency');
+    expect(refundPipeline).toContain('totalRefunded.shop.amount');
+    expect(refundPipeline).toContain('"EUR"');
+  });
 });
 
 describe('report.service.getSalesReport', () => {

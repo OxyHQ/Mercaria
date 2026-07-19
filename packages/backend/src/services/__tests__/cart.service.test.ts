@@ -64,10 +64,13 @@ vi.mock('../catalog-hydration.service.js', () => ({
   resolveMedia: (value: string) => `resolved:${value}`,
 }));
 
+// The cart is displayed in the buyer's presentment currency; these fixtures use FAIR.
+vi.mock('../user-preference.service.js', () => ({
+  resolvePresentmentCurrency: () => Promise.resolve('FAIR'),
+}));
+
 import { addItem, revalidate, getCart } from '../cart.service.js';
 import type { ICart } from '../../models/cart.js';
-import { isMercariaError } from '../../lib/errors/error-codes.js';
-import { ErrorCodes } from '../../utils/api-response.js';
 
 const USER = 'user-1';
 const LISTING_ID = '000000000000000000000001';
@@ -213,20 +216,26 @@ describe('cart.service.addItem', () => {
     expect(existing.save).toHaveBeenCalled();
   });
 
-  it('rejects adding a variant in a different currency than the cart (CONFLICT)', async () => {
+  it('accepts a variant in a different native currency (multi-currency cart, no rejection)', async () => {
     listingFindById.mockReturnValueOnce(leanOf(listingDoc()));
     variantFindById.mockReturnValueOnce(leanOf(variantDoc({ currency: 'EUR' })));
 
-    const existing = mockCartDoc(
-      [{ listingId: LISTING_ID, variantId: '00000000000000000000aaaa', quantity: 1, addedAt: new Date() }],
-      'FAIR',
-    );
-    cartFindOne.mockResolvedValueOnce(existing);
+    const existing = mockCartDoc([
+      { listingId: LISTING_ID, variantId: '00000000000000000000aaaa', quantity: 1, addedAt: new Date() },
+    ]);
+    cartFindOne
+      .mockResolvedValueOnce(existing) // addItem: mutable doc
+      .mockReturnValueOnce(leanOf({ ...existing, items: existing.items })); // getCart: loadCart (lean)
 
-    await expect(
-      addItem(USER, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 1 }),
-    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT);
-    expect(existing.save).not.toHaveBeenCalled();
+    // getCart hydration lookups (the EUR line converts to the FAIR presentment).
+    variantFind.mockReturnValueOnce(leanOf([variantDoc({ currency: 'EUR' })]));
+    listingFind.mockReturnValueOnce(leanOf([listingDoc()]));
+
+    await addItem(USER, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 1 });
+
+    // The differing-currency line is pushed (no cross-currency rejection) and saved.
+    expect(existing.items).toHaveLength(2);
+    expect(existing.save).toHaveBeenCalled();
   });
 });
 
