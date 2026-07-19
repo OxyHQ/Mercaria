@@ -17,6 +17,7 @@ const KINDS: readonly SyncRunKind[] = [
   'inventory_sync',
   'order_sync',
   'webhook',
+  'ingest',
 ];
 const STATUSES: readonly SyncRunStatus[] = ['running', 'completed', 'failed'];
 

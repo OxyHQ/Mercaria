@@ -378,7 +378,7 @@ export async function disconnect(storeId: string, connectionId: string): Promise
 }
 
 /** Resolve + validate the Fase-1 default import category slug (once per run). */
-async function resolveImportCategorySlug(): Promise<string> {
+export async function resolveImportCategorySlug(): Promise<string> {
   const slug = process.env[DEFAULT_CATEGORY_ENV]?.trim();
   if (!slug) {
     throw validationError(

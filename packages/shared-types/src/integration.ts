@@ -8,12 +8,24 @@
  * `Connection` model and never crosses the wire.
  */
 
+import type { Money } from './money';
+
 /**
  * The external commerce platforms Mercaria can connect to. Shopify ships first;
  * the rest follow as individual `ConnectorProvider` implementations without any
- * change to the surrounding model.
+ * change to the surrounding model. The runtime tuple is the SINGLE source of the
+ * provider set — `ConnectorProviderId` is derived from it, and validators import
+ * it instead of re-declaring the list.
  */
-export type ConnectorProviderId = 'shopify' | 'woocommerce' | 'etsy' | 'prestashop' | 'magento';
+export const CONNECTOR_PROVIDER_IDS = [
+  'shopify',
+  'woocommerce',
+  'etsy',
+  'prestashop',
+  'magento',
+] as const;
+
+export type ConnectorProviderId = (typeof CONNECTOR_PROVIDER_IDS)[number];
 
 /**
  * Which side initiates the connection:
@@ -109,7 +121,8 @@ export type SyncRunKind =
   | 'product_push'
   | 'inventory_sync'
   | 'order_sync'
-  | 'webhook';
+  | 'webhook'
+  | 'ingest';
 
 /** Lifecycle status of a single `SyncRun`. */
 export type SyncRunStatus = 'running' | 'completed' | 'failed';
@@ -188,3 +201,145 @@ export interface CreateConnectionInput {
 
 /** Partial payload accepted when updating a connection's sync configuration. */
 export type UpdateSyncSettingsInput = Partial<SyncSettings>;
+
+// ---------------------------------------------------------------------------
+// Channel ingestion (push_in) — the receive side for an external client (e.g.
+// the Mercaria WooCommerce plugin) pushing its catalog INTO Mercaria.
+// ---------------------------------------------------------------------------
+
+/** Body for `POST /admin/stores/:storeId/channels/:provider/connect-push`. */
+export interface ConnectPushInput {
+  /** The external site's domain (e.g. the WordPress host); display metadata only. */
+  shopDomain?: string;
+}
+
+/** Result of establishing (or re-affirming) a push-in connection. */
+export interface ConnectPushResult {
+  /** The push-in connection id the external client ingests against. */
+  connectionId: string;
+  /** The Mercaria store the connection belongs to. */
+  storeId: string;
+}
+
+/** A single option-value assignment on an ingested variant. */
+export interface IngestOptionValue {
+  name: string;
+  value: string;
+}
+
+/** One variant of an ingested product, priced in the shop's native currency. */
+export interface IngestProductVariant {
+  /** Option-value assignments (omitted/empty for a single-variant product). */
+  optionValues?: IngestOptionValue[];
+  /** Selling price in native currency (integer minor units + supported code). */
+  price: Money;
+  /** Optional compare-at (was) price, same currency. */
+  compareAtPrice?: Money;
+  /** Stock-keeping unit — also the inventory-ingest mapping key. */
+  sku?: string;
+  /** Barcode (UPC/EAN/ISBN…). */
+  barcode?: string;
+  /** Inventory snapshot; `available` defaults to 0 when omitted. */
+  inventory?: { available: number };
+}
+
+/**
+ * A product pushed into Mercaria by an external client. Upserted idempotently by
+ * `{ storeId, source.connectionId, externalId }`. Prices are stored in the given
+ * NATIVE currency (no FAIR conversion). Native Mercaria fields (category,
+ * condition, tags, collections) are NOT part of this payload — they stay local
+ * and are never overwritten by an ingest.
+ */
+export interface IngestProduct {
+  /** The product's id on the external platform (the upsert key). */
+  externalId: string;
+  /** The external platform's `updated_at` (ISO-8601), when available. */
+  externalUpdatedAt?: string;
+  /** Product title. */
+  title: string;
+  /** Product description (may contain source HTML). */
+  description?: string;
+  /** Absolute image URLs (stored verbatim — no re-upload). */
+  images?: string[];
+  /** Selectable options and their values. */
+  options?: { name: string; values: string[] }[];
+  /** Concrete variants (at least one). */
+  variants: IngestProductVariant[];
+  /** Manufacturer/brand. */
+  vendor?: string;
+  /** Merchandising product type. */
+  productType?: string;
+  /** URL-safe handle. */
+  handle?: string;
+  /** SEO overrides. */
+  seo?: { title?: string; description?: string };
+}
+
+/** Body for `POST /admin/stores/:storeId/channels/:connectionId/ingest/products`. */
+export interface IngestProductsInput {
+  products: IngestProduct[];
+}
+
+/**
+ * Outcome of ingesting a single product:
+ *  - `'created'` — a new listing was created and stamped with provenance.
+ *  - `'updated'` — the mapped listing was updated (pinned fields respected).
+ *  - `'skipped'` — nothing changed (every managed field is pinned).
+ *  - `'failed'`  — the product could not be ingested (`error` explains why).
+ */
+export type IngestProductAction = 'created' | 'updated' | 'skipped' | 'failed';
+
+/** Per-product result of a products ingest (one entry per input product, in order). */
+export interface IngestProductResult {
+  /** The external id echoed back so the client can reconcile. */
+  externalId: string;
+  /** What happened to this product. */
+  action: IngestProductAction;
+  /** The Mercaria listing id, when one was created/updated/matched. */
+  listingId?: string;
+  /** Failure detail when `action === 'failed'`. */
+  error?: string;
+}
+
+/** Result of a products ingest. */
+export interface IngestProductsResult {
+  results: IngestProductResult[];
+}
+
+/** One inventory update: set `available` on the variant mapped from `externalId`(+`sku`). */
+export interface IngestInventoryItem {
+  /** The external product id (maps to a connector-sourced listing). */
+  externalId: string;
+  /** The variant SKU; required to disambiguate a multi-variant product. */
+  sku?: string;
+  /** Absolute available quantity to set (non-negative integer). */
+  available: number;
+}
+
+/** Body for `POST /admin/stores/:storeId/channels/:connectionId/ingest/inventory`. */
+export interface IngestInventoryInput {
+  items: IngestInventoryItem[];
+}
+
+/**
+ * Outcome of a single inventory update:
+ *  - `'updated'` — stock was set on the mapped variant.
+ *  - `'skipped'` — no listing/variant mapped from `externalId`(+`sku`).
+ *  - `'failed'`  — the update errored (`error` explains why).
+ */
+export type IngestInventoryAction = 'updated' | 'skipped' | 'failed';
+
+/** Per-item result of an inventory ingest (one entry per input item, in order). */
+export interface IngestInventoryResultItem {
+  externalId: string;
+  action: IngestInventoryAction;
+  /** The variant whose stock was set, when mapped. */
+  variantId?: string;
+  /** Failure detail when `action === 'failed'`. */
+  error?: string;
+}
+
+/** Result of an inventory ingest. */
+export interface IngestInventoryResult {
+  results: IngestInventoryResultItem[];
+}

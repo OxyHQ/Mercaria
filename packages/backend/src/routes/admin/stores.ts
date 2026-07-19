@@ -27,6 +27,7 @@ import draftOrdersRouter from './draft-orders.js';
 import refundsRouter from './refunds.js';
 import reportsRouter from './reports.js';
 import channelsRouter from './channels.js';
+import channelIngestRouter from './channel-ingest.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -82,5 +83,7 @@ router.use('/:storeId/draft-orders', draftOrdersRouter);
 router.use('/:storeId/refunds', refundsRouter);
 router.use('/:storeId/reports', reportsRouter);
 router.use('/:storeId/channels', channelsRouter);
+// Push-in ingestion routes (connect-push, ingest/*); sibling of the pull router.
+router.use('/:storeId/channels', channelIngestRouter);
 
 export default router;
