@@ -8,6 +8,7 @@ import {
   Percent,
   Bell,
   MapPin,
+  Plug,
   ChevronRight,
   type LucideIcon,
 } from "lucide-react-native";
@@ -67,6 +68,14 @@ const ITEMS: SettingsItem[] = [
     icon: MapPin,
     href: "/settings/locations",
     permission: "locations:write",
+  },
+  {
+    key: "channels",
+    label: "Sales channels",
+    description: "Connect Shopify and other stores to sync",
+    icon: Plug,
+    href: "/channels",
+    permission: "channels:write",
   },
 ];
 
