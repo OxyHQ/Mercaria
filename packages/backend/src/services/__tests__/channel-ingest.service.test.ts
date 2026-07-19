@@ -31,6 +31,8 @@ const updateListing = vi.fn();
 const resolveDefaultLocationId = vi.fn();
 const setAvailable = vi.fn();
 const resolveImportCategorySlug = vi.fn();
+const resolveImportLocationId = vi.fn();
+const resolveInventoryLocationId = vi.fn();
 
 vi.mock('../../models/connection.js', () => ({
   Connection: {
@@ -64,6 +66,8 @@ vi.mock('../inventory.service.js', () => ({
 }));
 vi.mock('../connector-sync.service.js', () => ({
   resolveImportCategorySlug: (...args: unknown[]) => resolveImportCategorySlug(...args),
+  resolveImportLocationId: (...args: unknown[]) => resolveImportLocationId(...args),
+  resolveInventoryLocationId: (...args: unknown[]) => resolveInventoryLocationId(...args),
 }));
 vi.mock('../../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
@@ -151,6 +155,8 @@ beforeEach(() => {
   connectionUpdateOne.mockResolvedValue({});
   listingUpdateOne.mockResolvedValue({});
   resolveDefaultLocationId.mockResolvedValue('loc-1');
+  resolveImportLocationId.mockResolvedValue(undefined);
+  resolveInventoryLocationId.mockResolvedValue('loc-1');
   setAvailable.mockResolvedValue(undefined);
 });
 

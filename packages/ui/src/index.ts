@@ -114,6 +114,7 @@ export {
 } from "./components/ui/collapsible";
 export { Panel } from "./components/ui/panel";
 export { ColorPicker, COLOR_OPTIONS } from "./components/ui/color-picker";
+export { SourceBadge, type SourceBadgeProps } from "./components/ui/source-badge";
 
 // ---------------------------------------------------------------------------
 // Marketplace presentational components

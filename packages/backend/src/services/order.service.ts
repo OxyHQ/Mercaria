@@ -29,7 +29,7 @@ import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { hydrateOrders, summarizeOrders } from './order-hydration.service.js';
 import { convertToFair } from './fx.service.js';
-import { enqueueOrderEvent } from '../queue/producers.js';
+import { enqueueOrderEvent, enqueueFulfillmentPush } from '../queue/producers.js';
 import type { OrderEvent } from '../queue/types.js';
 import { zeroMoney, sumMoney, minorUnitsPerMajor } from '../utils/money.js';
 import { config } from '../config/index.js';
@@ -251,6 +251,23 @@ export async function transition(
       log.general.warn(
         { err, orderId: String(order._id), status: next },
         'Failed to enqueue order-event notification',
+      );
+    }
+  }
+
+  // Fulfillment push: when a MERCHANT ships a connector order (one with `source`),
+  // push the fulfillment back to its origin platform. Only this merchant-driven
+  // path reaches `transition`; the inbound sync sets status via a direct update and
+  // never calls `transition`, so a platform-originated fulfillment cannot echo back
+  // out (the service also gates on the connection being `orders: bidirectional`).
+  // Best-effort — a failure never fails the transition.
+  if (next === 'shipped' && order.source) {
+    try {
+      await enqueueFulfillmentPush({ orderId: String(order._id) });
+    } catch (err) {
+      log.general.warn(
+        { err, orderId: String(order._id) },
+        'Failed to enqueue fulfillment push',
       );
     }
   }

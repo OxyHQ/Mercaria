@@ -11,6 +11,7 @@ import {
   Label,
   Textarea,
   PriceDisplay,
+  SourceBadge,
   ToggleGroup,
   ToggleGroupItem,
   useColorScheme,
@@ -114,6 +115,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
       }
     >
       <View className="gap-5">
+        {product.source ? <SourceBadge provider={product.source.provider} /> : null}
         <View className="gap-1.5">
           <Label>Title</Label>
           <Input value={title} onChangeText={setTitle} editable={canWrite} />

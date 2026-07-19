@@ -21,6 +21,7 @@ import type {
   Listing,
   ListingImage,
   ListingOption,
+  ListingSource,
   Money,
   ProductSummary,
   ProductThumbnail,
@@ -31,7 +32,7 @@ import type {
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
 import { SellerProfile, type ISellerProfile } from '../models/seller-profile.js';
 import { Store, type IStore } from '../models/store.js';
-import type { IListing } from '../models/listing.js';
+import type { IListing, IListingSource } from '../models/listing.js';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
 import { oxyClient } from '../middleware/auth.js';
@@ -105,6 +106,24 @@ function toListingImages(images: IListing['images']): ListingImage[] {
       }
       return dto;
     });
+}
+
+/**
+ * Map a persisted connector-provenance sub-document to the `ListingSource` DTO.
+ * Only emitted on the ADMIN hydration path (see `HydrateOptions.includeSource`):
+ * `connectionId`/`externalId` are internal integration plumbing meant for the
+ * store owner, not anonymous storefront buyers.
+ */
+function toListingSource(source: IListingSource): ListingSource {
+  const dto: ListingSource = {
+    connectionId: source.connectionId,
+    provider: source.provider,
+    externalId: source.externalId,
+  };
+  if (source.externalUpdatedAt) {
+    dto.externalUpdatedAt = source.externalUpdatedAt.toISOString();
+  }
+  return dto;
 }
 
 /**
@@ -208,6 +227,12 @@ export interface HydrateOptions {
   viewerId?: string;
   /** Reserved for future linked-client injection; defaults to the shared client. */
   oxyClient?: OxyServices;
+  /**
+   * Emit connector provenance (`Listing.source`) into the DTO. ADMIN paths only
+   * (dashboard/POS): the store owner sees where a listing was synced from, while
+   * public storefront reads keep this internal integration detail hidden.
+   */
+  includeSource?: boolean;
 }
 
 /**
@@ -379,6 +404,9 @@ export async function hydrateListings(
     }
     if (listing.collectionIds && listing.collectionIds.length > 0) {
       dto.collectionIds = [...listing.collectionIds];
+    }
+    if (opts.includeSource && listing.source) {
+      dto.source = toListingSource(listing.source);
     }
 
     return dto;

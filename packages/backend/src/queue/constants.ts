@@ -126,3 +126,7 @@ export const JOB_WEBHOOK_PROCESS = 'webhook.process';
 export const JOB_PRODUCT_PUSH = 'product.push';
 /** Job name: pull orders from a `pull` connection into Mercaria. */
 export const JOB_ORDER_SYNC = 'order.sync';
+/** Job name: pull inventory levels from a `pull` connection into Mercaria. */
+export const JOB_INVENTORY_SYNC = 'inventory.sync';
+/** Job name: push a Mercaria order's fulfillment OUT to its origin connection. */
+export const JOB_FULFILLMENT_PUSH = 'fulfillment.push';

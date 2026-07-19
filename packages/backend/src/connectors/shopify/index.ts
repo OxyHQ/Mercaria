@@ -33,11 +33,13 @@ import type {
   ConnectorCredentials,
   ConnectorProvider,
   ExchangeResult,
+  NormalizedInventoryLevel,
   NormalizedOrder,
   NormalizedOrderCustomer,
   NormalizedOrderLine,
   NormalizedProduct,
   NormalizedVariant,
+  PushFulfillment,
   PushProduct,
   PushProductResult,
   PushVariant,
@@ -62,6 +64,15 @@ const PRODUCT_WEBHOOK_TOPICS = ['products/create', 'products/update', 'products/
  * orders `off` simply ignores the delivery.
  */
 const ORDER_WEBHOOK_TOPICS = ['orders/create', 'orders/updated'] as const;
+/**
+ * Inventory webhook topic registered on connect for near-real-time stock sync. The
+ * inbound handler gates on the connection's `inventory` direction, so registering
+ * it unconditionally (like the order topics) is safe — a connection with inventory
+ * `off` simply ignores the delivery.
+ */
+const INVENTORY_WEBHOOK_TOPICS = ['inventory_levels/update'] as const;
+/** Shopify's cap on `inventory_item_ids` per `inventory_levels.json` request. */
+const INVENTORY_ITEMS_PER_REQUEST = 50;
 /** Shopify's placeholder option name for products with no real options. */
 const DEFAULT_OPTION_NAME = 'title';
 /** Shopify's placeholder single-variant value. */
@@ -93,6 +104,7 @@ const shopifyVariantSchema = z.object({
   compare_at_price: z.string().nullable().optional(),
   sku: z.string().nullable().optional(),
   barcode: z.string().nullable().optional(),
+  inventory_item_id: z.union([z.number(), z.string()]).nullable().optional(),
   inventory_quantity: z.number().optional(),
   inventory_management: z.string().nullable().optional(),
   option1: z.string().nullable().optional(),
@@ -126,6 +138,28 @@ const webhookResponseSchema = z.object({
 /** A create/update product mutation response — only the assigned id is consumed. */
 const productMutationResponseSchema = z.object({
   product: z.object({ id: z.union([z.number(), z.string()]) }),
+});
+
+/** One inventory level row: an item's available at a single location. */
+const inventoryLevelSchema = z.object({
+  inventory_item_id: z.union([z.number(), z.string()]),
+  available: z.number().nullable().optional(),
+});
+
+/** The `inventory_levels.json` response — a flat list of per-(item, location) rows. */
+const inventoryLevelsResponseSchema = z.object({
+  inventory_levels: z.array(inventoryLevelSchema).default([]),
+});
+
+/** One fulfillment order (the modern Shopify fulfillment unit) — id + status only. */
+const fulfillmentOrderSchema = z.object({
+  id: z.union([z.number(), z.string()]),
+  status: z.string().nullable().optional(),
+});
+
+/** The `orders/{id}/fulfillment_orders.json` response. */
+const fulfillmentOrdersResponseSchema = z.object({
+  fulfillment_orders: z.array(fulfillmentOrderSchema).default([]),
 });
 
 // --- Shopify ORDER schemas (only the fields we consume) ---------------------
@@ -272,11 +306,15 @@ function normalizeVariant(
   const normalized: NormalizedVariant = {
     optionValues: variantOptionValues(variant, optionNames),
     price,
+    externalVariantId: String(variant.id),
     inventory: {
       tracked: variant.inventory_management != null,
       available: Math.max(0, variant.inventory_quantity ?? 0),
     },
   };
+  if (variant.inventory_item_id != null) {
+    normalized.externalInventoryItemId = String(variant.inventory_item_id);
+  }
   if (variant.compare_at_price != null && variant.compare_at_price.trim() !== '') {
     normalized.compareAtPrice = {
       amount: decimalStringToMinor(variant.compare_at_price, shopCurrency),
@@ -607,6 +645,22 @@ function nextCursorFromLink(link: string | undefined): string | undefined {
   return undefined;
 }
 
+/** Split `items` into consecutive chunks of at most `size`. */
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
+}
+
+/**
+ * Fulfillment-order statuses that still have OPEN work to fulfill. Anything else
+ * (`closed`, `cancelled`, `incomplete`) has nothing to mark shipped, so pushing a
+ * fulfillment against it is skipped — this is what makes a re-push idempotent.
+ */
+const OPEN_FULFILLMENT_STATUSES: readonly string[] = ['open', 'in_progress', 'scheduled'];
+
 /**
  * Construct a Shopify provider over `transport`. The default transport is the
  * real SSRF-safe one; tests inject a fake to exercise the mapping/paging logic.
@@ -735,9 +789,90 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
 
     normalizeOrder: normalizeShopifyOrder,
 
+    async fetchInventory(
+      auth: ConnectorAuth,
+      params: { inventoryItemIds: string[] },
+    ): Promise<NormalizedInventoryLevel[]> {
+      // Total available PER inventory item, summed across every Shopify location —
+      // a single Mercaria target location mirrors the shop-wide sellable total.
+      const totals = new Map<string, number>();
+      for (const ids of chunk(params.inventoryItemIds, INVENTORY_ITEMS_PER_REQUEST)) {
+        if (ids.length === 0) {
+          continue;
+        }
+        const query = new URLSearchParams({
+          inventory_item_ids: ids.join(','),
+          limit: String(PAGE_LIMIT),
+        });
+        const response = await transport.get(
+          `${apiBase(auth.shopDomain)}/inventory_levels.json?${query.toString()}`,
+          { 'X-Shopify-Access-Token': auth.accessToken, Accept: 'application/json' },
+        );
+        assertOk(response, 'inventory levels');
+        const parsed = inventoryLevelsResponseSchema.safeParse(parseJson(response, 'inventory levels'));
+        if (!parsed.success) {
+          throw validationError(`Unexpected Shopify inventory payload: ${parsed.error.message}`);
+        }
+        for (const level of parsed.data.inventory_levels) {
+          const itemId = String(level.inventory_item_id);
+          const available = Math.max(0, level.available ?? 0);
+          totals.set(itemId, (totals.get(itemId) ?? 0) + available);
+        }
+      }
+      return [...totals].map(([externalInventoryItemId, available]) => ({
+        externalInventoryItemId,
+        available,
+      }));
+    },
+
+    async pushFulfillment(auth: ConnectorAuth, fulfillment: PushFulfillment): Promise<void> {
+      const headers = {
+        'X-Shopify-Access-Token': auth.accessToken,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      };
+      // Modern fulfillment flow: read the order's fulfillment orders, then create a
+      // fulfillment against each one that still has OPEN work (idempotent — an order
+      // already fulfilled has no open fulfillment orders → this is a no-op).
+      const listResponse = await transport.get(
+        `${apiBase(auth.shopDomain)}/orders/${encodeURIComponent(fulfillment.externalOrderId)}/fulfillment_orders.json`,
+        { 'X-Shopify-Access-Token': auth.accessToken, Accept: 'application/json' },
+      );
+      assertOk(listResponse, 'fulfillment orders lookup');
+      const parsed = fulfillmentOrdersResponseSchema.safeParse(
+        parseJson(listResponse, 'fulfillment orders lookup'),
+      );
+      if (!parsed.success) {
+        throw validationError(`Unexpected Shopify fulfillment-orders payload: ${parsed.error.message}`);
+      }
+
+      const openOrders = parsed.data.fulfillment_orders.filter(
+        (fo) => fo.status != null && OPEN_FULFILLMENT_STATUSES.includes(fo.status),
+      );
+      for (const fo of openOrders) {
+        const body: Record<string, unknown> = {
+          line_items_by_fulfillment_order: [{ fulfillment_order_id: fo.id }],
+          notify_customer: true,
+        };
+        if (fulfillment.trackingNumber) {
+          body.tracking_info = { number: fulfillment.trackingNumber };
+        }
+        const response = await transport.post(
+          `${apiBase(auth.shopDomain)}/fulfillments.json`,
+          headers,
+          JSON.stringify({ fulfillment: body }),
+        );
+        assertOk(response, 'fulfillment create');
+      }
+    },
+
     async registerWebhooks(auth: ConnectorAuth, params: { address: string }): Promise<string[]> {
       const ids: string[] = [];
-      for (const topic of [...PRODUCT_WEBHOOK_TOPICS, ...ORDER_WEBHOOK_TOPICS]) {
+      for (const topic of [
+        ...PRODUCT_WEBHOOK_TOPICS,
+        ...ORDER_WEBHOOK_TOPICS,
+        ...INVENTORY_WEBHOOK_TOPICS,
+      ]) {
         const response = await transport.post(
           `${apiBase(auth.shopDomain)}/webhooks.json`,
           {

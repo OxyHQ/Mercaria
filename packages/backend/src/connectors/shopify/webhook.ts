@@ -22,15 +22,17 @@ export type ShopifyWebhookTopic =
   | 'products/update'
   | 'products/delete'
   | 'orders/create'
-  | 'orders/updated';
+  | 'orders/updated'
+  | 'inventory_levels/update';
 
-/** The webhook topics this connector handles (product + order sync). */
+/** The webhook topics this connector handles (product + order + inventory sync). */
 const HANDLED_TOPICS: readonly ShopifyWebhookTopic[] = [
   'products/create',
   'products/update',
   'products/delete',
   'orders/create',
   'orders/updated',
+  'inventory_levels/update',
 ];
 
 /** Narrow a raw `X-Shopify-Topic` header value to a topic we handle. */
