@@ -105,7 +105,7 @@ function OrderRow({ order, storeId }: { order: OrderSummary; storeId: string }) 
           {formatCreatedAt(order.createdAt)} · {order.status.replace("_", " ")}
         </Text>
       </View>
-      <PriceDisplay price={order.grandTotal} primaryClassName="text-base font-bold" />
+      <PriceDisplay price={order.grandTotal.shop} primaryClassName="text-base font-bold" />
       <ChevronRight size={18} color={colors.mutedForeground} />
     </Pressable>
   );

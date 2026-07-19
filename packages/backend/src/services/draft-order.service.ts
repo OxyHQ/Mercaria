@@ -18,6 +18,8 @@
 import mongoose, { type HydratedDocument } from 'mongoose';
 import type {
   Money,
+  DualMoney,
+  FxRateSnapshot,
   CurrencyCode,
   DraftOrder as DraftOrderDTO,
   DraftOrderLineItem,
@@ -59,6 +61,7 @@ import { normalizeDiscountCode } from './discount.service.js';
 import { getCustomer } from './customer.service.js';
 import { transition } from './order.service.js';
 import { hydrateOrders } from './order-hydration.service.js';
+import { getRates } from './fx.service.js';
 import { multiplyMoney, zeroMoney } from '../utils/money.js';
 import { conflict, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
@@ -82,6 +85,15 @@ interface Reservation {
 /** Map a persisted `{ amount, currency }` sub-document to the `Money` DTO. */
 function toMoney(value: { amount: number; currency: string }): Money {
   return { amount: value.amount, currency: value.currency as Money['currency'] };
+}
+
+/**
+ * Wrap a POS `Money` as `DualMoney`. A POS sale both SETTLES and CHARGES in the
+ * store's currency, so the shop and presentment sides are equal (distinct objects
+ * so the two persisted sub-docs never alias).
+ */
+function toPosDual(money: Money): DualMoney {
+  return { shop: { ...money }, presentment: { ...money } };
 }
 
 /** Map a persisted draft address snapshot to the `AddressSnapshot` DTO (omit absent optionals). */
@@ -194,12 +206,13 @@ async function recompute(draft: HydratedDocument<IDraftOrder>): Promise<PricingR
     draft.appliedDiscounts = [];
     draft.taxLines = [];
     draft.totals = zeroTotals(currency);
+    const zero = toPosDual(zeroMoney(currency));
     return {
-      subtotal: zeroMoney(currency),
-      discountTotal: zeroMoney(currency),
-      tax: zeroMoney(currency),
-      shipping: zeroMoney(currency),
-      grandTotal: zeroMoney(currency),
+      subtotal: zero,
+      discountTotal: zero,
+      tax: zero,
+      shipping: zero,
+      grandTotal: zero,
       appliedDiscounts: [],
       taxLines: [],
       perLineDiscount: [],
@@ -229,18 +242,23 @@ async function recompute(draft: HydratedDocument<IDraftOrder>): Promise<PricingR
 
   const customerOxyUserId = await resolveCustomerOxyUserId(draft);
 
+  // A POS sale settles AND charges in the store's currency: shop == presentment.
+  const rates = await getRates('FAIR', [currency]);
   const pricing = await calculateTotals({
     storeId: draft.storeId,
     lines,
     currency,
+    presentmentCurrency: currency,
+    rates,
     discountCodes: [...draft.discountCodes],
     ...(customerOxyUserId ? { customerId: customerOxyUserId } : {}),
   });
 
   draft.lineItems.forEach((line, index) => {
+    // The draft persists single-currency totals (the shop side of the dual money).
     const lineDiscount = pricing.perLineDiscount[index];
-    if (lineDiscount && lineDiscount.amount > 0) {
-      line.discountTotal = { amount: lineDiscount.amount, currency: lineDiscount.currency };
+    if (lineDiscount && lineDiscount.shop.amount > 0) {
+      line.discountTotal = { amount: lineDiscount.shop.amount, currency: lineDiscount.shop.currency };
     } else {
       line.discountTotal = undefined;
     }
@@ -248,11 +266,11 @@ async function recompute(draft: HydratedDocument<IDraftOrder>): Promise<PricingR
   draft.appliedDiscounts = pricing.appliedDiscounts.map(toPersistedAllocation);
   draft.taxLines = pricing.taxLines.map((t) => ({ name: t.name, rateBps: t.rateBps, amount: t.amount }));
   draft.totals = {
-    subtotal: pricing.subtotal,
-    discountTotal: pricing.discountTotal,
-    tax: pricing.tax,
-    shipping: pricing.shipping,
-    grandTotal: pricing.grandTotal,
+    subtotal: pricing.subtotal.shop,
+    discountTotal: pricing.discountTotal.shop,
+    tax: pricing.tax.shop,
+    shipping: pricing.shipping.shop,
+    grandTotal: pricing.grandTotal.shop,
   };
 
   return pricing;
@@ -660,19 +678,20 @@ export async function completeDraftOrder(
     );
 
     const items: IOrderItem[] = draft.lineItems.map((line, index) => {
-      const unitPrice: Money = toMoney(line.unitPrice);
+      const unitPrice = toMoney(line.unitPrice);
       const item: IOrderItem = {
         listingId: String(line.listingId),
         variantId: String(line.variantId),
         title: line.title,
         variantTitle: line.variantTitle,
         optionValues: line.optionValues.map((o) => ({ name: o.name, value: o.value })),
-        unitPrice,
+        // POS: shop == presentment (settled and charged in the store's currency).
+        unitPrice: toPosDual(unitPrice),
         quantity: line.quantity,
-        lineTotal: multiplyMoney(unitPrice, line.quantity),
+        lineTotal: toPosDual(multiplyMoney(unitPrice, line.quantity)),
       };
       const lineDiscount = pricing.perLineDiscount[index];
-      if (lineDiscount && lineDiscount.amount > 0) {
+      if (lineDiscount && lineDiscount.shop.amount > 0) {
         item.discountTotal = lineDiscount;
       }
       const imageUrl = firstImageUrl(listingById.get(String(line.listingId)));
@@ -702,6 +721,14 @@ export async function completeDraftOrder(
 
     const idempotencyKey = draft.idempotencyKey ?? `draft:${String(draft._id)}`;
 
+    // POS: shop == presentment (same currency), so the snapshot rate is 1.
+    const posFxRate: FxRateSnapshot = {
+      from: currency,
+      to: currency,
+      rate: 1,
+      asOf: new Date().toISOString(),
+    };
+
     order = await Order.create({
       buyerOxyUserId,
       sellerType: 'store',
@@ -710,14 +737,20 @@ export async function completeDraftOrder(
       sourceChannel: 'pos',
       items,
       shippingAddressSnapshot,
-      shipping: { method: 'pickup', label: 'Pickup', cost: zeroMoney(currency), trackingNumber: null },
+      shipping: {
+        method: 'pickup',
+        label: 'Pickup',
+        cost: toPosDual(zeroMoney(currency)),
+        trackingNumber: null,
+      },
       totals: {
         subtotal: pricing.subtotal,
         discountTotal: pricing.discountTotal,
-        shipping: zeroMoney(currency),
+        shipping: toPosDual(zeroMoney(currency)),
         tax: pricing.tax,
         grandTotal: pricing.grandTotal,
       },
+      fxRate: posFxRate,
       appliedDiscounts: toOrderAllocations(pricing.appliedDiscounts),
       taxLines: toOrderTaxLines(pricing.taxLines),
       status: 'pending_payment',

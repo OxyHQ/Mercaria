@@ -32,10 +32,31 @@ vi.mock('../../models/store.js', () => ({
   Store: { findById: (...args: unknown[]) => storeFindById(...args) },
 }));
 
-import { calculateTotals, type PricingLine } from '../pricing.service.js';
+import { calculateTotals, type PricingLine, type PricingInput } from '../pricing.service.js';
+import type { FxRates } from '@mercaria/shared-types';
 import type { IDiscount } from '../../models/discount.js';
 import type { ITaxRate } from '../../models/tax-rate.js';
 import type { IStoreTaxSettings } from '../../models/store.js';
+
+/** Trivial FAIR-based rates: every test prices a FAIR shop == FAIR presentment. */
+const FAIR_RATES: FxRates = {
+  base: 'FAIR',
+  rates: { FAIR: 1 },
+  asOf: '2026-01-01T00:00:00.000Z',
+  stale: false,
+  ttlSeconds: 300,
+};
+
+/**
+ * Price a group with the FAIR shop == FAIR presentment defaults injected, so the
+ * result's `shop` and `presentment` sides are byte-identical and every assertion
+ * reads the `shop` side.
+ */
+function priceGroup(
+  input: Omit<PricingInput, 'presentmentCurrency' | 'rates'>,
+): ReturnType<typeof calculateTotals> {
+  return calculateTotals({ ...input, presentmentCurrency: 'FAIR', rates: FAIR_RATES });
+}
 
 const STORE_ID = '000000000000000000000040';
 const L1 = '000000000000000000000101';
@@ -113,14 +134,14 @@ function assertReconciled(
   result: Awaited<ReturnType<typeof calculateTotals>>,
   lineTotals: number[],
 ): void {
-  const perLineSum = result.perLineDiscount.reduce((s, m) => s + m.amount, 0);
-  expect(perLineSum).toBe(result.discountTotal.amount);
+  const perLineSum = result.perLineDiscount.reduce((s, m) => s + m.shop.amount, 0);
+  expect(perLineSum).toBe(result.discountTotal.shop.amount);
   // Per-line (lineTotal − discount) must sum to subtotal − discountTotal.
-  const discountedSum = lineTotals.reduce((s, t, i) => s + (t - result.perLineDiscount[i].amount), 0);
-  expect(discountedSum).toBe(result.subtotal.amount - result.discountTotal.amount);
+  const discountedSum = lineTotals.reduce((s, t, i) => s + (t - result.perLineDiscount[i].shop.amount), 0);
+  expect(discountedSum).toBe(result.subtotal.shop.amount - result.discountTotal.shop.amount);
   // grandTotal = subtotal − discount + tax + shipping (shipping always 0 here).
-  expect(result.grandTotal.amount).toBe(
-    result.subtotal.amount - result.discountTotal.amount + result.tax.amount + result.shipping.amount,
+  expect(result.grandTotal.shop.amount).toBe(
+    result.subtotal.shop.amount - result.discountTotal.shop.amount + result.tax.shop.amount + result.shipping.shop.amount,
   );
 }
 
@@ -132,18 +153,46 @@ beforeEach(() => {
 
 describe('calculateTotals — no store (P2P)', () => {
   it('returns subtotal only with no discounts/taxes', async () => {
-    const result = await calculateTotals({
+    const result = await priceGroup({
       lines: [line({ listingId: L1, amount: 1000, quantity: 2 })],
       currency: 'FAIR',
     });
-    expect(result.subtotal.amount).toBe(2000);
-    expect(result.discountTotal.amount).toBe(0);
-    expect(result.tax.amount).toBe(0);
-    expect(result.grandTotal.amount).toBe(2000);
+    expect(result.subtotal.shop.amount).toBe(2000);
+    expect(result.discountTotal.shop.amount).toBe(0);
+    expect(result.tax.shop.amount).toBe(0);
+    expect(result.grandTotal.shop.amount).toBe(2000);
     expect(result.appliedDiscounts).toEqual([]);
-    expect(result.perLineDiscount).toEqual([{ amount: 0, currency: 'FAIR' }]);
+    expect(result.perLineDiscount).toEqual([
+      { shop: { amount: 0, currency: 'FAIR' }, presentment: { amount: 0, currency: 'FAIR' } },
+    ]);
     // No store → models are never queried.
     expect(discountFind).not.toHaveBeenCalled();
+  });
+});
+
+describe('calculateTotals — presentment vs shop (multi-currency)', () => {
+  it('keeps totals in the shop currency and converts the presentment side by the rates', async () => {
+    // Shop = EUR, presentment = FAIR. Rates: 1 FAIR = 0.45 EUR.
+    const rates: FxRates = {
+      base: 'FAIR',
+      rates: { FAIR: 1, EUR: 0.45 },
+      asOf: '2026-01-01T00:00:00.000Z',
+      stale: false,
+      ttlSeconds: 300,
+    };
+    const result = await calculateTotals({
+      lines: [{ listingId: L1, variantId: 'v-eur', unitPrice: { amount: 4500, currency: 'EUR' }, quantity: 1 }],
+      currency: 'EUR',
+      presentmentCurrency: 'FAIR',
+      rates,
+    });
+
+    // Shop side stays in the store's EUR (native == shop here).
+    expect(result.subtotal.shop).toEqual({ amount: 4500, currency: 'EUR' });
+    expect(result.grandTotal.shop).toEqual({ amount: 4500, currency: 'EUR' });
+    // Presentment: €45.00 ÷ 0.45 (EUR per 1 FAIR) = 100 FAIR = 10_000_000_000 minor.
+    expect(result.subtotal.presentment).toEqual({ amount: 10_000_000_000, currency: 'FAIR' });
+    expect(result.grandTotal.presentment).toEqual({ amount: 10_000_000_000, currency: 'FAIR' });
   });
 });
 
@@ -156,12 +205,12 @@ describe('calculateTotals — percentage order-level discount', () => {
       line({ listingId: L1, amount: 1000, quantity: 3 }), // 3000
       line({ listingId: L2, amount: 700, quantity: 1 }), // 700
     ];
-    const result = await calculateTotals({ storeId: STORE_ID, lines, currency: 'FAIR' });
+    const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
-    expect(result.subtotal.amount).toBe(3700);
+    expect(result.subtotal.shop.amount).toBe(3700);
     // 15% of 3700 = 555.
-    expect(result.discountTotal.amount).toBe(555);
-    expect(result.grandTotal.amount).toBe(3145);
+    expect(result.discountTotal.shop.amount).toBe(555);
+    expect(result.grandTotal.shop.amount).toBe(3145);
     // Order-level discounts emit ONE allocation (target 'order'), not per line.
     expect(result.appliedDiscounts).toHaveLength(1);
     expect(result.appliedDiscounts[0].target).toBe('order');
@@ -175,10 +224,10 @@ describe('calculateTotals — fixed_amount clamped to base', () => {
       leanOf([discount({ _id: 'd1', valueType: 'fixed_amount', value: 999999, appliesTo: { scope: 'order' } })]),
     );
     const lines = [line({ listingId: L1, amount: 1000, quantity: 2 })]; // 2000
-    const result = await calculateTotals({ storeId: STORE_ID, lines, currency: 'FAIR' });
+    const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
-    expect(result.discountTotal.amount).toBe(2000); // clamped to subtotal.
-    expect(result.grandTotal.amount).toBe(0);
+    expect(result.discountTotal.shop.amount).toBe(2000); // clamped to subtotal.
+    expect(result.grandTotal.shop.amount).toBe(0);
     assertReconciled(result, [2000]);
   });
 });
@@ -193,11 +242,11 @@ describe('calculateTotals — order-level proportional allocation', () => {
       line({ listingId: L1, amount: 333, quantity: 1 }), // 333
       line({ listingId: L2, amount: 1000, quantity: 1 }), // 1000
     ];
-    const result = await calculateTotals({ storeId: STORE_ID, lines, currency: 'FAIR' });
+    const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
     // 10% of 1333 = 133.3 → 133 (half-even). Allocated by weight 333:1000.
-    expect(result.discountTotal.amount).toBe(133);
-    const sum = result.perLineDiscount.reduce((s, m) => s + m.amount, 0);
+    expect(result.discountTotal.shop.amount).toBe(133);
+    const sum = result.perLineDiscount.reduce((s, m) => s + m.shop.amount, 0);
     expect(sum).toBe(133);
     assertReconciled(result, [333, 1000]);
   });
@@ -219,11 +268,11 @@ describe('calculateTotals — product-level discount', () => {
       line({ listingId: L1, amount: 1000, quantity: 1, collectionIds: [COLLECTION_A] }), // matches
       line({ listingId: L2, amount: 500, quantity: 1 }), // no collection → no discount
     ];
-    const result = await calculateTotals({ storeId: STORE_ID, lines, currency: 'FAIR' });
+    const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
-    expect(result.discountTotal.amount).toBe(200); // 20% of 1000 only.
-    expect(result.perLineDiscount[0].amount).toBe(200);
-    expect(result.perLineDiscount[1].amount).toBe(0);
+    expect(result.discountTotal.shop.amount).toBe(200); // 20% of 1000 only.
+    expect(result.perLineDiscount[0].shop.amount).toBe(200);
+    expect(result.perLineDiscount[1].shop.amount).toBe(0);
     assertReconciled(result, [1000, 500]);
   });
 });
@@ -244,10 +293,10 @@ describe('calculateTotals — BOGO', () => {
     );
     // 3 units at 500 each → buy 2 get 1 free → one unit free (500 off).
     const lines = [line({ listingId: L1, amount: 500, quantity: 3 })];
-    const result = await calculateTotals({ storeId: STORE_ID, lines, currency: 'FAIR' });
+    const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
-    expect(result.discountTotal.amount).toBe(500);
-    expect(result.grandTotal.amount).toBe(1000);
+    expect(result.discountTotal.shop.amount).toBe(500);
+    expect(result.grandTotal.shop.amount).toBe(1000);
     assertReconciled(result, [1500]);
   });
 });
@@ -266,10 +315,10 @@ describe('calculateTotals — gating', () => {
       ]),
     );
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })]; // 1000 < 5000
-    const result = await calculateTotals({ storeId: STORE_ID, lines, currency: 'FAIR' });
+    const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
-    expect(result.discountTotal.amount).toBe(0);
-    expect(result.grandTotal.amount).toBe(1000);
+    expect(result.discountTotal.shop.amount).toBe(0);
+    expect(result.grandTotal.shop.amount).toBe(1000);
   });
 
   it('does not apply when the total usage ceiling is reached', async () => {
@@ -287,13 +336,13 @@ describe('calculateTotals — gating', () => {
       ]),
     );
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
-    const result = await calculateTotals({
+    const result = await priceGroup({
       storeId: STORE_ID,
       lines,
       currency: 'FAIR',
       discountCodes: ['promo'],
     });
-    expect(result.discountTotal.amount).toBe(0);
+    expect(result.discountTotal.shop.amount).toBe(0);
   });
 });
 
@@ -306,9 +355,9 @@ describe('calculateTotals — combinability', () => {
       ]),
     );
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
-    const result = await calculateTotals({ storeId: STORE_ID, lines, currency: 'FAIR' });
+    const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
-    expect(result.discountTotal.amount).toBe(200); // 20% wins, not 30%.
+    expect(result.discountTotal.shop.amount).toBe(200); // 20% wins, not 30%.
     const ids = new Set(result.appliedDiscounts.map((a) => a.discountId));
     expect(ids).toEqual(new Set(['d2']));
   });
@@ -336,12 +385,12 @@ describe('calculateTotals — combinability', () => {
       line({ listingId: L1, amount: 1000, quantity: 1 }), // product+order
       line({ listingId: L2, amount: 1000, quantity: 1 }), // order only
     ];
-    const result = await calculateTotals({ storeId: STORE_ID, lines, currency: 'FAIR' });
+    const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
     // Product: 20% of L1 (1000) = 200 attributed to line 0. Order: 10% of the FULL
     // subtotal (2000) = 200, allocated across the remaining per-line weight
     // (800 + 1000 = 1800). Total = 400.
-    expect(result.discountTotal.amount).toBe(400);
+    expect(result.discountTotal.shop.amount).toBe(400);
     const ids = new Set(result.appliedDiscounts.map((a) => a.discountId));
     expect(ids).toEqual(new Set(['d1', 'd2']));
     assertReconciled(result, [1000, 1000]);
@@ -354,16 +403,16 @@ describe('calculateTotals — taxes', () => {
       leanOf([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]),
     );
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
-    const result = await calculateTotals({
+    const result = await priceGroup({
       storeId: STORE_ID,
       lines,
       currency: 'FAIR',
       shippingAddress: { country: 'US' },
     });
 
-    expect(result.tax.amount).toBe(80); // 8% of 1000.
+    expect(result.tax.shop.amount).toBe(80); // 8% of 1000.
     expect(result.taxLines).toHaveLength(1);
-    expect(result.grandTotal.amount).toBe(1080);
+    expect(result.grandTotal.shop.amount).toBe(1080);
     assertReconciled(result, [1000]);
   });
 
@@ -373,7 +422,7 @@ describe('calculateTotals — taxes', () => {
       leanOf([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]),
     );
     const lines = [line({ listingId: L1, amount: 1080, quantity: 1 })];
-    const result = await calculateTotals({
+    const result = await priceGroup({
       storeId: STORE_ID,
       lines,
       currency: 'FAIR',
@@ -381,10 +430,10 @@ describe('calculateTotals — taxes', () => {
     });
 
     // Contained tax: 1080 − round(1080*10000/10800) = 1080 − 1000 = 80 (informational).
-    expect(result.tax.amount).toBe(0); // NOT added.
+    expect(result.tax.shop.amount).toBe(0); // NOT added.
     expect(result.taxLines).toHaveLength(1);
     expect(result.taxLines[0].amount.amount).toBe(80);
-    expect(result.grandTotal.amount).toBe(1080); // unchanged.
+    expect(result.grandTotal.shop.amount).toBe(1080); // unchanged.
   });
 
   it('emits no tax lines when chargeTaxOnProducts is false', async () => {
@@ -393,7 +442,7 @@ describe('calculateTotals — taxes', () => {
       leanOf([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]),
     );
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
-    const result = await calculateTotals({
+    const result = await priceGroup({
       storeId: STORE_ID,
       lines,
       currency: 'FAIR',
@@ -401,7 +450,7 @@ describe('calculateTotals — taxes', () => {
     });
 
     expect(result.taxLines).toEqual([]);
-    expect(result.tax.amount).toBe(0);
-    expect(result.grandTotal.amount).toBe(1000);
+    expect(result.tax.shop.amount).toBe(0);
+    expect(result.grandTotal.shop.amount).toBe(1000);
   });
 });

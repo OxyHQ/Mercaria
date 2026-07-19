@@ -3,11 +3,11 @@
  *
  * The richer analytics surface beside the dashboard `storeStats` in
  * `order.service`. Every figure is scoped to ONE store and (for revenue/AOV/top
- * products/sales) derived from its PAID orders; money is FAIR integer minor units
- * in the store's default currency. All three reports run server-side Mongo
- * aggregations (`$match`/`$group`/`$dateTrunc`) rather than loading documents into
- * memory, so they scale with order volume. Reports are READ-only — they never
- * mutate orders.
+ * products/sales) derived from its PAID orders; money is summed on the SHOP
+ * (settlement) side and `$match`ed to the store's `defaultCurrency`, so reports
+ * NEVER mix currencies. All three reports run server-side Mongo aggregations
+ * (`$match`/`$group`/`$dateTrunc`) rather than loading documents into memory, so
+ * they scale with order volume. Reports are READ-only — they never mutate orders.
  */
 
 import type {
@@ -120,15 +120,16 @@ export async function getSummary(storeId: string): Promise<ReportSummary> {
       { $match: { storeId, 'payment.status': 'paid' } },
       { $group: { _id: '$sourceChannel', n: { $sum: 1 } } },
     ]),
-    // PAID-order count + summed grandTotal (revenue).
+    // PAID-order count + summed SHOP grandTotal (revenue), matched to the store's
+    // shop currency so revenue never mixes currencies.
     Order.aggregate<{ _id: null; count: number; revenue: number }>([
-      { $match: { storeId, 'payment.status': 'paid' } },
-      { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$totals.grandTotal.amount' } } },
+      { $match: { storeId, 'payment.status': 'paid', 'totals.grandTotal.shop.currency': currency } },
+      { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$totals.grandTotal.shop.amount' } } },
     ]),
-    // Summed refund totals across the store's refunds.
+    // Summed SHOP refund totals across the store's refunds (same shop currency).
     Refund.aggregate<{ _id: null; total: number }>([
-      { $match: { storeId } },
-      { $group: { _id: null, total: { $sum: '$totalRefunded.amount' } } },
+      { $match: { storeId, 'totalRefunded.shop.currency': currency } },
+      { $group: { _id: null, total: { $sum: '$totalRefunded.shop.amount' } } },
     ]),
   ]);
 
@@ -183,6 +184,7 @@ export async function getSalesReport(
       $match: {
         storeId,
         'payment.status': 'paid',
+        'totals.grandTotal.shop.currency': currency,
       },
     },
     // Order timeline anchor: when the payment settled (fallback to createdAt).
@@ -192,7 +194,7 @@ export async function getSalesReport(
       $group: {
         _id: { $dateTrunc: { date: '$paidMoment', unit: interval } },
         orders: { $sum: 1 },
-        revenue: { $sum: '$totals.grandTotal.amount' },
+        revenue: { $sum: '$totals.grandTotal.shop.amount' },
       },
     },
     { $sort: { _id: 1 } },
@@ -228,7 +230,7 @@ export async function getTopProducts(
     unitsSold: number;
     revenue: number;
   }>([
-    { $match: { storeId, 'payment.status': 'paid' } },
+    { $match: { storeId, 'payment.status': 'paid', 'totals.grandTotal.shop.currency': currency } },
     { $addFields: { paidMoment: { $ifNull: ['$payment.paidAt', '$createdAt'] } } },
     { $match: { paidMoment: { $gte: from, $lte: to } } },
     { $unwind: '$items' },
@@ -237,7 +239,7 @@ export async function getTopProducts(
         _id: '$items.listingId',
         title: { $last: '$items.title' },
         unitsSold: { $sum: '$items.quantity' },
-        revenue: { $sum: '$items.lineTotal.amount' },
+        revenue: { $sum: '$items.lineTotal.shop.amount' },
       },
     },
     { $sort: { unitsSold: -1, revenue: -1 } },

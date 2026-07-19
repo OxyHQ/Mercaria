@@ -40,7 +40,12 @@ export interface Customer extends Timestamps {
   stats: {
     /** Number of paid orders this customer has placed at the store. */
     orderCount: number;
-    /** Lifetime spend (FAIR minor units) across paid orders. */
+    /**
+     * Lifetime spend across paid orders, in the store's SHOP currency (its
+     * `defaultCurrency`). Always single-currency — a customer's orders all settle
+     * in the one store currency, so this aggregate never mixes currencies (it is
+     * the shop side of each order's grand total, never the buyer's presentment).
+     */
     totalSpent: Money;
     /** ISO-8601 time of the customer's most recent paid order, when any. */
     lastOrderAt?: string;

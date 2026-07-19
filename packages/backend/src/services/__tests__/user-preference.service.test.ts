@@ -4,9 +4,9 @@
  *
  * `mongodb-memory-server` is unavailable, so the `UserPreference` model's static
  * methods are mocked. These tests assert: `getOrCreate` upserts defaults
- * (`dualDisplayEnabled: true`, `secondaryCurrency: null`) and projects the DTO,
- * and `update` sets only the provided fields — including setting a value and
- * explicitly clearing `secondaryCurrency` to `null`.
+ * (`dualDisplayEnabled: true`, `preferredCurrency: null`, `secondaryCurrency:
+ * null`) and projects the DTO, and `update` sets only the provided fields —
+ * including setting a value and explicitly clearing `secondaryCurrency` to `null`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -37,6 +37,7 @@ describe('getOrCreate', () => {
     findOneAndUpdate.mockReturnValueOnce(
       leanOf({
         oxyUserId: USER,
+        preferredCurrency: null,
         secondaryCurrency: null,
         dualDisplayEnabled: true,
       }),
@@ -44,7 +45,11 @@ describe('getOrCreate', () => {
 
     const result = await getOrCreate(USER);
 
-    expect(result).toEqual({ secondaryCurrency: null, dualDisplayEnabled: true });
+    expect(result).toEqual({
+      preferredCurrency: null,
+      secondaryCurrency: null,
+      dualDisplayEnabled: true,
+    });
     const [filter, , options] = findOneAndUpdate.mock.calls[0];
     expect(filter).toEqual({ oxyUserId: USER });
     expect(options).toMatchObject({ upsert: true, setDefaultsOnInsert: true });
@@ -54,21 +59,52 @@ describe('getOrCreate', () => {
 describe('update', () => {
   it('sets a secondary currency and toggles dual display', async () => {
     findOneAndUpdate.mockReturnValueOnce(
-      leanOf({ oxyUserId: USER, secondaryCurrency: 'EUR', dualDisplayEnabled: false }),
+      leanOf({
+        oxyUserId: USER,
+        preferredCurrency: null,
+        secondaryCurrency: 'EUR',
+        dualDisplayEnabled: false,
+      }),
     );
 
     const result = await update(USER, { secondaryCurrency: 'EUR', dualDisplayEnabled: false });
 
-    expect(result).toEqual({ secondaryCurrency: 'EUR', dualDisplayEnabled: false });
+    expect(result).toEqual({
+      preferredCurrency: null,
+      secondaryCurrency: 'EUR',
+      dualDisplayEnabled: false,
+    });
     const [, updateDoc] = findOneAndUpdate.mock.calls[0];
     expect(updateDoc).toMatchObject({
       $set: { secondaryCurrency: 'EUR', dualDisplayEnabled: false },
     });
   });
 
+  it('sets the primary preferred currency', async () => {
+    findOneAndUpdate.mockReturnValueOnce(
+      leanOf({
+        oxyUserId: USER,
+        preferredCurrency: 'CAD',
+        secondaryCurrency: null,
+        dualDisplayEnabled: true,
+      }),
+    );
+
+    const result = await update(USER, { preferredCurrency: 'CAD' });
+
+    expect(result.preferredCurrency).toBe('CAD');
+    const [, updateDoc] = findOneAndUpdate.mock.calls[0];
+    expect(updateDoc.$set).toEqual({ preferredCurrency: 'CAD' });
+  });
+
   it('clears the secondary currency when explicitly set to null', async () => {
     findOneAndUpdate.mockReturnValueOnce(
-      leanOf({ oxyUserId: USER, secondaryCurrency: null, dualDisplayEnabled: true }),
+      leanOf({
+        oxyUserId: USER,
+        preferredCurrency: null,
+        secondaryCurrency: null,
+        dualDisplayEnabled: true,
+      }),
     );
 
     const result = await update(USER, { secondaryCurrency: null });

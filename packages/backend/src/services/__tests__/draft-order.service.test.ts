@@ -16,6 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PricingResult } from '../pricing.service.js';
+import type { DualMoney } from '@mercaria/shared-types';
 
 const reserve = vi.fn();
 const release = vi.fn();
@@ -173,21 +174,22 @@ function mockDraft(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
+/** A `DualMoney` in FAIR where shop == presentment (a POS sale). */
+function fairDual(amount: number): DualMoney {
+  return { shop: { amount, currency: 'FAIR' }, presentment: { amount, currency: 'FAIR' } };
+}
+
 /** A pricing result mirroring a 2-line draft (3000 subtotal, no discount/tax). */
 function pricing(): PricingResult {
-  const currency = 'FAIR' as const;
   return {
-    subtotal: { amount: 3000, currency },
-    discountTotal: { amount: 0, currency },
-    tax: { amount: 0, currency },
-    shipping: { amount: 0, currency },
-    grandTotal: { amount: 3000, currency },
+    subtotal: fairDual(3000),
+    discountTotal: fairDual(0),
+    tax: fairDual(0),
+    shipping: fairDual(0),
+    grandTotal: fairDual(3000),
     appliedDiscounts: [],
     taxLines: [],
-    perLineDiscount: [
-      { amount: 0, currency },
-      { amount: 0, currency },
-    ],
+    perLineDiscount: [fairDual(0), fairDual(0)],
   };
 }
 

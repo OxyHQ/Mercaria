@@ -236,6 +236,8 @@ export const config: AppConfig = Object.freeze({
       USD: numEnv('FX_STATIC_RATE_USD', 0.49),
       EUR: numEnv('FX_STATIC_RATE_EUR', 0.45),
       GBP: numEnv('FX_STATIC_RATE_GBP', 0.39),
+      CAD: numEnv('FX_STATIC_RATE_CAD', 0.67),
+      AUD: numEnv('FX_STATIC_RATE_AUD', 0.75),
     }),
   }),
 });

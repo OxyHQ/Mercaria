@@ -1,5 +1,5 @@
 /**
- * Cart service — the buyer's single-currency basket.
+ * Cart service — the buyer's basket, displayed in their presentment currency.
  *
  * The cart stores ONLY variant references + quantities; prices and availability
  * are read LIVE from the variant every time the cart is hydrated, so a price
@@ -7,8 +7,10 @@
  * gone, or whose `available` fell below its quantity, is flagged `stale`).
  *
  * Invariants:
- *   - single-currency: a cart's `currency` is fixed by its first item; adding a
- *     variant in a different currency is a CONFLICT.
+ *   - multi-currency source, single-currency display: a cart may hold items priced
+ *     in different NATIVE currencies; every line is converted to the buyer's
+ *     PRESENTMENT currency (their preferred currency, or FAIR) at hydration, so the
+ *     cart DTO is single-currency for display.
  *   - quantities are clamped to the variant's live `available` (when tracked)
  *     and to `config.cart.maxQuantityPerItem`.
  *   - NO inventory is reserved here — reservation happens at checkout (F4). The
@@ -34,6 +36,8 @@ import { resolveMedia } from './catalog-hydration.service.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { calculateTotals, type PricingLine } from './pricing.service.js';
 import { normalizeDiscountCode } from './discount.service.js';
+import { getRates, convert } from './fx.service.js';
+import { resolvePresentmentCurrency } from './user-preference.service.js';
 import { multiplyMoney, sumMoney, zeroMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
@@ -214,9 +218,12 @@ function clampQuantity(requested: number, tracked: boolean, available: number): 
  * `total`. The preview is presentation-only — checkout re-computes authoritatively.
  */
 async function buildCartDTO(cart: ICart): Promise<CartDTO> {
-  const currency = cart.currency as CurrencyCode;
   const id = String(cart._id);
   const pendingDiscountCodes = [...(cart.pendingDiscountCodes ?? [])];
+
+  // The cart is displayed in the buyer's PRESENTMENT currency (their preferred
+  // currency, or FAIR). Native prices are converted into it for display.
+  const currency = await resolvePresentmentCurrency(cart.oxyUserId);
 
   if (cart.items.length === 0) {
     const empty: CartDTO = { id, items: [], groups: [], currency, subtotal: { amount: 0, currency } };
@@ -236,6 +243,11 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
 
   const variantById = new Map(variantDocs.map((v) => [String(v._id), v]));
   const listingById = new Map(listingDocs.map((l) => [String(l._id), l]));
+
+  // FAIR-based rates covering the presentment currency + every native price
+  // currency, so each line converts native → presentment for display.
+  const nativeCurrencies = variantDocs.map((v) => v.price.currency as CurrencyCode);
+  const rates = await getRates('FAIR', dedupeCurrencies([currency, ...nativeCurrencies]));
 
   const items: CartItemDTO[] = cart.items.map((item) => {
     const variantId = String(item.variantId);
@@ -261,7 +273,8 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
 
     const available = variant.inventory.available;
     const tracked = variant.inventory.tracked;
-    const unitPrice = toMoney(variant.price);
+    // Convert the variant's native price into the buyer's presentment currency.
+    const unitPrice = convert(toMoney(variant.price), currency, rates);
     const lineTotal = multiplyMoney(unitPrice, item.quantity);
     const imageUrl = firstImageUrl(listing);
 
@@ -305,17 +318,24 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
   return dto;
 }
 
+/** Dedupe a list of currency codes, preserving first-seen order. */
+function dedupeCurrencies(codes: CurrencyCode[]): CurrencyCode[] {
+  return [...new Set(codes)];
+}
+
 /**
  * Run a read-only pricing PREVIEW of the cart's pending discount codes. Only
  * STORE-owned lines participate (P2P lines get no discount/tax); lines are grouped
- * per store and each group is priced via `calculateTotals({ preview: true })`. The
- * per-store previews are summed. Presentation only — checkout is authoritative.
+ * per store and each group is priced via `calculateTotals({ preview: true })` in
+ * that store's SHOP currency, then converted to the buyer's `presentment` currency.
+ * The per-store presentment previews are summed (single presentment currency, no
+ * mixing). Presentation only — checkout is authoritative.
  */
 async function previewDiscounts(
   cart: ICart,
   listingById: Map<string, IListing>,
   variantById: Map<string, IProductVariant>,
-  currency: CurrencyCode,
+  presentmentCurrency: CurrencyCode,
 ): Promise<{ discountTotal: Money; taxPreview: Money; total: Money }> {
   const codes = [...(cart.pendingDiscountCodes ?? [])];
 
@@ -344,22 +364,50 @@ async function previewDiscounts(
     }
   }
 
+  // Resolve each store's SHOP currency for pricing (falls back to a line's native).
+  const storeIds = [...linesByStore.keys()];
+  const storeDocs =
+    storeIds.length > 0
+      ? await Store.find({ _id: { $in: storeIds } }).select('defaultCurrency').lean<
+          Pick<IStore, '_id' | 'defaultCurrency'>[]
+        >()
+      : [];
+  const shopCurrencyByStore = new Map(
+    storeDocs.map((s) => [String(s._id), s.defaultCurrency as CurrencyCode]),
+  );
+
+  // FAIR-based rates covering every shop, presentment and native currency so each
+  // store group prices in its shop currency and converts to presentment cleanly.
+  const involved: CurrencyCode[] = [presentmentCurrency];
+  for (const [storeId, lines] of linesByStore) {
+    involved.push(shopCurrencyByStore.get(storeId) ?? lines[0].unitPrice.currency);
+    for (const line of lines) {
+      involved.push(line.unitPrice.currency);
+    }
+  }
+  const rates = await getRates('FAIR', dedupeCurrencies(involved));
+
   let discount = 0;
   let tax = 0;
   let subtotalPriced = 0;
   for (const [storeId, lines] of linesByStore) {
+    const shopCurrency = shopCurrencyByStore.get(storeId) ?? lines[0].unitPrice.currency;
     const result = await calculateTotals({
       storeId,
       lines,
-      currency,
+      currency: shopCurrency,
+      presentmentCurrency,
+      rates,
       discountCodes: codes,
       preview: true,
     });
-    discount += result.discountTotal.amount;
-    tax += result.tax.amount;
-    subtotalPriced += result.subtotal.amount;
+    // Sum the PRESENTMENT side (the cart's display currency; single-currency).
+    discount += result.discountTotal.presentment.amount;
+    tax += result.tax.presentment.amount;
+    subtotalPriced += result.subtotal.presentment.amount;
   }
 
+  const currency = presentmentCurrency;
   const discountTotal: Money = { amount: discount, currency };
   const taxPreview: Money = { amount: tax, currency };
   // Preview grand total over the priced (store-owned) lines: subtotal − discount + tax.
@@ -378,12 +426,14 @@ async function loadCart(oxyUserId: string): Promise<ICart | null> {
 
 /**
  * Get the buyer's cart, hydrated with live unit prices, availability and a
- * subtotal. Returns an empty cart (no document yet) as an empty FAIR cart.
+ * subtotal (in the buyer's presentment currency). Returns an empty cart (no
+ * document yet) in the buyer's presentment currency.
  */
 export async function getCart(oxyUserId: string): Promise<CartDTO> {
   const cart = await loadCart(oxyUserId);
   if (!cart) {
-    return { id: '', items: [], groups: [], currency: 'FAIR', subtotal: { amount: 0, currency: 'FAIR' } };
+    const currency = await resolvePresentmentCurrency(oxyUserId);
+    return { id: '', items: [], groups: [], currency, subtotal: { amount: 0, currency } };
   }
   return buildCartDTO(cart);
 }
@@ -393,9 +443,10 @@ export async function getCart(oxyUserId: string): Promise<CartDTO> {
  * the freshly hydrated cart.
  *
  * Validates the listing + variant exist and the listing is sellable (`active`);
- * enforces a single-currency cart (CONFLICT if the variant's currency differs
- * from an existing cart's currency); clamps the resulting quantity to the
- * variant's live `available` (when tracked) and `maxQuantityPerItem`.
+ * clamps the resulting quantity to the variant's live `available` (when tracked)
+ * and `maxQuantityPerItem`. The cart is NOT currency-pinned — a variant priced in
+ * a different native currency is accepted and converted to the buyer's
+ * presentment currency at hydration/checkout.
  */
 export async function addItem(oxyUserId: string, input: AddCartItemInput): Promise<CartDTO> {
   if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
@@ -420,7 +471,6 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
     throw conflict('Listing is not available for purchase');
   }
 
-  const variantCurrency = variant.price.currency as CurrencyCode;
   const tracked = variant.inventory.tracked;
   const available = variant.inventory.available;
   if (tracked && available <= 0) {
@@ -436,7 +486,6 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
     }
     await Cart.create({
       oxyUserId,
-      currency: variantCurrency,
       items: [
         {
           listingId: input.listingId,
@@ -447,18 +496,6 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
       ],
     });
     return getCart(oxyUserId);
-  }
-
-  // Single-currency cart enforcement.
-  if (cart.items.length > 0 && cart.currency !== variantCurrency) {
-    throw conflict(
-      `Cart is in ${cart.currency}; cannot add an item priced in ${variantCurrency}`,
-    );
-  }
-
-  // An empty existing cart adopts the new item's currency.
-  if (cart.items.length === 0) {
-    cart.currency = variantCurrency;
   }
 
   const existing = cart.items.find((i) => String(i.variantId) === input.variantId);

@@ -44,7 +44,7 @@ import { createCollection, setCollectionProducts } from '../services/collection.
 import { recomputeAggregate } from '../services/review.service.js';
 import { minorUnitsPerMajor } from '../utils/money.js';
 import { config } from '../config/index.js';
-import type { Money } from '@mercaria/shared-types';
+import type { DualMoney, Money } from '@mercaria/shared-types';
 
 // FAKE dev owner — there is NO real Oxy account behind this id. Used only so the
 // seeded stores/P2P listings have a deterministic owner in development.
@@ -62,6 +62,15 @@ const SEED_CURRENCY = 'FAIR' as const;
  */
 function fair(major: number): Money {
   return { amount: major * minorUnitsPerMajor(SEED_CURRENCY), currency: SEED_CURRENCY };
+}
+
+/**
+ * Wrap a `Money` as `DualMoney` for a seeded order/refund. Seeded orders settle in
+ * the store's currency AND are presented in it (the seed's `SEED_CURRENCY`), so the
+ * shop and presentment sides are equal (distinct objects, no aliasing).
+ */
+function dual(money: Money): DualMoney {
+  return { shop: { ...money }, presentment: { ...money } };
 }
 
 function categoryAsset(file: string): string {
@@ -863,9 +872,9 @@ async function seed(): Promise<void> {
               title: 'Mopit Top',
               variantTitle: posVariant.title,
               optionValues: [],
-              unitPrice,
+              unitPrice: dual(unitPrice),
               quantity: posQuantity,
-              lineTotal,
+              lineTotal: dual(lineTotal),
               locationId: defaultLocationId,
             },
           ],
@@ -876,13 +885,13 @@ async function seed(): Promise<void> {
             postalCode: '08001',
             country: 'ES',
           },
-          shipping: { method: 'pickup', label: 'Pickup', cost: fair(0), trackingNumber: null },
+          shipping: { method: 'pickup', label: 'Pickup', cost: dual(fair(0)), trackingNumber: null },
           totals: {
-            subtotal: lineTotal,
-            discountTotal: fair(0),
-            shipping: fair(0),
-            tax: fair(0),
-            grandTotal: lineTotal,
+            subtotal: dual(lineTotal),
+            discountTotal: dual(fair(0)),
+            shipping: dual(fair(0)),
+            tax: dual(fair(0)),
+            grandTotal: dual(lineTotal),
           },
           appliedDiscounts: [],
           taxLines: [],
@@ -953,9 +962,9 @@ async function seed(): Promise<void> {
                 title: spec.title,
                 variantTitle: variant.title,
                 optionValues: [],
-                unitPrice: variant.price,
+                unitPrice: dual(variant.price),
                 quantity: spec.quantity,
-                lineTotal,
+                lineTotal: dual(lineTotal),
                 locationId: defaultLocationId,
               },
             ],
@@ -969,15 +978,15 @@ async function seed(): Promise<void> {
             shipping: {
               method: 'standard',
               label: 'Standard shipping',
-              cost: { amount: config.orders.shippingRates.standard, currency: lineTotal.currency },
+              cost: dual({ amount: config.orders.shippingRates.standard, currency: lineTotal.currency }),
               trackingNumber: null,
             },
             totals: {
-              subtotal: lineTotal,
-              discountTotal: fair(0),
-              shipping: { amount: config.orders.shippingRates.standard, currency: lineTotal.currency },
-              tax: fair(0),
-              grandTotal,
+              subtotal: dual(lineTotal),
+              discountTotal: dual(fair(0)),
+              shipping: dual({ amount: config.orders.shippingRates.standard, currency: lineTotal.currency }),
+              tax: dual(fair(0)),
+              grandTotal: dual(grandTotal),
             },
             appliedDiscounts: [],
             taxLines: [],

@@ -14,6 +14,9 @@
 import mongoose from 'mongoose';
 import type {
   Money,
+  DualMoney,
+  FxRateSnapshot,
+  OrderSettlement,
   Order as OrderDTO,
   OrderItem,
   OrderSummary,
@@ -43,6 +46,14 @@ import { resolveMedia, toMerchantSummary } from './catalog-hydration.service.js'
 /** Map a persisted `{ amount, currency }` sub-document to the `Money` DTO. */
 function toMoney(value: { amount: number; currency: string }): Money {
   return { amount: value.amount, currency: value.currency as Money['currency'] };
+}
+
+/** Map a persisted `{ shop, presentment }` sub-document to the `DualMoney` DTO. */
+function toDual(value: {
+  shop: { amount: number; currency: string };
+  presentment: { amount: number; currency: string };
+}): DualMoney {
+  return { shop: toMoney(value.shop), presentment: toMoney(value.presentment) };
 }
 
 /**
@@ -79,15 +90,15 @@ export function toOrderItemDTO(item: IOrderItem): OrderItem {
     title: item.title,
     variantTitle: item.variantTitle,
     optionValues: item.optionValues.map((o) => ({ name: o.name, value: o.value })),
-    unitPrice: toMoney(item.unitPrice),
+    unitPrice: toDual(item.unitPrice),
     quantity: item.quantity,
-    lineTotal: toMoney(item.lineTotal),
+    lineTotal: toDual(item.lineTotal),
   };
   if (item.imageUrl) {
     dto.imageUrl = item.imageUrl;
   }
   if (item.discountTotal) {
-    dto.discountTotal = toMoney(item.discountTotal);
+    dto.discountTotal = toDual(item.discountTotal);
   }
   if (item.locationId) {
     dto.locationId = item.locationId;
@@ -147,7 +158,7 @@ function toShippingInfo(shipping: IShippingSnapshot): ShippingInfo {
   const dto: ShippingInfo = {
     method: shipping.method,
     label: shipping.label,
-    cost: toMoney(shipping.cost),
+    cost: toDual(shipping.cost),
   };
   if (shipping.trackingNumber) {
     dto.trackingNumber = shipping.trackingNumber;
@@ -242,9 +253,6 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
   const { oxyProfiles, sellerProfileByUser, storeById } = await loadSellerContext(orders);
 
   return orders.map((order) => {
-    // Zero in the order's settlement currency — the back-compat fallback for the
-    // discount/tax totals on pre-B4 orders that predate those fields.
-    const zero: Money = { amount: 0, currency: toMoney(order.totals.subtotal).currency };
     const dto: OrderDTO = {
       id: String((order as { _id: mongoose.Types.ObjectId })._id),
       orderNumber: order.orderNumber,
@@ -256,11 +264,11 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
       shippingAddress: toAddressSnapshot(order.shippingAddressSnapshot),
       shipping: toShippingInfo(order.shipping),
       totals: {
-        subtotal: toMoney(order.totals.subtotal),
-        discountTotal: order.totals.discountTotal ? toMoney(order.totals.discountTotal) : zero,
-        shipping: toMoney(order.totals.shipping),
-        tax: order.totals.tax ? toMoney(order.totals.tax) : zero,
-        grandTotal: toMoney(order.totals.grandTotal),
+        subtotal: toDual(order.totals.subtotal),
+        discountTotal: toDual(order.totals.discountTotal),
+        shipping: toDual(order.totals.shipping),
+        tax: toDual(order.totals.tax),
+        grandTotal: toDual(order.totals.grandTotal),
       },
       appliedDiscounts: (order.appliedDiscounts ?? []).map(toDiscountAllocation),
       taxLines: (order.taxLines ?? []).map(toTaxLine),
@@ -271,6 +279,24 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
     };
+
+    if (order.fxRate) {
+      const fxRate: FxRateSnapshot = {
+        from: order.fxRate.from,
+        to: order.fxRate.to,
+        rate: order.fxRate.rate,
+        asOf: order.fxRate.asOf,
+      };
+      dto.fxRate = fxRate;
+    }
+    if (order.settlement) {
+      const settlement: OrderSettlement = {
+        amount: toMoney(order.settlement.amount),
+        rate: order.settlement.rate,
+        asOf: order.settlement.asOf,
+      };
+      dto.settlement = settlement;
+    }
 
     if (order.sellerType === 'user' && order.sellerOxyUserId) {
       const oxyUserId = String(order.sellerOxyUserId);
@@ -309,7 +335,7 @@ export async function summarizeOrders(orders: IOrder[]): Promise<OrderSummary[]>
       id: String((order as { _id: mongoose.Types.ObjectId })._id),
       orderNumber: order.orderNumber,
       status: order.status,
-      grandTotal: toMoney(order.totals.grandTotal),
+      grandTotal: toDual(order.totals.grandTotal),
       itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
       sellerType: order.sellerType,
       createdAt: order.createdAt.toISOString(),

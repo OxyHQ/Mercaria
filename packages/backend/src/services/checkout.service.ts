@@ -18,6 +18,10 @@ import mongoose from 'mongoose';
 import type {
   CheckoutInput,
   CheckoutResult,
+  CurrencyCode,
+  DualMoney,
+  FxRates,
+  FxRateSnapshot,
   Money,
   ShippingMethod,
   OrderSellerType,
@@ -35,6 +39,7 @@ import {
 } from '../models/order.js';
 import { Listing, type IListing } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
+import { Store, type IStore } from '../models/store.js';
 import { Address, type IAddress } from '../models/address.js';
 import { Discount } from '../models/discount.js';
 import { nextOrderNumber } from '../models/counter.js';
@@ -44,7 +49,8 @@ import { summarizeOrders } from './order-hydration.service.js';
 import { resolveMedia } from './catalog-hydration.service.js';
 import { calculateTotals, type PricingLine, type PricingResult } from './pricing.service.js';
 import { normalizeDiscountCode } from './discount.service.js';
-import { multiplyMoney } from '../utils/money.js';
+import { getRates, convert, toDualMoney, pairRate } from './fx.service.js';
+import { addMoney, multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { enqueueOrderEvent } from '../queue/producers.js';
@@ -93,8 +99,15 @@ interface OrderCreateDoc {
   storeId?: string;
   items: IOrderItem[];
   shippingAddressSnapshot: IAddressSnapshot;
-  shipping: { method: ShippingMethod; label: string; cost: Money; trackingNumber: null };
-  totals: { subtotal: Money; discountTotal: Money; shipping: Money; tax: Money; grandTotal: Money };
+  shipping: { method: ShippingMethod; label: string; cost: DualMoney; trackingNumber: null };
+  totals: {
+    subtotal: DualMoney;
+    discountTotal: DualMoney;
+    shipping: DualMoney;
+    tax: DualMoney;
+    grandTotal: DualMoney;
+  };
+  fxRate: FxRateSnapshot;
   appliedDiscounts: IDiscountAllocation[];
   taxLines: ITaxLine[];
   status: 'pending_payment';
@@ -167,15 +180,34 @@ async function summarizePriorGroup(
   return { checkoutGroupId, orders: await summarizeOrders(prior) };
 }
 
+/** The native `Money` price of a resolved line's variant. */
+function nativeUnitPrice(variant: IProductVariant): Money {
+  return { amount: variant.price.amount, currency: variant.price.currency as CurrencyCode };
+}
+
 /**
  * Build the immutable line item snapshots for a group: title/variant/options/
- * unit price are frozen here and never re-read after the order is placed. The
- * pricing engine's `perLineDiscount` (aligned to `group.lines` order) is stamped
- * onto each item's `discountTotal` (only when non-zero).
+ * unit price are frozen here and never re-read after the order is placed. Each
+ * money field is `DualMoney` — the variant's NATIVE price converted to the SHOP
+ * currency, plus a `presentment` side for the buyer. The pricing engine's
+ * `perLineDiscount` (aligned to `group.lines` order) is stamped onto each item's
+ * `discountTotal` (only when the shop side is non-zero).
  */
-function buildItems(group: SellerGroup, perLineDiscount: Money[]): IOrderItem[] {
+function buildItems(
+  group: SellerGroup,
+  perLineDiscount: DualMoney[],
+  shopCurrency: CurrencyCode,
+  presentmentCurrency: CurrencyCode,
+  rates: FxRates,
+): IOrderItem[] {
   return group.lines.map(({ cartItem, listing, variant }, index) => {
-    const unitPrice: Money = cartItem.unitPrice;
+    const shopUnit = convert(nativeUnitPrice(variant), shopCurrency, rates);
+    const unitPrice: DualMoney = toDualMoney(shopUnit, presentmentCurrency, rates);
+    const lineTotal: DualMoney = toDualMoney(
+      multiplyMoney(shopUnit, cartItem.quantity),
+      presentmentCurrency,
+      rates,
+    );
     const item: IOrderItem = {
       listingId: String((listing as { _id: mongoose.Types.ObjectId })._id),
       variantId: String((variant as { _id: mongoose.Types.ObjectId })._id),
@@ -184,10 +216,10 @@ function buildItems(group: SellerGroup, perLineDiscount: Money[]): IOrderItem[] 
       optionValues: variant.optionValues.map((o) => ({ name: o.name, value: o.value })),
       unitPrice,
       quantity: cartItem.quantity,
-      lineTotal: multiplyMoney(unitPrice, cartItem.quantity),
+      lineTotal,
     };
     const lineDiscount = perLineDiscount[index];
-    if (lineDiscount && lineDiscount.amount > 0) {
+    if (lineDiscount && lineDiscount.shop.amount > 0) {
       item.discountTotal = lineDiscount;
     }
     const imageUrl = firstImageUrl(listing);
@@ -198,14 +230,18 @@ function buildItems(group: SellerGroup, perLineDiscount: Money[]): IOrderItem[] 
   });
 }
 
-/** Build the `PricingLine[]` for a group from its resolved lines (input order preserved). */
+/**
+ * Build the `PricingLine[]` for a group from its resolved lines (input order
+ * preserved). Uses the variant's NATIVE price — the pricing engine converts it to
+ * the shop currency.
+ */
 function buildPricingLines(group: SellerGroup): PricingLine[] {
   return group.lines.map(({ cartItem, listing, variant }) => {
     const line: PricingLine = {
       listingId: String((listing as { _id: mongoose.Types.ObjectId })._id),
       variantId: String((variant as { _id: mongoose.Types.ObjectId })._id),
       collectionIds: [...(listing.collectionIds ?? [])],
-      unitPrice: cartItem.unitPrice,
+      unitPrice: nativeUnitPrice(variant),
       quantity: cartItem.quantity,
     };
     if (listing.productType) {
@@ -325,9 +361,6 @@ export async function checkout(
   if (cart.items.some((item) => item.stale === true)) {
     throw conflict('Cart has stale items; please review your cart');
   }
-  if (cart.items.some((item) => item.unitPrice.currency !== cart.currency)) {
-    throw conflict('Cart currency mismatch');
-  }
 
   // 3. Resolve + snapshot the shipping address.
   const address = await Address.findOne({ _id: input.addressId, oxyUserId }).lean<IAddress | null>();
@@ -416,11 +449,45 @@ export async function checkout(
   const shippingRegion = address.region;
   const shippingPostal = address.postalCode;
 
+  // 5c. Resolve the buyer's PRESENTMENT currency (the cart's display currency) and
+  // each store group's SHOP (settlement) currency — its `defaultCurrency`, falling
+  // back to a line's native currency. FAIR-based rates covering every currency
+  // involved (presentment + shop + native) are fetched ONCE so the native → shop →
+  // presentment conversions and the per-order fxRate snapshot are all consistent.
+  const presentmentCurrency: CurrencyCode = cart.currency;
+  const groupStoreIds = [
+    ...new Set(
+      [...groups.values()].map((g) => g.storeId).filter((s): s is string => Boolean(s)),
+    ),
+  ];
+  const storeDocs =
+    groupStoreIds.length > 0
+      ? await Store.find({ _id: { $in: groupStoreIds } }).select('defaultCurrency').lean<
+          Pick<IStore, '_id' | 'defaultCurrency'>[]
+        >()
+      : [];
+  const shopCurrencyByStore = new Map(
+    storeDocs.map((s) => [String(s._id), s.defaultCurrency as CurrencyCode]),
+  );
+  const shopCurrencyForGroup = (group: SellerGroup): CurrencyCode =>
+    (group.storeId ? shopCurrencyByStore.get(group.storeId) : undefined) ??
+    nativeUnitPrice(group.lines[0].variant).currency;
+
+  const involvedCurrencies = new Set<CurrencyCode>([presentmentCurrency]);
+  for (const group of groups.values()) {
+    involvedCurrencies.add(shopCurrencyForGroup(group));
+    for (const line of group.lines) {
+      involvedCurrencies.add(nativeUnitPrice(line.variant).currency);
+    }
+  }
+  const rates = await getRates('FAIR', [...involvedCurrencies]);
+
   // 6-7. Build + create one order per group (durable idempotency via 11000).
-  // The pricing engine computes discount→tax→grand in FAIR (shipping = 0); the
-  // flat config shipping cost is added AFTER (so grandTotal = pricing.grandTotal
-  // + shippingCost). The codes that actually produced an allocation are collected
-  // so their usageCount can be incremented EXACTLY once on the fresh-claim path.
+  // The pricing engine computes discount→tax→grand in the SHOP currency (shipping
+  // = 0); the flat config shipping cost is added AFTER (so grandTotal =
+  // pricing.grandTotal + shippingCost) on BOTH the shop and presentment sides. The
+  // codes that actually produced an allocation are collected so their usageCount
+  // can be incremented EXACTLY once on the fresh-claim path.
   const checkoutGroupId = new mongoose.Types.ObjectId().toString();
   const groupEntries = [...groups.entries()];
   const created: IOrder[] = [];
@@ -429,13 +496,21 @@ export async function checkout(
   try {
     for (const [sellerKey, group] of groupEntries) {
       const method = input.shippingSelections?.[sellerKey] ?? 'standard';
-      const cost: Money = { amount: config.orders.shippingRates[method], currency: cart.currency };
+      const shopCurrency = shopCurrencyForGroup(group);
+      // Shipping cost is a flat SHOP-currency amount; convert to presentment.
+      const cost: DualMoney = toDualMoney(
+        { amount: config.orders.shippingRates[method], currency: shopCurrency },
+        presentmentCurrency,
+        rates,
+      );
 
       // Store groups consult discounts/taxes; P2P groups price with no storeId.
       const pricing: PricingResult = await calculateTotals({
         ...(group.storeId ? { storeId: group.storeId } : {}),
         lines: buildPricingLines(group),
-        currency: cart.currency,
+        currency: shopCurrency,
+        presentmentCurrency,
+        rates,
         discountCodes: group.storeId ? discountCodes : [],
         customerId: oxyUserId,
         shippingAddress: { country: shippingCountry, region: shippingRegion, postalCode: shippingPostal },
@@ -447,11 +522,18 @@ export async function checkout(
         }
       }
 
-      const items = buildItems(group, pricing.perLineDiscount);
-      // grandTotal = (subtotal − discount + tax) from pricing, plus flat shipping.
-      const grandTotal: Money = {
-        amount: pricing.grandTotal.amount + cost.amount,
-        currency: cart.currency,
+      const items = buildItems(group, pricing.perLineDiscount, shopCurrency, presentmentCurrency, rates);
+      // grandTotal = (subtotal − discount + tax) from pricing, plus flat shipping,
+      // added on each of the shop + presentment sides.
+      const grandTotal: DualMoney = {
+        shop: addMoney(pricing.grandTotal.shop, cost.shop),
+        presentment: addMoney(pricing.grandTotal.presentment, cost.presentment),
+      };
+      const fxRate: FxRateSnapshot = {
+        from: shopCurrency,
+        to: presentmentCurrency,
+        rate: pairRate(shopCurrency, presentmentCurrency, rates),
+        asOf: rates.asOf,
       };
       const orderNumber = await nextOrderNumber();
 
@@ -471,6 +553,7 @@ export async function checkout(
           tax: pricing.tax,
           grandTotal,
         },
+        fxRate,
         appliedDiscounts: toOrderAllocations(pricing.appliedDiscounts),
         taxLines: toOrderTaxLines(pricing.taxLines),
         status: 'pending_payment',

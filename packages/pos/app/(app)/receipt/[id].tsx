@@ -83,7 +83,7 @@ function OrderLines({ order }: { order: Order }) {
               {item.variantTitle} · ×{item.quantity}
             </Text>
           </View>
-          <PriceDisplay price={item.lineTotal} />
+          <PriceDisplay price={item.lineTotal.shop} />
         </View>
       ))}
     </View>
@@ -94,16 +94,16 @@ function OrderTotals({ order }: { order: Order }) {
   const { totals } = order;
   return (
     <View className="gap-2 rounded-2xl border border-border bg-surface p-4">
-      <TotalRow label="Subtotal" price={<PriceDisplay price={totals.subtotal} />} />
-      {totals.discountTotal.amount > 0 ? (
-        <TotalRow label="Discount" price={<PriceDisplay price={totals.discountTotal} />} />
+      <TotalRow label="Subtotal" price={<PriceDisplay price={totals.subtotal.shop} />} />
+      {totals.discountTotal.shop.amount > 0 ? (
+        <TotalRow label="Discount" price={<PriceDisplay price={totals.discountTotal.shop} />} />
       ) : null}
-      {totals.tax.amount > 0 ? (
-        <TotalRow label="Tax" price={<PriceDisplay price={totals.tax} />} />
+      {totals.tax.shop.amount > 0 ? (
+        <TotalRow label="Tax" price={<PriceDisplay price={totals.tax.shop} />} />
       ) : null}
       <View className="mt-1 flex-row items-center justify-between border-t border-border pt-3">
         <Text className="text-base font-bold text-foreground">Total</Text>
-        <PriceDisplay price={totals.grandTotal} primaryClassName="text-base font-bold" />
+        <PriceDisplay price={totals.grandTotal.shop} primaryClassName="text-base font-bold" />
       </View>
     </View>
   );

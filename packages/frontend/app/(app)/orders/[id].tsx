@@ -55,7 +55,7 @@ function ItemsCard({ items }: { items: OrderItem[] }) {
                 {item.variantTitle} · ×{item.quantity}
               </Text>
             </View>
-            <PriceDisplay price={item.lineTotal} primaryClassName="text-sm font-semibold" />
+            <PriceDisplay price={item.lineTotal.presentment} primaryClassName="text-sm font-semibold" />
           </View>
         ))}
       </View>
@@ -80,20 +80,20 @@ function TotalsCard({ order }: { order: Order }) {
     <View className="rounded-2xl border border-border bg-card p-4">
       <Text className="mb-3 text-sm font-semibold text-foreground">Totals</Text>
       <View className="gap-2">
-        <TotalRow label="Subtotal" amount={<PriceDisplay price={totals.subtotal} primaryClassName="text-sm" />} />
-        {totals.discountTotal.amount > 0 ? (
+        <TotalRow label="Subtotal" amount={<PriceDisplay price={totals.subtotal.presentment} primaryClassName="text-sm" />} />
+        {totals.discountTotal.presentment.amount > 0 ? (
           <TotalRow
             label="Discounts"
-            amount={<PriceDisplay price={totals.discountTotal} primaryClassName="text-sm text-destructive" />}
+            amount={<PriceDisplay price={totals.discountTotal.presentment} primaryClassName="text-sm text-destructive" />}
           />
         ) : null}
-        <TotalRow label="Tax" amount={<PriceDisplay price={totals.tax} primaryClassName="text-sm" />} />
-        <TotalRow label="Shipping" amount={<PriceDisplay price={totals.shipping} primaryClassName="text-sm" />} />
+        <TotalRow label="Tax" amount={<PriceDisplay price={totals.tax.presentment} primaryClassName="text-sm" />} />
+        <TotalRow label="Shipping" amount={<PriceDisplay price={totals.shipping.presentment} primaryClassName="text-sm" />} />
         <View className="my-1 h-px bg-border" />
         <TotalRow
           label="Total"
           bold
-          amount={<PriceDisplay price={totals.grandTotal} primaryClassName="text-base font-bold" />}
+          amount={<PriceDisplay price={totals.grandTotal.presentment} primaryClassName="text-base font-bold" />}
         />
       </View>
     </View>

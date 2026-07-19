@@ -22,7 +22,7 @@ vi.mock('../../config/index.js', () => ({
       cacheTtlSeconds: 300,
       faircoinExplorerBaseUrl: 'https://explorer.fairco.in',
       requestTimeoutMs: 5_000,
-      staticRates: { USD: 0.49, EUR: 0.45, GBP: 0.39 },
+      staticRates: { USD: 0.49, EUR: 0.45, GBP: 0.39, CAD: 0.67, AUD: 0.75 },
     },
   },
 }));
@@ -150,6 +150,61 @@ describe('getRates — failure fallbacks', () => {
   });
 });
 
+describe('getRates — cross (non-FAIR) base via FAIR pivot', () => {
+  it('derives sane cross rates for a non-FAIR base (EUR)', async () => {
+    getRedisClient.mockReturnValue(null);
+    // Provider gives FAIR→USD = 0.49; EUR/GBP are static-filled. All rates are
+    // "per 1 FAIR", so EUR→X = (FAIR→X) / (FAIR→EUR), with FAIR→EUR = 0.45.
+    vi.mocked(fetch).mockResolvedValue(priceResponse(0.49) as unknown as Response);
+
+    const result = await getRates('EUR', ['GBP', 'USD', 'FAIR', 'EUR']);
+
+    expect(result.base).toBe('EUR');
+    expect(result.stale).toBe(false);
+    // EUR→EUR is identity.
+    expect(result.rates.EUR).toBe(1);
+    // EUR→GBP = 0.39 / 0.45 = 0.8666…
+    expect(result.rates.GBP).toBeCloseTo(0.39 / 0.45, 10);
+    // EUR→USD = 0.49 / 0.45 = 1.0888… (EUR stronger than USD → > 1).
+    expect(result.rates.USD).toBeCloseTo(0.49 / 0.45, 10);
+    expect(result.rates.USD).toBeGreaterThan(1);
+    // EUR→FAIR = 1 / 0.45 = 2.2222…
+    expect(result.rates.FAIR).toBeCloseTo(1 / 0.45, 10);
+    // Every derived rate is a finite positive number (no fabricated/zero rates).
+    for (const rate of Object.values(result.rates)) {
+      expect(rate).toBeGreaterThan(0);
+      expect(Number.isFinite(rate)).toBe(true);
+    }
+  });
+
+  it('inherits the stale flag from the FAIR resolution (provider down → static)', async () => {
+    getRedisClient.mockReturnValue(null);
+    vi.mocked(fetch).mockRejectedValue(new Error('provider down'));
+
+    const result = await getRates('GBP', ['USD']);
+
+    // FAIR path fell back to static → cross base inherits stale: true.
+    expect(result.base).toBe('GBP');
+    expect(result.stale).toBe(true);
+    // GBP→USD = 0.49 / 0.39.
+    expect(result.rates.USD).toBeCloseTo(0.49 / 0.39, 10);
+  });
+
+  it('omits every cross rate (empty) when the base has no FAIR rate — no fabrication', async () => {
+    getRedisClient.mockReturnValue(null);
+    vi.mocked(fetch).mockRejectedValue(new Error('network down'));
+    // Remove the base's FAIR rate: no FAIR→GBP anywhere → no pivot possible.
+    delete mockStaticRates.GBP;
+
+    const result = await getRates('GBP', ['USD', 'EUR']);
+
+    expect(result.base).toBe('GBP');
+    expect(result.stale).toBe(true);
+    // No FAIR→GBP → cannot form any GBP→X rate; omit rather than invent one.
+    expect(result.rates).toEqual({});
+  });
+});
+
 describe('convertToFair (write-side)', () => {
   it('returns a FAIR input unchanged (no rounding, identical object)', async () => {
     const money = { amount: 123_456_789, currency: 'FAIR' as const };
@@ -204,6 +259,85 @@ describe('convert (display-side)', () => {
     // 2 FAIR (200_000_000 minor) × 0.5 = 1.00 USD = 100 USD-cents.
     const result = convert({ amount: 200_000_000, currency: 'FAIR' }, 'USD', rates);
     expect(result).toEqual({ amount: 100, currency: 'USD' });
+  });
+
+  it('converts fiat→FAIR correctly (target side is the pivot)', () => {
+    const rates = {
+      base: 'FAIR' as const,
+      rates: { USD: 0.5 },
+      asOf: '2026-06-22T00:00:00.000Z',
+      stale: false,
+      ttlSeconds: 300,
+    };
+    // $1.00 (100 USD-cents), 1 FAIR = 0.50 USD → $1 = 2 FAIR = 200_000_000 minor.
+    const result = convert({ amount: 100, currency: 'USD' }, 'FAIR', rates);
+    expect(result).toEqual({ amount: 200_000_000, currency: 'FAIR' });
+  });
+
+  it('converts CROSS fiat→fiat (EUR→GBP) via the FAIR pivot', () => {
+    // All rates per 1 FAIR. EUR→GBP = 0.39 / 0.45. €10.00 (1000 EUR-cents):
+    // 10 / 0.45 = 22.2222… FAIR → × 0.39 = 8.6666… GBP → 866.666… → 867 (half-up).
+    const rates = {
+      base: 'FAIR' as const,
+      rates: { EUR: 0.45, GBP: 0.39 },
+      asOf: '2026-06-22T00:00:00.000Z',
+      stale: false,
+      ttlSeconds: 300,
+    };
+    const result = convert({ amount: 1000, currency: 'EUR' }, 'GBP', rates);
+    expect(result).toEqual({ amount: 867, currency: 'GBP' });
+  });
+
+  it('converts CROSS fiat→fiat (USD→CAD) via the FAIR pivot', () => {
+    // USD→CAD = 0.67 / 0.49. $100.00 (10000 USD-cents):
+    // 100 / 0.49 = 204.0816… FAIR → × 0.67 = 136.7346… CAD → 13673.46… → 13673.
+    const rates = {
+      base: 'FAIR' as const,
+      rates: { USD: 0.49, CAD: 0.67 },
+      asOf: '2026-06-22T00:00:00.000Z',
+      stale: false,
+      ttlSeconds: 300,
+    };
+    const result = convert({ amount: 10_000, currency: 'USD' }, 'CAD', rates);
+    expect(result).toEqual({ amount: 13_673, currency: 'CAD' });
+  });
+
+  it('rounds ONCE at the final step using half-even (banker\'s rounding)', () => {
+    const rates = {
+      base: 'FAIR' as const,
+      rates: { USD: 0.49 },
+      asOf: '2026-06-22T00:00:00.000Z',
+      stale: false,
+      ttlSeconds: 300,
+    };
+    // 0.5 FAIR × 0.49 = 0.245 USD → 24.5 cents → half-even → 24 (even neighbour).
+    expect(convert({ amount: 50_000_000, currency: 'FAIR' }, 'USD', rates)).toEqual({
+      amount: 24,
+      currency: 'USD',
+    });
+    // 1.5 FAIR × 0.49 = 0.735 USD → 73.5 cents → half-even → 74 (even neighbour).
+    expect(convert({ amount: 150_000_000, currency: 'FAIR' }, 'USD', rates)).toEqual({
+      amount: 74,
+      currency: 'USD',
+    });
+  });
+
+  it('throws a validationError for a cross pair when a side has no rate', () => {
+    // Neither side is FAIR and GBP has no "per 1 FAIR" rate → cannot pivot.
+    const rates = {
+      base: 'FAIR' as const,
+      rates: { EUR: 0.45 },
+      asOf: '2026-06-22T00:00:00.000Z',
+      stale: false,
+      ttlSeconds: 300,
+    };
+    let thrown: unknown;
+    try {
+      convert({ amount: 1000, currency: 'EUR' }, 'GBP', rates);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(isMercariaError(thrown) && thrown.code === ErrorCodes.VALIDATION_ERROR).toBe(true);
   });
 
   it('returns the input unchanged when source equals target', () => {

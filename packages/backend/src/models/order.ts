@@ -21,8 +21,9 @@ import type {
   OrderSellerType,
   OrderSourceChannel,
   PaymentInfo,
+  CurrencyCode,
 } from '@mercaria/shared-types';
-import { MoneySchema } from './schemas/money-schema.js';
+import { MoneySchema, DualMoneySchema } from './schemas/money-schema.js';
 
 const ORDER_STATUSES: readonly OrderStatus[] = [
   'pending_payment',
@@ -52,6 +53,12 @@ interface IMoney {
   currency: string;
 }
 
+/** A persisted `{ shop, presentment }` dual-currency sub-document. */
+interface IDualMoney {
+  shop: IMoney;
+  presentment: IMoney;
+}
+
 export interface IOrderItem {
   listingId: string;
   variantId: string;
@@ -59,11 +66,11 @@ export interface IOrderItem {
   variantTitle: string;
   imageUrl?: string;
   optionValues: { name: string; value: string }[];
-  unitPrice: IMoney;
+  unitPrice: IDualMoney;
   quantity: number;
-  lineTotal: IMoney;
+  lineTotal: IDualMoney;
   /** Total discount attributed to this line; absent on un-discounted lines. */
-  discountTotal?: IMoney;
+  discountTotal?: IDualMoney;
   /** The store location this line's stock commits at (POS); absent → default location. */
   locationId?: string;
 }
@@ -103,8 +110,23 @@ export interface IPaymentInfo {
 export interface IShippingSnapshot {
   method: ShippingMethod;
   label: string;
-  cost: IMoney;
+  cost: IDualMoney;
   trackingNumber: string | null;
+}
+
+/** The persisted shop→presentment rate snapshot (mirrors `FxRateSnapshot`). */
+export interface IFxRateSnapshot {
+  from: CurrencyCode;
+  to: CurrencyCode;
+  rate: number;
+  asOf: string;
+}
+
+/** The persisted shop→FAIR settlement snapshot (mirrors `OrderSettlement`). */
+export interface IOrderSettlement {
+  amount: IMoney;
+  rate: number;
+  asOf: string;
 }
 
 export interface IAddressSnapshot {
@@ -132,14 +154,16 @@ export interface IOrder {
   shippingAddressSnapshot: IAddressSnapshot;
   shipping: IShippingSnapshot;
   totals: {
-    subtotal: IMoney;
-    /** Total of every applied discount allocation; absent on pre-B4 orders. */
-    discountTotal?: IMoney;
-    shipping: IMoney;
-    /** Total tax added; absent on pre-B4 orders. */
-    tax?: IMoney;
-    grandTotal: IMoney;
+    subtotal: IDualMoney;
+    discountTotal: IDualMoney;
+    shipping: IDualMoney;
+    tax: IDualMoney;
+    grandTotal: IDualMoney;
   };
+  /** The shop→presentment rate snapshot used to form the order's dual amounts. */
+  fxRate?: IFxRateSnapshot;
+  /** The shop→FAIR settlement snapshot, present once the order is paid. */
+  settlement?: IOrderSettlement;
   appliedDiscounts: IDiscountAllocation[];
   taxLines: ITaxLine[];
   status: OrderStatus;
@@ -167,11 +191,11 @@ const OrderItemSchema = new Schema<IOrderItem>(
     variantTitle: { type: String, required: true },
     imageUrl: { type: String },
     optionValues: { type: [OrderItemOptionValueSchema], default: [] },
-    unitPrice: { type: MoneySchema, required: true },
+    unitPrice: { type: DualMoneySchema, required: true },
     quantity: { type: Number, required: true },
-    lineTotal: { type: MoneySchema, required: true },
-    // Optional (back-compat): pre-B4 items carry no per-line discount.
-    discountTotal: { type: MoneySchema, required: false },
+    lineTotal: { type: DualMoneySchema, required: true },
+    // Absent on un-discounted lines.
+    discountTotal: { type: DualMoneySchema, required: false },
     // Optional (POS): the location the line commits at; absent → default location.
     locationId: { type: String },
   },
@@ -206,8 +230,29 @@ const ShippingSnapshotSchema = new Schema<IShippingSnapshot>(
   {
     method: { type: String, enum: SHIPPING_METHODS as string[], required: true },
     label: { type: String, required: true },
-    cost: { type: MoneySchema, required: true },
+    cost: { type: DualMoneySchema, required: true },
     trackingNumber: { type: String, default: null },
+  },
+  { _id: false },
+);
+
+/** The shop→presentment rate snapshot used to form the order's dual amounts. */
+const FxRateSnapshotSchema = new Schema<IFxRateSnapshot>(
+  {
+    from: { type: String, required: true },
+    to: { type: String, required: true },
+    rate: { type: Number, required: true },
+    asOf: { type: String, required: true },
+  },
+  { _id: false },
+);
+
+/** The shop→FAIR settlement snapshot, captured at the `paid` transition. */
+const OrderSettlementSchema = new Schema<IOrderSettlement>(
+  {
+    amount: { type: MoneySchema, required: true },
+    rate: { type: Number, required: true },
+    asOf: { type: String, required: true },
   },
   { _id: false },
 );
@@ -261,14 +306,14 @@ const OrderSchema = new Schema<IOrder>(
     shippingAddressSnapshot: { type: AddressSnapshotSchema, required: true },
     shipping: { type: ShippingSnapshotSchema, required: true },
     totals: {
-      subtotal: { type: MoneySchema, required: true },
-      // Optional (back-compat): pre-B4 orders carry no discount/tax totals; the
-      // hydration falls back to zero. Services always write them on new orders.
-      discountTotal: { type: MoneySchema, required: false },
-      shipping: { type: MoneySchema, required: true },
-      tax: { type: MoneySchema, required: false },
-      grandTotal: { type: MoneySchema, required: true },
+      subtotal: { type: DualMoneySchema, required: true },
+      discountTotal: { type: DualMoneySchema, required: true },
+      shipping: { type: DualMoneySchema, required: true },
+      tax: { type: DualMoneySchema, required: true },
+      grandTotal: { type: DualMoneySchema, required: true },
     },
+    fxRate: { type: FxRateSnapshotSchema, required: false },
+    settlement: { type: OrderSettlementSchema, required: false },
     appliedDiscounts: { type: [DiscountAllocationSchema], default: [] },
     taxLines: { type: [TaxLineSchema], default: [] },
     status: {

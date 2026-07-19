@@ -15,6 +15,8 @@
  */
 
 import type {
+  CurrencyCode,
+  DualMoney,
   Money,
   Refund as RefundDTO,
   RefundLineItem,
@@ -51,12 +53,20 @@ function toMoney(value: { amount: number; currency: string }): Money {
   return { amount: value.amount, currency: value.currency as Money['currency'] };
 }
 
+/** Map a persisted `{ shop, presentment }` sub-document to the `DualMoney` DTO. */
+function toDual(value: {
+  shop: { amount: number; currency: string };
+  presentment: { amount: number; currency: string };
+}): DualMoney {
+  return { shop: toMoney(value.shop), presentment: toMoney(value.presentment) };
+}
+
 /** Map a persisted refund line item to its DTO (omit absent optionals). */
 function toLineItemDTO(line: IRefundLineItem): RefundLineItem {
   const dto: RefundLineItem = {
     variantId: line.variantId,
     quantity: line.quantity,
-    amount: toMoney(line.amount),
+    amount: toDual(line.amount),
     restock: line.restock,
   };
   if (line.locationId) dto.locationId = line.locationId;
@@ -71,14 +81,14 @@ export function toRefundDTO(refund: IRefund): RefundDTO {
     type: refund.type,
     status: refund.status,
     lineItems: refund.lineItems.map(toLineItemDTO),
-    totalRefunded: toMoney(refund.totalRefunded),
+    totalRefunded: toDual(refund.totalRefunded),
     createdAt: refund.createdAt.toISOString(),
     updatedAt: refund.updatedAt.toISOString(),
   };
   if (refund.storeId) dto.storeId = refund.storeId;
   if (refund.sellerOxyUserId) dto.sellerOxyUserId = refund.sellerOxyUserId;
   if (refund.reason) dto.reason = refund.reason;
-  if (refund.refundShipping) dto.refundShipping = toMoney(refund.refundShipping);
+  if (refund.refundShipping) dto.refundShipping = toDual(refund.refundShipping);
   if (refund.rmaNumber) dto.rmaNumber = refund.rmaNumber;
   if (refund.restockedAt) dto.restockedAt = refund.restockedAt.toISOString();
   if (refund.processedByOxyUserId) dto.processedByOxyUserId = refund.processedByOxyUserId;
@@ -138,9 +148,23 @@ export async function process(
     }
   }
 
-  const currency = order.totals.grandTotal.currency as Money['currency'];
+  const shopCurrency = order.totals.grandTotal.shop.currency as CurrencyCode;
+  const presentmentCurrency = order.totals.grandTotal.presentment.currency as CurrencyCode;
 
-  // 5. Compute each line's refundable amount from the DISCOUNTED net.
+  // The discounted-net refundable amount for `requestedQty` units on ONE currency
+  // side (unitPrice * orderedQty − lineDiscount, prorated + half-even rounded).
+  const sideAmount = (
+    unit: { amount: number },
+    discount: { amount: number } | undefined,
+    orderedQty: number,
+    requestedQty: number,
+  ): number => {
+    const net = unit.amount * orderedQty - (discount?.amount ?? 0);
+    return roundMinorUnits((net * requestedQty) / orderedQty);
+  };
+
+  // 5. Compute each line's refundable amount from the DISCOUNTED net, on BOTH the
+  // shop (settlement) and presentment (what the buyer paid) sides.
   const computedLines: IRefundLineItem[] = input.lineItems.map((inputLine) => {
     const item = itemByVariant.get(inputLine.variantId);
     if (!item) {
@@ -153,16 +177,24 @@ export async function process(
       throw conflict('Cumulative refund quantity exceeds ordered quantity');
     }
 
-    // Net line value paid = unitPrice * orderedQty - lineDiscount; refund the
-    // proportional share for `requestedQty` units (half-even rounded).
-    const discountTotalAmount = item.discountTotal?.amount ?? 0;
-    const netLineAmount = item.unitPrice.amount * orderedQty - discountTotalAmount;
-    const lineAmount = roundMinorUnits((netLineAmount * requestedQty) / orderedQty);
-
     const line: IRefundLineItem = {
       variantId: inputLine.variantId,
       quantity: requestedQty,
-      amount: { amount: lineAmount, currency: item.unitPrice.currency },
+      amount: {
+        shop: {
+          amount: sideAmount(item.unitPrice.shop, item.discountTotal?.shop, orderedQty, requestedQty),
+          currency: item.unitPrice.shop.currency,
+        },
+        presentment: {
+          amount: sideAmount(
+            item.unitPrice.presentment,
+            item.discountTotal?.presentment,
+            orderedQty,
+            requestedQty,
+          ),
+          currency: item.unitPrice.presentment.currency,
+        },
+      },
       restock: inputLine.restock ?? false,
     };
     const locationId = inputLine.locationId ?? item.locationId;
@@ -172,15 +204,22 @@ export async function process(
     return line;
   });
 
-  // 6. Optionally refund shipping (the order's persisted shipping cost).
-  const refundShipping = input.refundShipping === true ? toMoney(order.shipping.cost) : undefined;
+  // 6. Optionally refund shipping (the order's persisted dual shipping cost).
+  const refundShipping = input.refundShipping === true ? toDual(order.shipping.cost) : undefined;
 
-  // 7. Total refunded = every line amount (+ shipping when included).
-  const lineAmounts = computedLines.map((line) => toMoney(line.amount));
-  const totalRefunded = sumMoney(
-    refundShipping ? [...lineAmounts, refundShipping] : lineAmounts,
-    currency,
-  );
+  // 7. Total refunded = every line amount (+ shipping when included), on each side.
+  const shopParts = computedLines.map((line) => toMoney(line.amount.shop));
+  const presentmentParts = computedLines.map((line) => toMoney(line.amount.presentment));
+  const totalRefunded = {
+    shop: sumMoney(
+      refundShipping ? [...shopParts, refundShipping.shop] : shopParts,
+      shopCurrency,
+    ),
+    presentment: sumMoney(
+      refundShipping ? [...presentmentParts, refundShipping.presentment] : presentmentParts,
+      presentmentCurrency,
+    ),
+  };
 
   // 8. Restock explicitly per-line (NEVER via transition). Track if any happened.
   let anyRestock = false;
@@ -227,12 +266,13 @@ export async function process(
   }
 
   // 10. Set the order status DIRECTLY (no transition). Full when cumulative
-  // refunds cover the grand total; else partial (payment stays 'paid').
+  // refunds cover the grand total; else partial (payment stays 'paid'). Compared
+  // on the SHOP (settlement) side — the single-currency refund basis.
   const cumulativeRefunded = priorRefunds.reduce(
-    (acc, prior) => acc + prior.totalRefunded.amount,
-    totalRefunded.amount,
+    (acc, prior) => acc + prior.totalRefunded.shop.amount,
+    totalRefunded.shop.amount,
   );
-  const isFullyRefunded = cumulativeRefunded >= order.totals.grandTotal.amount;
+  const isFullyRefunded = cumulativeRefunded >= order.totals.grandTotal.shop.amount;
   if (isFullyRefunded) {
     await Order.findOneAndUpdate(
       { _id: orderId },
@@ -265,9 +305,10 @@ export async function process(
     );
   }
 
-  // 11. Decrement the related store customer's lifetime spend (store orders only).
+  // 11. Decrement the related store customer's lifetime spend (store orders only),
+  // in the store's SHOP currency (mirrors the shop-money upsertOnPaid bump).
   if (order.sellerType === 'store' && order.storeId && order.buyerOxyUserId) {
-    await decrementOnRefund(order.storeId, order.buyerOxyUserId, totalRefunded);
+    await decrementOnRefund(order.storeId, order.buyerOxyUserId, toMoney(totalRefunded.shop));
   }
 
   return toRefundDTO(created);

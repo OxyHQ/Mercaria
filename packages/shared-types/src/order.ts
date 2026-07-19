@@ -9,7 +9,7 @@
  * change or listing edit can never mutate a placed order.
  */
 
-import type { Money } from './money';
+import type { Money, DualMoney, FxRateSnapshot } from './money';
 import type { Seller } from './seller';
 import type { MerchantSummary } from './product';
 import type { Timestamps } from './common';
@@ -56,8 +56,8 @@ export interface ShippingInfo {
   method: ShippingMethod;
   /** Human-readable label for the method (e.g. "Standard shipping"). */
   label: string;
-  /** Shipping cost added to the order total. */
-  cost: Money;
+  /** Shipping cost added to the order total, in shop + presentment currency. */
+  cost: DualMoney;
   /** Carrier tracking number, set by the seller once shipped. */
   trackingNumber?: string;
 }
@@ -79,14 +79,14 @@ export interface OrderItem {
   imageUrl?: string;
   /** Variant option assignments at purchase time. */
   optionValues: { name: string; value: string }[];
-  /** Unit price at purchase time. */
-  unitPrice: Money;
+  /** Unit price at purchase time, in shop + presentment currency. */
+  unitPrice: DualMoney;
   /** Quantity of this variant ordered. */
   quantity: number;
-  /** `unitPrice * quantity`. */
-  lineTotal: Money;
-  /** Total discount attributed to this line (FAIR minor units), when discounted. */
-  discountTotal?: Money;
+  /** `unitPrice * quantity`, in shop + presentment currency. */
+  lineTotal: DualMoney;
+  /** Total discount attributed to this line (shop + presentment), when discounted. */
+  discountTotal?: DualMoney;
   /**
    * The store location this line's stock is committed at (POS sales). Absent for
    * storefront orders, which commit at the store's default location.
@@ -136,6 +136,21 @@ export type OrderSellerMini =
   | { type: 'user'; seller: Seller }
   | { type: 'store'; store: MerchantSummary };
 
+/**
+ * The shop→FAIR settlement snapshot, captured when an order is paid. FAIR is the
+ * canonical settlement currency: on the `paid` transition the order's shop
+ * grandTotal is converted to FAIR (`amount`) at the captured `rate`, so payout is
+ * reproducible independent of later rate moves. Absent until the order is paid.
+ */
+export interface OrderSettlement {
+  /** The settled grand total in FAIR (canonical settlement currency). */
+  amount: Money;
+  /** Units of FAIR per ONE unit of the order's shop currency, at settlement. */
+  rate: number;
+  /** ISO-8601 time settlement was computed (the `paid` transition). */
+  asOf: string;
+}
+
 /** A single entry in an order's status history (audit trail of transitions). */
 export interface OrderStatusEvent {
   /** The status the order moved INTO. */
@@ -180,22 +195,35 @@ export interface Order extends Timestamps {
   shippingAddress: AddressSnapshot;
   /** Chosen shipping method + cost (+ tracking once shipped). */
   shipping: ShippingInfo;
-  /** Money totals for the order. */
+  /** Money totals for the order, each carried in shop + presentment currency. */
   totals: {
     /** Sum of every line total. */
-    subtotal: Money;
+    subtotal: DualMoney;
     /** Total of every applied discount allocation (0 when none). */
-    discountTotal: Money;
+    discountTotal: DualMoney;
     /** Shipping cost added to the order. */
-    shipping: Money;
+    shipping: DualMoney;
     /** Total tax added to the order (0 when none / tax-inclusive). */
-    tax: Money;
+    tax: DualMoney;
     /** `subtotal - discountTotal + tax + shipping`. */
-    grandTotal: Money;
+    grandTotal: DualMoney;
   };
-  /** Per-discount breakdown of every reduction applied (empty when none). */
+  /**
+   * The shop→presentment rate snapshot used to form the order's presentment
+   * amounts. Absent on legacy single-currency orders.
+   */
+  fxRate?: FxRateSnapshot;
+  /** The shop→FAIR settlement snapshot, present once the order is paid. */
+  settlement?: OrderSettlement;
+  /**
+   * Per-discount breakdown of every reduction applied (empty when none). Amounts
+   * are in the order's SHOP currency (the settlement basis).
+   */
   appliedDiscounts?: DiscountAllocation[];
-  /** Per-rate tax breakdown (empty when none). */
+  /**
+   * Per-rate tax breakdown (empty when none). Amounts are in the order's SHOP
+   * currency (the settlement basis).
+   */
   taxLines?: TaxLine[];
   /** Current lifecycle status. */
   status: OrderStatus;
@@ -215,8 +243,8 @@ export interface OrderSummary {
   orderNumber: string;
   /** Current lifecycle status. */
   status: OrderStatus;
-  /** `subtotal + shipping`. */
-  grandTotal: Money;
+  /** The order grand total, in shop + presentment currency. */
+  grandTotal: DualMoney;
   /** Total units across all line items. */
   itemCount: number;
   /** Whether this order is fulfilled by a user (P2P) or a store. */

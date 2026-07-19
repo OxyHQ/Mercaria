@@ -1,22 +1,38 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getLocales } from "expo-localization";
-import type { CurrencyCode, FxRates } from "@mercaria/shared-types";
+import { useOxy } from "@oxyhq/services";
+import {
+  ALL_CURRENCY_CODES,
+  type CurrencyCode,
+  type CurrencyPreference,
+  type FxRates,
+} from "@mercaria/shared-types";
 import { FxProvider, type FxContextValue } from "@mercaria/ui";
 import apiClient from "./api/client";
 
-/** Canonical base currency for display-side conversion (FAIR is canonical). */
-const BASE_CURRENCY: CurrencyCode = "FAIR";
-/** Fiat quotes the dashboard fetches for dual-currency display. */
-const QUOTE_CURRENCIES: readonly CurrencyCode[] = ["USD", "EUR", "GBP"];
-/** Fiat codes a viewer may have as their secondary display currency. */
-const SUPPORTED_SECONDARY: readonly CurrencyCode[] = QUOTE_CURRENCIES;
+/** Canonical currency: the pivot every display rate is quoted against. */
+const FAIR: CurrencyCode = "FAIR";
+/**
+ * Fiat quotes fetched for display conversion — every supported code except FAIR
+ * (which is the pivot, with an implicit rate of 1). Fetching the full set lets
+ * `PriceDisplay` pivot ANY native currency to ANY chosen display currency.
+ * Data-driven from the shared currency set so adding a currency in
+ * `@mercaria/shared-types` propagates here without editing a literal list.
+ */
+const QUOTE_CURRENCIES: readonly CurrencyCode[] = ALL_CURRENCY_CODES.filter(
+  (code) => code !== FAIR,
+);
 /** Fallback secondary currency when the locale doesn't resolve a supported one. */
 const DEFAULT_SECONDARY: CurrencyCode = "EUR";
 /** How long resolved rates stay fresh before refetch (15 minutes, in ms). */
 const RATES_STALE_TIME = 1000 * 60 * 15;
+/** How long the persisted currency preference stays fresh (5 minutes, in ms). */
+const PREFERENCE_STALE_TIME = 1000 * 60 * 5;
 /** Stable query key for the FX rates query. */
-const RATES_QUERY_KEY = ["fx-rates", BASE_CURRENCY, QUOTE_CURRENCIES.join(",")] as const;
+const RATES_QUERY_KEY = ["fx-rates", FAIR, QUOTE_CURRENCIES.join(",")] as const;
+/** Stable query key for the persisted display-currency preference. */
+const CURRENCY_PREFERENCE_QUERY_KEY = ["currency-preference"] as const;
 
 /** The success envelope shape returned by `GET /rates`. */
 interface RatesEnvelope {
@@ -24,13 +40,19 @@ interface RatesEnvelope {
   data?: FxRates;
 }
 
+/** The success envelope shape returned by `GET /me/currency-preference`. */
+interface PreferenceEnvelope {
+  success: boolean;
+  data?: CurrencyPreference;
+}
+
 /**
  * Fetch display-side FX rates from the PUBLIC `GET /rates` endpoint. A transient
- * failure degrades display to FAIR-only; it never crashes.
+ * failure degrades display to the native amount; it never crashes.
  */
 async function fetchRates(): Promise<FxRates> {
   const { data } = await apiClient.get<RatesEnvelope>("/rates", {
-    params: { base: BASE_CURRENCY, quote: QUOTE_CURRENCIES.join(",") },
+    params: { base: FAIR, quote: QUOTE_CURRENCIES.join(",") },
   });
   if (!data.success || !data.data) {
     throw new Error("Failed to load FX rates");
@@ -48,40 +70,65 @@ export function useRatesQuery() {
   });
 }
 
-/** Narrow an arbitrary string to a supported secondary `CurrencyCode`, or null. */
-function toSupportedSecondary(value: string | null): CurrencyCode | null {
-  if (value === null) {
-    return null;
+/** Fetch the caller's persisted dual-currency DISPLAY preference. */
+async function fetchCurrencyPreference(): Promise<CurrencyPreference> {
+  const { data } = await apiClient.get<PreferenceEnvelope>("/me/currency-preference");
+  if (!data.success || !data.data) {
+    throw new Error("Failed to load currency preference");
   }
-  return (SUPPORTED_SECONDARY as readonly string[]).includes(value)
-    ? (value as CurrencyCode)
-    : null;
-}
-
-/** Resolve the viewer's secondary display currency from their device locale. */
-function resolveSecondaryCurrency(): CurrencyCode {
-  const [primaryLocale] = getLocales();
-  return toSupportedSecondary(primaryLocale.currencyCode) ?? DEFAULT_SECONDARY;
+  return data.data;
 }
 
 /**
- * App FX provider. Fetches public rates and resolves the viewer's secondary
- * display currency from the device locale, then exposes the presentation-only
- * `FxContextValue` to descendant price components (`PriceDisplay`). Must be
- * mounted INSIDE the Oxy/Query provider so the query works.
+ * React Query hook for the caller's persisted display-currency preference. Gated
+ * on auth — a signed-out viewer falls back to FAIR + a locale-derived secondary.
+ */
+export function useCurrencyPreferenceQuery() {
+  const { isAuthenticated } = useOxy();
+  return useQuery<CurrencyPreference>({
+    queryKey: CURRENCY_PREFERENCE_QUERY_KEY,
+    queryFn: fetchCurrencyPreference,
+    enabled: isAuthenticated,
+    staleTime: PREFERENCE_STALE_TIME,
+  });
+}
+
+/** Type guard: `value` is a currency code Mercaria supports for display. */
+function isSupportedCurrency(value: string): value is CurrencyCode {
+  return (ALL_CURRENCY_CODES as readonly string[]).includes(value);
+}
+
+/** Resolve the viewer's secondary display currency from their device locale. */
+function resolveLocaleSecondary(): CurrencyCode {
+  const [primaryLocale] = getLocales();
+  const localeCurrency = primaryLocale.currencyCode;
+  return localeCurrency !== null && isSupportedCurrency(localeCurrency)
+    ? localeCurrency
+    : DEFAULT_SECONDARY;
+}
+
+/**
+ * App FX provider. Fetches public rates and the viewer's persisted display
+ * preference, then exposes the presentation-only `FxContextValue` to descendant
+ * price components (`PriceDisplay`). The PRIMARY display currency is the viewer's
+ * `preferredCurrency` (FAIR by default); the secondary is their chosen one or a
+ * locale default. Must be mounted INSIDE the Oxy/Query provider so the queries
+ * work.
  */
 export function AppFxProvider({ children }: { children: React.ReactNode }) {
-  const { data } = useRatesQuery();
+  const { data: rates } = useRatesQuery();
+  const { data: preference } = useCurrencyPreferenceQuery();
 
-  const secondaryCurrency = useMemo(() => resolveSecondaryCurrency(), []);
+  const localeSecondary = useMemo(() => resolveLocaleSecondary(), []);
 
   const value = useMemo<FxContextValue>(
     () => ({
-      secondaryCurrency,
-      dualDisplayEnabled: true,
-      rates: data?.rates ?? {},
+      primaryCurrency: preference?.preferredCurrency ?? FAIR,
+      secondaryCurrency: preference?.secondaryCurrency ?? localeSecondary,
+      dualDisplayEnabled: preference?.dualDisplayEnabled ?? true,
+      rates: rates?.rates ?? {},
     }),
-    [secondaryCurrency, data],
+    [preference, localeSecondary, rates],
   );
 
   return <FxProvider value={value}>{children}</FxProvider>;
