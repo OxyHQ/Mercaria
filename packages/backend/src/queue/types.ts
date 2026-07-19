@@ -31,6 +31,27 @@ export interface WebhookProcessJob {
   payload: unknown;
 }
 
+/**
+ * PUSH a store listing OUT to every push/bidirectional connection of its store.
+ * `storeId` scopes the resolution (IDOR-safe) and the listing is re-resolved by
+ * `listingId` server-side (loop-prevention + connection targeting live in the
+ * connector-sync service).
+ */
+export interface ProductPushJob {
+  storeId: string;
+  listingId: string;
+}
+
+/**
+ * Pull orders from a `pull` connection into Mercaria. `storeId` scopes the
+ * connection lookup (a member of one store can never reach another's connection),
+ * so both ids are carried and re-resolved server-side by the handler.
+ */
+export interface OrderSyncJob {
+  storeId: string;
+  connectionId: string;
+}
+
 /** Recompute one review target's rating aggregate (drift-proof backstop). */
 export interface RecomputeAggregatesJob {
   targetType: ReviewTargetType;
@@ -68,10 +89,18 @@ export type MarketplaceEventJobName =
 export type MaintenanceJobName = 'expire-reservations' | 'recompute-aggregates-sweep';
 
 /** Job names enqueued onto the connector-sync queue. */
-export type MarketplaceSyncJobName = 'connection.backfill' | 'webhook.process';
+export type MarketplaceSyncJobName =
+  | 'connection.backfill'
+  | 'webhook.process'
+  | 'product.push'
+  | 'order.sync';
 
 /** Union of every connector-sync-queue job payload. */
-export type MarketplaceSyncJobData = ConnectionBackfillJob | WebhookProcessJob;
+export type MarketplaceSyncJobData =
+  | ConnectionBackfillJob
+  | WebhookProcessJob
+  | ProductPushJob
+  | OrderSyncJob;
 
 /** Union of every event-queue job payload. */
 export type MarketplaceEventJobData =

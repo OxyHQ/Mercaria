@@ -26,6 +26,8 @@ import {
   JOB_RECOMPUTE_AGGREGATES_SWEEP,
   JOB_CONNECTION_BACKFILL,
   JOB_WEBHOOK_PROCESS,
+  JOB_PRODUCT_PUSH,
+  JOB_ORDER_SYNC,
 } from './constants.js';
 import {
   handleRecomputeAggregates,
@@ -35,6 +37,8 @@ import {
   handleAggregateSweep,
   handleConnectionBackfill,
   handleWebhookProcess,
+  handleProductPush,
+  handleOrderSync,
 } from './handlers.js';
 import { log } from '../lib/logger.js';
 import type {
@@ -48,6 +52,8 @@ import type {
   LowInventoryAlertJob,
   ConnectionBackfillJob,
   WebhookProcessJob,
+  ProductPushJob,
+  OrderSyncJob,
 } from './types.js';
 
 let eventsWorker: Worker<MarketplaceEventJobData> | null = null;
@@ -94,6 +100,12 @@ async function processSyncJob(job: Job<MarketplaceSyncJobData>): Promise<void> {
       return;
     case JOB_WEBHOOK_PROCESS:
       await handleWebhookProcess(job.data as WebhookProcessJob);
+      return;
+    case JOB_PRODUCT_PUSH:
+      await handleProductPush(job.data as ProductPushJob);
+      return;
+    case JOB_ORDER_SYNC:
+      await handleOrderSync(job.data as OrderSyncJob);
       return;
     default:
       throw new UnrecoverableError(`Unknown connector-sync job: ${job.name}`);

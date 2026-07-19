@@ -39,6 +39,7 @@ export interface ShopifyHttpResponse {
 export interface ShopifyTransport {
   get(url: string, headers: Record<string, string>): Promise<ShopifyHttpResponse>;
   post(url: string, headers: Record<string, string>, body: string): Promise<ShopifyHttpResponse>;
+  put(url: string, headers: Record<string, string>, body: string): Promise<ShopifyHttpResponse>;
   del(url: string, headers: Record<string, string>): Promise<ShopifyHttpResponse>;
 }
 
@@ -113,48 +114,65 @@ export const shopifyTransport: ShopifyTransport = {
   },
 
   async post(url, headers, body) {
-    const parsed = assertShopifyHost(url);
+    return ipPinnedWrite('POST', url, headers, body);
+  },
 
-    // Validate + resolve the target with the SDK's SSRF guard, then pin the
-    // connection to the exact validated IP (no DNS re-resolution → no rebind).
-    const guard = await assertSafePublicUrl(url);
-    if (!guard.ok) {
-      throw new SsrfRejection('reason' in guard ? guard.reason : 'blocked SSRF target');
-    }
-
-    const bodyBuffer = Buffer.from(body, 'utf8');
-    return new Promise<ShopifyHttpResponse>((resolve, reject) => {
-      const req = httpsRequest(
-        {
-          hostname: guard.ip,
-          servername: parsed.hostname,
-          port: parsed.port ? Number(parsed.port) : 443,
-          path: `${parsed.pathname}${parsed.search}`,
-          method: 'POST',
-          headers: {
-            ...headers,
-            Host: parsed.hostname,
-            'Content-Length': String(bodyBuffer.length),
-          },
-        },
-        (res) => {
-          readBounded(res).then(
-            (responseBody) =>
-              resolve({
-                status: res.statusCode ?? 0,
-                headers: flattenHeaders(res.headers),
-                body: responseBody,
-              }),
-            reject,
-          );
-        },
-      );
-      req.setTimeout(POST_HEADERS_TIMEOUT_MS, () => {
-        req.destroy(new UpstreamError('Shopify token exchange timed out'));
-      });
-      req.on('error', reject);
-      req.write(bodyBuffer);
-      req.end();
-    });
+  async put(url, headers, body) {
+    return ipPinnedWrite('PUT', url, headers, body);
   },
 };
+
+/**
+ * Perform a body-carrying request (POST/PUT) to a Shopify shop host with the same
+ * SSRF hardening as {@link shopifyTransport.post}: the host allowlist, the SDK's
+ * public-URL guard, then a connection PINNED to the exact validated IP (so DNS is
+ * never re-resolved between the check and the connection → no DNS-rebind window).
+ */
+async function ipPinnedWrite(
+  method: 'POST' | 'PUT',
+  url: string,
+  headers: Record<string, string>,
+  body: string,
+): Promise<ShopifyHttpResponse> {
+  const parsed = assertShopifyHost(url);
+
+  const guard = await assertSafePublicUrl(url);
+  if (!guard.ok) {
+    throw new SsrfRejection('reason' in guard ? guard.reason : 'blocked SSRF target');
+  }
+
+  const bodyBuffer = Buffer.from(body, 'utf8');
+  return new Promise<ShopifyHttpResponse>((resolve, reject) => {
+    const req = httpsRequest(
+      {
+        hostname: guard.ip,
+        servername: parsed.hostname,
+        port: parsed.port ? Number(parsed.port) : 443,
+        path: `${parsed.pathname}${parsed.search}`,
+        method,
+        headers: {
+          ...headers,
+          Host: parsed.hostname,
+          'Content-Length': String(bodyBuffer.length),
+        },
+      },
+      (res) => {
+        readBounded(res).then(
+          (responseBody) =>
+            resolve({
+              status: res.statusCode ?? 0,
+              headers: flattenHeaders(res.headers),
+              body: responseBody,
+            }),
+          reject,
+        );
+      },
+    );
+    req.setTimeout(POST_HEADERS_TIMEOUT_MS, () => {
+      req.destroy(new UpstreamError('Shopify request timed out'));
+    });
+    req.on('error', reject);
+    req.write(bodyBuffer);
+    req.end();
+  });
+}

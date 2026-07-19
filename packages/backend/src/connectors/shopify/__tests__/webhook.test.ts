@@ -63,14 +63,16 @@ describe('verifyShopifyWebhook', () => {
 });
 
 describe('isHandledWebhookTopic', () => {
-  it('accepts the product topics we register + act on', () => {
+  it('accepts the product + order topics we register + act on', () => {
     expect(isHandledWebhookTopic('products/create')).toBe(true);
     expect(isHandledWebhookTopic('products/update')).toBe(true);
     expect(isHandledWebhookTopic('products/delete')).toBe(true);
+    expect(isHandledWebhookTopic('orders/create')).toBe(true);
+    expect(isHandledWebhookTopic('orders/updated')).toBe(true);
   });
 
   it('rejects unhandled or missing topics', () => {
-    expect(isHandledWebhookTopic('orders/create')).toBe(false);
+    expect(isHandledWebhookTopic('orders/delete')).toBe(false);
     expect(isHandledWebhookTopic('app/uninstalled')).toBe(false);
     expect(isHandledWebhookTopic(undefined)).toBe(false);
   });

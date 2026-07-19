@@ -20,11 +20,13 @@
 
 import { z } from 'zod';
 import type {
+  AddressSnapshot,
   Connection as ConnectionDTO,
   ConnectorProviderId,
   CreateStoreProductInput,
   CreateStoreProductVariantInput,
   CurrencyCode,
+  Money,
   SyncProgressEvent,
   SyncRun as SyncRunDTO,
   SyncSettings as SyncSettingsDTO,
@@ -34,7 +36,10 @@ import type {
 import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
 import { Connection, type IConnection, type ISyncSettings } from '../models/connection.js';
 import { SyncRun, type ISyncRun, type ISyncRunCounts } from '../models/sync-run.js';
-import { Listing, type IListingSource } from '../models/listing.js';
+import { Listing, type IListing, type IListingSource } from '../models/listing.js';
+import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
+import { Order, type IOrder, type IOrderItem, type IOrderSource } from '../models/order.js';
+import { nextOrderNumber } from '../models/counter.js';
 import { Category } from '../models/category.js';
 import { createStoreProduct, updateListing } from './catalog-write.service.js';
 import { encryptSecret, decryptSecret } from '../lib/connector-crypto.js';
@@ -42,8 +47,11 @@ import { getConnectorProvider } from '../connectors/registry.js';
 import type {
   ConnectorAuth,
   ConnectorCredentials,
+  NormalizedOrder,
   NormalizedProduct,
   NormalizedVariant,
+  PushProduct,
+  PushVariant,
 } from '../connectors/types.js';
 import { createOAuthState } from '../connectors/oauth-state.js';
 import { getOAuthRedirectUri, getWebhookAddress } from '../connectors/config.js';
@@ -299,6 +307,17 @@ export async function connectAndVerify(
     );
   }
 
+  // Initial order import: enqueue an order sync when order pull is already enabled.
+  if (pullsResource(conn.syncSettings.orders)) {
+    const { enqueueOrderSync } = await import('../queue/producers.js');
+    await enqueueOrderSync({ storeId, connectionId: String(conn._id) }).catch((err) =>
+      log.general.warn(
+        { err, connectionId: String(conn._id) },
+        'Failed to enqueue connect-time order sync',
+      ),
+    );
+  }
+
   return conn;
 }
 
@@ -512,6 +531,21 @@ async function importProduct(
   }).select('_id overriddenFields');
 
   if (!existing) {
+    // LOOP PREVENTION (bidirectional): before creating, check whether this external
+    // product is one WE pushed OUT to this connection (recorded in `externalRefs`).
+    // If so, the inbound event is an echo of our own push — the listing is
+    // Mercaria-owned, so skip it (never re-import a pushed product as a duplicate,
+    // and never let the platform's normalization fight Mercaria's source of truth).
+    const pushMirror = await Listing.exists({
+      storeId: conn.storeId,
+      externalRefs: {
+        $elemMatch: { connectionId: String(conn._id), externalId: product.externalId },
+      },
+    });
+    if (pushMirror) {
+      return 'skipped';
+    }
+
     const listingId = await createStoreProduct(conn.storeId, toCreateInput(product, opts.categorySlug));
     const set: Record<string, unknown> = { source: buildSource(conn, product) };
     if (!opts.autoPublish) {
@@ -651,13 +685,101 @@ async function archiveSourcedListing(conn: IConnection, externalId: string): Pro
   return result.modifiedCount > 0;
 }
 
+/** True when a per-resource direction pulls into Mercaria (`pull` or `bidirectional`). */
+function pullsResource(direction: ISyncSettings['products']): boolean {
+  return direction === 'pull' || direction === 'bidirectional';
+}
+
+/** A unit of webhook work that increments `counts`; the wrapper owns the `SyncRun`. */
+type WebhookWork = (counts: ISyncRunCounts) => Promise<void>;
+
+/**
+ * Run ONE webhook unit under a `webhook` `SyncRun`: create the run, emit live
+ * progress, run `work`, then complete or fail. Best-effort — it NEVER throws:
+ * platforms re-deliver failed webhooks and every upsert is idempotent, so a
+ * modeled failure is recorded on the run + logged and swallowed.
+ */
+async function runWebhookUnit(conn: IConnection, topic: string, work: WebhookWork): Promise<void> {
+  const connectionId = String(conn._id);
+  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const run = await SyncRun.create({ connectionId, kind: 'webhook' });
+  emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'started', counts });
+
+  try {
+    await work(counts);
+    run.counts = counts;
+    run.status = 'completed';
+    run.finishedAt = new Date();
+    await run.save();
+    await Connection.updateOne({ _id: conn._id }, { $set: { lastSyncAt: new Date() } });
+    emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'completed', counts });
+  } catch (err) {
+    counts.failed += 1;
+    run.counts = counts;
+    run.status = 'failed';
+    run.error = err instanceof Error ? err.message : 'Webhook processing failed';
+    run.finishedAt = new Date();
+    await run.save();
+    emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'failed', counts });
+    log.general.error({ err, connectionId, topic }, 'Failed to process connector webhook');
+  }
+}
+
+/** Handle a `products/*` webhook: create/update upserts, delete archives. */
+async function handleProductWebhook(
+  conn: IConnection,
+  topic: string,
+  payload: unknown,
+  counts: ISyncRunCounts,
+): Promise<void> {
+  if (topic === 'products/delete') {
+    const parsed = webhookDeletePayloadSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw validationError('Malformed product-delete webhook payload');
+    }
+    const archived = await archiveSourcedListing(conn, String(parsed.data.id));
+    counts[archived ? 'updated' : 'skipped'] += 1;
+    return;
+  }
+  // products/create | products/update — upsert the single product.
+  if (!conn.shopCurrency || !isSupportedCurrency(conn.shopCurrency)) {
+    throw validationError('Connection has no supported shop currency');
+  }
+  const provider = getConnectorProvider(conn.provider);
+  const product = provider.normalizeProduct(payload, conn.shopCurrency);
+  const categorySlug = await resolveImportCategorySlug();
+  const outcome = await importProduct(conn, product, {
+    categorySlug,
+    autoPublish: conn.syncSettings.autoPublish,
+    respectOverrides: conn.syncSettings.conflictPolicy === 'respect_overrides',
+  });
+  counts[outcome] += 1;
+}
+
+/** Handle an `orders/*` webhook: idempotently upsert the single external order. */
+async function handleOrderWebhook(
+  conn: IConnection,
+  payload: unknown,
+  counts: ISyncRunCounts,
+): Promise<void> {
+  if (!conn.shopCurrency || !isSupportedCurrency(conn.shopCurrency)) {
+    throw validationError('Connection has no supported shop currency');
+  }
+  const provider = getConnectorProvider(conn.provider);
+  const order = provider.normalizeOrder(payload, conn.shopCurrency);
+  const outcome = await upsertExternalOrder(conn, order);
+  counts[outcome] += 1;
+}
+
 /**
  * Process ONE inbound platform webhook (already HMAC-verified at the ingress
- * route). `products/create` + `products/update` upsert the single product through
- * the SAME sync path as backfill (respecting `overriddenFields`); `products/delete`
- * ARCHIVES the mapped listing. Records a `webhook` `SyncRun` and emits live
- * progress. Best-effort: a modeled failure is recorded on the run + logged and does
- * NOT throw (Shopify re-delivers failed webhooks; the upsert is idempotent).
+ * route). Dispatches by topic family:
+ *  - `products/*` (gated on the product direction) → the same product upsert/
+ *    archive path as backfill (respecting `overriddenFields`).
+ *  - `orders/*` (gated on the order direction) → an idempotent external-order
+ *    upsert (`{ storeId, source.externalId }` never duplicates).
+ * Records a `webhook` `SyncRun` and emits live progress. Best-effort: a modeled
+ * failure is recorded + logged and does NOT throw.
  */
 export async function processConnectorWebhook(job: {
   connectionId: string;
@@ -679,61 +801,478 @@ export async function processConnectorWebhook(job: {
     );
     return;
   }
-  // Respect the per-connection product direction: no product pull ⇒ ignore.
-  if (conn.syncSettings.products !== 'pull' && conn.syncSettings.products !== 'bidirectional') {
-    log.general.info(
-      { connectionId: job.connectionId, topic: job.topic },
-      'Product pull disabled — webhook ignored',
+
+  if (job.topic.startsWith('products/')) {
+    // Respect the per-connection product direction: no product pull ⇒ ignore.
+    if (!pullsResource(conn.syncSettings.products)) {
+      log.general.info(
+        { connectionId: job.connectionId, topic: job.topic },
+        'Product pull disabled — webhook ignored',
+      );
+      return;
+    }
+    await runWebhookUnit(conn, job.topic, (counts) =>
+      handleProductWebhook(conn, job.topic, job.payload, counts),
     );
     return;
   }
 
+  if (job.topic.startsWith('orders/')) {
+    // Respect the per-connection order direction: no order pull ⇒ ignore.
+    if (!pullsResource(conn.syncSettings.orders)) {
+      log.general.info(
+        { connectionId: job.connectionId, topic: job.topic },
+        'Order pull disabled — webhook ignored',
+      );
+      return;
+    }
+    await runWebhookUnit(conn, job.topic, (counts) =>
+      handleOrderWebhook(conn, job.payload, counts),
+    );
+    return;
+  }
+
+  log.general.info(
+    { connectionId: job.connectionId, topic: job.topic },
+    'Unhandled webhook topic (ignored)',
+  );
+}
+
+// --- ORDER SYNC (platform → Mercaria) ---------------------------------------
+
+/** A single non-empty placeholder for a required address field the platform omitted. */
+const ADDRESS_PLACEHOLDER = '-';
+
+/** True when an error is a MongoDB duplicate-key (E11000) violation. */
+function isDuplicateKeyError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null || !('code' in err)) {
+    return false;
+  }
+  return (err as Record<string, unknown>).code === 11000;
+}
+
+/** Build the provenance `source` sub-document for an external order. */
+function buildOrderSource(conn: IConnection, order: NormalizedOrder): IOrderSource {
+  const source: IOrderSource = {
+    connectionId: String(conn._id),
+    provider: conn.provider,
+    externalId: order.externalId,
+  };
+  if (order.externalUpdatedAt) {
+    source.externalUpdatedAt = order.externalUpdatedAt;
+  }
+  return source;
+}
+
+/**
+ * Guarantee every REQUIRED `AddressSnapshot` field is non-empty (Mongoose rejects
+ * empty required strings). The platform's address is used where present; missing
+ * required pieces fall back to a placeholder so an incomplete external order still
+ * persists as a faithful snapshot of what the platform provided.
+ */
+function ensureAddressSnapshot(
+  addr: AddressSnapshot | undefined,
+  fallbackName: string,
+): AddressSnapshot {
+  const base = addr ?? { recipientName: '', line1: '', city: '', postalCode: '', country: '' };
+  return {
+    ...base,
+    recipientName: base.recipientName.trim() || fallbackName,
+    line1: base.line1.trim() || ADDRESS_PLACEHOLDER,
+    city: base.city.trim() || ADDRESS_PLACEHOLDER,
+    postalCode: base.postalCode.trim() || ADDRESS_PLACEHOLDER,
+    country: base.country.trim() || ADDRESS_PLACEHOLDER,
+  };
+}
+
+/**
+ * A snapshot reference id for an external order line. The line references the
+ * platform's product/variant, which may not (yet) have a mapped Mercaria listing,
+ * so a synthetic reference keeps the immutable snapshot self-describing without a
+ * dangling foreign key. (Linking to a real listing is future work.)
+ */
+function externalLineRef(kind: 'product' | 'variant', conn: IConnection, externalId?: string): string {
+  return `ext:${conn.provider}:${kind}:${externalId ?? 'unknown'}`;
+}
+
+/** Map a normalized order's lines to persisted order-item snapshots. */
+function toOrderItems(conn: IConnection, order: NormalizedOrder): IOrderItem[] {
+  return order.lines.map((line) => ({
+    listingId: externalLineRef('product', conn, line.externalProductId),
+    variantId: externalLineRef('variant', conn, line.externalVariantId),
+    title: line.title,
+    variantTitle: line.variantTitle,
+    optionValues: [],
+    unitPrice: line.unitPrice,
+    quantity: line.quantity,
+    lineTotal: line.lineTotal,
+  }));
+}
+
+/**
+ * Build the full persisted order document for a first-time import of an external
+ * order. Store order (`sellerType: 'store'`), stamped with `source` provenance; the
+ * buyer id is synthetic (an external order has no Oxy user), the payment provider is
+ * `external` (settled off Oxy Pay), and money is preserved as `DualMoney`.
+ */
+function buildExternalOrderDoc(
+  conn: IConnection,
+  order: NormalizedOrder,
+  orderNumber: string,
+): Partial<IOrder> {
+  const buyerOxyUserId = `ext:${conn.provider}:${order.customer?.externalId ?? order.externalId}`;
+  const paidAt = order.paymentStatus === 'paid' ? order.createdAt ?? new Date() : undefined;
+
+  const doc: Partial<IOrder> = {
+    orderNumber,
+    buyerOxyUserId,
+    sellerType: 'store',
+    storeId: conn.storeId,
+    // An online sale imported from a connected platform; `source` marks provenance.
+    sourceChannel: 'storefront',
+    source: buildOrderSource(conn, order),
+    items: toOrderItems(conn, order),
+    shippingAddressSnapshot: ensureAddressSnapshot(
+      order.shippingAddress,
+      order.customer?.name ?? 'External customer',
+    ),
+    shipping: { method: 'standard', label: 'Shipping', cost: order.totals.shipping, trackingNumber: null },
+    totals: {
+      subtotal: order.totals.subtotal,
+      discountTotal: order.totals.discountTotal,
+      shipping: order.totals.shipping,
+      tax: order.totals.tax,
+      grandTotal: order.totals.grandTotal,
+    },
+    appliedDiscounts: [],
+    taxLines: [],
+    status: order.status,
+    statusHistory: [{ status: order.status, at: new Date(), note: `Imported from ${conn.provider}` }],
+    payment: {
+      status: order.paymentStatus,
+      provider: 'external',
+      ...(paidAt ? { paidAt } : {}),
+    },
+    checkoutGroupId: `ext:${conn.provider}:${order.externalId}`,
+  };
+  if (order.fxRate) {
+    doc.fxRate = order.fxRate;
+  }
+  return doc;
+}
+
+/**
+ * Idempotently upsert ONE external order into Mercaria, keyed by `{ storeId,
+ * source.connectionId, source.externalId }` (hard-enforced by a unique partial
+ * index). An existing order has its mutable status/payment refreshed (never
+ * duplicated); a new order is created with a fresh Mercaria order number. A
+ * concurrent create that loses the unique-index race is treated as `skipped`.
+ */
+async function upsertExternalOrder(conn: IConnection, order: NormalizedOrder): Promise<ImportOutcome> {
   const connectionId = String(conn._id);
-  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
-  const run = await SyncRun.create({ connectionId, kind: 'webhook' });
-  emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'started', counts });
+  const existing = await Order.findOne({
+    storeId: conn.storeId,
+    'source.connectionId': connectionId,
+    'source.externalId': order.externalId,
+  }).select('_id status');
+
+  if (existing) {
+    const changed = existing.status !== order.status;
+    await Order.updateOne(
+      { _id: existing._id },
+      {
+        $set: {
+          status: order.status,
+          'payment.status': order.paymentStatus,
+          source: buildOrderSource(conn, order),
+        },
+      },
+    );
+    return changed ? 'updated' : 'skipped';
+  }
 
   try {
-    if (job.topic === 'products/delete') {
-      const parsed = webhookDeletePayloadSchema.safeParse(job.payload);
-      if (!parsed.success) {
-        throw validationError('Malformed product-delete webhook payload');
-      }
-      const archived = await archiveSourcedListing(conn, String(parsed.data.id));
-      counts[archived ? 'updated' : 'skipped'] += 1;
-    } else {
-      // products/create | products/update — upsert the single product.
-      if (!conn.shopCurrency || !isSupportedCurrency(conn.shopCurrency)) {
-        throw validationError('Connection has no supported shop currency');
-      }
-      const provider = getConnectorProvider(conn.provider);
-      const product = provider.normalizeProduct(job.payload, conn.shopCurrency);
-      const categorySlug = await resolveImportCategorySlug();
-      const outcome = await importProduct(conn, product, {
-        categorySlug,
-        autoPublish: conn.syncSettings.autoPublish,
-        respectOverrides: conn.syncSettings.conflictPolicy === 'respect_overrides',
-      });
-      counts[outcome] += 1;
+    await Order.create(buildExternalOrderDoc(conn, order, await nextOrderNumber()));
+    return 'created';
+  } catch (err) {
+    if (isDuplicateKeyError(err)) {
+      // Lost the race to a concurrent sync/webhook — the order already exists.
+      return 'skipped';
     }
+    throw err;
+  }
+}
+
+/**
+ * Pull orders from a `pull` connection and idempotently upsert each into Mercaria.
+ * Records an `order_sync` `SyncRun` with per-record tallies. A per-order failure is
+ * logged + counted (never aborts the run); a whole-run failure is recorded and the
+ * run is still returned for the dashboard status feed. Scoped by `{ _id, storeId }`.
+ */
+export async function syncOrders(storeId: string, connectionId: string): Promise<ISyncRun> {
+  const conn = await Connection.findOne({ _id: connectionId, storeId });
+  if (!conn) {
+    throw notFound('Connection not found');
+  }
+  if (conn.mode !== 'pull') {
+    throw validationError('Order sync is only supported for pull connections');
+  }
+  if (!pullsResource(conn.syncSettings.orders)) {
+    throw validationError('Order pull is not enabled for this connection');
+  }
+  if (!conn.shopCurrency || !isSupportedCurrency(conn.shopCurrency)) {
+    throw validationError('Connection has no supported shop currency');
+  }
+
+  const provider = getConnectorProvider(conn.provider);
+  const creds = decryptCredentials(conn, conn.shopCurrency);
+  const runConnectionId = String(conn._id);
+
+  const run = await SyncRun.create({ connectionId: runConnectionId, kind: 'order_sync' });
+  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'started', counts });
+
+  try {
+    let cursor: string | undefined;
+    do {
+      const page = await provider.fetchOrders(creds, cursor);
+      for (const order of page.orders) {
+        try {
+          const outcome = await upsertExternalOrder(conn, order);
+          counts[outcome] += 1;
+        } catch (err) {
+          counts.failed += 1;
+          log.general.warn(
+            { err, connectionId: runConnectionId, externalId: order.externalId },
+            'Failed to import connector order',
+          );
+        }
+      }
+      cursor = page.nextCursor;
+      emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'running', counts });
+    } while (cursor);
+
+    run.counts = counts;
+    run.status = 'completed';
+    run.finishedAt = new Date();
+    await run.save();
+    await Connection.updateOne(
+      { _id: conn._id },
+      { $set: { lastSyncAt: new Date(), status: 'connected' } },
+    );
+    emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'completed', counts });
+  } catch (err) {
+    run.counts = counts;
+    run.status = 'failed';
+    run.error = err instanceof Error ? err.message : 'Order sync failed';
+    run.finishedAt = new Date();
+    await run.save();
+    await Connection.updateOne({ _id: conn._id }, { $set: { status: 'error' } });
+    emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'failed', counts });
+    log.general.error({ err, connectionId: runConnectionId }, 'Connector order sync failed');
+  }
+
+  return run;
+}
+
+/**
+ * Validate an order-pull connection, then ENQUEUE an order sync on the
+ * `marketplace-sync` queue (inline fallback when Redis is off). Scoped by
+ * `{ _id, storeId }` — no cross-store access.
+ */
+export async function requestOrderSync(storeId: string, connectionId: string): Promise<void> {
+  const conn = await Connection.findOne({ _id: connectionId, storeId });
+  if (!conn) {
+    throw notFound('Connection not found');
+  }
+  if (conn.mode !== 'pull') {
+    throw validationError('Order sync is only supported for pull connections');
+  }
+  if (!pullsResource(conn.syncSettings.orders)) {
+    throw validationError('Order pull is not enabled for this connection');
+  }
+  const { enqueueOrderSync } = await import('../queue/producers.js');
+  await enqueueOrderSync({ storeId, connectionId });
+}
+
+// --- PRODUCT PUSH (Mercaria → platform) -------------------------------------
+
+/** Validate a persisted native price into a `Money` (its currency must be supported). */
+function toMoney(raw: { amount: number; currency: string }): Money {
+  if (!isSupportedCurrency(raw.currency)) {
+    throw validationError(`Unsupported currency on product price: ${raw.currency}`);
+  }
+  return { amount: raw.amount, currency: raw.currency };
+}
+
+/** Map a persisted variant to a push variant (native price preserved). */
+function toPushVariant(variant: IProductVariant): PushVariant {
+  const pushVariant: PushVariant = {
+    optionValues: variant.optionValues.map((o) => ({ name: o.name, value: o.value })),
+    price: toMoney(variant.price),
+    inventory: { tracked: variant.inventory.tracked, available: variant.inventory.available },
+  };
+  if (variant.compareAtPrice) {
+    pushVariant.compareAtPrice = toMoney(variant.compareAtPrice);
+  }
+  if (variant.sku) {
+    pushVariant.sku = variant.sku;
+  }
+  if (variant.barcode) {
+    pushVariant.barcode = variant.barcode;
+  }
+  return pushVariant;
+}
+
+/** Build the platform-neutral `PushProduct` for a listing + its variants. */
+function toPushProduct(
+  listing: IListing,
+  variants: IProductVariant[],
+  existingExternalId?: string,
+): PushProduct {
+  // Only absolute http(s) image URLs can be pushed (the platform needs a public
+  // `src`); Oxy-cloud file ids that are not URLs are skipped — image push is
+  // best-effort and never blocks the product push.
+  const imageUrls = [...listing.images]
+    .sort((a, b) => a.position - b.position)
+    .map((img) => img.fileId)
+    .filter((fileId) => /^https?:\/\//i.test(fileId));
+
+  const product: PushProduct = {
+    title: listing.title,
+    description: listing.description,
+    status: listing.status === 'active' ? 'active' : 'draft',
+    options: listing.options.map((o) => ({ name: o.name, values: [...o.values] })),
+    imageUrls,
+    variants: variants.map(toPushVariant),
+  };
+  if (existingExternalId) {
+    product.externalId = existingExternalId;
+  }
+  if (listing.handle) {
+    product.handle = listing.handle;
+  }
+  if (listing.vendor) {
+    product.vendor = listing.vendor;
+  }
+  if (listing.productType) {
+    product.productType = listing.productType;
+  }
+  if (listing.seo) {
+    product.seo = listing.seo;
+  }
+  return product;
+}
+
+/**
+ * Record (or replace) the external-platform mapping created by pushing `listing`
+ * to `conn`, so a later re-push updates the SAME external product and an inbound
+ * echo of this push is recognized as a Mercaria-owned push-mirror.
+ */
+async function recordExternalRef(
+  listing: Pick<IListing, '_id'>,
+  conn: IConnection,
+  externalId: string,
+): Promise<void> {
+  const connectionId = String(conn._id);
+  await Listing.updateOne({ _id: listing._id }, { $pull: { externalRefs: { connectionId } } });
+  await Listing.updateOne(
+    { _id: listing._id },
+    {
+      $push: {
+        externalRefs: { connectionId, provider: conn.provider, externalId, pushedAt: new Date() },
+      },
+    },
+  );
+}
+
+/** Push ONE listing to ONE connection under its own `product_push` `SyncRun`. */
+async function pushListingToConnection(
+  conn: IConnection,
+  listing: IListing,
+  variants: IProductVariant[],
+): Promise<void> {
+  const connectionId = String(conn._id);
+  const existingRef = listing.externalRefs?.find((ref) => ref.connectionId === connectionId);
+  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const run = await SyncRun.create({ connectionId, kind: 'product_push' });
+  emitSyncProgress(conn.storeId, { connectionId, kind: 'product_push', phase: 'started', counts });
+
+  try {
+    const provider = getConnectorProvider(conn.provider);
+    const result = await provider.pushProduct(
+      decryptAuth(conn),
+      toPushProduct(listing, variants, existingRef?.externalId),
+    );
+    await recordExternalRef(listing, conn, result.externalId);
+    counts[existingRef ? 'updated' : 'created'] += 1;
 
     run.counts = counts;
     run.status = 'completed';
     run.finishedAt = new Date();
     await run.save();
     await Connection.updateOne({ _id: conn._id }, { $set: { lastSyncAt: new Date() } });
-    emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'completed', counts });
+    emitSyncProgress(conn.storeId, { connectionId, kind: 'product_push', phase: 'completed', counts });
   } catch (err) {
     counts.failed += 1;
     run.counts = counts;
     run.status = 'failed';
-    run.error = err instanceof Error ? err.message : 'Webhook processing failed';
+    run.error = err instanceof Error ? err.message : 'Product push failed';
     run.finishedAt = new Date();
     await run.save();
-    emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'failed', counts });
+    emitSyncProgress(conn.storeId, { connectionId, kind: 'product_push', phase: 'failed', counts });
     log.general.error(
-      { err, connectionId, topic: job.topic },
-      'Failed to process connector webhook',
+      { err, connectionId, listingId: String(listing._id) },
+      'Failed to push product to channel',
     );
+  }
+}
+
+/**
+ * Push a store listing OUT to every connection whose product direction is `push`
+ * or `bidirectional`.
+ *
+ * LOOP PREVENTION (critical): the origin connection a listing was PULLED from
+ * (`listing.source.connectionId`) is skipped, so a product pulled from Shopify X
+ * never echoes straight back to X. The connector import path (webhook/backfill)
+ * writes through the catalog funnels DIRECTLY and never calls this, so a pulled
+ * upsert cannot trigger a re-push either — together these break the pull↔push loop.
+ *
+ * Best-effort per connection: a push failure to one connection is recorded on its
+ * own `SyncRun` and never aborts the others. Scoped by `storeId` (IDOR-safe).
+ */
+export async function pushListingToChannels(storeId: string, listingId: string): Promise<void> {
+  const listing = await Listing.findById(listingId).lean<IListing | null>();
+  if (!listing || listing.ownerType !== 'store' || listing.storeId !== storeId) {
+    return; // Not a store product of this store — nothing to push.
+  }
+
+  const connections = await Connection.find({
+    storeId,
+    status: 'connected',
+    'syncSettings.products': { $in: ['push', 'bidirectional'] },
+  });
+  if (connections.length === 0) {
+    return;
+  }
+
+  const variants = await ProductVariant.find({ listingId: String(listing._id) })
+    .sort({ position: 1 })
+    .lean<IProductVariant[]>();
+  if (variants.length === 0) {
+    return; // A pushable product needs at least one variant.
+  }
+
+  const originConnectionId = listing.source?.connectionId;
+  for (const conn of connections) {
+    const connectionId = String(conn._id);
+    // LOOP PREVENTION: never push a listing back to the connection it was pulled from.
+    if (connectionId === originConnectionId) {
+      continue;
+    }
+    if (!conn.credentials || !conn.shopDomain) {
+      continue; // Not authorized (e.g. mid-reconnect) — skip silently.
+    }
+    await pushListingToConnection(conn, listing, variants);
   }
 }

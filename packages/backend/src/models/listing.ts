@@ -48,6 +48,23 @@ export interface IListingSource {
   externalUpdatedAt?: Date;
 }
 
+/**
+ * An external-platform mapping created by PUSHING this (Mercaria-owned) listing
+ * OUT to a connection. Distinct from `source` (the single pull-origin): a listing
+ * can be pushed to several connections, so this is an array. It records the id the
+ * platform assigned to the pushed product, so (a) a later re-push updates the SAME
+ * external product and (b) an inbound webhook echoing our own push is recognized
+ * as a push-mirror (Mercaria-owned) and skipped instead of re-imported — see
+ * `connector-sync.service`.
+ */
+export interface IListingExternalRef {
+  connectionId: string;
+  provider: ConnectorProviderId;
+  externalId: string;
+  /** When this listing was last pushed to the connection. */
+  pushedAt?: Date;
+}
+
 export interface IGeoPoint {
   type: 'Point';
   /** [lng, lat] per GeoJSON. */
@@ -91,6 +108,12 @@ export interface IListing {
   /** Connector provenance — present only on listings synced from an external platform. */
   source?: IListingSource;
   /**
+   * External-platform ids this listing has been PUSHED to (one per connection).
+   * Present only on listings mirrored OUT to a connector; drives re-push targeting
+   * + inbound-echo detection.
+   */
+  externalRefs: IListingExternalRef[];
+  /**
    * Field names locally edited on a connector-sourced listing, PINNED against
    * connector re-sync overwrites (see `SyncSettings.conflictPolicy`).
    */
@@ -126,6 +149,16 @@ const ListingSourceSchema = new Schema<IListingSource>(
     provider: { type: String, enum: CONNECTOR_PROVIDERS as string[], required: true },
     externalId: { type: String, required: true },
     externalUpdatedAt: { type: Date },
+  },
+  { _id: false },
+);
+
+const ListingExternalRefSchema = new Schema<IListingExternalRef>(
+  {
+    connectionId: { type: String, required: true },
+    provider: { type: String, enum: CONNECTOR_PROVIDERS as string[], required: true },
+    externalId: { type: String, required: true },
+    pushedAt: { type: Date },
   },
   { _id: false },
 );
@@ -166,6 +199,7 @@ const ListingSchema = new Schema<IListing>(
     },
     collectionIds: { type: [String], default: [] },
     source: { type: ListingSourceSchema },
+    externalRefs: { type: [ListingExternalRefSchema], default: [] },
     overriddenFields: { type: [String], default: [] },
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
@@ -230,6 +264,13 @@ ListingSchema.index(
   { storeId: 1, 'source.connectionId': 1, 'source.externalId': 1 },
   { partialFilterExpression: { 'source.externalId': { $type: 'string' } } },
 );
+// Reverse map: find the listing PUSHED to a given connection under an external id
+// (drives re-push targeting + inbound-echo detection). Multikey over `externalRefs`.
+ListingSchema.index({
+  storeId: 1,
+  'externalRefs.connectionId': 1,
+  'externalRefs.externalId': 1,
+});
 
 export const Listing: Model<IListing> =
   mongoose.models.Listing || mongoose.model<IListing>('Listing', ListingSchema);

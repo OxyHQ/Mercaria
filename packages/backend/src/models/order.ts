@@ -22,6 +22,7 @@ import type {
   OrderSourceChannel,
   PaymentInfo,
   CurrencyCode,
+  ConnectorProviderId,
 } from '@mercaria/shared-types';
 import { MoneySchema, DualMoneySchema } from './schemas/money-schema.js';
 
@@ -42,10 +43,17 @@ const PAYMENT_STATUSES: readonly PaymentInfo['status'][] = [
   'refunded',
   'failed',
 ];
-const PAYMENT_PROVIDERS: readonly PaymentInfo['provider'][] = ['oxy_pay'];
+const PAYMENT_PROVIDERS: readonly PaymentInfo['provider'][] = ['oxy_pay', 'external'];
 const SHIPPING_METHODS: readonly ShippingMethod[] = ['standard', 'express', 'pickup'];
 const SELLER_TYPES: readonly OrderSellerType[] = ['user', 'store'];
 const SOURCE_CHANNELS: readonly OrderSourceChannel[] = ['storefront', 'pos', 'draft'];
+const CONNECTOR_PROVIDERS: readonly ConnectorProviderId[] = [
+  'shopify',
+  'woocommerce',
+  'etsy',
+  'prestashop',
+  'magento',
+];
 
 /** A persisted `{ amount, currency }` sub-document. */
 interface IMoney {
@@ -129,6 +137,15 @@ export interface IOrderSettlement {
   asOf: string;
 }
 
+/** Provenance of an order synced from an external commerce platform. */
+export interface IOrderSource {
+  connectionId: string;
+  provider: ConnectorProviderId;
+  externalId: string;
+  /** External platform's `updated_at` at last sync (drives newer-than checks). */
+  externalUpdatedAt?: Date;
+}
+
 export interface IAddressSnapshot {
   label?: string;
   recipientName: string;
@@ -150,6 +167,8 @@ export interface IOrder {
   storeId?: string;
   customerId?: string;
   sourceChannel: OrderSourceChannel;
+  /** Connector provenance — present only on orders synced from an external platform. */
+  source?: IOrderSource;
   items: IOrderItem[];
   shippingAddressSnapshot: IAddressSnapshot;
   shipping: IShippingSnapshot;
@@ -257,6 +276,17 @@ const OrderSettlementSchema = new Schema<IOrderSettlement>(
   { _id: false },
 );
 
+/** Connector provenance sub-document (external order → Mercaria order). */
+const OrderSourceSchema = new Schema<IOrderSource>(
+  {
+    connectionId: { type: String, required: true },
+    provider: { type: String, enum: CONNECTOR_PROVIDERS as string[], required: true },
+    externalId: { type: String, required: true },
+    externalUpdatedAt: { type: Date },
+  },
+  { _id: false },
+);
+
 const AddressSnapshotSchema = new Schema<IAddressSnapshot>(
   {
     label: { type: String },
@@ -302,6 +332,8 @@ const OrderSchema = new Schema<IOrder>(
     customerId: { type: String },
     // Additive/back-compat: pre-B5 orders default to the online storefront.
     sourceChannel: { type: String, enum: SOURCE_CHANNELS as string[], default: 'storefront' },
+    // Connector provenance — set only on orders synced from an external platform.
+    source: { type: OrderSourceSchema },
     items: { type: [OrderItemSchema], default: [] },
     shippingAddressSnapshot: { type: AddressSnapshotSchema, required: true },
     shipping: { type: ShippingSnapshotSchema, required: true },
@@ -340,6 +372,14 @@ OrderSchema.index({ 'payment.status': 1, createdAt: 1 });
 // Serves the expire-reservations sweep: { status: 'pending_payment', createdAt: { $lt } }.
 OrderSchema.index({ status: 1, createdAt: 1 });
 OrderSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
+// Idempotent upsert/lookup of externally-synced orders by their provenance key.
+// Partial (not sparse): a compound sparse index still indexes docs missing only
+// `source.*`, so the partial filter restricts it to connector-sourced orders and
+// hard-enforces one Mercaria order per `{ connection, external order }`.
+OrderSchema.index(
+  { storeId: 1, 'source.connectionId': 1, 'source.externalId': 1 },
+  { unique: true, partialFilterExpression: { 'source.externalId': { $type: 'string' } } },
+);
 
 export const Order: Model<IOrder> =
   mongoose.models.Order || mongoose.model<IOrder>('Order', OrderSchema);
