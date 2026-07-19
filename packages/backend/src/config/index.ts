@@ -232,12 +232,34 @@ export const config: AppConfig = Object.freeze({
     cacheTtlSeconds: intEnv('FX_CACHE_TTL_SECONDS', 300),
     faircoinExplorerBaseUrl: strEnv('FX_FAIRCOIN_EXPLORER_BASE_URL', 'https://explorer.fairco.in'),
     requestTimeoutMs: intEnv('FX_REQUEST_TIMEOUT_MS', 5_000),
+    // Dev / last-resort fallback rates (how many units of the currency ONE FAIR
+    // is worth). The live provider ONLY yields FAIR→USD, so every other quote is
+    // served from here. These defaults are the FAIR→USD anchor (~0.49) times an
+    // approximate USD→currency rate — good enough for dev and a graceful
+    // degraded fallback, but PRODUCTION MUST supply a real multi-currency FX
+    // source (override each `FX_STATIC_RATE_*`, or add a multi-fiat provider);
+    // do not trust these frozen approximations for real presentment.
     staticRates: Object.freeze({
       USD: numEnv('FX_STATIC_RATE_USD', 0.49),
       EUR: numEnv('FX_STATIC_RATE_EUR', 0.45),
       GBP: numEnv('FX_STATIC_RATE_GBP', 0.39),
       CAD: numEnv('FX_STATIC_RATE_CAD', 0.67),
       AUD: numEnv('FX_STATIC_RATE_AUD', 0.75),
+      JPY: numEnv('FX_STATIC_RATE_JPY', 73.5),
+      CHF: numEnv('FX_STATIC_RATE_CHF', 0.43),
+      CNY: numEnv('FX_STATIC_RATE_CNY', 3.53),
+      SEK: numEnv('FX_STATIC_RATE_SEK', 5.15),
+      NOK: numEnv('FX_STATIC_RATE_NOK', 5.24),
+      DKK: numEnv('FX_STATIC_RATE_DKK', 3.38),
+      PLN: numEnv('FX_STATIC_RATE_PLN', 1.96),
+      MXN: numEnv('FX_STATIC_RATE_MXN', 8.3),
+      BRL: numEnv('FX_STATIC_RATE_BRL', 2.45),
+      INR: numEnv('FX_STATIC_RATE_INR', 40.7),
+      NZD: numEnv('FX_STATIC_RATE_NZD', 0.81),
+      ZAR: numEnv('FX_STATIC_RATE_ZAR', 9.07),
+      SGD: numEnv('FX_STATIC_RATE_SGD', 0.66),
+      HKD: numEnv('FX_STATIC_RATE_HKD', 3.82),
+      AED: numEnv('FX_STATIC_RATE_AED', 1.80),
     }),
   }),
 });

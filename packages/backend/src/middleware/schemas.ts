@@ -11,9 +11,19 @@
  */
 
 import { z } from 'zod';
+import { ALL_CURRENCY_CODES, type CurrencyCode } from '@mercaria/shared-types';
+
+/**
+ * The supported currency codes as a Zod-enum tuple, derived from the single
+ * shared set (`ALL_CURRENCY_CODES`) so adding a currency in `@mercaria/shared-types`
+ * propagates to every schema here without editing a literal list. `z.enum` needs
+ * a non-empty tuple type; the shared set is always non-empty (FAIR is always
+ * present), so the assertion to a non-empty readonly tuple is sound.
+ */
+const CURRENCY_CODE_VALUES = ALL_CURRENCY_CODES as readonly [CurrencyCode, ...CurrencyCode[]];
 
 /** Supported currency codes (mirrors `CurrencyCode`). */
-const currencySchema = z.enum(['FAIR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD']);
+const currencySchema = z.enum(CURRENCY_CODE_VALUES);
 
 /** `Money` input: integer minor units, non-negative, with a supported currency. */
 const moneySchema = z.object({
@@ -827,8 +837,8 @@ export const webPushSubscriptionDeleteSchema = z.object({
 // FX rates + currency preference
 // ---------------------------------------------------------------------------
 
-/** A single supported currency code (mirrors `CurrencyCode`). */
-const currencyEnum = z.enum(['FAIR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD']);
+/** A single supported currency code (mirrors `CurrencyCode`, derived from the shared set). */
+const currencyEnum = z.enum(CURRENCY_CODE_VALUES);
 
 /**
  * Query for `GET /rates`. `base` defaults to the canonical FAIR; `quote` is an

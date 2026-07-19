@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { validateBody, validateObjectId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
+import { makeRateLimiter } from '../../lib/rate-limit.js';
 import { connectChannelSchema, updateSyncSettingsSchema } from '../../middleware/schemas.js';
+import { connectKeyChannelSchema } from '../../middleware/channels-schemas.js';
 import {
   listChannelsHandler,
   connectChannelHandler,
+  connectKeyChannelHandler,
   patchChannelSettingsHandler,
   syncChannelHandler,
   disconnectChannelHandler,
@@ -29,6 +32,16 @@ router.post(
   requireStorePermission('channels:write'),
   validateBody(connectChannelSchema),
   connectChannelHandler,
+);
+
+// API-key connect (WooCommerce): rate-limited on the shared `channels` scope, as
+// it verifies the credentials against the merchant's site on every call.
+router.post(
+  '/:provider/connect-key',
+  makeRateLimiter('channels'),
+  requireStorePermission('channels:write'),
+  validateBody(connectKeyChannelSchema),
+  connectKeyChannelHandler,
 );
 
 router.patch(

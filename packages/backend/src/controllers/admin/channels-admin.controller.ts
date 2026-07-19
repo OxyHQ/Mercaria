@@ -11,9 +11,11 @@
 import type { Request, Response } from 'express';
 import type { UpdateSyncSettingsInput } from '@mercaria/shared-types';
 import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import type { ConnectKeyChannelInput } from '../../middleware/channels-schemas.js';
 import {
   listConnections,
   buildConnectAuthorizeUrl,
+  connectWithApiKey,
   updateSyncSettings,
   requestBackfill,
   disconnect,
@@ -66,6 +68,32 @@ export async function connectChannelHandler(req: Request, res: Response): Promis
   } catch (err) {
     log.general.error({ err, provider: req.params.provider }, 'Failed to start channel connect');
     respondWithError(res, err, 'Failed to start channel connect');
+  }
+}
+
+/**
+ * POST /admin/stores/:storeId/channels/:provider/connect-key — connect an API-key
+ * provider (WooCommerce). Verifies the merchant-supplied consumer key/secret,
+ * stores them encrypted, and returns the credential-free `Connection` DTO. Unlike
+ * the OAuth `connect` flow there is no browser redirect — the connection is
+ * established synchronously.
+ */
+export async function connectKeyChannelHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const provider = routeParam(req, 'provider');
+    if (!isImplementedProvider(provider)) {
+      throw notFound(`Connector provider not available: ${provider}`);
+    }
+    const { shopDomain, consumerKey, consumerSecret } = req.body as ConnectKeyChannelInput;
+    const conn = await connectWithApiKey(storeId(req), provider, {
+      shopDomain,
+      consumerKey,
+      consumerSecret,
+    });
+    sendSuccess(res, toConnectionDTO(conn));
+  } catch (err) {
+    log.general.error({ err, provider: req.params.provider }, 'Failed to connect channel with API key');
+    respondWithError(res, err, 'Failed to connect channel');
   }
 }
 

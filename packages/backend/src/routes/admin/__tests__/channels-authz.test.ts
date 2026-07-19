@@ -18,10 +18,11 @@ import type { StoreRole } from '@mercaria/shared-types';
 vi.mock('../../../services/connector-sync.service.js', () => ({
   listConnections: vi.fn().mockResolvedValue([]),
   buildConnectAuthorizeUrl: vi.fn().mockReturnValue('https://acme.myshopify.com/admin/oauth/authorize?x=1'),
+  connectWithApiKey: vi.fn().mockResolvedValue({ _id: '2'.repeat(24), status: 'connected' }),
   updateSyncSettings: vi.fn(),
   requestBackfill: vi.fn().mockResolvedValue(undefined),
   disconnect: vi.fn(),
-  toConnectionDTO: vi.fn(),
+  toConnectionDTO: vi.fn().mockReturnValue({ id: '2'.repeat(24) }),
 }));
 vi.mock('../../../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
@@ -75,6 +76,15 @@ describe('channels router authz — staff lack channels:write', () => {
   it('403s staff on connect', async () => {
     expect(await call('/shopify/connect', 'POST', 'staff', { shopDomain: 'acme.myshopify.com' })).toBe(403);
   });
+  it('403s staff on connect-key (WooCommerce)', async () => {
+    expect(
+      await call('/woocommerce/connect-key', 'POST', 'staff', {
+        shopDomain: 'https://shop.example.com',
+        consumerKey: 'ck_x',
+        consumerSecret: 'cs_y',
+      }),
+    ).toBe(403);
+  });
   it('403s staff on settings patch', async () => {
     expect(await call(`/${CONNECTION_ID}/settings`, 'PATCH', 'staff', { autoPublish: true })).toBe(403);
   });
@@ -95,5 +105,23 @@ describe('channels router authz — admins pass the guard', () => {
   });
   it('validates the connect body (400 on a non-myshopify domain even for admin)', async () => {
     expect(await call('/shopify/connect', 'POST', 'admin', { shopDomain: 'evil.example.com' })).toBe(400);
+  });
+  it('lets an admin connect WooCommerce with an API key (200)', async () => {
+    expect(
+      await call('/woocommerce/connect-key', 'POST', 'admin', {
+        shopDomain: 'https://shop.example.com',
+        consumerKey: 'ck_x',
+        consumerSecret: 'cs_y',
+      }),
+    ).toBe(200);
+  });
+  it('validates the connect-key body (400 on a non-https site URL even for admin)', async () => {
+    expect(
+      await call('/woocommerce/connect-key', 'POST', 'admin', {
+        shopDomain: 'http://insecure.example.com',
+        consumerKey: 'ck_x',
+        consumerSecret: 'cs_y',
+      }),
+    ).toBe(400);
   });
 });

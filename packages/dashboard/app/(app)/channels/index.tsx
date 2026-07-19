@@ -37,20 +37,24 @@ import { RequireStore } from "@/components/shell/RequireStore";
 import {
   useChannels,
   useConnectChannel,
+  useConnectKeyChannel,
   useSyncChannel,
   useDisconnectChannel,
 } from "@/lib/hooks/use-channels";
 
 /**
  * Presentational metadata for each connector. `available` gates whether the
- * "Connect" affordance is live: Shopify ships first (a `pull` connector), the
- * rest are placeholders until their `ConnectorProvider` lands server-side.
+ * "Connect" affordance is live: Shopify + WooCommerce ship first (both `pull`
+ * connectors), the rest are placeholders until their `ConnectorProvider` lands
+ * server-side. `credentialStrategy` chooses the connect flow — an OAuth redirect
+ * (Shopify) or an in-app API-key form (WooCommerce).
  */
 interface ProviderMeta {
   id: ConnectorProviderId;
   name: string;
   blurb: string;
   available: boolean;
+  credentialStrategy: "oauth" | "api_key";
 }
 
 const PROVIDERS: readonly ProviderMeta[] = [
@@ -59,25 +63,35 @@ const PROVIDERS: readonly ProviderMeta[] = [
     name: "Shopify",
     blurb: "Sync products, inventory and orders from your Shopify store.",
     available: true,
+    credentialStrategy: "oauth",
   },
   {
     id: "woocommerce",
     name: "WooCommerce",
-    blurb: "WordPress / WooCommerce catalog sync.",
-    available: false,
+    blurb: "Sync your WooCommerce catalog with a REST API key.",
+    available: true,
+    credentialStrategy: "api_key",
   },
-  { id: "etsy", name: "Etsy", blurb: "Import your Etsy listings.", available: false },
+  {
+    id: "etsy",
+    name: "Etsy",
+    blurb: "Import your Etsy listings.",
+    available: false,
+    credentialStrategy: "oauth",
+  },
   {
     id: "prestashop",
     name: "PrestaShop",
     blurb: "PrestaShop catalog sync.",
     available: false,
+    credentialStrategy: "oauth",
   },
   {
     id: "magento",
     name: "Magento",
     blurb: "Adobe Commerce / Magento sync.",
     available: false,
+    credentialStrategy: "oauth",
   },
 ] as const;
 
@@ -153,17 +167,31 @@ function ChannelsBody({ storeId }: { storeId: string }) {
         </View>
       )}
 
-      <ConnectChannelDialog
-        storeId={storeId}
-        provider={connectProvider}
-        open={connectProvider !== null}
-        onOpenChange={(open) => {
-          if (!open) setConnectProvider(null);
-        }}
-        onConnected={() => {
-          void refetch();
-        }}
-      />
+      {connectProvider?.credentialStrategy === "api_key" ? (
+        <ConnectKeyDialog
+          storeId={storeId}
+          provider={connectProvider}
+          open
+          onOpenChange={(open) => {
+            if (!open) setConnectProvider(null);
+          }}
+          onConnected={() => {
+            void refetch();
+          }}
+        />
+      ) : (
+        <ConnectChannelDialog
+          storeId={storeId}
+          provider={connectProvider}
+          open={connectProvider !== null}
+          onOpenChange={(open) => {
+            if (!open) setConnectProvider(null);
+          }}
+          onConnected={() => {
+            void refetch();
+          }}
+        />
+      )}
     </Screen>
   );
 }
@@ -446,6 +474,128 @@ function ConnectChannelDialog({
           </View>
           <Button onPress={submit} isLoading={busy} className="mt-1">
             <Text className="font-semibold text-primary-foreground">Continue to Shopify</Text>
+          </Button>
+        </View>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * API-key connect dialog (WooCommerce). Unlike the OAuth flow there is no browser
+ * redirect: the merchant pastes their WooCommerce REST API consumer key/secret and
+ * the server verifies them against the site, creating the connection synchronously.
+ */
+function ConnectKeyDialog({
+  storeId,
+  provider,
+  open,
+  onOpenChange,
+  onConnected,
+}: {
+  storeId: string;
+  provider: ProviderMeta | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConnected: () => void;
+}) {
+  const { colors } = useColorScheme();
+  const connect = useConnectKeyChannel(storeId);
+  const [siteUrl, setSiteUrl] = useState("");
+  const [consumerKey, setConsumerKey] = useState("");
+  const [consumerSecret, setConsumerSecret] = useState("");
+
+  const reset = () => {
+    setSiteUrl("");
+    setConsumerKey("");
+    setConsumerSecret("");
+  };
+
+  const submit = async () => {
+    if (!provider) return;
+    const shopDomain = siteUrl.trim();
+    let isHttps = false;
+    try {
+      isHttps = new URL(shopDomain).protocol === "https:";
+    } catch {
+      isHttps = false;
+    }
+    if (!isHttps) {
+      toast.error("Enter your site URL starting with https://");
+      return;
+    }
+    if (consumerKey.trim() === "" || consumerSecret.trim() === "") {
+      toast.error("Enter both the consumer key and secret");
+      return;
+    }
+    try {
+      await connect.mutateAsync({
+        provider: provider.id,
+        shopDomain,
+        consumerKey: consumerKey.trim(),
+        consumerSecret: consumerSecret.trim(),
+      });
+      onConnected();
+      reset();
+      onOpenChange(false);
+      toast.success("WooCommerce connected");
+    } catch {
+      toast.error("Couldn't connect — check the site URL and API keys");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Connect {provider?.name ?? "channel"}</DialogTitle>
+          <DialogDescription>
+            Create a read-only REST API key in WooCommerce (WooCommerce → Settings → Advanced →
+            REST API) and paste the details below.
+          </DialogDescription>
+        </DialogHeader>
+        <View className="gap-4">
+          <View className="gap-1.5">
+            <Label>Site URL</Label>
+            <Input
+              value={siteUrl}
+              onChangeText={setSiteUrl}
+              placeholder="https://your-store.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+          </View>
+          <View className="gap-1.5">
+            <Label>Consumer key</Label>
+            <Input
+              value={consumerKey}
+              onChangeText={setConsumerKey}
+              placeholder="ck_..."
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          <View className="gap-1.5">
+            <Label>Consumer secret</Label>
+            <Input
+              value={consumerSecret}
+              onChangeText={setConsumerSecret}
+              placeholder="cs_..."
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry
+            />
+          </View>
+          <View className="flex-row items-start gap-2 rounded-xl bg-muted p-3">
+            <ExternalLink size={14} color={colors.mutedForeground} />
+            <Text className="flex-1 text-xs text-muted-foreground">
+              Your keys are verified against your store and stored encrypted. Read access is
+              enough to import your catalog.
+            </Text>
+          </View>
+          <Button onPress={submit} isLoading={connect.isPending} className="mt-1">
+            <Text className="font-semibold text-primary-foreground">Connect WooCommerce</Text>
           </Button>
         </View>
       </DialogContent>

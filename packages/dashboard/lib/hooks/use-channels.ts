@@ -7,9 +7,11 @@ import type {
 import {
   fetchChannels,
   connectChannel,
+  connectKeyChannel,
   updateChannelSettings,
   syncChannel,
   disconnectChannel,
+  type ConnectKeyInput,
 } from "../api/channels";
 import { queryKeys } from "../queryKeys";
 
@@ -35,6 +37,24 @@ export function useConnectChannel(storeId: string) {
   return useMutation({
     mutationFn: (input: { provider: ConnectorProviderId; shopDomain: string }) =>
       connectChannel(storeId, input.provider, { shopDomain: input.shopDomain }),
+  });
+}
+
+/**
+ * Connect an API-key provider (WooCommerce). The connection is created
+ * synchronously by the server (no browser redirect), so this invalidates the
+ * channels list on success to surface the new connection immediately.
+ */
+export function useConnectKeyChannel(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { provider: ConnectorProviderId } & ConnectKeyInput) =>
+      connectKeyChannel(storeId, input.provider, {
+        shopDomain: input.shopDomain,
+        consumerKey: input.consumerKey,
+        consumerSecret: input.consumerSecret,
+      }),
+    onSuccess: () => invalidateChannels(queryClient, storeId),
   });
 }
 
