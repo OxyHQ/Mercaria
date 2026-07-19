@@ -34,3 +34,24 @@ export const connectKeyChannelSchema = z.object({
 
 /** The validated body of an API-key channel connect. */
 export type ConnectKeyChannelInput = z.infer<typeof connectKeyChannelSchema>;
+
+/**
+ * Body for `POST /admin/stores/:storeId/channel-keys` — mint a channel API key.
+ *
+ * `label` is a short human-readable name the merchant uses to recognize the key.
+ * `connectionId` is optional: when present it binds the key to a single push-in
+ * connection (validated store-side to belong to the store AND be `push_in`); when
+ * omitted the key is store-scoped. It is validated as a Mongo ObjectId shape so a
+ * malformed id is rejected at the edge rather than in the service.
+ */
+export const generateChannelKeySchema = z.object({
+  label: z.string().trim().min(1).max(120),
+  connectionId: z
+    .string()
+    .trim()
+    .regex(/^[a-f\d]{24}$/i, 'Must be a valid connection id')
+    .optional(),
+});
+
+/** The validated body of a channel-key generate request. */
+export type GenerateChannelKeyBody = z.infer<typeof generateChannelKeySchema>;

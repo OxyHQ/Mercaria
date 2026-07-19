@@ -45,7 +45,9 @@ import { Category } from '../models/category.js';
 import {
   createStoreProduct,
   updateListing,
+  updateVariant,
   resolveDefaultLocationId,
+  type UpdateVariantInput,
 } from './catalog-write.service.js';
 import { setAvailable } from './inventory.service.js';
 import { encryptSecret, decryptSecret } from '../lib/connector-crypto.js';
@@ -768,6 +770,120 @@ interface ImportProductOptions {
   importLocationId?: string;
 }
 
+/** Canonical, order-independent key for a variant's option-value tuple. */
+function variantMatchKey(optionValues: { name: string; value: string }[]): string {
+  return optionValues
+    .map((o) => `${o.name}=${o.value}`)
+    .sort()
+    .join('|');
+}
+
+/** The existing-variant fields the re-price matcher needs. */
+type RepriceVariant = Pick<
+  IProductVariant,
+  '_id' | 'sku' | 'optionValues' | 'price' | 'compareAtPrice'
+>;
+
+/**
+ * Re-price the EXISTING variants of a re-synced listing from the incoming
+ * normalized product (Fix: price changes previously applied only at variant
+ * CREATE, so a platform price edit never reached an already-imported listing).
+ *
+ * Each incoming variant is matched to an existing one by `sku` first, then by its
+ * option-value tuple; the connection's `priceRules` (markup + rounding) are applied
+ * to the incoming native `price`/`compareAtPrice`, and — ONLY when the result
+ * DIFFERS from what is stored — the variant is updated through the catalog-write
+ * funnel (`updateVariant`, which keeps the listing's denormalized price facets
+ * consistent). Idempotent: a variant already at the target price is left untouched
+ * (no write), so a re-sync of unchanged prices is a true no-op. An existing variant
+ * is matched at most once.
+ *
+ * RESPECTS `overriddenFields`: when the merchant has pinned `price` (the marker put
+ * into `overridden` only under `respect_overrides`), re-pricing is skipped entirely
+ * — the local price wins, exactly like the pinned listing fields in `toUpdatePatch`.
+ *
+ * Returns true when at least one variant's price/compareAtPrice was changed, so the
+ * caller can count the product as `updated` even when no listing-level field moved.
+ */
+async function repriceExistingVariants(
+  listingId: string,
+  product: NormalizedProduct,
+  overridden: Set<string>,
+  priceRules: ISyncSettings['priceRules'],
+): Promise<boolean> {
+  // A locally-edited price is pinned — never let a re-sync overwrite it.
+  if (overridden.has('price')) {
+    return false;
+  }
+
+  const existingVariants = await ProductVariant.find({ listingId })
+    .select('_id sku optionValues price compareAtPrice')
+    .lean<RepriceVariant[]>();
+  if (existingVariants.length === 0) {
+    return false;
+  }
+
+  // Index existing variants for matching: by SKU (exact) and by option-value key.
+  const bySku = new Map<string, RepriceVariant>();
+  const byOptionKey = new Map<string, RepriceVariant>();
+  for (const variant of existingVariants) {
+    if (variant.sku && !bySku.has(variant.sku)) {
+      bySku.set(variant.sku, variant);
+    }
+    const key = variantMatchKey(variant.optionValues);
+    if (!byOptionKey.has(key)) {
+      byOptionKey.set(key, variant);
+    }
+  }
+
+  const consumed = new Set<string>();
+  let repriced = false;
+
+  for (const incoming of product.variants) {
+    const match =
+      (incoming.sku ? bySku.get(incoming.sku) : undefined) ??
+      byOptionKey.get(variantMatchKey(incoming.optionValues));
+    if (!match) {
+      continue; // a NEW variant added on the platform — creation is a later phase
+    }
+    const matchId = String(match._id);
+    if (consumed.has(matchId)) {
+      continue; // an existing variant maps to at most one incoming variant
+    }
+    consumed.add(matchId);
+
+    const targetPrice = applyPriceRules(incoming.price, priceRules);
+    const targetCompareAt = incoming.compareAtPrice
+      ? applyPriceRules(incoming.compareAtPrice, priceRules)
+      : undefined;
+
+    const priceDiffers =
+      match.price.amount !== targetPrice.amount || match.price.currency !== targetPrice.currency;
+    const compareAtDiffers = match.compareAtPrice
+      ? !targetCompareAt ||
+        match.compareAtPrice.amount !== targetCompareAt.amount ||
+        match.compareAtPrice.currency !== targetCompareAt.currency
+      : targetCompareAt !== undefined;
+
+    if (!priceDiffers && !compareAtDiffers) {
+      continue; // already in sync — idempotent no-op
+    }
+
+    const patch: UpdateVariantInput = {};
+    if (priceDiffers) {
+      patch.price = targetPrice;
+    }
+    if (compareAtDiffers) {
+      // A compare-at price dropped on the platform clears the stored one (`null`).
+      patch.compareAtPrice = targetCompareAt ?? null;
+    }
+    await updateVariant(listingId, matchId, patch);
+    repriced = true;
+  }
+
+  return repriced;
+}
+
 /** Import ONE normalized product (create or override-respecting update). */
 async function importProduct(
   conn: IConnection,
@@ -819,10 +935,12 @@ async function importProduct(
   if (changed) {
     await updateListing(listingId, patch);
   }
+  // Re-price existing variants from the incoming product (respects a pinned `price`).
+  const repriced = await repriceExistingVariants(listingId, product, overridden, opts.priceRules);
   await applyCollectionMapping(conn, listingId, product, overridden);
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
   await Listing.updateOne({ _id: existing._id }, { $set: { source: buildSource(conn, product) } });
-  return changed ? 'updated' : 'skipped';
+  return changed || repriced ? 'updated' : 'skipped';
 }
 
 /**
@@ -859,11 +977,18 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
   const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'started', counts });
 
+  // Every external id seen across all pages — the basis for delete-reconciliation
+  // below. Populated as each page is fetched (BEFORE import), so a product that
+  // fails to import is still counted as "seen" (it exists on the platform) and is
+  // never mistakenly archived.
+  const seenExternalIds = new Set<string>();
+
   try {
     let cursor: string | undefined;
     do {
       const page = await provider.fetchProducts(creds, cursor);
       for (const product of page.products) {
+        seenExternalIds.add(product.externalId);
         try {
           const outcome = await importProduct(conn, product, {
             categorySlug,
@@ -885,6 +1010,18 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
       // Live tick after each page so the dashboard shows running progress.
       emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'running', counts });
     } while (cursor);
+
+    // DELETE RECONCILIATION — the safety net for products removed on the platform
+    // while a `products/delete` webhook was missed. This line is reached ONLY after
+    // EVERY page fetched successfully: a fetch-level failure throws out of this try
+    // into the catch below, so a PARTIAL/failed fetch can NEVER mass-archive the
+    // catalog (a transient platform outage must not wipe a store). Each of this
+    // connection's sourced listings whose externalId was NOT seen in the full pull
+    // is soft-archived (reusing `archiveSourcedListing`, respecting a pinned status).
+    const archived = await archiveUnseenSourcedListings(conn, seenExternalIds, respectOverrides);
+    // Count archives as `updated` (the schema has no `archived` tally), matching the
+    // `products/delete` webhook path which also records an archive as `updated`.
+    counts.updated += archived;
 
     run.counts = counts;
     run.status = 'completed';
@@ -946,6 +1083,101 @@ async function archiveSourcedListing(conn: IConnection, externalId: string): Pro
     { $set: { status: 'archived' } },
   );
   return result.modifiedCount > 0;
+}
+
+/** The sourced-listing fields the delete-reconciliation sweep needs. */
+type ReconcileListing = Pick<IListing, '_id' | 'source' | 'overriddenFields'>;
+
+/**
+ * DELETE RECONCILIATION for a FULLY-completed backfill: soft-archive every one of
+ * `conn`'s sourced listings whose `source.externalId` was NOT in `seenExternalIds`
+ * (the set of ids present across the just-finished full pull) — i.e. the product no
+ * longer exists on the platform (e.g. a missed `products/delete` webhook). Reuses
+ * the existing `archiveSourcedListing` soft-delete (NEVER a hard-delete, so order
+ * history + provenance survive) and RESPECTS a locally-pinned `status` under
+ * `respect_overrides`, exactly like the field merge. Isolated per listing: one bad
+ * archive is logged and never aborts the sweep. Returns the number archived.
+ *
+ * CALLER GUARD (critical): only invoke this AFTER the backfill fetched EVERY page
+ * without a fetch-level failure — a partial/failed fetch must never reach here, or a
+ * transient platform outage would archive the whole catalog.
+ */
+async function archiveUnseenSourcedListings(
+  conn: IConnection,
+  seenExternalIds: Set<string>,
+  respectOverrides: boolean,
+): Promise<number> {
+  const sourced = await Listing.find(
+    {
+      storeId: conn.storeId,
+      'source.connectionId': String(conn._id),
+      status: { $ne: 'archived' },
+    },
+    '_id source.externalId overriddenFields',
+  ).lean<ReconcileListing[]>();
+
+  let archived = 0;
+  for (const listing of sourced) {
+    const externalId = listing.source?.externalId;
+    if (!externalId || seenExternalIds.has(externalId)) {
+      continue; // still present on the platform (or no external id) — keep it
+    }
+    // Respect a locally-pinned status the same way field merges respect overrides.
+    if (respectOverrides && listing.overriddenFields.includes('status')) {
+      continue;
+    }
+    try {
+      if (await archiveSourcedListing(conn, externalId)) {
+        archived += 1;
+      }
+    } catch (err) {
+      log.general.warn(
+        { err, connectionId: String(conn._id), externalId },
+        'Failed to archive unseen sourced listing during reconcile',
+      );
+    }
+  }
+  return archived;
+}
+
+/**
+ * Scheduled reconcile sweep — the SAFETY NET for missed real-time webhooks. A
+ * dropped `products/*` webhook means the platform's change never reached Mercaria;
+ * this periodic pass re-pulls every connected `pull`/`bidirectional` catalog, which
+ * re-prices changed variants (see `repriceExistingVariants`) and delete-reconciles
+ * removed products (see `archiveUnseenSourcedListings`). It enqueues a backfill per
+ * eligible connection so each runs as its own retryable, deduped job; failing to
+ * enqueue one connection is logged and never aborts the sweep over the rest.
+ *
+ * Runs only under Redis (the scheduler is Redis-only). The producer's inline
+ * fallback keeps this correct if ever called without Redis, but the scheduler never
+ * registers it there — so without Redis there is simply no periodic sweep.
+ */
+export async function reconcileAllConnections(): Promise<void> {
+  const connections = await Connection.find(
+    {
+      mode: 'pull',
+      status: 'connected',
+      'syncSettings.products': { $in: ['pull', 'bidirectional'] },
+    },
+    '_id storeId',
+  );
+
+  const { enqueueConnectionBackfill } = await import('../queue/producers.js');
+  for (const conn of connections) {
+    try {
+      await enqueueConnectionBackfill({ storeId: conn.storeId, connectionId: String(conn._id) });
+    } catch (err) {
+      log.general.warn(
+        { err, connectionId: String(conn._id) },
+        'Reconcile sweep: failed to enqueue backfill for connection',
+      );
+    }
+  }
+  log.general.info(
+    { count: connections.length },
+    'Connector reconcile sweep enqueued per-connection backfills',
+  );
 }
 
 /** True when a per-resource direction pulls into Mercaria (`pull` or `bidirectional`). */

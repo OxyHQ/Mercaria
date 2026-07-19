@@ -13,6 +13,8 @@
 const MS_PER_SECOND = 1000;
 const SECONDS_PER_MINUTE = 60;
 const MS_PER_MINUTE = MS_PER_SECOND * SECONDS_PER_MINUTE;
+const MINUTES_PER_HOUR = 60;
+const MS_PER_HOUR = MS_PER_MINUTE * MINUTES_PER_HOUR;
 
 // --- Queue names (NO colons) ------------------------------------------------
 
@@ -97,6 +99,15 @@ export const RESERVATION_SWEEP_INTERVAL_MS = 5 * MS_PER_MINUTE;
 /** Cron for the daily rating-aggregate drift-correction sweep (03:00 daily). */
 export const AGGREGATE_SWEEP_CRON = '0 3 * * *';
 
+/**
+ * Cadence of the connector reconcile sweep: every 6 hours a periodic job re-pulls
+ * every connected `pull`/`bidirectional` product catalog. This is the SAFETY NET
+ * for missed real-time webhooks — a dropped `products/*` webhook is re-converged at
+ * the next sweep (re-price + delete-reconciliation). Only materializes under Redis
+ * (the scheduler is Redis-only); without Redis there is no periodic sweep.
+ */
+export const CONNECTOR_RECONCILE_INTERVAL_MS = 6 * MS_PER_HOUR;
+
 // --- Repeatable-job scheduler ids (colons allowed) --------------------------
 
 /**
@@ -105,6 +116,8 @@ export const AGGREGATE_SWEEP_CRON = '0 3 * * *';
  */
 export const SCHEDULER_EXPIRE_RESERVATIONS = 'maintenance:expire-reservations';
 export const SCHEDULER_RECOMPUTE_AGGREGATES = 'maintenance:recompute-aggregates';
+/** Stable scheduler id for the periodic connector reconcile sweep (sync queue). */
+export const SCHEDULER_CONNECTION_RECONCILE = 'sync:connection-reconcile';
 
 // --- Job names (colons allowed) ---------------------------------------------
 
@@ -120,6 +133,8 @@ export const JOB_EXPIRE_RESERVATIONS = 'expire-reservations';
 export const JOB_RECOMPUTE_AGGREGATES_SWEEP = 'recompute-aggregates-sweep';
 /** Job name: run an initial catalog backfill for a `pull` connection. */
 export const JOB_CONNECTION_BACKFILL = 'connection.backfill';
+/** Job name: periodic reconcile sweep — re-pull every connected pull catalog (repeatable). */
+export const JOB_CONNECTION_RECONCILE = 'connection.reconcile';
 /** Job name: process one inbound platform webhook (product/order create/update/delete). */
 export const JOB_WEBHOOK_PROCESS = 'webhook.process';
 /** Job name: push a store listing OUT to its push/bidirectional connections. */

@@ -101,7 +101,7 @@ describe('shopify fetchInventory — inventory_levels', () => {
   });
 });
 
-describe('shopify pushFulfillment — fulfillment orders → fulfillments', () => {
+describe('shopify pushFulfillment — line-level fulfillment orders → fulfillments', () => {
   function handler(fulfillmentOrders: unknown): (method: string, url: string) => ShopifyHttpResponse {
     return (method, url) => {
       if (method === 'get' && url.includes('/fulfillment_orders.json')) {
@@ -114,44 +114,175 @@ describe('shopify pushFulfillment — fulfillment orders → fulfillments', () =
     };
   }
 
-  it('creates a fulfillment for each OPEN fulfillment order with tracking', async () => {
+  /** Extract the parsed `fulfillment` bodies from every POST the provider made. */
+  function fulfillmentBodies(calls: RecordedCall[]): Record<string, unknown>[] {
+    return calls
+      .filter((c) => c.method === 'post')
+      .map((c) => (JSON.parse(c.body ?? '{}') as { fulfillment: Record<string, unknown> }).fulfillment);
+  }
+
+  it('fulfills each OPEN fulfillment order at line level with the full tracking info', async () => {
     const { transport, calls } = routingTransport(
       handler([
-        { id: 5001, status: 'open' },
-        { id: 5002, status: 'closed' },
-        { id: 5003, status: 'in_progress' },
+        {
+          id: 5001,
+          status: 'open',
+          line_items: [
+            { id: 11, fulfillable_quantity: 2, variant_id: 1 },
+            { id: 12, fulfillable_quantity: 1, variant_id: 2 },
+          ],
+        },
+        { id: 5002, status: 'closed', line_items: [{ id: 13, fulfillable_quantity: 4, variant_id: 3 }] },
+        { id: 5003, status: 'in_progress', line_items: [{ id: 14, fulfillable_quantity: 3, variant_id: 4 }] },
       ]),
     );
     const provider = createShopifyProvider(transport);
 
-    await provider.pushFulfillment(AUTH, { externalOrderId: '1001', trackingNumber: 'TRK123' });
+    await provider.pushFulfillment(AUTH, {
+      externalOrderId: '1001',
+      trackingNumber: 'TRK123',
+      trackingUrl: 'https://track.example.com/TRK123',
+      trackingCompany: 'Moovo',
+    });
 
     // One GET (fulfillment orders) + one POST per OPEN fulfillment order (5001, 5003).
-    const posts = calls.filter((c) => c.method === 'post');
-    expect(posts).toHaveLength(2);
+    const bodies = fulfillmentBodies(calls);
+    expect(bodies).toHaveLength(2);
     expect(calls[0].url).toContain('/orders/1001/fulfillment_orders.json');
-    const body = JSON.parse(posts[0].body ?? '{}').fulfillment;
-    expect(body.line_items_by_fulfillment_order).toEqual([{ fulfillment_order_id: 5001 }]);
-    expect(body.tracking_info).toEqual({ number: 'TRK123' });
-    expect(body.notify_customer).toBe(true);
+    // Explicit fulfillment_order_line_items with each line's full fulfillable quantity.
+    expect(bodies[0].line_items_by_fulfillment_order).toEqual([
+      {
+        fulfillment_order_id: 5001,
+        fulfillment_order_line_items: [
+          { id: 11, quantity: 2 },
+          { id: 12, quantity: 1 },
+        ],
+      },
+    ]);
+    expect(bodies[1].line_items_by_fulfillment_order).toEqual([
+      { fulfillment_order_id: 5003, fulfillment_order_line_items: [{ id: 14, quantity: 3 }] },
+    ]);
+    expect(bodies[0].tracking_info).toEqual({
+      number: 'TRK123',
+      url: 'https://track.example.com/TRK123',
+      company: 'Moovo',
+    });
+    expect(bodies[0].notify_customer).toBe(true);
   });
 
-  it('omits tracking_info when no tracking number is present', async () => {
-    const { transport, calls } = routingTransport(handler([{ id: 5001, status: 'open' }]));
+  it('omits tracking_info entirely when no tracking is present', async () => {
+    const { transport, calls } = routingTransport(
+      handler([{ id: 5001, status: 'open', line_items: [{ id: 11, fulfillable_quantity: 1, variant_id: 1 }] }]),
+    );
     const provider = createShopifyProvider(transport);
 
     await provider.pushFulfillment(AUTH, { externalOrderId: '1001' });
 
-    const post = calls.find((c) => c.method === 'post');
-    const body = JSON.parse(post?.body ?? '{}').fulfillment;
-    expect(body.tracking_info).toBeUndefined();
+    expect(fulfillmentBodies(calls)[0].tracking_info).toBeUndefined();
   });
 
-  it('is idempotent — no POST when the order has no open fulfillment orders', async () => {
-    const { transport, calls } = routingTransport(handler([{ id: 5001, status: 'closed' }]));
+  it('is idempotent — skips lines with nothing left to fulfill (fulfillable_quantity 0)', async () => {
+    const { transport, calls } = routingTransport(
+      handler([
+        {
+          id: 5001,
+          status: 'open',
+          line_items: [
+            { id: 11, fulfillable_quantity: 0, variant_id: 1 }, // already fulfilled
+            { id: 12, fulfillable_quantity: 2, variant_id: 2 },
+          ],
+        },
+      ]),
+    );
     const provider = createShopifyProvider(transport);
 
     await provider.pushFulfillment(AUTH, { externalOrderId: '1001', trackingNumber: 'TRK' });
+
+    const bodies = fulfillmentBodies(calls);
+    expect(bodies).toHaveLength(1);
+    // Only line 12 is shipped; the already-fulfilled line 11 is not re-fulfilled.
+    expect(bodies[0].line_items_by_fulfillment_order).toEqual([
+      { fulfillment_order_id: 5001, fulfillment_order_line_items: [{ id: 12, quantity: 2 }] },
+    ]);
+  });
+
+  it('is a no-op (no POST) when every open fulfillment order is fully fulfilled', async () => {
+    const { transport, calls } = routingTransport(
+      handler([{ id: 5001, status: 'open', line_items: [{ id: 11, fulfillable_quantity: 0, variant_id: 1 }] }]),
+    );
+    const provider = createShopifyProvider(transport);
+
+    await provider.pushFulfillment(AUTH, { externalOrderId: '1001', trackingNumber: 'TRK' });
+
+    expect(calls.filter((c) => c.method === 'post')).toHaveLength(0);
+  });
+
+  it('is a no-op when the order has no open fulfillment orders (already fulfilled)', async () => {
+    const { transport, calls } = routingTransport(
+      handler([{ id: 5001, status: 'closed', line_items: [{ id: 11, fulfillable_quantity: 3, variant_id: 1 }] }]),
+    );
+    const provider = createShopifyProvider(transport);
+
+    await provider.pushFulfillment(AUTH, { externalOrderId: '1001', trackingNumber: 'TRK' });
+
+    expect(calls.filter((c) => c.method === 'post')).toHaveLength(0);
+  });
+
+  it('PARTIAL: fulfills only the requested lines, matched to Shopify line items by variant id', async () => {
+    const { transport, calls } = routingTransport(
+      handler([
+        {
+          id: 5001,
+          status: 'open',
+          line_items: [
+            { id: 11, fulfillable_quantity: 5, variant_id: 1 },
+            { id: 12, fulfillable_quantity: 5, variant_id: 2 },
+          ],
+        },
+      ]),
+    );
+    const provider = createShopifyProvider(transport);
+
+    await provider.pushFulfillment(AUTH, {
+      externalOrderId: '1001',
+      lines: [{ externalVariantId: '1', quantity: 2 }],
+    });
+
+    const bodies = fulfillmentBodies(calls);
+    expect(bodies).toHaveLength(1);
+    // Only variant 1 (line item 11) is fulfilled, at the requested quantity; variant 2 untouched.
+    expect(bodies[0].line_items_by_fulfillment_order).toEqual([
+      { fulfillment_order_id: 5001, fulfillment_order_line_items: [{ id: 11, quantity: 2 }] },
+    ]);
+  });
+
+  it('PARTIAL: caps the requested quantity at what is still fulfillable', async () => {
+    const { transport, calls } = routingTransport(
+      handler([{ id: 5001, status: 'open', line_items: [{ id: 11, fulfillable_quantity: 1, variant_id: 1 }] }]),
+    );
+    const provider = createShopifyProvider(transport);
+
+    await provider.pushFulfillment(AUTH, {
+      externalOrderId: '1001',
+      lines: [{ externalVariantId: '1', quantity: 5 }], // more than remains
+    });
+
+    const bodies = fulfillmentBodies(calls);
+    expect(bodies[0].line_items_by_fulfillment_order).toEqual([
+      { fulfillment_order_id: 5001, fulfillment_order_line_items: [{ id: 11, quantity: 1 }] },
+    ]);
+  });
+
+  it('PARTIAL: no POST when no requested variant matches an open line', async () => {
+    const { transport, calls } = routingTransport(
+      handler([{ id: 5001, status: 'open', line_items: [{ id: 11, fulfillable_quantity: 5, variant_id: 1 }] }]),
+    );
+    const provider = createShopifyProvider(transport);
+
+    await provider.pushFulfillment(AUTH, {
+      externalOrderId: '1001',
+      lines: [{ externalVariantId: '999', quantity: 1 }],
+    });
 
     expect(calls.filter((c) => c.method === 'post')).toHaveLength(0);
   });

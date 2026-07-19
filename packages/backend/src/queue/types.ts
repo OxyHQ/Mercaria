@@ -43,6 +43,14 @@ export interface ProductPushJob {
 }
 
 /**
+ * Periodic connector reconcile sweep (repeatable, scheduler-driven). Carries no
+ * payload — the handler resolves every connected `pull`/`bidirectional` connection
+ * itself and enqueues a backfill per connection. This is the safety net that
+ * re-converges catalogs after a missed real-time webhook.
+ */
+export type ConnectionReconcileJob = Record<string, never>;
+
+/**
  * Pull orders from a `pull` connection into Mercaria. `storeId` scopes the
  * connection lookup (a member of one store can never reach another's connection),
  * so both ids are carried and re-resolved server-side by the handler.
@@ -110,6 +118,7 @@ export type MaintenanceJobName = 'expire-reservations' | 'recompute-aggregates-s
 /** Job names enqueued onto the connector-sync queue. */
 export type MarketplaceSyncJobName =
   | 'connection.backfill'
+  | 'connection.reconcile'
   | 'webhook.process'
   | 'product.push'
   | 'order.sync'
@@ -119,6 +128,7 @@ export type MarketplaceSyncJobName =
 /** Union of every connector-sync-queue job payload. */
 export type MarketplaceSyncJobData =
   | ConnectionBackfillJob
+  | ConnectionReconcileJob
   | WebhookProcessJob
   | ProductPushJob
   | OrderSyncJob

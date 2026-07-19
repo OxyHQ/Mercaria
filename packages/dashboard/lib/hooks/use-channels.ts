@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
+  ChannelApiKey,
   Connection,
   ConnectorProviderId,
+  GenerateChannelApiKeyInput,
   UpdateSyncSettingsInput,
 } from "@mercaria/shared-types";
 import {
@@ -11,6 +13,9 @@ import {
   updateChannelSettings,
   syncChannel,
   disconnectChannel,
+  fetchChannelKeys,
+  generateChannelKey,
+  revokeChannelKey,
   type ConnectKeyInput,
 } from "../api/channels";
 import { queryKeys } from "../queryKeys";
@@ -83,5 +88,42 @@ export function useDisconnectChannel(storeId: string) {
   return useMutation({
     mutationFn: (connectionId: string) => disconnectChannel(storeId, connectionId),
     onSuccess: () => invalidateChannels(queryClient, storeId),
+  });
+}
+
+function invalidateChannelKeys(
+  queryClient: ReturnType<typeof useQueryClient>,
+  storeId: string,
+) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.channelKeys(storeId) });
+}
+
+/** The store's active channel API keys (metadata only). */
+export function useChannelKeys(storeId: string) {
+  return useQuery<ChannelApiKey[]>({
+    queryKey: queryKeys.channelKeys(storeId),
+    queryFn: () => fetchChannelKeys(storeId),
+    enabled: Boolean(storeId),
+  });
+}
+
+/**
+ * Mint a channel key. The mutation resolves with the plaintext key (shown once);
+ * it invalidates the keys list so the new key's metadata appears immediately.
+ */
+export function useGenerateChannelKey(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: GenerateChannelApiKeyInput) => generateChannelKey(storeId, input),
+    onSuccess: () => invalidateChannelKeys(queryClient, storeId),
+  });
+}
+
+/** Revoke a channel key. */
+export function useRevokeChannelKey(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (keyId: string) => revokeChannelKey(storeId, keyId),
+    onSuccess: () => invalidateChannelKeys(queryClient, storeId),
   });
 }

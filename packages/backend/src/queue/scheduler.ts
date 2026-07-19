@@ -9,15 +9,18 @@
  * maintenance concurrency pinned to 1 so it never overlaps itself).
  */
 
-import { getMaintenanceQueue } from './queues.js';
+import { getMaintenanceQueue, getSyncQueue } from './queues.js';
 import { isQueueEnabled } from './connection.js';
 import {
   SCHEDULER_EXPIRE_RESERVATIONS,
   SCHEDULER_RECOMPUTE_AGGREGATES,
+  SCHEDULER_CONNECTION_RECONCILE,
   RESERVATION_SWEEP_INTERVAL_MS,
   AGGREGATE_SWEEP_CRON,
+  CONNECTOR_RECONCILE_INTERVAL_MS,
   JOB_EXPIRE_RESERVATIONS,
   JOB_RECOMPUTE_AGGREGATES_SWEEP,
+  JOB_CONNECTION_RECONCILE,
 } from './constants.js';
 import { log } from '../lib/logger.js';
 
@@ -46,6 +49,17 @@ export async function registerSchedules(): Promise<void> {
     { name: JOB_RECOMPUTE_AGGREGATES_SWEEP, data: {} },
   );
 
+  // The connector reconcile sweep lives on the SYNC queue (its work talks to
+  // external commerce platforms, so it must never share the maintenance worker).
+  const syncQueue = getSyncQueue();
+  if (syncQueue) {
+    await syncQueue.upsertJobScheduler(
+      SCHEDULER_CONNECTION_RECONCILE,
+      { every: CONNECTOR_RECONCILE_INTERVAL_MS },
+      { name: JOB_CONNECTION_RECONCILE, data: {} },
+    );
+  }
+
   log.general.info('Marketplace repeatable jobs registered');
 }
 
@@ -63,4 +77,9 @@ export async function removeSchedules(): Promise<void> {
   }
   await queue.removeJobScheduler(SCHEDULER_EXPIRE_RESERVATIONS);
   await queue.removeJobScheduler(SCHEDULER_RECOMPUTE_AGGREGATES);
+
+  const syncQueue = getSyncQueue();
+  if (syncQueue) {
+    await syncQueue.removeJobScheduler(SCHEDULER_CONNECTION_RECONCILE);
+  }
 }

@@ -1,8 +1,11 @@
 import type {
   ApiResponse,
+  ChannelApiKey,
   Connection,
   ConnectionStatus,
   ConnectorProviderId,
+  GenerateChannelApiKeyInput,
+  GenerateChannelApiKeyResult,
   SyncRun,
   UpdateSyncSettingsInput,
 } from "@mercaria/shared-types";
@@ -10,6 +13,7 @@ import apiClient from "./client";
 import { unwrap } from "./unwrap";
 
 const base = (storeId: string) => `/admin/stores/${storeId}/channels`;
+const keysBase = (storeId: string) => `/admin/stores/${storeId}/channel-keys`;
 
 /** Result of `DELETE .../channels/:connectionId` — the connection's final status. */
 export interface DisconnectResult {
@@ -95,6 +99,43 @@ export async function disconnectChannel(
 ): Promise<DisconnectResult> {
   const { data } = await apiClient.delete<ApiResponse<DisconnectResult>>(
     `${base(storeId)}/${connectionId}`,
+  );
+  return unwrap(data);
+}
+
+// ---------------------------------------------------------------------------
+// Channel API keys — long-lived credentials the WordPress/WooCommerce plugin
+// uses to push its catalog in without a short-lived Oxy access token.
+// ---------------------------------------------------------------------------
+
+/** GET the store's active channel keys (metadata only — never the secret). */
+export async function fetchChannelKeys(storeId: string): Promise<ChannelApiKey[]> {
+  const { data } = await apiClient.get<ApiResponse<ChannelApiKey[]>>(keysBase(storeId));
+  return unwrap(data);
+}
+
+/**
+ * POST to mint a channel key. The plaintext key in the result is returned ONCE —
+ * show it immediately and never store it; only its metadata can be listed later.
+ */
+export async function generateChannelKey(
+  storeId: string,
+  input: GenerateChannelApiKeyInput,
+): Promise<GenerateChannelApiKeyResult> {
+  const { data } = await apiClient.post<ApiResponse<GenerateChannelApiKeyResult>>(
+    keysBase(storeId),
+    input,
+  );
+  return unwrap(data);
+}
+
+/** DELETE (revoke) a channel key. Resolves with the revoked key's metadata. */
+export async function revokeChannelKey(
+  storeId: string,
+  keyId: string,
+): Promise<ChannelApiKey> {
+  const { data } = await apiClient.delete<ApiResponse<ChannelApiKey>>(
+    `${keysBase(storeId)}/${keyId}`,
   );
   return unwrap(data);
 }

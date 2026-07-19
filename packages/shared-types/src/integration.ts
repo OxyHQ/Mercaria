@@ -344,3 +344,80 @@ export interface IngestInventoryResultItem {
 export interface IngestInventoryResult {
   results: IngestInventoryResultItem[];
 }
+
+// ---------------------------------------------------------------------------
+// Channel API keys — long-lived, store-scoped credentials an external ingest
+// client (e.g. the Mercaria WooCommerce plugin) uses to authenticate its pushes
+// WITHOUT a short-lived Oxy access token. The key path is the `push_in` receive
+// side's stable, self-serve credential: unlike an Oxy access token it never
+// expires, and it is revocable per key from the dashboard.
+// ---------------------------------------------------------------------------
+
+/**
+ * Scopes a `ChannelApiKey` may hold. A channel key only ever authorizes catalog
+ * ingestion (`channels:write`); it can never act as a store member or reach any
+ * other admin surface. The runtime tuple is the single source — the type derives
+ * from it and the model/validators import it rather than re-declaring the list.
+ */
+export const CHANNEL_API_KEY_SCOPES = ['channels:write'] as const;
+
+/** A scope a channel key can carry. */
+export type ChannelApiKeyScope = (typeof CHANNEL_API_KEY_SCOPES)[number];
+
+/**
+ * Metadata for a channel API key. The plaintext key is NEVER part of this DTO —
+ * it is shown exactly once at creation (see `GenerateChannelApiKeyResult`) and
+ * only its irreversible sha256 hash is stored server-side. Everything here is
+ * safe to list in the dashboard.
+ */
+export interface ChannelApiKey {
+  /** Stable key id. */
+  id: string;
+  /** Owning Mercaria store id. */
+  storeId: string;
+  /**
+   * The push-in connection this key is bound to, when scoped to one. A bound key
+   * can ONLY ingest into that connection; an unbound (store-scoped) key may
+   * ingest into any of the store's push-in connections.
+   */
+  connectionId?: string;
+  /**
+   * Display prefix — the first characters of the plaintext key (e.g.
+   * `mck_1a2b3c4d`). Lets a merchant recognize a key in a list without exposing
+   * the secret.
+   */
+  prefix: string;
+  /** Human-readable label the merchant gave the key (e.g. "WordPress plugin"). */
+  label: string;
+  /** Scopes the key holds (always exactly `['channels:write']` for now). */
+  scopes: ChannelApiKeyScope[];
+  /** Oxy user id of the member who created the key. */
+  createdBy: string;
+  /** ISO-8601 time the key was last used to authenticate an ingest, when ever. */
+  lastUsedAt?: string;
+  /** ISO-8601 creation time. */
+  createdAt: string;
+}
+
+/** Body for `POST /admin/stores/:storeId/channel-keys` — mint a new channel key. */
+export interface GenerateChannelApiKeyInput {
+  /** Human-readable label to identify the key later. */
+  label: string;
+  /**
+   * Optionally bind the key to a single push-in connection. When omitted the key
+   * is store-scoped and works for any of the store's push-in connections.
+   */
+  connectionId?: string;
+}
+
+/**
+ * Result of minting a channel key. The plaintext `key` is returned EXACTLY ONCE
+ * and is unrecoverable afterward (only its hash is stored) — the client must show
+ * it to the merchant immediately and never persist it server-side.
+ */
+export interface GenerateChannelApiKeyResult {
+  /** The plaintext key (`mck_…`). Shown once; never retrievable again. */
+  key: string;
+  /** The stored key's metadata. */
+  apiKey: ChannelApiKey;
+}

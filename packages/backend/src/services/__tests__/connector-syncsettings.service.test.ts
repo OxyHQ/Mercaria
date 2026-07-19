@@ -36,12 +36,14 @@ vi.mock('../../models/sync-run.js', () => ({
   SyncRun: { create: (...a: unknown[]) => syncRunCreate(...a) },
 }));
 
+const listingFind = vi.fn();
 const listingFindOne = vi.fn();
 const listingFindById = vi.fn();
 const listingUpdateOne = vi.fn();
 const listingExists = vi.fn();
 vi.mock('../../models/listing.js', () => ({
   Listing: {
+    find: (...a: unknown[]) => listingFind(...a),
     findOne: (...a: unknown[]) => listingFindOne(...a),
     findById: (...a: unknown[]) => listingFindById(...a),
     updateOne: (...a: unknown[]) => listingUpdateOne(...a),
@@ -75,10 +77,12 @@ vi.mock('../../models/category.js', () => ({
 
 const createStoreProduct = vi.fn();
 const updateListing = vi.fn();
+const updateVariant = vi.fn();
 const resolveDefaultLocationId = vi.fn();
 vi.mock('../catalog-write.service.js', () => ({
   createStoreProduct: (...a: unknown[]) => createStoreProduct(...a),
   updateListing: (...a: unknown[]) => updateListing(...a),
+  updateVariant: (...a: unknown[]) => updateVariant(...a),
   resolveDefaultLocationId: (...a: unknown[]) => resolveDefaultLocationId(...a),
 }));
 
@@ -126,6 +130,10 @@ beforeEach(() => {
   listingExists.mockResolvedValue(null);
   decryptSecret.mockReturnValue(JSON.stringify({ accessToken: 'shpat_test' }));
   resolveDefaultLocationId.mockResolvedValue('loc-default');
+  // Re-price query (update path): no existing variants by default → no re-pricing.
+  variantFind.mockReturnValue({ select: () => ({ lean: () => Promise.resolve([]) }) });
+  // Delete-reconciliation query (fully-completed backfill): no sourced listings.
+  listingFind.mockReturnValue({ lean: () => Promise.resolve([]) });
 });
 
 // --- collectionMapping on re-sync -------------------------------------------

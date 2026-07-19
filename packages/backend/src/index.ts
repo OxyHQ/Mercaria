@@ -29,6 +29,7 @@ import meRouter from './routes/me.js';
 import adminRouter from './routes/admin/index.js';
 import channelsOauthRouter from './routes/channels-oauth.js';
 import channelsWebhooksRouter from './routes/channels-webhooks.js';
+import channelsIngestRouter from './routes/channels-ingest.js';
 
 // Socket.io
 import { initSocket } from './socket.js';
@@ -162,6 +163,8 @@ app.use('/me', meRouter);
 app.use('/admin', adminRouter);
 // Public connector OAuth callback (server-to-server; no browser CORS, no session).
 app.use('/channels/oauth', channelsOauthRouter);
+// Token-free channel ingestion (external push client authenticated by a channel key).
+app.use('/channels/ingest', channelsIngestRouter);
 // (Inbound connector webhooks are mounted above, before express.json.)
 
 // Root route
@@ -189,6 +192,7 @@ app.get('/', (_req, res) => {
       '/me',
       '/admin',
       '/channels/oauth',
+      '/channels/ingest',
       '/channels/webhooks',
     ]
   });
