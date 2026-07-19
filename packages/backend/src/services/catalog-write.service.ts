@@ -283,10 +283,15 @@ function resolveStoreVariants(input: CreateStoreProductInput): NormalizedVariant
  * Create a store product. Creates the `Listing` (`ownerType: 'store'`, with the
  * supplied selectable `options[]`) plus its variants, then increments the store's
  * `productCount`. Returns the new listing's id.
+ *
+ * `opts.locationId` routes the initial stock to a specific location (the connector
+ * import path passes the connection's resolved `targetLocationId`); when omitted the
+ * stock lands at the store's default location, unchanged for the merchant path.
  */
 export async function createStoreProduct(
   storeId: string,
   input: CreateStoreProductInput,
+  opts: { locationId?: string } = {},
 ): Promise<string> {
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
   const variants = resolveStoreVariants(input);
@@ -328,15 +333,16 @@ export async function createStoreProduct(
     variants.map((v) => ({ ...v, listingId })),
   );
 
-  // Stock each store variant at the store's default location. The variant scalar
-  // `available` (set from `insertMany`) already equals the requested value, and
-  // the single level row's `available` matches it, so the rollup is consistent.
-  const defaultLocationId = await resolveDefaultLocationId(storeId);
+  // Stock each store variant at the target location (connector import) or the
+  // store's default. The variant scalar `available` (set from `insertMany`) already
+  // equals the requested value, and the single level row's `available` matches it,
+  // so the rollup is consistent.
+  const stockLocationId = opts.locationId ?? (await resolveDefaultLocationId(storeId));
   await InventoryLevel.insertMany(
     inserted.map((doc, index) => ({
       variantId: String(doc._id),
       listingId,
-      locationId: defaultLocationId,
+      locationId: stockLocationId,
       available: variants[index].inventory.available,
       committed: 0,
     })),

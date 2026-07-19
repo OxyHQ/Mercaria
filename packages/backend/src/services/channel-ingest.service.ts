@@ -41,13 +41,14 @@ import { Connection, type IConnection } from '../models/connection.js';
 import { SyncRun, type ISyncRun, type ISyncRunCounts } from '../models/sync-run.js';
 import { Listing, type IListing, type IListingSource } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
-import {
-  createStoreProduct,
-  updateListing,
-  resolveDefaultLocationId,
-} from './catalog-write.service.js';
+import { createStoreProduct, updateListing } from './catalog-write.service.js';
 import { setAvailable } from './inventory.service.js';
-import { resolveImportCategorySlug } from './connector-sync.service.js';
+import {
+  resolveImportCategorySlug,
+  resolveImportLocationId,
+  resolveInventoryLocationId,
+} from './connector-sync.service.js';
+import { applyPriceRules } from '../utils/money.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
@@ -112,18 +113,27 @@ export async function connectPushIn(
   return conn;
 }
 
-/** Map an ingested variant to the store-product variant input (native price kept). */
-function toVariantInput(variant: IngestProductVariant): CreateStoreProductVariantInput {
+/** The connector price transform applied to an ingested native price. */
+type IngestPriceRules = IConnection['syncSettings']['priceRules'];
+
+/**
+ * Map an ingested variant to the store-product variant input, applying the
+ * connection's `priceRules` (markup + rounding) to the native `price`/`compareAtPrice`.
+ */
+function toVariantInput(
+  variant: IngestProductVariant,
+  priceRules: IngestPriceRules,
+): CreateStoreProductVariantInput {
   const input: CreateStoreProductVariantInput = {
     optionValues: (variant.optionValues ?? []).map((o) => ({ name: o.name, value: o.value })),
-    price: { amount: variant.price.amount, currency: variant.price.currency },
+    price: applyPriceRules({ amount: variant.price.amount, currency: variant.price.currency }, priceRules),
     inventory: { tracked: true, available: variant.inventory?.available ?? 0 },
   };
   if (variant.compareAtPrice) {
-    input.compareAtPrice = {
-      amount: variant.compareAtPrice.amount,
-      currency: variant.compareAtPrice.currency,
-    };
+    input.compareAtPrice = applyPriceRules(
+      { amount: variant.compareAtPrice.amount, currency: variant.compareAtPrice.currency },
+      priceRules,
+    );
   }
   if (variant.sku) {
     input.sku = variant.sku;
@@ -135,14 +145,18 @@ function toVariantInput(variant: IngestProductVariant): CreateStoreProductVarian
 }
 
 /** Build the `CreateStoreProductInput` for a first-time ingest of `product`. */
-function toCreateInput(product: IngestProduct, categorySlug: string): CreateStoreProductInput {
+function toCreateInput(
+  product: IngestProduct,
+  categorySlug: string,
+  priceRules: IngestPriceRules,
+): CreateStoreProductInput {
   const input: CreateStoreProductInput = {
     title: product.title,
     description: product.description ?? '',
     category: categorySlug,
     imageFileIds: [...(product.images ?? [])],
     options: (product.options ?? []).map((o) => ({ name: o.name, values: [...o.values] })),
-    variants: product.variants.map(toVariantInput),
+    variants: product.variants.map((v) => toVariantInput(v, priceRules)),
   };
   if (product.vendor) {
     input.vendor = product.vendor;
@@ -214,7 +228,13 @@ type UpsertOutcome = 'created' | 'updated' | 'skipped';
 async function upsertProduct(
   conn: IConnection,
   product: IngestProduct,
-  opts: { categorySlug: string; autoPublish: boolean; respectOverrides: boolean },
+  opts: {
+    categorySlug: string;
+    autoPublish: boolean;
+    respectOverrides: boolean;
+    priceRules: IngestPriceRules;
+    importLocationId?: string;
+  },
 ): Promise<{ action: UpsertOutcome; listingId: string }> {
   const existing = await Listing.findOne({
     storeId: conn.storeId,
@@ -225,7 +245,11 @@ async function upsertProduct(
     .lean<Pick<IListing, '_id' | 'overriddenFields'> | null>();
 
   if (!existing) {
-    const listingId = await createStoreProduct(conn.storeId, toCreateInput(product, opts.categorySlug));
+    const listingId = await createStoreProduct(
+      conn.storeId,
+      toCreateInput(product, opts.categorySlug, opts.priceRules),
+      { locationId: opts.importLocationId },
+    );
     const set: Record<string, unknown> = { source: buildSource(conn, product) };
     if (!opts.autoPublish) {
       set.status = 'draft';
@@ -263,6 +287,8 @@ export async function ingestProducts(
   const categorySlug = await resolveImportCategorySlug();
   const respectOverrides = conn.syncSettings.conflictPolicy === 'respect_overrides';
   const autoPublish = conn.syncSettings.autoPublish;
+  const priceRules = conn.syncSettings.priceRules;
+  const importLocationId = await resolveImportLocationId(conn);
 
   const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   const results: IngestProductResult[] = [];
@@ -274,6 +300,8 @@ export async function ingestProducts(
         categorySlug,
         autoPublish,
         respectOverrides,
+        priceRules,
+        importLocationId,
       });
       counts[action] += 1;
       results.push({ externalId: product.externalId, action, listingId });
@@ -336,9 +364,10 @@ async function resolveInventoryVariant(
 /**
  * Ingest a batch of absolute stock sets for a push-in connection. Each item maps
  * to a connector-sourced listing's variant (by `externalId`, disambiguated by
- * `sku` for multi-variant products) and sets its `available` at the store's
- * DEFAULT location through the race-safe inventory service. An unmappable item is
- * skipped; a per-item failure is isolated. Records a `SyncRun` (`inventory_sync`).
+ * `sku` for multi-variant products) and sets its `available` at the connection's
+ * target location (falling back to the store default) through the race-safe
+ * inventory service. An unmappable item is skipped; a per-item failure is isolated.
+ * Records a `SyncRun` (`inventory_sync`).
  */
 export async function ingestInventory(
   storeId: string,
@@ -346,7 +375,7 @@ export async function ingestInventory(
   input: IngestInventoryInput,
 ): Promise<IngestInventoryResult> {
   const conn = await requirePushInConnection(storeId, connectionId);
-  const locationId = await resolveDefaultLocationId(conn.storeId);
+  const locationId = await resolveInventoryLocationId(conn);
 
   const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   const results: IngestInventoryResultItem[] = [];

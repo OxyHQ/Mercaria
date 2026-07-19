@@ -17,6 +17,7 @@ const restock = vi.fn();
 const sellerProfileUpdateOne = vi.fn();
 const storeUpdateOne = vi.fn();
 const enqueueOrderEvent = vi.fn();
+const enqueueFulfillmentPush = vi.fn();
 const findOneAndUpdate = vi.fn();
 const upsertCustomerOnPaid = vi.fn();
 const refundFind = vi.fn();
@@ -68,6 +69,7 @@ vi.mock('../order-hydration.service.js', () => ({
 
 vi.mock('../../queue/producers.js', () => ({
   enqueueOrderEvent: (...args: unknown[]) => enqueueOrderEvent(...args),
+  enqueueFulfillmentPush: (...args: unknown[]) => enqueueFulfillmentPush(...args),
 }));
 
 import { transition } from '../order.service.js';
@@ -123,6 +125,7 @@ beforeEach(() => {
   sellerProfileUpdateOne.mockReset().mockResolvedValue(undefined);
   storeUpdateOne.mockReset().mockResolvedValue(undefined);
   enqueueOrderEvent.mockReset().mockResolvedValue(undefined);
+  enqueueFulfillmentPush.mockReset().mockResolvedValue(undefined);
   upsertCustomerOnPaid.mockReset().mockResolvedValue(undefined);
   // No prior refunds by default → transition restocks each line at its full qty.
   refundFind.mockReset().mockReturnValue({ lean: () => Promise.resolve([]) });
@@ -176,6 +179,38 @@ describe('order.service.transition — illegal transitions', () => {
       expect(findOneAndUpdate).not.toHaveBeenCalled();
     });
   }
+});
+
+describe('order.service.transition — connector fulfillment push', () => {
+  it('enqueues a fulfillment push when a CONNECTOR order (with source) ships', async () => {
+    const doc = mockOrder('processing', { paymentStatus: 'paid' });
+    (doc as unknown as { source: unknown }).source = {
+      connectionId: 'conn-1',
+      provider: 'shopify',
+      externalId: 'shp-1001',
+    };
+
+    await transition(doc, 'shipped', { actorOxyUserId: 'actor-1' });
+
+    expect(enqueueFulfillmentPush).toHaveBeenCalledWith({ orderId: 'order-1' });
+  });
+
+  it('does NOT enqueue a fulfillment push for a native order (no source)', async () => {
+    const doc = mockOrder('processing', { paymentStatus: 'paid' });
+    await transition(doc, 'shipped', { actorOxyUserId: 'actor-1' });
+    expect(enqueueFulfillmentPush).not.toHaveBeenCalled();
+  });
+
+  it('does NOT enqueue a fulfillment push on a non-ship transition of a connector order', async () => {
+    const doc = mockOrder('pending_payment', {});
+    (doc as unknown as { source: unknown }).source = {
+      connectionId: 'conn-1',
+      provider: 'shopify',
+      externalId: 'shp-1001',
+    };
+    await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
+    expect(enqueueFulfillmentPush).not.toHaveBeenCalled();
+  });
 });
 
 describe('order.service.transition — inventory effects', () => {

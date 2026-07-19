@@ -121,6 +121,7 @@ export type SyncRunKind =
   | 'product_push'
   | 'inventory_sync'
   | 'order_sync'
+  | 'fulfillment_push'
   | 'webhook'
   | 'ingest';
 

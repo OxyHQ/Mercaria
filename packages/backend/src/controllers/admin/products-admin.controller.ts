@@ -78,13 +78,17 @@ async function schedulePush(storeIdValue: string, listingId: string): Promise<vo
   }
 }
 
-/** Hydrate a single listing by id into its `Listing` DTO. */
+/**
+ * Hydrate a single listing by id into its `Listing` DTO. `includeSource` is on
+ * for every admin path so the dashboard/POS can render the connector-provenance
+ * ("Synced from …") badge on store-owned listings.
+ */
 async function hydrateById(listingId: string, viewerId: string): Promise<ListingDTO | undefined> {
   const doc = await Listing.findById(listingId).lean<IListing | null>();
   if (!doc) {
     return undefined;
   }
-  const [dto] = await hydrateListings([doc], { viewerId });
+  const [dto] = await hydrateListings([doc], { viewerId, includeSource: true });
   return dto;
 }
 
@@ -104,7 +108,7 @@ export async function listProducts(req: Request, res: Response): Promise<void> {
       Listing.countDocuments(filter),
     ]);
 
-    const data = await hydrateListings(docs, { viewerId: req.userId });
+    const data = await hydrateListings(docs, { viewerId: req.userId, includeSource: true });
     sendPaginated(res, data, buildPagination(page, limit, total));
   } catch (err) {
     log.general.error({ err }, 'Failed to list store products');

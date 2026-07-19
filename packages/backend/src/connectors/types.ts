@@ -83,6 +83,14 @@ export interface NormalizedVariant {
   sku?: string;
   /** Barcode (UPC/EAN/ISBN, …), when provided. */
   barcode?: string;
+  /** The platform's own variant id, when provided (stored as variant provenance). */
+  externalVariantId?: string;
+  /**
+   * The platform's inventory-item id, when provided — the key of an inventory-level
+   * update. Persisted on the Mercaria variant so the inventory sync (pull job +
+   * `inventory_levels/update` webhook) maps a platform item id back to the variant.
+   */
+  externalInventoryItemId?: string;
   /** Inventory snapshot for this variant. */
   inventory: {
     /** Whether the platform tracks stock for this variant. */
@@ -120,10 +128,33 @@ export interface NormalizedProduct {
   options: { name: string; values: string[] }[];
   /** Absolute image URLs (platform CDN), in gallery order. */
   imageUrls: string[];
+  /**
+   * The external collection ids/handles this product belongs to on the platform,
+   * when the payload carries membership. The sync service maps these through the
+   * connection's `collectionMapping` onto Mercaria `collectionIds`. NOTE: a
+   * platform whose product payload omits collection membership (Shopify's REST
+   * `products.json` does) leaves this empty — the mapping is a no-op then, and the
+   * logic is provider-agnostic for platforms/payloads that DO carry it.
+   */
+  collectionRefs?: string[];
   /** Concrete variants (always ≥ 1). */
   variants: NormalizedVariant[];
   /** SEO overrides, when the platform exposes them. */
   seo?: { title?: string; description?: string };
+}
+
+/**
+ * A platform-neutral inventory level: the total units available for one external
+ * inventory item, SUMMED across every platform location (a single Mercaria target
+ * location mirrors the shop-wide sellable total). `externalInventoryItemId` is the
+ * key the sync service maps back to a Mercaria variant (via the variant's stored
+ * `source.externalInventoryItemId`).
+ */
+export interface NormalizedInventoryLevel {
+  /** The platform's inventory-item id (maps to a connector-sourced variant). */
+  externalInventoryItemId: string;
+  /** Total units available across the platform's locations (never negative). */
+  available: number;
 }
 
 // --- PUSH (Mercaria → platform) ---------------------------------------------
@@ -184,6 +215,19 @@ export interface PushProduct {
 export interface PushProductResult {
   /** The product's id on the external platform (create → new; update → same). */
   externalId: string;
+}
+
+/**
+ * A fulfillment being PUSHED to an external platform: mark the mapped external
+ * order fulfilled/shipped, attaching a tracking number when Mercaria captured one.
+ * Line-level (partial) fulfillment is a deferred edge — the core marks the whole
+ * order fulfilled.
+ */
+export interface PushFulfillment {
+  /** The platform's order id (the connector order's `source.externalId`). */
+  externalOrderId: string;
+  /** Tracking number to attach, when Mercaria has one. */
+  trackingNumber?: string;
 }
 
 // --- ORDERS (platform → Mercaria) -------------------------------------------
@@ -334,6 +378,25 @@ export interface ConnectorProvider {
    * platform reports it, else falls back to the shop currency.
    */
   normalizeOrder(raw: unknown, shopCurrency: CurrencyCode): NormalizedOrder;
+
+  /**
+   * Fetch the current inventory levels for the given external inventory-item ids,
+   * each summed across the platform's locations. The provider batches internally to
+   * respect the platform's per-request id cap. Returns one entry per item that the
+   * platform reports a level for (items with no level are omitted). Used by the
+   * inventory pull job and the `inventory_levels/update` webhook.
+   */
+  fetchInventory(
+    auth: ConnectorAuth,
+    params: { inventoryItemIds: string[] },
+  ): Promise<NormalizedInventoryLevel[]>;
+
+  /**
+   * PUSH a fulfillment to the platform for a connector order that Mercaria has
+   * fulfilled/shipped. Idempotent: when the external order has no open fulfillment
+   * work left (already fulfilled), it is a no-op. Attaches tracking when present.
+   */
+  pushFulfillment(auth: ConnectorAuth, fulfillment: PushFulfillment): Promise<void>;
 
   /**
    * Register the provider's product webhooks (create/update/delete) pointing at

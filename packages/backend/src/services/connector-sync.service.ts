@@ -39,17 +39,25 @@ import { SyncRun, type ISyncRun, type ISyncRunCounts } from '../models/sync-run.
 import { Listing, type IListing, type IListingSource } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
 import { Order, type IOrder, type IOrderItem, type IOrderSource } from '../models/order.js';
+import { Location } from '../models/location.js';
 import { nextOrderNumber } from '../models/counter.js';
 import { Category } from '../models/category.js';
-import { createStoreProduct, updateListing } from './catalog-write.service.js';
+import {
+  createStoreProduct,
+  updateListing,
+  resolveDefaultLocationId,
+} from './catalog-write.service.js';
+import { setAvailable } from './inventory.service.js';
 import { encryptSecret, decryptSecret } from '../lib/connector-crypto.js';
 import { getConnectorProvider } from '../connectors/registry.js';
+import { applyPriceRules } from '../utils/money.js';
 import type {
   ConnectorAuth,
   ConnectorCredentials,
   NormalizedOrder,
   NormalizedProduct,
   NormalizedVariant,
+  PushFulfillment,
   PushProduct,
   PushVariant,
 } from '../connectors/types.js';
@@ -62,6 +70,11 @@ import { log } from '../lib/logger.js';
 
 /** Product-delete webhook payload (Shopify sends only `{ id }` on delete). */
 const webhookDeletePayloadSchema = z.object({ id: z.union([z.number(), z.string()]) });
+
+/** Inventory-level webhook payload — the platform's inventory-item id is the key. */
+const webhookInventoryPayloadSchema = z.object({
+  inventory_item_id: z.union([z.number(), z.string()]),
+});
 
 /**
  * Broadcast a live sync-progress tick to the connection's store room. Best-effort:
@@ -318,6 +331,17 @@ export async function connectAndVerify(
     );
   }
 
+  // Initial inventory import: enqueue an inventory sync when inventory pull is enabled.
+  if (pullsResource(conn.syncSettings.inventory)) {
+    const { enqueueInventorySync } = await import('../queue/producers.js');
+    await enqueueInventorySync({ storeId, connectionId: String(conn._id) }).catch((err) =>
+      log.general.warn(
+        { err, connectionId: String(conn._id) },
+        'Failed to enqueue connect-time inventory sync',
+      ),
+    );
+  }
+
   return conn;
 }
 
@@ -435,15 +459,22 @@ function decryptCredentials(conn: IConnection, shopCurrency: CurrencyCode): Conn
   return { ...decryptAuth(conn), shopCurrency };
 }
 
-/** Map a normalized variant to the store-product variant input. */
-function toVariantInput(variant: NormalizedVariant): CreateStoreProductVariantInput {
+/**
+ * Map a normalized variant to the store-product variant input, applying the
+ * connection's `priceRules` (markup + rounding) to the native `price` and
+ * `compareAtPrice` before persisting.
+ */
+function toVariantInput(
+  variant: NormalizedVariant,
+  priceRules: ISyncSettings['priceRules'],
+): CreateStoreProductVariantInput {
   const input: CreateStoreProductVariantInput = {
     optionValues: variant.optionValues.map((o) => ({ name: o.name, value: o.value })),
-    price: variant.price,
+    price: applyPriceRules(variant.price, priceRules),
     inventory: { tracked: variant.inventory.tracked, available: variant.inventory.available },
   };
   if (variant.compareAtPrice) {
-    input.compareAtPrice = variant.compareAtPrice;
+    input.compareAtPrice = applyPriceRules(variant.compareAtPrice, priceRules);
   }
   if (variant.sku) {
     input.sku = variant.sku;
@@ -455,14 +486,18 @@ function toVariantInput(variant: NormalizedVariant): CreateStoreProductVariantIn
 }
 
 /** Build the `CreateStoreProductInput` for a first-time import of `product`. */
-function toCreateInput(product: NormalizedProduct, categorySlug: string): CreateStoreProductInput {
+function toCreateInput(
+  product: NormalizedProduct,
+  categorySlug: string,
+  priceRules: ISyncSettings['priceRules'],
+): CreateStoreProductInput {
   const input: CreateStoreProductInput = {
     title: product.title,
     description: product.description,
     category: categorySlug,
     imageFileIds: [...product.imageUrls],
     options: product.options.map((o) => ({ name: o.name, values: [...o.values] })),
-    variants: product.variants.map(toVariantInput),
+    variants: product.variants.map((v) => toVariantInput(v, priceRules)),
   };
   if (product.vendor) {
     input.vendor = product.vendor;
@@ -515,14 +550,137 @@ function buildSource(conn: IConnection, product: NormalizedProduct): IListingSou
   return source;
 }
 
+/**
+ * Resolve the location imported stock is written to: the connection's configured
+ * `targetLocationId` when it is a real active location of the store, otherwise the
+ * store default. Returns `undefined` when no target is configured — the caller then
+ * lets `createStoreProduct` fall back to the store default itself (so the common
+ * no-target case does no extra location query).
+ */
+export async function resolveImportLocationId(conn: IConnection): Promise<string | undefined> {
+  const target = conn.syncSettings.targetLocationId?.trim();
+  if (!target) {
+    return undefined;
+  }
+  const valid = await Location.exists({ _id: target, storeId: conn.storeId, isActive: true });
+  return valid ? target : resolveDefaultLocationId(conn.storeId);
+}
+
+/**
+ * Resolve the CONCRETE location inventory sync writes to: the configured
+ * `targetLocationId` when valid, else the store default (inventory always needs a
+ * concrete location, unlike the import-create path which can defer to the funnel).
+ */
+export async function resolveInventoryLocationId(conn: IConnection): Promise<string> {
+  const target = conn.syncSettings.targetLocationId?.trim();
+  if (target) {
+    const valid = await Location.exists({ _id: target, storeId: conn.storeId, isActive: true });
+    if (valid) {
+      return target;
+    }
+  }
+  return resolveDefaultLocationId(conn.storeId);
+}
+
+/**
+ * Stamp each freshly-created variant with the platform's variant + inventory-item
+ * ids, matched to the normalized variants by POSITION (create preserves order:
+ * `resolveStoreVariants` → `insertMany` → `find().sort({position})`). No-op — and
+ * no DB read — when the product carries no external variant ids (e.g. the ingest
+ * path, or a platform that omits them), so callers that never provide them are
+ * unaffected. Enables the inventory pull job + webhook to map a platform
+ * `inventory_item_id` straight back to a Mercaria variant.
+ */
+async function stampVariantSources(
+  conn: IConnection,
+  listingId: string,
+  product: NormalizedProduct,
+): Promise<void> {
+  const hasExternalIds = product.variants.some(
+    (v) => v.externalVariantId !== undefined || v.externalInventoryItemId !== undefined,
+  );
+  if (!hasExternalIds) {
+    return;
+  }
+  const variants = await ProductVariant.find({ listingId })
+    .sort({ position: 1 })
+    .select('_id')
+    .lean<Pick<IProductVariant, '_id'>[]>();
+  const connectionId = String(conn._id);
+  for (let i = 0; i < variants.length && i < product.variants.length; i += 1) {
+    const normalized = product.variants[i];
+    if (normalized.externalVariantId === undefined && normalized.externalInventoryItemId === undefined) {
+      continue;
+    }
+    const source: Record<string, unknown> = { connectionId, provider: conn.provider };
+    if (normalized.externalVariantId !== undefined) {
+      source.externalVariantId = normalized.externalVariantId;
+    }
+    if (normalized.externalInventoryItemId !== undefined) {
+      source.externalInventoryItemId = normalized.externalInventoryItemId;
+    }
+    await ProductVariant.updateOne({ _id: variants[i]._id }, { $set: { source } });
+  }
+}
+
+/**
+ * Apply the connection's `collectionMapping` to a listing's `collectionIds`: map the
+ * product's external `collectionRefs` through it and set exactly those connector
+ * collections, while PRESERVING native Mercaria memberships (manual + automated
+ * collections that are not in the mapping's codomain). The connector-MANAGED set is
+ * the mapping's values, so a re-sync both adds and removes connector collections
+ * precisely without touching native ones. A no-op — and no DB read — when the
+ * connection has no mapping, when the product carries no collection refs, or when
+ * `collections` is pinned in `overridden` (respecting `overriddenFields`).
+ */
+async function applyCollectionMapping(
+  conn: IConnection,
+  listingId: string,
+  product: NormalizedProduct,
+  overridden: Set<string>,
+): Promise<void> {
+  const mapping = conn.syncSettings.collectionMapping;
+  if (!mapping || mapping.size === 0 || overridden.has('collections')) {
+    return;
+  }
+  const refs = product.collectionRefs ?? [];
+  const managed = new Set(mapping.values());
+  const desired: string[] = [];
+  for (const ref of refs) {
+    const mapped = mapping.get(ref);
+    if (mapped) {
+      desired.push(mapped);
+    }
+  }
+
+  const current = await Listing.findById(listingId)
+    .select('collectionIds')
+    .lean<Pick<IListing, 'collectionIds'> | null>();
+  const currentIds = current?.collectionIds ?? [];
+  // Keep every native (non-connector-managed) membership; set the managed subset to
+  // exactly the currently-desired connector collections.
+  const next = [...new Set([...currentIds.filter((id) => !managed.has(id)), ...desired])];
+  await Listing.updateOne({ _id: listingId }, { $set: { collectionIds: next } });
+}
+
 /** The outcome of importing a single product. */
 type ImportOutcome = 'created' | 'updated' | 'skipped';
+
+/** Options controlling how a single product is materialized on import. */
+interface ImportProductOptions {
+  categorySlug: string;
+  autoPublish: boolean;
+  respectOverrides: boolean;
+  priceRules: ISyncSettings['priceRules'];
+  /** Resolved import location (connector `targetLocationId`); undefined → store default. */
+  importLocationId?: string;
+}
 
 /** Import ONE normalized product (create or override-respecting update). */
 async function importProduct(
   conn: IConnection,
   product: NormalizedProduct,
-  opts: { categorySlug: string; autoPublish: boolean; respectOverrides: boolean },
+  opts: ImportProductOptions,
 ): Promise<ImportOutcome> {
   const existing = await Listing.findOne({
     storeId: conn.storeId,
@@ -546,21 +704,30 @@ async function importProduct(
       return 'skipped';
     }
 
-    const listingId = await createStoreProduct(conn.storeId, toCreateInput(product, opts.categorySlug));
+    const listingId = await createStoreProduct(
+      conn.storeId,
+      toCreateInput(product, opts.categorySlug, opts.priceRules),
+      { locationId: opts.importLocationId },
+    );
     const set: Record<string, unknown> = { source: buildSource(conn, product) };
     if (!opts.autoPublish) {
       set.status = 'draft';
     }
     await Listing.updateOne({ _id: listingId }, { $set: set });
+    await stampVariantSources(conn, listingId, product);
+    // A freshly-created listing has no local overrides yet.
+    await applyCollectionMapping(conn, listingId, product, new Set<string>());
     return 'created';
   }
 
+  const listingId = String(existing._id);
   const overridden = opts.respectOverrides ? new Set(existing.overriddenFields) : new Set<string>();
   const patch = toUpdatePatch(product, overridden);
   const changed = Object.keys(patch).length > 0;
   if (changed) {
-    await updateListing(String(existing._id), patch);
+    await updateListing(listingId, patch);
   }
+  await applyCollectionMapping(conn, listingId, product, overridden);
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
   await Listing.updateOne({ _id: existing._id }, { $set: { source: buildSource(conn, product) } });
   return changed ? 'updated' : 'skipped';
@@ -593,6 +760,8 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
   const categorySlug = await resolveImportCategorySlug();
   const respectOverrides = conn.syncSettings.conflictPolicy === 'respect_overrides';
   const autoPublish = conn.syncSettings.autoPublish;
+  const priceRules = conn.syncSettings.priceRules;
+  const importLocationId = await resolveImportLocationId(conn);
 
   const run = await SyncRun.create({ connectionId: String(conn._id), kind: 'backfill' });
   const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
@@ -608,6 +777,8 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
             categorySlug,
             autoPublish,
             respectOverrides,
+            priceRules,
+            importLocationId,
           });
           counts[outcome] += 1;
         } catch (err) {
@@ -752,6 +923,8 @@ async function handleProductWebhook(
     categorySlug,
     autoPublish: conn.syncSettings.autoPublish,
     respectOverrides: conn.syncSettings.conflictPolicy === 'respect_overrides',
+    priceRules: conn.syncSettings.priceRules,
+    importLocationId: await resolveImportLocationId(conn),
   });
   counts[outcome] += 1;
 }
@@ -769,6 +942,44 @@ async function handleOrderWebhook(
   const order = provider.normalizeOrder(payload, conn.shopCurrency);
   const outcome = await upsertExternalOrder(conn, order);
   counts[outcome] += 1;
+}
+
+/**
+ * Handle an `inventory_levels/update` webhook: map the platform's `inventory_item_id`
+ * to the mapped Mercaria variant (via its stored `source.externalInventoryItemId`)
+ * and set its stock at the connection's target location. The webhook reports ONE
+ * platform location's level, so the authoritative SHOP-WIDE total is re-fetched via
+ * `fetchInventory` (summed across locations) before the absolute set — matching the
+ * pull job's semantics. Idempotent: an unmapped item is a no-op counted as skipped.
+ */
+async function handleInventoryWebhook(
+  conn: IConnection,
+  payload: unknown,
+  counts: ISyncRunCounts,
+): Promise<void> {
+  const parsed = webhookInventoryPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw validationError('Malformed inventory-level webhook payload');
+  }
+  const itemId = String(parsed.data.inventory_item_id);
+  const variant = await ProductVariant.findOne({
+    'source.connectionId': String(conn._id),
+    'source.externalInventoryItemId': itemId,
+  })
+    .select('_id listingId')
+    .lean<Pick<IProductVariant, '_id' | 'listingId'> | null>();
+  if (!variant) {
+    counts.skipped += 1;
+    return;
+  }
+
+  const provider = getConnectorProvider(conn.provider);
+  const levels = await provider.fetchInventory(decryptAuth(conn), { inventoryItemIds: [itemId] });
+  const level = levels.find((l) => l.externalInventoryItemId === itemId);
+  const available = Math.max(0, level?.available ?? 0);
+  const locationId = await resolveInventoryLocationId(conn);
+  await setAvailable(String(variant._id), String(variant.listingId), locationId, available);
+  counts.updated += 1;
 }
 
 /**
@@ -828,6 +1039,21 @@ export async function processConnectorWebhook(job: {
     }
     await runWebhookUnit(conn, job.topic, (counts) =>
       handleOrderWebhook(conn, job.payload, counts),
+    );
+    return;
+  }
+
+  if (job.topic.startsWith('inventory_levels/')) {
+    // Respect the per-connection inventory direction: no inventory pull ⇒ ignore.
+    if (!pullsResource(conn.syncSettings.inventory)) {
+      log.general.info(
+        { connectionId: job.connectionId, topic: job.topic },
+        'Inventory pull disabled — webhook ignored',
+      );
+      return;
+    }
+    await runWebhookUnit(conn, job.topic, (counts) =>
+      handleInventoryWebhook(conn, job.payload, counts),
     );
     return;
   }
@@ -1095,6 +1321,123 @@ export async function requestOrderSync(storeId: string, connectionId: string): P
   await enqueueOrderSync({ storeId, connectionId });
 }
 
+// --- INVENTORY SYNC (platform → Mercaria) -----------------------------------
+
+/** A connector-sourced variant carrying its platform inventory-item id. */
+type SourcedVariant = Pick<IProductVariant, '_id' | 'listingId' | 'source'>;
+
+/**
+ * Pull the current inventory levels for a `pull` connection's products and set each
+ * mapped variant's stock at the connection's target location. Variants are matched
+ * to platform inventory items by their stored `source.externalInventoryItemId` (set
+ * at import), so no SKU match is needed. Idempotent: `setAvailable` is an absolute
+ * set, so a re-run converges; a level with no mapped variant is counted skipped, a
+ * per-variant failure is isolated. Records an `inventory_sync` `SyncRun`. Scoped by
+ * `{ _id, storeId }`.
+ */
+export async function syncInventory(storeId: string, connectionId: string): Promise<ISyncRun> {
+  const conn = await Connection.findOne({ _id: connectionId, storeId });
+  if (!conn) {
+    throw notFound('Connection not found');
+  }
+  if (conn.mode !== 'pull') {
+    throw validationError('Inventory sync is only supported for pull connections');
+  }
+  if (!pullsResource(conn.syncSettings.inventory)) {
+    throw validationError('Inventory pull is not enabled for this connection');
+  }
+
+  const provider = getConnectorProvider(conn.provider);
+  const auth = decryptAuth(conn);
+  const runConnectionId = String(conn._id);
+
+  const run = await SyncRun.create({ connectionId: runConnectionId, kind: 'inventory_sync' });
+  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'started', counts });
+
+  try {
+    const locationId = await resolveInventoryLocationId(conn);
+    // Variants of this connection that carry a platform inventory-item id.
+    const variants = await ProductVariant.find({
+      'source.connectionId': runConnectionId,
+      'source.externalInventoryItemId': { $type: 'string' },
+    })
+      .select('_id listingId source.externalInventoryItemId')
+      .lean<SourcedVariant[]>();
+
+    const byItemId = new Map<string, { variantId: string; listingId: string }>();
+    for (const variant of variants) {
+      const itemId = variant.source?.externalInventoryItemId;
+      if (itemId) {
+        byItemId.set(itemId, { variantId: String(variant._id), listingId: String(variant.listingId) });
+      }
+    }
+
+    if (byItemId.size > 0) {
+      const levels = await provider.fetchInventory(auth, { inventoryItemIds: [...byItemId.keys()] });
+      for (const level of levels) {
+        const mapping = byItemId.get(level.externalInventoryItemId);
+        if (!mapping) {
+          counts.skipped += 1;
+          continue;
+        }
+        try {
+          await setAvailable(mapping.variantId, mapping.listingId, locationId, Math.max(0, level.available));
+          counts.updated += 1;
+        } catch (err) {
+          counts.failed += 1;
+          log.general.warn(
+            { err, connectionId: runConnectionId, externalInventoryItemId: level.externalInventoryItemId },
+            'Failed to apply connector inventory level',
+          );
+        }
+        emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'running', counts });
+      }
+    }
+
+    run.counts = counts;
+    run.status = 'completed';
+    run.finishedAt = new Date();
+    await run.save();
+    await Connection.updateOne(
+      { _id: conn._id },
+      { $set: { lastSyncAt: new Date(), status: 'connected' } },
+    );
+    emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'completed', counts });
+  } catch (err) {
+    run.counts = counts;
+    run.status = 'failed';
+    run.error = err instanceof Error ? err.message : 'Inventory sync failed';
+    run.finishedAt = new Date();
+    await run.save();
+    await Connection.updateOne({ _id: conn._id }, { $set: { status: 'error' } });
+    emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'failed', counts });
+    log.general.error({ err, connectionId: runConnectionId }, 'Connector inventory sync failed');
+  }
+
+  return run;
+}
+
+/**
+ * Validate an inventory-pull connection, then ENQUEUE an inventory sync on the
+ * `marketplace-sync` queue (inline fallback when Redis is off). Scoped by
+ * `{ _id, storeId }` — no cross-store access.
+ */
+export async function requestInventorySync(storeId: string, connectionId: string): Promise<void> {
+  const conn = await Connection.findOne({ _id: connectionId, storeId });
+  if (!conn) {
+    throw notFound('Connection not found');
+  }
+  if (conn.mode !== 'pull') {
+    throw validationError('Inventory sync is only supported for pull connections');
+  }
+  if (!pullsResource(conn.syncSettings.inventory)) {
+    throw validationError('Inventory pull is not enabled for this connection');
+  }
+  const { enqueueInventorySync } = await import('../queue/producers.js');
+  await enqueueInventorySync({ storeId, connectionId });
+}
+
 // --- PRODUCT PUSH (Mercaria → platform) -------------------------------------
 
 /** Validate a persisted native price into a `Money` (its currency must be supported). */
@@ -1274,5 +1617,72 @@ export async function pushListingToChannels(storeId: string, listingId: string):
       continue; // Not authorized (e.g. mid-reconnect) — skip silently.
     }
     await pushListingToConnection(conn, listing, variants);
+  }
+}
+
+// --- FULFILLMENT PUSH (Mercaria order → platform) ---------------------------
+
+/**
+ * Push a Mercaria-fulfilled order's fulfillment back OUT to the platform it was
+ * pulled from. Called when an order that carries `source` transitions to `shipped`
+ * in Mercaria (see `order.service.transition`).
+ *
+ * LOOP PREVENTION (critical): only a MERCHANT-driven `transition('shipped')` reaches
+ * here — the inbound order-sync/webhook path sets an order's status with a direct
+ * `Order.updateOne` and NEVER calls `transition`, so a fulfillment that came FROM the
+ * platform can never echo back out. The push is further gated on the connection's
+ * `orders` direction being `bidirectional`; a `pull`-only connection never pushes.
+ *
+ * Best-effort: a push failure is recorded on its own `fulfillment_push` `SyncRun` and
+ * never affects the order. Idempotent at the provider (a re-push of an already-fulfilled
+ * order is a no-op). Loads by `orderId`; a non-connector order (no `source`) is a no-op.
+ */
+export async function pushOrderFulfillment(orderId: string): Promise<void> {
+  const order = await Order.findById(orderId).lean<IOrder | null>();
+  if (!order || !order.source) {
+    return; // Not a connector order — nothing to push.
+  }
+
+  const conn = await Connection.findById(order.source.connectionId);
+  if (!conn || conn.status !== 'connected' || !conn.credentials || !conn.shopDomain) {
+    return; // Connection gone / disconnected / mid-reconnect — skip silently.
+  }
+  // Only bidirectional order sync pushes fulfillments back to the platform.
+  if (conn.syncSettings.orders !== 'bidirectional') {
+    return;
+  }
+
+  const connectionId = String(conn._id);
+  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const run = await SyncRun.create({ connectionId, kind: 'fulfillment_push' });
+  emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'started', counts });
+
+  try {
+    const provider = getConnectorProvider(conn.provider);
+    const fulfillment: PushFulfillment = { externalOrderId: order.source.externalId };
+    if (order.shipping.trackingNumber) {
+      fulfillment.trackingNumber = order.shipping.trackingNumber;
+    }
+    await provider.pushFulfillment(decryptAuth(conn), fulfillment);
+    counts.updated += 1;
+
+    run.counts = counts;
+    run.status = 'completed';
+    run.finishedAt = new Date();
+    await run.save();
+    await Connection.updateOne({ _id: conn._id }, { $set: { lastSyncAt: new Date() } });
+    emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'completed', counts });
+  } catch (err) {
+    counts.failed += 1;
+    run.counts = counts;
+    run.status = 'failed';
+    run.error = err instanceof Error ? err.message : 'Fulfillment push failed';
+    run.finishedAt = new Date();
+    await run.save();
+    emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'failed', counts });
+    log.general.error(
+      { err, connectionId, orderId: String(order._id) },
+      'Failed to push fulfillment to channel',
+    );
   }
 }

@@ -52,6 +52,25 @@ export interface OrderSyncJob {
   connectionId: string;
 }
 
+/**
+ * Pull inventory levels from a `pull` connection into Mercaria. `storeId` scopes the
+ * connection lookup (IDOR-safe), so both ids are carried and re-resolved server-side
+ * by the handler.
+ */
+export interface InventorySyncJob {
+  storeId: string;
+  connectionId: string;
+}
+
+/**
+ * Push a Mercaria order's fulfillment OUT to the connection it was pulled from. The
+ * order is re-resolved by `orderId` server-side (the origin connection + the
+ * bidirectional gate + loop-prevention live in the connector-sync service).
+ */
+export interface FulfillmentPushJob {
+  orderId: string;
+}
+
 /** Recompute one review target's rating aggregate (drift-proof backstop). */
 export interface RecomputeAggregatesJob {
   targetType: ReviewTargetType;
@@ -93,14 +112,18 @@ export type MarketplaceSyncJobName =
   | 'connection.backfill'
   | 'webhook.process'
   | 'product.push'
-  | 'order.sync';
+  | 'order.sync'
+  | 'inventory.sync'
+  | 'fulfillment.push';
 
 /** Union of every connector-sync-queue job payload. */
 export type MarketplaceSyncJobData =
   | ConnectionBackfillJob
   | WebhookProcessJob
   | ProductPushJob
-  | OrderSyncJob;
+  | OrderSyncJob
+  | InventorySyncJob
+  | FulfillmentPushJob;
 
 /** Union of every event-queue job payload. */
 export type MarketplaceEventJobData =

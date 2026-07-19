@@ -18,6 +18,8 @@ import {
   JOB_WEBHOOK_PROCESS,
   JOB_PRODUCT_PUSH,
   JOB_ORDER_SYNC,
+  JOB_INVENTORY_SYNC,
+  JOB_FULFILLMENT_PUSH,
 } from './constants.js';
 import {
   handleRecomputeAggregates,
@@ -27,6 +29,8 @@ import {
   handleWebhookProcess,
   handleProductPush,
   handleOrderSync,
+  handleInventorySync,
+  handleFulfillmentPush,
 } from './handlers.js';
 import { log } from '../lib/logger.js';
 import type {
@@ -37,6 +41,8 @@ import type {
   WebhookProcessJob,
   ProductPushJob,
   OrderSyncJob,
+  InventorySyncJob,
+  FulfillmentPushJob,
 } from './types.js';
 
 /**
@@ -158,5 +164,37 @@ export async function enqueueOrderSync(data: OrderSyncJob): Promise<void> {
   }
   await queue.add(JOB_ORDER_SYNC, data, {
     jobId: hashJobId(JOB_ORDER_SYNC, data.connectionId),
+  });
+}
+
+/**
+ * Enqueue an inventory sync (pull inventory levels from a `pull` connection). Falls
+ * back to running the sync INLINE when the sync queue is disabled (no Redis). A
+ * stable, hashed `jobId` dedupes an overlapping inventory sync of the same connection.
+ */
+export async function enqueueInventorySync(data: InventorySyncJob): Promise<void> {
+  const queue = getSyncQueue();
+  if (!queue) {
+    await runInline(JOB_INVENTORY_SYNC, () => handleInventorySync(data));
+    return;
+  }
+  await queue.add(JOB_INVENTORY_SYNC, data, {
+    jobId: hashJobId(JOB_INVENTORY_SYNC, data.connectionId),
+  });
+}
+
+/**
+ * Enqueue a fulfillment push (Mercaria order → its origin connection). Falls back to
+ * running the push INLINE when the sync queue is disabled (no Redis). A stable,
+ * hashed `jobId` dedupes an overlapping push of the same order.
+ */
+export async function enqueueFulfillmentPush(data: FulfillmentPushJob): Promise<void> {
+  const queue = getSyncQueue();
+  if (!queue) {
+    await runInline(JOB_FULFILLMENT_PUSH, () => handleFulfillmentPush(data));
+    return;
+  }
+  await queue.add(JOB_FULFILLMENT_PUSH, data, {
+    jobId: hashJobId(JOB_FULFILLMENT_PUSH, data.orderId),
   });
 }

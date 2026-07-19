@@ -6,7 +6,12 @@
  * silently coercing, so totals can never mix currencies undetected.
  */
 
-import { CURRENCY_PRECISION, type CurrencyCode, type Money } from '@mercaria/shared-types';
+import {
+  CURRENCY_PRECISION,
+  type CurrencyCode,
+  type Money,
+  type SyncSettings,
+} from '@mercaria/shared-types';
 
 /** Basis-point denominator: 10_000 bps = 100%. */
 const BASIS_POINTS_DENOMINATOR = 10_000;
@@ -121,6 +126,45 @@ export function percentOf(money: Money, bps: number): Money {
   }
   const raw = (money.amount * bps) / BASIS_POINTS_DENOMINATOR;
   return { amount: roundMinorUnits(raw), currency: money.currency };
+}
+
+/** The connector price transform applied to an imported native price. */
+export type PriceRules = NonNullable<SyncSettings['priceRules']>;
+
+/** Round a minor-unit `amount` to the nearest WHOLE major unit of `currency` (half-even). */
+function roundToWholeMajor(amount: number, currency: CurrencyCode): number {
+  const per = minorUnitsPerMajor(currency);
+  return roundMinorUnits(amount / per) * per;
+}
+
+/**
+ * Apply a connector's `priceRules` to an imported native price, in order:
+ *   1. `markupPercent` — multiply by `(100 + markupPercent) / 100` (a discount for
+ *      a negative value), rounded to integer minor units half-even.
+ *   2. `rounding` — the post-markup strategy:
+ *        - `'nearest'` → the nearest whole major unit (e.g. a whole dollar / ⊜).
+ *        - `'charm'`   → one minor unit below the nearest whole major unit, i.e. a
+ *          `.99` ending for cent-precision currencies (charm/psychological pricing).
+ *        - `'none'` / unset → leave the marked-up integer amount as is.
+ *
+ * The result is clamped to a non-negative integer minor-unit amount and keeps the
+ * input currency. A `undefined` `rules` returns `money` unchanged. Pure — the same
+ * transform is applied to a variant's `price` and `compareAtPrice` on import.
+ */
+export function applyPriceRules(money: Money, rules?: PriceRules): Money {
+  if (!rules) {
+    return money;
+  }
+  let amount = money.amount;
+  if (rules.markupPercent !== undefined && rules.markupPercent !== 0) {
+    amount = roundMinorUnits((amount * (100 + rules.markupPercent)) / 100);
+  }
+  if (rules.rounding === 'nearest') {
+    amount = roundToWholeMajor(amount, money.currency);
+  } else if (rules.rounding === 'charm') {
+    amount = roundToWholeMajor(amount, money.currency) - 1;
+  }
+  return { amount: Math.max(0, amount), currency: money.currency };
 }
 
 /**

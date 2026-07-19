@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { Plus, Package, ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { Listing } from "@mercaria/shared-types";
-import { Text, Button, Input, PriceDisplay, useColorScheme } from "@mercaria/ui";
+import { Text, Button, Input, PriceDisplay, SourceBadge, useColorScheme } from "@mercaria/ui";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -106,7 +106,7 @@ function ProductRow({ product, onPress }: { product: Listing; onPress: () => voi
       <View className="h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-muted">
         <Package size={20} className="text-muted-foreground" />
       </View>
-      <View className="flex-1">
+      <View className="flex-1 gap-1">
         <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
           {product.title}
         </Text>
@@ -114,6 +114,7 @@ function ProductRow({ product, onPress }: { product: Listing; onPress: () => voi
           {product.variants.length} variant{product.variants.length === 1 ? "" : "s"} ·{" "}
           {product.quantity} in stock
         </Text>
+        {product.source ? <SourceBadge provider={product.source.provider} /> : null}
       </View>
       <PriceDisplay price={product.price} primaryClassName="text-sm font-semibold" />
       <View className={`rounded-full px-2 py-1 ${STATUS_STYLES[product.status] ?? "bg-muted"}`}>
