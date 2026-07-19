@@ -66,6 +66,13 @@ export interface IConnection {
   status: ConnectionStatus;
   /** Encrypted credentials; absent until the connection is authorized. */
   credentials?: IConnectionCredentials;
+  /**
+   * Encrypted per-connection inbound-webhook secret. Present only for providers with
+   * `webhookSecretStrategy: 'per_connection'` (WooCommerce): the secret is minted at
+   * webhook registration, set as the platform webhook's `secret`, and verified against
+   * on every inbound delivery. Never returned in the `Connection` DTO.
+   */
+  webhookSecret?: IConnectionCredentials;
   externalShopId?: string;
   shopDomain?: string;
   shopCurrency?: string;
@@ -115,6 +122,7 @@ const ConnectionSchema = new Schema<IConnection>(
     mode: { type: String, enum: MODES as string[], required: true },
     status: { type: String, enum: STATUSES as string[], default: 'disconnected' },
     credentials: { type: ConnectionCredentialsSchema },
+    webhookSecret: { type: ConnectionCredentialsSchema },
     externalShopId: { type: String },
     shopDomain: { type: String },
     shopCurrency: { type: String },

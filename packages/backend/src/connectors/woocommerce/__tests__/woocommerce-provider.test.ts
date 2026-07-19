@@ -29,6 +29,14 @@ function routingTransport(handler: (url: string) => WooCommerceHttpResponse): {
       calls.push({ url, headers });
       return handler(url);
     },
+    async post(url, headers) {
+      calls.push({ url, headers });
+      return handler(url);
+    },
+    async del(url, headers) {
+      calls.push({ url, headers });
+      return handler(url);
+    },
   };
   return { transport, calls };
 }
@@ -185,10 +193,16 @@ describe('woocommerce provider registry', () => {
     expect(provider.credentialStrategy).toBe('api_key');
   });
 
-  it('throws for the push/OAuth methods outside the pull-only first cut', async () => {
+  it('reports a per-connection webhook secret strategy', () => {
+    expect(getConnectorProvider('woocommerce').webhookSecretStrategy).toBe('per_connection');
+  });
+
+  it('throws for the OAuth + PUSH methods WooCommerce does not support', async () => {
     const provider = getConnectorProvider('woocommerce');
+    // OAuth connect (api_key strategy) — buildAuthorizeUrl is sync (throws), exchangeCode rejects.
     expect(() => provider.buildAuthorizeUrl({ shopDomain: 'x', redirectUri: 'y', state: 's', scopes: [] })).toThrow();
-    await expect(provider.fetchOrders(CREDS)).rejects.toThrow();
+    await expect(provider.exchangeCode({ shopDomain: 'x', code: 'c', redirectUri: 'y' })).rejects.toThrow();
+    // Outbound push (owned by the WordPress plugin's push_in path, not this connector).
     await expect(
       provider.pushProduct(AUTH, {
         title: 'x',
@@ -199,5 +213,6 @@ describe('woocommerce provider registry', () => {
         variants: [],
       }),
     ).rejects.toThrow();
+    await expect(provider.pushFulfillment(AUTH, { externalOrderId: '1' })).rejects.toThrow();
   });
 });

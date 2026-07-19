@@ -1,9 +1,9 @@
 /**
  * WooCommerce connector provider (REST API `wc/v3`).
  *
- * PULL-ONLY (Fase 4 first cut). WooCommerce authorizes with a merchant-issued
- * consumer key/secret (NOT OAuth): `credentialStrategy: 'api_key'`. The store
- * admin creates a read-only REST API key in WooCommerce and pastes the pair into
+ * PULL + real-time webhooks (Shopify-parity cut). WooCommerce authorizes with a
+ * merchant-issued consumer key/secret (NOT OAuth): `credentialStrategy: 'api_key'`.
+ * The store admin creates a REST API key in WooCommerce and pastes the pair into
  * Mercaria; the connect endpoint verifies it and stores it encrypted. Over HTTPS,
  * WooCommerce accepts the key/secret as HTTP Basic credentials — that is exactly
  * how {@link ConnectorAuth.accessToken} (`"consumerKey:consumerSecret"`) is used
@@ -14,22 +14,40 @@
  *  - `fetchProducts` → GET `/wc/v3/products?per_page=100&page=N` (paginated via the
  *    `X-WP-TotalPages` header), fetching each `variable` product's variations from
  *    `/wc/v3/products/{id}/variations` and mapping them into variants.
- *  - `normalizeProduct` is a PURE mapping (WooCommerce JSON → `NormalizedProduct`),
- *    pricing every variant in the shop's NATIVE currency (no FAIR conversion).
+ *  - `fetchInventory` → re-reads the same product/variation `stock_quantity`, keyed by
+ *    product/variation id (WooCommerce has no separate inventory-item id), summing to
+ *    the provider-neutral `NormalizedInventoryLevel` the inventory sync consumes.
+ *  - `fetchOrders`/`normalizeOrder` → GET `/wc/v3/orders?per_page=100&page=N`; each
+ *    Woo order maps to a `NormalizedOrder`. Woo orders are SINGLE-currency, so every
+ *    money is `shop === presentment` in the order's own currency (no fx conversion).
+ *  - `registerWebhooks`/`deleteWebhooks` → WC REST `POST`/`DELETE /webhooks`. Each
+ *    webhook is created with a per-connection `secret` and a per-connection delivery
+ *    URL (`…/channels/webhooks/woocommerce/{connectionId}`) so the ingress route
+ *    resolves the connection and verifies its stored secret (`webhook.ts`).
+ *  - `normalizeProduct`/`normalizeOrder` are PURE mappings, pricing in the shop's
+ *    NATIVE currency (no FAIR conversion).
  *
- * The OAuth, order, push, inventory-pull and webhook methods the interface
- * requires are NOT part of this pull-only first cut and throw a clear
- * `notImplemented` — they are never reached by the products-pull path (connect via
- * API key, backfill, scheduled re-sync). ALL network I/O goes through the injected
- * {@link WooCommerceTransport}, which is SSRF-guarded (`safeFetch`, IP-pinned) —
- * a WooCommerce host is fully merchant-supplied, so SSRF validation matters.
+ * OUT OF SCOPE (throw a clear `notImplemented`): OAuth (`buildAuthorizeUrl`/
+ * `exchangeCode` — api_key strategy) and PUSH (`pushProduct`/`pushFulfillment`).
+ * WooCommerce PRODUCT PUSH (Mercaria → Woo) is intentionally left unimplemented —
+ * the outbound direction (Woo → Mercaria) is served by the Mercaria WordPress plugin
+ * (the channel-ingest `push_in` path), not by pushing from this pull connector.
+ *
+ * ALL network I/O goes through the injected {@link WooCommerceTransport}, which is
+ * SSRF-guarded (`safeFetch`, IP-pinned) — a WooCommerce host is fully
+ * merchant-supplied, so SSRF validation matters.
  */
 
 import { z } from 'zod';
 import {
+  ALL_CURRENCY_CODES,
   CURRENCY_PRECISION,
+  type AddressSnapshot,
   type CurrencyCode,
+  type DualMoney,
   type Money,
+  type OrderStatus,
+  type PaymentInfo,
 } from '@mercaria/shared-types';
 import { validationError, MercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
@@ -37,14 +55,21 @@ import type {
   ConnectorAuth,
   ConnectorCredentials,
   ConnectorProvider,
+  NormalizedInventoryLevel,
+  NormalizedOrder,
+  NormalizedOrderCustomer,
+  NormalizedOrderLine,
   NormalizedProduct,
   NormalizedVariant,
   ShopIdentity,
 } from '../types.js';
+import { REGISTERED_WEBHOOK_TOPICS } from './webhook.js';
 import { wooCommerceTransport, type WooCommerceHttpResponse, type WooCommerceTransport } from './http.js';
 
-/** Max products/variations per page (the value the pull requests). */
+/** Max products/variations/orders per page (the value the pull requests). */
 const PAGE_LIMIT = 100;
+/** The publish states of products the pull imports (drafts/private are skipped). */
+const PRODUCT_STATUS = 'publish';
 
 // --- WooCommerce response schemas (only the fields we consume; extras ignored) ---
 
@@ -118,12 +143,12 @@ type WooProduct = z.infer<typeof wooProductSchema>;
 type WooVariation = z.infer<typeof wooVariationSchema>;
 type WooManageStock = z.infer<typeof wooManageStockSchema>;
 
-/** Build a clear, honest error for a method outside the pull-only first cut. */
+/** Build a clear, honest error for a method the WooCommerce connector does not support. */
 function notImplementedError(method: string): MercariaError {
   return new MercariaError({
     code: ErrorCodes.INTERNAL_ERROR,
     httpStatus: 501,
-    message: `WooCommerce connector does not implement "${method}" (pull-only: verifyConnection, fetchProducts, normalizeProduct).`,
+    message: `WooCommerce connector does not implement "${method}" (unsupported: OAuth connect + product/fulfillment push).`,
   });
 }
 
@@ -225,6 +250,10 @@ function variationToVariant(
       .map((a) => ({ name: a.name, value: a.option })),
     price,
     externalVariantId: String(variation.id),
+    // WooCommerce has no separate inventory-item id — stock lives on the
+    // product/variation itself, so the variation id IS the inventory-item key the
+    // inventory sync maps back to this variant (`source.externalInventoryItemId`).
+    externalInventoryItemId: String(variation.id),
     inventory: resolveInventory(variation.manage_stock, variation.stock_quantity, parent),
   };
   if (compareAtPrice) {
@@ -248,6 +277,9 @@ function simpleVariant(product: WooProduct, shopCurrency: CurrencyCode): Normali
     optionValues: [],
     price,
     externalVariantId: String(product.id),
+    // A simple product's stock lives on the product itself → the product id is the
+    // inventory-item key the inventory sync maps back to this variant.
+    externalInventoryItemId: String(product.id),
     inventory: resolveInventory(product.manage_stock, product.stock_quantity, {
       tracked: false,
       quantity: null,
@@ -334,6 +366,286 @@ export function normalizeWooCommerceProduct(raw: unknown, shopCurrency: Currency
   return normalizeParsed(parsed.data, shopCurrency, parsed.data.expandedVariations ?? []);
 }
 
+// --- WooCommerce ORDER schemas (only the fields we consume) ------------------
+
+/** Placeholder variant title when a line carries no attribute meta. */
+const DEFAULT_VARIANT_TITLE = 'Default Title';
+
+/** One entry of a line item's `meta_data` — variation attributes surface here. */
+const wooOrderLineMetaSchema = z.object({
+  display_key: z.string().nullable().optional(),
+  display_value: z.string().nullable().optional(),
+});
+
+/** One WooCommerce order line item. */
+const wooOrderLineSchema = z.object({
+  id: z.union([z.number(), z.string()]).optional(),
+  name: z.string().nullable().optional(),
+  product_id: z.union([z.number(), z.string()]).nullable().optional(),
+  variation_id: z.union([z.number(), z.string()]).nullable().optional(),
+  quantity: z.number().default(1),
+  /** Pre-discount line total (WooCommerce's per-line "subtotal"). */
+  subtotal: z.string().default('0'),
+  /** Post-discount line total. */
+  total: z.string().default('0'),
+  sku: z.string().nullable().optional(),
+  meta_data: z.array(wooOrderLineMetaSchema).default([]),
+});
+
+/** A WooCommerce billing/shipping address block. */
+const wooOrderAddressSchema = z.object({
+  first_name: z.string().nullable().optional(),
+  last_name: z.string().nullable().optional(),
+  address_1: z.string().nullable().optional(),
+  address_2: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  postcode: z.string().nullable().optional(),
+  country: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+});
+
+/** One refund entry on an order (its presence marks a partial/full refund). */
+const wooRefundSchema = z.object({ total: z.string().nullable().optional() });
+
+/** A WooCommerce order (`GET /orders`). */
+const wooOrderSchema = z.object({
+  id: z.union([z.number(), z.string()]),
+  number: z.union([z.number(), z.string()]).nullable().optional(),
+  status: z.string().default('pending'),
+  currency: z.string().default(''),
+  date_created_gmt: z.string().nullable().optional(),
+  date_modified_gmt: z.string().nullable().optional(),
+  total: z.string().default('0'),
+  total_tax: z.string().default('0'),
+  shipping_total: z.string().default('0'),
+  discount_total: z.string().default('0'),
+  customer_id: z.union([z.number(), z.string()]).nullable().optional(),
+  billing: wooOrderAddressSchema.nullable().optional(),
+  shipping: wooOrderAddressSchema.nullable().optional(),
+  line_items: z.array(wooOrderLineSchema).default([]),
+  refunds: z.array(wooRefundSchema).default([]),
+});
+
+const ordersResponseSchema = z.array(wooOrderSchema);
+
+type WooOrder = z.infer<typeof wooOrderSchema>;
+type WooOrderLine = z.infer<typeof wooOrderLineSchema>;
+type WooOrderAddress = z.infer<typeof wooOrderAddressSchema>;
+
+/** True when a raw currency string is a supported Mercaria `CurrencyCode`. */
+function isSupportedCurrencyCode(code: string | null | undefined): code is CurrencyCode {
+  return typeof code === 'string' && (ALL_CURRENCY_CODES as readonly string[]).includes(code);
+}
+
+/**
+ * A single-currency `DualMoney`: WooCommerce orders carry no presentment currency, so
+ * shop === presentment (the SAME `Money`), mirroring how the Shopify mapper collapses
+ * the two when presentment matches shop.
+ */
+function singleDualMoney(amount: number, currency: CurrencyCode): DualMoney {
+  const money: Money = { amount, currency };
+  return { shop: money, presentment: money };
+}
+
+/**
+ * Map a WooCommerce order `status` (+ whether the order has any refunds) to a Mercaria
+ * order + payment status. `processing` = payment received / being prepared → `paid`;
+ * `completed` = fulfilled → `shipped`; a `processing`/`completed` order carrying refunds
+ * becomes `partially_refunded`; `refunded`/`cancelled`/`failed`/`on-hold`/`pending` map
+ * to their nearest Mercaria states.
+ */
+function mapWooStatus(
+  status: string,
+  hasRefunds: boolean,
+): { status: OrderStatus; paymentStatus: PaymentInfo['status'] } {
+  switch (status) {
+    case 'completed':
+      return hasRefunds
+        ? { status: 'partially_refunded', paymentStatus: 'paid' }
+        : { status: 'shipped', paymentStatus: 'paid' };
+    case 'processing':
+      return hasRefunds
+        ? { status: 'partially_refunded', paymentStatus: 'paid' }
+        : { status: 'paid', paymentStatus: 'paid' };
+    case 'refunded':
+      return { status: 'refunded', paymentStatus: 'refunded' };
+    case 'cancelled':
+      return { status: 'cancelled', paymentStatus: 'unpaid' };
+    case 'failed':
+      return { status: 'pending_payment', paymentStatus: 'failed' };
+    case 'on-hold':
+    case 'pending':
+    default:
+      return { status: 'pending_payment', paymentStatus: 'unpaid' };
+  }
+}
+
+/** Build a variant title from a line's attribute `meta_data` (skips internal `_`-keys). */
+function variantTitleFromMeta(meta: WooOrderLine['meta_data']): string {
+  const parts: string[] = [];
+  for (const entry of meta) {
+    const key = entry.display_key ?? '';
+    const value = entry.display_value ?? '';
+    if (key.trim() !== '' && !key.startsWith('_') && value.trim() !== '') {
+      parts.push(value);
+    }
+  }
+  return parts.length > 0 ? parts.join(' / ') : DEFAULT_VARIANT_TITLE;
+}
+
+/**
+ * Map one WooCommerce order line to a `NormalizedOrderLine` in `currency`. The
+ * per-unit price is derived from the line's PRE-discount `subtotal` (WooCommerce's
+ * per-line subtotal — discounts are captured at the order level, matching Shopify),
+ * and `lineTotal = unitPrice * quantity` holds exactly.
+ */
+function toOrderLine(line: WooOrderLine, currency: CurrencyCode): NormalizedOrderLine {
+  const quantity = line.quantity > 0 ? line.quantity : 1;
+  const lineSubtotalMinor = decimalStringToMinor(line.subtotal.trim() !== '' ? line.subtotal : '0', currency);
+  const unitMinor = Math.round(lineSubtotalMinor / quantity);
+  const unitPrice = singleDualMoney(unitMinor, currency);
+  const result: NormalizedOrderLine = {
+    title: line.name ?? 'Item',
+    variantTitle: variantTitleFromMeta(line.meta_data),
+    quantity,
+    unitPrice,
+    lineTotal: singleDualMoney(unitMinor * quantity, currency),
+  };
+  if (line.product_id != null) {
+    result.externalProductId = String(line.product_id);
+  }
+  // WooCommerce reports `variation_id: 0` for a non-variable line — treat as absent.
+  if (line.variation_id != null && String(line.variation_id) !== '0') {
+    result.externalVariantId = String(line.variation_id);
+  }
+  if (line.sku != null && line.sku.trim() !== '') {
+    result.sku = line.sku;
+  }
+  return result;
+}
+
+/** Map the order's customer (skips the guest `customer_id: 0`), when present. */
+function mapWooCustomer(order: WooOrder): NormalizedOrderCustomer | undefined {
+  const customer: NormalizedOrderCustomer = {};
+  const customerId = order.customer_id != null ? String(order.customer_id) : undefined;
+  if (customerId && customerId !== '0') {
+    customer.externalId = customerId;
+  }
+  const email = order.billing?.email;
+  if (email && email.trim() !== '') {
+    customer.email = email;
+  }
+  const name = [order.billing?.first_name, order.billing?.last_name]
+    .filter((p) => p && p.trim() !== '')
+    .join(' ')
+    .trim();
+  if (name) {
+    customer.name = name;
+  }
+  return Object.keys(customer).length > 0 ? customer : undefined;
+}
+
+/**
+ * Map the order's destination to an `AddressSnapshot`: prefer the shipping address,
+ * falling back to billing when shipping has no street line. Returns undefined only
+ * when the order carries neither block.
+ */
+function mapWooAddress(
+  shipping: WooOrderAddress | null | undefined,
+  billing: WooOrderAddress | null | undefined,
+): AddressSnapshot | undefined {
+  const src = shipping && (shipping.address_1 ?? '').trim() !== '' ? shipping : billing ?? shipping;
+  if (!src) {
+    return undefined;
+  }
+  const recipientName = [src.first_name, src.last_name]
+    .filter((p) => p && p.trim() !== '')
+    .join(' ')
+    .trim();
+  const snapshot: AddressSnapshot = {
+    recipientName,
+    line1: src.address_1 ?? '',
+    city: src.city ?? '',
+    postalCode: src.postcode ?? '',
+    country: src.country ?? '',
+  };
+  if (src.address_2 && src.address_2.trim() !== '') {
+    snapshot.line2 = src.address_2;
+  }
+  if (src.state && src.state.trim() !== '') {
+    snapshot.region = src.state;
+  }
+  if (src.phone && src.phone.trim() !== '') {
+    snapshot.phone = src.phone;
+  }
+  return snapshot;
+}
+
+/**
+ * PURE: map a raw WooCommerce order into a `NormalizedOrder`. WooCommerce is
+ * single-currency, so every money is `shop === presentment` in the order's own
+ * currency (falling back to the connection's shop currency when the order omits it or
+ * reports an unsupported code) and there is no fx-rate snapshot. Order-level totals are
+ * read from WooCommerce's authoritative fields; the subtotal is the sum of line totals
+ * so items and `totals.subtotal` stay internally consistent.
+ */
+export function normalizeWooCommerceOrder(raw: unknown, shopCurrency: CurrencyCode): NormalizedOrder {
+  const parsed = wooOrderSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw validationError(`Malformed WooCommerce order: ${parsed.error.message}`);
+  }
+  const order = parsed.data;
+  const currency: CurrencyCode = isSupportedCurrencyCode(order.currency) ? order.currency : shopCurrency;
+
+  const lines = order.line_items.map((line) => toOrderLine(line, currency));
+  if (lines.length === 0) {
+    throw validationError(`WooCommerce order ${String(order.id)} has no line items`);
+  }
+
+  const subtotalMinor = lines.reduce((sum, line) => sum + line.lineTotal.shop.amount, 0);
+  const totals = {
+    subtotal: singleDualMoney(subtotalMinor, currency),
+    discountTotal: singleDualMoney(decimalStringToMinor(order.discount_total || '0', currency), currency),
+    tax: singleDualMoney(decimalStringToMinor(order.total_tax || '0', currency), currency),
+    shipping: singleDualMoney(decimalStringToMinor(order.shipping_total || '0', currency), currency),
+    grandTotal: singleDualMoney(decimalStringToMinor(order.total || '0', currency), currency),
+  };
+
+  const { status, paymentStatus } = mapWooStatus(order.status, order.refunds.length > 0);
+
+  const normalized: NormalizedOrder = {
+    externalId: String(order.id),
+    status,
+    paymentStatus,
+    shopCurrency: currency,
+    presentmentCurrency: currency,
+    lines,
+    totals,
+  };
+  if (order.number != null && String(order.number).trim() !== '') {
+    normalized.externalNumber = String(order.number);
+  }
+  // WooCommerce GMT timestamps carry no offset — append `Z` to read them as UTC.
+  const updatedAt = order.date_modified_gmt ?? order.date_created_gmt;
+  if (updatedAt && updatedAt.trim() !== '') {
+    normalized.externalUpdatedAt = new Date(`${updatedAt}Z`);
+  }
+  if (order.date_created_gmt && order.date_created_gmt.trim() !== '') {
+    normalized.createdAt = new Date(`${order.date_created_gmt}Z`);
+  }
+  const customer = mapWooCustomer(order);
+  if (customer) {
+    normalized.customer = customer;
+  }
+  const shippingAddress = mapWooAddress(order.shipping, order.billing);
+  if (shippingAddress) {
+    normalized.shippingAddress = shippingAddress;
+  }
+  return normalized;
+}
+
 /** The WooCommerce REST base for a site: `{site}/wp-json/wc/v3` (https-normalized). */
 function apiBase(shopDomain: string): string {
   const trimmed = shopDomain.trim().replace(/\/+$/, '');
@@ -376,6 +688,18 @@ function totalPagesFromHeaders(response: WooCommerceHttpResponse): number {
   return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
 }
 
+/** Parse a `page` cursor (a 1-based page number as a string), or start at page 1. */
+function pageFromCursor(cursor: string | undefined): number {
+  const page = cursor ? Number(cursor) : 1;
+  if (!Number.isInteger(page) || page < 1) {
+    throw validationError(`Invalid WooCommerce page cursor: ${cursor}`);
+  }
+  return page;
+}
+
+/** A `POST /webhooks` response — only the created subscription's id is consumed. */
+const webhookCreateResponseSchema = z.object({ id: z.union([z.number(), z.string()]) });
+
 /**
  * Construct a WooCommerce provider over `transport`. The default transport is the
  * real SSRF-safe one; tests inject a fake to exercise the mapping/paging logic.
@@ -385,7 +709,7 @@ export function createWooCommerceProvider(
 ): ConnectorProvider {
   /** Fetch every variation of a `variable` product, paginating the variations endpoint. */
   async function fetchAllVariations(
-    creds: ConnectorCredentials,
+    auth: ConnectorAuth,
     productId: string,
   ): Promise<WooVariation[]> {
     const all: WooVariation[] = [];
@@ -393,8 +717,8 @@ export function createWooCommerceProvider(
     for (;;) {
       const params = new URLSearchParams({ per_page: String(PAGE_LIMIT), page: String(page) });
       const response = await transport.get(
-        `${apiBase(creds.shopDomain)}/products/${encodeURIComponent(productId)}/variations?${params.toString()}`,
-        authHeaders(creds),
+        `${apiBase(auth.shopDomain)}/products/${encodeURIComponent(productId)}/variations?${params.toString()}`,
+        authHeaders(auth),
       );
       assertOk(response, 'variation list');
       const parsed = variationsResponseSchema.safeParse(parseJson(response, 'variation list'));
@@ -408,6 +732,32 @@ export function createWooCommerceProvider(
       }
       page += 1;
     }
+  }
+
+  /**
+   * Fetch ONE page of published products (raw + parsed) + its total page count.
+   * Shared by `fetchProducts` (which normalizes each product) and `fetchInventory`
+   * (which reads stock only), so both page the same `/products` endpoint identically.
+   */
+  async function fetchProductsPage(
+    auth: ConnectorAuth,
+    page: number,
+  ): Promise<{ products: WooProduct[]; totalPages: number }> {
+    const params = new URLSearchParams({
+      per_page: String(PAGE_LIMIT),
+      page: String(page),
+      status: PRODUCT_STATUS,
+    });
+    const response = await transport.get(
+      `${apiBase(auth.shopDomain)}/products?${params.toString()}`,
+      authHeaders(auth),
+    );
+    assertOk(response, 'product list');
+    const parsed = productsResponseSchema.safeParse(parseJson(response, 'product list'));
+    if (!parsed.success) {
+      throw validationError(`Unexpected WooCommerce products payload: ${parsed.error.message}`);
+    }
+    return { products: parsed.data, totalPages: totalPagesFromHeaders(response) };
   }
 
   async function verifyConnection(auth: ConnectorAuth): Promise<ShopIdentity> {
@@ -427,60 +777,160 @@ export function createWooCommerceProvider(
   return {
     id: 'woocommerce',
     credentialStrategy: 'api_key',
+    // WooCommerce signs webhooks with a per-webhook `secret` (not one app-wide secret),
+    // so a fresh secret is minted per connection and set on every webhook (see
+    // `webhook.ts`); the ingress route verifies with the connection's stored secret.
+    webhookSecretStrategy: 'per_connection',
 
     // WooCommerce authorizes with a static API key/secret (see connect-key), not
     // an OAuth authorize→callback exchange. `buildAuthorizeUrl` is synchronous, so
-    // it throws; the promise-returning methods reject.
+    // it throws; `exchangeCode` rejects.
     buildAuthorizeUrl: () => notImplemented('buildAuthorizeUrl'),
     exchangeCode: () => Promise.reject(notImplementedError('exchangeCode')),
 
     verifyConnection,
 
     async fetchProducts(creds: ConnectorCredentials, cursor?: string) {
-      const page = cursor ? Number(cursor) : 1;
-      if (!Number.isInteger(page) || page < 1) {
-        throw validationError(`Invalid WooCommerce page cursor: ${cursor}`);
-      }
-      const params = new URLSearchParams({
-        per_page: String(PAGE_LIMIT),
-        page: String(page),
-        status: 'publish',
-      });
-      const response = await transport.get(
-        `${apiBase(creds.shopDomain)}/products?${params.toString()}`,
-        authHeaders(creds),
-      );
-      assertOk(response, 'product list');
-      const parsed = productsResponseSchema.safeParse(parseJson(response, 'product list'));
-      if (!parsed.success) {
-        throw validationError(`Unexpected WooCommerce products payload: ${parsed.error.message}`);
-      }
-
+      const page = pageFromCursor(cursor);
+      const { products: rawProducts, totalPages } = await fetchProductsPage(creds, page);
       const products: NormalizedProduct[] = [];
-      for (const product of parsed.data) {
+      for (const product of rawProducts) {
         const variations =
-          product.type === 'variable'
-            ? await fetchAllVariations(creds, String(product.id))
-            : [];
+          product.type === 'variable' ? await fetchAllVariations(creds, String(product.id)) : [];
         products.push(normalizeParsed(product, creds.shopCurrency, variations));
       }
-
-      const totalPages = totalPagesFromHeaders(response);
       const nextCursor = page < totalPages ? String(page + 1) : undefined;
       return nextCursor ? { products, nextCursor } : { products };
     },
 
     normalizeProduct: normalizeWooCommerceProduct,
 
-    // --- Not part of the pull-only first cut (never reached by products pull) ---
-    // Promise-returning methods reject; `normalizeOrder` is synchronous and throws.
+    async fetchOrders(creds: ConnectorCredentials, cursor?: string) {
+      const page = pageFromCursor(cursor);
+      const params = new URLSearchParams({ per_page: String(PAGE_LIMIT), page: String(page) });
+      const response = await transport.get(
+        `${apiBase(creds.shopDomain)}/orders?${params.toString()}`,
+        authHeaders(creds),
+      );
+      assertOk(response, 'order list');
+      const parsed = ordersResponseSchema.safeParse(parseJson(response, 'order list'));
+      if (!parsed.success) {
+        throw validationError(`Unexpected WooCommerce orders payload: ${parsed.error.message}`);
+      }
+      const orders = parsed.data.map((order) => normalizeWooCommerceOrder(order, creds.shopCurrency));
+      const totalPages = totalPagesFromHeaders(response);
+      const nextCursor = page < totalPages ? String(page + 1) : undefined;
+      return nextCursor ? { orders, nextCursor } : { orders };
+    },
+
+    normalizeOrder: normalizeWooCommerceOrder,
+
+    async fetchInventory(
+      auth: ConnectorAuth,
+      params: { inventoryItemIds: string[] },
+    ): Promise<NormalizedInventoryLevel[]> {
+      // WooCommerce has no inventory-item endpoint — stock lives on the product /
+      // variation itself. Re-page the catalog and emit a level for each REQUESTED item
+      // that TRACKS stock (an untracked item reports no number → omitted, matching the
+      // Shopify semantics where an item with no level is left out).
+      const wanted = new Set(params.inventoryItemIds);
+      if (wanted.size === 0) {
+        return [];
+      }
+      const levels: NormalizedInventoryLevel[] = [];
+      let page = 1;
+      for (;;) {
+        const { products, totalPages } = await fetchProductsPage(auth, page);
+        for (const product of products) {
+          if (product.type === 'variable') {
+            const parent: ParentStock = {
+              tracked: product.manage_stock === true,
+              quantity: product.stock_quantity ?? null,
+            };
+            const variations = await fetchAllVariations(auth, String(product.id));
+            for (const variation of variations) {
+              const id = String(variation.id);
+              if (!wanted.has(id)) {
+                continue;
+              }
+              const inv = resolveInventory(variation.manage_stock, variation.stock_quantity, parent);
+              if (inv.tracked) {
+                levels.push({ externalInventoryItemId: id, available: inv.available });
+              }
+            }
+          } else {
+            const id = String(product.id);
+            if (!wanted.has(id)) {
+              continue;
+            }
+            const inv = resolveInventory(product.manage_stock, product.stock_quantity, {
+              tracked: false,
+              quantity: null,
+            });
+            if (inv.tracked) {
+              levels.push({ externalInventoryItemId: id, available: inv.available });
+            }
+          }
+        }
+        if (products.length === 0 || page >= totalPages) {
+          return levels;
+        }
+        page += 1;
+      }
+    },
+
+    async registerWebhooks(
+      auth: ConnectorAuth,
+      params: { address: string; connectionId: string; secret?: string },
+    ): Promise<string[]> {
+      if (!params.secret) {
+        throw validationError('WooCommerce webhook registration requires a per-connection secret');
+      }
+      // A per-CONNECTION delivery URL so the ingress route resolves the exact
+      // connection (and thus its stored secret) for HMAC verification.
+      const deliveryUrl = `${params.address.replace(/\/+$/, '')}/${encodeURIComponent(params.connectionId)}`;
+      const headers = { ...authHeaders(auth), 'Content-Type': 'application/json' };
+      const ids: string[] = [];
+      for (const topic of REGISTERED_WEBHOOK_TOPICS) {
+        const response = await transport.post(
+          `${apiBase(auth.shopDomain)}/webhooks`,
+          headers,
+          JSON.stringify({
+            name: `Mercaria ${topic}`,
+            topic,
+            delivery_url: deliveryUrl,
+            secret: params.secret,
+            status: 'active',
+          }),
+        );
+        assertOk(response, `webhook create (${topic})`);
+        const parsed = webhookCreateResponseSchema.safeParse(parseJson(response, 'webhook create'));
+        if (!parsed.success) {
+          throw validationError(`Unexpected WooCommerce webhook payload: ${parsed.error.message}`);
+        }
+        ids.push(String(parsed.data.id));
+      }
+      return ids;
+    },
+
+    async deleteWebhooks(auth: ConnectorAuth, webhookIds: string[]): Promise<void> {
+      for (const id of webhookIds) {
+        // `force=true` permanently deletes (without it WooCommerce only trashes it).
+        const response = await transport.del(
+          `${apiBase(auth.shopDomain)}/webhooks/${encodeURIComponent(id)}?force=true`,
+          authHeaders(auth),
+        );
+        // 200 = deleted, 404 = already gone. Either is success (idempotent).
+        if (response.status !== 200 && response.status !== 404) {
+          throw validationError(`WooCommerce webhook delete failed (HTTP ${response.status})`);
+        }
+      }
+    },
+
+    // --- Unsupported: OUTBOUND product/fulfillment PUSH (see the file header). The
+    // Woo → Mercaria direction is served by the Mercaria WordPress plugin, not here.
     pushProduct: () => Promise.reject(notImplementedError('pushProduct')),
-    fetchOrders: () => Promise.reject(notImplementedError('fetchOrders')),
-    normalizeOrder: () => notImplemented('normalizeOrder'),
-    fetchInventory: () => Promise.reject(notImplementedError('fetchInventory')),
     pushFulfillment: () => Promise.reject(notImplementedError('pushFulfillment')),
-    registerWebhooks: () => Promise.reject(notImplementedError('registerWebhooks')),
-    deleteWebhooks: () => Promise.reject(notImplementedError('deleteWebhooks')),
   };
 }
 

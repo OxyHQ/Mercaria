@@ -18,6 +18,7 @@
  * `req.body` is ever spread — writes use explicit field whitelists.
  */
 
+import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import type {
   AddressSnapshot,
@@ -62,10 +63,13 @@ import type {
   PushFulfillment,
   PushProduct,
   PushVariant,
+  WebhookEventKind,
 } from '../connectors/types.js';
 import { createOAuthState } from '../connectors/oauth-state.js';
 import { getOAuthRedirectUri, getWebhookAddress } from '../connectors/config.js';
 import { getShopifyCredentials } from '../connectors/shopify/config.js';
+import { classifyShopifyWebhookTopic } from '../connectors/shopify/webhook.js';
+import { classifyWooCommerceWebhookTopic } from '../connectors/woocommerce/webhook.js';
 import { getIO } from '../socket.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
@@ -240,12 +244,22 @@ export function buildConnectAuthorizeUrl(params: {
   });
 }
 
+/** Mint a fresh per-connection webhook secret (256 bits of entropy, hex-encoded). */
+function generateWebhookSecret(): string {
+  return randomBytes(32).toString('hex');
+}
+
 /**
- * Register the provider's product webhooks for a connection and persist their ids
- * onto `conn.webhookIds`. Best-effort: a registration failure logs and leaves the
- * connection working WITHOUT real-time sync (backfill + scheduled re-sync still
- * apply) — it never fails the connect. Any previously-registered webhooks are
- * removed first (idempotent) so a reconnect never accumulates duplicates.
+ * Register the provider's webhooks for a connection and persist their ids onto
+ * `conn.webhookIds`. For a `per_connection` provider (WooCommerce) a fresh secret is
+ * minted, passed to the provider (which sets it on every webhook), and stored
+ * ENCRYPTED on `conn.webhookSecret` for inbound verification; `app_secret` providers
+ * (Shopify) verify with the app secret and store nothing here.
+ *
+ * Best-effort: a registration failure logs and leaves the connection working WITHOUT
+ * real-time sync (backfill + scheduled re-sync still apply) — it never fails the
+ * connect. Any previously-registered webhooks are removed first (idempotent) so a
+ * reconnect never accumulates duplicates.
  */
 async function registerConnectionWebhooks(conn: IConnection, auth: ConnectorAuth): Promise<void> {
   const provider = getConnectorProvider(conn.provider);
@@ -260,8 +274,18 @@ async function registerConnectionWebhooks(conn: IConnection, auth: ConnectorAuth
           ),
         );
     }
-    const ids = await provider.registerWebhooks(auth, { address: getWebhookAddress(conn.provider) });
-    await Connection.updateOne({ _id: conn._id }, { $set: { webhookIds: ids } });
+    const secret =
+      provider.webhookSecretStrategy === 'per_connection' ? generateWebhookSecret() : undefined;
+    const ids = await provider.registerWebhooks(auth, {
+      address: getWebhookAddress(conn.provider),
+      connectionId: String(conn._id),
+      ...(secret !== undefined ? { secret } : {}),
+    });
+    const update: Record<string, unknown> = { webhookIds: ids };
+    if (secret !== undefined) {
+      update.webhookSecret = encryptSecret(secret);
+    }
+    await Connection.updateOne({ _id: conn._id }, { $set: update });
     conn.webhookIds = ids;
   } catch (err) {
     log.general.warn(
@@ -428,6 +452,16 @@ export async function connectWithApiKey(
   if (!conn) {
     throw notFound('Connection not found');
   }
+
+  // Real-time sync: register the platform's webhooks (best-effort), exactly like the
+  // OAuth connect. For WooCommerce this mints + stores a per-connection webhook secret;
+  // if the merchant's API key lacks write scope the registration simply fails and is
+  // logged — the connection still works via backfill + the scheduled reconcile.
+  await registerConnectionWebhooks(conn, {
+    accessToken: `${params.consumerKey}:${params.consumerSecret}`,
+    shopDomain: identity.shopDomain,
+  });
+
   return conn;
 }
 
@@ -497,7 +531,10 @@ export async function disconnect(storeId: string, connectionId: string): Promise
 
   const conn = await Connection.findOneAndUpdate(
     { _id: connectionId, storeId },
-    { $set: { status: 'disconnected', webhookIds: [] }, $unset: { credentials: '' } },
+    {
+      $set: { status: 'disconnected', webhookIds: [] },
+      $unset: { credentials: '', webhookSecret: '' },
+    },
     { new: true },
   );
   if (!conn) {
@@ -1185,6 +1222,28 @@ function pullsResource(direction: ISyncSettings['products']): boolean {
   return direction === 'pull' || direction === 'bidirectional';
 }
 
+/**
+ * Provider-aware classification of an inbound webhook topic into a provider-neutral
+ * {@link WebhookEventKind} (or `undefined` when it is a topic we do not act on). This
+ * is what makes `processConnectorWebhook` provider-agnostic: each platform speaks its
+ * OWN topic vocabulary (Shopify `products/update`, WooCommerce `product.updated`, …)
+ * and they resolve to the SAME canonical kinds here, so the dispatch below never
+ * hard-codes one platform's strings.
+ */
+function classifyWebhookTopic(
+  provider: ConnectorProviderId,
+  topic: string,
+): WebhookEventKind | undefined {
+  switch (provider) {
+    case 'shopify':
+      return classifyShopifyWebhookTopic(topic);
+    case 'woocommerce':
+      return classifyWooCommerceWebhookTopic(topic);
+    default:
+      return undefined;
+  }
+}
+
 /** A unit of webhook work that increments `counts`; the wrapper owns the `SyncRun`. */
 type WebhookWork = (counts: ISyncRunCounts) => Promise<void>;
 
@@ -1220,14 +1279,19 @@ async function runWebhookUnit(conn: IConnection, topic: string, work: WebhookWor
   }
 }
 
-/** Handle a `products/*` webhook: create/update upserts, delete archives. */
+/**
+ * Handle a product webhook by its canonical {@link WebhookEventKind}:
+ * `product_delete` archives the mapped listing (soft-delete), `product_upsert`
+ * create/update-upserts it. The provider's own topic vocabulary was already resolved
+ * to the kind by the dispatcher, so this stays provider-agnostic.
+ */
 async function handleProductWebhook(
   conn: IConnection,
-  topic: string,
+  kind: 'product_upsert' | 'product_delete',
   payload: unknown,
   counts: ISyncRunCounts,
 ): Promise<void> {
-  if (topic === 'products/delete') {
+  if (kind === 'product_delete') {
     const parsed = webhookDeletePayloadSchema.safeParse(payload);
     if (!parsed.success) {
       throw validationError('Malformed product-delete webhook payload');
@@ -1236,7 +1300,7 @@ async function handleProductWebhook(
     counts[archived ? 'updated' : 'skipped'] += 1;
     return;
   }
-  // products/create | products/update — upsert the single product.
+  // product_upsert (create/update) — upsert the single product.
   if (!conn.shopCurrency || !isSupportedCurrency(conn.shopCurrency)) {
     throw validationError('Connection has no supported shop currency');
   }
@@ -1307,14 +1371,17 @@ async function handleInventoryWebhook(
 }
 
 /**
- * Process ONE inbound platform webhook (already HMAC-verified at the ingress
- * route). Dispatches by topic family:
- *  - `products/*` (gated on the product direction) → the same product upsert/
- *    archive path as backfill (respecting `overriddenFields`).
- *  - `orders/*` (gated on the order direction) → an idempotent external-order
+ * Process ONE inbound platform webhook (already HMAC-verified at the ingress route).
+ * Provider-aware: the raw topic is classified into a provider-neutral
+ * {@link WebhookEventKind} (`classifyWebhookTopic`), then dispatched:
+ *  - product upsert/delete (gated on the product direction) → the same product
+ *    upsert/archive path as backfill (respecting `overriddenFields`).
+ *  - order upsert (gated on the order direction) → an idempotent external-order
  *    upsert (`{ storeId, source.externalId }` never duplicates).
+ *  - inventory update (gated on the inventory direction) → re-fetch + absolute set.
  * Records a `webhook` `SyncRun` and emits live progress. Best-effort: a modeled
- * failure is recorded + logged and does NOT throw.
+ * failure is recorded + logged and does NOT throw. Keeps every platform's behavior
+ * identical — Shopify and WooCommerce topics resolve to the same kinds.
  */
 export async function processConnectorWebhook(job: {
   connectionId: string;
@@ -1337,7 +1404,9 @@ export async function processConnectorWebhook(job: {
     return;
   }
 
-  if (job.topic.startsWith('products/')) {
+  const kind = classifyWebhookTopic(conn.provider, job.topic);
+
+  if (kind === 'product_upsert' || kind === 'product_delete') {
     // Respect the per-connection product direction: no product pull ⇒ ignore.
     if (!pullsResource(conn.syncSettings.products)) {
       log.general.info(
@@ -1347,12 +1416,12 @@ export async function processConnectorWebhook(job: {
       return;
     }
     await runWebhookUnit(conn, job.topic, (counts) =>
-      handleProductWebhook(conn, job.topic, job.payload, counts),
+      handleProductWebhook(conn, kind, job.payload, counts),
     );
     return;
   }
 
-  if (job.topic.startsWith('orders/')) {
+  if (kind === 'order_upsert') {
     // Respect the per-connection order direction: no order pull ⇒ ignore.
     if (!pullsResource(conn.syncSettings.orders)) {
       log.general.info(
@@ -1367,7 +1436,7 @@ export async function processConnectorWebhook(job: {
     return;
   }
 
-  if (job.topic.startsWith('inventory_levels/')) {
+  if (kind === 'inventory_update') {
     // Respect the per-connection inventory direction: no inventory pull ⇒ ignore.
     if (!pullsResource(conn.syncSettings.inventory)) {
       log.general.info(

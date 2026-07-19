@@ -10,6 +10,7 @@
 
 import { createHmac } from 'node:crypto';
 import { verifySecret } from '@oxyhq/core/server';
+import type { WebhookEventKind } from '../types.js';
 import { getShopifyClientSecret } from './config.js';
 
 /**
@@ -38,6 +39,29 @@ const HANDLED_TOPICS: readonly ShopifyWebhookTopic[] = [
 /** Narrow a raw `X-Shopify-Topic` header value to a topic we handle. */
 export function isHandledWebhookTopic(topic: string | undefined): topic is ShopifyWebhookTopic {
   return typeof topic === 'string' && (HANDLED_TOPICS as readonly string[]).includes(topic);
+}
+
+/**
+ * Map a raw Shopify webhook topic to its provider-neutral {@link WebhookEventKind},
+ * or `undefined` when it is not a topic the sync engine acts on. This is what makes
+ * the dispatcher provider-aware — Shopify's slash-delimited topics and WooCommerce's
+ * dot-delimited topics resolve to the SAME canonical kinds.
+ */
+export function classifyShopifyWebhookTopic(topic: string): WebhookEventKind | undefined {
+  switch (topic) {
+    case 'products/create':
+    case 'products/update':
+      return 'product_upsert';
+    case 'products/delete':
+      return 'product_delete';
+    case 'orders/create':
+    case 'orders/updated':
+      return 'order_upsert';
+    case 'inventory_levels/update':
+      return 'inventory_update';
+    default:
+      return undefined;
+  }
 }
 
 /**

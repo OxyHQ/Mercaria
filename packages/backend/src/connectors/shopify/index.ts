@@ -944,6 +944,9 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
   return {
     id: 'shopify',
     credentialStrategy: 'oauth',
+    // Shopify signs every webhook with the app's client secret — one app-wide secret,
+    // so no per-connection secret is minted (see `shopify/webhook.ts`).
+    webhookSecretStrategy: 'app_secret',
 
     buildAuthorizeUrl({ shopDomain, redirectUri, state, scopes }) {
       const { clientId } = getShopifyCredentials();
