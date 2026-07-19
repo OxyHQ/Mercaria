@@ -852,3 +852,49 @@ export const updateCurrencyPreferenceSchema = z
     dualDisplayEnabled: z.boolean().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+// ---------------------------------------------------------------------------
+// Connectors / channels
+// ---------------------------------------------------------------------------
+
+/** Sync direction for a single resource (mirrors `SyncResourceDirection`). */
+const syncResourceDirectionSchema = z.enum(['pull', 'push', 'bidirectional', 'off']);
+
+/**
+ * Body for `POST /admin/stores/:storeId/channels/:provider/connect`. The shop
+ * domain is strictly a `*.myshopify.com` host (also the SSRF host allowlist —
+ * see `connectors/shopify/http.ts`).
+ */
+export const connectChannelSchema = z.object({
+  shopDomain: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/, 'Must be a *.myshopify.com domain'),
+});
+
+/**
+ * Body for `PATCH /admin/stores/:storeId/channels/:connectionId/settings`
+ * (UpdateSyncSettingsInput) — every field optional; at least one required.
+ */
+export const updateSyncSettingsSchema = z
+  .object({
+    products: syncResourceDirectionSchema.optional(),
+    inventory: syncResourceDirectionSchema.optional(),
+    orders: syncResourceDirectionSchema.optional(),
+    autoPublish: z.boolean().optional(),
+    targetLocationId: z
+      .string()
+      .trim()
+      .regex(/^[a-f\d]{24}$/i, 'Must be a valid location id')
+      .optional(),
+    priceRules: z
+      .object({
+        markupPercent: z.number().finite().optional(),
+        rounding: z.enum(['none', 'nearest', 'charm']).optional(),
+      })
+      .optional(),
+    collectionMapping: z.record(z.string().min(1), z.string().min(1)).optional(),
+    conflictPolicy: z.enum(['connector_wins', 'respect_overrides']).optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });

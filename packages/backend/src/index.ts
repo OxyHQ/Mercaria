@@ -27,6 +27,7 @@ import sellerRouter from './routes/seller.js';
 import ratesRouter from './routes/rates.js';
 import meRouter from './routes/me.js';
 import adminRouter from './routes/admin/index.js';
+import channelsOauthRouter from './routes/channels-oauth.js';
 
 // Socket.io
 import { initSocket } from './socket.js';
@@ -151,6 +152,8 @@ app.use('/seller', sellerRouter);
 app.use('/rates', ratesRouter);
 app.use('/me', meRouter);
 app.use('/admin', adminRouter);
+// Public connector OAuth callback (server-to-server; no browser CORS, no session).
+app.use('/channels/oauth', channelsOauthRouter);
 
 // Root route
 app.get('/', (_req, res) => {
@@ -176,6 +179,7 @@ app.get('/', (_req, res) => {
       '/rates',
       '/me',
       '/admin',
+      '/channels/oauth',
     ]
   });
 });
