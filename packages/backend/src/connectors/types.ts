@@ -49,6 +49,22 @@ export interface ConnectorCredentials extends ConnectorAuth {
   shopCurrency: CurrencyCode;
 }
 
+/**
+ * The canonical, provider-neutral classification of an inbound webhook. Each
+ * platform speaks its OWN topic vocabulary (Shopify `products/update`, WooCommerce
+ * `product.updated`, …); the dispatcher (`connector-sync.service`) maps a raw topic
+ * to one of these kinds and routes it to the right — provider-agnostic — handler.
+ */
+export type WebhookEventKind =
+  /** Create OR update a single product (upsert, respecting `overriddenFields`). */
+  | 'product_upsert'
+  /** Delete a single product (soft-archive the mapped listing, never hard-delete). */
+  | 'product_delete'
+  /** Create OR update a single order (idempotent upsert by `{connection, externalId}`). */
+  | 'order_upsert'
+  /** A stock-level change for a single inventory item (re-fetch + absolute set). */
+  | 'inventory_update';
+
 /** The external shop's identity, as reported by the platform. */
 export interface ShopIdentity {
   /** The platform's own shop id. */
@@ -345,6 +361,18 @@ export interface ConnectorProvider {
   readonly id: ConnectorProviderId;
   /** How the platform is authorized: an OAuth app or a static API key/secret. */
   readonly credentialStrategy: 'oauth' | 'api_key';
+  /**
+   * How INBOUND webhooks are authenticated:
+   *  - `app_secret`    — a single app-wide secret signs every delivery (Shopify's
+   *    app client secret); the ingress route verifies with that one secret and does
+   *    NOT need a per-connection secret.
+   *  - `per_connection` — a fresh secret is generated at registration, set as the
+   *    platform webhook's `secret`, and stored (encrypted) on the `Connection`
+   *    (WooCommerce). The ingress route resolves the connection first, then verifies
+   *    with its stored secret. The sync service reads this flag to decide whether to
+   *    mint + persist a `webhookSecret` when registering.
+   */
+  readonly webhookSecretStrategy: 'app_secret' | 'per_connection';
 
   /**
    * Build the platform's OAuth authorize URL the merchant's browser is sent to.
@@ -432,12 +460,22 @@ export interface ConnectorProvider {
   pushFulfillment(auth: ConnectorAuth, fulfillment: PushFulfillment): Promise<void>;
 
   /**
-   * Register the provider's product webhooks (create/update/delete) pointing at
-   * `address` (the public inbound-webhook URL). Returns the platform's ids for the
-   * created subscriptions, to persist on the `Connection` and delete on
-   * disconnect. The set of topics is the provider's own concern.
+   * Register the provider's webhooks pointing at `address` (the public
+   * inbound-webhook base URL for the provider). Returns the platform's ids for the
+   * created subscriptions, to persist on the `Connection` and delete on disconnect.
+   * The set of topics is the provider's own concern.
+   *
+   * `connectionId` + `secret` support `per_connection` webhook auth: a provider that
+   * cannot lean on one app-wide secret (WooCommerce) builds a per-connection delivery
+   * URL (`${address}/${connectionId}`) so the ingress route can resolve the exact
+   * connection, and sets `secret` as the platform webhook secret. `app_secret`
+   * providers (Shopify) ignore both — they deliver to the shared `address` and sign
+   * with the app secret.
    */
-  registerWebhooks(auth: ConnectorAuth, params: { address: string }): Promise<string[]>;
+  registerWebhooks(
+    auth: ConnectorAuth,
+    params: { address: string; connectionId: string; secret?: string },
+  ): Promise<string[]>;
 
   /**
    * Delete the given webhook subscriptions by their platform ids. Idempotent: an
