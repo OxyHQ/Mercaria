@@ -126,6 +126,31 @@ export interface SyncRunCounts {
   failed: number;
 }
 
+/**
+ * The lifecycle phase of a live sync, emitted over Socket.IO as the run progresses:
+ *  - `'started'`   — the run has begun (counts are all zero).
+ *  - `'running'`   — an intermediate progress tick (e.g. after each product page).
+ *  - `'completed'` — the run finished successfully.
+ *  - `'failed'`    — the run aborted with an error.
+ */
+export type SyncProgressPhase = 'started' | 'running' | 'completed' | 'failed';
+
+/**
+ * A live sync-progress event, broadcast to the `store:${storeId}` Socket.IO room
+ * as a backfill or webhook run advances. It mirrors the persisted `SyncRun` but is
+ * ephemeral (never stored) — the dashboard renders it as a live progress feed.
+ */
+export interface SyncProgressEvent {
+  /** Connection the run belongs to. */
+  connectionId: string;
+  /** What the run is doing. */
+  kind: SyncRunKind;
+  /** Current lifecycle phase. */
+  phase: SyncProgressPhase;
+  /** Running record tallies at this tick. */
+  counts: SyncRunCounts;
+}
+
 /** One run of a sync operation against a connection — the dashboard status log. */
 export interface SyncRun {
   /** Stable run id. */

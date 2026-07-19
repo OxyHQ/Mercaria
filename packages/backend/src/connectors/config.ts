@@ -39,6 +39,17 @@ export function getOAuthRedirectUri(provider: ConnectorProviderId): string {
   return `${base}/channels/oauth/${provider}/callback`;
 }
 
+/**
+ * The public inbound-webhook URL the platform delivers events to for `provider`,
+ * e.g. `https://api.mercaria.co/channels/webhooks/shopify`. Registered on the
+ * platform at connect time and matched by the public webhook route. Built from
+ * the SAME base as the OAuth callback so the two always agree.
+ */
+export function getWebhookAddress(provider: ConnectorProviderId): string {
+  const base = requireEnv(REDIRECT_BASE_ENV).replace(/\/+$/, '');
+  return `${base}/channels/webhooks/${provider}`;
+}
+
 /** The HMAC secret for the OAuth `state` token. */
 export function getOAuthStateSecret(): string {
   return requireEnv(STATE_SECRET_ENV);

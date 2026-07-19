@@ -8,23 +8,39 @@
  * inline execution are identical.
  */
 
-import { getEventsQueue } from './queues.js';
+import { createHash } from 'node:crypto';
+import { getEventsQueue, getSyncQueue } from './queues.js';
 import {
   JOB_RECOMPUTE_AGGREGATES,
   JOB_ORDER_EVENT_NOTIFICATION,
   JOB_LOW_INVENTORY_ALERT,
+  JOB_CONNECTION_BACKFILL,
+  JOB_WEBHOOK_PROCESS,
 } from './constants.js';
 import {
   handleRecomputeAggregates,
   handleOrderEventNotification,
   handleLowInventoryAlert,
+  handleConnectionBackfill,
+  handleWebhookProcess,
 } from './handlers.js';
 import { log } from '../lib/logger.js';
 import type {
   RecomputeAggregatesJob,
   OrderEventNotificationJob,
   LowInventoryAlertJob,
+  ConnectionBackfillJob,
+  WebhookProcessJob,
 } from './types.js';
+
+/**
+ * Derive a colon-free, stable BullMQ job/dedup id from a composite key. BullMQ
+ * rejects `:` in a custom job id, and connection ids / topics can carry colons or
+ * slashes — hashing to sha256 hex yields a safe, collision-resistant id.
+ */
+function hashJobId(...parts: string[]): string {
+  return createHash('sha256').update(parts.join('|')).digest('hex');
+}
 
 /** Run an inline handler fallback, logging (never rethrowing) on failure. */
 async function runInline(label: string, work: () => Promise<void>): Promise<void> {
@@ -72,4 +88,36 @@ export async function enqueueLowStockAlert(data: LowInventoryAlertJob): Promise<
     return;
   }
   await queue.add(JOB_LOW_INVENTORY_ALERT, data);
+}
+
+/**
+ * Enqueue an initial catalog backfill for a `pull` connection. Falls back to
+ * running the backfill INLINE when the sync queue is disabled (no Redis), so the
+ * catalog still imports with identical behavior. A stable, hashed `jobId` dedupes
+ * an overlapping backfill of the same connection (a second enqueue while one is
+ * pending/active is ignored by BullMQ).
+ */
+export async function enqueueConnectionBackfill(data: ConnectionBackfillJob): Promise<void> {
+  const queue = getSyncQueue();
+  if (!queue) {
+    await runInline(JOB_CONNECTION_BACKFILL, () => handleConnectionBackfill(data));
+    return;
+  }
+  await queue.add(JOB_CONNECTION_BACKFILL, data, {
+    jobId: hashJobId(JOB_CONNECTION_BACKFILL, data.connectionId),
+  });
+}
+
+/**
+ * Enqueue processing of one inbound platform webhook. Falls back to processing it
+ * INLINE when the sync queue is disabled (no Redis) — the ingress route then
+ * blocks until the single product upsert/archive completes, preserving behavior.
+ */
+export async function enqueueWebhookProcess(data: WebhookProcessJob): Promise<void> {
+  const queue = getSyncQueue();
+  if (!queue) {
+    await runInline(JOB_WEBHOOK_PROCESS, () => handleWebhookProcess(data));
+    return;
+  }
+  await queue.add(JOB_WEBHOOK_PROCESS, data);
 }

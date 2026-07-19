@@ -1,8 +1,10 @@
-import { Server } from 'socket.io';
+import { Server, type Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import http from 'http';
+import { isValidObjectId } from 'mongoose';
 import { getRedisClient, getRedisSubClient } from './lib/redis.js';
 import { oxyClient } from './middleware/auth.js';
+import { Store } from './models/store.js';
 import { log } from './lib/logger.js';
 
 const ALLOWED_ORIGINS = [
@@ -13,6 +15,32 @@ const ALLOWED_ORIGINS = [
 ];
 
 let io: Server | null = null;
+
+/**
+ * Authorize a socket to join a store's live-progress room and join it on success.
+ *
+ * `authSocket()` proves only the socket's USER identity — it does NOT prove the
+ * user may read a given store's events. So a `subscribe-store` request is
+ * re-checked here against store membership (server-side), never trusting the
+ * client-supplied `storeId`. Returns true iff the user is a member and the socket
+ * joined `store:${storeId}`. A malformed id or a non-member returns false WITHOUT
+ * joining. Exported for unit testing the guard.
+ */
+export async function authorizeAndJoinStore(
+  socket: Pick<Socket, 'join'>,
+  userId: string,
+  rawStoreId: unknown,
+): Promise<boolean> {
+  if (typeof rawStoreId !== 'string' || !isValidObjectId(rawStoreId)) {
+    return false;
+  }
+  const isMember = await Store.exists({ _id: rawStoreId, 'members.oxyUserId': userId });
+  if (!isMember) {
+    return false;
+  }
+  await socket.join(`store:${rawStoreId}`);
+  return true;
+}
 
 export function initSocket(server: http.Server) {
   // Hold the instance in a local const so the async adapter callback below
@@ -61,6 +89,24 @@ export function initSocket(server: http.Server) {
     // no-op because the verified room is already joined above. It NEVER
     // joins a client-supplied id.
     socket.on('subscribe-notifications', () => {});
+
+    // Opt in to a store's live sync-progress room. The server RE-CHECKS store
+    // membership before joining (authSocket only proves user identity), so a
+    // non-member is rejected and never receives another store's `sync:progress`.
+    socket.on('subscribe-store', (storeId: unknown, ack?: (joined: boolean) => void) => {
+      authorizeAndJoinStore(socket, userId, storeId)
+        .then((joined) => {
+          if (typeof ack === 'function') {
+            ack(joined);
+          }
+        })
+        .catch((err) => {
+          log.general.warn({ err, userId }, 'subscribe-store failed');
+          if (typeof ack === 'function') {
+            ack(false);
+          }
+        });
+    });
   });
 
   return socketServer;

@@ -19,10 +19,9 @@ vi.mock('../../../services/connector-sync.service.js', () => ({
   listConnections: vi.fn().mockResolvedValue([]),
   buildConnectAuthorizeUrl: vi.fn().mockReturnValue('https://acme.myshopify.com/admin/oauth/authorize?x=1'),
   updateSyncSettings: vi.fn(),
-  runBackfill: vi.fn(),
+  requestBackfill: vi.fn().mockResolvedValue(undefined),
   disconnect: vi.fn(),
   toConnectionDTO: vi.fn(),
-  toSyncRunDTO: vi.fn(),
 }));
 vi.mock('../../../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },

@@ -34,6 +34,11 @@ import { shopifyTransport, type ShopifyHttpResponse, type ShopifyTransport } fro
 const API_VERSION = '2024-10';
 /** Max products per page (Shopify's REST ceiling). */
 const PAGE_LIMIT = 250;
+/**
+ * Product webhook topics registered on connect for near-real-time sync. Delete is
+ * an ARCHIVE in Mercaria (never a hard-delete) — see the connector-sync service.
+ */
+const PRODUCT_WEBHOOK_TOPICS = ['products/create', 'products/update', 'products/delete'] as const;
 /** Shopify's placeholder option name for products with no real options. */
 const DEFAULT_OPTION_NAME = 'title';
 /** Shopify's placeholder single-variant value. */
@@ -89,6 +94,10 @@ const shopifyProductSchema = z.object({
 
 const productsResponseSchema = z.object({
   products: z.array(shopifyProductSchema).default([]),
+});
+
+const webhookResponseSchema = z.object({
+  webhook: z.object({ id: z.union([z.number(), z.string()]) }),
 });
 
 type ShopifyVariant = z.infer<typeof shopifyVariantSchema>;
@@ -337,6 +346,41 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
     },
 
     normalizeProduct: normalizeShopifyProduct,
+
+    async registerWebhooks(auth: ConnectorAuth, params: { address: string }): Promise<string[]> {
+      const ids: string[] = [];
+      for (const topic of PRODUCT_WEBHOOK_TOPICS) {
+        const response = await transport.post(
+          `${apiBase(auth.shopDomain)}/webhooks.json`,
+          {
+            'X-Shopify-Access-Token': auth.accessToken,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          JSON.stringify({ webhook: { topic, address: params.address, format: 'json' } }),
+        );
+        assertOk(response, `webhook create (${topic})`);
+        const parsed = webhookResponseSchema.safeParse(parseJson(response, 'webhook create'));
+        if (!parsed.success) {
+          throw validationError(`Unexpected Shopify webhook payload: ${parsed.error.message}`);
+        }
+        ids.push(String(parsed.data.webhook.id));
+      }
+      return ids;
+    },
+
+    async deleteWebhooks(auth: ConnectorAuth, webhookIds: string[]): Promise<void> {
+      for (const id of webhookIds) {
+        const response = await transport.del(
+          `${apiBase(auth.shopDomain)}/webhooks/${encodeURIComponent(id)}.json`,
+          { 'X-Shopify-Access-Token': auth.accessToken, Accept: 'application/json' },
+        );
+        // 200 = deleted, 404 = already gone. Either is success (idempotent).
+        if (response.status !== 200 && response.status !== 404) {
+          throw validationError(`Shopify webhook delete failed (HTTP ${response.status})`);
+        }
+      }
+    },
   };
 }
 
