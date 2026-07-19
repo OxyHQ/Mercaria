@@ -32,7 +32,8 @@ export type StorePermission =
   | 'customers:read'
   | 'customers:write'
   | 'draft_orders:write'
-  | 'refunds:write';
+  | 'refunds:write'
+  | 'channels:write';
 
 /**
  * Store-wide policy documents + the return window. `returnWindowDays` and

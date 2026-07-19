@@ -393,6 +393,7 @@ const storePermissionSchema = z.enum([
   'customers:write',
   'draft_orders:write',
   'refunds:write',
+  'channels:write',
 ]);
 
 /** Partial store-policies patch (core update + settings update). */
