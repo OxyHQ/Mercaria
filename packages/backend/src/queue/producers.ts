@@ -16,6 +16,8 @@ import {
   JOB_LOW_INVENTORY_ALERT,
   JOB_CONNECTION_BACKFILL,
   JOB_WEBHOOK_PROCESS,
+  JOB_PRODUCT_PUSH,
+  JOB_ORDER_SYNC,
 } from './constants.js';
 import {
   handleRecomputeAggregates,
@@ -23,6 +25,8 @@ import {
   handleLowInventoryAlert,
   handleConnectionBackfill,
   handleWebhookProcess,
+  handleProductPush,
+  handleOrderSync,
 } from './handlers.js';
 import { log } from '../lib/logger.js';
 import type {
@@ -31,6 +35,8 @@ import type {
   LowInventoryAlertJob,
   ConnectionBackfillJob,
   WebhookProcessJob,
+  ProductPushJob,
+  OrderSyncJob,
 } from './types.js';
 
 /**
@@ -120,4 +126,37 @@ export async function enqueueWebhookProcess(data: WebhookProcessJob): Promise<vo
     return;
   }
   await queue.add(JOB_WEBHOOK_PROCESS, data);
+}
+
+/**
+ * Enqueue a product PUSH of a store listing to its push/bidirectional connections.
+ * Falls back to running the push INLINE when the sync queue is disabled (no Redis).
+ * A stable, hashed `jobId` dedupes an overlapping push of the same listing (a
+ * second enqueue while one is pending/active is ignored by BullMQ).
+ */
+export async function enqueueProductPush(data: ProductPushJob): Promise<void> {
+  const queue = getSyncQueue();
+  if (!queue) {
+    await runInline(JOB_PRODUCT_PUSH, () => handleProductPush(data));
+    return;
+  }
+  await queue.add(JOB_PRODUCT_PUSH, data, {
+    jobId: hashJobId(JOB_PRODUCT_PUSH, data.listingId),
+  });
+}
+
+/**
+ * Enqueue an order sync (pull orders from a `pull` connection). Falls back to
+ * running the sync INLINE when the sync queue is disabled (no Redis). A stable,
+ * hashed `jobId` dedupes an overlapping order sync of the same connection.
+ */
+export async function enqueueOrderSync(data: OrderSyncJob): Promise<void> {
+  const queue = getSyncQueue();
+  if (!queue) {
+    await runInline(JOB_ORDER_SYNC, () => handleOrderSync(data));
+    return;
+  }
+  await queue.add(JOB_ORDER_SYNC, data, {
+    jobId: hashJobId(JOB_ORDER_SYNC, data.connectionId),
+  });
 }

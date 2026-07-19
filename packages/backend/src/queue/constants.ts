@@ -120,5 +120,9 @@ export const JOB_EXPIRE_RESERVATIONS = 'expire-reservations';
 export const JOB_RECOMPUTE_AGGREGATES_SWEEP = 'recompute-aggregates-sweep';
 /** Job name: run an initial catalog backfill for a `pull` connection. */
 export const JOB_CONNECTION_BACKFILL = 'connection.backfill';
-/** Job name: process one inbound platform webhook (product create/update/delete). */
+/** Job name: process one inbound platform webhook (product/order create/update/delete). */
 export const JOB_WEBHOOK_PROCESS = 'webhook.process';
+/** Job name: push a store listing OUT to its push/bidirectional connections. */
+export const JOB_PRODUCT_PUSH = 'product.push';
+/** Job name: pull orders from a `pull` connection into Mercaria. */
+export const JOB_ORDER_SYNC = 'order.sync';

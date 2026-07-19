@@ -13,7 +13,16 @@
  * the `catalog-write.service` funnels) and all provenance/override bookkeeping.
  */
 
-import type { ConnectorProviderId, CurrencyCode, Money } from '@mercaria/shared-types';
+import type {
+  AddressSnapshot,
+  ConnectorProviderId,
+  CurrencyCode,
+  DualMoney,
+  FxRateSnapshot,
+  Money,
+  OrderStatus,
+  PaymentInfo,
+} from '@mercaria/shared-types';
 
 /**
  * Credential material a provider presents to authenticate against the external
@@ -117,6 +126,139 @@ export interface NormalizedProduct {
   seo?: { title?: string; description?: string };
 }
 
+// --- PUSH (Mercaria → platform) ---------------------------------------------
+
+/** One variant of a product being PUSHED out to an external platform. */
+export interface PushVariant {
+  /** Option-value assignments defining the variant (empty for single-variant). */
+  optionValues: { name: string; value: string }[];
+  /** Selling price in the listing's native currency (integer minor units). */
+  price: Money;
+  /** Optional "compare at" (was) price, same currency. */
+  compareAtPrice?: Money;
+  /** Stock-keeping unit, when set. */
+  sku?: string;
+  /** Barcode (UPC/EAN/ISBN, …), when set. */
+  barcode?: string;
+  /** Inventory snapshot for this variant. */
+  inventory: {
+    /** Whether Mercaria tracks stock for this variant. */
+    tracked: boolean;
+    /** Units available (never negative). */
+    available: number;
+  };
+}
+
+/**
+ * A platform-neutral product being PUSHED to an external platform, built by the
+ * sync service from a Mercaria `Listing` + its variants. `externalId` is present
+ * only on an UPDATE (a listing already mapped to this connection) — its absence
+ * means CREATE. Images are absolute URLs (only publicly-fetchable URLs are pushed).
+ */
+export interface PushProduct {
+  /** The product's existing id on the platform; absent → create a new product. */
+  externalId?: string;
+  /** Product title. */
+  title: string;
+  /** Product description (HTML allowed). */
+  description: string;
+  /** Publish state to request on the platform. */
+  status: 'active' | 'draft';
+  /** URL-safe handle, when set. */
+  handle?: string;
+  /** Manufacturer / brand, when set. */
+  vendor?: string;
+  /** Merchandising product type, when set. */
+  productType?: string;
+  /** Selectable options and their values (empty for single-variant products). */
+  options: { name: string; values: string[] }[];
+  /** Absolute, publicly-fetchable image URLs, in gallery order. */
+  imageUrls: string[];
+  /** Concrete variants (always ≥ 1). */
+  variants: PushVariant[];
+  /** SEO overrides, when set. */
+  seo?: { title?: string; description?: string };
+}
+
+/** The result of pushing a product: the platform id to persist as the mapping. */
+export interface PushProductResult {
+  /** The product's id on the external platform (create → new; update → same). */
+  externalId: string;
+}
+
+// --- ORDERS (platform → Mercaria) -------------------------------------------
+
+/** One line of an order pulled from an external platform. */
+export interface NormalizedOrderLine {
+  /** Line/product title at purchase time. */
+  title: string;
+  /** Variant title at purchase time (e.g. `Size / M`). */
+  variantTitle: string;
+  /** Quantity ordered. */
+  quantity: number;
+  /** Unit price, in shop + presentment currency. */
+  unitPrice: DualMoney;
+  /** `unitPrice * quantity`, in shop + presentment currency. */
+  lineTotal: DualMoney;
+  /** The platform's product id for the line, when provided. */
+  externalProductId?: string;
+  /** The platform's variant id for the line, when provided. */
+  externalVariantId?: string;
+  /** SKU, when provided. */
+  sku?: string;
+}
+
+/** The buyer/customer attached to a pulled order, when the platform provides one. */
+export interface NormalizedOrderCustomer {
+  /** The platform's customer id, when provided. */
+  externalId?: string;
+  /** Customer email, when provided. */
+  email?: string;
+  /** Customer display name, when provided. */
+  name?: string;
+}
+
+/**
+ * A platform-neutral order, the shape the sync service upserts into a Mercaria
+ * `Order`. `externalId` + `externalUpdatedAt` carry the provenance used for the
+ * idempotent upsert-by-external-key. Every money field is a `DualMoney` — `shop`
+ * is the store's settlement currency, `presentment` what the buyer paid.
+ */
+export interface NormalizedOrder {
+  /** The order's id on the external platform (upsert key with the connection). */
+  externalId: string;
+  /** The platform's `updated_at` for the order, when available. */
+  externalUpdatedAt?: Date;
+  /** The platform's human order number/name (e.g. `#1001`), when provided. */
+  externalNumber?: string;
+  /** The platform's order creation time, when provided. */
+  createdAt?: Date;
+  /** The Mercaria lifecycle status mapped from the platform's order state. */
+  status: OrderStatus;
+  /** The Mercaria payment status mapped from the platform's financial state. */
+  paymentStatus: PaymentInfo['status'];
+  /** The store's settlement currency for this order (the connection's shop currency). */
+  shopCurrency: CurrencyCode;
+  /** The buyer's presentment currency (falls back to the shop currency). */
+  presentmentCurrency: CurrencyCode;
+  /** The shop→presentment rate snapshot, when the two currencies differ. */
+  fxRate?: FxRateSnapshot;
+  /** Concrete order lines (always ≥ 1). */
+  lines: NormalizedOrderLine[];
+  /** Order money totals, each in shop + presentment currency. */
+  totals: {
+    subtotal: DualMoney;
+    discountTotal: DualMoney;
+    tax: DualMoney;
+    shipping: DualMoney;
+    grandTotal: DualMoney;
+  };
+  /** The buyer/customer, when the platform provides one. */
+  customer?: NormalizedOrderCustomer;
+  /** The shipping destination, when the platform provides a usable address. */
+  shippingAddress?: AddressSnapshot;
+}
+
 /**
  * A single external-commerce platform. One implementation per platform; the
  * registry maps a {@link ConnectorProviderId} to its instance.
@@ -166,6 +308,32 @@ export interface ConnectorProvider {
    * variant in `shopCurrency` (the shop's validated native currency).
    */
   normalizeProduct(raw: unknown, shopCurrency: CurrencyCode): NormalizedProduct;
+
+  /**
+   * PUSH a product to the platform: CREATE when `product.externalId` is absent,
+   * or UPDATE the mapped external product when present. Returns the platform id to
+   * persist as the connection mapping (`Listing.externalRefs`).
+   */
+  pushProduct(auth: ConnectorAuth, product: PushProduct): Promise<PushProductResult>;
+
+  /**
+   * Fetch one page of orders. `cursor` is the opaque pagination token returned as
+   * `nextCursor` by the previous call (absent on the first page); the returned
+   * `nextCursor` is absent on the last page. Every money field is priced in
+   * `creds.shopCurrency` (`shop`) + the order's presentment currency.
+   */
+  fetchOrders(
+    creds: ConnectorCredentials,
+    cursor?: string,
+  ): Promise<{ orders: NormalizedOrder[]; nextCursor?: string }>;
+
+  /**
+   * Map ONE raw platform order (an `orders/*` webhook payload, or a page entry)
+   * into a {@link NormalizedOrder}. `shopCurrency` is the connection's validated
+   * settlement currency; the presentment side is read from the order when the
+   * platform reports it, else falls back to the shop currency.
+   */
+  normalizeOrder(raw: unknown, shopCurrency: CurrencyCode): NormalizedOrder;
 
   /**
    * Register the provider's product webhooks (create/update/delete) pointing at

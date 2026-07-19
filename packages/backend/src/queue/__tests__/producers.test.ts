@@ -16,6 +16,8 @@ const handleOrderEventNotification = vi.fn();
 const handleLowInventoryAlert = vi.fn();
 const handleConnectionBackfill = vi.fn();
 const handleWebhookProcess = vi.fn();
+const handleProductPush = vi.fn();
+const handleOrderSync = vi.fn();
 
 vi.mock('../queues.js', () => ({
   getEventsQueue: (...args: unknown[]) => getEventsQueue(...args),
@@ -28,6 +30,8 @@ vi.mock('../handlers.js', () => ({
   handleLowInventoryAlert: (...args: unknown[]) => handleLowInventoryAlert(...args),
   handleConnectionBackfill: (...args: unknown[]) => handleConnectionBackfill(...args),
   handleWebhookProcess: (...args: unknown[]) => handleWebhookProcess(...args),
+  handleProductPush: (...args: unknown[]) => handleProductPush(...args),
+  handleOrderSync: (...args: unknown[]) => handleOrderSync(...args),
 }));
 
 import {
@@ -36,6 +40,8 @@ import {
   enqueueLowStockAlert,
   enqueueConnectionBackfill,
   enqueueWebhookProcess,
+  enqueueProductPush,
+  enqueueOrderSync,
 } from '../producers.js';
 
 beforeEach(() => {
@@ -45,6 +51,8 @@ beforeEach(() => {
   handleLowInventoryAlert.mockResolvedValue(undefined);
   handleConnectionBackfill.mockResolvedValue(undefined);
   handleWebhookProcess.mockResolvedValue(undefined);
+  handleProductPush.mockResolvedValue(undefined);
+  handleOrderSync.mockResolvedValue(undefined);
 });
 
 describe('producers — queue DISABLED runs the inline handler', () => {
@@ -125,6 +133,18 @@ describe('connector-sync producers — queue DISABLED runs the handler inline', 
     expect(handleWebhookProcess).toHaveBeenCalledWith(payload);
   });
 
+  it('enqueueProductPush runs the push handler inline (no Redis)', async () => {
+    const payload = { storeId: 'store-1', listingId: 'listing-1' };
+    await enqueueProductPush(payload);
+    expect(handleProductPush).toHaveBeenCalledWith(payload);
+  });
+
+  it('enqueueOrderSync runs the order-sync handler inline (no Redis)', async () => {
+    const payload = { storeId: 'store-1', connectionId: 'conn-1' };
+    await enqueueOrderSync(payload);
+    expect(handleOrderSync).toHaveBeenCalledWith(payload);
+  });
+
   it('swallows an inline backfill failure (never throws)', async () => {
     handleConnectionBackfill.mockRejectedValue(new Error('boom'));
     await expect(
@@ -159,5 +179,33 @@ describe('connector-sync producers — queue ENABLED enqueues and does NOT run i
 
     expect(handleWebhookProcess).not.toHaveBeenCalled();
     expect(add).toHaveBeenCalledWith('webhook.process', payload);
+  });
+
+  it('enqueueProductPush adds the push job with a colon-free hashed dedup jobId', async () => {
+    const add = vi.fn().mockResolvedValue(undefined);
+    getSyncQueue.mockReturnValue({ add });
+    const payload = { storeId: 'store-1', listingId: 'listing-1' };
+
+    await enqueueProductPush(payload);
+
+    expect(handleProductPush).not.toHaveBeenCalled();
+    const [name, data, opts] = add.mock.calls[0];
+    expect(name).toBe('product.push');
+    expect(data).toEqual(payload);
+    expect(opts.jobId).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('enqueueOrderSync adds the order-sync job with a colon-free hashed dedup jobId', async () => {
+    const add = vi.fn().mockResolvedValue(undefined);
+    getSyncQueue.mockReturnValue({ add });
+    const payload = { storeId: 'store-1', connectionId: 'conn-1' };
+
+    await enqueueOrderSync(payload);
+
+    expect(handleOrderSync).not.toHaveBeenCalled();
+    const [name, data, opts] = add.mock.calls[0];
+    expect(name).toBe('order.sync');
+    expect(data).toEqual(payload);
+    expect(opts.jobId).toMatch(/^[0-9a-f]{64}$/);
   });
 });

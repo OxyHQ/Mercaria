@@ -32,6 +32,7 @@ import {
 } from '../../services/catalog-write.service.js';
 import { setAvailable } from '../../services/inventory.service.js';
 import { hydrateListings } from '../../services/catalog-hydration.service.js';
+import { enqueueProductPush } from '../../queue/producers.js';
 import { parsePagination, buildPagination } from '../../utils/pagination.js';
 import { sendSuccess, sendPaginated } from '../../utils/api-response.js';
 import { respondWithError, forbidden, notFound } from '../../lib/errors/error-codes.js';
@@ -58,6 +59,23 @@ async function loadStoreProduct(req: Request): Promise<IListing> {
     throw forbidden('Product does not belong to this store');
   }
   return listing;
+}
+
+/**
+ * Enqueue a product push to the store's push/bidirectional connections after a
+ * MERCHANT-driven catalog change. Hooking it here (the merchant write path), not
+ * inside `catalog-write.service`, is a deliberate loop guard: the connector import
+ * path calls the catalog funnels directly and so never triggers a re-push. The
+ * push job itself no-ops when the store has no push connections and skips the
+ * origin connection, so this is safe to call unconditionally. Best-effort — a
+ * failure to enqueue never fails the merchant's request.
+ */
+async function schedulePush(storeIdValue: string, listingId: string): Promise<void> {
+  try {
+    await enqueueProductPush({ storeId: storeIdValue, listingId });
+  } catch (err) {
+    log.general.warn({ err, listingId }, 'Failed to enqueue product push');
+  }
 }
 
 /** Hydrate a single listing by id into its `Listing` DTO. */
@@ -99,6 +117,7 @@ export async function createProduct(req: Request, res: Response): Promise<void> 
   try {
     const id = storeId(req);
     const listingId = await createStoreProduct(id, req.body as CreateStoreProductInput);
+    await schedulePush(id, listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto, 201);
   } catch (err) {
@@ -125,6 +144,7 @@ export async function patchProduct(req: Request, res: Response): Promise<void> {
     const listing = await loadStoreProduct(req);
     const listingId = String((listing as { _id: unknown })._id);
     await updateListing(listingId, req.body as UpdateListingInput);
+    await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto);
   } catch (err) {
@@ -151,6 +171,7 @@ export async function createVariant(req: Request, res: Response): Promise<void> 
     const listing = await loadStoreProduct(req);
     const listingId = String((listing as { _id: unknown })._id);
     await addVariant(listingId, req.body as CreateStoreProductVariantInput);
+    await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto, 201);
   } catch (err) {
@@ -165,6 +186,7 @@ export async function patchVariant(req: Request, res: Response): Promise<void> {
     const listing = await loadStoreProduct(req);
     const listingId = String((listing as { _id: unknown })._id);
     await updateVariant(listingId, routeParam(req, 'variantId'), req.body as UpdateVariantInput);
+    await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto);
   } catch (err) {
@@ -179,6 +201,7 @@ export async function deleteVariant(req: Request, res: Response): Promise<void> 
     const listing = await loadStoreProduct(req);
     const listingId = String((listing as { _id: unknown })._id);
     await removeVariant(listingId, routeParam(req, 'variantId'));
+    await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto);
   } catch (err) {

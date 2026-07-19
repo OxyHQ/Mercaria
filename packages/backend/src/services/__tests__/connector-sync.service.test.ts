@@ -16,6 +16,7 @@ const connectionUpdateOne = vi.fn();
 const syncRunCreate = vi.fn();
 const listingFindOne = vi.fn();
 const listingUpdateOne = vi.fn();
+const listingExists = vi.fn();
 const categoryExists = vi.fn();
 const createStoreProduct = vi.fn();
 const updateListing = vi.fn();
@@ -36,6 +37,7 @@ vi.mock('../../models/listing.js', () => ({
   Listing: {
     findOne: (...args: unknown[]) => listingFindOne(...args),
     updateOne: (...args: unknown[]) => listingUpdateOne(...args),
+    exists: (...args: unknown[]) => listingExists(...args),
   },
 }));
 vi.mock('../../models/category.js', () => ({
@@ -122,6 +124,8 @@ beforeEach(() => {
   syncRunCreate.mockImplementation(() => Promise.resolve(mockRun()));
   connectionUpdateOne.mockResolvedValue({});
   listingUpdateOne.mockResolvedValue({});
+  // No push-mirror by default (the echo-skip lookup finds nothing).
+  listingExists.mockResolvedValue(null);
   getConnectorProvider.mockReturnValue({ fetchProducts: (...a: unknown[]) => fetchProducts(...a) });
 });
 

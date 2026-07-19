@@ -12,14 +12,25 @@ import { createHmac } from 'node:crypto';
 import { verifySecret } from '@oxyhq/core/server';
 import { getShopifyClientSecret } from './config.js';
 
-/** The topics we register + act on. Delete ARCHIVES the mapped listing (never hard-deletes). */
-export type ShopifyWebhookTopic = 'products/create' | 'products/update' | 'products/delete';
+/**
+ * The topics we register + act on. Product `delete` ARCHIVES the mapped listing
+ * (never hard-deletes). Order `create`/`updated` upsert the mapped Mercaria order
+ * idempotently (never duplicate).
+ */
+export type ShopifyWebhookTopic =
+  | 'products/create'
+  | 'products/update'
+  | 'products/delete'
+  | 'orders/create'
+  | 'orders/updated';
 
-/** The product webhook topics this connector handles. */
+/** The webhook topics this connector handles (product + order sync). */
 const HANDLED_TOPICS: readonly ShopifyWebhookTopic[] = [
   'products/create',
   'products/update',
   'products/delete',
+  'orders/create',
+  'orders/updated',
 ];
 
 /** Narrow a raw `X-Shopify-Topic` header value to a topic we handle. */

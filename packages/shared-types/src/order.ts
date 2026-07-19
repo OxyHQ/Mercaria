@@ -15,6 +15,7 @@ import type { MerchantSummary } from './product';
 import type { Timestamps } from './common';
 import type { DiscountAllocation } from './discount';
 import type { TaxLine } from './tax';
+import type { ConnectorProviderId } from './integration';
 
 /**
  * Lifecycle status of an order.
@@ -39,12 +40,34 @@ export type OrderStatus =
 export interface PaymentInfo {
   /** Where the payment is in its own lifecycle. */
   status: 'unpaid' | 'authorized' | 'paid' | 'refunded' | 'failed';
-  /** Payment provider that settled (or will settle) this order. */
-  provider: 'oxy_pay';
+  /**
+   * Payment provider that settled (or will settle) this order. Native Mercaria
+   * orders settle through `oxy_pay`; `external` marks an order that was PAID on a
+   * connected external platform (e.g. a Shopify order pulled in via a connector),
+   * whose payment was captured outside Oxy Pay.
+   */
+  provider: 'oxy_pay' | 'external';
   /** Provider-side reference/transaction id, when one exists. */
   reference?: string;
   /** ISO-8601 time the order was paid, when paid. */
   paidAt?: string;
+}
+
+/**
+ * Provenance of an order synced from an external commerce platform. Present only
+ * on connector-sourced orders; native Mercaria orders omit it. `externalId` +
+ * `connectionId` are the idempotency key — a re-sync/webhook of the same external
+ * order updates the existing Mercaria order instead of creating a duplicate.
+ */
+export interface OrderSource {
+  /** The `Connection` this order was imported through. */
+  connectionId: string;
+  /** External platform the order came from. */
+  provider: ConnectorProviderId;
+  /** The order's id on the external platform (the upsert key with the connection). */
+  externalId: string;
+  /** The external platform's `updated_at` for the order at last sync, when known. */
+  externalUpdatedAt?: string;
 }
 
 /** A shipping speed/option the buyer may pick per seller at checkout. */
@@ -185,6 +208,8 @@ export interface Order extends Timestamps {
   customerId?: string;
   /** The channel the order originated from (defaults to `storefront`). */
   sourceChannel: OrderSourceChannel;
+  /** Connector provenance — present only on orders synced from an external platform. */
+  source?: OrderSource;
   /** Hydrated P2P seller identity, for `sellerType: 'user'`. */
   seller?: Seller;
   /** Hydrated store identity, for `sellerType: 'store'`. */

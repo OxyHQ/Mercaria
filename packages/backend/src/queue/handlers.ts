@@ -25,6 +25,8 @@ import type {
   LowInventoryAlertJob,
   ConnectionBackfillJob,
   WebhookProcessJob,
+  ProductPushJob,
+  OrderSyncJob,
 } from './types.js';
 
 /** Store-member permissions that grant inventory/low-stock visibility. */
@@ -277,4 +279,24 @@ export async function handleConnectionBackfill(job: ConnectionBackfillJob): Prom
 export async function handleWebhookProcess(job: WebhookProcessJob): Promise<void> {
   const { processConnectorWebhook } = await import('../services/connector-sync.service.js');
   await processConnectorWebhook(job);
+}
+
+/**
+ * Push a store listing OUT to its push/bidirectional connections. Delegates to the
+ * connector-sync service (dynamic import — same cycle-breaking reason as
+ * {@link handleConnectionBackfill}).
+ */
+export async function handleProductPush(job: ProductPushJob): Promise<void> {
+  const { pushListingToChannels } = await import('../services/connector-sync.service.js');
+  await pushListingToChannels(job.storeId, job.listingId);
+}
+
+/**
+ * Pull orders from a `pull` connection into Mercaria. Delegates to the
+ * connector-sync service (dynamic import — same cycle-breaking reason as
+ * {@link handleConnectionBackfill}).
+ */
+export async function handleOrderSync(job: OrderSyncJob): Promise<void> {
+  const { syncOrders } = await import('../services/connector-sync.service.js');
+  await syncOrders(job.storeId, job.connectionId);
 }
