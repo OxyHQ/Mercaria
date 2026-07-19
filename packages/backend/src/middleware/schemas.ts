@@ -898,3 +898,74 @@ export const updateSyncSettingsSchema = z
     conflictPolicy: z.enum(['connector_wins', 'respect_overrides']).optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
+
+// ---------------------------------------------------------------------------
+// Channel ingestion (push_in)
+// ---------------------------------------------------------------------------
+
+/** Max products accepted in one products-ingest batch. */
+const INGEST_PRODUCTS_MAX = 100;
+/** Max items accepted in one inventory-ingest batch. */
+const INGEST_INVENTORY_MAX = 500;
+
+/**
+ * Body for `POST /admin/stores/:storeId/channels/:provider/connect-push`
+ * (`ConnectPushInput`). `shopDomain` is optional display metadata (the external
+ * site's host) — unlike the pull `connect` flow it is NOT an SSRF host allowlist,
+ * so it is a plain bounded string rather than a `*.myshopify.com` pattern.
+ */
+export const connectPushChannelSchema = z.object({
+  shopDomain: z.string().trim().min(1).max(255).optional(),
+});
+
+/** One ingested variant (`IngestProductVariant`). */
+const ingestVariantSchema = z.object({
+  optionValues: z.array(optionValueSchema).optional(),
+  price: moneySchema,
+  compareAtPrice: moneySchema.optional(),
+  sku: z.string().trim().min(1).max(120).optional(),
+  barcode: z.string().trim().min(1).max(120).optional(),
+  inventory: z.object({ available: z.number().int().nonnegative() }).optional(),
+});
+
+/** One ingested product (`IngestProduct`). */
+const ingestProductSchema = z.object({
+  externalId: z.string().trim().min(1).max(255),
+  externalUpdatedAt: z.string().datetime().optional(),
+  title: z.string().trim().min(1).max(300),
+  description: z.string().max(50_000).optional(),
+  images: z
+    .array(z.string().trim().url().startsWith('http', 'Must be an absolute http(s) URL'))
+    .optional(),
+  options: z.array(listingOptionSchema).optional(),
+  variants: z.array(ingestVariantSchema).min(1),
+  vendor: z.string().trim().min(1).max(200).optional(),
+  productType: z.string().trim().min(1).max(200).optional(),
+  handle: z.string().trim().min(1).max(200).optional(),
+  seo: seoSchema.optional(),
+});
+
+/**
+ * Body for `POST /admin/stores/:storeId/channels/:connectionId/ingest/products`
+ * (`IngestProductsInput`) — a bounded batch of products to upsert.
+ */
+export const ingestProductsSchema = z.object({
+  products: z.array(ingestProductSchema).min(1).max(INGEST_PRODUCTS_MAX),
+});
+
+/**
+ * Body for `POST /admin/stores/:storeId/channels/:connectionId/ingest/inventory`
+ * (`IngestInventoryInput`) — a bounded batch of absolute stock sets.
+ */
+export const ingestInventorySchema = z.object({
+  items: z
+    .array(
+      z.object({
+        externalId: z.string().trim().min(1).max(255),
+        sku: z.string().trim().min(1).max(120).optional(),
+        available: z.number().int().nonnegative(),
+      }),
+    )
+    .min(1)
+    .max(INGEST_INVENTORY_MAX),
+});
