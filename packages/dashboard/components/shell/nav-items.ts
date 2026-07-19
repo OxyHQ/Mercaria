@@ -5,6 +5,7 @@ import {
   Users,
   Tag,
   FolderTree,
+  Plug,
   Settings,
   type LucideIcon,
 } from "lucide-react-native";
@@ -35,6 +36,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { key: "customers", label: "Customers", icon: Users, href: "/customers", permission: "customers:read" },
   { key: "discounts", label: "Discounts", icon: Tag, href: "/discounts", permission: "discounts:write" },
   { key: "collections", label: "Collections", icon: FolderTree, href: "/collections", permission: "collections:write" },
+  { key: "channels", label: "Sales channels", icon: Plug, href: "/channels", permission: "channels:write" },
   { key: "settings", label: "Settings", icon: Settings, href: "/settings", permission: "settings:write" },
 ] as const;
 

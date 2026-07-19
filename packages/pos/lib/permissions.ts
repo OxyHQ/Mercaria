@@ -29,6 +29,7 @@ const ALL_PERMISSIONS: readonly StorePermission[] = [
   "customers:write",
   "draft_orders:write",
   "refunds:write",
+  "channels:write",
 ];
 
 const ADMIN_PERMISSIONS: readonly StorePermission[] = ALL_PERMISSIONS.filter(

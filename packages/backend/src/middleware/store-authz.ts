@@ -49,6 +49,7 @@ const ALL_PERMISSIONS: readonly StorePermission[] = [
   'customers:write',
   'draft_orders:write',
   'refunds:write',
+  'channels:write',
 ];
 
 /**
@@ -66,7 +67,8 @@ const ADMIN_PERMISSIONS: readonly StorePermission[] = ALL_PERMISSIONS.filter(
  * POS, but NOT configure the business. Staff get products/inventory (read+write),
  * orders (read+fulfill), customers (read+write), draft orders (POS), and stats —
  * and are DENIED `members:manage`, `store:manage`, `settings:write`,
- * `discounts:write`, `refunds:write`, `locations:write` and `collections:write`.
+ * `discounts:write`, `refunds:write`, `locations:write`, `collections:write`
+ * and `channels:write`.
  */
 const STAFF_PERMISSIONS: readonly StorePermission[] = [
   'products:read',
@@ -93,6 +95,7 @@ const STAFF_PERMISSIONS: readonly StorePermission[] = [
  * | refunds:write      |   ✓   |   ✓   |       |
  * | locations:write    |   ✓   |   ✓   |       |
  * | collections:write  |   ✓   |   ✓   |       |
+ * | channels:write     |   ✓   |   ✓   |       |
  * | products:read      |   ✓   |   ✓   |   ✓   |
  * | products:write     |   ✓   |   ✓   |   ✓   |
  * | inventory:write    |   ✓   |   ✓   |   ✓   |
@@ -103,10 +106,10 @@ const STAFF_PERMISSIONS: readonly StorePermission[] = [
  * | customers:write    |   ✓   |   ✓   |   ✓   |
  * | draft_orders:write |   ✓   |   ✓   |   ✓   |
  *
- * - `owner` — every permission (16/16, incl. `store:manage`).
- * - `admin` — every permission EXCEPT `store:manage` (15/16).
- * - `staff` — the operational shop-floor + POS set (9/16); cannot configure the
- *   business (no manage/settings/discounts/refunds/locations/collections).
+ * - `owner` — every permission (17/17, incl. `store:manage`).
+ * - `admin` — every permission EXCEPT `store:manage` (16/17).
+ * - `staff` — the operational shop-floor + POS set (9/17); cannot configure the
+ *   business (no manage/settings/discounts/refunds/locations/collections/channels).
  */
 export const ROLE_PERMISSIONS: Record<StoreRole, StorePermission[]> = {
   owner: [...ALL_PERMISSIONS],

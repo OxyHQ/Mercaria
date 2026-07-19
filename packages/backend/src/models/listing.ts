@@ -9,12 +9,24 @@
  */
 
 import mongoose, { Schema, Model } from 'mongoose';
-import type { ListingCondition, ListingStatus, ListingOwnerType } from '@mercaria/shared-types';
+import type {
+  ListingCondition,
+  ListingStatus,
+  ListingOwnerType,
+  ConnectorProviderId,
+} from '@mercaria/shared-types';
 import { MoneySchema } from './schemas/money-schema.js';
 
 const OWNER_TYPES: readonly ListingOwnerType[] = ['user', 'store'];
 const CONDITIONS: readonly ListingCondition[] = ['new', 'used'];
 const STATUSES: readonly ListingStatus[] = ['draft', 'active', 'sold', 'archived'];
+const CONNECTOR_PROVIDERS: readonly ConnectorProviderId[] = [
+  'shopify',
+  'woocommerce',
+  'etsy',
+  'prestashop',
+  'magento',
+];
 
 export interface IListingImage {
   fileId: string;
@@ -25,6 +37,15 @@ export interface IListingImage {
 export interface IListingOption {
   name: string;
   values: string[];
+}
+
+/** Provenance of a listing imported/synced from an external commerce platform. */
+export interface IListingSource {
+  connectionId: string;
+  provider: ConnectorProviderId;
+  externalId: string;
+  /** External platform's `updated_at` at last sync (drives newer-than checks). */
+  externalUpdatedAt?: Date;
 }
 
 export interface IGeoPoint {
@@ -67,6 +88,13 @@ export interface IListing {
   seo?: { title?: string; description?: string };
   /** Collection ids this listing belongs to (denormalized membership). */
   collectionIds: string[];
+  /** Connector provenance — present only on listings synced from an external platform. */
+  source?: IListingSource;
+  /**
+   * Field names locally edited on a connector-sourced listing, PINNED against
+   * connector re-sync overwrites (see `SyncSettings.conflictPolicy`).
+   */
+  overriddenFields: string[];
   rating: number;
   reviewCount: number;
   favoriteCount: number;
@@ -88,6 +116,16 @@ const ListingOptionSchema = new Schema<IListingOption>(
   {
     name: { type: String, required: true },
     values: { type: [String], default: [] },
+  },
+  { _id: false },
+);
+
+const ListingSourceSchema = new Schema<IListingSource>(
+  {
+    connectionId: { type: String, required: true },
+    provider: { type: String, enum: CONNECTOR_PROVIDERS as string[], required: true },
+    externalId: { type: String, required: true },
+    externalUpdatedAt: { type: Date },
   },
   { _id: false },
 );
@@ -127,6 +165,8 @@ const ListingSchema = new Schema<IListing>(
       description: { type: String },
     },
     collectionIds: { type: [String], default: [] },
+    source: { type: ListingSourceSchema },
+    overriddenFields: { type: [String], default: [] },
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     favoriteCount: { type: Number, default: 0 },
@@ -182,6 +222,14 @@ ListingSchema.index(
   { unique: true, partialFilterExpression: { handle: { $type: 'string' } } },
 );
 ListingSchema.index({ collectionIds: 1 });
+// Upsert/lookup by external key for connector sync. Partial (not sparse): a
+// compound sparse index still indexes docs missing only `source.*` because
+// `storeId` is present on every store product, so it would index the whole
+// store catalog. The partial filter restricts it to connector-sourced listings.
+ListingSchema.index(
+  { storeId: 1, 'source.connectionId': 1, 'source.externalId': 1 },
+  { partialFilterExpression: { 'source.externalId': { $type: 'string' } } },
+);
 
 export const Listing: Model<IListing> =
   mongoose.models.Listing || mongoose.model<IListing>('Listing', ListingSchema);

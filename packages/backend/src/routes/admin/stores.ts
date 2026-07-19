@@ -26,6 +26,7 @@ import customersRouter from './customers.js';
 import draftOrdersRouter from './draft-orders.js';
 import refundsRouter from './refunds.js';
 import reportsRouter from './reports.js';
+import channelsRouter from './channels.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -80,5 +81,6 @@ router.use('/:storeId/customers', customersRouter);
 router.use('/:storeId/draft-orders', draftOrdersRouter);
 router.use('/:storeId/refunds', refundsRouter);
 router.use('/:storeId/reports', reportsRouter);
+router.use('/:storeId/channels', channelsRouter);
 
 export default router;

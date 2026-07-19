@@ -15,6 +15,23 @@ import type { Money } from './money';
 import type { Seller } from './seller';
 import type { MerchantSummary } from './product';
 import type { ProductVariantDTO } from './variant';
+import type { ConnectorProviderId } from './integration';
+
+/**
+ * Provenance of a listing imported/synced from an external commerce platform.
+ * Present only on connector-sourced listings; native Mercaria listings omit it.
+ * The `{ connectionId, externalId }` pair is the upsert key for re-sync.
+ */
+export interface ListingSource {
+  /** The `Connection` this listing was imported through. */
+  connectionId: string;
+  /** External platform the listing originates from. */
+  provider: ConnectorProviderId;
+  /** The listing's id on the external platform. */
+  externalId: string;
+  /** ISO-8601 `updated_at` reported by the external platform at last sync. */
+  externalUpdatedAt?: string;
+}
 
 /** Condition of the item being sold. */
 export type ListingCondition = 'new' | 'used';
@@ -97,6 +114,13 @@ export interface Listing extends Timestamps {
   seo?: { title?: string; description?: string };
   /** Collection ids this listing belongs to (store products). */
   collectionIds?: string[];
+  /** Connector provenance — present only on listings synced from an external platform. */
+  source?: ListingSource;
+  /**
+   * Field names locally edited on a connector-sourced listing and therefore
+   * PINNED against connector re-sync overwrites (see `SyncSettings.conflictPolicy`).
+   */
+  overriddenFields?: string[];
 }
 
 /** Payload accepted when an individual user creates a P2P (secondhand) listing. */

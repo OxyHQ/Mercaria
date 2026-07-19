@@ -53,7 +53,8 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(owner.has('customers:write')).toBe(true);
     expect(owner.has('draft_orders:write')).toBe(true);
     expect(owner.has('refunds:write')).toBe(true);
-    expect(owner.size).toBe(16);
+    expect(owner.has('channels:write')).toBe(true);
+    expect(owner.size).toBe(17);
   });
 
   it('admin holds everything except store:manage (incl. discounts:write, settings:write)', () => {
@@ -67,6 +68,7 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(admin.has('discounts:write')).toBe(true);
     expect(admin.has('settings:write')).toBe(true);
     expect(admin.has('refunds:write')).toBe(true);
+    expect(admin.has('channels:write')).toBe(true);
   });
 
   it('staff covers products/inventory/orders/stats + customers/draft_orders (POS), with no manage/discounts/settings', () => {
@@ -79,6 +81,8 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(staff.has('settings:write')).toBe(false);
     // Refunds are owner/admin only — staff run the POS but do not refund.
     expect(staff.has('refunds:write')).toBe(false);
+    // Connectors are owner/admin only — staff do not configure integrations.
+    expect(staff.has('channels:write')).toBe(false);
     expect(staff.has('products:read')).toBe(true);
     expect(staff.has('products:write')).toBe(true);
     expect(staff.has('inventory:write')).toBe(true);
@@ -91,8 +95,8 @@ describe('ROLE_PERMISSIONS matrix', () => {
     expect(staff.has('draft_orders:write')).toBe(true);
   });
 
-  it('locks the FINAL B7 matrix: exact owner(16)/admin(15)/staff(9) sets', () => {
-    // The canonical 16-permission catalog.
+  it('locks the FINAL matrix: exact owner(17)/admin(16)/staff(9) sets', () => {
+    // The canonical 17-permission catalog.
     const ALL: StorePermission[] = [
       'store:manage',
       'members:manage',
@@ -110,17 +114,18 @@ describe('ROLE_PERMISSIONS matrix', () => {
       'customers:write',
       'draft_orders:write',
       'refunds:write',
+      'channels:write',
     ];
 
-    // owner = all 16.
+    // owner = all 17.
     expect(new Set(ROLE_PERMISSIONS.owner)).toEqual(new Set(ALL));
-    expect(ROLE_PERMISSIONS.owner.length).toBe(16);
+    expect(ROLE_PERMISSIONS.owner.length).toBe(17);
 
-    // admin = all 15 except store:manage.
+    // admin = all 16 except store:manage.
     expect(new Set(ROLE_PERMISSIONS.admin)).toEqual(
       new Set(ALL.filter((p) => p !== 'store:manage')),
     );
-    expect(ROLE_PERMISSIONS.admin.length).toBe(15);
+    expect(ROLE_PERMISSIONS.admin.length).toBe(16);
 
     // staff = the exact 9 operational permissions.
     const STAFF_ALLOWED: StorePermission[] = [
@@ -142,6 +147,7 @@ describe('ROLE_PERMISSIONS matrix', () => {
       'refunds:write',
       'locations:write',
       'collections:write',
+      'channels:write',
     ];
     expect(new Set(ROLE_PERMISSIONS.staff)).toEqual(new Set(STAFF_ALLOWED));
     expect(ROLE_PERMISSIONS.staff.length).toBe(9);
@@ -149,8 +155,8 @@ describe('ROLE_PERMISSIONS matrix', () => {
     for (const denied of STAFF_DENIED) {
       expect(staffSet.has(denied)).toBe(false);
     }
-    // The allowed + denied sets together are exactly the 16-permission catalog.
-    expect(STAFF_ALLOWED.length + STAFF_DENIED.length).toBe(16);
+    // The allowed + denied sets together are exactly the 17-permission catalog.
+    expect(STAFF_ALLOWED.length + STAFF_DENIED.length).toBe(17);
   });
 });
 
