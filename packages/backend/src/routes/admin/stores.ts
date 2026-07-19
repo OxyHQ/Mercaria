@@ -28,6 +28,7 @@ import refundsRouter from './refunds.js';
 import reportsRouter from './reports.js';
 import channelsRouter from './channels.js';
 import channelIngestRouter from './channel-ingest.js';
+import channelKeysRouter from './channel-keys.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -85,5 +86,7 @@ router.use('/:storeId/reports', reportsRouter);
 router.use('/:storeId/channels', channelsRouter);
 // Push-in ingestion routes (connect-push, ingest/*); sibling of the pull router.
 router.use('/:storeId/channels', channelIngestRouter);
+// Channel API keys (mint / list / revoke) for the token-free ingest path.
+router.use('/:storeId/channel-keys', channelKeysRouter);
 
 export default router;

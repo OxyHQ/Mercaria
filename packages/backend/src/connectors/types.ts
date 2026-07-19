@@ -129,12 +129,13 @@ export interface NormalizedProduct {
   /** Absolute image URLs (platform CDN), in gallery order. */
   imageUrls: string[];
   /**
-   * The external collection ids/handles this product belongs to on the platform,
-   * when the payload carries membership. The sync service maps these through the
-   * connection's `collectionMapping` onto Mercaria `collectionIds`. NOTE: a
-   * platform whose product payload omits collection membership (Shopify's REST
-   * `products.json` does) leaves this empty — the mapping is a no-op then, and the
-   * logic is provider-agnostic for platforms/payloads that DO carry it.
+   * The external collection ids this product belongs to on the platform. The sync
+   * service maps these through the connection's `collectionMapping` onto Mercaria
+   * `collectionIds`. Shopify's REST `products.json` omits membership, so the Shopify
+   * provider fills this during `fetchProducts` from a per-run collection index
+   * (custom collections via `collects.json`, smart collections via their product
+   * lists); a webhook-driven single-product update carries no collection context and
+   * leaves it empty until the next backfill. Empty → the mapping is a no-op.
    */
   collectionRefs?: string[];
   /** Concrete variants (always ≥ 1). */
@@ -218,16 +219,48 @@ export interface PushProductResult {
 }
 
 /**
- * A fulfillment being PUSHED to an external platform: mark the mapped external
- * order fulfilled/shipped, attaching a tracking number when Mercaria captured one.
- * Line-level (partial) fulfillment is a deferred edge — the core marks the whole
- * order fulfilled.
+ * One fulfilled line to push out, identified by the platform's own product/variant
+ * id (whichever the pulled order line carried) plus the quantity being fulfilled in
+ * THIS push. The provider matches it to the platform's fulfillment-order line items
+ * and caps the quantity at what is still fulfillable there.
+ */
+export interface PushFulfillmentLine {
+  /** The platform's variant id for the fulfilled line, when the order line carried one. */
+  externalVariantId?: string;
+  /** The platform's product id for the fulfilled line, when the order line carried one. */
+  externalProductId?: string;
+  /** Units of this line being fulfilled in this push (never negative). */
+  quantity: number;
+}
+
+/**
+ * A fulfillment being PUSHED to an external platform: mark the mapped external order
+ * (or specific lines of it) fulfilled/shipped, attaching tracking when Mercaria
+ * captured it.
+ *
+ * When `lines` is present, ONLY those lines are fulfilled — the provider maps each
+ * to the platform's fulfillment-order line items and fulfills at most its remaining
+ * fulfillable quantity, so several partial fulfillments can be pushed for one order.
+ * When `lines` is ABSENT, every line still fulfillable across the order's open
+ * fulfillment work is fulfilled (the whole remaining order). Either way the push is
+ * IDEMPOTENT: a line/fulfillment-order with nothing left to fulfill is skipped, so a
+ * re-push (retry, or a later ship of the rest) never re-fulfills an already-shipped line.
  */
 export interface PushFulfillment {
   /** The platform's order id (the connector order's `source.externalId`). */
   externalOrderId: string;
   /** Tracking number to attach, when Mercaria has one. */
   trackingNumber?: string;
+  /** Tracking URL to attach, when Mercaria has one. */
+  trackingUrl?: string;
+  /** Carrier/company name to attach, when Mercaria has one. */
+  trackingCompany?: string;
+  /**
+   * The specific fulfilled lines to push (partial fulfillment). Absent → fulfill the
+   * whole remaining order. Each line is matched to the platform's fulfillment-order
+   * line items and capped at their remaining fulfillable quantity.
+   */
+  lines?: PushFulfillmentLine[];
 }
 
 // --- ORDERS (platform → Mercaria) -------------------------------------------

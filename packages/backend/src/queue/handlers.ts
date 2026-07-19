@@ -274,6 +274,19 @@ export async function handleConnectionBackfill(job: ConnectionBackfillJob): Prom
 }
 
 /**
+ * Periodic connector reconcile sweep — the SAFETY NET for missed real-time
+ * webhooks. A dropped `products/*` webhook means the platform change never reached
+ * Mercaria; this repeatable job re-pulls every connected `pull`/`bidirectional`
+ * catalog (which re-prices changed variants and delete-reconciles removed products)
+ * by enqueuing a backfill per connection. Delegates to the connector-sync service
+ * (dynamic import — same cycle-breaking reason as {@link handleConnectionBackfill}).
+ */
+export async function handleConnectionReconcile(): Promise<void> {
+  const { reconcileAllConnections } = await import('../services/connector-sync.service.js');
+  await reconcileAllConnections();
+}
+
+/**
  * Process one inbound platform webhook (product create/update/delete). Delegates
  * to the connector-sync service (dynamic import — same cycle-breaking reason as
  * {@link handleConnectionBackfill}).

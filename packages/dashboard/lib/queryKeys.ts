@@ -47,6 +47,7 @@ export const queryKeys = {
   taxRates: (storeId: string) => ["stores", storeId, "tax-rates"] as const,
   locations: (storeId: string) => ["stores", storeId, "locations"] as const,
   channels: (storeId: string) => ["stores", storeId, "channels"] as const,
+  channelKeys: (storeId: string) => ["stores", storeId, "channel-keys"] as const,
   customers: {
     list: (storeId: string, page: number, search: string) =>
       ["stores", storeId, "customers", { page, search }] as const,

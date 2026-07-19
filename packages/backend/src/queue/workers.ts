@@ -25,6 +25,7 @@ import {
   JOB_EXPIRE_RESERVATIONS,
   JOB_RECOMPUTE_AGGREGATES_SWEEP,
   JOB_CONNECTION_BACKFILL,
+  JOB_CONNECTION_RECONCILE,
   JOB_WEBHOOK_PROCESS,
   JOB_PRODUCT_PUSH,
   JOB_ORDER_SYNC,
@@ -38,6 +39,7 @@ import {
   handleExpireReservations,
   handleAggregateSweep,
   handleConnectionBackfill,
+  handleConnectionReconcile,
   handleWebhookProcess,
   handleProductPush,
   handleOrderSync,
@@ -103,6 +105,10 @@ async function processSyncJob(job: Job<MarketplaceSyncJobData>): Promise<void> {
   switch (job.name) {
     case JOB_CONNECTION_BACKFILL:
       await handleConnectionBackfill(job.data as ConnectionBackfillJob);
+      return;
+    case JOB_CONNECTION_RECONCILE:
+      // Repeatable sweep — no payload; the handler resolves connections itself.
+      await handleConnectionReconcile();
       return;
     case JOB_WEBHOOK_PROCESS:
       await handleWebhookProcess(job.data as WebhookProcessJob);
