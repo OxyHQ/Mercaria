@@ -12,11 +12,38 @@
 // ---------------------------------------------------------------------------
 export { cn } from "./lib/cn";
 export { useColorScheme } from "./lib/useColorScheme";
+export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 export {
   formatMoney,
   formatReviewCount,
   type ProductSummary,
 } from "./lib/format";
+
+// ---------------------------------------------------------------------------
+// App shell — the shared responsive layout, sidebar rail, and page mask
+// ---------------------------------------------------------------------------
+export { AppShell, type AppShellProps } from "./components/shell/AppShell";
+export {
+  AppSidebar,
+  type AppSidebarProps,
+  type AppSidebarItem,
+} from "./components/shell/AppSidebar";
+export {
+  BaseSidebar,
+  type BaseSidebarProps,
+} from "./components/shell/BaseSidebar";
+export {
+  SidebarRow,
+  GhostIconButton,
+  useRailTooltip,
+  type SidebarRowProps,
+  type GhostIconButtonProps,
+  type RailTooltipHandle,
+} from "./components/shell/sidebar-primitives";
+export {
+  ScreenShell,
+  type ScreenShellProps,
+} from "./components/shell/ScreenShell";
 
 // ---------------------------------------------------------------------------
 // Dual-currency display

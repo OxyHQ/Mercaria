@@ -1,5 +1,5 @@
 import React from "react";
-import { useRouter } from "expo-router";
+import { Redirect } from "expo-router";
 import type { StorePermission } from "@mercaria/shared-types";
 import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { useActiveStoreContext, useMyStores } from "@/lib/hooks/use-stores";
@@ -24,7 +24,6 @@ interface RequireStoreProps {
  * Children receive the resolved `storeId`, so screens never juggle a nullable id.
  */
 export function RequireStore({ permission, children }: RequireStoreProps) {
-  const router = useRouter();
   const { hydrated } = useActiveStore();
   const { isPending } = useMyStores();
   const { activeStoreId, store, can } = useActiveStoreContext();
@@ -35,8 +34,7 @@ export function RequireStore({ permission, children }: RequireStoreProps) {
 
   // No active store, or the persisted store is no longer accessible → picker.
   if (!activeStoreId || !store) {
-    router.replace("/stores");
-    return <ScreenLoading />;
+    return <Redirect href="/stores" />;
   }
 
   if (permission && !can(permission)) {

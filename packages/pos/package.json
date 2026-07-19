@@ -19,7 +19,7 @@
     "@hugeicons/react-native": "^1.0.15",
     "@mercaria/shared-types": "workspace:*",
     "@mercaria/ui": "workspace:*",
-    "@oxyhq/bloom": "^0.34.2",
+    "@oxyhq/bloom": "^0.35.7",
     "@oxyhq/core": "^12.4.1",
     "@oxyhq/expo-splash": "^0.1.0",
     "@oxyhq/services": "^22.2.0",

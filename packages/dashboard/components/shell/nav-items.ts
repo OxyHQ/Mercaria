@@ -12,7 +12,7 @@ import type { StorePermission } from "@mercaria/shared-types";
 
 /**
  * Canonical navigation model for the dashboard shell, shared by the desktop
- * {@link NavRail} and the mobile {@link BottomTabBar} so both render the same
+ * {@link Sidebar} and the mobile {@link BottomTabBar} so both render the same
  * destinations. Each item is gated by a `permission`: the item is shown only
  * when the caller holds that permission on the active store (the server is the
  * authority — gating here just hides affordances that would 403).
