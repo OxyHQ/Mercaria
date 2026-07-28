@@ -3,6 +3,7 @@ import { View, Animated, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
     APP_COLOR_PRESETS,
+    generateRoleColors,
     type AppColorName,
     type PersistedThemeState,
 } from '@oxyhq/bloom/theme';
@@ -23,9 +24,9 @@ const SPINNER_SIZE = 28;
 // i.e. BEFORE the theme context is available — so it must NOT depend on `useTheme()`
 // (which throws outside the provider). Instead it reads the SAME persisted theme key
 // that the provider writes (`BLOOM_THEME_PERSIST_KEY`) and derives a DARK gradient
-// from the active preset's hue. The logo + spinner are white, so the gradient must
-// stay dark enough for white to pop — we never use the preset's near-white light
-// `--background` here.
+// from the active preset's seed. The logo + spinner are white, so the gradient must
+// stay dark enough for white to pop — we always derive the DARK role set, never the
+// near-white light one.
 
 // Safe literal fallback when no preset can be resolved at all (missing key,
 // unparseable JSON, unknown preset, storage unavailable). Both stops are dark.
@@ -39,26 +40,21 @@ const DEFAULT_PRESET: AppColorName = 'blue';
 const DARK_STOP = '#1A1A1A';
 
 /**
- * Extract the integer hue from a raw HSL triple like `'205 87% 53%'`
- * (optionally `'205 87% 53% / 0.5'`). Returns `null` if the value can't be parsed.
- */
-function parseHue(hslTriple: string | undefined): number | null {
-    if (!hslTriple) return null;
-    const first = hslTriple.trim().split(/\s+/)[0];
-    const hue = Number.parseFloat(first);
-    return Number.isFinite(hue) ? hue : null;
-}
-
-/**
- * Build a DARK two-stop gradient from a preset. Stop 1 is a very dark shade of the
- * preset's hue (`hsl(<hue> 60% 8%)`), stop 2 is near-black, so the white logo/spinner
- * always stay clearly visible regardless of preset. Falls back to the safe literal
- * when the preset's primary hue can't be parsed.
+ * Build a DARK two-stop gradient from a preset. Stop 1 is Bloom's own dark
+ * `background` role derived from that preset's seed — a near-black tinted with the
+ * seed's hue — and stop 2 is near-black, so the white logo/spinner always stay
+ * clearly visible regardless of preset. Falls back to the safe literal for an
+ * unrecognised preset name.
  */
 function buildDarkGradient(presetName: AppColorName): readonly [string, string] {
-    const hue = parseHue(APP_COLOR_PRESETS[presetName]?.dark['--primary']);
-    if (hue === null) return FALLBACK_GRADIENT;
-    return [`hsl(${hue} 60% 8%)`, DARK_STOP];
+    const preset = APP_COLOR_PRESETS[presetName];
+    if (!preset) return FALLBACK_GRADIENT;
+    const { background } = generateRoleColors({
+        seed: preset.hex,
+        variant: preset.variant,
+        isDark: true,
+    });
+    return [background, DARK_STOP];
 }
 
 /** Validate an unknown value as a known preset name. */
