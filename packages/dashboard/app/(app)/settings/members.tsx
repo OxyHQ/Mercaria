@@ -17,7 +17,7 @@ import {
   DialogTitle,
   useColorScheme,
 } from "@mercaria/ui";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useMembers, useInviteMember, useUpdateMember, useRemoveMember } from "@/lib/hooks/use-members";

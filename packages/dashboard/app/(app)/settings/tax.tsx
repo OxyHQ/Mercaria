@@ -15,7 +15,7 @@ import {
   DialogTitle,
   useColorScheme,
 } from "@mercaria/ui";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useTaxRates, useCreateTaxRate, useDeleteTaxRate } from "@/lib/hooks/use-tax-and-locations";

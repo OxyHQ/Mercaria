@@ -4,7 +4,7 @@ import { useOxy } from "@oxyhq/services";
 import { Barcode, Search } from "lucide-react-native";
 import type { Listing, ProductVariantDTO } from "@mercaria/shared-types";
 import { Text, Input, Button, useColorScheme } from "@mercaria/ui";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { useCatalog, useCategories, type CatalogFilters } from "@/lib/hooks/use-catalog";
 import { lookupByCode } from "@/lib/api/catalog";

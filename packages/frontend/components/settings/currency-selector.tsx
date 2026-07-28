@@ -8,7 +8,7 @@ import {
 } from "@mercaria/shared-types";
 import { Text } from "@mercaria/ui";
 import { cn } from "@/lib/utils";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import {
   useCurrencyPreferenceQuery,
   useUpdateCurrencyPreference,

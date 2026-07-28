@@ -9,7 +9,7 @@ import type {
   ListingOption,
 } from "@mercaria/shared-types";
 import { Text, Button, Input, Label, Textarea, useColorScheme } from "@mercaria/ui";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useCreateProduct } from "@/lib/hooks/use-products";

@@ -11,7 +11,6 @@ import { Platform } from "react-native";
 
 import { AppErrorBoundary } from "@/components/error-boundary";
 import AppSplashScreen from "@/components/AppSplashScreen";
-import { Toaster } from "@/components/sonner";
 import { KeyboardProvider } from "@/lib/keyboard";
 import { useColorScheme } from "@mercaria/ui";
 import { AppFxProvider } from "@/lib/fx";
@@ -68,7 +67,6 @@ function AppContent() {
           <Stack.Screen name="(app)" options={{ headerShown: false }} />
         </Stack>
       </KeyboardProvider>
-      <Toaster />
     </AuthSetup>
   );
 }

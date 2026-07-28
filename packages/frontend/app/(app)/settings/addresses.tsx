@@ -7,7 +7,7 @@ import { Button, Text } from "@mercaria/ui";
 import { useTranslation } from "@/hooks/useTranslation";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { AddressForm } from "@/components/address/AddressForm";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import {
   useAddresses,
   useCreateAddress,

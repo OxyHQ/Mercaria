@@ -9,7 +9,7 @@ import {
   Text,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { useOrder, useCancelOrder } from "@/lib/hooks/use-orders";
 
 /** Order statuses from which a buyer may still cancel (mirrors the backend graph). */

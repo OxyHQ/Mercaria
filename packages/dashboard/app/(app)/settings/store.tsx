@@ -5,7 +5,7 @@ import Head from "expo-router/head";
 import { ChevronLeft } from "lucide-react-native";
 import type { Store } from "@mercaria/shared-types";
 import { Text, Button, Input, Label, Textarea, ColorPicker, useColorScheme } from "@mercaria/ui";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useStore, useUpdateStore } from "@/lib/hooks/use-stores";

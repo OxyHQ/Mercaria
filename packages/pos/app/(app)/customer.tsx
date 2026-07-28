@@ -5,7 +5,7 @@ import Head from "expo-router/head";
 import { UserX } from "lucide-react-native";
 import type { Customer } from "@mercaria/shared-types";
 import { Text, Input, Button, Label, useColorScheme } from "@mercaria/ui";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useCustomers, useCreateCustomer } from "@/lib/hooks/use-customers";

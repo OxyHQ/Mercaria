@@ -8,7 +8,7 @@ import type { Address, CartGroup, CreateAddressInput, Money } from "@mercaria/sh
 import { Button, Input, Label, PriceDisplay, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { AddressForm } from "@/components/address/AddressForm";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { useCart } from "@/lib/hooks/use-cart";
 import { useAddresses, useCreateAddress } from "@/lib/hooks/use-addresses";
 import { useCheckout } from "@/lib/hooks/use-checkout";
