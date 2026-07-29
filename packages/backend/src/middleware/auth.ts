@@ -4,8 +4,10 @@ import { OxyServices } from '@oxyhq/core';
 import {
   createOptionalOxyAuth,
   createOxyAuthMiddleware,
+  OXY_SERVICE_ENVIRONMENTS,
   type OxyRequestUser,
   type OxyServiceAppContext,
+  type OxyServiceEnvironment,
 } from '@oxyhq/core/server';
 import { log } from '../lib/logger.js';
 import { getClientIp } from '../lib/net-utils.js';
@@ -15,6 +17,13 @@ const OXY_API_URL = process.env.OXY_API_URL || 'https://api.oxy.so';
 export const oxyClient = new OxyServices({
   baseURL: OXY_API_URL,
 });
+
+// The internal service-secret caller is not a registered application credential, so
+// it has no environment of its own — it reports the one this process runs in, which
+// is the test/live segregation `OxyServiceAppContext.environment` expresses. Matched
+// against the SDK's own union so the two cannot drift.
+const SERVICE_ENVIRONMENT: OxyServiceEnvironment =
+  OXY_SERVICE_ENVIRONMENTS.find((env) => env === process.env.NODE_ENV) ?? 'development';
 
 // Extend Express Request for API keys and service tokens
 declare global {
@@ -99,6 +108,7 @@ export function authenticateTokenOrApiKey(
       appName: 'internal',
       credentialId: 'service-secret',
       scopes: ['internal'],
+      environment: SERVICE_ENVIRONMENT,
     };
     return next();
   }
