@@ -18,6 +18,9 @@
   "dependencies": {
     "@mercaria/shared-types": "workspace:*",
     "@oxyhq/core": "^13.0.0",
+    "@oxyhq/crowdsource": "0.3.0",
+    "@oxyhq/crowdsource-contracts": "0.3.0",
+    "@oxyhq/crowdsource-express": "0.3.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "bullmq": "^5.80.4",
     "cors": "^2.8.6",
