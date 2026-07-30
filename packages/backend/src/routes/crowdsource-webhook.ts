@@ -30,7 +30,7 @@
  * it is true because the row is committed before the response is sent.
  */
 
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { Router } from 'express';
 import mongoose from 'mongoose';
 import { crowdsourceWebhooks } from '@oxyhq/crowdsource-express';
 import type { WebhookEventEnvelope } from '@oxyhq/crowdsource-contracts';
@@ -106,15 +106,13 @@ router.post(
 );
 
 /**
- * The parser this router needs for NOTHING, mounted last on purpose.
+ * NO body parser is mounted on this router, and none may ever be.
  *
- * Nothing below the webhook handler reads a body, so no parser is added here.
- * The comment exists to stop a future edit adding `express.json()` to this
- * router "for consistency" — it would run before the handler on the next request
- * and silently break signature verification for every delivery.
+ * Adding `express.json()` here "for consistency" would run it before the handler
+ * on every request to this path and silently break signature verification for
+ * every delivery — the same failure as mounting the router after the global
+ * parser, just harder to spot. Unmatched subpaths fall through to the
+ * application's normal 404 handling, which is why there is no catch-all here.
  */
-router.use((_req: Request, res: Response, _next: NextFunction) => {
-  res.status(404).type('text/plain').send('Not found');
-});
 
 export default router;
