@@ -24,6 +24,9 @@ export const NOTIFICATION_TYPES = [
   'review_received',
   'store_member_invited',
   'low_inventory',
+  // Moderation: a decision asked the seller to change a listing before it can be
+  // relisted. The only moderation outcome the seller can act on themselves.
+  'listing_changes_requested',
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

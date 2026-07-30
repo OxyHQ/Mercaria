@@ -11,7 +11,12 @@
  */
 
 import { z } from 'zod';
-import { ALL_CURRENCY_CODES, type CurrencyCode } from '@mercaria/shared-types';
+import {
+  ABUSE_REPORT_CATEGORIES,
+  ABUSE_REPORTED_TYPES,
+  ALL_CURRENCY_CODES,
+  type CurrencyCode,
+} from '@mercaria/shared-types';
 
 /**
  * The supported currency codes as a Zod-enum tuple, derived from the single
@@ -785,6 +790,24 @@ export const createReviewSchema = z
 // ---------------------------------------------------------------------------
 
 /** Body for `POST /feedback` (CreateFeedbackInput). Mirrors the `IFeedback` model. */
+/**
+ * `POST /reports` — an abuse report.
+ *
+ * Note what is NOT here: the reporter. It is taken from the authenticated
+ * session, never from the body — a reporter id a client could set is an
+ * attribution forgery, and the reporter's pseudonymous ref is what a jury's
+ * one-penalty-per-incident accounting is derived from.
+ */
+export const abuseReportSchema = z.object({
+  reportedType: z.enum(ABUSE_REPORTED_TYPES as unknown as [string, ...string[]]),
+  reportedId: z.string().trim().min(1).max(128),
+  categories: z
+    .array(z.enum(ABUSE_REPORT_CATEGORIES as unknown as [string, ...string[]]))
+    .min(1)
+    .max(ABUSE_REPORT_CATEGORIES.length),
+  details: z.string().trim().max(2_000).optional(),
+});
+
 export const feedbackSchema = z.object({
   type: z.enum(['bug', 'feature', 'improvement', 'other']),
   rating: z.number().int().min(1).max(5).optional(),

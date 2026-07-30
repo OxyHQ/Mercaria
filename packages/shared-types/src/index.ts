@@ -76,3 +76,7 @@ export * from './report';
 
 // Connector/integration DTOs (Connection, SyncSettings, SyncRun, ConnectorProviderId, …).
 export * from './integration';
+
+// Abuse-report + CrowdSource moderation DTOs (AbuseReport, ModerationEnforcementAction, …).
+// NOTE: unrelated to `./report` above, which is the store SALES ANALYTICS surface.
+export * from './moderation';

@@ -39,6 +39,19 @@ jobs:
       - name: Typecheck UI
         run: bun run --filter @mercaria/ui typecheck
 
+      # The three Expo apps were BUILT but never typechecked, and a build does not
+      # substitute: Babel strips types, so `expo export` happily bundles code tsc
+      # rejects. A shared-types change that broke the dashboard's product screen
+      # passed all four existing jobs.
+      - name: Typecheck Dashboard
+        run: bun run --filter @mercaria/dashboard typecheck
+
+      - name: Typecheck App
+        run: bun run --filter @mercaria/frontend typecheck
+
+      - name: Typecheck POS
+        run: bun run --filter @mercaria/pos typecheck
+
       - name: Run API tests
         run: bun run --filter @mercaria/backend test
 

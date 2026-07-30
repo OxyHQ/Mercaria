@@ -190,6 +190,11 @@ export interface IOrder {
   payment: IPaymentInfo;
   checkoutGroupId: string;
   idempotencyKey?: string;
+  /**
+   * A moderation freeze. While true, `transition` refuses to advance this order.
+   * Set by a `freeze_transaction` decision, cleared by a later `restore`.
+   */
+  moderationHold?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -357,6 +362,21 @@ const OrderSchema = new Schema<IOrder>(
     payment: { type: PaymentSchema, default: () => ({}) },
     checkoutGroupId: { type: String },
     idempotencyKey: { type: String },
+    /**
+     * A moderation freeze on this order.
+     *
+     * Set only by `ModerationEnforcementService` carrying out a
+     * `freeze_transaction` recommendation, and cleared only by a `restore` from a
+     * later decision. While true, `order.service.transition` refuses to advance
+     * the order — money and goods already in flight stop moving.
+     *
+     * Deliberately separate from `status`: a freeze is not a lifecycle state and
+     * must not consume one. Adding a `frozen` status would mean every existing
+     * transition, notification and report query had to learn about it, and
+     * unfreezing would have to guess which status to return to. A flag beside the
+     * status leaves the order exactly where it was.
+     */
+    moderationHold: { type: Boolean },
   },
   { timestamps: true },
 );

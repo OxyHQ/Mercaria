@@ -90,6 +90,7 @@ export function sanitizeForLog(value: string): string {
 export const log = {
   auth: createLogger('auth'),
   health: createLogger('health'),
+  moderation: createLogger('moderation'),
   general: rootLogger,
 };
 

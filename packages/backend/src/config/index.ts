@@ -9,7 +9,8 @@
  * deeply frozen so no code can mutate config at runtime.
  */
 
-import type { CurrencyCode } from '@mercaria/shared-types';
+import type { CurrencyCode, ModerationEnforcementMode } from '@mercaria/shared-types';
+import { log } from '../lib/logger.js';
 
 /**
  * Parse an integer environment variable, falling back to `fallback` when the
@@ -85,6 +86,93 @@ function resolveFxProvider(): FxProviderName {
     return fallback;
   }
   return FX_PROVIDERS.includes(raw as FxProviderName) ? (raw as FxProviderName) : fallback;
+}
+
+/** How much of an enforcement plan is allowed to actually happen. */
+const ENFORCEMENT_MODES: readonly ModerationEnforcementMode[] = [
+  'observe',
+  'manual',
+  'automatic',
+];
+
+/**
+ * Resolve the enforcement mode, defaulting to the mode that changes nothing.
+ *
+ * An unrecognised value falls back to `observe` rather than throwing: a typo in a
+ * deploy variable must not be able to turn enforcement UP, and it must not take
+ * the API down either.
+ */
+function resolveEnforcementMode(): ModerationEnforcementMode {
+  const raw = process.env.CROWDSOURCE_ENFORCEMENT_MODE?.trim();
+  if (!raw) return 'observe';
+  return ENFORCEMENT_MODES.includes(raw as ModerationEnforcementMode)
+    ? (raw as ModerationEnforcementMode)
+    : 'observe';
+}
+
+/**
+ * Whether the CrowdSource integration is switched on.
+ *
+ * Requires BOTH halves of the round trip. A deployment with a service key and no
+ * webhook secret sends reports that can never come back — cases open, juries
+ * decide, and Mercaria never learns the outcome. That is worse than being off,
+ * because it consumes real reviewers' time, so a half-configured integration is
+ * treated as not configured and says so once at boot.
+ *
+ * The gate is on the DISPATCHER, never on intake. Reports taken while this is
+ * false still get their outbox row, so switching it on delivers the backlog
+ * rather than stranding it.
+ */
+function resolveCrowdSourceEnabled(): boolean {
+  if (!boolEnv('CROWDSOURCE_ENABLED', false)) return false;
+
+  const hasServiceKey = (process.env.CROWDSOURCE_SERVICE_KEY?.trim() ?? '') !== '';
+  const hasWebhookSecret = (process.env.CROWDSOURCE_WEBHOOK_SECRET?.trim() ?? '') !== '';
+  if (hasServiceKey && hasWebhookSecret) return true;
+
+  const missing = [
+    hasServiceKey ? undefined : 'CROWDSOURCE_SERVICE_KEY',
+    hasWebhookSecret ? undefined : 'CROWDSOURCE_WEBHOOK_SECRET',
+  ].filter((name): name is string => name !== undefined);
+  log.general.error(
+    { missing },
+    '[CrowdSource] CROWDSOURCE_ENABLED is set but the integration is incomplete; ' +
+      'staying OFF. Reports are still stored and will deliver once configured.',
+  );
+  return false;
+}
+
+export interface WebConfig {
+  /**
+   * The storefront origin, used to build permalinks.
+   *
+   * A permalink is where MERCARIA's own users see an object — it is provenance on
+   * the case, and no jury client ever fetches it. That is the whole reason
+   * evidence carries bare Oxy file ids instead: a reviewer's browser resolving a
+   * URL on this host would tell the host when its content is under review.
+   */
+  readonly origin: string;
+}
+
+export interface CrowdSourceConfig {
+  /** Whether the outbox dispatcher delivers. Never gates the durable record. */
+  readonly enabled: boolean;
+  /**
+   * `applicationId:credentialId:secret` — ONE opaque value, parsed by the SDK.
+   *
+   * There is deliberately no `CROWDSOURCE_APP_ID` here or anywhere else, and
+   * adding one would be a security regression rather than a convenience.
+   * `applicationId` is read OFF this credential; a separate variable holding it
+   * could only ever disagree with the credential, and any surface able to carry
+   * an `applicationId` independently is the cross-tenant IDOR the tenancy model
+   * exists to prevent.
+   */
+  readonly serviceKey: string;
+  /** Optional override; the SDK defaults to the one deployment. */
+  readonly baseUrl?: string;
+  readonly outboxBatchSize: number;
+  readonly outboxPollIntervalMs: number;
+  readonly enforcementMode: ModerationEnforcementMode;
 }
 
 export interface PaginationConfig {
@@ -188,6 +276,8 @@ export interface AppConfig {
   readonly cart: CartConfig;
   readonly orders: OrdersConfig;
   readonly fx: FxConfig;
+  readonly web: WebConfig;
+  readonly crowdSource: CrowdSourceConfig;
 }
 
 /**
@@ -261,5 +351,18 @@ export const config: AppConfig = Object.freeze({
       HKD: numEnv('FX_STATIC_RATE_HKD', 3.82),
       AED: numEnv('FX_STATIC_RATE_AED', 1.80),
     }),
+  }),
+  web: Object.freeze({
+    origin: strEnv('WEB_URL', 'https://mercaria.co'),
+  }),
+  crowdSource: Object.freeze({
+    enabled: resolveCrowdSourceEnabled(),
+    serviceKey: strEnv('CROWDSOURCE_SERVICE_KEY', ''),
+    ...(process.env.CROWDSOURCE_BASE_URL?.trim()
+      ? { baseUrl: process.env.CROWDSOURCE_BASE_URL.trim() }
+      : {}),
+    outboxBatchSize: intEnv('CROWDSOURCE_OUTBOX_BATCH_SIZE', 50),
+    outboxPollIntervalMs: intEnv('CROWDSOURCE_OUTBOX_POLL_INTERVAL_MS', 5_000),
+    enforcementMode: resolveEnforcementMode(),
   }),
 });

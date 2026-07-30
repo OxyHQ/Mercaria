@@ -36,8 +36,42 @@ export interface ListingSource {
 /** Condition of the item being sold. */
 export type ListingCondition = 'new' | 'used';
 
-/** Lifecycle status of a listing. */
-export type ListingStatus = 'draft' | 'active' | 'sold' | 'archived';
+/**
+ * Lifecycle status of a listing.
+ *
+ * `restricted` is a MODERATION status and is the one value a seller can neither
+ * set nor clear — see {@link SellerSettableListingStatus}. It is applied only by
+ * `ModerationEnforcementService` carrying out a CrowdSource decision, and lifted
+ * only by a `restore` from a later one.
+ *
+ * It needs no query changes to take effect. Every catalogue read filters
+ * `status: 'active'` (feed, search, collections, store pages), the cart marks a
+ * non-active line `stale`, and checkout refuses stale lines — so this single
+ * value delists the item AND makes it unsellable, and the seller's real status
+ * survives underneath in `moderation.restrictedFromStatus` for the restore.
+ */
+export type ListingStatus = 'draft' | 'active' | 'sold' | 'archived' | 'restricted';
+
+/**
+ * The statuses a seller may move their OWN listing between.
+ *
+ * `restricted` is deliberately absent, and that absence is load-bearing rather
+ * than tidy typing: `catalog-write.service.updateListing` assigns `patch.status`
+ * straight onto the document, so a union that included it would let a seller both
+ * restrict a rival's listing shape and — far worse — lift a moderation
+ * restriction on their own by PATCHing `status: 'active'`. The type keeps it out
+ * of the payload; `assertSellerSettableStatus` in the service keeps it out at
+ * runtime, because a type is erased and the escape is silent.
+ */
+export type SellerSettableListingStatus = Exclude<ListingStatus, 'restricted'>;
+
+/** The statuses a seller may set, as a runtime list for validation. */
+export const SELLER_SETTABLE_LISTING_STATUSES: readonly SellerSettableListingStatus[] = [
+  'draft',
+  'active',
+  'sold',
+  'archived',
+];
 
 /** Whether a listing is owned by an individual user or a store. */
 export type ListingOwnerType = 'user' | 'store';
@@ -178,7 +212,11 @@ export interface CreateStoreProductInput {
 
 /** Partial payload accepted when updating an existing listing. */
 export type UpdateListingInput = Partial<CreateP2PListingInput> & {
-  status?: ListingStatus;
+  /**
+   * Seller-settable statuses only — a client can never ask for `restricted`, nor
+   * PATCH its way out of one. See {@link SellerSettableListingStatus}.
+   */
+  status?: SellerSettableListingStatus;
   /** Manufacturer/brand (store products). */
   vendor?: string;
   /** Merchandising product type (store products). */
