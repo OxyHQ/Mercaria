@@ -119,6 +119,83 @@ describe('the outbox write is ACCEPTED by a real server', () => {
     expect(await ModerationOutbox.findById('moderation:report.submit:real-2').lean()).not.toBeNull();
   });
 
+  it('leaves an existing row COMPLETELY untouched on a repeated enqueue', async () => {
+    /**
+     * "Same row" is not the same claim as "no write happened", and only the
+     * second one is what the deterministic event id is for.
+     *
+     * If the schema lets Mongoose own the timestamps, it adds `$set: {updatedAt}`
+     * to the upsert — so a repeat is a genuine WRITE that merely happens to leave
+     * the domain fields alone. A repeat is ordinary (a transaction retry, two
+     * concurrent duplicate submissions, a reconciliation sweep re-deriving the
+     * event), and it runs while the dispatcher is taking, renewing and completing
+     * leases on those same rows. A write nobody needed contends with a lease
+     * write, and the contention aborts the transaction.
+     *
+     * `modifiedCount: 0` is the property; `updatedAt` unchanged is its
+     * observable edge.
+     */
+    const eventId = 'moderation:report.submit:real-untouched';
+    await inTransaction(async (session) => {
+      await enqueueModerationOutboxEvent(
+        { eventId, kind: 'report.submit', payload: { reportId: 'real-untouched' } },
+        session,
+      );
+    });
+
+    const before = await ModerationOutbox.findById(eventId).lean();
+    expect(before).not.toBeNull();
+
+    // A repeat, far enough later that a bumped timestamp is unambiguous.
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    await inTransaction(async (session) => {
+      await enqueueModerationOutboxEvent(
+        { eventId, kind: 'report.submit', payload: { reportId: 'real-untouched' } },
+        session,
+      );
+    });
+
+    const after = await ModerationOutbox.findById(eventId).lean();
+    expect(after?.updatedAt?.getTime()).toBe(before?.updatedAt?.getTime());
+    expect(after?.createdAt?.getTime()).toBe(before?.createdAt?.getTime());
+  });
+
+  it('re-enqueues inside a transaction without conflicting with a live lease', async () => {
+    /**
+     * The failure the no-op property prevents: a reconciliation-shaped
+     * transaction re-deriving an event while the dispatcher holds a lease on that
+     * same row. If the repeat writes, the two contend and the transaction can
+     * abort with `NoSuchTransaction` — moderation work lost to a sweep that was
+     * supposed to be harmless.
+     *
+     * **Honest limit of this test:** it passed both WITH and WITHOUT the defect on
+     * this single-node replica set, so it did not discriminate here and is not the
+     * evidence for the fix — the `updatedAt` assertion above is, and that one did
+     * fail before the fix and pass after. This is kept as a cheap guard against a
+     * hard regression, not offered as proof.
+     */
+    const eventId = 'moderation:report.submit:real-contended';
+    await inTransaction(async (session) => {
+      await enqueueModerationOutboxEvent(
+        { eventId, kind: 'report.submit', payload: { reportId: 'real-contended' } },
+        session,
+      );
+    });
+
+    // The dispatcher takes the row and is actively working it.
+    const claimed = await claimModerationOutboxEvent({ leaseOwner: 'live-dispatcher' });
+    expect(claimed?._id).toBe(eventId);
+
+    await expect(
+      inTransaction(async (session) => {
+        await enqueueModerationOutboxEvent(
+          { eventId, kind: 'report.submit', payload: { reportId: 'real-contended' } },
+          session,
+        );
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('still refuses to write outside a transaction, against the real driver', async () => {
     const session = await mongoose.startSession();
     try {

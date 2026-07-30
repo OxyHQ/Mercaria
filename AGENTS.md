@@ -247,8 +247,20 @@ That bug is worth knowing by name because it is total and silent: naming BOTH `c
 `updatedAt` inside `$setOnInsert` on a schema declaring `{ timestamps: true }` makes Mongoose
 add the same path under `$set` too, Mongo refuses the whole write, and inside the intake
 transaction the abort takes the report row with it — so every `POST /reports` 500s from the
-first one, with a green suite. `createdAt` alone is harmless. Let `timestamps: true` write
-both and name neither.
+first one, with a green suite. `createdAt` alone is harmless.
+
+**There are two ways to fix it and they are NOT interchangeable.** The enqueue passes
+`timestamps: false` **as an option on that one `updateOne`** and writes both timestamps in
+`$setOnInsert` itself. The tempting alternative — drop the explicit timestamps and let
+`timestamps: true` own them — also clears the server error, and is wrong: it leaves
+Mongoose's `$set: { updatedAt }` on the update, so a repeated enqueue for a row that ALREADY
+EXISTS becomes a real write instead of a no-op. A repeat is ordinary (a transaction retry,
+two concurrent duplicate submissions, a reconciliation sweep re-deriving an event) and runs
+while the dispatcher holds leases on those same rows, so a write nobody needed contends with
+a live lease update. Being a genuine no-op is the whole property the deterministic event id
+exists to give. Measured here: without the flag a repeat bumps `updatedAt`; with it the row
+is untouched — pinned by `leaves an existing row COMPLETELY untouched on a repeated enqueue`.
+(Credit: `homiio`, via CrowdSource PR #34.)
 
 A replica SET, not a standalone: transactions and unique indexes are the two properties under
 test and neither exists without one.
