@@ -64,8 +64,9 @@ export type AbuseReportCategory =
   | 'unsafe_product'
   | 'stolen_goods'
   | 'scam'
-  | 'offensive_content'
+  | 'impersonation'
   | 'spam'
+  | 'hateful_content'
   | 'other';
 
 export const ABUSE_REPORT_CATEGORIES: readonly AbuseReportCategory[] = [
@@ -75,8 +76,9 @@ export const ABUSE_REPORT_CATEGORIES: readonly AbuseReportCategory[] = [
   'unsafe_product',
   'stolen_goods',
   'scam',
-  'offensive_content',
+  'impersonation',
   'spam',
+  'hateful_content',
   'other',
 ];
 

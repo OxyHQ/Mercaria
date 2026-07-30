@@ -142,6 +142,18 @@ function resolveCrowdSourceEnabled(): boolean {
   return false;
 }
 
+export interface WebConfig {
+  /**
+   * The storefront origin, used to build permalinks.
+   *
+   * A permalink is where MERCARIA's own users see an object — it is provenance on
+   * the case, and no jury client ever fetches it. That is the whole reason
+   * evidence carries bare Oxy file ids instead: a reviewer's browser resolving a
+   * URL on this host would tell the host when its content is under review.
+   */
+  readonly origin: string;
+}
+
 export interface CrowdSourceConfig {
   /** Whether the outbox dispatcher delivers. Never gates the durable record. */
   readonly enabled: boolean;
@@ -264,6 +276,7 @@ export interface AppConfig {
   readonly cart: CartConfig;
   readonly orders: OrdersConfig;
   readonly fx: FxConfig;
+  readonly web: WebConfig;
   readonly crowdSource: CrowdSourceConfig;
 }
 
@@ -338,6 +351,9 @@ export const config: AppConfig = Object.freeze({
       HKD: numEnv('FX_STATIC_RATE_HKD', 3.82),
       AED: numEnv('FX_STATIC_RATE_AED', 1.80),
     }),
+  }),
+  web: Object.freeze({
+    origin: strEnv('WEB_URL', 'https://mercaria.co'),
   }),
   crowdSource: Object.freeze({
     enabled: resolveCrowdSourceEnabled(),
