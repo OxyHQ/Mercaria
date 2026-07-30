@@ -123,6 +123,27 @@ export async function transition(
     throw conflict(`Cannot transition order from ${current} to ${next}`);
   }
 
+  /**
+   * A moderation freeze outranks the transition graph.
+   *
+   * This is what makes a `freeze_transaction` decision real: restricting a
+   * listing stops NEW orders, but an order placed yesterday would otherwise be
+   * paid, packed and shipped while its case is still open. The check sits here,
+   * above the CAS, because `transition` is the single gate every lifecycle move
+   * goes through — guarding the callers instead would leave the next one added
+   * unguarded.
+   *
+   * `cancelled` is deliberately still reachable. A freeze exists to stop goods and
+   * money moving FORWARD, and refusing to let a frozen order be cancelled would
+   * trap a buyer's funds in exactly the transaction a jury is questioning.
+   */
+  if (order.moderationHold === true && next !== 'cancelled') {
+    throw conflict(
+      `Order ${String(order._id)} is held pending a moderation decision and cannot ` +
+        `move to ${next}.`,
+    );
+  }
+
   // The pre-transition payment state drives restock-vs-release on cancel/refund.
   const wasPaid = order.payment.status === 'paid';
 

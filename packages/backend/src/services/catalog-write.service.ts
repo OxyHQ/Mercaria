@@ -22,6 +22,7 @@ import type {
   Money,
   UpdateListingInput,
 } from '@mercaria/shared-types';
+import { SELLER_SETTABLE_LISTING_STATUSES } from '@mercaria/shared-types';
 import { Listing, type IListing, type IListingImage } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
 import { Store } from '../models/store.js';
@@ -374,7 +375,32 @@ export async function updateListing(
   if (patch.description !== undefined) listing.description = patch.description;
   if (patch.tags !== undefined) listing.tags = [...patch.tags];
   if (patch.condition !== undefined) listing.condition = patch.condition;
+  /**
+   * A moderation restriction is not the seller's to lift.
+   *
+   * Without this guard the assignment below is an enforcement ESCAPE, and a quiet
+   * one: `restricted` is just another `ListingStatus` to this code, so a seller
+   * whose counterfeit listing was delisted by a jury could PATCH
+   * `{status: 'active'}` and put it straight back on sale. Nothing would error and
+   * nothing would log — the audit trail would still show the restriction being
+   * applied, because it was.
+   *
+   * The narrowed `UpdateListingInput['status']` type keeps `restricted` out of the
+   * payload, but a type is erased at runtime and this service is exported to
+   * callers that never saw the route's validation, so the runtime check is what
+   * actually holds. Both directions are refused: a client can neither impose a
+   * restriction nor escape one.
+   */
   if (patch.status !== undefined) {
+    if (listing.status === 'restricted') {
+      throw conflict(
+        'This listing is restricted pending a moderation decision and cannot be ' +
+          'republished. Its status will change if the decision is overturned.',
+      );
+    }
+    if (!SELLER_SETTABLE_LISTING_STATUSES.includes(patch.status)) {
+      throw validationError(`Listing status '${patch.status}' cannot be set directly.`);
+    }
     listing.status = patch.status;
     if (patch.status === 'active' && !listing.publishedAt) {
       listing.publishedAt = new Date();
