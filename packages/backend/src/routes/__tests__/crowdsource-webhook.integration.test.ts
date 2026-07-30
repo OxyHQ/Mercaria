@@ -85,8 +85,20 @@ async function postDelivery(base: string): Promise<{ status: number; body: strin
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      // Deliberately wrong. A VALID signature would exercise the happy path and
-      // hit the database; a wrong one still proves which bytes were read.
+      /**
+       * A COMPLETE header set with a deliberately wrong signature, so the
+       * rejection is a `signature_mismatch` rather than a missing header.
+       *
+       * The distinction matters for what this test is allowed to claim. Any 401
+       * proves the mount invariant — reaching verification at all means
+       * `readRawBody` got the bytes — but an earlier version omitted the event-id
+       * header and was rejected before the signature was ever compared. That
+       * still passed, and would have kept passing if the signature check were
+       * removed entirely. The acceptance path is proven separately in
+       * `crowdsource-webhook.accepted.realdb.test.ts`, which is the sibling this
+       * refusal needs.
+       */
+      'X-CrowdSource-Event-Id': 'evt_test_1',
       'X-CrowdSource-Signature': 'v1=0000000000000000000000000000000000000000000000000000000000000000',
       'X-CrowdSource-Timestamp': String(Math.floor(Date.now() / 1000)),
     },
@@ -162,7 +174,8 @@ describe('CrowdSource webhook raw-body mount', () => {
      * `CrowdSourceWebhookConfigurationError` — a parser got there first.
      */
     expect(status).toBe(401);
-    expect(body).toContain('rejection');
+    // Specifically the signature, now that every required header is present.
+    expect(body).toContain('signature_mismatch');
     expect(body).not.toContain('Something went wrong');
   });
 
