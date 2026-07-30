@@ -45,7 +45,21 @@ import { createApp } from '../../app.js';
 import crowdSourceWebhookRouter from '../crowdsource-webhook.js';
 
 const WEBHOOK_PATH = '/webhooks/crowdsource';
+const PROBE_PATH = '/__rawbody_probe';
 const servers: Server[] = [];
+
+/**
+ * A probe route registered ON the webhook router itself.
+ *
+ * Position is the entire point. A route added to the APP after `createApp()`
+ * returns sits at the END of the middleware stack — behind the global
+ * `express.json()` — and would observe a parsed body no matter how the webhook
+ * is mounted. Registering it on the router means it inherits the router's mount
+ * position, so what it observes is what the webhook handler observes.
+ */
+crowdSourceWebhookRouter.post(PROBE_PATH, (req, res) => {
+  res.json({ bodyType: typeof req.body });
+});
 
 /** A syntactically valid delivery whose signature is wrong. */
 const UNSIGNED_DELIVERY = JSON.stringify({
@@ -94,7 +108,50 @@ afterAll(async () => {
   );
 });
 
+async function probe(base: string): Promise<{ bodyType: string }> {
+  const response = await fetch(`${base}${WEBHOOK_PATH}${PROBE_PATH}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hello: 'world' }),
+  });
+  return (await response.json()) as { bodyType: string };
+}
+
 describe('CrowdSource webhook raw-body mount', () => {
+  it('NO parser ran: typeof req.body === "undefined" inside a route on that path', async () => {
+    /**
+     * The assertion that survives either parser configuration, and the reason it
+     * is here alongside the 401/500 one below.
+     *
+     * Mercaria's parser is a plain `express.json({ limit: '10mb' })` with NO
+     * `verify` hook, so nothing leaves a raw body behind and a late mount fails
+     * loudly — which is what makes the 401-vs-500 check meaningful HERE. But that
+     * check is contingent on that fact. An app using `express.json({ verify })`
+     * leaves a Buffer on `req.rawBody`, the SDK accepts it, and a late mount
+     * VERIFIES SUCCESSFULLY against bytes the parser handed back: same invariant
+     * broken, and the delivery looks perfect.
+     *
+     * `typeof req.body === 'undefined'` is not contingent on any of that. It is a
+     * statement about whether a parser ran at all, which is the invariant itself.
+     * So if someone later adds a `verify` hook to this app, this test still fails
+     * on a late mount and the one below might not.
+     */
+    const base = await listen(createApp());
+    expect((await probe(base)).bodyType).toBe('undefined');
+  });
+
+  it('the SAME probe behind express.json sees a parsed body (vacuity guard)', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(WEBHOOK_PATH, crowdSourceWebhookRouter);
+
+    const base = await listen(app);
+
+    // Proves the probe discriminates. A probe that reported `undefined` for some
+    // unrelated reason would otherwise read as a pass forever.
+    expect((await probe(base)).bodyType).toBe('object');
+  });
+
   it('reads the RAW bytes in the real app (rejects the signature, not the mount)', async () => {
     const base = await listen(createApp());
     const { status, body } = await postDelivery(base);

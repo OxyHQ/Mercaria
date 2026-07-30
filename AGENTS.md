@@ -231,6 +231,32 @@ default would dedupe only the task that received both copies.
 `app.ts` exists so the app can be built without listening — that is what lets the raw-body
 invariant be asserted against the REAL middleware chain.
 
+### Testing: the moderation writes run against a REAL replica set
+
+`vitest.globalSetup.ts` starts one `MongoMemoryReplSet` for the suite;
+`moderation-writes.realdb.test.ts` uses it. **Do not convert those tests to mocks.**
+
+The rest of this backend's tests mock their Mongoose models, which is fine for logic and has
+one blind spot that matters enormously here: **a mocked `updateOne` accepts any update
+document, including one the server rejects outright.** Verified in this repo by injecting the
+bug and running both suites — the mocked moderation tests passed 16/16 while the real-server
+tests failed 6 with `MongoServerError: Updating the path 'updatedAt' would create a conflict
+at 'updatedAt'`.
+
+That bug is worth knowing by name because it is total and silent: naming BOTH `createdAt` and
+`updatedAt` inside `$setOnInsert` on a schema declaring `{ timestamps: true }` makes Mongoose
+add the same path under `$set` too, Mongo refuses the whole write, and inside the intake
+transaction the abort takes the report row with it — so every `POST /reports` 500s from the
+first one, with a green suite. `createdAt` alone is harmless. Let `timestamps: true` write
+both and name neither.
+
+A replica SET, not a standalone: transactions and unique indexes are the two properties under
+test and neither exists without one.
+
+**CI typechecks all three Expo apps**, not just the API and UI. A build is not a substitute —
+Babel strips types, so `expo export` happily bundles code `tsc` rejects; a `shared-types`
+change that broke the dashboard passed every build job.
+
 ## Gotchas
 
 **Dockerfile node-gyp pin:** API Dockerfile pins `node-gyp@10` in the builder stage. `ws`'s optional native accelerators have no musl-arm64 prebuild; `bunx node-gyp@latest` races and fails intermittently on ARM. Do NOT remove this pin.
