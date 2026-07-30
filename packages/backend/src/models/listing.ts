@@ -15,11 +15,15 @@ import type {
   ListingOwnerType,
   ConnectorProviderId,
 } from '@mercaria/shared-types';
+// The schema enum READS this list; it must never be restated here. A local
+// subset satisfies `readonly ListingStatus[]`, so a restatement drifts silently
+// the moment a status is added — see the comment on ALL_LISTING_STATUSES.
+import { ALL_LISTING_STATUSES } from '@mercaria/shared-types';
 import { MoneySchema } from './schemas/money-schema.js';
 
 const OWNER_TYPES: readonly ListingOwnerType[] = ['user', 'store'];
 const CONDITIONS: readonly ListingCondition[] = ['new', 'used'];
-const STATUSES: readonly ListingStatus[] = ['draft', 'active', 'sold', 'archived'];
+
 const CONNECTOR_PROVIDERS: readonly ConnectorProviderId[] = [
   'shopify',
   'woocommerce',
@@ -171,7 +175,7 @@ const ListingSchema = new Schema<IListing>(
     title: { type: String, required: true },
     description: { type: String, default: '' },
     condition: { type: String, enum: CONDITIONS as string[], required: true },
-    status: { type: String, enum: STATUSES as string[], default: 'draft' },
+    status: { type: String, enum: ALL_LISTING_STATUSES as string[], default: 'draft' },
     categoryId: { type: String },
     categorySlugs: { type: [String], default: [] },
     images: { type: [ListingImageSchema], default: [] },

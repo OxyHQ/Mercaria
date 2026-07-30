@@ -29,7 +29,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 import { DecisionSchema } from '@oxyhq/crowdsource-contracts';
-import type { ListingStatus } from '@mercaria/shared-types';
+import { ALL_LISTING_STATUSES, type ListingStatus } from '@mercaria/shared-types';
 
 const uri = process.env.MERCARIA_TEST_MONGODB_URI;
 
@@ -262,5 +262,103 @@ describe('a correction restores what was actually displaced', () => {
 
     const restored = await Listing.findById(listingId).lean<{ status?: string } | null>();
     expect(restored?.status).toBe('draft');
+  });
+});
+
+describe('a restore reads only rows whose effect really happened', () => {
+  it('picks the APPLIED row, not a more recent recorded-only one', async () => {
+    /**
+     * `restoreSubject` filters on `applied: true`. This pins WHY, and it took two
+     * attempts to write a test that can actually tell.
+     *
+     * The obvious version — record an unapplied restrict in observe mode, send a
+     * correction, assert nothing moved — passes with the filter AND without it,
+     * because the update is separately guarded by
+     * `status: { $in: ['restricted','draft'] }` and an untouched listing is
+     * `active`. It looked like a guard and proved nothing.
+     *
+     * What discriminates is two rows disagreeing about what was displaced. The
+     * older APPLIED row says the listing was a `draft`; a newer recorded-only row
+     * (an observe-mode plan, or an action that found nothing to do) says `active`.
+     * With the filter the correction restores `draft` — the truth. Without it the
+     * newest row wins and the correction PUBLISHES an item its seller had never
+     * listed, which is the same class of harm as restoring to a constant.
+     *
+     * This is realistic rather than contrived: it is any deployment that enforced
+     * something, later ran in a different mode, and then had the case corrected.
+     */
+    const listingId = await seedListing('restricted');
+
+    // The row that really did the work — the listing was a draft when restricted.
+    await ModerationEnforcement.create({
+      decisionId: 'dec_applied',
+      revision: 1,
+      action: 'restrict',
+      caseId: 'case_real_1',
+      subjectType: 'listing',
+      subjectId: listingId,
+      applied: true,
+      reason: 'carried out',
+      previousState: { listingStatus: 'draft' },
+    });
+
+    // A LATER row that was recorded but never carried out, disagreeing about the
+    // prior status. Written second so it wins any unfiltered `createdAt` sort.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await ModerationEnforcement.create({
+      decisionId: 'dec_recorded_only',
+      revision: 1,
+      action: 'restrict',
+      caseId: 'case_real_1',
+      subjectType: 'listing',
+      subjectId: listingId,
+      applied: false,
+      reason: 'not applied: enforcement mode is observe',
+      previousState: { listingStatus: 'active' },
+    });
+
+    await seedReport(listingId, 'case_real_1');
+    await applyDecisionEvent(
+      decidedEvent(
+        decision({
+          id: 'dec_correction',
+          revision: 2,
+          status: 'corrected',
+          outcome: 'no_violation',
+          findings: [],
+          recommendedActions: [{ action: 'no_action' }],
+          supersedesDecisionId: 'dec_applied',
+        }),
+      ),
+    );
+
+    const restored = await Listing.findById(listingId).lean<{ status?: string } | null>();
+    expect(restored?.status).toBe('draft');
+  });
+});
+
+describe('the schema accepts every status the TYPE admits', () => {
+  it.each(ALL_LISTING_STATUSES)('a listing can really be saved as %s', async (status) => {
+    /**
+     * The drift this catches shipped, and hid for a specific reason: the model
+     * declared its own `const STATUSES: readonly ListingStatus[] = [...]`, and a
+     * hand-written SUBSET satisfies that type, so adding `restricted` to the
+     * union produced no compile error and the schema enum never learned it.
+     *
+     * It then hid a second time, behind the difference between two Mongo APIs.
+     * Enforcement sets the status with `updateOne`, which does NOT run
+     * validators — so restricting a listing worked, and every moderation test
+     * passed. But `catalog-write.service.updateListing` ends in `listing.save()`,
+     * which validates the whole document, so a seller editing the TITLE of a
+     * restricted listing hit a validation error about a status they never
+     * touched and could not see.
+     *
+     * `create` validates, so this is the assertion the enforcement path could
+     * never make. Iterating the type's own runtime list means a status added
+     * later is covered without anyone remembering to come back here.
+     */
+    const listingId = await seedListing(status);
+    const stored = await Listing.findById(listingId).lean<{ status?: string } | null>();
+    expect(stored?.status).toBe(status);
   });
 });

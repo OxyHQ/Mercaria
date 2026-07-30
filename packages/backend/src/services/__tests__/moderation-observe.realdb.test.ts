@@ -157,4 +157,5 @@ describe('observe mode', () => {
       await ModerationEnforcement.countDocuments({ decisionId: 'dec_observe_1' }),
     ).toBe(1);
   });
+
 });
