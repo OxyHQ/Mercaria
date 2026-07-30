@@ -30,6 +30,8 @@ import adminRouter from './routes/admin/index.js';
 import channelsOauthRouter from './routes/channels-oauth.js';
 import channelsWebhooksRouter from './routes/channels-webhooks.js';
 import channelsIngestRouter from './routes/channels-ingest.js';
+import reportsRouter from './routes/reports.js';
+import crowdSourceWebhookRouter from './routes/crowdsource-webhook.js';
 
 // Socket.io
 import { initSocket } from './socket.js';
@@ -134,6 +136,14 @@ app.use((_req, res, next) => {
 // (the router mounts its own express.raw parser for that path).
 app.use('/channels/webhooks', channelsWebhooksRouter);
 
+// Inbound CrowdSource moderation webhooks. Same rule, stricter consequence: the
+// SDK handler reads the request STREAM and verifies the signature over the bytes
+// that arrived. If a parser consumed them first it REFUSES rather than verifying
+// a re-serialisation — so mounting this after express.json() does not weaken the
+// check, it breaks every delivery. Guarded by a test that asserts
+// `typeof req.body === 'undefined'` inside a route on this path.
+app.use('/webhooks/crowdsource', crowdSourceWebhookRouter);
+
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -157,6 +167,9 @@ app.use('/addresses', addressesRouter);
 app.use('/checkout', checkoutRouter);
 app.use('/orders', ordersRouter);
 app.use('/reviews', reviewsRouter);
+// Abuse reports. Unrelated to the store SALES ANALYTICS at
+// /admin/stores/:storeId/reports/* — same word, different domain.
+app.use('/reports', reportsRouter);
 app.use('/seller', sellerRouter);
 app.use('/rates', ratesRouter);
 app.use('/me', meRouter);
@@ -249,6 +262,17 @@ connectDB()
           log.general.info('Redis not configured (REDIS_URL not set) — rate limiting disabled');
         }
       }).catch((err) => log.general.error({ err }, 'Redis readiness import failed'));
+
+      // Drain the moderation outbox. Started on EVERY task, not just a leader:
+      // claims are Mongo leases with an owner check, so N tasks share the work
+      // and a dead task's lease is reclaimed. No-ops when CrowdSource is off —
+      // the LOOP is gated, never the durable record, so reports taken while it
+      // is disabled deliver once it is switched on.
+      import('./services/moderation/outbox-dispatcher.js')
+        .then(({ startModerationOutboxDispatcher }) => startModerationOutboxDispatcher())
+        .catch((err) =>
+          log.general.error({ err }, 'Moderation outbox dispatcher import failed'),
+        );
 
       // Start marketplace queue workers when Redis is configured; otherwise
       // async jobs run inline via the producers.
