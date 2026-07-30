@@ -8,7 +8,7 @@ import { Store } from './models/store.js';
 import { log } from './lib/logger.js';
 
 const ALLOWED_ORIGINS = [
-  process.env.WEB_URL || 'http://localhost:3000',
+  process.env.WEB_URL || 'http://localhost:8160',
   'https://mercaria.co',
   'https://console.mercaria.co',
   'https://gateway.mercaria.co',

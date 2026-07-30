@@ -11,7 +11,7 @@ import { Platform } from "react-native";
  */
 
 // Default API URLs for different environments.
-export const DEV_API_BASE_URL = "http://localhost:3001";
+export const DEV_API_BASE_URL = "http://localhost:4160";
 export const PROD_API_BASE_URL = "https://api.mercaria.co";
 
 // Oxy IdP API base URL (the SSO provider that mints/validates sessions).

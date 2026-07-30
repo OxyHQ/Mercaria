@@ -8,7 +8,7 @@ import { Platform } from 'react-native';
  */
 
 // Default API URLs for different environments
-export const DEV_API_BASE_URL = 'http://localhost:3001';
+export const DEV_API_BASE_URL = 'http://localhost:4160';
 export const STAGING_API_BASE_URL = 'https://staging-api.mercaria.co';
 export const PROD_API_BASE_URL = 'https://api.mercaria.co';
 

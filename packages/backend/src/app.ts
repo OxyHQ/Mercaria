@@ -63,21 +63,20 @@ export function createApp(): express.Express {
   ];
 
   const DEV_ORIGINS = [
-    'http://localhost:3000',
+    'http://localhost:4160',
     'http://localhost:5173',
-    'http://localhost:8081',
-    'exp://localhost:8081',
-    'http://10.0.2.2:8081',
-    // Sibling Expo web apps run on incrementing ports (frontend 8081,
-    // dashboard 8082, pos 8083) when started concurrently.
-    'http://localhost:8082',
-    'exp://localhost:8082',
-    'http://10.0.2.2:8082',
-    'http://localhost:8083',
-    'exp://localhost:8083',
-    'http://10.0.2.2:8083',
-    'http://localhost:8092',
-    'exp://localhost:8092',
+    // Mercaria's Expo apps own the 816x block of the per-app local dev port map
+    // (frontend 8160, dashboard 8161, pos 8162), so several Oxy apps can run
+    // side by side on one machine.
+    'http://localhost:8160',
+    'exp://localhost:8160',
+    'http://10.0.2.2:8160',
+    'http://localhost:8161',
+    'exp://localhost:8161',
+    'http://10.0.2.2:8161',
+    'http://localhost:8162',
+    'exp://localhost:8162',
+    'http://10.0.2.2:8162',
   ];
 
   const allowedOrigins = [
