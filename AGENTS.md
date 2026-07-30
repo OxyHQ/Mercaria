@@ -112,6 +112,125 @@ Database: `mercaria-production` (passed to `mongoose.connect()` via `dbName`, NO
 
 **Central Oxy API** (`OxyHQServices/packages/api/src/config/allowedOrigins.ts`) must include `https://mercaria.co` and pattern `/^https:\/\/[a-z0-9-]+\.mercaria\.co$/`. Without these, `api.oxy.so/auth/refresh-all` fails with CORS errors from all Mercaria apps.
 
+## CrowdSource Moderation (reports → cases → decisions → enforcement)
+
+Abuse reports leave Mercaria durably, CrowdSource decides them with a randomly drawn
+jury, and decisions come back signed. **CrowdSource owns cases, reviews and decisions;
+Oxy Trust owns reputation; Mercaria owns only its own catalogue enforcement.** Mercaria
+never computes reputation and never suspends an Oxy account.
+
+Code: `packages/backend/src/services/moderation/`, four models (`abuse-report`,
+`moderation-outbox`, `moderation-event`, `moderation-enforcement`) and two routes
+(`routes/reports.ts`, `routes/crowdsource-webhook.ts`).
+
+### "Report" is two unrelated things in this repo
+
+`report.service.ts`, `shared-types/src/report.ts` and `/admin/stores/:storeId/reports/*`
+are the store **SALES ANALYTICS** surface and have nothing to do with moderation. Abuse
+reports are `AbuseReport` / `services/moderation/` / `POST /reports`. Never merge them.
+
+### The four rules that are load-bearing
+
+- **A 201 from `POST /reports` means stored — never "CrowdSource accepted it."**
+  `report-intake.service` commits the `AbuseReport` and its `ModerationOutbox` row in ONE
+  transaction; no outbound request is made in the handler. **`enqueueModerationOutboxEvent`
+  throws unless `session.inTransaction()`** — a bare `startSession()` type-checks, commits
+  the row alone, and passes any test that only asserts the row exists. It is also the ONLY
+  writer of that collection, so the row IS the job.
+- **`routes/crowdsource-webhook.ts` MUST stay mounted before `express.json()`** in `app.ts`
+  (beside `/channels/webhooks`, which is there for the same reason). The SDK reads the
+  stream itself and REFUSES if a parser got there first, so a wrong order breaks every
+  delivery rather than weakening the check.
+- **Enforcement is idempotent on `decisionId + revision + action`**, enforced by the unique
+  index on `ModerationEnforcement`. Each action CLAIMS its row before acting. `revision` is
+  in the key so a correction's `restore` is a *different* action from the removal it
+  supersedes — drop it and an accepted appeal can never relist the item.
+- **Evidence carries bare Oxy `fileId`s, never a `mercaria.co` URL.** A reviewer's browser
+  fetching such a URL would tell this host when its content is under review.
+
+### Mercaria's enforcement levers (the commerce actions are real here)
+
+`CROWDSOURCE_ENFORCEMENT_MODE` (`observe` | `manual` | `automatic`, default **`observe`**).
+`observe` computes and RECORDS the identical plan and changes nothing. Mapping lives in
+`enforcement-plan.ts` (pure, table-tested); Mercaria maps `recommendedActions`, not
+findings, with severity as a fallback only.
+
+- `restrict` → `Listing.status = 'restricted'` (or `Review.status = 'hidden'`). Every
+  catalogue read filters `status: 'active'`, the cart marks a non-active line stale and
+  checkout refuses stale lines — so ONE field delists AND unsells, with **no query to
+  edit**. The seller's real status survives in the enforcement row for the restore.
+- `freeze_transaction` → `Order.moderationHold`, refused by `order.service.transition`.
+  **Distinct from `restrict`**, which only stops NEW sales; the two survive collapse
+  together, because a delisted counterfeit whose in-flight orders still ship is the bug
+  that pairing prevents. `cancelled` stays reachable so a buyer is never trapped.
+- `request_changes` → the listing returns to `draft` and the seller is notified
+  (`listing_changes_requested`). The commerce-only middle ground: the seller can fix and
+  republish it themselves.
+- `label` / `age_gate` / `reduce_distribution` → `manual_review`. Mercaria has no middle
+  setting between listed and unlisted, and recording an effect that did not happen is worse
+  than mapping honestly.
+
+**Two enforcement ESCAPES are closed in pre-existing commerce code** — a reviewer reading
+`services/moderation/` would never see them, so do not remove them:
+`catalog-write.service.updateListing` refuses to set `restricted` or to move a listing out
+of it (a seller could otherwise PATCH `status:'active'` and undo a jury silently), and
+`order.service.transition` refuses to advance a held order.
+
+### Subject providers — what Mercaria sends, and what it deliberately does not
+
+`subjects/registry.ts` decides DELIVERY and nothing else. **A reported type with no
+provider is stored locally, NOT refused** — gating the route on the registry would make
+adopting CrowdSource a breaking change for every report surface not yet wired to it.
+
+- Delivered: `listing` → `commerce.listing`, `review` → `commerce.review`. Pinned by a test.
+- Stored-only: `seller`, `store`. `SellerProfile` stores no user-authored identity to pin
+  (display name/avatar are read live from Oxy), and `applicationId` comes off the
+  credential — so a case would open in Mercaria's tenant naming an object only Oxy can act
+  on. A missing provider, not a refused report.
+
+**Evidence is declared, not attached.** `AssetRef` requires a `sha256`; Mercaria stores
+`{fileId, alt, position}` and never calls `configureServiceAuth`, so
+`getServiceAssetMetadataByIds` would throw. Closing it needs Oxy service credentials and
+nothing else — then the digest MUST also enter the snapshot hash.
+
+**Nothing the envelope builder composes may vary between two deliveries of one report.**
+Ingress fingerprints it, so an invented timestamp or an unsorted list turns a legitimate
+outbox retry into a permanent 409 — silently, days later. Hence `submittedAt` is the
+report's own `createdAt` and allegation codes are sorted and deduped.
+
+### Environment
+
+Names come from the packages, not from a plan table:
+
+```
+CROWDSOURCE_ENABLED=false
+CROWDSOURCE_SERVICE_KEY=            # applicationId:credentialId:secret, ONE opaque value
+CROWDSOURCE_BASE_URL=               # optional
+CROWDSOURCE_WEBHOOK_SECRET=
+CROWDSOURCE_WEBHOOK_SECRET_PREVIOUS=   # both accepted during a rotation
+CROWDSOURCE_OUTBOX_BATCH_SIZE=50
+CROWDSOURCE_OUTBOX_POLL_INTERVAL_MS=5000
+CROWDSOURCE_ENFORCEMENT_MODE=observe
+```
+
+**There is no `CROWDSOURCE_APP_ID`, and never add one.** `applicationId` is read off the
+credential; a variable holding it could only ever disagree, and a surface able to carry one
+independently is a cross-tenant IDOR. `CROWDSOURCE_ENABLED=true` requires BOTH the service
+key and the webhook secret (enforced in `config/index.ts`) — a half-configured integration
+sends reports that can never come back.
+
+### Lifecycle
+
+`startModerationOutboxDispatcher` runs on EVERY task (claims are Mongo leases with an owner
+check, so N tasks share the work and a dead task's lease is reclaimed). It no-ops when
+CrowdSource is off — the LOOP is gated, never the durable record, so reports taken while
+disabled deliver once it is switched on. The webhook dedupe store is **Mongo-backed**
+(`moderation-event.store.ts`) because Mercaria runs several ECS tasks; the SDK's in-process
+default would dedupe only the task that received both copies.
+
+`app.ts` exists so the app can be built without listening — that is what lets the raw-body
+invariant be asserted against the REAL middleware chain.
+
 ## Gotchas
 
 **Dockerfile node-gyp pin:** API Dockerfile pins `node-gyp@10` in the builder stage. `ws`'s optional native accelerators have no musl-arm64 prebuild; `bunx node-gyp@latest` races and fails intermittently on ARM. Do NOT remove this pin.

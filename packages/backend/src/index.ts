@@ -1,4 +1,3 @@
-import express from 'express';
 import http from 'http';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';

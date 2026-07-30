@@ -3,7 +3,11 @@ import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft, Trash2, Plus, Boxes } from "lucide-react-native";
-import type { Listing, ListingStatus, ProductVariantDTO } from "@mercaria/shared-types";
+import type {
+  Listing,
+  ProductVariantDTO,
+  SellerSettableListingStatus,
+} from "@mercaria/shared-types";
 import {
   Text,
   Button,
@@ -31,7 +35,21 @@ import {
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { toFairMinor, toMajorString } from "@/lib/money";
 
-const STATUSES: ListingStatus[] = ["draft", "active", "archived"];
+const STATUSES: SellerSettableListingStatus[] = ["draft", "active", "archived"];
+
+/**
+ * A listing a moderation decision has restricted.
+ *
+ * `restricted` is not in `SellerSettableListingStatus` — the API refuses to set
+ * it or to move a listing out of it — so the picker is disabled rather than
+ * offering an action that always 409s. The merchant is told the state exists and
+ * that it is not theirs to change; the reason is deliberately NOT shown here,
+ * because the allegation and the reporter belong to an appeals surface with a
+ * human in it, not to a product form.
+ */
+function isRestricted(listing: Listing): boolean {
+  return listing.status === "restricted";
+}
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -78,9 +96,15 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
   const [title, setTitle] = useState(product.title);
   const [description, setDescription] = useState(product.description);
-  const [status, setStatus] = useState<ListingStatus>(product.status);
+  const restricted = isRestricted(product);
+  // Falls back to `draft` only so the control has a valid value while disabled —
+  // it is never submitted, because `save` is unreachable for a restricted listing.
+  const [status, setStatus] = useState<SellerSettableListingStatus>(
+    restricted ? "draft" : (product.status as SellerSettableListingStatus),
+  );
 
   const save = () => {
+    if (restricted) return;
     updateProduct.mutate(
       { title: title.trim(), description: description.trim(), status },
       {
@@ -126,12 +150,18 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
         </View>
         <View className="gap-1.5">
           <Label>Status</Label>
+          {restricted ? (
+            <Text className="text-sm text-muted-foreground">
+              This product is restricted pending a moderation decision and cannot be
+              republished from here.
+            </Text>
+          ) : null}
           <ToggleGroup
             type="single"
             value={status}
             onValueChange={(v) => {
-              if (canWrite && typeof v === "string" && v) {
-                setStatus(v as ListingStatus);
+              if (canWrite && !restricted && typeof v === "string" && v) {
+                setStatus(v as SellerSettableListingStatus);
               }
             }}
           >
