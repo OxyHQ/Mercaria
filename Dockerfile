@@ -18,7 +18,9 @@
 #
 # @mercaria/shared-types is a first-party workspace package; the API bundle
 # INLINES it (see packages/backend/build.ts), so the runtime image needs neither
-# its dist nor its build-time devDependencies.
+# its dist nor its build-time devDependencies. Everything else — third-party
+# node_modules AND @oxyhq/* — stays EXTERNAL and is resolved from the production
+# node_modules copied into the runtime stage.
 
 # ---------------------------------------------------------------------------
 # Stage 1: builder — install the full dependency graph and bundle the API.
@@ -72,8 +74,15 @@ RUN bun install --frozen-lockfile
 COPY packages/backend ./packages/backend
 
 # Build shared-types then bundle the API with esbuild ->
-# packages/backend/dist/index.js (externalizes third-party node_modules, inlines
-# @oxyhq/* and @mercaria/*; see packages/backend/build.ts).
+# packages/backend/dist/index.js (externalizes third-party node_modules INCLUDING
+# @oxyhq/*, inlines only @mercaria/*; see packages/backend/build.ts).
+#
+# @oxyhq/* being external is what makes the production install below load-bearing:
+# the bundle `import`s those packages by name, so they MUST be present in the
+# runtime node_modules. They are all in @mercaria/backend's `dependencies` (not
+# devDependencies), so `--production` keeps them. Moving one to devDependencies
+# would produce an image that builds green and dies at container start with
+# ERR_MODULE_NOT_FOUND.
 RUN bun run build:backend
 
 # Fail fast if the expected entry point was not emitted.
@@ -83,7 +92,8 @@ RUN test -f packages/backend/dist/index.js \
 # Strip devDependencies so only production modules are carried into the runtime
 # image (bun has no `prune`; a clean production install from the same lockfile is
 # the deterministic equivalent). The API bundle inlines first-party code, so the
-# shared-types dist is no longer needed at runtime.
+# shared-types dist is no longer needed at runtime — but every EXTERNAL import
+# (all third-party deps plus @oxyhq/*) must survive this step.
 RUN rm -rf node_modules \
  && bun install --frozen-lockfile --production
 
