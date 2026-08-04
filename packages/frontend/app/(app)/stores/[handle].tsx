@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronDown, Heart, Search, SlidersHorizontal } from "lucide-react-native";
+import { ChevronDown, Search, SlidersHorizontal } from "lucide-react-native";
 import {
   DropdownMenu,
   Input,
@@ -19,6 +19,7 @@ import {
 } from "@mercaria/ui";
 import type { Listing, MerchantSummary } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
+import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStore, useStoreCollections } from "@/lib/hooks/use-store";
@@ -189,7 +190,6 @@ function StoreBody({ handle, store }: { handle: string; store: MerchantSummary }
     router.push(`/products/${id}` as Parameters<typeof router.push>[0]);
   };
 
-  const [followed, setFollowed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeCollectionId, setActiveCollectionId] = useState<string | undefined>(undefined);
   const [searchInput, setSearchInput] = useState("");
@@ -290,23 +290,19 @@ function StoreBody({ handle, store }: { handle: string; store: MerchantSummary }
           </Text>
         </Pressable>
 
-        {/* Top-right glassy "Follow" toggle (visual only). */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={followed ? `Following ${store.name}` : `Follow ${store.name}`}
-          onPress={() => setFollowed((f) => !f)}
-          className="absolute right-4 top-4 flex-row items-center gap-1.5 rounded-full border border-white/30 px-4 py-2 web:shadow"
-          style={glassStyle(store)}
-        >
-          <Heart
-            size={15}
-            color={toneColor}
-            fill={followed ? toneColor : "transparent"}
-          />
-          <Text className="text-sm font-semibold" style={{ color: toneColor }}>
-            {followed ? "Following" : "Follow"}
-          </Text>
-        </Pressable>
+        {/* Top-right follow control.
+            Unlike everything else on this page it does NOT take the store's
+            palette: Bloom's `Button` reads its colors from the Bloom theme
+            CONTEXT, not from the shadcn CSS vars `themeVars` scopes, so it
+            renders in the app's own accent whatever the merchant's brand color
+            is. That is a property of the shared component, not something to
+            work around here — and it is defensible, since the relationship it
+            manages belongs to the user's Oxy account rather than to this shop.
+            Tinting it would need Bloom to accept an arbitrary color;
+            `BloomColorScope` takes only a named preset. */}
+        <View className="absolute right-4 top-4">
+          <StoreFollowButton store={store} />
+        </View>
 
         {/* Centered wordmark + rating. */}
         <View className="absolute inset-x-0 bottom-6 items-center px-6">
@@ -523,8 +519,6 @@ function StoreBody({ handle, store }: { handle: string; store: MerchantSummary }
           selectCollection(id);
           setMenuOpen(false);
         }}
-        followed={followed}
-        onToggleFollow={() => setFollowed((f) => !f)}
       />
     </View>
   );

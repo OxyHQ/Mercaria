@@ -24,6 +24,9 @@ export const queryKeys = {
       ["stores", handle, "collections", collectionHandle] as const,
     reviews: (handle: string, page: number) =>
       ["stores", handle, "reviews", page] as const,
+    // Keyed on the store ID, not the handle like its siblings: the follow
+    // target is identified by the immutable id (see `lib/follow-graph.ts`).
+    followTarget: (storeId: string) => ["stores", "follow-target", storeId] as const,
   },
   listings: {
     list: (query: ListingQuery & { page?: number; limit?: number }) =>
