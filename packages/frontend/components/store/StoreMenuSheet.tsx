@@ -515,7 +515,7 @@ export function StoreMenuSheet({
   const toneColor = store.textTone === "light" ? TONE_LIGHT : TONE_DARK;
   const atRoot = current === "menu";
 
-  // The sheet covers the hero, so its top bar carries its own subscribe
+  // The sheet covers the hero, so its top bar carries its own follow
   // control. It reads and writes the SAME follow-graph state the hero button
   // does (one target id, one SDK store), so the two can never disagree — this
   // is a second CONTROL, never a second mechanism. The compact round shape is
@@ -586,8 +586,8 @@ export function StoreMenuSheet({
           <ControlButton
             label={
               isFollowing
-                ? `Unsubscribe from ${store.name}`
-                : `Subscribe to ${store.name}`
+                ? `Unfollow ${store.name}`
+                : `Follow ${store.name}`
             }
             onPress={onPressFollow}
           >

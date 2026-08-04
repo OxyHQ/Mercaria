@@ -290,7 +290,7 @@ function StoreBody({ handle, store }: { handle: string; store: MerchantSummary }
           </Text>
         </Pressable>
 
-        {/* Top-right subscribe control.
+        {/* Top-right follow control.
             Unlike everything else on this page it does NOT take the store's
             palette: Bloom's `Button` reads its colors from the Bloom theme
             CONTEXT, not from the shadcn CSS vars `themeVars` scopes, so it

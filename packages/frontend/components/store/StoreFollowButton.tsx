@@ -4,19 +4,24 @@ import type { MerchantSummary } from "@mercaria/shared-types";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
 
 /**
- * Subscribe to a store, backed by Oxy's user-owned follow graph.
+ * Follow a store, backed by Oxy's user-owned follow graph.
  *
- * The relationship belongs to the user, not to Mercaria: a shop subscribed to
- * here is subscribed to for the user, and turning it off in Mercaria leaves the
- * follow itself intact. `FollowTargetButton` owns all of that — including the
+ * The relationship belongs to the user, not to Mercaria: a shop followed here
+ * is followed for the user, and turning it off in Mercaria leaves the follow
+ * itself intact. `FollowTargetButton` owns all of that — including the
  * distinction between "not followed" and "followed but switched off here",
  * which is why nothing in this file reads a follow state of its own.
  *
+ * The verb is `follow`, not the `subscribe` a shop would otherwise suggest:
+ * "Subscribe" already means a recurring PURCHASE plan in this app, and the
+ * product page renders one a few hundred pixels from this button. Two
+ * different meanings for one word on one screen is the user's problem to
+ * resolve, so it is settled here instead.
+ *
  * Timed follows are switched off (`durations={false}`). They exist for things
  * with a natural end — an event tonight, a story running this week — and a shop
- * has none: you subscribe to hear about new stock and sales, which is
- * open-ended. "Subscribe to this shop for 24 hours" is not a thing anyone
- * means.
+ * has none: you follow a shop to hear about new stock and sales, which is
+ * open-ended. "Follow this shop for 24 hours" is not a thing anyone means.
  *
  * ## STORES ONLY — a seller is not a store
  *
@@ -51,7 +56,7 @@ export function StoreFollowButton({
     return (
       <FollowTargetButton
         targetId={followTargetId}
-        verb="subscribe"
+        verb="follow"
         applicationName="Mercaria"
         durations={false}
         size={size}
@@ -72,9 +77,9 @@ export function StoreFollowButton({
       variant="primary"
       size={size}
       onPress={() => openAccountDialog()}
-      accessibilityLabel={`Subscribe to ${store.name}`}
+      accessibilityLabel={`Follow ${store.name}`}
     >
-      Subscribe
+      Follow
     </Button>
   );
 }

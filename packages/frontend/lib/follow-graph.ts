@@ -71,9 +71,13 @@ async function registerStoreFollowKind(oxyServices: OxyServices): Promise<void> 
     kind: STORE_FOLLOW_KIND,
     label: 'Store',
     capabilities: {
-      // You subscribe to a shop to hear about new stock and sales; the graph
-      // records that verb so every surface says the same word.
-      verb: 'subscribe',
+      // NOT `subscribe`, which would be the natural word anywhere else:
+      // "Subscribe" is already taken in Mercaria for a recurring PURCHASE
+      // plan (the product page's purchase options render one), so a store
+      // control using it would sit on the same screen as a billing choice
+      // wearing the same word. The graph records the verb, so every surface
+      // says "Follow".
+      verb: 'follow',
       // `aggregate` — a count, never the list.
       //
       // A follower count is social proof a shop has earned and wants shown, so
