@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react-native";
 import { Dialog } from "@oxyhq/bloom/dialog";
+import { openAccountDialog, useFollowTarget, useOxy } from "@oxyhq/services";
 import {
   ReviewStars,
   Text,
@@ -24,6 +25,7 @@ import {
 import type { Collection, MerchantSummary, Review } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStoreReviews } from "@/lib/hooks/use-store";
+import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
 
 /** Light text tone over a brand-tinted surface (mirrors the store page). */
 const TONE_LIGHT = "#FFFFFF";
@@ -83,10 +85,6 @@ interface StoreMenuSheetProps {
    * is responsible for also closing the sheet.
    */
   onSelectCollection: (id?: string) => void;
-  /** Current follow state (shared with the hero Follow toggle). */
-  followed: boolean;
-  /** Toggle the follow state. */
-  onToggleFollow: () => void;
 }
 
 /**
@@ -501,8 +499,6 @@ export function StoreMenuSheet({
   open,
   onClose,
   onSelectCollection,
-  followed,
-  onToggleFollow,
 }: StoreMenuSheetProps) {
   const router = useRouter();
   // Offset the overlay past the nav rail on desktop so the side-sheet + backdrop
@@ -518,6 +514,31 @@ export function StoreMenuSheet({
 
   const toneColor = store.textTone === "light" ? TONE_LIGHT : TONE_DARK;
   const atRoot = current === "menu";
+
+  // The sheet covers the hero, so its top bar carries its own subscribe
+  // control. It reads and writes the SAME follow-graph state the hero button
+  // does (one target id, one SDK store), so the two can never disagree — this
+  // is a second CONTROL, never a second mechanism. The compact round shape is
+  // why it drives `useFollowTarget` directly instead of rendering
+  // `StoreFollowButton`; the fuller options menu stays on the hero button.
+  const { canUsePrivateApi } = useOxy();
+  const { data: followTargetId } = useStoreFollowTarget(store);
+  const { isFollowing, isUnknown, isPending, follow, unfollow } =
+    useFollowTarget(followTargetId);
+
+  const onPressFollow = () => {
+    // Signed out: nothing to press until there is a session, so ask for one.
+    if (!canUsePrivateApi) {
+      openAccountDialog();
+      return;
+    }
+    // The target is still resolving, the first status read has not landed, or a
+    // write is in flight. Acting on any of them would send a guessed state.
+    if (!followTargetId || isUnknown || isPending) return;
+    // `follow`/`unfollow` surface their own failures through the shared store
+    // and never reject, so there is no rejection to handle here.
+    void (isFollowing ? unfollow() : follow());
+  };
 
   const push = (page: SheetPage) => setStack((prev) => [...prev, page]);
   const pop = () => setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
@@ -563,13 +584,17 @@ export function StoreMenuSheet({
         )}
         <View className="flex-row items-center gap-space-12">
           <ControlButton
-            label={followed ? `Following ${store.name}` : `Follow ${store.name}`}
-            onPress={onToggleFollow}
+            label={
+              isFollowing
+                ? `Unsubscribe from ${store.name}`
+                : `Subscribe to ${store.name}`
+            }
+            onPress={onPressFollow}
           >
             <Heart
               size={CONTROL_ICON_SIZE}
               color={toneColor}
-              fill={followed ? toneColor : "transparent"}
+              fill={isFollowing ? toneColor : "transparent"}
             />
           </ControlButton>
           <ControlButton label={`Share ${store.name}`}>

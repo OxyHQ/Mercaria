@@ -32,6 +32,7 @@ import type {
 } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { Footer } from "@/components/shell/Footer";
+import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { useProduct, useProductReviews } from "@/lib/hooks/use-product";
 import { useListings } from "@/lib/hooks/use-listings";
 import { useAddCartItem } from "@/lib/hooks/use-cart";
@@ -221,16 +222,7 @@ function StoreLinkCard({ store, onPress }: { store: MerchantSummary; onPress: ()
             </Text>
           </View>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Follow ${store.name}`}
-          onPress={onPress}
-          className="rounded-radius-max bg-overlay-inverse-04 px-space-16 py-space-10 web:backdrop-blur-md"
-        >
-          <Text className="text-buttonLarge" style={{ color: toneColor }}>
-            Follow
-          </Text>
-        </Pressable>
+        <StoreFollowButton store={store} size="small" />
       </View>
     </View>
   );

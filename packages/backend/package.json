@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@mercaria/shared-types": "workspace:*",
-    "@oxyhq/core": "^13.0.0",
+    "@oxyhq/core": "^19.1.0",
     "@oxyhq/crowdsource": "0.3.0",
     "@oxyhq/crowdsource-contracts": "0.3.0",
     "@oxyhq/crowdsource-express": "0.3.0",
@@ -28,6 +28,7 @@
     "esbuild": "^0.27.7",
     "expo-server-sdk": "^6.1.0",
     "express": "^4.22.2",
+    "helmet": "^8.3.0",
     "ioredis": "^5.11.1",
     "mongoose": "^9.7.4",
     "pino": "^10.3.1",
