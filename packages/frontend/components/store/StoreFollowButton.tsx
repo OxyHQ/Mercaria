@@ -17,6 +17,25 @@ import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
  * has none: you subscribe to hear about new stock and sales, which is
  * open-ended. "Subscribe to this shop for 24 hours" is not a thing anyone
  * means.
+ *
+ * ## STORES ONLY — a seller is not a store
+ *
+ * This takes a `MerchantSummary`, which is always a `Store`: a Mercaria-local
+ * row with its own handle, brand and policies and NO Oxy account behind it
+ * (`oxyUserId` appears on `Store` only inside `members[]`, the people who
+ * operate it). That is what makes `mercaria.store` the right kind.
+ *
+ * Mercaria's OTHER merchant identity is not like that. A P2P `Seller` is an
+ * Oxy account (`Seller.oxyUserId`, `Listing.ownerType: 'user'`), so following
+ * one is `kind: 'oxy.user'` against the canonical Oxy user URI with
+ * `localUserId` set — a platform kind owned by no application, which keeps the
+ * account graph authoritative. Registering a person under `mercaria.*` would
+ * fix that entity's kind at the wrong value forever (targets are idempotent on
+ * URI) and permanently split their followers from every other Oxy app.
+ *
+ * The two identities already share one slot: `products/[id].tsx` resolves a
+ * single `identity` store-first-then-seller and feeds it to `MerchantHeader`.
+ * Do not put this button there. Add a separate seller control instead.
  */
 export function StoreFollowButton({
   store,
