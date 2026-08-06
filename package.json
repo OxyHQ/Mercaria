@@ -36,7 +36,6 @@
     "ecommerce"
   ],
   "author": "",
-  "license": "ISC",
   "devDependencies": {
     "typescript": "^5.9.3"
   },

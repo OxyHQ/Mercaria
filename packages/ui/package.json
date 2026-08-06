@@ -22,7 +22,6 @@
     "marketplace"
   ],
   "author": "Oxy",
-  "license": "ISC",
   "dependencies": {
     "@mercaria/shared-types": "workspace:*"
   },
