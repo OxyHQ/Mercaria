@@ -1,6 +1,7 @@
 {
   "name": "mercaria-monorepo",
   "version": "1.0.0",
+  "license": "SEE LICENSE IN LICENSE",
   "description": "Mercaria — buy/sell marketplace by Oxy",
   "private": true,
   "workspaces": [
