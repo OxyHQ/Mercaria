@@ -26,7 +26,6 @@
     "marketplace"
   ],
   "author": "Oxy",
-  "license": "ISC",
   "devDependencies": {
     "typescript": "^5.9.3",
     "@types/node": "^25.9.5"
