@@ -149,6 +149,16 @@ connectStores()
           log.general.error({ err }, 'Payment outbox dispatcher import failed'),
         );
 
+      // Retry stored Stripe events whose processing failed, and pick up any
+      // whose task died between storing and interpreting them. Also on EVERY
+      // task, same lease shape. The webhook ingress processes inline after
+      // storing, so on a healthy path this loop finds nothing — it exists so
+      // that "a 200 means stored, never processed" is a mechanism rather than a
+      // comment. No-ops entirely when Stripe is not configured.
+      import('./services/payments/stripe/event-dispatcher.js')
+        .then(({ startStripeEventDispatcher }) => startStripeEventDispatcher())
+        .catch((err) => log.general.error({ err }, 'Stripe event dispatcher import failed'));
+
       // Start marketplace queue workers when Redis is configured; otherwise
       // async jobs run inline via the producers.
       import('./queue/connection.js').then(({ isQueueEnabled }) => {
@@ -199,11 +209,17 @@ connectStores()
         await closeRedis();
         log.general.info('Redis connections closed');
 
-        // Stop claiming new payment work, then close both stores.
+        // Stop claiming new payment work, then close both stores. Both loops
+        // let the row already in flight reach a durable state rather than
+        // abandoning a held lease for another task to wait out.
         const { stopPaymentOutboxDispatcher } = await import(
           './services/payments/outbox-dispatcher.js'
         );
         stopPaymentOutboxDispatcher();
+        const { stopStripeEventDispatcher } = await import(
+          './services/payments/stripe/event-dispatcher.js'
+        );
+        stopStripeEventDispatcher();
 
         // Close MongoDB connection
         const mongoose = await import('mongoose');

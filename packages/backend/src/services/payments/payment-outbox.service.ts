@@ -82,6 +82,19 @@ export function paymentFailedEventId(paymentId: string, providerEventId: string)
   return `payment:payment_failed:${paymentId}:${providerEventId}`;
 }
 
+/**
+ * `payment:payment_succeeded_after_release:<paymentId>`.
+ *
+ * Keyed on the PAYMENT alone, unlike `payment_failed` above. A payment can fail
+ * repeatedly and each failure is its own fact; it can be captured-after-release
+ * only once, and every redelivery of that capture describes the same exception.
+ * Carrying the provider event in the id would open one operator case per
+ * redelivery of a single problem.
+ */
+export function paymentSucceededAfterReleaseEventId(paymentId: string): string {
+  return `payment:payment_succeeded_after_release:${paymentId}`;
+}
+
 /** `payment:payment_refunded:<refundId>` — keyed on the refund, not the payment. */
 export function paymentRefundedEventId(refundId: string): string {
   return `payment:payment_refunded:${refundId}`;

@@ -39,6 +39,7 @@
     "postgres": "3.4.9",
     "rate-limit-redis": "^5.0.0",
     "socket.io": "^4.8.3",
+    "stripe": "^22.4.0",
     "web-push": "^3.6.7",
     "zod": "^3.25.76"
   },

@@ -22,6 +22,10 @@ interface PaymentEventPayload {
   paymentId?: string;
   checkoutGroupId?: string;
   errorCode?: string;
+  /** Which provider delivery raised an exception, for the operator's trace. */
+  providerEventId?: string;
+  /** The status the payment was in when the late capture arrived. */
+  releasedStatus?: string;
 }
 
 /** Read the payload without trusting jsonb to have the shape we wrote. */
@@ -35,6 +39,12 @@ function readPayload(event: PaymentOutboxRow): PaymentEventPayload {
       ? { checkoutGroupId: record.checkoutGroupId }
       : {}),
     ...(typeof record.errorCode === 'string' ? { errorCode: record.errorCode } : {}),
+    ...(typeof record.providerEventId === 'string'
+      ? { providerEventId: record.providerEventId }
+      : {}),
+    ...(typeof record.releasedStatus === 'string'
+      ? { releasedStatus: record.releasedStatus }
+      : {}),
   };
 }
 
@@ -117,6 +127,35 @@ async function handlePaymentFailed(event: PaymentOutboxRow): Promise<void> {
 }
 
 /**
+ * The rail captured money for a payment whose reservation had already been
+ * released.
+ *
+ * ## It deliberately does nothing but say so, loudly
+ *
+ * The orders were cancelled and their stock went back before this capture
+ * arrived. Re-committing that stock would oversell whatever has been bought
+ * since; booking the charge would credit `commission_revenue` with the entire
+ * gross, because there are no orders left to split it across; refunding is a
+ * policy decision that needs a person. Every automatic answer is worse than the
+ * exception, which is why the whole handler is one `error` line carrying the
+ * correlation ids and nothing else.
+ *
+ * `error` and not `warn`: money is sitting on the platform balance against no
+ * order, and that must not be discoverable only by someone who happened to be
+ * reading the logs. #50 owns the operator surface that reads these rows.
+ */
+async function handlePaymentSucceededAfterRelease(event: PaymentOutboxRow): Promise<void> {
+  const { paymentId, checkoutGroupId, providerEventId, releasedStatus } = readPayload(event);
+  log.general.error(
+    { eventId: event.id, paymentId, checkoutGroupId, providerEventId, releasedStatus },
+    '[Payments] provider captured a payment Mercaria had already released; no inventory, ' +
+      'order or ledger change was made — this needs an operator decision (refund or manual ' +
+      'fulfilment)',
+  );
+  return await Promise.resolve();
+}
+
+/**
  * Run one claimed outbox row.
  *
  * An event type this version does not handle THROWS, so it is retried rather
@@ -132,6 +171,8 @@ export async function runPaymentOutboxEvent(event: PaymentOutboxRow): Promise<vo
       return await handlePaymentSucceeded(event);
     case 'payment_failed':
       return await handlePaymentFailed(event);
+    case 'payment_succeeded_after_release':
+      return await handlePaymentSucceededAfterRelease(event);
     default:
       throw new Error(
         `No handler for payment outbox event type '${String(event.eventType)}' in this version.`,

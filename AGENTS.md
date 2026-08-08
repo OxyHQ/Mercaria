@@ -125,11 +125,17 @@ The six roles the code distinguishes: **catalog** (what a price is stored in),
 ## Payments: a provider-neutral domain and a balanced ledger
 
 `oxy_pay` is **gone** — a clean cut, not an alias. It named a rail nobody built.
-`PAYMENT_PROVIDER_IDS` in `@mercaria/shared-types` is now `external | manual_pos
-| mock`; Stripe (#46–#48) and Faircoin (#51) arrive as adapters behind
-`services/payments/provider.ts` and add their own value with their own migration.
+`PAYMENT_PROVIDER_IDS` in `@mercaria/shared-types` is `external | manual_pos |
+mock | stripe`; Faircoin (#51) arrives as an adapter behind
+`services/payments/provider.ts` and adds its own value with its own migration.
 Full model, index, retention and boundary reference: **`docs/payments.md`**;
 the binding decisions are ADR 0001 (`docs/adr/0001-stripe-connect-architecture.md`).
+
+Stripe exists **from the webhook inwards** (#48): the event ingress, its
+verification, its durable processing and its replay. The adapter that CREATES
+payments is #47's and onboarding is #46's — so a `stripe` payment row can only be
+written by the ingress today, which is why the id landed with it rather than in
+advance.
 
 **The ledger is load-bearing from day one.** ADR 0001 D3 gives up Stripe's
 `application_fee_amount` reporting, so Mercaria's commission — the charge minus
@@ -166,6 +172,45 @@ the sum of the sellers' nets — exists NOWHERE except `ledger_transactions` and
 - **Payloads are redacted by an ALLOW-list** (`services/payments/redact.ts`) and
   never stored or logged wholesale. A deny-list is correct only until the provider
   adds a field, which is exactly when a sensitive one appears.
+
+### Stripe webhooks (#48): two endpoints, and the rules around them
+
+`POST /webhooks/stripe` (platform scope) and `POST /webhooks/stripe/connect`
+(connect scope) — two Stripe objects with two SECRETS, which is why they cannot
+share a path. Env is `STRIPE_ENABLED`, `STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET(_PREVIOUS)`, `STRIPE_CONNECT_WEBHOOK_SECRET(_PREVIOUS)`,
+`STRIPE_SELLER_COUNTRIES` and the `STRIPE_EVENT_*` loop tunables. Full behaviour:
+`docs/payments.md` §"The Stripe event ingress".
+
+- **They are the THIRD raw-body mount**, beside `/channels/webhooks` and
+  `/webhooks/crowdsource`, and must stay before `express.json()`. Asserted
+  against the real chain by `routes/__tests__/stripe-webhook.integration.test.ts`
+  with a real signature and a json-parsed vacuity guard.
+- **The MOUNT is gated by `STRIPE_ENABLED`, so an unconfigured deployment 404s.**
+  This is NOT the "gate the loop, never the record" rule above and must not be
+  changed to match it: without a secret there is nothing to verify, so accepting
+  bytes to process later would be storing a stranger's opinion.
+- **`STRIPE_ENABLED=true` requires the key AND BOTH webhook secrets.** One
+  endpoint configured means sellers silently stop becoming payment-ready while
+  charges keep succeeding. There is no `STRIPE_ACCOUNT_ID` and no API-version
+  variable — the version is the code constant `STRIPE_API_VERSION`, and livemode
+  is DERIVED from the key's prefix so it cannot disagree with it.
+- **The event ROW is the job.** `payment_provider_events` carries the claim
+  columns; there is deliberately no outbox row pointing at an event row. Receipt
+  and processing are separate, so **a 200 means stored, never processed**.
+- **Use `constructEventAsync`, never `constructEvent`** — and the async test
+  helper too. Under Bun (which `bun run dev` uses) `stripe` resolves its worker
+  build and every SYNCHRONOUS crypto entry point throws, while production on Node
+  works fine: the bug would be invisible where it is tested and total where it is
+  written.
+- **No rate limiter on these paths, deliberately.** Stripe delivers from a small
+  IP pool, so a per-IP bucket is one bucket for the whole provider and a
+  legitimate retry burst would trip it until Stripe disabled the endpoint. The
+  bound is `express.raw`'s size limit plus refusal before any database access.
+- **A deferred handler writes `deferred: #NN` into `processing_note`.** Several
+  subscribed event types belong to #46/#47/#49 and arrive today; marking them
+  `processed` silently would make a seam indistinguishable from real handling in
+  the operator trace.
 
 ### Where it meets the rest of Mercaria
 
