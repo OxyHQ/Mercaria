@@ -121,12 +121,25 @@ export async function upsertExternalRef(
   return 'transaction' in db ? db.transaction(run) : run(db);
 }
 
-/** Drop every mapping a listing has to one connection — disconnecting a channel. */
-export async function deleteExternalRefsForConnection(
-  connectionId: string,
-  db: DatabaseOrTransaction = getDb(),
-): Promise<void> {
-  await db
-    .delete(listingExternalRefs)
-    .where(eq(listingExternalRefs.connectionId, connectionId));
-}
+/**
+ * ## There is deliberately no "clear a connection's mirrors" function
+ *
+ * It looks like an obvious gap next to the three reads and writes above, and it
+ * was written and then removed once it had no caller. Two reasons it should stay
+ * absent:
+ *
+ * **`disconnect` must not clear them.** It marks the connection `disconnected`
+ * and keeps the row, so provenance on already-imported listings stays meaningful.
+ * Dropping the mirrors there would mean every previously-pushed product re-pushes
+ * as `created` after a reconnect — duplicating it on the platform — and the
+ * inbound echo check stops recognising our own pushes and re-imports them as new
+ * listings. That is precisely the loop the mirror exists to break.
+ *
+ * **A real connection DELETE does not need it.** `connection_id` is
+ * `ON DELETE CASCADE`, so the mirrors go with the connection by constraint.
+ *
+ * Which leaves no caller at all — and this module follows the same rule as
+ * `variantRepository`: it grows with its callers rather than shipping functions
+ * nothing calls, because an unused write is how a repository accumulates a
+ * second, subtly different way to do the same thing.
+ */
