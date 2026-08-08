@@ -31,6 +31,26 @@ env:
 jobs:
   test:
     runs-on: ubuntu-24.04-arm
+
+    services:
+      # The backend suite needs a real PostGIS server (see ci.yml's Lint & Test
+      # job — same block, same reasoning): vitest.pg.globalSetup.ts creates a
+      # throwaway database on this server and refuses to run without one.
+      # Pinned to the SAME image as docker-compose.postgres.yml, on BOTH versions.
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: mercaria
+          POSTGRES_PASSWORD: mercaria
+          POSTGRES_DB: mercaria_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mercaria -d mercaria_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
     steps:
       - uses: actions/checkout@v4
 
@@ -43,6 +63,10 @@ jobs:
       - run: bun run --filter @mercaria/backend lint
 
       - run: bun run --filter @mercaria/backend test
+        env:
+          # Names the SERVER, never the database the tests use — the harness
+          # creates and drops its own throwaway database on it (see ci.yml).
+          TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
 
       - run: bun run build:backend
 
