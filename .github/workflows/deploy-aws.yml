@@ -140,21 +140,24 @@ jobs:
 
   deploy:
     needs: test
-    # x86 + QEMU, not ubuntu-24.04-arm: since ~16:02Z 2026-08-08 EVERY run of
-    # this workflow (push and dispatch) completed as `action_required` with ZERO
-    # jobs created — no environment protection, no pending_deployments, Actions
-    # policy allow-all. The one job distinguishing this workflow from the ones
-    # that still run is this ARM runner label (a partner-runner entitlement can
-    # gate run creation on a free-plan org). The arm64 IMAGE is unchanged —
-    # buildx builds linux/arm64 through QEMU, same as the local fallback deploys
-    # used during the outage.
-    runs-on: ubuntu-latest
+    # Native arm64, matching the image this job builds.
+    #
+    # A CORRECTED RECORD, written down so the wrong version is not re-derived:
+    # on 2026-08-08 every run of this workflow completed as `action_required`
+    # with ZERO jobs, and this ARM label was blamed for it. It was not the label.
+    # GitHub's run page gives the real reason — "GitHub detected that this
+    # workflow file may be malicious. It will not run until someone with write
+    # access approves it" — which is why a dispatch also produced zero jobs and
+    # why the API's approve endpoint refuses (it only serves fork PRs). Two
+    # measurements settle it: the first green deploy (run 31275312983) started
+    # 20:05:05Z once approved and ran THIS job on THIS label, three minutes
+    # before the commit that switched it to QEMU; and Syra's identical workflow
+    # was blocked the same way with both jobs already on `ubuntu-latest`.
+    # Emulated arm64 is much slower than native, so the label stays; a blocked
+    # run needs a human to approve it, not a runner change.
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-
-      - uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
 
       - name: Configure AWS credentials (OIDC, no stored keys)
         uses: aws-actions/configure-aws-credentials@v4
