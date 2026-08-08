@@ -385,17 +385,23 @@ sequenceDiagram
     participant Op as Operator
     S->>API: webhook charge.dispute.created (platform debited: amount+fee)
     API->>API: dispute lifecycle record, link order via metadata,<br/>ledger: disputes / processor expense
-    API->>S: Transfer.reversal on affected order (recover principal from seller)
     API->>Op: alert with correlation ids (#50)
     Op->>S: submit evidence (Stripe dashboard)
     S->>API: webhook charge.dispute.closed (won | lost)
     alt won
-        API->>API: ledger: reverse dispute entries
-        API->>S: re-transfer recovered principal to seller
+        API->>API: ledger: reverse dispute entries<br/>(seller's transfer was never touched)
     else lost
+        API->>S: Transfer.reversal on affected order (recover principal from seller)
         API->>API: loss stays seller-side; order refunded state per outcome
     end
 ```
+
+*Corrected 2026-08-08 during #49: recovery runs on `lost`, not at dispute
+open. Reversing at open would take a seller's money for a dispute they may
+win, and re-transferring on a win is a second transfer for an order —
+forbidden by `UNIQUE(transfers.payment_id, order_id)`, the constraint that
+stops a settlement retry from paying twice. D7's liability assignment is
+unchanged; only the timing moved.*
 
 ### 6. Seller loses readiness after prior activation
 

@@ -46,11 +46,21 @@ const WEBHOOK_SECRET = 'whsec_provider_suite_not_a_real_one';
 const api = vi.hoisted(() => ({
   intents: new Map<string, Record<string, unknown>>(),
   transfers: new Map<string, Record<string, unknown>>(),
+  /** Charge id → the object a settled intent produced (#49). */
+  charges: new Map<string, Record<string, unknown>>(),
+  /** Refund id → the object `createStripeRefund` produced (#49). */
+  refunds: new Map<string, Record<string, unknown>>(),
   /** Idempotency key → the object that key already produced. */
   byKey: new Map<string, Record<string, unknown>>(),
   /** Every create call, verbatim, so a payload can be ASSERTED rather than assumed. */
   intentCalls: [] as { params: Record<string, unknown>; idempotencyKey: string }[],
   transferCalls: [] as { params: Record<string, unknown>; idempotencyKey: string }[],
+  refundCalls: [] as { params: Record<string, unknown>; idempotencyKey: string }[],
+  reversalCalls: [] as {
+    transferId: string;
+    params: Record<string, unknown>;
+    idempotencyKey: string;
+  }[],
   /** Which call should throw next, and as what — the suite's failure injection. */
   failures: new Map<string, { type: string; message: string; code?: string }>(),
   nextId: 0,
@@ -140,8 +150,111 @@ vi.mock('../client.js', () => ({
     return Promise.resolve(transfer);
   },
   retrieveStripeTransfer: (id: string) => Promise.resolve(api.transfers.get(id)),
+  /**
+   * Refund a charge, the way Stripe does — including the two expansions the
+   * adapter depends on and neither of which it may invent.
+   *
+   * `charge` is expanded because the PAYMENT's status after a refund is a
+   * question about the charge's cumulative `amount_refunded`, not about this
+   * refund's amount. `balance_transaction` is expanded because it is the only
+   * statement of what the refund took off the PLATFORM balance, at the
+   * refund-time rate (ADR 0001 D7).
+   */
+  createStripeRefund: (params: Record<string, unknown>, idempotencyKey: string) => {
+    guard('refund');
+    api.refundCalls.push({ params, idempotencyKey });
+    const existing = api.byKey.get(idempotencyKey);
+    if (existing) return Promise.resolve(existing);
+
+    const charge = api.charges.get(String(params.charge));
+    if (!charge) {
+      throw Object.assign(new Error(`No such charge: ${String(params.charge)}`), {
+        type: 'StripeInvalidRequestError',
+        code: 'resource_missing',
+      });
+    }
+    const amount = Number(params.amount);
+    if (Number(charge.amount_refunded) + amount > Number(charge.amount)) {
+      throw Object.assign(new Error('Refund amount exceeds the charge amount.'), {
+        type: 'StripeInvalidRequestError',
+        code: 'amount_too_large',
+      });
+    }
+    charge.amount_refunded = Number(charge.amount_refunded) + amount;
+
+    api.nextId += 1;
+    const refund = {
+      id: `re_fake_${String(api.nextId)}`,
+      object: 'refund',
+      amount,
+      currency: charge.currency,
+      status: 'succeeded',
+      metadata: params.metadata,
+      charge,
+      balance_transaction: {
+        id: `txn_re_${String(api.nextId)}`,
+        object: 'balance_transaction',
+        // Negative: funds LEAVING the platform balance. The adapter takes the
+        // magnitude, and a fake that reported it positive would hide that.
+        amount: -amount,
+        currency: charge.currency,
+        fee: 0,
+        exchange_rate: null,
+        created: Math.floor(Date.now() / 1000),
+      },
+    };
+    api.refunds.set(refund.id, refund);
+    api.byKey.set(idempotencyKey, refund);
+    return Promise.resolve(refund);
+  },
+  retrieveStripeRefund: (id: string) => {
+    const refund = api.refunds.get(id);
+    if (!refund) throw new Error(`No fake refund registered for ${id}`);
+    return Promise.resolve(refund);
+  },
+  createStripeTransferReversal: (
+    transferId: string,
+    params: Record<string, unknown>,
+    idempotencyKey: string,
+  ) => {
+    guard('transfer');
+    api.reversalCalls.push({ transferId, params, idempotencyKey });
+    const existing = api.byKey.get(idempotencyKey);
+    if (existing) return Promise.resolve(existing);
+
+    const transfer = api.transfers.get(transferId);
+    if (!transfer) {
+      throw Object.assign(new Error(`No such transfer: ${transferId}`), {
+        type: 'StripeInvalidRequestError',
+        code: 'resource_missing',
+      });
+    }
+    transfer.amount_reversed = Number(transfer.amount_reversed ?? 0) + Number(params.amount);
+
+    api.nextId += 1;
+    const reversal = {
+      id: `trr_fake_${String(api.nextId)}`,
+      object: 'transfer_reversal',
+      amount: params.amount,
+      // The reversal reports the TRANSFER, whose reversed total is cumulative —
+      // which is what the adapter hands back so a caller never has to add this
+      // leg to a figure it read before the call.
+      transfer,
+    };
+    api.byKey.set(idempotencyKey, reversal);
+    return Promise.resolve(reversal);
+  },
   retrieveStripeChargeWithBalance: () => {
     throw new Error('The adapter suite reads no balance transactions.');
+  },
+  retrieveStripeChargeWithRefunds: () => {
+    throw new Error('The adapter suite reads no charge refund lists.');
+  },
+  retrieveStripeDispute: () => {
+    throw new Error('The adapter suite reads no disputes.');
+  },
+  retrieveStripePayout: () => {
+    throw new Error('The adapter suite reads no payouts.');
   },
   createStripeConnectedAccount: () => {
     throw new Error('The adapter suite creates no connected accounts.');
@@ -170,9 +283,13 @@ beforeAll(async () => {
 beforeEach(() => {
   api.intents.clear();
   api.transfers.clear();
+  api.charges.clear();
+  api.refunds.clear();
   api.byKey.clear();
   api.intentCalls.length = 0;
   api.transferCalls.length = 0;
+  api.refundCalls.length = 0;
+  api.reversalCalls.length = 0;
   api.failures.clear();
   api.nextId = 0;
 });
@@ -215,6 +332,11 @@ async function signedEvent(input: {
 // what a card rail's success actually is: the BUYER confirms and Stripe captures
 // in the same movement, so the fake moves the intent rather than the adapter
 // calling a capture that does not exist.
+//
+// #49 moved `refund` out of `unsupported`, which un-skips two arms that had
+// never run against this rail — the partial-refund walk and the injected refund
+// failure. Both now exercise the real adapter against the fake, which is the
+// point of declaring a rail's refusals rather than skipping its tests.
 runPaymentProviderContract({
   name: 'StripePaymentProvider (fake Stripe client)',
   createProvider: () => new StripePaymentProvider(),
@@ -222,12 +344,25 @@ runPaymentProviderContract({
     const intent = api.intents.get(input.providerObjectId);
     if (!intent) throw new Error(`No fake intent for ${input.providerObjectId}`);
     intent.status = 'succeeded';
+    // A settled intent has a CHARGE, and the refund path resolves it from here
+    // rather than being handed one — "which charge funded this payment" is a
+    // Stripe question and a `chargeId` on a provider-neutral request would be
+    // the first Stripe noun to cross the seam. A fake that skipped this would
+    // let the adapter's `resolveChargeId` go untested.
+    const chargeId = `ch_fake_${String(input.providerObjectId)}`;
+    intent.latest_charge = chargeId;
+    api.charges.set(chargeId, {
+      id: chargeId,
+      object: 'charge',
+      amount: intent.amount,
+      currency: intent.currency,
+      amount_refunded: 0,
+    });
     return Promise.resolve();
   },
   unsupported: {
     authorize: 'Stripe payments are authorized by the buyer',
     capture: 'capture automatically on confirmation',
-    refund: '#49',
   },
   injectFailure: (_provider: PaymentProvider, stage: PaymentProviderStage) => {
     api.failures.set(stage, {

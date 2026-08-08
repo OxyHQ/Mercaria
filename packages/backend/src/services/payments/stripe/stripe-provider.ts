@@ -7,8 +7,7 @@
  *
  * ## What this rail cannot do, and says so out loud
  *
- * `authorize`, `capture` and `refund` all THROW, and the messages are the
- * documentation:
+ * `authorize` and `capture` both THROW, and the messages are the documentation:
  *
  *  - **Capture is immediate** (ADR 0001 D3): the PaymentIntent captures itself
  *    the moment the buyer confirms it, so there is no second step for Mercaria
@@ -21,10 +20,20 @@
  *    that moves a PaymentIntent forward without one, and inventing one would
  *    mean collecting card details, which is the whole thing this integration
  *    exists to avoid (PCI SAQ-A).
- *  - **Refunds are #49's**, together with the transfer reversal that has to
- *    accompany them. Refunding a buyer without reversing the seller's share pays
- *    a seller for goods that came back, so half of that pair is worse than
- *    neither, and the throw names the issue that lands both.
+ *
+ * ## Refunds are two movements, and this rail offers them as two methods
+ *
+ * `refund` returns the buyer's money out of the group's charge; `reverseTransfer`
+ * takes the seller's proportional share back off their connected account. ADR
+ * 0001 D7 pairs them and then insists they are NOT atomic: a reversal can fail
+ * on an insufficient seller balance where the refund did not, and the buyer's
+ * refund is explicitly not blocked on it.
+ *
+ * So they are separate calls in two different currencies — the buyer's
+ * presentment currency and the platform's settlement currency — and neither
+ * knows the other happened. What pairs them is the refund domain above, which is
+ * also the only thing that can decide what to do when one half lands and the
+ * other does not.
  *
  * ## Payment methods: `card` explicitly, never `automatic_payment_methods`
  *
@@ -62,17 +71,28 @@ import {
   type ProviderPaymentResult,
   type ProviderRefundResult,
   type ProviderTransferResult,
+  type ProviderTransferReversalResult,
   type RefundRequest,
   type ResumablePaymentProvider,
+  type ReverseTransferRequest,
   type SettlingPaymentProvider,
 } from '../provider.js';
 import {
   cancelStripePaymentIntent,
   createStripePaymentIntent,
+  createStripeRefund,
   createStripeTransfer,
+  createStripeTransferReversal,
   retrieveStripePaymentIntent,
 } from './client.js';
-import { mapPaymentIntentStatus, toProviderEventEnvelope, verifyStripeEvent } from './verify.js';
+import {
+  mapPaymentIntentStatus,
+  mapRefundStatus,
+  refundPlatformSettlement,
+  refundedPaymentStatus,
+  toProviderEventEnvelope,
+  verifyStripeEvent,
+} from './verify.js';
 
 /**
  * The launch payment method set — ADR 0001 D3. See this file's docblock for why
@@ -280,15 +300,93 @@ export class StripePaymentProvider implements SettlingPaymentProvider, Resumable
     }
   }
 
-  /** #49's, together with the transfer reversal — see this file's docblock. */
-  refund(_request: RefundRequest): Promise<ProviderRefundResult> {
-    return Promise.reject(
-      unsupported(
-        'refund',
-        'Refunding a Stripe payment lands in #49, with the transfer reversal that must accompany ' +
-          'it: a buyer refund without the seller-side reversal pays a seller for returned goods.',
-      ),
-    );
+  /**
+   * Refund a buyer, out of the GROUP's charge — ADR 0001 D7.
+   *
+   * The charge is resolved here from the PaymentIntent, exactly as
+   * `createTransfer` resolves it: "which charge funded this payment" is a Stripe
+   * question, and a charge id on a provider-neutral request would be the first
+   * Stripe noun to cross the seam.
+   *
+   * `amount` is the buyer's side and is therefore in the PRESENTMENT currency —
+   * whatever the charge was made in. The seller-side recovery is a separate call
+   * (`reverseTransfer`) in a different currency entirely, which is why the two
+   * are not one method: they move different money, they can fail
+   * independently, and ADR 0001 D7 says the buyer's refund is not blocked on the
+   * seller's.
+   *
+   * ## Why the payment's own status comes from the CHARGE and not the refund
+   *
+   * A Refund object knows its own amount and nothing about its siblings. One
+   * checkout group is one charge (D4), so "is this payment now fully refunded"
+   * is a question about the charge's `amount_refunded` — and for a multi-seller
+   * group, refunding one seller's order must NOT report the payment as
+   * `refunded`. Reading it off the expanded charge is what makes that correct
+   * without this adapter knowing what a seller order is.
+   */
+  async refund(request: RefundRequest): Promise<ProviderRefundResult> {
+    try {
+      const chargeId = await this.resolveChargeId(request.providerObjectId);
+      const refund = await createStripeRefund(
+        {
+          charge: chargeId,
+          amount: request.amount.amount,
+          metadata: { ...request.metadata },
+        },
+        request.idempotencyKey,
+      );
+
+      return {
+        providerObjectId: refund.id,
+        status: refundedPaymentStatus(refund),
+        state: mapRefundStatus(refund.status),
+        ...(refundPlatformSettlement(refund) ?? {}),
+        ...(refund.failure_reason ? { failureCode: refund.failure_reason } : {}),
+      };
+    } catch (error: unknown) {
+      throw toProviderError(error, 'refund');
+    }
+  }
+
+  /**
+   * Take a seller's share back off their connected account — ADR 0001 D7.
+   *
+   * `amount` is in the TRANSFER's currency (the platform settlement currency),
+   * which is not the currency the buyer was refunded in on any converted charge.
+   * Nothing here re-derives it: the caller owns the proportional arithmetic,
+   * because it is the same allocation the settlement used and computing it twice
+   * is how a seller's account stops netting to zero.
+   *
+   * An insufficient balance is a PERMANENT failure here even though Stripe
+   * reports it as an ordinary invalid request: no retry creates funds on a
+   * seller's account. `toProviderError` already classifies
+   * `StripeInvalidRequestError` as permanent, which is what routes it to the
+   * operator exception path rather than a backoff loop that would still be
+   * running when the dispute window closed.
+   */
+  async reverseTransfer(
+    request: ReverseTransferRequest,
+  ): Promise<ProviderTransferReversalResult> {
+    try {
+      const reversal = await createStripeTransferReversal(
+        request.transferObjectId,
+        { amount: request.amount.amount, metadata: { ...request.metadata } },
+        request.idempotencyKey,
+      );
+
+      // The reversal reports the transfer it belongs to, and a reversal total is
+      // CUMULATIVE — so the caller is told where the transfer now stands rather
+      // than being left to add this leg to a figure it read before the call.
+      const transfer: unknown = reversal.transfer;
+      const totalReversedMinor =
+        typeof transfer === 'object' && transfer !== null && 'amount_reversed' in transfer
+          ? Number((transfer as { amount_reversed: unknown }).amount_reversed)
+          : request.amount.amount;
+
+      return { providerObjectId: reversal.id, totalReversedMinor };
+    } catch (error: unknown) {
+      throw toProviderError(error, 'transfer');
+    }
   }
 
   async getStatus(providerObjectId: string): Promise<ProviderPaymentResult> {

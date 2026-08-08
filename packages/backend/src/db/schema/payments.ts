@@ -59,6 +59,8 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
+  DISPUTE_OUTCOMES,
+  DISPUTE_STATUSES,
   PAYMENT_ATTEMPT_STATUSES,
   PAYMENT_OUTBOX_EVENT_TYPES,
   PAYMENT_OUTBOX_STATUSES,
@@ -69,6 +71,7 @@ import {
   PROVIDER_CAPABILITY_STATUSES,
   PROVIDER_EVENT_STATUSES,
   PROVIDER_ONBOARDING_STATES,
+  REFUND_REVERSAL_STATES,
   TRANSFER_STATUSES,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks, money, optionalMoney } from './columns';
@@ -557,13 +560,18 @@ export const paymentProviderEvents = pgTable(
     /**
      * What this version DID with the event, when what it did was not to apply it.
      *
-     * The seam marker. Several of the event types #48 subscribes to are consumed
-     * by later issues — connected-account readiness by #46, refunds, disputes and
-     * payouts by #49 — and those arrive here today, verify, store and then have
-     * nowhere to go. Marking them `processed` with nothing else recorded would
-     * make a deferral indistinguishable from real handling in the operator trace,
-     * which is the one thing a seam must never look like. So a deferred handler
-     * writes `deferred: #49 — …` here and the trace says so out loud.
+     * The seam marker, and the ordinary outcome note beside it. A subscribed
+     * type whose consumer has not shipped arrives here, verifies, stores and has
+     * nowhere to go; marking it `processed` with nothing else recorded would make
+     * a deferral indistinguishable from real handling in the operator trace,
+     * which is the one thing a seam must never look like. So such a handler
+     * writes `deferred: #NN — …` here and the trace says so out loud.
+     *
+     * As of #49 every subscribed type is APPLIED and nothing writes a deferral —
+     * the column now carries what a handler DID (which refund converged, which
+     * dispute was booked, whether a fee was restated). The seam form stays for
+     * the next type, because a trace that could not express it would make that
+     * seam invisible.
      *
      * Distinct from `last_error` on purpose: this is not a failure, it is the
      * correct outcome for this version, and putting it in an error column would
@@ -687,8 +695,22 @@ export const transfers = pgTable(
  * and must not reopen it.
  *
  * There is no foreign key to a seller: `provider_account_ref` is the PROVIDER's
- * connected-account id, and the record mapping one to a store or an Oxy user is
- * #46's to add.
+ * connected-account id, and `provider_accounts` (#46) is what resolves it to a
+ * store or an Oxy user.
+ *
+ * ## `amount_currency` is NOT checked against Mercaria's currency set
+ *
+ * The third such exemption in this database, and it is the same one
+ * `provider_accounts.default_currency` and `connections.shop_currency` already
+ * carry — registered beside them for the same reason. A payout is denominated in
+ * the SELLER's own settlement currency, which the provider chooses from the
+ * account's country: several EEA currencies a seller may legitimately be paid in
+ * (RON, CZK, HUF, BGN) are not in `ALL_CURRENCY_CODES`, and a CHECK would reject
+ * the RECORD of a payout that has already happened. Mercaria neither prices nor
+ * converts this figure — it is shown to the seller and reconciled against the
+ * provider — so the cost of the exemption is a string nothing computes with, and
+ * the cost of the CHECK would be losing payout health for exactly the sellers
+ * whose payouts are most likely to need it.
  */
 export const payouts = pgTable(
   'payouts',
@@ -698,7 +720,9 @@ export const payouts = pgTable(
     /** The provider's connected-account reference this payout belongs to. */
     providerAccountRef: text().notNull(),
     providerObjectId: text().notNull(),
-    ...money('amount'),
+    amountAmount: bigint({ mode: 'number' }).notNull(),
+    /** The SELLER's settlement currency — deliberately unchecked, see above. */
+    amountCurrency: text().notNull(),
     status: text({ enum: asEnumValues(PAYOUT_STATUSES) }).notNull().default('pending'),
     /** When the provider expects (or reported) the funds landing. */
     arrivalAt: timestamptz(),
@@ -710,12 +734,142 @@ export const payouts = pgTable(
   (t) => [
     checkOneOf('payouts_provider_check', t.provider, PAYMENT_PROVIDER_IDS),
     checkOneOf('payouts_status_check', t.status, PAYOUT_STATUSES),
-    ...currencyChecks('payouts', [t.amountCurrency]),
     check('payouts_amount_check', sql`${t.amountAmount} >= 0`),
+    check('payouts_amount_currency_length_check', sql`length(${t.amountCurrency}) between 3 and 8`),
     // A redelivered payout event updates the row it already made.
     uniqueIndex('payouts_provider_object_id_key').on(t.provider, t.providerObjectId),
     index('payouts_account_created_at_idx').on(t.providerAccountRef, t.createdAt.desc()),
     index('payouts_status_created_at_idx').on(t.status, t.createdAt),
+  ],
+);
+
+/**
+ * `disputes` — a buyer's bank reversing a charge through the card network.
+ *
+ * ADR 0001 D7 and issue #49. Under separate charges and transfers Mercaria is
+ * the merchant of record (D1), so the platform balance is what gets debited and
+ * Mercaria is who answers the network — which is why this is a first-class table
+ * rather than a flag on `payments`: a dispute has its own deadline, its own
+ * evidence, its own outcome and its own ledger life, and it can resolve months
+ * after the payment it names has been settled and paid out.
+ *
+ * ## A dispute is NOT a moderation case, and the two never meet
+ *
+ * Issue #49 scope 7, and it is a real risk rather than a formality: Mercaria
+ * already has a case system with reports, juries and enforcement
+ * (`services/moderation/`), and "a buyer says this transaction was not theirs"
+ * reads like something it should hear about. It must not. CrowdSource decides
+ * whether CONTENT breaks a rule and its decisions come back signed by a jury;
+ * a dispute is decided by a card network on evidence Mercaria submits, on a
+ * deadline nobody here sets. Wiring one into the other would put a bank's
+ * chargeback rate into a seller's reputation and a jury's verdict into a
+ * financial ledger. Nothing in this file imports moderation, and nothing in
+ * moderation imports this.
+ *
+ * ## `order_id` is nullable, and its absence is a real state
+ *
+ * One charge funds a whole checkout group (D4), so a dispute arrives naming a
+ * charge and Mercaria has to decide WHICH seller order it is about. For a
+ * single-seller group that is unambiguous. For a multi-seller one the network
+ * gives no line detail, so the dispute is recorded attributed to the PAYMENT
+ * only and an operator attributes it — which is the honest shape, because
+ * guessing would reverse an innocent seller's transfer.
+ *
+ * ## The amount is what the RAIL moved, never what the order was worth
+ *
+ * `amount` is read from the dispute's own balance movement on the platform
+ * balance, in the platform's settlement currency — the same discipline
+ * `readSettlement` applies to a charge. A dispute for which the rail reported NO
+ * movement is an inquiry (`status = 'warning'`): it carries a deadline and needs
+ * evidence, and no money has left. Booking one would debit a balance nothing
+ * debited, so `amount` is zero there and no ledger transaction is written.
+ */
+export const disputes = pgTable(
+  'disputes',
+  {
+    id: generatedId(),
+    provider: text({ enum: asEnumValues(PAYMENT_PROVIDER_IDS) }).notNull(),
+    /** The provider's own dispute id (`dp_…`) — their key space, never ours. */
+    providerDisputeId: text().notNull(),
+    /**
+     * The payment whose charge was disputed. `restrict`, like every other
+     * reference to a payment here: nothing deletes a financial aggregate.
+     */
+    paymentId: text()
+      .notNull()
+      .references(() => payments.id, { onDelete: 'restrict' }),
+    /** The seller order, once attributed — correlation, no foreign key. */
+    orderId: text(),
+    ...money('amount'),
+    /** The dispute FEE the provider charged, in the same currency as `amount`. */
+    feeAmount: bigint({ mode: 'number' }).notNull().default(0),
+    /**
+     * The network's reason code verbatim (`fraudulent`, `product_not_received`).
+     *
+     * The provider's vocabulary, not Mercaria's, so it is unconstrained text —
+     * card networks add reason codes on their own schedule and a CHECK would
+     * reject the record of a dispute that is already running against a clock.
+     */
+    reason: text(),
+    status: text({ enum: asEnumValues(DISPUTE_STATUSES) }).notNull(),
+    /** When evidence must be submitted by. The only deadline Mercaria does not set. */
+    evidenceDueBy: timestamptz(),
+    /**
+     * When the OPENING was booked to the ledger, and the compare-and-swap that
+     * makes it happen exactly once.
+     *
+     * Not derivable from `created_at` or from `status`, which is why it is a
+     * column: an inquiry is recorded with no money movement and can ESCALATE
+     * into a real chargeback later, at which point the amount appears on a row
+     * that already existed. So "has this dispute's debit been booked" is a
+     * different question from "is this row new", and answering it with the
+     * second would either book nothing for every escalation or book twice for
+     * every redelivery.
+     */
+    openedBookedAt: timestamptz(),
+    /**
+     * How it ended — `won` or `lost` — and NULL while it is running.
+     *
+     * Distinct from `status` even though the two agree once it closes, because
+     * "is this still open" and "who won" are asked by different readers: the
+     * operator queue filters on the first, the ledger reconciliation on the
+     * second, and a closed dispute with no outcome would be invisible to both.
+     */
+    outcome: text({ enum: asEnumValues(DISPUTE_OUTCOMES) }),
+    closedAt: timestamptz(),
+    /**
+     * The reversal that recovered the principal from the seller on a LOSS, and
+     * its state. NULL while nothing has been recovered.
+     */
+    recoveryState: text({ enum: asEnumValues(REFUND_REVERSAL_STATES) }),
+    providerReversalId: text(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    checkOneOf('disputes_provider_check', t.provider, PAYMENT_PROVIDER_IDS),
+    checkOneOf('disputes_status_check', t.status, DISPUTE_STATUSES),
+    checkOneOf('disputes_outcome_check', t.outcome, DISPUTE_OUTCOMES),
+    checkOneOf('disputes_recovery_state_check', t.recoveryState, REFUND_REVERSAL_STATES),
+    ...currencyChecks('disputes', [t.amountCurrency]),
+    check('disputes_amount_check', sql`${t.amountAmount} >= 0 and ${t.feeAmount} >= 0`),
+    // A closed dispute has an outcome and an open one has none — the pair the
+    // two readers above depend on, held together here rather than by whoever
+    // writes the update.
+    check(
+      'disputes_outcome_closed_check',
+      sql`(${t.outcome} is null) = (${t.closedAt} is null)`,
+    ),
+    // A redelivered dispute event updates the row it already made.
+    uniqueIndex('disputes_provider_dispute_id_key').on(t.provider, t.providerDisputeId),
+    index('disputes_payment_id_created_at_idx').on(t.paymentId, t.createdAt.desc()),
+    index('disputes_order_id_created_at_idx')
+      .on(t.orderId, t.createdAt.desc())
+      .where(sql`${t.orderId} is not null`),
+    // The operator queue: what is still open, soonest deadline first.
+    index('disputes_open_evidence_due_idx')
+      .on(t.evidenceDueBy)
+      .where(sql`${t.closedAt} is null`),
   ],
 );
 

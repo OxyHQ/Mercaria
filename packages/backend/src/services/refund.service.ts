@@ -12,6 +12,29 @@
  * related buyer it decrements the customer's lifetime `totalSpent`. The
  * sparse-unique `idempotencyKey` short-circuits a replayed submit. Every operation
  * is scoped to its `storeId`, so a member only ever refunds their own store's orders.
+ *
+ * ## The commerce decision commits BEFORE the money moves, and that is ADR 0001 D7
+ *
+ * Everything above is the commerce record and it is authoritative for WHAT is
+ * refundable. When the order was paid through a rail that settled its seller,
+ * `process` additionally commits a `payment_refunded` outbox row in the same
+ * transaction, and `services/payments/refund-execution.service.ts` is what then
+ * returns the buyer's money and recovers the seller's share.
+ *
+ * Two consequences follow and both are deliberate:
+ *
+ *  - **A rail being slow or unreachable cannot refuse a refund a merchant
+ *    authorised.** The record commits, the stock is back, the order has moved,
+ *    and the money follows with retries behind it.
+ *  - **A refund is `refunded` here while its money is still `pending` there.**
+ *    Those are two different facts about one refund — the commerce lifecycle and
+ *    the money's own — and the DTO carries both so a merchant screen can tell
+ *    them apart rather than being told a buyer has been paid when they have not.
+ *
+ * Nothing in the provider path ever touches inventory. Restock happens exactly
+ * once, here, from the lines the merchant approved (#49 invariant 2), and a
+ * provider outcome arriving days later — a refund that failed at the issuer, a
+ * reversal that could not be made — changes no stock at all.
  */
 
 import {
@@ -25,6 +48,7 @@ import {
 import { isUniqueViolation } from '@oxyhq/db';
 import {
   findRefundByIdempotencyKey,
+  findRefundById,
   findRefundInStore,
   findRefundsForOrderInStore,
   insertRefund,
@@ -40,8 +64,11 @@ import {
   setOrderStatus,
   type OrderItemRecord,
 } from '../db/orders/orderRepository.js';
+import { getDb } from '../db/postgres.js';
 import { restock } from './inventory.service.js';
 import { decrementOnRefund } from './customer.service.js';
+import { paymentRefundedEventId, enqueuePaymentEvent } from './payments/payment-outbox.service.js';
+import { refundGoesThroughProvider } from './payments/refund-execution.service.js';
 import { sumMoney, roundMinorUnits } from '../utils/money.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
@@ -119,6 +146,19 @@ export function toRefundDTO(refund: RefundRecord): RefundDTO {
   if (refund.rmaNumber) dto.rmaNumber = refund.rmaNumber;
   if (refund.restockedAt) dto.restockedAt = refund.restockedAt.toISOString();
   if (refund.processedByOxyUserId) dto.processedByOxyUserId = refund.processedByOxyUserId;
+  // The MERCHANT-safe slice of the provider operation: which rail, where the
+  // money got to, and a failure CODE. Named field by field rather than spread,
+  // like every other projection here, so a column added later cannot ride along.
+  //
+  // What is deliberately absent is everything that identifies the movement at
+  // the rail or describes Mercaria's own recovery — `providerRefundId`,
+  // `providerReversalId`, `reversalState` and the reversal amount. A merchant
+  // needs to know whether their buyer has been paid; whether Mercaria has
+  // finished clawing the seller's share back off a connected account is an
+  // operator's reconciliation question and belongs to the payment trace (#50).
+  if (refund.provider) dto.provider = refund.provider;
+  if (refund.providerState) dto.providerState = refund.providerState;
+  if (refund.providerFailureCode) dto.providerFailureCode = refund.providerFailureCode;
   return dto;
 }
 
@@ -268,24 +308,70 @@ export async function process(
     }
   }
 
-  // 9. Create the immutable refund + its lines in ONE transaction; converge on a
-  // concurrent idempotent duplicate.
+  const db = getDb();
+
+  // The RMA number is drawn BEFORE the transaction below, and deliberately: it
+  // comes from a Postgres SEQUENCE, which is non-transactional by design, so
+  // drawing it inside would burn a number on every rollback without making it
+  // reusable. Outside, a rolled-back refund costs one gap in a printed number
+  // rather than a transaction that has to be retried around a side effect it
+  // cannot undo.
+  const rmaNumber = await nextRmaNumber();
+
+  // 9. Decide whether this refund has a MONEY movement to make, and at which
+  // rail. A payment Mercaria recorded rather than made — cash in a register, or
+  // an order captured on Shopify — is refunded wherever it was captured, so it
+  // gets no provider operation and the row says so by leaving `provider` NULL
+  // (#49 scope 9). The rail must also be one that settled the seller, because a
+  // buyer refund with no way to recover the seller's share is exactly the half
+  // of ADR 0001 D7 that must not ship alone.
+  const providerOperation =
+    order.paymentId && order.paymentProvider && refundGoesThroughProvider(order.paymentProvider)
+      ? { provider: order.paymentProvider, paymentId: order.paymentId }
+      : undefined;
+
+  // 10. Create the immutable refund + its lines and — when there is money to
+  // move — the durable promise that it will move, in ONE transaction. Converge
+  // on a concurrent idempotent duplicate.
+  //
+  // The outbox row commits WITH the refund because the two are one decision: a
+  // refund whose provider call lived in this request would evaporate on a
+  // restart, and by then the inventory above has already been restocked. The row
+  // IS the job, exactly as it is for a payment's own consequences.
   let created: RefundRecord;
   try {
-    created = await insertRefund({
-      orderId,
-      ...(order.storeId ? { storeId: order.storeId } : {}),
-      ...(order.sellerOxyUserId ? { sellerOxyUserId: order.sellerOxyUserId } : {}),
-      type: input.type ?? 'refund',
-      status: 'refunded',
-      ...(input.reason ? { reason: input.reason } : {}),
-      lineItems: computedLines,
-      ...(refundShipping ? { refundShipping } : {}),
-      totalRefunded,
-      ...(anyRestock ? { restockedAt: new Date() } : {}),
-      processedByOxyUserId: actorOxyUserId,
-      rmaNumber: await nextRmaNumber(),
-      ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+    created = await db.transaction(async (tx) => {
+      const refund = await insertRefund(
+        {
+          orderId,
+          ...(order.storeId ? { storeId: order.storeId } : {}),
+          ...(order.sellerOxyUserId ? { sellerOxyUserId: order.sellerOxyUserId } : {}),
+          type: input.type ?? 'refund',
+          status: 'refunded',
+          ...(input.reason ? { reason: input.reason } : {}),
+          lineItems: computedLines,
+          ...(refundShipping ? { refundShipping } : {}),
+          totalRefunded,
+          ...(anyRestock ? { restockedAt: new Date() } : {}),
+          processedByOxyUserId: actorOxyUserId,
+          rmaNumber,
+          ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+          ...(providerOperation ? { providerOperation } : {}),
+        },
+        tx,
+      );
+      if (providerOperation) {
+        await enqueuePaymentEvent(tx, {
+          id: paymentRefundedEventId(refund.id),
+          eventType: 'payment_refunded',
+          payload: {
+            refundId: refund.id,
+            orderId,
+            paymentId: providerOperation.paymentId,
+          },
+        });
+      }
+      return refund;
     });
   } catch (err) {
     // The NAMED index, so a duplicate on any other constraint stays a real
@@ -303,10 +389,17 @@ export async function process(
     throw err;
   }
 
-  // 10. Set the order status DIRECTLY (no transition). Full when cumulative
+  // 11. Set the order status DIRECTLY (no transition). Full when cumulative
   // refunds cover the grand total; else partial (payment stays 'paid'). Compared
   // on the SHOP (merchant accounting) side — the single-currency refund basis,
   // summed in SQL now that this refund's own row is committed.
+  //
+  // It moves on the COMMERCE record and not on the rail's answer, which is the
+  // semantics issue #49 invariant 3 asks about: the merchant approved these
+  // lines, the units are back on the shelf, and the order is what the buyer and
+  // the seller both read. A provider-pending refund therefore does NOT hold the
+  // order at `paid` — the money's own state is tracked beside it, on the refund,
+  // and that is what a screen distinguishing pending from completed reads.
   const cumulativeRefunded = await sumRefundedShopAmount(orderId);
   const isFullyRefunded = cumulativeRefunded >= order.totalsGrandTotalShopAmount;
   await setOrderStatus(
@@ -321,13 +414,50 @@ export async function process(
     },
   );
 
-  // 11. Decrement the related store customer's lifetime spend (store orders only),
+  // 12. Decrement the related store customer's lifetime spend (store orders only),
   // in the store's SHOP currency (mirrors the shop-money upsertOnPaid bump).
   if (order.sellerType === 'store' && order.storeId && order.buyerOxyUserId) {
     await decrementOnRefund(order.storeId, order.buyerOxyUserId, totalRefunded.shop);
   }
 
+  // 13. Move the money now rather than at the next poll, by draining the row
+  // just committed. It claims the SAME lease the dispatcher would, so the two
+  // can never both run it, and if this task dies first the poller picks it up —
+  // the identical shape `applyPaymentStatus` uses for a payment's consequences.
+  //
+  // The refund is re-read afterwards so the caller sees the provider state the
+  // drain produced; if the drain failed, that state is still `pending`, which is
+  // the honest answer rather than an error on a refund that is genuinely
+  // recorded and genuinely on its way.
+  if (providerOperation) {
+    await drainRefundExecution(paymentRefundedEventId(created.id));
+    const settled = await findRefundById(created.id);
+    if (settled) return toRefundDTO(settled);
+  }
+
   return toRefundDTO(created);
+}
+
+/**
+ * Run the refund's own outbox row, without letting its failure fail the refund.
+ *
+ * The refund is committed, the stock is back and the order has moved. If the
+ * rail is unreachable the row is released with backoff and the dispatcher
+ * retries it — so re-throwing here would answer a merchant with a 500 for a
+ * refund that is recorded, correct and simply not yet paid out, and the most
+ * likely next thing they would do is submit it again.
+ */
+async function drainRefundExecution(eventId: string): Promise<void> {
+  const { drainPaymentOutbox } = await import('./payments/payment-outbox.service.js');
+  const { runPaymentOutboxEvent } = await import('./payments/outbox-handlers.js');
+  try {
+    await drainPaymentOutbox({ handler: runPaymentOutboxEvent, eventId });
+  } catch (error: unknown) {
+    log.general.warn(
+      { err: error, eventId },
+      '[Payments] inline refund execution failed; the dispatcher will retry',
+    );
+  }
 }
 
 /** List an order's refunds at the store (newest first), or empty. */

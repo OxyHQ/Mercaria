@@ -224,12 +224,25 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
     column: 'orders.payment_id',
     reason: PAYMENT_CORRELATION,
   },
+  { column: 'disputes.order_id', reason: PAYMENT_CORRELATION },
+  {
+    column: 'refunds.payment_id',
+    reason:
+      'The mirror of `orders.payment_id`, and the same correlation-not-composition rule: a ' +
+      'refund is a commerce decision that NAMES the payment its money goes back through. ' +
+      'The refund is committed before the rail is called at all (ADR 0001 D7), so the ' +
+      'pointer is written by a later step and must not be able to fail the commerce write.',
+  },
 
   // ── Provider key spaces: ids a payment rail mints, never Mercaria ─────────
   { column: 'payments.provider_object_id', reason: PROVIDER_OBJECT },
   { column: 'payment_attempts.provider_object_id', reason: PROVIDER_OBJECT },
   { column: 'transfers.provider_object_id', reason: PROVIDER_OBJECT },
   { column: 'payouts.provider_object_id', reason: PROVIDER_OBJECT },
+  { column: 'refunds.provider_refund_id', reason: PROVIDER_OBJECT },
+  { column: 'refunds.provider_reversal_id', reason: PROVIDER_OBJECT },
+  { column: 'disputes.provider_dispute_id', reason: PROVIDER_OBJECT },
+  { column: 'disputes.provider_reversal_id', reason: PROVIDER_OBJECT },
   {
     column: 'payment_provider_events.provider_account_id',
     reason:

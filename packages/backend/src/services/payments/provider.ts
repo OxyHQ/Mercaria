@@ -40,6 +40,7 @@ import type {
   Money,
   PaymentProviderId,
   PaymentStatus,
+  RefundProviderState,
   TransferStatus,
 } from '@mercaria/shared-types';
 
@@ -172,15 +173,43 @@ export interface RefundRequest {
   paymentId: string;
   providerObjectId: string;
   refundId: string;
+  /** What goes back to the buyer, in the PRESENTMENT currency they were charged. */
   amount: Money;
   idempotencyKey: string;
+  /**
+   * Minimal, stable Mercaria ids for webhook correlation — the same rule a
+   * payment's metadata follows, and never a contact value.
+   *
+   * It is what closes the window between the rail creating a refund object and
+   * Mercaria recording its id: an inbound refund event carrying Mercaria's own
+   * `refundId` resolves even if the local row has not been written yet, which is
+   * what keeps a legitimate refund from being reported as one made outside
+   * Mercaria.
+   */
+  metadata: Readonly<Record<string, string>>;
 }
 
 /** The provider's answer to a refund. */
 export interface ProviderRefundResult {
+  /** The rail's own id for the REFUND, not for the payment. */
   providerObjectId: string;
   /** Where the PAYMENT stands after it — `refunded` or `partially_refunded`. */
   status: PaymentStatus;
+  /** Where the REFUND itself stands — the money's own lifecycle. */
+  state: RefundProviderState;
+  /**
+   * What the refund actually took off the platform balance, and the rate that
+   * produced it — present once the rail has stated it.
+   *
+   * ADR 0001 D7: a refund converts at the REFUND-time rate and the original
+   * conversion fee is not returned, so this is captured from the rail's own
+   * record of the movement and is NEVER derived from the charge. The asymmetry
+   * against the original charge is expected and is what the ledger is supposed
+   * to show.
+   */
+  platform?: { amount: Money; rate: FxRateSnapshot };
+  /** The rail's machine-readable failure code, when it failed. */
+  failureCode?: string;
 }
 
 /** A signed, untrusted delivery from a provider, exactly as it arrived. */
@@ -293,6 +322,44 @@ export interface ProviderTransferResult {
 }
 
 /**
+ * Take part or all of one seller order's settlement back off their balance.
+ *
+ * The other half of a refund (ADR 0001 D7) and the recovery half of a lost
+ * dispute: the buyer's money has already gone back, or the network has already
+ * taken it, and this is how the seller bears it.
+ *
+ * `amount` is in the PLATFORM's settlement currency, because that is what the
+ * transfer was denominated in — never the currency the buyer was refunded in.
+ * The two come apart on any converted charge, and reversing a EUR transfer by a
+ * dollar figure would take the wrong amount off a seller's balance without any
+ * step failing.
+ *
+ * A reversal that the rail refuses for an insufficient balance is a PERMANENT
+ * failure, not a retryable one: no number of attempts creates funds. That
+ * distinction is what routes it to the operator exception path instead of a
+ * backoff loop, and ADR 0001 D7 is explicit that the buyer's refund is not
+ * blocked on it either way.
+ */
+export interface ReverseTransferRequest {
+  paymentId: string;
+  orderId: string;
+  /** The rail's own id for the transfer being reversed. */
+  transferObjectId: string;
+  /** The seller's share to recover, in the platform settlement currency. */
+  amount: Money;
+  idempotencyKey: string;
+  metadata: Readonly<Record<string, string>>;
+}
+
+/** The rail's answer to a reversal. */
+export interface ProviderTransferReversalResult {
+  /** The rail's own id for the REVERSAL. */
+  providerObjectId: string;
+  /** What the transfer has now had reversed in TOTAL — cumulative, not this leg. */
+  totalReversedMinor: number;
+}
+
+/**
  * A rail that can settle each seller order out of a funded payment.
  *
  * An OPTIONAL capability rather than part of `PaymentProvider`, because it is
@@ -305,9 +372,20 @@ export interface ProviderTransferResult {
  *
  * #51's Faircoin rail is expected to implement this: a per-order settlement out
  * of a group payment is a marketplace shape, not a Stripe one.
+ *
+ * `reverseTransfer` is on this interface and not on `PaymentProvider` for the
+ * same reason `createTransfer` is: a rail that never settled a seller order has
+ * nothing to take back, and giving it a method for the attempt would only let a
+ * caller believe money had been recovered from a movement that never happened.
+ * They are one capability — "this rail moves a seller's share, both ways" —
+ * because a rail that could settle and not reverse would refund buyers with no
+ * way to make the seller bear it, which ADR 0001 D7 does not allow for.
  */
 export interface SettlingPaymentProvider extends PaymentProvider {
   createTransfer(request: CreateTransferRequest): Promise<ProviderTransferResult>;
+  reverseTransfer(
+    request: ReverseTransferRequest,
+  ): Promise<ProviderTransferReversalResult>;
 }
 
 /**
@@ -334,9 +412,20 @@ export function isResumableProvider(
   return typeof (provider as Partial<ResumablePaymentProvider>).resumePayment === 'function';
 }
 
-/** Whether this rail can settle seller orders. The narrowing the caller needs. */
+/**
+ * Whether this rail can settle seller orders. The narrowing the caller needs.
+ *
+ * Both halves are checked, not just `createTransfer`: the two are one capability
+ * (see the interface), and a rail offering only the outward half would pass a
+ * one-sided test and then throw `is not a function` from inside a refund that
+ * had already paid the buyer.
+ */
 export function isSettlingProvider(
   provider: PaymentProvider,
 ): provider is SettlingPaymentProvider {
-  return typeof (provider as Partial<SettlingPaymentProvider>).createTransfer === 'function';
+  const candidate = provider as Partial<SettlingPaymentProvider>;
+  return (
+    typeof candidate.createTransfer === 'function' &&
+    typeof candidate.reverseTransfer === 'function'
+  );
 }

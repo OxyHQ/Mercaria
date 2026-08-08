@@ -85,6 +85,7 @@ describe('SyntheticPaymentProvider — its own properties', () => {
         refundId: 'refund-too-big',
         amount: { amount: 1_001, currency: 'EUR' },
         idempotencyKey: 're:refund-too-big',
+        metadata: { refundId: 'refund-too-big' },
       }),
     ).rejects.toThrow(/exceeds the captured amount/);
   });

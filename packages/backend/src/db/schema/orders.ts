@@ -46,6 +46,8 @@ import {
   CONNECTOR_PROVIDER_IDS,
   ORDER_PAYMENT_STATUSES,
   PAYMENT_PROVIDER_IDS,
+  REFUND_PROVIDER_STATES,
+  REFUND_REVERSAL_STATES,
   type OrderSellerType,
   type OrderSourceChannel,
   type OrderStatus,
@@ -62,6 +64,7 @@ import {
   dualMoney,
   money,
   optionalDualMoney,
+  optionalMoney,
 } from './columns';
 import { connections } from './connectors';
 import { DISCOUNT_VALUE_TYPES } from './merchandising';
@@ -502,6 +505,28 @@ export const orderTaxLines = pgTable(
  * `refund.service` is the SOLE authority for refund-driven restock: it restocks
  * explicitly per line and sets the order status directly, never through
  * `order.service.transition`, so a refund can never double-restock.
+ *
+ * ## The provider columns are the money, and they lag the record deliberately
+ *
+ * Everything above `provider` is the COMMERCE record: what was approved, what
+ * came back on the shelf, what the order is now worth. It commits first, and
+ * ADR 0001 D7 is why — the refund domain owns *what* is refundable and the rail
+ * only records the movement, so a rail being slow or unreachable must not be
+ * able to refuse a refund a merchant has authorised.
+ *
+ * The eight columns below are that movement, and they are nullable together
+ * with it: a `manual_pos` refund is cash out of a drawer and an `external` one
+ * happened on Shopify, so for both there is no provider operation to record and
+ * `provider IS NULL` is the honest row rather than a gap (#49 scope 9).
+ *
+ * ## The reversal is tracked apart from the refund, because it can fail alone
+ *
+ * A refund on a settled order is TWO movements — money to the buyer, and the
+ * seller's proportional share of that order's transfer reversed to recover it —
+ * and the second can fail where the first did not. ADR 0001 D7 says the buyer's
+ * refund is not blocked on it, so the two states are separate columns and a
+ * failed recovery leaves the order's `merchant_payable` open in Mercaria's
+ * favour, which is exactly what "the seller still owes this" means in accounts.
  */
 export const refunds = pgTable(
   'refunds',
@@ -530,21 +555,76 @@ export const refunds = pgTable(
     rmaNumber: text(),
     /** Sparse-unique: a replayed submit converges instead of double-restocking. */
     idempotencyKey: text(),
+    /**
+     * The rail the money goes back through, and the payment it draws from.
+     *
+     * NULL for a refund with no provider operation — see the table docblock.
+     * `payment_id` is CORRELATION with no foreign key, the same rule every other
+     * payment↔commerce link in this schema follows: a financial record must stay
+     * readable independently of its commerce partner.
+     */
+    provider: text({ enum: asEnumValues(PAYMENT_PROVIDER_IDS) }),
+    paymentId: text(),
+    /**
+     * The rail's own id for this refund (`re_…`), and NEVER a Mercaria key —
+     * the same invariant every `provider_object_id` in `./payments` carries.
+     *
+     * Sparse-unique per provider, because it is the key an inbound
+     * `charge.refund.updated` correlates through, and two rows claiming one
+     * provider refund would make that correlation ambiguous at exactly the
+     * moment it decides whether a refund succeeded.
+     */
+    providerRefundId: text(),
+    providerState: text({ enum: asEnumValues(REFUND_PROVIDER_STATES) }),
+    /** The rail's machine-readable failure code, filtered to a safe subset. */
+    providerFailureCode: text(),
+    reversalState: text({ enum: asEnumValues(REFUND_REVERSAL_STATES) }),
+    /** The rail's own id for the reversal (`trr_…`). */
+    providerReversalId: text(),
+    /**
+     * What the reversal recovered from the seller, in the PLATFORM settlement
+     * currency — which is the transfer's currency, not the refund's.
+     *
+     * Both columns present or absent together (`refunds_reversal_complete_check`).
+     * It is a `Money` rather than a `DualMoney` for the same reason
+     * `transfers.amount` is: a reversal has exactly one currency, the one the
+     * money is denominated in on the platform balance.
+     */
+    ...optionalMoney('reversalAmount'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     checkOneOf('refunds_type_check', t.type, REFUND_TYPES),
     checkOneOf('refunds_status_check', t.status, REFUND_STATUSES),
+    checkOneOf('refunds_provider_check', t.provider, PAYMENT_PROVIDER_IDS),
+    checkOneOf('refunds_provider_state_check', t.providerState, REFUND_PROVIDER_STATES),
+    checkOneOf('refunds_reversal_state_check', t.reversalState, REFUND_REVERSAL_STATES),
     ...currencyChecks('refunds', [
       t.refundShippingShopCurrency,
       t.refundShippingPresentmentCurrency,
       t.totalRefundedShopCurrency,
       t.totalRefundedPresentmentCurrency,
+      t.reversalAmountCurrency,
     ]),
     check(
       'refunds_refund_shipping_complete_check',
       sql`num_nonnulls(${t.refundShippingShopAmount}, ${t.refundShippingShopCurrency}, ${t.refundShippingPresentmentAmount}, ${t.refundShippingPresentmentCurrency}) in (0, 4)`,
+    ),
+    // A provider operation is a rail AND a state, or it is neither. A state with
+    // no rail is a refund nobody can ask about, and a rail with no state is a
+    // row that never records whether the money left.
+    check(
+      'refunds_provider_operation_complete_check',
+      sql`num_nonnulls(${t.provider}, ${t.providerState}) in (0, 2)`,
+    ),
+    check(
+      'refunds_reversal_complete_check',
+      sql`num_nonnulls(${t.reversalAmountAmount}, ${t.reversalAmountCurrency}) in (0, 2)`,
+    ),
+    check(
+      'refunds_reversal_amount_check',
+      sql`${t.reversalAmountAmount} is null or ${t.reversalAmountAmount} >= 0`,
     ),
     index('refunds_order_id_created_at_idx').on(t.orderId, t.createdAt.desc()),
     index('refunds_store_id_status_created_at_idx').on(t.storeId, t.status, t.createdAt.desc()),
@@ -552,6 +632,19 @@ export const refunds = pgTable(
     uniqueIndex('refunds_idempotency_key_key')
       .on(t.idempotencyKey)
       .where(sql`${t.idempotencyKey} is not null`),
+    // "Which Mercaria refund is this provider refund?" — the correlation every
+    // inbound refund event starts from, and the constraint that stops two rows
+    // claiming one movement.
+    uniqueIndex('refunds_provider_refund_id_key')
+      .on(t.provider, t.providerRefundId)
+      .where(sql`${t.providerRefundId} is not null`),
+    // The operator queue: refunds whose money has not landed, oldest first.
+    index('refunds_provider_state_created_at_idx')
+      .on(t.providerState, t.createdAt)
+      .where(sql`${t.providerState} is not null`),
+    index('refunds_payment_id_created_at_idx')
+      .on(t.paymentId, t.createdAt.desc())
+      .where(sql`${t.paymentId} is not null`),
   ],
 );
 

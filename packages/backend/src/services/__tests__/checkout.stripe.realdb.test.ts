@@ -138,6 +138,28 @@ vi.mock('../payments/stripe/client.js', () => ({
   createStripeAccountLink: () => {
     throw new Error('This suite mints no account links.');
   },
+  // #49's reads and writes. Present so the mocked module offers every export the
+  // real one does — a named import missing from a mock factory fails at link
+  // time — and each throws, which doubles as an assertion that the checkout path
+  // reaches none of them.
+  retrieveStripeChargeWithRefunds: () => {
+    throw new Error('This suite reads no charge refunds.');
+  },
+  createStripeRefund: () => {
+    throw new Error('This suite creates no refund.');
+  },
+  retrieveStripeRefund: () => {
+    throw new Error('This suite reads no refund.');
+  },
+  createStripeTransferReversal: () => {
+    throw new Error('This suite reverses no transfer.');
+  },
+  retrieveStripeDispute: () => {
+    throw new Error('This suite reads no dispute.');
+  },
+  retrieveStripePayout: () => {
+    throw new Error('This suite reads no payout.');
+  },
 }));
 
 /** Unique per run, so parallel files and repeated runs never collide on an id. */

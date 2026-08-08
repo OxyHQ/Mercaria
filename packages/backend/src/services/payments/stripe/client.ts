@@ -195,6 +195,127 @@ export async function createStripeTransfer(
 }
 
 /**
+ * Read a charge together with the REFUNDS made against it.
+ *
+ * `charge.refunded` delivers a CHARGE, not a refund, so the refund ids it is
+ * about are inside `charge.refunds` — and that list is not expanded by default.
+ * The handler needs them to correlate each movement to a Mercaria refund record,
+ * and on a retry (where the delivered payload is gone) this read is the only
+ * place they exist at all.
+ *
+ * `amount_refunded` comes back on the charge itself and is what decides whether
+ * the PAYMENT is now `refunded` or `partially_refunded` — a group-level fact
+ * that no single refund object can answer.
+ */
+export async function retrieveStripeChargeWithRefunds(chargeId: string): Promise<Stripe.Charge> {
+  return await getStripeClient().charges.retrieve(chargeId, { expand: ['refunds'] });
+}
+
+/**
+ * Refund part or all of a charge, and read what it cost the platform balance.
+ *
+ * ADR 0001 D7: a per-order refund draws from the GROUP's charge, because one
+ * checkout group is one charge (D4). Which order it is for is Mercaria's own
+ * arithmetic and is carried in `metadata`, never inferred by Stripe.
+ *
+ * `balance_transaction` is expanded for the same reason the charge's is
+ * (`retrieveStripeChargeWithBalance`): it is the only place Stripe states what
+ * the refund took off the PLATFORM's balance and at what rate, and a refund
+ * converts at the refund-time rate rather than the charge's. Expanding it here
+ * means the amount and its rate come from one moment; `charge` is expanded
+ * alongside so `amount_refunded` decides the payment's own status in the same
+ * call rather than a second round trip that could see a different total.
+ *
+ * @param idempotencyKey `re:<refundId>` (ADR 0001 D11), derived from Mercaria's
+ *   durable refund id. It is what makes a retried refund one movement rather
+ *   than two, and refunding a buyer twice is money that does not come back.
+ */
+export async function createStripeRefund(
+  params: Stripe.RefundCreateParams,
+  idempotencyKey: string,
+): Promise<Stripe.Refund> {
+  return await getStripeClient().refunds.create(
+    { ...params, expand: ['balance_transaction', 'charge'] },
+    { idempotencyKey },
+  );
+}
+
+/**
+ * Read a Refund's CURRENT state from Stripe.
+ *
+ * The same rule as every other re-read here: a `charge.refund.updated` retried
+ * hours later carries a snapshot of a state that has since moved, and a refund
+ * genuinely does move — `pending` to `succeeded`, or to `failed` when the
+ * issuer bounces it days later.
+ */
+export async function retrieveStripeRefund(refundId: string): Promise<Stripe.Refund> {
+  return await getStripeClient().refunds.retrieve(refundId, {
+    expand: ['balance_transaction', 'charge'],
+  });
+}
+
+/**
+ * Reverse part or all of one seller's Transfer.
+ *
+ * The seller-side half of a refund and the recovery half of a lost dispute (ADR
+ * 0001 D7). Reversals are created ON the transfer rather than as a top-level
+ * object, and the amount is in the transfer's own currency — the platform
+ * settlement currency, never the buyer's.
+ *
+ * `refund_application_fee` is deliberately not sent: under separate charges and
+ * transfers there IS no application fee (D3), Mercaria's commission is the
+ * residual in its own ledger, and sending the parameter would be describing a
+ * mechanism this integration does not use.
+ *
+ * @param idempotencyKey `trr:<refundId>:<orderId>`, or
+ *   `trr:dispute:<disputeId>:<orderId>` (ADR 0001 D11). Two reversals of one
+ *   refund would take a seller's money twice for goods returned once.
+ */
+export async function createStripeTransferReversal(
+  transferId: string,
+  params: Stripe.TransferCreateReversalParams,
+  idempotencyKey: string,
+): Promise<Stripe.TransferReversal> {
+  return await getStripeClient().transfers.createReversal(transferId, params, { idempotencyKey });
+}
+
+/**
+ * Read a Dispute's CURRENT state from Stripe.
+ *
+ * Disputes live on the PLATFORM account under ADR 0001 D1 — Mercaria is the
+ * merchant of record, so the network's dispute is with Mercaria and the platform
+ * balance is what was debited. There is no `stripeAccount` parameter, and adding
+ * one would look for a dispute against the seller that does not exist.
+ *
+ * `balance_transactions` is what distinguishes a real chargeback from an
+ * INQUIRY: an inquiry carries a deadline and moves no money, so the list is
+ * empty and nothing may be booked. That is read here rather than inferred from
+ * the status string, because the statuses that mean "inquiry" differ by network
+ * and grow on Stripe's schedule while the empty list does not.
+ */
+export async function retrieveStripeDispute(disputeId: string): Promise<Stripe.Dispute> {
+  return await getStripeClient().disputes.retrieve(disputeId);
+}
+
+/**
+ * Read a Payout's CURRENT state from a CONNECTED account.
+ *
+ * The one read here that genuinely needs `stripeAccount`, and it is the mirror
+ * of `retrieveStripeTransfer`'s not needing it: a transfer is Mercaria's own
+ * movement on the platform account, while a payout is the SELLER's account
+ * paying its own balance out. Reading one on the platform account answers
+ * `resource_missing`.
+ */
+export async function retrieveStripePayout(
+  payoutId: string,
+  account: string,
+): Promise<Stripe.Payout> {
+  return await getStripeClient().payouts.retrieve(payoutId, undefined, {
+    stripeAccount: account,
+  });
+}
+
+/**
  * Read a Transfer's CURRENT state from Stripe.
  *
  * Needed for the same reason as the PaymentIntent read: a transfer's reversal

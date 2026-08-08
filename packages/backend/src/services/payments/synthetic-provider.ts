@@ -221,6 +221,11 @@ export class SyntheticPaymentProvider implements PaymentProvider {
     return await Promise.resolve({
       providerObjectId: deriveId('re', request.refundId),
       status: state.status,
+      // Always `succeeded`, and no in-memory rail should pretend otherwise: this
+      // one moves no money, so a `pending` it invented would never resolve and
+      // would leave the dev seam's refunds permanently un-landed. Its whole job
+      // is to exercise the code path deterministically.
+      state: 'succeeded',
     });
   }
 

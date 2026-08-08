@@ -19,9 +19,18 @@
  * nobody ever received.
  */
 
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import type { CurrencyCode, DualMoney, RefundStatus, RefundType } from '@mercaria/shared-types';
+import type {
+  CurrencyCode,
+  DualMoney,
+  Money,
+  PaymentProviderId,
+  RefundProviderState,
+  RefundReversalState,
+  RefundStatus,
+  RefundType,
+} from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { refundLineItems, refunds } from '../schema/orders.js';
 
@@ -65,6 +74,17 @@ export interface NewRefund {
   rmaNumber?: string;
   idempotencyKey?: string;
   lineItems: NewRefundLineItem[];
+  /**
+   * The provider operation this refund will need, when it needs one.
+   *
+   * Written at INSERT and always as `pending`, never later: the row and the
+   * promise that its money will move commit together, so a task dying before it
+   * calls the rail leaves a refund that is visibly unfinished rather than one
+   * that silently never had a provider side. Absent for a refund with no
+   * provider operation at all — cash at a register, or an order refunded on
+   * Shopify (ADR 0001 D12).
+   */
+  providerOperation?: { provider: PaymentProviderId; paymentId: string };
 }
 
 /** Attach the line items to a batch of refund rows, in ONE query for the batch. */
@@ -119,6 +139,214 @@ export async function findRefundByIdempotencyKey(
     .limit(1);
   const [record] = await withLineItems(rows, db);
   return record ?? null;
+}
+
+/**
+ * One refund by its Mercaria id, with NO store scope.
+ *
+ * The store scope on every read above IS the authorization for a merchant
+ * surface, which is exactly why this one is separate rather than a default
+ * parameter: its callers are the outbox handler that moves the money and the
+ * webhook that hears back, and neither has a store to scope by — a rail's
+ * delivery names a refund, not a merchant. Keeping them apart means a route
+ * cannot reach the unscoped read by omitting an argument.
+ */
+export async function findRefundById(
+  refundId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<RefundRecord | null> {
+  const rows = await db.select().from(refunds).where(eq(refunds.id, refundId)).limit(1);
+  const [record] = await withLineItems(rows, db);
+  return record ?? null;
+}
+
+/**
+ * One refund by the rail's own id for it — the inbound-event correlation.
+ *
+ * `null` is a meaningful answer and not a failure: it means the rail refunded
+ * something Mercaria did not, which is an operator exception rather than a
+ * refund to invent (issue #49, scope 10).
+ */
+export async function findRefundByProviderRefundId(
+  provider: PaymentProviderId,
+  providerRefundId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<RefundRecord | null> {
+  const rows = await db
+    .select()
+    .from(refunds)
+    .where(and(eq(refunds.provider, provider), eq(refunds.providerRefundId, providerRefundId)))
+    .limit(1);
+  const [record] = await withLineItems(rows, db);
+  return record ?? null;
+}
+
+/**
+ * Claim the rail's refund object for a refund that did not have one.
+ *
+ * A compare-and-swap on `provider_refund_id IS NULL`, and the returned row is
+ * the answer to "did I win" — the same shape `claimTransferProviderObject` uses
+ * and for the same reason. The rail's idempotency key means two tasks executing
+ * one refund both get the SAME refund object back, so without this they would
+ * both book the ledger and the refund would appear twice in the accounts.
+ *
+ * The caller books the posting inside the transaction this runs in, so exactly
+ * one of them does.
+ *
+ * @returns The row when this call claimed it, `undefined` when another already
+ *   had — an ordinary outcome of at-least-once delivery, not a failure.
+ */
+export async function claimRefundProviderObject(
+  db: DatabaseOrTransaction,
+  input: {
+    refundId: string;
+    providerRefundId: string;
+    providerState: RefundProviderState;
+    failureCode?: string;
+  },
+): Promise<RefundRow | undefined> {
+  const [row] = await db
+    .update(refunds)
+    .set({
+      providerRefundId: input.providerRefundId,
+      providerState: input.providerState,
+      updatedAt: new Date(),
+      ...(input.failureCode ? { providerFailureCode: input.failureCode } : {}),
+    })
+    .where(and(eq(refunds.id, input.refundId), isNull(refunds.providerRefundId)))
+    .returning();
+  return row;
+}
+
+/**
+ * Converge a refund's provider state on what the rail now reports.
+ *
+ * Never the amounts, never the lines, never the order — a provider event is
+ * evidence about where the MONEY got to, not about what the refund was for. The
+ * same rule `updateTransferFromProvider` follows.
+ *
+ * @returns The row when the state actually moved; `undefined` when it was
+ *   already there, so a redelivered event books nothing a second time.
+ */
+export async function applyRefundProviderState(
+  db: DatabaseOrTransaction,
+  input: { refundId: string; providerState: RefundProviderState; failureCode?: string },
+): Promise<RefundRow | undefined> {
+  const [row] = await db
+    .update(refunds)
+    .set({
+      providerState: input.providerState,
+      updatedAt: new Date(),
+      ...(input.failureCode ? { providerFailureCode: input.failureCode } : {}),
+    })
+    .where(
+      and(
+        eq(refunds.id, input.refundId),
+        // The guard IS the idempotency: a second delivery of one state change
+        // matches no row, so nothing downstream of it runs.
+        sql`${refunds.providerState} is distinct from ${input.providerState}`,
+      ),
+    )
+    .returning();
+  return row;
+}
+
+/**
+ * Claim the rail's reversal object for a refund that did not have one.
+ *
+ * The seller-side twin of {@link claimRefundProviderObject}, and separate from
+ * it because the two halves land at different moments and one can fail without
+ * the other (ADR 0001 D7). Same compare-and-swap, same reason: whoever claims
+ * books the ledger leg.
+ */
+export async function claimRefundReversal(
+  db: DatabaseOrTransaction,
+  input: {
+    refundId: string;
+    providerReversalId: string;
+    amount: Money;
+  },
+): Promise<RefundRow | undefined> {
+  const [row] = await db
+    .update(refunds)
+    .set({
+      providerReversalId: input.providerReversalId,
+      reversalState: 'succeeded' as const,
+      reversalAmountAmount: input.amount.amount,
+      reversalAmountCurrency: input.amount.currency,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(refunds.id, input.refundId), isNull(refunds.providerReversalId)))
+    .returning();
+  return row;
+}
+
+/**
+ * Record that the seller-side recovery will not happen, or is not needed.
+ *
+ * `not_required` and `failed` are both terminal and both honest; neither is a
+ * claim that money moved, which is why this writes no reversal id and no amount.
+ */
+export async function setRefundReversalState(
+  db: DatabaseOrTransaction,
+  input: { refundId: string; reversalState: RefundReversalState },
+): Promise<void> {
+  await db
+    .update(refunds)
+    .set({ reversalState: input.reversalState, updatedAt: new Date() })
+    .where(and(eq(refunds.id, input.refundId), isNull(refunds.providerReversalId)));
+}
+
+/**
+ * How much of an order has been refunded on the PRESENTMENT side, counting only
+ * refunds whose money actually left.
+ *
+ * The basis for the seller-side recovery, and the reason it is a different
+ * aggregate from {@link sumRefundedShopAmount}: that one decides whether the
+ * ORDER is fully refunded (a commerce question, answered on the single-currency
+ * shop side), while this one decides how much of the seller's TRANSFER should by
+ * now have been reversed — which is proportional to what the buyer was actually
+ * given back, in the currency they were charged.
+ *
+ * Refunds the rail `failed` or `canceled` are excluded, and that exclusion is
+ * the point: the buyer never received that money, so making the seller bear it
+ * would take funds off their balance for a refund that did not happen. Such a
+ * refund is an operator exception (`refund_failed`), not a seller liability.
+ *
+ * Computed cumulatively rather than per refund so a sequence of partial refunds
+ * cannot drift: each step reverses the difference between where the transfer
+ * should stand and where it does, which sums to exactly the whole transfer once
+ * the order is fully refunded.
+ */
+export async function sumRecoverableRefundedPresentment(
+  orderId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<number>`coalesce(sum(${refunds.totalRefundedPresentmentAmount}), 0)::bigint`,
+    })
+    .from(refunds)
+    .where(
+      and(
+        eq(refunds.orderId, orderId),
+        sql`(${refunds.providerState} is null or ${refunds.providerState} not in ('failed', 'canceled'))`,
+      ),
+    );
+  return Number(row?.total ?? 0);
+}
+
+/** Every refund drawn from one payment, newest first — the operator trace. */
+export async function findRefundsForPayment(
+  paymentId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<RefundRecord[]> {
+  const rows = await db
+    .select()
+    .from(refunds)
+    .where(eq(refunds.paymentId, paymentId))
+    .orderBy(sql`${refunds.createdAt} desc nulls last`, sql`${refunds.id} desc nulls last`);
+  return withLineItems(rows, db);
 }
 
 /** An order's refunds at one store, newest first. */
@@ -268,6 +496,11 @@ export async function insertRefund(
         processedByOxyUserId: input.processedByOxyUserId ?? null,
         rmaNumber: input.rmaNumber ?? null,
         idempotencyKey: input.idempotencyKey ?? null,
+        // Both columns together or neither —
+        // `refunds_provider_operation_complete_check`.
+        provider: input.providerOperation?.provider ?? null,
+        providerState: input.providerOperation ? ('pending' as const) : null,
+        paymentId: input.providerOperation?.paymentId ?? null,
       })
       .returning();
 

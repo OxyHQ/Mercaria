@@ -53,6 +53,7 @@ import {
   findPaymentByProviderObjectId,
   listPaymentAttempts,
   listProviderEventsForPayment,
+  listRecentPayoutsForAccounts,
   listTransfersForPayment,
   markProviderEvent,
   recordPaymentAttempt,
@@ -65,6 +66,15 @@ import {
   type PayoutRow,
   type TransferRow,
 } from '../../db/payments/paymentRepository.js';
+import {
+  listDisputesForPayment,
+  type DisputeRow,
+} from '../../db/payments/disputeRepository.js';
+import {
+  findRefundsForPayment,
+  type RefundRecord,
+} from '../../db/orders/refundRepository.js';
+import { findSellerAccount } from './provider-account.service.js';
 import {
   insertLedgerTransaction,
   type LedgerEntryInput,
@@ -687,7 +697,20 @@ export interface PaymentTrace {
   attempts: PaymentAttemptRow[];
   events: PaymentProviderEventRow[];
   transfers: TransferRow[];
+  /**
+   * Recent payouts to the accounts this payment settled to.
+   *
+   * NOT "the payouts that paid these orders", and the difference is real: a
+   * payout batches many transfers and the rail states no link between them, so
+   * the honest answer is the accounts and the window rather than an attribution
+   * nothing supports. Bounded, so a trace of one order cannot return a seller's
+   * entire payout history.
+   */
   payouts: PayoutRow[];
+  /** Refunds drawn from this payment, newest first. */
+  refunds: RefundRecord[];
+  /** Disputes raised against its charge, newest first. */
+  disputes: DisputeRow[];
   ledger: {
     transaction: typeof ledgerTransactions.$inferSelect;
     entries: (typeof ledgerEntries.$inferSelect)[];
@@ -741,13 +764,18 @@ export async function tracePayment(query: PaymentTraceQuery): Promise<PaymentTra
           .orderBy(ledgerEntries.createdAt)
       : [];
 
-  // Payouts are per PROVIDER ACCOUNT, not per payment: a payout batches many
-  // transfers. They are reachable from a trace only through the accounts this
-  // payment's transfers paid, and #46 is what will map a transfer to its
-  // account — until then a trace shows no payouts rather than guessing.
-  const payoutRows: PayoutRow[] = [];
-
   const orders = await findOrdersInCheckoutGroup(payment.checkoutGroupId);
+
+  // Payouts are per PROVIDER ACCOUNT, not per payment: one payout batches many
+  // transfers and the rail states no link between them. #46's account mapping is
+  // what makes them reachable at all — resolve the accounts this payment's
+  // orders settled to, then show that window. The imprecision is stated on the
+  // field rather than hidden behind a join that would look authoritative.
+  const [refundRows, disputeRows, payoutRows] = await Promise.all([
+    findRefundsForPayment(payment.id, db),
+    listDisputesForPayment(db, payment.id),
+    tracedPayouts(payment, orders),
+  ]);
 
   return {
     payment,
@@ -755,12 +783,39 @@ export async function tracePayment(query: PaymentTraceQuery): Promise<PaymentTra
     events,
     transfers: transferRows,
     payouts: payoutRows,
+    refunds: refundRows,
+    disputes: disputeRows,
     ledger: ledgerTransactionRows.map((transaction) => ({
       transaction,
       entries: entries.filter((entry) => entry.transactionId === transaction.id),
     })),
     orderIds: orders.map((order) => order.id),
   };
+}
+
+/**
+ * The payouts a trace may honestly show — see `PaymentTrace.payouts`.
+ *
+ * Only for a rail that settles sellers at all. `external` and `manual_pos` never
+ * produced a transfer, so there is no account for a payout to have come from and
+ * listing any would attribute someone else's money to this payment.
+ */
+async function tracedPayouts(
+  payment: PaymentRow,
+  orders: readonly { sellerType: string; sellerOwnerId: string }[],
+): Promise<PayoutRow[]> {
+  const db = getDb();
+  const accountIds: string[] = [];
+  for (const order of orders) {
+    const account = await findSellerAccount({
+      ownerType: order.sellerType === 'store' ? 'store' : 'user',
+      ownerId: order.sellerOwnerId,
+    });
+    if (account && !accountIds.includes(account.providerAccountId)) {
+      accountIds.push(account.providerAccountId);
+    }
+  }
+  return await listRecentPayoutsForAccounts(db, payment.provider, accountIds);
 }
 
 /** Resolve whichever handle the caller had into the payment itself. */

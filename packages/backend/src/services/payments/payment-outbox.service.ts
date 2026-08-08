@@ -112,14 +112,64 @@ export function transferWithheldEventId(paymentId: string, orderId: string): str
   return `payment:transfer_withheld:${paymentId}:${orderId}`;
 }
 
-/** `payment:payment_refunded:<refundId>` — keyed on the refund, not the payment. */
+/**
+ * `payment:payment_refunded:<refundId>` — keyed on the refund, not the payment.
+ *
+ * An order can be refunded many times and each refund is its own money movement,
+ * so the payment is not what distinguishes them. This row is also the only one
+ * here that carries WORK rather than an announcement: its handler is what calls
+ * the rail, books the refund and recovers the seller's share, which is why it is
+ * enqueued in the same transaction as the refund record itself.
+ */
 export function paymentRefundedEventId(refundId: string): string {
   return `payment:payment_refunded:${refundId}`;
 }
 
-/** `payment:payment_disputed:<disputeRef>` — one per dispute. */
-export function paymentDisputedEventId(disputeRef: string): string {
-  return `payment:payment_disputed:${disputeRef}`;
+/** `payment:payment_disputed:<disputeRef>:<status>` — one per state a dispute reaches. */
+export function paymentDisputedEventId(disputeRef: string, status: string): string {
+  return `payment:payment_disputed:${disputeRef}:${status}`;
+}
+
+/**
+ * `payment:refund_failed:<refundId>`.
+ *
+ * Keyed on the refund alone, like `payment_succeeded_after_release` and for the
+ * same reason: a refund can fail at the rail only once in any way that matters,
+ * and every redelivery of that failure describes the same exception. Carrying
+ * the provider event in the id would open one operator case per redelivery of a
+ * single problem.
+ */
+export function refundFailedEventId(refundId: string): string {
+  return `payment:refund_failed:${refundId}`;
+}
+
+/**
+ * `payment:reversal_failed:<subjectId>:<orderId>`.
+ *
+ * The subject is the refund or the dispute whose recovery failed, and the order
+ * is in the id for the same reason it is in `transfer_withheld`'s: recovery is
+ * per SELLER, one order of a group can be stuck while its siblings are fine, and
+ * each is resolved separately. Keying on the subject alone would collapse two
+ * sellers' exceptions into one case and hide the second.
+ *
+ * Not keyed on the attempt: a retried recovery describes the same unrecovered
+ * money every time, and an operator queue with one row per attempt is a queue
+ * nobody reads.
+ */
+export function reversalFailedEventId(subjectId: string, orderId: string): string {
+  return `payment:reversal_failed:${subjectId}:${orderId}`;
+}
+
+/**
+ * `payment:refund_unmatched:<provider>:<providerRefundId>`.
+ *
+ * Keyed on the RAIL's refund id, which is the only durable id this exception
+ * has: by definition Mercaria has no refund record for it, so there is no
+ * Mercaria id to key on. Every redelivery of the same foreign refund converges
+ * on one case.
+ */
+export function refundUnmatchedEventId(provider: string, providerRefundId: string): string {
+  return `payment:refund_unmatched:${provider}:${providerRefundId}`;
 }
 
 /**

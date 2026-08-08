@@ -75,6 +75,40 @@ vi.mock('../client.js', () => ({
     if (!account) throw new Error(`No fake account registered for ${accountId}`);
     return Promise.resolve(account);
   },
+  // #49's reads and writes. Present so the mocked module offers every export the
+  // real one does — a named import missing from a mock factory fails at link
+  // time — and each throws, which doubles as an assertion that the onboarding
+  // suite reaches none of them.
+  retrieveStripeChargeWithBalance: () => {
+    throw new Error('The onboarding suite reads no charge.');
+  },
+  retrieveStripeChargeWithRefunds: () => {
+    throw new Error('The onboarding suite reads no charge refunds.');
+  },
+  createStripeRefund: () => {
+    throw new Error('The onboarding suite creates no refund.');
+  },
+  retrieveStripeRefund: () => {
+    throw new Error('The onboarding suite reads no refund.');
+  },
+  createStripeTransfer: () => {
+    throw new Error('The onboarding suite creates no transfer.');
+  },
+  createStripeTransferReversal: () => {
+    throw new Error('The onboarding suite reverses no transfer.');
+  },
+  retrieveStripeDispute: () => {
+    throw new Error('The onboarding suite reads no dispute.');
+  },
+  retrieveStripePayout: () => {
+    throw new Error('The onboarding suite reads no payout.');
+  },
+  cancelStripePaymentIntent: () => {
+    throw new Error('The onboarding suite cancels no PaymentIntent.');
+  },
+  createStripePaymentIntent: () => {
+    throw new Error('The onboarding suite creates no PaymentIntent.');
+  },
   createStripeAccountLink: (params: Record<string, unknown>) => {
     stripeApi.links.push(params);
     return Promise.resolve({
