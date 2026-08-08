@@ -53,6 +53,7 @@ import { Listing, type IListing } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
 import { Store, type IStore } from '../models/store.js';
 import { Location } from '../models/location.js';
+import { nextOrderNumber } from '../models/counter.js';
 import { reserve, release } from './inventory.service.js';
 import { resolveDefaultLocationId } from './catalog-write.service.js';
 import { resolveMedia } from './catalog-hydration.service.js';
@@ -729,7 +730,14 @@ export async function completeDraftOrder(
       asOf: new Date().toISOString(),
     };
 
+    // The POS sale is a real paid order the customer sees on their receipt and in
+    // their order history, so it draws from the SAME `order` sequence the
+    // storefront checkout and connector sync use — never a parallel POS namespace.
+    // Allocated inside the try so a failure here still rolls the reservations back.
+    const orderNumber = await nextOrderNumber();
+
     order = await Order.create({
+      orderNumber,
       buyerOxyUserId,
       sellerType: 'store',
       storeId,
