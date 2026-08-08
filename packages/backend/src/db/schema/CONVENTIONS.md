@@ -369,8 +369,31 @@ not.** Check `pg_proc.provolatile`, do not assume:
 | Want | Rejected | Use |
 |---|---|---|
 | a `tsvector` from text | `to_tsvector(x)` — STABLE, reads `default_text_search_config` | `to_tsvector('english', x)` with a LITERAL config |
-| a `tsvector` from `text[]` | `to_tsvector('simple', array_to_string(a, ' '))` — `array_to_string` is STABLE | `array_to_tsvector(a)` — IMMUTABLE |
+| a `tsvector` from `text[]` | `array_to_string(a, ' ')` — STABLE; `a::text` — refused outright | `to_tsvector('english', mercaria_immutable_array_to_string(a, ' '))` |
 | a point | — | `ST_MakePoint(lon, lat)::geography`, both IMMUTABLE in PostGIS 3.5 |
+
+**The IMMUTABLE escape hatch is a narrowed wrapper FUNCTION, not a different
+builtin.** `array_to_tsvector(a)` is immutable and was the first answer for
+`text[]`; it is also wrong, because it stores every element as a lexeme VERBATIM
+— no stemming, no case folding — so a listing tagged `Handmade` was not findable
+by "handmade" and `Bikes` not by "bikes", a real narrowing against Mongo's
+`$text`, which stemmed array elements. `array_to_string(anyarray, text)` is
+STABLE only because `anyarray` admits types whose text conversion is not
+immutable; narrowed to `text[]` the conversion genuinely is, so
+`mercaria_immutable_array_to_string(text[], text)`
+(`drizzle/0003_tag_search_stemming.sql`) declares it honestly rather than by
+assertion. Reach for the same shape before accepting a builtin that type-checks
+and analyzes differently.
+
+> **A generated-column rewrite silently DROPS the column's indexes, and
+> `drizzle-kit generate` will not tell you.** Changing a stored generated
+> expression means `DROP COLUMN` + `ADD COLUMN`, and the drop takes every index
+> on that column with it — but the index's own definition is textually
+> unchanged, so the diff emits nothing and the snapshot still records an index
+> the database no longer has. Every `@@` query keeps passing, on a sequential
+> scan. Re-create the index by hand in the same migration, and assert it exists
+> against a real database (`keeps the search-vector GIN index that the column
+> rewrite dropped` in `catalog.realdb.test.ts`).
 
 **Do NOT generate a money total.** It is tempting for `line_total` and it is
 wrong: the pricing engine's half-even reconciliation distributes rounding across
@@ -647,8 +670,9 @@ what each assertion is actually worth:
   reading drizzle's source;
 - the `tsvector` generated column indexes title, description AND tags, checked
   with three queries rather than one — a term only in the description, a term
-  only in the TAGS (which reach the vector through `array_to_tsvector`, a
-  separate IMMUTABLE code path), and a term in NEITHER row, which must match
+  only in the TAGS (which reach the vector through
+  `mercaria_immutable_array_to_string`, a separate code path), and a term in
+  NEITHER row, which must match
   nothing. A single positive query cannot tell a working index from one that
   matches everything, and the first draft of this check did exactly that;
 - the `geography` generated column populates from `longitude`/`latitude` and

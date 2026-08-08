@@ -190,21 +190,37 @@ export const listings = pgTable(
      * The `{title: 'text', description: 'text', tags: 'text'}` Mongo index.
      *
      * The two-argument `to_tsvector('english', …)` with a LITERAL config is
-     * required: the one-argument form reads `default_text_search_config` at
-     * runtime, making it STABLE, and Postgres refuses a STABLE expression in a
-     * generated column. `array_to_tsvector` is used for `tags` because
-     * `array_to_string` is STABLE and would be rejected for the same reason.
+     * required throughout: the one-argument form reads
+     * `default_text_search_config` at runtime, making it STABLE, and Postgres
+     * refuses a STABLE expression in a generated column.
      *
-     * `coalesce` on the nullable side only: `title` and `description` are NOT
-     * NULL, but concatenating a NULL into a tsvector yields NULL for the whole
-     * column, so every input is coalesced defensively rather than relying on the
-     * current nullability surviving a future migration.
+     * ## Tags go through the SAME analyzer as the prose, and that took a function
+     *
+     * The first cut reached for `array_to_tsvector`, which is IMMUTABLE and
+     * therefore accepted — but it stores each element as a lexeme VERBATIM, with
+     * no stemming and no case folding. So a listing tagged `Handmade` was
+     * unreachable by "handmade", and `bikes` never matched `Bikes`: a real
+     * narrowing against Mongo's `$text`, which DID stem array elements.
+     *
+     * Feeding the array through `to_tsvector('english', …)` instead needs the
+     * elements joined first, and neither obvious spelling is allowed:
+     * `array_to_string(anyarray, text)` is STABLE (its element→text output
+     * function is not immutable for every type it accepts) and `tags::text` is
+     * rejected outright with `generation expression is not immutable`.
+     * `mercaria_immutable_array_to_string(text[], text)` — created in
+     * `drizzle/0003_tag_search_stemming.sql` — is a one-line SQL wrapper narrowed
+     * to `text[]`, where the conversion genuinely is immutable, so it can be
+     * declared as such honestly rather than by assertion.
+     *
+     * `coalesce` on every input, not only the nullable one: concatenating a NULL
+     * into a tsvector yields NULL for the whole column, so this does not rely on
+     * `title`/`description` staying NOT NULL through a future migration.
      */
     searchVector: tsvector().generatedAlwaysAs(
       (): SQL =>
         sql`to_tsvector('english', coalesce(${listings.title}, '')) ||
             to_tsvector('english', coalesce(${listings.description}, '')) ||
-            array_to_tsvector(coalesce(${listings.tags}, '{}'::text[]))`,
+            to_tsvector('english', mercaria_immutable_array_to_string(coalesce(${listings.tags}, '{}'::text[]), ' '))`,
     ),
   },
   (t) => [

@@ -619,7 +619,7 @@ describe('text and geo search', () => {
     expect(wide.total).toBe(2);
   });
 
-  it('matches a tag VERBATIM only — tags are neither stemmed nor case-folded', async () => {
+  it('stems and case-folds a tag, exactly as it does the title and description', async () => {
     const storeId = await makeStore();
     const tagged = await makeListing(storeId, {
       title: 'Unremarkable item',
@@ -633,29 +633,40 @@ describe('text and geo search', () => {
       return page.rows.map((row) => row.id);
     };
 
-    // Tags reach the generated `tsvector` through `array_to_tsvector`, which is
-    // IMMUTABLE — the requirement a generated column imposes — and which stores
-    // each element as a lexeme VERBATIM. `to_tsvector('english', …)`, used for the
-    // title and description, stems and lower-cases instead. Measured on
-    // PostgreSQL 17: `array_to_tsvector(array['handmade','Bikes'])` is
-    // `'Bikes' 'handmade'`, while `to_tsvector('english','handmade Bikes')` is
-    // `'bike':2 'handmad':1`.
-    //
-    // So a tag matches only when the query's LEXEME is already the tag itself.
+    // A tag whose lexeme is already the word typed — the case that worked even
+    // under `array_to_tsvector`, kept so a regression cannot pass by breaking
+    // everything equally.
     expect(await matching('leather')).toEqual([tagged]);
 
-    // And these do not, which is the half worth pinning: `handmade` stems to
-    // `handmad` and `Bikes` never lower-cases, so neither tag is reachable by the
-    // word a buyer would actually type. Mongo's `$text` index DID stem array
-    // elements, so this is a real narrowing of tag search, not a nicety.
-    //
-    // Closing it needs a schema change, not a service one: `array_to_string` is
-    // STABLE (verified via `pg_proc.provolatile`) and `tags::text` is rejected
-    // outright with `generation expression is not immutable`, so the only route
-    // is a custom `IMMUTABLE` wrapper function plus a migration that rewrites
-    // `listings.search_vector`. Deliberately left for the schema owner.
-    expect(await matching('handmade')).toEqual([]);
-    expect(await matching('bikes')).toEqual([]);
+    // The two that `array_to_tsvector` could not serve, and the reason
+    // `0003_tag_search_stemming` exists: it stored each element VERBATIM, so
+    // `handmade` (which the QUERY stems to `handmad`) and `Bikes` (which never
+    // lower-cased) were both unreachable by the word a buyer would type. Mongo's
+    // `$text` index stemmed array elements, so this asserts the port matches it
+    // rather than a new nicety.
+    expect(await matching('handmade')).toEqual([tagged]);
+    expect(await matching('bikes')).toEqual([tagged]);
+
+    // Stemming is real and not merely lower-casing: `handmad` is the stem, and a
+    // term that only shares a prefix must NOT match.
+    expect(await matching('hand')).toEqual([]);
+  });
+
+  it('keeps the search-vector GIN index that the column rewrite dropped', async () => {
+    // `0003_tag_search_stemming` re-creates the generated column, and `DROP
+    // COLUMN` takes its index with it. `drizzle-kit generate` did not re-emit the
+    // index — its definition is textually unchanged, so the diff had nothing to
+    // say and the snapshot still records one the database would not have. The
+    // recreate is hand-written in that migration, and this is what notices if it
+    // is ever lost: without it every `@@` query above still passes, on a
+    // sequential scan.
+    const [row] = await db.execute<{ indexdef: string }>(
+      sql`select indexdef from pg_indexes
+          where tablename = 'listings' and indexname = 'listings_search_vector_idx'`,
+    );
+    expect(row, 'listings_search_vector_idx does not exist').toBeDefined();
+    expect(row?.indexdef).toContain('USING gin');
+    expect(row?.indexdef).toContain('search_vector');
   });
 });
 
