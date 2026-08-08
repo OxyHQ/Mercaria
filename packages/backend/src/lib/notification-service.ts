@@ -1,20 +1,57 @@
 /**
- * Notification Service
+ * Notification Service — the DELIVERY side.
  *
- * Delivers notifications to users via multiple channels:
- * - in_app: Socket.io real-time event
- * - push: Expo push notifications (mobile)
- * - telegram/discord/whatsapp/slack: via channel outbound system
+ * Persists one notification and fans it out:
+ * - `in_app`: a Socket.IO event on the user's room
+ * - `push`: Expo push (mobile) and Web Push (browser), in parallel
+ * - `telegram`/`discord`/`whatsapp`/`slack`: reserved for the channel outbound
+ *   system; nothing dispatches them here yet, so an explicit request for one is
+ *   recorded as `failed` rather than silently reported delivered.
  *
- * Each notification is persisted and can be delivered to multiple channels simultaneously.
+ * The READ + management side (feed, unread count, read/dismiss, registrations)
+ * is `services/notification-read.service.ts`, and it now talks to
+ * `db/notifications/*` directly. The four read-state helpers this module used to
+ * re-export for it are gone: they were a hop through a delivery module to reach a
+ * repository, and the repository is the source of truth this port gives them.
+ *
+ * ## Ported to Postgres
+ *
+ * Three things changed beyond the query language:
+ *
+ *  - **`triggerId` is gone.** It was declared `ref: 'Trigger'` against a model
+ *    that does not exist in this repo, no caller ever passed one, and no read
+ *    path returned it. The parameter, the forward and the write are all removed.
+ *  - **Delivery status is composed locally and written ONCE.** The Mongo path
+ *    mutated `notification.deliveryStatus` in place and called `save()`, which
+ *    rewrote the whole document — including any read-state change that landed
+ *    while the channels were in flight. One `UPDATE … SET delivery_status` cannot.
+ *  - **The two channel PROBES no longer swallow their errors.** `resolveChannels`
+ *    used `.catch(() => null)`, which loses the reason a probe failed. A failing
+ *    probe still costs only the push channel, but it is now logged.
  */
 
-import mongoose from 'mongoose';
 import Expo, { type ExpoPushMessage, type ExpoPushReceiptId } from 'expo-server-sdk';
 import { WebPushError } from 'web-push';
-import { Notification, type INotification, type NotificationType, type NotificationChannel, type NotificationPriority } from '../models/notification.js';
-import { PushToken } from '../models/push-token.js';
-import { WebPushSubscription } from '../models/web-push-subscription.js';
+import {
+  insertNotification,
+  updateNotificationDeliveryStatus,
+  type NotificationChannel,
+  type NotificationPriority,
+  type NotificationRecord,
+} from '../db/notifications/notificationRepository.js';
+import type { NotificationType } from '../db/schema/notifications.js';
+import {
+  deactivatePushTokenById,
+  deactivatePushTokensByToken,
+  findPushTokensForDelivery,
+  hasActivePushToken,
+  touchPushTokensLastUsed,
+} from '../db/notifications/pushTokenRepository.js';
+import {
+  deactivateWebPushSubscriptionById,
+  findWebPushSubscriptionsForDelivery,
+  hasActiveWebPushSubscription,
+} from '../db/notifications/webPushSubscriptionRepository.js';
 import { webPush, VAPID_PUBLIC_KEY } from './web-push.js';
 import { getIO } from '../socket.js';
 import { log } from './logger.js';
@@ -29,6 +66,19 @@ const expo = new Expo();
 const HTTP_GONE = 410;
 const HTTP_NOT_FOUND = 404;
 
+/**
+ * Cap on the persisted/pushed body.
+ *
+ * Under Mongo this doubled as a document-size guard; `text` has no such limit, so
+ * it now exists only for the transports — an Expo message and a Web Push payload
+ * are both size-limited and a body past this is not readable on a lock screen
+ * anyway.
+ */
+const MAX_BODY_LENGTH = 4000;
+
+/** Delay before asking Expo for receipts — the interval Expo itself recommends. */
+const RECEIPT_CHECK_DELAY_MS = 15_000;
+
 // ── Types ──────────────────────────────────────────────────────────
 
 export interface SendNotificationOptions {
@@ -38,8 +88,7 @@ export interface SendNotificationOptions {
   body: string;
   priority?: NotificationPriority;
   channels?: NotificationChannel[];
-  data?: Record<string, any>;
-  triggerId?: string;
+  data?: Record<string, unknown>;
   conversationId?: string;
   expiresAt?: Date;
 }
@@ -47,11 +96,36 @@ export interface SendNotificationOptions {
 // ── Resolve delivery channels ──────────────────────────────────────
 
 /**
+ * Run a channel-registration probe, answering `false` rather than aborting the
+ * send when the database refuses it.
+ *
+ * The Mongo path wrote `.catch(() => null)` here, which is the same tolerance with
+ * the reason thrown away. A probe that fails costs the push CHANNEL for this one
+ * notification; a probe that fails SILENTLY costs every push notification until
+ * somebody notices push stopped working.
+ */
+async function probeChannel(
+  probe: () => Promise<boolean>,
+  channel: string,
+  userId: string,
+): Promise<boolean> {
+  try {
+    return await probe();
+  } catch (error: unknown) {
+    log.general.warn({ err: error, userId, channel }, 'Notification channel probe failed');
+    return false;
+  }
+}
+
+/**
  * Determine which channels to deliver a notification to.
  * If explicit channels are provided, use those. Otherwise, default to in_app
- * plus any connected messaging accounts the user has.
+ * plus `push` when the user has any device or browser registered.
  */
-async function resolveChannels(userId: string, explicit?: NotificationChannel[]): Promise<NotificationChannel[]> {
+async function resolveChannels(
+  userId: string,
+  explicit?: NotificationChannel[],
+): Promise<NotificationChannel[]> {
   if (explicit && explicit.length > 0) {
     return explicit;
   }
@@ -59,21 +133,13 @@ async function resolveChannels(userId: string, explicit?: NotificationChannel[])
   // Default: always in_app
   const channels: NotificationChannel[] = ['in_app'];
 
-  // Check in parallel: push tokens and web push subscriptions
   const [hasPushTokens, hasWebPushSubs] = await Promise.all([
-    // Push: check if user has any active Expo push tokens
-    PushToken.exists({
-      oxyUserId: userId,
-      active: true,
-    }).catch(() => null),
-
-    // Web push: check if user has any active browser push subscriptions (only if VAPID configured)
+    probeChannel(() => hasActivePushToken(userId), 'expo_push', userId),
+    // Only worth asking when VAPID is configured — without it `deliverWebPush`
+    // returns immediately and a registered browser is unreachable anyway.
     VAPID_PUBLIC_KEY
-      ? WebPushSubscription.exists({
-          oxyUserId: userId,
-          active: true,
-        }).catch(() => null)
-      : null,
+      ? probeChannel(() => hasActiveWebPushSubscription(userId), 'web_push', userId)
+      : Promise.resolve(false),
   ]);
 
   if (hasPushTokens || hasWebPushSubs) {
@@ -85,12 +151,12 @@ async function resolveChannels(userId: string, explicit?: NotificationChannel[])
 
 // ── Channel delivery implementations ───────────────────────────────
 
-async function deliverInApp(notification: INotification): Promise<boolean> {
+function deliverInApp(notification: NotificationRecord): boolean {
   const io = getIO();
   if (!io) return false;
 
-  io.to(`user:${notification.oxyUserId.toString()}`).emit('notification', {
-    id: notification._id.toString(),
+  io.to(`user:${notification.oxyUserId}`).emit('notification', {
+    id: notification.id,
     type: notification.type,
     title: notification.title,
     body: notification.body,
@@ -108,35 +174,33 @@ async function deliverInApp(notification: INotification): Promise<boolean> {
  * Deliver a push notification to all of a user's registered Expo push tokens.
  * Handles chunked sending (Expo limit) and async receipt checking.
  */
-async function deliverPush(userId: string, notification: INotification): Promise<boolean> {
-  const tokens = await PushToken.find({
-    oxyUserId: userId,
-    active: true,
-  }).lean();
+async function deliverPush(userId: string, notification: NotificationRecord): Promise<boolean> {
+  const tokens = await findPushTokensForDelivery(userId);
 
   if (tokens.length === 0) return false;
 
   // Build messages — one per device token
   const messages: ExpoPushMessage[] = [];
-  for (const t of tokens) {
-    if (!Expo.isExpoPushToken(t.token)) {
-      log.general.warn({ token: t.token, userId }, 'Invalid Expo push token, deactivating');
-      await PushToken.updateOne({ _id: t._id }, { $set: { active: false } });
+  for (const target of tokens) {
+    if (!Expo.isExpoPushToken(target.token)) {
+      log.general.warn({ pushTokenId: target.id, userId }, 'Invalid Expo push token, deactivating');
+      await deactivatePushTokenById(target.id);
       continue;
     }
 
     messages.push({
-      to: t.token,
+      to: target.token,
       title: notification.title,
       body: notification.body,
       data: {
-        notificationId: notification._id.toString(),
+        notificationId: notification.id,
         type: notification.type,
         conversationId: notification.conversationId,
         ...notification.data,
       },
       sound: 'default',
-      priority: notification.priority === 'urgent' || notification.priority === 'high' ? 'high' : 'normal',
+      priority:
+        notification.priority === 'urgent' || notification.priority === 'high' ? 'high' : 'normal',
       channelId: 'default',
     });
   }
@@ -166,13 +230,14 @@ async function deliverPush(userId: string, notification: INotification): Promise
           const messageTo = chunk[i]?.to;
           const failedToken = Array.isArray(messageTo) ? messageTo[0] : messageTo;
           log.general.warn(
-            { userId, token: failedToken, error: ticket.message, errorCode: ticket.details?.error },
+            { userId, error: ticket.message, errorCode: ticket.details?.error },
             'Expo push ticket error',
           );
 
-          // Deactivate tokens that are permanently invalid
+          // Deactivate tokens that are permanently invalid. Expo names the TOKEN
+          // and nothing else, which is what `push_tokens_token_idx` serves.
           if (ticket.details?.error === 'DeviceNotRegistered' && failedToken) {
-            await PushToken.updateOne({ token: failedToken }, { $set: { active: false } });
+            await deactivatePushTokensByToken(failedToken);
           }
         }
       }
@@ -189,15 +254,13 @@ async function deliverPush(userId: string, notification: INotification): Promise
       checkPushReceipts(receiptIds).catch((err: unknown) => {
         log.general.warn({ err }, 'Expo push receipt check failed');
       });
-    }, 15_000);
+    }, RECEIPT_CHECK_DELAY_MS);
   }
 
-  // Update lastUsedAt for active tokens
+  // Update lastUsedAt for the tokens a send was actually attempted against.
   if (anySucceeded) {
-    const activeTokenIds = tokens.filter(t => Expo.isExpoPushToken(t.token)).map(t => t._id);
-    await PushToken.updateMany(
-      { _id: { $in: activeTokenIds } },
-      { $set: { lastUsedAt: new Date() } },
+    await touchPushTokensLastUsed(
+      tokens.filter((target) => Expo.isExpoPushToken(target.token)).map((target) => target.id),
     );
   }
 
@@ -207,7 +270,6 @@ async function deliverPush(userId: string, notification: INotification): Promise
 /**
  * Check push notification receipts after a delay.
  * Expo recommends checking ~15 seconds after sending.
- * Deactivates tokens that received DeviceNotRegistered errors.
  */
 async function checkPushReceipts(receiptIds: ExpoPushReceiptId[]): Promise<void> {
   const chunks = expo.chunkPushNotificationReceiptIds(receiptIds);
@@ -241,20 +303,17 @@ async function checkPushReceipts(receiptIds: ExpoPushReceiptId[]): Promise<void>
  * Deliver a push notification to all of a user's registered web push subscriptions.
  * Handles 410 Gone (expired subscription) by deactivating.
  */
-async function deliverWebPush(userId: string, notification: INotification): Promise<boolean> {
+async function deliverWebPush(userId: string, notification: NotificationRecord): Promise<boolean> {
   if (!VAPID_PUBLIC_KEY) return false;
 
-  const subscriptions = await WebPushSubscription.find({
-    oxyUserId: userId,
-    active: true,
-  }).lean();
+  const subscriptions = await findWebPushSubscriptionsForDelivery(userId);
 
   if (subscriptions.length === 0) return false;
 
   const payload = JSON.stringify({
     title: notification.title,
     body: notification.body,
-    notificationId: notification._id.toString(),
+    notificationId: notification.id,
     type: notification.type,
     conversationId: notification.conversationId,
     ...notification.data,
@@ -264,7 +323,7 @@ async function deliverWebPush(userId: string, notification: INotification): Prom
     subscriptions.map(async (sub) => {
       try {
         await webPush.sendNotification(
-          { endpoint: sub.endpoint, keys: sub.keys },
+          { endpoint: sub.endpoint, keys: { p256dh: sub.keysP256dh, auth: sub.keysAuth } },
           payload,
         );
       } catch (error: unknown) {
@@ -273,10 +332,10 @@ async function deliverWebPush(userId: string, notification: INotification): Prom
           (error.statusCode === HTTP_GONE || error.statusCode === HTTP_NOT_FOUND);
         if (isGone) {
           // Subscription expired or invalid — deactivate
-          await WebPushSubscription.updateOne({ _id: sub._id }, { $set: { active: false } });
-          log.general.info({ userId, endpoint: sub.endpoint }, 'Web push subscription expired, deactivated');
+          await deactivateWebPushSubscriptionById(sub.id);
+          log.general.info({ userId, subscriptionId: sub.id }, 'Web push subscription expired, deactivated');
         } else {
-          log.general.warn({ err: error, userId, endpoint: sub.endpoint }, 'Web push delivery failed');
+          log.general.warn({ err: error, userId, subscriptionId: sub.id }, 'Web push delivery failed');
         }
         throw error; // Re-throw so Promise.allSettled marks as rejected
       }
@@ -290,34 +349,36 @@ async function deliverWebPush(userId: string, notification: INotification): Prom
 
 /**
  * Create and deliver a notification to a user across their preferred channels.
+ *
+ * The row is committed BEFORE any channel is attempted, deliberately: a
+ * notification that reached nobody is still in the feed the next time the user
+ * opens the app, and that is the whole point of persisting it.
  */
-export async function sendNotification(options: SendNotificationOptions): Promise<INotification> {
-  const {
-    userId,
-    type,
-    title,
-    body,
-    priority = 'normal',
-    data,
-    triggerId,
-    conversationId,
-    expiresAt,
-  } = options;
+export async function sendNotification(
+  options: SendNotificationOptions,
+): Promise<NotificationRecord> {
+  const { userId, type, title, body, priority = 'normal', data, conversationId, expiresAt } =
+    options;
 
   const channels = await resolveChannels(userId, options.channels);
 
-  // Persist the notification
-  const notification = await Notification.create({
+  // The map every channel reports into. Composed here and written ONCE at the
+  // end — `Record<channel, 'pending' | 'sent' | 'failed'>`, whose `failed` is NOT
+  // a `notifications.status` value and must never be flattened into that column.
+  const deliveryStatus: Record<string, 'pending' | 'sent' | 'failed'> = Object.fromEntries(
+    channels.map((channel) => [channel, 'pending']),
+  );
+
+  const notification = await insertNotification({
     oxyUserId: userId,
     type,
     title,
-    body: body.slice(0, 4000), // Cap body length
+    body: body.slice(0, MAX_BODY_LENGTH),
     data,
     channels,
-    deliveryStatus: Object.fromEntries(channels.map(ch => [ch, 'pending'])),
+    deliveryStatus,
     status: 'sent',
     priority,
-    triggerId: triggerId ? new mongoose.Types.ObjectId(triggerId) : undefined,
     conversationId,
     expiresAt,
   });
@@ -329,7 +390,7 @@ export async function sendNotification(options: SendNotificationOptions): Promis
 
       switch (channel) {
         case 'in_app':
-          success = await deliverInApp(notification);
+          success = deliverInApp(notification);
           break;
         case 'push': {
           // Deliver to both Expo (mobile) and web push in parallel
@@ -342,59 +403,24 @@ export async function sendNotification(options: SendNotificationOptions): Promis
         }
       }
 
-      notification.deliveryStatus[channel] = success ? 'sent' : 'failed';
+      deliveryStatus[channel] = success ? 'sent' : 'failed';
     } catch (error: unknown) {
       log.general.error({ err: error, channel, userId }, 'Notification delivery failed');
-      notification.deliveryStatus[channel] = 'failed';
+      deliveryStatus[channel] = 'failed';
     }
   });
 
   await Promise.allSettled(deliveries);
 
-  // Persist delivery status
-  notification.markModified('deliveryStatus');
-  await notification.save();
+  const persisted = await updateNotificationDeliveryStatus(notification.id, deliveryStatus);
 
   log.general.info(
     { type, userId, channels, title: title.slice(0, 50) },
     'Notification sent',
   );
 
-  return notification;
-}
-
-// ── Query helpers ──────────────────────────────────────────────────
-
-export async function getUnreadCount(userId: string): Promise<number> {
-  return Notification.countDocuments({
-    oxyUserId: userId,
-    status: { $in: ['pending', 'sent'] },
-  });
-}
-
-export async function markAsRead(notificationId: string, userId: string): Promise<boolean> {
-  const result = await Notification.updateOne(
-    { _id: notificationId, oxyUserId: userId },
-    { $set: { status: 'read', readAt: new Date() } },
-  );
-  return result.modifiedCount > 0;
-}
-
-export async function markAllAsRead(userId: string): Promise<number> {
-  const result = await Notification.updateMany(
-    {
-      oxyUserId: userId,
-      status: { $in: ['pending', 'sent'] },
-    },
-    { $set: { status: 'read', readAt: new Date() } },
-  );
-  return result.modifiedCount;
-}
-
-export async function dismissNotification(notificationId: string, userId: string): Promise<boolean> {
-  const result = await Notification.updateOne(
-    { _id: notificationId, oxyUserId: userId },
-    { $set: { status: 'dismissed' } },
-  );
-  return result.modifiedCount > 0;
+  // `persisted` is null only if the row was deleted while the channels were in
+  // flight. The caller asked for what was sent, so answer with the composed row
+  // rather than inventing a failure out of a race nothing here can lose.
+  return persisted ?? { ...notification, deliveryStatus };
 }
