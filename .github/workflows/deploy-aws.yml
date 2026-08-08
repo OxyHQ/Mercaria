@@ -40,16 +40,28 @@ env:
 
 jobs:
   test:
-    # x86, NOT the `ubuntu-24.04-arm` the deploy job uses, and that difference is
-    # load-bearing: `postgis/postgis` publishes linux/amd64 ONLY (checked against
-    # the registry — the tag's OCI index carries one platform plus an
-    # attestation), so the service container below cannot start on an ARM runner.
+    # x86, NOT the `ubuntu-24.04-arm` the deploy job uses, and TWO independent
+    # things force that — worth stating both, because fixing either one alone
+    # still leaves the job broken.
+    #
+    #  1. GitHub-hosted ARM runners do not support service containers at all. A
+    #     run that requests one dies before its first job with `action_required`
+    #     and zero jobs (measured on runs 31263904439 / 31263963083).
+    #  2. Even where they are supported, `postgis/postgis` publishes linux/amd64
+    #     ONLY — checked against the registry, where the tag's OCI index carries
+    #     one platform entry plus an attestation. So the container below could
+    #     not start on an ARM host regardless.
+    #
+    # Together those close the tempting repair: finding a multi-arch Postgres
+    # image does NOT make an ARM runner workable here, and neither does waiting
+    # for ARM service-container support while this image stays amd64-only.
+    #
     # Nothing in this job needs ARM anyway — it lints, tests, and runs an esbuild
     # bundle, none of which is architecture-sensitive. Only `deploy` builds the
-    # linux/arm64 image, and it stays on the ARM runner for that.
-    #
-    # Changing this back to ARM for consistency with `deploy` re-breaks the job.
+    # linux/arm64 image, and it stays on the ARM runner for that. Changing this
+    # back for consistency with `deploy` re-breaks the job.
     runs-on: ubuntu-latest
+
     services:
       # The API suite needs a real PostGIS server: the Mongo→Postgres port's
       # `*.realdb.test.ts` files run their SQL against a throwaway database the
