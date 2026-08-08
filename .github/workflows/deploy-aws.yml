@@ -1,12 +1,26 @@
 # AWS deploy workflow for the Mercaria API.
-# Builds the linux/arm64 backend image, pushes it to ECR, and forces a new ECS
-# deployment. AWS access is via the OIDC role oxy-github-deploy — no stored keys.
+# Builds the linux/arm64 backend image, pushes it to ECR, applies the database
+# migrations as ECS one-shot tasks, and forces a new ECS deployment. AWS access
+# is via the OIDC role oxy-github-deploy — no stored keys.
 #
-# NOTE (handoff): the ECS service `mercaria`, its task definition, ALB
-# listener rule, ECR repo, and SSM parameter wiring do NOT exist yet. They live
-# in oxy-infra (terraform-uswest2/) and must be provisioned there before this
-# workflow can deploy. Until then this builds + pushes the image and skips the
-# ECS step (the service-existence guard below handles that gracefully).
+# The infrastructure is PROVISIONED AND SERVING (verified 2026-08-08): service
+# `mercaria` on cluster `oxy-cluster`, ECR repo `oxy/mercaria`, target group
+# `oxy-mercaria` behind the shared ALB, and the SSM parameters under
+# /oxy/mercaria that the task definition reads as secrets. It all lives in
+# oxy-infra (terraform-uswest2/), which stays the source of truth for changing
+# any of it — this workflow only deploys onto it.
+#
+# The service-existence guard below is therefore a GUARD, not the normal path:
+# it finds the service ACTIVE on every ordinary run, and only short-circuits
+# (image pushed to ECR, deploy and migrations skipped) if the service is ever
+# torn down or renamed. A run that reports "not created yet" means the
+# infrastructure moved, not that Mercaria is still awaiting its first
+# provisioning.
+#
+# Migrations normally run as the pre/post one-shot pair around the rollout. Use
+# `migration_phase=all` from workflow_dispatch only for a from-zero batch, where
+# the whole journal has to be applied in one run before anything serves it — see
+# the note on that step for why the pre/post pair cannot do it.
 name: Deploy to AWS
 
 on:
@@ -21,8 +35,8 @@ on:
         description: >-
           How to apply migrations. `pre-post` (default) applies the additive ones
           before the rollout and the destructive ones after. `all` applies
-          everything in ONE run before the rollout — needed for the Mongo→Postgres
-          cutover, and wrong for anything else.
+          everything in ONE run before the rollout — what a from-zero batch needs
+          (the Mongo→Postgres cutover was one), and wrong for anything else.
         type: choice
         default: pre-post
         options:

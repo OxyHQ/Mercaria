@@ -42,9 +42,8 @@ services:
     environment:
       POSTGRES_USER: mercaria
       POSTGRES_PASSWORD: mercaria
-      # Matches the `mercaria-{env}` naming the Mongo side uses
-      # (packages/backend/src/lib/db.ts), with `-` swapped for `_` because an
-      # unquoted Postgres identifier cannot hold a hyphen.
+      # Matches the `mercaria-{env}` naming the Mongo side used, with `-` swapped
+      # for `_` because an unquoted Postgres identifier cannot hold a hyphen.
       POSTGRES_DB: mercaria_dev
     ports:
       # 5435, and loopback-only. Several Oxy repos are routinely open at once on

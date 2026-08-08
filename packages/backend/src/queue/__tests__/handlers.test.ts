@@ -18,8 +18,6 @@ vi.mock('../../db/orders/orderRepository.js', () => ({
 }));
 
 vi.mock('../../db/stores/storeRepository.js', () => ({ findStoreById: vi.fn() }));
-vi.mock('../../models/listing.js', () => ({ Listing: { findById: vi.fn() } }));
-vi.mock('../../models/review.js', () => ({ Review: { aggregate: vi.fn() } }));
 
 vi.mock('../../services/order.service.js', () => ({
   transition: (...args: unknown[]) => transition(...args),

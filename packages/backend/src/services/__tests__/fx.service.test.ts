@@ -1,9 +1,9 @@
 /**
  * Unit tests for `fx.service` — the conversion + caching boundary.
  *
- * `mongodb-memory-server` and a live FairCoin Explorer are unavailable offline,
- * so `config` is mocked with a deterministic `fx` block, `lib/redis` is mocked
- * (toggleable Redis client), and the global `fetch` is stubbed. These tests
+ * Neither Redis nor a live FairCoin Explorer is available offline, so `config` is
+ * mocked with a deterministic `fx` block, `lib/redis` is mocked (toggleable Redis
+ * client), and the global `fetch` is stubbed. These tests
  * assert: provider fetch → cache write (`setex`) on a miss, cache hit serving
  * without re-fetching, last-good `stale` fallback on provider failure, static
  * `stale` fallback when no cache exists, that `getRates` NEVER throws, that every

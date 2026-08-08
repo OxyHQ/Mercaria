@@ -15,14 +15,13 @@
  * Connect once at boot, then read the handle synchronously from anywhere via
  * `getDb()`.
  *
- * ## This is the only store the runtime opens
+ * ## This is the only store this package opens
  *
- * `src/index.ts` calls `connectPostgres()` and nothing else; no path under
- * `src/` outside `scripts/` imports a Mongoose model any more. `src/lib/db.ts`
- * and the models survive for the Fase 4 backfill scripts, which open their own
- * connection — so a failure here is a total outage for this task, which is why
- * `DATABASE_URL` is required at config load and why the connect below proves the
- * server answers before publishing the handle.
+ * `src/index.ts` calls `connectPostgres()` and nothing else. There is no second
+ * store to fall back to — `src/lib/db.ts`, the Mongoose models and the backfill
+ * one-shot were deleted after the cutover — so a failure here is a total outage
+ * for this task, which is why `DATABASE_URL` is required at config load and why
+ * the connect below proves the server answers before publishing the handle.
  */
 
 import { createDatabase, type OxyDatabase } from '@oxyhq/db';
@@ -146,9 +145,7 @@ export function getDb(): Database {
  *
  * A real round trip, deliberately, and not a `db !== null` flag: a pool can
  * exist while the server behind it is unreachable, so the cheap synchronous
- * answer is the one that reports healthy during an outage. (`src/lib/db.ts`'s
- * `isConnected()` is that cheap shape, and `routes/health.ts` already ignores
- * it in favour of reading `mongoose.connection.readyState` itself.)
+ * answer is the one that reports healthy during an outage.
  *
  * Never throws: an unreachable database is a health-check RESULT, not an error
  * for the caller to handle.
