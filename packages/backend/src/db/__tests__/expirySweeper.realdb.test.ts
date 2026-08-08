@@ -46,6 +46,17 @@ let db: Database;
 const EXPIRED_AT = new Date(Date.now() - 60 * 60 * 1_000);
 /** An hour in the future — comfortably short of one. */
 const NOT_YET_EXPIRED_AT = new Date(Date.now() + 60 * 60 * 1_000);
+/**
+ * `available_at` for every outbox fixture: an hour ahead, so no fixture is ever
+ * DUE. The sweep selects on `expires_at` alone, so this changes nothing under
+ * test — but the database is shared and vitest runs files in parallel, and a
+ * sibling file's dispatcher-style claim (`moderation-writes.realdb.test.ts`
+ * claims without an event id) selects on `status = 'pending' AND available_at <=
+ * now`. A due fixture here is claimable there, and a `sweep-outbox-*` id has
+ * surfaced inside that file's claim assertions (#151). Never-due fixtures cannot
+ * cross that predicate, whatever new claim-shaped test a sibling grows.
+ */
+const NEVER_DUE_AT = NOT_YET_EXPIRED_AT;
 /** 91 days ago: one day past the dismissed-notification retention. */
 const PAST_NOTIFICATION_RETENTION = new Date(Date.now() - 91 * 24 * 60 * 60 * 1_000);
 
@@ -72,7 +83,7 @@ async function makeOutboxRow(expiresAt: Date): Promise<string> {
     payload: { reportId: uuidv7() },
     status: 'pending',
     attempts: 0,
-    availableAt: new Date(),
+    availableAt: NEVER_DUE_AT,
     expiresAt,
   });
   return id;
@@ -126,7 +137,7 @@ async function makePaymentOutboxRow(expiresAt: Date): Promise<string> {
     payload: { paymentId: uuidv7() },
     status: 'pending',
     attempts: 0,
-    availableAt: new Date(),
+    availableAt: NEVER_DUE_AT,
     expiresAt,
   });
   return id;

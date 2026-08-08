@@ -38,6 +38,19 @@
  * parallel workers, so every id this file writes carries a per-run suffix and
  * teardown deletes exactly what it created. A `delete from moderation_outboxes`
  * here would silently empty the sibling decision and observe files mid-run.
+ *
+ * Ids alone do not scope a claim WITHOUT an `eventId`, though: its predicate is
+ * `status = 'pending' AND available_at <= now`, which matches any sibling file's
+ * due row — `expirySweeper.realdb.test.ts` fixtures and the webhook file's
+ * `decision.apply` rows both qualified, and a `sweep-outbox-*` id really did
+ * surface inside a claim assertion here (#151). So the two unscoped-claim tests
+ * claim at a SYNTHETIC instant just after the epoch, having first moved their own
+ * rows' `available_at` beneath it: at that instant this file's rows are the only
+ * due rows in the table (a real row's `available_at` is decades later, and a
+ * NULL `lease_until` fails the reclaim branch's comparison outright), and the
+ * claim's own ORDER BY / SKIP LOCKED behavior is untouched. The same scoping
+ * protects the siblings from US — an unscoped claim can no longer lease a
+ * webhook row and bump the attempt count its file is about to assert on.
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -325,6 +338,47 @@ describe('the outbox claim is a lease, and SKIP LOCKED makes it shareable', () =
     });
   }
 
+  /**
+   * The synthetic instant the unscoped-claim tests claim at — see the module
+   * docblock's scoping section. Two minutes past the epoch, so `SCOPED_DUE_AT`
+   * sits strictly beneath it and every REAL row in the shared table sits decades
+   * above it.
+   */
+  const SCOPED_NOW = new Date(120_000);
+  const SCOPED_DUE_AT = new Date(0);
+
+  /** Make exactly these rows due at `SCOPED_NOW`, and nothing else in the table. */
+  async function scopeToThisFile(ids: string[]): Promise<void> {
+    await db
+      .update(moderationOutboxes)
+      .set({ availableAt: SCOPED_DUE_AT })
+      .where(inArray(moderationOutboxes.id, ids));
+  }
+
+  /**
+   * A sibling-shaped row: `pending`, due at REAL time, with a `created_at` older
+   * than anything this file enqueues — exactly what an expiry-sweep fixture or
+   * the webhook file's `decision.apply` row looks like from here, except
+   * deterministic. An UNSCOPED claim at real time takes this row first, because
+   * the claim orders by `created_at`; the scoped claims below must never see it.
+   * This is the race of #151, pinned, instead of waited for.
+   */
+  async function seedSiblingShapedRow(name: string): Promise<string> {
+    const id = `sibling-${name}-${RUN}`;
+    createdOutboxIds.push(id);
+    await db.insert(moderationOutboxes).values({
+      id,
+      kind: 'report.submit',
+      payload: { reportId: `sibling-${RUN}` },
+      status: 'pending',
+      attempts: 0,
+      availableAt: new Date(),
+      createdAt: new Date(Date.now() - 60_000),
+      expiresAt: new Date(Date.now() + 3_600_000),
+    });
+    return id;
+  }
+
   it('a claim leases the row and a second claim finds nothing', async () => {
     const id = outboxId('claim');
     await enqueue(id, 'r7');
@@ -368,20 +422,25 @@ describe('the outbox claim is a lease, and SKIP LOCKED makes it shareable', () =
      * cheap guard against a claim that hands two dispatchers the same row, and the
      * test below is the one that actually pins the skip.
      */
+    const sibling = await seedSiblingShapedRow('race-two');
     const first = outboxId('race-two-a');
     const second = outboxId('race-two-b');
     await enqueue(first, 'r9');
     await enqueue(second, 'r10');
+    await scopeToThisFile([first, second]);
 
     const [a, b] = await Promise.all([
-      claimModerationOutboxEvent({ leaseOwner: 'owner-a' }),
-      claimModerationOutboxEvent({ leaseOwner: 'owner-b' }),
+      claimModerationOutboxEvent({ leaseOwner: 'owner-a', now: SCOPED_NOW }),
+      claimModerationOutboxEvent({ leaseOwner: 'owner-b', now: SCOPED_NOW }),
     ]);
 
     expect(a).not.toBeNull();
     expect(b).not.toBeNull();
     expect(a?.id).not.toBe(b?.id);
     expect([a?.id, b?.id].sort()).toEqual([first, second].sort());
+    // And the sibling's row was not perturbed on the way past — an unscoped
+    // claim leasing it would bump the attempt count its own file asserts on.
+    expect((await findModerationOutboxEvent(sibling))?.attempts).toBe(0);
   });
 
   it('a claim SKIPS a row another transaction is HOLDING rather than waiting for it', async () => {
@@ -401,10 +460,12 @@ describe('the outbox claim is a lease, and SKIP LOCKED makes it shareable', () =
      * blocking teardown. Verified by mutation: deleting `skip locked` fails this
      * test with `57014 canceling statement due to statement timeout`.
      */
+    const sibling = await seedSiblingShapedRow('skip-held');
     const first = outboxId('skip-held');
     const second = outboxId('skip-free');
     await enqueue(first, 'r13');
     await enqueue(second, 'r14');
+    await scopeToThisFile([first, second]);
 
     let announceHeld: () => void = () => undefined;
     let releaseHolder: () => void = () => undefined;
@@ -427,13 +488,15 @@ describe('the outbox claim is a lease, and SKIP LOCKED makes it shareable', () =
     try {
       const claimed = await db.transaction(async (tx) => {
         await tx.execute(sql`set local statement_timeout = '1000ms'`);
-        return await claimModerationOutboxEvent({ leaseOwner: 'skipper' }, tx);
+        return await claimModerationOutboxEvent({ leaseOwner: 'skipper', now: SCOPED_NOW }, tx);
       });
       expect(claimed?.id).toBe(second);
     } finally {
       releaseHolder();
       await holder;
     }
+
+    expect((await findModerationOutboxEvent(sibling))?.attempts).toBe(0);
   });
 
   it('an EXPIRED processing lease is reclaimable, so a dead task strands nothing', async () => {
