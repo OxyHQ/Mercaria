@@ -28,7 +28,7 @@ function storeId(req: Request): string {
   if (!store) {
     throw notFound('Store not loaded');
   }
-  return String((store as { _id: unknown })._id);
+  return store.id;
 }
 
 /** GET /admin/stores/:storeId/discounts — the store's discounts. */

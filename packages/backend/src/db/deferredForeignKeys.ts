@@ -80,10 +80,9 @@ const COMMERCE_SNAPSHOT =
  * See the block comment above these entries for the full reasoning.
  */
 const PAYMENT_CORRELATION =
-  'A financial record correlating to a commerce record it does not compose with. Orders ' +
-  'and refunds are still written to MongoDB, and a payment must be writable whether or ' +
-  'not its join partner is reachable — money that moved is a fact Mercaria owes an ' +
-  'answer about regardless.';
+  'A financial record correlating to a commerce record it does not compose with. A ' +
+  'payment must be writable whether or not its join partner is reachable — money that ' +
+  'moved is a fact Mercaria owes an answer about regardless.';
 
 /**
  * An id a payment rail minted. Stored for reconciliation, indexed, and NEVER a
@@ -185,23 +184,26 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // ── Payment-domain correlations ───────────────────────────────────────────
   //
   // A payment record CORRELATES to an order; it does not compose with it. Two
-  // things force that, and the second outlives the first.
+  // things forced that, and — as the entry written before the cutover predicted
+  // — the second has outlived the first.
   //
-  // Today: orders are still served from MongoDB. The Postgres `orders` table
-  // exists but is not the write path, so a constraint here would reject every
-  // payment written — for an order that genuinely exists, in the other store.
+  // The first is GONE. Orders were served from MongoDB when these entries landed,
+  // so a constraint would have rejected every payment written for an order that
+  // genuinely existed, in the other store. Orders are a Postgres write path now,
+  // in this same database, so that argument no longer applies to anything.
   //
-  // After the cutover: a financial record must be insertable and readable
-  // independently of the commerce record it names (#45 invariant 12). Money that
-  // moved is a fact Mercaria owes an answer about whether or not the order row
-  // is reachable, and "the payment could not be written because a join partner
-  // was missing" is the one failure a payment system may not have. That is the
-  // same reasoning `refunds.order_id` did NOT get — a refund is a commerce
-  // decision and stays constrained — so this is a decision per relation, not a
-  // blanket exemption for the domain.
+  // The second stands on its own, and it is why these stay deferred: a financial
+  // record must be insertable and readable independently of the commerce record
+  // it names (#45 invariant 12). Money that moved is a fact Mercaria owes an
+  // answer about whether or not the order row is reachable, and "the payment
+  // could not be written because a join partner was missing" is the one failure
+  // a payment system may not have. That is the same reasoning `refunds.order_id`
+  // did NOT get — a refund is a commerce decision and stays constrained — so
+  // this is a decision per relation, not a blanket exemption for the domain.
   //
-  // Revisit deliberately when orders become a Postgres write path: `payments`,
-  // `transfers` and `ledger_entries` each get the question asked again.
+  // This IS the deliberate revisit that entry asked for; the question was put to
+  // `payments`, `transfers`, `ledger_transactions` and `ledger_entries`
+  // individually and each keeps the deferral on the second reason alone.
   { column: 'payments.order_id', reason: PAYMENT_CORRELATION },
   { column: 'transfers.order_id', reason: PAYMENT_CORRELATION },
   { column: 'ledger_transactions.order_id', reason: PAYMENT_CORRELATION },
@@ -210,7 +212,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
     column: 'ledger_transactions.refund_id',
     reason:
       'The same correlation-not-composition rule as the order ids above, against a ' +
-      'refund that is likewise still written to MongoDB.',
+      'refund the ledger likewise names without composing with.',
   },
   {
     column: 'ledger_entries.owner_id',

@@ -12,7 +12,13 @@
  * between attempts — see `evidence-snapshot.service.ts`.
  */
 
-import { AbuseReport, type IAbuseReport } from '../../models/abuse-report.js';
+import {
+  findAbuseReportById,
+  markAbuseReportDelivered,
+  markAbuseReportUndeliverable,
+  type AbuseReportRecord,
+} from '../../db/moderation/abuseReportRepository.js';
+import type { ModerationOutboxEvent } from '../../db/moderation/moderationOutboxRepository.js';
 import { log } from '../../lib/logger.js';
 import { getCrowdSourceClient } from './crowdsource-client.js';
 import {
@@ -20,7 +26,6 @@ import {
   ModerationSubjectMissingError,
   ModerationSubjectUnsupportedError,
 } from './evidence-snapshot.service.js';
-import type { ModerationOutboxEvent } from './moderation-outbox.service.js';
 
 /**
  * Raised when the outbox row names a report that is not there.
@@ -55,11 +60,8 @@ class CrowdSourceUnconfiguredError extends Error {
  * record with the reason on it, and the outbox row dead-letters because the error
  * is marked non-retryable.
  */
-async function markUndeliverable(report: IAbuseReport, reason: string): Promise<void> {
-  await AbuseReport.updateOne(
-    { _id: report._id },
-    { $set: { localStatus: 'delivery_failed', localStatusReason: reason.slice(0, 300) } },
-  );
+async function markUndeliverable(report: AbuseReportRecord, reason: string): Promise<void> {
+  await markAbuseReportUndeliverable(report.id, reason);
 }
 
 export async function deliverReport(event: ModerationOutboxEvent): Promise<void> {
@@ -68,12 +70,16 @@ export async function deliverReport(event: ModerationOutboxEvent): Promise<void>
     throw new ReportVanishedError('(missing reportId in payload)');
   }
 
-  const report = await AbuseReport.findById(reportId).lean<IAbuseReport | null>();
+  const report = await findAbuseReportById(reportId);
   if (!report) throw new ReportVanishedError(reportId);
 
   /**
    * Already delivered — a redelivery of a row whose completion did not persist.
    * Nothing to do, and completing the row is the right outcome.
+   *
+   * `undefined`, not `''`: the column is NULL until a delivery succeeds and the
+   * repository normalizes NULL to `undefined`, so an empty string would be a real
+   * (and impossible) receipt rather than an absent one.
    */
   if (report.crowdSourceReportId !== undefined) return;
 
@@ -95,19 +101,12 @@ export async function deliverReport(event: ModerationOutboxEvent): Promise<void>
 
   const response = await client.reports.create(built.input);
 
-  await AbuseReport.updateOne(
-    { _id: report._id },
-    {
-      $set: {
-        localStatus: 'delivered',
-        crowdSourceReportId: response.reportId,
-        crowdSourceCaseId: response.caseId,
-        snapshotHash: built.snapshotHash,
-        deliveredAt: new Date(),
-      },
-      $unset: { localStatusReason: '' },
-    },
-  );
+  await markAbuseReportDelivered(report.id, {
+    crowdSourceReportId: response.reportId,
+    crowdSourceCaseId: response.caseId,
+    snapshotHash: built.snapshotHash,
+    deliveredAt: new Date(),
+  });
 
   log.moderation.info(
     {

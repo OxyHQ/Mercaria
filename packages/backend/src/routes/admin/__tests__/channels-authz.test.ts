@@ -41,8 +41,12 @@ beforeAll(async () => {
   app.use((req, _res, next) => {
     req.userId = 'user-1';
     const role = (req.headers['x-role'] as StoreRole) ?? 'staff';
-    req.store = { _id: STORE_ID } as unknown as typeof req.store;
-    req.storeMembership = { oxyUserId: 'user-1', role, permissions: [], joinedAt: new Date() };
+    req.store = { id: STORE_ID } as unknown as typeof req.store;
+    req.storeMembership = {
+      oxyUserId: 'user-1',
+      role,
+      permissions: [],
+    } as unknown as typeof req.storeMembership;
     next();
   });
   app.use('/', channelsRouter);

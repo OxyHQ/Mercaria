@@ -14,9 +14,14 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { isValidObjectId } from 'mongoose';
+import { isLiveEntityId } from '@oxyhq/db';
 import type { StoreRole, StorePermission } from '@mercaria/shared-types';
-import { Store, type IStore, type IStoreMember } from '../models/store.js';
+import { STORE_PERMISSIONS } from '../db/schema/stores.js';
+import {
+  findStoreById,
+  type StoreMemberRecord,
+  type StoreRecord,
+} from '../db/stores/storeRepository.js';
 import { sendError, ErrorCodes } from '../utils/api-response.js';
 import { log } from '../lib/logger.js';
 
@@ -25,32 +30,21 @@ import { log } from '../lib/logger.js';
 declare global {
   namespace Express {
     interface Request {
-      store?: IStore;
-      storeMembership?: IStoreMember;
+      store?: StoreRecord;
+      storeMembership?: StoreMemberRecord;
     }
   }
 }
 
-/** The full set of permissions a store can grant. */
-const ALL_PERMISSIONS: readonly StorePermission[] = [
-  'store:manage',
-  'members:manage',
-  'products:read',
-  'products:write',
-  'inventory:write',
-  'locations:write',
-  'collections:write',
-  'discounts:write',
-  'settings:write',
-  'orders:read',
-  'orders:fulfill',
-  'stats:read',
-  'customers:read',
-  'customers:write',
-  'draft_orders:write',
-  'refunds:write',
-  'channels:write',
-];
+/**
+ * The full set of permissions a store can grant.
+ *
+ * Read from `db/schema/stores.ts` rather than retyped, because that tuple is
+ * also what renders the CHECK constraint on `store_members.permissions`. A
+ * hand-copied list here could grant a permission the database then refuses to
+ * store — a 500 on an invite, from two lists that merely LOOKED identical.
+ */
+const ALL_PERMISSIONS: readonly StorePermission[] = STORE_PERMISSIONS;
 
 /**
  * Permissions an admin holds — everything EXCEPT `store:manage`. `store:manage`
@@ -118,7 +112,7 @@ export const ROLE_PERMISSIONS: Record<StoreRole, StorePermission[]> = {
 };
 
 /** Compute a member's effective permissions: role defaults ∪ explicit grants. */
-export function effectivePermissions(member: IStoreMember): Set<StorePermission> {
+export function effectivePermissions(member: StoreMemberRecord): Set<StorePermission> {
   const effective = new Set<StorePermission>(ROLE_PERMISSIONS[member.role]);
   for (const perm of member.permissions) {
     effective.add(perm);
@@ -138,7 +132,11 @@ export async function loadStore(req: Request, res: Response, next: NextFunction)
   const raw = req.params.storeId;
   const storeId = Array.isArray(raw) ? raw[0] : raw;
 
-  if (!storeId || !isValidObjectId(storeId)) {
+  // Shape-only: both id shapes this schema stores are accepted (a 24-hex
+  // ObjectId for a pre-cutover store, a uuid v7 for one created since). This
+  // exists to turn a malformed param into a 400 instead of a pointless query —
+  // never as a precondition on the lookup, which answers "no such store" itself.
+  if (!storeId || !isLiveEntityId(storeId)) {
     sendError(res, ErrorCodes.VALIDATION_ERROR, 'Invalid storeId', 400);
     return;
   }
@@ -150,7 +148,12 @@ export async function loadStore(req: Request, res: Response, next: NextFunction)
   }
 
   try {
-    const store = await Store.findById(storeId);
+    // ONE read, not two. `findStoreById` already attaches the whole member list
+    // — `req.store.members` is what `GET /members` serves — so looking the
+    // caller up in it costs nothing, while a second indexed
+    // `(store_id, oxy_user_id)` query would add a round trip to every admin
+    // request for a row this one already returned.
+    const store = await findStoreById(storeId);
     if (!store) {
       sendError(res, ErrorCodes.NOT_FOUND, 'Store not found', 404);
       return;

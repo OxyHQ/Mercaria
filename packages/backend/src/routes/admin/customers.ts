@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import { createCustomerSchema, updateCustomerSchema } from '../../middleware/schemas.js';
 import {
@@ -27,17 +27,17 @@ router.post(
   validateBody(createCustomerSchema),
   createStoreCustomer,
 );
-router.get('/:id', requireStorePermission('customers:read'), validateObjectId('id'), getStoreCustomer);
+router.get('/:id', requireStorePermission('customers:read'), validateId('id'), getStoreCustomer);
 router.get(
   '/:id/orders',
   requireStorePermission('customers:read'),
-  validateObjectId('id'),
+  validateId('id'),
   getStoreCustomerOrders,
 );
 router.patch(
   '/:id',
   requireStorePermission('customers:write'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(updateCustomerSchema),
   patchStoreCustomer,
 );

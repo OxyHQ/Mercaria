@@ -373,8 +373,31 @@ not.** Check `pg_proc.provolatile`, do not assume:
 | Want | Rejected | Use |
 |---|---|---|
 | a `tsvector` from text | `to_tsvector(x)` — STABLE, reads `default_text_search_config` | `to_tsvector('english', x)` with a LITERAL config |
-| a `tsvector` from `text[]` | `to_tsvector('simple', array_to_string(a, ' '))` — `array_to_string` is STABLE | `array_to_tsvector(a)` — IMMUTABLE |
+| a `tsvector` from `text[]` | `array_to_string(a, ' ')` — STABLE; `a::text` — refused outright | `to_tsvector('english', mercaria_immutable_array_to_string(a, ' '))` |
 | a point | — | `ST_MakePoint(lon, lat)::geography`, both IMMUTABLE in PostGIS 3.5 |
+
+**The IMMUTABLE escape hatch is a narrowed wrapper FUNCTION, not a different
+builtin.** `array_to_tsvector(a)` is immutable and was the first answer for
+`text[]`; it is also wrong, because it stores every element as a lexeme VERBATIM
+— no stemming, no case folding — so a listing tagged `Handmade` was not findable
+by "handmade" and `Bikes` not by "bikes", a real narrowing against Mongo's
+`$text`, which stemmed array elements. `array_to_string(anyarray, text)` is
+STABLE only because `anyarray` admits types whose text conversion is not
+immutable; narrowed to `text[]` the conversion genuinely is, so
+`mercaria_immutable_array_to_string(text[], text)`
+(`drizzle/0003_tag_search_stemming.sql`) declares it honestly rather than by
+assertion. Reach for the same shape before accepting a builtin that type-checks
+and analyzes differently.
+
+> **A generated-column rewrite silently DROPS the column's indexes, and
+> `drizzle-kit generate` will not tell you.** Changing a stored generated
+> expression means `DROP COLUMN` + `ADD COLUMN`, and the drop takes every index
+> on that column with it — but the index's own definition is textually
+> unchanged, so the diff emits nothing and the snapshot still records an index
+> the database no longer has. Every `@@` query keeps passing, on a sequential
+> scan. Re-create the index by hand in the same migration, and assert it exists
+> against a real database (`keeps the search-vector GIN index that the column
+> rewrite dropped` in `catalog.realdb.test.ts`).
 
 **Do NOT generate a money total.** It is tempting for `line_total` and it is
 wrong: the pricing engine's half-even reconciliation distributes rounding across
@@ -645,20 +668,50 @@ add a row when a gate lands, and do not list one that does not run yet.
 | Every `PROTECTED_COLUMNS` entry names a real table (by its SQL name) and a real column (by its TypeScript property) — the two conventions differ and mixing them up silently protects NOTHING | `src/db/__tests__/schema-conventions.test.ts` | no |
 | `money`/`dualMoney`/`addressColumns` emit exactly the column names they claim, in TypeScript AND in SQL — the one place in the schema where key names are not compiler-checked | `src/db/__tests__/schema-conventions.test.ts` | no |
 | Every currency column carries a CHECK, since `text({ enum })` emits no DDL | `src/db/__tests__/schema-conventions.test.ts` | no |
-| snake_case tables and columns; every table has a PK; every timestamp is `timestamptz`; no `''` default (two pinned exceptions, see below); no `_id`/`__v` left over from Mongoose | `src/db/__tests__/schema.realdb.test.ts` | **yes** |
-| Every expiry-swept column has a supporting leading btree index — nothing else notices a later migration dropping one | `src/db/__tests__/schema.realdb.test.ts` | **yes** |
-| A ledger transaction balances to zero per currency, and its rows refuse UPDATE and DELETE | `src/db/payments/__tests__/ledger.realdb.test.ts` | **yes** |
+| snake_case tables and columns; every table has a PK; every timestamp is `timestamptz`; no `''` default; no `_id`/`__v` left over from Mongoose | `src/db/__tests__/schema.realdb.test.ts` | yes |
+| Every expiry-swept column has a supporting leading btree index — nothing else notices a later migration dropping one | `src/db/__tests__/schema.realdb.test.ts` | yes |
+| A ledger transaction balances to zero per currency, and its rows refuse UPDATE and DELETE | `src/db/payments/__tests__/ledger.realdb.test.ts` | yes |
+| The order status CAS refuses a stale `expected`, so two concurrent transitions produce exactly ONE winner and one history event | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| A discount's total-usage ceiling holds under two CONCURRENT redemptions at `totalMax - 1` | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| A replayed checkout's duplicate is refused by `orders_idempotency_key_key` and the survivor is findable by that key | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| Two concurrent FIRST paid orders settle a customer on ONE row with `orderCount = 2` | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| The refunded-quantity and RESTOCKED-quantity aggregates answer their two different questions | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| The sales report buckets across a month boundary and sums only the store's shop currency | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| Both sequences format (`MRC-%06d` / `RMA-%06d`) and ascend independently, and no third one exists | `src/db/__tests__/commerce.realdb.test.ts`, `src/services/__tests__/draft-order-complete.realdb.test.ts` | yes |
+| The generated `search_vector` stems and case-folds TAGS, and keeps its GIN index across the column rewrite | `src/db/__tests__/catalog.realdb.test.ts` | yes |
 
-### Both catalogue gates are wired now
+### The three concurrency shapes a mocked test cannot see
 
-`vitest.config.ts` lists BOTH global setups: the Mongo replica set and
-`vitest.pg.globalSetup.ts`, which creates, migrates and drops a throwaway
-PostgreSQL database per run. The payment domain brought that wiring with it, and
-the two remaining `@oxyhq/db/assert` gates — which query the real catalogue and
-therefore need a migrated database — run in
-`db/__tests__/schema.realdb.test.ts`. The cost is real and worth naming: every
-test file in this package now needs a reachable Postgres server before it can
-start, whether or not it touches one.
+Everything above the line is checked by reading code. These three are not, and
+each one has a translation that type-checks, reads correctly and is WRONG — so
+each is pinned by two genuinely concurrent calls against a real server, and each
+was mutation-tested by reverting to the wrong form and watching the gate fail.
+
+- **A conditional write must stay ONE statement.** Mongo's
+  `findOneAndUpdate({_id, status: current}, …)` evaluated its guard and its
+  mutation together. `UPDATE … WHERE id = $1 AND status = $2 RETURNING` has the
+  same property: the row is locked for the statement, so the loser's predicate is
+  re-checked against the winner's write. A read-then-write is a different
+  function with the same signature and a lost-update bug.
+- **A guard that reads OTHER rows cannot live in the same `UPDATE`.** A subquery
+  in an `UPDATE … WHERE` is evaluated against the statement's own snapshot, and
+  READ COMMITTED explicitly does not re-read other rows during an EvalPlanQual
+  recheck — so the tempting one-statement port of Mongo's `$expr` ceiling lets
+  BOTH concurrent redemptions through. Serialize on the parent
+  (`SELECT … FOR UPDATE`), then count in a SEPARATE statement, which takes a
+  fresh snapshot after the wait. `redeemDiscountCode` is the worked example.
+- **An `ON CONFLICT … DO UPDATE` increment must reference the EXISTING row**, not
+  `excluded`. `excluded` is the row this statement proposed, so two concurrent
+  first orders would each set the count to their own proposed `1`.
+
+### A `Date` is not a safe parameter against an EXPRESSION
+
+`gte(column, date)` is fine — drizzle knows the column's type and encodes it. A
+comparison against an expression (`coalesce(paid_at, created_at)`) has no column
+to take a type from, and postgres.js is handed a raw `Date` it refuses with
+`ERR_INVALID_ARG_TYPE`: a hard failure at query time on a report that type-checks
+perfectly. Bind `date.toISOString()` with an explicit `::timestamptz` cast. Found
+by `commerce.realdb.test.ts`; the mocked report tests could not have seen it.
 
 > **`findSchemaInvariantViolations` is asserted as a SUBSET of a shrinking
 > allow-list, not against `[]`.** Two columns violate the "no `''` default" rule
@@ -684,8 +737,9 @@ mechanised yet. What was checked, and what each check is actually worth:
   reading drizzle's source;
 - the `tsvector` generated column indexes title, description AND tags, checked
   with three queries rather than one — a term only in the description, a term
-  only in the TAGS (which reach the vector through `array_to_tsvector`, a
-  separate IMMUTABLE code path), and a term in NEITHER row, which must match
+  only in the TAGS (which reach the vector through
+  `mercaria_immutable_array_to_string`, a separate code path), and a term in
+  NEITHER row, which must match
   nothing. A single positive query cannot tell a working index from one that
   matches everything, and the first draft of this check did exactly that;
 - the `geography` generated column populates from `longitude`/`latitude` and

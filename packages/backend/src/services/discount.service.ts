@@ -1,14 +1,27 @@
 /**
  * Discount service — store-admin lifecycle for promotions (B4).
  *
- * Owns create/list/get/update/delete for a store's `Discount`s plus the
- * `Discount` DTO serializer. Codes are normalized to UPPERCASE and unique PER
- * STORE (the sparse unique index on `{ storeId, codes.code }`); a duplicate maps
- * to a CONFLICT. Every operation is scoped to its `storeId`, so a member only
- * operates on their own store's discounts.
+ * Owns create/list/get/update/delete for a store's discounts plus the `Discount`
+ * DTO serializer. Codes are normalized to UPPERCASE and unique PER STORE
+ * (`discount_codes_store_id_code_key`); a duplicate maps to a CONFLICT. Every
+ * operation is scoped to its `storeId`, so a member only operates on their own
+ * store's discounts.
  *
  * The pricing/redemption side (gating, amount math, usage increments) lives in
  * `pricing.service` + `checkout.service`; this module is purely the admin CRUD.
+ *
+ * ## The DTO reassembles what the schema flattened
+ *
+ * Mongo held `appliesTo`, `buy`, `get`, `minimumRequirement`,
+ * `customerEligibility` and `usageLimits` as nested sub-documents; Postgres holds
+ * each field as its own column. The wire shape does NOT change — clients and the
+ * dashboard still receive the nested `Discount` DTO — so this serializer is where
+ * the two representations meet, and it is the only place that knows both.
+ *
+ * A sub-document is emitted only when the schema really has one: `buy`/`get` are
+ * keyed on their `quantity` column being non-NULL, because a leg with a scope and
+ * no quantity is not a leg the engine can reward against, and emitting it would
+ * put a half-formed object on the wire that no client can render.
  */
 
 import type {
@@ -16,28 +29,22 @@ import type {
   UpdateDiscountInput,
   Discount as DiscountDTO,
   DiscountCombinesWith,
+  DiscountScope,
 } from '@mercaria/shared-types';
+import { isUniqueViolation } from '@oxyhq/db';
 import {
-  Discount,
-  type IDiscount,
-  type IDiscountCode,
-  type IDiscountAppliesTo,
-  type IDiscountLeg,
-} from '../models/discount.js';
+  deleteDiscount as deleteDiscountRow,
+  findDiscount,
+  findDiscountsForStore,
+  insertDiscount,
+  updateDiscount as updateDiscountRow,
+  type DiscountLegInput,
+  type DiscountPatch,
+  type DiscountRecord,
+} from '../db/merchandising/discountRepository.js';
 import { conflict, notFound } from '../lib/errors/error-codes.js';
 
-/** Mongo duplicate-key error code (a unique-index violation). */
-const MONGO_DUPLICATE_KEY = 11000;
-
-/** True iff `err` is a Mongo duplicate-key (unique-index) error. */
-function isDuplicateKeyError(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'code' in err &&
-    (err as { code?: unknown }).code === MONGO_DUPLICATE_KEY
-  );
-}
+export type { DiscountRecord };
 
 /** Normalize a redeemable code: trim + uppercase (the matching key everywhere). */
 export function normalizeDiscountCode(code: string): string {
@@ -53,32 +60,37 @@ function resolveCombinesWith(input?: Partial<DiscountCombinesWith>): DiscountCom
   };
 }
 
-/** Build the persisted `appliesTo` sub-document from input (omit absent id arrays). */
-function buildAppliesTo(input: CreateDiscountInput['appliesTo']): IDiscountAppliesTo {
-  const appliesTo: IDiscountAppliesTo = { scope: input.scope };
-  if (input.productIds) appliesTo.productIds = [...input.productIds];
-  if (input.collectionIds) appliesTo.collectionIds = [...input.collectionIds];
-  return appliesTo;
-}
-
-/** Build a persisted buy/get leg from input (omit absent optionals). */
-function buildLeg(input: NonNullable<CreateDiscountInput['buy']>): IDiscountLeg {
-  const leg: IDiscountLeg = { quantity: input.quantity, scope: input.scope };
+/** Build a repository buy/get leg from input (omit absent optionals). */
+function buildLeg(input: NonNullable<CreateDiscountInput['buy']>): DiscountLegInput {
+  const leg: DiscountLegInput = { quantity: input.quantity, scope: input.scope };
   if (input.productIds) leg.productIds = [...input.productIds];
   if (input.collectionIds) leg.collectionIds = [...input.collectionIds];
   if (input.discountPercent !== undefined) leg.discountPercent = input.discountPercent;
   return leg;
 }
 
-/** Build the persisted code sub-documents from a list of raw code strings. */
-function buildCodes(codes: string[]): IDiscountCode[] {
-  return codes.map((code) => ({ code: normalizeDiscountCode(code), usageCount: 0 }));
+/** One buy/get leg of the DTO, or `undefined` when the row has no such leg. */
+function toLegDTO(
+  quantity: number | null,
+  scope: Exclude<DiscountScope, 'order'> | null,
+  productIds: string[] | null,
+  collectionIds: string[] | null,
+  discountPercent: number | null,
+): DiscountDTO['buy'] | undefined {
+  if (quantity === null || scope === null) return undefined;
+  return {
+    quantity,
+    scope,
+    ...(productIds ? { productIds: [...productIds] } : {}),
+    ...(collectionIds ? { collectionIds: [...collectionIds] } : {}),
+    ...(discountPercent !== null ? { discountPercent } : {}),
+  };
 }
 
-/** Serialize a discount document to the `Discount` DTO. */
-export function toDiscountDTO(discount: IDiscount): DiscountDTO {
+/** Serialize a discount row (with its codes) to the `Discount` DTO. */
+export function toDiscountDTO(discount: DiscountRecord): DiscountDTO {
   const dto: DiscountDTO = {
-    id: String((discount as { _id: unknown })._id),
+    id: discount.id,
     storeId: discount.storeId,
     title: discount.title,
     method: discount.method,
@@ -86,68 +98,65 @@ export function toDiscountDTO(discount: IDiscount): DiscountDTO {
     valueType: discount.valueType,
     value: discount.value,
     appliesTo: {
-      scope: discount.appliesTo.scope,
-      ...(discount.appliesTo.productIds ? { productIds: [...discount.appliesTo.productIds] } : {}),
-      ...(discount.appliesTo.collectionIds
-        ? { collectionIds: [...discount.appliesTo.collectionIds] }
+      scope: discount.appliesToScope,
+      ...(discount.appliesToProductIds ? { productIds: [...discount.appliesToProductIds] } : {}),
+      ...(discount.appliesToCollectionIds
+        ? { collectionIds: [...discount.appliesToCollectionIds] }
         : {}),
     },
     combinesWith: {
-      orderDiscounts: discount.combinesWith.orderDiscounts,
-      productDiscounts: discount.combinesWith.productDiscounts,
-      shippingDiscounts: discount.combinesWith.shippingDiscounts,
+      orderDiscounts: discount.combinesWithOrderDiscounts,
+      productDiscounts: discount.combinesWithProductDiscounts,
+      shippingDiscounts: discount.combinesWithShippingDiscounts,
     },
     startsAt: discount.startsAt.toISOString(),
     isActive: discount.isActive,
     createdAt: discount.createdAt.toISOString(),
     updatedAt: discount.updatedAt.toISOString(),
   };
-  if (discount.buy) {
-    dto.buy = {
-      quantity: discount.buy.quantity,
-      scope: discount.buy.scope,
-      ...(discount.buy.productIds ? { productIds: [...discount.buy.productIds] } : {}),
-      ...(discount.buy.collectionIds ? { collectionIds: [...discount.buy.collectionIds] } : {}),
-      ...(discount.buy.discountPercent !== undefined
-        ? { discountPercent: discount.buy.discountPercent }
-        : {}),
-    };
-  }
-  if (discount.get) {
-    dto.get = {
-      quantity: discount.get.quantity,
-      scope: discount.get.scope,
-      ...(discount.get.productIds ? { productIds: [...discount.get.productIds] } : {}),
-      ...(discount.get.collectionIds ? { collectionIds: [...discount.get.collectionIds] } : {}),
-      ...(discount.get.discountPercent !== undefined
-        ? { discountPercent: discount.get.discountPercent }
-        : {}),
-    };
-  }
-  if (discount.minimumRequirement) {
+
+  const buy = toLegDTO(
+    discount.buyQuantity,
+    discount.buyScope,
+    discount.buyProductIds,
+    discount.buyCollectionIds,
+    discount.buyDiscountPercent,
+  );
+  if (buy) dto.buy = buy;
+
+  const get = toLegDTO(
+    discount.getQuantity,
+    discount.getScope,
+    discount.getProductIds,
+    discount.getCollectionIds,
+    discount.getDiscountPercent,
+  );
+  if (get) dto.get = get;
+
+  // Both columns move together, so the sub-document is emitted only when the
+  // VALUE is present — a type with no threshold is not a requirement to render.
+  if (discount.minimumRequirementType !== null && discount.minimumRequirementValue !== null) {
     dto.minimumRequirement = {
-      type: discount.minimumRequirement.type,
-      value: discount.minimumRequirement.value,
+      type: discount.minimumRequirementType,
+      value: discount.minimumRequirementValue,
     };
   }
-  if (discount.customerEligibility) {
+  if (discount.customerEligibilityType !== null) {
     dto.customerEligibility = {
-      type: discount.customerEligibility.type,
-      ...(discount.customerEligibility.customerIds
-        ? { customerIds: [...discount.customerEligibility.customerIds] }
+      type: discount.customerEligibilityType,
+      ...(discount.customerEligibilityCustomerIds
+        ? { customerIds: [...discount.customerEligibilityCustomerIds] }
         : {}),
-      ...(discount.customerEligibility.groupTags
-        ? { groupTags: [...discount.customerEligibility.groupTags] }
+      ...(discount.customerEligibilityGroupTags
+        ? { groupTags: [...discount.customerEligibilityGroupTags] }
         : {}),
     };
   }
-  if (discount.usageLimits) {
+  if (discount.usageLimitsTotalMax !== null || discount.usageLimitsPerCustomerMax !== null) {
     dto.usageLimits = {
-      ...(discount.usageLimits.totalMax !== undefined
-        ? { totalMax: discount.usageLimits.totalMax }
-        : {}),
-      ...(discount.usageLimits.perCustomerMax !== undefined
-        ? { perCustomerMax: discount.usageLimits.perCustomerMax }
+      ...(discount.usageLimitsTotalMax !== null ? { totalMax: discount.usageLimitsTotalMax } : {}),
+      ...(discount.usageLimitsPerCustomerMax !== null
+        ? { perCustomerMax: discount.usageLimitsPerCustomerMax }
         : {}),
     };
   }
@@ -158,13 +167,16 @@ export function toDiscountDTO(discount: IDiscount): DiscountDTO {
 }
 
 /** List a store's discounts, newest first. */
-export async function listDiscounts(storeId: string): Promise<IDiscount[]> {
-  return Discount.find({ storeId }).sort({ createdAt: -1 }).lean<IDiscount[]>();
+export async function listDiscounts(storeId: string): Promise<DiscountRecord[]> {
+  return findDiscountsForStore(storeId);
 }
 
 /** Load one discount scoped to its store, or throw NOT_FOUND. */
-export async function getDiscount(storeId: string, discountId: string): Promise<IDiscount> {
-  const discount = await Discount.findOne({ _id: discountId, storeId }).lean<IDiscount | null>();
+export async function getDiscount(
+  storeId: string,
+  discountId: string,
+): Promise<DiscountRecord> {
+  const discount = await findDiscount(storeId, discountId);
   if (!discount) {
     throw notFound('Discount not found');
   }
@@ -172,48 +184,52 @@ export async function getDiscount(storeId: string, discountId: string): Promise<
 }
 
 /**
- * Create a discount for a store. Code uniqueness per store is enforced by the
- * sparse unique index; a duplicate code maps to a CONFLICT. `startsAt` defaults to
- * now when omitted; `combinesWith` defaults to stacking with nothing.
+ * Create a discount for a store. Code uniqueness per store is enforced by
+ * `discount_codes_store_id_code_key`; a duplicate maps to a CONFLICT. `startsAt`
+ * defaults to now when omitted; `combinesWith` defaults to stacking with nothing.
  */
 export async function createDiscount(
   storeId: string,
   input: CreateDiscountInput,
-): Promise<IDiscount> {
-  const doc: Partial<IDiscount> = {
-    storeId,
-    title: input.title,
-    method: input.method,
-    codes: buildCodes(input.codes ?? []),
-    valueType: input.valueType,
-    value: input.value,
-    appliesTo: buildAppliesTo(input.appliesTo),
-    combinesWith: resolveCombinesWith(input.combinesWith),
-    startsAt: input.startsAt ? new Date(input.startsAt) : new Date(),
-    isActive: input.isActive ?? true,
-  };
-  if (input.buy) doc.buy = buildLeg(input.buy);
-  if (input.get) doc.get = buildLeg(input.get);
-  if (input.minimumRequirement) doc.minimumRequirement = { ...input.minimumRequirement };
-  if (input.customerEligibility) {
-    doc.customerEligibility = {
-      type: input.customerEligibility.type,
-      ...(input.customerEligibility.customerIds
-        ? { customerIds: [...input.customerEligibility.customerIds] }
-        : {}),
-      ...(input.customerEligibility.groupTags
-        ? { groupTags: [...input.customerEligibility.groupTags] }
-        : {}),
-    };
-  }
-  if (input.usageLimits) doc.usageLimits = { ...input.usageLimits };
-  if (input.endsAt) doc.endsAt = new Date(input.endsAt);
-
+): Promise<DiscountRecord> {
   try {
-    const created = await Discount.create(doc);
-    return created.toObject();
+    return await insertDiscount(storeId, {
+      title: input.title,
+      method: input.method,
+      valueType: input.valueType,
+      value: input.value,
+      appliesTo: {
+        scope: input.appliesTo.scope,
+        ...(input.appliesTo.productIds ? { productIds: [...input.appliesTo.productIds] } : {}),
+        ...(input.appliesTo.collectionIds
+          ? { collectionIds: [...input.appliesTo.collectionIds] }
+          : {}),
+      },
+      ...(input.buy ? { buy: buildLeg(input.buy) } : {}),
+      ...(input.get ? { get: buildLeg(input.get) } : {}),
+      ...(input.minimumRequirement ? { minimumRequirement: { ...input.minimumRequirement } } : {}),
+      ...(input.customerEligibility
+        ? {
+            customerEligibility: {
+              type: input.customerEligibility.type,
+              ...(input.customerEligibility.customerIds
+                ? { customerIds: [...input.customerEligibility.customerIds] }
+                : {}),
+              ...(input.customerEligibility.groupTags
+                ? { groupTags: [...input.customerEligibility.groupTags] }
+                : {}),
+            },
+          }
+        : {}),
+      ...(input.usageLimits ? { usageLimits: { ...input.usageLimits } } : {}),
+      combinesWith: resolveCombinesWith(input.combinesWith),
+      startsAt: input.startsAt ? new Date(input.startsAt) : new Date(),
+      ...(input.endsAt ? { endsAt: new Date(input.endsAt) } : {}),
+      isActive: input.isActive ?? true,
+      codes: (input.codes ?? []).map(normalizeDiscountCode),
+    });
   } catch (err) {
-    if (isDuplicateKeyError(err)) {
+    if (isUniqueViolation(err, 'discount_codes_store_id_code_key')) {
       throw conflict('A discount with that code already exists');
     }
     throw err;
@@ -222,77 +238,77 @@ export async function createDiscount(
 
 /**
  * Update a discount in place (scoped to `storeId`, else NOT_FOUND). A code change
- * is guarded by the unique index → CONFLICT on collision. Only the supplied fields
- * are touched; `codes` (when supplied) are normalized and reset (usage counts
- * start fresh for any newly-minted code, preserved for codes already present).
+ * is guarded by the unique index → CONFLICT on collision. Only the supplied
+ * fields are touched; supplied `codes` are normalized and replace the set, with
+ * usage counts preserved for codes that survive the edit (see the repository).
  */
 export async function updateDiscount(
   storeId: string,
   discountId: string,
   patch: UpdateDiscountInput,
-): Promise<IDiscount> {
-  const discount = await Discount.findOne({ _id: discountId, storeId });
-  if (!discount) {
-    throw notFound('Discount not found');
-  }
-
-  if (patch.title !== undefined) discount.title = patch.title;
-  if (patch.method !== undefined) discount.method = patch.method;
-  if (patch.codes !== undefined) {
-    // Preserve existing usage counts for codes that survive the edit.
-    const existingByCode = new Map(discount.codes.map((c) => [c.code, c.usageCount]));
-    discount.codes = patch.codes.map((raw) => {
-      const code = normalizeDiscountCode(raw);
-      return { code, usageCount: existingByCode.get(code) ?? 0 };
-    });
-  }
-  if (patch.valueType !== undefined) discount.valueType = patch.valueType;
-  if (patch.value !== undefined) discount.value = patch.value;
-  if (patch.appliesTo !== undefined) discount.appliesTo = buildAppliesTo(patch.appliesTo);
-  if (patch.buy !== undefined) discount.buy = buildLeg(patch.buy);
-  // `get` is also `Document.get` — assign through `set('get', …)` to avoid the
-  // method/field name collision while keeping the path typed.
-  if (patch.get !== undefined) discount.set('get', buildLeg(patch.get));
-  if (patch.minimumRequirement !== undefined) {
-    discount.minimumRequirement = { ...patch.minimumRequirement };
-  }
-  if (patch.customerEligibility !== undefined) {
-    discount.customerEligibility = {
-      type: patch.customerEligibility.type,
-      ...(patch.customerEligibility.customerIds
-        ? { customerIds: [...patch.customerEligibility.customerIds] }
-        : {}),
-      ...(patch.customerEligibility.groupTags
-        ? { groupTags: [...patch.customerEligibility.groupTags] }
-        : {}),
-    };
-  }
-  if (patch.usageLimits !== undefined) discount.usageLimits = { ...patch.usageLimits };
-  if (patch.combinesWith !== undefined) {
-    discount.combinesWith = resolveCombinesWith({
-      ...discount.combinesWith,
-      ...patch.combinesWith,
-    });
-  }
-  if (patch.startsAt !== undefined) discount.startsAt = new Date(patch.startsAt);
-  if (patch.endsAt !== undefined) discount.endsAt = new Date(patch.endsAt);
-  if (patch.isActive !== undefined) discount.isActive = patch.isActive;
+): Promise<DiscountRecord> {
+  const repositoryPatch: DiscountPatch = {
+    ...(patch.title !== undefined ? { title: patch.title } : {}),
+    ...(patch.method !== undefined ? { method: patch.method } : {}),
+    ...(patch.valueType !== undefined ? { valueType: patch.valueType } : {}),
+    ...(patch.value !== undefined ? { value: patch.value } : {}),
+    ...(patch.appliesTo !== undefined
+      ? {
+          appliesTo: {
+            scope: patch.appliesTo.scope,
+            ...(patch.appliesTo.productIds ? { productIds: [...patch.appliesTo.productIds] } : {}),
+            ...(patch.appliesTo.collectionIds
+              ? { collectionIds: [...patch.appliesTo.collectionIds] }
+              : {}),
+          },
+        }
+      : {}),
+    ...(patch.buy !== undefined ? { buy: buildLeg(patch.buy) } : {}),
+    ...(patch.get !== undefined ? { get: buildLeg(patch.get) } : {}),
+    ...(patch.minimumRequirement !== undefined
+      ? { minimumRequirement: { ...patch.minimumRequirement } }
+      : {}),
+    ...(patch.customerEligibility !== undefined
+      ? {
+          customerEligibility: {
+            type: patch.customerEligibility.type,
+            ...(patch.customerEligibility.customerIds
+              ? { customerIds: [...patch.customerEligibility.customerIds] }
+              : {}),
+            ...(patch.customerEligibility.groupTags
+              ? { groupTags: [...patch.customerEligibility.groupTags] }
+              : {}),
+          },
+        }
+      : {}),
+    ...(patch.usageLimits !== undefined ? { usageLimits: { ...patch.usageLimits } } : {}),
+    ...(patch.combinesWith !== undefined
+      ? { combinesWith: resolveCombinesWith(patch.combinesWith) }
+      : {}),
+    ...(patch.startsAt !== undefined ? { startsAt: new Date(patch.startsAt) } : {}),
+    ...(patch.endsAt !== undefined ? { endsAt: new Date(patch.endsAt) } : {}),
+    ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
+    ...(patch.codes !== undefined ? { codes: patch.codes.map(normalizeDiscountCode) } : {}),
+  };
 
   try {
-    await discount.save();
+    const updated = await updateDiscountRow(storeId, discountId, repositoryPatch);
+    if (!updated) {
+      throw notFound('Discount not found');
+    }
+    return updated;
   } catch (err) {
-    if (isDuplicateKeyError(err)) {
+    if (isUniqueViolation(err, 'discount_codes_store_id_code_key')) {
       throw conflict('A discount with that code already exists');
     }
     throw err;
   }
-  return discount.toObject();
 }
 
 /** Delete a discount (scoped to `storeId`, else NOT_FOUND). */
 export async function deleteDiscount(storeId: string, discountId: string): Promise<void> {
-  const result = await Discount.deleteOne({ _id: discountId, storeId });
-  if (result.deletedCount === 0) {
+  const deleted = await deleteDiscountRow(storeId, discountId);
+  if (!deleted) {
     throw notFound('Discount not found');
   }
 }

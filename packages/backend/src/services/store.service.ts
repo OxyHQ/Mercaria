@@ -9,6 +9,20 @@
  * These invariants live HERE (not in middleware) and are enforced by throwing
  * typed `MercariaError`s (`CONFLICT`/`FORBIDDEN`) that controllers map to the
  * response. The creating user becomes the sole `owner` with all permissions.
+ *
+ * ## Ported to Postgres
+ *
+ * `Store.members` was an embedded array and is now `store_members`, so a
+ * membership change is an INSERT/UPDATE/DELETE on one row rather than a rewrite
+ * of the whole document. The owner-protection checks are unchanged in substance
+ * and still read the members through {@link StoreRecord}, which the repository
+ * assembles — nothing above this layer joins the two tables.
+ *
+ * The one behaviour that genuinely changes: `UNIQUE(store_id, oxy_user_id)` now
+ * makes a duplicate membership impossible at the database. The service still
+ * checks for one first, so a human gets CONFLICT rather than a 500 — but two
+ * concurrent invites of the same user can no longer BOTH win, which under Mongo
+ * they could.
  */
 
 import type {
@@ -19,14 +33,20 @@ import type {
   InviteMemberInput,
   UpdateMemberInput,
 } from '@mercaria/shared-types';
+import { STORE_PERMISSIONS } from '../db/schema/stores.js';
 import {
-  Store,
-  ALL_STORE_PERMISSIONS,
-  type IStore,
-  type IStoreMember,
-  type IStorePolicies,
-} from '../models/store.js';
-import { Location } from '../models/location.js';
+  findStoreById,
+  findStoresForMember,
+  insertStore,
+  insertStoreMember,
+  deleteStoreMember,
+  storeHandleExists,
+  updateStoreColumns,
+  updateStoreMember,
+  type StoreMemberRecord,
+  type StoreRecord,
+} from '../db/stores/storeRepository.js';
+import { insertLocation } from '../db/stores/locationRepository.js';
 import { ensureUniqueSlug } from '../utils/slug.js';
 import { sendNotification } from '../lib/notification-service.js';
 import { conflict, forbidden, notFound, validationError } from '../lib/errors/error-codes.js';
@@ -36,22 +56,31 @@ import { log } from '../lib/logger.js';
 const DEFAULT_BRAND_COLOR = '#1D4ED8';
 
 /** Count the owners currently on a store. */
-function ownerCount(store: Pick<IStore, 'members'>): number {
+function ownerCount(store: StoreRecord): number {
   return store.members.filter((m) => m.role === 'owner').length;
 }
 
 /**
- * Apply a partial policies patch onto a store's `policies` sub-document in place.
- * Only the supplied fields are touched; absent fields keep their current value.
+ * The `policies` patch as a column patch on `stores`.
+ *
+ * The five fields were one embedded object and are now five flat columns, so
+ * "only the supplied fields are touched" — which Mongoose gave for free by
+ * mutating the sub-document — becomes an explicit `undefined` check per field.
  * Shared by the core store update (`PATCH /admin/stores/:storeId`) and the
  * settings update (`PATCH /admin/stores/:storeId/settings`).
  */
-function applyPolicyPatch(policies: IStorePolicies, patch: UpdateStorePoliciesInput): void {
-  if (patch.returnWindowDays !== undefined) policies.returnWindowDays = patch.returnWindowDays;
-  if (patch.shippingNote !== undefined) policies.shippingNote = patch.shippingNote;
-  if (patch.refundPolicy !== undefined) policies.refundPolicy = patch.refundPolicy;
-  if (patch.privacyPolicy !== undefined) policies.privacyPolicy = patch.privacyPolicy;
-  if (patch.termsOfService !== undefined) policies.termsOfService = patch.termsOfService;
+function policyPatch(patch: UpdateStorePoliciesInput): Partial<StoreRecord> {
+  return {
+    ...(patch.returnWindowDays !== undefined
+      ? { policiesReturnWindowDays: patch.returnWindowDays }
+      : {}),
+    ...(patch.shippingNote !== undefined ? { policiesShippingNote: patch.shippingNote } : {}),
+    ...(patch.refundPolicy !== undefined ? { policiesRefundPolicy: patch.refundPolicy } : {}),
+    ...(patch.privacyPolicy !== undefined ? { policiesPrivacyPolicy: patch.privacyPolicy } : {}),
+    ...(patch.termsOfService !== undefined
+      ? { policiesTermsOfService: patch.termsOfService }
+      : {}),
+  };
 }
 
 /**
@@ -61,39 +90,32 @@ function applyPolicyPatch(policies: IStorePolicies, patch: UpdateStorePoliciesIn
 export async function createStore(
   ownerOxyUserId: string,
   input: CreateStoreInput,
-): Promise<IStore> {
-  const handle = await ensureUniqueSlug(input.name, async (candidate) => {
-    const existing = await Store.exists({ handle: candidate });
-    return existing !== null;
-  });
+): Promise<StoreRecord> {
+  const handle = await ensureUniqueSlug(input.name, (candidate) => storeHandleExists(candidate));
 
   if (handle.length === 0) {
     throw validationError('Store name must contain at least one alphanumeric character');
   }
 
-  const member: IStoreMember = {
-    oxyUserId: ownerOxyUserId,
-    role: 'owner',
-    permissions: [...ALL_STORE_PERMISSIONS],
-    joinedAt: new Date(),
-  };
-
-  const store = await Store.create({
-    handle,
-    name: input.name,
-    description: input.description ?? '',
-    brandColor: input.brandColor ?? DEFAULT_BRAND_COLOR,
-    ...(input.logoFileId ? { logoFileId: input.logoFileId } : {}),
-    ...(input.coverFileId ? { coverFileId: input.coverFileId } : {}),
-    defaultCurrency: input.defaultCurrency ?? 'FAIR',
-    status: 'active',
-    members: [member],
-  });
+  const store = await insertStore(
+    {
+      handle,
+      name: input.name,
+      // The `''` Mongoose supplied as a column DEFAULT is written explicitly
+      // here — `listings`/`stores.description` deliberately carry no default,
+      // so that "absent" and "empty" cannot become the same row by accident.
+      description: input.description ?? '',
+      brandColor: input.brandColor ?? DEFAULT_BRAND_COLOR,
+      defaultCurrency: input.defaultCurrency ?? 'FAIR',
+      ...(input.logoFileId ? { logoFileId: input.logoFileId } : {}),
+      ...(input.coverFileId ? { coverFileId: input.coverFileId } : {}),
+    },
+    [{ oxyUserId: ownerOxyUserId, role: 'owner', permissions: [...STORE_PERMISSIONS] }],
+  );
 
   // Every store starts with exactly one default location; store inventory routes
   // here until the owner adds more locations.
-  await Location.create({
-    storeId: String(store._id),
+  await insertLocation(store.id, {
     name: 'Default',
     type: 'warehouse',
     isDefault: true,
@@ -101,12 +123,12 @@ export async function createStore(
     fulfillsOnlineOrders: true,
   });
 
-  return store.toObject();
+  return store;
 }
 
 /** Fetch a store by id, or throw NOT_FOUND. */
-export async function getStore(storeId: string): Promise<IStore> {
-  const store = await Store.findById(storeId).lean<IStore | null>();
+export async function getStore(storeId: string): Promise<StoreRecord> {
+  const store = await findStoreById(storeId);
   if (!store) {
     throw notFound('Store not found');
   }
@@ -114,92 +136,76 @@ export async function getStore(storeId: string): Promise<IStore> {
 }
 
 /** List the stores the given user is a member of. */
-export async function listStoresForUser(oxyUserId: string): Promise<IStore[]> {
-  return Store.find({ 'members.oxyUserId': oxyUserId })
-    .sort({ createdAt: -1 })
-    .lean<IStore[]>();
+export async function listStoresForUser(oxyUserId: string): Promise<StoreRecord[]> {
+  return findStoresForMember(oxyUserId);
 }
 
 /** Update a store's profile/policy fields. Returns the updated store. */
 export async function updateStore(
   storeId: string,
   patch: UpdateStoreInput,
-): Promise<IStore> {
-  const store = await Store.findById(storeId);
-  if (!store) {
+): Promise<StoreRecord> {
+  const updated = await updateStoreColumns(storeId, {
+    ...(patch.name !== undefined ? { name: patch.name } : {}),
+    ...(patch.description !== undefined ? { description: patch.description } : {}),
+    ...(patch.brandColor !== undefined ? { brandColor: patch.brandColor } : {}),
+    ...(patch.logoFileId !== undefined ? { logoFileId: patch.logoFileId } : {}),
+    ...(patch.coverFileId !== undefined ? { coverFileId: patch.coverFileId } : {}),
+    ...(patch.defaultCurrency !== undefined ? { defaultCurrency: patch.defaultCurrency } : {}),
+    ...(patch.textTone !== undefined ? { textTone: patch.textTone } : {}),
+    ...(patch.status !== undefined ? { status: patch.status } : {}),
+    ...(patch.policies !== undefined ? policyPatch(patch.policies) : {}),
+  });
+
+  if (!updated) {
     throw notFound('Store not found');
   }
-
-  if (patch.name !== undefined) store.name = patch.name;
-  if (patch.description !== undefined) store.description = patch.description;
-  if (patch.brandColor !== undefined) store.brandColor = patch.brandColor;
-  if (patch.logoFileId !== undefined) store.logoFileId = patch.logoFileId;
-  if (patch.coverFileId !== undefined) store.coverFileId = patch.coverFileId;
-  if (patch.defaultCurrency !== undefined) store.defaultCurrency = patch.defaultCurrency;
-  if (patch.textTone !== undefined) store.textTone = patch.textTone;
-  if (patch.status !== undefined) store.status = patch.status;
-  if (patch.policies !== undefined) {
-    applyPolicyPatch(store.policies, patch.policies);
-  }
-
-  await store.save();
-  return store.toObject();
+  return updated;
 }
 
 /**
  * Update a store's settings: long-form policies and notification preferences
  * (and, optionally, tax settings) in one call. Only supplied fields are touched;
- * absent fields keep their current value (defaulting an absent `notificationSettings`
- * block on a pre-B7 store to the on-by-default shape). Gated on `settings:write`.
+ * absent fields keep their current value. Gated on `settings:write`.
+ *
+ * The Mongo version defaulted an ABSENT `notificationSettings`/`taxSettings`
+ * block on a pre-B7 store before patching it. That branch is gone: all six
+ * columns are NOT NULL with the same defaults the old code substituted, so there
+ * is no "absent block" left to reconstruct.
  */
 export async function updateStoreSettings(
   storeId: string,
   patch: UpdateStoreSettingsInput,
-): Promise<IStore> {
-  const store = await Store.findById(storeId);
-  if (!store) {
+): Promise<StoreRecord> {
+  const notifications = patch.notificationSettings;
+  const tax = patch.taxSettings;
+
+  const updated = await updateStoreColumns(storeId, {
+    ...(patch.policies !== undefined ? policyPatch(patch.policies) : {}),
+    ...(notifications?.lowStockAlerts !== undefined
+      ? { notificationSettingsLowStockAlerts: notifications.lowStockAlerts }
+      : {}),
+    ...(notifications?.orderEmails !== undefined
+      ? { notificationSettingsOrderEmails: notifications.orderEmails }
+      : {}),
+    ...(notifications?.lowStockThreshold !== undefined
+      ? { notificationSettingsLowStockThreshold: notifications.lowStockThreshold }
+      : {}),
+    ...(tax?.pricesIncludeTax !== undefined
+      ? { taxSettingsPricesIncludeTax: tax.pricesIncludeTax }
+      : {}),
+    ...(tax?.chargeTaxOnProducts !== undefined
+      ? { taxSettingsChargeTaxOnProducts: tax.chargeTaxOnProducts }
+      : {}),
+    ...(tax?.taxRegistrationId !== undefined
+      ? { taxSettingsTaxRegistrationId: tax.taxRegistrationId }
+      : {}),
+  });
+
+  if (!updated) {
     throw notFound('Store not found');
   }
-
-  if (patch.policies !== undefined) {
-    applyPolicyPatch(store.policies, patch.policies);
-  }
-
-  if (patch.notificationSettings !== undefined) {
-    const current = store.notificationSettings ?? { lowStockAlerts: true, orderEmails: true };
-    if (patch.notificationSettings.lowStockAlerts !== undefined) {
-      current.lowStockAlerts = patch.notificationSettings.lowStockAlerts;
-    }
-    if (patch.notificationSettings.orderEmails !== undefined) {
-      current.orderEmails = patch.notificationSettings.orderEmails;
-    }
-    if (patch.notificationSettings.lowStockThreshold !== undefined) {
-      current.lowStockThreshold = patch.notificationSettings.lowStockThreshold;
-    }
-    store.notificationSettings = current;
-  }
-
-  if (patch.taxSettings !== undefined) {
-    const currentTax = {
-      pricesIncludeTax: store.taxSettings?.pricesIncludeTax ?? false,
-      chargeTaxOnProducts: store.taxSettings?.chargeTaxOnProducts ?? true,
-      ...(store.taxSettings?.taxRegistrationId
-        ? { taxRegistrationId: store.taxSettings.taxRegistrationId }
-        : {}),
-    };
-    store.taxSettings = {
-      pricesIncludeTax: patch.taxSettings.pricesIncludeTax ?? currentTax.pricesIncludeTax,
-      chargeTaxOnProducts: patch.taxSettings.chargeTaxOnProducts ?? currentTax.chargeTaxOnProducts,
-      ...(patch.taxSettings.taxRegistrationId !== undefined
-        ? { taxRegistrationId: patch.taxSettings.taxRegistrationId }
-        : currentTax.taxRegistrationId
-          ? { taxRegistrationId: currentTax.taxRegistrationId }
-          : {}),
-    };
-  }
-
-  await store.save();
-  return store.toObject();
+  return updated;
 }
 
 /**
@@ -209,10 +215,10 @@ export async function updateStoreSettings(
  */
 export async function inviteMember(
   storeId: string,
-  actor: IStoreMember,
+  actor: StoreMemberRecord,
   input: InviteMemberInput,
-): Promise<IStore> {
-  const store = await Store.findById(storeId);
+): Promise<StoreRecord> {
+  const store = await findStoreById(storeId);
   if (!store) {
     throw notFound('Store not found');
   }
@@ -226,15 +232,12 @@ export async function inviteMember(
     throw forbidden('Only an owner may grant the owner role');
   }
 
-  store.members.push({
+  await insertStoreMember(storeId, {
     oxyUserId: input.oxyUserId,
     role: input.role,
     permissions: input.permissions ?? [],
     invitedBy: actor.oxyUserId,
-    joinedAt: new Date(),
   });
-
-  await store.save();
 
   // Best-effort: notify the invited member. A notification failure must never
   // fail the invite itself.
@@ -244,13 +247,13 @@ export async function inviteMember(
       type: 'store_member_invited',
       title: 'Store invitation',
       body: `You were added to ${store.name}`,
-      data: { storeId: String(store._id), role: input.role },
+      data: { storeId, role: input.role },
     });
   } catch (err) {
-    log.general.warn({ err, storeId: String(store._id) }, 'store_member_invited notification failed');
+    log.general.warn({ err, storeId }, 'store_member_invited notification failed');
   }
 
-  return store.toObject();
+  return getStore(storeId);
 }
 
 /**
@@ -260,11 +263,11 @@ export async function inviteMember(
  */
 export async function updateMember(
   storeId: string,
-  actor: IStoreMember,
+  actor: StoreMemberRecord,
   targetOxyUserId: string,
   patch: UpdateMemberInput,
-): Promise<IStore> {
-  const store = await Store.findById(storeId);
+): Promise<StoreRecord> {
+  const store = await findStoreById(storeId);
   if (!store) {
     throw notFound('Store not found');
   }
@@ -289,19 +292,17 @@ export async function updateMember(
     throw conflict('Cannot demote the last owner of the store');
   }
 
-  if (patch.role !== undefined) {
-    // Only an owner may promote a member to owner.
-    if (patch.role === 'owner' && actor.role !== 'owner') {
-      throw forbidden('Only an owner may grant the owner role');
-    }
-    target.role = patch.role;
-  }
-  if (patch.permissions !== undefined) {
-    target.permissions = [...patch.permissions];
+  // Only an owner may promote a member to owner.
+  if (patch.role === 'owner' && actor.role !== 'owner') {
+    throw forbidden('Only an owner may grant the owner role');
   }
 
-  await store.save();
-  return store.toObject();
+  await updateStoreMember(storeId, targetOxyUserId, {
+    ...(patch.role !== undefined ? { role: patch.role } : {}),
+    ...(patch.permissions !== undefined ? { permissions: [...patch.permissions] } : {}),
+  });
+
+  return getStore(storeId);
 }
 
 /**
@@ -311,10 +312,10 @@ export async function updateMember(
  */
 export async function removeMember(
   storeId: string,
-  actor: IStoreMember,
+  actor: StoreMemberRecord,
   targetOxyUserId: string,
-): Promise<IStore> {
-  const store = await Store.findById(storeId);
+): Promise<StoreRecord> {
+  const store = await findStoreById(storeId);
   if (!store) {
     throw notFound('Store not found');
   }
@@ -333,7 +334,6 @@ export async function removeMember(
     }
   }
 
-  store.members = store.members.filter((m) => m.oxyUserId !== targetOxyUserId);
-  await store.save();
-  return store.toObject();
+  await deleteStoreMember(storeId, targetOxyUserId);
+  return getStore(storeId);
 }

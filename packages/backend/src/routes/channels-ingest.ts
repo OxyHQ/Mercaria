@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireChannelKey } from '../middleware/channel-key-auth.js';
-import { validateBody, validateObjectId } from '../middleware/validate.js';
+import { validateBody, validateId } from '../middleware/validate.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { ingestProductsSchema, ingestInventorySchema } from '../middleware/schemas.js';
 import {
@@ -25,14 +25,14 @@ router.use(makeRateLimiter('channels'), requireChannelKey);
 
 router.post(
   '/:connectionId/products',
-  validateObjectId('connectionId'),
+  validateId('connectionId'),
   validateBody(ingestProductsSchema),
   keyIngestProductsHandler,
 );
 
 router.post(
   '/:connectionId/inventory',
-  validateObjectId('connectionId'),
+  validateId('connectionId'),
   validateBody(ingestInventorySchema),
   keyIngestInventoryHandler,
 );

@@ -11,19 +11,23 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import type { ListingQuery, CursorPage, Listing } from '@mercaria/shared-types';
-import { Listing as ListingModel, type IListing } from '../models/listing.js';
+import {
+  findListingById,
+  type ListingRecord,
+} from '../db/catalog/listingRepository.js';
 import { searchListingsOffset, searchListingsCursor } from '../services/search.service.js';
 import { hydrateListings } from '../services/catalog-hydration.service.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
 import { sendSuccess, sendPaginated } from '../utils/api-response.js';
 import { respondWithError, notFound, validationError } from '../lib/errors/error-codes.js';
+import { routeParam } from '../utils/request.js';
 import { log } from '../lib/logger.js';
 
 /**
  * Listing statuses publicly viewable on the product-detail page. `draft` and
  * `archived` are owner/admin-only and 404 on the public read path.
  */
-const PUBLICLY_VIEWABLE_STATUSES: readonly IListing['status'][] = ['active', 'sold'];
+const PUBLICLY_VIEWABLE_STATUSES: readonly ListingRecord['status'][] = ['active', 'sold'];
 
 /** Coerce + validate the browse query string into a typed `ListingQuery`. */
 const listingQuerySchema = z
@@ -108,13 +112,13 @@ export async function browseListings(req: Request, res: Response): Promise<void>
 
 /** GET /listings/:id — the product detail page (full hydrated listing). */
 export async function getListingById(req: Request, res: Response): Promise<void> {
-  const id = req.params.id;
+  const id = routeParam(req, 'id');
   try {
-    const doc = await ListingModel.findById(id).lean<IListing | null>();
-    if (!doc || !PUBLICLY_VIEWABLE_STATUSES.includes(doc.status)) {
+    const row = await findListingById(id);
+    if (!row || !PUBLICLY_VIEWABLE_STATUSES.includes(row.status)) {
       throw notFound('Listing not found');
     }
-    const [dto] = await hydrateListings([doc], { viewerId: req.user?.id });
+    const [dto] = await hydrateListings([row], { viewerId: req.user?.id });
     sendSuccess(res, dto);
   } catch (err) {
     log.general.error({ err, listingId: id }, 'Failed to load listing');

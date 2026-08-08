@@ -8,23 +8,47 @@
 
 import type { Request, Response } from 'express';
 import { getRequiredOxyUserId } from '@oxyhq/core/server';
-import type { ISellerProfile } from '../models/seller-profile.js';
-import { getMine, updatePrefs, type SellerPrefsInput } from '../services/seller-profile.service.js';
+import {
+  getMine,
+  updatePrefs,
+  type SellerPrefsInput,
+  type SellerProfileRecord,
+} from '../services/seller-profile.service.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
-/** Serialize a seller profile document to the wire (omits Mongo internals). */
-function toSellerProfileResponse(profile: ISellerProfile): Record<string, unknown> {
+/**
+ * Serialize a seller profile row to the wire.
+ *
+ * The two preference sub-objects are re-composed from their four columns and
+ * emitted only when the seller has actually set something: an object of four
+ * `null`s is not the same wire shape as the absent one Mongo produced, and the
+ * clients read `shippingPrefs` for presence.
+ */
+function toSellerProfileResponse(profile: SellerProfileRecord): Record<string, unknown> {
+  const shippingPrefs = {
+    ...(profile.shippingPrefsNote !== null ? { note: profile.shippingPrefsNote } : {}),
+    ...(profile.shippingPrefsHandlingDays !== null
+      ? { handlingDays: profile.shippingPrefsHandlingDays }
+      : {}),
+  };
+  const returnPrefs = {
+    ...(profile.returnPrefsAccepts !== null ? { accepts: profile.returnPrefsAccepts } : {}),
+    ...(profile.returnPrefsWindowDays !== null
+      ? { windowDays: profile.returnPrefsWindowDays }
+      : {}),
+  };
+
   return {
-    id: String((profile as { _id: unknown })._id),
+    id: profile.id,
     oxyUserId: profile.oxyUserId,
     isVerified: profile.isVerified,
     rating: profile.rating,
     reviewCount: profile.reviewCount,
     salesCount: profile.salesCount,
-    ...(profile.shippingPrefs ? { shippingPrefs: profile.shippingPrefs } : {}),
-    ...(profile.returnPrefs ? { returnPrefs: profile.returnPrefs } : {}),
+    ...(Object.keys(shippingPrefs).length > 0 ? { shippingPrefs } : {}),
+    ...(Object.keys(returnPrefs).length > 0 ? { returnPrefs } : {}),
     createdAt: profile.createdAt.toISOString(),
     updatedAt: profile.updatedAt.toISOString(),
   };

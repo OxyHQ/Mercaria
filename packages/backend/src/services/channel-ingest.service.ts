@@ -15,10 +15,19 @@
  * the merchant locally pinned in `overriddenFields`. Native Mercaria fields
  * (category, condition, tags, collections, status) are never touched by an ingest.
  *
- * SECURITY. Every connection is resolved by `{ _id, storeId }` so a member of one
+ * SECURITY. Every connection is resolved by `{ id, storeId }` so a member of one
  * store can never ingest into another store's connection (no IDOR / cross-store
  * leakage). No `req.body` is ever spread — writes use explicit field whitelists,
  * and provenance is server-set.
+ *
+ * ## Ported to Postgres
+ *
+ * `connections` and `sync_runs` moved with the rest of this service's storage.
+ * Two shapes changed and both are visible below: {@link connectPushIn} is ONE
+ * upsert on `UNIQUE(store_id, provider)` rather than a read-then-upsert pair, and
+ * a `SyncRun` is opened and then closed in two statements instead of being
+ * mutated in memory and saved once — the tallies stay a plain object here, which
+ * is what {@link finalizeRun} now writes.
  */
 
 import type {
@@ -35,20 +44,33 @@ import type {
   IngestProductsResult,
   UpdateListingInput,
 } from '@mercaria/shared-types';
-import { CONNECTOR_PROVIDER_IDS } from '@mercaria/shared-types';
-import type { HydratedDocument } from 'mongoose';
-import { Connection, type IConnection } from '../models/connection.js';
-import { SyncRun, type ISyncRun, type ISyncRunCounts } from '../models/sync-run.js';
-import { Listing, type IListing, type IListingSource } from '../models/listing.js';
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
+import { CONNECTOR_PROVIDER_IDS, type SyncRunCounts } from '@mercaria/shared-types';
+import {
+  findConnection,
+  findConnectionByProvider,
+  touchConnectionLastSync,
+  upsertConnection,
+  type ConnectionRow,
+} from '../db/connectors/connectionRepository.js';
+import { finishSyncRun, insertSyncRun } from '../db/connectors/syncRunRepository.js';
+import {
+  findListingBySourceExternalId,
+  updateListingColumns,
+  type ListingRecord,
+} from '../db/catalog/listingRepository.js';
+import {
+  findVariantByListingAndSku,
+  findVariantsByListing,
+} from '../db/catalog/variantRepository.js';
 import { createStoreProduct, updateListing } from './catalog-write.service.js';
 import { setAvailable } from './inventory.service.js';
 import {
   resolveImportCategorySlug,
   resolveImportLocationId,
   resolveInventoryLocationId,
+  toPriceRules,
 } from './connector-sync.service.js';
-import { applyPriceRules } from '../utils/money.js';
+import { applyPriceRules, type PriceRules } from '../utils/money.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
@@ -59,14 +81,14 @@ export function isKnownConnectorProvider(id: string): id is ConnectorProviderId 
 
 /**
  * Resolve a push-in connection scoped to the store. Returns 404 for a missing /
- * cross-store connection (the `{ _id, storeId }` filter never matches another
+ * cross-store connection (the `{ id, storeId }` scope never matches another
  * store's), and 400 for a connection that is not `mode: 'push_in'`.
  */
 async function requirePushInConnection(
   storeId: string,
   connectionId: string,
-): Promise<IConnection> {
-  const conn = await Connection.findOne({ _id: connectionId, storeId });
+): Promise<ConnectionRow> {
+  const conn = await findConnection(storeId, connectionId);
   if (!conn) {
     throw notFound('Connection not found');
   }
@@ -87,34 +109,24 @@ export async function connectPushIn(
   storeId: string,
   provider: ConnectorProviderId,
   params: { shopDomain?: string },
-): Promise<IConnection> {
-  const existing = await Connection.findOne({ storeId, provider });
+): Promise<ConnectionRow> {
+  const existing = await findConnectionByProvider(storeId, provider);
   if (existing && existing.mode !== 'push_in') {
     throw conflict('A connection already exists for this provider in a different mode');
   }
 
-  const set: Record<string, unknown> = {
+  // ONE upsert on `UNIQUE(store_id, provider)`: two plugin instances registering
+  // the same site at once merge into one row rather than racing an insert. The
+  // mode CLASH above still needs its own read — it is a policy refusal, not a
+  // conflict resolution, and an upsert would silently hijack the other mode's
+  // connection instead of rejecting.
+  return upsertConnection(storeId, provider, {
     mode: 'push_in',
     status: 'connected',
     connectedAt: new Date(),
-  };
-  if (params.shopDomain) {
-    set.shopDomain = params.shopDomain;
-  }
-
-  const conn = await Connection.findOneAndUpdate(
-    { storeId, provider },
-    { $set: set },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
-  );
-  if (!conn) {
-    throw notFound('Connection not found');
-  }
-  return conn;
+    ...(params.shopDomain ? { shopDomain: params.shopDomain } : {}),
+  });
 }
-
-/** The connector price transform applied to an ingested native price. */
-type IngestPriceRules = IConnection['syncSettings']['priceRules'];
 
 /**
  * Map an ingested variant to the store-product variant input, applying the
@@ -122,7 +134,7 @@ type IngestPriceRules = IConnection['syncSettings']['priceRules'];
  */
 function toVariantInput(
   variant: IngestProductVariant,
-  priceRules: IngestPriceRules,
+  priceRules: PriceRules | undefined,
 ): CreateStoreProductVariantInput {
   const input: CreateStoreProductVariantInput = {
     optionValues: (variant.optionValues ?? []).map((o) => ({ name: o.name, value: o.value })),
@@ -148,7 +160,7 @@ function toVariantInput(
 function toCreateInput(
   product: IngestProduct,
   categorySlug: string,
-  priceRules: IngestPriceRules,
+  priceRules: PriceRules | undefined,
 ): CreateStoreProductInput {
   const input: CreateStoreProductInput = {
     title: product.title,
@@ -209,16 +221,29 @@ function toUpdatePatch(product: IngestProduct, overridden: Set<string>): UpdateL
 }
 
 /** Build the provenance `source` sub-document for an ingested listing (server-set). */
-function buildSource(conn: IConnection, product: IngestProduct): IListingSource {
-  const source: IListingSource = {
-    connectionId: String(conn._id),
-    provider: conn.provider,
-    externalId: product.externalId,
+/**
+ * The connector-provenance columns for an ingested product.
+ *
+ * The four `source_*` columns are flat on `listings` rather than an embedded
+ * object, so this returns the PATCH itself. `externalUpdatedAt` is explicitly
+ * NULL when the platform did not send one: leaving the key out would keep a
+ * previous ingest's timestamp on a product whose source stopped reporting it.
+ */
+function buildSource(
+  conn: ConnectionRow,
+  product: IngestProduct,
+): Pick<
+  ListingRecord,
+  'sourceConnectionId' | 'sourceProvider' | 'sourceExternalId' | 'sourceExternalUpdatedAt'
+> {
+  return {
+    sourceConnectionId: conn.id,
+    sourceProvider: conn.provider,
+    sourceExternalId: product.externalId,
+    sourceExternalUpdatedAt: product.externalUpdatedAt
+      ? new Date(product.externalUpdatedAt)
+      : null,
   };
-  if (product.externalUpdatedAt) {
-    source.externalUpdatedAt = new Date(product.externalUpdatedAt);
-  }
-  return source;
 }
 
 /** The outcome of upserting a single ingested product. */
@@ -226,23 +251,21 @@ type UpsertOutcome = 'created' | 'updated' | 'skipped';
 
 /** Upsert ONE ingested product; returns the outcome plus the mapped listing id. */
 async function upsertProduct(
-  conn: IConnection,
+  conn: ConnectionRow,
   product: IngestProduct,
   opts: {
     categorySlug: string;
     autoPublish: boolean;
     respectOverrides: boolean;
-    priceRules: IngestPriceRules;
+    priceRules: PriceRules | undefined;
     importLocationId?: string;
   },
 ): Promise<{ action: UpsertOutcome; listingId: string }> {
-  const existing = await Listing.findOne({
-    storeId: conn.storeId,
-    'source.connectionId': String(conn._id),
-    'source.externalId': product.externalId,
-  })
-    .select('_id overriddenFields')
-    .lean<Pick<IListing, '_id' | 'overriddenFields'> | null>();
+  const existing = await findListingBySourceExternalId(
+    conn.storeId,
+    conn.id,
+    product.externalId,
+  );
 
   if (!existing) {
     const listingId = await createStoreProduct(
@@ -250,15 +273,14 @@ async function upsertProduct(
       toCreateInput(product, opts.categorySlug, opts.priceRules),
       { locationId: opts.importLocationId },
     );
-    const set: Record<string, unknown> = { source: buildSource(conn, product) };
-    if (!opts.autoPublish) {
-      set.status = 'draft';
-    }
-    await Listing.updateOne({ _id: listingId }, { $set: set });
+    await updateListingColumns(listingId, {
+      ...buildSource(conn, product),
+      ...(opts.autoPublish ? {} : { status: 'draft' as const }),
+    });
     return { action: 'created', listingId };
   }
 
-  const listingId = String(existing._id);
+  const listingId = existing.id;
   const overridden = opts.respectOverrides
     ? new Set(existing.overriddenFields)
     : new Set<string>();
@@ -268,7 +290,7 @@ async function upsertProduct(
     await updateListing(listingId, patch);
   }
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
-  await Listing.updateOne({ _id: existing._id }, { $set: { source: buildSource(conn, product) } });
+  await updateListingColumns(listingId, buildSource(conn, product));
   return { action: changed ? 'updated' : 'skipped', listingId };
 }
 
@@ -285,14 +307,14 @@ export async function ingestProducts(
 ): Promise<IngestProductsResult> {
   const conn = await requirePushInConnection(storeId, connectionId);
   const categorySlug = await resolveImportCategorySlug();
-  const respectOverrides = conn.syncSettings.conflictPolicy === 'respect_overrides';
-  const autoPublish = conn.syncSettings.autoPublish;
-  const priceRules = conn.syncSettings.priceRules;
+  const respectOverrides = conn.syncSettingsConflictPolicy === 'respect_overrides';
+  const autoPublish = conn.syncSettingsAutoPublish;
+  const priceRules = toPriceRules(conn);
   const importLocationId = await resolveImportLocationId(conn);
 
-  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   const results: IngestProductResult[] = [];
-  const run = await SyncRun.create({ connectionId: String(conn._id), kind: 'ingest' });
+  const run = await insertSyncRun(conn.id, 'ingest');
 
   for (const product of input.products) {
     try {
@@ -319,46 +341,37 @@ export async function ingestProducts(
     }
   }
 
-  await finalizeRun(run, counts);
-  await Connection.updateOne({ _id: conn._id }, { $set: { lastSyncAt: new Date() } });
+  await finalizeRun(run.id, counts);
+  await touchConnectionLastSync(conn.id);
   return { results };
 }
 
 /** Resolve the variant an inventory item maps to, or null when unmappable. */
 async function resolveInventoryVariant(
-  conn: IConnection,
+  conn: ConnectionRow,
   item: { externalId: string; sku?: string },
 ): Promise<{ listingId: string; variantId: string } | null> {
-  const listing = await Listing.findOne({
-    storeId: conn.storeId,
-    'source.connectionId': String(conn._id),
-    'source.externalId': item.externalId,
-  })
-    .select('_id')
-    .lean<Pick<IListing, '_id'> | null>();
+  const listing = await findListingBySourceExternalId(
+    conn.storeId,
+    conn.id,
+    item.externalId,
+  );
   if (!listing) {
     return null;
   }
-  const listingId = String(listing._id);
+  const listingId = listing.id;
 
   if (item.sku) {
-    const variant = await ProductVariant.findOne({ listingId, sku: item.sku })
-      .select('_id')
-      .lean<Pick<IProductVariant, '_id'> | null>();
-    if (!variant) {
-      return null;
-    }
-    return { listingId, variantId: String(variant._id) };
+    const variant = await findVariantByListingAndSku(listingId, item.sku);
+    return variant ? { listingId, variantId: variant.id } : null;
   }
 
   // No SKU: only unambiguous for a single-variant product.
-  const variants = await ProductVariant.find({ listingId })
-    .select('_id')
-    .lean<Pick<IProductVariant, '_id'>[]>();
+  const variants = await findVariantsByListing(listingId);
   if (variants.length !== 1) {
     return null;
   }
-  return { listingId, variantId: String(variants[0]._id) };
+  return { listingId, variantId: variants[0].id };
 }
 
 /**
@@ -377,9 +390,9 @@ export async function ingestInventory(
   const conn = await requirePushInConnection(storeId, connectionId);
   const locationId = await resolveInventoryLocationId(conn);
 
-  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   const results: IngestInventoryResultItem[] = [];
-  const run = await SyncRun.create({ connectionId: String(conn._id), kind: 'inventory_sync' });
+  const run = await insertSyncRun(conn.id, 'inventory_sync');
 
   for (const item of input.items) {
     try {
@@ -406,8 +419,8 @@ export async function ingestInventory(
     }
   }
 
-  await finalizeRun(run, counts);
-  await Connection.updateOne({ _id: conn._id }, { $set: { lastSyncAt: new Date() } });
+  await finalizeRun(run.id, counts);
+  await touchConnectionLastSync(conn.id);
   return { results };
 }
 
@@ -416,13 +429,10 @@ export async function ingestInventory(
  * (a total wipeout); any partial success is a `completed` run whose `counts.failed`
  * records the misses — the dashboard reads both.
  */
-async function finalizeRun(
-  run: HydratedDocument<ISyncRun>,
-  counts: ISyncRunCounts,
-): Promise<void> {
+async function finalizeRun(runId: string, counts: SyncRunCounts): Promise<void> {
   const anySucceeded = counts.created + counts.updated + counts.skipped > 0;
-  run.counts = counts;
-  run.status = !anySucceeded && counts.failed > 0 ? 'failed' : 'completed';
-  run.finishedAt = new Date();
-  await run.save();
+  await finishSyncRun(runId, {
+    status: !anySucceeded && counts.failed > 0 ? 'failed' : 'completed',
+    counts,
+  });
 }

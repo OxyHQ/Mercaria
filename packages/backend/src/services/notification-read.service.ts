@@ -4,56 +4,93 @@
  * This is the READ + management side of notifications (listing, unread count,
  * read/dismiss state, and push-token / web-push-subscription registration). The
  * DELIVERY side (creating + fanning a notification out across channels) lives in
- * `lib/notification-service.ts`; the read-state mutations here delegate to that
- * module's `getUnreadCount` / `markAsRead` / `markAllAsRead` / `dismissNotification`
- * helpers so there is one source of truth for those transitions.
+ * `lib/notification-service.ts`.
  *
  * All operations are scoped to `oxyUserId`. Logic lives here; the controller is
  * thin.
+ *
+ * ## Ported to Postgres
+ *
+ * The read-state mutations used to hop through `lib/notification-service.ts` for
+ * "one source of truth". That source of truth is now `db/notifications/*`, so the
+ * hop is gone and this module calls the repositories directly. Three behaviour
+ * notes the port carries:
+ *
+ *  - **Dismissing writes `dismissed_at` as well as `status`**, because
+ *    `notifications_dismissed_at_check` refuses either one alone — and that
+ *    column, not `created_at`, is now what the 90-day retention sweep measures
+ *    from. See `db/notifications/notificationRepository.ts`.
+ *  - **An unrecognised `status`/`type` filter answers with an EMPTY page**, which
+ *    is what Mongo did with a filter value no document carried. It is spelled out
+ *    here because the tempting narrowing — drop the filter you cannot type — turns
+ *    that empty page into the user's ENTIRE feed. The route's zod schema already
+ *    rejects a bad `status`, so this is the guard for every non-HTTP caller.
+ *  - **A NULL column is omitted from the DTO**, exactly as an absent Mongo field
+ *    was. The wire shape does not change; `null` simply took `undefined`'s place
+ *    as the "not set" representation one layer down.
+ *
+ * `trim`/`lowercase` re-application, which this port owes every ported service:
+ * none of the three Mongoose models carried either setter, so there is nothing to
+ * re-apply. The route's zod schemas already `.trim()` every string this service
+ * stores (`token`, `deviceId`, `endpoint`, both web-push keys).
  */
 
 import Expo from 'expo-server-sdk';
-import { Notification, type INotification } from '../models/notification.js';
-import { PushToken } from '../models/push-token.js';
-import { WebPushSubscription } from '../models/web-push-subscription.js';
 import {
-  getUnreadCount,
-  markAsRead,
-  markAllAsRead,
-  dismissNotification,
-} from '../lib/notification-service.js';
+  countUnreadNotifications,
+  findNotificationsPage,
+  isNotificationStatus,
+  isNotificationType,
+  markAllNotificationsRead,
+  markNotificationDismissed,
+  markNotificationRead,
+  type NotificationFilter,
+  type NotificationPriority,
+  type NotificationRecord,
+  type NotificationStatus,
+} from '../db/notifications/notificationRepository.js';
+import {
+  deactivatePushToken,
+  upsertPushToken,
+  type PushTokenPlatform,
+} from '../db/notifications/pushTokenRepository.js';
+import {
+  deactivateWebPushSubscription,
+  upsertWebPushSubscription,
+} from '../db/notifications/webPushSubscriptionRepository.js';
+import type { NotificationType } from '../db/schema/notifications.js';
 import { notFound, validationError } from '../lib/errors/error-codes.js';
 
 /** A single notification as returned on the wire. */
 export interface NotificationDTO {
   id: string;
-  type: INotification['type'];
+  type: NotificationType;
   title: string;
   body: string;
   data?: Record<string, unknown>;
-  status: INotification['status'];
-  priority: INotification['priority'];
+  status: NotificationStatus;
+  priority: NotificationPriority;
   conversationId?: string;
   readAt?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-/** Serialize an `INotification` document to the wire `NotificationDTO`. */
-function toDTO(doc: INotification): NotificationDTO {
+/** Serialize a `notifications` row to the wire `NotificationDTO`. */
+function toDTO(row: NotificationRecord): NotificationDTO {
   const dto: NotificationDTO = {
-    id: String(doc._id),
-    type: doc.type,
-    title: doc.title,
-    body: doc.body,
-    status: doc.status,
-    priority: doc.priority,
-    createdAt: doc.createdAt.toISOString(),
-    updatedAt: doc.updatedAt.toISOString(),
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    body: row.body,
+    status: row.status,
+    priority: row.priority,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
-  if (doc.data !== undefined) dto.data = doc.data;
-  if (doc.conversationId !== undefined) dto.conversationId = doc.conversationId;
-  if (doc.readAt !== undefined) dto.readAt = doc.readAt.toISOString();
+  if (row.data !== null) dto.data = row.data;
+  if (row.conversationId !== null) dto.conversationId = row.conversationId;
+  if (row.readAt !== null) dto.readAt = row.readAt.toISOString();
   return dto;
 }
 
@@ -67,45 +104,52 @@ export async function listNotifications(
   opts: { page: number; limit: number; status?: string; type?: string },
 ): Promise<{ data: NotificationDTO[]; total: number; unreadCount: number }> {
   const { page, limit, status, type } = opts;
-  const filter: Record<string, unknown> = { oxyUserId };
-  if (status) filter.status = status;
-  if (type) filter.type = type;
 
-  const [docs, total, unreadCount] = await Promise.all([
-    Notification.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean<INotification[]>(),
-    Notification.countDocuments(filter),
-    getUnreadCount(oxyUserId),
+  // A filter value no column can hold matches no row. Returning the count alone
+  // — rather than narrowing the filter away — is what keeps `?type=nonsense` from
+  // answering with everything the user has ever been sent.
+  const filter: NotificationFilter = {};
+  if (status !== undefined) {
+    if (!isNotificationStatus(status)) {
+      return { data: [], total: 0, unreadCount: await countUnreadNotifications(oxyUserId) };
+    }
+    filter.status = status;
+  }
+  if (type !== undefined) {
+    if (!isNotificationType(type)) {
+      return { data: [], total: 0, unreadCount: await countUnreadNotifications(oxyUserId) };
+    }
+    filter.type = type;
+  }
+
+  const [{ rows, total }, unreadCount] = await Promise.all([
+    findNotificationsPage(oxyUserId, filter, page, limit),
+    countUnreadNotifications(oxyUserId),
   ]);
 
-  return { data: docs.map(toDTO), total, unreadCount };
+  return { data: rows.map(toDTO), total, unreadCount };
 }
 
 /** The user's live unread-notification count. */
 export async function getUnread(oxyUserId: string): Promise<number> {
-  return getUnreadCount(oxyUserId);
+  return countUnreadNotifications(oxyUserId);
 }
 
 /** Mark a single notification read, or throw NOT_FOUND if it is not the user's. */
 export async function markRead(oxyUserId: string, notificationId: string): Promise<void> {
-  const ok = await markAsRead(notificationId, oxyUserId);
-  if (!ok) {
+  if (!(await markNotificationRead(oxyUserId, notificationId))) {
     throw notFound('Notification not found');
   }
 }
 
 /** Mark all of the user's unread notifications read; returns the affected count. */
 export async function markAllRead(oxyUserId: string): Promise<number> {
-  return markAllAsRead(oxyUserId);
+  return (await markAllNotificationsRead(oxyUserId)).length;
 }
 
 /** Dismiss a single notification, or throw NOT_FOUND if it is not the user's. */
 export async function dismiss(oxyUserId: string, notificationId: string): Promise<void> {
-  const ok = await dismissNotification(notificationId, oxyUserId);
-  if (!ok) {
+  if (!(await markNotificationDismissed(oxyUserId, notificationId))) {
     throw notFound('Notification not found');
   }
 }
@@ -117,32 +161,18 @@ export async function dismiss(oxyUserId: string, notificationId: string): Promis
  */
 export async function registerPushToken(
   oxyUserId: string,
-  input: { token: string; deviceId?: string; platform?: 'ios' | 'android' | 'web' },
+  input: { token: string; deviceId?: string; platform?: PushTokenPlatform },
 ): Promise<{ id: string }> {
   if (!Expo.isExpoPushToken(input.token)) {
     throw validationError('Invalid Expo push token format');
   }
 
-  const pushToken = await PushToken.findOneAndUpdate(
-    { oxyUserId, token: input.token },
-    {
-      $set: {
-        active: true,
-        ...(input.deviceId ? { deviceId: input.deviceId } : {}),
-        ...(input.platform ? { platform: input.platform } : {}),
-      },
-      $setOnInsert: { oxyUserId, token: input.token },
-    },
-    { upsert: true, new: true },
-  );
-
-  return { id: String(pushToken._id) };
+  return upsertPushToken(oxyUserId, input);
 }
 
 /** Deactivate an Expo push token (logout / uninstall), or throw NOT_FOUND. */
 export async function removePushToken(oxyUserId: string, token: string): Promise<void> {
-  const result = await PushToken.updateOne({ oxyUserId, token }, { $set: { active: false } });
-  if (result.matchedCount === 0) {
+  if (!(await deactivatePushToken(oxyUserId, token))) {
     throw notFound('Push token not found');
   }
 }
@@ -155,19 +185,7 @@ export async function registerWebPushSubscription(
   oxyUserId: string,
   input: { endpoint: string; keys: { p256dh: string; auth: string } },
 ): Promise<{ id: string }> {
-  const subscription = await WebPushSubscription.findOneAndUpdate(
-    { oxyUserId, endpoint: input.endpoint },
-    {
-      $set: {
-        active: true,
-        keys: { p256dh: input.keys.p256dh, auth: input.keys.auth },
-      },
-      $setOnInsert: { oxyUserId, endpoint: input.endpoint },
-    },
-    { upsert: true, new: true },
-  );
-
-  return { id: String(subscription._id) };
+  return upsertWebPushSubscription(oxyUserId, input);
 }
 
 /** Deactivate a browser web-push subscription, or throw NOT_FOUND. */
@@ -175,11 +193,7 @@ export async function removeWebPushSubscription(
   oxyUserId: string,
   endpoint: string,
 ): Promise<void> {
-  const result = await WebPushSubscription.updateOne(
-    { oxyUserId, endpoint },
-    { $set: { active: false } },
-  );
-  if (result.matchedCount === 0) {
+  if (!(await deactivateWebPushSubscription(oxyUserId, endpoint))) {
     throw notFound('Subscription not found');
   }
 }

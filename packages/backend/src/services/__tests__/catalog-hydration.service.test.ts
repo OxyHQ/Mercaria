@@ -1,34 +1,45 @@
 /**
  * Unit tests for `catalog-hydration.service` — connector-provenance emission.
  *
- * `mongodb-memory-server` is not available, so the ProductVariant/SellerProfile/
- * Store models, the Oxy profile + favorites batch loaders, the media chokepoint,
- * config and the logger are mocked. Tests assert the ONE behavior added for the
- * "Synced from …" badge: `Listing.source` is emitted ONLY on the admin path
- * (`includeSource: true`) — public storefront reads keep it hidden — and the
- * persisted `externalUpdatedAt` Date is serialized to an ISO string.
+ * The catalogue repositories, the still-Mongoose `SellerProfile` model, the Oxy
+ * profile + favorites batch loaders, the media chokepoint, config and the logger
+ * are mocked. Tests assert the ONE behavior added for the "Synced from …" badge:
+ * provenance is emitted ONLY on the admin path (`includeSource: true`) — public
+ * storefront reads keep it hidden — and the persisted `externalUpdatedAt` is
+ * serialized to an ISO string.
+ *
+ * The port made provenance FOUR flat columns rather than an embedded object, so
+ * "a native listing" is now four NULLs rather than an absent field — which is the
+ * shape the second test pins.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import mongoose from 'mongoose';
-import type { IListing, IListingSource } from '../../models/listing.js';
+import { uuidv7 } from '@oxyhq/db';
+import type { ListingRecord } from '../../db/catalog/listingRepository.js';
 
-const variantFind = vi.fn();
+const findVariantsByListingIds = vi.fn();
+const findVariantOptionValues = vi.fn();
+const findListingChildren = vi.fn();
 const sellerProfileFind = vi.fn();
 const storeFind = vi.fn();
 const getProfiles = vi.fn();
 const getFavoritedListingIds = vi.fn();
 
-vi.mock('../../models/product-variant.js', () => ({
-  ProductVariant: { find: (...args: unknown[]) => variantFind(...args) },
+vi.mock('../../db/catalog/variantRepository.js', () => ({
+  findVariantsByListingIds: (...args: unknown[]) => findVariantsByListingIds(...args),
+  findVariantOptionValues: (...args: unknown[]) => findVariantOptionValues(...args),
 }));
 
-vi.mock('../../models/seller-profile.js', () => ({
-  SellerProfile: { find: (...args: unknown[]) => sellerProfileFind(...args) },
+vi.mock('../../db/catalog/listingRepository.js', () => ({
+  findListingChildren: (...args: unknown[]) => findListingChildren(...args),
 }));
 
-vi.mock('../../models/store.js', () => ({
-  Store: { find: (...args: unknown[]) => storeFind(...args) },
+vi.mock('../../db/buyers/sellerProfileRepository.js', () => ({
+  findSellerProfilesByUserIds: (...args: unknown[]) => sellerProfileFind(...args),
+}));
+
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  findStoresByIds: (...args: unknown[]) => storeFind(...args),
 }));
 
 vi.mock('../oxy-user.service.js', () => ({
@@ -53,19 +64,19 @@ vi.mock('../../lib/logger.js', () => ({
 
 import { hydrateListings } from '../catalog-hydration.service.js';
 
-/** A `.sort().lean()`-able query stub resolving to `value`. */
-function sortLeanOf<T>(value: T) {
-  return { sort: () => ({ lean: () => Promise.resolve(value) }) };
-}
-
-/** A `.lean()`-able query stub resolving to `value`. */
-function leanOf<T>(value: T) {
-  return { lean: () => Promise.resolve(value) };
+/** The empty batch `findListingChildren` returns for listings with no children. */
+function noChildren() {
+  return { images: new Map(), options: new Map(), collectionIds: new Map() };
 }
 
 /** The one store every fixture listing belongs to. */
+/**
+ * A store row as the REPOSITORY returns it — `id`, not `_id`, and a plain array
+ * rather than a Mongoose `.lean()` chain. Stores are served from Postgres now
+ * even on paths whose own domain is still Mongo.
+ */
 const STORE = {
-  _id: 'store-1',
+  id: 'store-1',
   handle: 'acme',
   name: 'Acme',
   brandColor: '#111111',
@@ -74,53 +85,76 @@ const STORE = {
   textTone: 'light',
 };
 
-/** A store-owned listing doc (belongs to `STORE`); `source` is spread in per-test. */
-function listingDoc(source?: IListingSource): IListing {
+/** The connector-provenance columns of a synced listing. */
+const SYNCED_SOURCE = {
+  sourceConnectionId: 'conn-1',
+  sourceProvider: 'shopify',
+  sourceExternalId: 'gid://shopify/Product/123',
+  sourceExternalUpdatedAt: new Date('2026-01-05T12:00:00.000Z'),
+} as const;
+
+/** The same four columns on a listing authored HERE — NULL, not absent. */
+const NATIVE_SOURCE = {
+  sourceConnectionId: null,
+  sourceProvider: null,
+  sourceExternalId: null,
+  sourceExternalUpdatedAt: null,
+} as const;
+
+/** A store-owned listing row (belongs to `STORE`); provenance is spread in per-test. */
+function listingRow(source: Partial<ListingRecord> = NATIVE_SOURCE): ListingRecord {
   return {
-    _id: new mongoose.Types.ObjectId(),
+    id: uuidv7(),
     ownerType: 'store',
+    oxyUserId: null,
     storeId: 'store-1',
     title: 'A listing',
     description: 'A thing',
     condition: 'new',
     status: 'active',
+    categoryId: null,
     categorySlugs: ['electronics'],
-    images: [{ fileId: 'img-1', position: 0 }],
     tags: [],
-    options: [],
-    priceRange: { min: { amount: 0, currency: 'FAIR' }, max: { amount: 0, currency: 'FAIR' } },
+    priceRangeMinAmount: 0,
+    priceRangeMinCurrency: 'FAIR',
+    priceRangeMaxAmount: 0,
+    priceRangeMaxCurrency: 'FAIR',
     hasInventory: true,
     variantCount: 0,
-    collectionIds: [],
-    externalRefs: [],
+    longitude: null,
+    latitude: null,
+    geo: null,
+    vendor: null,
+    productType: null,
+    handle: null,
+    seoTitle: null,
+    seoDescription: null,
     overriddenFields: [],
     rating: 0,
     reviewCount: 0,
     favoriteCount: 0,
+    publishedAt: new Date('2026-01-01T00:00:00.000Z'),
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-02T00:00:00.000Z'),
-    ...(source ? { source } : {}),
+    searchVector: '',
+    ...NATIVE_SOURCE,
+    ...source,
   };
 }
 
-const SYNCED_SOURCE: IListingSource = {
-  connectionId: 'conn-1',
-  provider: 'shopify',
-  externalId: 'gid://shopify/Product/123',
-  externalUpdatedAt: new Date('2026-01-05T12:00:00.000Z'),
-};
-
 beforeEach(() => {
-  variantFind.mockReset().mockReturnValue(sortLeanOf([]));
-  sellerProfileFind.mockReset().mockReturnValue(leanOf([]));
-  storeFind.mockReset().mockReturnValue(leanOf([STORE]));
+  findVariantsByListingIds.mockReset().mockResolvedValue([]);
+  findVariantOptionValues.mockReset().mockResolvedValue(new Map());
+  findListingChildren.mockReset().mockResolvedValue(noChildren());
+  sellerProfileFind.mockReset().mockResolvedValue([]);
+  storeFind.mockReset().mockResolvedValue([STORE]);
   getProfiles.mockReset().mockResolvedValue(new Map());
   getFavoritedListingIds.mockReset().mockResolvedValue(new Set());
 });
 
 describe('catalog-hydration.service.hydrateListings — connector provenance', () => {
   it('emits Listing.source on the admin path (includeSource) and serializes externalUpdatedAt to ISO', async () => {
-    const [dto] = await hydrateListings([listingDoc(SYNCED_SOURCE)], {
+    const [dto] = await hydrateListings([listingRow(SYNCED_SOURCE)], {
       includeSource: true,
     });
 
@@ -133,13 +167,13 @@ describe('catalog-hydration.service.hydrateListings — connector provenance', (
   });
 
   it('omits Listing.source for a native (non-synced) listing even with includeSource', async () => {
-    const [dto] = await hydrateListings([listingDoc()], { includeSource: true });
+    const [dto] = await hydrateListings([listingRow()], { includeSource: true });
 
     expect(dto.source).toBeUndefined();
   });
 
   it('never emits Listing.source on the public path (includeSource unset)', async () => {
-    const [dto] = await hydrateListings([listingDoc(SYNCED_SOURCE)]);
+    const [dto] = await hydrateListings([listingRow(SYNCED_SOURCE)]);
 
     expect(dto.source).toBeUndefined();
   });

@@ -1,10 +1,22 @@
 /**
  * Tax service — store-admin lifecycle for tax rates + tax settings (B4).
  *
- * Owns create/list/update/delete for a store's `TaxRate`s plus the `TaxRate` DTO
+ * Owns create/list/update/delete for a store's tax rates plus the `TaxRate` DTO
  * serializer and the store-level `taxSettings` patch. Every operation is scoped to
  * its `storeId`. The matching/computation side lives in `pricing.service`; this
  * module is the admin CRUD only.
+ *
+ * ## What the Postgres port changed
+ *
+ * The embedded `region` sub-document became three flat columns, so an ABSENT
+ * field is a NULL column rather than a missing key — which is why the DTO
+ * serializer below tests for `null` and the old one tested for `undefined`.
+ *
+ * `product_type_scope` keeps a distinction Mongo blurred and the service must
+ * preserve: NULL means "not scoped to any product type", i.e. applies to all of
+ * them, while an EMPTY array means "scoped to no product type at all" and matches
+ * nothing. A patch that wrote `[]` intending to clear the scope would silently
+ * disable the rate.
  */
 
 import type {
@@ -12,33 +24,32 @@ import type {
   UpdateTaxRateInput,
   UpdateTaxSettingsInput,
   TaxRate as TaxRateDTO,
-  TaxSettings,
 } from '@mercaria/shared-types';
-import { TaxRate, type ITaxRate, type ITaxRegion } from '../models/tax-rate.js';
-import { Store, type IStore } from '../models/store.js';
+import {
+  deleteTaxRate as deleteTaxRateRow,
+  findTaxRate,
+  findTaxRatesByStore,
+  insertTaxRate,
+  updateTaxRate as updateTaxRateRow,
+  type TaxRateRecord,
+} from '../db/stores/taxRateRepository.js';
+import { updateStoreColumns, type StoreRecord } from '../db/stores/storeRepository.js';
 import { notFound } from '../lib/errors/error-codes.js';
 
-/** Build the persisted region sub-document from input (omit absent optionals). */
-function buildRegion(input: CreateTaxRateInput['region']): ITaxRegion {
-  const region: ITaxRegion = {};
-  if (input.country !== undefined) region.country = input.country;
-  if (input.region !== undefined) region.region = input.region;
-  if (input.postalCodePattern !== undefined) region.postalCodePattern = input.postalCodePattern;
-  return region;
-}
+export type { TaxRateRecord };
 
-/** Serialize a tax-rate document to the `TaxRate` DTO. */
-export function toTaxRateDTO(rate: ITaxRate): TaxRateDTO {
+/** Serialize a tax-rate row to the `TaxRate` DTO. */
+export function toTaxRateDTO(rate: TaxRateRecord): TaxRateDTO {
   const dto: TaxRateDTO = {
-    id: String((rate as { _id: unknown })._id),
+    id: rate.id,
     storeId: rate.storeId,
     name: rate.name,
     rateBps: rate.rateBps,
     region: {
-      ...(rate.region.country !== undefined ? { country: rate.region.country } : {}),
-      ...(rate.region.region !== undefined ? { region: rate.region.region } : {}),
-      ...(rate.region.postalCodePattern !== undefined
-        ? { postalCodePattern: rate.region.postalCodePattern }
+      ...(rate.regionCountry !== null ? { country: rate.regionCountry } : {}),
+      ...(rate.regionRegion !== null ? { region: rate.regionRegion } : {}),
+      ...(rate.regionPostalCodePattern !== null
+        ? { postalCodePattern: rate.regionPostalCodePattern }
         : {}),
     },
     appliesToShipping: rate.appliesToShipping,
@@ -47,20 +58,20 @@ export function toTaxRateDTO(rate: ITaxRate): TaxRateDTO {
     createdAt: rate.createdAt.toISOString(),
     updatedAt: rate.updatedAt.toISOString(),
   };
-  if (rate.productTypeScope) {
+  if (rate.productTypeScope !== null) {
     dto.productTypeScope = [...rate.productTypeScope];
   }
   return dto;
 }
 
 /** List a store's tax rates, highest priority first then newest. */
-export async function listTaxRates(storeId: string): Promise<ITaxRate[]> {
-  return TaxRate.find({ storeId }).sort({ priority: -1, createdAt: -1 }).lean<ITaxRate[]>();
+export async function listTaxRates(storeId: string): Promise<TaxRateRecord[]> {
+  return findTaxRatesByStore(storeId);
 }
 
 /** Load one tax rate scoped to its store, or throw NOT_FOUND. */
-export async function getTaxRate(storeId: string, taxRateId: string): Promise<ITaxRate> {
-  const rate = await TaxRate.findOne({ _id: taxRateId, storeId }).lean<ITaxRate | null>();
+export async function getTaxRate(storeId: string, taxRateId: string): Promise<TaxRateRecord> {
+  const rate = await findTaxRate(storeId, taxRateId);
   if (!rate) {
     throw notFound('Tax rate not found');
   }
@@ -71,20 +82,18 @@ export async function getTaxRate(storeId: string, taxRateId: string): Promise<IT
 export async function createTaxRate(
   storeId: string,
   input: CreateTaxRateInput,
-): Promise<ITaxRate> {
-  const doc: Partial<ITaxRate> = {
-    storeId,
+): Promise<TaxRateRecord> {
+  return insertTaxRate(storeId, {
     name: input.name,
     rateBps: input.rateBps,
-    region: buildRegion(input.region),
+    regionCountry: input.region.country ?? null,
+    regionRegion: input.region.region ?? null,
+    regionPostalCodePattern: input.region.postalCodePattern ?? null,
     appliesToShipping: input.appliesToShipping ?? false,
+    productTypeScope: input.productTypeScope ? [...input.productTypeScope] : null,
     priority: input.priority ?? 0,
     isActive: input.isActive ?? true,
-  };
-  if (input.productTypeScope) doc.productTypeScope = [...input.productTypeScope];
-
-  const created = await TaxRate.create(doc);
-  return created.toObject();
+  });
 }
 
 /** Update a tax rate in place (scoped to `storeId`, else NOT_FOUND). */
@@ -92,64 +101,70 @@ export async function updateTaxRate(
   storeId: string,
   taxRateId: string,
   patch: UpdateTaxRateInput,
-): Promise<ITaxRate> {
-  const rate = await TaxRate.findOne({ _id: taxRateId, storeId });
-  if (!rate) {
+): Promise<TaxRateRecord> {
+  const updated = await updateTaxRateRow(storeId, taxRateId, {
+    ...(patch.name !== undefined ? { name: patch.name } : {}),
+    ...(patch.rateBps !== undefined ? { rateBps: patch.rateBps } : {}),
+    // `region` is replaced wholesale, exactly as the Mongoose sub-document was:
+    // a supplied region with no `country` CLEARS the country rather than keeping
+    // the previous one.
+    ...(patch.region !== undefined
+      ? {
+          regionCountry: patch.region.country ?? null,
+          regionRegion: patch.region.region ?? null,
+          regionPostalCodePattern: patch.region.postalCodePattern ?? null,
+        }
+      : {}),
+    ...(patch.appliesToShipping !== undefined
+      ? { appliesToShipping: patch.appliesToShipping }
+      : {}),
+    ...(patch.productTypeScope !== undefined
+      ? { productTypeScope: [...patch.productTypeScope] }
+      : {}),
+    ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+    ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
+  });
+
+  if (!updated) {
     throw notFound('Tax rate not found');
   }
-
-  if (patch.name !== undefined) rate.name = patch.name;
-  if (patch.rateBps !== undefined) rate.rateBps = patch.rateBps;
-  if (patch.region !== undefined) rate.region = buildRegion(patch.region);
-  if (patch.appliesToShipping !== undefined) rate.appliesToShipping = patch.appliesToShipping;
-  if (patch.productTypeScope !== undefined) rate.productTypeScope = [...patch.productTypeScope];
-  if (patch.priority !== undefined) rate.priority = patch.priority;
-  if (patch.isActive !== undefined) rate.isActive = patch.isActive;
-
-  await rate.save();
-  return rate.toObject();
+  return updated;
 }
 
 /** Delete a tax rate (scoped to `storeId`, else NOT_FOUND). */
 export async function deleteTaxRate(storeId: string, taxRateId: string): Promise<void> {
-  const result = await TaxRate.deleteOne({ _id: taxRateId, storeId });
-  if (result.deletedCount === 0) {
+  const deleted = await deleteTaxRateRow(storeId, taxRateId);
+  if (!deleted) {
     throw notFound('Tax rate not found');
   }
 }
 
 /**
- * Patch a store's `taxSettings` (scoped to `storeId`, else NOT_FOUND). Only the
- * supplied fields are touched; absent fields keep their current value (defaulting
- * an absent stored block on a pre-B4 store).
+ * Patch a store's tax settings (scoped to `storeId`, else NOT_FOUND). Only the
+ * supplied fields are touched.
+ *
+ * The Mongo version reconstructed an absent `taxSettings` block from defaults
+ * before patching it. That branch is gone: all three columns are NOT NULL with
+ * the same defaults it substituted, so there is no absent block left to rebuild.
  */
 export async function updateTaxSettings(
   storeId: string,
   patch: UpdateTaxSettingsInput,
-): Promise<IStore> {
-  const store = await Store.findById(storeId);
-  if (!store) {
+): Promise<StoreRecord> {
+  const updated = await updateStoreColumns(storeId, {
+    ...(patch.pricesIncludeTax !== undefined
+      ? { taxSettingsPricesIncludeTax: patch.pricesIncludeTax }
+      : {}),
+    ...(patch.chargeTaxOnProducts !== undefined
+      ? { taxSettingsChargeTaxOnProducts: patch.chargeTaxOnProducts }
+      : {}),
+    ...(patch.taxRegistrationId !== undefined
+      ? { taxSettingsTaxRegistrationId: patch.taxRegistrationId }
+      : {}),
+  });
+
+  if (!updated) {
     throw notFound('Store not found');
   }
-
-  const current: TaxSettings = {
-    pricesIncludeTax: store.taxSettings?.pricesIncludeTax ?? false,
-    chargeTaxOnProducts: store.taxSettings?.chargeTaxOnProducts ?? true,
-    ...(store.taxSettings?.taxRegistrationId
-      ? { taxRegistrationId: store.taxSettings.taxRegistrationId }
-      : {}),
-  };
-
-  store.taxSettings = {
-    pricesIncludeTax: patch.pricesIncludeTax ?? current.pricesIncludeTax,
-    chargeTaxOnProducts: patch.chargeTaxOnProducts ?? current.chargeTaxOnProducts,
-    ...(patch.taxRegistrationId !== undefined
-      ? { taxRegistrationId: patch.taxRegistrationId }
-      : current.taxRegistrationId
-        ? { taxRegistrationId: current.taxRegistrationId }
-        : {}),
-  };
-
-  await store.save();
-  return store.toObject();
+  return updated;
 }

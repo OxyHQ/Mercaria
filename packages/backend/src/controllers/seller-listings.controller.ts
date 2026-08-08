@@ -15,7 +15,11 @@ import type {
   UpdateListingInput,
   Listing as ListingDTO,
 } from '@mercaria/shared-types';
-import { Listing, type IListing } from '../models/listing.js';
+import {
+  findListingById,
+  findListingsPageForSeller,
+  type ListingRecord,
+} from '../db/catalog/listingRepository.js';
 import {
   createP2PListing,
   updateListing,
@@ -29,8 +33,8 @@ import { routeParam } from '../utils/request.js';
 import { log } from '../lib/logger.js';
 
 /** Load a P2P listing and assert the caller owns it, or throw NOT_FOUND/FORBIDDEN. */
-async function loadOwnedListing(listingId: string, oxyUserId: string): Promise<IListing> {
-  const listing = await Listing.findById(listingId).lean<IListing | null>();
+async function loadOwnedListing(listingId: string, oxyUserId: string): Promise<ListingRecord> {
+  const listing = await findListingById(listingId);
   if (!listing) {
     throw notFound('Listing not found');
   }
@@ -42,11 +46,11 @@ async function loadOwnedListing(listingId: string, oxyUserId: string): Promise<I
 
 /** Hydrate a single listing by id into its `Listing` DTO. */
 async function hydrateById(listingId: string, viewerId: string): Promise<ListingDTO | undefined> {
-  const doc = await Listing.findById(listingId).lean<IListing | null>();
-  if (!doc) {
+  const row = await findListingById(listingId);
+  if (!row) {
     return undefined;
   }
-  const [dto] = await hydrateListings([doc], { viewerId });
+  const [dto] = await hydrateListings([row], { viewerId });
   return dto;
 }
 
@@ -55,18 +59,10 @@ export async function listMyListings(req: Request, res: Response): Promise<void>
   try {
     const oxyUserId = getRequiredOxyUserId(req);
     const { page, limit } = parsePagination(req.query);
-    const filter = { ownerType: 'user' as const, oxyUserId };
 
-    const [docs, total] = await Promise.all([
-      Listing.find(filter)
-        .sort({ createdAt: -1, _id: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean<IListing[]>(),
-      Listing.countDocuments(filter),
-    ]);
+    const { rows, total } = await findListingsPageForSeller(oxyUserId, undefined, page, limit);
 
-    const data = await hydrateListings(docs, { viewerId: oxyUserId });
+    const data = await hydrateListings(rows, { viewerId: oxyUserId });
     sendPaginated(res, data, buildPagination(page, limit, total));
   } catch (err) {
     log.general.error({ err }, 'Failed to list seller listings');

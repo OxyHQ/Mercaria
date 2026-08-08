@@ -1,97 +1,78 @@
 /**
- * The payment service across BOTH real stores — Postgres for the payment and its
- * ledger, MongoDB for the orders it funds.
+ * The payment service against a REAL Postgres database — the payment, its ledger,
+ * and the orders it funds.
  *
- * ## Why both, and why neither can be mocked here
+ * ## Why none of it can be mocked here
  *
- * Every property under test lives in the gap between the two:
+ * Every property under test lives in the gap between the payment aggregate and
+ * the orders it moves:
  *
  *  - a duplicate provider event books ONE ledger transaction and causes ONE
- *    order transition (#45 acceptance 3). The first half is held by a Postgres
- *    compare-and-swap and the second by a Mongo one; mocking either turns the
- *    test into an assertion about the mock;
+ *    order transition (#45 acceptance 3). The first half is held by a
+ *    compare-and-swap on `payments`, the second by the one on `orders`; mocking
+ *    either turns the test into an assertion about the mock;
  *  - a failed payment leaves the reservation alone (#45 acceptance 4) — which is
  *    a statement about what did NOT happen to a real inventory level;
  *  - an external payment is visible and books no cash (#45 acceptance 5), which
  *    is a claim about the contents of two tables.
  *
- * A replica SET for Mongo, because `order.service.transition` is a
- * `findOneAndUpdate` compare-and-swap and the inventory writes beside it are
- * what the duplicate-event test is really probing.
+ * The payment reaches the order through the outbox handler rather than in the
+ * same transaction, so what these tests actually pin is that the handoff
+ * completes — the one thing a mocked payment service cannot tell you.
+ *
+ * ## Isolation: every fixture is unique per test, and nothing is deleted
+ *
+ * `vitest.pg.globalSetup.ts` creates ONE throwaway database for the whole suite
+ * and vitest runs files in parallel, so a wholesale delete between tests would
+ * take another file's rows with it — and the ledger is append-only, so clearing
+ * it would need a TABLE-level TRUNCATE, which is worse. Instead each test seeds
+ * its own seller, buyer and listing under freshly generated ids, and every
+ * assertion is scoped to them. That is the stronger form anyway: a `salesCount`
+ * of 1 means this test's seller sold once, not that the table happened to be
+ * empty when it ran.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import mongoose from 'mongoose';
-import { Types } from 'mongoose';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { sql } from 'drizzle-orm';
+import { uuidv7 } from '@oxyhq/db';
 import { ledgerEntries, ledgerTransactions } from '../../../db/schema/ledger.js';
 import { paymentAttempts, payments } from '../../../db/schema/payments.js';
-import type { Database } from '../../../db/postgres.js';
+import { listings } from '../../../db/schema/catalog.js';
+import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
+import { insertVariants, findVariantById } from '../../../db/catalog/variantRepository.js';
+import {
+  findOrderById,
+  insertOrder,
+  nextOrderNumber,
+} from '../../../db/orders/orderRepository.js';
+import {
+  ensureSellerProfile,
+  findSellerProfile,
+} from '../../../db/buyers/sellerProfileRepository.js';
+import { reserve } from '../../inventory.service.js';
+import {
+  ensurePayment,
+  applyPaymentStatus,
+  applyProviderEvent,
+  tracePayment,
+} from '../payment.service.js';
+import { SyntheticPaymentProvider } from '../synthetic-provider.js';
 
-const uri = process.env.MERCARIA_TEST_MONGODB_URI;
-
-/** The buyer of every order below. */
-const BUYER = 'oxy-user-buyer';
-/** The P2P seller of every order below. */
-const SELLER = 'oxy-user-seller';
 /** Grand total of one seeded order, in FAIR minor units. */
 const ORDER_TOTAL = 300_000_000;
 /** Stock seeded on the variant every order reserves from. */
 const SEEDED_AVAILABLE = 10;
-/** Units each seeded order has reserved — held in `inventory.committed`. */
+/** Units each seeded order has reserved — held in `inventory_committed`. */
 const RESERVED_QTY = 2;
 
 let db: Database;
-let closePostgres: typeof import('../../../db/postgres.js').closePostgres;
-let Order: typeof import('../../../models/order.js').Order;
-let ProductVariant: typeof import('../../../models/product-variant.js').ProductVariant;
-let SellerProfile: typeof import('../../../models/seller-profile.js').SellerProfile;
-let ensurePayment: typeof import('../payment.service.js').ensurePayment;
-let applyPaymentStatus: typeof import('../payment.service.js').applyPaymentStatus;
-let applyProviderEvent: typeof import('../payment.service.js').applyProviderEvent;
-let tracePayment: typeof import('../payment.service.js').tracePayment;
-let SyntheticPaymentProvider: typeof import('../synthetic-provider.js').SyntheticPaymentProvider;
 
 beforeAll(async () => {
-  if (!uri) throw new Error('MERCARIA_TEST_MONGODB_URI missing — is vitest.globalSetup.ts wired?');
-  await mongoose.connect(uri, { dbName: 'mercaria-payment-service-test' });
-
-  const postgres = await import('../../../db/postgres.js');
-  closePostgres = postgres.closePostgres;
-  db = await postgres.connectPostgres();
-
-  ({ Order } = await import('../../../models/order.js'));
-  ({ ProductVariant } = await import('../../../models/product-variant.js'));
-  ({ SellerProfile } = await import('../../../models/seller-profile.js'));
-  ({ ensurePayment, applyPaymentStatus, applyProviderEvent, tracePayment } = await import(
-    '../payment.service.js'
-  ));
-  ({ SyntheticPaymentProvider } = await import('../synthetic-provider.js'));
-
-  await Order.syncIndexes();
+  db = await connectPostgres();
 }, 120_000);
 
 afterAll(async () => {
-  await mongoose.disconnect();
   await closePostgres();
-});
-
-beforeEach(async () => {
-  // Mongo fixtures are per-file (this file has its own `dbName`) and can be
-  // cleared wholesale. The POSTGRES side deliberately is not: the ledger is
-  // append-only, so emptying it needs TRUNCATE — a TABLE-level statement — and
-  // vitest runs files in parallel against ONE throwaway database, so a truncate
-  // here takes another file's rows with it. It did: the POS sale's payment
-  // vanished mid-transaction the first time this file ran beside it, and the
-  // failure reproduced only under concurrency.
-  //
-  // Every Postgres assertion below is therefore scoped to the payment the test
-  // itself created, which is the stronger form anyway.
-  await Promise.all([
-    Order.deleteMany({}),
-    ProductVariant.deleteMany({}),
-    SellerProfile.deleteMany({}),
-  ]);
 });
 
 /** A FAIR `DualMoney` whose two sides are equal — no conversion in play. */
@@ -99,30 +80,61 @@ function fair(amount: number) {
   return {
     shop: { amount, currency: 'FAIR' },
     presentment: { amount, currency: 'FAIR' },
-  };
+  } as const;
 }
 
-/** Seed one `pending_payment` P2P order with a real reserved variant. */
-async function seedOrder(checkoutGroupId: string): Promise<{ orderId: string; variantId: string }> {
-  const listingId = new Types.ObjectId().toString();
-  const variant = await ProductVariant.create({
-    listingId,
-    title: 'Default',
-    optionValues: [],
-    price: { amount: ORDER_TOTAL, currency: 'FAIR' },
-    inventory: { tracked: true, available: SEEDED_AVAILABLE - RESERVED_QTY, committed: RESERVED_QTY },
-  });
-  const variantId = String(variant._id);
+/** One test's cast of characters, all freshly minted so nothing collides. */
+function actors(): { buyer: string; seller: string } {
+  const suffix = uuidv7();
+  return { buyer: `buyer-${suffix}`, seller: `seller-${suffix}` };
+}
 
-  const order = await Order.create({
-    orderNumber: `MRC-${Math.floor(Math.random() * 1_000_000).toString().padStart(6, '0')}`,
-    buyerOxyUserId: BUYER,
+/** Seed one `pending_payment` P2P order with a real variant holding a reservation. */
+async function seedOrder(
+  checkoutGroupId: string,
+  who: { buyer: string; seller: string },
+): Promise<{ orderId: string; variantId: string }> {
+  const [listing] = await db
+    .insert(listings)
+    .values({
+      ownerType: 'user',
+      oxyUserId: who.seller,
+      title: 'A thing',
+      description: '',
+      condition: 'new',
+    })
+    .returning({ id: listings.id });
+
+  const [variant] = await insertVariants(listing.id, [
+    {
+      title: 'Default',
+      priceAmount: ORDER_TOTAL,
+      priceCurrency: 'FAIR',
+      inventoryTracked: true,
+      inventoryAvailable: SEEDED_AVAILABLE,
+      position: 0,
+      optionValues: [],
+    },
+  ]);
+
+  // A real reservation, taken the way checkout takes one — so the "a failed
+  // payment releases nothing" assertion is measuring a reservation the system
+  // made, not two numbers a fixture typed in.
+  await reserve(variant.id, RESERVED_QTY);
+
+  // `transition('paid')` bumps this counter; without the row there is nothing
+  // for the duplicate-event test to count.
+  await ensureSellerProfile(who.seller);
+
+  const order = await insertOrder({
+    orderNumber: await nextOrderNumber(),
+    buyerOxyUserId: who.buyer,
     sellerType: 'user',
-    sellerOxyUserId: SELLER,
+    sellerOxyUserId: who.seller,
     items: [
       {
-        listingId,
-        variantId,
+        listingId: listing.id,
+        variantId: variant.id,
         title: 'A thing',
         variantTitle: 'Default',
         optionValues: [],
@@ -131,14 +143,16 @@ async function seedOrder(checkoutGroupId: string): Promise<{ orderId: string; va
         lineTotal: fair(ORDER_TOTAL),
       },
     ],
-    shippingAddressSnapshot: {
+    shippingAddress: {
       recipientName: 'Buyer',
       line1: '1 Street',
       city: 'Barcelona',
       postalCode: '08001',
       country: 'ES',
     },
-    shipping: { method: 'standard', label: 'Standard shipping', cost: fair(0), trackingNumber: null },
+    shippingMethod: 'standard',
+    shippingLabel: 'Standard shipping',
+    shippingCost: fair(0),
     totals: {
       subtotal: fair(ORDER_TOTAL),
       discountTotal: fair(0),
@@ -147,12 +161,14 @@ async function seedOrder(checkoutGroupId: string): Promise<{ orderId: string; va
       grandTotal: fair(ORDER_TOTAL),
     },
     status: 'pending_payment',
-    statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: BUYER }],
-    payment: { status: 'unpaid' },
+    paymentStatus: 'unpaid',
     checkoutGroupId,
+    statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: who.buyer }],
+    appliedDiscounts: [],
+    taxLines: [],
   });
 
-  return { orderId: String(order._id), variantId };
+  return { orderId: order.id, variantId: variant.id };
 }
 
 /** What ONE payment wrote: its ledger transactions, their entries and its attempts. */
@@ -180,15 +196,16 @@ async function counts(
 
 describe('a duplicate success converges on ONE state', () => {
   it('books one ledger transaction and makes one order transition, from two identical events', async () => {
-    const checkoutGroupId = new Types.ObjectId().toString();
-    const { orderId } = await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = uuidv7();
+    const { orderId } = await seedOrder(checkoutGroupId, who);
     const provider = new SyntheticPaymentProvider({ eventSecret: 'duplicate-test' });
 
     const payment = await ensurePayment({
       provider: 'mock',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'FAIR' },
-      buyerOxyUserId: BUYER,
+      buyerOxyUserId: who.buyer,
     });
     const created = await provider.createPayment({
       paymentId: payment.id,
@@ -229,33 +246,28 @@ describe('a duplicate success converges on ONE state', () => {
     expect(after.entries).toBe(2);
 
     // ONE order transition: the status history has exactly one `paid` entry.
-    const order = await Order.findById(orderId).lean<{
-      status: string;
-      statusHistory: { status: string }[];
-      payment: { status: string; paymentId?: string; provider?: string };
-    } | null>();
+    const order = await findOrderById(orderId);
     expect(order?.status).toBe('paid');
     expect(order?.statusHistory.filter((event) => event.status === 'paid')).toHaveLength(1);
-    expect(order?.payment.status).toBe('paid');
-    expect(order?.payment.paymentId).toBe(payment.id);
-    expect(order?.payment.provider).toBe('mock');
+    expect(order?.paymentStatus).toBe('paid');
+    expect(order?.paymentId).toBe(payment.id);
+    expect(order?.paymentProvider).toBe('mock');
 
     // And the seller's sales counter moved exactly once — the side effect that
     // would betray a second transition even if the history somehow did not.
-    const seller = await SellerProfile.findOne({ oxyUserId: SELLER }).lean<{
-      salesCount: number;
-    } | null>();
+    const seller = await findSellerProfile(who.seller);
     expect(seller?.salesCount).toBe(1);
   });
 
   it('refuses an out-of-order event that would walk the payment backwards', async () => {
-    const checkoutGroupId = new Types.ObjectId().toString();
-    await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = uuidv7();
+    await seedOrder(checkoutGroupId, who);
     const payment = await ensurePayment({
       provider: 'mock',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'FAIR' },
-      buyerOxyUserId: BUYER,
+      buyerOxyUserId: who.buyer,
     });
 
     await applyPaymentStatus({ paymentId: payment.id, next: 'succeeded' });
@@ -271,13 +283,14 @@ describe('a duplicate success converges on ONE state', () => {
 
 describe('a failed payment leaks no reservation', () => {
   it('leaves the order pending_payment and cancellable, and the stock reserved', async () => {
-    const checkoutGroupId = new Types.ObjectId().toString();
-    const { orderId, variantId } = await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = uuidv7();
+    const { orderId, variantId } = await seedOrder(checkoutGroupId, who);
     const payment = await ensurePayment({
       provider: 'mock',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'FAIR' },
-      buyerOxyUserId: BUYER,
+      buyerOxyUserId: who.buyer,
     });
 
     const failed = await applyPaymentStatus({
@@ -292,39 +305,36 @@ describe('a failed payment leaks no reservation', () => {
     // The inventory is EXACTLY as it was. A payment failure releasing stock
     // would be a second releaser beside the reservation sweep, and two things
     // releasing one reservation is how available goes negative.
-    const variant = await ProductVariant.findById(variantId).lean<{
-      inventory: { available: number; committed: number };
-    } | null>();
-    expect(variant?.inventory.available).toBe(SEEDED_AVAILABLE - RESERVED_QTY);
-    expect(variant?.inventory.committed).toBe(RESERVED_QTY);
+    const variant = await findVariantById(variantId);
+    expect(variant?.inventoryAvailable).toBe(SEEDED_AVAILABLE - RESERVED_QTY);
+    expect(variant?.inventoryCommitted).toBe(RESERVED_QTY);
 
     // The order is untouched and still cancellable — which is what the sweep
     // will do, releasing the stock through the ORDER transition that owns it.
-    const order = await Order.findById(orderId);
+    const order = await findOrderById(orderId);
     expect(order?.status).toBe('pending_payment');
 
     const { transition } = await import('../../order.service.js');
     if (!order) throw new Error('order vanished');
     await transition(order, 'cancelled', { note: 'reservation expired' });
 
-    const released = await ProductVariant.findById(variantId).lean<{
-      inventory: { available: number; committed: number };
-    } | null>();
-    expect(released?.inventory.available).toBe(SEEDED_AVAILABLE);
-    expect(released?.inventory.committed).toBe(0);
+    const released = await findVariantById(variantId);
+    expect(released?.inventoryAvailable).toBe(SEEDED_AVAILABLE);
+    expect(released?.inventoryCommitted).toBe(0);
 
     // No accounting at all for a payment that never took money.
     expect((await counts(payment.id)).transactions).toBe(0);
   });
 
   it('records the failure as an attempt, with the message REDACTED', async () => {
-    const checkoutGroupId = new Types.ObjectId().toString();
-    await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = uuidv7();
+    await seedOrder(checkoutGroupId, who);
     const payment = await ensurePayment({
       provider: 'mock',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'FAIR' },
-      buyerOxyUserId: BUYER,
+      buyerOxyUserId: who.buyer,
     });
     await applyPaymentStatus({
       paymentId: payment.id,
@@ -348,8 +358,9 @@ describe('a failed payment leaks no reservation', () => {
 
 describe('an external payment is visible and books no cash', () => {
   it('records the payment, links the order, and writes no ledger entry', async () => {
-    const checkoutGroupId = 'ext:shopify:1001';
-    const { orderId } = await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = `ext:shopify:${uuidv7()}`;
+    const { orderId } = await seedOrder(checkoutGroupId, who);
 
     const payment = await ensurePayment({
       provider: 'external',
@@ -374,8 +385,9 @@ describe('an external payment is visible and books no cash', () => {
   });
 
   it('converges on ONE payment when the same external order is imported twice', async () => {
-    const checkoutGroupId = 'ext:shopify:1002';
-    const { orderId } = await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = `ext:shopify:${uuidv7()}`;
+    const { orderId } = await seedOrder(checkoutGroupId, who);
 
     const first = await ensurePayment({
       provider: 'external',
@@ -398,9 +410,10 @@ describe('an external payment is visible and books no cash', () => {
     // The synthetic `ext:` checkout group is NOT unique across connections —
     // two Shopify shops can each have an order 1003. Uniqueness on the group
     // would make the second shop's import fail; uniqueness on the ORDER does not.
-    const sharedGroup = 'ext:shopify:1003';
-    const shopA = await seedOrder(sharedGroup);
-    const shopB = await seedOrder(sharedGroup);
+    const who = actors();
+    const sharedGroup = `ext:shopify:${uuidv7()}`;
+    const shopA = await seedOrder(sharedGroup, who);
+    const shopB = await seedOrder(sharedGroup, who);
 
     const paymentA = await ensurePayment({
       provider: 'external',
@@ -422,19 +435,20 @@ describe('an external payment is visible and books no cash', () => {
 
 describe('one payment per checkout group, for native rails', () => {
   it('converges a replayed checkout on the payment it already opened', async () => {
-    const checkoutGroupId = new Types.ObjectId().toString();
-    await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = uuidv7();
+    await seedOrder(checkoutGroupId, who);
     const first = await ensurePayment({
       provider: 'mock',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'FAIR' },
-      buyerOxyUserId: BUYER,
+      buyerOxyUserId: who.buyer,
     });
     const second = await ensurePayment({
       provider: 'mock',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'FAIR' },
-      buyerOxyUserId: BUYER,
+      buyerOxyUserId: who.buyer,
     });
     expect(second.id).toBe(first.id);
 
@@ -453,25 +467,23 @@ describe('the dev mockPay seam runs the whole real path', () => {
     // produce a state the real one cannot — which makes it useless for
     // exercising the real one. This is also the only coverage `mockPay` has ever
     // had; it previously called `transition` directly and did nothing else.
-    const checkoutGroupId = new Types.ObjectId().toString();
-    const first = await seedOrder(checkoutGroupId);
-    const second = await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = uuidv7();
+    const first = await seedOrder(checkoutGroupId, who);
+    const second = await seedOrder(checkoutGroupId, who);
 
     const { mockPay } = await import('../../order.service.js');
     const { resetMockPaymentProvider } = await import('../registry.js');
     resetMockPaymentProvider();
 
-    const dto = await mockPay(BUYER, first.orderId);
+    const dto = await mockPay(who.buyer, first.orderId);
     expect(dto.status).toBe('paid');
 
     // The SIBLING is paid too, from one payment.
-    const sibling = await Order.findById(second.orderId).lean<{
-      status: string;
-      payment: { status: string; provider?: string; paymentId?: string };
-    } | null>();
+    const sibling = await findOrderById(second.orderId);
     expect(sibling?.status).toBe('paid');
-    expect(sibling?.payment.provider).toBe('mock');
-    expect(sibling?.payment.paymentId).toBe(dto.payment.paymentId);
+    expect(sibling?.paymentProvider).toBe('mock');
+    expect(sibling?.paymentId).toBe(dto.payment.paymentId);
 
     // One payment, charged for the SUM of both orders' presentment totals, with
     // a provider object id from the adapter rather than an invented one.
@@ -494,36 +506,36 @@ describe('the dev mockPay seam runs the whole real path', () => {
   });
 
   it('is idempotent: paying the same order twice leaves one payment and one charge', async () => {
-    const checkoutGroupId = new Types.ObjectId().toString();
-    const { orderId } = await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = uuidv7();
+    const { orderId } = await seedOrder(checkoutGroupId, who);
     const { mockPay } = await import('../../order.service.js');
     const { resetMockPaymentProvider } = await import('../registry.js');
     resetMockPaymentProvider();
 
-    await mockPay(BUYER, orderId);
-    await mockPay(BUYER, orderId);
+    await mockPay(who.buyer, orderId);
+    await mockPay(who.buyer, orderId);
 
     const trace = await tracePayment({ byCheckoutGroupId: checkoutGroupId });
     expect(trace).toBeDefined();
     if (!trace) throw new Error('unreachable');
     expect((await counts(trace.payment.id)).transactions).toBe(1);
 
-    const order = await Order.findById(orderId).lean<{
-      statusHistory: { status: string }[];
-    } | null>();
+    const order = await findOrderById(orderId);
     expect(order?.statusHistory.filter((event) => event.status === 'paid')).toHaveLength(1);
   });
 });
 
 describe('the trace answers from every handle, and from none of the forbidden ones', () => {
   it('finds the same payment by id, checkout group, order and provider object', async () => {
-    const checkoutGroupId = new Types.ObjectId().toString();
-    const { orderId } = await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = uuidv7();
+    const { orderId } = await seedOrder(checkoutGroupId, who);
     const payment = await ensurePayment({
       provider: 'mock',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'FAIR' },
-      buyerOxyUserId: BUYER,
+      buyerOxyUserId: who.buyer,
     });
     await applyPaymentStatus({
       paymentId: payment.id,

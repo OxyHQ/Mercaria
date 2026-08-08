@@ -1,10 +1,10 @@
 import { Server, type Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import http from 'http';
-import { isValidObjectId } from 'mongoose';
+import { isLiveEntityId } from '@oxyhq/db';
 import { getRedisClient, getRedisSubClient } from './lib/redis.js';
 import { oxyClient } from './middleware/auth.js';
-import { Store } from './models/store.js';
+import { findStoreMember } from './db/stores/storeRepository.js';
 import { log } from './lib/logger.js';
 
 const ALLOWED_ORIGINS = [
@@ -31,11 +31,14 @@ export async function authorizeAndJoinStore(
   userId: string,
   rawStoreId: unknown,
 ): Promise<boolean> {
-  if (typeof rawStoreId !== 'string' || !isValidObjectId(rawStoreId)) {
+  // Shape-only, and it accepts both id shapes the schema stores — a pre-cutover
+  // ObjectId hex and a uuid v7. The membership read below is what actually
+  // authorizes; this only avoids a query for input that could name nothing.
+  if (typeof rawStoreId !== 'string' || !isLiveEntityId(rawStoreId)) {
     return false;
   }
-  const isMember = await Store.exists({ _id: rawStoreId, 'members.oxyUserId': userId });
-  if (!isMember) {
+  const membership = await findStoreMember(rawStoreId, userId);
+  if (!membership) {
     return false;
   }
   await socket.join(`store:${rawStoreId}`);

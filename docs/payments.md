@@ -195,7 +195,7 @@ services/payments/payment.service.ts   ← the ONLY status transitions
         ├── ledger-postings.ts          ← pure; ADR's representability table
         ├── payment-outbox.service.ts   ← deterministic ids, claim/lease/backoff
         │      └── outbox-handlers.ts   ← what each domain event DOES
-        ├── order-linkage.ts            ← the ONE seam to MongoDB orders
+        ├── order-linkage.ts            ← the ONE seam onto orders
         └── provider.ts                 ← the seam every rail plugs into
                 └── synthetic-provider.ts (id: `mock`)
 ```
@@ -207,10 +207,11 @@ services/payments/payment.service.ts   ← the ONLY status transitions
   compare-and-swap matches nothing — a duplicate `succeeded`, an out-of-order
   `processing` after it — nothing downstream runs. That single fact is what makes
   duplicate and out-of-order events converge.
-- **`order-linkage.ts`** is the only module that touches orders. The payment
-  domain is Postgres-native while orders are still MongoDB, so the two cannot
-  commit together; the outbox is the reconciliation path, and when orders move to
-  Postgres this one file is what changes.
+- **`order-linkage.ts`** is the only module that touches orders, reading them
+  through a projection it owns rather than reaching into the order repository from
+  five places. The payment and the order transition still do not commit together —
+  the transition runs from the outbox handler, a separate transaction — so the
+  outbox remains the reconciliation path.
 - **`tracePayment`** is service-level. The operator HTTP surface that exposes it,
   with its own authorization, is #50's — everything it returns is merchant and
   operator financial detail.
@@ -223,10 +224,10 @@ handler. The window is normally milliseconds — `applyPaymentStatus` drains the
 row it just wrote, inline, claiming the same lease the poller would — but it is
 real, and a task dying mid-window changes only how long it lasts.
 
-Crossing the two stores in one transaction is not available at any price.
-Pretending otherwise (a Mongo write inside the Postgres transaction callback)
-would produce the one outcome worse than the window: a committed order transition
-whose payment rolled back.
+Collapsing the two into one transaction is not simply a matter of both living in
+Postgres now: the same handler is run by `applyPaymentStatus`'s inline drain AND
+by the poller, and the poller has no payment transaction to join. Leaving the
+window explicit is what keeps the reconciliation path real.
 
 ---
 
@@ -502,9 +503,9 @@ fails at boot instead, where an operator can act on it.
 
 ## Testing
 
-The suite needs BOTH servers. `vitest.config.ts` lists two global setups: a
-MongoDB replica set and a throwaway PostgreSQL database created, migrated and
-dropped per run by `vitest.pg.globalSetup.ts`. Locally,
+The suite needs a real Postgres server. `vitest.config.ts` lists one global
+setup: a throwaway PostgreSQL database created, migrated and dropped per run by
+`vitest.pg.globalSetup.ts`. Locally,
 `docker compose -f docker-compose.postgres.yml up -d postgres` at the repo root
 and `TEST_DATABASE_URL` pointed at it; CI runs a `postgis/postgis:17-3.5` service
 pinned to the same image.

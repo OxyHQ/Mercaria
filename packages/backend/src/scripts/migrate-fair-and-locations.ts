@@ -16,6 +16,13 @@
  * that already have a level). The FAIR currency relabel was handled by the B0
  * reseed; this script is purely the locations/levels backfill.
  *
+ * ## Stays MONGOOSE on purpose, unlike everything else in this phase
+ *
+ * This is pre-cutover tooling: it repairs the MONGO data that the Fase 4 backfill
+ * will later copy into Postgres, so it has to speak to the database that still
+ * holds that data. Porting it to the repositories would point it at the empty
+ * side and silently do nothing.
+ *
  * Run from `packages/backend`:
  *   NODE_ENV=development bun src/scripts/migrate-fair-and-locations.ts
  */

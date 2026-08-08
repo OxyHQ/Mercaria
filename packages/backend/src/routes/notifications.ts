@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { validateBody, validateQuery, validateObjectId } from '../middleware/validate.js';
+import { validateBody, validateQuery, validateId } from '../middleware/validate.js';
 import {
   notificationListQuerySchema,
   pushTokenSchema,
@@ -44,8 +44,8 @@ router.use(authenticateToken);
 router.get('/', makeRateLimiter('general'), validateQuery(notificationListQuerySchema), listNotifications);
 router.get('/unread-count', makeRateLimiter('general'), getUnreadCount);
 router.post('/read-all', makeRateLimiter('general'), markAllRead);
-router.patch('/:id/read', makeRateLimiter('general'), validateObjectId('id'), markRead);
-router.patch('/:id/dismiss', makeRateLimiter('general'), validateObjectId('id'), dismiss);
+router.patch('/:id/read', makeRateLimiter('general'), validateId('id'), markRead);
+router.patch('/:id/dismiss', makeRateLimiter('general'), validateId('id'), dismiss);
 
 // Expo push-token management.
 router.post('/push-token', makeRateLimiter('general'), validateBody(pushTokenSchema), registerPushToken);

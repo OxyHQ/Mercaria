@@ -76,7 +76,10 @@ router.post(
       sendSuccess(
         res,
         {
-          id: result.report._id.toHexString(),
+          // The row id verbatim — a 24-hex ObjectId for a pre-cutover report, a
+          // uuid v7 for a newer one. Both are opaque to the client, which only
+          // ever echoes it back.
+          id: result.report.id,
           reportedType: result.report.reportedType,
           reportedId: result.report.reportedId,
           createdAt: result.report.createdAt,

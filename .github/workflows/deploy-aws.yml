@@ -16,6 +16,18 @@ on:
       - '**.md'
       - 'docs/**'
   workflow_dispatch:
+    inputs:
+      migration_phase:
+        description: >-
+          How to apply migrations. `pre-post` (default) applies the additive ones
+          before the rollout and the destructive ones after. `all` applies
+          everything in ONE run before the rollout — needed for the Mongo→Postgres
+          cutover, and wrong for anything else.
+        type: choice
+        default: pre-post
+        options:
+          - pre-post
+          - all
 
 permissions:
   id-token: write
@@ -27,21 +39,57 @@ env:
   APP: mercaria
   CLUSTER: oxy-cluster
   DOCKERFILE: Dockerfile
+  # The PostgreSQL database the migration tasks below are allowed to touch.
+  #
+  # NOT cosmetic: the migrator refuses to run unless this matches the database its
+  # DATABASE_URL actually resolves to, so a value that disagrees with the
+  # provisioned database fails the deploy loudly instead of migrating some other
+  # one.
+  #
+  # VERIFIED, not assumed: provisioned 2026-08-08 via oxy-infra runbook 30 — role
+  # `mercaria` owns database `mercaria` on oxy-postgres, with PostGIS installed by
+  # oxyadmin (it is not a trusted extension, so database ownership alone cannot
+  # install it). The matching DATABASE_URL is already live: GitHub secret → SSM
+  # /oxy/mercaria/DATABASE_URL → task definition oxy-mercaria:2.
+  PG_DATABASE: mercaria
 
 jobs:
   test:
-    # x86, not ARM: this job needs the Postgres SERVICE CONTAINER below, and
-    # GitHub-hosted ARM runners do not support service containers — a run that
-    # requests one there dies before its first job with `action_required` and
-    # zero jobs (measured on runs 31263904439 / 31263963083). The suite does
-    # not care about the architecture; only the image build (deploy job) does.
+    # x86, NOT the `ubuntu-24.04-arm` the deploy job uses, and TWO independent
+    # things force that — worth stating both, because fixing either one alone
+    # still leaves the job broken.
+    #
+    #  1. GitHub-hosted ARM runners do not support service containers at all. A
+    #     run that requests one dies before its first job with `action_required`
+    #     and zero jobs (measured on runs 31263904439 / 31263963083).
+    #  2. Even where they are supported, `postgis/postgis` publishes linux/amd64
+    #     ONLY — checked against the registry, where the tag's OCI index carries
+    #     one platform entry plus an attestation. So the container below could
+    #     not start on an ARM host regardless.
+    #
+    # Together those close the tempting repair: finding a multi-arch Postgres
+    # image does NOT make an ARM runner workable here, and neither does waiting
+    # for ARM service-container support while this image stays amd64-only.
+    #
+    # Nothing in this job needs ARM anyway — it lints, tests, and runs an esbuild
+    # bundle, none of which is architecture-sensitive. Only `deploy` builds the
+    # linux/arm64 image, and it stays on the ARM runner for that. Changing this
+    # back for consistency with `deploy` re-breaks the job.
     runs-on: ubuntu-latest
 
     services:
-      # The backend suite needs a real PostGIS server (see ci.yml's Lint & Test
-      # job — same block, same reasoning): vitest.pg.globalSetup.ts creates a
-      # throwaway database on this server and refuses to run without one.
-      # Pinned to the SAME image as docker-compose.postgres.yml, on BOTH versions.
+      # The API suite needs a real PostGIS server: the Mongo→Postgres port's
+      # `*.realdb.test.ts` files run their SQL against a throwaway database the
+      # harness creates HERE (see packages/backend/vitest.pg.globalSetup.ts).
+      # Without it `vitest.pg.globalSetup.ts` throws and every deploy fails
+      # before it starts.
+      #
+      # Pinned to the SAME image as docker-compose.postgres.yml and ci.yml, on
+      # BOTH versions. A floating PostGIS minor is a floating set of function
+      # volatilities, and the generated `geography` column requires
+      # `ST_MakePoint` and the geometry→geography cast to be IMMUTABLE — so a
+      # developer's database, CI's and this one must not be able to disagree
+      # about what is installed.
       postgres:
         image: postgis/postgis:17-3.5
         env:
@@ -67,11 +115,12 @@ jobs:
 
       - run: bun run --filter @mercaria/backend lint
 
-      - run: bun run --filter @mercaria/backend test
-        env:
-          # Names the SERVER, never the database the tests use — the harness
-          # creates and drops its own throwaway database on it (see ci.yml).
+      # TEST_DATABASE_URL names the SERVER, never the database the tests use: the
+      # harness creates its own throwaway database on it per run and drops it
+      # afterwards, so `mercaria_ci` is never written to.
+      - env:
           TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
+        run: bun run --filter @mercaria/backend test
 
       - run: bun run build:backend
 
@@ -126,6 +175,88 @@ jobs:
             --push \
             .
 
+      # ── Migrations run as one-shot ECS tasks, around the rollout ─────────────
+      #
+      # Two phases, and the split is the whole point (see @oxyhq/db's phases.ts):
+      # `pre` is additive and safe while the OLD image still serves, so it runs
+      # BEFORE the service update; `post` drops and narrows, which would 500 the
+      # old image, so it runs AFTER the new one is live. Every migration file
+      # declares its own side, and the migrator refuses to guess for one that
+      # does not.
+      #
+      # The task REUSES the service's live task definition and network
+      # configuration rather than registering its own, which is what gives the
+      # migrator the same DATABASE_URL secret, subnets and security groups the
+      # service has. Only the command is overridden. That also means it runs the
+      # image the task definition points at — the `:latest` tag this workflow
+      # just pushed — so `run-task` gets the NEW image without a second revision.
+      # If the task definition is ever pinned to an immutable tag, this step must
+      # register a revision instead, or it will migrate using the OLD image.
+      - name: Resolve the ECS one-shot shape
+        id: ecs
+        env:
+          # Absent on a `push` trigger, where only the default is ever right.
+          REQUESTED_PHASE: ${{ github.event.inputs.migration_phase }}
+        run: |
+          echo "phase_mode=${REQUESTED_PHASE:-pre-post}" >> "$GITHUB_OUTPUT"
+          STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].status' --output text 2>/dev/null || echo NONE)
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS" != "ACTIVE" ]; then
+            echo "ECS service $APP not created yet — nothing to migrate or deploy against"
+            exit 0
+          fi
+          TD=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].taskDefinition' --output text)
+          NET=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].networkConfiguration' --output json)
+          CONTAINER=$(aws ecs describe-task-definition --task-definition "$TD" --query 'taskDefinition.containerDefinitions[0].name' --output text)
+          echo "task_definition=$TD" >> "$GITHUB_OUTPUT"
+          echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
+          # JSON on one line: a GITHUB_OUTPUT value cannot span lines unhelped.
+          echo "network=$(echo "$NET" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+      # Does this release contain a post-rollout migration at all? Grepped with
+      # the pattern @oxyhq/db EXPORTS (`POST_PHASE_GREP_PATTERN`), never a copy —
+      # `src/db/__tests__/deployWorkflow.test.ts` asserts this workflow contains
+      # that exact string, so the two cannot drift. The grep is sound only
+      # because the migrator separately proves every file carries exactly one
+      # well-formed marker; without that a typo would read as "no post migration"
+      # and the drop would never be applied by anything.
+      - name: Detect a post-rollout migration in this release
+        id: phases
+        run: |
+          if grep -rlE '^-- oxy:deploy-phase=post$' packages/backend/drizzle >/dev/null 2>&1; then
+            echo "has_post=true" >> "$GITHUB_OUTPUT"
+            echo "this release carries at least one post-rollout migration"
+          else
+            echo "has_post=false" >> "$GITHUB_OUTPUT"
+            echo "no post-rollout migration in this release"
+          fi
+
+      # The CUTOVER path, chosen by hand from workflow_dispatch. One `all` run
+      # applies the whole chain in journal order before the rollout, which the
+      # pre/post pair cannot do: a `pre` migration queued behind an unapplied
+      # `post` one BLOCKS by design, and the Mongo→Postgres chain has exactly that
+      # shape. It is safe only because at the cutover no image is serving this
+      # schema — which is also why it must never be the default. Measured: on an
+      # empty database `--phase=pre` refuses and names both files, while `all`
+      # applies all of them and leaves both later phases clean no-ops.
+      - name: Migrate (all) — cutover only, never a normal release
+        if: steps.ecs.outputs.status == 'ACTIVE' && steps.ecs.outputs.phase_mode == 'all'
+        run: |
+          .github/scripts/run-migration-task.sh all
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
+
+      - name: Migrate (pre) — before the rollout
+        if: steps.ecs.outputs.status == 'ACTIVE' && steps.ecs.outputs.phase_mode != 'all'
+        run: |
+          .github/scripts/run-migration-task.sh pre
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
+
       - name: Deploy to ECS (rolling; skipped until the service exists)
         run: |
           STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].status' --output text 2>/dev/null || echo NONE)
@@ -136,3 +267,22 @@ jobs:
           else
             echo "ECS service $APP not created yet — image is in ECR, skipping deploy"
           fi
+
+      # Only when the release actually has one. Skipping the task entirely is not
+      # an optimisation — a `post` run against a database with a pending `pre`
+      # migration BLOCKS by design, so running it every time would turn a normal
+      # release into a red deploy.
+      # Skipped entirely on the cutover path: the `all` run above already applied
+      # these, so a `post` here would find nothing — and running it would only
+      # add a way for a green cutover to end on a red step.
+      - name: Migrate (post) — after the new image is live
+        if: >-
+          steps.ecs.outputs.status == 'ACTIVE'
+          && steps.ecs.outputs.phase_mode != 'all'
+          && steps.phases.outputs.has_post == 'true'
+        run: |
+          .github/scripts/run-migration-task.sh post
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}

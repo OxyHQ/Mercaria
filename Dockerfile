@@ -85,9 +85,16 @@ COPY packages/backend ./packages/backend
 # ERR_MODULE_NOT_FOUND.
 RUN bun run build:backend
 
-# Fail fast if the expected entry point was not emitted.
+# Fail fast if any expected entry point was not emitted. The two one-shots are
+# checked as well as the server, because nothing else would notice either missing
+# until the deploy's migration task or the cutover backfill failed — the server
+# bundle would still be here and the image would look fine.
 RUN test -f packages/backend/dist/index.js \
  || (echo "ERROR: packages/backend/dist/index.js was not produced by the build" && exit 1)
+RUN test -f packages/backend/dist/db/migrate.js \
+ || (echo "ERROR: packages/backend/dist/db/migrate.js was not produced by the build" && exit 1)
+RUN test -f packages/backend/dist/scripts/backfill-mongo-to-postgres.js \
+ || (echo "ERROR: packages/backend/dist/scripts/backfill-mongo-to-postgres.js was not produced by the build" && exit 1)
 
 # Strip devDependencies so only production modules are carried into the runtime
 # image (bun has no `prune`; a clean production install from the same lockfile is
@@ -122,6 +129,14 @@ COPY --from=builder --chown=node:node /app/packages/backend/package.json ./packa
 
 # The bundled API.
 COPY --from=builder --chown=node:node /app/packages/backend/dist ./packages/backend/dist
+
+# The SQL migrations, which EVERY serving task needs — not just the one-shot
+# migration task. `db/postgres.ts` reads this folder's journal at module load to
+# decide whether the task may serve traffic (`/health/ready`), so an image without
+# it crashes at container start rather than starting and answering "not ready".
+# `src/db/migrationsFolder.ts` resolves the path from the package root, which is
+# why this lands beside `dist` rather than anywhere else.
+COPY --from=builder --chown=node:node /app/packages/backend/drizzle ./packages/backend/drizzle
 
 EXPOSE 3001
 

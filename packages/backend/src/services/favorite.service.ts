@@ -1,20 +1,41 @@
 /**
  * Favorite service — the buyer's wishlist.
  *
- * `toggle` is idempotent and keeps `Listing.favoriteCount` in sync: creating a
- * favorite (the unique `{oxyUserId, listingId}` index makes a duplicate save a
- * no-op) bumps the count `+1`; deleting one decrements it (clamped at 0 so a
- * double-unsave never drives the count negative). `listFavorites` returns the
- * fully-hydrated `Listing` DTOs via the F1 catalog-hydration path, and
- * `getFavoritedListingIds` is the batched lookup hydration uses to set `saved`.
+ * `toggle` is idempotent and keeps `listings.favorite_count` in sync.
+ * `listFavorites` returns the fully-hydrated `Listing` DTOs via the catalogue
+ * hydration path, and `getFavoritedListingIds` is the batched lookup hydration
+ * uses to set `saved`.
+ *
+ * ## Ported to Postgres — the counter stopped being able to drift
+ *
+ * Two changes, and both close a real hole rather than reshaping a query:
+ *
+ *  - **The count moves only when the SET really changed.** The repository's
+ *    insert and delete report whether a row was written, so a repeated save
+ *    increments nothing. The Mongo path read first and then wrote, which two
+ *    concurrent saves could both pass — inserting once (the unique index absorbs
+ *    the second) and counting twice.
+ *  - **The decrement is `greatest(0, count - 1)` rather than a
+ *    `where favoriteCount > 0` guard.** That guard made the whole update a
+ *    no-op at zero, so a legitimate increment arriving in the same moment was
+ *    lost outright; clamping applies every delta and refuses only to go negative.
  */
 
-import type { Listing as ListingDTO } from '@mercaria/shared-types';
-import { Favorite } from '../models/favorite.js';
-import { Listing, type IListing } from '../models/listing.js';
+import type { Listing as ListingDTO, Pagination } from '@mercaria/shared-types';
+import {
+  deleteFavorite,
+  favoriteExists,
+  findFavoriteListingIdsPage,
+  findSavedListingIds,
+  insertFavorite,
+} from '../db/buyers/favoriteRepository.js';
+import {
+  adjustFavoriteCount,
+  findListingsByIds,
+  listingExists,
+} from '../db/catalog/listingRepository.js';
 import { hydrateListings } from './catalog-hydration.service.js';
 import { buildPagination } from '../utils/pagination.js';
-import type { Pagination } from '@mercaria/shared-types';
 import { notFound } from '../lib/errors/error-codes.js';
 
 /** Result of a favorite toggle: the resulting saved-state for the listing. */
@@ -26,100 +47,65 @@ export interface ToggleResult {
 /**
  * Toggle a listing in the buyer's wishlist (idempotent).
  *
- * If absent it is created (and `Listing.favoriteCount` bumped `+1`) → `{saved: true}`;
- * if present it is removed (and the count decremented, clamped ≥0) → `{saved: false}`.
- * The listing must exist (NOT_FOUND otherwise).
+ * If absent it is created (and the count bumped `+1`) → `{saved: true}`; if
+ * present it is removed (and the count decremented, clamped ≥0) →
+ * `{saved: false}`. The listing must exist (NOT_FOUND otherwise).
  */
 export async function toggle(oxyUserId: string, listingId: string): Promise<ToggleResult> {
-  const listingExists = await Listing.exists({ _id: listingId });
-  if (!listingExists) {
+  if (!(await listingExists(listingId))) {
     throw notFound('Listing not found');
   }
 
-  const existing = await Favorite.findOne({ oxyUserId, listingId }).select('_id').lean();
-
-  if (existing) {
-    await Favorite.deleteOne({ _id: existing._id });
-    await Listing.updateOne(
-      { _id: listingId, favoriteCount: { $gt: 0 } },
-      { $inc: { favoriteCount: -1 } },
-    );
-    return { saved: false };
+  if (await favoriteExists(oxyUserId, listingId)) {
+    return unsave(oxyUserId, listingId);
   }
-
-  await Favorite.create({ oxyUserId, listingId });
-  await Listing.updateOne({ _id: listingId }, { $inc: { favoriteCount: 1 } });
-  return { saved: true };
+  return save(oxyUserId, listingId);
 }
 
 /** Explicitly save (favorite) a listing — idempotent (no-op if already saved). */
 export async function save(oxyUserId: string, listingId: string): Promise<ToggleResult> {
-  const listingExists = await Listing.exists({ _id: listingId });
-  if (!listingExists) {
+  if (!(await listingExists(listingId))) {
     throw notFound('Listing not found');
   }
 
-  const existing = await Favorite.findOne({ oxyUserId, listingId }).select('_id').lean();
-  if (existing) {
-    return { saved: true };
+  // The count follows the ROW, not a prior read: `false` means the unique index
+  // absorbed a duplicate and there is nothing new to count.
+  if (await insertFavorite(oxyUserId, listingId)) {
+    await adjustFavoriteCount(listingId, 1);
   }
-
-  await Favorite.create({ oxyUserId, listingId });
-  await Listing.updateOne({ _id: listingId }, { $inc: { favoriteCount: 1 } });
   return { saved: true };
 }
 
 /** Explicitly unsave (un-favorite) a listing — idempotent (no-op if absent). */
 export async function unsave(oxyUserId: string, listingId: string): Promise<ToggleResult> {
-  const existing = await Favorite.findOne({ oxyUserId, listingId }).select('_id').lean();
-  if (!existing) {
-    return { saved: false };
+  if (await deleteFavorite(oxyUserId, listingId)) {
+    await adjustFavoriteCount(listingId, -1);
   }
-
-  await Favorite.deleteOne({ _id: existing._id });
-  await Listing.updateOne(
-    { _id: listingId, favoriteCount: { $gt: 0 } },
-    { $inc: { favoriteCount: -1 } },
-  );
   return { saved: false };
 }
 
 /**
  * List the buyer's favorited listings (most-recently saved first), hydrated into
- * `Listing` DTOs via the F1 catalog-hydration path. Listings the favorite points
- * at that no longer exist are skipped.
+ * `Listing` DTOs. Listings the favorite points at that no longer exist are
+ * skipped — though the `ON DELETE CASCADE` on `favorites.listing_id` means a
+ * deleted listing now takes its favorites with it, so the case has become
+ * unreachable rather than merely handled.
  */
 export async function listFavorites(
   oxyUserId: string,
   page: number,
   limit: number,
 ): Promise<{ data: ListingDTO[]; pagination: Pagination }> {
-  const filter = { oxyUserId };
+  const { listingIds, total } = await findFavoriteListingIdsPage(oxyUserId, page, limit);
 
-  const [favorites, total] = await Promise.all([
-    Favorite.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .select('listingId')
-      .lean(),
-    Favorite.countDocuments(filter),
-  ]);
-
-  const listingIds = favorites.map((f) => String(f.listingId));
   if (listingIds.length === 0) {
     return { data: [], pagination: buildPagination(page, limit, total) };
   }
 
-  const docs = await Listing.find({ _id: { $in: listingIds } }).lean<IListing[]>();
-
-  // Preserve favorite (recency) order; drop any listing that has been deleted.
-  const byId = new Map(docs.map((d) => [String(d._id), d]));
-  const ordered = listingIds
-    .map((id) => byId.get(id))
-    .filter((d): d is IListing => d !== undefined);
-
-  const data = await hydrateListings(ordered, { viewerId: oxyUserId });
+  // `findListingsByIds` restores the caller's order, which here is recency of
+  // SAVING — not a property of the listings themselves, so SQL cannot supply it.
+  const rows = await findListingsByIds(listingIds);
+  const data = await hydrateListings(rows, { viewerId: oxyUserId });
   return { data, pagination: buildPagination(page, limit, total) };
 }
 
@@ -131,11 +117,5 @@ export async function getFavoritedListingIds(
   oxyUserId: string,
   listingIds: string[],
 ): Promise<Set<string>> {
-  if (listingIds.length === 0) {
-    return new Set();
-  }
-  const docs = await Favorite.find({ oxyUserId, listingId: { $in: listingIds } })
-    .select('listingId')
-    .lean();
-  return new Set(docs.map((d) => String(d.listingId)));
+  return findSavedListingIds(oxyUserId, listingIds);
 }

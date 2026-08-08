@@ -1,39 +1,44 @@
 /**
  * The ONE place the payment domain touches orders.
  *
- * The payment domain is Postgres-native; orders are still MongoDB. That is not a
- * design, it is a migration window — and the point of this file is that the
- * window has exactly one seam. When orders become a Postgres write path, this
- * module is what changes, and everything above it (`payment.service`, the outbox
- * handlers, the trace queries) is written against these four functions rather
- * than against Mongoose.
+ * Both domains are Postgres-native now, so this is no longer a bridge between
+ * two stores — but it stays the single seam, because the payment domain should
+ * read orders through a projection it owns rather than reaching into the order
+ * repository from five places. `payment.service`, the outbox handlers and the
+ * trace queries are written against these five functions.
  *
- * ## Two stores means the transition is NOT atomic, and that is stated, not hidden
+ * ## The transition is still NOT atomic with the payment, and that is stated, not hidden
  *
- * A payment reaching `succeeded` commits in Postgres with its ledger postings
- * and its outbox row. The orders it funds move to `paid` afterwards, from the
- * outbox handler. So there is a window in which the payment says succeeded and
- * the order still says pending — #45 invariant 7 anticipates exactly this
- * ("payment state and order state may temporarily differ and have an explicit
- * reconciliation path"), and the outbox IS that path: the row is durable, the
- * handler is idempotent, and a task dying mid-window changes only how long it
- * lasts.
+ * A payment reaching `succeeded` commits with its ledger postings and its outbox
+ * row. The orders it funds move to `paid` afterwards, from the outbox handler —
+ * a SEPARATE transaction, which is what the window is made of now that a second
+ * store is no longer what makes it. So there is still an interval in which the
+ * payment says succeeded and the order still says pending; #45 invariant 7
+ * anticipates exactly this ("payment state and order state may temporarily
+ * differ and have an explicit reconciliation path"), and the outbox IS that
+ * path: the row is durable, the handler is idempotent, and a task dying
+ * mid-window changes only how long it lasts.
  *
- * Crossing the two stores in one transaction is not available at any price, and
- * pretending otherwise — a Mongo write inside the Postgres transaction callback
- * — would produce the one outcome worse than the window: a committed order
- * transition whose payment rolled back.
+ * Collapsing the two into one transaction is not a rename of this file — the
+ * same handler is run by `payment.service`'s inline drain AND by the poller, and
+ * the poller has no payment transaction to join. Leaving the window explicit is
+ * what keeps the reconciliation path real.
  */
 
-import type { HydratedDocument } from 'mongoose';
-import type { PaymentProviderId } from '@mercaria/shared-types';
-import { Order, type IOrder } from '../../models/order.js';
+import type { OrderSellerType, OrderStatus, PaymentProviderId } from '@mercaria/shared-types';
+import {
+  findOrderById,
+  findOrdersInCheckoutGroup as selectOrdersInCheckoutGroup,
+  linkPaymentToCheckoutGroup,
+  linkPaymentToOrderId,
+  type OrderRecord,
+} from '../../db/orders/orderRepository.js';
 
-/** The order facts the payment domain needs, with no Mongoose in the signature. */
+/** The order facts the payment domain needs, with no order-table shape in the signature. */
 export interface LinkedOrder {
   id: string;
-  status: IOrder['status'];
-  sellerType: IOrder['sellerType'];
+  status: OrderStatus;
+  sellerType: OrderSellerType;
   /** The store id or the P2P seller's Oxy user id — whichever this order has. */
   sellerOwnerId: string;
   buyerOxyUserId: string;
@@ -52,45 +57,51 @@ export interface LinkedOrder {
    */
   presentmentTotalMinor: number;
   presentmentCurrency: string;
+  /**
+   * The payment funding this order, once one exists — the pointer `tracePayment`
+   * follows when asked "which payment paid this order".
+   */
+  paymentId: string | null;
+  /** The group this order was checked out in; the fallback handle for the trace. */
+  checkoutGroupId: string | null;
 }
 
-/** Project one Mongoose order into the shape above. */
-function toLinkedOrder(order: IOrder & { _id: unknown }): LinkedOrder {
+/** Project one order record into the shape above. */
+function toLinkedOrder(order: OrderRecord): LinkedOrder {
   return {
-    id: String(order._id),
+    id: order.id,
     status: order.status,
     sellerType: order.sellerType,
-    sellerOwnerId:
-      order.sellerType === 'store' ? String(order.storeId ?? '') : String(order.sellerOxyUserId ?? ''),
+    sellerOwnerId: order.sellerType === 'store' ? (order.storeId ?? '') : (order.sellerOxyUserId ?? ''),
     buyerOxyUserId: order.buyerOxyUserId,
-    shopTotalMinor: order.totals.grandTotal.shop.amount,
-    shopCurrency: order.totals.grandTotal.shop.currency,
-    presentmentTotalMinor: order.totals.grandTotal.presentment.amount,
-    presentmentCurrency: order.totals.grandTotal.presentment.currency,
+    shopTotalMinor: order.totalsGrandTotalShopAmount,
+    shopCurrency: order.totalsGrandTotalShopCurrency,
+    presentmentTotalMinor: order.totalsGrandTotalPresentmentAmount,
+    presentmentCurrency: order.totalsGrandTotalPresentmentCurrency,
+    paymentId: order.paymentId,
+    checkoutGroupId: order.checkoutGroupId,
   };
 }
 
 /** Every order a checkout group split into, oldest first. */
 export async function findOrdersInCheckoutGroup(checkoutGroupId: string): Promise<LinkedOrder[]> {
-  const docs = await Order.find({ checkoutGroupId })
-    .sort({ createdAt: 1 })
-    .lean<(IOrder & { _id: unknown })[]>();
-  return docs.map(toLinkedOrder);
+  const rows = await selectOrdersInCheckoutGroup(checkoutGroupId);
+  return rows.map(toLinkedOrder);
 }
 
 /** One order, or `undefined`. */
 export async function findLinkedOrder(orderId: string): Promise<LinkedOrder | undefined> {
-  const doc = await Order.findById(orderId).lean<(IOrder & { _id: unknown }) | null>();
-  return doc ? toLinkedOrder(doc) : undefined;
+  const row = await findOrderById(orderId);
+  return row ? toLinkedOrder(row) : undefined;
 }
 
 /**
  * Stamp the payment pointer onto every order of a checkout group.
  *
  * Only the POINTER and the provider — never a status, never an amount. The
- * order's own `payment.status` is moved by `order.service.transition`, which
- * owns the inventory effects that go with it; writing it here would produce an
- * order marked paid whose stock was never committed (#45 invariant 5).
+ * order's own payment status is moved by `order.service.transition`, which owns
+ * the inventory effects that go with it; writing it here would produce an order
+ * marked paid whose stock was never committed (#45 invariant 5).
  */
 export async function linkPaymentToOrders(input: {
   checkoutGroupId: string;
@@ -98,17 +109,7 @@ export async function linkPaymentToOrders(input: {
   provider: PaymentProviderId;
   reference?: string;
 }): Promise<number> {
-  const result = await Order.updateMany(
-    { checkoutGroupId: input.checkoutGroupId },
-    {
-      $set: {
-        'payment.paymentId': input.paymentId,
-        'payment.provider': input.provider,
-        ...(input.reference ? { 'payment.reference': input.reference } : {}),
-      },
-    },
-  );
-  return result.modifiedCount;
+  return await linkPaymentToCheckoutGroup(input);
 }
 
 /**
@@ -124,24 +125,19 @@ export async function linkPaymentToOrder(input: {
   paymentId: string;
   provider: PaymentProviderId;
 }): Promise<boolean> {
-  const result = await Order.updateOne(
-    { _id: input.orderId },
-    { $set: { 'payment.paymentId': input.paymentId, 'payment.provider': input.provider } },
-  );
-  return result.modifiedCount === 1;
+  return await linkPaymentToOrderId(input);
 }
 
 /**
- * Load the mutable Mongoose document `order.service.transition` needs.
+ * Load the order record `order.service.transition` needs, fresh.
  *
- * The one place a Mongoose type escapes this module, and it does so on purpose:
- * `transition` takes a hydrated document, and re-implementing its
- * compare-and-swap, its inventory effects and its moderation-hold check against
- * a projection would be a second order state machine. When orders move to
- * Postgres this returns whatever that service takes instead.
+ * A re-read rather than reusing the projection above, and it is not redundant
+ * with the CAS: `transition` compare-and-swaps on STATUS, but it reads
+ * `moderationHold` off the record it is handed, outside that swap. A hold placed
+ * between listing the group and transitioning it would be missed if a stale copy
+ * were passed in — which is the one case this seam exists to get right, since a
+ * frozen order being marked paid is exactly what the freeze is for.
  */
-export async function loadOrderForTransition(
-  orderId: string,
-): Promise<HydratedDocument<IOrder> | null> {
-  return await Order.findById(orderId);
+export async function loadOrderForTransition(orderId: string): Promise<OrderRecord | null> {
+  return await findOrderById(orderId);
 }

@@ -1,12 +1,42 @@
 import * as esbuild from 'esbuild';
 
 await esbuild.build({
-  entryPoints: ['src/index.ts'],
+  /**
+   * TWO entry points, and the second is not optional.
+   *
+   * `src/db/migrate.ts` is the one-shot the deploy runs before and after the
+   * rollout (`.github/workflows/deploy-aws.yml`), and
+   * `src/scripts/backfill-mongo-to-postgres.ts` is the Fase 4 cutover one-shot.
+   * Neither can be invoked the way a developer does — `bun run src/…` — because
+   * the runtime image ships neither bun nor `src/`, only node and `dist/`.
+   * Without these entries there is simply no way to migrate or backfill the
+   * production database from the image that contains the migrations.
+   *
+   * `outdir` rather than `outfile` because there are three now: esbuild takes
+   * the entry points' common ancestor (`src/`) as the base, so these land exactly
+   * at `dist/index.js`, `dist/db/migrate.js` and
+   * `dist/scripts/backfill-mongo-to-postgres.js`. Both one-shots call `main()` at
+   * module load, so each emitted file runs on plain `node <path>`.
+   *
+   * Note the three sit at THREE different depths below the package root, which
+   * is why `db/migrationsFolder.ts` resolves by finding that root rather than by
+   * counting `..` segments — no fixed count is correct for all of them.
+   *
+   * Code splitting is deliberately left OFF (esbuild's default): each entry is
+   * self-contained, so the migrator cannot fail at container start on a missing
+   * shared chunk — the one failure that would strike exactly when a deploy is
+   * mid-flight.
+   */
+  entryPoints: [
+    'src/index.ts',
+    'src/db/migrate.ts',
+    'src/scripts/backfill-mongo-to-postgres.ts',
+  ],
   bundle: true,
   platform: 'node',
   target: 'node20',
   format: 'esm',
-  outfile: 'dist/index.js',
+  outdir: 'dist',
   // Keep every node_modules dependency external EXCEPT @mercaria/* — first-party
   // workspace packages (e.g. shared-types) are inlined so the runtime image needs
   // neither their dist nor their build-time devDependencies.

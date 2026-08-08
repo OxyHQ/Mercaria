@@ -21,10 +21,13 @@
  */
 
 import { DecisionSchema } from '@oxyhq/crowdsource-contracts';
-import { AbuseReport, type IAbuseReport } from '../../models/abuse-report.js';
+import {
+  findOldestAbuseReportForCase,
+  markAbuseReportsDecided,
+} from '../../db/moderation/abuseReportRepository.js';
+import type { ModerationOutboxEvent } from '../../db/moderation/moderationOutboxRepository.js';
 import { log } from '../../lib/logger.js';
 import { enforceDecision, type EnforcementSubject } from './enforcement.service.js';
-import type { ModerationOutboxEvent } from './moderation-outbox.service.js';
 
 /** Raised when the queued event is not a decision this version understands. */
 class UnusableDecisionEventError extends Error {
@@ -79,9 +82,7 @@ export async function applyDecisionEvent(event: ModerationOutboxEvent): Promise<
   }
   const decision = parsed.data;
 
-  const report = await AbuseReport.findOne({ crowdSourceCaseId: decision.caseId })
-    .sort({ createdAt: 1 })
-    .lean<IAbuseReport | null>();
+  const report = await findOldestAbuseReportForCase(decision.caseId);
   if (!report) throw new UnmatchedCaseError(decision.caseId);
 
   const subject: EnforcementSubject = {
@@ -100,10 +101,7 @@ export async function applyDecisionEvent(event: ModerationOutboxEvent): Promise<
    * of one case per incident. Marking only the first would leave the rest looking
    * permanently unanswered.
    */
-  await AbuseReport.updateMany(
-    { reportedType: report.reportedType, reportedId: report.reportedId },
-    { $set: { localStatus: 'decided', decidedAt: new Date() } },
-  );
+  await markAbuseReportsDecided(report.reportedType, report.reportedId, new Date());
 
   log.moderation.info(
     {

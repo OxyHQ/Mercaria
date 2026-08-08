@@ -214,12 +214,14 @@ share a path. Env is `STRIPE_ENABLED`, `STRIPE_SECRET_KEY`,
 
 ### Where it meets the rest of Mercaria
 
-The domain is **Postgres-native** (8 tables) while orders are still MongoDB, so
-`DATABASE_URL` is now REQUIRED to boot (`src/index.ts`) — a task without it takes
-a POS sale and cannot record the payment. `services/payments/order-linkage.ts` is
-the ONE seam between the stores: the two cannot commit together, so payment state
-and order state may briefly differ and the outbox is the explicit reconciliation
-path. When orders move to Postgres, that one file is what changes.
+The domain is **Postgres-native** (8 tables), like everything else the API serves
+since the port — `DATABASE_URL` is REQUIRED to boot (`src/index.ts`).
+`services/payments/order-linkage.ts` stays the ONE seam onto orders: the payment
+domain reads them through a projection it owns rather than reaching into the order
+repository from five places. The payment and the order transition still do not
+commit together — the transition runs from the outbox handler, a SEPARATE
+transaction — so payment state and order state may briefly differ, and the outbox
+is the explicit reconciliation path.
 
 The order keeps only `{status, provider?, paidAt?, reference?, paymentId?}` —
 a pointer and the coarse state, never a copy of mutable provider detail.

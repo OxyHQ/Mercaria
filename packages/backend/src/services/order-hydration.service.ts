@@ -11,9 +11,8 @@
  * ONLY place order DTOs are built; controllers never hand-assemble order shapes.
  */
 
-import mongoose from 'mongoose';
 import type {
-  Money,
+  CurrencyCode,
   DualMoney,
   FxRateSnapshot,
   Order as OrderDTO,
@@ -27,32 +26,58 @@ import type {
   DiscountAllocation,
   TaxLine,
 } from '@mercaria/shared-types';
+import type {
+  OrderAppliedDiscountRow,
+  OrderItemRecord,
+  OrderRecord,
+  OrderStatusEventRow,
+  OrderTaxLineRow,
+} from '../db/orders/orderRepository.js';
 import {
-  type IOrder,
-  type IOrderItem,
-  type IAddressSnapshot,
-  type IShippingSnapshot,
-  type IPaymentInfo,
-  type IOrderStatusEvent,
-  type IDiscountAllocation,
-  type ITaxLine,
-} from '../models/order.js';
-import { SellerProfile, type ISellerProfile } from '../models/seller-profile.js';
-import { Store, type IStore } from '../models/store.js';
+  findSellerProfilesByUserIds,
+  type SellerProfileRecord,
+} from '../db/buyers/sellerProfileRepository.js';
+import { findStoresByIds, type StoreRow } from '../db/stores/storeRepository.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { resolveMedia, toMerchantSummary } from './catalog-hydration.service.js';
 
-/** Map a persisted `{ amount, currency }` sub-document to the `Money` DTO. */
-function toMoney(value: { amount: number; currency: string }): Money {
-  return { amount: value.amount, currency: value.currency as Money['currency'] };
+/**
+ * The four columns of a `DualMoney`, reassembled.
+ *
+ * Every amount on an order is four flat columns, and this is where they become
+ * the nested `{shop, presentment}` the DTO has always carried. Taking the four
+ * VALUES rather than a row plus a prefix is deliberate: a prefix would be a
+ * string the compiler cannot check, and `unitPrice` versus `lineTotal` is exactly
+ * the kind of typo that produces a plausible wrong number.
+ */
+function dual(
+  shopAmount: number,
+  shopCurrency: CurrencyCode,
+  presentmentAmount: number,
+  presentmentCurrency: CurrencyCode,
+): DualMoney {
+  return {
+    shop: { amount: shopAmount, currency: shopCurrency },
+    presentment: { amount: presentmentAmount, currency: presentmentCurrency },
+  };
 }
 
-/** Map a persisted `{ shop, presentment }` sub-document to the `DualMoney` DTO. */
-function toDual(value: {
-  shop: { amount: number; currency: string };
-  presentment: { amount: number; currency: string };
-}): DualMoney {
-  return { shop: toMoney(value.shop), presentment: toMoney(value.presentment) };
+/** {@link dual} for an OPTIONAL amount — all four columns are absent together. */
+function optionalDual(
+  shopAmount: number | null,
+  shopCurrency: CurrencyCode | null,
+  presentmentAmount: number | null,
+  presentmentCurrency: CurrencyCode | null,
+): DualMoney | undefined {
+  if (
+    shopAmount === null ||
+    shopCurrency === null ||
+    presentmentAmount === null ||
+    presentmentCurrency === null
+  ) {
+    return undefined;
+  }
+  return dual(shopAmount, shopCurrency, presentmentAmount, presentmentCurrency);
 }
 
 /**
@@ -63,11 +88,11 @@ function toDual(value: {
  */
 function toSeller(
   oxyUserId: string,
-  profile: ISellerProfile | undefined,
+  profile: SellerProfileRecord | undefined,
   oxyProfile: OxyProfile | undefined,
 ): Seller {
   const seller: Seller = {
-    id: profile ? String((profile as { _id: mongoose.Types.ObjectId })._id) : oxyUserId,
+    id: profile ? profile.id : oxyUserId,
     oxyUserId,
     displayName: oxyProfile?.displayName ?? oxyUserId,
     username: oxyProfile?.username ?? oxyUserId,
@@ -82,22 +107,38 @@ function toSeller(
 }
 
 /** Map a stored immutable line item snapshot to the `OrderItem` DTO (verbatim). */
-export function toOrderItemDTO(item: IOrderItem): OrderItem {
+export function toOrderItemDTO(item: OrderItemRecord): OrderItem {
   const dto: OrderItem = {
-    listingId: String(item.listingId),
-    variantId: String(item.variantId),
+    listingId: item.listingId,
+    variantId: item.variantId,
     title: item.title,
     variantTitle: item.variantTitle,
     optionValues: item.optionValues.map((o) => ({ name: o.name, value: o.value })),
-    unitPrice: toDual(item.unitPrice),
+    unitPrice: dual(
+      item.unitPriceShopAmount,
+      item.unitPriceShopCurrency,
+      item.unitPricePresentmentAmount,
+      item.unitPricePresentmentCurrency,
+    ),
     quantity: item.quantity,
-    lineTotal: toDual(item.lineTotal),
+    lineTotal: dual(
+      item.lineTotalShopAmount,
+      item.lineTotalShopCurrency,
+      item.lineTotalPresentmentAmount,
+      item.lineTotalPresentmentCurrency,
+    ),
   };
   if (item.imageUrl) {
     dto.imageUrl = item.imageUrl;
   }
-  if (item.discountTotal) {
-    dto.discountTotal = toDual(item.discountTotal);
+  const discountTotal = optionalDual(
+    item.discountTotalShopAmount,
+    item.discountTotalShopCurrency,
+    item.discountTotalPresentmentAmount,
+    item.discountTotalPresentmentCurrency,
+  );
+  if (discountTotal) {
+    dto.discountTotal = discountTotal;
   }
   if (item.locationId) {
     dto.locationId = item.locationId;
@@ -106,92 +147,104 @@ export function toOrderItemDTO(item: IOrderItem): OrderItem {
 }
 
 /** Map a persisted discount allocation to the `DiscountAllocation` DTO. */
-function toDiscountAllocation(allocation: IDiscountAllocation): DiscountAllocation {
+function toDiscountAllocation(allocation: OrderAppliedDiscountRow): DiscountAllocation {
   const dto: DiscountAllocation = {
-    discountId: String(allocation.discountId),
+    discountId: allocation.discountId,
     title: allocation.title,
-    valueType: allocation.valueType as DiscountAllocation['valueType'],
-    amount: toMoney(allocation.amount),
+    valueType: allocation.valueType,
+    amount: { amount: allocation.amountAmount, currency: allocation.amountCurrency },
     target: allocation.target,
   };
   if (allocation.code) {
     dto.code = allocation.code;
   }
-  if (allocation.targetLineIndex !== undefined) {
+  // `null`, not `undefined`: the column is nullable and only a LINE-targeted
+  // allocation carries an index (`order_applied_discounts_target_line_check`).
+  if (allocation.targetLineIndex !== null) {
     dto.targetLineIndex = allocation.targetLineIndex;
   }
   return dto;
 }
 
 /** Map a persisted tax line to the `TaxLine` DTO. */
-function toTaxLine(line: ITaxLine): TaxLine {
-  return { name: line.name, rateBps: line.rateBps, amount: toMoney(line.amount) };
+function toTaxLine(line: OrderTaxLineRow): TaxLine {
+  return {
+    name: line.name,
+    rateBps: line.rateBps,
+    amount: { amount: line.amountAmount, currency: line.amountCurrency },
+  };
 }
 
-/** Map the persisted address snapshot to the `AddressSnapshot` DTO (omit absent optionals). */
-function toAddressSnapshot(snapshot: IAddressSnapshot): AddressSnapshot {
+/** Map the snapshotted shipping address columns to the `AddressSnapshot` DTO. */
+function toAddressSnapshot(order: OrderRecord): AddressSnapshot {
   const dto: AddressSnapshot = {
-    recipientName: snapshot.recipientName,
-    line1: snapshot.line1,
-    city: snapshot.city,
-    postalCode: snapshot.postalCode,
-    country: snapshot.country,
+    recipientName: order.shippingAddressRecipientName,
+    line1: order.shippingAddressLine1,
+    city: order.shippingAddressCity,
+    postalCode: order.shippingAddressPostalCode,
+    country: order.shippingAddressCountry,
   };
-  if (snapshot.label) {
-    dto.label = snapshot.label;
+  if (order.shippingAddressLabel) {
+    dto.label = order.shippingAddressLabel;
   }
-  if (snapshot.line2) {
-    dto.line2 = snapshot.line2;
+  if (order.shippingAddressLine2) {
+    dto.line2 = order.shippingAddressLine2;
   }
-  if (snapshot.region) {
-    dto.region = snapshot.region;
+  if (order.shippingAddressRegion) {
+    dto.region = order.shippingAddressRegion;
   }
-  if (snapshot.phone) {
-    dto.phone = snapshot.phone;
+  if (order.shippingAddressPhone) {
+    dto.phone = order.shippingAddressPhone;
   }
   return dto;
 }
 
-/** Map the persisted shipping snapshot to the `ShippingInfo` DTO (drop null tracking). */
-function toShippingInfo(shipping: IShippingSnapshot): ShippingInfo {
+/** Map the shipping columns to the `ShippingInfo` DTO (drop null tracking). */
+function toShippingInfo(order: OrderRecord): ShippingInfo {
   const dto: ShippingInfo = {
-    method: shipping.method,
-    label: shipping.label,
-    cost: toDual(shipping.cost),
+    method: order.shippingMethod,
+    label: order.shippingLabel,
+    cost: dual(
+      order.shippingCostShopAmount,
+      order.shippingCostShopCurrency,
+      order.shippingCostPresentmentAmount,
+      order.shippingCostPresentmentCurrency,
+    ),
   };
-  if (shipping.trackingNumber) {
-    dto.trackingNumber = shipping.trackingNumber;
+  if (order.shippingTrackingNumber) {
+    dto.trackingNumber = order.shippingTrackingNumber;
   }
   return dto;
 }
 
 /**
- * Map the persisted payment sub-document to the `PaymentInfo` DTO.
+ * Map the payment columns to the `PaymentInfo` DTO.
  *
  * `provider` and `paymentId` are OMITTED when absent rather than defaulted: an
  * order with reserved stock and no payment has neither, and the retired
  * `oxy_pay` default asserted a rail for every such order. Everything else a
  * payment knows stays in the payment domain and is reached through `paymentId`.
+ *
+ * `reference` is deliberately absent too, for a different reason: it is a
+ * PROTECTED column, so the order row this reads does not carry it at all. Adding
+ * it back here would not compile, which is the guard working rather than a gap.
  */
-function toPaymentInfo(payment: IPaymentInfo): PaymentInfo {
-  const dto: PaymentInfo = { status: payment.status };
-  if (payment.provider) {
-    dto.provider = payment.provider;
+function toPaymentInfo(order: OrderRecord): PaymentInfo {
+  const dto: PaymentInfo = { status: order.paymentStatus };
+  if (order.paymentProvider) {
+    dto.provider = order.paymentProvider;
   }
-  if (payment.reference) {
-    dto.reference = payment.reference;
+  if (order.paymentPaidAt) {
+    dto.paidAt = order.paymentPaidAt.toISOString();
   }
-  if (payment.paidAt) {
-    dto.paidAt = payment.paidAt.toISOString();
-  }
-  if (payment.paymentId) {
-    dto.paymentId = payment.paymentId;
+  if (order.paymentId) {
+    dto.paymentId = order.paymentId;
   }
   return dto;
 }
 
 /** Map a persisted status event to the `OrderStatusEvent` DTO. */
-function toStatusEvent(event: IOrderStatusEvent): OrderStatusEvent {
+function toStatusEvent(event: OrderStatusEventRow): OrderStatusEvent {
   const dto: OrderStatusEvent = {
     status: event.status,
     at: event.at.toISOString(),
@@ -209,41 +262,37 @@ function toStatusEvent(event: IOrderStatusEvent): OrderStatusEvent {
  * Batched lookup of the seller (P2P) + store identities referenced by a list of
  * orders: ONE `getProfiles`, ONE `SellerProfile.find`, ONE `Store.find`.
  */
-async function loadSellerContext(orders: IOrder[]): Promise<{
+async function loadSellerContext(orders: OrderRecord[]): Promise<{
   oxyProfiles: Map<string, OxyProfile>;
-  sellerProfileByUser: Map<string, ISellerProfile>;
-  storeById: Map<string, IStore>;
+  sellerProfileByUser: Map<string, SellerProfileRecord>;
+  storeById: Map<string, StoreRow>;
 }> {
   const userSellerIds = [
     ...new Set(
-      orders
-        .filter((o) => o.sellerType === 'user' && o.sellerOxyUserId)
-        .map((o) => String(o.sellerOxyUserId)),
+      orders.flatMap((o) =>
+        o.sellerType === 'user' && o.sellerOxyUserId ? [o.sellerOxyUserId] : [],
+      ),
     ),
   ];
   const storeIds = [
-    ...new Set(
-      orders.filter((o) => o.sellerType === 'store' && o.storeId).map((o) => String(o.storeId)),
-    ),
+    ...new Set(orders.flatMap((o) => (o.sellerType === 'store' && o.storeId ? [o.storeId] : []))),
   ];
 
-  const [sellerProfileDocs, storeDocs, oxyProfiles] = await Promise.all([
-    userSellerIds.length > 0
-      ? SellerProfile.find({ oxyUserId: { $in: userSellerIds } }).lean<ISellerProfile[]>()
-      : Promise.resolve([] as ISellerProfile[]),
+  const [sellerProfileRows, storeDocs, oxyProfiles] = await Promise.all([
+    findSellerProfilesByUserIds(userSellerIds),
     storeIds.length > 0
-      ? Store.find({ _id: { $in: storeIds } }).lean<IStore[]>()
-      : Promise.resolve([] as IStore[]),
+      ? findStoresByIds(storeIds)
+      : Promise.resolve([] as StoreRow[]),
     getProfiles(userSellerIds),
   ]);
 
-  const sellerProfileByUser = new Map<string, ISellerProfile>();
-  for (const p of sellerProfileDocs) {
-    sellerProfileByUser.set(String(p.oxyUserId), p);
+  const sellerProfileByUser = new Map<string, SellerProfileRecord>();
+  for (const p of sellerProfileRows) {
+    sellerProfileByUser.set(p.oxyUserId, p);
   }
-  const storeById = new Map<string, IStore>();
+  const storeById = new Map<string, StoreRow>();
   for (const s of storeDocs) {
-    storeById.set(String((s as { _id: mongoose.Types.ObjectId })._id), s);
+    storeById.set(s.id, s);
   }
 
   return { oxyProfiles, sellerProfileByUser, storeById };
@@ -254,7 +303,7 @@ async function loadSellerContext(orders: IOrder[]): Promise<{
  * lookups. Maps the persisted `shippingAddressSnapshot` to the DTO's
  * `shippingAddress`, and serializes every `Date` to ISO-8601. Preserves order.
  */
-export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
+export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> {
   if (orders.length === 0) {
     return [];
   }
@@ -263,49 +312,86 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
 
   return orders.map((order) => {
     const dto: OrderDTO = {
-      id: String((order as { _id: mongoose.Types.ObjectId })._id),
+      id: order.id,
       orderNumber: order.orderNumber,
-      buyerOxyUserId: String(order.buyerOxyUserId),
+      buyerOxyUserId: order.buyerOxyUserId,
       sellerType: order.sellerType,
-      // Back-compat: pre-B5 orders carry no sourceChannel → online storefront.
-      sourceChannel: order.sourceChannel ?? 'storefront',
+      // The column is NOT NULL with a `storefront` default now, so the
+      // back-compat coalesce the Mongo path needed is gone: a pre-B5 row acquires
+      // the default during the backfill rather than at every read.
+      sourceChannel: order.sourceChannel,
       items: order.items.map(toOrderItemDTO),
-      shippingAddress: toAddressSnapshot(order.shippingAddressSnapshot),
-      shipping: toShippingInfo(order.shipping),
+      shippingAddress: toAddressSnapshot(order),
+      shipping: toShippingInfo(order),
       totals: {
-        subtotal: toDual(order.totals.subtotal),
-        discountTotal: toDual(order.totals.discountTotal),
-        shipping: toDual(order.totals.shipping),
-        tax: toDual(order.totals.tax),
-        grandTotal: toDual(order.totals.grandTotal),
+        subtotal: dual(
+          order.totalsSubtotalShopAmount,
+          order.totalsSubtotalShopCurrency,
+          order.totalsSubtotalPresentmentAmount,
+          order.totalsSubtotalPresentmentCurrency,
+        ),
+        discountTotal: dual(
+          order.totalsDiscountTotalShopAmount,
+          order.totalsDiscountTotalShopCurrency,
+          order.totalsDiscountTotalPresentmentAmount,
+          order.totalsDiscountTotalPresentmentCurrency,
+        ),
+        shipping: dual(
+          order.totalsShippingShopAmount,
+          order.totalsShippingShopCurrency,
+          order.totalsShippingPresentmentAmount,
+          order.totalsShippingPresentmentCurrency,
+        ),
+        tax: dual(
+          order.totalsTaxShopAmount,
+          order.totalsTaxShopCurrency,
+          order.totalsTaxPresentmentAmount,
+          order.totalsTaxPresentmentCurrency,
+        ),
+        grandTotal: dual(
+          order.totalsGrandTotalShopAmount,
+          order.totalsGrandTotalShopCurrency,
+          order.totalsGrandTotalPresentmentAmount,
+          order.totalsGrandTotalPresentmentCurrency,
+        ),
       },
-      appliedDiscounts: (order.appliedDiscounts ?? []).map(toDiscountAllocation),
-      taxLines: (order.taxLines ?? []).map(toTaxLine),
+      appliedDiscounts: order.appliedDiscounts.map(toDiscountAllocation),
+      taxLines: order.taxLines.map(toTaxLine),
       status: order.status,
       statusHistory: order.statusHistory.map(toStatusEvent),
-      payment: toPaymentInfo(order.payment),
-      checkoutGroupId: String(order.checkoutGroupId),
+      payment: toPaymentInfo(order),
+      checkoutGroupId: order.checkoutGroupId ?? '',
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
     };
 
-    if (order.fxRate) {
+    // The five fx columns are present or absent together
+    // (`orders_fx_rate_complete_check`), so one non-null is enough to narrow all
+    // five — but each is tested, because the CHECK constrains the DATABASE and
+    // this is the only thing that constrains the TYPES.
+    if (
+      order.fxRateFrom !== null &&
+      order.fxRateTo !== null &&
+      order.fxRateRate !== null &&
+      order.fxRateProvider !== null &&
+      order.fxRateAsOf !== null
+    ) {
       const fxRate: FxRateSnapshot = {
-        from: order.fxRate.from,
-        to: order.fxRate.to,
-        rate: order.fxRate.rate,
-        provider: order.fxRate.provider,
-        asOf: order.fxRate.asOf,
+        from: order.fxRateFrom,
+        to: order.fxRateTo,
+        rate: order.fxRateRate,
+        provider: order.fxRateProvider,
+        asOf: order.fxRateAsOf,
       };
       dto.fxRate = fxRate;
     }
 
     if (order.sellerType === 'user' && order.sellerOxyUserId) {
-      const oxyUserId = String(order.sellerOxyUserId);
+      const oxyUserId = order.sellerOxyUserId;
       dto.sellerOxyUserId = oxyUserId;
       dto.seller = toSeller(oxyUserId, sellerProfileByUser.get(oxyUserId), oxyProfiles.get(oxyUserId));
     } else if (order.sellerType === 'store' && order.storeId) {
-      const storeId = String(order.storeId);
+      const storeId = order.storeId;
       dto.storeId = storeId;
       const store = storeById.get(storeId);
       if (store) {
@@ -314,7 +400,7 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
     }
 
     if (order.customerId) {
-      dto.customerId = String(order.customerId);
+      dto.customerId = order.customerId;
     }
 
     return dto;
@@ -325,7 +411,7 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
  * Summarize raw order docs into `OrderSummary` DTOs (buyer/seller list views),
  * with the same batched seller/store load as `hydrateOrders`. Preserves order.
  */
-export async function summarizeOrders(orders: IOrder[]): Promise<OrderSummary[]> {
+export async function summarizeOrders(orders: OrderRecord[]): Promise<OrderSummary[]> {
   if (orders.length === 0) {
     return [];
   }
@@ -334,24 +420,29 @@ export async function summarizeOrders(orders: IOrder[]): Promise<OrderSummary[]>
 
   return orders.map((order) => {
     const summary: OrderSummary = {
-      id: String((order as { _id: mongoose.Types.ObjectId })._id),
+      id: order.id,
       orderNumber: order.orderNumber,
       status: order.status,
-      grandTotal: toDual(order.totals.grandTotal),
+      grandTotal: dual(
+        order.totalsGrandTotalShopAmount,
+        order.totalsGrandTotalShopCurrency,
+        order.totalsGrandTotalPresentmentAmount,
+        order.totalsGrandTotalPresentmentCurrency,
+      ),
       itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
       sellerType: order.sellerType,
       createdAt: order.createdAt.toISOString(),
     };
 
     if (order.sellerType === 'user' && order.sellerOxyUserId) {
-      const oxyUserId = String(order.sellerOxyUserId);
+      const oxyUserId = order.sellerOxyUserId;
       summary.seller = toSeller(
         oxyUserId,
         sellerProfileByUser.get(oxyUserId),
         oxyProfiles.get(oxyUserId),
       );
     } else if (order.sellerType === 'store' && order.storeId) {
-      const store = storeById.get(String(order.storeId));
+      const store = storeById.get(order.storeId);
       if (store) {
         summary.store = toMerchantSummary(store, []);
       }

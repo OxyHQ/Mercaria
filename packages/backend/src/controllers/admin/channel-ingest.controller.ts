@@ -31,7 +31,7 @@ function storeId(req: Request): string {
   if (!store) {
     throw notFound('Store not loaded');
   }
-  return String((store as { _id: unknown })._id);
+  return store.id;
 }
 
 /**
@@ -49,7 +49,7 @@ export async function connectPushChannelHandler(req: Request, res: Response): Pr
     const conn = await connectPushIn(storeId(req), provider, {
       ...(shopDomain ? { shopDomain } : {}),
     });
-    sendSuccess(res, { connectionId: String(conn._id), storeId: conn.storeId });
+    sendSuccess(res, { connectionId: conn.id, storeId: conn.storeId });
   } catch (err) {
     log.general.error({ err, provider: req.params.provider }, 'Failed to establish push-in channel');
     respondWithError(res, err, 'Failed to establish push-in channel');

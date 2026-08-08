@@ -6,29 +6,35 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.test.ts'],
     /**
-     * Both real servers, because the suite now spans both stores.
+     * ONE real database.
      *
-     * A MongoDB replica set for the moderation write tests, and a throwaway
-     * PostgreSQL database for the payment and ledger ones. Everything else here
-     * mocks its models, which cannot tell whether the SERVER would accept a
-     * write — the exact blind spot both harnesses exist to close. The Postgres
-     * one additionally holds properties nothing else can: a balanced-ledger
-     * invariant asserted by a trigger, and a unique index doing the deduping.
+     * `vitest.pg.globalSetup.ts` creates a throwaway, fully-migrated Postgres
+     * database for the repositories and the `*.realdb.test.ts` files that
+     * exercise real SQL semantics. It needs a server to create that database ON,
+     * named by `TEST_DATABASE_URL` — start one with
+     * `docker compose -f docker-compose.postgres.yml up -d postgres`.
      *
-     * Order matters only in that Mongo comes first; neither depends on the
-     * other. `vitest.pg.globalSetup.ts` needs `TEST_DATABASE_URL` pointed at a
-     * server it may create and drop databases on — it never writes to the
-     * database named in that URL.
+     * It FAILS rather than skipping when no server is reachable, deliberately: a
+     * harness that skipped would report a green suite for a migration whose SQL
+     * was never executed, which is the one outcome this whole phase exists to
+     * prevent.
+     *
+     * The MongoDB replica set that used to sit beside it is GONE, along with
+     * `vitest.globalSetup.ts`. It existed for the four moderation write tests,
+     * which needed real transactions and real unique indexes; those now run
+     * against Postgres, and nothing else ever read `MERCARIA_TEST_MONGODB_URI`.
+     * Leaving it would have started a replica set on every run for no test at
+     * all — the slowest possible no-op.
      */
-    globalSetup: ['./vitest.globalSetup.ts', './vitest.pg.globalSetup.ts'],
+    globalSetup: ['./vitest.pg.globalSetup.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
       exclude: ['src/**/__tests__/**', 'src/**/*.test.ts', 'src/index.ts'],
     },
-    // Increase timeout for tests that mock MongoDB
     testTimeout: 10000,
-    // The replica set can take a while to come up on a cold cache.
+    // Creating and migrating the throwaway database can take a while on a cold
+    // cache.
     hookTimeout: 120_000,
   },
 });

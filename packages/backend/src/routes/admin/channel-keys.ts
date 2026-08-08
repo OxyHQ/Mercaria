@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import { makeRateLimiter } from '../../lib/rate-limit.js';
 import { generateChannelKeySchema } from '../../middleware/channels-schemas.js';
@@ -35,7 +35,7 @@ router.post(
 router.delete(
   '/:keyId',
   requireStorePermission('channels:write'),
-  validateObjectId('keyId'),
+  validateId('keyId'),
   revokeChannelKeyHandler,
 );
 

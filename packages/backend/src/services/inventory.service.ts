@@ -3,17 +3,17 @@
  *
  * Two stock models share ONE set of method signatures:
  *
- *  - STORE variants (`ownerType: 'store'`) stock at N locations through the
- *    standalone `InventoryLevel` collection. Each mutation is a single guarded
- *    `$inc` against the matching LEVEL row (`available: { $gte: qty }`), so two
- *    concurrent reserves cannot both succeed past the level's stock. After every
- *    level change the variant's scalar `inventory.{available,committed}` is
- *    recomputed as the SUM over its levels (the ROLLUP), so the storefront DTO and
- *    listing facets keep reading the scalar unchanged. A store mutator with no
- *    explicit `locationId` routes to the store's DEFAULT location.
+ *  - STORE variants (`ownerType: 'store'`) stock at N locations through
+ *    `inventory_levels`. Each mutation is a single guarded UPDATE against the
+ *    matching LEVEL row, so two concurrent reserves cannot both succeed past the
+ *    level's stock. After every level change the variant's scalar
+ *    `inventory_{available,committed}` is recomputed as the SUM over its levels
+ *    (the ROLLUP), so the storefront DTO and listing facets keep reading the
+ *    scalar unchanged. A store mutator with no explicit `locationId` routes to
+ *    the store's DEFAULT location.
  *
  *  - P2P variants (`ownerType: 'user'`) keep the scalar-only path: a guarded
- *    `$inc` against the variant document itself, no Location, no levels.
+ *    UPDATE against the variant row itself, no location, no levels.
  *
  * `available` is decremented at RESERVE time and `committed` raised; `commit`
  * finalizes a sale (drop `committed`, stock already gone); `release` returns a
@@ -21,11 +21,32 @@
  * on refund of already-committed stock. The trailing `locationId?` is optional on
  * every mutator — existing callers (`checkout.service`, `order.service.transition`)
  * pass none and store variants resolve the default location transparently.
+ *
+ * ## Ported to Postgres
+ *
+ * The race-safety contract is unchanged in substance and its mechanism is the
+ * same: Mongo's `updateOne({available: {$gte: qty}}, {$inc: …})` and Postgres's
+ * `UPDATE … SET available = available - $n WHERE … AND available >= $n` are both
+ * CONDITIONAL WRITES whose predicate is re-evaluated against the winner's write.
+ * What changes is how the refusal is reported — `matchedCount === 0` becomes a
+ * repository returning `false` — and that a level row now clamps at zero rather
+ * than being able to go negative through an unguarded `$inc`.
  */
 
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
-import { Listing, type IListing } from '../models/listing.js';
-import { InventoryLevel } from '../models/inventory-level.js';
+import { findListingById } from '../db/catalog/listingRepository.js';
+import {
+  adjustVariantScalar,
+  findVariantById,
+  findVariantInListing,
+  reserveVariantScalar,
+  setVariantScalarAvailable,
+} from '../db/catalog/variantRepository.js';
+import {
+  adjustLevel,
+  reserveAtLocation,
+  setLevelAvailable,
+} from '../db/catalog/inventoryLevelRepository.js';
+import type { ListingOwnerType } from '@mercaria/shared-types';
 import { outOfStock, notFound } from '../lib/errors/error-codes.js';
 import {
   syncListingFacets,
@@ -37,42 +58,38 @@ import { log } from '../lib/logger.js';
 
 /** Minimal variant + ownership info used to route a stock mutation. */
 interface VariantMeta {
+  variantId: string;
   listingId: string;
   tracked: boolean;
-  ownerType: IListing['ownerType'];
+  ownerType: ListingOwnerType;
   storeId?: string;
-  /** True iff the variant's stock lives in `InventoryLevel` (store variants). */
+  /** True iff the variant's stock lives in `inventory_levels` (store variants). */
   isMultiLocation: boolean;
 }
 
 /**
  * Fetch the tracked flag, owning listing id, and ownership (P2P vs store) for a
  * variant, or null if the variant is missing. A store variant is multi-location
- * (stock in `InventoryLevel`); a P2P variant is scalar-only.
+ * (stock in `inventory_levels`); a P2P variant is scalar-only.
  */
 async function loadVariantMeta(variantId: string): Promise<VariantMeta | null> {
-  const variant = await ProductVariant.findById(variantId)
-    .select('listingId inventory.tracked')
-    .lean<Pick<IProductVariant, 'listingId' | 'inventory'> | null>();
+  const variant = await findVariantById(variantId);
   if (!variant) {
     return null;
   }
-  const listingId = String(variant.listingId);
 
-  const listing = await Listing.findById(listingId)
-    .select('ownerType storeId')
-    .lean<Pick<IListing, 'ownerType' | 'storeId'> | null>();
-  const ownerType: IListing['ownerType'] = listing?.ownerType ?? 'user';
-  const isMultiLocation = ownerType === 'store';
+  const listing = await findListingById(variant.listingId);
+  const ownerType: ListingOwnerType = listing?.ownerType ?? 'user';
 
   const meta: VariantMeta = {
-    listingId,
-    tracked: variant.inventory.tracked,
+    variantId,
+    listingId: variant.listingId,
+    tracked: variant.inventoryTracked,
     ownerType,
-    isMultiLocation,
+    isMultiLocation: ownerType === 'store',
   };
   if (listing?.storeId) {
-    meta.storeId = String(listing.storeId);
+    meta.storeId = listing.storeId;
   }
   return meta;
 }
@@ -93,8 +110,8 @@ async function resolveStoreLocationId(meta: VariantMeta, locationId?: string): P
 }
 
 /**
- * Recompute a variant's scalar `inventory.{available,committed}` as the sum over
- * its `InventoryLevel` rows. Thin wrapper over the one rollup implementation in
+ * Recompute a variant's scalar `inventory_{available,committed}` as the sum over
+ * its `inventory_levels` rows. Thin wrapper over the one rollup implementation in
  * `catalog-write.service` (kept there to avoid an import cycle).
  */
 export async function rollupVariant(variantId: string): Promise<void> {
@@ -102,43 +119,47 @@ export async function rollupVariant(variantId: string): Promise<void> {
 }
 
 /**
+ * Load a variant's routing metadata, or short-circuit.
+ *
+ * @returns `null` when the caller should do nothing — an untracked variant has
+ *   no stock to hold. Throws NOT_FOUND when the variant does not exist, which is
+ *   a different thing and must not be silently absorbed.
+ */
+async function metaForMutation(variantId: string): Promise<VariantMeta | null> {
+  const meta = await loadVariantMeta(variantId);
+  if (!meta) {
+    throw notFound('Variant not found');
+  }
+  return meta.tracked ? meta : null;
+}
+
+/**
  * Reserve `qty` units of a variant. For a TRACKED variant this atomically
  * decrements `available` and raises `committed`, guarded so it can only succeed
- * when `available >= qty`; a losing/insufficient call throws `OUT_OF_STOCK`. An
- * UNTRACKED variant short-circuits (no stock to hold). STORE variants reserve at
- * the LEVEL grain (the resolved/explicit location) then roll up the scalar; P2P
- * variants reserve at the scalar grain.
+ * when `available >= qty`; a losing or insufficient call throws `OUT_OF_STOCK`.
+ * An UNTRACKED variant short-circuits (no stock to hold). STORE variants reserve
+ * at the LEVEL grain (the resolved/explicit location) then roll up the scalar;
+ * P2P variants reserve at the scalar grain.
  */
 export async function reserve(variantId: string, qty: number, locationId?: string): Promise<void> {
   if (qty <= 0) {
     return;
   }
-  const meta = await loadVariantMeta(variantId);
+  const meta = await metaForMutation(variantId);
   if (!meta) {
-    throw notFound('Variant not found');
-  }
-  if (!meta.tracked) {
     return;
   }
 
   if (meta.isMultiLocation) {
     const loc = await resolveStoreLocationId(meta, locationId);
-    const result = await InventoryLevel.updateOne(
-      { variantId, locationId: loc, available: { $gte: qty } },
-      { $inc: { available: -qty, committed: qty } },
-    );
-    if (result.matchedCount === 0) {
+    // The rowcount IS the answer: `false` means the guard refused, never
+    // "nothing to do".
+    if (!(await reserveAtLocation(variantId, loc, qty))) {
       throw outOfStock('Insufficient stock to reserve');
     }
     await rollupVariant(variantId);
-  } else {
-    const result = await ProductVariant.updateOne(
-      { _id: variantId, 'inventory.tracked': true, 'inventory.available': { $gte: qty } },
-      { $inc: { 'inventory.available': -qty, 'inventory.committed': qty } },
-    );
-    if (result.matchedCount === 0) {
-      throw outOfStock('Insufficient stock to reserve');
-    }
+  } else if (!(await reserveVariantScalar(variantId, qty))) {
+    throw outOfStock('Insufficient stock to reserve');
   }
 
   await syncListingFacets(meta.listingId);
@@ -156,30 +177,26 @@ export async function reserve(variantId: string, qty: number, locationId?: strin
  */
 async function maybeAlertLowStock(variantId: string, listingId: string): Promise<void> {
   try {
-    const variant = await ProductVariant.findById(variantId)
-      .select('title inventory.tracked inventory.available')
-      .lean<Pick<IProductVariant, 'title' | 'inventory'> | null>();
-    if (!variant || !variant.inventory.tracked) {
+    const variant = await findVariantById(variantId);
+    if (!variant || !variant.inventoryTracked) {
       return;
     }
-    if (variant.inventory.available > config.orders.lowStockThreshold) {
+    if (variant.inventoryAvailable > config.orders.lowStockThreshold) {
       return;
     }
 
-    const listing = await Listing.findById(listingId)
-      .select('ownerType storeId')
-      .lean<Pick<IListing, 'ownerType' | 'storeId'> | null>();
+    const listing = await findListingById(listingId);
     if (!listing || listing.ownerType !== 'store' || !listing.storeId) {
       return;
     }
 
     const { enqueueLowStockAlert } = await import('../queue/producers.js');
     await enqueueLowStockAlert({
-      storeId: String(listing.storeId),
+      storeId: listing.storeId,
       listingId,
       variantId,
       variantTitle: variant.title,
-      available: variant.inventory.available,
+      available: variant.inventoryAvailable,
     });
   } catch (err) {
     log.general.warn({ err, variantId, listingId }, 'Failed to evaluate/enqueue low-stock alert');
@@ -188,34 +205,26 @@ async function maybeAlertLowStock(variantId: string, listingId: string): Promise
 
 /**
  * Commit a reserved `qty` (sale finalized). `available` was already decremented
- * at reserve time, so this only drops `committed`. Untracked short-circuits. STORE
- * variants drop `committed` at the level and roll up the scalar; P2P variants drop
- * it at the scalar grain. Available is unchanged, so facets are not resynced.
+ * at reserve time, so this only drops `committed`. Untracked short-circuits.
+ * STORE variants drop `committed` at the level and roll up the scalar; P2P
+ * variants drop it at the scalar grain. Available is unchanged, so facets are not
+ * resynced.
  */
 export async function commit(variantId: string, qty: number, locationId?: string): Promise<void> {
   if (qty <= 0) {
     return;
   }
-  const meta = await loadVariantMeta(variantId);
+  const meta = await metaForMutation(variantId);
   if (!meta) {
-    throw notFound('Variant not found');
-  }
-  if (!meta.tracked) {
     return;
   }
 
   if (meta.isMultiLocation) {
     const loc = await resolveStoreLocationId(meta, locationId);
-    await InventoryLevel.updateOne(
-      { variantId, locationId: loc },
-      { $inc: { committed: -qty } },
-    );
+    await adjustLevel(variantId, loc, { committed: -qty });
     await rollupVariant(variantId);
   } else {
-    await ProductVariant.updateOne(
-      { _id: variantId, 'inventory.tracked': true },
-      { $inc: { 'inventory.committed': -qty } },
-    );
+    await adjustVariantScalar(variantId, { committed: -qty });
   }
 }
 
@@ -229,26 +238,17 @@ export async function release(variantId: string, qty: number, locationId?: strin
   if (qty <= 0) {
     return;
   }
-  const meta = await loadVariantMeta(variantId);
+  const meta = await metaForMutation(variantId);
   if (!meta) {
-    throw notFound('Variant not found');
-  }
-  if (!meta.tracked) {
     return;
   }
 
   if (meta.isMultiLocation) {
     const loc = await resolveStoreLocationId(meta, locationId);
-    await InventoryLevel.updateOne(
-      { variantId, locationId: loc },
-      { $inc: { available: qty, committed: -qty } },
-    );
+    await adjustLevel(variantId, loc, { available: qty, committed: -qty });
     await rollupVariant(variantId);
   } else {
-    await ProductVariant.updateOne(
-      { _id: variantId, 'inventory.tracked': true },
-      { $inc: { 'inventory.available': qty, 'inventory.committed': -qty } },
-    );
+    await adjustVariantScalar(variantId, { available: qty, committed: -qty });
   }
 
   await syncListingFacets(meta.listingId);
@@ -257,35 +257,26 @@ export async function release(variantId: string, qty: number, locationId?: strin
 /**
  * Raise `available` WITHOUT touching `committed` — used to return stock to the
  * pool on refund of an already-committed (paid) order, where `commit` already
- * zeroed the committed units. Tracked-only; untracked short-circuits; non-positive
- * quantities are a no-op. STORE variants act at the level then roll up; P2P
- * variants act at the scalar grain. Recomputes facets in case the variant flips
- * back into stock.
+ * zeroed the committed units. Tracked-only; untracked short-circuits;
+ * non-positive quantities are a no-op. STORE variants act at the level then roll
+ * up; P2P variants act at the scalar grain. Recomputes facets in case the variant
+ * flips back into stock.
  */
 export async function restock(variantId: string, qty: number, locationId?: string): Promise<void> {
   if (qty <= 0) {
     return;
   }
-  const meta = await loadVariantMeta(variantId);
+  const meta = await metaForMutation(variantId);
   if (!meta) {
-    throw notFound('Variant not found');
-  }
-  if (!meta.tracked) {
     return;
   }
 
   if (meta.isMultiLocation) {
     const loc = await resolveStoreLocationId(meta, locationId);
-    await InventoryLevel.updateOne(
-      { variantId, locationId: loc },
-      { $inc: { available: qty } },
-    );
+    await adjustLevel(variantId, loc, { available: qty });
     await rollupVariant(variantId);
   } else {
-    await ProductVariant.updateOne(
-      { _id: variantId, 'inventory.tracked': true },
-      { $inc: { 'inventory.available': qty } },
-    );
+    await adjustVariantScalar(variantId, { available: qty });
   }
 
   await syncListingFacets(meta.listingId);
@@ -294,11 +285,11 @@ export async function restock(variantId: string, qty: number, locationId?: strin
 /**
  * Admin absolute-set of `available` units on a TRACKED variant (e.g. restock).
  * Scoped to `listingId` so a store member can only set inventory on a variant
- * belonging to a listing they own — a variant whose `listingId` does not match
+ * belonging to a listing they own — a variant whose listing does not match
  * resolves to NOT_FOUND. Untracked variants ignore the value (always available).
  *
  * For a STORE variant the absolute set targets the given `locationId`'s level
- * (upserting the row if it does not exist yet, preserving any existing
+ * (creating the row if it does not exist yet, PRESERVING any existing
  * `committed`), then the scalar is recomputed from the levels. For a P2P variant
  * the scalar is set directly and `locationId` is ignored (P2P has no locations).
  * Recomputes the parent listing's facets so `hasInventory`/`priceRange` reflect
@@ -313,33 +304,21 @@ export async function setAvailable(
   if (available < 0 || !Number.isInteger(available)) {
     throw outOfStock('available must be a non-negative integer');
   }
-  const variant = await ProductVariant.findOne({ _id: variantId, listingId });
+  const variant = await findVariantInListing(listingId, variantId);
   if (!variant) {
     throw notFound('Variant not found');
   }
 
-  if (variant.inventory.tracked) {
-    const listing = await Listing.findById(listingId)
-      .select('ownerType')
-      .lean<Pick<IListing, 'ownerType'> | null>();
+  if (variant.inventoryTracked) {
+    const listing = await findListingById(listingId);
 
     if (listing?.ownerType === 'store') {
-      // `$set: { available }` alone preserves an existing row's `committed`;
-      // `$setOnInsert` seeds `committed: 0` and the join fields only on insert.
-      await InventoryLevel.updateOne(
-        { variantId, locationId },
-        {
-          $set: { available },
-          $setOnInsert: { listingId, committed: 0 },
-        },
-        { upsert: true },
-      );
+      await setLevelAvailable({ variantId, listingId, locationId, available });
       await recomputeVariantScalarFromLevels(variantId);
     } else {
-      variant.inventory.available = available;
-      await variant.save();
+      await setVariantScalarAvailable(variantId, available);
     }
   }
 
-  await syncListingFacets(String(variant.listingId));
+  await syncListingFacets(variant.listingId);
 }

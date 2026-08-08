@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateObjectId } from '../../middleware/validate.js';
+import { validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import { getStoreRefund } from '../../controllers/admin/refunds-admin.controller.js';
 
@@ -14,6 +14,6 @@ import { getStoreRefund } from '../../controllers/admin/refunds-admin.controller
  */
 const router = Router({ mergeParams: true });
 
-router.get('/:id', requireStorePermission('orders:read'), validateObjectId('id'), getStoreRefund);
+router.get('/:id', requireStorePermission('orders:read'), validateId('id'), getStoreRefund);
 
 export default router;

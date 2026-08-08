@@ -19,9 +19,12 @@ import {
   createCollection,
   updateCollection,
   deleteCollection,
+  getCollectionProductIds,
+  getProductIdsByCollection,
   setCollectionProducts,
+  type Collection,
 } from '../../services/collection.service.js';
-import { Collection, type ICollection } from '../../models/collection.js';
+import { findCollectionById } from '../../db/merchandising/collectionRepository.js';
 import { toCollectionDTO } from '../collections.controller.js';
 import { sendSuccess } from '../../utils/api-response.js';
 import { respondWithError, notFound } from '../../lib/errors/error-codes.js';
@@ -34,26 +37,38 @@ function storeId(req: Request): string {
   if (!store) {
     throw notFound('Store not loaded');
   }
-  return String((store as { _id: unknown })._id);
+  return store.id;
 }
 
 /** Load a collection scoped to the loaded store, else NOT_FOUND. */
-async function loadStoreCollection(req: Request): Promise<ICollection> {
-  const collection = await Collection.findOne({
-    _id: routeParam(req, 'id'),
-    storeId: storeId(req),
-  }).lean<ICollection | null>();
+async function loadStoreCollection(req: Request): Promise<Collection> {
+  const collection = await findCollectionById(storeId(req), routeParam(req, 'id'));
   if (!collection) {
     throw notFound('Collection not found');
   }
   return collection;
 }
 
+/**
+ * Serialize ONE collection, reading its hand-picked product ids.
+ *
+ * `productIds` was a field on the Mongo document and is a relation now, so every
+ * single-collection response reads it explicitly; the list endpoint batches
+ * instead, which is why this is not folded into `toCollectionDTO`.
+ */
+async function serialize(collection: Collection): Promise<ReturnType<typeof toCollectionDTO>> {
+  return toCollectionDTO(collection, await getCollectionProductIds(collection.id));
+}
+
 /** GET /admin/stores/:storeId/collections — the store's collections. */
 export async function listStoreCollections(req: Request, res: Response): Promise<void> {
   try {
     const collections = await listCollections(storeId(req));
-    sendSuccess(res, collections.map(toCollectionDTO));
+    const productIds = await getProductIdsByCollection(collections);
+    sendSuccess(
+      res,
+      collections.map((c) => toCollectionDTO(c, productIds.get(c.id) ?? [])),
+    );
   } catch (err) {
     log.general.error({ err }, 'Failed to list store collections');
     respondWithError(res, err, 'Failed to load collections');
@@ -64,7 +79,7 @@ export async function listStoreCollections(req: Request, res: Response): Promise
 export async function createStoreCollection(req: Request, res: Response): Promise<void> {
   try {
     const collection = await createCollection(storeId(req), req.body as CreateCollectionInput);
-    sendSuccess(res, toCollectionDTO(collection), 201);
+    sendSuccess(res, await serialize(collection), 201);
   } catch (err) {
     log.general.error({ err }, 'Failed to create store collection');
     respondWithError(res, err, 'Failed to create collection');
@@ -75,7 +90,7 @@ export async function createStoreCollection(req: Request, res: Response): Promis
 export async function getStoreCollection(req: Request, res: Response): Promise<void> {
   try {
     const collection = await loadStoreCollection(req);
-    sendSuccess(res, toCollectionDTO(collection));
+    sendSuccess(res, await serialize(collection));
   } catch (err) {
     log.general.error({ err, collectionId: req.params.id }, 'Failed to load store collection');
     respondWithError(res, err, 'Failed to load collection');
@@ -90,7 +105,7 @@ export async function patchStoreCollection(req: Request, res: Response): Promise
       routeParam(req, 'id'),
       req.body as UpdateCollectionInput,
     );
-    sendSuccess(res, toCollectionDTO(collection));
+    sendSuccess(res, await serialize(collection));
   } catch (err) {
     log.general.error({ err, collectionId: req.params.id }, 'Failed to update store collection');
     respondWithError(res, err, 'Failed to update collection');
@@ -118,7 +133,7 @@ export async function setStoreCollectionProducts(req: Request, res: Response): P
       routeParam(req, 'id'),
       body.productIds,
     );
-    sendSuccess(res, toCollectionDTO(collection));
+    sendSuccess(res, await serialize(collection));
   } catch (err) {
     log.general.error({ err, collectionId: req.params.id }, 'Failed to set collection products');
     respondWithError(res, err, 'Failed to set collection products');

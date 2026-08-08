@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import { makeRateLimiter } from '../../lib/rate-limit.js';
 import { connectChannelSchema, updateSyncSettingsSchema } from '../../middleware/schemas.js';
@@ -47,7 +47,7 @@ router.post(
 router.patch(
   '/:connectionId/settings',
   requireStorePermission('channels:write'),
-  validateObjectId('connectionId'),
+  validateId('connectionId'),
   validateBody(updateSyncSettingsSchema),
   patchChannelSettingsHandler,
 );
@@ -55,14 +55,14 @@ router.patch(
 router.post(
   '/:connectionId/sync',
   requireStorePermission('channels:write'),
-  validateObjectId('connectionId'),
+  validateId('connectionId'),
   syncChannelHandler,
 );
 
 router.delete(
   '/:connectionId',
   requireStorePermission('channels:write'),
-  validateObjectId('connectionId'),
+  validateId('connectionId'),
   disconnectChannelHandler,
 );
 

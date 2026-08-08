@@ -18,78 +18,104 @@ import {
   assertSafeMoneyAmount,
   type CurrencyCode,
   type DualMoney,
-  type Money,
   type Refund as RefundDTO,
   type RefundLineItem,
   type CreateRefundInput,
 } from '@mercaria/shared-types';
-import { Refund, type IRefund, type IRefundLineItem } from '../models/refund.js';
-import { Order, type IOrder, type IOrderItem } from '../models/order.js';
-import { nextRmaNumber } from '../models/counter.js';
+import { isUniqueViolation } from '@oxyhq/db';
+import {
+  findRefundByIdempotencyKey,
+  findRefundInStore,
+  findRefundsForOrderInStore,
+  insertRefund,
+  nextRmaNumber,
+  sumRefundedQuantities,
+  sumRefundedShopAmount,
+  type NewRefundLineItem,
+  type RefundLineItemRow,
+  type RefundRecord,
+} from '../db/orders/refundRepository.js';
+import {
+  findOrderById,
+  setOrderStatus,
+  type OrderItemRecord,
+} from '../db/orders/orderRepository.js';
 import { restock } from './inventory.service.js';
 import { decrementOnRefund } from './customer.service.js';
 import { sumMoney, roundMinorUnits } from '../utils/money.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
-/** Mongo duplicate-key error code (a unique-index violation). */
-const MONGO_DUPLICATE_KEY = 11000;
 /** Status note recorded on the order when a refund leaves some amount refundable. */
 const PARTIAL_REFUND_NOTE = 'partial refund';
 /** Status note recorded on the order when a refund covers the grand total. */
 const FULL_REFUND_NOTE = 'refund';
 
-/** True iff `err` is a Mongo duplicate-key (unique-index) error. */
-function isDuplicateKeyError(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'code' in err &&
-    (err as { code?: unknown }).code === MONGO_DUPLICATE_KEY
-  );
-}
-
-/** Map a persisted `{ amount, currency }` sub-document to the `Money` DTO. */
-function toMoney(value: { amount: number; currency: string }): Money {
-  return { amount: value.amount, currency: value.currency as Money['currency'] };
-}
-
-/** Map a persisted `{ shop, presentment }` sub-document to the `DualMoney` DTO. */
-function toDual(value: {
-  shop: { amount: number; currency: string };
-  presentment: { amount: number; currency: string };
-}): DualMoney {
-  return { shop: toMoney(value.shop), presentment: toMoney(value.presentment) };
+/** The four columns of a `DualMoney`, reassembled. */
+function dual(
+  shopAmount: number,
+  shopCurrency: CurrencyCode,
+  presentmentAmount: number,
+  presentmentCurrency: CurrencyCode,
+): DualMoney {
+  return {
+    shop: { amount: shopAmount, currency: shopCurrency },
+    presentment: { amount: presentmentAmount, currency: presentmentCurrency },
+  };
 }
 
 /** Map a persisted refund line item to its DTO (omit absent optionals). */
-function toLineItemDTO(line: IRefundLineItem): RefundLineItem {
+function toLineItemDTO(line: RefundLineItemRow): RefundLineItem {
   const dto: RefundLineItem = {
     variantId: line.variantId,
     quantity: line.quantity,
-    amount: toDual(line.amount),
+    amount: dual(
+      line.amountShopAmount,
+      line.amountShopCurrency,
+      line.amountPresentmentAmount,
+      line.amountPresentmentCurrency,
+    ),
     restock: line.restock,
   };
   if (line.locationId) dto.locationId = line.locationId;
   return dto;
 }
 
-/** Serialize a refund document to the `Refund` DTO (omit absent optionals). */
-export function toRefundDTO(refund: IRefund): RefundDTO {
+/** Serialize a refund record to the `Refund` DTO (omit absent optionals). */
+export function toRefundDTO(refund: RefundRecord): RefundDTO {
   const dto: RefundDTO = {
-    id: String((refund as { _id: unknown })._id),
+    id: refund.id,
     orderId: refund.orderId,
     type: refund.type,
     status: refund.status,
     lineItems: refund.lineItems.map(toLineItemDTO),
-    totalRefunded: toDual(refund.totalRefunded),
+    totalRefunded: dual(
+      refund.totalRefundedShopAmount,
+      refund.totalRefundedShopCurrency,
+      refund.totalRefundedPresentmentAmount,
+      refund.totalRefundedPresentmentCurrency,
+    ),
     createdAt: refund.createdAt.toISOString(),
     updatedAt: refund.updatedAt.toISOString(),
   };
   if (refund.storeId) dto.storeId = refund.storeId;
   if (refund.sellerOxyUserId) dto.sellerOxyUserId = refund.sellerOxyUserId;
   if (refund.reason) dto.reason = refund.reason;
-  if (refund.refundShipping) dto.refundShipping = toDual(refund.refundShipping);
+  // All four columns are present or absent together
+  // (`refunds_refund_shipping_complete_check`).
+  if (
+    refund.refundShippingShopAmount !== null &&
+    refund.refundShippingShopCurrency !== null &&
+    refund.refundShippingPresentmentAmount !== null &&
+    refund.refundShippingPresentmentCurrency !== null
+  ) {
+    dto.refundShipping = dual(
+      refund.refundShippingShopAmount,
+      refund.refundShippingShopCurrency,
+      refund.refundShippingPresentmentAmount,
+      refund.refundShippingPresentmentCurrency,
+    );
+  }
   if (refund.rmaNumber) dto.rmaNumber = refund.rmaNumber;
   if (refund.restockedAt) dto.restockedAt = refund.restockedAt.toISOString();
   if (refund.processedByOxyUserId) dto.processedByOxyUserId = refund.processedByOxyUserId;
@@ -114,20 +140,18 @@ export async function process(
 ): Promise<RefundDTO> {
   // 1. Idempotency short-circuit: a replayed submit returns the prior refund.
   if (input.idempotencyKey) {
-    const existing = await Refund.findOne({ idempotencyKey: input.idempotencyKey }).lean<
-      IRefund | null
-    >();
+    const existing = await findRefundByIdempotencyKey(input.idempotencyKey);
     if (existing) {
       return toRefundDTO(existing);
     }
   }
 
   // 2. Load the order (scoped to the store) and validate it is refundable.
-  const order = await Order.findById(orderId).lean<IOrder | null>();
+  const order = await findOrderById(orderId);
   if (!order || order.storeId !== storeId) {
     throw notFound('Order not found');
   }
-  if (order.payment.status !== 'paid') {
+  if (order.paymentStatus !== 'paid') {
     throw conflict('Order is not paid');
   }
   if (order.status === 'refunded') {
@@ -135,35 +159,31 @@ export async function process(
   }
 
   // 3. Index order items by variantId (one line per variant).
-  const itemByVariant = new Map<string, IOrderItem>();
+  const itemByVariant = new Map<string, OrderItemRecord>();
   for (const item of order.items) {
     itemByVariant.set(item.variantId, item);
   }
 
-  // 4. Cumulative over-refund guard: sum prior refunded quantity per variant.
-  const priorRefunds = await Refund.find({ orderId }).lean<IRefund[]>();
-  const priorRefundedQty = new Map<string, number>();
-  for (const prior of priorRefunds) {
-    for (const line of prior.lineItems) {
-      priorRefundedQty.set(line.variantId, (priorRefundedQty.get(line.variantId) ?? 0) + line.quantity);
-    }
-  }
+  // 4. Cumulative over-refund guard: prior refunded quantity per variant, summed
+  // in SQL over EVERY refunded unit — whether or not it was restocked, which is a
+  // different question the repository answers separately.
+  const priorRefundedQty = await sumRefundedQuantities(orderId);
 
-  const shopCurrency = order.totals.grandTotal.shop.currency as CurrencyCode;
-  const presentmentCurrency = order.totals.grandTotal.presentment.currency as CurrencyCode;
+  const shopCurrency = order.totalsGrandTotalShopCurrency;
+  const presentmentCurrency = order.totalsGrandTotalPresentmentCurrency;
 
   // The discounted-net refundable amount for `requestedQty` units on ONE currency
   // side (unitPrice * orderedQty − lineDiscount, prorated + half-even rounded).
   // The proration is the one place a refund forms a NEW amount rather than
   // copying a stored one, so its result is asserted representable here.
   const sideAmount = (
-    unit: { amount: number },
-    discount: { amount: number } | undefined,
+    unitAmount: number,
+    discountAmount: number | null,
     orderedQty: number,
     requestedQty: number,
     side: 'shop' | 'presentment',
   ): number => {
-    const net = unit.amount * orderedQty - (discount?.amount ?? 0);
+    const net = unitAmount * orderedQty - (discountAmount ?? 0);
     const prorated = roundMinorUnits((net * requestedQty) / orderedQty);
     assertSafeMoneyAmount(prorated, `refund.lineAmount.${side}`);
     return prorated;
@@ -171,7 +191,7 @@ export async function process(
 
   // 5. Compute each line's refundable amount from the DISCOUNTED net, on BOTH the
   // shop (merchant accounting) and presentment (what the buyer paid) sides.
-  const computedLines: IRefundLineItem[] = input.lineItems.map((inputLine) => {
+  const computedLines: NewRefundLineItem[] = input.lineItems.map((inputLine) => {
     const item = itemByVariant.get(inputLine.variantId);
     if (!item) {
       throw validationError('Refund line variant not in order');
@@ -183,34 +203,34 @@ export async function process(
       throw conflict('Cumulative refund quantity exceeds ordered quantity');
     }
 
-    const line: IRefundLineItem = {
+    const line: NewRefundLineItem = {
       variantId: inputLine.variantId,
       quantity: requestedQty,
       amount: {
         shop: {
           amount: sideAmount(
-            item.unitPrice.shop,
-            item.discountTotal?.shop,
+            item.unitPriceShopAmount,
+            item.discountTotalShopAmount,
             orderedQty,
             requestedQty,
             'shop',
           ),
-          currency: item.unitPrice.shop.currency,
+          currency: item.unitPriceShopCurrency,
         },
         presentment: {
           amount: sideAmount(
-            item.unitPrice.presentment,
-            item.discountTotal?.presentment,
+            item.unitPricePresentmentAmount,
+            item.discountTotalPresentmentAmount,
             orderedQty,
             requestedQty,
             'presentment',
           ),
-          currency: item.unitPrice.presentment.currency,
+          currency: item.unitPricePresentmentCurrency,
         },
       },
       restock: inputLine.restock ?? false,
     };
-    const locationId = inputLine.locationId ?? item.locationId;
+    const locationId = inputLine.locationId ?? item.locationId ?? undefined;
     if (locationId !== undefined) {
       line.locationId = locationId;
     }
@@ -218,16 +238,21 @@ export async function process(
   });
 
   // 6. Optionally refund shipping (the order's persisted dual shipping cost).
-  const refundShipping = input.refundShipping === true ? toDual(order.shipping.cost) : undefined;
+  const refundShipping =
+    input.refundShipping === true
+      ? dual(
+          order.shippingCostShopAmount,
+          order.shippingCostShopCurrency,
+          order.shippingCostPresentmentAmount,
+          order.shippingCostPresentmentCurrency,
+        )
+      : undefined;
 
   // 7. Total refunded = every line amount (+ shipping when included), on each side.
-  const shopParts = computedLines.map((line) => toMoney(line.amount.shop));
-  const presentmentParts = computedLines.map((line) => toMoney(line.amount.presentment));
-  const totalRefunded = {
-    shop: sumMoney(
-      refundShipping ? [...shopParts, refundShipping.shop] : shopParts,
-      shopCurrency,
-    ),
+  const shopParts = computedLines.map((line) => line.amount.shop);
+  const presentmentParts = computedLines.map((line) => line.amount.presentment);
+  const totalRefunded: DualMoney = {
+    shop: sumMoney(refundShipping ? [...shopParts, refundShipping.shop] : shopParts, shopCurrency),
     presentment: sumMoney(
       refundShipping ? [...presentmentParts, refundShipping.presentment] : presentmentParts,
       presentmentCurrency,
@@ -243,10 +268,11 @@ export async function process(
     }
   }
 
-  // 9. Create the immutable Refund doc; converge on a concurrent idempotent dup.
-  let created: IRefund;
+  // 9. Create the immutable refund + its lines in ONE transaction; converge on a
+  // concurrent idempotent duplicate.
+  let created: RefundRecord;
   try {
-    const doc = await Refund.create({
+    created = await insertRefund({
       orderId,
       ...(order.storeId ? { storeId: order.storeId } : {}),
       ...(order.sellerOxyUserId ? { sellerOxyUserId: order.sellerOxyUserId } : {}),
@@ -261,12 +287,11 @@ export async function process(
       rmaNumber: await nextRmaNumber(),
       ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
     });
-    created = doc.toObject();
   } catch (err) {
-    if (isDuplicateKeyError(err) && input.idempotencyKey) {
-      const converged = await Refund.findOne({ idempotencyKey: input.idempotencyKey }).lean<
-        IRefund | null
-      >();
+    // The NAMED index, so a duplicate on any other constraint stays a real
+    // failure rather than silently returning someone else's refund.
+    if (isUniqueViolation(err, 'refunds_idempotency_key_key') && input.idempotencyKey) {
+      const converged = await findRefundByIdempotencyKey(input.idempotencyKey);
       if (converged) {
         log.general.warn(
           { orderId, storeId },
@@ -280,48 +305,26 @@ export async function process(
 
   // 10. Set the order status DIRECTLY (no transition). Full when cumulative
   // refunds cover the grand total; else partial (payment stays 'paid'). Compared
-  // on the SHOP (merchant accounting) side — the single-currency refund basis.
-  const cumulativeRefunded = priorRefunds.reduce(
-    (acc, prior) => acc + prior.totalRefunded.shop.amount,
-    totalRefunded.shop.amount,
+  // on the SHOP (merchant accounting) side — the single-currency refund basis,
+  // summed in SQL now that this refund's own row is committed.
+  const cumulativeRefunded = await sumRefundedShopAmount(orderId);
+  const isFullyRefunded = cumulativeRefunded >= order.totalsGrandTotalShopAmount;
+  await setOrderStatus(
+    orderId,
+    isFullyRefunded ? 'refunded' : 'partially_refunded',
+    isFullyRefunded ? { paymentStatus: 'refunded' } : {},
+    {
+      status: isFullyRefunded ? 'refunded' : 'partially_refunded',
+      at: new Date(),
+      byOxyUserId: actorOxyUserId,
+      note: isFullyRefunded ? FULL_REFUND_NOTE : PARTIAL_REFUND_NOTE,
+    },
   );
-  const isFullyRefunded = cumulativeRefunded >= order.totals.grandTotal.shop.amount;
-  if (isFullyRefunded) {
-    await Order.findOneAndUpdate(
-      { _id: orderId },
-      {
-        $set: { status: 'refunded', 'payment.status': 'refunded' },
-        $push: {
-          statusHistory: {
-            status: 'refunded',
-            at: new Date(),
-            byOxyUserId: actorOxyUserId,
-            note: FULL_REFUND_NOTE,
-          },
-        },
-      },
-    );
-  } else {
-    await Order.findOneAndUpdate(
-      { _id: orderId },
-      {
-        $set: { status: 'partially_refunded' },
-        $push: {
-          statusHistory: {
-            status: 'partially_refunded',
-            at: new Date(),
-            byOxyUserId: actorOxyUserId,
-            note: PARTIAL_REFUND_NOTE,
-          },
-        },
-      },
-    );
-  }
 
   // 11. Decrement the related store customer's lifetime spend (store orders only),
   // in the store's SHOP currency (mirrors the shop-money upsertOnPaid bump).
   if (order.sellerType === 'store' && order.storeId && order.buyerOxyUserId) {
-    await decrementOnRefund(order.storeId, order.buyerOxyUserId, toMoney(totalRefunded.shop));
+    await decrementOnRefund(order.storeId, order.buyerOxyUserId, totalRefunded.shop);
   }
 
   return toRefundDTO(created);
@@ -329,15 +332,13 @@ export async function process(
 
 /** List an order's refunds at the store (newest first), or empty. */
 export async function listForOrder(storeId: string, orderId: string): Promise<RefundDTO[]> {
-  const refunds = await Refund.find({ orderId, storeId })
-    .sort({ createdAt: -1 })
-    .lean<IRefund[]>();
+  const refunds = await findRefundsForOrderInStore(storeId, orderId);
   return refunds.map(toRefundDTO);
 }
 
 /** Load one refund scoped to its store, or throw NOT_FOUND. */
 export async function getById(storeId: string, id: string): Promise<RefundDTO> {
-  const refund = await Refund.findOne({ _id: id, storeId }).lean<IRefund | null>();
+  const refund = await findRefundInStore(storeId, id);
   if (!refund) {
     throw notFound('Refund not found');
   }

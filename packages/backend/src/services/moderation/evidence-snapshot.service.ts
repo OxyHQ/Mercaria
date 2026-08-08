@@ -24,7 +24,8 @@
  *   * `submittedAt` is the REPORT's `createdAt`, never `new Date()`.
  *   * Allegation codes are sorted and deduped (see `report-taxonomy.ts`).
  *   * Resource order is positional and stable — the provider sorts images by the
- *     position the buyer sees, not by whatever order Mongo returned.
+ *     position the buyer sees, never by whatever order the database happened to
+ *     return them in (which no query guarantees without an `ORDER BY`).
  *   * The reporter's free text travels verbatim; it is never trimmed differently
  *     on a second pass.
  *
@@ -35,7 +36,7 @@
 
 import { createHash } from 'node:crypto';
 import type { ReportInput } from '@oxyhq/crowdsource';
-import type { IAbuseReport } from '../../models/abuse-report.js';
+import type { AbuseReportRecord } from '../../db/moderation/abuseReportRepository.js';
 import { toTaxonomyCodes } from './report-taxonomy.js';
 import { subjectProviderFor } from './subjects/registry.js';
 import type { ModerationSubjectSnapshot } from './subjects/types.js';
@@ -102,7 +103,7 @@ export interface BuiltReport {
  * Throws rather than returning null on both failure modes, because both are
  * terminal for THIS report and the outbox needs to dead-letter rather than spin.
  */
-export async function buildReportInput(report: IAbuseReport): Promise<BuiltReport> {
+export async function buildReportInput(report: AbuseReportRecord): Promise<BuiltReport> {
   const provider = subjectProviderFor(report.reportedType);
   if (provider === undefined) {
     throw new ModerationSubjectUnsupportedError(report.reportedType);
@@ -114,7 +115,13 @@ export async function buildReportInput(report: IAbuseReport): Promise<BuiltRepor
   }
 
   const input: ReportInput = {
-    externalReportId: report._id.toHexString(),
+    // The row's own id, verbatim — a 24-hex ObjectId for a pre-cutover report and
+    // a uuid v7 for a newer one. It LEAVES this system as CrowdSource's
+    // `externalReportId` and forms part of their idempotency key, which is one of
+    // the concrete reasons ids were carried across the migration rather than
+    // remapped: a remapped id makes a redelivery a NEW report and a decision
+    // unable to find the report it answers.
+    externalReportId: report.id,
     subject: snapshot.subject,
     content: snapshot.content,
     ...(snapshot.attachments === undefined ? {} : { attachments: snapshot.attachments }),

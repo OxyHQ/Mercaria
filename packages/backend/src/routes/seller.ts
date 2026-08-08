@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { validateBody, validateObjectId, validateQuery } from '../middleware/validate.js';
+import { validateBody, validateId, validateQuery } from '../middleware/validate.js';
 import {
   createP2PListingSchema,
   updateListingSchema,
@@ -43,22 +43,22 @@ router.post(
   validateBody(createP2PListingSchema),
   createMyListing,
 );
-router.get('/listings/:id', makeRateLimiter('listings'), validateObjectId('id'), getMyListing);
+router.get('/listings/:id', makeRateLimiter('listings'), validateId('id'), getMyListing);
 router.patch(
   '/listings/:id',
   makeRateLimiter('listings'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(updateListingSchema),
   updateMyListing,
 );
-router.delete('/listings/:id', makeRateLimiter('listings'), validateObjectId('id'), deleteMyListing);
+router.delete('/listings/:id', makeRateLimiter('listings'), validateId('id'), deleteMyListing);
 
 // Seller orders (incoming P2P orders + fulfilment).
 router.get('/orders', makeRateLimiter('orders'), validateQuery(orderListQuerySchema), listSellerOrders);
 router.patch(
   '/orders/:id/fulfill',
   makeRateLimiter('orders'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(fulfillOrderSchema),
   fulfillOrderHandler,
 );

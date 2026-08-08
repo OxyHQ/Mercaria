@@ -16,6 +16,11 @@
  * happens, which is exactly why this has to be atomic rather than carefully
  * ordered.
  *
+ * `enqueueModerationOutboxEvent` REFUSES the root connection rather than trusting
+ * this file to pass the right handle — see `db/moderation/transactionGuard.ts`.
+ * Every other repository in this codebase defaults that parameter to `getDb()`, so
+ * the dangerous call is the one you get by forgetting an argument.
+ *
  * The one report with NO delivery row is the one whose type has no subject
  * provider, and that is a different claim entirely: not "delivery failed" but
  * "there was never a route out of this application for this kind of object". Those
@@ -24,26 +29,24 @@
  * missing row months later.
  */
 
-import mongoose, { type ClientSession } from 'mongoose';
+import { isUniqueViolation } from '@oxyhq/db';
 import {
   ABUSE_REPORT_CATEGORIES,
   ABUSE_REPORTED_TYPES,
   type AbuseReportCategory,
   type AbuseReportedType,
 } from '@mercaria/shared-types';
-import { AbuseReport, type IAbuseReport } from '../../models/abuse-report.js';
-import { conflict, validationError } from '../../lib/errors/error-codes.js';
+import { getDb } from '../../db/postgres.js';
 import {
-  enqueueModerationOutboxEvent,
-  reportSubmitEventId,
-} from './moderation-outbox.service.js';
+  ABUSE_REPORT_DUPLICATE_CONSTRAINT,
+  findAbuseReportByReporterAndObject,
+  insertAbuseReport,
+  type AbuseReportRecord,
+} from '../../db/moderation/abuseReportRepository.js';
+import { enqueueModerationOutboxEvent } from '../../db/moderation/moderationOutboxRepository.js';
+import { conflict, validationError } from '../../lib/errors/error-codes.js';
+import { reportSubmitEventId } from './moderation-outbox.service.js';
 import { subjectProviderFor } from './subjects/registry.js';
-
-const TRANSACTION_OPTIONS = {
-  readPreference: 'primary' as const,
-  readConcern: { level: 'snapshot' as const },
-  writeConcern: { w: 'majority' as const },
-};
 
 export interface CreateAbuseReportArgs {
   reporterOxyUserId: string;
@@ -54,7 +57,7 @@ export interface CreateAbuseReportArgs {
 }
 
 export interface CreateAbuseReportResult {
-  report: IAbuseReport;
+  report: AbuseReportRecord;
   /**
    * The durable delivery row.
    *
@@ -67,10 +70,11 @@ export interface CreateAbuseReportResult {
 /**
  * Refuses an identifier that is not a string, at the point the QUERY is built.
  *
- * The route validates its body, but a type is erased at runtime and a truthiness
- * check happily passes `{$ne: null}`. Handed that, `findOne` matches an UNRELATED
- * report and this function answers "you already reported this" about somebody
- * else's row — and the insert would then store an operator where an id belongs.
+ * The route validates its body, but a type is erased at runtime. Under Mongo the
+ * concrete danger was `{$ne: null}` reaching `findOne` and matching an UNRELATED
+ * report; drizzle binds parameters, so that particular injection is gone — but a
+ * non-string still reaches the insert and stores an object where an id belongs,
+ * and the duplicate read still has to be asked about a real id to mean anything.
  *
  * The guard lives here rather than at the route because `createAbuseReport` is
  * exported: a queue worker, a backfill script or a future admin path is under no
@@ -89,9 +93,9 @@ function requireIdentifier(value: unknown, field: string): string {
  *
  * A type PREDICATE rather than a bare `includes` call, because `includes` returns
  * a boolean and leaves the value widened to `string` — which then reaches the
- * Mongoose query as an unnarrowed type and either fails to compile or, with a
- * cast, lets an unvalidated value through. The predicate is what makes the
- * validation and the type agree.
+ * repository as an unnarrowed type and either fails to compile or, with a cast,
+ * lets an unvalidated value through. The predicate is what makes the validation
+ * and the type agree.
  */
 function isReportedType(value: string): value is AbuseReportedType {
   return (ABUSE_REPORTED_TYPES as readonly string[]).includes(value);
@@ -107,31 +111,14 @@ function isReportCategory(value: string): value is AbuseReportCategory {
  * Stored ON the row rather than left to be inferred from a missing outbox row. A
  * missing row is also what a LOST WRITE looks like, and the two need to be
  * distinguishable months later without re-deriving which types had providers at
- * the time. Bounded by the schema's 300-character limit.
+ * the time. Bounded by `abuse_reports_local_status_reason_length_check` at 300
+ * characters, which every value this composes is comfortably inside.
  */
 function localOnlyReason(reportedType: string): string {
   return (
     `Mercaria has no moderation subject provider for '${reportedType}', so this report ` +
     'is recorded locally and is not sent for community review.'
   );
-}
-
-async function inTransaction<T>(
-  operation: (session: ClientSession) => Promise<T>,
-): Promise<T> {
-  const session = await mongoose.startSession();
-  let result: T | undefined;
-  try {
-    await session.withTransaction(async () => {
-      result = await operation(session);
-    }, TRANSACTION_OPTIONS);
-    if (result === undefined) {
-      throw new Error('Report intake transaction completed without a result');
-    }
-    return result;
-  } finally {
-    await session.endSession();
-  }
 }
 
 /**
@@ -153,6 +140,14 @@ async function inTransaction<T>(
  * the backlog instead of stranding it — the DISPATCHER is what is gated, not the
  * durable record. Nothing here is conditional on a third party's state; only on
  * whether this application knows how to describe the object at all.
+ *
+ * @throws A CONFLICT when this reporter already reported this object — from the
+ *   read below when the two submissions are sequential, and from
+ *   `abuse_reports_reporter_reported_key` when they genuinely race. The unique
+ *   violation is caught OUTSIDE the transaction on purpose: a 23505 aborts the
+ *   transaction it happens in, so catching it inside and carrying on would fail on
+ *   the next statement. Mapping it here makes the racing case and the sequential
+ *   case indistinguishable to the client, which is what the read is for.
  */
 export async function createAbuseReport(
   input: CreateAbuseReportArgs,
@@ -178,20 +173,19 @@ export async function createAbuseReport(
 
   const deliverable = subjectProviderFor(reportedType) !== undefined;
 
-  return await inTransaction(async (session) => {
-    const existing = await AbuseReport.findOne({
-      reporterOxyUserId,
-      reportedId,
-      reportedType,
-    })
-      .session(session)
-      .lean<IAbuseReport | null>();
-    if (existing) {
-      throw conflict('You have already reported this item.');
-    }
+  try {
+    return await getDb().transaction(async (tx) => {
+      const existing = await findAbuseReportByReporterAndObject(
+        reporterOxyUserId,
+        reportedType,
+        reportedId,
+        tx,
+      );
+      if (existing) {
+        throw conflict('You have already reported this item.');
+      }
 
-    const [report] = await AbuseReport.create(
-      [
+      const report = await insertAbuseReport(
         {
           reportedType,
           reportedId,
@@ -201,21 +195,26 @@ export async function createAbuseReport(
           localStatus: deliverable ? 'queued' : 'received',
           ...(deliverable ? {} : { localStatusReason: localOnlyReason(reportedType) }),
         },
-      ],
-      { session },
-    );
+        tx,
+      );
 
-    if (!deliverable) return { report };
+      if (!deliverable) return { report };
 
-    const outboxEventId = await enqueueModerationOutboxEvent(
-      {
-        eventId: reportSubmitEventId(report._id.toHexString()),
-        kind: 'report.submit',
-        payload: { reportId: report._id.toHexString() },
-      },
-      session,
-    );
+      const outboxEventId = await enqueueModerationOutboxEvent(
+        {
+          eventId: reportSubmitEventId(report.id),
+          kind: 'report.submit',
+          payload: { reportId: report.id },
+        },
+        tx,
+      );
 
-    return { report, outboxEventId };
-  });
+      return { report, outboxEventId };
+    });
+  } catch (error: unknown) {
+    if (isUniqueViolation(error, ABUSE_REPORT_DUPLICATE_CONSTRAINT)) {
+      throw conflict('You have already reported this item.');
+    }
+    throw error;
+  }
 }

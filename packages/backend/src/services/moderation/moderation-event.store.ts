@@ -1,5 +1,5 @@
 /**
- * The webhook dedupe claim, backed by Mongo instead of process memory.
+ * The webhook dedupe claim, backed by Postgres instead of process memory.
  *
  * `@oxyhq/crowdsource-express` defaults to an in-process map, and its own doc
  * comment names the condition that makes that wrong: two instances behind a load
@@ -16,61 +16,42 @@
  *   * Claiming with an INSERT and releasing on failure gets both: one in flight,
  *     and a failure still retryable.
  *
- * The claim is an insert on a unique `_id`, so the winner is decided by Mongo
- * rather than by a read this code performs and then acts on.
+ * ## There is deliberately no `try` around the claim
+ *
+ * The winner is decided by the unique primary key, and the repository reports the
+ * loss as a VALUE (`false`) rather than as an exception — so there is no
+ * duplicate-key error to recognise and, therefore, no `catch` that could ever be
+ * widened into swallowing a real failure. That widening is exactly the mistake the
+ * Mongo shape was one line away from: a database outage read as "already
+ * processed" answers CrowdSource 200 and retires a decision nobody ever handled.
+ * Here anything that throws reaches the middleware, which answers non-2xx and
+ * leaves the event on the sender's retry schedule.
  */
 
 import type { ProcessedEventStore } from '@oxyhq/crowdsource-express';
 import {
-  ModerationEvent,
-  MODERATION_EVENT_RETENTION_SECONDS,
-} from '../../models/moderation-event.js';
+  claimModerationEvent,
+  releaseModerationEvent,
+} from '../../db/moderation/moderationEventRepository.js';
 import { log } from '../../lib/logger.js';
 
-function isDuplicateKeyError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    Number((error as { code?: unknown }).code) === 11000
-  );
-}
+/** What `event_type` records for a claim taken by the webhook receiver. */
+const WEBHOOK_EVENT_TYPE = 'webhook';
 
-export function mongoProcessedEventStore(): ProcessedEventStore {
+export function postgresProcessedEventStore(): ProcessedEventStore {
   return {
     async claim(eventId: string): Promise<boolean> {
-      const now = new Date();
-      try {
-        await ModerationEvent.create({
-          _id: eventId,
-          eventType: 'webhook',
-          claimedAt: now,
-          expiresAt: new Date(
-            now.getTime() + MODERATION_EVENT_RETENTION_SECONDS * 1_000,
-          ),
-        });
-        return true;
-      } catch (error: unknown) {
-        if (isDuplicateKeyError(error)) return false;
-        /**
-         * A Mongo outage must NOT be read as "already processed".
-         *
-         * Rethrowing makes the receiver refuse the delivery, so CrowdSource
-         * retries it. Returning false instead would silently drop a decision on
-         * the floor and acknowledge it as handled — the one failure mode this
-         * whole store exists to prevent.
-         */
-        throw error;
-      }
+      return await claimModerationEvent(eventId, WEBHOOK_EVENT_TYPE);
     },
 
     async release(eventId: string): Promise<void> {
       try {
-        await ModerationEvent.deleteOne({ _id: eventId });
+        await releaseModerationEvent(eventId);
       } catch (error: unknown) {
-        // The claim will expire by TTL even if this fails, so a redelivery is
-        // still eventually processable. Worth a log line, never worth throwing
-        // from a release path that runs while another error is being handled.
+        // The claim is swept by `expiryTargets` even if this fails, so a
+        // redelivery is still eventually processable. Worth a log line, never
+        // worth throwing from a release path that runs while another error is
+        // already being handled.
         log.moderation.warn(
           { err: error, eventId },
           '[Moderation] failed to release webhook event claim',

@@ -18,8 +18,8 @@
  * than the question needs.
  */
 
-import mongoose from 'mongoose';
-import { Review, type IReview } from '../../../models/review.js';
+import { isLiveEntityId } from '@oxyhq/db';
+import { findReviewById, type ReviewRecord } from '../../../db/buyers/reviewRepository.js';
 import { config } from '../../../config/index.js';
 import type {
   ModerationContextResource,
@@ -30,27 +30,13 @@ import type {
 
 const MAX_TEXT_LENGTH = 4_000;
 
-const SNAPSHOT_PROJECTION =
-  'authorOxyUserId targetType listingId storeId sellerOxyUserId orderId rating title body status createdAt';
-
-type SnapshotReview = Pick<
-  IReview,
-  | '_id'
-  | 'authorOxyUserId'
-  | 'targetType'
-  | 'listingId'
-  | 'rating'
-  | 'title'
-  | 'body'
-  | 'orderId'
-  | 'createdAt'
->;
-
-async function loadReview(reviewId: string): Promise<SnapshotReview | null> {
-  if (!mongoose.isValidObjectId(reviewId)) return null;
-  return await Review.findById(reviewId)
-    .select(SNAPSHOT_PROJECTION)
-    .lean<SnapshotReview | null>();
+async function loadReview(reviewId: string): Promise<ReviewRecord | null> {
+  // `isLiveEntityId`, NOT `mongoose.isValidObjectId`: a review written after the
+  // Postgres cutover carries a uuid v7, which the ObjectId check REJECTS — so the
+  // old guard would silently refuse to snapshot every new review, and a report
+  // against one would be stored with no subject to send.
+  if (!isLiveEntityId(reviewId)) return null;
+  return await findReviewById(reviewId);
 }
 
 /**
@@ -60,8 +46,12 @@ async function loadReview(reviewId: string): Promise<SnapshotReview | null> {
  * can judge for harassment or hate, and a report about one is answerable only as
  * `insufficient_context` — so the snapshot says what the review consisted of
  * rather than sending an empty text resource, which the contract rejects anyway.
+ *
+ * `title` and `body` are NULL when absent, never `''` — a Mongo field that was
+ * simply not set is a `NULL` column here — so both branches of the coalesce are
+ * reachable and the empty-string case still collapses to `null` after the trim.
  */
-function reviewText(review: SnapshotReview): string | null {
+function reviewText(review: ReviewRecord): string | null {
   const title = review.title?.trim() ?? '';
   const body = review.body?.trim() ?? '';
   if (!title && !body) return null;
@@ -69,7 +59,7 @@ function reviewText(review: SnapshotReview): string | null {
   return text.slice(0, MAX_TEXT_LENGTH);
 }
 
-function ratingOnlySubject(review: SnapshotReview): ModerationResource {
+function ratingOnlySubject(review: ReviewRecord): ModerationResource {
   return {
     type: 'metadata',
     data: {
@@ -80,7 +70,7 @@ function ratingOnlySubject(review: SnapshotReview): ModerationResource {
   };
 }
 
-function ratingContext(review: SnapshotReview): ModerationContextResource {
+function ratingContext(review: ReviewRecord): ModerationContextResource {
   return {
     role: 'context',
     type: 'metadata',
@@ -88,11 +78,16 @@ function ratingContext(review: SnapshotReview): ModerationContextResource {
       rating: review.rating,
       targetType: review.targetType,
       /**
-       * Whether an order backs this review. `Review.orderId` is set by the
+       * Whether an order backs this review. `reviews.order_id` is set by the
        * verified-purchase path, so its ABSENCE is the fake-review signal — stated
        * as the fact Mercaria holds, not as a verdict about the reviewer.
+       *
+       * `!== null`, because an unset column reads as NULL rather than as
+       * `undefined`. `!== undefined` would answer `true` for every review ever
+       * written and silently turn the strongest fake-review signal into a
+       * constant.
        */
-      verifiedPurchase: review.orderId !== undefined,
+      verifiedPurchase: review.orderId !== null,
     },
   };
 }
@@ -106,8 +101,8 @@ function ratingContext(review: SnapshotReview): ModerationContextResource {
  * one — an unresolvable link is worse than none, because it looks like evidence
  * somebody could go and check.
  */
-function permalink(review: SnapshotReview): string | undefined {
-  return review.listingId === undefined
+function permalink(review: ReviewRecord): string | undefined {
+  return review.listingId === null
     ? undefined
     : `${config.web.origin}/products/${review.listingId}`;
 }
@@ -130,14 +125,12 @@ export function createReviewSubjectProvider(): ModerationSubjectProvider {
           : {
               type: 'text',
               data: { text },
-              ...(review.createdAt === undefined
-                ? {}
-                : { createdAt: new Date(review.createdAt) }),
+              createdAt: review.createdAt,
             };
 
       return {
         subject: {
-          externalId: review._id.toHexString(),
+          externalId: review.id,
           type: 'commerce.review',
           ...(link === undefined ? {} : { permalink: link }),
           author: { oxyUserId: review.authorOxyUserId },

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { optionalAuth } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { validateObjectId } from '../middleware/validate.js';
+import { validateId } from '../middleware/validate.js';
 import { browseListings, getListingById } from '../controllers/listings.controller.js';
 import { listListingReviews } from '../controllers/reviews.controller.js';
 
@@ -28,12 +28,12 @@ router.get('/', makeRateLimiter('search'), browseListings);
  * GET /listings/:id
  * The product detail page — a single fully-hydrated listing.
  */
-router.get('/:id', validateObjectId('id'), getListingById);
+router.get('/:id', validateId('id'), getListingById);
 
 /**
  * GET /listings/:id/reviews
  * A listing's published reviews (paginated, newest first).
  */
-router.get('/:id/reviews', validateObjectId('id'), listListingReviews);
+router.get('/:id/reviews', validateId('id'), listListingReviews);
 
 export default router;

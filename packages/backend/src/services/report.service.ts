@@ -4,10 +4,13 @@
  * The richer analytics surface beside the dashboard `storeStats` in
  * `order.service`. Every figure is scoped to ONE store and (for revenue/AOV/top
  * products/sales) derived from its PAID orders; money is summed on the SHOP
- * (merchant accounting) side and `$match`ed to the store's `defaultCurrency`, so reports
- * NEVER mix currencies. All three reports run server-side Mongo aggregations
- * (`$match`/`$group`/`$dateTrunc`) rather than loading documents into memory, so
- * they scale with order volume. Reports are READ-only — they never mutate orders.
+ * (merchant accounting) side and filtered to the store's `defaultCurrency` IN
+ * SQL, so reports NEVER mix currencies. Every aggregation runs server-side —
+ * `count`, `sum`, `date_trunc` and a `GROUP BY` — rather than loading rows into
+ * the process, so they scale with order volume. Reports are READ-only.
+ *
+ * This module owns the report SHAPE (ranges, limits, zero-filled breakdowns) and
+ * nothing else; each aggregate itself lives beside the table it reads.
  */
 
 import type {
@@ -19,9 +22,15 @@ import type {
   SourceChannelBreakdown,
   TopProduct,
 } from '@mercaria/shared-types';
-import { Order } from '../models/order.js';
-import { Refund } from '../models/refund.js';
-import { Store, type IStore } from '../models/store.js';
+import {
+  countOrdersByStatus,
+  countPaidOrdersBySourceChannel,
+  findTopProducts,
+  sumPaidRevenue,
+  sumPaidRevenueByBucket,
+} from '../db/orders/orderRepository.js';
+import { sumStoreRefunds } from '../db/orders/refundRepository.js';
+import { findStoreRow } from '../db/stores/storeRepository.js';
 import { roundMinorUnits } from '../utils/money.js';
 
 /** Number of days in the default report range when `from`/`to` are omitted. */
@@ -55,14 +64,12 @@ function zeroChannels(): SourceChannelBreakdown {
 /**
  * Resolve a store's default accounting currency, falling back to FAIR. Reports
  * never mix currencies — a store reports in one currency — so this single value
- * tags every `Money` the reports emit, which is what makes each aggregate
- * self-describing rather than a bare number.
+ * both tags every `Money` the reports emit (which is what makes each aggregate
+ * self-describing rather than a bare number) and FILTERS the rows they sum.
  */
 async function storeCurrency(storeId: string): Promise<Money['currency']> {
-  const store = await Store.findById(storeId).select('defaultCurrency').lean<
-    Pick<IStore, 'defaultCurrency'> | null
-  >();
-  return (store?.defaultCurrency ?? 'FAIR') as Money['currency'];
+  const store = await findStoreRow(storeId);
+  return (store?.defaultCurrency as Money['currency'] | undefined) ?? 'FAIR';
 }
 
 /**
@@ -80,7 +87,7 @@ function resolveRange(from?: string, to?: string): { from: Date; to: Date } {
     ? new Date(parsedFrom)
     : new Date(toDate.getTime() - DEFAULT_RANGE_DAYS * MS_PER_DAY);
 
-  // Guarantee ascending order so the aggregation `$gte`/`$lte` window is valid.
+  // Guarantee ascending order so the window predicate is valid.
   if (fromDate.getTime() > toDate.getTime()) {
     return { from: toDate, to: fromDate };
   }
@@ -104,61 +111,40 @@ export interface TopProductsParams {
 /**
  * Compute a store's report summary: total + paid order counts, paid-order
  * revenue, average order value, lifetime refund total, per-status order counts,
- * and the paid-order split by source channel. Aggregates the store's orders;
- * money is the store's default currency.
+ * and the paid-order split by source channel.
+ *
+ * `orderCount` sums the per-status counts rather than issuing a second `count(*)`
+ * — one query cannot disagree with itself, and two run moments apart can.
  */
 export async function getSummary(storeId: string): Promise<ReportSummary> {
   const currency = await storeCurrency(storeId);
 
-  const [statusGroups, channelGroups, revenueAgg, refundAgg] = await Promise.all([
-    // All orders by status.
-    Order.aggregate<{ _id: OrderStatus; n: number }>([
-      { $match: { storeId } },
-      { $group: { _id: '$status', n: { $sum: 1 } } },
-    ]),
-    // PAID orders by source channel.
-    Order.aggregate<{ _id: string; n: number }>([
-      { $match: { storeId, 'payment.status': 'paid' } },
-      { $group: { _id: '$sourceChannel', n: { $sum: 1 } } },
-    ]),
-    // PAID-order count + summed SHOP grandTotal (revenue), matched to the store's
-    // shop currency so revenue never mixes currencies.
-    Order.aggregate<{ _id: null; count: number; revenue: number }>([
-      { $match: { storeId, 'payment.status': 'paid', 'totals.grandTotal.shop.currency': currency } },
-      { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$totals.grandTotal.shop.amount' } } },
-    ]),
-    // Summed SHOP refund totals across the store's refunds (same shop currency).
-    Refund.aggregate<{ _id: null; total: number }>([
-      { $match: { storeId, 'totalRefunded.shop.currency': currency } },
-      { $group: { _id: null, total: { $sum: '$totalRefunded.shop.amount' } } },
-    ]),
+  const [statusCounts, channelCounts, paid, refundAmount] = await Promise.all([
+    countOrdersByStatus(storeId),
+    countPaidOrdersBySourceChannel(storeId),
+    sumPaidRevenue(storeId, currency),
+    sumStoreRefunds(storeId, currency),
   ]);
 
   const byStatus = zeroStatusCounts();
   let orderCount = 0;
-  for (const group of statusGroups) {
-    if (group._id in byStatus) {
-      byStatus[group._id] = group.n;
-    }
-    orderCount += group.n;
+  for (const [status, n] of statusCounts) {
+    byStatus[status] = n;
+    orderCount += n;
   }
 
   const bySourceChannel = zeroChannels();
-  for (const group of channelGroups) {
-    if (group._id === 'storefront' || group._id === 'pos' || group._id === 'draft') {
-      bySourceChannel[group._id] = group.n;
-    }
+  for (const [channel, n] of channelCounts) {
+    bySourceChannel[channel] = n;
   }
 
-  const paidOrderCount = revenueAgg[0]?.count ?? 0;
-  const revenueAmount = revenueAgg[0]?.revenue ?? 0;
-  const refundAmount = refundAgg[0]?.total ?? 0;
-  const aovAmount = paidOrderCount > 0 ? roundMinorUnits(revenueAmount / paidOrderCount) : 0;
+  const aovAmount =
+    paid.paidOrderCount > 0 ? roundMinorUnits(paid.revenue / paid.paidOrderCount) : 0;
 
   return {
     orderCount,
-    paidOrderCount,
-    revenue: { amount: revenueAmount, currency },
+    paidOrderCount: paid.paidOrderCount,
+    revenue: { amount: paid.revenue, currency },
     averageOrderValue: { amount: aovAmount, currency },
     refundTotal: { amount: refundAmount, currency },
     byStatus,
@@ -167,10 +153,13 @@ export async function getSummary(storeId: string): Promise<ReportSummary> {
 }
 
 /**
- * Time-bucketed sales over the (validated/clamped) range, one point per
- * non-empty bucket of `interval` granularity, ascending by bucket. Aggregates
- * PAID orders by `paidAt` (falling back to `createdAt` when a legacy order lacks
- * a `paidAt`), summing `grandTotal` per bucket via Mongo `$dateTrunc`.
+ * Time-bucketed sales over the (validated/clamped) range, one point per non-empty
+ * bucket of `interval` granularity, ascending by bucket.
+ *
+ * `date_trunc` replaces Mongo's `$dateTrunc` and buckets by the same timeline
+ * anchor: `coalesce(paid_at, created_at)`, so an order whose platform reported no
+ * settlement time still lands in the bucket it was created in rather than
+ * vanishing from the report.
  */
 export async function getSalesReport(
   storeId: string,
@@ -180,29 +169,10 @@ export async function getSalesReport(
   const { from, to } = resolveRange(params.from, params.to);
   const interval: SalesReportInterval = params.interval ?? 'day';
 
-  const buckets = await Order.aggregate<{ _id: Date; orders: number; revenue: number }>([
-    {
-      $match: {
-        storeId,
-        'payment.status': 'paid',
-        'totals.grandTotal.shop.currency': currency,
-      },
-    },
-    // Order timeline anchor: when the payment settled (fallback to createdAt).
-    { $addFields: { paidMoment: { $ifNull: ['$payment.paidAt', '$createdAt'] } } },
-    { $match: { paidMoment: { $gte: from, $lte: to } } },
-    {
-      $group: {
-        _id: { $dateTrunc: { date: '$paidMoment', unit: interval } },
-        orders: { $sum: 1 },
-        revenue: { $sum: '$totals.grandTotal.shop.amount' },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]);
+  const buckets = await sumPaidRevenueByBucket(storeId, currency, { from, to }, interval);
 
   return buckets.map((bucket) => ({
-    bucket: bucket._id.toISOString(),
+    bucket: bucket.bucket.toISOString(),
     orders: bucket.orders,
     revenue: { amount: bucket.revenue, currency },
   }));
@@ -211,8 +181,11 @@ export async function getSalesReport(
 /**
  * The top-selling products over the (validated/clamped) range, ranked by units
  * sold then revenue, limited to `limit` (default 10, clamped to a max).
- * Aggregates the line items of PAID orders by `listingId`, summing each line's
- * quantity (units) and `lineTotal` (revenue), keeping the latest seen `title`.
+ *
+ * A join to `order_items` replaces Mongo's `$unwind`. The title comes from
+ * `max(title)` rather than `$last`: a listing renamed between two sales has two
+ * titles in the snapshot set, and `$last` returned whichever the storage engine
+ * happened to emit last, which Mongo never promised to order.
  */
 export async function getTopProducts(
   storeId: string,
@@ -225,30 +198,10 @@ export async function getTopProducts(
     MAX_TOP_PRODUCTS_LIMIT,
   );
 
-  const rows = await Order.aggregate<{
-    _id: string;
-    title: string;
-    unitsSold: number;
-    revenue: number;
-  }>([
-    { $match: { storeId, 'payment.status': 'paid', 'totals.grandTotal.shop.currency': currency } },
-    { $addFields: { paidMoment: { $ifNull: ['$payment.paidAt', '$createdAt'] } } },
-    { $match: { paidMoment: { $gte: from, $lte: to } } },
-    { $unwind: '$items' },
-    {
-      $group: {
-        _id: '$items.listingId',
-        title: { $last: '$items.title' },
-        unitsSold: { $sum: '$items.quantity' },
-        revenue: { $sum: '$items.lineTotal.shop.amount' },
-      },
-    },
-    { $sort: { unitsSold: -1, revenue: -1 } },
-    { $limit: limit },
-  ]);
+  const rows = await findTopProducts(storeId, currency, { from, to }, limit);
 
   return rows.map((row) => ({
-    listingId: row._id,
+    listingId: row.listingId,
     title: row.title,
     unitsSold: row.unitsSold,
     revenue: { amount: row.revenue, currency },

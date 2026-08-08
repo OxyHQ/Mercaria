@@ -68,8 +68,6 @@
  * the ledger table.
  */
 
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   MIGRATION_RUNS,
   readTargetDatabase,
@@ -77,21 +75,8 @@ import {
   type MigrationRun,
   type RequiredExtension,
 } from '@oxyhq/db/migrate';
+import { MIGRATIONS_FOLDER } from './migrationsFolder.js';
 import { log } from '../lib/logger.js';
-
-/**
- * The `drizzle/` folder at the root of this package, resolved from this
- * module's own location so it is correct whether this runs as
- * `src/db/migrate.ts` (bun, dev and the test harness) or as
- * `dist/db/migrate.js` (node, the production one-shot task) — both sit exactly
- * two directories below the package root.
- *
- * NOTE for the deploy phase: the runtime image copies `packages/backend/dist`
- * and nothing else, so the ECS one-shot task also needs `drizzle/` copied in.
- * That `COPY` cannot be added until the folder has a first migration in it —
- * an empty source path fails the build.
- */
-const MIGRATIONS_FOLDER = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'drizzle');
 
 /**
  * The extensions Mercaria's schema depends on, ensured before any migration is

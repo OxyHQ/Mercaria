@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId, validateQuery } from '../../middleware/validate.js';
+import { validateBody, validateId, validateQuery } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import {
   orderListQuerySchema,
@@ -32,25 +32,25 @@ const router = Router({ mergeParams: true });
 
 router.get('/', requireStorePermission('orders:read'), validateQuery(orderListQuerySchema), listStoreOrders);
 router.get('/stats', requireStorePermission('stats:read'), getStoreStats);
-router.get('/:id', requireStorePermission('orders:read'), validateObjectId('id'), getStoreOrder);
+router.get('/:id', requireStorePermission('orders:read'), validateId('id'), getStoreOrder);
 router.patch(
   '/:id/status',
   requireStorePermission('orders:fulfill'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(orderStatusPatchSchema),
   patchStoreOrderStatusHandler,
 );
 router.post(
   '/:id/refunds',
   requireStorePermission('refunds:write'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(createRefundSchema),
   createOrderRefund,
 );
 router.get(
   '/:id/refunds',
   requireStorePermission('orders:read'),
-  validateObjectId('id'),
+  validateId('id'),
   listOrderRefunds,
 );
 

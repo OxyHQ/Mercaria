@@ -1,0 +1,630 @@
+/**
+ * The connectors-domain repositories, against a REAL Postgres database.
+ *
+ * The nine mocked service suites next door cover the logic — which direction
+ * gates which webhook, which field a pin protects — and every one of them is
+ * blind to the same class of thing: a mocked repository accepts any argument and
+ * returns whatever the test says, so a CHECK that does not exist, a unique index
+ * that does not exist, and a read that returns a column it should have withheld
+ * all look identical to a passing suite.
+ *
+ * Each block here covers something only a server can answer:
+ *
+ *  - the all-or-nothing credential CHECK genuinely REJECTS a two-of-three
+ *    envelope, and accepts both zero and three — the fixture set spans the
+ *    distinction the constraint exists to make, so a constraint that had been
+ *    dropped could not pass it;
+ *  - a cleared envelope is NULL and not `''`, which the CHECK cannot tell apart
+ *    (three empty strings are three non-nulls) and which decrypts to nothing
+ *    while reading as a configured connection;
+ *  - `UNIQUE(store_id, provider)` makes a reconnect UPDATE the one row rather
+ *    than duplicate it, which is the property `upsertConnection`'s explicit
+ *    conflict target rests on;
+ *  - `UNIQUE(hash)` on `channel_api_keys` refuses a duplicate digest, and a
+ *    REVOKED key keeps its row — revocation must never become a delete;
+ *  - a `connections` row read through `publicColumns` has no credential
+ *    properties AT RUNTIME. The type-level half is checked by `tsc`; this is the
+ *    half `tsc` cannot see, and the one that decides whether a serializer could
+ *    ship a secret;
+ *  - `sync_settings_target_location_id` is a real foreign key, so a bogus target
+ *    is refused with SQLSTATE 23503 instead of stored as a dangling id;
+ *  - the reconcile sweep's filter — a `where` no mocked test can inspect —
+ *    selects exactly the connected, product-pulling `pull` connections.
+ */
+
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import {
+  constraintNameOf,
+  isCheckViolation,
+  isForeignKeyViolation,
+  isUniqueViolation,
+  uuidv7,
+} from '@oxyhq/db';
+import { closePostgres, connectPostgres, type Database } from '../postgres.js';
+import { channelApiKeys, connections } from '../schema/connectors.js';
+import { stores } from '../schema/stores.js';
+import {
+  disconnectConnection,
+  findConnection,
+  findConnectionCredentials,
+  findConnectionIdsByShopDomain,
+  findConnectionWebhookSecret,
+  findPullConnectionsToReconcile,
+  setConnectionWebhooks,
+  updateSyncSettings,
+  upsertConnection,
+} from '../connectors/connectionRepository.js';
+import {
+  findActiveChannelApiKeys,
+  findVerificationCandidates,
+  insertChannelApiKey,
+  revokeChannelApiKey,
+  touchChannelApiKeyLastUsed,
+} from '../connectors/channelApiKeyRepository.js';
+import { finishSyncRun, insertSyncRun } from '../connectors/syncRunRepository.js';
+import { insertLocation } from '../stores/locationRepository.js';
+import { insertStore } from '../stores/storeRepository.js';
+
+let db: Database;
+
+/** Store ids created by a test, dropped after it so the shared database stays clean. */
+const createdStoreIds: string[] = [];
+
+/** A full AES-GCM envelope, as `lib/connector-crypto.ts` produces one. */
+const ENVELOPE = { ciphertext: 'cipher', iv: 'nonce', tag: 'auth-tag' };
+
+/** Create a store through the repository and register it for cleanup. */
+async function makeStore(): Promise<string> {
+  // The WHOLE uuid, not a prefix: v7 is time-ordered, so two ids minted in the
+  // same millisecond share their leading characters and a truncated suffix
+  // collides with `stores_handle_key`.
+  const suffix = uuidv7();
+  const store = await insertStore(
+    {
+      handle: `connectors-${suffix}`,
+      name: 'Connectors store',
+      description: '',
+      brandColor: '#123456',
+      defaultCurrency: 'FAIR',
+    },
+    [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
+  );
+  createdStoreIds.push(store.id);
+  return store.id;
+}
+
+/** A connected `pull` Shopify connection with a full credential envelope. */
+async function makeConnection(storeId: string) {
+  return upsertConnection(storeId, 'shopify', {
+    mode: 'pull',
+    status: 'connected',
+    connectedAt: new Date(),
+    credentials: ENVELOPE,
+    shopDomain: `shop-${uuidv7()}.myshopify.com`,
+    shopCurrency: 'USD',
+    scopes: ['read_products'],
+  });
+}
+
+beforeAll(async () => {
+  db = await connectPostgres();
+}, 120_000);
+
+afterEach(async () => {
+  for (const storeId of createdStoreIds.splice(0)) {
+    // `connections.store_id` and `channel_api_keys.store_id` both CASCADE, and
+    // `sync_runs.connection_id` cascades from the connection — so dropping the
+    // store is enough, and that it IS enough is itself worth relying on rather
+    // than deleting four tables by hand.
+    await db.delete(stores).where(eq(stores.id, storeId));
+  }
+});
+
+afterAll(async () => {
+  await closePostgres();
+});
+
+describe('the all-or-nothing credential CHECK', () => {
+  it('accepts an envelope of THREE parts', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    const stored = await findConnectionCredentials(conn.id);
+    expect(stored).toEqual(ENVELOPE);
+  });
+
+  it('accepts an envelope of ZERO parts — a connection awaiting authorization', async () => {
+    const storeId = await makeStore();
+    // Both sides of the `in (0, 3)` must be exercised: a fixture set that only
+    // ever writes three cannot tell a working CHECK from one that requires three.
+    const conn = await upsertConnection(storeId, 'woocommerce', {
+      mode: 'push_in',
+      status: 'connected',
+      connectedAt: new Date(),
+    });
+
+    expect(conn.hasCredentials).toBe(false);
+    expect(await findConnectionCredentials(conn.id)).toBeNull();
+  });
+
+  it('REJECTS a two-of-three envelope — a ciphertext with no tag', async () => {
+    const storeId = await makeStore();
+
+    // The shape the constraint exists for: a ciphertext and an iv decrypt to
+    // nothing, while `credentials_ciphertext is not null` still reads as a
+    // configured connection. Written through the raw insert deliberately — the
+    // repository has no API that can produce it, which is the point.
+    let caught: unknown;
+    try {
+      await db.insert(connections).values({
+        storeId,
+        provider: 'shopify',
+        mode: 'pull',
+        status: 'connected',
+        connectedAt: new Date(),
+        credentialsCiphertext: ENVELOPE.ciphertext,
+        credentialsIv: ENVELOPE.iv,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    // The CHECK by NAME, read off the driver error rather than its message:
+    // drizzle wraps the failure and its `toString()` prints the SQL, not the
+    // constraint, so a message-substring assertion would pass on ANY refusal.
+    expect(isCheckViolation(caught, 'connections_credentials_complete_check')).toBe(true);
+  });
+
+  it('REJECTS a two-of-three WEBHOOK secret by its own CHECK', async () => {
+    const storeId = await makeStore();
+
+    let caught: unknown;
+    try {
+      await db.insert(connections).values({
+        storeId,
+        provider: 'woocommerce',
+        mode: 'pull',
+        status: 'connected',
+        connectedAt: new Date(),
+        webhookSecretCiphertext: ENVELOPE.ciphertext,
+        webhookSecretTag: ENVELOPE.tag,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    // A separate constraint from the credentials one — naming it is what stops
+    // this passing because the OTHER check happened to fire.
+    expect(isCheckViolation(caught, 'connections_webhook_secret_complete_check')).toBe(true);
+    expect(constraintNameOf(caught)).toBe('connections_webhook_secret_complete_check');
+  });
+
+  it('clears BOTH envelopes to NULL on disconnect, never to an empty string', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    await setConnectionWebhooks(conn.id, ['wh-1', 'wh-2'], ENVELOPE);
+
+    expect(await findConnectionWebhookSecret(conn.id, 'shopify')).toEqual(ENVELOPE);
+
+    const disconnected = await disconnectConnection(storeId, conn.id);
+
+    expect(disconnected?.status).toBe('disconnected');
+    expect(disconnected?.webhookIds).toEqual([]);
+    expect(disconnected?.hasCredentials).toBe(false);
+    expect(await findConnectionCredentials(conn.id)).toBeNull();
+    // `findConnectionWebhookSecret` also filters on `status = 'connected'`, so
+    // read the columns directly — otherwise this assertion would pass for a
+    // secret that was never cleared at all.
+    const [raw] = await db
+      .select({
+        ciphertext: connections.credentialsCiphertext,
+        iv: connections.credentialsIv,
+        tag: connections.credentialsTag,
+        secretCiphertext: connections.webhookSecretCiphertext,
+        secretIv: connections.webhookSecretIv,
+        secretTag: connections.webhookSecretTag,
+      })
+      .from(connections)
+      .where(eq(connections.id, conn.id));
+
+    // NULL specifically, not `''`: three empty strings are three NON-NULLS, so
+    // they satisfy `num_nonnulls(...) in (0, 3)` while decrypting to nothing —
+    // the CHECK cannot catch that one and this assertion is what does.
+    expect(raw).toEqual({
+      ciphertext: null,
+      iv: null,
+      tag: null,
+      secretCiphertext: null,
+      secretIv: null,
+      secretTag: null,
+    });
+  });
+
+  it('keeps the connection ROW after a disconnect', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    await disconnectConnection(storeId, conn.id);
+
+    // Nothing in `src/` deletes a connection: `listings.source_connection_id`
+    // points at it, so the provenance on already-imported products would go with
+    // it. A disconnect that started deleting would pass every mocked test.
+    expect(await findConnection(storeId, conn.id)).not.toBeNull();
+  });
+});
+
+describe('UNIQUE(store_id, provider)', () => {
+  it('makes a reconnect UPDATE the same row rather than duplicate it', async () => {
+    const storeId = await makeStore();
+    const first = await makeConnection(storeId);
+
+    const second = await upsertConnection(storeId, 'shopify', {
+      mode: 'pull',
+      status: 'connected',
+      connectedAt: new Date(),
+      credentials: { ciphertext: 'c2', iv: 'i2', tag: 't2' },
+      shopDomain: 'reconnected.myshopify.com',
+      shopCurrency: 'EUR',
+      scopes: ['read_products', 'write_products'],
+    });
+
+    // Same row, refreshed — which is exactly what `onConflictDoUpdate` with an
+    // explicit target buys over a read-then-branch that two concurrent OAuth
+    // callbacks could both pass.
+    expect(second.id).toBe(first.id);
+    expect(second.shopDomain).toBe('reconnected.myshopify.com');
+    expect(second.shopCurrency).toBe('EUR');
+    expect(second.scopes).toEqual(['read_products', 'write_products']);
+    expect(await findConnectionCredentials(second.id)).toEqual({
+      ciphertext: 'c2',
+      iv: 'i2',
+      tag: 't2',
+    });
+
+    const rows = await db
+      .select({ id: connections.id })
+      .from(connections)
+      .where(eq(connections.storeId, storeId));
+    expect(rows).toHaveLength(1);
+  });
+
+  it('refuses a second row for the same (store, provider) written outside the upsert', async () => {
+    const storeId = await makeStore();
+    await makeConnection(storeId);
+
+    let caught: unknown;
+    try {
+      await db.insert(connections).values({
+        storeId,
+        provider: 'shopify',
+        mode: 'push_in',
+        status: 'connected',
+        connectedAt: new Date(),
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(isUniqueViolation(caught, 'connections_store_id_provider_key')).toBe(true);
+  });
+
+  it('permits the SAME provider on a DIFFERENT store', async () => {
+    // Without this the previous assertion would also pass for a unique index on
+    // `provider` alone, which would stop two stores connecting the same platform.
+    const storeA = await makeStore();
+    const storeB = await makeStore();
+
+    const a = await makeConnection(storeA);
+    const b = await makeConnection(storeB);
+
+    expect(a.id).not.toBe(b.id);
+  });
+});
+
+describe('publicColumns on connections', () => {
+  it('returns a row with NO credential properties at runtime', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    await setConnectionWebhooks(conn.id, [], ENVELOPE);
+
+    const row = await findConnection(storeId, conn.id);
+    const keys = Object.keys(row ?? {});
+
+    // The TYPE-level half is `tsc`'s job — the row type has no such property, so
+    // a serializer reading one fails the build. This is the RUNTIME half, which
+    // `tsc` cannot see and which decides whether a `res.json(row)` would ship a
+    // secret. Both envelopes, all six columns.
+    for (const column of [
+      'credentialsCiphertext',
+      'credentialsIv',
+      'credentialsTag',
+      'webhookSecretCiphertext',
+      'webhookSecretIv',
+      'webhookSecretTag',
+    ]) {
+      expect(keys).not.toContain(column);
+    }
+
+    // Non-vacuous: the read really did return the row and its ordinary columns,
+    // so "no credential keys" is not just "no keys at all".
+    expect(keys).toContain('shopDomain');
+    expect(keys).toContain('syncSettingsProducts');
+    expect(row?.hasCredentials).toBe(true);
+  });
+});
+
+describe('sync settings', () => {
+  it('writes the collection mapping as one jsonb value and reads it back whole', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    const updated = await updateSyncSettings(storeId, conn.id, {
+      products: 'bidirectional',
+      priceRules: { markupPercent: 12.5 },
+      collectionMapping: { 'ext-1': 'merc-a', 'ext-2': 'merc-b' },
+    });
+
+    expect(updated?.syncSettingsProducts).toBe('bidirectional');
+    // A genuinely fractional markup — the column is `double precision` precisely
+    // because a 12.5% markup is not an integer and an `integer` would round it.
+    expect(updated?.syncSettingsPriceRulesMarkupPercent).toBe(12.5);
+    // The `priceRules` pair is written together, so an omitted `rounding` is NULL
+    // rather than a leftover from a previous patch.
+    expect(updated?.syncSettingsPriceRulesRounding).toBeNull();
+    expect(updated?.syncSettingsCollectionMapping).toEqual({
+      'ext-1': 'merc-a',
+      'ext-2': 'merc-b',
+    });
+  });
+
+  it('REFUSES a target location that does not exist (23503)', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    // Under Mongo this stored a dangling id in silence. The FK is what makes it
+    // an error, and `connector-sync.service.updateSyncSettings` translates it
+    // into a 400 rather than letting it surface as a 500.
+    let caught: unknown;
+    try {
+      await updateSyncSettings(storeId, conn.id, { targetLocationId: uuidv7() });
+    } catch (error) {
+      caught = error;
+    }
+    expect(isForeignKeyViolation(caught)).toBe(true);
+  });
+
+  it('accepts a REAL location as the sync target', async () => {
+    // The other half of the same distinction: without this, the assertion above
+    // would also pass for a column that rejected every value.
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const location = await insertLocation(storeId, {
+      name: 'Warehouse',
+      type: 'warehouse',
+      isDefault: true,
+      isActive: true,
+      fulfillsOnlineOrders: true,
+    });
+
+    const updated = await updateSyncSettings(storeId, conn.id, {
+      targetLocationId: location.id,
+    });
+    expect(updated?.syncSettingsTargetLocationId).toBe(location.id);
+  });
+
+  it('does not match a connection of another store', async () => {
+    const owner = await makeStore();
+    const other = await makeStore();
+    const conn = await makeConnection(owner);
+
+    // The store scope IS the authorization; the service turns this `null` into a
+    // 404, so a member of one store can never patch another store's connection.
+    expect(await updateSyncSettings(other, conn.id, { products: 'pull' })).toBeNull();
+  });
+});
+
+describe('the reconcile sweep filter', () => {
+  it('selects only CONNECTED, product-pulling `pull` connections', async () => {
+    const eligibleStore = await makeStore();
+    const disconnectedStore = await makeStore();
+    const pushOnlyStore = await makeStore();
+    const offStore = await makeStore();
+
+    const eligible = await makeConnection(eligibleStore);
+    await updateSyncSettings(eligibleStore, eligible.id, { products: 'bidirectional' });
+
+    // Every excluded row differs from the eligible one in exactly ONE column, so
+    // each of the three predicates is genuinely load-bearing.
+    const disconnected = await makeConnection(disconnectedStore);
+    await updateSyncSettings(disconnectedStore, disconnected.id, { products: 'pull' });
+    await disconnectConnection(disconnectedStore, disconnected.id);
+
+    const pushOnly = await makeConnection(pushOnlyStore);
+    await updateSyncSettings(pushOnlyStore, pushOnly.id, { products: 'push' });
+
+    // `products` left at its column default of `off`.
+    const off = await makeConnection(offStore);
+
+    const swept = await findPullConnectionsToReconcile();
+    const sweptIds = swept.map((row) => row.id);
+
+    expect(sweptIds).toContain(eligible.id);
+    expect(sweptIds).not.toContain(disconnected.id);
+    expect(sweptIds).not.toContain(pushOnly.id);
+    expect(sweptIds).not.toContain(off.id);
+    // The projection is two columns — the sweep never reads a credential.
+    expect(Object.keys(swept.find((row) => row.id === eligible.id) ?? {})).toEqual([
+      'id',
+      'storeId',
+    ]);
+  });
+
+  it('resolves a Shopify webhook to its connected connections by shop domain', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const domain = conn.shopDomain ?? '';
+
+    expect(await findConnectionIdsByShopDomain('shopify', domain)).toEqual([conn.id]);
+
+    // A disconnected connection stops receiving webhooks — the ingress must not
+    // enqueue work for a shop that revoked the app.
+    await disconnectConnection(storeId, conn.id);
+    expect(await findConnectionIdsByShopDomain('shopify', domain)).toEqual([]);
+  });
+});
+
+describe('channel_api_keys', () => {
+  /** Mint a key row with a distinct digest. */
+  async function makeKey(storeId: string, hash: string, prefix = 'mck_00000000') {
+    return insertChannelApiKey({
+      storeId,
+      hash,
+      prefix,
+      label: 'WordPress plugin',
+      scopes: ['channels:write'],
+      createdBy: `user-${uuidv7()}`,
+    });
+  }
+
+  it('withholds the digest from an ordinary read and carries it only on the candidate read', async () => {
+    const storeId = await makeStore();
+    const digest = `a${uuidv7().replace(/-/g, '')}`;
+    const inserted = await makeKey(storeId, digest);
+
+    expect(Object.keys(inserted)).not.toContain('hash');
+    const [listed] = await findActiveChannelApiKeys(storeId);
+    expect(Object.keys(listed)).not.toContain('hash');
+    expect(listed.prefix).toBe('mck_00000000');
+
+    // The ONE opt-in path, and the only one that may see the digest.
+    const [candidate] = await findVerificationCandidates('mck_00000000');
+    expect(candidate.hash).toBe(digest);
+    expect(candidate.id).toBe(inserted.id);
+  });
+
+  it('REJECTS a duplicate digest', async () => {
+    const storeA = await makeStore();
+    const storeB = await makeStore();
+    const digest = `b${uuidv7().replace(/-/g, '')}`;
+    await makeKey(storeA, digest);
+
+    // Globally unique, deliberately across stores: the digest IS the secret's
+    // stored form, so two rows carrying one would make a single presented key
+    // resolve to two identities.
+    let caught: unknown;
+    try {
+      await makeKey(storeB, digest);
+    } catch (error) {
+      caught = error;
+    }
+    expect(isUniqueViolation(caught, 'channel_api_keys_hash_key')).toBe(true);
+  });
+
+  it('keeps a revoked key SELECTABLE — revocation is a stamp, never a delete', async () => {
+    const storeId = await makeStore();
+    const digest = `c${uuidv7().replace(/-/g, '')}`;
+    const key = await makeKey(storeId, digest);
+    await touchChannelApiKeyLastUsed(key.id);
+
+    const revoked = await revokeChannelApiKey(storeId, key.id);
+    expect(revoked?.revokedAt).toBeInstanceOf(Date);
+
+    // Gone from every ACTIVE read and from the verification candidate set...
+    expect(await findActiveChannelApiKeys(storeId)).toEqual([]);
+    expect(await findVerificationCandidates('mck_00000000')).toEqual([]);
+
+    // ...but the ROW survives with its audit trail: who minted it, and when it
+    // was last used. A revoke implemented as a delete would pass every assertion
+    // above and fail this one.
+    const [row] = await db
+      .select({
+        id: channelApiKeys.id,
+        createdBy: channelApiKeys.createdBy,
+        lastUsedAt: channelApiKeys.lastUsedAt,
+      })
+      .from(channelApiKeys)
+      .where(eq(channelApiKeys.id, key.id));
+    expect(row?.id).toBe(key.id);
+    expect(row?.lastUsedAt).toBeInstanceOf(Date);
+    expect(row?.createdBy).toBeTruthy();
+  });
+
+  it('refuses a second revoke and keeps the FIRST timestamp', async () => {
+    const storeId = await makeStore();
+    const key = await makeKey(storeId, `d${uuidv7().replace(/-/g, '')}`);
+
+    const first = await revokeChannelApiKey(storeId, key.id);
+    const second = await revokeChannelApiKey(storeId, key.id);
+
+    // The `revoked_at IS NULL` guard is part of the UPDATE, so two concurrent
+    // revokes produce exactly one winner — and the audit trail keeps saying when
+    // the key was ACTUALLY revoked.
+    expect(second).toBeNull();
+    const [row] = await db
+      .select({ revokedAt: channelApiKeys.revokedAt })
+      .from(channelApiKeys)
+      .where(eq(channelApiKeys.id, key.id));
+    expect(row?.revokedAt?.toISOString()).toBe(first?.revokedAt?.toISOString());
+  });
+
+  it('refuses a cross-store revoke', async () => {
+    const owner = await makeStore();
+    const other = await makeStore();
+    const key = await makeKey(owner, `e${uuidv7().replace(/-/g, '')}`);
+
+    expect(await revokeChannelApiKey(other, key.id)).toBeNull();
+    expect(await findActiveChannelApiKeys(owner)).toHaveLength(1);
+  });
+});
+
+describe('sync_runs', () => {
+  it('opens a run at zero and closes it with the tallies the caller computed', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    const opened = await insertSyncRun(conn.id, 'backfill');
+    expect(opened.status).toBe('running');
+    expect(opened.countsCreated).toBe(0);
+    expect(opened.finishedAt).toBeNull();
+    // `started_at` is NOT NULL, which is why `started_at desc` needs no
+    // `nulls last`: the value a NULL-first ordering would surface first cannot
+    // exist.
+    expect(opened.startedAt).toBeInstanceOf(Date);
+
+    const closed = await finishSyncRun(opened.id, {
+      status: 'failed',
+      counts: { created: 1, updated: 2, skipped: 3, failed: 4 },
+      error: 'shopify 500',
+    });
+
+    expect(closed.id).toBe(opened.id);
+    expect(closed.status).toBe('failed');
+    expect(closed.countsCreated).toBe(1);
+    expect(closed.countsUpdated).toBe(2);
+    expect(closed.countsSkipped).toBe(3);
+    expect(closed.countsFailed).toBe(4);
+    expect(closed.error).toBe('shopify 500');
+    expect(closed.finishedAt).toBeInstanceOf(Date);
+  });
+
+  it('clears a previous error when a run is closed successfully', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'order_sync');
+
+    await finishSyncRun(opened.id, {
+      status: 'failed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
+      error: 'transient',
+    });
+    const reclosed = await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 1, updated: 0, skipped: 0, failed: 0 },
+    });
+
+    // Writing `null` explicitly rather than omitting the key: the Mongoose form
+    // assigned `error` only when set, so a retried run kept the earlier message
+    // on a document that now says `completed`.
+    expect(reclosed.error).toBeNull();
+  });
+});

@@ -10,7 +10,10 @@
 
 import type { Request, Response } from 'express';
 import type { InviteMemberInput, UpdateMemberInput, StoreMember } from '@mercaria/shared-types';
-import type { IStore, IStoreMember } from '../../models/store.js';
+import type {
+  StoreMemberRecord,
+  StoreRecord,
+} from '../../db/stores/storeRepository.js';
 import {
   inviteMember,
   updateMember,
@@ -22,7 +25,7 @@ import { routeParam } from '../../utils/request.js';
 import { log } from '../../lib/logger.js';
 
 /** Serialize a store member to the `StoreMember` DTO. */
-function toMemberDTO(member: IStoreMember): StoreMember {
+function toMemberDTO(member: StoreMemberRecord): StoreMember {
   return {
     oxyUserId: member.oxyUserId,
     role: member.role,
@@ -32,7 +35,7 @@ function toMemberDTO(member: IStoreMember): StoreMember {
 }
 
 /** Read the loaded store + acting membership, or respond 500 if missing. */
-function loaded(req: Request, res: Response): { store: IStore; actor: IStoreMember } | null {
+function loaded(req: Request, res: Response): { store: StoreRecord; actor: StoreMemberRecord } | null {
   const store = req.store;
   const actor = req.storeMembership;
   if (!store || !actor) {
@@ -54,7 +57,7 @@ export async function addMember(req: Request, res: Response): Promise<void> {
   const ctx = loaded(req, res);
   if (!ctx) return;
   try {
-    const storeId = String((ctx.store as { _id: unknown })._id);
+    const storeId = ctx.store.id;
     const updated = await inviteMember(storeId, ctx.actor, req.body as InviteMemberInput);
     sendSuccess(res, updated.members.map(toMemberDTO), 201);
   } catch (err) {
@@ -69,7 +72,7 @@ export async function patchMember(req: Request, res: Response): Promise<void> {
   if (!ctx) return;
   const targetOxyUserId = routeParam(req, 'oxyUserId');
   try {
-    const storeId = String((ctx.store as { _id: unknown })._id);
+    const storeId = ctx.store.id;
     const updated = await updateMember(
       storeId,
       ctx.actor,
@@ -89,7 +92,7 @@ export async function deleteMember(req: Request, res: Response): Promise<void> {
   if (!ctx) return;
   const targetOxyUserId = routeParam(req, 'oxyUserId');
   try {
-    const storeId = String((ctx.store as { _id: unknown })._id);
+    const storeId = ctx.store.id;
     const updated = await removeMember(storeId, ctx.actor, targetOxyUserId);
     sendSuccess(res, updated.members.map(toMemberDTO));
   } catch (err) {

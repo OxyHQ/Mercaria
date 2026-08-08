@@ -14,7 +14,7 @@
  * real delivery whose key order or unicode escaping differs — or, far worse,
  * succeeds on a FORGED body that happens to re-serialise identically.
  *
- * The mount lives in `index.ts` beside `/channels/webhooks`, which is there for
+ * The mount lives in `app.ts` beside `/channels/webhooks`, which is there for
  * exactly the same reason (Shopify's HMAC over its raw body). A test asserts
  * `typeof req.body === 'undefined'` INSIDE a route on this path — proving no
  * parser ran, rather than proving the mount order looked right in a source file.
@@ -31,14 +31,12 @@
  */
 
 import { Router } from 'express';
-import mongoose from 'mongoose';
 import { crowdsourceWebhooks } from '@oxyhq/crowdsource-express';
 import type { WebhookEventEnvelope } from '@oxyhq/crowdsource-contracts';
-import {
-  decisionApplyEventId,
-  enqueueModerationOutboxEvent,
-} from '../services/moderation/moderation-outbox.service.js';
-import { mongoProcessedEventStore } from '../services/moderation/moderation-event.store.js';
+import { getDb } from '../db/postgres.js';
+import { enqueueModerationOutboxEvent } from '../db/moderation/moderationOutboxRepository.js';
+import { decisionApplyEventId } from '../services/moderation/moderation-outbox.service.js';
+import { postgresProcessedEventStore } from '../services/moderation/moderation-event.store.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { log } from '../lib/logger.js';
 
@@ -53,32 +51,27 @@ const router = Router();
  * row behind it, and exempting the one caller that finds it inconvenient is how
  * that guarantee stops being one.
  *
- * The event id is the key, so a redelivery upserts the same row rather than
+ * The event id is the key, so a redelivery converges on the same row rather than
  * queueing the work twice — belt and braces alongside the processed-event claim.
  */
 async function queueDecision(event: WebhookEventEnvelope): Promise<void> {
-  const session = await mongoose.startSession();
-  try {
-    await session.withTransaction(async () => {
-      await enqueueModerationOutboxEvent(
-        {
-          eventId: decisionApplyEventId(event.id),
-          kind: 'decision.apply',
-          payload: { event: event as unknown as Record<string, unknown> },
-        },
-        session,
-      );
-    });
-  } finally {
-    await session.endSession();
-  }
+  await getDb().transaction(async (tx) => {
+    await enqueueModerationOutboxEvent(
+      {
+        eventId: decisionApplyEventId(event.id),
+        kind: 'decision.apply',
+        payload: { event: event as unknown as Record<string, unknown> },
+      },
+      tx,
+    );
+  });
 }
 
 router.post(
   '/',
   makeRateLimiter('reports'),
   crowdsourceWebhooks({
-    store: mongoProcessedEventStore(),
+    store: postgresProcessedEventStore(),
     on: {
       'case.decided': async (event) => {
         await queueDecision(event);

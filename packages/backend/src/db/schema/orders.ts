@@ -58,6 +58,7 @@ import {
   asEnumValues,
   checkOneOf,
   currencyChecks,
+  CURRENCY_CODE_VALUES,
   dualMoney,
   money,
   optionalDualMoney,
@@ -172,8 +173,14 @@ export const orders = pgTable(
 
     // `fxRate` — the shop→presentment snapshot the dual amounts were formed with,
     // kept so the conversion is reproducible after rates move.
-    fxRateFrom: text(),
-    fxRateTo: text(),
+    //
+    // Both sides are typed from `CURRENCY_CODE_VALUES`, the same tuple their
+    // `currencyChecks` entry below is rendered from. `text({ enum })` emits no
+    // DDL — it is a TypeScript narrowing only — so this changes no migration; what
+    // it changes is that a serializer reading `fxRateFrom` gets `CurrencyCode`
+    // rather than `string`, which is what the CHECK already promises.
+    fxRateFrom: text({ enum: CURRENCY_CODE_VALUES }),
+    fxRateTo: text({ enum: CURRENCY_CODE_VALUES }),
     /** A conversion rate, genuinely fractional — the same IEEE-754 double Mongo held. */
     fxRateRate: doublePrecision(),
     /**
@@ -228,9 +235,9 @@ export const orders = pgTable(
      * share this value — it is a many-to-one link, not a one-to-one, and the
      * uniqueness that matters lives on `payments.checkout_group_id`.
      *
-     * No foreign key: the payment domain is Postgres-native while orders are
-     * still written to MongoDB, and the correlation must survive that window.
-     * `db/deferredForeignKeys.ts` carries the reason.
+     * No foreign key, and not because of the migration window that originally
+     * justified it: a financial record must be writable independently of the
+     * commerce record it names. `db/deferredForeignKeys.ts` carries the reason.
      */
     paymentId: text(),
 

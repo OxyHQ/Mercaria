@@ -42,6 +42,15 @@ export const NOTIFICATION_TYPES = [
   'listing_changes_requested',
 ] as const;
 
+/**
+ * The `type` union, derived from the tuple above so there is ONE list.
+ *
+ * Declared here rather than beside the Mongoose model it came from: the tuple
+ * that types this union is the same tuple `notifications_type_check` is rendered
+ * from, and a second copy is a second thing to keep in lockstep.
+ */
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
 /** `Notification.channels` element. */
 export const NOTIFICATION_CHANNELS = [
   'push',

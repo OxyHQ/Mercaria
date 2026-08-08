@@ -1,17 +1,17 @@
 /**
- * The Stripe ingress across BOTH real stores — Postgres for the event, the
- * payment and its ledger, MongoDB for the orders it funds.
+ * The Stripe ingress against a REAL Postgres database — the event, the payment,
+ * its ledger, and the orders it funds.
  *
- * ## Why neither store can be mocked here
+ * ## Why none of it can be mocked here
  *
- * Every property under test lives in the gap between the two, or inside a
- * constraint no mock has:
+ * Every property under test lives in the gap between the payment aggregate and
+ * the orders it moves, or inside a constraint no mock has:
  *
  *  - a redelivered event is deduped by a UNIQUE index with `NULLS NOT
  *    DISTINCT`, which is the one thing a mocked `insert` cannot refuse;
  *  - "one ledger transaction, one outbox event, one order transition" from a
- *    duplicated or reordered sequence is held by a Postgres compare-and-swap on
- *    one side and a Mongo one on the other;
+ *    duplicated or reordered sequence is held by a compare-and-swap on the
+ *    payment and another on the order;
  *  - dead-lettering and replay are transitions of a real row through a real
  *    claim query, and a mocked claim would test the test.
  *
@@ -37,12 +37,11 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import mongoose, { Types } from 'mongoose';
 import Stripe from 'stripe';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Database } from '../../../../db/postgres.js';
-
-const mongoUri = process.env.MERCARIA_TEST_MONGODB_URI;
+import { uuidv7 } from '@oxyhq/db';
+import { listings } from '../../../../db/schema/catalog.js';
 
 const PLATFORM_SECRET = 'whsec_realdb_platform_not_a_real_one';
 const CONNECT_SECRET = 'whsec_realdb_connect_not_a_real_one';
@@ -50,8 +49,6 @@ const CONNECT_SECRET = 'whsec_realdb_connect_not_a_real_one';
 /** Attempts after which a retryable failure dead-letters. Small so the test is fast. */
 const MAX_ATTEMPTS = 2;
 
-const BUYER = 'oxy-user-stripe-buyer';
-const SELLER = 'oxy-user-stripe-seller';
 /** Grand total of one seeded order, in EUR minor units. */
 const ORDER_TOTAL = 4_500;
 const SEEDED_AVAILABLE = 10;
@@ -88,23 +85,22 @@ vi.mock('../client.js', () => ({
 
 let db: Database;
 let closePostgres: typeof import('../../../../db/postgres.js').closePostgres;
-let Order: typeof import('../../../../models/order.js').Order;
-let ProductVariant: typeof import('../../../../models/product-variant.js').ProductVariant;
-let SellerProfile: typeof import('../../../../models/seller-profile.js').SellerProfile;
 let ensurePayment: typeof import('../../payment.service.js').ensurePayment;
 let applyPaymentStatus: typeof import('../../payment.service.js').applyPaymentStatus;
 let ingestStripeDelivery: typeof import('../ingress.js').ingestStripeDelivery;
 let drainStripeEvents: typeof import('../event-processor.js').drainStripeEvents;
 let replayProviderEvent: typeof import('../event-processor.js').replayProviderEvent;
 let stripeWebhookStats: typeof import('../event-processor.js').stripeWebhookStats;
+let insertVariants: typeof import('../../../../db/catalog/variantRepository.js').insertVariants;
+let findOrderById: typeof import('../../../../db/orders/orderRepository.js').findOrderById;
+let insertOrder: typeof import('../../../../db/orders/orderRepository.js').insertOrder;
+let nextOrderNumber: typeof import('../../../../db/orders/orderRepository.js').nextOrderNumber;
+let ensureSellerProfile: typeof import('../../../../db/buyers/sellerProfileRepository.js').ensureSellerProfile;
+let reserve: typeof import('../../../inventory.service.js').reserve;
 let schema: typeof import('../../../../db/schema/payments.js');
 let ledgerSchema: typeof import('../../../../db/schema/ledger.js');
 
 beforeAll(async () => {
-  if (!mongoUri) {
-    throw new Error('MERCARIA_TEST_MONGODB_URI missing — is vitest.globalSetup.ts wired?');
-  }
-
   // Set BEFORE importing anything that reads config: `config/index.ts` reads
   // process.env once at module load and freezes the result.
   process.env.STRIPE_ENABLED = 'true';
@@ -113,74 +109,95 @@ beforeAll(async () => {
   process.env.STRIPE_CONNECT_WEBHOOK_SECRET = CONNECT_SECRET;
   process.env.STRIPE_EVENT_MAX_ATTEMPTS = String(MAX_ATTEMPTS);
 
-  await mongoose.connect(mongoUri, { dbName: 'mercaria-stripe-ingress-test' });
-
   const postgres = await import('../../../../db/postgres.js');
   closePostgres = postgres.closePostgres;
   db = await postgres.connectPostgres();
 
-  ({ Order } = await import('../../../../models/order.js'));
-  ({ ProductVariant } = await import('../../../../models/product-variant.js'));
-  ({ SellerProfile } = await import('../../../../models/seller-profile.js'));
   ({ ensurePayment, applyPaymentStatus } = await import('../../payment.service.js'));
   ({ ingestStripeDelivery } = await import('../ingress.js'));
   ({ drainStripeEvents, replayProviderEvent, stripeWebhookStats } = await import(
     '../event-processor.js'
   ));
+  // Dynamic, like everything else above: a STATIC import of any repository pulls
+  // `db/postgres.js` and therefore `config/index.ts`, which freezes its view of
+  // process.env at module load — before the STRIPE_* values set at the top of
+  // this hook exist. Every delivery below would then be rejected as "Stripe not
+  // configured", and the failure reads as a broken ingress rather than a broken
+  // import order.
+  ({ insertVariants } = await import('../../../../db/catalog/variantRepository.js'));
+  ({ findOrderById, insertOrder, nextOrderNumber } = await import(
+    '../../../../db/orders/orderRepository.js'
+  ));
+  ({ ensureSellerProfile } = await import('../../../../db/buyers/sellerProfileRepository.js'));
+  ({ reserve } = await import('../../../inventory.service.js'));
   schema = await import('../../../../db/schema/payments.js');
   ledgerSchema = await import('../../../../db/schema/ledger.js');
-
-  await Order.syncIndexes();
 }, 120_000);
 
 afterAll(async () => {
-  await mongoose.disconnect();
   await closePostgres();
 });
 
 beforeEach(async () => {
   stripeApi.intents.clear();
   stripeApi.retrieved.length = 0;
-  // Mongo fixtures are per-file (this file has its own `dbName`) and can be
-  // cleared wholesale. The POSTGRES side deliberately is not — see the header.
-  await Promise.all([
-    Order.deleteMany({}),
-    ProductVariant.deleteMany({}),
-    SellerProfile.deleteMany({}),
-  ]);
+  // Nothing is deleted: every fixture below is minted under ids unique to the
+  // test that made it, so there is nothing shared to clear — see the header.
 });
 
 /** A EUR `DualMoney` whose two sides are equal — no conversion in play. */
 function eur(amount: number) {
-  return { shop: { amount, currency: 'EUR' }, presentment: { amount, currency: 'EUR' } };
+  return { shop: { amount, currency: 'EUR' }, presentment: { amount, currency: 'EUR' } } as const;
 }
 
-/** Seed one `pending_payment` P2P order with a real reserved variant. */
-async function seedOrder(checkoutGroupId: string): Promise<string> {
-  const listingId = new Types.ObjectId().toString();
-  const variant = await ProductVariant.create({
-    listingId,
-    title: 'Default',
-    optionValues: [],
-    price: { amount: ORDER_TOTAL, currency: 'EUR' },
-    inventory: {
-      tracked: true,
-      available: SEEDED_AVAILABLE - RESERVED_QTY,
-      committed: RESERVED_QTY,
-    },
-  });
+/** One test's cast of characters, all freshly minted so nothing collides. */
+function actors(): { buyer: string; seller: string } {
+  const suffix = uuidv7();
+  return { buyer: `buyer-${suffix}`, seller: `seller-${suffix}` };
+}
 
-  const order = await Order.create({
-    orderNumber: `MRC-${Math.floor(Math.random() * 1_000_000)
-      .toString()
-      .padStart(6, '0')}`,
-    buyerOxyUserId: BUYER,
+/** Seed one `pending_payment` P2P order with a real variant holding a reservation. */
+async function seedOrder(
+  checkoutGroupId: string,
+  who: { buyer: string; seller: string },
+): Promise<string> {
+  const [listing] = await db
+    .insert(listings)
+    .values({
+      ownerType: 'user',
+      oxyUserId: who.seller,
+      title: 'A thing',
+      description: '',
+      condition: 'new',
+    })
+    .returning({ id: listings.id });
+
+  const [variant] = await insertVariants(listing.id, [
+    {
+      title: 'Default',
+      priceAmount: ORDER_TOTAL,
+      priceCurrency: 'EUR',
+      inventoryTracked: true,
+      inventoryAvailable: SEEDED_AVAILABLE,
+      position: 0,
+      optionValues: [],
+    },
+  ]);
+
+  // A real reservation, taken the way checkout takes one.
+  await reserve(variant.id, RESERVED_QTY);
+  // `transition('paid')` bumps this counter, so the row has to exist.
+  await ensureSellerProfile(who.seller);
+
+  const order = await insertOrder({
+    orderNumber: await nextOrderNumber(),
+    buyerOxyUserId: who.buyer,
     sellerType: 'user',
-    sellerOxyUserId: SELLER,
+    sellerOxyUserId: who.seller,
     items: [
       {
-        listingId,
-        variantId: String(variant._id),
+        listingId: listing.id,
+        variantId: variant.id,
         title: 'A thing',
         variantTitle: 'Default',
         optionValues: [],
@@ -189,14 +206,16 @@ async function seedOrder(checkoutGroupId: string): Promise<string> {
         lineTotal: eur(ORDER_TOTAL),
       },
     ],
-    shippingAddressSnapshot: {
+    shippingAddress: {
       recipientName: 'Buyer',
       line1: '1 Street',
       city: 'Barcelona',
       postalCode: '08001',
       country: 'ES',
     },
-    shipping: { method: 'standard', label: 'Standard shipping', cost: eur(0), trackingNumber: null },
+    shippingMethod: 'standard',
+    shippingLabel: 'Standard shipping',
+    shippingCost: eur(0),
     totals: {
       subtotal: eur(ORDER_TOTAL),
       discountTotal: eur(0),
@@ -205,12 +224,14 @@ async function seedOrder(checkoutGroupId: string): Promise<string> {
       grandTotal: eur(ORDER_TOTAL),
     },
     status: 'pending_payment',
-    statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: BUYER }],
-    payment: { status: 'unpaid' },
+    paymentStatus: 'unpaid',
     checkoutGroupId,
+    statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: who.buyer }],
+    appliedDiscounts: [],
+    taxLines: [],
   });
 
-  return String(order._id);
+  return order.id;
 }
 
 /** A checkout group, its order and its Stripe payment, ready to be told about. */
@@ -219,13 +240,14 @@ async function seedPayment(input: { intentId: string; status?: 'created' | 'canc
   orderId: string;
   checkoutGroupId: string;
 }> {
-  const checkoutGroupId = new Types.ObjectId().toString();
-  const orderId = await seedOrder(checkoutGroupId);
+  const who = actors();
+  const checkoutGroupId = uuidv7();
+  const orderId = await seedOrder(checkoutGroupId, who);
   const payment = await ensurePayment({
     provider: 'stripe',
     checkoutGroupId,
     presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
-    buyerOxyUserId: BUYER,
+    buyerOxyUserId: who.buyer,
     providerObjectId: input.intentId,
   });
   if (input.status === 'canceled') {
@@ -366,10 +388,7 @@ describe('receipt', () => {
 
     expect(await counts(paymentId)).toEqual({ transactions: 1, entries: 2, outbox: 1 });
 
-    const order = await Order.findById(orderId).lean<{
-      status: string;
-      statusHistory: { status: string }[];
-    } | null>();
+    const order = await findOrderById(orderId);
     expect(order?.status).toBe('paid');
     expect(order?.statusHistory.filter((entry) => entry.status === 'paid')).toHaveLength(1);
 
@@ -565,7 +584,7 @@ describe('the late-capture exception', () => {
       .from(ledgerSchema.ledgerTransactions)
       .where(eq(ledgerSchema.ledgerTransactions.paymentId, paymentId));
     expect(Number(row?.n ?? 0)).toBe(0);
-    const order = await Order.findById(orderId).lean<{ status: string } | null>();
+    const order = await findOrderById(orderId);
     expect(order?.status).toBe('pending_payment');
 
     // What DID happen: one durable, deterministic exception for #50 to pick up.
@@ -712,13 +731,14 @@ describe('failure, dead-lettering and replay', () => {
     expect(await drainStripeEvents({ eventId: storedId })).toMatchObject({ processed: 0, failed: 0 });
 
     // Now make the correlation resolvable — the operator's fix — and replay.
-    const checkoutGroupId = new Types.ObjectId().toString();
-    const orderId = await seedOrder(checkoutGroupId);
+    const who = actors();
+    const checkoutGroupId = uuidv7();
+    const orderId = await seedOrder(checkoutGroupId, who);
     const payment = await ensurePayment({
       provider: 'stripe',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
-      buyerOxyUserId: BUYER,
+      buyerOxyUserId: who.buyer,
       providerObjectId: intentId,
     });
     registerIntent(intentId, 'succeeded', payment.id);
@@ -737,7 +757,7 @@ describe('failure, dead-lettering and replay', () => {
 
     expect(await paymentStatus(payment.id)).toBe('succeeded');
     expect(await counts(payment.id)).toEqual({ transactions: 1, entries: 2, outbox: 1 });
-    const order = await Order.findById(orderId).lean<{ status: string } | null>();
+    const order = await findOrderById(orderId);
     expect(order?.status).toBe('paid');
   });
 

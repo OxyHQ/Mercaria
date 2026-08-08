@@ -14,9 +14,11 @@
  */
 
 import express, { Router, type Request, type Response } from 'express';
-import { isValidObjectId } from 'mongoose';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { Connection } from '../models/connection.js';
+import {
+  findConnectionIdsByShopDomain,
+  findConnectionWebhookSecret,
+} from '../db/connectors/connectionRepository.js';
 import { verifyShopifyWebhook, isHandledWebhookTopic } from '../connectors/shopify/webhook.js';
 import {
   verifyWooCommerceWebhook,
@@ -24,6 +26,7 @@ import {
 } from '../connectors/woocommerce/webhook.js';
 import { decryptSecret } from '../lib/connector-crypto.js';
 import { enqueueWebhookProcess } from '../queue/producers.js';
+import { routeParam } from '../utils/request.js';
 import { log } from '../lib/logger.js';
 
 const router = Router();
@@ -73,14 +76,10 @@ router.post(
       // Resolve the connection(s) by shop domain — server-side, never trusting a
       // client-supplied id. The `{provider, externalId}` upsert is idempotent, so
       // enqueuing per connected connection is safe in the (rare) multi-store case.
-      const connections = await Connection.find({
-        provider: 'shopify',
-        shopDomain,
-        status: 'connected',
-      }).select('_id');
+      const connectionIds = await findConnectionIdsByShopDomain('shopify', shopDomain);
 
-      for (const conn of connections) {
-        await enqueueWebhookProcess({ connectionId: String(conn._id), topic, payload });
+      for (const connectionId of connectionIds) {
+        await enqueueWebhookProcess({ connectionId, topic, payload });
       }
       sendText(res, 200, 'ok');
     } catch (err) {
@@ -108,27 +107,28 @@ router.post(
   express.raw({ type: '*/*', limit: RAW_BODY_LIMIT }),
   async (req: Request, res: Response) => {
     const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
-    const { connectionId } = req.params;
-    // A non-ObjectId path segment can never map to a connection — reject as unsigned.
-    if (!isValidObjectId(connectionId)) {
-      sendText(res, 401, 'Invalid webhook signature');
-      return;
-    }
+    const connectionId = routeParam(req, 'connectionId');
 
     try {
       // Resolve by the id in the delivery URL (server-side), and read its stored,
-      // encrypted per-connection webhook secret to verify against.
-      const conn = await Connection.findOne({
-        _id: connectionId,
-        provider: 'woocommerce',
-        status: 'connected',
-      }).select('_id webhookSecret');
-      if (!conn || !conn.webhookSecret) {
+      // encrypted per-connection webhook secret to verify against. The lookup is
+      // scoped to a CONNECTED WooCommerce connection, so a missing connection, a
+      // wrong provider, a disconnected one and an unconfigured secret are one
+      // answer — `null` — and one response, which is what stops the 401 being
+      // used to enumerate them apart.
+      //
+      // The Mongo path had an `isValidObjectId` pre-check here, purely because a
+      // non-ObjectId `_id` made Mongoose THROW a CastError before any query ran.
+      // A `text` primary key has no such failure mode: an arbitrary path segment
+      // simply matches no row and gets the same 401, so the guard is Mongo
+      // baggage and is gone rather than re-spelled as an id-shape predicate.
+      const envelope = await findConnectionWebhookSecret(connectionId, 'woocommerce');
+      if (!envelope) {
         sendText(res, 401, 'Invalid webhook signature');
         return;
       }
 
-      const secret = decryptSecret(conn.webhookSecret);
+      const secret = decryptSecret(envelope);
       if (!verifyWooCommerceWebhook(rawBody, req.get('X-WC-Webhook-Signature'), secret)) {
         sendText(res, 401, 'Invalid webhook signature');
         return;
@@ -150,7 +150,7 @@ router.post(
         return;
       }
 
-      await enqueueWebhookProcess({ connectionId: String(conn._id), topic, payload });
+      await enqueueWebhookProcess({ connectionId, topic, payload });
       sendText(res, 200, 'ok');
     } catch (err) {
       log.general.error({ err, connectionId }, 'Failed to process WooCommerce webhook');

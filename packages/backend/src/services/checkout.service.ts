@@ -8,14 +8,14 @@
  * created — checkout is all-or-nothing.
  *
  * Idempotency is layered: a Redis SETNX claim is the fast path (replay returns
- * the original orders), and the durable backstop is the per-order
- * sparse-unique `idempotencyKey` (a Mongo 11000 on replay converges on the
- * already-created group). Redis is best-effort: any Redis failure logs a warning
- * and falls through to the durable Mongo path — it NEVER breaks checkout.
+ * the original orders), and the durable backstop is the per-order sparse-unique
+ * `idempotency_key` — a unique violation on replay converges on the
+ * already-created group. Redis is best-effort: any Redis failure logs a warning
+ * and falls through to the durable path — it NEVER breaks checkout.
  */
 
-import mongoose from 'mongoose';
 import type {
+  AddressSnapshot,
   CheckoutInput,
   CheckoutResult,
   CurrencyCode,
@@ -31,19 +31,31 @@ import type {
 import type { Cart } from '@mercaria/shared-types';
 import { assertSafeMoneyAmount } from '@mercaria/shared-types';
 import {
-  Order,
-  type IOrder,
-  type IOrderItem,
-  type IAddressSnapshot,
-  type IDiscountAllocation,
-  type ITaxLine,
-} from '../models/order.js';
-import { Listing, type IListing } from '../models/listing.js';
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
-import { Store, type IStore } from '../models/store.js';
-import { Address, type IAddress } from '../models/address.js';
-import { Discount } from '../models/discount.js';
-import { nextOrderNumber } from '../models/counter.js';
+  findOrderByIdempotencyKey,
+  findOrdersByCheckoutGroup,
+  insertOrder,
+  nextOrderNumber,
+  type NewOrder,
+  type NewOrderAppliedDiscount,
+  type NewOrderItem,
+  type NewOrderTaxLine,
+  type OrderRecord,
+} from '../db/orders/orderRepository.js';
+import {
+  findListingChildren,
+  findListingsByIds,
+  type ListingImageRecord,
+  type ListingRecord,
+} from '../db/catalog/listingRepository.js';
+import {
+  findVariantOptionValues,
+  findVariantsByIds,
+  type VariantOptionValueRecord,
+  type VariantRecord,
+} from '../db/catalog/variantRepository.js';
+import { findStoresByIds } from '../db/stores/storeRepository.js';
+import { redeemDiscountCode } from '../db/merchandising/discountRepository.js';
+import { findAddress, type AddressRecord } from '../db/buyers/addressRepository.js';
 import { getCart, clearCart, removeCartLines } from './cart.service.js';
 import { reserve, release } from './inventory.service.js';
 import { summarizeOrders } from './order-hydration.service.js';
@@ -53,6 +65,7 @@ import { normalizeDiscountCode } from './discount.service.js';
 import { getRates, convert, toDualMoney, pairRate } from './fx.service.js';
 import { addMoney, multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
+import { uuidv7, isUniqueViolation } from '@oxyhq/db';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { enqueueOrderEvent } from '../queue/producers.js';
 import { conflict, notFound, isMercariaError } from '../lib/errors/error-codes.js';
@@ -76,11 +89,21 @@ interface Reservation {
   qty: number;
 }
 
-/** A cart line resolved against its live listing + variant for snapshotting. */
+/**
+ * A cart line resolved against its live listing + variant for snapshotting.
+ *
+ * The gallery, the collection memberships and the variant's option values were
+ * all fields ON the two documents and are child tables now, so they travel with
+ * the line rather than being read off it — resolved ONCE for the whole cart, not
+ * per line.
+ */
 interface ResolvedLine {
   cartItem: Cart['items'][number];
-  listing: IListing;
-  variant: IProductVariant;
+  listing: ListingRecord;
+  variant: VariantRecord;
+  images: ListingImageRecord[];
+  collectionIds: string[];
+  optionValues: VariantOptionValueRecord[];
 }
 
 /** A per-seller group of resolved lines that becomes one order. */
@@ -91,36 +114,16 @@ interface SellerGroup {
   lines: ResolvedLine[];
 }
 
-/** The shape passed to `Order.create` for a single group's order. */
-interface OrderCreateDoc {
-  orderNumber: string;
-  buyerOxyUserId: string;
-  sellerType: OrderSellerType;
-  sellerOxyUserId?: string;
-  storeId?: string;
-  items: IOrderItem[];
-  shippingAddressSnapshot: IAddressSnapshot;
-  shipping: { method: ShippingMethod; label: string; cost: DualMoney; trackingNumber: null };
-  totals: {
-    subtotal: DualMoney;
-    discountTotal: DualMoney;
-    shipping: DualMoney;
-    tax: DualMoney;
-    grandTotal: DualMoney;
-  };
-  fxRate: FxRateSnapshot;
-  appliedDiscounts: IDiscountAllocation[];
-  taxLines: ITaxLine[];
-  status: 'pending_payment';
-  statusHistory: { status: 'pending_payment'; at: Date; byOxyUserId: string }[];
-  payment: { status: 'unpaid' };
-  checkoutGroupId: string;
-  idempotencyKey?: string;
-}
-
-/** Build the immutable address snapshot from a saved address (omit absent optionals). */
-function snapshotAddress(address: IAddress): IAddressSnapshot {
-  const snapshot: IAddressSnapshot = {
+/**
+ * Build the immutable address snapshot from a saved address (omit absent
+ * optionals).
+ *
+ * The four optional fields arrive NULL rather than absent now, which the
+ * truthiness guards below already handle — and they must keep handling it, since
+ * a snapshot carrying `line2: null` would print a blank line on the label.
+ */
+function snapshotAddress(address: AddressRecord): AddressSnapshot {
+  const snapshot: AddressSnapshot = {
     recipientName: address.recipientName,
     line1: address.line1,
     city: address.city,
@@ -143,18 +146,18 @@ function snapshotAddress(address: IAddress): IAddressSnapshot {
 }
 
 /** The stable seller group key for a listing (`store:<id>` or `user:<id>`). */
-function sellerKeyForListing(listing: IListing): string {
+function sellerKeyForListing(listing: ListingRecord): string {
   return listing.ownerType === 'store'
     ? `store:${String(listing.storeId)}`
     : `user:${String(listing.oxyUserId)}`;
 }
 
 /** First listing image (lowest position), resolved through the media chokepoint. */
-function firstImageUrl(listing: IListing): string | undefined {
-  if (listing.images.length === 0) {
+function firstImageUrl(images: ListingImageRecord[]): string | undefined {
+  if (images.length === 0) {
     return undefined;
   }
-  const first = [...listing.images].sort((a, b) => a.position - b.position)[0];
+  const first = [...images].sort((a, b) => a.position - b.position)[0];
   return first ? resolveMedia(first.fileId, 'thumb') : undefined;
 }
 
@@ -177,13 +180,22 @@ async function summarizePriorGroup(
   oxyUserId: string,
   checkoutGroupId: string,
 ): Promise<CheckoutResult> {
-  const prior = await Order.find({ checkoutGroupId, buyerOxyUserId: oxyUserId }).lean<IOrder[]>();
+  const prior = await findOrdersByCheckoutGroup(checkoutGroupId, oxyUserId);
   return { checkoutGroupId, orders: await summarizeOrders(prior) };
 }
 
-/** The native `Money` price of a resolved line's variant. */
-function nativeUnitPrice(variant: IProductVariant): Money {
-  return { amount: variant.price.amount, currency: variant.price.currency as CurrencyCode };
+/**
+ * The native `Money` price of a resolved line's variant.
+ *
+ * A variant whose price columns are NULL cannot be sold: the checkout refuses the
+ * whole cart rather than snapshotting a zero onto an order, which is a price a
+ * buyer would then be held to.
+ */
+function nativeUnitPrice(variant: VariantRecord): Money {
+  if (variant.priceAmount === null || variant.priceCurrency === null) {
+    throw conflict('Cart references an item that is not currently priced');
+  }
+  return { amount: variant.priceAmount, currency: variant.priceCurrency };
 }
 
 /**
@@ -200,8 +212,8 @@ function buildItems(
   shopCurrency: CurrencyCode,
   presentmentCurrency: CurrencyCode,
   rates: FxRates,
-): IOrderItem[] {
-  return group.lines.map(({ cartItem, listing, variant }, index) => {
+): NewOrderItem[] {
+  return group.lines.map(({ cartItem, listing, variant, images, optionValues }, index) => {
     const shopUnit = convert(nativeUnitPrice(variant), shopCurrency, rates);
     const unitPrice: DualMoney = toDualMoney(shopUnit, presentmentCurrency, rates);
     const lineTotal: DualMoney = toDualMoney(
@@ -209,12 +221,12 @@ function buildItems(
       presentmentCurrency,
       rates,
     );
-    const item: IOrderItem = {
-      listingId: String((listing as { _id: mongoose.Types.ObjectId })._id),
-      variantId: String((variant as { _id: mongoose.Types.ObjectId })._id),
+    const item: NewOrderItem = {
+      listingId: listing.id,
+      variantId: variant.id,
       title: listing.title,
       variantTitle: variant.title,
-      optionValues: variant.optionValues.map((o) => ({ name: o.name, value: o.value })),
+      optionValues: optionValues.map((o) => ({ name: o.name, value: o.value })),
       unitPrice,
       quantity: cartItem.quantity,
       lineTotal,
@@ -223,7 +235,7 @@ function buildItems(
     if (lineDiscount && lineDiscount.shop.amount > 0) {
       item.discountTotal = lineDiscount;
     }
-    const imageUrl = firstImageUrl(listing);
+    const imageUrl = firstImageUrl(images);
     if (imageUrl !== undefined) {
       item.imageUrl = imageUrl;
     }
@@ -237,11 +249,11 @@ function buildItems(
  * the shop currency.
  */
 function buildPricingLines(group: SellerGroup): PricingLine[] {
-  return group.lines.map(({ cartItem, listing, variant }) => {
+  return group.lines.map(({ cartItem, listing, variant, collectionIds }) => {
     const line: PricingLine = {
-      listingId: String((listing as { _id: mongoose.Types.ObjectId })._id),
-      variantId: String((variant as { _id: mongoose.Types.ObjectId })._id),
-      collectionIds: [...(listing.collectionIds ?? [])],
+      listingId: listing.id,
+      variantId: variant.id,
+      collectionIds: [...collectionIds],
       unitPrice: nativeUnitPrice(variant),
       quantity: cartItem.quantity,
     };
@@ -252,8 +264,8 @@ function buildPricingLines(group: SellerGroup): PricingLine[] {
   });
 }
 
-/** Map the engine's discount allocations to persisted order sub-documents. */
-function toOrderAllocations(allocations: DiscountAllocation[]): IDiscountAllocation[] {
+/** Map the engine's discount allocations to the repository's allocation rows. */
+function toOrderAllocations(allocations: DiscountAllocation[]): NewOrderAppliedDiscount[] {
   return allocations.map((a) => ({
     discountId: a.discountId,
     ...(a.code ? { code: a.code } : {}),
@@ -265,39 +277,28 @@ function toOrderAllocations(allocations: DiscountAllocation[]): IDiscountAllocat
   }));
 }
 
-/** Map the engine's tax lines to persisted order sub-documents. */
-function toOrderTaxLines(taxLines: TaxLine[]): ITaxLine[] {
+/** Map the engine's tax lines to the repository's tax-line rows. */
+function toOrderTaxLines(taxLines: TaxLine[]): NewOrderTaxLine[] {
   return taxLines.map((t) => ({ name: t.name, rateBps: t.rateBps, amount: t.amount }));
 }
 
 /**
- * Increment the `usageCount` of every redeemed discount code, EXACTLY once per
- * checkout (called only on the fresh-claim success path — never on a replay/
- * converge). Each `$inc` is GUARDED: the filter requires the redeemed code AND, if
- * a `usageLimits.totalMax` exists, that current usage is still below it (an
- * `$expr` over the summed code usageCounts). A guarded update that matches 0 docs
- * because the ceiling was raced is logged as a warning — it never fails checkout.
+ * Count one redemption of every code that actually produced an allocation,
+ * EXACTLY once per checkout — this runs only on the fresh-claim success path,
+ * never on a replay or a converge.
+ *
+ * The ceiling guard lives in the repository, which serializes on the parent
+ * discount before counting; see it for why the shorter `UPDATE … WHERE (subquery)
+ * < max` form lets two concurrent redemptions past a `totalMax`. A refusal here
+ * means the ceiling was genuinely reached and is logged, never raised: a
+ * redemption count is bookkeeping and must not fail a checkout that has already
+ * created orders and taken stock.
  */
 async function incrementDiscountUsage(codes: string[]): Promise<void> {
   for (const code of codes) {
     try {
-      const result = await Discount.updateOne(
-        {
-          'codes.code': code,
-          $or: [
-            { 'usageLimits.totalMax': { $exists: false } },
-            { 'usageLimits.totalMax': null },
-            {
-              $expr: {
-                $lt: [{ $sum: '$codes.usageCount' }, '$usageLimits.totalMax'],
-              },
-            },
-          ],
-        },
-        { $inc: { 'codes.$[c].usageCount': 1 } },
-        { arrayFilters: [{ 'c.code': code }] },
-      );
-      if (result.matchedCount === 0) {
+      const counted = await redeemDiscountCode(code);
+      if (!counted) {
         log.general.warn({ code }, 'Discount usage increment skipped (usage ceiling reached)');
       }
     } catch (err) {
@@ -333,10 +334,7 @@ export async function checkout(
       if (claim === null) {
         const stored = await withRedisTimeout(redis.get(redisKey));
         if (stored && stored !== IDEMPOTENCY_PENDING) {
-          const prior = await Order.find({
-            checkoutGroupId: stored,
-            buyerOxyUserId: oxyUserId,
-          }).lean<IOrder[]>();
+          const prior = await findOrdersByCheckoutGroup(stored, oxyUserId);
           if (prior.length > 0) {
             return { checkoutGroupId: stored, orders: await summarizeOrders(prior) };
           }
@@ -364,7 +362,7 @@ export async function checkout(
   }
 
   // 3. Resolve + snapshot the shipping address.
-  const address = await Address.findOne({ _id: input.addressId, oxyUserId }).lean<IAddress | null>();
+  const address = await findAddress(oxyUserId, input.addressId);
   if (!address) {
     throw notFound('Address not found');
   }
@@ -373,16 +371,14 @@ export async function checkout(
   // 4. Load listings + variants for every cart line; group by seller.
   const listingIds = [...new Set(cart.items.map((i) => i.listingId))];
   const variantIds = [...new Set(cart.items.map((i) => i.variantId))];
-  const [listingDocs, variantDocs] = await Promise.all([
-    Listing.find({ _id: { $in: listingIds } }).lean<IListing[]>(),
-    ProductVariant.find({ _id: { $in: variantIds } }).lean<IProductVariant[]>(),
+  const [listingDocs, variantDocs, children] = await Promise.all([
+    findListingsByIds(listingIds),
+    findVariantsByIds(variantIds),
+    findListingChildren(listingIds),
   ]);
-  const listingById = new Map(
-    listingDocs.map((l) => [String((l as { _id: mongoose.Types.ObjectId })._id), l]),
-  );
-  const variantById = new Map(
-    variantDocs.map((v) => [String((v as { _id: mongoose.Types.ObjectId })._id), v]),
-  );
+  const optionValuesByVariant = await findVariantOptionValues(variantIds);
+  const listingById = new Map(listingDocs.map((l) => [l.id, l]));
+  const variantById = new Map(variantDocs.map((v) => [v.id, v]));
 
   const groups = new Map<string, SellerGroup>();
   for (const cartItem of cart.items) {
@@ -391,17 +387,25 @@ export async function checkout(
     if (!listing || !variant) {
       throw conflict('Cart references an item that no longer exists');
     }
+    const resolved: ResolvedLine = {
+      cartItem,
+      listing,
+      variant,
+      images: children.images.get(listing.id) ?? [],
+      collectionIds: children.collectionIds.get(listing.id) ?? [],
+      optionValues: optionValuesByVariant.get(variant.id) ?? [],
+    };
     const key = sellerKeyForListing(listing);
     const existing = groups.get(key);
     if (existing) {
-      existing.lines.push({ cartItem, listing, variant });
+      existing.lines.push(resolved);
     } else {
       groups.set(key, {
         sellerType: listing.ownerType === 'store' ? 'store' : 'user',
         ...(listing.ownerType === 'store'
           ? { storeId: String(listing.storeId) }
           : { sellerOxyUserId: String(listing.oxyUserId) }),
-        lines: [{ cartItem, listing, variant }],
+        lines: [resolved],
       });
     }
   }
@@ -422,6 +426,24 @@ export async function checkout(
   // Whether this checkout placed the WHOLE cart (empty it) or just some groups
   // (remove only the placed lines, keeping the rest).
   const isPartialCheckout = Boolean(input.sellerKeys && input.sellerKeys.length > 0);
+
+  // 4c. Refuse an unpriced line BEFORE any stock is touched.
+  //
+  // `nativeUnitPrice` throws for a variant whose price columns are NULL, and it is
+  // called from `shopCurrencyForGroup`, `buildPricingLines` and `buildItems` —
+  // three places that all run AFTER the reservation loop below. Only the last two
+  // sit inside a `try` that rolls back, so a throw from the currency resolution
+  // would strand every unit this checkout had already committed, with no order to
+  // release them and nothing in the response to say so.
+  //
+  // Checking here rather than widening that `try` is the stronger shape: a
+  // checkout that cannot be priced never reserves in the first place, so there is
+  // nothing to roll back and no window in which a partial reservation exists.
+  for (const group of groups.values()) {
+    for (const line of group.lines) {
+      nativeUnitPrice(line.variant);
+    }
+  }
 
   // 5. Reserve every line across ALL groups; roll back on any failure.
   const reserved: Reservation[] = [];
@@ -466,14 +488,9 @@ export async function checkout(
       [...groups.values()].map((g) => g.storeId).filter((s): s is string => Boolean(s)),
     ),
   ];
-  const storeDocs =
-    groupStoreIds.length > 0
-      ? await Store.find({ _id: { $in: groupStoreIds } }).select('defaultCurrency').lean<
-          Pick<IStore, '_id' | 'defaultCurrency'>[]
-        >()
-      : [];
+  const storeRows = await findStoresByIds(groupStoreIds);
   const shopCurrencyByStore = new Map(
-    storeDocs.map((s) => [String(s._id), s.defaultCurrency as CurrencyCode]),
+    storeRows.map((s) => [s.id, s.defaultCurrency as CurrencyCode]),
   );
   const shopCurrencyForGroup = (group: SellerGroup): CurrencyCode =>
     (group.storeId ? shopCurrencyByStore.get(group.storeId) : undefined) ??
@@ -494,9 +511,12 @@ export async function checkout(
   // pricing.grandTotal + shippingCost) on BOTH the shop and presentment sides. The
   // codes that actually produced an allocation are collected so their usageCount
   // can be incremented EXACTLY once on the fresh-claim path.
-  const checkoutGroupId = new mongoose.Types.ObjectId().toString();
+  // A uuid v7 rather than a fresh ObjectId: the id shape every row created after
+  // the cutover uses, and k-sortable, so the `orders_checkout_group_id_idx`
+  // lookups a replay makes stay clustered by time.
+  const checkoutGroupId = uuidv7();
   const groupEntries = [...groups.entries()];
-  const created: IOrder[] = [];
+  const created: OrderRecord[] = [];
   const appliedCodes = new Set<string>();
 
   try {
@@ -548,15 +568,17 @@ export async function checkout(
       };
       const orderNumber = await nextOrderNumber();
 
-      const doc: OrderCreateDoc = {
+      const doc: NewOrder = {
         orderNumber,
         buyerOxyUserId: oxyUserId,
         sellerType: group.sellerType,
         ...(group.sellerOxyUserId ? { sellerOxyUserId: group.sellerOxyUserId } : {}),
         ...(group.storeId ? { storeId: group.storeId } : {}),
         items,
-        shippingAddressSnapshot,
-        shipping: { method, label: SHIPPING_LABELS[method], cost, trackingNumber: null },
+        shippingAddress: shippingAddressSnapshot,
+        shippingMethod: method,
+        shippingLabel: SHIPPING_LABELS[method],
+        shippingCost: cost,
         totals: {
           subtotal: pricing.subtotal,
           discountTotal: pricing.discountTotal,
@@ -569,32 +591,38 @@ export async function checkout(
         taxLines: toOrderTaxLines(pricing.taxLines),
         status: 'pending_payment',
         statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: oxyUserId }],
-        payment: { status: 'unpaid' },
+        // No `paymentProvider`: a freshly checked-out order has reserved stock
+        // and no payment at all, and the retired `oxy_pay` default asserted a
+        // rail for it that did not exist. The provider appears when a payment
+        // does, stamped by `linkPaymentToOrders`.
+        paymentStatus: 'unpaid',
         checkoutGroupId,
         ...(idempotencyKey ? { idempotencyKey: `${idempotencyKey}:${sellerKey}` } : {}),
       };
 
-      const order = await Order.create(doc);
-      created.push(order.toObject<IOrder>());
+      // ONE transaction per seller-order: the order row and all five child
+      // relations land together or not at all. A half-written order is not a
+      // degraded record, it is a charge with no lines.
+      created.push(await insertOrder(doc));
     }
   } catch (err) {
     // A duplicate idempotencyKey means a concurrent/replayed checkout already
     // created these orders. Roll back THIS attempt's reservations and converge
     // on the prior group.
-    if (err && typeof err === 'object' && (err as { code?: number }).code === 11000) {
+    // The NAMED index, not "some unique violation": a duplicate on any other
+    // constraint is a real failure, and converging on a prior group for it would
+    // return someone else's orders.
+    if (isUniqueViolation(err, 'orders_idempotency_key_key')) {
       await rollbackReservations(reserved);
       if (idempotencyKey && groupEntries.length > 0) {
         const sampleKey = `${idempotencyKey}:${groupEntries[0][0]}`;
-        const prior = await Order.findOne({
-          buyerOxyUserId: oxyUserId,
-          idempotencyKey: sampleKey,
-        }).lean<IOrder | null>();
-        if (prior) {
+        const prior = await findOrderByIdempotencyKey(sampleKey);
+        if (prior && prior.buyerOxyUserId === oxyUserId && prior.checkoutGroupId) {
           log.general.warn(
             { oxyUserId, idempotencyKey },
             'Concurrent/replayed checkout detected; converging on prior order group',
           );
-          return summarizePriorGroup(oxyUserId, String(prior.checkoutGroupId));
+          return summarizePriorGroup(oxyUserId, prior.checkoutGroupId);
         }
       }
       throw conflict('Checkout already processed');
@@ -634,10 +662,7 @@ export async function checkout(
   // failure must never fail a completed checkout.
   try {
     for (const o of created) {
-      await enqueueOrderEvent({
-        orderId: String((o as { _id: mongoose.Types.ObjectId })._id),
-        event: 'placed',
-      });
+      await enqueueOrderEvent({ orderId: o.id, event: 'placed' });
     }
   } catch (err) {
     log.general.warn({ err }, 'Failed to enqueue order-placed notifications');

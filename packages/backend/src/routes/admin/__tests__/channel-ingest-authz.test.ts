@@ -46,14 +46,13 @@ beforeAll(async () => {
   app.use((req, _res, next) => {
     req.userId = 'user-1';
     const role = req.headers['x-role'] as StoreRole | 'none' | undefined;
-    req.store = { _id: STORE_ID } as unknown as typeof req.store;
+    req.store = { id: STORE_ID } as unknown as typeof req.store;
     if (role !== 'none') {
       req.storeMembership = {
         oxyUserId: 'user-1',
         role: (role ?? 'staff') as StoreRole,
         permissions: [],
-        joinedAt: new Date(),
-      };
+      } as unknown as typeof req.storeMembership;
     }
     next();
   });

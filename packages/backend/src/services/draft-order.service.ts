@@ -6,16 +6,16 @@
  * totals are recomputed through the SAME pricing engine the storefront uses
  * (`pricing.service.calculateTotals`). `completeDraftOrder` is the POS sale path:
  * it MIRRORS `checkout.service` — reserve every line (all-or-nothing rollback on
- * failure), recompute totals fresh, freeze immutable `IOrderItem` snapshots,
- * `Order.create` it as a `sourceChannel: 'pos'` order, then run the shared
- * `order.service.transition('paid')` (commit + salesCount + customer relate). It
+ * failure), recompute totals fresh, freeze immutable line snapshots, insert it as
+ * a `sourceChannel: 'pos'` order, then record a `manual_pos` payment whose
+ * success drives the shared `order.service.transition('paid')` (commit +
+ * salesCount + customer relate). It
  * is idempotent: a second complete short-circuits on `convertedOrderId`, and a
  * racing/replayed complete converges via the order's sparse-unique
  * `idempotencyKey`. Stock reserves and commits at the draft's `locationId` (the
  * register), threaded through to the order line items.
  */
 
-import mongoose, { type HydratedDocument } from 'mongoose';
 import type {
   Money,
   DualMoney,
@@ -34,26 +34,43 @@ import type {
   AddressSnapshot,
 } from '@mercaria/shared-types';
 import {
-  DraftOrder,
-  type IDraftOrder,
-  type IDraftOrderLineItem,
-  type IDraftDiscountAllocation,
-  type IDraftTaxLine,
-  type IDraftAddressSnapshot,
-} from '../models/draft-order.js';
+  findDraftOrder,
+  findDraftOrdersPage,
+  insertDraftOrder,
+  markDraftConverted,
+  replaceDraftPricing,
+  updateDraftOrder as updateDraftOrderRow,
+  type DraftAppliedDiscountRow,
+  type DraftLineItemRecord,
+  type DraftOrderRecord,
+  type DraftTaxLineRow,
+  type DraftTotals,
+  type NewDraftAppliedDiscount,
+  type NewDraftLineItem,
+  type NewDraftTaxLine,
+} from '../db/pos/draftOrderRepository.js';
 import {
-  Order,
-  type IOrder,
-  type IOrderItem,
-  type IAddressSnapshot,
-  type IDiscountAllocation,
-  type ITaxLine,
-} from '../models/order.js';
-import { Listing, type IListing } from '../models/listing.js';
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
-import { Store, type IStore } from '../models/store.js';
-import { Location } from '../models/location.js';
-import { nextOrderNumber } from '../models/counter.js';
+  findOrderById,
+  findOrderByIdempotencyKey,
+  insertOrder,
+  nextOrderNumber,
+  type NewOrderAppliedDiscount,
+  type NewOrderItem,
+  type NewOrderTaxLine,
+  type OrderRecord,
+} from '../db/orders/orderRepository.js';
+import {
+  findListingById,
+  findListingChildren,
+  findListingsByIds,
+  type ListingImageRecord,
+} from '../db/catalog/listingRepository.js';
+import {
+  findVariantById,
+  findVariantOptionValues,
+} from '../db/catalog/variantRepository.js';
+import { findStoreRow } from '../db/stores/storeRepository.js';
+import { findLocation } from '../db/stores/locationRepository.js';
 import { reserve, release } from './inventory.service.js';
 import { resolveDefaultLocationId } from './catalog-write.service.js';
 import { resolveMedia } from './catalog-hydration.service.js';
@@ -64,6 +81,7 @@ import { applyPaymentStatus, ensurePayment } from './payments/payment.service.js
 import { hydrateOrders } from './order-hydration.service.js';
 import { getRates } from './fx.service.js';
 import { multiplyMoney, zeroMoney } from '../utils/money.js';
+import { uuidv7, isUniqueViolation } from '@oxyhq/db';
 import { conflict, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
@@ -83,11 +101,6 @@ interface Reservation {
   locationId?: string;
 }
 
-/** Map a persisted `{ amount, currency }` sub-document to the `Money` DTO. */
-function toMoney(value: { amount: number; currency: string }): Money {
-  return { amount: value.amount, currency: value.currency as Money['currency'] };
-}
-
 /**
  * Wrap a POS `Money` as `DualMoney`. A POS sale both SETTLES and CHARGES in the
  * store's currency, so the shop and presentment sides are equal (distinct objects
@@ -97,62 +110,86 @@ function toPosDual(money: Money): DualMoney {
   return { shop: { ...money }, presentment: { ...money } };
 }
 
-/** Map a persisted draft address snapshot to the `AddressSnapshot` DTO (omit absent optionals). */
-function toAddressSnapshotDTO(snapshot: IDraftAddressSnapshot): AddressSnapshot {
+/**
+ * The draft's snapshotted shipping address, or `undefined` when it has none.
+ *
+ * "Has an address" is `recipient_name is not null`: the nine columns are all
+ * nullable together and the required subfields are exactly the ones a real
+ * address cannot be missing.
+ */
+function toAddressSnapshotDTO(draft: DraftOrderRecord): AddressSnapshot | undefined {
+  if (
+    draft.shippingAddressRecipientName === null ||
+    draft.shippingAddressLine1 === null ||
+    draft.shippingAddressCity === null ||
+    draft.shippingAddressPostalCode === null ||
+    draft.shippingAddressCountry === null
+  ) {
+    return undefined;
+  }
   const dto: AddressSnapshot = {
-    recipientName: snapshot.recipientName,
-    line1: snapshot.line1,
-    city: snapshot.city,
-    postalCode: snapshot.postalCode,
-    country: snapshot.country,
+    recipientName: draft.shippingAddressRecipientName,
+    line1: draft.shippingAddressLine1,
+    city: draft.shippingAddressCity,
+    postalCode: draft.shippingAddressPostalCode,
+    country: draft.shippingAddressCountry,
   };
-  if (snapshot.label) dto.label = snapshot.label;
-  if (snapshot.line2) dto.line2 = snapshot.line2;
-  if (snapshot.region) dto.region = snapshot.region;
-  if (snapshot.phone) dto.phone = snapshot.phone;
+  if (draft.shippingAddressLabel) dto.label = draft.shippingAddressLabel;
+  if (draft.shippingAddressLine2) dto.line2 = draft.shippingAddressLine2;
+  if (draft.shippingAddressRegion) dto.region = draft.shippingAddressRegion;
+  if (draft.shippingAddressPhone) dto.phone = draft.shippingAddressPhone;
   return dto;
 }
 
-/** Map a draft line item to its DTO (omit absent optionals). */
-function toLineItemDTO(line: IDraftOrderLineItem): DraftOrderLineItem {
+/** Map a draft line item row to its DTO (omit absent optionals). */
+function toLineItemDTO(line: DraftLineItemRecord): DraftOrderLineItem {
   const dto: DraftOrderLineItem = {
-    listingId: String(line.listingId),
-    variantId: String(line.variantId),
+    listingId: line.listingId,
+    variantId: line.variantId,
     title: line.title,
     variantTitle: line.variantTitle,
-    unitPrice: toMoney(line.unitPrice),
+    unitPrice: { amount: line.unitPriceAmount, currency: line.unitPriceCurrency },
     quantity: line.quantity,
     optionValues: line.optionValues.map((o) => ({ name: o.name, value: o.value })),
   };
-  if (line.discountTotal) {
-    dto.discountTotal = toMoney(line.discountTotal);
+  // Both columns are present or absent together
+  // (`draft_order_line_items_discount_total_complete_check`).
+  if (line.discountTotalAmount !== null && line.discountTotalCurrency !== null) {
+    dto.discountTotal = {
+      amount: line.discountTotalAmount,
+      currency: line.discountTotalCurrency,
+    };
   }
   return dto;
 }
 
 /** Map a persisted draft discount allocation to the `DiscountAllocation` DTO. */
-function toAllocationDTO(allocation: IDraftDiscountAllocation): DiscountAllocation {
+function toAllocationDTO(allocation: DraftAppliedDiscountRow): DiscountAllocation {
   const dto: DiscountAllocation = {
-    discountId: String(allocation.discountId),
+    discountId: allocation.discountId,
     title: allocation.title,
-    valueType: allocation.valueType as DiscountAllocation['valueType'],
-    amount: toMoney(allocation.amount),
+    valueType: allocation.valueType,
+    amount: { amount: allocation.amountAmount, currency: allocation.amountCurrency },
     target: allocation.target,
   };
   if (allocation.code) dto.code = allocation.code;
-  if (allocation.targetLineIndex !== undefined) dto.targetLineIndex = allocation.targetLineIndex;
+  if (allocation.targetLineIndex !== null) dto.targetLineIndex = allocation.targetLineIndex;
   return dto;
 }
 
 /** Map a persisted draft tax line to the `TaxLine` DTO. */
-function toTaxLineDTO(line: IDraftTaxLine): TaxLine {
-  return { name: line.name, rateBps: line.rateBps, amount: toMoney(line.amount) };
+function toTaxLineDTO(line: DraftTaxLineRow): TaxLine {
+  return {
+    name: line.name,
+    rateBps: line.rateBps,
+    amount: { amount: line.amountAmount, currency: line.amountCurrency },
+  };
 }
 
-/** Serialize a draft order document to the `DraftOrder` DTO (omit absent optionals). */
-export function toDraftOrderDTO(draft: IDraftOrder): DraftOrderDTO {
+/** Serialize a draft order record to the `DraftOrder` DTO (omit absent optionals). */
+export function toDraftOrderDTO(draft: DraftOrderRecord): DraftOrderDTO {
   const dto: DraftOrderDTO = {
-    id: String((draft as { _id: unknown })._id),
+    id: draft.id,
     storeId: draft.storeId,
     createdByOxyUserId: draft.createdByOxyUserId,
     status: draft.status,
@@ -161,11 +198,17 @@ export function toDraftOrderDTO(draft: IDraftOrder): DraftOrderDTO {
     appliedDiscounts: draft.appliedDiscounts.map(toAllocationDTO),
     taxLines: draft.taxLines.map(toTaxLineDTO),
     totals: {
-      subtotal: toMoney(draft.totals.subtotal),
-      discountTotal: toMoney(draft.totals.discountTotal),
-      tax: toMoney(draft.totals.tax),
-      shipping: toMoney(draft.totals.shipping),
-      grandTotal: toMoney(draft.totals.grandTotal),
+      subtotal: { amount: draft.totalsSubtotalAmount, currency: draft.totalsSubtotalCurrency },
+      discountTotal: {
+        amount: draft.totalsDiscountTotalAmount,
+        currency: draft.totalsDiscountTotalCurrency,
+      },
+      tax: { amount: draft.totalsTaxAmount, currency: draft.totalsTaxCurrency },
+      shipping: { amount: draft.totalsShippingAmount, currency: draft.totalsShippingCurrency },
+      grandTotal: {
+        amount: draft.totalsGrandTotalAmount,
+        currency: draft.totalsGrandTotalCurrency,
+      },
     },
     currency: draft.currency as CurrencyCode,
     createdAt: draft.createdAt.toISOString(),
@@ -173,16 +216,15 @@ export function toDraftOrderDTO(draft: IDraftOrder): DraftOrderDTO {
   };
   if (draft.locationId) dto.locationId = draft.locationId;
   if (draft.customerId) dto.customerId = draft.customerId;
-  if (draft.shippingAddressSnapshot) {
-    dto.shippingAddress = toAddressSnapshotDTO(draft.shippingAddressSnapshot);
-  }
+  const shippingAddress = toAddressSnapshotDTO(draft);
+  if (shippingAddress) dto.shippingAddress = shippingAddress;
   if (draft.note) dto.note = draft.note;
   if (draft.convertedOrderId) dto.convertedOrderId = draft.convertedOrderId;
   return dto;
 }
 
 /** Build a `{ subtotal, discountTotal, tax, shipping, grandTotal }` all-zero totals block. */
-function zeroTotals(currency: CurrencyCode): IDraftOrder['totals'] {
+function zeroTotals(currency: CurrencyCode): DraftTotals {
   const zero = zeroMoney(currency);
   return {
     subtotal: zero,
@@ -193,46 +235,75 @@ function zeroTotals(currency: CurrencyCode): IDraftOrder['totals'] {
   };
 }
 
+/** A draft's stored lines, in the mutable shape the register edits. */
+function linesOf(draft: DraftOrderRecord): NewDraftLineItem[] {
+  return draft.lineItems.map((line) => ({
+    listingId: line.listingId,
+    variantId: line.variantId,
+    title: line.title,
+    variantTitle: line.variantTitle,
+    unitPrice: { amount: line.unitPriceAmount, currency: line.unitPriceCurrency },
+    quantity: line.quantity,
+    optionValues: line.optionValues.map((o) => ({ name: o.name, value: o.value })),
+  }));
+}
+
 /**
- * Recompute the draft's totals through the pricing engine: build a `PricingLine`
- * per line (loading each line's listing for `productType`/`collectionIds`), price
- * with the draft's pinned discount codes + resolved customer, then write the
- * per-line discounts, applied discounts, tax lines and totals back onto the draft.
- * Returns the `PricingResult` so the complete path can reuse it.
+ * Re-price `lines` through the pricing engine and write the whole result back:
+ * per-line discounts, applied discounts, tax lines and totals.
+ *
+ * Every register mutation ends here, which is the shape the Mongoose version had
+ * (mutate the sub-document arrays, then `save()`) expressed against tables. The
+ * write is ONE transaction and replaces the four child relations wholesale — a
+ * draft carrying two generations of tax lines would charge both.
+ *
+ * Returns the `PricingResult` alongside the fresh record so `completeDraftOrder`
+ * can stamp the same figures onto the order it creates instead of re-deriving
+ * them from the rows it just wrote.
  */
-async function recompute(draft: HydratedDocument<IDraftOrder>): Promise<PricingResult> {
+async function reprice(
+  draft: DraftOrderRecord,
+  lines: NewDraftLineItem[],
+): Promise<{ draft: DraftOrderRecord; pricing: PricingResult }> {
   const currency = draft.currency as CurrencyCode;
 
-  if (draft.lineItems.length === 0) {
-    draft.appliedDiscounts = [];
-    draft.taxLines = [];
-    draft.totals = zeroTotals(currency);
+  if (lines.length === 0) {
     const zero = toPosDual(zeroMoney(currency));
-    return {
-      subtotal: zero,
-      discountTotal: zero,
-      tax: zero,
-      shipping: zero,
-      grandTotal: zero,
+    const updated = await replaceDraftPricing(draft.id, {
+      lineItems: [],
       appliedDiscounts: [],
       taxLines: [],
-      perLineDiscount: [],
+      totals: zeroTotals(currency),
+    });
+    return {
+      draft: updated ?? draft,
+      pricing: {
+        subtotal: zero,
+        discountTotal: zero,
+        tax: zero,
+        shipping: zero,
+        grandTotal: zero,
+        appliedDiscounts: [],
+        taxLines: [],
+        perLineDiscount: [],
+      },
     };
   }
 
-  const listingIds = [...new Set(draft.lineItems.map((l) => String(l.listingId)))];
-  const listingDocs = await Listing.find({ _id: { $in: listingIds } }).lean<IListing[]>();
-  const listingById = new Map(
-    listingDocs.map((l) => [String((l as { _id: mongoose.Types.ObjectId })._id), l]),
-  );
+  const listingIds = [...new Set(lines.map((l) => l.listingId))];
+  const [listingRows, children] = await Promise.all([
+    findListingsByIds(listingIds),
+    findListingChildren(listingIds),
+  ]);
+  const listingById = new Map(listingRows.map((l) => [l.id, l]));
 
-  const lines: PricingLine[] = draft.lineItems.map((line) => {
-    const listing = listingById.get(String(line.listingId));
+  const pricingLines: PricingLine[] = lines.map((line) => {
+    const listing = listingById.get(line.listingId);
     const pricingLine: PricingLine = {
-      listingId: String(line.listingId),
-      variantId: String(line.variantId),
-      collectionIds: [...(listing?.collectionIds ?? [])],
-      unitPrice: toMoney(line.unitPrice),
+      listingId: line.listingId,
+      variantId: line.variantId,
+      collectionIds: [...(children.collectionIds.get(line.listingId) ?? [])],
+      unitPrice: line.unitPrice,
       quantity: line.quantity,
     };
     if (listing?.productType) {
@@ -249,7 +320,7 @@ async function recompute(draft: HydratedDocument<IDraftOrder>): Promise<PricingR
   const rates = await getRates(currency, [currency]);
   const pricing = await calculateTotals({
     storeId: draft.storeId,
-    lines,
+    lines: pricingLines,
     currency,
     presentmentCurrency: currency,
     rates,
@@ -257,31 +328,35 @@ async function recompute(draft: HydratedDocument<IDraftOrder>): Promise<PricingR
     ...(customerOxyUserId ? { customerId: customerOxyUserId } : {}),
   });
 
-  draft.lineItems.forEach((line, index) => {
-    // The draft persists single-currency totals (the shop side of the dual money).
+  // The draft persists SINGLE-currency amounts — the shop side of the dual money.
+  const priced: NewDraftLineItem[] = lines.map((line, index) => {
     const lineDiscount = pricing.perLineDiscount[index];
-    if (lineDiscount && lineDiscount.shop.amount > 0) {
-      line.discountTotal = { amount: lineDiscount.shop.amount, currency: lineDiscount.shop.currency };
-    } else {
-      line.discountTotal = undefined;
-    }
+    return lineDiscount && lineDiscount.shop.amount > 0
+      ? { ...line, discountTotal: lineDiscount.shop }
+      : line;
   });
-  draft.appliedDiscounts = pricing.appliedDiscounts.map(toPersistedAllocation);
-  draft.taxLines = pricing.taxLines.map((t) => ({ name: t.name, rateBps: t.rateBps, amount: t.amount }));
-  draft.totals = {
-    subtotal: pricing.subtotal.shop,
-    discountTotal: pricing.discountTotal.shop,
-    tax: pricing.tax.shop,
-    shipping: pricing.shipping.shop,
-    grandTotal: pricing.grandTotal.shop,
-  };
 
-  return pricing;
+  const updated = await replaceDraftPricing(draft.id, {
+    lineItems: priced,
+    appliedDiscounts: pricing.appliedDiscounts.map(toPersistedAllocation),
+    taxLines: pricing.taxLines.map(toPersistedTaxLine),
+    totals: {
+      subtotal: pricing.subtotal.shop,
+      discountTotal: pricing.discountTotal.shop,
+      tax: pricing.tax.shop,
+      shipping: pricing.shipping.shop,
+      grandTotal: pricing.grandTotal.shop,
+    },
+  });
+  if (!updated) {
+    throw notFound('Draft order not found');
+  }
+  return { draft: updated, pricing };
 }
 
 /** Resolve the draft customer's Oxy user id (for customer-eligible pricing), if any. */
 async function resolveCustomerOxyUserId(
-  draft: Pick<IDraftOrder, 'storeId' | 'customerId'>,
+  draft: Pick<DraftOrderRecord, 'storeId' | 'customerId'>,
 ): Promise<string | undefined> {
   if (!draft.customerId) {
     return undefined;
@@ -299,8 +374,8 @@ async function resolveCustomerOxyUserId(
   }
 }
 
-/** Map the engine's discount allocations to persisted draft sub-documents. */
-function toPersistedAllocation(allocation: DiscountAllocation): IDraftDiscountAllocation {
+/** Map the engine's discount allocations to the draft's allocation rows. */
+function toPersistedAllocation(allocation: DiscountAllocation): NewDraftAppliedDiscount {
   return {
     discountId: allocation.discountId,
     ...(allocation.code ? { code: allocation.code } : {}),
@@ -308,16 +383,20 @@ function toPersistedAllocation(allocation: DiscountAllocation): IDraftDiscountAl
     valueType: allocation.valueType,
     amount: allocation.amount,
     target: allocation.target,
-    ...(allocation.targetLineIndex !== undefined ? { targetLineIndex: allocation.targetLineIndex } : {}),
+    ...(allocation.targetLineIndex !== undefined
+      ? { targetLineIndex: allocation.targetLineIndex }
+      : {}),
   };
 }
 
+/** Map the engine's tax lines to the draft's tax-line rows. */
+function toPersistedTaxLine(line: TaxLine): NewDraftTaxLine {
+  return { name: line.name, rateBps: line.rateBps, amount: line.amount };
+}
+
 /** Load an OPEN draft scoped to its store for mutation, or throw NOT_FOUND/CONFLICT. */
-async function loadOpenDraft(
-  storeId: string,
-  draftId: string,
-): Promise<HydratedDocument<IDraftOrder>> {
-  const draft = await DraftOrder.findOne({ _id: draftId, storeId });
+async function loadOpenDraft(storeId: string, draftId: string): Promise<DraftOrderRecord> {
+  const draft = await findDraftOrder(storeId, draftId);
   if (!draft) {
     throw notFound('Draft order not found');
   }
@@ -336,11 +415,9 @@ export async function createDraftOrder(
   storeId: string,
   createdByOxyUserId: string,
   input: CreateDraftOrderInput,
-): Promise<IDraftOrder> {
-  const store = await Store.findById(storeId).select('defaultCurrency').lean<
-    Pick<IStore, 'defaultCurrency'> | null
-  >();
-  const currency = (store?.defaultCurrency ?? DEFAULT_CURRENCY) as CurrencyCode;
+): Promise<DraftOrderRecord> {
+  const store = await findStoreRow(storeId);
+  const currency = (store?.defaultCurrency as CurrencyCode | undefined) ?? DEFAULT_CURRENCY;
   const locationId = input.locationId ?? (await resolveDefaultLocationId(storeId));
 
   if (input.customerId) {
@@ -348,20 +425,14 @@ export async function createDraftOrder(
     await getCustomer(storeId, input.customerId);
   }
 
-  const created = await DraftOrder.create({
+  return insertDraftOrder({
     storeId,
     createdByOxyUserId,
-    locationId,
+    ...(locationId ? { locationId } : {}),
     ...(input.customerId ? { customerId: input.customerId } : {}),
-    status: 'open',
-    lineItems: [],
-    discountCodes: [],
-    appliedDiscounts: [],
-    taxLines: [],
     currency,
     totals: zeroTotals(currency),
   });
-  return created.toObject();
 }
 
 /** Add a line (or increment an existing same-variant line), then recompute totals. */
@@ -369,38 +440,42 @@ export async function addLine(
   storeId: string,
   draftId: string,
   input: AddDraftLineInput,
-): Promise<IDraftOrder> {
+): Promise<DraftOrderRecord> {
   const draft = await loadOpenDraft(storeId, draftId);
 
   const [listing, variant] = await Promise.all([
-    Listing.findById(input.listingId).lean<IListing | null>(),
-    ProductVariant.findById(input.variantId).lean<IProductVariant | null>(),
+    findListingById(input.listingId),
+    findVariantById(input.variantId),
   ]);
   if (!listing || !variant) {
     throw notFound('Listing or variant not found');
   }
-  if (String(variant.listingId) !== String(input.listingId)) {
+  if (variant.listingId !== input.listingId) {
     throw conflict('Variant does not belong to the listing');
   }
+  // A POS line needs a price to charge; an unpriced variant cannot be rung up.
+  if (variant.priceAmount === null || variant.priceCurrency === null) {
+    throw conflict('That variant is not currently priced');
+  }
+  const optionValues = (await findVariantOptionValues([variant.id])).get(variant.id) ?? [];
 
-  const existing = draft.lineItems.find((l) => String(l.variantId) === String(input.variantId));
+  const lines = linesOf(draft);
+  const existing = lines.find((l) => l.variantId === input.variantId);
   if (existing) {
     existing.quantity += input.quantity;
   } else {
-    draft.lineItems.push({
-      listingId: String(input.listingId),
-      variantId: String(input.variantId),
+    lines.push({
+      listingId: input.listingId,
+      variantId: input.variantId,
       title: listing.title,
       variantTitle: variant.title,
-      unitPrice: { amount: variant.price.amount, currency: variant.price.currency },
+      unitPrice: { amount: variant.priceAmount, currency: variant.priceCurrency },
       quantity: input.quantity,
-      optionValues: variant.optionValues.map((o) => ({ name: o.name, value: o.value })),
+      optionValues: optionValues.map((o) => ({ name: o.name, value: o.value })),
     });
   }
 
-  await recompute(draft);
-  await draft.save();
-  return draft.toObject();
+  return (await reprice(draft, lines)).draft;
 }
 
 /** Set a line's quantity (0 removes the line), then recompute totals. */
@@ -409,22 +484,21 @@ export async function updateLine(
   draftId: string,
   variantId: string,
   input: UpdateDraftLineInput,
-): Promise<IDraftOrder> {
+): Promise<DraftOrderRecord> {
   const draft = await loadOpenDraft(storeId, draftId);
 
-  const index = draft.lineItems.findIndex((l) => String(l.variantId) === String(variantId));
+  const lines = linesOf(draft);
+  const index = lines.findIndex((l) => l.variantId === variantId);
   if (index === -1) {
     throw notFound('Line item not found');
   }
   if (input.quantity === 0) {
-    draft.lineItems.splice(index, 1);
+    lines.splice(index, 1);
   } else {
-    draft.lineItems[index].quantity = input.quantity;
+    lines[index].quantity = input.quantity;
   }
 
-  await recompute(draft);
-  await draft.save();
-  return draft.toObject();
+  return (await reprice(draft, lines)).draft;
 }
 
 /** Remove a line, then recompute totals. */
@@ -432,18 +506,17 @@ export async function removeLine(
   storeId: string,
   draftId: string,
   variantId: string,
-): Promise<IDraftOrder> {
+): Promise<DraftOrderRecord> {
   const draft = await loadOpenDraft(storeId, draftId);
 
-  const index = draft.lineItems.findIndex((l) => String(l.variantId) === String(variantId));
+  const lines = linesOf(draft);
+  const index = lines.findIndex((l) => l.variantId === variantId);
   if (index === -1) {
     throw notFound('Line item not found');
   }
-  draft.lineItems.splice(index, 1);
+  lines.splice(index, 1);
 
-  await recompute(draft);
-  await draft.save();
-  return draft.toObject();
+  return (await reprice(draft, lines)).draft;
 }
 
 /** Replace the draft's applied discount codes (normalized + deduped), then recompute. */
@@ -451,16 +524,18 @@ export async function applyDiscountCodes(
   storeId: string,
   draftId: string,
   codes: string[],
-): Promise<IDraftOrder> {
+): Promise<DraftOrderRecord> {
   const draft = await loadOpenDraft(storeId, draftId);
 
-  draft.discountCodes = [
+  const discountCodes = [
     ...new Set(codes.map((code) => normalizeDiscountCode(code)).filter((code) => code.length > 0)),
   ];
+  const withCodes = await updateDraftOrderRow(storeId, draftId, { discountCodes });
+  if (!withCodes) {
+    throw notFound('Draft order not found');
+  }
 
-  await recompute(draft);
-  await draft.save();
-  return draft.toObject();
+  return (await reprice(withCodes, linesOf(draft))).draft;
 }
 
 /** Attach a customer (validated to belong to the store), then recompute totals. */
@@ -468,15 +543,17 @@ export async function setCustomer(
   storeId: string,
   draftId: string,
   customerId: string,
-): Promise<IDraftOrder> {
+): Promise<DraftOrderRecord> {
   const draft = await loadOpenDraft(storeId, draftId);
   // Validate the customer belongs to this store (else NOT_FOUND).
   await getCustomer(storeId, customerId);
-  draft.customerId = customerId;
 
-  await recompute(draft);
-  await draft.save();
-  return draft.toObject();
+  const withCustomer = await updateDraftOrderRow(storeId, draftId, { customerId });
+  if (!withCustomer) {
+    throw notFound('Draft order not found');
+  }
+
+  return (await reprice(withCustomer, linesOf(draft))).draft;
 }
 
 /** Update the draft's note / shipping address snapshot (no re-pricing needed). */
@@ -484,54 +561,42 @@ export async function updateDraftOrder(
   storeId: string,
   draftId: string,
   patch: UpdateDraftOrderInput,
-): Promise<IDraftOrder> {
-  const draft = await loadOpenDraft(storeId, draftId);
+): Promise<DraftOrderRecord> {
+  await loadOpenDraft(storeId, draftId);
 
-  if (patch.note !== undefined) {
-    draft.note = patch.note;
+  const updated = await updateDraftOrderRow(storeId, draftId, {
+    ...(patch.note !== undefined ? { note: patch.note } : {}),
+    ...(patch.shippingAddress !== undefined ? { shippingAddress: patch.shippingAddress } : {}),
+  });
+  if (!updated) {
+    throw notFound('Draft order not found');
   }
-  if (patch.shippingAddress !== undefined) {
-    draft.shippingAddressSnapshot = toPersistedAddress(patch.shippingAddress);
-  }
-
-  await draft.save();
-  return draft.toObject();
-}
-
-/** Map an `AddressSnapshot` DTO to the persisted embedded shape (omit absent optionals). */
-function toPersistedAddress(address: AddressSnapshot): IDraftAddressSnapshot {
-  const persisted: IDraftAddressSnapshot = {
-    recipientName: address.recipientName,
-    line1: address.line1,
-    city: address.city,
-    postalCode: address.postalCode,
-    country: address.country,
-  };
-  if (address.label) persisted.label = address.label;
-  if (address.line2) persisted.line2 = address.line2;
-  if (address.region) persisted.region = address.region;
-  if (address.phone) persisted.phone = address.phone;
-  return persisted;
+  return updated;
 }
 
 /** Cancel an open draft (terminal; releases nothing — no stock was reserved). */
-export async function cancelDraftOrder(storeId: string, draftId: string): Promise<IDraftOrder> {
-  const draft = await loadOpenDraft(storeId, draftId);
-  draft.status = 'cancelled';
-  await draft.save();
-  return draft.toObject();
+export async function cancelDraftOrder(
+  storeId: string,
+  draftId: string,
+): Promise<DraftOrderRecord> {
+  await loadOpenDraft(storeId, draftId);
+  const cancelled = await updateDraftOrderRow(storeId, draftId, { status: 'cancelled' });
+  if (!cancelled) {
+    throw notFound('Draft order not found');
+  }
+  return cancelled;
 }
 
 /** Offset-paginated draft list parameters. */
 interface ListDraftsParams {
   page: number;
   limit: number;
-  status?: IDraftOrder['status'];
+  status?: DraftOrderRecord['status'];
 }
 
 /** A page of drafts plus the total matching count (controller paginates). */
 interface DraftPage {
-  data: IDraftOrder[];
+  data: DraftOrderRecord[];
   total: number;
 }
 
@@ -540,33 +605,35 @@ export async function listDraftOrders(
   storeId: string,
   { page, limit, status }: ListDraftsParams,
 ): Promise<DraftPage> {
-  const filter = { storeId, ...(status ? { status } : {}) };
-  const [data, total] = await Promise.all([
-    DraftOrder.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean<IDraftOrder[]>(),
-    DraftOrder.countDocuments(filter),
-  ]);
-  return { data, total };
+  const { rows, total } = await findDraftOrdersPage(
+    storeId,
+    status ? { status } : {},
+    page,
+    limit,
+  );
+  return { data: rows, total };
 }
 
 /** Load one draft scoped to its store, or throw NOT_FOUND. */
-export async function getDraftOrder(storeId: string, draftId: string): Promise<IDraftOrder> {
-  const draft = await DraftOrder.findOne({ _id: draftId, storeId }).lean<IDraftOrder | null>();
+export async function getDraftOrder(
+  storeId: string,
+  draftId: string,
+): Promise<DraftOrderRecord> {
+  const draft = await findDraftOrder(storeId, draftId);
   if (!draft) {
     throw notFound('Draft order not found');
   }
   return draft;
 }
 
-/** First listing image (lowest position), resolved through the media chokepoint. */
-function firstImageUrl(listing: IListing | undefined): string | undefined {
-  if (!listing || listing.images.length === 0) {
-    return undefined;
-  }
-  const first = [...listing.images].sort((a, b) => a.position - b.position)[0];
+/**
+ * First listing image (lowest position), resolved through the media chokepoint.
+ *
+ * Takes the gallery rather than the listing: images are a child table now, loaded
+ * once for the whole sale.
+ */
+function firstImageUrl(images: ListingImageRecord[] | undefined): string | undefined {
+  const [first] = images ?? [];
   return first ? resolveMedia(first.fileId, 'thumb') : undefined;
 }
 
@@ -584,8 +651,8 @@ async function rollbackReservations(reserved: Reservation[]): Promise<void> {
   }
 }
 
-/** Map the engine's discount allocations to persisted order sub-documents. */
-function toOrderAllocations(allocations: DiscountAllocation[]): IDiscountAllocation[] {
+/** Map the engine's discount allocations to the order's allocation rows. */
+function toOrderAllocations(allocations: DiscountAllocation[]): NewOrderAppliedDiscount[] {
   return allocations.map((a) => ({
     discountId: a.discountId,
     ...(a.code ? { code: a.code } : {}),
@@ -597,8 +664,8 @@ function toOrderAllocations(allocations: DiscountAllocation[]): IDiscountAllocat
   }));
 }
 
-/** Map the engine's tax lines to persisted order sub-documents. */
-function toOrderTaxLines(taxLines: TaxLine[]): ITaxLine[] {
+/** Map the engine's tax lines to the order's tax-line rows. */
+function toOrderTaxLines(taxLines: TaxLine[]): NewOrderTaxLine[] {
   return taxLines.map((t) => ({ name: t.name, rateBps: t.rateBps, amount: t.amount }));
 }
 
@@ -611,7 +678,7 @@ function toOrderTaxLines(taxLines: TaxLine[]): ITaxLine[] {
 function buildPickupSnapshot(
   recipientName: string | undefined,
   locationAddress: { city?: string; postalCode?: string; country?: string } | undefined,
-): IAddressSnapshot {
+): AddressSnapshot {
   return {
     recipientName: recipientName ?? POS_PICKUP_RECIPIENT_FALLBACK,
     line1: POS_PICKUP_LINE1,
@@ -622,12 +689,13 @@ function buildPickupSnapshot(
 }
 
 /**
- * Take the POS sale: convert an OPEN draft into a paid `Order`. Reserves every
- * line at the draft's `locationId` (all-or-nothing rollback on failure), recomputes
- * totals fresh, freezes immutable line snapshots, `Order.create`s a `pos` order,
- * then runs the shared `transition('paid')`. Idempotent: a second call with the
- * draft already converted returns the same order; a racing/replayed create
- * converges via the order's sparse-unique `idempotencyKey`.
+ * Take the POS sale: convert an OPEN draft into a paid order. Reserves every line
+ * at the draft's `locationId` (all-or-nothing rollback on failure), recomputes
+ * totals fresh, freezes immutable line snapshots, creates a `pos` order, then
+ * records a `manual_pos` payment whose success runs the shared
+ * `transition('paid')`. Idempotent: a second call with the draft
+ * already converted returns the same order; a racing/replayed create converges via
+ * the order's sparse-unique `idempotency_key`.
  */
 export async function completeDraftOrder(
   storeId: string,
@@ -635,34 +703,35 @@ export async function completeDraftOrder(
   _input: CompleteDraftOrderInput,
   actorOxyUserId: string,
 ): Promise<OrderDTO> {
-  const draft = await DraftOrder.findOne({ _id: draftId, storeId });
-  if (!draft) {
+  const loaded = await findDraftOrder(storeId, draftId);
+  if (!loaded) {
     throw notFound('Draft order not found');
   }
 
   // 1. Idempotency short-circuit: already converted → return the existing order.
-  if (draft.convertedOrderId) {
-    return hydrateExistingOrder(draft.convertedOrderId);
+  if (loaded.convertedOrderId) {
+    return hydrateExistingOrder(loaded.convertedOrderId);
   }
-  if (draft.status === 'completed') {
+  if (loaded.status === 'completed') {
     throw conflict('Draft order is completed but has no converted order');
   }
-  if (draft.status !== 'open') {
-    throw conflict(`Draft order is ${draft.status}`);
+  if (loaded.status !== 'open') {
+    throw conflict(`Draft order is ${loaded.status}`);
   }
-  if (draft.lineItems.length === 0) {
+  if (loaded.lineItems.length === 0) {
     throw conflict('Draft order has no line items');
   }
 
-  const currency = draft.currency as CurrencyCode;
-  const locationId = draft.locationId;
+  const currency = loaded.currency as CurrencyCode;
+  const locationId = loaded.locationId ?? undefined;
+  const idempotencyKey = `draft:${loaded.id}`;
 
   // 2. Reserve every line at the register location; roll back on any failure.
   const reserved: Reservation[] = [];
   try {
-    for (const line of draft.lineItems) {
-      await reserve(String(line.variantId), line.quantity, locationId);
-      reserved.push({ variantId: String(line.variantId), qty: line.quantity, locationId });
+    for (const line of loaded.lineItems) {
+      await reserve(line.variantId, line.quantity, locationId);
+      reserved.push({ variantId: line.variantId, qty: line.quantity, locationId });
     }
   } catch (err) {
     await rollbackReservations(reserved);
@@ -670,21 +739,27 @@ export async function completeDraftOrder(
   }
 
   // 3. Recompute totals fresh (re-validates discounts), build immutable items.
-  let order: HydratedDocument<IOrder>;
+  //
+  // The group id is minted HERE rather than read back off the order, because the
+  // `manual_pos` payment below is keyed on it and the column is nullable — a
+  // coalesce at the payment call site would silently key a POS sale on the empty
+  // string if this ever stopped being set.
+  const checkoutGroupId = uuidv7();
+  let order: OrderRecord;
   try {
-    const pricing = await recompute(draft);
+    const { draft, pricing } = await reprice(loaded, linesOf(loaded));
 
-    const listingIds = [...new Set(draft.lineItems.map((l) => String(l.listingId)))];
-    const listingDocs = await Listing.find({ _id: { $in: listingIds } }).lean<IListing[]>();
-    const listingById = new Map(
-      listingDocs.map((l) => [String((l as { _id: mongoose.Types.ObjectId })._id), l]),
-    );
+    const listingIds = [...new Set(draft.lineItems.map((l) => l.listingId))];
+    const { images: imagesByListing } = await findListingChildren(listingIds);
 
-    const items: IOrderItem[] = draft.lineItems.map((line, index) => {
-      const unitPrice = toMoney(line.unitPrice);
-      const item: IOrderItem = {
-        listingId: String(line.listingId),
-        variantId: String(line.variantId),
+    const items: NewOrderItem[] = draft.lineItems.map((line, index) => {
+      const unitPrice: Money = {
+        amount: line.unitPriceAmount,
+        currency: line.unitPriceCurrency,
+      };
+      const item: NewOrderItem = {
+        listingId: line.listingId,
+        variantId: line.variantId,
         title: line.title,
         variantTitle: line.variantTitle,
         optionValues: line.optionValues.map((o) => ({ name: o.name, value: o.value })),
@@ -697,7 +772,7 @@ export async function completeDraftOrder(
       if (lineDiscount && lineDiscount.shop.amount > 0) {
         item.discountTotal = lineDiscount;
       }
-      const imageUrl = firstImageUrl(listingById.get(String(line.listingId)));
+      const imageUrl = firstImageUrl(imagesByListing.get(line.listingId));
       if (imageUrl !== undefined) {
         item.imageUrl = imageUrl;
       }
@@ -709,20 +784,13 @@ export async function completeDraftOrder(
 
     // 4. Resolve the buyer + customer relation. Prefer the customer's Oxy id so
     // `upsertOnPaid` relates them; else the POS operator. Always carry customerId.
-    const customer = draft.customerId
-      ? await getCustomer(storeId, String(draft.customerId))
-      : null;
+    const customer = draft.customerId ? await getCustomer(storeId, draft.customerId) : null;
     const buyerOxyUserId = customer?.oxyUserId ?? actorOxyUserId;
 
     // 5. Shipping snapshot: draft's captured address, else a synthetic pickup.
-    const location = locationId
-      ? await resolveLocationAddress(storeId, locationId)
-      : undefined;
-    const shippingAddressSnapshot: IAddressSnapshot = draft.shippingAddressSnapshot
-      ? { ...draft.shippingAddressSnapshot }
-      : buildPickupSnapshot(customer?.displayName, location);
-
-    const idempotencyKey = draft.idempotencyKey ?? `draft:${String(draft._id)}`;
+    const location = locationId ? await resolveLocationAddress(storeId, locationId) : undefined;
+    const shippingAddress =
+      toAddressSnapshotDTO(draft) ?? buildPickupSnapshot(customer?.displayName ?? undefined, location);
 
     // POS: shop == presentment (same currency), so the snapshot rate is 1 and no
     // provider quoted anything — the snapshot records that this sale's two money
@@ -736,26 +804,23 @@ export async function completeDraftOrder(
     };
 
     // The POS sale is a real paid order the customer sees on their receipt and in
-    // their order history, so it draws from the SAME `order` sequence the
-    // storefront checkout and connector sync use — never a parallel POS namespace.
-    // Allocated inside the try so a failure here still rolls the reservations back.
+    // their order history, so it draws from the SAME sequence the storefront
+    // checkout and connector sync use — never a parallel POS namespace. Allocated
+    // inside the try so a failure here still rolls the reservations back.
     const orderNumber = await nextOrderNumber();
 
-    order = await Order.create({
+    order = await insertOrder({
       orderNumber,
       buyerOxyUserId,
       sellerType: 'store',
       storeId,
-      ...(draft.customerId ? { customerId: String(draft.customerId) } : {}),
+      ...(draft.customerId ? { customerId: draft.customerId } : {}),
       sourceChannel: 'pos',
       items,
-      shippingAddressSnapshot,
-      shipping: {
-        method: 'pickup',
-        label: 'Pickup',
-        cost: toPosDual(zeroMoney(currency)),
-        trackingNumber: null,
-      },
+      shippingAddress,
+      shippingMethod: 'pickup',
+      shippingLabel: 'Pickup',
+      shippingCost: toPosDual(zeroMoney(currency)),
       totals: {
         subtotal: pricing.subtotal,
         discountTotal: pricing.discountTotal,
@@ -767,19 +832,23 @@ export async function completeDraftOrder(
       appliedDiscounts: toOrderAllocations(pricing.appliedDiscounts),
       taxLines: toOrderTaxLines(pricing.taxLines),
       status: 'pending_payment',
-      statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: actorOxyUserId }],
-      payment: { status: 'unpaid' },
-      checkoutGroupId: new mongoose.Types.ObjectId().toString(),
+      statusHistory: [
+        { status: 'pending_payment', at: new Date(), byOxyUserId: actorOxyUserId },
+      ],
+      // No `paymentProvider` here: it is stamped by the `manual_pos` payment
+      // recorded below, which is what actually moves this order to `paid`.
+      paymentStatus: 'unpaid',
+      checkoutGroupId,
       idempotencyKey,
     });
   } catch (err) {
     await rollbackReservations(reserved);
-    // A duplicate idempotencyKey means a concurrent/replayed complete already
-    // created the order — converge on it instead of double-creating.
-    if (err && typeof err === 'object' && (err as { code?: number }).code === 11000) {
-      const idempotencyKey = draft.idempotencyKey ?? `draft:${String(draft._id)}`;
-      const prior = await Order.findOne({ storeId, idempotencyKey }).lean<IOrder | null>();
-      if (prior) {
+    // A duplicate idempotency key means a concurrent/replayed complete already
+    // created the order — converge on it instead of double-creating. The NAMED
+    // index, so a duplicate on any other constraint stays a real failure.
+    if (isUniqueViolation(err, 'orders_idempotency_key_key')) {
+      const prior = await findOrderByIdempotencyKey(idempotencyKey);
+      if (prior && prior.storeId === storeId) {
         log.general.warn(
           { storeId, draftId },
           'Concurrent/replayed draft complete detected; converging on prior order',
@@ -794,7 +863,8 @@ export async function completeDraftOrder(
     throw err;
   }
 
-  // 6. Record the sale as a real payment, and let IT drive the paid transition.
+  // 6. Record the sale as a real payment, and let IT drive the paid transition
+  // (commit at locationId + salesCount + customer relate).
   //
   // The money was taken at the register — cash in a drawer or a card on the
   // store's own terminal — so the payment is `manual_pos` and books NO ledger
@@ -808,27 +878,25 @@ export async function completeDraftOrder(
   // when it is re-read — and if it is not (a moderation freeze is the one thing
   // that refuses), the outbox retries and the receipt honestly shows an order
   // that has not been marked paid yet.
-  const orderId = String(order._id);
   const payment = await ensurePayment({
     provider: 'manual_pos',
-    checkoutGroupId: String(order.checkoutGroupId),
+    checkoutGroupId,
     // `currency` is the draft's own, and a POS sale's shop and presentment sides
     // are the same currency by construction (the fx snapshot above records a
     // rate of 1 from `identity`), so this is the amount the customer paid.
-    presentment: { amount: order.totals.grandTotal.presentment.amount, currency },
+    presentment: { amount: order.totalsGrandTotalPresentmentAmount, currency },
     buyerOxyUserId: order.buyerOxyUserId,
   });
   await applyPaymentStatus({ paymentId: payment.id, next: 'succeeded' });
 
-  // 7. Mark the draft converted.
-  draft.status = 'completed';
-  draft.convertedOrderId = orderId;
-  await draft.save();
+  // 7. Mark the draft converted. Guarded on the draft still being open, so a
+  // second complete that lost the race cannot overwrite the first one's order id.
+  await markDraftConverted(storeId, draftId, order.id);
 
   // Re-read: the paid transition happened through the payment's outbox handler
-  // on a freshly loaded document, so the one in hand is stale.
-  const paid = await Order.findById(orderId).lean<IOrder | null>();
-  const [dto] = await hydrateOrders([paid ?? order.toObject<IOrder>()]);
+  // on a freshly loaded record, so the one in hand is stale.
+  const paid = await findOrderById(order.id);
+  const [dto] = await hydrateOrders([paid ?? order]);
   if (!dto) {
     throw notFound('Order not found after completion');
   }
@@ -837,7 +905,7 @@ export async function completeDraftOrder(
 
 /** Load + hydrate an order by id (the idempotency short-circuit), or throw CONFLICT. */
 async function hydrateExistingOrder(orderId: string): Promise<OrderDTO> {
-  const order = await Order.findById(orderId).lean<IOrder | null>();
+  const order = await findOrderById(orderId);
   if (!order) {
     throw conflict('Draft order is completed but its order is missing');
   }
@@ -853,8 +921,16 @@ async function resolveLocationAddress(
   storeId: string,
   locationId: string,
 ): Promise<{ city?: string; postalCode?: string; country?: string } | undefined> {
-  const location = await Location.findOne({ _id: locationId, storeId })
-    .select('address')
-    .lean<{ address?: { city?: string; postalCode?: string; country?: string } } | null>();
-  return location?.address;
+  const location = await findLocation(storeId, locationId);
+  if (!location) {
+    return undefined;
+  }
+  // The embedded address became flat columns, so the three fields are read
+  // individually and omitted when NULL — an `address` object carrying explicit
+  // `undefined`s would serialize into the pickup snapshot as present-but-empty.
+  const address: { city?: string; postalCode?: string; country?: string } = {};
+  if (location.addressCity !== null) address.city = location.addressCity;
+  if (location.addressPostalCode !== null) address.postalCode = location.addressPostalCode;
+  if (location.addressCountry !== null) address.country = location.addressCountry;
+  return Object.keys(address).length > 0 ? address : undefined;
 }

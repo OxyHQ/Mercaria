@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { validateBody, validateObjectId } from '../middleware/validate.js';
+import { validateBody, validateId } from '../middleware/validate.js';
 import { createAddressSchema, updateAddressSchema } from '../middleware/schemas.js';
 import {
   listMyAddresses,
@@ -26,10 +26,10 @@ router.post('/', makeRateLimiter('orders'), validateBody(createAddressSchema), c
 router.patch(
   '/:id',
   makeRateLimiter('orders'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(updateAddressSchema),
   updateMyAddress,
 );
-router.delete('/:id', makeRateLimiter('orders'), validateObjectId('id'), deleteMyAddress);
+router.delete('/:id', makeRateLimiter('orders'), validateId('id'), deleteMyAddress);
 
 export default router;

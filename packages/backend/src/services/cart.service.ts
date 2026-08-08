@@ -26,12 +26,34 @@ import type {
   CurrencyCode,
   Money,
 } from '@mercaria/shared-types';
-import { Cart, type ICart } from '../models/cart.js';
-import { Listing, type IListing } from '../models/listing.js';
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
-import { Store, type IStore } from '../models/store.js';
-import { SellerProfile, type ISellerProfile } from '../models/seller-profile.js';
-import { Discount } from '../models/discount.js';
+import {
+  clearCartForUser,
+  deleteCartItem,
+  deleteCartItems,
+  ensureCart,
+  findCartByUser,
+  setPendingDiscountCodes,
+  upsertCartItem,
+  type CartRecord,
+} from '../db/buyers/cartRepository.js';
+import {
+  findListingById,
+  findListingChildren,
+  findListingsByIds,
+  type ListingImageRecord,
+  type ListingRecord,
+} from '../db/catalog/listingRepository.js';
+import {
+  findVariantById,
+  findVariantsByIds,
+  type VariantRecord,
+} from '../db/catalog/variantRepository.js';
+import { findStoresByIds, type StoreRow } from '../db/stores/storeRepository.js';
+import {
+  findSellerProfilesByUserIds,
+  type SellerProfileRecord,
+} from '../db/buyers/sellerProfileRepository.js';
+import { activeDiscountCodeExists } from '../db/merchandising/discountRepository.js';
 import { resolveMedia } from './catalog-hydration.service.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { calculateTotals, type PricingLine } from './pricing.service.js';
@@ -42,18 +64,30 @@ import { multiplyMoney, sumMoney, zeroMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 
-/** Map a persisted `Money` sub-document to the `Money` DTO. */
-function toMoney(value: { amount: number; currency: string }): Money {
-  return { amount: value.amount, currency: value.currency as CurrencyCode };
+/**
+ * First gallery image (lowest `position`) of a listing, resolved through the
+ * media chokepoint.
+ *
+ * The gallery was an embedded array and is a child table now, so it is passed in
+ * from the page's batched read rather than read off the listing.
+ */
+function firstImageUrl(images: ListingImageRecord[] | undefined): string | undefined {
+  const [first] = images ?? [];
+  return first ? resolveMedia(first.fileId, 'thumb') : undefined;
 }
 
-/** First gallery image (lowest `position`) of a listing, resolved through the media chokepoint. */
-function firstImageUrl(listing: IListing | undefined): string | undefined {
-  if (!listing || listing.images.length === 0) {
-    return undefined;
+/**
+ * A variant's native unit price.
+ *
+ * The two price columns are nullable and absent together, and a cart line for an
+ * unpriced variant is not free — it is a line the buyer must remove, which is
+ * exactly what the stale-line path already produces for a missing variant.
+ */
+function variantUnitPrice(variant: VariantRecord): Money | null {
+  if (variant.priceAmount === null || variant.priceCurrency === null) {
+    return null;
   }
-  const first = [...listing.images].sort((a, b) => a.position - b.position)[0];
-  return first ? resolveMedia(first.fileId, 'thumb') : undefined;
+  return { amount: variant.priceAmount, currency: variant.priceCurrency };
 }
 
 /**
@@ -69,7 +103,7 @@ function firstImageUrl(listing: IListing | undefined): string | undefined {
  */
 async function buildGroups(
   items: CartItemDTO[],
-  listingById: Map<string, IListing>,
+  listingById: Map<string, ListingRecord>,
   currency: CurrencyCode,
 ): Promise<CartGroup[]> {
   // Vendor keys, in first-seen order, plus the owner ids to batch-load.
@@ -81,24 +115,20 @@ async function buildGroups(
       continue;
     }
     if (listing.ownerType === 'store' && listing.storeId) {
-      storeIds.add(String(listing.storeId));
+      storeIds.add(listing.storeId);
     } else if (listing.ownerType === 'user' && listing.oxyUserId) {
-      sellerUserIds.add(String(listing.oxyUserId));
+      sellerUserIds.add(listing.oxyUserId);
     }
   }
 
-  const [storeDocs, sellerProfileDocs, oxyProfiles] = await Promise.all([
-    storeIds.size > 0
-      ? Store.find({ _id: { $in: [...storeIds] } }).lean<IStore[]>()
-      : Promise.resolve([] as IStore[]),
-    sellerUserIds.size > 0
-      ? SellerProfile.find({ oxyUserId: { $in: [...sellerUserIds] } }).lean<ISellerProfile[]>()
-      : Promise.resolve([] as ISellerProfile[]),
+  const [storeRows, sellerProfileRows, oxyProfiles] = await Promise.all([
+    findStoresByIds([...storeIds]),
+    findSellerProfilesByUserIds([...sellerUserIds]),
     getProfiles([...sellerUserIds]),
   ]);
 
-  const storeById = new Map(storeDocs.map((s) => [String(s._id), s]));
-  const sellerProfileByUser = new Map(sellerProfileDocs.map((p) => [String(p.oxyUserId), p]));
+  const storeById = new Map(storeRows.map((s) => [s.id, s]));
+  const sellerProfileByUser = new Map(sellerProfileRows.map((p) => [p.oxyUserId, p]));
 
   // Accumulate lines per vendor key, preserving first-seen vendor order.
   const order: string[] = [];
@@ -115,14 +145,14 @@ async function buildGroups(
     let vendor: CartVendor | undefined;
 
     if (listing.ownerType === 'store' && listing.storeId) {
-      const storeId = String(listing.storeId);
+      const storeId = listing.storeId;
       const store = storeById.get(storeId);
       if (store) {
         key = `store:${storeId}`;
         vendor = toStoreVendor(store);
       }
     } else if (listing.ownerType === 'user' && listing.oxyUserId) {
-      const oxyUserId = String(listing.oxyUserId);
+      const oxyUserId = listing.oxyUserId;
       key = `user:${oxyUserId}`;
       vendor = toSellerVendor(oxyUserId, sellerProfileByUser.get(oxyUserId), oxyProfiles.get(oxyUserId));
     }
@@ -158,11 +188,11 @@ async function buildGroups(
   });
 }
 
-/** Project a store document onto the `CartVendor` header shape. */
-function toStoreVendor(store: IStore): CartVendor {
+/** Project a store row onto the `CartVendor` header shape. */
+function toStoreVendor(store: StoreRow): CartVendor {
   const vendor: CartVendor = {
     kind: 'store',
-    id: String(store._id),
+    id: store.id,
     handle: store.handle,
     name: store.name,
     brandColor: store.brandColor,
@@ -183,7 +213,7 @@ function toStoreVendor(store: IStore): CartVendor {
  */
 function toSellerVendor(
   oxyUserId: string,
-  profile: ISellerProfile | undefined,
+  profile: SellerProfileRecord | undefined,
   oxyProfile: OxyProfile | undefined,
 ): CartVendor {
   const vendor: CartVendor = {
@@ -217,9 +247,9 @@ function clampQuantity(requested: number, tracked: boolean, available: number): 
  * run (per store represented in the cart) to surface `discountTotal`/`taxPreview`/
  * `total`. The preview is presentation-only — checkout re-computes authoritatively.
  */
-async function buildCartDTO(cart: ICart): Promise<CartDTO> {
-  const id = String(cart._id);
-  const pendingDiscountCodes = [...(cart.pendingDiscountCodes ?? [])];
+async function buildCartDTO(cart: CartRecord): Promise<CartDTO> {
+  const id = cart.id;
+  const pendingDiscountCodes = [...cart.pendingDiscountCodes];
 
   // The cart is displayed in the buyer's PRESENTMENT currency (their preferred
   // currency, or FAIR). Native prices are converted into it for display.
@@ -233,30 +263,36 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
     return empty;
   }
 
-  const variantIds = cart.items.map((i) => String(i.variantId));
-  const listingIds = cart.items.map((i) => String(i.listingId));
+  const variantIds = cart.items.map((i) => i.variantId);
+  const listingIds = cart.items.map((i) => i.listingId);
 
-  const [variantDocs, listingDocs] = await Promise.all([
-    ProductVariant.find({ _id: { $in: variantIds } }).lean<IProductVariant[]>(),
-    Listing.find({ _id: { $in: listingIds } }).lean<IListing[]>(),
+  const [variantDocs, listingDocs, children] = await Promise.all([
+    findVariantsByIds(variantIds),
+    findListingsByIds(listingIds),
+    // Gallery + collection membership were fields on the listing document and are
+    // child tables now; one batched read for the whole cart, not one per line.
+    findListingChildren(listingIds),
   ]);
 
-  const variantById = new Map(variantDocs.map((v) => [String(v._id), v]));
-  const listingById = new Map(listingDocs.map((l) => [String(l._id), l]));
+  const variantById = new Map(variantDocs.map((v) => [v.id, v]));
+  const listingById = new Map(listingDocs.map((l) => [l.id, l]));
 
   // Rates quoted against the buyer's display currency, covering every native
   // price currency, so each line converts native → presentment for display.
-  const nativeCurrencies = variantDocs.map((v) => v.price.currency as CurrencyCode);
+  const nativeCurrencies = variantDocs.flatMap((v) =>
+    v.priceCurrency === null ? [] : [v.priceCurrency],
+  );
   const rates = await getRates(currency, dedupeCurrencies([currency, ...nativeCurrencies]));
 
   const items: CartItemDTO[] = cart.items.map((item) => {
-    const variantId = String(item.variantId);
-    const listingId = String(item.listingId);
+    const { listingId, variantId } = item;
     const variant = variantById.get(variantId);
     const listing = listingById.get(listingId);
 
-    // Missing variant/listing → a zero-priced, stale line the buyer must remove.
-    if (!variant || !listing) {
+    // Missing variant/listing, or a variant with no price → a zero-priced, stale
+    // line the buyer must remove.
+    const nativePrice = variant ? variantUnitPrice(variant) : null;
+    if (!variant || !listing || !nativePrice) {
       const unitPrice: Money = { amount: 0, currency };
       return {
         listingId,
@@ -271,12 +307,12 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
       };
     }
 
-    const available = variant.inventory.available;
-    const tracked = variant.inventory.tracked;
+    const available = variant.inventoryAvailable;
+    const tracked = variant.inventoryTracked;
     // Convert the variant's native price into the buyer's presentment currency.
-    const unitPrice = convert(toMoney(variant.price), currency, rates);
+    const unitPrice = convert(nativePrice, currency, rates);
     const lineTotal = multiplyMoney(unitPrice, item.quantity);
-    const imageUrl = firstImageUrl(listing);
+    const imageUrl = firstImageUrl(children.images.get(listingId));
 
     const dto: CartItemDTO = {
       listingId,
@@ -309,7 +345,13 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
 
   if (pendingDiscountCodes.length > 0) {
     dto.pendingDiscountCodes = pendingDiscountCodes;
-    const preview = await previewDiscounts(cart, listingById, variantById, currency);
+    const preview = await previewDiscounts(
+      cart,
+      listingById,
+      variantById,
+      children.collectionIds,
+      currency,
+    );
     dto.discountTotal = preview.discountTotal;
     dto.taxPreview = preview.taxPreview;
     dto.total = preview.total;
@@ -332,28 +374,33 @@ function dedupeCurrencies(codes: CurrencyCode[]): CurrencyCode[] {
  * mixing). Presentation only — checkout is authoritative.
  */
 async function previewDiscounts(
-  cart: ICart,
-  listingById: Map<string, IListing>,
-  variantById: Map<string, IProductVariant>,
+  cart: CartRecord,
+  listingById: Map<string, ListingRecord>,
+  variantById: Map<string, VariantRecord>,
+  collectionIdsByListing: Map<string, string[]>,
   presentmentCurrency: CurrencyCode,
 ): Promise<{ discountTotal: Money; taxPreview: Money; total: Money }> {
-  const codes = [...(cart.pendingDiscountCodes ?? [])];
+  const codes = [...cart.pendingDiscountCodes];
 
   // Group store-owned lines per store id.
   const linesByStore = new Map<string, PricingLine[]>();
   for (const item of cart.items) {
-    const listing = listingById.get(String(item.listingId));
-    const variant = variantById.get(String(item.variantId));
+    const listing = listingById.get(item.listingId);
+    const variant = variantById.get(item.variantId);
     if (!listing || !variant || listing.ownerType !== 'store' || !listing.storeId) {
       continue;
     }
-    const storeId = String(listing.storeId);
+    const unitPrice = variantUnitPrice(variant);
+    if (!unitPrice) {
+      continue;
+    }
+    const storeId = listing.storeId;
     const line: PricingLine = {
-      listingId: String(listing._id),
-      variantId: String(variant._id),
+      listingId: listing.id,
+      variantId: variant.id,
       ...(listing.productType ? { productType: listing.productType } : {}),
-      collectionIds: [...(listing.collectionIds ?? [])],
-      unitPrice: toMoney(variant.price),
+      collectionIds: [...(collectionIdsByListing.get(listing.id) ?? [])],
+      unitPrice,
       quantity: item.quantity,
     };
     const existing = linesByStore.get(storeId);
@@ -365,15 +412,9 @@ async function previewDiscounts(
   }
 
   // Resolve each store's SHOP currency for pricing (falls back to a line's native).
-  const storeIds = [...linesByStore.keys()];
-  const storeDocs =
-    storeIds.length > 0
-      ? await Store.find({ _id: { $in: storeIds } }).select('defaultCurrency').lean<
-          Pick<IStore, '_id' | 'defaultCurrency'>[]
-        >()
-      : [];
+  const storeRows = await findStoresByIds([...linesByStore.keys()]);
   const shopCurrencyByStore = new Map(
-    storeDocs.map((s) => [String(s._id), s.defaultCurrency as CurrencyCode]),
+    storeRows.map((s) => [s.id, s.defaultCurrency as CurrencyCode]),
   );
 
   // Rates quoted against the presentment currency and covering every shop and
@@ -420,18 +461,13 @@ async function previewDiscounts(
   return { discountTotal, taxPreview, total };
 }
 
-/** Load the buyer's stored cart, or `null` if they have none yet. */
-async function loadCart(oxyUserId: string): Promise<ICart | null> {
-  return Cart.findOne({ oxyUserId }).lean<ICart | null>();
-}
-
 /**
  * Get the buyer's cart, hydrated with live unit prices, availability and a
  * subtotal (in the buyer's presentment currency). Returns an empty cart (no
  * document yet) in the buyer's presentment currency.
  */
 export async function getCart(oxyUserId: string): Promise<CartDTO> {
-  const cart = await loadCart(oxyUserId);
+  const cart = await findCartByUser(oxyUserId);
   if (!cart) {
     const currency = await resolvePresentmentCurrency(oxyUserId);
     return { id: '', items: [], groups: [], currency, subtotal: { amount: 0, currency } };
@@ -455,8 +491,8 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
   }
 
   const [listing, variant] = await Promise.all([
-    Listing.findById(input.listingId).lean<IListing | null>(),
-    ProductVariant.findById(input.variantId).lean<IProductVariant | null>(),
+    findListingById(input.listingId),
+    findVariantById(input.variantId),
   ]);
 
   if (!listing) {
@@ -465,59 +501,36 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
   if (!variant) {
     throw notFound('Variant not found');
   }
-  if (String(variant.listingId) !== String(listing._id)) {
+  if (variant.listingId !== listing.id) {
     throw validationError('Variant does not belong to the given listing');
   }
   if (listing.status !== 'active') {
     throw conflict('Listing is not available for purchase');
   }
 
-  const tracked = variant.inventory.tracked;
-  const available = variant.inventory.available;
+  const tracked = variant.inventoryTracked;
+  const available = variant.inventoryAvailable;
   if (tracked && available <= 0) {
     throw conflict('Variant is out of stock');
   }
 
-  const cart = await Cart.findOne({ oxyUserId });
-
-  if (!cart) {
-    const quantity = clampQuantity(input.quantity, tracked, available);
-    if (quantity <= 0) {
-      throw conflict('Variant is out of stock');
-    }
-    await Cart.create({
-      oxyUserId,
-      items: [
-        {
-          listingId: input.listingId,
-          variantId: input.variantId,
-          quantity,
-          addedAt: new Date(),
-        },
-      ],
-    });
-    return getCart(oxyUserId);
-  }
-
-  const existing = cart.items.find((i) => String(i.variantId) === input.variantId);
+  const cart = await findCartByUser(oxyUserId);
+  const existing = cart?.items.find((i) => i.variantId === input.variantId);
   const desired = (existing?.quantity ?? 0) + input.quantity;
   const quantity = clampQuantity(desired, tracked, available);
   if (quantity <= 0) {
     throw conflict('Variant is out of stock');
   }
 
-  if (existing) {
-    existing.quantity = quantity;
-  } else {
-    cart.items.push({
-      listingId: input.listingId,
-      variantId: input.variantId,
-      quantity,
-      addedAt: new Date(),
-    });
-  }
-
-  await cart.save();
+  // `ensureCart` rather than a find-then-insert: two concurrent first adds would
+  // both miss and the second would fail `carts_oxy_user_id_key`, turning an
+  // ordinary double-tap into a 500.
+  const cartId = cart?.id ?? (await ensureCart(oxyUserId)).id;
+  await upsertCartItem(cartId, {
+    listingId: input.listingId,
+    variantId: input.variantId,
+    quantity,
+  });
   return getCart(oxyUserId);
 }
 
@@ -535,49 +548,45 @@ export async function updateItem(
     throw validationError('quantity must be a non-negative integer');
   }
 
-  const cart = await Cart.findOne({ oxyUserId });
+  const cart = await findCartByUser(oxyUserId);
   if (!cart) {
     throw notFound('Cart not found');
   }
 
-  const line = cart.items.find((i) => String(i.variantId) === variantId);
+  const line = cart.items.find((i) => i.variantId === variantId);
   if (!line) {
     throw notFound('Item not in cart');
   }
 
   if (quantity === 0) {
-    cart.items = cart.items.filter((i) => String(i.variantId) !== variantId);
-    await cart.save();
+    await deleteCartItem(cart.id, variantId);
     return getCart(oxyUserId);
   }
 
-  const variant = await ProductVariant.findById(variantId).lean<IProductVariant | null>();
+  const variant = await findVariantById(variantId);
   if (!variant) {
     throw notFound('Variant not found');
   }
 
-  const clamped = clampQuantity(quantity, variant.inventory.tracked, variant.inventory.available);
+  const clamped = clampQuantity(quantity, variant.inventoryTracked, variant.inventoryAvailable);
   if (clamped <= 0) {
     throw conflict('Variant is out of stock');
   }
-  line.quantity = clamped;
-
-  await cart.save();
+  await upsertCartItem(cart.id, {
+    listingId: line.listingId,
+    variantId,
+    quantity: clamped,
+  });
   return getCart(oxyUserId);
 }
 
 /** Remove a variant line from the cart. Returns the freshly hydrated cart. */
 export async function removeItem(oxyUserId: string, variantId: string): Promise<CartDTO> {
-  const cart = await Cart.findOne({ oxyUserId });
+  const cart = await findCartByUser(oxyUserId);
   if (!cart) {
     throw notFound('Cart not found');
   }
-
-  const before = cart.items.length;
-  cart.items = cart.items.filter((i) => String(i.variantId) !== variantId);
-  if (cart.items.length !== before) {
-    await cart.save();
-  }
+  await deleteCartItem(cart.id, variantId);
   return getCart(oxyUserId);
 }
 
@@ -587,7 +596,7 @@ export async function removeItem(oxyUserId: string, variantId: string): Promise<
  * cleared — they were one-shot inputs to the checkout that just consumed them.
  */
 export async function clearCart(oxyUserId: string): Promise<void> {
-  await Cart.updateOne({ oxyUserId }, { $set: { items: [], pendingDiscountCodes: [] } });
+  await clearCartForUser(oxyUserId);
 }
 
 /**
@@ -600,10 +609,11 @@ export async function removeCartLines(oxyUserId: string, variantIds: string[]): 
   if (variantIds.length === 0) {
     return;
   }
-  await Cart.updateOne(
-    { oxyUserId },
-    { $pull: { items: { variantId: { $in: variantIds } } } },
-  );
+  const cart = await findCartByUser(oxyUserId);
+  if (!cart) {
+    return;
+  }
+  await deleteCartItems(cart.id, variantIds);
 }
 
 /**
@@ -618,36 +628,32 @@ export async function applyDiscountCode(oxyUserId: string, code: string): Promis
     throw validationError('Discount code is required');
   }
 
-  const cart = await Cart.findOne({ oxyUserId });
+  const cart = await findCartByUser(oxyUserId);
   if (!cart || cart.items.length === 0) {
     throw conflict('Cart is empty');
   }
 
   // The distinct store ids of the cart's store-owned listings.
-  const listingIds = cart.items.map((i) => String(i.listingId));
-  const listings = await Listing.find({ _id: { $in: listingIds }, ownerType: 'store' })
-    .select('storeId')
-    .lean<Pick<IListing, '_id' | 'storeId'>[]>();
-  const storeIds = [...new Set(listings.map((l) => String(l.storeId)).filter((s) => s.length > 0))];
+  const listings = await findListingsByIds(cart.items.map((i) => i.listingId));
+  const storeIds = [
+    ...new Set(
+      listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : [])),
+    ),
+  ];
   if (storeIds.length === 0) {
     throw validationError('No store items in cart to apply a discount to');
   }
 
-  const now = new Date();
-  const discount = await Discount.findOne({
-    storeId: { $in: storeIds },
-    isActive: true,
-    'codes.code': normalized,
-    startsAt: { $lte: now },
-    $or: [{ endsAt: { $exists: false } }, { endsAt: null }, { endsAt: { $gte: now } }],
-  }).lean();
-  if (!discount) {
+  // The code and the scheduled window are checked in ONE statement — the code
+  // lives on the child row and the window on the parent, so a two-step read could
+  // accept a code that an expired discount merely still carries.
+  const valid = await activeDiscountCodeExists(storeIds, normalized, new Date());
+  if (!valid) {
     throw validationError('Discount code is not valid for the items in your cart');
   }
 
-  if (!(cart.pendingDiscountCodes ?? []).includes(normalized)) {
-    cart.pendingDiscountCodes = [...(cart.pendingDiscountCodes ?? []), normalized];
-    await cart.save();
+  if (!cart.pendingDiscountCodes.includes(normalized)) {
+    await setPendingDiscountCodes(cart.id, [...cart.pendingDiscountCodes, normalized]);
   }
   return getCart(oxyUserId);
 }
@@ -655,15 +661,14 @@ export async function applyDiscountCode(oxyUserId: string, code: string): Promis
 /** Remove a pinned discount code from the cart. Returns the freshly hydrated cart. */
 export async function removeDiscountCode(oxyUserId: string, code: string): Promise<CartDTO> {
   const normalized = normalizeDiscountCode(code);
-  const cart = await Cart.findOne({ oxyUserId });
+  const cart = await findCartByUser(oxyUserId);
   if (!cart) {
     throw notFound('Cart not found');
   }
 
-  const before = (cart.pendingDiscountCodes ?? []).length;
-  cart.pendingDiscountCodes = (cart.pendingDiscountCodes ?? []).filter((c) => c !== normalized);
-  if (cart.pendingDiscountCodes.length !== before) {
-    await cart.save();
+  const remaining = cart.pendingDiscountCodes.filter((c) => c !== normalized);
+  if (remaining.length !== cart.pendingDiscountCodes.length) {
+    await setPendingDiscountCodes(cart.id, remaining);
   }
   return getCart(oxyUserId);
 }
@@ -674,6 +679,6 @@ export async function removeDiscountCode(oxyUserId: string, code: string): Promi
  * (there is no stored price to drift); the cart view and later checkout call
  * this to surface stale lines before payment.
  */
-export async function revalidate(cart: ICart): Promise<CartDTO> {
+export async function revalidate(cart: CartRecord): Promise<CartDTO> {
   return buildCartDTO(cart);
 }

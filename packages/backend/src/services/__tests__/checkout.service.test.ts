@@ -1,37 +1,68 @@
 /**
  * Unit tests for `checkout.service`.
  *
- * `mongodb-memory-server` is not available, so the cart/inventory services, the
- * Listing/ProductVariant/Address/Order/Counter models, the order-hydration
- * summarizer, the media chokepoint, the pricing engine, the Discount model and
- * Redis are all mocked. Tests assert the F4 checkout contract: multi-seller split
- * (one order per seller, shared `checkoutGroupId`), reservation rollback on a
- * later out-of-stock line, idempotent replay via Redis, the B4 totals shape
- * (subtotal/discountTotal/shipping/tax/grandTotal), and that a redeemed discount's
- * usage increments EXACTLY once on a fresh checkout (never on replay).
+ * The catalogue lives in Postgres now, so the listing/variant REPOSITORIES are
+ * what this file mocks on that side — `findListingsByIds` / `findListingChildren`
+ * and `findVariantsByIds` / `findVariantOptionValues` — as plain async functions
+ * returning FLAT rows. Checkout resolves each cart line into a `ResolvedLine`
+ * carrying `{cartItem, listing, variant, images, collectionIds, optionValues}`,
+ * and the last three come from those two batched child reads rather than off the
+ * documents, so the fixtures supply them separately from the rows.
+ *
+ * The order side is a repository too now — `insertOrder` takes the whole
+ * aggregate (order + items + status history + allocations + tax lines) and
+ * `nextOrderNumber` comes from a sequence rather than a counter document, so the
+ * assertions read `insertOrder`'s input instead of a Mongo create document.
+ * `redeemDiscountCode` replaces the guarded `$inc`: the ceiling check lives in
+ * the repository, so what this file checks is that it is called EXACTLY once per
+ * redeemed code on a fresh checkout and never on a replay.
+ *
+ * Everything else is mocked as before: the cart/inventory services, the still
+ * Mongoose `Address` model, the store repository, the order-hydration
+ * summarizer, the media chokepoint, the pricing engine and Redis.
+ *
+ * Tests assert the F4 checkout contract: multi-seller split (one order per
+ * seller, shared `checkoutGroupId`), reservation rollback on a later
+ * out-of-stock line, idempotent replay via Redis, the B4 totals shape
+ * (subtotal/discountTotal/shipping/tax/grandTotal) with the line snapshot's
+ * thumbnail and option values, that a redeemed discount's usage increments
+ * EXACTLY once on a fresh checkout (never on replay), and that a variant with NO
+ * price is REFUSED rather than snapshotted onto an order as free.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { uuidv7 } from '@oxyhq/db';
 import type { PricingResult } from '../pricing.service.js';
 import type { DualMoney, Money } from '@mercaria/shared-types';
+import type {
+  ListingChildren,
+  ListingImageRecord,
+  ListingRecord,
+} from '../../db/catalog/listingRepository.js';
+import type {
+  VariantOptionValueRecord,
+  VariantRecord,
+} from '../../db/catalog/variantRepository.js';
 
 const getCart = vi.fn();
 const clearCart = vi.fn();
 const removeCartLines = vi.fn();
 const reserve = vi.fn();
 const release = vi.fn();
-const listingFind = vi.fn();
-const variantFind = vi.fn();
-const storeFind = vi.fn();
-const addressFindOne = vi.fn();
-const orderCreate = vi.fn();
-const orderFind = vi.fn();
+const findListingsByIds = vi.fn();
+const findListingChildren = vi.fn();
+const findVariantsByIds = vi.fn();
+const findVariantOptionValues = vi.fn();
+const findStoresByIds = vi.fn();
+const findAddress = vi.fn();
+const insertOrder = vi.fn();
+const findOrdersByCheckoutGroup = vi.fn();
 const nextOrderNumber = vi.fn();
 const summarizeOrders = vi.fn();
 const getRedisClient = vi.fn();
 const enqueueOrderEvent = vi.fn();
 const calculateTotals = vi.fn();
-const discountUpdateOne = vi.fn();
+const redeemDiscountCode = vi.fn();
 
 vi.mock('../cart.service.js', () => ({
   getCart: (...args: unknown[]) => getCart(...args),
@@ -44,35 +75,33 @@ vi.mock('../inventory.service.js', () => ({
   release: (...args: unknown[]) => release(...args),
 }));
 
-vi.mock('../../models/listing.js', () => ({
-  Listing: { find: (...args: unknown[]) => listingFind(...args) },
+vi.mock('../../db/catalog/listingRepository.js', () => ({
+  findListingsByIds: (...args: unknown[]) => findListingsByIds(...args),
+  findListingChildren: (...args: unknown[]) => findListingChildren(...args),
 }));
 
-vi.mock('../../models/product-variant.js', () => ({
-  ProductVariant: { find: (...args: unknown[]) => variantFind(...args) },
+vi.mock('../../db/catalog/variantRepository.js', () => ({
+  findVariantsByIds: (...args: unknown[]) => findVariantsByIds(...args),
+  findVariantOptionValues: (...args: unknown[]) => findVariantOptionValues(...args),
 }));
 
-vi.mock('../../models/store.js', () => ({
-  Store: { find: (...args: unknown[]) => storeFind(...args) },
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  findStoresByIds: (...args: unknown[]) => findStoresByIds(...args),
 }));
 
-vi.mock('../../models/address.js', () => ({
-  Address: { findOne: (...args: unknown[]) => addressFindOne(...args) },
+vi.mock('../../db/buyers/addressRepository.js', () => ({
+  findAddress: (...args: unknown[]) => findAddress(...args),
 }));
 
-vi.mock('../../models/order.js', () => ({
-  Order: {
-    create: (...args: unknown[]) => orderCreate(...args),
-    find: (...args: unknown[]) => orderFind(...args),
-  },
-}));
-
-vi.mock('../../models/counter.js', () => ({
+vi.mock('../../db/orders/orderRepository.js', () => ({
+  insertOrder: (...args: unknown[]) => insertOrder(...args),
+  findOrdersByCheckoutGroup: (...args: unknown[]) => findOrdersByCheckoutGroup(...args),
+  findOrderByIdempotencyKey: vi.fn(),
   nextOrderNumber: (...args: unknown[]) => nextOrderNumber(...args),
 }));
 
-vi.mock('../../models/discount.js', () => ({
-  Discount: { updateOne: (...args: unknown[]) => discountUpdateOne(...args) },
+vi.mock('../../db/merchandising/discountRepository.js', () => ({
+  redeemDiscountCode: (...args: unknown[]) => redeemDiscountCode(...args),
 }));
 
 vi.mock('../order-hydration.service.js', () => ({
@@ -126,12 +155,10 @@ function pricingResultFor(lineCount: number, subtotal: number): PricingResult {
 }
 
 const USER = 'buyer-1';
-const ADDRESS_ID = '000000000000000000000a01';
+const ADDRESS_ID = uuidv7();
 
-/** Build a `.lean()`-able query stub resolving to `value`. */
-function leanOf<T>(value: T) {
-  return { lean: () => Promise.resolve(value) };
-}
+/** Every row fixture carries the same timestamps; none of them is asserted on. */
+const AT = new Date('2026-01-01T00:00:00.000Z');
 
 /** A cart item DTO as `getCart` returns it. */
 function cartItem(overrides: { listingId: string; variantId: string; amount?: number; quantity?: number }) {
@@ -147,36 +174,136 @@ function cartItem(overrides: { listingId: string; variantId: string; amount?: nu
   };
 }
 
-/** A listing doc (store or user owned). */
-function listingDoc(id: string, owner: { ownerType: 'store'; storeId: string } | { ownerType: 'user'; oxyUserId: string }) {
+/**
+ * A `listings` ROW (store- or user-owned) as the repository returns it: flat,
+ * `id` not `_id`, and with NO `images` array — the gallery is a child table.
+ *
+ * The owner argument moves BOTH owner columns, since
+ * `listings_owner_exclusivity_check` refuses a row carrying an `oxyUserId` and a
+ * `storeId` at once.
+ */
+function listingRow(
+  id: string,
+  owner: { ownerType: 'store'; storeId: string } | { ownerType: 'user'; oxyUserId: string },
+): ListingRecord {
   return {
-    _id: id,
+    id,
+    ownerType: owner.ownerType,
+    oxyUserId: owner.ownerType === 'user' ? owner.oxyUserId : null,
+    storeId: owner.ownerType === 'store' ? owner.storeId : null,
     title: 'Thing',
-    images: [{ fileId: 'img-1', position: 0 }],
-    ...owner,
+    description: 'A thing',
+    condition: 'new',
+    status: 'active',
+    categoryId: null,
+    categorySlugs: [],
+    tags: [],
+    priceRangeMinAmount: null,
+    priceRangeMinCurrency: null,
+    priceRangeMaxAmount: null,
+    priceRangeMaxCurrency: null,
+    hasInventory: true,
+    variantCount: 1,
+    longitude: null,
+    latitude: null,
+    geo: null,
+    vendor: null,
+    productType: null,
+    handle: null,
+    seoTitle: null,
+    seoDescription: null,
+    sourceConnectionId: null,
+    sourceProvider: null,
+    sourceExternalId: null,
+    sourceExternalUpdatedAt: null,
+    overriddenFields: [],
+    rating: 0,
+    reviewCount: 0,
+    favoriteCount: 0,
+    publishedAt: AT,
+    createdAt: AT,
+    updatedAt: AT,
+    searchVector: '',
   };
 }
 
-/** A variant doc. Its NATIVE `price` drives pricing/order money (default ⊜1000). */
-function variantDoc(id: string, listingId: string, amount = 1000) {
+/**
+ * A `product_variants` ROW. Its NATIVE `priceAmount`/`priceCurrency` drive
+ * pricing and the order money (default ⊜1000); both columns are nullable and
+ * absent TOGETHER, which is the `product_variants_price_paired_check` shape.
+ */
+function variantRow(
+  id: string,
+  listingId: string,
+  amount: number | null = 1000,
+): VariantRecord {
   return {
-    _id: id,
+    id,
     listingId,
     title: 'Default Title',
-    optionValues: [],
-    price: { amount, currency: 'FAIR' },
-    inventory: { tracked: true, available: 10, committed: 0 },
+    sku: null,
+    barcode: null,
+    priceAmount: amount,
+    priceCurrency: amount === null ? null : 'FAIR',
+    compareAtPriceAmount: null,
+    compareAtPriceCurrency: null,
+    inventoryTracked: true,
+    inventoryAvailable: 10,
+    inventoryCommitted: 0,
+    sourceConnectionId: null,
+    sourceProvider: null,
+    sourceExternalVariantId: null,
+    sourceExternalInventoryItemId: null,
+    position: 0,
+    createdAt: AT,
+    updatedAt: AT,
   };
 }
 
-const addressDoc = {
-  _id: ADDRESS_ID,
+/** One `listing_images` row. */
+function imageRow(listingId: string, fileId: string, position = 0): ListingImageRecord {
+  return { id: uuidv7(), listingId, fileId, alt: null, position, createdAt: AT, updatedAt: AT };
+}
+
+/** One `product_variant_option_values` row. */
+function optionValueRow(variantId: string, name: string, value: string): VariantOptionValueRecord {
+  return { id: uuidv7(), variantId, name, value, position: 0, createdAt: AT, updatedAt: AT };
+}
+
+/**
+ * The default `findListingChildren` batch: every listing asked for has a single
+ * gallery image `img-1` and no options/collection memberships. This mirrors the
+ * old fixture, where each listing document carried `images: [{fileId: 'img-1'}]`.
+ */
+function childrenWithOneImageEach(listingIds: readonly string[]): ListingChildren {
+  return {
+    images: new Map(listingIds.map((id) => [id, [imageRow(id, 'img-1')]])),
+    options: new Map(),
+    collectionIds: new Map(),
+  };
+}
+
+/**
+ * An `addresses` ROW as `findAddress` returns it: flat, `id` rather than `_id`,
+ * and every optional field NULL rather than absent. `snapshotAddress` must leave
+ * all four off the order's address snapshot — a snapshot carrying `line2: null`
+ * prints a blank line on the shipping label.
+ */
+const addressRow = {
+  id: ADDRESS_ID,
   oxyUserId: USER,
+  label: null,
   recipientName: 'Buyer One',
   line1: '1 Main St',
+  line2: null,
   city: 'Town',
+  region: null,
   postalCode: '00001',
   country: 'US',
+  phone: null,
+  isDefault: true,
+  createdAt: AT,
+  updatedAt: AT,
 };
 
 beforeEach(() => {
@@ -185,18 +312,23 @@ beforeEach(() => {
   removeCartLines.mockReset().mockResolvedValue(undefined);
   reserve.mockReset().mockResolvedValue(undefined);
   release.mockReset().mockResolvedValue(undefined);
-  listingFind.mockReset();
-  variantFind.mockReset();
+  findListingsByIds.mockReset();
+  findVariantsByIds.mockReset();
+  // The gallery and the variant option values are batched child reads now.
+  findListingChildren.mockReset().mockImplementation((listingIds: readonly string[]) =>
+    Promise.resolve(childrenWithOneImageEach(listingIds)),
+  );
+  findVariantOptionValues.mockReset().mockResolvedValue(new Map());
   // No store docs found → shop currency falls back to a line's native currency (FAIR).
-  storeFind.mockReset().mockReturnValue({ select: () => ({ lean: () => Promise.resolve([]) }) });
-  addressFindOne.mockReset();
-  orderCreate.mockReset();
-  orderFind.mockReset();
+  findStoresByIds.mockReset().mockResolvedValue([]);
+  findAddress.mockReset();
+  insertOrder.mockReset();
+  findOrdersByCheckoutGroup.mockReset();
   nextOrderNumber.mockReset();
   summarizeOrders.mockReset();
   getRedisClient.mockReset().mockReturnValue(null);
   enqueueOrderEvent.mockReset().mockResolvedValue(undefined);
-  discountUpdateOne.mockReset().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+  redeemDiscountCode.mockReset().mockResolvedValue(true);
   // Default pricing: zero discount/tax, subtotal derived from the group's lines.
   calculateTotals.mockReset().mockImplementation((input: { lines: { unitPrice: { amount: number }; quantity: number }[] }) => {
     const subtotal = input.lines.reduce((s, l) => s + l.unitPrice.amount * l.quantity, 0);
@@ -206,12 +338,12 @@ beforeEach(() => {
 
 describe('checkout.service.checkout — multi-seller split', () => {
   it('creates one order per seller, all sharing the same checkoutGroupId', async () => {
-    const L1 = '000000000000000000000101';
-    const L2 = '000000000000000000000102';
-    const L3 = '000000000000000000000103';
-    const V1 = '000000000000000000000201';
-    const V2 = '000000000000000000000202';
-    const V3 = '000000000000000000000203';
+    const L1 = uuidv7();
+    const L2 = uuidv7();
+    const L3 = uuidv7();
+    const V1 = uuidv7();
+    const V2 = uuidv7();
+    const V3 = uuidv7();
 
     getCart.mockResolvedValueOnce({
       id: 'cart-1',
@@ -223,23 +355,23 @@ describe('checkout.service.checkout — multi-seller split', () => {
       ],
       subtotal: { amount: 3000, currency: 'FAIR' },
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
-    listingFind.mockReturnValueOnce(
-      leanOf([
-        listingDoc(L1, { ownerType: 'store', storeId: 'store-A' }),
-        listingDoc(L2, { ownerType: 'store', storeId: 'store-B' }),
-        listingDoc(L3, { ownerType: 'user', oxyUserId: 'seller-X' }),
-      ]),
-    );
-    variantFind.mockReturnValueOnce(
-      leanOf([variantDoc(V1, L1), variantDoc(V2, L2), variantDoc(V3, L3)]),
-    );
+    findAddress.mockResolvedValueOnce(addressRow);
+    findListingsByIds.mockResolvedValueOnce([
+      listingRow(L1, { ownerType: 'store', storeId: 'store-A' }),
+      listingRow(L2, { ownerType: 'store', storeId: 'store-B' }),
+      listingRow(L3, { ownerType: 'user', oxyUserId: 'seller-X' }),
+    ]);
+    findVariantsByIds.mockResolvedValueOnce([
+      variantRow(V1, L1),
+      variantRow(V2, L2),
+      variantRow(V3, L3),
+    ]);
     nextOrderNumber
       .mockResolvedValueOnce('MRC-000001')
       .mockResolvedValueOnce('MRC-000002')
       .mockResolvedValueOnce('MRC-000003');
-    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
-      Promise.resolve({ toObject: () => ({ ...doc, _id: `order-${doc.orderNumber}` }) }),
+    insertOrder.mockImplementation((input: Record<string, unknown>) =>
+      Promise.resolve({ ...input, id: `order-${String(input.orderNumber)}` }),
     );
     summarizeOrders.mockImplementation((orders: unknown[]) =>
       Promise.resolve(orders.map((_, i) => ({ id: `o${i}`, orderNumber: `MRC-00000${i}`, status: 'pending_payment' }))),
@@ -247,8 +379,8 @@ describe('checkout.service.checkout — multi-seller split', () => {
 
     const result = await checkout(USER, { addressId: ADDRESS_ID });
 
-    expect(orderCreate).toHaveBeenCalledTimes(3);
-    const groupIds = orderCreate.mock.calls.map((c) => (c[0] as { checkoutGroupId: string }).checkoutGroupId);
+    expect(insertOrder).toHaveBeenCalledTimes(3);
+    const groupIds = insertOrder.mock.calls.map((c) => (c[0] as { checkoutGroupId: string }).checkoutGroupId);
     expect(new Set(groupIds).size).toBe(1);
     expect(result.checkoutGroupId).toBe(groupIds[0]);
     expect(result.orders).toHaveLength(3);
@@ -263,8 +395,8 @@ describe('checkout.service.checkout — a native non-FAIR checkout', () => {
     // seller's accounting currency and the buyer's presentment currency. Nothing
     // is converted, so no cross-currency rate is consulted and the sale does not
     // depend on FAIR being quotable — the point of the case.
-    const L1 = '000000000000000000000501';
-    const V1 = '000000000000000000000601';
+    const L1 = uuidv7();
+    const V1 = uuidv7();
     const eur = (amount: number): Money => ({ amount, currency: 'EUR' });
 
     getCart.mockResolvedValueOnce({
@@ -279,13 +411,16 @@ describe('checkout.service.checkout — a native non-FAIR checkout', () => {
       ],
       subtotal: eur(4500),
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
-    listingFind.mockReturnValueOnce(
-      leanOf([listingDoc(L1, { ownerType: 'user', oxyUserId: 'seller-X' })]),
-    );
-    variantFind.mockReturnValueOnce(
-      leanOf([{ ...variantDoc(V1, L1, 4500), price: eur(4500) }]),
-    );
+    findAddress.mockResolvedValueOnce(addressRow);
+    findListingsByIds.mockResolvedValueOnce([
+      listingRow(L1, { ownerType: 'user', oxyUserId: 'seller-X' }),
+    ]);
+    // The variant's NATIVE price columns are what make this a EUR sale end to
+    // end — the seller's accounting currency falls back to the line's own
+    // currency for a P2P group, so nothing here is FAIR.
+    findVariantsByIds.mockResolvedValueOnce([
+      { ...variantRow(V1, L1, 4500), priceCurrency: 'EUR' },
+    ]);
     calculateTotals.mockImplementationOnce(() => {
       const dual = (amount: number): DualMoney => ({ shop: eur(amount), presentment: eur(amount) });
       return Promise.resolve({
@@ -300,8 +435,8 @@ describe('checkout.service.checkout — a native non-FAIR checkout', () => {
       });
     });
     nextOrderNumber.mockResolvedValueOnce('MRC-000900');
-    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
-      Promise.resolve({ toObject: () => ({ ...doc, _id: 'order-eur' }) }),
+    insertOrder.mockImplementation((input: Record<string, unknown>) =>
+      Promise.resolve({ ...input, id: 'order-eur' }),
     );
     summarizeOrders.mockResolvedValueOnce([
       { id: 'order-eur', orderNumber: 'MRC-000900', status: 'pending_payment' },
@@ -309,8 +444,8 @@ describe('checkout.service.checkout — a native non-FAIR checkout', () => {
 
     await checkout(USER, { addressId: ADDRESS_ID });
 
-    expect(orderCreate).toHaveBeenCalledTimes(1);
-    const doc = orderCreate.mock.calls[0][0] as {
+    expect(insertOrder).toHaveBeenCalledTimes(1);
+    const doc = insertOrder.mock.calls[0][0] as {
       totals: { grandTotal: DualMoney };
       fxRate: { from: string; to: string; rate: number; provider: string; asOf: string };
     };
@@ -333,10 +468,10 @@ describe('checkout.service.checkout — a native non-FAIR checkout', () => {
 
 describe('checkout.service.checkout — reservation rollback', () => {
   it('releases prior reservations and creates no order when a later line is out of stock', async () => {
-    const L1 = '000000000000000000000301';
-    const L2 = '000000000000000000000302';
-    const V1 = '000000000000000000000401';
-    const V2 = '000000000000000000000402';
+    const L1 = uuidv7();
+    const L2 = uuidv7();
+    const V1 = uuidv7();
+    const V2 = uuidv7();
 
     getCart.mockResolvedValueOnce({
       id: 'cart-1',
@@ -347,14 +482,12 @@ describe('checkout.service.checkout — reservation rollback', () => {
       ],
       subtotal: { amount: 7000, currency: 'FAIR' },
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
-    listingFind.mockReturnValueOnce(
-      leanOf([
-        listingDoc(L1, { ownerType: 'user', oxyUserId: 'seller-X' }),
-        listingDoc(L2, { ownerType: 'store', storeId: 'store-A' }),
-      ]),
-    );
-    variantFind.mockReturnValueOnce(leanOf([variantDoc(V1, L1), variantDoc(V2, L2)]));
+    findAddress.mockResolvedValueOnce(addressRow);
+    findListingsByIds.mockResolvedValueOnce([
+      listingRow(L1, { ownerType: 'user', oxyUserId: 'seller-X' }),
+      listingRow(L2, { ownerType: 'store', storeId: 'store-A' }),
+    ]);
+    findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1), variantRow(V2, L2)]);
 
     // First reserve succeeds; second throws OUT_OF_STOCK.
     reserve
@@ -369,7 +502,7 @@ describe('checkout.service.checkout — reservation rollback', () => {
     expect(release).toHaveBeenCalledTimes(1);
     expect(release).toHaveBeenCalledWith(V1, 2);
     expect(release).not.toHaveBeenCalledWith(V2, 5);
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
   });
 });
 
@@ -382,23 +515,23 @@ describe('checkout.service.checkout — idempotent replay', () => {
     };
     getRedisClient.mockReturnValue(redis);
 
-    const priorOrders = [{ _id: 'o1', checkoutGroupId: storedGroupId }];
-    orderFind.mockReturnValueOnce(leanOf(priorOrders));
+    const priorOrders = [{ id: 'o1', checkoutGroupId: storedGroupId }];
+    findOrdersByCheckoutGroup.mockResolvedValueOnce(priorOrders);
     summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000001', status: 'paid' }]);
 
     const result = await checkout(USER, { addressId: ADDRESS_ID }, 'idem-key-1');
 
     expect(result.checkoutGroupId).toBe(storedGroupId);
     expect(reserve).not.toHaveBeenCalled();
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
     expect(getCart).not.toHaveBeenCalled();
   });
 });
 
 describe('checkout.service.checkout — totals', () => {
   it('sets grandTotal = pricing.grandTotal + standard shipping (B4 shape)', async () => {
-    const L1 = '000000000000000000000501';
-    const V1 = '000000000000000000000601';
+    const L1 = uuidv7();
+    const V1 = uuidv7();
 
     getCart.mockResolvedValueOnce({
       id: 'cart-1',
@@ -406,19 +539,27 @@ describe('checkout.service.checkout — totals', () => {
       items: [cartItem({ listingId: L1, variantId: V1, amount: 2500, quantity: 2 })], // line 5000
       subtotal: { amount: 5000, currency: 'FAIR' },
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
-    listingFind.mockReturnValueOnce(leanOf([listingDoc(L1, { ownerType: 'store', storeId: 'store-A' })]));
+    findAddress.mockResolvedValueOnce(addressRow);
+    findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
     // Native variant price ⊜2500 × 2 = the ⊜5000 line the mock pricing sums.
-    variantFind.mockReturnValueOnce(leanOf([variantDoc(V1, L1, 2500)]));
+    findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1, 2500)]);
+    // The snapshotted option values come from the variant's CHILD table.
+    findVariantOptionValues.mockResolvedValueOnce(
+      new Map([[V1, [optionValueRow(V1, 'Size', 'M')]]]),
+    );
     nextOrderNumber.mockResolvedValueOnce('MRC-000010');
-    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
-      Promise.resolve({ toObject: () => ({ ...doc, _id: 'order-1' }) }),
+    insertOrder.mockImplementation((input: Record<string, unknown>) =>
+      Promise.resolve({ ...input, id: 'order-1' }),
     );
     summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000010', status: 'pending_payment' }]);
 
     await checkout(USER, { addressId: ADDRESS_ID });
 
-    const doc = orderCreate.mock.calls[0][0] as {
+    const doc = insertOrder.mock.calls[0][0] as {
+      items: {
+        imageUrl?: string;
+        optionValues: { name: string; value: string }[];
+      }[];
       totals: {
         subtotal: { shop: { amount: number } };
         discountTotal: { shop: { amount: number } };
@@ -435,14 +576,49 @@ describe('checkout.service.checkout — totals', () => {
     expect(doc.totals.grandTotal.shop.amount).toBe(5500);
     // FAIR shop == FAIR presentment, so the presentment grand total matches.
     expect(doc.totals.grandTotal.presentment.amount).toBe(5500);
+    // The immutable line snapshot still carries the thumbnail and the option
+    // values, which now travel with the resolved line from the two child reads
+    // rather than off the listing/variant documents.
+    expect(doc.items[0].imageUrl).toBe('resolved:img-1');
+    expect(doc.items[0].optionValues).toEqual([{ name: 'Size', value: 'M' }]);
+  });
+});
+
+describe('checkout.service.checkout — unpriced variant', () => {
+  it('refuses the checkout with CONFLICT rather than snapshotting a free line', async () => {
+    const L1 = uuidv7();
+    const V1 = uuidv7();
+
+    getCart.mockResolvedValueOnce({
+      id: 'cart-1',
+      currency: 'FAIR',
+      items: [cartItem({ listingId: L1, variantId: V1 })],
+      subtotal: { amount: 1000, currency: 'FAIR' },
+    });
+    findAddress.mockResolvedValueOnce(addressRow);
+    findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
+    // Both price columns NULL together — the shape the paired CHECK allows, and
+    // the one the port made representable (Mongoose declared `price` required).
+    findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1, null)]);
+
+    await expect(checkout(USER, { addressId: ADDRESS_ID })).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
+    );
+
+    // Nothing is priced, ordered or taken out of the cart: a zero snapshotted
+    // onto an order is a price the buyer would be held to.
+    expect(calculateTotals).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
+    expect(clearCart).not.toHaveBeenCalled();
+    expect(removeCartLines).not.toHaveBeenCalled();
   });
 });
 
 describe('checkout.service.checkout — discounts', () => {
   /** Set up a single-store-group checkout whose pricing applies a code discount. */
   function arrangeDiscountedCheckout(): { L1: string; V1: string } {
-    const L1 = '000000000000000000000701';
-    const V1 = '000000000000000000000801';
+    const L1 = uuidv7();
+    const V1 = uuidv7();
 
     getCart.mockResolvedValueOnce({
       id: 'cart-1',
@@ -451,12 +627,12 @@ describe('checkout.service.checkout — discounts', () => {
       subtotal: { amount: 1000, currency: 'FAIR' },
       pendingDiscountCodes: ['WELCOME15'],
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
-    listingFind.mockReturnValueOnce(leanOf([listingDoc(L1, { ownerType: 'store', storeId: 'store-A' })]));
-    variantFind.mockReturnValueOnce(leanOf([variantDoc(V1, L1)]));
+    findAddress.mockResolvedValueOnce(addressRow);
+    findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
+    findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1)]);
     nextOrderNumber.mockResolvedValue('MRC-000020');
-    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
-      Promise.resolve({ toObject: () => ({ ...doc, _id: 'order-1' }) }),
+    insertOrder.mockImplementation((input: Record<string, unknown>) =>
+      Promise.resolve({ ...input, id: 'order-1' }),
     );
     summarizeOrders.mockResolvedValue([{ id: 'o1', orderNumber: 'MRC-000020', status: 'pending_payment' }]);
 
@@ -489,7 +665,7 @@ describe('checkout.service.checkout — discounts', () => {
 
     await checkout(USER, { addressId: ADDRESS_ID });
 
-    const doc = orderCreate.mock.calls[0][0] as {
+    const doc = insertOrder.mock.calls[0][0] as {
       totals: { discountTotal: { shop: { amount: number } }; grandTotal: { shop: { amount: number } } };
       appliedDiscounts: { code: string }[];
       items: { discountTotal?: { shop: { amount: number } } }[];
@@ -501,12 +677,11 @@ describe('checkout.service.checkout — discounts', () => {
     expect(doc.appliedDiscounts[0].code).toBe('WELCOME15');
     expect(doc.items[0].discountTotal?.shop.amount).toBe(150);
 
-    // Usage incremented EXACTLY once for the redeemed code, via a guarded $inc.
-    expect(discountUpdateOne).toHaveBeenCalledTimes(1);
-    const [filter, update, options] = discountUpdateOne.mock.calls[0];
-    expect((filter as { 'codes.code': string })['codes.code']).toBe('WELCOME15');
-    expect(update).toEqual({ $inc: { 'codes.$[c].usageCount': 1 } });
-    expect(options).toEqual({ arrayFilters: [{ 'c.code': 'WELCOME15' }] });
+    // Usage counted EXACTLY once for the redeemed code. The ceiling guard lives
+    // in the repository (which serializes on the parent discount before
+    // counting); what checkout owns is calling it once per applied code.
+    expect(redeemDiscountCode).toHaveBeenCalledTimes(1);
+    expect(redeemDiscountCode).toHaveBeenCalledWith('WELCOME15');
   });
 
   it('does NOT increment usage on an idempotent Redis replay', async () => {
@@ -517,22 +692,22 @@ describe('checkout.service.checkout — discounts', () => {
     };
     getRedisClient.mockReturnValue(redis);
 
-    orderFind.mockReturnValueOnce(leanOf([{ _id: 'o1', checkoutGroupId: storedGroupId }]));
+    findOrdersByCheckoutGroup.mockResolvedValueOnce([{ id: 'o1', checkoutGroupId: storedGroupId }]);
     summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000020', status: 'paid' }]);
 
     await checkout(USER, { addressId: ADDRESS_ID, discountCodes: ['WELCOME15'] }, 'idem-key-2');
 
     // Replay returns the prior orders — no pricing, no creation, no usage increment.
-    expect(orderCreate).not.toHaveBeenCalled();
-    expect(discountUpdateOne).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
+    expect(redeemDiscountCode).not.toHaveBeenCalled();
   });
 });
 
 describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
-  const L1 = '000000000000000000000901';
-  const L2 = '000000000000000000000902';
-  const V1 = '000000000000000000000a01';
-  const V2 = '000000000000000000000a02';
+  const L1 = uuidv7();
+  const L2 = uuidv7();
+  const V1 = uuidv7();
+  const V2 = uuidv7();
 
   /** A two-store cart (store-A line V1, store-B line V2) ready to check out. */
   function arrangeTwoStoreCart(): void {
@@ -545,17 +720,15 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
       ],
       subtotal: { amount: 2000, currency: 'FAIR' },
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
-    listingFind.mockReturnValueOnce(
-      leanOf([
-        listingDoc(L1, { ownerType: 'store', storeId: 'store-A' }),
-        listingDoc(L2, { ownerType: 'store', storeId: 'store-B' }),
-      ]),
-    );
-    variantFind.mockReturnValueOnce(leanOf([variantDoc(V1, L1), variantDoc(V2, L2)]));
+    findAddress.mockResolvedValueOnce(addressRow);
+    findListingsByIds.mockResolvedValueOnce([
+      listingRow(L1, { ownerType: 'store', storeId: 'store-A' }),
+      listingRow(L2, { ownerType: 'store', storeId: 'store-B' }),
+    ]);
+    findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1), variantRow(V2, L2)]);
     nextOrderNumber.mockResolvedValue('MRC-000030');
-    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
-      Promise.resolve({ toObject: () => ({ ...doc, _id: `order-${doc.orderNumber}` }) }),
+    insertOrder.mockImplementation((input: Record<string, unknown>) =>
+      Promise.resolve({ ...input, id: `order-${String(input.orderNumber)}` }),
     );
     summarizeOrders.mockResolvedValue([{ id: 'o1', orderNumber: 'MRC-000030', status: 'pending_payment' }]);
   }
@@ -568,8 +741,8 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
     // Only store-A's single line is reserved + ordered.
     expect(reserve).toHaveBeenCalledTimes(1);
     expect(reserve).toHaveBeenCalledWith(V1, 1);
-    expect(orderCreate).toHaveBeenCalledTimes(1);
-    expect((orderCreate.mock.calls[0][0] as { storeId: string }).storeId).toBe('store-A');
+    expect(insertOrder).toHaveBeenCalledTimes(1);
+    expect((insertOrder.mock.calls[0][0] as { storeId: string }).storeId).toBe('store-A');
     expect(result.orders).toHaveLength(1);
 
     // Partial checkout: remove only the placed line, keep the rest — never clearCart.
@@ -587,7 +760,7 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
     );
 
     expect(reserve).not.toHaveBeenCalled();
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
     expect(removeCartLines).not.toHaveBeenCalled();
     expect(clearCart).not.toHaveBeenCalled();
   });

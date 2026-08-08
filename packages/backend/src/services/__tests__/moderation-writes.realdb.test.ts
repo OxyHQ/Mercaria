@@ -1,345 +1,854 @@
 /**
- * The moderation writes, against a REAL MongoDB replica set.
+ * The moderation writes, against a REAL PostgreSQL database.
  *
- * Every other moderation test in this suite mocks its models, and that mocking
- * has exactly one blind spot — but it is the one that matters most here: a mocked
- * `updateOne` accepts ANY update document, including one the server rejects
- * outright. A suite built only on mocks stays green while `POST /reports` 500s on
- * the very first report.
+ * Every other moderation test in this suite mocks its repositories, and that
+ * mocking has exactly one blind spot — but it is the one that matters most here: a
+ * mocked write accepts ANY statement, including one the SERVER would refuse, and a
+ * mocked handle cannot tell a transaction from the root connection. A suite built
+ * only on mocks stays green while `POST /reports` 500s on the very first report.
  *
- * The concrete bug this file exists to catch: naming `createdAt`/`updatedAt`
- * inside `$setOnInsert` on a schema declaring `{ timestamps: true }`. Mongoose
- * adds `updatedAt` to `$set` itself on an upsert, the path lands in two operators
- * of one update document, and Mongo refuses the whole write —
- * "Updating the path 'updatedAt' would create a conflict at 'updatedAt'". Inside
- * the intake transaction the abort takes the report row with it, so the failure
- * is total and silent. `createdAt` alone is harmless; naming BOTH is fatal.
+ * Four properties live here and CANNOT live anywhere else:
  *
- * A replica SET rather than a standalone, because transactions and unique indexes
- * are the two properties under test and neither exists without one.
+ *  - **the intake pair is atomic** — a failure after the report insert leaves no
+ *    report row AND no outbox row, which is only observable if both writes really
+ *    joined one transaction;
+ *  - **the enqueue refuses the ROOT connection**, not merely a missing argument;
+ *  - **a repeated enqueue leaves the existing row physically untouched**, asserted
+ *    on `xmin` as well as the timestamps, so an `ON CONFLICT DO UPDATE` writing
+ *    IDENTICAL values still fails this test;
+ *  - **`SKIP LOCKED` really skips** — two concurrent dispatchers take one row each
+ *    rather than one taking a row and the other blocking on it and coming back
+ *    empty.
+ *
+ * ## What the Mongo original was for, and why the shape of the hazard changed
+ *
+ * The file it replaces existed to catch a Mongo-specific bug: naming
+ * `createdAt`/`updatedAt` inside `$setOnInsert` on a schema declaring
+ * `{ timestamps: true }` put one path under two operators and the server refused
+ * the whole write, aborting the intake transaction with it. That exact bug cannot
+ * exist here — but its second half can, and does: the "obvious" fix under Mongo
+ * (let the ORM own the timestamps) left a `$set: { updatedAt }` on the update and
+ * turned a repeated enqueue into a real write contending with the dispatcher's
+ * live lease. `ON CONFLICT DO NOTHING` is the structural answer, and the
+ * `xmin` assertion below is what holds it.
+ *
+ * ## Scoping, because this database is SHARED
+ *
+ * One throwaway Postgres database serves the whole suite and vitest runs files in
+ * parallel workers, so every id this file writes carries a per-run suffix and
+ * teardown deletes exactly what it created. A `delete from moderation_outboxes`
+ * here would silently empty the sibling decision and observe files mid-run.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import mongoose from 'mongoose';
-import { Types } from 'mongoose';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { eq, inArray, sql } from 'drizzle-orm';
+import { uuidv7 } from '@oxyhq/db';
+import { closePostgres, connectPostgres, getDb, type Database } from '../../db/postgres.js';
+import {
+  abuseReports,
+  moderationEnforcements,
+  moderationOutboxes,
+} from '../../db/schema/moderation.js';
+import {
+  findAbuseReportById,
+  insertAbuseReport,
+} from '../../db/moderation/abuseReportRepository.js';
+import {
+  claimModerationOutboxEvent,
+  completeModerationOutboxEvent,
+  enqueueModerationOutboxEvent,
+  findModerationOutboxEvent,
+  releaseModerationOutboxEvent,
+  renewModerationOutboxEvent,
+} from '../../db/moderation/moderationOutboxRepository.js';
+import { claimModerationEnforcement } from '../../db/moderation/moderationEnforcementRepository.js';
+import { MissingTransactionError } from '../../db/moderation/transactionGuard.js';
+import { insertListing } from '../../db/catalog/listingRepository.js';
+import { listings } from '../../db/schema/catalog.js';
+import { createAbuseReport } from '../moderation/report-intake.service.js';
+import { buildReportInput } from '../moderation/evidence-snapshot.service.js';
+import { reportSubmitEventId } from '../moderation/moderation-outbox.service.js';
 
-const uri = process.env.MERCARIA_TEST_MONGODB_URI;
+let db: Database;
 
-let AbuseReport: typeof import('../../models/abuse-report.js').AbuseReport;
-let ModerationOutbox: typeof import('../../models/moderation-outbox.js').ModerationOutbox;
-let ModerationEnforcement: typeof import('../../models/moderation-enforcement.js').ModerationEnforcement;
-let enqueueModerationOutboxEvent: typeof import('../moderation/moderation-outbox.service.js').enqueueModerationOutboxEvent;
-let ModerationOutboxTransactionError: typeof import('../moderation/moderation-outbox.service.js').ModerationOutboxTransactionError;
-let claimModerationOutboxEvent: typeof import('../moderation/moderation-outbox.service.js').claimModerationOutboxEvent;
-let createAbuseReport: typeof import('../moderation/report-intake.service.js').createAbuseReport;
+/** Unique to this run, so parallel files cannot collide on a shared database. */
+const RUN = uuidv7();
+
+const createdReportIds: string[] = [];
+const createdOutboxIds: string[] = [];
+const createdDecisionIds: string[] = [];
+const createdListingIds: string[] = [];
 
 beforeAll(async () => {
-  if (!uri) throw new Error('MERCARIA_TEST_MONGODB_URI missing — is vitest.globalSetup.ts wired?');
-  await mongoose.connect(uri, { dbName: 'mercaria-moderation-test' });
-
-  ({ AbuseReport } = await import('../../models/abuse-report.js'));
-  ({ ModerationOutbox } = await import('../../models/moderation-outbox.js'));
-  ({ ModerationEnforcement } = await import('../../models/moderation-enforcement.js'));
-  ({
-    enqueueModerationOutboxEvent,
-    ModerationOutboxTransactionError,
-    claimModerationOutboxEvent,
-  } = await import('../moderation/moderation-outbox.service.js'));
-  ({ createAbuseReport } = await import('../moderation/report-intake.service.js'));
-
-  // Unique indexes are half of what is under test; Mongoose builds them lazily.
-  await Promise.all([
-    AbuseReport.syncIndexes(),
-    ModerationOutbox.syncIndexes(),
-    ModerationEnforcement.syncIndexes(),
-  ]);
+  db = await connectPostgres();
 }, 120_000);
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await closePostgres();
 });
 
-beforeEach(async () => {
-  await Promise.all([
-    AbuseReport.deleteMany({}),
-    ModerationOutbox.deleteMany({}),
-    ModerationEnforcement.deleteMany({}),
-  ]);
-});
-
-async function inTransaction<T>(fn: (s: mongoose.ClientSession) => Promise<T>): Promise<T> {
-  const session = await mongoose.startSession();
-  try {
-    let out: T | undefined;
-    await session.withTransaction(async () => {
-      out = await fn(session);
-    });
-    return out as T;
-  } finally {
-    await session.endSession();
+afterEach(async () => {
+  const reportIds = createdReportIds.splice(0);
+  const outboxIds = createdOutboxIds.splice(0);
+  const decisionIds = createdDecisionIds.splice(0);
+  if (outboxIds.length > 0) {
+    await db.delete(moderationOutboxes).where(inArray(moderationOutboxes.id, outboxIds));
   }
+  if (reportIds.length > 0) {
+    await db.delete(abuseReports).where(inArray(abuseReports.id, reportIds));
+  }
+  if (decisionIds.length > 0) {
+    await db
+      .delete(moderationEnforcements)
+      .where(inArray(moderationEnforcements.decisionId, decisionIds));
+  }
+  const listingIds = createdListingIds.splice(0);
+  if (listingIds.length > 0) {
+    await db.delete(listings).where(inArray(listings.id, listingIds));
+  }
+});
+
+/** Register a report AND the outbox row intake derives from it, for teardown. */
+function trackReport(reportId: string): string {
+  createdReportIds.push(reportId);
+  createdOutboxIds.push(reportSubmitEventId(reportId));
+  return reportId;
+}
+
+function outboxId(name: string): string {
+  const id = `moderation:report.submit:${name}-${RUN}`;
+  createdOutboxIds.push(id);
+  return id;
+}
+
+function decisionId(name: string): string {
+  const id = `${name}-${RUN}`;
+  createdDecisionIds.push(id);
+  return id;
+}
+
+/**
+ * The row's physical version.
+ *
+ * `xmin` is the transaction that last wrote the tuple, so it changes on ANY
+ * update — including one that writes identical values. That is what makes
+ * "completely untouched" a claim about the ROW rather than about the columns a
+ * test happened to look at, and it is what makes the untouched-row test below able
+ * to fail against an `ON CONFLICT DO UPDATE` that sets the same data back.
+ */
+/** Both timestamp columns of one outbox row. */
+async function timestampsOf(id: string): Promise<{ createdAt: Date; updatedAt: Date }> {
+  const [row] = await db
+    .select({ createdAt: moderationOutboxes.createdAt, updatedAt: moderationOutboxes.updatedAt })
+    .from(moderationOutboxes)
+    .where(eq(moderationOutboxes.id, id));
+  if (row === undefined) throw new Error(`no outbox row '${id}' to read timestamps from`);
+  return row;
+}
+
+async function physicalVersion(id: string): Promise<string> {
+  const rows = await db.execute<{ xmin: string }>(
+    sql`select xmin::text as xmin from ${moderationOutboxes} where ${moderationOutboxes.id} = ${id}`,
+  );
+  const version = rows[0]?.xmin;
+  if (version === undefined) throw new Error(`no outbox row '${id}' to read xmin from`);
+  return version;
 }
 
 describe('the outbox write is ACCEPTED by a real server', () => {
-  it('writes the row — no $setOnInsert / timestamps path conflict', async () => {
-    /**
-     * The assertion that a mock cannot make. If `$setOnInsert` named `createdAt`
-     * AND `updatedAt` while the schema declares `{ timestamps: true }`, this
-     * throws MongoServerError before writing anything.
-     */
-    await inTransaction(async (session) => {
+  it('writes the row inside the caller transaction', async () => {
+    const id = outboxId('accepted');
+
+    await db.transaction(async (tx) => {
       await enqueueModerationOutboxEvent(
-        { eventId: 'moderation:report.submit:real-1', kind: 'report.submit', payload: { reportId: 'real-1' } },
-        session,
+        { eventId: id, kind: 'report.submit', payload: { reportId: 'r1' } },
+        tx,
       );
     });
 
-    const row = await ModerationOutbox.findById('moderation:report.submit:real-1').lean();
-    expect(row).not.toBeNull();
-    expect(row?.status).toBe('pending');
-
-    // `timestamps: true` populated both, which is why naming them in the update
-    // document would have been the bug rather than the fix.
-    expect(row?.createdAt).toBeInstanceOf(Date);
-    expect(row?.updatedAt).toBeInstanceOf(Date);
+    const row = await findModerationOutboxEvent(id);
+    expect(row).toBeDefined();
+    expect(row?.kind).toBe('report.submit');
+    expect(row?.payload).toEqual({ reportId: 'r1' });
+    expect(row?.attempts).toBe(0);
+    // Set at insert and never advanced — without it the expiry sweep has nothing
+    // to select on and the table grows forever, with no error and no symptom.
+    expect(row?.expiresAt.getTime()).toBeGreaterThan(row?.createdAt.getTime() ?? 0);
   });
 
-  it('is idempotent — a retry upserts the SAME row', async () => {
+  it('is idempotent — a retry converges on the SAME row', async () => {
+    const id = outboxId('idempotent');
+
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      await inTransaction(async (session) => {
+      await db.transaction(async (tx) => {
         await enqueueModerationOutboxEvent(
-          { eventId: 'moderation:report.submit:real-2', kind: 'report.submit', payload: { reportId: 'real-2' } },
-          session,
+          { eventId: id, kind: 'report.submit', payload: { reportId: 'r2' } },
+          tx,
         );
       });
     }
 
-    expect(await ModerationOutbox.countDocuments({})).toBe(1);
-    // Still claimable once — a retry must not resurrect a processed row either.
-    expect(await ModerationOutbox.findById('moderation:report.submit:real-2').lean()).not.toBeNull();
+    const rows = await db
+      .select({ id: moderationOutboxes.id })
+      .from(moderationOutboxes)
+      .where(eq(moderationOutboxes.id, id));
+    expect(rows).toHaveLength(1);
   });
 
   it('leaves an existing row COMPLETELY untouched on a repeated enqueue', async () => {
     /**
-     * "Same row" is not the same claim as "no write happened", and only the
-     * second one is what the deterministic event id is for.
+     * "Same row" is not the same claim as "no write happened", and only the second
+     * one is what the deterministic event id is for.
      *
-     * If the schema lets Mongoose own the timestamps, it adds `$set: {updatedAt}`
-     * to the upsert — so a repeat is a genuine WRITE that merely happens to leave
-     * the domain fields alone. A repeat is ordinary (a transaction retry, two
-     * concurrent duplicate submissions, a reconciliation sweep re-deriving the
-     * event), and it runs while the dispatcher is taking, renewing and completing
-     * leases on those same rows. A write nobody needed contends with a lease
-     * write, and the contention aborts the transaction.
+     * A repeat is ordinary — a transaction retry, two concurrent duplicate
+     * submissions, a reconciliation sweep re-deriving the event — and it runs
+     * while the dispatcher is taking, renewing and completing leases on those same
+     * rows. A write nobody needed contends with a lease write.
      *
-     * `modifiedCount: 0` is the property; `updatedAt` unchanged is its
-     * observable edge.
+     * Three assertions, and the third is the one that cannot be satisfied by a
+     * `DO UPDATE` writing identical values back: `xmin` is the tuple's writing
+     * transaction, so it moves on any update at all.
      */
-    const eventId = 'moderation:report.submit:real-untouched';
-    await inTransaction(async (session) => {
+    const id = outboxId('untouched');
+    await db.transaction(async (tx) => {
       await enqueueModerationOutboxEvent(
-        { eventId, kind: 'report.submit', payload: { reportId: 'real-untouched' } },
-        session,
+        { eventId: id, kind: 'report.submit', payload: { reportId: 'r3' } },
+        tx,
       );
     });
 
-    const before = await ModerationOutbox.findById(eventId).lean();
-    expect(before).not.toBeNull();
+    const before = await timestampsOf(id);
+    const versionBefore = await physicalVersion(id);
 
     // A repeat, far enough later that a bumped timestamp is unambiguous.
     await new Promise((resolve) => setTimeout(resolve, 25));
-    await inTransaction(async (session) => {
+    await db.transaction(async (tx) => {
       await enqueueModerationOutboxEvent(
-        { eventId, kind: 'report.submit', payload: { reportId: 'real-untouched' } },
-        session,
+        { eventId: id, kind: 'report.submit', payload: { reportId: 'r3' } },
+        tx,
       );
     });
 
-    const after = await ModerationOutbox.findById(eventId).lean();
-    expect(after?.updatedAt?.getTime()).toBe(before?.updatedAt?.getTime());
-    expect(after?.createdAt?.getTime()).toBe(before?.createdAt?.getTime());
+    // `xmin` FIRST, deliberately: it is the strongest of the three and the only
+    // one a `DO UPDATE` careful enough to leave every column alone would still
+    // fail. Asserting it after the timestamps would let the weaker assertion
+    // report first and leave the strong one unexercised.
+    expect(await physicalVersion(id)).toBe(versionBefore);
+
+    const after = await timestampsOf(id);
+    expect(after.createdAt.getTime()).toBe(before.createdAt.getTime());
+    expect(after.updatedAt.getTime()).toBe(before.updatedAt.getTime());
   });
 
-  it('re-enqueues inside a transaction without conflicting with a live lease', async () => {
+  it('re-enqueues while the dispatcher holds a LIVE lease, without disturbing it', async () => {
     /**
-     * The failure the no-op property prevents: a reconciliation-shaped
-     * transaction re-deriving an event while the dispatcher holds a lease on that
-     * same row. If the repeat writes, the two contend and the transaction can
-     * abort with `NoSuchTransaction` — moderation work lost to a sweep that was
-     * supposed to be harmless.
-     *
-     * **Honest limit of this test:** it passed both WITH and WITHOUT the defect on
-     * this single-node replica set, so it did not discriminate here and is not the
-     * evidence for the fix — the `updatedAt` assertion above is, and that one did
-     * fail before the fix and pass after. This is kept as a cheap guard against a
-     * hard regression, not offered as proof.
+     * The failure the no-op property prevents: a reconciliation-shaped transaction
+     * re-deriving an event while a dispatcher holds a lease on that same row. If
+     * the repeat wrote, the two would contend — and worse, a `DO UPDATE` restoring
+     * `status: 'pending'` would hand the row to a SECOND dispatcher while the
+     * first is still delivering it.
      */
-    const eventId = 'moderation:report.submit:real-contended';
-    await inTransaction(async (session) => {
+    const id = outboxId('contended');
+    await db.transaction(async (tx) => {
       await enqueueModerationOutboxEvent(
-        { eventId, kind: 'report.submit', payload: { reportId: 'real-contended' } },
-        session,
+        { eventId: id, kind: 'report.submit', payload: { reportId: 'r4' } },
+        tx,
       );
     });
 
-    // The dispatcher takes the row and is actively working it.
-    const claimed = await claimModerationOutboxEvent({ leaseOwner: 'live-dispatcher' });
-    expect(claimed?._id).toBe(eventId);
+    const claimed = await claimModerationOutboxEvent({ leaseOwner: 'live-dispatcher', eventId: id });
+    expect(claimed?.id).toBe(id);
+
+    await db.transaction(async (tx) => {
+      await enqueueModerationOutboxEvent(
+        { eventId: id, kind: 'report.submit', payload: { reportId: 'r4' } },
+        tx,
+      );
+    });
+
+    // The lease survived the repeat intact — same owner, still `processing`, and
+    // still not claimable by anyone else.
+    const after = await findModerationOutboxEvent(id);
+    expect(after?.leaseOwner).toBe('live-dispatcher');
+    expect(after?.attempts).toBe(1);
+    expect(await claimModerationOutboxEvent({ leaseOwner: 'other', eventId: id })).toBeNull();
+  });
+
+  it('REFUSES the root connection, against the real driver', async () => {
+    /**
+     * `getDb()` satisfies `DatabaseOrTransaction`, and it is what every OTHER
+     * repository in this codebase defaults that parameter to — so this is the
+     * mistake you get by forgetting an argument, not by writing a wrong one.
+     */
+    const id = outboxId('refused');
 
     await expect(
-      inTransaction(async (session) => {
+      enqueueModerationOutboxEvent(
+        { eventId: id, kind: 'report.submit', payload: { reportId: 'r5' } },
+        getDb(),
+      ),
+    ).rejects.toBeInstanceOf(MissingTransactionError);
+
+    expect(await findModerationOutboxEvent(id)).toBeUndefined();
+  });
+
+  it('ACCEPTS a nested (savepoint) transaction — the discriminator is `rollback`, not depth', async () => {
+    /**
+     * The vacuity guard for the refusal above, and a real requirement: a caller
+     * that already opened a transaction and calls into another repository which
+     * opens its own gets a SAVEPOINT handle. If the guard tested anything narrower
+     * than "has a rollback function" it would refuse that legitimate case, and the
+     * refusal test alone could not tell the two apart.
+     */
+    const id = outboxId('nested');
+
+    await db.transaction(async (tx) => {
+      await tx.transaction(async (nested) => {
         await enqueueModerationOutboxEvent(
-          { eventId, kind: 'report.submit', payload: { reportId: 'real-contended' } },
-          session,
+          { eventId: id, kind: 'report.submit', payload: { reportId: 'r6' } },
+          nested,
         );
-      }),
-    ).resolves.toBeUndefined();
-  });
-
-  it('still refuses to write outside a transaction, against the real driver', async () => {
-    const session = await mongoose.startSession();
-    try {
-      await expect(
-        enqueueModerationOutboxEvent(
-          { eventId: 'moderation:report.submit:real-3', kind: 'report.submit', payload: { reportId: 'real-3' } },
-          session,
-        ),
-      ).rejects.toBeInstanceOf(ModerationOutboxTransactionError);
-    } finally {
-      await session.endSession();
-    }
-    expect(await ModerationOutbox.countDocuments({})).toBe(0);
-  });
-
-  it('a claim reads the row back and leases it', async () => {
-    await inTransaction(async (session) => {
-      await enqueueModerationOutboxEvent(
-        { eventId: 'moderation:report.submit:real-4', kind: 'report.submit', payload: { reportId: 'real-4' } },
-        session,
-      );
+      });
     });
 
-    const claimed = await claimModerationOutboxEvent({ leaseOwner: 'test-owner' });
-    expect(claimed?._id).toBe('moderation:report.submit:real-4');
-    expect(claimed?.attempts).toBe(1);
-
-    // A second claim finds nothing: the lease is live and owned.
-    expect(await claimModerationOutboxEvent({ leaseOwner: 'other-owner' })).toBeNull();
+    expect(await findModerationOutboxEvent(id)).toBeDefined();
   });
 });
 
-describe('createAbuseReport against a real replica set', () => {
+describe('the outbox claim is a lease, and SKIP LOCKED makes it shareable', () => {
+  async function enqueue(id: string, reportId: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      await enqueueModerationOutboxEvent(
+        { eventId: id, kind: 'report.submit', payload: { reportId } },
+        tx,
+      );
+    });
+  }
+
+  it('a claim leases the row and a second claim finds nothing', async () => {
+    const id = outboxId('claim');
+    await enqueue(id, 'r7');
+
+    const claimed = await claimModerationOutboxEvent({ leaseOwner: 'owner-a', eventId: id });
+    expect(claimed?.id).toBe(id);
+    expect(claimed?.attempts).toBe(1);
+
+    expect(await claimModerationOutboxEvent({ leaseOwner: 'owner-b', eventId: id })).toBeNull();
+  });
+
+  it('two CONCURRENT claims of ONE due row yield exactly one winner', async () => {
+    const id = outboxId('race-one');
+    await enqueue(id, 'r8');
+
+    // Genuinely concurrent: two statements in flight on two pool connections. A
+    // sequential pair would pass against a broken claim too, because the second
+    // call would simply see a live lease.
+    const [first, second] = await Promise.all([
+      claimModerationOutboxEvent({ leaseOwner: 'owner-a', eventId: id }),
+      claimModerationOutboxEvent({ leaseOwner: 'owner-b', eventId: id }),
+    ]);
+
+    const winners = [first, second].filter((claim) => claim !== null);
+    expect(winners).toHaveLength(1);
+    // And the row counted the attempt exactly once, so a loser did not also
+    // increment on its way to returning nothing.
+    expect((await findModerationOutboxEvent(id))?.attempts).toBe(1);
+  });
+
+  it('two CONCURRENT claims of TWO due rows take one EACH', async () => {
+    /**
+     * Both dispatchers make progress and neither takes the other's row.
+     *
+     * **Honest limit, measured rather than assumed:** this does NOT discriminate
+     * `SKIP LOCKED`. Removing `skip locked` from the claim leaves it green, and
+     * the reason is a real property of the plan rather than luck — `LockRows` sits
+     * BELOW `Limit`, so when the loser's `EvalPlanQual` recheck rejects the row the
+     * winner just changed, the node simply yields the NEXT row and `LIMIT 1` takes
+     * it. Correctness survives; only the WAIT is different. So this is kept as a
+     * cheap guard against a claim that hands two dispatchers the same row, and the
+     * test below is the one that actually pins the skip.
+     */
+    const first = outboxId('race-two-a');
+    const second = outboxId('race-two-b');
+    await enqueue(first, 'r9');
+    await enqueue(second, 'r10');
+
+    const [a, b] = await Promise.all([
+      claimModerationOutboxEvent({ leaseOwner: 'owner-a' }),
+      claimModerationOutboxEvent({ leaseOwner: 'owner-b' }),
+    ]);
+
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    expect(a?.id).not.toBe(b?.id);
+    expect([a?.id, b?.id].sort()).toEqual([first, second].sort());
+  });
+
+  it('a claim SKIPS a row another transaction is HOLDING rather than waiting for it', async () => {
+    /**
+     * The assertion that tells `SKIP LOCKED` from a plain `FOR UPDATE`.
+     *
+     * A concurrent pair cannot do it (see the test above): the loser recovers and
+     * takes the free row either way, so the only observable difference is that it
+     * WAITED. Here the oldest row is locked by a transaction that will not commit
+     * until the claim has returned, so waiting is not survivable — with
+     * `SKIP LOCKED` the claim steps over it and takes the free row immediately;
+     * without, it blocks on a lock nobody is going to release and dies on the
+     * `statement_timeout`.
+     *
+     * The timeout is what keeps the failure a RED rather than a hung suite, and
+     * the `finally` is what stops a red from leaving the holder's lock open and
+     * blocking teardown. Verified by mutation: deleting `skip locked` fails this
+     * test with `57014 canceling statement due to statement timeout`.
+     */
+    const first = outboxId('skip-held');
+    const second = outboxId('skip-free');
+    await enqueue(first, 'r13');
+    await enqueue(second, 'r14');
+
+    let announceHeld: () => void = () => undefined;
+    let releaseHolder: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      announceHeld = resolve;
+    });
+
+    const holder = db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select ${moderationOutboxes.id} from ${moderationOutboxes}
+            where ${moderationOutboxes.id} = ${first} for update`,
+      );
+      announceHeld();
+      await new Promise<void>((resolve) => {
+        releaseHolder = resolve;
+      });
+    });
+    await held;
+
+    try {
+      const claimed = await db.transaction(async (tx) => {
+        await tx.execute(sql`set local statement_timeout = '1000ms'`);
+        return await claimModerationOutboxEvent({ leaseOwner: 'skipper' }, tx);
+      });
+      expect(claimed?.id).toBe(second);
+    } finally {
+      releaseHolder();
+      await holder;
+    }
+  });
+
+  it('an EXPIRED processing lease is reclaimable, so a dead task strands nothing', async () => {
+    const id = outboxId('expired');
+    await enqueue(id, 'r11');
+
+    const held = await claimModerationOutboxEvent({
+      leaseOwner: 'dead-task',
+      eventId: id,
+      leaseMs: 1_000,
+    });
+    expect(held?.id).toBe(id);
+
+    const later = new Date(Date.now() + 5_000);
+    const reclaimed = await claimModerationOutboxEvent({
+      leaseOwner: 'live-task',
+      eventId: id,
+      now: later,
+    });
+    expect(reclaimed?.id).toBe(id);
+    expect(reclaimed?.leaseOwner).toBe('live-task');
+    // The attempt count carries across the reclaim; that is what the retryable
+    // ceiling counts, so a row reclaimed forever still eventually dead-letters.
+    expect(reclaimed?.attempts).toBe(2);
+  });
+
+  it('complete, renew and release all REFUSE a lease this owner no longer holds', async () => {
+    const id = outboxId('owner-check');
+    await enqueue(id, 'r12');
+
+    const claimed = await claimModerationOutboxEvent({ leaseOwner: 'owner-a', eventId: id });
+    expect(claimed?.id).toBe(id);
+
+    // The owner check is what stops a task whose lease was reclaimed from writing
+    // a contradictory outcome over the task that now owns the row.
+    expect(await completeModerationOutboxEvent(id, 'owner-b')).toBe(false);
+    expect(await renewModerationOutboxEvent(id, 'owner-b', 60_000)).toBe(false);
+    expect(
+      await releaseModerationOutboxEvent({
+        eventId: id,
+        leaseOwner: 'owner-b',
+        deadLettered: false,
+        availableAt: new Date(),
+        error: 'not mine',
+      }),
+    ).toBe(false);
+
+    // The vacuity guard: the REAL owner still can, so the refusals above are the
+    // owner check and not a transition that never works.
+    expect(await renewModerationOutboxEvent(id, 'owner-a', 60_000)).toBe(true);
+    expect(await completeModerationOutboxEvent(id, 'owner-a')).toBe(true);
+    expect((await findModerationOutboxEvent(id))?.leaseOwner).toBeUndefined();
+  });
+});
+
+describe('createAbuseReport against a real database', () => {
   it('commits the report AND its outbox row together', async () => {
-    const listingId = new Types.ObjectId().toHexString();
+    const listingId = uuidv7();
 
     const result = await createAbuseReport({
-      reporterOxyUserId: 'reporter-1',
+      reporterOxyUserId: `reporter-1-${RUN}`,
       reportedType: 'listing',
       reportedId: listingId,
       categories: ['counterfeit'],
       details: 'Obvious fake.',
     });
+    trackReport(result.report.id);
 
-    /**
-     * The end-to-end proof the mocked test cannot give: both documents are
-     * really in the database, written by one transaction the server accepted.
-     */
-    const stored = await AbuseReport.findById(result.report._id).lean();
+    const stored = await findAbuseReportById(result.report.id);
     expect(stored?.localStatus).toBe('queued');
 
-    const outbox = await ModerationOutbox.findById(
-      `moderation:report.submit:${result.report._id.toHexString()}`,
-    ).lean();
-    expect(outbox).not.toBeNull();
-    expect(outbox?.payload.reportId).toBe(result.report._id.toHexString());
+    const outbox = await findModerationOutboxEvent(reportSubmitEventId(result.report.id));
+    expect(outbox).toBeDefined();
+    expect(outbox?.payload.reportId).toBe(result.report.id);
+  });
+
+  it('a failure AFTER the report insert leaves no report row and no outbox row', async () => {
+    /**
+     * The atomicity assertion, and the reason both repositories take a
+     * `DatabaseOrTransaction` rather than reaching for `getDb()` themselves.
+     *
+     * A repository that ignored the handle it was passed would commit its row on
+     * its own connection and SURVIVE this rollback — which is precisely the
+     * "answered 201, never delivered" failure, and precisely what no mocked test
+     * can see. Composed here rather than driven through `createAbuseReport`
+     * because the service has no reachable failure between its two writes, and a
+     * property this important should not be pinned only where a bug is convenient
+     * to inject.
+     */
+    const listingId = uuidv7();
+    const reporter = `reporter-atomic-${RUN}`;
+    let reportId = '';
+    let eventId = '';
+
+    await expect(
+      db.transaction(async (tx) => {
+        const report = await insertAbuseReport(
+          {
+            reportedType: 'listing',
+            reportedId: listingId,
+            reporterOxyUserId: reporter,
+            categories: ['counterfeit'],
+            localStatus: 'queued',
+          },
+          tx,
+        );
+        reportId = report.id;
+        eventId = reportSubmitEventId(report.id);
+        await enqueueModerationOutboxEvent(
+          { eventId, kind: 'report.submit', payload: { reportId: report.id } },
+          tx,
+        );
+        throw new Error('delivery bookkeeping failed after both writes');
+      }),
+    ).rejects.toThrow(/delivery bookkeeping failed/);
+
+    expect(reportId).not.toBe('');
+    expect(await findAbuseReportById(reportId)).toBeUndefined();
+    expect(await findModerationOutboxEvent(eventId)).toBeUndefined();
   });
 
   it('stores a type with no provider and writes NO outbox row', async () => {
     const result = await createAbuseReport({
-      reporterOxyUserId: 'reporter-1',
+      reporterOxyUserId: `reporter-2-${RUN}`,
       reportedType: 'seller',
-      reportedId: 'some-oxy-user',
+      reportedId: `some-oxy-user-${RUN}`,
       categories: ['scam'],
     });
+    trackReport(result.report.id);
 
     expect(result.outboxEventId).toBeUndefined();
-    expect(await ModerationOutbox.countDocuments({})).toBe(0);
+    expect(await findModerationOutboxEvent(reportSubmitEventId(result.report.id))).toBeUndefined();
 
-    const stored = await AbuseReport.findById(result.report._id).lean();
+    const stored = await findAbuseReportById(result.report.id);
     expect(stored?.localStatus).toBe('received');
     expect(stored?.localStatusReason).toMatch(/no moderation subject provider/i);
   });
 
   it('the unique index — not just the read — stops a duplicate report', async () => {
-    const listingId = new Types.ObjectId().toHexString();
+    const listingId = uuidv7();
     const args = {
-      reporterOxyUserId: 'reporter-1',
+      reporterOxyUserId: `reporter-3-${RUN}`,
       reportedType: 'listing' as const,
       reportedId: listingId,
       categories: ['counterfeit' as const],
     };
 
-    await createAbuseReport(args);
+    const first = await createAbuseReport(args);
+    trackReport(first.report.id);
+
     await expect(createAbuseReport(args)).rejects.toThrow(/already reported/i);
-    expect(await AbuseReport.countDocuments({})).toBe(1);
+
+    const rows = await db
+      .select({ id: abuseReports.id })
+      .from(abuseReports)
+      .where(eq(abuseReports.reporterOxyUserId, args.reporterOxyUserId));
+    expect(rows).toHaveLength(1);
+  });
+
+  it('two CONCURRENT duplicate submissions produce ONE report and ONE conflict', async () => {
+    /**
+     * The race the read-first check cannot win, and the reason the unique
+     * violation is mapped back onto the same 409. Both reads miss; the index
+     * refuses the loser; the loser's reporter must see the same answer the
+     * sequential case gives, not a 500 for double-tapping.
+     */
+    const args = {
+      reporterOxyUserId: `reporter-race-${RUN}`,
+      reportedType: 'listing' as const,
+      reportedId: uuidv7(),
+      categories: ['counterfeit' as const],
+    };
+
+    const outcomes = await Promise.allSettled([
+      createAbuseReport(args),
+      createAbuseReport(args),
+    ]);
+    for (const outcome of outcomes) {
+      if (outcome.status === 'fulfilled') trackReport(outcome.value.report.id);
+    }
+
+    const fulfilled = outcomes.filter((outcome) => outcome.status === 'fulfilled');
+    const rejected = outcomes.filter((outcome) => outcome.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    for (const outcome of rejected) {
+      if (outcome.status === 'rejected') {
+        expect(String((outcome.reason as Error).message)).toMatch(/already reported/i);
+      }
+    }
+
+    const rows = await db
+      .select({ id: abuseReports.id })
+      .from(abuseReports)
+      .where(eq(abuseReports.reporterOxyUserId, args.reporterOxyUserId));
+    expect(rows).toHaveLength(1);
   });
 
   it('a DIFFERENT reporter may report the same listing — one case, many reports', async () => {
-    const listingId = new Types.ObjectId().toHexString();
-    await createAbuseReport({
-      reporterOxyUserId: 'reporter-1',
+    const listingId = uuidv7();
+    const first = await createAbuseReport({
+      reporterOxyUserId: `reporter-4a-${RUN}`,
       reportedType: 'listing',
       reportedId: listingId,
       categories: ['counterfeit'],
     });
-    await createAbuseReport({
-      reporterOxyUserId: 'reporter-2',
+    const second = await createAbuseReport({
+      reporterOxyUserId: `reporter-4b-${RUN}`,
       reportedType: 'listing',
       reportedId: listingId,
       categories: ['misleading_listing'],
     });
+    trackReport(first.report.id);
+    trackReport(second.report.id);
 
     // Two reports, two outbox rows, one subject — CrowdSource's dedup key is what
     // collapses them into a single case, and it can only do that if both arrive.
-    expect(await AbuseReport.countDocuments({})).toBe(2);
-    expect(await ModerationOutbox.countDocuments({})).toBe(2);
+    const reports = await db
+      .select({ id: abuseReports.id })
+      .from(abuseReports)
+      .where(eq(abuseReports.reportedId, listingId));
+    expect(reports).toHaveLength(2);
+
+    expect(await findModerationOutboxEvent(reportSubmitEventId(first.report.id))).toBeDefined();
+    expect(await findModerationOutboxEvent(reportSubmitEventId(second.report.id))).toBeDefined();
+  });
+});
+
+describe('the composed report is byte-identical between deliveries', () => {
+  /** One user-owned listing, registered for teardown. */
+  async function seedListing(): Promise<string> {
+    const row = await insertListing(
+      {
+        ownerType: 'user',
+        oxyUserId: `seller-${RUN}`,
+        storeId: null,
+        title: 'A reported item',
+        description: 'Body text',
+        condition: 'new',
+        status: 'active',
+        categoryId: null,
+        categorySlugs: [],
+        tags: ['handmade'],
+        priceRangeMinAmount: 1000,
+        priceRangeMinCurrency: 'FAIR',
+        priceRangeMaxAmount: 1000,
+        priceRangeMaxCurrency: 'FAIR',
+        hasInventory: true,
+        variantCount: 1,
+        longitude: null,
+        latitude: null,
+        vendor: null,
+        productType: null,
+        handle: null,
+        seoTitle: null,
+        seoDescription: null,
+        sourceConnectionId: null,
+        sourceProvider: null,
+        sourceExternalId: null,
+        sourceExternalUpdatedAt: null,
+        overriddenFields: [],
+        rating: 0,
+        reviewCount: 0,
+        favoriteCount: 0,
+        publishedAt: new Date(),
+      },
+      [],
+      [],
+    );
+    createdListingIds.push(row.id);
+    return row.id;
+  }
+
+  it('two builds of ONE report serialize identically, minutes apart', async () => {
+    /**
+     * The rule that makes at-least-once delivery safe, asserted rather than
+     * reviewed.
+     *
+     * CrowdSource's ingress fingerprints the whole `{externalReportId, envelope}`
+     * to detect an external id reused with DIFFERENT content, and answers 409 when
+     * it changes. That 409 is not retryable — no number of attempts turns two
+     * payloads into one report — so anything non-deterministic in the composition
+     * converts a perfectly legitimate outbox retry into a permanent dead letter,
+     * days later, with nothing having failed in any test.
+     *
+     * A `new Date()` anywhere in the composed input is the whole class of bug, and
+     * the sleep is what makes it observable: two builds in the same millisecond
+     * would agree even with a wall-clock field in them.
+     */
+    const listingId = await seedListing();
+    const created = await createAbuseReport({
+      reporterOxyUserId: `reporter-deterministic-${RUN}`,
+      reportedType: 'listing',
+      reportedId: listingId,
+      // Two categories mapping to two DIFFERENT codes, so the sorted-and-deduped
+      // allegation list is genuinely exercised rather than trivially one element.
+      categories: ['misleading_listing', 'counterfeit'],
+      details: 'Obvious fake.',
+    });
+    trackReport(created.report.id);
+
+    const first = await buildReportInput(created.report);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const second = await buildReportInput(created.report);
+
+    expect(JSON.stringify(second.input)).toBe(JSON.stringify(first.input));
+    // The snapshot hash is the same claim one level down: same material in, same
+    // digest out, so a decision stays attributable to the version reviewed.
+    expect(second.snapshotHash).toBe(first.snapshotHash);
+  });
+
+  it('submittedAt is the REPORT’s createdAt, never the moment of delivery', async () => {
+    /**
+     * The specific field the module comment names, pinned against the row rather
+     * than against "some earlier time" — an assertion that only checked
+     * `submittedAt < now` would pass against a `new Date()` from the previous
+     * statement.
+     */
+    const listingId = await seedListing();
+    const created = await createAbuseReport({
+      reporterOxyUserId: `reporter-submitted-at-${RUN}`,
+      reportedType: 'listing',
+      reportedId: listingId,
+      categories: ['counterfeit'],
+    });
+    trackReport(created.report.id);
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const built = await buildReportInput(created.report);
+
+    expect(built.input.submittedAt).toEqual(created.report.createdAt);
+    // And the external id is the row's own id verbatim — it is half of
+    // CrowdSource's idempotency key, which is why ids were carried across the
+    // migration rather than remapped.
+    expect(built.input.externalReportId).toBe(created.report.id);
+  });
+
+  it('the allegation list is sorted and deduped, whatever order the shopper ticked', async () => {
+    /**
+     * Two categories that mean the SAME baseline claim collapse to one allegation
+     * — a shopper ticking both must not appear to allege it twice — and the order
+     * is the sort's, not the request's.
+     */
+    const listingId = await seedListing();
+    const created = await createAbuseReport({
+      reporterOxyUserId: `reporter-allegations-${RUN}`,
+      reportedType: 'listing',
+      reportedId: listingId,
+      // `stolen_goods` and `prohibited_item` both map to `commerce.prohibited_item`.
+      categories: ['stolen_goods', 'counterfeit', 'prohibited_item'],
+    });
+    trackReport(created.report.id);
+
+    const built = await buildReportInput(created.report);
+    const codes = built.input.allegations.map((allegation) =>
+      typeof allegation === 'string' ? allegation : allegation.code,
+    );
+    expect(codes).toEqual(['commerce.counterfeit', 'commerce.prohibited_item']);
   });
 });
 
 describe('the enforcement idempotency key is a real unique index', () => {
-  it('refuses a second claim of the same decisionId+revision+action', async () => {
+  it('refuses a second claim of the same decisionId + revision + action', async () => {
+    const decision = decisionId('dec-replay');
     const base = {
-      decisionId: 'dec_real_1',
+      decisionId: decision,
       revision: 1,
       action: 'restrict' as const,
-      subjectType: 'listing',
-      subjectId: new Types.ObjectId().toHexString(),
-      applied: true,
+      subjectType: 'listing' as const,
+      subjectId: uuidv7(),
       reason: 'first',
     };
 
-    await ModerationEnforcement.create(base);
-    await expect(ModerationEnforcement.create({ ...base, reason: 'second' })).rejects.toThrow();
-    expect(await ModerationEnforcement.countDocuments({})).toBe(1);
+    const first = await claimModerationEnforcement(base);
+    expect(first).not.toBeNull();
+
+    // `null`, not a throw: a duplicate is an ANSWER, and telling it apart from a
+    // database failure by inspecting an exception is what the port removed.
+    const second = await claimModerationEnforcement({ ...base, reason: 'second' });
+    expect(second).toBeNull();
+
+    const rows = await db
+      .select({ id: moderationEnforcements.id })
+      .from(moderationEnforcements)
+      .where(eq(moderationEnforcements.decisionId, decision));
+    expect(rows).toHaveLength(1);
   });
 
-  it('ALLOWS the same action at a different revision', async () => {
+  it('PERMITS a later revision to claim its own restore', async () => {
     /**
-     * Why `revision` is in the key. A correction is a new revision, and its
-     * `restore` must be a different action from the `restrict` it supersedes —
-     * otherwise an accepted appeal loses the insert and the listing stays down
-     * forever, with the case saying it was fine.
+     * Why `revision` is in the key, and the half that actually discriminates: a
+     * key of `(decision_id, action)` passes the replay test above and FAILS this
+     * one. A correction is a new revision, and its `restore` must be a different
+     * action from the `restrict` it supersedes — otherwise an accepted appeal
+     * loses the insert, does nothing, and the listing stays down forever with the
+     * case saying it was fine.
      */
+    const decision = decisionId('dec-correction');
     const base = {
-      decisionId: 'dec_real_2',
-      subjectType: 'listing',
-      subjectId: new Types.ObjectId().toHexString(),
-      applied: true,
+      decisionId: decision,
+      subjectType: 'listing' as const,
+      subjectId: uuidv7(),
       reason: 'r',
     };
 
-    await ModerationEnforcement.create({ ...base, revision: 1, action: 'restrict' });
-    await ModerationEnforcement.create({ ...base, revision: 2, action: 'restore' });
-    expect(await ModerationEnforcement.countDocuments({})).toBe(2);
+    expect(await claimModerationEnforcement({ ...base, revision: 1, action: 'restrict' })).not.toBeNull();
+    expect(await claimModerationEnforcement({ ...base, revision: 2, action: 'restore' })).not.toBeNull();
+    // And the same action at a LATER revision is also its own claim — a second
+    // correction re-restricting after an appeal was itself overturned.
+    expect(await claimModerationEnforcement({ ...base, revision: 3, action: 'restrict' })).not.toBeNull();
+
+    const rows = await db
+      .select({ id: moderationEnforcements.id })
+      .from(moderationEnforcements)
+      .where(eq(moderationEnforcements.decisionId, decision));
+    expect(rows).toHaveLength(3);
   });
 });

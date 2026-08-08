@@ -680,16 +680,11 @@ async function resolveTracedPayment(query: PaymentTraceQuery): Promise<PaymentRo
   const { findLinkedOrder } = await import('./order-linkage.js');
   const order = await findLinkedOrder(query.byOrderId);
   if (!order) return undefined;
-  const { Order } = await import('../../models/order.js');
-  const doc = await Order.findById(query.byOrderId).select('payment checkoutGroupId').lean<{
-    payment?: { paymentId?: string };
-    checkoutGroupId?: string;
-  } | null>();
-  if (doc?.payment?.paymentId) {
-    return await findPaymentById(db, doc.payment.paymentId);
+  if (order.paymentId) {
+    return await findPaymentById(db, order.paymentId);
   }
-  return doc?.checkoutGroupId
-    ? await findNativePaymentByCheckoutGroupId(db, doc.checkoutGroupId)
+  return order.checkoutGroupId
+    ? await findNativePaymentByCheckoutGroupId(db, order.checkoutGroupId)
     : undefined;
 }
 

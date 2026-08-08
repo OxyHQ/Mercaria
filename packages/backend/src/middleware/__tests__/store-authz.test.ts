@@ -21,13 +21,22 @@ import {
   requireStoreRole,
   requireStorePermission,
 } from '../store-authz.js';
-import type { IStoreMember } from '../../models/store.js';
+import type { StoreMemberRecord } from '../../db/stores/storeRepository.js';
 
-function member(role: IStoreMember['role'], permissions: StorePermission[] = []): IStoreMember {
-  return { oxyUserId: 'u1', role, permissions, joinedAt: new Date() };
+/**
+ * A membership carrying only what the permission check reads.
+ *
+ * Cast rather than spelled out: `StoreMemberRecord` is a whole row and the two
+ * guards under test read `role` and `permissions`. Confined to this helper.
+ */
+function member(
+  role: StoreMemberRecord['role'],
+  permissions: StorePermission[] = [],
+): StoreMemberRecord {
+  return { oxyUserId: 'u1', role, permissions } as unknown as StoreMemberRecord;
 }
 
-function mockReq(membership?: IStoreMember): Request {
+function mockReq(membership?: StoreMemberRecord): Request {
   return { storeMembership: membership } as unknown as Request;
 }
 

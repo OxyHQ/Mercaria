@@ -1,5 +1,35 @@
+/**
+ * Liveness, readiness and the operator-facing health snapshot.
+ *
+ * ## `mongodb` is gone from the payload, not renamed
+ *
+ * The snapshot used to report `mongodb: mongoose.connection.readyState`, and the
+ * task no longer opens Mongo at all — so keeping the key under any spelling would
+ * report a connection nothing uses. It is a breaking change to the body of
+ * `GET /health`, deliberately: a monitor still alerting on `mongodb` should fail
+ * loudly on a missing key rather than read `disconnected` forever and be muted.
+ *
+ * ## `/ready` answers a different question from `/health`
+ *
+ * `/health` is for a human reading a dashboard, so it is cached and cheap.
+ * `/ready` decides whether a load balancer sends this task traffic, so it is
+ * neither: it issues a real `select 1` (a pool can exist while the server behind
+ * it is unreachable — the cheap synchronous answer is the one that reports ready
+ * during an outage) and then asserts the MIGRATION LEDGER is current.
+ *
+ * The ledger half is what makes a rolling deploy safe. A task whose image expects
+ * columns the database has not been migrated to yet answers every request with a
+ * column error; drizzle selects by NAME, so there is no partial degradation, just
+ * 500s. Failing readiness instead keeps that task out of the load balancer until
+ * the migration lands, which is the point of the pre/post deploy-phase markers in
+ * `db/migrate.ts` — a task AHEAD of its database must not serve, while a task
+ * BEHIND its database (an old image mid-rollout, whose journal is a prefix of
+ * what is applied) still reads as ready, because a `pre` migration is by
+ * definition compatible with the image still serving.
+ */
+
 import { Router } from 'express';
-import mongoose from 'mongoose';
+import { assertMigrationsCurrent, checkPostgresHealth } from '../db/postgres.js';
 import { getRedisClient } from '../lib/redis.js';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
@@ -32,7 +62,7 @@ interface HealthSnapshot {
   status: 'healthy' | 'degraded';
   timestamp: string;
   uptime: number;
-  mongodb: 'connected' | 'connecting' | 'disconnecting' | 'disconnected';
+  postgres: 'connected' | 'unavailable';
   redis: 'connected' | 'unavailable';
   memory: {
     rss: number;
@@ -73,25 +103,20 @@ async function getHealthSnapshot(): Promise<HealthSnapshot> {
     return healthCache.data;
   }
 
-  const mongoState = mongoose.connection.readyState;
-  const mongoStatus = mongoState === 1 ? 'connected'
-    : mongoState === 2 ? 'connecting'
-    : mongoState === 3 ? 'disconnecting'
-    : 'disconnected';
+  // A real round trip, not a `db !== null` flag — see `checkPostgresHealth`,
+  // which never throws because an unreachable database is a health RESULT.
+  const postgresConnected = await checkPostgresHealth();
 
   const mem = process.memoryUsage();
   const redis = getRedisClient();
-  const redisStatus = redis ? 'connected' : 'unavailable';
-
-  const isHealthy = mongoState === 1;
   const webhooks = await getWebhookHealth();
 
   const snapshot: HealthSnapshot = {
-    status: isHealthy ? 'healthy' : 'degraded',
+    status: postgresConnected ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     uptime: Math.round(process.uptime()),
-    mongodb: mongoStatus,
-    redis: redisStatus,
+    postgres: postgresConnected ? 'connected' : 'unavailable',
+    redis: redis ? 'connected' : 'unavailable',
     memory: {
       rss: Math.round(mem.rss / 1024 / 1024),       // MB
       heapUsed: Math.round(mem.heapUsed / 1024 / 1024), // MB
@@ -105,35 +130,59 @@ async function getHealthSnapshot(): Promise<HealthSnapshot> {
 }
 
 // Full health check with details
-router.get('/', async (_req, res) => {
-  try {
-    const snapshot = await getHealthSnapshot();
-    const statusCode = snapshot.status === 'healthy' ? 200 : 503;
-    res.status(statusCode).json(snapshot);
-  } catch (error: unknown) {
-    log.general.error({ err: error }, 'Health check failed');
-    res.status(503).json({
-      status: 'error',
-      timestamp: new Date().toISOString(),
-      uptime: Math.round(process.uptime()),
-    });
-  }
+router.get('/', (_req, res) => {
+  void (async () => {
+    try {
+      const snapshot = await getHealthSnapshot();
+      const statusCode = snapshot.status === 'healthy' ? 200 : 503;
+      res.status(statusCode).json(snapshot);
+    } catch (error: unknown) {
+      log.general.error({ err: error }, 'Health check failed');
+      res.status(503).json({
+        status: 'error',
+        timestamp: new Date().toISOString(),
+        uptime: Math.round(process.uptime()),
+      });
+    }
+  })();
 });
 
-// Liveness probe: process is running -> 200
-// Used by k8s/DO App Platform to detect crashed processes
+// Liveness probe: process is running -> 200.
+// Deliberately touches nothing else: a liveness probe that queries a database
+// restarts the task during a database outage, turning a recoverable dependency
+// failure into a crash loop.
 router.get('/live', (_req, res) => {
   res.status(200).json({ status: 'alive' });
 });
 
-// Readiness probe: MongoDB connected -> 200
-// Used by load balancers to decide if this instance should receive traffic
+/**
+ * Readiness probe: this task can serve requests -> 200.
+ *
+ * Two conditions, reported as distinct reasons so an operator can tell "the
+ * database is down" from "this image is ahead of the schema" — they call for
+ * opposite responses.
+ */
 router.get('/ready', (_req, res) => {
-  const mongoReady = mongoose.connection.readyState === 1;
-  if (!mongoReady) {
-    return res.status(503).json({ status: 'not_ready', reason: 'database_unavailable' });
-  }
-  res.status(200).json({ status: 'ready' });
+  void (async () => {
+    // Connectivity FIRST, and separately, so the ledger check below cannot be
+    // the thing that reports an outage: it reads the ledger table, so a database
+    // that is simply down would otherwise surface as `migrations_pending` and
+    // send an operator to look at a deploy that is fine.
+    if (!(await checkPostgresHealth())) {
+      res.status(503).json({ status: 'not_ready', reason: 'database_unavailable' });
+      return;
+    }
+
+    try {
+      await assertMigrationsCurrent();
+    } catch (error: unknown) {
+      log.general.error({ err: error }, 'Readiness: migrations are not current');
+      res.status(503).json({ status: 'not_ready', reason: 'migrations_pending' });
+      return;
+    }
+
+    res.status(200).json({ status: 'ready' });
+  })();
 });
 
 export default router;

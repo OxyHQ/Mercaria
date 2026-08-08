@@ -33,7 +33,7 @@ function storeId(req: Request): string {
   if (!store) {
     throw notFound('Store not loaded');
   }
-  return String((store as { _id: unknown })._id);
+  return store.id;
 }
 
 /** GET /admin/stores/:storeId/channels — the store's connections. */
@@ -133,7 +133,7 @@ export async function syncChannelHandler(req: Request, res: Response): Promise<v
 export async function disconnectChannelHandler(req: Request, res: Response): Promise<void> {
   try {
     const conn = await disconnect(storeId(req), routeParam(req, 'connectionId'));
-    sendSuccess(res, { id: String(conn._id), status: conn.status });
+    sendSuccess(res, { id: conn.id, status: conn.status });
   } catch (err) {
     log.general.error({ err, connectionId: req.params.connectionId }, 'Failed to disconnect channel');
     respondWithError(res, err, 'Failed to disconnect channel');
