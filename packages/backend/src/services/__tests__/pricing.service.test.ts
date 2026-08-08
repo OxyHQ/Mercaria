@@ -1,9 +1,13 @@
 /**
  * Unit tests for `pricing.service` — the single FAIR totals engine (B4).
  *
- * `mongodb-memory-server` is unavailable, so the `Discount`/`TaxRate`/`Store`
- * model statics are mocked with `vi.fn()` returning `.lean()`-able stubs (mirrors
- * the `collection.service` test pattern). The tests assert the EXACT money math:
+ * The three repository reads are mocked with `vi.fn()`, so the engine runs
+ * offline against fixture ROWS. The fixture builders still take the nested shape
+ * the source model had (`appliesTo`, `combinesWith`, `buy`/`get`, `region`) and
+ * flatten it into the real column layout in ONE place — these tests are about
+ * arithmetic, and spelling `appliesToCollectionIds` at forty call sites would
+ * obscure that without checking anything the builder does not already pin. The
+ * tests assert the EXACT money math:
  * subtotal-only (no store), percentage/fixed/BOGO discount amounts, order-level
  * proportional allocation with exact residual reconciliation, line-scoped
  * attribution, gating (minimum + usage limit), combinability selection, and
@@ -16,27 +20,27 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const discountFind = vi.fn();
-const taxRateFind = vi.fn();
-const storeFindById = vi.fn();
+const findActiveDiscounts = vi.fn();
+const findActiveTaxRates = vi.fn();
+const findStoreRow = vi.fn();
 
-vi.mock('../../models/discount.js', () => ({
-  Discount: { find: (...args: unknown[]) => discountFind(...args) },
+vi.mock('../../db/merchandising/discountRepository.js', () => ({
+  findActiveDiscounts: (...args: unknown[]) => findActiveDiscounts(...args),
 }));
 
-vi.mock('../../models/tax-rate.js', () => ({
-  TaxRate: { find: (...args: unknown[]) => taxRateFind(...args) },
+vi.mock('../../db/stores/taxRateRepository.js', () => ({
+  findActiveTaxRates: (...args: unknown[]) => findActiveTaxRates(...args),
 }));
 
-vi.mock('../../models/store.js', () => ({
-  Store: { findById: (...args: unknown[]) => storeFindById(...args) },
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  findStoreRow: (...args: unknown[]) => findStoreRow(...args),
 }));
 
 import { calculateTotals, type PricingLine, type PricingInput } from '../pricing.service.js';
-import type { FxRates } from '@mercaria/shared-types';
-import type { IDiscount } from '../../models/discount.js';
-import type { ITaxRate } from '../../models/tax-rate.js';
-import type { IStoreTaxSettings } from '../../models/store.js';
+import type { DiscountScope, DiscountValueType, FxRates } from '@mercaria/shared-types';
+import type { DiscountRecord } from '../../db/merchandising/discountRepository.js';
+import type { TaxRateRecord } from '../../db/stores/taxRateRepository.js';
+import type { StoreRow } from '../../db/stores/storeRepository.js';
 
 /** Trivial FAIR-based rates: every test prices a FAIR shop == FAIR presentment. */
 const FAIR_RATES: FxRates = {
@@ -63,14 +67,15 @@ const L1 = '000000000000000000000101';
 const L2 = '000000000000000000000102';
 const COLLECTION_A = '000000000000000000000c01';
 
-/** A `.lean()`-able query stub resolving to `value`. */
-function leanOf<T>(value: T): { lean: () => Promise<T> } {
-  return { lean: () => Promise.resolve(value) };
-}
-
-/** A `Store.findById(...).select(...).lean()` chain resolving to taxSettings. */
-function storeTaxLean(taxSettings: IStoreTaxSettings | undefined): unknown {
-  return { select: () => ({ lean: () => Promise.resolve(taxSettings ? { taxSettings } : null) }) };
+/** A `stores` row carrying only the two tax settings the engine reads. */
+function storeWithTaxSettings(settings: {
+  pricesIncludeTax: boolean;
+  chargeTaxOnProducts: boolean;
+}): StoreRow {
+  return {
+    taxSettingsPricesIncludeTax: settings.pricesIncludeTax,
+    taxSettingsChargeTaxOnProducts: settings.chargeTaxOnProducts,
+  } as StoreRow;
 }
 
 /** Build a priced line. */
@@ -85,48 +90,107 @@ function line(overrides: Partial<PricingLine> & { listingId: string; amount: num
   };
 }
 
-/** Cross-collection ids in these stubs are plain strings cast to the model's id type. */
-function objectId<T>(id: string): T {
-  return id as unknown as T;
+/** A BOGO leg as a fixture states it, before the builder flattens it. */
+interface LegFixture {
+  quantity: number;
+  scope: Exclude<DiscountScope, 'order'>;
+  productIds?: string[];
+  collectionIds?: string[];
+  discountPercent?: number;
 }
 
-/** Build a minimal discount doc with sane defaults (`id` is a plain string). */
-function discount(
-  overrides: Partial<Omit<IDiscount, '_id'>> &
-    Pick<IDiscount, 'valueType' | 'value'> & { _id: string },
-): IDiscount {
+/** A discount as a fixture states it — the nested shape the builder flattens. */
+interface DiscountFixture {
+  _id: string;
+  valueType: DiscountValueType;
+  value: number;
+  method?: 'code' | 'automatic';
+  codes?: { code: string; usageCount: number }[];
+  appliesTo?: { scope: DiscountScope; productIds?: string[]; collectionIds?: string[] };
+  buy?: LegFixture;
+  get?: LegFixture;
+  minimumRequirement?: { type: 'none' | 'subtotal' | 'quantity'; value: number };
+  customerEligibility?: {
+    type: 'all' | 'groups' | 'customers';
+    customerIds?: string[];
+    groupTags?: string[];
+  };
+  usageLimits?: { totalMax?: number };
+  combinesWith?: { orderDiscounts: boolean; productDiscounts: boolean; shippingDiscounts: boolean };
+}
+
+/**
+ * Build a `discounts` row from a fixture, flattening the nested sub-documents
+ * into the real column names.
+ *
+ * The cast is confined to this one function. Every column the engine reads is
+ * spelled out; the ones it never touches (timestamps, the scheduled window the
+ * repository already filtered on) are deliberately ABSENT rather than filled with
+ * plausible values, so a future read of one fails here instead of silently
+ * agreeing with a fixture nobody meant as an assertion.
+ */
+function discount(fixture: DiscountFixture): DiscountRecord {
+  const combines = fixture.combinesWith ?? {
+    orderDiscounts: false,
+    productDiscounts: false,
+    shippingDiscounts: false,
+  };
   return {
+    id: fixture._id,
     storeId: STORE_ID,
     title: 'Discount',
-    method: 'automatic',
-    codes: [],
-    appliesTo: { scope: 'order' },
-    combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: false },
-    startsAt: new Date(0),
+    method: fixture.method ?? 'automatic',
+    valueType: fixture.valueType,
+    value: fixture.value,
+    codes: (fixture.codes ?? []).map((code) => ({ ...code, discountId: fixture._id })),
+    appliesToScope: fixture.appliesTo?.scope ?? 'order',
+    appliesToProductIds: fixture.appliesTo?.productIds ?? null,
+    appliesToCollectionIds: fixture.appliesTo?.collectionIds ?? null,
+    buyQuantity: fixture.buy?.quantity ?? null,
+    buyScope: fixture.buy?.scope ?? null,
+    buyProductIds: fixture.buy?.productIds ?? null,
+    buyCollectionIds: fixture.buy?.collectionIds ?? null,
+    buyDiscountPercent: fixture.buy?.discountPercent ?? null,
+    getQuantity: fixture.get?.quantity ?? null,
+    getScope: fixture.get?.scope ?? null,
+    getProductIds: fixture.get?.productIds ?? null,
+    getCollectionIds: fixture.get?.collectionIds ?? null,
+    getDiscountPercent: fixture.get?.discountPercent ?? null,
+    minimumRequirementType: fixture.minimumRequirement?.type ?? null,
+    minimumRequirementValue: fixture.minimumRequirement?.value ?? null,
+    customerEligibilityType: fixture.customerEligibility?.type ?? null,
+    customerEligibilityCustomerIds: fixture.customerEligibility?.customerIds ?? null,
+    customerEligibilityGroupTags: fixture.customerEligibility?.groupTags ?? null,
+    usageLimitsTotalMax: fixture.usageLimits?.totalMax ?? null,
+    usageLimitsPerCustomerMax: null,
+    combinesWithOrderDiscounts: combines.orderDiscounts,
+    combinesWithProductDiscounts: combines.productDiscounts,
+    combinesWithShippingDiscounts: combines.shippingDiscounts,
     isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-    _id: objectId<IDiscount['_id']>(overrides._id),
-  };
+  } as unknown as DiscountRecord;
 }
 
-/** Build a minimal tax-rate doc (`id` is a plain string). */
-function taxRate(
-  overrides: Partial<Omit<ITaxRate, '_id'>> & Pick<ITaxRate, 'rateBps'> & { _id: string },
-): ITaxRate {
+/** Build a `tax_rates` row from a fixture, flattening the nested `region`. */
+function taxRate(fixture: {
+  _id: string;
+  rateBps: number;
+  region?: { country?: string; region?: string; postalCodePattern?: string };
+  productTypeScope?: string[];
+  priority?: number;
+}): TaxRateRecord {
   return {
+    id: fixture._id,
     storeId: STORE_ID,
     name: 'Tax',
-    region: {},
+    rateBps: fixture.rateBps,
+    regionCountry: fixture.region?.country ?? null,
+    regionRegion: fixture.region?.region ?? null,
+    regionPostalCodePattern: fixture.region?.postalCodePattern ?? null,
     appliesToShipping: false,
-    priority: 0,
+    productTypeScope: fixture.productTypeScope ?? null,
+    priority: fixture.priority ?? 0,
     isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-    _id: objectId<ITaxRate['_id']>(overrides._id),
-  };
+  } as unknown as TaxRateRecord;
 }
 
 /** Assert the two engine invariants on a result. */
@@ -146,9 +210,13 @@ function assertReconciled(
 }
 
 beforeEach(() => {
-  discountFind.mockReset().mockReturnValue(leanOf([]));
-  taxRateFind.mockReset().mockReturnValue(leanOf([]));
-  storeFindById.mockReset().mockReturnValue(storeTaxLean({ pricesIncludeTax: false, chargeTaxOnProducts: true }));
+  findActiveDiscounts.mockReset().mockResolvedValue([]);
+  findActiveTaxRates.mockReset().mockResolvedValue([]);
+  findStoreRow
+    .mockReset()
+    .mockResolvedValue(
+      storeWithTaxSettings({ pricesIncludeTax: false, chargeTaxOnProducts: true }),
+    );
 });
 
 describe('calculateTotals — no store (P2P)', () => {
@@ -166,7 +234,7 @@ describe('calculateTotals — no store (P2P)', () => {
       { shop: { amount: 0, currency: 'FAIR' }, presentment: { amount: 0, currency: 'FAIR' } },
     ]);
     // No store → models are never queried.
-    expect(discountFind).not.toHaveBeenCalled();
+    expect(findActiveDiscounts).not.toHaveBeenCalled();
   });
 });
 
@@ -198,9 +266,7 @@ describe('calculateTotals — presentment vs shop (multi-currency)', () => {
 
 describe('calculateTotals — percentage order-level discount', () => {
   it('applies 15% off the subtotal with exact reconciliation', async () => {
-    discountFind.mockReturnValue(
-      leanOf([discount({ _id: 'd1', valueType: 'percentage', value: 1500, appliesTo: { scope: 'order' } })]),
-    );
+    findActiveDiscounts.mockResolvedValue([discount({ _id: 'd1', valueType: 'percentage', value: 1500, appliesTo: { scope: 'order' } })]);
     const lines = [
       line({ listingId: L1, amount: 1000, quantity: 3 }), // 3000
       line({ listingId: L2, amount: 700, quantity: 1 }), // 700
@@ -220,9 +286,7 @@ describe('calculateTotals — percentage order-level discount', () => {
 
 describe('calculateTotals — fixed_amount clamped to base', () => {
   it('clamps a fixed_amount discount to the subtotal', async () => {
-    discountFind.mockReturnValue(
-      leanOf([discount({ _id: 'd1', valueType: 'fixed_amount', value: 999999, appliesTo: { scope: 'order' } })]),
-    );
+    findActiveDiscounts.mockResolvedValue([discount({ _id: 'd1', valueType: 'fixed_amount', value: 999999, appliesTo: { scope: 'order' } })]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 2 })]; // 2000
     const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
@@ -235,9 +299,7 @@ describe('calculateTotals — fixed_amount clamped to base', () => {
 describe('calculateTotals — order-level proportional allocation', () => {
   it('reconciles the residual onto the largest line', async () => {
     // 10% off an uneven split that does not divide evenly.
-    discountFind.mockReturnValue(
-      leanOf([discount({ _id: 'd1', valueType: 'percentage', value: 1000, appliesTo: { scope: 'order' } })]),
-    );
+    findActiveDiscounts.mockResolvedValue([discount({ _id: 'd1', valueType: 'percentage', value: 1000, appliesTo: { scope: 'order' } })]);
     const lines = [
       line({ listingId: L1, amount: 333, quantity: 1 }), // 333
       line({ listingId: L2, amount: 1000, quantity: 1 }), // 1000
@@ -254,16 +316,14 @@ describe('calculateTotals — order-level proportional allocation', () => {
 
 describe('calculateTotals — product-level discount', () => {
   it('attributes only to matching lines (by collection)', async () => {
-    discountFind.mockReturnValue(
-      leanOf([
+    findActiveDiscounts.mockResolvedValue([
         discount({
           _id: 'd1',
           valueType: 'percentage',
           value: 2000, // 20%
           appliesTo: { scope: 'collections', collectionIds: [COLLECTION_A] },
         }),
-      ]),
-    );
+      ]);
     const lines = [
       line({ listingId: L1, amount: 1000, quantity: 1, collectionIds: [COLLECTION_A] }), // matches
       line({ listingId: L2, amount: 500, quantity: 1 }), // no collection → no discount
@@ -279,8 +339,7 @@ describe('calculateTotals — product-level discount', () => {
 
 describe('calculateTotals — BOGO', () => {
   it('buy 2 get 1 free discounts the cheapest qualifying unit', async () => {
-    discountFind.mockReturnValue(
-      leanOf([
+    findActiveDiscounts.mockResolvedValue([
         discount({
           _id: 'd1',
           valueType: 'free_item',
@@ -289,8 +348,7 @@ describe('calculateTotals — BOGO', () => {
           buy: { quantity: 2, scope: 'products', productIds: [L1] },
           get: { quantity: 1, scope: 'products', productIds: [L1] },
         }),
-      ]),
-    );
+      ]);
     // 3 units at 500 each → buy 2 get 1 free → one unit free (500 off).
     const lines = [line({ listingId: L1, amount: 500, quantity: 3 })];
     const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
@@ -303,8 +361,7 @@ describe('calculateTotals — BOGO', () => {
 
 describe('calculateTotals — gating', () => {
   it('does not apply when the subtotal is below the minimum requirement', async () => {
-    discountFind.mockReturnValue(
-      leanOf([
+    findActiveDiscounts.mockResolvedValue([
         discount({
           _id: 'd1',
           valueType: 'percentage',
@@ -312,8 +369,7 @@ describe('calculateTotals — gating', () => {
           appliesTo: { scope: 'order' },
           minimumRequirement: { type: 'subtotal', value: 5000 },
         }),
-      ]),
-    );
+      ]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })]; // 1000 < 5000
     const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
@@ -322,8 +378,7 @@ describe('calculateTotals — gating', () => {
   });
 
   it('does not apply when the total usage ceiling is reached', async () => {
-    discountFind.mockReturnValue(
-      leanOf([
+    findActiveDiscounts.mockResolvedValue([
         discount({
           _id: 'd1',
           method: 'code',
@@ -333,8 +388,7 @@ describe('calculateTotals — gating', () => {
           appliesTo: { scope: 'order' },
           usageLimits: { totalMax: 5 },
         }),
-      ]),
-    );
+      ]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
     const result = await priceGroup({
       storeId: STORE_ID,
@@ -348,12 +402,10 @@ describe('calculateTotals — gating', () => {
 
 describe('calculateTotals — combinability', () => {
   it('applies only the better of two non-combinable order-level discounts', async () => {
-    discountFind.mockReturnValue(
-      leanOf([
+    findActiveDiscounts.mockResolvedValue([
         discount({ _id: 'd1', valueType: 'percentage', value: 1000, appliesTo: { scope: 'order' } }), // 10%
         discount({ _id: 'd2', valueType: 'percentage', value: 2000, appliesTo: { scope: 'order' } }), // 20% (better)
-      ]),
-    );
+      ]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
     const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
@@ -363,8 +415,7 @@ describe('calculateTotals — combinability', () => {
   });
 
   it('coexists a product + order discount when both permit the other class', async () => {
-    discountFind.mockReturnValue(
-      leanOf([
+    findActiveDiscounts.mockResolvedValue([
         discount({
           _id: 'd1',
           valueType: 'percentage',
@@ -379,8 +430,7 @@ describe('calculateTotals — combinability', () => {
           appliesTo: { scope: 'products', productIds: [L1] },
           combinesWith: { orderDiscounts: true, productDiscounts: false, shippingDiscounts: false },
         }),
-      ]),
-    );
+      ]);
     const lines = [
       line({ listingId: L1, amount: 1000, quantity: 1 }), // product+order
       line({ listingId: L2, amount: 1000, quantity: 1 }), // order only
@@ -399,9 +449,7 @@ describe('calculateTotals — combinability', () => {
 
 describe('calculateTotals — taxes', () => {
   it('adds exclusive tax to the grand total', async () => {
-    taxRateFind.mockReturnValue(
-      leanOf([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]),
-    );
+    findActiveTaxRates.mockResolvedValue([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
     const result = await priceGroup({
       storeId: STORE_ID,
@@ -417,10 +465,8 @@ describe('calculateTotals — taxes', () => {
   });
 
   it('backs out inclusive tax informationally without changing the grand total', async () => {
-    storeFindById.mockReturnValue(storeTaxLean({ pricesIncludeTax: true, chargeTaxOnProducts: true }));
-    taxRateFind.mockReturnValue(
-      leanOf([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]),
-    );
+    findStoreRow.mockResolvedValue(storeWithTaxSettings({ pricesIncludeTax: true, chargeTaxOnProducts: true }));
+    findActiveTaxRates.mockResolvedValue([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]);
     const lines = [line({ listingId: L1, amount: 1080, quantity: 1 })];
     const result = await priceGroup({
       storeId: STORE_ID,
@@ -437,10 +483,8 @@ describe('calculateTotals — taxes', () => {
   });
 
   it('emits no tax lines when chargeTaxOnProducts is false', async () => {
-    storeFindById.mockReturnValue(storeTaxLean({ pricesIncludeTax: false, chargeTaxOnProducts: false }));
-    taxRateFind.mockReturnValue(
-      leanOf([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]),
-    );
+    findStoreRow.mockResolvedValue(storeWithTaxSettings({ pricesIncludeTax: false, chargeTaxOnProducts: false }));
+    findActiveTaxRates.mockResolvedValue([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
     const result = await priceGroup({
       storeId: STORE_ID,

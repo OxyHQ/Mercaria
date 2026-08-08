@@ -14,7 +14,7 @@
  * disables the rate.
  */
 
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { taxRates } from '../schema/stores.js';
@@ -45,6 +45,25 @@ export async function findTaxRatesByStore(
     .from(taxRates)
     .where(eq(taxRates.storeId, storeId))
     .orderBy(desc(taxRates.priority), desc(taxRates.createdAt));
+}
+
+/**
+ * A store's ACTIVE tax rates — the pricing engine's one query per seller group.
+ *
+ * Ordered highest priority first with `id` as the tiebreaker, which is the order
+ * the engine applies them in: the Mongo path sorted in memory by
+ * `priority desc, _id asc` after loading, and doing it in SQL keeps that ordering
+ * a property of the read rather than of whoever calls it next.
+ */
+export async function findActiveTaxRates(
+  storeId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<TaxRateRecord[]> {
+  return db
+    .select()
+    .from(taxRates)
+    .where(and(eq(taxRates.storeId, storeId), eq(taxRates.isActive, true)))
+    .orderBy(desc(taxRates.priority), asc(taxRates.id));
 }
 
 /** One tax rate scoped to its store, or `null` — the scoping IS the authorization. */

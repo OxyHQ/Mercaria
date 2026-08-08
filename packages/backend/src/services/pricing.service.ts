@@ -17,10 +17,10 @@
  * `rates` (a presentment equal to the shop currency is byte-identical).
  *
  * COMBINABILITY RULE (deterministic):
- *   Discounts are partitioned into ORDER-level (`appliesTo.scope === 'order'`) and
+ *   Discounts are partitioned into ORDER-level (`appliesToScope === 'order'`) and
  *   PRODUCT-level (scope products/collections). By default AT MOST ONE of each
  *   class is applied — the highest-amount one (best-for-customer), tie-broken by
- *   ascending `_id`. Two discounts of the SAME class stack only if BOTH carry the
+ *   ascending `id`. Two discounts of the SAME class stack only if BOTH carry the
  *   matching `combinesWith` flag for that class. A product-level and an
  *   order-level discount may COEXIST only if the order-level discount's
  *   `combinesWith.productDiscounts` AND the product-level discount's
@@ -31,14 +31,18 @@
 import type {
   CurrencyCode,
   DiscountAllocation,
+  DiscountScope,
   DualMoney,
   FxRates,
   Money,
   TaxLine,
 } from '@mercaria/shared-types';
-import { Discount, type IDiscount } from '../models/discount.js';
-import { TaxRate, type ITaxRate } from '../models/tax-rate.js';
-import { Store, type IStoreTaxSettings } from '../models/store.js';
+import {
+  findActiveDiscounts,
+  type DiscountRecord,
+} from '../db/merchandising/discountRepository.js';
+import { findActiveTaxRates, type TaxRateRecord } from '../db/stores/taxRateRepository.js';
+import { findStoreRow } from '../db/stores/storeRepository.js';
 import {
   multiplyMoney,
   sumMoney,
@@ -49,6 +53,9 @@ import {
 } from '../utils/money.js';
 import { convert, toDualMoney } from './fx.service.js';
 import { log } from '../lib/logger.js';
+
+/** A BOGO leg's scope — never the whole order, unlike `appliesTo.scope`. */
+type DiscountLegScope = Exclude<DiscountScope, 'order'>;
 
 /** Basis-point denominator: 10_000 bps = 100% (mirrors `utils/money`). */
 const BASIS_POINTS_DENOMINATOR = 10_000;
@@ -144,9 +151,21 @@ export interface PricingResult {
   perLineDiscount: DualMoney[];
 }
 
+/**
+ * The two store tax settings the engine reads.
+ *
+ * A separate shape rather than the store row itself, so the defaults for an
+ * absent store are stated ONCE (`false` / `true`, the column defaults) instead of
+ * being re-derived at each of the three places that read them.
+ */
+interface TaxSettings {
+  pricesIncludeTax: boolean;
+  chargeTaxOnProducts: boolean;
+}
+
 /** A discount classified for the combinability decision. */
 interface ApplicableDiscount {
-  discount: IDiscount;
+  discount: DiscountRecord;
   /** The matched code (for the allocation), when a code-method discount. */
   code?: string;
   /** `order` (whole order) or `line` (specific lines). */
@@ -204,20 +223,18 @@ export async function calculateTotals(input: PricingInput): Promise<PricingResul
   );
 
   // 2. Load store tax settings + active discounts + active tax rates (one query each).
-  const [storeDoc, activeDiscounts, taxRates] = await Promise.all([
-    Store.findById(input.storeId).select('taxSettings').lean<{ taxSettings?: IStoreTaxSettings } | null>(),
-    Discount.find({
-      storeId: input.storeId,
-      isActive: true,
-      startsAt: { $lte: now },
-      $or: [{ endsAt: { $exists: false } }, { endsAt: null }, { endsAt: { $gte: now } }],
-    }).lean<IDiscount[]>(),
-    TaxRate.find({ storeId: input.storeId, isActive: true }).lean<ITaxRate[]>(),
+  // The scheduled-window filter moved INTO the discount query: Mongo's
+  // three-branch `$or` over `endsAt` (absent / null / in future) is two branches
+  // here, because an absent column and a NULL column are the same value.
+  const [storeRow, activeDiscounts, taxRates] = await Promise.all([
+    findStoreRow(input.storeId),
+    findActiveDiscounts(input.storeId, now),
+    findActiveTaxRates(input.storeId),
   ]);
 
-  const taxSettings: IStoreTaxSettings = storeDoc?.taxSettings ?? {
-    pricesIncludeTax: false,
-    chargeTaxOnProducts: true,
+  const taxSettings: TaxSettings = {
+    pricesIncludeTax: storeRow?.taxSettingsPricesIncludeTax ?? false,
+    chargeTaxOnProducts: storeRow?.taxSettingsChargeTaxOnProducts ?? true,
   };
 
   // 3. Discounts → per-line removals + allocations.
@@ -274,7 +291,7 @@ interface ApplyDiscountsArgs {
   lines: PricingLine[];
   lineTotals: number[];
   subtotal: number;
-  activeDiscounts: IDiscount[];
+  activeDiscounts: DiscountRecord[];
   now: Date;
   normalizedCodes: Set<string>;
 }
@@ -299,7 +316,7 @@ function applyDiscounts(args: ApplyDiscountsArgs): ApplyDiscountsResult {
   const allocations: DiscountAllocation[] = [];
 
   // Candidate set: automatic discounts + code discounts whose code was entered.
-  const candidates: { discount: IDiscount; code?: string }[] = [];
+  const candidates: { discount: DiscountRecord; code?: string }[] = [];
   for (const discount of activeDiscounts) {
     if (discount.method === 'automatic') {
       candidates.push({ discount });
@@ -340,7 +357,7 @@ function applyDiscounts(args: ApplyDiscountsArgs): ApplyDiscountsResult {
       }
       perLineDiscount[i] += take;
       allocations.push({
-        discountId: String(sel.discount._id),
+        discountId: sel.discount.id,
         ...(sel.code ? { code: sel.code } : {}),
         title: sel.discount.title,
         valueType: sel.discount.valueType,
@@ -364,7 +381,7 @@ function applyDiscounts(args: ApplyDiscountsArgs): ApplyDiscountsResult {
       perLineDiscount[i] += parts[i].amount;
     }
     allocations.push({
-      discountId: String(sel.discount._id),
+      discountId: sel.discount.id,
       ...(sel.code ? { code: sel.code } : {}),
       title: sel.discount.title,
       valueType: sel.discount.valueType,
@@ -378,28 +395,30 @@ function applyDiscounts(args: ApplyDiscountsArgs): ApplyDiscountsResult {
 
 /** Schedule is already filtered by the query; gate the remaining requirements. */
 function passesGates(
-  discount: IDiscount,
+  discount: DiscountRecord,
   ctx: { subtotal: number; totalQuantity: number; input: PricingInput },
 ): boolean {
-  // Minimum requirement.
-  const min = discount.minimumRequirement;
-  if (min && min.type === 'subtotal' && ctx.subtotal < min.value) {
+  // Minimum requirement. The two columns move together, so a type with no value
+  // is a row the writer got wrong rather than a threshold of zero — `?? 0` would
+  // silently pass every cart, so an absent value fails the gate instead.
+  const minType = discount.minimumRequirementType;
+  const minValue = discount.minimumRequirementValue;
+  if (minType === 'subtotal' && ctx.subtotal < (minValue ?? Number.POSITIVE_INFINITY)) {
     return false;
   }
-  if (min && min.type === 'quantity' && ctx.totalQuantity < min.value) {
+  if (minType === 'quantity' && ctx.totalQuantity < (minValue ?? Number.POSITIVE_INFINITY)) {
     return false;
   }
 
   // Customer eligibility.
-  const eligibility = discount.customerEligibility;
-  if (eligibility && eligibility.type === 'customers') {
-    const ids = eligibility.customerIds ?? [];
+  if (discount.customerEligibilityType === 'customers') {
+    const ids = discount.customerEligibilityCustomerIds ?? [];
     if (!ctx.input.customerId || !ids.includes(ctx.input.customerId)) {
       return false;
     }
   }
-  if (eligibility && eligibility.type === 'groups') {
-    const groups = eligibility.groupTags ?? [];
+  if (discount.customerEligibilityType === 'groups') {
+    const groups = discount.customerEligibilityGroupTags ?? [];
     const tags = ctx.input.customerGroupTags ?? [];
     if (!tags.some((t) => groups.includes(t))) {
       return false;
@@ -407,9 +426,9 @@ function passesGates(
   }
 
   // Total usage ceiling: current usage = sum of this discount's code usageCounts.
-  const totalMax = discount.usageLimits?.totalMax;
-  if (typeof totalMax === 'number') {
-    const used = discount.codes.reduce((sum, c) => sum + (c.usageCount ?? 0), 0);
+  const totalMax = discount.usageLimitsTotalMax;
+  if (totalMax !== null) {
+    const used = discount.codes.reduce((sum, c) => sum + c.usageCount, 0);
     if (used >= totalMax) {
       return false;
     }
@@ -427,11 +446,11 @@ interface ComputedDiscount {
 
 /** Compute a discount's removal amount + per-line attribution (clamped to bases). */
 function computeDiscount(
-  discount: IDiscount,
+  discount: DiscountRecord,
   ctx: { lines: PricingLine[]; lineTotals: number[]; subtotal: number; currency: CurrencyCode },
 ): ComputedDiscount {
   const { lines, lineTotals, subtotal, currency } = ctx;
-  const orderLevel = discount.appliesTo.scope === 'order';
+  const orderLevel = discount.appliesToScope === 'order';
 
   // The indices of the lines a product-level discount applies to.
   const matchedIndices = orderLevel
@@ -495,13 +514,13 @@ function computeDiscount(
  * `buy`/`get` are missing the discount contributes 0.
  */
 function computeBogo(
-  discount: IDiscount,
+  discount: DiscountRecord,
   ctx: { lines: PricingLine[]; lineTotals: number[] },
 ): ComputedDiscount {
   const { lines } = ctx;
   const perLine = lines.map(() => 0);
-  const buy = discount.buy;
-  const get = discount.get;
+  const buy = discountLeg(discount, 'buy');
+  const get = discountLeg(discount, 'get');
   if (!buy || !get || buy.quantity <= 0 || get.quantity <= 0) {
     return { level: 'line', amount: 0, perLine };
   }
@@ -545,28 +564,53 @@ function computeBogo(
 }
 
 /** Whether a line is in a discount's `appliesTo` (product/collection) scope. */
-function lineMatchesAppliesTo(line: PricingLine, discount: IDiscount): boolean {
-  const applies = discount.appliesTo;
-  if (applies.scope === 'products') {
-    return (applies.productIds ?? []).includes(line.listingId);
+function lineMatchesAppliesTo(line: PricingLine, discount: DiscountRecord): boolean {
+  if (discount.appliesToScope === 'products') {
+    return (discount.appliesToProductIds ?? []).includes(line.listingId);
   }
-  if (applies.scope === 'collections') {
-    const ids = applies.collectionIds ?? [];
+  if (discount.appliesToScope === 'collections') {
+    const ids = discount.appliesToCollectionIds ?? [];
     return (line.collectionIds ?? []).some((c) => ids.includes(c));
   }
   return false;
 }
 
+/**
+ * One BOGO leg, reassembled from its five flat columns, or `null` when the
+ * discount has no such leg.
+ *
+ * `quantity` is what decides: the schema lets every leg column be NULL
+ * independently, and a leg with a scope but no quantity is not a leg the engine
+ * can reward against. Reassembling here keeps `computeBogo`'s own logic identical
+ * to the version that read a Mongo sub-document.
+ */
+function discountLeg(
+  discount: DiscountRecord,
+  leg: 'buy' | 'get',
+): { quantity: number; scope: DiscountLegScope; productIds: string[]; collectionIds: string[]; discountPercent: number | null } | null {
+  const quantity = leg === 'buy' ? discount.buyQuantity : discount.getQuantity;
+  const scope = leg === 'buy' ? discount.buyScope : discount.getScope;
+  if (quantity === null || scope === null) return null;
+  return {
+    quantity,
+    scope,
+    productIds: (leg === 'buy' ? discount.buyProductIds : discount.getProductIds) ?? [],
+    collectionIds:
+      (leg === 'buy' ? discount.buyCollectionIds : discount.getCollectionIds) ?? [],
+    discountPercent:
+      (leg === 'buy' ? discount.buyDiscountPercent : discount.getDiscountPercent) ?? null,
+  };
+}
+
 /** Whether a line is in a BOGO leg's (product/collection) scope. */
 function lineMatchesLeg(
   line: PricingLine,
-  leg: { scope: 'products' | 'collections'; productIds?: string[]; collectionIds?: string[] },
+  leg: { scope: DiscountLegScope; productIds: string[]; collectionIds: string[] },
 ): boolean {
   if (leg.scope === 'products') {
-    return (leg.productIds ?? []).includes(line.listingId);
+    return leg.productIds.includes(line.listingId);
   }
-  const ids = leg.collectionIds ?? [];
-  return (line.collectionIds ?? []).some((c) => ids.includes(c));
+  return (line.collectionIds ?? []).some((c) => leg.collectionIds.includes(c));
 }
 
 /**
@@ -576,21 +620,21 @@ function lineMatchesLeg(
  */
 function selectCombination(applicable: ApplicableDiscount[]): ApplicableDiscount[] {
   const byAmountThenId = (a: ApplicableDiscount, b: ApplicableDiscount): number =>
-    b.amount - a.amount || (String(a.discount._id) < String(b.discount._id) ? -1 : 1);
+    b.amount - a.amount || (a.discount.id < b.discount.id ? -1 : 1);
 
   const orderClass = applicable.filter((d) => d.level === 'order').sort(byAmountThenId);
   const productClass = applicable.filter((d) => d.level === 'line').sort(byAmountThenId);
 
-  const bestOrder = pickStack(orderClass, 'orderDiscounts');
-  const bestProduct = pickStack(productClass, 'productDiscounts');
+  const bestOrder = pickStack(orderClass, 'combinesWithOrderDiscounts');
+  const bestProduct = pickStack(productClass, 'combinesWithProductDiscounts');
 
   const orderAmount = bestOrder.reduce((sum, d) => sum + d.amount, 0);
   const productAmount = bestProduct.reduce((sum, d) => sum + d.amount, 0);
 
   // Cross-class coexistence requires BOTH sides to permit the other class.
   if (bestOrder.length > 0 && bestProduct.length > 0) {
-    const orderPermitsProduct = bestOrder.every((d) => d.discount.combinesWith.productDiscounts);
-    const productPermitsOrder = bestProduct.every((d) => d.discount.combinesWith.orderDiscounts);
+    const orderPermitsProduct = bestOrder.every((d) => d.discount.combinesWithProductDiscounts);
+    const productPermitsOrder = bestProduct.every((d) => d.discount.combinesWithOrderDiscounts);
     if (orderPermitsProduct && productPermitsOrder) {
       return [...bestOrder, ...bestProduct];
     }
@@ -608,7 +652,7 @@ function selectCombination(applicable: ApplicableDiscount[]): ApplicableDiscount
  */
 function pickStack(
   sorted: ApplicableDiscount[],
-  flag: 'orderDiscounts' | 'productDiscounts',
+  flag: 'combinesWithOrderDiscounts' | 'combinesWithProductDiscounts',
 ): ApplicableDiscount[] {
   if (sorted.length === 0) {
     return [];
@@ -617,7 +661,7 @@ function pickStack(
   for (let i = 1; i < sorted.length; i += 1) {
     const candidate = sorted[i];
     const allCombine =
-      candidate.discount.combinesWith[flag] && stack.every((d) => d.discount.combinesWith[flag]);
+      candidate.discount[flag] && stack.every((d) => d.discount[flag]);
     if (allCombine) {
       stack.push(candidate);
     }
@@ -633,8 +677,8 @@ function pickStack(
 interface ApplyTaxesArgs {
   lines: PricingLine[];
   taxableBase: number[];
-  taxRates: ITaxRate[];
-  taxSettings: IStoreTaxSettings;
+  taxRates: TaxRateRecord[];
+  taxSettings: TaxSettings;
   shippingAddress?: PricingShippingAddress;
   currency: CurrencyCode;
 }
@@ -663,10 +707,10 @@ function applyTaxes(args: ApplyTaxesArgs): ApplyTaxesResult {
     return { taxLines: [], perLineTax, taxTotal: 0 };
   }
 
-  // Region + priority ordering: higher priority first, then ascending _id.
-  const matched = taxRates
-    .filter((rate) => rateMatchesRegion(rate, shippingAddress))
-    .sort((a, b) => b.priority - a.priority || (String(a._id) < String(b._id) ? -1 : 1));
+  // The repository already returns them `priority desc, id asc`, which is the
+  // order the Mongo path sorted into after loading — so only the region filter
+  // is left here.
+  const matched = taxRates.filter((rate) => rateMatchesRegion(rate, shippingAddress));
 
   const taxLines: TaxLine[] = [];
   let taxTotal = 0;
@@ -710,26 +754,28 @@ function applyTaxes(args: ApplyTaxesArgs): ApplyTaxesResult {
 }
 
 /** Whether a tax rate's region matches the shipping destination. */
-function rateMatchesRegion(rate: ITaxRate, address?: PricingShippingAddress): boolean {
-  const region = rate.region;
-  if (region.country && region.country !== address?.country) {
+function rateMatchesRegion(rate: TaxRateRecord, address?: PricingShippingAddress): boolean {
+  if (rate.regionCountry && rate.regionCountry !== address?.country) {
     return false;
   }
-  if (region.region && region.region !== address?.region) {
+  if (rate.regionRegion && rate.regionRegion !== address?.region) {
     return false;
   }
-  if (region.postalCodePattern) {
+  if (rate.regionPostalCodePattern) {
     const postal = address?.postalCode;
     if (!postal) {
       return false;
     }
     try {
-      if (!new RegExp(region.postalCodePattern).test(postal)) {
+      if (!new RegExp(rate.regionPostalCodePattern).test(postal)) {
         return false;
       }
     } catch (err) {
       // A malformed stored pattern must not match (and must not crash pricing).
-      log.general.warn({ err, pattern: region.postalCodePattern }, 'Invalid tax-rate postalCodePattern');
+      log.general.warn(
+        { err, pattern: rate.regionPostalCodePattern },
+        'Invalid tax-rate postalCodePattern',
+      );
       return false;
     }
   }
@@ -737,7 +783,7 @@ function rateMatchesRegion(rate: ITaxRate, address?: PricingShippingAddress): bo
 }
 
 /** Whether a tax rate's product-type scope includes a line's product type. */
-function rateAppliesToLine(rate: ITaxRate, line: PricingLine): boolean {
+function rateAppliesToLine(rate: TaxRateRecord, line: PricingLine): boolean {
   const scope = rate.productTypeScope ?? [];
   if (scope.length === 0) {
     return true;

@@ -135,6 +135,24 @@ export async function findStoresByIds(
 }
 
 /**
+ * ONE store's public face, WITHOUT members — the read every commerce path makes
+ * to resolve a settlement currency or a tax setting.
+ *
+ * Distinct from {@link findStoreById} on purpose, and not merely lighter: those
+ * paths run per checkout, per cart hydration and per pricing call, and none of
+ * them has any business seeing which Oxy accounts can act for the shop. Keeping
+ * the member join off them is the same reasoning as {@link findStoresByIds},
+ * applied to the single-row case.
+ */
+export async function findStoreRow(
+  storeId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<StoreRow | null> {
+  const [row] = await db.select().from(stores).where(eq(stores.id, storeId)).limit(1);
+  return row ?? null;
+}
+
+/**
  * The feed's "Worth the hype" shelf: the best-rated ACTIVE stores, WITHOUT
  * members — the same reasoning as {@link findStoresByIds}, since this is a
  * public storefront read.

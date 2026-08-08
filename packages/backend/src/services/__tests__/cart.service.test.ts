@@ -9,9 +9,11 @@
  * table the cart reads ONCE for all its lines, which is why `firstImageUrl` is
  * fed image ROWS rather than a listing.
  *
- * `Cart`, `Store` and `SellerProfile` are still Mongoose and are still mocked as
- * query builders, as are the media chokepoint (`resolveMedia`) and the buyer's
- * presentment currency.
+ * The cart's OWN storage is Postgres too now, so `Cart` is gone and what stands
+ * in its place is the cart REPOSITORY — `findCartByUser` returning a flat record
+ * with an `items` array, plus the four mutators. The store and seller-profile
+ * reads are repositories as well. Only the media chokepoint (`resolveMedia`) and
+ * the buyer's presentment currency are still mocked as plain functions.
  *
  * Tests cover the F3 cart contract: quantity clamps to `available`, a second add
  * of the same variant increments, a differing NATIVE currency is accepted
@@ -30,24 +32,27 @@ import type {
 } from '../../db/catalog/listingRepository.js';
 import type { VariantRecord } from '../../db/catalog/variantRepository.js';
 
-const cartFindOne = vi.fn();
-const cartCreate = vi.fn();
-const cartUpdateOne = vi.fn();
+const findCartByUser = vi.fn();
+const ensureCart = vi.fn();
+const upsertCartItem = vi.fn();
+const deleteCartItem = vi.fn();
 const findListingById = vi.fn();
 const findListingsByIds = vi.fn();
 const findListingChildren = vi.fn();
 const findVariantById = vi.fn();
 const findVariantsByIds = vi.fn();
-const storeFind = vi.fn();
-const sellerProfileFind = vi.fn();
+const findStoresByIds = vi.fn();
+const findSellerProfilesByUserIds = vi.fn();
 const getProfilesMock = vi.fn();
 
-vi.mock('../../models/cart.js', () => ({
-  Cart: {
-    findOne: (...args: unknown[]) => cartFindOne(...args),
-    create: (...args: unknown[]) => cartCreate(...args),
-    updateOne: (...args: unknown[]) => cartUpdateOne(...args),
-  },
+vi.mock('../../db/buyers/cartRepository.js', () => ({
+  findCartByUser: (...args: unknown[]) => findCartByUser(...args),
+  ensureCart: (...args: unknown[]) => ensureCart(...args),
+  upsertCartItem: (...args: unknown[]) => upsertCartItem(...args),
+  deleteCartItem: (...args: unknown[]) => deleteCartItem(...args),
+  deleteCartItems: vi.fn(),
+  clearCartForUser: vi.fn(),
+  setPendingDiscountCodes: vi.fn(),
 }));
 
 vi.mock('../../db/catalog/listingRepository.js', () => ({
@@ -61,16 +66,16 @@ vi.mock('../../db/catalog/variantRepository.js', () => ({
   findVariantsByIds: (...args: unknown[]) => findVariantsByIds(...args),
 }));
 
-vi.mock('../../models/store.js', () => ({
-  Store: {
-    find: (...args: unknown[]) => storeFind(...args),
-  },
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  findStoresByIds: (...args: unknown[]) => findStoresByIds(...args),
 }));
 
-vi.mock('../../models/seller-profile.js', () => ({
-  SellerProfile: {
-    find: (...args: unknown[]) => sellerProfileFind(...args),
-  },
+vi.mock('../../db/buyers/sellerProfileRepository.js', () => ({
+  findSellerProfilesByUserIds: (...args: unknown[]) => findSellerProfilesByUserIds(...args),
+}));
+
+vi.mock('../../db/merchandising/discountRepository.js', () => ({
+  activeDiscountCodeExists: vi.fn(),
 }));
 
 vi.mock('../oxy-user.service.js', () => ({
@@ -87,7 +92,8 @@ vi.mock('../user-preference.service.js', () => ({
 }));
 
 import { addItem, revalidate, getCart } from '../cart.service.js';
-import type { ICart } from '../../models/cart.js';
+import type { CartItemRow, CartRecord } from '../../db/buyers/cartRepository.js';
+import type { StoreRow } from '../../db/stores/storeRepository.js';
 
 const USER = 'user-1';
 const LISTING_ID = uuidv7();
@@ -97,11 +103,6 @@ const STORE_ID = uuidv7();
 
 /** Every row fixture carries the same timestamps; none of them is asserted on. */
 const AT = new Date('2026-01-01T00:00:00.000Z');
-
-/** Build a `.lean()`-able query stub resolving to `value` — the Mongoose side. */
-function leanOf<T>(value: T) {
-  return { lean: () => Promise.resolve(value) };
-}
 
 /**
  * A `listings` ROW as the repository returns it: flat, `id` not `_id`, and with
@@ -160,18 +161,19 @@ function p2pListingRow(id: string, sellerOxyUserId: string): ListingRecord {
   return listingRow({ id, ownerType: 'user', oxyUserId: sellerOxyUserId, storeId: null });
 }
 
-/** A store document fixture for the cart's vendor-grouping lookups (still Mongoose). */
-function storeDoc(overrides: Record<string, unknown> = {}) {
+/** A `stores` ROW fixture for the cart's vendor-grouping lookups. */
+function storeRow(overrides: Partial<StoreRow> = {}): StoreRow {
   return {
-    _id: STORE_ID,
+    id: STORE_ID,
     handle: 'cool-store',
     name: 'Cool Store',
     brandColor: '#1D4ED8',
     logoFileId: 'logo-1',
     rating: 4.5,
     reviewCount: 12,
+    defaultCurrency: 'FAIR',
     ...overrides,
-  };
+  } as StoreRow;
 }
 
 /**
@@ -221,53 +223,44 @@ function childrenWithOneImageEach(listingIds: readonly string[]): ListingChildre
   };
 }
 
-/**
- * A cart line as supplied by tests — string ids the service coerces with
- * `String(...)` at read time (so the model's `ObjectId` typing doesn't apply to
- * these in-memory fixtures).
- */
+/** A cart line as supplied by tests — the columns the service actually reads. */
 interface MockCartItem {
   listingId: string;
   variantId: string;
   quantity: number;
-  addedAt: Date;
 }
 
-/** A mock cart document whose `items` array is mutated in place by the service. */
-function mockCartDoc(items: MockCartItem[], currency = 'FAIR') {
-  const doc = {
-    _id: CART_ID,
-    oxyUserId: USER,
-    currency,
-    items,
-    save: vi.fn().mockResolvedValue(undefined),
-  };
-  return doc;
-}
-
-/** A stored cart, as `revalidate` receives it straight from the collection. */
-function storedCart(items: MockCartItem[]): ICart {
+/** A stored cart, as `findCartByUser` returns it: the row plus its line rows. */
+function storedCart(items: MockCartItem[]): CartRecord {
   return {
-    _id: CART_ID,
+    id: CART_ID,
     oxyUserId: USER,
-    currency: 'FAIR',
-    items,
+    pendingDiscountCodes: [],
     createdAt: AT,
     updatedAt: AT,
-  } as unknown as ICart;
+    items: items.map((item, index) => ({
+      id: `line-${String(index)}`,
+      cartId: CART_ID,
+      ...item,
+      addedAt: AT,
+      createdAt: AT,
+      updatedAt: AT,
+    })) as CartItemRow[],
+  } as CartRecord;
 }
 
 beforeEach(() => {
-  cartFindOne.mockReset();
-  cartCreate.mockReset();
-  cartUpdateOne.mockReset();
+  findCartByUser.mockReset();
+  ensureCart.mockReset();
+  upsertCartItem.mockReset();
+  deleteCartItem.mockReset();
   findListingById.mockReset();
   findListingsByIds.mockReset();
   findListingChildren.mockReset();
   findVariantById.mockReset();
   findVariantsByIds.mockReset();
-  storeFind.mockReset();
-  sellerProfileFind.mockReset();
+  findStoresByIds.mockReset();
+  findSellerProfilesByUserIds.mockReset();
   getProfilesMock.mockReset();
 
   // The gallery is a batched child read now; by default every requested listing
@@ -277,35 +270,37 @@ beforeEach(() => {
   );
 
   // Defaults for the vendor-grouping batch loads: one store, no P2P sellers.
-  // Individual tests override `storeFind`/`getProfilesMock` as needed.
-  storeFind.mockReturnValue(leanOf([storeDoc()]));
-  sellerProfileFind.mockReturnValue(leanOf([]));
+  // Individual tests override `findStoresByIds`/`getProfilesMock` as needed.
+  findStoresByIds.mockResolvedValue([storeRow()]);
+  findSellerProfilesByUserIds.mockResolvedValue([]);
   getProfilesMock.mockResolvedValue(new Map());
+  ensureCart.mockResolvedValue({ id: CART_ID, oxyUserId: USER });
+  upsertCartItem.mockResolvedValue(undefined);
 });
 
 describe('cart.service.addItem', () => {
   it('clamps the added quantity to the variant available stock', async () => {
     findListingById.mockResolvedValueOnce(listingRow());
     findVariantById.mockResolvedValueOnce(variantRow({ inventoryAvailable: 3 }));
-    // No existing cart → create path.
-    cartFindOne
-      .mockResolvedValueOnce(null) // addItem: Cart.findOne(...) returns a doc (not lean) → null
-      .mockReturnValueOnce(leanOf(mockCartDoc([{
-        listingId: LISTING_ID,
-        variantId: VARIANT_ID,
-        quantity: 3,
-        addedAt: new Date(),
-      }]))); // getCart: loadCart
-    cartCreate.mockResolvedValueOnce(undefined);
+    // No existing cart → the `ensureCart` path.
+    findCartByUser
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        storedCart([{ listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 3 }]),
+      );
     // getCart hydration lookups
     findVariantsByIds.mockResolvedValueOnce([variantRow({ inventoryAvailable: 3 })]);
     findListingsByIds.mockResolvedValueOnce([listingRow()]);
 
     const cart = await addItem(USER, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 50 });
 
-    // The created cart line was clamped to 3 (available).
-    const created = cartCreate.mock.calls[0][0] as { items: { quantity: number }[] };
-    expect(created.items[0].quantity).toBe(3);
+    // The written cart line was clamped to 3 (available).
+    expect(ensureCart).toHaveBeenCalledWith(USER);
+    expect(upsertCartItem).toHaveBeenCalledWith(CART_ID, {
+      listingId: LISTING_ID,
+      variantId: VARIANT_ID,
+      quantity: 3,
+    });
     expect(cart.items[0].quantity).toBe(3);
   });
 
@@ -313,36 +308,35 @@ describe('cart.service.addItem', () => {
     findListingById.mockResolvedValueOnce(listingRow());
     findVariantById.mockResolvedValueOnce(variantRow({ inventoryAvailable: 10 }));
 
-    const existing = mockCartDoc([{
-      listingId: LISTING_ID,
-      variantId: VARIANT_ID,
-      quantity: 2,
-      addedAt: new Date(),
-    }]);
-    cartFindOne
-      .mockResolvedValueOnce(existing) // addItem: mutable doc
-      .mockReturnValueOnce(leanOf({ ...existing, items: existing.items })); // getCart: loadCart (lean)
+    const existing = storedCart([
+      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2 },
+    ]);
+    findCartByUser.mockResolvedValueOnce(existing).mockResolvedValueOnce(existing);
 
     findVariantsByIds.mockResolvedValueOnce([variantRow({ inventoryAvailable: 10 })]);
     findListingsByIds.mockResolvedValueOnce([listingRow()]);
 
     await addItem(USER, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 3 });
 
-    // 2 (existing) + 3 (added) = 5, within available(10).
-    expect(existing.items[0].quantity).toBe(5);
-    expect(existing.save).toHaveBeenCalled();
+    // 2 (existing) + 3 (added) = 5, within available(10). The upsert writes the
+    // ABSOLUTE clamped total, never a delta — the clamp has already been applied.
+    expect(upsertCartItem).toHaveBeenCalledWith(CART_ID, {
+      listingId: LISTING_ID,
+      variantId: VARIANT_ID,
+      quantity: 5,
+    });
+    // No second cart was created for a buyer who already had one.
+    expect(ensureCart).not.toHaveBeenCalled();
   });
 
   it('accepts a variant in a different native currency (multi-currency cart, no rejection)', async () => {
     findListingById.mockResolvedValueOnce(listingRow());
     findVariantById.mockResolvedValueOnce(variantRow({ priceCurrency: 'EUR' }));
 
-    const existing = mockCartDoc([
-      { listingId: LISTING_ID, variantId: uuidv7(), quantity: 1, addedAt: new Date() },
+    const existing = storedCart([
+      { listingId: LISTING_ID, variantId: uuidv7(), quantity: 1 },
     ]);
-    cartFindOne
-      .mockResolvedValueOnce(existing) // addItem: mutable doc
-      .mockReturnValueOnce(leanOf({ ...existing, items: existing.items })); // getCart: loadCart (lean)
+    findCartByUser.mockResolvedValueOnce(existing).mockResolvedValueOnce(existing);
 
     // getCart hydration lookups (the EUR line converts to the FAIR presentment).
     findVariantsByIds.mockResolvedValueOnce([variantRow({ priceCurrency: 'EUR' })]);
@@ -350,16 +344,19 @@ describe('cart.service.addItem', () => {
 
     await addItem(USER, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 1 });
 
-    // The differing-currency line is pushed (no cross-currency rejection) and saved.
-    expect(existing.items).toHaveLength(2);
-    expect(existing.save).toHaveBeenCalled();
+    // The differing-currency line is written (no cross-currency rejection).
+    expect(upsertCartItem).toHaveBeenCalledWith(CART_ID, {
+      listingId: LISTING_ID,
+      variantId: VARIANT_ID,
+      quantity: 1,
+    });
   });
 });
 
 describe('cart.service.revalidate', () => {
   it('flags a line as stale when available < quantity and computes subtotal as the sum of line totals', async () => {
     const cart = storedCart([
-      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 5, addedAt: new Date() },
+      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 5,  },
     ]);
 
     // Live state: only 2 available (< 5 requested) → stale; price 1500.
@@ -385,8 +382,8 @@ describe('cart.service.revalidate', () => {
     const VARIANT_2 = uuidv7();
     const LISTING_2 = uuidv7();
     const cart = storedCart([
-      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2, addedAt: new Date() },
-      { listingId: LISTING_2, variantId: VARIANT_2, quantity: 1, addedAt: new Date() },
+      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2 },
+      { listingId: LISTING_2, variantId: VARIANT_2, quantity: 1,  },
     ]);
 
     findVariantsByIds.mockResolvedValueOnce([
@@ -409,7 +406,7 @@ describe('cart.service.revalidate', () => {
 
   it('marks a line whose variant has NO price as stale and zero-priced, never free', async () => {
     const cart = storedCart([
-      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2, addedAt: new Date() },
+      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2,  },
     ]);
 
     // Both price columns are NULL together — the shape the paired CHECK allows.
@@ -433,14 +430,14 @@ describe('cart.service.revalidate', () => {
 describe('cart.service groups', () => {
   it('groups lines by store vendor with a per-group subtotal', async () => {
     const cart = storedCart([
-      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2, addedAt: new Date() },
+      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2,  },
     ]);
 
     findVariantsByIds.mockResolvedValueOnce([
       variantRow({ priceAmount: 1500, inventoryAvailable: 10 }),
     ]);
     findListingsByIds.mockResolvedValueOnce([listingRow()]);
-    storeFind.mockReturnValueOnce(leanOf([storeDoc()]));
+    findStoresByIds.mockResolvedValueOnce([storeRow()]);
 
     const dto = await revalidate(cart);
 
@@ -465,7 +462,7 @@ describe('cart.service groups', () => {
     const P2P_LISTING = uuidv7();
     const P2P_VARIANT = uuidv7();
     const cart = storedCart([
-      { listingId: P2P_LISTING, variantId: P2P_VARIANT, quantity: 1, addedAt: new Date() },
+      { listingId: P2P_LISTING, variantId: P2P_VARIANT, quantity: 1,  },
     ]);
 
     findVariantsByIds.mockResolvedValueOnce([
@@ -478,8 +475,8 @@ describe('cart.service groups', () => {
     ]);
     findListingsByIds.mockResolvedValueOnce([p2pListingRow(P2P_LISTING, SELLER_USER)]);
     // No store; this seller has no SellerProfile (so no rating) but a resolvable Oxy profile.
-    storeFind.mockReturnValueOnce(leanOf([]));
-    sellerProfileFind.mockReturnValueOnce(leanOf([]));
+    findStoresByIds.mockResolvedValueOnce([]);
+    findSellerProfilesByUserIds.mockResolvedValueOnce([]);
     getProfilesMock.mockResolvedValueOnce(
       new Map([[SELLER_USER, { id: SELLER_USER, username: 'jane', displayName: 'Jane Doe', avatar: 'av-1' }]]),
     );
@@ -500,7 +497,7 @@ describe('cart.service groups', () => {
 
 describe('cart.service.getCart', () => {
   it('returns an empty FAIR cart when the buyer has no cart document', async () => {
-    cartFindOne.mockReturnValueOnce(leanOf(null));
+    findCartByUser.mockResolvedValueOnce(null);
     const dto = await getCart(USER);
     expect(dto.items).toEqual([]);
     expect(dto.subtotal).toEqual({ amount: 0, currency: 'FAIR' });
