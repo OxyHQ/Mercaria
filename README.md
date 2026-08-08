@@ -92,6 +92,14 @@ bun run --filter @mercaria/backend typecheck   # tsc --noEmit
 
 `bun run android`, `bun run ios` and `bun run web` target the storefront. Each app pins its own Metro port, so all three can run side by side.
 
+**The API test suite needs a PostgreSQL server running.** Mercaria is mid-migration from MongoDB to PostgreSQL, and the ported repositories are tested against a real PostGIS database rather than a mock — a mocked query cannot tell whether the server would accept the SQL. Start one before `test`:
+
+```bash
+docker compose -f docker-compose.postgres.yml up -d postgres
+```
+
+The suite never writes to that database. `TEST_DATABASE_URL` (falling back to `DATABASE_URL`, and defaulting to the compose server) names a SERVER, on which the harness creates a throwaway, fully-migrated database per run and drops it afterwards. Mongo's replica set is started in-process by the harness itself and needs nothing installed.
+
 </details>
 
 <details>

@@ -85,7 +85,19 @@ export const stores = pgTable(
     id: generatedId(),
     handle: text().notNull(),
     name: text().notNull(),
-    description: text().notNull().default(''),
+    /**
+     * NOT NULL with NO default — a store without a description stores `''`,
+     * written by whoever creates it (`store.service` already does exactly this).
+     *
+     * The Mongoose `default: ''` is deliberately not carried across.
+     * `findSchemaInvariantViolations` rejects an empty-string DEFAULT across
+     * every Oxy schema, and the reason generalizes past this column: a default
+     * that manufactures a sentinel value makes "absent" and "empty" the same
+     * row, which is harmless for prose and destructive the first time the same
+     * habit reaches a sparse-unique column, where `''` is a VALUE and collides
+     * for real.
+     */
+    description: text().notNull(),
     /** An Oxy media file id — no foreign key; Oxy owns the file. */
     logoFileId: text(),
     /** An Oxy media file id — no foreign key; Oxy owns the file. */

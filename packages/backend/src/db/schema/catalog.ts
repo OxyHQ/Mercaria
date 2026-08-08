@@ -113,7 +113,8 @@ export const listings = pgTable(
     /** Set iff `ownerType = 'store'`. */
     storeId: text().references(() => stores.id, { onDelete: 'restrict' }),
     title: text().notNull(),
-    description: text().notNull().default(''),
+    /** NOT NULL with NO default — see `stores.description` for why `''` is not one. */
+    description: text().notNull(),
     condition: text({ enum: asEnumValues(LISTING_CONDITIONS) }).notNull(),
     status: text({ enum: asEnumValues(ALL_LISTING_STATUSES) }).notNull().default('draft'),
     /**

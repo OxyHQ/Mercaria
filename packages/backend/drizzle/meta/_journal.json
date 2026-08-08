@@ -15,6 +15,13 @@
       "when": 1786180653708,
       "tag": "0001_counter_sequences",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786181755726,
+      "tag": "0002_drop_empty_string_defaults",
+      "breakpoints": true
     }
   ]
 }
