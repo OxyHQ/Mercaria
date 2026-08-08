@@ -22,7 +22,7 @@
     "@hugeicons/react-native": "^1.0.15",
     "@mercaria/shared-types": "workspace:*",
     "@mercaria/ui": "workspace:*",
-    "@oxyhq/bloom": "^0.85.0",
+    "@oxyhq/bloom": "^0.87.1",
     "@oxyhq/core": "^19.1.0",
     "@oxyhq/services": "^27.1.0",
     "@radix-ui/react-dropdown-menu": "^2.1.20",

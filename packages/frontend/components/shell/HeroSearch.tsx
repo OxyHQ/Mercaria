@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { View, Pressable, TextInput } from "react-native";
-import { Search } from "lucide-react-native";
+import { View } from "react-native";
+import { Search } from "@oxyhq/bloom/search";
 import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
 import { useColorScheme } from "@mercaria/ui";
 
@@ -25,26 +25,19 @@ export function HeroSearch() {
     <View className="items-center px-4 pb-4 pt-6">
       <MercariaWordmark width={188} color={colors.foreground} />
 
-      <View className="mt-3 w-full max-w-xl flex-row items-center rounded-full border border-border bg-secondary px-4 py-2 web:transition focus-within:border-primary">
-        <Search size={18} color={colors.mutedForeground} />
-        <TextInput
+      {/* Bloom's `Search` owns the input chrome (pill radius, magnifier, clear
+          button, hover/focus states) so this bar matches every other search
+          field in the ecosystem instead of being a look-alike. `label` is the
+          accessibility name; the shopping prompt is the visible placeholder. */}
+      <View className="mt-3 w-full max-w-xl">
+        <Search
+          label="Search"
+          placeholder="What are you shopping for today?"
           value={query}
           onChangeText={setQuery}
+          onClearText={() => setQuery("")}
           onSubmitEditing={handleSubmit}
-          returnKeyType="search"
-          placeholder="What are you shopping for today?"
-          placeholderTextColor={colors.mutedForeground}
-          className="ml-2 flex-1 text-sm text-foreground"
-          accessibilityLabel="Search"
         />
-        <Pressable
-          onPress={handleSubmit}
-          accessibilityRole="button"
-          accessibilityLabel="Search"
-          className="ml-2 h-8 w-8 items-center justify-center rounded-full bg-primary active:opacity-80 web:transition"
-        >
-          <Search size={16} color={colors.primaryForeground} />
-        </Pressable>
       </View>
     </View>
   );

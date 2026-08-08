@@ -1,11 +1,20 @@
 /**
  * Unit tests for `draft-order.service.completeDraftOrder` (the POS sale path).
  *
- * `mongodb-memory-server` is not available, so the pricing engine, inventory
+ * Everything this path touches is mocked: the pricing engine, inventory
  * reserve/release, the Listing/ProductVariant/Order/DraftOrder/Customer/Store/
- * Location models, the order.service transition, the order-hydration mapper, the
- * media chokepoint, the discount-code normalizer and the customer lookup are all
- * mocked. Tests assert the B5 POS contract: complete reserves each line at the
+ * Location models, the order-number counter, the order.service transition, the
+ * order-hydration mapper, the media chokepoint, the discount-code normalizer and
+ * the customer lookup.
+ *
+ * That mocking has one blind spot, and it is not hypothetical: a mocked
+ * `Order.create` runs no validator, so it accepted a payload missing the
+ * `required` + UNIQUE `orderNumber` and every POS sale 500d on a real server while
+ * this file stayed green. The assertions here now pin the number reaching the
+ * payload, but the property that a REAL server accepts the document can only be
+ * checked against one — `draft-order-complete.realdb.test.ts` does that.
+ *
+ * Tests assert the B5 POS contract: complete reserves each line at the
  * draft's `locationId`, re-prices via `calculateTotals`, creates a
  * `sourceChannel: 'pos'` order whose items carry `locationId`, runs
  * `transition('paid')` and marks the draft completed; a double-complete is
@@ -35,6 +44,7 @@ const draftFindOne = vi.fn();
 const customerFindOne = vi.fn();
 const storeFindById = vi.fn();
 const locationFindOne = vi.fn();
+const nextOrderNumber = vi.fn();
 
 vi.mock('../inventory.service.js', () => ({
   reserve: (...args: unknown[]) => reserve(...args),
@@ -109,6 +119,10 @@ vi.mock('../../models/location.js', () => ({
   Location: { findOne: (...args: unknown[]) => locationFindOne(...args) },
 }));
 
+vi.mock('../../models/counter.js', () => ({
+  nextOrderNumber: (...args: unknown[]) => nextOrderNumber(...args),
+}));
+
 import { completeDraftOrder } from '../draft-order.service.js';
 import { isMercariaError, outOfStock } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
@@ -121,6 +135,8 @@ const L1 = '000000000000000000000101';
 const L2 = '000000000000000000000102';
 const V1 = '000000000000000000000201';
 const V2 = '000000000000000000000202';
+/** The number `nextOrderNumber` is stubbed to allocate for the sale. */
+const ORDER_NUMBER = 'MRC-000777';
 
 /** Build a `.lean()`-able query stub resolving to `value`. */
 function leanOf<T>(value: T) {
@@ -211,6 +227,7 @@ beforeEach(() => {
   customerFindOne.mockReset();
   storeFindById.mockReset();
   locationFindOne.mockReset().mockReturnValue(selectLeanOf(null));
+  nextOrderNumber.mockReset().mockResolvedValue(ORDER_NUMBER);
 });
 
 describe('draft-order.service.completeDraftOrder — POS sale', () => {
@@ -237,12 +254,18 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
     // Created a pos order whose items carry the register location.
     expect(orderCreate).toHaveBeenCalledTimes(1);
     const doc = orderCreate.mock.calls[0][0] as {
+      orderNumber: string;
       sourceChannel: string;
       sellerType: string;
       storeId: string;
       items: { variantId: string; locationId?: string }[];
       idempotencyKey: string;
     };
+    // The order number is `required` + UNIQUE on the schema, so a payload without
+    // it is rejected by a real server (see `draft-order-complete.realdb.test.ts`);
+    // exactly one is allocated per sale, from the shared customer-facing sequence.
+    expect(doc.orderNumber).toBe(ORDER_NUMBER);
+    expect(nextOrderNumber).toHaveBeenCalledTimes(1);
     expect(doc.sourceChannel).toBe('pos');
     expect(doc.sellerType).toBe('store');
     expect(doc.storeId).toBe(STORE);
@@ -270,6 +293,9 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
     expect(reserve).not.toHaveBeenCalled();
     expect(orderCreate).not.toHaveBeenCalled();
     expect(transition).not.toHaveBeenCalled();
+    // The short-circuit returns before any allocation — a repeated complete must
+    // not burn an order number.
+    expect(nextOrderNumber).not.toHaveBeenCalled();
     expect(result).toEqual({ id: 'order-1', sourceChannel: 'pos' });
   });
 
@@ -291,6 +317,8 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
     expect(release).toHaveBeenCalledWith(V1, 2, LOCATION);
     expect(orderCreate).not.toHaveBeenCalled();
     expect(transition).not.toHaveBeenCalled();
+    // A sale that never reaches `Order.create` allocates no number either.
+    expect(nextOrderNumber).not.toHaveBeenCalled();
     // Draft is not mutated to completed.
     expect(draft.status).toBe('open');
     expect(draft.convertedOrderId).toBeUndefined();
