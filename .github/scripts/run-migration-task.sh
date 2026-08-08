@@ -2,7 +2,7 @@
 #
 # Run ONE migration phase as a one-shot ECS task and fail if it did not succeed.
 #
-# Usage: run-migration-task.sh <pre|post>
+# Usage: run-migration-task.sh <pre|post|all>
 #
 # In a script rather than inline YAML because the interesting part is the exit
 # handling, and that is the part a reviewer must be able to read: an ECS task
@@ -18,11 +18,15 @@
 #   NETWORK_CONFIGURATION         the service's awsvpc config, as compact JSON
 set -euo pipefail
 
-PHASE="${1:?usage: run-migration-task.sh <pre|post>}"
+# The three values `@oxyhq/db` accepts as a `run` (its MIGRATION_RUNS). `all` is
+# the cutover escape hatch, not a normal release: it applies destructive
+# migrations while the previous image is still serving, which is only safe when
+# there is no previous image serving this schema.
+PHASE="${1:?usage: run-migration-task.sh <pre|post|all>}"
 case "$PHASE" in
-  pre | post) ;;
+  pre | post | all) ;;
   *)
-    echo "::error::unknown migration phase '$PHASE' (expected pre or post)"
+    echo "::error::unknown migration phase '$PHASE' (expected pre, post or all)"
     exit 1
     ;;
 esac

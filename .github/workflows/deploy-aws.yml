@@ -16,6 +16,18 @@ on:
       - '**.md'
       - 'docs/**'
   workflow_dispatch:
+    inputs:
+      migration_phase:
+        description: >-
+          How to apply migrations. `pre-post` (default) applies the additive ones
+          before the rollout and the destructive ones after. `all` applies
+          everything in ONE run before the rollout — needed for the Mongo→Postgres
+          cutover, and wrong for anything else.
+        type: choice
+        default: pre-post
+        options:
+          - pre-post
+          - all
 
 permissions:
   id-token: write
@@ -30,12 +42,15 @@ env:
   # The PostgreSQL database the migration tasks below are allowed to touch.
   #
   # NOT cosmetic: the migrator refuses to run unless this matches the database its
-  # DATABASE_URL actually resolves to, so a value that disagrees with what
-  # oxy-infra provisioned fails the deploy loudly instead of migrating some other
-  # database. It is UNVERIFIED today — the RDS database for Mercaria is part of
-  # the oxy-infra handoff and does not exist yet — so whoever provisions it must
-  # make this line agree with it. A mismatch is safe; a silent wrong target is
-  # what this exists to prevent.
+  # DATABASE_URL actually resolves to, so a value that disagrees with the
+  # provisioned database fails the deploy loudly instead of migrating some other
+  # one.
+  #
+  # VERIFIED, not assumed: provisioned 2026-08-08 via oxy-infra runbook 30 — role
+  # `mercaria` owns database `mercaria` on oxy-postgres, with PostGIS installed by
+  # oxyadmin (it is not a trusted extension, so database ownership alone cannot
+  # install it). The matching DATABASE_URL is already live: GitHub secret → SSM
+  # /oxy/mercaria/DATABASE_URL → task definition oxy-mercaria:2.
   PG_DATABASE: mercaria
 
 jobs:
@@ -179,7 +194,11 @@ jobs:
       # register a revision instead, or it will migrate using the OLD image.
       - name: Resolve the ECS one-shot shape
         id: ecs
+        env:
+          # Absent on a `push` trigger, where only the default is ever right.
+          REQUESTED_PHASE: ${{ github.event.inputs.migration_phase }}
         run: |
+          echo "phase_mode=${REQUESTED_PHASE:-pre-post}" >> "$GITHUB_OUTPUT"
           STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].status' --output text 2>/dev/null || echo NONE)
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           if [ "$STATUS" != "ACTIVE" ]; then
@@ -212,8 +231,25 @@ jobs:
             echo "no post-rollout migration in this release"
           fi
 
+      # The CUTOVER path, chosen by hand from workflow_dispatch. One `all` run
+      # applies the whole chain in journal order before the rollout, which the
+      # pre/post pair cannot do: a `pre` migration queued behind an unapplied
+      # `post` one BLOCKS by design, and the Mongo→Postgres chain has exactly that
+      # shape. It is safe only because at the cutover no image is serving this
+      # schema — which is also why it must never be the default. Measured: on an
+      # empty database `--phase=pre` refuses and names both files, while `all`
+      # applies all of them and leaves both later phases clean no-ops.
+      - name: Migrate (all) — cutover only, never a normal release
+        if: steps.ecs.outputs.status == 'ACTIVE' && steps.ecs.outputs.phase_mode == 'all'
+        run: |
+          .github/scripts/run-migration-task.sh all
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
+
       - name: Migrate (pre) — before the rollout
-        if: steps.ecs.outputs.status == 'ACTIVE'
+        if: steps.ecs.outputs.status == 'ACTIVE' && steps.ecs.outputs.phase_mode != 'all'
         run: |
           .github/scripts/run-migration-task.sh pre
         env:
@@ -236,8 +272,14 @@ jobs:
       # an optimisation — a `post` run against a database with a pending `pre`
       # migration BLOCKS by design, so running it every time would turn a normal
       # release into a red deploy.
+      # Skipped entirely on the cutover path: the `all` run above already applied
+      # these, so a `post` here would find nothing — and running it would only
+      # add a way for a green cutover to end on a red step.
       - name: Migrate (post) — after the new image is live
-        if: steps.ecs.outputs.status == 'ACTIVE' && steps.phases.outputs.has_post == 'true'
+        if: >-
+          steps.ecs.outputs.status == 'ACTIVE'
+          && steps.ecs.outputs.phase_mode != 'all'
+          && steps.phases.outputs.has_post == 'true'
         run: |
           .github/scripts/run-migration-task.sh post
         env:

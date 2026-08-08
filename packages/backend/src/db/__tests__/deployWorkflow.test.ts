@@ -29,8 +29,19 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse } from 'yaml';
 import { MIGRATION_RUNS, POST_PHASE_GREP_PATTERN } from '@oxyhq/db/migrate';
 import { MIGRATIONS_FOLDER } from '../migrationsFolder.js';
+
+/** Only the shape these assertions read — not a schema for GitHub Actions. */
+interface WorkflowFile {
+  on: {
+    workflow_dispatch?: {
+      inputs?: Record<string, { default?: string; options?: string[] }>;
+    };
+  };
+  jobs: Record<string, { steps: { name?: string; if?: string }[] }>;
+}
 
 /** The repo root, from this file: `packages/backend/src/db/__tests__` is four deep. */
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..', '..');
@@ -57,20 +68,49 @@ describe('the deploy workflow and the migrator agree', () => {
   });
 
   it('passes only phase values the migrator accepts', () => {
-    const phases = [...script.matchAll(/--phase=(?:"\s*\+\s*\$phase|([a-z-]+))/g)]
-      .map((match) => match[1])
-      .filter((value): value is string => value !== undefined);
-    for (const phase of phases) {
-      expect(MIGRATION_RUNS).toContain(phase);
-    }
     // The script builds `--phase=` from its own argument, so the literal values
-    // live in the CASE that validates it. Both must be spellings the package
-    // accepts, and both must appear or one phase is unreachable.
-    expect(script).toMatch(/pre \| post\)/);
-    for (const phase of ['pre', 'post']) {
+    // live in the CASE that validates it. Every one must be a spelling the
+    // package accepts, and every one must be reachable from the workflow.
+    expect(script).toMatch(/pre \| post \| all\)/);
+    for (const phase of ['pre', 'post', 'all']) {
       expect(MIGRATION_RUNS).toContain(phase);
       expect(workflow).toContain(`run-migration-task.sh ${phase}`);
     }
+  });
+
+  it('offers the cutover override, defaulted to the phased pair', () => {
+    /**
+     * The chain has a `pre` migration queued behind a `post` one, which makes
+     * `--phase=pre` refuse on a database where the whole batch is pending —
+     * the cutover. `all` is the deliberate way through, so it has to be
+     * REACHABLE (or the cutover needs someone to remember a manual dispatch)
+     * and it has to be OPT-IN (or every ordinary release applies destructive
+     * migrations while the previous image is still serving).
+     */
+    const dispatch = (parse(workflow) as WorkflowFile).on.workflow_dispatch;
+    const input = dispatch?.inputs?.migration_phase;
+    expect(input, 'the migration_phase dispatch input is gone').toBeDefined();
+    expect(input?.default).toBe('pre-post');
+    expect(input?.options).toEqual(['pre-post', 'all']);
+  });
+
+  it('runs the cutover and the phased pair as MUTUALLY EXCLUSIVE paths', () => {
+    // Both running would apply the chain twice — harmless by idempotency, but
+    // the `post` half would then run against a database with nothing pending
+    // and the phase planner's own guard is the only thing between that and a
+    // red cutover. The conditions are what keep them apart.
+    const jobs = (parse(workflow) as WorkflowFile).jobs;
+    const steps = jobs.deploy.steps.filter((step) => step.name?.startsWith('Migrate ('));
+    expect(steps.map((step) => step.name)).toHaveLength(3);
+
+    const conditionFor = (prefix: string): string => {
+      const step = steps.find((candidate) => candidate.name?.startsWith(prefix));
+      expect(step, `no step named ${prefix}`).toBeDefined();
+      return (step?.if ?? '').replace(/\s+/g, ' ');
+    };
+    expect(conditionFor('Migrate (all)')).toContain("phase_mode == 'all'");
+    expect(conditionFor('Migrate (pre)')).toContain("phase_mode != 'all'");
+    expect(conditionFor('Migrate (post)')).toContain("phase_mode != 'all'");
   });
 
   it('names the same target database guard the migrator enforces', () => {
