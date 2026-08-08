@@ -13,6 +13,8 @@ export interface ProductShelfProps {
 /**
  * A titled marketplace section: a bold heading above a horizontally scrollable
  * product carousel. The shelf owns the heading; the carousel renders the row.
+ * Returns `null` when there are no items or they are unavailable, so the heading
+ * never appears over an empty row — safe to render always.
  */
 export function ProductShelf({
   title,
@@ -20,6 +22,8 @@ export function ProductShelf({
   onPressItem,
   onToggleSaveItem,
 }: ProductShelfProps) {
+  if (!items || items.length === 0) return null;
+
   return (
     <View className="mb-6">
       <SectionHeader title={title} />

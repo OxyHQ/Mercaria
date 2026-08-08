@@ -1,0 +1,54 @@
+-- oxy:deploy-phase=pre
+--
+-- Order and RMA numbers: the Postgres SEQUENCEs that replace the `Counter`
+-- collection.
+--
+-- Written by hand because drizzle-kit does not model sequences, and generated
+-- through `drizzle-kit generate --custom` so the journal entry and the snapshot
+-- exist exactly as they do for a generated migration — a hand-dropped `.sql`
+-- with no journal entry is never applied, and one with no snapshot makes the
+-- NEXT `db:generate` collide on the same index.
+--
+-- ## Why a sequence and not a counter row
+--
+-- `models/counter.ts` allocates a number with `findByIdAndUpdate($inc)` on a
+-- single document — one row, contended by every checkout in the system, and
+-- correct only because Mongo makes that update atomic. `nextval()` is the same
+-- guarantee without the row: it does not take a transaction-scoped lock, so two
+-- concurrent checkouts never wait on each other, and a rolled-back transaction
+-- does NOT return its number.
+--
+-- That last part is a real behaviour change and it is the right one. Under Mongo
+-- a checkout that failed after allocating also burned its number (the `$inc` was
+-- already committed), so gaps exist in production today; `nextval` makes the
+-- same gaps for the same reason. What it additionally guarantees is that a
+-- number is never handed out twice, which the Mongo path could violate if the
+-- allocation and the order insert straddled a retry.
+--
+-- ## Only the two sequences that have consumers
+--
+-- `nextOrderNumber` is called by `checkout.service`, `draft-order.service`,
+-- `connector-sync.service` and the seed. `nextRmaNumber` is called by
+-- `refund.service`. `nextDraftOrderNumber` — the `MRC-DRAFT-` generator — has
+-- ZERO call sites anywhere in `src/`: the POS draft has never had a human-facing
+-- number, only its id. It is dead code, so its sequence is deliberately not
+-- created here, and the function goes with the model in Fase 3.
+--
+-- ## The formatting stays in the application
+--
+-- `MRC-` + zero-padding to six digits is done by the caller, exactly as today.
+-- A sequence yields the integer; making the DDL own the prefix would put the
+-- printed format of a receipt in a migration.
+--
+-- ## Fase 4 owes these a `setval`
+--
+-- A fresh sequence starts at 1, which would re-mint order numbers that already
+-- exist on printed receipts — and `orders.order_number` is UNIQUE, so the second
+-- collision is a failed checkout in production. The backfill MUST run
+-- `setval('order_number_seq', <the Counter document's seq>)` and the same for
+-- `rma_number_seq` before the cutover, reading the values from the `counters`
+-- collection rather than from `max(order_number)` (a gap-carrying counter is
+-- ahead of the highest number actually used).
+
+CREATE SEQUENCE "order_number_seq" AS bigint START WITH 1 INCREMENT BY 1 NO CYCLE;--> statement-breakpoint
+CREATE SEQUENCE "rma_number_seq" AS bigint START WITH 1 INCREMENT BY 1 NO CYCLE;

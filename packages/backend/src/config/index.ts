@@ -269,6 +269,32 @@ export interface FxConfig {
   readonly staticRates: Readonly<Partial<Record<Exclude<CurrencyCode, 'FAIR'>, number>>>;
 }
 
+export interface PostgresConfig {
+  /**
+   * `DATABASE_URL`. ABSENT means "Postgres is not configured here", not "this
+   * deployment is broken".
+   *
+   * Mercaria is mid-migration from MongoDB: Mongo is still the store every
+   * request reads and writes, and a task with no `DATABASE_URL` must boot and
+   * serve exactly as it does today. `connectPostgres()` is the only thing that
+   * requires it, and it is called by nothing yet — so this stays optional until
+   * the cutover, at which point it becomes required and this comment goes away.
+   */
+  readonly url?: string;
+  /** postgres.js pool ceiling per task. */
+  readonly maxPoolSize: number;
+  /** Seconds an idle pooled connection is kept before being closed. */
+  readonly idleTimeoutSeconds: number;
+  /** Seconds to wait for a new connection before failing the query. */
+  readonly connectTimeoutSeconds: number;
+  /**
+   * Seconds a connection may live before being recycled. Bounded so a pool
+   * behind a load balancer (RDS Proxy, a failover) cannot pin itself to a
+   * retired endpoint indefinitely.
+   */
+  readonly maxLifetimeSeconds: number;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -278,6 +304,7 @@ export interface AppConfig {
   readonly fx: FxConfig;
   readonly web: WebConfig;
   readonly crowdSource: CrowdSourceConfig;
+  readonly postgres: PostgresConfig;
 }
 
 /**
@@ -364,5 +391,15 @@ export const config: AppConfig = Object.freeze({
     outboxBatchSize: intEnv('CROWDSOURCE_OUTBOX_BATCH_SIZE', 50),
     outboxPollIntervalMs: intEnv('CROWDSOURCE_OUTBOX_POLL_INTERVAL_MS', 5_000),
     enforcementMode: resolveEnforcementMode(),
+  }),
+  postgres: Object.freeze({
+    // Spread-when-present, like `crowdSource.baseUrl` above: the property is
+    // ABSENT rather than an empty string, so `if (!config.postgres.url)` reads
+    // as "not configured" and no caller can mistake `''` for a URL.
+    ...(process.env.DATABASE_URL?.trim() ? { url: process.env.DATABASE_URL.trim() } : {}),
+    maxPoolSize: intEnv('PG_MAX_POOL_SIZE', 20),
+    idleTimeoutSeconds: intEnv('PG_IDLE_TIMEOUT_SECONDS', 30),
+    connectTimeoutSeconds: intEnv('PG_CONNECT_TIMEOUT_SECONDS', 10),
+    maxLifetimeSeconds: intEnv('PG_MAX_LIFETIME_SECONDS', 1_800),
   }),
 });
