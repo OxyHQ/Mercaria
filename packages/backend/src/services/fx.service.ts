@@ -1,24 +1,28 @@
 /**
  * FX (foreign-exchange) service — the single source of currency conversion.
  *
- * FairCoin (`FAIR`, ⊜) is the CANONICAL SETTLEMENT currency. Catalog prices are
- * now stored in their NATIVE currency (multi-currency, presentment + shop); FAIR
- * conversion happens only at the settlement boundary. This service covers:
+ * The public contract is PROVIDER-NEUTRAL and names no privileged currency:
+ * `getRates(base, quotes)` quotes any base against any quotes, `convert` and
+ * `pairRate` handle any pair, and `toDualMoney` builds the presentment side of a
+ * transacted amount. Nothing here settles anything — which currency a payment
+ * settles in belongs to the payment domain and its provider.
  *
- *  - SETTLEMENT-side (`convertToFair`): at the `paid` transition an order's SHOP
- *    grand total is converted to FAIR for payout. This path FAILS CLOSED — if no
- *    rate is available it THROWS, so we never settle a wrong amount. This is the
- *    ONLY remaining FAIR-conversion write path (the catalog no longer converts).
+ * FAIR's role is twofold and both parts are deliberate:
+ *  - A PRODUCT default: it is the presentment currency a buyer gets when they
+ *    have chosen none, and the display default. That is policy, stated where the
+ *    policy lives (`user-preference.service`), not an invariant of this module.
+ *  - An IMPLEMENTATION DETAIL of the currently configured providers: both the
+ *    FairCoin Explorer and the static fallback publish their rates "per 1 FAIR",
+ *    so this service pivots through FAIR to serve an arbitrary pair. A provider
+ *    that quotes pairs directly would satisfy the same `FxProvider` interface
+ *    with no caller change — the pivot is not part of the contract, and callers
+ *    must never assume a FAIR rate exists.
  *
- *  - PRICING/DISPLAY-side (`getRates`/`convert`/`toDualMoney`/`pairRate`): a
- *    presentation conversion between any pair of currencies (source → FAIR →
- *    target) used to form the presentment side of order/refund `DualMoney` and
- *    currencies for dual-currency display. Every rate is quoted "per 1 FAIR", so
- *    FAIR is the universal pivot: `getRates` serves ANY base (FAIR directly, a
- *    non-FAIR base derived as `(FAIR→quote)/(FAIR→base)`) and `convert` handles
- *    any pair (source → FAIR → target). `getRates` NEVER throws: it always
- *    returns an `FxRates` (fresh, last-good, or static fallback) so a transient
- *    provider/Redis outage can't break rendering.
+ * `getRates` NEVER throws: it always returns an `FxRates` (fresh, last-good, or
+ * static fallback) so a transient provider/Redis outage can't break rendering.
+ * A pair no source can serve is OMITTED, never fabricated; `convert`/`pairRate`
+ * then throw rather than invent a number. Every `FxRates` names the source that
+ * produced it (`provider`), which is what a persisted `FxRateSnapshot` records.
  *
  * Rates are cached in Redis (when configured) plus a tiny in-process last-good
  * map so display keeps working without Redis and the upstream provider is not
@@ -26,7 +30,13 @@
  */
 
 import { z } from 'zod';
-import type { CurrencyCode, DualMoney, FxRates, Money } from '@mercaria/shared-types';
+import {
+  assertSafeMoneyAmount,
+  type CurrencyCode,
+  type DualMoney,
+  type FxRates,
+  type Money,
+} from '@mercaria/shared-types';
 import { config } from '../config/index.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { log } from '../lib/logger.js';
@@ -35,19 +45,55 @@ import { minorUnitsPerMajor, roundMinorUnits } from '../utils/money.js';
 
 /**
  * A rate provider. `getRates` returns a `quote code → units of quote per 1 base`
- * map (i.e. `1 base = rate fiat`). A provider MAY omit quotes it cannot serve;
- * the `getRates` caching layer fills any gaps from the static rates.
+ * map (i.e. `1 base = rate quote`). A provider MAY omit quotes it cannot serve —
+ * an omission is the honest answer and the caller degrades accordingly; it MUST
+ * NOT substitute a default. A provider MAY also refuse a base it cannot quote
+ * against, by throwing.
  */
 export interface FxProvider {
   getRates(base: CurrencyCode, quotes: CurrencyCode[]): Promise<Record<string, number>>;
 }
 
+/**
+ * The `FxRates.provider` value used when the configured provider failed AND no
+ * cached rates existed, so the static fallback served the request. It is the
+ * attribution even when the static map has nothing for the requested quote: the
+ * source answered, and an empty answer is still that source's answer.
+ */
+const STATIC_PROVIDER_ID = 'static';
+
+/**
+ * The `FxRates.provider` value for the defensive last resort — the static
+ * fallback itself throwing, which it does not do for any base this module asks
+ * it for. It exists because that branch must still attribute the empty result to
+ * SOMETHING, and claiming the static source produced it would be false.
+ */
+const NO_PROVIDER_ID = 'none';
+
+/**
+ * The currency the configured providers publish their rates against.
+ *
+ * This is an IMPLEMENTATION DETAIL of `FaircoinExplorerFxProvider` and
+ * `StaticFxProvider` — both quote "units of X per 1 FAIR" — and is used to
+ * derive an arbitrary pair from them. It is deliberately private: no exported
+ * function takes it, returns it, or requires a caller to know it, so swapping in
+ * a provider that quotes pairs directly is a change to this file alone.
+ */
+const PROVIDER_PIVOT_CURRENCY: CurrencyCode = 'FAIR';
+
 /** Redis key prefix for cached rate sets, keyed by base currency. */
 const CACHE_KEY_PREFIX = 'fx:rates:';
 
-/** The cached payload shape persisted in Redis (rates + provenance). */
+/**
+ * The cached payload shape persisted in Redis (rates + provenance). `provider`
+ * is required: a cached rate whose source is unknown could not be attributed on
+ * a snapshot, so an entry written before this field existed fails validation and
+ * is discarded rather than served anonymously — harmless, since the cache is a
+ * minutes-long fallback and the next fetch repopulates it.
+ */
 const cachedRatesSchema = z.object({
   rates: z.record(z.string(), z.number()),
+  provider: z.string(),
   asOf: z.string(),
   ttlSeconds: z.number(),
 });
@@ -76,12 +122,13 @@ const inProcessLastGood = new Map<string, CachedRates>();
  * FAIR→USD price — it ignores any `?currency=`/`?vs=` query param (verified
  * against the live endpoint). So this provider can populate ONLY the `USD` quote
  * for a FAIR base. Any other requested quote (EUR/GBP) is simply omitted; the
- * `getRates` layer fills those from `config.fx.staticRates`. Only a FAIR base is
- * supported (B1 needs nothing else); a non-FAIR base throws.
+ * resolution layer fills those from `config.fx.staticRates`. This provider
+ * quotes only against FAIR — the base it publishes prices in — and throws for
+ * any other base; deriving an arbitrary pair from that is the caller's job.
  */
 class FaircoinExplorerFxProvider implements FxProvider {
   async getRates(base: CurrencyCode, quotes: CurrencyCode[]): Promise<Record<string, number>> {
-    if (base !== 'FAIR') {
+    if (base !== PROVIDER_PIVOT_CURRENCY) {
       throw new Error(`FaircoinExplorer provider only supports a FAIR base, received ${base}`);
     }
 
@@ -115,16 +162,19 @@ class FaircoinExplorerFxProvider implements FxProvider {
   }
 }
 
-/** Static (dev/last-resort) provider: serves `config.fx.staticRates`. */
+/**
+ * Static (dev/last-resort) provider: serves `config.fx.staticRates`, which are
+ * likewise published per 1 FAIR, so it quotes only against that base.
+ */
 class StaticFxProvider implements FxProvider {
   async getRates(base: CurrencyCode, quotes: CurrencyCode[]): Promise<Record<string, number>> {
-    if (base !== 'FAIR') {
+    if (base !== PROVIDER_PIVOT_CURRENCY) {
       throw new Error(`Static provider only supports a FAIR base, received ${base}`);
     }
     const result: Record<string, number> = {};
     for (const quote of quotes) {
-      if (quote === 'FAIR') {
-        result.FAIR = 1;
+      if (quote === PROVIDER_PIVOT_CURRENCY) {
+        result[PROVIDER_PIVOT_CURRENCY] = 1;
         continue;
       }
       const rate = config.fx.staticRates[quote];
@@ -143,21 +193,24 @@ function selectProvider(): FxProvider {
     : new StaticFxProvider();
 }
 
-/** Fill any quotes the provider omitted from the static rates (FAIR base). */
-function fillFromStatic(base: CurrencyCode, quotes: CurrencyCode[], rates: Record<string, number>): void {
+/**
+ * Fill quotes the configured provider omitted from the static rates. The live
+ * provider serves a single fiat (see `FaircoinExplorerFxProvider`), so this is
+ * the ordinary path rather than an error case — the result is still attributed
+ * to the configured provider, which declares the static map as its gap-fill.
+ */
+function fillFromStatic(quotes: CurrencyCode[], rates: Record<string, number>): void {
   for (const quote of quotes) {
     if (rates[quote] !== undefined) {
       continue;
     }
-    if (quote === 'FAIR' && base === 'FAIR') {
-      rates.FAIR = 1;
+    if (quote === PROVIDER_PIVOT_CURRENCY) {
+      rates[quote] = 1;
       continue;
     }
-    if (base === 'FAIR') {
-      const staticRate = config.fx.staticRates[quote as Exclude<CurrencyCode, 'FAIR'>];
-      if (staticRate !== undefined) {
-        rates[quote] = staticRate;
-      }
+    const staticRate = config.fx.staticRates[quote as Exclude<CurrencyCode, 'FAIR'>];
+    if (staticRate !== undefined) {
+      rates[quote] = staticRate;
     }
   }
 }
@@ -199,76 +252,96 @@ async function writeCache(base: CurrencyCode, payload: CachedRates): Promise<voi
 }
 
 /**
- * Resolve FAIR-based FX rates against `quotes`. NEVER throws — the display path
- * depends on always getting an `FxRates`:
+ * Resolve rates against the base the configured providers publish in
+ * (`PROVIDER_PIVOT_CURRENCY`). NEVER throws — the display path depends on always
+ * getting an `FxRates`:
  *  1. Fresh provider fetch → cached (Redis + in-process) → `stale: false`.
  *  2. Provider failure → last-good cache (Redis, then in-process) → `stale: true`.
  *  3. No cache anywhere → `StaticFxProvider` rates → `stale: true`.
  *  4. Even static failing (should never happen) → empty rates → `stale: true`.
  *
- * FAIR is the SINGLE cached base (`fx:rates:FAIR`): every rate the providers and
- * static config expose is quoted "per 1 FAIR", so a non-FAIR base is derived
- * from these rates (`resolveCrossBaseRates`) rather than cached separately.
+ * This is the SINGLE cached base (`fx:rates:FAIR`); every other base is DERIVED
+ * from these rates (`resolveDerivedBaseRates`) rather than cached separately, so
+ * there is one cache authority regardless of how many bases callers ask for.
  */
-async function resolveFairBaseRates(quotes: CurrencyCode[]): Promise<FxRates> {
+async function resolveProviderBaseRates(quotes: CurrencyCode[]): Promise<FxRates> {
   const ttlSeconds = config.fx.cacheTtlSeconds;
-  const base: CurrencyCode = 'FAIR';
+  const base = PROVIDER_PIVOT_CURRENCY;
 
   try {
     const providerRates = await selectProvider().getRates(base, quotes);
     const rates: Record<string, number> = { ...providerRates };
-    if (quotes.includes('FAIR')) {
-      rates.FAIR = 1;
-    }
-    fillFromStatic(base, quotes, rates);
+    fillFromStatic(quotes, rates);
 
+    const provider = config.fx.provider;
     const asOf = new Date().toISOString();
-    await writeCache(base, { rates, asOf, ttlSeconds });
-    return { base, rates, asOf, stale: false, ttlSeconds };
+    await writeCache(base, { rates, provider, asOf, ttlSeconds });
+    return { base, rates, provider, asOf, stale: false, ttlSeconds };
   } catch (err) {
     log.general.warn({ err, base }, 'FX provider failed; serving last-good or static rates');
 
     const lastGood = await readLastGood(base);
     if (lastGood) {
-      return { base, rates: lastGood.rates, asOf: lastGood.asOf, stale: true, ttlSeconds };
+      return {
+        base,
+        rates: lastGood.rates,
+        provider: lastGood.provider,
+        asOf: lastGood.asOf,
+        stale: true,
+        ttlSeconds,
+      };
     }
 
     try {
       const staticRates = await new StaticFxProvider().getRates(base, quotes);
-      return { base, rates: staticRates, asOf: new Date().toISOString(), stale: true, ttlSeconds };
+      return {
+        base,
+        rates: staticRates,
+        provider: STATIC_PROVIDER_ID,
+        asOf: new Date().toISOString(),
+        stale: true,
+        ttlSeconds,
+      };
     } catch (staticErr) {
       log.general.error({ err: staticErr, base }, 'Static FX fallback failed; returning empty rates');
-      return { base, rates: {}, asOf: new Date().toISOString(), stale: true, ttlSeconds };
+      return {
+        base,
+        rates: {},
+        provider: NO_PROVIDER_ID,
+        asOf: new Date().toISOString(),
+        stale: true,
+        ttlSeconds,
+      };
     }
   }
 }
 
 /**
- * Resolve display rates for a NON-FAIR `base` by pivoting through FAIR. Every
- * rate the providers/static config expose is quoted "per 1 FAIR", so a
- * `base→quote` rate is `(FAIR→quote) / (FAIR→base)`:
+ * Resolve rates for a base the providers do NOT publish in, by deriving them
+ * from the provider base. With every rate quoted per 1 pivot unit, a
+ * `base→quote` rate is `(pivot→quote) / (pivot→base)`:
  *
- *   1 base = (1 / (FAIR→base)) FAIR = ((FAIR→quote) / (FAIR→base)) quote
+ *   1 base = (1 / (pivot→base)) pivot = ((pivot→quote) / (pivot→base)) quote
  *
- * The FAIR-based rates come from `resolveFairBaseRates`, so this inherits its
- * never-throws / last-good / stale semantics and its single Redis cache
- * authority (keyed on FAIR — cross rates are derived, never cached separately).
- * A quote is OMITTED (never fabricated) when its pivot rate is missing: if the
- * `FAIR→base` rate itself is unavailable NO cross rate can be formed and the
+ * The pivot-based rates come from `resolveProviderBaseRates`, so this inherits
+ * its never-throws / last-good / stale semantics, its provider attribution and
+ * its single Redis cache authority — derived rates are never cached separately.
+ * A quote is OMITTED (never fabricated) when a rate it needs is missing: if the
+ * `pivot→base` rate itself is unavailable NO derived rate can be formed and the
  * result is empty; `quote === base` is always 1 and needs no rate.
  */
-async function resolveCrossBaseRates(base: CurrencyCode, quotes: CurrencyCode[]): Promise<FxRates> {
-  // Everything derives from `FAIR→base` and `FAIR→quote`, so request the FAIR
-  // rate for the base plus each distinct non-FAIR, non-base quote.
-  const fairQuotes: CurrencyCode[] = [base];
+async function resolveDerivedBaseRates(base: CurrencyCode, quotes: CurrencyCode[]): Promise<FxRates> {
+  // Everything derives from `pivot→base` and `pivot→quote`, so request the pivot
+  // rate for the base plus each distinct non-pivot, non-base quote.
+  const pivotQuotes: CurrencyCode[] = [base];
   for (const quote of quotes) {
-    if (quote !== 'FAIR' && quote !== base && !fairQuotes.includes(quote)) {
-      fairQuotes.push(quote);
+    if (quote !== PROVIDER_PIVOT_CURRENCY && quote !== base && !pivotQuotes.includes(quote)) {
+      pivotQuotes.push(quote);
     }
   }
 
-  const fair = await resolveFairBaseRates(fairQuotes);
-  const fairToBase = fair.rates[base];
+  const pivot = await resolveProviderBaseRates(pivotQuotes);
+  const pivotToBase = pivot.rates[base];
   const rates: Record<string, number> = {};
 
   for (const quote of quotes) {
@@ -276,85 +349,99 @@ async function resolveCrossBaseRates(base: CurrencyCode, quotes: CurrencyCode[])
       rates[quote] = 1;
       continue;
     }
-    if (fairToBase === undefined || !(fairToBase > 0)) {
-      // No FAIR→base rate → no pivot is possible; omit rather than fabricate.
+    if (pivotToBase === undefined || !(pivotToBase > 0)) {
+      // No pivot→base rate → nothing can be derived; omit rather than fabricate.
       continue;
     }
-    if (quote === 'FAIR') {
-      rates.FAIR = 1 / fairToBase;
+    if (quote === PROVIDER_PIVOT_CURRENCY) {
+      rates[quote] = 1 / pivotToBase;
       continue;
     }
-    const fairToQuote = fair.rates[quote];
-    if (fairToQuote !== undefined && fairToQuote > 0) {
-      rates[quote] = fairToQuote / fairToBase;
+    const pivotToQuote = pivot.rates[quote];
+    if (pivotToQuote !== undefined && pivotToQuote > 0) {
+      rates[quote] = pivotToQuote / pivotToBase;
     }
   }
 
-  return { base, rates, asOf: fair.asOf, stale: fair.stale, ttlSeconds: fair.ttlSeconds };
+  return {
+    base,
+    rates,
+    provider: pivot.provider,
+    asOf: pivot.asOf,
+    stale: pivot.stale,
+    ttlSeconds: pivot.ttlSeconds,
+  };
 }
 
 /**
- * Resolve FX rates for `base` against `quotes`. NEVER throws. Supports ANY base:
- * FAIR uses the cached provider/static path directly; a non-FAIR base is derived
- * by pivoting through FAIR (every rate is quoted "per 1 FAIR"). `FAIR→FAIR = 1`
- * and `base→base = 1`.
+ * Resolve FX rates for `base` against `quotes`. NEVER throws, and requires
+ * nothing of `base` — any supported currency may be the base. Whether the
+ * configured provider serves that base directly or the rates are derived from
+ * the one it publishes in is internal; callers see only `base→quote` multipliers
+ * and `base→base = 1`. A pair no source can serve is omitted from `rates`.
  */
 export async function getRates(base: CurrencyCode, quotes: CurrencyCode[]): Promise<FxRates> {
-  return base === 'FAIR' ? resolveFairBaseRates(quotes) : resolveCrossBaseRates(base, quotes);
+  return base === PROVIDER_PIVOT_CURRENCY
+    ? resolveProviderBaseRates(quotes)
+    : resolveDerivedBaseRates(base, quotes);
 }
 
 /**
- * The "units of `currency` per 1 FAIR" rate used to pivot through FAIR. FAIR is
- * 1 by definition; any other currency reads its `per 1 FAIR` rate from `rates`.
- * Throws `validationError` when a non-FAIR currency has no rate — a rate is
- * never fabricated.
+ * The rate of `currency` against the base `rates` is quoted in — 1 for the base
+ * itself, otherwise its entry in the map. Throws `validationError` when the
+ * entry is missing: a rate is never fabricated, and a conversion that cannot be
+ * quoted must fail rather than produce a wrong amount.
  */
-function fairPivotRate(currency: CurrencyCode, rates: FxRates): number {
-  if (currency === 'FAIR') {
+function rateAgainstBase(currency: CurrencyCode, rates: FxRates): number {
+  if (currency === rates.base) {
     return 1;
   }
   const rate = rates.rates[currency];
   if (rate === undefined || !(rate > 0)) {
-    throw validationError(`No exchange rate available for ${currency} (per 1 FAIR)`);
+    throw validationError(`No exchange rate available for ${currency} (per 1 ${rates.base})`);
   }
   return rate;
 }
 
 /**
- * Convert `money` to `target` using `rates`. Every rate in `rates` is quoted
- * "per 1 FAIR" (`rates.rates[X]` = units of X per 1 FAIR), so FAIR is the
- * universal pivot: source → FAIR → target. Any currency pair is supported —
- * FAIR↔fiat and cross fiat↔fiat alike. Rounding to integer minor units
- * (half-even) happens ONCE, at the final step, so a cross conversion never
- * double-rounds. Returns a `Money` in `target`.
+ * Convert `money` to `target` using `rates`. Any pair is supported: both sides
+ * are read against the rate map's own base, so the conversion is
+ * `source → base → target`. An equal pair short-circuits and returns the input
+ * object itself — byte-identical, with no rounding. Rounding to integer minor
+ * units (half-even) happens ONCE, at the final step, so a cross conversion never
+ * double-rounds, and the result is asserted representable before it is returned.
  *
- * Throws `validationError` when a non-FAIR side has no `per 1 FAIR` rate.
+ * Throws `validationError` when either side has no rate — a conversion is never
+ * completed with a fabricated number.
  */
 export function convert(money: Money, target: CurrencyCode, rates: FxRates): Money {
   if (money.currency === target) {
+    assertSafeMoneyAmount(money.amount, `fx.convert(${money.currency})`);
     return money;
   }
 
-  const sourcePerFair = fairPivotRate(money.currency, rates);
-  const targetPerFair = fairPivotRate(target, rates);
+  const sourcePerBase = rateAgainstBase(money.currency, rates);
+  const targetPerBase = rateAgainstBase(target, rates);
 
   const majorSource = money.amount / minorUnitsPerMajor(money.currency);
-  const majorFair = majorSource / sourcePerFair;
-  const majorTarget = majorFair * targetPerFair;
-  return { amount: roundMinorUnits(majorTarget * minorUnitsPerMajor(target)), currency: target };
+  const majorBase = majorSource / sourcePerBase;
+  const majorTarget = majorBase * targetPerBase;
+  const amount = roundMinorUnits(majorTarget * minorUnitsPerMajor(target));
+  assertSafeMoneyAmount(amount, `fx.convert(${money.currency}→${target})`);
+  return { amount, currency: target };
 }
 
 /**
  * The exchange rate to apply to convert ONE unit of `from` into `to` under
- * `rates` (units of `to` per 1 `from`). FAIR is the universal pivot, so this is
- * `(to per 1 FAIR) / (from per 1 FAIR)`; an equal pair is exactly 1. Throws
- * `validationError` when either side has no `per 1 FAIR` rate — never fabricated.
+ * `rates` (units of `to` per 1 `from`), i.e. `(to per 1 base) / (from per 1
+ * base)`. An equal pair is exactly 1. Throws `validationError` when either side
+ * has no rate — never fabricated.
  */
 export function pairRate(from: CurrencyCode, to: CurrencyCode, rates: FxRates): number {
   if (from === to) {
     return 1;
   }
-  return fairPivotRate(to, rates) / fairPivotRate(from, rates);
+  return rateAgainstBase(to, rates) / rateAgainstBase(from, rates);
 }
 
 /**
@@ -362,41 +449,16 @@ export function pairRate(from: CurrencyCode, to: CurrencyCode, rates: FxRates): 
  * as-is, and the `presentment` side is `shop` converted into
  * `presentmentCurrency` via `convert` (a same-currency pair is byte-identical, no
  * rounding). Every order/refund money field is built through here so the two
- * sides always describe the same value at the captured rates.
+ * sides always describe the same value at the captured rates, and both sides are
+ * asserted representable.
  */
 export function toDualMoney(
   shop: Money,
   presentmentCurrency: CurrencyCode,
   rates: FxRates,
 ): DualMoney {
+  assertSafeMoneyAmount(shop.amount, `fx.toDualMoney(shop ${shop.currency})`);
   return { shop, presentment: convert(shop, presentmentCurrency, rates) };
-}
-
-/**
- * SETTLEMENT-side conversion: convert a SHOP-currency `money` to FAIR for payout
- * at the `paid` transition. FAIR input is returned UNCHANGED (byte-identical, no
- * rounding). For a non-FAIR input this fetches the FAIR rate and converts X→FAIR.
- * This is the ONLY remaining FAIR-conversion write path — the catalog stores
- * native currency and never converts.
- *
- * FAILS CLOSED: unlike the display path, if no FAIR exchange rate is available
- * for the shop currency this THROWS `validationError` — we must never settle a
- * wrong FAIR amount.
- */
-export async function convertToFair(money: Money): Promise<Money> {
-  if (money.currency === 'FAIR') {
-    return money;
-  }
-
-  const fx = await getRates('FAIR', [money.currency]);
-  const rate = fx.rates[money.currency];
-  if (rate === undefined || !(rate > 0)) {
-    throw validationError(`No FAIR exchange rate available for ${money.currency}`);
-  }
-
-  const majorSource = money.amount / minorUnitsPerMajor(money.currency);
-  const majorFair = majorSource / rate;
-  return { amount: roundMinorUnits(majorFair * minorUnitsPerMajor('FAIR')), currency: 'FAIR' };
 }
 
 /**

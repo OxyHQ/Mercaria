@@ -4,7 +4,7 @@
  * The richer analytics surface beside the dashboard `storeStats` in
  * `order.service`. Every figure is scoped to ONE store and (for revenue/AOV/top
  * products/sales) derived from its PAID orders; money is summed on the SHOP
- * (settlement) side and `$match`ed to the store's `defaultCurrency`, so reports
+ * (merchant accounting) side and `$match`ed to the store's `defaultCurrency`, so reports
  * NEVER mix currencies. All three reports run server-side Mongo aggregations
  * (`$match`/`$group`/`$dateTrunc`) rather than loading documents into memory, so
  * they scale with order volume. Reports are READ-only — they never mutate orders.
@@ -53,9 +53,10 @@ function zeroChannels(): SourceChannelBreakdown {
 }
 
 /**
- * Resolve a store's default settlement currency, falling back to FAIR. Reports
- * never mix currencies — a store settles in one currency — so this single value
- * tags every `Money` the reports emit.
+ * Resolve a store's default accounting currency, falling back to FAIR. Reports
+ * never mix currencies — a store reports in one currency — so this single value
+ * tags every `Money` the reports emit, which is what makes each aggregate
+ * self-describing rather than a bare number.
  */
 async function storeCurrency(storeId: string): Promise<Money['currency']> {
   const store = await Store.findById(storeId).select('defaultCurrency').lean<

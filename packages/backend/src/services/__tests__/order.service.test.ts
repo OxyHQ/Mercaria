@@ -67,6 +67,18 @@ vi.mock('../order-hydration.service.js', () => ({
   summarizeOrders: vi.fn().mockResolvedValue([]),
 }));
 
+/**
+ * A lifecycle transition must never consult FX. Every export throws, so if the
+ * service ever reaches for a rate again the transition fails loudly instead of
+ * acquiring a hidden dependency on a currency being quotable.
+ */
+vi.mock('../fx.service.js', () => {
+  const unavailable = (): never => {
+    throw new Error('order.service must not consult FX during a lifecycle transition');
+  };
+  return { getRates: unavailable, convert: unavailable, pairRate: unavailable, toDualMoney: unavailable };
+});
+
 vi.mock('../../queue/producers.js', () => ({
   enqueueOrderEvent: (...args: unknown[]) => enqueueOrderEvent(...args),
   enqueueFulfillmentPush: (...args: unknown[]) => enqueueFulfillmentPush(...args),
@@ -99,7 +111,7 @@ function mockOrder(
     sellerOxyUserId: options.sellerType === 'store' ? undefined : 'seller-X',
     storeId: options.sellerType === 'store' ? 'store-A' : undefined,
     // DualMoney grandTotal: shop == presentment for these fixtures. The paid
-    // transition settles the SHOP side to FAIR and relates the customer in it.
+    // transition relates the store customer in the SHOP side and converts nothing.
     totals: {
       grandTotal: {
         shop: { amount: gtAmount, currency: gtCurrency },
@@ -281,33 +293,38 @@ describe('order.service.transition — inventory effects', () => {
   });
 });
 
-describe('order.service.transition — settlement (shop → FAIR)', () => {
-  it('a FAIR-shop order settles 1:1 with a FAIR settlement snapshot + rate 1', async () => {
-    const doc = mockOrder('pending_payment', { sellerType: 'user' });
-    await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
-
-    const setFields = (findOneAndUpdate.mock.calls[0][1] as { $set: Record<string, unknown> }).$set;
-    const settlement = setFields.settlement as { amount: { amount: number; currency: string }; rate: number };
-    expect(settlement.amount).toEqual({ amount: 9000, currency: 'FAIR' });
-    expect(settlement.rate).toBe(1);
-    expect(doc.settlement?.amount.currency).toBe('FAIR');
-  });
-
-  it('a non-FAIR (EUR) shop order converts the grand total to FAIR at settlement', async () => {
-    // €45.00 shop grand total; static FAIR→EUR rate 0.45 → 100 FAIR (1e10 minor).
+describe('order.service.transition — paid converts NO currency', () => {
+  /**
+   * The whole `fx.service` module is mocked to throw. `order.service` does not
+   * import it, so these calls are inert TODAY — which is the point: the mock is
+   * a tripwire that fires the moment a currency conversion is reintroduced at
+   * the `paid` seam, and it fails the transition rather than passing quietly.
+   * Verified by temporarily calling `getRates` in `transition`: these two cases
+   * go red, and go green again when it is removed.
+   */
+  it('moves a native EUR order to paid with NO exchange rate obtainable', async () => {
     const doc = mockOrder('pending_payment', {
       sellerType: 'user',
       grandTotalCurrency: 'EUR',
       grandTotalAmount: 4500,
     });
+
+    await expect(transition(doc, 'paid', { actorOxyUserId: 'actor-1' })).resolves.toBeDefined();
+
+    expect(doc.status).toBe('paid');
+    expect(doc.payment.status).toBe('paid');
+    // The sale still finalizes: stock committed, seller credited.
+    expect(commit).toHaveBeenCalledTimes(2);
+    expect(sellerProfileUpdateOne).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes ONLY status + payment fields — no settlement of any kind', async () => {
+    const doc = mockOrder('pending_payment', { sellerType: 'user' });
     await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
 
     const setFields = (findOneAndUpdate.mock.calls[0][1] as { $set: Record<string, unknown> }).$set;
-    const settlement = setFields.settlement as { amount: { amount: number; currency: string }; rate: number };
-    expect(settlement.amount.currency).toBe('FAIR');
-    expect(settlement.amount.amount).toBe(10_000_000_000);
-    // FAIR per 1 EUR = 100 FAIR / €45 ≈ 2.222…
-    expect(settlement.rate).toBeCloseTo(100 / 45, 6);
+    expect(Object.keys(setFields).sort()).toEqual(['payment.paidAt', 'payment.status', 'status']);
+    expect(setFields.settlement).toBeUndefined();
   });
 });
 

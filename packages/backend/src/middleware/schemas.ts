@@ -15,6 +15,7 @@ import {
   ABUSE_REPORT_CATEGORIES,
   ABUSE_REPORTED_TYPES,
   ALL_CURRENCY_CODES,
+  MAX_MONEY_MINOR_UNITS,
   type CurrencyCode,
 } from '@mercaria/shared-types';
 
@@ -30,9 +31,19 @@ const CURRENCY_CODE_VALUES = ALL_CURRENCY_CODES as readonly [CurrencyCode, ...Cu
 /** Supported currency codes (mirrors `CurrencyCode`). */
 const currencySchema = z.enum(CURRENCY_CODE_VALUES);
 
-/** `Money` input: integer minor units, non-negative, with a supported currency. */
+/**
+ * `Money` input: integer minor units, non-negative, within
+ * `MAX_MONEY_MINOR_UNITS`, with a supported currency.
+ *
+ * The ceiling is load-bearing, not decoration: `z.number().int()` accepts `1e300`
+ * (it is an integer), and an amount above 2^53 − 1 stops being exactly
+ * representable, so every total derived from it silently loses minor units. This
+ * is the FIRST of the amount-safety boundaries and the only one that can answer
+ * a client with a 400 naming the field; the pricing, FX, refund and persistence
+ * layers assert the same limit on the amounts they form.
+ */
 const moneySchema = z.object({
-  amount: z.number().int().nonnegative(),
+  amount: z.number().int().nonnegative().max(MAX_MONEY_MINOR_UNITS),
   currency: currencySchema,
 });
 
@@ -290,10 +301,14 @@ const discountAppliesToSchema = z.object({
   collectionIds: z.array(z.string().trim().min(1)).optional(),
 });
 
-/** A minimum requirement (DiscountMinimumRequirement). */
+/**
+ * A minimum requirement (DiscountMinimumRequirement). `value` is MINOR UNITS for
+ * `subtotal` and a unit count for `quantity`, so it carries the same ceiling as
+ * a `Money.amount` — it is compared against one.
+ */
 const discountMinimumRequirementSchema = z.object({
   type: z.enum(['none', 'subtotal', 'quantity']),
-  value: z.number().int().nonnegative(),
+  value: z.number().int().nonnegative().max(MAX_MONEY_MINOR_UNITS),
 });
 
 /** Customer eligibility (DiscountCustomerEligibility). */
@@ -322,7 +337,9 @@ export const createDiscountSchema = z.object({
   method: z.enum(['code', 'automatic']),
   codes: z.array(z.string().trim().min(1).max(60)).optional(),
   valueType: z.enum(['percentage', 'fixed_amount', 'bogo', 'free_item']),
-  value: z.number().int().nonnegative(),
+  // Basis points for `percentage`, MINOR UNITS for `fixed_amount` — bounded as a
+  // money amount, since that is what it is subtracted from.
+  value: z.number().int().nonnegative().max(MAX_MONEY_MINOR_UNITS),
   appliesTo: discountAppliesToSchema,
   buy: discountLegSchema.optional(),
   get: discountLegSchema.optional(),
@@ -864,7 +881,7 @@ export const webPushSubscriptionDeleteSchema = z.object({
 const currencyEnum = z.enum(CURRENCY_CODE_VALUES);
 
 /**
- * Query for `GET /rates`. `base` defaults to the canonical FAIR; `quote` is an
+ * Query for `GET /rates`. `base` defaults to FAIR (the display default); `quote` is an
  * optional comma list (e.g. `USD,EUR`) parsed + validated in the controller.
  */
 export const ratesQuerySchema = z

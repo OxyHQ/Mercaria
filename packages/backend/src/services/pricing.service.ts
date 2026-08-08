@@ -6,7 +6,8 @@
  * preview, the checkout order-build loop and any future quote endpoint ALL go
  * through it, so the buyer is never shown a total the checkout disagrees with.
  *
- * Everything is computed in INTEGER minor units of the SHOP (settlement) currency
+ * Everything is computed in INTEGER minor units of the SHOP (merchant
+ * accounting) currency
  * (`input.currency`): native line prices are converted to the shop currency up
  * front, so all math is single-currency. Half-even rounding runs through the
  * shared `utils/money` helpers (`percentOf`, `roundMoney`, `allocateProportionally`).
@@ -28,13 +29,14 @@
  *   best combination yields the larger total is kept (ties keep the order class).
  */
 
-import type {
-  CurrencyCode,
-  DiscountAllocation,
-  DualMoney,
-  FxRates,
-  Money,
-  TaxLine,
+import {
+  assertSafeMoneyAmount,
+  type CurrencyCode,
+  type DiscountAllocation,
+  type DualMoney,
+  type FxRates,
+  type Money,
+  type TaxLine,
 } from '@mercaria/shared-types';
 import { Discount, type IDiscount } from '../models/discount.js';
 import { TaxRate, type ITaxRate } from '../models/tax-rate.js';
@@ -85,13 +87,14 @@ export interface PricingInput {
   /**
    * The priced lines, in display order (the result mirrors this order). Each
    * line's `unitPrice` may be in its NATIVE currency; the engine converts it to
-   * `currency` (the shop currency) before pricing, so mixed-currency groups
-   * settle consistently.
+   * `currency` (the shop currency) before pricing, so a group whose lines are
+   * priced in several currencies totals in exactly one.
    */
   lines: PricingLine[];
   /**
-   * The SHOP (settlement) currency every amount is priced in — the store's
-   * `defaultCurrency` (or, for a P2P group, the seller's listing currency).
+   * The SHOP currency every amount is priced in — the seller's own accounting
+   * currency: a store's `defaultCurrency`, or a P2P seller's listing currency.
+   * It is the reporting and refund basis, NOT a settlement instruction.
    */
   currency: CurrencyCode;
   /**
@@ -101,9 +104,9 @@ export interface PricingInput {
    */
   presentmentCurrency: CurrencyCode;
   /**
-   * FAIR-based rates covering the shop, presentment and every line-native
-   * currency. Provided by the caller so checkout can snapshot the SAME rates onto
-   * the order for reproducibility.
+   * Rates covering the shop, presentment and every line-native currency, against
+   * whichever base the caller resolved them for. Provided by the caller so
+   * checkout can snapshot the SAME rates onto the order for reproducibility.
    */
   rates: FxRates;
   /** Discount codes the buyer is redeeming (case-insensitive). */
@@ -120,9 +123,9 @@ export interface PricingInput {
 
 /**
  * The authoritative totals for one seller group. Every total is `DualMoney` (the
- * settlement `shop` side + the buyer's `presentment` side). The discount/tax
+ * seller's `shop` side + the buyer's `presentment` side). The discount/tax
  * BREAKDOWN lines (`appliedDiscounts`/`taxLines`) carry SHOP-currency amounts —
- * they are the settlement/refund basis; the presentment figure a buyer sees is
+ * they are the accounting/refund basis; the presentment figure a buyer sees is
  * the dual `discountTotal`/`tax` totals.
  */
 export interface PricingResult {
@@ -167,8 +170,14 @@ export async function calculateTotals(input: PricingInput): Promise<PricingResul
   const { currency, presentmentCurrency, rates } = input;
 
   // Wrap a SHOP-currency minor-unit amount as `DualMoney` (shop + presentment).
-  const dual = (amount: number): DualMoney =>
-    toDualMoney({ amount, currency }, presentmentCurrency, rates);
+  // Every engine OUTPUT passes through here, so asserting the shop amount (and,
+  // inside `toDualMoney`, the presentment amount) makes this the one place an
+  // unrepresentable total can be caught — named by `field`, so a breach points at
+  // the stage that produced it rather than at the engine as a whole.
+  const dual = (amount: number, field: string): DualMoney => {
+    assertSafeMoneyAmount(amount, `pricing.${field}`);
+    return toDualMoney({ amount, currency }, presentmentCurrency, rates);
+  };
 
   // Convert every line's native unit price into the SHOP currency up front, so
   // all downstream math is single-currency (a same-currency line is unchanged).
@@ -187,14 +196,14 @@ export async function calculateTotals(input: PricingInput): Promise<PricingResul
   // No store → no discounts/taxes (pure P2P group).
   if (!input.storeId) {
     return {
-      subtotal: dual(subtotal.amount),
-      discountTotal: dual(0),
-      tax: dual(0),
-      shipping: dual(0),
-      grandTotal: dual(subtotal.amount),
+      subtotal: dual(subtotal.amount, 'subtotal'),
+      discountTotal: dual(0, 'discountTotal'),
+      tax: dual(0, 'tax'),
+      shipping: dual(0, 'shipping'),
+      grandTotal: dual(subtotal.amount, 'grandTotal'),
       appliedDiscounts: [],
       taxLines: [],
-      perLineDiscount: lines.map(() => dual(0)),
+      perLineDiscount: lines.map(() => dual(0, 'perLineDiscount')),
     };
   }
 
@@ -252,14 +261,14 @@ export async function calculateTotals(input: PricingInput): Promise<PricingResul
   reconcileExactness({ lineTotals, perLineDiscount, perLineTax, grandTotalAmount, shipping });
 
   const result: PricingResult = {
-    subtotal: dual(subtotal.amount),
-    discountTotal: dual(discountTotal),
-    tax: dual(taxTotal),
-    shipping: dual(shipping),
-    grandTotal: dual(grandTotalAmount),
+    subtotal: dual(subtotal.amount, 'subtotal'),
+    discountTotal: dual(discountTotal, 'discountTotal'),
+    tax: dual(taxTotal, 'tax'),
+    shipping: dual(shipping, 'shipping'),
+    grandTotal: dual(grandTotalAmount, 'grandTotal'),
     appliedDiscounts: allocations.map((a) => ({ ...a, amount: { ...a.amount } })),
     taxLines,
-    perLineDiscount: perLineDiscount.map((amount) => dual(amount)),
+    perLineDiscount: perLineDiscount.map((amount) => dual(amount, 'perLineDiscount')),
   };
   return result;
 }

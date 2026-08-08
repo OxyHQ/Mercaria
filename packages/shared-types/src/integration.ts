@@ -98,8 +98,9 @@ export interface Connection {
   shopDomain?: string;
   /**
    * The external shop's own currency (ISO-4217 as reported by the platform). May
-   * be a code outside Mercaria's supported `CurrencyCode` set — it is metadata,
-   * not a settlement currency, so it is typed as a raw string.
+   * be a code outside Mercaria's supported `CurrencyCode` set — it is metadata
+   * reported by the platform, not a currency Mercaria transacts in, so it is
+   * typed as a raw string.
    */
   shopCurrency?: string;
   /** OAuth scopes / permissions granted by the external platform. */

@@ -153,9 +153,10 @@ so the four-column expansion is stated once. Not `jsonb`, and not a
   `mode: 'bigint'` would change the wire type and every one of them. That mode
   re-imposes JavaScript's own 2^53 ceiling (about 90.07 million ⊜) — which is
   NOT a ceiling this column introduces, it is exactly the one
-  `Money.amount: number` has today, and `money.ts`'s own comment flags the same
-  figure as a pending BigInt decision. If that decision lands, the column and the
-  DTO change together.
+  `Money.amount: number` has today. That ceiling is now DECLARED and ENFORCED in
+  shared-types (`MAX_MONEY_MINOR_UNITS` / `assertSafeMoneyAmount`), asserted at
+  every construction boundary rather than left as an open question. If a real
+  amount ever approaches it, the column and the DTO move to `bigint` together.
   The same reasoning governs every non-`Money` column that can hold minor units:
   `discounts.value` (basis points for a percentage, but MINOR UNITS for
   `fixed_amount`) and `discounts.minimum_requirement_value` (a subtotal or a
@@ -168,13 +169,16 @@ so the four-column expansion is stated once. Not `jsonb`, and not a
   shop amount and no presentment amount is not a partially-filled row, it is a
   row that cannot be rendered to the buyer who paid it.
 
-The order also snapshots `fx_rate` (shop→presentment) for reproducibility, and
-the settlement seam persists a FAIR amount plus its rate. Those are single
-values, not `DualMoney`.
+The order also snapshots `fx_rate` (shop→presentment) for reproducibility — five
+columns, since a snapshot names its `provider` as well as from/to/rate/asOf, and
+a stored rate nobody can attribute to a source is not reproducible. It is a
+single value, not a `DualMoney`. The `settlement_*` columns beside it are
+RETIRED and unwritten; see the comment on them in `orders.ts`.
 
 Discount and tax BREAKDOWN lines (`applied_discounts`, `tax_lines`) stay
-SINGLE-currency shop amounts — they are the settlement and refund basis, and
-giving them a presentment side would invite someone to refund against it.
+SINGLE-currency shop amounts — they are the merchant accounting and refund
+basis, and giving them a presentment side would invite someone to refund against
+it.
 
 ## Closed value sets — `text` + CHECK, derived from the shared-types tuple
 

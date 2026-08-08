@@ -6,7 +6,21 @@
  * mapping, and the `page_info` pagination + `status=any` first-page filter.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+/**
+ * An imported order keeps the amounts and the rate the SOURCE platform reported.
+ * Mercaria's own FX must never touch it, so the module is mocked to throw: if
+ * normalization ever reaches for a Mercaria rate, every case below fails instead
+ * of quietly re-pricing somebody else's order at today's rate.
+ */
+vi.mock('../../../services/fx.service.js', () => {
+  const unavailable = (): never => {
+    throw new Error('connector normalization must not consult Mercaria FX');
+  };
+  return { getRates: unavailable, convert: unavailable, pairRate: unavailable, toDualMoney: unavailable };
+});
+
 import { createShopifyProvider, normalizeShopifyOrder } from '../index.js';
 import type { ShopifyHttpResponse, ShopifyTransport } from '../http.js';
 import type { ConnectorCredentials } from '../../types.js';
@@ -122,6 +136,9 @@ describe('normalizeShopifyOrder — dual-currency mapping', () => {
       from: 'USD',
       to: 'EUR',
       rate: 0.9, // 35.10 / 39.00
+      // Attributed to SHOPIFY, not to a Mercaria FX provider: the rate is the
+      // one Shopify actually charged at, reconstructed from its own two totals.
+      provider: 'shopify',
       asOf: '2026-07-15T11:00:00Z',
     });
     expect(order.customer).toEqual({
@@ -169,6 +186,26 @@ describe('normalizeShopifyOrder — status + currency edge cases', () => {
     expect(order.presentmentCurrency).toBe('USD');
     expect(order.totals.grandTotal.presentment).toEqual(order.totals.grandTotal.shop);
     expect(order.fxRate).toBeUndefined();
+  });
+
+  it('carries every amount through VERBATIM from the source payload', () => {
+    // Each figure is the platform's own string, scaled to minor units and
+    // otherwise untouched — no markup, no re-conversion, no rounding of its own.
+    // Cross-checked against the fixture: 40.00/4.00/5.00/39.00 shop USD, and
+    // 36.00/3.60/4.50/35.10 presentment EUR.
+    const order = normalizeShopifyOrder(dualCurrencyOrder(), 'USD');
+    expect(order.totals.subtotal.shop.amount).toBe(4000);
+    expect(order.totals.tax.shop.amount).toBe(400);
+    expect(order.totals.discountTotal.shop.amount).toBe(500);
+    expect(order.totals.grandTotal.shop.amount).toBe(3900);
+    expect(order.totals.subtotal.presentment.amount).toBe(3600);
+    expect(order.totals.tax.presentment.amount).toBe(360);
+    expect(order.totals.discountTotal.presentment.amount).toBe(450);
+    expect(order.totals.grandTotal.presentment.amount).toBe(3510);
+    // The two sides do NOT agree at any Mercaria rate — they agree at Shopify's,
+    // which is exactly what the snapshot records.
+    expect(order.fxRate?.rate).toBe(0.9);
+    expect(order.fxRate?.provider).toBe('shopify');
   });
 
   it('is byte-identical on both sides when shop == presentment', () => {

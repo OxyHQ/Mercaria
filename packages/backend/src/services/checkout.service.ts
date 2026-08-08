@@ -29,6 +29,7 @@ import type {
   TaxLine,
 } from '@mercaria/shared-types';
 import type { Cart } from '@mercaria/shared-types';
+import { assertSafeMoneyAmount } from '@mercaria/shared-types';
 import {
   Order,
   type IOrder,
@@ -450,10 +451,15 @@ export async function checkout(
   const shippingPostal = address.postalCode;
 
   // 5c. Resolve the buyer's PRESENTMENT currency (the cart's display currency) and
-  // each store group's SHOP (settlement) currency — its `defaultCurrency`, falling
-  // back to a line's native currency. FAIR-based rates covering every currency
+  // each seller group's SHOP currency — a store's `defaultCurrency`, falling back
+  // to a line's native currency for a P2P group. Rates covering every currency
   // involved (presentment + shop + native) are fetched ONCE so the native → shop →
   // presentment conversions and the per-order fxRate snapshot are all consistent.
+  //
+  // The rates are quoted against the PRESENTMENT currency: it is the one currency
+  // every group in this checkout shares, and asking for the pairs this checkout
+  // actually needs keeps the provider's own quoting base out of the domain code.
+  // A checkout whose currencies are all the same then needs no rate at all.
   const presentmentCurrency: CurrencyCode = cart.currency;
   const groupStoreIds = [
     ...new Set(
@@ -480,7 +486,7 @@ export async function checkout(
       involvedCurrencies.add(nativeUnitPrice(line.variant).currency);
     }
   }
-  const rates = await getRates('FAIR', [...involvedCurrencies]);
+  const rates = await getRates(presentmentCurrency, [...involvedCurrencies]);
 
   // 6-7. Build + create one order per group (durable idempotency via 11000).
   // The pricing engine computes discount→tax→grand in the SHOP currency (shipping
@@ -524,15 +530,20 @@ export async function checkout(
 
       const items = buildItems(group, pricing.perLineDiscount, shopCurrency, presentmentCurrency, rates);
       // grandTotal = (subtotal − discount + tax) from pricing, plus flat shipping,
-      // added on each of the shop + presentment sides.
+      // added on each of the shop + presentment sides. Both sides are asserted
+      // representable: this is the last amount formed before the order is
+      // persisted, and it is the one every downstream total is compared against.
       const grandTotal: DualMoney = {
         shop: addMoney(pricing.grandTotal.shop, cost.shop),
         presentment: addMoney(pricing.grandTotal.presentment, cost.presentment),
       };
+      assertSafeMoneyAmount(grandTotal.shop.amount, 'checkout.grandTotal.shop');
+      assertSafeMoneyAmount(grandTotal.presentment.amount, 'checkout.grandTotal.presentment');
       const fxRate: FxRateSnapshot = {
         from: shopCurrency,
         to: presentmentCurrency,
         rate: pairRate(shopCurrency, presentmentCurrency, rates),
+        provider: rates.provider,
         asOf: rates.asOf,
       };
       const orderNumber = await nextOrderNumber();

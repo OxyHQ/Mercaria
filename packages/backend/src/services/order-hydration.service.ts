@@ -16,7 +16,6 @@ import type {
   Money,
   DualMoney,
   FxRateSnapshot,
-  OrderSettlement,
   Order as OrderDTO,
   OrderItem,
   OrderSummary,
@@ -285,17 +284,10 @@ export async function hydrateOrders(orders: IOrder[]): Promise<OrderDTO[]> {
         from: order.fxRate.from,
         to: order.fxRate.to,
         rate: order.fxRate.rate,
+        provider: order.fxRate.provider,
         asOf: order.fxRate.asOf,
       };
       dto.fxRate = fxRate;
-    }
-    if (order.settlement) {
-      const settlement: OrderSettlement = {
-        amount: toMoney(order.settlement.amount),
-        rate: order.settlement.rate,
-        asOf: order.settlement.asOf,
-      };
-      dto.settlement = settlement;
     }
 
     if (order.sellerType === 'user' && order.sellerOxyUserId) {

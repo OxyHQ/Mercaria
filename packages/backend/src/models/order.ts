@@ -127,13 +127,7 @@ export interface IFxRateSnapshot {
   from: CurrencyCode;
   to: CurrencyCode;
   rate: number;
-  asOf: string;
-}
-
-/** The persisted shop→FAIR settlement snapshot (mirrors `OrderSettlement`). */
-export interface IOrderSettlement {
-  amount: IMoney;
-  rate: number;
+  provider: string;
   asOf: string;
 }
 
@@ -181,8 +175,6 @@ export interface IOrder {
   };
   /** The shop→presentment rate snapshot used to form the order's dual amounts. */
   fxRate?: IFxRateSnapshot;
-  /** The shop→FAIR settlement snapshot, present once the order is paid. */
-  settlement?: IOrderSettlement;
   appliedDiscounts: IDiscountAllocation[];
   taxLines: ITaxLine[];
   status: OrderStatus;
@@ -260,22 +252,18 @@ const ShippingSnapshotSchema = new Schema<IShippingSnapshot>(
   { _id: false },
 );
 
-/** The shop→presentment rate snapshot used to form the order's dual amounts. */
+/**
+ * The shop→presentment rate snapshot used to form the order's dual amounts.
+ * `provider` names what quoted the rate, so a persisted conversion is always
+ * attributable to its source and two snapshots from different sources are never
+ * confused for one another.
+ */
 const FxRateSnapshotSchema = new Schema<IFxRateSnapshot>(
   {
     from: { type: String, required: true },
     to: { type: String, required: true },
     rate: { type: Number, required: true },
-    asOf: { type: String, required: true },
-  },
-  { _id: false },
-);
-
-/** The shop→FAIR settlement snapshot, captured at the `paid` transition. */
-const OrderSettlementSchema = new Schema<IOrderSettlement>(
-  {
-    amount: { type: MoneySchema, required: true },
-    rate: { type: Number, required: true },
+    provider: { type: String, required: true },
     asOf: { type: String, required: true },
   },
   { _id: false },
@@ -350,7 +338,6 @@ const OrderSchema = new Schema<IOrder>(
       grandTotal: { type: DualMoneySchema, required: true },
     },
     fxRate: { type: FxRateSnapshotSchema, required: false },
-    settlement: { type: OrderSettlementSchema, required: false },
     appliedDiscounts: { type: [DiscountAllocationSchema], default: [] },
     taxLines: { type: [TaxLineSchema], default: [] },
     status: {

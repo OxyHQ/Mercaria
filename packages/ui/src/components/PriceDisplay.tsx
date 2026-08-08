@@ -13,7 +13,11 @@ import { useFx } from "./FxContext";
 const DECIMAL_RADIX = 10;
 /** Prefix marking the secondary figure as an approximate conversion. */
 const APPROX_PREFIX = "≈ ";
-/** The canonical pivot currency — every display rate is quoted per 1 FAIR. */
+/**
+ * The pivot this DISPLAY conversion uses, matching how the `/rates` endpoint
+ * quotes by default (per 1 FAIR). It is a property of the rate map this
+ * component is handed, not a claim about how anything is stored or settled.
+ */
 const FAIR: CurrencyCode = "FAIR";
 
 /**
