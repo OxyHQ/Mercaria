@@ -10,13 +10,13 @@
  * notification failure is logged and never aborts the rest of the job.
  */
 
-import type { NotificationType } from '../models/notification.js';
+import type { NotificationType } from '../db/schema/notifications.js';
 import {
   findOrderById,
   findStalePendingOrders,
 } from '../db/orders/orderRepository.js';
 import { findStoreById, type StoreMemberRecord } from '../db/stores/storeRepository.js';
-import { Review } from '../models/review.js';
+import { findPublishedReviewTargets } from '../db/buyers/reviewRepository.js';
 import { transition } from '../services/order.service.js';
 import { sendNotification } from '../lib/notification-service.js';
 import { config } from '../config/index.js';
@@ -222,39 +222,22 @@ export async function handleLowInventoryAlert(job: LowInventoryAlertJob): Promis
  * Daily drift-correction sweep: recompute the rating aggregate of every distinct
  * review target that has published reviews. Each target is recomputed
  * independently; a single failure is logged and the sweep continues.
+ *
+ * The Mongo version skipped a group whose resolved `targetId` came back null,
+ * because its `$switch` had a `default: null` branch and nothing stopped a
+ * review from carrying a `targetType` with the matching id unset. Postgres
+ * states both halves as constraints — `reviews_target_type_check` bounds the
+ * type to the three the CASE covers, and `reviews_target_exclusivity_check`
+ * requires the matching column to be non-null — so the skip had nothing left to
+ * skip and went with the query.
  */
 export async function handleAggregateSweep(): Promise<void> {
   const { recomputeAggregate } = await import('../services/review.service.js');
 
-  const groups = await Review.aggregate<{
-    _id: { targetType: 'listing' | 'store' | 'seller'; targetId: string };
-  }>([
-    { $match: { status: 'published' } },
-    {
-      $group: {
-        _id: {
-          targetType: '$targetType',
-          targetId: {
-            $switch: {
-              branches: [
-                { case: { $eq: ['$targetType', 'listing'] }, then: '$listingId' },
-                { case: { $eq: ['$targetType', 'store'] }, then: '$storeId' },
-                { case: { $eq: ['$targetType', 'seller'] }, then: '$sellerOxyUserId' },
-              ],
-              default: null,
-            },
-          },
-        },
-      },
-    },
-  ]);
+  const targets = await findPublishedReviewTargets();
 
   let recomputed = 0;
-  for (const group of groups) {
-    const { targetType, targetId } = group._id;
-    if (!targetId) {
-      continue;
-    }
+  for (const { targetType, targetId } of targets) {
     try {
       await recomputeAggregate(targetType, targetId);
       recomputed += 1;

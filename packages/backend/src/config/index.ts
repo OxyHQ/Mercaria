@@ -123,6 +123,32 @@ function resolveEnforcementMode(): ModerationEnforcementMode {
  * false still get their outbox row, so switching it on delivers the backlog
  * rather than stranding it.
  */
+/**
+ * `DATABASE_URL`, or a refusal to build a config at all.
+ *
+ * Deliberately a THROW rather than a fallback or an optional value. Every route
+ * this API serves is backed by Postgres, so there is no degraded mode left to
+ * fall back to: the only alternatives to failing here are inventing a connection
+ * string (which points a production task at a developer's machine) or deferring
+ * the failure to the first request (which turns one startup error into an
+ * unbounded stream of 500s that reads as an outage). Failing at config load stops
+ * the task before it can be added to a load balancer.
+ *
+ * Trimmed, and an all-whitespace value is treated as absent — it reaches
+ * `postgres()` as a parse error hundreds of lines from whatever set it.
+ */
+function resolveDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL?.trim();
+  if (!url) {
+    throw new Error(
+      'DATABASE_URL is not set. Every Mercaria API route is served from PostgreSQL, ' +
+        'so a task without it cannot answer any request. Start a local server with: ' +
+        'docker compose -f docker-compose.postgres.yml up -d postgres',
+    );
+  }
+  return url;
+}
+
 function resolveCrowdSourceEnabled(): boolean {
   if (!boolEnv('CROWDSOURCE_ENABLED', false)) return false;
 
@@ -271,16 +297,19 @@ export interface FxConfig {
 
 export interface PostgresConfig {
   /**
-   * `DATABASE_URL`. ABSENT means "Postgres is not configured here", not "this
-   * deployment is broken".
+   * `DATABASE_URL`. REQUIRED — every route this API serves reads Postgres.
    *
-   * Mercaria is mid-migration from MongoDB: Mongo is still the store every
-   * request reads and writes, and a task with no `DATABASE_URL` must boot and
-   * serve exactly as it does today. `connectPostgres()` is the only thing that
-   * requires it, and it is called by nothing yet — so this stays optional until
-   * the cutover, at which point it becomes required and this comment goes away.
+   * It was optional while Mercaria ran on both stores, so that a task without it
+   * booted and served from Mongo exactly as before. That is over: no runtime path
+   * in `src/` opens Mongo any more, so a task without a `DATABASE_URL` cannot
+   * answer a single request. Resolving it to `undefined` would only defer the
+   * failure from startup to the first user, one "PostgreSQL is not connected" per
+   * request — which reads as an outage rather than as the misconfiguration it is.
+   *
+   * Declared `string`, not `string | undefined`, so nothing downstream has to
+   * re-check it.
    */
-  readonly url?: string;
+  readonly url: string;
   /** postgres.js pool ceiling per task. */
   readonly maxPoolSize: number;
   /** Seconds an idle pooled connection is kept before being closed. */
@@ -393,10 +422,7 @@ export const config: AppConfig = Object.freeze({
     enforcementMode: resolveEnforcementMode(),
   }),
   postgres: Object.freeze({
-    // Spread-when-present, like `crowdSource.baseUrl` above: the property is
-    // ABSENT rather than an empty string, so `if (!config.postgres.url)` reads
-    // as "not configured" and no caller can mistake `''` for a URL.
-    ...(process.env.DATABASE_URL?.trim() ? { url: process.env.DATABASE_URL.trim() } : {}),
+    url: resolveDatabaseUrl(),
     maxPoolSize: intEnv('PG_MAX_POOL_SIZE', 20),
     idleTimeoutSeconds: intEnv('PG_IDLE_TIMEOUT_SECONDS', 30),
     connectTimeoutSeconds: intEnv('PG_CONNECT_TIMEOUT_SECONDS', 10),

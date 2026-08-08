@@ -12,27 +12,32 @@
  * hard-fails the moment anything loads it outside Bun, which would be every
  * production request and every test.
  *
- * Shape mirrors the Mongo connector next door (`src/lib/db.ts`): connect once at
- * boot, then read the handle synchronously from anywhere via `getDb()`.
+ * Connect once at boot, then read the handle synchronously from anywhere via
+ * `getDb()`.
  *
- * ## Nothing calls this yet
+ * ## This is the only store the runtime opens
  *
- * Mercaria is mid-migration. Mongo is still the store every request reads and
- * writes; `src/index.ts` calls `connectDB()` and not this. That is Fase 2's
- * change, once there are tables and repositories to talk to. Until then this is
- * foundation: it is exercised by the Postgres test harness
- * (`vitest.pg.globalSetup.ts`) and by nothing else, and a task with no
- * `DATABASE_URL` boots and serves exactly as it does today.
+ * `src/index.ts` calls `connectPostgres()` and nothing else; no path under
+ * `src/` outside `scripts/` imports a Mongoose model any more. `src/lib/db.ts`
+ * and the models survive for the Fase 4 backfill scripts, which open their own
+ * connection — so a failure here is a total outage for this task, which is why
+ * `DATABASE_URL` is required at config load and why the connect below proves the
+ * server answers before publishing the handle.
  */
 
 import { createDatabase, type OxyDatabase } from '@oxyhq/db';
+import { assertPostgresMigrationsCurrent, readJournal } from '@oxyhq/db/migrate';
 import type postgres from 'postgres';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
+import { MIGRATIONS_FOLDER } from './migrationsFolder.js';
 import * as schema from './schema/index.js';
 
 /** Seconds `closePostgres` waits for in-flight queries before forcing the socket shut. */
 const CLOSE_TIMEOUT_SECONDS = 5;
+
+/** The migration journal this image ships. See `assertMigrationsCurrent`. */
+const JOURNAL = readJournal(MIGRATIONS_FOLDER);
 
 export type Database = OxyDatabase<typeof schema>;
 
@@ -70,25 +75,18 @@ let client: postgres.Sql | null = null;
  * Idempotent: a second call returns the existing handle rather than opening a
  * second pool.
  *
- * @throws {Error} When `DATABASE_URL` is unset — a startup misconfiguration for
- *   anything that calls this at all; fail fast and loudly rather than degrade.
- *   Callers that must tolerate a task with no Postgres check
- *   `config.postgres.url` first.
+ * There is no "is it configured?" branch here any more: `config.postgres.url`
+ * is required at config LOAD, so an unconfigured task never gets far enough to
+ * call this. That check moved rather than disappeared — see
+ * `resolveDatabaseUrl` in `config/index.ts` for why failing there is the right
+ * place.
  */
 export async function connectPostgres(): Promise<Database> {
   if (db) return db;
 
-  const url = config.postgres.url;
-  if (!url) {
-    throw new Error(
-      'DATABASE_URL is not set. Start a local Postgres with: ' +
-        'docker compose -f docker-compose.postgres.yml up -d postgres',
-    );
-  }
-
   const maxPoolSize = config.postgres.maxPoolSize;
   const instance = createDatabase({
-    databaseUrl: url,
+    databaseUrl: config.postgres.url,
     schema,
     client: {
       max: maxPoolSize,
@@ -165,6 +163,36 @@ export async function checkPostgresHealth(): Promise<boolean> {
     log.general.error({ err: error }, 'Postgres health check failed');
     return false;
   }
+}
+
+/**
+ * Whether this task's migrations have all been applied — the second half of
+ * `/health/ready`.
+ *
+ * Lives HERE rather than in the route so the raw postgres.js handle stays inside
+ * this module: `assertPostgresMigrationsCurrent` needs a `postgres.Sql`, and
+ * handing `$client` out to a route would reopen the escape hatch this module's
+ * docblock exists to keep closed.
+ *
+ * The journal is read ONCE at module load, not per probe. It is a set of files
+ * shipped inside the image and cannot change while the task runs, so re-reading
+ * it every few seconds would only add a way for readiness to fail on an
+ * unrelated filesystem hiccup.
+ *
+ * @throws {Error} `MigrationsNotCurrentError` when the database is behind this
+ *   image, or a driver error when the ledger cannot be read at all. Both mean
+ *   "do not send this task traffic"; the caller distinguishes them by having
+ *   already checked connectivity.
+ */
+export async function assertMigrationsCurrent(): Promise<void> {
+  const instanceClient = client;
+  if (!instanceClient) {
+    throw new Error(
+      'PostgreSQL is not connected. Call connectPostgres() during startup ' +
+        'before asserting the migration ledger.',
+    );
+  }
+  await assertPostgresMigrationsCurrent(instanceClient, JOURNAL);
 }
 
 /** Close the pool (for shutdown hooks). Safe to call when never connected. */

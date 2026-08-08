@@ -6,15 +6,10 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.test.ts'],
     /**
-     * TWO real databases, because this package is mid-migration and both stores
-     * are live.
+     * ONE real database.
      *
-     * `vitest.globalSetup.ts` starts a MongoDB replica set for the moderation
-     * write tests; everything still on Mongo mocks its models, which cannot tell
-     * whether the SERVER would accept an update document.
-     *
-     * `vitest.pg.globalSetup.ts` creates one throwaway, fully-migrated Postgres
-     * database for the ported repositories and the `*.realdb.test.ts` files that
+     * `vitest.pg.globalSetup.ts` creates a throwaway, fully-migrated Postgres
+     * database for the repositories and the `*.realdb.test.ts` files that
      * exercise real SQL semantics. It needs a server to create that database ON,
      * named by `TEST_DATABASE_URL` — start one with
      * `docker compose -f docker-compose.postgres.yml up -d postgres`.
@@ -22,17 +17,24 @@ export default defineConfig({
      * It FAILS rather than skipping when no server is reachable, deliberately: a
      * harness that skipped would report a green suite for a migration whose SQL
      * was never executed, which is the one outcome this whole phase exists to
-     * prevent. Both entries stay until the last Mongo-backed test is gone.
+     * prevent.
+     *
+     * The MongoDB replica set that used to sit beside it is GONE, along with
+     * `vitest.globalSetup.ts`. It existed for the four moderation write tests,
+     * which needed real transactions and real unique indexes; those now run
+     * against Postgres, and nothing else ever read `MERCARIA_TEST_MONGODB_URI`.
+     * Leaving it would have started a replica set on every run for no test at
+     * all — the slowest possible no-op.
      */
-    globalSetup: ['./vitest.globalSetup.ts', './vitest.pg.globalSetup.ts'],
+    globalSetup: ['./vitest.pg.globalSetup.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
       exclude: ['src/**/__tests__/**', 'src/**/*.test.ts', 'src/index.ts'],
     },
-    // Increase timeout for tests that mock MongoDB
     testTimeout: 10000,
-    // The replica set can take a while to come up on a cold cache.
+    // Creating and migrating the throwaway database can take a while on a cold
+    // cache.
     hookTimeout: 120_000,
   },
 });

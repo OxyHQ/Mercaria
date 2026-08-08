@@ -2,9 +2,8 @@ import http from 'http';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { connectDB } from './lib/db.js';
-import { config } from './config/index.js';
 import { connectPostgres } from './db/postgres.js';
+import { startExpirySweeper, stopExpirySweeper } from './db/expirySweeper.js';
 import { createApp } from './app.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
@@ -83,33 +82,20 @@ process.on('uncaughtException', (error) => {
 });
 
 /**
- * Open both stores before serving traffic.
+ * Open the store before serving traffic.
  *
- * Mercaria is mid-migration and BOTH are live: the ported domains (stores,
- * catalogue, merchandising, favorites) read and write Postgres, everything else
- * still reads and writes Mongo. So Postgres is opened when `DATABASE_URL` is
- * configured, and its absence is a HARD failure rather than a degraded boot —
- * a task that served the ported routes without it would answer every catalogue
- * request with "PostgreSQL is not connected", which reads as an outage of those
- * features rather than as the misconfiguration it is.
+ * ONE store now. Every route this API serves reads and writes Postgres; nothing
+ * in `src/` opens Mongo any more, so the `connectDB()` that used to run beside
+ * this is gone rather than made conditional. The Mongoose models and
+ * `lib/db.ts` survive for the Fase 4 backfill scripts, which open their own
+ * connection — no runtime path shares one with them.
  *
- * `connectPostgres` issues a real `select 1` before publishing its handle, so an
- * unreachable database fails HERE rather than on the first user request.
+ * `config.postgres.url` is required at config load, so an unconfigured task
+ * never reaches here. `connectPostgres` then issues a real `select 1` before
+ * publishing its handle, so an unREACHABLE database also fails at startup
+ * rather than on the first user request.
  */
-async function connectStores(): Promise<void> {
-  await connectDB();
-  if (!config.postgres.url) {
-    throw new Error(
-      'DATABASE_URL is not set. The stores, catalogue, merchandising and ' +
-        'favorites domains are served from PostgreSQL; a task without it cannot ' +
-        'answer those routes. Start a local server with: ' +
-        'docker compose -f docker-compose.postgres.yml up -d postgres',
-    );
-  }
-  await connectPostgres();
-}
-
-connectStores()
+connectPostgres()
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       log.general.info({ port: PORT }, `API Server running on http://0.0.0.0:${PORT}`);
@@ -126,15 +112,23 @@ connectStores()
       }).catch((err) => log.general.error({ err }, 'Redis readiness import failed'));
 
       // Drain the moderation outbox. Started on EVERY task, not just a leader:
-      // claims are Mongo leases with an owner check, so N tasks share the work
-      // and a dead task's lease is reclaimed. No-ops when CrowdSource is off —
-      // the LOOP is gated, never the durable record, so reports taken while it
-      // is disabled deliver once it is switched on.
+      // a claim is a `FOR UPDATE SKIP LOCKED` lease with an owner check, so N
+      // tasks share the work and a dead task's lease is reclaimed. No-ops when
+      // CrowdSource is off — the LOOP is gated, never the durable record, so
+      // reports taken while it is disabled deliver once it is switched on.
       import('./services/moderation/outbox-dispatcher.js')
         .then(({ startModerationOutboxDispatcher }) => startModerationOutboxDispatcher())
         .catch((err) =>
           log.general.error({ err }, 'Moderation outbox dispatcher import failed'),
         );
+
+      // Reap expired rows. Postgres has no TTL index, so this loop is the whole
+      // of what Mongo's server-side reaper used to do — without it the three
+      // tables in `db/expiryTargets.ts` grow forever, with no error and no
+      // failing test. Started on every task for the same reason as the
+      // dispatcher: the delete is idempotent, so a leader would only add a way
+      // for nobody to sweep at all.
+      startExpirySweeper();
 
       // Start marketplace queue workers when Redis is configured; otherwise
       // async jobs run inline via the producers.
@@ -186,14 +180,22 @@ connectStores()
         await closeRedis();
         log.general.info('Redis connections closed');
 
-        // Close MongoDB connection
-        const mongoose = await import('mongoose');
-        await mongoose.default.connection.close();
-        log.general.info('MongoDB connection closed');
+        // Stop both background loops before the pool they query through goes.
+        // Neither was stopped while Mongo owned them and it did not show; now
+        // they share the pool `closePostgres` is about to end, so a loop still
+        // claiming or sweeping would throw on a closed connection during every
+        // shutdown. The dispatcher's stop only stops it claiming NEW work — the
+        // row already in flight is allowed to reach a durable state.
+        const { stopModerationOutboxDispatcher } = await import(
+          './services/moderation/outbox-dispatcher.js'
+        );
+        stopModerationOutboxDispatcher();
+        stopExpirySweeper();
+        log.general.info('Background loops stopped');
 
-        // Close the Postgres pool. Both stores are live during the migration,
-        // so a shutdown that drained only one leaves connections held against
-        // the shared instance until the task is killed.
+        // Close the Postgres pool, last: everything above may still be draining
+        // through it, and connections left open are held against the instance
+        // until the task is killed.
         const { closePostgres } = await import('./db/postgres.js');
         await closePostgres();
         log.general.info('PostgreSQL pool closed');
@@ -211,6 +213,6 @@ connectStores()
     process.on('SIGINT', () => shutdown('SIGINT'));
   })
   .catch((error) => {
-    log.general.error({ err: error }, 'Failed to connect to the databases');
+    log.general.error({ err: error }, 'Failed to connect to PostgreSQL');
     process.exit(1);
   });
