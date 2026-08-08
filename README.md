@@ -15,7 +15,7 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-440151?style=flat-square&logo=typescript&logoColor=white">
   <img alt="Bun" src="https://img.shields.io/badge/bun-1.3-440151?style=flat-square&logo=bun&logoColor=white">
   <img alt="Express" src="https://img.shields.io/badge/Express-4-440151?style=flat-square&logo=express&logoColor=white">
-  <img alt="MongoDB" src="https://img.shields.io/badge/MongoDB-Mongoose-440151?style=flat-square&logo=mongodb&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Drizzle-440151?style=flat-square&logo=postgresql&logoColor=white">
 </p>
 
 ---
@@ -51,7 +51,7 @@ No local token providers, no auth interceptors, no hand rolled bearer parsing. S
 | `@mercaria/dashboard` | [`packages/dashboard/`](packages/dashboard/) | Expo merchant and store admin: catalogue, inventory, discounts, reports |
 | `@mercaria/pos` | [`packages/pos/`](packages/pos/) | Expo point of sale: in person sales through draft orders |
 | `@mercaria/ui` | [`packages/ui/`](packages/ui/) | Shared marketplace UI, consumed from source with no build step |
-| `@mercaria/backend` | [`packages/backend/`](packages/backend/) | Express API: TypeScript, MongoDB via Mongoose, Socket.IO |
+| `@mercaria/backend` | [`packages/backend/`](packages/backend/) | Express API: TypeScript, PostgreSQL via Drizzle, Socket.IO |
 | `@mercaria/shared-types` | [`packages/shared-types/`](packages/shared-types/) | Domain DTOs every package imports |
 
 Every app renders [`@oxyhq/bloom`](https://www.npmjs.com/package/@oxyhq/bloom) primitives with NativeWind on top of `@mercaria/ui`.
@@ -92,13 +92,13 @@ bun run --filter @mercaria/backend typecheck   # tsc --noEmit
 
 `bun run android`, `bun run ios` and `bun run web` target the storefront. Each app pins its own Metro port, so all three can run side by side.
 
-**The API test suite needs a PostgreSQL server running.** Mercaria is mid-migration from MongoDB to PostgreSQL, and the ported repositories are tested against a real PostGIS database rather than a mock — a mocked query cannot tell whether the server would accept the SQL. Start one before `test`:
+**The API test suite needs a PostgreSQL server running.** The repositories are tested against a real PostGIS database rather than a mock — a mocked query cannot tell whether the server would accept the SQL. Start one before `test`:
 
 ```bash
 docker compose -f docker-compose.postgres.yml up -d postgres
 ```
 
-The suite never writes to that database. `TEST_DATABASE_URL` (falling back to `DATABASE_URL`, and defaulting to the compose server) names a SERVER, on which the harness creates a throwaway, fully-migrated database per run and drops it afterwards. Mongo's replica set is started in-process by the harness itself and needs nothing installed.
+The suite never writes to that database. `TEST_DATABASE_URL` (falling back to `DATABASE_URL`, and defaulting to the compose server) names a SERVER, on which the harness creates a throwaway, fully-migrated database per run and drops it afterwards.
 
 </details>
 
@@ -136,7 +136,7 @@ No currency is a settlement invariant. FairCoin (`FAIR`, ⊜) is the preferred d
 
 Amounts are integer minor units with an enforced ceiling (`MAX_MONEY_MINOR_UNITS`), asserted everywhere an amount is formed: request validation, the pricing engine, currency conversion, refund proration and persistence.
 
-The currency set is data driven from `@mercaria/shared-types`, so adding a code there propagates to the Mongo schema, the pricing engine and the UI.
+The currency set is data driven from `@mercaria/shared-types`, so adding a code there propagates to the database schema, the pricing engine and the UI.
 
 </details>
 

@@ -84,12 +84,11 @@ process.on('uncaughtException', (error) => {
 /**
  * Open the store before serving traffic.
  *
- * ONE store now. Every route this API serves reads and writes Postgres —
- * including the payment domain and its balanced ledger; nothing in `src/` opens
- * Mongo any more, so the `connectDB()` that used to run beside this is gone
- * rather than made conditional. The Mongoose models and `lib/db.ts` survive for
- * the Fase 4 backfill scripts, which open their own connection — no runtime path
- * shares one with them.
+ * ONE store. Every route this API serves reads and writes Postgres — including
+ * the payment domain and its balanced ledger. The `connectDB()` that used to run
+ * beside this is gone rather than made conditional, and so is everything it
+ * opened: the Mongoose models, `lib/db.ts` and the Fase 4 backfill one-shot were
+ * deleted once the cutover was verified.
  *
  * `config.postgres.url` is required at config load, so an unconfigured task
  * never reaches here — a task that served checkout without it would take a POS

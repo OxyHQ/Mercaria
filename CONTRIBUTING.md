@@ -8,7 +8,7 @@ Mercaria is Oxy's buy and sell marketplace: new items from shops, secondhand ite
 
 - **Bun.** The package manager for every Oxy repository, never npm or yarn. The pinned version is `packageManager` in the root `package.json`, and CI installs that exact version.
 - **Node.js 22.** The runtime the API is built and deployed on. CI pins it alongside bun.
-- **MongoDB**, local or remote, to run the API. The test suite does not need one; it starts its own replica set, and the first run downloads server binaries.
+- **PostgreSQL with PostGIS**, to run the API *and* its test suite — the repositories are tested against a real server, not a mock. `docker compose -f docker-compose.postgres.yml up -d postgres` starts the pinned image; the harness creates its own throwaway database on it per run.
 - **Redis**, optional. Rate limiting, FX rate caching and Socket.IO scaling fall back gracefully without it.
 
 ## Setup
@@ -39,7 +39,7 @@ A bun workspaces monorepo, six packages, one API serving three apps:
 
 | Package | Path | Role |
 | --- | --- | --- |
-| `@mercaria/backend` | `packages/backend/` | Express API (TypeScript, MongoDB, Socket.IO) |
+| `@mercaria/backend` | `packages/backend/` | Express API (TypeScript, PostgreSQL, Socket.IO) |
 | `@mercaria/frontend` | `packages/frontend/` | Expo storefront, mercaria.co |
 | `@mercaria/dashboard` | `packages/dashboard/` | Expo merchant and store admin |
 | `@mercaria/pos` | `packages/pos/` | Expo point of sale |
