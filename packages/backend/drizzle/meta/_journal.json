@@ -19,22 +19,29 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1786181755726,
-      "tag": "0002_drop_empty_string_defaults",
+      "when": 1786194873053,
+      "tag": "0002_payment_domain",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1786189689146,
-      "tag": "0003_tag_search_stemming",
+      "when": 1786194907280,
+      "tag": "0003_retire_legacy_payment_columns",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1786194021652,
-      "tag": "0004_fx_rate_provider",
+      "when": 1786199935241,
+      "tag": "0004_drop_empty_string_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786199955876,
+      "tag": "0005_tag_search_stemming",
       "breakpoints": true
     }
   ]

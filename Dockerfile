@@ -123,6 +123,14 @@ COPY --from=builder --chown=node:node /app/packages/backend/package.json ./packa
 # The bundled API.
 COPY --from=builder --chown=node:node /app/packages/backend/dist ./packages/backend/dist
 
+# The SQL migrations, which EVERY serving task needs — not just the one-shot
+# migration task. `db/postgres.ts` reads this folder's journal at module load to
+# decide whether the task may serve traffic (`/health/ready`), so an image without
+# it crashes at container start rather than starting and answering "not ready".
+# `src/db/migrationsFolder.ts` resolves the path from the package root, which is
+# why this lands beside `dist` rather than anywhere else.
+COPY --from=builder --chown=node:node /app/packages/backend/drizzle ./packages/backend/drizzle
+
 EXPOSE 3001
 
 # Container-level health check hitting the app's /health endpoint.

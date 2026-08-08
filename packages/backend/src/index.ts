@@ -84,16 +84,19 @@ process.on('uncaughtException', (error) => {
 /**
  * Open the store before serving traffic.
  *
- * ONE store now. Every route this API serves reads and writes Postgres; nothing
- * in `src/` opens Mongo any more, so the `connectDB()` that used to run beside
- * this is gone rather than made conditional. The Mongoose models and
- * `lib/db.ts` survive for the Fase 4 backfill scripts, which open their own
- * connection — no runtime path shares one with them.
+ * ONE store now. Every route this API serves reads and writes Postgres —
+ * including the payment domain and its balanced ledger; nothing in `src/` opens
+ * Mongo any more, so the `connectDB()` that used to run beside this is gone
+ * rather than made conditional. The Mongoose models and `lib/db.ts` survive for
+ * the Fase 4 backfill scripts, which open their own connection — no runtime path
+ * shares one with them.
  *
  * `config.postgres.url` is required at config load, so an unconfigured task
- * never reaches here. `connectPostgres` then issues a real `select 1` before
- * publishing its handle, so an unREACHABLE database also fails at startup
- * rather than on the first user request.
+ * never reaches here — a task that served checkout without it would take a POS
+ * sale, fail to record the payment, and answer 500 from inside a completed
+ * transaction. `connectPostgres` then issues a real `select 1` before publishing
+ * its handle, so an unREACHABLE database also fails at startup rather than on
+ * the first user request.
  */
 connectPostgres()
   .then(() => {
@@ -122,12 +125,23 @@ connectPostgres()
           log.general.error({ err }, 'Moderation outbox dispatcher import failed'),
         );
 
+      // Drain the payment outbox. Started on EVERY task, for the same reason
+      // the moderation one is: claims are Postgres leases with an owner check,
+      // so N tasks share the work and a dead task's lease is reclaimed. The LOOP
+      // is gated by config, never the durable record — rows written while it is
+      // off deliver once it is switched on.
+      import('./services/payments/outbox-dispatcher.js')
+        .then(({ startPaymentOutboxDispatcher }) => startPaymentOutboxDispatcher())
+        .catch((err) =>
+          log.general.error({ err }, 'Payment outbox dispatcher import failed'),
+        );
+
       // Reap expired rows. Postgres has no TTL index, so this loop is the whole
-      // of what Mongo's server-side reaper used to do — without it the three
-      // tables in `db/expiryTargets.ts` grow forever, with no error and no
-      // failing test. Started on every task for the same reason as the
-      // dispatcher: the delete is idempotent, so a leader would only add a way
-      // for nobody to sweep at all.
+      // of what Mongo's server-side reaper used to do — without it the tables in
+      // `db/expiryTargets.ts` grow forever, with no error and no failing test.
+      // Started on every task for the same reason as the dispatchers: the delete
+      // is idempotent, so a leader would only add a way for nobody to sweep at
+      // all.
       startExpirySweeper();
 
       // Start marketplace queue workers when Redis is configured; otherwise
@@ -180,16 +194,20 @@ connectPostgres()
         await closeRedis();
         log.general.info('Redis connections closed');
 
-        // Stop both background loops before the pool they query through goes.
-        // Neither was stopped while Mongo owned them and it did not show; now
+        // Stop all three background loops before the pool they query through
+        // goes. None was stopped while Mongo owned them and it did not show; now
         // they share the pool `closePostgres` is about to end, so a loop still
         // claiming or sweeping would throw on a closed connection during every
-        // shutdown. The dispatcher's stop only stops it claiming NEW work — the
+        // shutdown. A dispatcher's stop only stops it claiming NEW work — the
         // row already in flight is allowed to reach a durable state.
         const { stopModerationOutboxDispatcher } = await import(
           './services/moderation/outbox-dispatcher.js'
         );
         stopModerationOutboxDispatcher();
+        const { stopPaymentOutboxDispatcher } = await import(
+          './services/payments/outbox-dispatcher.js'
+        );
+        stopPaymentOutboxDispatcher();
         stopExpirySweeper();
         log.general.info('Background loops stopped');
 

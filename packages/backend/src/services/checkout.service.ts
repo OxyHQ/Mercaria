@@ -591,8 +591,11 @@ export async function checkout(
         taxLines: toOrderTaxLines(pricing.taxLines),
         status: 'pending_payment',
         statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: oxyUserId }],
+        // No `paymentProvider`: a freshly checked-out order has reserved stock
+        // and no payment at all, and the retired `oxy_pay` default asserted a
+        // rail for it that did not exist. The provider appears when a payment
+        // does, stamped by `linkPaymentToOrders`.
         paymentStatus: 'unpaid',
-        paymentProvider: 'oxy_pay',
         checkoutGroupId,
         ...(idempotencyKey ? { idempotencyKey: `${idempotencyKey}:${sellerKey}` } : {}),
       };

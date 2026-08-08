@@ -546,6 +546,24 @@ rules.
 > exists is silently ignored by `materialize` today and is a foreign-key
 > violation here. Those entries must be DROPPED during the copy, not inserted.
 
+### The payment domain has NO source model
+
+Eight tables were born in Postgres and appear in no row above, because there is
+nothing in `src/models/` for them to be a port OF: `payments`,
+`payment_attempts`, `payment_provider_events`, `transfers`, `payouts`,
+`payment_outboxes`, `ledger_transactions`, `ledger_entries`.
+
+What they replaced was not a model but four fields — `Order.payment.{status,
+provider, reference, paidAt}` — plus the retired `settlement_*` columns. That
+subdocument had to be a state machine, an audit trail, an idempotency key and a
+provider reference at once, so it could be none of them well.
+
+**The Fase 4 backfill therefore has nothing to copy into them**, and must not
+invent anything: an `Order` marked paid under the old model carries no evidence
+of a payment that Mercaria can honestly write a ledger entry from. Production has
+never held a paid order, which is what makes that a non-problem rather than a
+migration.
+
 ### Counters became sequences (`drizzle/0001_counter_sequences.sql`)
 
 `order_number_seq` and `rma_number_seq` replace the `Counter` collection's
@@ -564,7 +582,7 @@ deliberately not created and the dead function goes with the model in Fase 3.
 
 ## Register: every `jsonb` column, and why it earned it
 
-`jsonb` is for genuinely shape-less data only. Four columns qualify in 49 tables;
+`jsonb` is for genuinely shape-less data only. Seven columns qualify in 57 tables;
 anything else with a known shape is real columns or a child table.
 
 | Column | Why it is genuinely open-shaped |
@@ -572,6 +590,9 @@ anything else with a known shape is real columns or a child table.
 | `moderation_outboxes.payload` | For `decision.apply` this holds the entire verified CrowdSource `WebhookEventEnvelope` as delivered. A published decision is deliberately LOOSE, and projecting it into columns would silently drop whatever a newer CrowdSource version added — the one thing a moderation payload must never do. |
 | `notifications.data` | Each of the twenty notification types carries its own payload, composed at the call site and read back only by the client that renders it. No column set fits all twenty, and projecting today's would drop tomorrow's. |
 | `notifications.delivery_status` | `Record<channel, 'pending' \| 'sent' \| 'failed'>`, keyed by whichever channels this notification was dispatched to. **Trap:** its `failed` value is NOT a `Notification.status` value, so flattening this map into the status column is an immediate CHECK violation. |
+| `payment_provider_events.object_ids` | The provider object ids an event refers to (`{"paymentIntent": "pi_…"}`), keyed by the PROVIDER's own names. The key set is theirs, differs per rail, and grows with their API. |
+| `payment_provider_events.payload_summary` | A provider's payload is not Mercaria's schema and a newer API version adds fields. It is stored REDACTED — an allow-list of ids, amounts, statuses and timestamps — so this is open-shaped data that has already been reduced, never the wholesale payload. |
+| `payment_outboxes.payload` | The domain event's own ids, whose key set differs per event type. Deliberately MINIMAL — ids, not snapshots — so the outbox cannot become a second, drifting source of truth. |
 | `connections.sync_settings_collection_mapping` | A `Map` whose KEYS are the external platform's own collection ids — an open set Mercaria does not define and cannot enumerate, so there is no column set to project into and no join to express. |
 
 Deliberately NOT jsonb, though a mechanical port would have made them so:
@@ -583,13 +604,14 @@ paths), and every `{name, value}` option-value list (→ child tables).
 
 ## Register: the documented exceptions
 
-Three places deviate from a rule stated above. Each is here so removing the
+Four places deviate from a rule stated above. Each is here so removing the
 deviation is a visible decision rather than a silent one.
 
 | Deviation | Where | Why |
 |---|---|---|
 | A SINGULAR table name | `feedback` | "Feedback" is a mass noun; `feedbacks` is not a word, and Mongoose's derived collection name being exactly that is a `pluralize()` artifact, not a naming decision to inherit. |
 | A currency column with NO currency CHECK | `connections.shop_currency` | It is the EXTERNAL platform's currency, declared with no enum in Mongoose deliberately: a Shopify or WooCommerce shop may report a code Mercaria does not list, and rejecting the connection over it would break the import rather than the price. Named in the gate's `EXEMPT` set. |
+| A money column as `bigint({ mode: 'bigint' })` | `ledger_entries.amount_minor` | Every other money column is `mode: 'number'`, to map onto the `number` that `Money.amount` already is. A ledger entry is not a `Money`: it never ships to a client, it is never rendered, and it is summed across arbitrarily many rows by the one part of the system whose job is to be exactly right. `mode: 'bigint'` keeps the zero-sum check exact past 2^53 and makes it `=== 0n` on values that cannot have silently lost a minor unit. The bound that applies is the column's own int8 range, asserted by `assertSafeLedgerAmount` at every posting builder. |
 | A type ASSERTION in schema code | `money`/`dualMoney`/`addressColumns` in `columns.ts` | TypeScript cannot infer a computed template-literal key through a generic. Without the stated return type the spread contributes NOTHING to the table's type while still creating the columns at runtime — a silent DDL/type divergence. Measured, not assumed: the un-annotated form produced a table with only its `id`. The residual risk (a typo INSIDE the helper) is pinned by `emits the exact column names …`. |
 
 ## Register: what was dropped, and what it cost
@@ -646,6 +668,9 @@ add a row when a gate lands, and do not list one that does not run yet.
 | Every `PROTECTED_COLUMNS` entry names a real table (by its SQL name) and a real column (by its TypeScript property) — the two conventions differ and mixing them up silently protects NOTHING | `src/db/__tests__/schema-conventions.test.ts` | no |
 | `money`/`dualMoney`/`addressColumns` emit exactly the column names they claim, in TypeScript AND in SQL — the one place in the schema where key names are not compiler-checked | `src/db/__tests__/schema-conventions.test.ts` | no |
 | Every currency column carries a CHECK, since `text({ enum })` emits no DDL | `src/db/__tests__/schema-conventions.test.ts` | no |
+| snake_case tables and columns; every table has a PK; every timestamp is `timestamptz`; no `''` default; no `_id`/`__v` left over from Mongoose | `src/db/__tests__/schema.realdb.test.ts` | yes |
+| Every expiry-swept column has a supporting leading btree index — nothing else notices a later migration dropping one | `src/db/__tests__/schema.realdb.test.ts` | yes |
+| A ledger transaction balances to zero per currency, and its rows refuse UPDATE and DELETE | `src/db/payments/__tests__/ledger.realdb.test.ts` | yes |
 | The order status CAS refuses a stale `expected`, so two concurrent transitions produce exactly ONE winner and one history event | `src/db/__tests__/commerce.realdb.test.ts` | yes |
 | A discount's total-usage ceiling holds under two CONCURRENT redemptions at `totalMax - 1` | `src/db/__tests__/commerce.realdb.test.ts` | yes |
 | A replayed checkout's duplicate is refused by `orders_idempotency_key_key` and the survivor is findable by that key | `src/db/__tests__/commerce.realdb.test.ts` | yes |
@@ -688,15 +713,21 @@ to take a type from, and postgres.js is handed a raw `Date` it refuses with
 perfectly. Bind `date.toISOString()` with an explicit `::timestamptz` cast. Found
 by `commerce.realdb.test.ts`; the mocked report tests could not have seen it.
 
-| Convention | Gate | Lands with |
-|---|---|---|
-| snake_case tables and columns; every table has a PK; every timestamp is `timestamptz`; no `''` default; no `_id`/`__v` left over from Mongoose | `findSchemaInvariantViolations` | Fase 2 (with the harness) |
-| Every expiry-swept column has a supporting leading btree index — all three `EXPIRY_TARGETS` have one, but nothing notices a later migration dropping it | `findUnsupportedExpiryColumns` | Fase 2 (with the harness) |
+> **`findSchemaInvariantViolations` is asserted as a SUBSET of a shrinking
+> allow-list, not against `[]`.** Two columns violate the "no `''` default" rule
+> and predate the gate: `stores.description` and `listings.description`. A
+> `drop_empty_string_defaults` migration on another in-flight branch removes
+> both, so the gate has to pass on either side of that merge, in either order —
+> which is why the assertion is "no violation outside
+> `KNOWN_EMPTY_STRING_DEFAULTS`", plus "the list may only shrink", rather than an
+> exact set. An exact set passes today and fails the moment the sibling lands, in
+> a file unrelated to either change. Verified in all three states against a real
+> database: two known violations pass, zero pass, and a newly injected one fails.
+> When the list is empty it can be deleted outright.
 
-**These were verified by hand against a real PostGIS 17-3.5 database when the
-schema landed, and the script belongs in that same Fase 2 suite** — it is the
-`schema.realdb.test.ts` the two gates above will sit in. What it asserted, and
-what each assertion is actually worth:
+**The schema was also verified by hand against a real PostGIS 17-3.5 database
+when it landed.** Those assertions belong in the same file and are not all
+mechanised yet. What was checked, and what each check is actually worth:
 
 - both id shapes are accepted as primary keys (a 24-hex ObjectId and a uuid v7);
 - a bad currency code is rejected by its CHECK;

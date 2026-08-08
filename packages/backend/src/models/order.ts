@@ -15,12 +15,14 @@
  */
 
 import mongoose, { Schema, Model } from 'mongoose';
+import { ORDER_PAYMENT_STATUSES, PAYMENT_PROVIDER_IDS } from '@mercaria/shared-types';
 import type {
   OrderStatus,
   ShippingMethod,
   OrderSellerType,
   OrderSourceChannel,
   PaymentInfo,
+  PaymentProviderId,
   CurrencyCode,
   ConnectorProviderId,
 } from '@mercaria/shared-types';
@@ -36,14 +38,8 @@ const ORDER_STATUSES: readonly OrderStatus[] = [
   'refunded',
   'partially_refunded',
 ];
-const PAYMENT_STATUSES: readonly PaymentInfo['status'][] = [
-  'unpaid',
-  'authorized',
-  'paid',
-  'refunded',
-  'failed',
-];
-const PAYMENT_PROVIDERS: readonly PaymentInfo['provider'][] = ['oxy_pay', 'external'];
+const PAYMENT_STATUSES: readonly PaymentInfo['status'][] = [...ORDER_PAYMENT_STATUSES];
+const PAYMENT_PROVIDERS: readonly PaymentProviderId[] = [...PAYMENT_PROVIDER_IDS];
 const SHIPPING_METHODS: readonly ShippingMethod[] = ['standard', 'express', 'pickup'];
 const SELLER_TYPES: readonly OrderSellerType[] = ['user', 'store'];
 const SOURCE_CHANNELS: readonly OrderSourceChannel[] = ['storefront', 'pos', 'draft'];
@@ -108,11 +104,22 @@ export interface IOrderStatusEvent {
   note?: string;
 }
 
+/**
+ * The buyer-safe payment projection on an order.
+ *
+ * `provider` and `paymentId` are both ABSENT until a payment exists — a
+ * checked-out order has reserved stock and nothing else. The payment aggregate
+ * itself lives in Postgres (`db/schema/payments.ts`); this subdocument is a
+ * pointer plus the coarse status, and deliberately carries no amount, no attempt
+ * and no provider state that could go stale against it.
+ */
 export interface IPaymentInfo {
   status: PaymentInfo['status'];
-  provider: PaymentInfo['provider'];
+  provider?: PaymentProviderId;
   reference?: string;
   paidAt?: Date;
+  /** The Mercaria payment funding this order — one per checkout GROUP. */
+  paymentId?: string;
 }
 
 export interface IShippingSnapshot {
@@ -298,9 +305,13 @@ const AddressSnapshotSchema = new Schema<IAddressSnapshot>(
 const PaymentSchema = new Schema<IPaymentInfo>(
   {
     status: { type: String, enum: PAYMENT_STATUSES as string[], default: 'unpaid' },
-    provider: { type: String, enum: PAYMENT_PROVIDERS as string[], default: 'oxy_pay' },
+    // No default. The retired `oxy_pay` one asserted a payment rail for every
+    // order the moment it was created, including the ones nobody had paid for
+    // and the ones settled somewhere else entirely.
+    provider: { type: String, enum: PAYMENT_PROVIDERS as string[] },
     reference: { type: String },
     paidAt: { type: Date },
+    paymentId: { type: String },
   },
   { _id: false },
 );

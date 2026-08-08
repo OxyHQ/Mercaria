@@ -220,17 +220,25 @@ function toShippingInfo(order: OrderRecord): ShippingInfo {
 /**
  * Map the payment columns to the `PaymentInfo` DTO.
  *
- * `reference` is deliberately absent: it is a PROTECTED column, so the order row
- * this reads does not carry it at all. Adding it back here would not compile,
- * which is the guard working rather than a gap.
+ * `provider` and `paymentId` are OMITTED when absent rather than defaulted: an
+ * order with reserved stock and no payment has neither, and the retired
+ * `oxy_pay` default asserted a rail for every such order. Everything else a
+ * payment knows stays in the payment domain and is reached through `paymentId`.
+ *
+ * `reference` is deliberately absent too, for a different reason: it is a
+ * PROTECTED column, so the order row this reads does not carry it at all. Adding
+ * it back here would not compile, which is the guard working rather than a gap.
  */
 function toPaymentInfo(order: OrderRecord): PaymentInfo {
-  const dto: PaymentInfo = {
-    status: order.paymentStatus,
-    provider: order.paymentProvider,
-  };
+  const dto: PaymentInfo = { status: order.paymentStatus };
+  if (order.paymentProvider) {
+    dto.provider = order.paymentProvider;
+  }
   if (order.paymentPaidAt) {
     dto.paidAt = order.paymentPaidAt.toISOString();
+  }
+  if (order.paymentId) {
+    dto.paymentId = order.paymentId;
   }
   return dto;
 }

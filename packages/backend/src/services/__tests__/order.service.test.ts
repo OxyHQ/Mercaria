@@ -127,7 +127,10 @@ function mockOrder(
     totalsGrandTotalPresentmentAmount: gtAmount,
     totalsGrandTotalPresentmentCurrency: gtCurrency,
     paymentStatus: options.paymentStatus ?? 'unpaid',
-    paymentProvider: 'oxy_pay',
+    // No `paymentProvider`: an order that has not been paid has no rail. It is
+    // stamped by the payment, not by checkout.
+    paymentId: null,
+    checkoutGroupId: 'group-1',
     moderationHold: null,
     sourceExternalId: options.sourceExternalId ?? null,
     statusHistory: [],

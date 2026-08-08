@@ -11,6 +11,12 @@
  * this list; scheduling it belongs with the job runner in Fase 2, alongside the
  * outbox dispatcher it runs next to.
  *
+ * Two more entries have NO Mongoose ancestor: `payment_outboxes` and
+ * `payment_provider_events` were born in Postgres. They are here because the
+ * rule is about the TABLE, not about the port — anything with an `expires_at`
+ * that nothing sweeps grows forever, and a table nobody migrated is no less
+ * exposed to that than one somebody did.
+ *
  * ## The third one could not be copied, and had to be re-expressed
  *
  * `moderation_outboxes` and `moderation_events` are the easy shape: Mongo's
@@ -65,6 +71,7 @@
 import type { ExpirySweepTarget } from '@oxyhq/db/expiry';
 import { moderationEvents, moderationOutboxes } from './schema/moderation';
 import { notifications } from './schema/notifications';
+import { paymentOutboxes, paymentProviderEvents } from './schema/payments';
 
 /** `MODERATION_OUTBOX_RETENTION_SECONDS` — 14 days, long enough to investigate. */
 const MODERATION_OUTBOX_RETENTION_SECONDS = 14 * 24 * 60 * 60;
@@ -74,6 +81,25 @@ const MODERATION_EVENT_RETENTION_SECONDS = 30 * 24 * 60 * 60;
 
 /** The notification retention Mongo's TTL index carried, now measured from dismissal. */
 const DISMISSED_NOTIFICATION_RETENTION_SECONDS = 90 * 24 * 60 * 60;
+
+/**
+ * `PAYMENT_OUTBOX_RETENTION_SECONDS` — 14 days, the moderation outbox's figure
+ * for the same reason: a job stuck for a fortnight is not going to succeed on
+ * day fifteen, and the payment it belongs to is still there to be reconciled.
+ */
+const PAYMENT_OUTBOX_RETENTION_SECONDS = 14 * 24 * 60 * 60;
+
+/**
+ * `PAYMENT_PROVIDER_EVENT_RETENTION_SECONDS` — 90 days, longer than either
+ * moderation retention, because these rows are EVIDENCE rather than claims.
+ *
+ * 90 days is past every provider's redelivery schedule and past the dispute
+ * windows the events describe, which is the interval in which someone might
+ * actually need to read one. After it, a re-arriving event is genuinely new and
+ * re-processing it is a no-op anyway: the payment status transition is a
+ * compare-and-swap that finds nothing to change.
+ */
+const PAYMENT_PROVIDER_EVENT_RETENTION_SECONDS = 90 * 24 * 60 * 60;
 
 /**
  * Every table that carried a Mongo TTL index, and nothing else.
@@ -107,6 +133,25 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'event is genuinely new rather than a redelivery.',
   },
   {
+    table: paymentOutboxes,
+    column: paymentOutboxes.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'A delivered or dead-lettered payment domain event, 14 days after it was enqueued. ' +
+      'Deleting one that is still PENDING loses that work silently, exactly as it would ' +
+      'for moderation — the payment it belongs to stays visible in `payments.status`, ' +
+      'which is where a stalled dispatcher must be noticed.',
+  },
+  {
+    table: paymentProviderEvents,
+    column: paymentProviderEvents.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'An inbound provider event, 90 days after receipt — past every redelivery schedule ' +
+      'and past the dispute windows these events describe. The payment, its attempts and ' +
+      'its ledger entries are permanent; this is the raw envelope they were derived from.',
+  },
+  {
     table: notifications,
     column: notifications.dismissedAt,
     retentionSeconds: DISMISSED_NOTIFICATION_RETENTION_SECONDS,
@@ -117,9 +162,11 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
   },
 ];
 
-/** Both moderation retentions, exported so the writers that stamp `expires_at` agree with the sweep. */
+/** Every retention, exported so the writers that stamp `expires_at` agree with the sweep. */
 export const RETENTION_SECONDS = {
   moderationOutbox: MODERATION_OUTBOX_RETENTION_SECONDS,
   moderationEvent: MODERATION_EVENT_RETENTION_SECONDS,
   dismissedNotification: DISMISSED_NOTIFICATION_RETENTION_SECONDS,
+  paymentOutbox: PAYMENT_OUTBOX_RETENTION_SECONDS,
+  paymentProviderEvent: PAYMENT_PROVIDER_EVENT_RETENTION_SECONDS,
 } as const;

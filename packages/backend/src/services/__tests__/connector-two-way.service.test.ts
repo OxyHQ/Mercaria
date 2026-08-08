@@ -7,9 +7,9 @@
  *    `source` provenance + `DualMoney`, and a re-sync of the same external id
  *    updates in place (idempotent, never duplicated).
  *
- * No DB / no network. Orders are still Mongoose (`Order`, `Counter`), as are
- * `Connection`/`SyncRun`; the CATALOGUE moved to Postgres, so the listing, its
- * variants and their child rows are mocked at the REPOSITORY boundary.
+ * No DB / no network. Everything this path touches is Postgres now — orders,
+ * connections, sync runs and the catalogue alike — so all of it is mocked at the
+ * REPOSITORY boundary rather than at a model.
  *
  * Two shapes changed under `pushListingToChannels` and the assertions follow:
  *  - The push mirror is the `listing_external_refs` TABLE, not an `externalRefs`

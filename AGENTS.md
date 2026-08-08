@@ -84,9 +84,10 @@ The six roles the code distinguishes: **catalog** (what a price is stored in),
   the inventory commit, `salesCount` and the customer upsert — no FX call, so a
   native EUR order reaches `paid` with no rate for any other currency obtainable
   (pinned by a test that mocks `fx.service` to throw). The former shop-to-FAIR
-  `settlement` snapshot and `convertToFair` are **deleted**; the drizzle
-  `settlement_*` columns survive unwritten, pending removal by the payment-domain
-  port.
+  `settlement` snapshot and `convertToFair` are **deleted**, and the drizzle
+  `settlement_*` columns went with them in the payment domain's `post` migration.
+  A payment's own settlement conversion lives on `payments.platform_*` plus its
+  rate snapshot — per payment, not on every order.
 - **Pricing engine** (`pricing.service.calculateTotals`) prices in the SHOP
   currency, converting native line prices to it, and returns `DualMoney` for
   every total; it takes a `presentmentCurrency` and `rates` from the caller.
@@ -121,10 +122,64 @@ The six roles the code distinguishes: **catalog** (what a price is stored in),
   NOT duplicate), converting a native `Money` to the chosen display currency
   (primary is preferred or FAIR, plus an optional secondary fiat).
 
-## Payments
+## Payments: a provider-neutral domain and a balanced ledger
 
-Oxy Pay (FAIR, and cards in fiat) is currently a seam only, NOT integrated. A POS
-sale completes via a draft order with `payment.provider: 'oxy_pay'`.
+`oxy_pay` is **gone** — a clean cut, not an alias. It named a rail nobody built.
+`PAYMENT_PROVIDER_IDS` in `@mercaria/shared-types` is now `external | manual_pos
+| mock`; Stripe (#46–#48) and Faircoin (#51) arrive as adapters behind
+`services/payments/provider.ts` and add their own value with their own migration.
+Full model, index, retention and boundary reference: **`docs/payments.md`**;
+the binding decisions are ADR 0001 (`docs/adr/0001-stripe-connect-architecture.md`).
+
+**The ledger is load-bearing from day one.** ADR 0001 D3 gives up Stripe's
+`application_fee_amount` reporting, so Mercaria's commission — the charge minus
+the sum of the sellers' nets — exists NOWHERE except `ledger_transactions` and
+`ledger_entries`. It is not accounting hygiene to add once revenue matters.
+
+### The rules that are load-bearing
+
+- **Balance is enforced three ways, and none of them is a convention.**
+  `db/payments/ledgerRepository.ts` is the ONLY writer and refuses an unbalanced
+  set before issuing SQL; a database TRIGGER raises on UPDATE and DELETE against
+  both tables; randomized property tests over mixed currencies pin both. A
+  correction is a REVERSING transaction — there is deliberately no
+  `reverseTransaction(id)` helper, because one would make a correction a function
+  of what is stored rather than of what an operator decided.
+- **The sign convention:** positive is a debit, negative is a credit, and every
+  transaction sums to zero PER CURRENCY. No `direction` column, because two
+  representations of one fact can disagree.
+- **`external` and `manual_pos` book NO ledger entries.** They are payments
+  Mercaria RECORDS, not payments Mercaria makes: visible and linked to their
+  order, with no false Mercaria cash (ADR D12). `PROVIDER_BOOKS_LEDGER` in
+  `payment.service.ts` states it as a table, since the question is "did Mercaria
+  receive and owe this money", not "is it external". `mock` DOES book, and is
+  hard-gated by `config.orders.mockPayEnabled`.
+- **One payment per checkout GROUP for native rails** (partial unique index), and
+  one per ORDER for `external` — because two connected shops can import orders
+  with the same external id, which collides their synthetic `ext:` group ids.
+- **A provider id is NEVER a Mercaria primary key.** Every `provider_object_id` is
+  a plain indexed column; their key space changes between test and live mode.
+- **The payment outbox is the moderation outbox, ported.** Deterministic ids so a
+  repeat converges, the row IS the job, claims are leases with an owner check
+  (`FOR UPDATE SKIP LOCKED`), capped exponential backoff, visible `dead_letter`.
+  Gate the LOOP, never the durable record.
+- **Payloads are redacted by an ALLOW-list** (`services/payments/redact.ts`) and
+  never stored or logged wholesale. A deny-list is correct only until the provider
+  adds a field, which is exactly when a sensitive one appears.
+
+### Where it meets the rest of Mercaria
+
+The domain is **Postgres-native** (8 tables), like everything else the API serves
+since the port — `DATABASE_URL` is REQUIRED to boot (`src/index.ts`).
+`services/payments/order-linkage.ts` stays the ONE seam onto orders: the payment
+domain reads them through a projection it owns rather than reaching into the order
+repository from five places. The payment and the order transition still do not
+commit together — the transition runs from the outbox handler, a SEPARATE
+transaction — so payment state and order state may briefly differ, and the outbox
+is the explicit reconciliation path.
+
+The order keeps only `{status, provider?, paidAt?, reference?, paymentId?}` —
+a pointer and the coarse state, never a copy of mutable provider detail.
 
 ## Shipping: Moovo, not ready
 
@@ -397,3 +452,9 @@ pin.
   `EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD`, `EXPO_PUBLIC_OXY_CLIENT_ID_POS`.
 - Provision the ECS service, task definition, ALB rule, ECR repo and SSM params
   in `oxy-infra`.
+- **`DATABASE_URL` is now REQUIRED and the task will not boot without it** — the
+  payment domain and its ledger are Postgres-native. The database also needs
+  PostGIS installed ONCE by a privileged role before the first migration runs
+  (`CREATE EXTENSION IF NOT EXISTS postgis` short-circuits before the privilege
+  check, so it is not a fallback), and the migrations applied with
+  `db:migrate --target-database=<name>` — `pre` before the rollout, `post` after.

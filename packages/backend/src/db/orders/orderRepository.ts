@@ -56,6 +56,7 @@ import type {
   OrderSourceChannel,
   OrderStatus,
   PaymentInfo,
+  PaymentProviderId,
   ShippingMethod,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
@@ -181,7 +182,14 @@ export interface NewOrder {
   fxRate?: FxRateSnapshot;
   status: OrderStatus;
   paymentStatus: PaymentInfo['status'];
-  paymentProvider: PaymentInfo['provider'];
+  /**
+   * OPTIONAL, and normally omitted at insert. A freshly checked-out order has
+   * reserved stock and no payment, so it has no rail either — the provider is
+   * stamped by `linkPaymentToCheckoutGroup` when a payment appears. Only a path
+   * that creates an ALREADY-paid order (a connector import, the seed) supplies
+   * it up front.
+   */
+  paymentProvider?: PaymentProviderId;
   paymentPaidAt?: Date;
   checkoutGroupId: string;
   idempotencyKey?: string;
@@ -404,6 +412,28 @@ export async function findOrdersByCheckoutGroup(
         eq(orders.buyerOxyUserId, buyerOxyUserId),
       ),
     )
+    .orderBy(asc(orders.createdAt), asc(orders.id));
+  return withChildren(rows, db);
+}
+
+/**
+ * Every order of one checkout group, whoever it belongs to — the PAYMENT read.
+ *
+ * Deliberately a second function rather than an optional buyer on the one above:
+ * there the buyer id IS the authorization, and making it optional would let a
+ * caller drop the scope by forgetting an argument. The payment domain has no
+ * buyer to scope by — a payment outbox event carries ids, not a session — so it
+ * needs the unscoped read, and reaching it has to be an explicit choice that
+ * greps differently.
+ */
+export async function findOrdersInCheckoutGroup(
+  checkoutGroupId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<OrderRecord[]> {
+  const rows = await db
+    .select(PUBLIC_ORDER_COLUMNS)
+    .from(orders)
+    .where(eq(orders.checkoutGroupId, checkoutGroupId))
     .orderBy(asc(orders.createdAt), asc(orders.id));
   return withChildren(rows, db);
 }
@@ -675,7 +705,7 @@ export async function insertOrder(
 
         status: input.status,
         paymentStatus: input.paymentStatus,
-        paymentProvider: input.paymentProvider,
+        paymentProvider: input.paymentProvider ?? null,
         paymentPaidAt: input.paymentPaidAt ?? null,
         checkoutGroupId: input.checkoutGroupId,
         idempotencyKey: input.idempotencyKey ?? null,
@@ -914,6 +944,61 @@ export async function updateOrderFromSource(
       updatedAt: new Date(),
     })
     .where(eq(orders.id, orderId));
+}
+
+/**
+ * Stamp the payment pointer onto every order of a checkout group.
+ *
+ * Only the POINTER, the provider and (optionally) the provider's reference —
+ * never `payment_status`, never an amount. `paymentStatus` is moved by
+ * `order.service.transition`, which owns the inventory effects that go with it;
+ * writing it here would produce an order marked paid whose stock was never
+ * committed.
+ */
+export async function linkPaymentToCheckoutGroup(
+  input: {
+    checkoutGroupId: string;
+    paymentId: string;
+    provider: PaymentProviderId;
+    reference?: string;
+  },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<number> {
+  const rows = await db
+    .update(orders)
+    .set({
+      paymentId: input.paymentId,
+      paymentProvider: input.provider,
+      ...(input.reference ? { paymentReference: input.reference } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.checkoutGroupId, input.checkoutGroupId))
+    .returning({ id: orders.id });
+  return rows.length;
+}
+
+/**
+ * Stamp the payment pointer onto ONE order.
+ *
+ * The `external` case: an imported payment stands for exactly one order, and its
+ * checkout group is a synthetic `ext:<provider>:<externalId>` that two connected
+ * shops can legitimately collide on. Linking by group there would point one
+ * shop's order at another shop's payment.
+ */
+export async function linkPaymentToOrderId(
+  input: { orderId: string; paymentId: string; provider: PaymentProviderId },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const rows = await db
+    .update(orders)
+    .set({
+      paymentId: input.paymentId,
+      paymentProvider: input.provider,
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.id, input.orderId))
+    .returning({ id: orders.id });
+  return rows.length === 1;
 }
 
 /** Whether an order carries connector provenance — gates the fulfillment push-back. */

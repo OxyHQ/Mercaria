@@ -56,11 +56,11 @@ import {
 /**
  * Traversal floors for `findSchemaInvariantViolations`. Fewer than this is a
  * broken catalogue query reporting a clean schema, not a clean schema — the
- * table count is the same 49 `schema-conventions.test.ts` pins, and the column
+ * table count is the same 57 `schema-conventions.test.ts` pins, and the column
  * floor is a deliberately loose lower bound on a schema whose money columns
  * alone number in the dozens.
  */
-const MINIMUM_TABLES = 49;
+const MINIMUM_TABLES = 57;
 const MINIMUM_COLUMNS = 400;
 
 /** A 24-char ObjectId hex — the id shape every pre-cutover row carries. */
@@ -137,6 +137,14 @@ describe('the migrated schema', () => {
   it('gives every expiry-swept column a supporting leading btree index', async () => {
     const violations = await findUnsupportedExpiryColumns(db, EXPIRY_TARGETS);
     expect(violations).toEqual([]);
+  });
+
+  it('registers every expiry target the schema needs', () => {
+    // The anti-vacuity floor for the gate above: it reports nothing for an
+    // EMPTY target list, so a registry that lost an entry would pass it. Five
+    // targets today — three ported TTL indexes plus the payment outbox and the
+    // provider-event store, which were born in Postgres.
+    expect(EXPIRY_TARGETS).toHaveLength(5);
   });
 });
 

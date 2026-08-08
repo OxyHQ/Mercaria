@@ -30,7 +30,43 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04-arm
+    # x86, NOT the `ubuntu-24.04-arm` the deploy job uses, and that difference is
+    # load-bearing: `postgis/postgis` publishes linux/amd64 ONLY (checked against
+    # the registry — the tag's OCI index carries one platform plus an
+    # attestation), so the service container below cannot start on an ARM runner.
+    # Nothing in this job needs ARM anyway — it lints, tests, and runs an esbuild
+    # bundle, none of which is architecture-sensitive. Only `deploy` builds the
+    # linux/arm64 image, and it stays on the ARM runner for that.
+    #
+    # Changing this back to ARM for consistency with `deploy` re-breaks the job.
+    runs-on: ubuntu-latest
+    services:
+      # The API suite needs a real PostGIS server: the Mongo→Postgres port's
+      # `*.realdb.test.ts` files run their SQL against a throwaway database the
+      # harness creates HERE (see packages/backend/vitest.pg.globalSetup.ts).
+      # Without it `vitest.pg.globalSetup.ts` throws and every deploy fails
+      # before it starts.
+      #
+      # Pinned to the SAME image as docker-compose.postgres.yml and ci.yml, on
+      # BOTH versions. A floating PostGIS minor is a floating set of function
+      # volatilities, and the generated `geography` column requires
+      # `ST_MakePoint` and the geometry→geography cast to be IMMUTABLE — so a
+      # developer's database, CI's and this one must not be able to disagree
+      # about what is installed.
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: mercaria
+          POSTGRES_PASSWORD: mercaria
+          POSTGRES_DB: mercaria_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mercaria -d mercaria_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
     steps:
       - uses: actions/checkout@v4
 
@@ -42,7 +78,12 @@ jobs:
 
       - run: bun run --filter @mercaria/backend lint
 
-      - run: bun run --filter @mercaria/backend test
+      # TEST_DATABASE_URL names the SERVER, never the database the tests use: the
+      # harness creates its own throwaway database on it per run and drops it
+      # afterwards, so `mercaria_ci` is never written to.
+      - env:
+          TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
+        run: bun run --filter @mercaria/backend test
 
       - run: bun run build:backend
 

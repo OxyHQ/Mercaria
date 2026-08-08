@@ -174,7 +174,6 @@ async function orderInput(
     },
     status: 'pending_payment',
     paymentStatus: 'unpaid',
-    paymentProvider: 'oxy_pay',
     checkoutGroupId: uuidv7(),
     items: overrides.lines ?? [],
     statusHistory: [{ status: 'pending_payment', at: new Date() }],

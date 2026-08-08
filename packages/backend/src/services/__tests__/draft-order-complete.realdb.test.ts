@@ -20,6 +20,14 @@
  * all-or-nothing of an order and its five child relations, and that the rolled
  * back reservation really returned the stock.
  *
+ * ## The payment is part of what is under test
+ *
+ * A POS sale records a `manual_pos` payment and lets that payment's outbox
+ * handler move the order to `paid` — one path from "a payment succeeded" to "its
+ * orders are paid", shared with every other rail. The handoff runs here for real
+ * rather than against a mocked payment service, so what these tests assert is
+ * that it actually completes, which no mock can tell you.
+ *
  * ## The order numbers are compared, never pinned
  *
  * `order_number_seq` is one sequence in a database SHARED with every other

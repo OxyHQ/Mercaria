@@ -983,7 +983,7 @@ async function seedCommerce(
     },
     status: 'paid',
     paymentStatus: 'paid',
-    paymentProvider: 'oxy_pay',
+    paymentProvider: 'mock',
     paymentPaidAt: posPaidAt,
     checkoutGroupId: uuidv7(),
     items: [
@@ -1077,7 +1077,7 @@ async function seedCommerce(
       },
       status: 'paid',
       paymentStatus: 'paid',
-      paymentProvider: 'oxy_pay',
+      paymentProvider: 'mock',
       paymentPaidAt: paidAt,
       checkoutGroupId: uuidv7(),
       items: [

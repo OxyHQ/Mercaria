@@ -212,9 +212,23 @@ describe('the 90-day retention sweep', () => {
     expect(target, 'notifications has no EXPIRY_TARGETS entry').toBeDefined();
     if (!target) return;
 
-    const result = await sweepExpiredRows(db, target);
-    expect(result.deleted).toBe(1);
+    // Deliberately NOT asserted on: `sweepExpiredRows` deletes table-wide, and
+    // vitest runs realdb files in parallel against ONE throwaway database. Both
+    // directions were measured, and both flake: `expirySweeper.realdb.test.ts`
+    // seeds its own long-dismissed rows, which inflates the number past an exact
+    // `toBe(1)`; and its own tick can reap THIS test's row first, which drops the
+    // number to 0 and defeats even a `>= 1` floor. Any count here is a property
+    // of which file happened to be mid-flight, not of the rule.
+    await sweepExpiredRows(db, target);
 
+    // This is what the test is actually about, and it is not contention-prone:
+    // of THIS user's two rows — backdated to the same `created_at`, differing
+    // only in `dismissed_at` — exactly the dismissed one is gone. A sweep still
+    // measuring from `created_at` (Mongo's rule, with its partial filter lost in
+    // translation) takes BOTH and fails here, whichever tick did the deleting;
+    // a sweep that deletes nothing leaves both and fails here too. Verified by
+    // mutating the registry entry to `notifications.createdAt` and watching this
+    // assertion — not the count — catch it.
     const { rows } = await findNotificationsPage(user, {}, 1, 10);
     expect(rows.map((row) => row.id)).toEqual([neverDismissed.id]);
     expect(rows[0].dismissedAt).toBeNull();

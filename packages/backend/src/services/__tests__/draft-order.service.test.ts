@@ -4,9 +4,9 @@
  *
  * Everything these paths touch is mocked: the pricing engine, inventory
  * reserve/release, the DRAFT-ORDER and ORDER repositories, the catalogue
- * repositories, the store repository, the order-number sequence, the
- * order.service transition, the order-hydration mapper, the media chokepoint,
- * the discount-code normalizer and the customer lookup.
+ * repositories, the store repository, the order-number sequence, the payment
+ * service, the order-hydration mapper, the media chokepoint, the discount-code
+ * normalizer and the customer lookup.
  *
  * The draft is a RECORD now rather than a mutable mongoose document, so a
  * mutation is no longer visible by inspecting the fixture: every register edit
@@ -24,10 +24,10 @@
  * variant whose `price_amount` is NULL is refused (CONFLICT) rather than sold for
  * nothing; complete reserves each line at the draft's `locationId`, re-prices via
  * `calculateTotals`, creates a `sourceChannel: 'pos'` order whose items carry
- * `locationId`, runs `transition('paid')` and marks the draft completed; a
- * double-complete is idempotent (returns the same order, no re-reserve/create); a
- * mid-reserve out-of-stock rolls back the prior reservation (at the location) and
- * creates no order.
+ * `locationId`, records a `manual_pos` payment (whose success is what marks the
+ * order paid) and marks the draft completed; a double-complete is idempotent
+ * (returns the same order, no re-reserve/create); a mid-reserve out-of-stock
+ * rolls back the prior reservation (at the location) and creates no order.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -37,7 +37,13 @@ import type { DualMoney } from '@mercaria/shared-types';
 const reserve = vi.fn();
 const release = vi.fn();
 const calculateTotals = vi.fn();
-const transition = vi.fn();
+// The POS sale no longer calls `transition` itself: it records a `manual_pos`
+// payment and the payment's own outbox handler moves the order to `paid`, so
+// there is ONE path from "a payment succeeded" to "its orders are paid". These
+// two stand in for that path; `draft-order-complete.realdb.test.ts` exercises
+// the real one against real servers.
+const ensurePayment = vi.fn();
+const applyPaymentStatus = vi.fn();
 const hydrateOrders = vi.fn();
 const getCustomer = vi.fn();
 const resolveDefaultLocationId = vi.fn();
@@ -71,8 +77,9 @@ vi.mock('../pricing.service.js', () => ({
   calculateTotals: (...args: unknown[]) => calculateTotals(...args),
 }));
 
-vi.mock('../order.service.js', () => ({
-  transition: (...args: unknown[]) => transition(...args),
+vi.mock('../payments/payment.service.js', () => ({
+  ensurePayment: (...args: unknown[]) => ensurePayment(...args),
+  applyPaymentStatus: (...args: unknown[]) => applyPaymentStatus(...args),
 }));
 
 vi.mock('../order-hydration.service.js', () => ({
@@ -285,7 +292,8 @@ beforeEach(() => {
   reserve.mockReset().mockResolvedValue(undefined);
   release.mockReset().mockResolvedValue(undefined);
   calculateTotals.mockReset().mockResolvedValue(pricing());
-  transition.mockReset().mockResolvedValue(undefined);
+  ensurePayment.mockReset().mockResolvedValue({ id: 'payment-1', provider: 'manual_pos' });
+  applyPaymentStatus.mockReset().mockResolvedValue({ changed: true });
   hydrateOrders.mockReset().mockResolvedValue([{ id: 'order-1', sourceChannel: 'pos' }]);
   getCustomer.mockReset();
   resolveDefaultLocationId.mockReset();
@@ -386,13 +394,20 @@ describe('draft-order.service.addLine — a line needs a price', () => {
 });
 
 describe('draft-order.service.completeDraftOrder — POS sale', () => {
-  it('reserves each line at the draft location, prices, creates a pos order with item locationId, transitions paid, marks completed', async () => {
+  it('reserves each line at the draft location, prices, creates a pos order with item locationId, records the sale payment, marks completed', async () => {
     findDraftOrder.mockResolvedValueOnce(mockDraft());
     // The re-price reads the lines' listings (`findListingsByIds`) and their
     // collection memberships (`findListingChildren`); complete reads the same
     // children again for the item thumbnails. Neither is needed for this sale.
-    insertOrder.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
-    transition.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
+    insertOrder.mockResolvedValueOnce({
+      id: 'order-1',
+      sourceChannel: 'pos',
+      buyerOxyUserId: ACTOR,
+      totalsGrandTotalPresentmentAmount: 3000,
+    });
+    // The sale re-reads the order after the payment marks it paid, because the
+    // transition happens on a freshly loaded record inside the outbox handler.
+    findOrderById.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
 
     const result = await completeDraftOrder(STORE, DRAFT_ID, {}, ACTOR);
 
@@ -425,11 +440,15 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
     expect(doc.items.every((i) => i.locationId === LOCATION)).toBe(true);
     expect(doc.idempotencyKey).toBe(`draft:${DRAFT_ID}`);
 
-    // Drove the shared paid transition + marked the draft converted. The mark is
-    // guarded on the draft still being open, so a second complete that lost the
-    // race cannot overwrite the first one's order id.
-    expect(transition).toHaveBeenCalledTimes(1);
-    expect(transition.mock.calls[0][1]).toBe('paid');
+    // Recorded the sale as a real payment and drove it to `succeeded`, which is
+    // what marks the order paid — the POS path no longer transitions it itself.
+    expect(ensurePayment).toHaveBeenCalledTimes(1);
+    expect((ensurePayment.mock.calls[0][0] as { provider: string }).provider).toBe('manual_pos');
+    expect(applyPaymentStatus).toHaveBeenCalledTimes(1);
+    expect((applyPaymentStatus.mock.calls[0][0] as { next: string }).next).toBe('succeeded');
+    // Marked the draft converted. The mark is guarded on the draft still being
+    // open, so a second complete that lost the race cannot overwrite the first
+    // one's order id.
     expect(markDraftConverted).toHaveBeenCalledWith(STORE, DRAFT_ID, 'order-1');
     expect(release).not.toHaveBeenCalled();
     expect(result).toEqual({ id: 'order-1', sourceChannel: 'pos' });
@@ -450,8 +469,13 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
       options: new Map(),
       collectionIds: new Map(),
     });
-    insertOrder.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
-    transition.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
+    insertOrder.mockResolvedValueOnce({
+      id: 'order-1',
+      sourceChannel: 'pos',
+      buyerOxyUserId: ACTOR,
+      totalsGrandTotalPresentmentAmount: 3000,
+    });
+    findOrderById.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
 
     await completeDraftOrder(STORE, DRAFT_ID, {}, ACTOR);
 
@@ -472,7 +496,7 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
 
     expect(reserve).not.toHaveBeenCalled();
     expect(insertOrder).not.toHaveBeenCalled();
-    expect(transition).not.toHaveBeenCalled();
+    expect(applyPaymentStatus).not.toHaveBeenCalled();
     // The short-circuit returns before any allocation — a repeated complete must
     // not burn an order number.
     expect(nextOrderNumber).not.toHaveBeenCalled();
@@ -495,7 +519,7 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
     expect(release).toHaveBeenCalledTimes(1);
     expect(release).toHaveBeenCalledWith(V1, 2, LOCATION);
     expect(insertOrder).not.toHaveBeenCalled();
-    expect(transition).not.toHaveBeenCalled();
+    expect(applyPaymentStatus).not.toHaveBeenCalled();
     // A sale that never reaches the insert allocates no number either.
     expect(nextOrderNumber).not.toHaveBeenCalled();
     // The draft is never marked converted.
