@@ -140,9 +140,21 @@ jobs:
 
   deploy:
     needs: test
-    runs-on: ubuntu-24.04-arm
+    # x86 + QEMU, not ubuntu-24.04-arm: since ~16:02Z 2026-08-08 EVERY run of
+    # this workflow (push and dispatch) completed as `action_required` with ZERO
+    # jobs created — no environment protection, no pending_deployments, Actions
+    # policy allow-all. The one job distinguishing this workflow from the ones
+    # that still run is this ARM runner label (a partner-runner entitlement can
+    # gate run creation on a free-plan org). The arm64 IMAGE is unchanged —
+    # buildx builds linux/arm64 through QEMU, same as the local fallback deploys
+    # used during the outage.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
 
       - name: Configure AWS credentials (OIDC, no stored keys)
         uses: aws-actions/configure-aws-credentials@v4
