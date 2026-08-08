@@ -12,11 +12,24 @@
  * `idempotency_key` — a unique violation on replay converges on the
  * already-created group. Redis is best-effort: any Redis failure logs a warning
  * and falls through to the durable path — it NEVER breaks checkout.
+ *
+ * ## The payment is opened here and owned elsewhere
+ *
+ * When a rail is engaged, step 9 opens the payment and hands the buyer's client
+ * its material. Everything about HOW is behind
+ * `payments/checkout-payment.service.ts`: this file names a rail and a currency
+ * and never a provider, because a Stripe import in the checkout path would make
+ * the card rail structural to placing an order (ADR 0001's last consequence).
+ *
+ * Both idempotency layers extend through it — a converging replay re-opens the
+ * SAME payment rather than creating a second charge — which is why the converge
+ * paths return through `summarizePriorGroup` rather than returning orders alone.
  */
 
 import type {
   AddressSnapshot,
   CheckoutInput,
+  CheckoutPaymentHandoff,
   CheckoutResult,
   CurrencyCode,
   DualMoney,
@@ -64,6 +77,12 @@ import { calculateTotals, type PricingLine, type PricingResult } from './pricing
 import { normalizeDiscountCode } from './discount.service.js';
 import { getRates, convert, toDualMoney, pairRate } from './fx.service.js';
 import { assertSellerGroupsPaymentReady } from './payments/provider-account.service.js';
+import {
+  assertCheckoutCurrencyEligible,
+  openCheckoutPayment,
+  resolveCheckoutRail,
+  type CheckoutRail,
+} from './payments/checkout-payment.service.js';
 import { addMoney, multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { uuidv7, isUniqueViolation } from '@oxyhq/db';
@@ -176,13 +195,33 @@ async function rollbackReservations(reserved: Reservation[]): Promise<void> {
   }
 }
 
-/** Look up the orders of a prior checkout group and summarize them. */
+/**
+ * Look up the orders of a prior checkout group, summarize them, and re-open the
+ * SAME payment.
+ *
+ * The converge path, and it has to return the payment as well as the orders:
+ * a client that retried because its first response never arrived needs the client
+ * material, and telling it "these orders already exist" without a way to pay for
+ * them would leave the buyer holding reserved stock they cannot buy. Every layer
+ * involved converges rather than creating — see `openCheckoutPayment`.
+ */
 async function summarizePriorGroup(
   oxyUserId: string,
   checkoutGroupId: string,
+  rail: CheckoutRail,
 ): Promise<CheckoutResult> {
   const prior = await findOrdersByCheckoutGroup(checkoutGroupId, oxyUserId);
-  return { checkoutGroupId, orders: await summarizeOrders(prior) };
+  const payment = await openCheckoutPayment({
+    rail,
+    checkoutGroupId,
+    buyerOxyUserId: oxyUserId,
+    orders: prior,
+  });
+  return {
+    checkoutGroupId,
+    orders: await summarizeOrders(prior),
+    ...(payment ? { payment } : {}),
+  };
 }
 
 /**
@@ -322,6 +361,12 @@ export async function checkout(
   input: CheckoutInput,
   idempotencyKey?: string,
 ): Promise<CheckoutResult> {
+  // 0. Which rail funds this checkout — refused here, before anything else
+  // happens, when the buyer named one this deployment cannot serve. It is a
+  // property of the REQUEST and the configuration only, so it costs nothing and
+  // needs nothing loaded to answer.
+  const rail = resolveCheckoutRail(input.paymentMethod);
+
   // 1. Redis idempotency fast-path (best-effort; never breaks checkout).
   const redis = idempotencyKey ? getRedisClient() : null;
   const redisKey = idempotencyKey ? `${IDEMPOTENCY_KEY_PREFIX}${oxyUserId}:${idempotencyKey}` : null;
@@ -337,7 +382,7 @@ export async function checkout(
         if (stored && stored !== IDEMPOTENCY_PENDING) {
           const prior = await findOrdersByCheckoutGroup(stored, oxyUserId);
           if (prior.length > 0) {
-            return { checkoutGroupId: stored, orders: await summarizeOrders(prior) };
+            return await summarizePriorGroup(oxyUserId, stored, rail);
           }
         } else if (stored === IDEMPOTENCY_PENDING) {
           throw conflict('Checkout already in progress');
@@ -457,6 +502,12 @@ export async function checkout(
   // A no-op when the Stripe rail is off, without touching Postgres — see
   // `assertSellerGroupsPaymentReady`.
   await assertSellerGroupsPaymentReady([...groups.keys()]);
+
+  // 4e. Refuse a cart the rail cannot charge, in the same place and for the same
+  // reason as 4d: ADR 0001 D8 limits card presentment to a configured set, and a
+  // currency question needs no stock to answer. Purely in-memory, and a complete
+  // no-op when no rail is engaged.
+  assertCheckoutCurrencyEligible(rail, cart.currency);
 
   // 5. Reserve every line across ALL groups; roll back on any failure.
   const reserved: Reservation[] = [];
@@ -635,7 +686,7 @@ export async function checkout(
             { oxyUserId, idempotencyKey },
             'Concurrent/replayed checkout detected; converging on prior order group',
           );
-          return summarizePriorGroup(oxyUserId, prior.checkoutGroupId);
+          return await summarizePriorGroup(oxyUserId, prior.checkoutGroupId, rail);
         }
       }
       throw conflict('Checkout already processed');
@@ -656,7 +707,49 @@ export async function checkout(
     }
   }
 
-  // 9. Increment redeemed discount usage EXACTLY once — this runs only on the
+  // 9. Open the payment at the rail, and hand its client material back.
+  //
+  // AFTER the orders, because it needs what only exists once they do: the
+  // group's real grand total and the order ids the rail's metadata carries (ADR
+  // 0001 D11). And BEFORE the cart is emptied below, which is the part that is
+  // easy to get wrong — see the failure path.
+  //
+  // A failure here does NOT roll the checkout back. The orders are real, their
+  // stock is really reserved, and every layer converges, so the honest recovery
+  // is the buyer's client re-submitting the SAME `Idempotency-Key`: it reprices
+  // the cart, loses to `orders_idempotency_key_key`, releases the reservations
+  // that second attempt took, and converges on the group already created — which
+  // then re-opens this same payment. That is only true while the cart still
+  // holds its lines, which is exactly why emptying it comes after this and not
+  // before: a retry against an empty cart is refused as "Cart is empty", and the
+  // buyer would be told to do something that cannot work.
+  //
+  // Cancelling the orders instead would throw away a completed, priced, reserved
+  // checkout because a third party had a bad minute, and the reservation sweep
+  // already releases anything nobody comes back for.
+  let payment: CheckoutPaymentHandoff | undefined;
+  try {
+    payment = await openCheckoutPayment({
+      rail,
+      checkoutGroupId,
+      buyerOxyUserId: oxyUserId,
+      orders: created,
+    });
+  } catch (err) {
+    log.general.error(
+      { err, oxyUserId, checkoutGroupId },
+      'Checkout created its orders but could not open the payment',
+    );
+    if (isMercariaError(err)) {
+      throw err;
+    }
+    throw conflict(
+      'Your order was created but the payment could not be started. Retry with the same ' +
+        'Idempotency-Key to pick it up; nothing has been charged.',
+    );
+  }
+
+  // 10. Increment redeemed discount usage EXACTLY once — this runs only on the
   // fresh-claim success path (the replay/11000-converge paths return early above,
   // so they never reach here), keeping redemption counts idempotent. Then empty
   // the cart now that orders exist.
@@ -671,7 +764,7 @@ export async function checkout(
     await clearCart(oxyUserId);
   }
 
-  // 10. Best-effort: notify buyer + seller of each placed order. A notification
+  // 11. Best-effort: notify buyer + seller of each placed order. A notification
   // failure must never fail a completed checkout.
   try {
     for (const o of created) {
@@ -681,6 +774,10 @@ export async function checkout(
     log.general.warn({ err }, 'Failed to enqueue order-placed notifications');
   }
 
-  // 11. Summarize the created orders.
-  return { checkoutGroupId, orders: await summarizeOrders(created) };
+  // 12. Summarize the created orders.
+  return {
+    checkoutGroupId,
+    orders: await summarizeOrders(created),
+    ...(payment ? { payment } : {}),
+  };
 }

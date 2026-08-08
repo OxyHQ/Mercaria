@@ -20,6 +20,8 @@
  * are never projected onto an order DTO.
  */
 
+import type { Money } from './money';
+
 /**
  * The payment rails Mercaria can record a payment against.
  *
@@ -315,6 +317,19 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
  * It is a separate type rather than a flag on `payment_succeeded` because the
  * two have opposite consequences: one fulfils an order, the other must not.
  *
+ * ## `transfer_withheld` is the OTHER exception, and it is per ORDER
+ *
+ * The charge succeeded and the buyer is paid up, but one seller's share cannot
+ * leave: their account lost readiness between funding and settlement, or the
+ * rail refused the movement outright. ADR 0001 D4 is explicit that this must not
+ * un-pay the order and must not block its siblings — Mercaria's controlled
+ * analog of the "skipped transfer" a destination charge would produce — so the
+ * settlement step records this and carries on with the next order.
+ *
+ * It is per order rather than per payment because that is the grain a resolution
+ * acts on: one seller recovers their account and their transfer is made, while
+ * another's is refunded, out of the same charge.
+ *
  * ## `provider_account_changed` is about a SELLER, not a payment
  *
  * The one event here whose payload names no payment. A seller's standing with a
@@ -332,6 +347,7 @@ export type PaymentOutboxEventType =
   | 'payment_refunded'
   | 'payment_disputed'
   | 'transfer_changed'
+  | 'transfer_withheld'
   | 'payout_changed'
   | 'provider_account_changed';
 
@@ -339,8 +355,9 @@ export type PaymentOutboxEventType =
 export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
   'payment_succeeded',
   'payment_failed',
-  // The exception, not a lifecycle step — see the note below.
+  // The two exceptions, not lifecycle steps — see the notes above.
   'payment_succeeded_after_release',
+  'transfer_withheld',
   'payment_refunded',
   'payment_disputed',
   'transfer_changed',
@@ -363,3 +380,57 @@ export const PAYMENT_OUTBOX_STATUSES: readonly PaymentOutboxStatus[] = [
   'processed',
   'dead_letter',
 ];
+
+/**
+ * Which rail a checkout funds through, when the buyer gets a choice.
+ *
+ * `mock` is not a payment method a buyer ever picks — it is the dev seam, gated
+ * by `config.orders.mockPayEnabled` and refused outright in production. It is in
+ * this union rather than hidden behind an undocumented magic string because the
+ * request schema has to accept exactly one of a closed set, and a set with an
+ * invisible member is one nobody can review.
+ *
+ * The union is deliberately NOT `PaymentProviderId`: `external` and `manual_pos`
+ * are payments Mercaria RECORDS, made somewhere else entirely, and a checkout
+ * request able to name one would be a buyer asserting a payment that never
+ * happened.
+ */
+export type CheckoutPaymentMethod = 'stripe' | 'mock';
+
+/** {@link CheckoutPaymentMethod} as the tuple the request schema reads. */
+export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = ['stripe', 'mock'];
+
+/**
+ * Everything the buyer's client is given to complete a payment, and NOTHING
+ * else (issue #47, backend 7).
+ *
+ * There is exactly one secret here and it is the rail's own client material —
+ * opaque to Mercaria, handed over in the response and never stored (see the
+ * backend's `PaymentClientAction`). No connected-account id, no charge id, no
+ * seller identity, no per-order breakdown: a buyer's payment client needs an
+ * amount, a currency and a way to authorize, and every extra field is provider
+ * surface that a client could come to depend on.
+ *
+ * `amount` is what the rail will actually charge — the checkout group's grand
+ * total in the buyer's presentment currency — so a client renders the figure the
+ * payment was created for rather than re-adding the orders itself and rounding
+ * differently.
+ */
+export interface CheckoutPaymentHandoff {
+  /** Mercaria's payment id. The handle for the status endpoint below. */
+  paymentId: string;
+  provider: PaymentProviderId;
+  /** The rail's client secret (or equivalent), opaque and never persisted. */
+  clientSecret: string;
+  /**
+   * The rail's publishable key, when the server is configured with one.
+   *
+   * Absent means "use the key the app was built with". It is returned at all
+   * because the key and the account that created the payment MUST be the same
+   * one, and two independently-configured values can silently disagree — a
+   * client secret confirmed against another account's key fails with a
+   * mismatched-intent error that reads as a client bug.
+   */
+  publishableKey?: string;
+  amount: Money;
+}

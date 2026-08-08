@@ -95,6 +95,23 @@ export function paymentSucceededAfterReleaseEventId(paymentId: string): string {
   return `payment:payment_succeeded_after_release:${paymentId}`;
 }
 
+/**
+ * `payment:transfer_withheld:<paymentId>:<orderId>`.
+ *
+ * Keyed on the payment AND the order, because withholding is per SELLER: one
+ * order of a multi-seller group can be stuck while its siblings settle, and each
+ * is resolved separately (a recovered account, or a refund). Keying on the
+ * payment alone would collapse two sellers' exceptions into one case and hide
+ * the second.
+ *
+ * Not keyed on the attempt: a settlement retried by the outbox describes the
+ * same stuck money every time, and an operator queue with one row per attempt is
+ * a queue nobody reads.
+ */
+export function transferWithheldEventId(paymentId: string, orderId: string): string {
+  return `payment:transfer_withheld:${paymentId}:${orderId}`;
+}
+
 /** `payment:payment_refunded:<refundId>` — keyed on the refund, not the payment. */
 export function paymentRefundedEventId(refundId: string): string {
   return `payment:payment_refunded:${refundId}`;

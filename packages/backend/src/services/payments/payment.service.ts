@@ -2,9 +2,11 @@
  * The payment state machine, the ledger postings it causes, and the trace that
  * explains both.
  *
- * This is the only module that talks to a `PaymentProvider`, and the only one
- * that moves a payment between statuses. "What happens when a payment succeeds"
- * is therefore written once and cannot drift between rails.
+ * The only module that moves a payment between statuses, so "what happens when a
+ * payment succeeds" is written once and cannot drift between rails. It is one of
+ * three that talk to a `PaymentProvider` — `checkout-payment.service` opens a
+ * checkout's payment and `settlement.service` makes the transfers — and the ONLY
+ * one that changes a status as a result.
  *
  * ## The one shape everything else is built on
  *
@@ -68,7 +70,8 @@ import {
   type LedgerEntryInput,
 } from '../../db/payments/ledgerRepository.js';
 import { ledgerEntries, ledgerTransactions } from '../../db/schema/ledger.js';
-import { chargeSucceeded, type SellerShare } from './ledger-postings.js';
+import { chargeSucceeded } from './ledger-postings.js';
+import { allocateSellerShares } from './settlement-shares.js';
 import {
   drainPaymentOutbox,
   enqueuePaymentEvent,
@@ -439,6 +442,68 @@ export async function flagSucceededAfterRelease(input: {
   return id;
 }
 
+/**
+ * Give up on the payment for a checkout group whose reservation expired.
+ *
+ * The reservation-TTL sweep has cancelled the orders and put the stock back, so
+ * the rail must stop being able to take the buyer's money for them.
+ *
+ * ## The order of the two steps is the whole design
+ *
+ * The rail is told FIRST, because that is the only step that can actually
+ * prevent a capture; Mercaria's own status is then set to `canceled`
+ * REGARDLESS of what the rail said, because it is true either way — Mercaria has
+ * released these goods.
+ *
+ * That second part is what arms the exception path rather than defeating it. If
+ * the rail refuses to cancel because it has already captured, the payment sits
+ * at `canceled` and the succeeded event that follows finds a status it cannot
+ * legally reach — which is exactly the condition `flagSucceededAfterRelease`
+ * exists to raise, and money arriving for released goods is raised for an
+ * operator instead of quietly booking a charge against cancelled orders.
+ *
+ * Nothing here touches inventory. The ORDER transition already released it, and
+ * two things releasing one reservation is how stock goes negative (#45
+ * acceptance 4).
+ *
+ * @returns Whether Mercaria's payment moved to `canceled` in this call.
+ */
+export async function cancelPaymentForCheckoutGroup(checkoutGroupId: string): Promise<boolean> {
+  const db = getDb();
+  const payment = await findNativePaymentByCheckoutGroupId(db, checkoutGroupId);
+  // No payment was ever opened — a checkout on a deployment with no rail, or one
+  // abandoned before the rail was engaged. There is nothing to cancel.
+  if (!payment) return false;
+  if (!canTransitionPaymentStatus(payment.status, 'canceled')) return false;
+
+  if (payment.providerObjectId) {
+    const { resolvePaymentProvider } = await import('./registry.js');
+    const provider = resolvePaymentProvider(payment.provider);
+    if (provider) {
+      try {
+        await provider.cancel({
+          paymentId: payment.id,
+          providerObjectId: payment.providerObjectId,
+          // Derived from the payment, like every other key (ADR 0001 D11): a
+          // sweep that runs twice must not be able to cancel twice.
+          idempotencyKey: `cancel:${payment.id}`,
+        });
+      } catch (error: unknown) {
+        // Best effort, and a failure here is INFORMATION: the commonest cause is
+        // a capture that beat the sweep, which the local `canceled` below turns
+        // into a visible exception when the success event lands.
+        log.general.warn(
+          { err: error, paymentId: payment.id, checkoutGroupId },
+          '[Payments] could not cancel the payment at its rail; cancelling locally anyway',
+        );
+      }
+    }
+  }
+
+  const result = await applyPaymentStatus({ paymentId: payment.id, next: 'canceled' });
+  return result.changed;
+}
+
 /** The attempt row a status change produces. */
 function attemptStatusFor(next: PaymentStatus): 'pending' | 'succeeded' | 'failed' {
   if (next === 'succeeded' || next === 'refunded' || next === 'partially_refunded') {
@@ -451,29 +516,39 @@ function attemptStatusFor(next: PaymentStatus): 'pending' | 'succeeded' | 'faile
 /**
  * Book the charge, splitting it across the seller orders it funds.
  *
- * ## Everything is booked in the PRESENTMENT currency, for now
+ * ## It books in the currency the money actually LANDED in
  *
- * The charge is created in the buyer's presentment currency and, for every rail
- * that exists today, settles in it too — so the gross and each seller's net are
- * the same currency and the transaction balances exactly. ADR 0001 D8 says that
- * changes when a real rail lands: the platform settles in EUR, a seller order
- * whose shop currency differs is converted ONCE at charge-success time with a
- * captured rate, and both legs are booked in their own currencies. The ledger
- * already balances PER currency precisely so that day needs no new mechanism —
- * only `payment.platform_*` (already stored) in place of the presentment side
- * below.
+ * When the rail has reported a conversion — `payment.platform_*`, captured with
+ * its rate at the moment the charge succeeded (ADR 0001 D8) — the gross, each
+ * seller's payable, the fee and the commission are all booked in the PLATFORM's
+ * settlement currency. That is where the money is: a USD charge on a EUR
+ * platform arrives as euros, and a `provider_clearing` leg in dollars would
+ * describe a balance Stripe does not hold.
  *
- * A currency mismatch between an order and its payment is refused rather than
- * converted here. Converting would mean choosing a rate, and a rate chosen at
- * posting time is exactly the unreproducible number `FxRateSnapshot` exists to
- * prevent.
+ * Without a conversion the charge settled in the currency it was made in, and
+ * the presentment side is both what the buyer paid and what the platform
+ * received. That is every same-currency card charge and every synthetic one.
  *
- * ## The per-order NET is the order's whole total, because the commission is zero
+ * The consequence that makes this load-bearing rather than cosmetic: the
+ * transfers that settle these payables are denominated in the platform currency
+ * too, so booking the payable in any other one leaves `merchant_payable` holding
+ * two currencies for a single order — a debt that says it was both owed and paid
+ * and never nets to zero.
  *
- * That is the number #88's fee schedule changes: the share becomes
- * `total − commission(total)`, and the residual `chargeSucceeded` already
- * computes stops being zero and starts crediting `commission_revenue`. Nothing
- * else moves — the fee schedule has exactly one place to plug in.
+ * ## Orders must share ONE presentment currency
+ *
+ * They always do (a checkout group is priced once, in the buyer's currency), and
+ * the guard stays because the split below uses each order's total as a WEIGHT.
+ * Weights in mixed currencies would be added together as if they were
+ * commensurable, which silently mis-splits the charge instead of failing.
+ *
+ * ## The per-order NET, and where #88 plugs in
+ *
+ * `allocateSellerShares` is the single definition of what each seller is owed,
+ * shared with the settlement step so the payable and the transfer cannot
+ * disagree. The commission is not deducted there and is not passed here: it is
+ * the RESIDUAL `chargeSucceeded` computes, zero while the rate is zero, and #88
+ * makes it non-zero by shrinking those shares — nothing else moves.
  */
 async function bookChargeSucceeded(
   tx: DatabaseOrTransaction,
@@ -492,32 +567,61 @@ async function bookChargeSucceeded(
     return undefined;
   }
 
-  const currency = payment.presentmentCurrency as CurrencyCode;
-  const mismatched = orders.filter((order) => order.presentmentCurrency !== currency);
+  const presentmentCurrency = payment.presentmentCurrency as CurrencyCode;
+  const mismatched = orders.filter((order) => order.presentmentCurrency !== presentmentCurrency);
   if (mismatched.length > 0) {
     throw new Error(
-      `Payment ${payment.id} is denominated in ${currency} but ` +
+      `Payment ${payment.id} is denominated in ${presentmentCurrency} but ` +
         `${String(mismatched.length)} of its orders are not. A charge cannot be split across ` +
         'currencies without a captured rate (ADR 0001 D8).',
     );
   }
 
-  const shares: SellerShare[] = orders.map((order) => ({
-    orderId: order.id,
-    ownerType: (order.sellerType === 'store' ? 'store' : 'user') as LedgerOwnerType,
-    ownerId: order.sellerOwnerId,
-    netMinor: BigInt(order.presentmentTotalMinor),
-  }));
+  const settled = settlementBasis(payment);
+  const allocation = allocateSellerShares({
+    grossMinor: settled.grossMinor,
+    currency: settled.currency,
+    orders: orders.map((order) => ({
+      orderId: order.id,
+      ownerType: (order.sellerType === 'store' ? 'store' : 'user') as LedgerOwnerType,
+      ownerId: order.sellerOwnerId,
+      weightMinor: order.presentmentTotalMinor,
+    })),
+  });
 
   const posting = chargeSucceeded({
     paymentId: payment.id,
-    currency,
-    grossMinor: BigInt(payment.presentmentAmount),
+    currency: settled.currency,
+    grossMinor: settled.grossMinor,
     feeMinor,
-    shares,
+    shares: allocation.shares,
   });
   const inserted = await insertLedgerTransaction(tx, posting.transaction, posting.entries);
   return inserted.id;
+}
+
+/**
+ * The currency and gross a payment's money movements are booked and settled in.
+ *
+ * The platform side when the rail converted, the presentment side when it did
+ * not — see `bookChargeSucceeded`. Exported because the settlement step needs
+ * the SAME answer to size its transfers, and two readers of the same rule is
+ * exactly how the two figures stay equal.
+ */
+export function settlementBasis(payment: PaymentRow): {
+  currency: CurrencyCode;
+  grossMinor: bigint;
+} {
+  if (payment.platformAmount !== null && payment.platformCurrency !== null) {
+    return {
+      currency: payment.platformCurrency as CurrencyCode,
+      grossMinor: BigInt(payment.platformAmount),
+    };
+  }
+  return {
+    currency: payment.presentmentCurrency as CurrencyCode,
+    grossMinor: BigInt(payment.presentmentAmount),
+  };
 }
 
 /** The outbox row a status change produces, if it produces one. */

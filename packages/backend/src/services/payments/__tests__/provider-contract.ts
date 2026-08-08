@@ -51,6 +51,34 @@ export interface PaymentProviderContractOptions {
     provider: PaymentProvider,
     input: { paymentId: string; providerObjectId: string; status: 'succeeded' | 'processing' },
   ) => ProviderEventInput;
+  /**
+   * Drive a created payment to `succeeded`, however THIS rail does that.
+   *
+   * Defaults to calling `capture`, which is how a rail that holds funds gets
+   * there. A card rail does not hold funds — the buyer confirms client-side and
+   * the money is captured in the same movement (ADR 0001 D3) — so its adapter
+   * has no capture step at all, and a suite hard-coded to call one could only
+   * ever test rails shaped like the synthetic one.
+   */
+  settle?: (
+    provider: PaymentProvider,
+    input: { paymentId: string; providerObjectId: string },
+  ) => Promise<void>;
+  /**
+   * Operations this rail structurally does not have, each mapped to the reason.
+   *
+   * Declaring one does NOT skip the check — it inverts it. The suite asserts the
+   * method rejects with a non-retryable `PaymentProviderError` whose message
+   * contains the declared reason, so "this rail cannot capture" is pinned as
+   * firmly as "this rail captures correctly" would be.
+   *
+   * That distinction is the whole point of the option. A rail that quietly
+   * returned a plausible-looking result from an operation it never performed
+   * would pass a skipped test and fail a real customer, and the operations most
+   * likely to be faked that way — capture and refund — are precisely the two
+   * that move money.
+   */
+  unsupported?: Partial<Record<PaymentProviderStage, string>>;
 }
 
 /** A charge every rail can handle: 25.00 EUR. */
@@ -68,8 +96,66 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
     metadata: { paymentId, checkoutGroupId: 'group-contract-1' },
   });
 
+  /**
+   * Drive a payment to `succeeded` the way this rail does it.
+   *
+   * The default IS `capture`, so a rail that holds funds is tested exactly as
+   * before this hook existed — the option adds a shape rather than relaxing one.
+   */
+  const settle = async (provider: PaymentProvider, providerObjectId: string): Promise<void> => {
+    if (options.settle) {
+      await options.settle(provider, { paymentId, providerObjectId });
+      return;
+    }
+    await provider.capture({ paymentId, providerObjectId, idempotencyKey: `cap:${paymentId}` });
+  };
+
+  const unsupported = options.unsupported ?? {};
+  const supports = (stage: PaymentProviderStage): boolean => unsupported[stage] === undefined;
+
   describe(`PaymentProvider contract — ${options.name}`, () => {
-    it('runs authorize → capture → refund to a fully refunded payment', async () => {
+    for (const [stage, reason] of Object.entries(unsupported)) {
+      it(`refuses ${stage}, non-retryably, saying why`, async () => {
+        const provider = options.createProvider();
+        const created = await provider.createPayment(create());
+        const operation = {
+          paymentId,
+          providerObjectId: created.providerObjectId,
+          idempotencyKey: `${stage}:${paymentId}`,
+        };
+
+        const thrown: unknown = await (async () => {
+          switch (stage as PaymentProviderStage) {
+            case 'authorize':
+              return await provider.authorize(operation);
+            case 'capture':
+              return await provider.capture(operation);
+            case 'cancel':
+              return await provider.cancel(operation);
+            case 'refund':
+              return await provider.refund({ ...operation, refundId: 'refund-x', amount: AMOUNT });
+            default:
+              return await provider.getStatus(created.providerObjectId);
+          }
+        })().then(
+          () => null,
+          (error: unknown) => error,
+        );
+
+        expect(thrown).toBeInstanceOf(PaymentProviderError);
+        // Non-retryable: an operation a rail does not HAVE is not a transient
+        // condition, and retrying one burns the outbox's attempts on a wall.
+        expect((thrown as PaymentProviderError).retryable).toBe(false);
+        expect((thrown as PaymentProviderError).stage).toBe(stage);
+        // The reason travels in the message, so whoever hits this in production
+        // reads why rather than "unsupported".
+        expect((thrown as PaymentProviderError).message).toContain(reason);
+      });
+    }
+
+    it.skipIf(!supports('authorize') || !supports('capture') || !supports('refund'))(
+      'runs authorize → capture → refund to a fully refunded payment',
+      async () => {
       const provider = options.createProvider();
       const created = await provider.createPayment(create());
       expect(created.providerObjectId).toBeTruthy();
@@ -98,9 +184,12 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
       });
       expect(refunded.status).toBe('refunded');
       expect(refunded.providerObjectId).toBeTruthy();
-    });
+      },
+    );
 
-    it('lands a PARTIAL refund on partially_refunded, not refunded', async () => {
+    it.skipIf(!supports('refund'))(
+      'lands a PARTIAL refund on partially_refunded, not refunded',
+      async () => {
       const provider = options.createProvider();
       const created = await provider.createPayment(create());
       await provider.capture({
@@ -128,7 +217,8 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
         idempotencyKey: 're:refund-rest',
       });
       expect(rest.status).toBe('refunded');
-    });
+      },
+    );
 
     it('is idempotent: repeating createPayment yields the same provider object', async () => {
       const provider = options.createProvider();
@@ -138,7 +228,9 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
       expect(second.status).toBe(first.status);
     });
 
-    it('is idempotent: repeating capture does not move a captured payment', async () => {
+    it.skipIf(!supports('capture'))(
+      'is idempotent: repeating capture does not move a captured payment',
+      async () => {
       const provider = options.createProvider();
       const created = await provider.createPayment(create());
       const first = await provider.capture({
@@ -153,9 +245,12 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
       });
       expect(second.status).toBe(first.status);
       expect(second.status).toBe('succeeded');
-    });
+      },
+    );
 
-    it('refuses to refund a payment that was never captured', async () => {
+    it.skipIf(!supports('refund'))(
+      'refuses to refund a payment that was never captured',
+      async () => {
       const provider = options.createProvider();
       const created = await provider.createPayment(create());
       await expect(
@@ -167,16 +262,13 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
           idempotencyKey: 're:refund-early',
         }),
       ).rejects.toBeInstanceOf(PaymentProviderError);
-    });
+      },
+    );
 
-    it('refuses to cancel a captured payment', async () => {
+    it.skipIf(!supports('cancel'))('refuses to cancel a captured payment', async () => {
       const provider = options.createProvider();
       const created = await provider.createPayment(create());
-      await provider.capture({
-        paymentId,
-        providerObjectId: created.providerObjectId,
-        idempotencyKey: `cap:${paymentId}`,
-      });
+      await settle(provider, created.providerObjectId);
       await expect(
         provider.cancel({
           paymentId,
@@ -186,17 +278,16 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
       ).rejects.toBeInstanceOf(PaymentProviderError);
     });
 
-    it('reports the current status back through getStatus', async () => {
-      const provider = options.createProvider();
-      const created = await provider.createPayment(create());
-      await provider.capture({
-        paymentId,
-        providerObjectId: created.providerObjectId,
-        idempotencyKey: `cap:${paymentId}`,
-      });
-      const read = await provider.getStatus(created.providerObjectId);
-      expect(read.status).toBe('succeeded');
-    });
+    it.skipIf(!supports('getStatus'))(
+      'reports the current status back through getStatus',
+      async () => {
+        const provider = options.createProvider();
+        const created = await provider.createPayment(create());
+        await settle(provider, created.providerObjectId);
+        const read = await provider.getStatus(created.providerObjectId);
+        expect(read.status).toBe('succeeded');
+      },
+    );
 
     it('rejects an event whose signature does not verify, non-retryably', async () => {
       const provider = options.createProvider();
@@ -229,13 +320,14 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
           expect(inject).toBeUndefined();
           return;
         }
+        if (!supports(stage)) {
+          // Declared unsupported above, where its refusal is asserted directly.
+          expect(unsupported[stage]).toBeTypeOf('string');
+          return;
+        }
         const provider = options.createProvider();
         const created = await provider.createPayment(create());
-        await provider.capture({
-          paymentId,
-          providerObjectId: created.providerObjectId,
-          idempotencyKey: `cap:${paymentId}`,
-        });
+        await settle(provider, created.providerObjectId);
 
         inject(provider, stage);
         const call = async (): Promise<unknown> => {

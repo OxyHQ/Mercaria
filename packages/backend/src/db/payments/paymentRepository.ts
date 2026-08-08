@@ -120,6 +120,34 @@ export async function createOrGetPayment(
   return existing;
 }
 
+/**
+ * Record the provider's own object for a payment that did not have one.
+ *
+ * A compare-and-swap on `provider_object_id IS NULL`, so the FIRST call wins and
+ * a concurrent one leaves it alone. That matters because the id is what every
+ * later lookup correlates a webhook through, and overwriting it would orphan the
+ * object that is actually holding the buyer's money.
+ *
+ * Deliberately not part of a status change. Opening a payment at the rail moves
+ * nothing in Mercaria's own lifecycle — the payment is `created` before and
+ * after, and it is the rail's verified events that advance it — so tying the two
+ * together would mean inventing a transition to have somewhere to put this.
+ *
+ * @returns The row, whether or not this call is what set the id.
+ */
+export async function attachPaymentProviderObject(
+  db: DatabaseOrTransaction,
+  paymentId: string,
+  providerObjectId: string,
+): Promise<PaymentRow | undefined> {
+  await db
+    .update(payments)
+    .set({ providerObjectId, updatedAt: new Date() })
+    .where(and(eq(payments.id, paymentId), isNull(payments.providerObjectId)));
+
+  return await findPaymentById(db, paymentId);
+}
+
 /** The native payment funding a checkout group, if one has been opened. */
 export async function findNativePaymentByCheckoutGroupId(
   db: DatabaseOrTransaction,
@@ -731,11 +759,42 @@ export async function createOrGetTransfer(
 }
 
 /**
+ * Claim a transfer for the provider object that was just created for it.
+ *
+ * A compare-and-swap on `provider_object_id IS NULL`, and the returned row is
+ * the answer to "did I win": exactly one caller can attach the rail's object to
+ * a transfer, so exactly one can book the ledger entry that goes with it. Two
+ * tasks draining the same outbox row both get the same object back from the rail
+ * (the idempotency key sees to that) and would otherwise both post it, doubling
+ * a settlement in the accounts.
+ *
+ * `undefined` therefore means "someone else already recorded this transfer",
+ * which is an ordinary outcome of at-least-once delivery rather than a failure.
+ */
+export async function claimTransferProviderObject(
+  db: DatabaseOrTransaction,
+  input: { transferId: string; providerObjectId: string; status: TransferStatus },
+): Promise<TransferRow | undefined> {
+  const [row] = await db
+    .update(transfers)
+    .set({
+      providerObjectId: input.providerObjectId,
+      status: input.status,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(transfers.id, input.transferId), isNull(transfers.providerObjectId)))
+    .returning();
+  return row;
+}
+
+/**
  * The transfer a provider's own object id names, if Mercaria made one.
  *
- * `undefined` is an ORDINARY answer, not a failure: until #47 creates transfers,
- * every `transfer.*` event Stripe delivers is about a transfer no row exists
- * for, and the ingress records that as a deferral rather than as an error.
+ * `undefined` is an ORDINARY answer, not a failure. Mercaria creates a transfer
+ * for every seller order it settles (#47), but a `transfer.*` event can still
+ * name one it did not make — an operator's manual transfer in the Stripe
+ * dashboard, or an object from another environment — and the ingress records that
+ * rather than treating it as an error.
  */
 export async function findTransferByProviderObjectId(
   db: DatabaseOrTransaction,

@@ -10,6 +10,7 @@
  */
 
 import type { CurrencyCode, ModerationEnforcementMode } from '@mercaria/shared-types';
+import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
 import { log } from '../lib/logger.js';
 
 /**
@@ -219,6 +220,57 @@ function resolveStripeSellerCountries(): readonly string[] {
     .filter((code) => code !== '');
 }
 
+/**
+ * Split `STRIPE_PRESENTMENT_CURRENCIES` into the currencies a card checkout may
+ * be denominated in — ADR 0001 D8, `EUR` and `USD` at launch.
+ *
+ * VALIDATED against `ALL_CURRENCY_CODES` here, unlike the seller countries
+ * above, and the asymmetry is the point: a country is Stripe's vocabulary and
+ * changes on their schedule, while a currency code has to exist in Mercaria's
+ * own closed set or nothing downstream can price, convert or store it. A typo
+ * would otherwise become a checkout that refuses every cart with a message
+ * naming a currency that does not exist.
+ */
+function resolveStripePresentmentCurrencies(): readonly CurrencyCode[] {
+  const configured = strEnv('STRIPE_PRESENTMENT_CURRENCIES', 'EUR,USD')
+    .split(',')
+    .map((code) => code.trim().toUpperCase())
+    .filter((code) => code !== '');
+
+  const known = configured.filter((code): code is CurrencyCode =>
+    (ALL_CURRENCY_CODES as readonly string[]).includes(code),
+  );
+  const unknown = configured.filter((code) => !(known as readonly string[]).includes(code));
+  if (unknown.length > 0) {
+    log.general.error(
+      { unknown, known },
+      '[Stripe] STRIPE_PRESENTMENT_CURRENCIES names currencies Mercaria does not know; ' +
+        'they are ignored. A card checkout accepts only the recognised ones.',
+    );
+  }
+  return known;
+}
+
+/**
+ * The currency the platform account settles in — ADR 0001 D8, `EUR`.
+ *
+ * Falls back to `EUR` when the configured value is not a currency Mercaria
+ * knows, because this one is load-bearing in a way the list above is not: every
+ * transfer is denominated in it and every ledger leg of a card charge is booked
+ * in it, so an unrecognised value would produce rows no report could sum.
+ */
+function resolveStripePlatformCurrency(): CurrencyCode {
+  const configured = strEnv('STRIPE_PLATFORM_CURRENCY', 'EUR').trim().toUpperCase();
+  if ((ALL_CURRENCY_CODES as readonly string[]).includes(configured)) {
+    return configured as CurrencyCode;
+  }
+  log.general.error(
+    { configured },
+    '[Stripe] STRIPE_PLATFORM_CURRENCY is not a currency Mercaria knows; falling back to EUR.',
+  );
+  return 'EUR';
+}
+
 export interface WebConfig {
   /**
    * The storefront origin, used to build permalinks.
@@ -293,8 +345,42 @@ export interface StripeConfig {
    * and dropped — a production URL receives test events too (ADR 0001).
    */
   readonly livemode: boolean;
+  /**
+   * The platform's PUBLISHABLE key, returned to a buyer's client beside the
+   * client secret when it is set.
+   *
+   * Optional, and its absence is an ordinary configuration: an app built with
+   * `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` already has one. It exists because the
+   * publishable key and the secret key that created the payment MUST belong to
+   * the same Stripe account, and two independently-configured values can
+   * silently disagree — after which every confirmation fails with an error that
+   * reads as a client bug. Returning it from the server makes them one fact.
+   *
+   * It is a public value by construction (`pk_test_…`/`pk_live_…`), so unlike
+   * every other key here it may travel to a client.
+   */
+  readonly publishableKey?: string;
   /** Seller countries onboarding accepts (#46). ADR 0001 D8. */
   readonly sellerCountries: readonly string[];
+  /**
+   * The currency the platform account settles in — ADR 0001 D8.
+   *
+   * Every transfer to a seller is denominated in it (a transfer's currency must
+   * match the charge's balance-transaction currency), and a card charge's ledger
+   * legs are booked in it, so this is the currency Mercaria's card money
+   * actually moves in. `EUR`, with a platform account in Spain.
+   */
+  readonly platformCurrency: CurrencyCode;
+  /**
+   * The presentment currencies a card checkout may be denominated in — ADR 0001
+   * D8: `EUR` and `USD` at launch.
+   *
+   * A cart in anything else is refused BEFORE any stock is reserved, naming this
+   * set. It is an allow-list rather than "whatever Stripe accepts" because the
+   * constraint is Mercaria's: every currency here has to be one the FX service
+   * can quote, the ledger can hold and an operator can reconcile.
+   */
+  readonly presentmentCurrencies: readonly CurrencyCode[];
   /**
    * Attempts after which a retryable processing failure becomes a `dead_letter`.
    *
@@ -628,7 +714,15 @@ export const config: AppConfig = Object.freeze({
           }
         : {}),
       livemode: strEnv('STRIPE_SECRET_KEY', '').startsWith('sk_live_'),
+      // Spread-when-present, like the rotation secrets below: absent rather than
+      // `''`, so the checkout handoff can omit the field instead of handing a
+      // client an empty key it would try to initialise a payment sheet with.
+      ...(process.env.STRIPE_PUBLISHABLE_KEY?.trim()
+        ? { publishableKey: process.env.STRIPE_PUBLISHABLE_KEY.trim() }
+        : {}),
       sellerCountries: Object.freeze(resolveStripeSellerCountries()),
+      platformCurrency: resolveStripePlatformCurrency(),
+      presentmentCurrencies: Object.freeze(resolveStripePresentmentCurrencies()),
       eventMaxAttempts: intEnv('STRIPE_EVENT_MAX_ATTEMPTS', 8),
       eventBatchSize: intEnv('STRIPE_EVENT_BATCH_SIZE', 50),
       eventPollIntervalMs: intEnv('STRIPE_EVENT_POLL_INTERVAL_MS', 5_000),

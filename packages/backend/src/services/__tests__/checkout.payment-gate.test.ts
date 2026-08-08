@@ -36,6 +36,16 @@ import type {
 } from '../../db/catalog/listingRepository.js';
 import type { VariantRecord } from '../../db/catalog/variantRepository.js';
 
+const ensurePayment = vi.fn();
+const attachPaymentProviderObject = vi.fn();
+const createPayment = vi.fn();
+const resumePayment = vi.fn();
+/** The Stripe adapter, reduced to the two methods this path calls. */
+const stripeProvider = {
+  createPayment: (...args: unknown[]) => createPayment(...args),
+  resumePayment: (...args: unknown[]) => resumePayment(...args),
+};
+
 const getCart = vi.fn();
 const clearCart = vi.fn();
 const removeCartLines = vi.fn();
@@ -117,6 +127,22 @@ vi.mock('../../db/payments/providerAccountRepository.js', () => ({
 // the property it exists to pin.
 vi.mock('../../db/postgres.js', () => ({ getDb: () => ({}) }));
 
+// With the rail ON and a ready seller, checkout goes on to OPEN the payment.
+// Both seams are mocked at the narrowest point that still leaves the code under
+// test real: `checkout-payment.service` — which resolves the rail, refuses an
+// ineligible currency and assembles the handoff — runs for real, and only the
+// payment aggregate's persistence and the Stripe adapter behind it are faked.
+vi.mock('../payments/payment.service.js', () => ({
+  ensurePayment: (...args: unknown[]) => ensurePayment(...args),
+}));
+vi.mock('../payments/registry.js', () => ({
+  resolvePaymentProvider: () => stripeProvider,
+}));
+vi.mock('../../db/payments/paymentRepository.js', () => ({
+  attachPaymentProviderObject: (...args: unknown[]) => attachPaymentProviderObject(...args),
+  findNativePaymentByCheckoutGroupId: () => Promise.resolve(undefined),
+}));
+
 const USER = 'buyer-gate';
 const ADDRESS_ID = uuidv7();
 const LISTING = uuidv7();
@@ -135,26 +161,37 @@ beforeAll(async () => {
   process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_gate_platform_not_a_real_one';
   process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_gate_connect_not_a_real_one';
+  // Set EXPLICITLY, not inherited. vitest reuses a worker PROCESS across files
+  // while giving each its own module registry, so a sibling file's `process.env`
+  // write survives into this one's `config` — and a test that asserts the
+  // handoff would then pass or fail on which file ran first in that worker.
+  process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_gate_not_a_real_key';
 
   ({ checkout } = await import('../checkout.service.js'));
 });
 
-/** A `DualMoney` in FAIR where shop == presentment. */
-function fairDual(amount: number): DualMoney {
-  const money: Money = { amount, currency: 'FAIR' };
+/**
+ * A `DualMoney` in EUR where shop == presentment.
+ *
+ * EUR and not FAIR, throughout this file, because the rail is ON here: ADR 0001
+ * D8 makes FAIR unroutable through Stripe, so a FAIR cart is refused for its
+ * CURRENCY before the readiness gate this file is about is ever consulted.
+ */
+function eurDual(amount: number): DualMoney {
+  const money: Money = { amount, currency: 'EUR' };
   return { shop: { ...money }, presentment: { ...money } };
 }
 
 function pricingResult(subtotal: number): PricingResult {
   return {
-    subtotal: fairDual(subtotal),
-    discountTotal: fairDual(0),
-    tax: fairDual(0),
-    shipping: fairDual(0),
-    grandTotal: fairDual(subtotal),
+    subtotal: eurDual(subtotal),
+    discountTotal: eurDual(0),
+    tax: eurDual(0),
+    shipping: eurDual(0),
+    grandTotal: eurDual(subtotal),
     appliedDiscounts: [],
     taxLines: [],
-    perLineDiscount: [fairDual(0)],
+    perLineDiscount: [eurDual(0)],
   };
 }
 
@@ -210,7 +247,7 @@ function variantRow(): VariantRecord {
     sku: null,
     barcode: null,
     priceAmount: 1000,
-    priceCurrency: 'FAIR',
+    priceCurrency: 'EUR',
     compareAtPriceAmount: null,
     compareAtPriceCurrency: null,
     inventoryTracked: true,
@@ -277,21 +314,37 @@ function accountRow(onboardingState: string) {
 beforeEach(() => {
   getCart.mockReset().mockResolvedValue({
     id: 'cart-gate',
-    currency: 'FAIR',
+    currency: 'EUR',
     items: [
       {
         listingId: LISTING,
         variantId: VARIANT,
         title: 'Thing',
         variantTitle: 'Default Title',
-        unitPrice: { amount: 1000, currency: 'FAIR' as const },
+        unitPrice: { amount: 1000, currency: 'EUR' as const },
         quantity: 1,
         available: 10,
-        lineTotal: { amount: 1000, currency: 'FAIR' as const },
+        lineTotal: { amount: 1000, currency: 'EUR' as const },
       },
     ],
-    subtotal: { amount: 1000, currency: 'FAIR' },
+    subtotal: { amount: 1000, currency: 'EUR' },
   });
+  ensurePayment.mockReset().mockResolvedValue({
+    id: 'payment-gate',
+    checkoutGroupId: 'group-gate',
+    provider: 'stripe',
+    status: 'created',
+    presentmentAmount: 1000,
+    presentmentCurrency: 'EUR',
+    providerObjectId: null,
+  });
+  attachPaymentProviderObject.mockReset().mockResolvedValue(undefined);
+  createPayment.mockReset().mockResolvedValue({
+    providerObjectId: 'pi_gate',
+    status: 'requires_action',
+    clientAction: { kind: 'client_secret', value: 'pi_gate_secret_x' },
+  });
+  resumePayment.mockReset();
   clearCart.mockReset().mockResolvedValue(undefined);
   removeCartLines.mockReset().mockResolvedValue(undefined);
   reserve.mockReset().mockResolvedValue(undefined);
@@ -303,7 +356,15 @@ beforeEach(() => {
   findStoresByIds.mockReset().mockResolvedValue([]);
   findAddress.mockReset().mockResolvedValue(addressRow);
   insertOrder.mockReset().mockImplementation((input: Record<string, unknown>) =>
-    Promise.resolve({ ...input, id: 'order-1' }),
+    Promise.resolve({
+      ...input,
+      id: 'order-1',
+      // The stored COLUMNS, not the nested `totals` the insert was handed: the
+      // payment is sized from what the order row says it charged, and a fixture
+      // that omits them makes the charge NaN rather than failing on a shape.
+      totalsGrandTotalPresentmentAmount: 1000,
+      totalsGrandTotalPresentmentCurrency: 'EUR',
+    }),
   );
   findOrdersByCheckoutGroup.mockReset();
   nextOrderNumber.mockReset().mockResolvedValue('MRC-000001');
@@ -339,13 +400,62 @@ describe('checkout with the Stripe rail on', () => {
     },
   );
 
-  it('places the order when the seller is ready', async () => {
+  it('refuses a cart whose currency the rail cannot charge, before reserving', async () => {
+    findProviderAccountByOwner.mockResolvedValue(accountRow('ready'));
+    const cart = (await getCart()) as { currency: string };
+    getCart.mockResolvedValue({ ...cart, currency: 'FAIR' });
+
+    // The message names the eligible set: switching display currency is the
+    // buyer's only remedy, and a client cannot offer it without knowing to what.
+    await expect(checkout(USER, { addressId: ADDRESS_ID })).rejects.toThrow(
+      /not available in FAIR.*EUR or USD/is,
+    );
+    expect(reserve).not.toHaveBeenCalled();
+    expect(createPayment).not.toHaveBeenCalled();
+  });
+
+  it('opens NO payment when the buyer picks the dev mock rail', async () => {
+    findProviderAccountByOwner.mockResolvedValue(accountRow('ready'));
+
+    const result = await checkout(USER, { addressId: ADDRESS_ID, paymentMethod: 'mock' });
+
+    // The order is placed exactly as before, and no charge object exists: the
+    // dev seam funds the whole group afterwards through `POST /orders/:id/
+    // mock-pay`, which is the ONLY thing that makes a `mock` payment.
+    expect(result.orders).toHaveLength(1);
+    expect(result.payment).toBeUndefined();
+    expect(createPayment).not.toHaveBeenCalled();
+    expect(ensurePayment).not.toHaveBeenCalled();
+  });
+
+  it('places the order when the seller is ready, and hands back the payment', async () => {
     findProviderAccountByOwner.mockResolvedValue(accountRow('ready'));
 
     const result = await checkout(USER, { addressId: ADDRESS_ID });
 
     expect(result.orders).toHaveLength(1);
     expect(reserve).toHaveBeenCalledTimes(1);
+    // The rail is engaged by DEFAULT when it is enabled — no `paymentMethod` was
+    // sent above — and the buyer's client gets exactly the client material and
+    // nothing else (issue #47, backend 7).
+    expect(result.payment).toEqual({
+      paymentId: 'payment-gate',
+      provider: 'stripe',
+      clientSecret: 'pi_gate_secret_x',
+      // The SERVER's publishable key, which belongs to the account that created
+      // the payment. The app's own build-time key is only the fallback.
+      publishableKey: 'pk_test_gate_not_a_real_key',
+      amount: { amount: 1000, currency: 'EUR' },
+    });
+    // The charge is the group's own grand total, and its idempotency key is
+    // derived from the payment id — ADR 0001 D11, never from the request.
+    expect(createPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: 'payment-gate',
+        amount: { amount: 1000, currency: 'EUR' },
+        idempotencyKey: 'pi:payment-gate',
+      }),
+    );
     // Asked about the right seller, in the shape the gate derives from the key.
     expect(findProviderAccountByOwner).toHaveBeenCalledWith(expect.anything(), {
       provider: 'stripe',

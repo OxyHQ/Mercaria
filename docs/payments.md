@@ -189,21 +189,32 @@ proves nothing.
 ## Service boundaries
 
 ```
-routes / #48 webhook ingress
-        │  verified envelope
-        ▼
-services/payments/payment.service.ts   ← the ONLY status transitions
-        │                                 the ONLY caller of an adapter
-        ├── ledger-postings.ts          ← pure; ADR's representability table
-        ├── payment-outbox.service.ts   ← deterministic ids, claim/lease/backoff
-        │      └── outbox-handlers.ts   ← what each domain event DOES
-        ├── order-linkage.ts            ← the ONE seam onto orders
-        └── provider.ts                 ← the seam every rail plugs into
-                └── synthetic-provider.ts (id: `mock`)
+checkout.service.ts ─────────────┐        routes / #48 webhook ingress
+   (no Stripe import, ever)      │               │  verified envelope
+                                 ▼               ▼
+services/payments/checkout-payment.service.ts   payment.service.ts
+   rail choice, currency gate, handoff       ← the ONLY status transitions
+                                 │               │
+                                 │               ├── ledger-postings.ts   ← pure; ADR's table
+                                 │               ├── settlement-shares.ts ← pure; ONE split
+                                 │               ├── payment-outbox.service.ts
+                                 │               │      └── outbox-handlers.ts
+                                 │               │             └── settlement.service.ts
+                                 │               └── order-linkage.ts     ← the ONE seam onto orders
+                                 ▼               ▼
+                          registry.ts → provider.ts  ← the seam every rail plugs into
+                                          ├── synthetic-provider.ts (id: `mock`)
+                                          └── stripe/stripe-provider.ts (id: `stripe`)
 ```
 
 - **`provider.ts`** names no provider's vocabulary. No `PaymentIntent`, no
   `transfer_group`. The day one appears, the seam has failed.
+- **Three modules talk to an adapter, and no others.** `payment.service` (status
+  transitions and the sweep's cancellation), `checkout-payment.service` (opening
+  the payment a checkout funds) and `settlement.service` (the transfers). Each
+  reaches its rail through `registry.ts`, so "which adapter serves which rail"
+  is answered in one place and a rail that is not configured resolves to
+  `undefined` rather than throwing inside a request.
 - **`payment.service.ts`** owns the state machine, the ledger postings and the
   outbox writes, in ONE Postgres transaction per status change. If the
   compare-and-swap matches nothing — a duplicate `succeeded`, an out-of-order
@@ -585,6 +596,219 @@ here rather than to the Stripe webhook, so neither ever receives provider detail
 
 ---
 
+## Checkout and the Stripe rail (#47)
+
+The path from a full cart to a paid order and a settled seller. Everything below
+is ADR 0001 D3/D4/D8/D11 in code; the ADR is the decision, this is where it lives.
+
+```mermaid
+sequenceDiagram
+    participant B as Buyer (Expo app)
+    participant API as Mercaria API
+    participant S as Stripe
+    B->>API: POST /checkout (Idempotency-Key, paymentMethod?)
+    API->>API: reprice cart · refuse unready sellers · refuse ineligible currency
+    API->>API: reserve ALL groups (all-or-nothing) · one order per seller
+    API->>API: Payment record (UNIQUE checkout_group_id)
+    API->>S: PaymentIntent.create (pi:<paymentId>, transfer_group, metadata)
+    S-->>API: client_secret
+    API->>API: empty the cart (AFTER the payment, so a retry can work)
+    API-->>B: orders + {clientSecret, publishableKey, paymentId, amount}
+    B->>S: PaymentSheet / Payment Element (card data never reaches Mercaria)
+    S-->>B: sheet result — UX only, NOT authority
+    B->>API: GET /checkout/:groupId/payment-status (poll)
+    S->>API: webhook payment_intent.succeeded (signed)
+    API->>API: read charge's balance transaction (platform amount + fee)
+    API->>API: CAS to succeeded · ledger charge_succeeded · outbox
+    API->>API: orders → paid · inventory committed
+    loop per seller order
+        API->>S: Transfer.create (tr:<paymentId>:<orderId>, source_transaction, EUR)
+        API->>API: transfers row + ledger transfer_created
+    end
+    API-->>B: payment-status now `succeeded`
+```
+
+### The two currencies, and why the ledger changes currency at success
+
+The buyer is charged in their PRESENTMENT currency (EUR or USD at launch,
+`STRIPE_PRESENTMENT_CURRENCIES`). The platform settles in ONE currency
+(`STRIPE_PLATFORM_CURRENCY`, EUR), and a transfer's currency must match the
+charge's balance-transaction currency — so every seller transfer is in EUR
+whatever the buyer paid in.
+
+That forces where the conversion is captured. On `payment_intent.succeeded` the
+event handler reads the charge's BALANCE TRANSACTION, which is the only place
+Stripe states what the charge became in the platform's currency and what it kept
+in fees. Both are passed into the status change, so `payment.platform_*` and its
+rate snapshot are written inside the same compare-and-swap that books the charge.
+
+The ledger then books that whole charge in the PLATFORM currency: that is where
+the money is, and it is what lets the transfers close the payable. Booking the
+payable in USD and paying it in EUR would leave `merchant_payable` holding a debt
+that says it was both owed and paid and never nets to zero.
+
+An unavailable balance transaction is RETRYABLE, never assumed. Guessing a 1:1
+conversion would book dollars as euros; defaulting the fee to zero would
+understate `processor_expense` permanently. For a card charge Stripe creates it
+with the charge, and the asynchronous methods that leave it pending are excluded
+from the launch (D3) precisely because their money moves later than their events.
+
+### One split, two readers
+
+`settlement-shares.ts` is the ONLY definition of what a seller is owed. The
+ledger credits each order a payable when the charge succeeds, and the settlement
+step transfers that same figure; computed twice they would eventually disagree,
+and the symptom would be an account that never returns to zero for an order
+somebody is looking at.
+
+It is a largest-remainder allocation of the gross across the orders, weighted by
+their own totals. Converting each order independently is the tempting
+alternative and leaks: ADR 0001 D3 defines the commission as gross minus the sum
+of the nets, so the rounding residue would be reported as commission revenue from
+nowhere. There is no commission arithmetic in that file at all — the rate is zero
+until #88, and encoding a zero-rate calculation would make it the second place
+the fee schedule lives.
+
+### Idempotency: four layers, one charge
+
+| Layer | Mechanism | What a replay does |
+|---|---|---|
+| Checkout | `Idempotency-Key` → Redis claim (best effort) | returns the original group |
+| Orders | `orders_idempotency_key_key` per `<key>:<sellerKey>` | loser rolls back its reservations, converges on the winner's group |
+| Payment | `UNIQUE(payments.checkout_group_id)` | one payment record per group |
+| PaymentIntent | Stripe key `pi:<paymentId>` | Stripe returns the intent it already made |
+| Transfer | `UNIQUE(transfers.payment_id, order_id)` + `tr:<paymentId>:<orderId>` | one movement per seller order |
+
+The chain only holds because each key is derived from the one above it: the
+payment id comes from a unique index, the Stripe key comes from the payment id.
+A key invented per request would make a retry a second charge.
+
+**Once Mercaria has recorded the intent's id, that intent is READ rather than
+re-created.** Stripe's idempotency keys expire after 24 hours, so a buyer
+returning to an unpaid checkout the next day would otherwise be handed a second
+charge object for orders the first one can still fund.
+
+**The cart is emptied AFTER the payment is opened.** If opening it fails, the
+orders exist and the cart still holds its lines, so re-submitting the same
+`Idempotency-Key` reprices, loses to the order unique index, releases the
+reservations that second attempt took and converges on the group already created
+— which re-opens the same payment. Emptying the cart first would answer that
+retry with "Cart is empty" and the error message would be telling the buyer to do
+something that cannot work.
+
+### Reservation TTL vs checkout idempotency TTL
+
+Two independent clocks, and they always were:
+`RESERVATION_TTL_MS` (15 minutes) is how long stock is held for an unpaid
+order; `CHECKOUT_IDEMPOTENCY_TTL_MS` (10 minutes) is how long Redis remembers a
+checkout key. Neither derives from the other and neither should.
+
+- A `pending_payment` order with an open intent is released by the existing sweep
+  when its TTL expires. The sweep cancels the ORDERS first (stock back), then
+  cancels the PaymentIntent — stock never waits on a network call to a third
+  party.
+- **Payment retries do not extend the reservation.** The clock is the ORDER's
+  creation time, which nothing in the payment path writes.
+- A declined confirmation leaves Stripe's intent reusable, so the buyer retries
+  on the SAME intent with another card: one charge object, more than one attempt.
+  A CANCELLED intent cannot be reused, and the sweep that cancels one has already
+  cancelled the orders it funded, so there is nothing to retry — the buyer starts
+  a new checkout.
+- The sweep's cancellation is best effort and its FAILURE is information. Stripe
+  refuses to cancel an intent it has already captured, which means the money beat
+  the sweep; Mercaria marks the payment `canceled` locally anyway (it is true —
+  the goods were released), and the succeeded event that follows finds a status it
+  cannot legally reach and raises `payment_succeeded_after_release` for an
+  operator. Nothing is re-committed: re-committing would oversell whatever has
+  been bought since, booking the charge would credit commission with the entire
+  gross, and refunding without a person is a policy decision the payment domain
+  does not get to take.
+
+### The withheld transfer
+
+A seller can lose payment readiness between the buyer paying and the transfer
+executing. ADR 0001 D4 calls this Mercaria's controlled analog of Stripe's
+skipped transfer on a destination charge, and it is the one place the settlement
+loop deliberately continues past a failure:
+
+- the buyer's order stays `paid` — the goods are theirs, and un-paying it because
+  its seller cannot be paid would punish the wrong person;
+- the sibling orders settle normally;
+- the transfer row stays `pending` (Mercaria still intends to make it) and a
+  `transfer_withheld` outbox row records the reason, per ORDER, because that is
+  the grain a resolution acts on;
+- the seller's payable stays OPEN in the ledger, which is exactly what "Mercaria
+  owes them" means in accounts.
+
+A retryable rail failure is different: it is rethrown, the outbox retries the
+whole settlement with backoff, and the orders already settled are skipped.
+
+### Client integration
+
+The storefront's payment step is platform-split, following the app's existing
+`.native.tsx` convention:
+
+| Platform | Package | Surface |
+|---|---|---|
+| iOS, Android | `@stripe/stripe-react-native` | PaymentSheet (`CardPaymentStep.native.tsx`) |
+| Web | `@stripe/stripe-js` + `@stripe/react-stripe-js` | Payment Element (`CardPaymentStep.tsx`) |
+
+Both are Stripe's own UI and neither exposes a card field to Mercaria — the web
+element renders in a cross-origin iframe, the native sheet is Stripe's native
+view. There is no `<Input>` in `components/payment/`, and the checkout request
+schema is `.strict()`, so a client that tried to send a card field is refused
+rather than silently stripped.
+
+`onCompleted` means the buyer reached the end of the sheet, NOT that they paid.
+The screen responds by polling `GET /checkout/:groupId/payment-status`, which
+answers from the payment aggregate — a value only a verified webhook moves. The
+states rendered are the honest ones: paying, confirming, succeeded, cancelled and
+failed, with `requires_action` and `processing` shown as one sentence because
+from the buyer's side both mean the bank has not finished.
+
+`EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` is the app's fallback key. The server's
+`STRIPE_PUBLISHABLE_KEY`, returned in the handoff, wins: it belongs to the
+account that created the payment, and two independently-configured values can
+silently disagree.
+
+The `@stripe/stripe-react-native` config plugin is in `app.json` with a
+`merchantIdentifier` — Apple Pay needs one registered in the Apple Developer
+account before a native build ships, and without it the wallet is simply
+unavailable while cards keep working. A native build is required after adding it
+(the SDK has native code); the web app needs no rebuild step of its own.
+
+### Feature flags, honestly
+
+Issue #47's acceptance criterion 8 asks for enabling Stripe "by environment,
+country and seller cohort". Two of those three already exist and the third is
+deliberately not built:
+
+- **Environment** — `STRIPE_ENABLED`. Off means no rail: checkout behaves exactly
+  as it did before any of this, and the webhook routes are not even mounted.
+- **Country and cohort** — the seller-side readiness gate IS the cohort. A seller
+  can only be sold through once their connected account reaches `ready`, and
+  `STRIPE_SELLER_COUNTRIES` bounds which countries may onboard at all. Buyer-side,
+  `STRIPE_PRESENTMENT_CURRENCIES` bounds which carts are chargeable.
+
+A separate cohort system would be a second, drifting answer to a question those
+two already answer, for a rollout nobody has planned yet.
+
+### What has NOT been rehearsed here
+
+- **Anything against live Stripe.** Every test uses a fake client; signatures are
+  real, the API is not.
+- **Whether Stripe caps a `source_transaction` transfer at the charge's GROSS or
+  its NET.** Mercaria transfers the seller's full share and bears the processing
+  fee itself (ADR 0001 D5, commission rate zero until #88), so if the cap is the
+  net, a transfer for the whole of a small charge could be refused. That refusal
+  is not silent — it becomes a `transfer_withheld` exception with the rail's own
+  message — but it must be verified once a test-mode charge can actually be
+  settled, and #88's real commission rate removes the question.
+- **Apple Pay and Google Pay**, which need a device, a merchant identifier and a
+  native build.
+
+---
+
 ## Retention
 
 Postgres has no TTL index. `db/expiryTargets.ts` is the registry
@@ -614,7 +838,7 @@ no adapter can produce is an invitation to write a row nothing can reconcile.
 | `external` | none | **No** | Captured on Shopify/WooCommerce. Recorded so the order is explicable; no Mercaria money moved (ADR D12). |
 | `manual_pos` | none | **No** | Cash or a card terminal at a register. The money is in the merchant's drawer and never passes through Mercaria. |
 | `mock` | `SyntheticPaymentProvider` | Yes | The dev seam and the contract suite's subject. Hard-gated by `config.orders.mockPayEnabled`, off in production. |
-| `stripe` | event side only (#48); `createPayment`/`capture`/`refund` in #47 | Yes | The card rail. Mercaria is merchant of record (ADR D1), so money arrives on the platform balance and each seller's share is a payable. |
+| `stripe` | `StripePaymentProvider` (#47); event side #48 | Yes | The card rail. Mercaria is merchant of record (ADR D1), so money arrives on the platform balance and each seller's share is a payable. |
 
 `external` and `manual_pos` having no adapter is the distinction the set encodes:
 they are payments Mercaria RECORDS, not payments Mercaria makes. Nothing is
@@ -642,6 +866,17 @@ converging.
 
 Failure injection and event signing are OPTIONAL capabilities — a live Stripe
 sandbox can do neither on demand, so those arms skip rather than fail.
+
+Two more options exist because the suite has to fit a rail that does NOT hold
+funds. `settle` drives a payment to `succeeded` however that rail does it,
+defaulting to `capture` (so the synthetic rail's run is unchanged); the Stripe
+one makes its fake intent succeed, which is what a buyer confirming actually
+does. `unsupported` declares the operations a rail structurally lacks — and it
+INVERTS the check rather than skipping it: the suite asserts each rejects
+non-retryably with the declared reason. A rail that quietly returned a plausible
+result from an operation it never performed would pass a skipped test and fail a
+real customer, and the two most likely to be faked that way, capture and refund,
+are the two that move money.
 
 ---
 
@@ -681,6 +916,9 @@ STRIPE_WEBHOOK_SECRET_PREVIOUS=        # rotation window
 STRIPE_CONNECT_WEBHOOK_SECRET=         # connect-scope endpoint
 STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS=
 STRIPE_SELLER_COUNTRIES=ES             # onboarding allow-list (#46)
+STRIPE_PLATFORM_CURRENCY=EUR           # what the platform settles in (#47, D8)
+STRIPE_PRESENTMENT_CURRENCIES=EUR,USD  # what a card checkout may be priced in
+STRIPE_PUBLISHABLE_KEY=                # pk_test_…/pk_live_…; PUBLIC, optional
 STRIPE_EVENT_MAX_ATTEMPTS=8            # then dead_letter, awaiting a replay
 STRIPE_EVENT_BATCH_SIZE=50
 STRIPE_EVENT_POLL_INTERVAL_MS=5000
@@ -711,6 +949,20 @@ an onboarding typo. `stripeOnboardingConfig()` is the single reader and names
 every missing variable at once; `isStripeOnboardingConfigured()` is the predicate
 the dashboard reads so it can disable its connect action rather than offer a
 button that answers with an error.
+
+`STRIPE_PLATFORM_CURRENCY` and `STRIPE_PRESENTMENT_CURRENCIES` are validated
+against Mercaria's own `ALL_CURRENCY_CODES`, unlike `STRIPE_SELLER_COUNTRIES`
+which is not. The asymmetry is deliberate: a country is Stripe's vocabulary and
+changes on their schedule, while a currency code has to exist in Mercaria's
+closed set or nothing downstream can price, convert or store it — a typo would
+otherwise become a checkout that refuses every cart naming a currency that does
+not exist. An unrecognised platform currency falls back to EUR rather than being
+dropped, because every transfer and every card ledger leg is denominated in it.
+
+`STRIPE_PUBLISHABLE_KEY` does not join `STRIPE_ENABLED`'s required set either.
+Its absence has a clean fallback — the app's own
+`EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` — so a missing value costs nothing, while
+turning the rail off for it would take payments down over a client-side default.
 
 `STRIPE_ONBOARDING_BASE_URL` is this API's public origin, configured rather than
 derived from the request: a `Host` header behind an ALB is attacker-controlled,

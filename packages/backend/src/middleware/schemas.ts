@@ -15,6 +15,7 @@ import {
   ABUSE_REPORT_CATEGORIES,
   ABUSE_REPORTED_TYPES,
   ALL_CURRENCY_CODES,
+  CHECKOUT_PAYMENT_METHODS,
   MAX_MONEY_MINOR_UNITS,
   type CurrencyCode,
 } from '@mercaria/shared-types';
@@ -584,13 +585,33 @@ const orderStatusSchema = z.enum([
   'partially_refunded',
 ]);
 
-/** Body for `POST /checkout` (CheckoutInput). */
-export const checkoutSchema = z.object({
-  addressId: z.string().trim().min(1),
-  sellerKeys: z.array(z.string().trim().min(1)).optional(),
-  shippingSelections: z.record(z.string(), shippingMethodSchema).optional(),
-  discountCodes: z.array(z.string().trim().min(1)).optional(),
-});
+/**
+ * Body for `POST /checkout` (CheckoutInput).
+ *
+ * ## STRICT, and that is a payments requirement rather than tidiness
+ *
+ * Mercaria must never receive card data — PCI SAQ-A depends on it, and a field
+ * that reaches this server can end up in a log, an error message or a bug
+ * report. Zod's default is to STRIP unknown keys, which is already safe but
+ * silent: a client sending `cardNumber` would be told nothing and would keep
+ * sending it. `.strict()` refuses the request instead, so the mistake surfaces
+ * on the first attempt, in development, to the person who can fix it.
+ *
+ * It also pins the payment surface itself: the only thing a client may say about
+ * payment here is WHICH RAIL, never an amount, a token, a status or a provider
+ * object. Everything else about the money is server-derived (#45 invariant 6).
+ */
+export const checkoutSchema = z
+  .object({
+    addressId: z.string().trim().min(1),
+    sellerKeys: z.array(z.string().trim().min(1)).optional(),
+    shippingSelections: z.record(z.string(), shippingMethodSchema).optional(),
+    discountCodes: z.array(z.string().trim().min(1)).optional(),
+    paymentMethod: z
+      .enum(CHECKOUT_PAYMENT_METHODS as unknown as [string, ...string[]])
+      .optional(),
+  })
+  .strict();
 
 /**
  * Body for store `PATCH /admin/stores/:storeId/orders/:id/status`. Restricted to

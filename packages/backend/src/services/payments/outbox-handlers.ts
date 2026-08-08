@@ -15,6 +15,7 @@
 import type { PaymentOutboxRow } from '../../db/payments/paymentOutboxRepository.js';
 import { transition } from '../order.service.js';
 import { findOrdersInCheckoutGroup, loadOrderForTransition } from './order-linkage.js';
+import { settlePaymentTransfers } from './settlement.service.js';
 import { log } from '../../lib/logger.js';
 
 /** The ids a payment event carries. Never a payload, never a contact value. */
@@ -24,6 +25,9 @@ interface PaymentEventPayload {
   errorCode?: string;
   /** Which provider delivery raised an exception, for the operator's trace. */
   providerEventId?: string;
+  /** `transfer_withheld`: which seller order is stuck, and whose. */
+  orderId?: string;
+  sellerKey?: string;
   /** The status the payment was in when the late capture arrived. */
   releasedStatus?: string;
   /** `provider_account_changed`: which account, whose, and where it moved. */
@@ -49,6 +53,8 @@ function readPayload(event: PaymentOutboxRow): PaymentEventPayload {
     ...(typeof record.providerEventId === 'string'
       ? { providerEventId: record.providerEventId }
       : {}),
+    ...(typeof record.orderId === 'string' ? { orderId: record.orderId } : {}),
+    ...(typeof record.sellerKey === 'string' ? { sellerKey: record.sellerKey } : {}),
     ...(typeof record.releasedStatus === 'string'
       ? { releasedStatus: record.releasedStatus }
       : {}),
@@ -64,12 +70,23 @@ function readPayload(event: PaymentOutboxRow): PaymentEventPayload {
 }
 
 /**
- * A payment succeeded: every order it funds becomes `paid`.
+ * A payment succeeded: every order it funds becomes `paid`, and every seller is
+ * transferred their share.
  *
  * ADR 0001 D4 makes funding atomic at the GROUP level, so this transitions the
  * whole group — sibling orders of one multi-seller cart cannot have different
  * funding outcomes. Divergence between them begins only afterwards, with
  * per-order refunds, cancellations and disputes.
+ *
+ * ## Settlement runs AFTER the orders are paid, in this same handler
+ *
+ * The order is what the buyer is owed and the transfer is what the seller is
+ * owed, and doing them in that order means a rail being unreachable cannot delay
+ * a purchase the buyer has already completed. The settlement's own failures are
+ * per seller and are described in `settlement.service.ts`; a retryable one
+ * propagates out of here so the outbox retries the row, which re-runs the paid
+ * transitions harmlessly (they are skipped) and resumes settling where it
+ * stopped.
  *
  * ## Idempotent twice over
  *
@@ -116,6 +133,35 @@ async function handlePaymentSucceeded(event: PaymentOutboxRow): Promise<void> {
     { eventId: event.id, paymentId, checkoutGroupId, orders: orders.length },
     '[Payments] payment succeeded applied to its orders',
   );
+
+  if (paymentId) {
+    await settlePaymentTransfers(paymentId);
+  }
+}
+
+/**
+ * One seller's share could not leave — ADR 0001 D4's controlled skipped
+ * transfer.
+ *
+ * Like `payment_succeeded_after_release`, this handler deliberately changes
+ * nothing. The buyer is paid up and their order is theirs; what is stuck is
+ * money Mercaria owes a seller, and the two resolutions — transfer it once the
+ * account recovers, or refund the order — are both decisions a person takes.
+ * Picking one automatically would either pay an account Stripe has restricted or
+ * refund a buyer whose goods are on their way.
+ *
+ * `error` and not `warn`, for the same reason: an unpaid seller is not something
+ * to discover from a log sample. #50 owns the operator surface that reads these
+ * rows; #108 the seller-facing notification.
+ */
+async function handleTransferWithheld(event: PaymentOutboxRow): Promise<void> {
+  const { paymentId, checkoutGroupId, orderId, sellerKey, reason } = readPayload(event);
+  log.general.error(
+    { eventId: event.id, paymentId, checkoutGroupId, orderId, sellerKey, reason },
+    '[Payments] a seller transfer was withheld; the order stays paid and its siblings settled ' +
+      'normally — this needs an operator decision (transfer once recovered, or refund)',
+  );
+  return await Promise.resolve();
 }
 
 /**
@@ -230,6 +276,8 @@ export async function runPaymentOutboxEvent(event: PaymentOutboxRow): Promise<vo
       return await handlePaymentFailed(event);
     case 'payment_succeeded_after_release':
       return await handlePaymentSucceededAfterRelease(event);
+    case 'transfer_withheld':
+      return await handleTransferWithheld(event);
     case 'provider_account_changed':
       return await handleProviderAccountChanged(event);
     default:
