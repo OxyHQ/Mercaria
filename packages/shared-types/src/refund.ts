@@ -13,6 +13,7 @@
 
 import type { Timestamps } from './common';
 import type { DualMoney } from './money';
+import type { PaymentProviderId, RefundProviderState } from './payment';
 
 /** Whether the record is a money-only refund or a return (RMA workflow). */
 export type RefundType = 'refund' | 'return';
@@ -77,6 +78,34 @@ export interface Refund extends Timestamps {
   restockedAt?: string;
   /** Oxy user id of the member who processed the refund. */
   processedByOxyUserId?: string;
+  /**
+   * The rail the money is going back through, when one is involved at all.
+   *
+   * Absent for a refund with no provider operation: a cash refund at a register
+   * (`manual_pos`), or an order captured on Shopify/WooCommerce, whose refund is
+   * processed on that platform and only RECORDED here (ADR 0001 D12). Its
+   * absence is therefore a fact about the payment, not a missing field.
+   */
+  provider?: PaymentProviderId;
+  /**
+   * Where the money movement stands at that rail.
+   *
+   * This is what lets a merchant screen distinguish a refund that is on its way
+   * from one that has landed (issue #49, acceptance 5). It is deliberately NOT
+   * merged into {@link RefundStatus}: that one is the commerce lifecycle — what
+   * was approved, what came back on the shelf — and it reaches `refunded` the
+   * moment Mercaria commits the record, before any money has moved.
+   */
+  providerState?: RefundProviderState;
+  /**
+   * The rail's own machine-readable failure code, when it failed.
+   *
+   * A CODE and never a sentence: it is the merchant-safe subset, filtered the
+   * same way `ProviderAccountStatus.disabledReasonCodes` is, so a provider
+   * message quoting a cardholder's bank, name or partial card number cannot
+   * reach a merchant surface by being appended to it later.
+   */
+  providerFailureCode?: string;
 }
 
 /** A line in a `CreateRefundInput` — the server computes the refundable amount. */

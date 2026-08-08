@@ -10,12 +10,12 @@ checkout group. This document describes what was BUILT for it (issue #45); the
 ADR describes why, and where the two disagree the ADR wins and this file is
 wrong.
 
-Faircoin (#51) does not exist yet, and Stripe exists from the webhook inwards
-plus its connected accounts: #48 built the event ingress described below, #46
-built onboarding and the readiness gate, and the adapter that CREATES payments
-(`createPayment`/`capture`/`refund`) is #47's. Nothing here is a placeholder: the
-domain is complete on its own terms and each rail arrives as an adapter behind one
-interface.
+Faircoin (#51) does not exist yet. Stripe is complete end to end: #48 built the
+event ingress, #46 the connected accounts and the readiness gate, #47 the
+checkout and the per-seller settlement, and #49 the money coming back — refunds,
+transfer reversals, disputes and payout health. Nothing here is a placeholder:
+the domain is complete on its own terms and each rail arrives as an adapter
+behind one interface.
 
 ---
 
@@ -36,12 +36,13 @@ single real charge could be created.
 
 ## Models
 
-Nine tables, all Postgres-native — none has a Mongoose ancestor.
+Ten tables, all Postgres-native — none has a Mongoose ancestor.
 
 | Table | What it is |
 |---|---|
 | `provider_accounts` | One seller's standing with one rail: their connected account, its capabilities, and the single readiness verdict checkout gates on. |
 | `payments` | The durable payment aggregate. One per funded checkout group for native rails; one per imported order for `external`. |
+| `disputes` | A card network reversing a charge: its deadline, its evidence, its outcome and its ledger life (#49). |
 | `payment_attempts` | One row per provider authorization or confirmation Mercaria asked for. Append-mostly evidence. |
 | `payment_provider_events` | The immutable envelope of everything a provider has told Mercaria. Receipt is separate from processing. |
 | `transfers` | Mercaria paying ONE seller order out of a settled charge (ADR D3). |
@@ -272,9 +273,8 @@ column names so the two claim queries are the same query.
 
 An event type this version does not handle THROWS rather than completing as if
 handled, so during a rolling deploy the task running the newer code claims it.
-`payment_refunded`, `payment_disputed`, `transfer_changed` and `payout_changed`
-are in that category today: nothing emits them yet, and #49 lands their producers
-and handlers together.
+As of #49 every declared type has a handler, so that branch is reachable only by
+a row a NEWER image wrote — which is exactly the case it exists for.
 
 ---
 
@@ -355,21 +355,17 @@ changes nothing. #50 picks it up.
 
 ### Seams are visible in the trace, never fake handling
 
-Most subscribed types belong to later issues, and they arrive TODAY because an
-endpoint must be registered with its full list before any of them ships. Those
-handlers mark the event `processed` **and write `deferred: #NN` into
+A subscribed type whose consumer has not shipped arrives TODAY, because an
+endpoint must be registered with its full list before any of them ships. Such a
+handler marks the event `processed` **and writes `deferred: #NN` into
 `processing_note`** — a deferral that said nothing would be indistinguishable
 from real handling, and the first person to notice would be a seller asking why
 their account never went live.
 
-| Events | Today | Lands in |
-|---|---|---|
-| `payment_intent.*` | applied through `applyPaymentStatus` | — |
-| `charge.*` | correlated; Stripe's fee needs a ledger CORRECTION, not a reopened transaction | #49 |
-| `charge.refunded`, `charge.refund.updated`, `charge.dispute.*` | correlated | #49 |
-| `transfer.*` | the transfer row's status and reversed amount ARE refreshed, if a row exists | create path #47, `transfer_changed` event #49 |
-| `account.*` | applied — the account is re-read from Stripe and readiness recomputed | — |
-| `payout.*` | correlated only. The account→seller mapping #46 added means a payout row WOULD now be attributable; what is still missing is the rest of the payout lifecycle and its domain event | #49 |
+**As of #49 nothing is deferred**: every type ADR 0001 subscribes to is applied
+(see §"Refunds, disputes and payouts" for the current table). The mechanism stays
+because the next subscribed type will need it — a trace that could not express
+the distinction would make the next seam invisible.
 
 ### No rate limiter, deliberately
 
@@ -809,6 +805,321 @@ two already answer, for a rollout nobody has planned yet.
 
 ---
 
+## Refunds, disputes and payouts (#49)
+
+The money coming BACK. ADR 0001 D7 in code, and one deliberate departure from its
+sequence diagram, stated below.
+
+```mermaid
+sequenceDiagram
+    participant M as Merchant (dashboard)
+    participant API as Mercaria API
+    participant S as Stripe
+    M->>API: POST …/orders/:id/refunds (refunds:write)
+    API->>API: per-line quantities · discounted net · restock ONCE
+    API->>API: ONE txn: refund row (provider_state=pending) + payment_refunded outbox row
+    API-->>M: 201 — recorded, money not moved yet
+    API->>API: drain the outbox row inline (same lease the poller would take)
+    API->>S: Refund.create on the GROUP charge (re:<refundId>, presentment amount)
+    S-->>API: refund + balance transaction (what the PLATFORM balance lost)
+    API->>API: CAS provider_refund_id · ledger `refund` · payment → partially_refunded
+    API->>S: Transfer.reversal (trr:<refundId>:<orderId>, PLATFORM amount)
+    API->>API: CAS provider_reversal_id · ledger `transfer_reversal`
+    Note over API,S: a reversal the rail refuses → reversal_failed exception;<br/>the buyer's refund is NOT undone (D7)
+```
+
+### The commerce decision commits before the money moves
+
+`refund.service.process` is unchanged in what it decides: per-line quantities
+against the DISCOUNTED net, the cumulative over-refund guard, restock exactly
+once, the order's status set directly. What #49 added is that when the order was
+paid through a rail that settled its seller, the refund row and a
+`payment_refunded` outbox row commit in ONE transaction, and
+`services/payments/refund-execution.service.ts` moves the money from that row.
+
+The outbox is not ceremony here. A provider call living in the request that
+created the refund evaporates when the task restarts, and the inventory has
+ALREADY been restocked by then — what would be left is an order claiming money
+went back to a buyer who never received it.
+
+Two consequences, both deliberate:
+
+- **A rail being slow or unreachable cannot refuse a refund a merchant
+  authorised.** The record commits, the stock is back, the order has moved, and
+  the money follows with retries behind it.
+- **A refund is `refunded` while its money is `pending`.** Those are two
+  different facts and the DTO carries both.
+
+### Three states of one refund, and none stands in for the others
+
+| Field | Question it answers | Reaches its end state |
+|---|---|---|
+| `Refund.status` | what was approved, what came back on the shelf | at commit, before any money moves |
+| `Refund.providerState` | has the buyer been paid | when the rail says so |
+| `Payment.status` | where the payment aggregate is | when the CHARGE is fully refunded |
+
+**Order status moves on the COMMERCE record, not on the rail's answer** (issue
+#49 invariant 3). The merchant approved the lines, the units are on the shelf,
+and the order is what both parties read; a provider-pending refund does not hold
+the order at `paid`. The money's own state is tracked beside it, on the refund,
+and that is what a screen distinguishing pending from completed reads.
+
+The payment aggregate's status comes from the CHARGE's cumulative
+`amount_refunded`, so refunding one seller's order out of a multi-seller group
+reports `partially_refunded` rather than closing the whole payment.
+
+### The three amounts, and why none is derived from another
+
+| Amount | Where it comes from | Currency |
+|---|---|---|
+| What the buyer gets back | the refund record's own presentment total — authoritative, never recomputed | presentment |
+| What the platform balance lost | the rail's own balance transaction for the refund | platform settlement |
+| What the seller bears | `allocateSellerShares`, prorated by how much of the order has now been refunded | platform settlement |
+
+The seller's share reads the SAME split the ledger credited at charge time and
+the settlement transferred — three readers of one definition. It is read from
+`allocateSellerShares` and NOT from the transfer row, deliberately: a withheld
+transfer means the seller was never paid, their receivable is still open, and the
+refund must still reduce it.
+
+**The proration is cumulative, not per refund.** Each step reverses the
+difference between where the transfer should stand and where it does, so a
+sequence of partial refunds sums to exactly the seller's whole share once the
+order is fully refunded. Prorating each refund independently floors each one
+separately and strands the last units on the seller's balance forever. The two
+agree on any evenly-divisible order, which is why the test that pins this uses a
+CONVERTED charge with an odd share (3,667 refunded in halves → 1,833 then 1,834).
+
+**Mercaria's own residual is the difference between the second and the third.**
+It carries the commission returned on the refunded amount (D5, zero until #88)
+AND the conversion asymmetry Mercaria bears by the same decision. Computing it as
+a residual rather than from a rate is what keeps the seller's leg exactly
+closable by the reversal — which is the property that makes a failed recovery
+visible as an open payable instead of a rounding difference nobody can attribute.
+
+### Cross-currency asymmetry is recorded, not smoothed
+
+A refund converts at the REFUND-time rate and the original conversion fee is not
+returned (ADR 0001 D7). So on a converted charge the platform figure is NOT the
+proportional share of what came in, and it is read from the refund's own balance
+transaction rather than derived from the charge's. An unavailable balance
+transaction is RETRYABLE, never assumed — guessing the charge's rate would book a
+conversion that did not happen.
+
+### The reversal-failure policy
+
+A reversal can fail where the refund did not: an insufficient seller balance with
+no reserve behind it. ADR 0001 D7 is explicit that the buyer's refund is **not**
+blocked on it, so:
+
+- the buyer keeps their money and nothing is undone;
+- `reversal_state` is `failed` and a `reversal_failed` outbox row names the
+  order, the amount and the rail's reason;
+- **the gap is BOOKED, not hidden.** The refund posting debited the order's
+  `merchant_payable` and no reversal credited it back, so that account sits in
+  DEBIT by exactly what the seller owes Mercaria. The book still balances per
+  currency — an honest gap, not an unbalanced one.
+
+Recovery is a decision (wait for their next transfer, `debit_negative_balances`,
+write it off), not a retry: no number of attempts creates funds on a seller's
+account. Sibling orders of the same charge are untouched, which is ADR 0001 D4's
+per-order divergence.
+
+`not_required` is a real state and not a silent success: a transfer that was
+never made (withheld, or the payment never settled) leaves the seller's
+receivable open, and the refund posting closes it directly. There is nothing at
+the rail to reverse.
+
+### A refund made outside Mercaria
+
+A Stripe refund with no Mercaria record behind it — made in the dashboard, or
+forced by an issuer — becomes a `refund_unmatched` operator exception and creates
+**no local refund**. Doing otherwise would restock goods nobody returned and
+decrement a customer's lifetime spend for a decision Mercaria never took.
+
+Correlation is by Mercaria's own `metadata.refundId` FIRST and the provider id
+second, the same rule the PaymentIntent resolver follows. That is what closes the
+window between the rail creating a refund object and Mercaria writing its id
+back: without it, a legitimate refund would be reported as a foreign one. Nothing
+else is ever consulted — a refund matched by amount is a refund matched to the
+wrong one of two identical partial refunds.
+
+### Provider outcomes never touch inventory
+
+Issue #49 invariant 2. Restock happened once, in `refund.service`, from the lines
+a merchant approved. A refund event arriving days later — a success, a failure, a
+duplicate, a `charge.refunded` carrying the whole list — moves money and nothing
+else. Pinned by a test that delivers three such events and asserts the available
+count does not change.
+
+### Disputes
+
+A buyer's bank reversing a charge through the card network. Mercaria is the
+merchant of record (D1), so the PLATFORM balance is debited and Mercaria answers
+the network; the seller bears the principal only once the dispute is lost.
+
+**Disputes are not CrowdSource moderation** (issue #49 scope 7) and the two never
+meet. CrowdSource decides whether CONTENT breaks a rule, with a jury and a signed
+decision; a dispute is decided by a card network on evidence Mercaria submits
+against a deadline nobody here sets. Wiring one into the other would put a bank's
+chargeback rate into a seller's reputation and a jury's verdict into a financial
+ledger. Nothing in `dispute.service.ts` imports moderation, and nothing in
+moderation imports it.
+
+| Event | Ledger | Seller |
+|---|---|---|
+| created (real chargeback) | disputes (D) + processor expense (f), against provider clearing | untouched — a dispute is not yet a loss |
+| created (INQUIRY) | **nothing** | untouched |
+| closed won | provider clearing, against disputes. The FEE is not returned and no leg reverses it | untouched |
+| closed lost | merchant payable, against disputes | transfer reversed (`trr:dispute:<disputeId>:<orderId>`) |
+
+**An inquiry is distinguished by the rail's balance MOVEMENTS, not by its status
+string.** Some networks raise an inquiry before a chargeback: it carries a
+deadline, needs evidence, and moves no money, so `balance_transactions` is empty
+and nothing may be booked. Statuses meaning "inquiry" differ by network and grow
+on Stripe's schedule; an empty movement list does not.
+
+All three `charge.dispute.*` types reach ONE entry point, because they are three
+observations of one object and Stripe orders none of them — a `closed` can arrive
+before a `created` Mercaria never received. The row is upserted and the two
+ledger transitions are compare-and-swaps (`opened_booked_at`, `closed_at`), so
+any arrival order converges.
+
+**`order_id` is nullable and its absence is a real state.** One charge funds a
+whole checkout group, and the network gives no line detail — so a dispute on a
+multi-seller charge is recorded attributed to the PAYMENT only, the principal
+stays in the `disputes` holding account, and an operator attributes it. Guessing
+would reverse an innocent seller's transfer.
+
+#### The one departure from ADR 0001's diagram, and why
+
+The ADR's sequence diagram reverses the seller's transfer when the dispute OPENS
+and re-transfers on a win. **That shape is not implementable against the domain
+#45 built**, and the obstacle is structural rather than a preference:
+"re-transfer the recovered principal to the seller" is a NEW transfer for an
+order that already has one, and `UNIQUE(transfers.payment_id, order_id)` exists
+precisely to make a second transfer for one order impossible — it is the
+constraint standing between a settlement retry and money leaving twice.
+
+So the recovery runs when the outcome is `lost`, which is also when the loss is
+real. D7's prose — "a lost dispute stays a seller-side loss; a won dispute
+reverses the recovery" — is satisfied either way; only the timing differs, and
+this timing does not take a seller's money for a dispute they go on to win. The
+ADR's diagram should be corrected when it is next revised.
+
+### Payouts
+
+The rail moving a SELLER's own balance to their bank. Mercaria is not a party to
+it, and **the absence of ledger postings is the load-bearing part**: ADR 0001 D6
+settled the merchant receivable when the TRANSFER was created, so a failed payout
+must not reopen it or Mercaria would owe a seller twice for one order.
+
+What #49 added was the ATTRIBUTION. `provider_accounts` (#46) maps a connected
+account to a store or an Oxy user, which is what makes a payout row worth writing
+at all — an unattributable payout is a row nothing could ever surface. A payout
+for an account Mercaria has no row for is still RECORDED (evidence: another
+environment, or a rebuilt database) but produces no domain event, because there
+is no seller for a consumer to be told about.
+
+`payouts.amount_currency` carries **no CHECK against `ALL_CURRENCY_CODES`** — the
+third such exemption, beside `provider_accounts.default_currency` and
+`connections.shop_currency`. A payout is denominated in the seller's own
+settlement currency, which the rail chooses from the account's country; several
+EEA currencies a seller may legitimately be paid in (RON, CZK, HUF, BGN) are not
+in Mercaria's set, and the CHECK would have rejected the RECORD of a payout that
+had already happened. Mercaria neither prices nor converts this figure.
+
+`tracePayment` now returns payouts, which was #45's stated deferral. It returns
+the recent payouts to the ACCOUNTS this payment settled to, bounded — **not "the
+payouts that paid these orders"**. A payout batches many transfers and the rail
+states no link between them, so the honest answer is the accounts and the window;
+an unbounded version would hand an operator a seller's entire payout history
+under the heading of one order.
+
+### The restated processing fee
+
+Stripe restates a fee occasionally and says so with `charge.updated`. #45 has
+exactly one mechanism for a mistake in the book — a NEW balanced transaction —
+and the `charge_succeeded` one is never touched (the append-only trigger would
+refuse it anyway).
+
+The correction is computed as a DIFFERENCE against everything already booked to
+`processor_expense` for that payment, not against the last correction. That is
+what makes it converge: once the sum equals what Stripe reports, a redelivery
+computes a delta of zero and writes nothing. The property comes out of the
+arithmetic rather than a claim on a row, so this handler needs no
+compare-and-swap of its own.
+
+The same handler flags a **destination-charge anomaly**: ADR 0001 D3 uses
+separate charges and transfers exclusively, so a charge Mercaria created carries
+no `transfer_data`, `transfer` or `on_behalf_of`. One that does bypassed the
+per-order settlement model entirely; it cannot be repaired in a handler, so it is
+logged at `error` and written into the trace.
+
+### The event table, updated
+
+Every type ADR 0001 subscribes to is now APPLIED. Nothing in the router is
+deferred; the `deferred` outcome is kept for the next subscribed type, because a
+trace that could not express the distinction would make the next seam invisible.
+
+| Events | Today |
+|---|---|
+| `payment_intent.*` | applied through `applyPaymentStatus` |
+| `charge.succeeded`, `charge.updated` | fee correction against what was booked, plus the destination-charge anomaly check |
+| `charge.refunded`, `charge.refund.updated` | converged onto the local refund, or raised as `refund_unmatched` |
+| `charge.dispute.*` | dispute row, ledger, and the recovery reversal on a loss |
+| `transfer.*` | the row is refreshed and `transfer_changed` is emitted |
+| `account.*` | applied — the account is re-read and readiness recomputed |
+| `payout.paid`, `payout.failed` | payout row attributed via `provider_accounts`, `payout_changed` emitted |
+
+### The three new outbox exceptions
+
+Each is a distinct operator ACTION, which is why each is its own type rather than
+a reason code on one.
+
+| Type | Condition | Why it is not automatic |
+|---|---|---|
+| `refund_failed` | the rail refused or failed the BUYER's refund after Mercaria committed and restocked | re-attempting a declined refund loops; undoing the commerce record would un-restock units that may have been sold since |
+| `reversal_failed` | the buyer has their money and the seller's share could not be recovered | no number of attempts creates funds on a seller's account |
+| `refund_unmatched` | the rail reported a refund Mercaria never made | creating one would restock goods nobody returned |
+
+`payment_refunded` is the one outbox type here that carries WORK rather than an
+announcement — its handler is what calls the rail. That is deliberate, and the
+reason is in "the commerce decision commits before the money moves" above.
+
+### The merchant surface, and what it never carries
+
+`Refund` gains `provider`, `providerState` and `providerFailureCode`. The
+projection names every field explicitly rather than spreading the row, so a
+column added later cannot ride along.
+
+Absent by design: `providerRefundId`, `providerReversalId`, `reversalState` and
+the reversal amount. A merchant needs to know whether their buyer has been paid;
+whether Mercaria has finished clawing the seller's share back off a connected
+account is an operator's reconciliation question and belongs to the payment trace
+(#50). `providerFailureCode` is shape-checked (`^[a-z][a-z0-9_]*$`) and dropped
+otherwise, so a provider message quoting a cardholder's bank or partial card
+number cannot reach a merchant surface by being appended to that field later.
+
+**There is no buyer-facing refund surface, and #49 did not build one.** The
+storefront's order DTO carries no refunds today (only the `refunded` /
+`partially_refunded` status), so there was nothing to extend honestly; the guest
+portal (#108/#110) is where a buyer-visible refund state belongs.
+
+### What has NOT been rehearsed
+
+- **Anything against live Stripe.** Every test uses a fake client; the signatures
+  are real, the API is not.
+- **A refund that fails at the ISSUER days later.** The convergence path is
+  tested from a `charge.refund.updated` carrying `failed`, but no real card has
+  ever bounced one here.
+- **A dispute on a multi-seller charge being attributed by an operator.** The
+  unattributed state is tested; the operator action that resolves it is #50's.
+- **`debit_negative_balances` recovering a failed reversal**, which needs a live
+  account.
+
+---
+
 ## Retention
 
 Postgres has no TTL index. `db/expiryTargets.ts` is the registry
@@ -1111,7 +1422,98 @@ Useful correlations:
   `select id, payload, created_at from payment_outboxes
    where event_type = 'provider_account_changed' order by created_at desc limit 20;`
 
-### 5. Rotating the webhook secrets
+### 5. A refund that did not land
+
+Start from the refund row, not from Stripe:
+
+```sql
+select id, order_id, payment_id, status, provider, provider_state,
+       provider_refund_id, provider_failure_code, reversal_state,
+       provider_reversal_id, reversal_amount_amount, total_refunded_presentment_amount,
+       created_at
+from refunds
+where order_id = '<order id>' order by created_at desc;
+```
+
+| Symptom | Most likely cause | What to do |
+|---|---|---|
+| `provider_state = 'pending'` and it is not moving | the `payment_refunded` outbox row is failing or parked | `select status, attempts, last_error from payment_outboxes where id = 'payment:payment_refunded:<refundId>';` — a `dead_letter` needs a person, a `pending` with a future `available_at` is just backoff |
+| `provider_state = 'failed'` | the rail refused the buyer's refund AFTER Mercaria committed and restocked | The commerce record and the money disagree. Decide ONE of: re-issue the refund at the rail by hand and reconcile with an `adjustment`, or reverse the commerce record. Read `provider_failure_code` first — `charge_already_refunded` means somebody refunded it in the dashboard, which is the `refund_unmatched` case below |
+| `reversal_state = 'failed'` | the seller's balance could not cover the recovery | The buyer is fine and must not be touched. The order's `merchant_payable` is in DEBIT by what the seller owes — recover it from a future transfer, from `debit_negative_balances`, or write it off with an `adjustment` |
+| `reversal_state = 'not_required'` | the seller was never paid for that order | Correct and needs nothing. Confirm with `select status, provider_object_id from transfers where order_id = '<order id>';` — a `pending` row with a NULL provider object is a withheld transfer (#47) |
+| a `refund_unmatched` row | somebody refunded in the Stripe dashboard, or an issuer forced one | Mercaria created NO refund and restocked NOTHING, so its order, inventory and ledger disagree with Stripe by that amount. Reconcile deliberately: either process the matching Mercaria refund (which will try to refund AGAIN at the rail — do not, unless the amount is genuinely additional) or book an `adjustment` and leave the commerce record alone |
+
+The operator queue for all three:
+
+```sql
+select id, event_type, status, attempts, payload, created_at
+from payment_outboxes
+where event_type in ('refund_failed', 'reversal_failed', 'refund_unmatched')
+order by created_at desc limit 50;
+```
+
+### 6. A dispute, from the deadline to the outcome
+
+```sql
+select id, provider_dispute_id, payment_id, order_id, status, outcome,
+       amount_amount, fee_amount, reason, evidence_due_by, opened_booked_at,
+       recovery_state, closed_at
+from disputes
+where closed_at is null
+order by evidence_due_by asc nulls last;
+```
+
+- **Evidence is submitted in the Stripe dashboard**, not here. Mercaria records
+  the deadline and the outcome; it does not hold the evidence, and #111's
+  retention policy is why it should not start to.
+- `status = 'warning'` with `opened_booked_at` NULL is an INQUIRY: money has not
+  moved, the ledger is deliberately untouched, and the deadline is still real.
+  If it escalates, the SAME row gains an amount and is booked then.
+- `order_id` NULL on a closed-lost dispute is the multi-seller case. The
+  principal is sitting in the `disputes` account. Attribute it deliberately —
+  the seller who shipped the disputed goods — and then recover from that seller
+  with an `adjustment` plus a manual reversal; there is no automatic path,
+  because guessing would have reversed an innocent seller's transfer.
+- `recovery_state = 'failed'` on a lost dispute is the same condition as a failed
+  refund reversal and appears in the same `reversal_failed` queue above.
+
+Correlate one dispute end to end:
+
+```sql
+select t.kind, t.description, e.account, e.currency, e.amount_minor, e.order_id
+from ledger_entries e
+join ledger_transactions t on t.id = e.transaction_id
+where t.dispute_ref = '<dp_…>' order by e.created_at;
+```
+
+A won dispute leaves `disputes` at zero and `processor_expense` holding the fee —
+the fee is NOT returned, deliberately (ADR 0001 D5). A lost one leaves `disputes`
+at zero and, once recovered, `merchant_payable` at zero for that order.
+
+### 7. A payout that failed
+
+```sql
+select p.id, p.provider_object_id, p.status, p.amount_amount, p.amount_currency,
+       p.failure_code, p.arrival_at, a.owner_type, a.owner_id
+from payouts p
+left join provider_accounts a
+  on a.provider = p.provider and a.provider_account_id = p.provider_account_ref
+where p.status = 'failed' order by p.created_at desc limit 50;
+```
+
+The seller's Mercaria receivable is **not** reopened and must not be: it was
+settled when the transfer was created (ADR 0001 D6), and the money is on their
+own Stripe balance. A failed payout is between them and Stripe — the usual causes
+are `account_closed`, `no_account` and `debit_not_authorized`, all fixed by the
+seller updating their bank details in the Express dashboard, after which Stripe
+retries on its own schedule.
+
+What Mercaria owes here is an explanation, not a movement. If a payout row is
+missing entirely for a payout the seller can see, the Connect endpoint's secret
+is the first thing to check — the same failure mode as a missing
+`account.updated`.
+
+### 8. Rotating the webhook secrets
 
 Set the new secret in Stripe, put the OLD one in `STRIPE_WEBHOOK_SECRET_PREVIOUS`
 (or `STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS`) and the new one in the primary
@@ -1119,7 +1521,7 @@ variable, deploy, then remove the previous after Stripe has stopped retrying
 anything signed with it. Both are accepted during the window, so no delivery is
 lost.
 
-### 6. What has NOT been rehearsed
+### 9. What has NOT been rehearsed
 
 - Anything in live mode, including the `debit_negative_balances` default that ADR
   0001 lists and this implementation deliberately does not send (with
@@ -1129,3 +1531,6 @@ lost.
 - A seller in a country other than the configured one, since
   `STRIPE_SELLER_COUNTRIES` defaults to `ES` alone.
 - Recovery from `disabled`, which needs Stripe support rather than a runbook step.
+- Every refund, dispute and payout path in §5–§7: the state machines and the
+  ledger are exercised against a real Postgres and a fake Stripe, and no real
+  card has ever been refunded or disputed here.

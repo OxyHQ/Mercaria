@@ -47,7 +47,7 @@ import { conflict } from '../../lib/errors/error-codes.js';
  * seller-and-listing-aware CHOICE of rail — which is a different function from
  * this one, not a wider signature on it.
  */
-const NATIVE_RAIL: Extract<PaymentProviderId, 'stripe'> = 'stripe';
+export const NATIVE_RAIL: Extract<PaymentProviderId, 'stripe'> = 'stripe';
 
 /** Which seller a group belongs to, decomposed from its key. */
 export interface SellerAccountOwner {

@@ -84,6 +84,20 @@ export interface PaymentProviderContractOptions {
 /** A charge every rail can handle: 25.00 EUR. */
 const AMOUNT: Money = { amount: 2_500, currency: 'EUR' };
 
+/**
+ * The correlation metadata a refund carries — Mercaria ids and nothing else.
+ *
+ * Fixed here rather than per-arm because the suite is asserting the CONTRACT,
+ * not the ids: what matters is that every rail accepts the field, since it is
+ * what an inbound refund event correlates through and a rail that dropped it
+ * would turn every legitimate refund into an operator exception days later.
+ */
+const REFUND_METADATA: Readonly<Record<string, string>> = {
+  refundId: 'refund-contract-1',
+  orderId: 'order-1',
+  paymentId: 'pay-contract-1',
+};
+
 /** Run the contract suite against one rail. */
 export function runPaymentProviderContract(options: PaymentProviderContractOptions): void {
   const paymentId = 'pay-contract-1';
@@ -133,7 +147,12 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
             case 'cancel':
               return await provider.cancel(operation);
             case 'refund':
-              return await provider.refund({ ...operation, refundId: 'refund-x', amount: AMOUNT });
+              return await provider.refund({
+                ...operation,
+                refundId: 'refund-x',
+                amount: AMOUNT,
+                metadata: REFUND_METADATA,
+              });
             default:
               return await provider.getStatus(created.providerObjectId);
           }
@@ -181,9 +200,11 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
         refundId: 'refund-1',
         amount: AMOUNT,
         idempotencyKey: 're:refund-1',
+        metadata: REFUND_METADATA,
       });
       expect(refunded.status).toBe('refunded');
       expect(refunded.providerObjectId).toBeTruthy();
+      expect(refunded.state).toBe('succeeded');
       },
     );
 
@@ -192,11 +213,12 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
       async () => {
       const provider = options.createProvider();
       const created = await provider.createPayment(create());
-      await provider.capture({
-        paymentId,
-        providerObjectId: created.providerObjectId,
-        idempotencyKey: `cap:${paymentId}`,
-      });
+      // `settle`, not `capture` — this arm is reachable by a rail that refunds
+      // but has NO capture step (a card rail captures on the buyer's
+      // confirmation, ADR 0001 D3). Calling `capture` directly here made the arm
+      // pass only for rails that happened to have both, which is exactly the
+      // false green a contract suite must not produce.
+      await settle(provider, created.providerObjectId);
 
       const partial = await provider.refund({
         paymentId,
@@ -204,6 +226,7 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
         refundId: 'refund-partial',
         amount: { amount: 1_000, currency: 'EUR' },
         idempotencyKey: 're:refund-partial',
+        metadata: REFUND_METADATA,
       });
       expect(partial.status).toBe('partially_refunded');
 
@@ -215,6 +238,7 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
         refundId: 'refund-rest',
         amount: { amount: 1_500, currency: 'EUR' },
         idempotencyKey: 're:refund-rest',
+        metadata: REFUND_METADATA,
       });
       expect(rest.status).toBe('refunded');
       },
@@ -260,6 +284,7 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
           refundId: 'refund-early',
           amount: AMOUNT,
           idempotencyKey: 're:refund-early',
+          metadata: REFUND_METADATA,
         }),
       ).rejects.toBeInstanceOf(PaymentProviderError);
       },
@@ -359,6 +384,7 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
                 refundId: 'refund-fail',
                 amount: AMOUNT,
                 idempotencyKey: 're:refund-fail',
+                metadata: REFUND_METADATA,
               });
             default:
               return await provider.getStatus(created.providerObjectId);

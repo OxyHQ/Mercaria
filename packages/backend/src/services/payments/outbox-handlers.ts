@@ -37,6 +37,18 @@ interface PaymentEventPayload {
   previousState?: string;
   onboardingState?: string;
   reason?: string;
+  /** #49's refund, dispute, transfer and payout events. */
+  refundId?: string;
+  disputeId?: string;
+  transferId?: string;
+  payoutId?: string;
+  status?: string;
+  amountMinor?: number;
+  currency?: string;
+  failureCode?: string;
+  subjectKind?: string;
+  providerRefundId?: string;
+  evidenceDueBy?: string;
 }
 
 /** Read the payload without trusting jsonb to have the shape we wrote. */
@@ -66,6 +78,19 @@ function readPayload(event: PaymentOutboxRow): PaymentEventPayload {
       ? { onboardingState: record.onboardingState }
       : {}),
     ...(typeof record.reason === 'string' ? { reason: record.reason } : {}),
+    ...(typeof record.refundId === 'string' ? { refundId: record.refundId } : {}),
+    ...(typeof record.disputeId === 'string' ? { disputeId: record.disputeId } : {}),
+    ...(typeof record.transferId === 'string' ? { transferId: record.transferId } : {}),
+    ...(typeof record.payoutId === 'string' ? { payoutId: record.payoutId } : {}),
+    ...(typeof record.status === 'string' ? { status: record.status } : {}),
+    ...(typeof record.amountMinor === 'number' ? { amountMinor: record.amountMinor } : {}),
+    ...(typeof record.currency === 'string' ? { currency: record.currency } : {}),
+    ...(typeof record.failureCode === 'string' ? { failureCode: record.failureCode } : {}),
+    ...(typeof record.subjectKind === 'string' ? { subjectKind: record.subjectKind } : {}),
+    ...(typeof record.providerRefundId === 'string'
+      ? { providerRefundId: record.providerRefundId }
+      : {}),
+    ...(typeof record.evidenceDueBy === 'string' ? { evidenceDueBy: record.evidenceDueBy } : {}),
   };
 }
 
@@ -259,14 +284,209 @@ async function handleProviderAccountChanged(event: PaymentOutboxRow): Promise<vo
 }
 
 /**
+ * A refund's money movement — the ONE handler here that does work rather than
+ * announcing it.
+ *
+ * `refund.service` has already committed the commerce decision and restocked;
+ * this is what returns the buyer's money and recovers the seller's share (ADR
+ * 0001 D7). It lives behind the outbox because a provider call inside the
+ * request that created the refund evaporates on a restart, and what would be
+ * left is an order claiming money went back to a buyer who never received it.
+ *
+ * Failures are the executor's to classify. A retryable one propagates and the
+ * row retries with backoff; a permanent one is recorded as an operator exception
+ * INSIDE the executor and this handler completes, because the row's job — "make
+ * the money move, or make the failure visible" — is then genuinely done and
+ * retrying a declined refund twenty-five times only delays the person who has to
+ * look at it.
+ */
+async function handlePaymentRefunded(event: PaymentOutboxRow): Promise<void> {
+  const { refundId, paymentId, orderId } = readPayload(event);
+  if (!refundId) {
+    throw new Error(`Payment outbox event ${event.id} carries no refundId.`);
+  }
+
+  const { executeRefundAtProvider } = await import('./refund-execution.service.js');
+  const outcome = await executeRefundAtProvider(refundId);
+  log.general.info(
+    { eventId: event.id, refundId, paymentId, orderId, ...outcome },
+    '[Payments] refund executed at its rail',
+  );
+}
+
+/**
+ * A dispute reached a new state.
+ *
+ * Records and nothing else: `dispute.service` has already booked whatever the
+ * state change moved and run the seller-side recovery on a loss, inside the
+ * webhook that observed it, so by the time this arrives the money is settled.
+ * What this exists for is the CONSUMERS — the operator surface (#50) and the
+ * seller notification (#108) — which attach here rather than to the rail's
+ * webhook so neither ever receives provider detail.
+ *
+ * An open dispute is logged at `warn` and a lost one at `error`: one is a
+ * deadline somebody has to meet, the other is money already gone.
+ */
+async function handlePaymentDisputed(event: PaymentOutboxRow): Promise<void> {
+  const { disputeId, paymentId, orderId, status, amountMinor, currency, reason, evidenceDueBy } =
+    readPayload(event);
+  const details = {
+    eventId: event.id,
+    disputeId,
+    paymentId,
+    orderId,
+    status,
+    amountMinor,
+    currency,
+    reason,
+    evidenceDueBy,
+  };
+
+  if (status === 'lost') {
+    log.general.error(details, '[Payments] a dispute was lost; the seller bears the principal');
+  } else if (status === 'won') {
+    log.general.info(details, '[Payments] a dispute was won; the held amount was released');
+  } else if (status === 'warning') {
+    log.general.warn(
+      details,
+      '[Payments] an inquiry was raised against a charge; no money has moved, and evidence is ' +
+        'still due',
+    );
+  } else {
+    log.general.warn(
+      details,
+      '[Payments] a dispute is open against a charge; the platform balance is already debited ' +
+        'and evidence is due (#50)',
+    );
+  }
+  return await Promise.resolve();
+}
+
+/**
+ * A transfer moved — created, updated or reversed at the rail.
+ *
+ * The seller-facing half of settlement health. It changes nothing: the transfer
+ * row was already refreshed by the handler that observed the event, because that
+ * is a compare-and-swap on an observation rather than work, and doing it here
+ * instead would put a provider read behind a retry queue for no gain.
+ */
+async function handleTransferChanged(event: PaymentOutboxRow): Promise<void> {
+  const { transferId, paymentId, orderId, status, amountMinor, currency } = readPayload(event);
+  log.general.info(
+    { eventId: event.id, transferId, paymentId, orderId, status, amountMinor, currency },
+    '[Payments] a seller transfer changed state',
+  );
+  return await Promise.resolve();
+}
+
+/**
+ * A payout moved — the rail paying a seller's own balance out to their bank.
+ *
+ * Mercaria is not a party to it (ADR 0001 D6), so this books nothing and
+ * reopens nothing. A FAILED payout is logged at `error` because it is what a
+ * seller support request will be about, and the answer has to already be here
+ * rather than being reconstructed from the rail's dashboard.
+ */
+async function handlePayoutChanged(event: PaymentOutboxRow): Promise<void> {
+  const { payoutId, sellerKey, status, amountMinor, currency, failureCode } = readPayload(event);
+  const details = { eventId: event.id, payoutId, sellerKey, status, amountMinor, currency, failureCode };
+  if (status === 'failed') {
+    log.general.error(
+      details,
+      '[Payments] a seller payout failed; their receivable is NOT reopened (it was settled at ' +
+        'transfer time) and this is a seller-and-rail matter an operator may need to explain',
+    );
+  } else {
+    log.general.info(details, '[Payments] a seller payout changed state');
+  }
+  return await Promise.resolve();
+}
+
+/**
+ * The rail refused or failed a refund Mercaria had already recorded.
+ *
+ * The commerce record says money went back and the stock is already on the
+ * shelf; the rail says it did not. Nothing here reconciles that automatically,
+ * and every automatic answer is worse than the exception: re-attempting a
+ * declined refund loops, and un-doing the commerce record would un-restock units
+ * that may have been sold since. So it is one `error` line with the correlation
+ * ids, and #50's operator surface is where a person picks it up.
+ */
+async function handleRefundFailed(event: PaymentOutboxRow): Promise<void> {
+  const { refundId, paymentId, orderId, amountMinor, currency, reason, failureCode } =
+    readPayload(event);
+  log.general.error(
+    { eventId: event.id, refundId, paymentId, orderId, amountMinor, currency, reason, failureCode },
+    '[Payments] a refund failed at its rail after Mercaria had recorded it; the order and its ' +
+      'stock were already moved, so the commerce record and the money now disagree — this needs ' +
+      'an operator decision (re-attempt, or reverse the record)',
+  );
+  return await Promise.resolve();
+}
+
+/**
+ * The seller-side recovery could not be made.
+ *
+ * ADR 0001 D7's explicit outcome: the buyer has their money, and Mercaria could
+ * not take the seller's share back off their balance. Nothing is retried, and
+ * that is the decision — no number of attempts creates funds on a seller's
+ * account. The gap is already booked honestly (the order's `merchant_payable`
+ * sits in debit by exactly what the seller owes), and recovery is a choice
+ * between waiting for their next transfer, a negative-balance debit, and a write
+ * off. All three are decisions the payment domain does not get to take.
+ *
+ * Shared by the refund path and the lost-dispute path, because the condition and
+ * the resolution are identical — `subjectKind` says which produced it.
+ */
+async function handleReversalFailed(event: PaymentOutboxRow): Promise<void> {
+  const { subjectKind, refundId, disputeId, paymentId, orderId, amountMinor, currency, reason } =
+    readPayload(event);
+  log.general.error(
+    {
+      eventId: event.id,
+      subjectKind,
+      refundId,
+      disputeId,
+      paymentId,
+      orderId,
+      amountMinor,
+      currency,
+      reason,
+    },
+    '[Payments] a seller-side recovery failed; the buyer keeps their refund (ADR 0001 D7) and ' +
+      "the seller's payable stays open in Mercaria's favour — this needs an operator decision",
+  );
+  return await Promise.resolve();
+}
+
+/**
+ * The rail reported a refund Mercaria never made.
+ *
+ * A refund created in the rail's own dashboard, or one an issuer forced. It was
+ * deliberately NOT turned into a local refund — that would restock goods nobody
+ * returned and decrement a customer's lifetime spend for a decision Mercaria did
+ * not take — so the order, the inventory and the ledger are all untouched and
+ * disagree with the rail until a person reconciles them.
+ */
+async function handleRefundUnmatched(event: PaymentOutboxRow): Promise<void> {
+  const { providerRefundId, amountMinor, currency, status } = readPayload(event);
+  log.general.error(
+    { eventId: event.id, providerRefundId, amountMinor, currency, status },
+    '[Payments] the rail reported a refund Mercaria has no record of; no local refund was ' +
+      'created and no stock was restocked, so the ledger and the rail now disagree by this ' +
+      'amount — this needs an operator decision (#50)',
+  );
+  return await Promise.resolve();
+}
+
+/**
  * Run one claimed outbox row.
  *
  * An event type this version does not handle THROWS, so it is retried rather
  * than completed as if it had been dealt with — during a rolling deploy the task
- * running the newer code claims it on the next tick. `payment_refunded`,
- * `payment_disputed`, `transfer_changed` and `payout_changed` are in that
- * category today: nothing in this version emits them, and #49 lands their
- * producers and their handlers together.
+ * running the newer code claims it on the next tick. As of #49 every declared
+ * type has a handler, so that branch is now reachable only by a row a NEWER
+ * image wrote, which is exactly the case it exists for.
  */
 export async function runPaymentOutboxEvent(event: PaymentOutboxRow): Promise<void> {
   switch (event.eventType) {
@@ -280,6 +500,20 @@ export async function runPaymentOutboxEvent(event: PaymentOutboxRow): Promise<vo
       return await handleTransferWithheld(event);
     case 'provider_account_changed':
       return await handleProviderAccountChanged(event);
+    case 'payment_refunded':
+      return await handlePaymentRefunded(event);
+    case 'payment_disputed':
+      return await handlePaymentDisputed(event);
+    case 'transfer_changed':
+      return await handleTransferChanged(event);
+    case 'payout_changed':
+      return await handlePayoutChanged(event);
+    case 'refund_failed':
+      return await handleRefundFailed(event);
+    case 'reversal_failed':
+      return await handleReversalFailed(event);
+    case 'refund_unmatched':
+      return await handleRefundUnmatched(event);
     default:
       throw new Error(
         `No handler for payment outbox event type '${String(event.eventType)}' in this version.`,

@@ -3,7 +3,7 @@ import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft } from "lucide-react-native";
-import type { Order, OrderItem } from "@mercaria/shared-types";
+import type { Order, OrderItem, Refund, RefundProviderState } from "@mercaria/shared-types";
 import {
   Text,
   Button,
@@ -20,7 +20,12 @@ import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
-import { useOrder, usePatchOrderStatus, useCreateRefund } from "@/lib/hooks/use-orders";
+import {
+  useOrder,
+  usePatchOrderStatus,
+  useCreateRefund,
+  useOrderRefunds,
+} from "@/lib/hooks/use-orders";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import type { FulfillmentStatus } from "@/lib/api/orders";
 
@@ -89,6 +94,7 @@ function OrderContent({ storeId, order }: { storeId: string; order: Order }) {
       <TotalsCard order={order} />
       <ShippingAddressCard order={order} />
       <StatusHistoryCard order={order} />
+      <RefundsCard storeId={storeId} order={order} />
       <FulfillmentCard storeId={storeId} order={order} />
     </View>
   );
@@ -192,6 +198,88 @@ function StatusHistoryCard({ order }: { order: Order }) {
           </View>
         ))}
       </View>
+    </View>
+  );
+}
+
+/**
+ * Chip presentation per MONEY state: the pill's background and its label's colour.
+ *
+ * Keyed on `RefundProviderState` and deliberately NOT on `Refund.status`: that
+ * one is the commerce lifecycle and already reads `refunded` the instant
+ * Mercaria commits the record, before a cent has left the rail. Only
+ * `providerState` answers what an operator on this screen is actually asking —
+ * has the buyer got the money back yet.
+ */
+const REFUND_STATE_CHIPS: Record<
+  RefundProviderState,
+  { label: string; bg: string; text: string }
+> = {
+  // Approved and moving, but NOT yet in the buyer's hands — muted, not a success tone.
+  pending: { label: "On its way", bg: "bg-muted", text: "text-muted-foreground" },
+  succeeded: { label: "Completed", bg: "bg-primary/10", text: "text-primary" },
+  failed: { label: "Failed", bg: "bg-destructive/10", text: "text-destructive" },
+  canceled: { label: "Canceled", bg: "bg-muted", text: "text-muted-foreground" },
+};
+
+function RefundsCard({ storeId, order }: { storeId: string; order: Order }) {
+  // No extra `can("orders:read")` gate: the whole screen already sits behind
+  // `RequireStore permission="orders:read"`, which is exactly what the GET
+  // endpoint enforces, so a second check here could only ever agree with it.
+  const { data } = useOrderRefunds(storeId, order.id);
+
+  // Most orders are never refunded, so an always-mounted empty card would be
+  // noise on every order detail — the card appears only once there is history.
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  return (
+    <View className="rounded-2xl border border-border bg-surface p-4">
+      <Text className="mb-3 text-sm font-semibold text-foreground">Refunds</Text>
+      <View className="gap-3">
+        {data.map((refund) => (
+          <RefundRow key={refund.id} refund={refund} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function RefundRow({ refund }: { refund: Refund }) {
+  // A refund with no `provider` had no rail operation at all — cash handed back
+  // at a register, or an order captured on Shopify/WooCommerce and refunded
+  // there. That absence is a fact about the payment, not a gap in the record,
+  // so it gets no chip rather than an "unknown" one.
+  const state = refund.provider ? refund.providerState : undefined;
+  const chip = state ? REFUND_STATE_CHIPS[state] : undefined;
+
+  return (
+    <View className="gap-1">
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="flex-1">
+          <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
+            {refund.rmaNumber ?? "Refund"}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {new Date(refund.createdAt).toLocaleDateString()}
+          </Text>
+        </View>
+        <PriceDisplay price={refund.totalRefunded.shop} primaryClassName="text-sm font-semibold" />
+        {chip ? (
+          <View className={`rounded-full px-2 py-1 ${chip.bg}`}>
+            <Text className={`text-[10px] font-semibold ${chip.text}`}>{chip.label}</Text>
+          </View>
+        ) : null}
+      </View>
+      {/* The rail's own code, shown verbatim apart from the underscores: it is a
+          merchant-safe machine code, and inventing prose around it would put
+          words in the provider's mouth about why the money did not move. */}
+      {state === "failed" && refund.providerFailureCode ? (
+        <Text className="text-xs text-destructive">
+          {refund.providerFailureCode.replace(/_/g, " ")}
+        </Text>
+      ) : null}
     </View>
   );
 }

@@ -138,12 +138,12 @@ mock | stripe`; Faircoin (#51) arrives as an adapter behind
 Full model, index, retention and boundary reference: **`docs/payments.md`**;
 the binding decisions are ADR 0001 (`docs/adr/0001-stripe-connect-architecture.md`).
 
-Stripe is **whole from checkout to settlement**: seller onboarding and the
-readiness gate (#46), the event ingress with its verification, durable processing
-and replay (#48), and the adapter that creates the charge, cancels it and pays
-each seller (#47). What is still missing is money coming BACK — refunds, disputes
-and transfer reversals are #49's, and `StripePaymentProvider.refund` throws
-saying so rather than moving half of that pair.
+Stripe is **whole, in both directions**: seller onboarding and the readiness gate
+(#46), the event ingress with its verification, durable processing and replay
+(#48), the adapter that creates the charge, cancels it and pays each seller
+(#47), and the money coming BACK — refunds, transfer reversals, disputes and
+payout health (#49). Every event type ADR 0001 subscribes to is now APPLIED;
+nothing in the router is deferred.
 
 **The ledger is load-bearing from day one.** ADR 0001 D3 gives up Stripe's
 `application_fee_amount` reporting, so Mercaria's commission — the charge minus
@@ -309,9 +309,48 @@ exception and the client split: `docs/payments.md` §"Checkout and the Stripe ra
   aggregate. `checkoutSchema` is `.strict()`, so no card-shaped field can even
   reach the server.
 
+### Refunds, disputes and payouts (#49): money coming back
+
+`refund.service` keeps deciding WHAT is refundable and commits that first;
+`services/payments/refund-execution.service.ts` moves the money from a
+`payment_refunded` outbox row. Full mechanics, the ledger tables and the
+runbook: `docs/payments.md` §"Refunds, disputes and payouts".
+
+- **The commerce record commits BEFORE the rail is called** (ADR 0001 D7), so a
+  slow rail cannot refuse a refund a merchant authorised. The refund row and its
+  outbox row commit in ONE transaction, because a provider call living in the
+  request would evaporate on a restart AFTER the inventory had been restocked.
+- **Restock happens exactly once, in the commerce path. A provider outcome NEVER
+  touches inventory** — not a success, not a failure, not a duplicate delivery.
+- **Three states of one refund and none substitutes for another:**
+  `Refund.status` is the commerce lifecycle (already `refunded` at commit),
+  `providerState` is the money's, and the payment aggregate's comes from the
+  CHARGE's cumulative refunds so one seller's refund cannot close a multi-seller
+  payment. Order status moves on the COMMERCE record.
+- **The seller's share is `allocateSellerShares`, prorated CUMULATIVELY** — each
+  refund reverses the difference between where the transfer should stand and
+  where it does. Per-refund proration strands units on a seller's balance
+  forever, and the two only disagree on a converted or unevenly-split charge.
+- **A failed reversal never blocks the buyer's refund** (D7). The gap is BOOKED:
+  the order's `merchant_payable` sits in debit by what the seller owes, the book
+  still balances per currency, and `reversal_failed` is an operator decision
+  rather than a retry.
+- **A refund the rail reports that Mercaria did not make is NEVER turned into a
+  local refund** — `refund_unmatched`, because creating one would restock goods
+  nobody returned.
+- **Disputes are NOT CrowdSource moderation** and the two never import each
+  other. An INQUIRY is told apart by the rail's empty balance MOVEMENTS, not by
+  its status string, and books nothing. The seller-side recovery runs on a LOSS,
+  not at creation — the ADR's diagram says otherwise and is unimplementable,
+  because "re-transfer on a win" is a second transfer for one order and
+  `UNIQUE(transfers.payment_id, order_id)` forbids exactly that.
+- **A payout books NOTHING.** The receivable was settled at transfer time (D6),
+  so a failed payout must not reopen it. `payouts.amount_currency` carries no
+  currency CHECK — a seller settles in their account's own currency.
+
 ### Where it meets the rest of Mercaria
 
-The domain is **Postgres-native** (9 tables), like everything else the API serves
+The domain is **Postgres-native** (10 tables), like everything else the API serves
 since the port — `DATABASE_URL` is REQUIRED to boot (`src/index.ts`).
 `services/payments/order-linkage.ts` stays the ONE seam onto orders: the payment
 domain reads them through a projection it owns rather than reaching into the order

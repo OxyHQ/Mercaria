@@ -16,6 +16,21 @@
  * (`sumRefundedShopAmount`). Both are `GROUP BY`/`sum` aggregates now, and the
  * arithmetic that decides `partially_refunded` versus `refunded` from them is
  * exercised against a real server in `commerce.realdb.test.ts`.
+ *
+ * ## What #49 added here, and what it deliberately did NOT
+ *
+ * `process` now commits the refund and its `payment_refunded` outbox row in one
+ * transaction, so the transaction boundary is stubbed. Every order in this file
+ * carries NO payment pointer, which makes `refundGoesThroughProvider` false and
+ * keeps every case below on the non-provider path — the `manual_pos` and
+ * `external` behaviour issue #49 scope 9 says must not change. That is asserted
+ * rather than assumed: `enqueuePaymentEvent` is a spy here, and the last case
+ * pins that it is never called.
+ *
+ * The provider path itself is NOT tested here. It moves real money against a
+ * real ledger and a mocked `updateOne` accepts an update a server rejects, so it
+ * lives in `payments/__tests__/refund.stripe.realdb.test.ts` against a real
+ * Postgres and a fake Stripe.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -26,9 +41,37 @@ const nextRmaNumber = vi.fn();
 const findOrderById = vi.fn();
 const setOrderStatus = vi.fn();
 const insertRefund = vi.fn();
+const findRefundById = vi.fn();
 const findRefundByIdempotencyKey = vi.fn();
 const sumRefundedQuantities = vi.fn();
 const sumRefundedShopAmount = vi.fn();
+const enqueuePaymentEvent = vi.fn();
+
+/**
+ * The transaction boundary, and nothing else about Postgres.
+ *
+ * `process` opens ONE transaction so the refund row and its outbox row commit
+ * together. The handle is passed straight through to the mocked repositories,
+ * which ignore it — so what this stub preserves is the SHAPE (a callback that
+ * runs and whose value is returned), which is the only part the service depends
+ * on when its writes are mocked.
+ */
+vi.mock('../../db/postgres.js', () => ({
+  getDb: () => ({
+    transaction: async (run: (tx: unknown) => Promise<unknown>) => await run({}),
+  }),
+}));
+
+vi.mock('../payments/payment-outbox.service.js', () => ({
+  enqueuePaymentEvent: (...args: unknown[]) => enqueuePaymentEvent(...args),
+  paymentRefundedEventId: (refundId: string) => `payment:payment_refunded:${refundId}`,
+}));
+
+// The refund's provider path is a real-database concern; here it is stubbed to
+// the answer every fixture in this file produces — no payment pointer, no rail.
+vi.mock('../payments/refund-execution.service.js', () => ({
+  refundGoesThroughProvider: () => false,
+}));
 
 vi.mock('../inventory.service.js', () => ({
   restock: (...args: unknown[]) => restock(...args),
@@ -45,6 +88,7 @@ vi.mock('../../db/orders/orderRepository.js', () => ({
 
 vi.mock('../../db/orders/refundRepository.js', () => ({
   insertRefund: (...args: unknown[]) => insertRefund(...args),
+  findRefundById: (...args: unknown[]) => findRefundById(...args),
   findRefundByIdempotencyKey: (...args: unknown[]) => findRefundByIdempotencyKey(...args),
   findRefundInStore: vi.fn(),
   findRefundsForOrderInStore: vi.fn(),
@@ -171,7 +215,9 @@ beforeEach(() => {
   findOrderById.mockReset();
   setOrderStatus.mockReset().mockResolvedValue(undefined);
   insertRefund.mockReset();
+  findRefundById.mockReset().mockResolvedValue(null);
   findRefundByIdempotencyKey.mockReset().mockResolvedValue(null);
+  enqueuePaymentEvent.mockReset().mockResolvedValue(true);
   // No prior refunds by default.
   sumRefundedQuantities.mockReset().mockResolvedValue(new Map<string, number>());
   sumRefundedShopAmount.mockReset().mockResolvedValue(0);
@@ -299,5 +345,33 @@ describe('refund.service.process', () => {
     expect(findOrderById).not.toHaveBeenCalled();
     expect(insertRefund).not.toHaveBeenCalled();
     expect(restock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Issue #49, scope 9: a payment Mercaria RECORDED rather than made is refunded
+   * wherever it was captured — cash out of a register, or on the platform that
+   * imported the order — so no provider operation is created for it.
+   *
+   * Asserted on BOTH sides, because either alone passes for the wrong reason: no
+   * outbox row is written (nothing will try to move money), and the persisted
+   * refund carries no `providerOperation` (the row does not claim a rail is
+   * involved). Every fixture in this file is such an order, so this pins the
+   * property the whole file's silence depends on.
+   */
+  it('creates NO provider operation for an order with no payment rail behind it', async () => {
+    findOrderById.mockResolvedValueOnce(mockOrder());
+    wireInsertEcho();
+    sumRefundedShopAmount.mockResolvedValue(1000);
+
+    await process(
+      STORE,
+      ORDER_ID,
+      { lineItems: [{ variantId: 'v1', quantity: 1, restock: true }] },
+      ACTOR,
+    );
+
+    expect(enqueuePaymentEvent).not.toHaveBeenCalled();
+    const written = insertRefund.mock.calls[0]?.[0] as NewRefund;
+    expect(written.providerOperation).toBeUndefined();
   });
 });

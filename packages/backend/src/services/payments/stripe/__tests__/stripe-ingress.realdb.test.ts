@@ -97,6 +97,8 @@ const stripeApi = vi.hoisted(() => ({
   accounts: new Map<string, Record<string, unknown>>(),
   /** Every ACCOUNT retrieve, so both a re-read and its ABSENCE can be asserted. */
   retrievedAccounts: [] as string[],
+  /** Payout id → the object `retrieve` should answer with (#49). */
+  payouts: new Map<string, Record<string, unknown>>(),
 }));
 
 vi.mock('../client.js', () => ({
@@ -147,6 +149,31 @@ vi.mock('../client.js', () => ({
   },
   createStripeAccountLink: () => {
     throw new Error('The ingress suite does not mint account links.');
+  },
+  // #49's reads. Only the payout one is exercised here (the refund and dispute
+  // paths have their own realdb suite); the rest are present so the mocked
+  // module offers every export the real one does — a named import missing from a
+  // mock factory fails at link time, in whichever file imported the chain rather
+  // than in the one that left it out.
+  retrieveStripePayout: (id: string) => {
+    const payout = stripeApi.payouts.get(id);
+    if (!payout) throw new Error(`No fake payout registered for ${id}`);
+    return Promise.resolve(payout);
+  },
+  retrieveStripeChargeWithRefunds: () => {
+    throw new Error('The ingress suite reads no charge refunds.');
+  },
+  createStripeRefund: () => {
+    throw new Error('The ingress suite creates no refund.');
+  },
+  retrieveStripeRefund: () => {
+    throw new Error('The ingress suite reads no refund.');
+  },
+  createStripeTransferReversal: () => {
+    throw new Error('The ingress suite reverses no transfer.');
+  },
+  retrieveStripeDispute: () => {
+    throw new Error('The ingress suite reads no dispute.');
   },
 }));
 
@@ -759,17 +786,36 @@ describe('the late-capture exception', () => {
   });
 });
 
-describe('seams are visible in the trace', () => {
-  it('a payout event is stored, processed and marked deferred to #49', async () => {
+describe('a payout for an account Mercaria has no row for', () => {
+  /**
+   * The evidence rule, on the one event type where it is most tempting to drop
+   * the delivery instead.
+   *
+   * #49 made payouts real, and this account is deliberately unknown: the payout
+   * still has to be RECORDED (an account from another environment, or one whose
+   * row a rebuilt database lost, is evidence rather than noise) while producing
+   * no domain event, because there is no seller for a consumer to be told about.
+   */
+  it('is recorded with no seller attributed, and still marked processed', async () => {
+    const payoutId = `po_seam_${RUN}`;
+    stripeApi.payouts.set(payoutId, {
+      id: payoutId,
+      object: 'payout',
+      amount: 4_500,
+      currency: 'eur',
+      status: 'paid',
+      arrival_date: Math.floor(Date.now() / 1000),
+    });
+
     const payload = JSON.stringify({
-      id: 'evt_payout_seam',
+      id: `evt_payout_seam_${RUN}`,
       object: 'event',
       api_version: '2026-07-29.dahlia',
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: 'payout.paid',
-      account: 'acct_seam_1',
-      data: { object: { id: 'po_seam_1', object: 'payout' } },
+      account: `acct_seam_${RUN}`,
+      data: { object: { id: payoutId, object: 'payout' } },
       pending_webhooks: 1,
       request: { id: null, idempotency_key: null },
     });
@@ -785,18 +831,27 @@ describe('seams are visible in the trace', () => {
     });
     expect(result.outcome).toBe('accepted');
 
-    const [row] = await storedEvents('evt_payout_seam');
+    const [row] = await storedEvents(`evt_payout_seam_${RUN}`);
     expect(row?.status).toBe('processed');
     // The connected account is stored — it is HALF the dedupe key, and the
     // reason platform-scope rows need NULLS NOT DISTINCT to dedupe at all.
-    expect(row?.providerAccountId).toBe('acct_seam_1');
-    /**
-     * The seam marker. Marking a deferral `processed` and saying nothing else
-     * would make it indistinguishable from real handling in the operator trace,
-     * and the first person to notice would be a seller asking why a payout never
-     * appeared.
-     */
-    expect(row?.processingNote).toContain('deferred: #49');
+    expect(row?.providerAccountId).toBe(`acct_seam_${RUN}`);
+    expect(row?.processingNote).toContain('an account Mercaria has no row for');
+
+    // The row exists anyway. Scoped to this run's own id, never a table count.
+    const payouts = await db
+      .select()
+      .from(schema.payouts)
+      .where(eq(schema.payouts.providerObjectId, payoutId));
+    expect(payouts).toHaveLength(1);
+    expect(payouts[0]?.status).toBe('paid');
+
+    // …and produced NO domain event, because there is no seller to tell.
+    const announced = await db
+      .select()
+      .from(schema.paymentOutboxes)
+      .where(sql`${schema.paymentOutboxes.payload}->>'payoutId' = ${payouts[0]?.id ?? ''}`);
+    expect(announced).toHaveLength(0);
   });
 });
 

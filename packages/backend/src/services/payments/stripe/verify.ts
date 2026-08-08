@@ -12,7 +12,14 @@
  */
 
 import Stripe from 'stripe';
-import type { PaymentStatus } from '@mercaria/shared-types';
+import type {
+  CurrencyCode,
+  DisputeStatus,
+  FxRateSnapshot,
+  Money,
+  PaymentStatus,
+  RefundProviderState,
+} from '@mercaria/shared-types';
 import { config } from '../../../config/index.js';
 import { PaymentProviderError, type ProviderEventEnvelope } from '../provider.js';
 import type { StripeWebhookScope } from './event-scopes.js';
@@ -115,6 +122,129 @@ export function mapPaymentIntentStatus(status: string): PaymentStatus | undefine
     default:
       return undefined;
   }
+}
+
+/**
+ * Stripe's Refund status, mapped onto Mercaria's refund-money lifecycle.
+ *
+ * `requires_action` collapses onto `pending` because it means the same thing to
+ * everyone downstream: the money has not reached the buyer and Mercaria is not
+ * the party that can move it along (it is the buyer's bank asking them to claim
+ * a refund to a closed card). Rendering it as a fifth state would put a card
+ * network's internal step into a merchant dashboard.
+ *
+ * An unrecognised status maps to `pending`, which is the fail-safe direction: a
+ * refund reported as still moving is re-read and converges, while defaulting to
+ * `succeeded` would tell a merchant money had landed on the strength of a word
+ * this code does not know.
+ */
+export function mapRefundStatus(status: string | null): RefundProviderState {
+  switch (status) {
+    case 'succeeded':
+      return 'succeeded';
+    case 'failed':
+      return 'failed';
+    case 'canceled':
+      return 'canceled';
+    default:
+      return 'pending';
+  }
+}
+
+/**
+ * Stripe's Dispute status, mapped onto Mercaria's.
+ *
+ * Every `warning_*` status is an INQUIRY — a network asking for evidence before
+ * any chargeback exists — and they all collapse onto `warning`, matched by
+ * PREFIX so an inquiry status Stripe adds later lands on the safe side. Safe
+ * here means "assume no money moved", and the backend confirms that
+ * independently by reading the dispute's balance movements rather than trusting
+ * this mapping to decide whether to book anything.
+ *
+ * `warning_closed` maps to `warning` too and not to a closed outcome: an inquiry
+ * closing is not a dispute being won, and recording it as one would credit the
+ * `disputes` account for a debit that never happened.
+ */
+export function mapDisputeStatus(status: string): DisputeStatus {
+  if (status.startsWith('warning')) return 'warning';
+  switch (status) {
+    case 'won':
+      return 'won';
+    case 'lost':
+      return 'lost';
+    case 'under_review':
+      return 'under_review';
+    default:
+      return 'needs_response';
+  }
+}
+
+/**
+ * Where the PAYMENT stands after a refund, read off the refund's charge.
+ *
+ * A Refund object knows its own amount and nothing about its siblings, and one
+ * checkout group is one charge (ADR 0001 D4) — so "is this payment now fully
+ * refunded" is a question about the CHARGE's cumulative `amount_refunded`. That
+ * is what makes refunding one seller's order out of a multi-seller group report
+ * `partially_refunded` rather than closing the whole payment.
+ *
+ * Without the charge expanded there is nothing to compare, and the honest answer
+ * is the conservative one: a partial refund never over-states what came back.
+ */
+export function refundedPaymentStatus(refund: Stripe.Refund): PaymentStatus {
+  const charge: unknown = refund.charge;
+  if (typeof charge !== 'object' || charge === null) return 'partially_refunded';
+  const record = charge as Partial<Stripe.Charge>;
+  if (typeof record.amount !== 'number' || typeof record.amount_refunded !== 'number') {
+    return 'partially_refunded';
+  }
+  return record.amount_refunded >= record.amount ? 'refunded' : 'partially_refunded';
+}
+
+/**
+ * What a refund took off the PLATFORM balance, and the rate that produced it.
+ *
+ * The refund-side twin of the charge's `readSettlement`, and ADR 0001 D7's
+ * "recorded at their OWN captured amounts, never derived from the charge legs"
+ * in one function: a refund converts at the REFUND-time rate, so a converted
+ * charge refunded a week later does not return the same platform figure it
+ * brought in. That asymmetry is expected and is exactly what the ledger has to
+ * show rather than smooth away.
+ *
+ * A refund's balance transaction carries a NEGATIVE amount (funds leaving), and
+ * the absolute value is taken here so every caller books a magnitude and applies
+ * its own sign — the ledger's sign convention belongs to the posting builders,
+ * not to a provider reader.
+ *
+ * @returns `undefined` when the rail has not stated it yet, which is a caller's
+ *   cue to retry rather than to assume a rate of one.
+ */
+export function refundPlatformSettlement(
+  refund: Stripe.Refund,
+): { platform: { amount: Money; rate: FxRateSnapshot } } | undefined {
+  const balance: unknown = refund.balance_transaction;
+  if (typeof balance !== 'object' || balance === null) return undefined;
+  const transaction = balance as Stripe.BalanceTransaction;
+
+  return {
+    platform: {
+      amount: {
+        amount: Math.abs(transaction.amount),
+        currency: transaction.currency.toUpperCase() as CurrencyCode,
+      },
+      rate: {
+        from: refund.currency.toUpperCase() as CurrencyCode,
+        to: transaction.currency.toUpperCase() as CurrencyCode,
+        // `null` means no conversion happened, which is a rate of exactly one.
+        // Stated rather than left absent: "there was no rate" and "the rate is
+        // unknown" must not look alike in a snapshot whose whole purpose is to
+        // be reproducible.
+        rate: transaction.exchange_rate ?? 1,
+        provider: 'stripe',
+        asOf: new Date(transaction.created * 1_000).toISOString(),
+      },
+    },
+  };
 }
 
 /** A `Record<string, string>` of only the ids that are actually present. */

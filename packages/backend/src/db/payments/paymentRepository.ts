@@ -788,6 +788,28 @@ export async function claimTransferProviderObject(
 }
 
 /**
+ * The transfer that settled ONE seller order, if there is one.
+ *
+ * A pure read, unlike `createOrGetTransfer`: the refund and dispute paths ask
+ * "was this seller ever actually paid" and the answer is allowed to be no. A
+ * transfer that was withheld leaves a `pending` row with no provider object, and
+ * one that was never attempted leaves no row at all — both mean the seller holds
+ * none of this money, and neither may be turned into a row by the act of asking.
+ */
+export async function findTransferForOrder(
+  db: DatabaseOrTransaction,
+  paymentId: string,
+  orderId: string,
+): Promise<TransferRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(transfers)
+    .where(and(eq(transfers.paymentId, paymentId), eq(transfers.orderId, orderId)))
+    .limit(1);
+  return row;
+}
+
+/**
  * The transfer a provider's own object id names, if Mercaria made one.
  *
  * `undefined` is an ORDINARY answer, not a failure. Mercaria creates a transfer
@@ -916,6 +938,36 @@ export async function listPayoutsForAccount(
     .from(payouts)
     .where(and(eq(payouts.provider, provider), eq(payouts.providerAccountRef, providerAccountRef)))
     .orderBy(desc(payouts.createdAt));
+}
+
+/**
+ * The most recent payouts across several provider accounts, newest first.
+ *
+ * What a payment TRACE can honestly show, and the bound is part of the honesty.
+ * A payout batches many transfers and the rail states no link between them, so
+ * this cannot say "the payout that paid this order" — only "these are the
+ * payouts to the accounts this payment settled to, around then". An unbounded
+ * version would hand an operator a seller's entire payout history under the
+ * heading of one order.
+ */
+export async function listRecentPayoutsForAccounts(
+  db: DatabaseOrTransaction,
+  provider: PaymentProviderId,
+  providerAccountRefs: readonly string[],
+  limit = 20,
+): Promise<PayoutRow[]> {
+  if (providerAccountRefs.length === 0) return [];
+  return await db
+    .select()
+    .from(payouts)
+    .where(
+      and(
+        eq(payouts.provider, provider),
+        inArray(payouts.providerAccountRef, [...providerAccountRefs]),
+      ),
+    )
+    .orderBy(desc(payouts.createdAt))
+    .limit(limit);
 }
 
 /** A `Money` rebuilt from the two columns that store one. */

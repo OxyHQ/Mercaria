@@ -200,6 +200,105 @@ export const PAYOUT_STATUSES: readonly PayoutStatus[] = [
 ];
 
 /**
+ * Where a REFUND stands at the payment rail — distinct from where the payment
+ * stands, and from where Mercaria's own refund record stands.
+ *
+ * Three states of one refund are genuinely three different facts and none of
+ * them can stand in for the others. {@link RefundStatus} (`./refund`) is the
+ * commerce lifecycle: what was approved, what came back on the shelf. This one
+ * is the money leaving the platform balance. And {@link PaymentStatus} is the
+ * payment aggregate, which a partial refund does not move at all.
+ *
+ * Mercaria commits the commerce record FIRST and moves the money afterwards
+ * (ADR 0001 D7: the refund domain owns *what* is refundable, the rail records
+ * the movement), so `pending` is the ordinary state of a refund that has been
+ * approved and not yet paid out — not an error, and not something a buyer or a
+ * merchant should be shown as complete.
+ *
+ * `canceled` is the rail's own: Stripe cancels a refund it could not deliver to
+ * a closed account before it ever settles. It is separate from `failed` because
+ * a cancelled refund never left, while a failed one bounced back.
+ */
+export type RefundProviderState = 'pending' | 'succeeded' | 'failed' | 'canceled';
+
+/** {@link RefundProviderState} as the tuple the column types and CHECKs read. */
+export const REFUND_PROVIDER_STATES: readonly RefundProviderState[] = [
+  'pending',
+  'succeeded',
+  'failed',
+  'canceled',
+];
+
+/**
+ * Where the SELLER-side recovery of a refund stands.
+ *
+ * A buyer refund on a settled order is two movements, not one: Mercaria returns
+ * the money to the buyer and reverses the seller's proportional share of that
+ * order's transfer to recover it (ADR 0001 D7). The second can fail where the
+ * first did not — an insufficient seller balance with no reserve behind it — and
+ * the ADR is explicit that the buyer's refund is **not** blocked on it. So the
+ * two states are carried separately, because "the buyer has their money" and
+ * "Mercaria has recovered it" are independently true.
+ *
+ * `not_required` is the honest state for a refund with no seller money to
+ * recover: the transfer was never made (it was withheld, or the payment never
+ * settled), so the seller's receivable is still open and the refund posting
+ * closes it directly. Collapsing that onto `succeeded` would claim a recovery
+ * that never happened; onto `failed` it would raise an exception nobody can act
+ * on.
+ */
+export type RefundReversalState = 'not_required' | 'pending' | 'succeeded' | 'failed';
+
+/** {@link RefundReversalState} as the tuple the column types and CHECKs read. */
+export const REFUND_REVERSAL_STATES: readonly RefundReversalState[] = [
+  'not_required',
+  'pending',
+  'succeeded',
+  'failed',
+];
+
+/**
+ * A dispute's lifecycle — a buyer's bank reversing a charge through the card
+ * network, which is not a refund and not a moderation case.
+ *
+ * `warning` is first and is the one that must not be collapsed into the others.
+ * Some networks raise an INQUIRY before a chargeback: it carries a deadline and
+ * needs evidence, and **no money moves**. Booking a ledger entry for one would
+ * debit a platform balance nothing debited, and recovering the "principal" from
+ * the seller would take money for a dispute that does not exist yet. What tells
+ * the two apart is not the status string but whether the rail reported a balance
+ * movement, which is what the backend reads.
+ *
+ * There is deliberately no `closed` beyond `won` and `lost`: a dispute that
+ * closed without an outcome is one the platform withdrew from, which the rail
+ * reports as `lost` because the money stays with the buyer either way.
+ */
+export type DisputeStatus = 'warning' | 'needs_response' | 'under_review' | 'won' | 'lost';
+
+/** {@link DisputeStatus} as the tuple the column types and CHECKs read. */
+export const DISPUTE_STATUSES: readonly DisputeStatus[] = [
+  'warning',
+  'needs_response',
+  'under_review',
+  'won',
+  'lost',
+];
+
+/**
+ * How a dispute ENDED, which is a different question from where it is.
+ *
+ * Carried beside {@link DisputeStatus} rather than derived from it because the
+ * two are read by different consumers: an operator queue asks "is this still
+ * open", the ledger reconciliation asks "who won". A closed dispute with no
+ * outcome would be invisible to both, which is why the backend holds the pair
+ * together with a CHECK rather than trusting whoever writes the update.
+ */
+export type DisputeOutcome = 'won' | 'lost';
+
+/** {@link DisputeOutcome} as the tuple the column types and CHECKs read. */
+export const DISPUTE_OUTCOMES: readonly DisputeOutcome[] = ['won', 'lost'];
+
+/**
  * Mercaria's chart of accounts. Seven accounts, and no more without a decision.
  *
  * ## The sign convention, stated once
@@ -339,6 +438,34 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
  * outbox rather than growing a second one. Its payload is the provider-account
  * row id plus the two states it moved between, which is the whole of what a
  * consumer can act on without re-reading.
+ *
+ * ## `payment_refunded` is WORK, where its neighbours are announcements
+ *
+ * Most types here say a thing HAS happened. This one says a refund record has
+ * committed and its money has not moved yet: its handler is what calls the rail,
+ * books the refund and reverses the seller's share (ADR 0001 D7). That is
+ * deliberate rather than an inconsistency — a refund whose provider call lives
+ * in the request that created it evaporates when the task restarts, and the
+ * commerce record (with its restock already done) would be left claiming money
+ * had gone back to a buyer who never received it.
+ *
+ * ## Three exceptions belong to the refund and dispute path (#49)
+ *
+ * Each is a distinct operator ACTION, which is why each is its own type rather
+ * than a reason code on one:
+ *
+ *  - `refund_failed` — the rail refused or failed the BUYER's refund after
+ *    Mercaria's own record had committed and restocked. The commerce state and
+ *    the money now disagree, and only a person can decide which one moves.
+ *  - `reversal_failed` — the buyer has their money and the seller's share could
+ *    not be recovered (an insufficient balance, a restricted account). ADR 0001
+ *    D7 is explicit that this must NOT block the buyer's refund, so the gap is
+ *    booked honestly — the order's `merchant_payable` stays open in Mercaria's
+ *    favour — and recovery is a decision, not a retry.
+ *  - `refund_unmatched` — the rail reported a refund Mercaria never made (a
+ *    dashboard refund, an issuer-forced one). It is NOT turned into a local
+ *    refund: that would restock goods nobody returned and decrement a customer's
+ *    lifetime spend for a decision Mercaria did not take.
  */
 export type PaymentOutboxEventType =
   | 'payment_succeeded'
@@ -349,7 +476,10 @@ export type PaymentOutboxEventType =
   | 'transfer_changed'
   | 'transfer_withheld'
   | 'payout_changed'
-  | 'provider_account_changed';
+  | 'provider_account_changed'
+  | 'refund_failed'
+  | 'reversal_failed'
+  | 'refund_unmatched';
 
 /** {@link PaymentOutboxEventType} as the tuple the column types and CHECKs read. */
 export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
@@ -363,6 +493,10 @@ export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
   'transfer_changed',
   'payout_changed',
   'provider_account_changed',
+  // #49's three, all exceptions — see the notes above.
+  'refund_failed',
+  'reversal_failed',
+  'refund_unmatched',
 ];
 
 /**
