@@ -10,6 +10,7 @@
  */
 
 import type { DualMoney, FxRateSnapshot } from './money';
+import type { OrderPaymentStatus, PaymentProviderId } from './payment';
 import type { Seller } from './seller';
 import type { MerchantSummary } from './product';
 import type { Timestamps } from './common';
@@ -36,21 +37,38 @@ export type OrderStatus =
   | 'refunded'
   | 'partially_refunded';
 
-/** Payment state + provider reference for an order. */
+/**
+ * The buyer-safe payment projection carried on an order.
+ *
+ * It is a POINTER plus the coarse state, never a copy of the payment's mutable
+ * provider-side detail (#45 invariant 5). Amounts, attempts, provider events,
+ * ledger entries, transfers and payouts all live on the payment aggregate and
+ * are reached through `paymentId`; nothing here is recomputed from them, so a
+ * payment moving through its lifecycle can never leave an order holding a stale
+ * copy of a figure.
+ */
 export interface PaymentInfo {
-  /** Where the payment is in its own lifecycle. */
-  status: 'unpaid' | 'authorized' | 'paid' | 'refunded' | 'failed';
+  /** Where the payment is, in the coarse vocabulary an order lifecycle needs. */
+  status: OrderPaymentStatus;
   /**
-   * Payment provider that settled (or will settle) this order. Native Mercaria
-   * orders settle through `oxy_pay`; `external` marks an order that was PAID on a
-   * connected external platform (e.g. a Shopify order pulled in via a connector),
-   * whose payment was captured outside Oxy Pay.
+   * The rail that settled (or is settling) this order.
+   *
+   * ABSENT until a payment exists. A freshly checked-out order has reserved
+   * stock and no payment at all, and naming a provider for it would be an
+   * invented fact — which is exactly what the retired `oxy_pay` default was.
    */
-  provider: 'oxy_pay' | 'external';
+  provider?: PaymentProviderId;
   /** Provider-side reference/transaction id, when one exists. */
   reference?: string;
   /** ISO-8601 time the order was paid, when paid. */
   paidAt?: string;
+  /**
+   * The Mercaria payment aggregate funding this order, once one exists.
+   *
+   * One payment covers a whole checkout group (ADR 0001 D4), so sibling orders
+   * of a multi-seller cart share this id — it is not one payment per order.
+   */
+  paymentId?: string;
 }
 
 /**

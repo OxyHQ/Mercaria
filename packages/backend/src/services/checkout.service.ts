@@ -113,7 +113,7 @@ interface OrderCreateDoc {
   taxLines: ITaxLine[];
   status: 'pending_payment';
   statusHistory: { status: 'pending_payment'; at: Date; byOxyUserId: string }[];
-  payment: { status: 'unpaid'; provider: 'oxy_pay' };
+  payment: { status: 'unpaid' };
   checkoutGroupId: string;
   idempotencyKey?: string;
 }
@@ -569,7 +569,7 @@ export async function checkout(
         taxLines: toOrderTaxLines(pricing.taxLines),
         status: 'pending_payment',
         statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: oxyUserId }],
-        payment: { status: 'unpaid', provider: 'oxy_pay' },
+        payment: { status: 'unpaid' },
         checkoutGroupId,
         ...(idempotencyKey ? { idempotencyKey: `${idempotencyKey}:${sellerKey}` } : {}),
       };

@@ -165,17 +165,27 @@ function toShippingInfo(shipping: IShippingSnapshot): ShippingInfo {
   return dto;
 }
 
-/** Map the persisted payment sub-document to the `PaymentInfo` DTO. */
+/**
+ * Map the persisted payment sub-document to the `PaymentInfo` DTO.
+ *
+ * `provider` and `paymentId` are OMITTED when absent rather than defaulted: an
+ * order with reserved stock and no payment has neither, and the retired
+ * `oxy_pay` default asserted a rail for every such order. Everything else a
+ * payment knows stays in the payment domain and is reached through `paymentId`.
+ */
 function toPaymentInfo(payment: IPaymentInfo): PaymentInfo {
-  const dto: PaymentInfo = {
-    status: payment.status,
-    provider: payment.provider,
-  };
+  const dto: PaymentInfo = { status: payment.status };
+  if (payment.provider) {
+    dto.provider = payment.provider;
+  }
   if (payment.reference) {
     dto.reference = payment.reference;
   }
   if (payment.paidAt) {
     dto.paidAt = payment.paidAt.toISOString();
+  }
+  if (payment.paymentId) {
+    dto.paymentId = payment.paymentId;
   }
   return dto;
 }

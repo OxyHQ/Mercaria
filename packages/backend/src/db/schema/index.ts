@@ -18,13 +18,16 @@
  * The export order below is the DEPENDENCY order: `stores` is the root of most
  * foreign keys, `connectors` is referenced by the catalogue's provenance
  * columns, and everything else follows from those two. It is not alphabetical,
- * and reordering it into alphabetical order would create a cycle.
+ * and reordering it into alphabetical order would create a cycle. `ledger`
+ * follows `payments` for the same reason — its transactions reference a payment.
  */
 export * from './stores';
 export * from './connectors';
 export * from './catalog';
 export * from './merchandising';
 export * from './orders';
+export * from './payments';
+export * from './ledger';
 export * from './pos';
 export * from './buyers';
 export * from './notifications';

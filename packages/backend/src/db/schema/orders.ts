@@ -44,10 +44,11 @@ import {
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
   CONNECTOR_PROVIDER_IDS,
+  ORDER_PAYMENT_STATUSES,
+  PAYMENT_PROVIDER_IDS,
   type OrderSellerType,
   type OrderSourceChannel,
   type OrderStatus,
-  type PaymentInfo,
   type RefundStatus,
   type RefundType,
   type ShippingMethod,
@@ -60,7 +61,6 @@ import {
   dualMoney,
   money,
   optionalDualMoney,
-  optionalMoney,
 } from './columns';
 import { connections } from './connectors';
 import { DISCOUNT_VALUE_TYPES } from './merchandising';
@@ -77,18 +77,6 @@ export const ORDER_STATUSES: readonly OrderStatus[] = [
   'refunded',
   'partially_refunded',
 ];
-
-/** `Order.payment.status` — `PAYMENT_STATUSES`. */
-export const PAYMENT_STATUSES: readonly PaymentInfo['status'][] = [
-  'unpaid',
-  'authorized',
-  'paid',
-  'refunded',
-  'failed',
-];
-
-/** `Order.payment.provider` — `PAYMENT_PROVIDERS`. */
-export const PAYMENT_PROVIDERS: readonly PaymentInfo['provider'][] = ['oxy_pay', 'external'];
 
 /** `Order.shipping.method` — `SHIPPING_METHODS`. */
 export const SHIPPING_METHODS: readonly ShippingMethod[] = ['standard', 'express', 'pickup'];
@@ -205,37 +193,46 @@ export const orders = pgTable(
      */
     fxRateAsOf: text(),
 
-    // `settlement` — RETIRED, and nothing writes these columns.
+    // The `settlement_*` columns that used to sit here are GONE, dropped by the
+    // `post` migration that landed the payment domain.
     //
     // They held a shop→FAIR snapshot captured when an order was paid, from a
-    // model in which FAIR was the mandatory settlement currency. That is gone:
-    // an order reaching `paid` records no conversion at all, because which
-    // currency a payment settles in is a property of the payment PROVIDER, not
-    // of the order. The settlement facts (provider, captured amount, the
-    // platform-currency conversion and its rate snapshot) belong to the payment
-    // and ledger domain, per ADR 0001 D6/D8.
-    //
-    // They stay physically only to avoid a migration whose sole purpose is to
-    // drop already-empty columns (production has never held a paid order): the
-    // payment-domain port removes them, together with
-    // `orders_settlement_complete_check` below, in the same migration that adds
-    // the tables replacing them. Until then, they must remain unwritten — a
-    // value here would be an authoritative-looking payout figure nothing
-    // produced.
-    ...optionalMoney('settlement'),
-    /** Retired with the columns above — unwritten, pending removal. */
-    settlementRate: doublePrecision(),
-    /** Retired with the columns above — unwritten, pending removal. */
-    settlementAsOf: text(),
+    // model in which FAIR was the mandatory settlement currency. Their
+    // replacement is `payments.platform_*` plus its rate snapshot: which
+    // currency a payment settles in is a property of the payment PROVIDER, and
+    // now lives with the payment rather than on every order (ADR 0001 D6/D8).
 
     status: text({ enum: asEnumValues(ORDER_STATUSES) }).notNull().default('pending_payment'),
 
-    // `payment` — a fixed four-field object, flattened. `reference` is the Oxy Pay
-    // (or external provider's) transaction id and is a PROTECTED column.
-    paymentStatus: text({ enum: asEnumValues(PAYMENT_STATUSES) }).notNull().default('unpaid'),
-    paymentProvider: text({ enum: asEnumValues(PAYMENT_PROVIDERS) }).notNull().default('oxy_pay'),
+    // `payment` — the buyer-safe projection, flattened. `reference` is the
+    // provider's own transaction id and is a PROTECTED column. Everything else a
+    // payment knows — amounts, attempts, provider events, ledger entries,
+    // transfers, payouts — lives in the payment domain and is reached through
+    // `payment_id`, never copied here (#45 invariant 5).
+    paymentStatus: text({ enum: asEnumValues(ORDER_PAYMENT_STATUSES) })
+      .notNull()
+      .default('unpaid'),
+    /**
+     * NULLABLE, with no default. A freshly checked-out order has reserved stock
+     * and no payment at all, and the retired `oxy_pay` default asserted a rail
+     * for it that did not exist. Absence is the honest representation of "no
+     * payment yet"; the provider appears when a payment does.
+     */
+    paymentProvider: text({ enum: asEnumValues(PAYMENT_PROVIDER_IDS) }),
     paymentReference: text(),
     paymentPaidAt: timestamptz(),
+    /**
+     * The payment aggregate funding this order, once one exists.
+     *
+     * One payment covers a whole checkout group (ADR 0001 D4), so sibling orders
+     * share this value — it is a many-to-one link, not a one-to-one, and the
+     * uniqueness that matters lives on `payments.checkout_group_id`.
+     *
+     * No foreign key: the payment domain is Postgres-native while orders are
+     * still written to MongoDB, and the correlation must survive that window.
+     * `db/deferredForeignKeys.ts` carries the reason.
+     */
+    paymentId: text(),
 
     checkoutGroupId: text(),
     /** Sparse-unique: a replayed checkout converges instead of duplicating. */
@@ -255,8 +252,8 @@ export const orders = pgTable(
     checkOneOf('orders_source_provider_check', t.sourceProvider, CONNECTOR_PROVIDER_IDS),
     checkOneOf('orders_shipping_method_check', t.shippingMethod, SHIPPING_METHODS),
     checkOneOf('orders_status_check', t.status, ORDER_STATUSES),
-    checkOneOf('orders_payment_status_check', t.paymentStatus, PAYMENT_STATUSES),
-    checkOneOf('orders_payment_provider_check', t.paymentProvider, PAYMENT_PROVIDERS),
+    checkOneOf('orders_payment_status_check', t.paymentStatus, ORDER_PAYMENT_STATUSES),
+    checkOneOf('orders_payment_provider_check', t.paymentProvider, PAYMENT_PROVIDER_IDS),
     ...currencyChecks('orders', [
       t.shippingCostShopCurrency,
       t.shippingCostPresentmentCurrency,
@@ -270,7 +267,6 @@ export const orders = pgTable(
       t.totalsTaxPresentmentCurrency,
       t.totalsGrandTotalShopCurrency,
       t.totalsGrandTotalPresentmentCurrency,
-      t.settlementCurrency,
       t.fxRateFrom,
       t.fxRateTo,
     ]),
@@ -279,13 +275,6 @@ export const orders = pgTable(
       'orders_seller_exclusivity_check',
       sql`(${t.sellerType} = 'user' and ${t.sellerOxyUserId} is not null and ${t.storeId} is null)
           or (${t.sellerType} = 'store' and ${t.storeId} is not null and ${t.sellerOxyUserId} is null)`,
-    ),
-    // Retired with the settlement columns above. It now only pins them at
-    // ABSENT, since nothing writes them; it is dropped in the same migration the
-    // payment-domain port drops the columns in.
-    check(
-      'orders_settlement_complete_check',
-      sql`num_nonnulls(${t.settlementAmount}, ${t.settlementCurrency}, ${t.settlementRate}, ${t.settlementAsOf}) in (0, 4)`,
     ),
     // An fx-rate snapshot is complete or absent. `provider` is part of the
     // snapshot's identity — a stored rate nobody can attribute to a source is
@@ -309,6 +298,10 @@ export const orders = pgTable(
       t.createdAt.desc(),
     ),
     index('orders_checkout_group_id_idx').on(t.checkoutGroupId),
+    // "Which orders does this payment fund?" — the reverse of `payment_id`, and
+    // the join an operator trace walks. Partial, because most orders have no
+    // payment yet and those rows would be the bulk of a full index.
+    index('orders_payment_id_idx').on(t.paymentId).where(sql`${t.paymentId} is not null`),
     index('orders_payment_status_created_at_idx').on(t.paymentStatus, t.createdAt),
     // The expire-reservations sweep: pending_payment orders older than a cutoff.
     index('orders_status_created_at_idx').on(t.status, t.createdAt),

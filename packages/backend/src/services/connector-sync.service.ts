@@ -1607,11 +1607,13 @@ async function upsertExternalOrder(conn: IConnection, order: NormalizedOrder): P
         },
       },
     );
+    await recordExternalPayment(conn, order, String(existing._id));
     return changed ? 'updated' : 'skipped';
   }
 
   try {
-    await Order.create(buildExternalOrderDoc(conn, order, await nextOrderNumber()));
+    const created = await Order.create(buildExternalOrderDoc(conn, order, await nextOrderNumber()));
+    await recordExternalPayment(conn, order, String(created._id));
     return 'created';
   } catch (err) {
     if (isDuplicateKeyError(err)) {
@@ -1619,6 +1621,64 @@ async function upsertExternalOrder(conn: IConnection, order: NormalizedOrder): P
       return 'skipped';
     }
     throw err;
+  }
+}
+
+/**
+ * Record the imported order's payment as an explicit `external` payment.
+ *
+ * ADR 0001 D12 and #45 acceptance 5: the payment is VISIBLE — linked to its
+ * order, carrying the source platform's amounts verbatim — and produces NO
+ * ledger entries, because no Mercaria money moved. That last part is not a
+ * simplification to revisit: booking a Shopify sale into Mercaria's accounts
+ * would put cash there that Mercaria does not have, and the ledger's whole value
+ * is that it does not contain figures like that.
+ *
+ * Idempotent by INDEX: the payment is unique per imported ORDER, so a re-sync or
+ * a redelivered webhook refreshes the status of the row it already made. The
+ * uniqueness is on the order rather than the checkout group precisely because
+ * two connected shops can import orders carrying the same external id, which
+ * makes the synthetic `ext:` group ids collide.
+ *
+ * Best-effort, deliberately: an import must not fail because the payment record
+ * could not be written. The order is the commerce truth and the payment row is
+ * its explanation, and the next sync writes it — where the reverse choice would
+ * mean a Postgres hiccup silently stopping a merchant's orders from importing.
+ */
+async function recordExternalPayment(
+  conn: IConnection,
+  order: NormalizedOrder,
+  orderId: string,
+): Promise<void> {
+  try {
+    const { ensurePayment } = await import('./payments/payment.service.js');
+    const payment = await ensurePayment({
+      provider: 'external',
+      checkoutGroupId: `ext:${conn.provider}:${order.externalId}`,
+      orderId,
+      // Verbatim, on the presentment side — what the buyer was actually charged
+      // on the source platform. Mercaria converts nothing here.
+      presentment: {
+        amount: order.totals.grandTotal.presentment.amount,
+        currency: order.totals.grandTotal.presentment.currency,
+      },
+      // Mirrors the source's own payment state. `unpaid` on the source is a
+      // payment that was created and not completed; anything else it reports as
+      // paid is money that moved somewhere Mercaria was not.
+      status: order.paymentStatus === 'paid' ? 'succeeded' : 'created',
+      // An external order has no Oxy buyer, and inventing one would make a
+      // connector import look like a Mercaria purchase.
+      // Linked to the ONE order below rather than to the whole group: the
+      // synthetic group id is not unique across connections.
+      linkOrders: false,
+    });
+    const { linkPaymentToOrder } = await import('./payments/order-linkage.js');
+    await linkPaymentToOrder({ orderId, paymentId: payment.id, provider: 'external' });
+  } catch (err) {
+    log.general.warn(
+      { err, connectionId: String(conn._id), externalId: order.externalId },
+      'Failed to record the external payment for an imported order; the next sync retries it',
+    );
   }
 }
 

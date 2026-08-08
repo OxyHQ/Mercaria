@@ -181,6 +181,48 @@ export function assertSafeMoneyAmount(amount: number, context: string): void {
 }
 
 /**
+ * The largest LEDGER amount (in absolute value) Mercaria represents.
+ *
+ * The ledger is the one place money is NOT a `Money`: its entries are `bigint`,
+ * not `number`, so `MAX_MONEY_MINOR_UNITS` (JavaScript's 2^53 − 1) is not the
+ * binding limit there. What binds instead is the storage: the column is a
+ * Postgres `bigint`, whose signed 64-bit range is ±(2^63 − 1), and a value
+ * outside it is not a rounding error but a failed INSERT.
+ *
+ * A `Money` amount converted into a ledger entry is still bounded by
+ * `MAX_MONEY_MINOR_UNITS` at the boundary it was constructed at — this ceiling
+ * is nine orders of magnitude above that and exists to catch the OTHER producer:
+ * a sum, a proration or a reversal computed in `bigint` arithmetic, which has no
+ * silent-overflow mode and will simply keep growing until the database refuses
+ * it with a message naming neither the amount nor the code that made it.
+ */
+export const MAX_LEDGER_MINOR_UNITS = 2n ** 63n - 1n;
+
+/**
+ * Assert that `amount` is a ledger amount the `bigint` column can hold. Throws a
+ * `RangeError` naming `context` (the posting that produced it, e.g.
+ * `'chargeSucceeded.merchantPayable'`) so a breach is traceable to the builder
+ * rather than to the INSERT that rejected it.
+ *
+ * Negative amounts are not merely permitted, they are half the design: a ledger
+ * entry is signed, positive for a debit and negative for a credit, and a
+ * balanced transaction needs both. The bound is therefore on MAGNITUDE.
+ *
+ * There is no integer check and no finiteness check, because `bigint` has no
+ * non-integer and no infinite values — the type has already made those
+ * unrepresentable, which is most of why the ledger uses it.
+ */
+export function assertSafeLedgerAmount(amount: bigint, context: string): void {
+  const magnitude = amount < 0n ? -amount : amount;
+  if (magnitude > MAX_LEDGER_MINOR_UNITS) {
+    throw new RangeError(
+      `${context}: ledger amount ${amount.toString()} exceeds the maximum representable ` +
+        `${MAX_LEDGER_MINOR_UNITS.toString()} minor units`,
+    );
+  }
+}
+
+/**
  * A monetary value. `amount` is always an integer count of the currency's
  * smallest unit — never a decimal. For FAIR that smallest unit is
  * 1e-8 ⊜ (1 ⊜ = 100_000_000 minor units, i.e. 8 decimals); for USD/EUR/GBP it

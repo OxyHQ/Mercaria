@@ -16,6 +16,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    services:
+      # The API suite needs a real PostGIS server: the Mongo→Postgres port's
+      # `*.realdb.test.ts` files run their SQL against a throwaway database the
+      # harness creates HERE (see packages/backend/vitest.pg.globalSetup.ts).
+      #
+      # Pinned to the SAME image as docker-compose.postgres.yml, on BOTH versions.
+      # A floating PostGIS minor is a floating set of function volatilities, and
+      # the generated `geography` column requires `ST_MakePoint` and the
+      # geometry→geography cast to be IMMUTABLE — so a developer's database and
+      # CI's must not be able to disagree about what is installed.
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: mercaria
+          POSTGRES_PASSWORD: mercaria
+          POSTGRES_DB: mercaria_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mercaria -d mercaria_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
     steps:
       - uses: actions/checkout@v4
 
@@ -53,6 +77,11 @@ jobs:
         run: bun run --filter @mercaria/pos typecheck
 
       - name: Run API tests
+        # TEST_DATABASE_URL names the SERVER, never the database the tests use:
+        # the harness creates its own throwaway database on it per run and drops
+        # it afterwards, so `mercaria_ci` is never written to.
+        env:
+          TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
         run: bun run --filter @mercaria/backend test
 
   build-api:

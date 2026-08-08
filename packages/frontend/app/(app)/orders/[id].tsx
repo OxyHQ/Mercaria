@@ -107,7 +107,7 @@ function PaymentCard({ order }: { order: Order }) {
       <Text className="mb-1 text-sm font-semibold text-foreground">Payment</Text>
       <Text className="text-sm text-muted-foreground">
         {unpaid
-          ? "Unpaid — payment is pending (Oxy Pay is not yet available)."
+          ? "Unpaid — this order is reserved and awaiting payment."
           : `Payment ${order.payment.status}.`}
       </Text>
     </View>

@@ -6,12 +6,21 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.test.ts'],
     /**
-     * A real MongoDB replica set for the moderation write tests.
+     * Both real servers, because the suite now spans both stores.
      *
-     * Everything else here mocks its models, which cannot tell whether the
-     * SERVER would accept an update document — see `vitest.globalSetup.ts`.
+     * A MongoDB replica set for the moderation write tests, and a throwaway
+     * PostgreSQL database for the payment and ledger ones. Everything else here
+     * mocks its models, which cannot tell whether the SERVER would accept a
+     * write — the exact blind spot both harnesses exist to close. The Postgres
+     * one additionally holds properties nothing else can: a balanced-ledger
+     * invariant asserted by a trigger, and a unique index doing the deduping.
+     *
+     * Order matters only in that Mongo comes first; neither depends on the
+     * other. `vitest.pg.globalSetup.ts` needs `TEST_DATABASE_URL` pointed at a
+     * server it may create and drop databases on — it never writes to the
+     * database named in that URL.
      */
-    globalSetup: ['./vitest.globalSetup.ts'],
+    globalSetup: ['./vitest.globalSetup.ts', './vitest.pg.globalSetup.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
