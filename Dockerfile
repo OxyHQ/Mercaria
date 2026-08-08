@@ -85,9 +85,14 @@ COPY packages/backend ./packages/backend
 # ERR_MODULE_NOT_FOUND.
 RUN bun run build:backend
 
-# Fail fast if the expected entry point was not emitted.
+# Fail fast if either expected entry point was not emitted. The migrator is
+# checked too because nothing else would notice it missing until a deploy's
+# migration task failed mid-rollout — the server bundle would still be here and
+# the image would look fine.
 RUN test -f packages/backend/dist/index.js \
  || (echo "ERROR: packages/backend/dist/index.js was not produced by the build" && exit 1)
+RUN test -f packages/backend/dist/db/migrate.js \
+ || (echo "ERROR: packages/backend/dist/db/migrate.js was not produced by the build" && exit 1)
 
 # Strip devDependencies so only production modules are carried into the runtime
 # image (bun has no `prune`; a clean production install from the same lockfile is

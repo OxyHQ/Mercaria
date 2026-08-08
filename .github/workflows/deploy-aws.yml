@@ -27,6 +27,16 @@ env:
   APP: mercaria
   CLUSTER: oxy-cluster
   DOCKERFILE: Dockerfile
+  # The PostgreSQL database the migration tasks below are allowed to touch.
+  #
+  # NOT cosmetic: the migrator refuses to run unless this matches the database its
+  # DATABASE_URL actually resolves to, so a value that disagrees with what
+  # oxy-infra provisioned fails the deploy loudly instead of migrating some other
+  # database. It is UNVERIFIED today — the RDS database for Mercaria is part of
+  # the oxy-infra handoff and does not exist yet — so whoever provisions it must
+  # make this line agree with it. A mismatch is safe; a silent wrong target is
+  # what this exists to prevent.
+  PG_DATABASE: mercaria
 
 jobs:
   test:
@@ -138,6 +148,67 @@ jobs:
             --push \
             .
 
+      # ── Migrations run as one-shot ECS tasks, around the rollout ─────────────
+      #
+      # Two phases, and the split is the whole point (see @oxyhq/db's phases.ts):
+      # `pre` is additive and safe while the OLD image still serves, so it runs
+      # BEFORE the service update; `post` drops and narrows, which would 500 the
+      # old image, so it runs AFTER the new one is live. Every migration file
+      # declares its own side, and the migrator refuses to guess for one that
+      # does not.
+      #
+      # The task REUSES the service's live task definition and network
+      # configuration rather than registering its own, which is what gives the
+      # migrator the same DATABASE_URL secret, subnets and security groups the
+      # service has. Only the command is overridden. That also means it runs the
+      # image the task definition points at — the `:latest` tag this workflow
+      # just pushed — so `run-task` gets the NEW image without a second revision.
+      # If the task definition is ever pinned to an immutable tag, this step must
+      # register a revision instead, or it will migrate using the OLD image.
+      - name: Resolve the ECS one-shot shape
+        id: ecs
+        run: |
+          STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].status' --output text 2>/dev/null || echo NONE)
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS" != "ACTIVE" ]; then
+            echo "ECS service $APP not created yet — nothing to migrate or deploy against"
+            exit 0
+          fi
+          TD=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].taskDefinition' --output text)
+          NET=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].networkConfiguration' --output json)
+          CONTAINER=$(aws ecs describe-task-definition --task-definition "$TD" --query 'taskDefinition.containerDefinitions[0].name' --output text)
+          echo "task_definition=$TD" >> "$GITHUB_OUTPUT"
+          echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
+          # JSON on one line: a GITHUB_OUTPUT value cannot span lines unhelped.
+          echo "network=$(echo "$NET" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+      # Does this release contain a post-rollout migration at all? Grepped with
+      # the pattern @oxyhq/db EXPORTS (`POST_PHASE_GREP_PATTERN`), never a copy —
+      # `src/db/__tests__/deployWorkflow.test.ts` asserts this workflow contains
+      # that exact string, so the two cannot drift. The grep is sound only
+      # because the migrator separately proves every file carries exactly one
+      # well-formed marker; without that a typo would read as "no post migration"
+      # and the drop would never be applied by anything.
+      - name: Detect a post-rollout migration in this release
+        id: phases
+        run: |
+          if grep -rlE '^-- oxy:deploy-phase=post$' packages/backend/drizzle >/dev/null 2>&1; then
+            echo "has_post=true" >> "$GITHUB_OUTPUT"
+            echo "this release carries at least one post-rollout migration"
+          else
+            echo "has_post=false" >> "$GITHUB_OUTPUT"
+            echo "no post-rollout migration in this release"
+          fi
+
+      - name: Migrate (pre) — before the rollout
+        if: steps.ecs.outputs.status == 'ACTIVE'
+        run: |
+          .github/scripts/run-migration-task.sh pre
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
+
       - name: Deploy to ECS (rolling; skipped until the service exists)
         run: |
           STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].status' --output text 2>/dev/null || echo NONE)
@@ -148,3 +219,16 @@ jobs:
           else
             echo "ECS service $APP not created yet — image is in ECR, skipping deploy"
           fi
+
+      # Only when the release actually has one. Skipping the task entirely is not
+      # an optimisation — a `post` run against a database with a pending `pre`
+      # migration BLOCKS by design, so running it every time would turn a normal
+      # release into a red deploy.
+      - name: Migrate (post) — after the new image is live
+        if: steps.ecs.outputs.status == 'ACTIVE' && steps.phases.outputs.has_post == 'true'
+        run: |
+          .github/scripts/run-migration-task.sh post
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}

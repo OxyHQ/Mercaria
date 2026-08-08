@@ -1,6 +1,6 @@
 {
-  "id": "952ef6a6-32fb-4017-a433-5c7b4bb18760",
-  "prevId": "af62d684-d3ec-46b7-b5f2-724be9d9e782",
+  "id": "76fa7770-aff1-4db6-81c4-3ea00f15d25c",
+  "prevId": "96f79a3e-7160-49c5-9b96-26c49d41c4c9",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -634,8 +634,7 @@
           "name": "description",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "''"
+          "notNull": true
         },
         "logo_file_id": {
           "name": "logo_file_id",
@@ -2275,8 +2274,7 @@
           "name": "description",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "''"
+          "notNull": true
         },
         "condition": {
           "name": "condition",
@@ -2479,7 +2477,7 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "as": "to_tsvector('english', coalesce(\"listings\".\"title\", '')) ||\n            to_tsvector('english', coalesce(\"listings\".\"description\", '')) ||\n            array_to_tsvector(coalesce(\"listings\".\"tags\", '{}'::text[]))",
+            "as": "to_tsvector('english', coalesce(\"listings\".\"title\", '')) ||\n            to_tsvector('english', coalesce(\"listings\".\"description\", '')) ||\n            to_tsvector('english', mercaria_immutable_array_to_string(coalesce(\"listings\".\"tags\", '{}'::text[]), ' '))",
             "type": "stored"
           }
         }

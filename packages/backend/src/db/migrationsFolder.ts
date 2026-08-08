@@ -13,20 +13,21 @@
  *
  * ## Resolved by finding the PACKAGE ROOT, not by counting directories
  *
- * A fixed `'..', '..'` from this module's own location is wrong in production,
- * and silently so. It is correct under bun (`src/db/migrationsFolder.ts`, two
- * below the package root), but the production build is an esbuild BUNDLE: every
- * module including this one is inlined into `dist/index.js`, so `import.meta.url`
- * is the bundle's path — one level below the package root, not two. Measured on
- * the real artefact: the fixed form resolved `/app/packages/drizzle`, a directory
- * that does not exist, while the migrations sit in `/app/packages/backend`.
- * `readJournal` runs at module load, so that is a crash at container start rather
- * than a wrong answer later.
+ * NO fixed depth can be correct, because this module is inlined into two bundles
+ * that sit at DIFFERENT depths. `build.ts` emits `dist/index.js` (one level below
+ * the package root) and `dist/db/migrate.js` (two), and esbuild leaves
+ * `import.meta.url` pointing at whichever bundle is running — not at this source
+ * file. Both were measured against the real artefacts: with a fixed `'..', '..'`
+ * the migrator works by coincidence and the SERVER resolves
+ * `/app/packages/drizzle`, a directory that does not exist. `readJournal` runs at
+ * module load, so that is a crash at container start rather than a wrong answer
+ * later, and it would have been fixed by whoever hit it in a way that then broke
+ * the migrator.
  *
  * Walking up to the nearest `package.json` is depth-independent, so it is right
- * for the bundle, for `src/` under bun and the test harness, and for any future
- * build that emits `dist/db/`. It throws rather than guessing, because a silent
- * fallback here is exactly the failure it exists to prevent.
+ * for both bundles and for `src/` under bun and the test harness. It throws
+ * rather than guessing, because a silent fallback here is exactly the failure it
+ * exists to prevent.
  *
  * NOTE for the deploy phase: the runtime image copies `packages/backend/dist` and
  * nothing else, so the image must also copy `drizzle/` to

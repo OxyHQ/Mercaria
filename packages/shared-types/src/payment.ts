@@ -24,34 +24,41 @@
  * The payment rails Mercaria can record a payment against.
  *
  * A closed set, and deliberately a SHORT one: a provider is added here together
- * with its adapter and its migration widening the CHECK, never in advance.
- * Stripe (#46–#48) and Faircoin (#51) are not listed because neither exists yet,
- * and a value the database accepts but no adapter can produce is an invitation
- * to write a row nothing can ever reconcile.
+ * with the code that can produce a row for it and its migration widening the
+ * CHECK, never in advance. Faircoin (#51) is not listed because nothing can
+ * write one yet, and a value the database accepts but no code can produce is an
+ * invitation to write a row nothing can ever reconcile.
  *
  *  - `external` — the payment happened on a connected platform (Shopify,
  *    WooCommerce). Mercaria records it so the order is explicable, and books NO
  *    ledger entries: no Mercaria money moved. ADR 0001 D12.
  *  - `manual_pos` — cash or a card terminal at a physical register. The money
  *    never passes through Mercaria, so this books no ledger entries either.
- *  - `mock` — the one rail with a real adapter today: `SyntheticPaymentProvider`,
- *    an in-memory deterministic implementation of the whole `PaymentProvider`
- *    interface. It is what the contract test suite runs and what the dev-only
- *    `mockPay` seam uses, hard-gated by `config.orders.mockPayEnabled` and off
- *    in production.
+ *  - `mock` — `SyntheticPaymentProvider`, an in-memory deterministic
+ *    implementation of the whole `PaymentProvider` interface. It is what the
+ *    contract test suite runs and what the dev-only `mockPay` seam uses,
+ *    hard-gated by `config.orders.mockPayEnabled` and off in production.
+ *  - `stripe` — the card rail of ADR 0001. Added by #48, which builds the
+ *    webhook ingress: a verified Stripe event is written to
+ *    `payment_provider_events` under this id, so the id has to exist before the
+ *    `PaymentProvider` adapter that CREATES payments (#47) does. That is not the
+ *    "value in advance" the rule above forbids — #48 ships the code that writes
+ *    `stripe` rows and the migration that lets it, together, and the events it
+ *    stores are real.
  *
  * `external` and `manual_pos` have NO adapter, and that is the distinction the
  * set encodes: they are payments Mercaria RECORDS, not payments Mercaria makes.
  * Nothing is authorized, captured or refunded through them, and neither books a
  * ledger entry — no Mercaria money moved.
  */
-export type PaymentProviderId = 'external' | 'manual_pos' | 'mock';
+export type PaymentProviderId = 'external' | 'manual_pos' | 'mock' | 'stripe';
 
 /** {@link PaymentProviderId} as the tuple the column types and CHECKs read. */
 export const PAYMENT_PROVIDER_IDS: readonly PaymentProviderId[] = [
   'external',
   'manual_pos',
   'mock',
+  'stripe',
 ];
 
 /**
@@ -293,10 +300,25 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
  * and 8). A consumer that needs provider detail reads the operator surface
  * (#50) with its own authorization; it does not get it for free by subscribing
  * to an event.
+ *
+ * ## `payment_succeeded_after_release` is an EXCEPTION, not a lifecycle step
+ *
+ * The provider reported a capture for a payment Mercaria had already given up
+ * on — the reservation timed out, the orders were cancelled and the stock went
+ * back. Money arrived for goods nobody is holding, and no automatic answer is
+ * correct: recommitting inventory that may have been sold since would oversell,
+ * and refunding without a human deciding is a policy call the payment domain
+ * does not get to make. So this event exists to make the condition DURABLE and
+ * visible to the operator surface (#50), and its handler deliberately changes no
+ * order, no inventory and no ledger.
+ *
+ * It is a separate type rather than a flag on `payment_succeeded` because the
+ * two have opposite consequences: one fulfils an order, the other must not.
  */
 export type PaymentOutboxEventType =
   | 'payment_succeeded'
   | 'payment_failed'
+  | 'payment_succeeded_after_release'
   | 'payment_refunded'
   | 'payment_disputed'
   | 'transfer_changed'
@@ -306,6 +328,8 @@ export type PaymentOutboxEventType =
 export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
   'payment_succeeded',
   'payment_failed',
+  // The exception, not a lifecycle step — see the note below.
+  'payment_succeeded_after_release',
   'payment_refunded',
   'payment_disputed',
   'transfer_changed',

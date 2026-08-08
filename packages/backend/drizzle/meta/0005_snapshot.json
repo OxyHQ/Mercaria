@@ -1,6 +1,6 @@
 {
-  "id": "f0e2c200-5140-4354-9c01-20e267acac8a",
-  "prevId": "9dab5c46-d555-4788-9287-8518744b65da",
+  "id": "96f79a3e-7160-49c5-9b96-26c49d41c4c9",
+  "prevId": "952ef6a6-32fb-4017-a433-5c7b4bb18760",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2477,7 +2477,7 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "as": "to_tsvector('english', coalesce(\"listings\".\"title\", '')) ||\n            to_tsvector('english', coalesce(\"listings\".\"description\", '')) ||\n            to_tsvector('english', mercaria_immutable_array_to_string(coalesce(\"listings\".\"tags\", '{}'::text[]), ' '))",
+            "as": "to_tsvector('english', coalesce(\"listings\".\"title\", '')) ||\n            to_tsvector('english', coalesce(\"listings\".\"description\", '')) ||\n            array_to_tsvector(coalesce(\"listings\".\"tags\", '{}'::text[]))",
             "type": "stored"
           }
         }
@@ -5484,7 +5484,7 @@
         },
         "orders_payment_provider_check": {
           "name": "orders_payment_provider_check",
-          "value": "\"orders\".\"payment_provider\" in ('external', 'manual_pos', 'mock')"
+          "value": "\"orders\".\"payment_provider\" in ('external', 'manual_pos', 'mock', 'stripe')"
         },
         "orders_shipping_cost_shop_currency_check": {
           "name": "orders_shipping_cost_shop_currency_check",
@@ -6124,7 +6124,7 @@
       "checkConstraints": {
         "payment_attempts_provider_check": {
           "name": "payment_attempts_provider_check",
-          "value": "\"payment_attempts\".\"provider\" in ('external', 'manual_pos', 'mock')"
+          "value": "\"payment_attempts\".\"provider\" in ('external', 'manual_pos', 'mock', 'stripe')"
         },
         "payment_attempts_status_check": {
           "name": "payment_attempts_status_check",
@@ -6296,7 +6296,7 @@
       "checkConstraints": {
         "payment_outboxes_event_type_check": {
           "name": "payment_outboxes_event_type_check",
-          "value": "\"payment_outboxes\".\"event_type\" in ('payment_succeeded', 'payment_failed', 'payment_refunded', 'payment_disputed', 'transfer_changed', 'payout_changed')"
+          "value": "\"payment_outboxes\".\"event_type\" in ('payment_succeeded', 'payment_failed', 'payment_succeeded_after_release', 'payment_refunded', 'payment_disputed', 'transfer_changed', 'payout_changed')"
         },
         "payment_outboxes_status_check": {
           "name": "payment_outboxes_status_check",
@@ -6403,6 +6403,30 @@
           "primaryKey": false,
           "notNull": false
         },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_owner": {
+          "name": "lease_owner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_until": {
+          "name": "lease_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "processing_note": {
+          "name": "processing_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "payment_id": {
           "name": "payment_id",
           "type": "text",
@@ -6448,6 +6472,50 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "payment_provider_events_claimable_idx": {
+          "name": "payment_provider_events_claimable_idx",
+          "columns": [
+            {
+              "expression": "next_attempt_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "received_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"payment_provider_events\".\"status\" in ('received', 'failed')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "payment_provider_events_reclaim_idx": {
+          "name": "payment_provider_events_reclaim_idx",
+          "columns": [
+            {
+              "expression": "lease_until",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "received_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"payment_provider_events\".\"status\" = 'processing'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -6521,7 +6589,7 @@
       "checkConstraints": {
         "payment_provider_events_provider_check": {
           "name": "payment_provider_events_provider_check",
-          "value": "\"payment_provider_events\".\"provider\" in ('external', 'manual_pos', 'mock')"
+          "value": "\"payment_provider_events\".\"provider\" in ('external', 'manual_pos', 'mock', 'stripe')"
         },
         "payment_provider_events_status_check": {
           "name": "payment_provider_events_status_check",
@@ -6534,6 +6602,10 @@
         "payment_provider_events_last_error_length_check": {
           "name": "payment_provider_events_last_error_length_check",
           "value": "\"payment_provider_events\".\"last_error\" is null or length(\"payment_provider_events\".\"last_error\") <= 2000"
+        },
+        "payment_provider_events_processing_note_length_check": {
+          "name": "payment_provider_events_processing_note_length_check",
+          "value": "\"payment_provider_events\".\"processing_note\" is null or length(\"payment_provider_events\".\"processing_note\") <= 2000"
         }
       },
       "isRLSEnabled": false
@@ -6759,7 +6831,7 @@
       "checkConstraints": {
         "payments_provider_check": {
           "name": "payments_provider_check",
-          "value": "\"payments\".\"provider\" in ('external', 'manual_pos', 'mock')"
+          "value": "\"payments\".\"provider\" in ('external', 'manual_pos', 'mock', 'stripe')"
         },
         "payments_status_check": {
           "name": "payments_status_check",
@@ -6934,7 +7006,7 @@
       "checkConstraints": {
         "payouts_provider_check": {
           "name": "payouts_provider_check",
-          "value": "\"payouts\".\"provider\" in ('external', 'manual_pos', 'mock')"
+          "value": "\"payouts\".\"provider\" in ('external', 'manual_pos', 'mock', 'stripe')"
         },
         "payouts_status_check": {
           "name": "payouts_status_check",
@@ -7134,7 +7206,7 @@
       "checkConstraints": {
         "transfers_provider_check": {
           "name": "transfers_provider_check",
-          "value": "\"transfers\".\"provider\" in ('external', 'manual_pos', 'mock')"
+          "value": "\"transfers\".\"provider\" in ('external', 'manual_pos', 'mock', 'stripe')"
         },
         "transfers_status_check": {
           "name": "transfers_status_check",

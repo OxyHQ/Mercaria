@@ -10,9 +10,11 @@ checkout group. This document describes what was BUILT for it (issue #45); the
 ADR describes why, and where the two disagree the ADR wins and this file is
 wrong.
 
-Stripe (#46–#48) and Faircoin (#51) do not exist yet. Nothing here is a
-placeholder for them: the domain is complete on its own terms and they arrive as
-adapters behind one interface.
+Faircoin (#51) does not exist yet, and Stripe exists only from the webhook
+inwards: #48 built the event ingress described below, while the adapter that
+CREATES payments (`createPayment`/`capture`/`refund`) is #47's and onboarding is
+#46's. Nothing here is a placeholder: the domain is complete on its own terms and
+each rail arrives as an adapter behind one interface.
 
 ---
 
@@ -263,6 +265,121 @@ and handlers together.
 
 ---
 
+## The Stripe event ingress (#48)
+
+Two endpoints, mounted in `app.ts` BEFORE `express.json()` beside the CrowdSource
+and connector webhooks, because Stripe signs the exact bytes it sent:
+
+| Path | Scope | Secret | Subscribes to |
+|---|---|---|---|
+| `POST /webhooks/stripe` | platform (`connect=false`) | `STRIPE_WEBHOOK_SECRET` | `payment_intent.*`, `charge.*`, `charge.dispute.*`, `transfer.*` |
+| `POST /webhooks/stripe/connect` | connect (`connect=true`) | `STRIPE_CONNECT_WEBHOOK_SECRET` | `account.*`, `payout.paid`, `payout.failed` |
+
+The exact lists are ADR 0001's and are pinned by
+`services/payments/stripe/__tests__/event-scopes.test.ts`, which transcribes them
+from the ADR by hand so changing the source alone breaks the test. Both endpoints
+answer **404 when `STRIPE_ENABLED` is off** — the MOUNT is gated, not just the
+handler, because a deployment with no secret cannot tell a real delivery from a
+forged one, so there is nothing to park.
+
+### The order of the ingress, and what each step may leave behind
+
+1. **Verify** over the raw bytes, trying the current secret then the previous one
+   (the rotation window). Failure → **400, nothing persisted**. Storing an
+   unverified body would put an attacker's chosen `(provider, account, event id)`
+   into the dedupe key, after which the real event carrying that id is silently
+   swallowed as a duplicate.
+2. **Filter on `livemode`.** A production URL receives test events too. Mismatch
+   → **200 `livemode_mismatch`, nothing persisted**; 200 because Stripe must stop
+   retrying something that will never be accepted.
+3. **Refuse the other endpoint's scope** → **400 `wrong_scope`**. A type in
+   NEITHER list is accepted and stored, following #45's rule that an
+   uninterpretable event is evidence rather than a dropped request.
+4. **Store the envelope**, redacted through `redactProviderPayload`. The insert
+   IS the dedupe claim; a redelivery loses to the unique index, answers 200 and
+   has no side effects.
+5. **Process**, inline, through the same durable claim the poller uses.
+
+**A 200 means STORED, never PROCESSED.** Processing failing never changes the
+answer: the row is durable, so it is retried with backoff and eventually
+dead-lettered, whereas a 500 would ask Stripe to redeliver an event Mercaria
+already has.
+
+### The event row is the job — there is no second queue
+
+`payment_provider_events` gained `next_attempt_at`, `lease_owner`, `lease_until`
+and `processing_note`, so claiming one is the same `FOR UPDATE SKIP LOCKED` claim
+`payment_outboxes` uses. Writing an outbox row that says "please interpret the
+event row I just wrote" was rejected: it makes one delivery into two durable
+records that can disagree, it puts inbound ingress into a table whose event types
+are Mercaria's own domain CONSEQUENCES, and the retentions differ on purpose —
+outbox rows are swept at 14 days, events at 90, and a dead-lettered event must
+stay replayable across a dispute window.
+
+`replayProviderEvent(eventId)` reopens a `failed` or `dead_letter` row and runs it
+again. It resets only WHEN the row may be claimed — never `attempts`, never the
+envelope — so the trace still shows how often it had been tried. The operator
+HTTP surface that calls it is #50's; `stripeWebhookStats()` is on
+`GET /health` under `payments.webhooks`.
+
+### Convergence needs no new mechanism, and one new rule
+
+Duplicates and reordering converge on `applyPaymentStatus`'s compare-and-swap,
+exactly as #45 designed. The one addition is the **stale-delivery rule**: before
+applying, the router asks `canTransitionPaymentStatus(current, mapped)`, and if
+the answer is no it re-reads the PaymentIntent from Stripe and applies THAT.
+"Is this delivery stale" and "can this be applied" turn out to be the same
+question, and only the second has an answer that does not require knowing which
+other events exist.
+
+One case survives the re-read: Stripe says `succeeded`, Mercaria says `canceled`
+— a capture for a payment whose reservation timed out and whose orders were
+released. Nothing is committed, booked or fulfilled (re-committing stock would
+oversell it; booking with no orders left would credit `commission_revenue` with
+the whole gross), and the condition becomes one deterministic
+`payment_succeeded_after_release` outbox row whose handler logs at `error` and
+changes nothing. #50 picks it up.
+
+### Seams are visible in the trace, never fake handling
+
+Most subscribed types belong to later issues, and they arrive TODAY because an
+endpoint must be registered with its full list before any of them ships. Those
+handlers mark the event `processed` **and write `deferred: #NN` into
+`processing_note`** — a deferral that said nothing would be indistinguishable
+from real handling, and the first person to notice would be a seller asking why
+their account never went live.
+
+| Events | Today | Lands in |
+|---|---|---|
+| `payment_intent.*` | applied through `applyPaymentStatus` | — |
+| `charge.*` | correlated; Stripe's fee needs a ledger CORRECTION, not a reopened transaction | #49 |
+| `charge.refunded`, `charge.refund.updated`, `charge.dispute.*` | correlated | #49 |
+| `transfer.*` | the transfer row's status and reversed amount ARE refreshed, if a row exists | create path #47, `transfer_changed` event #49 |
+| `account.*` | correlated | #46 |
+| `payout.*` | correlated only — a payout row needs #46's account→seller mapping to be attributable | #49 |
+
+### No rate limiter, deliberately
+
+The webhook paths are mounted before the global limiter and add none of their
+own. `makeRateLimiter` keys anonymous callers by IP, and every Stripe delivery
+arrives from a small pool of Stripe's own addresses — so a per-IP bucket is ONE
+bucket for the whole provider, and a legitimate burst would trip it and be
+retried into the same bucket until Stripe disabled the endpoint. What bounds the
+work instead is real: `express.raw`'s 1 MB limit, refusal before any database
+access, and a duplicate costing one conflicting indexed insert. A test fires 60
+deliveries and asserts none is answered 429.
+
+### `constructEventAsync`, never `constructEvent`
+
+`stripe`'s package exports declare a `bun` condition pointing at the WORKER
+build, whose crypto provider throws from every SYNCHRONOUS entry point
+(`CryptoProviderOnlySupportsAsyncError`). Production runs Node and `bun run dev`
+runs Bun, so a synchronous `constructEvent` verifies every delivery in production
+and throws on every delivery in development — the worst possible split. Measured
+on stripe@22.4.0; it applies to `generateTestHeaderString` in tests too.
+
+---
+
 ## Retention
 
 Postgres has no TTL index. `db/expiryTargets.ts` is the registry
@@ -292,6 +409,7 @@ no adapter can produce is an invitation to write a row nothing can reconcile.
 | `external` | none | **No** | Captured on Shopify/WooCommerce. Recorded so the order is explicable; no Mercaria money moved (ADR D12). |
 | `manual_pos` | none | **No** | Cash or a card terminal at a register. The money is in the merchant's drawer and never passes through Mercaria. |
 | `mock` | `SyntheticPaymentProvider` | Yes | The dev seam and the contract suite's subject. Hard-gated by `config.orders.mockPayEnabled`, off in production. |
+| `stripe` | event side only (#48); `createPayment`/`capture`/`refund` in #47 | Yes | The card rail. Mercaria is merchant of record (ADR D1), so money arrives on the platform balance and each seller's share is a payable. |
 
 `external` and `manual_pos` having no adapter is the distinction the set encodes:
 they are payments Mercaria RECORDS, not payments Mercaria makes. Nothing is
@@ -350,9 +468,30 @@ PAYMENT_OUTBOX_ENABLED=true            # gates the LOOP, never the durable recor
 PAYMENT_OUTBOX_BATCH_SIZE=50
 PAYMENT_OUTBOX_POLL_INTERVAL_MS=5000
 PAYMENT_OUTBOX_LEASE_MS=60000
+
+STRIPE_ENABLED=false                   # gates the MOUNT — 404 when off, not 401
+STRIPE_SECRET_KEY=                     # sk_test_… or sk_live_…; its prefix decides livemode
+STRIPE_WEBHOOK_SECRET=                 # platform-scope endpoint
+STRIPE_WEBHOOK_SECRET_PREVIOUS=        # rotation window
+STRIPE_CONNECT_WEBHOOK_SECRET=         # connect-scope endpoint
+STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS=
+STRIPE_SELLER_COUNTRIES=ES             # onboarding allow-list (#46)
+STRIPE_EVENT_MAX_ATTEMPTS=8            # then dead_letter, awaiting a replay
+STRIPE_EVENT_BATCH_SIZE=50
+STRIPE_EVENT_POLL_INTERVAL_MS=5000
+STRIPE_EVENT_LEASE_MS=60000
 ```
 
-No provider secrets: `STRIPE_*` arrives with #46/#48 and is specified in ADR 0001.
+`STRIPE_ENABLED=true` requires the key AND BOTH webhook secrets; half-configured
+logs once at boot and stays OFF, the `CROWDSOURCE_ENABLED` rule. There is no
+`STRIPE_ACCOUNT_ID` (the platform account is implied by the key) and no API
+version variable — that is a code constant, `STRIPE_API_VERSION`, so an event
+payload's shape stays a property of the code that parses it.
+
+`STRIPE_EVENT_MAX_ATTEMPTS` is 8 against the outbox's 25, on purpose: an outbox
+row is Mercaria's own consequence and the only way it will ever happen, while an
+event Mercaria cannot interpret is one Stripe is also retrying and whose object
+can be re-read at any time.
 
 `DATABASE_URL` is now **required** to boot. The payment domain is Postgres-native,
 and a task serving checkout without it would take a POS sale, fail to record the

@@ -136,6 +136,16 @@ connectPostgres()
           log.general.error({ err }, 'Payment outbox dispatcher import failed'),
         );
 
+      // Retry stored Stripe events whose processing failed, and pick up any
+      // whose task died between storing and interpreting them. Also on EVERY
+      // task, same lease shape. The webhook ingress processes inline after
+      // storing, so on a healthy path this loop finds nothing — it exists so
+      // that "a 200 means stored, never processed" is a mechanism rather than a
+      // comment. No-ops entirely when Stripe is not configured.
+      import('./services/payments/stripe/event-dispatcher.js')
+        .then(({ startStripeEventDispatcher }) => startStripeEventDispatcher())
+        .catch((err) => log.general.error({ err }, 'Stripe event dispatcher import failed'));
+
       // Reap expired rows. Postgres has no TTL index, so this loop is the whole
       // of what Mongo's server-side reaper used to do — without it the tables in
       // `db/expiryTargets.ts` grow forever, with no error and no failing test.
@@ -194,12 +204,13 @@ connectPostgres()
         await closeRedis();
         log.general.info('Redis connections closed');
 
-        // Stop all three background loops before the pool they query through
+        // Stop all FOUR background loops before the pool they query through
         // goes. None was stopped while Mongo owned them and it did not show; now
         // they share the pool `closePostgres` is about to end, so a loop still
         // claiming or sweeping would throw on a closed connection during every
         // shutdown. A dispatcher's stop only stops it claiming NEW work — the
-        // row already in flight is allowed to reach a durable state.
+        // row already in flight is allowed to reach a durable state rather than
+        // leaving a held lease for another task to wait out.
         const { stopModerationOutboxDispatcher } = await import(
           './services/moderation/outbox-dispatcher.js'
         );
@@ -208,6 +219,10 @@ connectPostgres()
           './services/payments/outbox-dispatcher.js'
         );
         stopPaymentOutboxDispatcher();
+        const { stopStripeEventDispatcher } = await import(
+          './services/payments/stripe/event-dispatcher.js'
+        );
+        stopStripeEventDispatcher();
         stopExpirySweeper();
         log.general.info('Background loops stopped');
 

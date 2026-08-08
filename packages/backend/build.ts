@@ -1,12 +1,32 @@
 import * as esbuild from 'esbuild';
 
 await esbuild.build({
-  entryPoints: ['src/index.ts'],
+  /**
+   * TWO entry points, and the second is not optional.
+   *
+   * `src/db/migrate.ts` is the one-shot the deploy runs before and after the
+   * rollout (`.github/workflows/deploy-aws.yml`). It cannot be invoked the way a
+   * developer does — `bun run src/db/migrate.ts` — because the runtime image
+   * ships neither bun nor `src/`, only node and `dist/`. Without this entry there
+   * is simply no way to migrate the production database from the image that
+   * contains the migrations.
+   *
+   * `outdir` rather than `outfile` because there are two now: esbuild takes the
+   * entry points' common ancestor (`src/`) as the base, so these land exactly at
+   * `dist/index.js` and `dist/db/migrate.js`. `migrate.ts` calls `main()` at
+   * module load, so the emitted file runs on `node dist/db/migrate.js`.
+   *
+   * Code splitting is deliberately left OFF (esbuild's default): each entry is
+   * self-contained, so the migrator cannot fail at container start on a missing
+   * shared chunk — the one failure that would strike exactly when a deploy is
+   * mid-flight.
+   */
+  entryPoints: ['src/index.ts', 'src/db/migrate.ts'],
   bundle: true,
   platform: 'node',
   target: 'node20',
   format: 'esm',
-  outfile: 'dist/index.js',
+  outdir: 'dist',
   // Keep every node_modules dependency external EXCEPT @mercaria/* — first-party
   // workspace packages (e.g. shared-types) are inlined so the runtime image needs
   // neither their dist nor their build-time devDependencies.

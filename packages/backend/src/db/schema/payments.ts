@@ -270,6 +270,23 @@ export const paymentAttempts = pgTable(
  * currencies and statuses and drops everything else. Storing the wholesale
  * payload would put card metadata and buyer contact details in a table the
  * operator surface reads.
+ *
+ * ## This table IS the job queue for inbound events (#48)
+ *
+ * `status`, `attempts` and `last_error` were here from the start; #48 added
+ * `next_attempt_at`, `lease_owner`, `lease_until` and `processing_note`, which
+ * is what turns the row from a record OF work into the work itself — the same
+ * claim shape `payment_outboxes` uses, `for update skip locked` and all.
+ *
+ * The alternative — writing a `payment_outboxes` row saying "please interpret
+ * the event row I just wrote" — was rejected for three reasons. It would make
+ * one inbound delivery into TWO durable records that can disagree (an envelope
+ * whose insert was deduped, beside an outbox row that was not). It would put
+ * inbound ingress into a table whose event types are Mercaria's own DOMAIN
+ * consequences, which are a different kind of thing with different consumers.
+ * And the retentions differ on purpose: outbox rows are swept at 14 days,
+ * events at 90, and a dead-lettered event must stay replayable across a dispute
+ * window rather than for a fortnight.
  */
 export const paymentProviderEvents = pgTable(
   'payment_provider_events',
@@ -306,6 +323,34 @@ export const paymentProviderEvents = pgTable(
     lastError: text(),
     processedAt: timestamptz(),
     /**
+     * When this event is next eligible to be claimed. Set at insert (now) and
+     * advanced by exponential backoff on every retryable failure.
+     *
+     * Separate from `received_at`, which never moves: one says when the provider
+     * told us, the other when we may next try to understand it, and collapsing
+     * them would make a backed-off event look like it arrived later than it did.
+     */
+    nextAttemptAt: timestamptz(),
+    /** Which task holds the processing lease. An opaque worker identity. */
+    leaseOwner: text(),
+    leaseUntil: timestamptz(),
+    /**
+     * What this version DID with the event, when what it did was not to apply it.
+     *
+     * The seam marker. Several of the event types #48 subscribes to are consumed
+     * by later issues — connected-account readiness by #46, refunds, disputes and
+     * payouts by #49 — and those arrive here today, verify, store and then have
+     * nowhere to go. Marking them `processed` with nothing else recorded would
+     * make a deferral indistinguishable from real handling in the operator trace,
+     * which is the one thing a seam must never look like. So a deferred handler
+     * writes `deferred: #49 — …` here and the trace says so out loud.
+     *
+     * Distinct from `last_error` on purpose: this is not a failure, it is the
+     * correct outcome for this version, and putting it in an error column would
+     * make every dashboard counting errors wrong.
+     */
+    processingNote: text(),
+    /**
      * The payment this event resolved to, once it has been processed. NULL while
      * unprocessed, and NULL forever for an event about an object Mercaria does
      * not know — which is evidence worth keeping, not a row to drop.
@@ -328,6 +373,10 @@ export const paymentProviderEvents = pgTable(
       'payment_provider_events_last_error_length_check',
       sql`${t.lastError} is null or length(${t.lastError}) <= ${sql.raw(String(MAX_LAST_ERROR_LENGTH))}`,
     ),
+    check(
+      'payment_provider_events_processing_note_length_check',
+      sql`${t.processingNote} is null or length(${t.processingNote}) <= ${sql.raw(String(MAX_LAST_ERROR_LENGTH))}`,
+    ),
     // #45 invariant 3. `nullsNotDistinct` because platform-scope events carry no
     // account and would otherwise never collide — see the table docblock.
     unique('payment_provider_events_provider_event_key')
@@ -335,6 +384,16 @@ export const paymentProviderEvents = pgTable(
       .nullsNotDistinct(),
     // The processing sweep: what has been received and not yet interpreted.
     index('payment_provider_events_status_received_at_idx').on(t.status, t.receivedAt),
+    // The two claim branches, one partial index each — the same shape
+    // `payment_outboxes` uses: work that is DUE, and work whose lease expired
+    // because the task holding it died. Both order by `received_at`, because the
+    // claim takes the oldest first and an event stream must not starve its head.
+    index('payment_provider_events_claimable_idx')
+      .on(t.nextAttemptAt, t.receivedAt)
+      .where(sql`${t.status} in ('received', 'failed')`),
+    index('payment_provider_events_reclaim_idx')
+      .on(t.leaseUntil, t.receivedAt)
+      .where(sql`${t.status} = 'processing'`),
     index('payment_provider_events_payment_id_received_at_idx')
       .on(t.paymentId, t.receivedAt.desc())
       .where(sql`${t.paymentId} is not null`),
