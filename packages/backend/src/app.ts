@@ -41,6 +41,7 @@ import channelsIngestRouter from './routes/channels-ingest.js';
 import reportsRouter from './routes/reports.js';
 import crowdSourceWebhookRouter from './routes/crowdsource-webhook.js';
 import stripeWebhookRouter from './routes/stripe-webhook.js';
+import stripeOnboardingRouter from './routes/stripe-onboarding.js';
 import { config } from './config/index.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
 
@@ -175,6 +176,17 @@ export function createApp(): express.Express {
   app.use('/channels/oauth', channelsOauthRouter);
   // Token-free channel ingestion (external push client authenticated by a channel key).
   app.use('/channels/ingest', channelsIngestRouter);
+  // Public Stripe hosted-onboarding round trip (browser redirects; no session,
+  // authenticated by the signed state this API issued). Mounted HERE and not in
+  // the pre-json block above: these carry query parameters, not a signed raw
+  // body, so there is nothing a parser could consume before it is verified.
+  //
+  // Gated on the rail exactly as the webhook mount is, and for the same reason —
+  // a deployment with no Stripe configuration cannot have issued a state, so 404
+  // is the truthful answer rather than a route that can only ever refuse.
+  if (config.payments.stripe.enabled) {
+    app.use('/stripe/onboarding', stripeOnboardingRouter);
+  }
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -204,6 +216,7 @@ export function createApp(): express.Express {
         '/channels/oauth',
         '/channels/ingest',
         '/channels/webhooks',
+        '/stripe/onboarding',
       ]
     });
   });

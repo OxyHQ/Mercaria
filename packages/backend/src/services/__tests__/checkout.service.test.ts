@@ -63,6 +63,7 @@ const getRedisClient = vi.fn();
 const enqueueOrderEvent = vi.fn();
 const calculateTotals = vi.fn();
 const redeemDiscountCode = vi.fn();
+const findProviderAccountByOwner = vi.fn();
 
 vi.mock('../cart.service.js', () => ({
   getCart: (...args: unknown[]) => getCart(...args),
@@ -123,6 +124,17 @@ vi.mock('../../queue/producers.js', () => ({
 vi.mock('../../lib/redis.js', () => ({
   getRedisClient: () => getRedisClient(),
   withRedisTimeout: (p: Promise<unknown>) => p,
+}));
+
+// The payment-readiness gate's data source, mocked only so its ABSENCE of calls
+// can be asserted. This suite runs with the Stripe rail OFF (no STRIPE_ENABLED),
+// which is the branch every other test in this file implicitly depends on: the
+// gate must not query, must not reach Postgres, and must not change a single
+// existing behaviour. The ON branch lives in `checkout.payment-gate.test.ts`,
+// because `config` freezes `process.env` at module load and one registry cannot
+// hold both.
+vi.mock('../../db/payments/providerAccountRepository.js', () => ({
+  findProviderAccountByOwner: (...args: unknown[]) => findProviderAccountByOwner(...args),
 }));
 
 import { checkout } from '../checkout.service.js';
@@ -329,6 +341,7 @@ beforeEach(() => {
   getRedisClient.mockReset().mockReturnValue(null);
   enqueueOrderEvent.mockReset().mockResolvedValue(undefined);
   redeemDiscountCode.mockReset().mockResolvedValue(true);
+  findProviderAccountByOwner.mockReset();
   // Default pricing: zero discount/tax, subtotal derived from the group's lines.
   calculateTotals.mockReset().mockImplementation((input: { lines: { unitPrice: { amount: number }; quantity: number }[] }) => {
     const subtotal = input.lines.reduce((s, l) => s + l.unitPrice.amount * l.quantity, 0);
@@ -386,6 +399,15 @@ describe('checkout.service.checkout — multi-seller split', () => {
     expect(result.orders).toHaveLength(3);
     expect(reserve).toHaveBeenCalledTimes(3);
     expect(clearCart).toHaveBeenCalledWith(USER);
+
+    // The disabled half of the #46 checkout gate, pinned where three real seller
+    // groups have just gone through the whole path: not one readiness lookup
+    // happened. So a deployment without Stripe behaves exactly as it did before
+    // #46, and does not need Postgres reachable to take an order. The assertion
+    // is the ABSENCE of the call rather than "checkout succeeded", which would
+    // also hold if the gate had run and happened to pass. The enabled branch is
+    // `checkout.payment-gate.test.ts`.
+    expect(findProviderAccountByOwner).not.toHaveBeenCalled();
   });
 });
 

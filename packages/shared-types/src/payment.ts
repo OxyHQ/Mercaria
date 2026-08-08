@@ -314,6 +314,16 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
  *
  * It is a separate type rather than a flag on `payment_succeeded` because the
  * two have opposite consequences: one fulfils an order, the other must not.
+ *
+ * ## `provider_account_changed` is about a SELLER, not a payment
+ *
+ * The one event here whose payload names no payment. A seller's standing with a
+ * rail changing is a payment-domain consequence — it decides whether their next
+ * checkout is permitted at all (ADR 0001 D4/D9) — and it needs the same durable,
+ * at-least-once delivery every other consequence gets, so it rides the same
+ * outbox rather than growing a second one. Its payload is the provider-account
+ * row id plus the two states it moved between, which is the whole of what a
+ * consumer can act on without re-reading.
  */
 export type PaymentOutboxEventType =
   | 'payment_succeeded'
@@ -322,7 +332,8 @@ export type PaymentOutboxEventType =
   | 'payment_refunded'
   | 'payment_disputed'
   | 'transfer_changed'
-  | 'payout_changed';
+  | 'payout_changed'
+  | 'provider_account_changed';
 
 /** {@link PaymentOutboxEventType} as the tuple the column types and CHECKs read. */
 export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
@@ -334,6 +345,7 @@ export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
   'payment_disputed',
   'transfer_changed',
   'payout_changed',
+  'provider_account_changed',
 ];
 
 /**

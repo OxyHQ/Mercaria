@@ -54,6 +54,10 @@ export * from './address';
 // The closed value sets the payment domain's columns, CHECKs and guards all read.
 export * from './payment';
 
+// Provider-account DTOs (ProviderOnboardingState, ProviderAccountStatus, …) — a
+// seller's standing with a payment rail, and the readiness native checkout gates on.
+export * from './provider-account';
+
 // Order DTOs (Order, OrderItem, OrderStatus, CheckoutInput, CheckoutResult, …).
 export * from './order';
 

@@ -71,7 +71,7 @@ const tables = Object.values(schema).flatMap((value) => (is(value, PgTable) ? [v
  * EXACTLY, rather than as a minimum, is what makes that impossible in both
  * directions.
  */
-const SCHEMA_TABLE_COUNT = 57;
+const SCHEMA_TABLE_COUNT = 58;
 
 describe('schema conventions (static)', () => {
   it('exports exactly the tables the gates below are calibrated for', () => {
@@ -158,10 +158,15 @@ describe('schema conventions (static)', () => {
     // `currencyChecks(...)` entry was forgotten looks constrained in the editor
     // and is not constrained in the database.
     //
-    // `connections.shop_currency` is the ONE deliberate exception: it holds the
-    // EXTERNAL platform's currency, which may legitimately be a code Mercaria
-    // does not list. Named here so removing its exemption is a visible decision.
-    const EXEMPT = new Set(['connections.shop_currency']);
+    // Two deliberate exceptions, both the same shape: a currency chosen by a
+    // system that is not Mercaria, which may legitimately be a code Mercaria does
+    // not list. `connections.shop_currency` is the external commerce platform's;
+    // `provider_accounts.default_currency` is the payment rail's, and several EEA
+    // settlement currencies (RON, CZK, HUF, BGN) are outside Mercaria's
+    // presentment set — so a CHECK there would fail the SYNC of a real seller's
+    // account rather than reject a price. Named here so removing either
+    // exemption is a visible decision.
+    const EXEMPT = new Set(['connections.shop_currency', 'provider_accounts.default_currency']);
 
     const unconstrained: string[] = [];
     let scanned = 0;

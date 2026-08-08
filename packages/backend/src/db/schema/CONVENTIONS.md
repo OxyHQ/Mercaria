@@ -548,10 +548,10 @@ rules.
 
 ### The payment domain has NO source model
 
-Eight tables were born in Postgres and appear in no row above, because there is
+Nine tables were born in Postgres and appear in no row above, because there is
 nothing in `src/models/` for them to be a port OF: `payments`,
 `payment_attempts`, `payment_provider_events`, `transfers`, `payouts`,
-`payment_outboxes`, `ledger_transactions`, `ledger_entries`.
+`payment_outboxes`, `provider_accounts`, `ledger_transactions`, `ledger_entries`.
 
 What they replaced was not a model but four fields — `Order.payment.{status,
 provider, reference, paidAt}` — plus the retired `settlement_*` columns. That
@@ -582,7 +582,7 @@ deliberately not created and the dead function goes with the model in Fase 3.
 
 ## Register: every `jsonb` column, and why it earned it
 
-`jsonb` is for genuinely shape-less data only. Seven columns qualify in 57 tables;
+`jsonb` is for genuinely shape-less data only. Seven columns qualify in 58 tables;
 anything else with a known shape is real columns or a child table.
 
 | Column | Why it is genuinely open-shaped |
@@ -604,13 +604,15 @@ paths), and every `{name, value}` option-value list (→ child tables).
 
 ## Register: the documented exceptions
 
-Four places deviate from a rule stated above. Each is here so removing the
+Six places deviate from a rule stated above. Each is here so removing the
 deviation is a visible decision rather than a silent one.
 
 | Deviation | Where | Why |
 |---|---|---|
 | A SINGULAR table name | `feedback` | "Feedback" is a mass noun; `feedbacks` is not a word, and Mongoose's derived collection name being exactly that is a `pluralize()` artifact, not a naming decision to inherit. |
 | A currency column with NO currency CHECK | `connections.shop_currency` | It is the EXTERNAL platform's currency, declared with no enum in Mongoose deliberately: a Shopify or WooCommerce shop may report a code Mercaria does not list, and rejecting the connection over it would break the import rather than the price. Named in the gate's `EXEMPT` set. |
+| A currency column with NO currency CHECK | `provider_accounts.default_currency` | The same shape as the row above, one system further out: it is the payment RAIL's currency for that seller's account. Several EEA settlement currencies (RON, CZK, HUF, BGN) are outside `ALL_CURRENCY_CODES`, which is Mercaria's PRESENTMENT set, so a CHECK here would fail the SYNC of a real seller's account rather than reject a price. Nothing prices against it; it is shown to the seller. Named in the gate's `EXEMPT` set. |
+| A polymorphic owner instead of the mutually-exclusive PAIR `orders` uses | `provider_accounts.owner_type` + `owner_id` | `orders` splits its seller into two nullable id columns and a CHECK because it joins to `stores` for real and wants that foreign key. This table cannot: half its owners are Oxy accounts, whose key space is not in this database, so the pair would exist only to be CHECKed. It follows `ledger_entries`, which already carries this exact pair for these exact two kinds — and one column makes "two owners at once" unrepresentable rather than merely rejected, which is what lets the load-bearing constraint here be a single `UNIQUE(provider, owner_type, owner_id)`. That index is the only thing stopping a seller attaching a second connected account, or somebody else's. |
 | A money column as `bigint({ mode: 'bigint' })` | `ledger_entries.amount_minor` | Every other money column is `mode: 'number'`, to map onto the `number` that `Money.amount` already is. A ledger entry is not a `Money`: it never ships to a client, it is never rendered, and it is summed across arbitrarily many rows by the one part of the system whose job is to be exactly right. `mode: 'bigint'` keeps the zero-sum check exact past 2^53 and makes it `=== 0n` on values that cannot have silently lost a minor unit. The bound that applies is the column's own int8 range, asserted by `assertSafeLedgerAmount` at every posting builder. |
 | A type ASSERTION in schema code | `money`/`dualMoney`/`addressColumns` in `columns.ts` | TypeScript cannot infer a computed template-literal key through a generic. Without the stated return type the spread contributes NOTHING to the table's type while still creating the columns at runtime — a silent DDL/type divergence. Measured, not assumed: the un-annotated form produced a table with only its `id`. The residual risk (a typo INSIDE the helper) is pinned by `emits the exact column names …`. |
 

@@ -233,8 +233,23 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   {
     column: 'payment_provider_events.provider_account_id',
     reason:
-      "A payment provider's connected-account id. Their key space; the record mapping one " +
-      'to a store or an Oxy user is the provider-account table #46 adds.',
+      "A payment provider's connected-account id. Their key space; `provider_accounts` is " +
+      'what maps one to a store or an Oxy user, and it keys rows by that same id.',
+  },
+  {
+    column: 'provider_accounts.provider_account_id',
+    reason:
+      "A payment provider's connected-account id — the same key space as the column above, " +
+      'here as the natural key a provider event resolves through. Unique per provider and ' +
+      'deliberately never a Mercaria primary key.',
+  },
+  {
+    column: 'provider_accounts.owner_id',
+    reason:
+      'Polymorphic by owner_type — a store id or an Oxy account id, exactly as ' +
+      'ledger_entries.owner_id is, and one of those two key spaces is not in this database ' +
+      'at all. The store half is unconstrained deliberately too: a provider account outlives ' +
+      'the store record it names, because money can still be owed to it.',
   },
   {
     column: 'payment_provider_events.provider_event_id',

@@ -146,6 +146,17 @@ connectPostgres()
         .then(({ startStripeEventDispatcher }) => startStripeEventDispatcher())
         .catch((err) => log.general.error({ err }, 'Stripe event dispatcher import failed'));
 
+      // Re-read connected accounts Stripe has not told us about lately. A missed
+      // `account.updated` is silent by construction — nothing here knows about
+      // an event it never received — so the only thing that can notice is a
+      // sweep that does not depend on having been told (ADR 0001, sequence 6).
+      // Needs no lease: a sync is an OBSERVATION, and the repository's
+      // compare-and-swap on `last_synced_at` keeps the freshest one whichever
+      // task wrote it. No-ops entirely when Stripe is not configured.
+      import('./services/payments/stripe/account-reconciler.js')
+        .then(({ startStripeAccountReconciler }) => startStripeAccountReconciler())
+        .catch((err) => log.general.error({ err }, 'Stripe account reconciler import failed'));
+
       // Reap expired rows. Postgres has no TTL index, so this loop is the whole
       // of what Mongo's server-side reaper used to do — without it the tables in
       // `db/expiryTargets.ts` grow forever, with no error and no failing test.
@@ -223,6 +234,10 @@ connectPostgres()
           './services/payments/stripe/event-dispatcher.js'
         );
         stopStripeEventDispatcher();
+        const { stopStripeAccountReconciler } = await import(
+          './services/payments/stripe/account-reconciler.js'
+        );
+        stopStripeAccountReconciler();
         stopExpirySweeper();
         log.general.info('Background loops stopped');
 

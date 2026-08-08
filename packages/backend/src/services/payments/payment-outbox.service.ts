@@ -121,6 +121,28 @@ export function payoutChangedEventId(payoutId: string, status: string): string {
   return `payment:payout_changed:${payoutId}:${status}`;
 }
 
+/**
+ * `payment:provider_account_changed:<accountRowId>:<state>:<observedAtMs>`.
+ *
+ * The state alone is not enough — a seller who goes `ready → restricted → ready`
+ * has three transitions and an id keyed on the destination could represent two.
+ * The OBSERVATION time is what separates them, and it keeps the id deterministic
+ * for one observation, so an outbox retry re-derives it and is a genuine no-op.
+ *
+ * Two different observations of the same transition (an `account.updated` and
+ * the reconciliation sweep racing) do produce two rows. That is the cheap side
+ * of the trade: the outbox is at-least-once by construction and this event's
+ * consumers re-read the row, so a duplicate costs a log line — while a collision
+ * would silently drop a readiness change nobody would ever learn about.
+ */
+export function providerAccountChangedEventId(
+  accountRowId: string,
+  state: string,
+  observedAt: Date,
+): string {
+  return `payment:provider_account_changed:${accountRowId}:${state}:${String(observedAt.getTime())}`;
+}
+
 /** When an outbox row written now should be swept. */
 export function paymentOutboxExpiry(now: Date = new Date()): Date {
   return new Date(now.getTime() + RETENTION_SECONDS.paymentOutbox * 1_000);

@@ -131,11 +131,11 @@ mock | stripe`; Faircoin (#51) arrives as an adapter behind
 Full model, index, retention and boundary reference: **`docs/payments.md`**;
 the binding decisions are ADR 0001 (`docs/adr/0001-stripe-connect-architecture.md`).
 
-Stripe exists **from the webhook inwards** (#48): the event ingress, its
-verification, its durable processing and its replay. The adapter that CREATES
-payments is #47's and onboarding is #46's — so a `stripe` payment row can only be
-written by the ingress today, which is why the id landed with it rather than in
-advance.
+Stripe exists **from the webhook inwards** (#48) **plus its connected accounts**
+(#46): the event ingress with its verification, durable processing and replay,
+and seller onboarding with the readiness gate. The adapter that CREATES payments
+is still #47's — so a `stripe` payment row can only be written by the ingress
+today, which is why the id landed with it rather than in advance.
 
 **The ledger is load-bearing from day one.** ADR 0001 D3 gives up Stripe's
 `application_fee_amount` reporting, so Mercaria's commission — the charge minus
@@ -208,13 +208,58 @@ share a path. Env is `STRIPE_ENABLED`, `STRIPE_SECRET_KEY`,
   legitimate retry burst would trip it until Stripe disabled the endpoint. The
   bound is `express.raw`'s size limit plus refusal before any database access.
 - **A deferred handler writes `deferred: #NN` into `processing_note`.** Several
-  subscribed event types belong to #46/#47/#49 and arrive today; marking them
+  subscribed event types belong to #47/#49 and arrive today; marking them
   `processed` silently would make a seam indistinguishable from real handling in
-  the operator trace.
+  the operator trace. The three `account.*` types were in that set until #46.
+
+### Connected accounts and payment readiness (#46)
+
+`provider_accounts` — one row per seller per rail. Env adds
+`STRIPE_ONBOARDING_BASE_URL`, `STRIPE_ONBOARDING_RETURN_URL`,
+`STRIPE_ONBOARDING_STATE_SECRET` and the `STRIPE_ACCOUNT_SYNC_*` tunables. Full
+behaviour, plus the test-mode runbook: `docs/payments.md` §"Connected accounts"
+and §"Runbook".
+
+- **Readiness is ONE stored verdict**, `onboarding_state`, derived from ADR 0001
+  D9's conjunction at synchronisation. There is deliberately no `ready` boolean
+  beside it and nothing re-derives it: two representations of one fact can
+  disagree, and the place that must not happen is a checkout gate admitting a
+  seller because a flag was stale. `charges_enabled` is recorded and is NOT a
+  conjunct — under separate charges and transfers the connected account never
+  charges anything.
+- **`UNIQUE(provider, owner_type, owner_id)` is the security boundary**, and the
+  reason the owner is ONE polymorphic column rather than the pair `orders` uses.
+  Its outer half is a Stripe idempotency key derived from the OWNER
+  (`acct:<ownerType>:<ownerId>`): a Mercaria row can be deduplicated after the
+  fact and a Stripe ACCOUNT cannot be un-created, so a key derived from a
+  freshly-minted row id would differ between two racers and defeat itself.
+- **No handler ever applies an `account.*` PAYLOAD.** All three types and the
+  reconciliation sweep re-read the account from Stripe, because requirements are
+  the most volatile thing it reports and deliveries are unordered.
+  `account.application.deauthorized` is the one that must NOT re-read — the
+  access is gone, and a retryable failure there would dead-letter the event while
+  leaving an unpayable seller marked active.
+- **Requirements are COUNTS in real columns**, never a jsonb summary. That is a
+  security property, not tidiness: an integer column cannot hold
+  `individual.verification.document`. Reason codes are shape-checked and replaced
+  with `other` if they could be a sentence or a name.
+- **The checkout gate runs BEFORE any reservation** and lives in
+  `services/payments/provider-account.service.ts`, which knows nothing about
+  Stripe — `checkout.service` importing a Stripe module would make the card rail
+  structural to placing an order. With `STRIPE_ENABLED` off it returns before
+  touching Postgres, and BOTH branches are pinned by tests.
+- **A `return_url` redirect proves nothing** (ADR D2). Onboarding round trips are
+  authenticated by a signed, expiring state token; `refresh` re-mints but never
+  CREATES an account, and a tampered state is answered 400 and never a redirect —
+  the only destination available would be one derived from an unverified
+  parameter.
+- **The status projection names every field explicitly** and never carries the
+  connected-account id, in any form. Account ids are redacted to their last four
+  characters in logs.
 
 ### Where it meets the rest of Mercaria
 
-The domain is **Postgres-native** (8 tables), like everything else the API serves
+The domain is **Postgres-native** (9 tables), like everything else the API serves
 since the port — `DATABASE_URL` is REQUIRED to boot (`src/index.ts`).
 `services/payments/order-linkage.ts` stays the ONE seam onto orders: the payment
 domain reads them through a projection it owns rather than reaching into the order
@@ -256,9 +301,11 @@ One unified API (`packages/backend`) serves storefront, dashboard and POS.
 **Pricing engine** (`pricing.service.calculateTotals`): subtotal, then discounts,
 then taxes, then shipping, then grand total, with exact half-even reconciliation.
 
-**Store permissions:** 16 perms. Role matrix: `owner` gets 16, `admin` gets 15
+**Store permissions:** 17 perms. Role matrix: `owner` gets 17, `admin` gets 16
 (no `store:manage`), `staff` gets 9 operational. All cross-collection references
-are `String` ids.
+are `String` ids. **`store:manage` is the one permission an `admin` does not
+hold**, which is why the payment-onboarding routes use it rather than
+`settings:write`.
 
 **Admin API prefix:** `/admin/stores/:storeId/*`, consumed by dashboard and POS.
 

@@ -64,6 +64,10 @@ const stripeApi = vi.hoisted(() => ({
   intents: new Map<string, { id: string; status: string; metadata: Record<string, string> }>(),
   /** Every retrieve this test provoked, so a re-read can be ASSERTED, not assumed. */
   retrieved: [] as string[],
+  /** Connected-account id → the object `retrieve` should answer with. */
+  accounts: new Map<string, Record<string, unknown>>(),
+  /** Every ACCOUNT retrieve, so both a re-read and its ABSENCE can be asserted. */
+  retrievedAccounts: [] as string[],
 }));
 
 vi.mock('../client.js', () => ({
@@ -81,10 +85,32 @@ vi.mock('../client.js', () => ({
   retrieveStripeTransfer: (id: string) => {
     throw new Error(`No fake Transfer registered for ${id}`);
   },
+  retrieveStripeAccount: (id: string) => {
+    stripeApi.retrievedAccounts.push(id);
+    const account = stripeApi.accounts.get(id);
+    if (!account) throw new Error(`No fake account registered for ${id}`);
+    return Promise.resolve(account);
+  },
+  // Onboarding is not exercised from the ingress. Present so the mocked module
+  // offers every export the real one does — a named import missing from a mock
+  // factory fails at link time, and it would fail in whichever file imported the
+  // chain rather than in the one that left it out.
+  createStripeConnectedAccount: () => {
+    throw new Error('The ingress suite does not create connected accounts.');
+  },
+  createStripeAccountLink: () => {
+    throw new Error('The ingress suite does not mint account links.');
+  },
 }));
+
+/** Unique per run, so parallel files and repeated runs never collide on an id. */
+const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 
 let db: Database;
 let closePostgres: typeof import('../../../../db/postgres.js').closePostgres;
+let insertProviderAccount: typeof import('../../../../db/payments/providerAccountRepository.js').insertProviderAccount;
+let findProviderAccountByProviderId: typeof import('../../../../db/payments/providerAccountRepository.js').findProviderAccountByProviderId;
+let isSellerPaymentReady: typeof import('../../provider-account.service.js').isSellerPaymentReady;
 let ensurePayment: typeof import('../../payment.service.js').ensurePayment;
 let applyPaymentStatus: typeof import('../../payment.service.js').applyPaymentStatus;
 let ingestStripeDelivery: typeof import('../ingress.js').ingestStripeDelivery;
@@ -130,6 +156,10 @@ beforeAll(async () => {
   ));
   ({ ensureSellerProfile } = await import('../../../../db/buyers/sellerProfileRepository.js'));
   ({ reserve } = await import('../../../inventory.service.js'));
+  ({ insertProviderAccount, findProviderAccountByProviderId } = await import(
+    '../../../../db/payments/providerAccountRepository.js'
+  ));
+  ({ isSellerPaymentReady } = await import('../../provider-account.service.js'));
   schema = await import('../../../../db/schema/payments.js');
   ledgerSchema = await import('../../../../db/schema/ledger.js');
 }, 120_000);
@@ -141,8 +171,13 @@ afterAll(async () => {
 beforeEach(async () => {
   stripeApi.intents.clear();
   stripeApi.retrieved.length = 0;
+  stripeApi.retrievedAccounts.length = 0;
   // Nothing is deleted: every fixture below is minted under ids unique to the
   // test that made it, so there is nothing shared to clear — see the header.
+  // `stripeApi.accounts` follows the same rule for the same reason: the
+  // reconciliation case sweeps every provider-account row this file wrote, so
+  // forgetting an earlier test's account would fail the sweep on a row the test
+  // is not about.
 });
 
 /** A EUR `DualMoney` whose two sides are equal — no conversion in play. */
@@ -636,16 +671,16 @@ describe('the late-capture exception', () => {
 });
 
 describe('seams are visible in the trace', () => {
-  it('a connect-scope account event is stored, processed and marked deferred to #46', async () => {
+  it('a payout event is stored, processed and marked deferred to #49', async () => {
     const payload = JSON.stringify({
-      id: 'evt_account_seam',
+      id: 'evt_payout_seam',
       object: 'event',
       api_version: '2026-07-29.dahlia',
       created: Math.floor(Date.now() / 1000),
       livemode: false,
-      type: 'account.updated',
+      type: 'payout.paid',
       account: 'acct_seam_1',
-      data: { object: { id: 'acct_seam_1', object: 'account' } },
+      data: { object: { id: 'po_seam_1', object: 'payout' } },
       pending_webhooks: 1,
       request: { id: null, idempotency_key: null },
     });
@@ -661,7 +696,7 @@ describe('seams are visible in the trace', () => {
     });
     expect(result.outcome).toBe('accepted');
 
-    const [row] = await storedEvents('evt_account_seam');
+    const [row] = await storedEvents('evt_payout_seam');
     expect(row?.status).toBe('processed');
     // The connected account is stored — it is HALF the dedupe key, and the
     // reason platform-scope rows need NULLS NOT DISTINCT to dedupe at all.
@@ -669,10 +704,193 @@ describe('seams are visible in the trace', () => {
     /**
      * The seam marker. Marking a deferral `processed` and saying nothing else
      * would make it indistinguishable from real handling in the operator trace,
-     * and the first person to notice would be a seller asking why their account
-     * never went live.
+     * and the first person to notice would be a seller asking why a payout never
+     * appeared.
      */
-    expect(row?.processingNote).toContain('deferred: #46');
+    expect(row?.processingNote).toContain('deferred: #49');
+  });
+});
+
+/**
+ * The connected-account half of the ingress, through the REAL delivery path.
+ *
+ * `account.service`'s own suite covers the derivations and the repository; what
+ * is asserted HERE is the part only the real ingress can show — that a signed
+ * connect-scope delivery, verified over raw bytes and stored under a dedupe key,
+ * ends with a seller's readiness actually changing. The two halves being tested
+ * separately is why neither has to mock the other.
+ */
+describe('connected-account readiness, end to end', () => {
+  /** Sign and deliver one connect-scope account event. */
+  async function deliverAccountEvent(input: {
+    eventId: string;
+    type: string;
+    accountId: string;
+  }) {
+    const payload = JSON.stringify({
+      id: input.eventId,
+      object: 'event',
+      api_version: '2026-07-29.dahlia',
+      created: Math.floor(Date.now() / 1000),
+      livemode: false,
+      type: input.type,
+      account: input.accountId,
+      // Deliberately a THIN object. The handler must not read it: an account's
+      // requirements are the most volatile thing Stripe reports and deliveries
+      // are unordered, so anything applied from a payload can be a state the
+      // seller has already moved past. If this test starts depending on the
+      // fields below, the handler has begun trusting the delivery.
+      data: { object: { id: input.accountId, object: 'account' } },
+      pending_webhooks: 1,
+      request: { id: null, idempotency_key: null },
+    });
+    const signature = await Stripe.webhooks.generateTestHeaderStringAsync({
+      payload,
+      secret: CONNECT_SECRET,
+    });
+    return await ingestStripeDelivery({
+      payload: Buffer.from(payload, 'utf8'),
+      signature,
+      scope: 'connect',
+    });
+  }
+
+  it('flips a seller to ready from a delivery that carries no account state', async () => {
+    const ownerId = `store-ingress-${RUN}`;
+    const accountId = `acct_ingress_${RUN}`;
+    const row = await insertProviderAccount(db, {
+      provider: 'stripe',
+      ownerType: 'store',
+      ownerId,
+      providerAccountId: accountId,
+      country: 'ES',
+    });
+    stripeApi.accounts.set(accountId, {
+      id: accountId,
+      object: 'account',
+      charges_enabled: true,
+      payouts_enabled: true,
+      capabilities: { transfers: 'active' },
+      requirements: {
+        currently_due: [],
+        eventually_due: [],
+        past_due: [],
+        pending_verification: [],
+        disabled_reason: null,
+        current_deadline: null,
+      },
+    });
+    expect(await isSellerPaymentReady(`store:${ownerId}`)).toBe(false);
+
+    const result = await deliverAccountEvent({
+      eventId: `evt_account_ready_${RUN}`,
+      type: 'account.updated',
+      accountId,
+    });
+    expect(result.outcome).toBe('accepted');
+
+    const [stored] = await storedEvents(`evt_account_ready_${RUN}`);
+    expect(stored?.status).toBe('processed');
+    expect(stored?.processingNote).toContain("'ready'");
+    // The delivery said nothing about capabilities, so this can only be true if
+    // the handler went to Stripe for the current state — which is the rule.
+    expect(await isSellerPaymentReady(`store:${ownerId}`)).toBe(true);
+    expect(stripeApi.retrievedAccounts).toContain(accountId);
+    expect(row.onboardingState).toBe('action_required');
+  });
+
+  it('converges with the reconciliation sweep on the same verdict', async () => {
+    // Issue #46, acceptance 3. Same account, same Stripe state, two independent
+    // paths: a delivery, and a sweep that was never told anything. Both must
+    // reach one answer, because the sweep exists precisely for the deliveries
+    // that never arrive.
+    const ownerId = `store-converge-${RUN}`;
+    const accountId = `acct_converge_${RUN}`;
+    await insertProviderAccount(db, {
+      provider: 'stripe',
+      ownerType: 'store',
+      ownerId,
+      providerAccountId: accountId,
+      country: 'ES',
+    });
+    const restrictedState = {
+      id: accountId,
+      object: 'account',
+      charges_enabled: false,
+      payouts_enabled: false,
+      capabilities: { transfers: 'inactive' },
+      requirements: {
+        currently_due: ['company.tax_id'],
+        eventually_due: ['company.tax_id'],
+        past_due: ['company.tax_id'],
+        pending_verification: [],
+        disabled_reason: 'requirements.past_due',
+        current_deadline: null,
+      },
+    };
+    stripeApi.accounts.set(accountId, restrictedState);
+
+    await deliverAccountEvent({
+      eventId: `evt_account_converge_${RUN}`,
+      type: 'account.updated',
+      accountId,
+    });
+    const afterWebhook = await findProviderAccountByProviderId(db, 'stripe', accountId);
+
+    const { reconcileStaleAccounts } = await import('../account-reconciler.js');
+    await reconcileStaleAccounts({ staleAfterMs: -1, batchSize: 500 });
+    const afterSweep = await findProviderAccountByProviderId(db, 'stripe', accountId);
+
+    expect(afterWebhook?.onboardingState).toBe('restricted');
+    expect(afterSweep?.onboardingState).toBe(afterWebhook?.onboardingState);
+    expect(await isSellerPaymentReady(`store:${ownerId}`)).toBe(false);
+  });
+
+  it('revokes on deauthorization without asking Stripe about the account', async () => {
+    const ownerId = `store-deauth-${RUN}`;
+    const accountId = `acct_deauth_${RUN}`;
+    await insertProviderAccount(db, {
+      provider: 'stripe',
+      ownerType: 'store',
+      ownerId,
+      providerAccountId: accountId,
+      country: 'ES',
+    });
+    // Deliberately UNREGISTERED with the fake. A handler that re-read the
+    // account here would throw a RETRYABLE error and the event would retry until
+    // it dead-lettered, leaving a seller Mercaria cannot pay marked as active —
+    // so the absence is the assertion.
+    stripeApi.accounts.delete(accountId);
+
+    const result = await deliverAccountEvent({
+      eventId: `evt_account_deauth_${RUN}`,
+      type: 'account.application.deauthorized',
+      accountId,
+    });
+    expect(result.outcome).toBe('accepted');
+
+    const [stored] = await storedEvents(`evt_account_deauth_${RUN}`);
+    expect(stored?.status).toBe('processed');
+    const revoked = await findProviderAccountByProviderId(db, 'stripe', accountId);
+    expect(revoked?.onboardingState).toBe('disabled');
+    expect(revoked?.revokedAt).not.toBeNull();
+    expect(await isSellerPaymentReady(`store:${ownerId}`)).toBe(false);
+  });
+
+  it('ignores an account nothing here has a row for', async () => {
+    const result = await deliverAccountEvent({
+      eventId: `evt_account_unknown_${RUN}`,
+      type: 'account.updated',
+      accountId: `acct_not_ours_${RUN}`,
+    });
+    expect(result.outcome).toBe('accepted');
+
+    const [stored] = await storedEvents(`evt_account_unknown_${RUN}`);
+    // `processed`, not `failed`: an account from another environment is not work
+    // a retry could complete, and retrying it would dead-letter an event that is
+    // behaving exactly as it should.
+    expect(stored?.status).toBe('processed');
+    expect(stored?.processingNote).toContain('no provider-account row');
   });
 });
 

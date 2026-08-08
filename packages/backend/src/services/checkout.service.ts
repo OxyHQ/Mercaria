@@ -63,6 +63,7 @@ import { resolveMedia } from './catalog-hydration.service.js';
 import { calculateTotals, type PricingLine, type PricingResult } from './pricing.service.js';
 import { normalizeDiscountCode } from './discount.service.js';
 import { getRates, convert, toDualMoney, pairRate } from './fx.service.js';
+import { assertSellerGroupsPaymentReady } from './payments/provider-account.service.js';
 import { addMoney, multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { uuidv7, isUniqueViolation } from '@oxyhq/db';
@@ -444,6 +445,18 @@ export async function checkout(
       nativeUnitPrice(line.variant);
     }
   }
+
+  // 4d. Refuse any group whose seller cannot be paid — ADR 0001 D4, and BEFORE
+  // step 5 reserves anything, for the same reason 4c is here: an eligibility
+  // question that needs no stock should never have taken any.
+  //
+  // After 4c and not before it, because 4c is pure and in-memory while this one
+  // queries per seller — a checkout that cannot be priced at all should not be
+  // spending indexed reads to discover that its sellers are fine.
+  //
+  // A no-op when the Stripe rail is off, without touching Postgres — see
+  // `assertSellerGroupsPaymentReady`.
+  await assertSellerGroupsPaymentReady([...groups.keys()]);
 
   // 5. Reserve every line across ALL groups; roll back on any failure.
   const reserved: Reservation[] = [];

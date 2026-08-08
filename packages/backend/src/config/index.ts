@@ -313,6 +313,48 @@ export interface StripeConfig {
   readonly eventPollIntervalMs: number;
   /** How long a claimed event row is leased for. */
   readonly eventLeaseMs: number;
+  /**
+   * This API's own public origin, e.g. `https://api.mercaria.co`.
+   *
+   * Stripe's hosted onboarding needs a `refresh_url` and a `return_url`, and
+   * both point back HERE rather than at an app: a browser redirect proves
+   * nothing about readiness (ADR 0001 D2), so the API receives the round trip,
+   * verifies the signed state it issued, and only then sends the seller onward.
+   *
+   * Configured rather than derived from the request, which is the whole point:
+   * `req.get('host')` behind an ALB is attacker-controlled, and a redirect URL
+   * built from it is an open redirect with a Stripe-branded first hop.
+   *
+   * ## Optional here, REQUIRED at use
+   *
+   * The three onboarding values below deliberately do NOT join
+   * `resolveStripeEnabled`'s required set, unlike the two webhook secrets. That
+   * rule exists for a SILENT failure — a deployment missing the Connect secret
+   * verifies charges and drops every `account.updated`, so sellers stop becoming
+   * ready with nothing to see. Missing onboarding configuration is the opposite:
+   * the onboarding route fails immediately, loudly, naming the variable, and the
+   * already-shipped webhook ingress keeps working meanwhile. Turning the whole
+   * rail off for it would take payments down to fix an onboarding typo.
+   *
+   * `stripeOnboardingConfig()` in `services/payments/stripe/onboarding-config.ts`
+   * is the one reader, and it names every missing variable at once.
+   */
+  readonly onboardingBaseUrl?: string;
+  /** Where the seller's browser lands after the hosted flow — the dashboard. */
+  readonly onboardingReturnUrl?: string;
+  /** HMAC secret for the signed, expiring onboarding round-trip state token. */
+  readonly onboardingStateSecret?: string;
+  /**
+   * How long an account may go unread before the reconciliation sweep refreshes
+   * it. Six hours: long enough that the sweep is a safety net rather than a
+   * polling loop, short enough that a webhook Stripe never delivered costs a
+   * seller part of a day rather than a support ticket.
+   */
+  readonly accountSyncStaleAfterMs: number;
+  /** Accounts the sweep refreshes per tick — one Stripe API call each. */
+  readonly accountSyncBatchSize: number;
+  /** How often the sweep looks for stale accounts. */
+  readonly accountSyncIntervalMs: number;
 }
 
 export interface PaymentsConfig {
@@ -591,6 +633,21 @@ export const config: AppConfig = Object.freeze({
       eventBatchSize: intEnv('STRIPE_EVENT_BATCH_SIZE', 50),
       eventPollIntervalMs: intEnv('STRIPE_EVENT_POLL_INTERVAL_MS', 5_000),
       eventLeaseMs: intEnv('STRIPE_EVENT_LEASE_MS', 60_000),
+      // Spread-when-present, like the rotation secrets above: absent rather than
+      // `''`, so `stripeOnboardingConfig()` can name exactly which variables are
+      // missing instead of building a URL out of an empty string.
+      ...(process.env.STRIPE_ONBOARDING_BASE_URL?.trim()
+        ? { onboardingBaseUrl: process.env.STRIPE_ONBOARDING_BASE_URL.trim() }
+        : {}),
+      ...(process.env.STRIPE_ONBOARDING_RETURN_URL?.trim()
+        ? { onboardingReturnUrl: process.env.STRIPE_ONBOARDING_RETURN_URL.trim() }
+        : {}),
+      ...(process.env.STRIPE_ONBOARDING_STATE_SECRET?.trim()
+        ? { onboardingStateSecret: process.env.STRIPE_ONBOARDING_STATE_SECRET.trim() }
+        : {}),
+      accountSyncStaleAfterMs: intEnv('STRIPE_ACCOUNT_SYNC_STALE_AFTER_MS', 6 * 60 * 60 * 1_000),
+      accountSyncBatchSize: intEnv('STRIPE_ACCOUNT_SYNC_BATCH_SIZE', 25),
+      accountSyncIntervalMs: intEnv('STRIPE_ACCOUNT_SYNC_INTERVAL_MS', 15 * 60 * 1_000),
     }),
   }),
   postgres: Object.freeze({
