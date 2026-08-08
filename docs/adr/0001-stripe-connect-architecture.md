@@ -21,8 +21,13 @@ and shop currency (the seller's settlement basis) are already distinct
 (`DualMoney`), and issue #44 removes the remaining mandatory-FAIR settlement.
 
 This ADR decides how that model maps onto Stripe Connect, before any Stripe code
-is written. Its decisions bind #44–#50; #51 (Faircoin) is a separate rail that
-must coexist behind the same provider interface.
+is written. Its decisions bind #44–#50. FairCoin is **not** a payment method in
+this roadmap: if it is introduced it arrives through **OxyPay**, the Oxy payment
+gateway that accepts FairCoin, designed under its own ADR when the commercial,
+wallet and settlement contracts exist — coexisting behind the same provider
+interface rather than as a Mercaria-built FairCoin rail. Nothing for it is
+implemented here, and no adapter, flag, credential, endpoint or contract test
+anticipates it.
 
 ### Stripe facts that force the shape (verified against current docs)
 
@@ -223,8 +228,8 @@ Stripe's "skipped transfer" behavior on destination charges.
   currency after conversion (0.50 EUR equivalent); checkout surfaces this as a
   product constraint, not a Stripe error.
 - **FAIR is not routable through Stripe.** A FAIR-denominated listing is
-  purchasable only through an explicitly eligible rail (#51); catalog/display
-  FAIR values are unaffected (#44).
+  purchasable only through an explicitly eligible rail, and no such rail exists
+  today; catalog/display FAIR values are unaffected (#44).
 
 ### D9. P2P sellers vs business stores
 
@@ -493,9 +498,9 @@ by the key, and connected-account ids live only in provider-account records.
   mitigations are readiness gating (D9), reserves, `debit_negative_balances`,
   and reconciliation — and they are why #46/#48/#50 are not optional polish.
 - Everything provider-specific stays behind the #45 `PaymentProvider`
-  interface; #51's Faircoin adapter plugs into the same seams (group-level
-  payment, per-order settlement records) without Stripe leaking into the
-  domain.
+  interface; a future rail — see the FairCoin/OxyPay boundary in the context
+  above — plugs into the same seams (group-level payment, per-order settlement
+  records) without Stripe leaking into the domain.
 
 ## Open items (tracked, not blocking)
 

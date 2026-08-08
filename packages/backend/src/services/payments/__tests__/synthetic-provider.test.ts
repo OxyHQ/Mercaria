@@ -4,8 +4,8 @@
  *
  * The contract suite is the bulk of it and lives in `./provider-contract.ts`
  * precisely so this file is short: what is asserted here about the synthetic
- * rail is asserted identically about Stripe (#46–#48) and Faircoin (#51) when
- * they arrive, by calling the same function.
+ * rail is asserted identically about Stripe (#46–#48) and any future rail, by
+ * calling the same function.
  */
 
 import { describe, it, expect } from 'vitest';

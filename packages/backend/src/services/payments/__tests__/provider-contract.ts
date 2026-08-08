@@ -3,8 +3,8 @@
  *
  * Not a test file (no `.test.ts`, so vitest does not collect it): it is a suite
  * a rail's own test file calls. `SyntheticPaymentProvider` runs it today; the
- * Stripe adapter (#46–#48) and the Faircoin one (#51) run this same function
- * against their own sandbox, and a rail that cannot pass it is not finished.
+ * Stripe adapter (#46–#48) and any future rail run this same function against
+ * their own sandbox, and a rail that cannot pass it is not finished.
  *
  * ## What it pins, and why each one is here rather than in a provider's own file
  *
