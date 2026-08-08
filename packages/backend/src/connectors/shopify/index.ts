@@ -49,6 +49,12 @@ import type {
 import { getShopifyCredentials } from './config.js';
 import { shopifyTransport, type ShopifyHttpResponse, type ShopifyTransport } from './http.js';
 
+/**
+ * This connector's provider id. It is also the FX source recorded on an imported
+ * order's rate snapshot, since the rate is reconstructed from amounts Shopify
+ * reported rather than quoted by any Mercaria FX provider.
+ */
+const PROVIDER_ID = 'shopify';
 /** The pinned Shopify Admin API version. */
 const API_VERSION = '2024-10';
 /** Max products per page (Shopify's REST ceiling). */
@@ -502,6 +508,11 @@ function mapShopifyStatus(
  * Derive the shop→presentment `FxRateSnapshot` from the order's grand total (the
  * ratio of presentment to shop major units). Returns undefined when the two
  * currencies match (no conversion happened).
+ *
+ * The snapshot names SHOPIFY as its provider, not a Mercaria FX provider: the
+ * rate is whatever Shopify actually charged the buyer at, reconstructed from the
+ * two amounts Shopify reported. Mercaria's own rates are never substituted here —
+ * an imported order keeps the source platform's economics exactly as reported.
  */
 function deriveFxRate(
   grand: DualMoney,
@@ -515,7 +526,7 @@ function deriveFxRate(
   const shopMajor = grand.shop.amount / 10 ** CURRENCY_PRECISION[shopCurrency];
   const presentmentMajor = grand.presentment.amount / 10 ** CURRENCY_PRECISION[presentmentCurrency];
   const rate = shopMajor > 0 ? presentmentMajor / shopMajor : 1;
-  return { from: shopCurrency, to: presentmentCurrency, rate, asOf };
+  return { from: shopCurrency, to: presentmentCurrency, rate, provider: PROVIDER_ID, asOf };
 }
 
 /** Map a Shopify order address to Mercaria's `AddressSnapshot` shape. */
@@ -942,7 +953,7 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
   }
 
   return {
-    id: 'shopify',
+    id: PROVIDER_ID,
     credentialStrategy: 'oauth',
     // Shopify signs every webhook with the app's client secret — one app-wide secret,
     // so no per-connection secret is minted (see `shopify/webhook.ts`).

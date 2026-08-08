@@ -1,7 +1,7 @@
 import type { Money, CurrencyCode } from "@mercaria/shared-types";
 import type { RegisterCartLine } from "./stores/register-cart";
 
-/** Canonical settlement currency used when the cart is empty. */
+/** The currency an EMPTY register cart reports — Mercaria's default. */
 const DEFAULT_CURRENCY: CurrencyCode = "FAIR";
 
 /**

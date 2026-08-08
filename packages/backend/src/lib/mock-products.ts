@@ -14,7 +14,7 @@
  * product/category imagery on `cdn.shopify.com` / `shopify-assets.shopifycdn.com`)
  * so every tile and thumbnail resolves fast and looks like Shop.
  *
- * Prices are FAIR (⊜), the canonical settlement currency, in integer minor units
+ * Prices are FAIR (⊜), Mercaria's preferred default currency, in integer minor units
  * at FAIR's 8-decimal precision (1 ⊜ = 100_000_000 minor units). The human
  * magnitudes mirror the catalog (e.g. ⊜148.00 = 14_800_000_000 minor units).
  */

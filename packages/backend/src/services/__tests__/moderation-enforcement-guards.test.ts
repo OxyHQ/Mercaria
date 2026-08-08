@@ -54,7 +54,14 @@ vi.mock('../order-hydration.service.js', () => ({
   hydrateOrders: vi.fn(async () => []),
   summarizeOrders: vi.fn(async () => []),
 }));
-vi.mock('../fx.service.js', () => ({ convertToFair: vi.fn(async () => undefined) }));
+// A lifecycle transition must never consult FX. Nothing here calls it today;
+// every export throws so that stays true rather than being assumed.
+vi.mock('../fx.service.js', () => {
+  const unavailable = (): never => {
+    throw new Error('order.service must not consult FX during a lifecycle transition');
+  };
+  return { getRates: unavailable, convert: unavailable, pairRate: unavailable, toDualMoney: unavailable };
+});
 
 const { updateListing } = await import('../catalog-write.service.js');
 const { transition } = await import('../order.service.js');

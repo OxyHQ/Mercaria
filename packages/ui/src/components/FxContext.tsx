@@ -19,7 +19,7 @@ import type { CurrencyCode } from "@mercaria/shared-types";
  * resolves the shopper's persisted preference); components here never fetch.
  */
 export interface FxContextValue {
-  /** The shopper's chosen PRIMARY display currency. Defaults to canonical FAIR. */
+  /** The shopper's chosen PRIMARY display currency. Defaults to FAIR. */
   primaryCurrency: CurrencyCode;
   /** Optional secondary fiat currency to display alongside the primary, or `null`. */
   secondaryCurrency: CurrencyCode | null;
@@ -30,8 +30,9 @@ export interface FxContextValue {
 }
 
 /**
- * Inert default: display in canonical FAIR, no secondary, no rates. Chosen so a
- * price rendered outside any provider still shows its stored FAIR amount.
+ * Inert default: display in FAIR, no secondary, no rates. With no rates present
+ * every conversion is the identity, so a price rendered outside any provider
+ * shows its own stored amount rather than a converted one.
  */
 const DEFAULT_FX_VALUE: FxContextValue = {
   primaryCurrency: "FAIR",

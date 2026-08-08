@@ -9,7 +9,7 @@
  * change or listing edit can never mutate a placed order.
  */
 
-import type { Money, DualMoney, FxRateSnapshot } from './money';
+import type { DualMoney, FxRateSnapshot } from './money';
 import type { Seller } from './seller';
 import type { MerchantSummary } from './product';
 import type { Timestamps } from './common';
@@ -159,21 +159,6 @@ export type OrderSellerMini =
   | { type: 'user'; seller: Seller }
   | { type: 'store'; store: MerchantSummary };
 
-/**
- * The shop→FAIR settlement snapshot, captured when an order is paid. FAIR is the
- * canonical settlement currency: on the `paid` transition the order's shop
- * grandTotal is converted to FAIR (`amount`) at the captured `rate`, so payout is
- * reproducible independent of later rate moves. Absent until the order is paid.
- */
-export interface OrderSettlement {
-  /** The settled grand total in FAIR (canonical settlement currency). */
-  amount: Money;
-  /** Units of FAIR per ONE unit of the order's shop currency, at settlement. */
-  rate: number;
-  /** ISO-8601 time settlement was computed (the `paid` transition). */
-  asOf: string;
-}
-
 /** A single entry in an order's status history (audit trail of transitions). */
 export interface OrderStatusEvent {
   /** The status the order moved INTO. */
@@ -234,20 +219,19 @@ export interface Order extends Timestamps {
     grandTotal: DualMoney;
   };
   /**
-   * The shop→presentment rate snapshot used to form the order's presentment
-   * amounts. Absent on legacy single-currency orders.
+   * The shop→presentment rate snapshot the order's presentment amounts were
+   * formed with. Absent only on an imported order whose source platform reported
+   * a single currency (nothing was converted).
    */
   fxRate?: FxRateSnapshot;
-  /** The shop→FAIR settlement snapshot, present once the order is paid. */
-  settlement?: OrderSettlement;
   /**
    * Per-discount breakdown of every reduction applied (empty when none). Amounts
-   * are in the order's SHOP currency (the settlement basis).
+   * are in the order's SHOP currency (the merchant accounting / refund basis).
    */
   appliedDiscounts?: DiscountAllocation[];
   /**
    * Per-rate tax breakdown (empty when none). Amounts are in the order's SHOP
-   * currency (the settlement basis).
+   * currency (the merchant accounting / refund basis).
    */
   taxLines?: TaxLine[];
   /** Current lifecycle status. */

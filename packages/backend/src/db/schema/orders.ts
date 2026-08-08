@@ -26,7 +26,7 @@
  * `shipping.cost`, refund line amounts and `total_refunded`.
  *
  * The discount and tax BREAKDOWN lines are deliberately SINGLE-currency shop
- * amounts. They are the settlement and refund basis, and giving them a
+ * amounts. They are the merchant accounting and refund basis, and giving them a
  * presentment side would invite a refund computed against it.
  */
 
@@ -189,6 +189,14 @@ export const orders = pgTable(
     /** A conversion rate, genuinely fractional — the same IEEE-754 double Mongo held. */
     fxRateRate: doublePrecision(),
     /**
+     * What quoted the rate: an FX provider id, a connector provider id when the
+     * rate was reconstructed from an external platform's own amounts, or
+     * `'identity'` for a same-currency order. Free `text`, deliberately NOT a
+     * closed set with a CHECK — the sources are deployment configuration, and a
+     * CHECK here would make adding an FX provider a migration.
+     */
+    fxRateProvider: text(),
+    /**
      * An ISO-8601 instant, stored as TEXT because `FxRateSnapshot.asOf` is
      * declared `string` in `@mercaria/shared-types` and ships to clients that way.
      * A `timestamptz` would change the wire format on every read for no caller's
@@ -197,15 +205,27 @@ export const orders = pgTable(
      */
     fxRateAsOf: text(),
 
-    // `settlement` — the shop→FAIR snapshot, present once the order is paid, and
-    // the only remaining `convertToFair` in the system. Nullable: an unpaid order
-    // has not settled. Flattened as `settlement_amount`/`settlement_currency`
-    // rather than the source's nested `settlement.amount.{amount,currency}`,
-    // which would spell a column `settlement_amount_amount`.
+    // `settlement` — RETIRED, and nothing writes these columns.
+    //
+    // They held a shop→FAIR snapshot captured when an order was paid, from a
+    // model in which FAIR was the mandatory settlement currency. That is gone:
+    // an order reaching `paid` records no conversion at all, because which
+    // currency a payment settles in is a property of the payment PROVIDER, not
+    // of the order. The settlement facts (provider, captured amount, the
+    // platform-currency conversion and its rate snapshot) belong to the payment
+    // and ledger domain, per ADR 0001 D6/D8.
+    //
+    // They stay physically only to avoid a migration whose sole purpose is to
+    // drop already-empty columns (production has never held a paid order): the
+    // payment-domain port removes them, together with
+    // `orders_settlement_complete_check` below, in the same migration that adds
+    // the tables replacing them. Until then, they must remain unwritten — a
+    // value here would be an authoritative-looking payout figure nothing
+    // produced.
     ...optionalMoney('settlement'),
-    /** The shop→FAIR rate used, kept so the payout figure is auditable. */
+    /** Retired with the columns above — unwritten, pending removal. */
     settlementRate: doublePrecision(),
-    /** An ISO-8601 instant as TEXT — same reason as `fxRateAsOf`. */
+    /** Retired with the columns above — unwritten, pending removal. */
     settlementAsOf: text(),
 
     status: text({ enum: asEnumValues(ORDER_STATUSES) }).notNull().default('pending_payment'),
@@ -260,15 +280,19 @@ export const orders = pgTable(
       sql`(${t.sellerType} = 'user' and ${t.sellerOxyUserId} is not null and ${t.storeId} is null)
           or (${t.sellerType} = 'store' and ${t.storeId} is not null and ${t.sellerOxyUserId} is null)`,
     ),
-    // A settlement snapshot is complete or absent — never a FAIR amount with no
-    // rate to explain it, which would be an unauditable payout figure.
+    // Retired with the settlement columns above. It now only pins them at
+    // ABSENT, since nothing writes them; it is dropped in the same migration the
+    // payment-domain port drops the columns in.
     check(
       'orders_settlement_complete_check',
       sql`num_nonnulls(${t.settlementAmount}, ${t.settlementCurrency}, ${t.settlementRate}, ${t.settlementAsOf}) in (0, 4)`,
     ),
+    // An fx-rate snapshot is complete or absent. `provider` is part of the
+    // snapshot's identity — a stored rate nobody can attribute to a source is
+    // not reproducible — so it is inside the count, not beside it.
     check(
       'orders_fx_rate_complete_check',
-      sql`num_nonnulls(${t.fxRateFrom}, ${t.fxRateTo}, ${t.fxRateRate}, ${t.fxRateAsOf}) in (0, 4)`,
+      sql`num_nonnulls(${t.fxRateFrom}, ${t.fxRateTo}, ${t.fxRateRate}, ${t.fxRateProvider}, ${t.fxRateAsOf}) in (0, 5)`,
     ),
 
     uniqueIndex('orders_order_number_key').on(t.orderNumber),
