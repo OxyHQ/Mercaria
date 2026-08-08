@@ -18,6 +18,7 @@ import {
 import { findStoreById, type StoreMemberRecord } from '../db/stores/storeRepository.js';
 import { findPublishedReviewTargets } from '../db/buyers/reviewRepository.js';
 import { transition } from '../services/order.service.js';
+import { releaseCheckoutPayments } from '../services/payments/checkout-payment.service.js';
 import { sendNotification } from '../lib/notification-service.js';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
@@ -167,6 +168,20 @@ export async function handleOrderEventNotification(job: OrderEventNotificationJo
  * `config.orders.reservationTtlMs`, releasing the held stock via the order
  * transition. Loads NON-lean docs (transition mutates + saves). Per-order
  * failures are logged and skipped so one bad order doesn't abort the sweep.
+ *
+ * ## The payment is given up on too, and AFTER the stock goes back
+ *
+ * An order whose reservation expired must not stay payable: a buyer whose
+ * payment sheet is still open would otherwise be charged for goods this sweep
+ * has just released. So each released group's payment is cancelled at its rail
+ * and marked `canceled` here — see `cancelPaymentForCheckoutGroup`, which also
+ * explains why a rail that refuses (because it already captured) leads to a
+ * visible exception rather than a silent one.
+ *
+ * Stock first, payment second, and never the reverse: releasing inventory is
+ * Mercaria's own decision and cannot fail on a third party, while cancelling at
+ * a rail is a network call. Holding stock hostage to it would let a Stripe
+ * outage keep a whole day's abandoned carts out of the catalogue.
  */
 export async function handleExpireReservations(): Promise<void> {
   const cutoff = new Date(Date.now() - config.orders.reservationTtlMs);
@@ -176,9 +191,16 @@ export async function handleExpireReservations(): Promise<void> {
     return;
   }
 
+  // Distinct, because a multi-seller cart's sibling orders share one payment and
+  // one PaymentIntent (ADR 0001 D4) — cancelling it once per order would be the
+  // same call repeated, and its `changed` result would read as a bug.
+  const releasedGroups = new Set<string>();
   for (const order of stale) {
     try {
       await transition(order, 'cancelled', { note: 'reservation expired' });
+      if (order.checkoutGroupId) {
+        releasedGroups.add(order.checkoutGroupId);
+      }
     } catch (err) {
       log.general.warn(
         { err, orderId: order.id },
@@ -187,7 +209,12 @@ export async function handleExpireReservations(): Promise<void> {
     }
   }
 
-  log.general.info({ count: stale.length }, 'Expired stale reservations');
+  await releaseCheckoutPayments([...releasedGroups]);
+
+  log.general.info(
+    { count: stale.length, groups: releasedGroups.size },
+    'Expired stale reservations',
+  );
 }
 
 /**

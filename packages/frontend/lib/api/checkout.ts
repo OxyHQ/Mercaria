@@ -1,6 +1,7 @@
 import type {
   ApiResponse,
   CheckoutInput,
+  CheckoutPaymentStatus,
   CheckoutResult,
 } from '@mercaria/shared-types';
 import apiClient from './client';
@@ -22,6 +23,26 @@ export async function postCheckout(
   });
   if (!data.success || !data.data) {
     throw new Error(data.error ?? data.message ?? 'Checkout failed');
+  }
+  return data.data;
+}
+
+/**
+ * What actually happened to a checkout group's payment.
+ *
+ * The client asks HERE after a payment sheet closes, instead of reporting the
+ * outcome itself: a sheet's own result is a UI event, while `paid` is a fact
+ * only a verified provider webhook can establish. Polling this is the whole of
+ * the client's role in confirming a payment.
+ */
+export async function getCheckoutPaymentStatus(
+  checkoutGroupId: string,
+): Promise<CheckoutPaymentStatus> {
+  const { data } = await apiClient.get<ApiResponse<CheckoutPaymentStatus>>(
+    `/checkout/${checkoutGroupId}/payment-status`,
+  );
+  if (!data.success || !data.data) {
+    throw new Error(data.error ?? data.message ?? 'Could not read the payment status');
   }
   return data.data;
 }

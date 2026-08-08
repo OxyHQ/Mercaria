@@ -117,6 +117,84 @@ export async function retrieveStripePaymentIntent(
 }
 
 /**
+ * Create the PaymentIntent that funds one checkout group.
+ *
+ * The parameters are built by `stripe-provider.ts` and passed through verbatim,
+ * the same split `createStripeConnectedAccount` uses: ADR 0001 D3/D4/D8 are
+ * DECISIONS and belong beside the code that can be read against the ADR, while
+ * this module stays the client and its pinned version. A test asserting the
+ * exact payload therefore mocks this ONE module and inspects what it was handed.
+ *
+ * @param idempotencyKey `pi:<paymentId>` (ADR 0001 D11), derived from Mercaria's
+ *   own durable id. It is what makes a double-tapped checkout one charge rather
+ *   than two, and it is a required parameter for that reason.
+ */
+export async function createStripePaymentIntent(
+  params: Stripe.PaymentIntentCreateParams,
+  idempotencyKey: string,
+): Promise<Stripe.PaymentIntent> {
+  return await getStripeClient().paymentIntents.create(params, { idempotencyKey });
+}
+
+/**
+ * Cancel a PaymentIntent that will never be paid.
+ *
+ * The reservation-sweep path: the buyer's stock has gone back, so the intent
+ * must not stay confirmable. Cancelling an intent Stripe has already captured
+ * FAILS — which is correct and is why the caller treats this as best-effort: a
+ * capture that beat the sweep is a real event and the succeeded webhook still
+ * has to be allowed to arrive and raise its exception.
+ */
+export async function cancelStripePaymentIntent(
+  paymentIntentId: string,
+  idempotencyKey: string,
+): Promise<Stripe.PaymentIntent> {
+  return await getStripeClient().paymentIntents.cancel(paymentIntentId, undefined, {
+    idempotencyKey,
+  });
+}
+
+/**
+ * Read a charge together with its BALANCE TRANSACTION, in one call.
+ *
+ * The balance transaction is the only place Stripe states what a charge became
+ * in the PLATFORM's settlement currency and what it kept in fees (ADR 0001 D8,
+ * fact 5). Both are needed at the moment a payment succeeds: the platform amount
+ * is what every ledger leg of that charge is denominated in and what the seller
+ * transfers are sized from, and the fee is `processor_expense`.
+ *
+ * Expanded rather than fetched separately so the two can never come from
+ * different moments — a rate read after the fact is not the rate that was
+ * applied, and `FxRateSnapshot` exists to make that distinction impossible to
+ * lose.
+ */
+export async function retrieveStripeChargeWithBalance(chargeId: string): Promise<Stripe.Charge> {
+  return await getStripeClient().charges.retrieve(chargeId, {
+    expand: ['balance_transaction'],
+  });
+}
+
+/**
+ * Create one seller's Transfer out of a settled charge.
+ *
+ * ADR 0001 D3 step 2. `source_transaction` (in `params`) makes the movement wait
+ * for the charge's funds instead of failing against an available balance that
+ * has not landed yet, and the transfer's currency must match that charge's
+ * balance-transaction currency — both are the adapter's business, built in
+ * `stripe-provider.ts` and passed through here.
+ *
+ * @param idempotencyKey `tr:<paymentId>:<orderId>` (ADR 0001 D11). Two transfers
+ *   for one order is money leaving twice, and this key is the outer half of the
+ *   guarantee whose inner half is `UNIQUE(payment_id, order_id)` on `transfers`.
+ */
+export async function createStripeTransfer(
+  params: Stripe.TransferCreateParams,
+  idempotencyKey: string,
+): Promise<Stripe.Transfer> {
+  return await getStripeClient().transfers.create(params, { idempotencyKey });
+}
+
+/**
  * Read a Transfer's CURRENT state from Stripe.
  *
  * Needed for the same reason as the PaymentIntent read: a transfer's reversal

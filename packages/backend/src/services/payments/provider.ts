@@ -12,9 +12,11 @@
  * It does not decide anything. It converts a Mercaria request into a provider
  * call and a provider answer back into Mercaria's own vocabulary. Persistence,
  * status transitions, ledger postings, order effects and the outbox all belong
- * to `payment.service`, which is the only thing that talks to an adapter — so
- * "what happens when a payment succeeds" is written ONCE and cannot drift
- * between rails.
+ * to the payment domain, never to an adapter — so "what happens when a payment
+ * succeeds" is written ONCE and cannot drift between rails. Three modules call
+ * an adapter and no others: `payment.service` (status changes and the sweep's
+ * cancellation), `checkout-payment.service` (opening a checkout's payment) and
+ * `settlement.service` (the per-seller transfers).
  *
  * ## Idempotency comes IN, it is never invented here
  *
@@ -38,6 +40,7 @@ import type {
   Money,
   PaymentProviderId,
   PaymentStatus,
+  TransferStatus,
 } from '@mercaria/shared-types';
 
 /**
@@ -50,6 +53,7 @@ export type PaymentProviderStage =
   | 'capture'
   | 'cancel'
   | 'refund'
+  | 'transfer'
   | 'getStatus'
   | 'verifyEvent';
 
@@ -251,4 +255,88 @@ export interface PaymentProvider {
    *   retrying one is how a forged event eventually gets a lucky window.
    */
   verifyEvent(input: ProviderEventInput): Promise<ProviderEventEnvelope>;
+}
+
+/**
+ * Pay one seller order its share of a funded payment.
+ *
+ * The provider-neutral shape of ADR 0001 D3's "one Transfer per seller order":
+ * the money is already on Mercaria's balance at the rail, and this moves one
+ * order's net onto the seller's own.
+ *
+ * `sourcePaymentObjectId` is the FUNDING object — the rail's own id for the
+ * payment this settlement draws from — and naming it is what lets a rail make
+ * the movement wait for those funds rather than fail against a balance that has
+ * not landed. Which object that is, and how the waiting works, is the adapter's
+ * business; nothing above it knows.
+ */
+export interface CreateTransferRequest {
+  paymentId: string;
+  orderId: string;
+  /** The rail's own id for the payment being settled. */
+  sourcePaymentObjectId: string;
+  /** The seller's account AT THE RAIL, from their provider-account record. */
+  destinationAccountId: string;
+  /** The seller's net, in the platform's settlement currency (ADR 0001 D8). */
+  amount: Money;
+  /** Ties every movement of one checkout together at the rail. */
+  groupRef: string;
+  idempotencyKey: string;
+  metadata: Readonly<Record<string, string>>;
+}
+
+/** The rail's answer to a settlement. */
+export interface ProviderTransferResult {
+  providerObjectId: string;
+  /** Where the transfer stands the moment it was made. */
+  status: TransferStatus;
+}
+
+/**
+ * A rail that can settle each seller order out of a funded payment.
+ *
+ * An OPTIONAL capability rather than part of `PaymentProvider`, because it is
+ * not a property every rail has and pretending otherwise would force a lie. The
+ * synthetic rail holds no seller accounts and moves no money — a `createTransfer`
+ * on it could only return a fabricated id for a movement that never happened,
+ * which is exactly the kind of green nothing that makes a settlement bug
+ * invisible. So the mock rail declines to settle and the settlement service
+ * skips it, which is the truth about what a dev seam does.
+ *
+ * #51's Faircoin rail is expected to implement this: a per-order settlement out
+ * of a group payment is a marketplace shape, not a Stripe one.
+ */
+export interface SettlingPaymentProvider extends PaymentProvider {
+  createTransfer(request: CreateTransferRequest): Promise<ProviderTransferResult>;
+}
+
+/**
+ * A rail whose already-created payment can be READ back, client material and all.
+ *
+ * The other optional capability, and it exists for a specific failure: a rail
+ * that expires its idempotency keys (Stripe's last 24 hours) would hand a buyer
+ * returning to an unpaid checkout the next day a SECOND payment object for
+ * orders the first one can still fund. Reading the object Mercaria already
+ * recorded cannot do that, whatever the age of the key.
+ *
+ * Optional rather than universal because a rail whose keys never expire — the
+ * synthetic one derives its object id from the payment id — needs no second
+ * method: its `createPayment` already IS the resume.
+ */
+export interface ResumablePaymentProvider extends PaymentProvider {
+  resumePayment(providerObjectId: string): Promise<ProviderPaymentResult>;
+}
+
+/** Whether this rail can re-read a payment it already created. */
+export function isResumableProvider(
+  provider: PaymentProvider,
+): provider is ResumablePaymentProvider {
+  return typeof (provider as Partial<ResumablePaymentProvider>).resumePayment === 'function';
+}
+
+/** Whether this rail can settle seller orders. The narrowing the caller needs. */
+export function isSettlingProvider(
+  provider: PaymentProvider,
+): provider is SettlingPaymentProvider {
+  return typeof (provider as Partial<SettlingPaymentProvider>).createTransfer === 'function';
 }

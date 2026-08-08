@@ -19,6 +19,20 @@ export const OXY_CLIENT_ID =
   process.env.EXPO_PUBLIC_OXY_CLIENT_ID ??
   'oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c';
 
+/**
+ * Stripe's publishable key — a PUBLIC value, safe in a client bundle by design.
+ *
+ * The FALLBACK, not the source of truth. The checkout response carries the key
+ * belonging to the account that actually created the payment, and that one wins:
+ * a client secret confirmed against a different account's key fails with a
+ * mismatched-intent error that reads as a client bug. This is what the payment
+ * step uses when the server sends none.
+ *
+ * Empty when unset, which the payment step treats as "cards are unavailable" and
+ * renders honestly rather than initialising a payment sheet that cannot work.
+ */
+export const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+
 const ENV = {
   dev: {
     apiUrl: DEV_API_BASE_URL,

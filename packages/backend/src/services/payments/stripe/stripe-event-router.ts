@@ -37,7 +37,13 @@
  */
 
 import type Stripe from 'stripe';
-import type { PaymentStatus, TransferStatus } from '@mercaria/shared-types';
+import type {
+  CurrencyCode,
+  FxRateSnapshot,
+  Money,
+  PaymentStatus,
+  TransferStatus,
+} from '@mercaria/shared-types';
 import { getDb } from '../../../db/postgres.js';
 import {
   findPaymentById,
@@ -54,7 +60,11 @@ import {
 import { PaymentProviderError } from '../provider.js';
 import { log } from '../../../lib/logger.js';
 import { redactAccountId, revokeAccount, syncAccountState } from './account.service.js';
-import { retrieveStripePaymentIntent, retrieveStripeTransfer } from './client.js';
+import {
+  retrieveStripeChargeWithBalance,
+  retrieveStripePaymentIntent,
+  retrieveStripeTransfer,
+} from './client.js';
 import { mapPaymentIntentStatus } from './verify.js';
 
 /** What a handler is given. Everything else it needs, it reads from Stripe. */
@@ -245,11 +255,16 @@ async function handlePaymentIntent(context: StripeEventContext): Promise<StripeE
   }
 
   const failure = intent.last_payment_error;
+  // A success is the ONE transition that has to carry money detail with it: what
+  // the charge became on the platform balance, and what Stripe kept. See
+  // `readSettlement`.
+  const settlement = next === 'succeeded' ? await readSettlement(intent) : undefined;
   const result = await applyPaymentStatus({
     paymentId: payment.id,
     next,
     providerObjectId: intentId,
     providerEventId: context.providerEventId,
+    ...(settlement ? { platform: settlement.platform, feeMinor: settlement.feeMinor } : {}),
     ...(failure?.code ? { errorCode: failure.code } : {}),
     ...(failure?.message ? { errorMessage: failure.message } : {}),
   });
@@ -260,6 +275,85 @@ async function handlePaymentIntent(context: StripeEventContext): Promise<StripeE
     ...(result.changed
       ? {}
       : { note: `a concurrent delivery reached '${next}' first; nothing was applied twice` }),
+  };
+}
+
+/**
+ * What the charge became on the PLATFORM balance, and what Stripe kept.
+ *
+ * ## Why this is read at the moment of success, and not later
+ *
+ * Both figures come from the charge's BALANCE TRANSACTION, which is the only
+ * place Stripe states a charge in the platform's own settlement currency (ADR
+ * 0001 D8, fact 5) and the fee it deducted (D5). Every consequence of a success
+ * needs them: the ledger books the charge in the currency the money landed in,
+ * and the seller transfers are sized from that same figure and must be
+ * denominated in that same currency.
+ *
+ * Reading them here means they are captured INSIDE the compare-and-swap that
+ * moves the payment to `succeeded`, so the rate that produced the platform
+ * amount is stored with it and the two can never come from different moments.
+ * The alternative — booking in presentment now and converting at settlement —
+ * would leave `merchant_payable` holding a debt in one currency that was paid in
+ * another, which no report could ever net to zero.
+ *
+ * ## An unavailable balance transaction is RETRYABLE, never assumed
+ *
+ * For a card charge Stripe creates it with the charge, so this is available
+ * essentially always; asynchronous methods are what leave it pending, and ADR
+ * 0001 D3 excludes those from the launch precisely because their money moves
+ * later than their events. Retrying is the only honest answer when it is
+ * missing: guessing a 1:1 conversion would book a USD figure as euros, and
+ * defaulting the fee to zero would understate `processor_expense` permanently —
+ * a wrong number in the accounts is worse than a late one.
+ */
+async function readSettlement(intent: Stripe.PaymentIntent): Promise<{
+  platform: { amount: Money; rate: FxRateSnapshot };
+  feeMinor: bigint;
+}> {
+  const latest: unknown = intent.latest_charge;
+  const chargeId =
+    typeof latest === 'string'
+      ? latest
+      : typeof latest === 'object' && latest !== null && 'id' in latest
+        ? String((latest as { id: unknown }).id)
+        : undefined;
+  if (chargeId === undefined || chargeId === '') {
+    throw unresolved(
+      `Stripe PaymentIntent ${intent.id} reports 'succeeded' but names no charge; the balance ` +
+        'transaction it settles through is not readable yet.',
+    );
+  }
+
+  const charge = await retrieveStripeChargeWithBalance(chargeId);
+  const balance: unknown = charge.balance_transaction;
+  if (typeof balance !== 'object' || balance === null) {
+    throw unresolved(
+      `Stripe charge ${chargeId} has no balance transaction yet; the platform amount and fee ` +
+        'cannot be captured, and a success must not be booked without them.',
+    );
+  }
+
+  const transaction = balance as Stripe.BalanceTransaction;
+  return {
+    platform: {
+      amount: {
+        amount: transaction.amount,
+        currency: transaction.currency.toUpperCase() as CurrencyCode,
+      },
+      rate: {
+        from: intent.currency.toUpperCase() as CurrencyCode,
+        to: transaction.currency.toUpperCase() as CurrencyCode,
+        // `null` when no conversion happened, which is the same-currency case
+        // and is exactly a rate of one. Stated rather than left absent because
+        // the snapshot's whole purpose is to be reproducible, and "there was no
+        // rate" and "the rate is unknown" must not look alike.
+        rate: transaction.exchange_rate ?? 1,
+        provider: 'stripe',
+        asOf: new Date(transaction.created * 1_000).toISOString(),
+      },
+    },
+    feeMinor: BigInt(transaction.fee),
   };
 }
 
@@ -315,13 +409,16 @@ async function handleUnreachableStatus(input: {
  * charge adds is the `balance_transaction`, and therefore Stripe's processing
  * FEE, which the ledger's `processor_expense` leg needs (ADR D5).
  *
- * That fee cannot be posted here. It becomes readable on `charge.updated`, which
- * arrives after the payment is already `succeeded`, so `applyPaymentStatus`'s
- * compare-and-swap — correctly — refuses to reopen the transaction it booked.
- * Posting a fee onto an existing ledger transaction is a CORRECTION, and #45 has
- * exactly one mechanism for that: a new balanced transaction reversing what was
- * wrong. Building it is #49's, together with the refund and dispute postings
- * that share the shape.
+ * That fee is already booked by the time this arrives. #47 reads the balance
+ * transaction during the `payment_intent.succeeded` transition, so the fee and
+ * the platform-currency amount are captured inside the same compare-and-swap
+ * that books the charge — see `readSettlement`.
+ *
+ * Which leaves this handler with nothing to post and one thing to do: correlate.
+ * A fee that CHANGES afterwards (Stripe restates one occasionally) would be a
+ * ledger CORRECTION, and #45 has exactly one mechanism for that — a new balanced
+ * transaction reversing what was wrong — which is #49's, with the refund and
+ * dispute postings that share the shape.
  */
 async function handleCharge(context: StripeEventContext): Promise<StripeEventOutcome> {
   const chargeId = context.objectIds.charge ?? 'unknown';
@@ -333,8 +430,8 @@ async function handleCharge(context: StripeEventContext): Promise<StripeEventOut
     ...(payment ? { paymentId: payment.id } : {}),
     note:
       `deferred: #49 — charge ${chargeId} correlated` +
-      `${payment ? '' : ' to no Mercaria payment'}; Stripe's processing fee is booked from the ` +
-      'balance transaction by the ledger corrections #49 lands.',
+      `${payment ? '' : ' to no Mercaria payment'}; its fee was already booked when the payment ` +
+      'succeeded, and restating one is a ledger correction #49 lands.',
   };
 }
 
@@ -381,11 +478,11 @@ function transferStatusFrom(transfer: Stripe.Transfer): TransferStatus {
 /**
  * A transfer event: refresh the row if Mercaria made one, defer otherwise.
  *
- * The one seam that does real work today, because #45 already ships the
- * `transfers` table and its `UNIQUE(payment_id, order_id)`. What is missing is
- * the CREATE path — #47 makes one transfer per seller order once a charge
- * succeeds — so until then every `transfer.*` event is about an object no row
- * names, and saying so is more useful than failing.
+ * Mercaria creates one transfer per seller order once a charge succeeds (#47),
+ * so a delivery normally finds its row and refreshes it. A transfer with NO row
+ * is still an ordinary case rather than an error: an operator's manual transfer
+ * in the Stripe dashboard, or an object from another environment, and recording
+ * that is more useful than failing.
  *
  * No `transfer_changed` domain event is emitted. That outbox type has no handler
  * in this version and throws by design, so emitting it would dead-letter every
@@ -403,7 +500,7 @@ async function handleTransfer(context: StripeEventContext): Promise<StripeEventO
   if (!row) {
     return {
       kind: 'deferred',
-      note: `deferred: #47 — Stripe transfer ${transferId} has no Mercaria transfer row; the create path lands there.`,
+      note: `Stripe transfer ${transferId} matches no Mercaria transfer row; it was not made by this system.`,
     };
   }
 

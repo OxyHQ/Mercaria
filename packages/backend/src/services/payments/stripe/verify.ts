@@ -5,10 +5,10 @@
  * fact, which is why it is the only place that touches untrusted bytes and why
  * it either returns a verified event or throws.
  *
- * `#47`'s `StripePaymentProvider` implements `PaymentProvider.verifyEvent` by
- * calling straight into here — the adapter owns `createPayment`/`capture`/
- * `refund`, but the verification and the envelope mapping are the SAME code the
- * webhook ingress runs, so a signature accepted by one is accepted by the other.
+ * `StripePaymentProvider.verifyEvent` (#47) calls straight into here rather than
+ * verifying anything of its own: the verification and the envelope mapping are
+ * the SAME code the webhook ingress runs, so a signature accepted by one is
+ * accepted by the other and there is no second implementation to drift.
  */
 
 import Stripe from 'stripe';

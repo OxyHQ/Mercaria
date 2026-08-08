@@ -138,11 +138,12 @@ mock | stripe`; Faircoin (#51) arrives as an adapter behind
 Full model, index, retention and boundary reference: **`docs/payments.md`**;
 the binding decisions are ADR 0001 (`docs/adr/0001-stripe-connect-architecture.md`).
 
-Stripe exists **from the webhook inwards** (#48) **plus its connected accounts**
-(#46): the event ingress with its verification, durable processing and replay,
-and seller onboarding with the readiness gate. The adapter that CREATES payments
-is still #47's — so a `stripe` payment row can only be written by the ingress
-today, which is why the id landed with it rather than in advance.
+Stripe is **whole from checkout to settlement**: seller onboarding and the
+readiness gate (#46), the event ingress with its verification, durable processing
+and replay (#48), and the adapter that creates the charge, cancels it and pays
+each seller (#47). What is still missing is money coming BACK — refunds, disputes
+and transfer reversals are #49's, and `StripePaymentProvider.refund` throws
+saying so rather than moving half of that pair.
 
 **The ledger is load-bearing from day one.** ADR 0001 D3 gives up Stripe's
 `application_fee_amount` reporting, so Mercaria's commission — the charge minus
@@ -263,6 +264,50 @@ and §"Runbook".
 - **The status projection names every field explicitly** and never carries the
   connected-account id, in any form. Account ids are redacted to their last four
   characters in logs.
+
+### Checkout on the card rail (#47)
+
+One PaymentIntent per checkout GROUP, one Transfer per seller order. Env adds
+`STRIPE_PLATFORM_CURRENCY`, `STRIPE_PRESENTMENT_CURRENCIES` and the optional
+public `STRIPE_PUBLISHABLE_KEY`. Full flow, the retry model, the withheld-transfer
+exception and the client split: `docs/payments.md` §"Checkout and the Stripe rail".
+
+- **`checkout.service` still imports no Stripe module.** The rail choice, the
+  currency gate and the client handoff live in
+  `services/payments/checkout-payment.service.ts`, beside the readiness gate and
+  for the same reason.
+- **The charge is booked in the currency the money LANDED in.** On success the
+  event handler reads the charge's balance transaction and passes the platform
+  amount, its captured rate and Stripe's fee into the status change, so the
+  ledger and the transfers are both denominated in `STRIPE_PLATFORM_CURRENCY`. A
+  payable credited in USD and paid in EUR would never net to zero. An unavailable
+  balance transaction is RETRYABLE, never guessed.
+- **`settlement-shares.ts` is the ONE definition of a seller's net**, read by the
+  ledger posting and by the transfer. Largest-remainder allocation, so the shares
+  sum to the gross EXACTLY — converting each order independently leaks the
+  rounding residue into `commission_revenue`, which ADR D3 defines as the
+  residual. No commission arithmetic lives there; #88 owns the schedule.
+- **The cart is emptied AFTER the payment is opened.** A failure then leaves the
+  orders, their reservations AND the cart lines, so re-submitting the same
+  `Idempotency-Key` converges. Emptying first would answer that retry with "Cart
+  is empty".
+- **A withheld transfer never blocks its siblings.** A seller who lost readiness
+  between funding and settlement keeps a `pending` transfer row, an open payable
+  and a `transfer_withheld` outbox row; the buyer's order stays `paid` and the
+  other sellers settle. A RETRYABLE rail failure is rethrown instead, so the
+  outbox retries the whole settlement.
+- **The reservation sweep cancels the PaymentIntent, stock first.** Its failure is
+  information: Stripe refusing to cancel a captured intent means the money beat
+  the sweep, Mercaria marks the payment `canceled` anyway, and the succeeded event
+  raises `payment_succeeded_after_release` rather than overselling.
+- **Payment retries never extend a reservation.** The clock is the ORDER's
+  creation time. A declined confirmation is retried on the SAME intent; a
+  cancelled one is not reusable and its orders are already gone.
+- **A client cannot forge paid state.** `POST /checkout` returns only
+  `{paymentId, provider, clientSecret, publishableKey?, amount}`; the client then
+  POLLS `GET /checkout/:groupId/payment-status`, which answers from the payment
+  aggregate. `checkoutSchema` is `.strict()`, so no card-shaped field can even
+  reach the server.
 
 ### Where it meets the rest of Mercaria
 

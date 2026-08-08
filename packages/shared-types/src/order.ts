@@ -9,8 +9,14 @@
  * change or listing edit can never mutate a placed order.
  */
 
-import type { DualMoney, FxRateSnapshot } from './money';
-import type { OrderPaymentStatus, PaymentProviderId } from './payment';
+import type { DualMoney, FxRateSnapshot, Money } from './money';
+import type {
+  CheckoutPaymentHandoff,
+  CheckoutPaymentMethod,
+  OrderPaymentStatus,
+  PaymentProviderId,
+  PaymentStatus,
+} from './payment';
 import type { Seller } from './seller';
 import type { MerchantSummary } from './product';
 import type { Timestamps } from './common';
@@ -307,6 +313,19 @@ export interface CheckoutInput {
    * the cart. Only honored for store-owned seller groups; ignored for P2P.
    */
   discountCodes?: string[];
+  /**
+   * Which rail to fund this checkout through.
+   *
+   * Absent means "whatever this deployment offers": the card rail when it is
+   * enabled, and no payment at all when it is not — which is exactly the
+   * behaviour every client had before a rail existed, so an old client keeps
+   * working unchanged.
+   *
+   * Naming a rail the deployment does not offer is REFUSED rather than silently
+   * downgraded. A buyer who asked to pay by card and got an unpayable order back
+   * with a 201 has been told the wrong thing.
+   */
+  paymentMethod?: CheckoutPaymentMethod;
 }
 
 /** Result of a successful checkout: the group id + a summary of each new order. */
@@ -315,4 +334,50 @@ export interface CheckoutResult {
   checkoutGroupId: string;
   /** A summary of each order created (one per seller). */
   orders: OrderSummary[];
+  /**
+   * What the buyer's client needs to pay, when a rail was engaged.
+   *
+   * Absent when no payment was opened — a deployment with no rail enabled, or a
+   * `mock` checkout whose dev seam funds the group from its own endpoint. A
+   * replay of the same `Idempotency-Key` returns the SAME handoff, because both
+   * the payment record and the rail's own object converge (ADR 0001 D11) rather
+   * than being created a second time.
+   */
+  payment?: CheckoutPaymentHandoff;
+}
+
+/**
+ * What a buyer may learn about their checkout group's payment while it is in
+ * flight.
+ *
+ * The read side of "a client cannot forge paid state" (#45 invariant 6): a
+ * client that has just finished a rail's payment sheet asks HERE what happened,
+ * rather than reporting what it thinks happened. So this endpoint is the reason
+ * the client's own result callback can stay purely cosmetic.
+ *
+ * Coarse on purpose. Order status and payment status are facts the buyer already
+ * sees on their own orders; provider objects, transfers and ledger entries are
+ * merchant and operator detail and are not projected here.
+ */
+export interface CheckoutPaymentStatus {
+  checkoutGroupId: string;
+  /**
+   * The payment's status, absent when no payment has been opened for the group
+   * — a checkout placed on a deployment with no rail enabled is the ordinary
+   * case, not an error.
+   */
+  status?: PaymentStatus;
+  provider?: PaymentProviderId;
+  /** What the buyer is being charged, once a payment exists. */
+  amount?: Money;
+  /** The group's orders and where each one stands. */
+  orders: CheckoutPaymentOrderState[];
+}
+
+/** One order's coarse state inside {@link CheckoutPaymentStatus}. */
+export interface CheckoutPaymentOrderState {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  paymentStatus: OrderPaymentStatus;
 }

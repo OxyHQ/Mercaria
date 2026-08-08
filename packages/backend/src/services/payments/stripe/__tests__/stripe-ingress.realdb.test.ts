@@ -51,6 +51,24 @@ const MAX_ATTEMPTS = 2;
 
 /** Grand total of one seeded order, in EUR minor units. */
 const ORDER_TOTAL = 4_500;
+/** What Stripe keeps on that charge — booked as `processor_expense` (ADR 0001 D5). */
+const STRIPE_FEE = 155;
+
+/**
+ * What ONE funded payment writes here, and why each number is what it is.
+ *
+ * `transactions: 1` — the charge, booked once however many deliveries arrive.
+ * `entries: 3` — provider clearing, processor expense (the fee above) and the
+ * seller's payable. There is no commission leg: the rate is zero until #88, so
+ * the residual `chargeSucceeded` computes is zero and a zero leg is omitted.
+ * `outbox: 2` — `payment_succeeded`, plus the `transfer_withheld` exception
+ * #47's settlement records because the sellers seeded HERE have no connected
+ * account. That is the correct outcome for this fixture and not a defect in it:
+ * production refuses such a seller at checkout (the readiness gate), these
+ * orders are inserted directly, and a funded order whose seller cannot be paid
+ * must leave a durable record rather than a silence.
+ */
+const FUNDED_COUNTS = { transactions: 1, entries: 3, outbox: 2 } as const;
 const SEEDED_AVAILABLE = 10;
 const RESERVED_QTY = 1;
 
@@ -61,7 +79,18 @@ const RESERVED_QTY = 1;
  */
 const stripeApi = vi.hoisted(() => ({
   /** PaymentIntent id → the object `retrieve` should answer with. */
-  intents: new Map<string, { id: string; status: string; metadata: Record<string, string> }>(),
+  intents: new Map<
+    string,
+    {
+      id: string;
+      status: string;
+      currency: string;
+      metadata: Record<string, string>;
+      latest_charge?: string;
+    }
+  >(),
+  /** Charge id → the object `retrieve` should answer with, balance transaction expanded. */
+  charges: new Map<string, Record<string, unknown>>(),
   /** Every retrieve this test provoked, so a re-read can be ASSERTED, not assumed. */
   retrieved: [] as string[],
   /** Connected-account id → the object `retrieve` should answer with. */
@@ -84,6 +113,24 @@ vi.mock('../client.js', () => ({
   },
   retrieveStripeTransfer: (id: string) => {
     throw new Error(`No fake Transfer registered for ${id}`);
+  },
+  retrieveStripeChargeWithBalance: (id: string) => {
+    const charge = stripeApi.charges.get(id);
+    if (!charge) throw new Error(`No fake charge registered for ${id}`);
+    return Promise.resolve(charge);
+  },
+  // Settlement (#47) reaches for this only once a seller is payment-ready, and
+  // no seeded seller here is — see `seedOrder`. A throw is therefore an
+  // assertion: if this ever fires, a transfer was attempted for an account that
+  // does not exist.
+  createStripeTransfer: () => {
+    throw new Error('The ingress suite settles nothing; no seller here is payment-ready.');
+  },
+  cancelStripePaymentIntent: () => {
+    throw new Error('The ingress suite cancels no PaymentIntent.');
+  },
+  createStripePaymentIntent: () => {
+    throw new Error('The ingress suite creates no PaymentIntent.');
   },
   retrieveStripeAccount: (id: string) => {
     stripeApi.retrievedAccounts.push(id);
@@ -170,6 +217,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   stripeApi.intents.clear();
+  stripeApi.charges.clear();
   stripeApi.retrieved.length = 0;
   stripeApi.retrievedAccounts.length = 0;
   // Nothing is deleted: every fixture below is minted under ids unique to the
@@ -291,9 +339,44 @@ async function seedPayment(input: { intentId: string; status?: 'created' | 'canc
   return { paymentId: payment.id, orderId, checkoutGroupId };
 }
 
-/** Register what the fake Stripe API answers for an intent. */
+/**
+ * Register what the fake Stripe API answers for an intent — and, for a success,
+ * the charge and BALANCE TRANSACTION behind it.
+ *
+ * #47 reads that balance transaction during the `succeeded` transition, because
+ * it is the only place Stripe states what the charge became in the platform's
+ * settlement currency and what it kept in fees (ADR 0001 D8/D5). Both are booked
+ * inside the same compare-and-swap that books the charge, so an intent without
+ * one cannot be applied at all — which is deliberate, and is why every success
+ * below gets one.
+ */
 function registerIntent(id: string, status: string, paymentId: string): void {
-  stripeApi.intents.set(id, { id, status, metadata: { paymentId } });
+  const chargeId = `ch_${id}`;
+  stripeApi.intents.set(id, {
+    id,
+    status,
+    currency: 'eur',
+    metadata: { paymentId },
+    ...(status === 'succeeded' ? { latest_charge: chargeId } : {}),
+  });
+  if (status !== 'succeeded') return;
+
+  stripeApi.charges.set(chargeId, {
+    id: chargeId,
+    object: 'charge',
+    payment_intent: id,
+    balance_transaction: {
+      id: `txn_${id}`,
+      object: 'balance_transaction',
+      // Same currency in and out: these fixtures are EUR on a EUR platform, so
+      // no conversion happens and the rate is one.
+      amount: ORDER_TOTAL,
+      currency: 'eur',
+      exchange_rate: null,
+      fee: STRIPE_FEE,
+      created: Math.floor(Date.now() / 1000),
+    },
+  });
 }
 
 /** Build one Stripe event body. */
@@ -320,6 +403,9 @@ function paymentIntentEvent(input: {
         amount: ORDER_TOTAL,
         currency: 'eur',
         metadata: { paymentId: input.paymentId },
+        // The inline path reads the DELIVERED object, so a success has to name
+        // its charge here as well as in the fake `retrieve` above.
+        ...(input.status === 'succeeded' ? { latest_charge: `ch_${input.intentId}` } : {}),
       },
     },
     pending_webhooks: 1,
@@ -411,7 +497,10 @@ describe('receipt', () => {
     // provider object ids — all of it read off the VERIFIED event.
     expect(rows[0]?.livemode).toBe(false);
     expect(rows[0]?.apiVersion).toBe('2026-07-29.dahlia');
-    expect(rows[0]?.objectIds).toEqual({ paymentIntent: intentId });
+    // Both ids, because a succeeded intent names its charge — and the charge is
+    // what #47 reads the balance transaction from, so losing it here would lose
+    // the correlation the settlement path depends on.
+    expect(rows[0]?.objectIds).toEqual({ paymentIntent: intentId, charge: `ch_${intentId}` });
     // Platform scope carries no connected account, which is what makes the
     // unique index's NULLS NOT DISTINCT load-bearing.
     expect(rows[0]?.providerAccountId).toBeNull();
@@ -421,7 +510,7 @@ describe('receipt', () => {
     const summary = rows[0]?.payloadSummary as { data?: { object?: Record<string, unknown> } };
     expect(summary.data?.object).toMatchObject({ id: intentId, status: 'succeeded' });
 
-    expect(await counts(paymentId)).toEqual({ transactions: 1, entries: 2, outbox: 1 });
+    expect(await counts(paymentId)).toEqual(FUNDED_COUNTS);
 
     const order = await findOrderById(orderId);
     expect(order?.status).toBe('paid');
@@ -477,7 +566,7 @@ describe('convergence', () => {
     // ONE row, because the unique index refused the second insert — and one of
     // everything downstream, because the duplicate never reached processing.
     expect(await storedEvents('evt_duplicate')).toHaveLength(1);
-    expect(await counts(paymentId)).toEqual({ transactions: 1, entries: 2, outbox: 1 });
+    expect(await counts(paymentId)).toEqual(FUNDED_COUNTS);
   });
 
   it('TWO DISTINCT success events for one intent still book once', async () => {
@@ -510,7 +599,7 @@ describe('convergence', () => {
     expect(await storedEvents('evt_double_a')).toHaveLength(1);
     expect(await storedEvents('evt_double_b')).toHaveLength(1);
     expect(await paymentStatus(paymentId)).toBe('succeeded');
-    expect(await counts(paymentId)).toEqual({ transactions: 1, entries: 2, outbox: 1 });
+    expect(await counts(paymentId)).toEqual(FUNDED_COUNTS);
   });
 
   it('processing THEN succeeded converges on succeeded', async () => {
@@ -541,7 +630,7 @@ describe('convergence', () => {
     );
 
     expect(await paymentStatus(paymentId)).toBe('succeeded');
-    expect(await counts(paymentId)).toEqual({ transactions: 1, entries: 2, outbox: 1 });
+    expect(await counts(paymentId)).toEqual(FUNDED_COUNTS);
     // Both deliveries were applicable as they arrived, so neither re-read.
     expect(stripeApi.retrieved).toEqual([]);
   });
@@ -575,7 +664,7 @@ describe('convergence', () => {
     );
 
     expect(await paymentStatus(paymentId)).toBe('succeeded');
-    expect(await counts(paymentId)).toEqual({ transactions: 1, entries: 2, outbox: 1 });
+    expect(await counts(paymentId)).toEqual(FUNDED_COUNTS);
 
     /**
      * The re-read is the mechanism, so it is asserted rather than inferred.
@@ -974,7 +1063,7 @@ describe('failure, dead-lettering and replay', () => {
     expect(replayed[0]?.attempts).toBeGreaterThan(MAX_ATTEMPTS);
 
     expect(await paymentStatus(payment.id)).toBe('succeeded');
-    expect(await counts(payment.id)).toEqual({ transactions: 1, entries: 2, outbox: 1 });
+    expect(await counts(payment.id)).toEqual(FUNDED_COUNTS);
     const order = await findOrderById(orderId);
     expect(order?.status).toBe('paid');
   });
@@ -1001,7 +1090,7 @@ describe('failure, dead-lettering and replay', () => {
      * incident causes a second one.
      */
     expect(await replayProviderEvent(row?.id ?? '')).toBe(false);
-    expect(await counts(paymentId)).toEqual({ transactions: 1, entries: 2, outbox: 1 });
+    expect(await counts(paymentId)).toEqual(FUNDED_COUNTS);
   });
 });
 
