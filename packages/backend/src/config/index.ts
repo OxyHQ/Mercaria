@@ -252,6 +252,46 @@ function resolveStripePresentmentCurrencies(): readonly CurrencyCode[] {
 }
 
 /**
+ * Split `PAYMENT_OPERATOR_OXY_USER_IDS` into the allow-list that IS the operator
+ * surface's authorization (#50).
+ *
+ * ## An allow-list, and why Mercaria must not invent a role for this
+ *
+ * Mercaria has exactly one authorization vocabulary — store permissions — and it
+ * is scoped to a STORE by construction (`requireStorePermission` reads
+ * `req.storeMembership`). The operator surface is the opposite scope: it reads
+ * across every store and every P2P seller, and issue #50 is explicit that seller
+ * operators must not reach it. There is no store permission that could express
+ * "may see all stores' money" without becoming a permission a store owner could
+ * grant themselves.
+ *
+ * Inventing a platform-wide role here would mean inventing a platform-wide role
+ * STORE, its grant surface, its audit and its recovery path — a second identity
+ * system beside Oxy's, in the one repository that must not have one. So the
+ * allow-list is deliberately the crudest thing that is correct: a list of Oxy
+ * user ids in configuration, changed by whoever can deploy, with no in-app way
+ * to grant it.
+ *
+ * **This is interim.** When Oxy grows a platform-level operator role, this
+ * function and `requirePaymentOperator` are the two places that change, and the
+ * variable goes away — it is a stand-in for a claim on a credential, not a
+ * design Mercaria intends to keep.
+ *
+ * ## Empty means the surface does not exist
+ *
+ * Not "nobody may use it" — the routes are not mounted at all, and every path
+ * under `/internal/payments` answers 404. That follows `STRIPE_ENABLED`'s rule
+ * rather than the outbox's: there is nothing to park here, and a 401 would tell
+ * an unauthenticated caller that an operator surface exists on this deployment.
+ */
+function resolvePaymentOperatorIds(): readonly string[] {
+  return strEnv('PAYMENT_OPERATOR_OXY_USER_IDS', '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id !== '');
+}
+
+/**
  * The currency the platform account settles in — ADR 0001 D8, `EUR`.
  *
  * Falls back to `EUR` when the configured value is not a currency Mercaria
@@ -443,6 +483,49 @@ export interface StripeConfig {
   readonly accountSyncIntervalMs: number;
 }
 
+/**
+ * The reconciliation sweeps (#50).
+ *
+ * Every value here bounds WORK rather than correctness: a sweep that runs less
+ * often, in smaller pages, over a shorter window still detects the same
+ * discrepancies, just later. That is why none of them joins a required set the
+ * way the webhook secrets do — a misconfigured reconciliation job is slow, and a
+ * missing webhook secret is silent.
+ */
+export interface ReconciliationConfig {
+  /**
+   * Whether the sweeps RUN. Like the outbox's flag and unlike `STRIPE_ENABLED`,
+   * this gates only the loop: the discrepancy rows a manual run writes are
+   * durable whatever it says, and switching it off during an incident stops the
+   * sweeps competing with whatever an operator is doing by hand.
+   */
+  readonly enabled: boolean;
+  /** How often a task tries to claim a sweep. Only one task wins per job. */
+  readonly intervalMs: number;
+  /** Rows (or provider objects) one page of a sweep handles. */
+  readonly batchSize: number;
+  /**
+   * How long a payment may sit in a non-terminal status before the sweep asks
+   * the rail about it.
+   *
+   * The buffer between "a buyer is still typing their card number" and "nobody
+   * is coming back". Shorter than `RESERVATION_TTL_MS` (15 minutes) on purpose:
+   * the sweep must be able to notice a missed success BEFORE the reservation
+   * sweep cancels the orders, because after that the same condition becomes the
+   * much worse `payment_succeeded_after_release`.
+   */
+  readonly openPaymentMinAgeMs: number;
+  /**
+   * How far back a full pass looks when it has never completed one.
+   *
+   * Only ever used to seed `window_start_at`; after the first completed pass the
+   * cursor row carries the real boundary and this is not read again. Seven days
+   * because that is comfortably past every provider's own redelivery schedule —
+   * a discrepancy older than that was never going to be found by a webhook.
+   */
+  readonly lookbackMs: number;
+}
+
 export interface PaymentsConfig {
   /**
    * Whether the payment outbox DISPATCHER runs. The durable record is never
@@ -468,6 +551,24 @@ export interface PaymentsConfig {
   readonly outboxLeaseMs: number;
   /** The Stripe rail (ADR 0001, issues #46–#50). */
   readonly stripe: StripeConfig;
+  /** Reconciliation and the operator surface (#50). */
+  readonly reconciliation: ReconciliationConfig;
+  /**
+   * The Oxy accounts that may reach `/internal/payments/*` — see
+   * `resolvePaymentOperatorIds`. An empty list means the surface is not mounted.
+   */
+  readonly operatorOxyUserIds: readonly string[];
+  /**
+   * Whether the operator surface exists on this deployment.
+   *
+   * DERIVED from the allow-list rather than configured beside it, for the reason
+   * `stripe.livemode` is derived from the key prefix: a separate flag could only
+   * ever disagree with the list, and the disagreement that matters is
+   * `enabled: true` with nobody on it — an operator surface reachable by no one,
+   * which reads as a permission bug for as long as it takes someone to find the
+   * empty variable.
+   */
+  readonly operatorSurfaceEnabled: boolean;
 }
 
 export interface PaginationConfig {
@@ -741,6 +842,15 @@ export const config: AppConfig = Object.freeze({
       accountSyncBatchSize: intEnv('STRIPE_ACCOUNT_SYNC_BATCH_SIZE', 25),
       accountSyncIntervalMs: intEnv('STRIPE_ACCOUNT_SYNC_INTERVAL_MS', 15 * 60 * 1_000),
     }),
+    reconciliation: Object.freeze({
+      enabled: boolEnv('PAYMENT_RECONCILIATION_ENABLED', true),
+      intervalMs: intEnv('PAYMENT_RECONCILIATION_INTERVAL_MS', 5 * MINUTE_MS),
+      batchSize: intEnv('PAYMENT_RECONCILIATION_BATCH_SIZE', 100),
+      openPaymentMinAgeMs: intEnv('PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS', 10 * MINUTE_MS),
+      lookbackMs: intEnv('PAYMENT_RECONCILIATION_LOOKBACK_MS', 7 * 24 * 60 * MINUTE_MS),
+    }),
+    operatorOxyUserIds: Object.freeze(resolvePaymentOperatorIds()),
+    operatorSurfaceEnabled: resolvePaymentOperatorIds().length > 0,
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

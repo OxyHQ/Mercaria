@@ -342,6 +342,28 @@ export async function findOrderById(
 }
 
 /**
+ * One order by the number printed on it, or `null`.
+ *
+ * `UNIQUE(orders.order_number)` makes this a single row rather than a search.
+ * The number is Mercaria-issued and appears on receipts, so it is the handle a
+ * support conversation actually starts from — which is why #50's operator trace
+ * accepts it, reaching it through `order-linkage.ts` like every other read the
+ * payment domain makes of this table.
+ */
+export async function findOrderByOrderNumber(
+  orderNumber: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<OrderRecord | null> {
+  const rows = await db
+    .select(PUBLIC_ORDER_COLUMNS)
+    .from(orders)
+    .where(eq(orders.orderNumber, orderNumber))
+    .limit(1);
+  const [record] = await withChildren(rows, db);
+  return record ?? null;
+}
+
+/**
  * One order matching an ownership filter, or `null` — the load every mutating
  * route makes, where the SCOPING IS the authorization.
  */

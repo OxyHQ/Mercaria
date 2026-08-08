@@ -141,9 +141,10 @@ the binding decisions are ADR 0001 (`docs/adr/0001-stripe-connect-architecture.m
 Stripe is **whole, in both directions**: seller onboarding and the readiness gate
 (#46), the event ingress with its verification, durable processing and replay
 (#48), the adapter that creates the charge, cancels it and pays each seller
-(#47), and the money coming BACK — refunds, transfer reversals, disputes and
-payout health (#49). Every event type ADR 0001 subscribes to is now APPLIED;
-nothing in the router is deferred.
+(#47), the money coming BACK — refunds, transfer reversals, disputes and payout
+health (#49) — and the reconciliation, observability and operator recovery that
+make all of it operable (#50). Every event type ADR 0001 subscribes to is now
+APPLIED; nothing in the router is deferred.
 
 **The ledger is load-bearing from day one.** ADR 0001 D3 gives up Stripe's
 `application_fee_amount` reporting, so Mercaria's commission — the charge minus
@@ -348,9 +349,58 @@ runbook: `docs/payments.md` §"Refunds, disputes and payouts".
   so a failed payout must not reopen it. `payouts.amount_currency` carries no
   currency CHECK — a seller settles in their account's own currency.
 
+### Reconciliation and the operator surface (#50)
+
+Webhooks are the normal event path and are NOT a substitute for reconciliation:
+an event that was never delivered is invisible to everything that waits to be
+told. Four leased, bounded, resumable sweeps
+(`services/payments/reconciliation/`) write `payment_discrepancies` rows; the
+operator surface at `/internal/payments/*` reads them and runs four named
+repairs. Full mechanics, the fourteen discrepancy kinds and the incident runbook:
+`docs/payments.md` §"Reconciliation, discrepancies and operator repair" and
+§"Operations (#50)".
+
+- **A sweep may CONVERGE and may never repair.** `open_payments` applies what the
+  rail currently says through `applyPaymentStatus` — the same function a webhook
+  uses, because a live retrieve IS verified provider evidence (acceptance 5) and
+  applying it APPENDS accounting rather than removing any. The reverse direction
+  (Mercaria paid, rail not) is recorded and left for a person: orders are already
+  paid and sellers may already be transferred.
+- **Nothing auto-deletes or rewrites financial history to hide a mismatch.**
+  Repairs are explicit operator actions, and the ONE that writes the ledger books
+  a NEW balanced `adjustment` through the same repository every other posting
+  uses.
+- **The repair set is CLOSED** — `retry_withheld_transfer`,
+  `retry_transfer_reversal`, `retry_provider_refund`, `book_reconciling_entry`.
+  Each drives an existing idempotent path, so this surface adds a TRIGGER and no
+  new way to move money. Nothing in `repairs.service.ts` calls
+  `applyPaymentStatus`.
+- **Idempotency lives where each action actually gets it.** The three retries
+  inherit their providers' keys (ADR 0001 D11), so recording a claim for them
+  would REFUSE the legitimate second attempt after a failure; only
+  `book_reconciling_entry` has no such key, and its claim is a partial unique
+  index taken in the same transaction as the posting.
+- **Every attempt is audited, refusals included** — `payment_repairs` is
+  append-only, one row per ATTEMPT, with a mandatory actor and reason.
+- **The operator gate is an ALLOW-LIST (`PAYMENT_OPERATOR_OXY_USER_IDS`) and is
+  INTERIM.** Store permissions are scoped to a store by construction, so none of
+  them can express "may see all stores' money" without becoming one an owner
+  could grant themselves — and Mercaria must not invent a second identity system
+  beside Oxy's. An empty list does not MOUNT the router (404, not 401). When Oxy
+  grows a platform operator role, `resolvePaymentOperatorIds` and
+  `requirePaymentOperator` are the two places that change.
+- **`ledgerImbalanceAttempts` must stay ZERO**, and it is process-local because
+  the write it counts rolls back. Metrics are a JSON endpoint plus structured
+  logs — no prometheus dependency; scraping and alerting wiring belongs to
+  `oxy-infra`.
+- **A trace opens from five handles and no others** (order number, order id,
+  checkout group, payment id, provider object id). No email, no phone, no card
+  fingerprint — the `.strict()` schema is what stops an HTTP caller getting
+  around `tracePayment`'s own signature.
+
 ### Where it meets the rest of Mercaria
 
-The domain is **Postgres-native** (10 tables), like everything else the API serves
+The domain is **Postgres-native** (13 tables), like everything else the API serves
 since the port — `DATABASE_URL` is REQUIRED to boot (`src/index.ts`).
 `services/payments/order-linkage.ts` stays the ONE seam onto orders: the payment
 domain reads them through a projection it owns rather than reaching into the order
@@ -688,3 +738,10 @@ pin.
   shared `oxy-postgres` RDS instance; `DATABASE_URL` is live via GitHub secret →
   SSM `/oxy/mercaria/DATABASE_URL` → the task definition, and the task will not
   boot without it — see "PostgreSQL" above).
+- Set `PAYMENT_OPERATOR_OXY_USER_IDS` to the Oxy accounts that may reach
+  `/internal/payments/*`. EMPTY is a working configuration and means the surface
+  is not mounted at all — but it also means nobody can trace a payment, replay an
+  event or run a repair, so it must be populated before the rail carries live
+  money. Alerting and scraping for the metrics this exposes belong to
+  `oxy-infra`; the full pre-launch list is `docs/payments.md`
+  §"Production-readiness checklist".

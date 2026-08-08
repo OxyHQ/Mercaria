@@ -54,6 +54,29 @@ interface WebhookHealth {
   lagSeconds: number;
 }
 
+/**
+ * Reconciliation health, COARSE — issue #50's metric 5, reduced to three values.
+ *
+ * `/health` is public and is read by uptime checks, so it gets the shape of the
+ * problem and none of its detail: how many findings are outstanding, how many of
+ * them are `critical`, and how long the oldest has been outstanding. The full
+ * per-kind breakdown, the correlation keys and the figures behind each finding
+ * are on `GET /internal/payments/metrics`, behind the operator gate.
+ *
+ * Three integers and an instant carry no personal data by construction, which is
+ * the same reason the webhook counts above are safe here — and `oldestOpenAt` is
+ * the field that turns a count into a decision, because a hundred findings from
+ * an hour ago and one from three weeks ago need opposite responses.
+ */
+interface ReconciliationHealth {
+  /** Everything not resolved. */
+  open: number;
+  /** Of those, the ones that are money being wrong NOW. */
+  critical: number;
+  /** When the oldest outstanding finding was FIRST seen. */
+  oldestOpenAt: string | null;
+}
+
 interface HealthSnapshot {
   status: 'healthy' | 'degraded';
   timestamp: string;
@@ -68,6 +91,7 @@ interface HealthSnapshot {
   /** Present only when a payment rail with an inbound event stream is configured. */
   payments?: {
     webhooks: WebhookHealth;
+    discrepancies?: ReconciliationHealth;
   };
 }
 
@@ -94,6 +118,28 @@ async function getWebhookHealth(): Promise<WebhookHealth | undefined> {
   }
 }
 
+/**
+ * Read the outstanding discrepancy counts, or nothing.
+ *
+ * Same contract as `getWebhookHealth` above, for the same reason: these are
+ * diagnostics ABOUT a payment rail, not a statement about whether this task can
+ * serve requests, so a Postgres hiccup while reading them must not pull a
+ * healthy instance out of the load balancer. The 10-second snapshot cache is
+ * also what bounds how often the aggregate runs.
+ */
+async function getReconciliationHealth(): Promise<ReconciliationHealth | undefined> {
+  if (!config.payments.stripe.enabled) return undefined;
+  try {
+    const { discrepancyStats } = await import('../db/payments/discrepancyRepository.js');
+    const { getDb } = await import('../db/postgres.js');
+    const stats = await discrepancyStats(getDb());
+    return { open: stats.open, critical: stats.critical, oldestOpenAt: stats.oldestOpenAt };
+  } catch (error: unknown) {
+    log.general.warn({ err: error }, 'Discrepancy stats unavailable for the health probe');
+    return undefined;
+  }
+}
+
 async function getHealthSnapshot(): Promise<HealthSnapshot> {
   if (healthCache && healthCache.expiry > Date.now()) {
     return healthCache.data;
@@ -105,7 +151,10 @@ async function getHealthSnapshot(): Promise<HealthSnapshot> {
 
   const mem = process.memoryUsage();
   const redis = getRedisClient();
-  const webhooks = await getWebhookHealth();
+  const [webhooks, discrepancies] = await Promise.all([
+    getWebhookHealth(),
+    getReconciliationHealth(),
+  ]);
 
   const snapshot: HealthSnapshot = {
     status: postgresConnected ? 'healthy' : 'degraded',
@@ -118,7 +167,9 @@ async function getHealthSnapshot(): Promise<HealthSnapshot> {
       heapUsed: Math.round(mem.heapUsed / 1024 / 1024), // MB
       heapTotal: Math.round(mem.heapTotal / 1024 / 1024), // MB
     },
-    ...(webhooks ? { payments: { webhooks } } : {}),
+    ...(webhooks
+      ? { payments: { webhooks, ...(discrepancies ? { discrepancies } : {}) } }
+      : {}),
   };
 
   healthCache = { data: snapshot, expiry: Date.now() + HEALTH_CACHE_TTL_MS };

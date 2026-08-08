@@ -12,10 +12,11 @@ wrong.
 
 Faircoin (#51) does not exist yet. Stripe is complete end to end: #48 built the
 event ingress, #46 the connected accounts and the readiness gate, #47 the
-checkout and the per-seller settlement, and #49 the money coming back — refunds,
-transfer reversals, disputes and payout health. Nothing here is a placeholder:
-the domain is complete on its own terms and each rail arrives as an adapter
-behind one interface.
+checkout and the per-seller settlement, #49 the money coming back — refunds,
+transfer reversals, disputes and payout health — and #50 the reconciliation,
+observability and operator recovery that make the rest operable. Nothing here is
+a placeholder: the domain is complete on its own terms and each rail arrives as
+an adapter behind one interface.
 
 ---
 
@@ -36,7 +37,7 @@ single real charge could be created.
 
 ## Models
 
-Ten tables, all Postgres-native — none has a Mongoose ancestor.
+Thirteen tables, all Postgres-native — none has a Mongoose ancestor.
 
 | Table | What it is |
 |---|---|
@@ -50,6 +51,9 @@ Ten tables, all Postgres-native — none has a Mongoose ancestor.
 | `payment_outboxes` | The durable promise that a payment's consequences will happen. |
 | `ledger_transactions` | One balanced set of entries, and what caused it. |
 | `ledger_entries` | One signed movement against one account in one currency. |
+| `payment_discrepancies` | One disagreement reconciliation has noticed between Mercaria and the rail, or within the ledger (#50). |
+| `payment_repairs` | Every operator action against the payment domain, applied or refused. Append-only (#50). |
+| `reconciliation_cursors` | Where each sweep had got to, and which task is running it (#50). |
 
 They replace the four `orders.payment_*` fields, which had to be a state machine,
 an audit trail, an idempotency key and a provider reference at once, and the four
@@ -226,9 +230,15 @@ services/payments/checkout-payment.service.ts   payment.service.ts
   five places. The payment and the order transition still do not commit together —
   the transition runs from the outbox handler, a separate transaction — so the
   outbox remains the reconciliation path.
-- **`tracePayment`** is service-level. The operator HTTP surface that exposes it,
-  with its own authorization, is #50's — everything it returns is merchant and
-  operator financial detail.
+- **`tracePayment`** is service-level and #50 exposes it over HTTP at
+  `GET /internal/payments/trace`, behind the operator allow-list — everything it
+  returns is merchant and operator financial detail.
+- **`services/payments/reconciliation/`** is the only module that WRITES a
+  discrepancy or runs a repair, and it reaches the domain through the same public
+  functions everything else does: `applyPaymentStatus` for a convergence,
+  `settlePaymentTransfers` for a withheld transfer, `executeRefundAtProvider` for
+  a refund, `insertLedgerTransaction` for a correction. It adds no second write
+  path, which is what makes an operator surface safe to expose at all.
 
 ### Payment state and order state may differ, briefly
 
@@ -331,9 +341,10 @@ stay replayable across a dispute window.
 
 `replayProviderEvent(eventId)` reopens a `failed` or `dead_letter` row and runs it
 again. It resets only WHEN the row may be claimed — never `attempts`, never the
-envelope — so the trace still shows how often it had been tried. The operator
-HTTP surface that calls it is #50's; `stripeWebhookStats()` is on
-`GET /health` under `payments.webhooks`.
+envelope — so the trace still shows how often it had been tried. #50 exposes it
+at `POST /internal/payments/events/:id/replay`; `stripeWebhookStats()` is on
+`GET /health` under `payments.webhooks` and again, unreduced, on
+`GET /internal/payments/metrics`.
 
 ### Convergence needs no new mechanism, and one new rule
 
@@ -351,7 +362,9 @@ released. Nothing is committed, booked or fulfilled (re-committing stock would
 oversell it; booking with no orders left would credit `commission_revenue` with
 the whole gross), and the condition becomes one deterministic
 `payment_succeeded_after_release` outbox row whose handler logs at `error` and
-changes nothing. #50 picks it up.
+changes nothing. It surfaces on `GET /internal/payments/exceptions` and there is
+deliberately NO repair action for it — see the Operations runbook §14, where both
+answers are commerce decisions with a customer on the other end of them.
 
 ### Seams are visible in the trace, never fake handling
 
@@ -473,7 +486,7 @@ freshest observation wins whichever write lands first, so no caller needs to kno
 another exists. Revocation deliberately bypasses that guard — it is not an
 observation a later read supersedes.
 
-### The reconciliation sweep
+### The account sweep
 
 `startStripeAccountReconciler` re-reads accounts whose `last_synced_at` is older
 than `STRIPE_ACCOUNT_SYNC_STALE_AFTER_MS` (6 hours), oldest first, never-synced
@@ -484,10 +497,15 @@ notice.
 
 It needs no lease, unlike the outbox dispatcher: an outbox row is WORK and doing
 it twice does the thing twice, while a sync is an OBSERVATION and the
-compare-and-swap keeps the freshest one whichever task wrote it. The full
-reconciliation framework — drift reports, dead-letter replay, ledger-versus-Stripe
-comparison — is #50's, and building a fraction of it here would leave two
-half-frameworks to merge.
+compare-and-swap keeps the freshest one whichever task wrote it.
+
+The full reconciliation framework — drift reports, dead-letter replay,
+ledger-versus-Stripe comparison — is #50's, and it REUSES this loop rather than
+replacing it: `reconcileStaleAccounts` now reports which accounts failed and
+which DRIFTED, and #50's `account_readiness` job turns both into discrepancy
+rows. Building a fraction of that here would have left two half-frameworks to
+merge; duplicating the sweep there would have been two loops racing to re-read
+the same accounts.
 
 ### The checkout gate
 
@@ -586,9 +604,10 @@ Account creation, every state transition and every revocation write a
 at-least-once delivery every other payment consequence gets, rather than a second
 audit table with a second retention policy. The payload is ids and the two states
 it moved between; the handler logs at a level that reflects the transition
-(losing readiness is a `warn`, because it stops that seller selling). #50 owns
-the operator surface that reads these, #108 the seller notification; both attach
-here rather than to the Stripe webhook, so neither ever receives provider detail.
+(losing readiness is a `warn`, because it stops that seller selling). #50's
+operator surface reads these and #108 will carry the seller notification; both
+attach here rather than to the Stripe webhook, so neither ever receives provider
+detail.
 
 ---
 
@@ -1096,8 +1115,9 @@ column added later cannot ride along.
 Absent by design: `providerRefundId`, `providerReversalId`, `reversalState` and
 the reversal amount. A merchant needs to know whether their buyer has been paid;
 whether Mercaria has finished clawing the seller's share back off a connected
-account is an operator's reconciliation question and belongs to the payment trace
-(#50). `providerFailureCode` is shape-checked (`^[a-z][a-z0-9_]*$`) and dropped
+account is an operator's reconciliation question, and it is answered on
+`GET /internal/payments/trace` — which is where #49 said it belonged.
+`providerFailureCode` is shape-checked (`^[a-z][a-z0-9_]*$`) and dropped
 otherwise, so a provider message quoting a cardholder's bank or partial card
 number cannot reach a merchant surface by being appended to that field later.
 
@@ -1114,9 +1134,269 @@ portal (#108/#110) is where a buyer-visible refund state belongs.
   tested from a `charge.refund.updated` carrying `failed`, but no real card has
   ever bounced one here.
 - **A dispute on a multi-seller charge being attributed by an operator.** The
-  unattributed state is tested; the operator action that resolves it is #50's.
+  unattributed state is tested, and #50 did NOT add an attribution repair: the
+  closed repair set is four actions that each drive an existing idempotent path,
+  and "decide which seller shipped the disputed goods" is a judgement with no
+  such path behind it. It stays the manual procedure in §6 — attribute
+  deliberately, then recover with `retry_transfer_reversal` and a
+  `book_reconciling_entry` for whatever is left.
 - **`debit_negative_balances` recovering a failed reversal**, which needs a live
   account.
+
+---
+
+## Reconciliation, discrepancies and operator repair (#50)
+
+Webhooks are the normal event path. They are **not** a substitute for
+reconciliation, and the reason is structural rather than a matter of reliability:
+an event that was never delivered is invisible to everything that waits to be
+told. Nothing in Mercaria knows about a `payment_intent.succeeded` it never
+received, so the only mechanism that can notice one is a sweep that does not
+depend on having been told — ADR 0001's sequence 6, generalised from accounts to
+the whole payment domain.
+
+### Three tables, and why none of them is financial history
+
+| Table | What it is |
+|---|---|
+| `payment_discrepancies` | One disagreement Mercaria has noticed about itself. Deduped on `(kind, correlation_key)`. |
+| `payment_repairs` | Every operator action, applied or refused. Append-only, one row per ATTEMPT. |
+| `reconciliation_cursors` | Where each sweep had got to, and who is running it. One row per job. |
+
+`ledger_transactions` and `ledger_entries` are append-only behind a trigger,
+because a book somebody can edit is a book nobody can rely on. These three are a
+different kind of thing and take ordinary UPDATEs: a cursor MOVES, and a
+discrepancy that is still being seen on every sweep has to say so without opening
+a new row per run.
+
+The boundary is exact: **nothing in these tables is ever an input to an amount.**
+A discrepancy describes a disagreement between two records that already exist,
+and repairing one writes to `ledger_transactions` through the same repository
+every other posting uses. Deleting every row in all three would lose Mercaria's
+knowledge of its own mistakes and not a cent of its accounts.
+
+None of them is registered in `db/expiryTargets.ts` and none carries an
+`expires_at`, deliberately — sweeping an audit trail on a timer is the one thing
+that registry must not be used for.
+
+### The four jobs
+
+Each is bounded to one page per tick, resumable from its cursor and idempotent on
+a replayed page. Those last two are the same property from two sides: the cursor
+advances only after a page is FULLY handled, so an interrupted run replays that
+page — and every finding it re-derives lands on the `(kind, correlation_key)`
+upsert, which bumps `occurrences` and creates nothing.
+
+| Job | Question | Cursor |
+|---|---|---|
+| `open_payments` | What does the rail say about payments whose outcome Mercaria never recorded? | the last payment id read (uuid v7, so id order IS time order) |
+| `provider_objects` | Does Mercaria have a row for every movement on the platform balance? | Stripe's own `starting_after` |
+| `ledger_audit` | Is the book complete, balanced, and explained? | the last payment id checked |
+| `account_readiness` | Which connected accounts has nobody re-read lately? | none — #46's `last_synced_at` IS the cursor |
+
+`account_readiness` REUSES `reconcileStaleAccounts` rather than sweeping accounts
+a second time. What #50 changed there was the return: it now reports which
+accounts FAILED and which DRIFTED, so both can become discrepancy rows. A second
+loop would have been two sweeps racing to re-read the same accounts, each halving
+the other's usefulness.
+
+Runs are LEASED per job (`for update skip locked` on the cursor row), which is
+stricter than the account sweep next door and deliberately so. A connected-account
+sync is an OBSERVATION and the freshest one wins whichever task wrote it; these
+sweeps page through a provider list with a SHARED cursor, and two tasks advancing
+one cursor would each skip the pages the other consumed — a gap that produces no
+error and is invisible until the discrepancy nobody detected turns up in a
+month-end.
+
+### The one thing a sweep may do on its own
+
+`open_payments` CONVERGES a payment onto what the rail currently says, through
+`applyPaymentStatus` — the same function a webhook uses, so the compare-and-swap,
+the ledger postings, the outbox row and the settlement that follows are the
+webhook path exactly.
+
+That is not a violation of "never auto-repair". A live `paymentIntents.retrieve`
+IS verified provider evidence — the same fact a webhook would have carried, read
+from the same account with the same key, minus the delivery — and applying it
+APPENDS the accounting that should already exist rather than removing any. Issue
+#50's jobs 8 forbids auto-deleting or rewriting history to HIDE a mismatch, which
+is the opposite operation.
+
+**The reverse direction is never automatic.** Mercaria saying paid while the rail
+says otherwise means orders have been marked paid, inventory committed and
+sellers possibly transferred; un-paying that would be a second wrong on top of the
+first. It becomes `payment_local_paid_provider_unpaid`, `critical`, and waits for
+a person.
+
+### The fourteen discrepancy kinds
+
+Each names a distinct operator ACTION — the same test `PaymentOutboxEventType`'s
+exceptions are chosen by. Severity is a property of the KIND, decided once in
+`discrepancy.service.ts`, so a detector cannot get it wrong because it is never
+asked.
+
+| Kind | Severity | Condition |
+|---|---|---|
+| `payment_provider_paid_local_unpaid` | critical | the rail is ahead; converged, and the row records the lost webhook |
+| `payment_local_paid_provider_unpaid` | critical | Mercaria is ahead; NOTHING automatic |
+| `payment_missing_locally` | critical | a charge on the platform balance with no Mercaria payment |
+| `payment_amount_mismatch` | critical | the rail's amount is not the one Mercaria recorded |
+| `transfer_missing_locally` | warning | a Stripe transfer with no `transfers` row |
+| `transfer_amount_mismatch` | critical | a transfer's amount disagrees with the local row |
+| `refund_missing_locally` | warning | a Stripe refund with no Mercaria refund record |
+| `refund_amount_mismatch` | critical | what the refund took off the balance is not what the ledger booked |
+| `payout_missing_locally` | info | a payout with no `payouts` row |
+| `ledger_transaction_missing` | critical | a succeeded payment with no `charge_succeeded` |
+| `ledger_unbalanced` | critical | a currency's entries do not sum to zero globally |
+| `merchant_payable_unexplained` | warning | an open payable with no exception accounting for it |
+| `account_state_drift` | warning | a re-read MOVED the stored state — a lost `account.updated` |
+| `account_sync_failed` | warning | the rail would not return a connected account |
+
+`payout_missing_locally` is `info` and that is not an arbitrary ranking: ADR 0001
+D6 makes a payout something Mercaria is not a party to and books nothing for, so
+a missing row costs a dashboard line and no money at all.
+
+**`refund_missing_locally` and #49's `refund_unmatched` are both kept**, and they
+are not duplicates: the event-driven one can only ever fire for a refund whose
+event was delivered, while the sweep finds a refund nothing told Mercaria about
+at all.
+
+### The amount comparison is against the BALANCE TRANSACTION, not the object
+
+The `provider_objects` sweep pages one list — `balanceTransactions.list` with
+`expand: ['data.source']` — rather than four object lists. Two reasons, and the
+second is the load-bearing one:
+
+- four lists would be four cursors, four windows and four ways to be half done;
+- the balance transaction is the only place Stripe states a movement in the
+  PLATFORM's settlement currency (ADR 0001 D8, fact 5), which is the currency
+  Mercaria's transfers and refund ledger legs are denominated in. Comparing
+  against a charge object's presentment `amount` would compare two different
+  quantities and report a discrepancy on every cross-currency charge.
+
+Stripe SIGNS a balance transaction by direction (a refund and a transfer are
+negative because they leave the platform balance); Mercaria stores magnitudes, so
+the comparison is against the absolute value and the direction is carried by the
+type.
+
+`transfer_reversal` movements are deliberately NOT checked. A reversal has no
+Mercaria row of its own — it is a column on the refund or dispute that caused it
+plus a `reversed_amount` on the transfer — and the quantity that matters is
+already covered by the transfer's own comparison.
+
+### Operator surface
+
+`/internal/payments/*`, mounted OUTSIDE `/admin`.
+
+| Route | What it does |
+|---|---|
+| `GET /trace?orderNumber=\|orderId=\|checkoutGroupId=\|paymentId=\|providerObjectId=` | the whole record: payment, attempts, events, transfers, payouts, refunds, disputes, ledger, discrepancies, repairs |
+| `GET /exceptions` | open discrepancies + the five outbox exception types, filterable |
+| `GET /metrics` | the fuller counts `/health` only summarises |
+| `POST /events/:id/replay` | #48's `replayProviderEvent` |
+| `POST /refetch` | re-read one payment from the rail — the sweep's single-item path |
+| `POST /repairs` | one of the four named repairs |
+| `POST /discrepancies/:id/resolve` | close an investigation with an actor and a reason |
+
+**Authorization is an ALLOW-LIST, `PAYMENT_OPERATOR_OXY_USER_IDS`, and this is
+interim.** Mercaria has exactly one authorization vocabulary — store permissions
+— and it is scoped to a STORE by construction: `requireStorePermission` reads
+`req.storeMembership`, which `loadStore` put there after checking membership of
+THAT store. This surface reads across every store and every P2P seller, so there
+is no store whose membership could authorize it, and no store permission could
+express "may see all stores' money" without becoming one a store owner could
+grant themselves.
+
+Inventing a platform-wide role would mean inventing its grant surface, its audit
+and its recovery path — a second identity system beside Oxy's, in the repository
+that must not have one. **When Oxy grows a platform-level operator role,
+`resolvePaymentOperatorIds` and `requirePaymentOperator` are the two places that
+change and the variable goes away.** It is a stand-in for a claim on a
+credential, not a design to keep.
+
+An EMPTY allow-list does not mount the router at all, so every path answers 404 —
+`STRIPE_ENABLED`'s rule rather than the outbox's, because a 401 would tell an
+unauthenticated caller that an operator surface exists on this deployment. A
+real, authenticated Oxy user who is not on the list gets 403 and a `warn` line
+naming them.
+
+**A trace can be opened from five handles and no others.** There is no `email`,
+no phone, no card fingerprint and no Stripe Customer — none of them can
+authenticate a Mercaria buyer or claim a Mercaria order (#45 buyer boundaries,
+#48 identity boundaries), and a resolver able to reach them is the surface where
+they would eventually be used. `tracePayment`'s own signature has that property;
+the `.strict()` query schema is what stops an HTTP caller getting around it.
+
+### The four repairs, and the rule none of them may break
+
+A CLOSED set. Every action is a named path through code that already exists and
+is already idempotent, so this surface adds a TRIGGER and no new way to move
+money. An endpoint taking a table, a row and a patch would be a second,
+unreviewed write path into the financial record.
+
+| Action | What it does | Where its idempotency comes from |
+|---|---|---|
+| `retry_withheld_transfer` | re-reads the account FROM THE RAIL, then runs the real settlement | `UNIQUE(payment_id, order_id)` + `tr:<paymentId>:<orderId>` |
+| `retry_transfer_reversal` | re-attempts the seller-side recovery of a refund or a lost dispute | `trr:<refundId>:<orderId>` / `trr:dispute:<disputeId>:<orderId>` |
+| `retry_provider_refund` | re-opens a rail-refused refund and re-issues it | `re:<refundId>` |
+| `book_reconciling_entry` | books a balanced `adjustment`, with a mandatory reason and discrepancy | a PARTIAL UNIQUE INDEX on `payment_repairs` |
+
+**Acceptance 5 — no repair may mark a payment successful without verified
+provider evidence — is structural.** Nothing in `repairs.service.ts` calls
+`applyPaymentStatus`. The three retries reach a payment's status only through a
+service that calls it after a live provider RESPONSE, and the fourth never
+touches a status at all. Two of them additionally refuse outright unless the
+payment is already settled: a seller cannot be settled out of a charge the
+platform has not received.
+
+**Only `book_reconciling_entry` records a claim, and only it needs one.** The
+three retries derive their provider keys from Mercaria's durable ids (ADR 0001
+D11), so a second attempt converges on the movement the first made — recording a
+claim for them would REFUSE the legitimate second attempt after a failure, which
+is exactly the case an operator reaches for a repair in. A correcting ledger
+transaction has no such key, so its claim lives in the index and is taken in the
+same transaction as the posting it guards.
+
+**Every attempt is recorded, including refusals** (#50, repair invariant 9).
+Declining to act on somebody's money is an action, so a 409 an operator sees
+always has a `payment_repairs` row behind it with the actor and the reason.
+
+The reason is MANDATORY and its minimum length is real: an operator typing `x` to
+satisfy a validator produces an audit trail recording that they typed `x`.
+
+### Metrics
+
+`GET /internal/payments/metrics`, operator-gated, plus a coarse summary on
+`/health` under `payments.discrepancies` (open, critical, oldest — three integers
+and an instant, which carry no personal data by construction).
+
+No metrics infrastructure, deliberately: no prometheus client, no exporter, no
+registry. Mercaria's ECS tasks sit behind an ALB with no scrape path; every number
+is an aggregate over a table already indexed for it, so a counter library would
+be a second in-memory copy of facts the database holds authoritatively, and the
+two would disagree after every restart with the in-memory one being wrong.
+**Scraping and alerting wiring belongs to `oxy-infra`**, not here.
+
+The one number that cannot come from a table is **`ledgerImbalanceAttempts`, and
+it must stay ZERO.** It counts refusals by `insertLedgerTransaction`, which is a
+write that ROLLS BACK — so a row recording it would be lost exactly when it
+fired. It is process-local and per task, and that is stated rather than hidden: a
+non-zero value is unambiguous anyway, because the condition is impossible in
+normal operation, so one is as alarming as a thousand.
+
+### What has NOT been rehearsed
+
+- **Anything against live Stripe.** Every test uses a fake client.
+- **A `balanceTransactions.list` page against real Stripe pagination.** The fake
+  reproduces `starting_after` semantics exactly, which is what makes the
+  resumability test meaningful, but no real page has ever been walked.
+- **The money-moving arms of `retry_transfer_reversal` and
+  `retry_provider_refund`.** Their GUARDS are tested (each refuses the wrong
+  state and records the refusal); the movements themselves run through #49's
+  executor, which has its own real-database suite, and re-driving that fixture
+  here would have been a second copy of it rather than a second check.
+- **A discrepancy queue at production volume.** The dedupe index bounds it by
+  construction, but nobody has watched it under a real incident.
 
 ---
 
@@ -1241,7 +1521,44 @@ STRIPE_ONBOARDING_STATE_SECRET=        # HMAC key for the signed round-trip stat
 STRIPE_ACCOUNT_SYNC_STALE_AFTER_MS=21600000   # 6 hours
 STRIPE_ACCOUNT_SYNC_BATCH_SIZE=25
 STRIPE_ACCOUNT_SYNC_INTERVAL_MS=900000        # 15 minutes
+
+PAYMENT_RECONCILIATION_ENABLED=true           # gates the LOOP, never the findings (#50)
+PAYMENT_RECONCILIATION_INTERVAL_MS=300000     # 5 minutes
+PAYMENT_RECONCILIATION_BATCH_SIZE=100
+PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS=600000   # 10 minutes
+PAYMENT_RECONCILIATION_LOOKBACK_MS=604800000            # 7 days, first pass only
+
+PAYMENT_OPERATOR_OXY_USER_IDS=                # comma-separated; EMPTY = no surface
 ```
+
+`PAYMENT_RECONCILIATION_*` values bound WORK rather than correctness, which is
+why none of them joins a required set the way the webhook secrets do: a sweep
+that runs less often, in smaller pages, over a shorter window still detects the
+same discrepancies, just later. A misconfigured reconciliation job is slow; a
+missing webhook secret is silent.
+
+`PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS` is the one with a real
+constraint on it, and it is a relationship rather than a value: it must stay
+comfortably BELOW `RESERVATION_TTL_MS` (15 minutes). The sweep has to be able to
+notice a missed success before the reservation sweep cancels the orders, because
+after that the same condition becomes the much worse
+`payment_succeeded_after_release`, which no repair can fix.
+
+`PAYMENT_RECONCILIATION_LOOKBACK_MS` seeds `window_start_at` on a job that has
+never completed a pass, and is not read again afterwards — the cursor row carries
+the real boundary. Seven days is past every provider's own redelivery schedule, so
+a discrepancy older than that was never going to be found by a webhook anyway. It
+IS read again after a database restore, which is why §17 says to widen it.
+
+`PAYMENT_OPERATOR_OXY_USER_IDS` is the operator surface's whole authorization,
+and an EMPTY value does not mount the router at all — 404 rather than 401, so an
+unauthenticated caller cannot learn that an operator surface exists on this
+deployment. `operatorSurfaceEnabled` is DERIVED from the list being non-empty
+rather than configured beside it, for the reason `stripe.livemode` is derived
+from the key prefix: a separate flag could only ever disagree, and the
+disagreement that matters is `enabled: true` with nobody on the list — a surface
+reachable by no one, which reads as a permission bug for as long as it takes
+someone to find the empty variable.
 
 `STRIPE_ENABLED=true` requires the key AND BOTH webhook secrets; half-configured
 logs once at boot and stays OFF, the `CROWDSOURCE_ENABLED` rule. There is no
@@ -1521,7 +1838,307 @@ variable, deploy, then remove the previous after Stripe has stopped retrying
 anything signed with it. Both are accepted during the window, so no delivery is
 lost.
 
-### 9. What has NOT been rehearsed
+---
+
+## Operations (#50)
+
+Everything above this line is a rail-by-rail runbook. This section is the
+INCIDENT one: what to do when the rail and Mercaria disagree, who is allowed to
+do it, and what to check before any of it is pointed at live money.
+
+Every action here needs the operator surface, which needs
+`PAYMENT_OPERATOR_OXY_USER_IDS` to name you. Nothing below can be done from the
+merchant dashboard, by design.
+
+### 9. Environment separation: test and live are the SAME code and different keys
+
+There is no `STRIPE_MODE` and there must not be one. `livemode` is DERIVED from
+the secret key's prefix (`config.payments.stripe.livemode`), because it is not an
+independent fact — an `sk_test_` key can only ever see test objects, so a
+variable able to disagree with it could only ever be wrong.
+
+What that means operationally:
+
+- **A production deployment receives test events too**, and drops them with a
+  200 and `livemode_mismatch`. That is correct and is not a failure to
+  investigate; the `payment_provider_events` table records nothing for them.
+- **Test and live must be different DEPLOYMENTS**, not one deployment with a
+  switch, because the database is what tells the two apart and nothing merges
+  them. A `pi_…` from test mode does not exist in live mode, so a payment row
+  copied between environments becomes a permanent
+  `payment_missing_locally` on one side and an unreadable trace on the other.
+- **`STRIPE_ONBOARDING_BASE_URL` must be the API origin of the environment it is
+  in.** Pointing a test deployment's onboarding at the live API sends a seller
+  through a hosted flow whose `state` the receiving side cannot verify — a 400
+  and a seller who cannot onboard, with nothing in either environment's logs
+  saying why.
+
+### 10. Rotating secrets
+
+**Webhook signing secrets** — the procedure is §8 above and it is unchanged: set
+the new secret in Stripe, put the OLD one in `STRIPE_WEBHOOK_SECRET_PREVIOUS` (or
+`STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS`) and the new one in the primary
+variable, deploy, then remove the previous once Stripe has stopped retrying
+anything signed with it. Both are accepted during the window, so no delivery is
+lost.
+
+**The API secret key** (`STRIPE_SECRET_KEY`) has no rotation window and needs
+none: it authenticates Mercaria TO Stripe rather than Stripe to Mercaria, so
+there is no in-flight delivery to be signed with the old one. Create the new
+restricted key, deploy, then revoke the old one in the Stripe dashboard. Watch
+`GET /internal/payments/metrics` for `webhooks.failed` climbing — a key revoked
+before the deploy landed shows up as every event handler failing its re-read,
+which is the one visible symptom.
+
+**The onboarding state secret** (`STRIPE_ONBOARDING_STATE_SECRET`) rotates with
+no window either, and the cost is bounded: every in-flight hosted-onboarding
+round trip 400s and the seller starts again from the dashboard. Do it out of
+business hours rather than building a rotation window for a 30-minute token.
+
+**`PAYMENT_OPERATOR_OXY_USER_IDS`** is a deploy-time change and an audit event in
+its own right. Removing somebody takes effect on the next task rollout, not
+immediately — so for an urgent revocation, empty the variable entirely (which
+un-mounts the surface) rather than editing one id out of it.
+
+### 11. Replaying a failed event
+
+```sql
+select id, provider_event_id, type, status, attempts, last_error, received_at
+from payment_provider_events
+where status in ('failed', 'dead_letter')
+order by received_at desc limit 50;
+```
+
+Then `POST /internal/payments/events/:id/replay` with the row's `id` (Mercaria's,
+not Stripe's).
+
+Replay is safe to reach for during an incident, and the reason is worth
+understanding rather than trusting: nothing about the stored event changes. The
+same `(provider, account, event id)` row is reused, `attempts` keeps counting,
+and every effect still runs through the same compare-and-swap — so replaying an
+event whose work already landed is a no-op. What it resets is only WHEN the row
+may be claimed.
+
+A replay that answers `replayed: false` means the row was not in a replayable
+state: already processed, or claimed by a live task. Neither needs action.
+
+### 12. The rail says paid and Mercaria does not
+
+The commonest real incident, and the one the sweeps handle without you.
+
+1. `GET /internal/payments/trace?paymentId=…` (or `?orderNumber=…`, which is what
+   a buyer will quote).
+2. If `payment.status` is not `succeeded` and the buyer says it is, run
+   `POST /internal/payments/refetch` with the payment id. That reads the
+   PaymentIntent live and applies what it says through the ordinary path —
+   booking the ledger, marking the orders paid and settling the sellers.
+3. If it answers `converged: true`, the incident is over. The trace will show a
+   `payment_provider_paid_local_unpaid` discrepancy already RESOLVED with
+   `resolvedBy: system:reconciliation` — that row is the record that a webhook
+   was lost, not an outstanding task.
+4. If it answers `converged: false` with a note about a status that cannot be
+   reached, see §14: this is the released-reservation case.
+
+`open_payments` would have done all of this within `PAYMENT_RECONCILIATION_INTERVAL_MS`
+anyway. `refetch` exists so an operator on a support call does not have to wait
+for the tick.
+
+**Do not create the missing rows by hand.** A `charge_succeeded` transaction
+written at a `psql` prompt gets the commission split wrong the moment the group
+has more than one seller, and the append-only trigger means it cannot be
+corrected — only offset.
+
+### 13. Mercaria says paid and the rail does not
+
+The dangerous direction, and NOTHING automatic touches it. The sweep records
+`payment_local_paid_provider_unpaid` and stops.
+
+By the time you see it: orders have been marked paid, inventory has been
+committed, and the sellers may already have been transferred. There is no safe
+generic answer, so work it in this order:
+
+1. **Confirm which is wrong.** `GET /internal/payments/trace` gives the
+   `payment_attempts` sequence and every event received; the Stripe dashboard
+   gives the intent's own history. A refunded-then-reopened intent and a payment
+   applied from a forged source look different there and identical in the
+   discrepancy row.
+2. **If the rail is right** (no money arrived), the sellers were paid out of
+   Mercaria's own balance. Recover with `retry_transfer_reversal` where a
+   transfer exists, and `book_reconciling_entry` for whatever cannot be
+   recovered. Do NOT try to un-pay the order — the inventory is gone and the
+   buyer may have received the goods.
+3. **If Mercaria is right** (money did arrive, under a different object), the
+   correlation is broken rather than the payment. Fix the correlation; the
+   discrepancy resolves on the next sweep.
+
+### 14. A stuck reservation, and money that arrived after it
+
+`RESERVATION_TTL_MS` (15 minutes) releases an unpaid order's stock and cancels
+its PaymentIntent. When a capture beat the sweep, the intent cannot be cancelled
+and the succeeded event finds a `canceled` payment — which raises
+`payment_succeeded_after_release`.
+
+```sql
+select id, payload, status, attempts, created_at
+from payment_outboxes
+where event_type = 'payment_succeeded_after_release'
+order by created_at desc limit 50;
+```
+
+Nothing was committed, booked or fulfilled, and that is deliberate:
+re-committing stock would oversell whatever has been bought since, and booking
+the charge would credit `commission_revenue` with the whole gross because the
+orders no longer exist. So the decision is yours, and there are two:
+
+- **Refund the buyer** in the Stripe dashboard. Mercaria created no refund
+  record, so this will surface as `refund_missing_locally` on the next sweep —
+  resolve that discrepancy with a note pointing at this one.
+- **Re-create the order** as a new checkout, if the stock is still there and the
+  buyer still wants it, and refund the original charge.
+
+There is no repair action for this, deliberately. Both answers are commerce
+decisions with a customer on the other end of them.
+
+### 15. A restricted connected account
+
+§4 covers reading the row. What #50 adds is that a seller whose readiness lagged
+now leaves a trace: `account_state_drift` means the sweep re-read the account and
+found a state no `account.updated` had delivered. It is raised and resolved in one
+call — the state is already correct — so a growing `occurrences` on ONE row is
+the signal, not a growing queue.
+
+`account_sync_failed` is different and stays open: the rail would not return the
+account at all. Read `detail.error`; a `permission_error` means the seller
+deauthorized the platform and the row should have been revoked instead.
+
+When a seller recovers a restricted account, their withheld transfers do not
+retry on their own — see §16.
+
+### 16. A withheld transfer, a failed refund, a failed payout
+
+The three exception queues, all readable from
+`GET /internal/payments/exceptions` and all with the same shape: a durable outbox
+row naming a condition only a person can close.
+
+| Condition | Repair | Detail |
+|---|---|---|
+| `transfer_withheld` | `retry_withheld_transfer` | §4 above for why the account was unready. The repair RE-READS the account from the rail first, so a stale local row cannot make it refuse or misfire. |
+| `refund_failed` | `retry_provider_refund` | Read `provider_failure_code` FIRST. `charge_already_refunded` means somebody refunded in the dashboard — re-issuing would refund the buyer twice. |
+| `reversal_failed` | `retry_transfer_reversal` | The buyer is fine and must not be touched. If the seller's balance still cannot cover it, `book_reconciling_entry` is how the gap is written off. |
+| `payout.failed` | none | Between the seller and Stripe (§7). Mercaria's receivable is NOT reopened and must not be. |
+
+A repair that answers `no_op` means the condition had already resolved. A 409
+means the state refused it, and the message names why — those are the two
+outcomes to expect; a 500 is a bug.
+
+### 17. Disaster recovery: what to VERIFY after a restore
+
+Postgres point-in-time recovery is `oxy-infra`'s, and this section deliberately
+does not describe it. What belongs here is the payment domain's own
+post-restore checklist, because a restored database is CONSISTENT and not
+necessarily CURRENT — every event between the restore point and now is one
+Mercaria has forgotten it received.
+
+Run these four, in order, before letting the task serve traffic:
+
+1. **The ledger balances.** `GET /internal/payments/metrics` →
+   `reconciliation.openByKind.ledger_unbalanced` must be absent, and
+   `ledgerImbalanceAttempts` must be 0. If a currency does not net to zero, the
+   restore is torn — stop and go back to infra.
+2. **A full discrepancy sweep has run.** Force one by restarting a task
+   (`PAYMENT_RECONCILIATION_ENABLED=true`) and watch
+   `reconciliation.cursors[].lastCompletedAt` advance for all four jobs. The
+   `provider_objects` window must be widened for this pass — set
+   `PAYMENT_RECONCILIATION_LOOKBACK_MS` past the restore gap, since the cursor
+   row's own `window_start_at` was restored with everything else and would skip
+   exactly the period you need.
+3. **An event-store gap check against Stripe.** Mercaria's
+   `payment_provider_events` is now missing everything after the restore point.
+   List Stripe's own events for that window
+   (`stripe events list --created[gte]=…`) and compare against:
+   ```sql
+   select provider_event_id from payment_provider_events
+   where received_at >= '<restore point>';
+   ```
+   Anything Stripe has and Mercaria does not is not replayable from here —
+   Stripe's `events` API is the only copy. The `provider_objects` sweep will find
+   the money movements regardless, which is why it runs before this step; this
+   step is what tells you whether anything NON-financial was lost.
+4. **Outbox backlog.** Rows written before the restore point that had not been
+   delivered will deliver again. Every handler is idempotent, so that is safe —
+   but `payment_outboxes` is swept at 14 days, so a restore from further back
+   than that has silently lost work with no error anywhere. Check
+   `outbox` counts in the metrics against what you expect.
+
+### 18. Production-readiness checklist
+
+Every line is a thing to CHECK, not a thing to have intended. Nothing below has
+been done against live Stripe — the platform legal entity is still an open item
+in ADR 0001 — so this list is also the record of what "live" will require.
+
+**Secrets**
+
+- [ ] `STRIPE_SECRET_KEY` is an `sk_live_` key, in GitHub repo secrets → SSM
+      `/oxy/mercaria/*`, never a placeholder (`-`, empty, `TODO`).
+- [ ] `STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET` are set and are
+      DIFFERENT from each other. Swapping them makes every delivery fail
+      verification, which looks exactly like a compromised endpoint.
+- [ ] `STRIPE_ONBOARDING_STATE_SECRET` is set and is not shared with any other
+      environment.
+- [ ] `PAYMENT_OPERATOR_OXY_USER_IDS` names real people, and the list has been
+      read by somebody other than whoever wrote it.
+- [ ] The boot log carries no
+      `[Stripe] STRIPE_ENABLED is set but the integration is incomplete` line.
+
+**Webhooks**
+
+- [ ] Both endpoints registered, at the API's live origin, with the API version
+      PINNED to `STRIPE_API_VERSION` (`2026-07-29.dahlia`) — not "latest", which
+      is the drift ADR 0001 forbids.
+- [ ] The platform endpoint subscribes to ADR 0001's `payment_intent.*`,
+      `charge.*`, `charge.dispute.*` and `transfer.*` list; the connect endpoint
+      to `account.*` and `payout.*`. `event-scopes.test.ts` transcribes both from
+      the ADR by hand — compare against it, not against memory.
+- [ ] `POST /webhooks/stripe` answers 400 (bad signature), not 404. A 404 means
+      `STRIPE_ENABLED` did not resolve true.
+
+**Monitoring**
+
+- [ ] `GET /health` is scraped and its `payments.webhooks.deadLetter` and
+      `payments.discrepancies.critical` are ALERTED on, not merely collected.
+- [ ] `GET /internal/payments/metrics` is reachable by the operators on the
+      allow-list.
+- [ ] `ledgerImbalanceAttempts` has an alert at **any** non-zero value.
+- [ ] Log-based alerts exist for `[PaymentOutbox] event dead-lettered`,
+      `[Stripe] event dead-lettered` and `[Reconciliation] discrepancy detected`
+      at `error` level.
+- [ ] Scrape/alert WIRING is tracked in `oxy-infra`, which owns it — this
+      repository emits the numbers and does not route them.
+
+**Reconciliation**
+
+- [ ] `PAYMENT_RECONCILIATION_ENABLED` is true and all four cursors show a
+      `lastCompletedAt` within the last hour.
+- [ ] `PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS` is comfortably below
+      `RESERVATION_TTL_MS` (default 10 minutes against 15), so a missed success
+      is converged BEFORE the reservation sweep releases the stock.
+- [ ] A deliberate discrepancy has been created and resolved end to end, so the
+      queue, the surface and the audit trail are known to work before an incident
+      needs them.
+
+**Test transactions**
+
+- [ ] A single-seller checkout, paid with a real card, reaching `paid` with a
+      transfer and a balanced ledger transaction.
+- [ ] A multi-seller checkout, one charge, one transfer per order.
+- [ ] A partial refund, with its transfer reversal.
+- [ ] A withheld transfer (onboard a seller, take the payment, restrict them at
+      the rail before settlement), then `retry_withheld_transfer` to clear it.
+- [ ] A dispute raised through Stripe's test card, closed both won and lost.
+- [ ] `stripe events resend` on a `payment_intent.succeeded`, confirming the
+      redelivery is a no-op.
+
+### 19. What has NOT been rehearsed
 
 - Anything in live mode, including the `debit_negative_balances` default that ADR
   0001 lists and this implementation deliberately does not send (with

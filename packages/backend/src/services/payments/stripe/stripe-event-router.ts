@@ -40,7 +40,6 @@ import type Stripe from 'stripe';
 import { and, eq, sql } from 'drizzle-orm';
 import type {
   CurrencyCode,
-  FxRateSnapshot,
   LedgerAccount,
   Money,
   PaymentStatus,
@@ -88,6 +87,7 @@ import {
   retrieveStripeRefund,
   retrieveStripeTransfer,
 } from './client.js';
+import { readStripeSettlement } from './settlement-read.js';
 import { mapDisputeStatus, mapPaymentIntentStatus, mapRefundStatus } from './verify.js';
 
 /** What a handler is given. Everything else it needs, it reads from Stripe. */
@@ -279,9 +279,10 @@ async function handlePaymentIntent(context: StripeEventContext): Promise<StripeE
 
   const failure = intent.last_payment_error;
   // A success is the ONE transition that has to carry money detail with it: what
-  // the charge became on the platform balance, and what Stripe kept. See
-  // `readSettlement`.
-  const settlement = next === 'succeeded' ? await readSettlement(intent) : undefined;
+  // the charge became on the platform balance, and what Stripe kept. Shared with
+  // #50's reconciliation sweep, which has to book the identical figures when it
+  // converges a payment nobody was told about — see `settlement-read.ts`.
+  const settlement = next === 'succeeded' ? await readStripeSettlement(intent) : undefined;
   const result = await applyPaymentStatus({
     paymentId: payment.id,
     next,
@@ -298,85 +299,6 @@ async function handlePaymentIntent(context: StripeEventContext): Promise<StripeE
     ...(result.changed
       ? {}
       : { note: `a concurrent delivery reached '${next}' first; nothing was applied twice` }),
-  };
-}
-
-/**
- * What the charge became on the PLATFORM balance, and what Stripe kept.
- *
- * ## Why this is read at the moment of success, and not later
- *
- * Both figures come from the charge's BALANCE TRANSACTION, which is the only
- * place Stripe states a charge in the platform's own settlement currency (ADR
- * 0001 D8, fact 5) and the fee it deducted (D5). Every consequence of a success
- * needs them: the ledger books the charge in the currency the money landed in,
- * and the seller transfers are sized from that same figure and must be
- * denominated in that same currency.
- *
- * Reading them here means they are captured INSIDE the compare-and-swap that
- * moves the payment to `succeeded`, so the rate that produced the platform
- * amount is stored with it and the two can never come from different moments.
- * The alternative — booking in presentment now and converting at settlement —
- * would leave `merchant_payable` holding a debt in one currency that was paid in
- * another, which no report could ever net to zero.
- *
- * ## An unavailable balance transaction is RETRYABLE, never assumed
- *
- * For a card charge Stripe creates it with the charge, so this is available
- * essentially always; asynchronous methods are what leave it pending, and ADR
- * 0001 D3 excludes those from the launch precisely because their money moves
- * later than their events. Retrying is the only honest answer when it is
- * missing: guessing a 1:1 conversion would book a USD figure as euros, and
- * defaulting the fee to zero would understate `processor_expense` permanently —
- * a wrong number in the accounts is worse than a late one.
- */
-async function readSettlement(intent: Stripe.PaymentIntent): Promise<{
-  platform: { amount: Money; rate: FxRateSnapshot };
-  feeMinor: bigint;
-}> {
-  const latest: unknown = intent.latest_charge;
-  const chargeId =
-    typeof latest === 'string'
-      ? latest
-      : typeof latest === 'object' && latest !== null && 'id' in latest
-        ? String((latest as { id: unknown }).id)
-        : undefined;
-  if (chargeId === undefined || chargeId === '') {
-    throw unresolved(
-      `Stripe PaymentIntent ${intent.id} reports 'succeeded' but names no charge; the balance ` +
-        'transaction it settles through is not readable yet.',
-    );
-  }
-
-  const charge = await retrieveStripeChargeWithBalance(chargeId);
-  const balance: unknown = charge.balance_transaction;
-  if (typeof balance !== 'object' || balance === null) {
-    throw unresolved(
-      `Stripe charge ${chargeId} has no balance transaction yet; the platform amount and fee ` +
-        'cannot be captured, and a success must not be booked without them.',
-    );
-  }
-
-  const transaction = balance as Stripe.BalanceTransaction;
-  return {
-    platform: {
-      amount: {
-        amount: transaction.amount,
-        currency: transaction.currency.toUpperCase() as CurrencyCode,
-      },
-      rate: {
-        from: intent.currency.toUpperCase() as CurrencyCode,
-        to: transaction.currency.toUpperCase() as CurrencyCode,
-        // `null` when no conversion happened, which is the same-currency case
-        // and is exactly a rate of one. Stated rather than left absent because
-        // the snapshot's whole purpose is to be reproducible, and "there was no
-        // rate" and "the rate is unknown" must not look alike.
-        rate: transaction.exchange_rate ?? 1,
-        provider: 'stripe',
-        asOf: new Date(transaction.created * 1_000).toISOString(),
-      },
-    },
-    feeMinor: BigInt(transaction.fee),
   };
 }
 
