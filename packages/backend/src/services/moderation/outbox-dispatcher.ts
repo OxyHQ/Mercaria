@@ -1,9 +1,10 @@
 /**
  * The loop that drains the moderation outbox.
  *
- * Starts on EVERY task, not just a leader. Claims are Mongo leases with an owner
- * check, so N tasks share the work safely and a dead task's lease is reclaimed
- * rather than stranding the row.
+ * Starts on EVERY task, not just a leader. A claim is a `SELECT … FOR UPDATE SKIP
+ * LOCKED` with an owner-checked lease, so N tasks share the work safely — they
+ * step over each other's in-flight rows instead of blocking — and a dead task's
+ * lease is reclaimed rather than stranding the row.
  *
  * When CrowdSource is not configured the LOOP no-ops — the durable record is never
  * gated. Reports taken while the integration is off keep their outbox rows, so
@@ -13,7 +14,8 @@
 
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
-import { dispatchModerationOutbox, type ModerationOutboxEvent } from './moderation-outbox.service.js';
+import type { ModerationOutboxEvent } from '../../db/moderation/moderationOutboxRepository.js';
+import { dispatchModerationOutbox } from './moderation-outbox.service.js';
 import { deliverReport } from './report-delivery.worker.js';
 import { applyDecisionEvent } from './decision.worker.js';
 

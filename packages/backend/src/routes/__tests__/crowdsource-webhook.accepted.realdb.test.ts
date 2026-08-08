@@ -1,25 +1,20 @@
 /**
- * The webhook ACCEPTS a genuinely valid delivery — the sibling every
- * refusal test needs.
+ * The webhook ACCEPTS a genuinely valid delivery — the sibling every refusal test
+ * needs.
  *
  * ## Why this file exists
  *
- * The other webhook tests all assert a REFUSAL: mounted late → 500, bad
- * signature → 401, no parser ran → `req.body` undefined. Every one of those can
- * pass while the endpoint is incapable of accepting anything at all. A refusal
- * test on its own proves the request was rejected; it does not prove it was
- * rejected *for the reason under test*, and it never proves the happy path works.
- *
- * That is not hypothetical here. The refusal test in the sibling file sends a
- * delivery with no `X-CrowdSource-Event-Id` at all, so its 401 is a
- * `missing_event_id` rejection rather than a signature one. That still proves what
- * that test claims — reaching verification at all means `readRawBody` succeeded,
- * which is the mount invariant — but it would look identical if the route were
- * incapable of ever returning 200.
+ * The other webhook tests all assert a REFUSAL: mounted late → 500, bad signature
+ * → 401, no parser ran → `req.body` undefined. Every one of those can pass while
+ * the endpoint is incapable of accepting anything at all. A refusal test on its own
+ * proves the request was rejected; it does not prove it was rejected *for the
+ * reason under test*, and it never proves the happy path works.
  *
  * So this signs a delivery properly and asserts the whole path: signature verified
- * over the raw bytes, handler run, decision durably queued in the outbox. Against
- * a real replica set, because the handler opens a transaction.
+ * over the raw bytes, handler run, decision durably queued in the outbox. Against a
+ * real Postgres database, because the handler opens a transaction AND because the
+ * redelivery assertion below now depends on the shared dedupe claim
+ * (`moderation_events`) rather than on a per-process map.
  *
  * The signing here deliberately reconstructs the scheme from the CONTRACT's own
  * `buildWebhookSignedPayload` and header constants rather than hardcoding
@@ -30,7 +25,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { createHmac } from 'node:crypto';
 import express from 'express';
-import mongoose from 'mongoose';
+import { eq, inArray } from 'drizzle-orm';
+import { uuidv7 } from '@oxyhq/db';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import {
@@ -42,19 +38,25 @@ import {
 } from '@oxyhq/crowdsource-contracts';
 
 const SECRET = 'test-secret-not-a-real-one';
-const uri = process.env.MERCARIA_TEST_MONGODB_URI;
 const servers: Server[] = [];
 
-let ModerationOutbox: typeof import('../../models/moderation-outbox.js').ModerationOutbox;
+/** Unique to this run: the Postgres database is shared with every parallel file. */
+const RUN = uuidv7();
+
+let pg: typeof import('../../db/postgres.js');
+let moderationEvents: typeof import('../../db/schema/moderation.js').moderationEvents;
+let moderationOutboxes: typeof import('../../db/schema/moderation.js').moderationOutboxes;
 let app: express.Express;
 
-beforeAll(async () => {
-  if (!uri) throw new Error('MERCARIA_TEST_MONGODB_URI missing — is vitest.globalSetup.ts wired?');
-  process.env.CROWDSOURCE_WEBHOOK_SECRET = SECRET;
-  await mongoose.connect(uri, { dbName: 'mercaria-webhook-accept-test' });
+/** Every webhook event id this file delivers, so teardown is scoped. */
+const deliveredEventIds: string[] = [];
 
-  ({ ModerationOutbox } = await import('../../models/moderation-outbox.js'));
-  await ModerationOutbox.syncIndexes();
+beforeAll(async () => {
+  process.env.CROWDSOURCE_WEBHOOK_SECRET = SECRET;
+
+  pg = await import('../../db/postgres.js');
+  ({ moderationEvents, moderationOutboxes } = await import('../../db/schema/moderation.js'));
+  await pg.connectPostgres();
 
   // The REAL router, mounted the way `app.ts` mounts it: ahead of any parser.
   const { default: crowdSourceWebhookRouter } = await import('../crowdsource-webhook.js');
@@ -66,12 +68,32 @@ afterAll(async () => {
   await Promise.all(
     servers.map((server) => new Promise<void>((resolve) => server.close(() => resolve()))),
   );
-  await mongoose.disconnect();
+  await cleanup();
+  await pg.closePostgres();
 });
 
 beforeEach(async () => {
-  await ModerationOutbox.deleteMany({});
+  await cleanup();
 });
+
+async function cleanup(): Promise<void> {
+  const eventIds = deliveredEventIds.splice(0);
+  if (eventIds.length === 0) return;
+  await pg
+    .getDb()
+    .delete(moderationOutboxes)
+    .where(inArray(moderationOutboxes.id, eventIds.map((id) => `moderation:decision.apply:${id}`)));
+  await pg.getDb().delete(moderationEvents).where(inArray(moderationEvents.id, eventIds));
+}
+
+/** How many outbox rows exist for one webhook event id. */
+async function outboxRowsFor(eventId: string): Promise<{ id: string; kind: string }[]> {
+  return pg
+    .getDb()
+    .select({ id: moderationOutboxes.id, kind: moderationOutboxes.kind })
+    .from(moderationOutboxes)
+    .where(eq(moderationOutboxes.id, `moderation:decision.apply:${eventId}`));
+}
 
 function listen(instance: express.Express): Promise<string> {
   return new Promise((resolve) => {
@@ -82,15 +104,22 @@ function listen(instance: express.Express): Promise<string> {
   });
 }
 
-function decidedEvent(eventId: string): Record<string, unknown> {
+/** An event id unique to this run, registered for teardown. */
+function eventId(name: string): string {
+  const id = `evt-${name}-${RUN}`;
+  deliveredEventIds.push(id);
+  return id;
+}
+
+function decidedEvent(id: string): Record<string, unknown> {
   return {
-    id: eventId,
+    id,
     type: 'case.decided',
     createdAt: new Date().toISOString(),
     organizationId: 'org_test',
     applicationId: 'app_test',
     data: {
-      caseId: 'case_test_1',
+      caseId: `case-${RUN}`,
       /**
        * A decision that genuinely satisfies `DecisionSchema`.
        *
@@ -98,12 +127,12 @@ function decidedEvent(eventId: string): Record<string, unknown> {
        * the whole reason this test asserts the outbox row rather than just the
        * status: an envelope the schema rejects is acknowledged 200 with
        * `handled: false` and no handler ever runs. The first version of this
-       * fixture did exactly that, and a status-only assertion would have called
-       * it a pass.
+       * fixture did exactly that, and a status-only assertion would have called it
+       * a pass.
        */
       decision: {
-        id: 'dec_test_1',
-        caseId: 'case_test_1',
+        id: `dec-${RUN}`,
+        caseId: `case-${RUN}`,
         revision: 1,
         status: 'final',
         outcome: 'no_violation',
@@ -156,7 +185,8 @@ function deliver(
 describe('a correctly signed delivery is ACCEPTED and durably queued', () => {
   it('answers 200 and writes the decision to the outbox', async () => {
     const base = await listen(app);
-    const response = await deliver(base, decidedEvent('evt_accepted_1'));
+    const id = eventId('accepted-1');
+    const response = await deliver(base, decidedEvent(id));
 
     expect(response.status).toBe(200);
 
@@ -166,16 +196,15 @@ describe('a correctly signed delivery is ACCEPTED and durably queued', () => {
      * durably recorded, so acknowledging without the row would be a lie to
      * CrowdSource that stops it retrying.
      */
-    const row = await ModerationOutbox.findById(
-      'moderation:decision.apply:evt_accepted_1',
-    ).lean();
-    expect(row).not.toBeNull();
-    expect(row?.kind).toBe('decision.apply');
+    const rows = await outboxRowsFor(id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.kind).toBe('decision.apply');
   });
 
   it('a REDELIVERY is acknowledged without queueing the work twice', async () => {
     const base = await listen(app);
-    const event = decidedEvent('evt_accepted_2');
+    const id = eventId('accepted-2');
+    const event = decidedEvent(id);
 
     const first = await deliver(base, event);
     const second = await deliver(base, event);
@@ -183,10 +212,14 @@ describe('a correctly signed delivery is ACCEPTED and durably queued', () => {
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
 
-    // One row, because the event id is the key in both the dedupe claim and the
-    // outbox `_id`. CrowdSource retries a delivery whose 2xx was lost, so this is
-    // the ordinary case rather than an edge one.
-    expect(await ModerationOutbox.countDocuments({})).toBe(1);
+    /**
+     * One row, twice over: the event id is the key in BOTH the shared dedupe claim
+     * (`moderation_events`, which is a Postgres row now rather than a per-process
+     * map, because several ECS tasks sit behind one ALB) and the outbox primary
+     * key. CrowdSource retries a delivery whose 2xx was lost, so this is the
+     * ordinary case rather than an edge one.
+     */
+    expect(await outboxRowsFor(id)).toHaveLength(1);
   });
 
   it('the SAME body signed with the wrong secret is refused (discrimination)', async () => {
@@ -197,11 +230,10 @@ describe('a correctly signed delivery is ACCEPTED and durably queued', () => {
      * explained by a malformed payload.
      */
     const base = await listen(app);
-    const response = await deliver(base, decidedEvent('evt_rejected_1'), {
-      secret: 'a-different-secret',
-    });
+    const id = eventId('rejected-1');
+    const response = await deliver(base, decidedEvent(id), { secret: 'a-different-secret' });
 
     expect(response.status).toBe(401);
-    expect(await ModerationOutbox.countDocuments({})).toBe(0);
+    expect(await outboxRowsFor(id)).toHaveLength(0);
   });
 });

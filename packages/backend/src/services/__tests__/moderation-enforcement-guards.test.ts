@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Types } from 'mongoose';
+import { uuidv7 } from '@oxyhq/db';
 
 const listingFindById = vi.fn();
 const updateListingColumns = vi.fn().mockResolvedValue(null);
@@ -94,7 +94,10 @@ vi.mock('../fx.service.js', () => {
 const { updateListing } = await import('../catalog-write.service.js');
 const { transition } = await import('../order.service.js');
 
-const LISTING_ID = new Types.ObjectId().toHexString();
+// A uuid v7, not a 24-hex ObjectId: every id the catalogue mints after the
+// cutover is one, so a fixture using the old shape would be testing a row shape
+// production no longer produces.
+const LISTING_ID = uuidv7();
 
 /** A listing ROW as the repository returns it — the shape `updateListing` reads. */
 function listingRow(status: string): Record<string, unknown> {
@@ -187,7 +190,7 @@ describe('a frozen order cannot move', () => {
    */
   function orderRecord(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
-      id: new Types.ObjectId().toHexString(),
+      id: uuidv7(),
       status: 'paid',
       paymentStatus: 'paid',
       statusHistory: [],

@@ -3,12 +3,12 @@
  *
  * Two guarantees, and everything here exists for one of them.
  *
- * **Once.** The idempotency key is `decisionId + revision + action`, and the unique
- * index on `ModerationEnforcement` IS that key. Each action CLAIMS its row before
- * doing anything; a second attempt — a redelivered webhook, a reclaimed outbox
- * lease, an operator replay — loses the insert and does nothing. Reading "have I
- * done this?" and then acting would leave the gap between the two, which is
- * exactly when a redelivery arrives.
+ * **Once.** The idempotency key is `decisionId + revision + action`, and
+ * `moderation_enforcements_decision_revision_action_key` IS that key. Each action
+ * CLAIMS its row before doing anything; a second attempt — a redelivered webhook,
+ * a reclaimed outbox lease, an operator replay — loses the insert and does
+ * nothing. Reading "have I done this?" and then acting would leave the gap between
+ * the two, which is exactly when a redelivery arrives.
  *
  * **Reversibly.** Every action that changes state records what the state WAS, and
  * a reversal puts that back. So a restore returns a listing to the status it
@@ -20,27 +20,39 @@
  * the claim and the record are identical to production, so what the mode proves is
  * exactly what will happen when it is switched off — and the audit trail is real
  * rather than a log line saying a decision was seen.
+ *
+ * ## What the port changed, and what it did not
+ *
+ * A duplicate claim now arrives as `null` from the repository rather than as a
+ * driver error to classify by code — so "another delivery owns this action" and
+ * "the database could not answer" are structurally different results instead of
+ * two branches of one `catch`. The rest is the same algorithm against different
+ * storage, on purpose: this file is where a subtle rewrite would cost a double
+ * takedown.
  */
 
-import mongoose from 'mongoose';
 import type { Decision } from '@oxyhq/crowdsource-contracts';
-import { ALL_LISTING_STATUSES } from '@mercaria/shared-types';
+import { isLiveEntityId } from '@oxyhq/db';
 import type {
+  AbuseReportedType,
   ListingStatus,
   ModerationEnforcementAction,
   OrderStatus,
 } from '@mercaria/shared-types';
 import {
-  ModerationEnforcement,
-  type IModerationEnforcement,
-} from '../../models/moderation-enforcement.js';
-import { isLiveEntityId } from '@oxyhq/db';
+  claimModerationEnforcement,
+  deleteModerationEnforcement,
+  findLatestAppliedEnforcement,
+  markModerationEnforcementApplied,
+  recordModerationEnforcementNotApplied,
+  type EnforcementPreviousState,
+} from '../../db/moderation/moderationEnforcementRepository.js';
 import {
   findListingById,
   setListingStatusIfIn,
   updateListingColumns,
 } from '../../db/catalog/listingRepository.js';
-import { Review } from '../../models/review.js';
+import { findReviewById, setReviewStatusIfIn } from '../../db/buyers/reviewRepository.js';
 import {
   findFreezableOrderIdsForListing,
   setOrderModerationHold,
@@ -51,8 +63,15 @@ import { planEnforcement, type PlannedEnforcementAction } from './enforcement-pl
 import { notifySellerOfRequestedChanges } from './seller-notification.js';
 
 export interface EnforcementSubject {
-  /** Mercaria's own noun — `listing`, `review`, `seller`, `store`. */
-  type: string;
+  /**
+   * Mercaria's own noun — `listing`, `review`, `seller`, `store`.
+   *
+   * The UNION rather than `string`, because `moderation_enforcements.subject_type`
+   * carries `moderation_enforcements_subject_type_check` over exactly this set: a
+   * value outside it is now a failed write at claim time rather than a row that
+   * reads back as a noun nothing can act on.
+   */
+  type: AbuseReportedType;
   id: string;
 }
 
@@ -64,15 +83,6 @@ export interface EnforcementOutcome {
    * another delivery of this same decision revision already handled it.
    */
   result: 'applied' | 'recorded' | 'duplicate';
-}
-
-function isDuplicateKeyError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    Number((error as { code?: unknown }).code) === 11000
-  );
 }
 
 /**
@@ -88,11 +98,18 @@ const FREEZABLE_ORDER_STATUSES: readonly OrderStatus[] = [
   'shipped',
 ];
 
+/** The actions a `restore` can undo — the ones that took something away. */
+const REVERSIBLE_ACTIONS: readonly ModerationEnforcementAction[] = [
+  'restrict',
+  'request_changes',
+  'freeze_transaction',
+];
+
 type EffectResult =
   | {
       changed: true;
       reason?: string;
-      previousState?: IModerationEnforcement['previousState'];
+      previousState?: EnforcementPreviousState;
     }
   | { changed: false; reason: string };
 
@@ -152,19 +169,25 @@ async function requestListingChanges(listingId: string): Promise<EffectResult> {
 }
 
 async function hideReview(reviewId: string): Promise<EffectResult> {
-  if (!mongoose.isValidObjectId(reviewId)) {
+  // `isLiveEntityId` for the same reason as `restrictListing`: a review written
+  // after the cutover carries a uuid v7, and the old ObjectId check would have
+  // refused to hide any of them while reporting a tidy "not a valid id".
+  if (!isLiveEntityId(reviewId)) {
     return { changed: false, reason: 'The reported review id is not a valid id' };
   }
-  const review = await Review.findById(reviewId)
-    .select('status')
-    .lean<{ status?: string } | null>();
+  const review = await findReviewById(reviewId);
   if (!review) return { changed: false, reason: 'The reported review no longer exists' };
   if (review.status === 'hidden') {
     return { changed: false, reason: 'The review was already hidden' };
   }
 
-  await Review.updateOne({ _id: reviewId }, { $set: { status: 'hidden' } });
-  return { changed: true, previousState: { reviewStatus: review.status ?? 'published' } };
+  // A conditional write in ONE statement, not a read-then-write: the read above
+  // is for the REASON and the previous state, and a redelivery racing it must
+  // still hide the review exactly once.
+  const hidden = await setReviewStatusIfIn(reviewId, 'hidden', ['published']);
+  if (!hidden) return { changed: false, reason: 'The review was already hidden' };
+
+  return { changed: true, previousState: { reviewStatus: review.status } };
 }
 
 /**
@@ -194,21 +217,18 @@ async function freezeOrdersForListing(listingId: string): Promise<EffectResult> 
  * recorded as such — evidence that we looked, rather than a silent no-op.
  */
 async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult> {
-  const previous = await ModerationEnforcement.findOne({
-    subjectType: subject.type,
-    subjectId: subject.id,
-    action: { $in: ['restrict', 'request_changes', 'freeze_transaction'] },
-    applied: true,
-  })
-    .sort({ createdAt: -1 })
-    .lean<IModerationEnforcement | null>();
+  const previous = await findLatestAppliedEnforcement(
+    subject.type,
+    subject.id,
+    REVERSIBLE_ACTIONS,
+  );
 
   if (!previous) {
     return { changed: false, reason: 'Nothing had been enforced against this subject' };
   }
 
   if (previous.action === 'freeze_transaction') {
-    const heldOrderIds = previous.previousState?.heldOrderIds ?? [];
+    const heldOrderIds = previous.previousState.heldOrderIds ?? [];
     if (heldOrderIds.length === 0) {
       return { changed: false, reason: 'The freeze recorded no held orders' };
     }
@@ -221,14 +241,9 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
   }
 
   if (subject.type === 'review') {
-    const restoredStatus = previous.previousState?.reviewStatus ?? 'published';
-    const result = await Review.updateOne(
-      { _id: subject.id, status: 'hidden' },
-      { $set: { status: restoredStatus } },
-    );
-    return result.modifiedCount === 1
-      ? { changed: true }
-      : { changed: false, reason: 'The review was not hidden' };
+    const restoredStatus = previous.previousState.reviewStatus ?? 'published';
+    const restored = await setReviewStatusIfIn(subject.id, restoredStatus, ['hidden']);
+    return restored ? { changed: true } : { changed: false, reason: 'The review was not hidden' };
   }
 
   /**
@@ -236,18 +251,16 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
    * hardcoded `active`. A listing that was a draft when it was restricted must not
    * be PUBLISHED by a correction: that would put an item on sale its seller had
    * never listed.
+   *
+   * No runtime narrowing here any more, and that is the port working rather than a
+   * guard going missing: Mongo declared `previousState.listingStatus` as a bare
+   * `String`, so a value `listings_status_check` would refuse could be stored and
+   * only fail at RESTORE time — when a seller is waiting. The column now carries
+   * `moderation_enforcements_previous_listing_status_check` over the SAME set as
+   * its destination, so a bad value fails the write that created it and what comes
+   * back is already a `ListingStatus`.
    */
-  // `previousState.listingStatus` is a bare `String` on the enforcement row — the
-  // schema deliberately did not constrain it — so it is NARROWED here rather than
-  // trusted. An unrecognised value restores to `active`, which is what the
-  // `?? 'active'` fallback already meant; the difference is that a value the
-  // `listings_status_check` constraint would refuse now cannot reach the write and
-  // turn an accepted appeal into a failed one.
-  const stored = previous.previousState?.listingStatus;
-  const restoredStatus: ListingStatus =
-    stored !== undefined && (ALL_LISTING_STATUSES as readonly string[]).includes(stored)
-      ? (stored as ListingStatus)
-      : 'active';
+  const restoredStatus: ListingStatus = previous.previousState.listingStatus ?? 'active';
   const restored = await setListingStatusIfIn(subject.id, restoredStatus, ['restricted', 'draft']);
   return restored
     ? { changed: true }
@@ -350,33 +363,27 @@ async function enforceOne(
    * The row is inserted with the outcome we intend, and only then is the effect
    * attempted. Losing this insert means another delivery of this same decision
    * revision already owns the action, so this one stops — which is what makes a
-   * redelivered webhook harmless.
+   * redelivered webhook harmless. A `null` is that loss; anything else that goes
+   * wrong throws, and must, because "the ledger could not answer" is not the same
+   * claim as "somebody else has it".
    */
-  let claim: IModerationEnforcement;
-  try {
-    const [created] = await ModerationEnforcement.create([
-      {
-        decisionId: decision.id,
-        revision: decision.revision,
-        action: planned.action,
-        caseId: decision.caseId,
-        subjectType: subject.type,
-        subjectId: subject.id,
-        applied: false,
-        reason: allowed
-          ? planned.reason
-          : `${planned.reason} (not applied: enforcement mode is ${config.crowdSource.enforcementMode})`,
-        ...(planned.recommendedAction === undefined
-          ? {}
-          : { recommendedAction: planned.recommendedAction }),
-      },
-    ]);
-    claim = created;
-  } catch (error: unknown) {
-    if (isDuplicateKeyError(error)) {
-      return { action: planned.action, result: 'duplicate' };
-    }
-    throw error;
+  const claim = await claimModerationEnforcement({
+    decisionId: decision.id,
+    revision: decision.revision,
+    action: planned.action,
+    ...(decision.caseId === undefined ? {} : { caseId: decision.caseId }),
+    subjectType: subject.type,
+    subjectId: subject.id,
+    reason: allowed
+      ? planned.reason
+      : `${planned.reason} (not applied: enforcement mode is ${config.crowdSource.enforcementMode})`,
+    ...(planned.recommendedAction === undefined
+      ? {}
+      : { recommendedAction: planned.recommendedAction }),
+  });
+
+  if (claim === null) {
+    return { action: planned.action, result: 'duplicate' };
   }
 
   if (!allowed) {
@@ -392,29 +399,16 @@ async function enforceOne(
      * retried and the listing stays in whatever half-state the failure left.
      * Releasing is the whole reason the claim is a row rather than a flag.
      */
-    await ModerationEnforcement.deleteOne({ _id: claim._id });
+    await deleteModerationEnforcement(claim.id);
     throw error;
   }
 
   if (!effect.changed) {
-    await ModerationEnforcement.updateOne(
-      { _id: claim._id },
-      { $set: { applied: false, reason: effect.reason ?? planned.reason } },
-    );
+    await recordModerationEnforcementNotApplied(claim.id, effect.reason);
     return { action: planned.action, result: 'recorded' };
   }
 
-  await ModerationEnforcement.updateOne(
-    { _id: claim._id },
-    {
-      $set: {
-        applied: true,
-        ...(effect.previousState === undefined
-          ? {}
-          : { previousState: effect.previousState }),
-      },
-    },
-  );
+  await markModerationEnforcementApplied(claim.id, effect.previousState ?? {});
 
   log.moderation.info(
     {
