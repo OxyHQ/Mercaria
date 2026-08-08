@@ -30,7 +30,12 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04-arm
+    # x86, not ARM: this job needs the Postgres SERVICE CONTAINER below, and
+    # GitHub-hosted ARM runners do not support service containers — a run that
+    # requests one there dies before its first job with `action_required` and
+    # zero jobs (measured on runs 31263904439 / 31263963083). The suite does
+    # not care about the architecture; only the image build (deploy job) does.
+    runs-on: ubuntu-latest
 
     services:
       # The backend suite needs a real PostGIS server (see ci.yml's Lint & Test
