@@ -22,7 +22,7 @@
  * reintroduce exactly that bug.
  */
 
-import { and, eq, gt, isNotNull, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNotNull, lte, or, sql } from 'drizzle-orm';
 import type { PaymentOutboxEventType, PaymentOutboxStatus } from '@mercaria/shared-types';
 import { paymentOutboxes } from '../schema/payments.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
@@ -209,6 +209,58 @@ export async function findPaymentOutboxEvent(
     .where(eq(paymentOutboxes.id, eventId))
     .limit(1);
   return row;
+}
+
+/**
+ * The exception queues, filtered — issue #50's operator surface 2.
+ *
+ * The four #47/#49 exception types plus anything dead-lettered are the whole of
+ * what an operator queue means in this domain, and they are ALREADY rows in this
+ * table: `transfer_withheld`, `refund_failed`, `reversal_failed`,
+ * `refund_unmatched` and `payment_succeeded_after_release` are durable records
+ * of conditions only a person can close.
+ *
+ * So #50 reads them here rather than copying them into `payment_discrepancies`.
+ * Copying would have been the obvious move and is the wrong one: it would make
+ * one condition two rows that can disagree about whether it is resolved, and the
+ * outbox row is the one the dispatcher already reasons about.
+ */
+export async function listPaymentOutboxExceptions(
+  db: DatabaseOrTransaction,
+  input: {
+    eventTypes: readonly PaymentOutboxEventType[];
+    statuses?: readonly PaymentOutboxStatus[];
+    limit: number;
+  },
+): Promise<PaymentOutboxRow[]> {
+  if (input.eventTypes.length === 0) return [];
+  return await db
+    .select()
+    .from(paymentOutboxes)
+    .where(
+      and(
+        inArray(paymentOutboxes.eventType, [...input.eventTypes]),
+        ...(input.statuses && input.statuses.length > 0
+          ? [inArray(paymentOutboxes.status, [...input.statuses])]
+          : []),
+      ),
+    )
+    .orderBy(desc(paymentOutboxes.createdAt))
+    .limit(input.limit);
+}
+
+/** Outbox counts by event type and status — issue #50's metrics 3 and 4. */
+export async function paymentOutboxCounts(
+  db: DatabaseOrTransaction,
+): Promise<{ eventType: string; status: string; total: number }[]> {
+  return await db
+    .select({
+      eventType: paymentOutboxes.eventType,
+      status: paymentOutboxes.status,
+      total: sql<number>`count(*)::int`,
+    })
+    .from(paymentOutboxes)
+    .groupBy(paymentOutboxes.eventType, paymentOutboxes.status);
 }
 
 /**

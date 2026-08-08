@@ -28,6 +28,7 @@
 import type { OrderSellerType, OrderStatus, PaymentProviderId } from '@mercaria/shared-types';
 import {
   findOrderById,
+  findOrderByOrderNumber as selectOrderByNumber,
   findOrdersInCheckoutGroup as selectOrdersInCheckoutGroup,
   linkPaymentToCheckoutGroup,
   linkPaymentToOrderId,
@@ -92,6 +93,28 @@ export async function findOrdersInCheckoutGroup(checkoutGroupId: string): Promis
 /** One order, or `undefined`. */
 export async function findLinkedOrder(orderId: string): Promise<LinkedOrder | undefined> {
   const row = await findOrderById(orderId);
+  return row ? toLinkedOrder(row) : undefined;
+}
+
+/**
+ * One order by the number PRINTED ON IT, or `undefined`.
+ *
+ * The operator surface's first trace handle (#50, operator surface 1), and the
+ * only one that is not an internal id: an order number is what a buyer quotes in
+ * a support message and what a receipt carries, so it is the handle an incident
+ * actually starts from. `UNIQUE(orders.order_number)` is what makes it a single
+ * row rather than a search.
+ *
+ * It is a lookup by a Mercaria-issued identifier and stays firmly on the safe
+ * side of #45's buyer boundaries: an order number names an ORDER, it is not a
+ * credential, and it can neither authenticate a buyer nor claim an order. That
+ * is the line — an email or a card fingerprint would be on the other side of it,
+ * and there is deliberately no way to ask by either.
+ */
+export async function findLinkedOrderByNumber(
+  orderNumber: string,
+): Promise<LinkedOrder | undefined> {
+  const row = await selectOrderByNumber(orderNumber);
   return row ? toLinkedOrder(row) : undefined;
 }
 

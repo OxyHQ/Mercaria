@@ -55,6 +55,7 @@ import {
   claimDisputeOpening,
   claimDisputeOutcome,
   claimDisputeRecovery,
+  findDisputeById,
   findDisputeByProviderId,
   setDisputeRecoveryState,
   upsertDispute,
@@ -405,6 +406,71 @@ async function announce(row: DisputeRow, status: DisputeStatus, created: boolean
       },
     });
   });
+}
+
+/**
+ * Re-attempt the seller-side recovery of a dispute that was already LOST.
+ *
+ * #50's `retry_transfer_reversal` repair, for the dispute half. It reuses
+ * `recoverLostDispute` rather than restating it, which is the whole point: the
+ * proration, the reversal key (`trr:dispute:<disputeId>:<orderId>`), the
+ * compare-and-swap on `provider_reversal_id` and the ledger posting are all
+ * properties of one recovery, and an operator-triggered second attempt that had
+ * its own copy of them would eventually recover a different amount than the
+ * automatic one did.
+ *
+ * ## It refuses everything that is not a lost, attributed, unrecovered dispute
+ *
+ * Each refusal is a different operator mistake and each names itself:
+ *
+ *  - **not closed, or not lost** — recovering from a seller for a dispute they
+ *    may still win is exactly what ADR 0001's corrected sequence 5 exists to
+ *    prevent (the original diagram reversed at OPEN and had to be changed).
+ *  - **no order attributed** — the multi-seller case. The principal sits in the
+ *    `disputes` holding account until a person says which seller shipped the
+ *    goods, and guessing would reverse an innocent seller's transfer.
+ *  - **already recovered** — `recoverLostDispute` returns `succeeded` for this
+ *    on its own, so it is not a refusal here; the repair reports `no_op`.
+ *
+ * @throws When the dispute, its payment or its order cannot be read. A repair
+ *   that cannot see what it is repairing must not report success.
+ */
+export async function retryDisputeRecovery(disputeId: string): Promise<{
+  recovery: 'succeeded' | 'failed' | 'not_required';
+  refusedBecause?: string;
+}> {
+  const db = getDb();
+  const dispute = await findDisputeById(db, disputeId);
+  if (!dispute) {
+    throw new Error(`Dispute ${disputeId} does not exist.`);
+  }
+  if (dispute.closedAt === null || dispute.outcome !== 'lost') {
+    return {
+      recovery: 'not_required',
+      refusedBecause:
+        `the dispute is ${dispute.closedAt === null ? 'still open' : `closed '${String(dispute.outcome)}'`}; ` +
+        'a seller is only charged for a dispute that was LOST',
+    };
+  }
+  if (!dispute.orderId) {
+    return {
+      recovery: 'not_required',
+      refusedBecause:
+        'no seller order is attributed to this dispute, so there is no transfer to reverse; ' +
+        'attribute it first — guessing would reverse an innocent seller’s transfer',
+    };
+  }
+
+  const payment = await findPaymentById(db, dispute.paymentId);
+  if (!payment) {
+    throw new Error(`Dispute ${disputeId} names payment ${dispute.paymentId}, which does not exist.`);
+  }
+  const order = await findLinkedOrder(dispute.orderId);
+  if (!order) {
+    throw new Error(`Dispute ${disputeId} names order ${dispute.orderId}, which does not exist.`);
+  }
+
+  return { recovery: await recoverLostDispute({ dispute, payment, order }) };
 }
 
 /** One dispute by the rail's own id — the correlation an inbound event starts from. */
