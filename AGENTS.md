@@ -20,12 +20,13 @@ See `HANDOFF.md` for deferred work (infra, Oxy client registration, the domain).
 | `@mercaria/dashboard` | `packages/dashboard/` | Expo merchant/store admin, dashboard.mercaria.co |
 | `@mercaria/pos` | `packages/pos/` | Expo point of sale, pos.mercaria.co |
 | `@mercaria/ui` | `packages/ui/` | Shared component library, consumed FROM SOURCE with no dist |
-| `@mercaria/backend` | `packages/backend/` | Express API (TypeScript, MongoDB, Socket.IO) |
+| `@mercaria/backend` | `packages/backend/` | Express API (TypeScript, PostgreSQL, Socket.IO) |
 | `@mercaria/shared-types` | `packages/shared-types/` | TypeScript DTOs shared by all packages |
 
 Stack: Expo, NativeWind (Tailwind v4 plus postcss), Reanimated, Zustand, TanStack
-Query and expo-router on all three apps; Express, Mongoose, optional Redis and
-Socket.IO on the backend; `@oxyhq/core` (including `@oxyhq/core/server`) and
+Query and expo-router on all three apps; Express, PostgreSQL (drizzle-orm +
+postgres.js via `@oxyhq/db`), optional Redis and Socket.IO on the backend;
+`@oxyhq/core` (including `@oxyhq/core/server`) and
 `@oxyhq/services` for device-first auth; `@oxyhq/bloom` plus `@mercaria/ui` for
 UI. Client ids: storefront `EXPO_PUBLIC_OXY_CLIENT_ID`, dashboard
 `EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD`, POS `EXPO_PUBLIC_OXY_CLIENT_ID_POS`.
@@ -57,9 +58,13 @@ payment actually settles in is a property of the payment provider handling it an
 is decided in the payment domain (ADR 0001 D6/D8), never in the money contracts.
 
 The currency set is data driven: `CurrencyCode`, `CURRENCY_PRECISION`,
-`CURRENCY_SYMBOLS` and `ALL_CURRENCY_CODES` in `@mercaria/shared-types`, and
-adding a code there propagates, because the Mongo `MoneySchema` enum reads
-`ALL_CURRENCY_CODES`.
+`CURRENCY_SYMBOLS` and `ALL_CURRENCY_CODES` in `@mercaria/shared-types`. Adding
+a code there changes the TypeScript union immediately but changes nothing in
+Postgres: every currency column carries a CHECK derived from the same tuple
+(`db/schema/CONVENTIONS.md`), so adding a code is a code change plus
+`bun run db:generate` plus an additive (`pre`) migration landed in the same PR —
+skip the migration and the first write of the new code fails its CHECK in
+production even though the build is green.
 
 The six roles the code distinguishes: **catalog** (what a price is stored in),
 **display**, **presentment/charge**, **merchant accounting** (`DualMoney.shop`),
@@ -113,9 +118,11 @@ The six roles the code distinguishes: **catalog** (what a price is stored in),
   (`Number.MAX_SAFE_INTEGER`, about 90.07 million at FAIR's eight decimals) and
   `assertSafeMoneyAmount` live in shared-types and are called at every
   construction boundary: the request schemas (400), the pricing engine outputs,
-  `convert`/`toDualMoney`, refund proration, checkout's grand total, and the
-  Mongoose `MoneySchema` validator as the last line. Note `z.number().int()`
-  alone accepts `1e300` — the ceiling is what makes the check real.
+  `convert`/`toDualMoney`, refund proration and checkout's grand total. Note
+  `z.number().int()` alone accepts `1e300` — the ceiling is what makes the
+  check real. (Every money column is `bigint({ mode: 'number' })` in Postgres,
+  which re-imposes this same JS ceiling at the storage layer — see
+  `db/schema/CONVENTIONS.md`.)
 - **External connector orders keep the source platform's amounts verbatim** and
   its own rate; Mercaria FX never re-prices an imported order.
 - **DISPLAY** goes through `PriceDisplay` and `FxContext` in `@mercaria/ui` (do
@@ -281,8 +288,8 @@ Moovo owns that entirely.
 
 One unified API (`packages/backend`) serves storefront, dashboard and POS.
 
-- `Listing`, with ownerType `user | store`, including `ProductVariant`
-  sub-documents.
+- `Listing`, with ownerType `user | store`, including `ProductVariant` child
+  rows.
 - `Location` plus `InventoryLevel` for multi-location inventory; the `$inc` guard
   is race-safe at the location grain.
 - `Collection`, manual plus automated rules, materialized into
@@ -301,18 +308,59 @@ One unified API (`packages/backend`) serves storefront, dashboard and POS.
 **Pricing engine** (`pricing.service.calculateTotals`): subtotal, then discounts,
 then taxes, then shipping, then grand total, with exact half-even reconciliation.
 
-**Store permissions:** 17 perms. Role matrix: `owner` gets 17, `admin` gets 16
-(no `store:manage`), `staff` gets 9 operational. All cross-collection references
-are `String` ids. **`store:manage` is the one permission an `admin` does not
-hold**, which is why the payment-onboarding routes use it rather than
-`settings:write`.
+**Store permissions:** 17 perms (`STORE_PERMISSIONS` in
+`db/schema/stores.ts`, includes `channels:write`). Role matrix: `owner` gets
+17/17, `admin` gets 16/17 (no `store:manage`), `staff` gets 9/17 operational.
+**`store:manage` is the one permission an `admin` does not hold**, which is why
+the payment-onboarding routes use it rather than `settings:write`. Every buyer
+id, seller id and `oxy_user_id` is a foreign SERVICE's primary key (Oxy owns
+identity) and carries no foreign key; see `CONVENTIONS.md` below.
 
 **Admin API prefix:** `/admin/stores/:storeId/*`, consumed by dashboard and POS.
 
-## MongoDB
+## PostgreSQL
 
-Database `mercaria-production`, passed to `mongoose.connect()` via `dbName` and
-**not** embedded in `MONGODB_URI`. See `packages/backend/src/lib/db.ts`.
+The backend is Postgres-native: `DATABASE_URL` is **required to boot**
+(`src/index.ts`). Every route, the moderation outbox and the payment domain run
+against it; there is no Mongo fallback. Database `mercaria` on the shared RDS
+instance `oxy-postgres` (`postgres.internal.oxy.so:5432`), owned by role
+`mercaria`, with PostGIS installed once by a privileged role (it is not a
+trusted extension — see `docs/runbooks/30-postgres-database-provisioning.md`
+in `oxy-infra`).
+
+- **Driver/ORM:** drizzle-orm + postgres.js, via `@oxyhq/db` — it owns the
+  column builders, the casing authority (`DATABASE_CASING`), the migration
+  ledger/deploy-phase enforcement, and the throwaway-database test harness. Do
+  not hand-roll something `@oxyhq/db` already provides.
+- **Schema:** `packages/backend/src/db/schema/` (drizzle table defs, one file
+  per domain). `packages/backend/src/db/schema/CONVENTIONS.md` is the
+  canonical, binding ledger for this port — naming, primary keys, the
+  `DualMoney` four-column expansion, closed value sets (`text` + CHECK, never a
+  pg `enum`), timestamps, foreign keys/`ON DELETE` decisions, the `jsonb`
+  register (which columns earned it and why), generated columns, and the full
+  Mongoose-model → Postgres-table map. Read it before touching the schema.
+- **Migrations:** `bun run db:generate` (drizzle-kit) writes the SQL;
+  `packages/backend/src/db/migrate.ts` (invoked as `bun run db:migrate --
+  --target-database=<name> --phase=pre|post|all`, and in production as the
+  compiled `dist/db/migrate.js` run as a one-shot ECS task) is the **only**
+  thing that applies it — never `drizzle-kit migrate` (devDependency only,
+  cannot reach the production image). Every generated `.sql` file needs exactly
+  one `-- oxy:deploy-phase=pre` (additive) or `-- oxy:deploy-phase=post`
+  (drops/renames/narrows) marker; there is no default. `deploy-aws.yml`'s
+  `workflow_dispatch` input `migration_phase=all` applies the whole chain in
+  one run before the rollout — for a from-zero/cutover batch only, never a
+  normal release.
+- **Tests:** `docker-compose.postgres.yml` runs a local `postgis/postgis:17-3.5`
+  on port 5435 for `bun run --cwd packages/backend test`; CI/deploy pin the
+  same image via a service container. Each suite run gets its own throwaway,
+  fully-migrated database (name pattern `oxydb_test_<16 hex>`, from
+  `@oxyhq/db/testing`), created and dropped by
+  `packages/backend/src/db/testDatabase.ts`, which shells out to the real
+  `migrate.ts` entrypoint rather than composing `runMigrations` a second time.
+- **Legacy Mongo/Mongoose is GONE** (removed post-cutover, PR #136): no
+  `src/models/`, no `src/lib/db.ts`, no `mongoose` in `package.json`. The Mongo
+  data remains on the shared instance purely as the rollback target; a backfill
+  re-run means checking out a pre-#136 revision.
 
 ## CORS: critical origins
 
@@ -334,10 +382,11 @@ decisions; Oxy Trust owns reputation; Mercaria owns only its own catalogue
 enforcement.** Mercaria never computes reputation and never suspends an Oxy
 account.
 
-Code lives in `packages/backend/src/services/moderation/`, over four models
-(`abuse-report`, `moderation-outbox`, `moderation-event`,
-`moderation-enforcement`) and two routes (`routes/reports.ts`,
-`routes/crowdsource-webhook.ts`).
+Code lives in `packages/backend/src/services/moderation/`, over four Postgres
+tables/repositories (`abuse_reports`, `moderation_outboxes`,
+`moderation_events`, `moderation_enforcements` — schema in
+`db/schema/moderation.ts`, repositories in `db/moderation/`) and two routes
+(`routes/reports.ts`, `routes/crowdsource-webhook.ts`).
 
 ### "Report" is two unrelated things in this repo
 
@@ -349,21 +398,25 @@ have nothing to do with moderation. Abuse reports are `AbuseReport`,
 ### The four rules that are load-bearing
 
 - **A 201 from `POST /reports` means stored, never "CrowdSource accepted it."**
-  `report-intake.service` commits the `AbuseReport` and its `ModerationOutbox`
-  row in ONE transaction; no outbound request is made in the handler.
-  **`enqueueModerationOutboxEvent` throws unless `session.inTransaction()`**: a
-  bare `startSession()` type-checks, commits the row alone, and passes any test
-  that only asserts the row exists. It is also the ONLY writer of that
-  collection, so the row IS the job.
+  `report-intake.service` commits the `abuse_reports` row and its
+  `moderation_outboxes` row in ONE `db.transaction(...)`; no outbound request is
+  made in the handler. **`enqueueModerationOutboxEvent` refuses the ROOT
+  connection** — `db/moderation/transactionGuard.ts`'s `requireTransaction`
+  discriminates a real transaction handle from `getDb()` by whether `.rollback`
+  is a function (a type alone is not enough: the root `Database` and a
+  transaction share the same `DatabaseOrTransaction` type, so a caller that
+  forgets to pass the transaction handle would otherwise compile, commit the row
+  alone, and pass any test that only asserts the row exists). It is also the
+  ONLY writer of that table, so the row IS the job.
 - **`routes/crowdsource-webhook.ts` MUST stay mounted before `express.json()`**
   in `app.ts`, beside `/channels/webhooks`, which is there for the same reason.
   The SDK reads the stream itself and REFUSES if a parser got there first, so a
   wrong order breaks every delivery rather than weakening the check.
-- **Enforcement is idempotent on `decisionId + revision + action`**, enforced by
-  the unique index on `ModerationEnforcement`. Each action CLAIMS its row before
-  acting. `revision` is in the key so a correction's `restore` is a *different*
-  action from the removal it supersedes; drop it and an accepted appeal can never
-  relist the item.
+- **Enforcement is idempotent on `UNIQUE(decision_id, revision, action)`** on
+  `moderation_enforcements`. Each action CLAIMS its row with
+  `.onConflictDoNothing()` before acting. `revision` is in the key so a
+  correction's `restore` is a *different* action from the removal it supersedes;
+  drop it and an accepted appeal can never relist the item.
 - **Evidence carries bare Oxy `fileId`s, never a `mercaria.co` URL.** A
   reviewer's browser fetching such a URL would tell this host when its content is
   under review.
@@ -451,54 +504,53 @@ never come back.
 
 ### Lifecycle
 
-`startModerationOutboxDispatcher` runs on EVERY task, since claims are Mongo
-leases with an owner check, so N tasks share the work and a dead task's lease is
-reclaimed. It no-ops when CrowdSource is off: the LOOP is gated, never the
-durable record, so reports taken while disabled deliver once it is switched on.
-The webhook dedupe store is **Mongo backed** (`moderation-event.store.ts`)
-because Mercaria runs several ECS tasks, and the SDK's in-process default would
-dedupe only the task that received both copies.
+`startModerationOutboxDispatcher` runs on EVERY task. Claims are
+`SELECT ... FOR UPDATE SKIP LOCKED` against `moderation_outboxes` with an
+owner check, so N dispatchers drain the queue without handing each other the
+same row, and a dead task's expired lease is reclaimable. It no-ops when
+CrowdSource is off: the LOOP is gated, never the durable record, so reports
+taken while disabled deliver once it is switched on. The webhook dedupe store
+is **Postgres backed** (`moderation-event.store.ts`, an
+`INSERT ... ON CONFLICT (id) DO NOTHING ... RETURNING` claim on
+`moderation_events`) because Mercaria runs several ECS tasks, and the SDK's
+in-process default would dedupe only the task that received both copies. The
+conflict is not an error to catch — the empty vs. one-row `RETURNING` set IS
+the "already claimed" answer, so a real failure (a dropped connection, pool
+exhaustion) still propagates instead of being read as a duplicate.
 
 `app.ts` exists so the app can be built without listening, which is what lets the
 raw-body invariant be asserted against the REAL middleware chain.
 
-### Testing: the moderation writes run against a REAL replica set
+### Testing: the moderation writes run against a REAL Postgres server
 
-`vitest.globalSetup.ts` starts one `MongoMemoryReplSet` for the suite, and the
-`*.realdb.test.ts` files use it. **Do not convert those tests to mocks.**
+`packages/backend/vitest.pg.globalSetup.ts` creates one throwaway,
+fully-migrated Postgres database per suite run (see "PostgreSQL" above);
+`services/__tests__/moderation-writes.realdb.test.ts` runs against it. **Do not
+convert those tests to mocks.**
 
-The rest of this backend's tests mock their Mongoose models, which is fine for
-logic and has one blind spot that matters enormously here: **a mocked `updateOne`
-accepts any update document, including one the server rejects outright.**
-Verified in this repo by injecting the bug and running both suites: the mocked
-moderation tests passed 16/16 while the real-server tests failed 6 with
-`MongoServerError: Updating the path 'updatedAt' would create a conflict at
-'updatedAt'`.
+The rest of this backend's tests mock their drizzle repositories, which is fine
+for logic and has one blind spot that matters here: **a mocked `insert`/`update`
+accepts any statement, including one the server rejects outright** — a real
+CHECK, unique index, or the `requireTransaction` guard has no mocked
+counterpart. This is where `enqueueModerationOutboxEvent`'s no-op guarantee is
+actually pinned: `ON CONFLICT (id) DO NOTHING` writes nothing at all on a
+repeat — no tuple version, no timestamp, no lock — for a STRUCTURAL reason
+rather than by matching a spelling. Mutating the enqueue to
+`.onConflictDoUpdate(...)` with the SAME values still moved `updated_at` by the
+duration the test waits (drizzle applies the column's `$onUpdate` to a conflict
+branch's `set`, so "write the same data back" is not even a quiet write) and
+moved the row's `xmin`; both are asserted, and the `xmin` check is what would
+still catch a `DO UPDATE` careful enough to leave every column alone. (This
+replaces the old Mongoose hazard — naming both `createdAt`/`updatedAt` inside
+`$setOnInsert` under `timestamps: true` made Mongo refuse the whole write, and
+the naive fix silently turned a repeated enqueue into a real write contending
+with a live dispatcher lease. The Postgres shape has no counterpart bug: a
+repeat is a genuine no-op by construction, not by a flag someone has to
+remember.)
 
-That bug is worth knowing by name because it is total and silent: naming BOTH
-`createdAt` and `updatedAt` inside `$setOnInsert` on a schema declaring
-`{ timestamps: true }` makes Mongoose add the same path under `$set` too, Mongo
-refuses the whole write, and inside the intake transaction the abort takes the
-report row with it, so every `POST /reports` 500s from the first one, with a
-green suite. `createdAt` alone is harmless.
-
-**There are two ways to fix it and they are NOT interchangeable.** The enqueue
-passes `timestamps: false` **as an option on that one `updateOne`** and writes
-both timestamps in `$setOnInsert` itself. The tempting alternative, dropping the
-explicit timestamps and letting `timestamps: true` own them, also clears the
-server error and is wrong: it leaves Mongoose's `$set: { updatedAt }` on the
-update, so a repeated enqueue for a row that ALREADY EXISTS becomes a real write
-instead of a no-op. A repeat is ordinary (a transaction retry, two concurrent
-duplicate submissions, a reconciliation sweep re-deriving an event) and runs
-while the dispatcher holds leases on those same rows, so a write nobody needed
-contends with a live lease update. Being a genuine no-op is the whole property
-the deterministic event id exists to give. Measured here: without the flag a
-repeat bumps `updatedAt`; with it the row is untouched, pinned by `leaves an
-existing row COMPLETELY untouched on a repeated enqueue`. Credit: `homiio`, via
-CrowdSource PR #34.
-
-A replica SET, not a standalone: transactions and unique indexes are the two
-properties under test and neither exists without one.
+A real server, not a mock: `db.transaction(...)`/`requireTransaction`, unique
+indexes and `FOR UPDATE SKIP LOCKED` are the properties under test and none of
+them exist without one.
 
 **CI typechecks all three Expo apps**, not just the API and UI. A build is not a
 substitute: Babel strips types, so `expo export` happily bundles code `tsc`
@@ -515,10 +567,14 @@ pin.
 
 ## Deploy
 
-- **API** to AWS ECS Fargate, `.github/workflows/deploy-aws.yml`
-  (`linux/arm64`, ECR `oxy/mercaria`). The ECS service, task definition, ALB
-  rule, ECR repo and SSM params must be provisioned in `oxy-infra` first
-  (handoff).
+- **API** is live on AWS ECS Fargate (service `mercaria`, cluster
+  `oxy-cluster`), `.github/workflows/deploy-aws.yml` (`linux/arm64`, ECR
+  `oxy/mercaria`). The ECS service, task definition, ALB rule, ECR repo and SSM
+  params are provisioned in `oxy-infra`. The workflow's `test` job runs on
+  `ubuntu-latest` (x86), deliberately NOT the `ubuntu-24.04-arm` the `deploy`
+  job uses — GitHub-hosted ARM runners don't support service containers at all,
+  AND `postgis/postgis` publishes `linux/amd64` only, so the job needs a real
+  PostGIS service container either way. Don't "fix" the runner mismatch.
 - **Web apps go to Cloudflare Workers (Static Assets), NOT Pages.** Each app
   deploys a Worker (`mercaria`, `mercaria-dashboard`, `mercaria-pos`) via
   `bunx wrangler deploy` using the per-package `wrangler.jsonc`. Workflows:
@@ -542,11 +598,8 @@ pin.
 
 - Register 2 Oxy RP client ids (dashboard, POS):
   `EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD`, `EXPO_PUBLIC_OXY_CLIENT_ID_POS`.
-- Provision the ECS service, task definition, ALB rule, ECR repo and SSM params
-  in `oxy-infra`.
-- **`DATABASE_URL` is now REQUIRED and the task will not boot without it** — the
-  payment domain and its ledger are Postgres-native. The database also needs
-  PostGIS installed ONCE by a privileged role before the first migration runs
-  (`CREATE EXTENSION IF NOT EXISTS postgis` short-circuits before the privilege
-  check, so it is not a fallback), and the migrations applied with
-  `db:migrate --target-database=<name>` — `pre` before the rollout, `post` after.
+- The ECS service, task definition, ALB rule, ECR repo and SSM params are
+  provisioned in `oxy-infra` (role `mercaria` owns database `mercaria` on the
+  shared `oxy-postgres` RDS instance; `DATABASE_URL` is live via GitHub secret →
+  SSM `/oxy/mercaria/DATABASE_URL` → the task definition, and the task will not
+  boot without it — see "PostgreSQL" above).
