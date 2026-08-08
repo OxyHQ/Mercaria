@@ -1,25 +1,33 @@
 /**
  * Unit tests for `review.service`.
  *
- * Reviews, orders, stores and seller profiles are still Mongo, so those models
- * are mocked; the LISTING side moved to Postgres, so `db/catalog/listingRepository`
- * is mocked in place of the `Listing` model. The queue producer, the notification
- * service and the Oxy/media hydration are mocked too.
+ * Every store the service touches is Postgres now, so the repositories are
+ * mocked rather than a Mongoose model — `db/buyers/reviewRepository` in place of
+ * `Review`, alongside the listing, store, order and seller-profile repositories.
+ * The queue producer, the notification service and the Oxy/media hydration are
+ * mocked too.
  *
- * Tests assert the F5 contract: the verified-purchase gate (no qualifying order →
- * FORBIDDEN; qualifying order → created), one-review-per-target (existing review →
- * CONFLICT), that `recomputeAggregate` derives + persists `{rating, reviewCount}`
- * per target, and that a store's review page builds each card's product context
- * from the listing ROW plus its images child table.
+ * These tests pin the service's LOGIC: the verified-purchase gate (no qualifying
+ * order → FORBIDDEN; qualifying order → created), one-review-per-target (existing
+ * review → CONFLICT, and the unique-index refusal mapped to the same CONFLICT),
+ * that `createReview` hands the repository ONE target rather than three
+ * half-filled columns, that `recomputeAggregate` derives + persists
+ * `{rating, reviewCount}` per target, and that a store's review page builds each
+ * card's product context from the listing ROW plus its images child table.
+ *
+ * What a mocked repository CANNOT see — that the target-exclusivity CHECK really
+ * refuses a two-target row, and that the aggregate really excludes `hidden`
+ * reviews rather than returning nothing at all — is in
+ * `db/__tests__/buyers.realdb.test.ts` against a real server.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const reviewFindOne = vi.fn();
-const reviewCreate = vi.fn();
-const reviewAggregate = vi.fn();
-const reviewFind = vi.fn();
-const reviewCountDocuments = vi.fn();
+const aggregatePublishedReviews = vi.fn();
+const authorHasReviewedTarget = vi.fn();
+const findListingReviewsPage = vi.fn();
+const findReviewsPage = vi.fn();
+const insertReview = vi.fn();
 const buyerHasOrderForListing = vi.fn();
 const buyerHasOrderFromSeller = vi.fn();
 const findOrderById = vi.fn();
@@ -36,14 +44,12 @@ const enqueueRecomputeAggregate = vi.fn();
 const sendNotification = vi.fn();
 const getProfiles = vi.fn();
 
-vi.mock('../../models/review.js', () => ({
-  Review: {
-    findOne: (...args: unknown[]) => reviewFindOne(...args),
-    create: (...args: unknown[]) => reviewCreate(...args),
-    aggregate: (...args: unknown[]) => reviewAggregate(...args),
-    find: (...args: unknown[]) => reviewFind(...args),
-    countDocuments: (...args: unknown[]) => reviewCountDocuments(...args),
-  },
+vi.mock('../../db/buyers/reviewRepository.js', () => ({
+  aggregatePublishedReviews: (...args: unknown[]) => aggregatePublishedReviews(...args),
+  authorHasReviewedTarget: (...args: unknown[]) => authorHasReviewedTarget(...args),
+  findListingReviewsPage: (...args: unknown[]) => findListingReviewsPage(...args),
+  findReviewsPage: (...args: unknown[]) => findReviewsPage(...args),
+  insertReview: (...args: unknown[]) => insertReview(...args),
 }));
 
 vi.mock('../../db/orders/orderRepository.js', () => ({
@@ -93,27 +99,31 @@ import { createReview, recomputeAggregate, listReviewsForStoreHandle } from '../
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
 
-/** A lean-query stub: `.lean()` resolves to `value`. */
-function leanResolving(value: unknown) {
-  return { lean: vi.fn().mockResolvedValue(value) };
-}
+/** Every row fixture carries the same timestamps; none of them is asserted on. */
+const AT = new Date('2026-01-01T00:00:00.000Z');
 
-/** The `Review.find(...).sort().skip().limit().lean()` chain. */
-interface FindChain {
-  sort: () => FindChain;
-  skip: () => FindChain;
-  limit: () => FindChain;
-  lean: () => Promise<unknown>;
-}
-
-function findChainResolving(value: unknown): FindChain {
-  const chain: FindChain = {
-    sort: () => chain,
-    skip: () => chain,
-    limit: () => chain,
-    lean: () => Promise.resolve(value),
+/**
+ * A `reviews` ROW as the repository returns it: flat, `id` rather than `_id`, and
+ * the two target columns this review does NOT name arriving as NULL rather than
+ * absent — which is what the DTO serializer has to keep off the wire.
+ */
+function reviewRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'review-1',
+    authorOxyUserId: 'buyer-1',
+    targetType: 'listing',
+    listingId: 'listing-1',
+    storeId: null,
+    sellerOxyUserId: null,
+    orderId: null,
+    rating: 5,
+    title: null,
+    body: null,
+    status: 'published',
+    createdAt: AT,
+    updatedAt: AT,
+    ...overrides,
   };
-  return chain;
 }
 
 /** Empty `findListingChildren` result — images/options/memberships, keyed by listing id. */
@@ -121,19 +131,30 @@ function noChildren() {
   return { images: new Map(), options: new Map(), collectionIds: new Map() };
 }
 
+/** The driver error a partial unique index raises, as postgres.js surfaces it. */
+function uniqueViolation(constraint: string): Error & { code: string; constraint_name: string } {
+  return Object.assign(new Error('duplicate key value violates unique constraint'), {
+    code: '23505',
+    constraint_name: constraint,
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   enqueueRecomputeAggregate.mockResolvedValue(undefined);
   sendNotification.mockResolvedValue(undefined);
   getProfiles.mockResolvedValue(new Map());
-  // recompute aggregate (called inline by createReview) — empty by default.
-  reviewAggregate.mockResolvedValue([]);
+  // recompute aggregate (called inline by createReview) — an unrated target by
+  // default: no published reviews, so no average to round.
+  aggregatePublishedReviews.mockResolvedValue({ average: null, count: 0 });
   setListingRating.mockResolvedValue(undefined);
   setStoreRating.mockResolvedValue(undefined);
   setSellerRating.mockResolvedValue(undefined);
   // Default: the buyer has no qualifying purchase; each test opts in.
   buyerHasOrderForListing.mockResolvedValue(false);
   buyerHasOrderFromSeller.mockResolvedValue(false);
+  // Default: the buyer has not reviewed this target before.
+  authorHasReviewedTarget.mockResolvedValue(false);
   // Default: target-owner notification lookups resolve to nothing.
   findListingById.mockResolvedValue(null);
   findListingChildren.mockResolvedValue(noChildren());
@@ -151,25 +172,12 @@ describe('review.service.createReview — verified-purchase gate', () => {
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN,
     );
 
-    expect(reviewCreate).not.toHaveBeenCalled();
+    expect(insertReview).not.toHaveBeenCalled();
   });
 
   it('creates a listing review WITH a matching qualifying order', async () => {
     buyerHasOrderForListing.mockResolvedValue(true);
-    reviewFindOne.mockReturnValue(leanResolving(null));
-    const now = new Date();
-    reviewCreate.mockResolvedValue({
-      toObject: () => ({
-        _id: 'review-1',
-        authorOxyUserId: 'buyer-1',
-        targetType: 'listing',
-        listingId: 'listing-1',
-        rating: 5,
-        status: 'published',
-        createdAt: now,
-        updatedAt: now,
-      }),
-    });
+    insertReview.mockResolvedValue(reviewRow());
     // owner notification: a user-owned listing → notify owner. A repository ROW,
     // flat and with `oxyUserId` NULL-able rather than absent.
     findListingById.mockResolvedValue({
@@ -186,10 +194,23 @@ describe('review.service.createReview — verified-purchase gate', () => {
       rating: 5,
     });
 
-    expect(reviewCreate).toHaveBeenCalledTimes(1);
+    // ONE target, not three columns: `reviews_target_exclusivity_check` refuses a
+    // row naming two, so the service must never hand the repository more than it
+    // resolved from the input.
+    expect(insertReview).toHaveBeenCalledTimes(1);
+    expect(insertReview).toHaveBeenCalledWith({
+      authorOxyUserId: 'buyer-1',
+      targetType: 'listing',
+      targetId: 'listing-1',
+      rating: 5,
+    });
+
     expect(dto.id).toBe('review-1');
     expect(dto.rating).toBe(5);
     expect(dto.targetType).toBe('listing');
+    // The NULL target columns stay OFF the DTO rather than arriving as nulls.
+    expect(dto.storeId).toBeUndefined();
+    expect(dto.sellerOxyUserId).toBeUndefined();
     // drift-proof recompute enqueued.
     expect(enqueueRecomputeAggregate).toHaveBeenCalledWith({
       targetType: 'listing',
@@ -225,7 +246,7 @@ describe('review.service.createReview — verified-purchase gate', () => {
 describe('review.service.createReview — one review per target', () => {
   it('rejects when the buyer already reviewed the target (CONFLICT)', async () => {
     buyerHasOrderForListing.mockResolvedValue(true);
-    reviewFindOne.mockReturnValue(leanResolving({ _id: 'existing-review' }));
+    authorHasReviewedTarget.mockResolvedValue(true);
 
     await expect(
       createReview('buyer-1', { targetType: 'listing', listingId: 'listing-1', rating: 5 }),
@@ -233,38 +254,74 @@ describe('review.service.createReview — one review per target', () => {
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
 
-    expect(reviewCreate).not.toHaveBeenCalled();
+    expect(insertReview).not.toHaveBeenCalled();
+    // The pre-check reads the target as a whole, not a status-filtered slice: a
+    // review a jury HID still counts as already-reviewed.
+    expect(authorHasReviewedTarget).toHaveBeenCalledWith('buyer-1', {
+      targetType: 'listing',
+      targetId: 'listing-1',
+    });
+  });
+
+  it('maps the partial unique index refusal to the same CONFLICT', async () => {
+    // Two concurrent submissions both pass the pre-check; the index refuses the
+    // second. Without this mapping that arrives as a 500 on an ordinary
+    // double-submit.
+    buyerHasOrderForListing.mockResolvedValue(true);
+    insertReview.mockRejectedValue(uniqueViolation('reviews_author_oxy_user_id_listing_id_key'));
+
+    await expect(
+      createReview('buyer-1', { targetType: 'listing', listingId: 'listing-1', rating: 5 }),
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
+    );
+  });
+
+  it('does NOT swallow an unrelated constraint violation', async () => {
+    // The mapping above is scoped to one constraint on purpose: a foreign-key
+    // refusal on `order_id` is a different bug and must not read as "already
+    // reviewed".
+    buyerHasOrderForListing.mockResolvedValue(true);
+    const other = uniqueViolation('reviews_something_else_key');
+    insertReview.mockRejectedValue(other);
+
+    await expect(
+      createReview('buyer-1', { targetType: 'listing', listingId: 'listing-1', rating: 5 }),
+    ).rejects.toBe(other);
   });
 });
 
 describe('review.service.recomputeAggregate', () => {
   it('computes a rounded average + count and writes to the listing', async () => {
-    reviewAggregate.mockResolvedValue([{ avg: 4.5, count: 2 }]);
+    aggregatePublishedReviews.mockResolvedValue({ average: 4.5, count: 2 });
 
     const result = await recomputeAggregate('listing', 'listing-1');
 
     expect(result).toEqual({ rating: 4.5, reviewCount: 2 });
-    // The listing write is no longer a `{$set: …}` update document — the
-    // repository takes the two values as arguments, so the assertion is about
-    // WHICH values the service derived and handed over.
+    // The aggregate is asked for ONE target, by type and id — the repository owns
+    // which of the three columns that is.
+    expect(aggregatePublishedReviews).toHaveBeenCalledWith({
+      targetType: 'listing',
+      targetId: 'listing-1',
+    });
+    // The listing write takes the two values as arguments, so the assertion is
+    // about WHICH values the service derived and handed over.
     expect(setListingRating).toHaveBeenCalledWith('listing-1', 4.5, 2);
   });
 
   it('writes to the store for a store target', async () => {
-    reviewAggregate.mockResolvedValue([{ avg: 4, count: 3 }]);
+    aggregatePublishedReviews.mockResolvedValue({ average: 4, count: 3 });
 
     const result = await recomputeAggregate('store', 'store-1');
 
     expect(result).toEqual({ rating: 4, reviewCount: 3 });
-    // Same shape as the listing write: the repository takes the two derived
-    // values as arguments rather than an update document.
     expect(setStoreRating).toHaveBeenCalledWith('store-1', 4, 3);
     // A store target must NOT reach the listing write.
     expect(setListingRating).not.toHaveBeenCalled();
   });
 
   it('upserts the seller profile for a seller target', async () => {
-    reviewAggregate.mockResolvedValue([{ avg: 3.33, count: 6 }]);
+    aggregatePublishedReviews.mockResolvedValue({ average: 3.33, count: 6 });
 
     const result = await recomputeAggregate('seller', 'seller-1');
 
@@ -275,7 +332,10 @@ describe('review.service.recomputeAggregate', () => {
   });
 
   it('returns a zero aggregate when there are no published reviews', async () => {
-    reviewAggregate.mockResolvedValue([]);
+    // `average: null` is how the repository says "nothing to average", which is
+    // NOT the same fact as an average of zero — the zero written here is the
+    // service's decision, not an aggregate result.
+    aggregatePublishedReviews.mockResolvedValue({ average: null, count: 0 });
 
     const result = await recomputeAggregate('listing', 'listing-empty');
 
@@ -292,24 +352,9 @@ describe('review.service.listReviewsForStoreHandle', () => {
      * (`id`, not `_id`) and carry no `images` at all — the gallery is a child
      * table read once for the whole page by `findListingChildren`.
      */
-    const now = new Date();
     findStoreByHandle.mockResolvedValue({ id: 'store-1', handle: 'a-store' });
     findListingIdsByStore.mockResolvedValue(['listing-1', 'listing-2']);
-    reviewFind.mockReturnValue(
-      findChainResolving([
-        {
-          _id: 'review-1',
-          authorOxyUserId: 'buyer-1',
-          targetType: 'listing',
-          listingId: 'listing-1',
-          rating: 5,
-          status: 'published',
-          createdAt: now,
-          updatedAt: now,
-        },
-      ]),
-    );
-    reviewCountDocuments.mockResolvedValue(1);
+    findListingReviewsPage.mockResolvedValue({ rows: [reviewRow()], total: 1 });
     findListingsByIds.mockResolvedValue([{ id: 'listing-1', title: 'A thing' }]);
     findListingChildren.mockResolvedValue({
       // Deliberately NOT position 0 first — the service picks the lowest position
@@ -330,6 +375,9 @@ describe('review.service.listReviewsForStoreHandle', () => {
     const page = await listReviewsForStoreHandle('a-store', { page: 1, limit: 20 });
 
     expect(findListingIdsByStore).toHaveBeenCalledWith('store-1');
+    // The whole store's listing ids go to the review query in ONE `inArray`; only
+    // the listings actually reviewed are hydrated afterwards.
+    expect(findListingReviewsPage).toHaveBeenCalledWith(['listing-1', 'listing-2'], 1, 20);
     expect(findListingChildren).toHaveBeenCalledWith(['listing-1']);
     expect(page.total).toBe(1);
     expect(page.data[0].product).toEqual({
@@ -358,6 +406,6 @@ describe('review.service.listReviewsForStoreHandle', () => {
     const page = await listReviewsForStoreHandle('a-store', { page: 1, limit: 20 });
 
     expect(page).toEqual({ data: [], total: 0 });
-    expect(reviewFind).not.toHaveBeenCalled();
+    expect(findListingReviewsPage).not.toHaveBeenCalled();
   });
 });

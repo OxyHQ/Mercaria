@@ -6,14 +6,40 @@
  * target's rating aggregate INLINE (so the immediate read is correct) and also
  * enqueues a drift-proof recompute, then fires a best-effort `review_received`
  * notification to the target owner. `recomputeAggregate` derives + persists the
- * denormalized `{ rating, reviewCount }` onto the `Listing` / `Store` /
- * `SellerProfile`. `listReviews` returns a hydrated, paginated page.
+ * denormalized `{ rating, reviewCount }` onto the listing / store / seller
+ * profile. `listReviews` returns a hydrated, paginated page.
  *
- * Cross-collection ids (`listingId`, `storeId`, `orderId`) are stored/queried as
- * `String`, consistent with the rest of the codebase.
+ * ## Ported to Postgres — three things the database now decides
+ *
+ *  - **The target is exclusive by CONSTRAINT.** A review names a listing, a store
+ *    or a seller, and `reviews_target_exclusivity_check` refuses a row naming two.
+ *    Mongoose stated that in prose and enforced it nowhere. The audit that matters
+ *    is of the WRITE paths, and there is exactly one: `createReview` resolves a
+ *    single `targetId` from the input through {@link resolveTargetId} and hands it
+ *    to the repository, which expands it into one set column and two NULLs. No
+ *    existing path can produce a row the CHECK would now reject.
+ *  - **The duplicate refusal is the constraint, not the pre-check.**
+ *    `reviews_author_oxy_user_id_listing_id_key` is a partial unique index on
+ *    (author, listing). The pre-check still runs because it produces a clean
+ *    CONFLICT for the ordinary case, but two concurrent submissions both pass it
+ *    and the index refuses the second — which is caught here and mapped to the
+ *    same CONFLICT rather than surfacing as a 500. Store and seller uniqueness
+ *    remains service-enforced, exactly as it was: making it a constraint needs a
+ *    production duplicate audit first.
+ *  - **`hidden` still blocks a second review.** The pre-check is deliberately not
+ *    filtered by status, so a review a jury hid cannot be used to buy another
+ *    attempt.
+ *
+ * ## There is no path here that can un-hide a review
+ *
+ * `reviews.status = 'hidden'` is written by moderation enforcement. This service
+ * exposes create + two list functions and no update of any kind, so it has no
+ * equivalent of the escape `catalog-write.service.updateListing` closes for
+ * `restricted` — there is nothing for a seller to PATCH. Both list paths filter
+ * `status = 'published'` and the aggregate counts only published rows, so a
+ * hidden review is invisible to readers AND to the rating in one move.
  */
 
-import mongoose from 'mongoose';
 import type {
   CreateReviewInput,
   RatingAggregate,
@@ -22,7 +48,16 @@ import type {
   ReviewProduct,
   ReviewTargetType,
 } from '@mercaria/shared-types';
-import { Review, type IReview } from '../models/review.js';
+import { isUniqueViolation } from '@oxyhq/db';
+import {
+  aggregatePublishedReviews,
+  authorHasReviewedTarget,
+  findListingReviewsPage,
+  findReviewsPage,
+  insertReview,
+  type ReviewRecord,
+  type ReviewTarget,
+} from '../db/buyers/reviewRepository.js';
 import {
   findListingById,
   findListingChildren,
@@ -53,24 +88,9 @@ import { log } from '../lib/logger.js';
 /** Order statuses that count as a completed/qualifying purchase for a review. */
 const PURCHASED_STATUSES = ['paid', 'processing', 'shipped', 'delivered'] as const;
 
-/** A Mongo filter document (Mongoose 9 dropped the `FilterQuery` export). */
-type ReviewFilter = Record<string, unknown>;
-
 /** Average rating rounded to ONE decimal place. */
 function roundRating(avg: number): number {
   return Math.round(avg * 10) / 10;
-}
-
-/** The persisted target-id field name for a target type. */
-function targetIdField(targetType: ReviewTargetType): 'listingId' | 'storeId' | 'sellerOxyUserId' {
-  switch (targetType) {
-    case 'listing':
-      return 'listingId';
-    case 'store':
-      return 'storeId';
-    case 'seller':
-      return 'sellerOxyUserId';
-  }
 }
 
 /** Resolve + validate the required target id from the input for its target type. */
@@ -161,39 +181,42 @@ function toReviewAuthor(profile: OxyProfile | undefined): ReviewAuthor | undefin
 }
 
 /**
- * Map a persisted review doc + the resolved author profile to the `Review` DTO.
+ * Map a persisted review row + the resolved author profile to the `Review` DTO.
+ *
+ * The three target columns arrive NULL rather than absent, which is why each is
+ * copied under a truthiness guard: the DTO's optional fields must stay ABSENT for
+ * a target this review does not name, not present and null.
  *
  * `products` is an optional map of `listingId → ReviewProduct` used only by the
  * store-reviews serializer to attach minimal product context to each card; it is
  * absent (so `dto.product` stays undefined) on a listing's own reviews page.
  */
 function toReviewDTO(
-  doc: IReview,
+  row: ReviewRecord,
   authorProfiles: Map<string, OxyProfile>,
   products?: Map<string, ReviewProduct>,
 ): ReviewDTO {
-  const authorOxyUserId = String(doc.authorOxyUserId);
   const dto: ReviewDTO = {
-    id: String((doc as { _id: mongoose.Types.ObjectId })._id),
-    authorOxyUserId,
-    targetType: doc.targetType,
-    rating: doc.rating,
-    status: doc.status,
-    createdAt: doc.createdAt.toISOString(),
-    updatedAt: doc.updatedAt.toISOString(),
+    id: row.id,
+    authorOxyUserId: row.authorOxyUserId,
+    targetType: row.targetType,
+    rating: row.rating,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
-  const author = toReviewAuthor(authorProfiles.get(authorOxyUserId));
+  const author = toReviewAuthor(authorProfiles.get(row.authorOxyUserId));
   if (author) {
     dto.author = author;
   }
-  if (doc.listingId) dto.listingId = String(doc.listingId);
-  if (doc.storeId) dto.storeId = String(doc.storeId);
-  if (doc.sellerOxyUserId) dto.sellerOxyUserId = String(doc.sellerOxyUserId);
-  if (doc.orderId) dto.orderId = String(doc.orderId);
-  if (doc.title) dto.title = doc.title;
-  if (doc.body) dto.body = doc.body;
-  if (products && doc.listingId) {
-    const product = products.get(String(doc.listingId));
+  if (row.listingId) dto.listingId = row.listingId;
+  if (row.storeId) dto.storeId = row.storeId;
+  if (row.sellerOxyUserId) dto.sellerOxyUserId = row.sellerOxyUserId;
+  if (row.orderId) dto.orderId = row.orderId;
+  if (row.title) dto.title = row.title;
+  if (row.body) dto.body = row.body;
+  if (products && row.listingId) {
+    const product = products.get(row.listingId);
     if (product) {
       dto.product = product;
     }
@@ -203,25 +226,22 @@ function toReviewDTO(
 
 /**
  * Recompute a review target's `{ rating, reviewCount }` from its PUBLISHED
- * reviews and persist it onto the target model. Returns the new aggregate.
+ * reviews and persist it onto the target row. Returns the new aggregate.
+ *
+ * The repository reports `average: null` for a target with no published reviews,
+ * which is why the zero here is written deliberately rather than inherited from
+ * an aggregate that could not distinguish "no reviews" from "an average of zero".
+ * The write is an absolute SET: this derived both figures, so it is the whole
+ * answer and not a delta.
  */
 export async function recomputeAggregate(
   targetType: ReviewTargetType,
   targetId: string,
 ): Promise<RatingAggregate> {
-  const match: Record<string, unknown> = {
-    targetType,
-    [targetIdField(targetType)]: targetId,
-    status: 'published',
-  };
+  const { average, count } = await aggregatePublishedReviews({ targetType, targetId });
 
-  const [group] = await Review.aggregate<{ avg: number; count: number }>([
-    { $match: match },
-    { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } },
-  ]);
-
-  const reviewCount = group?.count ?? 0;
-  const rating = group && reviewCount > 0 ? roundRating(group.avg) : 0;
+  const reviewCount = count;
+  const rating = average !== null && reviewCount > 0 ? roundRating(average) : 0;
 
   switch (targetType) {
     case 'listing':
@@ -252,7 +272,7 @@ async function storeOwnerIds(storeId: string): Promise<string[]> {
  * throws). The author is never notified about their own review.
  */
 async function notifyTargetOwner(
-  doc: IReview,
+  row: ReviewRecord,
   input: CreateReviewInput,
   targetId: string,
   authorOxyUserId: string,
@@ -263,7 +283,7 @@ async function notifyTargetOwner(
     if (input.targetType === 'listing') {
       const listing = await findListingById(targetId);
       if (listing?.ownerType === 'user' && listing.oxyUserId) {
-        recipients.add(String(listing.oxyUserId));
+        recipients.add(listing.oxyUserId);
       } else if (listing?.ownerType === 'store' && listing.storeId) {
         for (const ownerId of await storeOwnerIds(listing.storeId)) {
           recipients.add(ownerId);
@@ -284,11 +304,11 @@ async function notifyTargetOwner(
         userId,
         type: 'review_received',
         title: 'New review',
-        body: `You received a ${doc.rating}-star review.`,
+        body: `You received a ${row.rating}-star review.`,
         data: {
-          reviewId: String((doc as { _id: mongoose.Types.ObjectId })._id),
+          reviewId: row.id,
           targetType: input.targetType,
-          rating: doc.rating,
+          rating: row.rating,
         },
       });
     }
@@ -307,37 +327,29 @@ export async function createReview(
   input: CreateReviewInput,
 ): Promise<ReviewDTO> {
   const targetId = resolveTargetId(input);
+  const target: ReviewTarget = { targetType: input.targetType, targetId };
 
   await assertVerifiedPurchase(authorOxyUserId, input, targetId);
 
-  const existing = await Review.findOne({
-    authorOxyUserId,
-    targetType: input.targetType,
-    [targetIdField(input.targetType)]: targetId,
-  }).lean<IReview | null>();
-  if (existing) {
+  if (await authorHasReviewedTarget(authorOxyUserId, target)) {
     throw conflict('You have already reviewed this item');
   }
 
-  const createDoc: Record<string, unknown> = {
-    authorOxyUserId,
-    targetType: input.targetType,
-    [targetIdField(input.targetType)]: targetId,
-    rating: input.rating,
-    status: 'published',
-  };
-  if (input.orderId) createDoc.orderId = input.orderId;
-  if (input.title) createDoc.title = input.title;
-  if (input.body) createDoc.body = input.body;
-
-  let doc: IReview;
+  let row: ReviewRecord;
   try {
-    const created = await Review.create(createDoc);
-    doc = created.toObject<IReview>();
+    row = await insertReview({
+      ...target,
+      authorOxyUserId,
+      rating: input.rating,
+      ...(input.orderId ? { orderId: input.orderId } : {}),
+      ...(input.title ? { title: input.title } : {}),
+      ...(input.body ? { body: input.body } : {}),
+    });
   } catch (err) {
-    // Belt-and-suspenders: the listing partial-unique index can race past the
-    // pre-check; map the duplicate-key error to the same clean conflict.
-    if (err && typeof err === 'object' && (err as { code?: number }).code === 11000) {
+    // The pre-check above is the nice error; this is the one that actually holds.
+    // Two concurrent submissions both pass the read, and the partial unique index
+    // refuses the second — the same conflict, raised a layer lower.
+    if (isUniqueViolation(err, 'reviews_author_oxy_user_id_listing_id_key')) {
       throw conflict('You have already reviewed this item');
     }
     throw err;
@@ -354,16 +366,10 @@ export async function createReview(
     log.general.warn({ err, targetType: input.targetType, targetId }, 'Failed to enqueue aggregate recompute');
   }
 
-  await notifyTargetOwner(doc, input, targetId, authorOxyUserId);
+  await notifyTargetOwner(row, input, targetId, authorOxyUserId);
 
   const authorProfiles = await getProfiles([authorOxyUserId]);
-  return toReviewDTO(doc, authorProfiles);
-}
-
-/** Target descriptor for a review list. */
-interface ReviewTarget {
-  targetType: ReviewTargetType;
-  targetId: string;
+  return toReviewDTO(row, authorProfiles);
 }
 
 /** Offset-pagination parameters. */
@@ -383,28 +389,15 @@ interface ReviewPage {
  * batched `getProfiles` call. Returns the page + total count.
  */
 export async function listReviews(
-  { targetType, targetId }: ReviewTarget,
+  target: ReviewTarget,
   { page, limit }: ReviewListParams,
 ): Promise<ReviewPage> {
-  const filter: ReviewFilter = {
-    targetType,
-    [targetIdField(targetType)]: targetId,
-    status: 'published',
-  };
+  const { rows, total } = await findReviewsPage(target, page, limit);
 
-  const [docs, total] = await Promise.all([
-    Review.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean<IReview[]>(),
-    Review.countDocuments(filter),
-  ]);
-
-  const authorIds = [...new Set(docs.map((d) => String(d.authorOxyUserId)))];
+  const authorIds = [...new Set(rows.map((row) => row.authorOxyUserId))];
   const authorProfiles = await getProfiles(authorIds);
 
-  return { data: docs.map((d) => toReviewDTO(d, authorProfiles)), total };
+  return { data: rows.map((row) => toReviewDTO(row, authorProfiles)), total };
 }
 
 /**
@@ -427,31 +420,19 @@ export async function listReviewsForStoreHandle(
     throw notFound('Store not found');
   }
 
-  const storeId = store.id;
-  const listingIds = await findListingIdsByStore(storeId);
+  const listingIds = await findListingIdsByStore(store.id);
 
   if (listingIds.length === 0) {
     return { data: [], total: 0 };
   }
 
-  const filter: ReviewFilter = {
-    targetType: 'listing',
-    listingId: { $in: listingIds },
-    status: 'published',
-  };
+  const { rows, total } = await findListingReviewsPage(listingIds, page, limit);
 
-  const [docs, total] = await Promise.all([
-    Review.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean<IReview[]>(),
-    Review.countDocuments(filter),
-  ]);
-
-  const authorIds = [...new Set(docs.map((d) => String(d.authorOxyUserId)))];
+  const authorIds = [...new Set(rows.map((row) => row.authorOxyUserId))];
+  // Every row here has a listing id — the query filtered on `targetType` — but
+  // the column is nullable, so the narrowing is done rather than asserted.
   const reviewedListingIds = [
-    ...new Set(docs.map((d) => (d.listingId ? String(d.listingId) : '')).filter(Boolean)),
+    ...new Set(rows.flatMap((row) => (row.listingId ? [row.listingId] : []))),
   ];
 
   const [authorProfiles, listingDocs, children] = await Promise.all([
@@ -471,5 +452,5 @@ export async function listReviewsForStoreHandle(
     });
   }
 
-  return { data: docs.map((d) => toReviewDTO(d, authorProfiles, products)), total };
+  return { data: rows.map((row) => toReviewDTO(row, authorProfiles, products)), total };
 }

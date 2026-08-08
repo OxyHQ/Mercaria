@@ -54,7 +54,7 @@ const findListingChildren = vi.fn();
 const findVariantsByIds = vi.fn();
 const findVariantOptionValues = vi.fn();
 const findStoresByIds = vi.fn();
-const addressFindOne = vi.fn();
+const findAddress = vi.fn();
 const insertOrder = vi.fn();
 const findOrdersByCheckoutGroup = vi.fn();
 const nextOrderNumber = vi.fn();
@@ -89,8 +89,8 @@ vi.mock('../../db/stores/storeRepository.js', () => ({
   findStoresByIds: (...args: unknown[]) => findStoresByIds(...args),
 }));
 
-vi.mock('../../models/address.js', () => ({
-  Address: { findOne: (...args: unknown[]) => addressFindOne(...args) },
+vi.mock('../../db/buyers/addressRepository.js', () => ({
+  findAddress: (...args: unknown[]) => findAddress(...args),
 }));
 
 vi.mock('../../db/orders/orderRepository.js', () => ({
@@ -159,11 +159,6 @@ const ADDRESS_ID = uuidv7();
 
 /** Every row fixture carries the same timestamps; none of them is asserted on. */
 const AT = new Date('2026-01-01T00:00:00.000Z');
-
-/** Build a `.lean()`-able query stub resolving to `value` — the Mongoose side. */
-function leanOf<T>(value: T) {
-  return { lean: () => Promise.resolve(value) };
-}
 
 /** A cart item DTO as `getCart` returns it. */
 function cartItem(overrides: { listingId: string; variantId: string; amount?: number; quantity?: number }) {
@@ -288,14 +283,27 @@ function childrenWithOneImageEach(listingIds: readonly string[]): ListingChildre
   };
 }
 
-const addressDoc = {
-  _id: ADDRESS_ID,
+/**
+ * An `addresses` ROW as `findAddress` returns it: flat, `id` rather than `_id`,
+ * and every optional field NULL rather than absent. `snapshotAddress` must leave
+ * all four off the order's address snapshot — a snapshot carrying `line2: null`
+ * prints a blank line on the shipping label.
+ */
+const addressRow = {
+  id: ADDRESS_ID,
   oxyUserId: USER,
+  label: null,
   recipientName: 'Buyer One',
   line1: '1 Main St',
+  line2: null,
   city: 'Town',
+  region: null,
   postalCode: '00001',
   country: 'US',
+  phone: null,
+  isDefault: true,
+  createdAt: AT,
+  updatedAt: AT,
 };
 
 beforeEach(() => {
@@ -313,7 +321,7 @@ beforeEach(() => {
   findVariantOptionValues.mockReset().mockResolvedValue(new Map());
   // No store docs found → shop currency falls back to a line's native currency (FAIR).
   findStoresByIds.mockReset().mockResolvedValue([]);
-  addressFindOne.mockReset();
+  findAddress.mockReset();
   insertOrder.mockReset();
   findOrdersByCheckoutGroup.mockReset();
   nextOrderNumber.mockReset();
@@ -347,7 +355,7 @@ describe('checkout.service.checkout — multi-seller split', () => {
       ],
       subtotal: { amount: 3000, currency: 'FAIR' },
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
+    findAddress.mockResolvedValueOnce(addressRow);
     findListingsByIds.mockResolvedValueOnce([
       listingRow(L1, { ownerType: 'store', storeId: 'store-A' }),
       listingRow(L2, { ownerType: 'store', storeId: 'store-B' }),
@@ -403,7 +411,7 @@ describe('checkout.service.checkout — a native non-FAIR checkout', () => {
       ],
       subtotal: eur(4500),
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
+    findAddress.mockResolvedValueOnce(addressRow);
     findListingsByIds.mockResolvedValueOnce([
       listingRow(L1, { ownerType: 'user', oxyUserId: 'seller-X' }),
     ]);
@@ -474,7 +482,7 @@ describe('checkout.service.checkout — reservation rollback', () => {
       ],
       subtotal: { amount: 7000, currency: 'FAIR' },
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
+    findAddress.mockResolvedValueOnce(addressRow);
     findListingsByIds.mockResolvedValueOnce([
       listingRow(L1, { ownerType: 'user', oxyUserId: 'seller-X' }),
       listingRow(L2, { ownerType: 'store', storeId: 'store-A' }),
@@ -531,7 +539,7 @@ describe('checkout.service.checkout — totals', () => {
       items: [cartItem({ listingId: L1, variantId: V1, amount: 2500, quantity: 2 })], // line 5000
       subtotal: { amount: 5000, currency: 'FAIR' },
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
+    findAddress.mockResolvedValueOnce(addressRow);
     findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
     // Native variant price ⊜2500 × 2 = the ⊜5000 line the mock pricing sums.
     findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1, 2500)]);
@@ -587,7 +595,7 @@ describe('checkout.service.checkout — unpriced variant', () => {
       items: [cartItem({ listingId: L1, variantId: V1 })],
       subtotal: { amount: 1000, currency: 'FAIR' },
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
+    findAddress.mockResolvedValueOnce(addressRow);
     findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
     // Both price columns NULL together — the shape the paired CHECK allows, and
     // the one the port made representable (Mongoose declared `price` required).
@@ -619,7 +627,7 @@ describe('checkout.service.checkout — discounts', () => {
       subtotal: { amount: 1000, currency: 'FAIR' },
       pendingDiscountCodes: ['WELCOME15'],
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
+    findAddress.mockResolvedValueOnce(addressRow);
     findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
     findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1)]);
     nextOrderNumber.mockResolvedValue('MRC-000020');
@@ -712,7 +720,7 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
       ],
       subtotal: { amount: 2000, currency: 'FAIR' },
     });
-    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
+    findAddress.mockResolvedValueOnce(addressRow);
     findListingsByIds.mockResolvedValueOnce([
       listingRow(L1, { ownerType: 'store', storeId: 'store-A' }),
       listingRow(L2, { ownerType: 'store', storeId: 'store-B' }),

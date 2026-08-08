@@ -1,96 +1,159 @@
 /**
  * Unit tests for `address.service`.
  *
- * `mongodb-memory-server` is not available, so the `Address` model is mocked.
- * The key F3 invariant under test: promoting an address to the default
- * (`isDefault: true`) clears every OTHER default for that user (single default
- * per user).
+ * The `addresses` table is Postgres now, so `db/buyers/addressRepository` is
+ * mocked in place of the `Address` model.
+ *
+ * ## The single-default invariant is no longer testable HERE, and that is a gain
+ *
+ * The previous version of this file asserted that promoting an address issued an
+ * `updateMany` clearing every OTHER default — the service's own two-statement
+ * implementation of an invariant Mongo could not state. That implementation is
+ * gone: `addresses_oxy_user_id_default_key` is a partial unique index, and the
+ * demote+promote pair now lives inside ONE repository transaction because the
+ * index rejects any other ordering. A mocked repository cannot tell a real
+ * transaction from a function that returns the right object, so asserting it here
+ * would prove nothing about the property. It is asserted against a real server in
+ * `db/__tests__/buyers.realdb.test.ts`, including that two defaults are genuinely
+ * REFUSED — which is the half no mock can reach.
+ *
+ * What stays here is what the service still decides: forwarding the caller's
+ * scope and patch unchanged, turning a repository miss into NOT_FOUND, and
+ * serializing a row whose optional fields are NULL rather than absent.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const findOne = vi.fn();
-const updateMany = vi.fn();
+const findAddressesByUser = vi.fn();
+const insertAddress = vi.fn();
+const updateAddress = vi.fn();
+const deleteAddress = vi.fn();
 
-vi.mock('../../models/address.js', () => ({
-  Address: {
-    findOne: (...args: unknown[]) => findOne(...args),
-    updateMany: (...args: unknown[]) => updateMany(...args),
-    find: vi.fn(),
-    create: vi.fn(),
-    exists: vi.fn(),
-    deleteOne: vi.fn(),
-  },
+vi.mock('../../db/buyers/addressRepository.js', () => ({
+  findAddressesByUser: (...args: unknown[]) => findAddressesByUser(...args),
+  insertAddress: (...args: unknown[]) => insertAddress(...args),
+  updateAddress: (...args: unknown[]) => updateAddress(...args),
+  deleteAddress: (...args: unknown[]) => deleteAddress(...args),
 }));
 
-import { update } from '../address.service.js';
+import { create, list, remove, update } from '../address.service.js';
+import { isMercariaError } from '../../lib/errors/error-codes.js';
+import { ErrorCodes } from '../../utils/api-response.js';
 
 const USER = 'user-1';
 const ADDR_ID = '000000000000000000000010';
 
-/** A mock address doc whose `isDefault` is mutated in place by the service. */
-function mockAddressDoc(isDefault: boolean) {
-  const now = new Date();
-  const doc = {
-    _id: ADDR_ID,
+/** Every row fixture carries the same timestamps; none of them is asserted on. */
+const AT = new Date('2026-01-01T00:00:00.000Z');
+
+/**
+ * An `addresses` ROW as the repository returns it: flat, `id` rather than `_id`,
+ * and every optional field NULL rather than absent.
+ */
+function addressRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: ADDR_ID,
     oxyUserId: USER,
+    label: null,
     recipientName: 'Jane',
     line1: '1 Main St',
+    line2: null,
     city: 'Town',
+    region: null,
     postalCode: '12345',
     country: 'US',
-    isDefault,
-    createdAt: now,
-    updatedAt: now,
-    save: vi.fn().mockResolvedValue(undefined),
-    toObject() {
-      return {
-        _id: doc._id,
-        oxyUserId: doc.oxyUserId,
-        recipientName: doc.recipientName,
-        line1: doc.line1,
-        city: doc.city,
-        postalCode: doc.postalCode,
-        country: doc.country,
-        isDefault: doc.isDefault,
-        createdAt: doc.createdAt,
-        updatedAt: doc.updatedAt,
-      };
-    },
+    phone: null,
+    isDefault: false,
+    createdAt: AT,
+    updatedAt: AT,
+    ...overrides,
   };
-  return doc;
 }
 
 beforeEach(() => {
-  findOne.mockReset();
-  updateMany.mockReset();
-  updateMany.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+  vi.clearAllMocks();
 });
 
-describe('address.service.update — single-default invariant', () => {
-  it('clears every other default when promoting an address to default', async () => {
-    const doc = mockAddressDoc(false);
-    findOne.mockResolvedValueOnce(doc);
+describe('address.service.update', () => {
+  it('forwards the buyer scope, the address id and the patch unchanged', async () => {
+    // The promotion itself is the repository's transaction; what the service owes
+    // is that the caller's scope reaches it, since that scoping IS the
+    // authorization for this address.
+    updateAddress.mockResolvedValue(addressRow({ isDefault: true }));
 
     const dto = await update(USER, ADDR_ID, { isDefault: true });
 
-    // The new address is the default…
+    expect(updateAddress).toHaveBeenCalledWith(USER, ADDR_ID, { isDefault: true });
     expect(dto.isDefault).toBe(true);
-    expect(doc.save).toHaveBeenCalled();
-    // …and every OTHER default for this user was cleared (excluding self).
-    expect(updateMany).toHaveBeenCalledTimes(1);
-    const [filter, patch] = updateMany.mock.calls[0];
-    expect(filter).toEqual({ oxyUserId: USER, isDefault: true, _id: { $ne: ADDR_ID } });
-    expect(patch).toEqual({ $set: { isDefault: false } });
   });
 
-  it('does not touch other addresses when isDefault is not promoted', async () => {
-    const doc = mockAddressDoc(true);
-    findOne.mockResolvedValueOnce(doc);
+  it('raises NOT_FOUND when the address is not the buyer’s', async () => {
+    // The repository returns `null` for "no such address" AND for "someone
+    // else's" — the caller cannot tell them apart, which is the point.
+    updateAddress.mockResolvedValue(null);
 
-    await update(USER, ADDR_ID, { recipientName: 'John' });
+    await expect(update(USER, ADDR_ID, { recipientName: 'John' })).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND,
+    );
+  });
+});
 
-    expect(updateMany).not.toHaveBeenCalled();
-    expect(doc.save).toHaveBeenCalled();
+describe('address.service.remove', () => {
+  it('raises NOT_FOUND when nothing was deleted', async () => {
+    deleteAddress.mockResolvedValue({ deleted: false, promotedId: null });
+
+    await expect(remove(USER, ADDR_ID)).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND,
+    );
+  });
+
+  it('succeeds when the row was removed, whether or not a successor was promoted', async () => {
+    deleteAddress.mockResolvedValue({ deleted: true, promotedId: 'address-2' });
+
+    await expect(remove(USER, ADDR_ID)).resolves.toBeUndefined();
+    expect(deleteAddress).toHaveBeenCalledWith(USER, ADDR_ID);
+  });
+});
+
+describe('address.service — serialization', () => {
+  it('omits NULL optionals rather than emitting them as null', async () => {
+    // Mongo left an unset optional ABSENT; Postgres stores NULL. Emitting the
+    // null would make every client special-case a field that used to be missing.
+    findAddressesByUser.mockResolvedValue([addressRow()]);
+
+    const [dto] = await list(USER);
+
+    expect(Object.hasOwn(dto, 'label')).toBe(false);
+    expect(Object.hasOwn(dto, 'line2')).toBe(false);
+    expect(Object.hasOwn(dto, 'region')).toBe(false);
+    expect(Object.hasOwn(dto, 'phone')).toBe(false);
+    expect(dto).toMatchObject({ id: ADDR_ID, recipientName: 'Jane', isDefault: false });
+  });
+
+  it('carries the optional fields through when they are set', async () => {
+    // The mirror case: without it the assertion above passes against a
+    // serializer that drops those four fields unconditionally.
+    insertAddress.mockResolvedValue(
+      addressRow({ label: 'Home', line2: 'Apt 4', region: 'CA', phone: '+15551234' }),
+    );
+
+    const dto = await create(USER, {
+      recipientName: 'Jane',
+      line1: '1 Main St',
+      line2: 'Apt 4',
+      label: 'Home',
+      region: 'CA',
+      phone: '+15551234',
+      city: 'Town',
+      postalCode: '12345',
+      country: 'US',
+    });
+
+    expect(dto).toMatchObject({
+      label: 'Home',
+      line2: 'Apt 4',
+      region: 'CA',
+      phone: '+15551234',
+    });
   });
 });

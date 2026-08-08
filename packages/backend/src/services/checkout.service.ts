@@ -55,7 +55,7 @@ import {
 } from '../db/catalog/variantRepository.js';
 import { findStoresByIds } from '../db/stores/storeRepository.js';
 import { redeemDiscountCode } from '../db/merchandising/discountRepository.js';
-import { Address, type IAddress } from '../models/address.js';
+import { findAddress, type AddressRecord } from '../db/buyers/addressRepository.js';
 import { getCart, clearCart, removeCartLines } from './cart.service.js';
 import { reserve, release } from './inventory.service.js';
 import { summarizeOrders } from './order-hydration.service.js';
@@ -114,8 +114,15 @@ interface SellerGroup {
   lines: ResolvedLine[];
 }
 
-/** Build the immutable address snapshot from a saved address (omit absent optionals). */
-function snapshotAddress(address: IAddress): AddressSnapshot {
+/**
+ * Build the immutable address snapshot from a saved address (omit absent
+ * optionals).
+ *
+ * The four optional fields arrive NULL rather than absent now, which the
+ * truthiness guards below already handle — and they must keep handling it, since
+ * a snapshot carrying `line2: null` would print a blank line on the label.
+ */
+function snapshotAddress(address: AddressRecord): AddressSnapshot {
   const snapshot: AddressSnapshot = {
     recipientName: address.recipientName,
     line1: address.line1,
@@ -355,7 +362,7 @@ export async function checkout(
   }
 
   // 3. Resolve + snapshot the shipping address.
-  const address = await Address.findOne({ _id: input.addressId, oxyUserId }).lean<IAddress | null>();
+  const address = await findAddress(oxyUserId, input.addressId);
   if (!address) {
     throw notFound('Address not found');
   }
