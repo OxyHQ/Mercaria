@@ -3,7 +3,8 @@
  *
  * Owns the lazy lifecycle + edits of a shopper's `UserPreference`, keyed by Oxy
  * user id. These are presentation-only (`secondaryCurrency`, `dualDisplayEnabled`)
- * and NEVER affect the amounts Mercaria stores — every price stays canonical FAIR.
+ * and NEVER affect the amounts Mercaria stores — every price stays in its own
+ * native currency.
  */
 
 import type {
@@ -13,7 +14,14 @@ import type {
 } from '@mercaria/shared-types';
 import { UserPreference, type IUserPreference } from '../models/user-preference.js';
 
-/** The presentment-currency fallback when a buyer has chosen no preferred currency. */
+/**
+ * The presentment-currency fallback when a buyer has chosen no preferred
+ * currency. This is Mercaria's PRODUCT policy — FAIR is the currency Oxy prefers
+ * to transact in, so it is what an undecided buyer is quoted — and it is the one
+ * place that policy is expressed. Nothing downstream requires it: a buyer with a
+ * preference is charged in theirs, and the order settles per its payment
+ * provider either way.
+ */
 const DEFAULT_PRESENTMENT_CURRENCY: CurrencyCode = 'FAIR';
 
 /** Project a preference document down to the wire DTO (display fields only). */

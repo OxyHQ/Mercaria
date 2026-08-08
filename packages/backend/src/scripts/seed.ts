@@ -6,7 +6,7 @@
  * collections. Mirrors the imagery + structure of `lib/mock-products.ts` so the
  * DB-backed `/feed` produces the same shelves the frontend already consumes.
  *
- * Prices are stored in FAIR (⊜) — the canonical settlement currency — as integer
+ * Prices are stored in FAIR (⊜) — Mercaria's preferred default currency — as integer
  * minor units at FAIR's 8-decimal precision (1 ⊜ = 100_000_000 minor units). The
  * spec `price`/`compareAtPrice` fields below are MAJOR-unit FAIR values (e.g.
  * 125 = ⊜125.00) and the `fair()` builder scales them via
@@ -68,7 +68,7 @@ const DEV_OWNER_OXY_USER_ID = '000000000000000000000001';
 // A second FAKE dev seller for P2P listings.
 const DEV_SELLER_OXY_USER_ID = '000000000000000000000002';
 
-/** Canonical settlement currency for all seeded prices. */
+/** The native currency all seeded prices are stored in. */
 const SEED_CURRENCY = 'FAIR' as const;
 
 /**

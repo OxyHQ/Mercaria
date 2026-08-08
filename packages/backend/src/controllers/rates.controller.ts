@@ -2,8 +2,10 @@
  * FX rates controller (THIN) — the PUBLIC display-side rate endpoint.
  *
  * `GET /rates?base=FAIR&quote=USD,EUR` returns the conversion rates a consumer
- * client uses for dual-currency display. FAIR is canonical and the default base;
- * stored amounts are ALWAYS FAIR and are NEVER mutated by this read path. The
+ * client uses for dual-currency display. Any supported currency may be the base;
+ * FAIR is only the DEFAULT, because it is the display currency a client gets
+ * when the viewer has chosen none. This is a pure read: catalog prices stay in
+ * their own native currency and are never mutated by a display conversion. The
  * service `getRates` never throws (it falls back to last-good/static rates), so
  * display can't break on a transient provider/Redis outage.
  */
@@ -51,8 +53,8 @@ export async function getRates(req: Request, res: Response): Promise<void> {
       quotes = [...DEFAULT_QUOTES];
     }
 
-    const { rates, asOf, stale, ttlSeconds } = await resolveRates(baseCode, quotes);
-    sendSuccess(res, { base: baseCode, rates, asOf, stale, ttlSeconds });
+    const { rates, provider, asOf, stale, ttlSeconds } = await resolveRates(baseCode, quotes);
+    sendSuccess(res, { base: baseCode, rates, provider, asOf, stale, ttlSeconds });
   } catch (err) {
     log.general.error({ err }, 'Failed to resolve FX rates');
     respondWithError(res, err, 'Failed to resolve exchange rates');

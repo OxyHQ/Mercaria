@@ -381,6 +381,83 @@ describe('checkout.service.checkout — multi-seller split', () => {
   });
 });
 
+describe('checkout.service.checkout — a native non-FAIR checkout', () => {
+  it('places a EUR order end to end and snapshots a complete EUR→EUR rate', async () => {
+    // Everything about this sale is EUR: the listing's native price, the P2P
+    // seller's accounting currency and the buyer's presentment currency. Nothing
+    // is converted, so no cross-currency rate is consulted and the sale does not
+    // depend on FAIR being quotable — the point of the case.
+    const L1 = uuidv7();
+    const V1 = uuidv7();
+    const eur = (amount: number): Money => ({ amount, currency: 'EUR' });
+
+    getCart.mockResolvedValueOnce({
+      id: 'cart-eur',
+      currency: 'EUR',
+      items: [
+        {
+          ...cartItem({ listingId: L1, variantId: V1, amount: 4500 }),
+          unitPrice: eur(4500),
+          lineTotal: eur(4500),
+        },
+      ],
+      subtotal: eur(4500),
+    });
+    addressFindOne.mockReturnValueOnce(leanOf(addressDoc));
+    findListingsByIds.mockResolvedValueOnce([
+      listingRow(L1, { ownerType: 'user', oxyUserId: 'seller-X' }),
+    ]);
+    // The variant's NATIVE price columns are what make this a EUR sale end to
+    // end — the seller's accounting currency falls back to the line's own
+    // currency for a P2P group, so nothing here is FAIR.
+    findVariantsByIds.mockResolvedValueOnce([
+      { ...variantRow(V1, L1, 4500), priceCurrency: 'EUR' },
+    ]);
+    calculateTotals.mockImplementationOnce(() => {
+      const dual = (amount: number): DualMoney => ({ shop: eur(amount), presentment: eur(amount) });
+      return Promise.resolve({
+        subtotal: dual(4500),
+        discountTotal: dual(0),
+        tax: dual(0),
+        shipping: dual(0),
+        grandTotal: dual(4500),
+        appliedDiscounts: [],
+        taxLines: [],
+        perLineDiscount: [dual(0)],
+      });
+    });
+    nextOrderNumber.mockResolvedValueOnce('MRC-000900');
+    insertOrder.mockImplementation((input: Record<string, unknown>) =>
+      Promise.resolve({ ...input, id: 'order-eur' }),
+    );
+    summarizeOrders.mockResolvedValueOnce([
+      { id: 'order-eur', orderNumber: 'MRC-000900', status: 'pending_payment' },
+    ]);
+
+    await checkout(USER, { addressId: ADDRESS_ID });
+
+    expect(insertOrder).toHaveBeenCalledTimes(1);
+    const doc = insertOrder.mock.calls[0][0] as {
+      totals: { grandTotal: DualMoney };
+      fxRate: { from: string; to: string; rate: number; provider: string; asOf: string };
+    };
+    // The pricing engine was asked to price in EUR, and both money sides are EUR.
+    expect(calculateTotals.mock.calls[0][0]).toMatchObject({
+      currency: 'EUR',
+      presentmentCurrency: 'EUR',
+    });
+    expect(doc.totals.grandTotal.shop.currency).toBe('EUR');
+    expect(doc.totals.grandTotal.presentment.currency).toBe('EUR');
+    // The snapshot is COMPLETE — a rate nobody can attribute is not reproducible.
+    expect(doc.fxRate.from).toBe('EUR');
+    expect(doc.fxRate.to).toBe('EUR');
+    expect(doc.fxRate.rate).toBe(1);
+    expect(doc.fxRate.provider).toEqual(expect.any(String));
+    expect(doc.fxRate.provider.length).toBeGreaterThan(0);
+    expect(Number.isNaN(Date.parse(doc.fxRate.asOf))).toBe(false);
+  });
+});
+
 describe('checkout.service.checkout — reservation rollback', () => {
   it('releases prior reservations and creates no order when a later line is out of stock', async () => {
     const L1 = uuidv7();

@@ -277,12 +277,12 @@ async function buildCartDTO(cart: CartRecord): Promise<CartDTO> {
   const variantById = new Map(variantDocs.map((v) => [v.id, v]));
   const listingById = new Map(listingDocs.map((l) => [l.id, l]));
 
-  // FAIR-based rates covering the presentment currency + every native price
-  // currency, so each line converts native → presentment for display.
+  // Rates quoted against the buyer's display currency, covering every native
+  // price currency, so each line converts native → presentment for display.
   const nativeCurrencies = variantDocs.flatMap((v) =>
     v.priceCurrency === null ? [] : [v.priceCurrency],
   );
-  const rates = await getRates('FAIR', dedupeCurrencies([currency, ...nativeCurrencies]));
+  const rates = await getRates(currency, dedupeCurrencies([currency, ...nativeCurrencies]));
 
   const items: CartItemDTO[] = cart.items.map((item) => {
     const { listingId, variantId } = item;
@@ -417,8 +417,9 @@ async function previewDiscounts(
     storeRows.map((s) => [s.id, s.defaultCurrency as CurrencyCode]),
   );
 
-  // FAIR-based rates covering every shop, presentment and native currency so each
-  // store group prices in its shop currency and converts to presentment cleanly.
+  // Rates quoted against the presentment currency and covering every shop and
+  // native currency, so each store group prices in its shop currency and converts
+  // to presentment cleanly.
   const involved: CurrencyCode[] = [presentmentCurrency];
   for (const [storeId, lines] of linesByStore) {
     involved.push(shopCurrencyByStore.get(storeId) ?? lines[0].unitPrice.currency);
@@ -426,7 +427,7 @@ async function previewDiscounts(
       involved.push(line.unitPrice.currency);
     }
   }
-  const rates = await getRates('FAIR', dedupeCurrencies(involved));
+  const rates = await getRates(presentmentCurrency, dedupeCurrencies(involved));
 
   let discount = 0;
   let tax = 0;

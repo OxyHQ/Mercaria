@@ -36,10 +36,9 @@ import { adjustStoreSalesCount, findStoreRow } from '../db/stores/storeRepositor
 import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { hydrateOrders, summarizeOrders } from './order-hydration.service.js';
-import { convertToFair } from './fx.service.js';
 import { enqueueOrderEvent, enqueueFulfillmentPush } from '../queue/producers.js';
 import type { OrderEvent } from '../queue/types.js';
-import { zeroMoney, minorUnitsPerMajor } from '../utils/money.js';
+import { zeroMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { conflict, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
@@ -82,30 +81,12 @@ interface TransitionOptions {
   trackingNumber?: string;
 }
 
-/** The order's grand total on the SHOP (settlement) side. */
+/** The order's grand total on the SHOP (merchant accounting) side. */
 function shopGrandTotal(order: OrderRecord): Money {
   return {
     amount: order.totalsGrandTotalShopAmount,
     currency: order.totalsGrandTotalShopCurrency,
   };
-}
-
-/**
- * Compute the shop→FAIR settlement snapshot for a paid order's shop grand total.
- * FAIR is the canonical settlement currency: the amount is converted via
- * `convertToFair` (the ONLY remaining FAIR-conversion write path; fails closed if
- * no rate), and `rate` is FAIR per 1 unit of the shop currency, derived from the
- * converted major values (1 when the shop total is zero, so a free order settles
- * cleanly).
- */
-async function computeSettlement(
-  total: Money,
-): Promise<{ amount: Money; rate: number; asOf: string }> {
-  const amount = await convertToFair(total);
-  const shopMajor = total.amount / minorUnitsPerMajor(total.currency);
-  const fairMajor = amount.amount / minorUnitsPerMajor('FAIR');
-  const rate = shopMajor > 0 ? fairMajor / shopMajor : 1;
-  return { amount, rate, asOf: new Date().toISOString() };
 }
 
 /**
@@ -168,14 +149,21 @@ export async function transition(
     ...(opts.note ? { note: opts.note } : {}),
   };
 
+  /**
+   * `paid` records that the order was paid and NOTHING about how the money
+   * settles. There is deliberately no currency conversion here: an order priced
+   * in EUR reaches `paid` with no rate for any other currency available, which
+   * is what lets Mercaria sell in fiat before any particular rail exists. The
+   * facts a payment produces — provider, captured amount, the platform-currency
+   * conversion and its rate snapshot — belong to the payment domain, which owns
+   * them per payment rather than per order status flip.
+   */
   const patch: OrderTransitionPatch = {
     ...(opts.trackingNumber ? { shippingTrackingNumber: opts.trackingNumber } : {}),
   };
   if (next === 'paid') {
     patch.paymentStatus = 'paid';
     patch.paymentPaidAt = new Date();
-    // The shop→FAIR settlement snapshot, computed once at the `paid` transition.
-    patch.settlement = await computeSettlement(shopGrandTotal(order));
   } else if (next === 'refunded') {
     patch.paymentStatus = 'refunded';
   }

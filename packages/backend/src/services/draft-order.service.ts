@@ -313,8 +313,10 @@ async function reprice(
 
   const customerOxyUserId = await resolveCustomerOxyUserId(draft);
 
-  // A POS sale settles AND charges in the store's currency: shop == presentment.
-  const rates = await getRates('FAIR', [currency]);
+  // A POS sale is priced AND charged in the store's own currency: shop ==
+  // presentment, so every conversion here is the identity and no cross-currency
+  // rate is required for the sale to complete.
+  const rates = await getRates(currency, [currency]);
   const pricing = await calculateTotals({
     storeId: draft.storeId,
     lines: pricingLines,
@@ -782,11 +784,14 @@ export async function completeDraftOrder(
     const shippingAddress =
       toAddressSnapshotDTO(draft) ?? buildPickupSnapshot(customer?.displayName ?? undefined, location);
 
-    // POS: shop == presentment (same currency), so the snapshot rate is 1.
+    // POS: shop == presentment (same currency), so the snapshot rate is 1 and no
+    // provider quoted anything — the snapshot records that this sale's two money
+    // sides were never converted, which is why it is persisted rather than omitted.
     const posFxRate: FxRateSnapshot = {
       from: currency,
       to: currency,
       rate: 1,
+      provider: 'identity',
       asOf: new Date().toISOString(),
     };
 

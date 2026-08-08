@@ -37,7 +37,12 @@ vi.mock('../../db/stores/storeRepository.js', () => ({
 }));
 
 import { calculateTotals, type PricingLine, type PricingInput } from '../pricing.service.js';
-import type { DiscountScope, DiscountValueType, FxRates } from '@mercaria/shared-types';
+import {
+  MAX_MONEY_MINOR_UNITS,
+  type DiscountScope,
+  type DiscountValueType,
+  type FxRates,
+} from '@mercaria/shared-types';
 import type { DiscountRecord } from '../../db/merchandising/discountRepository.js';
 import type { TaxRateRecord } from '../../db/stores/taxRateRepository.js';
 import type { StoreRow } from '../../db/stores/storeRepository.js';
@@ -46,6 +51,7 @@ import type { StoreRow } from '../../db/stores/storeRepository.js';
 const FAIR_RATES: FxRates = {
   base: 'FAIR',
   rates: { FAIR: 1 },
+  provider: 'static',
   asOf: '2026-01-01T00:00:00.000Z',
   stale: false,
   ttlSeconds: 300,
@@ -238,12 +244,52 @@ describe('calculateTotals — no store (P2P)', () => {
   });
 });
 
+describe('calculateTotals — amount safety', () => {
+  it('REFUSES to emit a total past the representable maximum, naming the stage', async () => {
+    // Two units at the ceiling price: each amount is individually fine, the
+    // SUBTOTAL is not. The engine must refuse rather than emit a number whose
+    // later arithmetic silently drops minor units. A P2P group (no storeId) is
+    // used so nothing but the money math is in play.
+    await expect(
+      calculateTotals({
+        lines: [
+          {
+            listingId: L1,
+            variantId: 'v-huge',
+            unitPrice: { amount: MAX_MONEY_MINOR_UNITS, currency: 'FAIR' },
+            quantity: 2,
+          },
+        ],
+        currency: 'FAIR',
+        presentmentCurrency: 'FAIR',
+        rates: FAIR_RATES,
+      }),
+    ).rejects.toThrow(/pricing\.subtotal/);
+  });
+
+  it('prices a line AT the maximum without complaint', async () => {
+    const result = await priceGroup({
+      lines: [
+        {
+          listingId: L1,
+          variantId: 'v-max',
+          unitPrice: { amount: MAX_MONEY_MINOR_UNITS, currency: 'FAIR' },
+          quantity: 1,
+        },
+      ],
+      currency: 'FAIR',
+    });
+    expect(result.grandTotal.shop).toEqual({ amount: MAX_MONEY_MINOR_UNITS, currency: 'FAIR' });
+  });
+});
+
 describe('calculateTotals — presentment vs shop (multi-currency)', () => {
   it('keeps totals in the shop currency and converts the presentment side by the rates', async () => {
     // Shop = EUR, presentment = FAIR. Rates: 1 FAIR = 0.45 EUR.
     const rates: FxRates = {
       base: 'FAIR',
       rates: { FAIR: 1, EUR: 0.45 },
+      provider: 'static',
       asOf: '2026-01-01T00:00:00.000Z',
       stale: false,
       ttlSeconds: 300,

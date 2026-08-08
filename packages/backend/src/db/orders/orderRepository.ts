@@ -191,11 +191,15 @@ export interface NewOrder {
   taxLines: NewOrderTaxLine[];
 }
 
-/** The columns a lifecycle move sets besides `status`. */
+/**
+ * The columns a lifecycle move sets besides `status`. No settlement fact appears
+ * here: reaching `paid` records THAT an order was paid, never how the money
+ * settles — provider, captured amount and any provider-side conversion belong to
+ * the payment domain, which owns them per payment rather than per status flip.
+ */
 export interface OrderTransitionPatch {
   paymentStatus?: PaymentInfo['status'];
   paymentPaidAt?: Date;
-  settlement?: { amount: Money; rate: number; asOf: string };
   shippingTrackingNumber?: string;
 }
 
@@ -658,12 +662,15 @@ export async function insertOrder(
         totalsGrandTotalPresentmentAmount: input.totals.grandTotal.presentment.amount,
         totalsGrandTotalPresentmentCurrency: input.totals.grandTotal.presentment.currency,
 
-        // All four fx columns move together — `orders_fx_rate_complete_check`
+        // All five fx columns move together — `orders_fx_rate_complete_check`
         // refuses a partially-filled snapshot, which would be an unreproducible
-        // conversion rather than a missing one.
+        // conversion rather than a missing one. `provider` is part of that set:
+        // a rate with no named source cannot be audited against the quote it
+        // came from.
         fxRateFrom: input.fxRate?.from ?? null,
         fxRateTo: input.fxRate?.to ?? null,
         fxRateRate: input.fxRate?.rate ?? null,
+        fxRateProvider: input.fxRate?.provider ?? null,
         fxRateAsOf: input.fxRate?.asOf ?? null,
 
         status: input.status,
@@ -857,14 +864,6 @@ function transitionColumns(
     status: next,
     ...(patch.paymentStatus !== undefined ? { paymentStatus: patch.paymentStatus } : {}),
     ...(patch.paymentPaidAt !== undefined ? { paymentPaidAt: patch.paymentPaidAt } : {}),
-    ...(patch.settlement !== undefined
-      ? {
-          settlementAmount: patch.settlement.amount.amount,
-          settlementCurrency: patch.settlement.amount.currency,
-          settlementRate: patch.settlement.rate,
-          settlementAsOf: patch.settlement.asOf,
-        }
-      : {}),
     ...(patch.shippingTrackingNumber !== undefined
       ? { shippingTrackingNumber: patch.shippingTrackingNumber }
       : {}),

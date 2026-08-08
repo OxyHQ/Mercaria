@@ -4,10 +4,10 @@
  * The richer analytics surface beside the dashboard `storeStats` in
  * `order.service`. Every figure is scoped to ONE store and (for revenue/AOV/top
  * products/sales) derived from its PAID orders; money is summed on the SHOP
- * (settlement) side and filtered to the store's `defaultCurrency` IN SQL, so
- * reports NEVER mix currencies. Every aggregation runs server-side — `count`,
- * `sum`, `date_trunc` and a `GROUP BY` — rather than loading rows into the
- * process, so they scale with order volume. Reports are READ-only.
+ * (merchant accounting) side and filtered to the store's `defaultCurrency` IN
+ * SQL, so reports NEVER mix currencies. Every aggregation runs server-side —
+ * `count`, `sum`, `date_trunc` and a `GROUP BY` — rather than loading rows into
+ * the process, so they scale with order volume. Reports are READ-only.
  *
  * This module owns the report SHAPE (ranges, limits, zero-filled breakdowns) and
  * nothing else; each aggregate itself lives beside the table it reads.
@@ -62,9 +62,10 @@ function zeroChannels(): SourceChannelBreakdown {
 }
 
 /**
- * Resolve a store's default settlement currency, falling back to FAIR. Reports
- * never mix currencies — a store settles in one currency — so this single value
- * both tags every `Money` the reports emit and FILTERS the rows they sum.
+ * Resolve a store's default accounting currency, falling back to FAIR. Reports
+ * never mix currencies — a store reports in one currency — so this single value
+ * both tags every `Money` the reports emit (which is what makes each aggregate
+ * self-describing rather than a bare number) and FILTERS the rows they sum.
  */
 async function storeCurrency(storeId: string): Promise<Money['currency']> {
   const store = await findStoreRow(storeId);

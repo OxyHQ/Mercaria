@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   Platform,
   Pressable,
@@ -37,6 +37,8 @@ export interface CarouselProps<T> {
   contentPadding?: number;
   /**
    * Whether to render web edge arrows. When omitted, arrows show on web only.
+   * Either way they appear only while the content actually overflows — there is
+   * nothing to scroll to otherwise.
    */
   showArrows?: boolean;
 }
@@ -49,8 +51,9 @@ export interface CarouselProps<T> {
  * Item width is set entirely by `slotClassName` (fixed responsive Tailwind
  * classes) — the carousel does NOT measure the viewport to size cards. The web
  * arrows DO read the scroller's own width (via a ref captured on layout) to
- * compute the scroll distance on press — that's scroll mechanics, not layout
- * sizing.
+ * compute the scroll distance on press, and to decide whether to appear at all:
+ * they render only while the content overflows that width — that's scroll
+ * mechanics, not layout sizing.
  */
 export function Carousel<T>({
   items,
@@ -79,17 +82,41 @@ export function Carousel<T>({
     return true;
   });
 
-  const arrowsEnabled = showArrows ?? Platform.OS === "web";
+  // Arrows are pointless when everything already fits, so their visibility has
+  // to be reactive — the metrics above live in refs (updating them must not
+  // re-render) which cannot drive rendering on their own. Overflow, never item
+  // count: a fixed count fits at one breakpoint and overflows at the next.
+  const [canScroll, setCanScroll] = useState(false);
+
+  const arrowsEnabled = (showArrows ?? Platform.OS === "web") && canScroll;
+
+  /**
+   * Recomputes arrow visibility from the latest metrics. `onScroll` fires
+   * continuously, so the functional update returns the previous value
+   * unchanged unless the boolean actually flips — React then bails out instead
+   * of re-rendering the whole row on every scroll frame. The viewport check
+   * keeps arrows hidden before the first layout, when the width is still 0 and
+   * any content would look like overflow.
+   */
+  const syncCanScroll = () => {
+    const next =
+      viewportWidth.current > 0 && contentWidth.current > viewportWidth.current;
+    setCanScroll((previous) => (previous === next ? previous : next));
+  };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollX.current = event.nativeEvent.contentOffset.x;
     contentWidth.current = event.nativeEvent.contentSize.width;
+    syncCanScroll();
   };
 
   const handleLayout = (event: LayoutChangeEvent) => {
-    // Capture the scroller's own width for the arrow scroll distance only. This
-    // is NOT used to size cards (those are fixed via `slotClassName`).
+    // Capture the scroller's own width for the arrow scroll distance and the
+    // overflow test. This is NOT used to size cards (those are fixed via
+    // `slotClassName`). Refires on window resize, so widening the window until
+    // the row fits removes the arrows.
     viewportWidth.current = event.nativeEvent.layout.width;
+    syncCanScroll();
   };
 
   const scrollByViewport = (direction: 1 | -1) => {
@@ -110,6 +137,7 @@ export function Carousel<T>({
         scrollEventThrottle={16}
         onContentSizeChange={(w) => {
           contentWidth.current = w;
+          syncCanScroll();
         }}
         contentContainerClassName="gap-2 web:sm:gap-4"
         contentContainerStyle={{ paddingHorizontal: contentPadding }}

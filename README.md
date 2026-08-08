@@ -126,13 +126,15 @@ Store access is a 16 permission matrix: owner has all of them, admin has all but
 </details>
 
 <details>
-<summary><b>Money: multi currency with FAIR settlement</b></summary>
+<summary><b>Money: multi currency, provider neutral, FAIR preferred</b></summary>
 
 <br>
 
-The catalogue stores each price in its own native currency and never converts it on write. Every transacted amount on an order or refund is a `DualMoney` carrying two sides: `shop`, the store's settlement currency and the basis for reports and payout, and `presentment`, what the buyer actually saw and paid. The order also snapshots the rate between them.
+The catalogue stores each price in its own native currency and never converts it on write. Every transacted amount on an order or refund is a `DualMoney` carrying two sides: `shop`, the seller's own accounting currency and the basis for reports and refunds, and `presentment`, what the buyer actually saw and paid. The order also snapshots the rate between them, naming the source that quoted it and the moment it was taken, so a later rate move can never alter a placed order.
 
-FairCoin (`FAIR`, ⊜) is the settlement currency, not the storage currency. The single conversion point is the transition of an order to paid.
+No currency is a settlement invariant. FairCoin (`FAIR`, ⊜) is the preferred default — the presentment currency a buyer gets when they have chosen none, and the display default — which is a product decision, not an architectural one. What a payment settles in is a property of the payment provider handling it and lives in the payment domain, so an order priced in euros completes with no FairCoin rate available at all.
+
+Amounts are integer minor units with an enforced ceiling (`MAX_MONEY_MINOR_UNITS`), asserted everywhere an amount is formed: request validation, the pricing engine, currency conversion, refund proration and persistence.
 
 The currency set is data driven from `@mercaria/shared-types`, so adding a code there propagates to the Mongo schema, the pricing engine and the UI.
 

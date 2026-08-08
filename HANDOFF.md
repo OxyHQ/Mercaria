@@ -19,7 +19,7 @@ Generate + set these on the **Mercaria backend** (ECS):
 | `SHOPIFY_SCOPES` | `read_products,write_products,read_inventory,read_orders,write_merchant_managed_fulfillment_orders` | Missing a scope degrades that feature gracefully (webhook registration is best-effort). |
 | `REDIS_URL` | ElastiCache Valkey (already in `oxy-infra`) | **Important:** without it, syncs run INLINE in the request → large backfills time out, and the scheduled 6h reconcile never runs. Required for production. |
 
-FX (optional but recommended): the 15 non-USD/EUR/GBP currencies use env-overridable **static** fallback rates (`FX_STATIC_RATE_JPY`, `…_MXN`, etc.). The live provider only yields FAIR→USD. For correct display/settlement, wire a real multi-currency FX source or keep the static rates current.
+FX (optional but recommended): the 15 non-USD/EUR/GBP currencies use env-overridable **static** fallback rates (`FX_STATIC_RATE_JPY`, `…_MXN`, etc.). The live provider only yields FAIR→USD. For correct display and for the presentment side of a cross-currency order, wire a real multi-currency FX source or keep the static rates current. A missing rate is never fabricated: the pair is simply omitted, and a conversion that needs it fails rather than quoting a wrong amount — so a same-currency sale is unaffected by an FX outage, and a cross-currency one is refused.
 
 ## 2. Shopify Partner app
 1. In the Shopify Partner dashboard, create an app (public or custom).

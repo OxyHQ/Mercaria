@@ -15,7 +15,6 @@ import type {
   CurrencyCode,
   DualMoney,
   FxRateSnapshot,
-  OrderSettlement,
   Order as OrderDTO,
   OrderItem,
   OrderSummary,
@@ -358,36 +357,25 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
       updatedAt: order.updatedAt.toISOString(),
     };
 
-    // The four fx columns are present or absent together
+    // The five fx columns are present or absent together
     // (`orders_fx_rate_complete_check`), so one non-null is enough to narrow all
-    // four — but each is tested, because the CHECK constrains the DATABASE and
+    // five — but each is tested, because the CHECK constrains the DATABASE and
     // this is the only thing that constrains the TYPES.
     if (
       order.fxRateFrom !== null &&
       order.fxRateTo !== null &&
       order.fxRateRate !== null &&
+      order.fxRateProvider !== null &&
       order.fxRateAsOf !== null
     ) {
       const fxRate: FxRateSnapshot = {
         from: order.fxRateFrom,
         to: order.fxRateTo,
         rate: order.fxRateRate,
+        provider: order.fxRateProvider,
         asOf: order.fxRateAsOf,
       };
       dto.fxRate = fxRate;
-    }
-    if (
-      order.settlementAmount !== null &&
-      order.settlementCurrency !== null &&
-      order.settlementRate !== null &&
-      order.settlementAsOf !== null
-    ) {
-      const settlement: OrderSettlement = {
-        amount: { amount: order.settlementAmount, currency: order.settlementCurrency },
-        rate: order.settlementRate,
-        asOf: order.settlementAsOf,
-      };
-      dto.settlement = settlement;
     }
 
     if (order.sellerType === 'user' && order.sellerOxyUserId) {

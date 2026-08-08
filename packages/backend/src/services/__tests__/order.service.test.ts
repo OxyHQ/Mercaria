@@ -68,6 +68,18 @@ vi.mock('../order-hydration.service.js', () => ({
   summarizeOrders: vi.fn().mockResolvedValue([]),
 }));
 
+/**
+ * A lifecycle transition must never consult FX. Every export throws, so if the
+ * service ever reaches for a rate again the transition fails loudly instead of
+ * acquiring a hidden dependency on a currency being quotable.
+ */
+vi.mock('../fx.service.js', () => {
+  const unavailable = (): never => {
+    throw new Error('order.service must not consult FX during a lifecycle transition');
+  };
+  return { getRates: unavailable, convert: unavailable, pairRate: unavailable, toDualMoney: unavailable };
+});
+
 vi.mock('../../queue/producers.js', () => ({
   enqueueOrderEvent: (...args: unknown[]) => enqueueOrderEvent(...args),
   enqueueFulfillmentPush: (...args: unknown[]) => enqueueFulfillmentPush(...args),
@@ -108,8 +120,8 @@ function mockOrder(
     sellerType: options.sellerType ?? 'user',
     sellerOxyUserId: options.sellerType === 'store' ? null : 'seller-X',
     storeId: options.sellerType === 'store' ? 'store-A' : null,
-    // The paid transition settles the SHOP side to FAIR and relates the customer
-    // in it; presentment is equal here so the fixtures stay readable.
+    // shop == presentment for these fixtures. The paid transition relates the
+    // store customer in the SHOP side and converts nothing.
     totalsGrandTotalShopAmount: gtAmount,
     totalsGrandTotalShopCurrency: gtCurrency,
     totalsGrandTotalPresentmentAmount: gtAmount,
@@ -301,34 +313,40 @@ describe('order.service.transition — inventory effects', () => {
   });
 });
 
-describe('order.service.transition — settlement (shop → FAIR)', () => {
-  it('a FAIR-shop order settles 1:1 with a FAIR settlement snapshot + rate 1', async () => {
-    const order = mockOrder('pending_payment', { sellerType: 'user' });
-    await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
-
-    const patch = transitionOrderStatus.mock.calls[0][3] as {
-      settlement?: { amount: { amount: number; currency: string }; rate: number };
-    };
-    expect(patch.settlement?.amount).toEqual({ amount: 9000, currency: 'FAIR' });
-    expect(patch.settlement?.rate).toBe(1);
-  });
-
-  it('a non-FAIR (EUR) shop order converts the grand total to FAIR at settlement', async () => {
-    // €45.00 shop grand total; static FAIR→EUR rate 0.45 → 100 FAIR (1e10 minor).
+describe('order.service.transition — paid converts NO currency', () => {
+  /**
+   * The whole `fx.service` module is mocked to throw. `order.service` does not
+   * import it, so these calls are inert TODAY — which is the point: the mock is
+   * a tripwire that fires the moment a currency conversion is reintroduced at
+   * the `paid` seam, and it fails the transition rather than passing quietly.
+   * Verified by temporarily calling `getRates` in `transition`: these two cases
+   * go red, and go green again when it is removed.
+   */
+  it('moves a native EUR order to paid with NO exchange rate obtainable', async () => {
     const order = mockOrder('pending_payment', {
       sellerType: 'user',
       grandTotalCurrency: 'EUR',
       grandTotalAmount: 4500,
     });
+
+    const moved = await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
+
+    expect(moved.status).toBe('paid');
+    // The sale still finalizes: stock committed, seller credited.
+    expect(commit).toHaveBeenCalledTimes(2);
+    expect(adjustSellerSalesCount).toHaveBeenCalledTimes(1);
+  });
+
+  it('patches ONLY the payment columns — no settlement of any kind', async () => {
+    const order = mockOrder('pending_payment', { sellerType: 'user' });
     await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
 
-    const patch = transitionOrderStatus.mock.calls[0][3] as {
-      settlement?: { amount: { amount: number; currency: string }; rate: number };
-    };
-    expect(patch.settlement?.amount.currency).toBe('FAIR');
-    expect(patch.settlement?.amount.amount).toBe(10_000_000_000);
-    // FAIR per 1 EUR = 100 FAIR / €45 ≈ 2.222…
-    expect(patch.settlement?.rate).toBeCloseTo(100 / 45, 6);
+    // The patch is the WHOLE set of columns the move writes besides `status`
+    // (which `transitionOrderStatus` takes as its own argument), so an exact key
+    // match is what proves no settlement column is written — asserting
+    // `patch.settlement` is undefined would also pass if it were renamed.
+    const patch = transitionOrderStatus.mock.calls[0][3] as Record<string, unknown>;
+    expect(Object.keys(patch).sort()).toEqual(['paymentPaidAt', 'paymentStatus']);
   });
 });
 

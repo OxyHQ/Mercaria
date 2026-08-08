@@ -4,7 +4,7 @@
  *
  * Currently holds the currency DISPLAY preference: a `preferredCurrency` (the
  * primary currency to show prices in), a `secondaryCurrency` shown alongside the
- * canonical FAIR amount, and whether dual display is enabled. These are
+ * stored native amount, and whether dual display is enabled. These are
  * presentation-only — they NEVER affect the amounts Mercaria stores (every price
  * is persisted in FAIR).
  *

@@ -308,7 +308,7 @@ function normalizedOrder(): NormalizedOrder {
     paymentStatus: 'paid',
     shopCurrency: 'USD',
     presentmentCurrency: 'EUR',
-    fxRate: { from: 'USD', to: 'EUR', rate: 0.9, asOf: '2026-07-15T11:00:00Z' },
+    fxRate: { from: 'USD', to: 'EUR', rate: 0.9, provider: 'shopify', asOf: '2026-07-15T11:00:00Z' },
     lines: [
       {
         title: 'Classic Tee',
@@ -363,7 +363,13 @@ describe('syncOrders — create + DualMoney', () => {
       presentment: { amount: 3510, currency: 'EUR' },
     });
     expect(doc.items[0].unitPrice.presentment).toEqual({ amount: 1800, currency: 'EUR' });
-    expect(doc.fxRate).toEqual({ from: 'USD', to: 'EUR', rate: 0.9, asOf: '2026-07-15T11:00:00Z' });
+    expect(doc.fxRate).toEqual({
+      from: 'USD',
+      to: 'EUR',
+      rate: 0.9,
+      provider: 'shopify',
+      asOf: '2026-07-15T11:00:00Z',
+    });
     // Buyer id is synthetic (no Oxy user for an external order).
     expect(doc.buyerOxyUserId).toContain('ext:shopify:');
 

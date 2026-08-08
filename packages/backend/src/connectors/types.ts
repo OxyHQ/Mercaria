@@ -45,7 +45,7 @@ export interface ConnectorAuth {
  * FAIR conversion on the write side).
  */
 export interface ConnectorCredentials extends ConnectorAuth {
-  /** The shop's settlement currency, validated to a supported `CurrencyCode`. */
+  /** The shop's own accounting currency, validated to a supported `CurrencyCode`. */
   shopCurrency: CurrencyCode;
 }
 
@@ -315,7 +315,9 @@ export interface NormalizedOrderCustomer {
  * A platform-neutral order, the shape the sync service upserts into a Mercaria
  * `Order`. `externalId` + `externalUpdatedAt` carry the provenance used for the
  * idempotent upsert-by-external-key. Every money field is a `DualMoney` — `shop`
- * is the store's settlement currency, `presentment` what the buyer paid.
+ * is the store's accounting currency, `presentment` what the buyer paid. Both
+ * carry the SOURCE platform's own amounts verbatim; Mercaria never re-prices an
+ * imported order at its own rates.
  */
 export interface NormalizedOrder {
   /** The order's id on the external platform (upsert key with the connection). */
@@ -330,7 +332,7 @@ export interface NormalizedOrder {
   status: OrderStatus;
   /** The Mercaria payment status mapped from the platform's financial state. */
   paymentStatus: PaymentInfo['status'];
-  /** The store's settlement currency for this order (the connection's shop currency). */
+  /** The store's accounting currency for this order (the connection's shop currency). */
   shopCurrency: CurrencyCode;
   /** The buyer's presentment currency (falls back to the shop currency). */
   presentmentCurrency: CurrencyCode;
@@ -435,7 +437,7 @@ export interface ConnectorProvider {
   /**
    * Map ONE raw platform order (an `orders/*` webhook payload, or a page entry)
    * into a {@link NormalizedOrder}. `shopCurrency` is the connection's validated
-   * settlement currency; the presentment side is read from the order when the
+   * accounting currency; the presentment side is read from the order when the
    * platform reports it, else falls back to the shop currency.
    */
   normalizeOrder(raw: unknown, shopCurrency: CurrencyCode): NormalizedOrder;

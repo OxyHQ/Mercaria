@@ -29,6 +29,13 @@
       "when": 1786189689146,
       "tag": "0003_tag_search_stemming",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786194021652,
+      "tag": "0004_fx_rate_provider",
+      "breakpoints": true
     }
   ]
 }

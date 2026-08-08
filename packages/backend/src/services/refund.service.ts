@@ -14,12 +14,13 @@
  * is scoped to its `storeId`, so a member only ever refunds their own store's orders.
  */
 
-import type {
-  CurrencyCode,
-  DualMoney,
-  Refund as RefundDTO,
-  RefundLineItem,
-  CreateRefundInput,
+import {
+  assertSafeMoneyAmount,
+  type CurrencyCode,
+  type DualMoney,
+  type Refund as RefundDTO,
+  type RefundLineItem,
+  type CreateRefundInput,
 } from '@mercaria/shared-types';
 import { isUniqueViolation } from '@oxyhq/db';
 import {
@@ -173,18 +174,23 @@ export async function process(
 
   // The discounted-net refundable amount for `requestedQty` units on ONE currency
   // side (unitPrice * orderedQty − lineDiscount, prorated + half-even rounded).
+  // The proration is the one place a refund forms a NEW amount rather than
+  // copying a stored one, so its result is asserted representable here.
   const sideAmount = (
     unitAmount: number,
     discountAmount: number | null,
     orderedQty: number,
     requestedQty: number,
+    side: 'shop' | 'presentment',
   ): number => {
     const net = unitAmount * orderedQty - (discountAmount ?? 0);
-    return roundMinorUnits((net * requestedQty) / orderedQty);
+    const prorated = roundMinorUnits((net * requestedQty) / orderedQty);
+    assertSafeMoneyAmount(prorated, `refund.lineAmount.${side}`);
+    return prorated;
   };
 
   // 5. Compute each line's refundable amount from the DISCOUNTED net, on BOTH the
-  // shop (settlement) and presentment (what the buyer paid) sides.
+  // shop (merchant accounting) and presentment (what the buyer paid) sides.
   const computedLines: NewRefundLineItem[] = input.lineItems.map((inputLine) => {
     const item = itemByVariant.get(inputLine.variantId);
     if (!item) {
@@ -207,6 +213,7 @@ export async function process(
             item.discountTotalShopAmount,
             orderedQty,
             requestedQty,
+            'shop',
           ),
           currency: item.unitPriceShopCurrency,
         },
@@ -216,6 +223,7 @@ export async function process(
             item.discountTotalPresentmentAmount,
             orderedQty,
             requestedQty,
+            'presentment',
           ),
           currency: item.unitPricePresentmentCurrency,
         },
@@ -297,8 +305,8 @@ export async function process(
 
   // 10. Set the order status DIRECTLY (no transition). Full when cumulative
   // refunds cover the grand total; else partial (payment stays 'paid'). Compared
-  // on the SHOP (settlement) side — the single-currency refund basis, summed in
-  // SQL now that this refund's own row is committed.
+  // on the SHOP (merchant accounting) side — the single-currency refund basis,
+  // summed in SQL now that this refund's own row is committed.
   const cumulativeRefunded = await sumRefundedShopAmount(orderId);
   const isFullyRefunded = cumulativeRefunded >= order.totalsGrandTotalShopAmount;
   await setOrderStatus(

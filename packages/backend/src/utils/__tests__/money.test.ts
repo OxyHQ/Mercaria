@@ -1,13 +1,20 @@
 /**
- * Unit tests for `applyPriceRules` — the connector price transform applied to an
- * imported native price (markup, then a rounding strategy). Pure integer money math;
- * no DB / no network. Covers markup (positive/negative/clamped), each rounding mode
- * (`none`/`nearest`/`charm`) for a cent-precision currency (USD) and for FAIR, and
- * the markup+rounding composition order.
+ * Unit tests for the money primitives: `applyPriceRules` — the connector price
+ * transform applied to an imported native price (markup, then a rounding
+ * strategy) — and `assertSafeMoneyAmount`, the shared guard every construction
+ * boundary calls. Pure integer money math; no DB / no network. Covers markup
+ * (positive/negative/clamped), each rounding mode (`none`/`nearest`/`charm`) for
+ * a cent-precision currency (USD) and for FAIR, the markup+rounding composition
+ * order, and the amount-representability limit.
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Money } from '@mercaria/shared-types';
+import {
+  MAX_MONEY_MINOR_UNITS,
+  assertSafeMoneyAmount,
+  CURRENCY_PRECISION,
+  type Money,
+} from '@mercaria/shared-types';
 import { applyPriceRules, type PriceRules } from '../money.js';
 
 const usd = (amount: number): Money => ({ amount, currency: 'USD' });
@@ -87,5 +94,47 @@ describe('applyPriceRules — precision-aware for FAIR (8dp)', () => {
 
   it("'charm' is one minor unit below a whole ⊜ (x.99999999)", () => {
     expect(applyPriceRules(fair(200_000_000), { rounding: 'charm' })).toEqual(fair(199_999_999));
+  });
+});
+
+describe('assertSafeMoneyAmount — the representability limit', () => {
+  it('accepts ordinary integer amounts, zero and negatives', () => {
+    expect(() => assertSafeMoneyAmount(0, 'test')).not.toThrow();
+    expect(() => assertSafeMoneyAmount(1999, 'test')).not.toThrow();
+    expect(() => assertSafeMoneyAmount(-1999, 'test')).not.toThrow();
+  });
+
+  it('accepts exactly the maximum, on either sign', () => {
+    expect(() => assertSafeMoneyAmount(MAX_MONEY_MINOR_UNITS, 'test')).not.toThrow();
+    expect(() => assertSafeMoneyAmount(-MAX_MONEY_MINOR_UNITS, 'test')).not.toThrow();
+  });
+
+  it('REJECTS one minor unit past the maximum, on either sign', () => {
+    expect(() => assertSafeMoneyAmount(MAX_MONEY_MINOR_UNITS + 1, 'test')).toThrow(RangeError);
+    expect(() => assertSafeMoneyAmount(-MAX_MONEY_MINOR_UNITS - 1, 'test')).toThrow(RangeError);
+  });
+
+  it('REJECTS a fractional amount — minor units are whole', () => {
+    expect(() => assertSafeMoneyAmount(19.99, 'test')).toThrow(/integer count of minor units/);
+  });
+
+  it('REJECTS non-finite amounts', () => {
+    expect(() => assertSafeMoneyAmount(Number.NaN, 'test')).toThrow(/finite/);
+    expect(() => assertSafeMoneyAmount(Number.POSITIVE_INFINITY, 'test')).toThrow(/finite/);
+  });
+
+  it('names the CONTEXT in the message, so a breach points at what produced it', () => {
+    expect(() => assertSafeMoneyAmount(1.5, 'pricing.grandTotal')).toThrow(/pricing\.grandTotal/);
+  });
+
+  it('is the boundary FAIR\'s eight decimals actually approach', () => {
+    // FAIR is the only supported currency whose minor unit is small enough for a
+    // plausible amount to reach the limit: the ceiling is ~90.07 million ⊜, but
+    // ~90.07 TRILLION units of a 2-decimal fiat. That asymmetry is why the limit
+    // is enforced rather than assumed unreachable.
+    const fairCeiling = MAX_MONEY_MINOR_UNITS / 10 ** CURRENCY_PRECISION.FAIR;
+    const usdCeiling = MAX_MONEY_MINOR_UNITS / 10 ** CURRENCY_PRECISION.USD;
+    expect(Math.round(fairCeiling)).toBe(90_071_993);
+    expect(usdCeiling).toBeGreaterThan(90_000_000_000_000);
   });
 });
