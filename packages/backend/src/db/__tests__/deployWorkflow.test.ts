@@ -40,7 +40,10 @@ interface WorkflowFile {
       inputs?: Record<string, { default?: string; options?: string[] }>;
     };
   };
-  jobs: Record<string, { steps: { name?: string; if?: string }[] }>;
+  jobs: Record<
+    string,
+    { steps: { name?: string; if?: string; run?: string; env?: Record<string, string> }[] }
+  >;
 }
 
 /** The repo root, from this file: `packages/backend/src/db/__tests__` is four deep. */
@@ -126,5 +129,116 @@ describe('the deploy workflow and the migrator agree', () => {
     const folderName = MIGRATIONS_FOLDER.split('/').filter(Boolean).at(-1);
     expect(folderName).toBe('drizzle');
     expect(workflow).toContain('packages/backend/drizzle');
+  });
+});
+
+/**
+ * The SSM sync step names the secrets it copies, and that is what keeps deploys
+ * automated.
+ *
+ * A step that walks `${{ toJSON(secrets) }}` and pipes the lot into
+ * `aws ssm put-parameter` is structurally a secret-exfiltration payload, and
+ * GitHub's malicious-workflow detection treats it as one: every run of a
+ * workflow containing it is created as `action_required` with ZERO jobs until a
+ * human approves it in the UI. Measured across the org on 2026-08-08 — three
+ * repos with the pattern all held, two without it deployed unheld. Nothing in a
+ * normal CI run reports this, because the runs never start; it looks like an
+ * outage, not a workflow defect.
+ *
+ * The assertions below are deliberately paired. Checking only for the absence of
+ * `toJSON(secrets)` would pass on a step that synced nothing at all, and checking
+ * only that the names are present would pass on a step that ALSO enumerated
+ * everything. And the two spellings of the allowlist — the `env:` bindings and
+ * the shell word lists — are cross-checked against each other rather than each
+ * against a literal, because the drift that actually happens is adding one and
+ * forgetting the other: a name in `env:` but not in the loop is never synced,
+ * and a name in the loop but not in `env:` reads as empty and is skipped with a
+ * warning nobody sees until the deploy that needed it.
+ */
+describe('the deploy workflow syncs an explicit allowlist, never the whole context', () => {
+  /**
+   * Every parameter the LIVE task definition (oxy-mercaria:3) reads as a
+   * `secret`, minus AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY: those live under
+   * /oxy/_shared/, this repo holds neither, and the repos that do own them
+   * (OxyHQServices, Syra) are what write them.
+   */
+  const EXPECTED_ALLOWLIST = [
+    'DATABASE_URL',
+    'REDIS_URL',
+    'SERVICE_SECRET',
+    'VAPID_PRIVATE_KEY',
+    'VAPID_PUBLIC_KEY',
+    'VAPID_SUBJECT',
+  ];
+
+  const syncStep = (parse(workflow) as WorkflowFile).jobs.deploy.steps.find((step) =>
+    step.name?.startsWith('Sync GitHub secrets'),
+  );
+
+  /** The words of a `NAME="a b c"` assignment in the step's shell body. */
+  const shellList = (variable: string): string[] => {
+    const match = new RegExp(`^\\s*${variable}="([^"]*)"`, 'm').exec(syncStep?.run ?? '');
+    expect(match, `the step no longer assigns ${variable}`).not.toBeNull();
+    return (match?.[1] ?? '').split(/\s+/).filter(Boolean);
+  };
+
+  it('has a sync step at all', () => {
+    // Vacuity floor for every assertion below: they all read this step, and an
+    // `undefined` step would make the `?.` chains silently trivially true.
+    expect(syncStep, 'the secret sync step is gone').toBeDefined();
+    expect(syncStep?.env, 'the sync step binds no secrets').toBeDefined();
+    expect(EXPECTED_ALLOWLIST.length).toBeGreaterThan(4);
+  });
+
+  it('never enumerates the whole secrets context', () => {
+    // Matched as an EXPRESSION, not as text: the step's own comment explains the
+    // block by name, so a bare `toContain` check would fail on the explanation
+    // rather than on the payload.
+    expect(workflow).not.toMatch(/\$\{\{[^}]*toJSON\s*\(\s*secrets\s*\)/);
+  });
+
+  it('binds each allowlisted secret under a SYNC_ prefix, and nothing else', () => {
+    // The prefix is not cosmetic. `aws-actions/configure-aws-credentials` exports
+    // AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY into the job environment, so a
+    // secret bound under its raw name shadows the assumed OIDC role and fails
+    // the step with UnrecognizedClientException.
+    const env = syncStep?.env ?? {};
+    for (const [key, value] of Object.entries(env)) {
+      expect(key, `${key} must be bound under the SYNC_ prefix`).toMatch(/^SYNC_/);
+      expect(value).toBe(`\${{ secrets.${key.replace(/^SYNC_/, '')} }}`);
+    }
+    expect(Object.keys(env).map((key) => key.replace(/^SYNC_/, '')).sort()).toEqual(
+      [...EXPECTED_ALLOWLIST].sort(),
+    );
+  });
+
+  it('iterates exactly the secrets it binds', () => {
+    const iterated = [...shellList('SHARED_SECRETS'), ...shellList('APP_SECRETS')].sort();
+    const bound = Object.keys(syncStep?.env ?? {})
+      .map((key) => key.replace(/^SYNC_/, ''))
+      .sort();
+    expect(iterated).toEqual(bound);
+    expect(iterated).toEqual([...EXPECTED_ALLOWLIST].sort());
+  });
+
+  it('keeps REDIS_URL on the shared path and the app secrets on the app path', () => {
+    // One field decides which SSM namespace a value lands in. A shared secret
+    // written to /oxy/mercaria/ is invisible to the task definition, which reads
+    // it from /oxy/_shared/ — so the sync reports success and changes nothing
+    // the container sees.
+    expect(shellList('SHARED_SECRETS')).toEqual(['REDIS_URL']);
+    expect(shellList('APP_SECRETS')).not.toContain('REDIS_URL');
+    expect(syncStep?.run).toContain('path="/oxy/_shared/$k"');
+    expect(syncStep?.run).toContain('path="/oxy/$APP/$k"');
+  });
+
+  it('still refuses placeholders and a non-us-west-2 REDIS_URL', () => {
+    // Both guards predate the allowlist and protect production from a secret
+    // that was never really set: skipping leaves the previous SSM value alone,
+    // where syncing would overwrite it with an empty string or a dash.
+    expect(syncStep?.run).toContain('[ "$v" = "-" ]');
+    // The escaped spelling, because the guard is a `grep` regex — asserting the
+    // bare hostname passes on a workflow whose dots are unescaped wildcards.
+    expect(syncStep?.run).toContain(String.raw`'\.usw2\.cache\.amazonaws\.com'`);
   });
 });
