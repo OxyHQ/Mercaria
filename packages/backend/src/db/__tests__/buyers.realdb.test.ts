@@ -60,6 +60,7 @@ import {
 import {
   findPublishedReviewTargets,
   insertReview,
+  setReviewStatusIfIn,
   type ReviewTarget,
 } from '../buyers/reviewRepository.js';
 import { upsertUserPreference } from '../buyers/userPreferenceRepository.js';
@@ -506,5 +507,96 @@ describe('user_preferences', () => {
     // An empty string would satisfy neither the currency CHECK nor any consumer
     // reading "not chosen", so the distinction is asserted rather than assumed.
     expect(cleared.secondaryCurrency).not.toBe('');
+  });
+});
+
+/**
+ * `setReviewStatusIfIn` — the CAS moderation enforcement is built on.
+ *
+ * This block exists because the property it pins was, until it was written,
+ * entirely untested: rewriting the single `UPDATE … WHERE … RETURNING` as a
+ * read-then-write left all 793 tests green. That is the shape of a check that
+ * cannot fail, and it sat under the one function whose return value decides
+ * whether an enforcement row is claimed.
+ *
+ * The reviews side is where this had to be caught rather than the listing side.
+ * `catalog-write.service.updateListing` refuses to move a listing out of
+ * `restricted`, so the listing CAS has a second guard behind it; `review.service`
+ * has no update path at all, which means this function is the ONLY thing standing
+ * between two deliveries of one decision and two recorded enforcements.
+ */
+describe('setReviewStatusIfIn — the review enforcement CAS', () => {
+  /** A published review of a fresh listing, by a fresh author. */
+  async function makePublishedReview(): Promise<string> {
+    const review = await insertReview({
+      authorOxyUserId: makeUserId('buyer'),
+      targetType: 'listing',
+      targetId: await makeListing(),
+      rating: 4,
+    });
+    return review.id;
+  }
+
+  it('lets exactly ONE of two concurrent hides win', async () => {
+    const reviewId = await makePublishedReview();
+
+    // Two genuinely concurrent calls, which is the only thing that can tell a
+    // conditional UPDATE from a read-then-write: both reads see `published`, so
+    // the read-then-write form has both callers proceed and both return true.
+    // The single statement locks the row, and the loser's predicate is re-checked
+    // against the winner's write.
+    const [first, second] = await Promise.all([
+      setReviewStatusIfIn(reviewId, 'hidden', ['published']),
+      setReviewStatusIfIn(reviewId, 'hidden', ['published']),
+    ]);
+
+    expect([first, second].filter(Boolean)).toHaveLength(1);
+
+    const [row] = await db.select().from(reviews).where(eq(reviews.id, reviewId));
+    expect(row.status).toBe('hidden');
+  });
+
+  it('refuses a redelivered hide, so enforcement is not recorded twice', async () => {
+    const reviewId = await makePublishedReview();
+
+    expect(await setReviewStatusIfIn(reviewId, 'hidden', ['published'])).toBe(true);
+    // The sequential redelivery — a webhook arriving again days later. `false`
+    // is what tells the caller it was NOT the one that acted.
+    expect(await setReviewStatusIfIn(reviewId, 'hidden', ['published'])).toBe(false);
+  });
+
+  it('restores a hidden review, and refuses to restore one that is not hidden', async () => {
+    const reviewId = await makePublishedReview();
+    await setReviewStatusIfIn(reviewId, 'hidden', ['published']);
+
+    // The correction path: an accepted appeal puts the review back. This is the
+    // direction that matters most — a restore that cannot fire leaves a
+    // wrongly-hidden review down forever, with the case saying it was fine.
+    expect(await setReviewStatusIfIn(reviewId, 'published', ['hidden'])).toBe(true);
+
+    const [restored] = await db.select().from(reviews).where(eq(reviews.id, reviewId));
+    expect(restored.status).toBe('published');
+
+    // And a second restore refuses, for the same reason the second hide does.
+    expect(await setReviewStatusIfIn(reviewId, 'published', ['hidden'])).toBe(false);
+  });
+
+  it('refuses a review whose current status is outside allowedCurrent', async () => {
+    const reviewId = await makePublishedReview();
+
+    // `allowedCurrent` is the guard that makes `restrict` and `restore` different
+    // operations rather than a toggle. Without it a redelivered `restore` would
+    // happily hide-then-unhide whatever state it found.
+    expect(await setReviewStatusIfIn(reviewId, 'published', ['hidden'])).toBe(false);
+
+    const [row] = await db.select().from(reviews).where(eq(reviews.id, reviewId));
+    expect(row.status).toBe('published');
+  });
+
+  it('returns false for a review that does not exist', async () => {
+    // Not an error: enforcement runs against objects a seller may have deleted,
+    // and "there was nothing to act on" is recorded as evidence rather than
+    // retried forever.
+    expect(await setReviewStatusIfIn(uuidv7(), 'hidden', ['published'])).toBe(false);
   });
 });
