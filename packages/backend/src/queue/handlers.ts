@@ -11,8 +11,11 @@
  */
 
 import type { NotificationType } from '../models/notification.js';
-import { Order, type IOrder } from '../models/order.js';
-import { Store, type IStore, type IStoreMember } from '../models/store.js';
+import {
+  findOrderById,
+  findStalePendingOrders,
+} from '../db/orders/orderRepository.js';
+import { findStoreById, type StoreMemberRecord } from '../db/stores/storeRepository.js';
 import { Review } from '../models/review.js';
 import { transition } from '../services/order.service.js';
 import { sendNotification } from '../lib/notification-service.js';
@@ -74,12 +77,12 @@ async function notifySafe(options: Parameters<typeof sendNotification>[0]): Prom
 }
 
 /** The distinct owner-member oxy user ids of a store. */
-function storeOwnerIds(store: Pick<IStore, 'members'>): string[] {
-  return [...new Set(store.members.filter((m) => m.role === 'owner').map((m) => m.oxyUserId))];
+function storeOwnerIds(members: StoreMemberRecord[]): string[] {
+  return [...new Set(members.filter((m) => m.role === 'owner').map((m) => m.oxyUserId))];
 }
 
 /** The distinct member ids who can act on inventory (owner or inventory perms). */
-function inventoryManagerIds(members: IStoreMember[]): string[] {
+function inventoryManagerIds(members: StoreMemberRecord[]): string[] {
   const ids = members
     .filter(
       (m) => m.role === 'owner' || INVENTORY_MANAGER_PERMISSIONS.some((p) => m.permissions.includes(p)),
@@ -105,7 +108,7 @@ export async function handleRecomputeAggregates(job: RecomputeAggregatesJob): Pr
  * notification is isolated so one failure doesn't abort the rest.
  */
 export async function handleOrderEventNotification(job: OrderEventNotificationJob): Promise<void> {
-  const order = await Order.findById(job.orderId).lean<IOrder | null>();
+  const order = await findOrderById(job.orderId);
   if (!order) {
     log.general.warn({ orderId: job.orderId, event: job.event }, 'Order-event notification: order not found');
     return;
@@ -114,7 +117,7 @@ export async function handleOrderEventNotification(job: OrderEventNotificationJo
   const buyerType = EVENT_TO_BUYER_TYPE[job.event];
   const buyerCopy = BUYER_COPY[job.event];
   await notifySafe({
-    userId: String(order.buyerOxyUserId),
+    userId: order.buyerOxyUserId,
     type: buyerType,
     title: buyerCopy.title,
     body: buyerCopy.body,
@@ -125,7 +128,7 @@ export async function handleOrderEventNotification(job: OrderEventNotificationJo
   const sellerData = { orderId: job.orderId, orderNumber: order.orderNumber, event: job.event };
 
   if (order.sellerType === 'user' && order.sellerOxyUserId) {
-    const sellerId = String(order.sellerOxyUserId);
+    const sellerId = order.sellerOxyUserId;
     await notifySafe({
       userId: sellerId,
       type: buyerType,
@@ -143,15 +146,16 @@ export async function handleOrderEventNotification(job: OrderEventNotificationJo
       });
     }
   } else if (order.sellerType === 'store' && order.storeId) {
-    const store = await Store.findById(order.storeId).lean<IStore | null>();
+    const storeId = order.storeId;
+    const store = await findStoreById(storeId);
     if (store) {
-      for (const ownerId of storeOwnerIds(store)) {
+      for (const ownerId of storeOwnerIds(store.members)) {
         await notifySafe({
           userId: ownerId,
           type: buyerType,
           title: sellerCopy.title,
           body: sellerCopy.body,
-          data: { ...sellerData, storeId: String(order.storeId) },
+          data: { ...sellerData, storeId },
         });
       }
     }
@@ -166,7 +170,7 @@ export async function handleOrderEventNotification(job: OrderEventNotificationJo
  */
 export async function handleExpireReservations(): Promise<void> {
   const cutoff = new Date(Date.now() - config.orders.reservationTtlMs);
-  const stale = await Order.find({ status: 'pending_payment', createdAt: { $lt: cutoff } });
+  const stale = await findStalePendingOrders(cutoff);
 
   if (stale.length === 0) {
     return;
@@ -177,7 +181,7 @@ export async function handleExpireReservations(): Promise<void> {
       await transition(order, 'cancelled', { note: 'reservation expired' });
     } catch (err) {
       log.general.warn(
-        { err, orderId: String(order._id) },
+        { err, orderId: order.id },
         'Failed to expire reservation (skipping order)',
       );
     }
@@ -191,7 +195,7 @@ export async function handleExpireReservations(): Promise<void> {
  * the low-stock threshold. Best-effort; a missing store logs a warning.
  */
 export async function handleLowInventoryAlert(job: LowInventoryAlertJob): Promise<void> {
-  const store = await Store.findById(job.storeId).lean<IStore | null>();
+  const store = await findStoreById(job.storeId);
   if (!store) {
     log.general.warn({ storeId: job.storeId }, 'Low-inventory alert: store not found');
     return;

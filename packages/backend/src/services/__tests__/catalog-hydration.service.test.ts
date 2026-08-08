@@ -34,8 +34,8 @@ vi.mock('../../db/catalog/listingRepository.js', () => ({
   findListingChildren: (...args: unknown[]) => findListingChildren(...args),
 }));
 
-vi.mock('../../models/seller-profile.js', () => ({
-  SellerProfile: { find: (...args: unknown[]) => sellerProfileFind(...args) },
+vi.mock('../../db/buyers/sellerProfileRepository.js', () => ({
+  findSellerProfilesByUserIds: (...args: unknown[]) => sellerProfileFind(...args),
 }));
 
 vi.mock('../../db/stores/storeRepository.js', () => ({
@@ -63,11 +63,6 @@ vi.mock('../../lib/logger.js', () => ({
 }));
 
 import { hydrateListings } from '../catalog-hydration.service.js';
-
-/** A `.lean()`-able query stub resolving to `value` — the still-Mongoose seller profile. */
-function leanOf<T>(value: T) {
-  return { lean: () => Promise.resolve(value) };
-}
 
 /** The empty batch `findListingChildren` returns for listings with no children. */
 function noChildren() {
@@ -151,7 +146,7 @@ beforeEach(() => {
   findVariantsByListingIds.mockReset().mockResolvedValue([]);
   findVariantOptionValues.mockReset().mockResolvedValue(new Map());
   findListingChildren.mockReset().mockResolvedValue(noChildren());
-  sellerProfileFind.mockReset().mockReturnValue(leanOf([]));
+  sellerProfileFind.mockReset().mockResolvedValue([]);
   storeFind.mockReset().mockResolvedValue([STORE]);
   getProfiles.mockReset().mockResolvedValue(new Map());
   getFavoritedListingIds.mockReset().mockResolvedValue(new Set());

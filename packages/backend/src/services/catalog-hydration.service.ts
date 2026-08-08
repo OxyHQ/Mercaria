@@ -25,12 +25,12 @@
  * ONCE for the page by `findListingChildren`, so the per-listing cost is still
  * zero queries.
  *
- * `SellerProfile` is deliberately still Mongoose: the seller-profile domain has
- * not been ported, and reading it from Mongo here is what lets the catalogue
- * move without dragging every neighbouring domain with it.
+ * The seller profile is a Postgres row too now. It moved with the commerce core
+ * rather than with the catalogue, because `order.service` has to bump its
+ * `sales_count` at the paid transition — and a counter written in one store and
+ * read in another is a wrong number, not a partial migration.
  */
 
-import mongoose from 'mongoose';
 import type { OxyServices } from '@oxyhq/core';
 import type {
   Listing,
@@ -44,7 +44,10 @@ import type {
   MerchantSummary,
   Seller,
 } from '@mercaria/shared-types';
-import { SellerProfile, type ISellerProfile } from '../models/seller-profile.js';
+import {
+  findSellerProfilesByUserIds,
+  type SellerProfileRecord,
+} from '../db/buyers/sellerProfileRepository.js';
 import { findStoresByIds, type StoreRow } from '../db/stores/storeRepository.js';
 import {
   findListingChildren,
@@ -195,11 +198,11 @@ function toListingSource(listing: ListingRecord): ListingSource | undefined {
  */
 function toSeller(
   oxyUserId: string,
-  profile: ISellerProfile | undefined,
+  profile: SellerProfileRecord | undefined,
   oxyProfile: OxyProfile | undefined,
 ): Seller {
   const seller: Seller = {
-    id: profile ? String((profile as { _id: mongoose.Types.ObjectId })._id) : oxyUserId,
+    id: profile ? profile.id : oxyUserId,
     oxyUserId,
     displayName: oxyProfile?.displayName ?? oxyUserId,
     username: oxyProfile?.username ?? oxyUserId,
@@ -383,16 +386,14 @@ export async function hydrateListings(
     ),
   ];
 
-  const [sellerProfileDocs, storeDocs] = await Promise.all([
-    userOwnerIds.length > 0
-      ? SellerProfile.find({ oxyUserId: { $in: userOwnerIds } }).lean<ISellerProfile[]>()
-      : Promise.resolve([] as ISellerProfile[]),
+  const [sellerProfileRows, storeDocs] = await Promise.all([
+    findSellerProfilesByUserIds(userOwnerIds),
     storeIds.length > 0 ? findStoresByIds(storeIds) : Promise.resolve([] as StoreRow[]),
   ]);
 
-  const sellerProfileByUser = new Map<string, ISellerProfile>();
-  for (const p of sellerProfileDocs) {
-    sellerProfileByUser.set(String(p.oxyUserId), p);
+  const sellerProfileByUser = new Map<string, SellerProfileRecord>();
+  for (const p of sellerProfileRows) {
+    sellerProfileByUser.set(p.oxyUserId, p);
   }
   const storeById = new Map(storeDocs.map((s) => [s.id, s]));
 

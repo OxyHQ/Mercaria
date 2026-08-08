@@ -57,6 +57,7 @@ import {
   asEnumValues,
   checkOneOf,
   currencyChecks,
+  CURRENCY_CODE_VALUES,
   dualMoney,
   money,
   optionalDualMoney,
@@ -184,8 +185,14 @@ export const orders = pgTable(
 
     // `fxRate` — the shop→presentment snapshot the dual amounts were formed with,
     // kept so the conversion is reproducible after rates move.
-    fxRateFrom: text(),
-    fxRateTo: text(),
+    //
+    // Both sides are typed from `CURRENCY_CODE_VALUES`, the same tuple their
+    // `currencyChecks` entry below is rendered from. `text({ enum })` emits no
+    // DDL — it is a TypeScript narrowing only — so this changes no migration; what
+    // it changes is that a serializer reading `fxRateFrom` gets `CurrencyCode`
+    // rather than `string`, which is what the CHECK already promises.
+    fxRateFrom: text({ enum: CURRENCY_CODE_VALUES }),
+    fxRateTo: text({ enum: CURRENCY_CODE_VALUES }),
     /** A conversion rate, genuinely fractional — the same IEEE-754 double Mongo held. */
     fxRateRate: doublePrecision(),
     /**

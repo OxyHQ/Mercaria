@@ -23,7 +23,7 @@ vi.mock('../../db/catalog/listingRepository.js', () => ({
   insertListing: vi.fn(),
 }));
 
-const orderFindOneAndUpdate = vi.fn();
+const transitionOrderStatus = vi.fn();
 
 vi.mock('../../db/catalog/variantRepository.js', () => ({
   findVariantsByListing: vi.fn(async () => []),
@@ -49,14 +49,21 @@ vi.mock('../../db/stores/locationRepository.js', () => ({
 
 vi.mock('../../db/stores/storeRepository.js', () => ({
   adjustStoreProductCount: vi.fn(async () => undefined),
+  adjustStoreSalesCount: vi.fn(async () => undefined),
+  findStoreRow: vi.fn(async () => null),
 }));
-vi.mock('../../models/order.js', () => ({
-  Order: { findOneAndUpdate: (...args: unknown[]) => orderFindOneAndUpdate(...args) },
+vi.mock('../../db/orders/orderRepository.js', () => ({
+  transitionOrderStatus: (...args: unknown[]) => transitionOrderStatus(...args),
+  findOrderMatching: vi.fn(async () => null),
+  findOrdersPage: vi.fn(),
+  countOrdersByStatus: vi.fn(),
+  sumPaidRevenue: vi.fn(),
 }));
-vi.mock('../../models/store.js', () => ({ Store: { updateOne: vi.fn() } }));
-vi.mock('../../models/seller-profile.js', () => ({ SellerProfile: { updateOne: vi.fn() } }));
-vi.mock('../../models/refund.js', () => ({
-  Refund: { find: () => ({ lean: async () => [] }) },
+vi.mock('../../db/buyers/sellerProfileRepository.js', () => ({
+  adjustSellerSalesCount: vi.fn(async () => undefined),
+}));
+vi.mock('../../db/orders/refundRepository.js', () => ({
+  sumRestockedQuantities: vi.fn(async () => new Map<string, number>()),
 }));
 vi.mock('../../queue/producers.js', () => ({
   enqueueOrderEvent: vi.fn(async () => undefined),
@@ -97,8 +104,15 @@ function listingRow(status: string): Record<string, unknown> {
 beforeEach(() => {
   vi.clearAllMocks();
   updateListingColumns.mockResolvedValue(null);
-  // The CAS gate in `transition`; a returned doc means this caller won it.
-  orderFindOneAndUpdate.mockResolvedValue({ _id: new Types.ObjectId(), status: 'processing' });
+  // The CAS gate in `transition`; a returned result means this caller won it,
+  // and `null` would mean the guard refused.
+  transitionOrderStatus.mockImplementation(
+    (orderId: string, _expected: string, next: string) =>
+      Promise.resolve({
+        order: { id: orderId, status: next },
+        event: { id: 'event-1', orderId, status: next, at: new Date() },
+      }),
+  );
 });
 
 describe('a seller cannot escape a moderation restriction', () => {
@@ -157,14 +171,25 @@ describe('a seller cannot escape a moderation restriction', () => {
 });
 
 describe('a frozen order cannot move', () => {
-  /** An order document with the mongoose surface `transition` touches. */
-  function orderDoc(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  /**
+   * An order RECORD with the columns `transition` reads.
+   *
+   * `moderation_hold` is nullable and only `true` refuses a move — the column's
+   * three states are "never held", "held" and "released" (NULL after a restore),
+   * so the vacuity guard below passes NULL rather than removing the property.
+   */
+  function orderRecord(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
-      _id: new Types.ObjectId(),
+      id: new Types.ObjectId().toHexString(),
       status: 'paid',
-      payment: { status: 'paid' },
+      paymentStatus: 'paid',
       statusHistory: [],
       items: [],
+      appliedDiscounts: [],
+      taxLines: [],
+      sourceExternalId: null,
+      totalsGrandTotalShopAmount: 1000,
+      totalsGrandTotalShopCurrency: 'FAIR',
       moderationHold: true,
       ...overrides,
     };
@@ -177,7 +202,7 @@ describe('a frozen order cannot move', () => {
      * placed yesterday would be packed and shipped while its case is still open.
      */
     await expect(
-      transition(orderDoc() as never, 'processing', { actorOxyUserId: 'seller-1' }),
+      transition(orderRecord() as never, 'processing', { actorOxyUserId: 'seller-1' }),
     ).rejects.toThrow(/held pending a moderation decision/i);
   });
 
@@ -188,9 +213,9 @@ describe('a frozen order cannot move', () => {
      * questioning, which is the opposite of what the freeze is for.
      */
     await expect(
-      transition(orderDoc() as never, 'cancelled', { actorOxyUserId: 'buyer-1' }),
+      transition(orderRecord() as never, 'cancelled', { actorOxyUserId: 'buyer-1' }),
     ).resolves.toBeDefined();
-    expect(orderFindOneAndUpdate).toHaveBeenCalled();
+    expect(transitionOrderStatus).toHaveBeenCalled();
   });
 
   it('does not interfere with an order that carries no hold', async () => {
@@ -199,10 +224,10 @@ describe('a frozen order cannot move', () => {
      * test above and stop the marketplace; this proves the hold discriminates.
      */
     await expect(
-      transition(orderDoc({ moderationHold: undefined }) as never, 'processing', {
+      transition(orderRecord({ moderationHold: null }) as never, 'processing', {
         actorOxyUserId: 'seller-1',
       }),
     ).resolves.toBeDefined();
-    expect(orderFindOneAndUpdate).toHaveBeenCalled();
+    expect(transitionOrderStatus).toHaveBeenCalled();
   });
 });

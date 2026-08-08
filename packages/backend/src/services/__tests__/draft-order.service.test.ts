@@ -3,20 +3,22 @@
  * `completeDraftOrder` sale path.
  *
  * Everything these paths touch is mocked: the pricing engine, inventory
- * reserve/release, the Order/DraftOrder/Store/Location models, the CATALOGUE
- * repositories (`db/catalog/listingRepository`, `db/catalog/variantRepository` —
- * the catalogue is Postgres now, so a mock of the old `Listing`/`ProductVariant`
- * models would stub something this service no longer imports), the order-number
- * counter, the order.service transition, the order-hydration mapper, the media
- * chokepoint, the discount-code normalizer and the customer lookup.
+ * reserve/release, the DRAFT-ORDER and ORDER repositories, the catalogue
+ * repositories, the store repository, the order-number sequence, the
+ * order.service transition, the order-hydration mapper, the media chokepoint,
+ * the discount-code normalizer and the customer lookup.
  *
- * That mocking has one blind spot, and it is not hypothetical: a mocked
- * `Order.create` runs no validator, so it accepted a payload missing the
- * `required` + UNIQUE `orderNumber` and every POS sale 500d on a real server while
- * this file stayed green. The assertions here now pin the number reaching the
- * payload, but the property that a REAL server accepts the document can only be
- * checked against one — `draft-order-complete.realdb.test.ts` does that, against
- * both databases at once.
+ * The draft is a RECORD now rather than a mutable mongoose document, so a
+ * mutation is no longer visible by inspecting the fixture: every register edit
+ * goes through `replaceDraftPricing`, which replaces the lines wholesale. That is
+ * where the "what did the register put on the draft" assertions read from.
+ *
+ * That mocking has one blind spot, and it is not hypothetical: a mocked create
+ * runs no validator, so it accepted a payload missing the `required` + UNIQUE
+ * `orderNumber` and every POS sale 500d on a real server while this file stayed
+ * green. The assertions here pin the number reaching the payload, but the
+ * property that a REAL server accepts the row can only be checked against one —
+ * `draft-order-complete.realdb.test.ts` does that.
  *
  * Tests assert the B5 POS contract: a line can only be rung up at a price, so a
  * variant whose `price_amount` is NULL is refused (CONFLICT) rather than sold for
@@ -51,12 +53,13 @@ const findListingsByIds = vi.fn();
 const findListingChildren = vi.fn();
 const findVariantById = vi.fn();
 const findVariantOptionValues = vi.fn();
-const orderCreate = vi.fn();
-const orderFindById = vi.fn();
-const orderFindOne = vi.fn();
-const draftFindOne = vi.fn();
-const storeFindById = vi.fn();
-const locationFindOne = vi.fn();
+const insertOrder = vi.fn();
+const findOrderById = vi.fn();
+const findDraftOrder = vi.fn();
+const replaceDraftPricing = vi.fn();
+const markDraftConverted = vi.fn();
+const updateDraftOrderRow = vi.fn();
+const findStoreRow = vi.fn();
 const nextOrderNumber = vi.fn();
 
 vi.mock('../inventory.service.js', () => ({
@@ -114,36 +117,33 @@ vi.mock('../../db/catalog/variantRepository.js', () => ({
   findVariantOptionValues: (...args: unknown[]) => findVariantOptionValues(...args),
 }));
 
-vi.mock('../../models/order.js', () => ({
-  Order: {
-    create: (...args: unknown[]) => orderCreate(...args),
-    findById: (...args: unknown[]) => orderFindById(...args),
-    findOne: (...args: unknown[]) => orderFindOne(...args),
-  },
-}));
-
-vi.mock('../../models/draft-order.js', () => ({
-  DraftOrder: {
-    findOne: (...args: unknown[]) => draftFindOne(...args),
-    find: vi.fn(),
-    countDocuments: vi.fn(),
-    create: vi.fn(),
-  },
-}));
-
-vi.mock('../../models/store.js', () => ({
-  Store: { findById: (...args: unknown[]) => storeFindById(...args) },
-}));
-
-vi.mock('../../models/location.js', () => ({
-  Location: { findOne: (...args: unknown[]) => locationFindOne(...args) },
-}));
-
-vi.mock('../../models/counter.js', () => ({
+vi.mock('../../db/orders/orderRepository.js', () => ({
+  insertOrder: (...args: unknown[]) => insertOrder(...args),
+  findOrderById: (...args: unknown[]) => findOrderById(...args),
+  findOrderByIdempotencyKey: vi.fn(),
   nextOrderNumber: (...args: unknown[]) => nextOrderNumber(...args),
 }));
 
+vi.mock('../../db/pos/draftOrderRepository.js', () => ({
+  findDraftOrder: (...args: unknown[]) => findDraftOrder(...args),
+  findDraftOrdersPage: vi.fn(),
+  insertDraftOrder: vi.fn(),
+  replaceDraftPricing: (...args: unknown[]) => replaceDraftPricing(...args),
+  updateDraftOrder: (...args: unknown[]) => updateDraftOrderRow(...args),
+  markDraftConverted: (...args: unknown[]) => markDraftConverted(...args),
+}));
+
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  findStoreRow: (...args: unknown[]) => findStoreRow(...args),
+}));
+
 import { addLine, completeDraftOrder } from '../draft-order.service.js';
+import type {
+  DraftLineItemRecord,
+  DraftOrderRecord,
+  DraftPricing,
+  NewDraftLineItem,
+} from '../../db/pos/draftOrderRepository.js';
 import { isMercariaError, outOfStock } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
 
@@ -157,16 +157,6 @@ const V1 = '000000000000000000000201';
 const V2 = '000000000000000000000202';
 /** The number `nextOrderNumber` is stubbed to allocate for the sale. */
 const ORDER_NUMBER = 'MRC-000777';
-
-/** Build a `.lean()`-able query stub resolving to `value`. */
-function leanOf<T>(value: T) {
-  return { lean: () => Promise.resolve(value) };
-}
-
-/** Build a `.select(...).lean()`-able query stub resolving to `value`. */
-function selectLeanOf<T>(value: T) {
-  return { select: () => ({ lean: () => Promise.resolve(value) }) };
-}
 
 /** An empty `findListingChildren` result — images/options/memberships by listing id. */
 function noChildren() {
@@ -203,49 +193,73 @@ function listingRow(id = L1) {
   return { id, title: 'Thing', productType: null, storeId: STORE, ownerType: 'store' };
 }
 
-/** A draft line item. */
-function line(listingId: string, variantId: string, quantity: number, amount = 1000) {
+/** A stored draft line ROW: flat `unit_price_*` columns and its option values. */
+function line(
+  listingId: string,
+  variantId: string,
+  quantity: number,
+  amount = 1000,
+): DraftLineItemRecord {
   return {
+    id: `dl-${variantId}`,
+    draftOrderId: DRAFT_ID,
     listingId,
     variantId,
     title: 'Thing',
     variantTitle: 'Default Title',
-    unitPrice: { amount, currency: 'FAIR' as const },
+    unitPriceAmount: amount,
+    unitPriceCurrency: 'FAIR',
     quantity,
-    optionValues: [] as { name: string; value: string }[],
-    discountTotal: undefined as { amount: number; currency: string } | undefined,
-  };
+    discountTotalAmount: null,
+    discountTotalCurrency: null,
+    position: 0,
+    optionValues: [],
+  } as unknown as DraftLineItemRecord;
 }
 
-/** A mutable mock draft doc (mongoose-like) with a spied `save` and a `toObject`. */
-function mockDraft(overrides: Partial<Record<string, unknown>> = {}) {
-  const draft = {
-    _id: DRAFT_ID,
+/**
+ * A draft RECORD with its children attached, as `findDraftOrder` returns it.
+ *
+ * Flat totals columns, and `lineItems` carrying their own rows — nothing here is
+ * mutable state the service writes back into, which is the point: every register
+ * edit re-prices and replaces, so the assertions read `replaceDraftPricing`.
+ */
+function mockDraft(overrides: Record<string, unknown> = {}): DraftOrderRecord {
+  return {
+    id: DRAFT_ID,
     storeId: STORE,
     locationId: LOCATION,
-    customerId: undefined as string | undefined,
+    customerId: null,
     createdByOxyUserId: ACTOR,
-    status: 'open' as 'open' | 'completed' | 'cancelled',
+    status: 'open',
     lineItems: [line(L1, V1, 2), line(L2, V2, 1)],
-    discountCodes: [] as string[],
-    appliedDiscounts: [] as unknown[],
-    taxLines: [] as unknown[],
+    discountCodes: [],
+    appliedDiscounts: [],
+    taxLines: [],
     currency: 'FAIR',
-    totals: {
-      subtotal: { amount: 0, currency: 'FAIR' },
-      discountTotal: { amount: 0, currency: 'FAIR' },
-      tax: { amount: 0, currency: 'FAIR' },
-      shipping: { amount: 0, currency: 'FAIR' },
-      grandTotal: { amount: 0, currency: 'FAIR' },
-    },
-    convertedOrderId: undefined as string | undefined,
-    idempotencyKey: undefined as string | undefined,
-    save: vi.fn().mockResolvedValue(undefined),
+    totalsSubtotalAmount: 0,
+    totalsSubtotalCurrency: 'FAIR',
+    totalsDiscountTotalAmount: 0,
+    totalsDiscountTotalCurrency: 'FAIR',
+    totalsTaxAmount: 0,
+    totalsTaxCurrency: 'FAIR',
+    totalsShippingAmount: 0,
+    totalsShippingCurrency: 'FAIR',
+    totalsGrandTotalAmount: 0,
+    totalsGrandTotalCurrency: 'FAIR',
+    convertedOrderId: null,
+    shippingAddressRecipientName: null,
+    note: null,
+    createdAt: new Date('2026-06-22T00:00:00.000Z'),
+    updatedAt: new Date('2026-06-22T00:00:00.000Z'),
     ...overrides,
-  };
-  // `addLine` returns `draft.toObject()`; the mock hands back the same mutable
-  // object so a test can read what the service actually pushed onto it.
-  return Object.assign(draft, { toObject: () => draft });
+  } as unknown as DraftOrderRecord;
+}
+
+/** The lines a register edit wrote, read off the `replaceDraftPricing` call. */
+function writtenLines(): NewDraftLineItem[] {
+  const [, pricingInput] = replaceDraftPricing.mock.calls[0] as [string, DraftPricing];
+  return pricingInput.lineItems;
 }
 
 /** A `DualMoney` in FAIR where shop == presentment (a POS sale). */
@@ -280,12 +294,26 @@ beforeEach(() => {
   findListingChildren.mockReset().mockResolvedValue(noChildren());
   findVariantById.mockReset().mockResolvedValue(null);
   findVariantOptionValues.mockReset().mockResolvedValue(new Map());
-  orderCreate.mockReset();
-  orderFindById.mockReset();
-  orderFindOne.mockReset();
-  draftFindOne.mockReset();
-  storeFindById.mockReset();
-  locationFindOne.mockReset().mockReturnValue(selectLeanOf(null));
+  insertOrder.mockReset();
+  findOrderById.mockReset();
+  findDraftOrder.mockReset();
+  // The default write echoes the draft back with the lines it was handed, which
+  // is what the real repository returns after the wholesale replace.
+  replaceDraftPricing
+    .mockReset()
+    .mockImplementation((draftId: string, input: DraftPricing) =>
+      Promise.resolve(
+        mockDraft({
+          id: draftId,
+          lineItems: input.lineItems.map((item) =>
+            line(item.listingId, item.variantId, item.quantity, item.unitPrice.amount),
+          ) as unknown as DraftLineItemRecord[],
+        }),
+      ),
+    );
+  markDraftConverted.mockReset().mockResolvedValue(true);
+  updateDraftOrderRow.mockReset();
+  findStoreRow.mockReset().mockResolvedValue({ id: STORE, defaultCurrency: 'FAIR' });
   nextOrderNumber.mockReset().mockResolvedValue(ORDER_NUMBER);
 });
 
@@ -299,9 +327,7 @@ describe('draft-order.service.addLine — a line needs a price', () => {
      * persisting `unitPrice: {amount: undefined}` for the pricing engine to reduce
      * to NaN.
      */
-    const draft = mockDraft();
-    draft.lineItems = [];
-    draftFindOne.mockResolvedValueOnce(draft);
+    findDraftOrder.mockResolvedValueOnce(mockDraft({ lineItems: [] }));
     findListingById.mockResolvedValueOnce(listingRow());
     findVariantById.mockResolvedValueOnce(variantRow({ priceAmount: null }));
 
@@ -311,8 +337,9 @@ describe('draft-order.service.addLine — a line needs a price', () => {
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
 
-    expect(draft.lineItems).toHaveLength(0);
-    expect(draft.save).not.toHaveBeenCalled();
+    // Nothing was written and nothing was priced — the refusal happens before
+    // either.
+    expect(replaceDraftPricing).not.toHaveBeenCalled();
     expect(calculateTotals).not.toHaveBeenCalled();
   });
 
@@ -323,9 +350,7 @@ describe('draft-order.service.addLine — a line needs a price', () => {
      * service reads — `priceAmount`/`priceCurrency` columns, and option values
      * from the child table keyed by variant id.
      */
-    const draft = mockDraft();
-    draft.lineItems = [];
-    draftFindOne.mockResolvedValueOnce(draft);
+    findDraftOrder.mockResolvedValueOnce(mockDraft({ lineItems: [] }));
     findListingById.mockResolvedValueOnce(listingRow());
     findVariantById.mockResolvedValueOnce(variantRow({ priceAmount: 2500 }));
     findVariantOptionValues.mockResolvedValueOnce(
@@ -335,10 +360,11 @@ describe('draft-order.service.addLine — a line needs a price', () => {
     await addLine(STORE, DRAFT_ID, { listingId: L1, variantId: V1, quantity: 3 });
 
     expect(findVariantOptionValues).toHaveBeenCalledWith([V1]);
-    expect(draft.lineItems).toHaveLength(1);
-    expect(draft.lineItems[0].unitPrice).toEqual({ amount: 2500, currency: 'FAIR' });
-    expect(draft.lineItems[0].optionValues).toEqual([{ name: 'Size', value: 'M' }]);
-    expect(draft.save).toHaveBeenCalledTimes(1);
+    const written = writtenLines();
+    expect(written).toHaveLength(1);
+    expect(written[0].unitPrice).toEqual({ amount: 2500, currency: 'FAIR' });
+    expect(written[0].optionValues).toEqual([{ name: 'Size', value: 'M' }]);
+    expect(replaceDraftPricing).toHaveBeenCalledTimes(1);
 
     // And the priced line is what the engine re-priced.
     const priced = calculateTotals.mock.calls[0][0] as { lines: PricingLine[] };
@@ -346,9 +372,7 @@ describe('draft-order.service.addLine — a line needs a price', () => {
   });
 
   it('refuses a variant that belongs to a different listing (CONFLICT)', async () => {
-    const draft = mockDraft();
-    draft.lineItems = [];
-    draftFindOne.mockResolvedValueOnce(draft);
+    findDraftOrder.mockResolvedValueOnce(mockDraft({ lineItems: [] }));
     findListingById.mockResolvedValueOnce(listingRow());
     findVariantById.mockResolvedValueOnce(variantRow({ listingId: L2 }));
 
@@ -357,21 +381,18 @@ describe('draft-order.service.addLine — a line needs a price', () => {
     ).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
-    expect(draft.save).not.toHaveBeenCalled();
+    expect(replaceDraftPricing).not.toHaveBeenCalled();
   });
 });
 
 describe('draft-order.service.completeDraftOrder — POS sale', () => {
   it('reserves each line at the draft location, prices, creates a pos order with item locationId, transitions paid, marks completed', async () => {
-    const draft = mockDraft();
-    draftFindOne.mockResolvedValueOnce(draft);
-    // recompute reads the lines' listings (`findListingsByIds`) and their
+    findDraftOrder.mockResolvedValueOnce(mockDraft());
+    // The re-price reads the lines' listings (`findListingsByIds`) and their
     // collection memberships (`findListingChildren`); complete reads the same
     // children again for the item thumbnails. Neither is needed for this sale.
-    orderCreate.mockResolvedValueOnce({
-      _id: 'order-1',
-      toObject: () => ({ _id: 'order-1', sourceChannel: 'pos' }),
-    });
+    insertOrder.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
+    transition.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
 
     const result = await completeDraftOrder(STORE, DRAFT_ID, {}, ACTOR);
 
@@ -384,8 +405,8 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
     expect(calculateTotals).toHaveBeenCalledTimes(1);
 
     // Created a pos order whose items carry the register location.
-    expect(orderCreate).toHaveBeenCalledTimes(1);
-    const doc = orderCreate.mock.calls[0][0] as {
+    expect(insertOrder).toHaveBeenCalledTimes(1);
+    const doc = insertOrder.mock.calls[0][0] as {
       orderNumber: string;
       sourceChannel: string;
       sellerType: string;
@@ -393,9 +414,9 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
       items: { variantId: string; locationId?: string }[];
       idempotencyKey: string;
     };
-    // The order number is `required` + UNIQUE on the schema, so a payload without
-    // it is rejected by a real server (see `draft-order-complete.realdb.test.ts`);
-    // exactly one is allocated per sale, from the shared customer-facing sequence.
+    // `order_number` is NOT NULL + UNIQUE, so a row without it is rejected by a
+    // real server (see `draft-order-complete.realdb.test.ts`); exactly one is
+    // allocated per sale, from the shared customer-facing sequence.
     expect(doc.orderNumber).toBe(ORDER_NUMBER);
     expect(nextOrderNumber).toHaveBeenCalledTimes(1);
     expect(doc.sourceChannel).toBe('pos');
@@ -404,12 +425,12 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
     expect(doc.items.every((i) => i.locationId === LOCATION)).toBe(true);
     expect(doc.idempotencyKey).toBe(`draft:${DRAFT_ID}`);
 
-    // Drove the shared paid transition + marked the draft converted.
+    // Drove the shared paid transition + marked the draft converted. The mark is
+    // guarded on the draft still being open, so a second complete that lost the
+    // race cannot overwrite the first one's order id.
     expect(transition).toHaveBeenCalledTimes(1);
     expect(transition.mock.calls[0][1]).toBe('paid');
-    expect(draft.status).toBe('completed');
-    expect(draft.convertedOrderId).toBe('order-1');
-    expect(draft.save).toHaveBeenCalled();
+    expect(markDraftConverted).toHaveBeenCalledWith(STORE, DRAFT_ID, 'order-1');
     expect(release).not.toHaveBeenCalled();
     expect(result).toEqual({ id: 'order-1', sourceChannel: 'pos' });
   });
@@ -421,8 +442,7 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
      * kept reading `listing.images` would silently drop every receipt thumbnail —
      * `undefined`, no error.
      */
-    const draft = mockDraft();
-    draftFindOne.mockResolvedValueOnce(draft);
+    findDraftOrder.mockResolvedValueOnce(mockDraft());
     findListingChildren.mockResolvedValue({
       images: new Map([
         [L1, [{ listingId: L1, fileId: 'file-l1', alt: null, position: 0 }]],
@@ -430,29 +450,28 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
       options: new Map(),
       collectionIds: new Map(),
     });
-    orderCreate.mockResolvedValueOnce({
-      _id: 'order-1',
-      toObject: () => ({ _id: 'order-1', sourceChannel: 'pos' }),
-    });
+    insertOrder.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
+    transition.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
 
     await completeDraftOrder(STORE, DRAFT_ID, {}, ACTOR);
 
-    const doc = orderCreate.mock.calls[0][0] as { items: { imageUrl?: string }[] };
+    const doc = insertOrder.mock.calls[0][0] as { items: { imageUrl?: string }[] };
     expect(doc.items[0].imageUrl).toBe('resolved:file-l1');
     // The second line's listing has no images at all — absent, not empty string.
     expect(doc.items[1].imageUrl).toBeUndefined();
   });
 
   it('is idempotent: a second complete (already converted) returns the same order without re-reserving/creating', async () => {
-    const draft = mockDraft({ status: 'completed', convertedOrderId: 'order-1' });
-    draftFindOne.mockResolvedValueOnce(draft);
-    orderFindById.mockReturnValueOnce(leanOf({ _id: 'order-1', sourceChannel: 'pos' }));
+    findDraftOrder.mockResolvedValueOnce(
+      mockDraft({ status: 'completed', convertedOrderId: 'order-1' }),
+    );
+    findOrderById.mockResolvedValueOnce({ id: 'order-1', sourceChannel: 'pos' });
     hydrateOrders.mockResolvedValueOnce([{ id: 'order-1', sourceChannel: 'pos' }]);
 
     const result = await completeDraftOrder(STORE, DRAFT_ID, {}, ACTOR);
 
     expect(reserve).not.toHaveBeenCalled();
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
     expect(transition).not.toHaveBeenCalled();
     // The short-circuit returns before any allocation — a repeated complete must
     // not burn an order number.
@@ -461,8 +480,7 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
   });
 
   it('rolls back the prior reservation (at the location) and creates no order when a later line is out of stock', async () => {
-    const draft = mockDraft();
-    draftFindOne.mockResolvedValueOnce(draft);
+    findDraftOrder.mockResolvedValueOnce(mockDraft());
 
     // First reserve succeeds, second throws OUT_OF_STOCK.
     reserve
@@ -476,12 +494,11 @@ describe('draft-order.service.completeDraftOrder — POS sale', () => {
     // Only the first (succeeded) line is released, at the register location.
     expect(release).toHaveBeenCalledTimes(1);
     expect(release).toHaveBeenCalledWith(V1, 2, LOCATION);
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
     expect(transition).not.toHaveBeenCalled();
-    // A sale that never reaches `Order.create` allocates no number either.
+    // A sale that never reaches the insert allocates no number either.
     expect(nextOrderNumber).not.toHaveBeenCalled();
-    // Draft is not mutated to completed.
-    expect(draft.status).toBe('open');
-    expect(draft.convertedOrderId).toBeUndefined();
+    // The draft is never marked converted.
+    expect(markDraftConverted).not.toHaveBeenCalled();
   });
 });

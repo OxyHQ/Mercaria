@@ -91,21 +91,18 @@ vi.mock('../../db/merchandising/collectionRepository.js', () => ({
 }));
 vi.mock('../../db/stores/locationRepository.js', () => ({ findLocation: vi.fn() }));
 
-const orderFindOne = vi.fn();
-const orderCreate = vi.fn();
-const orderUpdateOne = vi.fn();
-vi.mock('../../models/order.js', () => ({
-  Order: {
-    findOne: (...a: unknown[]) => orderFindOne(...a),
-    create: (...a: unknown[]) => orderCreate(...a),
-    updateOne: (...a: unknown[]) => orderUpdateOne(...a),
-  },
-}));
-
+const findOrderBySourceExternalId = vi.fn();
+const insertOrder = vi.fn();
+const updateOrderFromSource = vi.fn();
 const nextOrderNumber = vi.fn();
-vi.mock('../../models/counter.js', () => ({
+vi.mock('../../db/orders/orderRepository.js', () => ({
+  findOrderBySourceExternalId: (...a: unknown[]) => findOrderBySourceExternalId(...a),
+  insertOrder: (...a: unknown[]) => insertOrder(...a),
+  updateOrderFromSource: (...a: unknown[]) => updateOrderFromSource(...a),
+  findOrderById: vi.fn(),
   nextOrderNumber: (...a: unknown[]) => nextOrderNumber(...a),
 }));
+
 
 vi.mock('../catalog-write.service.js', () => ({
   createStoreProduct: vi.fn(),
@@ -146,8 +143,8 @@ beforeEach(() => {
   syncRunCreate.mockImplementation(() => Promise.resolve(mockRun()));
   connectionUpdateOne.mockResolvedValue({});
   updateListingColumns.mockResolvedValue(null);
-  orderUpdateOne.mockResolvedValue({});
-  orderCreate.mockResolvedValue({});
+  updateOrderFromSource.mockResolvedValue(undefined);
+  insertOrder.mockResolvedValue({ id: 'order-created' });
   listingPushedToConnection.mockResolvedValue(false);
   findExternalRefByListingAndConnection.mockResolvedValue(null);
   upsertExternalRef.mockResolvedValue(undefined);
@@ -344,20 +341,22 @@ function normalizedOrder(): NormalizedOrder {
 describe('syncOrders — create + DualMoney', () => {
   it('creates a store order stamped with source, DualMoney totals and external payment', async () => {
     connectionFindOne.mockResolvedValue(orderPullConnection());
-    orderFindOne.mockReturnValue({ select: vi.fn().mockResolvedValue(null) });
+    findOrderBySourceExternalId.mockResolvedValue(null);
     getConnectorProvider.mockReturnValue({
       fetchOrders: vi.fn().mockResolvedValue({ orders: [normalizedOrder()] }),
     });
 
     const run = await syncOrders(STORE_ID, 'conn-ord');
 
-    expect(orderCreate).toHaveBeenCalledTimes(1);
-    const [doc] = orderCreate.mock.calls[0];
+    expect(insertOrder).toHaveBeenCalledTimes(1);
+    const [doc] = insertOrder.mock.calls[0];
     expect(doc.orderNumber).toBe('MRC-000042');
     expect(doc.sellerType).toBe('store');
     expect(doc.storeId).toBe(STORE_ID);
     expect(doc.source).toMatchObject({ connectionId: 'conn-ord', provider: 'shopify', externalId: 'shp-1001' });
-    expect(doc.payment).toMatchObject({ status: 'paid', provider: 'external' });
+    // `payment` flattened into two columns; an external order settles off Oxy Pay.
+    expect(doc.paymentStatus).toBe('paid');
+    expect(doc.paymentProvider).toBe('external');
     // DualMoney preserved on totals + line items.
     expect(doc.totals.grandTotal).toEqual({
       shop: { amount: 3900, currency: 'USD' },
@@ -375,8 +374,9 @@ describe('syncOrders — create + DualMoney', () => {
   it('is idempotent — a re-sync of the same external order updates in place, never duplicates', async () => {
     connectionFindOne.mockResolvedValue(orderPullConnection());
     // The order already exists (a prior sync created it).
-    orderFindOne.mockReturnValue({
-      select: vi.fn().mockResolvedValue({ _id: 'order-existing', status: 'pending_payment' }),
+    findOrderBySourceExternalId.mockResolvedValue({
+      id: 'order-existing',
+      status: 'pending_payment',
     });
     getConnectorProvider.mockReturnValue({
       fetchOrders: vi.fn().mockResolvedValue({ orders: [normalizedOrder()] }),
@@ -384,11 +384,11 @@ describe('syncOrders — create + DualMoney', () => {
 
     const run = await syncOrders(STORE_ID, 'conn-ord');
 
-    expect(orderCreate).not.toHaveBeenCalled();
-    expect(orderUpdateOne).toHaveBeenCalledTimes(1);
-    const [filter, update] = orderUpdateOne.mock.calls[0];
-    expect(filter).toEqual({ _id: 'order-existing' });
-    expect(update.$set.status).toBe('paid');
+    expect(insertOrder).not.toHaveBeenCalled();
+    expect(updateOrderFromSource).toHaveBeenCalledTimes(1);
+    const [orderId, patch] = updateOrderFromSource.mock.calls[0];
+    expect(orderId).toBe('order-existing');
+    expect(patch.status).toBe('paid');
     // status changed pending_payment → paid ⇒ counted as updated.
     expect(run.counts).toMatchObject({ updated: 1, created: 0 });
   });
@@ -399,7 +399,7 @@ describe('syncOrders — create + DualMoney', () => {
 describe('processConnectorWebhook — orders topic', () => {
   it('upserts the order for an orders/create webhook (records a webhook run)', async () => {
     connectionFindById.mockResolvedValue(orderPullConnection());
-    orderFindOne.mockReturnValue({ select: vi.fn().mockResolvedValue(null) });
+    findOrderBySourceExternalId.mockResolvedValue(null);
     const normalizeOrder = vi.fn().mockReturnValue(normalizedOrder());
     getConnectorProvider.mockReturnValue({ normalizeOrder });
 
@@ -410,7 +410,7 @@ describe('processConnectorWebhook — orders topic', () => {
     });
 
     expect(normalizeOrder).toHaveBeenCalledWith({ id: 1001 }, 'USD');
-    expect(orderCreate).toHaveBeenCalledTimes(1);
+    expect(insertOrder).toHaveBeenCalledTimes(1);
     const runKind = syncRunCreate.mock.calls[0][0];
     expect(runKind).toMatchObject({ kind: 'webhook' });
   });
@@ -428,6 +428,6 @@ describe('processConnectorWebhook — orders topic', () => {
     });
 
     expect(syncRunCreate).not.toHaveBeenCalled();
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
   });
 });

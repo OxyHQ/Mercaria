@@ -23,7 +23,6 @@ import type {
   ReviewTargetType,
 } from '@mercaria/shared-types';
 import { Review, type IReview } from '../models/review.js';
-import { Order, type IOrder } from '../models/order.js';
 import {
   findListingById,
   findListingChildren,
@@ -31,8 +30,19 @@ import {
   findListingsByIds,
   setListingRating,
 } from '../db/catalog/listingRepository.js';
-import { Store, type IStore } from '../models/store.js';
-import { SellerProfile } from '../models/seller-profile.js';
+import {
+  findStoreById,
+  findStoreByHandle,
+  setStoreRating,
+  type StoreMemberRecord,
+} from '../db/stores/storeRepository.js';
+import { setSellerRating } from '../db/buyers/sellerProfileRepository.js';
+import {
+  buyerHasOrderForListing,
+  buyerHasOrderFromSeller,
+  findOrderById,
+  type OrderRecord,
+} from '../db/orders/orderRepository.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { resolveMedia } from './catalog-hydration.service.js';
 import { enqueueRecomputeAggregate } from '../queue/producers.js';
@@ -81,14 +91,18 @@ function resolveTargetId(input: CreateReviewInput): string {
 }
 
 /** True when the order matches the review target. */
-function orderMatchesTarget(order: IOrder, input: CreateReviewInput, targetId: string): boolean {
+function orderMatchesTarget(
+  order: OrderRecord,
+  input: CreateReviewInput,
+  targetId: string,
+): boolean {
   switch (input.targetType) {
     case 'listing':
-      return order.items.some((item) => String(item.listingId) === targetId);
+      return order.items.some((item) => item.listingId === targetId);
     case 'store':
-      return order.sellerType === 'store' && String(order.storeId) === targetId;
+      return order.sellerType === 'store' && order.storeId === targetId;
     case 'seller':
-      return order.sellerType === 'user' && String(order.sellerOxyUserId) === targetId;
+      return order.sellerType === 'user' && order.sellerOxyUserId === targetId;
   }
 }
 
@@ -103,10 +117,10 @@ async function assertVerifiedPurchase(
   targetId: string,
 ): Promise<void> {
   if (input.orderId) {
-    const order = await Order.findById(input.orderId).lean<IOrder | null>();
+    const order = await findOrderById(input.orderId);
     const qualifies =
       order !== null &&
-      String(order.buyerOxyUserId) === authorOxyUserId &&
+      order.buyerOxyUserId === authorOxyUserId &&
       (PURCHASED_STATUSES as readonly string[]).includes(order.status) &&
       orderMatchesTarget(order, input, targetId);
     if (!qualifies) {
@@ -115,18 +129,19 @@ async function assertVerifiedPurchase(
     return;
   }
 
-  const baseFilter = {
-    buyerOxyUserId: authorOxyUserId,
-    status: { $in: PURCHASED_STATUSES as readonly string[] },
-  };
-  const filter: Record<string, unknown> =
+  // The listing case joins `order_items`; the other two read `orders` alone.
+  // Splitting them is what lets each use the index it was built for, rather than
+  // one filter shape trying to serve a line-level and an order-level question.
+  const found =
     input.targetType === 'listing'
-      ? { ...baseFilter, 'items.listingId': targetId }
-      : input.targetType === 'store'
-        ? { ...baseFilter, sellerType: 'store', storeId: targetId }
-        : { ...baseFilter, sellerType: 'user', sellerOxyUserId: targetId };
-
-  const found = await Order.findOne(filter).lean<IOrder | null>();
+      ? await buyerHasOrderForListing(authorOxyUserId, targetId, PURCHASED_STATUSES)
+      : await buyerHasOrderFromSeller(
+          authorOxyUserId,
+          input.targetType === 'store'
+            ? { storeId: targetId }
+            : { sellerOxyUserId: targetId },
+          PURCHASED_STATUSES,
+        );
   if (!found) {
     throw forbidden('You can only review items you have purchased');
   }
@@ -207,21 +222,29 @@ export async function recomputeAggregate(
 
   const reviewCount = group?.count ?? 0;
   const rating = group && reviewCount > 0 ? roundRating(group.avg) : 0;
-  const update = { $set: { rating, reviewCount } };
 
   switch (targetType) {
     case 'listing':
       await setListingRating(targetId, rating, reviewCount);
       break;
     case 'store':
-      await Store.updateOne({ _id: targetId }, update);
+      await setStoreRating(targetId, rating, reviewCount);
       break;
     case 'seller':
-      await SellerProfile.updateOne({ oxyUserId: targetId }, update, { upsert: true });
+      // Upserting: a seller's first review can arrive before anything else has
+      // created their profile, exactly as the Mongo `upsert: true` allowed.
+      await setSellerRating(targetId, rating, reviewCount);
       break;
   }
 
   return { rating, reviewCount };
+}
+
+/** The Oxy accounts that OWN a store — who a review notification reaches. */
+async function storeOwnerIds(storeId: string): Promise<string[]> {
+  const store = await findStoreById(storeId);
+  const owners: StoreMemberRecord[] = (store?.members ?? []).filter((m) => m.role === 'owner');
+  return owners.map((member) => member.oxyUserId);
 }
 
 /**
@@ -242,15 +265,13 @@ async function notifyTargetOwner(
       if (listing?.ownerType === 'user' && listing.oxyUserId) {
         recipients.add(String(listing.oxyUserId));
       } else if (listing?.ownerType === 'store' && listing.storeId) {
-        const store = await Store.findById(listing.storeId).select('members').lean<Pick<IStore, 'members'> | null>();
-        for (const member of store?.members ?? []) {
-          if (member.role === 'owner') recipients.add(member.oxyUserId);
+        for (const ownerId of await storeOwnerIds(listing.storeId)) {
+          recipients.add(ownerId);
         }
       }
     } else if (input.targetType === 'store') {
-      const store = await Store.findById(targetId).select('members').lean<Pick<IStore, 'members'> | null>();
-      for (const member of store?.members ?? []) {
-        if (member.role === 'owner') recipients.add(member.oxyUserId);
+      for (const ownerId of await storeOwnerIds(targetId)) {
+        recipients.add(ownerId);
       }
     } else {
       recipients.add(targetId);
@@ -401,12 +422,12 @@ export async function listReviewsForStoreHandle(
   handle: string,
   { page, limit }: ReviewListParams,
 ): Promise<ReviewPage> {
-  const store = await Store.findOne({ handle }).select('_id').lean<{ _id: mongoose.Types.ObjectId } | null>();
+  const store = await findStoreByHandle(handle);
   if (!store) {
     throw notFound('Store not found');
   }
 
-  const storeId = String(store._id);
+  const storeId = store.id;
   const listingIds = await findListingIdsByStore(storeId);
 
   if (listingIds.length === 0) {

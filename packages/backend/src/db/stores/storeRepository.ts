@@ -342,3 +342,38 @@ export async function adjustStoreProductCount(
     })
     .where(eq(stores.id, storeId));
 }
+
+/**
+ * Move a store's `sales_count` by `delta`, clamped at zero.
+ *
+ * Bumped once per paid order from the post-CAS side-effects of
+ * `order.service.transition`, which is the only thing that keeps it in lockstep
+ * with real sales — it is never recomputed or copied from anywhere. Same SQL
+ * clamp and same reasoning as {@link adjustStoreProductCount}.
+ */
+export async function adjustStoreSalesCount(
+  storeId: string,
+  delta: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<void> {
+  await db
+    .update(stores)
+    .set({
+      salesCount: sql`greatest(0, ${stores.salesCount} + ${delta})`,
+      updatedAt: new Date(),
+    })
+    .where(eq(stores.id, storeId));
+}
+
+/** Persist a store's recomputed review aggregate — `review.service`'s write. */
+export async function setStoreRating(
+  storeId: string,
+  rating: number,
+  reviewCount: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<void> {
+  await db
+    .update(stores)
+    .set({ rating, reviewCount, updatedAt: new Date() })
+    .where(eq(stores.id, storeId));
+}

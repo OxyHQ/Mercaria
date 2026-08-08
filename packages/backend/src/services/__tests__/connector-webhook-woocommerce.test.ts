@@ -77,21 +77,18 @@ vi.mock('../../models/sync-run.js', () => ({
   SyncRun: { create: (...args: unknown[]) => syncRunCreate(...args) },
 }));
 
-const orderFindOne = vi.fn();
-const orderCreate = vi.fn();
-const orderUpdateOne = vi.fn();
-vi.mock('../../models/order.js', () => ({
-  Order: {
-    findOne: (...args: unknown[]) => orderFindOne(...args),
-    create: (...args: unknown[]) => orderCreate(...args),
-    updateOne: (...args: unknown[]) => orderUpdateOne(...args),
-  },
-}));
-
+const findOrderBySourceExternalId = vi.fn();
+const insertOrder = vi.fn();
+const updateOrderFromSource = vi.fn();
 const nextOrderNumber = vi.fn();
-vi.mock('../../models/counter.js', () => ({
+vi.mock('../../db/orders/orderRepository.js', () => ({
+  findOrderBySourceExternalId: (...args: unknown[]) => findOrderBySourceExternalId(...args),
+  insertOrder: (...args: unknown[]) => insertOrder(...args),
+  updateOrderFromSource: (...args: unknown[]) => updateOrderFromSource(...args),
+  findOrderById: vi.fn(),
   nextOrderNumber: (...args: unknown[]) => nextOrderNumber(...args),
 }));
+
 
 import { processConnectorWebhook } from '../connector-sync.service.js';
 
@@ -144,8 +141,8 @@ beforeEach(() => {
   run = { counts: {}, status: 'running', save: vi.fn().mockResolvedValue(undefined) };
   syncRunCreate.mockResolvedValue(run);
   connectionUpdateOne.mockResolvedValue({});
-  orderUpdateOne.mockResolvedValue({});
-  orderCreate.mockResolvedValue({});
+  updateOrderFromSource.mockResolvedValue(undefined);
+  insertOrder.mockResolvedValue({ id: 'order-created' });
   nextOrderNumber.mockResolvedValue('MRC-000042');
 });
 
@@ -202,7 +199,7 @@ describe('provider-aware dispatch — WooCommerce product.deleted', () => {
 describe('provider-aware dispatch — WooCommerce order.created / order.updated', () => {
   it('routes order.created to an order upsert (real Woo normalizeOrder → Mercaria order)', async () => {
     connectionFindById.mockResolvedValue(wooConnection());
-    orderFindOne.mockReturnValue({ select: vi.fn().mockResolvedValue(null) });
+    findOrderBySourceExternalId.mockResolvedValue(null);
 
     await processConnectorWebhook({
       connectionId: 'conn-woo',
@@ -210,10 +207,12 @@ describe('provider-aware dispatch — WooCommerce order.created / order.updated'
       payload: wooOrderPayload(),
     });
 
-    expect(orderCreate).toHaveBeenCalledTimes(1);
-    const [doc] = orderCreate.mock.calls[0];
+    expect(insertOrder).toHaveBeenCalledTimes(1);
+    const [doc] = insertOrder.mock.calls[0];
     expect(doc.source).toMatchObject({ provider: 'woocommerce', externalId: '727', connectionId: 'conn-woo' });
-    expect(doc.payment).toMatchObject({ status: 'paid', provider: 'external' });
+    // `payment` flattened into two columns; an external order settles off Oxy Pay.
+    expect(doc.paymentStatus).toBe('paid');
+    expect(doc.paymentProvider).toBe('external');
     expect(doc.buyerOxyUserId).toContain('ext:woocommerce:');
     // Single-currency: shop === presentment on the grand total.
     expect(doc.totals.grandTotal.shop).toEqual({ amount: 4000, currency: 'EUR' });
@@ -224,8 +223,9 @@ describe('provider-aware dispatch — WooCommerce order.created / order.updated'
 
   it('is idempotent — order.updated for an existing external order updates in place, never duplicates', async () => {
     connectionFindById.mockResolvedValue(wooConnection());
-    orderFindOne.mockReturnValue({
-      select: vi.fn().mockResolvedValue({ _id: 'order-existing', status: 'pending_payment' }),
+    findOrderBySourceExternalId.mockResolvedValue({
+      id: 'order-existing',
+      status: 'pending_payment',
     });
 
     await processConnectorWebhook({
@@ -234,11 +234,11 @@ describe('provider-aware dispatch — WooCommerce order.created / order.updated'
       payload: wooOrderPayload(),
     });
 
-    expect(orderCreate).not.toHaveBeenCalled();
-    expect(orderUpdateOne).toHaveBeenCalledTimes(1);
-    const [filter, update] = orderUpdateOne.mock.calls[0];
-    expect(filter).toEqual({ _id: 'order-existing' });
-    expect(update.$set.status).toBe('paid');
+    expect(insertOrder).not.toHaveBeenCalled();
+    expect(updateOrderFromSource).toHaveBeenCalledTimes(1);
+    const [orderId, patch] = updateOrderFromSource.mock.calls[0];
+    expect(orderId).toBe('order-existing');
+    expect(patch.status).toBe('paid');
     expect(run.counts).toMatchObject({ updated: 1, created: 0 });
   });
 
@@ -252,6 +252,6 @@ describe('provider-aware dispatch — WooCommerce order.created / order.updated'
     await processConnectorWebhook({ connectionId: 'conn-woo', topic: 'order.updated', payload: wooOrderPayload() });
 
     expect(syncRunCreate).not.toHaveBeenCalled();
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
   });
 });

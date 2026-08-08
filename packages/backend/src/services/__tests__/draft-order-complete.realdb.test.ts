@@ -1,60 +1,74 @@
 /**
- * The POS sale — `completeDraftOrder` — against a REAL MongoDB replica set.
+ * The POS sale — `completeDraftOrder` — against a REAL Postgres database.
  *
  * ## Why this file exists
  *
- * `draft-order.service.test.ts` mocks the `Order` model, and a mocked
- * `Order.create` accepts ANY document — including one the real schema rejects.
- * That blind spot hid a total, production-breaking bug: `completeDraftOrder` built
- * its `Order.create` payload without an `orderNumber`, which
- * `models/order.ts` declares `required: true` and indexes UNIQUE. Every POS sale
- * would have thrown `Order validation failed: orderNumber: Path `orderNumber` is
- * required.` on a real mongod — while the mocked suite stayed green, because the
- * mock never runs a validator.
+ * `draft-order.service.test.ts` mocks the order repository, and a mocked insert
+ * accepts ANY input — including one the real table rejects. That blind spot hid a
+ * total, production-breaking bug: `completeDraftOrder` built its create payload
+ * without an `orderNumber`, which is NOT NULL and UNIQUE. Every POS sale would
+ * have failed on a real server while the mocked suite stayed green, because a
+ * mock enforces no constraint.
  *
  * Every other order-creating path (`checkout.service`, `connector-sync.service`)
- * mints one with `nextOrderNumber()`; the POS path was the only one that did not.
+ * mints one from the sequence; the POS path was the only one that did not.
  *
- * The tests below therefore assert against the REAL Mongoose model, on a real
- * server, through the real service — the only combination that can tell a valid
- * document from an invalid one.
+ * The tests below therefore run the real service against real tables — the only
+ * combination that can tell an acceptable row from an unacceptable one. Three
+ * further properties only a server can answer are checked here too: the
+ * `orders_idempotency_key_key` convergence after a crash, the transactional
+ * all-or-nothing of an order and its five child relations, and that the rolled
+ * back reservation really returned the stock.
  *
- * A replica SET rather than a standalone, because the sale's convergence property
- * rests on the unique `idempotencyKey`/`orderNumber` indexes.
+ * ## The order numbers are compared, never pinned
+ *
+ * `order_number_seq` is one sequence in a database SHARED with every other
+ * realdb file in the suite, and vitest runs those files in parallel workers. An
+ * assertion that the first sale is `MRC-000001` would therefore pass or fail on
+ * which file happened to run first — the classic environment-property-read-as-a-
+ * code-property. What is actually under test is that each sale draws a DISTINCT,
+ * ascending number from the customer-facing sequence, so that is what is asserted.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import mongoose from 'mongoose';
-import { Types } from 'mongoose';
-import { eq } from 'drizzle-orm';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import { eq, sql } from 'drizzle-orm';
+
+/**
+ * The paid transition fires a best-effort buyer/seller notification, and
+ * notifications are the ONE thing in that path still stored in Mongo. Left
+ * unmocked, each sale spends ten seconds buffering an insert against a connection
+ * this file has no reason to open, and then swallows the failure — so the tests
+ * time out on a side effect none of them assert. Stubbing the producers keeps the
+ * file about the sale.
+ */
+vi.mock('../../queue/producers.js', () => ({
+  enqueueOrderEvent: vi.fn(async () => undefined),
+  enqueueFulfillmentPush: vi.fn(async () => undefined),
+  enqueueLowInventoryAlert: vi.fn(async () => undefined),
+  enqueueRecomputeAggregate: vi.fn(async () => undefined),
+}));
+import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
-import { stores } from '../../db/schema/stores.js';
+import { locations, stores } from '../../db/schema/stores.js';
 import { listings } from '../../db/schema/catalog.js';
-import { locations } from '../../db/schema/stores.js';
+import { orders } from '../../db/schema/orders.js';
+import { draftOrders } from '../../db/schema/pos.js';
 import { insertListing } from '../../db/catalog/listingRepository.js';
 import { insertVariants } from '../../db/catalog/variantRepository.js';
 import { findLevel, insertLevels } from '../../db/catalog/inventoryLevelRepository.js';
 import { insertLocation } from '../../db/stores/locationRepository.js';
+import { insertStore } from '../../db/stores/storeRepository.js';
+import { insertDraftOrder, replaceDraftPricing } from '../../db/pos/draftOrderRepository.js';
+import { completeDraftOrder } from '../draft-order.service.js';
 
-/**
- * This test spans BOTH databases, and that is what the migration looks like
- * mid-flight rather than an accident of the fixture.
- *
- * The POS draft order and the Order it converts into are still Mongo. Its
- * STORE, LOCATION, LISTING, VARIANT and STOCK are not — the stores and catalogue
- * domains are ported, so `resolveDefaultLocationId`, `inventory.commit` and
- * `order-hydration.service` all read Postgres. The scenario seeds the store on
- * BOTH sides under the SAME id, which is exactly what the Fase 4 backfill
- * produces since it copies `_id` verbatim.
- */
 let pg: Database;
 
-/** Postgres store ids this file seeded, dropped between tests. The Postgres
- *  database is shared with every other realdb file in the suite, so this file
- *  cleans up after ITSELF rather than truncating the table. */
+/**
+ * Store ids this file seeded, dropped after each test. The database is shared
+ * with every other realdb file in the suite, so this file cleans up after ITSELF
+ * rather than truncating anything.
+ */
 const seededStoreIds: string[] = [];
-
-const uri = process.env.MERCARIA_TEST_MONGODB_URI;
 
 /** The store settlement currency used throughout — FAIR needs no FX provider. */
 const CURRENCY = 'FAIR';
@@ -65,51 +79,28 @@ const UNIT_PRICE_AMOUNT = 2500;
 /** Stock seeded at the register location. */
 const SEEDED_AVAILABLE = 10;
 
-let Store: typeof import('../../models/store.js').Store;
-let Location: typeof import('../../models/location.js').Location;
-let DraftOrder: typeof import('../../models/draft-order.js').DraftOrder;
-let Order: typeof import('../../models/order.js').Order;
-let Counter: typeof import('../../models/counter.js').Counter;
-let completeDraftOrder: typeof import('../draft-order.service.js').completeDraftOrder;
-
 beforeAll(async () => {
-  if (!uri) throw new Error('MERCARIA_TEST_MONGODB_URI missing — is vitest.globalSetup.ts wired?');
-  await mongoose.connect(uri, { dbName: 'mercaria-draft-complete-test' });
-
-  ({ Store } = await import('../../models/store.js'));
-  ({ Location } = await import('../../models/location.js'));
-  ({ DraftOrder } = await import('../../models/draft-order.js'));
-  ({ Order } = await import('../../models/order.js'));
-  ({ Counter } = await import('../../models/counter.js'));
-  ({ completeDraftOrder } = await import('../draft-order.service.js'));
-
-  // The unique `orderNumber` and `idempotencyKey` indexes are half of what is
-  // under test here; Mongoose builds them lazily.
-  await Promise.all([Order.syncIndexes(), DraftOrder.syncIndexes()]);
-
   pg = await connectPostgres();
 }, 120_000);
 
 afterAll(async () => {
-  await mongoose.disconnect();
   await closePostgres();
 });
 
-beforeEach(async () => {
+afterEach(async () => {
   for (const storeId of seededStoreIds.splice(0)) {
-    // `listings.store_id` is RESTRICT, so the listings — and their cascading
-    // variants and inventory levels — go before the locations and the store.
+    // `orders.store_id` and `listings.store_id` are both RESTRICT, so the orders
+    // (with their cascading children) and the listings (with their cascading
+    // variants and inventory levels) go before the locations and the store.
+    // `draft_orders.location_id` is RESTRICT too, so the drafts go before the
+    // locations and — because a completed draft points at its order — before the
+    // orders as well.
+    await pg.delete(draftOrders).where(eq(draftOrders.storeId, storeId));
+    await pg.delete(orders).where(eq(orders.storeId, storeId));
     await pg.delete(listings).where(eq(listings.storeId, storeId));
     await pg.delete(locations).where(eq(locations.storeId, storeId));
     await pg.delete(stores).where(eq(stores.id, storeId));
   }
-  await Promise.all([
-    Store.deleteMany({}),
-    Location.deleteMany({}),
-    DraftOrder.deleteMany({}),
-    Order.deleteMany({}),
-    Counter.deleteMany({}),
-  ]);
 });
 
 /** The ids of one seeded register scenario. */
@@ -125,32 +116,25 @@ interface Scenario {
  * Seed the minimum `completeDraftOrder` actually loads: a store with a default
  * currency, a register location, one active store-owned listing with one tracked
  * variant, that variant's stock at the register, and an OPEN draft holding one
- * line. Every id is a String on the documents that reference it, matching the
- * repo's cross-collection convention.
+ * line.
  */
 async function seedScenario(quantity = 2): Promise<Scenario> {
-  const store = await Store.create({
-    handle: `pos-store-${new Types.ObjectId().toHexString()}`,
-    name: 'POS Test Store',
-    brandColor: '#123456',
-    defaultCurrency: CURRENCY,
-    members: [{ oxyUserId: ACTOR_OXY_USER_ID, role: 'owner' }],
-  });
-  const storeId = String(store._id);
-
-  // The same store, on the Postgres side, under the same id. `order-hydration`
-  // reads it from there; without this row the completed order hydrates with no
-  // merchant summary and the assertion below fails for a reason that has
-  // nothing to do with the draft-order logic under test.
+  // The WHOLE uuid in the handle, not a prefix: v7 is time-ordered, so two ids
+  // minted in the same millisecond share their leading characters and a truncated
+  // suffix collides with `stores_handle_key`.
+  const suffix = uuidv7();
+  const store = await insertStore(
+    {
+      handle: `pos-store-${suffix}`,
+      name: 'POS Test Store',
+      description: '',
+      brandColor: '#123456',
+      defaultCurrency: CURRENCY,
+    },
+    [{ oxyUserId: ACTOR_OXY_USER_ID, role: 'owner', permissions: ['store:manage'] }],
+  );
+  const storeId = store.id;
   seededStoreIds.push(storeId);
-  await pg.insert(stores).values({
-    id: storeId,
-    handle: store.handle,
-    name: store.name,
-    description: '',
-    brandColor: store.brandColor,
-    defaultCurrency: CURRENCY,
-  });
 
   const location = await insertLocation(storeId, {
     name: 'Register',
@@ -226,12 +210,22 @@ async function seedScenario(quantity = 2): Promise<Scenario> {
   ]);
 
   const lineTotal = UNIT_PRICE_AMOUNT * quantity;
-  const draft = await DraftOrder.create({
+  const zero = { amount: 0, currency: CURRENCY } as const;
+  const draft = await insertDraftOrder({
     storeId,
-    locationId,
     createdByOxyUserId: ACTOR_OXY_USER_ID,
-    status: 'open',
+    locationId,
     currency: CURRENCY,
+    totals: {
+      subtotal: zero,
+      discountTotal: zero,
+      tax: zero,
+      shipping: zero,
+      grandTotal: zero,
+    },
+  });
+
+  await replaceDraftPricing(draft.id, {
     lineItems: [
       {
         listingId,
@@ -243,45 +237,66 @@ async function seedScenario(quantity = 2): Promise<Scenario> {
         optionValues: [],
       },
     ],
-    discountCodes: [],
     appliedDiscounts: [],
     taxLines: [],
     totals: {
       subtotal: { amount: lineTotal, currency: CURRENCY },
-      discountTotal: { amount: 0, currency: CURRENCY },
-      tax: { amount: 0, currency: CURRENCY },
-      shipping: { amount: 0, currency: CURRENCY },
+      discountTotal: zero,
+      tax: zero,
+      shipping: zero,
       grandTotal: { amount: lineTotal, currency: CURRENCY },
     },
   });
 
-  return { storeId, locationId, listingId, variantId, draftId: String(draft._id) };
+  return { storeId, locationId, listingId, variantId, draftId: draft.id };
+}
+
+/** How many orders this store holds — the "never double-created" assertion. */
+async function countStoreOrders(storeId: string): Promise<number> {
+  const [row] = await pg
+    .select({ n: sql<number>`count(*)::int` })
+    .from(orders)
+    .where(eq(orders.storeId, storeId));
+  return row?.n ?? 0;
+}
+
+/** The numeric portion of an `MRC-000123` order number. */
+function orderNumberSeq(orderNumber: string): number {
+  return Number(orderNumber.slice('MRC-'.length));
 }
 
 describe('completeDraftOrder writes an order a REAL server accepts', () => {
   it('takes the sale — the order carries the required, unique orderNumber', async () => {
     /**
-     * The assertion a mocked `Order.create` cannot make. Without an `orderNumber`
-     * in the payload this rejects with a Mongoose ValidationError before writing
-     * anything, and every POS sale 500s.
+     * The assertion a mocked insert cannot make. Without an `orderNumber` in the
+     * payload this fails the NOT NULL constraint before writing anything, and
+     * every POS sale 500s.
      */
     const { storeId, draftId } = await seedScenario();
 
     const dto = await completeDraftOrder(storeId, draftId, {}, ACTOR_OXY_USER_ID);
 
     expect(dto.orderNumber).toMatch(/^MRC-\d{6}$/);
-    // The customer-facing sequence, NOT the draft one: a POS sale is a real paid
+    // The customer-facing sequence, NOT a POS-only one: a POS sale is a real paid
     // order, listed and receipted beside every storefront order.
     expect(dto.orderNumber.startsWith('MRC-DRAFT-')).toBe(false);
     expect(dto.status).toBe('paid');
     expect(dto.sourceChannel).toBe('pos');
 
-    // And it is what the SERVER stored, not just what hydration reported.
-    const persisted = await Order.findById(dto.id).lean();
+    // And it is what the SERVER stored, not just what hydration reported —
+    // including the line, which is a child ROW now and would be silently absent
+    // if the aggregate insert had half-committed.
+    const [persisted] = await pg
+      .select({ orderNumber: orders.orderNumber, status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, dto.id));
     expect(persisted?.orderNumber).toBe(dto.orderNumber);
+    expect(persisted?.status).toBe('paid');
+    expect(dto.items).toHaveLength(1);
+    expect(dto.items[0].quantity).toBe(2);
   });
 
-  it('mints a distinct number per sale, from the shared order sequence', async () => {
+  it('mints a distinct, ascending number per sale from the shared order sequence', async () => {
     const first = await seedScenario();
     const firstDto = await completeDraftOrder(first.storeId, first.draftId, {}, ACTOR_OXY_USER_ID);
 
@@ -294,13 +309,29 @@ describe('completeDraftOrder writes an order a REAL server accepts', () => {
     );
 
     expect(secondDto.orderNumber).not.toBe(firstDto.orderNumber);
-    // Both drew from the SAME `order` counter the storefront checkout uses — the
-    // POS must not open a parallel numbering space customers would see.
-    expect(firstDto.orderNumber).toBe('MRC-000001');
-    expect(secondDto.orderNumber).toBe('MRC-000002');
-    const counter = await Counter.findById('order').lean();
-    expect(counter?.seq).toBe(2);
-    expect(await Counter.findById('draftOrder').lean()).toBeNull();
+    // Ascending rather than pinned to `MRC-000001`/`MRC-000002` — see the file
+    // header: the sequence is shared with every other realdb file in the suite.
+    expect(orderNumberSeq(secondDto.orderNumber)).toBeGreaterThan(
+      orderNumberSeq(firstDto.orderNumber),
+    );
+  });
+
+  it('creates no parallel POS numbering sequence', async () => {
+    // `nextDraftOrderNumber` had zero call sites, so `0001_counter_sequences.sql`
+    // deliberately created only two sequences. This is what notices if a later
+    // migration adds a third and the POS quietly starts using it — customers
+    // would see two numbering spaces on their receipts.
+    //
+    // Restricted to the sequences the MIGRATIONS create: drizzle's own ledger
+    // table brings an identity sequence of its own, which is not a numbering
+    // decision this project made.
+    const rows = await pg.execute<{ relname: string }>(
+      sql`select relname from pg_class c
+          join pg_namespace n on n.oid = c.relnamespace
+          where c.relkind = 'S' and n.nspname = 'public'
+          order by relname`,
+    );
+    expect(rows.map((row) => row.relname)).toEqual(['order_number_seq', 'rma_number_seq']);
   });
 
   it('is idempotent: a repeated complete returns the same order, minting no number', async () => {
@@ -311,18 +342,14 @@ describe('completeDraftOrder writes an order a REAL server accepts', () => {
 
     expect(repeatDto.id).toBe(firstDto.id);
     expect(repeatDto.orderNumber).toBe(firstDto.orderNumber);
-    expect(await Order.countDocuments({})).toBe(1);
-    // The `convertedOrderId` short-circuit returns before any allocation, so the
-    // sequence must not have advanced.
-    const counter = await Counter.findById('order').lean();
-    expect(counter?.seq).toBe(1);
+    expect(await countStoreOrders(storeId)).toBe(1);
   });
 
   it('converges on the prior order after a crash between create and mark-converted', async () => {
     /**
-     * The retry the `idempotencyKey` index exists for: the order was created but
-     * the process died before `draft.convertedOrderId` was written, so the retry
-     * gets past the short-circuit and reaches `Order.create` again. It must
+     * The retry the `orders_idempotency_key_key` index exists for: the order was
+     * created but the process died before the draft was marked converted, so the
+     * retry gets past the short-circuit and reaches the insert again. It must
      * collide on `draft:<id>` and converge — a second order number allocated for
      * the doomed insert is a harmless gap in the sequence, a SECOND ORDER is not.
      */
@@ -330,16 +357,19 @@ describe('completeDraftOrder writes an order a REAL server accepts', () => {
     const { storeId, locationId, variantId, draftId } = await seedScenario(quantity);
     const firstDto = await completeDraftOrder(storeId, draftId, {}, ACTOR_OXY_USER_ID);
 
-    await DraftOrder.updateOne(
-      { _id: draftId },
-      { $set: { status: 'open' }, $unset: { convertedOrderId: '' } },
-    );
+    // Both columns move together: `draft_orders_converted_order_check` states
+    // that a `completed` draft has an order and a non-completed one does not, so
+    // clearing only one of them is not a state the table can hold.
+    await pg
+      .update(draftOrders)
+      .set({ status: 'open', convertedOrderId: null })
+      .where(eq(draftOrders.id, draftId));
 
     const retryDto = await completeDraftOrder(storeId, draftId, {}, ACTOR_OXY_USER_ID);
 
     expect(retryDto.id).toBe(firstDto.id);
     expect(retryDto.orderNumber).toBe(firstDto.orderNumber);
-    expect(await Order.countDocuments({})).toBe(1);
+    expect(await countStoreOrders(storeId)).toBe(1);
     // The doomed insert's reservation was rolled back, so stock reflects exactly
     // ONE sale — a retry that leaked its reservation would show 6 available.
     const level = await findLevel(variantId, locationId);

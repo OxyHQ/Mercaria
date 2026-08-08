@@ -97,9 +97,13 @@ vi.mock('../../db/stores/locationRepository.js', () => ({
   findLocation: (...a: unknown[]) => findLocation(...a),
 }));
 
-const orderFindById = vi.fn();
-vi.mock('../../models/order.js', () => ({
-  Order: { findById: (...a: unknown[]) => orderFindById(...a) },
+const findOrderById = vi.fn();
+vi.mock('../../db/orders/orderRepository.js', () => ({
+  findOrderById: (...a: unknown[]) => findOrderById(...a),
+  findOrderBySourceExternalId: vi.fn(),
+  insertOrder: vi.fn(),
+  updateOrderFromSource: vi.fn(),
+  nextOrderNumber: vi.fn(),
 }));
 
 const createStoreProduct = vi.fn();
@@ -447,10 +451,14 @@ describe('processConnectorWebhook — inventory_levels/update', () => {
 
 /** A connector order that Mercaria has fulfilled, with a tracking number. */
 function fulfilledOrder() {
+  // Connector provenance is three flat columns now, and "is this a connector
+  // order" is `source_external_id is not null` rather than a nested object.
   return {
-    _id: 'order-1',
-    source: { connectionId: 'conn-ful', provider: 'shopify', externalId: 'shp-1001' },
-    shipping: { trackingNumber: 'TRK123' },
+    id: 'order-1',
+    sourceConnectionId: 'conn-ful',
+    sourceProvider: 'shopify',
+    sourceExternalId: 'shp-1001',
+    shippingTrackingNumber: 'TRK123',
   };
 }
 
@@ -469,7 +477,7 @@ function fulfillmentConnection(orders: 'pull' | 'bidirectional') {
 
 describe('pushOrderFulfillment — bidirectional gate + loop-safety', () => {
   it('pushes the fulfillment (with tracking) for a bidirectional order connection', async () => {
-    orderFindById.mockReturnValue({ lean: vi.fn().mockResolvedValue(fulfilledOrder()) });
+    findOrderById.mockResolvedValue(fulfilledOrder());
     connectionFindById.mockResolvedValue(fulfillmentConnection('bidirectional'));
     const pushFulfillment = vi.fn().mockResolvedValue(undefined);
     getConnectorProvider.mockReturnValue({ pushFulfillment });
@@ -486,7 +494,7 @@ describe('pushOrderFulfillment — bidirectional gate + loop-safety', () => {
   });
 
   it('does NOT push when the order connection is only pull (loop-safe)', async () => {
-    orderFindById.mockReturnValue({ lean: vi.fn().mockResolvedValue(fulfilledOrder()) });
+    findOrderById.mockResolvedValue(fulfilledOrder());
     connectionFindById.mockResolvedValue(fulfillmentConnection('pull'));
     const pushFulfillment = vi.fn();
     getConnectorProvider.mockReturnValue({ pushFulfillment });
@@ -498,8 +506,11 @@ describe('pushOrderFulfillment — bidirectional gate + loop-safety', () => {
   });
 
   it('is a no-op for a non-connector order (no source)', async () => {
-    orderFindById.mockReturnValue({
-      lean: vi.fn().mockResolvedValue({ _id: 'order-2', shipping: { trackingNumber: null } }),
+    findOrderById.mockResolvedValue({
+      id: 'order-2',
+      sourceConnectionId: null,
+      sourceExternalId: null,
+      shippingTrackingNumber: null,
     });
 
     await pushOrderFulfillment('order-2');
@@ -509,7 +520,7 @@ describe('pushOrderFulfillment — bidirectional gate + loop-safety', () => {
   });
 
   it('does NOT push for a disconnected connection', async () => {
-    orderFindById.mockReturnValue({ lean: vi.fn().mockResolvedValue(fulfilledOrder()) });
+    findOrderById.mockResolvedValue(fulfilledOrder());
     connectionFindById.mockResolvedValue({ ...fulfillmentConnection('bidirectional'), status: 'disconnected' });
     const pushFulfillment = vi.fn();
     getConnectorProvider.mockReturnValue({ pushFulfillment });

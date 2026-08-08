@@ -41,7 +41,10 @@ import {
   updateListingColumns,
 } from '../../db/catalog/listingRepository.js';
 import { Review } from '../../models/review.js';
-import { Order } from '../../models/order.js';
+import {
+  findFreezableOrderIdsForListing,
+  setOrderModerationHold,
+} from '../../db/orders/orderRepository.js';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { planEnforcement, type PlannedEnforcementAction } from './enforcement-plan.js';
@@ -172,23 +175,13 @@ async function hideReview(reviewId: string): Promise<EffectResult> {
  * still-open case the moment this one was overturned.
  */
 async function freezeOrdersForListing(listingId: string): Promise<EffectResult> {
-  const orders = await Order.find({
-    'items.listingId': listingId,
-    status: { $in: FREEZABLE_ORDER_STATUSES },
-    moderationHold: { $ne: true },
-  })
-    .select('_id')
-    .lean<{ _id: mongoose.Types.ObjectId }[]>();
+  const orderIds = await findFreezableOrderIdsForListing(listingId, FREEZABLE_ORDER_STATUSES);
 
-  if (orders.length === 0) {
+  if (orderIds.length === 0) {
     return { changed: false, reason: 'No live orders carry this listing' };
   }
 
-  const orderIds = orders.map((order) => order._id.toHexString());
-  await Order.updateMany(
-    { _id: { $in: orders.map((order) => order._id) } },
-    { $set: { moderationHold: true } },
-  );
+  await setOrderModerationHold(orderIds, true);
   return { changed: true, previousState: { heldOrderIds: orderIds } };
 }
 
@@ -219,10 +212,11 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
     if (heldOrderIds.length === 0) {
       return { changed: false, reason: 'The freeze recorded no held orders' };
     }
-    await Order.updateMany(
-      { _id: { $in: heldOrderIds.filter((id) => mongoose.isValidObjectId(id)) } },
-      { $unset: { moderationHold: '' } },
-    );
+    // No id-shape filter: an order id is `text` now and holds a 24-hex ObjectId
+    // for a pre-cutover row and a uuid v7 for a newer one, so `isValidObjectId`
+    // would silently drop exactly the orders created after the migration —
+    // leaving a frozen order nobody can release.
+    await setOrderModerationHold(heldOrderIds, false);
     return { changed: true };
   }
 

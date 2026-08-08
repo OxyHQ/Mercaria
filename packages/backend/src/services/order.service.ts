@@ -7,30 +7,39 @@
  * depending on whether stock was already committed). It NEVER copies aggregate
  * counts — seller `salesCount` moves ±1 in lockstep with real paid orders.
  *
- * Order DTOs are built ONLY through `order-hydration.service`; this service
- * loads the right docs (lean for reads, hydrated mongoose doc for mutation) and
- * delegates serialization.
+ * Order DTOs are built ONLY through `order-hydration.service`; this service loads
+ * the right rows and delegates serialization.
  */
 
-import type { HydratedDocument } from 'mongoose';
 import type {
+  CurrencyCode,
   Money,
   Order as OrderDTO,
   OrderStatus,
   OrderSummary,
 } from '@mercaria/shared-types';
-import { Order, type IOrder, type IOrderStatusEvent, type IOrderSettlement } from '../models/order.js';
-import { Refund, type IRefund } from '../models/refund.js';
-import { SellerProfile } from '../models/seller-profile.js';
-import { Store, type IStore } from '../models/store.js';
+import {
+  findOrderMatching,
+  findOrdersPage,
+  countOrdersByStatus,
+  sumPaidRevenue,
+  transitionOrderStatus,
+  type NewOrderStatusEvent,
+  type OrderListFilter,
+  type OrderRecord,
+  type OrderTransitionPatch,
+} from '../db/orders/orderRepository.js';
+import { sumRestockedQuantities } from '../db/orders/refundRepository.js';
 import { countLowStockVariantsForStore } from '../db/catalog/variantRepository.js';
+import { adjustSellerSalesCount } from '../db/buyers/sellerProfileRepository.js';
+import { adjustStoreSalesCount, findStoreRow } from '../db/stores/storeRepository.js';
 import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { hydrateOrders, summarizeOrders } from './order-hydration.service.js';
 import { convertToFair } from './fx.service.js';
 import { enqueueOrderEvent, enqueueFulfillmentPush } from '../queue/producers.js';
 import type { OrderEvent } from '../queue/types.js';
-import { zeroMoney, sumMoney, minorUnitsPerMajor } from '../utils/money.js';
+import { zeroMoney, minorUnitsPerMajor } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { conflict, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
@@ -73,9 +82,12 @@ interface TransitionOptions {
   trackingNumber?: string;
 }
 
-/** Map a persisted `{ amount, currency }` sub-document to the `Money` DTO. */
-function toMoney(value: { amount: number; currency: string }): Money {
-  return { amount: value.amount, currency: value.currency as Money['currency'] };
+/** The order's grand total on the SHOP (settlement) side. */
+function shopGrandTotal(order: OrderRecord): Money {
+  return {
+    amount: order.totalsGrandTotalShopAmount,
+    currency: order.totalsGrandTotalShopCurrency,
+  };
 }
 
 /**
@@ -86,9 +98,11 @@ function toMoney(value: { amount: number; currency: string }): Money {
  * converted major values (1 when the shop total is zero, so a free order settles
  * cleanly).
  */
-async function computeSettlement(shopGrandTotal: Money): Promise<IOrderSettlement> {
-  const amount = await convertToFair(shopGrandTotal);
-  const shopMajor = shopGrandTotal.amount / minorUnitsPerMajor(shopGrandTotal.currency);
+async function computeSettlement(
+  total: Money,
+): Promise<{ amount: Money; rate: number; asOf: string }> {
+  const amount = await convertToFair(total);
+  const shopMajor = total.amount / minorUnitsPerMajor(total.currency);
   const fairMajor = amount.amount / minorUnitsPerMajor('FAIR');
   const rate = shopMajor > 0 ? fairMajor / shopMajor : 1;
   return { amount, rate, asOf: new Date().toISOString() };
@@ -102,21 +116,21 @@ async function computeSettlement(shopGrandTotal: Money): Promise<IOrderSettlemen
  *     committed) else RELEASE the reservation; `refunded` also marks payment
  *     refunded.
  *
- * The status flip is an atomic compare-and-swap (`findOneAndUpdate` guarded on
- * the CURRENT status), executed BEFORE any inventory/salesCount side-effects.
+ * The status flip is an atomic compare-and-swap (`UPDATE … WHERE id = $1 AND
+ * status = $2 RETURNING`), executed BEFORE any inventory/salesCount side-effects.
  * Only the winning caller (whose CAS matched the pre-transition status) runs the
- * side-effects, so a buyer `cancel` racing the expire-reservations sweep — or
- * any multi-process double-invoke — runs them AT MOST ONCE: the loser's CAS
- * matches nothing and throws CONFLICT before touching inventory. The passed-in
- * mongoose doc is then mutated in memory to mirror the persisted state (callers
- * re-hydrate via `order.toObject()`); `.save()` is NOT called — the CAS already
- * persisted the change.
+ * side-effects, so a buyer `cancel` racing the expire-reservations sweep — or any
+ * multi-process double-invoke — runs them AT MOST ONCE: the loser matches no row
+ * and throws CONFLICT before touching inventory.
+ *
+ * @returns The order as persisted, with the new status event appended — the
+ *   caller hydrates that rather than re-reading.
  */
 export async function transition(
-  order: HydratedDocument<IOrder>,
+  order: OrderRecord,
   next: OrderStatus,
   opts: TransitionOptions,
-): Promise<IOrder> {
+): Promise<OrderRecord> {
   const current = order.status;
   if (!TRANSITIONS[current].includes(next)) {
     throw conflict(`Cannot transition order from ${current} to ${next}`);
@@ -138,47 +152,38 @@ export async function transition(
    */
   if (order.moderationHold === true && next !== 'cancelled') {
     throw conflict(
-      `Order ${String(order._id)} is held pending a moderation decision and cannot ` +
+      `Order ${order.id} is held pending a moderation decision and cannot ` +
         `move to ${next}.`,
     );
   }
 
   // The pre-transition payment state drives restock-vs-release on cancel/refund.
-  const wasPaid = order.payment.status === 'paid';
+  const wasPaid = order.paymentStatus === 'paid';
 
-  // Build the status event + any payment/shipping `$set` fields BEFORE the CAS.
-  const event: IOrderStatusEvent = { status: next, at: new Date() };
-  if (opts.actorOxyUserId) {
-    event.byOxyUserId = opts.actorOxyUserId;
-  }
-  if (opts.note) {
-    event.note = opts.note;
-  }
+  // Build the status event + any payment/shipping columns BEFORE the CAS.
+  const event: NewOrderStatusEvent = {
+    status: next,
+    at: new Date(),
+    ...(opts.actorOxyUserId ? { byOxyUserId: opts.actorOxyUserId } : {}),
+    ...(opts.note ? { note: opts.note } : {}),
+  };
 
-  const setFields: Record<string, unknown> = { status: next };
-  const paidAt = new Date();
-  // The shop→FAIR settlement snapshot, computed once at the `paid` transition.
-  let settlement: IOrderSettlement | undefined;
+  const patch: OrderTransitionPatch = {
+    ...(opts.trackingNumber ? { shippingTrackingNumber: opts.trackingNumber } : {}),
+  };
   if (next === 'paid') {
-    setFields['payment.status'] = 'paid';
-    setFields['payment.paidAt'] = paidAt;
-    settlement = await computeSettlement(toMoney(order.totals.grandTotal.shop));
-    setFields.settlement = settlement;
+    patch.paymentStatus = 'paid';
+    patch.paymentPaidAt = new Date();
+    // The shop→FAIR settlement snapshot, computed once at the `paid` transition.
+    patch.settlement = await computeSettlement(shopGrandTotal(order));
   } else if (next === 'refunded') {
-    setFields['payment.status'] = 'refunded';
-  }
-  if (opts.trackingNumber) {
-    setFields['shipping.trackingNumber'] = opts.trackingNumber;
+    patch.paymentStatus = 'refunded';
   }
 
   // Atomic CAS gate: only succeeds if the order is still at `current`.
-  const updated = await Order.findOneAndUpdate(
-    { _id: order._id, status: current },
-    { $set: setFields, $push: { statusHistory: event } },
-    { new: true },
-  );
+  const updated = await transitionOrderStatus(order.id, current, next, patch, event);
   if (!updated) {
-    throw conflict(`Order ${String(order._id)} was concurrently transitioned`);
+    throw conflict(`Order ${order.id} was concurrently transitioned`);
   }
 
   // CAS won — run the inventory side-effects + salesCount bump exactly once.
@@ -187,76 +192,42 @@ export async function transition(
   // resolve the store's default location, unchanged.
   if (next === 'paid') {
     for (const item of order.items) {
-      await commit(item.variantId, item.quantity, item.locationId);
+      await commit(item.variantId, item.quantity, item.locationId ?? undefined);
     }
     if (order.sellerType === 'user' && order.sellerOxyUserId) {
-      await SellerProfile.updateOne(
-        { oxyUserId: order.sellerOxyUserId },
-        { $inc: { salesCount: 1 } },
-        { upsert: true },
-      );
+      await adjustSellerSalesCount(order.sellerOxyUserId, 1);
     } else if (order.sellerType === 'store' && order.storeId) {
-      await Store.updateOne({ _id: order.storeId }, { $inc: { salesCount: 1 } });
+      await adjustStoreSalesCount(order.storeId, 1);
       // Relate the store buyer + bump their lifetime aggregates (exactly once).
       if (order.buyerOxyUserId) {
         // Customer lifetime spend aggregates in the store's SHOP currency.
-        await upsertCustomerOnPaid(
-          order.storeId,
-          order.buyerOxyUserId,
-          toMoney(order.totals.grandTotal.shop),
-        );
+        await upsertCustomerOnPaid(order.storeId, order.buyerOxyUserId, shopGrandTotal(order));
       }
     }
   } else if (next === 'cancelled' || next === 'refunded') {
     if (wasPaid) {
       // A `refund.service` refund may have ALREADY restocked some units per-line.
       // Subtract those so a later full cancel/refund restocks only the remainder
-      // — never the units a refund already returned (no double-restock).
-      const refunds = await Refund.find({ orderId: String(order._id) }).lean<IRefund[]>();
-      const restockedQtyByVariant = new Map<string, number>();
-      for (const refund of refunds) {
-        for (const line of refund.lineItems) {
-          if (line.restock) {
-            restockedQtyByVariant.set(
-              line.variantId,
-              (restockedQtyByVariant.get(line.variantId) ?? 0) + line.quantity,
-            );
-          }
-        }
-      }
+      // — never the units a refund already returned (no double-restock). Summed
+      // in SQL over the RESTOCKED lines only, which is a different question from
+      // "how much has been refunded"; see the refund repository.
+      const restockedQtyByVariant = await sumRestockedQuantities(order.id);
       for (const item of order.items) {
         const alreadyRestocked = restockedQtyByVariant.get(item.variantId) ?? 0;
         const remainingQty = Math.max(0, item.quantity - alreadyRestocked);
         if (remainingQty > 0) {
-          await restock(item.variantId, remainingQty, item.locationId);
+          await restock(item.variantId, remainingQty, item.locationId ?? undefined);
         }
       }
     } else {
       for (const item of order.items) {
-        await release(item.variantId, item.quantity, item.locationId);
+        await release(item.variantId, item.quantity, item.locationId ?? undefined);
       }
     }
   }
 
-  // Mirror the persisted state onto the in-memory doc so callers that
-  // re-hydrate via `order.toObject()` see the new values.
-  order.status = next;
-  order.statusHistory.push(event);
-  if (next === 'paid') {
-    order.payment.status = 'paid';
-    order.payment.paidAt = paidAt;
-    if (settlement) {
-      order.settlement = settlement;
-    }
-  } else if (next === 'refunded') {
-    order.payment.status = 'refunded';
-  }
-  if (opts.trackingNumber) {
-    order.shipping.trackingNumber = opts.trackingNumber;
-  }
-
   log.general.info(
-    { orderId: String(order._id), status: next, actor: opts.actorOxyUserId },
+    { orderId: order.id, status: next, actor: opts.actorOxyUserId },
     'Order transitioned',
   );
 
@@ -266,45 +237,48 @@ export async function transition(
   const orderEvent = STATUS_TO_EVENT[next];
   if (orderEvent) {
     try {
-      await enqueueOrderEvent({ orderId: String(order._id), event: orderEvent });
+      await enqueueOrderEvent({ orderId: order.id, event: orderEvent });
     } catch (err) {
       log.general.warn(
-        { err, orderId: String(order._id), status: next },
+        { err, orderId: order.id, status: next },
         'Failed to enqueue order-event notification',
       );
     }
   }
 
-  // Fulfillment push: when a MERCHANT ships a connector order (one with `source`),
-  // push the fulfillment back to its origin platform. Only this merchant-driven
-  // path reaches `transition`; the inbound sync sets status via a direct update and
-  // never calls `transition`, so a platform-originated fulfillment cannot echo back
-  // out (the service also gates on the connection being `orders: bidirectional`).
-  // Best-effort — a failure never fails the transition.
-  if (next === 'shipped' && order.source) {
+  // Fulfillment push: when a MERCHANT ships a connector order (one carrying
+  // `source`), push the fulfillment back to its origin platform. Only this
+  // merchant-driven path reaches `transition`; the inbound sync sets status via a
+  // direct update and never calls `transition`, so a platform-originated
+  // fulfillment cannot echo back out (the service also gates on the connection
+  // being `orders: bidirectional`). Best-effort — never fails the transition.
+  if (next === 'shipped' && order.sourceExternalId !== null) {
     try {
-      await enqueueFulfillmentPush({ orderId: String(order._id) });
+      await enqueueFulfillmentPush({ orderId: order.id });
     } catch (err) {
-      log.general.warn(
-        { err, orderId: String(order._id) },
-        'Failed to enqueue fulfillment push',
-      );
+      log.general.warn({ err, orderId: order.id }, 'Failed to enqueue fulfillment push');
     }
   }
 
-  return order;
+  // Return the PERSISTED row with the new event appended, so a caller that
+  // hydrates the result sees exactly what the database now holds — the Mongo path
+  // mutated the in-memory document for the same reason.
+  return {
+    ...updated.order,
+    items: order.items,
+    appliedDiscounts: order.appliedDiscounts,
+    taxLines: order.taxLines,
+    statusHistory: [...order.statusHistory, updated.event],
+  };
 }
 
-/** A Mongo filter document (Mongoose 9 dropped the `FilterQuery` export). */
-type OrderFilter = Record<string, unknown>;
-
-/** Load a NON-lean order doc by filter (for mutation), or throw NOT_FOUND. */
-async function loadOrderDoc(filter: OrderFilter): Promise<HydratedDocument<IOrder>> {
-  const doc = await Order.findOne(filter);
-  if (!doc) {
+/** Load an order by ownership filter (for mutation), or throw NOT_FOUND. */
+async function loadOrder(filter: OrderListFilter & { id: string }): Promise<OrderRecord> {
+  const order = await findOrderMatching(filter);
+  if (!order) {
     throw notFound('Order not found');
   }
-  return doc;
+  return order;
 }
 
 /** A page of order summaries plus the total matching count (controller paginates). */
@@ -325,29 +299,13 @@ export async function getBuyerOrders(
   oxyUserId: string,
   { page, limit }: ListParams,
 ): Promise<OrderPage> {
-  const filter = { buyerOxyUserId: oxyUserId };
-  const [docs, total] = await Promise.all([
-    Order.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean<IOrder[]>(),
-    Order.countDocuments(filter),
-  ]);
-  return { data: await summarizeOrders(docs), total };
+  const { rows, total } = await findOrdersPage({ buyerOxyUserId: oxyUserId }, page, limit);
+  return { data: await summarizeOrders(rows), total };
 }
 
 /** Get a single order owned by the buyer (hydrated), or throw NOT_FOUND. */
 export async function getOrderForBuyer(oxyUserId: string, id: string): Promise<OrderDTO> {
-  const doc = await Order.findOne({ _id: id, buyerOxyUserId: oxyUserId }).lean<IOrder | null>();
-  if (!doc) {
-    throw notFound('Order not found');
-  }
-  const [dto] = await hydrateOrders([doc]);
-  if (!dto) {
-    throw notFound('Order not found');
-  }
-  return dto;
+  return hydrateOne(await loadOrder({ id, buyerOxyUserId: oxyUserId }));
 }
 
 /** List a P2P seller's orders (optionally filtered by status), summarized. */
@@ -355,20 +313,12 @@ export async function getSellerOrders(
   oxyUserId: string,
   { status, page, limit }: ListParams,
 ): Promise<OrderPage> {
-  const filter = {
-    sellerType: 'user' as const,
-    sellerOxyUserId: oxyUserId,
-    ...(status ? { status } : {}),
-  };
-  const [docs, total] = await Promise.all([
-    Order.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean<IOrder[]>(),
-    Order.countDocuments(filter),
-  ]);
-  return { data: await summarizeOrders(docs), total };
+  const { rows, total } = await findOrdersPage(
+    { sellerOxyUserId: oxyUserId, ...(status ? { status } : {}) },
+    page,
+    limit,
+  );
+  return { data: await summarizeOrders(rows), total };
 }
 
 /** List a store's orders (optionally filtered by status), summarized. */
@@ -376,34 +326,22 @@ export async function getStoreOrders(
   storeId: string,
   { status, page, limit }: ListParams,
 ): Promise<OrderPage> {
-  const filter = { storeId, ...(status ? { status } : {}) };
-  const [docs, total] = await Promise.all([
-    Order.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean<IOrder[]>(),
-    Order.countDocuments(filter),
-  ]);
-  return { data: await summarizeOrders(docs), total };
+  const { rows, total } = await findOrdersPage(
+    { storeId, ...(status ? { status } : {}) },
+    page,
+    limit,
+  );
+  return { data: await summarizeOrders(rows), total };
 }
 
 /** Get a single order owned by the store (hydrated), or throw NOT_FOUND. */
 export async function getOrderForStore(storeId: string, id: string): Promise<OrderDTO> {
-  const doc = await Order.findOne({ _id: id, storeId }).lean<IOrder | null>();
-  if (!doc) {
-    throw notFound('Order not found');
-  }
-  const [dto] = await hydrateOrders([doc]);
-  if (!dto) {
-    throw notFound('Order not found');
-  }
-  return dto;
+  return hydrateOne(await loadOrder({ id, storeId }));
 }
 
-/** Hydrate a freshly-mutated mongoose order doc into its DTO, or throw NOT_FOUND. */
-async function hydrateDoc(doc: HydratedDocument<IOrder>): Promise<OrderDTO> {
-  const [dto] = await hydrateOrders([doc.toObject<IOrder>()]);
+/** Hydrate one order record into its DTO, or throw NOT_FOUND. */
+async function hydrateOne(order: OrderRecord): Promise<OrderDTO> {
+  const [dto] = await hydrateOrders([order]);
   if (!dto) {
     throw notFound('Order not found');
   }
@@ -418,16 +356,21 @@ export async function mockPay(oxyUserId: string, orderId: string): Promise<Order
   if (!config.orders.mockPayEnabled) {
     throw notFound('Not found');
   }
-  const doc = await loadOrderDoc({ _id: orderId, buyerOxyUserId: oxyUserId });
-  await transition(doc, 'paid', { actorOxyUserId: oxyUserId, note: 'mock-pay' });
-  return hydrateDoc(doc);
+  const order = await loadOrder({ id: orderId, buyerOxyUserId: oxyUserId });
+  return hydrateOne(
+    await transition(order, 'paid', { actorOxyUserId: oxyUserId, note: 'mock-pay' }),
+  );
 }
 
 /** Cancel the buyer's own order (releases the reservation if still unpaid). */
 export async function cancelByBuyer(oxyUserId: string, orderId: string): Promise<OrderDTO> {
-  const doc = await loadOrderDoc({ _id: orderId, buyerOxyUserId: oxyUserId });
-  await transition(doc, 'cancelled', { actorOxyUserId: oxyUserId, note: 'cancelled by buyer' });
-  return hydrateDoc(doc);
+  const order = await loadOrder({ id: orderId, buyerOxyUserId: oxyUserId });
+  return hydrateOne(
+    await transition(order, 'cancelled', {
+      actorOxyUserId: oxyUserId,
+      note: 'cancelled by buyer',
+    }),
+  );
 }
 
 /** Fulfilment update params for a P2P seller. */
@@ -442,16 +385,13 @@ export async function fulfillSellerOrder(
   orderId: string,
   { status, trackingNumber }: SellerFulfilInput,
 ): Promise<OrderDTO> {
-  const doc = await loadOrderDoc({
-    _id: orderId,
-    sellerType: 'user',
-    sellerOxyUserId: oxyUserId,
-  });
-  await transition(doc, status, {
-    actorOxyUserId: oxyUserId,
-    ...(trackingNumber ? { trackingNumber } : {}),
-  });
-  return hydrateDoc(doc);
+  const order = await loadOrder({ id: orderId, sellerOxyUserId: oxyUserId });
+  return hydrateOne(
+    await transition(order, status, {
+      actorOxyUserId: oxyUserId,
+      ...(trackingNumber ? { trackingNumber } : {}),
+    }),
+  );
 }
 
 /** Status-patch params for a store order. */
@@ -468,13 +408,14 @@ export async function patchStoreOrderStatus(
   { status, trackingNumber, note }: StoreStatusInput,
   actorOxyUserId: string,
 ): Promise<OrderDTO> {
-  const doc = await loadOrderDoc({ _id: orderId, storeId });
-  await transition(doc, status, {
-    actorOxyUserId,
-    ...(trackingNumber ? { trackingNumber } : {}),
-    ...(note ? { note } : {}),
-  });
-  return hydrateDoc(doc);
+  const order = await loadOrder({ id: orderId, storeId });
+  return hydrateOne(
+    await transition(order, status, {
+      actorOxyUserId,
+      ...(trackingNumber ? { trackingNumber } : {}),
+      ...(note ? { note } : {}),
+    }),
+  );
 }
 
 /** A store's order dashboard stats. */
@@ -502,43 +443,32 @@ function zeroCounts(): Record<OrderStatus, number> {
  * Compute a store's order dashboard stats: per-status order counts, paid-order
  * revenue (in the store's default currency), and the number of tracked variants
  * at or below the low-stock threshold.
+ *
+ * The revenue sum is now SQL, filtered to the store's settlement currency by a
+ * real predicate on a real column. The Mongo version loaded EVERY paid order into
+ * the process and filtered the mixed-currency ones out in JavaScript, so a store
+ * with a hundred thousand paid orders pulled all of them back to produce one
+ * number — and it fell back to "whatever currency the first order happened to be
+ * in" when the store row was missing, which could report a figure in a currency
+ * the store does not settle in. The fallback is FAIR, matching the column default.
  */
 export async function storeStats(storeId: string): Promise<StoreStats> {
-  const counts = zeroCounts();
+  const store = await findStoreRow(storeId);
+  const currency = (store?.defaultCurrency as CurrencyCode | undefined) ?? 'FAIR';
 
-  const [statusGroups, store, paidOrders] = await Promise.all([
-    Order.aggregate<{ _id: OrderStatus; n: number }>([
-      { $match: { storeId } },
-      { $group: { _id: '$status', n: { $sum: 1 } } },
-    ]),
-    Store.findById(storeId).lean<IStore | null>(),
-    Order.find({ storeId, 'payment.status': 'paid' }).lean<IOrder[]>(),
+  const [statusCounts, paid, lowStockVariantCount] = await Promise.all([
+    countOrdersByStatus(storeId),
+    sumPaidRevenue(storeId, currency),
+    countLowStockVariantsForStore(storeId, config.orders.lowStockThreshold),
   ]);
 
-  for (const group of statusGroups) {
-    if (group._id in counts) {
-      counts[group._id] = group.n;
-    }
+  const counts = zeroCounts();
+  for (const [status, n] of statusCounts) {
+    counts[status] = n;
   }
 
-  // Revenue is summed in the store's SHOP currency (never mixing currencies).
-  const currency = (store?.defaultCurrency ??
-    paidOrders[0]?.totals.grandTotal.shop.currency ??
-    'FAIR') as Money['currency'];
-  const revenue =
-    paidOrders.length > 0
-      ? sumMoney(
-          paidOrders
-            .filter((o) => o.totals.grandTotal.shop.currency === currency)
-            .map((o) => toMoney(o.totals.grandTotal.shop)),
-          currency,
-        )
-      : zeroMoney(currency);
-
-  const lowStockVariantCount = await countLowStockVariantsForStore(
-    storeId,
-    config.orders.lowStockThreshold,
-  );
+  const revenue: Money =
+    paid.revenue > 0 ? { amount: paid.revenue, currency } : zeroMoney(currency);
 
   return { counts, revenue, lowStockVariantCount };
 }

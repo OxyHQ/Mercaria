@@ -1,12 +1,18 @@
 /**
  * Unit tests for `order.service.transition`.
  *
- * `mongodb-memory-server` is not available, so the Order/SellerProfile/Store
- * models, the inventory effects (`commit`/`release`/`restock`) and the
- * order-hydration module are mocked. Tests assert the F4 lifecycle contract:
- * every LEGAL transition succeeds and saves; every ILLEGAL transition is a
- * CONFLICT; unpaid cancel RELEASES the reservation; pay COMMITS + bumps
- * salesCount; refund of a paid order RESTOCKS (not release/commit).
+ * The order, refund, seller-profile and store REPOSITORIES are mocked, as are
+ * the inventory effects (`commit`/`release`/`restock`) and the order-hydration
+ * module. Tests assert the F4 lifecycle contract: every LEGAL transition
+ * succeeds; every ILLEGAL transition is a CONFLICT; unpaid cancel RELEASES the
+ * reservation; pay COMMITS + bumps salesCount; refund of a paid order RESTOCKS
+ * (not release/commit).
+ *
+ * The CAS is what makes the side-effects run at most once, and `transitionOrderStatus`
+ * standing in for it here is what lets a LOST race be simulated: the mock returns
+ * `null`, which is the repository's contract for "the guard refused" and never
+ * "nothing to do". The SQL that actually enforces it is exercised against a real
+ * server in `commerce.realdb.test.ts`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -14,13 +20,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const commit = vi.fn();
 const release = vi.fn();
 const restock = vi.fn();
-const sellerProfileUpdateOne = vi.fn();
-const storeUpdateOne = vi.fn();
+const adjustSellerSalesCount = vi.fn();
+const adjustStoreSalesCount = vi.fn();
 const enqueueOrderEvent = vi.fn();
 const enqueueFulfillmentPush = vi.fn();
-const findOneAndUpdate = vi.fn();
+const transitionOrderStatus = vi.fn();
 const upsertCustomerOnPaid = vi.fn();
-const refundFind = vi.fn();
+const sumRestockedQuantities = vi.fn();
 
 vi.mock('../inventory.service.js', () => ({
   commit: (...args: unknown[]) => commit(...args),
@@ -32,34 +38,29 @@ vi.mock('../customer.service.js', () => ({
   upsertOnPaid: (...args: unknown[]) => upsertCustomerOnPaid(...args),
 }));
 
-vi.mock('../../models/order.js', () => ({
-  Order: {
-    findOne: vi.fn(),
-    find: vi.fn(),
-    countDocuments: vi.fn(),
-    aggregate: vi.fn(),
-    findOneAndUpdate: (...args: unknown[]) => findOneAndUpdate(...args),
-  },
+vi.mock('../../db/orders/orderRepository.js', () => ({
+  transitionOrderStatus: (...args: unknown[]) => transitionOrderStatus(...args),
+  findOrderMatching: vi.fn(),
+  findOrdersPage: vi.fn(),
+  countOrdersByStatus: vi.fn(),
+  sumPaidRevenue: vi.fn(),
 }));
 
-vi.mock('../../models/refund.js', () => ({
-  Refund: { find: (...args: unknown[]) => refundFind(...args) },
+vi.mock('../../db/orders/refundRepository.js', () => ({
+  sumRestockedQuantities: (...args: unknown[]) => sumRestockedQuantities(...args),
 }));
 
-vi.mock('../../models/seller-profile.js', () => ({
-  SellerProfile: { updateOne: (...args: unknown[]) => sellerProfileUpdateOne(...args) },
+vi.mock('../../db/buyers/sellerProfileRepository.js', () => ({
+  adjustSellerSalesCount: (...args: unknown[]) => adjustSellerSalesCount(...args),
 }));
 
-vi.mock('../../models/store.js', () => ({
-  Store: { updateOne: (...args: unknown[]) => storeUpdateOne(...args), findById: vi.fn() },
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  adjustStoreSalesCount: (...args: unknown[]) => adjustStoreSalesCount(...args),
+  findStoreRow: vi.fn(),
 }));
 
-vi.mock('../../models/listing.js', () => ({
-  Listing: { find: vi.fn() },
-}));
-
-vi.mock('../../models/product-variant.js', () => ({
-  ProductVariant: { countDocuments: vi.fn() },
+vi.mock('../../db/catalog/variantRepository.js', () => ({
+  countLowStockVariantsForStore: vi.fn(),
 }));
 
 vi.mock('../order-hydration.service.js', () => ({
@@ -73,13 +74,21 @@ vi.mock('../../queue/producers.js', () => ({
 }));
 
 import { transition } from '../order.service.js';
-import type { IOrder } from '../../models/order.js';
-import type { HydratedDocument } from 'mongoose';
+import type { OrderRecord } from '../../db/orders/orderRepository.js';
 import type { OrderStatus } from '@mercaria/shared-types';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
 
-/** A mock order doc with a mutable status/payment/history + a spied `save`. */
+/**
+ * An order RECORD as the repository returns it — flat columns, and `items` with
+ * an explicit `locationId: null` because that is what the column holds for a
+ * storefront line. The service passes `?? undefined` down to the inventory
+ * effects, which is the distinction the `expect(...).toHaveBeenCalledWith(…,
+ * undefined)` assertions below are checking.
+ *
+ * The cast is confined to this builder: every column the service reads is
+ * spelled out, and the ones it never touches are absent rather than filled in.
+ */
 function mockOrder(
   status: OrderStatus,
   options: {
@@ -87,53 +96,60 @@ function mockOrder(
     sellerType?: 'user' | 'store';
     grandTotalCurrency?: string;
     grandTotalAmount?: number;
+    sourceExternalId?: string;
   } = {},
-) {
+): OrderRecord {
   const gtAmount = options.grandTotalAmount ?? 9000;
   const gtCurrency = options.grandTotalCurrency ?? 'FAIR';
-  const doc = {
-    _id: 'order-1',
+  return {
+    id: 'order-1',
     status,
     buyerOxyUserId: 'buyer-1',
     sellerType: options.sellerType ?? 'user',
-    sellerOxyUserId: options.sellerType === 'store' ? undefined : 'seller-X',
-    storeId: options.sellerType === 'store' ? 'store-A' : undefined,
-    // DualMoney grandTotal: shop == presentment for these fixtures. The paid
-    // transition settles the SHOP side to FAIR and relates the customer in it.
-    totals: {
-      grandTotal: {
-        shop: { amount: gtAmount, currency: gtCurrency },
-        presentment: { amount: gtAmount, currency: gtCurrency },
-      },
-    },
-    payment: { status: options.paymentStatus ?? 'unpaid', provider: 'oxy_pay' as const },
-    shipping: { method: 'standard' as const, label: 'Standard shipping', cost: { shop: { amount: 500, currency: 'FAIR' }, presentment: { amount: 500, currency: 'FAIR' } }, trackingNumber: null as string | null },
-    statusHistory: [] as IOrder['statusHistory'],
+    sellerOxyUserId: options.sellerType === 'store' ? null : 'seller-X',
+    storeId: options.sellerType === 'store' ? 'store-A' : null,
+    // The paid transition settles the SHOP side to FAIR and relates the customer
+    // in it; presentment is equal here so the fixtures stay readable.
+    totalsGrandTotalShopAmount: gtAmount,
+    totalsGrandTotalShopCurrency: gtCurrency,
+    totalsGrandTotalPresentmentAmount: gtAmount,
+    totalsGrandTotalPresentmentCurrency: gtCurrency,
+    paymentStatus: options.paymentStatus ?? 'unpaid',
+    paymentProvider: 'oxy_pay',
+    moderationHold: null,
+    sourceExternalId: options.sourceExternalId ?? null,
+    statusHistory: [],
+    appliedDiscounts: [],
+    taxLines: [],
     items: [
-      { variantId: 'v1', quantity: 2 },
-      { variantId: 'v2', quantity: 1 },
+      { variantId: 'v1', quantity: 2, locationId: null },
+      { variantId: 'v2', quantity: 1, locationId: null },
     ],
-    save: vi.fn().mockResolvedValue(undefined),
-  };
-  return doc as unknown as HydratedDocument<IOrder> & { save: ReturnType<typeof vi.fn> };
+  } as unknown as OrderRecord;
 }
 
 beforeEach(() => {
   commit.mockReset().mockResolvedValue(undefined);
   release.mockReset().mockResolvedValue(undefined);
   restock.mockReset().mockResolvedValue(undefined);
-  sellerProfileUpdateOne.mockReset().mockResolvedValue(undefined);
-  storeUpdateOne.mockReset().mockResolvedValue(undefined);
+  adjustSellerSalesCount.mockReset().mockResolvedValue(undefined);
+  adjustStoreSalesCount.mockReset().mockResolvedValue(undefined);
   enqueueOrderEvent.mockReset().mockResolvedValue(undefined);
   enqueueFulfillmentPush.mockReset().mockResolvedValue(undefined);
   upsertCustomerOnPaid.mockReset().mockResolvedValue(undefined);
   // No prior refunds by default → transition restocks each line at its full qty.
-  refundFind.mockReset().mockReturnValue({ lean: () => Promise.resolve([]) });
-  // Default: the atomic CAS WINS — resolve a non-null persisted doc reflecting
-  // the requested status. Tests that simulate a lost CAS override per-call.
-  findOneAndUpdate.mockReset().mockImplementation((filter: { _id: unknown }, update: { $set: { status: OrderStatus } }) =>
-    Promise.resolve({ _id: filter._id, status: update.$set.status }),
-  );
+  sumRestockedQuantities.mockReset().mockResolvedValue(new Map<string, number>());
+  // Default: the atomic CAS WINS — resolve the persisted row plus the appended
+  // event. Tests that simulate a LOST race resolve `null` instead, which is the
+  // repository's contract for "the guard refused".
+  transitionOrderStatus
+    .mockReset()
+    .mockImplementation((orderId: string, _expected: OrderStatus, next: OrderStatus) =>
+      Promise.resolve({
+        order: { id: orderId, status: next },
+        event: { id: 'event-1', orderId, status: next, at: new Date() },
+      }),
+    );
 });
 
 describe('order.service.transition — legal transitions', () => {
@@ -151,10 +167,16 @@ describe('order.service.transition — legal transitions', () => {
 
   for (const { from, to, paymentStatus } of legal) {
     it(`allows ${from} → ${to}`, async () => {
-      const doc = mockOrder(from, { paymentStatus });
-      await transition(doc, to, { actorOxyUserId: 'actor-1' });
-      expect(doc.status).toBe(to);
-      expect(findOneAndUpdate).toHaveBeenCalledTimes(1);
+      const order = mockOrder(from, { paymentStatus });
+      const moved = await transition(order, to, { actorOxyUserId: 'actor-1' });
+      // The RETURNED record is what the caller hydrates, and it carries the
+      // persisted status — the passed-in record is not mutated any more.
+      expect(moved.status).toBe(to);
+      expect(transitionOrderStatus).toHaveBeenCalledTimes(1);
+      // The CAS is guarded on the status the order was AT, which is the whole
+      // reason a concurrent second call cannot also run the side-effects.
+      expect(transitionOrderStatus.mock.calls[0][1]).toBe(from);
+      expect(transitionOrderStatus.mock.calls[0][2]).toBe(to);
     });
   }
 });
@@ -171,52 +193,47 @@ describe('order.service.transition — illegal transitions', () => {
 
   for (const { from, to } of illegal) {
     it(`rejects ${from} → ${to} with CONFLICT`, async () => {
-      const doc = mockOrder(from, { paymentStatus: 'paid' });
-      await expect(transition(doc, to, {})).rejects.toSatisfy(
+      const order = mockOrder(from, { paymentStatus: 'paid' });
+      await expect(transition(order, to, {})).rejects.toSatisfy(
         (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
       );
       // Illegal transitions reject on the in-memory table check, before the CAS.
-      expect(findOneAndUpdate).not.toHaveBeenCalled();
+      expect(transitionOrderStatus).not.toHaveBeenCalled();
     });
   }
 });
 
 describe('order.service.transition — connector fulfillment push', () => {
   it('enqueues a fulfillment push when a CONNECTOR order (with source) ships', async () => {
-    const doc = mockOrder('processing', { paymentStatus: 'paid' });
-    (doc as unknown as { source: unknown }).source = {
-      connectionId: 'conn-1',
-      provider: 'shopify',
-      externalId: 'shp-1001',
-    };
+    // Provenance is `source_external_id` being non-NULL now, not a nested
+    // `source` object — the three source columns move together on insert.
+    const order = mockOrder('processing', {
+      paymentStatus: 'paid',
+      sourceExternalId: 'shp-1001',
+    });
 
-    await transition(doc, 'shipped', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'shipped', { actorOxyUserId: 'actor-1' });
 
     expect(enqueueFulfillmentPush).toHaveBeenCalledWith({ orderId: 'order-1' });
   });
 
   it('does NOT enqueue a fulfillment push for a native order (no source)', async () => {
-    const doc = mockOrder('processing', { paymentStatus: 'paid' });
-    await transition(doc, 'shipped', { actorOxyUserId: 'actor-1' });
+    const order = mockOrder('processing', { paymentStatus: 'paid' });
+    await transition(order, 'shipped', { actorOxyUserId: 'actor-1' });
     expect(enqueueFulfillmentPush).not.toHaveBeenCalled();
   });
 
   it('does NOT enqueue a fulfillment push on a non-ship transition of a connector order', async () => {
-    const doc = mockOrder('pending_payment', {});
-    (doc as unknown as { source: unknown }).source = {
-      connectionId: 'conn-1',
-      provider: 'shopify',
-      externalId: 'shp-1001',
-    };
-    await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
+    const order = mockOrder('pending_payment', { sourceExternalId: 'shp-1001' });
+    await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
     expect(enqueueFulfillmentPush).not.toHaveBeenCalled();
   });
 });
 
 describe('order.service.transition — inventory effects', () => {
   it('cancel from pending_payment (unpaid) releases each line', async () => {
-    const doc = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
-    await transition(doc, 'cancelled', { actorOxyUserId: 'actor-1' });
+    const order = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
+    await transition(order, 'cancelled', { actorOxyUserId: 'actor-1' });
     expect(release).toHaveBeenCalledTimes(2);
     // Items carry no locationId → the 3rd arg is undefined (default location).
     expect(release).toHaveBeenCalledWith('v1', 2, undefined);
@@ -226,53 +243,56 @@ describe('order.service.transition — inventory effects', () => {
   });
 
   it('paid (user seller) commits each line, bumps salesCount, marks payment paid', async () => {
-    const doc = mockOrder('pending_payment', { sellerType: 'user' });
-    await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
+    const order = mockOrder('pending_payment', { sellerType: 'user' });
+    await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
     expect(commit).toHaveBeenCalledTimes(2);
     expect(commit).toHaveBeenCalledWith('v1', 2, undefined);
     expect(commit).toHaveBeenCalledWith('v2', 1, undefined);
-    expect(sellerProfileUpdateOne).toHaveBeenCalledWith(
-      { oxyUserId: 'seller-X' },
-      { $inc: { salesCount: 1 } },
-      { upsert: true },
-    );
-    expect(doc.payment.status).toBe('paid');
-    expect(doc.payment.paidAt).toBeInstanceOf(Date);
+    expect(adjustSellerSalesCount).toHaveBeenCalledWith('seller-X', 1);
+    // The payment columns travel in the CAS patch rather than being assigned to
+    // an in-memory document, so that is where they are asserted.
+    const patch = transitionOrderStatus.mock.calls[0][3] as {
+      paymentStatus?: string;
+      paymentPaidAt?: Date;
+    };
+    expect(patch.paymentStatus).toBe('paid');
+    expect(patch.paymentPaidAt).toBeInstanceOf(Date);
   });
 
   it('paid (store seller) bumps store salesCount and relates the customer via upsertOnPaid exactly once', async () => {
-    const doc = mockOrder('pending_payment', { sellerType: 'store' });
-    await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
-    expect(storeUpdateOne).toHaveBeenCalledWith({ _id: 'store-A' }, { $inc: { salesCount: 1 } });
+    const order = mockOrder('pending_payment', { sellerType: 'store' });
+    await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
+    expect(adjustStoreSalesCount).toHaveBeenCalledWith('store-A', 1);
     expect(upsertCustomerOnPaid).toHaveBeenCalledTimes(1);
     expect(upsertCustomerOnPaid).toHaveBeenCalledWith('store-A', 'buyer-1', {
       amount: 9000,
       currency: 'FAIR',
     });
     // P2P seller-profile path is NOT taken for a store order.
-    expect(sellerProfileUpdateOne).not.toHaveBeenCalled();
+    expect(adjustSellerSalesCount).not.toHaveBeenCalled();
   });
 
   it('refund of a paid order restocks each line (not release/commit) and marks payment refunded', async () => {
-    const doc = mockOrder('paid', { paymentStatus: 'paid' });
-    await transition(doc, 'refunded', { actorOxyUserId: 'actor-1' });
+    const order = mockOrder('paid', { paymentStatus: 'paid' });
+    await transition(order, 'refunded', { actorOxyUserId: 'actor-1' });
     expect(restock).toHaveBeenCalledTimes(2);
     expect(restock).toHaveBeenCalledWith('v1', 2, undefined);
     expect(restock).toHaveBeenCalledWith('v2', 1, undefined);
     expect(release).not.toHaveBeenCalled();
     expect(commit).not.toHaveBeenCalled();
-    expect(doc.payment.status).toBe('refunded');
+    const patch = transitionOrderStatus.mock.calls[0][3] as { paymentStatus?: string };
+    expect(patch.paymentStatus).toBe('refunded');
   });
 
   it('does NOT double-restock units a prior refund already restocked', async () => {
     // A prior Refund restocked the full 2 units of v1 (v2 untouched). A later full
     // refund/cancel through transition must restock only the REMAINING units:
     // v1 remaining 0 → NOT called; v2 remaining 1 → restock('v2', 1, undefined).
-    refundFind.mockReturnValue({
-      lean: () => Promise.resolve([{ lineItems: [{ variantId: 'v1', quantity: 2, restock: true }] }]),
-    });
-    const doc = mockOrder('paid', { paymentStatus: 'paid' });
-    await transition(doc, 'refunded', { actorOxyUserId: 'actor-1' });
+    // The repository sums the RESTOCKED quantities in SQL, so the fixture is the
+    // map it returns rather than a list of refund documents to fold in memory.
+    sumRestockedQuantities.mockResolvedValue(new Map([['v1', 2]]));
+    const order = mockOrder('paid', { paymentStatus: 'paid' });
+    await transition(order, 'refunded', { actorOxyUserId: 'actor-1' });
     // Total restock calls across refund(2)+transition(1) units === 2 === ordered.
     expect(restock).toHaveBeenCalledTimes(1);
     expect(restock).toHaveBeenCalledWith('v2', 1, undefined);
@@ -283,49 +303,55 @@ describe('order.service.transition — inventory effects', () => {
 
 describe('order.service.transition — settlement (shop → FAIR)', () => {
   it('a FAIR-shop order settles 1:1 with a FAIR settlement snapshot + rate 1', async () => {
-    const doc = mockOrder('pending_payment', { sellerType: 'user' });
-    await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
+    const order = mockOrder('pending_payment', { sellerType: 'user' });
+    await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
 
-    const setFields = (findOneAndUpdate.mock.calls[0][1] as { $set: Record<string, unknown> }).$set;
-    const settlement = setFields.settlement as { amount: { amount: number; currency: string }; rate: number };
-    expect(settlement.amount).toEqual({ amount: 9000, currency: 'FAIR' });
-    expect(settlement.rate).toBe(1);
-    expect(doc.settlement?.amount.currency).toBe('FAIR');
+    const patch = transitionOrderStatus.mock.calls[0][3] as {
+      settlement?: { amount: { amount: number; currency: string }; rate: number };
+    };
+    expect(patch.settlement?.amount).toEqual({ amount: 9000, currency: 'FAIR' });
+    expect(patch.settlement?.rate).toBe(1);
   });
 
   it('a non-FAIR (EUR) shop order converts the grand total to FAIR at settlement', async () => {
     // €45.00 shop grand total; static FAIR→EUR rate 0.45 → 100 FAIR (1e10 minor).
-    const doc = mockOrder('pending_payment', {
+    const order = mockOrder('pending_payment', {
       sellerType: 'user',
       grandTotalCurrency: 'EUR',
       grandTotalAmount: 4500,
     });
-    await transition(doc, 'paid', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
 
-    const setFields = (findOneAndUpdate.mock.calls[0][1] as { $set: Record<string, unknown> }).$set;
-    const settlement = setFields.settlement as { amount: { amount: number; currency: string }; rate: number };
-    expect(settlement.amount.currency).toBe('FAIR');
-    expect(settlement.amount.amount).toBe(10_000_000_000);
+    const patch = transitionOrderStatus.mock.calls[0][3] as {
+      settlement?: { amount: { amount: number; currency: string }; rate: number };
+    };
+    expect(patch.settlement?.amount.currency).toBe('FAIR');
+    expect(patch.settlement?.amount.amount).toBe(10_000_000_000);
     // FAIR per 1 EUR = 100 FAIR / €45 ≈ 2.222…
-    expect(settlement.rate).toBeCloseTo(100 / 45, 6);
+    expect(patch.settlement?.rate).toBeCloseTo(100 / 45, 6);
   });
 });
 
 describe('order.service.transition — atomic CAS (side effects run at most once)', () => {
   it('a concurrent double-cancel releases the reservation EXACTLY once (the loser CONFLICTs, no second release)', async () => {
-    // First CAS WINS (truthy persisted doc), second CAS LOSES (null — already moved off `pending_payment`).
-    findOneAndUpdate
+    // First CAS WINS (a result), second CAS LOSES (null — the row had already
+    // moved off `pending_payment`, so `WHERE status = 'pending_payment'` matched
+    // nothing).
+    transitionOrderStatus
       .mockReset()
-      .mockResolvedValueOnce({ _id: 'order-1', status: 'cancelled' })
+      .mockResolvedValueOnce({
+        order: { id: 'order-1', status: 'cancelled' },
+        event: { id: 'event-1', orderId: 'order-1', status: 'cancelled', at: new Date() },
+      })
       .mockResolvedValueOnce(null);
 
-    const doc1 = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
-    const doc2 = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
+    const order1 = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
+    const order2 = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
 
     // Winner: releases the 2 lines once.
-    await transition(doc1, 'cancelled', {});
+    await transition(order1, 'cancelled', {});
     // Loser: CAS matched nothing → CONFLICT, no inventory effect.
-    await expect(transition(doc2, 'cancelled', {})).rejects.toSatisfy(
+    await expect(transition(order2, 'cancelled', {})).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
 
@@ -333,6 +359,6 @@ describe('order.service.transition — atomic CAS (side effects run at most once
     expect(release).toHaveBeenCalledTimes(2);
     expect(release).toHaveBeenCalledWith('v1', 2, undefined);
     expect(release).toHaveBeenCalledWith('v2', 1, undefined);
-    expect(findOneAndUpdate).toHaveBeenCalledTimes(2);
+    expect(transitionOrderStatus).toHaveBeenCalledTimes(2);
   });
 });

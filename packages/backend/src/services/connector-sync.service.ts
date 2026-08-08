@@ -43,8 +43,17 @@ import type {
 import { ALL_CURRENCY_CODES, ALL_LISTING_STATUSES } from '@mercaria/shared-types';
 import { Connection, type IConnection, type ISyncSettings } from '../models/connection.js';
 import { SyncRun, type ISyncRun, type ISyncRunCounts } from '../models/sync-run.js';
-import { Order, type IOrder, type IOrderItem, type IOrderSource } from '../models/order.js';
-import { nextOrderNumber } from '../models/counter.js';
+import { isUniqueViolation } from '@oxyhq/db';
+import {
+  findOrderById,
+  findOrderBySourceExternalId,
+  insertOrder,
+  nextOrderNumber,
+  updateOrderFromSource,
+  type NewOrder,
+  type NewOrderItem,
+  type NewOrderSource,
+} from '../db/orders/orderRepository.js';
 import {
   findListingById,
   findListingBySourceExternalId,
@@ -1544,17 +1553,9 @@ export async function processConnectorWebhook(job: {
 /** A single non-empty placeholder for a required address field the platform omitted. */
 const ADDRESS_PLACEHOLDER = '-';
 
-/** True when an error is a MongoDB duplicate-key (E11000) violation. */
-function isDuplicateKeyError(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null || !('code' in err)) {
-    return false;
-  }
-  return (err as Record<string, unknown>).code === 11000;
-}
-
 /** Build the provenance `source` sub-document for an external order. */
-function buildOrderSource(conn: IConnection, order: NormalizedOrder): IOrderSource {
-  const source: IOrderSource = {
+function buildOrderSource(conn: IConnection, order: NormalizedOrder): NewOrderSource {
+  const source: NewOrderSource = {
     connectionId: String(conn._id),
     provider: conn.provider,
     externalId: order.externalId,
@@ -1597,7 +1598,7 @@ function externalLineRef(kind: 'product' | 'variant', conn: IConnection, externa
 }
 
 /** Map a normalized order's lines to persisted order-item snapshots. */
-function toOrderItems(conn: IConnection, order: NormalizedOrder): IOrderItem[] {
+function toOrderItems(conn: IConnection, order: NormalizedOrder): NewOrderItem[] {
   return order.lines.map((line) => ({
     listingId: externalLineRef('product', conn, line.externalProductId),
     variantId: externalLineRef('variant', conn, line.externalVariantId),
@@ -1620,11 +1621,11 @@ function buildExternalOrderDoc(
   conn: IConnection,
   order: NormalizedOrder,
   orderNumber: string,
-): Partial<IOrder> {
+): NewOrder {
   const buyerOxyUserId = `ext:${conn.provider}:${order.customer?.externalId ?? order.externalId}`;
   const paidAt = order.paymentStatus === 'paid' ? order.createdAt ?? new Date() : undefined;
 
-  const doc: Partial<IOrder> = {
+  const doc: NewOrder = {
     orderNumber,
     buyerOxyUserId,
     sellerType: 'store',
@@ -1633,11 +1634,13 @@ function buildExternalOrderDoc(
     sourceChannel: 'storefront',
     source: buildOrderSource(conn, order),
     items: toOrderItems(conn, order),
-    shippingAddressSnapshot: ensureAddressSnapshot(
+    shippingAddress: ensureAddressSnapshot(
       order.shippingAddress,
       order.customer?.name ?? 'External customer',
     ),
-    shipping: { method: 'standard', label: 'Shipping', cost: order.totals.shipping, trackingNumber: null },
+    shippingMethod: 'standard',
+    shippingLabel: 'Shipping',
+    shippingCost: order.totals.shipping,
     totals: {
       subtotal: order.totals.subtotal,
       discountTotal: order.totals.discountTotal,
@@ -1649,11 +1652,9 @@ function buildExternalOrderDoc(
     taxLines: [],
     status: order.status,
     statusHistory: [{ status: order.status, at: new Date(), note: `Imported from ${conn.provider}` }],
-    payment: {
-      status: order.paymentStatus,
-      provider: 'external',
-      ...(paidAt ? { paidAt } : {}),
-    },
+    paymentStatus: order.paymentStatus,
+    paymentProvider: 'external',
+    ...(paidAt ? { paymentPaidAt: paidAt } : {}),
     checkoutGroupId: `ext:${conn.provider}:${order.externalId}`,
   };
   if (order.fxRate) {
@@ -1671,33 +1672,25 @@ function buildExternalOrderDoc(
  */
 async function upsertExternalOrder(conn: IConnection, order: NormalizedOrder): Promise<ImportOutcome> {
   const connectionId = String(conn._id);
-  const existing = await Order.findOne({
-    storeId: conn.storeId,
-    'source.connectionId': connectionId,
-    'source.externalId': order.externalId,
-  }).select('_id status');
+  const existing = await findOrderBySourceExternalId(conn.storeId, connectionId, order.externalId);
 
   if (existing) {
     const changed = existing.status !== order.status;
-    await Order.updateOne(
-      { _id: existing._id },
-      {
-        $set: {
-          status: order.status,
-          'payment.status': order.paymentStatus,
-          source: buildOrderSource(conn, order),
-        },
-      },
-    );
+    await updateOrderFromSource(existing.id, {
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      source: buildOrderSource(conn, order),
+    });
     return changed ? 'updated' : 'skipped';
   }
 
   try {
-    await Order.create(buildExternalOrderDoc(conn, order, await nextOrderNumber()));
+    await insertOrder(buildExternalOrderDoc(conn, order, await nextOrderNumber()));
     return 'created';
   } catch (err) {
-    if (isDuplicateKeyError(err)) {
-      // Lost the race to a concurrent sync/webhook — the order already exists.
+    // The NAMED index: one Mercaria order per (connection, external order). Lost
+    // the race to a concurrent sync or webhook — the order already exists.
+    if (isUniqueViolation(err, 'orders_store_id_source_key')) {
       return 'skipped';
     }
     throw err;
@@ -2155,12 +2148,12 @@ export async function pushListingToChannels(storeId: string, listingId: string):
  * order is a no-op). Loads by `orderId`; a non-connector order (no `source`) is a no-op.
  */
 export async function pushOrderFulfillment(orderId: string): Promise<void> {
-  const order = await Order.findById(orderId).lean<IOrder | null>();
-  if (!order || !order.source) {
+  const order = await findOrderById(orderId);
+  if (!order || order.sourceConnectionId === null || order.sourceExternalId === null) {
     return; // Not a connector order — nothing to push.
   }
 
-  const conn = await Connection.findById(order.source.connectionId);
+  const conn = await Connection.findById(order.sourceConnectionId);
   if (!conn || conn.status !== 'connected' || !conn.credentials || !conn.shopDomain) {
     return; // Connection gone / disconnected / mid-reconnect — skip silently.
   }
@@ -2176,9 +2169,9 @@ export async function pushOrderFulfillment(orderId: string): Promise<void> {
 
   try {
     const provider = getConnectorProvider(conn.provider);
-    const fulfillment: PushFulfillment = { externalOrderId: order.source.externalId };
-    if (order.shipping.trackingNumber) {
-      fulfillment.trackingNumber = order.shipping.trackingNumber;
+    const fulfillment: PushFulfillment = { externalOrderId: order.sourceExternalId };
+    if (order.shippingTrackingNumber) {
+      fulfillment.trackingNumber = order.shippingTrackingNumber;
     }
     await provider.pushFulfillment(decryptAuth(conn), fulfillment);
     counts.updated += 1;
@@ -2198,7 +2191,7 @@ export async function pushOrderFulfillment(orderId: string): Promise<void> {
     await run.save();
     emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'failed', counts });
     log.general.error(
-      { err, connectionId, orderId: String(order._id) },
+      { err, connectionId, orderId: order.id },
       'Failed to push fulfillment to channel',
     );
   }

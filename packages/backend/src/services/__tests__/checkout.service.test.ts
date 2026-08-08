@@ -9,9 +9,17 @@
  * and the last three come from those two batched child reads rather than off the
  * documents, so the fixtures supply them separately from the rows.
  *
+ * The order side is a repository too now — `insertOrder` takes the whole
+ * aggregate (order + items + status history + allocations + tax lines) and
+ * `nextOrderNumber` comes from a sequence rather than a counter document, so the
+ * assertions read `insertOrder`'s input instead of a Mongo create document.
+ * `redeemDiscountCode` replaces the guarded `$inc`: the ceiling check lives in
+ * the repository, so what this file checks is that it is called EXACTLY once per
+ * redeemed code on a fresh checkout and never on a replay.
+ *
  * Everything else is mocked as before: the cart/inventory services, the still
- * Mongoose `Address`/`Order`/`Counter`/`Store`/`Discount` models, the
- * order-hydration summarizer, the media chokepoint, the pricing engine and Redis.
+ * Mongoose `Address` model, the store repository, the order-hydration
+ * summarizer, the media chokepoint, the pricing engine and Redis.
  *
  * Tests assert the F4 checkout contract: multi-seller split (one order per
  * seller, shared `checkoutGroupId`), reservation rollback on a later
@@ -45,16 +53,16 @@ const findListingsByIds = vi.fn();
 const findListingChildren = vi.fn();
 const findVariantsByIds = vi.fn();
 const findVariantOptionValues = vi.fn();
-const storeFind = vi.fn();
+const findStoresByIds = vi.fn();
 const addressFindOne = vi.fn();
-const orderCreate = vi.fn();
-const orderFind = vi.fn();
+const insertOrder = vi.fn();
+const findOrdersByCheckoutGroup = vi.fn();
 const nextOrderNumber = vi.fn();
 const summarizeOrders = vi.fn();
 const getRedisClient = vi.fn();
 const enqueueOrderEvent = vi.fn();
 const calculateTotals = vi.fn();
-const discountUpdateOne = vi.fn();
+const redeemDiscountCode = vi.fn();
 
 vi.mock('../cart.service.js', () => ({
   getCart: (...args: unknown[]) => getCart(...args),
@@ -77,27 +85,23 @@ vi.mock('../../db/catalog/variantRepository.js', () => ({
   findVariantOptionValues: (...args: unknown[]) => findVariantOptionValues(...args),
 }));
 
-vi.mock('../../models/store.js', () => ({
-  Store: { find: (...args: unknown[]) => storeFind(...args) },
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  findStoresByIds: (...args: unknown[]) => findStoresByIds(...args),
 }));
 
 vi.mock('../../models/address.js', () => ({
   Address: { findOne: (...args: unknown[]) => addressFindOne(...args) },
 }));
 
-vi.mock('../../models/order.js', () => ({
-  Order: {
-    create: (...args: unknown[]) => orderCreate(...args),
-    find: (...args: unknown[]) => orderFind(...args),
-  },
-}));
-
-vi.mock('../../models/counter.js', () => ({
+vi.mock('../../db/orders/orderRepository.js', () => ({
+  insertOrder: (...args: unknown[]) => insertOrder(...args),
+  findOrdersByCheckoutGroup: (...args: unknown[]) => findOrdersByCheckoutGroup(...args),
+  findOrderByIdempotencyKey: vi.fn(),
   nextOrderNumber: (...args: unknown[]) => nextOrderNumber(...args),
 }));
 
-vi.mock('../../models/discount.js', () => ({
-  Discount: { updateOne: (...args: unknown[]) => discountUpdateOne(...args) },
+vi.mock('../../db/merchandising/discountRepository.js', () => ({
+  redeemDiscountCode: (...args: unknown[]) => redeemDiscountCode(...args),
 }));
 
 vi.mock('../order-hydration.service.js', () => ({
@@ -308,15 +312,15 @@ beforeEach(() => {
   );
   findVariantOptionValues.mockReset().mockResolvedValue(new Map());
   // No store docs found → shop currency falls back to a line's native currency (FAIR).
-  storeFind.mockReset().mockReturnValue({ select: () => ({ lean: () => Promise.resolve([]) }) });
+  findStoresByIds.mockReset().mockResolvedValue([]);
   addressFindOne.mockReset();
-  orderCreate.mockReset();
-  orderFind.mockReset();
+  insertOrder.mockReset();
+  findOrdersByCheckoutGroup.mockReset();
   nextOrderNumber.mockReset();
   summarizeOrders.mockReset();
   getRedisClient.mockReset().mockReturnValue(null);
   enqueueOrderEvent.mockReset().mockResolvedValue(undefined);
-  discountUpdateOne.mockReset().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+  redeemDiscountCode.mockReset().mockResolvedValue(true);
   // Default pricing: zero discount/tax, subtotal derived from the group's lines.
   calculateTotals.mockReset().mockImplementation((input: { lines: { unitPrice: { amount: number }; quantity: number }[] }) => {
     const subtotal = input.lines.reduce((s, l) => s + l.unitPrice.amount * l.quantity, 0);
@@ -358,8 +362,8 @@ describe('checkout.service.checkout — multi-seller split', () => {
       .mockResolvedValueOnce('MRC-000001')
       .mockResolvedValueOnce('MRC-000002')
       .mockResolvedValueOnce('MRC-000003');
-    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
-      Promise.resolve({ toObject: () => ({ ...doc, _id: `order-${doc.orderNumber}` }) }),
+    insertOrder.mockImplementation((input: Record<string, unknown>) =>
+      Promise.resolve({ ...input, id: `order-${String(input.orderNumber)}` }),
     );
     summarizeOrders.mockImplementation((orders: unknown[]) =>
       Promise.resolve(orders.map((_, i) => ({ id: `o${i}`, orderNumber: `MRC-00000${i}`, status: 'pending_payment' }))),
@@ -367,8 +371,8 @@ describe('checkout.service.checkout — multi-seller split', () => {
 
     const result = await checkout(USER, { addressId: ADDRESS_ID });
 
-    expect(orderCreate).toHaveBeenCalledTimes(3);
-    const groupIds = orderCreate.mock.calls.map((c) => (c[0] as { checkoutGroupId: string }).checkoutGroupId);
+    expect(insertOrder).toHaveBeenCalledTimes(3);
+    const groupIds = insertOrder.mock.calls.map((c) => (c[0] as { checkoutGroupId: string }).checkoutGroupId);
     expect(new Set(groupIds).size).toBe(1);
     expect(result.checkoutGroupId).toBe(groupIds[0]);
     expect(result.orders).toHaveLength(3);
@@ -413,7 +417,7 @@ describe('checkout.service.checkout — reservation rollback', () => {
     expect(release).toHaveBeenCalledTimes(1);
     expect(release).toHaveBeenCalledWith(V1, 2);
     expect(release).not.toHaveBeenCalledWith(V2, 5);
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
   });
 });
 
@@ -426,15 +430,15 @@ describe('checkout.service.checkout — idempotent replay', () => {
     };
     getRedisClient.mockReturnValue(redis);
 
-    const priorOrders = [{ _id: 'o1', checkoutGroupId: storedGroupId }];
-    orderFind.mockReturnValueOnce(leanOf(priorOrders));
+    const priorOrders = [{ id: 'o1', checkoutGroupId: storedGroupId }];
+    findOrdersByCheckoutGroup.mockResolvedValueOnce(priorOrders);
     summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000001', status: 'paid' }]);
 
     const result = await checkout(USER, { addressId: ADDRESS_ID }, 'idem-key-1');
 
     expect(result.checkoutGroupId).toBe(storedGroupId);
     expect(reserve).not.toHaveBeenCalled();
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
     expect(getCart).not.toHaveBeenCalled();
   });
 });
@@ -459,14 +463,14 @@ describe('checkout.service.checkout — totals', () => {
       new Map([[V1, [optionValueRow(V1, 'Size', 'M')]]]),
     );
     nextOrderNumber.mockResolvedValueOnce('MRC-000010');
-    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
-      Promise.resolve({ toObject: () => ({ ...doc, _id: 'order-1' }) }),
+    insertOrder.mockImplementation((input: Record<string, unknown>) =>
+      Promise.resolve({ ...input, id: 'order-1' }),
     );
     summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000010', status: 'pending_payment' }]);
 
     await checkout(USER, { addressId: ADDRESS_ID });
 
-    const doc = orderCreate.mock.calls[0][0] as {
+    const doc = insertOrder.mock.calls[0][0] as {
       items: {
         imageUrl?: string;
         optionValues: { name: string; value: string }[];
@@ -519,7 +523,7 @@ describe('checkout.service.checkout — unpriced variant', () => {
     // Nothing is priced, ordered or taken out of the cart: a zero snapshotted
     // onto an order is a price the buyer would be held to.
     expect(calculateTotals).not.toHaveBeenCalled();
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
     expect(clearCart).not.toHaveBeenCalled();
     expect(removeCartLines).not.toHaveBeenCalled();
   });
@@ -542,8 +546,8 @@ describe('checkout.service.checkout — discounts', () => {
     findListingsByIds.mockResolvedValueOnce([listingRow(L1, { ownerType: 'store', storeId: 'store-A' })]);
     findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1)]);
     nextOrderNumber.mockResolvedValue('MRC-000020');
-    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
-      Promise.resolve({ toObject: () => ({ ...doc, _id: 'order-1' }) }),
+    insertOrder.mockImplementation((input: Record<string, unknown>) =>
+      Promise.resolve({ ...input, id: 'order-1' }),
     );
     summarizeOrders.mockResolvedValue([{ id: 'o1', orderNumber: 'MRC-000020', status: 'pending_payment' }]);
 
@@ -576,7 +580,7 @@ describe('checkout.service.checkout — discounts', () => {
 
     await checkout(USER, { addressId: ADDRESS_ID });
 
-    const doc = orderCreate.mock.calls[0][0] as {
+    const doc = insertOrder.mock.calls[0][0] as {
       totals: { discountTotal: { shop: { amount: number } }; grandTotal: { shop: { amount: number } } };
       appliedDiscounts: { code: string }[];
       items: { discountTotal?: { shop: { amount: number } } }[];
@@ -588,12 +592,11 @@ describe('checkout.service.checkout — discounts', () => {
     expect(doc.appliedDiscounts[0].code).toBe('WELCOME15');
     expect(doc.items[0].discountTotal?.shop.amount).toBe(150);
 
-    // Usage incremented EXACTLY once for the redeemed code, via a guarded $inc.
-    expect(discountUpdateOne).toHaveBeenCalledTimes(1);
-    const [filter, update, options] = discountUpdateOne.mock.calls[0];
-    expect((filter as { 'codes.code': string })['codes.code']).toBe('WELCOME15');
-    expect(update).toEqual({ $inc: { 'codes.$[c].usageCount': 1 } });
-    expect(options).toEqual({ arrayFilters: [{ 'c.code': 'WELCOME15' }] });
+    // Usage counted EXACTLY once for the redeemed code. The ceiling guard lives
+    // in the repository (which serializes on the parent discount before
+    // counting); what checkout owns is calling it once per applied code.
+    expect(redeemDiscountCode).toHaveBeenCalledTimes(1);
+    expect(redeemDiscountCode).toHaveBeenCalledWith('WELCOME15');
   });
 
   it('does NOT increment usage on an idempotent Redis replay', async () => {
@@ -604,14 +607,14 @@ describe('checkout.service.checkout — discounts', () => {
     };
     getRedisClient.mockReturnValue(redis);
 
-    orderFind.mockReturnValueOnce(leanOf([{ _id: 'o1', checkoutGroupId: storedGroupId }]));
+    findOrdersByCheckoutGroup.mockResolvedValueOnce([{ id: 'o1', checkoutGroupId: storedGroupId }]);
     summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000020', status: 'paid' }]);
 
     await checkout(USER, { addressId: ADDRESS_ID, discountCodes: ['WELCOME15'] }, 'idem-key-2');
 
     // Replay returns the prior orders — no pricing, no creation, no usage increment.
-    expect(orderCreate).not.toHaveBeenCalled();
-    expect(discountUpdateOne).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
+    expect(redeemDiscountCode).not.toHaveBeenCalled();
   });
 });
 
@@ -639,8 +642,8 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
     ]);
     findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1), variantRow(V2, L2)]);
     nextOrderNumber.mockResolvedValue('MRC-000030');
-    orderCreate.mockImplementation((doc: Record<string, unknown>) =>
-      Promise.resolve({ toObject: () => ({ ...doc, _id: `order-${doc.orderNumber}` }) }),
+    insertOrder.mockImplementation((input: Record<string, unknown>) =>
+      Promise.resolve({ ...input, id: `order-${String(input.orderNumber)}` }),
     );
     summarizeOrders.mockResolvedValue([{ id: 'o1', orderNumber: 'MRC-000030', status: 'pending_payment' }]);
   }
@@ -653,8 +656,8 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
     // Only store-A's single line is reserved + ordered.
     expect(reserve).toHaveBeenCalledTimes(1);
     expect(reserve).toHaveBeenCalledWith(V1, 1);
-    expect(orderCreate).toHaveBeenCalledTimes(1);
-    expect((orderCreate.mock.calls[0][0] as { storeId: string }).storeId).toBe('store-A');
+    expect(insertOrder).toHaveBeenCalledTimes(1);
+    expect((insertOrder.mock.calls[0][0] as { storeId: string }).storeId).toBe('store-A');
     expect(result.orders).toHaveLength(1);
 
     // Partial checkout: remove only the placed line, keep the rest — never clearCart.
@@ -672,7 +675,7 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
     );
 
     expect(reserve).not.toHaveBeenCalled();
-    expect(orderCreate).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
     expect(removeCartLines).not.toHaveBeenCalled();
     expect(clearCart).not.toHaveBeenCalled();
   });

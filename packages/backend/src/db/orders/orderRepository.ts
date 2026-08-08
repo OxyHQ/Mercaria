@@ -779,14 +779,25 @@ async function insertOrderChildren(
   }
 }
 
+/** What a successful status move produces: the new row and the event it appended. */
+export interface OrderTransitionResult {
+  readonly order: OrderRow;
+  readonly event: OrderStatusEventRow;
+}
+
 /**
  * Move an order to `next` ONLY IF it is still at `expected`, appending the
  * lifecycle event in the same transaction.
  *
- * @returns The updated row, or `null` when the guard refused — which means the
- *   order was concurrently transitioned, never "nothing to do". The caller runs
- *   the inventory side-effects exactly when this returns a row, which is what
- *   makes a buyer `cancel` racing the expiry sweep run them AT MOST ONCE.
+ * @returns The updated row and the appended event, or `null` when the guard
+ *   refused — which means the order was concurrently transitioned, never
+ *   "nothing to do". The caller runs the inventory side-effects exactly when this
+ *   returns a result, which is what makes a buyer `cancel` racing the expiry
+ *   sweep run them AT MOST ONCE.
+ *
+ * The EVENT comes back rather than being re-composed by the caller: it is the row
+ * as inserted, ids and all, so a caller that hydrates the result serves the trail
+ * the database actually holds instead of a plausible reconstruction of it.
  */
 export async function transitionOrderStatus(
   orderId: string,
@@ -795,16 +806,15 @@ export async function transitionOrderStatus(
   patch: OrderTransitionPatch,
   event: NewOrderStatusEvent,
   db: DatabaseOrTransaction = getDb(),
-): Promise<OrderRow | null> {
-  const run = async (tx: DatabaseOrTransaction): Promise<OrderRow | null> => {
+): Promise<OrderTransitionResult | null> {
+  const run = async (tx: DatabaseOrTransaction): Promise<OrderTransitionResult | null> => {
     const [row] = await tx
       .update(orders)
       .set(transitionColumns(next, patch))
       .where(and(eq(orders.id, orderId), eq(orders.status, expected)))
       .returning(PUBLIC_ORDER_COLUMNS);
     if (!row) return null;
-    await appendStatusEvent(orderId, event, tx);
-    return row;
+    return { order: row, event: await appendStatusEvent(orderId, event, tx) };
   };
   return 'transaction' in db ? db.transaction(run) : run(db);
 }
@@ -862,19 +872,23 @@ function transitionColumns(
   };
 }
 
-/** Append one row to the append-only lifecycle trail. */
+/** Append one row to the append-only lifecycle trail, returning it as stored. */
 async function appendStatusEvent(
   orderId: string,
   event: NewOrderStatusEvent,
   tx: DatabaseOrTransaction,
-): Promise<void> {
-  await tx.insert(orderStatusHistory).values({
-    orderId,
-    status: event.status,
-    at: event.at,
-    byOxyUserId: event.byOxyUserId ?? null,
-    note: event.note ?? null,
-  });
+): Promise<OrderStatusEventRow> {
+  const [row] = await tx
+    .insert(orderStatusHistory)
+    .values({
+      orderId,
+      status: event.status,
+      at: event.at,
+      byOxyUserId: event.byOxyUserId ?? null,
+      note: event.note ?? null,
+    })
+    .returning();
+  return row;
 }
 
 /**
