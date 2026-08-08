@@ -1025,7 +1025,25 @@ export async function sumPaidRevenueByBucket(
   // SQL text rather than bound — `date_trunc`'s first argument may not be a
   // parameter in an index-usable position, and the union is what keeps it safe.
   const paidMoment = sql`coalesce(${orders.paymentPaidAt}, ${orders.createdAt})`;
-  const bucket = sql<Date>`date_trunc(${sql.raw(`'${interval}'`)}, ${paidMoment})`;
+  // `.mapWith` is what makes the `Date` in `sql<Date>` true rather than merely
+  // asserted. drizzle maps a real column's driver value through that column's own
+  // `mapFromDriverValue`; a raw `sql` EXPRESSION has no column to take one from,
+  // so a `timestamptz` arrives as the driver's raw string — and the generic
+  // parameter is a claim TypeScript accepts without checking. `SalesBucket.bucket`
+  // then says `Date`, holds a string, and `report.service` throws
+  // `bucket.toISOString is not a function` on the first store with a paid order.
+  //
+  // Borrowing `createdAt`'s decoder rather than writing `new Date(value)` keeps
+  // one conversion for every `timestamptz` in this schema, so a change to the
+  // column builder cannot leave this expression behind.
+  //
+  // This is CONVENTIONS.md's third naming trap in its read direction, which is
+  // the dangerous one: the WRITE direction throws `ERR_INVALID_ARG_TYPE` at the
+  // driver, while the read direction hands back a plausible value and fails
+  // somewhere else entirely.
+  const bucket = sql<Date>`date_trunc(${sql.raw(`'${interval}'`)}, ${paidMoment})`.mapWith(
+    orders.createdAt,
+  );
 
   const rows = await db
     .select({

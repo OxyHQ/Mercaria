@@ -533,6 +533,17 @@ describe('the sales report', () => {
     // column, which is the whole reason the money stayed flat rather than jsonb.
     expect(buckets[1].revenue).toBe(700);
 
+    // The bucket is a `Date`, and every OTHER assertion in this block passes
+    // whether it is one or not. `SalesBucket.bucket` is DECLARED `Date` by a
+    // `sql<Date>` generic, which TypeScript accepts without checking: a raw SQL
+    // expression has no column mapper, so a `timestamptz` arrives as the driver's
+    // raw string. This is what `report.service` calls `.toISOString()` on, so the
+    // gap was a 500 on `GET /admin/stores/:storeId/reports/sales` for every store
+    // with a paid order — reached by reading `.bucket` and nothing else.
+    expect(buckets[0].bucket).toBeInstanceOf(Date);
+    expect(buckets[0].bucket.toISOString()).toBe('2026-06-01T00:00:00.000Z');
+    expect(buckets[1].bucket.toISOString()).toBe('2026-07-01T00:00:00.000Z');
+
     const total = await sumPaidRevenue(storeId, CURRENCY);
     expect(total.paidOrderCount).toBe(3);
     expect(total.revenue).toBe(3200);
