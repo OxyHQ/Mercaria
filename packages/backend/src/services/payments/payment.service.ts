@@ -73,6 +73,7 @@ import {
   drainPaymentOutbox,
   enqueuePaymentEvent,
   paymentFailedEventId,
+  paymentSucceededAfterReleaseEventId,
   paymentSucceededEventId,
 } from './payment-outbox.service.js';
 import { findOrdersInCheckoutGroup, linkPaymentToOrders } from './order-linkage.js';
@@ -131,7 +132,34 @@ const PROVIDER_BOOKS_LEDGER: Record<PaymentProviderId, boolean> = {
   // The dev seam. It books, because the ledger is what it exists to exercise —
   // and it is hard-gated off in production by `config.orders.mockPayEnabled`.
   mock: true,
+  // The card rail. Mercaria is merchant of record (ADR 0001 D1): the money
+  // arrives on the platform balance, Mercaria owes each seller their share, and
+  // the difference is its commission — which exists nowhere but this ledger.
+  stripe: true,
 };
+
+/**
+ * Whether `next` is a legal successor of `from`.
+ *
+ * The read-only view of the same `TRANSITIONS` table the compare-and-swap is
+ * built from, exported because #48's Stripe event router needs to ask the
+ * question BEFORE acting: an event whose status is not reachable from where the
+ * payment already is cannot be applied from its payload alone, and the correct
+ * response is to re-read the provider's current state rather than to submit a
+ * transition the CAS will silently discard (issue #48, ordering and
+ * convergence 2).
+ *
+ * It reads the table rather than restating it, which is the point — a caller
+ * with its own copy of the transition rules is a second state machine that
+ * drifts from this one at the first change.
+ *
+ * Note this is a QUESTION, never a permission: the CAS is still what refuses an
+ * illegal transition, atomically against a concurrent event. Nothing may use
+ * this to skip it.
+ */
+export function canTransitionPaymentStatus(from: PaymentStatus, next: PaymentStatus): boolean {
+  return TRANSITIONS[from].includes(next);
+}
 
 /** Opening (or finding) the payment for a checkout group. */
 export interface EnsurePaymentInput {
@@ -350,6 +378,65 @@ export async function applyProviderEvent(envelope: ProviderEventEnvelope): Promi
     });
     throw error;
   }
+}
+
+/**
+ * Record that the provider captured money for a payment Mercaria had released.
+ *
+ * The reservation timed out, the sweep cancelled the orders and the stock went
+ * back — and then the rail reported a success. Money has arrived for goods
+ * nobody is holding.
+ *
+ * ## Why this does nothing else
+ *
+ * Every automatic answer is worse than raising the condition. Re-committing the
+ * inventory would oversell whatever has been bought in the meantime. Booking the
+ * charge would credit `commission_revenue` with the whole gross, because
+ * `bookChargeSucceeded` splits across orders that no longer exist. Refunding
+ * without a person is a policy decision the payment domain does not get to take.
+ * So this writes ONE durable, deterministic row and stops, and #50's operator
+ * surface is where a human picks it up.
+ *
+ * The payment's own status is left alone too: it is `canceled`, and that is
+ * true. Inventing a status for this would put a state every report, filter and
+ * dashboard has to learn into the vocabulary for an event that should be rare.
+ * The exception lives in the outbox, where it is queryable and where it cannot
+ * be mistaken for a lifecycle a consumer should act on.
+ *
+ * @returns The outbox event id, or `undefined` when one was already recorded —
+ *   a redelivered success must not raise the same exception twice.
+ */
+export async function flagSucceededAfterRelease(input: {
+  paymentId: string;
+  providerEventId: string;
+}): Promise<string | undefined> {
+  const db = getDb();
+  const payment = await findPaymentById(db, input.paymentId);
+  if (!payment) {
+    throw new Error(`Payment ${input.paymentId} does not exist.`);
+  }
+
+  // Keyed on the PAYMENT alone, not on the provider event: several redeliveries
+  // of one capture are one exception, and an operator opening the same case
+  // three times is noise that hides the next real one.
+  const id = paymentSucceededAfterReleaseEventId(payment.id);
+  const created = await db.transaction(
+    async (tx) =>
+      await enqueuePaymentEvent(tx, {
+        id,
+        eventType: 'payment_succeeded_after_release',
+        payload: {
+          paymentId: payment.id,
+          checkoutGroupId: payment.checkoutGroupId,
+          providerEventId: input.providerEventId,
+          releasedStatus: payment.status,
+        },
+      }),
+  );
+
+  if (!created) return undefined;
+  await drainOutboxEvent(id);
+  return id;
 }
 
 /** The attempt row a status change produces. */

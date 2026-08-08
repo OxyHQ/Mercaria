@@ -40,13 +40,16 @@ import channelsWebhooksRouter from './routes/channels-webhooks.js';
 import channelsIngestRouter from './routes/channels-ingest.js';
 import reportsRouter from './routes/reports.js';
 import crowdSourceWebhookRouter from './routes/crowdsource-webhook.js';
+import stripeWebhookRouter from './routes/stripe-webhook.js';
+import { config } from './config/index.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
 
 /**
  * Build the application.
  *
  * MOUNT ORDER IS LOAD-BEARING and is asserted by
- * `routes/__tests__/crowdsource-webhook.integration.test.ts`: both webhook
+ * `routes/__tests__/crowdsource-webhook.integration.test.ts` and
+ * `routes/__tests__/stripe-webhook.integration.test.ts`: all three webhook
  * routers must be registered BEFORE `express.json()`, or the raw bytes their
  * signatures cover are consumed before they can be verified.
  */
@@ -122,6 +125,21 @@ export function createApp(): express.Express {
   // check, it breaks every delivery. Guarded by a test that asserts
   // `typeof req.body === 'undefined'` inside a route on this path.
   app.use('/webhooks/crowdsource', crowdSourceWebhookRouter);
+
+  // Inbound Stripe webhooks — the platform and Connect endpoints (ADR 0001).
+  // Same raw-body rule as the two above: Stripe signs the bytes it sent, so a
+  // parser reaching the stream first breaks every delivery rather than weakening
+  // the check. The router mounts its own express.raw on each path.
+  //
+  // The MOUNT is gated, not just the handler. A deployment with no Stripe
+  // configuration answers 404 here, which is the truthful answer — and it stops
+  // an endpoint being registered in the Stripe dashboard against a deployment
+  // that has no secret and therefore could never tell a real delivery from a
+  // forged one. There is nothing to park, unlike the outbox dispatchers, because
+  // without a secret nothing could be verified to park in the first place.
+  if (config.payments.stripe.enabled) {
+    app.use('/webhooks/stripe', stripeWebhookRouter);
+  }
 
   // Body parsing
   app.use(express.json({ limit: '10mb' }));

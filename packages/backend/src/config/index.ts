@@ -142,6 +142,57 @@ function resolveCrowdSourceEnabled(): boolean {
   return false;
 }
 
+/**
+ * Whether the Stripe rail is switched on.
+ *
+ * The `resolveCrowdSourceEnabled` rule, applied to a rail where the consequence
+ * of getting it wrong is money rather than reviewer time. `STRIPE_ENABLED=true`
+ * requires the secret key AND BOTH webhook secrets (ADR 0001, "Environment"),
+ * because the two endpoints are two independent halves of the same integration:
+ * a deployment with the platform secret and no Connect secret verifies payment
+ * events and rejects every `account.updated`, so sellers silently stop becoming
+ * payment-ready while charges keep succeeding. Half-configured is worse than off
+ * and says so once at boot.
+ *
+ * There is no `STRIPE_ACCOUNT_ID`: the platform account is implied by the key,
+ * and connected-account ids live only in provider-account records (#46).
+ */
+function resolveStripeEnabled(): boolean {
+  if (!boolEnv('STRIPE_ENABLED', false)) return false;
+
+  const missing = (
+    [
+      'STRIPE_SECRET_KEY',
+      'STRIPE_WEBHOOK_SECRET',
+      'STRIPE_CONNECT_WEBHOOK_SECRET',
+    ] as const
+  ).filter((name) => (process.env[name]?.trim() ?? '') === '');
+  if (missing.length === 0) return true;
+
+  log.general.error(
+    { missing },
+    '[Stripe] STRIPE_ENABLED is set but the integration is incomplete; staying OFF. ' +
+      'No webhook endpoint is mounted and no payment can be created.',
+  );
+  return false;
+}
+
+/**
+ * Split `STRIPE_SELLER_COUNTRIES` into an upper-cased allow-list.
+ *
+ * Constrained by ADR 0001 D8 to the {US, CA, UK, EEA, CH} transfer region, but
+ * NOT validated against that set here: the region is Stripe's and changes on
+ * their schedule, so a hard-coded list in this file would eventually refuse a
+ * country Stripe had started supporting. Onboarding (#46) is where a country is
+ * checked, against this list.
+ */
+function resolveStripeSellerCountries(): readonly string[] {
+  return strEnv('STRIPE_SELLER_COUNTRIES', 'ES')
+    .split(',')
+    .map((code) => code.trim().toUpperCase())
+    .filter((code) => code !== '');
+}
+
 export interface WebConfig {
   /**
    * The storefront origin, used to build permalinks.
@@ -175,6 +226,69 @@ export interface CrowdSourceConfig {
   readonly enforcementMode: ModerationEnforcementMode;
 }
 
+/**
+ * The Stripe rail's configuration. Names are ADR 0001's, verbatim.
+ *
+ * The API VERSION is deliberately absent: it is a code constant
+ * (`STRIPE_API_VERSION` in `services/payments/stripe/api-version.ts`), because
+ * an event payload's shape is a property of the code that parses it. An env var
+ * would let a deployment be pointed at a version whose fixtures were never
+ * verified — silently, and only for the events that actually changed shape.
+ */
+export interface StripeConfig {
+  /**
+   * Whether the rail is configured at all. Gates the webhook MOUNT, not just the
+   * handler: a deployment without Stripe answers 404 on those paths, which is
+   * the truthful answer and stops an endpoint being registered in the Stripe
+   * dashboard against a deployment that could never verify its deliveries.
+   *
+   * Note this is NOT the `crowdSource.enabled`/`payments.outboxEnabled` shape,
+   * where the loop is gated and the durable record never is. There is nothing to
+   * park here: an unconfigured deployment has no secret and therefore cannot
+   * tell a real delivery from a forged one, so accepting the bytes to process
+   * later would be storing a stranger's opinion.
+   */
+  readonly enabled: boolean;
+  /** The platform secret key. `sk_test_…` or `sk_live_…`; see `livemode`. */
+  readonly secretKey: string;
+  /** Platform-scope endpoint secret (`connect=false` events). */
+  readonly webhookSecret: string;
+  /** Accepted alongside the current one during a rotation window. */
+  readonly webhookSecretPrevious?: string;
+  /** Connect-scope endpoint secret (`connect=true` events). */
+  readonly connectWebhookSecret: string;
+  /** Accepted alongside the current one during a rotation window. */
+  readonly connectWebhookSecretPrevious?: string;
+  /**
+   * Which mode this deployment is. DERIVED from the secret key's prefix rather
+   * than configured, because it is not an independent fact: a `sk_test_` key can
+   * only ever see test objects, so a variable able to disagree with it could
+   * only ever be wrong. An event whose `livemode` does not match is acknowledged
+   * and dropped — a production URL receives test events too (ADR 0001).
+   */
+  readonly livemode: boolean;
+  /** Seller countries onboarding accepts (#46). ADR 0001 D8. */
+  readonly sellerCountries: readonly string[];
+  /**
+   * Attempts after which a retryable processing failure becomes a `dead_letter`.
+   *
+   * Much smaller than the outbox's 25, deliberately. An outbox row is Mercaria's
+   * own consequence and the only way it ever happens; a provider event that
+   * cannot be interpreted is one Stripe is also retrying, and whose object can
+   * be re-read from Stripe at any time by the reconciliation sweep (#50). Eight
+   * attempts at exponential backoff is a bit over a day — long enough to ride
+   * out an outage, short enough that a genuinely unmappable event reaches an
+   * operator while the context is still fresh.
+   */
+  readonly eventMaxAttempts: number;
+  /** Rows the event dispatcher claims per tick. */
+  readonly eventBatchSize: number;
+  /** How often the event dispatcher looks for due work. */
+  readonly eventPollIntervalMs: number;
+  /** How long a claimed event row is leased for. */
+  readonly eventLeaseMs: number;
+}
+
 export interface PaymentsConfig {
   /**
    * Whether the payment outbox DISPATCHER runs. The durable record is never
@@ -198,6 +312,8 @@ export interface PaymentsConfig {
    * row is reclaimed, so this is also the longest a crash can strand one.
    */
   readonly outboxLeaseMs: number;
+  /** The Stripe rail (ADR 0001, issues #46–#50). */
+  readonly stripe: StripeConfig;
 }
 
 export interface PaginationConfig {
@@ -423,6 +539,30 @@ export const config: AppConfig = Object.freeze({
     outboxBatchSize: intEnv('PAYMENT_OUTBOX_BATCH_SIZE', 50),
     outboxPollIntervalMs: intEnv('PAYMENT_OUTBOX_POLL_INTERVAL_MS', 5_000),
     outboxLeaseMs: intEnv('PAYMENT_OUTBOX_LEASE_MS', 60_000),
+    stripe: Object.freeze({
+      enabled: resolveStripeEnabled(),
+      secretKey: strEnv('STRIPE_SECRET_KEY', ''),
+      webhookSecret: strEnv('STRIPE_WEBHOOK_SECRET', ''),
+      // Spread-when-present, like `crowdSource.baseUrl`: the property is ABSENT
+      // rather than an empty string, so the rotation loop can iterate the
+      // secrets it actually has instead of skipping falsy ones.
+      ...(process.env.STRIPE_WEBHOOK_SECRET_PREVIOUS?.trim()
+        ? { webhookSecretPrevious: process.env.STRIPE_WEBHOOK_SECRET_PREVIOUS.trim() }
+        : {}),
+      connectWebhookSecret: strEnv('STRIPE_CONNECT_WEBHOOK_SECRET', ''),
+      ...(process.env.STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS?.trim()
+        ? {
+            connectWebhookSecretPrevious:
+              process.env.STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS.trim(),
+          }
+        : {}),
+      livemode: strEnv('STRIPE_SECRET_KEY', '').startsWith('sk_live_'),
+      sellerCountries: Object.freeze(resolveStripeSellerCountries()),
+      eventMaxAttempts: intEnv('STRIPE_EVENT_MAX_ATTEMPTS', 8),
+      eventBatchSize: intEnv('STRIPE_EVENT_BATCH_SIZE', 50),
+      eventPollIntervalMs: intEnv('STRIPE_EVENT_POLL_INTERVAL_MS', 5_000),
+      eventLeaseMs: intEnv('STRIPE_EVENT_LEASE_MS', 60_000),
+    }),
   }),
   postgres: Object.freeze({
     // Spread-when-present, like `crowdSource.baseUrl` above: the property is

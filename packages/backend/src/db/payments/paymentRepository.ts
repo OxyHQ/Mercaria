@@ -14,7 +14,7 @@
  * one safely.
  */
 
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import type {
   CurrencyCode,
@@ -295,6 +295,9 @@ export interface RecordProviderEventInput {
   receivedAt?: Date;
 }
 
+/** Longest stored processing note — matches the column's CHECK. */
+const MAX_NOTE_LENGTH = 2_000;
+
 /** The outcome of storing an inbound event. */
 export interface RecordedProviderEvent {
   row: PaymentProviderEventRow;
@@ -314,6 +317,7 @@ export async function recordProviderEvent(
   db: DatabaseOrTransaction,
   input: RecordProviderEventInput,
 ): Promise<RecordedProviderEvent> {
+  const receivedAt = input.receivedAt ?? new Date();
   const inserted = await db
     .insert(paymentProviderEvents)
     .values({
@@ -324,7 +328,11 @@ export async function recordProviderEvent(
       livemode: input.livemode,
       objectIds: input.objectIds,
       payloadSummary: input.payloadSummary,
-      receivedAt: input.receivedAt ?? new Date(),
+      receivedAt,
+      // Due immediately. The row IS the job (#48), so a freshly stored event is
+      // claimable the moment it commits — by the ingress, inline, or by any
+      // task's poller if that one dies first.
+      nextAttemptAt: receivedAt,
       expiresAt: input.expiresAt,
       ...(input.providerAccountId ? { providerAccountId: input.providerAccountId } : {}),
       ...(input.apiVersion ? { apiVersion: input.apiVersion } : {}),
@@ -372,7 +380,13 @@ export async function findProviderEvent(
 export async function markProviderEvent(
   db: DatabaseOrTransaction,
   eventId: string,
-  update: { status: ProviderEventStatus; paymentId?: string; lastError?: string },
+  update: {
+    status: ProviderEventStatus;
+    paymentId?: string;
+    lastError?: string;
+    /** What this version DID, when what it did was not to apply the event. */
+    processingNote?: string;
+  },
 ): Promise<void> {
   await db
     .update(paymentProviderEvents)
@@ -381,9 +395,279 @@ export async function markProviderEvent(
       updatedAt: new Date(),
       ...(update.status === 'processed' ? { processedAt: new Date() } : {}),
       ...(update.paymentId ? { paymentId: update.paymentId } : {}),
-      ...(update.lastError ? { lastError: update.lastError.slice(0, 2_000) } : {}),
+      ...(update.lastError ? { lastError: update.lastError.slice(0, MAX_NOTE_LENGTH) } : {}),
+      ...(update.processingNote
+        ? { processingNote: update.processingNote.slice(0, MAX_NOTE_LENGTH) }
+        : {}),
     })
     .where(eq(paymentProviderEvents.id, eventId));
+}
+
+/** One stored event by Mercaria's own id — the replay and trace read. */
+export async function findProviderEventById(
+  db: DatabaseOrTransaction,
+  eventId: string,
+): Promise<PaymentProviderEventRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(paymentProviderEvents)
+    .where(eq(paymentProviderEvents.id, eventId))
+    .limit(1);
+  return row;
+}
+
+/** Options for claiming an inbound event to process. */
+export interface ClaimProviderEventOptions {
+  leaseOwner: string;
+  leaseMs: number;
+  /** Claim this ONE row if it is due, instead of the oldest — the inline path. */
+  eventId?: string;
+  now?: Date;
+}
+
+/**
+ * Atomically claim one inbound event for processing.
+ *
+ * The same two-branch claim `claimPaymentOutboxEvent` uses, against the same
+ * `for update skip locked` shape, so N tasks drain the event stream concurrently
+ * without contending and a dead task's lease is reclaimed rather than stranding
+ * an event nobody will ever interpret:
+ *
+ *  - work that has never been processed (`received`) or failed retryably
+ *    (`failed`) and whose backoff has elapsed;
+ *  - work stuck in `processing` whose lease has expired.
+ *
+ * `coalesce(next_attempt_at, received_at)` is what lets a row written before #48
+ * added the column be claimed at all — a NULL there means "due since it
+ * arrived", which is the honest reading of an event that was received and never
+ * interpreted.
+ *
+ * Ordered by `received_at` so the oldest goes first: an event stream that
+ * processed its newest arrivals first would starve its own head under load,
+ * which for a payment stream means the oldest unfunded order waits longest.
+ */
+export async function claimProviderEvent(
+  db: DatabaseOrTransaction,
+  options: ClaimProviderEventOptions,
+): Promise<PaymentProviderEventRow | undefined> {
+  const now = options.now ?? new Date();
+  const leaseUntil = new Date(now.getTime() + Math.max(1_000, options.leaseMs));
+
+  const due = or(
+    and(
+      inArray(paymentProviderEvents.status, ['received', 'failed']),
+      // The bound is an ISO STRING with an explicit cast, not a `Date`. A raw
+      // `sql` fragment has no column to borrow a type mapper from, so a `Date`
+      // interpolated here reaches postgres.js verbatim and the driver rejects
+      // it ("The 'string' argument must be of type string … Received an
+      // instance of Date") — a runtime failure of the claim query only, which
+      // reads as "events are never processed" rather than as a type error.
+      sql`coalesce(${paymentProviderEvents.nextAttemptAt}, ${paymentProviderEvents.receivedAt}) <= ${now.toISOString()}::timestamptz`,
+    ),
+    and(
+      eq(paymentProviderEvents.status, 'processing'),
+      isNotNull(paymentProviderEvents.leaseUntil),
+      lte(paymentProviderEvents.leaseUntil, now),
+    ),
+  );
+
+  const candidate = db
+    .select({ id: paymentProviderEvents.id })
+    .from(paymentProviderEvents)
+    .where(options.eventId ? and(eq(paymentProviderEvents.id, options.eventId), due) : due)
+    .orderBy(paymentProviderEvents.receivedAt)
+    .limit(1)
+    .for('update', { skipLocked: true });
+
+  const [row] = await db
+    .update(paymentProviderEvents)
+    .set({
+      status: 'processing',
+      leaseOwner: options.leaseOwner,
+      leaseUntil,
+      attempts: sql`${paymentProviderEvents.attempts} + 1`,
+      lastError: null,
+      updatedAt: now,
+    })
+    .where(eq(paymentProviderEvents.id, sql`(${candidate})`))
+    .returning();
+  return row;
+}
+
+/** What finishing an event records beside its terminal status. */
+export interface CompleteProviderEventInput {
+  eventId: string;
+  leaseOwner: string;
+  /** The payment it resolved to, when it resolved to one. */
+  paymentId?: string;
+  /** Why it was not APPLIED, when it was not — the seam marker. */
+  processingNote?: string;
+  now?: Date;
+}
+
+/**
+ * Mark a claimed event `processed`, if this caller still owns the lease.
+ *
+ * The owner check is not what makes processing safe — every effect an event
+ * handler has is idempotent by compare-and-swap, so a second task reprocessing a
+ * reclaimed row changes nothing. It is what stops a task whose lease expired
+ * mid-handler from marking work done that another task is still doing, which
+ * would leave the SECOND task's failure with no row to record itself against.
+ */
+export async function completeProviderEvent(
+  db: DatabaseOrTransaction,
+  input: CompleteProviderEventInput,
+): Promise<boolean> {
+  const now = input.now ?? new Date();
+  const updated = await db
+    .update(paymentProviderEvents)
+    .set({
+      status: 'processed',
+      processedAt: now,
+      leaseOwner: null,
+      leaseUntil: null,
+      lastError: null,
+      updatedAt: now,
+      ...(input.paymentId ? { paymentId: input.paymentId } : {}),
+      // Written unconditionally, NULL included: a replay that succeeds cleanly
+      // must clear the note its dead-lettered attempt left, or the trace keeps
+      // claiming a deferral that no longer describes what happened.
+      processingNote: input.processingNote?.slice(0, MAX_NOTE_LENGTH) ?? null,
+    })
+    .where(ownedEventLease(input.eventId, input.leaseOwner, now))
+    .returning({ id: paymentProviderEvents.id });
+  return updated.length === 1;
+}
+
+/** Release a failed claim with backoff, or dead-letter it. */
+export async function failProviderEvent(
+  db: DatabaseOrTransaction,
+  input: {
+    eventId: string;
+    leaseOwner: string;
+    error: string;
+    deadLetter: boolean;
+    nextAttemptAt: Date;
+    paymentId?: string;
+    now?: Date;
+  },
+): Promise<boolean> {
+  const now = input.now ?? new Date();
+  const status: ProviderEventStatus = input.deadLetter ? 'dead_letter' : 'failed';
+  const updated = await db
+    .update(paymentProviderEvents)
+    .set({
+      status,
+      // A dead letter is not waiting for a clock, it is waiting for a person
+      // (`replayProviderEvent`), so it carries no future attempt time — and
+      // because the claim's `failed` branch never matches `dead_letter`, nothing
+      // picks it up again on its own.
+      nextAttemptAt: input.deadLetter ? null : input.nextAttemptAt,
+      lastError: input.error.slice(0, MAX_NOTE_LENGTH),
+      leaseOwner: null,
+      leaseUntil: null,
+      updatedAt: now,
+      ...(input.paymentId ? { paymentId: input.paymentId } : {}),
+    })
+    .where(ownedEventLease(input.eventId, input.leaseOwner, now))
+    .returning({ id: paymentProviderEvents.id });
+  return updated.length === 1;
+}
+
+/**
+ * Make a dead-lettered or failed event claimable again, right now.
+ *
+ * The durable half of replay (#48 security and operations 9). It resets only
+ * WHEN the row may be claimed — never `attempts`, and never the stored envelope
+ * — so the trace still shows how many times it had already been tried and what
+ * it failed with. A replay that erased that would let the same event be replayed
+ * indefinitely with nothing recording that anyone had.
+ *
+ * @returns `false` when the event is not in a replayable state — `processing`
+ *   (another task holds it) or already `processed` (there is nothing to redo).
+ */
+export async function reopenProviderEvent(
+  db: DatabaseOrTransaction,
+  eventId: string,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const updated = await db
+    .update(paymentProviderEvents)
+    .set({ status: 'failed', nextAttemptAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(paymentProviderEvents.id, eventId),
+        inArray(paymentProviderEvents.status, ['failed', 'dead_letter']),
+      ),
+    )
+    .returning({ id: paymentProviderEvents.id });
+  return updated.length === 1;
+}
+
+/** What the health surface reports about inbound event processing. */
+export interface ProviderEventStats {
+  /** Stored and not yet interpreted — `received`, `processing` or `failed`. */
+  readonly pending: number;
+  /** Retryable failures waiting on backoff. */
+  readonly failed: number;
+  /** Events that will not be processed without a person. */
+  readonly deadLetter: number;
+  /** When the oldest unprocessed event arrived; `null` when there is none. */
+  readonly oldestUnprocessedAt: string | null;
+  /** How far behind the stream is, in seconds. `0` when nothing is pending. */
+  readonly lagSeconds: number;
+}
+
+/**
+ * Count what is outstanding for one provider, in ONE query.
+ *
+ * One query rather than four, because these numbers are read together on every
+ * health probe and four round trips against a table this size is three too many
+ * — and because counts taken at four different instants can contradict each
+ * other (a row moving between two of them is counted twice or not at all),
+ * which reads as a bug in whatever is watching them.
+ */
+export async function providerEventStats(
+  db: DatabaseOrTransaction,
+  provider: PaymentProviderId,
+  now: Date = new Date(),
+): Promise<ProviderEventStats> {
+  const [row] = await db
+    .select({
+      pending: sql<string>`count(*) filter (where ${paymentProviderEvents.status} in ('received', 'processing', 'failed'))`,
+      failed: sql<string>`count(*) filter (where ${paymentProviderEvents.status} = 'failed')`,
+      deadLetter: sql<string>`count(*) filter (where ${paymentProviderEvents.status} = 'dead_letter')`,
+      oldest: sql<
+        Date | null
+      >`min(${paymentProviderEvents.receivedAt}) filter (where ${paymentProviderEvents.status} in ('received', 'processing', 'failed'))`,
+    })
+    .from(paymentProviderEvents)
+    .where(eq(paymentProviderEvents.provider, provider));
+
+  const oldest = row?.oldest ?? null;
+  return {
+    pending: Number(row?.pending ?? 0),
+    failed: Number(row?.failed ?? 0),
+    deadLetter: Number(row?.deadLetter ?? 0),
+    oldestUnprocessedAt: oldest === null ? null : new Date(oldest).toISOString(),
+    lagSeconds:
+      oldest === null ? 0 : Math.max(0, Math.round((now.getTime() - new Date(oldest).getTime()) / 1_000)),
+  };
+}
+
+/**
+ * "This event, in `processing`, leased by me, and the lease has not expired."
+ *
+ * The same guard `payment_outboxes` uses, so a dispatcher whose lease was
+ * reclaimed mid-flight cannot record an outcome for work another task now owns.
+ */
+function ownedEventLease(eventId: string, leaseOwner: string, now: Date) {
+  return and(
+    eq(paymentProviderEvents.id, eventId),
+    eq(paymentProviderEvents.status, 'processing'),
+    eq(paymentProviderEvents.leaseOwner, leaseOwner),
+    gt(paymentProviderEvents.leaseUntil, now),
+  );
 }
 
 /** Every stored event that resolved to one payment, newest first. */
@@ -443,6 +727,57 @@ export async function createOrGetTransfer(
       `Transfer for payment ${input.paymentId} order ${input.orderId} could not be read back.`,
     );
   }
+  return row;
+}
+
+/**
+ * The transfer a provider's own object id names, if Mercaria made one.
+ *
+ * `undefined` is an ORDINARY answer, not a failure: until #47 creates transfers,
+ * every `transfer.*` event Stripe delivers is about a transfer no row exists
+ * for, and the ingress records that as a deferral rather than as an error.
+ */
+export async function findTransferByProviderObjectId(
+  db: DatabaseOrTransaction,
+  provider: PaymentProviderId,
+  providerObjectId: string,
+): Promise<TransferRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(transfers)
+    .where(and(eq(transfers.provider, provider), eq(transfers.providerObjectId, providerObjectId)))
+    .limit(1);
+  return row;
+}
+
+/**
+ * Refresh a transfer's lifecycle state from what the provider now reports.
+ *
+ * Status and reversed amount only — never the amount, the payment or the order,
+ * which are Mercaria's own decisions and not the provider's to restate. A
+ * provider event is evidence about where a transfer GOT to, not about what it
+ * was for.
+ *
+ * The reversed amount only ever moves FORWARD (`greatest(current, reported)`).
+ * Reversals are cumulative and their events are not ordered, so a late
+ * `transfer.updated` carrying an earlier total would otherwise walk the figure
+ * backwards and make a fully-reversed transfer look partially reversed again.
+ */
+export async function updateTransferFromProvider(
+  db: DatabaseOrTransaction,
+  input: { transferId: string; status: TransferStatus; reversedAmount?: number },
+): Promise<TransferRow | undefined> {
+  const [row] = await db
+    .update(transfers)
+    .set({
+      status: input.status,
+      updatedAt: new Date(),
+      ...(input.reversedAmount === undefined
+        ? {}
+        : { reversedAmount: sql`greatest(${transfers.reversedAmount}, ${input.reversedAmount})` }),
+    })
+    .where(eq(transfers.id, input.transferId))
+    .returning();
   return row;
 }
 
