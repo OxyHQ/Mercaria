@@ -88,3 +88,6 @@ export * from './integration';
 // Abuse-report + CrowdSource moderation DTOs (AbuseReport, ModerationEnforcementAction, …).
 // NOTE: unrelated to `./report` above, which is the store SALES ANALYTICS surface.
 export * from './moderation';
+
+// Payment reconciliation, discrepancy and operator-repair vocabulary (#50).
+export * from './reconciliation';

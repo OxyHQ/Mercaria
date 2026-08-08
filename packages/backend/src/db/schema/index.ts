@@ -20,6 +20,8 @@
  * columns, and everything else follows from those two. It is not alphabetical,
  * and reordering it into alphabetical order would create a cycle. `ledger`
  * follows `payments` for the same reason — its transactions reference a payment.
+ * `reconciliation` follows both: it is what NOTICED something wrong with them,
+ * and its repair rows reference the discrepancies they answer.
  */
 export * from './stores';
 export * from './connectors';
@@ -28,6 +30,7 @@ export * from './merchandising';
 export * from './orders';
 export * from './payments';
 export * from './ledger';
+export * from './reconciliation';
 export * from './pos';
 export * from './buyers';
 export * from './notifications';

@@ -331,6 +331,42 @@ export async function retrieveStripeTransfer(transferId: string): Promise<Stripe
 }
 
 /**
+ * Read one bounded page of the platform's BALANCE TRANSACTIONS.
+ *
+ * The reconciliation sweep's single window onto Stripe (#50, jobs 2 and 3), and
+ * one list rather than five deliberately. Stripe exposes `charges.list`,
+ * `refunds.list`, `transfers.list` and `payouts.list` separately, and sweeping
+ * them all would be four cursors, four windows and four ways to be half done.
+ * Every one of those objects also produces a balance transaction, and the
+ * balance transaction is the only place Stripe states the movement in the
+ * PLATFORM's own settlement currency — which is the currency Mercaria's ledger
+ * and transfers are denominated in, so it is the only figure a comparison
+ * against those rows can honestly use.
+ *
+ * `expand: ['data.source']` is what makes one call enough: without it a `charge`
+ * row carries `ch_…` and nothing else, and correlating it to a Mercaria payment
+ * would need a second retrieve per charge to reach its `payment_intent`. One
+ * expansion per PAGE against one per OBJECT is the difference between a sweep
+ * that fits in a rate limit and one that does not.
+ *
+ * @param startingAfter The id of the last balance transaction of the previous
+ *   page — Stripe's own cursor, persisted in `reconciliation_cursors` so an
+ *   interrupted pass resumes instead of restarting.
+ */
+export async function listStripeBalanceTransactions(input: {
+  createdGte: Date;
+  limit: number;
+  startingAfter?: string;
+}): Promise<Stripe.ApiList<Stripe.BalanceTransaction>> {
+  return await getStripeClient().balanceTransactions.list({
+    created: { gte: Math.floor(input.createdGte.getTime() / 1_000) },
+    limit: input.limit,
+    expand: ['data.source'],
+    ...(input.startingAfter === undefined ? {} : { starting_after: input.startingAfter }),
+  });
+}
+
+/**
  * Create a connected account.
  *
  * The parameters are built by `account.service.ts` and passed through verbatim,

@@ -42,6 +42,7 @@ import reportsRouter from './routes/reports.js';
 import crowdSourceWebhookRouter from './routes/crowdsource-webhook.js';
 import stripeWebhookRouter from './routes/stripe-webhook.js';
 import stripeOnboardingRouter from './routes/stripe-onboarding.js';
+import internalPaymentsRouter from './routes/internal-payments.js';
 import { config } from './config/index.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
 
@@ -187,6 +188,21 @@ export function createApp(): express.Express {
   if (config.payments.stripe.enabled) {
     app.use('/stripe/onboarding', stripeOnboardingRouter);
   }
+  // The platform operator surface (#50). Mounted OUTSIDE `/admin` deliberately:
+  // that whole tree is scoped to one store by `loadStore` + `requireStorePermission`,
+  // and this reads across every store and every P2P seller — so there is no
+  // store whose membership could authorize it, and putting it there would leave
+  // a platform-wide read one forgotten permission check away from a merchant
+  // session. Issue #50: operator tooling must not be reachable through the
+  // merchant dashboard.
+  //
+  // The MOUNT is gated on the allow-list being non-empty, so a deployment with
+  // no operators answers 404 rather than 401 — the same rule the Stripe routes
+  // above follow, because a 401 would tell an unauthenticated caller that an
+  // operator surface exists here.
+  if (config.payments.operatorSurfaceEnabled) {
+    app.use('/internal/payments', internalPaymentsRouter);
+  }
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -217,6 +233,11 @@ export function createApp(): express.Express {
         '/channels/ingest',
         '/channels/webhooks',
         '/stripe/onboarding',
+        // `/internal/payments` is deliberately ABSENT, and this is not an
+        // oversight to correct: this list is public and unauthenticated, and the
+        // operator surface answers 404 on a deployment with no operators
+        // precisely so its existence is not discoverable. Advertising it here
+        // would undo that in the one place nobody thinks to look.
       ]
     });
   });

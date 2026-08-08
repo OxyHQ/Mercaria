@@ -227,6 +227,36 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'pointer is written by a later step and must not be able to fail the commerce write.',
   },
 
+  // ── Reconciliation correlations (#50) ─────────────────────────────────────
+  //
+  // The sharpest instance of the rule above, and the reason it is restated
+  // rather than assumed: the whole point of `payment_missing_locally` is a
+  // provider object with NO Mercaria payment behind it. A constraint on
+  // `payment_discrepancies.payment_id` would be satisfiable only by the findings
+  // least worth recording, and money the rail holds that Mercaria cannot explain
+  // — the one a reconciliation job exists to surface — would be the row the
+  // database refused to write.
+  { column: 'payment_discrepancies.payment_id', reason: PAYMENT_CORRELATION },
+  { column: 'payment_discrepancies.order_id', reason: PAYMENT_CORRELATION },
+  { column: 'payment_repairs.payment_id', reason: PAYMENT_CORRELATION },
+  { column: 'payment_repairs.order_id', reason: PAYMENT_CORRELATION },
+  {
+    column: 'payment_repairs.ledger_transaction_id',
+    reason:
+      'The correcting transaction a repair booked, named for the audit trail. Unconstrained ' +
+      'so a repair record survives independently of the ledger it describes — the same rule ' +
+      'every payment correlation follows, and the ledger is the one table nothing may delete ' +
+      'from anyway.',
+  },
+  { column: 'payment_discrepancies.provider_object_id', reason: PROVIDER_OBJECT },
+  { column: 'payment_repairs.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'payment_discrepancies.checkout_group_id',
+    reason:
+      'The same grouping token `payments.checkout_group_id` carries; there is no ' +
+      'checkout_groups entity to point at.',
+  },
+
   // ── Provider key spaces: ids a payment rail mints, never Mercaria ─────────
   { column: 'payments.provider_object_id', reason: PROVIDER_OBJECT },
   { column: 'payment_attempts.provider_object_id', reason: PROVIDER_OBJECT },

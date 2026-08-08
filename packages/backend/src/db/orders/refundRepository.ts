@@ -230,7 +230,26 @@ export async function claimRefundProviderObject(
  */
 export async function applyRefundProviderState(
   db: DatabaseOrTransaction,
-  input: { refundId: string; providerState: RefundProviderState; failureCode?: string },
+  input: {
+    refundId: string;
+    providerState: RefundProviderState;
+    failureCode?: string;
+    /**
+     * Wipe the failure code this refund is carrying.
+     *
+     * For #50's `retry_provider_refund` repair, and it is an explicit option
+     * rather than something derived from `providerState === 'pending'` because
+     * only ONE caller means it. A rail reporting a refund back to `pending` on
+     * its own is telling Mercaria about the money, not about a stale failure —
+     * clearing the code there would erase why the previous attempt was refused,
+     * which is the field the runbook tells an operator to read FIRST.
+     *
+     * The repair means it for the opposite reason: an operator has read that
+     * code, decided the condition has passed, and is re-issuing. Leaving it
+     * would show a merchant a failure code for a refund that is now in flight.
+     */
+    clearFailureCode?: boolean;
+  },
 ): Promise<RefundRow | undefined> {
   const [row] = await db
     .update(refunds)
@@ -238,6 +257,7 @@ export async function applyRefundProviderState(
       providerState: input.providerState,
       updatedAt: new Date(),
       ...(input.failureCode ? { providerFailureCode: input.failureCode } : {}),
+      ...(input.clearFailureCode ? { providerFailureCode: null } : {}),
     })
     .where(
       and(

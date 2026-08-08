@@ -202,6 +202,136 @@ export async function findPaymentByProviderObjectId(
 }
 
 /** What a status transition may write beside the status itself. */
+/**
+ * The statuses a payment can still legitimately move ON from.
+ *
+ * `failed` is in the set and that is the point: a declined card is retried, so a
+ * failed payment can still become a succeeded one — and "Stripe says paid,
+ * Mercaria says failed" is precisely the discrepancy #50's jobs 4 exists to
+ * catch. Leaving it out would make the sweep blind to the case where the
+ * evidence a webhook lost was the SECOND attempt.
+ *
+ * `canceled`, `refunded` and `partially_refunded` are excluded: money that has
+ * come back does not go out again under one payment, so a rail disagreeing about
+ * one of those is a different (and much rarer) finding than an open payment
+ * whose outcome nobody recorded.
+ */
+const RECONCILABLE_OPEN_STATUSES: readonly PaymentStatus[] = [
+  'created',
+  'requires_action',
+  'processing',
+  'failed',
+];
+
+/**
+ * One page of payments whose outcome Mercaria has not recorded.
+ *
+ * Keyset-paginated by `id` and not by `created_at`, which needs saying because
+ * `CONVENTIONS.md` requires a keyset feed's ORDER BY to be an index and this one
+ * is served by the primary key instead. Two reasons make that the right trade
+ * here: ids are uuid v7, so `id` ASC and `created_at` ASC are the same order for
+ * every row this ever returns, and a single-column cursor is a string a
+ * `reconciliation_cursors` row can hold and resume from without the tuple
+ * comparison a `(created_at, id)` keyset would need.
+ *
+ * The status filter is the selective one anyway — in a healthy deployment the
+ * whole result set is a handful of rows, and if it is not, that is the alert
+ * rather than a missing index.
+ */
+export async function findOpenPaymentsForReconciliation(
+  db: DatabaseOrTransaction,
+  input: {
+    provider: PaymentProviderId;
+    /** Only payments older than this — younger ones are buyers still paying. */
+    createdBefore: Date;
+    /** The last id of the previous page, for a resumed pass. */
+    afterId?: string;
+    limit: number;
+  },
+): Promise<PaymentRow[]> {
+  return await db
+    .select()
+    .from(payments)
+    .where(
+      and(
+        eq(payments.provider, input.provider),
+        inArray(payments.status, [...RECONCILABLE_OPEN_STATUSES]),
+        lte(payments.createdAt, input.createdBefore),
+        ...(input.afterId ? [gt(payments.id, input.afterId)] : []),
+      ),
+    )
+    .orderBy(payments.id)
+    .limit(input.limit);
+}
+
+/**
+ * One page of payments that SUCCEEDED, for the ledger audit's absence check.
+ *
+ * The three statuses are the ones a booked charge can be in: `succeeded`, and
+ * the two a later refund moves it to. A payment that has been refunded still had
+ * a `charge_succeeded` transaction written when it succeeded, so its absence is
+ * the same finding.
+ */
+export async function findSettledPaymentsForReconciliation(
+  db: DatabaseOrTransaction,
+  input: {
+    providers: readonly PaymentProviderId[];
+    createdBefore: Date;
+    afterId?: string;
+    limit: number;
+  },
+): Promise<PaymentRow[]> {
+  if (input.providers.length === 0) return [];
+  return await db
+    .select()
+    .from(payments)
+    .where(
+      and(
+        inArray(payments.provider, [...input.providers]),
+        inArray(payments.status, ['succeeded', 'partially_refunded', 'refunded']),
+        lte(payments.createdAt, input.createdBefore),
+        ...(input.afterId ? [gt(payments.id, input.afterId)] : []),
+      ),
+    )
+    .orderBy(payments.id)
+    .limit(input.limit);
+}
+
+/** Payment counts by provider, currency and status — issue #50's metric 1. */
+export async function paymentCountsByStatus(
+  db: DatabaseOrTransaction,
+): Promise<{ provider: string; currency: string; status: string; total: number }[]> {
+  return await db
+    .select({
+      provider: payments.provider,
+      currency: payments.presentmentCurrency,
+      status: payments.status,
+      total: sql<number>`count(*)::int`,
+    })
+    .from(payments)
+    .groupBy(payments.provider, payments.presentmentCurrency, payments.status);
+}
+
+/** Transfer counts by status — issue #50's metric 7, the settlement half. */
+export async function transferCountsByStatus(
+  db: DatabaseOrTransaction,
+): Promise<{ status: string; total: number }[]> {
+  return await db
+    .select({ status: transfers.status, total: sql<number>`count(*)::int` })
+    .from(transfers)
+    .groupBy(transfers.status);
+}
+
+/** Payout counts by status — issue #50's metric 7, the payout half. */
+export async function payoutCountsByStatus(
+  db: DatabaseOrTransaction,
+): Promise<{ status: string; total: number }[]> {
+  return await db
+    .select({ status: payouts.status, total: sql<number>`count(*)::int` })
+    .from(payouts)
+    .groupBy(payouts.status);
+}
+
 export interface PaymentTransitionFields {
   providerObjectId?: string;
   platform?: { amount: Money; rate: FxRateSnapshot };
@@ -924,6 +1054,27 @@ export async function upsertPayout(
   if (!row) {
     throw new Error(`Payout ${input.provider}/${input.providerObjectId} was not written.`);
   }
+  return row;
+}
+
+/**
+ * One payout by the rail's own id.
+ *
+ * The reconciliation sweep's lookup (#50, jobs 2): a `payout` balance
+ * transaction names `po_…` and the question is whether Mercaria has a row for
+ * it. `UNIQUE(provider, provider_object_id)` is what makes this a single-row
+ * read, and it is the same index a redelivered `payout.paid` converges on.
+ */
+export async function findPayoutByProviderObjectId(
+  db: DatabaseOrTransaction,
+  provider: PaymentProviderId,
+  providerObjectId: string,
+): Promise<PayoutRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(payouts)
+    .where(and(eq(payouts.provider, provider), eq(payouts.providerObjectId, providerObjectId)))
+    .limit(1);
   return row;
 }
 

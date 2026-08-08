@@ -154,6 +154,21 @@ connectPostgres()
         .then(({ startStripeAccountReconciler }) => startStripeAccountReconciler())
         .catch((err) => log.general.error({ err }, 'Stripe account reconciler import failed'));
 
+      // Compare Mercaria's payments, transfers, refunds, payouts and ledger
+      // against what the rail actually holds (#50). Webhooks are the normal
+      // event path and are not a substitute for this: an event that was never
+      // delivered is invisible to everything that waits to be told, which is why
+      // ADR 0001's operational appendix makes reconciliation a requirement
+      // rather than a nicety.
+      //
+      // On EVERY task, like the dispatchers, but leased per JOB — these sweeps
+      // page through a provider list with a shared cursor, so unlike an account
+      // sync two tasks running one concurrently would each skip the pages the
+      // other consumed. No-ops entirely when Stripe is not configured.
+      import('./services/payments/reconciliation/runner.js')
+        .then(({ startPaymentReconciler }) => startPaymentReconciler())
+        .catch((err) => log.general.error({ err }, 'Payment reconciler import failed'));
+
       // Reap expired rows. Postgres has no TTL index, so nothing sweeps unless
       // this loop does — without it the tables in `db/expiryTargets.ts` grow
       // forever, with no error and no failing test.
@@ -234,6 +249,10 @@ connectPostgres()
           './services/payments/stripe/account-reconciler.js'
         );
         stopStripeAccountReconciler();
+        const { stopPaymentReconciler } = await import(
+          './services/payments/reconciliation/runner.js'
+        );
+        stopPaymentReconciler();
         stopExpirySweeper();
         log.general.info('Background loops stopped');
 
