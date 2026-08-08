@@ -22,9 +22,9 @@ vi.mock('../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
 }));
 
-const storeExists = vi.fn();
-vi.mock('../models/store.js', () => ({
-  Store: { exists: (...args: unknown[]) => storeExists(...args) },
+const findStoreMember = vi.fn();
+vi.mock('../db/stores/storeRepository.js', () => ({
+  findStoreMember: (...args: unknown[]) => findStoreMember(...args),
 }));
 
 import { authorizeAndJoinStore } from '../socket.js';
@@ -38,30 +38,24 @@ beforeEach(() => {
 
 describe('authorizeAndJoinStore', () => {
   it('joins the store room when the caller is a member', async () => {
-    storeExists.mockResolvedValue({ _id: VALID_STORE_ID });
+    findStoreMember.mockResolvedValue({ storeId: VALID_STORE_ID, oxyUserId: 'user-1' });
     const join = vi.fn().mockResolvedValue(undefined);
 
     const joined = await authorizeAndJoinStore({ join }, 'user-1', VALID_STORE_ID);
 
     expect(joined).toBe(true);
-    expect(storeExists).toHaveBeenCalledWith({
-      _id: VALID_STORE_ID,
-      'members.oxyUserId': 'user-1',
-    });
+    expect(findStoreMember).toHaveBeenCalledWith(VALID_STORE_ID, 'user-1');
     expect(join).toHaveBeenCalledWith(`store:${VALID_STORE_ID}`);
   });
 
   it('rejects a NON-member and never joins the room', async () => {
-    storeExists.mockResolvedValue(null);
+    findStoreMember.mockResolvedValue(null);
     const join = vi.fn();
 
     const joined = await authorizeAndJoinStore({ join }, 'intruder', VALID_STORE_ID);
 
     expect(joined).toBe(false);
-    expect(storeExists).toHaveBeenCalledWith({
-      _id: VALID_STORE_ID,
-      'members.oxyUserId': 'intruder',
-    });
+    expect(findStoreMember).toHaveBeenCalledWith(VALID_STORE_ID, 'intruder');
     expect(join).not.toHaveBeenCalled();
   });
 
@@ -71,17 +65,22 @@ describe('authorizeAndJoinStore', () => {
     const joined = await authorizeAndJoinStore({ join }, 'user-1', 'not-an-objectid');
 
     expect(joined).toBe(false);
-    expect(storeExists).not.toHaveBeenCalled();
+    expect(findStoreMember).not.toHaveBeenCalled();
     expect(join).not.toHaveBeenCalled();
   });
 
+  // The Mongo version of this guard fed `rawStoreId` straight into a filter, so
+  // an object like `{$ne: null}` was a query OPERATOR and matched any store. A
+  // parameterised repository call cannot be smuggled that way, but the guard is
+  // kept and so is this test: the type check is the reason it cannot, and
+  // deleting the assertion is how a future refactor reintroduces the hole.
   it('rejects a non-string store id (client cannot smuggle an object filter)', async () => {
     const join = vi.fn();
 
     const joined = await authorizeAndJoinStore({ join }, 'user-1', { $ne: null });
 
     expect(joined).toBe(false);
-    expect(storeExists).not.toHaveBeenCalled();
+    expect(findStoreMember).not.toHaveBeenCalled();
     expect(join).not.toHaveBeenCalled();
   });
 });

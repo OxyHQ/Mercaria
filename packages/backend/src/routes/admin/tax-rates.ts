@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import { createTaxRateSchema, updateTaxRateSchema } from '../../middleware/schemas.js';
 import {
@@ -29,14 +29,14 @@ router.post(
 router.patch(
   '/:id',
   requireStorePermission('settings:write'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(updateTaxRateSchema),
   patchStoreTaxRate,
 );
 router.delete(
   '/:id',
   requireStorePermission('settings:write'),
-  validateObjectId('id'),
+  validateId('id'),
   deleteStoreTaxRate,
 );
 

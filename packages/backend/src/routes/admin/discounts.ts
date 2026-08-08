@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import { createDiscountSchema, updateDiscountSchema } from '../../middleware/schemas.js';
 import {
@@ -27,18 +27,18 @@ router.post(
   validateBody(createDiscountSchema),
   createStoreDiscount,
 );
-router.get('/:id', requireStorePermission('products:read'), validateObjectId('id'), getStoreDiscount);
+router.get('/:id', requireStorePermission('products:read'), validateId('id'), getStoreDiscount);
 router.patch(
   '/:id',
   requireStorePermission('discounts:write'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(updateDiscountSchema),
   patchStoreDiscount,
 );
 router.delete(
   '/:id',
   requireStorePermission('discounts:write'),
-  validateObjectId('id'),
+  validateId('id'),
   deleteStoreDiscount,
 );
 

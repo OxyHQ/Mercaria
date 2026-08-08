@@ -27,8 +27,8 @@ vi.mock('../../models/seller-profile.js', () => ({
   SellerProfile: { find: (...args: unknown[]) => sellerProfileFind(...args) },
 }));
 
-vi.mock('../../models/store.js', () => ({
-  Store: { find: (...args: unknown[]) => storeFind(...args) },
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  findStoresByIds: (...args: unknown[]) => storeFind(...args),
 }));
 
 vi.mock('../oxy-user.service.js', () => ({
@@ -64,8 +64,13 @@ function leanOf<T>(value: T) {
 }
 
 /** The one store every fixture listing belongs to. */
+/**
+ * A store row as the REPOSITORY returns it — `id`, not `_id`, and a plain array
+ * rather than a Mongoose `.lean()` chain. Stores are served from Postgres now
+ * even on paths whose own domain is still Mongo.
+ */
 const STORE = {
-  _id: 'store-1',
+  id: 'store-1',
   handle: 'acme',
   name: 'Acme',
   brandColor: '#111111',
@@ -113,7 +118,7 @@ const SYNCED_SOURCE: IListingSource = {
 beforeEach(() => {
   variantFind.mockReset().mockReturnValue(sortLeanOf([]));
   sellerProfileFind.mockReset().mockReturnValue(leanOf([]));
-  storeFind.mockReset().mockReturnValue(leanOf([STORE]));
+  storeFind.mockReset().mockResolvedValue([STORE]);
   getProfiles.mockReset().mockResolvedValue(new Map());
   getFavoritedListingIds.mockReset().mockResolvedValue(new Set());
 });

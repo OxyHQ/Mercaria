@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { validateBody, validateObjectId } from '../middleware/validate.js';
+import { validateBody, validateId } from '../middleware/validate.js';
 import { feedbackSchema } from '../middleware/schemas.js';
 import {
   submitFeedback,
@@ -23,6 +23,6 @@ router.use(authenticateToken);
 
 router.post('/', makeRateLimiter('feedback'), validateBody(feedbackSchema), submitFeedback);
 router.get('/', makeRateLimiter('feedback'), listMyFeedback);
-router.get('/:id', makeRateLimiter('feedback'), validateObjectId('id'), getMyFeedback);
+router.get('/:id', makeRateLimiter('feedback'), validateId('id'), getMyFeedback);
 
 export default router;

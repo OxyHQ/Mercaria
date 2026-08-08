@@ -8,12 +8,13 @@
 
 import type { Request, Response } from 'express';
 import type { MerchantSummary, Listing, Pagination } from '@mercaria/shared-types';
-import { Store, type IStore } from '../models/store.js';
+import { findStoreByHandle } from '../db/stores/storeRepository.js';
 import { Listing as ListingModel, type IListing } from '../models/listing.js';
 import { hydrateListings, toMerchantSummary } from '../services/catalog-hydration.service.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError, notFound } from '../lib/errors/error-codes.js';
+import { routeParam } from '../utils/request.js';
 import { log } from '../lib/logger.js';
 
 /** Response shape for the public store page. */
@@ -25,14 +26,16 @@ interface StorePageResponse {
 
 /** GET /stores/:handle — public store page (merchant summary + active listings). */
 export async function getStoreByHandle(req: Request, res: Response): Promise<void> {
-  const handle = req.params.handle;
+  // `routeParam` rather than `req.params.handle`: Express types a param as
+  // `string | string[]`, and the repository takes a single handle.
+  const handle = routeParam(req, 'handle');
   try {
-    const store = await Store.findOne({ handle }).lean<IStore | null>();
+    const store = await findStoreByHandle(handle);
     if (!store || store.status === 'closed') {
       throw notFound('Store not found');
     }
 
-    const storeId = String((store as { _id: unknown })._id);
+    const storeId = store.id;
     const { page, limit } = parsePagination(req.query);
     const filter = { ownerType: 'store' as const, storeId, status: 'active' as const };
 

@@ -11,7 +11,7 @@
 
 import type { Request, Response } from 'express';
 import type { Collection as CollectionDTO, Listing, Pagination } from '@mercaria/shared-types';
-import { Store, type IStore } from '../models/store.js';
+import { findStoreByHandle, type StoreRecord } from '../db/stores/storeRepository.js';
 import type { ICollection } from '../models/collection.js';
 import {
   listCollections,
@@ -77,8 +77,8 @@ function toPublicCollectionDTO(collection: ICollection): CollectionDTO {
 }
 
 /** Resolve a public store by handle, else NOT_FOUND (closed stores are hidden). */
-async function resolvePublicStore(handle: string): Promise<IStore> {
-  const store = await Store.findOne({ handle }).lean<IStore | null>();
+async function resolvePublicStore(handle: string): Promise<StoreRecord> {
+  const store = await findStoreByHandle(handle);
   if (!store || store.status === 'closed') {
     throw notFound('Store not found');
   }
@@ -97,7 +97,7 @@ export async function listStorePublicCollections(req: Request, res: Response): P
   const handle = routeParam(req, 'handle');
   try {
     const store = await resolvePublicStore(handle);
-    const storeId = String((store as { _id: unknown })._id);
+    const storeId = store.id;
     const collections = await listCollections(storeId, { publishedOnly: true });
     sendSuccess(res, collections.map(toPublicCollectionDTO));
   } catch (err) {
@@ -112,7 +112,7 @@ export async function getStorePublicCollection(req: Request, res: Response): Pro
   const collectionHandle = routeParam(req, 'collectionHandle');
   try {
     const store = await resolvePublicStore(handle);
-    const storeId = String((store as { _id: unknown })._id);
+    const storeId = store.id;
 
     const collection = await getCollectionByHandle(storeId, collectionHandle, {
       publishedOnly: true,

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import { makeRateLimiter } from '../../lib/rate-limit.js';
 import {
@@ -40,7 +40,7 @@ router.post(
 router.post(
   '/:connectionId/ingest/products',
   requireStorePermission('channels:write'),
-  validateObjectId('connectionId'),
+  validateId('connectionId'),
   validateBody(ingestProductsSchema),
   ingestProductsHandler,
 );
@@ -48,7 +48,7 @@ router.post(
 router.post(
   '/:connectionId/ingest/inventory',
   requireStorePermission('channels:write'),
-  validateObjectId('connectionId'),
+  validateId('connectionId'),
   validateBody(ingestInventorySchema),
   ingestInventoryHandler,
 );

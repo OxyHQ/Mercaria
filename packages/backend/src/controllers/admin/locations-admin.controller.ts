@@ -14,7 +14,7 @@ import type {
   UpdateLocationInput,
   Location as LocationDTO,
 } from '@mercaria/shared-types';
-import type { ILocation } from '../../models/location.js';
+import type { LocationRecord } from '../../db/stores/locationRepository.js';
 import {
   listLocations,
   createLocation,
@@ -32,28 +32,44 @@ function storeId(req: Request): string {
   if (!store) {
     throw notFound('Store not loaded');
   }
-  return String((store as { _id: unknown })._id);
+  return store.id;
 }
 
-/** Serialize a location document to the `Location` DTO. */
-export function toLocationDTO(loc: ILocation): LocationDTO {
+/**
+ * Serialize a location row to the `Location` DTO.
+ *
+ * The embedded `address` sub-document became nine nullable columns, so "has an
+ * address" is no longer a truthy object test. `address_recipient_name` is the
+ * discriminator — it is one of the five fields the source sub-schema declared
+ * REQUIRED, so it is present for every address that was ever stored and NULL for
+ * every row that has none. Testing a genuinely optional column (`label`,
+ * `region`, `phone`) instead would drop a real address that simply left it out.
+ */
+export function toLocationDTO(loc: LocationRecord): LocationDTO {
+  const hasAddress =
+    loc.addressRecipientName !== null &&
+    loc.addressLine1 !== null &&
+    loc.addressCity !== null &&
+    loc.addressPostalCode !== null &&
+    loc.addressCountry !== null;
+
   return {
-    id: String((loc as { _id: unknown })._id),
+    id: loc.id,
     storeId: loc.storeId,
     name: loc.name,
     type: loc.type,
-    ...(loc.address
+    ...(hasAddress
       ? {
           address: {
-            ...(loc.address.label ? { label: loc.address.label } : {}),
-            recipientName: loc.address.recipientName,
-            line1: loc.address.line1,
-            ...(loc.address.line2 ? { line2: loc.address.line2 } : {}),
-            city: loc.address.city,
-            ...(loc.address.region ? { region: loc.address.region } : {}),
-            postalCode: loc.address.postalCode,
-            country: loc.address.country,
-            ...(loc.address.phone ? { phone: loc.address.phone } : {}),
+            ...(loc.addressLabel ? { label: loc.addressLabel } : {}),
+            recipientName: loc.addressRecipientName,
+            line1: loc.addressLine1,
+            ...(loc.addressLine2 ? { line2: loc.addressLine2 } : {}),
+            city: loc.addressCity,
+            ...(loc.addressRegion ? { region: loc.addressRegion } : {}),
+            postalCode: loc.addressPostalCode,
+            country: loc.addressCountry,
+            ...(loc.addressPhone ? { phone: loc.addressPhone } : {}),
           },
         }
       : {}),

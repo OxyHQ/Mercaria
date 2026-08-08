@@ -39,7 +39,7 @@ import {
   type ITaxLine,
 } from '../models/order.js';
 import { SellerProfile, type ISellerProfile } from '../models/seller-profile.js';
-import { Store, type IStore } from '../models/store.js';
+import { findStoresByIds, type StoreRow } from '../db/stores/storeRepository.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { resolveMedia, toMerchantSummary } from './catalog-hydration.service.js';
 
@@ -203,7 +203,7 @@ function toStatusEvent(event: IOrderStatusEvent): OrderStatusEvent {
 async function loadSellerContext(orders: IOrder[]): Promise<{
   oxyProfiles: Map<string, OxyProfile>;
   sellerProfileByUser: Map<string, ISellerProfile>;
-  storeById: Map<string, IStore>;
+  storeById: Map<string, StoreRow>;
 }> {
   const userSellerIds = [
     ...new Set(
@@ -223,8 +223,8 @@ async function loadSellerContext(orders: IOrder[]): Promise<{
       ? SellerProfile.find({ oxyUserId: { $in: userSellerIds } }).lean<ISellerProfile[]>()
       : Promise.resolve([] as ISellerProfile[]),
     storeIds.length > 0
-      ? Store.find({ _id: { $in: storeIds } }).lean<IStore[]>()
-      : Promise.resolve([] as IStore[]),
+      ? findStoresByIds(storeIds)
+      : Promise.resolve([] as StoreRow[]),
     getProfiles(userSellerIds),
   ]);
 
@@ -232,9 +232,9 @@ async function loadSellerContext(orders: IOrder[]): Promise<{
   for (const p of sellerProfileDocs) {
     sellerProfileByUser.set(String(p.oxyUserId), p);
   }
-  const storeById = new Map<string, IStore>();
+  const storeById = new Map<string, StoreRow>();
   for (const s of storeDocs) {
-    storeById.set(String((s as { _id: mongoose.Types.ObjectId })._id), s);
+    storeById.set(s.id, s);
   }
 
   return { oxyProfiles, sellerProfileByUser, storeById };

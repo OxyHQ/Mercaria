@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import {
   createCollectionSchema,
@@ -36,26 +36,26 @@ router.post(
 router.get(
   '/:id',
   requireStorePermission('products:read'),
-  validateObjectId('id'),
+  validateId('id'),
   getStoreCollection,
 );
 router.patch(
   '/:id',
   requireStorePermission('collections:write'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(updateCollectionSchema),
   patchStoreCollection,
 );
 router.delete(
   '/:id',
   requireStorePermission('collections:write'),
-  validateObjectId('id'),
+  validateId('id'),
   deleteStoreCollection,
 );
 router.post(
   '/:id/products',
   requireStorePermission('collections:write'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(setCollectionProductsSchema),
   setStoreCollectionProducts,
 );

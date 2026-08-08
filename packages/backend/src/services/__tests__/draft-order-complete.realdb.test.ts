@@ -26,6 +26,26 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 import { Types } from 'mongoose';
+import { eq } from 'drizzle-orm';
+import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
+import { stores } from '../../db/schema/stores.js';
+
+/**
+ * This test spans BOTH databases, and that is what the migration looks like
+ * mid-flight rather than an accident of the fixture.
+ *
+ * The POS draft order, its listing, its variant and its stock are all still
+ * Mongo. The STORE is not: `order-hydration.service` reads it through the
+ * Postgres repository, because the stores domain is ported. So the scenario
+ * seeds the store on both sides under the SAME id — which is exactly what the
+ * Fase 4 backfill produces, since it copies `_id` verbatim.
+ */
+let pg: Database;
+
+/** Postgres store ids this file seeded, dropped between tests. The Postgres
+ *  database is shared with every other realdb file in the suite, so this file
+ *  cleans up after ITSELF rather than truncating the table. */
+const seededStoreIds: string[] = [];
 
 const uri = process.env.MERCARIA_TEST_MONGODB_URI;
 
@@ -65,13 +85,19 @@ beforeAll(async () => {
   // The unique `orderNumber` and `idempotencyKey` indexes are half of what is
   // under test here; Mongoose builds them lazily.
   await Promise.all([Order.syncIndexes(), DraftOrder.syncIndexes(), InventoryLevel.syncIndexes()]);
+
+  pg = await connectPostgres();
 }, 120_000);
 
 afterAll(async () => {
   await mongoose.disconnect();
+  await closePostgres();
 });
 
 beforeEach(async () => {
+  for (const storeId of seededStoreIds.splice(0)) {
+    await pg.delete(stores).where(eq(stores.id, storeId));
+  }
   await Promise.all([
     Store.deleteMany({}),
     Location.deleteMany({}),
@@ -109,6 +135,20 @@ async function seedScenario(quantity = 2): Promise<Scenario> {
     members: [{ oxyUserId: ACTOR_OXY_USER_ID, role: 'owner' }],
   });
   const storeId = String(store._id);
+
+  // The same store, on the Postgres side, under the same id. `order-hydration`
+  // reads it from there; without this row the completed order hydrates with no
+  // merchant summary and the assertion below fails for a reason that has
+  // nothing to do with the draft-order logic under test.
+  seededStoreIds.push(storeId);
+  await pg.insert(stores).values({
+    id: storeId,
+    handle: store.handle,
+    name: store.name,
+    description: '',
+    brandColor: store.brandColor,
+    defaultCurrency: CURRENCY,
+  });
 
   const location = await Location.create({
     storeId,

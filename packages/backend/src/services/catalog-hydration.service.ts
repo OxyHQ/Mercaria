@@ -31,7 +31,7 @@ import type {
 } from '@mercaria/shared-types';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
 import { SellerProfile, type ISellerProfile } from '../models/seller-profile.js';
-import { Store, type IStore } from '../models/store.js';
+import { findStoresByIds, type StoreRow } from '../db/stores/storeRepository.js';
 import type { IListing, IListingSource } from '../models/listing.js';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
@@ -157,10 +157,10 @@ function toSeller(
  * feed's "Worth the hype" shelf.
  */
 export function toMerchantSummary(
-  store: IStore,
+  store: StoreRow,
   featuredListings: IListing[],
 ): MerchantSummary {
-  const id = String((store as { _id: mongoose.Types.ObjectId })._id);
+  const id = store.id;
   const products: ProductThumbnail[] = featuredListings
     .slice(0, config.feed.storeCardThumbnails)
     .map((listing) => {
@@ -294,17 +294,17 @@ export async function hydrateListings(
       ? SellerProfile.find({ oxyUserId: { $in: userOwnerIds } }).lean<ISellerProfile[]>()
       : Promise.resolve([] as ISellerProfile[]),
     storeIds.length > 0
-      ? Store.find({ _id: { $in: storeIds } }).lean<IStore[]>()
-      : Promise.resolve([] as IStore[]),
+      ? findStoresByIds(storeIds)
+      : Promise.resolve([] as StoreRow[]),
   ]);
 
   const sellerProfileByUser = new Map<string, ISellerProfile>();
   for (const p of sellerProfileDocs) {
     sellerProfileByUser.set(String(p.oxyUserId), p);
   }
-  const storeById = new Map<string, IStore>();
+  const storeById = new Map<string, StoreRow>();
   for (const s of storeDocs) {
-    storeById.set(String((s as { _id: mongoose.Types.ObjectId })._id), s);
+    storeById.set(s.id, s);
   }
 
   // 3. Batch-load all owning users' Oxy profiles in one call.

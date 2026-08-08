@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { validateObjectId } from '../middleware/validate.js';
+import { validateId } from '../middleware/validate.js';
 import {
   listMyFavorites,
   addFavorite,
@@ -20,7 +20,7 @@ const router = Router();
 router.use(authenticateToken);
 
 router.get('/', makeRateLimiter('listings'), listMyFavorites);
-router.post('/:listingId', makeRateLimiter('listings'), validateObjectId('listingId'), addFavorite);
-router.delete('/:listingId', makeRateLimiter('listings'), validateObjectId('listingId'), removeFavorite);
+router.post('/:listingId', makeRateLimiter('listings'), validateId('listingId'), addFavorite);
+router.delete('/:listingId', makeRateLimiter('listings'), validateId('listingId'), removeFavorite);
 
 export default router;

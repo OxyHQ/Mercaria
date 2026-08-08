@@ -11,7 +11,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { isValidObjectId } from 'mongoose';
+import { isLiveEntityId } from '@oxyhq/db';
 import { z } from 'zod';
 import { sendError, ErrorCodes } from '../utils/api-response.js';
 
@@ -55,12 +55,26 @@ export function validateQuery<T extends z.ZodType>(schema: T) {
 }
 
 /**
- * Ensure `req.params[paramName]` is a valid MongoDB ObjectId. Responds 400 when
- * the param is missing or malformed.
+ * Ensure `req.params[paramName]` could name a row. Responds 400 when the param
+ * is missing or malformed.
+ *
+ * ## It accepts BOTH id shapes, and that is the whole point of the rename
+ *
+ * A Mercaria primary key is `text` holding a 24-char ObjectId hex for every row
+ * that existed before the Postgres cutover and a uuid v7 for every row created
+ * after it. Both are live simultaneously and permanently, because the backfill
+ * copies the original id verbatim — so an ObjectId-only check would start
+ * rejecting perfectly valid ids the moment the first row was created in
+ * Postgres, as a 400 on a resource that exists.
+ *
+ * The check is SHAPE-ONLY and stays that way. It exists to turn a malformed
+ * param into a 400 rather than a pointless query — never as a precondition on a
+ * lookup, which already answers "no such row" for free. Routes whose domain is
+ * still on Mongo keep working unchanged: a 24-hex id satisfies both shapes.
  *
  * @param paramName - The route param to validate (default `'id'`).
  */
-export function validateObjectId(paramName = 'id') {
+export function validateId(paramName = 'id') {
   return (req: Request, res: Response, next: NextFunction): void => {
     const raw = req.params[paramName];
     // Express params can be string[] when a path repeats a segment name.
@@ -69,7 +83,7 @@ export function validateObjectId(paramName = 'id') {
       sendError(res, ErrorCodes.VALIDATION_ERROR, `${paramName} parameter is required`, 400);
       return;
     }
-    if (!isValidObjectId(id)) {
+    if (!isLiveEntityId(id)) {
       sendError(res, ErrorCodes.VALIDATION_ERROR, `Invalid ${paramName} format`, 400);
       return;
     }

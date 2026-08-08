@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import {
   createStoreProductSchema,
@@ -35,37 +35,37 @@ const router = Router({ mergeParams: true });
 router.get('/', requireStorePermission('products:read'), listProducts);
 router.post('/', requireStorePermission('products:write'), validateBody(createStoreProductSchema), createProduct);
 
-router.get('/:id', requireStorePermission('products:read'), validateObjectId('id'), getProduct);
+router.get('/:id', requireStorePermission('products:read'), validateId('id'), getProduct);
 router.patch(
   '/:id',
   requireStorePermission('products:write'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(updateListingSchema),
   patchProduct,
 );
-router.delete('/:id', requireStorePermission('products:write'), validateObjectId('id'), deleteProduct);
+router.delete('/:id', requireStorePermission('products:write'), validateId('id'), deleteProduct);
 
 // Variants.
 router.post(
   '/:id/variants',
   requireStorePermission('products:write'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(createVariantSchema),
   createVariant,
 );
 router.patch(
   '/:id/variants/:variantId',
   requireStorePermission('products:write'),
-  validateObjectId('id'),
-  validateObjectId('variantId'),
+  validateId('id'),
+  validateId('variantId'),
   validateBody(updateVariantSchema),
   patchVariant,
 );
 router.delete(
   '/:id/variants/:variantId',
   requireStorePermission('products:write'),
-  validateObjectId('id'),
-  validateObjectId('variantId'),
+  validateId('id'),
+  validateId('variantId'),
   deleteVariant,
 );
 
@@ -73,8 +73,8 @@ router.delete(
 router.patch(
   '/:id/variants/:variantId/inventory',
   requireStorePermission('inventory:write'),
-  validateObjectId('id'),
-  validateObjectId('variantId'),
+  validateId('id'),
+  validateId('variantId'),
   validateBody(setInventorySchema),
   setVariantInventory,
 );
@@ -83,16 +83,16 @@ router.patch(
 router.get(
   '/:id/variants/:variantId/levels',
   requireStorePermission('products:read'),
-  validateObjectId('id'),
-  validateObjectId('variantId'),
+  validateId('id'),
+  validateId('variantId'),
   listVariantLevels,
 );
 router.patch(
   '/:id/variants/:variantId/levels/:locationId',
   requireStorePermission('inventory:write'),
-  validateObjectId('id'),
-  validateObjectId('variantId'),
-  validateObjectId('locationId'),
+  validateId('id'),
+  validateId('variantId'),
+  validateId('locationId'),
   validateBody(setLevelInventorySchema),
   setVariantLevelInventory,
 );

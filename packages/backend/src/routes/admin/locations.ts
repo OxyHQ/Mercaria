@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import { createLocationSchema, updateLocationSchema } from '../../middleware/schemas.js';
 import {
@@ -31,14 +31,14 @@ router.post(
 router.patch(
   '/:id',
   requireStorePermission('locations:write'),
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(updateLocationSchema),
   patchStoreLocation,
 );
 router.delete(
   '/:id',
   requireStorePermission('locations:write'),
-  validateObjectId('id'),
+  validateId('id'),
   deleteStoreLocation,
 );
 

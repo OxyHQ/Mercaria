@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { loadStore, requireStorePermission } from '../../middleware/store-authz.js';
 import {
   createStoreSchema,
@@ -46,7 +46,7 @@ router.post('/', validateBody(createStoreSchema), createStoreHandler);
 router.get('/', listMyStores);
 
 // Store-scoped: load + authorize the store for every nested route.
-router.use('/:storeId', validateObjectId('storeId'), loadStore);
+router.use('/:storeId', validateId('storeId'), loadStore);
 
 router.get('/:storeId', getStoreHandler);
 router.patch(

@@ -168,7 +168,17 @@ export const storeMembers = pgTable(
     /** An Oxy account id — no foreign key; Oxy owns identity. */
     oxyUserId: text().notNull(),
     role: text({ enum: asEnumValues(STORE_ROLES) }).notNull(),
-    permissions: text().array().notNull().default(sql`'{}'::text[]`),
+    /**
+     * `$type` rather than a bare `text[]`: drizzle infers `string[]`, which
+     * would make every consumer widen a `StorePermission` to `string` and then
+     * narrow it back with a cast. The CHECK below is what actually enforces the
+     * set — the type only stops the compiler from forgetting it exists.
+     */
+    permissions: text()
+      .array()
+      .$type<StorePermission[]>()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     /** An Oxy account id — no foreign key. */
     invitedBy: text(),
     joinedAt: timestamptz().notNull(),

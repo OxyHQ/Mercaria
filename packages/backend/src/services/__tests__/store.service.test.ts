@@ -1,179 +1,195 @@
 /**
  * Unit tests for `store.service` owner-protection invariants.
  *
- * `Store` is mocked (no DB). Tests assert: the last owner cannot be removed or
- * demoted, and a non-owner cannot remove/modify an owner. The happy paths
- * (owner removing a second owner, admin removing staff) confirm the guards are
- * not over-broad.
+ * The repository is mocked, so nothing here opens a database: what is under test
+ * is the DECISION — who may demote whom — which is pure logic over the member
+ * list and identical before and after the Postgres port.
+ *
+ * ## What moved OUT of this file, and where it went
+ *
+ * The old `updateStoreSettings` tests asserted that an ABSENT
+ * `notificationSettings`/`taxSettings` block was reconstructed from defaults
+ * before being patched. That behaviour is gone rather than changed: all six
+ * columns are NOT NULL with exactly the defaults the old code substituted, so
+ * there is no absent block left to rebuild. What remains testable HERE is that a
+ * patch touches only the fields it names — asserted against the column patch the
+ * service hands the repository, which is the whole of its contribution now. That
+ * the defaults really are what the columns carry is a property of the DDL, and
+ * is asserted against a real database in `db/__tests__/stores.realdb.test.ts`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IStoreMember } from '../../models/store.js';
+import type { StoreMemberRecord, StoreRecord } from '../../db/stores/storeRepository.js';
 
-const findById = vi.fn();
+const findStoreById = vi.fn();
+const updateStoreColumns = vi.fn();
+const updateStoreMember = vi.fn();
+const deleteStoreMember = vi.fn();
 
-vi.mock('../../models/store.js', () => ({
-  Store: {
-    findById: (...args: unknown[]) => findById(...args),
-    exists: vi.fn().mockResolvedValue(null),
-  },
-  ALL_STORE_PERMISSIONS: [
-    'store:manage',
-    'members:manage',
-    'products:read',
-    'products:write',
-    'inventory:write',
-    'orders:read',
-    'orders:fulfill',
-    'stats:read',
-  ],
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  findStoreById: (...args: unknown[]) => findStoreById(...args),
+  findStoresForMember: vi.fn(),
+  insertStore: vi.fn(),
+  insertStoreMember: vi.fn(),
+  deleteStoreMember: (...args: unknown[]) => deleteStoreMember(...args),
+  storeHandleExists: vi.fn().mockResolvedValue(false),
+  updateStoreColumns: (...args: unknown[]) => updateStoreColumns(...args),
+  updateStoreMember: (...args: unknown[]) => updateStoreMember(...args),
+}));
+
+vi.mock('../../db/stores/locationRepository.js', () => ({
+  insertLocation: vi.fn(),
 }));
 
 import { updateMember, removeMember, updateStoreSettings } from '../store.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
-import type { IStore } from '../../models/store.js';
 
 const STORE_ID = '000000000000000000000099';
 
-function mkMember(oxyUserId: string, role: IStoreMember['role']): IStoreMember {
-  return { oxyUserId, role, permissions: [], joinedAt: new Date() };
+function mkMember(oxyUserId: string, role: StoreMemberRecord['role']): StoreMemberRecord {
+  return {
+    id: `member-${oxyUserId}`,
+    storeId: STORE_ID,
+    oxyUserId,
+    role,
+    permissions: [],
+    invitedBy: null,
+    joinedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 }
 
-/** A mock store doc whose `members` array is mutated in place by the service. */
-function mockStoreDoc(members: IStoreMember[]) {
-  const doc = {
-    _id: STORE_ID,
-    members,
-    save: vi.fn().mockResolvedValue(undefined),
-    toObject() {
-      return { _id: STORE_ID, members: doc.members };
-    },
-  };
-  return doc;
+/**
+ * A store record carrying only what the owner-protection logic reads.
+ *
+ * Cast rather than spelled out in full: `StoreRecord` has thirty columns and the
+ * decision under test reads exactly two of them, so listing the rest would be
+ * thirty lines of noise that also has to be maintained every time a column is
+ * added. The cast is confined to this helper.
+ */
+function mkStore(members: StoreMemberRecord[]): StoreRecord {
+  return { id: STORE_ID, name: 'Test store', members } as unknown as StoreRecord;
 }
 
 beforeEach(() => {
-  findById.mockReset();
+  findStoreById.mockReset();
+  updateStoreColumns.mockReset();
+  updateStoreMember.mockReset().mockResolvedValue(undefined);
+  deleteStoreMember.mockReset().mockResolvedValue(undefined);
 });
 
 describe('store.service owner protection — removeMember', () => {
   it('rejects removing the last owner (CONFLICT)', async () => {
     const owner = mkMember('owner-1', 'owner');
-    findById.mockResolvedValueOnce(mockStoreDoc([owner, mkMember('staff-1', 'staff')]));
+    findStoreById.mockResolvedValueOnce(mkStore([owner, mkMember('staff-1', 'staff')]));
 
     await expect(removeMember(STORE_ID, owner, 'owner-1')).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
+    expect(deleteStoreMember).not.toHaveBeenCalled();
   });
 
   it('rejects a non-owner removing an owner (FORBIDDEN)', async () => {
     const admin = mkMember('admin-1', 'admin');
-    findById.mockResolvedValueOnce(
-      mockStoreDoc([mkMember('owner-1', 'owner'), admin]),
-    );
+    findStoreById.mockResolvedValueOnce(mkStore([mkMember('owner-1', 'owner'), admin]));
 
     await expect(removeMember(STORE_ID, admin, 'owner-1')).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN,
     );
+    expect(deleteStoreMember).not.toHaveBeenCalled();
   });
 
-  it('allows an owner to remove a SECOND owner (>1 owner remains-safe)', async () => {
-    const owner1 = mkMember('owner-1', 'owner');
-    const doc = mockStoreDoc([owner1, mkMember('owner-2', 'owner')]);
-    findById.mockResolvedValueOnce(doc);
+  it('allows an owner to remove a SECOND owner', async () => {
+    const owner = mkMember('owner-1', 'owner');
+    const store = mkStore([owner, mkMember('owner-2', 'owner')]);
+    // Once for the guard read, once for the re-read the service returns.
+    findStoreById.mockResolvedValue(store);
 
-    const result = await removeMember(STORE_ID, owner1, 'owner-2');
-
-    expect(doc.save).toHaveBeenCalled();
-    expect(result.members.map((m) => m.oxyUserId)).toEqual(['owner-1']);
+    await removeMember(STORE_ID, owner, 'owner-2');
+    expect(deleteStoreMember).toHaveBeenCalledWith(STORE_ID, 'owner-2');
   });
 
-  it('allows an admin to remove a staff member', async () => {
+  it('allows an admin to remove staff', async () => {
     const admin = mkMember('admin-1', 'admin');
-    const doc = mockStoreDoc([
-      mkMember('owner-1', 'owner'),
-      admin,
-      mkMember('staff-1', 'staff'),
-    ]);
-    findById.mockResolvedValueOnce(doc);
+    findStoreById.mockResolvedValue(mkStore([mkMember('owner-1', 'owner'), admin, mkMember('staff-1', 'staff')]));
 
-    const result = await removeMember(STORE_ID, admin, 'staff-1');
+    await removeMember(STORE_ID, admin, 'staff-1');
+    expect(deleteStoreMember).toHaveBeenCalledWith(STORE_ID, 'staff-1');
+  });
 
-    expect(result.members.some((m) => m.oxyUserId === 'staff-1')).toBe(false);
+  it('throws NOT_FOUND for a member who is not on the store', async () => {
+    const owner = mkMember('owner-1', 'owner');
+    findStoreById.mockResolvedValueOnce(mkStore([owner]));
+
+    await expect(removeMember(STORE_ID, owner, 'nobody')).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND,
+    );
   });
 });
 
 describe('store.service owner protection — updateMember', () => {
   it('rejects demoting the last owner (CONFLICT)', async () => {
     const owner = mkMember('owner-1', 'owner');
-    findById.mockResolvedValueOnce(mockStoreDoc([owner, mkMember('staff-1', 'staff')]));
+    findStoreById.mockResolvedValueOnce(mkStore([owner, mkMember('staff-1', 'staff')]));
 
     await expect(
       updateMember(STORE_ID, owner, 'owner-1', { role: 'admin' }),
-    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT);
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
+    );
+    expect(updateStoreMember).not.toHaveBeenCalled();
   });
 
   it('rejects a non-owner modifying an owner (FORBIDDEN)', async () => {
     const admin = mkMember('admin-1', 'admin');
-    findById.mockResolvedValueOnce(
-      mockStoreDoc([mkMember('owner-1', 'owner'), admin]),
-    );
+    findStoreById.mockResolvedValueOnce(mkStore([mkMember('owner-1', 'owner'), admin]));
 
     await expect(
       updateMember(STORE_ID, admin, 'owner-1', { role: 'staff' }),
-    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN);
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN,
+    );
+    expect(updateStoreMember).not.toHaveBeenCalled();
   });
 
-  it('rejects a non-owner promoting someone to owner (FORBIDDEN)', async () => {
+  it('rejects a non-owner GRANTING the owner role (FORBIDDEN)', async () => {
     const admin = mkMember('admin-1', 'admin');
-    findById.mockResolvedValueOnce(
-      mockStoreDoc([mkMember('owner-1', 'owner'), admin, mkMember('staff-1', 'staff')]),
+    findStoreById.mockResolvedValueOnce(
+      mkStore([mkMember('owner-1', 'owner'), admin, mkMember('staff-1', 'staff')]),
     );
 
     await expect(
       updateMember(STORE_ID, admin, 'staff-1', { role: 'owner' }),
-    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN);
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN,
+    );
+    expect(updateStoreMember).not.toHaveBeenCalled();
   });
 
-  it('allows an owner to demote a SECOND owner (another owner remains)', async () => {
-    const owner1 = mkMember('owner-1', 'owner');
-    const doc = mockStoreDoc([owner1, mkMember('owner-2', 'owner')]);
-    findById.mockResolvedValueOnce(doc);
+  it('allows an owner to demote a SECOND owner', async () => {
+    const owner = mkMember('owner-1', 'owner');
+    findStoreById.mockResolvedValue(mkStore([owner, mkMember('owner-2', 'owner')]));
 
-    const result = await updateMember(STORE_ID, owner1, 'owner-2', { role: 'admin' });
-
-    expect(doc.save).toHaveBeenCalled();
-    expect(result.members.find((m) => m.oxyUserId === 'owner-2')?.role).toBe('admin');
+    await updateMember(STORE_ID, owner, 'owner-2', { role: 'admin' });
+    expect(updateStoreMember).toHaveBeenCalledWith(STORE_ID, 'owner-2', { role: 'admin' });
   });
 });
 
-/** A mock settings-bearing store doc with mutable policies/notifications/tax. */
-function mockSettingsStoreDoc() {
-  const doc = {
-    _id: STORE_ID,
-    policies: { returnWindowDays: 30 } as IStore['policies'],
-    notificationSettings: undefined as IStore['notificationSettings'] | undefined,
-    taxSettings: undefined as IStore['taxSettings'] | undefined,
-    save: vi.fn().mockResolvedValue(undefined),
-    toObject() {
-      return {
-        _id: STORE_ID,
-        policies: doc.policies,
-        notificationSettings: doc.notificationSettings,
-        taxSettings: doc.taxSettings,
-      } as unknown as IStore;
-    },
-  };
-  return doc;
-}
-
 describe('store.service.updateStoreSettings', () => {
-  it('persists long-form policies + notification settings on the loaded store', async () => {
-    const doc = mockSettingsStoreDoc();
-    findById.mockResolvedValueOnce(doc);
+  /** The column patch the service handed the repository on its only call. */
+  function patchSent(): Record<string, unknown> {
+    expect(updateStoreColumns).toHaveBeenCalledTimes(1);
+    return updateStoreColumns.mock.calls[0][1] as Record<string, unknown>;
+  }
 
-    const result = await updateStoreSettings(STORE_ID, {
+  beforeEach(() => {
+    updateStoreColumns.mockResolvedValue(mkStore([]));
+  });
+
+  it('flattens long-form policies and notification settings into their columns', async () => {
+    await updateStoreSettings(STORE_ID, {
       policies: {
         refundPolicy: 'Returns within 30 days.',
         privacyPolicy: 'We respect your privacy.',
@@ -182,49 +198,40 @@ describe('store.service.updateStoreSettings', () => {
       notificationSettings: { lowStockAlerts: false, lowStockThreshold: 3 },
     });
 
-    expect(doc.save).toHaveBeenCalledTimes(1);
-    expect(result.policies.refundPolicy).toBe('Returns within 30 days.');
-    expect(result.policies.privacyPolicy).toBe('We respect your privacy.');
-    expect(result.policies.termsOfService).toBe('Be excellent to each other.');
-    // returnWindowDays was untouched → keeps its prior value.
-    expect(result.policies.returnWindowDays).toBe(30);
-    expect(result.notificationSettings?.lowStockAlerts).toBe(false);
-    // orderEmails defaulted on (pre-B7 store had no block) and stays on.
-    expect(result.notificationSettings?.orderEmails).toBe(true);
-    expect(result.notificationSettings?.lowStockThreshold).toBe(3);
-  });
-
-  it('folds a tax-settings patch through the same path (defaults the absent block)', async () => {
-    const doc = mockSettingsStoreDoc();
-    findById.mockResolvedValueOnce(doc);
-
-    const result = await updateStoreSettings(STORE_ID, {
-      taxSettings: { pricesIncludeTax: true, taxRegistrationId: 'ES-B12345678' },
+    expect(patchSent()).toEqual({
+      policiesRefundPolicy: 'Returns within 30 days.',
+      policiesPrivacyPolicy: 'We respect your privacy.',
+      policiesTermsOfService: 'Be excellent to each other.',
+      notificationSettingsLowStockAlerts: false,
+      notificationSettingsLowStockThreshold: 3,
     });
-
-    expect(doc.save).toHaveBeenCalledTimes(1);
-    expect(result.taxSettings?.pricesIncludeTax).toBe(true);
-    // chargeTaxOnProducts defaulted true on the absent block, untouched by the patch.
-    expect(result.taxSettings?.chargeTaxOnProducts).toBe(true);
-    expect(result.taxSettings?.taxRegistrationId).toBe('ES-B12345678');
   });
 
-  it('only touches supplied notification fields, leaving the rest at their defaults', async () => {
-    const doc = mockSettingsStoreDoc();
-    findById.mockResolvedValueOnce(doc);
-
-    const result = await updateStoreSettings(STORE_ID, {
+  it('names ONLY the fields the patch supplied', async () => {
+    // The assertion that matters, and the reason it is `toEqual` on the whole
+    // object rather than a handful of `toHaveProperty`s: an UPDATE that also
+    // named `orderEmails` would overwrite a merchant's setting with the default,
+    // and a subset assertion cannot see an EXTRA key.
+    await updateStoreSettings(STORE_ID, {
       notificationSettings: { orderEmails: false },
     });
 
-    expect(result.notificationSettings?.orderEmails).toBe(false);
-    // lowStockAlerts defaulted on and was not in the patch → stays on.
-    expect(result.notificationSettings?.lowStockAlerts).toBe(true);
-    expect(result.notificationSettings?.lowStockThreshold).toBeUndefined();
+    expect(patchSent()).toEqual({ notificationSettingsOrderEmails: false });
+  });
+
+  it('folds a tax-settings patch through the same path', async () => {
+    await updateStoreSettings(STORE_ID, {
+      taxSettings: { pricesIncludeTax: true, taxRegistrationId: 'ES-B12345678' },
+    });
+
+    expect(patchSent()).toEqual({
+      taxSettingsPricesIncludeTax: true,
+      taxSettingsTaxRegistrationId: 'ES-B12345678',
+    });
   });
 
   it('throws NOT_FOUND when the store does not exist', async () => {
-    findById.mockResolvedValueOnce(null);
+    updateStoreColumns.mockResolvedValueOnce(null);
 
     await expect(
       updateStoreSettings(STORE_ID, { policies: { refundPolicy: 'x' } }),

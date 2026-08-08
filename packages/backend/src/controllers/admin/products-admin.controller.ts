@@ -45,7 +45,7 @@ function storeId(req: Request): string {
   if (!store) {
     throw notFound('Store not loaded');
   }
-  return String((store as { _id: unknown })._id);
+  return store.id;
 }
 
 /** Load a product and assert it belongs to the loaded store, else NOT_FOUND/FORBIDDEN. */

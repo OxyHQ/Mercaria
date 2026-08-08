@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { connectDB } from './lib/db.js';
+import { config } from './config/index.js';
+import { connectPostgres } from './db/postgres.js';
 import { createApp } from './app.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
@@ -80,8 +82,34 @@ process.on('uncaughtException', (error) => {
   setTimeout(() => process.exit(1), 5000).unref();
 });
 
-// Connect to MongoDB before starting the server
-connectDB()
+/**
+ * Open both stores before serving traffic.
+ *
+ * Mercaria is mid-migration and BOTH are live: the ported domains (stores,
+ * catalogue, merchandising, favorites) read and write Postgres, everything else
+ * still reads and writes Mongo. So Postgres is opened when `DATABASE_URL` is
+ * configured, and its absence is a HARD failure rather than a degraded boot —
+ * a task that served the ported routes without it would answer every catalogue
+ * request with "PostgreSQL is not connected", which reads as an outage of those
+ * features rather than as the misconfiguration it is.
+ *
+ * `connectPostgres` issues a real `select 1` before publishing its handle, so an
+ * unreachable database fails HERE rather than on the first user request.
+ */
+async function connectStores(): Promise<void> {
+  await connectDB();
+  if (!config.postgres.url) {
+    throw new Error(
+      'DATABASE_URL is not set. The stores, catalogue, merchandising and ' +
+        'favorites domains are served from PostgreSQL; a task without it cannot ' +
+        'answer those routes. Start a local server with: ' +
+        'docker compose -f docker-compose.postgres.yml up -d postgres',
+    );
+  }
+  await connectPostgres();
+}
+
+connectStores()
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       log.general.info({ port: PORT }, `API Server running on http://0.0.0.0:${PORT}`);
@@ -163,6 +191,13 @@ connectDB()
         await mongoose.default.connection.close();
         log.general.info('MongoDB connection closed');
 
+        // Close the Postgres pool. Both stores are live during the migration,
+        // so a shutdown that drained only one leaves connections held against
+        // the shared instance until the task is killed.
+        const { closePostgres } = await import('./db/postgres.js');
+        await closePostgres();
+        log.general.info('PostgreSQL pool closed');
+
         clearTimeout(forceTimeout);
         log.general.info('Graceful shutdown complete');
         process.exit(0);
@@ -176,6 +211,6 @@ connectDB()
     process.on('SIGINT', () => shutdown('SIGINT'));
   })
   .catch((error) => {
-    log.general.error({ err: error }, 'Failed to connect to MongoDB');
+    log.general.error({ err: error }, 'Failed to connect to the databases');
     process.exit(1);
   });

@@ -24,7 +24,7 @@ import type {
   CategoryPill,
 } from '@mercaria/shared-types';
 import { Category as CategoryModel, type ICategory } from '../models/category.js';
-import { Store as StoreModel, type IStore } from '../models/store.js';
+import { findStoresByIds, findTopActiveStores } from '../db/stores/storeRepository.js';
 import { Listing, type IListing } from '../models/listing.js';
 import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
 import { toProductSummary, toMerchantSummary } from './catalog-hydration.service.js';
@@ -76,13 +76,13 @@ async function buildBrandResolver(listings: IListing[]): Promise<(listing: IList
   ];
 
   const [storeDocs, oxyProfiles] = await Promise.all([
-    storeIds.length > 0 ? StoreModel.find({ _id: { $in: storeIds } }).lean<IStore[]>() : Promise.resolve([] as IStore[]),
+    findStoresByIds(storeIds),
     getProfiles(userIds),
   ]);
 
   const storeNameById = new Map<string, string>();
   for (const s of storeDocs) {
-    storeNameById.set(String((s as { _id: unknown })._id), s.name);
+    storeNameById.set(s.id, s.name);
   }
 
   return (listing: IListing): string => {
@@ -164,15 +164,12 @@ function buildShopByCategory(topLevel: ICategory[], children: ICategory[]): Cate
 
 /** Build the "Worth the hype" merchant section from top stores. */
 async function buildMerchants(): Promise<MerchantSummary[]> {
-  const stores = await StoreModel.find({ status: 'active' })
-    .sort({ rating: -1, productCount: -1 })
-    .limit(config.feed.merchantsSize)
-    .lean<IStore[]>();
+  const stores = await findTopActiveStores(config.feed.merchantsSize);
   if (stores.length === 0) {
     return [];
   }
 
-  const storeIds = stores.map((s) => String((s as { _id: unknown })._id));
+  const storeIds = stores.map((s) => s.id);
   const featured = await Listing.find({ ownerType: 'store', storeId: { $in: storeIds }, status: 'active' })
     .sort({ publishedAt: -1 })
     .lean<IListing[]>();
@@ -189,7 +186,7 @@ async function buildMerchants(): Promise<MerchantSummary[]> {
   }
 
   return stores.map((store) =>
-    toMerchantSummary(store, featuredByStore.get(String((store as { _id: unknown })._id)) ?? []),
+    toMerchantSummary(store, featuredByStore.get(store.id) ?? []),
   );
 }
 

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { validateBody, validateObjectId } from '../middleware/validate.js';
+import { validateBody, validateId } from '../middleware/validate.js';
 import {
   addCartItemSchema,
   updateCartItemSchema,
@@ -34,14 +34,14 @@ router.post('/items', makeRateLimiter('cart'), validateBody(addCartItemSchema), 
 router.patch(
   '/items/:variantId',
   makeRateLimiter('cart'),
-  validateObjectId('variantId'),
+  validateId('variantId'),
   validateBody(updateCartItemSchema),
   updateCartItem,
 );
 router.delete(
   '/items/:variantId',
   makeRateLimiter('cart'),
-  validateObjectId('variantId'),
+  validateId('variantId'),
   deleteCartItem,
 );
 router.post(

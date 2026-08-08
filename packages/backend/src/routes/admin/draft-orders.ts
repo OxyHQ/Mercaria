@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validateBody, validateObjectId } from '../../middleware/validate.js';
+import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
 import {
   createDraftOrderSchema,
@@ -42,57 +42,57 @@ const requireWrite = requireStorePermission('draft_orders:write');
 router.get('/', requireWrite, listStoreDraftOrders);
 router.post('/', requireWrite, validateBody(createDraftOrderSchema), createStoreDraftOrder);
 
-router.get('/:id', requireWrite, validateObjectId('id'), getStoreDraftOrder);
+router.get('/:id', requireWrite, validateId('id'), getStoreDraftOrder);
 router.patch(
   '/:id',
   requireWrite,
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(updateDraftOrderSchema),
   patchStoreDraftOrder,
 );
-router.delete('/:id', requireWrite, validateObjectId('id'), cancelStoreDraftOrder);
+router.delete('/:id', requireWrite, validateId('id'), cancelStoreDraftOrder);
 
 router.post(
   '/:id/lines',
   requireWrite,
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(addDraftLineSchema),
   addStoreDraftLine,
 );
 router.patch(
   '/:id/lines/:variantId',
   requireWrite,
-  validateObjectId('id'),
-  validateObjectId('variantId'),
+  validateId('id'),
+  validateId('variantId'),
   validateBody(updateDraftLineSchema),
   updateStoreDraftLine,
 );
 router.delete(
   '/:id/lines/:variantId',
   requireWrite,
-  validateObjectId('id'),
-  validateObjectId('variantId'),
+  validateId('id'),
+  validateId('variantId'),
   removeStoreDraftLine,
 );
 
 router.post(
   '/:id/discounts',
   requireWrite,
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(applyDraftDiscountsSchema),
   applyStoreDraftDiscounts,
 );
 router.post(
   '/:id/customer',
   requireWrite,
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(setDraftCustomerSchema),
   setStoreDraftCustomer,
 );
 router.post(
   '/:id/complete',
   requireWrite,
-  validateObjectId('id'),
+  validateId('id'),
   validateBody(completeDraftOrderSchema),
   completeStoreDraftOrder,
 );

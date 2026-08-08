@@ -16,7 +16,7 @@ import type {
   UpdateStoreSettingsInput,
   Store as StoreDTO,
 } from '@mercaria/shared-types';
-import type { IStore } from '../../models/store.js';
+import type { StoreRecord } from '../../db/stores/storeRepository.js';
 import {
   createStore,
   listStoresForUser,
@@ -27,10 +27,20 @@ import { sendSuccess } from '../../utils/api-response.js';
 import { respondWithError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 
-/** Serialize a store document to the `Store` admin DTO. */
-export function toStoreDTO(store: IStore): StoreDTO {
+/**
+ * Serialize a store row to the `Store` admin DTO.
+ *
+ * The four embedded Mongoose sub-documents are now flat columns, so the
+ * `?? false` / `?? true` fallbacks the old serializer carried are gone: every
+ * one of those columns is NOT NULL with the same default the fallback
+ * substituted, and keeping them would suggest a state that can no longer exist.
+ * The nullable columns (`logo_file_id`, the four policy bodies,
+ * `tax_settings_tax_registration_id`, `notification_settings_low_stock_threshold`)
+ * stay conditional, because for those NULL is a real value.
+ */
+export function toStoreDTO(store: StoreRecord): StoreDTO {
   return {
-    id: String((store as { _id: unknown })._id),
+    id: store.id,
     handle: store.handle,
     name: store.name,
     description: store.description,
@@ -46,25 +56,27 @@ export function toStoreDTO(store: IStore): StoreDTO {
       joinedAt: m.joinedAt.toISOString(),
     })),
     policies: {
-      returnWindowDays: store.policies.returnWindowDays,
-      ...(store.policies.shippingNote ? { shippingNote: store.policies.shippingNote } : {}),
-      ...(store.policies.refundPolicy ? { refundPolicy: store.policies.refundPolicy } : {}),
-      ...(store.policies.privacyPolicy ? { privacyPolicy: store.policies.privacyPolicy } : {}),
-      ...(store.policies.termsOfService ? { termsOfService: store.policies.termsOfService } : {}),
+      returnWindowDays: store.policiesReturnWindowDays,
+      ...(store.policiesShippingNote ? { shippingNote: store.policiesShippingNote } : {}),
+      ...(store.policiesRefundPolicy ? { refundPolicy: store.policiesRefundPolicy } : {}),
+      ...(store.policiesPrivacyPolicy ? { privacyPolicy: store.policiesPrivacyPolicy } : {}),
+      ...(store.policiesTermsOfService
+        ? { termsOfService: store.policiesTermsOfService }
+        : {}),
     },
     defaultCurrency: store.defaultCurrency as StoreDTO['defaultCurrency'],
     taxSettings: {
-      pricesIncludeTax: store.taxSettings?.pricesIncludeTax ?? false,
-      chargeTaxOnProducts: store.taxSettings?.chargeTaxOnProducts ?? true,
-      ...(store.taxSettings?.taxRegistrationId
-        ? { taxRegistrationId: store.taxSettings.taxRegistrationId }
+      pricesIncludeTax: store.taxSettingsPricesIncludeTax,
+      chargeTaxOnProducts: store.taxSettingsChargeTaxOnProducts,
+      ...(store.taxSettingsTaxRegistrationId
+        ? { taxRegistrationId: store.taxSettingsTaxRegistrationId }
         : {}),
     },
     notificationSettings: {
-      lowStockAlerts: store.notificationSettings?.lowStockAlerts ?? true,
-      orderEmails: store.notificationSettings?.orderEmails ?? true,
-      ...(store.notificationSettings?.lowStockThreshold !== undefined
-        ? { lowStockThreshold: store.notificationSettings.lowStockThreshold }
+      lowStockAlerts: store.notificationSettingsLowStockAlerts,
+      orderEmails: store.notificationSettingsOrderEmails,
+      ...(store.notificationSettingsLowStockThreshold !== null
+        ? { lowStockThreshold: store.notificationSettingsLowStockThreshold }
         : {}),
     },
     rating: store.rating,
@@ -118,7 +130,7 @@ export async function updateStoreHandler(req: Request, res: Response): Promise<v
     return;
   }
   try {
-    const updated = await updateStore(String((store as { _id: unknown })._id), req.body as UpdateStoreInput);
+    const updated = await updateStore(store.id, req.body as UpdateStoreInput);
     sendSuccess(res, toStoreDTO(updated));
   } catch (err) {
     log.general.error({ err }, 'Failed to update store');
@@ -135,7 +147,7 @@ export async function updateStoreSettingsHandler(req: Request, res: Response): P
   }
   try {
     const updated = await updateStoreSettings(
-      String((store as { _id: unknown })._id),
+      store.id,
       req.body as UpdateStoreSettingsInput,
     );
     sendSuccess(res, toStoreDTO(updated));
