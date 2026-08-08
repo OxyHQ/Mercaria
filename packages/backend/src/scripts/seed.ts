@@ -1,92 +1,126 @@
 /**
- * Idempotent dev seed for the Mercaria catalog (`mercaria-development`).
+ * Idempotent dev seed for the Mercaria marketplace (PostgreSQL).
  *
- * Reseeds ONLY the marketplace collections (Category, Store, SellerProfile,
- * Listing, ProductVariant). It NEVER touches Notification / Feedback / PushToken
- * collections. Mirrors the imagery + structure of `lib/mock-products.ts` so the
- * DB-backed `/feed` produces the same shelves the frontend already consumes.
+ * Reseeds ONLY the marketplace tables and mirrors the imagery + structure of
+ * `lib/mock-products.ts`, so the DB-backed `/feed` produces the same shelves the
+ * frontend already consumes. It NEVER touches notifications, feedback, push
+ * tokens or web-push subscriptions.
  *
- * Prices are stored in FAIR (⊜) — Mercaria's preferred default currency — as integer
- * minor units at FAIR's 8-decimal precision (1 ⊜ = 100_000_000 minor units). The
- * spec `price`/`compareAtPrice` fields below are MAJOR-unit FAIR values (e.g.
- * 125 = ⊜125.00) and the `fair()` builder scales them via
- * `minorUnitsPerMajor('FAIR')`. Because this seed `deleteMany`s the marketplace
- * collections first, RE-RUNNING IT is the dev migration path for the currency
- * change (no separate rescale migration here — that combined migration is a
- * later B2 deliverable).
+ * Prices are stored in FAIR (⊜) as integer minor units at FAIR's 8-decimal
+ * precision (1 ⊜ = 100_000_000 minor units). The spec `price`/`compareAtPrice`
+ * fields below are MAJOR-unit FAIR values (e.g. 125 = ⊜125.00) and the `fair()`
+ * builder scales them via `minorUnitsPerMajor('FAIR')`.
  *
- * ## STALE mid-migration: this seeds MONGO, and the catalogue now reads POSTGRES
+ * ## Everything is written through the repositories and services
  *
- * It is deliberately NOT half-ported. It writes across nine domains, and only
- * three of them (categories, listings/variants, collections) have moved: `Order`,
- * `Review`, `Discount`, `Customer`, `Refund`, `DraftOrder` and `TaxRate` are all
- * still Mongoose. Porting only the catalogue writes would produce a seed whose
- * orders and reviews carry listing ids that exist in neither database — a state
- * that LOOKS seeded and fails at the first read, which is worse than a script
- * that plainly does not run yet.
+ * Not through hand-built rows. A seed exists to produce data the application can
+ * actually READ, and going around the write paths is precisely how a seed grows
+ * rows no service would ever have written — an inconsistent facet, a rating with
+ * no reviews behind it, a listing whose stock rollup disagrees with its levels.
+ * So catalogue writes go through `catalog-write.service`, collections through
+ * `collection.service`, the refund through `refund.service`, and the rating
+ * aggregates through `review.service.recomputeAggregate`. Where no service owns
+ * the write (the taxonomy, a store row, an already-paid order) the repository
+ * that owns the table is used directly.
  *
- * It still compiles and still runs; what it produces is simply no longer visible
- * to the application, because every catalogue read goes to Postgres. It is
- * rewritten in the stage that ports orders, and until then a developer wanting
- * catalogue data should use the Postgres fixtures in
- * `src/db/__tests__/catalog.realdb.test.ts` as the reference shape.
+ * The one visible consequence: the seed now obeys the application's own limits.
+ * `config.catalog.maxImagesPerListing` caps a gallery at 12, and the PDP cycles
+ * gallery images across the shade swatches 1:1 — so the multi-variant beauty
+ * product is seeded with as many shades as the image cap allows, not the 18 the
+ * old direct-to-Mongo write smuggled past it.
+ *
+ * ## Order and RMA numbers come from the SEQUENCES
+ *
+ * `nextOrderNumber` (`db/orders/orderRepository.ts`) is `nextval('order_number_seq')`
+ * and the RMA one is its twin in `refundRepository`. The `Counter` collection is
+ * gone; nothing here imports a Mongoose model.
  *
  * Run from `packages/backend`:
- *   NODE_ENV=development bun src/scripts/seed.ts
+ *   NODE_ENV=development DATABASE_URL=… bun src/scripts/seed.ts
  */
 
-import mongoose from 'mongoose';
-import { connectDB } from '../lib/db.js';
-import { log } from '../lib/logger.js';
-import { slugify } from '../utils/slug.js';
-import { Category } from '../models/category.js';
-import { Store, ALL_STORE_PERMISSIONS, type IStoreMember } from '../models/store.js';
-import { SellerProfile } from '../models/seller-profile.js';
-import { Listing } from '../models/listing.js';
-import { ProductVariant } from '../models/product-variant.js';
-import { Location } from '../models/location.js';
-import { InventoryLevel } from '../models/inventory-level.js';
-import { Collection } from '../models/collection.js';
-import { Discount } from '../models/discount.js';
-import { TaxRate } from '../models/tax-rate.js';
-import { Customer } from '../models/customer.js';
-import { DraftOrder } from '../models/draft-order.js';
-import { Order } from '../models/order.js';
-import { Refund } from '../models/refund.js';
-import { Review } from '../models/review.js';
-import { nextOrderNumber } from '../models/counter.js';
+import { uuidv7 } from '@oxyhq/db';
+import type { CreateStoreProductInput, DualMoney, Money } from '@mercaria/shared-types';
+import { closePostgres, connectPostgres, type Database } from '../db/postgres.js';
+import { categories, listings } from '../db/schema/catalog.js';
+import { STORE_PERMISSIONS, stores } from '../db/schema/stores.js';
+import { orders, refunds } from '../db/schema/orders.js';
+import { draftOrders } from '../db/schema/pos.js';
+import { reviews, sellerProfiles } from '../db/schema/buyers.js';
+import { insertCategory } from '../db/catalog/categoryRepository.js';
+import { findVariantsByListing, type VariantRecord } from '../db/catalog/variantRepository.js';
+import { insertStore, updateStoreColumns } from '../db/stores/storeRepository.js';
+import { insertLocation } from '../db/stores/locationRepository.js';
+import { insertOrder, nextOrderNumber } from '../db/orders/orderRepository.js';
+import { insertReview } from '../db/buyers/reviewRepository.js';
+import {
+  adjustSellerSalesCount,
+  ensureSellerProfile,
+  setSellerRating,
+} from '../db/buyers/sellerProfileRepository.js';
+import { createP2PListing, createStoreProduct } from '../services/catalog-write.service.js';
+import { createCollection } from '../services/collection.service.js';
+import { createDiscount } from '../services/discount.service.js';
+import { createTaxRate } from '../services/tax.service.js';
+import { createCustomer, upsertOnPaid } from '../services/customer.service.js';
 import { process as processRefund } from '../services/refund.service.js';
-import { createCollection, setCollectionProducts } from '../services/collection.service.js';
 import { recomputeAggregate } from '../services/review.service.js';
-import { minorUnitsPerMajor } from '../utils/money.js';
 import { config } from '../config/index.js';
-import type { DualMoney, Money } from '@mercaria/shared-types';
+import { log } from '../lib/logger.js';
+import { minorUnitsPerMajor } from '../utils/money.js';
+import { slugify } from '../utils/slug.js';
 
 // FAKE dev owner — there is NO real Oxy account behind this id. Used only so the
 // seeded stores/P2P listings have a deterministic owner in development.
 const DEV_OWNER_OXY_USER_ID = '000000000000000000000001';
 // A second FAKE dev seller for P2P listings.
 const DEV_SELLER_OXY_USER_ID = '000000000000000000000002';
+// The FAKE dev buyer behind the seeded POS sale and storefront orders.
+const DEV_BUYER_OXY_USER_ID = '000000000000000000000003';
 
 /** The native currency all seeded prices are stored in. */
 const SEED_CURRENCY = 'FAIR' as const;
+
+/** Milliseconds in one day, for staggering the seeded orders across the report window. */
+const DAY_MS = 86_400_000;
 
 /**
  * Build a FAIR `Money` from a MAJOR-unit value (e.g. `fair(125)` = ⊜125.00),
  * scaling to integer minor units via the currency-precision map. Keeps the seed
  * free of hardcoded `1e8` magic and precision-aware if FAIR's precision changes.
+ *
+ * A catalogue price is a SINGLE-currency native `Money` — two columns
+ * (`*_amount` + `*_currency`) — because the catalogue stores the seller's own
+ * currency and never converts. Only TRANSACTED amounts become `DualMoney`.
  */
 function fair(major: number): Money {
   return { amount: major * minorUnitsPerMajor(SEED_CURRENCY), currency: SEED_CURRENCY };
 }
 
 /**
- * Wrap a `Money` as `DualMoney` for a seeded order/refund. Seeded orders settle in
- * the store's currency AND are presented in it (the seed's `SEED_CURRENCY`), so the
- * shop and presentment sides are equal (distinct objects, no aliasing).
+ * Wrap a `Money` as the `DualMoney` every transacted amount on an order or a
+ * refund carries — FOUR columns, shop + presentment.
+ *
+ * Seeded orders settle in the store's currency AND are presented in it (the
+ * seed's `SEED_CURRENCY`), so the two sides are equal — distinct objects, so no
+ * caller can mutate one through the other.
  */
 function dual(money: Money): DualMoney {
   return { shop: { ...money }, presentment: { ...money } };
+}
+
+/**
+ * A seeded variant's price as a `Money`.
+ *
+ * `product_variants.price_*` is nullable — the two columns are absent TOGETHER —
+ * so the read has to narrow rather than assert. Every variant this seed creates
+ * carries a price, so an absent one is a bug in the seed and says so.
+ */
+function variantPrice(variant: VariantRecord): Money {
+  if (variant.priceAmount === null || variant.priceCurrency === null) {
+    throw new Error(`Seeded variant ${variant.id} has no price; the seed always writes one.`);
+  }
+  return { amount: variant.priceAmount, currency: variant.priceCurrency };
 }
 
 function categoryAsset(file: string): string {
@@ -204,8 +238,11 @@ const EYE_BRIGHTENER_IMG_WIDTH = 800;
  * (verified-200) CDN image file. The PDP's swatch component cycles the listing
  * `gallery` images by index, so shade order here MUST equal gallery order — the
  * derived `EYE_BRIGHTENER_GALLERY` keeps that 1:1 alignment automatically.
+ *
+ * The full catalogue is kept here; how many of them are SEEDED is decided by
+ * {@link EYE_BRIGHTENER_SHADE_FILES} below.
  */
-const EYE_BRIGHTENER_SHADE_FILES: readonly { shade: string; file: string }[] = [
+const EYE_BRIGHTENER_ALL_SHADE_FILES: readonly { shade: string; file: string }[] = [
   { shade: 'Muna', file: '0607_Web_Assets_PDP_BEB_Muna_Updated.jpg?v=1686098841' },
   { shade: 'Stella', file: '0607_Web_Assets_PDP_BEB_Stella_Updated.jpg?v=1686098841' },
   { shade: 'Gia', file: '0607_Web_Assets_PDP_BEB_Gia_Updated.jpg?v=1686098841' },
@@ -225,6 +262,23 @@ const EYE_BRIGHTENER_SHADE_FILES: readonly { shade: string; file: string }[] = [
   { shade: 'Thrive Turquoise', file: '10thAnniversary_PDP_ThriveTurq_Component.jpg?v=1741292677' },
   { shade: 'Trish', file: '10thAnniversary_PDP_Trish_Component.jpg?v=1741292722' },
 ] as const;
+
+/**
+ * The shades this seed actually creates — the leading
+ * `config.catalog.maxImagesPerListing` of the catalogue above.
+ *
+ * The gallery cap IS the shade cap here, and that is not an arbitrary trim: the
+ * PDP renders one gallery image per swatch by index, so a shade past the last
+ * image would show another shade's photo. The old seed wrote the `Listing`
+ * document directly and shipped all 18 past a limit `catalog-write.service`
+ * enforces on every real product creation; going through the service means the
+ * seed obeys the same rule the API does. Raising `MAX_IMAGES_PER_LISTING` raises
+ * the shade count with it.
+ */
+const EYE_BRIGHTENER_SHADE_FILES = EYE_BRIGHTENER_ALL_SHADE_FILES.slice(
+  0,
+  config.catalog.maxImagesPerListing,
+);
 
 /**
  * Shade names for the Brilliant Eye Brightener (the `Shade` option `values`),
@@ -257,7 +311,7 @@ const EYE_BRIGHTENER_SALE_SHADES: readonly string[] = ['Stella', 'Betty'];
  * Review distribution for the Brilliant Eye Brightener, keyed by star value.
  * Counts total 40 and average ≈4.6, mirroring the original Shop PDP's
  * distribution (≈82% 5★ / 7% 4★ / 5% 3★ / 3% 2★ / 4% 1★). The aggregate
- * persisted on the listing is recomputed from the seeded docs, so these are the
+ * persisted on the listing is recomputed from the seeded rows, so these are the
  * single source of truth for the seeded rating.
  */
 const EYE_BRIGHTENER_REVIEW_DISTRIBUTION: Readonly<Record<1 | 2 | 3 | 4 | 5, number>> = {
@@ -267,11 +321,6 @@ const EYE_BRIGHTENER_REVIEW_DISTRIBUTION: Readonly<Record<1 | 2 | 3 | 4 | 5, num
   2: 1,
   1: 1,
 } as const;
-
-/** Newest seeded review is this many days old; the rest spread back from here. */
-const REVIEW_SPREAD_DAYS = 60;
-/** Milliseconds in one day, for spreading `createdAt` across the review window. */
-const DAY_MS = 86_400_000;
 
 /**
  * A handful of secondary review distributions for single-variant store products,
@@ -308,6 +357,20 @@ const REVIEW_SNIPPETS: readonly { title: string; body: string }[] = [
   { title: 'Disappointed', body: 'Arrived fine but the formula felt drier than I remembered. Wouldn’t reorder.' },
 ] as const;
 
+/**
+ * A single variant within a store product. `price`/`compareAtPrice` are
+ * MAJOR-unit FAIR (⊜); `available` is the per-variant stock (0 = sold out).
+ * `optionValues` assigns this variant's value for each of the product's options
+ * (e.g. `[{ name: 'Shade', value: 'Stella' }]`); an EMPTY list is the single
+ * default variant of a product with no option axes.
+ */
+interface StoreVariantSpec {
+  optionValues: { name: string; value: string }[];
+  price: number;
+  compareAtPrice?: number;
+  available: number;
+}
+
 /** Build the per-shade variant specs for the Brilliant Eye Brightener. */
 function buildEyeBrightenerVariants(): StoreVariantSpec[] {
   return EYE_BRIGHTENER_SHADES.map((shade) => {
@@ -323,84 +386,14 @@ function buildEyeBrightenerVariants(): StoreVariantSpec[] {
   });
 }
 
-/** A persisted-review spec built for the seed (one document per entry). */
-interface SeedReviewDoc {
-  authorOxyUserId: string;
-  targetType: 'listing';
-  listingId: string;
-  rating: number;
-  title: string;
-  body: string;
-  status: 'published';
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 /**
- * Build the published-review documents for one listing from a star-bucket
- * distribution. Ratings are expanded from the distribution (newest first), each
- * paired with a rotating snippet and a deterministic fake author id, and
- * `createdAt` is spread back over {@link REVIEW_SPREAD_DAYS} from `now`. The
- * author ids do NOT map to real Oxy accounts — the read layer's profile
- * hydration omits them, which the PDP renders as an anonymous review.
- */
-function buildListingReviews(
-  listingId: string,
-  distribution: Readonly<Record<1 | 2 | 3 | 4 | 5, number>>,
-  now: Date,
-): SeedReviewDoc[] {
-  // Expand the distribution highest-star-first into a flat rating list.
-  const ratings: number[] = [];
-  for (const star of [5, 4, 3, 2, 1] as const) {
-    for (let i = 0; i < distribution[star]; i += 1) {
-      ratings.push(star);
-    }
-  }
-
-  const total = ratings.length;
-  const stepMs = total > 1 ? (REVIEW_SPREAD_DAYS * DAY_MS) / (total - 1) : 0;
-
-  return ratings.map((rating, index) => {
-    const snippet = REVIEW_SNIPPETS[index % REVIEW_SNIPPETS.length];
-    // Newest review is `now`; each subsequent one steps further into the past.
-    const createdAt = new Date(now.getTime() - index * stepMs);
-    // Deterministic fake author id (1-based, zero-padded to a 24-char hex id).
-    const authorOxyUserId = (index + 1).toString(16).padStart(24, '0');
-    return {
-      authorOxyUserId,
-      targetType: 'listing',
-      listingId,
-      rating,
-      title: snippet.title,
-      body: snippet.body,
-      status: 'published',
-      createdAt,
-      updatedAt: createdAt,
-    };
-  });
-}
-
-/**
- * A single variant within a multi-variant store product. `price`/`compareAtPrice`
- * are MAJOR-unit FAIR (⊜); `available` is the per-variant stock (0 = sold out).
- * `optionValues` assigns this variant's value for each of the product's options
- * (e.g. `[{ name: 'Shade', value: 'Stella' }]`).
- */
-interface StoreVariantSpec {
-  optionValues: { name: string; value: string }[];
-  price: number;
-  compareAtPrice?: number;
-  available: number;
-}
-
-/**
- * A store-product spec for the seed. `price`/`compareAtPrice` are MAJOR-unit FAIR (⊜).
+ * A store-product spec for the seed.
  *
- * Single-variant products set only `price`/`available` (one default variant with
- * `optionValues: []`). Multi-variant products instead declare `options` (the
- * option axes, e.g. `Shade`) AND `variants` (one spec per concrete SKU); when
- * present, the product-level `price`/`available` act as the denormalized
- * faceting fallback and are NOT used to build a variant.
+ * There is no product-level price/stock any more: `catalog-write.service`
+ * derives `priceRange`, `hasInventory` and `variantCount` from the variants it
+ * creates, so a second copy of those numbers here could only ever disagree with
+ * what the service computes. A single-variant product is one entry in
+ * {@link variants} with no `optionValues`.
  */
 interface StoreProductSpec {
   title: string;
@@ -410,13 +403,10 @@ interface StoreProductSpec {
   image: string;
   /** Extra gallery images beyond `image` (the PDP cycles these across swatches). */
   gallery?: string[];
-  price: number;
-  compareAtPrice?: number;
-  available: number;
-  /** Option axes (e.g. `{ name: 'Shade', values: [...] }`). Empty ⇒ single default variant. */
+  /** Option axes (e.g. `{ name: 'Shade', values: [...] }`). Empty ⇒ one default variant. */
   options?: { name: string; values: string[] }[];
-  /** One spec per concrete SKU. Required (and only used) when `options` is set. */
-  variants?: StoreVariantSpec[];
+  /** One spec per concrete SKU; at least one. */
+  variants: StoreVariantSpec[];
   /** Merchandising product type (e.g. `Knitwear`). */
   productType?: string;
   /** Extra tags beyond the default `[storeName, categorySlug]` (e.g. `['sale']`). */
@@ -449,9 +439,31 @@ const STORES: StoreSpec[] = [
     rating: 4.9,
     reviewCount: 1400,
     products: [
-      { title: 'Mopit Top', description: 'Sculptural knit top in marrón.', categorySlug: 'shirts', image: IMG.palomaMopit, price: 125, available: 8, productType: 'Knitwear' },
-      { title: 'Franny', description: 'Drop 5 ready-to-wear piece.', categorySlug: 'dresses', image: IMG.palomaFranny, price: 189, available: 5, productType: 'Dresses' },
-      { title: 'Beni Top', description: 'Negro knit top.', categorySlug: 'shirts', image: IMG.palomaBeni, price: 79, compareAtPrice: 99, available: 12, productType: 'Knitwear', extraTags: ['sale'] },
+      {
+        title: 'Mopit Top',
+        description: 'Sculptural knit top in marrón.',
+        categorySlug: 'shirts',
+        image: IMG.palomaMopit,
+        productType: 'Knitwear',
+        variants: [{ optionValues: [], price: 125, available: 8 }],
+      },
+      {
+        title: 'Franny',
+        description: 'Drop 5 ready-to-wear piece.',
+        categorySlug: 'dresses',
+        image: IMG.palomaFranny,
+        productType: 'Dresses',
+        variants: [{ optionValues: [], price: 189, available: 5 }],
+      },
+      {
+        title: 'Beni Top',
+        description: 'Negro knit top.',
+        categorySlug: 'shirts',
+        image: IMG.palomaBeni,
+        productType: 'Knitwear',
+        extraTags: ['sale'],
+        variants: [{ optionValues: [], price: 79, compareAtPrice: 99, available: 12 }],
+      },
     ],
   },
   {
@@ -465,9 +477,31 @@ const STORES: StoreSpec[] = [
     rating: 4.7,
     reviewCount: 128,
     products: [
-      { title: 'Jenna Cotton Pant', description: 'Relaxed cotton pant in stone.', categorySlug: 'pants', image: IMG.nililotanJenna, price: 390, available: 6, productType: 'Pants' },
-      { title: 'Shon Cotton Pant', description: 'Vintage washed admiral blue cotton pant.', categorySlug: 'pants', image: IMG.nililotanShon, price: 390, available: 4, productType: 'Pants' },
-      { title: 'Leather Ballet Flat', description: 'Black leather ballet flat.', categorySlug: 'sneakers', image: IMG.nililotanBalletFlat, price: 425, compareAtPrice: 550, available: 3, productType: 'Shoes', extraTags: ['sale'] },
+      {
+        title: 'Jenna Cotton Pant',
+        description: 'Relaxed cotton pant in stone.',
+        categorySlug: 'pants',
+        image: IMG.nililotanJenna,
+        productType: 'Pants',
+        variants: [{ optionValues: [], price: 390, available: 6 }],
+      },
+      {
+        title: 'Shon Cotton Pant',
+        description: 'Vintage washed admiral blue cotton pant.',
+        categorySlug: 'pants',
+        image: IMG.nililotanShon,
+        productType: 'Pants',
+        variants: [{ optionValues: [], price: 390, available: 4 }],
+      },
+      {
+        title: 'Leather Ballet Flat',
+        description: 'Black leather ballet flat.',
+        categorySlug: 'sneakers',
+        image: IMG.nililotanBalletFlat,
+        productType: 'Shoes',
+        extraTags: ['sale'],
+        variants: [{ optionValues: [], price: 425, compareAtPrice: 550, available: 3 }],
+      },
     ],
   },
   {
@@ -488,10 +522,6 @@ const STORES: StoreSpec[] = [
         categorySlug: 'lotion-moisturizer',
         image: EYE_BRIGHTENER_GALLERY[0],
         gallery: [...EYE_BRIGHTENER_GALLERY.slice(1)],
-        // Product-level price/available are the denormalized faceting fallback
-        // for a multi-variant product (the variants below are the real SKUs).
-        price: EYE_BRIGHTENER_PRICE,
-        available: EYE_BRIGHTENER_STOCK,
         productType: 'Makeup',
         options: [{ name: SHADE_OPTION_NAME, values: [...EYE_BRIGHTENER_SHADES] }],
         variants: buildEyeBrightenerVariants(),
@@ -529,569 +559,637 @@ const P2P_LISTINGS: P2PSpec[] = [
   },
 ];
 
+/** One seeded review, before it has an id. */
+interface SeedReview {
+  authorOxyUserId: string;
+  rating: number;
+  title: string;
+  body: string;
+}
+
+/**
+ * Expand a star-bucket distribution into the reviews to write for one listing,
+ * NEWEST FIRST — highest stars first, each paired with a rotating snippet and a
+ * deterministic fake author id.
+ *
+ * The author ids do NOT map to real Oxy accounts; the read layer's profile
+ * hydration omits them, which the PDP renders as an anonymous review. They are
+ * distinct per position, which is what keeps
+ * `reviews_author_oxy_user_id_listing_id_key` (one review per buyer per listing)
+ * satisfied.
+ */
+function buildListingReviews(
+  distribution: Readonly<Record<1 | 2 | 3 | 4 | 5, number>>,
+): SeedReview[] {
+  const ratings: number[] = [];
+  for (const star of [5, 4, 3, 2, 1] as const) {
+    for (let i = 0; i < distribution[star]; i += 1) {
+      ratings.push(star);
+    }
+  }
+
+  return ratings.map((rating, index) => {
+    const snippet = REVIEW_SNIPPETS[index % REVIEW_SNIPPETS.length];
+    return {
+      // Deterministic fake author id (1-based, zero-padded to a 24-char hex id).
+      authorOxyUserId: (index + 1).toString(16).padStart(24, '0'),
+      rating,
+      title: snippet.title,
+      body: snippet.body,
+    };
+  });
+}
+
+/**
+ * Clear the marketplace tables.
+ *
+ * ## Only SIX tables are named, and every other one goes by a declared cascade
+ *
+ * Each explicit delete below exists because something holds an `ON DELETE
+ * RESTRICT` reference that would otherwise refuse it: `refunds`, `reviews` and
+ * `draft_orders` all restrict `orders`; `orders` and `listings` both restrict
+ * `stores`; `orders` restricts `customers`; `listings` restricts `categories`.
+ * Everything else in the marketplace set — `store_members`, `locations`,
+ * `customers`, `tax_rates`, `collections` (+ rules + memberships), `discounts`
+ * (+ codes), `listing_images`, `listing_options`, `product_variants` (+ option
+ * values), `inventory_levels`, `favorites`, `cart_items`, and every order and
+ * refund child row — is removed by a foreign key the schema already declares.
+ *
+ * **`locations` is deliberately NOT deleted directly, and that was measured
+ * rather than assumed.** `connections.sync_settings_target_location_id` is
+ * RESTRICT, so `DELETE FROM locations` raises 23503 whenever a store has a
+ * connector pinned to one; deleting the STORE removes the connection and the
+ * location together and succeeds. `customers` is the same shape one table over.
+ *
+ * Nothing here touches `notifications`, `feedback`, `push_tokens`,
+ * `web_push_subscriptions`, `addresses`, `user_preferences`, `carts` or the
+ * moderation tables — the seed reseeds the marketplace, not the whole database.
+ */
+async function clearMarketplace(db: Database): Promise<void> {
+  await db.delete(refunds);
+  await db.delete(reviews);
+  await db.delete(draftOrders);
+  await db.delete(orders);
+  await db.delete(listings);
+  await db.delete(stores);
+  await db.delete(categories);
+  await db.delete(sellerProfiles);
+}
+
+/** Counters reported in the seed's completion log. */
+interface SeedCounts {
+  categories: number;
+  stores: number;
+  sellerProfiles: number;
+  listings: number;
+  variants: number;
+  collections: number;
+  discounts: number;
+  taxRates: number;
+  customers: number;
+  posOrders: number;
+  storefrontOrders: number;
+  refunds: number;
+  reviews: number;
+}
+
+/** The seeded taxonomy: every category slug mapped to its row id. */
+async function seedCategories(counts: SeedCounts): Promise<void> {
+  for (const [topIndex, top] of TAXONOMY.entries()) {
+    const parent = await insertCategory({
+      name: top.name,
+      slug: top.slug,
+      ancestorSlugs: [],
+      imageUrl: top.pillImage,
+      position: topIndex,
+    });
+    counts.categories += 1;
+
+    for (const [childIndex, child] of top.children.entries()) {
+      await insertCategory({
+        name: child.name,
+        slug: child.slug,
+        parentId: parent.id,
+        ancestorSlugs: [top.slug],
+        imageUrl: child.image,
+        position: childIndex,
+      });
+      counts.categories += 1;
+    }
+  }
+}
+
+/** The SKU for one seeded variant — store handle + product + its option values. */
+function skuFor(storeHandle: string, productTitle: string, spec: StoreVariantSpec): string {
+  const optionSlug = spec.optionValues.map((o) => slugify(o.value)).join('-');
+  const base = `${slugify(storeHandle)}-${slugify(productTitle)}`;
+  return optionSlug ? `${base}-${optionSlug}` : base;
+}
+
+/** Translate a product spec into the payload `catalog-write.service` accepts. */
+function toStoreProductInput(
+  storeSpec: StoreSpec,
+  product: StoreProductSpec,
+): CreateStoreProductInput {
+  const input: CreateStoreProductInput = {
+    title: product.title,
+    description: product.description,
+    category: product.categorySlug,
+    imageFileIds: [product.image, ...(product.gallery ?? [])],
+    tags: [storeSpec.name.toLowerCase(), product.categorySlug, ...(product.extraTags ?? [])],
+    options: (product.options ?? []).map((o) => ({ name: o.name, values: [...o.values] })),
+    variants: product.variants.map((spec) => ({
+      optionValues: spec.optionValues.map((o) => ({ name: o.name, value: o.value })),
+      price: fair(spec.price),
+      ...(spec.compareAtPrice !== undefined
+        ? { compareAtPrice: fair(spec.compareAtPrice) }
+        : {}),
+      sku: skuFor(storeSpec.handle, product.title, spec),
+      inventory: { tracked: true, available: spec.available },
+    })),
+    vendor: storeSpec.name,
+  };
+  if (product.productType !== undefined) {
+    input.productType = product.productType;
+  }
+  return input;
+}
+
+/**
+ * Seed one store: the store row, its default location, its products, the
+ * published reviews on the reviewable ones, and — for the demo store — its
+ * collections, discounts, tax rate, customer, orders and refund.
+ */
+async function seedStore(storeSpec: StoreSpec, counts: SeedCounts): Promise<void> {
+  const store = await insertStore(
+    {
+      handle: storeSpec.handle,
+      name: storeSpec.name,
+      description: storeSpec.description,
+      brandColor: storeSpec.brandColor,
+      defaultCurrency: SEED_CURRENCY,
+      logoFileId: storeSpec.logoFileId,
+      coverFileId: storeSpec.coverFileId,
+    },
+    [{ oxyUserId: DEV_OWNER_OXY_USER_ID, role: 'owner', permissions: [...STORE_PERMISSIONS] }],
+  );
+  counts.stores += 1;
+
+  // `textTone`, `rating` and `reviewCount` are DISPLAY columns `insertStore` does
+  // not take: the tone is a brand choice and the rating is the aggregate over
+  // `targetType: 'store'` reviews, of which the seed writes none. They are
+  // fabricated here so the "Worth the hype" merchant shelf — which orders by
+  // `rating desc, product_count desc` and renders both figures on the card — has
+  // something to show, exactly as the pre-port seed did.
+  await updateStoreColumns(store.id, {
+    textTone: storeSpec.textTone,
+    rating: storeSpec.rating,
+    reviewCount: storeSpec.reviewCount,
+  });
+
+  // Every store gets a default location; store inventory routes here, and
+  // `createStoreProduct` resolves it to stock each new variant.
+  const defaultLocation = await insertLocation(store.id, {
+    name: 'Default',
+    type: 'warehouse',
+    isDefault: true,
+    isActive: true,
+    fulfillsOnlineOrders: true,
+  });
+
+  // Title → listing id for this store, so collections and orders can reference
+  // products by the name they are written under above.
+  const listingIdByTitle = new Map<string, string>();
+
+  for (const product of storeSpec.products) {
+    const listingId = await createStoreProduct(store.id, toStoreProductInput(storeSpec, product));
+    listingIdByTitle.set(product.title, listingId);
+    counts.listings += 1;
+    counts.variants += product.variants.length;
+  }
+
+  await seedReviews(listingIdByTitle, counts);
+
+  if (storeSpec.handle === 'palomawool') {
+    await seedMerchandising(store.id, listingIdByTitle, counts);
+    await seedCommerce(store.id, defaultLocation.id, listingIdByTitle, counts);
+  }
+}
+
+/**
+ * Seed published reviews for a store's reviewable products and recompute each
+ * reviewed listing's `{ rating, reviewCount }` aggregate from what was written.
+ *
+ * The recompute is the point: a seed that writes reviews and leaves the
+ * denormalized aggregate at zero renders a shelf with no stars while the PDP
+ * lists forty reviews. `review.service.recomputeAggregate` is the same function
+ * the request path and the drift sweep use, so the two cannot disagree.
+ *
+ * `review.service.createReview` is deliberately NOT used: it gates on a
+ * qualifying prior order from the author, and these forty authors are fabricated
+ * ids with no purchase history. The repository write is the honest way to state
+ * that these are fixtures.
+ */
+async function seedReviews(
+  listingIdByTitle: ReadonlyMap<string, string>,
+  counts: SeedCounts,
+): Promise<void> {
+  const plan: { title: string; distribution: Readonly<Record<1 | 2 | 3 | 4 | 5, number>> }[] = [
+    { title: 'Brilliant Eye Brightener', distribution: EYE_BRIGHTENER_REVIEW_DISTRIBUTION },
+    ...Object.entries(SECONDARY_REVIEW_DISTRIBUTIONS).map(([title, distribution]) => ({
+      title,
+      distribution,
+    })),
+  ];
+
+  for (const entry of plan) {
+    const listingId = listingIdByTitle.get(entry.title);
+    if (!listingId) continue;
+
+    const built = buildListingReviews(entry.distribution);
+    if (built.length === 0) continue;
+
+    // Written OLDEST FIRST. `reviews.created_at` defaults to the write's own
+    // `now()`, so insertion order IS the chronology every review page reads back
+    // (`created_at desc, id desc`, with a k-sortable uuid v7 breaking a tie
+    // inside one millisecond). `buildListingReviews` returns them newest-first so
+    // the star ordering and the snippet pairing stay readable there; walking it
+    // backwards here is what makes the top-rated review the newest one.
+    for (let index = built.length - 1; index >= 0; index -= 1) {
+      const review = built[index];
+      await insertReview({
+        targetType: 'listing',
+        targetId: listingId,
+        authorOxyUserId: review.authorOxyUserId,
+        rating: review.rating,
+        title: review.title,
+        body: review.body,
+      });
+      counts.reviews += 1;
+    }
+
+    await recomputeAggregate('listing', listingId);
+  }
+}
+
+/**
+ * Demo merchandising for the first store: one MANUAL collection (Editor's Picks:
+ * Mopit + Franny), one AUTOMATED collection (On Sale: tag = 'sale'), two
+ * discounts and a tax rate.
+ *
+ * All four go through their services, which is what materializes the collection
+ * memberships into `listing_collections` and normalizes the discount codes.
+ */
+async function seedMerchandising(
+  storeId: string,
+  listingIdByTitle: ReadonlyMap<string, string>,
+  counts: SeedCounts,
+): Promise<void> {
+  const editorPicks = ['Mopit Top', 'Franny'].flatMap((title) => {
+    const id = listingIdByTitle.get(title);
+    return id ? [id] : [];
+  });
+
+  await createCollection(storeId, {
+    title: "Editor's Picks",
+    handle: 'editors-picks',
+    type: 'manual',
+    sortOrder: 'manual',
+    productIds: editorPicks,
+  });
+
+  await createCollection(storeId, {
+    title: 'On Sale',
+    handle: 'on-sale',
+    type: 'automated',
+    rules: {
+      appliesDisjunctively: false,
+      conditions: [{ field: 'tag', operator: 'contains', value: 'sale' }],
+    },
+    sortOrder: 'price_asc',
+  });
+  counts.collections += 2;
+
+  await createDiscount(storeId, {
+    title: 'Welcome 15% off',
+    method: 'code',
+    codes: ['WELCOME15'],
+    valueType: 'percentage',
+    value: 1500,
+    appliesTo: { scope: 'order' },
+    combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: false },
+  });
+  await createDiscount(storeId, {
+    title: 'Always-on 5% off',
+    method: 'automatic',
+    valueType: 'percentage',
+    value: 500,
+    appliesTo: { scope: 'order' },
+    combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: false },
+  });
+  counts.discounts += 2;
+
+  await createTaxRate(storeId, {
+    name: 'US Sales Tax',
+    rateBps: 800,
+    region: { country: 'US' },
+    appliesToShipping: false,
+    priority: 0,
+    isActive: true,
+  });
+  counts.taxRates += 1;
+}
+
+/** One seeded storefront sale: which product, how many, and how long ago it was paid. */
+interface StorefrontOrderSpec {
+  title: string;
+  quantity: number;
+  daysAgo: number;
+}
+
+/** The online orders staggered across the report window. */
+const STOREFRONT_ORDERS: readonly StorefrontOrderSpec[] = [
+  { title: 'Franny', quantity: 1, daysAgo: 2 },
+  { title: 'Beni Top', quantity: 3, daysAgo: 5 },
+  { title: 'Mopit Top', quantity: 1, daysAgo: 5 },
+  { title: 'Franny', quantity: 2, daysAgo: 12 },
+  { title: 'Beni Top', quantity: 1, daysAgo: 20 },
+];
+
+/**
+ * Demo commerce for the first store: a related customer, a completed POS sale, a
+ * partial refund against it, and a handful of staggered storefront orders.
+ *
+ * Orders are written already-`paid` through `insertOrder` rather than created
+ * pending and advanced through `order.service.transition`: the transition path
+ * COMMITS reserved stock, and a seeded order never reserved any, so routing
+ * through it would decrement inventory the seed just set. What the seed does take
+ * from the real path is `customer.service.upsertOnPaid` — the same call the paid
+ * transition makes — so the customer's lifetime `orderCount`/`totalSpent` are
+ * DERIVED from the orders rather than hand-written beside them.
+ */
+async function seedCommerce(
+  storeId: string,
+  locationId: string,
+  listingIdByTitle: ReadonlyMap<string, string>,
+  counts: SeedCounts,
+): Promise<void> {
+  const posListingId = listingIdByTitle.get('Mopit Top');
+  if (!posListingId) return;
+
+  const [posVariant] = await findVariantsByListing(posListingId);
+  if (!posVariant) return;
+
+  const customer = await createCustomer(storeId, {
+    oxyUserId: DEV_BUYER_OXY_USER_ID,
+    displayName: 'Mara Vidal',
+    email: 'mara.vidal@example.com',
+    tags: ['vip', 'in-store'],
+  });
+  counts.customers += 1;
+
+  // The POS sale: two units of the Mopit Top, picked up in store.
+  const posQuantity = 2;
+  const posUnitPrice = variantPrice(posVariant);
+  const posLineTotal: Money = {
+    amount: posUnitPrice.amount * posQuantity,
+    currency: posUnitPrice.currency,
+  };
+  const posPaidAt = new Date();
+
+  const posOrder = await insertOrder({
+    orderNumber: await nextOrderNumber(),
+    buyerOxyUserId: DEV_BUYER_OXY_USER_ID,
+    sellerType: 'store',
+    storeId,
+    customerId: customer.id,
+    sourceChannel: 'pos',
+    shippingAddress: {
+      recipientName: 'Mara Vidal',
+      line1: 'In-store',
+      city: 'Barcelona',
+      postalCode: '08001',
+      country: 'ES',
+    },
+    shippingMethod: 'pickup',
+    shippingLabel: 'Pickup',
+    shippingCost: dual(fair(0)),
+    totals: {
+      subtotal: dual(posLineTotal),
+      discountTotal: dual(fair(0)),
+      shipping: dual(fair(0)),
+      tax: dual(fair(0)),
+      grandTotal: dual(posLineTotal),
+    },
+    status: 'paid',
+    paymentStatus: 'paid',
+    paymentProvider: 'oxy_pay',
+    paymentPaidAt: posPaidAt,
+    checkoutGroupId: uuidv7(),
+    items: [
+      {
+        listingId: posListingId,
+        variantId: posVariant.id,
+        title: 'Mopit Top',
+        variantTitle: posVariant.title,
+        optionValues: [],
+        unitPrice: dual(posUnitPrice),
+        quantity: posQuantity,
+        lineTotal: dual(posLineTotal),
+        locationId,
+      },
+    ],
+    statusHistory: [
+      { status: 'paid', at: posPaidAt, byOxyUserId: DEV_OWNER_OXY_USER_ID, note: 'pos sale' },
+    ],
+    appliedDiscounts: [],
+    taxLines: [],
+  });
+  counts.posOrders += 1;
+  await upsertOnPaid(storeId, DEV_BUYER_OXY_USER_ID, posLineTotal);
+
+  // A PARTIAL refund on that paid sale: refund + restock one of the two units.
+  // The refund (1 unit) is less than the grand total (2 units), so the order lands
+  // in `partially_refunded`, an RMA-numbered refund row is created from
+  // `rma_number_seq`, the variant's stock rises by one at the register's location,
+  // and the customer's lifetime spend drops by the refunded amount.
+  await processRefund(
+    storeId,
+    posOrder.id,
+    {
+      lineItems: [{ variantId: posVariant.id, quantity: 1, restock: true }],
+      reason: 'Customer returned one unit',
+    },
+    DEV_OWNER_OXY_USER_ID,
+  );
+  counts.refunds += 1;
+
+  // ONLINE storefront orders staggered across the last few weeks, so the reports
+  // return non-trivial data: the summary shows both the `storefront` and `pos`
+  // channels, the sales-over-time report spans multiple day buckets, and
+  // top-products has a real units ranking. `paid_at` is what the reports bucket on
+  // (`coalesce(paid_at, created_at)`), which is why it is staggered and
+  // `created_at` — written by the row's own default — is not.
+  const now = Date.now();
+  for (const spec of STOREFRONT_ORDERS) {
+    const listingId = listingIdByTitle.get(spec.title);
+    if (!listingId) continue;
+    const [variant] = await findVariantsByListing(listingId);
+    if (!variant) continue;
+
+    const unitPrice = variantPrice(variant);
+    const lineTotal: Money = {
+      amount: unitPrice.amount * spec.quantity,
+      currency: unitPrice.currency,
+    };
+    const shipping: Money = {
+      amount: config.orders.shippingRates.standard,
+      currency: unitPrice.currency,
+    };
+    const grandTotal: Money = {
+      amount: lineTotal.amount + shipping.amount,
+      currency: unitPrice.currency,
+    };
+    const paidAt = new Date(now - spec.daysAgo * DAY_MS);
+
+    await insertOrder({
+      orderNumber: await nextOrderNumber(),
+      buyerOxyUserId: DEV_BUYER_OXY_USER_ID,
+      sellerType: 'store',
+      storeId,
+      sourceChannel: 'storefront',
+      shippingAddress: {
+        recipientName: 'Mara Vidal',
+        line1: 'Carrer de Mallorca 1',
+        city: 'Barcelona',
+        postalCode: '08001',
+        country: 'ES',
+      },
+      shippingMethod: 'standard',
+      shippingLabel: 'Standard shipping',
+      shippingCost: dual(shipping),
+      totals: {
+        subtotal: dual(lineTotal),
+        discountTotal: dual(fair(0)),
+        shipping: dual(shipping),
+        tax: dual(fair(0)),
+        grandTotal: dual(grandTotal),
+      },
+      status: 'paid',
+      paymentStatus: 'paid',
+      paymentProvider: 'oxy_pay',
+      paymentPaidAt: paidAt,
+      checkoutGroupId: uuidv7(),
+      items: [
+        {
+          listingId,
+          variantId: variant.id,
+          title: spec.title,
+          variantTitle: variant.title,
+          optionValues: [],
+          unitPrice: dual(unitPrice),
+          quantity: spec.quantity,
+          lineTotal: dual(lineTotal),
+          locationId,
+        },
+      ],
+      statusHistory: [
+        {
+          status: 'paid',
+          at: paidAt,
+          byOxyUserId: DEV_OWNER_OXY_USER_ID,
+          note: 'storefront sale',
+        },
+      ],
+      appliedDiscounts: [],
+      taxLines: [],
+    });
+    counts.storefrontOrders += 1;
+    await upsertOnPaid(storeId, DEV_BUYER_OXY_USER_ID, grandTotal);
+  }
+}
+
+/**
+ * The P2P (secondhand) side: one seller profile with its marketplace aggregates,
+ * plus the individual seller's listings.
+ *
+ * `createP2PListing` hides the variant model behind a flat `price`/`quantity`
+ * API and lazily creates the seller profile itself, so the aggregates are set
+ * first and the listings follow.
+ */
+async function seedP2P(counts: SeedCounts): Promise<void> {
+  await ensureSellerProfile(DEV_SELLER_OXY_USER_ID);
+  await setSellerRating(DEV_SELLER_OXY_USER_ID, 4.8, 23);
+  await adjustSellerSalesCount(DEV_SELLER_OXY_USER_ID, 41);
+  counts.sellerProfiles += 1;
+
+  for (const spec of P2P_LISTINGS) {
+    await createP2PListing(DEV_SELLER_OXY_USER_ID, {
+      title: spec.title,
+      description: spec.description,
+      price: fair(spec.price),
+      condition: 'used',
+      category: spec.categorySlug,
+      imageFileIds: [spec.image],
+      tags: ['secondhand', spec.categorySlug],
+      quantity: spec.available,
+    });
+    counts.listings += 1;
+    counts.variants += 1;
+  }
+}
+
 async function seed(): Promise<void> {
   if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
     log.general.error('Refusing to seed in production without ALLOW_PROD_SEED=true');
     process.exit(1);
   }
 
-  await connectDB();
+  const db = await connectPostgres();
 
   log.general.info(
-    'Clearing marketplace collections (Category, Store, SellerProfile, Listing, ProductVariant, Location, InventoryLevel, Collection, Discount, TaxRate, Customer, DraftOrder, Order, Refund, Review)',
+    'Clearing the marketplace tables (refunds, reviews, draft orders, orders, ' +
+      'listings, stores, categories, seller profiles — everything else follows ' +
+      'by a declared foreign key)',
   );
-  await Promise.all([
-    Category.deleteMany({}),
-    Store.deleteMany({}),
-    SellerProfile.deleteMany({}),
-    Listing.deleteMany({}),
-    ProductVariant.deleteMany({}),
-    Location.deleteMany({}),
-    InventoryLevel.deleteMany({}),
-    Collection.deleteMany({}),
-    Discount.deleteMany({}),
-    TaxRate.deleteMany({}),
-    Customer.deleteMany({}),
-    DraftOrder.deleteMany({}),
-    Order.deleteMany({}),
-    Refund.deleteMany({}),
-    Review.deleteMany({}),
-  ]);
+  await clearMarketplace(db);
 
-  // 1. Category taxonomy. Top-level uses its pill image; children get ancestorSlugs.
-  const slugToCategoryId = new Map<string, string>();
-  let categoryCount = 0;
-  for (const [topIndex, top] of TAXONOMY.entries()) {
-    const parent = await Category.create({
-      name: top.name,
-      slug: top.slug,
-      parentId: null,
-      ancestorSlugs: [],
-      imageUrl: top.pillImage,
-      position: topIndex,
-      isActive: true,
-    });
-    const parentId = String(parent._id);
-    slugToCategoryId.set(top.slug, parentId);
-    categoryCount += 1;
+  const counts: SeedCounts = {
+    categories: 0,
+    stores: 0,
+    sellerProfiles: 0,
+    listings: 0,
+    variants: 0,
+    collections: 0,
+    discounts: 0,
+    taxRates: 0,
+    customers: 0,
+    posOrders: 0,
+    storefrontOrders: 0,
+    refunds: 0,
+    reviews: 0,
+  };
 
-    for (const [childIndex, child] of top.children.entries()) {
-      const childDoc = await Category.create({
-        name: child.name,
-        slug: child.slug,
-        parentId,
-        ancestorSlugs: [top.slug],
-        imageUrl: child.image,
-        position: childIndex,
-        isActive: true,
-      });
-      slugToCategoryId.set(child.slug, String(childDoc._id));
-      categoryCount += 1;
-    }
-  }
-
-  // Resolve a category slug to its id + denormalized [ancestor..., slug] path.
-  function categoryRef(slug: string): { categoryId: string; categorySlugs: string[] } {
-    const categoryId = slugToCategoryId.get(slug) ?? '';
-    // A child's path is [parentSlug, childSlug]; a top-level's is [slug].
-    const top = TAXONOMY.find((t) => t.children.some((c) => c.slug === slug));
-    const categorySlugs = top ? [top.slug, slug] : [slug];
-    return { categoryId, categorySlugs };
-  }
-
-  const now = new Date();
-  let listingCount = 0;
-  let variantCount = 0;
-  let collectionCount = 0;
-  let discountCount = 0;
-  let taxRateCount = 0;
-  let customerCount = 0;
-  let posOrderCount = 0;
-  let storefrontOrderCount = 0;
-  let refundCount = 0;
-  let reviewCount = 0;
-
-  // 2 + 3. Stores and their products (ownerType 'store').
+  await seedCategories(counts);
   for (const storeSpec of STORES) {
-    const member: IStoreMember = {
-      oxyUserId: DEV_OWNER_OXY_USER_ID,
-      role: 'owner',
-      permissions: [...ALL_STORE_PERMISSIONS],
-      joinedAt: now,
-    };
-    const store = await Store.create({
-      handle: storeSpec.handle,
-      name: storeSpec.name,
-      description: storeSpec.description,
-      logoFileId: storeSpec.logoFileId,
-      coverFileId: storeSpec.coverFileId,
-      brandColor: storeSpec.brandColor,
-      textTone: storeSpec.textTone,
-      status: 'active',
-      members: [member],
-      policies: { returnWindowDays: 30 },
-      defaultCurrency: SEED_CURRENCY,
-      rating: storeSpec.rating,
-      reviewCount: storeSpec.reviewCount,
-      productCount: storeSpec.products.length,
-    });
-    const storeId = String(store._id);
-
-    // Every store gets a default location; store inventory routes here.
-    const defaultLocation = await Location.create({
-      storeId,
-      name: 'Default',
-      type: 'warehouse',
-      isDefault: true,
-      isActive: true,
-      fulfillsOnlineOrders: true,
-    });
-    const defaultLocationId = String(defaultLocation._id);
-
-    // Title → listing id for this store, so collections can reference products by title.
-    const listingIdByTitle = new Map<string, string>();
-
-    for (const [index, product] of storeSpec.products.entries()) {
-      const ref = categoryRef(product.categorySlug);
-
-      // Normalize single- vs multi-variant specs into one list of variants to
-      // create. A spec WITHOUT `variants` is a single default variant built from
-      // the product-level `price`/`compareAtPrice`/`available`.
-      const variantSpecs: StoreVariantSpec[] = product.variants ?? [
-        {
-          optionValues: [],
-          price: product.price,
-          ...(product.compareAtPrice ? { compareAtPrice: product.compareAtPrice } : {}),
-          available: product.available,
-        },
-      ];
-
-      // Denormalized price faceting spans every variant's price.
-      const variantPrices = variantSpecs.map((v) => v.price);
-      const minPrice = Math.min(...variantPrices);
-      const maxPrice = Math.max(...variantPrices);
-      // The listing has inventory if ANY variant has stock.
-      const hasInventory = variantSpecs.some((v) => v.available > 0);
-
-      // Gallery: primary image first, then any extra frames, all at increasing positions.
-      const galleryFileIds = [product.image, ...(product.gallery ?? [])];
-
-      const listing = await Listing.create({
-        ownerType: 'store',
-        storeId,
-        title: product.title,
-        description: product.description,
-        condition: 'new',
-        status: 'active',
-        categoryId: ref.categoryId,
-        categorySlugs: ref.categorySlugs,
-        images: galleryFileIds.map((fileId, position) => ({ fileId, position })),
-        tags: [storeSpec.name.toLowerCase(), product.categorySlug, ...(product.extraTags ?? [])],
-        options: product.options ?? [],
-        vendor: storeSpec.name,
-        ...(product.productType ? { productType: product.productType } : {}),
-        priceRange: {
-          min: fair(minPrice),
-          max: fair(maxPrice),
-        },
-        hasInventory,
-        variantCount: variantSpecs.length,
-        rating: storeSpec.rating,
-        reviewCount: 0,
-        publishedAt: new Date(now.getTime() - index * 1000),
-      });
-      listingCount += 1;
-      listingIdByTitle.set(product.title, String(listing._id));
-
-      // One ProductVariant + matching InventoryLevel per spec. A multi-variant
-      // SKU's title is its joined option values (e.g. `Stella`); a default
-      // variant keeps the `Default Title` sentinel. The SKU stays unique by
-      // suffixing the slugified option values.
-      for (const [variantIndex, variantSpec] of variantSpecs.entries()) {
-        const optionSlug = variantSpec.optionValues.map((o) => slugify(o.value)).join('-');
-        const sku = optionSlug
-          ? `${slugify(storeSpec.handle)}-${slugify(product.title)}-${optionSlug}`
-          : `${slugify(storeSpec.handle)}-${slugify(product.title)}`;
-        const variantTitle =
-          variantSpec.optionValues.length > 0
-            ? variantSpec.optionValues.map((o) => o.value).join(' / ')
-            : 'Default Title';
-
-        const variant = await ProductVariant.create({
-          listingId: String(listing._id),
-          title: variantTitle,
-          optionValues: variantSpec.optionValues,
-          sku,
-          price: fair(variantSpec.price),
-          ...(variantSpec.compareAtPrice
-            ? { compareAtPrice: fair(variantSpec.compareAtPrice) }
-            : {}),
-          inventory: { tracked: true, available: variantSpec.available, committed: 0, levels: [] },
-          position: variantIndex,
-        });
-        variantCount += 1;
-
-        // Store variant: stock at the store's default location. The level sum
-        // equals the variant scalar `available`, keeping the rollup consistent.
-        await InventoryLevel.create({
-          variantId: String(variant._id),
-          listingId: String(listing._id),
-          locationId: defaultLocationId,
-          available: variantSpec.available,
-          committed: 0,
-        });
-      }
-    }
-
-    // 3a. Seed published reviews for this store's reviewable products. The
-    // headline multi-variant product (Brilliant Eye Brightener) gets the full
-    // ~4.6-avg distribution; a few single-variant products get a small positive
-    // set so they aren't all empty. Each reviewed listing's denormalized
-    // `{ rating, reviewCount }` aggregate is recomputed from the inserted docs.
-    const reviewPlan: { title: string; distribution: Readonly<Record<1 | 2 | 3 | 4 | 5, number>> }[] = [
-      { title: 'Brilliant Eye Brightener', distribution: EYE_BRIGHTENER_REVIEW_DISTRIBUTION },
-      ...Object.entries(SECONDARY_REVIEW_DISTRIBUTIONS).map(([title, distribution]) => ({
-        title,
-        distribution,
-      })),
-    ];
-    for (const plan of reviewPlan) {
-      const reviewedListingId = listingIdByTitle.get(plan.title);
-      if (!reviewedListingId) continue;
-      const reviews = buildListingReviews(reviewedListingId, plan.distribution, now);
-      if (reviews.length === 0) continue;
-      await Review.insertMany(reviews);
-      reviewCount += reviews.length;
-      // Recompute the denormalized aggregate so the listing's stored
-      // `{ rating, reviewCount }` matches the seeded reviews.
-      await recomputeAggregate('listing', reviewedListingId);
-    }
-
-    // 3b. Demo collections for the first store (Paloma Wool): one MANUAL
-    // (Editor's Picks: Mopit + Franny) and one AUTOMATED (On Sale: tag = 'sale').
-    // Routed through the service so membership materializes onto Listing.collectionIds.
-    if (storeSpec.handle === 'palomawool') {
-      await createCollection(storeId, {
-        title: "Editor's Picks",
-        handle: 'editors-picks',
-        type: 'manual',
-        sortOrder: 'manual',
-      });
-      const editorPicks = [listingIdByTitle.get('Mopit Top'), listingIdByTitle.get('Franny')].filter(
-        (id): id is string => typeof id === 'string',
-      );
-      const editorsCollection = await Collection.findOne({ storeId, handle: 'editors-picks' }).lean<
-        { _id: mongoose.Types.ObjectId } | null
-      >();
-      if (editorsCollection) {
-        await setCollectionProducts(storeId, String(editorsCollection._id), editorPicks);
-      }
-
-      await createCollection(storeId, {
-        title: 'On Sale',
-        handle: 'on-sale',
-        type: 'automated',
-        rules: {
-          appliesDisjunctively: false,
-          conditions: [{ field: 'tag', operator: 'contains', value: 'sale' }],
-        },
-        sortOrder: 'price_asc',
-      });
-
-      collectionCount += 2;
-
-      // 3c. Demo discounts for the first store: one CODE (`WELCOME15`, 15% off the
-      // order) and one AUTOMATIC (5% off every order). Both stack with nothing.
-      await Discount.create({
-        storeId,
-        title: 'Welcome 15% off',
-        method: 'code',
-        codes: [{ code: 'WELCOME15', usageCount: 0 }],
-        valueType: 'percentage',
-        value: 1500,
-        appliesTo: { scope: 'order' },
-        combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: false },
-        startsAt: now,
-        isActive: true,
-      });
-      await Discount.create({
-        storeId,
-        title: 'Always-on 5% off',
-        method: 'automatic',
-        codes: [],
-        valueType: 'percentage',
-        value: 500,
-        appliesTo: { scope: 'order' },
-        combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: false },
-        startsAt: now,
-        isActive: true,
-      });
-      discountCount += 2;
-
-      // 3d. Demo tax rate for the first store: 8% US sales tax (country-wide).
-      await TaxRate.create({
-        storeId,
-        name: 'US Sales Tax',
-        rateBps: 800,
-        region: { country: 'US' },
-        appliesToShipping: false,
-        priority: 0,
-        isActive: true,
-      });
-      taxRateCount += 1;
-
-      // 3e. A sample store customer + one completed POS sale (sourceChannel 'pos').
-      // Demonstrates the B5 register flow: a draft converts to a paid Order related
-      // to a Customer whose lifetime stats reflect that order.
-      const POS_CUSTOMER_OXY_USER_ID = '000000000000000000000003';
-      const posListingId = listingIdByTitle.get('Mopit Top');
-      const posVariant = posListingId
-        ? await ProductVariant.findOne({ listingId: posListingId }).lean<{
-            _id: mongoose.Types.ObjectId;
-            title: string;
-            price: Money;
-          } | null>()
-        : null;
-
-      if (posListingId && posVariant) {
-        const posQuantity = 2;
-        const unitPrice = posVariant.price;
-        const lineTotal: Money = {
-          amount: unitPrice.amount * posQuantity,
-          currency: unitPrice.currency,
-        };
-        const now2 = new Date();
-
-        const posCustomer = await Customer.create({
-          storeId,
-          oxyUserId: POS_CUSTOMER_OXY_USER_ID,
-          isWalkIn: false,
-          displayName: 'Mara Vidal',
-          email: 'mara.vidal@example.com',
-          tags: ['vip', 'in-store'],
-          groupTags: [],
-          stats: { orderCount: 1, totalSpent: lineTotal, lastOrderAt: now2 },
-        });
-        customerCount += 1;
-
-        const posOrder = await Order.create({
-          orderNumber: await nextOrderNumber(),
-          buyerOxyUserId: POS_CUSTOMER_OXY_USER_ID,
-          sellerType: 'store',
-          storeId,
-          customerId: String(posCustomer._id),
-          sourceChannel: 'pos',
-          items: [
-            {
-              listingId: posListingId,
-              variantId: String(posVariant._id),
-              title: 'Mopit Top',
-              variantTitle: posVariant.title,
-              optionValues: [],
-              unitPrice: dual(unitPrice),
-              quantity: posQuantity,
-              lineTotal: dual(lineTotal),
-              locationId: defaultLocationId,
-            },
-          ],
-          shippingAddressSnapshot: {
-            recipientName: 'Mara Vidal',
-            line1: 'In-store',
-            city: 'Barcelona',
-            postalCode: '08001',
-            country: 'ES',
-          },
-          shipping: { method: 'pickup', label: 'Pickup', cost: dual(fair(0)), trackingNumber: null },
-          totals: {
-            subtotal: dual(lineTotal),
-            discountTotal: dual(fair(0)),
-            shipping: dual(fair(0)),
-            tax: dual(fair(0)),
-            grandTotal: dual(lineTotal),
-          },
-          appliedDiscounts: [],
-          taxLines: [],
-          status: 'paid',
-          statusHistory: [{ status: 'paid', at: now2, byOxyUserId: DEV_OWNER_OXY_USER_ID, note: 'pos sale' }],
-          payment: { status: 'paid', provider: 'oxy_pay', paidAt: now2 },
-          checkoutGroupId: new mongoose.Types.ObjectId().toString(),
-        });
-        posOrderCount += 1;
-
-        // 3f. A sample PARTIAL refund on that paid POS sale: refund + restock one
-        // of the two units. The refund (1-unit net) < grandTotal (2 units) so the
-        // order lands in `partially_refunded`; stock for the variant rises by 1;
-        // an RMA-numbered Refund doc is created; the customer's totalSpent drops.
-        await processRefund(
-          storeId,
-          String(posOrder._id),
-          {
-            lineItems: [{ variantId: String(posVariant._id), quantity: 1, restock: true }],
-            reason: 'Customer returned one unit',
-          },
-          DEV_OWNER_OXY_USER_ID,
-        );
-        refundCount += 1;
-
-        // 3g. A handful of ONLINE storefront paid orders, staggered across the
-        // last few weeks, so the B7 reports return non-trivial data: the summary
-        // shows both `storefront` and `pos` channels, the sales-over-time report
-        // spans multiple day buckets, and top-products has a real units ranking.
-        // Each references a real seeded product of this store.
-        const DAY_MS = 86_400_000;
-        const storefrontSpecs: { title: string; quantity: number; daysAgo: number }[] = [
-          { title: 'Franny', quantity: 1, daysAgo: 2 },
-          { title: 'Beni Top', quantity: 3, daysAgo: 5 },
-          { title: 'Mopit Top', quantity: 1, daysAgo: 5 },
-          { title: 'Franny', quantity: 2, daysAgo: 12 },
-          { title: 'Beni Top', quantity: 1, daysAgo: 20 },
-        ];
-        for (const spec of storefrontSpecs) {
-          const listingId = listingIdByTitle.get(spec.title);
-          if (!listingId) continue;
-          const variant = await ProductVariant.findOne({ listingId }).lean<{
-            _id: mongoose.Types.ObjectId;
-            title: string;
-            price: Money;
-          } | null>();
-          if (!variant) continue;
-
-          const paidAt = new Date(now.getTime() - spec.daysAgo * DAY_MS);
-          const lineTotal: Money = {
-            amount: variant.price.amount * spec.quantity,
-            currency: variant.price.currency,
-          };
-          const grandTotal: Money = {
-            amount: lineTotal.amount + config.orders.shippingRates.standard,
-            currency: lineTotal.currency,
-          };
-          await Order.create({
-            orderNumber: await nextOrderNumber(),
-            buyerOxyUserId: POS_CUSTOMER_OXY_USER_ID,
-            sellerType: 'store',
-            storeId,
-            sourceChannel: 'storefront',
-            items: [
-              {
-                listingId,
-                variantId: String(variant._id),
-                title: spec.title,
-                variantTitle: variant.title,
-                optionValues: [],
-                unitPrice: dual(variant.price),
-                quantity: spec.quantity,
-                lineTotal: dual(lineTotal),
-                locationId: defaultLocationId,
-              },
-            ],
-            shippingAddressSnapshot: {
-              recipientName: 'Mara Vidal',
-              line1: 'Carrer de Mallorca 1',
-              city: 'Barcelona',
-              postalCode: '08001',
-              country: 'ES',
-            },
-            shipping: {
-              method: 'standard',
-              label: 'Standard shipping',
-              cost: dual({ amount: config.orders.shippingRates.standard, currency: lineTotal.currency }),
-              trackingNumber: null,
-            },
-            totals: {
-              subtotal: dual(lineTotal),
-              discountTotal: dual(fair(0)),
-              shipping: dual({ amount: config.orders.shippingRates.standard, currency: lineTotal.currency }),
-              tax: dual(fair(0)),
-              grandTotal: dual(grandTotal),
-            },
-            appliedDiscounts: [],
-            taxLines: [],
-            status: 'paid',
-            statusHistory: [{ status: 'paid', at: paidAt, byOxyUserId: DEV_OWNER_OXY_USER_ID, note: 'storefront sale' }],
-            payment: { status: 'paid', provider: 'oxy_pay', paidAt },
-            checkoutGroupId: new mongoose.Types.ObjectId().toString(),
-          });
-          storefrontOrderCount += 1;
-        }
-      }
-    }
+    await seedStore(storeSpec, counts);
   }
+  await seedP2P(counts);
 
-  // 4. A seller profile for the P2P dev seller, plus several P2P listings.
-  await SellerProfile.create({
-    oxyUserId: DEV_SELLER_OXY_USER_ID,
-    isVerified: true,
-    rating: 4.8,
-    reviewCount: 23,
-    salesCount: 41,
-  });
-
-  for (const [index, spec] of P2P_LISTINGS.entries()) {
-    const ref = categoryRef(spec.categorySlug);
-    const listing = await Listing.create({
-      ownerType: 'user',
-      oxyUserId: DEV_SELLER_OXY_USER_ID,
-      title: spec.title,
-      description: spec.description,
-      condition: 'used',
-      status: 'active',
-      categoryId: ref.categoryId,
-      categorySlugs: ref.categorySlugs,
-      images: [{ fileId: spec.image, position: 0 }],
-      tags: ['secondhand', spec.categorySlug],
-      options: [],
-      priceRange: {
-        min: fair(spec.price),
-        max: fair(spec.price),
-      },
-      hasInventory: spec.available > 0,
-      variantCount: 1,
-      publishedAt: new Date(now.getTime() - (index + 100) * 1000),
-    });
-    listingCount += 1;
-
-    await ProductVariant.create({
-      listingId: String(listing._id),
-      title: 'Default Title',
-      optionValues: [],
-      price: fair(spec.price),
-      inventory: { tracked: true, available: spec.available, committed: 0, levels: [] },
-      position: 0,
-    });
-    variantCount += 1;
-  }
-
-  log.general.info(
-    {
-      categories: categoryCount,
-      stores: STORES.length,
-      sellerProfiles: 1,
-      listings: listingCount,
-      variants: variantCount,
-      collections: collectionCount,
-      discounts: discountCount,
-      taxRates: taxRateCount,
-      customers: customerCount,
-      posOrders: posOrderCount,
-      storefrontOrders: storefrontOrderCount,
-      refunds: refundCount,
-      reviews: reviewCount,
-    },
-    'Mercaria catalog seed complete',
-  );
+  log.general.info(counts, 'Mercaria catalog seed complete');
 }
 
 seed()
   .then(async () => {
-    await mongoose.connection.close();
+    await closePostgres();
     process.exit(0);
   })
   .catch(async (err) => {
     log.general.error({ err }, 'Seed failed');
     try {
-      await mongoose.connection.close();
+      await closePostgres();
     } catch (closeErr) {
-      log.general.error({ err: closeErr }, 'Failed to close mongoose connection after seed error');
+      log.general.error({ err: closeErr }, 'Failed to close the Postgres pool after a seed error');
     }
     process.exit(1);
   });
