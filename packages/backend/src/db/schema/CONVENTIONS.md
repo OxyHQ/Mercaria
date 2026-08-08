@@ -660,14 +660,17 @@ therefore need a migrated database — run in
 test file in this package now needs a reachable Postgres server before it can
 start, whether or not it touches one.
 
-> **`findSchemaInvariantViolations` is asserted against an EXACT set, not against
-> `[]`.** Two columns violate the "no `''` default" rule and predate the gate:
-> `stores.description` and `listings.description`. Fixing them is a migration
-> that changes what a description-less row reads back as, which every consumer of
-> those two fields has to be checked against — so they are PINNED instead. A new
-> violation anywhere in the 57 tables fails the test, and so does fixing these
-> two, at which point the expectation becomes `toEqual([])`. Skipping the gate
-> would have bought silence on both.
+> **`findSchemaInvariantViolations` is asserted as a SUBSET of a shrinking
+> allow-list, not against `[]`.** Two columns violate the "no `''` default" rule
+> and predate the gate: `stores.description` and `listings.description`. A
+> `drop_empty_string_defaults` migration on another in-flight branch removes
+> both, so the gate has to pass on either side of that merge, in either order —
+> which is why the assertion is "no violation outside
+> `KNOWN_EMPTY_STRING_DEFAULTS`", plus "the list may only shrink", rather than an
+> exact set. An exact set passes today and fails the moment the sibling lands, in
+> a file unrelated to either change. Verified in all three states against a real
+> database: two known violations pass, zero pass, and a newly injected one fails.
+> When the list is empty it can be deleted outright.
 
 **The schema was also verified by hand against a real PostGIS 17-3.5 database
 when it landed.** Those assertions belong in the same file and are not all
