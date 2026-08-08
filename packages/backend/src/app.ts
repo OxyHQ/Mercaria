@@ -2,15 +2,15 @@
  * The Express application, built without listening.
  *
  * Split from `index.ts` so the app can be constructed in a test WITHOUT opening a
- * port, connecting to Mongo or starting the socket server. That is not a
+ * port, connecting to Postgres or starting the socket server. That is not a
  * cosmetic split: the CrowdSource webhook's guarantee is that no body parser runs
  * before it, and the only honest way to assert that is to send a real request
  * through the REAL middleware chain and observe `req.body` inside a route on that
  * path. A test that rebuilt an app-shaped object of its own would prove something
  * about the test, not about production.
  *
- * `index.ts` owns the HTTP server, the socket server, Mongo and the background
- * workers; this file owns only the middleware chain and the routes.
+ * `index.ts` owns the HTTP server, the socket server, the Postgres pool and the
+ * background workers; this file owns only the middleware chain and the routes.
  */
 
 import express from 'express';

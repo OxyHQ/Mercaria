@@ -19,12 +19,8 @@ export default defineConfig({
      * was never executed, which is the one outcome this whole phase exists to
      * prevent.
      *
-     * The MongoDB replica set that used to sit beside it is GONE, along with
-     * `vitest.globalSetup.ts`. It existed for the four moderation write tests,
-     * which needed real transactions and real unique indexes; those now run
-     * against Postgres, and nothing else ever read `MERCARIA_TEST_MONGODB_URI`.
-     * Leaving it would have started a replica set on every run for no test at
-     * all — the slowest possible no-op.
+     * ONE, and it stays one: a global setup that starts a server no test reads
+     * is the slowest possible no-op.
      */
     globalSetup: ['./vitest.pg.globalSetup.ts'],
     coverage: {

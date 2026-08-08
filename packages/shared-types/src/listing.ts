@@ -74,22 +74,18 @@ export const SELLER_SETTABLE_LISTING_STATUSES: readonly SellerSettableListingSta
 ];
 
 /**
- * EVERY listing status, as a runtime list — the Mongo schema enum reads THIS.
+ * EVERY listing status, as a runtime list — the `listings.status` column enum and
+ * `listings_status_check` are both built from THIS.
  *
- * It exists because the obvious alternative silently drifted. The model declared
- * its own `const STATUSES: readonly ListingStatus[] = [...]`, and a hand-written
- * SUBSET satisfies that type perfectly — so when `restricted` was added to the
- * union, tsc had no complaint and the schema enum simply never learned about it.
- *
- * The failure that produced was nastier than a rejected write: enforcement sets
- * the status with `updateOne`, which does NOT run validators, so restricting a
- * listing worked. But `catalog-write.service.updateListing` ends in
- * `listing.save()`, which validates the whole document — so a seller editing the
- * TITLE of a restricted listing got a validation error about a status they never
- * touched and could not see.
+ * It exists because the obvious alternative silently drifted. A schema that
+ * declares its own `const STATUSES: readonly ListingStatus[] = [...]` accepts a
+ * hand-written SUBSET, which satisfies that type perfectly — so a status added to
+ * the union leaves tsc with no complaint while the enum and the CHECK never learn
+ * about it, and the write that first uses it fails at RUNTIME with a 23514 on a
+ * value the type system says is legal.
  *
  * Reading one list in both places makes that unrepresentable rather than merely
- * tested for. Same convention as `ALL_CURRENCY_CODES` and the `MoneySchema` enum.
+ * tested for. Same convention as `ALL_CURRENCY_CODES` and the money-column CHECK.
  */
 export const ALL_LISTING_STATUSES: readonly ListingStatus[] = [
   'draft',

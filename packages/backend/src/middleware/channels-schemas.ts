@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { isLiveEntityId } from '@oxyhq/db';
 
 /**
  * Body for `POST /admin/stores/:storeId/channels/:provider/connect-key`.
@@ -41,15 +42,18 @@ export type ConnectKeyChannelInput = z.infer<typeof connectKeyChannelSchema>;
  * `label` is a short human-readable name the merchant uses to recognize the key.
  * `connectionId` is optional: when present it binds the key to a single push-in
  * connection (validated store-side to belong to the store AND be `push_in`); when
- * omitted the key is store-scoped. It is validated as a Mongo ObjectId shape so a
- * malformed id is rejected at the edge rather than in the service.
+ * omitted the key is store-scoped. Its SHAPE is checked with `isLiveEntityId` so
+ * a malformed id is rejected at the edge rather than in the service — the same
+ * predicate `validate.ts` uses, and the only place either id shape is spelled
+ * out. A hand-written pattern here would reject one of the two shapes a
+ * `connections.id` can hold.
  */
 export const generateChannelKeySchema = z.object({
   label: z.string().trim().min(1).max(120),
   connectionId: z
     .string()
     .trim()
-    .regex(/^[a-f\d]{24}$/i, 'Must be a valid connection id')
+    .refine(isLiveEntityId, 'Must be a valid connection id')
     .optional(),
 });
 

@@ -568,12 +568,10 @@ export interface PostgresConfig {
   /**
    * `DATABASE_URL`. REQUIRED — every route this API serves reads Postgres.
    *
-   * It was optional while Mercaria ran on both stores, so that a task without it
-   * booted and served from Mongo exactly as before. That is over: no runtime path
-   * in `src/` opens Mongo any more, so a task without a `DATABASE_URL` cannot
-   * answer a single request. Resolving it to `undefined` would only defer the
-   * failure from startup to the first user, one "PostgreSQL is not connected" per
-   * request — which reads as an outage rather than as the misconfiguration it is.
+   * There is no second store, so a task without one cannot answer a single
+   * request. Resolving it to `undefined` would only defer the failure from
+   * startup to the first user, one "PostgreSQL is not connected" per request —
+   * which reads as an outage rather than as the misconfiguration it is.
    *
    * Declared `string`, not `string | undefined`, so nothing downstream has to
    * re-check it.

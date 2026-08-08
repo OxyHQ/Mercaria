@@ -7,7 +7,7 @@ All notable changes to Mercaria are documented here.
 ### Added
 
 - Initial scaffold of the Mercaria base, derived from the Oxy Expo + Express
-  monorepo shell: Express bootstrap, Socket.IO, MongoDB/Redis/logger libs,
+  monorepo shell: Express bootstrap, Socket.IO, Postgres/Redis/logger libs,
   `@oxyhq/core/server` auth middleware, health/auth/feedback/notifications
   routes, and push/web-push notification infrastructure.
 - Frontend shell: OxyProvider + BloomThemeProvider provider tree, SSO callback

@@ -26,14 +26,14 @@
  * The one visible consequence: the seed now obeys the application's own limits.
  * `config.catalog.maxImagesPerListing` caps a gallery at 12, and the PDP cycles
  * gallery images across the shade swatches 1:1 — so the multi-variant beauty
- * product is seeded with as many shades as the image cap allows, not the 18 the
- * old direct-to-Mongo write smuggled past it.
+ * product is seeded with as many shades as the image cap allows, rather than
+ * whatever number a hand-built row could smuggle past it.
  *
  * ## Order and RMA numbers come from the SEQUENCES
  *
  * `nextOrderNumber` (`db/orders/orderRepository.ts`) is `nextval('order_number_seq')`
- * and the RMA one is its twin in `refundRepository`. The `Counter` collection is
- * gone; nothing here imports a Mongoose model.
+ * and the RMA one is its twin in `refundRepository` — never a counter row this
+ * script increments itself.
  *
  * Run from `packages/backend`:
  *   NODE_ENV=development DATABASE_URL=… bun src/scripts/seed.ts

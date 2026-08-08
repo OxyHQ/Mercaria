@@ -17,9 +17,9 @@ jobs:
     timeout-minutes: 15
 
     services:
-      # The API suite needs a real PostGIS server: the Mongo→Postgres port's
-      # `*.realdb.test.ts` files run their SQL against a throwaway database the
-      # harness creates HERE (see packages/backend/vitest.pg.globalSetup.ts).
+      # The API suite needs a real PostGIS server: the `*.realdb.test.ts` files
+      # run their SQL against a throwaway database the harness creates HERE
+      # (see packages/backend/vitest.pg.globalSetup.ts).
       #
       # Pinned to the SAME image as docker-compose.postgres.yml, on BOTH versions.
       # A floating PostGIS minor is a floating set of function volatilities, and

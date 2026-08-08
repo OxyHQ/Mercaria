@@ -32,7 +32,7 @@ import { DISCOUNT_VALUE_TYPES } from './merchandising';
 import { DISCOUNT_ALLOCATION_TARGETS, orders } from './orders';
 import { customers, locations, stores } from './stores';
 
-/** `DraftOrder.status` — `DRAFT_ORDER_STATUSES` in `models/draft-order.ts`. */
+/** `DraftOrder.status`. */
 export const DRAFT_ORDER_STATUSES: readonly DraftOrderStatus[] = [
   'open',
   'completed',
@@ -58,10 +58,9 @@ export const draftOrders = pgTable(
      * already means "the store's default location", so `set null` would silently
      * REROUTE an open draft's reservation to a different place rather than fail.
      *
-     * NOTE for Fase 2: `location.service.deleteLocation` does not check for open
-     * drafts today and will start seeing SQLSTATE 23503 where it previously
-     * succeeded and left a dangling id. That is the better failure, but it is a
-     * behaviour change the service must handle.
+     * `location.service.deleteLocation` therefore sees SQLSTATE 23503 when an
+     * open draft still points here, and translates it into a 409 naming what to
+     * reassign — the refusal is the point, so do not weaken this to `set null`.
      */
     locationId: text().references(() => locations.id, { onDelete: 'restrict' }),
     /** `restrict` for the same reason `orders.customer_id` is — NULL means walk-in. */

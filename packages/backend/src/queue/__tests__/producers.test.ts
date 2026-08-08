@@ -4,7 +4,7 @@
  * When the queue is DISABLED (no events queue), a producer runs the SAME handler
  * INLINE rather than enqueuing. When ENABLED, it enqueues via `queue.add` and
  * does NOT run the handler inline. `queues.js` and `handlers.js` are mocked so no
- * Redis or Mongo is touched.
+ * Redis or database is touched.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';

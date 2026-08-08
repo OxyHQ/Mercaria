@@ -62,15 +62,14 @@ export function validateQuery<T extends z.ZodType>(schema: T) {
  *
  * A Mercaria primary key is `text` holding a 24-char ObjectId hex for every row
  * that existed before the Postgres cutover and a uuid v7 for every row created
- * after it. Both are live simultaneously and permanently, because the backfill
- * copies the original id verbatim — so an ObjectId-only check would start
- * rejecting perfectly valid ids the moment the first row was created in
- * Postgres, as a 400 on a resource that exists.
+ * after it. Both are live simultaneously and permanently: the backfill copied
+ * the original id verbatim, so a migrated row keeps its 24-hex id forever — and
+ * an ObjectId-only check would reject every id minted since, as a 400 on a
+ * resource that exists.
  *
  * The check is SHAPE-ONLY and stays that way. It exists to turn a malformed
  * param into a 400 rather than a pointless query — never as a precondition on a
- * lookup, which already answers "no such row" for free. Routes whose domain is
- * still on Mongo keep working unchanged: a 24-hex id satisfies both shapes.
+ * lookup, which already answers "no such row" for free.
  *
  * @param paramName - The route param to validate (default `'id'`).
  */

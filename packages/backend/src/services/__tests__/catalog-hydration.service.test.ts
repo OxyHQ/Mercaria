@@ -1,7 +1,7 @@
 /**
  * Unit tests for `catalog-hydration.service` — connector-provenance emission.
  *
- * The catalogue repositories, the still-Mongoose `SellerProfile` model, the Oxy
+ * The catalogue repositories, the seller-profile repository, the Oxy
  * profile + favorites batch loaders, the media chokepoint, config and the logger
  * are mocked. Tests assert the ONE behavior added for the "Synced from …" badge:
  * provenance is emitted ONLY on the admin path (`includeSource: true`) — public
@@ -69,12 +69,7 @@ function noChildren() {
   return { images: new Map(), options: new Map(), collectionIds: new Map() };
 }
 
-/** The one store every fixture listing belongs to. */
-/**
- * A store row as the REPOSITORY returns it — `id`, not `_id`, and a plain array
- * rather than a Mongoose `.lean()` chain. Stores are served from Postgres now
- * even on paths whose own domain is still Mongo.
- */
+/** The one store every fixture listing belongs to, as the repository returns it. */
 const STORE = {
   id: 'store-1',
   handle: 'acme',

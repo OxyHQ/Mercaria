@@ -42,12 +42,11 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest
 import { eq, sql } from 'drizzle-orm';
 
 /**
- * The paid transition fires a best-effort buyer/seller notification, and
- * notifications are the ONE thing in that path still stored in Mongo. Left
- * unmocked, each sale spends ten seconds buffering an insert against a connection
- * this file has no reason to open, and then swallows the failure — so the tests
- * time out on a side effect none of them assert. Stubbing the producers keeps the
- * file about the sale.
+ * The paid transition fires a best-effort buyer/seller notification. No Redis
+ * runs in the suite, so a producer left unstubbed executes its handler INLINE
+ * and awaits it — writing notification rows and reaching for Oxy's push
+ * transport, neither of which any assertion here reads. Stubbing the producers
+ * keeps the file about the sale.
  */
 vi.mock('../../queue/producers.js', () => ({
   enqueueOrderEvent: vi.fn(async () => undefined),

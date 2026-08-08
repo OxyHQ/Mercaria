@@ -7,12 +7,11 @@
  * webhook for a connection with product pull DISABLED is ignored (no SyncRun, no
  * write).
  *
- * The catalogue lives in Postgres now, so the archive is TWO repository calls
- * rather than one filtered `updateOne`: `findListingBySourceExternalId` resolves
+ * The archive is TWO repository calls: `findListingBySourceExternalId` resolves
  * the provenance key and `setListingStatusIfIn` makes the conditional status
- * write. `Connection`/`SyncRun` are still Mongoose. The catalogue repositories,
- * the catalog-write funnels, the inventory service and Socket.IO are all mocked,
- * so no database or socket server is touched.
+ * write. Every repository this path touches — catalogue, connection, sync-run —
+ * plus the catalog-write funnels, the inventory service and Socket.IO are
+ * mocked, so no database or socket server is touched.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';

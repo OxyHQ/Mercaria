@@ -37,10 +37,10 @@ import {
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
 import { locations, stores } from './stores';
 
-/** `Connection.mode` — `MODES` in `models/connection.ts`. */
+/** `Connection.mode`. */
 export const CONNECTION_MODES: readonly ConnectionMode[] = ['pull', 'push_in'];
 
-/** `Connection.status` — `STATUSES` in `models/connection.ts`. */
+/** `Connection.status`. */
 export const CONNECTION_STATUSES: readonly ConnectionStatus[] = [
   'connected',
   'error',
@@ -61,7 +61,7 @@ export const ROUNDING_STRATEGIES = ['none', 'nearest', 'charm'] as const;
 /** `SyncSettings.conflictPolicy` — `CONFLICT_POLICIES`. */
 export const CONFLICT_POLICIES = ['connector_wins', 'respect_overrides'] as const;
 
-/** `SyncRun.kind` — `KINDS` in `models/sync-run.ts`. */
+/** `SyncRun.kind`. */
 export const SYNC_RUN_KINDS: readonly SyncRunKind[] = [
   'backfill',
   'product_pull',
@@ -73,7 +73,7 @@ export const SYNC_RUN_KINDS: readonly SyncRunKind[] = [
   'ingest',
 ];
 
-/** `SyncRun.status` — `STATUSES` in `models/sync-run.ts`. */
+/** `SyncRun.status`. */
 export const SYNC_RUN_STATUSES: readonly SyncRunStatus[] = ['running', 'completed', 'failed'];
 
 /**

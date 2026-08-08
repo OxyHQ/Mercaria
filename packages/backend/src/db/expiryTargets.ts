@@ -6,16 +6,16 @@
  * any kind until disk — and it is structurally invisible in review, because the
  * thing doing the work was never in this codebase to be seen going missing.
  *
- * Mercaria's Mongoose models declare exactly THREE `expireAfterSeconds` indexes,
- * and all three are represented below. `@oxyhq/db`'s `sweepAllExpiredRows` takes
- * this list; scheduling it belongs with the job runner in Fase 2, alongside the
- * outbox dispatcher it runs next to.
+ * Three of the entries below carried a TTL index before the port and all three
+ * are represented. `@oxyhq/db`'s `sweepAllExpiredRows` takes this list;
+ * `db/expirySweeper.ts` schedules it, beside the outbox dispatcher it runs next
+ * to.
  *
- * Two more entries have NO Mongoose ancestor: `payment_outboxes` and
- * `payment_provider_events` were born in Postgres. They are here because the
- * rule is about the TABLE, not about the port — anything with an `expires_at`
- * that nothing sweeps grows forever, and a table nobody migrated is no less
- * exposed to that than one somebody did.
+ * Two more were born in Postgres and never had one: `payment_outboxes` and
+ * `payment_provider_events`. They are here because the rule is about the TABLE,
+ * not about the port — anything with an `expires_at` that nothing sweeps grows
+ * forever, and a table nobody migrated is no less exposed to that than one
+ * somebody did.
  *
  * ## The third one could not be copied, and had to be re-expressed
  *
@@ -102,10 +102,10 @@ const PAYMENT_OUTBOX_RETENTION_SECONDS = 14 * 24 * 60 * 60;
 const PAYMENT_PROVIDER_EVENT_RETENTION_SECONDS = 90 * 24 * 60 * 60;
 
 /**
- * Every table that carried a Mongo TTL index, and nothing else.
+ * Every table with an expiring column, and nothing else.
  *
- * `retentionSeconds: 0` where the column already holds the deadline — that is
- * the direct translation of `expireAfterSeconds: 0`, not a missing value.
+ * `retentionSeconds: 0` where the column already holds the deadline — the column
+ * IS the deadline, so zero is the whole rule, not a missing value.
  *
  * Each column has a supporting leading btree index; `findUnsupportedExpiryColumns`
  * from `@oxyhq/db/assert` checks that against the real catalogue once the
@@ -157,8 +157,8 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
     retentionSeconds: DISMISSED_NOTIFICATION_RETENTION_SECONDS,
     reason:
       'A notification the user dismissed, 90 days later. Never-dismissed rows have ' +
-      'a NULL dismissed_at and are never swept — that NULL is what replaces Mongo’s ' +
-      'partialFilterExpression, which this registry has no way to express.',
+      'a NULL dismissed_at and are never swept — that NULL is how the retention is ' +
+      'made conditional, since this registry has no way to express a filter.',
   },
 ];
 

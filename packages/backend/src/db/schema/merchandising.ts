@@ -34,7 +34,7 @@ import { asEnumValues, checkOneOf } from './columns';
 import { listings } from './catalog';
 import { stores } from './stores';
 
-/** `Collection.type` — `COLLECTION_TYPES` in `models/collection.ts`. */
+/** `Collection.type`. */
 export const COLLECTION_TYPES: readonly CollectionType[] = ['manual', 'automated'];
 
 /** `Collection.sortOrder` — `COLLECTION_SORT_ORDERS`. */
@@ -72,7 +72,7 @@ export const COLLECTION_RULE_OPERATORS: readonly CollectionRuleOperator[] = [
   'lte',
 ];
 
-/** `Discount.method` — `DISCOUNT_METHODS` in `models/discount.ts`. */
+/** `Discount.method`. */
 export const DISCOUNT_METHODS: readonly DiscountMethod[] = ['code', 'automatic'];
 
 /** `Discount.valueType` — `DISCOUNT_VALUE_TYPES`. */
@@ -189,11 +189,11 @@ export const collectionRules = pgTable(
  * as a constraint — atomic, and it cannot half-happen if the process dies
  * between the two writes.
  *
- * The FK to `listings` has no counterpart in Mongo at all, and closes a real
- * hole: `productIds` could name a listing that no longer exists, and did so
- * silently (`materialize` just matched nothing for it). NOTE for the Fase 4
- * backfill: a `productIds` entry pointing at a missing listing must be DROPPED
- * rather than inserted, or the migration fails on a foreign-key violation.
+ * The FK to `listings` closes a real hole the old embedded array had: a
+ * hand-picked membership could name a listing that no longer exists, and did so
+ * silently (`materialize` just matched nothing for it). Any bulk writer of this
+ * table therefore has to DROP a membership row whose listing is missing rather
+ * than insert it, or the write fails on a foreign-key violation.
  */
 export const listingCollections = pgTable(
   'listing_collections',

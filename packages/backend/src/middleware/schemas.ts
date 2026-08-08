@@ -11,6 +11,7 @@
  */
 
 import { z } from 'zod';
+import { isLiveEntityId } from '@oxyhq/db';
 import {
   ABUSE_REPORT_CATEGORIES,
   ABUSE_REPORTED_TYPES,
@@ -954,10 +955,13 @@ export const updateSyncSettingsSchema = z
     inventory: syncResourceDirectionSchema.optional(),
     orders: syncResourceDirectionSchema.optional(),
     autoPublish: z.boolean().optional(),
+    // Shape-checked with `isLiveEntityId`, the one predicate that knows both id
+    // shapes a `locations.id` can hold. A hand-written pattern here would reject
+    // one of them.
     targetLocationId: z
       .string()
       .trim()
-      .regex(/^[a-f\d]{24}$/i, 'Must be a valid location id')
+      .refine(isLiveEntityId, 'Must be a valid location id')
       .optional(),
     priceRules: z
       .object({

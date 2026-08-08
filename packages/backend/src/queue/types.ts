@@ -1,8 +1,8 @@
 /**
  * Explicit, fully-typed job payloads for the Mercaria marketplace BullMQ
  * queues. Payloads carry only plain JSON-serializable data — BullMQ persists
- * them in Redis, so no Mongoose documents, class instances, or functions may be
- * placed here.
+ * them in Redis, so no class instances, functions or driver-bound row objects
+ * may be placed here.
  */
 
 import type { ReviewTargetType } from '@mercaria/shared-types';
