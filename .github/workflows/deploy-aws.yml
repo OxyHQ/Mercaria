@@ -162,14 +162,66 @@ jobs:
           role-to-assume: arn:aws:iam::237343248947:role/oxy-github-deploy
           aws-region: ${{ env.AWS_REGION }}
 
+      # An EXPLICIT allowlist — never `toJSON(secrets)`.
+      #
+      # This step used to enumerate every secret the repo can see and pipe the
+      # lot through `jq` into `aws ssm put-parameter`. That shape is
+      # indistinguishable from a secret-exfiltration payload, and GitHub's
+      # malicious-workflow detection matches it: every run was then created as
+      # `action_required` with ZERO jobs — no environment protection, nothing to
+      # approve in `pending_deployments` — waiting for a human to press "Approve
+      # and run" in the UI. Measured across the org on 2026-08-08: the three
+      # repos whose deploy workflow contained `toJSON(secrets)` (Mercaria, Syra,
+      # Homiio) were all held, and the two without it (Mention, OxyHQServices)
+      # deployed unheld. The gate re-fires whenever the workflow file changes,
+      # which is why it looked like it "started" on a particular day here — this
+      # file had just been edited. That red herring already cost one wrong
+      # diagnosis, recorded on the `deploy` job's `runs-on` above.
+      #
+      # So the allowlist is not tidiness: it is the property that keeps
+      # automated deploys running at all. `src/db/__tests__/deployWorkflow.test.ts`
+      # fails if `toJSON(secrets)` comes back.
+      #
+      # The SYNC_ prefix is load-bearing for a second, unrelated reason. The OIDC
+      # step above exports AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY into the job
+      # environment, so binding a secret to an env var under its raw name would
+      # shadow the assumed role and fail this step with
+      # UnrecognizedClientException. The old loop never bound a secret to an env
+      # var at all, which is how it sidestepped that; an allowlist has to avoid
+      # it deliberately. Same reason oxy-api's sync step carries the prefix.
       - name: Sync GitHub secrets -> SSM (GitHub is the source of truth)
         env:
-          SECRETS_JSON: ${{ toJSON(secrets) }}
+          SYNC_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SYNC_REDIS_URL: ${{ secrets.REDIS_URL }}
+          SYNC_SERVICE_SECRET: ${{ secrets.SERVICE_SECRET }}
+          SYNC_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          SYNC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          SYNC_VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
         run: |
-          SHARED="AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY REDIS_URL LIVEKIT_API_KEY LIVEKIT_API_SECRET"
-          echo "$SECRETS_JSON" | jq -r 'to_entries[] | select((.key|ascii_upcase) as $k | ($k=="GITHUB_TOKEN" or ($k|startswith("ACTIONS_")))|not) | [.key,.value]|@tsv' | \
-          while IFS=$'\t' read -r k v; do
-            [ -z "$k" ] && continue
+          # Derived from the LIVE task definition (oxy-mercaria:3, the revision
+          # service `mercaria` runs), not from a plan: these are the parameters
+          # the container actually reads as `secrets`.
+          SHARED_SECRETS="REDIS_URL"
+          APP_SECRETS="DATABASE_URL SERVICE_SECRET VAPID_PRIVATE_KEY VAPID_PUBLIC_KEY VAPID_SUBJECT"
+
+          # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are deliberately absent,
+          # though oxy-mercaria:3 reads both from /oxy/_shared/. Mercaria
+          # CONSUMES those two; it does not own them — the repos that hold them
+          # as secrets (OxyHQServices, Syra) are what write them. This repo holds
+          # neither, so leaving them out stops nothing that was being synced, and
+          # a key added here later would otherwise overwrite the shared
+          # credential every other backend reads.
+          #
+          # REDIS_URL is in the same position today — unset here, so it warns and
+          # leaves /oxy/_shared/REDIS_URL alone on every run, the same no-op the
+          # old loop performed silently. It stays on the list because it is the
+          # one shared parameter this repo could legitimately come to own, and
+          # the endpoint guard below is what would make setting it safe.
+          for k in $SHARED_SECRETS $APP_SECRETS; do
+            v=$(printenv "SYNC_$k" || true)
+            # A secret left empty, or set to a single dash, is a mistake — not an
+            # instruction to overwrite production with garbage. Skipping the sync
+            # preserves whatever SSM already holds.
             if [ -z "$v" ] || [ "$v" = "-" ]; then
               echo "::warning::skip empty/placeholder secret $k; SSM unchanged"
               continue
@@ -178,7 +230,7 @@ jobs:
               echo "::warning::skip REDIS_URL because it does not point at the us-west-2 Valkey endpoint; SSM unchanged"
               continue
             fi
-            case " $SHARED " in *" $k "*) path="/oxy/_shared/$k";; *) path="/oxy/$APP/$k";; esac
+            case " $SHARED_SECRETS " in *" $k "*) path="/oxy/_shared/$k";; *) path="/oxy/$APP/$k";; esac
             aws ssm put-parameter --name "$path" --value "$v" --type SecureString --overwrite >/dev/null && echo "synced -> $path"
           done
 
