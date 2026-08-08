@@ -13,15 +13,41 @@
  * field the merchant locally edited (listed in the listing's `overriddenFields`)
  * is left untouched; `connector_wins` overwrites everything.
  *
- * STORAGE. The CATALOGUE (listings, variants, categories, locations, collection
- * membership and the `listing_external_refs` push mirror) is read and written
- * through the Postgres repositories under `db/`. This service's OWN domain —
- * `Connection` and `SyncRun` — is still Mongoose, as is `Order`.
+ * STORAGE. Everything this service touches is Postgres, through the repositories
+ * under `db/` — the catalogue (listings, variants, categories, locations,
+ * collection membership, the `listing_external_refs` push mirror), orders, and
+ * this service's own `connections` / `sync_runs`.
  *
  * SECURITY. Credentials are decrypted only in-memory here (never returned in a
- * DTO). Every connection-scoped operation is resolved by `{ _id, storeId }` so a
+ * DTO). Every connection-scoped operation is resolved by `{ id, storeId }` so a
  * member of one store can never reach another store's connection (no IDOR). No
  * `req.body` is ever spread — writes use explicit field whitelists.
+ *
+ * ## Ported to Postgres — what changed in this service, and why
+ *
+ *  - **The credential envelopes are no longer reachable from a connection.** They
+ *    were withheld from the wire by `toConnectionDTO` simply never reading them;
+ *    they are PROTECTED columns now, so the row type has no such property and a
+ *    serializer that reached for one would fail `tsc`. {@link decryptAuth} makes
+ *    a second, explicit read for the envelope — one extra query on the paths that
+ *    genuinely decrypt, and none at all on the paths that only needed to know
+ *    whether a connection is authorized (`hasCredentials`, a derived boolean).
+ *  - **Connect and reconnect are ONE upsert statement** on
+ *    `UNIQUE(store_id, provider)` rather than a read-then-branch, so two
+ *    concurrent OAuth callbacks for one shop merge instead of one of them failing
+ *    on the unique index.
+ *  - **Disconnect clears all six credential columns together.** The
+ *    `num_nonnulls(...) in (0, 3)` CHECKs make a half-cleared envelope
+ *    unrepresentable, which is what the `$unset` pair used to leave to
+ *    discipline.
+ *  - **A `SyncRun` is opened and then closed, in two statements.** The Mongoose
+ *    path mutated an in-memory document and saved it once at the end; only those
+ *    two writes ever reached the database, so the tallies stay a plain object in
+ *    this service — which is also what the live `sync:progress` ticks read — and
+ *    the run returned to the caller is the row that was actually persisted.
+ *  - **`collectionMapping` is a plain `Record`, not a `Map`.** It is one jsonb
+ *    value; nothing queries it by key in SQL, and the DTO already carried a
+ *    `Record`.
  */
 
 import { randomBytes } from 'node:crypto';
@@ -35,15 +61,37 @@ import type {
   CurrencyCode,
   Money,
   SyncProgressEvent,
+  SyncRunCounts,
   SyncRun as SyncRunDTO,
+  SyncResourceDirection,
   SyncSettings as SyncSettingsDTO,
   UpdateListingInput,
   UpdateSyncSettingsInput,
 } from '@mercaria/shared-types';
 import { ALL_CURRENCY_CODES, ALL_LISTING_STATUSES } from '@mercaria/shared-types';
-import { Connection, type IConnection, type ISyncSettings } from '../models/connection.js';
-import { SyncRun, type ISyncRun, type ISyncRunCounts } from '../models/sync-run.js';
-import { isUniqueViolation } from '@oxyhq/db';
+import { isForeignKeyViolation, isUniqueViolation } from '@oxyhq/db';
+import {
+  disconnectConnection,
+  findConnection,
+  findConnectionById,
+  findConnectionByProvider,
+  findConnectionCredentials,
+  findConnectionsByStore,
+  findPullConnectionsToReconcile,
+  findPushConnections,
+  markConnectionError,
+  markConnectionSynced,
+  setConnectionWebhooks,
+  touchConnectionLastSync,
+  updateSyncSettings as updateSyncSettingsColumns,
+  upsertConnection,
+  type ConnectionRow,
+} from '../db/connectors/connectionRepository.js';
+import {
+  finishSyncRun,
+  insertSyncRun,
+  type SyncRunRecord,
+} from '../db/connectors/syncRunRepository.js';
 import {
   findOrderById,
   findOrderBySourceExternalId,
@@ -92,7 +140,7 @@ import {
 import { setAvailable } from './inventory.service.js';
 import { encryptSecret, decryptSecret } from '../lib/connector-crypto.js';
 import { getConnectorProvider } from '../connectors/registry.js';
-import { applyPriceRules } from '../utils/money.js';
+import { applyPriceRules, type PriceRules } from '../utils/money.js';
 import type {
   ConnectorAuth,
   ConnectorCredentials,
@@ -158,43 +206,69 @@ function isSupportedCurrency(code: string): code is CurrencyCode {
   return (ALL_CURRENCY_CODES as readonly string[]).includes(code);
 }
 
-/** Map a persisted `SyncSettings` sub-document to its wire DTO. */
-function toSyncSettingsDTO(settings: ISyncSettings): SyncSettingsDTO {
-  const dto: SyncSettingsDTO = {
-    products: settings.products,
-    inventory: settings.inventory,
-    orders: settings.orders,
-    autoPublish: settings.autoPublish,
-    conflictPolicy: settings.conflictPolicy,
+/**
+ * The connector price transform, rebuilt from its two columns.
+ *
+ * An embedded `priceRules` object was PRESENT or ABSENT; the columns are
+ * independently nullable, so "no rules" is now both columns null. Returning
+ * `undefined` in that case is what keeps `applyPriceRules` a no-op rather than
+ * applying a rules object whose every field happens to be undefined.
+ *
+ * Exported for `channel-ingest.service`, which applies the SAME transform to a
+ * pushed-in price and reads the same two columns — the ingest side already
+ * imports its category and location resolvers from here for the same reason.
+ */
+export function toPriceRules(conn: ConnectionRow): PriceRules | undefined {
+  const markupPercent = conn.syncSettingsPriceRulesMarkupPercent;
+  const rounding = conn.syncSettingsPriceRulesRounding;
+  if (markupPercent === null && rounding === null) {
+    return undefined;
+  }
+  return {
+    ...(markupPercent !== null ? { markupPercent } : {}),
+    ...(rounding !== null ? { rounding } : {}),
   };
-  if (settings.targetLocationId) {
-    dto.targetLocationId = settings.targetLocationId;
+}
+
+/** Map a connection's flat `sync_settings_*` columns to the wire DTO. */
+function toSyncSettingsDTO(conn: ConnectionRow): SyncSettingsDTO {
+  const dto: SyncSettingsDTO = {
+    products: conn.syncSettingsProducts,
+    inventory: conn.syncSettingsInventory,
+    orders: conn.syncSettingsOrders,
+    autoPublish: conn.syncSettingsAutoPublish,
+    conflictPolicy: conn.syncSettingsConflictPolicy,
+  };
+  if (conn.syncSettingsTargetLocationId) {
+    dto.targetLocationId = conn.syncSettingsTargetLocationId;
   }
-  if (settings.priceRules) {
-    dto.priceRules = {};
-    if (settings.priceRules.markupPercent !== undefined) {
-      dto.priceRules.markupPercent = settings.priceRules.markupPercent;
-    }
-    if (settings.priceRules.rounding !== undefined) {
-      dto.priceRules.rounding = settings.priceRules.rounding;
-    }
+  const priceRules = toPriceRules(conn);
+  if (priceRules) {
+    dto.priceRules = priceRules;
   }
-  if (settings.collectionMapping && settings.collectionMapping.size > 0) {
-    dto.collectionMapping = Object.fromEntries(settings.collectionMapping);
+  const mapping = conn.syncSettingsCollectionMapping;
+  if (mapping && Object.keys(mapping).length > 0) {
+    dto.collectionMapping = { ...mapping };
   }
   return dto;
 }
 
-/** Map a `Connection` document to its wire DTO — NEVER includes credentials. */
-export function toConnectionDTO(conn: IConnection): ConnectionDTO {
+/**
+ * Map a `connections` row to its wire DTO.
+ *
+ * It never included credentials and now it CANNOT: {@link ConnectionRow} is read
+ * through `publicColumns`, so the six envelope columns are absent from the type
+ * and a line added here that tried to serialize one would fail `tsc`.
+ */
+export function toConnectionDTO(conn: ConnectionRow): ConnectionDTO {
   const dto: ConnectionDTO = {
-    id: String(conn._id),
+    id: conn.id,
     storeId: conn.storeId,
     provider: conn.provider,
     mode: conn.mode,
     status: conn.status,
     scopes: [...conn.scopes],
-    syncSettings: toSyncSettingsDTO(conn.syncSettings),
+    syncSettings: toSyncSettingsDTO(conn),
     webhookIds: [...conn.webhookIds],
     connectedAt: conn.connectedAt.toISOString(),
   };
@@ -213,18 +287,18 @@ export function toConnectionDTO(conn: IConnection): ConnectionDTO {
   return dto;
 }
 
-/** Map a `SyncRun` document to its wire DTO. */
-export function toSyncRunDTO(run: ISyncRun): SyncRunDTO {
+/** Map a `sync_runs` row to its wire DTO — the four tally columns re-nested. */
+export function toSyncRunDTO(run: SyncRunRecord): SyncRunDTO {
   const dto: SyncRunDTO = {
-    id: String(run._id),
+    id: run.id,
     connectionId: run.connectionId,
     kind: run.kind,
     status: run.status,
     counts: {
-      created: run.counts.created,
-      updated: run.counts.updated,
-      skipped: run.counts.skipped,
-      failed: run.counts.failed,
+      created: run.countsCreated,
+      updated: run.countsUpdated,
+      skipped: run.countsSkipped,
+      failed: run.countsFailed,
     },
     startedAt: run.startedAt.toISOString(),
   };
@@ -239,7 +313,7 @@ export function toSyncRunDTO(run: ISyncRun): SyncRunDTO {
 
 /** List a store's connections (no credentials). */
 export async function listConnections(storeId: string): Promise<ConnectionDTO[]> {
-  const connections = await Connection.find({ storeId }).sort({ createdAt: -1 });
+  const connections = await findConnectionsByStore(storeId);
   return connections.map(toConnectionDTO);
 }
 
@@ -299,8 +373,17 @@ function generateWebhookSecret(): string {
  * real-time sync (backfill + scheduled re-sync still apply) — it never fails the
  * connect. Any previously-registered webhooks are removed first (idempotent) so a
  * reconnect never accumulates duplicates.
+ *
+ * @returns The connection carrying the ids that were just registered, or the one
+ *   it was given when nothing was written. The caller serializes this into the
+ *   connect response, so returning the refreshed row is what keeps the response
+ *   in step with the database — the Mongoose path assigned `conn.webhookIds` on
+ *   the in-memory document for exactly that reason.
  */
-async function registerConnectionWebhooks(conn: IConnection, auth: ConnectorAuth): Promise<void> {
+async function registerConnectionWebhooks(
+  conn: ConnectionRow,
+  auth: ConnectorAuth,
+): Promise<ConnectionRow> {
   const provider = getConnectorProvider(conn.provider);
   try {
     if (conn.webhookIds.length > 0) {
@@ -308,7 +391,7 @@ async function registerConnectionWebhooks(conn: IConnection, auth: ConnectorAuth
         .deleteWebhooks(auth, conn.webhookIds)
         .catch((err) =>
           log.general.warn(
-            { err, connectionId: String(conn._id) },
+            { err, connectionId: conn.id },
             'Failed to remove stale connector webhooks before re-registering',
           ),
         );
@@ -317,20 +400,24 @@ async function registerConnectionWebhooks(conn: IConnection, auth: ConnectorAuth
       provider.webhookSecretStrategy === 'per_connection' ? generateWebhookSecret() : undefined;
     const ids = await provider.registerWebhooks(auth, {
       address: getWebhookAddress(conn.provider),
-      connectionId: String(conn._id),
+      connectionId: conn.id,
       ...(secret !== undefined ? { secret } : {}),
     });
-    const update: Record<string, unknown> = { webhookIds: ids };
-    if (secret !== undefined) {
-      update.webhookSecret = encryptSecret(secret);
-    }
-    await Connection.updateOne({ _id: conn._id }, { $set: update });
-    conn.webhookIds = ids;
+    // The secret is written only when one was minted; an `app_secret` provider
+    // leaves the stored envelope untouched rather than clearing it, which is what
+    // the `$set` built without the key did.
+    const updated = await setConnectionWebhooks(
+      conn.id,
+      ids,
+      secret !== undefined ? encryptSecret(secret) : undefined,
+    );
+    return updated ?? conn;
   } catch (err) {
     log.general.warn(
-      { err, connectionId: String(conn._id) },
+      { err, connectionId: conn.id },
       'Failed to register connector webhooks (real-time sync disabled for this connection)',
     );
+    return conn;
   }
 }
 
@@ -346,7 +433,7 @@ export async function connectAndVerify(
   storeId: string,
   providerId: ConnectorProviderId,
   params: { code: string; shopDomain: string; redirectUri: string },
-): Promise<IConnection> {
+): Promise<ConnectionRow> {
   const provider = getConnectorProvider(providerId);
   const result = await provider.exchangeCode({
     shopDomain: params.shopDomain,
@@ -358,27 +445,23 @@ export async function connectAndVerify(
     throw validationError(`Shop currency ${result.shopCurrency} is not supported by Mercaria`);
   }
 
-  const credentials = encryptSecret(JSON.stringify({ accessToken: result.accessToken }));
-
-  const conn = await Connection.findOneAndUpdate(
-    { storeId, provider: providerId },
-    {
-      $set: {
-        mode: 'pull',
-        status: 'connected',
-        credentials,
-        externalShopId: result.externalShopId,
-        shopDomain: result.shopDomain,
-        shopCurrency: result.shopCurrency,
-        scopes: result.scopes,
-        connectedAt: new Date(),
-      },
-    },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
-  );
+  // ONE statement on `UNIQUE(store_id, provider)`: a second OAuth callback for
+  // the same shop merges into the same row instead of racing an insert against
+  // it. The sync-settings defaults a fresh row gets are the COLUMN defaults,
+  // which is what `setDefaultsOnInsert` bought under Mongoose.
+  const upserted = await upsertConnection(storeId, providerId, {
+    mode: 'pull',
+    status: 'connected',
+    credentials: encryptSecret(JSON.stringify({ accessToken: result.accessToken })),
+    externalShopId: result.externalShopId,
+    shopDomain: result.shopDomain,
+    shopCurrency: result.shopCurrency,
+    scopes: result.scopes,
+    connectedAt: new Date(),
+  });
 
   // Real-time sync: register the platform's product webhooks (best-effort).
-  await registerConnectionWebhooks(conn, {
+  const conn = await registerConnectionWebhooks(upserted, {
     accessToken: result.accessToken,
     shopDomain: result.shopDomain,
   });
@@ -387,36 +470,27 @@ export async function connectAndVerify(
   // this connection (a fresh connection defaults `products: 'off'` and imports
   // only after the merchant configures + syncs). The producer's inline fallback
   // keeps this working without Redis.
-  if (
-    conn.syncSettings.products === 'pull' ||
-    conn.syncSettings.products === 'bidirectional'
-  ) {
+  if (pullsResource(conn.syncSettingsProducts)) {
     const { enqueueConnectionBackfill } = await import('../queue/producers.js');
-    await enqueueConnectionBackfill({ storeId, connectionId: String(conn._id) }).catch((err) =>
-      log.general.warn(
-        { err, connectionId: String(conn._id) },
-        'Failed to enqueue connect-time backfill',
-      ),
+    await enqueueConnectionBackfill({ storeId, connectionId: conn.id }).catch((err) =>
+      log.general.warn({ err, connectionId: conn.id }, 'Failed to enqueue connect-time backfill'),
     );
   }
 
   // Initial order import: enqueue an order sync when order pull is already enabled.
-  if (pullsResource(conn.syncSettings.orders)) {
+  if (pullsResource(conn.syncSettingsOrders)) {
     const { enqueueOrderSync } = await import('../queue/producers.js');
-    await enqueueOrderSync({ storeId, connectionId: String(conn._id) }).catch((err) =>
-      log.general.warn(
-        { err, connectionId: String(conn._id) },
-        'Failed to enqueue connect-time order sync',
-      ),
+    await enqueueOrderSync({ storeId, connectionId: conn.id }).catch((err) =>
+      log.general.warn({ err, connectionId: conn.id }, 'Failed to enqueue connect-time order sync'),
     );
   }
 
   // Initial inventory import: enqueue an inventory sync when inventory pull is enabled.
-  if (pullsResource(conn.syncSettings.inventory)) {
+  if (pullsResource(conn.syncSettingsInventory)) {
     const { enqueueInventorySync } = await import('../queue/producers.js');
-    await enqueueInventorySync({ storeId, connectionId: String(conn._id) }).catch((err) =>
+    await enqueueInventorySync({ storeId, connectionId: conn.id }).catch((err) =>
       log.general.warn(
-        { err, connectionId: String(conn._id) },
+        { err, connectionId: conn.id },
         'Failed to enqueue connect-time inventory sync',
       ),
     );
@@ -447,13 +521,13 @@ export async function connectWithApiKey(
   storeId: string,
   providerId: ConnectorProviderId,
   params: { shopDomain: string; consumerKey: string; consumerSecret: string },
-): Promise<IConnection> {
+): Promise<ConnectionRow> {
   const provider = getConnectorProvider(providerId);
   if (provider.credentialStrategy !== 'api_key') {
     throw validationError(`Provider ${providerId} does not support API-key connect`);
   }
 
-  const existing = await Connection.findOne({ storeId, provider: providerId });
+  const existing = await findConnectionByProvider(storeId, providerId);
   if (existing && existing.mode !== 'pull') {
     throw conflict('A connection already exists for this provider in a different mode');
   }
@@ -468,114 +542,112 @@ export async function connectWithApiKey(
     throw validationError(`Shop currency ${identity.shopCurrency} is not supported by Mercaria`);
   }
 
-  const credentials = encryptSecret(
-    JSON.stringify({ consumerKey: params.consumerKey, consumerSecret: params.consumerSecret }),
-  );
-
-  const conn = await Connection.findOneAndUpdate(
-    { storeId, provider: providerId },
-    {
-      $set: {
-        mode: 'pull',
-        status: 'connected',
-        credentials,
-        externalShopId: identity.externalShopId,
-        shopDomain: identity.shopDomain,
-        shopCurrency: identity.shopCurrency,
-        scopes: [],
-        connectedAt: new Date(),
-      },
-    },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
-  );
-  if (!conn) {
-    throw notFound('Connection not found');
-  }
+  const upserted = await upsertConnection(storeId, providerId, {
+    mode: 'pull',
+    status: 'connected',
+    credentials: encryptSecret(
+      JSON.stringify({ consumerKey: params.consumerKey, consumerSecret: params.consumerSecret }),
+    ),
+    externalShopId: identity.externalShopId,
+    shopDomain: identity.shopDomain,
+    shopCurrency: identity.shopCurrency,
+    // An API-key provider grants no OAuth scopes; the empty array is written
+    // explicitly so a reconnect cannot leave a previous provider's grant behind.
+    scopes: [],
+    connectedAt: new Date(),
+  });
 
   // Real-time sync: register the platform's webhooks (best-effort), exactly like the
   // OAuth connect. For WooCommerce this mints + stores a per-connection webhook secret;
   // if the merchant's API key lacks write scope the registration simply fails and is
   // logged — the connection still works via backfill + the scheduled reconcile.
-  await registerConnectionWebhooks(conn, {
+  return registerConnectionWebhooks(upserted, {
     accessToken: `${params.consumerKey}:${params.consumerSecret}`,
     shopDomain: identity.shopDomain,
   });
-
-  return conn;
 }
 
 /**
  * Update a connection's `syncSettings` from an explicit field whitelist. Scoped
- * by `{ _id, storeId }` (no cross-store access). Never spreads the request body.
+ * by `{ id, storeId }` (no cross-store access). Never spreads the request body.
+ *
+ * The whitelist is stated ONCE, in the repository's `SyncSettingsPatch`, and the
+ * read-modify-save pair is now a single conditional UPDATE — the row is never
+ * loaded and written back, so a concurrent settings change cannot be clobbered by
+ * a stale in-memory document.
+ *
+ * BEHAVIOUR CHANGE: `sync_settings_target_location_id` is a real foreign key, so
+ * a `targetLocationId` naming no location is REFUSED (SQLSTATE 23503) instead of
+ * being stored as a dangling id. It is translated here rather than left to
+ * surface as a 500: the value came from a request body, so it is a 400.
  */
 export async function updateSyncSettings(
   storeId: string,
   connectionId: string,
   patch: UpdateSyncSettingsInput,
-): Promise<IConnection> {
-  const conn = await Connection.findOne({ _id: connectionId, storeId });
+): Promise<ConnectionRow> {
+  let conn: ConnectionRow | null;
+  try {
+    conn = await updateSyncSettingsColumns(storeId, connectionId, {
+      ...(patch.products !== undefined ? { products: patch.products } : {}),
+      ...(patch.inventory !== undefined ? { inventory: patch.inventory } : {}),
+      ...(patch.orders !== undefined ? { orders: patch.orders } : {}),
+      ...(patch.autoPublish !== undefined ? { autoPublish: patch.autoPublish } : {}),
+      ...(patch.conflictPolicy !== undefined ? { conflictPolicy: patch.conflictPolicy } : {}),
+      ...(patch.targetLocationId !== undefined
+        ? { targetLocationId: patch.targetLocationId }
+        : {}),
+      ...(patch.priceRules !== undefined ? { priceRules: patch.priceRules } : {}),
+      ...(patch.collectionMapping !== undefined
+        ? { collectionMapping: patch.collectionMapping }
+        : {}),
+    });
+  } catch (err) {
+    if (isForeignKeyViolation(err)) {
+      throw validationError('Target location not found');
+    }
+    throw err;
+  }
   if (!conn) {
     throw notFound('Connection not found');
   }
-  const settings = conn.syncSettings;
-
-  if (patch.products !== undefined) settings.products = patch.products;
-  if (patch.inventory !== undefined) settings.inventory = patch.inventory;
-  if (patch.orders !== undefined) settings.orders = patch.orders;
-  if (patch.autoPublish !== undefined) settings.autoPublish = patch.autoPublish;
-  if (patch.conflictPolicy !== undefined) settings.conflictPolicy = patch.conflictPolicy;
-  if (patch.targetLocationId !== undefined) settings.targetLocationId = patch.targetLocationId;
-  if (patch.priceRules !== undefined) {
-    settings.priceRules = {
-      ...(patch.priceRules.markupPercent !== undefined
-        ? { markupPercent: patch.priceRules.markupPercent }
-        : {}),
-      ...(patch.priceRules.rounding !== undefined ? { rounding: patch.priceRules.rounding } : {}),
-    };
-  }
-  if (patch.collectionMapping !== undefined) {
-    settings.collectionMapping = new Map(Object.entries(patch.collectionMapping));
-  }
-
-  conn.markModified('syncSettings');
-  await conn.save();
   return conn;
 }
 
 /**
  * Disconnect a connection: delete the platform webhooks (best-effort, while the
- * credentials are still present), then mark it disconnected, drop the encrypted
- * credentials (no token at rest) and any registered webhook ids. The record is
+ * credentials are still present), then mark it disconnected, drop BOTH encrypted
+ * envelopes (no token at rest) and any registered webhook ids. The record is
  * KEPT so the `source` provenance on already-imported listings stays meaningful.
- * Scoped by `{ _id, storeId }`.
+ * Scoped by `{ id, storeId }`.
+ *
+ * The clear writes NULL to all six credential columns in one statement — see
+ * `connectionRepository.disconnectConnection`: the `all three or none` CHECKs
+ * refuse a partial clear, and `''` would pass them while leaving a connection
+ * that reads as authorized and decrypts to nothing.
  */
-export async function disconnect(storeId: string, connectionId: string): Promise<IConnection> {
-  const existing = await Connection.findOne({ _id: connectionId, storeId });
+export async function disconnect(storeId: string, connectionId: string): Promise<ConnectionRow> {
+  const existing = await findConnection(storeId, connectionId);
   if (!existing) {
     throw notFound('Connection not found');
   }
 
   // Best-effort: remove the platform webhooks while we still hold the credentials.
-  if (existing.webhookIds.length > 0 && existing.credentials && existing.shopDomain) {
+  // `hasCredentials` answers "is it authorized" without reading the envelope; the
+  // envelope itself is read inside `decryptAuth`, one line further down.
+  if (existing.webhookIds.length > 0 && existing.hasCredentials && existing.shopDomain) {
     try {
       const provider = getConnectorProvider(existing.provider);
-      await provider.deleteWebhooks(decryptAuth(existing), existing.webhookIds);
+      await provider.deleteWebhooks(await decryptAuth(existing), existing.webhookIds);
     } catch (err) {
       log.general.warn(
-        { err, connectionId: String(existing._id) },
+        { err, connectionId: existing.id },
         'Failed to delete connector webhooks on disconnect',
       );
     }
   }
 
-  const conn = await Connection.findOneAndUpdate(
-    { _id: connectionId, storeId },
-    {
-      $set: { status: 'disconnected', webhookIds: [] },
-      $unset: { credentials: '', webhookSecret: '' },
-    },
-    { new: true },
-  );
+  const conn = await disconnectConnection(storeId, connectionId);
   if (!conn) {
     throw notFound('Connection not found');
   }
@@ -601,15 +673,22 @@ export async function resolveImportCategorySlug(): Promise<string> {
  * Decrypt a connection's stored token into `ConnectorAuth` (access token + shop
  * domain). Used by the auth-only paths (webhook register/delete) that do not need
  * the shop currency.
+ *
+ * ASYNC now, and that is the whole shape of the protected-column port: the
+ * envelope is no longer carried on the connection row, so this makes the one
+ * extra read that names those columns. Every caller is a path that genuinely
+ * decrypts — the paths that only needed to know whether a connection is
+ * authorized read `hasCredentials` and issue no second query at all.
  */
-function decryptAuth(conn: IConnection): ConnectorAuth {
-  if (!conn.credentials) {
-    throw validationError('Connection has no stored credentials');
-  }
+async function decryptAuth(conn: ConnectionRow): Promise<ConnectorAuth> {
   if (!conn.shopDomain) {
     throw validationError('Connection has no shop domain');
   }
-  const raw: unknown = JSON.parse(decryptSecret(conn.credentials));
+  const credentials = await findConnectionCredentials(conn.id);
+  if (!credentials) {
+    throw validationError('Connection has no stored credentials');
+  }
+  const raw: unknown = JSON.parse(decryptSecret(credentials));
   const oauth = oauthCredentialsSchema.safeParse(raw);
   if (oauth.success) {
     return { accessToken: oauth.data.accessToken, shopDomain: conn.shopDomain };
@@ -625,8 +704,11 @@ function decryptAuth(conn: IConnection): ConnectorAuth {
 }
 
 /** Decrypt a connection's stored credentials into `ConnectorCredentials` (adds currency). */
-function decryptCredentials(conn: IConnection, shopCurrency: CurrencyCode): ConnectorCredentials {
-  return { ...decryptAuth(conn), shopCurrency };
+async function decryptCredentials(
+  conn: ConnectionRow,
+  shopCurrency: CurrencyCode,
+): Promise<ConnectorCredentials> {
+  return { ...(await decryptAuth(conn)), shopCurrency };
 }
 
 /**
@@ -636,7 +718,7 @@ function decryptCredentials(conn: IConnection, shopCurrency: CurrencyCode): Conn
  */
 function toVariantInput(
   variant: NormalizedVariant,
-  priceRules: ISyncSettings['priceRules'],
+  priceRules: PriceRules | undefined,
 ): CreateStoreProductVariantInput {
   const input: CreateStoreProductVariantInput = {
     optionValues: variant.optionValues.map((o) => ({ name: o.name, value: o.value })),
@@ -659,7 +741,7 @@ function toVariantInput(
 function toCreateInput(
   product: NormalizedProduct,
   categorySlug: string,
-  priceRules: ISyncSettings['priceRules'],
+  priceRules: PriceRules | undefined,
 ): CreateStoreProductInput {
   const input: CreateStoreProductInput = {
     title: product.title,
@@ -718,14 +800,14 @@ function toUpdatePatch(product: NormalizedProduct, overridden: Set<string>): Upd
  * a newer-than check silently reading a value the platform no longer stands behind.
  */
 function buildSource(
-  conn: IConnection,
+  conn: ConnectionRow,
   product: NormalizedProduct,
 ): Pick<
   ListingRecord,
   'sourceConnectionId' | 'sourceProvider' | 'sourceExternalId' | 'sourceExternalUpdatedAt'
 > {
   return {
-    sourceConnectionId: String(conn._id),
+    sourceConnectionId: conn.id,
     sourceProvider: conn.provider,
     sourceExternalId: product.externalId,
     sourceExternalUpdatedAt: product.externalUpdatedAt ?? null,
@@ -740,12 +822,12 @@ function buildSource(
  * no-target case does no extra location query).
  *
  * `findLocation` scopes to the store — that is the cross-store guard the
- * `{ _id, storeId }` filter used to carry — but it does NOT filter on `isActive`,
+ * `{ _id, storeId }` Mongo filter used to carry — but it does NOT filter on `isActive`,
  * so the active check is made here to keep a deactivated target falling back to
  * the default rather than silently receiving stock.
  */
-export async function resolveImportLocationId(conn: IConnection): Promise<string | undefined> {
-  const target = conn.syncSettings.targetLocationId?.trim();
+export async function resolveImportLocationId(conn: ConnectionRow): Promise<string | undefined> {
+  const target = conn.syncSettingsTargetLocationId?.trim();
   if (!target) {
     return undefined;
   }
@@ -760,8 +842,8 @@ export async function resolveImportLocationId(conn: IConnection): Promise<string
  * Same store-scoped lookup plus explicit `isActive` check as
  * {@link resolveImportLocationId}.
  */
-export async function resolveInventoryLocationId(conn: IConnection): Promise<string> {
-  const target = conn.syncSettings.targetLocationId?.trim();
+export async function resolveInventoryLocationId(conn: ConnectionRow): Promise<string> {
+  const target = conn.syncSettingsTargetLocationId?.trim();
   if (target) {
     const location = await findLocation(conn.storeId, target);
     if (location?.isActive) {
@@ -791,7 +873,7 @@ export async function resolveInventoryLocationId(conn: IConnection): Promise<str
  * exactly as unfindable as an unstamped one while LOOKING synced.
  */
 async function stampVariantSources(
-  conn: IConnection,
+  conn: ConnectionRow,
   listingId: string,
   product: NormalizedProduct,
 ): Promise<void> {
@@ -802,7 +884,7 @@ async function stampVariantSources(
     return;
   }
   const variants = await findVariantsByListing(listingId);
-  const connectionId = String(conn._id);
+  const connectionId = conn.id;
   for (let i = 0; i < variants.length && i < product.variants.length; i += 1) {
     const normalized = product.variants[i];
     if (normalized.externalVariantId === undefined && normalized.externalInventoryItemId === undefined) {
@@ -849,21 +931,23 @@ async function stampVariantSources(
  * an unordered set, exactly as `collectionIds` carried no order.
  */
 async function applyCollectionMapping(
-  conn: IConnection,
+  conn: ConnectionRow,
   listingId: string,
   product: NormalizedProduct,
   overridden: Set<string>,
 ): Promise<void> {
-  const mapping = conn.syncSettings.collectionMapping;
-  if (!mapping || mapping.size === 0 || overridden.has('collections')) {
+  // The `Map` became a jsonb `Record` — one value, read and written whole, with
+  // the external platform's own collection ids as its keys.
+  const mapping = conn.syncSettingsCollectionMapping;
+  if (!mapping || Object.keys(mapping).length === 0 || overridden.has('collections')) {
     return;
   }
   const refs = product.collectionRefs ?? [];
-  const managed = [...new Set(mapping.values())];
+  const managed = [...new Set(Object.values(mapping))];
   const desired = [
     ...new Set(
       refs.flatMap((ref) => {
-        const mapped = mapping.get(ref);
+        const mapped = mapping[ref];
         return mapped ? [mapped] : [];
       }),
     ),
@@ -880,7 +964,7 @@ interface ImportProductOptions {
   categorySlug: string;
   autoPublish: boolean;
   respectOverrides: boolean;
-  priceRules: ISyncSettings['priceRules'];
+  priceRules: PriceRules | undefined;
   /** Resolved import location (connector `targetLocationId`); undefined → store default. */
   importLocationId?: string;
 }
@@ -930,7 +1014,7 @@ async function repriceExistingVariants(
   listingId: string,
   product: NormalizedProduct,
   overridden: Set<string>,
-  priceRules: ISyncSettings['priceRules'],
+  priceRules: PriceRules | undefined,
 ): Promise<boolean> {
   // A locally-edited price is pinned — never let a re-sync overwrite it.
   if (overridden.has('price')) {
@@ -1022,13 +1106,13 @@ async function repriceExistingVariants(
 
 /** Import ONE normalized product (create or override-respecting update). */
 async function importProduct(
-  conn: IConnection,
+  conn: ConnectionRow,
   product: NormalizedProduct,
   opts: ImportProductOptions,
 ): Promise<ImportOutcome> {
   const existing = await findListingBySourceExternalId(
     conn.storeId,
-    String(conn._id),
+    conn.id,
     product.externalId,
   );
 
@@ -1040,7 +1124,7 @@ async function importProduct(
     // and never let the platform's normalization fight Mercaria's source of truth).
     const pushMirror = await listingPushedToConnection(
       conn.storeId,
-      String(conn._id),
+      conn.id,
       product.externalId,
     );
     if (pushMirror) {
@@ -1084,15 +1168,15 @@ async function importProduct(
  * whole-run failure (e.g. a network/credentials error) is recorded on the run,
  * which is still returned so the dashboard has a status record.
  */
-export async function runBackfill(storeId: string, connectionId: string): Promise<ISyncRun> {
-  const conn = await Connection.findOne({ _id: connectionId, storeId });
+export async function runBackfill(storeId: string, connectionId: string): Promise<SyncRunRecord> {
+  const conn = await findConnection(storeId, connectionId);
   if (!conn) {
     throw notFound('Connection not found');
   }
   if (conn.mode !== 'pull') {
     throw validationError('Backfill is only supported for pull connections');
   }
-  if (conn.syncSettings.products !== 'pull' && conn.syncSettings.products !== 'bidirectional') {
+  if (!pullsResource(conn.syncSettingsProducts)) {
     throw validationError('Product pull is not enabled for this connection');
   }
   if (!conn.shopCurrency || !isSupportedCurrency(conn.shopCurrency)) {
@@ -1100,15 +1184,15 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
   }
 
   const provider = getConnectorProvider(conn.provider);
-  const creds = decryptCredentials(conn, conn.shopCurrency);
+  const creds = await decryptCredentials(conn, conn.shopCurrency);
   const categorySlug = await resolveImportCategorySlug();
-  const respectOverrides = conn.syncSettings.conflictPolicy === 'respect_overrides';
-  const autoPublish = conn.syncSettings.autoPublish;
-  const priceRules = conn.syncSettings.priceRules;
+  const respectOverrides = conn.syncSettingsConflictPolicy === 'respect_overrides';
+  const autoPublish = conn.syncSettingsAutoPublish;
+  const priceRules = toPriceRules(conn);
   const importLocationId = await resolveImportLocationId(conn);
 
-  const run = await SyncRun.create({ connectionId: String(conn._id), kind: 'backfill' });
-  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const run = await insertSyncRun(conn.id, 'backfill');
+  const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'started', counts });
 
   // Every external id seen across all pages — the basis for delete-reconciliation
@@ -1135,7 +1219,7 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
         } catch (err) {
           counts.failed += 1;
           log.general.warn(
-            { err, connectionId: String(conn._id), externalId: product.externalId },
+            { err, connectionId: conn.id, externalId: product.externalId },
             'Failed to import connector product',
           );
         }
@@ -1157,45 +1241,39 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
     // `products/delete` webhook path which also records an archive as `updated`.
     counts.updated += archived;
 
-    run.counts = counts;
-    run.status = 'completed';
-    run.finishedAt = new Date();
-    await run.save();
-    await Connection.updateOne(
-      { _id: conn._id },
-      { $set: { lastSyncAt: new Date(), status: 'connected' } },
-    );
+    const completed = await finishSyncRun(run.id, { status: 'completed', counts });
+    await markConnectionSynced(conn.id);
     emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'completed', counts });
+    return completed;
   } catch (err) {
-    run.counts = counts;
-    run.status = 'failed';
-    run.error = err instanceof Error ? err.message : 'Backfill failed';
-    run.finishedAt = new Date();
-    await run.save();
-    await Connection.updateOne({ _id: conn._id }, { $set: { status: 'error' } });
+    const failed = await finishSyncRun(run.id, {
+      status: 'failed',
+      counts,
+      error: err instanceof Error ? err.message : 'Backfill failed',
+    });
+    await markConnectionError(conn.id);
     emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'failed', counts });
-    log.general.error({ err, connectionId: String(conn._id) }, 'Connector backfill failed');
+    log.general.error({ err, connectionId: conn.id }, 'Connector backfill failed');
+    return failed;
   }
-
-  return run;
 }
 
 /**
  * Validate that a connection is backfillable, then ENQUEUE an initial backfill.
  * The validation runs synchronously so the API caller gets a proper 404/400; the
  * import itself runs on the `marketplace-sync` queue (or inline when Redis is off,
- * via the producer's inline fallback). Scoped by `{ _id, storeId }` — no
+ * via the producer's inline fallback). Scoped by `{ id, storeId }` — no
  * cross-store access.
  */
 export async function requestBackfill(storeId: string, connectionId: string): Promise<void> {
-  const conn = await Connection.findOne({ _id: connectionId, storeId });
+  const conn = await findConnection(storeId, connectionId);
   if (!conn) {
     throw notFound('Connection not found');
   }
   if (conn.mode !== 'pull') {
     throw validationError('Backfill is only supported for pull connections');
   }
-  if (conn.syncSettings.products !== 'pull' && conn.syncSettings.products !== 'bidirectional') {
+  if (!pullsResource(conn.syncSettingsProducts)) {
     throw validationError('Product pull is not enabled for this connection');
   }
   const { enqueueConnectionBackfill } = await import('../queue/producers.js');
@@ -1215,8 +1293,8 @@ export async function requestBackfill(storeId: string, connectionId: string): Pr
  * whole status set is allowed because the Mongo update was likewise unconditional
  * on the current status.
  */
-async function archiveSourcedListing(conn: IConnection, externalId: string): Promise<boolean> {
-  const listing = await findListingBySourceExternalId(conn.storeId, String(conn._id), externalId);
+async function archiveSourcedListing(conn: ConnectionRow, externalId: string): Promise<boolean> {
+  const listing = await findListingBySourceExternalId(conn.storeId, conn.id, externalId);
   if (!listing) {
     return false;
   }
@@ -1238,7 +1316,7 @@ async function archiveSourcedListing(conn: IConnection, externalId: string): Pro
  * transient platform outage would archive the whole catalog.
  */
 async function archiveUnseenSourcedListings(
-  conn: IConnection,
+  conn: ConnectionRow,
   seenExternalIds: Set<string>,
   respectOverrides: boolean,
 ): Promise<number> {
@@ -1246,7 +1324,7 @@ async function archiveUnseenSourcedListings(
   // because the repository read is deliberately status-agnostic; the set it
   // returns is already just this connection's imports, not the store's catalogue.
   const sourced = (
-    await findListingsBySourceConnection(conn.storeId, String(conn._id))
+    await findListingsBySourceConnection(conn.storeId, conn.id)
   ).filter((listing) => listing.status !== 'archived');
 
   let archived = 0;
@@ -1265,7 +1343,7 @@ async function archiveUnseenSourcedListings(
       }
     } catch (err) {
       log.general.warn(
-        { err, connectionId: String(conn._id), externalId },
+        { err, connectionId: conn.id, externalId },
         'Failed to archive unseen sourced listing during reconcile',
       );
     }
@@ -1287,22 +1365,18 @@ async function archiveUnseenSourcedListings(
  * registers it there — so without Redis there is simply no periodic sweep.
  */
 export async function reconcileAllConnections(): Promise<void> {
-  const connections = await Connection.find(
-    {
-      mode: 'pull',
-      status: 'connected',
-      'syncSettings.products': { $in: ['pull', 'bidirectional'] },
-    },
-    '_id storeId',
-  );
+  // The projection Mongo expressed as `'_id storeId'` is the repository's whole
+  // select list: the sweep enqueues and reads nothing else, and its working set
+  // can be every connection in the system.
+  const connections = await findPullConnectionsToReconcile();
 
   const { enqueueConnectionBackfill } = await import('../queue/producers.js');
   for (const conn of connections) {
     try {
-      await enqueueConnectionBackfill({ storeId: conn.storeId, connectionId: String(conn._id) });
+      await enqueueConnectionBackfill({ storeId: conn.storeId, connectionId: conn.id });
     } catch (err) {
       log.general.warn(
-        { err, connectionId: String(conn._id) },
+        { err, connectionId: conn.id },
         'Reconcile sweep: failed to enqueue backfill for connection',
       );
     }
@@ -1314,7 +1388,7 @@ export async function reconcileAllConnections(): Promise<void> {
 }
 
 /** True when a per-resource direction pulls into Mercaria (`pull` or `bidirectional`). */
-function pullsResource(direction: ISyncSettings['products']): boolean {
+function pullsResource(direction: SyncResourceDirection): boolean {
   return direction === 'pull' || direction === 'bidirectional';
 }
 
@@ -1341,7 +1415,7 @@ function classifyWebhookTopic(
 }
 
 /** A unit of webhook work that increments `counts`; the wrapper owns the `SyncRun`. */
-type WebhookWork = (counts: ISyncRunCounts) => Promise<void>;
+type WebhookWork = (counts: SyncRunCounts) => Promise<void>;
 
 /**
  * Run ONE webhook unit under a `webhook` `SyncRun`: create the run, emit live
@@ -1349,27 +1423,26 @@ type WebhookWork = (counts: ISyncRunCounts) => Promise<void>;
  * platforms re-deliver failed webhooks and every upsert is idempotent, so a
  * modeled failure is recorded on the run + logged and swallowed.
  */
-async function runWebhookUnit(conn: IConnection, topic: string, work: WebhookWork): Promise<void> {
-  const connectionId = String(conn._id);
-  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
-  const run = await SyncRun.create({ connectionId, kind: 'webhook' });
+async function runWebhookUnit(conn: ConnectionRow, topic: string, work: WebhookWork): Promise<void> {
+  const connectionId = conn.id;
+  const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const run = await insertSyncRun(connectionId, 'webhook');
   emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'started', counts });
 
   try {
     await work(counts);
-    run.counts = counts;
-    run.status = 'completed';
-    run.finishedAt = new Date();
-    await run.save();
-    await Connection.updateOne({ _id: conn._id }, { $set: { lastSyncAt: new Date() } });
+    await finishSyncRun(run.id, { status: 'completed', counts });
+    // `lastSyncAt` only: one successful webhook is not evidence that a connection
+    // previously marked `error` has recovered — a full backfill or order sync is.
+    await touchConnectionLastSync(connectionId);
     emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'completed', counts });
   } catch (err) {
     counts.failed += 1;
-    run.counts = counts;
-    run.status = 'failed';
-    run.error = err instanceof Error ? err.message : 'Webhook processing failed';
-    run.finishedAt = new Date();
-    await run.save();
+    await finishSyncRun(run.id, {
+      status: 'failed',
+      counts,
+      error: err instanceof Error ? err.message : 'Webhook processing failed',
+    });
     emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'failed', counts });
     log.general.error({ err, connectionId, topic }, 'Failed to process connector webhook');
   }
@@ -1382,10 +1455,10 @@ async function runWebhookUnit(conn: IConnection, topic: string, work: WebhookWor
  * to the kind by the dispatcher, so this stays provider-agnostic.
  */
 async function handleProductWebhook(
-  conn: IConnection,
+  conn: ConnectionRow,
   kind: 'product_upsert' | 'product_delete',
   payload: unknown,
-  counts: ISyncRunCounts,
+  counts: SyncRunCounts,
 ): Promise<void> {
   if (kind === 'product_delete') {
     const parsed = webhookDeletePayloadSchema.safeParse(payload);
@@ -1405,9 +1478,9 @@ async function handleProductWebhook(
   const categorySlug = await resolveImportCategorySlug();
   const outcome = await importProduct(conn, product, {
     categorySlug,
-    autoPublish: conn.syncSettings.autoPublish,
-    respectOverrides: conn.syncSettings.conflictPolicy === 'respect_overrides',
-    priceRules: conn.syncSettings.priceRules,
+    autoPublish: conn.syncSettingsAutoPublish,
+    respectOverrides: conn.syncSettingsConflictPolicy === 'respect_overrides',
+    priceRules: toPriceRules(conn),
     importLocationId: await resolveImportLocationId(conn),
   });
   counts[outcome] += 1;
@@ -1415,9 +1488,9 @@ async function handleProductWebhook(
 
 /** Handle an `orders/*` webhook: idempotently upsert the single external order. */
 async function handleOrderWebhook(
-  conn: IConnection,
+  conn: ConnectionRow,
   payload: unknown,
-  counts: ISyncRunCounts,
+  counts: SyncRunCounts,
 ): Promise<void> {
   if (!conn.shopCurrency || !isSupportedCurrency(conn.shopCurrency)) {
     throw validationError('Connection has no supported shop currency');
@@ -1437,23 +1510,25 @@ async function handleOrderWebhook(
  * pull job's semantics. Idempotent: an unmapped item is a no-op counted as skipped.
  */
 async function handleInventoryWebhook(
-  conn: IConnection,
+  conn: ConnectionRow,
   payload: unknown,
-  counts: ISyncRunCounts,
+  counts: SyncRunCounts,
 ): Promise<void> {
   const parsed = webhookInventoryPayloadSchema.safeParse(payload);
   if (!parsed.success) {
     throw validationError('Malformed inventory-level webhook payload');
   }
   const itemId = String(parsed.data.inventory_item_id);
-  const variant = await findVariantBySourceInventoryItemId(String(conn._id), itemId);
+  const variant = await findVariantBySourceInventoryItemId(conn.id, itemId);
   if (!variant) {
     counts.skipped += 1;
     return;
   }
 
   const provider = getConnectorProvider(conn.provider);
-  const levels = await provider.fetchInventory(decryptAuth(conn), { inventoryItemIds: [itemId] });
+  const levels = await provider.fetchInventory(await decryptAuth(conn), {
+    inventoryItemIds: [itemId],
+  });
   const level = levels.find((l) => l.externalInventoryItemId === itemId);
   const available = Math.max(0, level?.available ?? 0);
   const locationId = await resolveInventoryLocationId(conn);
@@ -1479,7 +1554,7 @@ export async function processConnectorWebhook(job: {
   topic: string;
   payload: unknown;
 }): Promise<void> {
-  const conn = await Connection.findById(job.connectionId);
+  const conn = await findConnectionById(job.connectionId);
   if (!conn) {
     log.general.warn(
       { connectionId: job.connectionId, topic: job.topic },
@@ -1499,7 +1574,7 @@ export async function processConnectorWebhook(job: {
 
   if (kind === 'product_upsert' || kind === 'product_delete') {
     // Respect the per-connection product direction: no product pull ⇒ ignore.
-    if (!pullsResource(conn.syncSettings.products)) {
+    if (!pullsResource(conn.syncSettingsProducts)) {
       log.general.info(
         { connectionId: job.connectionId, topic: job.topic },
         'Product pull disabled — webhook ignored',
@@ -1514,7 +1589,7 @@ export async function processConnectorWebhook(job: {
 
   if (kind === 'order_upsert') {
     // Respect the per-connection order direction: no order pull ⇒ ignore.
-    if (!pullsResource(conn.syncSettings.orders)) {
+    if (!pullsResource(conn.syncSettingsOrders)) {
       log.general.info(
         { connectionId: job.connectionId, topic: job.topic },
         'Order pull disabled — webhook ignored',
@@ -1529,7 +1604,7 @@ export async function processConnectorWebhook(job: {
 
   if (kind === 'inventory_update') {
     // Respect the per-connection inventory direction: no inventory pull ⇒ ignore.
-    if (!pullsResource(conn.syncSettings.inventory)) {
+    if (!pullsResource(conn.syncSettingsInventory)) {
       log.general.info(
         { connectionId: job.connectionId, topic: job.topic },
         'Inventory pull disabled — webhook ignored',
@@ -1554,9 +1629,9 @@ export async function processConnectorWebhook(job: {
 const ADDRESS_PLACEHOLDER = '-';
 
 /** Build the provenance `source` sub-document for an external order. */
-function buildOrderSource(conn: IConnection, order: NormalizedOrder): NewOrderSource {
+function buildOrderSource(conn: ConnectionRow, order: NormalizedOrder): NewOrderSource {
   const source: NewOrderSource = {
-    connectionId: String(conn._id),
+    connectionId: conn.id,
     provider: conn.provider,
     externalId: order.externalId,
   };
@@ -1593,12 +1668,12 @@ function ensureAddressSnapshot(
  * so a synthetic reference keeps the immutable snapshot self-describing without a
  * dangling foreign key. (Linking to a real listing is future work.)
  */
-function externalLineRef(kind: 'product' | 'variant', conn: IConnection, externalId?: string): string {
+function externalLineRef(kind: 'product' | 'variant', conn: ConnectionRow, externalId?: string): string {
   return `ext:${conn.provider}:${kind}:${externalId ?? 'unknown'}`;
 }
 
 /** Map a normalized order's lines to persisted order-item snapshots. */
-function toOrderItems(conn: IConnection, order: NormalizedOrder): NewOrderItem[] {
+function toOrderItems(conn: ConnectionRow, order: NormalizedOrder): NewOrderItem[] {
   return order.lines.map((line) => ({
     listingId: externalLineRef('product', conn, line.externalProductId),
     variantId: externalLineRef('variant', conn, line.externalVariantId),
@@ -1618,7 +1693,7 @@ function toOrderItems(conn: IConnection, order: NormalizedOrder): NewOrderItem[]
  * `external` (settled off Oxy Pay), and money is preserved as `DualMoney`.
  */
 function buildExternalOrderDoc(
-  conn: IConnection,
+  conn: ConnectionRow,
   order: NormalizedOrder,
   orderNumber: string,
 ): NewOrder {
@@ -1670,8 +1745,8 @@ function buildExternalOrderDoc(
  * duplicated); a new order is created with a fresh Mercaria order number. A
  * concurrent create that loses the unique-index race is treated as `skipped`.
  */
-async function upsertExternalOrder(conn: IConnection, order: NormalizedOrder): Promise<ImportOutcome> {
-  const connectionId = String(conn._id);
+async function upsertExternalOrder(conn: ConnectionRow, order: NormalizedOrder): Promise<ImportOutcome> {
+  const connectionId = conn.id;
   const existing = await findOrderBySourceExternalId(conn.storeId, connectionId, order.externalId);
 
   if (existing) {
@@ -1701,17 +1776,17 @@ async function upsertExternalOrder(conn: IConnection, order: NormalizedOrder): P
  * Pull orders from a `pull` connection and idempotently upsert each into Mercaria.
  * Records an `order_sync` `SyncRun` with per-record tallies. A per-order failure is
  * logged + counted (never aborts the run); a whole-run failure is recorded and the
- * run is still returned for the dashboard status feed. Scoped by `{ _id, storeId }`.
+ * run is still returned for the dashboard status feed. Scoped by `{ id, storeId }`.
  */
-export async function syncOrders(storeId: string, connectionId: string): Promise<ISyncRun> {
-  const conn = await Connection.findOne({ _id: connectionId, storeId });
+export async function syncOrders(storeId: string, connectionId: string): Promise<SyncRunRecord> {
+  const conn = await findConnection(storeId, connectionId);
   if (!conn) {
     throw notFound('Connection not found');
   }
   if (conn.mode !== 'pull') {
     throw validationError('Order sync is only supported for pull connections');
   }
-  if (!pullsResource(conn.syncSettings.orders)) {
+  if (!pullsResource(conn.syncSettingsOrders)) {
     throw validationError('Order pull is not enabled for this connection');
   }
   if (!conn.shopCurrency || !isSupportedCurrency(conn.shopCurrency)) {
@@ -1719,11 +1794,11 @@ export async function syncOrders(storeId: string, connectionId: string): Promise
   }
 
   const provider = getConnectorProvider(conn.provider);
-  const creds = decryptCredentials(conn, conn.shopCurrency);
-  const runConnectionId = String(conn._id);
+  const creds = await decryptCredentials(conn, conn.shopCurrency);
+  const runConnectionId = conn.id;
 
-  const run = await SyncRun.create({ connectionId: runConnectionId, kind: 'order_sync' });
-  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const run = await insertSyncRun(runConnectionId, 'order_sync');
+  const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'started', counts });
 
   try {
@@ -1746,43 +1821,37 @@ export async function syncOrders(storeId: string, connectionId: string): Promise
       emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'running', counts });
     } while (cursor);
 
-    run.counts = counts;
-    run.status = 'completed';
-    run.finishedAt = new Date();
-    await run.save();
-    await Connection.updateOne(
-      { _id: conn._id },
-      { $set: { lastSyncAt: new Date(), status: 'connected' } },
-    );
+    const completed = await finishSyncRun(run.id, { status: 'completed', counts });
+    await markConnectionSynced(runConnectionId);
     emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'completed', counts });
+    return completed;
   } catch (err) {
-    run.counts = counts;
-    run.status = 'failed';
-    run.error = err instanceof Error ? err.message : 'Order sync failed';
-    run.finishedAt = new Date();
-    await run.save();
-    await Connection.updateOne({ _id: conn._id }, { $set: { status: 'error' } });
+    const failed = await finishSyncRun(run.id, {
+      status: 'failed',
+      counts,
+      error: err instanceof Error ? err.message : 'Order sync failed',
+    });
+    await markConnectionError(runConnectionId);
     emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'failed', counts });
     log.general.error({ err, connectionId: runConnectionId }, 'Connector order sync failed');
+    return failed;
   }
-
-  return run;
 }
 
 /**
  * Validate an order-pull connection, then ENQUEUE an order sync on the
  * `marketplace-sync` queue (inline fallback when Redis is off). Scoped by
- * `{ _id, storeId }` — no cross-store access.
+ * `{ id, storeId }` — no cross-store access.
  */
 export async function requestOrderSync(storeId: string, connectionId: string): Promise<void> {
-  const conn = await Connection.findOne({ _id: connectionId, storeId });
+  const conn = await findConnection(storeId, connectionId);
   if (!conn) {
     throw notFound('Connection not found');
   }
   if (conn.mode !== 'pull') {
     throw validationError('Order sync is only supported for pull connections');
   }
-  if (!pullsResource(conn.syncSettings.orders)) {
+  if (!pullsResource(conn.syncSettingsOrders)) {
     throw validationError('Order pull is not enabled for this connection');
   }
   const { enqueueOrderSync } = await import('../queue/producers.js');
@@ -1798,26 +1867,26 @@ export async function requestOrderSync(storeId: string, connectionId: string): P
  * at import), so no SKU match is needed. Idempotent: `setAvailable` is an absolute
  * set, so a re-run converges; a level with no mapped variant is counted skipped, a
  * per-variant failure is isolated. Records an `inventory_sync` `SyncRun`. Scoped by
- * `{ _id, storeId }`.
+ * `{ id, storeId }`.
  */
-export async function syncInventory(storeId: string, connectionId: string): Promise<ISyncRun> {
-  const conn = await Connection.findOne({ _id: connectionId, storeId });
+export async function syncInventory(storeId: string, connectionId: string): Promise<SyncRunRecord> {
+  const conn = await findConnection(storeId, connectionId);
   if (!conn) {
     throw notFound('Connection not found');
   }
   if (conn.mode !== 'pull') {
     throw validationError('Inventory sync is only supported for pull connections');
   }
-  if (!pullsResource(conn.syncSettings.inventory)) {
+  if (!pullsResource(conn.syncSettingsInventory)) {
     throw validationError('Inventory pull is not enabled for this connection');
   }
 
   const provider = getConnectorProvider(conn.provider);
-  const auth = decryptAuth(conn);
-  const runConnectionId = String(conn._id);
+  const auth = await decryptAuth(conn);
+  const runConnectionId = conn.id;
 
-  const run = await SyncRun.create({ connectionId: runConnectionId, kind: 'inventory_sync' });
-  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const run = await insertSyncRun(runConnectionId, 'inventory_sync');
+  const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'started', counts });
 
   try {
@@ -1858,43 +1927,37 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
       }
     }
 
-    run.counts = counts;
-    run.status = 'completed';
-    run.finishedAt = new Date();
-    await run.save();
-    await Connection.updateOne(
-      { _id: conn._id },
-      { $set: { lastSyncAt: new Date(), status: 'connected' } },
-    );
+    const completed = await finishSyncRun(run.id, { status: 'completed', counts });
+    await markConnectionSynced(runConnectionId);
     emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'completed', counts });
+    return completed;
   } catch (err) {
-    run.counts = counts;
-    run.status = 'failed';
-    run.error = err instanceof Error ? err.message : 'Inventory sync failed';
-    run.finishedAt = new Date();
-    await run.save();
-    await Connection.updateOne({ _id: conn._id }, { $set: { status: 'error' } });
+    const failed = await finishSyncRun(run.id, {
+      status: 'failed',
+      counts,
+      error: err instanceof Error ? err.message : 'Inventory sync failed',
+    });
+    await markConnectionError(runConnectionId);
     emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'failed', counts });
     log.general.error({ err, connectionId: runConnectionId }, 'Connector inventory sync failed');
+    return failed;
   }
-
-  return run;
 }
 
 /**
  * Validate an inventory-pull connection, then ENQUEUE an inventory sync on the
  * `marketplace-sync` queue (inline fallback when Redis is off). Scoped by
- * `{ _id, storeId }` — no cross-store access.
+ * `{ id, storeId }` — no cross-store access.
  */
 export async function requestInventorySync(storeId: string, connectionId: string): Promise<void> {
-  const conn = await Connection.findOne({ _id: connectionId, storeId });
+  const conn = await findConnection(storeId, connectionId);
   if (!conn) {
     throw notFound('Connection not found');
   }
   if (conn.mode !== 'pull') {
     throw validationError('Inventory sync is only supported for pull connections');
   }
-  if (!pullsResource(conn.syncSettings.inventory)) {
+  if (!pullsResource(conn.syncSettingsInventory)) {
     throw validationError('Inventory pull is not enabled for this connection');
   }
   const { enqueueInventorySync } = await import('../queue/producers.js');
@@ -2027,22 +2090,22 @@ function toPushProduct(pushable: PushableListing, existingExternalId?: string): 
  * pushed but could not record where is genuinely failed.
  */
 async function pushListingToConnection(
-  conn: IConnection,
+  conn: ConnectionRow,
   pushable: PushableListing,
 ): Promise<void> {
-  const connectionId = String(conn._id);
+  const connectionId = conn.id;
   const existingRef = await findExternalRefByListingAndConnection(
     pushable.listing.id,
     connectionId,
   );
-  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
-  const run = await SyncRun.create({ connectionId, kind: 'product_push' });
+  const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const run = await insertSyncRun(connectionId, 'product_push');
   emitSyncProgress(conn.storeId, { connectionId, kind: 'product_push', phase: 'started', counts });
 
   try {
     const provider = getConnectorProvider(conn.provider);
     const result = await provider.pushProduct(
-      decryptAuth(conn),
+      await decryptAuth(conn),
       toPushProduct(pushable, existingRef?.externalId),
     );
     await upsertExternalRef({
@@ -2053,19 +2116,16 @@ async function pushListingToConnection(
     });
     counts[existingRef ? 'updated' : 'created'] += 1;
 
-    run.counts = counts;
-    run.status = 'completed';
-    run.finishedAt = new Date();
-    await run.save();
-    await Connection.updateOne({ _id: conn._id }, { $set: { lastSyncAt: new Date() } });
+    await finishSyncRun(run.id, { status: 'completed', counts });
+    await touchConnectionLastSync(connectionId);
     emitSyncProgress(conn.storeId, { connectionId, kind: 'product_push', phase: 'completed', counts });
   } catch (err) {
     counts.failed += 1;
-    run.counts = counts;
-    run.status = 'failed';
-    run.error = err instanceof Error ? err.message : 'Product push failed';
-    run.finishedAt = new Date();
-    await run.save();
+    await finishSyncRun(run.id, {
+      status: 'failed',
+      counts,
+      error: err instanceof Error ? err.message : 'Product push failed',
+    });
     emitSyncProgress(conn.storeId, { connectionId, kind: 'product_push', phase: 'failed', counts });
     log.general.error(
       { err, connectionId, listingId: pushable.listing.id },
@@ -2093,11 +2153,7 @@ export async function pushListingToChannels(storeId: string, listingId: string):
     return; // Not a store product of this store — nothing to push.
   }
 
-  const connections = await Connection.find({
-    storeId,
-    status: 'connected',
-    'syncSettings.products': { $in: ['push', 'bidirectional'] },
-  });
+  const connections = await findPushConnections(storeId);
   if (connections.length === 0) {
     return;
   }
@@ -2118,12 +2174,15 @@ export async function pushListingToChannels(storeId: string, listingId: string):
 
   const originConnectionId = listing.sourceConnectionId;
   for (const conn of connections) {
-    const connectionId = String(conn._id);
+    const connectionId = conn.id;
     // LOOP PREVENTION: never push a listing back to the connection it was pulled from.
     if (connectionId === originConnectionId) {
       continue;
     }
-    if (!conn.credentials || !conn.shopDomain) {
+    // `hasCredentials` is the derived presence flag, so establishing that a
+    // connection is authorized costs no read of the envelope — only the push
+    // itself, one line down, decrypts.
+    if (!conn.hasCredentials || !conn.shopDomain) {
       continue; // Not authorized (e.g. mid-reconnect) — skip silently.
     }
     await pushListingToConnection(conn, pushable);
@@ -2153,18 +2212,18 @@ export async function pushOrderFulfillment(orderId: string): Promise<void> {
     return; // Not a connector order — nothing to push.
   }
 
-  const conn = await Connection.findById(order.sourceConnectionId);
-  if (!conn || conn.status !== 'connected' || !conn.credentials || !conn.shopDomain) {
+  const conn = await findConnectionById(order.sourceConnectionId);
+  if (!conn || conn.status !== 'connected' || !conn.hasCredentials || !conn.shopDomain) {
     return; // Connection gone / disconnected / mid-reconnect — skip silently.
   }
   // Only bidirectional order sync pushes fulfillments back to the platform.
-  if (conn.syncSettings.orders !== 'bidirectional') {
+  if (conn.syncSettingsOrders !== 'bidirectional') {
     return;
   }
 
-  const connectionId = String(conn._id);
-  const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
-  const run = await SyncRun.create({ connectionId, kind: 'fulfillment_push' });
+  const connectionId = conn.id;
+  const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  const run = await insertSyncRun(connectionId, 'fulfillment_push');
   emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'started', counts });
 
   try {
@@ -2173,22 +2232,19 @@ export async function pushOrderFulfillment(orderId: string): Promise<void> {
     if (order.shippingTrackingNumber) {
       fulfillment.trackingNumber = order.shippingTrackingNumber;
     }
-    await provider.pushFulfillment(decryptAuth(conn), fulfillment);
+    await provider.pushFulfillment(await decryptAuth(conn), fulfillment);
     counts.updated += 1;
 
-    run.counts = counts;
-    run.status = 'completed';
-    run.finishedAt = new Date();
-    await run.save();
-    await Connection.updateOne({ _id: conn._id }, { $set: { lastSyncAt: new Date() } });
+    await finishSyncRun(run.id, { status: 'completed', counts });
+    await touchConnectionLastSync(connectionId);
     emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'completed', counts });
   } catch (err) {
     counts.failed += 1;
-    run.counts = counts;
-    run.status = 'failed';
-    run.error = err instanceof Error ? err.message : 'Fulfillment push failed';
-    run.finishedAt = new Date();
-    await run.save();
+    await finishSyncRun(run.id, {
+      status: 'failed',
+      counts,
+      error: err instanceof Error ? err.message : 'Fulfillment push failed',
+    });
     emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'failed', counts });
     log.general.error(
       { err, connectionId, orderId: order.id },

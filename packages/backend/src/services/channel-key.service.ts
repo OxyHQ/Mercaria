@@ -16,20 +16,47 @@
  *
  * All writes are mass-assignment-safe: inputs are destructured into explicit,
  * whitelisted fields — a request body is never spread into a document. Every
- * store-scoped mutation filters by `{ _id, storeId }` so a member of one store
+ * store-scoped mutation filters by `{ id, storeId }` so a member of one store
  * can never touch another store's keys.
+ *
+ * ## Ported to Postgres — the security model got structural help
+ *
+ * `hash` is a PROTECTED column now (`db/protectedColumns.ts`), so the row type
+ * every read here returns has no such property at all: {@link toDto} could not
+ * serialize the digest even if someone added a line trying to. The ONE path that
+ * needs it names it explicitly — `findVerificationCandidates` — which is the
+ * greppable opt-in, and it hands back candidates rather than a verdict, so the
+ * accept decision stays where it belongs, in the constant-time compare below.
+ *
+ * `UNIQUE(hash)` would make verification a single indexed equality and that is
+ * deliberately NOT what this does: the narrowing is on the public `prefix`, and
+ * the decision is `verifySecret`. Nothing here ever compares a digest with `!==`.
+ *
+ * Two Mongo idioms translated rather than transcribed: `revokedAt: { $exists:
+ * false }` is `revoked_at IS NULL` (equivalent only because revocation is the
+ * sole writer of that column and always writes a real `Date` — a `''` would be a
+ * VALUE and read as revoked), and the revoke's filter-plus-update is ONE
+ * conditional UPDATE, so two concurrent revokes produce exactly one winner.
  */
 
 import crypto from 'node:crypto';
 import { verifySecret } from '@oxyhq/core/server';
 import type {
   ChannelApiKey as ChannelApiKeyDTO,
+  ChannelApiKeyScope,
   GenerateChannelApiKeyInput,
   GenerateChannelApiKeyResult,
 } from '@mercaria/shared-types';
 import { CHANNEL_API_KEY_SCOPES } from '@mercaria/shared-types';
-import { ChannelApiKey, type IChannelApiKey } from '../models/channel-api-key.js';
-import { Connection } from '../models/connection.js';
+import {
+  findActiveChannelApiKeys,
+  findVerificationCandidates,
+  insertChannelApiKey,
+  revokeChannelApiKey,
+  touchChannelApiKeyLastUsed,
+  type ChannelApiKeyRow,
+} from '../db/connectors/channelApiKeyRepository.js';
+import { findConnection } from '../db/connectors/connectionRepository.js';
 import { notFound, validationError } from '../lib/errors/error-codes.js';
 
 /** Human-visible marker + namespace for every Mercaria channel key. */
@@ -53,22 +80,39 @@ export interface VerifiedChannelKey {
   connectionId?: string;
 }
 
-/** Map a key document to its credential-free metadata DTO. */
-function toDto(doc: IChannelApiKey): ChannelApiKeyDTO {
+/** True when a stored scope string is one this build knows about. */
+function isKnownScope(scope: string): scope is ChannelApiKeyScope {
+  return (CHANNEL_API_KEY_SCOPES as readonly string[]).includes(scope);
+}
+
+/**
+ * Map a key row to its credential-free metadata DTO.
+ *
+ * The row type carries no `hash` — it is read through `publicColumns` — so this
+ * cannot leak the digest by omission or by a later edit.
+ *
+ * `scopes` is filtered rather than asserted: the column is `text[]` with an
+ * element CHECK, which constrains the DATABASE but tells TypeScript nothing, and
+ * a row written by an older build could carry a scope this one has since
+ * removed. Dropping an unknown scope is the fail-closed direction — the
+ * alternative is handing a caller a scope string the authorization code will not
+ * recognise.
+ */
+function toDto(row: ChannelApiKeyRow): ChannelApiKeyDTO {
   const dto: ChannelApiKeyDTO = {
-    id: String(doc._id),
-    storeId: doc.storeId,
-    prefix: doc.prefix,
-    label: doc.label,
-    scopes: [...doc.scopes],
-    createdBy: doc.createdBy,
-    createdAt: doc.createdAt.toISOString(),
+    id: row.id,
+    storeId: row.storeId,
+    prefix: row.prefix,
+    label: row.label,
+    scopes: row.scopes.filter(isKnownScope),
+    createdBy: row.createdBy,
+    createdAt: row.createdAt.toISOString(),
   };
-  if (doc.connectionId) {
-    dto.connectionId = doc.connectionId;
+  if (row.connectionId) {
+    dto.connectionId = row.connectionId;
   }
-  if (doc.lastUsedAt) {
-    dto.lastUsedAt = doc.lastUsedAt.toISOString();
+  if (row.lastUsedAt) {
+    dto.lastUsedAt = row.lastUsedAt.toISOString();
   }
   return dto;
 }
@@ -91,7 +135,10 @@ export async function generateKey(
 
   const { connectionId } = input;
   if (connectionId !== undefined) {
-    const conn = await Connection.findOne({ _id: connectionId, storeId }).select('_id mode');
+    // Store-scoped: a connection of another store resolves to `null`, which is
+    // the same 404 a missing one gets — so the response cannot be used to probe
+    // which store owns an id.
+    const conn = await findConnection(storeId, connectionId);
     if (!conn) {
       throw notFound('Connection not found');
     }
@@ -102,7 +149,9 @@ export async function generateKey(
 
   const raw = KEY_PREFIX + crypto.randomBytes(KEY_RANDOM_BYTES).toString('hex');
 
-  const doc = await ChannelApiKey.create({
+  // `scopes` is written explicitly, and now it HAS to be: the column's DDL
+  // default is the empty array, where Mongoose defaulted it to the full set.
+  const row = await insertChannelApiKey({
     storeId,
     ...(connectionId !== undefined ? { connectionId } : {}),
     hash: hashKey(raw),
@@ -112,32 +161,29 @@ export async function generateKey(
     createdBy: oxyUserId,
   });
 
-  return { key: raw, apiKey: toDto(doc) };
+  return { key: raw, apiKey: toDto(row) };
 }
 
 /** List a store's ACTIVE (non-revoked) keys, newest first. Metadata only. */
 export async function listKeys(storeId: string): Promise<ChannelApiKeyDTO[]> {
-  const docs = await ChannelApiKey.find({ storeId, revokedAt: { $exists: false } }).sort({
-    createdAt: -1,
-  });
-  return docs.map(toDto);
+  const rows = await findActiveChannelApiKeys(storeId);
+  return rows.map(toDto);
 }
 
 /**
- * Revoke a store's key by id. Store-scoped (`{ _id, storeId }`) so a cross-store
+ * Revoke a store's key by id. Store-scoped (`{ id, storeId }`) so a cross-store
  * revoke can never match. Idempotent-safe: a missing/foreign/already-revoked key
  * yields a 404 rather than silently succeeding.
+ *
+ * The row is KEPT — revocation stamps `revoked_at` and nothing in this service
+ * deletes a key, so who minted what and when it was last used survives the key.
  */
 export async function revokeKey(storeId: string, keyId: string): Promise<ChannelApiKeyDTO> {
-  const doc = await ChannelApiKey.findOneAndUpdate(
-    { _id: keyId, storeId, revokedAt: { $exists: false } },
-    { $set: { revokedAt: new Date() } },
-    { new: true },
-  );
-  if (!doc) {
+  const row = await revokeChannelApiKey(storeId, keyId);
+  if (!row) {
     throw notFound('Channel API key not found');
   }
-  return toDto(doc);
+  return toDto(row);
 }
 
 /**
@@ -154,16 +200,17 @@ export async function verifyKey(raw: string): Promise<VerifiedChannelKey | null>
   const prefix = raw.slice(0, DISPLAY_PREFIX_LENGTH);
   const candidateHash = hashKey(raw);
 
-  const candidates = await ChannelApiKey.find({
-    prefix,
-    revokedAt: { $exists: false },
-  }).select('_id storeId connectionId hash');
+  // The narrowing is on the PUBLIC prefix; `UNIQUE(hash)` would make a single
+  // indexed equality lookup work and is deliberately not used, because that makes
+  // the database's index the accept decision. The decision is the constant-time
+  // compare below, over the full digest.
+  const candidates = await findVerificationCandidates(prefix);
 
   for (const candidate of candidates) {
     if (verifySecret(candidateHash, candidate.hash)) {
-      await ChannelApiKey.updateOne({ _id: candidate._id }, { $set: { lastUsedAt: new Date() } });
+      await touchChannelApiKeyLastUsed(candidate.id);
       const resolved: VerifiedChannelKey = {
-        keyId: String(candidate._id),
+        keyId: candidate.id,
         storeId: candidate.storeId,
       };
       if (candidate.connectionId) {

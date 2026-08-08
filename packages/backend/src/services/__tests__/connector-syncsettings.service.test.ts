@@ -23,6 +23,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { SyncRunCounts } from '@mercaria/shared-types';
 import type { NormalizedProduct } from '../../connectors/types.js';
 
 vi.mock('../../socket.js', () => ({ getIO: () => null }));
@@ -30,20 +31,35 @@ vi.mock('../../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
 }));
 
-const connectionFindOne = vi.fn();
-const connectionFindById = vi.fn();
-const connectionUpdateOne = vi.fn();
-vi.mock('../../models/connection.js', () => ({
-  Connection: {
-    findOne: (...a: unknown[]) => connectionFindOne(...a),
-    findById: (...a: unknown[]) => connectionFindById(...a),
-    updateOne: (...a: unknown[]) => connectionUpdateOne(...a),
-  },
+const findConnection = vi.fn();
+const findConnectionById = vi.fn();
+const markConnectionSynced = vi.fn();
+const markConnectionError = vi.fn();
+const touchConnectionLastSync = vi.fn();
+vi.mock('../../db/connectors/connectionRepository.js', () => ({
+  findConnection: (...a: unknown[]) => findConnection(...a),
+  findConnectionById: (...a: unknown[]) => findConnectionById(...a),
+  markConnectionSynced: (...a: unknown[]) => markConnectionSynced(...a),
+  markConnectionError: (...a: unknown[]) => markConnectionError(...a),
+  touchConnectionLastSync: (...a: unknown[]) => touchConnectionLastSync(...a),
+  // The envelope lives on its own read now — the connection row carries only
+  // `hasCredentials`, so this is the ONE place a decrypt can get its material.
+  findConnectionCredentials: vi.fn().mockResolvedValue({ ciphertext: 'x', iv: 'y', tag: 'z' }),
+  findConnectionByProvider: vi.fn(),
+  findConnectionsByStore: vi.fn(),
+  findPullConnectionsToReconcile: vi.fn(),
+  findPushConnections: vi.fn(),
+  disconnectConnection: vi.fn(),
+  setConnectionWebhooks: vi.fn(),
+  updateSyncSettings: vi.fn(),
+  upsertConnection: vi.fn(),
 }));
 
-const syncRunCreate = vi.fn();
-vi.mock('../../models/sync-run.js', () => ({
-  SyncRun: { create: (...a: unknown[]) => syncRunCreate(...a) },
+const insertSyncRun = vi.fn();
+const finishSyncRun = vi.fn();
+vi.mock('../../db/connectors/syncRunRepository.js', () => ({
+  insertSyncRun: (...a: unknown[]) => insertSyncRun(...a),
+  finishSyncRun: (...a: unknown[]) => finishSyncRun(...a),
 }));
 
 const findListingById = vi.fn();
@@ -142,21 +158,61 @@ import {
 
 const STORE_ID = 'store-1';
 
-/** A fresh mutable SyncRun doc the service assigns counts/status and saves. */
-function mockRun() {
+/**
+ * The row `insertSyncRun` opens a run with, and the row `finishSyncRun` returns
+ * for the outcome the service computed.
+ *
+ * A run is two statements now, not a document mutated in memory and saved once —
+ * so what used to be read off the mutated object is read off the row the close
+ * persisted, with the four tally columns in place of the nested `counts`.
+ */
+function openedRun(connectionId: string, kind: string) {
   return {
-    counts: { created: 0, updated: 0, skipped: 0, failed: 0 },
-    status: 'running' as string,
-    error: undefined as string | undefined,
-    finishedAt: undefined as Date | undefined,
-    save: vi.fn().mockResolvedValue(undefined),
+    id: 'run-1',
+    connectionId,
+    kind,
+    status: 'running',
+    countsCreated: 0,
+    countsUpdated: 0,
+    countsSkipped: 0,
+    countsFailed: 0,
+    startedAt: new Date(),
+    finishedAt: null,
+    error: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+function finishedRun(
+  runId: string,
+  outcome: { status: string; counts: SyncRunCounts; error?: string },
+) {
+  return {
+    ...openedRun('conn', 'backfill'),
+    id: runId,
+    status: outcome.status,
+    countsCreated: outcome.counts.created,
+    countsUpdated: outcome.counts.updated,
+    countsSkipped: outcome.counts.skipped,
+    countsFailed: outcome.counts.failed,
+    finishedAt: new Date(),
+    error: outcome.error ?? null,
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  syncRunCreate.mockImplementation(() => Promise.resolve(mockRun()));
-  connectionUpdateOne.mockResolvedValue({});
+  insertSyncRun.mockImplementation((connectionId: string, kind: string) =>
+    Promise.resolve(openedRun(connectionId, kind)),
+  );
+  finishSyncRun.mockImplementation(
+    (runId: string, outcome: { status: string; counts: SyncRunCounts; error?: string }) =>
+      Promise.resolve(finishedRun(runId, outcome)),
+  );
+  markConnectionSynced.mockResolvedValue(undefined);
+  markConnectionError.mockResolvedValue(undefined);
+  touchConnectionLastSync.mockResolvedValue(undefined);
   updateListingColumns.mockResolvedValue(null);
   setListingStatusIfIn.mockResolvedValue(true);
   listingPushedToConnection.mockResolvedValue(false);
@@ -171,27 +227,36 @@ beforeEach(() => {
 
 // --- collectionMapping on re-sync -------------------------------------------
 
-/** A pull connection with a collection mapping (external ref → Mercaria collection). */
+/**
+ * A pull connection with a collection mapping (external ref → Mercaria collection).
+ *
+ * The mapping was a `Map` on the sub-document and is a jsonb `Record` now — the
+ * one Map in the source model, and the reason `applyCollectionMapping` reads it
+ * with `Object.values`/index access rather than `.values()`/`.get()`.
+ */
 function collectionMappingConnection() {
   return {
-    _id: 'conn-col',
+    id: 'conn-col',
     storeId: STORE_ID,
     provider: 'shopify' as const,
     mode: 'pull' as const,
     status: 'connected' as const,
-    credentials: { ciphertext: 'x', iv: 'y', tag: 'z' },
+    hasCredentials: true,
     shopDomain: 'acme.myshopify.com',
     shopCurrency: 'USD',
-    syncSettings: {
-      products: 'pull' as const,
-      inventory: 'off' as const,
-      orders: 'off' as const,
-      autoPublish: true,
-      conflictPolicy: 'respect_overrides' as const,
-      collectionMapping: new Map([
-        ['ext-col-1', 'merc-col-A'],
-        ['ext-col-2', 'merc-col-B'],
-      ]),
+    scopes: [],
+    webhookIds: [],
+    syncSettingsProducts: 'pull' as const,
+    syncSettingsInventory: 'off' as const,
+    syncSettingsOrders: 'off' as const,
+    syncSettingsAutoPublish: true,
+    syncSettingsConflictPolicy: 'respect_overrides' as const,
+    syncSettingsTargetLocationId: null,
+    syncSettingsPriceRulesMarkupPercent: null,
+    syncSettingsPriceRulesRounding: null,
+    syncSettingsCollectionMapping: {
+      'ext-col-1': 'merc-col-A',
+      'ext-col-2': 'merc-col-B',
     },
   };
 }
@@ -233,7 +298,7 @@ describe('collectionMapping on re-sync', () => {
   });
 
   it('sets the mapped connector collections and scopes the diff to the connector-managed set', async () => {
-    connectionFindOne.mockResolvedValue(collectionMappingConnection());
+    findConnection.mockResolvedValue(collectionMappingConnection());
     findListingBySourceExternalId.mockResolvedValue(importedListingRow([]));
 
     await runBackfill(STORE_ID, 'conn-col');
@@ -260,7 +325,7 @@ describe('collectionMapping on re-sync', () => {
     // A product with NO refs is not "nothing to do": it means the platform removed
     // it from every mapped collection, so the desired set is empty while the
     // managed scope stays whole.
-    connectionFindOne.mockResolvedValue(collectionMappingConnection());
+    findConnection.mockResolvedValue(collectionMappingConnection());
     findListingBySourceExternalId.mockResolvedValue(importedListingRow([]));
     getConnectorProvider.mockReturnValue({
       fetchProducts: vi
@@ -278,7 +343,7 @@ describe('collectionMapping on re-sync', () => {
   });
 
   it('leaves membership untouched when `collections` is pinned in overriddenFields', async () => {
-    connectionFindOne.mockResolvedValue(collectionMappingConnection());
+    findConnection.mockResolvedValue(collectionMappingConnection());
     findListingBySourceExternalId.mockResolvedValue(importedListingRow(['collections']));
 
     await runBackfill(STORE_ID, 'conn-col');
@@ -289,25 +354,34 @@ describe('collectionMapping on re-sync', () => {
 
 // --- inventory pull ---------------------------------------------------------
 
-/** A pull connection with inventory pull enabled and an explicit target location. */
+/**
+ * A pull connection with inventory pull enabled and an explicit target location.
+ *
+ * `targetLocationId` is NULL rather than absent when unset — a field Mongo left
+ * out is a NULL column here, never `''`, which is why the service's `?.trim()`
+ * still reads correctly and an empty string would not.
+ */
 function inventoryConnection(targetLocationId?: string) {
   return {
-    _id: 'conn-inv',
+    id: 'conn-inv',
     storeId: STORE_ID,
     provider: 'shopify' as const,
     mode: 'pull' as const,
     status: 'connected' as const,
-    credentials: { ciphertext: 'x', iv: 'y', tag: 'z' },
+    hasCredentials: true,
     shopDomain: 'acme.myshopify.com',
     shopCurrency: 'USD',
-    syncSettings: {
-      products: 'off' as const,
-      inventory: 'pull' as const,
-      orders: 'off' as const,
-      autoPublish: false,
-      conflictPolicy: 'respect_overrides' as const,
-      ...(targetLocationId ? { targetLocationId } : {}),
-    },
+    scopes: [],
+    webhookIds: [],
+    syncSettingsProducts: 'off' as const,
+    syncSettingsInventory: 'pull' as const,
+    syncSettingsOrders: 'off' as const,
+    syncSettingsAutoPublish: false,
+    syncSettingsConflictPolicy: 'respect_overrides' as const,
+    syncSettingsTargetLocationId: targetLocationId ?? null,
+    syncSettingsPriceRulesMarkupPercent: null,
+    syncSettingsPriceRulesRounding: null,
+    syncSettingsCollectionMapping: null,
   };
 }
 
@@ -326,7 +400,7 @@ describe('syncInventory — pull to target location', () => {
   });
 
   it('absolute-sets mapped stock at the configured target location; skips unmapped', async () => {
-    connectionFindOne.mockResolvedValue(inventoryConnection('loc-target'));
+    findConnection.mockResolvedValue(inventoryConnection('loc-target'));
     findLocation.mockResolvedValue({ id: 'loc-target', storeId: STORE_ID, isActive: true });
     getConnectorProvider.mockReturnValue({
       fetchInventory: vi.fn().mockResolvedValue([
@@ -342,12 +416,13 @@ describe('syncInventory — pull to target location', () => {
     // v1 (item 111) set to 7 at loc-target; item 999 has no variant → skipped.
     expect(setAvailable).toHaveBeenCalledTimes(1);
     expect(setAvailable).toHaveBeenCalledWith('v1', 'l1', 'loc-target', 7);
-    expect(run.counts).toMatchObject({ updated: 1, skipped: 1 });
+    expect(run.countsUpdated).toBe(1);
+    expect(run.countsSkipped).toBe(1);
     expect(run.status).toBe('completed');
   });
 
   it('is idempotent — a second run makes the identical absolute set', async () => {
-    connectionFindOne.mockResolvedValue(inventoryConnection('loc-target'));
+    findConnection.mockResolvedValue(inventoryConnection('loc-target'));
     findLocation.mockResolvedValue({ id: 'loc-target', storeId: STORE_ID, isActive: true });
     getConnectorProvider.mockReturnValue({
       fetchInventory: vi.fn().mockResolvedValue([{ externalInventoryItemId: '111', available: 7 }]),
@@ -362,7 +437,7 @@ describe('syncInventory — pull to target location', () => {
   });
 
   it('falls back to the store default when the target location does not exist', async () => {
-    connectionFindOne.mockResolvedValue(inventoryConnection('loc-bogus'));
+    findConnection.mockResolvedValue(inventoryConnection('loc-bogus'));
     findLocation.mockResolvedValue(null); // not a location of this store → default
     getConnectorProvider.mockReturnValue({
       fetchInventory: vi.fn().mockResolvedValue([{ externalInventoryItemId: '111', available: 4 }]),
@@ -380,7 +455,7 @@ describe('syncInventory — pull to target location', () => {
     // scopes to the store but does NOT filter on `isActive`, so the service makes
     // the check — and a row that exists but is inactive is the case that would
     // silently start receiving stock if it ever stopped making it.
-    connectionFindOne.mockResolvedValue(inventoryConnection('loc-off'));
+    findConnection.mockResolvedValue(inventoryConnection('loc-off'));
     findLocation.mockResolvedValue({ id: 'loc-off', storeId: STORE_ID, isActive: false });
     getConnectorProvider.mockReturnValue({
       fetchInventory: vi.fn().mockResolvedValue([{ externalInventoryItemId: '111', available: 4 }]),
@@ -392,14 +467,13 @@ describe('syncInventory — pull to target location', () => {
   });
 
   it('rejects when inventory pull is disabled for the connection', async () => {
-    const base = inventoryConnection();
-    connectionFindOne.mockResolvedValue({
-      ...base,
-      syncSettings: { ...base.syncSettings, inventory: 'off' },
+    findConnection.mockResolvedValue({
+      ...inventoryConnection(),
+      syncSettingsInventory: 'off' as const,
     });
 
     await expect(syncInventory(STORE_ID, 'conn-inv')).rejects.toThrow(/not enabled/);
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
   });
 });
 
@@ -407,7 +481,7 @@ describe('syncInventory — pull to target location', () => {
 
 describe('processConnectorWebhook — inventory_levels/update', () => {
   it('re-fetches the authoritative total and absolute-sets the mapped variant', async () => {
-    connectionFindById.mockResolvedValue(inventoryConnection());
+    findConnectionById.mockResolvedValue(inventoryConnection());
     findVariantBySourceInventoryItemId.mockResolvedValue({ id: 'v1', listingId: 'l1' });
     const fetchInventory = vi.fn().mockResolvedValue([{ externalInventoryItemId: '111', available: 9 }]);
     getConnectorProvider.mockReturnValue({ fetchInventory });
@@ -430,10 +504,9 @@ describe('processConnectorWebhook — inventory_levels/update', () => {
   });
 
   it('ignores the webhook when inventory pull is disabled (no run, no write)', async () => {
-    const base = inventoryConnection();
-    connectionFindById.mockResolvedValue({
-      ...base,
-      syncSettings: { ...base.syncSettings, inventory: 'off' },
+    findConnectionById.mockResolvedValue({
+      ...inventoryConnection(),
+      syncSettingsInventory: 'off' as const,
     });
 
     await processConnectorWebhook({
@@ -442,7 +515,7 @@ describe('processConnectorWebhook — inventory_levels/update', () => {
       payload: { inventory_item_id: 111 },
     });
 
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
     expect(setAvailable).not.toHaveBeenCalled();
   });
 });
@@ -462,23 +535,29 @@ function fulfilledOrder() {
   };
 }
 
-/** A connection with the given order direction. */
+/**
+ * A connection with the given order direction.
+ *
+ * `hasCredentials` in place of the envelope: the gate the push makes is
+ * "authorized?", which is now answered without reading a secret at all — the
+ * envelope arrives separately, through `findConnectionCredentials`.
+ */
 function fulfillmentConnection(orders: 'pull' | 'bidirectional') {
   return {
-    _id: 'conn-ful',
+    id: 'conn-ful',
     storeId: STORE_ID,
     provider: 'shopify' as const,
     status: 'connected' as const,
-    credentials: { ciphertext: 'x', iv: 'y', tag: 'z' },
+    hasCredentials: true,
     shopDomain: 'acme.myshopify.com',
-    syncSettings: { orders },
+    syncSettingsOrders: orders,
   };
 }
 
 describe('pushOrderFulfillment — bidirectional gate + loop-safety', () => {
   it('pushes the fulfillment (with tracking) for a bidirectional order connection', async () => {
     findOrderById.mockResolvedValue(fulfilledOrder());
-    connectionFindById.mockResolvedValue(fulfillmentConnection('bidirectional'));
+    findConnectionById.mockResolvedValue(fulfillmentConnection('bidirectional'));
     const pushFulfillment = vi.fn().mockResolvedValue(undefined);
     getConnectorProvider.mockReturnValue({ pushFulfillment });
 
@@ -489,20 +568,20 @@ describe('pushOrderFulfillment — bidirectional gate + loop-safety', () => {
       { accessToken: 'shpat_test', shopDomain: 'acme.myshopify.com' },
       { externalOrderId: 'shp-1001', trackingNumber: 'TRK123' },
     );
-    const runKind = syncRunCreate.mock.calls[0][0];
-    expect(runKind).toMatchObject({ connectionId: 'conn-ful', kind: 'fulfillment_push' });
+    // `SyncRun.create({connectionId, kind})` became `insertSyncRun(connectionId, kind)`.
+    expect(insertSyncRun).toHaveBeenCalledWith('conn-ful', 'fulfillment_push');
   });
 
   it('does NOT push when the order connection is only pull (loop-safe)', async () => {
     findOrderById.mockResolvedValue(fulfilledOrder());
-    connectionFindById.mockResolvedValue(fulfillmentConnection('pull'));
+    findConnectionById.mockResolvedValue(fulfillmentConnection('pull'));
     const pushFulfillment = vi.fn();
     getConnectorProvider.mockReturnValue({ pushFulfillment });
 
     await pushOrderFulfillment('order-1');
 
     expect(pushFulfillment).not.toHaveBeenCalled();
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
   });
 
   it('is a no-op for a non-connector order (no source)', async () => {
@@ -515,19 +594,19 @@ describe('pushOrderFulfillment — bidirectional gate + loop-safety', () => {
 
     await pushOrderFulfillment('order-2');
 
-    expect(connectionFindById).not.toHaveBeenCalled();
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(findConnectionById).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
   });
 
   it('does NOT push for a disconnected connection', async () => {
     findOrderById.mockResolvedValue(fulfilledOrder());
-    connectionFindById.mockResolvedValue({ ...fulfillmentConnection('bidirectional'), status: 'disconnected' });
+    findConnectionById.mockResolvedValue({ ...fulfillmentConnection('bidirectional'), status: 'disconnected' });
     const pushFulfillment = vi.fn();
     getConnectorProvider.mockReturnValue({ pushFulfillment });
 
     await pushOrderFulfillment('order-1');
 
     expect(pushFulfillment).not.toHaveBeenCalled();
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
   });
 });

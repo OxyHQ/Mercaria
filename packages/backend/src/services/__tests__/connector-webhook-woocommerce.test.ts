@@ -16,20 +16,30 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ALL_LISTING_STATUSES } from '@mercaria/shared-types';
+import { ALL_LISTING_STATUSES, type SyncRunCounts } from '@mercaria/shared-types';
 
 vi.mock('../../socket.js', () => ({ getIO: () => null }));
 vi.mock('../../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
 }));
 
-const connectionFindById = vi.fn();
-const connectionUpdateOne = vi.fn();
-vi.mock('../../models/connection.js', () => ({
-  Connection: {
-    findById: (...args: unknown[]) => connectionFindById(...args),
-    updateOne: (...args: unknown[]) => connectionUpdateOne(...args),
-  },
+const findConnectionById = vi.fn();
+const touchConnectionLastSync = vi.fn();
+vi.mock('../../db/connectors/connectionRepository.js', () => ({
+  findConnectionById: (...args: unknown[]) => findConnectionById(...args),
+  touchConnectionLastSync: (...args: unknown[]) => touchConnectionLastSync(...args),
+  findConnection: vi.fn(),
+  findConnectionByProvider: vi.fn(),
+  findConnectionCredentials: vi.fn(),
+  findConnectionsByStore: vi.fn(),
+  findPullConnectionsToReconcile: vi.fn(),
+  findPushConnections: vi.fn(),
+  disconnectConnection: vi.fn(),
+  markConnectionError: vi.fn(),
+  markConnectionSynced: vi.fn(),
+  setConnectionWebhooks: vi.fn(),
+  updateSyncSettings: vi.fn(),
+  upsertConnection: vi.fn(),
 }));
 
 const findListingById = vi.fn();
@@ -72,9 +82,11 @@ vi.mock('../catalog-write.service.js', () => ({
 }));
 vi.mock('../inventory.service.js', () => ({ setAvailable: vi.fn() }));
 
-const syncRunCreate = vi.fn();
-vi.mock('../../models/sync-run.js', () => ({
-  SyncRun: { create: (...args: unknown[]) => syncRunCreate(...args) },
+const insertSyncRun = vi.fn();
+const finishSyncRun = vi.fn();
+vi.mock('../../db/connectors/syncRunRepository.js', () => ({
+  insertSyncRun: (...args: unknown[]) => insertSyncRun(...args),
+  finishSyncRun: (...args: unknown[]) => finishSyncRun(...args),
 }));
 
 const findOrderBySourceExternalId = vi.fn();
@@ -92,21 +104,24 @@ vi.mock('../../db/orders/orderRepository.js', () => ({
 
 import { processConnectorWebhook } from '../connector-sync.service.js';
 
-/** A live WooCommerce pull connection (products + orders pulling). */
+/** A live WooCommerce pull connection (products + orders pulling) — FLAT columns. */
 function wooConnection(overrides: Record<string, unknown> = {}) {
   return {
-    _id: 'conn-woo',
+    id: 'conn-woo',
     storeId: 'store-1',
     provider: 'woocommerce',
     status: 'connected',
+    hasCredentials: true,
     shopCurrency: 'EUR',
-    syncSettings: {
-      products: 'pull',
-      orders: 'pull',
-      inventory: 'off',
-      autoPublish: true,
-      conflictPolicy: 'respect_overrides',
-    },
+    syncSettingsProducts: 'pull',
+    syncSettingsOrders: 'pull',
+    syncSettingsInventory: 'off',
+    syncSettingsAutoPublish: true,
+    syncSettingsConflictPolicy: 'respect_overrides',
+    syncSettingsPriceRulesMarkupPercent: null,
+    syncSettingsPriceRulesRounding: null,
+    syncSettingsCollectionMapping: null,
+    syncSettingsTargetLocationId: null,
     ...overrides,
   };
 }
@@ -134,13 +149,25 @@ function wooOrderPayload() {
   };
 }
 
-let run: { counts: unknown; status: string; save: ReturnType<typeof vi.fn> };
+/**
+ * The outcome the service reported when it CLOSED the run — the two-statement
+ * replacement for reading `run.status`/`run.counts` off a mutated document.
+ */
+function closedRun(): { status: string; counts: SyncRunCounts; error?: string } {
+  const call = finishSyncRun.mock.calls[0] as
+    | [string, { status: string; counts: SyncRunCounts; error?: string }]
+    | undefined;
+  if (!call) {
+    throw new Error('the run was never closed');
+  }
+  return call[1];
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
-  run = { counts: {}, status: 'running', save: vi.fn().mockResolvedValue(undefined) };
-  syncRunCreate.mockResolvedValue(run);
-  connectionUpdateOne.mockResolvedValue({});
+  insertSyncRun.mockResolvedValue({ id: 'run-1', connectionId: 'conn-woo', kind: 'webhook' });
+  finishSyncRun.mockResolvedValue({ id: 'run-1' });
+  touchConnectionLastSync.mockResolvedValue(undefined);
   updateOrderFromSource.mockResolvedValue(undefined);
   insertOrder.mockResolvedValue({ id: 'order-created' });
   nextOrderNumber.mockResolvedValue('MRC-000042');
@@ -148,7 +175,7 @@ beforeEach(() => {
 
 describe('provider-aware dispatch — WooCommerce product.deleted', () => {
   it('classifies the dot-topic to product_delete and archives the mapped listing', async () => {
-    connectionFindById.mockResolvedValue(wooConnection());
+    findConnectionById.mockResolvedValue(wooConnection());
     findListingBySourceExternalId.mockResolvedValue({
       id: 'listing-woo',
       storeId: 'store-1',
@@ -177,20 +204,18 @@ describe('provider-aware dispatch — WooCommerce product.deleted', () => {
       'archived',
       ALL_LISTING_STATUSES,
     );
-    expect(run.status).toBe('completed');
-    expect(run.counts).toEqual({ created: 0, updated: 1, skipped: 0, failed: 0 });
+    expect(closedRun().status).toBe('completed');
+    expect(closedRun().counts).toEqual({ created: 0, updated: 1, skipped: 0, failed: 0 });
   });
 
   it('ignores the webhook when product pull is disabled (no run, no write)', async () => {
-    connectionFindById.mockResolvedValue(
-      wooConnection({
-        syncSettings: { products: 'off', orders: 'pull', inventory: 'off', autoPublish: false, conflictPolicy: 'respect_overrides' },
-      }),
+    findConnectionById.mockResolvedValue(
+      wooConnection({ syncSettingsProducts: 'off' }),
     );
 
     await processConnectorWebhook({ connectionId: 'conn-woo', topic: 'product.deleted', payload: { id: 1 } });
 
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
     expect(findListingBySourceExternalId).not.toHaveBeenCalled();
     expect(setListingStatusIfIn).not.toHaveBeenCalled();
   });
@@ -198,7 +223,7 @@ describe('provider-aware dispatch — WooCommerce product.deleted', () => {
 
 describe('provider-aware dispatch — WooCommerce order.created / order.updated', () => {
   it('routes order.created to an order upsert (real Woo normalizeOrder → Mercaria order)', async () => {
-    connectionFindById.mockResolvedValue(wooConnection());
+    findConnectionById.mockResolvedValue(wooConnection());
     findOrderBySourceExternalId.mockResolvedValue(null);
 
     await processConnectorWebhook({
@@ -218,11 +243,11 @@ describe('provider-aware dispatch — WooCommerce order.created / order.updated'
     expect(doc.totals.grandTotal.shop).toEqual({ amount: 4000, currency: 'EUR' });
     expect(doc.totals.grandTotal.presentment).toEqual({ amount: 4000, currency: 'EUR' });
     expect(doc.fxRate).toBeUndefined();
-    expect(syncRunCreate.mock.calls[0][0]).toMatchObject({ kind: 'webhook' });
+    expect(insertSyncRun).toHaveBeenCalledWith('conn-woo', 'webhook');
   });
 
   it('is idempotent — order.updated for an existing external order updates in place, never duplicates', async () => {
-    connectionFindById.mockResolvedValue(wooConnection());
+    findConnectionById.mockResolvedValue(wooConnection());
     findOrderBySourceExternalId.mockResolvedValue({
       id: 'order-existing',
       status: 'pending_payment',
@@ -239,19 +264,17 @@ describe('provider-aware dispatch — WooCommerce order.created / order.updated'
     const [orderId, patch] = updateOrderFromSource.mock.calls[0];
     expect(orderId).toBe('order-existing');
     expect(patch.status).toBe('paid');
-    expect(run.counts).toMatchObject({ updated: 1, created: 0 });
+    expect(closedRun().counts).toMatchObject({ updated: 1, created: 0 });
   });
 
   it('ignores an order webhook when order pull is disabled', async () => {
-    connectionFindById.mockResolvedValue(
-      wooConnection({
-        syncSettings: { products: 'pull', orders: 'off', inventory: 'off', autoPublish: true, conflictPolicy: 'respect_overrides' },
-      }),
+    findConnectionById.mockResolvedValue(
+      wooConnection({ syncSettingsOrders: 'off' }),
     );
 
     await processConnectorWebhook({ connectionId: 'conn-woo', topic: 'order.updated', payload: wooOrderPayload() });
 
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
     expect(insertOrder).not.toHaveBeenCalled();
   });
 });

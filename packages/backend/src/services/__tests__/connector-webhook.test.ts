@@ -16,25 +16,37 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ALL_LISTING_STATUSES } from '@mercaria/shared-types';
+import { ALL_LISTING_STATUSES, type SyncRunCounts } from '@mercaria/shared-types';
 
 vi.mock('../../socket.js', () => ({ getIO: () => null }));
 vi.mock('../../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
 }));
 
-const connectionFindById = vi.fn();
-const connectionUpdateOne = vi.fn();
-vi.mock('../../models/connection.js', () => ({
-  Connection: {
-    findById: (...args: unknown[]) => connectionFindById(...args),
-    updateOne: (...args: unknown[]) => connectionUpdateOne(...args),
-  },
+const findConnectionById = vi.fn();
+const touchConnectionLastSync = vi.fn();
+vi.mock('../../db/connectors/connectionRepository.js', () => ({
+  findConnectionById: (...args: unknown[]) => findConnectionById(...args),
+  touchConnectionLastSync: (...args: unknown[]) => touchConnectionLastSync(...args),
+  findConnection: vi.fn(),
+  findConnectionByProvider: vi.fn(),
+  findConnectionCredentials: vi.fn(),
+  findConnectionsByStore: vi.fn(),
+  findPullConnectionsToReconcile: vi.fn(),
+  findPushConnections: vi.fn(),
+  disconnectConnection: vi.fn(),
+  markConnectionError: vi.fn(),
+  markConnectionSynced: vi.fn(),
+  setConnectionWebhooks: vi.fn(),
+  updateSyncSettings: vi.fn(),
+  upsertConnection: vi.fn(),
 }));
 
-const syncRunCreate = vi.fn();
-vi.mock('../../models/sync-run.js', () => ({
-  SyncRun: { create: (...args: unknown[]) => syncRunCreate(...args) },
+const insertSyncRun = vi.fn();
+const finishSyncRun = vi.fn();
+vi.mock('../../db/connectors/syncRunRepository.js', () => ({
+  insertSyncRun: (...args: unknown[]) => insertSyncRun(...args),
+  finishSyncRun: (...args: unknown[]) => finishSyncRun(...args),
 }));
 
 const findListingById = vi.fn();
@@ -86,15 +98,22 @@ vi.mock('../inventory.service.js', () => ({ setAvailable: vi.fn() }));
 
 import { processConnectorWebhook } from '../connector-sync.service.js';
 
-/** A live, product-pull connection the webhook can act on. */
+/** A live, product-pull connection the webhook can act on — FLAT columns. */
 function connectedPullConnection(overrides: Record<string, unknown> = {}) {
   return {
-    _id: 'conn-1',
+    id: 'conn-1',
     storeId: 'store-1',
     provider: 'shopify',
     status: 'connected',
+    hasCredentials: true,
     shopCurrency: 'USD',
-    syncSettings: { products: 'pull', autoPublish: true, conflictPolicy: 'respect_overrides' },
+    syncSettingsProducts: 'pull',
+    syncSettingsAutoPublish: true,
+    syncSettingsConflictPolicy: 'respect_overrides',
+    syncSettingsPriceRulesMarkupPercent: null,
+    syncSettingsPriceRulesRounding: null,
+    syncSettingsCollectionMapping: null,
+    syncSettingsTargetLocationId: null,
     ...overrides,
   };
 }
@@ -112,18 +131,34 @@ function sourcedListingRow(): unknown {
   };
 }
 
-let run: { counts: unknown; status: string; error?: string; finishedAt?: Date; save: ReturnType<typeof vi.fn> };
+/**
+ * The outcome the service reported when it CLOSED the run.
+ *
+ * The Mongoose path let a test read `run.status`/`run.counts` off a document the
+ * service mutated in place. A run is two statements now — opened, then closed —
+ * so the same facts live in the argument `finishSyncRun` received, which is the
+ * thing that would actually have been persisted.
+ */
+function closedRun(): { status: string; counts: SyncRunCounts; error?: string } {
+  const call = finishSyncRun.mock.calls[0] as
+    | [string, { status: string; counts: SyncRunCounts; error?: string }]
+    | undefined;
+  if (!call) {
+    throw new Error('the run was never closed');
+  }
+  return call[1];
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
-  run = { counts: {}, status: 'running', save: vi.fn().mockResolvedValue(undefined) };
-  syncRunCreate.mockResolvedValue(run);
-  connectionUpdateOne.mockResolvedValue({});
+  insertSyncRun.mockResolvedValue({ id: 'run-1', connectionId: 'conn-1', kind: 'webhook' });
+  finishSyncRun.mockResolvedValue({ id: 'run-1' });
+  touchConnectionLastSync.mockResolvedValue(undefined);
 });
 
 describe('processConnectorWebhook — products/delete → archive', () => {
   it('archives the mapped listing and completes the run (counted as updated)', async () => {
-    connectionFindById.mockResolvedValue(connectedPullConnection());
+    findConnectionById.mockResolvedValue(connectedPullConnection());
     findListingBySourceExternalId.mockResolvedValue(sourcedListingRow());
     setListingStatusIfIn.mockResolvedValue(true);
 
@@ -144,13 +179,13 @@ describe('processConnectorWebhook — products/delete → archive', () => {
       'archived',
       ALL_LISTING_STATUSES,
     );
-    expect(run.status).toBe('completed');
-    expect(run.counts).toEqual({ created: 0, updated: 1, skipped: 0, failed: 0 });
-    expect(run.save).toHaveBeenCalled();
+    expect(closedRun().status).toBe('completed');
+    expect(closedRun().counts).toEqual({ created: 0, updated: 1, skipped: 0, failed: 0 });
+    expect(finishSyncRun).toHaveBeenCalledTimes(1);
   });
 
   it('counts a delete for an unmapped product as skipped (no archive happened)', async () => {
-    connectionFindById.mockResolvedValue(connectedPullConnection());
+    findConnectionById.mockResolvedValue(connectedPullConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
 
     await processConnectorWebhook({
@@ -160,8 +195,8 @@ describe('processConnectorWebhook — products/delete → archive', () => {
     });
 
     expect(setListingStatusIfIn).not.toHaveBeenCalled();
-    expect(run.status).toBe('completed');
-    expect(run.counts).toEqual({ created: 0, updated: 0, skipped: 1, failed: 0 });
+    expect(closedRun().status).toBe('completed');
+    expect(closedRun().counts).toEqual({ created: 0, updated: 0, skipped: 1, failed: 0 });
   });
 
   it('counts a RE-DELIVERED delete as skipped — an already-archived listing is not re-archived', async () => {
@@ -169,7 +204,7 @@ describe('processConnectorWebhook — products/delete → archive', () => {
     // above; the two are separate outcomes now (a resolved listing whose guarded
     // status write refuses), and both must still count as skipped rather than as
     // a second archive.
-    connectionFindById.mockResolvedValue(connectedPullConnection());
+    findConnectionById.mockResolvedValue(connectedPullConnection());
     findListingBySourceExternalId.mockResolvedValue({
       ...(sourcedListingRow() as Record<string, unknown>),
       status: 'archived',
@@ -183,12 +218,12 @@ describe('processConnectorWebhook — products/delete → archive', () => {
     });
 
     expect(setListingStatusIfIn).toHaveBeenCalledTimes(1);
-    expect(run.status).toBe('completed');
-    expect(run.counts).toEqual({ created: 0, updated: 0, skipped: 1, failed: 0 });
+    expect(closedRun().status).toBe('completed');
+    expect(closedRun().counts).toEqual({ created: 0, updated: 0, skipped: 1, failed: 0 });
   });
 
   it('records a failure (not a throw) on a malformed delete payload', async () => {
-    connectionFindById.mockResolvedValue(connectedPullConnection());
+    findConnectionById.mockResolvedValue(connectedPullConnection());
 
     await expect(
       processConnectorWebhook({ connectionId: 'conn-1', topic: 'products/delete', payload: {} }),
@@ -196,15 +231,15 @@ describe('processConnectorWebhook — products/delete → archive', () => {
 
     expect(findListingBySourceExternalId).not.toHaveBeenCalled();
     expect(setListingStatusIfIn).not.toHaveBeenCalled();
-    expect(run.status).toBe('failed');
-    expect(run.counts).toEqual({ created: 0, updated: 0, skipped: 0, failed: 1 });
+    expect(closedRun().status).toBe('failed');
+    expect(closedRun().counts).toEqual({ created: 0, updated: 0, skipped: 0, failed: 1 });
   });
 });
 
 describe('processConnectorWebhook — direction + status guards', () => {
   it('ignores the webhook when product pull is disabled (no SyncRun, no write)', async () => {
-    connectionFindById.mockResolvedValue(
-      connectedPullConnection({ syncSettings: { products: 'off', autoPublish: false, conflictPolicy: 'respect_overrides' } }),
+    findConnectionById.mockResolvedValue(
+      connectedPullConnection({ syncSettingsProducts: 'off' }),
     );
 
     await processConnectorWebhook({
@@ -213,13 +248,13 @@ describe('processConnectorWebhook — direction + status guards', () => {
       payload: { id: 1 },
     });
 
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
     expect(findListingBySourceExternalId).not.toHaveBeenCalled();
     expect(setListingStatusIfIn).not.toHaveBeenCalled();
   });
 
   it('ignores a webhook for an unknown connection', async () => {
-    connectionFindById.mockResolvedValue(null);
+    findConnectionById.mockResolvedValue(null);
 
     await processConnectorWebhook({
       connectionId: 'missing',
@@ -227,12 +262,12 @@ describe('processConnectorWebhook — direction + status guards', () => {
       payload: { id: 1 },
     });
 
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
     expect(setListingStatusIfIn).not.toHaveBeenCalled();
   });
 
   it('ignores a webhook for a disconnected connection', async () => {
-    connectionFindById.mockResolvedValue(connectedPullConnection({ status: 'disconnected' }));
+    findConnectionById.mockResolvedValue(connectedPullConnection({ status: 'disconnected' }));
 
     await processConnectorWebhook({
       connectionId: 'conn-1',
@@ -240,7 +275,7 @@ describe('processConnectorWebhook — direction + status guards', () => {
       payload: { id: 1 },
     });
 
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
     expect(setListingStatusIfIn).not.toHaveBeenCalled();
   });
 });

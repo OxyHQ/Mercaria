@@ -1,19 +1,18 @@
 /**
  * Unit tests for `connector-sync.service.runBackfill`.
  *
- * No DB / no network. `Connection`/`SyncRun` are still Mongoose and are mocked as
- * models; the CATALOGUE moved to Postgres, so listings, variants, categories, the
- * push mirror and collection membership are mocked at the REPOSITORY boundary —
- * plain async functions returning rows, no `.find().sort().lean()` chains. The
- * catalog-write funnels, the inventory service, the crypto helper and the
- * provider registry are mocked too.
+ * No DB / no network. EVERYTHING is mocked at the REPOSITORY boundary now —
+ * connections and sync runs alongside listings, variants, categories, the push
+ * mirror and collection membership — so every stub is a plain async function
+ * returning rows, with no query chains anywhere. The catalog-write funnels, the
+ * inventory service, the crypto helper and the provider registry are mocked too.
  *
  * The tests drive `runBackfill` with canned `NormalizedProduct`s (via a mocked
  * provider `fetchProducts`) and assert the create path, the override-respecting
  * merge, the all-pinned "skipped" path, the `connector_wins` policy, paging,
  * variant re-pricing and delete reconciliation.
  *
- * Two shapes changed with the storage, and both are visible in the assertions:
+ * Shapes that changed with the storage, all visible in the assertions:
  *  - Provenance is FOUR FLAT COLUMNS written through `updateListingColumns`, not
  *    a `$set: { source: {...} }` sub-document — and `sourceExternalUpdatedAt` is
  *    written explicitly `null` when the platform sends none.
@@ -21,15 +20,23 @@
  *    rather than one `updateOne` whose FILTER carried the provenance key, so
  *    both the import lookup and the archive lookup go through the SAME
  *    repository function and the stub answers per external id.
+ *  - A connection is FLAT columns (`syncSettingsProducts`, …), and a `SyncRun` is
+ *    opened by `insertSyncRun` and closed by `finishSyncRun` rather than being a
+ *    mutable document the service assigns `counts`/`status` onto. The run the
+ *    service RETURNS is what `finishSyncRun` persisted, so the tests read its
+ *    four tally columns — and `finishSyncRun`'s recorded argument is the outcome
+ *    the service actually computed.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ALL_LISTING_STATUSES } from '@mercaria/shared-types';
+import { ALL_LISTING_STATUSES, type SyncRunCounts } from '@mercaria/shared-types';
 import type { NormalizedProduct } from '../../connectors/types.js';
 
-const connectionFindOne = vi.fn();
-const connectionUpdateOne = vi.fn();
-const syncRunCreate = vi.fn();
+const findConnection = vi.fn();
+const markConnectionSynced = vi.fn();
+const markConnectionError = vi.fn();
+const insertSyncRun = vi.fn();
+const finishSyncRun = vi.fn();
 const findListingById = vi.fn();
 const findListingBySourceExternalId = vi.fn();
 const findListingChildren = vi.fn();
@@ -56,14 +63,25 @@ const decryptSecret = vi.fn();
 const getConnectorProvider = vi.fn();
 const fetchProducts = vi.fn();
 
-vi.mock('../../models/connection.js', () => ({
-  Connection: {
-    findOne: (...args: unknown[]) => connectionFindOne(...args),
-    updateOne: (...args: unknown[]) => connectionUpdateOne(...args),
-  },
+vi.mock('../../db/connectors/connectionRepository.js', () => ({
+  findConnection: (...args: unknown[]) => findConnection(...args),
+  markConnectionSynced: (...args: unknown[]) => markConnectionSynced(...args),
+  markConnectionError: (...args: unknown[]) => markConnectionError(...args),
+  findConnectionById: vi.fn(),
+  findConnectionByProvider: vi.fn(),
+  findConnectionCredentials: vi.fn().mockResolvedValue({ ciphertext: 'x', iv: 'y', tag: 'z' }),
+  findConnectionsByStore: vi.fn(),
+  findPullConnectionsToReconcile: vi.fn(),
+  findPushConnections: vi.fn(),
+  disconnectConnection: vi.fn(),
+  setConnectionWebhooks: vi.fn(),
+  touchConnectionLastSync: vi.fn(),
+  updateSyncSettings: vi.fn(),
+  upsertConnection: vi.fn(),
 }));
-vi.mock('../../models/sync-run.js', () => ({
-  SyncRun: { create: (...args: unknown[]) => syncRunCreate(...args) },
+vi.mock('../../db/connectors/syncRunRepository.js', () => ({
+  insertSyncRun: (...args: unknown[]) => insertSyncRun(...args),
+  finishSyncRun: (...args: unknown[]) => finishSyncRun(...args),
 }));
 vi.mock('../../db/catalog/listingRepository.js', () => ({
   findListingById: (...args: unknown[]) => findListingById(...args),
@@ -121,39 +139,81 @@ import { runBackfill } from '../connector-sync.service.js';
 const STORE_ID = 'store-1';
 const CONNECTION_ID = 'conn-1';
 
-/** A mutable mock SyncRun doc (the service assigns counts/status and saves). */
-function mockRun() {
+/**
+ * The row `insertSyncRun` hands back when a run is opened — the four tallies at
+ * zero, because the service holds the running counts itself and only writes them
+ * once, at the close.
+ */
+function openedRun(connectionId: string, kind: string) {
   return {
-    _id: 'run-1',
-    connectionId: CONNECTION_ID,
-    kind: 'backfill' as const,
-    status: 'running' as const,
-    counts: { created: 0, updated: 0, skipped: 0, failed: 0 },
+    id: 'run-1',
+    connectionId,
+    kind,
+    status: 'running',
+    countsCreated: 0,
+    countsUpdated: 0,
+    countsSkipped: 0,
+    countsFailed: 0,
     startedAt: new Date(),
-    finishedAt: undefined as Date | undefined,
-    error: undefined as string | undefined,
-    save: vi.fn().mockResolvedValue(undefined),
+    finishedAt: null,
+    error: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 
-/** A connected Shopify pull connection with the given conflict policy. */
+/**
+ * The row `finishSyncRun` hands back — built from the outcome the service passed,
+ * exactly as the repository builds it from the columns it just wrote. Reading the
+ * returned run therefore reads what the service DECIDED, which is what the
+ * mutated Mongoose document used to carry.
+ */
+function finishedRun(
+  runId: string,
+  outcome: { status: string; counts: SyncRunCounts; error?: string },
+) {
+  return {
+    ...openedRun(CONNECTION_ID, 'backfill'),
+    id: runId,
+    status: outcome.status,
+    countsCreated: outcome.counts.created,
+    countsUpdated: outcome.counts.updated,
+    countsSkipped: outcome.counts.skipped,
+    countsFailed: outcome.counts.failed,
+    finishedAt: new Date(),
+    error: outcome.error ?? null,
+  };
+}
+
+/**
+ * A connected Shopify pull connection with the given conflict policy.
+ *
+ * FLAT columns: the embedded `syncSettings` sub-document is eight `sync_settings_*`
+ * columns, and the credential envelope is not on the row at all — `hasCredentials`
+ * is the derived presence flag the push/disconnect paths read, and the envelope
+ * itself only ever arrives through `findConnectionCredentials`.
+ */
 function mockConnection(conflictPolicy: 'respect_overrides' | 'connector_wins' = 'respect_overrides') {
   return {
-    _id: CONNECTION_ID,
+    id: CONNECTION_ID,
     storeId: STORE_ID,
     provider: 'shopify' as const,
     mode: 'pull' as const,
     status: 'connected' as const,
-    credentials: { ciphertext: 'x', iv: 'y', tag: 'z' },
+    hasCredentials: true,
     shopDomain: 'acme.myshopify.com',
     shopCurrency: 'USD',
-    syncSettings: {
-      products: 'pull' as const,
-      inventory: 'off' as const,
-      orders: 'off' as const,
-      autoPublish: true,
-      conflictPolicy,
-    },
+    scopes: [],
+    webhookIds: [],
+    syncSettingsProducts: 'pull' as const,
+    syncSettingsInventory: 'off' as const,
+    syncSettingsOrders: 'off' as const,
+    syncSettingsAutoPublish: true,
+    syncSettingsConflictPolicy: conflictPolicy,
+    syncSettingsTargetLocationId: null,
+    syncSettingsPriceRulesMarkupPercent: null,
+    syncSettingsPriceRulesRounding: null,
+    syncSettingsCollectionMapping: null,
   };
 }
 
@@ -218,8 +278,15 @@ beforeEach(() => {
   process.env.CONNECTOR_DEFAULT_CATEGORY_SLUG = 'home';
   categorySlugExists.mockResolvedValue(true);
   decryptSecret.mockReturnValue(JSON.stringify({ accessToken: 'shpat_test' }));
-  syncRunCreate.mockImplementation(() => Promise.resolve(mockRun()));
-  connectionUpdateOne.mockResolvedValue({});
+  insertSyncRun.mockImplementation((connectionId: string, kind: string) =>
+    Promise.resolve(openedRun(connectionId, kind)),
+  );
+  finishSyncRun.mockImplementation(
+    (runId: string, outcome: { status: string; counts: SyncRunCounts; error?: string }) =>
+      Promise.resolve(finishedRun(runId, outcome)),
+  );
+  markConnectionSynced.mockResolvedValue(undefined);
+  markConnectionError.mockResolvedValue(undefined);
   updateListingColumns.mockResolvedValue(null);
   setListingStatusIfIn.mockResolvedValue(true);
   // No push-mirror by default (the echo-skip lookup finds nothing).
@@ -234,7 +301,7 @@ beforeEach(() => {
 
 describe('runBackfill — create path', () => {
   it('creates a new store product and stamps its connector provenance', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection());
+    findConnection.mockResolvedValue(mockConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct.mockResolvedValue('listing-new');
     fetchProducts.mockResolvedValue({ products: [product()] });
@@ -259,7 +326,7 @@ describe('runBackfill — create path', () => {
     });
 
     expect(run.status).toBe('completed');
-    expect(run.counts.created).toBe(1);
+    expect(run.countsCreated).toBe(1);
     expect(updateListing).not.toHaveBeenCalled();
   });
 
@@ -267,7 +334,7 @@ describe('runBackfill — create path', () => {
     // Behaviour change worth pinning: assigning the embedded `source` simply left
     // the key out, keeping the PREVIOUS sync's timestamp on a product whose
     // source had stopped reporting one. A flat column is written either way.
-    connectionFindOne.mockResolvedValue(mockConnection());
+    findConnection.mockResolvedValue(mockConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct.mockResolvedValue('listing-new');
     fetchProducts.mockResolvedValue({ products: [product({ externalUpdatedAt: undefined })] });
@@ -278,7 +345,7 @@ describe('runBackfill — create path', () => {
   });
 
   it('skips an inbound product that is an echo of our own push (loop prevention)', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection());
+    findConnection.mockResolvedValue(mockConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
     // The push mirror moved from an embedded `externalRefs` array to its own
     // table; the echo check is the repository predicate over it.
@@ -289,13 +356,13 @@ describe('runBackfill — create path', () => {
 
     expect(listingPushedToConnection).toHaveBeenCalledWith(STORE_ID, CONNECTION_ID, 'shopify-1');
     expect(createStoreProduct).not.toHaveBeenCalled();
-    expect(run.counts.skipped).toBe(1);
+    expect(run.countsSkipped).toBe(1);
   });
 });
 
 describe('runBackfill — update path respects overriddenFields', () => {
   it('skips a locally-pinned field but overwrites the rest', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection('respect_overrides'));
+    findConnection.mockResolvedValue(mockConnection('respect_overrides'));
     findListingBySourceExternalId.mockResolvedValue(
       listingRow('listing-existing', { overriddenFields: ['title'] }),
     );
@@ -311,11 +378,11 @@ describe('runBackfill — update path respects overriddenFields', () => {
     expect(patch.title).toBeUndefined();
     expect(patch.description).toBe('Imported description');
     expect(patch.imageFileIds).toEqual(['https://cdn.shopify.com/img.jpg']);
-    expect(run.counts.updated).toBe(1);
+    expect(run.countsUpdated).toBe(1);
   });
 
   it('counts a product as skipped when every managed field is pinned', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection('respect_overrides'));
+    findConnection.mockResolvedValue(mockConnection('respect_overrides'));
     findListingBySourceExternalId.mockResolvedValue(
       listingRow('listing-existing', {
         overriddenFields: ['title', 'description', 'images', 'vendor', 'productType', 'handle', 'seo'],
@@ -326,13 +393,13 @@ describe('runBackfill — update path respects overriddenFields', () => {
     const run = await runBackfill(STORE_ID, CONNECTION_ID);
 
     expect(updateListing).not.toHaveBeenCalled();
-    expect(run.counts.skipped).toBe(1);
+    expect(run.countsSkipped).toBe(1);
     // Provenance (externalUpdatedAt) is still refreshed.
     expect(provenancePatch()).toMatchObject({ sourceExternalId: 'shopify-1' });
   });
 
   it('connector_wins overwrites even locally-edited fields', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection('connector_wins'));
+    findConnection.mockResolvedValue(mockConnection('connector_wins'));
     findListingBySourceExternalId.mockResolvedValue(
       listingRow('listing-existing', { overriddenFields: ['title'] }),
     );
@@ -347,7 +414,7 @@ describe('runBackfill — update path respects overriddenFields', () => {
 
 describe('runBackfill — paging + guards', () => {
   it('follows the provider cursor across pages', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection());
+    findConnection.mockResolvedValue(mockConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct.mockResolvedValue('listing-x');
     fetchProducts
@@ -358,22 +425,18 @@ describe('runBackfill — paging + guards', () => {
 
     expect(fetchProducts).toHaveBeenCalledTimes(2);
     expect(fetchProducts.mock.calls[1][1]).toBe('CURSOR2');
-    expect(run.counts.created).toBe(2);
+    expect(run.countsCreated).toBe(2);
   });
 
   it('rejects when product pull is disabled for the connection', async () => {
-    const base = mockConnection();
-    connectionFindOne.mockResolvedValue({
-      ...base,
-      syncSettings: { ...base.syncSettings, products: 'off' },
-    });
+    findConnection.mockResolvedValue({ ...mockConnection(), syncSettingsProducts: 'off' as const });
 
     await expect(runBackfill(STORE_ID, CONNECTION_ID)).rejects.toThrow(/not enabled/);
-    expect(syncRunCreate).not.toHaveBeenCalled();
+    expect(insertSyncRun).not.toHaveBeenCalled();
   });
 
   it('records a failed run (does not throw) when a page fetch fails mid-run', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection());
+    findConnection.mockResolvedValue(mockConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
     fetchProducts.mockRejectedValue(new Error('shopify 500'));
 
@@ -386,12 +449,19 @@ describe('runBackfill — paging + guards', () => {
 
 // --- Fix 1: re-price existing variants on the update path --------------------
 
-/** A connected pull connection whose `priceRules` apply a markup. */
+/**
+ * A connected pull connection whose `priceRules` apply a markup.
+ *
+ * The embedded `priceRules` object is two independently-nullable columns, so a
+ * markup-only rule is a MARKUP column with a NULL rounding — a state the embedded
+ * form could not distinguish from `{ markupPercent, rounding: undefined }`, and
+ * the reason the service rebuilds the object rather than reading it.
+ */
 function mockConnectionWithMarkup(markupPercent: number) {
-  const base = mockConnection('respect_overrides');
   return {
-    ...base,
-    syncSettings: { ...base.syncSettings, priceRules: { markupPercent } },
+    ...mockConnection('respect_overrides'),
+    syncSettingsPriceRulesMarkupPercent: markupPercent,
+    syncSettingsPriceRulesRounding: null,
   };
 }
 
@@ -432,7 +502,7 @@ function stubExistingVariants(variants: unknown[]): void {
 
 describe('runBackfill — Fix 1: re-prices existing variants', () => {
   it('applies the connection price rules and updates a variant whose price changed', async () => {
-    connectionFindOne.mockResolvedValue(mockConnectionWithMarkup(100)); // ×2
+    findConnection.mockResolvedValue(mockConnectionWithMarkup(100)); // ×2
     findListingBySourceExternalId.mockResolvedValue(listingRow('listing-existing'));
     stubExistingVariants([existingVariant()]); // stored at 1999
     fetchProducts.mockResolvedValue({ products: [product()] }); // incoming 1999 → ×2 = 3998
@@ -444,11 +514,11 @@ describe('runBackfill — Fix 1: re-prices existing variants', () => {
     expect(listingId).toBe('listing-existing');
     expect(variantId).toBe('v1');
     expect(patch.price).toEqual({ amount: 3998, currency: 'USD' });
-    expect(run.counts.updated).toBe(1);
+    expect(run.countsUpdated).toBe(1);
   });
 
   it('re-prices even when every listing field is pinned — counts the product as updated', async () => {
-    connectionFindOne.mockResolvedValue(mockConnectionWithMarkup(100));
+    findConnection.mockResolvedValue(mockConnectionWithMarkup(100));
     // All connector-managed LISTING fields pinned (so the listing patch is empty),
     // but `price` is NOT pinned — the re-price alone must bump the outcome to updated.
     findListingBySourceExternalId.mockResolvedValue(
@@ -463,12 +533,12 @@ describe('runBackfill — Fix 1: re-prices existing variants', () => {
 
     expect(updateListing).not.toHaveBeenCalled(); // listing patch was empty
     expect(updateVariant).toHaveBeenCalledTimes(1);
-    expect(run.counts.updated).toBe(1);
-    expect(run.counts.skipped).toBe(0);
+    expect(run.countsUpdated).toBe(1);
+    expect(run.countsSkipped).toBe(0);
   });
 
   it('skips re-pricing when `price` is pinned in overriddenFields', async () => {
-    connectionFindOne.mockResolvedValue(mockConnectionWithMarkup(100));
+    findConnection.mockResolvedValue(mockConnectionWithMarkup(100));
     findListingBySourceExternalId.mockResolvedValue(
       listingRow('listing-existing', { overriddenFields: ['price'] }),
     );
@@ -483,7 +553,7 @@ describe('runBackfill — Fix 1: re-prices existing variants', () => {
   });
 
   it('is a no-op when the incoming price already matches the stored price', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection('respect_overrides')); // no markup
+    findConnection.mockResolvedValue(mockConnection('respect_overrides')); // no markup
     findListingBySourceExternalId.mockResolvedValue(listingRow('listing-existing'));
     stubExistingVariants([existingVariant({ priceAmount: 1999, priceCurrency: 'USD' })]);
     fetchProducts.mockResolvedValue({ products: [product()] }); // incoming also 1999
@@ -497,7 +567,7 @@ describe('runBackfill — Fix 1: re-prices existing variants', () => {
     // `price` was required on the Mongoose model; both of its columns are nullable
     // here. NULL must differ from every incoming amount, so the first re-sync
     // prices the variant rather than leaving it priceless.
-    connectionFindOne.mockResolvedValue(mockConnection('respect_overrides'));
+    findConnection.mockResolvedValue(mockConnection('respect_overrides'));
     findListingBySourceExternalId.mockResolvedValue(listingRow('listing-existing'));
     stubExistingVariants([existingVariant({ priceAmount: null, priceCurrency: null })]);
     fetchProducts.mockResolvedValue({ products: [product()] });
@@ -510,7 +580,7 @@ describe('runBackfill — Fix 1: re-prices existing variants', () => {
   });
 
   it('matches variants by SKU when the option tuples are ambiguous', async () => {
-    connectionFindOne.mockResolvedValue(mockConnectionWithMarkup(0)); // no price change from rules
+    findConnection.mockResolvedValue(mockConnectionWithMarkup(0)); // no price change from rules
     findListingBySourceExternalId.mockResolvedValue(listingRow('listing-existing'));
     // Stored variant keyed by SKU, at a price the incoming product will change.
     stubExistingVariants([existingVariant({ id: 'v-sku', sku: 'ABC', priceAmount: 1000 })]);
@@ -547,7 +617,7 @@ function archivedListingIds(): string[] {
 
 describe('runBackfill — Fix 3: delete reconciliation', () => {
   it('archives a sourced listing NOT seen in a fully-completed backfill', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection());
+    findConnection.mockResolvedValue(mockConnection());
     createStoreProduct.mockResolvedValue('listing-new');
     fetchProducts.mockResolvedValue({ products: [product({ externalId: 'p1' })] }); // full: no cursor
     // p1 is unknown (create path); p2 is stale → must be archived.
@@ -563,12 +633,12 @@ describe('runBackfill — Fix 3: delete reconciliation', () => {
     expect(archivedListingIds()).toEqual(['l2']); // only the unseen id
     expect(setListingStatusIfIn).toHaveBeenCalledWith('l2', 'archived', ALL_LISTING_STATUSES);
     expect(run.status).toBe('completed');
-    expect(run.counts.created).toBe(1); // p1
-    expect(run.counts.updated).toBe(1); // the archive of p2
+    expect(run.countsCreated).toBe(1); // p1
+    expect(run.countsUpdated).toBe(1); // the archive of p2
   });
 
   it('does NOT archive on a partial/failed fetch (guards against mass-archive)', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection());
+    findConnection.mockResolvedValue(mockConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct.mockResolvedValue('listing-new');
     // First page ok (has a next cursor), second page fetch FAILS → partial fetch.
@@ -585,7 +655,7 @@ describe('runBackfill — Fix 3: delete reconciliation', () => {
   });
 
   it('respects a pinned status — an unseen but status-pinned listing is not archived', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection('respect_overrides'));
+    findConnection.mockResolvedValue(mockConnection('respect_overrides'));
     createStoreProduct.mockResolvedValue('listing-new');
     fetchProducts.mockResolvedValue({ products: [product({ externalId: 'p1' })] });
     stubListingsByExternalId({ p2: listingRow('l2', { sourceExternalId: 'p2' }) });
@@ -602,7 +672,7 @@ describe('runBackfill — Fix 3: delete reconciliation', () => {
     // The repository read is deliberately status-agnostic (the Mongo query filtered
     // `status: { $ne: 'archived' }` itself), so the service filters — and this is
     // what keeps a nightly reconcile from re-counting yesterday's archives.
-    connectionFindOne.mockResolvedValue(mockConnection());
+    findConnection.mockResolvedValue(mockConnection());
     createStoreProduct.mockResolvedValue('listing-new');
     fetchProducts.mockResolvedValue({ products: [product({ externalId: 'p1' })] });
     stubListingsByExternalId({ p2: listingRow('l2', { sourceExternalId: 'p2', status: 'archived' }) });
@@ -613,11 +683,11 @@ describe('runBackfill — Fix 3: delete reconciliation', () => {
     const run = await runBackfill(STORE_ID, CONNECTION_ID);
 
     expect(archivedListingIds()).toEqual([]);
-    expect(run.counts.updated).toBe(0);
+    expect(run.countsUpdated).toBe(0);
   });
 
   it('archives ALL sourced listings when the platform catalog is now empty', async () => {
-    connectionFindOne.mockResolvedValue(mockConnection());
+    findConnection.mockResolvedValue(mockConnection());
     fetchProducts.mockResolvedValue({ products: [] }); // full fetch, zero products
     stubListingsByExternalId({
       'gone-1': listingRow('l1', { sourceExternalId: 'gone-1' }),
@@ -636,6 +706,6 @@ describe('runBackfill — Fix 3: delete reconciliation', () => {
       'gone-2',
     ]);
     expect(run.status).toBe('completed');
-    expect(run.counts.updated).toBe(2);
+    expect(run.countsUpdated).toBe(2);
   });
 });
