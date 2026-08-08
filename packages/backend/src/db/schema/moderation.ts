@@ -43,7 +43,7 @@ import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
 import { ALL_LISTING_STATUSES } from '@mercaria/shared-types';
 import { REVIEW_STATUSES } from './buyers';
 
-/** `AbuseReport.localStatus` — `LOCAL_STATUSES` in `models/abuse-report.ts`. */
+/** `AbuseReport.localStatus`. */
 export const ABUSE_REPORT_LOCAL_STATUSES: readonly AbuseReportLocalStatus[] = [
   'received',
   'queued',

@@ -11,9 +11,6 @@ await esbuild.build({
    * way to migrate the production database from the image that contains the
    * migrations.
    *
-   * (A third entry, the Fase 4 Mongo→Postgres backfill one-shot, sat here until
-   * the cutover. It and the Mongoose layer it read are gone.)
-   *
    * `outdir` rather than `outfile` because there are two: esbuild takes the entry
    * points' common ancestor (`src/`) as the base, so these land exactly at
    * `dist/index.js` and `dist/db/migrate.js`. The migrator calls `main()` at

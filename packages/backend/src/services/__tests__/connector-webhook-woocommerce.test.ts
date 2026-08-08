@@ -8,11 +8,10 @@
  * The real WooCommerce provider is used (its `normalizeOrder` is a pure map), so the
  * order path is a genuine integration of Woo-JSON → NormalizedOrder → Mercaria order.
  *
- * The catalogue is Postgres now: the product archive goes through the listing
- * REPOSITORY (`findListingBySourceExternalId` + `setListingStatusIfIn`) rather
- * than a filtered `Listing.updateOne`, while `Connection`/`SyncRun`/`Order` are
- * still Mongoose. Repositories, Mongo models and Socket.IO are all mocked, so no
- * database or socket server is touched.
+ * The product archive goes through the listing REPOSITORY
+ * (`findListingBySourceExternalId` + `setListingStatusIfIn`). Every repository
+ * this path touches — catalogue, connection, sync-run, order — and Socket.IO are
+ * mocked, so no database or socket server is touched.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';

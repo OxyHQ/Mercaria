@@ -18,10 +18,9 @@
  * ## This is the only store this package opens
  *
  * `src/index.ts` calls `connectPostgres()` and nothing else. There is no second
- * store to fall back to — `src/lib/db.ts`, the Mongoose models and the backfill
- * one-shot were deleted after the cutover — so a failure here is a total outage
- * for this task, which is why `DATABASE_URL` is required at config load and why
- * the connect below proves the server answers before publishing the handle.
+ * store to fall back to, so a failure here is a total outage for this task,
+ * which is why `DATABASE_URL` is required at config load and why the connect
+ * below proves the server answers before publishing the handle.
  */
 
 import { createDatabase, type OxyDatabase } from '@oxyhq/db';
@@ -118,12 +117,12 @@ export async function connectPostgres(): Promise<Database> {
  * The connection opened by `connectPostgres()`. Everything that serves a
  * request goes through here.
  *
- * The raw postgres.js handle underneath is reachable as `getDb().$client`, and
- * it has exactly two legitimate uses — both one-shot, never request-path code:
- * `COPY` for the Fase 4 backfill (a protocol-level operation drizzle does not
- * wrap) and the `ANALYZE` after it. Reaching for it to run ordinary SQL
- * bypasses the schema types AND the casing configuration that keep queries and
- * migrations agreeing on column names.
+ * The raw postgres.js handle underneath is reachable as `getDb().$client`. It is
+ * for one-shot maintenance operations drizzle does not wrap at all (`COPY`,
+ * `ANALYZE`) and nothing else — never request-path code. Reaching for it to run
+ * ordinary SQL bypasses the schema types AND the casing configuration that keep
+ * queries and migrations agreeing on column names. Nothing in `src/` uses it
+ * today, which is the state to keep it in.
  *
  * @throws {Error} If called before `connectPostgres()` resolved — a programming
  *   error (a query issued before startup finished), not a runtime condition to

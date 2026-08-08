@@ -8,10 +8,9 @@
  *  - `pushOrderFulfillment` — pushes a fulfillment only for a `bidirectional` order
  *    connection, and is loop-safe (skips a non-bidirectional / source-less order).
  *
- * No DB / no network. `Connection`/`SyncRun`/`Order` are still Mongoose and are
- * mocked as models; the CATALOGUE moved to Postgres, so listings, variants,
- * collection membership and locations are mocked at the REPOSITORY boundary. The
- * provider registry and crypto are mocked; the price/money math
+ * No DB / no network: connections, sync runs, orders, listings, variants,
+ * collection membership and locations are all mocked at the REPOSITORY boundary.
+ * The provider registry and crypto are mocked; the price/money math
  * (`applyPriceRules`) runs for real.
  *
  * Two shapes changed and the assertions follow:

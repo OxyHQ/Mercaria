@@ -42,9 +42,9 @@
  * state, not an unstarted one.
  *
  * The payment domain's order and refund correlations are the entries most worth
- * reading before adding another: they are permanently unconstrained for a reason
- * that OUTLIVES the MongoDB window that also forces them today, and the block
- * comment beside them says which is which.
+ * reading before adding another: they are permanently unconstrained, and the
+ * block comment beside them says why — a reason that is a property of a payment
+ * system, not of any store it happens to run on.
  */
 
 import type { DeferredForeignKey } from '@oxyhq/db/assert';
@@ -183,27 +183,20 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
 
   // ── Payment-domain correlations ───────────────────────────────────────────
   //
-  // A payment record CORRELATES to an order; it does not compose with it. Two
-  // things forced that, and — as the entry written before the cutover predicted
-  // — the second has outlived the first.
+  // A payment record CORRELATES to an order; it does not compose with it, even
+  // though both tables now live in this same database and a foreign key would
+  // resolve.
   //
-  // The first is GONE. Orders were served from MongoDB when these entries landed,
-  // so a constraint would have rejected every payment written for an order that
-  // genuinely existed, in the other store. Orders are a Postgres write path now,
-  // in this same database, so that argument no longer applies to anything.
-  //
-  // The second stands on its own, and it is why these stay deferred: a financial
-  // record must be insertable and readable independently of the commerce record
-  // it names (#45 invariant 12). Money that moved is a fact Mercaria owes an
-  // answer about whether or not the order row is reachable, and "the payment
-  // could not be written because a join partner was missing" is the one failure
-  // a payment system may not have. That is the same reasoning `refunds.order_id`
-  // did NOT get — a refund is a commerce decision and stays constrained — so
-  // this is a decision per relation, not a blanket exemption for the domain.
-  //
-  // This IS the deliberate revisit that entry asked for; the question was put to
+  // That is why these stay deferred: a financial record must be insertable and
+  // readable independently of the commerce record it names (#45 invariant 12).
+  // Money that moved is a fact Mercaria owes an answer about whether or not the
+  // order row is reachable, and "the payment could not be written because a join
+  // partner was missing" is the one failure a payment system may not have. That
+  // is the same reasoning `refunds.order_id` did NOT get — a refund is a
+  // commerce decision and stays constrained — so this is a decision per
+  // relation, not a blanket exemption for the domain. The question was put to
   // `payments`, `transfers`, `ledger_transactions` and `ledger_entries`
-  // individually and each keeps the deferral on the second reason alone.
+  // individually and each keeps the deferral on its own merits.
   { column: 'payments.order_id', reason: PAYMENT_CORRELATION },
   { column: 'transfers.order_id', reason: PAYMENT_CORRELATION },
   { column: 'ledger_transactions.order_id', reason: PAYMENT_CORRELATION },

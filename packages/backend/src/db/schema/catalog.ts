@@ -38,10 +38,10 @@ import { asEnumValues, checkOneOf, currencyChecks, optionalMoney } from './colum
 import { connections } from './connectors';
 import { locations, stores } from './stores';
 
-/** `Listing.ownerType` — `OWNER_TYPES` in `models/listing.ts`. */
+/** `Listing.ownerType`. */
 export const LISTING_OWNER_TYPES: readonly ListingOwnerType[] = ['user', 'store'];
 
-/** `Listing.condition` — `CONDITIONS` in `models/listing.ts`. */
+/** `Listing.condition`. */
 export const LISTING_CONDITIONS: readonly ListingCondition[] = ['new', 'used'];
 
 /**
@@ -493,16 +493,14 @@ export const productVariantOptionValues = pgTable(
  *
  * ## Both foreign keys CASCADE, and both fix a leak that exists today
  *
- * `catalog-write.removeVariant` deletes a variant without touching its level
- * rows, and `location.service.deleteLocation` deletes a location without
- * touching them either. Mongo has no way to express the cleanup, so both leave
- * ORPHANED rows — which is worse than deleting them, because the variant's
- * scalar rollup keeps summing stock at a place that no longer exists.
- *
  * A level row is meaningless without either parent, which is exactly the shape
- * `CONVENTIONS.md` names for a cascade. NOTE for Fase 2: `deleteLocation` must
- * recompute the affected variants' rollups after the cascade fires — the FK
- * removes the orphan, it does not update the denormalized total.
+ * `CONVENTIONS.md` names for a cascade: neither `catalog-write.removeVariant`
+ * nor `location.service.deleteLocation` cleans up level rows itself, and an
+ * orphan is worse than a deleted row because the variant's scalar rollup keeps
+ * summing stock at a place that no longer exists.
+ *
+ * The cascade removes the orphan; it does NOT update the denormalized total, so
+ * `deleteLocation` recomputes the affected variants' rollups after it fires.
  */
 export const inventoryLevels = pgTable(
   'inventory_levels',

@@ -1,5 +1,5 @@
 ##
-## Docker Compose — local PostgreSQL for the Mongo→Postgres migration.
+## Docker Compose — the local PostgreSQL the backend develops and tests against.
 ##
 ## The application stack is not in this repo's compose surface; this file holds
 ## only the database a developer needs running next to `bun run dev:backend` and
@@ -42,8 +42,8 @@ services:
     environment:
       POSTGRES_USER: mercaria
       POSTGRES_PASSWORD: mercaria
-      # Matches the `mercaria-{env}` naming the Mongo side used, with `-` swapped
-      # for `_` because an unquoted Postgres identifier cannot hold a hyphen.
+      # `mercaria_{env}`, with `_` rather than `-` because an unquoted Postgres
+      # identifier cannot hold a hyphen.
       POSTGRES_DB: mercaria_dev
     ports:
       # 5435, and loopback-only. Several Oxy repos are routinely open at once on

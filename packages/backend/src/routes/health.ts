@@ -1,13 +1,9 @@
 /**
  * Liveness, readiness and the operator-facing health snapshot.
  *
- * ## `mongodb` is gone from the payload, not renamed
- *
- * The snapshot used to report `mongodb: mongoose.connection.readyState`, and the
- * task no longer opens Mongo at all — so keeping the key under any spelling would
- * report a connection nothing uses. It is a breaking change to the body of
- * `GET /health`, deliberately: a monitor still alerting on `mongodb` should fail
- * loudly on a missing key rather than read `disconnected` forever and be muted.
+ * The snapshot names only stores this task actually opens. A key reporting a
+ * connection nothing uses is worse than a missing one: a monitor reading it goes
+ * green forever instead of failing loudly.
  *
  * ## `/ready` answers a different question from `/health`
  *

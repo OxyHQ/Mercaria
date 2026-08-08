@@ -85,10 +85,8 @@ process.on('uncaughtException', (error) => {
  * Open the store before serving traffic.
  *
  * ONE store. Every route this API serves reads and writes Postgres — including
- * the payment domain and its balanced ledger. The `connectDB()` that used to run
- * beside this is gone rather than made conditional, and so is everything it
- * opened: the Mongoose models, `lib/db.ts` and the Fase 4 backfill one-shot were
- * deleted once the cutover was verified.
+ * the payment domain and its balanced ledger. There is no second connect call
+ * beside this one and no store to fall back to.
  *
  * `config.postgres.url` is required at config load, so an unconfigured task
  * never reaches here — a task that served checkout without it would take a POS
@@ -156,9 +154,9 @@ connectPostgres()
         .then(({ startStripeAccountReconciler }) => startStripeAccountReconciler())
         .catch((err) => log.general.error({ err }, 'Stripe account reconciler import failed'));
 
-      // Reap expired rows. Postgres has no TTL index, so this loop is the whole
-      // of what Mongo's server-side reaper used to do — without it the tables in
-      // `db/expiryTargets.ts` grow forever, with no error and no failing test.
+      // Reap expired rows. Postgres has no TTL index, so nothing sweeps unless
+      // this loop does — without it the tables in `db/expiryTargets.ts` grow
+      // forever, with no error and no failing test.
       // Started on every task for the same reason as the dispatchers: the delete
       // is idempotent, so a leader would only add a way for nobody to sweep at
       // all.
@@ -215,10 +213,9 @@ connectPostgres()
         log.general.info('Redis connections closed');
 
         // Stop all FOUR background loops before the pool they query through
-        // goes. None was stopped while Mongo owned them and it did not show; now
-        // they share the pool `closePostgres` is about to end, so a loop still
-        // claiming or sweeping would throw on a closed connection during every
-        // shutdown. A dispatcher's stop only stops it claiming NEW work — the
+        // goes. They share the pool `closePostgres` is about to end, so a loop
+        // still claiming or sweeping would throw on a closed connection during
+        // every shutdown. A dispatcher's stop only stops it claiming NEW work — the
         // row already in flight is allowed to reach a durable state rather than
         // leaving a held lease for another task to wait out.
         const { stopModerationOutboxDispatcher } = await import(

@@ -1,9 +1,16 @@
 # Postgres schema conventions — Mercaria
 
-Binding for every table in the Mongo→Postgres migration. Decision + reason,
-nothing else. Two prime directives: **no relational link may be lost**, and **no
-Mongo baggage travels**. Where they conflict, STOP and escalate rather than
-resolving it silently.
+Binding for every table in this schema. Decision + reason, nothing else. Two
+prime directives: **no relational link may be lost**, and **no Mongo baggage
+travels**. Where they conflict, STOP and escalate rather than resolving it
+silently.
+
+> This document was written during the Mongo→Postgres port and is still binding,
+> but read it as a LEDGER: the phases it plans (Fase 1–4), the Mongoose models it
+> maps and the backfill it instructs have all completed and been deleted, and the
+> `mercaria-production` Mongo database was dropped on 2026-08-08. Nothing here can
+> be re-run. What survives is the DECISION and its reason for each table — which
+> is what makes a column whose shape looks arbitrary answerable at all.
 
 Several of these are enforced by tests, not by discipline — see the bottom.
 
@@ -495,9 +502,12 @@ untouched while the operator reads a success line.
 
 ## The model → table ledger
 
-Every one of the 31 Mongoose models in `src/models/`, mapped. This is also the
-explicit collection → table map the Fase 4 backfill needs (Mongoose's derived
-collection name is the lowercased plural, e.g. `inventorylevels`).
+Every one of the 31 Mongoose models the pre-cutover backend carried, mapped.
+This was also the explicit collection → table map the Fase 4 backfill ran from
+(Mongoose's derived collection name is the lowercased plural, e.g.
+`inventorylevels`). Neither those models nor that backfill exist any more; the
+ledger stays because it is the only record of where each table's data came from,
+and a column whose shape looks arbitrary is usually answered here.
 
 | Mongoose model | Table(s) |
 |---|---|
@@ -628,25 +638,25 @@ deviation is a visible decision rather than a silent one.
 | `ModerationEvent`'s `created_at`/`updated_at` | The source schema has `timestamps` off. `claimed_at` is the only date it has ever had; adding two more that can disagree with it is the redundancy this port removes. |
 | `order_status_history`'s `created_at`/`updated_at` | Same shape: the sub-document had only `at`, and the ABSENCE of `updated_at` is the append-only contract. |
 
-## Behaviour changes Fase 2 must absorb
+## Behaviour changes the service layer had to absorb
 
-The schema is not behaviour-neutral, and the places it is not are all cases where
-Mongo left a dangling reference no constraint could catch. Listed so they are
-found before a 23503 is.
+The schema was not behaviour-neutral, and the places it was not are all cases
+where the pre-cutover store left a dangling reference no constraint could catch.
+Listed so a 23503 is recognised rather than rediscovered.
 
 - **`location.service.deleteLocation` will start seeing SQLSTATE 23503.**
   `draft_orders.location_id` and `connections.sync_settings_target_location_id`
   are `ON DELETE RESTRICT`, because NULL already means "the store's default
   location" — so `SET NULL` would silently REROUTE an open draft's reservation or
-  a live sync rather than fail. Today the delete succeeds and leaves a dangling
-  id.
-- **`inventory_levels` now CASCADE from both parents.** Neither
-  `catalog-write.removeVariant` nor `deleteLocation` cleans up level rows today,
-  so both leak orphans that keep counting stock at a place that no longer exists.
+  a live sync rather than fail. Before the constraints existed the delete
+  succeeded and left a dangling id.
+- **`inventory_levels` CASCADE from both parents.** Neither
+  `catalog-write.removeVariant` nor `deleteLocation` cleaned up level rows, so
+  both leaked orphans that kept counting stock at a place that no longer existed.
   The FK removes the orphan; it does NOT update the denormalized rollup, so
   `deleteLocation` must recompute the affected variants' totals.
 - **`cart_items` CASCADE from `product_variants`.** A cart holding a deleted
-  variant currently fails at checkout, far from the cause, to a buyer who did
+  variant used to fail at checkout, far from the cause, to a buyer who did
   nothing wrong. The line now disappears with the variant.
 - **New constraints Mongo could not state**, each of which a half-finished
   service path could previously violate: at most one default `location` per

@@ -30,17 +30,14 @@
  *
  * `payments.order_id`, `transfers.order_id` and `ledger_entries.order_id` are
  * CORRELATION, not composition, and they are registered in
- * `db/deferredForeignKeys.ts` with that reason. Two things forced it. The first
- * — orders being served from MongoDB, where a constraint here would have
- * rejected every payment written for an order that genuinely existed — is gone:
- * orders are a Postgres write path in this same database now.
+ * `db/deferredForeignKeys.ts` with that reason — even though `orders` is a table
+ * in this same database and the constraint would resolve.
  *
- * The second was always the one that outlives it, and is why these stay
- * unconstrained: a financial record must be insertable and readable
- * independently of the commerce record it names (#45 invariant 12). Money that
- * moved is a fact Mercaria owes an answer about whether or not the order row is
- * reachable, and a payment that could not be written because a join partner was
- * missing is the one failure mode a payment system may not have.
+ * A financial record must be insertable and readable independently of the
+ * commerce record it names (#45 invariant 12). Money that moved is a fact
+ * Mercaria owes an answer about whether or not the order row is reachable, and a
+ * payment that could not be written because a join partner was missing is the
+ * one failure mode a payment system may not have.
  */
 
 import { sql } from 'drizzle-orm';

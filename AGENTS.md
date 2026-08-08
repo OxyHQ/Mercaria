@@ -406,7 +406,7 @@ identity) and carries no foreign key; see `CONVENTIONS.md` below.
 
 The backend is Postgres-native: `DATABASE_URL` is **required to boot**
 (`src/index.ts`). Every route, the moderation outbox and the payment domain run
-against it; there is no Mongo fallback. Database `mercaria` on the shared RDS
+against it; there is no second store. Database `mercaria` on the shared RDS
 instance `oxy-postgres` (`postgres.internal.oxy.so:5432`), owned by role
 `mercaria`, with PostGIS installed once by a privileged role (it is not a
 trusted extension — see `docs/runbooks/30-postgres-database-provisioning.md`
@@ -441,10 +441,12 @@ in `oxy-infra`).
   `@oxyhq/db/testing`), created and dropped by
   `packages/backend/src/db/testDatabase.ts`, which shells out to the real
   `migrate.ts` entrypoint rather than composing `runMigrations` a second time.
-- **Legacy Mongo/Mongoose is GONE** (removed post-cutover, PR #136): no
-  `src/models/`, no `src/lib/db.ts`, no `mongoose` in `package.json`. The Mongo
-  data remains on the shared instance purely as the rollback target; a backfill
-  re-run means checking out a pre-#136 revision.
+- **Legacy Mongo/Mongoose is GONE** (code removed post-cutover in PR #136; the
+  `mercaria-production` database itself DROPPED on 2026-08-08): no `src/models/`,
+  no `src/lib/db.ts`, no `mongoose` in `package.json`, no `MONGODB_URI` secret or
+  SSM parameter. There is no rollback target and no re-running the backfill — the
+  only copy left is a final dump archived offline. Postgres is the sole authority
+  for every byte this service owns.
 
 ## CORS: critical origins
 
@@ -624,13 +626,12 @@ rather than by matching a spelling. Mutating the enqueue to
 duration the test waits (drizzle applies the column's `$onUpdate` to a conflict
 branch's `set`, so "write the same data back" is not even a quiet write) and
 moved the row's `xmin`; both are asserted, and the `xmin` check is what would
-still catch a `DO UPDATE` careful enough to leave every column alone. (This
-replaces the old Mongoose hazard — naming both `createdAt`/`updatedAt` inside
-`$setOnInsert` under `timestamps: true` made Mongo refuse the whole write, and
-the naive fix silently turned a repeated enqueue into a real write contending
-with a live dispatcher lease. The Postgres shape has no counterpart bug: a
-repeat is a genuine no-op by construction, not by a flag someone has to
-remember.)
+still catch a `DO UPDATE` careful enough to leave every column alone. What that
+buys is worth stating plainly: a repeat is a genuine no-op by construction, not
+by a flag someone has to remember to pass — and a repeat is ordinary (a
+transaction retry, two concurrent duplicate submissions, a reconciliation sweep
+re-deriving an event), running while the dispatcher holds leases on those same
+rows.
 
 A real server, not a mock: `db.transaction(...)`/`requireTransaction`, unique
 indexes and `FOR UPDATE SKIP LOCKED` are the properties under test and none of

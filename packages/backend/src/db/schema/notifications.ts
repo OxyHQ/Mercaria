@@ -16,7 +16,7 @@ import {
   checkOneOf,
 } from './columns';
 
-/** `Notification.type` — `NOTIFICATION_TYPES` in `models/notification.ts`. */
+/** `Notification.type`. */
 export const NOTIFICATION_TYPES = [
   'trigger_result',
   'proactive_insight',

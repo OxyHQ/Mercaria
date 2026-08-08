@@ -24,19 +24,19 @@ import { listings, productVariants } from './catalog';
 import { orders } from './orders';
 import { stores } from './stores';
 
-/** `Review.targetType` — `TARGET_TYPES` in `models/review.ts`. */
+/** `Review.targetType`. */
 export const REVIEW_TARGET_TYPES: readonly ReviewTargetType[] = ['listing', 'store', 'seller'];
 
-/** `Review.status` — `REVIEW_STATUSES` in `models/review.ts`. */
+/** `Review.status`. */
 export const REVIEW_STATUSES = ['published', 'hidden'] as const;
 
-/** `Feedback.type` — the enum in `models/feedback.ts`. */
+/** `Feedback.type`. */
 export const FEEDBACK_TYPES = ['bug', 'feature', 'improvement', 'other'] as const;
 
-/** `Feedback.status` — the enum in `models/feedback.ts`. */
+/** `Feedback.status`. */
 export const FEEDBACK_STATUSES = ['pending', 'reviewed', 'resolved'] as const;
 
-/** Lowest and highest allowed star rating — `MIN_RATING`/`MAX_RATING` in `models/review.ts`. */
+/** Lowest and highest allowed star rating. */
 const MIN_REVIEW_RATING = 1;
 const MAX_REVIEW_RATING = 5;
 

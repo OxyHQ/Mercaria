@@ -31,17 +31,18 @@ import {
   optionalAddressColumns,
 } from './columns';
 
-/** `Store.status` — `STORE_STATUSES` in `models/store.ts`. */
+/** `Store.status`. */
 export const STORE_STATUSES = ['active', 'suspended', 'closed'] as const;
 
-/** `StoreMember.role` — `STORE_ROLES` in `models/store.ts`. */
+/** `StoreMember.role`. */
 export const STORE_ROLES: readonly StoreRole[] = ['owner', 'admin', 'staff'];
 
 /**
- * `StoreMember.permissions` element — `STORE_PERMISSIONS` in `models/store.ts`.
+ * `StoreMember.permissions` element.
  *
- * Seventeen values. The role matrix in `AGENTS.md` says "16 perms" and predates
- * `channels:write`; the model is the authority and this list is copied from it.
+ * Seventeen values, and THIS list is the authority — the column's CHECK is built
+ * from it. The role matrix in `AGENTS.md` says "16 perms" and predates
+ * `channels:write`; that count is the stale one.
  */
 export const STORE_PERMISSIONS: readonly StorePermission[] = [
   'store:manage',
@@ -63,21 +64,20 @@ export const STORE_PERMISSIONS: readonly StorePermission[] = [
   'channels:write',
 ];
 
-/** `Store.textTone` — `TEXT_TONES` in `models/store.ts`. */
+/** `Store.textTone`. */
 export const TEXT_TONES: readonly TextTone[] = ['light', 'dark'];
 
-/** `Location.type` — `LOCATION_TYPES` in `models/location.ts`. */
+/** `Location.type`. */
 export const LOCATION_TYPES: readonly LocationType[] = ['warehouse', 'retail', 'pop_up', 'virtual'];
 
 /**
  * `stores` — a seller organization that lists new products.
  *
- * `handle` was NOT lowercased by Mongoose, so the unique index is on the raw
- * value exactly as today. That is deliberate rather than an oversight carried
- * across: adding `lower(handle)` here would start rejecting pairs of stores that
- * coexist in production right now, during the backfill, as a constraint
- * violation on rows nobody touched. If case-insensitive handles are wanted they
- * are a separate, deliberate migration with a data audit in front of it.
+ * `handle` is unique on the RAW value, deliberately. Adding `lower(handle)` here
+ * would reject pairs of stores that already coexist in production, as a
+ * constraint violation on rows nobody touched. If case-insensitive handles are
+ * wanted they are a separate, deliberate migration with a data audit in front of
+ * it.
  */
 export const stores = pgTable(
   'stores',

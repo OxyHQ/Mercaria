@@ -6,15 +6,13 @@
  * itself computes — verification, the review aggregate, the sales counter — plus
  * the seller's shipping and return preferences.
  *
- * ## Why the whole table moved in this phase and not a later one
+ * ## One owner for `sales_count`, and for the four sites that render it
  *
- * The commerce core has to bump `sales_count` when an order is paid. Porting only
- * that write would leave the increment landing in Postgres while every reader —
- * the cart's vendor header, the catalogue's seller card, an order's seller
- * summary — still read the Mongo document, so the counter would climb in a row
- * nothing displays and show zero everywhere it is rendered. A counter split
- * across two stores is not a partial migration, it is a wrong number, so the four
- * read sites and the review aggregate came with it.
+ * The commerce core bumps `sales_count` when an order is paid, and the cart's
+ * vendor header, the catalogue's seller card and an order's seller summary all
+ * read it back. The write and those readers stay in this one repository against
+ * this one table: a counter incremented in one place and rendered from another
+ * is not a design, it is a wrong number.
  *
  * ## Every write is an UPSERT, because the profile is lazily created
  *

@@ -70,7 +70,7 @@ import { connections } from './connectors';
 import { DISCOUNT_VALUE_TYPES } from './merchandising';
 import { customers, stores } from './stores';
 
-/** `Order.status` — `ORDER_STATUSES` in `models/order.ts`. */
+/** `Order.status`. */
 export const ORDER_STATUSES: readonly OrderStatus[] = [
   'pending_payment',
   'paid',
@@ -91,10 +91,10 @@ export const ORDER_SELLER_TYPES: readonly OrderSellerType[] = ['user', 'store'];
 /** `Order.sourceChannel` — `SOURCE_CHANNELS`. */
 export const ORDER_SOURCE_CHANNELS: readonly OrderSourceChannel[] = ['storefront', 'pos', 'draft'];
 
-/** A discount allocation's target — `['order', 'line']` in `models/order.ts`. */
+/** A discount allocation's target. */
 export const DISCOUNT_ALLOCATION_TARGETS = ['order', 'line'] as const;
 
-/** `Refund.type` — `REFUND_TYPES` in `models/refund.ts`. */
+/** `Refund.type`. */
 export const REFUND_TYPES: readonly RefundType[] = ['refund', 'return'];
 
 /** `Refund.status` — `REFUND_STATUSES`. */
@@ -162,7 +162,7 @@ export const orders = pgTable(
     shippingMethod: text({ enum: asEnumValues(SHIPPING_METHODS) }).notNull(),
     shippingLabel: text().notNull(),
     ...dualMoney('shippingCost'),
-    /** Mongoose `default: null` — NULL means "not yet dispatched", not "unknown". */
+    /** NULL means "not yet dispatched", not "unknown". */
     shippingTrackingNumber: text(),
 
     // `totals` — five DualMoney amounts, twenty columns. Flat, because reports

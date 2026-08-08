@@ -35,8 +35,8 @@ on:
         description: >-
           How to apply migrations. `pre-post` (default) applies the additive ones
           before the rollout and the destructive ones after. `all` applies
-          everything in ONE run before the rollout — what a from-zero batch needs
-          (the Mongo→Postgres cutover was one), and wrong for anything else.
+          everything in ONE run before the rollout — what a from-zero batch needs,
+          and wrong for anything else.
         type: choice
         default: pre-post
         options:
@@ -92,9 +92,9 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      # The API suite needs a real PostGIS server: the Mongo→Postgres port's
-      # `*.realdb.test.ts` files run their SQL against a throwaway database the
-      # harness creates HERE (see packages/backend/vitest.pg.globalSetup.ts).
+      # The API suite needs a real PostGIS server: the `*.realdb.test.ts` files
+      # run their SQL against a throwaway database the harness creates HERE
+      # (see packages/backend/vitest.pg.globalSetup.ts).
       # Without it `vitest.pg.globalSetup.ts` throws and every deploy fails
       # before it starts.
       #
@@ -248,9 +248,9 @@ jobs:
       # The CUTOVER path, chosen by hand from workflow_dispatch. One `all` run
       # applies the whole chain in journal order before the rollout, which the
       # pre/post pair cannot do: a `pre` migration queued behind an unapplied
-      # `post` one BLOCKS by design, and the Mongo→Postgres chain has exactly that
-      # shape. It is safe only because at the cutover no image is serving this
-      # schema — which is also why it must never be the default. Measured: on an
+      # `post` one BLOCKS by design, and the journal in packages/backend/drizzle
+      # has exactly that shape. It is safe only on a database no image is serving
+      # yet — which is also why it must never be the default. Measured: on an
       # empty database `--phase=pre` refuses and names both files, while `all`
       # applies all of them and leaves both later phases clean no-ops.
       - name: Migrate (all) — cutover only, never a normal release

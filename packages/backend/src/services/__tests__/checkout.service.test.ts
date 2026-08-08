@@ -17,9 +17,9 @@
  * the repository, so what this file checks is that it is called EXACTLY once per
  * redeemed code on a fresh checkout and never on a replay.
  *
- * Everything else is mocked as before: the cart/inventory services, the still
- * Mongoose `Address` model, the store repository, the order-hydration
- * summarizer, the media chokepoint, the pricing engine and Redis.
+ * Everything else is mocked as before: the cart/inventory services, the address
+ * and store repositories, the order-hydration summarizer, the media chokepoint,
+ * the pricing engine and Redis.
  *
  * Tests assert the F4 checkout contract: multi-seller split (one order per
  * seller, shared `checkoutGroupId`), reservation rollback on a later

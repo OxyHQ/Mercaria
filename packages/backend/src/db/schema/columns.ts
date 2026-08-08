@@ -75,8 +75,8 @@ export const CURRENCY_CODE_VALUES = asEnumValues(ALL_CURRENCY_CODES);
  *
  * `mode: 'number'` re-imposes JavaScript's own ceiling of 2^53 − 1, i.e. about
  * 90.07 million ⊜. That is NOT a ceiling this column introduces: it is exactly
- * the ceiling `Money.amount: number` already has today under Mongo, and
- * `money.ts`'s own comment flags the same figure as a pending BigInt decision.
+ * the ceiling `Money.amount: number` already has, and `money.ts`'s own comment
+ * flags the same figure as a pending BigInt decision.
  * This column raises the storage ceiling from 21 ⊜ to the DTO's own limit; it
  * does not lower anything. If that decision ever lands, this builder and the DTO
  * change together.
