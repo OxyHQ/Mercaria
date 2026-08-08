@@ -22,8 +22,7 @@
  * action to retry a push message would risk double-enforcement to fix a courtesy.
  */
 
-import mongoose from 'mongoose';
-import { Store } from '../../models/store.js';
+import { findStoreById } from '../../db/stores/storeRepository.js';
 import { sendNotification } from '../../lib/notification-service.js';
 import { log } from '../../lib/logger.js';
 
@@ -46,13 +45,16 @@ async function resolveRecipient(
   input: RequestedChangesNotificationInput,
 ): Promise<string | undefined> {
   if (input.ownerType === 'user') return input.oxyUserId;
-  if (input.storeId === undefined || !mongoose.isValidObjectId(input.storeId)) {
+  if (input.storeId === undefined) {
     return undefined;
   }
-  const store = await Store.findById(input.storeId)
-    .select('members.oxyUserId members.role')
-    .lean<{ members?: { oxyUserId: string; role: string }[] } | null>();
-  return store?.members?.find((member) => member.role === 'owner')?.oxyUserId;
+  // No id-SHAPE check. A store id is `text` holding a 24-hex ObjectId for a
+  // pre-cutover row and a uuid v7 for a newer one, so the `isValidObjectId` guard
+  // this replaces would have silently returned `undefined` for every store
+  // created after the migration — no notification, and a warning line blaming
+  // the listing. A store id that matches nothing is answered by the lookup.
+  const store = await findStoreById(input.storeId);
+  return store?.members.find((member) => member.role === 'owner')?.oxyUserId;
 }
 
 export async function notifySellerOfRequestedChanges(
