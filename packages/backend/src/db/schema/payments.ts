@@ -1,5 +1,5 @@
 /**
- * The payment domain: `payments`, `payment_attempts`,
+ * The payment domain: `provider_accounts`, `payments`, `payment_attempts`,
  * `payment_provider_events`, `transfers`, `payouts`, `payment_outboxes`.
  *
  * These tables replace the four fields `orders.payment_*` used to carry alone.
@@ -65,13 +65,233 @@ import {
   PAYMENT_PROVIDER_IDS,
   PAYMENT_STATUSES,
   PAYOUT_STATUSES,
+  PROVIDER_ACCOUNT_OWNER_TYPES,
+  PROVIDER_CAPABILITY_STATUSES,
   PROVIDER_EVENT_STATUSES,
+  PROVIDER_ONBOARDING_STATES,
   TRANSFER_STATUSES,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks, money, optionalMoney } from './columns';
 
 /** Bound on a stored dispatch or processing error — the `.slice()` at every writer. */
 const MAX_LAST_ERROR_LENGTH = 2_000;
+
+/**
+ * `provider_accounts` — one seller's standing with one payment rail.
+ *
+ * The record ADR 0001 D9 and issue #46 both call for, and the answer to "may
+ * this seller's group be checked out" (D4). It exists as a TABLE rather than a
+ * handful of columns on `stores` and `seller_profiles` for three reasons that
+ * each rule out the scattered form on their own: the two owner kinds would need
+ * the same six columns duplicated across two tables, a second rail (#51) would
+ * need them again, and a payout event naming a connected account has exactly one
+ * place to resolve it from.
+ *
+ * ## The owner is ONE polymorphic column, not a mutually-exclusive pair
+ *
+ * `orders` distinguishes its seller with `seller_type` plus two nullable id
+ * columns and a CHECK holding them mutually exclusive, because an order joins to
+ * `stores` for real and wants that foreign key. This table cannot: half its
+ * owners are Oxy accounts, whose key space is not in this database at all
+ * (`CONVENTIONS.md`, "there is no users table"), so the store half would be the
+ * only constrained one and the pair would exist purely to be CHECKed.
+ *
+ * `ledger_entries` already carries this exact `owner_type` + `owner_id` pair for
+ * exactly these two kinds, and this follows it. One column makes "two owners at
+ * once" UNREPRESENTABLE rather than merely rejected, and it is what lets the
+ * uniqueness below be the single index that actually matters here:
+ * `UNIQUE(provider, owner_type, owner_id)` is the one thing standing between a
+ * seller and attaching a second account, or someone else's (#46, security 3).
+ * The pair form cannot express that constraint in one index at all.
+ *
+ * The store half gains no foreign key by the same argument the payment
+ * correlations make: a provider account outlives the store record it names,
+ * because money can still be owed to it, and a financial row that could not be
+ * read because its join partner was deleted is the failure a payment system may
+ * not have.
+ *
+ * ## `onboarding_state` is the ONLY verdict, and readiness is not a column
+ *
+ * ADR 0001 D9's conjunction — payouts enabled, transfers active, nothing due or
+ * past due, not disabled — is evaluated when provider state is synchronised and
+ * collapsed into `onboarding_state`. Storing a `ready` boolean beside it would
+ * be two representations of one fact, and nothing in a schema can stop them
+ * disagreeing; the checkout gate would then admit a seller because a flag was
+ * stale. Everything else on this row EXPLAINS that verdict and is never
+ * consulted to reach it a second time.
+ *
+ * ## Requirements are COUNTS, and that is a security property
+ *
+ * `requirement_collection = stripe` (D2) means the provider holds the identity
+ * data and Mercaria holds none of it. Four integers and a deadline is what a
+ * seller-facing surface can honestly use, and an integer column cannot hold
+ * `individual.verification.document` — so the safe subset is structural here
+ * rather than a rule someone has to remember at the write site. A `jsonb`
+ * summary would have been the mechanical port of the provider's own object and
+ * would have re-opened exactly that door; it would also not have earned `jsonb`
+ * under `CONVENTIONS.md`, since the shape is Mercaria's own and closed.
+ */
+export const providerAccounts = pgTable(
+  'provider_accounts',
+  {
+    id: generatedId(),
+    provider: text({ enum: asEnumValues(PAYMENT_PROVIDER_IDS) }).notNull(),
+    ownerType: text({ enum: asEnumValues(PROVIDER_ACCOUNT_OWNER_TYPES) }).notNull(),
+    /** A store id or an Oxy account id — polymorphic by `owner_type`, no foreign key. */
+    ownerId: text().notNull(),
+    /**
+     * The provider's own account reference (`acct_…`). Unique per provider,
+     * indexed, and NEVER a Mercaria primary key — the same invariant every other
+     * `provider_object_id` in this file carries (#45 invariant 4).
+     *
+     * It is also never accepted from a client. The only writer is the create
+     * path, which reads it off the provider's own response to a call it made
+     * itself; a request body able to carry one is the account-takeover surface
+     * (#46, security 3).
+     */
+    providerAccountId: text().notNull(),
+    /**
+     * ISO-3166-1 alpha-2, as the account was created and immutable at the
+     * provider afterwards. Validated against `config.payments.stripe.sellerCountries`
+     * before creation (ADR 0001 D8) — the allow-list is configuration because the
+     * transfer region is the provider's and changes on their schedule.
+     */
+    country: text().notNull(),
+    /**
+     * The account's own settlement currency, as the provider reports it.
+     *
+     * Deliberately NOT CHECKed against `ALL_CURRENCY_CODES` — the second such
+     * exemption in this schema, for the same reason as `connections.shop_currency`
+     * and registered beside it. Several EEA currencies a seller may legitimately
+     * settle in (RON, CZK, HUF, BGN) are not in Mercaria's presentment set, and a
+     * CHECK would fail the SYNC of a real account rather than the price. Nothing
+     * in Mercaria prices against this value; it is shown to the seller.
+     */
+    defaultCurrency: text(),
+    onboardingState: text({ enum: asEnumValues(PROVIDER_ONBOARDING_STATES) })
+      .notNull()
+      .default('not_connected'),
+    /**
+     * Whether the connected account may itself charge cards.
+     *
+     * Recorded because the provider reports it and an operator will ask, and
+     * deliberately absent from the readiness conjunction: under separate charges
+     * and transfers (D3) the connected account never charges anything, so this
+     * being false does not stop the seller selling. ADR 0001 D9 says as much in
+     * the readiness definition itself.
+     */
+    chargesEnabled: boolean().notNull().default(false),
+    /** Whether the provider will pay this account out. Half of the D9 conjunction. */
+    payoutsEnabled: boolean().notNull().default(false),
+    /**
+     * The `transfers` capability — the only one D2 requests. NULL means it was
+     * never requested, which is a different fact from `inactive` (the provider
+     * declining) and from `pending` (the provider working).
+     */
+    transfersCapability: text({ enum: asEnumValues(PROVIDER_CAPABILITY_STATUSES) }),
+    /** Outstanding now. Non-zero means the seller has something to do. */
+    requirementsCurrentlyDue: integer().notNull().default(0),
+    /** Outstanding eventually — collected up front so payouts are never interrupted (D2). */
+    requirementsEventuallyDue: integer().notNull().default(0),
+    /** Overdue. Non-zero is what turns a working account `restricted`. */
+    requirementsPastDue: integer().notNull().default(0),
+    /** Submitted and being checked — nothing for the seller to do, hence `under_review`. */
+    requirementsPendingVerification: integer().notNull().default(0),
+    /** When the provider needs `currently_due` satisfied by, when it says. */
+    requirementsDeadlineAt: timestamptz(),
+    /**
+     * Why the provider will not pay this account out, in its own codes, filtered
+     * to those safe to show the account's owner.
+     *
+     * `text[]` and not a child table: it is a small set never queried BY element,
+     * which is the line `CONVENTIONS.md` draws. NOT NULL with an empty default
+     * because "no reasons" is a real value here and a nullable column would make
+     * every reader handle two spellings of it.
+     */
+    disabledReasonCodes: text().array().notNull().default([]),
+    /** `manual`, `daily`, `weekly` or `monthly` — display metadata, never enforced. */
+    payoutScheduleInterval: text(),
+    /** Days the provider holds funds before paying out, when it reports one. */
+    payoutScheduleDelayDays: integer(),
+    /**
+     * The last successful provider read.
+     *
+     * Also the reconciliation cursor: the sweep refreshes the accounts whose
+     * value is oldest, so a missed `account.updated` converges without anyone
+     * knowing which one was missed (ADR 0001, sequence 6).
+     */
+    lastSyncedAt: timestamptz(),
+    /** When this account first became `ready`. Set once and never cleared. */
+    activatedAt: timestamptz(),
+    /**
+     * When the platform's authorisation was revoked (the seller disconnected).
+     *
+     * Kept rather than deleting the row: the account may still hold a balance,
+     * `payouts` rows still name it, and the fact that a seller WAS onboarded is
+     * part of the record a marketplace has to be able to produce (D10).
+     */
+    revokedAt: timestamptz(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    checkOneOf('provider_accounts_provider_check', t.provider, PAYMENT_PROVIDER_IDS),
+    checkOneOf('provider_accounts_owner_type_check', t.ownerType, PROVIDER_ACCOUNT_OWNER_TYPES),
+    checkOneOf(
+      'provider_accounts_onboarding_state_check',
+      t.onboardingState,
+      PROVIDER_ONBOARDING_STATES,
+    ),
+    checkOneOf(
+      'provider_accounts_transfers_capability_check',
+      t.transfersCapability,
+      PROVIDER_CAPABILITY_STATUSES,
+    ),
+    // An empty string is a VALUE, so it satisfies NOT NULL and collides for real
+    // in the uniqueness below — the same trap `CONVENTIONS.md` records for a
+    // sparse-unique column written `''` instead of NULL.
+    check('provider_accounts_owner_id_check', sql`length(${t.ownerId}) > 0`),
+    check(
+      'provider_accounts_provider_account_id_check',
+      sql`length(${t.providerAccountId}) > 0`,
+    ),
+    // ISO-3166-1 alpha-2, upper-cased — the form the allow-list is compared in.
+    check(
+      'provider_accounts_country_check',
+      sql`${t.country} = upper(${t.country}) and length(${t.country}) = 2`,
+    ),
+    check(
+      'provider_accounts_requirements_check',
+      sql`${t.requirementsCurrentlyDue} >= 0 and ${t.requirementsEventuallyDue} >= 0
+          and ${t.requirementsPastDue} >= 0 and ${t.requirementsPendingVerification} >= 0`,
+    ),
+    check(
+      'provider_accounts_payout_delay_days_check',
+      sql`${t.payoutScheduleDelayDays} is null or ${t.payoutScheduleDelayDays} >= 0`,
+    ),
+    // A code is a code. The allow-list form (`<@ array[…]`) would be wrong here —
+    // these are the PROVIDER's own codes and their set grows on the provider's
+    // schedule — but an EMPTY one carries no meaning and renders as a blank
+    // bullet in the seller's dashboard, so that much is refused.
+    check(
+      'provider_accounts_disabled_reason_codes_check',
+      sql`not ('' = any(${t.disabledReasonCodes}))`,
+    ),
+    // #46, security 3, and the whole reason the owner is one column: ONE account
+    // per owner per rail. A concurrent second `ensureConnectedAccount` converges
+    // on the row this refuses to duplicate rather than opening a second account
+    // at the provider.
+    uniqueIndex('provider_accounts_owner_key').on(t.provider, t.ownerType, t.ownerId),
+    // "Which seller is this connected account?" — the lookup every inbound
+    // account and payout event starts from.
+    uniqueIndex('provider_accounts_provider_account_id_key').on(t.provider, t.providerAccountId),
+    // The reconciliation sweep: least-recently-synced first, NULLs (never synced)
+    // ahead of everything, which is the order it must visit them in.
+    index('provider_accounts_sync_idx').on(t.provider, t.lastSyncedAt),
+    // The operator question "who is stuck", and the seller-cohort reads behind it.
+    index('provider_accounts_state_idx').on(t.provider, t.onboardingState),
+  ],
+);
 
 /**
  * `payments` — the durable payment aggregate, one per funded checkout group.

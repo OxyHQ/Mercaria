@@ -130,3 +130,59 @@ export async function retrieveStripePaymentIntent(
 export async function retrieveStripeTransfer(transferId: string): Promise<Stripe.Transfer> {
   return await getStripeClient().transfers.retrieve(transferId);
 }
+
+/**
+ * Create a connected account.
+ *
+ * The parameters are built by `account.service.ts` and passed through verbatim,
+ * deliberately: ADR 0001 D2's controller properties are the DECISION and belong
+ * with the code that can be read against the ADR, while this module stays what
+ * it says it is — the client and its pinned version. A test asserting the exact
+ * shape sent to Stripe therefore mocks this ONE module and inspects what it was
+ * handed, which is the only way to check the properties without a network call.
+ *
+ * @param idempotencyKey Derived from a Mercaria durable id (ADR 0001 D11), never
+ *   from request-scoped randomness — so a retried onboarding click converges on
+ *   the account the first one made instead of opening a second one at Stripe.
+ *   That is the outer half of the guarantee whose inner half is the
+ *   `UNIQUE(provider, owner_type, owner_id)` index.
+ */
+export async function createStripeConnectedAccount(
+  params: Stripe.AccountCreateParams,
+  idempotencyKey: string,
+): Promise<Stripe.Account> {
+  return await getStripeClient().accounts.create(params, { idempotencyKey });
+}
+
+/**
+ * Read a connected account's CURRENT state from Stripe.
+ *
+ * Accounts are retrieved on the PLATFORM account by id, not through a
+ * `Stripe-Account` header: Mercaria is the platform reading an account it
+ * controls, and passing the header would ask that account to look up itself,
+ * which is a different (and, for a `requirement_collection=stripe` account,
+ * differently-permissioned) call.
+ *
+ * Every readiness decision goes through here rather than through a webhook
+ * payload. An `account.updated` body is a snapshot of a moment that has passed,
+ * and Stripe orders nothing — so a delivery retried hours later would otherwise
+ * restore requirements the seller has since satisfied.
+ */
+export async function retrieveStripeAccount(accountId: string): Promise<Stripe.Account> {
+  return await getStripeClient().accounts.retrieve(accountId);
+}
+
+/**
+ * Mint a hosted-onboarding Account Link.
+ *
+ * Single-use and expiring in minutes (ADR 0001 D2), which is why nothing stores
+ * the result: a link in a database has expired by the time anyone reads it, and
+ * a link in an email is a link that left the app. No idempotency key — the
+ * whole point of the call is to produce a NEW link, so replaying one would hand
+ * back an already-consumed URL.
+ */
+export async function createStripeAccountLink(
+  params: Stripe.AccountLinkCreateParams,
+): Promise<Stripe.AccountLink> {
+  return await getStripeClient().accountLinks.create(params);
+}

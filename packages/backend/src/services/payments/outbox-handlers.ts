@@ -26,6 +26,13 @@ interface PaymentEventPayload {
   providerEventId?: string;
   /** The status the payment was in when the late capture arrived. */
   releasedStatus?: string;
+  /** `provider_account_changed`: which account, whose, and where it moved. */
+  accountRowId?: string;
+  ownerType?: string;
+  ownerId?: string;
+  previousState?: string;
+  onboardingState?: string;
+  reason?: string;
 }
 
 /** Read the payload without trusting jsonb to have the shape we wrote. */
@@ -45,6 +52,14 @@ function readPayload(event: PaymentOutboxRow): PaymentEventPayload {
     ...(typeof record.releasedStatus === 'string'
       ? { releasedStatus: record.releasedStatus }
       : {}),
+    ...(typeof record.accountRowId === 'string' ? { accountRowId: record.accountRowId } : {}),
+    ...(typeof record.ownerType === 'string' ? { ownerType: record.ownerType } : {}),
+    ...(typeof record.ownerId === 'string' ? { ownerId: record.ownerId } : {}),
+    ...(typeof record.previousState === 'string' ? { previousState: record.previousState } : {}),
+    ...(typeof record.onboardingState === 'string'
+      ? { onboardingState: record.onboardingState }
+      : {}),
+    ...(typeof record.reason === 'string' ? { reason: record.reason } : {}),
   };
 }
 
@@ -156,6 +171,48 @@ async function handlePaymentSucceededAfterRelease(event: PaymentOutboxRow): Prom
 }
 
 /**
+ * A seller's standing with a payment rail changed.
+ *
+ * The durable audit record issue #46 (backend 8) asks for: account creation,
+ * every onboarding transition, and the revocation that ends one. It is an OUTBOX
+ * row rather than a new table because the fact is a payment-domain consequence
+ * with the same at-least-once delivery needs as every other, and a second audit
+ * table would be a second retention policy, a second sweep and a second place to
+ * look.
+ *
+ * The handler deliberately does nothing but record it, at the level the
+ * transition deserves — losing readiness stops that seller selling, so it is not
+ * an `info` line among thousands. #50 owns the operator surface that reads these
+ * rows, and #108 the seller-facing notification; both attach HERE rather than to
+ * the Stripe webhook, so neither ever receives provider detail.
+ */
+async function handleProviderAccountChanged(event: PaymentOutboxRow): Promise<void> {
+  const { accountRowId, ownerType, ownerId, previousState, onboardingState, reason } =
+    readPayload(event);
+  const details = {
+    eventId: event.id,
+    accountRowId,
+    ownerType,
+    ownerId,
+    from: previousState,
+    to: onboardingState,
+    reason,
+  };
+
+  if (onboardingState === 'ready') {
+    log.general.info(details, '[Payments] seller is payment ready');
+  } else if (previousState === 'ready') {
+    log.general.warn(
+      details,
+      '[Payments] seller lost payment readiness; their checkout groups are now refused',
+    );
+  } else {
+    log.general.info(details, '[Payments] seller payment onboarding advanced');
+  }
+  return await Promise.resolve();
+}
+
+/**
  * Run one claimed outbox row.
  *
  * An event type this version does not handle THROWS, so it is retried rather
@@ -173,6 +230,8 @@ export async function runPaymentOutboxEvent(event: PaymentOutboxRow): Promise<vo
       return await handlePaymentFailed(event);
     case 'payment_succeeded_after_release':
       return await handlePaymentSucceededAfterRelease(event);
+    case 'provider_account_changed':
+      return await handleProviderAccountChanged(event);
     default:
       throw new Error(
         `No handler for payment outbox event type '${String(event.eventType)}' in this version.`,

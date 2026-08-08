@@ -9,11 +9,12 @@
  * ## Three outcomes, and the middle one is the point
  *
  * A handler returns `applied`, `deferred` or `ignored`, and the processor writes
- * that distinction into the event row's `processing_note`. Most of the types ADR
- * 0001 subscribes to belong to later issues — connected-account readiness to
- * #46, refunds, disputes and payouts to #49 — and they arrive here TODAY,
- * because an endpoint has to be registered with its full event list before any
- * of them ships or everything that happens in between is simply lost.
+ * that distinction into the event row's `processing_note`. Several of the types
+ * ADR 0001 subscribes to still belong to later issues — refunds, disputes and
+ * payouts to #49 — and they arrive here TODAY, because an endpoint has to be
+ * registered with its full event list before any of them ships or everything
+ * that happens in between is simply lost. The three `account.*` types were in
+ * that category until #46 and are now applied.
  *
  * Marking those `processed` and saying nothing else would make a deferral
  * indistinguishable from real handling in the operator trace: the row would
@@ -52,6 +53,7 @@ import {
 } from '../payment.service.js';
 import { PaymentProviderError } from '../provider.js';
 import { log } from '../../../lib/logger.js';
+import { redactAccountId, revokeAccount, syncAccountState } from './account.service.js';
 import { retrieveStripePaymentIntent, retrieveStripeTransfer } from './client.js';
 import { mapPaymentIntentStatus } from './verify.js';
 
@@ -426,23 +428,85 @@ async function handleTransfer(context: StripeEventContext): Promise<StripeEventO
   };
 }
 
-/** Connected-account readiness — #46 owns every consequence of these. */
+/**
+ * Connected-account readiness.
+ *
+ * ## The payload is never applied, only the account id is used
+ *
+ * `account.updated` carries the whole account, and this handler throws it away
+ * and re-reads from Stripe. That is the file's stale-delivery rule at its
+ * sharpest: an account's requirements are the most volatile thing Stripe
+ * reports, deliveries are unordered, and a retry hours later would otherwise
+ * restore requirements the seller has already satisfied — turning a ready seller
+ * unready with no way to notice. So this reads `event.account` and nothing else.
+ *
+ * `account.external_account.updated` (a bank account or debit card changed)
+ * takes the same path: the payload describes the external account, but what
+ * Mercaria needs to know is whether `payouts_enabled` moved as a result, which
+ * is a property of the ACCOUNT.
+ *
+ * ## Deauthorization is the one that must not re-read
+ *
+ * `account.application.deauthorized` means the platform's access is gone, so the
+ * retrieve every other branch performs would fail — and a failure on that path
+ * is retryable, so the account would be retried until it dead-lettered instead of
+ * being marked revoked. It is applied directly.
+ *
+ * An account id nothing here knows is `ignored`, not an error: it is an account
+ * from another environment or one whose row a rebuilt database lost, and there
+ * is no work a retry could complete.
+ */
 async function handleAccount(context: StripeEventContext): Promise<StripeEventOutcome> {
-  return await Promise.resolve({
-    kind: 'deferred',
-    note: `deferred: #46 — ${context.type} for account ${context.account ?? 'unknown'}; the provider-account records and the readiness gate land there.`,
-  });
+  // `event.account` on a connect-scope delivery; `objectIds.account` is the same
+  // id read off the object, and is what a platform-scope replay of an `account`
+  // object would carry. Neither is client-supplied — both come off the verified
+  // event (issue #48, identity boundaries 3).
+  const accountId = context.account ?? context.objectIds.account;
+  if (accountId === undefined) {
+    throw malformed(`Stripe event ${context.providerEventId} names no connected account.`);
+  }
+
+  if (context.type === 'account.application.deauthorized') {
+    const revoked = await revokeAccount(accountId);
+    return revoked
+      ? {
+          kind: 'applied',
+          note: `connected account ${redactAccountId(accountId)} is revoked; the seller can no longer be paid and their checkout groups are refused`,
+        }
+      : {
+          kind: 'ignored',
+          note: `Stripe deauthorized ${redactAccountId(accountId)}, which Mercaria has no provider-account row for.`,
+        };
+  }
+
+  const row = await syncAccountState(accountId);
+  if (!row) {
+    return {
+      kind: 'ignored',
+      note: `Stripe reported ${context.type} for ${redactAccountId(accountId)}, which Mercaria has no provider-account row for.`,
+    };
+  }
+
+  return {
+    kind: 'applied',
+    note: `connected account ${redactAccountId(accountId)} re-read from Stripe; it is '${row.onboardingState}'`,
+  };
 }
 
-/** Payout health — #49 owns the records, #46 owns the account they belong to. */
+/**
+ * Payout health — #49 owns the records.
+ *
+ * The reason this stayed deferred is GONE: `provider_accounts` now maps a
+ * connected account to a store or an Oxy user, so a `payouts` row written today
+ * would be attributable. What is still missing is the rest of #49 — the payout
+ * lifecycle, the `payout_changed` domain event and its handler, and the
+ * dashboard surface that reads them — and emitting rows without the event that
+ * announces them would land half of a feature whose other half nothing calls.
+ */
 async function handlePayout(context: StripeEventContext): Promise<StripeEventOutcome> {
-  // Deliberately NOT upserted into `payouts` yet. That table keys rows by
-  // `provider_account_ref`, and the record mapping a connected account to a
-  // store or an Oxy user is #46's — so writing rows now would produce payout
-  // history nobody can attribute to a seller, which is worse than none.
   return await Promise.resolve({
     kind: 'deferred',
-    note: `deferred: #49 — ${context.type} (${context.objectIds.payout ?? 'no id'}); payout records need the provider-account mapping from #46 before they are attributable.`,
+    note: `deferred: #49 — ${context.type} (${context.objectIds.payout ?? 'no id'}); the provider-account mapping now exists, so the payout records and their domain event land together there.`,
   });
 }
 

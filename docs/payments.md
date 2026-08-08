@@ -10,11 +10,12 @@ checkout group. This document describes what was BUILT for it (issue #45); the
 ADR describes why, and where the two disagree the ADR wins and this file is
 wrong.
 
-Faircoin (#51) does not exist yet, and Stripe exists only from the webhook
-inwards: #48 built the event ingress described below, while the adapter that
-CREATES payments (`createPayment`/`capture`/`refund`) is #47's and onboarding is
-#46's. Nothing here is a placeholder: the domain is complete on its own terms and
-each rail arrives as an adapter behind one interface.
+Faircoin (#51) does not exist yet, and Stripe exists from the webhook inwards
+plus its connected accounts: #48 built the event ingress described below, #46
+built onboarding and the readiness gate, and the adapter that CREATES payments
+(`createPayment`/`capture`/`refund`) is #47's. Nothing here is a placeholder: the
+domain is complete on its own terms and each rail arrives as an adapter behind one
+interface.
 
 ---
 
@@ -35,10 +36,11 @@ single real charge could be created.
 
 ## Models
 
-Eight tables, all Postgres-native — none has a Mongoose ancestor.
+Nine tables, all Postgres-native — none has a Mongoose ancestor.
 
 | Table | What it is |
 |---|---|
+| `provider_accounts` | One seller's standing with one rail: their connected account, its capabilities, and the single readiness verdict checkout gates on. |
 | `payments` | The durable payment aggregate. One per funded checkout group for native rails; one per imported order for `external`. |
 | `payment_attempts` | One row per provider authorization or confirmation Mercaria asked for. Append-mostly evidence. |
 | `payment_provider_events` | The immutable envelope of everything a provider has told Mercaria. Receipt is separate from processing. |
@@ -355,8 +357,8 @@ their account never went live.
 | `charge.*` | correlated; Stripe's fee needs a ledger CORRECTION, not a reopened transaction | #49 |
 | `charge.refunded`, `charge.refund.updated`, `charge.dispute.*` | correlated | #49 |
 | `transfer.*` | the transfer row's status and reversed amount ARE refreshed, if a row exists | create path #47, `transfer_changed` event #49 |
-| `account.*` | correlated | #46 |
-| `payout.*` | correlated only — a payout row needs #46's account→seller mapping to be attributable | #49 |
+| `account.*` | applied — the account is re-read from Stripe and readiness recomputed | — |
+| `payout.*` | correlated only. The account→seller mapping #46 added means a payout row WOULD now be attributable; what is still missing is the rest of the payout lifecycle and its domain event | #49 |
 
 ### No rate limiter, deliberately
 
@@ -377,6 +379,209 @@ build, whose crypto provider throws from every SYNCHRONOUS entry point
 runs Bun, so a synchronous `constructEvent` verifies every delivery in production
 and throws on every delivery in development — the worst possible split. Measured
 on stripe@22.4.0; it applies to `generateTestHeaderString` in tests too.
+
+---
+
+## Connected accounts and payment readiness (#46)
+
+`provider_accounts` is the record ADR 0001 D9 calls for: one row per seller per
+rail, carrying the connected account and the verdict that decides whether their
+listings can be bought.
+
+### One account per owner, and the index that enforces it
+
+`UNIQUE(provider, owner_type, owner_id)`. That constraint is the whole reason the
+owner is ONE polymorphic column rather than the mutually-exclusive pair `orders`
+uses — the pair cannot express this uniqueness in a single index at all, and this
+is the constraint that stops a seller attaching a second connected account, or
+somebody else's.
+
+Creation is idempotent on both sides of the boundary, and the two halves protect
+different things:
+
+- **In Mercaria**, an existing row short-circuits before any Stripe call, and a
+  concurrent second caller converges through `on conflict do nothing` plus a
+  re-read.
+- **At Stripe**, the idempotency key is derived from the OWNER
+  (`acct:<ownerType>:<ownerId>`), so two racing callers send the same key and
+  Stripe answers both with one account. This is the half that matters: a Mercaria
+  row can be deduplicated after the fact, and a Stripe account cannot be
+  un-created. A key derived from a freshly-minted row id would differ between the
+  two racers and defeat itself.
+
+### Readiness is ONE stored verdict
+
+ADR 0001 D9's conjunction — payouts enabled, `transfers` active, nothing
+currently due or past due, no disabling reason — is evaluated at synchronisation
+and collapsed into `onboarding_state`. There is deliberately no `ready` boolean
+beside it: two representations of one fact can disagree, and the one place that
+must not happen is a checkout gate admitting a seller because a flag was stale.
+
+`charges_enabled` is recorded and NOT a conjunct. Under separate charges and
+transfers the connected account never charges a card, so a seller whose account
+cannot charge is not thereby unable to sell.
+
+The state derivation is ordered, and the order is the decision:
+
+| Order | Condition | State |
+|---|---|---|
+| 1 | the platform's authorisation was revoked | `disabled` |
+| 2 | a `rejected.*` reason, or `listed` / `platform_paused` / `other` | `disabled` |
+| 3 | anything `past_due` | `restricted` |
+| 4 | the D9 conjunction holds | `ready` |
+| 5 | `under_review` / `pending_verification`, or nothing due and `transfers` pending | `under_review` |
+| 6 | otherwise | `action_required` |
+
+`restricted` and `disabled` are distinct because one is recoverable by the seller
+and one is not; collapsing them either tells someone their business is over when
+it is not, or sends them round a hosted flow that cannot help them.
+`rejected.*` is matched by PREFIX so a rejection Stripe adds later lands on the
+safe side.
+
+### Requirements are COUNTS, and that is structural
+
+`requirement_collection = stripe` (D2) means Stripe holds the identity data.
+Mercaria stores four integers, a deadline and a filtered reason code — as REAL
+COLUMNS, not a summary object, precisely so the safe subset cannot be violated by
+a careless write: an integer column cannot hold `individual.verification.document`.
+Reason codes are additionally shape-checked (`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$`)
+and replaced with `other` if they are anything a sentence or a name could fit in.
+
+### Three writers, one path
+
+`account.updated`, `account.external_account.updated` and the reconciliation
+sweep all end at `syncAccountState`, which RE-READS the account from Stripe and
+applies what it finds. No handler applies a webhook payload: an account's
+requirements are the most volatile thing Stripe reports, deliveries are
+unordered, and a retry hours later would otherwise restore requirements the
+seller has since satisfied.
+
+`account.application.deauthorized` is the one exception and must not re-read —
+the platform's access is gone, so the retrieve would fail, and a retryable
+failure would dead-letter the event while leaving a seller Mercaria cannot pay
+marked as active.
+
+Ordering between the three is a compare-and-swap on `last_synced_at`: the
+freshest observation wins whichever write lands first, so no caller needs to know
+another exists. Revocation deliberately bypasses that guard — it is not an
+observation a later read supersedes.
+
+### The reconciliation sweep
+
+`startStripeAccountReconciler` re-reads accounts whose `last_synced_at` is older
+than `STRIPE_ACCOUNT_SYNC_STALE_AFTER_MS` (6 hours), oldest first, never-synced
+ahead of everything, revoked accounts excluded. A missed `account.updated` is
+silent by construction — nothing here knows about an event it never received — so
+a sweep that does not depend on having been told is the only thing that can
+notice.
+
+It needs no lease, unlike the outbox dispatcher: an outbox row is WORK and doing
+it twice does the thing twice, while a sync is an OBSERVATION and the
+compare-and-swap keeps the freshest one whichever task wrote it. The full
+reconciliation framework — drift reports, dead-letter replay, ledger-versus-Stripe
+comparison — is #50's, and building a fraction of it here would leave two
+half-frameworks to merge.
+
+### The checkout gate
+
+`assertSellerGroupsPaymentReady` runs in `checkout.service` after the seller
+groups are built and BEFORE any inventory is reserved (ADR 0001 D4). Refusing
+after a reservation would hold somebody else's stock for the length of a rollback
+on a question that needed no stock to answer. The refusal names the seller keys,
+so a buyer can deselect that group through the existing partial-checkout
+mechanism without a second round trip.
+
+It lives in `services/payments/provider-account.service.ts`, which knows what a
+seller key is and what `ready` means and NOTHING about Stripe — because
+`checkout.service` importing a Stripe module would make the card rail structural
+to placing an order.
+
+**When `STRIPE_ENABLED` is off the gate returns before touching Postgres**, so a
+deployment without Stripe behaves exactly as it did before #46. Both branches are
+pinned: the off branch in `checkout.service.test.ts`
+(`expect(findProviderAccountByOwner).not.toHaveBeenCalled()`), the on branch in
+`checkout.payment-gate.test.ts`, which also asserts `reserve` was never called.
+
+### Hosted onboarding, and what a redirect proves
+
+Account Links are single-use and expire in minutes, so they are minted on demand
+and never stored. Both URLs point back at this API, not at an app: the round trip
+is authenticated by a signed, expiring `state` token (HMAC-SHA256, constant-time
+comparison, 30 minutes) because the seller arrives from stripe.com with no
+session and no credential.
+
+`refresh` re-mints and bounces the seller straight back to Stripe. It will not
+CREATE an account, ever — creation stays behind the authenticated,
+permission-checked routes, so the worst a captured state can reach is an
+onboarding flow for an account that already exists, never a new account attached
+to someone else's store. The token is not single-use (that needs server-side
+state, the same limitation the connector OAuth state carries) and this is what
+bounds it instead.
+
+`return` re-READS the account from Stripe before redirecting — an authoritative
+call, not a belief in the redirect — purely so the dashboard the seller lands on
+is current. Readiness still comes only from `account.updated` and the sweep; if
+the read fails the redirect happens anyway.
+
+A tampered or expired state is answered **400, never a redirect**: the only
+destination available at that point would be one derived from an unverified
+parameter, which is how a signed-state check becomes an open redirect.
+
+### Routes and permissions
+
+| Route | Who |
+|---|---|
+| `GET /admin/stores/:storeId/payments/account` | store member with `store:manage` |
+| `POST /admin/stores/:storeId/payments/account/onboarding-link` | store member with `store:manage` |
+| `GET /seller/payments/account` | the P2P seller themself |
+| `POST /seller/payments/account/onboarding-link` | the P2P seller themself |
+| `GET /stripe/onboarding/refresh?state=…` | nobody — signed state only |
+| `GET /stripe/onboarding/return?state=…` | nobody — signed state only |
+
+`store:manage` and not `settings:write`: the latter belongs to `admin` and
+`staff` and opens the return policy, while this decides where a store's money is
+settled and starts an identity flow in the store's name. `store:manage` is the
+one permission `admin` does not hold.
+
+The P2P routes have no permission check and none is missing — the owner is
+derived from `getRequiredOxyUserId`, so the surface can only ever reach the
+caller's own account. Neither surface reads an identifier a client could choose,
+which closes "one owner attaches another owner's connected account" at the route
+rather than at the service.
+
+Link minting is metered on a dedicated `payments` rate-limit scope, because every
+mint is a Stripe API call and the create path behind it can bring an account into
+existence.
+
+### What the API returns, and what it never returns
+
+`SellerPaymentSettings` = the account status, `onboardingAvailable` (can this
+deployment onboard anyone at all), and `supportedCountries`. The status carries
+the state, the readiness boolean, the capability flags, the requirement COUNTS,
+the payout currency and schedule, and the filtered reason codes.
+
+It never carries the connected-account id, the raw requirements, any part of the
+provider payload, or any credential. The projection names every field explicitly
+rather than spreading the row, so a column added later cannot ride along; a test
+asserts both the absent key and the absent VALUE, since the second is what a
+spread would produce.
+
+Account ids are redacted to their last four characters in logs
+(`acct_…IjK`). Not a secret, and still redacted: a full id in an aggregated log
+store is a durable, greppable link between that store and one merchant's
+finances, and nothing an operator does needs more than enough to tell two
+accounts apart.
+
+### The audit trail
+
+Account creation, every state transition and every revocation write a
+`provider_account_changed` row to `payment_outboxes` — the same durable
+at-least-once delivery every other payment consequence gets, rather than a second
+audit table with a second retention policy. The payload is ids and the two states
+it moved between; the handler logs at a level that reflects the transition
+(losing readiness is a `warn`, because it stops that seller selling). #50 owns
+the operator surface that reads these, #108 the seller notification; both attach
+here rather than to the Stripe webhook, so neither ever receives provider detail.
 
 ---
 
@@ -480,6 +685,13 @@ STRIPE_EVENT_MAX_ATTEMPTS=8            # then dead_letter, awaiting a replay
 STRIPE_EVENT_BATCH_SIZE=50
 STRIPE_EVENT_POLL_INTERVAL_MS=5000
 STRIPE_EVENT_LEASE_MS=60000
+
+STRIPE_ONBOARDING_BASE_URL=            # THIS API's public origin (#46)
+STRIPE_ONBOARDING_RETURN_URL=          # where the seller lands afterwards — the dashboard
+STRIPE_ONBOARDING_STATE_SECRET=        # HMAC key for the signed round-trip state
+STRIPE_ACCOUNT_SYNC_STALE_AFTER_MS=21600000   # 6 hours
+STRIPE_ACCOUNT_SYNC_BATCH_SIZE=25
+STRIPE_ACCOUNT_SYNC_INTERVAL_MS=900000        # 15 minutes
 ```
 
 `STRIPE_ENABLED=true` requires the key AND BOTH webhook secrets; half-configured
@@ -487,6 +699,22 @@ logs once at boot and stays OFF, the `CROWDSOURCE_ENABLED` rule. There is no
 `STRIPE_ACCOUNT_ID` (the platform account is implied by the key) and no API
 version variable — that is a code constant, `STRIPE_API_VERSION`, so an event
 payload's shape stays a property of the code that parses it.
+
+**The three onboarding values do NOT join that check**, and the difference is the
+failure mode rather than the importance. The webhook-secret rule exists for a
+SILENT failure: a deployment missing the Connect secret verifies charges and
+drops every `account.updated`, so sellers stop becoming ready with nothing to
+see. Missing onboarding configuration is the opposite — the onboarding route
+fails immediately, naming the variable, while the already-shipped webhook ingress
+keeps working. Turning the whole rail off for it would take payments down to fix
+an onboarding typo. `stripeOnboardingConfig()` is the single reader and names
+every missing variable at once; `isStripeOnboardingConfigured()` is the predicate
+the dashboard reads so it can disable its connect action rather than offer a
+button that answers with an error.
+
+`STRIPE_ONBOARDING_BASE_URL` is this API's public origin, configured rather than
+derived from the request: a `Host` header behind an ALB is attacker-controlled,
+and a redirect built from one is an open redirect with a Stripe-branded first hop.
 
 `STRIPE_EVENT_MAX_ATTEMPTS` is 8 against the outbox's 25, on purpose: an outbox
 row is Mercaria's own consequence and the only way it will ever happen, while an
@@ -521,3 +749,131 @@ under concurrency and looked exactly like a bug in whichever file lost the race.
 Every assertion is scoped to rows the test itself wrote — which is the stronger
 form anyway, since a count over a whole table passes for the wrong reason as soon
 as a fixture is added elsewhere.
+
+---
+
+## Runbook: Stripe test mode, webhooks, and account troubleshooting
+
+Everything below is TEST MODE. Nothing here has been exercised against a live
+Stripe account — the platform legal entity is still an open item in ADR 0001, and
+the live key must not be issued before it is settled.
+
+### 1. Bring up a test-mode deployment
+
+1. In the Stripe dashboard, switch to **test mode** and copy the secret key
+   (`sk_test_…`). Its prefix is what sets `livemode` — there is no variable for
+   that, so a test key can only ever see test objects.
+2. Create the **two webhook endpoints**, both with the API version pinned in
+   `STRIPE_API_VERSION` (`2026-07-29.dahlia`). Selecting "latest" instead is the
+   drift ADR 0001 forbids: an event whose shape changed would arrive against
+   fixtures nobody re-verified.
+
+   | Endpoint | Scope | URL | Events |
+   |---|---|---|---|
+   | Platform | `connect = false` | `https://<api>/webhooks/stripe` | the `payment_intent.*`, `charge.*`, `transfer.*` list in ADR 0001 |
+   | Connect | `connect = true` | `https://<api>/webhooks/stripe/connect` | `account.updated`, `account.application.deauthorized`, `account.external_account.updated`, `payout.paid`, `payout.failed` |
+
+3. Set the environment (see Configuration above). `STRIPE_ENABLED=true` needs the
+   key and BOTH signing secrets, or the rail stays off and says so once at boot.
+   Set the three `STRIPE_ONBOARDING_*` values too — the rail will come up without
+   them and no seller will be able to onboard.
+4. Confirm the mount: `GET /` lists `/stripe/onboarding`, and
+   `POST /webhooks/stripe` answers 400 (bad signature) rather than 404. A 404
+   means `STRIPE_ENABLED` did not resolve true — check the boot log for the
+   `[Stripe] STRIPE_ENABLED is set but the integration is incomplete` line, which
+   names the missing variables.
+
+### 2. Take a test store from not connected to payment ready
+
+1. Sign in to the dashboard as a store **owner** (`store:manage`; an `admin` is
+   deliberately refused) and open **Settings → Payments & payouts**.
+2. Press *Set up payouts*. That creates the connected account and opens Stripe's
+   hosted onboarding **in the system browser**. It will not work in an embedded
+   webview.
+3. Complete the flow with Stripe's test values — `000 000 000` for a Spanish tax
+   id, `SSN 000-00-0000`, and the test IBAN for the account's country from
+   Stripe's testing docs. Use the "skip this step" affordances Stripe offers in
+   test mode to jump straight to a fully-verified account.
+4. On return, the screen refetches. It may still say *A few details are still
+   needed* for a few seconds: readiness comes from `account.updated`, not from
+   the browser coming back. When Stripe has finished, the row flips to `ready`
+   and the screen says *Ready to be paid*.
+5. Verify from the API rather than the UI:
+   `GET /admin/stores/:storeId/payments/account` →
+   `data.account.onboardingState === 'ready'` and `data.account.paymentReady === true`.
+
+**Reopening the flow never creates a second account.** Pressing the button again
+mints a fresh Account Link against the same connected account — that is what the
+owner-derived Stripe idempotency key and `UNIQUE(provider, owner_type, owner_id)`
+between them guarantee. If you ever see two accounts for one owner, both of those
+have failed and it is a bug, not a configuration problem.
+
+### 3. Local development without a public URL
+
+Stripe cannot reach `localhost`, and hosted onboarding cannot redirect to it
+either.
+
+```
+stripe listen --forward-to localhost:4160/webhooks/stripe
+stripe listen --forward-connect-to localhost:4160/webhooks/stripe/connect
+```
+
+Each prints its own `whsec_…`; they are DIFFERENT secrets and must go in
+`STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET` respectively.
+Swapping them makes every delivery fail signature verification, which looks
+exactly like a compromised endpoint.
+
+For the onboarding round trip, `STRIPE_ONBOARDING_BASE_URL` must be a URL Stripe
+can redirect a browser to — a tunnel (`stripe listen` does not provide one). The
+redirect is a browser hop, not a server call, so the tunnel only has to be
+reachable from the machine running the browser.
+
+### 4. Troubleshooting an account
+
+Start from the row, not from Stripe:
+
+```sql
+select id, owner_type, owner_id, onboarding_state, payouts_enabled,
+       transfers_capability, requirements_currently_due, requirements_past_due,
+       requirements_deadline_at, disabled_reason_codes, last_synced_at,
+       activated_at, revoked_at
+from provider_accounts
+where provider = 'stripe' and owner_id = '<store id or oxy user id>';
+```
+
+| Symptom | Most likely cause | What to do |
+|---|---|---|
+| Seller says they finished onboarding, row still `action_required` | `account.updated` was never delivered, or the Connect endpoint's secret is wrong | Check the Stripe dashboard's webhook delivery log for that endpoint. Then wait for the sweep (≤ 6 hours) or restart a task to run it sooner — it converges on the same answer either way. |
+| Row `restricted`, seller says nothing is outstanding | Stripe's own state moved and Mercaria has not re-read it | Compare `last_synced_at` against the change; the sweep will pick it up. |
+| Checkout refuses a seller who looks fine in the dashboard | The dashboard is reading a stale query cache, or the gate is reading a different owner | Confirm `onboardingState` from the API, and confirm the checkout error names the same seller key. |
+| No `provider_accounts` row at all, but Stripe shows an account | The account was created and the insert did not land, or the row was created in another environment | Do NOT insert a row by hand. The account id is in Stripe's metadata (`ownerType`, `ownerId`); decide deliberately whether to adopt or abandon it. |
+| Every onboarding request 400s naming a variable | `STRIPE_ONBOARDING_*` is unset | Set the three values. The rail itself is unaffected and charges keep working. |
+| `account.updated` events sit `failed` in `payment_provider_events` | The account row is missing, or Stripe is refusing the retrieve | Read `last_error` on the row. An account Mercaria has no row for is marked `processed` with a note, never `failed` — a `failed` one is a real error. |
+
+Useful correlations:
+
+- inbound deliveries for one account —
+  `select type, status, processing_note, received_at from payment_provider_events
+   where provider_account_id = '<acct_…>' order by received_at desc limit 20;`
+- the audit trail of one seller's transitions —
+  `select id, payload, created_at from payment_outboxes
+   where event_type = 'provider_account_changed' order by created_at desc limit 20;`
+
+### 5. Rotating the webhook secrets
+
+Set the new secret in Stripe, put the OLD one in `STRIPE_WEBHOOK_SECRET_PREVIOUS`
+(or `STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS`) and the new one in the primary
+variable, deploy, then remove the previous after Stripe has stopped retrying
+anything signed with it. Both are accepted during the window, so no delivery is
+lost.
+
+### 6. What has NOT been rehearsed
+
+- Anything in live mode, including the `debit_negative_balances` default that ADR
+  0001 lists and this implementation deliberately does not send (with
+  `losses.payments = application` it is not an independent setting; sending a
+  redundant field on a path that cannot be exercised without a live account is a
+  deploy-time failure for no gain — verify it once a live account exists).
+- A seller in a country other than the configured one, since
+  `STRIPE_SELLER_COUNTRIES` defaults to `ES` alone.
+- Recovery from `disabled`, which needs Stripe support rather than a runbook step.

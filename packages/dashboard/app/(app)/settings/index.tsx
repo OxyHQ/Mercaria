@@ -9,6 +9,7 @@ import {
   Bell,
   MapPin,
   Plug,
+  CreditCard,
   ChevronRight,
   type LucideIcon,
 } from "lucide-react-native";
@@ -76,6 +77,19 @@ const ITEMS: SettingsItem[] = [
     icon: Plug,
     href: "/channels",
     permission: "channels:write",
+  },
+  // Deliberately a separate row from "Sales channels", and worded so the two
+  // cannot be read as the same thing: a sales channel is where a catalogue is
+  // listed, this is where money is settled. A store can have either without the
+  // other, and merging them would make connecting Shopify look like a payments
+  // decision.
+  {
+    key: "payments",
+    label: "Payments & payouts",
+    description: "Get paid for orders placed on Mercaria",
+    icon: CreditCard,
+    href: "/settings/payments",
+    permission: "store:manage",
   },
 ];
 
