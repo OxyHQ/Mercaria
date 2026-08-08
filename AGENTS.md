@@ -133,8 +133,10 @@ The six roles the code distinguishes: **catalog** (what a price is stored in),
 
 `oxy_pay` is **gone** — a clean cut, not an alias. It named a rail nobody built.
 `PAYMENT_PROVIDER_IDS` in `@mercaria/shared-types` is `external | manual_pos |
-mock | stripe`; Faircoin (#51) arrives as an adapter behind
-`services/payments/provider.ts` and adds its own value with its own migration.
+mock | stripe`. FairCoin is **not** a payment method in this roadmap; if it is
+introduced it arrives through OxyPay — the Oxy gateway that accepts FairCoin —
+under its own ADR, as an adapter behind `services/payments/provider.ts` adding
+its own value with its own migration. Nothing anticipates it today.
 Full model, index, retention and boundary reference: **`docs/payments.md`**;
 the binding decisions are ADR 0001 (`docs/adr/0001-stripe-connect-architecture.md`).
 

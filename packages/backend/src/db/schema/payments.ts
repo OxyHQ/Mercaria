@@ -83,7 +83,7 @@ const MAX_LAST_ERROR_LENGTH = 2_000;
  * this seller's group be checked out" (D4). It exists as a TABLE rather than a
  * handful of columns on `stores` and `seller_profiles` for three reasons that
  * each rule out the scattered form on their own: the two owner kinds would need
- * the same six columns duplicated across two tables, a second rail (#51) would
+ * the same six columns duplicated across two tables, a second rail would
  * need them again, and a payout event naming a connected account has exactly one
  * place to resolve it from.
  *
@@ -366,8 +366,9 @@ export const payments = pgTable(
     /** An ISO-8601 instant as TEXT — `FxRateSnapshot.asOf` is declared `string`. */
     platformRateAsOf: text(),
     /**
-     * The provider's own object for this payment (a PaymentIntent, a Faircoin
-     * transaction). Indexed for reconciliation lookups and NEVER a primary key.
+     * The provider's own object for this payment (a PaymentIntent, or whatever
+     * a future rail calls its own). Indexed for reconciliation lookups and NEVER
+     * a primary key.
      */
     providerObjectId: text(),
     createdAt: createdAt(),

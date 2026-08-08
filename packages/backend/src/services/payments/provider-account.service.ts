@@ -5,7 +5,7 @@
  *
  * `checkout.service` must not import a Stripe module. ADR 0001's last
  * consequence is that everything provider-specific stays behind the payment
- * domain's own boundary, so that #51's Faircoin rail plugs into the same seams;
+ * domain's own boundary, so that a future rail plugs into the same seams;
  * a `import { … } from './payments/stripe/…'` in the checkout path would make
  * the card rail structural to placing an order, which is the coupling the
  * `PaymentProvider` interface exists to prevent.
@@ -43,7 +43,7 @@ import { conflict } from '../../lib/errors/error-codes.js';
  *
  * A constant rather than a parameter because there is exactly one today and
  * pretending otherwise would be an abstraction with a single implementation.
- * #51 adds a second rail with its own eligibility, and the seam it needs is a
+ * A second rail would bring its own eligibility, and the seam it needs is a
  * seller-and-listing-aware CHOICE of rail — which is a different function from
  * this one, not a wider signature on it.
  */

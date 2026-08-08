@@ -6,7 +6,7 @@
  * The same boundary `provider-account.service` draws, and for the same reason:
  * `checkout.service` must not import a Stripe module. ADR 0001's last consequence
  * is that everything provider-specific stays behind the payment domain, so that
- * #51's Faircoin rail plugs into the same seam — and a Stripe import in the
+ * a future rail plugs into the same seam — and a Stripe import in the
  * checkout path would make the card rail structural to placing an order.
  *
  * So the split is by vocabulary. This file knows that a checkout has a rail, that

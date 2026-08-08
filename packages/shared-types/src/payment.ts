@@ -8,8 +8,8 @@
  *
  * Nothing in this file names a provider's own vocabulary. `pi_…`, `charge`,
  * `transfer_group` and every other Stripe noun stay behind the `PaymentProvider`
- * interface in the backend; a Faircoin rail (#51) plugs into the same seams
- * without either provider leaking into the domain.
+ * interface in the backend; a future rail plugs into the same seams without any
+ * provider leaking into the domain.
  *
  * ## What this file is NOT
  *
@@ -27,9 +27,11 @@ import type { Money } from './money';
  *
  * A closed set, and deliberately a SHORT one: a provider is added here together
  * with the code that can produce a row for it and its migration widening the
- * CHECK, never in advance. Faircoin (#51) is not listed because nothing can
- * write one yet, and a value the database accepts but no code can produce is an
- * invitation to write a row nothing can ever reconcile.
+ * CHECK, never in advance. FairCoin is not listed because nothing can write one:
+ * it is not a payment method in this roadmap, and if it is introduced it arrives
+ * through OxyPay — the Oxy gateway that accepts FairCoin — under its own ADR. A
+ * value the database accepts but no code can produce is an invitation to write a
+ * row nothing can ever reconcile.
  *
  *  - `external` — the payment happened on a connected platform (Shopify,
  *    WooCommerce). Mercaria records it so the order is explicable, and books NO

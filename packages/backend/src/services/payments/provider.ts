@@ -2,8 +2,8 @@
  * `PaymentProvider` — the seam every payment rail plugs into.
  *
  * ADR 0001's last consequence: "everything provider-specific stays behind the
- * #45 `PaymentProvider` interface". Stripe (#46–#48) and Faircoin (#51) are
- * adapters written against this file and nothing else. No type here names a
+ * #45 `PaymentProvider` interface". Stripe (#46–#48) is an adapter written
+ * against this file and nothing else, and a future rail is another. No type here names a
  * provider's vocabulary — there is no `PaymentIntent`, no `transfer_group`, no
  * `charge` — and the day one appears, this seam has failed.
  *
@@ -263,7 +263,7 @@ export interface PaymentProvider {
    * Mercaria captures immediately (ADR 0001 D3 — card authorization windows are
    * shorter than realistic secondhand fulfilment), so for a card rail this and
    * `capture` collapse into one provider call. They stay separate methods
-   * because a rail that genuinely holds funds — a Faircoin escrow — needs both,
+   * because a rail that genuinely holds funds — an escrow rail — needs both,
    * and discovering that after the interface froze would be expensive.
    */
   authorize(request: PaymentOperationRequest): Promise<ProviderPaymentResult>;
@@ -370,8 +370,8 @@ export interface ProviderTransferReversalResult {
  * invisible. So the mock rail declines to settle and the settlement service
  * skips it, which is the truth about what a dev seam does.
  *
- * #51's Faircoin rail is expected to implement this: a per-order settlement out
- * of a group payment is a marketplace shape, not a Stripe one.
+ * A future rail is expected to implement this: a per-order settlement out of a
+ * group payment is a marketplace shape, not a Stripe one.
  *
  * `reverseTransfer` is on this interface and not on `PaymentProvider` for the
  * same reason `createTransfer` is: a rail that never settled a seller order has
