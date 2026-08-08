@@ -1,0 +1,185 @@
+/**
+ * Id-Column Classification Ledgers
+ *
+ * A schema built table by table lets an id-shaped column arrive with no foreign
+ * key and nobody having decided that on purpose. Left unchecked, "no
+ * constraint" and "nobody has looked at this yet" are indistinguishable — so
+ * every `*_id` column in Mercaria's schema must be accounted for by exactly one
+ * of four things: a real `.references()`, a primary key, an entry in
+ * {@link DEFERRED_FOREIGN_KEYS}, or an entry in
+ * {@link ID_COLUMNS_WITHOUT_FOREIGN_KEY}. Anything else fails the gate in
+ * `__tests__/schema-conventions.test.ts` as `unclassified_id_column`.
+ *
+ * ## The fact that shapes both lists: there is no `users` table
+ *
+ * Oxy owns identity. Mercaria reaches it over HTTP, so every buyer id, seller
+ * id, store-member id and `oxy_user_id` in this schema is a FOREIGN SERVICE's
+ * primary key and can carry no foreign key. That is not a gap to close later: a
+ * shadow `users` table would be a cache that can disagree with Oxy, and
+ * validating on write would put an HTTP round trip in front of every insert.
+ * Those columns belong in {@link ID_COLUMNS_WITHOUT_FOREIGN_KEY} permanently,
+ * each with its reason.
+ *
+ * The same is true of ids belonging to other services Mercaria integrates with
+ * — a CrowdSource `decision_id`, an Oxy `file_id` on a listing image, an Oxy
+ * Pay reference on an order.
+ *
+ * ## Deferred versus permanent — the distinction that makes the gate work
+ *
+ * {@link DEFERRED_FOREIGN_KEYS} is for a relation that IS decided but not yet
+ * expressible, because the parent table has not landed. The gate fails the
+ * moment a table with that name appears in the schema: the entry must then
+ * become a real `.references()` and be deleted from the list. That is what
+ * stops "we'll add the constraint when the other table exists" from becoming a
+ * permanent condition nobody revisits.
+ *
+ * ## Empty, because every table landed at once
+ *
+ * Fase 1 wrote all 49 tables in one pass, so no relation was ever waiting on a
+ * parent that did not exist. Every id column here is either a real foreign key
+ * or PERMANENTLY unconstrained for one of the four reasons enumerated below.
+ * An empty deferred list is the correct end state, not an unstarted one.
+ */
+
+import type { DeferredForeignKey } from '@oxyhq/db/assert';
+
+/** Relations decided but not yet expressible — each one owes a `.references()`. */
+export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [];
+
+/** Oxy owns identity; there is no `users` table and there must never be one. */
+const OXY_ACCOUNT = 'An Oxy account id. Oxy owns identity over HTTP; there is no users table.';
+
+/** An Oxy media file id, resolved through the SDK's canonical media chokepoint. */
+const OXY_FILE = 'An Oxy media file id. Oxy owns the file; Mercaria stores only the id.';
+
+/**
+ * An id in an EXTERNAL commerce platform's own key space (Shopify, WooCommerce,
+ * …). Mercaria neither mints nor validates it.
+ */
+const EXTERNAL_PLATFORM = "An external commerce platform's own id — a foreign system's key space.";
+
+/**
+ * A commerce SNAPSHOT's provenance. The row already carries the frozen title,
+ * price and quantity that make it readable without the target, and the target
+ * can legitimately be deleted (`removeVariant`, `deleteDiscount`) — so
+ * constraining it would either block that deletion or destroy the historical
+ * record that must outlive it. Decided in `CONVENTIONS.md` under Foreign keys.
+ */
+const COMMERCE_SNAPSHOT =
+  'Snapshot provenance on an immutable commerce record — the target may be deleted ' +
+  'and the row must survive it with its frozen values intact.';
+
+/**
+ * `*_id` columns that will NEVER carry a constraint, named `table.column` by
+ * their SQL names (never the TypeScript property — an `endsWith('_id')` test
+ * against `sellerId` matches nothing and passes vacuously).
+ */
+export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: string }[] = [
+  // ── Oxy account ids ───────────────────────────────────────────────────────
+  { column: 'abuse_reports.reporter_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'addresses.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'carts.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'customers.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'draft_orders.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'favorites.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'feedback.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'listings.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'notifications.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'order_status_history.by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'orders.buyer_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'orders.seller_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'push_tokens.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'refunds.processed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'refunds.seller_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'reviews.author_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'reviews.seller_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'seller_profiles.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'store_members.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'user_preferences.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'web_push_subscriptions.oxy_user_id', reason: OXY_ACCOUNT },
+
+  // ── Oxy media file ids ────────────────────────────────────────────────────
+  { column: 'categories.image_file_id', reason: OXY_FILE },
+  { column: 'collections.image_file_id', reason: OXY_FILE },
+  { column: 'listing_images.file_id', reason: OXY_FILE },
+  { column: 'stores.cover_file_id', reason: OXY_FILE },
+  { column: 'stores.logo_file_id', reason: OXY_FILE },
+
+  // ── External commerce-platform ids ────────────────────────────────────────
+  { column: 'connections.external_shop_id', reason: EXTERNAL_PLATFORM },
+  { column: 'listing_external_refs.external_id', reason: EXTERNAL_PLATFORM },
+  { column: 'listings.source_external_id', reason: EXTERNAL_PLATFORM },
+  { column: 'orders.source_external_id', reason: EXTERNAL_PLATFORM },
+  { column: 'product_variants.source_external_inventory_item_id', reason: EXTERNAL_PLATFORM },
+  { column: 'product_variants.source_external_variant_id', reason: EXTERNAL_PLATFORM },
+
+  // ── CrowdSource ids ───────────────────────────────────────────────────────
+  {
+    column: 'abuse_reports.crowd_source_case_id',
+    reason: "CrowdSource's case id. CrowdSource owns cases; Mercaria only records which one.",
+  },
+  {
+    column: 'abuse_reports.crowd_source_report_id',
+    reason: "CrowdSource's report id, assigned on delivery — their key space, not ours.",
+  },
+  {
+    column: 'moderation_enforcements.case_id',
+    reason: "CrowdSource's case id — forensic only, never joined.",
+  },
+  {
+    column: 'moderation_enforcements.decision_id',
+    reason:
+      "CrowdSource's decision id. Part of this table's idempotency key, and the reason " +
+      'ids are carried across the cutover verbatim rather than remapped.',
+  },
+
+  // ── Polymorphic subjects: the target table varies per row ─────────────────
+  {
+    column: 'abuse_reports.reported_id',
+    reason:
+      'Polymorphic by reported_type — addresses listings, reviews, seller_profiles or ' +
+      'stores depending on the row, so no single foreign key can express it.',
+  },
+  {
+    column: 'moderation_enforcements.subject_id',
+    reason: 'Polymorphic by subject_type, exactly as abuse_reports.reported_id is.',
+  },
+
+  // ── Commerce snapshots: the target may be deleted, the record may not ─────
+  { column: 'draft_order_applied_discounts.discount_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'draft_order_line_items.listing_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'draft_order_line_items.variant_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'order_applied_discounts.discount_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'order_items.listing_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'order_items.location_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'order_items.variant_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'refund_line_items.location_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'refund_line_items.variant_id', reason: COMMERCE_SNAPSHOT },
+
+  // ── Identifiers with no parent table at all ───────────────────────────────
+  {
+    column: 'orders.checkout_group_id',
+    reason:
+      'A grouping token shared by the sibling orders one multi-seller cart split into. ' +
+      'It names a set of rows in this same table, not a row in another one — there is ' +
+      'no checkout_groups entity and inventing one would add a table nothing reads.',
+  },
+  {
+    column: 'notifications.conversation_id',
+    reason:
+      'An opaque conversation reference from another Oxy service, carried through so a ' +
+      'client can deep-link. Nothing in Mercaria resolves it.',
+  },
+  {
+    column: 'push_tokens.device_id',
+    reason:
+      'A client-supplied device identifier, not an Oxy id and not unique across users — ' +
+      'it disambiguates a user’s own devices and addresses no row anywhere.',
+  },
+  {
+    column: 'stores.tax_settings_tax_registration_id',
+    reason:
+      'A government-issued VAT/tax registration NUMBER, not an entity id. It matches the ' +
+      '`_id` suffix by coincidence and references nothing.',
+  },
+];

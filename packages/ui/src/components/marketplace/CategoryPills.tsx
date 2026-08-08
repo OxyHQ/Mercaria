@@ -19,9 +19,12 @@ export interface CategoryPillsProps {
  * image + the category name, in a rounded-full bordered chip), shown at the very
  * top of the home feed. Chips size to their content, so a plain horizontal
  * `ScrollView` is used rather than the fixed-width `Carousel`. Fully theme/token
- * based.
+ * based. Returns `null` when there are no pills or they are unavailable, so the
+ * row leaves no gap behind — safe to render always.
  */
 export function CategoryPills({ pills, onPressPill }: CategoryPillsProps) {
+  if (!pills || pills.length === 0) return null;
+
   return (
     <View className="mb-6">
       <ScrollView
@@ -29,7 +32,7 @@ export function CategoryPills({ pills, onPressPill }: CategoryPillsProps) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: CONTENT_PADDING, gap: CHIP_GAP }}
       >
-        {(pills ?? []).map((pill) => (
+        {pills.map((pill) => (
           <CategoryPillChip key={pill.id} pill={pill} onPressPill={onPressPill} />
         ))}
       </ScrollView>

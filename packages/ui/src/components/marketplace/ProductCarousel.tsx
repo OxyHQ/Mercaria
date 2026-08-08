@@ -20,7 +20,9 @@ export interface ProductCarouselProps {
 /**
  * A horizontally scrollable row of product cards. Card width is fixed by
  * Tailwind classes (no JS measuring); the scroll + web-arrow behavior lives
- * entirely in the generic `Carousel`.
+ * entirely in the generic `Carousel`. Returns `null` when there are no items or
+ * they are unavailable, so neither the optional heading nor the carousel's web
+ * edge arrows paint over an empty row — safe to render always.
  */
 export function ProductCarousel({
   items,
@@ -28,6 +30,8 @@ export function ProductCarousel({
   onPressItem,
   onToggleSaveItem,
 }: ProductCarouselProps) {
+  if (!items || items.length === 0) return null;
+
   return (
     <View>
       {title ? (

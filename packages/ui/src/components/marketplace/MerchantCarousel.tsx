@@ -18,7 +18,9 @@ export interface MerchantCarouselProps {
 /**
  * A titled merchant (shop) section: a bold heading above a horizontally
  * scrollable row of large `MerchantCard`s. Reuses the generic `Carousel`, so
- * the scroll + web-arrow logic is shared, not duplicated.
+ * the scroll + web-arrow logic is shared, not duplicated. Returns `null` when
+ * there are no merchants or they are unavailable, so the heading never appears
+ * over an empty row — safe to render always.
  */
 export function MerchantCarousel({
   title,
@@ -26,6 +28,8 @@ export function MerchantCarousel({
   onPressMerchant,
   onPressProduct,
 }: MerchantCarouselProps) {
+  if (!merchants || merchants.length === 0) return null;
+
   return (
     <View className="mb-6">
       <SectionHeader title={title} />
