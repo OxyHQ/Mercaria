@@ -1005,9 +1005,15 @@ export interface SalesBucket {
  * reported no settlement time still lands in the bucket it was created in rather
  * than vanishing from the report.
  *
- * The `Date` bounds are BOUND PARAMETERS (`sql` interpolation of a JS value), never
- * interpolated into the statement text — a `Date` rendered into raw SQL is a
- * locale-dependent string, which is the failure that reads as an empty report.
+ * ## The window bounds are ISO strings with an explicit cast, not `Date` objects
+ *
+ * The timeline anchor is an EXPRESSION rather than a column, so drizzle has no
+ * column type to encode the comparison's right-hand side with, and postgres.js is
+ * handed a raw `Date` it refuses with `ERR_INVALID_ARG_TYPE` — a hard failure at
+ * query time, on a report that type-checks perfectly. `toISOString()` plus
+ * `::timestamptz` gives the parameter an unambiguous type and keeps it a bound
+ * parameter rather than statement text. Caught by `commerce.realdb.test.ts`; the
+ * mocked report tests could not have seen it.
  */
 export async function sumPaidRevenueByBucket(
   storeId: string,
@@ -1034,8 +1040,8 @@ export async function sumPaidRevenueByBucket(
         eq(orders.storeId, storeId),
         eq(orders.paymentStatus, 'paid'),
         eq(orders.totalsGrandTotalShopCurrency, shopCurrency),
-        sql`${paidMoment} >= ${window.from}`,
-        sql`${paidMoment} <= ${window.to}`,
+        sql`${paidMoment} >= ${window.from.toISOString()}::timestamptz`,
+        sql`${paidMoment} <= ${window.to.toISOString()}::timestamptz`,
       ),
     )
     .groupBy(bucket)
@@ -1090,8 +1096,10 @@ export async function findTopProducts(
         eq(orders.storeId, storeId),
         eq(orders.paymentStatus, 'paid'),
         eq(orders.totalsGrandTotalShopCurrency, shopCurrency),
-        sql`${paidMoment} >= ${window.from}`,
-        sql`${paidMoment} <= ${window.to}`,
+        // Same ISO-string-plus-cast binding as the bucketed report — see it for
+        // why a raw `Date` against an EXPRESSION is refused by the driver.
+        sql`${paidMoment} >= ${window.from.toISOString()}::timestamptz`,
+        sql`${paidMoment} <= ${window.to.toISOString()}::timestamptz`,
       ),
     )
     .groupBy(orderItems.listingId)

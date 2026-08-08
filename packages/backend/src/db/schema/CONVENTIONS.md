@@ -642,15 +642,47 @@ add a row when a gate lands, and do not list one that does not run yet.
 | Every `PROTECTED_COLUMNS` entry names a real table (by its SQL name) and a real column (by its TypeScript property) — the two conventions differ and mixing them up silently protects NOTHING | `src/db/__tests__/schema-conventions.test.ts` | no |
 | `money`/`dualMoney`/`addressColumns` emit exactly the column names they claim, in TypeScript AND in SQL — the one place in the schema where key names are not compiler-checked | `src/db/__tests__/schema-conventions.test.ts` | no |
 | Every currency column carries a CHECK, since `text({ enum })` emits no DDL | `src/db/__tests__/schema-conventions.test.ts` | no |
+| The order status CAS refuses a stale `expected`, so two concurrent transitions produce exactly ONE winner and one history event | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| A discount's total-usage ceiling holds under two CONCURRENT redemptions at `totalMax - 1` | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| A replayed checkout's duplicate is refused by `orders_idempotency_key_key` and the survivor is findable by that key | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| Two concurrent FIRST paid orders settle a customer on ONE row with `orderCount = 2` | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| The refunded-quantity and RESTOCKED-quantity aggregates answer their two different questions | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| The sales report buckets across a month boundary and sums only the store's shop currency | `src/db/__tests__/commerce.realdb.test.ts` | yes |
+| Both sequences format (`MRC-%06d` / `RMA-%06d`) and ascend independently, and no third one exists | `src/db/__tests__/commerce.realdb.test.ts`, `src/services/__tests__/draft-order-complete.realdb.test.ts` | yes |
+| The generated `search_vector` stems and case-folds TAGS, and keeps its GIN index across the column rewrite | `src/db/__tests__/catalog.realdb.test.ts` | yes |
 
-### Not yet wired, and what each one needs
+### The three concurrency shapes a mocked test cannot see
 
-Both remaining `@oxyhq/db/assert` gates query the real catalogue, so they need a
-migrated database. `vitest.pg.globalSetup.ts` provides one but is still not
-listed in `vitest.config.ts`: every test in this package reads and writes Mongo,
-and adding a second global setup would make all 597 of them require a running
-Postgres before they could start. That is Fase 2's one-line change, together
-with the first Postgres-backed repository tests.
+Everything above the line is checked by reading code. These three are not, and
+each one has a translation that type-checks, reads correctly and is WRONG — so
+each is pinned by two genuinely concurrent calls against a real server, and each
+was mutation-tested by reverting to the wrong form and watching the gate fail.
+
+- **A conditional write must stay ONE statement.** Mongo's
+  `findOneAndUpdate({_id, status: current}, …)` evaluated its guard and its
+  mutation together. `UPDATE … WHERE id = $1 AND status = $2 RETURNING` has the
+  same property: the row is locked for the statement, so the loser's predicate is
+  re-checked against the winner's write. A read-then-write is a different
+  function with the same signature and a lost-update bug.
+- **A guard that reads OTHER rows cannot live in the same `UPDATE`.** A subquery
+  in an `UPDATE … WHERE` is evaluated against the statement's own snapshot, and
+  READ COMMITTED explicitly does not re-read other rows during an EvalPlanQual
+  recheck — so the tempting one-statement port of Mongo's `$expr` ceiling lets
+  BOTH concurrent redemptions through. Serialize on the parent
+  (`SELECT … FOR UPDATE`), then count in a SEPARATE statement, which takes a
+  fresh snapshot after the wait. `redeemDiscountCode` is the worked example.
+- **An `ON CONFLICT … DO UPDATE` increment must reference the EXISTING row**, not
+  `excluded`. `excluded` is the row this statement proposed, so two concurrent
+  first orders would each set the count to their own proposed `1`.
+
+### A `Date` is not a safe parameter against an EXPRESSION
+
+`gte(column, date)` is fine — drizzle knows the column's type and encodes it. A
+comparison against an expression (`coalesce(paid_at, created_at)`) has no column
+to take a type from, and postgres.js is handed a raw `Date` it refuses with
+`ERR_INVALID_ARG_TYPE`: a hard failure at query time on a report that type-checks
+perfectly. Bind `date.toISOString()` with an explicit `::timestamptz` cast. Found
+by `commerce.realdb.test.ts`; the mocked report tests could not have seen it.
 
 | Convention | Gate | Lands with |
 |---|---|---|
