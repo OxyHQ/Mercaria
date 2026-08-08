@@ -60,7 +60,7 @@ import { resolveMedia } from './catalog-hydration.service.js';
 import { calculateTotals, type PricingLine, type PricingResult } from './pricing.service.js';
 import { normalizeDiscountCode } from './discount.service.js';
 import { getCustomer } from './customer.service.js';
-import { transition } from './order.service.js';
+import { applyPaymentStatus, ensurePayment } from './payments/payment.service.js';
 import { hydrateOrders } from './order-hydration.service.js';
 import { getRates } from './fx.service.js';
 import { multiplyMoney, zeroMoney } from '../utils/money.js';
@@ -768,7 +768,7 @@ export async function completeDraftOrder(
       taxLines: toOrderTaxLines(pricing.taxLines),
       status: 'pending_payment',
       statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: actorOxyUserId }],
-      payment: { status: 'unpaid', provider: 'oxy_pay' },
+      payment: { status: 'unpaid' },
       checkoutGroupId: new mongoose.Types.ObjectId().toString(),
       idempotencyKey,
     });
@@ -794,16 +794,41 @@ export async function completeDraftOrder(
     throw err;
   }
 
-  // 6. Drive the shared paid transition (commit at locationId + salesCount +
-  // customer relate). transition operates on the hydrated mongoose doc.
-  await transition(order, 'paid', { actorOxyUserId, note: 'pos sale' });
+  // 6. Record the sale as a real payment, and let IT drive the paid transition.
+  //
+  // The money was taken at the register — cash in a drawer or a card on the
+  // store's own terminal — so the payment is `manual_pos` and books NO ledger
+  // entries: Mercaria never touched these funds and must not carry them in its
+  // accounts. (A store-side cash view is a product decision nobody has taken; if
+  // it is ever wanted it is a store ledger, not Mercaria's.)
+  //
+  // Going through `applyPaymentStatus` rather than calling `transition` directly
+  // is what keeps ONE path from "a payment succeeded" to "its orders are paid".
+  // The drain is inline and synchronous, so the order below is already `paid`
+  // when it is re-read — and if it is not (a moderation freeze is the one thing
+  // that refuses), the outbox retries and the receipt honestly shows an order
+  // that has not been marked paid yet.
+  const orderId = String(order._id);
+  const payment = await ensurePayment({
+    provider: 'manual_pos',
+    checkoutGroupId: String(order.checkoutGroupId),
+    // `currency` is the draft's own, and a POS sale's shop and presentment sides
+    // are the same currency by construction (the fx snapshot above records a
+    // rate of 1 from `identity`), so this is the amount the customer paid.
+    presentment: { amount: order.totals.grandTotal.presentment.amount, currency },
+    buyerOxyUserId: order.buyerOxyUserId,
+  });
+  await applyPaymentStatus({ paymentId: payment.id, next: 'succeeded' });
 
   // 7. Mark the draft converted.
   draft.status = 'completed';
-  draft.convertedOrderId = String(order._id);
+  draft.convertedOrderId = orderId;
   await draft.save();
 
-  const [dto] = await hydrateOrders([order.toObject<IOrder>()]);
+  // Re-read: the paid transition happened through the payment's outbox handler
+  // on a freshly loaded document, so the one in hand is stale.
+  const paid = await Order.findById(orderId).lean<IOrder | null>();
+  const [dto] = await hydrateOrders([paid ?? order.toObject<IOrder>()]);
   if (!dto) {
     throw notFound('Order not found after completion');
   }

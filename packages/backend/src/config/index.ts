@@ -175,6 +175,31 @@ export interface CrowdSourceConfig {
   readonly enforcementMode: ModerationEnforcementMode;
 }
 
+export interface PaymentsConfig {
+  /**
+   * Whether the payment outbox DISPATCHER runs. The durable record is never
+   * gated: rows are written whatever this says, so switching it on delivers the
+   * backlog rather than stranding it, and switching it off during an incident
+   * parks work instead of losing it. Exactly the `crowdSource.enabled` rule, for
+   * exactly the same reason.
+   *
+   * Defaults ON, unlike CrowdSource's — this loop has no external dependency to
+   * be half-configured against. It drains Mercaria's own consequences of a
+   * payment (an order reaching `paid`, a seller being told), and a deployment
+   * that quietly did not do those would be a worse default than one that does.
+   */
+  readonly outboxEnabled: boolean;
+  /** Rows drained per tick. */
+  readonly outboxBatchSize: number;
+  /** How often the dispatcher looks for due work. */
+  readonly outboxPollIntervalMs: number;
+  /**
+   * How long a claimed row is leased for. A dead task's lease expires and the
+   * row is reclaimed, so this is also the longest a crash can strand one.
+   */
+  readonly outboxLeaseMs: number;
+}
+
 export interface PaginationConfig {
   /** Default page size when the client does not specify a `limit`. */
   readonly defaultPageSize: number;
@@ -304,6 +329,7 @@ export interface AppConfig {
   readonly fx: FxConfig;
   readonly web: WebConfig;
   readonly crowdSource: CrowdSourceConfig;
+  readonly payments: PaymentsConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -391,6 +417,12 @@ export const config: AppConfig = Object.freeze({
     outboxBatchSize: intEnv('CROWDSOURCE_OUTBOX_BATCH_SIZE', 50),
     outboxPollIntervalMs: intEnv('CROWDSOURCE_OUTBOX_POLL_INTERVAL_MS', 5_000),
     enforcementMode: resolveEnforcementMode(),
+  }),
+  payments: Object.freeze({
+    outboxEnabled: boolEnv('PAYMENT_OUTBOX_ENABLED', true),
+    outboxBatchSize: intEnv('PAYMENT_OUTBOX_BATCH_SIZE', 50),
+    outboxPollIntervalMs: intEnv('PAYMENT_OUTBOX_POLL_INTERVAL_MS', 5_000),
+    outboxLeaseMs: intEnv('PAYMENT_OUTBOX_LEASE_MS', 60_000),
   }),
   postgres: Object.freeze({
     // Spread-when-present, like `crowdSource.baseUrl` above: the property is

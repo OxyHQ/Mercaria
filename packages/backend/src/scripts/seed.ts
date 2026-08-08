@@ -897,7 +897,7 @@ async function seed(): Promise<void> {
           taxLines: [],
           status: 'paid',
           statusHistory: [{ status: 'paid', at: now2, byOxyUserId: DEV_OWNER_OXY_USER_ID, note: 'pos sale' }],
-          payment: { status: 'paid', provider: 'oxy_pay', paidAt: now2 },
+          payment: { status: 'paid', provider: 'mock', paidAt: now2 },
           checkoutGroupId: new mongoose.Types.ObjectId().toString(),
         });
         posOrderCount += 1;
@@ -992,7 +992,7 @@ async function seed(): Promise<void> {
             taxLines: [],
             status: 'paid',
             statusHistory: [{ status: 'paid', at: paidAt, byOxyUserId: DEV_OWNER_OXY_USER_ID, note: 'storefront sale' }],
-            payment: { status: 'paid', provider: 'oxy_pay', paidAt },
+            payment: { status: 'paid', provider: 'mock', paidAt },
             checkoutGroupId: new mongoose.Types.ObjectId().toString(),
           });
           storefrontOrderCount += 1;

@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { connectDB } from './lib/db.js';
+import { connectPostgres } from './db/postgres.js';
+import { config } from './config/index.js';
 import { createApp } from './app.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
@@ -80,8 +82,36 @@ process.on('uncaughtException', (error) => {
   setTimeout(() => process.exit(1), 5000).unref();
 });
 
-// Connect to MongoDB before starting the server
-connectDB()
+/**
+ * Open both stores before serving traffic.
+ *
+ * Mercaria is mid-migration and BOTH are live. Mongo is still where orders,
+ * listings and everything else lives; the PAYMENT domain — payments, attempts,
+ * provider events, transfers, payouts and the balanced ledger — is
+ * Postgres-native, and `DATABASE_URL` is therefore no longer optional.
+ *
+ * Its absence is a HARD failure rather than a degraded boot. A task that served
+ * checkout without it would take a POS sale, fail to record the payment, and
+ * answer 500 from inside a completed transaction — which reads as an outage of
+ * the register rather than as the misconfiguration it is. Failing at boot puts
+ * the error where an operator can act on it.
+ *
+ * `connectPostgres` issues a real `select 1` before publishing its handle, so an
+ * unreachable database fails HERE rather than on the first user request.
+ */
+async function connectStores(): Promise<void> {
+  await connectDB();
+  if (!config.postgres.url) {
+    throw new Error(
+      'DATABASE_URL is not set. The payment domain and its ledger are served from ' +
+        'PostgreSQL; a task without it cannot record a payment. Start a local server ' +
+        'with: docker compose -f docker-compose.postgres.yml up -d postgres',
+    );
+  }
+  await connectPostgres();
+}
+
+connectStores()
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       log.general.info({ port: PORT }, `API Server running on http://0.0.0.0:${PORT}`);
@@ -106,6 +136,17 @@ connectDB()
         .then(({ startModerationOutboxDispatcher }) => startModerationOutboxDispatcher())
         .catch((err) =>
           log.general.error({ err }, 'Moderation outbox dispatcher import failed'),
+        );
+
+      // Drain the payment outbox. Started on EVERY task, for the same reason
+      // the moderation one is: claims are Postgres leases with an owner check,
+      // so N tasks share the work and a dead task's lease is reclaimed. The LOOP
+      // is gated by config, never the durable record — rows written while it is
+      // off deliver once it is switched on.
+      import('./services/payments/outbox-dispatcher.js')
+        .then(({ startPaymentOutboxDispatcher }) => startPaymentOutboxDispatcher())
+        .catch((err) =>
+          log.general.error({ err }, 'Payment outbox dispatcher import failed'),
         );
 
       // Start marketplace queue workers when Redis is configured; otherwise
@@ -158,10 +199,21 @@ connectDB()
         await closeRedis();
         log.general.info('Redis connections closed');
 
+        // Stop claiming new payment work, then close both stores.
+        const { stopPaymentOutboxDispatcher } = await import(
+          './services/payments/outbox-dispatcher.js'
+        );
+        stopPaymentOutboxDispatcher();
+
         // Close MongoDB connection
         const mongoose = await import('mongoose');
         await mongoose.default.connection.close();
         log.general.info('MongoDB connection closed');
+
+        // Close the PostgreSQL pool
+        const { closePostgres } = await import('./db/postgres.js');
+        await closePostgres();
+        log.general.info('PostgreSQL pool closed');
 
         clearTimeout(forceTimeout);
         log.general.info('Graceful shutdown complete');
@@ -176,6 +228,6 @@ connectDB()
     process.on('SIGINT', () => shutdown('SIGINT'));
   })
   .catch((error) => {
-    log.general.error({ err: error }, 'Failed to connect to MongoDB');
+    log.general.error({ err: error }, 'Failed to open the MongoDB and PostgreSQL stores');
     process.exit(1);
   });

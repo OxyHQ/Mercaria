@@ -21,6 +21,14 @@
  *
  * A replica SET rather than a standalone, because the sale's convergence property
  * rests on the unique `idempotencyKey`/`orderNumber` indexes.
+ *
+ * ## It needs BOTH servers now
+ *
+ * A POS sale records a `manual_pos` payment in Postgres and lets that payment's
+ * outbox handler move the order to `paid` — one path from "a payment succeeded"
+ * to "its orders are paid", shared with every other rail. So this file connects
+ * the Postgres harness too, and what it asserts is stronger for it: that the
+ * cross-store handoff actually completes, which no mock can tell you.
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
@@ -47,10 +55,17 @@ let DraftOrder: typeof import('../../models/draft-order.js').DraftOrder;
 let Order: typeof import('../../models/order.js').Order;
 let Counter: typeof import('../../models/counter.js').Counter;
 let completeDraftOrder: typeof import('../draft-order.service.js').completeDraftOrder;
+let closePostgres: typeof import('../../db/postgres.js').closePostgres;
 
 beforeAll(async () => {
   if (!uri) throw new Error('MERCARIA_TEST_MONGODB_URI missing — is vitest.globalSetup.ts wired?');
   await mongoose.connect(uri, { dbName: 'mercaria-draft-complete-test' });
+
+  // The sale's payment lives in Postgres. `vitest.pg.globalSetup.ts` created and
+  // migrated a throwaway database and put its URL in `DATABASE_URL`.
+  const postgres = await import('../../db/postgres.js');
+  closePostgres = postgres.closePostgres;
+  await postgres.connectPostgres();
 
   ({ Store } = await import('../../models/store.js'));
   ({ Location } = await import('../../models/location.js'));
@@ -69,6 +84,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await mongoose.disconnect();
+  await closePostgres();
 });
 
 beforeEach(async () => {

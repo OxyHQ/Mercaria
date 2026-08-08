@@ -118,7 +118,7 @@ function mockOrder(
         presentment: { amount: gtAmount, currency: gtCurrency },
       },
     },
-    payment: { status: options.paymentStatus ?? 'unpaid', provider: 'oxy_pay' as const },
+    payment: { status: options.paymentStatus ?? 'unpaid', provider: 'mock' as const },
     shipping: { method: 'standard' as const, label: 'Standard shipping', cost: { shop: { amount: 500, currency: 'FAIR' }, presentment: { amount: 500, currency: 'FAIR' } }, trackingNumber: null as string | null },
     statusHistory: [] as IOrder['statusHistory'],
     items: [

@@ -397,16 +397,82 @@ async function hydrateDoc(doc: HydratedDocument<IOrder>): Promise<OrderDTO> {
 }
 
 /**
- * Test-only mock pay: move the buyer's order to `paid`. 404s (hidden) when the
- * mock-pay endpoint is disabled (production).
+ * Dev-only mock pay: fund the order's whole CHECKOUT GROUP through the synthetic
+ * payment rail. 404s (hidden) when the mock-pay endpoint is disabled
+ * (production).
+ *
+ * ## It pays the group, not the order, and that is not a widening for its own sake
+ *
+ * ADR 0001 D4 makes funding atomic at the group level — one payment covers a
+ * multi-seller cart and its sibling orders cannot have different funding
+ * outcomes. A dev seam that paid one order of a group would be the only path in
+ * the system able to produce a state the real one cannot, which makes it useless
+ * for exercising the real one.
+ *
+ * ## It goes through the provider, rather than around it
+ *
+ * `createPayment` then `capture` against `SyntheticPaymentProvider`, and the
+ * resulting status is applied through `applyPaymentStatus` like any other. So
+ * every developer running mock-pay exercises the adapter interface, the state
+ * machine, the ledger postings and the outbox — the same code a real rail will
+ * run — instead of a shortcut that proves nothing about them.
  */
 export async function mockPay(oxyUserId: string, orderId: string): Promise<OrderDTO> {
   if (!config.orders.mockPayEnabled) {
     throw notFound('Not found');
   }
   const doc = await loadOrderDoc({ _id: orderId, buyerOxyUserId: oxyUserId });
-  await transition(doc, 'paid', { actorOxyUserId: oxyUserId, note: 'mock-pay' });
-  return hydrateDoc(doc);
+  const checkoutGroupId = String(doc.checkoutGroupId);
+
+  const { ensurePayment, applyPaymentStatus } = await import('./payments/payment.service.js');
+  const { findOrdersInCheckoutGroup } = await import('./payments/order-linkage.js');
+  const { getMockPaymentProvider } = await import('./payments/registry.js');
+
+  // The charge covers the group's grand total in the buyer's presentment
+  // currency — the sum of what the buyer was shown for each seller's portion.
+  const siblings = await findOrdersInCheckoutGroup(checkoutGroupId);
+  const presentmentCurrency = doc.totals.grandTotal.presentment.currency as Money['currency'];
+  const amount = siblings.reduce((total, order) => total + order.presentmentTotalMinor, 0);
+
+  const payment = await ensurePayment({
+    provider: 'mock',
+    checkoutGroupId,
+    presentment: { amount, currency: presentmentCurrency },
+    buyerOxyUserId: oxyUserId,
+  });
+
+  const provider = getMockPaymentProvider();
+  const created = await provider.createPayment({
+    paymentId: payment.id,
+    checkoutGroupId,
+    amount: { amount, currency: presentmentCurrency },
+    orderIds: siblings.map((order) => order.id),
+    idempotencyKey: `pi:${payment.id}`,
+    metadata: { paymentId: payment.id, checkoutGroupId },
+  });
+  const captured = await provider.capture({
+    paymentId: payment.id,
+    providerObjectId: created.providerObjectId,
+    idempotencyKey: `cap:${payment.id}`,
+  });
+
+  await applyPaymentStatus({
+    paymentId: payment.id,
+    next: captured.status,
+    providerObjectId: captured.providerObjectId,
+  });
+
+  // The paid transition happened through the payment's outbox handler on a
+  // freshly loaded document, so the one in hand is stale.
+  const paid = await Order.findOne({ _id: orderId, buyerOxyUserId: oxyUserId }).lean<IOrder | null>();
+  if (!paid) {
+    throw notFound('Order not found');
+  }
+  const [dto] = await hydrateOrders([paid]);
+  if (!dto) {
+    throw notFound('Order not found');
+  }
+  return dto;
 }
 
 /** Cancel the buyer's own order (releases the reservation if still unpaid). */

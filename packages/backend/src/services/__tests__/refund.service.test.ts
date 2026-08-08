@@ -105,7 +105,7 @@ function mockOrder(overrides: Record<string, unknown> = {}) {
     items,
     shipping: { method: 'standard', label: 'Standard', cost: dual(500), trackingNumber: null },
     totals: { grandTotal },
-    payment: { status: 'paid' as const, provider: 'oxy_pay' as const },
+    payment: { status: 'paid' as const, provider: 'mock' as const },
     ...overrides,
   };
 }
