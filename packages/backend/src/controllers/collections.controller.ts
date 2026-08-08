@@ -12,10 +12,11 @@
 import type { Request, Response } from 'express';
 import type { Collection as CollectionDTO, Listing, Pagination } from '@mercaria/shared-types';
 import { findStoreByHandle, type StoreRecord } from '../db/stores/storeRepository.js';
-import type { ICollection } from '../models/collection.js';
+import type { CollectionRecord } from '../db/merchandising/collectionRepository.js';
 import {
   listCollections,
   getCollectionByHandle,
+  getProductIdsByCollection,
   listCollectionProducts,
 } from '../services/collection.service.js';
 import { hydrateListings, resolveMedia } from '../services/catalog-hydration.service.js';
@@ -25,36 +26,46 @@ import { respondWithError, notFound } from '../lib/errors/error-codes.js';
 import { routeParam } from '../utils/request.js';
 import { log } from '../lib/logger.js';
 
-/** Serialize a collection document to the `Collection` DTO. */
-export function toCollectionDTO(collection: ICollection): CollectionDTO {
+/**
+ * Serialize a collection row to the `Collection` DTO.
+ *
+ * `productIds` is passed IN rather than read from the row: it was a field on the
+ * Mongo document and is a `listing_collections` relation now, so the caller
+ * batches it (see `getProductIdsByCollection`) instead of this function issuing a
+ * query per collection.
+ */
+export function toCollectionDTO(
+  collection: CollectionRecord,
+  productIds: readonly string[] = [],
+): CollectionDTO {
   const dto: CollectionDTO = {
-    id: String((collection as { _id: unknown })._id),
+    id: collection.id,
     storeId: collection.storeId,
     title: collection.title,
     handle: collection.handle,
     type: collection.type,
-    productIds: [...collection.productIds],
+    productIds: [...productIds],
     sortOrder: collection.sortOrder,
     isPublished: collection.isPublished,
     createdAt: collection.createdAt.toISOString(),
     updatedAt: collection.updatedAt.toISOString(),
   };
-  if (collection.description !== undefined) dto.description = collection.description;
-  if (collection.imageFileId !== undefined) dto.imageFileId = collection.imageFileId;
-  if (collection.rules) {
+  if (collection.description !== null) dto.description = collection.description;
+  if (collection.imageFileId !== null) dto.imageFileId = collection.imageFileId;
+  if (collection.rules.length > 0) {
     dto.rules = {
-      appliesDisjunctively: collection.rules.appliesDisjunctively,
-      conditions: collection.rules.conditions.map((c) => ({
+      appliesDisjunctively: collection.rulesAppliesDisjunctively,
+      conditions: collection.rules.map((c) => ({
         field: c.field,
         operator: c.operator,
         value: c.value,
       })),
     };
   }
-  if (collection.seo && (collection.seo.title || collection.seo.description)) {
+  if (collection.seoTitle || collection.seoDescription) {
     const seo: { title?: string; description?: string } = {};
-    if (collection.seo.title) seo.title = collection.seo.title;
-    if (collection.seo.description) seo.description = collection.seo.description;
+    if (collection.seoTitle) seo.title = collection.seoTitle;
+    if (collection.seoDescription) seo.description = collection.seoDescription;
     dto.seo = seo;
   }
   if (collection.publishedAt) dto.publishedAt = collection.publishedAt.toISOString();
@@ -68,9 +79,12 @@ export function toCollectionDTO(collection: ICollection): CollectionDTO {
  * without a second resolve). Admin responses use `toCollectionDTO` directly and
  * are unaffected — they keep only the raw `imageFileId`.
  */
-function toPublicCollectionDTO(collection: ICollection): CollectionDTO {
-  const dto = toCollectionDTO(collection);
-  if (collection.imageFileId !== undefined) {
+function toPublicCollectionDTO(
+  collection: CollectionRecord,
+  productIds: readonly string[] = [],
+): CollectionDTO {
+  const dto = toCollectionDTO(collection, productIds);
+  if (collection.imageFileId !== null) {
     dto.imageUrl = resolveMedia(collection.imageFileId);
   }
   return dto;
@@ -99,7 +113,11 @@ export async function listStorePublicCollections(req: Request, res: Response): P
     const store = await resolvePublicStore(handle);
     const storeId = store.id;
     const collections = await listCollections(storeId, { publishedOnly: true });
-    sendSuccess(res, collections.map(toPublicCollectionDTO));
+    const productIds = await getProductIdsByCollection(collections);
+    sendSuccess(
+      res,
+      collections.map((c) => toPublicCollectionDTO(c, productIds.get(c.id) ?? [])),
+    );
   } catch (err) {
     log.general.error({ err, handle }, 'Failed to list store collections');
     respondWithError(res, err, 'Failed to load collections');
@@ -124,9 +142,10 @@ export async function getStorePublicCollection(req: Request, res: Response): Pro
     const { page, limit } = parsePagination(req.query);
     const { listings, total } = await listCollectionProducts(collection, { page, limit });
     const products = await hydrateListings(listings, { viewerId: req.user?.id });
+    const productIds = await getProductIdsByCollection([collection]);
 
     const body: CollectionPageResponse = {
-      collection: toPublicCollectionDTO(collection),
+      collection: toPublicCollectionDTO(collection, productIds.get(collection.id) ?? []),
       products,
       pagination: buildPagination(page, limit, total),
     };

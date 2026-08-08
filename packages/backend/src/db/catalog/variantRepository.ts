@@ -18,11 +18,16 @@
  * function with the same signature and a lost-update bug.
  */
 
-import { and, asc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, lte, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import type { CurrencyCode } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import { inventoryLevels, productVariantOptionValues, productVariants } from '../schema/catalog.js';
+import {
+  inventoryLevels,
+  listings,
+  productVariantOptionValues,
+  productVariants,
+} from '../schema/catalog.js';
 
 /** One row of `product_variants`. */
 export type VariantRecord = InferSelectModel<typeof productVariants>;
@@ -67,6 +72,18 @@ export interface VariantPatch {
   inventoryTracked?: boolean;
   inventoryAvailable?: number;
   position?: number;
+  /**
+   * Connector provenance, patchable as a SET.
+   *
+   * All four move together on purpose: `findVariantBySourceInventoryItemId`
+   * matches on `(source_connection_id, source_external_inventory_item_id)`, so a
+   * variant stamped with only some of them is exactly as unfindable as an
+   * unstamped one while LOOKING synced — and every inventory webhook for it would
+   * be silently counted as skipped.
+   */
+  sourceConnectionId?: string | null;
+  sourceProvider?: VariantRecord['sourceProvider'];
+  sourceExternalVariantId?: string | null;
   sourceExternalInventoryItemId?: string | null;
 }
 
@@ -154,6 +171,27 @@ export async function findVariantOptionValues(
     else grouped.set(row.variantId, [row]);
   }
   return grouped;
+}
+
+/**
+ * The next free display position for a listing's variants.
+ *
+ * `max(position) + 1`, NOT `count(*)`. A count collides after any deletion —
+ * positions 0,1,2, remove the middle one, and the count is 2, which the surviving
+ * variant already holds. `findVariantsByListing` orders by `position` with no
+ * tiebreaker, so two variants sharing one position make the listing's variant
+ * order non-deterministic between requests, and it is the order the storefront
+ * picker and the connector push payload both render.
+ */
+export async function nextVariantPosition(
+  listingId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<number> {
+  const [row] = await db
+    .select({ next: sql<number>`coalesce(max(${productVariants.position}), -1) + 1` })
+    .from(productVariants)
+    .where(eq(productVariants.listingId, listingId));
+  return row?.next ?? 0;
 }
 
 /** How many variants a listing has. Guards the "keep at least one" rule. */
@@ -400,6 +438,79 @@ export async function setVariantScalarAvailable(
     .update(productVariants)
     .set({ inventoryAvailable: available, updatedAt: new Date() })
     .where(eq(productVariants.id, variantId));
+}
+
+/**
+ * Every variant a connection sourced, across the whole store — the inventory
+ * pull's working set.
+ *
+ * ONE indexed query against `product_variants_source_inventory_item_idx`. Reading
+ * the store's listings first and then their variants would pull the entire
+ * catalogue back to filter a handful of synced rows out of it.
+ */
+export async function findVariantsBySourceConnection(
+  connectionId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<VariantRecord[]> {
+  return db
+    .select()
+    .from(productVariants)
+    .where(
+      and(
+        eq(productVariants.sourceConnectionId, connectionId),
+        // NOT redundant, and the cost of omitting it is worse here than on the
+        // listing side. `product_variants_source_inventory_item_idx` is the only
+        // candidate index and it is PARTIAL
+        // (`WHERE source_external_inventory_item_id IS NOT NULL`); there is no
+        // plain index on `source_connection_id` at all, so without this clause the
+        // planner has nothing to use and sequentially scans every variant of every
+        // store. The only caller is the inventory pull, which needs the item id.
+        isNotNull(productVariants.sourceExternalInventoryItemId),
+      ),
+    );
+}
+
+/** One variant of a listing by SKU — the connector's inventory disambiguation. */
+export async function findVariantByListingAndSku(
+  listingId: string,
+  sku: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<VariantRecord | null> {
+  const [row] = await db
+    .select()
+    .from(productVariants)
+    .where(and(eq(productVariants.listingId, listingId), eq(productVariants.sku, sku)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * How many TRACKED variants of a store are at or below a stock threshold — the
+ * dashboard's "low stock" tile.
+ *
+ * ONE statement with a join. The Mongo version read every listing id of the store
+ * into the process first and then counted variants with `$in` over that array, so
+ * a store with ten thousand products shipped ten thousand ids to the server to
+ * get one number back.
+ */
+export async function countLowStockVariantsForStore(
+  storeId: string,
+  threshold: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(productVariants)
+    .innerJoin(listings, eq(listings.id, productVariants.listingId))
+    .where(
+      and(
+        eq(listings.storeId, storeId),
+        eq(listings.ownerType, 'store'),
+        eq(productVariants.inventoryTracked, true),
+        lte(productVariants.inventoryAvailable, threshold),
+      ),
+    );
+  return row?.count ?? 0;
 }
 
 /**

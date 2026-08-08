@@ -16,10 +16,14 @@ import type {
   Listing as ListingDTO,
   InventoryLevelDTO,
 } from '@mercaria/shared-types';
-import { Listing, type IListing } from '../../models/listing.js';
-import { ProductVariant } from '../../models/product-variant.js';
-import { Location, type ILocation } from '../../models/location.js';
-import { InventoryLevel, type IInventoryLevelDoc } from '../../models/inventory-level.js';
+import {
+  findListingById,
+  findStoreListingsPageForAdmin,
+  type ListingRecord,
+} from '../../db/catalog/listingRepository.js';
+import { findVariantInListing } from '../../db/catalog/variantRepository.js';
+import { findLevelsByVariant } from '../../db/catalog/inventoryLevelRepository.js';
+import { findLocation, findLocationsByStore } from '../../db/stores/locationRepository.js';
 import {
   createStoreProduct,
   updateListing,
@@ -49,9 +53,9 @@ function storeId(req: Request): string {
 }
 
 /** Load a product and assert it belongs to the loaded store, else NOT_FOUND/FORBIDDEN. */
-async function loadStoreProduct(req: Request): Promise<IListing> {
+async function loadStoreProduct(req: Request): Promise<ListingRecord> {
   const id = routeParam(req, 'id');
-  const listing = await Listing.findById(id).lean<IListing | null>();
+  const listing = await findListingById(id);
   if (!listing) {
     throw notFound('Product not found');
   }
@@ -84,11 +88,11 @@ async function schedulePush(storeIdValue: string, listingId: string): Promise<vo
  * ("Synced from …") badge on store-owned listings.
  */
 async function hydrateById(listingId: string, viewerId: string): Promise<ListingDTO | undefined> {
-  const doc = await Listing.findById(listingId).lean<IListing | null>();
-  if (!doc) {
+  const row = await findListingById(listingId);
+  if (!row) {
     return undefined;
   }
-  const [dto] = await hydrateListings([doc], { viewerId, includeSource: true });
+  const [dto] = await hydrateListings([row], { viewerId, includeSource: true });
   return dto;
 }
 
@@ -97,18 +101,10 @@ export async function listProducts(req: Request, res: Response): Promise<void> {
   try {
     const id = storeId(req);
     const { page, limit } = parsePagination(req.query);
-    const filter = { ownerType: 'store' as const, storeId: id };
 
-    const [docs, total] = await Promise.all([
-      Listing.find(filter)
-        .sort({ createdAt: -1, _id: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean<IListing[]>(),
-      Listing.countDocuments(filter),
-    ]);
+    const { rows, total } = await findStoreListingsPageForAdmin(id, {}, page, limit);
 
-    const data = await hydrateListings(docs, { viewerId: req.userId, includeSource: true });
+    const data = await hydrateListings(rows, { viewerId: req.userId, includeSource: true });
     sendPaginated(res, data, buildPagination(page, limit, total));
   } catch (err) {
     log.general.error({ err }, 'Failed to list store products');
@@ -134,7 +130,7 @@ export async function createProduct(req: Request, res: Response): Promise<void> 
 export async function getProduct(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
-    const dto = await hydrateById(String((listing as { _id: unknown })._id), req.userId ?? '');
+    const dto = await hydrateById(listing.id, req.userId ?? '');
     sendSuccess(res, dto);
   } catch (err) {
     log.general.error({ err, productId: req.params.id }, 'Failed to load store product');
@@ -146,7 +142,7 @@ export async function getProduct(req: Request, res: Response): Promise<void> {
 export async function patchProduct(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
-    const listingId = String((listing as { _id: unknown })._id);
+    const listingId = listing.id;
     await updateListing(listingId, req.body as UpdateListingInput);
     await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
@@ -161,8 +157,8 @@ export async function patchProduct(req: Request, res: Response): Promise<void> {
 export async function deleteProduct(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
-    await archiveListing(String((listing as { _id: unknown })._id));
-    sendSuccess(res, { id: String((listing as { _id: unknown })._id), status: 'archived' });
+    await archiveListing(listing.id);
+    sendSuccess(res, { id: listing.id, status: 'archived' });
   } catch (err) {
     log.general.error({ err, productId: req.params.id }, 'Failed to delete store product');
     respondWithError(res, err, 'Failed to delete product');
@@ -173,7 +169,7 @@ export async function deleteProduct(req: Request, res: Response): Promise<void> 
 export async function createVariant(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
-    const listingId = String((listing as { _id: unknown })._id);
+    const listingId = listing.id;
     await addVariant(listingId, req.body as CreateStoreProductVariantInput);
     await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
@@ -188,7 +184,7 @@ export async function createVariant(req: Request, res: Response): Promise<void> 
 export async function patchVariant(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
-    const listingId = String((listing as { _id: unknown })._id);
+    const listingId = listing.id;
     await updateVariant(listingId, routeParam(req, 'variantId'), req.body as UpdateVariantInput);
     await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
@@ -203,7 +199,7 @@ export async function patchVariant(req: Request, res: Response): Promise<void> {
 export async function deleteVariant(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
-    const listingId = String((listing as { _id: unknown })._id);
+    const listingId = listing.id;
     await removeVariant(listingId, routeParam(req, 'variantId'));
     await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
@@ -221,7 +217,7 @@ export async function deleteVariant(req: Request, res: Response): Promise<void> 
 export async function setVariantInventory(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
-    const listingId = String((listing as { _id: unknown })._id);
+    const listingId = listing.id;
     const body = req.body as { available: number };
     const locationId = await resolveDefaultLocationId(storeId(req));
     await setAvailable(routeParam(req, 'variantId'), listingId, locationId, body.available);
@@ -235,32 +231,30 @@ export async function setVariantInventory(req: Request, res: Response): Promise<
 
 /** Assert a variant belongs to the listing, else NOT_FOUND. */
 async function assertVariantInListing(variantId: string, listingId: string): Promise<void> {
-  const exists = await ProductVariant.exists({ _id: variantId, listingId });
-  if (!exists) {
+  if (!(await findVariantInListing(listingId, variantId))) {
     throw notFound('Variant not found');
   }
 }
 
 /** Build the per-location `InventoryLevelDTO[]` for a variant (joins location names). */
-async function variantLevelDTOs(variantId: string): Promise<InventoryLevelDTO[]> {
-  const levels = await InventoryLevel.find({ variantId })
-    .sort({ createdAt: 1 })
-    .lean<IInventoryLevelDoc[]>();
+async function variantLevelDTOs(variantId: string, storeIdValue: string): Promise<InventoryLevelDTO[]> {
+  const levels = await findLevelsByVariant(variantId);
   if (levels.length === 0) {
     return [];
   }
 
-  const locationIds = [...new Set(levels.map((l) => l.locationId))];
-  const locations = await Location.find({ _id: { $in: locationIds } })
-    .select('name')
-    .lean<Pick<ILocation, '_id' | 'name'>[]>();
-  const nameById = new Map(locations.map((l) => [String(l._id), l.name]));
+  // The store's own locations, which is every location a level of its variants
+  // can name — one read rather than a lookup per level.
+  const locations = await findLocationsByStore(storeIdValue);
+  const nameById = new Map(locations.map((l) => [l.id, l.name]));
 
-  return levels.map((level) => ({
-    locationId: level.locationId,
-    locationName: nameById.get(level.locationId) ?? 'Unknown location',
-    available: level.available,
-  }));
+  return [...levels]
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .map((level) => ({
+      locationId: level.locationId,
+      locationName: nameById.get(level.locationId) ?? 'Unknown location',
+      available: level.available,
+    }));
 }
 
 /**
@@ -270,10 +264,9 @@ async function variantLevelDTOs(variantId: string): Promise<InventoryLevelDTO[]>
 export async function listVariantLevels(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
-    const listingId = String((listing as { _id: unknown })._id);
     const variantId = routeParam(req, 'variantId');
-    await assertVariantInListing(variantId, listingId);
-    sendSuccess(res, await variantLevelDTOs(variantId));
+    await assertVariantInListing(variantId, listing.id);
+    sendSuccess(res, await variantLevelDTOs(variantId, storeId(req)));
   } catch (err) {
     log.general.error({ err, variantId: req.params.variantId }, 'Failed to list inventory levels');
     respondWithError(res, err, 'Failed to load inventory levels');
@@ -288,19 +281,19 @@ export async function listVariantLevels(req: Request, res: Response): Promise<vo
 export async function setVariantLevelInventory(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
-    const listingId = String((listing as { _id: unknown })._id);
     const variantId = routeParam(req, 'variantId');
     const locationId = routeParam(req, 'locationId');
-    await assertVariantInListing(variantId, listingId);
+    await assertVariantInListing(variantId, listing.id);
 
-    const location = await Location.exists({ _id: locationId, storeId: storeId(req) });
-    if (!location) {
+    // The location must belong to THIS store — the scoping is the authorization,
+    // and without it a member could stock a variant at another store's warehouse.
+    if (!(await findLocation(storeId(req), locationId))) {
       throw notFound('Location not found');
     }
 
     const body = req.body as { available: number };
-    await setAvailable(variantId, listingId, locationId, body.available);
-    sendSuccess(res, await variantLevelDTOs(variantId));
+    await setAvailable(variantId, listing.id, locationId, body.available);
+    sendSuccess(res, await variantLevelDTOs(variantId, storeId(req)));
   } catch (err) {
     log.general.error(
       { err, variantId: req.params.variantId, locationId: req.params.locationId },

@@ -12,6 +12,23 @@
  * That is the same shape as the webhook tests before the acceptance sibling: the
  * plan was proven, the effect was not.
  *
+ * ## It now spans BOTH databases, and that is the migration, not the fixture
+ *
+ * The moderation ledger — `AbuseReport`, `ModerationEnforcement` — is still
+ * Mongo, and the unique `decisionId+revision+action` index that makes enforcement
+ * idempotent only exists on a real server. The LISTING it acts on is not: the
+ * catalogue is Postgres, and `enforcement.service` restricts and restores through
+ * `findListingById` / `updateListingColumns` / `setListingStatusIfIn`. So the
+ * subject is seeded with `insertListing` against the throwaway Postgres database
+ * the suite migrates, and read back the same way.
+ *
+ * That is also why the first test below is stronger than it was: `insertListing`
+ * generates a **uuid v7**, which `mongoose.isValidObjectId` REJECTS. Under the
+ * pre-port guard, enforcement against every listing created after the cutover
+ * would have refused with a tidy "not a valid id" and changed nothing. It passes
+ * here because the service swapped that check for `isLiveEntityId`, which accepts
+ * both id shapes — and the malformed-id test below proves the guard still exists.
+ *
  * ## The fixture is built from the schema's errors, not from what it looks like
  *
  * `applyDecisionEvent` runs `DecisionSchema.safeParse` and throws a
@@ -28,8 +45,12 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
+import { inArray } from 'drizzle-orm';
+import { isLiveEntityId } from '@oxyhq/db';
 import { DecisionSchema } from '@oxyhq/crowdsource-contracts';
 import { ALL_LISTING_STATUSES, type ListingStatus } from '@mercaria/shared-types';
+import type { Database } from '../../db/postgres.js';
+import { listings } from '../../db/schema/catalog.js';
 
 const uri = process.env.MERCARIA_TEST_MONGODB_URI;
 
@@ -39,9 +60,36 @@ const uri = process.env.MERCARIA_TEST_MONGODB_URI;
 // rather than by toggling an env var this process has already read.
 process.env.CROWDSOURCE_ENFORCEMENT_MODE = 'automatic';
 
+/**
+ * Everything reaching `config` is imported DYNAMICALLY, after the line above.
+ *
+ * ESM evaluates every static import before any of this module's own statements,
+ * so a plain `import … from '../../db/postgres.js'` — which pulls `config` —
+ * would freeze the enforcement mode at its production default of `observe`
+ * BEFORE the assignment ran. Every effect assertion in this file would then be
+ * asserting against a mode that deliberately changes nothing, and the failure
+ * reads as "enforcement is broken" rather than "the import order is wrong".
+ * The schema table is safe to import statically: `src/db/schema/*` reads no
+ * config.
+ */
+let pg: Database;
+let connectPostgres: typeof import('../../db/postgres.js').connectPostgres;
+let closePostgres: typeof import('../../db/postgres.js').closePostgres;
+let insertListing: typeof import('../../db/catalog/listingRepository.js').insertListing;
+let findListingById: typeof import('../../db/catalog/listingRepository.js').findListingById;
+
+/**
+ * Postgres listing ids this file seeded, dropped between tests.
+ *
+ * The Postgres database is shared with every other realdb file in the suite, so
+ * this file cleans up after ITSELF rather than truncating the table. The seeded
+ * listings are user-owned, so they hold no `store_id` and nothing else has to be
+ * torn down in order.
+ */
+const seededListingIds: string[] = [];
+
 let AbuseReport: typeof import('../../models/abuse-report.js').AbuseReport;
 let ModerationEnforcement: typeof import('../../models/moderation-enforcement.js').ModerationEnforcement;
-let Listing: typeof import('../../models/listing.js').Listing;
 let applyDecisionEvent: typeof import('../moderation/decision.worker.js').applyDecisionEvent;
 
 beforeAll(async () => {
@@ -50,23 +98,34 @@ beforeAll(async () => {
 
   ({ AbuseReport } = await import('../../models/abuse-report.js'));
   ({ ModerationEnforcement } = await import('../../models/moderation-enforcement.js'));
-  ({ Listing } = await import('../../models/listing.js'));
   ({ applyDecisionEvent } = await import('../moderation/decision.worker.js'));
+  ({ connectPostgres, closePostgres } = await import('../../db/postgres.js'));
+  ({ insertListing, findListingById } = await import('../../db/catalog/listingRepository.js'));
 
   await ModerationEnforcement.syncIndexes();
+
+  pg = await connectPostgres();
 }, 120_000);
 
 afterAll(async () => {
+  // The last test's rows have no `beforeEach` after them to take them out, and
+  // the Postgres database outlives this file.
+  await dropSeededListings();
   await mongoose.disconnect();
+  await closePostgres();
 });
 
 beforeEach(async () => {
-  await Promise.all([
-    AbuseReport.deleteMany({}),
-    ModerationEnforcement.deleteMany({}),
-    Listing.deleteMany({}),
-  ]);
+  await dropSeededListings();
+  await Promise.all([AbuseReport.deleteMany({}), ModerationEnforcement.deleteMany({})]);
 });
+
+/** Remove every listing this file has seeded so far. */
+async function dropSeededListings(): Promise<void> {
+  const ids = seededListingIds.splice(0);
+  if (ids.length === 0) return;
+  await pg.delete(listings).where(inArray(listings.id, ids));
+}
 
 /** Every field `DecisionSchema` requires — see the module comment. */
 function decision(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -136,30 +195,59 @@ function decidedEvent(payload: Record<string, unknown>): {
   };
 }
 
+/**
+ * One user-owned listing in Postgres, at `status`, registered for teardown.
+ *
+ * Every nullable column is written explicitly rather than left off: `NewListing`
+ * is the row minus its generated columns, so an omission is a compile error here
+ * and a silently different fixture nowhere.
+ */
 async function seedListing(status: ListingStatus): Promise<string> {
-  const created = await Listing.create({
-    ownerType: 'user',
-    oxyUserId: 'seller-1',
-    title: 'A reported item',
-    description: 'Body text',
-    condition: 'new',
-    status,
-    categorySlugs: [],
-    images: [],
-    tags: [],
-    options: [],
-    priceRange: {
-      min: { amount: 1000, currency: 'FAIR' },
-      max: { amount: 1000, currency: 'FAIR' },
+  const row = await insertListing(
+    {
+      ownerType: 'user',
+      oxyUserId: 'seller-1',
+      storeId: null,
+      title: 'A reported item',
+      description: 'Body text',
+      condition: 'new',
+      status,
+      categoryId: null,
+      categorySlugs: [],
+      tags: [],
+      priceRangeMinAmount: 1000,
+      priceRangeMinCurrency: 'FAIR',
+      priceRangeMaxAmount: 1000,
+      priceRangeMaxCurrency: 'FAIR',
+      hasInventory: true,
+      variantCount: 1,
+      longitude: null,
+      latitude: null,
+      vendor: null,
+      productType: null,
+      handle: null,
+      seoTitle: null,
+      seoDescription: null,
+      sourceConnectionId: null,
+      sourceProvider: null,
+      sourceExternalId: null,
+      sourceExternalUpdatedAt: null,
+      overriddenFields: [],
+      rating: 0,
+      reviewCount: 0,
+      favoriteCount: 0,
+      publishedAt: new Date(),
     },
-    hasInventory: true,
-    variantCount: 1,
-    collectionIds: [],
-    externalRefs: [],
-    overriddenFields: [],
-  });
-  if (!created) throw new Error('seed listing was not created');
-  return created._id.toHexString();
+    [],
+    [],
+  );
+  seededListingIds.push(row.id);
+  return row.id;
+}
+
+/** The listing's current status, read back from Postgres. */
+async function statusOf(listingId: string): Promise<string | undefined> {
+  return (await findListingById(listingId))?.status;
 }
 
 async function seedReport(listingId: string, caseId: string): Promise<void> {
@@ -190,10 +278,15 @@ describe('a violation is enforced end to end', () => {
     const listingId = await seedListing('active');
     await seedReport(listingId, 'case_real_1');
 
+    // The second half of this file's vacuity floor: the subject really is a
+    // post-cutover id, so the run below exercises the shape `isValidObjectId`
+    // would have thrown out.
+    expect(isLiveEntityId(listingId)).toBe(true);
+    expect(mongoose.isValidObjectId(listingId)).toBe(false);
+
     await applyDecisionEvent(decidedEvent(decision()));
 
-    const listing = await Listing.findById(listingId).lean<{ status?: string } | null>();
-    expect(listing?.status).toBe('restricted');
+    expect(await statusOf(listingId)).toBe('restricted');
 
     const row = await ModerationEnforcement.findOne({ decisionId: 'dec_real_1' }).lean();
     expect(row?.applied).toBe(true);
@@ -222,6 +315,29 @@ describe('a violation is enforced end to end', () => {
       await ModerationEnforcement.countDocuments({ decisionId: 'dec_real_1' }),
     ).toBe(1);
   });
+
+  it('records — and changes nothing — when the reported id is malformed', async () => {
+    /**
+     * The guard `restrictListing` opens with, kept honest.
+     *
+     * It used to be `mongoose.isValidObjectId`, and after the cutover that
+     * predicate answers "invalid" for every listing the catalogue creates — so
+     * the branch would have swallowed real enforcement while looking like a
+     * careful input check. `isLiveEntityId` accepts both live id shapes, which
+     * means a fixture exercising this branch has to be something NEITHER shape
+     * admits: not 24 hex characters, not a uuid v7.
+     */
+    const malformed = 'listing-42';
+    expect(isLiveEntityId(malformed)).toBe(false);
+    await seedReport(malformed, 'case_real_1');
+
+    await applyDecisionEvent(decidedEvent(decision()));
+
+    const row = await ModerationEnforcement.findOne({ decisionId: 'dec_real_1' }).lean();
+    // Claimed and recorded, never applied — the audit trail says we looked.
+    expect(row?.applied).toBe(false);
+    expect(row?.reason).toMatch(/not a valid id/i);
+  });
 });
 
 describe('a correction restores what was actually displaced', () => {
@@ -240,9 +356,7 @@ describe('a correction restores what was actually displaced', () => {
     await seedReport(listingId, 'case_real_1');
 
     await applyDecisionEvent(decidedEvent(decision()));
-    expect(
-      (await Listing.findById(listingId).lean<{ status?: string } | null>())?.status,
-    ).toBe('restricted');
+    expect(await statusOf(listingId)).toBe('restricted');
 
     await applyDecisionEvent(
       decidedEvent(
@@ -260,8 +374,7 @@ describe('a correction restores what was actually displaced', () => {
       ),
     );
 
-    const restored = await Listing.findById(listingId).lean<{ status?: string } | null>();
-    expect(restored?.status).toBe('draft');
+    expect(await statusOf(listingId)).toBe('draft');
   });
 });
 
@@ -273,9 +386,9 @@ describe('a restore reads only rows whose effect really happened', () => {
      *
      * The obvious version — record an unapplied restrict in observe mode, send a
      * correction, assert nothing moved — passes with the filter AND without it,
-     * because the update is separately guarded by
-     * `status: { $in: ['restricted','draft'] }` and an untouched listing is
-     * `active`. It looked like a guard and proved nothing.
+     * because the update is separately guarded by `setListingStatusIfIn(…,
+     * ['restricted','draft'])` and an untouched listing is `active`. It looked
+     * like a guard and proved nothing.
      *
      * What discriminates is two rows disagreeing about what was displaced. The
      * older APPLIED row says the listing was a `draft`; a newer recorded-only row
@@ -332,33 +445,37 @@ describe('a restore reads only rows whose effect really happened', () => {
       ),
     );
 
-    const restored = await Listing.findById(listingId).lean<{ status?: string } | null>();
-    expect(restored?.status).toBe('draft');
+    expect(await statusOf(listingId)).toBe('draft');
   });
 });
 
-describe('the schema accepts every status the TYPE admits', () => {
+describe('the database accepts every status the TYPE admits', () => {
   it.each(ALL_LISTING_STATUSES)('a listing can really be saved as %s', async (status) => {
     /**
-     * The drift this catches shipped, and hid for a specific reason: the model
-     * declared its own `const STATUSES: readonly ListingStatus[] = [...]`, and a
-     * hand-written SUBSET satisfies that type, so adding `restricted` to the
-     * union produced no compile error and the schema enum never learned it.
+     * The drift this catches shipped once already, and the port changed WHERE it
+     * would hide rather than removing it.
      *
-     * It then hid a second time, behind the difference between two Mongo APIs.
-     * Enforcement sets the status with `updateOne`, which does NOT run
-     * validators — so restricting a listing worked, and every moderation test
-     * passed. But `catalog-write.service.updateListing` ends in `listing.save()`,
-     * which validates the whole document, so a seller editing the TITLE of a
-     * restricted listing hit a validation error about a status they never
-     * touched and could not see.
+     * Under Mongo the model declared its own `const STATUSES: readonly
+     * ListingStatus[] = [...]`, and a hand-written SUBSET satisfies that type — so
+     * adding `restricted` to the union produced no compile error and the schema
+     * enum never learned it. It then hid a second time behind the difference
+     * between two Mongo APIs: enforcement used `updateOne`, which does not run
+     * validators, so restricting a listing worked and every moderation test
+     * passed, while a seller editing the TITLE of a restricted listing hit a
+     * validation error about a status they never touched.
      *
-     * `create` validates, so this is the assertion the enforcement path could
-     * never make. Iterating the type's own runtime list means a status added
-     * later is covered without anyone remembering to come back here.
+     * In Postgres the enum is `listings_status_check`, and it applies to EVERY
+     * writer including `updateListingColumns` — so the second hiding place is
+     * gone. The first is not: the CHECK the throwaway database actually carries
+     * comes from a FROZEN migration file (`drizzle/0000_*.sql` spells the five
+     * statuses out literally), not from `ALL_LISTING_STATUSES` at run time. A
+     * status added to the union without a generated migration therefore fails
+     * here — a `23514` on the INSERT — and nowhere else until production.
+     *
+     * Iterating the type's own runtime list means a status added later is covered
+     * without anyone remembering to come back here.
      */
     const listingId = await seedListing(status);
-    const stored = await Listing.findById(listingId).lean<{ status?: string } | null>();
-    expect(stored?.status).toBe(status);
+    expect(await statusOf(listingId)).toBe(status);
   });
 });

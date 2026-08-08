@@ -1,15 +1,25 @@
 /**
  * Unit tests for the Fase 2/3 connector-sync additions:
  *  - `collectionMapping` applied on re-sync — maps a product's external collection
- *    refs onto Mercaria `collectionIds`, preserving native memberships and RESPECTING
- *    `overriddenFields` (a pinned `collections` field is left untouched).
+ *    refs onto Mercaria collection membership, RESPECTING `overriddenFields` (a
+ *    pinned `collections` field is left untouched).
  *  - `syncInventory` — pulls platform inventory levels and absolute-sets stock on the
  *    mapped variants at the connection's target location (idempotent, targeted).
  *  - `pushOrderFulfillment` — pushes a fulfillment only for a `bidirectional` order
  *    connection, and is loop-safe (skips a non-bidirectional / source-less order).
  *
- * No DB / no network: every model + the provider registry + crypto are mocked. The
- * price/money math (`applyPriceRules`) runs for real.
+ * No DB / no network. `Connection`/`SyncRun`/`Order` are still Mongoose and are
+ * mocked as models; the CATALOGUE moved to Postgres, so listings, variants,
+ * collection membership and locations are mocked at the REPOSITORY boundary. The
+ * provider registry and crypto are mocked; the price/money math
+ * (`applyPriceRules`) runs for real.
+ *
+ * Two shapes changed and the assertions follow:
+ *  - Collection membership is a SET DIFF in SQL —
+ *    `setListingAutomatedMemberships(listingId, managed, desired)` — not a
+ *    read-modify-write of a `collectionIds` array.
+ *  - `findLocation` does NOT filter on `isActive` (the Mongo `Location.exists`
+ *    folded that into the query), so the service makes the active check itself.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -36,43 +46,60 @@ vi.mock('../../models/sync-run.js', () => ({
   SyncRun: { create: (...a: unknown[]) => syncRunCreate(...a) },
 }));
 
-const listingFind = vi.fn();
-const listingFindOne = vi.fn();
-const listingFindById = vi.fn();
-const listingUpdateOne = vi.fn();
-const listingExists = vi.fn();
-vi.mock('../../models/listing.js', () => ({
-  Listing: {
-    find: (...a: unknown[]) => listingFind(...a),
-    findOne: (...a: unknown[]) => listingFindOne(...a),
-    findById: (...a: unknown[]) => listingFindById(...a),
-    updateOne: (...a: unknown[]) => listingUpdateOne(...a),
-    exists: (...a: unknown[]) => listingExists(...a),
-  },
+const findListingById = vi.fn();
+const findListingBySourceExternalId = vi.fn();
+const findListingChildren = vi.fn();
+const findListingsBySourceConnection = vi.fn();
+const setListingStatusIfIn = vi.fn();
+const updateListingColumns = vi.fn();
+vi.mock('../../db/catalog/listingRepository.js', () => ({
+  findListingById: (...a: unknown[]) => findListingById(...a),
+  findListingBySourceExternalId: (...a: unknown[]) => findListingBySourceExternalId(...a),
+  findListingChildren: (...a: unknown[]) => findListingChildren(...a),
+  findListingsBySourceConnection: (...a: unknown[]) => findListingsBySourceConnection(...a),
+  setListingStatusIfIn: (...a: unknown[]) => setListingStatusIfIn(...a),
+  updateListingColumns: (...a: unknown[]) => updateListingColumns(...a),
 }));
 
-const variantFind = vi.fn();
-const variantFindOne = vi.fn();
-vi.mock('../../models/product-variant.js', () => ({
-  ProductVariant: {
-    find: (...a: unknown[]) => variantFind(...a),
-    findOne: (...a: unknown[]) => variantFindOne(...a),
-  },
+const findVariantBySourceInventoryItemId = vi.fn();
+const findVariantOptionValues = vi.fn();
+const findVariantsByListing = vi.fn();
+const findVariantsBySourceConnection = vi.fn();
+const updateVariantColumns = vi.fn();
+vi.mock('../../db/catalog/variantRepository.js', () => ({
+  findVariantBySourceInventoryItemId: (...a: unknown[]) =>
+    findVariantBySourceInventoryItemId(...a),
+  findVariantOptionValues: (...a: unknown[]) => findVariantOptionValues(...a),
+  findVariantsByListing: (...a: unknown[]) => findVariantsByListing(...a),
+  findVariantsBySourceConnection: (...a: unknown[]) => findVariantsBySourceConnection(...a),
+  updateVariant: (...a: unknown[]) => updateVariantColumns(...a),
+}));
+
+const listingPushedToConnection = vi.fn();
+vi.mock('../../db/catalog/listingExternalRefRepository.js', () => ({
+  findExternalRefByListingAndConnection: vi.fn(),
+  listingPushedToConnection: (...a: unknown[]) => listingPushedToConnection(...a),
+  upsertExternalRef: vi.fn(),
+}));
+
+const categorySlugExists = vi.fn();
+vi.mock('../../db/catalog/categoryRepository.js', () => ({
+  categorySlugExists: (...a: unknown[]) => categorySlugExists(...a),
+}));
+
+const setListingAutomatedMemberships = vi.fn();
+vi.mock('../../db/merchandising/collectionRepository.js', () => ({
+  setListingAutomatedMemberships: (...a: unknown[]) => setListingAutomatedMemberships(...a),
+}));
+
+const findLocation = vi.fn();
+vi.mock('../../db/stores/locationRepository.js', () => ({
+  findLocation: (...a: unknown[]) => findLocation(...a),
 }));
 
 const orderFindById = vi.fn();
 vi.mock('../../models/order.js', () => ({
   Order: { findById: (...a: unknown[]) => orderFindById(...a) },
-}));
-
-const locationExists = vi.fn();
-vi.mock('../../models/location.js', () => ({
-  Location: { exists: (...a: unknown[]) => locationExists(...a) },
-}));
-
-const categoryExists = vi.fn();
-vi.mock('../../models/category.js', () => ({
-  Category: { exists: (...a: unknown[]) => categoryExists(...a) },
 }));
 
 const createStoreProduct = vi.fn();
@@ -126,14 +153,16 @@ beforeEach(() => {
   vi.clearAllMocks();
   syncRunCreate.mockImplementation(() => Promise.resolve(mockRun()));
   connectionUpdateOne.mockResolvedValue({});
-  listingUpdateOne.mockResolvedValue({});
-  listingExists.mockResolvedValue(null);
+  updateListingColumns.mockResolvedValue(null);
+  setListingStatusIfIn.mockResolvedValue(true);
+  listingPushedToConnection.mockResolvedValue(false);
   decryptSecret.mockReturnValue(JSON.stringify({ accessToken: 'shpat_test' }));
   resolveDefaultLocationId.mockResolvedValue('loc-default');
-  // Re-price query (update path): no existing variants by default → no re-pricing.
-  variantFind.mockReturnValue({ select: () => ({ lean: () => Promise.resolve([]) }) });
-  // Delete-reconciliation query (fully-completed backfill): no sourced listings.
-  listingFind.mockReturnValue({ lean: () => Promise.resolve([]) });
+  // Re-price reads (update path): no existing variants by default → no re-pricing.
+  findVariantsByListing.mockResolvedValue([]);
+  findVariantOptionValues.mockResolvedValue(new Map());
+  // Delete-reconciliation read (fully-completed backfill): no sourced listings.
+  findListingsBySourceConnection.mockResolvedValue([]);
 });
 
 // --- collectionMapping on re-sync -------------------------------------------
@@ -177,48 +206,80 @@ function collectionProduct(): NormalizedProduct {
   };
 }
 
+/** An existing imported `listings` row with the given local pins. */
+function importedListingRow(overriddenFields: string[]): unknown {
+  return {
+    id: 'listing-1',
+    storeId: STORE_ID,
+    status: 'active',
+    sourceConnectionId: 'conn-col',
+    sourceProvider: 'shopify',
+    sourceExternalId: 'shopify-1',
+    overriddenFields,
+  };
+}
+
 describe('collectionMapping on re-sync', () => {
   beforeEach(() => {
     process.env.CONNECTOR_DEFAULT_CATEGORY_SLUG = 'home';
-    categoryExists.mockResolvedValue({ _id: 'cat-1' });
+    categorySlugExists.mockResolvedValue(true);
     getConnectorProvider.mockReturnValue({
       fetchProducts: vi.fn().mockResolvedValue({ products: [collectionProduct()] }),
     });
   });
 
-  it('sets mapped connector collections, preserves native ones, drops stale connector ones', async () => {
+  it('sets the mapped connector collections and scopes the diff to the connector-managed set', async () => {
     connectionFindOne.mockResolvedValue(collectionMappingConnection());
-    // Existing listing (update path), no pinned fields.
-    listingFindOne.mockReturnValue({
-      select: vi.fn().mockResolvedValue({ _id: 'listing-1', overriddenFields: [] }),
-    });
-    // Current memberships: a NATIVE collection + a STALE connector collection (merc-col-B).
-    listingFindById.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ collectionIds: ['native-1', 'merc-col-B'] }),
-      }),
-    });
+    findListingBySourceExternalId.mockResolvedValue(importedListingRow([]));
 
     await runBackfill(STORE_ID, 'conn-col');
 
-    // The connector-managed subset (codomain = {merc-col-A, merc-col-B}) is set to the
-    // currently-desired {merc-col-A}; native-1 is preserved; stale merc-col-B removed.
-    const colCall = listingUpdateOne.mock.calls.find(([, u]) => u?.$set?.collectionIds);
-    expect(colCall?.[1].$set.collectionIds).toEqual(['native-1', 'merc-col-A']);
+    // The old assertion read the whole rewritten `$set.collectionIds` array
+    // (`['native-1', 'merc-col-A']`) off a `Listing.updateOne`, because the merge
+    // was a read-modify-write in the service. There is no array and no read any
+    // more: the service states the connector-MANAGED scope (the mapping's
+    // codomain) and the DESIRED subset, and the insert/delete diff happens in
+    // SQL. "Native memberships are preserved" is now a property of that scoped
+    // delete rather than of a filter here — it is exercised against a real server
+    // by `src/db/__tests__/catalog.realdb.test.ts` ("set-diffs an automated
+    // membership and clears a stale manual position"), so it is not re-asserted
+    // against a mock that could not tell either way.
+    expect(setListingAutomatedMemberships).toHaveBeenCalledTimes(1);
+    expect(setListingAutomatedMemberships).toHaveBeenCalledWith(
+      'listing-1',
+      ['merc-col-A', 'merc-col-B'],
+      ['merc-col-A'],
+    );
   });
 
-  it('leaves collectionIds untouched when `collections` is pinned in overriddenFields', async () => {
+  it('drops the managed memberships when the platform sends no collection refs', async () => {
+    // A product with NO refs is not "nothing to do": it means the platform removed
+    // it from every mapped collection, so the desired set is empty while the
+    // managed scope stays whole.
     connectionFindOne.mockResolvedValue(collectionMappingConnection());
-    listingFindOne.mockReturnValue({
-      select: vi.fn().mockResolvedValue({ _id: 'listing-1', overriddenFields: ['collections'] }),
+    findListingBySourceExternalId.mockResolvedValue(importedListingRow([]));
+    getConnectorProvider.mockReturnValue({
+      fetchProducts: vi
+        .fn()
+        .mockResolvedValue({ products: [{ ...collectionProduct(), collectionRefs: [] }] }),
     });
 
     await runBackfill(STORE_ID, 'conn-col');
 
-    // Pinned → no collectionIds write, and no membership read.
-    expect(listingFindById).not.toHaveBeenCalled();
-    const colCall = listingUpdateOne.mock.calls.find(([, u]) => u?.$set?.collectionIds);
-    expect(colCall).toBeUndefined();
+    expect(setListingAutomatedMemberships).toHaveBeenCalledWith(
+      'listing-1',
+      ['merc-col-A', 'merc-col-B'],
+      [],
+    );
+  });
+
+  it('leaves membership untouched when `collections` is pinned in overriddenFields', async () => {
+    connectionFindOne.mockResolvedValue(collectionMappingConnection());
+    findListingBySourceExternalId.mockResolvedValue(importedListingRow(['collections']));
+
+    await runBackfill(STORE_ID, 'conn-col');
+
+    expect(setListingAutomatedMemberships).not.toHaveBeenCalled();
   });
 });
 
@@ -246,25 +307,23 @@ function inventoryConnection(targetLocationId?: string) {
   };
 }
 
-/** The connector-sourced variants of the inventory connection. */
-function sourcedVariants() {
+/** The connector-sourced `product_variants` rows of the inventory connection. */
+function sourcedVariants(): unknown[] {
   return [
-    { _id: 'v1', listingId: 'l1', source: { externalInventoryItemId: '111' } },
-    { _id: 'v2', listingId: 'l1', source: { externalInventoryItemId: '222' } },
+    { id: 'v1', listingId: 'l1', sourceConnectionId: 'conn-inv', sourceExternalInventoryItemId: '111' },
+    { id: 'v2', listingId: 'l1', sourceConnectionId: 'conn-inv', sourceExternalInventoryItemId: '222' },
   ];
 }
 
 describe('syncInventory — pull to target location', () => {
   beforeEach(() => {
-    variantFind.mockReturnValue({
-      select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(sourcedVariants()) }),
-    });
+    findVariantsBySourceConnection.mockResolvedValue(sourcedVariants());
     setAvailable.mockResolvedValue(undefined);
   });
 
   it('absolute-sets mapped stock at the configured target location; skips unmapped', async () => {
     connectionFindOne.mockResolvedValue(inventoryConnection('loc-target'));
-    locationExists.mockResolvedValue({ _id: 'loc-target' }); // target is a valid store location
+    findLocation.mockResolvedValue({ id: 'loc-target', storeId: STORE_ID, isActive: true });
     getConnectorProvider.mockReturnValue({
       fetchInventory: vi.fn().mockResolvedValue([
         { externalInventoryItemId: '111', available: 7 },
@@ -274,6 +333,8 @@ describe('syncInventory — pull to target location', () => {
 
     const run = await syncInventory(STORE_ID, 'conn-inv');
 
+    // The working set is ONE connection-scoped repository read, not a listing scan.
+    expect(findVariantsBySourceConnection).toHaveBeenCalledWith('conn-inv');
     // v1 (item 111) set to 7 at loc-target; item 999 has no variant → skipped.
     expect(setAvailable).toHaveBeenCalledTimes(1);
     expect(setAvailable).toHaveBeenCalledWith('v1', 'l1', 'loc-target', 7);
@@ -283,7 +344,7 @@ describe('syncInventory — pull to target location', () => {
 
   it('is idempotent — a second run makes the identical absolute set', async () => {
     connectionFindOne.mockResolvedValue(inventoryConnection('loc-target'));
-    locationExists.mockResolvedValue({ _id: 'loc-target' });
+    findLocation.mockResolvedValue({ id: 'loc-target', storeId: STORE_ID, isActive: true });
     getConnectorProvider.mockReturnValue({
       fetchInventory: vi.fn().mockResolvedValue([{ externalInventoryItemId: '111', available: 7 }]),
     });
@@ -296,9 +357,27 @@ describe('syncInventory — pull to target location', () => {
     expect(setAvailable).toHaveBeenNthCalledWith(2, 'v1', 'l1', 'loc-target', 7);
   });
 
-  it('falls back to the store default when the target location is invalid', async () => {
+  it('falls back to the store default when the target location does not exist', async () => {
     connectionFindOne.mockResolvedValue(inventoryConnection('loc-bogus'));
-    locationExists.mockResolvedValue(null); // target not a valid location → default
+    findLocation.mockResolvedValue(null); // not a location of this store → default
+    getConnectorProvider.mockReturnValue({
+      fetchInventory: vi.fn().mockResolvedValue([{ externalInventoryItemId: '111', available: 4 }]),
+    });
+
+    await syncInventory(STORE_ID, 'conn-inv');
+
+    expect(findLocation).toHaveBeenCalledWith(STORE_ID, 'loc-bogus');
+    expect(setAvailable).toHaveBeenCalledWith('v1', 'l1', 'loc-default', 4);
+  });
+
+  it('falls back to the store default when the target location is DEACTIVATED', async () => {
+    // The Mongo lookup was `Location.exists({ _id, storeId, isActive: true })`, so
+    // a deactivated target was indistinguishable from a missing one. `findLocation`
+    // scopes to the store but does NOT filter on `isActive`, so the service makes
+    // the check — and a row that exists but is inactive is the case that would
+    // silently start receiving stock if it ever stopped making it.
+    connectionFindOne.mockResolvedValue(inventoryConnection('loc-off'));
+    findLocation.mockResolvedValue({ id: 'loc-off', storeId: STORE_ID, isActive: false });
     getConnectorProvider.mockReturnValue({
       fetchInventory: vi.fn().mockResolvedValue([{ externalInventoryItemId: '111', available: 4 }]),
     });
@@ -325,11 +404,7 @@ describe('syncInventory — pull to target location', () => {
 describe('processConnectorWebhook — inventory_levels/update', () => {
   it('re-fetches the authoritative total and absolute-sets the mapped variant', async () => {
     connectionFindById.mockResolvedValue(inventoryConnection());
-    variantFindOne.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue({ _id: 'v1', listingId: 'l1' }),
-      }),
-    });
+    findVariantBySourceInventoryItemId.mockResolvedValue({ id: 'v1', listingId: 'l1' });
     const fetchInventory = vi.fn().mockResolvedValue([{ externalInventoryItemId: '111', available: 9 }]);
     getConnectorProvider.mockReturnValue({ fetchInventory });
 
@@ -339,6 +414,9 @@ describe('processConnectorWebhook — inventory_levels/update', () => {
       payload: { inventory_item_id: 111 },
     });
 
+    // The platform's inventory-item id is NOT the variant id — the mapping is the
+    // indexed provenance lookup.
+    expect(findVariantBySourceInventoryItemId).toHaveBeenCalledWith('conn-inv', '111');
     // The webhook reports one location; the shop-wide total is re-fetched, then set.
     expect(fetchInventory).toHaveBeenCalledWith(
       { accessToken: 'shpat_test', shopDomain: 'acme.myshopify.com' },

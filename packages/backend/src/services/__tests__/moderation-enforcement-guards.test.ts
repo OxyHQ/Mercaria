@@ -11,29 +11,50 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Types } from 'mongoose';
 
 const listingFindById = vi.fn();
-const listingUpdateOne = vi.fn();
+const updateListingColumns = vi.fn().mockResolvedValue(null);
+const recomputeListingFacets = vi.fn().mockResolvedValue(undefined);
+const replaceListingImages = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('../../models/listing.js', () => ({
-  Listing: {
-    findById: (...args: unknown[]) => listingFindById(...args),
-    updateOne: (...args: unknown[]) => listingUpdateOne(...args),
-  },
+vi.mock('../../db/catalog/listingRepository.js', () => ({
+  findListingById: (...args: unknown[]) => listingFindById(...args),
+  updateListingColumns: (...args: unknown[]) => updateListingColumns(...args),
+  recomputeListingFacets: (...args: unknown[]) => recomputeListingFacets(...args),
+  replaceListingImages: (...args: unknown[]) => replaceListingImages(...args),
+  insertListing: vi.fn(),
 }));
 
-const variantFind = vi.fn();
 const orderFindOneAndUpdate = vi.fn();
 
-vi.mock('../../models/product-variant.js', () => ({
-  ProductVariant: { find: (...args: unknown[]) => variantFind(...args) },
+vi.mock('../../db/catalog/variantRepository.js', () => ({
+  findVariantsByListing: vi.fn(async () => []),
+  countVariants: vi.fn(async () => 1),
+  insertVariants: vi.fn(async () => []),
+  updateVariant: vi.fn(async () => null),
+  deleteVariant: vi.fn(async () => false),
+  recomputeVariantRollup: vi.fn(async () => undefined),
+}));
+
+vi.mock('../../db/catalog/inventoryLevelRepository.js', () => ({
+  insertLevels: vi.fn(async () => undefined),
+  setLevelAvailable: vi.fn(async () => undefined),
+}));
+
+vi.mock('../../db/catalog/categoryRepository.js', () => ({
+  findCategoryBySlug: vi.fn(async () => null),
+}));
+
+vi.mock('../../db/stores/locationRepository.js', () => ({
+  findDefaultLocationId: vi.fn(async () => null),
+}));
+
+vi.mock('../../db/stores/storeRepository.js', () => ({
+  adjustStoreProductCount: vi.fn(async () => undefined),
 }));
 vi.mock('../../models/order.js', () => ({
   Order: { findOneAndUpdate: (...args: unknown[]) => orderFindOneAndUpdate(...args) },
 }));
 vi.mock('../../models/store.js', () => ({ Store: { updateOne: vi.fn() } }));
 vi.mock('../../models/seller-profile.js', () => ({ SellerProfile: { updateOne: vi.fn() } }));
-vi.mock('../../models/location.js', () => ({ Location: {} }));
-vi.mock('../../models/inventory-level.js', () => ({ InventoryLevel: {} }));
-vi.mock('../../models/category.js', () => ({ Category: {} }));
 vi.mock('../../models/refund.js', () => ({
   Refund: { find: () => ({ lean: async () => [] }) },
 }));
@@ -61,22 +82,28 @@ const { transition } = await import('../order.service.js');
 
 const LISTING_ID = new Types.ObjectId().toHexString();
 
-/** A listing document with just enough of the mongoose surface to be saved. */
-function listingDoc(status: string): Record<string, unknown> {
-  return { _id: LISTING_ID, status, publishedAt: new Date(), save: vi.fn() };
+/** A listing ROW as the repository returns it — the shape `updateListing` reads. */
+function listingRow(status: string): Record<string, unknown> {
+  return {
+    id: LISTING_ID,
+    ownerType: 'user',
+    oxyUserId: 'seller-1',
+    storeId: null,
+    status,
+    publishedAt: new Date(),
+  };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // `recomputeFacets` reads the listing's variants after any update.
-  variantFind.mockReturnValue({ sort: () => ({ lean: async () => [] }), lean: async () => [] });
+  updateListingColumns.mockResolvedValue(null);
   // The CAS gate in `transition`; a returned doc means this caller won it.
   orderFindOneAndUpdate.mockResolvedValue({ _id: new Types.ObjectId(), status: 'processing' });
 });
 
 describe('a seller cannot escape a moderation restriction', () => {
   it('REFUSES to republish a restricted listing', async () => {
-    listingFindById.mockResolvedValue(listingDoc('restricted'));
+    listingFindById.mockResolvedValue(listingRow('restricted'));
 
     /**
      * The escape this closes: `updateListing` assigned `patch.status` straight
@@ -89,11 +116,12 @@ describe('a seller cannot escape a moderation restriction', () => {
       updateListing(LISTING_ID, { status: 'active' }),
     ).rejects.toThrow(/restricted pending a moderation decision/i);
 
-    expect(listingUpdateOne).not.toHaveBeenCalled();
+    // Nothing was written: the guard runs BEFORE any column patch is assembled.
+    expect(updateListingColumns).not.toHaveBeenCalled();
   });
 
   it('refuses EVERY status change on a restricted listing, not just active', async () => {
-    listingFindById.mockResolvedValue(listingDoc('restricted'));
+    listingFindById.mockResolvedValue(listingRow('restricted'));
 
     // `draft` would look harmless and is not: it hands the seller an editable
     // copy of material a jury removed.
@@ -103,7 +131,7 @@ describe('a seller cannot escape a moderation restriction', () => {
   });
 
   it('refuses to IMPOSE a restriction from a request', async () => {
-    listingFindById.mockResolvedValue(listingDoc('active'));
+    listingFindById.mockResolvedValue(listingRow('active'));
 
     // The narrowed input type keeps `restricted` out of the payload, but a type
     // is erased at runtime and this service is exported to callers that never
@@ -114,15 +142,17 @@ describe('a seller cannot escape a moderation restriction', () => {
   });
 
   it('still allows an ordinary status change on an unrestricted listing', async () => {
-    const doc = listingDoc('draft');
-    listingFindById.mockResolvedValue(doc);
+    listingFindById.mockResolvedValue(listingRow('draft'));
 
     /**
      * The vacuity guard. A guard that refused everything would satisfy the tests
-     * above and break the catalogue; this proves the normal path still works.
+     * above and break the catalogue; this proves the normal path still works —
+     * and that the new status really reaches the write, rather than the call
+     * merely resolving.
      */
     await expect(updateListing(LISTING_ID, { status: 'active' })).resolves.toBeUndefined();
-    expect(doc.status).toBe('active');
+    expect(updateListingColumns).toHaveBeenCalledTimes(1);
+    expect(updateListingColumns.mock.calls[0][1]).toMatchObject({ status: 'active' });
   });
 });
 

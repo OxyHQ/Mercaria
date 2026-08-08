@@ -24,7 +24,13 @@ import type {
 } from '@mercaria/shared-types';
 import { Review, type IReview } from '../models/review.js';
 import { Order, type IOrder } from '../models/order.js';
-import { Listing, type IListing } from '../models/listing.js';
+import {
+  findListingById,
+  findListingChildren,
+  findListingIdsByStore,
+  findListingsByIds,
+  setListingRating,
+} from '../db/catalog/listingRepository.js';
 import { Store, type IStore } from '../models/store.js';
 import { SellerProfile } from '../models/seller-profile.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
@@ -205,7 +211,7 @@ export async function recomputeAggregate(
 
   switch (targetType) {
     case 'listing':
-      await Listing.updateOne({ _id: targetId }, update);
+      await setListingRating(targetId, rating, reviewCount);
       break;
     case 'store':
       await Store.updateOne({ _id: targetId }, update);
@@ -232,9 +238,7 @@ async function notifyTargetOwner(
     const recipients = new Set<string>();
 
     if (input.targetType === 'listing') {
-      const listing = await Listing.findById(targetId)
-        .select('ownerType oxyUserId storeId')
-        .lean<Pick<IListing, 'ownerType' | 'oxyUserId' | 'storeId'> | null>();
+      const listing = await findListingById(targetId);
       if (listing?.ownerType === 'user' && listing.oxyUserId) {
         recipients.add(String(listing.oxyUserId));
       } else if (listing?.ownerType === 'store' && listing.storeId) {
@@ -403,9 +407,7 @@ export async function listReviewsForStoreHandle(
   }
 
   const storeId = String(store._id);
-  const listingIds = (
-    await Listing.find({ storeId }).select('_id').lean<{ _id: mongoose.Types.ObjectId }[]>()
-  ).map((l) => String(l._id));
+  const listingIds = await findListingIdsByStore(storeId);
 
   if (listingIds.length === 0) {
     return { data: [], total: 0 };
@@ -431,18 +433,18 @@ export async function listReviewsForStoreHandle(
     ...new Set(docs.map((d) => (d.listingId ? String(d.listingId) : '')).filter(Boolean)),
   ];
 
-  const [authorProfiles, listingDocs] = await Promise.all([
+  const [authorProfiles, listingDocs, children] = await Promise.all([
     getProfiles(authorIds),
-    Listing.find({ _id: { $in: reviewedListingIds } })
-      .select('_id title images')
-      .lean<Pick<IListing, '_id' | 'title' | 'images'>[]>(),
+    findListingsByIds(reviewedListingIds),
+    findListingChildren(reviewedListingIds),
   ]);
 
   const products = new Map<string, ReviewProduct>();
   for (const listing of listingDocs) {
-    const firstImage = listing.images.find((img) => img.position === 0) ?? listing.images[0];
-    products.set(String(listing._id), {
-      id: String(listing._id),
+    const gallery = children.images.get(listing.id) ?? [];
+    const firstImage = gallery.find((img) => img.position === 0) ?? gallery[0];
+    products.set(listing.id, {
+      id: listing.id,
       title: listing.title,
       imageUrl: firstImage ? resolveMedia(firstImage.fileId, 'thumb') : '',
     });

@@ -1,20 +1,37 @@
 /**
  * Catalog write service — the SINGLE funnel for catalog mutations.
  *
- * Both the P2P seller path and the store-product path create/update `Listing`s
- * and their `ProductVariant`s through here, so the denormalized `Listing` facets
+ * Both the P2P seller path and the store-product path create/update listings and
+ * their variants through here, so the denormalized listing facets
  * (`priceRange`, `hasInventory`, `variantCount`) ALWAYS stay in sync with the
- * variant collection. `syncListingFacets` is the one place those facets are
- * recomputed and persisted; `inventory.service` re-uses it after stock changes
- * (no duplicate facet logic anywhere).
+ * variant rows. `syncListingFacets` is the one place those facets are recomputed
+ * and persisted; `inventory.service` re-uses it after stock changes (no duplicate
+ * facet logic anywhere).
  *
  * P2P listings hide the variant model behind a flat `price`/`quantity` API: a
- * single Shopify-style "Default Title" variant is created. Store products expand
- * `options[].values` into the cartesian product of variants (or take an explicit
- * `variants[]`).
+ * single Shopify-style "Default Title" variant is created. Store products take an
+ * explicit `variants[]`.
+ *
+ * ## Ported to Postgres
+ *
+ * One Mongoose document became four tables (`listings` + images + options +
+ * variants), so every write goes through the repositories, which own the SQL and
+ * the atomicity. Three things genuinely change:
+ *
+ *  - **The facet recompute is an AGGREGATE, not a read-reduce-write.** The Mongo
+ *    version pulled every variant into the process to compute min/max. The rows
+ *    never leave the database now, and a listing with NO variants correctly
+ *    clears its price range — see `recomputeListingFacets` for the empty-aggregate
+ *    trap that makes the obvious single-statement form wrong.
+ *  - **A listing and its images and options are created in ONE transaction.**
+ *    Mongo wrote the document once, so the question did not arise; four tables
+ *    make a half-created product possible, and it renders as a product page with
+ *    no gallery and no size picker.
+ *  - **An absent SKU or barcode is written NULL, never `''`.** Both carry a
+ *    PARTIAL unique index, and an empty string is a VALUE — the second variant
+ *    saved without a SKU would collide with the first for real.
  */
 
-import mongoose from 'mongoose';
 import type {
   CreateP2PListingInput,
   CreateStoreProductInput,
@@ -23,12 +40,30 @@ import type {
   UpdateListingInput,
 } from '@mercaria/shared-types';
 import { SELLER_SETTABLE_LISTING_STATUSES } from '@mercaria/shared-types';
-import { Listing, type IListing, type IListingImage } from '../models/listing.js';
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
-import { Store } from '../models/store.js';
-import { Location, type ILocation } from '../models/location.js';
-import { InventoryLevel } from '../models/inventory-level.js';
-import { Category, type ICategory } from '../models/category.js';
+import {
+  findListingById,
+  insertListing,
+  recomputeListingFacets,
+  replaceListingImages,
+  updateListingColumns,
+  type ListingImageInput,
+  type ListingRecord,
+} from '../db/catalog/listingRepository.js';
+import {
+  countVariants,
+  deleteVariant,
+  nextVariantPosition,
+  findVariantsByListing,
+  insertVariants,
+  recomputeVariantRollup,
+  updateVariant as updateVariantColumns,
+  type NewVariant,
+  type OptionValueInput,
+} from '../db/catalog/variantRepository.js';
+import { insertLevels, setLevelAvailable } from '../db/catalog/inventoryLevelRepository.js';
+import { findCategoryBySlug } from '../db/catalog/categoryRepository.js';
+import { findDefaultLocationId } from '../db/stores/locationRepository.js';
+import { adjustStoreProductCount } from '../db/stores/storeRepository.js';
 import { config } from '../config/index.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
@@ -38,11 +73,12 @@ import { getOrCreate as getOrCreateSellerProfile } from './seller-profile.servic
 const DEFAULT_VARIANT_TITLE = 'Default Title';
 
 /**
- * After a STORE product/variant mutation, recompute which AUTOMATED collections of
- * the store the listing belongs to. Best-effort: a membership recompute failure must
- * not fail the write. Uses a DYNAMIC import of `collection.service` to break the
- * import cycle (`collection.service` imports `syncListingFacets`/types from here),
- * mirroring `inventory.service`'s dynamic import of the queue producers.
+ * After a STORE product/variant mutation, recompute which AUTOMATED collections
+ * of the store the listing belongs to. Best-effort: a membership recompute
+ * failure must not fail the write. Uses a DYNAMIC import of `collection.service`
+ * to break the import cycle (`collection.service` imports `syncListingFacets`
+ * and types from here), mirroring `inventory.service`'s dynamic import of the
+ * queue producers.
  */
 async function recomputeCollectionMembership(listingId: string): Promise<void> {
   try {
@@ -54,65 +90,52 @@ async function recomputeCollectionMembership(listingId: string): Promise<void> {
 }
 
 /**
- * Resolve a store's default `Location` id — the `isDefault` location, falling
- * back to ANY active location. Throws NOT_FOUND if the store has no location
- * (every store gets one at creation + via the migration backfill). Owned HERE
- * (not in `inventory.service`) so both the catalog write path and inventory
- * routing share one implementation WITHOUT an import cycle (`inventory.service`
- * already imports this module for `syncListingFacets`).
+ * Resolve a store's default location id — the `isDefault` one, falling back to
+ * ANY active one. Throws NOT_FOUND when the store has none (every store gets one
+ * at creation and via the migration backfill).
+ *
+ * Owned HERE rather than in `inventory.service` so the catalogue write path and
+ * inventory routing share one implementation WITHOUT an import cycle
+ * (`inventory.service` already imports this module for `syncListingFacets`). The
+ * repository below it returns `null` rather than throwing, because "this store
+ * has no location" is a fact about the data and NOT_FOUND is this service's
+ * contract for it.
  */
 export async function resolveDefaultLocationId(storeId: string): Promise<string> {
-  const def = await Location.findOne({ storeId, isDefault: true })
-    .select('_id')
-    .lean<Pick<ILocation, '_id'> | null>();
-  if (def) {
-    return String(def._id);
-  }
-  const anyActive = await Location.findOne({ storeId, isActive: true })
-    .select('_id')
-    .lean<Pick<ILocation, '_id'> | null>();
-  if (!anyActive) {
+  const locationId = await findDefaultLocationId(storeId);
+  if (!locationId) {
     throw notFound('No location for store');
   }
-  return String(anyActive._id);
+  return locationId;
 }
 
 /**
  * Recompute and persist a store variant's scalar `inventory.{available,committed}`
- * as the SUM over its `InventoryLevel` rows. This is the ONE place the rollup is
- * computed; `inventory.service.rollupVariant` delegates here (the dependency only
- * flows inventory → catalog-write, never back, so no cycle). When a variant has
- * no level rows (e.g. an untracked or P2P variant), the sums are 0.
+ * as the SUM over its `inventory_levels` rows. This is the ONE place the rollup
+ * is computed; `inventory.service.rollupVariant` delegates here (the dependency
+ * only flows inventory → catalog-write, never back, so no cycle). A variant with
+ * no level rows — an untracked or P2P variant — sums to zero.
  */
 export async function recomputeVariantScalarFromLevels(variantId: string): Promise<void> {
-  const [agg] = await InventoryLevel.aggregate<{ available: number; committed: number }>([
-    { $match: { variantId } },
-    { $group: { _id: null, available: { $sum: '$available' }, committed: { $sum: '$committed' } } },
-  ]);
-  const available = agg?.available ?? 0;
-  const committed = agg?.committed ?? 0;
-  await ProductVariant.updateOne(
-    { _id: variantId },
-    { $set: { 'inventory.available': available, 'inventory.committed': committed } },
-  );
+  await recomputeVariantRollup(variantId);
 }
 
 /** Resolve a category slug to its id + denormalized `[ancestor..., slug]` path. */
 async function resolveCategory(
   slug: string,
 ): Promise<{ categoryId: string; categorySlugs: string[] }> {
-  const category = await Category.findOne({ slug }).lean<ICategory | null>();
+  const category = await findCategoryBySlug(slug);
   if (!category) {
     throw notFound(`Category not found: ${slug}`);
   }
   return {
-    categoryId: String((category as { _id: mongoose.Types.ObjectId })._id),
+    categoryId: category.id,
     categorySlugs: [...category.ancestorSlugs, category.slug],
   };
 }
 
-/** Map input image file ids to the persisted `IListingImage[]` shape. */
-function toListingImages(imageFileIds: string[]): IListingImage[] {
+/** Map input image file ids to the `listing_images` rows they expand into. */
+function toListingImages(imageFileIds: string[]): ListingImageInput[] {
   if (imageFileIds.length > config.catalog.maxImagesPerListing) {
     throw validationError(
       `A listing may have at most ${config.catalog.maxImagesPerListing} images`,
@@ -123,54 +146,22 @@ function toListingImages(imageFileIds: string[]): IListingImage[] {
 
 /**
  * Recompute and persist a listing's denormalized facets from its variants:
- *  - `priceRange.min/max` from variant prices (single currency assumed),
- *  - `hasInventory` = any untracked variant OR any tracked variant with available>0,
- *  - `variantCount` = number of variants.
+ * `priceRange.min/max`, `hasInventory` (any untracked variant OR any tracked one
+ * with stock), and `variantCount`.
  *
- * Returns the up-to-date variant docs so callers avoid a re-query. Shared by the
- * write service and `inventory.service`.
+ * Shared by this service and `inventory.service`. Returns nothing: the Mongo
+ * version handed back the variant docs so a caller could avoid a re-query, and
+ * no caller ever did.
  */
-export async function syncListingFacets(listingId: string): Promise<IProductVariant[]> {
-  const variants = await ProductVariant.find({ listingId })
-    .sort({ position: 1 })
-    .lean<IProductVariant[]>();
-
-  if (variants.length === 0) {
-    await Listing.updateOne(
-      { _id: listingId },
-      { $set: { hasInventory: false, variantCount: 0 } },
-    );
-    return variants;
-  }
-
-  const amounts = variants.map((v) => v.price.amount);
-  const currency = variants[0].price.currency;
-  const hasInventory = variants.some(
-    (v) => !v.inventory.tracked || v.inventory.available > 0,
-  );
-
-  await Listing.updateOne(
-    { _id: listingId },
-    {
-      $set: {
-        priceRange: {
-          min: { amount: Math.min(...amounts), currency },
-          max: { amount: Math.max(...amounts), currency },
-        },
-        hasInventory,
-        variantCount: variants.length,
-      },
-    },
-  );
-
-  return variants;
+export async function syncListingFacets(listingId: string): Promise<void> {
+  await recomputeListingFacets(listingId);
 }
 
 /**
  * Create a P2P (secondhand) listing owned by an individual user. Creates the
- * `Listing` (`ownerType: 'user'`) plus a single Default-Title variant carrying
- * the price and `inventory.available = quantity ?? 1`. Lazily ensures the
- * seller's profile exists. Returns the new listing's id.
+ * listing (`ownerType: 'user'`) plus a single Default-Title variant carrying the
+ * price and `available = quantity ?? 1`. Lazily ensures the seller's profile
+ * exists. Returns the new listing's id.
  */
 export async function createP2PListing(
   oxyUserId: string,
@@ -185,60 +176,67 @@ export async function createP2PListing(
   // (no FAIR conversion). Settlement to FAIR happens later, at the paid boundary.
   const price = input.price;
 
-  const listing = await Listing.create({
-    ownerType: 'user',
-    oxyUserId,
-    title: input.title,
-    description: input.description,
-    condition: input.condition,
-    status: 'active',
-    categoryId,
-    categorySlugs,
-    images: toListingImages(input.imageFileIds),
-    tags: input.tags ?? [],
-    options: [],
-    priceRange: {
-      min: { amount: price.amount, currency: price.currency },
-      max: { amount: price.amount, currency: price.currency },
+  const listing = await insertListing(
+    {
+      ownerType: 'user',
+      oxyUserId,
+      storeId: null,
+      title: input.title,
+      description: input.description,
+      condition: input.condition,
+      status: 'active',
+      categoryId,
+      categorySlugs,
+      tags: input.tags ?? [],
+      priceRangeMinAmount: price.amount,
+      priceRangeMinCurrency: price.currency,
+      priceRangeMaxAmount: price.amount,
+      priceRangeMaxCurrency: price.currency,
+      hasInventory: quantity > 0,
+      variantCount: 1,
+      longitude: null,
+      latitude: null,
+      vendor: null,
+      productType: null,
+      handle: null,
+      seoTitle: null,
+      seoDescription: null,
+      sourceConnectionId: null,
+      sourceProvider: null,
+      sourceExternalId: null,
+      sourceExternalUpdatedAt: null,
+      overriddenFields: [],
+      rating: 0,
+      reviewCount: 0,
+      favoriteCount: 0,
+      publishedAt: new Date(),
     },
-    hasInventory: quantity > 0,
-    variantCount: 1,
-    publishedAt: new Date(),
-  });
+    toListingImages(input.imageFileIds),
+    [],
+  );
 
-  const listingId = String(listing._id);
+  await insertVariants(listing.id, [
+    {
+      title: DEFAULT_VARIANT_TITLE,
+      priceAmount: price.amount,
+      priceCurrency: price.currency,
+      inventoryTracked: true,
+      inventoryAvailable: quantity,
+      position: 0,
+      optionValues: [],
+    },
+  ]);
 
-  await ProductVariant.create({
-    listingId,
-    title: DEFAULT_VARIANT_TITLE,
-    optionValues: [],
-    price: { amount: price.amount, currency: price.currency },
-    inventory: { tracked: true, available: quantity, committed: 0, levels: [] },
-    position: 0,
-  });
-
-  await syncListingFacets(listingId);
-  return listingId;
+  await syncListingFacets(listing.id);
+  return listing.id;
 }
 
 /** Human-readable variant title from its option-value tuple (e.g. `M / Black`). */
-function variantTitleFromOptions(optionValues: { name: string; value: string }[]): string {
+function variantTitleFromOptions(optionValues: OptionValueInput[]): string {
   if (optionValues.length === 0) {
     return DEFAULT_VARIANT_TITLE;
   }
   return optionValues.map((o) => o.value).join(' / ');
-}
-
-/** A normalized variant ready to persist. */
-interface NormalizedVariant {
-  title: string;
-  optionValues: { name: string; value: string }[];
-  sku?: string;
-  barcode?: string;
-  price: Money;
-  compareAtPrice?: Money;
-  inventory: { tracked: boolean; available: number; committed: number; levels: [] };
-  position: number;
 }
 
 /**
@@ -248,46 +246,44 @@ interface NormalizedVariant {
  * option-only payload would expand `options[].values` into the cartesian product
  * here — that path is not part of the current contract.)
  */
-function resolveStoreVariants(input: CreateStoreProductInput): NormalizedVariant[] {
-  if (input.variants.length > 0) {
-    return input.variants.map((v: CreateStoreProductVariantInput, position) => {
-      const variant: NormalizedVariant = {
-        title: variantTitleFromOptions(v.optionValues),
-        optionValues: v.optionValues.map((o) => ({ name: o.name, value: o.value })),
-        price: { amount: v.price.amount, currency: v.price.currency },
-        inventory: {
-          tracked: v.inventory.tracked ?? true,
-          available: v.inventory.available,
-          committed: 0,
-          levels: [],
-        },
-        position,
-      };
-      if (v.sku) {
-        variant.sku = v.sku;
-      }
-      if (v.barcode) {
-        variant.barcode = v.barcode;
-      }
-      if (v.compareAtPrice) {
-        variant.compareAtPrice = { amount: v.compareAtPrice.amount, currency: v.compareAtPrice.currency };
-      }
-      return variant;
-    });
+function resolveStoreVariants(input: CreateStoreProductInput): NewVariant[] {
+  if (input.variants.length === 0) {
+    throw validationError('A store product must include at least one variant');
   }
 
-  // No explicit variants: a store product MUST still produce at least one variant.
-  throw validationError('A store product must include at least one variant');
+  return input.variants.map((v: CreateStoreProductVariantInput, position) => {
+    const variant: NewVariant = {
+      title: variantTitleFromOptions(v.optionValues),
+      optionValues: v.optionValues.map((o) => ({ name: o.name, value: o.value })),
+      priceAmount: v.price.amount,
+      priceCurrency: v.price.currency,
+      inventoryTracked: v.inventory.tracked ?? true,
+      inventoryAvailable: v.inventory.available,
+      position,
+    };
+    if (v.sku) {
+      variant.sku = v.sku;
+    }
+    if (v.barcode) {
+      variant.barcode = v.barcode;
+    }
+    if (v.compareAtPrice) {
+      variant.compareAtPriceAmount = v.compareAtPrice.amount;
+      variant.compareAtPriceCurrency = v.compareAtPrice.currency;
+    }
+    return variant;
+  });
 }
 
 /**
- * Create a store product. Creates the `Listing` (`ownerType: 'store'`, with the
- * supplied selectable `options[]`) plus its variants, then increments the store's
+ * Create a store product: the listing (`ownerType: 'store'`, with the supplied
+ * selectable options) plus its variants, then increments the store's
  * `productCount`. Returns the new listing's id.
  *
- * `opts.locationId` routes the initial stock to a specific location (the connector
- * import path passes the connection's resolved `targetLocationId`); when omitted the
- * stock lands at the store's default location, unchanged for the merchant path.
+ * `opts.locationId` routes the initial stock to a specific location (the
+ * connector import path passes the connection's resolved `targetLocationId`);
+ * when omitted the stock lands at the store's default location, unchanged for
+ * the merchant path.
  */
 export async function createStoreProduct(
   storeId: string,
@@ -306,75 +302,88 @@ export async function createStoreProduct(
   // Multi-currency: variant prices are stored in their NATIVE currency exactly as
   // given (no FAIR conversion) — the price already carries its `.currency`.
   const first = variants[0];
-  const listing = await Listing.create({
-    ownerType: 'store',
-    storeId,
-    title: input.title,
-    description: input.description,
-    condition: 'new',
-    status: 'active',
-    categoryId,
-    categorySlugs,
-    images: toListingImages(input.imageFileIds),
-    tags: input.tags ?? [],
-    options: input.options.map((o) => ({ name: o.name, values: [...o.values] })),
-    priceRange: { min: first.price, max: first.price },
-    hasInventory: false,
-    variantCount: variants.length,
-    ...(input.vendor ? { vendor: input.vendor } : {}),
-    ...(input.productType ? { productType: input.productType } : {}),
-    ...(input.handle ? { handle: input.handle } : {}),
-    ...(input.seo ? { seo: input.seo } : {}),
-    publishedAt: new Date(),
-  });
-
-  const listingId = String(listing._id);
-
-  const inserted = await ProductVariant.insertMany(
-    variants.map((v) => ({ ...v, listingId })),
+  const listing = await insertListing(
+    {
+      ownerType: 'store',
+      oxyUserId: null,
+      storeId,
+      title: input.title,
+      description: input.description,
+      condition: 'new',
+      status: 'active',
+      categoryId,
+      categorySlugs,
+      tags: input.tags ?? [],
+      priceRangeMinAmount: first.priceAmount,
+      priceRangeMinCurrency: first.priceCurrency,
+      priceRangeMaxAmount: first.priceAmount,
+      priceRangeMaxCurrency: first.priceCurrency,
+      hasInventory: false,
+      variantCount: variants.length,
+      longitude: null,
+      latitude: null,
+      vendor: input.vendor ?? null,
+      productType: input.productType ?? null,
+      handle: input.handle ?? null,
+      seoTitle: input.seo?.title ?? null,
+      seoDescription: input.seo?.description ?? null,
+      sourceConnectionId: null,
+      sourceProvider: null,
+      sourceExternalId: null,
+      sourceExternalUpdatedAt: null,
+      overriddenFields: [],
+      rating: 0,
+      reviewCount: 0,
+      favoriteCount: 0,
+      publishedAt: new Date(),
+    },
+    toListingImages(input.imageFileIds),
+    input.options.map((o, position) => ({ name: o.name, values: [...o.values], position })),
   );
 
+  const inserted = await insertVariants(listing.id, variants);
+
   // Stock each store variant at the target location (connector import) or the
-  // store's default. The variant scalar `available` (set from `insertMany`) already
-  // equals the requested value, and the single level row's `available` matches it,
-  // so the rollup is consistent.
+  // store's default. The variant scalar `available` already equals the requested
+  // value and the single level row matches it, so the rollup is consistent.
   const stockLocationId = opts.locationId ?? (await resolveDefaultLocationId(storeId));
-  await InventoryLevel.insertMany(
-    inserted.map((doc, index) => ({
-      variantId: String(doc._id),
-      listingId,
+  await insertLevels(
+    inserted.map((row, index) => ({
+      variantId: row.id,
+      listingId: listing.id,
       locationId: stockLocationId,
-      available: variants[index].inventory.available,
-      committed: 0,
+      available: variants[index].inventoryAvailable,
     })),
   );
 
-  await syncListingFacets(listingId);
-  await Store.updateOne({ _id: storeId }, { $inc: { productCount: 1 } });
-  await recomputeCollectionMembership(listingId);
+  await syncListingFacets(listing.id);
+  await adjustStoreProductCount(storeId, 1);
+  await recomputeCollectionMembership(listing.id);
 
-  return listingId;
+  return listing.id;
 }
 
 /**
  * Update a listing's mutable fields (title, description, tags, status, images,
  * category). Price/quantity for P2P listings flow through the listing's single
- * variant via `updateVariant`. Recomputes facets afterwards. Returns nothing;
- * callers re-hydrate the listing for the response.
+ * variant. Recomputes facets afterwards. Returns nothing; callers re-hydrate the
+ * listing for the response.
  */
 export async function updateListing(
   listingId: string,
   patch: UpdateListingInput,
 ): Promise<void> {
-  const listing = await Listing.findById(listingId);
+  const listing = await findListingById(listingId);
   if (!listing) {
     throw notFound('Listing not found');
   }
 
-  if (patch.title !== undefined) listing.title = patch.title;
-  if (patch.description !== undefined) listing.description = patch.description;
-  if (patch.tags !== undefined) listing.tags = [...patch.tags];
-  if (patch.condition !== undefined) listing.condition = patch.condition;
+  const columns: Partial<ListingRecord> = {};
+
+  if (patch.title !== undefined) columns.title = patch.title;
+  if (patch.description !== undefined) columns.description = patch.description;
+  if (patch.tags !== undefined) columns.tags = [...patch.tags];
+  if (patch.condition !== undefined) columns.condition = patch.condition;
   /**
    * A moderation restriction is not the seller's to lift.
    *
@@ -401,44 +410,56 @@ export async function updateListing(
     if (!SELLER_SETTABLE_LISTING_STATUSES.includes(patch.status)) {
       throw validationError(`Listing status '${patch.status}' cannot be set directly.`);
     }
-    listing.status = patch.status;
+    columns.status = patch.status;
     if (patch.status === 'active' && !listing.publishedAt) {
-      listing.publishedAt = new Date();
+      columns.publishedAt = new Date();
     }
   }
   if (patch.category !== undefined) {
     const { categoryId, categorySlugs } = await resolveCategory(patch.category);
-    listing.categoryId = categoryId;
-    listing.categorySlugs = categorySlugs;
-  }
-  if (patch.imageFileIds !== undefined) {
-    listing.images = toListingImages(patch.imageFileIds);
+    columns.categoryId = categoryId;
+    columns.categorySlugs = categorySlugs;
   }
 
   // Store-product merchandising fields (no-op for P2P listings, which never set them).
-  if (patch.vendor !== undefined) listing.vendor = patch.vendor;
-  if (patch.productType !== undefined) listing.productType = patch.productType;
-  if (patch.handle !== undefined) listing.handle = patch.handle;
-  if (patch.seo !== undefined) listing.seo = patch.seo;
-
-  // P2P price update flows through the single variant, stored in its NATIVE currency.
-  if (patch.price !== undefined && listing.ownerType === 'user') {
-    const variant = await ProductVariant.findOne({ listingId }).sort({ position: 1 });
-    if (variant) {
-      variant.price = { amount: patch.price.amount, currency: patch.price.currency };
-      await variant.save();
-    }
-  }
-  // P2P quantity update flows through the single variant's available stock.
-  if (patch.quantity !== undefined && listing.ownerType === 'user') {
-    const variant = await ProductVariant.findOne({ listingId }).sort({ position: 1 });
-    if (variant) {
-      variant.inventory.available = patch.quantity;
-      await variant.save();
-    }
+  if (patch.vendor !== undefined) columns.vendor = patch.vendor;
+  if (patch.productType !== undefined) columns.productType = patch.productType;
+  if (patch.handle !== undefined) columns.handle = patch.handle;
+  if (patch.seo !== undefined) {
+    columns.seoTitle = patch.seo.title ?? null;
+    columns.seoDescription = patch.seo.description ?? null;
   }
 
-  await listing.save();
+  if (Object.keys(columns).length > 0) {
+    await updateListingColumns(listingId, columns);
+  }
+  if (patch.imageFileIds !== undefined) {
+    await replaceListingImages(listingId, toListingImages(patch.imageFileIds));
+  }
+
+  // P2P price/quantity updates flow through the single variant, stored in its
+  // NATIVE currency. Both target the FIRST variant by position, which is the one
+  // `createP2PListing` made.
+  if (
+    listing.ownerType === 'user' &&
+    (patch.price !== undefined || patch.quantity !== undefined)
+  ) {
+    const [variant] = await findVariantsByListing(listingId);
+    if (variant) {
+      await updateVariantColumns(
+        listingId,
+        variant.id,
+        {
+          ...(patch.price !== undefined
+            ? { priceAmount: patch.price.amount, priceCurrency: patch.price.currency }
+            : {}),
+          ...(patch.quantity !== undefined ? { inventoryAvailable: patch.quantity } : {}),
+        },
+        undefined,
+      );
+    }
+  }
+
   await syncListingFacets(listingId);
   if (listing.ownerType === 'store') {
     await recomputeCollectionMembership(listingId);
@@ -447,8 +468,8 @@ export async function updateListing(
 
 /** Archive a listing (soft-delete). Used by P2P DELETE and store DELETE. */
 export async function archiveListing(listingId: string): Promise<void> {
-  const result = await Listing.updateOne({ _id: listingId }, { $set: { status: 'archived' } });
-  if (result.matchedCount === 0) {
+  const updated = await updateListingColumns(listingId, { status: 'archived' });
+  if (!updated) {
     throw notFound('Listing not found');
   }
 }
@@ -458,12 +479,12 @@ export async function addVariant(
   listingId: string,
   input: CreateStoreProductVariantInput,
 ): Promise<string> {
-  const listing = await Listing.findById(listingId).lean<IListing | null>();
+  const listing = await findListingById(listingId);
   if (!listing) {
     throw notFound('Listing not found');
   }
 
-  const existingCount = await ProductVariant.countDocuments({ listingId });
+  const existingCount = await countVariants(listingId);
   if (existingCount + 1 > config.catalog.maxVariantsPerProduct) {
     throw validationError(
       `A product may have at most ${config.catalog.maxVariantsPerProduct} variants`,
@@ -471,43 +492,47 @@ export async function addVariant(
   }
 
   // Multi-currency: the submitted price/compareAtPrice are stored NATIVE as given.
-  const price = input.price;
-  const compareAtPrice = input.compareAtPrice;
-
-  const created = await ProductVariant.create({
-    listingId,
+  const variant: NewVariant = {
     title: variantTitleFromOptions(input.optionValues),
     optionValues: input.optionValues.map((o) => ({ name: o.name, value: o.value })),
-    ...(input.sku ? { sku: input.sku } : {}),
-    ...(input.barcode ? { barcode: input.barcode } : {}),
-    price: { amount: price.amount, currency: price.currency },
-    ...(compareAtPrice
-      ? { compareAtPrice: { amount: compareAtPrice.amount, currency: compareAtPrice.currency } }
-      : {}),
-    inventory: {
-      tracked: input.inventory.tracked ?? true,
-      available: input.inventory.available,
-      committed: 0,
-      levels: [],
-    },
-    position: existingCount,
-  });
+    priceAmount: input.price.amount,
+    priceCurrency: input.price.currency,
+    inventoryTracked: input.inventory.tracked ?? true,
+    inventoryAvailable: input.inventory.available,
+    // `max(position) + 1`, not the variant COUNT: after any deletion the count
+    // collides with a position a surviving variant already holds, and two
+    // variants sharing one position make the listing's order non-deterministic.
+    position: await nextVariantPosition(listingId),
+  };
+  if (input.sku) {
+    variant.sku = input.sku;
+  }
+  if (input.barcode) {
+    variant.barcode = input.barcode;
+  }
+  if (input.compareAtPrice) {
+    variant.compareAtPriceAmount = input.compareAtPrice.amount;
+    variant.compareAtPriceCurrency = input.compareAtPrice.currency;
+  }
 
-  // Store variants are added only through this path (the listing is `ownerType:
-  // 'store'`). Stock the new variant at the store's default location so the level
-  // sum matches the scalar `available` just written.
+  const [created] = await insertVariants(listingId, [variant]);
+
+  // Store variants are added only through this path (the listing is
+  // `ownerType: 'store'`). Stock the new variant at the store's default location
+  // so the level sum matches the scalar `available` just written.
   const defaultLocationId = await resolveDefaultLocationId(String(listing.storeId));
-  await InventoryLevel.create({
-    variantId: String(created._id),
-    listingId,
-    locationId: defaultLocationId,
-    available: input.inventory.available,
-    committed: 0,
-  });
+  await insertLevels([
+    {
+      variantId: created.id,
+      listingId,
+      locationId: defaultLocationId,
+      available: input.inventory.available,
+    },
+  ]);
 
   await syncListingFacets(listingId);
   await recomputeCollectionMembership(listingId);
-  return String(created._id);
+  return created.id;
 }
 
 /** Fields accepted when updating a variant. */
@@ -527,65 +552,64 @@ export async function updateVariant(
   variantId: string,
   patch: UpdateVariantInput,
 ): Promise<void> {
-  const variant = await ProductVariant.findOne({ _id: variantId, listingId });
-  if (!variant) {
-    throw notFound('Variant not found');
-  }
+  const columns: Parameters<typeof updateVariantColumns>[2] = {};
 
-  if (patch.title !== undefined) variant.title = patch.title;
-  if (patch.sku !== undefined) variant.sku = patch.sku;
-  if (patch.barcode !== undefined) variant.barcode = patch.barcode;
+  if (patch.title !== undefined) columns.title = patch.title;
+  if (patch.sku !== undefined) columns.sku = patch.sku;
+  if (patch.barcode !== undefined) columns.barcode = patch.barcode;
   // Multi-currency: any submitted price/compareAtPrice is stored NATIVE as given.
   if (patch.price !== undefined) {
-    variant.price = { amount: patch.price.amount, currency: patch.price.currency };
+    columns.priceAmount = patch.price.amount;
+    columns.priceCurrency = patch.price.currency;
   }
   if (patch.compareAtPrice !== undefined) {
-    if (patch.compareAtPrice === null) {
-      variant.compareAtPrice = undefined;
-    } else {
-      variant.compareAtPrice = {
-        amount: patch.compareAtPrice.amount,
-        currency: patch.compareAtPrice.currency,
-      };
-    }
-  }
-  if (patch.optionValues !== undefined) {
-    variant.optionValues = patch.optionValues.map((o) => ({ name: o.name, value: o.value }));
+    // Both halves of a `Money` move together — the
+    // `product_variants_compare_at_price_paired_check` constraint refuses an
+    // amount with no currency, which is what clearing only one would produce.
+    columns.compareAtPriceAmount = patch.compareAtPrice?.amount ?? null;
+    columns.compareAtPriceCurrency = patch.compareAtPrice?.currency ?? null;
   }
   if (patch.inventory?.tracked !== undefined) {
-    variant.inventory.tracked = patch.inventory.tracked;
+    columns.inventoryTracked = patch.inventory.tracked;
   }
 
   // `inventory.available` routing differs by ownership: a STORE variant's stock
-  // lives in `InventoryLevel` (the scalar is a rollup), so the absolute set goes
+  // lives in `inventory_levels` (the scalar is a rollup), so the absolute set goes
   // to the store's default location's level and the scalar is recomputed. A P2P
   // variant keeps the scalar as the single source of truth.
-  if (patch.inventory?.available !== undefined) {
-    const owner = await Listing.findById(listingId)
-      .select('ownerType storeId')
-      .lean<Pick<IListing, 'ownerType' | 'storeId'> | null>();
-    if (owner?.ownerType === 'store' && owner.storeId) {
-      const locationId = await resolveDefaultLocationId(String(owner.storeId));
-      await InventoryLevel.updateOne(
-        { variantId, locationId },
-        {
-          $set: { available: patch.inventory.available },
-          $setOnInsert: { listingId, committed: 0 },
-        },
-        { upsert: true },
-      );
-      // `variant.save()` below would persist a stale in-memory scalar; recompute
-      // from the levels AFTER it so the rollup is authoritative.
-      await variant.save();
-      await recomputeVariantScalarFromLevels(variantId);
-      await syncListingFacets(listingId);
-      await recomputeCollectionMembership(listingId);
-      return;
-    }
-    variant.inventory.available = patch.inventory.available;
+  const listing = await findListingById(listingId);
+  const routeToLevel =
+    patch.inventory?.available !== undefined &&
+    listing?.ownerType === 'store' &&
+    listing.storeId !== null;
+
+  if (patch.inventory?.available !== undefined && !routeToLevel) {
+    columns.inventoryAvailable = patch.inventory.available;
   }
 
-  await variant.save();
+  const updated = await updateVariantColumns(
+    listingId,
+    variantId,
+    columns,
+    patch.optionValues?.map((o) => ({ name: o.name, value: o.value })),
+  );
+  if (!updated) {
+    throw notFound('Variant not found');
+  }
+
+  if (routeToLevel && patch.inventory?.available !== undefined && listing?.storeId) {
+    const locationId = await resolveDefaultLocationId(listing.storeId);
+    await setLevelAvailable({
+      variantId,
+      listingId,
+      locationId,
+      available: patch.inventory.available,
+    });
+    // The scalar written above (if any) would be stale; the levels are
+    // authoritative for a store variant, so recompute from them.
+    await recomputeVariantScalarFromLevels(variantId);
+  }
+
   await syncListingFacets(listingId);
   await recomputeCollectionMembership(listingId);
 }
@@ -593,14 +617,18 @@ export async function updateVariant(
 /**
  * Remove a variant from a store product. A listing must always keep ≥1 variant,
  * so removing the last variant is rejected. Recomputes facets afterwards.
+ *
+ * The variant's `inventory_levels` rows go with it — `ON DELETE CASCADE`, which
+ * closes a leak Mongo had no way to express: the level rows survived the variant
+ * and kept counting stock for something that no longer existed.
  */
 export async function removeVariant(listingId: string, variantId: string): Promise<void> {
-  const count = await ProductVariant.countDocuments({ listingId });
+  const count = await countVariants(listingId);
   if (count <= 1) {
     throw conflict('A listing must keep at least one variant');
   }
-  const result = await ProductVariant.deleteOne({ _id: variantId, listingId });
-  if (result.deletedCount === 0) {
+  const deleted = await deleteVariant(listingId, variantId);
+  if (!deleted) {
     throw notFound('Variant not found');
   }
   await syncListingFacets(listingId);

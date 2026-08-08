@@ -39,8 +39,15 @@ import { CONNECTOR_PROVIDER_IDS } from '@mercaria/shared-types';
 import type { HydratedDocument } from 'mongoose';
 import { Connection, type IConnection } from '../models/connection.js';
 import { SyncRun, type ISyncRun, type ISyncRunCounts } from '../models/sync-run.js';
-import { Listing, type IListing, type IListingSource } from '../models/listing.js';
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
+import {
+  findListingBySourceExternalId,
+  updateListingColumns,
+  type ListingRecord,
+} from '../db/catalog/listingRepository.js';
+import {
+  findVariantByListingAndSku,
+  findVariantsByListing,
+} from '../db/catalog/variantRepository.js';
 import { createStoreProduct, updateListing } from './catalog-write.service.js';
 import { setAvailable } from './inventory.service.js';
 import {
@@ -209,16 +216,29 @@ function toUpdatePatch(product: IngestProduct, overridden: Set<string>): UpdateL
 }
 
 /** Build the provenance `source` sub-document for an ingested listing (server-set). */
-function buildSource(conn: IConnection, product: IngestProduct): IListingSource {
-  const source: IListingSource = {
-    connectionId: String(conn._id),
-    provider: conn.provider,
-    externalId: product.externalId,
+/**
+ * The connector-provenance columns for an ingested product.
+ *
+ * The four `source_*` columns are flat on `listings` rather than an embedded
+ * object, so this returns the PATCH itself. `externalUpdatedAt` is explicitly
+ * NULL when the platform did not send one: leaving the key out would keep a
+ * previous ingest's timestamp on a product whose source stopped reporting it.
+ */
+function buildSource(
+  conn: IConnection,
+  product: IngestProduct,
+): Pick<
+  ListingRecord,
+  'sourceConnectionId' | 'sourceProvider' | 'sourceExternalId' | 'sourceExternalUpdatedAt'
+> {
+  return {
+    sourceConnectionId: String(conn._id),
+    sourceProvider: conn.provider,
+    sourceExternalId: product.externalId,
+    sourceExternalUpdatedAt: product.externalUpdatedAt
+      ? new Date(product.externalUpdatedAt)
+      : null,
   };
-  if (product.externalUpdatedAt) {
-    source.externalUpdatedAt = new Date(product.externalUpdatedAt);
-  }
-  return source;
 }
 
 /** The outcome of upserting a single ingested product. */
@@ -236,13 +256,11 @@ async function upsertProduct(
     importLocationId?: string;
   },
 ): Promise<{ action: UpsertOutcome; listingId: string }> {
-  const existing = await Listing.findOne({
-    storeId: conn.storeId,
-    'source.connectionId': String(conn._id),
-    'source.externalId': product.externalId,
-  })
-    .select('_id overriddenFields')
-    .lean<Pick<IListing, '_id' | 'overriddenFields'> | null>();
+  const existing = await findListingBySourceExternalId(
+    conn.storeId,
+    String(conn._id),
+    product.externalId,
+  );
 
   if (!existing) {
     const listingId = await createStoreProduct(
@@ -250,15 +268,14 @@ async function upsertProduct(
       toCreateInput(product, opts.categorySlug, opts.priceRules),
       { locationId: opts.importLocationId },
     );
-    const set: Record<string, unknown> = { source: buildSource(conn, product) };
-    if (!opts.autoPublish) {
-      set.status = 'draft';
-    }
-    await Listing.updateOne({ _id: listingId }, { $set: set });
+    await updateListingColumns(listingId, {
+      ...buildSource(conn, product),
+      ...(opts.autoPublish ? {} : { status: 'draft' as const }),
+    });
     return { action: 'created', listingId };
   }
 
-  const listingId = String(existing._id);
+  const listingId = existing.id;
   const overridden = opts.respectOverrides
     ? new Set(existing.overriddenFields)
     : new Set<string>();
@@ -268,7 +285,7 @@ async function upsertProduct(
     await updateListing(listingId, patch);
   }
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
-  await Listing.updateOne({ _id: existing._id }, { $set: { source: buildSource(conn, product) } });
+  await updateListingColumns(listingId, buildSource(conn, product));
   return { action: changed ? 'updated' : 'skipped', listingId };
 }
 
@@ -329,36 +346,27 @@ async function resolveInventoryVariant(
   conn: IConnection,
   item: { externalId: string; sku?: string },
 ): Promise<{ listingId: string; variantId: string } | null> {
-  const listing = await Listing.findOne({
-    storeId: conn.storeId,
-    'source.connectionId': String(conn._id),
-    'source.externalId': item.externalId,
-  })
-    .select('_id')
-    .lean<Pick<IListing, '_id'> | null>();
+  const listing = await findListingBySourceExternalId(
+    conn.storeId,
+    String(conn._id),
+    item.externalId,
+  );
   if (!listing) {
     return null;
   }
-  const listingId = String(listing._id);
+  const listingId = listing.id;
 
   if (item.sku) {
-    const variant = await ProductVariant.findOne({ listingId, sku: item.sku })
-      .select('_id')
-      .lean<Pick<IProductVariant, '_id'> | null>();
-    if (!variant) {
-      return null;
-    }
-    return { listingId, variantId: String(variant._id) };
+    const variant = await findVariantByListingAndSku(listingId, item.sku);
+    return variant ? { listingId, variantId: variant.id } : null;
   }
 
   // No SKU: only unambiguous for a single-variant product.
-  const variants = await ProductVariant.find({ listingId })
-    .select('_id')
-    .lean<Pick<IProductVariant, '_id'>[]>();
+  const variants = await findVariantsByListing(listingId);
   if (variants.length !== 1) {
     return null;
   }
-  return { listingId, variantId: String(variants[0]._id) };
+  return { listingId, variantId: variants[0].id };
 }
 
 /**

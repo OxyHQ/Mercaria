@@ -47,9 +47,14 @@
  * different version and the decision must stay attached to the one reviewed.
  */
 
-import mongoose from 'mongoose';
-import { Listing, type IListing } from '../../../models/listing.js';
-import { Store } from '../../../models/store.js';
+import { isLiveEntityId } from '@oxyhq/db';
+import {
+  findListingById,
+  findListingChildren,
+  type ListingImageRecord,
+  type ListingRecord,
+} from '../../../db/catalog/listingRepository.js';
+import { findStoreById } from '../../../db/stores/storeRepository.js';
 import { config } from '../../../config/index.js';
 import type {
   ModerationContextResource,
@@ -61,32 +66,27 @@ import type {
 /** Text length CrowdSource accepts inline. Beyond it the material is truncated. */
 const MAX_TEXT_LENGTH = 4_000;
 
-/** Only what a snapshot needs — never the whole catalogue row. */
-const SNAPSHOT_PROJECTION =
-  'title description condition status ownerType oxyUserId storeId images priceRange categorySlugs vendor productType createdAt';
-
-type SnapshotListing = Pick<
-  IListing,
-  | '_id'
-  | 'title'
-  | 'description'
-  | 'condition'
-  | 'status'
-  | 'ownerType'
-  | 'oxyUserId'
-  | 'storeId'
-  | 'images'
-  | 'priceRange'
-  | 'categorySlugs'
-  | 'vendor'
-  | 'productType'
-> & { createdAt?: Date };
+/**
+ * A listing row plus the gallery the snapshot declares.
+ *
+ * The images were an embedded array on the Mongo document and are a child table
+ * now, so they are loaded alongside the row rather than projected out of it.
+ */
+interface SnapshotListing {
+  listing: ListingRecord;
+  images: ListingImageRecord[];
+}
 
 async function loadListing(listingId: string): Promise<SnapshotListing | null> {
-  if (!mongoose.isValidObjectId(listingId)) return null;
-  return await Listing.findById(listingId)
-    .select(SNAPSHOT_PROJECTION)
-    .lean<SnapshotListing | null>();
+  // `isLiveEntityId`, NOT `mongoose.isValidObjectId`: a listing created after the
+  // Postgres cutover carries a uuid v7, and the ObjectId check REJECTS one — so
+  // the old guard would silently refuse to snapshot every new listing, and a
+  // report against one would be stored with no subject to send.
+  if (!isLiveEntityId(listingId)) return null;
+  const listing = await findListingById(listingId);
+  if (!listing) return null;
+  const { images } = await findListingChildren([listingId]);
+  return { listing, images: images.get(listingId) ?? [] };
 }
 
 /**
@@ -98,17 +98,12 @@ async function loadListing(listingId: string): Promise<SnapshotListing | null> {
  * all rather than a guessed one: a wrong principal binds a real person to someone
  * else's case, which is worse than an unattributed one.
  */
-async function resolveOwnerOxyUserId(
-  listing: SnapshotListing,
-): Promise<string | undefined> {
-  if (listing.ownerType === 'user') return listing.oxyUserId;
-  if (listing.storeId === undefined) return undefined;
-  if (!mongoose.isValidObjectId(listing.storeId)) return undefined;
+async function resolveOwnerOxyUserId({ listing }: SnapshotListing): Promise<string | undefined> {
+  if (listing.ownerType === 'user') return listing.oxyUserId ?? undefined;
+  if (listing.storeId === null) return undefined;
 
-  const store = await Store.findById(listing.storeId)
-    .select('members.oxyUserId members.role')
-    .lean<{ members?: { oxyUserId: string; role: string }[] } | null>();
-  return store?.members?.find((member) => member.role === 'owner')?.oxyUserId;
+  const store = await findStoreById(listing.storeId);
+  return store?.members.find((member) => member.role === 'owner')?.oxyUserId;
 }
 
 /**
@@ -120,18 +115,28 @@ async function resolveOwnerOxyUserId(
  * currency here would put an FX rate inside a hashed snapshot and make two
  * deliveries of one report differ.
  */
-function commercialContext(listing: SnapshotListing): ModerationContextResource {
+function commercialContext({ listing }: SnapshotListing): ModerationContextResource {
   return {
     role: 'context',
     type: 'metadata',
     data: {
       condition: listing.condition,
       ownerType: listing.ownerType,
-      priceMinMinorUnits: listing.priceRange.min.amount,
-      priceMaxMinorUnits: listing.priceRange.max.amount,
-      currency: listing.priceRange.min.currency,
-      ...(listing.vendor === undefined ? {} : { vendor: listing.vendor }),
-      ...(listing.productType === undefined ? {} : { productType: listing.productType }),
+      // The price range columns are nullable — a listing with no variant has no
+      // range at all. Omitting the three keys together is what keeps the snapshot
+      // hashable: a `null` and an absent key are different bytes, and a partial
+      // range would let two deliveries of one report disagree.
+      ...(listing.priceRangeMinAmount !== null &&
+      listing.priceRangeMaxAmount !== null &&
+      listing.priceRangeMinCurrency !== null
+        ? {
+            priceMinMinorUnits: listing.priceRangeMinAmount,
+            priceMaxMinorUnits: listing.priceRangeMaxAmount,
+            currency: listing.priceRangeMinCurrency,
+          }
+        : {}),
+      ...(listing.vendor === null ? {} : { vendor: listing.vendor }),
+      ...(listing.productType === null ? {} : { productType: listing.productType }),
       ...(listing.categorySlugs.length > 0
         ? { category: listing.categorySlugs[listing.categorySlugs.length - 1] }
         : {}),
@@ -145,11 +150,13 @@ function commercialContext(listing: SnapshotListing): ModerationContextResource 
  * File ids in `position` order — the order the buyer sees, and a stable one, so
  * two deliveries of the same report produce the same bytes.
  */
-function declaredImages(listing: SnapshotListing): ModerationContextResource | null {
-  const fileIds = [...listing.images]
+function declaredImages({ images }: SnapshotListing): ModerationContextResource | null {
+  // `findListingChildren` already returns them in `position` order; sorting again
+  // costs nothing and keeps the stability requirement stated where it matters.
+  const fileIds = [...images]
     .sort((a, b) => a.position - b.position)
     .map((image) => image.fileId)
-    .filter((fileId) => typeof fileId === 'string' && fileId.length > 0);
+    .filter((fileId) => fileId.length > 0);
   if (fileIds.length === 0) return null;
 
   return {
@@ -176,7 +183,7 @@ function permalink(listingId: string): string {
  * Title and description together, because a listing's claim is split across both
  * and a jury reading only one is reading half the allegation.
  */
-function listingText(listing: SnapshotListing): string {
+function listingText({ listing }: SnapshotListing): string {
   const title = listing.title.trim();
   const description = listing.description.trim();
   const body = description ? `${title}\n\n${description}` : title;
@@ -189,22 +196,20 @@ export function createListingSubjectProvider(): ModerationSubjectProvider {
     subjectType: 'commerce.listing',
 
     async snapshot(reportedId: string): Promise<ModerationSubjectSnapshot | null> {
-      const listing = await loadListing(reportedId);
-      if (!listing) return null;
+      const snapshot = await loadListing(reportedId);
+      if (!snapshot) return null;
 
-      const ownerOxyUserId = await resolveOwnerOxyUserId(listing);
-      const listingId = listing._id.toHexString();
+      const ownerOxyUserId = await resolveOwnerOxyUserId(snapshot);
+      const listingId = snapshot.listing.id;
 
       const content: ModerationResource = {
         type: 'text',
-        data: { text: listingText(listing) },
-        ...(listing.createdAt === undefined
-          ? {}
-          : { createdAt: new Date(listing.createdAt) }),
+        data: { text: listingText(snapshot) },
+        createdAt: snapshot.listing.createdAt,
       };
 
-      const context: ModerationContextResource[] = [commercialContext(listing)];
-      const images = declaredImages(listing);
+      const context: ModerationContextResource[] = [commercialContext(snapshot)];
+      const images = declaredImages(snapshot);
       if (images) context.push(images);
 
       return {

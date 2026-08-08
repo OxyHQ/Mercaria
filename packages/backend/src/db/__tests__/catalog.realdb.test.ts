@@ -57,6 +57,7 @@ import {
   insertCollection,
   reconcileAutomatedMembership,
   replaceManualMembership,
+  setListingAutomatedMemberships,
 } from '../merchandising/collectionRepository.js';
 import { escapeLikeNeedle, translateRules } from '../merchandising/collectionRules.js';
 import {
@@ -774,5 +775,60 @@ describe('collection membership', () => {
     // Idempotent: reconciling to the same set again changes nothing.
     await reconcileAutomatedMembership(collection.id, [b, c]);
     expect((await findCollectionProductsPage(collection.id, 'created_desc', false, 1, 10)).total).toBe(2);
+  });
+
+  it('NEVER deletes a hand-picked membership, whatever scope the caller passes', async () => {
+    const storeId = await makeStore();
+    const handPicked = await makeListing(storeId, { title: 'Hand-picked' });
+    const derived = await makeListing(storeId, { title: 'Derived' });
+
+    const collection = await insertCollection(
+      storeId,
+      {
+        title: 'Merchant picks',
+        handle: `picks-${uuidv7()}`,
+        type: 'manual',
+        sortOrder: 'manual',
+        isPublished: true,
+      },
+      [],
+    );
+
+    // The merchant hand-picks one product into a MANUAL collection.
+    await replaceManualMembership(collection.id, [handPicked]);
+
+    // The connector then reconciles against that SAME collection, because
+    // `connector-sync.applyCollectionMapping` passes the codomain of the
+    // merchant's own `collectionMapping` — an arbitrary set that can name a
+    // manual collection — and this sync saw no external ref for it.
+    await setListingAutomatedMemberships(handPicked, [collection.id], []);
+
+    // The hand-picked row and its position must both survive. Without the
+    // `position is null` guard on the delete this is a silent, permanent loss of
+    // the merchant's own curation, triggered by an ordinary re-sync.
+    const [surviving] = await db
+      .select()
+      .from(listingCollections)
+      .where(eq(listingCollections.collectionId, collection.id));
+    expect(surviving?.listingId).toBe(handPicked);
+    expect(surviving?.position).toBe(0);
+
+    // And the guard is not simply refusing everything: a DERIVED row in the same
+    // collection is still removed when it stops matching.
+    await setListingAutomatedMemberships(derived, [collection.id], [collection.id]);
+    expect(
+      await db
+        .select()
+        .from(listingCollections)
+        .where(eq(listingCollections.collectionId, collection.id)),
+    ).toHaveLength(2);
+
+    await setListingAutomatedMemberships(derived, [collection.id], []);
+    const remaining = await db
+      .select()
+      .from(listingCollections)
+      .where(eq(listingCollections.collectionId, collection.id));
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].listingId).toBe(handPicked);
   });
 });

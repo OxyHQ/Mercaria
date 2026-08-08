@@ -27,8 +27,18 @@ import type {
   Money,
 } from '@mercaria/shared-types';
 import { Cart, type ICart } from '../models/cart.js';
-import { Listing, type IListing } from '../models/listing.js';
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
+import {
+  findListingById,
+  findListingChildren,
+  findListingsByIds,
+  type ListingImageRecord,
+  type ListingRecord,
+} from '../db/catalog/listingRepository.js';
+import {
+  findVariantById,
+  findVariantsByIds,
+  type VariantRecord,
+} from '../db/catalog/variantRepository.js';
 import { Store, type IStore } from '../models/store.js';
 import { SellerProfile, type ISellerProfile } from '../models/seller-profile.js';
 import { Discount } from '../models/discount.js';
@@ -42,18 +52,30 @@ import { multiplyMoney, sumMoney, zeroMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 
-/** Map a persisted `Money` sub-document to the `Money` DTO. */
-function toMoney(value: { amount: number; currency: string }): Money {
-  return { amount: value.amount, currency: value.currency as CurrencyCode };
+/**
+ * First gallery image (lowest `position`) of a listing, resolved through the
+ * media chokepoint.
+ *
+ * The gallery was an embedded array and is a child table now, so it is passed in
+ * from the page's batched read rather than read off the listing.
+ */
+function firstImageUrl(images: ListingImageRecord[] | undefined): string | undefined {
+  const [first] = images ?? [];
+  return first ? resolveMedia(first.fileId, 'thumb') : undefined;
 }
 
-/** First gallery image (lowest `position`) of a listing, resolved through the media chokepoint. */
-function firstImageUrl(listing: IListing | undefined): string | undefined {
-  if (!listing || listing.images.length === 0) {
-    return undefined;
+/**
+ * A variant's native unit price.
+ *
+ * The two price columns are nullable and absent together, and a cart line for an
+ * unpriced variant is not free — it is a line the buyer must remove, which is
+ * exactly what the stale-line path already produces for a missing variant.
+ */
+function variantUnitPrice(variant: VariantRecord): Money | null {
+  if (variant.priceAmount === null || variant.priceCurrency === null) {
+    return null;
   }
-  const first = [...listing.images].sort((a, b) => a.position - b.position)[0];
-  return first ? resolveMedia(first.fileId, 'thumb') : undefined;
+  return { amount: variant.priceAmount, currency: variant.priceCurrency };
 }
 
 /**
@@ -69,7 +91,7 @@ function firstImageUrl(listing: IListing | undefined): string | undefined {
  */
 async function buildGroups(
   items: CartItemDTO[],
-  listingById: Map<string, IListing>,
+  listingById: Map<string, ListingRecord>,
   currency: CurrencyCode,
 ): Promise<CartGroup[]> {
   // Vendor keys, in first-seen order, plus the owner ids to batch-load.
@@ -81,9 +103,9 @@ async function buildGroups(
       continue;
     }
     if (listing.ownerType === 'store' && listing.storeId) {
-      storeIds.add(String(listing.storeId));
+      storeIds.add(listing.storeId);
     } else if (listing.ownerType === 'user' && listing.oxyUserId) {
-      sellerUserIds.add(String(listing.oxyUserId));
+      sellerUserIds.add(listing.oxyUserId);
     }
   }
 
@@ -115,14 +137,14 @@ async function buildGroups(
     let vendor: CartVendor | undefined;
 
     if (listing.ownerType === 'store' && listing.storeId) {
-      const storeId = String(listing.storeId);
+      const storeId = listing.storeId;
       const store = storeById.get(storeId);
       if (store) {
         key = `store:${storeId}`;
         vendor = toStoreVendor(store);
       }
     } else if (listing.ownerType === 'user' && listing.oxyUserId) {
-      const oxyUserId = String(listing.oxyUserId);
+      const oxyUserId = listing.oxyUserId;
       key = `user:${oxyUserId}`;
       vendor = toSellerVendor(oxyUserId, sellerProfileByUser.get(oxyUserId), oxyProfiles.get(oxyUserId));
     }
@@ -236,17 +258,22 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
   const variantIds = cart.items.map((i) => String(i.variantId));
   const listingIds = cart.items.map((i) => String(i.listingId));
 
-  const [variantDocs, listingDocs] = await Promise.all([
-    ProductVariant.find({ _id: { $in: variantIds } }).lean<IProductVariant[]>(),
-    Listing.find({ _id: { $in: listingIds } }).lean<IListing[]>(),
+  const [variantDocs, listingDocs, children] = await Promise.all([
+    findVariantsByIds(variantIds),
+    findListingsByIds(listingIds),
+    // Gallery + collection membership were fields on the listing document and are
+    // child tables now; one batched read for the whole cart, not one per line.
+    findListingChildren(listingIds),
   ]);
 
-  const variantById = new Map(variantDocs.map((v) => [String(v._id), v]));
-  const listingById = new Map(listingDocs.map((l) => [String(l._id), l]));
+  const variantById = new Map(variantDocs.map((v) => [v.id, v]));
+  const listingById = new Map(listingDocs.map((l) => [l.id, l]));
 
   // FAIR-based rates covering the presentment currency + every native price
   // currency, so each line converts native → presentment for display.
-  const nativeCurrencies = variantDocs.map((v) => v.price.currency as CurrencyCode);
+  const nativeCurrencies = variantDocs.flatMap((v) =>
+    v.priceCurrency === null ? [] : [v.priceCurrency],
+  );
   const rates = await getRates('FAIR', dedupeCurrencies([currency, ...nativeCurrencies]));
 
   const items: CartItemDTO[] = cart.items.map((item) => {
@@ -255,8 +282,10 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
     const variant = variantById.get(variantId);
     const listing = listingById.get(listingId);
 
-    // Missing variant/listing → a zero-priced, stale line the buyer must remove.
-    if (!variant || !listing) {
+    // Missing variant/listing, or a variant with no price → a zero-priced, stale
+    // line the buyer must remove.
+    const nativePrice = variant ? variantUnitPrice(variant) : null;
+    if (!variant || !listing || !nativePrice) {
       const unitPrice: Money = { amount: 0, currency };
       return {
         listingId,
@@ -271,12 +300,12 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
       };
     }
 
-    const available = variant.inventory.available;
-    const tracked = variant.inventory.tracked;
+    const available = variant.inventoryAvailable;
+    const tracked = variant.inventoryTracked;
     // Convert the variant's native price into the buyer's presentment currency.
-    const unitPrice = convert(toMoney(variant.price), currency, rates);
+    const unitPrice = convert(nativePrice, currency, rates);
     const lineTotal = multiplyMoney(unitPrice, item.quantity);
-    const imageUrl = firstImageUrl(listing);
+    const imageUrl = firstImageUrl(children.images.get(listingId));
 
     const dto: CartItemDTO = {
       listingId,
@@ -309,7 +338,13 @@ async function buildCartDTO(cart: ICart): Promise<CartDTO> {
 
   if (pendingDiscountCodes.length > 0) {
     dto.pendingDiscountCodes = pendingDiscountCodes;
-    const preview = await previewDiscounts(cart, listingById, variantById, currency);
+    const preview = await previewDiscounts(
+      cart,
+      listingById,
+      variantById,
+      children.collectionIds,
+      currency,
+    );
     dto.discountTotal = preview.discountTotal;
     dto.taxPreview = preview.taxPreview;
     dto.total = preview.total;
@@ -333,8 +368,9 @@ function dedupeCurrencies(codes: CurrencyCode[]): CurrencyCode[] {
  */
 async function previewDiscounts(
   cart: ICart,
-  listingById: Map<string, IListing>,
-  variantById: Map<string, IProductVariant>,
+  listingById: Map<string, ListingRecord>,
+  variantById: Map<string, VariantRecord>,
+  collectionIdsByListing: Map<string, string[]>,
   presentmentCurrency: CurrencyCode,
 ): Promise<{ discountTotal: Money; taxPreview: Money; total: Money }> {
   const codes = [...(cart.pendingDiscountCodes ?? [])];
@@ -347,13 +383,17 @@ async function previewDiscounts(
     if (!listing || !variant || listing.ownerType !== 'store' || !listing.storeId) {
       continue;
     }
-    const storeId = String(listing.storeId);
+    const unitPrice = variantUnitPrice(variant);
+    if (!unitPrice) {
+      continue;
+    }
+    const storeId = listing.storeId;
     const line: PricingLine = {
-      listingId: String(listing._id),
-      variantId: String(variant._id),
+      listingId: listing.id,
+      variantId: variant.id,
       ...(listing.productType ? { productType: listing.productType } : {}),
-      collectionIds: [...(listing.collectionIds ?? [])],
-      unitPrice: toMoney(variant.price),
+      collectionIds: [...(collectionIdsByListing.get(listing.id) ?? [])],
+      unitPrice,
       quantity: item.quantity,
     };
     const existing = linesByStore.get(storeId);
@@ -454,8 +494,8 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
   }
 
   const [listing, variant] = await Promise.all([
-    Listing.findById(input.listingId).lean<IListing | null>(),
-    ProductVariant.findById(input.variantId).lean<IProductVariant | null>(),
+    findListingById(input.listingId),
+    findVariantById(input.variantId),
   ]);
 
   if (!listing) {
@@ -464,15 +504,15 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
   if (!variant) {
     throw notFound('Variant not found');
   }
-  if (String(variant.listingId) !== String(listing._id)) {
+  if (variant.listingId !== listing.id) {
     throw validationError('Variant does not belong to the given listing');
   }
   if (listing.status !== 'active') {
     throw conflict('Listing is not available for purchase');
   }
 
-  const tracked = variant.inventory.tracked;
-  const available = variant.inventory.available;
+  const tracked = variant.inventoryTracked;
+  const available = variant.inventoryAvailable;
   if (tracked && available <= 0) {
     throw conflict('Variant is out of stock');
   }
@@ -550,12 +590,12 @@ export async function updateItem(
     return getCart(oxyUserId);
   }
 
-  const variant = await ProductVariant.findById(variantId).lean<IProductVariant | null>();
+  const variant = await findVariantById(variantId);
   if (!variant) {
     throw notFound('Variant not found');
   }
 
-  const clamped = clampQuantity(quantity, variant.inventory.tracked, variant.inventory.available);
+  const clamped = clampQuantity(quantity, variant.inventoryTracked, variant.inventoryAvailable);
   if (clamped <= 0) {
     throw conflict('Variant is out of stock');
   }
@@ -624,10 +664,12 @@ export async function applyDiscountCode(oxyUserId: string, code: string): Promis
 
   // The distinct store ids of the cart's store-owned listings.
   const listingIds = cart.items.map((i) => String(i.listingId));
-  const listings = await Listing.find({ _id: { $in: listingIds }, ownerType: 'store' })
-    .select('storeId')
-    .lean<Pick<IListing, '_id' | 'storeId'>[]>();
-  const storeIds = [...new Set(listings.map((l) => String(l.storeId)).filter((s) => s.length > 0))];
+  const listings = await findListingsByIds(listingIds);
+  const storeIds = [
+    ...new Set(
+      listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : [])),
+    ),
+  ];
   if (storeIds.length === 0) {
     throw validationError('No store items in cart to apply a discount to');
   }

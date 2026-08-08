@@ -10,8 +10,17 @@
  *   5. products        — "On sale"
  *
  * The assembled feed is cached in Redis with a short TTL keyed per viewer; on a
- * cache miss/absence (or any Redis error) it is built from the DB and the result
- * cached. Redis failures fall back gracefully — they are logged, never thrown.
+ * cache miss/absence (or any Redis error) it is built from the database and the
+ * result cached. Redis failures fall back gracefully — they are logged, never
+ * thrown. The caching is unchanged by the port.
+ *
+ * ## Ported to Postgres — "On sale" stopped reading the whole catalogue
+ *
+ * The shelf is a set of listings with a discounted variant. Mongo could not
+ * express that in one query, so this service read EVERY active listing with a
+ * non-zero price, then every `compareAtPrice`-carrying variant of those
+ * listings, intersected the two sets in memory and sliced eight cards out of the
+ * result. `findOnSaleListings` is one statement with an `EXISTS` and a `LIMIT`.
  */
 
 import type {
@@ -23,10 +32,23 @@ import type {
   CategoryTile,
   CategoryPill,
 } from '@mercaria/shared-types';
-import { Category as CategoryModel, type ICategory } from '../models/category.js';
 import { findStoresByIds, findTopActiveStores } from '../db/stores/storeRepository.js';
-import { Listing, type IListing } from '../models/listing.js';
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
+import {
+  findActiveCategories,
+  type CategoryRecord,
+} from '../db/catalog/categoryRepository.js';
+import {
+  findActiveListingsForStores,
+  findListingChildren,
+  findNewestActiveListings,
+  findOnSaleListings,
+  type ListingImageRecord,
+  type ListingRecord,
+} from '../db/catalog/listingRepository.js';
+import {
+  findVariantsByListingIds,
+  type VariantRecord,
+} from '../db/catalog/variantRepository.js';
 import { toProductSummary, toMerchantSummary } from './catalog-hydration.service.js';
 import { getProfiles } from './oxy-user.service.js';
 import { config } from '../config/index.js';
@@ -40,24 +62,15 @@ function feedCacheKey(viewerId: string | undefined): string {
   return `feed:home:${FEED_CACHE_VERSION}:${viewerId ?? 'anon'}`;
 }
 
-/** Resolve a category's display image URL (file id resolved at hydration via the card). */
-function categoryImage(category: ICategory): string | undefined {
-  if (category.imageUrl) {
-    return category.imageUrl;
-  }
-  return undefined;
-}
-
 /** Group a flat list of variants by their listing id. */
-function groupVariants(variants: IProductVariant[]): Map<string, IProductVariant[]> {
-  const map = new Map<string, IProductVariant[]>();
+function groupVariants(variants: VariantRecord[]): Map<string, VariantRecord[]> {
+  const map = new Map<string, VariantRecord[]>();
   for (const v of variants) {
-    const key = String(v.listingId);
-    const bucket = map.get(key);
+    const bucket = map.get(v.listingId);
     if (bucket) {
       bucket.push(v);
     } else {
-      map.set(key, [v]);
+      map.set(v.listingId, [v]);
     }
   }
   return map;
@@ -67,12 +80,18 @@ function groupVariants(variants: IProductVariant[]): Map<string, IProductVariant
  * Resolve the brand label for a product card: the store name for store listings,
  * or the seller's Oxy display name for P2P listings.
  */
-async function buildBrandResolver(listings: IListing[]): Promise<(listing: IListing) => string> {
+async function buildBrandResolver(
+  listings: ListingRecord[],
+): Promise<(listing: ListingRecord) => string> {
   const storeIds = [
-    ...new Set(listings.filter((l) => l.ownerType === 'store' && l.storeId).map((l) => String(l.storeId))),
+    ...new Set(
+      listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : [])),
+    ),
   ];
   const userIds = [
-    ...new Set(listings.filter((l) => l.ownerType === 'user' && l.oxyUserId).map((l) => String(l.oxyUserId))),
+    ...new Set(
+      listings.flatMap((l) => (l.ownerType === 'user' && l.oxyUserId ? [l.oxyUserId] : [])),
+    ),
   ];
 
   const [storeDocs, oxyProfiles] = await Promise.all([
@@ -80,61 +99,64 @@ async function buildBrandResolver(listings: IListing[]): Promise<(listing: IList
     getProfiles(userIds),
   ]);
 
-  const storeNameById = new Map<string, string>();
-  for (const s of storeDocs) {
-    storeNameById.set(s.id, s.name);
-  }
+  const storeNameById = new Map(storeDocs.map((s) => [s.id, s.name]));
 
-  return (listing: IListing): string => {
+  return (listing: ListingRecord): string => {
     if (listing.ownerType === 'store' && listing.storeId) {
-      return storeNameById.get(String(listing.storeId)) ?? '';
+      return storeNameById.get(listing.storeId) ?? '';
     }
     if (listing.ownerType === 'user' && listing.oxyUserId) {
-      return oxyProfiles.get(String(listing.oxyUserId))?.displayName ?? '';
+      return oxyProfiles.get(listing.oxyUserId)?.displayName ?? '';
     }
     return '';
   };
 }
 
-/** Build `ProductSummary[]` for a set of listings (loads + groups their variants). */
-async function toProductSummaries(listings: IListing[]): Promise<ProductSummary[]> {
+/**
+ * Build `ProductSummary[]` for a set of listings, loading their variants and
+ * gallery images in two batched queries for the whole shelf.
+ */
+async function toProductSummaries(listings: ListingRecord[]): Promise<ProductSummary[]> {
   if (listings.length === 0) {
     return [];
   }
-  const listingIds = listings.map((l) => String((l as { _id: unknown })._id));
-  const [variants, brandOf] = await Promise.all([
-    ProductVariant.find({ listingId: { $in: listingIds } })
-      .sort({ listingId: 1, position: 1 })
-      .lean<IProductVariant[]>(),
+  const listingIds = listings.map((l) => l.id);
+  const [variants, children, brandOf] = await Promise.all([
+    findVariantsByListingIds(listingIds),
+    findListingChildren(listingIds),
     buildBrandResolver(listings),
   ]);
   const variantsByListing = groupVariants(variants);
 
-  return listings.map((listing) => {
-    const id = String((listing as { _id: unknown })._id);
-    return toProductSummary(listing, variantsByListing.get(id) ?? [], brandOf(listing));
-  });
+  return listings.map((listing) =>
+    toProductSummary(
+      listing,
+      variantsByListing.get(listing.id) ?? [],
+      brandOf(listing),
+      children.images.get(listing.id) ?? [],
+    ),
+  );
 }
 
 /** Build the top "category-pills" section from top-level categories. */
-function buildCategoryPills(topLevel: ICategory[]): CategoryPill[] {
-  return topLevel.map((c) => {
-    const pill: CategoryPill = {
-      id: String((c as { _id: unknown })._id),
-      name: c.name,
-      slug: c.slug,
-      imageUrl: categoryImage(c) ?? '',
-    };
-    return pill;
-  });
+function buildCategoryPills(topLevel: CategoryRecord[]): CategoryPill[] {
+  return topLevel.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    imageUrl: c.imageUrl ?? '',
+  }));
 }
 
 /**
  * Build the "Shop by category" section: each top-level category with up to N
  * subcategory tiles.
  */
-function buildShopByCategory(topLevel: ICategory[], children: ICategory[]): Category[] {
-  const childrenByParent = new Map<string, ICategory[]>();
+function buildShopByCategory(
+  topLevel: CategoryRecord[],
+  children: CategoryRecord[],
+): Category[] {
+  const childrenByParent = new Map<string, CategoryRecord[]>();
   for (const child of children) {
     if (!child.parentId) {
       continue;
@@ -148,17 +170,15 @@ function buildShopByCategory(topLevel: ICategory[], children: ICategory[]): Cate
   }
 
   return topLevel.map((parent) => {
-    const parentId = String((parent as { _id: unknown })._id);
-    const tiles: CategoryTile[] = (childrenByParent.get(parentId) ?? [])
-      .sort((a, b) => a.position - b.position)
+    const tiles: CategoryTile[] = (childrenByParent.get(parent.id) ?? [])
       .slice(0, config.feed.categoryTilesPerCard)
       .map((child) => ({
-        id: String((child as { _id: unknown })._id),
+        id: child.id,
         name: child.name,
         slug: child.slug,
-        imageUrl: categoryImage(child) ?? '',
+        imageUrl: child.imageUrl ?? '',
       }));
-    return { id: parentId, name: parent.name, slug: parent.slug, subcategories: tiles };
+    return { id: parent.id, name: parent.name, slug: parent.slug, subcategories: tiles };
   });
 }
 
@@ -169,67 +189,58 @@ async function buildMerchants(): Promise<MerchantSummary[]> {
     return [];
   }
 
-  const storeIds = stores.map((s) => s.id);
-  const featured = await Listing.find({ ownerType: 'store', storeId: { $in: storeIds }, status: 'active' })
-    .sort({ publishedAt: -1 })
-    .lean<IListing[]>();
+  const featured = await findActiveListingsForStores(stores.map((s) => s.id));
 
-  const featuredByStore = new Map<string, IListing[]>();
+  const featuredByStore = new Map<string, ListingRecord[]>();
   for (const l of featured) {
-    const key = String(l.storeId);
-    const bucket = featuredByStore.get(key);
+    if (!l.storeId) continue;
+    const bucket = featuredByStore.get(l.storeId);
     if (bucket) {
       bucket.push(l);
     } else {
-      featuredByStore.set(key, [l]);
+      featuredByStore.set(l.storeId, [l]);
     }
   }
 
+  // The card thumbnails come from the featured listings' galleries, batched once
+  // for every store on the shelf rather than per store.
+  const images: Map<string, ListingImageRecord[]> =
+    featured.length > 0
+      ? (await findListingChildren(featured.map((l) => l.id))).images
+      : new Map();
+
   return stores.map((store) =>
-    toMerchantSummary(store, featuredByStore.get(store.id) ?? []),
+    toMerchantSummary(store, featuredByStore.get(store.id) ?? [], images),
   );
 }
 
-/** Assemble the feed from the DB (no caching). */
+/** Assemble the feed from the database (no caching). */
 async function buildFeedFromDb(): Promise<Feed> {
-  const allCategories = await CategoryModel.find({ isActive: true })
-    .sort({ position: 1 })
-    .lean<ICategory[]>();
-  const topLevel = allCategories.filter((c) => c.parentId === null).slice(0, config.feed.categoriesSize);
+  const allCategories = await findActiveCategories();
+  const topLevel = allCategories
+    .filter((c) => c.parentId === null)
+    .slice(0, config.feed.categoriesSize);
   const children = allCategories.filter((c) => c.parentId !== null);
 
   const [newArrivalsListings, onSaleListings] = await Promise.all([
-    Listing.find({ status: 'active' })
-      .sort({ publishedAt: -1, _id: -1 })
-      .limit(config.feed.newArrivalsSize)
-      .lean<IListing[]>(),
-    Listing.find({ status: 'active', 'priceRange.min.amount': { $gt: 0 } })
-      .sort({ publishedAt: -1 })
-      .lean<IListing[]>(),
+    findNewestActiveListings(config.feed.newArrivalsSize),
+    findOnSaleListings(config.feed.onSaleSize),
   ]);
-
-  // "On sale" = listings whose cheapest variant carries a compareAtPrice.
-  const onSaleVariants = await ProductVariant.find({
-    listingId: { $in: onSaleListings.map((l) => String((l as { _id: unknown })._id)) },
-    compareAtPrice: { $exists: true },
-  })
-    .select('listingId')
-    .lean<{ listingId: string }[]>();
-  const onSaleListingIds = new Set(onSaleVariants.map((v) => String(v.listingId)));
-  const filteredOnSale = onSaleListings
-    .filter((l) => onSaleListingIds.has(String((l as { _id: unknown })._id)))
-    .slice(0, config.feed.onSaleSize);
 
   const [newArrivals, onSale, merchants] = await Promise.all([
     toProductSummaries(newArrivalsListings),
-    toProductSummaries(filteredOnSale),
+    toProductSummaries(onSaleListings),
     buildMerchants(),
   ]);
 
   const sections: FeedSection[] = [
     { kind: 'category-pills', id: 'category-pills', pills: buildCategoryPills(topLevel) },
     { kind: 'products', id: 'new-arrivals', title: 'New arrivals', products: newArrivals },
-    { kind: 'categories', id: 'shop-by-category', categories: buildShopByCategory(topLevel, children) },
+    {
+      kind: 'categories',
+      id: 'shop-by-category',
+      categories: buildShopByCategory(topLevel, children),
+    },
     { kind: 'merchants', id: 'worth-the-hype', title: 'Worth the hype', merchants },
     { kind: 'products', id: 'on-sale', title: 'On sale', products: onSale },
   ];
@@ -239,7 +250,7 @@ async function buildFeedFromDb(): Promise<Feed> {
 
 /**
  * Get the home feed for a viewer, served from Redis when warm. Cache absence or
- * any Redis error falls back to building from the DB; cache writes are best
+ * any Redis error falls back to building from the database; cache writes are best
  * effort and never block the response.
  */
 export async function getFeed(viewerId?: string): Promise<Feed> {
@@ -261,7 +272,9 @@ export async function getFeed(viewerId?: string): Promise<Feed> {
 
   if (redis) {
     try {
-      await withRedisTimeout(redis.set(key, JSON.stringify(feed), 'EX', config.feed.cacheTtlSeconds));
+      await withRedisTimeout(
+        redis.set(key, JSON.stringify(feed), 'EX', config.feed.cacheTtlSeconds),
+      );
     } catch (err) {
       log.general.warn({ err }, 'Feed cache write failed (continuing)');
     }

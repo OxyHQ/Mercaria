@@ -49,10 +49,18 @@ import {
   type IDiscountAllocation,
   type ITaxLine,
 } from '../models/order.js';
-import { Listing, type IListing } from '../models/listing.js';
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
+import {
+  findListingById,
+  findListingChildren,
+  findListingsByIds,
+  type ListingImageRecord,
+} from '../db/catalog/listingRepository.js';
+import {
+  findVariantById,
+  findVariantOptionValues,
+} from '../db/catalog/variantRepository.js';
 import { Store, type IStore } from '../models/store.js';
-import { Location } from '../models/location.js';
+import { findLocation } from '../db/stores/locationRepository.js';
 import { nextOrderNumber } from '../models/counter.js';
 import { reserve, release } from './inventory.service.js';
 import { resolveDefaultLocationId } from './catalog-write.service.js';
@@ -221,17 +229,18 @@ async function recompute(draft: HydratedDocument<IDraftOrder>): Promise<PricingR
   }
 
   const listingIds = [...new Set(draft.lineItems.map((l) => String(l.listingId)))];
-  const listingDocs = await Listing.find({ _id: { $in: listingIds } }).lean<IListing[]>();
-  const listingById = new Map(
-    listingDocs.map((l) => [String((l as { _id: mongoose.Types.ObjectId })._id), l]),
-  );
+  const [listingDocs, children] = await Promise.all([
+    findListingsByIds(listingIds),
+    findListingChildren(listingIds),
+  ]);
+  const listingById = new Map(listingDocs.map((l) => [l.id, l]));
 
   const lines: PricingLine[] = draft.lineItems.map((line) => {
     const listing = listingById.get(String(line.listingId));
     const pricingLine: PricingLine = {
       listingId: String(line.listingId),
       variantId: String(line.variantId),
-      collectionIds: [...(listing?.collectionIds ?? [])],
+      collectionIds: [...(children.collectionIds.get(String(line.listingId)) ?? [])],
       unitPrice: toMoney(line.unitPrice),
       quantity: line.quantity,
     };
@@ -371,15 +380,20 @@ export async function addLine(
   const draft = await loadOpenDraft(storeId, draftId);
 
   const [listing, variant] = await Promise.all([
-    Listing.findById(input.listingId).lean<IListing | null>(),
-    ProductVariant.findById(input.variantId).lean<IProductVariant | null>(),
+    findListingById(input.listingId),
+    findVariantById(input.variantId),
   ]);
   if (!listing || !variant) {
     throw notFound('Listing or variant not found');
   }
-  if (String(variant.listingId) !== String(input.listingId)) {
+  if (variant.listingId !== input.listingId) {
     throw conflict('Variant does not belong to the listing');
   }
+  // A POS line needs a price to charge; an unpriced variant cannot be rung up.
+  if (variant.priceAmount === null || variant.priceCurrency === null) {
+    throw conflict('That variant is not currently priced');
+  }
+  const optionValues = (await findVariantOptionValues([variant.id])).get(variant.id) ?? [];
 
   const existing = draft.lineItems.find((l) => String(l.variantId) === String(input.variantId));
   if (existing) {
@@ -390,9 +404,9 @@ export async function addLine(
       variantId: String(input.variantId),
       title: listing.title,
       variantTitle: variant.title,
-      unitPrice: { amount: variant.price.amount, currency: variant.price.currency },
+      unitPrice: { amount: variant.priceAmount, currency: variant.priceCurrency },
       quantity: input.quantity,
-      optionValues: variant.optionValues.map((o) => ({ name: o.name, value: o.value })),
+      optionValues: optionValues.map((o) => ({ name: o.name, value: o.value })),
     });
   }
 
@@ -559,12 +573,14 @@ export async function getDraftOrder(storeId: string, draftId: string): Promise<I
   return draft;
 }
 
-/** First listing image (lowest position), resolved through the media chokepoint. */
-function firstImageUrl(listing: IListing | undefined): string | undefined {
-  if (!listing || listing.images.length === 0) {
-    return undefined;
-  }
-  const first = [...listing.images].sort((a, b) => a.position - b.position)[0];
+/**
+ * First listing image (lowest position), resolved through the media chokepoint.
+ *
+ * Takes the gallery rather than the listing: images are a child table now, loaded
+ * once for the whole sale.
+ */
+function firstImageUrl(images: ListingImageRecord[] | undefined): string | undefined {
+  const [first] = images ?? [];
   return first ? resolveMedia(first.fileId, 'thumb') : undefined;
 }
 
@@ -673,10 +689,7 @@ export async function completeDraftOrder(
     const pricing = await recompute(draft);
 
     const listingIds = [...new Set(draft.lineItems.map((l) => String(l.listingId)))];
-    const listingDocs = await Listing.find({ _id: { $in: listingIds } }).lean<IListing[]>();
-    const listingById = new Map(
-      listingDocs.map((l) => [String((l as { _id: mongoose.Types.ObjectId })._id), l]),
-    );
+    const { images: imagesByListing } = await findListingChildren(listingIds);
 
     const items: IOrderItem[] = draft.lineItems.map((line, index) => {
       const unitPrice = toMoney(line.unitPrice);
@@ -695,7 +708,7 @@ export async function completeDraftOrder(
       if (lineDiscount && lineDiscount.shop.amount > 0) {
         item.discountTotal = lineDiscount;
       }
-      const imageUrl = firstImageUrl(listingById.get(String(line.listingId)));
+      const imageUrl = firstImageUrl(imagesByListing.get(String(line.listingId)));
       if (imageUrl !== undefined) {
         item.imageUrl = imageUrl;
       }
@@ -823,8 +836,16 @@ async function resolveLocationAddress(
   storeId: string,
   locationId: string,
 ): Promise<{ city?: string; postalCode?: string; country?: string } | undefined> {
-  const location = await Location.findOne({ _id: locationId, storeId })
-    .select('address')
-    .lean<{ address?: { city?: string; postalCode?: string; country?: string } } | null>();
-  return location?.address;
+  const location = await findLocation(storeId, locationId);
+  if (!location) {
+    return undefined;
+  }
+  // The embedded address became flat columns, so the three fields are read
+  // individually and omitted when NULL — an `address` object carrying explicit
+  // `undefined`s would serialize into the pickup snapshot as present-but-empty.
+  const address: { city?: string; postalCode?: string; country?: string } = {};
+  if (location.addressCity !== null) address.city = location.addressCity;
+  if (location.addressPostalCode !== null) address.postalCode = location.addressPostalCode;
+  if (location.addressCountry !== null) address.country = location.addressCountry;
+  return Object.keys(address).length > 0 ? address : undefined;
 }

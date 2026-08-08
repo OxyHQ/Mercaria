@@ -9,7 +9,10 @@
 import type { Request, Response } from 'express';
 import type { MerchantSummary, Listing, Pagination } from '@mercaria/shared-types';
 import { findStoreByHandle } from '../db/stores/storeRepository.js';
-import { Listing as ListingModel, type IListing } from '../models/listing.js';
+import {
+  findActiveStoreListingsPage,
+  findListingChildren,
+} from '../db/catalog/listingRepository.js';
 import { hydrateListings, toMerchantSummary } from '../services/catalog-hydration.service.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
 import { sendSuccess } from '../utils/api-response.js';
@@ -37,21 +40,17 @@ export async function getStoreByHandle(req: Request, res: Response): Promise<voi
 
     const storeId = store.id;
     const { page, limit } = parsePagination(req.query);
-    const filter = { ownerType: 'store' as const, storeId, status: 'active' as const };
 
-    const [listingDocs, total] = await Promise.all([
-      ListingModel.find(filter)
-        .sort({ publishedAt: -1, _id: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean<IListing[]>(),
-      ListingModel.countDocuments(filter),
-    ]);
+    const { rows, total } = await findActiveStoreListingsPage(storeId, page, limit);
 
-    const listings = await hydrateListings(listingDocs, { viewerId: req.user?.id });
+    // The merchant card's thumbnails come from this page's own galleries, which
+    // hydration is about to load anyway — one extra batched read rather than a
+    // per-listing lookup inside `toMerchantSummary`.
+    const { images } = await findListingChildren(rows.map((row) => row.id));
+    const listings = await hydrateListings(rows, { viewerId: req.user?.id });
 
     const body: StorePageResponse = {
-      store: toMerchantSummary(store, listingDocs),
+      store: toMerchantSummary(store, rows, images),
       listings,
       pagination: buildPagination(page, limit, total),
     };

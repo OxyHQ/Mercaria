@@ -24,12 +24,22 @@
 
 import mongoose from 'mongoose';
 import type { Decision } from '@oxyhq/crowdsource-contracts';
-import type { ModerationEnforcementAction, OrderStatus } from '@mercaria/shared-types';
+import { ALL_LISTING_STATUSES } from '@mercaria/shared-types';
+import type {
+  ListingStatus,
+  ModerationEnforcementAction,
+  OrderStatus,
+} from '@mercaria/shared-types';
 import {
   ModerationEnforcement,
   type IModerationEnforcement,
 } from '../../models/moderation-enforcement.js';
-import { Listing } from '../../models/listing.js';
+import { isLiveEntityId } from '@oxyhq/db';
+import {
+  findListingById,
+  setListingStatusIfIn,
+  updateListingColumns,
+} from '../../db/catalog/listingRepository.js';
 import { Review } from '../../models/review.js';
 import { Order } from '../../models/order.js';
 import { config } from '../../config/index.js';
@@ -84,34 +94,29 @@ type EffectResult =
   | { changed: false; reason: string };
 
 async function restrictListing(listingId: string): Promise<EffectResult> {
-  if (!mongoose.isValidObjectId(listingId)) {
+  // `isLiveEntityId`, NOT `mongoose.isValidObjectId`: a listing created after the
+  // Postgres cutover carries a uuid v7, which the ObjectId check REJECTS — so the
+  // old guard would have refused to enforce against every new listing while
+  // reporting a tidy "not a valid id".
+  if (!isLiveEntityId(listingId)) {
     return { changed: false, reason: 'The reported listing id is not a valid id' };
   }
-  const listing = await Listing.findById(listingId)
-    .select('status')
-    .lean<{ status?: string } | null>();
+  const listing = await findListingById(listingId);
   if (!listing) return { changed: false, reason: 'The reported listing no longer exists' };
   if (listing.status === 'restricted') {
     return { changed: false, reason: 'The listing was already restricted' };
   }
 
-  await Listing.updateOne({ _id: listingId }, { $set: { status: 'restricted' } });
-  return { changed: true, previousState: { listingStatus: listing.status ?? 'active' } };
+  await updateListingColumns(listingId, { status: 'restricted' });
+  return { changed: true, previousState: { listingStatus: listing.status } };
 }
 
 async function requestListingChanges(listingId: string): Promise<EffectResult> {
-  if (!mongoose.isValidObjectId(listingId)) {
+  // See `restrictListing` for why this is not `mongoose.isValidObjectId`.
+  if (!isLiveEntityId(listingId)) {
     return { changed: false, reason: 'The reported listing id is not a valid id' };
   }
-  const listing = await Listing.findById(listingId)
-    .select('status ownerType oxyUserId storeId title')
-    .lean<{
-      status?: string;
-      ownerType?: string;
-      oxyUserId?: string;
-      storeId?: string;
-      title?: string;
-    } | null>();
+  const listing = await findListingById(listingId);
   if (!listing) return { changed: false, reason: 'The reported listing no longer exists' };
 
   /**
@@ -128,7 +133,7 @@ async function requestListingChanges(listingId: string): Promise<EffectResult> {
     return { changed: false, reason: 'The listing was already a draft' };
   }
 
-  await Listing.updateOne({ _id: listingId }, { $set: { status: 'draft' } });
+  await updateListingColumns(listingId, { status: 'draft' });
 
   // Best-effort: a seller who is not told cannot fix the listing, but a
   // notification failure must not undo an enforcement that already committed.
@@ -136,11 +141,11 @@ async function requestListingChanges(listingId: string): Promise<EffectResult> {
     listingId,
     listingTitle: listing.title,
     ownerType: listing.ownerType,
-    oxyUserId: listing.oxyUserId,
-    storeId: listing.storeId,
+    ...(listing.oxyUserId === null ? {} : { oxyUserId: listing.oxyUserId }),
+    ...(listing.storeId === null ? {} : { storeId: listing.storeId }),
   });
 
-  return { changed: true, previousState: { listingStatus: listing.status ?? 'active' } };
+  return { changed: true, previousState: { listingStatus: listing.status } };
 }
 
 async function hideReview(reviewId: string): Promise<EffectResult> {
@@ -238,12 +243,19 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
    * be PUBLISHED by a correction: that would put an item on sale its seller had
    * never listed.
    */
-  const restoredStatus = previous.previousState?.listingStatus ?? 'active';
-  const result = await Listing.updateOne(
-    { _id: subject.id, status: { $in: ['restricted', 'draft'] } },
-    { $set: { status: restoredStatus } },
-  );
-  return result.modifiedCount === 1
+  // `previousState.listingStatus` is a bare `String` on the enforcement row — the
+  // schema deliberately did not constrain it — so it is NARROWED here rather than
+  // trusted. An unrecognised value restores to `active`, which is what the
+  // `?? 'active'` fallback already meant; the difference is that a value the
+  // `listings_status_check` constraint would refuse now cannot reach the write and
+  // turn an accepted appeal into a failed one.
+  const stored = previous.previousState?.listingStatus;
+  const restoredStatus: ListingStatus =
+    stored !== undefined && (ALL_LISTING_STATUSES as readonly string[]).includes(stored)
+      ? (stored as ListingStatus)
+      : 'active';
+  const restored = await setListingStatusIfIn(subject.id, restoredStatus, ['restricted', 'draft']);
+  return restored
     ? { changed: true }
     : { changed: false, reason: 'The listing was neither restricted nor awaiting changes' };
 }

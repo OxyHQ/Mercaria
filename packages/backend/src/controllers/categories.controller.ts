@@ -7,7 +7,11 @@
 
 import type { Request, Response } from 'express';
 import type { CategoryNode, CursorPage, Listing } from '@mercaria/shared-types';
-import { Category, type ICategory } from '../models/category.js';
+import {
+  findActiveCategories,
+  findActiveCategoryBySlug,
+  type CategoryRecord,
+} from '../db/catalog/categoryRepository.js';
 import { searchListingsCursor } from '../services/search.service.js';
 import { hydrateListings } from '../services/catalog-hydration.service.js';
 import { parsePagination } from '../utils/pagination.js';
@@ -16,12 +20,12 @@ import { respondWithError, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 /** Build the nested `CategoryNode` tree from a flat list of categories. */
-function buildTree(categories: ICategory[]): CategoryNode[] {
+function buildTree(categories: CategoryRecord[]): CategoryNode[] {
   const nodeById = new Map<string, CategoryNode>();
   const roots: CategoryNode[] = [];
 
   for (const c of categories) {
-    const id = String((c as { _id: unknown })._id);
+    const id = c.id;
     const node: CategoryNode = {
       id,
       name: c.name,
@@ -56,10 +60,7 @@ function buildTree(categories: ICategory[]): CategoryNode[] {
 /** GET /categories — the active category taxonomy as a tree. */
 export async function getCategoryTree(_req: Request, res: Response): Promise<void> {
   try {
-    const categories = await Category.find({ isActive: true })
-      .sort({ position: 1 })
-      .lean<ICategory[]>();
-    sendSuccess(res, buildTree(categories));
+    sendSuccess(res, buildTree(await findActiveCategories()));
   } catch (err) {
     log.general.error({ err }, 'Failed to load category tree');
     respondWithError(res, err, 'Failed to load categories');
@@ -70,7 +71,7 @@ export async function getCategoryTree(_req: Request, res: Response): Promise<voi
 export async function getCategoryListings(req: Request, res: Response): Promise<void> {
   const slug = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
   try {
-    const category = await Category.findOne({ slug, isActive: true }).lean<ICategory | null>();
+    const category = await findActiveCategoryBySlug(slug);
     if (!category) {
       throw notFound('Category not found');
     }

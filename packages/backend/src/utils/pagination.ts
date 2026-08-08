@@ -69,27 +69,53 @@ export function buildPagination(
 const CURSOR_SEPARATOR = '|';
 
 /**
- * Encode a `(publishedAt, id)` tuple into an opaque, URL-safe base64 cursor.
- * The feed reads `(publishedAt, _id)` from the last item of a page to produce
- * the cursor for the next page.
+ * The cursor format version, and the reason there is one.
+ *
+ * The v1 format was `<iso>|<ObjectId>`, and its `publishedAt` was never NULL
+ * because the Mongo path substituted `createdAt` when a listing had none. The
+ * Postgres keyset orders by a NULLABLE `published_at`, so the tuple gained a
+ * third state — and a v1 cursor read as a v2 one would resume from a boundary
+ * that never existed, silently skipping or repeating a page.
+ *
+ * Bumping the version makes an old cursor UNREADABLE rather than
+ * misinterpretable: {@link decodeCursor} returns `null`, and every caller
+ * already treats `null` as "no cursor" and serves the first page. A client that
+ * held a cursor across the cutover restarts its feed, which is the only
+ * behaviour that cannot be wrong.
  */
-export function encodeCursor(publishedAt: Date, id: string): string {
-  const payload = `${publishedAt.toISOString()}${CURSOR_SEPARATOR}${id}`;
+const CURSOR_VERSION = 'v2';
+
+/** Stands in for a NULL `publishedAt` inside the encoded tuple. */
+const CURSOR_NULL_DATE = '-';
+
+/**
+ * Encode a `(publishedAt, id)` tuple into an opaque, URL-safe base64 cursor.
+ * The feed reads the tuple from the last item of a page to produce the cursor
+ * for the next page.
+ *
+ * `publishedAt` may be `null`: an unpublished listing sorts after every
+ * published one, and it still has to be possible to page THROUGH that tail.
+ */
+export function encodeCursor(publishedAt: Date | null, id: string): string {
+  const date = publishedAt ? publishedAt.toISOString() : CURSOR_NULL_DATE;
+  const payload = [CURSOR_VERSION, date, id].join(CURSOR_SEPARATOR);
   return Buffer.from(payload, 'utf8').toString('base64url');
 }
 
 /** The decoded shape of a feed cursor. */
 export interface DecodedCursor {
   /** The `publishedAt` boundary of the last item on the previous page. */
-  publishedAt: Date;
-  /** The `_id` boundary of the last item on the previous page. */
+  publishedAt: Date | null;
+  /** The id boundary of the last item on the previous page. */
   id: string;
 }
 
 /**
  * Decode an opaque cursor produced by `encodeCursor`. Returns `null` for any
- * malformed input (bad base64, missing parts, invalid date) so callers can
- * treat a broken cursor as "no cursor" rather than throwing.
+ * input this version cannot read — bad base64, a missing or unknown version, the
+ * wrong number of parts, an invalid date — so callers treat it as "no cursor"
+ * rather than throwing. A v1 cursor lands here by design; see
+ * {@link CURSOR_VERSION}.
  */
 export function decodeCursor(cursor: string): DecodedCursor | null {
   if (typeof cursor !== 'string' || cursor.length === 0) {
@@ -103,16 +129,22 @@ export function decodeCursor(cursor: string): DecodedCursor | null {
     return null;
   }
 
-  const separatorIndex = decoded.indexOf(CURSOR_SEPARATOR);
-  if (separatorIndex <= 0 || separatorIndex >= decoded.length - 1) {
+  const parts = decoded.split(CURSOR_SEPARATOR);
+  if (parts.length !== 3) {
     return null;
   }
 
-  const isoDate = decoded.slice(0, separatorIndex);
-  const id = decoded.slice(separatorIndex + 1);
-  const publishedAt = new Date(isoDate);
+  const [version, isoDate, id] = parts;
+  if (version !== CURSOR_VERSION || id.length === 0) {
+    return null;
+  }
 
-  if (Number.isNaN(publishedAt.getTime()) || id.length === 0) {
+  if (isoDate === CURSOR_NULL_DATE) {
+    return { publishedAt: null, id };
+  }
+
+  const publishedAt = new Date(isoDate);
+  if (Number.isNaN(publishedAt.getTime())) {
     return null;
   }
 

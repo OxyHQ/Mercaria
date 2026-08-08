@@ -36,6 +36,7 @@ import {
   eq,
   gte,
   inArray,
+  isNotNull,
   isNull,
   lt,
   lte,
@@ -732,6 +733,172 @@ export async function searchListingsKeyset(
 
   const hasMore = rows.length > limit;
   return { rows: hasMore ? rows.slice(0, limit) : rows, hasMore };
+}
+
+/**
+ * Move a listing's status, but only from one of `allowedCurrent`, and only if it
+ * would actually CHANGE.
+ *
+ * The whole moderation enforcement path depends on this being one conditional
+ * statement: `restrict` must refuse a listing someone else already restricted,
+ * and a correction's `restore` must refuse a listing that is no longer under
+ * enforcement. A read-then-write would let two deliveries of the same decision
+ * both believe they were the one that acted.
+ *
+ * `status <> next` reproduces Mongo's `modifiedCount === 1` exactly — a
+ * `$set` to the value a document already holds matches but modifies nothing, and
+ * the caller's "the listing was neither restricted nor awaiting changes" branch
+ * is written against that distinction.
+ *
+ * @returns `true` when this call made the change, `false` when the guard refused.
+ */
+export async function setListingStatusIfIn(
+  listingId: string,
+  next: ListingRecord['status'],
+  allowedCurrent: readonly ListingRecord['status'][],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const rows = await db
+    .update(listings)
+    .set({ status: next, updatedAt: new Date() })
+    .where(
+      and(
+        eq(listings.id, listingId),
+        inArray(listings.status, [...allowedCurrent]),
+        sql`${listings.status} <> ${next}`,
+      ),
+    )
+    .returning({ id: listings.id });
+  return rows.length > 0;
+}
+
+/**
+ * One listing of a store, resolved by the connector provenance key.
+ *
+ * The `listings_store_id_source_key_idx` partial index serves this exactly: it is
+ * `(store_id, source_connection_id, source_external_id) WHERE source_external_id
+ * IS NOT NULL`, which is the set of imported listings and nothing else.
+ */
+export async function findListingBySourceExternalId(
+  storeId: string,
+  connectionId: string,
+  externalId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ListingRecord | null> {
+  const [row] = await db
+    .select()
+    .from(listings)
+    .where(
+      and(
+        eq(listings.storeId, storeId),
+        eq(listings.sourceConnectionId, connectionId),
+        eq(listings.sourceExternalId, externalId),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Every listing a connection sourced into a store — the reconcile working set.
+ *
+ * ONE indexed query against the partial `listings_store_id_source_key_idx`, which
+ * covers exactly the imported listings. The alternative — reading the store's
+ * whole catalogue and filtering in the process — is the shape that turns a
+ * reconcile of twelve synced products into a scan of twelve thousand.
+ */
+export async function findListingsBySourceConnection(
+  storeId: string,
+  connectionId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ListingRecord[]> {
+  return db
+    .select()
+    .from(listings)
+    .where(
+      and(
+        eq(listings.storeId, storeId),
+        eq(listings.sourceConnectionId, connectionId),
+        // NOT redundant. `listings_store_id_source_key_idx` is PARTIAL —
+        // `WHERE source_external_id IS NOT NULL` — and Postgres uses a partial
+        // index only when the query's predicate IMPLIES the index's. Without this
+        // clause the planner falls back to a `store_id`-prefix index and filters,
+        // which is the whole-catalogue scan this function exists to avoid. It
+        // excludes no row a caller wants: a listing sourced from a connection
+        // always has an external id.
+        isNotNull(listings.sourceExternalId),
+      ),
+    );
+}
+
+/** Every listing id of a store, whatever its status — the store-wide review roll-up. */
+export async function findListingIdsByStore(
+  storeId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: listings.id })
+    .from(listings)
+    .where(eq(listings.storeId, storeId));
+  return rows.map((row) => row.id);
+}
+
+/** The newest ACTIVE listings across the whole marketplace — the feed's shelf. */
+export async function findNewestActiveListings(
+  limit: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ListingRecord[]> {
+  return db
+    .select()
+    .from(listings)
+    .where(eq(listings.status, 'active'))
+    .orderBy(...NEWEST_FIRST)
+    .limit(limit);
+}
+
+/**
+ * The newest ACTIVE listings that have a variant carrying a `compare_at_price` —
+ * the feed's "On sale" shelf.
+ *
+ * ONE query. The Mongo path read every active listing with a non-zero price,
+ * then read every variant of those listings that had a `compareAtPrice`, then
+ * intersected the two sets IN THE PROCESS and sliced the shelf out — so rendering
+ * eight cards read the entire active catalogue twice.
+ */
+export async function findOnSaleListings(
+  limit: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ListingRecord[]> {
+  return db
+    .select()
+    .from(listings)
+    .where(
+      and(
+        eq(listings.status, 'active'),
+        variantExistsPredicate(sql`${productVariants.compareAtPriceAmount} is not null`),
+      ),
+    )
+    .orderBy(...NEWEST_FIRST)
+    .limit(limit);
+}
+
+/** Every ACTIVE listing of a batch of stores, newest first — the merchant shelf. */
+export async function findActiveListingsForStores(
+  storeIds: readonly string[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ListingRecord[]> {
+  if (storeIds.length === 0) return [];
+  return db
+    .select()
+    .from(listings)
+    .where(
+      and(
+        eq(listings.ownerType, 'store'),
+        inArray(listings.storeId, [...storeIds]),
+        eq(listings.status, 'active'),
+      ),
+    )
+    .orderBy(...NEWEST_FIRST);
 }
 
 /**

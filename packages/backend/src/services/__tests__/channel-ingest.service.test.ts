@@ -1,14 +1,26 @@
 /**
  * Unit tests for `channel-ingest.service` — the `push_in` receive side.
  *
- * No DB / no network: the Connection/SyncRun/Listing/ProductVariant models, the
- * catalog-write funnels, the inventory service and the shared category resolver
- * are all mocked. The tests drive the service with `IngestProduct`/inventory DTOs
- * and assert: the create path (+ provenance + draft), the override-respecting
- * merge, the all-pinned "skipped" path, `connector_wins`, per-item failure
- * isolation, idempotency (same externalId twice never double-creates), cross-store
- * isolation + the non-push_in rejection, connect-push upsert/conflict, and the
- * inventory mapping (single-variant, by-SKU, unmapped skip).
+ * No DB / no network. `Connection`/`SyncRun` are still Mongoose and are mocked as
+ * models; the CATALOGUE moved to Postgres, so the listing/variant reads and the
+ * provenance write are mocked at the REPOSITORY boundary
+ * (`db/catalog/listingRepository`, `db/catalog/variantRepository`) — plain async
+ * functions returning rows, no query chains. The catalog-write funnels, the
+ * inventory service and the shared connector-sync resolvers are mocked too.
+ *
+ * The tests drive the service with `IngestProduct`/inventory DTOs and assert: the
+ * create path (+ provenance + draft), the override-respecting merge, the
+ * all-pinned "skipped" path, `connector_wins`, per-item failure isolation,
+ * idempotency (same externalId twice never double-creates), cross-store isolation
+ * + the non-push_in rejection, connect-push upsert/conflict, and the inventory
+ * mapping (single-variant, by-SKU, unmapped skip).
+ *
+ * Provenance is FOUR FLAT COLUMNS now (`sourceConnectionId`, `sourceProvider`,
+ * `sourceExternalId`, `sourceExternalUpdatedAt`) applied with
+ * `updateListingColumns`, not a `$set: { source: {...} }` sub-document — and the
+ * timestamp is written explicitly `null` when the platform sends none, which the
+ * embedded version could not express (it left the key out, silently keeping the
+ * previous push's value). Both are pinned below.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -22,13 +34,12 @@ const connectionFindOne = vi.fn();
 const connectionFindOneAndUpdate = vi.fn();
 const connectionUpdateOne = vi.fn();
 const syncRunCreate = vi.fn();
-const listingFindOne = vi.fn();
-const listingUpdateOne = vi.fn();
-const variantFindOne = vi.fn();
-const variantFind = vi.fn();
+const findListingBySourceExternalId = vi.fn();
+const updateListingColumns = vi.fn();
+const findVariantByListingAndSku = vi.fn();
+const findVariantsByListing = vi.fn();
 const createStoreProduct = vi.fn();
 const updateListing = vi.fn();
-const resolveDefaultLocationId = vi.fn();
 const setAvailable = vi.fn();
 const resolveImportCategorySlug = vi.fn();
 const resolveImportLocationId = vi.fn();
@@ -44,22 +55,17 @@ vi.mock('../../models/connection.js', () => ({
 vi.mock('../../models/sync-run.js', () => ({
   SyncRun: { create: (...args: unknown[]) => syncRunCreate(...args) },
 }));
-vi.mock('../../models/listing.js', () => ({
-  Listing: {
-    findOne: (...args: unknown[]) => listingFindOne(...args),
-    updateOne: (...args: unknown[]) => listingUpdateOne(...args),
-  },
+vi.mock('../../db/catalog/listingRepository.js', () => ({
+  findListingBySourceExternalId: (...args: unknown[]) => findListingBySourceExternalId(...args),
+  updateListingColumns: (...args: unknown[]) => updateListingColumns(...args),
 }));
-vi.mock('../../models/product-variant.js', () => ({
-  ProductVariant: {
-    findOne: (...args: unknown[]) => variantFindOne(...args),
-    find: (...args: unknown[]) => variantFind(...args),
-  },
+vi.mock('../../db/catalog/variantRepository.js', () => ({
+  findVariantByListingAndSku: (...args: unknown[]) => findVariantByListingAndSku(...args),
+  findVariantsByListing: (...args: unknown[]) => findVariantsByListing(...args),
 }));
 vi.mock('../catalog-write.service.js', () => ({
   createStoreProduct: (...args: unknown[]) => createStoreProduct(...args),
   updateListing: (...args: unknown[]) => updateListing(...args),
-  resolveDefaultLocationId: (...args: unknown[]) => resolveDefaultLocationId(...args),
 }));
 vi.mock('../inventory.service.js', () => ({
   setAvailable: (...args: unknown[]) => setAvailable(...args),
@@ -141,9 +147,26 @@ function ingestProduct(overrides: Partial<IngestProduct> = {}): IngestProduct {
   };
 }
 
-/** A chainable `.select(...).lean()` query stub resolving to `value`. */
-function leanQuery<T>(value: T) {
-  return { select: () => ({ lean: () => Promise.resolve(value) }) };
+/**
+ * A `listings` row as `findListingBySourceExternalId` returns it — flat, with the
+ * two columns the ingest merge reads.
+ */
+function sourcedListingRow(id: string, overriddenFields: string[] = []): unknown {
+  return {
+    id,
+    storeId: STORE_ID,
+    status: 'active',
+    sourceConnectionId: CONNECTION_ID,
+    sourceProvider: 'woocommerce',
+    sourceExternalId: 'woo-1',
+    overriddenFields,
+  };
+}
+
+/** The `updateListingColumns` patch that carries the provenance columns. */
+function provenancePatch(): Record<string, unknown> | undefined {
+  const call = updateListingColumns.mock.calls.find(([, patch]) => 'sourceExternalId' in patch);
+  return call?.[1];
 }
 
 const productsBody = (products: IngestProduct[]): IngestProductsInput => ({ products });
@@ -153,8 +176,7 @@ beforeEach(() => {
   resolveImportCategorySlug.mockResolvedValue('home');
   syncRunCreate.mockImplementation(() => Promise.resolve(mockRun()));
   connectionUpdateOne.mockResolvedValue({});
-  listingUpdateOne.mockResolvedValue({});
-  resolveDefaultLocationId.mockResolvedValue('loc-1');
+  updateListingColumns.mockResolvedValue(null);
   resolveImportLocationId.mockResolvedValue(undefined);
   resolveInventoryLocationId.mockResolvedValue('loc-1');
   setAvailable.mockResolvedValue(undefined);
@@ -177,7 +199,7 @@ describe('ingestProducts — create path', () => {
       return Promise.resolve(captured);
     });
     connectionFindOne.mockResolvedValue(pushInConnection());
-    listingFindOne.mockReturnValue(leanQuery(null));
+    findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct.mockResolvedValue('listing-new');
 
     const result = await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
@@ -189,14 +211,16 @@ describe('ingestProducts — create path', () => {
     expect(input.variants[0].price).toEqual({ amount: 2500, currency: 'EUR' });
     expect(input.variants[0].inventory).toEqual({ tracked: true, available: 5 });
 
-    // Provenance + draft stamped on the new listing (autoPublish false).
-    const sourceSet = listingUpdateOne.mock.calls.find(([, update]) => update?.$set?.source);
-    expect(sourceSet?.[1].$set.source).toMatchObject({
-      connectionId: CONNECTION_ID,
-      provider: 'woocommerce',
-      externalId: 'woo-1',
+    // Provenance + draft stamped on the new listing (autoPublish false). The old
+    // assertion read a `$set.source` SUB-DOCUMENT off a `Listing.updateOne`; the
+    // four fields are flat columns now, written through `updateListingColumns`.
+    expect(updateListingColumns).toHaveBeenCalledWith('listing-new', {
+      sourceConnectionId: CONNECTION_ID,
+      sourceProvider: 'woocommerce',
+      sourceExternalId: 'woo-1',
+      sourceExternalUpdatedAt: new Date('2026-07-12T00:00:00Z'),
+      status: 'draft',
     });
-    expect(sourceSet?.[1].$set.status).toBe('draft');
 
     expect(result.results).toEqual([{ externalId: 'woo-1', action: 'created', listingId: 'listing-new' }]);
     expect(captured?.status).toBe('completed');
@@ -210,20 +234,36 @@ describe('ingestProducts — create path', () => {
 
   it('publishes (no draft) when the connection autoPublishes', async () => {
     connectionFindOne.mockResolvedValue(pushInConnection({ autoPublish: true }));
-    listingFindOne.mockReturnValue(leanQuery(null));
+    findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct.mockResolvedValue('listing-new');
 
     await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
 
-    const sourceSet = listingUpdateOne.mock.calls.find(([, update]) => update?.$set?.source);
-    expect(sourceSet?.[1].$set.status).toBeUndefined();
+    expect(provenancePatch()).not.toHaveProperty('status');
+  });
+
+  it('writes an explicit NULL when the platform reports no externalUpdatedAt', async () => {
+    // Behaviour change worth pinning: the embedded `source` simply omitted the key,
+    // so a re-push from a platform that had STOPPED sending a timestamp kept the
+    // previous push's value on the listing. A flat column is written either way.
+    connectionFindOne.mockResolvedValue(pushInConnection({ autoPublish: true }));
+    findListingBySourceExternalId.mockResolvedValue(null);
+    createStoreProduct.mockResolvedValue('listing-new');
+
+    await ingestProducts(
+      STORE_ID,
+      CONNECTION_ID,
+      productsBody([ingestProduct({ externalUpdatedAt: undefined })]),
+    );
+
+    expect(provenancePatch()).toMatchObject({ sourceExternalUpdatedAt: null });
   });
 });
 
 describe('ingestProducts — update path respects overriddenFields', () => {
   it('skips a locally-pinned field but overwrites the rest', async () => {
     connectionFindOne.mockResolvedValue(pushInConnection({ conflictPolicy: 'respect_overrides' }));
-    listingFindOne.mockReturnValue(leanQuery({ _id: 'listing-existing', overriddenFields: ['title'] }));
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-existing', ['title']));
 
     const result = await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
 
@@ -248,11 +288,16 @@ describe('ingestProducts — update path respects overriddenFields', () => {
       return Promise.resolve(captured);
     });
     connectionFindOne.mockResolvedValue(pushInConnection({ conflictPolicy: 'respect_overrides' }));
-    listingFindOne.mockReturnValue(
-      leanQuery({
-        _id: 'listing-existing',
-        overriddenFields: ['title', 'description', 'images', 'vendor', 'productType', 'handle', 'seo'],
-      }),
+    findListingBySourceExternalId.mockResolvedValue(
+      sourcedListingRow('listing-existing', [
+        'title',
+        'description',
+        'images',
+        'vendor',
+        'productType',
+        'handle',
+        'seo',
+      ]),
     );
 
     const result = await ingestProducts(
@@ -265,12 +310,12 @@ describe('ingestProducts — update path respects overriddenFields', () => {
     expect(result.results[0].action).toBe('skipped');
     expect(captured?.counts.skipped).toBe(1);
     // Provenance is still refreshed.
-    expect(listingUpdateOne).toHaveBeenCalled();
+    expect(provenancePatch()).toMatchObject({ sourceExternalId: 'woo-1' });
   });
 
   it('connector_wins overwrites even locally-edited fields', async () => {
     connectionFindOne.mockResolvedValue(pushInConnection({ conflictPolicy: 'connector_wins' }));
-    listingFindOne.mockReturnValue(leanQuery({ _id: 'listing-existing', overriddenFields: ['title'] }));
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-existing', ['title']));
 
     await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
 
@@ -284,9 +329,9 @@ describe('ingestProducts — idempotency + failure isolation', () => {
     connectionFindOne.mockResolvedValue(pushInConnection());
     createStoreProduct.mockResolvedValue('listing-new');
     // First push: not found → create. Second push: found → update.
-    listingFindOne
-      .mockReturnValueOnce(leanQuery(null))
-      .mockReturnValueOnce(leanQuery({ _id: 'listing-new', overriddenFields: [] }));
+    findListingBySourceExternalId
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(sourcedListingRow('listing-new'));
 
     const first = await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
     const second = await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
@@ -304,7 +349,7 @@ describe('ingestProducts — idempotency + failure isolation', () => {
       return Promise.resolve(captured);
     });
     connectionFindOne.mockResolvedValue(pushInConnection());
-    listingFindOne.mockReturnValue(leanQuery(null));
+    findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct
       .mockRejectedValueOnce(new Error('duplicate handle'))
       .mockResolvedValueOnce('listing-ok');
@@ -331,7 +376,7 @@ describe('ingestProducts — idempotency + failure isolation', () => {
       return Promise.resolve(captured);
     });
     connectionFindOne.mockResolvedValue(pushInConnection());
-    listingFindOne.mockReturnValue(leanQuery(null));
+    findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct.mockRejectedValue(new Error('boom'));
 
     await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
@@ -404,8 +449,8 @@ describe('ingestInventory', () => {
 
   it('sets stock on a single-variant listing at the default location', async () => {
     connectionFindOne.mockResolvedValue(pushInConnection());
-    listingFindOne.mockReturnValue(leanQuery({ _id: 'listing-1' }));
-    variantFind.mockReturnValue(leanQuery([{ _id: 'var-1' }]));
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
+    findVariantsByListing.mockResolvedValue([{ id: 'var-1', listingId: 'listing-1' }]);
 
     const result = await ingestInventory(
       STORE_ID,
@@ -419,8 +464,8 @@ describe('ingestInventory', () => {
 
   it('maps a multi-variant listing by SKU', async () => {
     connectionFindOne.mockResolvedValue(pushInConnection());
-    listingFindOne.mockReturnValue(leanQuery({ _id: 'listing-1' }));
-    variantFindOne.mockReturnValue(leanQuery({ _id: 'var-2' }));
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
+    findVariantByListingAndSku.mockResolvedValue({ id: 'var-2', listingId: 'listing-1' });
 
     await ingestInventory(
       STORE_ID,
@@ -428,13 +473,29 @@ describe('ingestInventory', () => {
       inventoryBody([{ externalId: 'woo-1', sku: 'SKU-2', available: 3 }]),
     );
 
+    expect(findVariantByListingAndSku).toHaveBeenCalledWith('listing-1', 'SKU-2');
     expect(setAvailable).toHaveBeenCalledWith('var-2', 'listing-1', 'loc-1', 3);
-    expect(variantFind).not.toHaveBeenCalled();
+    expect(findVariantsByListing).not.toHaveBeenCalled();
+  });
+
+  it('skips an item whose SKU matches no variant of the mapped listing', async () => {
+    connectionFindOne.mockResolvedValue(pushInConnection());
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
+    findVariantByListingAndSku.mockResolvedValue(null);
+
+    const result = await ingestInventory(
+      STORE_ID,
+      CONNECTION_ID,
+      inventoryBody([{ externalId: 'woo-1', sku: 'NOPE', available: 3 }]),
+    );
+
+    expect(setAvailable).not.toHaveBeenCalled();
+    expect(result.results[0]).toEqual({ externalId: 'woo-1', action: 'skipped' });
   });
 
   it('skips an item that maps to no listing', async () => {
     connectionFindOne.mockResolvedValue(pushInConnection());
-    listingFindOne.mockReturnValue(leanQuery(null));
+    findListingBySourceExternalId.mockResolvedValue(null);
 
     const result = await ingestInventory(
       STORE_ID,
@@ -448,8 +509,11 @@ describe('ingestInventory', () => {
 
   it('skips a multi-variant listing when no SKU disambiguates it', async () => {
     connectionFindOne.mockResolvedValue(pushInConnection());
-    listingFindOne.mockReturnValue(leanQuery({ _id: 'listing-1' }));
-    variantFind.mockReturnValue(leanQuery([{ _id: 'a' }, { _id: 'b' }]));
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
+    findVariantsByListing.mockResolvedValue([
+      { id: 'a', listingId: 'listing-1' },
+      { id: 'b', listingId: 'listing-1' },
+    ]);
 
     const result = await ingestInventory(
       STORE_ID,

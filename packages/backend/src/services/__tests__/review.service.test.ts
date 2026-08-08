@@ -1,12 +1,16 @@
 /**
  * Unit tests for `review.service`.
  *
- * `mongodb-memory-server` is not available, so the Review/Order/Listing/Store/
- * SellerProfile models, the queue producer, the notification service, and the
- * Oxy/media hydration are mocked. Tests assert the F5 contract: the
- * verified-purchase gate (no qualifying order → FORBIDDEN; qualifying order →
- * created), one-review-per-target (existing review → CONFLICT), and that
- * `recomputeAggregate` derives + persists `{ rating, reviewCount }` per target.
+ * Reviews, orders, stores and seller profiles are still Mongo, so those models
+ * are mocked; the LISTING side moved to Postgres, so `db/catalog/listingRepository`
+ * is mocked in place of the `Listing` model. The queue producer, the notification
+ * service and the Oxy/media hydration are mocked too.
+ *
+ * Tests assert the F5 contract: the verified-purchase gate (no qualifying order →
+ * FORBIDDEN; qualifying order → created), one-review-per-target (existing review →
+ * CONFLICT), that `recomputeAggregate` derives + persists `{rating, reviewCount}`
+ * per target, and that a store's review page builds each card's product context
+ * from the listing ROW plus its images child table.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -18,9 +22,14 @@ const reviewFind = vi.fn();
 const reviewCountDocuments = vi.fn();
 const orderFindOne = vi.fn();
 const orderFindById = vi.fn();
-const listingUpdateOne = vi.fn();
-const listingFindById = vi.fn();
+const setListingRating = vi.fn();
+const findListingById = vi.fn();
+const findListingIdsByStore = vi.fn();
+const findListingsByIds = vi.fn();
+const findListingChildren = vi.fn();
 const storeUpdateOne = vi.fn();
+const storeFindOne = vi.fn();
+const storeFindById = vi.fn();
 const sellerProfileUpdateOne = vi.fn();
 const enqueueRecomputeAggregate = vi.fn();
 const sendNotification = vi.fn();
@@ -43,18 +52,19 @@ vi.mock('../../models/order.js', () => ({
   },
 }));
 
-vi.mock('../../models/listing.js', () => ({
-  Listing: {
-    updateOne: (...args: unknown[]) => listingUpdateOne(...args),
-    findById: (...args: unknown[]) => listingFindById(...args),
-  },
+vi.mock('../../db/catalog/listingRepository.js', () => ({
+  setListingRating: (...args: unknown[]) => setListingRating(...args),
+  findListingById: (...args: unknown[]) => findListingById(...args),
+  findListingIdsByStore: (...args: unknown[]) => findListingIdsByStore(...args),
+  findListingsByIds: (...args: unknown[]) => findListingsByIds(...args),
+  findListingChildren: (...args: unknown[]) => findListingChildren(...args),
 }));
 
 vi.mock('../../models/store.js', () => ({
   Store: {
     updateOne: (...args: unknown[]) => storeUpdateOne(...args),
-    findById: vi.fn(),
-    findOne: vi.fn(),
+    findById: (...args: unknown[]) => storeFindById(...args),
+    findOne: (...args: unknown[]) => storeFindOne(...args),
   },
 }));
 
@@ -75,10 +85,13 @@ vi.mock('../oxy-user.service.js', () => ({
 }));
 
 vi.mock('../catalog-hydration.service.js', () => ({
-  resolveMedia: (value: string) => value,
+  // The variant is part of the chokepoint's contract, so it is carried into the
+  // returned value rather than dropped — a thumbnail asked for at full size is
+  // exactly the kind of regression a bare pass-through cannot see.
+  resolveMedia: (value: string, variant?: string) => (variant ? `${value}:${variant}` : value),
 }));
 
-import { createReview, recomputeAggregate } from '../review.service.js';
+import { createReview, recomputeAggregate, listReviewsForStoreHandle } from '../review.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
 
@@ -92,6 +105,29 @@ function selectLeanResolving(value: unknown) {
   return { select: vi.fn().mockReturnValue(leanResolving(value)) };
 }
 
+/** The `Review.find(...).sort().skip().limit().lean()` chain. */
+interface FindChain {
+  sort: () => FindChain;
+  skip: () => FindChain;
+  limit: () => FindChain;
+  lean: () => Promise<unknown>;
+}
+
+function findChainResolving(value: unknown): FindChain {
+  const chain: FindChain = {
+    sort: () => chain,
+    skip: () => chain,
+    limit: () => chain,
+    lean: () => Promise.resolve(value),
+  };
+  return chain;
+}
+
+/** Empty `findListingChildren` result — images/options/memberships, keyed by listing id. */
+function noChildren() {
+  return { images: new Map(), options: new Map(), collectionIds: new Map() };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   enqueueRecomputeAggregate.mockResolvedValue(undefined);
@@ -99,11 +135,12 @@ beforeEach(() => {
   getProfiles.mockResolvedValue(new Map());
   // recompute aggregate (called inline by createReview) — empty by default.
   reviewAggregate.mockResolvedValue([]);
-  listingUpdateOne.mockResolvedValue(undefined);
+  setListingRating.mockResolvedValue(undefined);
   storeUpdateOne.mockResolvedValue(undefined);
   sellerProfileUpdateOne.mockResolvedValue(undefined);
   // Default: target-owner notification lookups resolve to nothing.
-  listingFindById.mockReturnValue(selectLeanResolving(null));
+  findListingById.mockResolvedValue(null);
+  findListingChildren.mockResolvedValue(noChildren());
 });
 
 describe('review.service.createReview — verified-purchase gate', () => {
@@ -135,10 +172,15 @@ describe('review.service.createReview — verified-purchase gate', () => {
         updatedAt: now,
       }),
     });
-    // owner notification: a user-owned listing → notify owner.
-    listingFindById.mockReturnValue(
-      selectLeanResolving({ ownerType: 'user', oxyUserId: 'seller-9' }),
-    );
+    // owner notification: a user-owned listing → notify owner. A repository ROW,
+    // flat and with `oxyUserId` NULL-able rather than absent.
+    findListingById.mockResolvedValue({
+      id: 'listing-1',
+      ownerType: 'user',
+      oxyUserId: 'seller-9',
+      storeId: null,
+      title: 'A thing',
+    });
 
     const dto = await createReview('buyer-1', {
       targetType: 'listing',
@@ -201,10 +243,10 @@ describe('review.service.recomputeAggregate', () => {
     const result = await recomputeAggregate('listing', 'listing-1');
 
     expect(result).toEqual({ rating: 4.5, reviewCount: 2 });
-    expect(listingUpdateOne).toHaveBeenCalledWith(
-      { _id: 'listing-1' },
-      { $set: { rating: 4.5, reviewCount: 2 } },
-    );
+    // The listing write is no longer a `{$set: …}` update document — the
+    // repository takes the two values as arguments, so the assertion is about
+    // WHICH values the service derived and handed over.
+    expect(setListingRating).toHaveBeenCalledWith('listing-1', 4.5, 2);
   });
 
   it('writes to the store for a store target', async () => {
@@ -217,6 +259,8 @@ describe('review.service.recomputeAggregate', () => {
       { _id: 'store-1' },
       { $set: { rating: 4, reviewCount: 3 } },
     );
+    // Stores are still Mongo, so a store target must NOT reach the listing write.
+    expect(setListingRating).not.toHaveBeenCalled();
   });
 
   it('upserts the seller profile for a seller target', async () => {
@@ -238,9 +282,84 @@ describe('review.service.recomputeAggregate', () => {
     const result = await recomputeAggregate('listing', 'listing-empty');
 
     expect(result).toEqual({ rating: 0, reviewCount: 0 });
-    expect(listingUpdateOne).toHaveBeenCalledWith(
-      { _id: 'listing-empty' },
-      { $set: { rating: 0, reviewCount: 0 } },
+    expect(setListingRating).toHaveBeenCalledWith('listing-empty', 0, 0);
+  });
+});
+
+describe('review.service.listReviewsForStoreHandle', () => {
+  it('builds each card from the listing ROW and its images child table', async () => {
+    /**
+     * The store review page is where the listing's new shape shows: the store's
+     * listing ids come from `findListingIdsByStore`, the rows come back FLAT
+     * (`id`, not `_id`) and carry no `images` at all — the gallery is a child
+     * table read once for the whole page by `findListingChildren`.
+     */
+    const now = new Date();
+    storeFindOne.mockReturnValue(selectLeanResolving({ _id: 'store-1' }));
+    findListingIdsByStore.mockResolvedValue(['listing-1', 'listing-2']);
+    reviewFind.mockReturnValue(
+      findChainResolving([
+        {
+          _id: 'review-1',
+          authorOxyUserId: 'buyer-1',
+          targetType: 'listing',
+          listingId: 'listing-1',
+          rating: 5,
+          status: 'published',
+          createdAt: now,
+          updatedAt: now,
+        },
+      ]),
     );
+    reviewCountDocuments.mockResolvedValue(1);
+    findListingsByIds.mockResolvedValue([{ id: 'listing-1', title: 'A thing' }]);
+    findListingChildren.mockResolvedValue({
+      // Deliberately NOT position 0 first — the service picks the lowest position
+      // rather than trusting the array order it happened to get.
+      images: new Map([
+        [
+          'listing-1',
+          [
+            { listingId: 'listing-1', fileId: 'file-second', alt: null, position: 1 },
+            { listingId: 'listing-1', fileId: 'file-first', alt: null, position: 0 },
+          ],
+        ],
+      ]),
+      options: new Map(),
+      collectionIds: new Map(),
+    });
+
+    const page = await listReviewsForStoreHandle('a-store', { page: 1, limit: 20 });
+
+    expect(findListingIdsByStore).toHaveBeenCalledWith('store-1');
+    expect(findListingChildren).toHaveBeenCalledWith(['listing-1']);
+    expect(page.total).toBe(1);
+    expect(page.data[0].product).toEqual({
+      id: 'listing-1',
+      title: 'A thing',
+      // Through the media chokepoint, at the thumbnail variant.
+      imageUrl: 'file-first:thumb',
+    });
+  });
+
+  it('rejects an unknown handle with NOT_FOUND', async () => {
+    storeFindOne.mockReturnValue(selectLeanResolving(null));
+
+    await expect(
+      listReviewsForStoreHandle('no-such-store', { page: 1, limit: 20 }),
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND,
+    );
+    expect(findListingIdsByStore).not.toHaveBeenCalled();
+  });
+
+  it('returns an empty page when the store has no listings (no review query)', async () => {
+    storeFindOne.mockReturnValue(selectLeanResolving({ _id: 'store-empty' }));
+    findListingIdsByStore.mockResolvedValue([]);
+
+    const page = await listReviewsForStoreHandle('a-store', { page: 1, limit: 20 });
+
+    expect(page).toEqual({ data: [], total: 0 });
+    expect(reviewFind).not.toHaveBeenCalled();
   });
 });

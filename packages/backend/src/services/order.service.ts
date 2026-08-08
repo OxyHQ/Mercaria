@@ -23,8 +23,7 @@ import { Order, type IOrder, type IOrderStatusEvent, type IOrderSettlement } fro
 import { Refund, type IRefund } from '../models/refund.js';
 import { SellerProfile } from '../models/seller-profile.js';
 import { Store, type IStore } from '../models/store.js';
-import { Listing, type IListing } from '../models/listing.js';
-import { ProductVariant } from '../models/product-variant.js';
+import { countLowStockVariantsForStore } from '../db/catalog/variantRepository.js';
 import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { hydrateOrders, summarizeOrders } from './order-hydration.service.js';
@@ -536,14 +535,10 @@ export async function storeStats(storeId: string): Promise<StoreStats> {
         )
       : zeroMoney(currency);
 
-  const listingIds = await Listing.find({ ownerType: 'store', storeId })
-    .select('_id')
-    .lean<{ _id: IListing['_id'] }[]>();
-  const lowStockVariantCount = await ProductVariant.countDocuments({
-    listingId: { $in: listingIds.map((i) => String(i._id)) },
-    'inventory.tracked': true,
-    'inventory.available': { $lte: config.orders.lowStockThreshold },
-  });
+  const lowStockVariantCount = await countLowStockVariantsForStore(
+    storeId,
+    config.orders.lowStockThreshold,
+  );
 
   return { counts, revenue, lowStockVariantCount };
 }

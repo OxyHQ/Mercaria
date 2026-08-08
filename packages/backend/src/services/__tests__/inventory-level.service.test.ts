@@ -1,45 +1,48 @@
 /**
- * Unit tests for `inventory.service` — the STORE (multi-location level) path.
+ * Unit tests for `inventory.service` — the STORE (multi-location) stock path.
  *
- * `mongodb-memory-server` is not available, so the `ProductVariant`/`Listing`/
- * `InventoryLevel` models and the shared `catalog-write.service` helpers are
- * mocked. A store variant (`loadVariantMeta` resolves `ownerType: 'store'`) routes
- * stock mutations to the matching `InventoryLevel` row (default location when no
- * explicit `locationId`), then rolls up the variant scalar. These tests assert the
- * EXACT level filter + `$inc`, the level-grain `matchedCount` out-of-stock branch,
- * default-location resolution (the checkout path), and that the rollup is invoked.
- * The P2P (scalar) path lives in `inventory.service.test.ts`.
+ * The repositories are mocked, so what is under test is the ROUTING: that a store
+ * variant's stock goes to the LEVEL mutators and never to the scalar, that the
+ * location is the explicit one or the store's default, that the rollup runs after
+ * every level change, and that a refusal becomes `OUT_OF_STOCK`.
+ *
+ * The level guard's actual race-safety, and the fact that an absolute set
+ * PRESERVES an existing row's `committed`, are checked against a real server in
+ * `db/__tests__/catalog.realdb.test.ts` — a mock would accept any update document
+ * and could not tell the two apart. The P2P path lives in `inventory.service.test.ts`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const variantFindById = vi.fn();
-const variantFindOne = vi.fn();
-const variantUpdateOne = vi.fn();
-const listingFindById = vi.fn();
-const levelUpdateOne = vi.fn();
-const syncListingFacets = vi.fn().mockResolvedValue([]);
+const findVariantById = vi.fn();
+const findVariantInListing = vi.fn();
+const reserveVariantScalar = vi.fn();
+const adjustVariantScalar = vi.fn().mockResolvedValue(undefined);
+const setVariantScalarAvailable = vi.fn().mockResolvedValue(undefined);
+const findListingById = vi.fn();
+const reserveAtLocation = vi.fn();
+const adjustLevel = vi.fn().mockResolvedValue(undefined);
+const setLevelAvailable = vi.fn().mockResolvedValue(undefined);
+const syncListingFacets = vi.fn().mockResolvedValue(undefined);
 const recomputeVariantScalarFromLevels = vi.fn().mockResolvedValue(undefined);
 const resolveDefaultLocationId = vi.fn();
 
-vi.mock('../../models/product-variant.js', () => ({
-  ProductVariant: {
-    findById: (...args: unknown[]) => variantFindById(...args),
-    findOne: (...args: unknown[]) => variantFindOne(...args),
-    updateOne: (...args: unknown[]) => variantUpdateOne(...args),
-  },
+vi.mock('../../db/catalog/variantRepository.js', () => ({
+  findVariantById: (...args: unknown[]) => findVariantById(...args),
+  findVariantInListing: (...args: unknown[]) => findVariantInListing(...args),
+  reserveVariantScalar: (...args: unknown[]) => reserveVariantScalar(...args),
+  adjustVariantScalar: (...args: unknown[]) => adjustVariantScalar(...args),
+  setVariantScalarAvailable: (...args: unknown[]) => setVariantScalarAvailable(...args),
 }));
 
-vi.mock('../../models/listing.js', () => ({
-  Listing: {
-    findById: (...args: unknown[]) => listingFindById(...args),
-  },
+vi.mock('../../db/catalog/listingRepository.js', () => ({
+  findListingById: (...args: unknown[]) => findListingById(...args),
 }));
 
-vi.mock('../../models/inventory-level.js', () => ({
-  InventoryLevel: {
-    updateOne: (...args: unknown[]) => levelUpdateOne(...args),
-  },
+vi.mock('../../db/catalog/inventoryLevelRepository.js', () => ({
+  reserveAtLocation: (...args: unknown[]) => reserveAtLocation(...args),
+  adjustLevel: (...args: unknown[]) => adjustLevel(...args),
+  setLevelAvailable: (...args: unknown[]) => setLevelAvailable(...args),
 }));
 
 vi.mock('../catalog-write.service.js', () => ({
@@ -49,7 +52,7 @@ vi.mock('../catalog-write.service.js', () => ({
   resolveDefaultLocationId: (...args: unknown[]) => resolveDefaultLocationId(...args),
 }));
 
-import { reserve, release, restock, commit, setAvailable } from '../inventory.service.js';
+import { reserve, commit, release, restock, setAvailable } from '../inventory.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
 
@@ -59,85 +62,88 @@ const STORE_ID = '000000000000000000000040';
 const DEFAULT_LOCATION_ID = '000000000000000000000050';
 const EXPLICIT_LOCATION_ID = '000000000000000000000051';
 
-/** `ProductVariant.findById(...).select(...).lean()` chain `loadVariantMeta` expects. */
-function variantMetaDoc(tracked: boolean): unknown {
+/** A `product_variants` row as the repository returns it. */
+function variantRow(tracked: boolean, available = 5): unknown {
   return {
-    select: () => ({
-      lean: () => Promise.resolve({ listingId: LISTING_ID, inventory: { tracked } }),
-    }),
+    id: VARIANT_ID,
+    listingId: LISTING_ID,
+    title: 'Default Title',
+    inventoryTracked: tracked,
+    inventoryAvailable: available,
+    inventoryCommitted: 0,
   };
 }
 
-/** `Listing.findById(...).select(...).lean()` chain resolving a STORE listing. */
-function storeListingDoc(): unknown {
-  return {
-    select: () => ({
-      lean: () => Promise.resolve({ ownerType: 'store', storeId: STORE_ID }),
-    }),
-  };
+/** A STORE-owned `listings` row. */
+function storeListingRow(): unknown {
+  return { id: LISTING_ID, ownerType: 'store', storeId: STORE_ID };
+}
+
+/** Queue the reads the low-stock alert makes after a successful reserve. */
+function queueLowStockReads(): void {
+  findVariantById.mockResolvedValueOnce(variantRow(true, 99));
+  findListingById.mockResolvedValueOnce(storeListingRow());
 }
 
 beforeEach(() => {
-  variantFindById.mockReset();
-  variantFindOne.mockReset();
-  variantUpdateOne.mockReset();
-  listingFindById.mockReset();
-  levelUpdateOne.mockReset();
+  findVariantById.mockReset();
+  findVariantInListing.mockReset();
+  reserveVariantScalar.mockReset();
+  adjustVariantScalar.mockClear();
+  setVariantScalarAvailable.mockClear();
+  findListingById.mockReset();
+  reserveAtLocation.mockReset();
+  adjustLevel.mockClear();
+  setLevelAvailable.mockClear();
   syncListingFacets.mockClear();
   recomputeVariantScalarFromLevels.mockClear();
   resolveDefaultLocationId.mockReset().mockResolvedValue(DEFAULT_LOCATION_ID);
 });
 
 describe('inventory.service.reserve (store level path)', () => {
-  it('reserves at the level grain (guarded $inc) and rolls up the scalar', async () => {
-    variantFindById.mockReturnValueOnce(variantMetaDoc(true));
-    listingFindById.mockReturnValueOnce(storeListingDoc());
-    levelUpdateOne.mockResolvedValueOnce({ matchedCount: 1, modifiedCount: 1 });
+  it('reserves at the level grain and rolls up the scalar', async () => {
+    findVariantById.mockResolvedValueOnce(variantRow(true));
+    findListingById.mockResolvedValueOnce(storeListingRow());
+    reserveAtLocation.mockResolvedValueOnce(true);
+    queueLowStockReads();
 
     await reserve(VARIANT_ID, 2);
 
-    // No scalar $inc; the level row took the guarded decrement.
-    expect(variantUpdateOne).not.toHaveBeenCalled();
-    expect(levelUpdateOne).toHaveBeenCalledTimes(1);
-    const [filter, update] = levelUpdateOne.mock.calls[0];
-    expect(filter).toEqual({
-      variantId: VARIANT_ID,
-      locationId: DEFAULT_LOCATION_ID,
-      available: { $gte: 2 },
-    });
-    expect(update).toEqual({ $inc: { available: -2, committed: 2 } });
+    // No scalar write; the level row took the guarded decrement.
+    expect(reserveVariantScalar).not.toHaveBeenCalled();
+    expect(reserveAtLocation).toHaveBeenCalledWith(VARIANT_ID, DEFAULT_LOCATION_ID, 2);
     expect(recomputeVariantScalarFromLevels).toHaveBeenCalledWith(VARIANT_ID);
     expect(syncListingFacets).toHaveBeenCalledWith(LISTING_ID);
   });
 
   it('resolves the DEFAULT location when no locationId is supplied (checkout path)', async () => {
-    variantFindById.mockReturnValueOnce(variantMetaDoc(true));
-    listingFindById.mockReturnValueOnce(storeListingDoc());
-    levelUpdateOne.mockResolvedValueOnce({ matchedCount: 1, modifiedCount: 1 });
+    findVariantById.mockResolvedValueOnce(variantRow(true));
+    findListingById.mockResolvedValueOnce(storeListingRow());
+    reserveAtLocation.mockResolvedValueOnce(true);
+    queueLowStockReads();
 
     await reserve(VARIANT_ID, 1);
 
     expect(resolveDefaultLocationId).toHaveBeenCalledWith(STORE_ID);
-    const [filter] = levelUpdateOne.mock.calls[0];
-    expect(filter.locationId).toBe(DEFAULT_LOCATION_ID);
+    expect(reserveAtLocation).toHaveBeenCalledWith(VARIANT_ID, DEFAULT_LOCATION_ID, 1);
   });
 
   it('uses an explicit locationId without resolving the default', async () => {
-    variantFindById.mockReturnValueOnce(variantMetaDoc(true));
-    listingFindById.mockReturnValueOnce(storeListingDoc());
-    levelUpdateOne.mockResolvedValueOnce({ matchedCount: 1, modifiedCount: 1 });
+    findVariantById.mockResolvedValueOnce(variantRow(true));
+    findListingById.mockResolvedValueOnce(storeListingRow());
+    reserveAtLocation.mockResolvedValueOnce(true);
+    queueLowStockReads();
 
     await reserve(VARIANT_ID, 1, EXPLICIT_LOCATION_ID);
 
     expect(resolveDefaultLocationId).not.toHaveBeenCalled();
-    const [filter] = levelUpdateOne.mock.calls[0];
-    expect(filter.locationId).toBe(EXPLICIT_LOCATION_ID);
+    expect(reserveAtLocation).toHaveBeenCalledWith(VARIANT_ID, EXPLICIT_LOCATION_ID, 1);
   });
 
-  it('throws OUT_OF_STOCK when the level guarded update matches nothing', async () => {
-    variantFindById.mockReturnValueOnce(variantMetaDoc(true));
-    listingFindById.mockReturnValueOnce(storeListingDoc());
-    levelUpdateOne.mockResolvedValueOnce({ matchedCount: 0, modifiedCount: 0 });
+  it('throws OUT_OF_STOCK when the level guard refuses', async () => {
+    findVariantById.mockResolvedValueOnce(variantRow(true));
+    findListingById.mockResolvedValueOnce(storeListingRow());
+    reserveAtLocation.mockResolvedValueOnce(false);
 
     await expect(reserve(VARIANT_ID, 5)).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.OUT_OF_STOCK,
@@ -149,43 +155,39 @@ describe('inventory.service.reserve (store level path)', () => {
 
 describe('inventory.service.release/restock/commit (store level path)', () => {
   it('release raises available and drops committed at the level, then rolls up', async () => {
-    variantFindById.mockReturnValueOnce(variantMetaDoc(true));
-    listingFindById.mockReturnValueOnce(storeListingDoc());
-    levelUpdateOne.mockResolvedValueOnce({ matchedCount: 1, modifiedCount: 1 });
+    findVariantById.mockResolvedValueOnce(variantRow(true));
+    findListingById.mockResolvedValueOnce(storeListingRow());
 
     await release(VARIANT_ID, 3);
 
-    const [filter, update] = levelUpdateOne.mock.calls[0];
-    expect(filter).toEqual({ variantId: VARIANT_ID, locationId: DEFAULT_LOCATION_ID });
-    expect(update).toEqual({ $inc: { available: 3, committed: -3 } });
+    expect(adjustLevel).toHaveBeenCalledWith(VARIANT_ID, DEFAULT_LOCATION_ID, {
+      available: 3,
+      committed: -3,
+    });
     expect(recomputeVariantScalarFromLevels).toHaveBeenCalledWith(VARIANT_ID);
     expect(syncListingFacets).toHaveBeenCalledWith(LISTING_ID);
   });
 
-  it('restock raises available only at the level, then rolls up', async () => {
-    variantFindById.mockReturnValueOnce(variantMetaDoc(true));
-    listingFindById.mockReturnValueOnce(storeListingDoc());
-    levelUpdateOne.mockResolvedValueOnce({ matchedCount: 1, modifiedCount: 1 });
+  it('restock raises available ONLY at the level, then rolls up', async () => {
+    findVariantById.mockResolvedValueOnce(variantRow(true));
+    findListingById.mockResolvedValueOnce(storeListingRow());
 
     await restock(VARIANT_ID, 4);
 
-    const [filter, update] = levelUpdateOne.mock.calls[0];
-    expect(filter).toEqual({ variantId: VARIANT_ID, locationId: DEFAULT_LOCATION_ID });
-    expect(update).toEqual({ $inc: { available: 4 } });
+    // `committed` must be absent, not zero: `commit` already zeroed it on a paid
+    // order, and moving it again would double-count the units.
+    expect(adjustLevel).toHaveBeenCalledWith(VARIANT_ID, DEFAULT_LOCATION_ID, { available: 4 });
     expect(recomputeVariantScalarFromLevels).toHaveBeenCalledWith(VARIANT_ID);
     expect(syncListingFacets).toHaveBeenCalledWith(LISTING_ID);
   });
 
-  it('commit drops committed only at the level, rolls up, and does NOT resync facets', async () => {
-    variantFindById.mockReturnValueOnce(variantMetaDoc(true));
-    listingFindById.mockReturnValueOnce(storeListingDoc());
-    levelUpdateOne.mockResolvedValueOnce({ matchedCount: 1, modifiedCount: 1 });
+  it('commit drops committed only, rolls up, and does NOT resync facets', async () => {
+    findVariantById.mockResolvedValueOnce(variantRow(true));
+    findListingById.mockResolvedValueOnce(storeListingRow());
 
     await commit(VARIANT_ID, 2);
 
-    const [filter, update] = levelUpdateOne.mock.calls[0];
-    expect(filter).toEqual({ variantId: VARIANT_ID, locationId: DEFAULT_LOCATION_ID });
-    expect(update).toEqual({ $inc: { committed: -2 } });
+    expect(adjustLevel).toHaveBeenCalledWith(VARIANT_ID, DEFAULT_LOCATION_ID, { committed: -2 });
     expect(recomputeVariantScalarFromLevels).toHaveBeenCalledWith(VARIANT_ID);
     // commit does not flip availability — no facet resync.
     expect(syncListingFacets).not.toHaveBeenCalled();
@@ -193,31 +195,21 @@ describe('inventory.service.release/restock/commit (store level path)', () => {
 });
 
 describe('inventory.service.setAvailable (store level path)', () => {
-  it('absolute-sets the level (upsert preserving committed) and recomputes the scalar', async () => {
-    const save = vi.fn().mockResolvedValue(undefined);
-    variantFindOne.mockResolvedValueOnce({
-      _id: VARIANT_ID,
-      listingId: LISTING_ID,
-      inventory: { tracked: true, available: 1, committed: 0 },
-      save,
-    });
-    listingFindById.mockReturnValueOnce({
-      select: () => ({ lean: () => Promise.resolve({ ownerType: 'store' }) }),
-    });
-    levelUpdateOne.mockResolvedValueOnce({ matchedCount: 1, modifiedCount: 1, upsertedCount: 0 });
+  it('absolute-sets the level and recomputes the scalar from the levels', async () => {
+    findVariantInListing.mockResolvedValueOnce(variantRow(true, 1));
+    findListingById.mockResolvedValueOnce(storeListingRow());
 
     await setAvailable(VARIANT_ID, LISTING_ID, EXPLICIT_LOCATION_ID, 25);
 
-    expect(variantFindOne).toHaveBeenCalledWith({ _id: VARIANT_ID, listingId: LISTING_ID });
-    // The store path writes the level, not the scalar via save().
-    expect(save).not.toHaveBeenCalled();
-    const [filter, update, opts] = levelUpdateOne.mock.calls[0];
-    expect(filter).toEqual({ variantId: VARIANT_ID, locationId: EXPLICIT_LOCATION_ID });
-    expect(update).toEqual({
-      $set: { available: 25 },
-      $setOnInsert: { listingId: LISTING_ID, committed: 0 },
+    expect(findVariantInListing).toHaveBeenCalledWith(LISTING_ID, VARIANT_ID);
+    // The store path writes the level; the scalar is DERIVED, never set directly.
+    expect(setVariantScalarAvailable).not.toHaveBeenCalled();
+    expect(setLevelAvailable).toHaveBeenCalledWith({
+      variantId: VARIANT_ID,
+      listingId: LISTING_ID,
+      locationId: EXPLICIT_LOCATION_ID,
+      available: 25,
     });
-    expect(opts).toEqual({ upsert: true });
     expect(recomputeVariantScalarFromLevels).toHaveBeenCalledWith(VARIANT_ID);
     expect(syncListingFacets).toHaveBeenCalledWith(LISTING_ID);
   });

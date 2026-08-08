@@ -2,12 +2,22 @@
  * Unit tests for the two-way connector sync engine (Fase 3):
  *  - `pushListingToChannels` LOOP PREVENTION — a listing is pushed to every
  *    push/bidirectional connection EXCEPT the one it was pulled from, and the
- *    external mapping is recorded on the listing.
+ *    external mapping is recorded for that connection.
  *  - `syncOrders` / order-webhook UPSERT — an external order is created once with
  *    `source` provenance + `DualMoney`, and a re-sync of the same external id
  *    updates in place (idempotent, never duplicated).
  *
- * No DB / no network: every model + the provider registry + crypto are mocked.
+ * No DB / no network. Orders are still Mongoose (`Order`, `Counter`), as are
+ * `Connection`/`SyncRun`; the CATALOGUE moved to Postgres, so the listing, its
+ * variants and their child rows are mocked at the REPOSITORY boundary.
+ *
+ * Two shapes changed under `pushListingToChannels` and the assertions follow:
+ *  - The push mirror is the `listing_external_refs` TABLE, not an `externalRefs`
+ *    array on the listing — so the recorded mapping is an `upsertExternalRef`
+ *    call, not a `$push`, and the re-push target is read back with
+ *    `findExternalRefByListingAndConnection`.
+ *  - The listing's images, options and each variant's option values are separate
+ *    tables, gathered once via `findListingChildren` / `findVariantOptionValues`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -36,23 +46,50 @@ vi.mock('../../models/sync-run.js', () => ({
   SyncRun: { create: (...a: unknown[]) => syncRunCreate(...a) },
 }));
 
-const listingFindById = vi.fn();
-const listingFindOne = vi.fn();
-const listingUpdateOne = vi.fn();
-const listingExists = vi.fn();
-vi.mock('../../models/listing.js', () => ({
-  Listing: {
-    findById: (...a: unknown[]) => listingFindById(...a),
-    findOne: (...a: unknown[]) => listingFindOne(...a),
-    updateOne: (...a: unknown[]) => listingUpdateOne(...a),
-    exists: (...a: unknown[]) => listingExists(...a),
-  },
+const findListingById = vi.fn();
+const findListingBySourceExternalId = vi.fn();
+const findListingChildren = vi.fn();
+const findListingsBySourceConnection = vi.fn();
+const setListingStatusIfIn = vi.fn();
+const updateListingColumns = vi.fn();
+vi.mock('../../db/catalog/listingRepository.js', () => ({
+  findListingById: (...a: unknown[]) => findListingById(...a),
+  findListingBySourceExternalId: (...a: unknown[]) => findListingBySourceExternalId(...a),
+  findListingChildren: (...a: unknown[]) => findListingChildren(...a),
+  findListingsBySourceConnection: (...a: unknown[]) => findListingsBySourceConnection(...a),
+  setListingStatusIfIn: (...a: unknown[]) => setListingStatusIfIn(...a),
+  updateListingColumns: (...a: unknown[]) => updateListingColumns(...a),
 }));
 
-const variantFind = vi.fn();
-vi.mock('../../models/product-variant.js', () => ({
-  ProductVariant: { find: (...a: unknown[]) => variantFind(...a) },
+const findVariantBySourceInventoryItemId = vi.fn();
+const findVariantOptionValues = vi.fn();
+const findVariantsByListing = vi.fn();
+const findVariantsBySourceConnection = vi.fn();
+const updateVariantColumns = vi.fn();
+vi.mock('../../db/catalog/variantRepository.js', () => ({
+  findVariantBySourceInventoryItemId: (...a: unknown[]) =>
+    findVariantBySourceInventoryItemId(...a),
+  findVariantOptionValues: (...a: unknown[]) => findVariantOptionValues(...a),
+  findVariantsByListing: (...a: unknown[]) => findVariantsByListing(...a),
+  findVariantsBySourceConnection: (...a: unknown[]) => findVariantsBySourceConnection(...a),
+  updateVariant: (...a: unknown[]) => updateVariantColumns(...a),
 }));
+
+const findExternalRefByListingAndConnection = vi.fn();
+const listingPushedToConnection = vi.fn();
+const upsertExternalRef = vi.fn();
+vi.mock('../../db/catalog/listingExternalRefRepository.js', () => ({
+  findExternalRefByListingAndConnection: (...a: unknown[]) =>
+    findExternalRefByListingAndConnection(...a),
+  listingPushedToConnection: (...a: unknown[]) => listingPushedToConnection(...a),
+  upsertExternalRef: (...a: unknown[]) => upsertExternalRef(...a),
+}));
+
+vi.mock('../../db/catalog/categoryRepository.js', () => ({ categorySlugExists: vi.fn() }));
+vi.mock('../../db/merchandising/collectionRepository.js', () => ({
+  setListingAutomatedMemberships: vi.fn(),
+}));
+vi.mock('../../db/stores/locationRepository.js', () => ({ findLocation: vi.fn() }));
 
 const orderFindOne = vi.fn();
 const orderCreate = vi.fn();
@@ -70,11 +107,13 @@ vi.mock('../../models/counter.js', () => ({
   nextOrderNumber: (...a: unknown[]) => nextOrderNumber(...a),
 }));
 
-vi.mock('../../models/category.js', () => ({ Category: { exists: vi.fn() } }));
 vi.mock('../catalog-write.service.js', () => ({
   createStoreProduct: vi.fn(),
   updateListing: vi.fn(),
+  updateVariant: vi.fn(),
+  resolveDefaultLocationId: vi.fn(),
 }));
+vi.mock('../inventory.service.js', () => ({ setAvailable: vi.fn() }));
 
 const decryptSecret = vi.fn();
 vi.mock('../../lib/connector-crypto.js', () => ({
@@ -106,10 +145,18 @@ beforeEach(() => {
   vi.clearAllMocks();
   syncRunCreate.mockImplementation(() => Promise.resolve(mockRun()));
   connectionUpdateOne.mockResolvedValue({});
-  listingUpdateOne.mockResolvedValue({});
+  updateListingColumns.mockResolvedValue(null);
   orderUpdateOne.mockResolvedValue({});
   orderCreate.mockResolvedValue({});
-  listingExists.mockResolvedValue(null);
+  listingPushedToConnection.mockResolvedValue(false);
+  findExternalRefByListingAndConnection.mockResolvedValue(null);
+  upsertExternalRef.mockResolvedValue(undefined);
+  findListingChildren.mockResolvedValue({
+    images: new Map(),
+    options: new Map(),
+    collectionIds: new Map(),
+  });
+  findVariantOptionValues.mockResolvedValue(new Map());
   decryptSecret.mockReturnValue(JSON.stringify({ accessToken: 'shpat_test' }));
   nextOrderNumber.mockResolvedValue('MRC-000042');
 });
@@ -130,36 +177,55 @@ function pushConnection(id: string) {
   };
 }
 
+/**
+ * The `listings` row a push reads — FLAT, with `source` provenance as four
+ * columns and no embedded images/options/externalRefs (all separate tables now).
+ */
+function pushableListingRow(overrides: Record<string, unknown> = {}): unknown {
+  return {
+    id: 'listing-1',
+    ownerType: 'store',
+    storeId: STORE_ID,
+    title: 'Tee',
+    description: '',
+    status: 'active',
+    handle: null,
+    vendor: null,
+    productType: null,
+    seoTitle: null,
+    seoDescription: null,
+    sourceConnectionId: 'origin',
+    sourceProvider: 'shopify',
+    sourceExternalId: 'shp-origin',
+    sourceExternalUpdatedAt: null,
+    ...overrides,
+  };
+}
+
+/** A `product_variants` row as `toPushVariant` reads it (flat money columns). */
+function pushableVariantRow(): unknown {
+  return {
+    id: 'variant-1',
+    listingId: 'listing-1',
+    title: 'Default Title',
+    sku: null,
+    barcode: null,
+    priceAmount: 1999,
+    priceCurrency: 'USD',
+    compareAtPriceAmount: null,
+    compareAtPriceCurrency: null,
+    inventoryTracked: true,
+    inventoryAvailable: 3,
+  };
+}
+
 describe('pushListingToChannels — loop prevention', () => {
   it('pushes to non-origin connections and skips the connection it was pulled from', async () => {
     // Listing was pulled FROM `origin`; must NOT be pushed back there, but SHOULD
     // be pushed to `other`.
-    listingFindById.mockReturnValue({
-      lean: vi.fn().mockResolvedValue({
-        _id: 'listing-1',
-        ownerType: 'store',
-        storeId: STORE_ID,
-        title: 'Tee',
-        description: '',
-        status: 'active',
-        options: [],
-        images: [],
-        externalRefs: [],
-        source: { connectionId: 'origin', provider: 'shopify', externalId: 'shp-origin' },
-      }),
-    });
+    findListingById.mockResolvedValue(pushableListingRow());
     connectionFind.mockResolvedValue([pushConnection('origin'), pushConnection('other')]);
-    variantFind.mockReturnValue({
-      sort: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([
-          {
-            optionValues: [],
-            price: { amount: 1999, currency: 'USD' },
-            inventory: { tracked: true, available: 3 },
-          },
-        ]),
-      }),
-    });
+    findVariantsByListing.mockResolvedValue([pushableVariantRow()]);
 
     const pushProduct = vi.fn().mockResolvedValue({ externalId: 'shp-other' });
     getConnectorProvider.mockReturnValue({ pushProduct });
@@ -171,29 +237,45 @@ describe('pushListingToChannels — loop prevention', () => {
     const runKinds = syncRunCreate.mock.calls.map(([arg]) => arg);
     expect(runKinds).toHaveLength(1);
     expect(runKinds[0]).toMatchObject({ connectionId: 'other', kind: 'product_push' });
+    // The native price survives the push unconverted, read from the two columns.
+    expect(pushProduct.mock.calls[0][1].variants[0].price).toEqual({ amount: 1999, currency: 'USD' });
 
-    // The external mapping is recorded (pull old for this conn, then push new).
-    const pushRefCall = listingUpdateOne.mock.calls.find(
-      ([, update]) => update?.$push?.externalRefs,
-    );
-    expect(pushRefCall?.[1].$push.externalRefs).toMatchObject({
+    // The external mapping is recorded. The old assertion looked for a
+    // `$push: { externalRefs: … }` (preceded by a `$pull` for the same
+    // connection); that pair became ONE `upsertExternalRef`, which replaces the
+    // pair's previous mapping itself.
+    expect(findExternalRefByListingAndConnection).toHaveBeenCalledWith('listing-1', 'other');
+    expect(upsertExternalRef).toHaveBeenCalledWith({
+      listingId: 'listing-1',
       connectionId: 'other',
       provider: 'shopify',
       externalId: 'shp-other',
     });
   });
 
-  it('is a no-op when the store has no push/bidirectional connections', async () => {
-    listingFindById.mockReturnValue({
-      lean: vi.fn().mockResolvedValue({
-        _id: 'listing-1',
-        ownerType: 'store',
-        storeId: STORE_ID,
-        images: [],
-        options: [],
-        externalRefs: [],
-      }),
+  it('re-pushes at the SAME external product when a mapping already exists', async () => {
+    // The re-push target used to be found by scanning the embedded `externalRefs`
+    // array; it is a row lookup now, and getting it wrong means a duplicate
+    // product on the platform rather than an update.
+    findListingById.mockResolvedValue(pushableListingRow({ sourceConnectionId: null }));
+    connectionFind.mockResolvedValue([pushConnection('other')]);
+    findVariantsByListing.mockResolvedValue([pushableVariantRow()]);
+    findExternalRefByListingAndConnection.mockResolvedValue({
+      listingId: 'listing-1',
+      connectionId: 'other',
+      provider: 'shopify',
+      externalId: 'shp-existing',
     });
+    const pushProduct = vi.fn().mockResolvedValue({ externalId: 'shp-existing' });
+    getConnectorProvider.mockReturnValue({ pushProduct });
+
+    await pushListingToChannels(STORE_ID, 'listing-1');
+
+    expect(pushProduct.mock.calls[0][1].externalId).toBe('shp-existing');
+  });
+
+  it('is a no-op when the store has no push/bidirectional connections', async () => {
+    findListingById.mockResolvedValue(pushableListingRow());
     connectionFind.mockResolvedValue([]);
 
     await pushListingToChannels(STORE_ID, 'listing-1');

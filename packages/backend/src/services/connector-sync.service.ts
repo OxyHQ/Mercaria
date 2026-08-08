@@ -6,11 +6,17 @@
  * `updateListing`), so denormalized facets + inventory stay consistent. Prices
  * are stored in the shop's NATIVE currency (no FAIR conversion on write).
  *
- * PROVENANCE + OVERRIDES. Every pulled listing carries `source = { connectionId,
- * provider, externalId, externalUpdatedAt }` — the upsert key. On re-sync, when
- * the connection's `conflictPolicy` is `respect_overrides`, any field the
- * merchant locally edited (listed in the listing's `overriddenFields`) is left
- * untouched; `connector_wins` overwrites everything.
+ * PROVENANCE + OVERRIDES. Every pulled listing carries its origin in the four
+ * flat `source_*` columns (`sourceConnectionId`, `sourceProvider`,
+ * `sourceExternalId`, `sourceExternalUpdatedAt`) — together the upsert key. On
+ * re-sync, when the connection's `conflictPolicy` is `respect_overrides`, any
+ * field the merchant locally edited (listed in the listing's `overriddenFields`)
+ * is left untouched; `connector_wins` overwrites everything.
+ *
+ * STORAGE. The CATALOGUE (listings, variants, categories, locations, collection
+ * membership and the `listing_external_refs` push mirror) is read and written
+ * through the Postgres repositories under `db/`. This service's OWN domain —
+ * `Connection` and `SyncRun` — is still Mongoose, as is `Order`.
  *
  * SECURITY. Credentials are decrypted only in-memory here (never returned in a
  * DTO). Every connection-scoped operation is resolved by `{ _id, storeId }` so a
@@ -34,15 +40,39 @@ import type {
   UpdateListingInput,
   UpdateSyncSettingsInput,
 } from '@mercaria/shared-types';
-import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
+import { ALL_CURRENCY_CODES, ALL_LISTING_STATUSES } from '@mercaria/shared-types';
 import { Connection, type IConnection, type ISyncSettings } from '../models/connection.js';
 import { SyncRun, type ISyncRun, type ISyncRunCounts } from '../models/sync-run.js';
-import { Listing, type IListing, type IListingSource } from '../models/listing.js';
-import { ProductVariant, type IProductVariant } from '../models/product-variant.js';
 import { Order, type IOrder, type IOrderItem, type IOrderSource } from '../models/order.js';
-import { Location } from '../models/location.js';
 import { nextOrderNumber } from '../models/counter.js';
-import { Category } from '../models/category.js';
+import {
+  findListingById,
+  findListingBySourceExternalId,
+  findListingChildren,
+  findListingsBySourceConnection,
+  setListingStatusIfIn,
+  updateListingColumns,
+  type ListingImageRecord,
+  type ListingOptionRecord,
+  type ListingRecord,
+} from '../db/catalog/listingRepository.js';
+import {
+  findVariantBySourceInventoryItemId,
+  findVariantOptionValues,
+  findVariantsByListing,
+  findVariantsBySourceConnection,
+  updateVariant as updateVariantColumns,
+  type VariantOptionValueRecord,
+  type VariantRecord,
+} from '../db/catalog/variantRepository.js';
+import {
+  findExternalRefByListingAndConnection,
+  listingPushedToConnection,
+  upsertExternalRef,
+} from '../db/catalog/listingExternalRefRepository.js';
+import { categorySlugExists } from '../db/catalog/categoryRepository.js';
+import { setListingAutomatedMemberships } from '../db/merchandising/collectionRepository.js';
+import { findLocation } from '../db/stores/locationRepository.js';
 import {
   createStoreProduct,
   updateListing,
@@ -551,7 +581,7 @@ export async function resolveImportCategorySlug(): Promise<string> {
       `${DEFAULT_CATEGORY_ENV} is not configured — imported products need a target category`,
     );
   }
-  const exists = await Category.exists({ slug });
+  const exists = await categorySlugExists(slug);
   if (!exists) {
     throw validationError(`Import category "${slug}" (${DEFAULT_CATEGORY_ENV}) does not exist`);
   }
@@ -668,17 +698,29 @@ function toUpdatePatch(product: NormalizedProduct, overridden: Set<string>): Upd
   return patch;
 }
 
-/** Build the provenance `source` sub-document for a listing. */
-function buildSource(conn: IConnection, product: NormalizedProduct): IListingSource {
-  const source: IListingSource = {
-    connectionId: String(conn._id),
-    provider: conn.provider,
-    externalId: product.externalId,
+/**
+ * The connector-provenance columns for a pulled listing.
+ *
+ * The four `source_*` fields are flat columns on `listings` rather than an
+ * embedded sub-document, so this returns the column PATCH itself.
+ * `sourceExternalUpdatedAt` is written explicitly NULL when the platform sent no
+ * timestamp: the embedded version simply left the key out, which kept the
+ * PREVIOUS sync's timestamp on a product whose source had stopped reporting one —
+ * a newer-than check silently reading a value the platform no longer stands behind.
+ */
+function buildSource(
+  conn: IConnection,
+  product: NormalizedProduct,
+): Pick<
+  ListingRecord,
+  'sourceConnectionId' | 'sourceProvider' | 'sourceExternalId' | 'sourceExternalUpdatedAt'
+> {
+  return {
+    sourceConnectionId: String(conn._id),
+    sourceProvider: conn.provider,
+    sourceExternalId: product.externalId,
+    sourceExternalUpdatedAt: product.externalUpdatedAt ?? null,
   };
-  if (product.externalUpdatedAt) {
-    source.externalUpdatedAt = product.externalUpdatedAt;
-  }
-  return source;
 }
 
 /**
@@ -687,26 +729,33 @@ function buildSource(conn: IConnection, product: NormalizedProduct): IListingSou
  * store default. Returns `undefined` when no target is configured — the caller then
  * lets `createStoreProduct` fall back to the store default itself (so the common
  * no-target case does no extra location query).
+ *
+ * `findLocation` scopes to the store — that is the cross-store guard the
+ * `{ _id, storeId }` filter used to carry — but it does NOT filter on `isActive`,
+ * so the active check is made here to keep a deactivated target falling back to
+ * the default rather than silently receiving stock.
  */
 export async function resolveImportLocationId(conn: IConnection): Promise<string | undefined> {
   const target = conn.syncSettings.targetLocationId?.trim();
   if (!target) {
     return undefined;
   }
-  const valid = await Location.exists({ _id: target, storeId: conn.storeId, isActive: true });
-  return valid ? target : resolveDefaultLocationId(conn.storeId);
+  const location = await findLocation(conn.storeId, target);
+  return location?.isActive ? target : resolveDefaultLocationId(conn.storeId);
 }
 
 /**
  * Resolve the CONCRETE location inventory sync writes to: the configured
  * `targetLocationId` when valid, else the store default (inventory always needs a
  * concrete location, unlike the import-create path which can defer to the funnel).
+ * Same store-scoped lookup plus explicit `isActive` check as
+ * {@link resolveImportLocationId}.
  */
 export async function resolveInventoryLocationId(conn: IConnection): Promise<string> {
   const target = conn.syncSettings.targetLocationId?.trim();
   if (target) {
-    const valid = await Location.exists({ _id: target, storeId: conn.storeId, isActive: true });
-    if (valid) {
+    const location = await findLocation(conn.storeId, target);
+    if (location?.isActive) {
       return target;
     }
   }
@@ -715,12 +764,22 @@ export async function resolveInventoryLocationId(conn: IConnection): Promise<str
 
 /**
  * Stamp each freshly-created variant with the platform's variant + inventory-item
- * ids, matched to the normalized variants by POSITION (create preserves order:
- * `resolveStoreVariants` → `insertMany` → `find().sort({position})`). No-op — and
- * no DB read — when the product carries no external variant ids (e.g. the ingest
- * path, or a platform that omits them), so callers that never provide them are
- * unaffected. Enables the inventory pull job + webhook to map a platform
- * `inventory_item_id` straight back to a Mercaria variant.
+ * ids, matched to the normalized variants by POSITION. Create still preserves that
+ * order: `resolveStoreVariants` numbers each variant by its index in the input,
+ * `insertVariants` writes that number, and `findVariantsByListing` returns rows
+ * `position asc` — so index `i` here is the same variant `product.variants[i]`
+ * described. No-op — and no DB read — when the product carries no external variant
+ * ids (e.g. the ingest path, or a platform that omits them), so callers that never
+ * provide them are unaffected. Enables the inventory pull job + webhook to map a
+ * platform `inventory_item_id` straight back to a Mercaria variant.
+ *
+ * All FOUR provenance columns are written on every stamped variant, `null`
+ * included. That is not extra caution, it is what the `$set: { source }` it
+ * replaces already did: assigning the whole sub-document dropped any key the new
+ * one omitted. Writing the set also keeps the columns mutually consistent —
+ * `findVariantBySourceInventoryItemId` matches on `(sourceConnectionId,
+ * sourceExternalInventoryItemId)`, so a variant carrying only some of them is
+ * exactly as unfindable as an unstamped one while LOOKING synced.
  */
 async function stampVariantSources(
   conn: IConnection,
@@ -733,24 +792,24 @@ async function stampVariantSources(
   if (!hasExternalIds) {
     return;
   }
-  const variants = await ProductVariant.find({ listingId })
-    .sort({ position: 1 })
-    .select('_id')
-    .lean<Pick<IProductVariant, '_id'>[]>();
+  const variants = await findVariantsByListing(listingId);
   const connectionId = String(conn._id);
   for (let i = 0; i < variants.length && i < product.variants.length; i += 1) {
     const normalized = product.variants[i];
     if (normalized.externalVariantId === undefined && normalized.externalInventoryItemId === undefined) {
       continue;
     }
-    const source: Record<string, unknown> = { connectionId, provider: conn.provider };
-    if (normalized.externalVariantId !== undefined) {
-      source.externalVariantId = normalized.externalVariantId;
-    }
-    if (normalized.externalInventoryItemId !== undefined) {
-      source.externalInventoryItemId = normalized.externalInventoryItemId;
-    }
-    await ProductVariant.updateOne({ _id: variants[i]._id }, { $set: { source } });
+    await updateVariantColumns(
+      listingId,
+      variants[i].id,
+      {
+        sourceConnectionId: connectionId,
+        sourceProvider: conn.provider,
+        sourceExternalVariantId: normalized.externalVariantId ?? null,
+        sourceExternalInventoryItemId: normalized.externalInventoryItemId ?? null,
+      },
+      undefined,
+    );
   }
 }
 
@@ -760,9 +819,25 @@ async function stampVariantSources(
  * collections, while PRESERVING native Mercaria memberships (manual + automated
  * collections that are not in the mapping's codomain). The connector-MANAGED set is
  * the mapping's values, so a re-sync both adds and removes connector collections
- * precisely without touching native ones. A no-op — and no DB read — when the
- * connection has no mapping, when the product carries no collection refs, or when
- * `collections` is pinned in `overridden` (respecting `overriddenFields`).
+ * precisely without touching native ones. A no-op — and no DB write — only when
+ * the connection has no mapping or `collections` is pinned in `overridden`
+ * (respecting `overriddenFields`). A product that carries NO collection refs is
+ * not one of those cases: it means the platform removed it from every mapped
+ * collection, so the managed memberships are dropped.
+ *
+ * The merge is now a SET DIFF in SQL instead of a read-modify-write of an array.
+ * `Listing.collectionIds` became the `listing_collections` junction table, and
+ * bounding the delete to the connector-MANAGED collection ids is what preserves
+ * every native membership — the property the old `currentIds.filter(...)`
+ * computed in the process. The read that fed that filter is therefore gone, and
+ * with it the window in which a concurrent native membership change could be
+ * clobbered by writing a whole array back.
+ *
+ * `setListingAutomatedMemberships` is reached for its SHAPE — insert the matched
+ * set, delete scoped-minus-matched, for ONE listing — with the connector-managed
+ * ids as the scope rather than the store's automated collections. It writes a
+ * NULL `position`, which is right for a connector membership: the platform sends
+ * an unordered set, exactly as `collectionIds` carried no order.
  */
 async function applyCollectionMapping(
   conn: IConnection,
@@ -775,23 +850,17 @@ async function applyCollectionMapping(
     return;
   }
   const refs = product.collectionRefs ?? [];
-  const managed = new Set(mapping.values());
-  const desired: string[] = [];
-  for (const ref of refs) {
-    const mapped = mapping.get(ref);
-    if (mapped) {
-      desired.push(mapped);
-    }
-  }
+  const managed = [...new Set(mapping.values())];
+  const desired = [
+    ...new Set(
+      refs.flatMap((ref) => {
+        const mapped = mapping.get(ref);
+        return mapped ? [mapped] : [];
+      }),
+    ),
+  ];
 
-  const current = await Listing.findById(listingId)
-    .select('collectionIds')
-    .lean<Pick<IListing, 'collectionIds'> | null>();
-  const currentIds = current?.collectionIds ?? [];
-  // Keep every native (non-connector-managed) membership; set the managed subset to
-  // exactly the currently-desired connector collections.
-  const next = [...new Set([...currentIds.filter((id) => !managed.has(id)), ...desired])];
-  await Listing.updateOne({ _id: listingId }, { $set: { collectionIds: next } });
+  await setListingAutomatedMemberships(listingId, managed, desired);
 }
 
 /** The outcome of importing a single product. */
@@ -815,11 +884,17 @@ function variantMatchKey(optionValues: { name: string; value: string }[]): strin
     .join('|');
 }
 
-/** The existing-variant fields the re-price matcher needs. */
-type RepriceVariant = Pick<
-  IProductVariant,
-  '_id' | 'sku' | 'optionValues' | 'price' | 'compareAtPrice'
->;
+/**
+ * An existing variant plus the option-value tuple the re-price matcher keys on.
+ *
+ * The two travel together because `optionValues` is a CHILD TABLE now rather than
+ * an embedded array, so it is loaded once for the whole listing and re-attached
+ * here — not re-queried per candidate while matching.
+ */
+interface RepriceVariant {
+  readonly variant: VariantRecord;
+  readonly optionValues: VariantOptionValueRecord[];
+}
 
 /**
  * Re-price the EXISTING variants of a re-synced listing from the incoming
@@ -853,23 +928,28 @@ async function repriceExistingVariants(
     return false;
   }
 
-  const existingVariants = await ProductVariant.find({ listingId })
-    .select('_id sku optionValues price compareAtPrice')
-    .lean<RepriceVariant[]>();
+  const existingVariants = await findVariantsByListing(listingId);
   if (existingVariants.length === 0) {
     return false;
   }
+  const optionValuesByVariant = await findVariantOptionValues(
+    existingVariants.map((variant) => variant.id),
+  );
 
   // Index existing variants for matching: by SKU (exact) and by option-value key.
   const bySku = new Map<string, RepriceVariant>();
   const byOptionKey = new Map<string, RepriceVariant>();
   for (const variant of existingVariants) {
+    const candidate: RepriceVariant = {
+      variant,
+      optionValues: optionValuesByVariant.get(variant.id) ?? [],
+    };
     if (variant.sku && !bySku.has(variant.sku)) {
-      bySku.set(variant.sku, variant);
+      bySku.set(variant.sku, candidate);
     }
-    const key = variantMatchKey(variant.optionValues);
+    const key = variantMatchKey(candidate.optionValues);
     if (!byOptionKey.has(key)) {
-      byOptionKey.set(key, variant);
+      byOptionKey.set(key, candidate);
     }
   }
 
@@ -883,7 +963,7 @@ async function repriceExistingVariants(
     if (!match) {
       continue; // a NEW variant added on the platform — creation is a later phase
     }
-    const matchId = String(match._id);
+    const matchId = match.variant.id;
     if (consumed.has(matchId)) {
       continue; // an existing variant maps to at most one incoming variant
     }
@@ -894,13 +974,23 @@ async function repriceExistingVariants(
       ? applyPriceRules(incoming.compareAtPrice, priceRules)
       : undefined;
 
+    // `price` was required on the Mongoose model and both of its columns are
+    // NULLABLE here, so a variant carrying no price at all is a case that did not
+    // exist before. NULL differs from every incoming amount, which prices it on
+    // the first re-sync rather than leaving it priceless — the same outcome the
+    // create path would have produced.
     const priceDiffers =
-      match.price.amount !== targetPrice.amount || match.price.currency !== targetPrice.currency;
-    const compareAtDiffers = match.compareAtPrice
-      ? !targetCompareAt ||
-        match.compareAtPrice.amount !== targetCompareAt.amount ||
-        match.compareAtPrice.currency !== targetCompareAt.currency
-      : targetCompareAt !== undefined;
+      match.variant.priceAmount !== targetPrice.amount ||
+      match.variant.priceCurrency !== targetPrice.currency;
+    // The two `compare_at_price` columns are NULL together — that is what
+    // `product_variants_compare_at_price_paired_check` guarantees — so the amount
+    // alone answers "is one stored", exactly as the embedded object's presence did.
+    const compareAtDiffers =
+      match.variant.compareAtPriceAmount !== null
+        ? !targetCompareAt ||
+          match.variant.compareAtPriceAmount !== targetCompareAt.amount ||
+          match.variant.compareAtPriceCurrency !== targetCompareAt.currency
+        : targetCompareAt !== undefined;
 
     if (!priceDiffers && !compareAtDiffers) {
       continue; // already in sync — idempotent no-op
@@ -927,11 +1017,11 @@ async function importProduct(
   product: NormalizedProduct,
   opts: ImportProductOptions,
 ): Promise<ImportOutcome> {
-  const existing = await Listing.findOne({
-    storeId: conn.storeId,
-    'source.connectionId': String(conn._id),
-    'source.externalId': product.externalId,
-  }).select('_id overriddenFields');
+  const existing = await findListingBySourceExternalId(
+    conn.storeId,
+    String(conn._id),
+    product.externalId,
+  );
 
   if (!existing) {
     // LOOP PREVENTION (bidirectional): before creating, check whether this external
@@ -939,12 +1029,11 @@ async function importProduct(
     // If so, the inbound event is an echo of our own push — the listing is
     // Mercaria-owned, so skip it (never re-import a pushed product as a duplicate,
     // and never let the platform's normalization fight Mercaria's source of truth).
-    const pushMirror = await Listing.exists({
-      storeId: conn.storeId,
-      externalRefs: {
-        $elemMatch: { connectionId: String(conn._id), externalId: product.externalId },
-      },
-    });
+    const pushMirror = await listingPushedToConnection(
+      conn.storeId,
+      String(conn._id),
+      product.externalId,
+    );
     if (pushMirror) {
       return 'skipped';
     }
@@ -954,18 +1043,17 @@ async function importProduct(
       toCreateInput(product, opts.categorySlug, opts.priceRules),
       { locationId: opts.importLocationId },
     );
-    const set: Record<string, unknown> = { source: buildSource(conn, product) };
-    if (!opts.autoPublish) {
-      set.status = 'draft';
-    }
-    await Listing.updateOne({ _id: listingId }, { $set: set });
+    await updateListingColumns(listingId, {
+      ...buildSource(conn, product),
+      ...(opts.autoPublish ? {} : { status: 'draft' as const }),
+    });
     await stampVariantSources(conn, listingId, product);
     // A freshly-created listing has no local overrides yet.
     await applyCollectionMapping(conn, listingId, product, new Set<string>());
     return 'created';
   }
 
-  const listingId = String(existing._id);
+  const listingId = existing.id;
   const overridden = opts.respectOverrides ? new Set(existing.overriddenFields) : new Set<string>();
   const patch = toUpdatePatch(product, overridden);
   const changed = Object.keys(patch).length > 0;
@@ -976,7 +1064,7 @@ async function importProduct(
   const repriced = await repriceExistingVariants(listingId, product, overridden, opts.priceRules);
   await applyCollectionMapping(conn, listingId, product, overridden);
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
-  await Listing.updateOne({ _id: existing._id }, { $set: { source: buildSource(conn, product) } });
+  await updateListingColumns(listingId, buildSource(conn, product));
   return changed || repriced ? 'updated' : 'skipped';
 }
 
@@ -1109,21 +1197,22 @@ export async function requestBackfill(storeId: string, connectionId: string): Pr
  * Archive the listing mapped to `externalId` for `conn` (soft-delete — never a
  * hard-delete, so order history + provenance survive). Returns true when a listing
  * was actually archived (an already-archived or unmapped id is a no-op).
+ *
+ * The provenance key resolves the listing and a CONDITIONAL update archives it,
+ * rather than one filtered `updateOne`. The second statement is what preserves the
+ * return value's meaning: `setListingStatusIfIn` refuses a listing already
+ * `archived` (its `status <> next` clause is Mongo's `modifiedCount === 1`), so two
+ * deliveries of the same delete webhook cannot both report having archived it. The
+ * whole status set is allowed because the Mongo update was likewise unconditional
+ * on the current status.
  */
 async function archiveSourcedListing(conn: IConnection, externalId: string): Promise<boolean> {
-  const result = await Listing.updateOne(
-    {
-      storeId: conn.storeId,
-      'source.connectionId': String(conn._id),
-      'source.externalId': externalId,
-    },
-    { $set: { status: 'archived' } },
-  );
-  return result.modifiedCount > 0;
+  const listing = await findListingBySourceExternalId(conn.storeId, String(conn._id), externalId);
+  if (!listing) {
+    return false;
+  }
+  return setListingStatusIfIn(listing.id, 'archived', ALL_LISTING_STATUSES);
 }
-
-/** The sourced-listing fields the delete-reconciliation sweep needs. */
-type ReconcileListing = Pick<IListing, '_id' | 'source' | 'overriddenFields'>;
 
 /**
  * DELETE RECONCILIATION for a FULLY-completed backfill: soft-archive every one of
@@ -1144,18 +1233,16 @@ async function archiveUnseenSourcedListings(
   seenExternalIds: Set<string>,
   respectOverrides: boolean,
 ): Promise<number> {
-  const sourced = await Listing.find(
-    {
-      storeId: conn.storeId,
-      'source.connectionId': String(conn._id),
-      status: { $ne: 'archived' },
-    },
-    '_id source.externalId overriddenFields',
-  ).lean<ReconcileListing[]>();
+  // The `status !== 'archived'` filter is applied here rather than in the query
+  // because the repository read is deliberately status-agnostic; the set it
+  // returns is already just this connection's imports, not the store's catalogue.
+  const sourced = (
+    await findListingsBySourceConnection(conn.storeId, String(conn._id))
+  ).filter((listing) => listing.status !== 'archived');
 
   let archived = 0;
   for (const listing of sourced) {
-    const externalId = listing.source?.externalId;
+    const externalId = listing.sourceExternalId;
     if (!externalId || seenExternalIds.has(externalId)) {
       continue; // still present on the platform (or no external id) — keep it
     }
@@ -1350,12 +1437,7 @@ async function handleInventoryWebhook(
     throw validationError('Malformed inventory-level webhook payload');
   }
   const itemId = String(parsed.data.inventory_item_id);
-  const variant = await ProductVariant.findOne({
-    'source.connectionId': String(conn._id),
-    'source.externalInventoryItemId': itemId,
-  })
-    .select('_id listingId')
-    .lean<Pick<IProductVariant, '_id' | 'listingId'> | null>();
+  const variant = await findVariantBySourceInventoryItemId(String(conn._id), itemId);
   if (!variant) {
     counts.skipped += 1;
     return;
@@ -1366,7 +1448,7 @@ async function handleInventoryWebhook(
   const level = levels.find((l) => l.externalInventoryItemId === itemId);
   const available = Math.max(0, level?.available ?? 0);
   const locationId = await resolveInventoryLocationId(conn);
-  await setAvailable(String(variant._id), String(variant.listingId), locationId, available);
+  await setAvailable(variant.id, variant.listingId, locationId, available);
   counts.updated += 1;
 }
 
@@ -1716,9 +1798,6 @@ export async function requestOrderSync(storeId: string, connectionId: string): P
 
 // --- INVENTORY SYNC (platform → Mercaria) -----------------------------------
 
-/** A connector-sourced variant carrying its platform inventory-item id. */
-type SourcedVariant = Pick<IProductVariant, '_id' | 'listingId' | 'source'>;
-
 /**
  * Pull the current inventory levels for a `pull` connection's products and set each
  * mapped variant's stock at the connection's target location. Variants are matched
@@ -1750,19 +1829,17 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
 
   try {
     const locationId = await resolveInventoryLocationId(conn);
-    // Variants of this connection that carry a platform inventory-item id.
-    const variants = await ProductVariant.find({
-      'source.connectionId': runConnectionId,
-      'source.externalInventoryItemId': { $type: 'string' },
-    })
-      .select('_id listingId source.externalInventoryItemId')
-      .lean<SourcedVariant[]>();
+    // Variants of this connection that carry a platform inventory-item id. The
+    // repository returns every variant the connection sourced; the item-id filter
+    // stays here because it also NARROWS the nullable column to the string the map
+    // is keyed by, which no query result could do on its own.
+    const variants = await findVariantsBySourceConnection(runConnectionId);
 
     const byItemId = new Map<string, { variantId: string; listingId: string }>();
     for (const variant of variants) {
-      const itemId = variant.source?.externalInventoryItemId;
+      const itemId = variant.sourceExternalInventoryItemId;
       if (itemId) {
-        byItemId.set(itemId, { variantId: String(variant._id), listingId: String(variant.listingId) });
+        byItemId.set(itemId, { variantId: variant.id, listingId: variant.listingId });
       }
     }
 
@@ -1833,23 +1910,41 @@ export async function requestInventorySync(storeId: string, connectionId: string
 
 // --- PRODUCT PUSH (Mercaria → platform) -------------------------------------
 
-/** Validate a persisted native price into a `Money` (its currency must be supported). */
-function toMoney(raw: { amount: number; currency: string }): Money {
-  if (!isSupportedCurrency(raw.currency)) {
-    throw validationError(`Unsupported currency on product price: ${raw.currency}`);
+/**
+ * Validate a persisted native price into a `Money` (its currency must be supported).
+ *
+ * Both halves arrive separately because a `Money` is two nullable columns here, and
+ * a variant with NO price is a case the required Mongoose `price` made impossible.
+ * It is REFUSED rather than pushed: there is no amount to send, and a platform
+ * product created without one is worse than a push that fails loudly. The two
+ * columns are NULL together (`product_variants_price_paired_check`), so one guard
+ * covers both.
+ */
+function toMoney(amount: number | null, currency: string | null): Money {
+  if (amount === null || currency === null) {
+    throw validationError('Cannot push a variant that has no price');
   }
-  return { amount: raw.amount, currency: raw.currency };
+  if (!isSupportedCurrency(currency)) {
+    throw validationError(`Unsupported currency on product price: ${currency}`);
+  }
+  return { amount, currency };
 }
 
 /** Map a persisted variant to a push variant (native price preserved). */
-function toPushVariant(variant: IProductVariant): PushVariant {
+function toPushVariant(
+  variant: VariantRecord,
+  optionValues: VariantOptionValueRecord[],
+): PushVariant {
   const pushVariant: PushVariant = {
-    optionValues: variant.optionValues.map((o) => ({ name: o.name, value: o.value })),
-    price: toMoney(variant.price),
-    inventory: { tracked: variant.inventory.tracked, available: variant.inventory.available },
+    optionValues: optionValues.map((o) => ({ name: o.name, value: o.value })),
+    price: toMoney(variant.priceAmount, variant.priceCurrency),
+    inventory: { tracked: variant.inventoryTracked, available: variant.inventoryAvailable },
   };
-  if (variant.compareAtPrice) {
-    pushVariant.compareAtPrice = toMoney(variant.compareAtPrice);
+  if (variant.compareAtPriceAmount !== null) {
+    pushVariant.compareAtPrice = toMoney(
+      variant.compareAtPriceAmount,
+      variant.compareAtPriceCurrency,
+    );
   }
   if (variant.sku) {
     pushVariant.sku = variant.sku;
@@ -1860,17 +1955,31 @@ function toPushVariant(variant: IProductVariant): PushVariant {
   return pushVariant;
 }
 
+/**
+ * Everything a push needs about a listing, loaded ONCE for every connection it is
+ * pushed to.
+ *
+ * The Mongoose document carried its images, options and each variant's option
+ * values inside itself; all four are separate tables now, so they are gathered here
+ * instead of re-read per connection — a store connected to three platforms would
+ * otherwise run the same four queries three times for one product.
+ */
+interface PushableListing {
+  readonly listing: ListingRecord;
+  readonly images: ListingImageRecord[];
+  readonly options: ListingOptionRecord[];
+  readonly variants: VariantRecord[];
+  readonly optionValues: Map<string, VariantOptionValueRecord[]>;
+}
+
 /** Build the platform-neutral `PushProduct` for a listing + its variants. */
-function toPushProduct(
-  listing: IListing,
-  variants: IProductVariant[],
-  existingExternalId?: string,
-): PushProduct {
+function toPushProduct(pushable: PushableListing, existingExternalId?: string): PushProduct {
+  const { listing } = pushable;
   // Only absolute http(s) image URLs can be pushed (the platform needs a public
   // `src`); Oxy-cloud file ids that are not URLs are skipped — image push is
-  // best-effort and never blocks the product push.
-  const imageUrls = [...listing.images]
-    .sort((a, b) => a.position - b.position)
+  // best-effort and never blocks the product push. `findListingChildren` returns
+  // both child lists already ordered by `position`, so neither is re-sorted.
+  const imageUrls = pushable.images
     .map((img) => img.fileId)
     .filter((fileId) => /^https?:\/\//i.test(fileId));
 
@@ -1878,9 +1987,11 @@ function toPushProduct(
     title: listing.title,
     description: listing.description,
     status: listing.status === 'active' ? 'active' : 'draft',
-    options: listing.options.map((o) => ({ name: o.name, values: [...o.values] })),
+    options: pushable.options.map((o) => ({ name: o.name, values: [...o.values] })),
     imageUrls,
-    variants: variants.map(toPushVariant),
+    variants: pushable.variants.map((variant) =>
+      toPushVariant(variant, pushable.optionValues.get(variant.id) ?? []),
+    ),
   };
   if (existingExternalId) {
     product.externalId = existingExternalId;
@@ -1894,42 +2005,43 @@ function toPushProduct(
   if (listing.productType) {
     product.productType = listing.productType;
   }
-  if (listing.seo) {
-    product.seo = listing.seo;
+  // One embedded `seo` object became two nullable columns, so "the listing has SEO"
+  // is now "either column is set" — which is what a present sub-document meant.
+  if (listing.seoTitle !== null || listing.seoDescription !== null) {
+    product.seo = {
+      ...(listing.seoTitle !== null ? { title: listing.seoTitle } : {}),
+      ...(listing.seoDescription !== null ? { description: listing.seoDescription } : {}),
+    };
   }
   return product;
 }
 
 /**
- * Record (or replace) the external-platform mapping created by pushing `listing`
- * to `conn`, so a later re-push updates the SAME external product and an inbound
- * echo of this push is recognized as a Mercaria-owned push-mirror.
+ * Push ONE listing to ONE connection under its own `product_push` `SyncRun`.
+ *
+ * The push mirror — which external product this listing maps to on this
+ * connection — is a `listing_external_refs` row rather than an entry in an array
+ * on the listing, so it is read before the push (to target a re-push at the SAME
+ * external product) and written after it. `upsertExternalRef` REPLACES the pair's
+ * previous mapping, which is what the `$pull`-then-`$push` did.
+ *
+ * That write can now RAISE where the Mongo pair silently succeeded:
+ * `UNIQUE(connection_id, external_id)` refuses a mapping another of this store's
+ * listings already claims. It is deliberately not caught — the catch below records
+ * it on the run and logs it, which is right even though the provider call already
+ * succeeded: a push whose mapping was not recorded is not idempotent, so the next
+ * re-push would create a DUPLICATE product rather than update this one. A run that
+ * pushed but could not record where is genuinely failed.
  */
-async function recordExternalRef(
-  listing: Pick<IListing, '_id'>,
-  conn: IConnection,
-  externalId: string,
-): Promise<void> {
-  const connectionId = String(conn._id);
-  await Listing.updateOne({ _id: listing._id }, { $pull: { externalRefs: { connectionId } } });
-  await Listing.updateOne(
-    { _id: listing._id },
-    {
-      $push: {
-        externalRefs: { connectionId, provider: conn.provider, externalId, pushedAt: new Date() },
-      },
-    },
-  );
-}
-
-/** Push ONE listing to ONE connection under its own `product_push` `SyncRun`. */
 async function pushListingToConnection(
   conn: IConnection,
-  listing: IListing,
-  variants: IProductVariant[],
+  pushable: PushableListing,
 ): Promise<void> {
   const connectionId = String(conn._id);
-  const existingRef = listing.externalRefs?.find((ref) => ref.connectionId === connectionId);
+  const existingRef = await findExternalRefByListingAndConnection(
+    pushable.listing.id,
+    connectionId,
+  );
   const counts: ISyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   const run = await SyncRun.create({ connectionId, kind: 'product_push' });
   emitSyncProgress(conn.storeId, { connectionId, kind: 'product_push', phase: 'started', counts });
@@ -1938,9 +2050,14 @@ async function pushListingToConnection(
     const provider = getConnectorProvider(conn.provider);
     const result = await provider.pushProduct(
       decryptAuth(conn),
-      toPushProduct(listing, variants, existingRef?.externalId),
+      toPushProduct(pushable, existingRef?.externalId),
     );
-    await recordExternalRef(listing, conn, result.externalId);
+    await upsertExternalRef({
+      listingId: pushable.listing.id,
+      connectionId,
+      provider: conn.provider,
+      externalId: result.externalId,
+    });
     counts[existingRef ? 'updated' : 'created'] += 1;
 
     run.counts = counts;
@@ -1958,7 +2075,7 @@ async function pushListingToConnection(
     await run.save();
     emitSyncProgress(conn.storeId, { connectionId, kind: 'product_push', phase: 'failed', counts });
     log.general.error(
-      { err, connectionId, listingId: String(listing._id) },
+      { err, connectionId, listingId: pushable.listing.id },
       'Failed to push product to channel',
     );
   }
@@ -1978,7 +2095,7 @@ async function pushListingToConnection(
  * own `SyncRun` and never aborts the others. Scoped by `storeId` (IDOR-safe).
  */
 export async function pushListingToChannels(storeId: string, listingId: string): Promise<void> {
-  const listing = await Listing.findById(listingId).lean<IListing | null>();
+  const listing = await findListingById(listingId);
   if (!listing || listing.ownerType !== 'store' || listing.storeId !== storeId) {
     return; // Not a store product of this store — nothing to push.
   }
@@ -1992,14 +2109,21 @@ export async function pushListingToChannels(storeId: string, listingId: string):
     return;
   }
 
-  const variants = await ProductVariant.find({ listingId: String(listing._id) })
-    .sort({ position: 1 })
-    .lean<IProductVariant[]>();
+  const variants = await findVariantsByListing(listing.id);
   if (variants.length === 0) {
     return; // A pushable product needs at least one variant.
   }
 
-  const originConnectionId = listing.source?.connectionId;
+  const children = await findListingChildren([listing.id]);
+  const pushable: PushableListing = {
+    listing,
+    images: children.images.get(listing.id) ?? [],
+    options: children.options.get(listing.id) ?? [],
+    variants,
+    optionValues: await findVariantOptionValues(variants.map((variant) => variant.id)),
+  };
+
+  const originConnectionId = listing.sourceConnectionId;
   for (const conn of connections) {
     const connectionId = String(conn._id);
     // LOOP PREVENTION: never push a listing back to the connection it was pulled from.
@@ -2009,7 +2133,7 @@ export async function pushListingToChannels(storeId: string, listingId: string):
     if (!conn.credentials || !conn.shopDomain) {
       continue; // Not authorized (e.g. mid-reconnect) — skip silently.
     }
-    await pushListingToConnection(conn, listing, variants);
+    await pushListingToConnection(conn, pushable);
   }
 }
 

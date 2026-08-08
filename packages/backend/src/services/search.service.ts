@@ -1,167 +1,119 @@
 /**
  * Listing search/browse service.
  *
- * Translates a `ListingQuery` into a Mongo filter + sort, and runs it either:
+ * Translates a `ListingQuery` into repository filters and runs it either:
  *  - OFFSET-paginated (`searchListingsOffset`) — backs default/`price_*` browse
  *    with `page`/`limit` + a total count, returning a `PaginatedResponse`; or
- *  - CURSOR-paginated (`searchListingsCursor`) — backs the infinite `newest`
- *    browse over the `{ status, publishedAt: -1, _id: -1 }` index.
+ *  - KEYSET-paginated (`searchListingsCursor`) — backs the infinite `newest`
+ *    browse over `(published_at desc nulls last, id desc)`.
  *
- * Returns RAW `IListing` docs; the controller hydrates them via
+ * Returns RAW listing rows; the controller hydrates them via
  * `catalog-hydration.service`.
+ *
+ * ## Two behaviour changes the port makes on purpose
+ *
+ * **Free text and a geo radius now COMBINE.** Mongo cannot run `$text` and
+ * `$near` in one query, so this service used to pick geo and silently DROP the
+ * search term: a buyer searching "bike" within 5 km got every listing within
+ * 5 km, with nothing in the response to say the word had been ignored. A GIN
+ * `tsvector` match and a GiST `ST_DWithin` are ordinary predicates in Postgres
+ * and simply AND together.
+ *
+ * The other half of that change is that a `near` filter no longer imposes an
+ * ORDER. Mongo's `$near` sorted by distance as a side effect of filtering, which
+ * quietly overrode the caller's `sort`. It is a filter here and `sort` decides
+ * the order, which is what the parameter always claimed to do.
+ *
+ * **Full-text matching uses `websearch_to_tsquery`.** It is the only built-in
+ * parser that cannot raise on user input — a lone `"` or `|` is a syntax error
+ * to `to_tsquery` — and it gives buyers the quoting and `-exclusion` a search box
+ * implies. `plainto_tsquery` is equally safe but ANDs every word with no way to
+ * phrase-match, which Mongo's `$text` did support.
  */
 
-import mongoose, { type SortOrder } from 'mongoose';
 import type { ListingQuery } from '@mercaria/shared-types';
-import { Listing, type IListing } from '../models/listing.js';
+import {
+  searchListingsKeyset,
+  searchListingsPage,
+  type ListingRecord,
+  type ListingSearchFilters,
+} from '../db/catalog/listingRepository.js';
 import { decodeCursor, encodeCursor } from '../utils/pagination.js';
-
-/** A Mongo filter document (Mongoose 9 dropped the `FilterQuery` export). */
-type ListingFilter = Record<string, unknown>;
 
 /** A page of raw listings produced by the cursor browse path. */
 export interface CursorSearchResult {
-  listings: IListing[];
+  listings: ListingRecord[];
   nextCursor?: string;
   hasMore: boolean;
 }
 
 /** A page of raw listings produced by the offset browse path. */
 export interface OffsetSearchResult {
-  listings: IListing[];
+  listings: ListingRecord[];
   total: number;
 }
 
 /**
- * Build the base Mongo filter shared by both pagination paths (everything except
- * the cursor boundary, which only the cursor path adds).
+ * Map the public query contract onto the repository's filter shape.
  *
- * NOTE: `$geoNear`/`$near` cannot be combined with `$text` in one query. When a
- * geo `near` filter is present we choose geo and ignore the free-text `q`.
+ * A field-by-field translation rather than passing `ListingQuery` straight
+ * through: the query is a wire contract with pagination and sort mixed into it,
+ * and the filter is what actually narrows rows. Keeping them distinct is what
+ * stops a new query parameter from silently reaching the database.
  */
-function buildFilter(query: ListingQuery): ListingFilter {
-  const filter: ListingFilter = { status: 'active' };
+function toFilters(query: ListingQuery): ListingSearchFilters {
+  const filters: ListingSearchFilters = {};
 
-  if (query.ownerType) {
-    filter.ownerType = query.ownerType;
-  }
-  if (query.storeId) {
-    filter.storeId = query.storeId;
-  }
-  if (query.category) {
-    filter.categorySlugs = query.category;
-  }
-  if (query.condition) {
-    filter.condition = query.condition;
-  }
-  if (query.vendor) {
-    filter.vendor = query.vendor;
-  }
-  if (query.productType) {
-    filter.productType = query.productType;
-  }
-  if (query.collectionId) {
-    filter.collectionIds = query.collectionId;
-  }
-  if (query.inStock) {
-    filter.hasInventory = true;
-  }
+  if (query.ownerType) filters.ownerType = query.ownerType;
+  if (query.storeId) filters.storeId = query.storeId;
+  if (query.category) filters.categorySlug = query.category;
+  if (query.condition) filters.condition = query.condition;
+  if (query.vendor) filters.vendor = query.vendor;
+  if (query.productType) filters.productType = query.productType;
+  if (query.collectionId) filters.collectionId = query.collectionId;
+  if (query.inStock) filters.inStock = true;
+  if (typeof query.minPrice === 'number') filters.minPrice = query.minPrice;
+  if (typeof query.maxPrice === 'number') filters.maxPrice = query.maxPrice;
+  if (query.q && query.q.trim().length > 0) filters.text = query.q.trim();
+  if (query.near) filters.near = query.near;
 
-  const priceFilter: Record<string, number> = {};
-  if (typeof query.minPrice === 'number') {
-    priceFilter.$gte = query.minPrice;
-  }
-  if (typeof query.maxPrice === 'number') {
-    priceFilter.$lte = query.maxPrice;
-  }
-  if (Object.keys(priceFilter).length > 0) {
-    filter['priceRange.min.amount'] = priceFilter;
-  }
-
-  if (query.near) {
-    // Geo wins over text: $near is incompatible with $text in a single query.
-    filter.location = {
-      $near: {
-        $geometry: { type: 'Point', coordinates: [query.near.lng, query.near.lat] },
-        $maxDistance: query.near.radiusM,
-      },
-    };
-  } else if (query.q && query.q.trim().length > 0) {
-    filter.$text = { $search: query.q.trim() };
-  }
-
-  return filter;
-}
-
-/** Build the Mongo sort for a non-cursor query from the `sort` param. */
-function buildSort(query: ListingQuery): Record<string, SortOrder> {
-  switch (query.sort) {
-    case 'price_asc':
-      return { 'priceRange.min.amount': 1, _id: -1 };
-    case 'price_desc':
-      return { 'priceRange.min.amount': -1, _id: -1 };
-    case 'newest':
-    default:
-      return { publishedAt: -1, _id: -1 };
-  }
+  return filters;
 }
 
 /**
- * Offset-paginated browse. Runs the filtered query with `skip`/`limit` and a
- * parallel `countDocuments` for the total. A geo `near` query disallows `skip`
- * with `$near` only on legacy operators; the modern `$near` GeoJSON form used
- * here supports skip/limit.
+ * Offset-paginated browse. Runs the filtered query with `limit`/`offset` and a
+ * parallel count for the total.
  */
 export async function searchListingsOffset(
   query: ListingQuery,
   page: number,
   limit: number,
 ): Promise<OffsetSearchResult> {
-  const filter = buildFilter(query);
-  const sort = buildSort(query);
-  const skip = (page - 1) * limit;
-
-  const [listings, total] = await Promise.all([
-    Listing.find(filter).sort(sort).skip(skip).limit(limit).lean<IListing[]>(),
-    Listing.countDocuments(filter),
-  ]);
-
-  return { listings, total };
+  const { rows, total } = await searchListingsPage(toFilters(query), query.sort, page, limit);
+  return { listings: rows, total };
 }
 
 /**
- * Cursor-paginated browse for the infinite `newest` feed. Adds a
- * `(publishedAt, _id)` boundary derived from the opaque cursor and reads
- * `limit + 1` to detect whether another page exists.
+ * Keyset-paginated browse for the infinite `newest` feed.
+ *
+ * An unreadable or OLD-FORMAT cursor is treated as no cursor — the reader
+ * returns `null` for both — so a client holding a cursor minted before the
+ * cutover gets the first page rather than an error. See `utils/pagination.ts`
+ * for why the format carries a version at all.
  */
 export async function searchListingsCursor(
   query: ListingQuery,
   limit: number,
 ): Promise<CursorSearchResult> {
-  const filter = buildFilter(query);
+  const cursor = query.cursor ? decodeCursor(query.cursor) : null;
 
-  const decoded = query.cursor ? decodeCursor(query.cursor) : null;
-  if (decoded) {
-    filter.$or = [
-      { publishedAt: { $lt: decoded.publishedAt } },
-      { publishedAt: decoded.publishedAt, _id: { $lt: new mongoose.Types.ObjectId(decoded.id) } },
-    ];
-  }
-
-  const docs = await Listing.find(filter)
-    .sort({ publishedAt: -1, _id: -1 })
-    .limit(limit + 1)
-    .lean<IListing[]>();
-
-  const hasMore = docs.length > limit;
-  const listings = hasMore ? docs.slice(0, limit) : docs;
+  const { rows, hasMore } = await searchListingsKeyset(toFilters(query), cursor, limit);
 
   let nextCursor: string | undefined;
-  if (hasMore && listings.length > 0) {
-    const last = listings[listings.length - 1];
-    const publishedAt = last.publishedAt ?? last.createdAt;
-    nextCursor = encodeCursor(publishedAt, String((last as { _id: mongoose.Types.ObjectId })._id));
+  if (hasMore && rows.length > 0) {
+    const last = rows[rows.length - 1];
+    nextCursor = encodeCursor(last.publishedAt, last.id);
   }
 
-  return { listings, nextCursor, hasMore };
+  return { listings: rows, nextCursor, hasMore };
 }

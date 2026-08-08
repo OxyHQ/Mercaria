@@ -15,6 +15,22 @@
  * change (no separate rescale migration here — that combined migration is a
  * later B2 deliverable).
  *
+ * ## STALE mid-migration: this seeds MONGO, and the catalogue now reads POSTGRES
+ *
+ * It is deliberately NOT half-ported. It writes across nine domains, and only
+ * three of them (categories, listings/variants, collections) have moved: `Order`,
+ * `Review`, `Discount`, `Customer`, `Refund`, `DraftOrder` and `TaxRate` are all
+ * still Mongoose. Porting only the catalogue writes would produce a seed whose
+ * orders and reviews carry listing ids that exist in neither database — a state
+ * that LOOKS seeded and fails at the first read, which is worse than a script
+ * that plainly does not run yet.
+ *
+ * It still compiles and still runs; what it produces is simply no longer visible
+ * to the application, because every catalogue read goes to Postgres. It is
+ * rewritten in the stage that ports orders, and until then a developer wanting
+ * catalogue data should use the Postgres fixtures in
+ * `src/db/__tests__/catalog.realdb.test.ts` as the reference shape.
+ *
  * Run from `packages/backend`:
  *   NODE_ENV=development bun src/scripts/seed.ts
  */

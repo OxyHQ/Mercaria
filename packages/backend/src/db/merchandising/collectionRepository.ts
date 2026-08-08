@@ -267,6 +267,37 @@ export async function findManualMemberIds(
 }
 
 /**
+ * The hand-picked member ids of a BATCH of collections, each in its own order.
+ *
+ * One query for the whole page. The DTO carries `productIds`, which under Mongo
+ * was a field ON the collection document and came back for free; here it is a
+ * relation, so a per-collection read would be an N+1 on every admin list.
+ */
+export async function findManualMemberIdsByCollection(
+  collectionIds: readonly string[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<Map<string, string[]>> {
+  const byCollection = new Map<string, string[]>();
+  if (collectionIds.length === 0) return byCollection;
+
+  const rows = await db
+    .select({
+      collectionId: listingCollections.collectionId,
+      listingId: listingCollections.listingId,
+    })
+    .from(listingCollections)
+    .where(inArray(listingCollections.collectionId, [...collectionIds]))
+    .orderBy(asc(listingCollections.position));
+
+  for (const row of rows) {
+    const bucket = byCollection.get(row.collectionId);
+    if (bucket) bucket.push(row.listingId);
+    else byCollection.set(row.collectionId, [row.listingId]);
+  }
+  return byCollection;
+}
+
+/**
  * Replace a MANUAL collection's membership wholesale, positions included.
  *
  * Wholesale rather than a set-diff because the ORDER is the payload: a diff that
@@ -347,21 +378,38 @@ export async function reconcileAutomatedMembership(
 }
 
 /**
- * Reconcile ONE listing's membership across its store's AUTOMATED collections,
- * leaving every MANUAL membership untouched.
+ * Reconcile ONE listing's membership across a DERIVED set of collections,
+ * leaving every hand-picked membership untouched.
  *
- * The scoping to `automatedIds` is what preserves the manual ones: a delete
- * bounded by "the automated collections of this store" cannot reach a row a
- * merchant hand-picked, which is exactly what the Mongo version achieved by
- * filtering `current` before writing the whole array back.
+ * ## `position IS NULL` on the delete is what makes that true, not the scope
+ *
+ * The obvious reading is that bounding the delete to `managedIds` is enough,
+ * because a caller passes "the automated collections of this store" and a manual
+ * membership cannot live in one. That holds for `collection.service`'s
+ * per-product recompute and is FALSE for the other caller:
+ * `connector-sync.applyCollectionMapping` passes the codomain of the merchant's
+ * own `collectionMapping`, an arbitrary set that may well name a MANUAL
+ * collection. A re-sync that stopped seeing an external collection ref would then
+ * delete the row a merchant hand-picked, and its `position` with it.
+ *
+ * Mongo could not lose that row: hand-picked membership lived in
+ * `Collection.productIds`, a different field from the `Listing.collectionIds`
+ * array this path rewrote, so the two could not collide. They are ONE relation
+ * now — which is the point of the port — so the guard has to be explicit.
+ * `position IS NULL` is exactly "this membership was derived", so the delete
+ * cannot reach a hand-picked row however the caller scopes it.
+ *
+ * The insert is `ON CONFLICT DO NOTHING`, so a derived membership that lands on a
+ * row a merchant already hand-picked leaves that row — and its position —
+ * untouched rather than demoting it to derived.
  */
 export async function setListingAutomatedMemberships(
   listingId: string,
-  automatedIds: readonly string[],
+  managedIds: readonly string[],
   matchedIds: readonly string[],
   db: DatabaseOrTransaction = getDb(),
 ): Promise<void> {
-  if (automatedIds.length === 0) return;
+  if (managedIds.length === 0) return;
 
   const run = async (tx: DatabaseOrTransaction): Promise<void> => {
     if (matchedIds.length > 0) {
@@ -373,7 +421,7 @@ export async function setListingAutomatedMemberships(
         });
     }
 
-    const stale = automatedIds.filter((id) => !matchedIds.includes(id));
+    const stale = managedIds.filter((id) => !matchedIds.includes(id));
     if (stale.length > 0) {
       await tx
         .delete(listingCollections)
@@ -381,6 +429,7 @@ export async function setListingAutomatedMemberships(
           and(
             eq(listingCollections.listingId, listingId),
             inArray(listingCollections.collectionId, stale),
+            sql`${listingCollections.position} is null`,
           ),
         );
     }

@@ -7,10 +7,16 @@
  *
  * The real WooCommerce provider is used (its `normalizeOrder` is a pure map), so the
  * order path is a genuine integration of Woo-JSON → NormalizedOrder → Mercaria order.
- * Models + Socket.IO are mocked so no DB or socket server is touched.
+ *
+ * The catalogue is Postgres now: the product archive goes through the listing
+ * REPOSITORY (`findListingBySourceExternalId` + `setListingStatusIfIn`) rather
+ * than a filtered `Listing.updateOne`, while `Connection`/`SyncRun`/`Order` are
+ * still Mongoose. Repositories, Mongo models and Socket.IO are all mocked, so no
+ * database or socket server is touched.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ALL_LISTING_STATUSES } from '@mercaria/shared-types';
 
 vi.mock('../../socket.js', () => ({ getIO: () => null }));
 vi.mock('../../lib/logger.js', () => ({
@@ -26,10 +32,45 @@ vi.mock('../../models/connection.js', () => ({
   },
 }));
 
-const listingUpdateOne = vi.fn();
-vi.mock('../../models/listing.js', () => ({
-  Listing: { updateOne: (...args: unknown[]) => listingUpdateOne(...args) },
+const findListingById = vi.fn();
+const findListingBySourceExternalId = vi.fn();
+const findListingChildren = vi.fn();
+const findListingsBySourceConnection = vi.fn();
+const setListingStatusIfIn = vi.fn();
+const updateListingColumns = vi.fn();
+vi.mock('../../db/catalog/listingRepository.js', () => ({
+  findListingById: (...args: unknown[]) => findListingById(...args),
+  findListingBySourceExternalId: (...args: unknown[]) => findListingBySourceExternalId(...args),
+  findListingChildren: (...args: unknown[]) => findListingChildren(...args),
+  findListingsBySourceConnection: (...args: unknown[]) => findListingsBySourceConnection(...args),
+  setListingStatusIfIn: (...args: unknown[]) => setListingStatusIfIn(...args),
+  updateListingColumns: (...args: unknown[]) => updateListingColumns(...args),
 }));
+
+vi.mock('../../db/catalog/variantRepository.js', () => ({
+  findVariantBySourceInventoryItemId: vi.fn(),
+  findVariantOptionValues: vi.fn(),
+  findVariantsByListing: vi.fn(),
+  findVariantsBySourceConnection: vi.fn(),
+  updateVariant: vi.fn(),
+}));
+vi.mock('../../db/catalog/listingExternalRefRepository.js', () => ({
+  findExternalRefByListingAndConnection: vi.fn(),
+  listingPushedToConnection: vi.fn(),
+  upsertExternalRef: vi.fn(),
+}));
+vi.mock('../../db/catalog/categoryRepository.js', () => ({ categorySlugExists: vi.fn() }));
+vi.mock('../../db/merchandising/collectionRepository.js', () => ({
+  setListingAutomatedMemberships: vi.fn(),
+}));
+vi.mock('../../db/stores/locationRepository.js', () => ({ findLocation: vi.fn() }));
+vi.mock('../catalog-write.service.js', () => ({
+  createStoreProduct: vi.fn(),
+  updateListing: vi.fn(),
+  updateVariant: vi.fn(),
+  resolveDefaultLocationId: vi.fn(),
+}));
+vi.mock('../inventory.service.js', () => ({ setAvailable: vi.fn() }));
 
 const syncRunCreate = vi.fn();
 vi.mock('../../models/sync-run.js', () => ({
@@ -111,7 +152,16 @@ beforeEach(() => {
 describe('provider-aware dispatch — WooCommerce product.deleted', () => {
   it('classifies the dot-topic to product_delete and archives the mapped listing', async () => {
     connectionFindById.mockResolvedValue(wooConnection());
-    listingUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    findListingBySourceExternalId.mockResolvedValue({
+      id: 'listing-woo',
+      storeId: 'store-1',
+      status: 'active',
+      sourceConnectionId: 'conn-woo',
+      sourceProvider: 'woocommerce',
+      sourceExternalId: '987654321',
+      overriddenFields: [],
+    });
+    setListingStatusIfIn.mockResolvedValue(true);
 
     await processConnectorWebhook({
       connectionId: 'conn-woo',
@@ -119,9 +169,16 @@ describe('provider-aware dispatch — WooCommerce product.deleted', () => {
       payload: { id: 987654321 },
     });
 
-    expect(listingUpdateOne).toHaveBeenCalledWith(
-      { storeId: 'store-1', 'source.connectionId': 'conn-woo', 'source.externalId': '987654321' },
-      { $set: { status: 'archived' } },
+    // The Mongo assertion pinned one `updateOne` whose FILTER carried the
+    // provenance key; that predicate is gone. The same decision — resolve THIS
+    // connection's listing for THIS external id, then archive it — is now these
+    // two repository calls, and the Woo dot-topic reaching them at all is what
+    // this test is really about.
+    expect(findListingBySourceExternalId).toHaveBeenCalledWith('store-1', 'conn-woo', '987654321');
+    expect(setListingStatusIfIn).toHaveBeenCalledWith(
+      'listing-woo',
+      'archived',
+      ALL_LISTING_STATUSES,
     );
     expect(run.status).toBe('completed');
     expect(run.counts).toEqual({ created: 0, updated: 1, skipped: 0, failed: 0 });
@@ -137,7 +194,8 @@ describe('provider-aware dispatch — WooCommerce product.deleted', () => {
     await processConnectorWebhook({ connectionId: 'conn-woo', topic: 'product.deleted', payload: { id: 1 } });
 
     expect(syncRunCreate).not.toHaveBeenCalled();
-    expect(listingUpdateOne).not.toHaveBeenCalled();
+    expect(findListingBySourceExternalId).not.toHaveBeenCalled();
+    expect(setListingStatusIfIn).not.toHaveBeenCalled();
   });
 });
 
