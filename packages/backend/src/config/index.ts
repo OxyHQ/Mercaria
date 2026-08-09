@@ -15,12 +15,14 @@ import type {
   CheckoutPaymentSurfaceMethod,
   CurrencyCode,
   ModerationEnforcementMode,
+  SavedItemsReadMode,
 } from '@mercaria/shared-types';
 import {
   ALL_CURRENCY_CODES,
   ANALYTICS_COLLECTION_MODES,
   CANONICAL_READ_MODES,
   CHECKOUT_PAYMENT_SURFACE_METHODS,
+  SAVED_ITEMS_READ_MODES,
 } from '@mercaria/shared-types';
 import { log } from '../lib/logger.js';
 
@@ -492,6 +494,26 @@ function resolveCheckoutDestinationCountries(): readonly string[] {
  * shopper, which is an outage caused by a config file nobody was watching. The
  * fallback is LOGGED at boot so it is never silent.
  */
+/**
+ * `PRODUCT_SAVE_READS` → which surfaces a saved-items read draws from (#80).
+ *
+ * Falls back to `off` — today's behaviour — where `resolveCanonicalReadMode`
+ * falls back to `on`, and the difference is deliberate: that lever gates
+ * surfaces that already SHIPPED and defaulting it off would withdraw them, while
+ * this one gates a surface nobody has yet, so an unrecognised value must not
+ * roll a deployment forward into it by accident.
+ */
+function resolveSavedItemsReadMode(): SavedItemsReadMode {
+  const raw = strEnv('PRODUCT_SAVE_READS', 'off').trim().toLowerCase();
+  const mode = SAVED_ITEMS_READ_MODES.find((candidate) => candidate === raw);
+  if (mode !== undefined) return mode;
+  log.general.error(
+    { variable: 'PRODUCT_SAVE_READS', value: raw, allowed: SAVED_ITEMS_READ_MODES },
+    "[config] saved-items read mode is not recognised; falling back to 'off'",
+  );
+  return 'off';
+}
+
 function resolveCanonicalReadMode(variable: string): CanonicalReadMode {
   const raw = strEnv(variable, 'on').trim().toLowerCase();
   const mode = CANONICAL_READ_MODES.find((candidate) => candidate === raw);
@@ -1168,6 +1190,41 @@ export interface CatalogConfig {
 }
 
 /**
+ * Canonical product saves (#80).
+ *
+ * THREE independent levers, and the interaction is the point (#80 acceptance
+ * 8): `enabled` decides whether the surface exists at all, `readMode` decides
+ * what a saved list is made of, and `migrationApplyEnabled` decides whether the
+ * migration may WRITE.
+ *
+ * - `enabled=false` is the full withdrawal: `/product-saves` and `/saved-items`
+ *   404, `/favorites` is untouched, and a deployment behaves exactly as it did
+ *   before #80. Saves already stored are not deleted and not gated — turning it
+ *   back on restores them.
+ * - `readMode` is the rollback INSIDE an enabled deployment. `off` serves the
+ *   listing saves a buyer had before #80 and nothing else; `dual` serves both,
+ *   which is the comparison window; `on` serves product saves plus the listing
+ *   saves no product save represents. `on` never drops an unmatched P2P
+ *   favorite — see `SavedItemsReadMode`, where the reasoning belongs.
+ * - `migrationApplyEnabled=false` downgrades every migration request to a DRY
+ *   RUN that reports what it would do. The #60 `CANONICAL_WRITE_PUBLICATION_ENABLED`
+ *   shape: the request is always answerable, only the write is gated, so an
+ *   operator can measure the migration before authorising it.
+ */
+export interface ProductSavesConfig {
+  /** `PRODUCT_SAVES_ENABLED` — mounts `/product-saves` and `/saved-items`. */
+  readonly enabled: boolean;
+  /** `PRODUCT_SAVE_READS` — `off | dual | on`. */
+  readonly readMode: SavedItemsReadMode;
+  /** `PRODUCT_SAVE_MIGRATION_ENABLED` — may a migration page WRITE? */
+  readonly migrationApplyEnabled: boolean;
+  /** How many favorites one migration page examines. */
+  readonly migrationBatchSize: number;
+  /** How many aggregate rows one counter sweep page examines. */
+  readonly counterSweepBatchSize: number;
+}
+
+/**
  * The unified offer model (#57, ADR 0002 D18).
  *
  * ONE lever and two tunables. `materializationEnabled` gates the convergence
@@ -1552,6 +1609,7 @@ export interface RetailEligibilityConfig {
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
+  readonly productSaves: ProductSavesConfig;
   readonly offers: OffersConfig;
   readonly canonicalRollout: CanonicalRolloutConfig;
   readonly matching: MatchingConfig;
@@ -1589,6 +1647,13 @@ export const config: AppConfig = Object.freeze({
     curationJobsEnabled: boolEnv('CURATION_JOBS_ENABLED', true),
     curationBatchSize: intEnv('CURATION_JOB_BATCH_SIZE', 5),
     curationPollIntervalMs: intEnv('CURATION_JOB_POLL_INTERVAL_MS', 10_000),
+  }),
+  productSaves: Object.freeze({
+    enabled: boolEnv('PRODUCT_SAVES_ENABLED', false),
+    readMode: resolveSavedItemsReadMode(),
+    migrationApplyEnabled: boolEnv('PRODUCT_SAVE_MIGRATION_ENABLED', false),
+    migrationBatchSize: intEnv('PRODUCT_SAVE_MIGRATION_BATCH_SIZE', 200),
+    counterSweepBatchSize: intEnv('PRODUCT_SAVE_COUNTER_SWEEP_BATCH_SIZE', 500),
   }),
   offers: Object.freeze({
     materializationEnabled: boolEnv('OFFER_MATERIALIZATION_ENABLED', true),

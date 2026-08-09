@@ -76,7 +76,12 @@ describe('favorite.service.toggle', () => {
     const result = await toggle(USER, LISTING_ID);
 
     expect(result).toEqual({ saved: true });
-    expect(insertFavorite).toHaveBeenCalledWith(USER, LISTING_ID);
+    // The third argument is #80's `save_intent`. A caller that states none —
+    // every v1 client — creates a `listing_save`: a listing was saved and
+    // nobody asked whether the buyer meant the exact copy. Asserting it here
+    // rather than loosening the assertion is deliberate: this is the write that
+    // decides how the #80 migration later reads the row.
+    expect(insertFavorite).toHaveBeenCalledWith(USER, LISTING_ID, 'listing_save');
     // The old assertion read the Mongo update document (`{$inc:{favoriteCount:1}}`)
     // against a filter; there is no update document any more, so the SERVICE's
     // decision — which repository call, with which delta — is what is pinned.

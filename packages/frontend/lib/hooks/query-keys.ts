@@ -57,6 +57,22 @@ export const queryKeys = {
       ["listings", id, "reviews", page] as const,
   },
   /**
+   * Saves (#80). Filed under their own key rather than under `listings`,
+   * because a canonical PRODUCT save is not a fact about any one listing —
+   * exactly the reasoning `reviews` records one block down — and because the
+   * merged saved list spans both kinds, so an invalidation of either has to
+   * reach it.
+   *
+   * `savedItems` is a prefix key with no page in it: the list is keyset-
+   * paginated through `useInfiniteQuery`, which holds its pages under this one
+   * entry, so a save or an un-save invalidates the whole list in one call.
+   */
+  saves: {
+    savedItems: ["saved-items"] as const,
+    /** The two-button context of one listing page. */
+    listingContext: (listingId: string) => ["saves", "listing", listingId] as const,
+  },
+  /**
    * The SCOPED review reads (#76). Deliberately keyed under `reviews` rather
    * than under `listings`/`stores`: a product review is not a fact about any
    * one listing, and a merchant review is not a fact about any one store —

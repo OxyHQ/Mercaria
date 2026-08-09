@@ -123,6 +123,13 @@ export * from './matching';
 // act was taken under. It is the last graph layer for the same reason `offers`
 // was the last before `matching`: nothing in the graph references IT.
 export * from './curation';
+// Canonical product saves (#80) follow `curation`, and that is a real
+// dependency rather than an ordering preference: an ambiguous save carries a
+// foreign key onto `catalog_split_jobs`, because a split is the only thing that
+// can make one ambiguous and the job is the only record of what the two
+// candidates were. It also follows `canonicalCatalog`, `merchants`, `buyers`
+// (a migration record names the `favorites` row it read) and `catalog`.
+export * from './productSaves';
 // Discovery analytics (#77) comes last and references NOTHING: every entity id
 // it carries is correlation text with no foreign key, because these rows are
 // swept on their own retention clock and every entity they name outlives them.

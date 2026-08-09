@@ -183,6 +183,12 @@ export {
 export { DemandPill, type DemandPillProps } from "./components/marketplace/DemandPill";
 export { OfferCard, type OfferCardProps } from "./components/marketplace/OfferCard";
 export { RatingLine, type RatingLineProps } from "./components/marketplace/RatingLine";
+// One row of the saved list (#80) — a canonical PRODUCT save or an exact
+// LISTING save, rendered as visibly different things because they are.
+export {
+  SavedItemCard,
+  type SavedItemCardProps,
+} from "./components/marketplace/SavedItemCard";
 export {
   ProductGallery,
   type ProductGalleryImage,

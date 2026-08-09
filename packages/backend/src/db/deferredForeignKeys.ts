@@ -214,6 +214,11 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'orders.claimed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'orders.seller_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'payments.buyer_oxy_user_id', reason: OXY_ACCOUNT },
+  // #80's canonical product save. An Oxy id like every other row in this block;
+  // it is also the WHOLE of what this domain stores about a person, which is
+  // what makes #80 privacy rule 5 ("delete or anonymize") resolve to a single
+  // scoped DELETE rather than an anonymization pass over copied profile fields.
+  { column: 'product_saves.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'push_tokens.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'refunds.processed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'refunds.seller_oxy_user_id', reason: OXY_ACCOUNT },

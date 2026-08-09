@@ -24,16 +24,27 @@
  * invariant is satisfied by minting no redirect at all, rather than by minting a
  * careful one — there is no old URL whose answer changes.
  *
- * ## Split invariant 3, honestly
+ * ## Split invariant 3, and the `saves` phase that answers it
  *
  * "Saved products and alerts receive a deterministic migration or an explicit
- * user-visible ambiguity state." Mercaria has no product-save, alert or
- * watchlist table today: `favorites` are saves of a native LISTING, and a
- * canonical split never touches `listings` — the plan contains no column of it,
- * and `curation-isolation.test.ts` fails the build if one appears. So the
- * migration is deterministic because there is nothing ambiguous to migrate, and
- * the day a canonical-product save table lands, the census forces whoever adds
- * it to decide what a split does with it.
+ * user-visible ambiguity state." #80 landed the product-save table the census
+ * was waiting for, and the answer is the SECOND half of that sentence: a split
+ * divides one identity into two and nothing in the data says which of them a
+ * person meant, so `runSavesPhase` marks every save of the source
+ * `ambiguous_after_split` and names the job — which is what makes both
+ * candidates recoverable — and the buyer resolves it.
+ *
+ * Deterministic migration was considered and refused. "Keep the save where it
+ * is" would be deterministic and would silently be wrong for exactly the buyers
+ * whose interest moved to the new entity, with no signal anywhere that a
+ * decision had been made on their behalf; that is the "selecting a child
+ * silently" #80 migration rule 8 forbids, and moving them all is the same
+ * mistake pointed the other way.
+ *
+ * Listing FAVORITES are untouched, and that is unchanged: a canonical split
+ * never writes `listings` (the plan contains no column of it, and
+ * `curation-isolation.test.ts` fails the build if one appears), so an exact
+ * listing save means what it meant before whatever happened upstream.
  */
 
 import { and, eq, sql } from 'drizzle-orm';
@@ -64,6 +75,7 @@ import {
   summarizeSplitAssignments,
 } from '../../db/curation/jobRepository.js';
 import { reassignRowById } from '../../db/curation/rehomeRepository.js';
+import { markProductSavesAmbiguousAfterSplit } from '../../db/productSaves/productSaveRepository.js';
 import type { CatalogSplitJobRow } from '../../db/schema/curation.js';
 import {
   canonicalAttributeValues,
@@ -447,6 +459,34 @@ async function runAssignmentPhase(
 }
 
 /**
+ * `saves` — hand every affected product save back to its owner (#80 migration
+ * rule 8, #59 split invariant 3).
+ *
+ * Only a canonical PRODUCT split marks anything. A variant split moves offers
+ * and identifiers between two configurations of the SAME product: a save's
+ * product is unchanged and its preferred variant, if it has one, still exists
+ * under its own identity — so there is no question to ask, and asking one would
+ * put an unanswerable prompt in front of every buyer for a change that did not
+ * affect them.
+ *
+ * Idempotent by predicate rather than by a phase record: the marking only
+ * touches `resolved` rows, so a resumed job re-runs it as a no-op AND a save
+ * already made ambiguous by an EARLIER split keeps naming that earlier job.
+ * Retargeting an unanswered question at a newer job would destroy the pair of
+ * candidates the buyer was being asked about.
+ */
+async function runSavesPhase(
+  job: CatalogSplitJobRow,
+  db: DatabaseOrTransaction,
+): Promise<SplitPhaseOutcome> {
+  if (job.entityType !== 'canonical_product') {
+    return { rowsAffected: 0, targetEntityId: job.targetEntityId };
+  }
+  const marked = await markProductSavesAmbiguousAfterSplit(job.sourceEntityId, job.id, db);
+  return { rowsAffected: marked, targetEntityId: job.targetEntityId };
+}
+
+/**
  * `verify` — assigned versus applied (#59 split invariant 5).
  *
  * Every assignment must have reached a terminal state. A pending one means the
@@ -480,6 +520,8 @@ async function runSplitPhase(
       return runMintPhase(job, db);
     case 'assignments':
       return runAssignmentPhase(job, db);
+    case 'saves':
+      return runSavesPhase(job, db);
     case 'redirects':
       // Deliberately nothing. The source keeps its slug and its URL, and the
       // destination has a new one nothing has ever linked to — so there is no

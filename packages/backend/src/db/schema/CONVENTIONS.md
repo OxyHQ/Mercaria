@@ -2405,6 +2405,95 @@ apart from a connector declaring its own product identity — and
 `attribute_reindex_requests.reason` gains `backfill`, so #61's drain can tell a
 migration wave from ordinary editorial churn.
 
+## Canonical product saves (#80)
+
+Three tables — `product_saves`, `product_save_sources`, `product_save_aggregates`
+— plus one column on the pre-existing `favorites`. Full behaviour:
+`docs/product-saves.md`.
+
+**`favorites` is not replaced and not forked.** It stays what it always was: one
+Oxy account's interest in one exact native LISTING, which is right for a
+handmade piece, an unmatched P2P item and a used copy whose seller photographs
+are the reason. What #80 adds is the save of a canonical PRODUCT, and the two
+are different tables because they are different facts — a listing save cannot
+survive its listing and a product save must survive every offer of it.
+
+**`favorites.save_intent`** (`listing_save | listing_pin`) answers "did the buyer
+ASSERT that they meant this exact listing". Defaulted, so every pre-#80 row and
+every v1-client write is classified honestly rather than being guessed at; the
+migration reads `listing_save` and skips `listing_pin`.
+
+**`product_saves_oxy_user_id_canonical_product_id_key` is the whole of #80
+acceptance 1 and model rule 9.** Two favorited listings of one phone produce ONE
+save because the second insert has nowhere to go, and every write is
+`ON CONFLICT DO NOTHING` — so a repeated tap, a network retry and a migration
+replay all converge without any of them reading first.
+
+**Preferences are a canonical VARIANT, a condition GROUP and a MERCHANT.** The
+group and not one of #90's nine keys, for #90's own stated reason: pinning
+`refurbished_seller` would silently exclude `refurbished_manufacturer` from a
+buyer who meant both.
+
+**`reference_price_*` is three columns moving together** (`num_nonnulls(…) in
+(0, 3)`), and it carries NO currency CHECK — it is the OFFER's own currency, the
+`offers.price_currency` exception ADR 0002 D18 documents. Absent means no offer
+existed when the save was made, which is `unknown as absence, never zero`.
+
+**`visibility` is CHECKed against a ONE-member tuple.** #80 privacy rule 6
+excludes a public saved-list profile from the issue, and a `isPublic: false`
+default would be enforced by whoever remembered it. Widening the tuple plus
+shipping a migration is what introducing one would have to look like — the
+`RetailSubsidySource` device.
+
+**`product_saves_ambiguity_check` ties `resolution_state` to
+`ambiguous_split_job_id` BOTH ways.** An ambiguous save must name the split that
+made it so (which is what makes the two candidates recoverable without a second
+table), and a resolved one must not carry a stale job id a later reader would
+resurface as an unanswered question.
+
+**`product_save_sources` treats its two parents differently, and that is the
+design.** The FAVORITE cascades — removing the listing save takes the record of
+it. The SAVE is `ON DELETE SET NULL`, so un-saving the product leaves the record
+standing and the migration then refuses to re-read that favorite under the same
+mapping version. Cascading there would make a replay RESURRECT a save somebody
+deliberately removed, which is worse than the duplicate #80 forbids: a duplicate
+is visible and a resurrection looks like the buyer's own doing.
+
+Its append-only trigger therefore has TWO exceptions rather than one. DELETE is
+refused while the favorite still exists (the `listing_condition_revisions`
+shape); UPDATE is refused except for `save_id` moving to NULL with every other
+column unchanged, which is the only shape the referential action produces.
+`product_saves.migration_version` has its own freeze trigger for the adjacent
+reason: it answers "how many of these saves did buyers actually make", and a
+column an UPDATE could move is not an answer to that question.
+
+**`product_save_aggregates` is the `review_aggregates` posture with one
+divergence.** The aggregate is the authority, everything derives from
+`product_saves` and nothing increments — but there is deliberately NO
+`canonical_products.save_count` projection beside it. Reviews have their entity
+`rating` columns only because those predated the aggregate; a second writer of
+one number is exactly the disagreement these tables exist to prevent, and
+nothing here forces the mistake.
+
+The aggregate has NO actor column at all. #80 privacy rule 1 ("the count never
+exposes who saved it") is held by that absence and by a gate that asserts it,
+not by a projection somebody has to keep honest.
+
+**`product_saves.oxy_user_id` is the WHOLE of what this domain stores about a
+person**, which is why #80 privacy rule 5 ("delete or anonymize according to
+ecosystem policy") resolves to a single scoped DELETE: there is no name, handle,
+email, avatar or contact detail left over to anonymize, and no second table to
+sweep. Ledgered in `deferredForeignKeys.ts` as an Oxy account id like every
+other.
+
+**Migration `0036` (`pre`) also WIDENS three phase CHECKs**, additively:
+`CATALOG_MERGE_PHASES` and `CATALOG_SPLIT_PHASES` both gain `saves`. The merge
+phase moves the three columns `merge-plan.ts` declares; the split phase marks
+every save of the divided product for its owner to resolve, because no rule can
+say which half a person meant (#80 migration rule 8, #59 split invariant 3). A
+strictly larger CHECK cannot fail a write the previous image makes, which is
+what makes the widening `pre`.
+
 ## Register: every `jsonb` column, and why it earned it
 
 `jsonb` is for genuinely shape-less data only. Eight columns qualify in 129 tables;

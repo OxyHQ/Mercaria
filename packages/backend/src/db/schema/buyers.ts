@@ -21,7 +21,11 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
-import { ALL_CURRENCY_CODES, CART_LINE_REVIEW_REASONS } from '@mercaria/shared-types';
+import {
+  ALL_CURRENCY_CODES,
+  CART_LINE_REVIEW_REASONS,
+  LISTING_SAVE_INTENTS,
+} from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks } from './columns';
 import { listings, productVariants } from './catalog';
 import { guestSessions } from './guests';
@@ -198,7 +202,25 @@ export const addresses = pgTable(
   ],
 );
 
-/** `favorites` — a buyer's saved listing; the unique pair makes the toggle idempotent. */
+/**
+ * `favorites` — a buyer's saved LISTING; the unique pair makes the toggle
+ * idempotent.
+ *
+ * #80 did not replace this table and did not fork it. A canonical PRODUCT save
+ * is a different thing living in `product_saves` (`schema/productSaves.ts`),
+ * and this row stays what it always was: one account's interest in one exact
+ * native listing, which is the whole of #80's listing rules 1–3 — a handmade
+ * item, an unmatched P2P listing, a used copy whose seller photographs are the
+ * reason for saving.
+ *
+ * What #80 added is `save_intent`, and it answers listing rule 4: did the buyer
+ * ASSERT that they meant this exact listing? `listing_save` is the honest
+ * reading of every row written before #80 and of every write from a v1 client —
+ * a listing was saved and nobody asked. `listing_pin` is the buyer answering.
+ * The migration derives a product save from the first and skips the second, so
+ * a pin is preserved as a pin (#80 migration rule 4) rather than being absorbed
+ * into a model the buyer did not ask for.
+ */
 export const favorites = pgTable(
   'favorites',
   {
@@ -208,12 +230,23 @@ export const favorites = pgTable(
     listingId: text()
       .notNull()
       .references(() => listings.id, { onDelete: 'cascade' }),
+    /** See the doc above. Defaulted so a v1 client's write is classified honestly. */
+    saveIntent: text({ enum: asEnumValues(LISTING_SAVE_INTENTS) }).notNull().default('listing_save'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
+    checkOneOf('favorites_save_intent_check', t.saveIntent, LISTING_SAVE_INTENTS),
     uniqueIndex('favorites_oxy_user_id_listing_id_key').on(t.oxyUserId, t.listingId),
     index('favorites_oxy_user_id_created_at_idx').on(t.oxyUserId, t.createdAt.desc()),
+    // The saved-items keyset (#80 API rule 7) reads `(created_at, id)` across
+    // this table and `product_saves` as ONE ordering, so the tiebreaker has to
+    // be in the index or every page boundary costs a sort.
+    index('favorites_oxy_user_id_created_at_id_idx').on(
+      t.oxyUserId,
+      t.createdAt.desc(),
+      t.id.desc(),
+    ),
     index('favorites_listing_id_idx').on(t.listingId),
   ],
 );

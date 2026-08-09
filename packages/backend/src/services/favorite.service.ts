@@ -21,13 +21,18 @@
  *    lost outright; clamping applies every delta and refuses only to go negative.
  */
 
-import type { Listing as ListingDTO, Pagination } from '@mercaria/shared-types';
+import type {
+  Listing as ListingDTO,
+  ListingSaveIntent,
+  Pagination,
+} from '@mercaria/shared-types';
 import {
   deleteFavorite,
   favoriteExists,
   findFavoriteListingIdsPage,
   findSavedListingIds,
   insertFavorite,
+  updateFavoriteSaveIntent,
 } from '../db/buyers/favoriteRepository.js';
 import {
   adjustFavoriteCount,
@@ -51,7 +56,11 @@ export interface ToggleResult {
  * present it is removed (and the count decremented, clamped ≥0) →
  * `{saved: false}`. The listing must exist (NOT_FOUND otherwise).
  */
-export async function toggle(oxyUserId: string, listingId: string): Promise<ToggleResult> {
+export async function toggle(
+  oxyUserId: string,
+  listingId: string,
+  saveIntent?: ListingSaveIntent,
+): Promise<ToggleResult> {
   if (!(await listingExists(listingId))) {
     throw notFound('Listing not found');
   }
@@ -59,19 +68,36 @@ export async function toggle(oxyUserId: string, listingId: string): Promise<Togg
   if (await favoriteExists(oxyUserId, listingId)) {
     return unsave(oxyUserId, listingId);
   }
-  return save(oxyUserId, listingId);
+  return save(oxyUserId, listingId, saveIntent);
 }
 
-/** Explicitly save (favorite) a listing — idempotent (no-op if already saved). */
-export async function save(oxyUserId: string, listingId: string): Promise<ToggleResult> {
+/**
+ * Explicitly save (favorite) a listing — idempotent (no-op if already saved).
+ *
+ * `saveIntent` is #80 listing rule 4 and is OPTIONAL on purpose. A v1 client
+ * sends none, and an absent intent leaves an existing save's intent exactly as
+ * it was: a buyer who deliberately pinned this listing must not have that pin
+ * quietly downgraded by an old build's plain save. A NEW row still needs a
+ * value, and `listing_save` — "a listing was saved and nobody asked whether the
+ * buyer meant the exact copy" — is the honest one.
+ */
+export async function save(
+  oxyUserId: string,
+  listingId: string,
+  saveIntent?: ListingSaveIntent,
+): Promise<ToggleResult> {
   if (!(await listingExists(listingId))) {
     throw notFound('Listing not found');
   }
 
   // The count follows the ROW, not a prior read: `false` means the unique index
   // absorbed a duplicate and there is nothing new to count.
-  if (await insertFavorite(oxyUserId, listingId)) {
+  if (await insertFavorite(oxyUserId, listingId, saveIntent ?? 'listing_save')) {
     await adjustFavoriteCount(listingId, 1);
+    return { saved: true };
+  }
+  if (saveIntent) {
+    await updateFavoriteSaveIntent(oxyUserId, listingId, saveIntent);
   }
   return { saved: true };
 }

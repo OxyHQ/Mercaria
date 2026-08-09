@@ -83,6 +83,10 @@ const REHOMING_PHASES: readonly CatalogMergePhase[] = [
   'offers',
   'relationships',
   'reviews',
+  // #80's product saves. An ordinary rehoming phase and not bespoke logic: the
+  // three columns it moves are declared in `merge-plan.ts` like every other, so
+  // the census still forces a decision when a fourth appears.
+  'saves',
 ];
 
 export interface RequestMergeInput {

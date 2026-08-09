@@ -46,7 +46,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
     available: true,
   },
   { key: "deals", label: "Deals", icon: Tag, href: "/offers", available: false },
-  { key: "saved", label: "Saved", icon: Heart, href: "/saved", available: false },
+  // #80 shipped `app/(app)/saved.tsx`, so this is navigable now. It stays a
+  // real route rather than a modal because a saved list is a place a buyer
+  // returns to and links to.
+  { key: "saved", label: "Saved", icon: Heart, href: "/saved", available: true },
 ] as const;
 
 /**
