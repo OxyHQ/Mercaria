@@ -202,6 +202,11 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // Oxy account can be deleted while the audit stamp must survive as inert
   // correlation text (D15, diagram 11).
   { column: 'guest_sessions.converted_to_oxy_user_id', reason: OXY_ACCOUNT },
+  // #108's suppression lift and operator audit. Oxy ids like every other row in
+  // this block; both must survive the account being deleted, because an audit
+  // whose actor column could be erased answers "who did this" with a NULL.
+  { column: 'guest_contact_suppressions.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'guest_portal_operator_actions.actor_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'listings.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'notifications.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'order_status_history.by_oxy_user_id', reason: OXY_ACCOUNT },
@@ -305,6 +310,35 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'The same grouping token orders, payments and purchase orders carry; there is no ' +
       'checkout_groups table to reference. Its uniqueness here is what makes one contact ' +
       'identity per group structural (ADR 0003 D4).',
+  },
+  {
+    column: 'guest_order_access_grants.checkout_group_id',
+    reason:
+      'The SCOPE of a portal credential, and the same grouping token as above — there is no ' +
+      'checkout_groups table to reference (#108). The referential guarantee this domain ' +
+      'actually needs is on guest_checkout_id, which IS a real foreign key: a grant always ' +
+      'has a contact record, and the group it names is that record’s own unique key.',
+  },
+  {
+    column: 'guest_portal_messages.checkout_group_id',
+    reason:
+      'The group a transactional message is about; the same token, the same absent table. ' +
+      'The message’s referential anchor is guest_checkout_id, a real foreign key.',
+  },
+  {
+    column: 'guest_portal_messages.order_id',
+    reason:
+      'Which sibling seller order a message is about, NULL for group-level messages (#108). ' +
+      'Correlation rather than a constraint: the message is an audit of what Mercaria said, ' +
+      'and it must survive whatever happens to the order afterwards — a cascade would erase ' +
+      'the record that a cancellation notice was sent.',
+  },
+  {
+    column: 'guest_portal_operator_actions.checkout_group_id',
+    reason:
+      'The group an operator acted on (#108 recovery rule 8). Append-only audit correlation ' +
+      'in the payment_repairs shape: the record of what staff did on a buyer’s behalf must ' +
+      'outlive every row it refers to, so no referential action may reach it.',
   },
 
   // ── Commerce snapshots: the target may be deleted, the record may not ─────

@@ -19,6 +19,19 @@ export const queryKeys = {
   addresses: {
     all: ["addresses"] as const,
   },
+  /**
+   * The guest order PORTAL (#108). Its own namespace rather than a branch of
+   * `orders`, because the two are reached with different credentials and a
+   * shared key would let a sign-out clear one buyer's cache and not the other's.
+   */
+  guestPortal: {
+    all: ["guest-portal"] as const,
+    session: ["guest-portal", "session"] as const,
+    view: (checkoutGroupId: string) =>
+      ["guest-portal", "view", checkoutGroupId] as const,
+    status: (checkoutGroupId: string) =>
+      ["guest-portal", "status", checkoutGroupId] as const,
+  },
   orders: {
     list: (page: number) => ["orders", "list", page] as const,
     detail: (id: string) => ["orders", "detail", id] as const,

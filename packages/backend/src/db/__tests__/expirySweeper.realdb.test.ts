@@ -397,6 +397,14 @@ describe('the registry the sweeper runs over', () => {
     // the one worth reading twice — deleting a retired salt is what makes
     // pseudonym rotation irreversible, so an un-swept row silently un-does the
     // domain's central privacy guarantee (data-lifecycle rule 7).
+    // #108 adds three: `guest_order_access_grants` (swept on a `purge_at`
+    // column the WRITER stamps from the credential's purpose — the
+    // `notifications` "make the condition a column" resolution, because the ADR
+    // gives exchange rows 24 h and portal rows 90 days and this registry has no
+    // filter), `guest_portal_messages`, and `guest_recovery_attempts`. Its
+    // other two tables are deliberately NEVER swept: a suppression is a
+    // person's request to stop receiving mail and does not expire because they
+    // waited, and the operator audit must outlive what it is about.
     expect(EXPIRY_TARGETS.map((target) => getTableName(target.table)).sort()).toEqual([
       'analytics_events',
       'analytics_experiment_exposures',
@@ -408,6 +416,9 @@ describe('the registry the sweeper runs over', () => {
       // it is bounded by traffic, while every other one is bounded by the
       // catalogue and is the audit history a rights suspension must not delete.
       'catalog_source_rejections',
+      'guest_order_access_grants',
+      'guest_portal_messages',
+      'guest_recovery_attempts',
       'guest_sessions',
       'guest_sessions',
       'moderation_events',

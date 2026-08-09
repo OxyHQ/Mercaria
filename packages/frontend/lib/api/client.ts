@@ -6,6 +6,7 @@ import {
   currentGuestToken,
   recordGuestToken,
 } from '../stores/guest-credential-store';
+import { currentPortalToken, recordPortalToken } from '../stores/portal-credential-store';
 
 /**
  * The ONE HTTP client every Mercaria API call goes through.
@@ -75,6 +76,17 @@ apiClient.interceptors.request.use(
       if (guestToken) {
         config.headers['X-Mercaria-Guest-Token'] = guestToken;
       }
+
+      // The ORDER PORTAL credential (#108) — a second, independent header, for
+      // the reason the server resolves it in a second middleware: a cart token
+      // and a portal token have different scopes and different lifetimes, and
+      // one header carrying either would make the server's structural scoping
+      // (ADR 0003 D3/I3) a matter of which one the client happened to send.
+      config.headers['X-Mercaria-Portal-Transport'] = 'header';
+      const portalToken = currentPortalToken();
+      if (portalToken) {
+        config.headers['X-Mercaria-Portal-Token'] = portalToken;
+      }
     }
 
     return config;
@@ -91,6 +103,10 @@ apiClient.interceptors.response.use(
       const issued = response.headers['x-mercaria-guest-token'];
       if (typeof issued === 'string' && issued.length > 0) {
         recordGuestToken(issued);
+      }
+      const portalIssued = response.headers['x-mercaria-portal-token'];
+      if (typeof portalIssued === 'string' && portalIssued.length > 0) {
+        recordPortalToken(portalIssued);
       }
     }
     return response;

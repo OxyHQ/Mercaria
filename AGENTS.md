@@ -2493,3 +2493,127 @@ so the first can never be mistaken for the second.
   (`assertPreflightSatisfiesCheckout` is COMPLETE and waits on nothing), **#117**
   (the capture sequence reads the quote and reservation deadlines), **#128**
   (variance BOOKING), **#93/#37/#74**.
+
+## The guest order portal (#108, ADR 0003 D5/D9/D10/D11/D17)
+
+`services/guest-portal/` (10 modules) + `db/guestPortal/` (6 repositories) +
+`db/schema/guestPortal.ts` (5 tables) + `middleware/guest-portal.ts` +
+`routes/guest-orders.ts` + the portal half of
+`routes/internal-guest-commerce.ts`, plus the storefront's
+`app/(app)/guest-orders/`. How somebody who bought without an Oxy account comes
+back to that purchase from a device holding no cart credential. Full reference:
+**`docs/guest-portal.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"The guest order portal (#108)".
+
+- **A credential authorizes exactly ONE checkout group** — not an email's
+  orders, not an inbox, not a person. An address that placed three checkouts
+  gets three independent messages with three single-use tokens; no
+  authorization context, response or message ever holds two checkouts at once,
+  which is email-verification rule 8 made structural. There is no shape in the
+  domain that could describe "every order for this address", so such a request
+  is unrepresentable rather than refused (ADR 0003 T7/T11, I4).
+- **ONE table for both credentials** (D5): the `mgx_` exchange token and the
+  `mgp_` portal credential are the same five facts differing only in lifetime
+  and carriage. Scope is STRUCTURAL — two anchored readers and a SECOND resolver
+  beside `commerce-actor.ts`, so a `mgs_` cart token fails its shape gate before
+  any hashing (I3 as a property of the call graph).
+- **Two CHECKs carry the verification model.**
+  `…_verification_origin_check` refuses a verification instant on a
+  `post_checkout` row, so paying — card, wallet, Stripe Link — cannot prove an
+  inbox in any code path. `…_unverified_scope_check` holds an unproven PORTAL
+  credential to `tracking:read`. It EXEMPTS `exchange` rows: their scopes are a
+  PROMISE of what they mint, and an exchange token reads nothing.
+  `email_verified_at` is ONE column and the boolean is derived (the
+  `contact_verified_at` correction, again).
+- **`cardinality(scopes) >= 1`, never `array_length(scopes, 1) >= 1`** — on an
+  empty array the latter is NULL and a CHECK reads NULL as SATISFIED, so the
+  obvious spelling admits exactly the row it refuses. Both this and the exchange
+  exemption were found by `guest-portal.realdb.test.ts` on its first run; a
+  constraint without a real server behind it is a comment.
+- **The confirmation grant is PULLED, not pushed.** D5 says checkout completion
+  mints it; completion runs in the payment outbox with nobody there to receive a
+  bearer token, and a token minted into a handler is a token minted into a log.
+  `POST /guest/orders/confirmation` mints exactly D5's row, with D5's origin and
+  scope, at the first moment there is a client to hand it to — which also makes
+  the confirmation view work before the webhook arrives.
+- **`contact_change:request` is DEFINED and NOT GRANTABLE** — the `role_email`
+  decision from #83. The CHECK, the projection and the switch all exist for it;
+  `resolveGrantScopes` declines to offer it, so the gap is documented rather
+  than invisible and enabling it is not a schema change.
+- **Recovery ALWAYS answers 202 with one fixed sentence**, and the work runs
+  AFTER the response so timing cannot distinguish either (T5).
+  `requestGuestOrderRecovery` resolves `void` — there is no value to branch on.
+  The order number is a HINT (T6): it narrows a search already scoped by the
+  email hash and a number naming somebody else's order narrows to NOTHING,
+  because ignoring a non-matching hint would leak that it belongs elsewhere.
+- **Three throttle axes, two of them durable in Postgres** — "how often has THIS
+  INBOX been asked for, across every ECS task" is not a per-process question
+  (the #83 device). Every subject is an HMAC with the AXIS in the preimage; the
+  network axis is a COARSE /24 or /64, so it bounds a flood and identifies
+  nobody. No user agent, screen metric or client identifier exists anywhere in
+  it — the absence IS "without fingerprinting".
+- **The transport is a NAMED, FAIL-CLOSED seam and NOTHING SENDS TODAY.**
+  Mercaria has no outbound email; the registry in
+  `services/guest-portal/transport.ts` is EMPTY and every attempt fails
+  `transport_unconfigured`, visibly, with the row intact. A `console.log`
+  transport looks like a working feature in every test and sends nothing in
+  production; an SES client against unprovisioned credentials looks like one in
+  production and fails like an outage. Closing it is one module plus one
+  `registerGuestMessageTransport` call — nothing else in #108 changes.
+- **The message queue is the moderation outbox, ported**: deterministic
+  caller-supplied id (so duplicate webhooks converge on ONE confirmation, down
+  to the row's `xmin`), `FOR UPDATE SKIP LOCKED` leases, capped backoff, visible
+  `dead_letter`. The row holds NO recipient, no subject and no body — the send
+  path decrypts at the moment of sending and the TEMPLATE is code, so a copy fix
+  applies to queued messages. A link-bearing message mints its `mgx_` INSIDE the
+  send transaction, so no plaintext token rests in a queue row.
+  `GUEST_PORTAL_MESSAGE_TRIGGERS` names the enqueuer for each of the seventeen
+  kinds or the issue that owes it, and a test fails the build on a kind that is
+  neither — the `deferred: #NN` device.
+- **Suppression is a fact about an ADDRESS, keyed on the HMAC**, so a leak of
+  the whole list discloses no addresses. Nothing expires — a hard bounce does
+  not heal on a schedule — and a suppressed address makes future messages
+  terminal while the ORDER stays fully readable in the portal.
+- **NO lever gates a portal READ.** The router mounts unconditionally and
+  `guest-portal-isolation.test.ts` fails the build if a read path reads one of
+  the four guest levers; the integration suite runs entirely on a deployment
+  with `GUEST_COMMERCE_ENABLED` off and ASSERTS that premise. The fifth lever,
+  `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED`, gates the dispatcher LOOP and never
+  the row. The one real interaction: `POST /guest/orders/confirmation` needs a
+  live guest SESSION, so with guest commerce off a paid buyer reaches their
+  orders through the emailed link instead of the tab they paid in.
+- **Two views, two TYPES.** `GuestOrderStatusView` (what an unverified
+  confirmation credential sees) carries order number, coarse status, seller and
+  an item COUNT — and no money, address, item title or contact. A different type
+  rather than a filtered one, the `MerchantOrder` device: a serializer reaching
+  for a total on it fails `tsc`. A scope mismatch is 403; a group mismatch is
+  404.
+- **Sensitive actions need a FRESH inbox proof** (`GUEST_PORTAL_STEP_UP_MINUTES`
+  over `email_verified_at`), so a thief holding a stolen credential cannot lock
+  the owner out with it. "Secure my access" spares the PRESENTING credential —
+  without that, securing your access logs you out, and a control people avoid
+  pressing protects nobody.
+- **The client owes three things the server cannot do**, because the token is in
+  the FRAGMENT precisely so the server never sees it: strip it with
+  `history.replaceState` before the exchange resolves (capture first — replacing
+  the URL is what makes it unreadable), `<meta name="referrer" content="no-referrer">`,
+  and exchange ONCE (a `useRef` guard plus `retry: false`, because a retry burns
+  a second grant).
+- Operator surface: `/internal/guest-commerce/portal/*` on the SAME
+  `GUEST_OPERATOR_OXY_USER_IDS` allow-list #104 uses — deliberately not a
+  seventh list. TWO actions and no third, both of which the buyer can already
+  drive: **no Mercaria employee is ever in possession of a portal credential**,
+  because the only function that mints one from an operator's request puts it in
+  the buyer's inbox (T15). The re-send has no destination field in the service
+  signature or the HTTP schema; the trace opens from a CHECKOUT GROUP and
+  nothing else. Every attempt is audited, refusals included.
+- **#77's `#108` analytics seam is CLOSED.** What supplied the three event types
+  was the GRANT ROW: an id that authorizes nothing and is not reusable, so the
+  funnel is countable without a token, an address or a hash reaching a column.
+  `guest_recovery_requested` deliberately carries NO checkout group and is
+  emitted on every request whether or not anything matched.
+- Deferred with named contracts: #109 (`claim:write` is already granted and the
+  columns exist; the endpoint is missing), #110 (`cancellations:request`,
+  `returns:request`, `support:write` granted and unconsumed; `contact_change`),
+  #111 (the three payment-notification thresholds), #93 (`order_ready_for_pickup`
+  cannot fire while pickup fails closed at checkout).

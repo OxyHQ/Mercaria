@@ -222,12 +222,18 @@ export const ANALYTICS_GUEST_EVENT_TYPES = [
   'guest_destination_validation_failed',
   'guest_eligibility_accepted',
   'guest_eligibility_rejected',
-  // Seams — see ANALYTICS_DEFERRED_EVENT_TYPES.
+  // Below: some emitted, some deferred. `ANALYTICS_DEFERRED_EVENT_TYPES` is the
+  // AUTHORITY on which is which and this ordering is not — the three #108
+  // portal types are emitted and sit here because moving a member of a closed
+  // tuple rewrites the `analytics_events_event_type_check` CHECK for no change
+  // in what it admits, and a DROP/ADD pair whose member set is identical is
+  // exactly the statement a migration reviewer must not have to reason about.
   'guest_payment_methods_shown',
   'guest_payment_method_selected',
   'guest_payment_action_required',
   'guest_payment_client_failed',
   'guest_payment_verified',
+  // EMITTED since #108 — see the note above on why they stay in place.
   'guest_order_portal_opened',
   'guest_recovery_requested',
   'guest_recovery_exchanged',
@@ -283,9 +289,16 @@ export const ANALYTICS_DEFERRED_EVENT_TYPES: Readonly<
   guest_payment_action_required: '#111',
   guest_payment_client_failed: '#111',
   guest_payment_verified: '#111',
-  guest_order_portal_opened: '#108',
-  guest_recovery_requested: '#108',
-  guest_recovery_exchanged: '#108',
+  // The three `#108` types (`guest_order_portal_opened`,
+  // `guest_recovery_requested`, `guest_recovery_exchanged`) that used to sit
+  // here are EMITTED now. What closed
+  // the seam was not new plumbing but the GRANT ROW: a portal open and an
+  // exchange both produce a row id that authorizes nothing and outlives
+  // nothing, so the funnel can be counted without a token, an email or a hash
+  // ever reaching a column — which is exactly the contract #77 recorded.
+  // `guest_recovery_requested` carries NO checkout group, deliberately: it is
+  // emitted on every request whether or not anything matched, and a group on it
+  // would turn the metric into the enumeration oracle the 202 exists to close.
   guest_claim_offered: '#109',
   guest_claim_started: '#109',
   guest_claim_completed: '#109',
@@ -860,8 +873,9 @@ export const ANALYTICS_METRICS: readonly AnalyticsMetricDefinition[] = [
     merchantVisible: false,
     attributionLimit:
       'Measures the exchange, not the email. A link that never arrived and one that arrived and ' +
-      'was ignored are the same row here.',
-    seam: '#108',
+      'was ignored are the same row here — and with no transport registered (#108 leaves it a ' +
+      'named seam) the numerator is structurally zero until one is, which is a fact about the ' +
+      'deployment rather than about buyers.',
   },
   {
     key: 'oxy_claim_funnel',

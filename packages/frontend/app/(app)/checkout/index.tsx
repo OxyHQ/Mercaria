@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxyhq/services";
 import { Check, Plus } from "lucide-react-native";
 import { nanoid } from "nanoid/non-secure";
@@ -215,13 +215,18 @@ function PaymentStep({
           </Text>
           {isGuest ? (
             /*
-              A guest is NOT sent to `/orders/...`: that route is
+              A guest is still NOT sent to `/orders/...`: that route is
               account-authenticated and would answer 401 for the person who just
-              paid (#107 client rule 8). The secure guest order experience is
-              #108's — a magic-linked, grant-scoped portal — and until it lands
-              the honest thing to hand over is the order number the buyer
-              already holds, which is what a support conversation starts from.
-              Nothing here promises an email or a link that does not yet exist.
+              paid (#107 client rule 8). What #108 added is the honest
+              destination — a grant-scoped portal reached with a credential this
+              device pulls for the group it just placed, which is a DIFFERENT
+              credential from the cart token and carries only the bounded status
+              view until the buyer confirms their address (ADR 0003 D17).
+
+              The order number stays, and stays first: it is the thing a support
+              conversation starts from, it works when a link does not, and — as
+              ADR 0003 T6 says outright — it authorizes nothing, so printing it
+              costs nothing either.
             */
             <>
               <View className="rounded-2xl border border-border bg-card p-4">
@@ -238,6 +243,13 @@ function PaymentStep({
               <Button variant="outline" onPress={onDone}>
                 <Text className="text-sm font-medium text-foreground">Keep shopping</Text>
               </Button>
+              <Link href="/guest-orders/recover" asChild>
+                <Button variant="outline">
+                  <Text className="text-sm font-medium text-foreground">
+                    Email me a link to this order
+                  </Text>
+                </Button>
+              </Link>
             </>
           ) : (
             <Button onPress={onDone}>

@@ -198,7 +198,12 @@ describe('#106 authorization — the six it must REJECT', () => {
     // be presented. The runtime proof is that the only subject an unauthenticated
     // caller can produce is none at all.
     expect(orderAccessSubjectForCommerceActor({ kind: 'anonymous' })).toBeNull();
-    expect(resolveGuestPortalSubject()).toBeNull();
+    // #108 closed the seam: the function now translates an ALREADY-RESOLVED
+    // grant. Both absent cases still produce no subject, which is what this
+    // case is about — an unauthenticated caller can produce none at all, and
+    // there is still no parameter here for an order number or an email.
+    expect(resolveGuestPortalSubject(null)).toBeNull();
+    expect(resolveGuestPortalSubject(undefined)).toBeNull();
   });
 
   it('6. claimed-buyer access ENDS when the claim is revoked', () => {

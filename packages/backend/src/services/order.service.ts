@@ -39,6 +39,7 @@ import { adjustStoreSalesCount, findStoreRow } from '../db/stores/storeRepositor
 import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { grantEligibilitiesForOrder } from './reviews/review-eligibility.service.js';
+import { notifyGuestOrderLifecycle } from './guest-portal/message.service.js';
 import {
   hydrateOrders,
   hydrateOrdersForMerchant,
@@ -302,6 +303,20 @@ export async function transition(
     },
     'Order transitioned',
   );
+
+  /**
+   * #108: a GUEST buyer has no `notifications` row and no push token — ADR 0003
+   * D7 says so in as many words ("guest orders produce transactional email
+   * only") — so the in-app path below cannot reach them and this queues a
+   * transactional message instead.
+   *
+   * `void`-returning and it short-circuits on `buyer_origin !== 'guest'` before
+   * touching the database, so an authenticated order's transition costs one
+   * property read. There is nothing to await, which is the guarantee: a
+   * notification failure cannot fail a fulfilment transition a seller already
+   * performed.
+   */
+  notifyGuestOrderLifecycle(order, next);
 
   // Best-effort: notify buyer + seller of the lifecycle change. `processing`
   // has no buyer-facing event, so it is skipped. A notification failure must

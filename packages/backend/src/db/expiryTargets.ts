@@ -78,6 +78,11 @@ import {
   analyticsSearchQueries,
 } from './schema/analytics';
 import { guestSessions } from './schema/guests';
+import {
+  guestOrderAccessGrants,
+  guestPortalMessages,
+  guestRecoveryAttempts,
+} from './schema/guestPortal';
 import { catalogSourceRejections } from './schema/ingestion';
 import { moderationEvents, moderationOutboxes } from './schema/moderation';
 import { notifications } from './schema/notifications';
@@ -135,6 +140,38 @@ const GUEST_SESSION_PURGE_GRACE_SECONDS = 7 * 24 * 60 * 60;
  * winning evidence, and the raw stream leaves on this clock (ADR 0005 D6).
  */
 const REFERRAL_TOUCH_EVIDENCE_MARGIN_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * `GUEST_RECOVERY_ATTEMPT_RETENTION_SECONDS` — 7 days past a counting window's
+ * START (#108 recovery rule 2).
+ *
+ * These rows are a THROTTLE, not a history: once the longest window has passed,
+ * a counter's only remaining property is that somebody once asked about an
+ * inbox, which is precisely the correlation this domain refuses to keep
+ * anywhere else. Seven days is the longest configured window plus a wide margin
+ * for a paused sweep, so the throttle can never be reset by the retention that
+ * cleans up after it.
+ *
+ * The column swept is `window_started_at`, and its retention is expressed HERE
+ * rather than as a deadline column because — unlike a grant — the value is a
+ * window boundary the counter itself needs to read, so a second deadline column
+ * beside it would be arithmetic over a value already present.
+ */
+const GUEST_RECOVERY_ATTEMPT_RETENTION_SECONDS = 7 * 24 * 60 * 60;
+
+/**
+ * `GUEST_PORTAL_MESSAGE_RETENTION_SECONDS` — 14 days from enqueue, the
+ * moderation and payment outbox figure for the same reason: a message stuck for
+ * a fortnight is not going to send on day fifteen.
+ *
+ * The consequence is the one `moderation_outboxes` states and is worth
+ * repeating here because the record it drops is a person's order confirmation:
+ * a dispatcher down for the whole window loses its backlog SILENTLY. What
+ * surfaces that is the ORDER — still placed, still paid, still fully readable
+ * through the portal, which is exactly why #108 privacy rule 10 requires every
+ * critical fact to be in the portal and not only in an email.
+ */
+const GUEST_PORTAL_MESSAGE_RETENTION_SECONDS = 14 * 24 * 60 * 60;
 
 /**
  * The analytics retention constants (#77 data-lifecycle rules 1, 2 and 7).
@@ -267,6 +304,43 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'later. Revoked rows retain only the audit timestamps until purge; the ' +
       'conversion stamp a claim needs long-term lives on the ORDER side, not here.',
   },
+  // The guest order portal (#108). Three entries; two of its five tables are
+  // deliberately NEVER swept. `guest_contact_suppressions` holds a person's
+  // request to stop receiving mail, which does not expire because they waited;
+  // `guest_portal_operator_actions` is an append-only audit of what staff did
+  // on a buyer's behalf, and an audit with a retention shorter than the record
+  // it is about answers the only question it exists for with silence.
+  {
+    table: guestOrderAccessGrants,
+    column: guestOrderAccessGrants.purgeAt,
+    retentionSeconds: 0,
+    reason:
+      'A portal or exchange credential at the deadline its own PURPOSE stamped (ADR 0003 D11 ' +
+      '— exchange 24 h past expiry, portal 90 days). Authorization ended at expires_at, which ' +
+      'the resolver enforces independently, so this delete removes an audit record and never ' +
+      'a live credential. The grant row IS that audit: nothing else records who could reach ' +
+      'which checkout group.',
+  },
+  {
+    table: guestPortalMessages,
+    column: guestPortalMessages.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'A sent, suppressed or dead-lettered transactional message, 14 days after it was ' +
+      'enqueued. Deleting one still PENDING loses that send silently, exactly as it would for ' +
+      'moderation — the order it is about stays placed, paid and readable in the portal, ' +
+      'which is where a stalled dispatcher must be noticed.',
+  },
+  {
+    table: guestRecoveryAttempts,
+    column: guestRecoveryAttempts.windowStartedAt,
+    retentionSeconds: GUEST_RECOVERY_ATTEMPT_RETENTION_SECONDS,
+    reason:
+      'A recovery throttle counter, 7 days past its window start. After the window it counts ' +
+      'nothing and is only a record that somebody asked about an inbox — the correlation this ' +
+      'domain refuses to keep. The retention is far longer than any window, so cleanup can ' +
+      'never reset a live throttle.',
+  },
   // The analytics domain (#77). Six entries, because six tables carry their own
   // deadline and this registry has no way to express "everything in a schema".
   // `analytics_search_queries` appears ONCE here and has a SECOND deadline the
@@ -352,4 +426,6 @@ export const RETENTION_SECONDS = {
   referralTouchEvidenceMargin: REFERRAL_TOUCH_EVIDENCE_MARGIN_SECONDS,
   analyticsSalt: ANALYTICS_SALT_RETENTION_SECONDS,
   catalogSourceRejection: CATALOG_SOURCE_REJECTION_RETENTION_SECONDS,
+  guestRecoveryAttempt: GUEST_RECOVERY_ATTEMPT_RETENTION_SECONDS,
+  guestPortalMessage: GUEST_PORTAL_MESSAGE_RETENTION_SECONDS,
 } as const;

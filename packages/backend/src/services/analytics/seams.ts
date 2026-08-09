@@ -72,25 +72,19 @@ export interface AnalyticsSeam {
  * without deciding how it is measured. Then both halves emit and nothing is
  * fabricated. The entries below want the same thing: a bounded fact the
  * emitting domain already owns, never a string parsed after the event.
+ *
+ * `#108` is CLOSED too, and it is the clearest instance of the pattern above.
+ * What supplied its three event types was not new instrumentation: it was the
+ * GRANT ROW. A portal open and a magic-link exchange each produce an id that
+ * authorizes nothing and is not a reusable value, so the funnel is countable
+ * without a token, an address or a hash ever reaching a column — which is
+ * exactly what its contract asked for. The one deliberate asymmetry survives in
+ * the vocabulary: `guest_recovery_requested` carries NO checkout group and is
+ * emitted on every request whether or not anything matched, because an event
+ * emitted only on a match — or one carrying the group it matched — would be the
+ * enumeration oracle the 202 exists to close.
  */
 export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
-  {
-    issue: '#108',
-    capability: 'Guest order portal and magic-link recovery',
-    eventTypes: [
-      'guest_order_portal_opened',
-      'guest_recovery_requested',
-      'guest_recovery_exchanged',
-    ],
-    metricKeys: ['order_portal_delivery_success'],
-    contract:
-      'Identity rule 9: portal and recovery events carry the GRANT’s row id or the checkout ' +
-      'group, never the `mgx_`/`mgp_` token and never the email or its hash. A grant row id is ' +
-      'not a reusable authorization value; a token is, which is why the token has no column and ' +
-      'the redaction pass in redact-query.ts already destroys the three prefixes on sight. The ' +
-      'recovery REQUEST is emitted even when no checkout matched — T5 answers 202 either way, ' +
-      'and an event emitted only on a match would turn the metric into an enumeration oracle.',
-  },
   {
     issue: '#109',
     capability: 'Claiming a guest checkout into an Oxy account',

@@ -150,8 +150,14 @@ describe('the migrated schema', () => {
     // analytics tables (#77), each with its own deadline because retention is
     // per event CLASS and never one blanket TTL, and #62's ingestion rejection
     // residual — the only table in that domain bounded by TRAFFIC rather than
-    // by the catalogue, which is why it is the only one swept.
-    expect(EXPIRY_TARGETS).toHaveLength(15);
+    // by the catalogue, which is why it is the only one swept. #108 adds THREE:
+    // portal grants (on a `purge_at` column stamped per PURPOSE, because the
+    // ADR gives exchange rows 24 h and portal rows 90 days and this registry
+    // has no filter to express two retentions over one table), the
+    // transactional-message queue, and the recovery throttle's counters — which
+    // are a throttle rather than a history, so keeping them past their window
+    // would be keeping a record that somebody asked about an inbox.
+    expect(EXPIRY_TARGETS).toHaveLength(18);
   });
 });
 

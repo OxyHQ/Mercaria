@@ -66,6 +66,7 @@ import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
 import guestSessionRouter from './routes/guest-session.js';
+import guestOrdersRouter from './routes/guest-orders.js';
 import analyticsRouter from './routes/analytics.js';
 import internalAnalyticsRouter from './routes/internal-analytics.js';
 import internalRetailEligibilityRouter from './routes/internal-retail-eligibility.js';
@@ -195,6 +196,16 @@ export function createApp(): express.Express {
   if (config.guest.enabled) {
     app.use('/guest/session', guestSessionRouter);
   }
+  // The guest order PORTAL (#108) — mounted UNCONDITIONALLY, and the contrast
+  // with the line above is the decision, not an oversight. ADR 0003 M8 gates
+  // ISSUANCE and guest checkout on `GUEST_COMMERCE_ENABLED` and binds the
+  // opposite for durable records: "existing portal grants and magic-link
+  // recovery for already-placed guest orders keep working with the flag off".
+  // #108 acceptance 10 says the same thing from the buyer's side. Gating this
+  // mount would strand every person who had already paid the moment somebody
+  // pulled the lever — which is exactly when they would be trying to find their
+  // order.
+  app.use('/guest/orders', guestOrdersRouter);
   app.use('/orders', ordersRouter);
   app.use('/reviews', reviewsRouter);
   // Abuse reports. Unrelated to the store SALES ANALYTICS at
