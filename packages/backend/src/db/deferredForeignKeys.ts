@@ -444,6 +444,18 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'canonical_variant_source_links.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'canonical_field_provenance.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'product_identifiers.assigned_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── Merchant claiming (#83) ───────────────────────────────────────────────
+  //
+  // `merchant_claims.merchant_id`, `.native_store_id` and `.conflicting_claim_id`
+  // are all REAL references and are deliberately absent from this list. What is
+  // here is the two kinds this schema can never constrain: an Oxy account, and
+  // a polymorphic scope reference that names one of three different tables.
+  { column: 'merchant_claims.claimant_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_claims.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_claims.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_claim_evidence.oxy_file_id', reason: OXY_FILE },
+  { column: 'merchant_claim_evidence.collected_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_claim_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
 
   // ── Procurement (#118): supplier-platform ids, correlations and snapshots ─
   //

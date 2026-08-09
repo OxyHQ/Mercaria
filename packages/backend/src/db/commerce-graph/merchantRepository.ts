@@ -194,6 +194,37 @@ export async function verifyMerchantDomain(
   return row;
 }
 
+/**
+ * Move `merchants.claim_state` and the claim actor that goes with it — the ONE
+ * writer of ADR 0002 D9's stored verdict, called only by #83's claim service.
+ *
+ * The three columns move TOGETHER because they are one fact: a `claimed`
+ * merchant with no claimant, or a claimant on an `unclaimed` merchant, are
+ * both states nothing downstream could interpret. Revocation passes `null` for
+ * the actor and the time, which is what returns the row to exactly the shape
+ * it had before it was ever claimed.
+ */
+export async function setMerchantClaimVerdict(
+  db: DatabaseOrTransaction,
+  input: {
+    merchantId: string;
+    claimState: MerchantRow['claimState'];
+    claimedByOxyUserId: string | null;
+    claimedAt: Date | null;
+  },
+): Promise<MerchantRow | undefined> {
+  const [row] = await db
+    .update(merchants)
+    .set({
+      claimState: input.claimState,
+      claimedByOxyUserId: input.claimedByOxyUserId,
+      claimedAt: input.claimedAt,
+    })
+    .where(eq(merchants.id, input.merchantId))
+    .returning();
+  return row;
+}
+
 /** Every merchant with a row for this domain, verified holder first. */
 export async function findMerchantDomainsByDomain(
   db: DatabaseOrTransaction,

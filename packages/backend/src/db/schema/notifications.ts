@@ -40,6 +40,12 @@ export const NOTIFICATION_TYPES = [
   // Moderation: a decision asked the seller to change a listing before it can be
   // relisted. The only moderation outcome the seller can act on themselves.
   'listing_changes_requested',
+  // Merchant claiming (#83, security control 7): the CURRENT verified operator
+  // is told when somebody contests their claim and when their verification is
+  // withdrawn. Both are high-impact and neither is discoverable any other way —
+  // a merchant losing its operator silently is the failure this prevents.
+  'merchant_claim_contested',
+  'merchant_claim_revoked',
 ] as const;
 
 /**

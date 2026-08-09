@@ -39,7 +39,14 @@ export type RateLimitScope =
   // — so a farmer exhausts this budget, not the general one.
   | 'guest-issue'
   // The rest of the guest-session surface (inspect/rotate/revoke).
-  | 'guest';
+  | 'guest'
+  // Merchant claiming (#83, security control 1) — the NETWORK axis of the four
+  // the issue names. Its own bucket (`rl:merchant-claims:`) so a claim-farming
+  // burst exhausts this budget and not the general one; the per-user,
+  // per-merchant and per-domain axes are durable counts in Postgres, because
+  // "how often may this DOMAIN be challenged, across every claimant and every
+  // ECS task" is not a question a per-IP bucket can answer.
+  | 'merchant-claims';
 
 /**
  * Build a rate-limit middleware for a scope. The scope drives a unique

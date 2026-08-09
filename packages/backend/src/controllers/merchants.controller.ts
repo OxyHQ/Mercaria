@@ -14,6 +14,7 @@ import {
   lookupMerchantsByDomain,
 } from '../services/commerce-graph/merchant.service.js';
 import { findMerchantForNativeStore } from '../services/commerce-graph/native-store-link.service.js';
+import { getClaimEligibility } from '../services/merchant-claims/merchant-claim.service.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
@@ -62,5 +63,23 @@ export async function getMerchantCheckoutEligibility(req: Request, res: Response
     sendSuccess(res, await getNativeCheckoutEligibility(profile.merchant.id));
   } catch (error) {
     respondWithError(res, error, 'Eligibility read failed');
+  }
+}
+
+/**
+ * GET /merchants/:idOrSlug/claim-eligibility — whether to show
+ * `Claim this merchant` (#83, issue API rule 1).
+ *
+ * PUBLIC, like the rest of this router, and evidence-free: it returns a
+ * verdict, a coded reason and the methods this deployment can take. It names
+ * no claimant, no reviewer and no pending claim's id, so a merchant page
+ * anybody can load never discloses who is midway through claiming it.
+ */
+export async function getMerchantClaimEligibility(req: Request, res: Response): Promise<void> {
+  try {
+    const profile = await getMerchantPublic(routeParam(req, 'idOrSlug'));
+    sendSuccess(res, await getClaimEligibility(profile.merchant.id));
+  } catch (error) {
+    respondWithError(res, error, 'Claim eligibility read failed');
   }
 }

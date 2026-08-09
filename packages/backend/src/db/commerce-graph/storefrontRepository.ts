@@ -10,7 +10,7 @@
  * exists and no duplicate channel is ever minted.
  */
 
-import { and, eq, isNotNull, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
 import type { CanonicalAliasKind, StorefrontChannelKind } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { storefrontAliases, storefronts } from '../schema/merchants.js';
@@ -207,6 +207,40 @@ export async function findStorefrontsByMerchant(
   merchantId: string,
 ): Promise<StorefrontRow[]> {
   return db.select().from(storefronts).where(eq(storefronts.merchantId, merchantId));
+}
+
+/** Several storefronts by id, in one round trip — #83's scope resolution. */
+export async function findStorefrontsByIds(
+  db: DatabaseOrTransaction,
+  ids: readonly string[],
+): Promise<StorefrontRow[]> {
+  if (ids.length === 0) return [];
+  return db.select().from(storefronts).where(inArray(storefronts.id, [...ids]));
+}
+
+/**
+ * Mark a storefront's operator control VERIFIED — `storefronts.ts` says the
+ * mechanisms arrive with #83 and move this column, and this is that write.
+ *
+ * Scoped by `merchant_id` as well as by id, so a proof for one merchant can
+ * never verify a channel that has since moved to another; the CHECK on the
+ * table already refuses a verified row without a time, so both move together.
+ */
+export async function markStorefrontVerified(
+  db: DatabaseOrTransaction,
+  input: { storefrontId: string; merchantId: string; verifiedAt: Date },
+): Promise<StorefrontRow | undefined> {
+  const [row] = await db
+    .update(storefronts)
+    .set({ verificationState: 'verified', verifiedAt: input.verifiedAt })
+    .where(
+      and(
+        eq(storefronts.id, input.storefrontId),
+        eq(storefronts.merchantId, input.merchantId),
+      ),
+    )
+    .returning();
+  return row;
 }
 
 /** Same convergence contract as `insertMerchantAlias`. */

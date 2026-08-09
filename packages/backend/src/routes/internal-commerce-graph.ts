@@ -9,12 +9,19 @@
  * gate live in different files. Full reasoning: `routes/internal-payments.ts`
  * and `middleware/catalog-operator-authz.ts`.
  *
- * LINKAGE (#54) and the RELATIONSHIP review workflow (#55) live here. Merge and
- * split endpoints arrive with #59's tooling and its `catalog_revisions` audit
- * ledger (ADR 0002 D16) — this router gains them then, behind this same gate.
- * The relationship CORRECTION path is #55's own and already here: it needs no
- * revisions table, because a correction is a new row linked to the one it
- * replaces rather than an edit anything has to record the before-state of.
+ * LINKAGE (#54), the RELATIONSHIP review workflow (#55) and merchant-claim
+ * REVIEW (#83) all live here. Merge and split endpoints arrive with #59's
+ * tooling and its `catalog_revisions` audit ledger (ADR 0002 D16) — this router
+ * gains them then, behind this same gate. The relationship CORRECTION path is
+ * #55's own and already here: it needs no revisions table, because a correction
+ * is a new row linked to the one it replaces rather than an edit anything has
+ * to record the before-state of.
+ *
+ * The claim-review routes are here and not on a surface of their own for the
+ * reason this gate exists: deciding who operates a merchant is the same power
+ * as linking one to a native store, exercised over the same graph, and a
+ * second allow-list for it would be a second thing to keep in step with this
+ * one.
  */
 
 import { Router } from 'express';
@@ -37,6 +44,11 @@ import {
   relationshipVerifySchema,
 } from '../middleware/relationship-schemas.js';
 import {
+  merchantClaimDecisionSchema,
+  merchantClaimQueueQuerySchema,
+  merchantClaimRevokeSchema,
+} from '../middleware/merchant-claim-schemas.js';
+import {
   createNativeStoreLinkHandler,
   revokeNativeStoreLinkHandler,
 } from '../controllers/commerce-graph-operator.controller.js';
@@ -54,6 +66,12 @@ import {
   revokeRelationshipHandler,
   verifyRelationshipHandler,
 } from '../controllers/relationships-operator.controller.js';
+import {
+  decideClaimHandler,
+  getClaimForOperatorHandler,
+  listClaimQueueHandler,
+  revokeClaimHandler,
+} from '../controllers/merchant-claims-operator.controller.js';
 
 const router = Router();
 
@@ -156,5 +174,22 @@ router.post(
   validateBody(relationshipCorrectSchema),
   correctRelationshipHandler,
 );
+// ── Merchant claim review (#83) ─────────────────────────────────────────────
+
+/** The claims waiting on a person: `review_pending` and `disputed`. */
+router.get('/claims', validateQuery(merchantClaimQueueQuerySchema), listClaimQueueHandler);
+
+/** One claim in full, evidence included — and the ACCESS is audited. */
+router.get('/claims/:id', getClaimForOperatorHandler);
+
+/** Verify or reject a claim awaiting a decision. */
+router.post(
+  '/claims/:id/decision',
+  validateBody(merchantClaimDecisionSchema),
+  decideClaimHandler,
+);
+
+/** Withdraw a verification. The merchant returns to `unclaimed`. */
+router.post('/claims/:id/revoke', validateBody(merchantClaimRevokeSchema), revokeClaimHandler);
 
 export default router;

@@ -103,6 +103,11 @@ export * from './organization';
 // which is a native-store feed card projection.
 export * from './merchant';
 
+// Merchant claiming — the flow that moves `merchants.claim_state` (#83, epic
+// #40). Follows `./merchant` because every one of its DTOs is about a row in
+// that layer, and it deliberately adds no second claim verdict beside D9's.
+export * from './merchant-claim';
+
 // Guest commerce identity DTOs (GuestSessionState, GuestSessionStatus, …) — ADR 0003, #103.
 export * from './guest';
 

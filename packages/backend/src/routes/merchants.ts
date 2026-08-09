@@ -21,6 +21,7 @@ import {
   getMerchant,
   getMerchantByNativeStore,
   getMerchantCheckoutEligibility,
+  getMerchantClaimEligibility,
   lookupMerchants,
 } from '../controllers/merchants.controller.js';
 
@@ -39,5 +40,11 @@ router.get('/:idOrSlug', getMerchant);
 
 /** GET /merchants/:idOrSlug/native-checkout-eligibility — derived, never stored. */
 router.get('/:idOrSlug/native-checkout-eligibility', getMerchantCheckoutEligibility);
+
+/**
+ * GET /merchants/:idOrSlug/claim-eligibility — whether `Claim this merchant`
+ * belongs on this page (#83). Public and evidence-free: it names nobody.
+ */
+router.get('/:idOrSlug/claim-eligibility', getMerchantClaimEligibility);
 
 export default router;
