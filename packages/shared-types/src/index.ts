@@ -207,3 +207,11 @@ export * from './analytics';
 // first-class result rather than a weak match, the two-way consistency findings,
 // and the canonical read modes (`off | shadow | on`) every rollout lever reads.
 export * from './backfill';
+// Catalog review, merge, split and correction tooling (#59, ADR 0002 D12/D16)
+// — the operator vocabulary for the canonical graph: the eight review-queue
+// kinds, the ordered merge and split phases that make a partially completed job
+// resumable, the conflict set that a merge must have decided BEFORE it commits,
+// and the typed impact estimate an operator is shown before a high-impact
+// action. Deliberately carries no value meaning "delete an entity" — a merge
+// leaves a tombstone and a suppression hides without removing evidence.
+export * from './curation';

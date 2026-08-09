@@ -9,13 +9,13 @@
  * gate live in different files. Full reasoning: `routes/internal-payments.ts`
  * and `middleware/catalog-operator-authz.ts`.
  *
- * LINKAGE (#54), the RELATIONSHIP review workflow (#55) and merchant-claim
- * REVIEW (#83) all live here. Merge and split endpoints arrive with #59's
- * tooling and its `catalog_revisions` audit ledger (ADR 0002 D16) — this router
- * gains them then, behind this same gate. The relationship CORRECTION path is
- * #55's own and already here: it needs no revisions table, because a correction
- * is a new row linked to the one it replaces rather than an edit anything has
- * to record the before-state of.
+ * LINKAGE (#54), the RELATIONSHIP review workflow (#55), merchant-claim REVIEW
+ * (#83) and the CURATION half — the review queue, merge and split jobs,
+ * corrections and the `catalog_revisions` timeline (#59, ADR 0002 D16) — all
+ * live here, behind this one gate. The relationship CORRECTION path is #55's
+ * own: it needs no revisions row, because a correction is a new row linked to
+ * the one it replaces rather than an edit anything has to record the
+ * before-state of.
  *
  * The claim-review routes are here and not on a surface of their own for the
  * reason this gate exists: deciding who operates a merchant is the same power
@@ -77,6 +77,50 @@ import {
   listClaimQueueHandler,
   revokeClaimHandler,
 } from '../controllers/merchant-claims-operator.controller.js';
+import {
+  approveMergeHandler,
+  approveSplitHandler,
+  claimReviewItemHandler,
+  compensateRevisionHandler,
+  drainCurationJobsHandler,
+  getMergeJobHandler,
+  getReviewItemHandler,
+  getSplitJobHandler,
+  liftSuppressionHandler,
+  listMergeJobsHandler,
+  listRevisionsHandler,
+  listReviewQueueHandler,
+  listSplitJobsHandler,
+  previewMergeImpactHandler,
+  raiseReviewItemHandler,
+  reassignIdentifierHandler,
+  releaseReviewItemHandler,
+  requestMergeHandler,
+  requestSplitHandler,
+  resolveConflictHandler,
+  resolveReviewItemHandler,
+  runDetectorsHandler,
+  selectAttributeValueHandler,
+  suppressEntityHandler,
+} from '../controllers/curation-operator.controller.js';
+import {
+  approveJobSchema,
+  compensateRevisionSchema,
+  drainCurationSchema,
+  liftSuppressionSchema,
+  mergePreviewQuerySchema,
+  raiseReviewItemSchema,
+  reassignIdentifierSchema,
+  requestMergeSchema,
+  requestSplitSchema,
+  resolveConflictSchema,
+  resolveReviewItemSchema,
+  revisionQuerySchema,
+  reviewQueueQuerySchema,
+  runDetectorsSchema,
+  selectAttributeValueSchema,
+  suppressEntitySchema,
+} from '../middleware/curation-schemas.js';
 import {
   decideLinkageRequestHandler,
   getLinkageRequestForOperatorHandler,
@@ -255,6 +299,110 @@ router.post(
   '/store-linkage/requests/:id/candidates',
   validateBody(storeLinkageCandidateSchema),
   proposeLinkageCandidateHandler,
+);
+
+// ── Catalogue curation (#59) ────────────────────────────────────────────────
+//
+// The review queue, the two job kinds, the corrections and the timeline. Every
+// mutating route below takes a mandatory `reason` (#59 security 2) and writes a
+// `catalog_revisions` row; none of them can force a job past a phase, mark a
+// conflict applied or supply an impact figure, which is what keeps the merge's
+// own gates the only way through.
+
+/** GET — the inbox, with per-kind depth and the age of the oldest open item. */
+router.get('/review-items', validateQuery(reviewQueueQuerySchema), listReviewQueueHandler);
+
+/** POST — an operator raising an item by hand; the eighth detector is a person. */
+router.post('/review-items', validateBody(raiseReviewItemSchema), raiseReviewItemHandler);
+
+/** POST — run every detector once, bounded. The schedule's own code path. */
+router.post('/review-items/scan', validateBody(runDetectorsSchema), runDetectorsHandler);
+
+/** GET — one item plus every prior item ever raised about the same subject. */
+router.get('/review-items/:id', getReviewItemHandler);
+
+/** POST — claim it, so two operators do not both start the same merge. */
+router.post('/review-items/:id/claim', claimReviewItemHandler);
+
+/** POST — hand it back. Only its own claimant may. */
+router.post('/review-items/:id/release', releaseReviewItemHandler);
+
+/** POST — close it. The state is DERIVED from the resolution, never posted. */
+router.post(
+  '/review-items/:id/resolve',
+  validateBody(resolveReviewItemSchema),
+  resolveReviewItemHandler,
+);
+
+/**
+ * GET — what a merge WOULD move (#59 security 2).
+ *
+ * A read, so an operator who decides not to proceed leaves nothing behind.
+ */
+router.get('/merge-impact', validateQuery(mergePreviewQuerySchema), previewMergeImpactHandler);
+
+/** GET — every open merge job. */
+router.get('/merge-jobs', listMergeJobsHandler);
+
+/** POST — open one. It plans, detects conflicts, and blocks until they are decided. */
+router.post('/merge-jobs', validateBody(requestMergeSchema), requestMergeHandler);
+
+/** GET — one job, its conflicts, its phase progress and the revisions it wrote. */
+router.get('/merge-jobs/:id', getMergeJobHandler);
+
+/** POST — the SECOND operator's approval. The requester's own is refused. */
+router.post('/merge-jobs/:id/approve', validateBody(approveJobSchema), approveMergeHandler);
+
+/** POST — decide ONE conflict. `merge_pair` opens the child job it implies. */
+router.post(
+  '/merge-jobs/:id/conflicts/:conflictId/resolve',
+  validateBody(resolveConflictSchema),
+  resolveConflictHandler,
+);
+
+/** GET — every open split job. */
+router.get('/split-jobs', listSplitJobsHandler);
+
+/** POST — open one, with the assignment list that IS the split (#59 invariant 1). */
+router.post('/split-jobs', validateBody(requestSplitSchema), requestSplitHandler);
+
+/** GET — one job, exactly what it moves, and the revisions it wrote. */
+router.get('/split-jobs/:id', getSplitJobHandler);
+
+/** POST — the second operator's approval. */
+router.post('/split-jobs/:id/approve', validateBody(approveJobSchema), approveSplitHandler);
+
+/** POST — run one batch of jobs now. The dispatcher's own drain. */
+router.post('/curation-jobs/drain', validateBody(drainCurationSchema), drainCurationJobsHandler);
+
+/** POST — move an identifier to a different entity, with the collision read first. */
+router.post(
+  '/identifiers/:id/reassign',
+  validateBody(reassignIdentifierSchema),
+  reassignIdentifierHandler,
+);
+
+/** POST — choose which source value is shown, and PIN the field against re-application. */
+router.post(
+  '/attribute-values/:id/select',
+  validateBody(selectAttributeValueSchema),
+  selectAttributeValueHandler,
+);
+
+/** POST — hide something from public discovery. Nothing is deleted. */
+router.post('/suppressions', validateBody(suppressEntitySchema), suppressEntityHandler);
+
+/** POST — bring it back. Attributable and reasoned, by CHECK. */
+router.post('/suppressions/lift', validateBody(liftSuppressionSchema), liftSuppressionHandler);
+
+/** GET — the immutable timeline of one entity (#59 acceptance 4). */
+router.get('/revisions', validateQuery(revisionQuerySchema), listRevisionsHandler);
+
+/** POST — record a compensating correction against one revision (action 10). */
+router.post(
+  '/revisions/:id/compensate',
+  validateBody(compensateRevisionSchema),
+  compensateRevisionHandler,
 );
 
 export default router;

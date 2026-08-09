@@ -1,0 +1,555 @@
+/**
+ * The split JOB — undoing a merge, or dividing an entity that was always two
+ * things (#59 split invariants 1–5).
+ *
+ * ## `revive_tombstone` is what makes acceptance 2 work
+ *
+ * "A mistaken merge can be split without losing source mappings or price
+ * history." Every source mapping that pointed at the losing entity, and every
+ * price observation recorded against its offers, is keyed on that entity's ID.
+ * Minting a fresh row and moving children onto it satisfies the WORD "split" and
+ * destroys exactly what the criterion protects — the old id, its slug and its
+ * URL would all be dead, and every external reference to them would 404.
+ *
+ * So a split may name an existing TOMBSTONE and bring it back: `merged_into_id`
+ * is cleared, the status returns to active, and the identity that was ended
+ * exists again as itself. The redirect HISTORY rows are not deleted — they are
+ * the record that the hop happened, and `merged_into_id` is what resolves.
+ *
+ * ## Split invariant 4, and why no redirect is minted
+ *
+ * "Old URLs do not silently resolve to the wrong new entity." The ORIGINAL
+ * entity keeps its slug and its URL, and it is still correct for everything that
+ * stayed. A new entity gets a NEW slug, which nothing has ever linked to. So the
+ * invariant is satisfied by minting no redirect at all, rather than by minting a
+ * careful one — there is no old URL whose answer changes.
+ *
+ * ## Split invariant 3, honestly
+ *
+ * "Saved products and alerts receive a deterministic migration or an explicit
+ * user-visible ambiguity state." Mercaria has no product-save, alert or
+ * watchlist table today: `favorites` are saves of a native LISTING, and a
+ * canonical split never touches `listings` — the plan contains no column of it,
+ * and `curation-isolation.test.ts` fails the build if one appears. So the
+ * migration is deterministic because there is nothing ambiguous to migrate, and
+ * the day a canonical-product save table lands, the census forces whoever adds
+ * it to decide what a split does with it.
+ */
+
+import { and, eq, sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+import {
+  CATALOG_SPLIT_ITEM_TYPES_BY_ENTITY,
+  nextSplitPhase,
+  requiresSecondApproval,
+  type CatalogImpactEstimate,
+  type CatalogSplitItemType,
+  type CatalogSplitPhase,
+  type CatalogSplitTargetMode,
+  type SplittableEntityType,
+} from '@mercaria/shared-types';
+import { config } from '../../config/index.js';
+import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
+import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
+import {
+  advanceSplitPhase,
+  approveSplitJob,
+  completeSplitJob,
+  findSplitJobById,
+  insertSplitAssignment,
+  insertSplitJob,
+  listPendingSplitAssignments,
+  markAssignmentApplied,
+  markAssignmentSkipped,
+  summarizeSplitAssignments,
+} from '../../db/curation/jobRepository.js';
+import { reassignRowById } from '../../db/curation/rehomeRepository.js';
+import type { CatalogSplitJobRow } from '../../db/schema/curation.js';
+import {
+  canonicalAttributeValues,
+  canonicalImages,
+  canonicalProductAliases,
+  canonicalProducts,
+  canonicalProductSourceLinks,
+  canonicalVariantAliases,
+  canonicalVariants,
+  canonicalVariantSourceLinks,
+  productIdentifiers,
+} from '../../db/schema/canonicalCatalog.js';
+import { nativeListingLinks, offers } from '../../db/schema/offers.js';
+import { normalizeEntityName } from '../canonical/normalization.js';
+import { splitImpactFromAssignments, impactColumnValues } from './impact.js';
+import { CURATED_ENTITIES } from './entity-registry.js';
+import { rebuildEntityRollups } from './rollups.js';
+import { recordRevision } from './revision.js';
+
+/**
+ * Which column each assignable item type lives in, per splittable entity.
+ *
+ * A real drizzle column, so a rename is a `tsc` error rather than a reassignment
+ * that finds nothing — and a TABLE rather than a `switch`, so
+ * `CATALOG_SPLIT_ITEM_TYPES_BY_ENTITY` (the contract clients validate against)
+ * and this (what actually moves) are checkably the same set. The isolation test
+ * asserts exactly that.
+ */
+export const SPLIT_ITEM_COLUMNS: Readonly<
+  Record<SplittableEntityType, Partial<Record<CatalogSplitItemType, AnyPgColumn>>>
+> = {
+  canonical_product: {
+    canonical_variant: canonicalVariants.productId,
+    product_identifier: productIdentifiers.productId,
+    source_link: canonicalProductSourceLinks.productId,
+    alias: canonicalProductAliases.productId,
+    attribute_value: canonicalAttributeValues.productId,
+    image: canonicalImages.productId,
+  },
+  canonical_variant: {
+    product_identifier: productIdentifiers.variantId,
+    source_link: canonicalVariantSourceLinks.variantId,
+    offer: offers.canonicalVariantId,
+    native_listing_link: nativeListingLinks.canonicalVariantId,
+    alias: canonicalVariantAliases.variantId,
+    attribute_value: canonicalAttributeValues.variantId,
+    image: canonicalImages.variantId,
+  },
+};
+
+export interface RequestSplitInput {
+  readonly entityType: SplittableEntityType;
+  readonly sourceEntityId: string;
+  readonly targetMode: CatalogSplitTargetMode;
+  readonly targetEntityId?: string | null;
+  readonly targetSlug?: string | null;
+  readonly targetName?: string | null;
+  readonly reason: string;
+  readonly actorOxyUserId: string;
+  readonly reversesMergeJobId?: string | null;
+  readonly reviewItemId?: string | null;
+  readonly items: readonly { readonly itemType: CatalogSplitItemType; readonly itemRef: string }[];
+}
+
+/** The impact buckets an item type contributes to — the four-eyes threshold's input. */
+function impactBucketForItem(itemType: CatalogSplitItemType): keyof CatalogImpactEstimate {
+  switch (itemType) {
+    case 'canonical_variant':
+      return 'childEntities';
+    case 'product_identifier':
+      return 'identifiers';
+    case 'source_link':
+      return 'sourceLinks';
+    case 'offer':
+      return 'offers';
+    case 'native_listing_link':
+      return 'nativeListingLinks';
+    case 'alias':
+      return 'aliases';
+    case 'attribute_value':
+      return 'attributeValues';
+    case 'image':
+      return 'images';
+  }
+}
+
+/**
+ * Open a split job and record its assignment list.
+ *
+ * The list is written INSIDE the creating transaction and the job is still in
+ * `plan`, which is the only window the trigger admits an assignment in — so the
+ * set an operator approved with an impact estimate beside it is exactly the set
+ * that executes (#59 split invariant 1).
+ */
+export async function requestSplit(input: RequestSplitInput): Promise<CatalogSplitJobRow> {
+  if (input.items.length === 0) {
+    throw validationError(
+      'A split must name what moves; an empty assignment list would produce a new entity with ' +
+        'nothing in it and leave the original unchanged.',
+    );
+  }
+  const allowed = CATALOG_SPLIT_ITEM_TYPES_BY_ENTITY[input.entityType];
+  for (const item of input.items) {
+    if (!allowed.includes(item.itemType)) {
+      throw validationError(
+        `A ${input.entityType} split cannot reassign a ${item.itemType}; that row does not hang ` +
+          'off this grain.',
+      );
+    }
+  }
+  if (input.targetMode === 'new_entity' && input.entityType !== 'canonical_product') {
+    throw validationError(
+      "Only a canonical product may be split into a NEW entity: a variant's identity is its " +
+        'option assignments, and minting one would mean inventing them. Revive the tombstone the ' +
+        'merge created instead.',
+    );
+  }
+
+  const db = getDb();
+  const definition = CURATED_ENTITIES[input.entityType];
+  const source = await db
+    .select({ status: sql<string>`${definition.statusColumn}` })
+    .from(definition.table)
+    .where(eq(definition.idColumn, input.sourceEntityId))
+    .limit(1);
+  if (!source[0]) throw notFound(`No ${input.entityType} with id ${input.sourceEntityId}.`);
+
+  if (input.targetMode === 'revive_tombstone') {
+    if (!input.targetEntityId) {
+      throw validationError('A tombstone revival must name the tombstone it brings back.');
+    }
+    const tombstone = await db
+      .select({
+        status: sql<string>`${definition.statusColumn}`,
+        mergedIntoId: sql<string | null>`${definition.mergedIntoColumn}`,
+      })
+      .from(definition.table)
+      .where(eq(definition.idColumn, input.targetEntityId))
+      .limit(1);
+    const row = tombstone[0];
+    if (!row) throw notFound(`No ${input.entityType} with id ${input.targetEntityId}.`);
+    if (row.status !== 'merged') {
+      throw conflict(
+        `${input.entityType} ${input.targetEntityId} is not a tombstone (it is ${row.status}); ` +
+          'reviving a live entity would give one identity two homes.',
+      );
+    }
+    if (row.mergedIntoId !== input.sourceEntityId) {
+      throw conflict(
+        `${input.entityType} ${input.targetEntityId} points at ${row.mergedIntoId ?? 'nothing'}, ` +
+          `not at ${input.sourceEntityId}; reviving it here would strand its own children.`,
+      );
+    }
+  }
+
+  const counts: Partial<Record<keyof CatalogImpactEstimate, number>> = {};
+  for (const item of input.items) {
+    const bucket = impactBucketForItem(item.itemType);
+    counts[bucket] = (counts[bucket] ?? 0) + 1;
+  }
+  const impact = splitImpactFromAssignments(counts);
+  const needsApproval = requiresSecondApproval(
+    'split',
+    impact.totalMoving,
+    config.catalog.fourEyesRequired,
+  );
+
+  return db.transaction(async (tx) => {
+    const job = await insertSplitJob(
+      {
+        entityType: input.entityType,
+        sourceEntityId: input.sourceEntityId,
+        targetMode: input.targetMode,
+        targetEntityId: input.targetMode === 'revive_tombstone' ? (input.targetEntityId ?? null) : null,
+        targetSlug: input.targetMode === 'new_entity' ? (input.targetSlug ?? null) : null,
+        targetName: input.targetMode === 'new_entity' ? (input.targetName ?? null) : null,
+        reason: input.reason,
+        requestedByOxyUserId: input.actorOxyUserId,
+        requiresSecondApproval: needsApproval,
+        reversesMergeJobId: input.reversesMergeJobId ?? null,
+        reviewItemId: input.reviewItemId ?? null,
+        impact: impactColumnValues(impact),
+      },
+      tx,
+    );
+    for (const item of input.items) {
+      await insertSplitAssignment(job.id, item.itemType, item.itemRef, tx);
+    }
+    await recordRevision(
+      {
+        entityType: input.entityType,
+        entityId: input.sourceEntityId,
+        action: 'split',
+        actorKind: 'operator',
+        actorOxyUserId: input.actorOxyUserId,
+        reason: input.reason,
+        note: `split requested (${input.targetMode})`,
+        splitJobId: job.id,
+        reviewItemId: input.reviewItemId ?? null,
+        after: { targetMode: input.targetMode, items: input.items.length, impact },
+      },
+      tx,
+    );
+    return job;
+  });
+}
+
+/** Record the second operator's approval. Same rule as a merge's. */
+export async function approveSplit(
+  jobId: string,
+  approverOxyUserId: string,
+  reason: string,
+): Promise<CatalogSplitJobRow> {
+  const db = getDb();
+  const job = await findSplitJobById(jobId, db);
+  if (!job) throw notFound(`No split job ${jobId}.`);
+  if (job.requestedByOxyUserId === approverOxyUserId) {
+    throw validationError(
+      'A split cannot be approved by the operator who requested it; four eyes means two people.',
+    );
+  }
+  const approved = await approveSplitJob(jobId, approverOxyUserId, db);
+  if (!approved) throw conflict(`Split job ${jobId} already carries an approval.`);
+  await recordRevision(
+    {
+      entityType: job.entityType,
+      entityId: job.sourceEntityId,
+      action: 'split',
+      actorKind: 'operator',
+      actorOxyUserId: approverOxyUserId,
+      reason,
+      note: 'second approval recorded',
+      splitJobId: jobId,
+    },
+    db,
+  );
+  return approved;
+}
+
+interface SplitPhaseOutcome {
+  readonly rowsAffected: number;
+  readonly targetEntityId: string | null;
+  readonly blockedReason?: string;
+}
+
+/**
+ * `mint` — bring the destination into existence, exactly once.
+ *
+ * The revival is a CAS on "still a tombstone pointing at this source", so a
+ * resumed phase revives nothing and a concurrent second split loses. Minting a
+ * new product is `ON CONFLICT DO NOTHING` on the slug plus a read, for the same
+ * reason: the slug is unique forever, so a retry converges on the row the first
+ * attempt created rather than failing on it.
+ */
+async function runMintPhase(
+  job: CatalogSplitJobRow,
+  db: DatabaseOrTransaction,
+): Promise<SplitPhaseOutcome> {
+  if (job.requiresSecondApproval && !job.approvedByOxyUserId) {
+    return {
+      rowsAffected: 0,
+      targetEntityId: null,
+      blockedReason: `This split moves ${job.impactTotalMoving} rows and needs a second operator's approval.`,
+    };
+  }
+  const definition = CURATED_ENTITIES[job.entityType];
+
+  if (job.targetMode === 'revive_tombstone') {
+    const targetId = job.targetEntityId;
+    if (!targetId) {
+      throw new Error(`Split job ${job.id} is a revival with no tombstone to revive.`);
+    }
+    const revived = await db
+      .update(definition.table)
+      .set({ status: 'active', mergedIntoId: null })
+      .where(
+        and(
+          eq(definition.idColumn, targetId),
+          eq(definition.mergedIntoColumn, job.sourceEntityId),
+        ),
+      )
+      .returning({ id: definition.idColumn });
+    return { rowsAffected: revived.length, targetEntityId: targetId };
+  }
+
+  const slug = job.targetSlug;
+  const name = job.targetName;
+  if (!slug || !name) {
+    throw new Error(`Split job ${job.id} mints a new entity with no slug or name.`);
+  }
+  const source = await db
+    .select({
+      brandId: canonicalProducts.brandId,
+      familyId: canonicalProducts.familyId,
+      categoryId: canonicalProducts.categoryId,
+    })
+    .from(canonicalProducts)
+    .where(eq(canonicalProducts.id, job.sourceEntityId))
+    .limit(1);
+  const parent = source[0];
+  await db
+    .insert(canonicalProducts)
+    .values({
+      slug,
+      name,
+      normalizedName: normalizeEntityName(name),
+      brandId: parent?.brandId ?? null,
+      familyId: parent?.familyId ?? null,
+      categoryId: parent?.categoryId ?? null,
+    })
+    .onConflictDoNothing();
+  const minted = await db
+    .select({ id: canonicalProducts.id })
+    .from(canonicalProducts)
+    .where(eq(canonicalProducts.slug, slug))
+    .limit(1);
+  const targetId = minted[0]?.id;
+  if (!targetId) {
+    throw new Error(`Split job ${job.id} could neither mint nor find the product for slug ${slug}.`);
+  }
+  return { rowsAffected: 1, targetEntityId: targetId };
+}
+
+/**
+ * `assignments` — move exactly what was named, one row at a time.
+ *
+ * Per-row rather than per-table, because the whole point of a split is that only
+ * SOME of a table's rows move. `reassignRowById` carries a CAS on the FROM
+ * value, so a row already moved reports `false` and is recorded as applied
+ * anyway — a replay converges instead of failing (#59 split invariant 5).
+ *
+ * An item whose row has vanished is recorded with `skipped_reason` rather than
+ * silently dropped, so the `verify` phase's assigned-versus-applied count stays
+ * meaningful and an operator can see what did not move.
+ */
+async function runAssignmentPhase(
+  job: CatalogSplitJobRow,
+  db: DatabaseOrTransaction,
+): Promise<SplitPhaseOutcome> {
+  const targetId = job.targetEntityId;
+  if (!targetId) {
+    throw new Error(`Split job ${job.id} reached the assignment phase with no destination.`);
+  }
+  const columns = SPLIT_ITEM_COLUMNS[job.entityType];
+  const pending = await listPendingSplitAssignments(job.id, db);
+  let moved = 0;
+  for (const assignment of pending) {
+    const column = columns[assignment.itemType];
+    if (!column) {
+      await markAssignmentSkipped(assignment.id, 'item_type_not_assignable_for_this_grain', db);
+      continue;
+    }
+    const applied = await reassignRowById(
+      column,
+      assignment.itemRef,
+      job.sourceEntityId,
+      targetId,
+      db,
+    );
+    if (applied) {
+      await markAssignmentApplied(assignment.id, db);
+      moved += 1;
+    } else {
+      // Either the row already moved (a replay) or it no longer points at the
+      // source. Both are terminal for this assignment and both are recorded, so
+      // "assigned but not applied" is never an unexplained residue.
+      const stillThere = await db
+        .select({ id: sql<string>`${column}` })
+        .from(column.table)
+        .where(sql`${column} = ${targetId}`)
+        .limit(1);
+      if (stillThere.length > 0) {
+        await markAssignmentApplied(assignment.id, db);
+        moved += 1;
+      } else {
+        await markAssignmentSkipped(assignment.id, 'item_missing_or_already_moved', db);
+      }
+    }
+  }
+  return { rowsAffected: moved, targetEntityId: targetId };
+}
+
+/**
+ * `verify` — assigned versus applied (#59 split invariant 5).
+ *
+ * Every assignment must have reached a terminal state. A pending one means the
+ * phase was interrupted, and throwing keeps the job claimable so the next run
+ * finishes it rather than declaring a partial split complete.
+ */
+async function runSplitVerifyPhase(
+  job: CatalogSplitJobRow,
+  db: DatabaseOrTransaction,
+): Promise<SplitPhaseOutcome> {
+  const summary = await summarizeSplitAssignments(job.id, db);
+  const outstanding = summary.assigned - summary.applied - summary.skipped;
+  if (outstanding > 0) {
+    throw new Error(
+      `Split job ${job.id} failed its consistency check: ${outstanding} assignment(s) reached no ` +
+        'terminal state. The job stays claimable and the next run finishes them.',
+    );
+  }
+  return { rowsAffected: 0, targetEntityId: job.targetEntityId };
+}
+
+async function runSplitPhase(
+  job: CatalogSplitJobRow,
+  phase: CatalogSplitPhase,
+  db: DatabaseOrTransaction,
+): Promise<SplitPhaseOutcome> {
+  switch (phase) {
+    case 'plan':
+      return { rowsAffected: 0, targetEntityId: job.targetEntityId };
+    case 'mint':
+      return runMintPhase(job, db);
+    case 'assignments':
+      return runAssignmentPhase(job, db);
+    case 'redirects':
+      // Deliberately nothing. The source keeps its slug and its URL, and the
+      // destination has a new one nothing has ever linked to — so there is no
+      // old address whose answer changes, which is #59 split invariant 4
+      // satisfied by the identity model rather than by a redirect somebody has
+      // to get right. The phase exists so the record says it was considered.
+      return { rowsAffected: 0, targetEntityId: job.targetEntityId };
+    case 'rollups': {
+      const targetId = job.targetEntityId;
+      if (!targetId) return { rowsAffected: 0, targetEntityId: null };
+      return {
+        rowsAffected: await rebuildEntityRollups(job.entityType, job.sourceEntityId, targetId, db),
+        targetEntityId: targetId,
+      };
+    }
+    case 'verify':
+      return runSplitVerifyPhase(job, db);
+    case 'done':
+      return { rowsAffected: 0, targetEntityId: job.targetEntityId };
+  }
+}
+
+export interface RunSplitJobResult {
+  readonly jobId: string;
+  readonly finalPhase: CatalogSplitPhase;
+  readonly completed: boolean;
+  readonly blocked: boolean;
+  readonly rowsAffected: number;
+}
+
+/** Run a CLAIMED split from wherever it is. Per-phase transactions, as a merge. */
+export async function runSplitJob(jobId: string, leaseOwner: string): Promise<RunSplitJobResult> {
+  const db = getDb();
+  let job = await findSplitJobById(jobId, db);
+  if (!job) throw notFound(`No split job ${jobId}.`);
+  let totalRows = 0;
+
+  for (;;) {
+    const phase = job.phase;
+    if (phase === 'done') break;
+    const outcome = await db.transaction(async (tx) => runSplitPhase(job, phase, tx));
+    if (outcome.blockedReason) {
+      return { jobId: job.id, finalPhase: phase, completed: false, blocked: true, rowsAffected: totalRows };
+    }
+    totalRows += outcome.rowsAffected;
+
+    const next = nextSplitPhase(phase);
+    if (!next) break;
+    if (!(await advanceSplitPhase(job.id, leaseOwner, next, outcome.targetEntityId, db))) {
+      return { jobId: job.id, finalPhase: phase, completed: false, blocked: false, rowsAffected: totalRows };
+    }
+    const refreshed = await findSplitJobById(job.id, db);
+    if (!refreshed) break;
+    job = refreshed;
+  }
+
+  const completed = await completeSplitJob(job.id, leaseOwner, db);
+  await recordRevision(
+    {
+      entityType: job.entityType,
+      entityId: job.targetEntityId ?? job.sourceEntityId,
+      action: 'split',
+      actorKind: 'operator',
+      actorOxyUserId: job.requestedByOxyUserId,
+      reason: job.reason,
+      note: `split completed from ${job.sourceEntityId}`,
+      splitJobId: job.id,
+      after: { targetEntityId: job.targetEntityId },
+    },
+    db,
+  );
+  return { jobId: job.id, finalPhase: 'done', completed, blocked: false, rowsAffected: totalRows };
+}

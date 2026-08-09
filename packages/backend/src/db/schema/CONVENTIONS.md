@@ -1507,6 +1507,84 @@ The decisions that make a column whose shape looks arbitrary answerable:
   to clear the evidence first (`draft-order-complete.realdb.test.ts`,
   `canonical-catalog.realdb.test.ts`).
 
+### Catalogue curation has no source model either (#59, ADR 0002 D12/D16)
+
+Eight more Postgres-born tables, in `curation.ts`: `catalog_merge_jobs`,
+`catalog_merge_conflicts`, `catalog_merge_job_phases`, `catalog_split_jobs`,
+`catalog_split_assignments`, `catalog_review_items`,
+`catalog_entity_suppressions`, `catalog_revisions`. The operator's half of the
+canonical graph. It inherits the closed-set-from-a-shared-types-tuple rule, the
+lease shape and the natural-unique idempotency the sections above state. What is
+#59's own — and each is here because a merge is the ONE operation in this graph
+that ends an identity, and its damage is invisible until a seller finds it:
+
+- **The rehoming plan is checked against the SCHEMA, not read out of the code.**
+  `services/curation/merge-plan.ts` declares every column referencing each of
+  the seven mergeable entities and what a merge does with it;
+  `merge-plan-census.test.ts` walks the drizzle table objects for every foreign
+  key targeting one and asserts the plan covers EXACTLY that set. A new table
+  referencing `canonical_products` fails the build until somebody decides what a
+  merge does with it. This is the gate that makes "everything is rehomed" a
+  checkable claim rather than a promise: finding fewer referencing tables looks
+  identical to there BEING fewer, and the miss is silent. `untouched` WITH A
+  REASON is a decision the census accepts; silence is not.
+- **`catalog_revisions` is append-only against UPDATE *and* DELETE**, which
+  inverts `analytics_events` deliberately: analytics permits DELETE because
+  erasure on schedule is its policy, while a revision that could be deleted
+  would let the record of a merge disappear along with the reason somebody
+  performed it. `before`/`after` are ADR 0002 D16's named `jsonb` exception —
+  a revision must capture whatever the entity looked like INCLUDING columns a
+  later schema removed. `compensates_revision_id` runs BACKWARDS in time (the
+  `product_identifiers.supersedes_identifier_id` direction), so the pointer
+  always resolves, and `(action = 'compensate') = (compensates_revision_id is
+  not null)` is a biconditional CHECK.
+- **The job and its PHASE RECORDS are two tables because neither is derivable
+  from the other.** The job carries the lease and the phase it is ON;
+  `catalog_merge_job_phases` carries what is DONE. `UNIQUE(job_id, phase)` plus
+  an append-only trigger is what makes a resume trustworthy — a phase already
+  stamped is skipped, one claimed but never stamped is re-run.
+- **Four eyes is TWO CHECKs and neither is sufficient alone.**
+  `approved_by <> requested_by` refuses one person with two sessions;
+  `phase in ('plan','awaiting_resolution') or approved_by is not null` refuses
+  an unapproved large job ADVANCING. `requires_second_approval` and the impact
+  are SNAPSHOTTED at planning time: a threshold change must not retroactively
+  unapprove a job somebody already ran. The impact TOTAL is CHECKed to equal the
+  sum of its components, so a small number cannot be written beside ten large
+  ones to dodge the threshold.
+- **A merge conflict names its colliding pair through EIGHT nullable foreign
+  keys plus a per-kind CHECK**, not two opaque refs: the six kinds span exactly
+  five tables and every conflict names two rows in the SAME one, so real
+  references are available and RESTRICT lets a conflict row BLOCK a delete. The
+  generated `conflict_key` collapses them for the convergence unique — the
+  `endpoint_key` device, for the fifth time in this graph.
+- **A `BEFORE UPDATE` trigger must not compare a STORED GENERATED column.**
+  `mercaria_catalog_merge_conflict_immutable` originally compared
+  `NEW.conflict_key` with `OLD.conflict_key` and raised on EVERY update,
+  including the ordinary one recording an operator's resolution: a generated
+  column is computed AFTER every BEFORE trigger, so `NEW.conflict_key` is NULL
+  there while `OLD` holds a value. It compares the eight endpoint columns
+  instead. Caught by the realdb suite; a mocked repository accepts it happily.
+- **`catalog_split_assignments` is frozen once its job leaves `plan`**, by the
+  domain's ONE cross-table trigger. The set an operator approved with an impact
+  estimate beside it is the set that executes (#59 split invariant 1), and a
+  service rule would be walked past by a `psql` INSERT. `item_ref` carries no
+  foreign key — the target table is a TWO-key dispatch,
+  `(job.entity_type, item_type)`, over twelve tables — and the cost is stated:
+  a missing row is recorded with `skipped_reason` and `verify` reconciles
+  assigned against applied.
+- **A pair-shaped review item cannot be stored with one side**, and the two
+  DUPLICATE kinds store their pair in id order (`subject_id < counterpart_id`),
+  so (A,B) and (B,A) are one item. `identifier_conflict` is excluded from the
+  ordering rule because there the direction MEANS something — the subject is the
+  disputed newcomer and the counterpart is the incumbent active owner.
+- **Six curation id columns carry no foreign key, permanently**, all under ADR
+  0002 D16's own reason for `catalog_revisions.entity_id`: each names a row in
+  one of seven to thirteen tables chosen by a sibling `*_type` column, and each
+  must stay readable after the very merge it records tombstones its subject.
+- **One new `jsonb` PAIR** (`catalog_revisions.before`/`after`, above) and
+  nothing else: impact counts, reason codes, conflict kinds and phase progress
+  are all real columns, because an operator filters and compares on them.
+
 ### The guest domain has NO source model either
 
 `guest_sessions` (`schema/guests.ts`, `drizzle/0013_guest_sessions.sql`) and
@@ -2265,6 +2343,7 @@ anything else with a known shape is real columns or a child table.
 | `payment_outboxes.payload` | The domain event's own ids, whose key set differs per event type. Deliberately MINIMAL — ids, not snapshots — so the outbox cannot become a second, drifting source of truth. |
 | `connections.sync_settings_collection_mapping` | A `Map` whose KEYS are the external platform's own collection ids — an open set Mercaria does not define and cannot enumerate, so there is no column set to project into and no join to express. |
 | `source_records.payload` | One observed external object, verbatim under the source's `may_store` right (ADR 0002 D19). Source-shaped BY DEFINITION — projecting it into columns would drop whatever the source adds next, and the payload's whole job is to preserve what was actually said for later review and re-matching. Its content hash is a sibling REAL column, so the convergence unique never depends on jsonb equality. |
+| `catalog_revisions.before` / `.after` | ADR 0002 D16 names this pair by name. A revision must capture whatever the entity looked like INCLUDING columns a later schema removed, so projecting it into typed columns would make the audit trail lossy at exactly the moment somebody needs to read an old revision. Every other fact on that row — action, actor, reason, job, policy version — is a real column, because a reviewer filters on it. |
 
 Deliberately NOT jsonb, though a mechanical port would have made them so:
 `ModerationEnforcement.previousState` (three known keys → three CHECKed columns),
