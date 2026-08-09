@@ -24,8 +24,9 @@
  *  - `date_trunc` buckets across a month boundary, which a serialized Mongo
  *    pipeline assertion could never have shown;
  *  - both sequences format and ascend, and are separate counters — asserted
- *    against `pg_class` rather than by arithmetic, because the sequences are
- *    DATABASE-wide and ten other files in this suite draw from them in parallel.
+ *    against session-local `currval` rather than by arithmetic, because the
+ *    sequences are DATABASE-wide and ten other files in this suite draw from
+ *    them in parallel.
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -583,32 +584,69 @@ describe('the printed sequences', () => {
    * It stayed green by scheduling luck until a branch added test files and
    * changed the interleaving (measured on CI, `expected 76 to be 75`).
    *
-   * What survives concurrency is what the test is actually for: the printed
-   * FORMAT, that each number ASCENDS, and that the two counters are SEPARATE —
-   * the last asserted structurally against `pg_class` rather than inferred from
-   * arithmetic, which is both concurrency-proof and a stronger statement than
-   * two consecutive draws could make.
+   * What survives concurrency is the printed FORMAT, that each number ASCENDS,
+   * and that each helper reads ITS OWN counter. The last one is the reason this
+   * block exists, and it is the one that needs care: ascent alone holds under a
+   * SHARED counter too, since interleaved draws from one pool still increase, so
+   * a bare ascent assertion passes whether or not the bug is present.
+   *
+   * `currval` is what closes that, and it is concurrency-proof for a different
+   * reason than the others: it is SESSION-LOCAL — the last value `nextval`
+   * produced for that sequence IN THIS SESSION — so a stranger's draw cannot
+   * move it. Asserting it equals each helper's own last number names the
+   * sequence that helper actually read. Under one shared counter the order
+   * helper's last draw trails the RMA draw that followed it, and the untouched
+   * sequence has no `currval` at all, so Postgres raises `55000 … is not yet
+   * defined in this session` — the hypothesis fails by name.
+   *
+   * Enumerating the two sequences from `pg_class` is NOT a substitute and was
+   * removed: both relations exist because the schema defines them, whichever one
+   * a helper reads, so that query answers "the schema has two sequences" and
+   * cannot see a helper pointed at the wrong one. Verified by mutation — it
+   * stays green while `currval` goes red.
+   *
+   * The draws run inside ONE transaction because postgres.js pins a connection
+   * for its duration. On the pool each statement may land on a different
+   * session, and `currval` would then answer about somebody else's.
    */
   it('formats and ascends, and the two are separate counters', async () => {
-    const firstOrder = await nextOrderNumber();
-    const firstRma = await nextRmaNumber();
-    const secondOrder = await nextOrderNumber();
-    const secondRma = await nextRmaNumber();
+    const drawn = await db.transaction(async (tx) => {
+      const firstOrder = await nextOrderNumber(tx);
+      const firstRma = await nextRmaNumber(tx);
+      const secondOrder = await nextOrderNumber(tx);
+      const secondRma = await nextRmaNumber(tx);
 
-    expect(firstOrder).toMatch(/^MRC-\d{6}$/);
-    expect(firstRma).toMatch(/^RMA-\d{6}$/);
-    expect(secondOrder).toMatch(/^MRC-\d{6}$/);
-    expect(secondRma).toMatch(/^RMA-\d{6}$/);
+      // Read while the session is still ours. Sequences are `bigint`, which
+      // postgres.js decodes as a STRING, so these go through `Number` exactly as
+      // the helpers do.
+      const current = await tx.execute<{ order_seq: string; rma_seq: string }>(
+        sql`select currval('order_number_seq') as order_seq, currval('rma_number_seq') as rma_seq`,
+      );
+      return {
+        firstOrder,
+        firstRma,
+        secondOrder,
+        secondRma,
+        orderCurrval: Number(current[0]?.order_seq ?? 0),
+        rmaCurrval: Number(current[0]?.rma_seq ?? 0),
+      };
+    });
+
+    expect(drawn.firstOrder).toMatch(/^MRC-\d{6}$/);
+    expect(drawn.firstRma).toMatch(/^RMA-\d{6}$/);
+    expect(drawn.secondOrder).toMatch(/^MRC-\d{6}$/);
+    expect(drawn.secondRma).toMatch(/^RMA-\d{6}$/);
 
     const seq = (formatted: string): number => Number(formatted.slice(4));
-    expect(seq(secondOrder)).toBeGreaterThan(seq(firstOrder));
-    expect(seq(secondRma)).toBeGreaterThan(seq(firstRma));
 
-    const relations = await db.execute<{ relname: string }>(
-      sql`select relname from pg_class
-          where relkind = 'S' and relname in ('order_number_seq', 'rma_number_seq')
-          order by relname`,
-    );
-    expect(relations.map((row) => row.relname)).toEqual(['order_number_seq', 'rma_number_seq']);
+    // True under concurrency, and true under a shared counter too — which is why
+    // it cannot be the only thing here.
+    expect(seq(drawn.secondOrder)).toBeGreaterThan(seq(drawn.firstOrder));
+    expect(seq(drawn.secondRma)).toBeGreaterThan(seq(drawn.firstRma));
+
+    // The load-bearing pair: each helper's last number IS its own sequence's
+    // current value.
+    expect(drawn.orderCurrval).toBe(seq(drawn.secondOrder));
+    expect(drawn.rmaCurrval).toBe(seq(drawn.secondRma));
   });
 });
