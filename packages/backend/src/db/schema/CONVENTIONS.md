@@ -1919,6 +1919,95 @@ is answerable:
 - **Zero `jsonb`.** Every shape in this domain is Mercaria's own and closed, so
   none of them earns an entry in the register below.
 
+### The retail eligibility domain has NO source model either (#121, ADR 0004 D2.8–D2.10)
+
+Nine more tables born in Postgres, in `schema/retailEligibility.ts`:
+`retail_eligibility_policies`, `retail_category_rules`,
+`retail_market_capabilities`, `retail_resale_evidence`,
+`retail_compliance_evidence`, `retail_suppressions`,
+`retail_eligibility_exceptions`, `retail_eligibility_decisions`,
+`retail_eligibility_audits`. Whether Mercaria MAY sell a given product, through
+a given supplier, into a given market. Full behaviour:
+`docs/retail-eligibility.md`.
+
+The decisions that are THIS domain's, stated so a column that looks arbitrary
+is answerable:
+
+- **There is no `eligible` column anywhere, and none may be added.** The verdict
+  is a conjunction over eleven tables in three domains — supplier, agreement and
+  offer (#118), canonical product, variant and identifier (#56), and this
+  domain's own rows — so a stored one would be two representations of one fact
+  and the place they must not disagree is a checkout gate. This is the
+  `deriveNativeCheckoutEligibility` (#57) divergence from the `onboarding_state`
+  one-verdict rule, and it is what makes an expiry and a recall bite with NO
+  sweep having run (#121 acceptance 2 and 5).
+- **`expired` is not a storable evidence state.** Both evidence tables carry the
+  five REVIEWER states (`unknown | pending | verified | revoked | rejected`) and
+  a nullable `expires_at`; the sixth state #121 names is derived against the
+  clock in `services/retail-eligibility/evidence-state.ts`. A stored expiry
+  beside the deadline would be two representations of one fact — the
+  `retail_cost_quotes` rule, one domain over.
+- **An empty scope array means opposite things on a POLICY and on EVIDENCE, and
+  this is the first file where both appear.** A policy PERMITS what it names and
+  nothing else (`permitted_destination_countries = '{}'` permits none) — the
+  `supplier_agreements` grant semantics, so a freshly drafted version permits
+  nothing at all. A piece of evidence is a positive fact being scoped DOWN, so an
+  unscoped grant covers whatever its agreement covers — the
+  `commerce_relationships.territories` semantics. Both are documented at their
+  own tables.
+- **A decision cites its policy version by a NOT NULL COMPOSITE foreign key.**
+  `retail_eligibility_decisions.(policy_id, policy_key, policy_version)`
+  references `retail_eligibility_policies.(id, policy_key, version)` — the
+  `match_category_gates` device (#58), applied to reproducibility (acceptance 7).
+  A decision that cannot name its version is unrepresentable, and one whose
+  snapshot disagrees with its policy row is refused by Postgres. The identity
+  key it cites through is a table CONSTRAINT rather than a unique INDEX, for the
+  reason `match_benchmark_runs` records.
+- **`retail_eligibility_decisions` is a RECORDING, never an authority.** Nothing
+  reads a row to decide anything; the rows serve the operator trace, the
+  re-evaluation sweep, the eligible-catalogue measurement and the blocked-checkout
+  alert. The `payment_discrepancies` relationship to a payment.
+  `services/retail-eligibility/eligibility.ts` imports no repository at all, and
+  `retail-eligibility-isolation.test.ts` fails the build if that changes.
+- **Immutability is triggers, not review** (`0030`, the ledger/fee/retail-pricing
+  precedent): a policy version freezes every SCOPE column once it leaves `draft`
+  (the status transitions stay legal, or a version could never be superseded);
+  decisions and audits refuse UPDATE and DELETE outright.
+- **A recall can never be `advisory`** — a CHECK refuses exactly the combination
+  that would turn "recorded a recall" into "changed nothing". An `advisory`
+  safety notice records without blocking, deliberately: a notice that is not a
+  stop-sale must not silently delist a catalogue.
+- **A suppression's scope is a polymorphic `(scope, scope_ref)` pair PLUS a real
+  foreign key where one exists.** Eight scopes over five key spaces, three of
+  which (`market`, `category`, `supplier_sku`) have no table to reference at all
+  — so the pair is the general form and the five Mercaria-owned scopes
+  additionally carry their own constrained column, held in agreement with
+  `scope_ref` by CHECK. `ONE live row per (scope, scope_ref, kind)` is a partial
+  unique, so two operators reacting to one authority notice converge.
+- **`retail_eligibility_exceptions.waived_reasons` is containment-CHECKed against
+  `RETAIL_WAIVABLE_REASONS`**, which is disjoint from `RETAIL_UNWAIVABLE_REASONS`
+  by a test. No recall, suppression, prohibited category, ambiguous match,
+  missing or expired evidence, unresolved tax treatment or unavailable refund
+  rail can be waived by anybody — the `RETAIL_FORBIDDEN_COMPONENT_KINDS` device
+  (#120), applied to overrides. Four eyes is the row's shape: two approvers who
+  differ from each other AND from the requester, by CHECK.
+- **An order-value ceiling forces a SINGLE permitted currency.** This domain does
+  no FX (a test asserts it), so a ceiling in a currency the order is not
+  denominated in is a cap that does not exist — the CHECK makes that
+  configuration unstorable rather than leaving the derivation to fail open.
+- **A price cannot be claimed FINAL while duty, import or VAT is open**, by
+  CHECK. "No additional fees" is exactly the sentence that would be false.
+- **No product-traceability table.** Country of origin, manufacturer identity,
+  the responsible economic operator and batch capability are #56/#94 facts; a
+  copy here would be a second answer to a question the canonical graph owns. The
+  domain REQUIRES them on a policy version and READS them through
+  `services/retail-eligibility/traceability.port.ts`, whose default reports NO
+  DATA — which blocks, the `offer-facts.port.ts` (#94) rule.
+- **No `orders` widening.** `commercial_role` / `seller_type = 'platform'` land
+  with the code that writes them (#123) — the reasoning `procurement.ts` and
+  `retailPricing.ts` both record.
+- **Zero `jsonb`.** Every shape in this domain is Mercaria's own and closed.
+
 ### The referral domain (#142, ADR 0005) has no source model either
 
 Nine tables born in Postgres (`drizzle/0015_referral_domain.sql`, phase `pre`):
@@ -2328,6 +2417,12 @@ add a row when a gate lands, and do not list one that does not run yet.
 | Organic ranking cannot read analytics (a discovery module may import the emitter seam and nothing else) and analytics cannot read commercial standing (no measurement module references the fee or referral domain); the ONE payment import is the named verified-conversion seam, and it reads COUNTS rather than money | `src/services/analytics/__tests__/analytics-ranking-isolation.test.ts` | no |
 | The analytics identity CHECKs refuse both-identities, a cross-kind identity, an epoch-less pseudonym and a consent-denied account id while ACCEPTING each legitimate shape; the commerce correlation and buyer origin are refused on a pre-checkout event; events refuse UPDATE and permit DELETE; the query floor suppresses a rare query and serves a popular one; rollup and aggregate upserts CONVERGE rather than doubling; the rollup lease admits one claimant and refuses a stale owner's write; one CURRENT salt epoch survives a rotation; an active experiment freezes its salt and allocation while a draft does not | `src/db/analytics/__tests__/analytics.realdb.test.ts` | yes |
 | `/internal/analytics/*` is operator-gated on its OWN fourth allow-list, unmounted on an empty one (404, not 401), closed to the payments allow-list — and `POST /analytics/events` refuses every server-owned event type while accepting the good entries beside them (#77 acceptance 3) | `src/routes/__tests__/internal-analytics.test.ts` | no |
+| Acceptance 8's whole list — territory, brand exclusion, document expiry, recall, tax unknown, restricted category — plus the affiliate-only case; `ineligible` beats `unknown` beats `eligible`; every reason has a verdict AND an action; a waiver removes only what it names and never a recall | `src/services/retail-eligibility/__tests__/eligibility.test.ts` | no |
+| Every forbidden evidence kind is detected by the shape somebody actually types (free text included), and every ALLOWED resale and compliance kind survives — the vacuity floor a refuse-everything detector would fail | `src/services/retail-eligibility/__tests__/forbidden-evidence.test.ts` | no |
+| The retail eligibility domain cannot reach the fee domain, ranking cannot reach IT, the derivation reads no stored verdict and no repository at all, no module converts a currency or names a forbidden rail, and no body accepts an override-shaped field — each detector mutation-tested against a positive AND a near miss | `src/services/retail-eligibility/__tests__/retail-eligibility-isolation.test.ts` | no |
+| The emergency path END TO END and in BOTH directions: an eligible combination, ONE insert, the next derivation refuses, the lift restores it — with the refusal recorded and the content hash stable across two identical answers (#121 acceptance 5) | `src/services/retail-eligibility/__tests__/emergency-path.realdb.test.ts` | yes |
+| An ACTIVE eligibility policy refuses every scope edit and any DELETE while a draft accepts both; one active version per key even from a writer that skips the service; a decision citing another version is refused by the composite foreign key; decisions and audits refuse UPDATE and DELETE; a recall cannot be advisory; two operators converge on ONE live suppression; the evidence CHECKs refuse a reviewerless verification, an unexplained rejection and an unattributable revocation; an unwaivable reason cannot be stored and the requester cannot approve their own waiver | `src/db/retailEligibility/__tests__/retail-eligibility.realdb.test.ts` | yes |
+| `/internal/retail-eligibility/*` is operator-gated on its OWN fifth allow-list, unmounted on an empty one (404, not 401), closed to BOTH the payments and the catalog allow-lists — and every client-bypass attempt is refused: an override-shaped field, an unwaivable reason, an advisory recall, a policy requiring affiliate evidence (answered by NAME), and a mutating body with no reason | `src/routes/__tests__/internal-retail-eligibility.test.ts` | no |
 
 ### The three concurrency shapes a mocked test cannot see
 

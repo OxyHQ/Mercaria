@@ -63,6 +63,7 @@ import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
 import guestSessionRouter from './routes/guest-session.js';
 import analyticsRouter from './routes/analytics.js';
 import internalAnalyticsRouter from './routes/internal-analytics.js';
+import internalRetailEligibilityRouter from './routes/internal-retail-eligibility.js';
 import { config } from './config/index.js';
 import {
   requireCanonicalReads,
@@ -346,6 +347,15 @@ export function createApp(): express.Express {
   if (config.analytics.operatorSurfaceEnabled) {
     app.use('/internal/analytics', internalAnalyticsRouter);
   }
+  // …and the retail compliance surface, on its OWN allow-list — a FIFTH list,
+  // for the fifth instance of the same reason: approving a resale
+  // authorization, verifying a product-safety certificate and LIFTING A RECALL
+  // is a compliance power, and it is the only one of the five whose misuse puts
+  // an unsafe product back on sale. Empty = not mounted, 404 — see
+  // middleware/retail-operator-authz.ts.
+  if (config.retailEligibility.operatorSurfaceEnabled) {
+    app.use('/internal/retail-eligibility', internalRetailEligibilityRouter);
+  }
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -389,8 +399,8 @@ export function createApp(): express.Express {
         '/analytics',
         // `/internal/payments`, `/internal/commerce-graph`,
         // `/internal/canonical-catalog`, `/internal/offers`,
-        // `/internal/catalog-attributes`, `/internal/analytics` and
-        // `/internal/guest-commerce` are
+        // `/internal/catalog-attributes`, `/internal/analytics`,
+        // `/internal/retail-eligibility` and `/internal/guest-commerce` are
         // deliberately ABSENT, and this is not an
         // oversight to correct: this list is public and unauthenticated, and the
         // operator surface answers 404 on a deployment with no operators
