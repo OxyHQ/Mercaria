@@ -43,6 +43,9 @@ import crowdSourceWebhookRouter from './routes/crowdsource-webhook.js';
 import stripeWebhookRouter from './routes/stripe-webhook.js';
 import stripeOnboardingRouter from './routes/stripe-onboarding.js';
 import internalPaymentsRouter from './routes/internal-payments.js';
+import merchantsRouter from './routes/merchants.js';
+import storefrontsRouter from './routes/storefronts.js';
+import internalCommerceGraphRouter from './routes/internal-commerce-graph.js';
 import { config } from './config/index.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
 
@@ -203,6 +206,16 @@ export function createApp(): express.Express {
   if (config.payments.operatorSurfaceEnabled) {
     app.use('/internal/payments', internalPaymentsRouter);
   }
+  // Canonical commerce graph (#54, ADR 0002): public merchant/storefront
+  // identity reads…
+  app.use('/merchants', merchantsRouter);
+  app.use('/storefronts', storefrontsRouter);
+  // …and the graph's operator surface, gated exactly as /internal/payments is
+  // (its own allow-list; empty = not mounted, 404 — see
+  // middleware/catalog-operator-authz.ts).
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/commerce-graph', internalCommerceGraphRouter);
+  }
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -233,7 +246,10 @@ export function createApp(): express.Express {
         '/channels/ingest',
         '/channels/webhooks',
         '/stripe/onboarding',
-        // `/internal/payments` is deliberately ABSENT, and this is not an
+        '/merchants',
+        '/storefronts',
+        // `/internal/payments` and `/internal/commerce-graph` are deliberately
+        // ABSENT, and this is not an
         // oversight to correct: this list is public and unauthenticated, and the
         // operator surface answers 404 on a deployment with no operators
         // precisely so its existence is not discoverable. Advertising it here

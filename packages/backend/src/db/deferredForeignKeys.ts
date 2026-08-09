@@ -33,18 +33,25 @@
  * stops "we'll add the constraint when the other table exists" from becoming a
  * permanent condition nobody revisits.
  *
- * ## Empty, and it has stayed empty
+ * ## Empty again, and how it was USED once
  *
  * Fase 1 wrote 49 tables in one pass and the payment domain added eight more, so
- * no relation has ever been left waiting on a parent that did not exist. Every id
- * column here is either a real foreign key or PERMANENTLY unconstrained for one
- * of the reasons enumerated below. An empty deferred list is the correct end
- * state, not an unstarted one.
+ * for a long time no relation was ever left waiting on a parent that did not
+ * exist. The canonical commerce graph (ADR 0002) gave the deferred list its
+ * first real workout: #53 and #54 were built on PARALLEL branches, and #54's
+ * merchant/storefront tables reference `source_records` — a table #53 owns —
+ * so on #54's branch those five relations were ledgered here as DEFERRED
+ * (decided, RESTRICT per D19/D25(d), not yet expressible). At integration,
+ * with `source_records` in the barrel, the gate did exactly what it exists to
+ * do: it refused the deferral, and every entry became a real `.references()`
+ * (via `canonicalSupport.ts`'s `aliasColumns()`/`sourceLinkColumns()` and the
+ * `merchant_domains` column) and left this list. An empty deferred list is the
+ * correct end state, not an unstarted one.
  *
  * The payment domain's order and refund correlations are the entries most worth
- * reading before adding another: they are permanently unconstrained, and the
- * block comment beside them says why — a reason that is a property of a payment
- * system, not of any store it happens to run on.
+ * reading before adding another PERMANENT one: they are permanently
+ * unconstrained, and the block comment beside them says why — a reason that is
+ * a property of a payment system, not of any store it happens to run on.
  */
 
 import type { DeferredForeignKey } from '@oxyhq/db/assert';
@@ -340,4 +347,15 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'brand_aliases.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'organization_source_links.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'brand_source_links.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+
+  // ── Canonical commerce graph (#54, ADR 0002) ──────────────────────────────
+  { column: 'merchants.claimed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_aliases.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_domains.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_source_links.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'storefront_aliases.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'storefront_source_links.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'native_store_links.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'native_store_links.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'storefronts.external_shop_id', reason: EXTERNAL_PLATFORM },
 ];

@@ -624,6 +624,44 @@ decisions that make their shapes answerable:
   proof. Both are `text[]` + GIN because they are scalar sets queried by
   element, not entities.
 
+### The merchant/storefront layer of the same graph (#54, ADR 0002)
+
+Eight more Postgres-born tables, in `merchants.ts`: `merchants`,
+`merchant_aliases`, `merchant_domains`, `merchant_source_links`, `storefronts`,
+`storefront_aliases`, `storefront_source_links`, `native_store_links`. They
+inherit everything the #53 section above states — the shared-types tuples, the
+`canonicalSupport.ts` helpers (all three, spread rather than re-derived), the
+generated `normalized_alias`, the `'simple'` search vector, the `pg_trgm`
+dependency, tombstone-not-delete with the merged-consistency CHECK pair, and
+natural-unique idempotency. What is #54's own:
+
+- **The graph attaches to native tables, never absorbs them.** The ONLY
+  foreign keys into pre-existing tables are `native_store_links.store_id` and
+  `.merchant_id`, both RESTRICT (ADR 0002 D4/D25(d)): nothing deletes a
+  `stores` row today, and if a path ever does, an active canonical link must
+  confront it, not silently orphan. Paired partial uniques hold ≤1 ACTIVE link
+  per store AND per merchant; the row itself is the audit record, so
+  verification method/actor/time are NOT NULL and a `revoked` row must carry
+  its actor and time by CHECK. The method set has NO name-match member.
+- **`merchant_domains` is the domain-collision gate**: many merchants may
+  OBSERVE one domain; the partial unique `(domain) WHERE status='verified'`
+  admits exactly one VERIFIED holder. The `col = lower(btrim(col))` CHECK on
+  `merchant_domains.domain` / `storefronts.domain` makes normalization
+  structural, so a case-variant spelling cannot dodge the unique.
+- **`merchants.claim_state` is one stored verdict** (the `onboarding_state`
+  precedent, ADR 0002 D9), moved only by #40/#83. Native-checkout eligibility
+  is DERIVED at read time (claimed AND actively linked) and stored nowhere.
+- **No `organization_id` on merchants**: *organization operates merchant* is
+  an evidence-gated `commerce_relationships` row (#55, ADR 0002 D17), and a
+  column here would be a second representation of that fact.
+- **Zero new `jsonb`.** Nothing in this layer earned a register row.
+- **The parallel-development note:** on #54's branch the five
+  `source_record_id` columns were carried as DEFERRED foreign keys
+  (`db/deferredForeignKeys.ts`); at integration, with `source_records` merged,
+  the gate forced every one into the real RESTRICT `.references()` it carries
+  now. That is the mechanism working as designed, recorded here so the next
+  parallel schema batch reuses it instead of inventing one.
+
 ### Counters became sequences (`drizzle/0001_counter_sequences.sql`)
 
 `order_number_seq` and `rma_number_seq` replace the `Counter` collection's
@@ -642,7 +680,7 @@ deliberately not created and the dead function goes with the model in Fase 3.
 
 ## Register: every `jsonb` column, and why it earned it
 
-`jsonb` is for genuinely shape-less data only. Eight columns qualify in 70 tables;
+`jsonb` is for genuinely shape-less data only. Eight columns qualify in 78 tables;
 anything else with a known shape is real columns or a child table.
 
 | Column | Why it is genuinely open-shaped |
@@ -673,6 +711,7 @@ deviation is a visible decision rather than a silent one.
 | A SINGULAR table name | `feedback` | "Feedback" is a mass noun; `feedbacks` is not a word, and Mongoose's derived collection name being exactly that is a `pluralize()` artifact, not a naming decision to inherit. |
 | A currency column with NO currency CHECK | `connections.shop_currency` | It is the EXTERNAL platform's currency, declared with no enum in Mongoose deliberately: a Shopify or WooCommerce shop may report a code Mercaria does not list, and rejecting the connection over it would break the import rather than the price. Named in the gate's `EXEMPT` set. |
 | A currency column with NO currency CHECK | `provider_accounts.default_currency` | The same shape as the row above, one system further out: it is the payment RAIL's currency for that seller's account. Several EEA settlement currencies (RON, CZK, HUF, BGN) are outside `ALL_CURRENCY_CODES`, which is Mercaria's PRESENTMENT set, so a CHECK here would fail the SYNC of a real seller's account rather than reject a price. Nothing prices against it; it is shown to the seller. Named in the gate's `EXEMPT` set. |
+| A currency column with a SHAPE check, not the tuple CHECK | `storefronts.currency` | The third member of the class the two rows above define: a currency chosen by a system that is not Mercaria — the external channel's OWN currency as its platform reports it, possibly a code outside `ALL_CURRENCY_CODES`, and nothing prices against it. Unlike the two above it DOES carry a CHECK (`~ '^[A-Z]{3,4}$'`), which keeps garbage out and satisfies the currency gate structurally, so it needs no `EXEMPT` entry; ADR 0002 D18 binds `offers.price_currency` (#57) to this same shape. |
 | A polymorphic owner instead of the mutually-exclusive PAIR `orders` uses | `provider_accounts.owner_type` + `owner_id` | `orders` splits its seller into two nullable id columns and a CHECK because it joins to `stores` for real and wants that foreign key. This table cannot: half its owners are Oxy accounts, whose key space is not in this database, so the pair would exist only to be CHECKed. It follows `ledger_entries`, which already carries this exact pair for these exact two kinds — and one column makes "two owners at once" unrepresentable rather than merely rejected, which is what lets the load-bearing constraint here be a single `UNIQUE(provider, owner_type, owner_id)`. That index is the only thing stopping a seller attaching a second connected account, or somebody else's. |
 | A money column as `bigint({ mode: 'bigint' })` | `ledger_entries.amount_minor` | Every other money column is `mode: 'number'`, to map onto the `number` that `Money.amount` already is. A ledger entry is not a `Money`: it never ships to a client, it is never rendered, and it is summed across arbitrarily many rows by the one part of the system whose job is to be exactly right. `mode: 'bigint'` keeps the zero-sum check exact past 2^53 and makes it `=== 0n` on values that cannot have silently lost a minor unit. The bound that applies is the column's own int8 range, asserted by `assertSafeLedgerAmount` at every posting builder. |
 | A type ASSERTION in schema code | `money`/`dualMoney`/`addressColumns` in `columns.ts` | TypeScript cannot infer a computed template-literal key through a generic. Without the stated return type the spread contributes NOTHING to the table's type while still creating the columns at runtime — a silent DDL/type divergence. Measured, not assumed: the un-annotated form produced a table with only its `id`. The residual risk (a typo INSIDE the helper) is pinned by `emits the exact column names …`. |
