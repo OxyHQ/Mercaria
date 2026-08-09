@@ -305,6 +305,7 @@ async function seedOrder(
     buyerOrigin: 'oxy',
     buyerOxyUserId: who.buyer,
     sellerType: 'user',
+    commercialRole: 'connected_marketplace',
     sellerOxyUserId: who.seller,
     items: [
       {

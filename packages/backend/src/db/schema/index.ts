@@ -165,6 +165,14 @@ export * from './supplierPreflight';
 // payment fact and a Stripe success is not a procurement one (ADR 0004 D1), and
 // a static gate fails the build if that changes.
 export * from './supplierOrders';
+// Mercaria-retail native checkout (#123, ADR 0004 D4/D5/D8) is LAST of the
+// retail chain, because it is the only one of them that reaches back into
+// `orders`, `product_variants` AND every supply-side table above: a binding
+// names a catalogue variant and a procurement offer, an intent names an order,
+// an acceptance, a quote and a purchase order, and a variance record names an
+// order and an acceptance. Placing it earlier would make five of its foreign
+// keys forward references.
+export * from './retailCheckout';
 // The external ingestion framework (#62) follows all of them and is the last
 // export for a stronger reason than the backfill's: it is downstream of FIVE
 // layers at once. Its config binds a merchant and a storefront, its objects

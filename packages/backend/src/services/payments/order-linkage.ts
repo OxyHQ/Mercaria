@@ -25,7 +25,12 @@
  * what keeps the reconciliation path real.
  */
 
-import type { OrderSellerType, OrderStatus, PaymentProviderId } from '@mercaria/shared-types';
+import type {
+  OrderCommercialRole,
+  OrderSellerType,
+  OrderStatus,
+  PaymentProviderId,
+} from '@mercaria/shared-types';
 import {
   findOrderById,
   findOrderByOrderNumber as selectOrderByNumber,
@@ -44,7 +49,26 @@ export interface LinkedOrder {
   id: string;
   status: OrderStatus;
   sellerType: OrderSellerType;
-  /** The store id or the P2P seller's Oxy user id — whichever this order has. */
+  /**
+   * The commercial model this order was sold under (ADR 0004 D1, #123).
+   *
+   * The payment domain reads it for exactly one decision — whether this order's
+   * share of a charge is a seller's payable or Mercaria's own cost recovery —
+   * and that decision is made ONCE, in `deriveSellerNetShares`. It is carried
+   * here rather than re-derived from `sellerType === 'platform'` at each reader
+   * because the two are tied by a CHECK precisely so nobody has to remember
+   * which of them is authoritative, and a reader that picked the seller type
+   * would be answering a question about ownership with a question about money.
+   */
+  commercialRole: OrderCommercialRole;
+  /**
+   * The store id or the P2P seller's Oxy user id — whichever this order has.
+   *
+   * EMPTY for a `platform` order, and that is not a missing value: a retail
+   * order has no seller to name (ADR 0004 D1). Nothing may look a
+   * provider account up with it — the partition in `deriveSellerNetShares`
+   * removes retail orders before any reader reaches this field.
+   */
   sellerOwnerId: string;
   buyerOxyUserId: string;
   /** The order's grand total on the SHOP side, in minor units. */
@@ -89,7 +113,13 @@ function toLinkedOrder(order: OrderRecord, feeSnapshot?: OrderFeeSnapshotRecord)
     id: order.id,
     status: order.status,
     sellerType: order.sellerType,
-    sellerOwnerId: order.sellerType === 'store' ? (order.storeId ?? '') : (order.sellerOxyUserId ?? ''),
+    commercialRole: order.commercialRole,
+    sellerOwnerId:
+      order.sellerType === 'store'
+        ? (order.storeId ?? '')
+        : order.sellerType === 'user'
+          ? (order.sellerOxyUserId ?? '')
+          : '',
     buyerOxyUserId: order.buyerOxyUserId,
     shopTotalMinor: order.totalsGrandTotalShopAmount,
     shopCurrency: order.totalsGrandTotalShopCurrency,

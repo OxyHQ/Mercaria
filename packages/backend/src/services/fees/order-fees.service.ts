@@ -67,10 +67,22 @@ export async function loadFeeScheduleContext(at: Date = new Date()): Promise<Fee
   return { at, schedules: await listActiveFeeSchedules(getDb(), at) };
 }
 
+/**
+ * A seller type that CAN carry a marketplace fee.
+ *
+ * `platform` is excluded at the TYPE, which is #123's half of ADR 0004 D7
+ * proof 1: a `mercaria_retail` order's seller is Mercaria, it pays no
+ * marketplace commission, and `notApplicableFeeSnapshot('mercaria_retail')` is
+ * the only snapshot it may carry. Narrowing here rather than throwing inside
+ * means a caller that tried to fee a retail order fails `tsc` — there is no
+ * runtime path to refuse, because there is no call to make.
+ */
+export type ConnectedMarketplaceSellerType = Exclude<OrderSellerType, 'platform'>;
+
 /** The seller-side facts one order's fee needs. Note: no buyer anywhere. */
 export interface ConnectedMarketplaceFeeInput {
   context: FeeScheduleContext;
-  sellerType: OrderSellerType;
+  sellerType: ConnectedMarketplaceSellerType;
   /** The store id or the P2P seller's Oxy user id — the acceptance owner. */
   sellerOwnerId: string;
   /** The order's presentment currency — the fee's one currency. */

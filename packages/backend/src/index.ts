@@ -262,6 +262,25 @@ connectPostgres()
           log.general.error({ err }, 'Procurement dispatcher import failed'),
         );
 
+      // Close #124's two ports with #123's real implementations (ADR 0004 D4).
+      //
+      // UNCONDITIONAL, and deliberately not behind `MERCARIA_RETAIL_ENABLED`.
+      // That flag gates checkout ENTRY (D4 concern 13, D13): a rollback must
+      // leave in-flight procurement, refunds and reconciliation draining, and
+      // registering these behind it would mean turning retail off stopped
+      // authorizing procurement for orders whose buyers had already been
+      // charged — the exact opposite of "in-flight POs finish or cancel".
+      //
+      // On a deployment that has never placed a retail order both are inert:
+      // the authorization reader answers `order_not_retail` for every order it
+      // is asked about, and the outcome consumer finds no procurement intent
+      // and returns.
+      import('./services/retail-checkout/registration.js')
+        .then(({ registerRetailProcurementPorts }) => registerRetailProcurementPorts())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Retail procurement port registration failed'),
+        );
+
       // Retry stored Stripe events whose processing failed, and pick up any
       // whose task died between storing and interpreting them. Also on EVERY
       // task, same lease shape. The webhook ingress processes inline after

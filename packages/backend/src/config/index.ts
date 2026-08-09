@@ -257,6 +257,38 @@ function resolveFeedImportEnabled(): boolean {
   return false;
 }
 
+/**
+ * `MERCARIA_RETAIL_ENABLED`, with ADR 0004 D13's half-configuration rule.
+ *
+ * Both demands are things without which retail checkout would be ON and refuse
+ * every line, which is worse than being off: a catalogue that shows retail
+ * offers nobody can buy produces support tickets rather than an error somebody
+ * fixes. See {@link MercariaRetailConfig} for why each of the two matters.
+ *
+ * It logs ONCE at boot and stays off, rather than throwing: refusing to boot
+ * would take an otherwise healthy marketplace down over a feature that is off
+ * by default.
+ */
+function resolveMercariaRetailEnabled(): boolean {
+  if (!boolEnv('MERCARIA_RETAIL_ENABLED', false)) return false;
+
+  const hasPreflight = resolveSupplierPreflightEnabled();
+  const hasRetailOperators = resolveRetailOperatorIds().length > 0;
+  if (hasPreflight && hasRetailOperators) return true;
+
+  const missing = [
+    hasPreflight ? undefined : 'SUPPLIER_PREFLIGHT_ENABLED',
+    hasRetailOperators ? undefined : 'RETAIL_OPERATOR_OXY_USER_IDS',
+  ].filter((name): name is string => name !== undefined);
+  log.general.error(
+    { missing },
+    '[MercariaRetail] MERCARIA_RETAIL_ENABLED is set but the retail stack is incomplete; ' +
+      'staying OFF. Placed retail orders, their procurement, refunds and reconciliation are ' +
+      'unaffected — this flag gates checkout ENTRY only (ADR 0004 D4 concern 13).',
+  );
+  return false;
+}
+
 function resolveCrowdSourceEnabled(): boolean {
   if (!boolEnv('CROWDSOURCE_ENABLED', false)) return false;
 
@@ -1313,6 +1345,68 @@ export interface GuestCheckoutRolloutConfig {
    * this on would refuse a checkout the ADR says is eligible.
    */
   readonly sellerActivationRequired: boolean;
+  /**
+   * `GUEST_CHECKOUT_BLOCKED_SUPPLIERS` — supplier ids, the #123 axis.
+   *
+   * A FIFTH block list, and it exists because guest eligibility for a
+   * `mercaria_retail` line is a question about a SUPPLIER, not about a seller:
+   * every retail order names Mercaria as its seller, so
+   * `blockedSellerKeys` above cannot express "signed-out buyers may not order
+   * from this supplier while we investigate its fulfilment" — it would take
+   * every retail sale off with it.
+   *
+   * Like its four siblings it can only ever REMOVE, is empty by default, and is
+   * an incident lever rather than a policy surface: withdrawing one supplier
+   * from guest checkout at 3am must be adding one value, and an allow-list typo
+   * would silently switch the rest off.
+   */
+  readonly blockedSuppliers: readonly string[];
+}
+
+/**
+ * Mercaria-retail native checkout (#123, ADR 0004 D13).
+ *
+ * ## `enabled` gates ENTRY and nothing else, and that is the whole design
+ *
+ * ADR 0004 D4 concern 13 is explicit: the flag gates offer visibility and NEW
+ * retail checkouts. It never gates the outbox, the purchase-order
+ * orchestration, refunds or reconciliation, because a rollback that stranded
+ * those would leave buyers who had already been charged with no procurement and
+ * no refund — the failure the flag exists to avoid.
+ *
+ * This is the payment domain's standing "gate the loop, never the durable
+ * record" with ENTRY as the gated thing, and it is enforced structurally rather
+ * than by care: `retail-checkout-isolation.test.ts` fails the build if the
+ * payment outbox handlers, the procurement trigger, the compensating-refund
+ * path or the authorization reader learn to read `config.retail.enabled`.
+ *
+ * ## Half-configured is OFF, and the two demands are not decoration
+ *
+ * `MERCARIA_RETAIL_ENABLED=true` requires supplier preflight to be enabled and
+ * an eligibility operator list to exist — the `CROWDSOURCE_ENABLED` validation
+ * pattern. Without preflight every retail line refuses at checkout anyway
+ * (#122's quote answers `unknown` with the loop off), so enabling retail
+ * without it produces a catalogue of items nobody can buy and no message saying
+ * why. Without `RETAIL_OPERATOR_OXY_USER_IDS` nobody can publish an eligibility
+ * policy version, so `getRetailEligibility` answers `unknown`/`policy_missing`
+ * for every line — the same outcome, from the other end.
+ *
+ * ## `blockedSuppliers` / `blockedMarkets` are #123's own incident levers
+ *
+ * Separate from the guest lists above because they apply to EVERY buyer: a
+ * supplier whose fulfilment has failed must stop selling to account holders
+ * too. Both are block lists, both empty by default, and a refusal names
+ * NEITHER — one reason code (`retail_disabled`) covers the flag and both lists,
+ * so a client cannot map the switchboard one input at a time (ADR 0006's rule,
+ * reused).
+ */
+export interface MercariaRetailConfig {
+  /** `MERCARIA_RETAIL_ENABLED`, default FALSE (ADR 0004 D13's shipped default). */
+  readonly enabled: boolean;
+  /** `RETAIL_BLOCKED_SUPPLIERS` — supplier ids withdrawn from sale entirely. */
+  readonly blockedSuppliers: readonly string[];
+  /** `RETAIL_BLOCKED_MARKETS` — ISO-3166 alpha-2 destinations withdrawn from sale. */
+  readonly blockedMarkets: readonly string[];
 }
 
 export interface PaginationConfig {
@@ -2030,6 +2124,7 @@ export interface AppConfig {
   readonly retailEligibility: RetailEligibilityConfig;
   readonly supplierPreflight: SupplierPreflightConfig;
   readonly procurement: ProcurementConfig;
+  readonly retail: MercariaRetailConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -2301,6 +2396,9 @@ export const config: AppConfig = Object.freeze({
         blockedListEnv('GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS', 'lower'),
       ),
       sellerActivationRequired: boolEnv('GUEST_SELLER_ACTIVATION_REQUIRED', false),
+      blockedSuppliers: Object.freeze(
+        blockedListEnv('GUEST_CHECKOUT_BLOCKED_SUPPLIERS', 'lower'),
+      ),
     }),
     portal: Object.freeze({
       grantDays: intEnv('GUEST_PORTAL_GRANT_DAYS', 30),
@@ -2373,6 +2471,11 @@ export const config: AppConfig = Object.freeze({
     callTimeoutMs: intEnv('PROCUREMENT_CALL_TIMEOUT_MS', 20_000),
     convergenceGraceMs: intEnv('PROCUREMENT_CONVERGENCE_GRACE_MS', 60_000),
     fakeAdapterEnabled: boolEnv('PROCUREMENT_FAKE_ADAPTER_ENABLED', false),
+  }),
+  retail: Object.freeze({
+    enabled: resolveMercariaRetailEnabled(),
+    blockedSuppliers: Object.freeze(blockedListEnv('RETAIL_BLOCKED_SUPPLIERS', 'lower')),
+    blockedMarkets: Object.freeze(blockedListEnv('RETAIL_BLOCKED_MARKETS', 'upper')),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

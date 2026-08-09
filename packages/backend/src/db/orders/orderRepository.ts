@@ -62,6 +62,7 @@ import type {
   Money,
   OrderActorKind,
   OrderBuyerOrigin,
+  OrderCommercialRole,
   OrderSellerType,
   OrderSourceChannel,
   OrderStatus,
@@ -251,6 +252,19 @@ export interface NewOrder {
   /** Set iff `buyerOrigin` is `'guest'` — the group's `guest_checkouts` row. */
   buyerGuestCheckoutId?: string;
   sellerType: OrderSellerType;
+  /**
+   * The commercial model this order is sold under (ADR 0004 D1, #123).
+   *
+   * REQUIRED, like `buyerOrigin` and for the identical reason: the column has a
+   * `connected_marketplace` default so the migration could fill an existing
+   * table without a rewrite, and a new writer leaning on that default would
+   * silently classify a Mercaria-retail sale as a marketplace one — which puts
+   * its whole gross into commission arithmetic that has no seller to net
+   * against. `orders_commercial_role_seller_check` catches the specific case
+   * where the seller type disagrees; nothing catches a `platform`-less retail
+   * order that simply named the wrong role, so every writer states one.
+   */
+  commercialRole: OrderCommercialRole;
   sellerOxyUserId?: string;
   storeId?: string;
   customerId?: string;
@@ -1003,6 +1017,7 @@ export async function insertOrder(
         buyerOxyUserId: input.buyerOxyUserId ?? null,
         buyerGuestCheckoutId: input.buyerGuestCheckoutId ?? null,
         sellerType: input.sellerType,
+        commercialRole: input.commercialRole,
         sellerOxyUserId: input.sellerOxyUserId ?? null,
         storeId: input.storeId ?? null,
         customerId: input.customerId ?? null,

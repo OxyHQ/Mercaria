@@ -437,6 +437,7 @@ describe('#90 acceptance 3 — an order snapshot is never rewritten', () => {
       buyerOrigin: 'oxy',
       buyerOxyUserId: `buyer-${RUN}`,
       sellerType: 'user',
+      commercialRole: 'connected_marketplace',
       sellerOxyUserId: `seller-${RUN}`,
       items: [
         {

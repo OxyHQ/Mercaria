@@ -48,11 +48,12 @@ import {
   ITEM_CONDITION_KEYS,
   ORDER_ACTOR_KINDS,
   ORDER_BUYER_ORIGINS,
+  ORDER_COMMERCIAL_ROLES,
   ORDER_PAYMENT_STATUSES,
+  ORDER_SELLER_TYPES as SHARED_ORDER_SELLER_TYPES,
   PAYMENT_PROVIDER_IDS,
   REFUND_PROVIDER_STATES,
   REFUND_REVERSAL_STATES,
-  type OrderSellerType,
   type OrderSourceChannel,
   type OrderStatus,
   type RefundStatus,
@@ -90,8 +91,15 @@ export const ORDER_STATUSES: readonly OrderStatus[] = [
 /** `Order.shipping.method` — `SHIPPING_METHODS`. */
 export const SHIPPING_METHODS: readonly ShippingMethod[] = ['standard', 'express', 'pickup'];
 
-/** `Order.sellerType` — `SELLER_TYPES`. */
-export const ORDER_SELLER_TYPES: readonly OrderSellerType[] = ['user', 'store'];
+/**
+ * `Order.sellerType` — `SELLER_TYPES`, re-exported from the shared tuple.
+ *
+ * It lived here as a local literal until #123 gave `platform` a meaning outside
+ * this package (the fee domain's `eligible_seller_type` scope reads it, and so
+ * does every DTO). One tuple, in `@mercaria/shared-types`, is what keeps the
+ * column's CHECK and the TypeScript union from drifting apart.
+ */
+export const ORDER_SELLER_TYPES = SHARED_ORDER_SELLER_TYPES;
 
 /** `Order.sourceChannel` — `SOURCE_CHANNELS`. */
 export const ORDER_SOURCE_CHANNELS: readonly OrderSourceChannel[] = ['storefront', 'pos', 'draft'];
@@ -188,6 +196,25 @@ export const orders = pgTable(
      */
     claimedAt: timestamptz(),
     sellerType: text({ enum: asEnumValues(ORDER_SELLER_TYPES) }).notNull(),
+    /**
+     * The commercial model this order was sold under — ADR 0004 D1 (#123).
+     *
+     * NOT NULL with a `connected_marketplace` default, and the default is what
+     * let the migration fill every existing row without a rewrite. It is not a
+     * licence for a new writer to omit it: `checkout.service` states the role
+     * explicitly per group, exactly as it states `buyerOrigin`, because a
+     * writer that forgot would silently classify a retail sale as a
+     * marketplace one and hand it to commission arithmetic.
+     *
+     * Immutable in practice rather than by trigger: nothing in this codebase
+     * updates it, `orders_commercial_role_seller_check` below would refuse the
+     * only value change that could matter (a role move without the matching
+     * seller-type move), and the money path reads it on every posting rather
+     * than caching a copy.
+     */
+    commercialRole: text({ enum: asEnumValues(ORDER_COMMERCIAL_ROLES) })
+      .notNull()
+      .default('connected_marketplace'),
     /** An Oxy account id — no foreign key. Set iff `sellerType = 'user'`. */
     sellerOxyUserId: text(),
     /**
@@ -320,6 +347,7 @@ export const orders = pgTable(
   (t) => [
     checkOneOf('orders_buyer_origin_check', t.buyerOrigin, ORDER_BUYER_ORIGINS),
     checkOneOf('orders_seller_type_check', t.sellerType, ORDER_SELLER_TYPES),
+    checkOneOf('orders_commercial_role_check', t.commercialRole, ORDER_COMMERCIAL_ROLES),
     checkOneOf('orders_source_channel_check', t.sourceChannel, ORDER_SOURCE_CHANNELS),
     checkOneOf('orders_source_provider_check', t.sourceProvider, CONNECTOR_PROVIDER_IDS),
     checkOneOf('orders_shipping_method_check', t.shippingMethod, SHIPPING_METHODS),
@@ -390,11 +418,41 @@ export const orders = pgTable(
              and ${t.claimedByOxyUserId} is null
              and ${t.claimedAt} is null)`,
     ),
-    // The seller side mirrors the listing owner: exactly one of the two is set.
+    /**
+     * The seller side mirrors the listing owner: exactly one of the two is set
+     * — except for `platform`, where NEITHER is (#123, ADR 0004 D1).
+     *
+     * The third disjunct is what makes "no connected-seller transfer exists for
+     * a retail order" structural rather than a branch. Transfer creation looks
+     * up a `provider_accounts` row by (ownerType, ownerId); a `platform` order
+     * has no owner id to look one up WITH, and there is no Mercaria account on
+     * its own rail for it to find. So the absence of both columns is the
+     * mechanism, and widening this CHECK to let a retail order name a seller
+     * would be the single edit that could put Mercaria's own retail share into
+     * a Connect transfer.
+     */
     check(
       'orders_seller_exclusivity_check',
       sql`(${t.sellerType} = 'user' and ${t.sellerOxyUserId} is not null and ${t.storeId} is null)
-          or (${t.sellerType} = 'store' and ${t.storeId} is not null and ${t.sellerOxyUserId} is null)`,
+          or (${t.sellerType} = 'store' and ${t.storeId} is not null and ${t.sellerOxyUserId} is null)
+          or (${t.sellerType} = 'platform' and ${t.sellerOxyUserId} is null and ${t.storeId} is null)`,
+    ),
+    /**
+     * `sellerType = 'platform'` ⇔ `commercialRole = 'mercaria_retail'` — the
+     * biconditional ADR 0004 D1 names, as one CHECK rather than two.
+     *
+     * Both directions matter and they fail differently. A `platform` order
+     * marked `connected_marketplace` would enter commission arithmetic with no
+     * seller to net against, so its whole gross would fall into the residual
+     * and be booked as Mercaria commission on a zero-markup sale — D7 proof 1
+     * broken silently, in the direction that reads as revenue. A
+     * `mercaria_retail` order naming a store or a P2P seller would credit that
+     * seller a payable for goods Mercaria bought from a supplier, and settle it
+     * to them.
+     */
+    check(
+      'orders_commercial_role_seller_check',
+      sql`(${t.sellerType} = 'platform') = (${t.commercialRole} = 'mercaria_retail')`,
     ),
     // An fx-rate snapshot is complete or absent. `provider` is part of the
     // snapshot's identity — a stored rate nobody can attribute to a source is

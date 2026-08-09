@@ -643,6 +643,24 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // three classes procurement already ledgers: catalogue snapshots whose
   // targets legitimately move on, a grouping token with no parent entity, and
   // a commerce correlation the financial record must outlive.
+  // #123's retail checkout. Three classes and no fourth: two Oxy operator ids,
+  // one grouping token, and the catalogue snapshots a frozen intent line
+  // carries. Everything a purchase order is COMPOSED from — the supplier, the
+  // account, the agreement, the binding, the acceptance and the quote — is a
+  // real RESTRICT foreign key and is deliberately absent from this list: an
+  // intent whose supply side cannot be reached is not a promise anybody can
+  // audit.
+  { column: 'retail_offer_bindings.bound_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_offer_bindings.retired_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'retail_procurement_intents.checkout_group_id',
+    reason:
+      'The same grouping token orders, payments and purchase orders carry; there is no ' +
+      'checkout_groups entity to point at. It is restated here so a procurement trace can ' +
+      'open from a group without joining orders.',
+  },
+  { column: 'retail_procurement_intent_lines.canonical_product_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'retail_procurement_intent_lines.canonical_variant_id', reason: COMMERCE_SNAPSHOT },
   { column: 'retail_cost_quotes.procurement_offer_id', reason: COMMERCE_SNAPSHOT },
   { column: 'retail_cost_quotes.canonical_product_id', reason: COMMERCE_SNAPSHOT },
   { column: 'retail_cost_quotes.canonical_variant_id', reason: COMMERCE_SNAPSHOT },

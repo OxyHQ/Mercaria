@@ -46,7 +46,7 @@
 
 import type { CurrencyCode } from '@mercaria/shared-types';
 import { assertSafeLedgerAmount } from '@mercaria/shared-types';
-import type { SellerShare } from './ledger-postings.js';
+import type { RetailRecoveryShare, SellerShare } from './ledger-postings.js';
 import { allocateSellerShares } from './settlement-shares.js';
 import type { LinkedOrder } from './order-linkage.js';
 
@@ -54,11 +54,39 @@ import type { LinkedOrder } from './order-linkage.js';
 export interface SellerNetAllocation {
   /** The currency the shares are denominated in — the settlement basis's. */
   currency: CurrencyCode;
-  /** One NET share per order: gross share minus the converted marketplace fee. */
+  /**
+   * One NET share per CONNECTED-MARKETPLACE order: gross share minus the
+   * converted marketplace fee.
+   *
+   * `mercaria_retail` orders are NOT here — see {@link SellerNetAllocation.retailShares}.
+   * That omission is what every existing reader of this field gets for free: the
+   * ledger credits no payable for a retail order, the settlement step creates no
+   * transfer for one, and the refund proration finds no seller share to reverse.
+   * Three correct behaviours from one partition, rather than three `if` branches
+   * that could each be deleted separately.
+   */
   shares: SellerShare[];
   /**
+   * One RECOVERY share per `mercaria_retail` order — its exact slice of the
+   * same allocation, with no owner and no fee deducted (ADR 0004 D4 concern 8).
+   *
+   * No fee, because #88 snapshots a `not_applicable` mode with a NULL fee for
+   * this commercial mode: a retail order pays no marketplace commission, and
+   * `marketplaceFeePresentmentMinor` reads 0 for it — which would deduct
+   * nothing anyway. Stating it here rather than relying on that is the
+   * difference between a property and a coincidence.
+   *
+   * `Σshares + Σretailshares + Σfees = gross` exactly, because all three come
+   * out of ONE `allocateSellerShares` call over ALL the orders. Allocating the
+   * two kinds separately would round twice and leave the difference in the
+   * commission residual — the exact silent leak `settlement-shares.ts` exists
+   * to prevent, arriving through a partition instead of a per-order conversion.
+   */
+  retailShares: RetailRecoveryShare[];
+  /**
    * What was deducted per order, in the settled currency. `Σfees = gross −
-   * Σnets` exactly — the commission `chargeSucceeded` will book as residual.
+   * Σnets − Σrecoveries` exactly — the commission `chargeSucceeded` will book
+   * as residual.
    */
   feeMinorByOrderId: Map<string, bigint>;
 }
@@ -81,6 +109,9 @@ export function deriveSellerNetShares(input: {
 }): SellerNetAllocation {
   const { settled, presentmentGrossMinor, orders } = input;
 
+  // The allocation runs over ALL the orders, retail included, so the split is
+  // exact across the whole charge (ADR 0004 D4 concern 8). The partition below
+  // decides what each resulting share MEANS; it never re-divides anything.
   const allocation = allocateSellerShares({
     grossMinor: settled.grossMinor,
     currency: settled.currency,
@@ -92,8 +123,16 @@ export function deriveSellerNetShares(input: {
     })),
   });
 
+  const roleByOrderId = new Map(orders.map((order) => [order.id, order.commercialRole]));
+  const retailShares: RetailRecoveryShare[] = allocation.shares
+    .filter((share) => roleByOrderId.get(share.orderId) === 'mercaria_retail')
+    .map((share) => ({ orderId: share.orderId, recoveryMinor: share.netMinor }));
+  const marketplaceShares = allocation.shares.filter(
+    (share) => roleByOrderId.get(share.orderId) !== 'mercaria_retail',
+  );
+
   const feeMinorByOrderId = new Map<string, bigint>();
-  const shares: SellerShare[] = allocation.shares.map((share) => {
+  const shares: SellerShare[] = marketplaceShares.map((share) => {
     const order = orders.find((candidate) => candidate.id === share.orderId);
     const feePresentment = BigInt(order?.marketplaceFeePresentmentMinor ?? 0);
 
@@ -122,5 +161,5 @@ export function deriveSellerNetShares(input: {
     return { ...share, netMinor: share.netMinor - feeSettled };
   });
 
-  return { currency: allocation.currency, shares, feeMinorByOrderId };
+  return { currency: allocation.currency, shares, retailShares, feeMinorByOrderId };
 }

@@ -348,6 +348,7 @@ async function seedOrder(
     buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${seller.suffix}`,
     sellerType: 'store',
+    commercialRole: 'connected_marketplace',
     storeId: seller.store.id,
     items: [
       {

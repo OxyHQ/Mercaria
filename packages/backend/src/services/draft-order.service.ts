@@ -818,6 +818,7 @@ export async function completeDraftOrder(
       buyerOrigin: 'oxy',
       buyerOxyUserId,
       sellerType: 'store',
+      commercialRole: 'connected_marketplace',
       storeId,
       ...(draft.customerId ? { customerId: draft.customerId } : {}),
       sourceChannel: 'pos',

@@ -162,8 +162,66 @@ export interface OrderItem {
   condition: OrderItemConditionSnapshot;
 }
 
-/** Who fulfils an order: an individual P2P seller or a store. */
-export type OrderSellerType = 'user' | 'store';
+/**
+ * Who SELLS an order: an individual P2P seller, a store, or Mercaria itself.
+ *
+ * `platform` is ADR 0004 D1's widening (#123): a `mercaria_retail` order's
+ * seller IS Mercaria, so it carries neither `sellerOxyUserId` nor `storeId` —
+ * the seller-identity CHECK on `orders` admits exactly that shape for it and no
+ * other. It is deliberately NOT a third kind of "merchant": there is no
+ * `provider_accounts` row for Mercaria on its own rail and creating one is
+ * forbidden, so transfer creation — which iterates seller orders holding a
+ * provider-account owner — passes a `platform` order by construction rather
+ * than by a branch somebody could delete (ADR 0004 D1, D4 concern 8).
+ *
+ * The role and the seller type are two spellings of one fact and a CHECK ties
+ * them: `sellerType = 'platform'` ⇔ `commercialRole = 'mercaria_retail'`. They
+ * both exist because they answer different questions — "who is owed the money"
+ * versus "under which commercial model was this sold" — and every reader that
+ * needs one would otherwise re-derive it from the other.
+ */
+export type OrderSellerType = 'user' | 'store' | 'platform';
+
+/** {@link OrderSellerType} as the tuple the column types and CHECKs read. */
+export const ORDER_SELLER_TYPES: readonly OrderSellerType[] = ['user', 'store', 'platform'];
+
+/**
+ * The seller types a MARKETPLACE FEE can be scoped to (#88, #123).
+ *
+ * `platform` is excluded, and the exclusion is the point: a `mercaria_retail`
+ * order pays no marketplace commission (ADR 0004 D7 proof 1) and its fee
+ * snapshot is `not_applicable` with a NULL fee. A schedule scoped to `platform`
+ * could therefore never be selected by anything — but it would be a
+ * REPRESENTABLE state that reads like a policy somebody set, so the fee
+ * domain's columns render their CHECKs from THIS tuple rather than the full one
+ * and the state has no row shape.
+ */
+export const CONNECTED_MARKETPLACE_SELLER_TYPES: readonly OrderSellerType[] = ['user', 'store'];
+
+/**
+ * The commercial model one order was placed under — ADR 0004 D1, chosen BEFORE
+ * checkout and immutable afterwards.
+ *
+ * Two members, not four. {@link CommercialMode} in `./fees` has four because it
+ * classifies what a FEE calculation was asked about, and two of those
+ * (`external_referral`, `informational`) never create a Mercaria order at all —
+ * so they have no order-side spelling and must not acquire one. Existing orders
+ * backfill `connected_marketplace`.
+ *
+ * A retail order's PAYMENT is indistinguishable from a marketplace order's at
+ * the payment layer, and that is the point: `PAYMENT_PROVIDER_IDS` gains no
+ * member, because at the rail both are a card charge Mercaria captured as
+ * merchant of record. The role lives on the offer and the order and nowhere
+ * else — inferring it from the payment provider, or the provider from it, is
+ * exactly what D1 prohibits.
+ */
+export type OrderCommercialRole = 'connected_marketplace' | 'mercaria_retail';
+
+/** {@link OrderCommercialRole} as the tuple the column types and CHECKs read. */
+export const ORDER_COMMERCIAL_ROLES: readonly OrderCommercialRole[] = [
+  'connected_marketplace',
+  'mercaria_retail',
+];
 
 /**
  * The channel an order originated from: the online `storefront`, an in-store

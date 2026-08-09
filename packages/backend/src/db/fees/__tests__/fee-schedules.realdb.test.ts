@@ -108,6 +108,7 @@ async function seedOrderWithSnapshot(
     buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${uuidv7()}`,
     sellerType: 'user',
+    commercialRole: 'connected_marketplace',
     sellerOxyUserId: seller,
     items: [
       {

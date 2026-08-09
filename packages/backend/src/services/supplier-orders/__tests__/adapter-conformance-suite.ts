@@ -194,6 +194,7 @@ export function runSupplierAdapterConformanceSuite(
       buyerOrigin: 'oxy',
       buyerOxyUserId: `buyer-${suffix}`,
       sellerType: 'store',
+      commercialRole: 'connected_marketplace',
       storeId: store.id,
       shippingAddress: {
         recipientName: 'Conformance Buyer',

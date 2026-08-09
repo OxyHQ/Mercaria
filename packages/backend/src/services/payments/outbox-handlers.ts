@@ -22,6 +22,7 @@ import { findGuestCheckoutIdForGroup } from './guest-correlation.js';
 import { enqueueGuestMessage } from '../guest-portal/message.service.js';
 import { findOrdersInCheckoutGroup, loadOrderForTransition } from './order-linkage.js';
 import { enqueuePaymentEvent, guestPortalInitializationEventId } from './payment-outbox.service.js';
+import { requestRetailFulfilment, runRetailOutboxEvent } from './retail-outbox.port.js';
 import { settlePaymentTransfers } from './settlement.service.js';
 import { log } from '../../lib/logger.js';
 
@@ -186,10 +187,49 @@ async function handlePaymentSucceeded(event: PaymentOutboxRow): Promise<void> {
   // as paying the orders before settling them.
   await requestGuestPortalInitialization(checkoutGroupId, orders.map((order) => order.id));
 
+  // ADR 0004 D4 step 4: the paid transition of a retail order is the ONE moment
+  // supplier procurement may begin, because the customer's money is now fully
+  // captured and the customer amount can never rise again.
+  //
+  // AFTER the transitions above, so the authorization reader — which requires
+  // `paid` — answers yes by the time #124 asks; ordering it before would make
+  // every first submission fail its own authorization check and retry. BEFORE
+  // settlement, for the reason the portal initialization is: a rail refusing
+  // transfers to OTHER sellers must not be why a buyer's item is never ordered.
+  //
+  // A marketplace-only group enqueues nothing and costs one indexed read per
+  // order.
+  await requestRetailFulfilment(orders.map((order) => order.id));
+
   if (paymentId) {
     await settlePaymentTransfers(paymentId);
   }
 }
+
+/**
+ * The two #123 rows, dispatched through the port.
+ *
+ * Both handlers live in `services/retail-checkout/`, not here, and the reason
+ * is `role-separation.test.ts`: nothing under `services/payments/` may import
+ * the procurement domain, and turning an intent into a PurchaseOrder is exactly
+ * that import. See `retail-outbox.port.ts` for why the ONE edge ADR 0004 D4
+ * step 4 requires is crossed by a registration rather than by widening the
+ * gate.
+ *
+ * A failure propagates and the row retries. That is safe in both directions:
+ * the intent's status CAS admits only `recorded`/`requested`, the purchase
+ * order is idempotent on `po:<orderId>:<supplierId>`, and the compensating
+ * refund is idempotent on the purchase order id — so a retry converges rather
+ * than placing a second supplier order or refunding a buyer twice.
+ */
+async function handleRetailOutboxEvent(event: PaymentOutboxRow): Promise<void> {
+  await runRetailOutboxEvent(event);
+  log.general.info(
+    { eventId: event.id, eventType: event.eventType },
+    '[Retail] outbox row handled by the retail-checkout consumer',
+  );
+}
+
 
 /**
  * A guest-origin group's payment is verified: hand #108 the durable, idempotent
@@ -641,6 +681,9 @@ export async function runPaymentOutboxEvent(event: PaymentOutboxRow): Promise<vo
       return await handleRefundUnmatched(event);
     case 'guest_portal_initialization':
       return await handleGuestPortalInitialization(event);
+    case 'procurement_requested':
+    case 'retail_procurement_failed':
+      return await handleRetailOutboxEvent(event);
     default:
       throw new Error(
         `No handler for payment outbox event type '${String(event.eventType)}' in this version.`,

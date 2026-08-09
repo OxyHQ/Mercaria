@@ -603,6 +603,10 @@ async function bookChargeSucceeded(
     grossMinor: settled.grossMinor,
     feeMinor,
     shares: allocation.shares,
+    // ADR 0004 D7: a `mercaria_retail` order's share credits
+    // `retail_cost_recovery` and leaves the commission residual alone. Empty on
+    // every marketplace-only group, which is every group before #123.
+    retailShares: allocation.retailShares,
   });
   const inserted = await insertLedgerTransaction(tx, posting.transaction, posting.entries);
   return inserted.id;

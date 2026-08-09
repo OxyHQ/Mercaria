@@ -60,7 +60,6 @@ import type {
   FxRateSnapshot,
   Money,
   ShippingMethod,
-  OrderSellerType,
   DiscountAllocation,
   TaxLine,
 } from '@mercaria/shared-types';
@@ -135,8 +134,16 @@ import {
 import { selectFeeSchedule } from './fees/fee-calculation.js';
 import {
   loadFeeScheduleContext,
+  notApplicableFeeSnapshot,
   planConnectedMarketplaceFee,
+  type ConnectedMarketplaceSellerType,
 } from './fees/order-fees.service.js';
+import {
+  partitionRetailLines,
+  planRetailCheckout,
+  type RetailCheckoutPlan,
+} from './checkout/retail.js';
+import { insertRetailProcurementIntents } from '../db/retailCheckout/retailCheckoutRepository.js';
 import { addMoney, multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { uuidv7, isUniqueViolation } from '@oxyhq/db';
@@ -180,13 +187,37 @@ interface ResolvedLine {
   optionValues: VariantOptionValueRecord[];
 }
 
-/** A per-seller group of resolved lines that becomes one order. */
+/**
+ * A per-seller group of resolved lines that becomes one order.
+ *
+ * `sellerType` is narrowed to the two CONNECTED-MARKETPLACE kinds, and the
+ * narrowing is #123's boundary rather than tidiness: a `mercaria_retail` line
+ * never enters this map at all. It is partitioned out before grouping, so the
+ * readiness gate, the reservation loop, the discount engine and the fee planner
+ * — every one of which takes a seller — are structurally unable to see one.
+ * There is no `if (sellerType === 'platform')` anywhere in this file to delete.
+ */
 interface SellerGroup {
-  sellerType: OrderSellerType;
+  sellerType: ConnectedMarketplaceSellerType;
   sellerOxyUserId?: string;
   storeId?: string;
   lines: ResolvedLine[];
 }
+
+/**
+ * The seller key every retail line is grouped under.
+ *
+ * ONE key for the whole retail order, because Mercaria is ONE seller (ADR 0004
+ * D5) however many suppliers the lines come from. Multi-supplier splitting
+ * happens at the PurchaseOrder grain, under this single order — which is what
+ * keeps ADR 0001's one-PaymentIntent-per-group invariant intact on a mixed
+ * cart.
+ *
+ * It is in the same namespace as `store:<id>` and `user:<id>` so `sellerKeys`
+ * (per-seller checkout) works unchanged: a buyer with a mixed cart deselects
+ * `platform` exactly as they would deselect a store.
+ */
+const RETAIL_SELLER_KEY = 'platform';
 
 /**
  * Build the immutable address snapshot each seller order carries.
@@ -461,6 +492,171 @@ function requireGuestCheckoutId(guestCheckout: { id: string } | null): string {
 }
 
 /**
+ * The destination country, as the retail stack reads it.
+ *
+ * `destination.ts` has already upper-cased and validated it; restating the
+ * normalization here would be a second authority over one value. What this
+ * exists for is the ASSERTION: every retail gate — #121's verdict, #122's
+ * request fingerprint, the supply agreement's permitted-destination list —
+ * compares an ISO-3166 alpha-2 code exactly, and a checkout that reached here
+ * with anything else would fail those comparisons silently rather than loudly.
+ */
+function shippingCountryForRetail(country: string): string {
+  if (!/^[A-Z]{2}$/.test(country)) {
+    throw conflict('This delivery address cannot be used for items we supply ourselves.');
+  }
+  return country;
+}
+
+/**
+ * Build the ONE `mercaria_retail` order a checkout group's retail lines become
+ * (ADR 0004 D5).
+ *
+ * ## Every amount comes from the LOCK, and none of it is re-priced
+ *
+ * The pricing engine is not called and cannot be: it computes a subtotal from
+ * catalogue prices, applies discounts and taxes and returns a grand total, and
+ * every one of those steps would be a second answer to a question #120 has
+ * already answered and the buyer has already accepted. The line totals ARE the
+ * locked totals; the order's grand total is their exact sum; the shipping and
+ * tax lines are attributions of that same sum, read off the quote's own
+ * components, so `subtotal + shipping + tax = grandTotal` holds by
+ * construction rather than by a reconciliation.
+ *
+ * `discountTotal` is zero and there is no allocation list. A promotion on a
+ * retail line is a Mercaria SUBSIDY inside #120's quote (`buyer_payable =
+ * customer_total − subsidy`, a CHECK), not a marketplace discount — so it has
+ * already been applied to the locked amount, and applying a discount code here
+ * as well would take it off twice.
+ *
+ * ## Shop currency is the presentment currency, and that is ADR 0004 D5
+ *
+ * Mercaria is the seller, so its accounting side and the platform side
+ * coincide; there is no third-party merchant whose books this has to be
+ * translated into. Both sides of every `DualMoney` are therefore the same
+ * figure, and the `fxRate` snapshot is the identity — which is exactly what
+ * `fx.service` records for a same-currency order, so no rate is fetched and a
+ * retail order can be placed with no FX provider reachable at all.
+ */
+function buildRetailOrder(input: {
+  plan: RetailCheckoutPlan<ResolvedLine>;
+  orderNumber: string;
+  owner: CartOwner;
+  guestCheckoutId?: string;
+  checkoutGroupId: string;
+  shippingAddressSnapshot: AddressSnapshot;
+  shippingMethod: ShippingMethod;
+  presentmentCurrency: CurrencyCode;
+  idempotencyKey?: string;
+  conditionNotesByListing: ReadonlyMap<string, string>;
+}): NewOrder {
+  const same = (amount: number): DualMoney => ({
+    shop: { amount, currency: input.presentmentCurrency },
+    presentment: { amount, currency: input.presentmentCurrency },
+  });
+
+  const items: NewOrderItem[] = input.plan.lines.map((planned) => {
+    const { listing, variant, images, optionValues } = planned.line;
+    const item: NewOrderItem = {
+      listingId: listing.id,
+      variantId: variant.id,
+      title: listing.title,
+      variantTitle: variant.title,
+      optionValues: optionValues.map((option) => ({ name: option.name, value: option.value })),
+      // The LOCKED figures. `unitPrice` is the locked line total divided by the
+      // quantity only when it divides exactly; otherwise the line total is
+      // authoritative and the unit price carries the floor, because #120 locked
+      // a LINE and a unit price is a presentation of it. Inventing a rounded
+      // unit price that multiplies to a different line total would put two
+      // contradictory numbers on one receipt.
+      unitPrice: same(Math.floor(planned.lockedTotal.amount / planned.quantity)),
+      quantity: planned.quantity,
+      lineTotal: same(planned.lockedTotal.amount),
+      conditionKey: narrowStoredCondition(listing.condition),
+      conditionAssertion: listing.conditionAssertion,
+    };
+    const conditionNotes = input.conditionNotesByListing.get(listing.id);
+    if (conditionNotes !== undefined) item.conditionNotes = conditionNotes;
+    const imageUrl = firstImageUrl(images);
+    if (imageUrl !== undefined) item.imageUrl = imageUrl;
+    return item;
+  });
+
+  const shippingMinor = input.plan.lines.reduce(
+    (total, planned) => total + planned.shippingShare.amount,
+    0,
+  );
+  const taxMinor = input.plan.lines.reduce((total, planned) => total + planned.taxShare.amount, 0);
+  const grandMinor = input.plan.lockedTotal.amount;
+  const subtotalMinor = grandMinor - shippingMinor - taxMinor;
+  if (subtotalMinor < 0) {
+    // The shares are components OF the locked total, so they cannot exceed it
+    // unless #120 stored a quote whose components do not sum to its own total —
+    // which its single writer refuses. A throw rather than a clamp: a clamped
+    // subtotal would produce a receipt whose lines do not add up to its total.
+    throw conflict('This item could not be priced for checkout. Please try again.');
+  }
+  assertSafeMoneyAmount(grandMinor, 'checkout.retail.grandTotal');
+
+  return {
+    ...(input.owner.kind === 'oxy_user'
+      ? { buyerOrigin: 'oxy' as const, buyerOxyUserId: input.owner.oxyUserId }
+      : {
+          buyerOrigin: 'guest' as const,
+          buyerGuestCheckoutId: requireGuestCheckoutId(
+            input.guestCheckoutId ? { id: input.guestCheckoutId } : null,
+          ),
+        }),
+    orderNumber: input.orderNumber,
+    // ADR 0004 D1's biconditional, stated on both columns at the one place a
+    // retail order is created. `orders_commercial_role_seller_check` refuses
+    // any other pairing, so these two lines cannot drift apart.
+    sellerType: 'platform',
+    commercialRole: 'mercaria_retail',
+    items,
+    shippingAddress: input.shippingAddressSnapshot,
+    shippingMethod: input.shippingMethod,
+    shippingLabel: SHIPPING_LABELS[input.shippingMethod],
+    shippingCost: same(shippingMinor),
+    totals: {
+      subtotal: same(subtotalMinor),
+      discountTotal: same(0),
+      shipping: same(shippingMinor),
+      tax: same(taxMinor),
+      grandTotal: same(grandMinor),
+    },
+    fxRate: {
+      from: input.presentmentCurrency,
+      to: input.presentmentCurrency,
+      rate: 1,
+      provider: 'identity',
+      asOf: new Date().toISOString(),
+    },
+    appliedDiscounts: [],
+    taxLines: [],
+    status: 'pending_payment',
+    statusHistory: [
+      {
+        status: 'pending_payment',
+        at: new Date(),
+        ...statusEventActorColumns(
+          input.owner.kind === 'oxy_user'
+            ? { kind: 'oxy', oxyUserId: input.owner.oxyUserId }
+            : { kind: 'guest', guestSessionId: input.owner.guestSessionId },
+        ),
+      },
+    ],
+    paymentStatus: 'unpaid',
+    checkoutGroupId: input.checkoutGroupId,
+    ...(input.idempotencyKey ? { idempotencyKey: `${input.idempotencyKey}:${RETAIL_SELLER_KEY}` } : {}),
+    // #88's `mercaria_retail` mode: a NULL fee, never a zero. A zero would read
+    // as a schedule that calculated nothing, and `commission_revenue` would
+    // then be receiving a figure from a schedule nobody published.
+    feeSnapshot: notApplicableFeeSnapshot('mercaria_retail'),
+  };
+}
+
+/**
  * Place orders from the buyer's current cart.
  *
  * @param actor - Who is checking out (ADR 0003 D1). An Oxy account, a guest
@@ -597,14 +793,13 @@ export async function checkout(
   const listingById = new Map(listingDocs.map((l) => [l.id, l]));
   const variantById = new Map(variantDocs.map((v) => [v.id, v]));
 
-  const groups = new Map<string, SellerGroup>();
-  for (const cartItem of cart.items) {
+  const resolvedLines: ResolvedLine[] = cart.items.map((cartItem) => {
     const listing = listingById.get(cartItem.listingId);
     const variant = variantById.get(cartItem.variantId);
     if (!listing || !variant) {
       throw conflict('Cart references an item that no longer exists');
     }
-    const resolved: ResolvedLine = {
+    return {
       cartItem,
       listing,
       variant,
@@ -612,13 +807,38 @@ export async function checkout(
       collectionIds: children.collectionIds.get(listing.id) ?? [],
       optionValues: optionValuesByVariant.get(variant.id) ?? [],
     };
+  });
+
+  // 4-bis. Split off the lines MERCARIA sells itself (#123, ADR 0004 D5).
+  //
+  // Before grouping, and that ordering is the whole of how retail stays out of
+  // the marketplace machinery: a retail line is never in `groups`, so the
+  // readiness gate, the reservation loop, the discount engine and the fee
+  // planner cannot see one. None of them grew a branch — they simply never
+  // receive it.
+  //
+  // The partition asks only whether a LIVE binding exists, so a deployment with
+  // the retail flag off still recognises the line and refuses it by name in
+  // step 4g rather than checking it out as a marketplace sale from whoever owns
+  // the catalogue row.
+  const retailPartition = await partitionRetailLines(resolvedLines, (line) => ({
+    variantId: line.cartItem.variantId,
+    quantity: line.cartItem.quantity,
+  }));
+  let retailLines = retailPartition.retail;
+
+  const groups = new Map<string, SellerGroup>();
+  for (const resolved of retailPartition.remaining) {
+    const { listing } = resolved;
     const key = sellerKeyForListing(listing);
     const existing = groups.get(key);
     if (existing) {
       existing.lines.push(resolved);
     } else {
+      const sellerType: ConnectedMarketplaceSellerType =
+        listing.ownerType === 'store' ? 'store' : 'user';
       groups.set(key, {
-        sellerType: listing.ownerType === 'store' ? 'store' : 'user',
+        sellerType,
         ...(listing.ownerType === 'store'
           ? { storeId: String(listing.storeId) }
           : { sellerOxyUserId: String(listing.oxyUserId) }),
@@ -636,7 +856,12 @@ export async function checkout(
         groups.delete(key);
       }
     }
-    if (groups.size === 0) {
+    // The retail pseudo-group answers to `platform`, in the same namespace, so
+    // a buyer deselects Mercaria's own lines exactly as they deselect a store.
+    if (!wanted.has(RETAIL_SELLER_KEY)) {
+      retailLines = [];
+    }
+    if (groups.size === 0 && retailLines.length === 0) {
       throw conflict('No matching cart items for the selected seller(s)');
     }
   }
@@ -747,7 +972,46 @@ export async function checkout(
     });
   }
 
+  // 4g. Price, gate and LOCK the retail half (#123, ADR 0004 D4 step 1).
+  //
+  // Still before the reservation loop, for the reason 4c–4f are: it is the last
+  // set of questions that can refuse a checkout, and answering them after stock
+  // had been taken would leave a refused attempt holding units. It is also
+  // where the whole ten-way conjunction runs — the binding, #121's verdict,
+  // #122's live preflight, #120's cost completeness, the currency and the kill
+  // switches — and every one of those refusals arrives here rather than at a
+  // supplier's API after a charge.
+  //
+  // The lock is idempotent on `(checkoutGroupId, quoteId)`, so a converging
+  // replay reads the locked total back instead of re-pricing (see
+  // `planRetailCheckout`). The group id is minted below, so it is hoisted here:
+  // a plan and the order it prices have to name the same group or the lock
+  // would be taken against a group that never gets orders.
+  const checkoutGroupId = uuidv7();
+  let retailPlan: RetailCheckoutPlan<ResolvedLine> | undefined;
+  if (retailLines.length > 0) {
+    retailPlan = await planRetailCheckout({
+      actor,
+      checkoutGroupId,
+      lines: retailLines,
+      destination: {
+        country: shippingCountryForRetail(shippingFulfilment.address.country),
+        ...(shippingFulfilment.address.region
+          ? { region: shippingFulfilment.address.region }
+          : {}),
+      },
+      presentmentCurrency: cart.currency,
+      shippingMethod: contract.impliedShippingMethod ?? 'standard',
+    });
+  }
+
   // 5. Reserve every line across ALL groups; roll back on any failure.
+  //
+  // Retail lines are absent from `groups` by construction (step 4-bis), which
+  // is ADR 0004 D5's "local inventory is not reserved for retail lines" — there
+  // is no supplier `InventoryLevel` to decrement and no reservation row to
+  // write. The residual oversell risk that leaves is exactly the
+  // procurement-failure risk D4 already prices at "compensating refund".
   const reserved: Reservation[] = [];
   try {
     for (const group of groups.values()) {
@@ -816,7 +1080,6 @@ export async function checkout(
   // A uuid v7 rather than a fresh ObjectId: the id shape every row created after
   // the cutover uses, and k-sortable, so the `orders_checkout_group_id_idx`
   // lookups a replay makes stay clustered by time.
-  const checkoutGroupId = uuidv7();
   const groupEntries = [...groups.entries()];
   let created: OrderRecord[] = [];
   const appliedCodes = new Set<string>();
@@ -960,6 +1223,9 @@ export async function checkout(
           ? { buyerOrigin: 'oxy' as const, buyerOxyUserId: owner.oxyUserId }
           : { buyerOrigin: 'guest' as const, buyerGuestCheckoutId: requireGuestCheckoutId(guestCheckout) }),
         sellerType: group.sellerType,
+        // Every native marketplace checkout order is a connected-marketplace
+        // sale (ADR 0004 D1); Mercaria's own lines never reach this loop.
+        commercialRole: 'connected_marketplace',
         ...(group.sellerOxyUserId ? { sellerOxyUserId: group.sellerOxyUserId } : {}),
         ...(group.storeId ? { storeId: group.storeId } : {}),
         items,
@@ -1012,6 +1278,40 @@ export async function checkout(
       // joins that same atom — see `placeOrders`.
       rows.push(tx ? await insertOrder(doc, tx) : await insertOrder(doc));
     }
+
+    // The ONE `platform` order, and its procurement intents (ADR 0004 D5).
+    //
+    // After the seller orders, so a mixed cart's rows are created in a stable
+    // order; and inside the SAME transaction, which is what makes an intent
+    // impossible without its order. That is the second reason a retail checkout
+    // takes a transaction at all (the first is the guest contact row): a
+    // captured charge whose intents did not commit is an order nobody can
+    // procure against, and the buyer has already paid.
+    if (retailPlan && retailPlan.lines.length > 0) {
+      if (!tx) {
+        throw new Error('A retail checkout must place its orders inside a transaction');
+      }
+      const retailOrder = await insertOrder(
+        buildRetailOrder({
+          plan: retailPlan,
+          orderNumber: await nextOrderNumber(),
+          owner,
+          guestCheckoutId: guestCheckout?.id,
+          checkoutGroupId,
+          shippingAddressSnapshot,
+          shippingMethod: contract.impliedShippingMethod ?? 'standard',
+          presentmentCurrency,
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+          conditionNotesByListing,
+        }),
+        tx,
+      );
+      await insertRetailProcurementIntents(
+        tx,
+        retailPlan.intents.map((intent) => ({ ...intent, orderId: retailOrder.id })),
+      );
+      rows.push(retailOrder);
+    }
     return rows;
   };
 
@@ -1020,8 +1320,12 @@ export async function checkout(
     // Oxy branch writes no extra row and keeps its existing per-order
     // transactions. Both run the SAME `placeOrders` body — the fork is a
     // transaction boundary, not a second checkout (ADR 0003 I9).
+    // A transaction is taken for a GUEST checkout (its contact row) and for a
+    // RETAIL one (its procurement intents). Both are the same reason wearing
+    // two names: a row the orders reference, or that references them, which has
+    // no valid existence without them.
     created =
-      actor.kind === 'guest'
+      actor.kind === 'guest' || (retailPlan && retailPlan.lines.length > 0)
         ? await getDb().transaction(async (tx) => placeOrders(tx))
         : await placeOrders(null);
   } catch (err) {
@@ -1123,9 +1427,12 @@ export async function checkout(
   await incrementDiscountUsage([...appliedCodes]);
   if (isPartialCheckout) {
     // Remove only the lines that were just placed; the rest stay in the cart.
-    const placedVariantIds = [...groups.values()].flatMap((group) =>
-      group.lines.map((line) => line.cartItem.variantId),
-    );
+    const placedVariantIds = [
+      ...[...groups.values()].flatMap((group) =>
+        group.lines.map((line) => line.cartItem.variantId),
+      ),
+      ...(retailPlan?.lines.map((line) => line.line.cartItem.variantId) ?? []),
+    ];
     await removeCartLines(owner, placedVariantIds);
   } else {
     await clearCart(owner);
