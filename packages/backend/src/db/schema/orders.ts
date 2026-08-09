@@ -43,7 +43,9 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
+  CONDITION_ASSERTIONS,
   CONNECTOR_PROVIDER_IDS,
+  ITEM_CONDITION_KEYS,
   ORDER_ACTOR_KINDS,
   ORDER_BUYER_ORIGINS,
   ORDER_PAYMENT_STATUSES,
@@ -477,6 +479,34 @@ export const orderItems = pgTable(
     ...optionalDualMoney('discountTotal'),
     /** The POS location this line committed stock at. Snapshot — no foreign key. */
     locationId: text(),
+    /**
+     * The item's condition AS PRESENTED AT CHECKOUT (#90 propagation rule 2,
+     * acceptance 3).
+     *
+     * NULLABLE, permanently, and that is not a gap: every order placed before
+     * #90 has no condition, and #90 migration rule 3 says those orders keep
+     * their original snapshot and gain only a safe READ projection. Nothing
+     * backfills them — `deriveOrderItemCondition` answers `{recorded: false}`,
+     * and its discriminated union means a refund or dispute surface cannot read
+     * a `key` that was never captured.
+     *
+     * All three columns REFUSE UPDATE by trigger
+     * (`mercaria_order_item_condition_immutable`, hand-written in #90's `pre`
+     * migration). An
+     * "immutable once set" rule would still admit a backfill writing NULL → a
+     * value; refusing every update is what makes "existing placed orders must
+     * not be rewritten" true against a future migration as well as against a
+     * service bug.
+     *
+     * `condition_group` is deliberately NOT a column. The KEY is the stored
+     * fact; how keys are bucketed for display is a presentation decision that
+     * should improve for old orders too, and a stored copy could disagree with
+     * the map every other surface reads.
+     */
+    conditionKey: text({ enum: asEnumValues(ITEM_CONDITION_KEYS) }),
+    conditionAssertion: text({ enum: asEnumValues(CONDITION_ASSERTIONS) }),
+    /** The listing's disclosed condition notes, flattened at purchase. */
+    conditionNotes: text(),
     /** Preserves the line's order within the order, which Mongo got from the array. */
     position: integer().notNull().default(0),
     createdAt: createdAt(),
@@ -492,6 +522,20 @@ export const orderItems = pgTable(
       t.discountTotalPresentmentCurrency,
     ]),
     check('order_items_quantity_check', sql`${t.quantity} > 0`),
+    checkOneOf('order_items_condition_key_check', t.conditionKey, ITEM_CONDITION_KEYS),
+    checkOneOf('order_items_condition_assertion_check', t.conditionAssertion, CONDITION_ASSERTIONS),
+    // A snapshot is whole or absent. A key with no assertion could not say
+    // whether the buyer was shown a seller's own statement or a migrated
+    // default, which is precisely the question a dispute asks.
+    check(
+      'order_items_condition_snapshot_complete_check',
+      sql`(${t.conditionKey} is null) = (${t.conditionAssertion} is null)`,
+    ),
+    // Notes without a condition would be a description of nothing.
+    check(
+      'order_items_condition_notes_check',
+      sql`${t.conditionNotes} is null or ${t.conditionKey} is not null`,
+    ),
     // A `DualMoney` is present in all four columns or in none.
     check(
       'order_items_discount_total_complete_check',

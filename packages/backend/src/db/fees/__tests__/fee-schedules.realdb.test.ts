@@ -85,7 +85,7 @@ async function seedOrderWithSnapshot(
   const seller = input.seller ?? `seller-${uuidv7()}`;
   const [listing] = await db
     .insert(listings)
-    .values({ ownerType: 'user', oxyUserId: seller, title: 'Fee thing', description: '', condition: 'new' })
+    .values({ ownerType: 'user', oxyUserId: seller, title: 'Fee thing', description: '', condition: 'new', conditionAssertion: 'seller_declared' })
     .returning({ id: listings.id });
   const [variant] = await insertVariants(listing.id, [
     {

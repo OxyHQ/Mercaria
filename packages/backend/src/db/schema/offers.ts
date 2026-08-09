@@ -69,10 +69,11 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
+  CONDITION_MAPPING_STATES,
   NATIVE_LISTING_LINK_METHODS,
   NATIVE_LISTING_LINK_STATUSES,
   OFFER_AVAILABILITY_STATES,
-  OFFER_CONDITIONS,
+  OFFER_CONDITION_KEYS,
   OFFER_CUSTOMER_ELIGIBILITIES,
   OFFER_KINDS,
   OFFER_PICKUP_STATES,
@@ -80,11 +81,24 @@ import {
   OFFER_RETIREMENT_REASONS,
   OFFER_STATUSES,
 } from '@mercaria/shared-types';
+import type { OfferConditionKey } from '@mercaria/shared-types';
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
 import { canonicalVariants } from './canonicalCatalog';
 import { listings, productVariants } from './catalog';
+import { CONDITION_MAPPING_CONFIDENCE_FLOOR_SQL, conditionMappingRulesets } from './condition';
 import { merchants, storefronts } from './merchants';
 import { sourceRecords } from './provenance';
+
+/**
+ * The value set `offers.condition` accepts — #90's nine taxonomy keys plus
+ * `unknown`.
+ *
+ * The `listings.condition` two-phase story verbatim, and it mattered here for a
+ * second reason: `commercial_key` is GENERATED from this column, so the previous
+ * image writing `'used'` against a narrowed CHECK would have failed the offer
+ * converger on every native listing at once.
+ */
+export const OFFER_CONDITION_VALUES: readonly OfferConditionKey[] = OFFER_CONDITION_KEYS;
 
 /** The lifecycle of one native-offer convergence job. */
 export const OFFER_OUTBOX_STATUSES = ['pending', 'processing', 'done', 'dead_letter'] as const;
@@ -231,7 +245,47 @@ export const offers = pgTable(
      * sold out.
      */
     availableQuantity: integer(),
-    condition: text({ enum: asEnumValues(OFFER_CONDITIONS) }).notNull().default('unknown'),
+    /**
+     * The normalized #90 taxonomy key, or `unknown`.
+     *
+     * `unknown` is the DEFAULT and stays the answer whenever the mapping did not
+     * clear the confidence floor — see the mapping CHECKs below, which are what
+     * make #90 evidence rule 6 unrepresentable-otherwise rather than a promise
+     * the mapper keeps.
+     */
+    condition: text({ enum: asEnumValues(OFFER_CONDITION_VALUES) }).notNull().default('unknown'),
+    /**
+     * The source's own wording, EXACTLY as published (#90 evidence rule 5).
+     *
+     * Preserved beside the normalized key rather than replaced by it, because a
+     * shopper comparing "Ricondizionato — Grado B" against `refurbished_seller`
+     * can judge the mapping, and an operator correcting the RULE needs to see
+     * what the rule was given.
+     */
+    conditionSourceLabel: text(),
+    /**
+     * How the key was arrived at.
+     *
+     * NO DEFAULT: every writer builds all five condition columns together
+     * (`declaredOfferCondition` / `mapSourceCondition` return them as one
+     * object), because the shape CHECKs constrain the COMBINATION and a default
+     * on one of five is how an impossible combination gets assembled. `0030`
+     * carried a `declared` default for the previous image and `0031` drops it.
+     */
+    conditionMappingState: text({ enum: asEnumValues(CONDITION_MAPPING_STATES) }).notNull(),
+    /** 0–1, present exactly on a row a source mapping produced. */
+    conditionMappingConfidence: doublePrecision(),
+    /**
+     * The ruleset version that read the label.
+     *
+     * `restrict`: an offer's mapping provenance must stay answerable, and
+     * `set null` would quietly turn "read under v1" into "read under nothing"
+     * the moment somebody tidied an old ruleset away — which is exactly the
+     * claim #90 migration rule 5 makes impossible.
+     */
+    conditionMappingRulesetId: text().references(() => conditionMappingRulesets.id, {
+      onDelete: 'restrict',
+    }),
 
     /** The seller's own SKU — source-scoped, and never a `product_identifiers` row (D14). */
     sellerSku: text(),
@@ -382,7 +436,67 @@ export const offers = pgTable(
     checkOneOf('offers_status_check', t.status, OFFER_STATUSES),
     checkOneOf('offers_retirement_reason_check', t.retirementReason, OFFER_RETIREMENT_REASONS),
     checkOneOf('offers_availability_check', t.availability, OFFER_AVAILABILITY_STATES),
-    checkOneOf('offers_condition_check', t.condition, OFFER_CONDITIONS),
+    checkOneOf('offers_condition_check', t.condition, OFFER_CONDITION_VALUES),
+    checkOneOf(
+      'offers_condition_mapping_state_check',
+      t.conditionMappingState,
+      CONDITION_MAPPING_STATES,
+    ),
+    /**
+     * #90 EVIDENCE RULE 6 and ACCEPTANCE 5, as four constraints rather than as
+     * discipline in the mapper.
+     *
+     * The property they hold together: a source's wording can only carry a
+     * taxonomy key when a RECORDED rule mapped it at or above
+     * `CONDITION_MAPPING_CONFIDENCE_FLOOR`. Every other outcome — no rule
+     * matched, a rule matched but was not confident enough — leaves `unknown`,
+     * which a comparison surface shows as an absence rather than as a claim.
+     *
+     * There is deliberately no state in which a guess sits beside a key, so
+     * "low-confidence mappings do not silently become higher-quality
+     * conditions" holds against the mapping service, a replay, a manual
+     * `UPDATE` and a future ingestion path nobody has written yet.
+     */
+    check(
+      'offers_condition_asserted_check',
+      sql`${t.condition} = 'unknown' or ${t.conditionMappingState} in ('declared', 'mapped')`,
+    ),
+    check(
+      'offers_condition_declared_shape_check',
+      sql`${t.conditionMappingState} <> 'declared'
+          or (${t.conditionSourceLabel} is null
+              and ${t.conditionMappingConfidence} is null
+              and ${t.conditionMappingRulesetId} is null)`,
+    ),
+    check(
+      'offers_condition_mapped_shape_check',
+      sql`${t.conditionMappingState} <> 'mapped'
+          or (${t.conditionSourceLabel} is not null
+              and ${t.conditionMappingRulesetId} is not null
+              and ${t.conditionMappingConfidence} >= ${sql.raw(
+                CONDITION_MAPPING_CONFIDENCE_FLOOR_SQL,
+              )})`,
+    ),
+    check(
+      'offers_condition_review_pending_shape_check',
+      sql`${t.conditionMappingState} <> 'review_pending'
+          or (${t.condition} = 'unknown'
+              and ${t.conditionSourceLabel} is not null
+              and ${t.conditionMappingRulesetId} is not null
+              and ${t.conditionMappingConfidence} < ${sql.raw(
+                CONDITION_MAPPING_CONFIDENCE_FLOOR_SQL,
+              )})`,
+    ),
+    check(
+      'offers_condition_unmapped_shape_check',
+      sql`${t.conditionMappingState} <> 'unmapped'
+          or (${t.condition} = 'unknown' and ${t.conditionMappingConfidence} is null)`,
+    ),
+    check(
+      'offers_condition_mapping_confidence_range_check',
+      sql`${t.conditionMappingConfidence} is null
+          or (${t.conditionMappingConfidence} >= 0 and ${t.conditionMappingConfidence} <= 1)`,
+    ),
     checkOneOf('offers_pickup_state_check', t.pickupState, OFFER_PICKUP_STATES),
     checkOneOf(
       'offers_customer_eligibility_check',

@@ -36,6 +36,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
+import { declaredOfferCondition } from '../../services/condition/condition-mapping.service.js';
 import { listings, productVariants } from '../schema/catalog.js';
 import { stores } from '../schema/stores.js';
 import { merchants, storefronts } from '../schema/merchants.js';
@@ -148,7 +149,7 @@ async function mintStore(label: string): Promise<string> {
 async function mintListing(input: {
   storeId: string;
   status?: 'draft' | 'active' | 'sold' | 'archived' | 'restricted';
-  condition?: 'new' | 'used';
+  condition?: 'new' | 'used_good';
 }): Promise<string> {
   const [row] = await db
     .insert(listings)
@@ -158,6 +159,7 @@ async function mintListing(input: {
       title: `Offer listing ${RUN}`,
       description: 'a listing under test',
       condition: input.condition ?? 'new',
+      conditionAssertion: 'seller_declared',
       status: input.status ?? 'active',
     })
     .returning({ id: listings.id });
@@ -279,6 +281,10 @@ function externalOffer(overrides: Partial<InsertOfferInput> & {
   return {
     kind: 'external',
     status: 'active',
+    // #90: the five condition columns move together, so a fixture builds them
+    // the way the converger does rather than setting one and inheriting four
+    // defaults the schema no longer has.
+    ...declaredOfferCondition('new'),
     destinationUrl: 'https://example.test/product',
     provider: 'test-feed',
     externalOfferId: `offer-${uuidv7()}`,
@@ -323,6 +329,7 @@ describe('the per-kind shape CHECK (acceptance 2)', () => {
     const now = new Date();
     const base: InsertOfferInput = {
       kind: 'native',
+      ...declaredOfferCondition('new'),
       canonicalVariantId,
       productVariantId,
       listingId,
@@ -372,6 +379,7 @@ describe('the per-kind shape CHECK (acceptance 2)', () => {
     await expectRefused('check', () =>
       db.insert(offers).values({
         kind: 'native',
+        ...declaredOfferCondition('new'),
         canonicalVariantId,
         productVariantId,
         listingId,
@@ -424,7 +432,12 @@ describe('active-offer uniqueness (acceptance 1)', () => {
     // A DIFFERENT condition is a different offer — the same seller may list a
     // refurbished one beside the new one, and the key says so.
     await db.insert(offers).values(
-      externalOffer({ canonicalVariantId, merchantId, sourceRecordId, condition: 'used' }),
+      externalOffer({
+        canonicalVariantId,
+        merchantId,
+        sourceRecordId,
+        ...declaredOfferCondition('used_good'),
+      }),
     );
   });
 
@@ -739,6 +752,7 @@ describe('expiry removes an offer from current results and loses nothing (accept
 
     await db.insert(offers).values({
       kind: 'native',
+      ...declaredOfferCondition('new'),
       canonicalVariantId,
       productVariantId,
       listingId,
@@ -1192,7 +1206,11 @@ describe('the READ gate is live, so a stale offer row is never buyable (acceptan
         sourceAccountRef: `acct-${RUN}`,
         externalOfferId: `projection-${RUN}`,
         price: { amount: 99_900, currency: 'EUR' },
-        condition: 'new',
+        // #90: an adapter supplies the SOURCE's own wording, never a taxonomy
+        // key. With no `conditionMappingProvider` there is no ruleset to
+        // consult, so the offer preserves the label and stays `unknown` —
+        // the fail-closed default.
+        conditionSourceLabel: 'Brand new',
         availability: 'in_stock',
         destinationUrl: 'https://example.test/product',
         observedAt: now,

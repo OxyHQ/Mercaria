@@ -23,16 +23,23 @@
  */
 
 import type {
+  ConditionGroup,
+  ConnectorProviderId,
   Offer,
   OfferAvailability,
-  OfferCondition,
+  OfferConditionKey,
   OfferKind,
   OfferPage,
 } from '@mercaria/shared-types';
+import {
+  mapSourceCondition,
+  unmappedOfferCondition,
+} from '../condition/condition-mapping.service.js';
 import { eq, inArray } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
 import { listings, productVariants } from '../../db/schema/catalog.js';
+import { conditionMappingRulesets } from '../../db/schema/condition.js';
 import {
   findOfferWithChannel,
   listOffersForComparison,
@@ -132,10 +139,37 @@ export async function buildOfferProjectionContext(
     }
   }
 
+  // #90: the ruleset row ids the page's offers cite → their VERSION numbers, in
+  // one query. A DTO publishes the version because that is what an operator
+  // corrects against; the row id is a key nobody outside this service can use.
+  const conditionRulesetVersions = new Map<string, number>();
+  const rulesetIds = [
+    ...new Set(
+      rows.flatMap((row) =>
+        row.offer.conditionMappingRulesetId ? [row.offer.conditionMappingRulesetId] : [],
+      ),
+    ),
+  ];
+  if (rulesetIds.length > 0) {
+    const rulesetRows = await db
+      .select({ id: conditionMappingRulesets.id, version: conditionMappingRulesets.version })
+      .from(conditionMappingRulesets)
+      .where(inArray(conditionMappingRulesets.id, rulesetIds));
+    for (const row of rulesetRows) conditionRulesetVersions.set(row.id, row.version);
+  }
+
   // The payments seam, and the ONLY thing this domain reads from that domain.
   const sellerReady = await readSellerPaymentReadiness([...new Set(listingSellerKeys.values())]);
 
-  return { listingStatuses, listingSellerKeys, variantStock, sourceRights, sellerReady, now };
+  return {
+    listingStatuses,
+    listingSellerKeys,
+    variantStock,
+    sourceRights,
+    conditionRulesetVersions,
+    sellerReady,
+    now,
+  };
 }
 
 /** How a caller asks for offers. Exactly one scope, validated before any query. */
@@ -145,7 +179,9 @@ export interface ListOffersInput {
   country?: string;
   kinds?: readonly OfferKind[];
   availability?: readonly OfferAvailability[];
-  conditions?: readonly OfferCondition[];
+  conditions?: readonly OfferConditionKey[];
+  /** Whole condition SEGMENTS, unioned with `conditions` (#90 acceptance 2). */
+  conditionGroups?: readonly ConditionGroup[];
   /** Default TRUE: a lapsed offer is excluded from current results (external rule 3). */
   includeStale?: boolean;
   limit: number;
@@ -199,6 +235,7 @@ export async function listOffers(input: ListOffersInput): Promise<OfferPage> {
     ...(input.canonicalProductId ? { canonicalProductId: input.canonicalProductId } : {}),
     ...(input.country ? { country: input.country } : {}),
     ...(input.kinds ? { kinds: input.kinds } : {}),
+    ...(input.conditionGroups ? { conditionGroups: input.conditionGroups } : {}),
     ...(input.availability ? { availability: input.availability } : {}),
     ...(input.conditions ? { conditions: input.conditions } : {}),
     excludeStale: input.includeStale !== true,
@@ -252,7 +289,25 @@ export interface ExternalOfferObservation {
   compareAtPrice?: { amount: number; currency: string };
   availability?: OfferAvailability;
   availableQuantity?: number;
-  condition?: OfferCondition;
+  /**
+   * The source's own condition wording, VERBATIM (#90 evidence rule 5).
+   *
+   * An adapter supplies what the retailer published — "Ricondizionato — Grado
+   * B", "Open Box", "Gebraucht" — and never a taxonomy key. That is deliberate
+   * and is the clean cut #90 makes here: an adapter deciding the key would put
+   * nine independent, unversioned, unreviewable mappings in nine adapters, and
+   * `condition_mapping_rulesets` exists precisely so a correction is one
+   * published version rather than nine deploys.
+   */
+  conditionSourceLabel?: string;
+  /**
+   * Which provider's ruleset reads that wording.
+   *
+   * Absent means there is no ruleset to consult, so the offer records the label
+   * and stays `unknown` — the fail-closed direction, and the one that makes the
+   * first ruleset for a new source writable from what it actually says.
+   */
+  conditionMappingProvider?: ConnectorProviderId;
   sellerSku?: string;
   merchantTitle?: string;
   merchantVariantText?: string;
@@ -292,12 +347,24 @@ export async function recordExternalOffer(
   now: Date = new Date(),
   db: DatabaseOrTransaction = getDb(),
 ): Promise<string> {
+  // #90: the taxonomy key is decided by the versioned ruleset, never by the
+  // adapter. A rule below the floor produces `unknown` plus a `review_pending`
+  // state, so this call is also where "a low-confidence mapping is never
+  // upgraded" is produced rather than merely checked.
+  const conditionColumns = observation.conditionMappingProvider
+    ? await mapSourceCondition(observation.conditionMappingProvider, observation.conditionSourceLabel)
+    : unmappedOfferCondition(observation.conditionSourceLabel ?? null);
+
   const qualitySignals: InsertOfferInput['qualitySignals'] = [];
   if (!observation.price) qualitySignals.push('missing_price');
   if (!observation.availability || observation.availability === 'unknown') {
     qualitySignals.push('missing_availability');
   }
-  if (!observation.condition || observation.condition === 'unknown') {
+  // Derived from what the mapping ACTUALLY produced, not from what the
+  // observation carried: a label the ruleset could not resolve and a label
+  // resolved below the floor are both "the wording did not map", and a ranking
+  // reading this signal needs both.
+  if (conditionColumns.condition === 'unknown') {
     qualitySignals.push('unmapped_condition');
   }
   if (!observation.delivery?.cost) qualitySignals.push('unknown_delivery');
@@ -319,7 +386,10 @@ export async function recordExternalOffer(
     compareAtPriceCurrency: observation.compareAtPrice?.currency ?? null,
     availability: observation.availability ?? 'unknown',
     availableQuantity: observation.availableQuantity ?? null,
-    condition: observation.condition ?? 'unknown',
+    // All five condition columns together — the shape CHECKs constrain the
+    // COMBINATION, so spreading one object is what makes an impossible one
+    // unassemblable here.
+    ...conditionColumns,
     sellerSku: observation.sellerSku ?? null,
     merchantTitle: observation.merchantTitle ?? null,
     merchantVariantText: observation.merchantVariantText ?? null,

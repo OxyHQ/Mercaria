@@ -20,6 +20,22 @@ export {
 } from "./lib/format";
 
 // ---------------------------------------------------------------------------
+// Item condition (#90) — the reader-facing copy for the shared taxonomy.
+// The KEYS live in `@mercaria/shared-types` and are frozen; these strings are
+// deliberately not, which is what "stored keys stay stable when copy changes"
+// means in practice.
+// ---------------------------------------------------------------------------
+export {
+  CONDITION_DISCLAIMER,
+  CONDITION_EXPLANATIONS,
+  CONDITION_GROUP_LABELS,
+  CONDITION_LABELS,
+  conditionExplanation,
+  conditionGroupLabel,
+  conditionLabel,
+} from "./lib/condition";
+
+// ---------------------------------------------------------------------------
 // App shell — the shared responsive layout, sidebar rail, and page mask
 // ---------------------------------------------------------------------------
 export { AppShell, type AppShellProps } from "./components/shell/AppShell";
@@ -187,3 +203,7 @@ export {
   type RatingDistribution,
   type ReviewSummaryCardProps,
 } from "./components/marketplace/ReviewSummaryCard";
+export {
+  ConditionBadge,
+  type ConditionBadgeProps,
+} from "./components/marketplace/ConditionBadge";

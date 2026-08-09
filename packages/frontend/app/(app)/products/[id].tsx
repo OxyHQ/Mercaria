@@ -6,6 +6,7 @@ import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Heart, Minus, Plus, Share2, Star } from "lucide-react-native";
 import {
+  ConditionBadge,
   DemandPill,
   MerchantHeader,
   OfferCard,
@@ -449,6 +450,15 @@ function ProductBody({ listing }: ProductBodyProps) {
                 scopeLabel={REVIEW_SCOPE_LABELS.product}
               />
             ) : null}
+
+            {/*
+              The item's condition (#90), directly under the title and above the
+              price — a shopper deciding whether 40 € is a good price needs to
+              know whether they are looking at a sealed unit or a for-parts
+              shell, and finding that out after the price is finding it out too
+              late. Text and neutral chrome, never colour alone (policy rule 3).
+            */}
+            <ConditionBadge condition={listing.itemCondition} showExplanation />
 
             {/* Demand pill (static social proof). */}
             <DemandPill label={DEMAND_COPY} />

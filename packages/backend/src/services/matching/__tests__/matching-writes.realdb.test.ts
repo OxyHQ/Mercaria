@@ -326,6 +326,7 @@ async function makeNativeListing(
       description: 'realdb fixture listing',
       vendor: 'Fixture Brand',
       condition: 'new',
+      conditionAssertion: 'seller_declared',
       status: 'active',
       ...(options.categoryId === undefined ? {} : { categoryId: options.categoryId }),
     })

@@ -27,6 +27,12 @@
 export * from './stores';
 export * from './connectors';
 export * from './catalog';
+// The condition domain (#90) follows `catalog`: every one of its listing-side
+// tables references `listings`, and `condition_category_policies` references
+// `categories`. It PRECEDES `offers`, whose mapping provenance column is a real
+// foreign key onto `condition_mapping_rulesets` — the dependency this list
+// encodes, not an alphabetical accident.
+export * from './condition';
 export * from './merchandising';
 export * from './orders';
 export * from './fees';

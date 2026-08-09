@@ -85,6 +85,14 @@ import {
   type ListingRecord,
 } from '../db/catalog/listingRepository.js';
 import {
+  findConditionDetailsForListings,
+  type ConditionDetailRecord,
+} from '../db/condition/conditionRepository.js';
+import {
+  flattenConditionNotes,
+  narrowStoredCondition,
+} from './condition/condition-projection.js';
+import {
   findVariantOptionValues,
   findVariantsByIds,
   type VariantOptionValueRecord,
@@ -314,6 +322,7 @@ function buildItems(
   shopCurrency: CurrencyCode,
   presentmentCurrency: CurrencyCode,
   rates: FxRates,
+  conditionNotesByListing: ReadonlyMap<string, string>,
 ): NewOrderItem[] {
   return group.lines.map(({ cartItem, listing, variant, images, optionValues }, index) => {
     const shopUnit = convert(nativeUnitPrice(variant), shopCurrency, rates);
@@ -332,7 +341,17 @@ function buildItems(
       unitPrice,
       quantity: cartItem.quantity,
       lineTotal,
+      // #90 propagation rule 2: the condition AS PRESENTED, frozen here with the
+      // title, the variant and the price, and never re-read afterwards. The
+      // three columns behind it refuse UPDATE, so a seller correcting the
+      // listing tomorrow cannot change what this receipt says.
+      conditionKey: narrowStoredCondition(listing.condition),
+      conditionAssertion: listing.conditionAssertion,
     };
+    const conditionNotes = conditionNotesByListing.get(listing.id);
+    if (conditionNotes !== undefined) {
+      item.conditionNotes = conditionNotes;
+    }
     const lineDiscount = perLineDiscount[index];
     if (lineDiscount && lineDiscount.shop.amount > 0) {
       item.discountTotal = lineDiscount;
@@ -754,6 +773,32 @@ export async function checkout(
   const appliedCodes = new Set<string>();
 
   /**
+   * The disclosed condition notes for every listing in the cart, in ONE query.
+   *
+   * Flattened to a string per listing rather than snapshotted as rows: an order
+   * line is a RECEIPT, and it needs to say what the buyer was told in a form a
+   * refund screen and a dispute pack can both render. A normalized child table
+   * of a historical snapshot would need its own immutability rules to be worth
+   * having, and `order_items` already has them for these three columns.
+   */
+  const conditionNotesByListing = new Map<string, string>();
+  {
+    const listingIds = [
+      ...new Set(groupEntries.flatMap(([, group]) => group.lines.map((line) => line.listing.id))),
+    ];
+    const detailsByListing = new Map<string, ConditionDetailRecord[]>();
+    for (const detail of await findConditionDetailsForListings(listingIds)) {
+      const bucket = detailsByListing.get(detail.listingId);
+      if (bucket) bucket.push(detail);
+      else detailsByListing.set(detail.listingId, [detail]);
+    }
+    for (const [listingId, details] of detailsByListing) {
+      const notes = flattenConditionNotes(details);
+      if (notes !== undefined) conditionNotesByListing.set(listingId, notes);
+    }
+  }
+
+  /**
    * Create the group's contact row (guest only) and every seller order.
    *
    * Takes the handle it writes through so the guest path can run the whole
@@ -812,7 +857,14 @@ export async function checkout(
         }
       }
 
-      const items = buildItems(group, pricing.perLineDiscount, shopCurrency, presentmentCurrency, rates);
+      const items = buildItems(
+        group,
+        pricing.perLineDiscount,
+        shopCurrency,
+        presentmentCurrency,
+        rates,
+        conditionNotesByListing,
+      );
       // grandTotal = (subtotal − discount + tax) from pricing, plus flat shipping,
       // added on each of the shop + presentment sides. Both sides are asserted
       // representable: this is the last amount formed before the order is

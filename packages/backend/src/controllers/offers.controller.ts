@@ -8,7 +8,7 @@
  */
 
 import type { Request, Response } from 'express';
-import type { OfferAvailability, OfferCondition, OfferKind } from '@mercaria/shared-types';
+import type { OfferAvailability, OfferConditionKey, OfferKind } from '@mercaria/shared-types';
 import { config } from '../config/index.js';
 import { getOffer, listOffers } from '../services/offers/offer.service.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
@@ -36,7 +36,7 @@ export async function listOffersHandler(req: Request, res: Response): Promise<vo
       country?: string;
       kinds?: OfferKind[];
       availability?: OfferAvailability[];
-      conditions?: OfferCondition[];
+      conditions?: OfferConditionKey[];
       includeStale?: 'true' | 'false';
       limit?: number;
       cursor?: string;

@@ -180,6 +180,7 @@ async function seedListing(input: {
       title: input.title,
       description: 'seeded by backfill.realdb.test',
       condition: 'new',
+      conditionAssertion: 'seller_declared',
       status: 'active',
       publishedAt: new Date(),
     })

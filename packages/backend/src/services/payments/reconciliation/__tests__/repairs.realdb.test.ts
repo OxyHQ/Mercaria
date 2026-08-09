@@ -263,6 +263,7 @@ async function seedScenario(label: string, options: { ready: boolean; settle?: b
       title: 'Repairable',
       description: '',
       condition: 'new',
+      conditionAssertion: 'seller_declared',
     })
     .returning({ id: catalogSchema.listings.id });
   const [variant] = await insertVariants(listing.id, [

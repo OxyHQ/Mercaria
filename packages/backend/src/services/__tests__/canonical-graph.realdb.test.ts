@@ -626,7 +626,8 @@ describe('vendor extraction (#53 migration, D23 phase 1)', () => {
           oxyUserId: `oxy-user-${RUN}`,
           title: `Listing for ${vendor}`,
           description: 'A vendor-extraction fixture.',
-          condition: 'used',
+          condition: 'used_good',
+          conditionAssertion: 'seller_declared',
           vendor,
         })
         .returning({ id: listings.id });

@@ -82,6 +82,7 @@ async function makeVariant(storeId: string): Promise<{ listingId: string; varian
       title: 'Realdb product',
       description: '',
       condition: 'new',
+      conditionAssertion: 'seller_declared',
     })
     .returning({ id: listings.id });
 

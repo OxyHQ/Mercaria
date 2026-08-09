@@ -21,11 +21,11 @@
 import { z } from 'zod';
 import {
   OFFER_AVAILABILITY_STATES,
-  OFFER_CONDITIONS,
+  OFFER_CONDITION_KEYS,
   OFFER_KINDS,
   OFFER_RETIREMENT_REASONS,
   type OfferAvailability,
-  type OfferCondition,
+  type OfferConditionKey,
   type OfferKind,
   type OfferRetirementReason,
 } from '@mercaria/shared-types';
@@ -35,7 +35,7 @@ const AVAILABILITY_VALUES = OFFER_AVAILABILITY_STATES as readonly [
   OfferAvailability,
   ...OfferAvailability[],
 ];
-const CONDITION_VALUES = OFFER_CONDITIONS as readonly [OfferCondition, ...OfferCondition[]];
+const CONDITION_VALUES = OFFER_CONDITION_KEYS as readonly [OfferConditionKey, ...OfferConditionKey[]];
 const RETIREMENT_REASON_VALUES = OFFER_RETIREMENT_REASONS as readonly [
   OfferRetirementReason,
   ...OfferRetirementReason[],

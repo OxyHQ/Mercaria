@@ -34,6 +34,8 @@ import {
   findVariantOptionValues,
 } from '../../db/catalog/variantRepository.js';
 import { findSourceRecordById } from '../../db/canonical/provenanceRepository.js';
+import { conditionGroupFor } from '@mercaria/shared-types';
+import { narrowStoredCondition } from '../condition/condition-projection.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { categories } from '../../db/schema/catalog.js';
 import { eq } from 'drizzle-orm';
@@ -121,7 +123,13 @@ export async function loadNativeVariantSubject(
     identifiers,
     ...(variant.sku === null ? {} : { merchantSku: variant.sku }),
     attributes,
-    condition: listing.condition === 'used' ? 'used' : 'new',
+    // #90: the matcher only needs to know whether this is ONE specific used
+    // unit — that is what `used_condition_preserved` records — so the nine keys
+    // are coarsened to their SEGMENT here, deliberately and in the open. It is
+    // the same collapse the v1 wire projection performs and is not routed
+    // through it: a matcher reading a compatibility contract would tie its
+    // behaviour to a contract that is scheduled to retire.
+    condition: conditionGroupFor(narrowStoredCondition(listing.condition)) === 'new' ? 'new' : 'used',
   };
 }
 
@@ -221,6 +229,10 @@ export async function loadSourceRecordSubject(
     identifiers,
     ...(asString(payload.sku) === undefined ? {} : { merchantSku: asString(payload.sku) ?? '' }),
     attributes: readPayloadAttributes(payload.attributes),
-    condition: asString(payload.condition) === 'used' ? 'used' : 'new',
+    // A source payload's own wording, coarsened the only way an unmapped string
+    // can be: anything that is not literally the `new` key describes a specific
+    // unit. #90's versioned mapping decides the KEY on the offer; this is the
+    // matcher's much weaker question.
+    condition: asString(payload.condition) === 'new' ? 'new' : 'used',
   };
 }

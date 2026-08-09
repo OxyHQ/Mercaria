@@ -11,6 +11,7 @@
  * ONLY place order DTOs are built; controllers never hand-assemble order shapes.
  */
 
+import { deriveOrderItemCondition } from '@mercaria/shared-types';
 import type {
   BuyerContactProjection,
   CurrencyCode,
@@ -122,6 +123,19 @@ export function toOrderItemDTO(item: OrderItemRecord): OrderItem {
     title: item.title,
     variantTitle: item.variantTitle,
     optionValues: item.optionValues.map((o) => ({ name: o.name, value: o.value })),
+    /**
+     * #90 migration rule 3: the SAFE READ PROJECTION, and the only one.
+     *
+     * Its whole input is the line's own three columns. An order placed before
+     * #90 answers `{recorded: false}` — never the listing's current condition,
+     * which would rewrite what a buyer was shown at exactly the moment somebody
+     * is disputing it.
+     */
+    condition: deriveOrderItemCondition({
+      conditionKey: item.conditionKey,
+      conditionAssertion: item.conditionAssertion,
+      conditionNotes: item.conditionNotes,
+    }),
     unitPrice: dual(
       item.unitPriceShopAmount,
       item.unitPriceShopCurrency,

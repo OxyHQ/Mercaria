@@ -46,9 +46,11 @@ import {
 } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import { qualified } from '@oxyhq/db';
+import { conditionKeysInGroup } from '@mercaria/shared-types';
 import type {
+  ConditionGroup,
   CurrencyCode,
-  ListingCondition,
+  ItemConditionKey,
   ListingOwnerType,
   ListingQuery,
 } from '@mercaria/shared-types';
@@ -662,7 +664,16 @@ export interface ListingSearchFilters {
   ownerType?: ListingOwnerType;
   storeId?: string;
   categorySlug?: string;
-  condition?: ListingCondition;
+  /**
+   * Taxonomy keys and whole segments, UNIONED into one membership test (#90
+   * acceptance 2).
+   *
+   * The v1 `condition=used` spelling is expanded to its groups by
+   * `search.service` before it reaches here, so this layer has one vocabulary
+   * and the compatibility contract lives in exactly one place.
+   */
+  conditionKeys?: readonly ItemConditionKey[];
+  conditionGroups?: readonly ConditionGroup[];
   vendor?: string;
   productType?: string;
   collectionId?: string;
@@ -692,7 +703,14 @@ function buildSearchWhere(filters: ListingSearchFilters): SQL | undefined {
 
   if (filters.ownerType) predicates.push(eq(listings.ownerType, filters.ownerType));
   if (filters.storeId) predicates.push(eq(listings.storeId, filters.storeId));
-  if (filters.condition) predicates.push(eq(listings.condition, filters.condition));
+  const conditionKeys = new Set<ItemConditionKey>(filters.conditionKeys ?? []);
+  for (const group of filters.conditionGroups ?? []) {
+    for (const key of conditionKeysInGroup(group)) conditionKeys.add(key);
+  }
+  // ONE `IN` list, never two ANDed predicates: a facet UI sending a segment and
+  // a key inside another segment means "either", and two `IN`s would answer the
+  // empty set for exactly those requests.
+  if (conditionKeys.size > 0) predicates.push(inArray(listings.condition, [...conditionKeys]));
   if (filters.vendor) predicates.push(eq(listings.vendor, filters.vendor));
   if (filters.productType) predicates.push(eq(listings.productType, filters.productType));
   if (filters.inStock) predicates.push(eq(listings.hasInventory, true));

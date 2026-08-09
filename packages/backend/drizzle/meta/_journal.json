@@ -239,6 +239,20 @@
       "when": 1786276904872,
       "tag": "0033_material_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1786279153132,
+      "tag": "0034_closed_tattoo",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1786279171831,
+      "tag": "0035_many_katie_power",
+      "breakpoints": true
     }
   ]
 }

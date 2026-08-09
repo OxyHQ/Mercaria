@@ -42,6 +42,7 @@ import type {
 import { SELLER_SETTABLE_LISTING_STATUSES } from '@mercaria/shared-types';
 import {
   findListingById,
+  findListingChildren,
   insertListing,
   recomputeListingFacets,
   replaceListingImages,
@@ -49,6 +50,15 @@ import {
   type ListingImageInput,
   type ListingRecord,
 } from '../db/catalog/listingRepository.js';
+import { getDb } from '../db/postgres.js';
+import {
+  assertConditionAllowed,
+  conditionColumnsFor,
+  writeListingConditionEvidence,
+  type ConditionActor,
+} from './condition/condition-write.service.js';
+import { resolveConditionInput } from './condition/condition-input.js';
+import { narrowStoredCondition } from './condition/condition-projection.js';
 import {
   countVariants,
   deleteVariant,
@@ -215,50 +225,85 @@ export async function createP2PListing(
 
   const quantity = input.quantity ?? 1;
 
+  // #90: exactly one of the two spellings, and a P2P listing must state one.
+  // A create with neither is a client that has not been updated for the
+  // taxonomy AND is not speaking v1 either — there is nothing to infer from.
+  const resolvedCondition = resolveConditionInput(input);
+  if (!resolvedCondition) {
+    throw validationError('A listing must state its condition');
+  }
+  const now = new Date();
+  const conditionColumns = conditionColumnsFor(resolvedCondition, now);
+
   // Multi-currency: the price is stored in its NATIVE currency exactly as given
   // (no FAIR conversion). Settlement to FAIR happens later, at the paid boundary.
   const price = input.price;
 
-  const listing = await insertListing(
-    {
-      ownerType: 'user',
-      oxyUserId,
-      storeId: null,
-      title: input.title,
-      description: input.description,
-      condition: input.condition,
-      status: 'active',
+  const listingId = await getDb().transaction(async (tx) => {
+    await assertConditionAllowed(tx, {
+      resolved: resolvedCondition,
       categoryId,
       categorySlugs,
-      tags: input.tags ?? [],
-      priceRangeMinAmount: price.amount,
-      priceRangeMinCurrency: price.currency,
-      priceRangeMaxAmount: price.amount,
-      priceRangeMaxCurrency: price.currency,
-      hasInventory: quantity > 0,
-      variantCount: 1,
-      longitude: null,
-      latitude: null,
-      vendor: null,
-      productType: null,
-      handle: null,
-      seoTitle: null,
-      seoDescription: null,
-      sourceConnectionId: null,
-      sourceProvider: null,
-      sourceExternalId: null,
-      sourceExternalUpdatedAt: null,
-      overriddenFields: [],
-      rating: 0,
-      reviewCount: 0,
-      favoriteCount: 0,
-      publishedAt: new Date(),
-    },
-    toListingImages(input.imageFileIds),
-    [],
-  );
+    });
 
-  await insertVariants(listing.id, [
+    const listing = await insertListing(
+      {
+        ownerType: 'user',
+        oxyUserId,
+        storeId: null,
+        title: input.title,
+        description: input.description,
+        ...conditionColumns,
+        conditionSourceLabel: null,
+        status: 'active',
+        categoryId,
+        categorySlugs,
+        tags: input.tags ?? [],
+        priceRangeMinAmount: price.amount,
+        priceRangeMinCurrency: price.currency,
+        priceRangeMaxAmount: price.amount,
+        priceRangeMaxCurrency: price.currency,
+        hasInventory: quantity > 0,
+        variantCount: 1,
+        longitude: null,
+        latitude: null,
+        vendor: null,
+        productType: null,
+        handle: null,
+        seoTitle: null,
+        seoDescription: null,
+        sourceConnectionId: null,
+        sourceProvider: null,
+        sourceExternalId: null,
+        sourceExternalUpdatedAt: null,
+        overriddenFields: [],
+        rating: 0,
+        reviewCount: 0,
+        favoriteCount: 0,
+        publishedAt: now,
+      },
+      toListingImages(input.imageFileIds),
+      [],
+      tx,
+    );
+
+    // Inside the SAME transaction as the listing row: the disclosures and the
+    // evidence gate are part of what makes the listing publishable, so a listing
+    // that commits without them is the failure this ordering removes.
+    await writeListingConditionEvidence(tx, {
+      listingId: listing.id,
+      actor: { kind: 'seller', oxyUserId },
+      galleryFileIds: input.imageFileIds,
+      resolved: resolvedCondition,
+      categoryId,
+      categorySlugs,
+      now,
+    });
+
+    return listing.id;
+  });
+
+  await insertVariants(listingId, [
     {
       title: DEFAULT_VARIANT_TITLE,
       priceAmount: price.amount,
@@ -270,8 +315,8 @@ export async function createP2PListing(
     },
   ]);
 
-  await syncListingFacets(listing.id);
-  return listing.id;
+  await syncListingFacets(listingId);
+  return listingId;
 }
 
 /** Human-readable variant title from its option-value tuple (e.g. `M / Black`). */
@@ -331,7 +376,7 @@ function resolveStoreVariants(input: CreateStoreProductInput): NewVariant[] {
 export async function createStoreProduct(
   storeId: string,
   input: CreateStoreProductInput,
-  opts: { locationId?: string } = {},
+  opts: { locationId?: string; actorOxyUserId?: string } = {},
 ): Promise<string> {
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
   const variants = resolveStoreVariants(input);
@@ -342,47 +387,87 @@ export async function createStoreProduct(
     );
   }
 
+  // #90: a store product defaults to `new` — which is what every store product
+  // was before the taxonomy existed — and may state anything else explicitly.
+  // The default is a real declaration by the merchant creating it, not an
+  // unrefined migration guess, so it records `seller_declared`.
+  const resolvedCondition = resolveConditionInput(input) ?? {
+    key: 'new' as const,
+    assertion: 'seller_declared' as const,
+    details: [],
+    photoAnnotations: [],
+    defectsAcknowledged: false,
+  };
+  const now = new Date();
+  const conditionColumns = conditionColumnsFor(resolvedCondition, now);
+
+  // The connector import path supplies no acting account. It never states a
+  // non-`new` condition, and `writeListingConditionEvidence` refuses one that
+  // needs photographs without an owner rather than attributing them to a store
+  // id — so this is a `source` assertion, honestly labelled.
+  const conditionActor: ConditionActor = opts.actorOxyUserId
+    ? { kind: 'seller', oxyUserId: opts.actorOxyUserId }
+    : { kind: 'source' };
+
   // Multi-currency: variant prices are stored in their NATIVE currency exactly as
   // given (no FAIR conversion) — the price already carries its `.currency`.
   const first = variants[0];
-  const listing = await insertListing(
-    {
-      ownerType: 'store',
-      oxyUserId: null,
-      storeId,
-      title: input.title,
-      description: input.description,
-      condition: 'new',
-      status: 'active',
+  const listing = await getDb().transaction(async (tx) => {
+    await assertConditionAllowed(tx, { resolved: resolvedCondition, categoryId, categorySlugs });
+
+    const row = await insertListing(
+      {
+        ownerType: 'store',
+        oxyUserId: null,
+        storeId,
+        title: input.title,
+        description: input.description,
+        ...conditionColumns,
+        conditionSourceLabel: null,
+        status: 'active',
+        categoryId,
+        categorySlugs,
+        tags: input.tags ?? [],
+        priceRangeMinAmount: first.priceAmount,
+        priceRangeMinCurrency: first.priceCurrency,
+        priceRangeMaxAmount: first.priceAmount,
+        priceRangeMaxCurrency: first.priceCurrency,
+        hasInventory: false,
+        variantCount: variants.length,
+        longitude: null,
+        latitude: null,
+        vendor: input.vendor ?? null,
+        productType: input.productType ?? null,
+        handle: input.handle ?? null,
+        seoTitle: input.seo?.title ?? null,
+        seoDescription: input.seo?.description ?? null,
+        sourceConnectionId: null,
+        sourceProvider: null,
+        sourceExternalId: null,
+        sourceExternalUpdatedAt: null,
+        overriddenFields: [],
+        rating: 0,
+        reviewCount: 0,
+        favoriteCount: 0,
+        publishedAt: now,
+      },
+      toListingImages(input.imageFileIds),
+      input.options.map((o, position) => ({ name: o.name, values: [...o.values], position })),
+      tx,
+    );
+
+    await writeListingConditionEvidence(tx, {
+      listingId: row.id,
+      actor: conditionActor,
+      galleryFileIds: input.imageFileIds,
+      resolved: resolvedCondition,
       categoryId,
       categorySlugs,
-      tags: input.tags ?? [],
-      priceRangeMinAmount: first.priceAmount,
-      priceRangeMinCurrency: first.priceCurrency,
-      priceRangeMaxAmount: first.priceAmount,
-      priceRangeMaxCurrency: first.priceCurrency,
-      hasInventory: false,
-      variantCount: variants.length,
-      longitude: null,
-      latitude: null,
-      vendor: input.vendor ?? null,
-      productType: input.productType ?? null,
-      handle: input.handle ?? null,
-      seoTitle: input.seo?.title ?? null,
-      seoDescription: input.seo?.description ?? null,
-      sourceConnectionId: null,
-      sourceProvider: null,
-      sourceExternalId: null,
-      sourceExternalUpdatedAt: null,
-      overriddenFields: [],
-      rating: 0,
-      reviewCount: 0,
-      favoriteCount: 0,
-      publishedAt: new Date(),
-    },
-    toListingImages(input.imageFileIds),
-    input.options.map((o, position) => ({ name: o.name, values: [...o.values], position })),
-  );
+      now,
+    });
+
+    return row;
+  });
 
   const inserted = await insertVariants(listing.id, variants);
 
@@ -415,6 +500,7 @@ export async function createStoreProduct(
 export async function updateListing(
   listingId: string,
   patch: UpdateListingInput,
+  actor: ConditionActor,
 ): Promise<void> {
   const listing = await findListingById(listingId);
   if (!listing) {
@@ -426,7 +512,6 @@ export async function updateListing(
   if (patch.title !== undefined) columns.title = patch.title;
   if (patch.description !== undefined) columns.description = patch.description;
   if (patch.tags !== undefined) columns.tags = [...patch.tags];
-  if (patch.condition !== undefined) columns.condition = patch.condition;
   /**
    * A moderation restriction is not the seller's to lift.
    *
@@ -473,12 +558,76 @@ export async function updateListing(
     columns.seoDescription = patch.seo.description ?? null;
   }
 
-  if (Object.keys(columns).length > 0) {
-    await updateListingColumns(listingId, columns);
+  /**
+   * #90: a condition change is a correction with an audit row, and it is
+   * refused once the item has sold.
+   *
+   * "Before sale" (#90 evidence rule 8) is about the LISTING, not about the
+   * orders: an order line already snapshotted what the buyer was shown and
+   * refuses UPDATE outright, so a later correction cannot reach it. What this
+   * guard stops is a seller quietly upgrading a sold item's page so that the
+   * listing a dispute is read against no longer says what was bought from it.
+   */
+  const resolvedCondition = resolveConditionInput(patch);
+  if (resolvedCondition && listing.status === 'sold') {
+    throw conflict('A sold listing’s condition can no longer be corrected');
   }
-  if (patch.imageFileIds !== undefined) {
-    await replaceListingImages(listingId, toListingImages(patch.imageFileIds));
-  }
+
+  const now = new Date();
+  const conditionColumns = resolvedCondition
+    ? conditionColumnsFor(resolvedCondition, now)
+    : undefined;
+
+  // The gallery the evidence is drawn from: whatever this request supplies, or
+  // whatever the listing already has. A condition change that did not resend the
+  // images must still be gated against the images that are actually there —
+  // reading only the patch would let a seller move to `used_poor` with no
+  // photographs by simply omitting them.
+  const galleryFileIds =
+    patch.imageFileIds ??
+    ((await findListingChildren([listingId])).images.get(listingId) ?? []).map(
+      (image) => image.fileId,
+    );
+
+  await getDb().transaction(async (tx) => {
+    if (resolvedCondition && conditionColumns) {
+      await assertConditionAllowed(tx, {
+        resolved: resolvedCondition,
+        categoryId: columns.categoryId ?? listing.categoryId,
+        categorySlugs: columns.categorySlugs ?? listing.categorySlugs,
+      });
+      Object.assign(columns, conditionColumns);
+      // A seller-declared correction clears any source wording: the label
+      // belonged to a claim the source made, and the CHECK forbids one beside a
+      // `seller_declared` row.
+      if (resolvedCondition.assertion !== 'source_declared') {
+        columns.conditionSourceLabel = null;
+      }
+    }
+
+    if (Object.keys(columns).length > 0) {
+      await updateListingColumns(listingId, columns, tx);
+    }
+    if (patch.imageFileIds !== undefined) {
+      await replaceListingImages(listingId, toListingImages(patch.imageFileIds), tx);
+    }
+
+    if (resolvedCondition) {
+      await writeListingConditionEvidence(tx, {
+        listingId,
+        actor,
+        galleryFileIds,
+        resolved: resolvedCondition,
+        categoryId: columns.categoryId ?? listing.categoryId,
+        categorySlugs: columns.categorySlugs ?? listing.categorySlugs,
+        previous: {
+          key: narrowStoredCondition(listing.condition),
+          assertion: listing.conditionAssertion,
+        },
+        now,
+      });
+    }
+  });
 
   // P2P price/quantity updates flow through the single variant, stored in its
   // NATIVE currency. Both target the FIRST variant by position, which is the one

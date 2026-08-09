@@ -16,6 +16,14 @@ import type { Seller } from './seller';
 import type { MerchantSummary } from './product';
 import type { ProductVariantDTO } from './variant';
 import type { ConnectorProviderId } from './integration';
+import type {
+  ConditionDetailKind,
+  ConditionDetailSeverity,
+  ConditionGroup,
+  ItemConditionDTO,
+  ItemConditionKey,
+  LegacyBinaryCondition,
+} from './condition';
 
 /**
  * Provenance of a listing imported/synced from an external commerce platform.
@@ -33,8 +41,50 @@ export interface ListingSource {
   externalUpdatedAt?: string;
 }
 
-/** Condition of the item being sold. */
-export type ListingCondition = 'new' | 'used';
+/**
+ * One structured condition fact supplied by the seller (#90 condition details).
+ *
+ * `note` is REQUIRED for the kinds in `CONDITION_DETAIL_KINDS_REQUIRING_NOTE`
+ * and `severity` is accepted only for those in
+ * `CONDITION_DETAIL_KINDS_WITH_SEVERITY` — both enforced by the request schema
+ * and, independently, by a CHECK.
+ */
+export interface ConditionDetailInput {
+  kind: ConditionDetailKind;
+  severity?: ConditionDetailSeverity;
+  note?: string;
+}
+
+/**
+ * The seller marking which of their own gallery photos evidence the condition
+ * (#90 evidence rule 4).
+ *
+ * `fileId` must be one of the listing's own `imageFileIds`: condition evidence
+ * is not a second upload channel, it is an annotation on photographs the seller
+ * has already attached to this listing, which is what keeps ownership and upload
+ * time answerable from one place.
+ */
+export interface ConditionPhotoAnnotationInput {
+  fileId: string;
+  /** Whether this photo shows a defect rather than the item generally. */
+  showsDefect?: boolean;
+  /** Index into `details` of the defect this photo shows, when the seller names one. */
+  detailIndex?: number;
+}
+
+/**
+ * The full condition statement a seller makes about a listing (#90).
+ *
+ * `defectsAcknowledged` is an affirmative act with no default: the write path
+ * refuses a condition whose policy requires acknowledgement unless it is
+ * literally `true` (#90 policy rule 2). A missing field is not consent.
+ */
+export interface ListingConditionInput {
+  key: ItemConditionKey;
+  details?: ConditionDetailInput[];
+  photoAnnotations?: ConditionPhotoAnnotationInput[];
+  defectsAcknowledged?: boolean;
+}
 
 /**
  * Lifecycle status of a listing.
@@ -142,8 +192,22 @@ export interface Listing extends Timestamps {
   variants: ProductVariantDTO[];
   /** Selectable options (empty for P2P listings). */
   options?: ListingOption[];
-  /** Condition of the item. */
-  condition: ListingCondition;
+  /**
+   * The item's condition on the #90 taxonomy — the AUTHORITATIVE field.
+   *
+   * Carries the key, its segment, how it came to be asserted, and the evidence
+   * behind it. `condition` below is the derived v1 projection of this.
+   */
+  itemCondition: ItemConditionDTO;
+  /**
+   * The v1 binary spelling — a VERSIONED COMPATIBILITY PROJECTION, computed
+   * from `itemCondition.key` on every read and stored nowhere.
+   *
+   * See `LEGACY_CONDITION_CONTRACT` for what retires it. It is here for the
+   * reason `checkout`'s `addressId` is: a shipped mobile build cannot be
+   * recalled. New client code reads `itemCondition` and never this.
+   */
+  condition: LegacyBinaryCondition;
   /**
    * The canonical product this listing's variants resolve to, when they resolve
    * to exactly ONE (#76 UI rule 1).
@@ -195,12 +259,25 @@ export interface Listing extends Timestamps {
   overriddenFields?: string[];
 }
 
-/** Payload accepted when an individual user creates a P2P (secondhand) listing. */
+/**
+ * Payload accepted when an individual user creates a P2P (secondhand) listing.
+ *
+ * EXACTLY ONE of `condition` (v1) and `itemCondition` (#90) must be present.
+ * Sending both is a 400 rather than a precedence rule nobody would remember —
+ * the `checkout` `{destination} | {addressId}` decision, verbatim.
+ */
 export interface CreateP2PListingInput {
   title: string;
   description: string;
   price: Money;
-  condition: ListingCondition;
+  /**
+   * The v1 binary spelling. `new` is lossless; `used` lands on the conservative
+   * generic key and records `legacy_client_binary`, so it can never assert
+   * `used_like_new` (#90 migration rule 2).
+   */
+  condition?: LegacyBinaryCondition;
+  /** The #90 statement. Required of any client that can express it. */
+  itemCondition?: ListingConditionInput;
   category: string;
   /** Oxy media file ids for the gallery, in display order. */
   imageFileIds: string[];
@@ -226,10 +303,22 @@ export interface CreateStoreProductVariantInput {
   };
 }
 
-/** Payload accepted when a store creates a new product. */
+/**
+ * Payload accepted when a store creates a new product.
+ *
+ * Condition is OPTIONAL here and defaults to `new`, which is what every store
+ * product was before #90 existed. A merchant selling open-box or refurbished
+ * stock states it explicitly, and the evidence policy for that key then applies
+ * exactly as it does to a P2P listing — a store is not exempt from showing the
+ * actual unit.
+ */
 export interface CreateStoreProductInput {
   title: string;
   description: string;
+  /** The v1 binary spelling. Exactly one of this and `itemCondition`. */
+  condition?: LegacyBinaryCondition;
+  /** The #90 statement. Absent means `new`. */
+  itemCondition?: ListingConditionInput;
   category: string;
   /** Oxy media file ids for the gallery, in display order. */
   imageFileIds: string[];
@@ -248,7 +337,13 @@ export interface CreateStoreProductInput {
   seo?: { title?: string; description?: string };
 }
 
-/** Partial payload accepted when updating an existing listing. */
+/**
+ * Partial payload accepted when updating an existing listing.
+ *
+ * A condition change goes through the same exactly-one rule as creation, and
+ * every change appends a `listing_condition_revisions` row (#90 evidence rule
+ * 8). The service refuses one on a listing that has already sold.
+ */
 export type UpdateListingInput = Partial<CreateP2PListingInput> & {
   /**
    * Seller-settable statuses only — a client can never ask for `restricted`, nor
@@ -271,8 +366,20 @@ export interface ListingQuery {
   q?: string;
   /** Restrict to a single category slug. */
   category?: string;
-  /** Restrict to a condition. */
-  condition?: ListingCondition;
+  /**
+   * Restrict to a condition, v1 spelling — the read half of the compatibility
+   * contract. `used` selects every non-`new` GROUP, which is the honest
+   * widening: a v1 client asking for "used" wants everything that is not
+   * factory-sealed.
+   *
+   * Mutually exclusive with `conditionKeys`/`conditionGroups`; sending both is a
+   * 400.
+   */
+  condition?: LegacyBinaryCondition;
+  /** Restrict to specific taxonomy keys (#90 acceptance 2). */
+  conditionKeys?: ItemConditionKey[];
+  /** Restrict to whole segments — the filter a facet UI drives (#90 acceptance 2). */
+  conditionGroups?: ConditionGroup[];
   /** Minimum price in minor units. */
   minPrice?: number;
   /** Maximum price in minor units. */

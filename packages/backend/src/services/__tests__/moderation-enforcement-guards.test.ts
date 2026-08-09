@@ -21,9 +21,40 @@ vi.mock('../../db/catalog/listingRepository.js', () => ({
   recomputeListingFacets: (...args: unknown[]) => recomputeListingFacets(...args),
   replaceListingImages: (...args: unknown[]) => replaceListingImages(...args),
   insertListing: vi.fn(),
+  findListingChildren: vi.fn(async () => ({
+    images: new Map(),
+    options: new Map(),
+    collectionIds: new Map(),
+  })),
 }));
 
 const transitionOrderStatus = vi.fn();
+
+/**
+ * #90: `updateListing` now runs its column patch and any condition write in ONE
+ * transaction, so the mocked handle has to BE one.
+ *
+ * The fake runs the callback against itself, which is the whole of what these
+ * cases need — they change a STATUS and never a condition, so nothing inside
+ * reaches a condition repository. The `findListingChildren` stub is the gallery
+ * read the condition path would use; it is mocked so a future case that DOES
+ * change a condition fails loudly on a missing mock rather than silently
+ * reading nothing.
+ */
+vi.mock('../../db/postgres.js', () => ({
+  getDb: () => ({
+    transaction: async (run: (tx: unknown) => Promise<unknown>) => run({ rollback: () => {} }),
+  }),
+}));
+
+vi.mock('../../db/condition/conditionRepository.js', () => ({
+  findConditionDetailsForListings: vi.fn(async () => []),
+  findConditionPhotosForListings: vi.fn(async () => []),
+  replaceConditionDetails: vi.fn(async () => []),
+  replaceConditionPhotos: vi.fn(async () => []),
+  countEvidentialConditionPhotos: vi.fn(async () => 0),
+  insertConditionRevision: vi.fn(async () => ({})),
+}));
 
 vi.mock('../../db/catalog/variantRepository.js', () => ({
   findVariantsByListing: vi.fn(async () => []),
@@ -99,6 +130,14 @@ const { transition } = await import('../order.service.js');
 // production no longer produces.
 const LISTING_ID = uuidv7();
 
+/**
+ * #90: `updateListing` takes the acting party, because a condition change
+ * appends an audited revision naming it. These cases change only the STATUS, so
+ * the actor is inert here — it is supplied because the signature demands one, and
+ * that is the point: a caller cannot patch a listing anonymously any more.
+ */
+const SELLER_ACTOR = { kind: 'seller', oxyUserId: uuidv7() } as const;
+
 /** A listing ROW as the repository returns it — the shape `updateListing` reads. */
 function listingRow(status: string): Record<string, unknown> {
   return {
@@ -137,7 +176,7 @@ describe('a seller cannot escape a moderation restriction', () => {
      * restriction being applied — because it was.
      */
     await expect(
-      updateListing(LISTING_ID, { status: 'active' }),
+      updateListing(LISTING_ID, { status: 'active' }, SELLER_ACTOR),
     ).rejects.toThrow(/restricted pending a moderation decision/i);
 
     // Nothing was written: the guard runs BEFORE any column patch is assembled.
@@ -149,7 +188,7 @@ describe('a seller cannot escape a moderation restriction', () => {
 
     // `draft` would look harmless and is not: it hands the seller an editable
     // copy of material a jury removed.
-    await expect(updateListing(LISTING_ID, { status: 'draft' })).rejects.toThrow(
+    await expect(updateListing(LISTING_ID, { status: 'draft' }, SELLER_ACTOR)).rejects.toThrow(
       /restricted pending a moderation decision/i,
     );
   });
@@ -161,7 +200,7 @@ describe('a seller cannot escape a moderation restriction', () => {
     // is erased at runtime and this service is exported to callers that never
     // saw the route's validation.
     await expect(
-      updateListing(LISTING_ID, { status: 'restricted' as never }),
+      updateListing(LISTING_ID, { status: 'restricted' as never }, SELLER_ACTOR),
     ).rejects.toThrow(/cannot be set directly/i);
   });
 
@@ -174,7 +213,9 @@ describe('a seller cannot escape a moderation restriction', () => {
      * and that the new status really reaches the write, rather than the call
      * merely resolving.
      */
-    await expect(updateListing(LISTING_ID, { status: 'active' })).resolves.toBeUndefined();
+    await expect(
+      updateListing(LISTING_ID, { status: 'active' }, SELLER_ACTOR),
+    ).resolves.toBeUndefined();
     expect(updateListingColumns).toHaveBeenCalledTimes(1);
     expect(updateListingColumns.mock.calls[0][1]).toMatchObject({ status: 'active' });
   });

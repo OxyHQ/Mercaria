@@ -24,6 +24,12 @@ export * from './seller-profile';
 // Product variant DTO (ProductVariantDTO, VariantOptionValue).
 export * from './variant';
 
+// The item-condition taxonomy (#90): the nine stable keys, their segments, the
+// evidence policy table, the source-mapping vocabulary and the v1 compatibility
+// contract. Precedes `listing` and `offer`, both of which type their condition
+// fields from it.
+export * from './condition';
+
 // Listing domain entity, enums and request payloads.
 export * from './listing';
 

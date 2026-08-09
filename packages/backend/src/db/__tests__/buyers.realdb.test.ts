@@ -104,6 +104,7 @@ async function makeListing(): Promise<string> {
       title: 'Realdb reviewed thing',
       description: '',
       condition: 'new',
+      conditionAssertion: 'seller_declared',
     })
     .returning({ id: listings.id });
   createdListingIds.push(listing.id);

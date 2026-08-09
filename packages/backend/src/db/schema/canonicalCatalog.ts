@@ -698,6 +698,21 @@ export const canonicalImages = pgTable(
     index('canonical_images_product_position_idx').on(t.productId, t.position),
     index('canonical_images_variant_position_idx').on(t.variantId, t.position),
     index('canonical_images_source_record_idx').on(t.sourceRecordId),
+    /**
+     * "Is this file id a catalogue image?", answered per row.
+     *
+     * Added by #90 and read by ONE thing: the
+     * `mercaria_reject_canonical_condition_photo` trigger, which fires on every
+     * insert into `listing_condition_photos` and is what makes "canonical
+     * images never satisfy native used-item photo requirements" (#90 acceptance
+     * 4) true against a seller who attaches the manufacturer's own product
+     * shot. Without this index that trigger is a sequential scan of the whole
+     * canonical image set on every photograph a seller uploads.
+     *
+     * PARTIAL, because a source-hosted image has no `file_id` and can never
+     * collide with an Oxy media id.
+     */
+    index('canonical_images_file_id_idx').on(t.fileId).where(sql`${t.fileId} is not null`),
   ],
 );
 

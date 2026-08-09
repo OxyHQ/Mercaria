@@ -2240,6 +2240,83 @@ answerable:
 - **Zero `jsonb`.** Every shape in this domain is Mercaria's own and closed, so
   none of them earns an entry in the register below.
 
+### The condition taxonomy (#90) has no source model either
+
+Six new tables — `listing_condition_details`, `listing_condition_photos`,
+`listing_condition_revisions`, `condition_mapping_rulesets`,
+`condition_source_mappings`, `condition_category_policies` — plus four columns on
+`listings`, five on `offers` and three on `order_items`. Full reference:
+`docs/condition.md`.
+
+**The condition KEY is a column on `listings` and `offers`, not a table.** It is
+a property of the thing being sold and a join to read it would be a join on
+every catalogue page. What earned tables is everything that makes the key
+TRUSTWORTHY.
+
+- **The value set is one tuple, read twice.** `ITEM_CONDITION_KEYS` types both
+  columns AND renders both CHECKs — the `ALL_CURRENCY_CODES` convention. Nine
+  keys; `OFFER_CONDITION_KEYS` is those plus `unknown`, which exists only on the
+  offer side because a seller always knows what they are selling and most feeds
+  publish nothing.
+- **`listings_unrefined_condition_check` is the most load-bearing constraint in
+  the domain.** `condition_assertion IN ('migrated_binary','legacy_client_binary')
+  ⇒ condition IN ('new','used_good')`, both tuples imported from shared-types.
+  That is #90 migration rule 2 as DDL: the legacy `used` can never become
+  `used_like_new`, whether the writer is the migration, a v1 mobile client, a
+  service bug or a `psql` session.
+- **Five `offers_condition_*_shape_check` constraints** hold #90 evidence rule 6.
+  Only `declared` and `mapped` may sit beside a key other than `unknown`, and
+  `mapped` requires a confidence at or above
+  `CONDITION_MAPPING_CONFIDENCE_FLOOR` — rendered into the CHECK from the SAME
+  constant the mapping service reads, via
+  `CONDITION_MAPPING_CONFIDENCE_FLOOR_SQL`, so the two cannot disagree about
+  where the line is. There is no combination expressing "we think it is
+  refurbished but are not sure".
+- **`order_items`' three condition columns refuse UPDATE outright** —
+  `mercaria_order_item_condition_immutable`, not an "immutable once set" rule.
+  The weaker version would still admit a backfill writing NULL → a value, which
+  is precisely what #90 migration rule 3 forbids. `condition_group` is
+  deliberately NOT a column: the KEY is the stored fact and the bucketing is a
+  presentation decision that should improve for old orders too.
+- **`listing_condition_photos` has NO column that could hold a catalogue image
+  reference, and a TRIGGER refuses a `file_id` `canonical_images` already
+  claims.** The vocabulary stops the obvious mistake; the trigger stops the real
+  one, which is a seller attaching the manufacturer's product shot — an ordinary
+  Oxy media id no service check can recognise. `canonical_images_file_id_idx`
+  (partial, `WHERE file_id IS NOT NULL`) exists for that trigger and for nothing
+  else.
+- **`listing_condition_details` carries `UNIQUE(id, listing_id)` as a
+  CONSTRAINT, not an index**, and the distinction is not cosmetic: drizzle-kit
+  emits constraints inside `CREATE TABLE` and indexes AFTER every
+  `ADD CONSTRAINT ... FOREIGN KEY`, so the composite foreign key on
+  `listing_condition_photos` would be created before its target key existed.
+  Measured — that is how the migration failed the first time. The composite key
+  is what makes "a photo may only evidence a defect on ITS OWN listing" a
+  relational fact rather than a trigger doing a foreign key's job.
+- **`listing_condition_revisions` is append-only with a PRECISE delete
+  exception.** UPDATE is refused; DELETE is refused only while the listing still
+  EXISTS. The foreign key already says `cascade`, so an unconditional refusal
+  would make a listing undeletable and an unconditional permission would let an
+  operator remove one correction to hide it. During a cascade the parent is
+  already gone from the statement's snapshot, so the `EXISTS` is false.
+- **A published mapping ruleset is frozen by trigger, rules included.** Freezing
+  the version while leaving its RULES editable would defeat versioning entirely.
+  One active version per provider is a partial unique, so two concurrent
+  publishes cannot both win.
+- **`condition_category_policies` names what is FORBIDDEN.** Absence means
+  allowed — the taxonomy is universal and a restriction is a statement about a
+  specific category, so an empty table means "nobody has restricted this", not
+  "refuse the catalogue".
+- **Two migrations, and the split is the deploy-phase rule working**: `0030`
+  (`pre`, additive — both CHECKs widened to a superset including the legacy
+  `'used'`, every row backfilled, four trigger pairs, one `migration` revision
+  per listing) and `0031` (`post`, the clean cut — both CHECKs narrowed, both
+  transitional defaults dropped). Each `post` statement breaks a write the
+  previous image performs. `0030`'s hand-written statements live in two blocks
+  with named anchors; its header states where each must go on a regeneration and
+  why the ordering is load-bearing.
+- **Zero `jsonb`.** Every shape here is Mercaria's own and closed.
+
 ### Counters became sequences (`drizzle/0001_counter_sequences.sql`)
 
 `order_number_seq` and `rma_number_seq` replace the `Counter` collection's
@@ -2433,6 +2510,15 @@ add a row when a gate lands, and do not list one that does not run yet.
 | Every forbidden evidence source is refused BY NAME, an unclaimed guest order grants nothing through any exported path, and the #109 seam refuses a well-formed claim | `src/services/reviews/__tests__/review-eligibility.test.ts` | no |
 | The classification job never promotes a legacy listing review to `product`, leaves an unlinked store review where it is with the missing fact recorded, and appends its decision in the same transaction | `src/services/reviews/__tests__/review-migration.test.ts` | no |
 | A scope and its target cannot disagree; one review per author per scoped target on the GENERATED key; an eligibility is granted once and spent once under concurrency; a claimed-guest eligibility needs its claim id; a hidden review leaves the aggregate; drift is detected and corrected; the migration log refuses UPDATE and DELETE | `src/db/__tests__/review-scopes.realdb.test.ts` | yes |
+| An unrefined assertion (a migration, a v1 client) can never carry `used_like_new` or any refurbished/open-box key; a source label cannot sit beside a seller-declared condition; the two conservative keys ARE admitted, so the CHECK is restrictive rather than universal (#90 migration rule 2) | `src/db/__tests__/condition.realdb.test.ts` | yes |
+| A condition photo whose `file_id` belongs to a `canonical_images` row is refused on INSERT and on UPDATE, while the seller's own file is accepted; one evidence row per (listing, file) (#90 acceptance 4) | `src/db/__tests__/condition.realdb.test.ts` | yes |
+| An order line's condition snapshot refuses every UPDATE including a NULL → value backfill, while an ordinary column patch still succeeds; half a snapshot is refused (#90 acceptance 3, migration rule 3) | `src/db/__tests__/condition.realdb.test.ts` | yes |
+| A `review_pending` or sub-floor `mapped` offer cannot carry a taxonomy key, an `unmapped` one cannot claim a condition, a `declared` one cannot carry a source label — and all three legitimate shapes ARE admitted (#90 acceptance 5) | `src/db/__tests__/condition.realdb.test.ts` | yes |
+| A published mapping ruleset and its rules refuse every edit and delete; one ACTIVE version per provider under two publishes; the `active` → `superseded` move is still permitted (#90 migration rule 5) | `src/db/__tests__/condition.realdb.test.ts` | yes |
+| Condition revisions refuse UPDATE and refuse DELETE while the listing lives, PERMIT the listing's own cascade, refuse a migration row naming a person and a seller row naming nobody, and refuse a revision in which nothing changed (#90 evidence rule 8) | `src/db/__tests__/condition.realdb.test.ts` | yes |
+| A condition photo cannot evidence a defect on ANOTHER listing (composite foreign key); a disclosure that says nothing and a severity on a kind that has none are both refused | `src/db/__tests__/condition.realdb.test.ts` | yes |
+| The seller-owned and forbidden photo provenances are disjoint; no condition table can hold a canonical-image reference or a #94-delegated fact; no ranking surface can reach the condition domain and no condition module can reach the fee, referral or payment domains; exactly one module compares against the confidence floor and it does so BY NAME (#90) | `src/services/condition/__tests__/condition-isolation.test.ts` | no |
+| Both condition spellings together are a 400; a v1 `used` resolves to the conservative generic key and carries no acknowledgement; every non-`new` key projects back out as `used`; the evidence policy requires photographs for every key but `new` and names the refurbisher for exactly the two refurbished keys; a pre-#90 order line answers `recorded: false` with no key to misread | `src/services/condition/__tests__/condition-taxonomy.test.ts` | no |
 | Verification cannot become a PAID boost (#55 product behaviour 5): a relationship carries no commercial column, the relationship domain imports no fee/payment/referral module, and no ranking module reads the relationship domain today | `src/services/commerce-graph/__tests__/relationship-ranking-isolation.test.ts` | no |
 | Every relationship kind constrains its subject and object entity kinds; all NINE of #55's relationship types are answered, and never one of them twice (six kinds + three structural foreign keys) | `src/services/commerce-graph/__tests__/relationship-kinds.test.ts` | no |
 | An ingestion source cannot verify; a merchant self-claim is not self-verifying; domain control is insufficient for a brand badge and sufficient for the fact it proves; four eyes covers exactly the badge kinds; no ending is reversible | `src/services/commerce-graph/__tests__/relationship-authority.test.ts` | no |

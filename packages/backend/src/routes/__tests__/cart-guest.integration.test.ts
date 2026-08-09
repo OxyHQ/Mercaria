@@ -76,7 +76,8 @@ beforeAll(async () => {
       oxyUserId: `cart-int-seller-${RUN}`,
       title: `Cart integration fixture ${RUN}`,
       description: '',
-      condition: 'used',
+      condition: 'used_good',
+      conditionAssertion: 'seller_declared',
       status: 'active',
     })
     .returning();
