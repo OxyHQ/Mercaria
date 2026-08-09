@@ -893,6 +893,92 @@ is answerable:
   supplier payloads are redacted to normalized reason codes plus a bounded
   `supplier_note` at the call site, never stored wholesale.
 
+### The retail pricing domain has NO source model either (#120, ADR 0004 D3)
+
+Four more tables born in Postgres, in `schema/retailPricing.ts`:
+`retail_pricing_policies`, `retail_cost_quotes`,
+`retail_cost_quote_components`, `retail_cost_quote_acceptances`. How Mercaria
+prices the goods it sells ITSELF — cost recovery with zero markup and zero
+intended item profit. Full behaviour: `docs/retail-pricing.md`.
+
+The decisions that are THIS domain's, stated so a column that looks arbitrary
+is answerable:
+
+- **Markup is UNREPRESENTABLE, not defaulted to zero.** There is no
+  `markup_bps`, no `margin_target_bps`, no `min_profit_amount` and no padding
+  column anywhere in the four tables, and none may be added.
+  `retail_pricing_policies.absorption_cap_bps` is the domain's ONLY
+  basis-point column and it bounds what Mercaria ABSORBS before cancelling and
+  refunding (ADR 0004 D3) — it can only ever cost Mercaria money. A test scans
+  every column of all four tables against a forbidden-name shape, with a
+  vacuity floor and a mutation self-test.
+- **The customer total IS the sum of the component rows**, and that is the one
+  invariant a CHECK cannot see (it is cross-row, and the components arrive
+  after the parent). `insertRetailCostQuote` is the SINGLE writer of both
+  tables, writes them in one transaction, and refuses a mismatch before issuing
+  SQL — the `ledgerRepository` shape. A deferred constraint was rejected: it
+  would fire long after the caller who could explain it has gone.
+- **Two `Money` pairs per component, plus a five-column FX snapshot.** The
+  source pair is the SUPPLIER's own currency (nothing converts a source price
+  on write); the presentment pair is the converted figure. The snapshot is
+  present EXACTLY when the two currencies differ — a biconditional CHECK, so
+  neither a missing snapshot nor a spurious one is storable — and `fx_basis`
+  records whether it was Mercaria's quoted rate or the provider's final one,
+  because those can differ and the difference is variance, never profit.
+- **`completeness` DETERMINES `presentation`, by CHECK, both ways**, and
+  `block_reasons` is non-empty exactly when the quote is not `complete`. A
+  blocked quote therefore cannot be stored claiming an exact cost-only price,
+  and a complete one cannot be stored with an unexplained block. Expiry is
+  deliberately NOT a `completeness` value: it is derived from `expires_at`
+  against the clock (`deriveOfferFreshness`'s rule, applied to money), because
+  a stored expiry state beside the deadline is two representations of one fact.
+- **The promotion rule is three CHECKs, not a convention.**
+  `buyer_payable = customer_total − coalesce(subsidy, 0)`;
+  `0 ≤ subsidy ≤ customer_total`; every component amount `>= 0`. Together they
+  make a supplier-funded promotion (a negative supplier cost) and a promotion
+  that raises the price to fund itself later both unrepresentable.
+  `RetailSubsidySource` has ONE member — Mercaria's own marketing budget.
+- **Immutability is triggers, not review** (the ledger/fee precedent, `0017`):
+  a policy version freezes every economic column once it leaves `draft`;
+  quotes and their components refuse UPDATE and DELETE from birth (the charged
+  amount is a pure function of the frozen quote). Acceptances refuse both too,
+  with ONE narrow, one-way exception — `order_id` moving from NULL to a value,
+  exactly once, with every other column unchanged. The checkout lock is taken
+  BEFORE the retail order row exists (ADR 0004 D4 step 1), so that single write
+  is what "freeze the accepted quote onto the order" needs; a realdb test pins
+  that a second attach, a changed amount and a DELETE are all refused.
+- **`UNIQUE(checkout_group_id, quote_id)` is the checkout lock's idempotency.**
+  A retry converges on the existing row (the moderation-event claim shape), so
+  the locked total is READ rather than re-priced. A revised total is a NEW
+  quote plus a NEW acceptance naming the one it supersedes — the only
+  representable way a charged amount changes.
+- **The acceptance actor is an Oxy id XOR a guest-session ref**, exactly one
+  present by CHECK — the `referral_touches` shape. Neither carries a foreign
+  key: Oxy owns identity, and the guest session is purged on its own retention
+  clock while this financial record is retained.
+- **Supplier identity is a foreign key; catalogue identity is a snapshot.**
+  `supplier_id` / `supplier_account_id` / `agreement_id` / `policy_id` are real
+  RESTRICT foreign keys (those rows have lifecycle states rather than deletes,
+  and an unattributable cost quote is not evidence). `procurement_offer_id` and
+  the two `canonical_*` columns are SNAPSHOT provenance with no foreign key —
+  the `purchase_order_lines` rule, since offers refresh in place and canonical
+  entities merge. The policy is named TWICE on purpose: by id, and as
+  `policy_key` + `policy_version` snapshot names, the `order_fee_snapshots`
+  rule.
+- **`expires_at` here is a VALIDITY deadline, not a retention one**, so this
+  domain registers NOTHING in `db/expiryTargets.ts`. These rows are the
+  financial evidence #128 reconciles against and are retained like `payments`.
+  (`procurement_offers.expires_at` is unregistered for the same reason.)
+- **No `orders` widening.** `commercial_role` / `seller_type = 'platform'` land
+  with the code that writes them (#123) — the reasoning the procurement section
+  above records. The acceptance's plain `order_id` correlation is the seam.
+- **No stored variance table.** Classifying a final-versus-locked difference is
+  pure (`services/retail-pricing/retail-variance.ts`); BOOKING it is #128's
+  ledger work, and a second durable record of one fact is what the ledger rules
+  forbid.
+- **Zero `jsonb`.** Every shape in this domain is Mercaria's own and closed, so
+  none of them earns an entry in the register below.
+
 ### The referral domain (#142, ADR 0005) has no source model either
 
 Nine tables born in Postgres (`drizzle/0015_referral_domain.sql`, phase `pre`):
@@ -973,7 +1059,7 @@ deliberately not created and the dead function goes with the model in Fase 3.
 
 ## Register: every `jsonb` column, and why it earned it
 
-`jsonb` is for genuinely shape-less data only. Eight columns qualify in 99 tables;
+`jsonb` is for genuinely shape-less data only. Eight columns qualify in 107 tables;
 anything else with a known shape is real columns or a child table.
 
 | Column | Why it is genuinely open-shaped |

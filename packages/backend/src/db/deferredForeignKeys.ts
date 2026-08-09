@@ -482,6 +482,42 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'supplier_agreement_evidence.oxy_file_id', reason: OXY_FILE },
   { column: 'purchase_order_transitions.by_oxy_user_id', reason: OXY_ACCOUNT },
 
+  // ── Retail pricing (#120, ADR 0004 D3) ────────────────────────────────────
+  //
+  // The supplier, account, agreement and policy VERSION a quote was composed
+  // under are all real RESTRICT foreign keys and are deliberately NOT here —
+  // an unattributable cost quote is not evidence. What is here is the same
+  // three classes procurement already ledgers: catalogue snapshots whose
+  // targets legitimately move on, a grouping token with no parent entity, and
+  // a commerce correlation the financial record must outlive.
+  { column: 'retail_cost_quotes.procurement_offer_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'retail_cost_quotes.canonical_product_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'retail_cost_quotes.canonical_variant_id', reason: COMMERCE_SNAPSHOT },
+  {
+    column: 'retail_cost_quote_acceptances.checkout_group_id',
+    reason:
+      'The same grouping token orders, payments and purchase orders carry; there is no ' +
+      'checkout_groups entity to point at.',
+  },
+  {
+    column: 'retail_cost_quote_acceptances.order_id',
+    reason:
+      'The checkout lock is taken BEFORE the retail order row exists (ADR 0004 D4 step 1 ' +
+      'freezes the snapshot, then creates the order), and the accepted amount must stay ' +
+      'readable whether or not that order is reachable — the PAYMENT_CORRELATION rule, ' +
+      'one domain over.',
+  },
+  { column: 'retail_cost_quote_acceptances.accepted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'retail_cost_quote_acceptances.accepted_guest_session_id',
+    reason:
+      'An opaque #103 guest-session ref. The session row is PURGED on its own retention ' +
+      'clock (ADR 0003 D11) while this financial record is retained, so a constraint would ' +
+      'either block the purge or destroy the acceptance — correlation text, deliberately.',
+  },
+  { column: 'retail_pricing_policies.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_pricing_policies.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+
   // ── Referral domain (#142, ADR 0005) ──────────────────────────────────────
   { column: 'referral_programs.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'referral_programs.approved_by_oxy_user_id', reason: OXY_ACCOUNT },

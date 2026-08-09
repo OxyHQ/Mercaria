@@ -127,6 +127,13 @@
       "when": 1786241264585,
       "tag": "0017_far_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786243534733,
+      "tag": "0018_nappy_makkari",
+      "breakpoints": true
     }
   ]
 }

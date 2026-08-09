@@ -857,6 +857,14 @@ later catalog or link change cannot reclassify it:
 `mercaria_retail` row carrying any fee amount unrepresentable, so it can never
 be read back as a zero-rate schedule outcome.
 
+How a `mercaria_retail` order IS priced — the cost-only formula, the eight
+allowed direct-cost components, the fourteen forbidden ones, the immutable cost
+quote, the checkout lock and the eight accounting outputs (with no item-profit
+account among them) — is **`docs/retail-pricing.md`** (#120, ADR 0004 D3). It
+is a separate domain on purpose: the retail pricing engine cannot import the
+fee domain, which is what makes "no marketplace fee on a retail order" a
+property of the code rather than of a table row.
+
 ### Versioned, immutable schedules
 
 `fee_schedules` holds one row per VERSION: key + version, name and merchant
