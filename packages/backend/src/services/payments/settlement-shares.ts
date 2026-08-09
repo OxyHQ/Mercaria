@@ -39,13 +39,19 @@
  *
  * ## Commission is NOT computed here
  *
- * `netMinor` is the seller's share of the gross, and nothing is deducted from
- * it: the commission rate is zero until #88 lands the fee schedule, and encoding
- * a zero-rate calculation here would make this the second place that schedule
- * lives. When #88 arrives it subtracts its per-order fee from these shares, at
- * which point `chargeSucceeded`'s residual stops being zero and starts crediting
- * `commission_revenue` — with no other change anywhere, which is the property
- * this separation exists to preserve.
+ * `netMinor` is the seller's GROSS share of the charge, and nothing is deducted
+ * from it: the fee schedule is #88's (`services/payments/seller-net-shares.ts`,
+ * fed by each order's immutable fee snapshot), and encoding any rate here would
+ * make this a second place that schedule lives. `deriveSellerNetShares` is what
+ * subtracts the per-order fee from these shares — at which point
+ * `chargeSucceeded`'s residual stops being zero and starts crediting
+ * `commission_revenue`, with no change in this file. Every reader of "what is a
+ * seller owed" goes through THAT module, never this one directly.
+ *
+ * `apportion` below is the largest-remainder primitive itself, exported so the
+ * fee domain's line allocations split by the SAME documented rule (floor, then
+ * one extra unit each to the largest fractional parts, ties by input position)
+ * rather than growing a second rounding convention.
  */
 
 import type { CurrencyCode, LedgerOwnerType } from '@mercaria/shared-types';
@@ -99,38 +105,54 @@ export function allocateSellerShares(input: {
     return { currency, shares: [], residualMinor: grossMinor };
   }
 
-  const weights = orders.map((order) => BigInt(order.weightMinor));
-  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0n);
+  const parts = apportion({
+    totalMinor: grossMinor,
+    weights: orders.map((order) => BigInt(order.weightMinor)),
+  });
+  const shares: SellerShare[] = orders.map((order, index) => ({
+    orderId: order.orderId,
+    ownerType: order.ownerType,
+    ownerId: order.ownerId,
+    netMinor: parts[index],
+  }));
+  const distributed = shares.reduce((sum, share) => sum + share.netMinor, 0n);
 
-  // Every order is worth nothing, or there is exactly one: both make the
-  // proration meaningless. Give the whole gross to the first order rather than
-  // dividing by zero — a zero-total order group is a pricing bug upstream, and
-  // stranding the money in `commission_revenue` would hide it.
+  return { currency, shares, residualMinor: grossMinor - distributed };
+}
+
+/**
+ * Split `totalMinor` across `weights` by largest remainder, exactly.
+ *
+ * The primitive `allocateSellerShares` is built on, exported for the fee
+ * domain's line allocations so both splits round by ONE documented rule:
+ * each part gets `floor(total × weightᵢ / Σweight)`, and the units flooring
+ * left over go one each to the largest fractional parts, ties broken by input
+ * position. The parts always sum to `totalMinor` exactly.
+ *
+ * All weights zero (or an empty list) makes the proration meaningless: the
+ * whole total goes to the FIRST part rather than dividing by zero — a zero-
+ * weight split is a pricing bug upstream, and losing the total would hide it.
+ */
+export function apportion(input: {
+  totalMinor: bigint;
+  weights: readonly bigint[];
+}): bigint[] {
+  const { totalMinor, weights } = input;
+  if (weights.length === 0) return [];
+
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0n);
   if (totalWeight === 0n) {
-    const [first] = orders;
-    return {
-      currency,
-      shares: [
-        { orderId: first.orderId, ownerType: first.ownerType, ownerId: first.ownerId, netMinor: grossMinor },
-        ...orders.slice(1).map((order) => ({
-          orderId: order.orderId,
-          ownerType: order.ownerType,
-          ownerId: order.ownerId,
-          netMinor: 0n,
-        })),
-      ],
-      residualMinor: 0n,
-    };
+    return weights.map((_, index) => (index === 0 ? totalMinor : 0n));
   }
 
-  const floored = orders.map((order, index) => {
-    const scaled = grossMinor * weights[index];
-    return { index, order, base: scaled / totalWeight, remainder: scaled % totalWeight };
+  const floored = weights.map((weight, index) => {
+    const scaled = totalMinor * weight;
+    return { index, base: scaled / totalWeight, remainder: scaled % totalWeight };
   });
 
-  // Flooring loses strictly less than one unit per order, so there are fewer
-  // leftover units than orders and each one below gets at most a single extra.
-  const leftover = Number(grossMinor - floored.reduce((sum, entry) => sum + entry.base, 0n));
+  // Flooring loses strictly less than one unit per part, so there are fewer
+  // leftover units than parts and each one below gets at most a single extra.
+  const leftover = Number(totalMinor - floored.reduce((sum, entry) => sum + entry.base, 0n));
 
   // Largest fractional part first; ties keep input order, which is what makes
   // the split reproducible.
@@ -143,13 +165,5 @@ export function allocateSellerShares(input: {
     extra.add(byRemainder[given].index);
   }
 
-  const shares: SellerShare[] = floored.map((entry) => ({
-    orderId: entry.order.orderId,
-    ownerType: entry.order.ownerType,
-    ownerId: entry.order.ownerId,
-    netMinor: entry.base + (extra.has(entry.index) ? 1n : 0n),
-  }));
-  const distributed = shares.reduce((sum, share) => sum + share.netMinor, 0n);
-
-  return { currency, shares, residualMinor: grossMinor - distributed };
+  return floored.map((entry) => entry.base + (extra.has(entry.index) ? 1n : 0n));
 }

@@ -57,6 +57,13 @@ import {
   runRepairHandler,
   tracePaymentHandler,
 } from '../controllers/payments-operator.controller.js';
+import { feeScheduleCreateSchema } from '../middleware/fees-schemas.js';
+import {
+  activateFeeScheduleHandler,
+  createFeeScheduleHandler,
+  listFeeSchedulesHandler,
+  retireFeeScheduleHandler,
+} from '../controllers/fee-schedules-operator.controller.js';
 
 const router = Router();
 
@@ -92,5 +99,26 @@ router.post(
   validateBody(discrepancyResolutionSchema),
   resolveDiscrepancyHandler,
 );
+
+// ── Marketplace fee schedules (#88) ─────────────────────────────────────────
+//
+// Platform-wide commercial policy, so it lives behind the SAME operator gate as
+// the repair tooling — no store membership can express "may set every store's
+// commission". Nothing below moves money: schedules price FUTURE orders only,
+// and every placed order keeps its immutable snapshot. Activation supersedes
+// the previous version atomically; editing an active version is refused by a
+// database trigger, not by this router.
+
+/** Every version of every schedule, with audit columns. */
+router.get('/fee-schedules', listFeeSchedulesHandler);
+
+/** Draft a new schedule version. */
+router.post('/fee-schedules', validateBody(feeScheduleCreateSchema), createFeeScheduleHandler);
+
+/** Publish a draft, superseding the key's current active version. */
+router.post('/fee-schedules/:id/activate', activateFeeScheduleHandler);
+
+/** Withdraw an active version (or abandon a draft) without a replacement. */
+router.post('/fee-schedules/:id/retire', retireFeeScheduleHandler);
 
 export default router;

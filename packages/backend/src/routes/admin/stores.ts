@@ -30,6 +30,7 @@ import channelsRouter from './channels.js';
 import channelIngestRouter from './channel-ingest.js';
 import channelKeysRouter from './channel-keys.js';
 import paymentsRouter from './payments.js';
+import feesRouter from './fees.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -93,5 +94,9 @@ router.use('/:storeId/channel-keys', channelKeysRouter);
 // channel is where a catalogue is listed and this is where money is settled, and
 // issue #46 (UX 5) keeps the two separate concepts everywhere they appear.
 router.use('/:storeId/payments', paymentsRouter);
+// The marketplace fee schedule the store sells under (#88): read, terms
+// acceptance and fee/net preview. Beside `/payments` and not inside it — the
+// fee is a COMMERCIAL agreement with Mercaria, not a property of any rail.
+router.use('/:storeId/fees', feesRouter);
 
 export default router;

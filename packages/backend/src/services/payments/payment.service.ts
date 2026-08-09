@@ -39,7 +39,6 @@
 
 import type {
   CurrencyCode,
-  LedgerOwnerType,
   Money,
   PaymentProviderId,
   PaymentStatus,
@@ -81,7 +80,7 @@ import {
 } from '../../db/payments/ledgerRepository.js';
 import { ledgerEntries, ledgerTransactions } from '../../db/schema/ledger.js';
 import { chargeSucceeded } from './ledger-postings.js';
-import { allocateSellerShares } from './settlement-shares.js';
+import { deriveSellerNetShares } from './seller-net-shares.js';
 import {
   drainPaymentOutbox,
   enqueuePaymentEvent,
@@ -552,13 +551,17 @@ function attemptStatusFor(next: PaymentStatus): 'pending' | 'succeeded' | 'faile
  * Weights in mixed currencies would be added together as if they were
  * commensurable, which silently mis-splits the charge instead of failing.
  *
- * ## The per-order NET, and where #88 plugs in
+ * ## The per-order NET, and how #88 feeds it
  *
- * `allocateSellerShares` is the single definition of what each seller is owed,
- * shared with the settlement step so the payable and the transfer cannot
- * disagree. The commission is not deducted there and is not passed here: it is
- * the RESIDUAL `chargeSucceeded` computes, zero while the rate is zero, and #88
- * makes it non-zero by shrinking those shares — nothing else moves.
+ * `deriveSellerNetShares` is the single definition of what each seller is owed:
+ * the exact gross split (`allocateSellerShares`) minus each order's immutable
+ * marketplace-fee snapshot, shared with the settlement step and the refund
+ * proration so the payable, the transfer and the recovery cannot disagree. The
+ * commission is not passed here: it is the RESIDUAL `chargeSucceeded` computes
+ * — `gross − Σnets = Σsnapshot fees` — so the fee schedule reaches the ledger
+ * by shrinking these shares and through nothing else. (`feeMinor` below is the
+ * PROVIDER's processing fee, ADR 0001 D5 — a Mercaria expense, unrelated to
+ * the marketplace commission.)
  */
 async function bookChargeSucceeded(
   tx: DatabaseOrTransaction,
@@ -588,15 +591,10 @@ async function bookChargeSucceeded(
   }
 
   const settled = settlementBasis(payment);
-  const allocation = allocateSellerShares({
-    grossMinor: settled.grossMinor,
-    currency: settled.currency,
-    orders: orders.map((order) => ({
-      orderId: order.id,
-      ownerType: (order.sellerType === 'store' ? 'store' : 'user') as LedgerOwnerType,
-      ownerId: order.sellerOwnerId,
-      weightMinor: order.presentmentTotalMinor,
-    })),
+  const allocation = deriveSellerNetShares({
+    settled,
+    presentmentGrossMinor: BigInt(payment.presentmentAmount),
+    orders,
   });
 
   const posting = chargeSucceeded({

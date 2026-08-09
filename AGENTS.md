@@ -285,11 +285,13 @@ exception and the client split: `docs/payments.md` §"Checkout and the Stripe ra
   ledger and the transfers are both denominated in `STRIPE_PLATFORM_CURRENCY`. A
   payable credited in USD and paid in EUR would never net to zero. An unavailable
   balance transaction is RETRYABLE, never guessed.
-- **`settlement-shares.ts` is the ONE definition of a seller's net**, read by the
-  ledger posting and by the transfer. Largest-remainder allocation, so the shares
-  sum to the gross EXACTLY — converting each order independently leaks the
-  rounding residue into `commission_revenue`, which ADR D3 defines as the
-  residual. No commission arithmetic lives there; #88 owns the schedule.
+- **`seller-net-shares.ts` is the ONE definition of a seller's net** — the exact
+  gross split (`settlement-shares.ts`, largest remainder; no commission
+  arithmetic lives there) minus each order's immutable marketplace-fee snapshot
+  (#88). THREE readers: the charge's ledger posting, the transfer, and the
+  refund proration. `Σnets + Σfees == gross` exactly, so `commission_revenue` —
+  which ADR D3 defines as the residual — receives precisely the snapshot fees;
+  converting each order independently would leak rounding residue into it.
 - **The cart is emptied AFTER the payment is opened.** A failure then leaves the
   orders, their reservations AND the cart lines, so re-submitting the same
   `Idempotency-Key` converges. Emptying first would answer that retry with "Cart
@@ -400,9 +402,48 @@ repairs. Full mechanics, the fourteen discrepancy kinds and the incident runbook
   fingerprint — the `.strict()` schema is what stops an HTTP caller getting
   around `tracePayment`'s own signature.
 
+### Marketplace fees (#88): versioned schedules, immutable order snapshots
+
+`services/fees/` + `db/fees/` + `db/schema/fees.ts` (4 tables). Full reference:
+`docs/payments.md` §"Marketplace fees"; schema decisions:
+`db/schema/CONVENTIONS.md` §"The fee domain". The rules that are load-bearing:
+
+- **Commercial mode is SNAPSHOTTED with the order** before fee calculation:
+  `connected_marketplace` (fee from the schedule — every native checkout today)
+  | `external_referral` | `mercaria_retail` | `informational` (the last three
+  are `not_applicable` with a **NULL fee, never zero** — CHECK-enforced, so
+  `mercaria_retail` can never post `commission_revenue` or read as a zero-rate
+  schedule).
+- **Schedule versions are immutable once active** (DB trigger + one-active-per-
+  key partial unique index); policy changes are NEW versions, published from
+  `/internal/payments/fee-schedules*` behind the payment-operator gate.
+  Scope is `eligible_seller_type` + `eligible_currency` and NOTHING else —
+  buyer/guest/claim/payment-method scopes are unrepresentable, which is what
+  makes guest and authenticated checkouts fee-equivalent structurally.
+- **The fee base is explicit**: presentment `discounted_item_subtotal` (line
+  totals minus item-level discounts; tax/delivery cannot enter). Half-up
+  rounding ONCE at order level, recorded; largest-remainder line allocations
+  reconcile exactly; fixed/min/max components pin `eligible_currency` (a fee
+  never mixes currencies). Ambiguous selection refuses checkout BEFORE
+  reservation; no active schedule = honest zero (`no_active_schedule`).
+- **The snapshot commits IN the order's transaction** (`insertOrder` is the only
+  writer; `order_fee_snapshots` is append-only by trigger) and is the ONLY fee
+  input the money path reads — a schedule change never touches placed orders.
+  Refund policy `proportional` needs no fee-specific refund code: the seller
+  bears only their NET share, so the commission returns through the existing
+  residual.
+- **Ranking isolation is a test, not a convention** —
+  `fee-ranking-isolation.test.ts` fails the build if any feed/search/catalogue
+  module references the fee domain.
+- Merchant surface: `/admin/stores/:storeId/fees/{schedule,accept,preview}`
+  behind `store:manage` (the onboarding permission, same reasoning). Deferred to
+  #85: the acceptance GATE on checkout, P2P acceptance surface, change
+  notifications, downloadable breakdowns. POS/connector orders carry no
+  snapshot (no explicit channel policy yet — reads as zero fee).
+
 ### Where it meets the rest of Mercaria
 
-The domain is **Postgres-native** (13 tables), like everything else the API serves
+The domain is **Postgres-native** (13 payment tables + 4 fee tables), like everything else the API serves
 since the port — `DATABASE_URL` is REQUIRED to boot (`src/index.ts`).
 `services/payments/order-linkage.ts` stays the ONE seam onto orders: the payment
 domain reads them through a projection it owns rather than reaching into the order
