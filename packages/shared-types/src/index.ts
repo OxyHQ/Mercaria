@@ -160,3 +160,9 @@ export * from './canonical-product';
 // the derivations that keep marketplace-ness, freshness, unknown delivery and
 // native checkout eligibility out of stored columns.
 export * from './offer';
+
+// Merchant → native `Store` linkage (#84, ADR 0002 D4/D9) — the request that
+// joins a verified merchant claim to exactly one native store, the candidate
+// evidence vocabulary (which has NO name-match member), the adoptable profile
+// fields, the deterministic offer-overlap rules and the impact preview.
+export * from './store-linkage';

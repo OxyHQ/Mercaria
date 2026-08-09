@@ -55,6 +55,7 @@ import internalOffersRouter from './routes/internal-offers.js';
 import catalogAttributesRouter from './routes/catalog-attributes.js';
 import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
+import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
 import guestSessionRouter from './routes/guest-session.js';
 import { config } from './config/index.js';
@@ -215,6 +216,13 @@ export function createApp(): express.Express {
   // native store at all. Not gated on any flag — a merchant page that cannot
   // say "claim this" is a dead end for the one person entitled to fix it.
   app.use('/merchant-claims', merchantClaimsRouter);
+  // Merchant → native store linkage (#84), where a verified claim ends. Also
+  // outside `/admin`, and for a sharper reason than the claim surface has:
+  // `loadStore` resolves `:storeId` from the PATH, while a linkage request
+  // either has no store yet (`create_store`) or names one in a BODY beside a
+  // claim — so the permission check belongs in the service, against the store
+  // the request actually names. Not flag-gated, for the claim surface's reason.
+  app.use('/store-linkage', storeLinkageRouter);
   // …and the graph's operator surface, gated exactly as /internal/payments is
   // (its own allow-list; empty = not mounted, 404 — see
   // middleware/catalog-operator-authz.ts).
@@ -293,6 +301,7 @@ export function createApp(): express.Express {
         '/offers',
         '/catalog-attributes',
         '/merchant-claims',
+        '/store-linkage',
         '/guest/session',
         // `/internal/payments`, `/internal/commerce-graph`,
         // `/internal/canonical-catalog`, `/internal/offers`,

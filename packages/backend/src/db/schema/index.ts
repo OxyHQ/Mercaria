@@ -84,3 +84,9 @@ export * from './referrals';
 // projection — the pre-existing `listings` and `product_variants` (`catalog`,
 // the first exports above).
 export * from './offers';
+// Merchant → native store linkage (#84, ADR 0002 D4) is the last export of all,
+// because it is downstream of every one above it AND of `merchantClaims`: a
+// linkage request references the merchant, the verified claim that authorizes
+// it, the native store on both sides, the `native_store_links` row it produces,
+// and — for its offer-overlap findings — a canonical variant and two offers.
+export * from './storeLinkage';
