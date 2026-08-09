@@ -48,7 +48,8 @@ vi.mock('../../queue/producers.js', () => ({
 }));
 
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
-import { addresses, reviews, sellerProfiles, userPreferences } from '../schema/buyers.js';
+import { addresses, sellerProfiles, userPreferences } from '../schema/buyers.js';
+import { reviews } from '../schema/reviews.js';
 import { listings } from '../schema/catalog.js';
 import { stores } from '../schema/stores.js';
 import {
@@ -62,7 +63,7 @@ import {
   insertReview,
   setReviewStatusIfIn,
   type ReviewTarget,
-} from '../buyers/reviewRepository.js';
+} from '../reviews/reviewRepository.js';
 import { upsertUserPreference } from '../buyers/userPreferenceRepository.js';
 import { insertStore } from '../stores/storeRepository.js';
 import { recomputeAggregate } from '../../services/review.service.js';
@@ -332,18 +333,27 @@ describe('the review target-exclusivity CHECK', () => {
         targetType: 'listing',
         targetId: listingId,
         rating: 5,
+        verification: 'unverified',
+        incentiveDisclosure: 'none',
+        classificationState: 'unclassified',
       }),
       insertReview({
         authorOxyUserId: makeUserId('buyer'),
         targetType: 'store',
         targetId: storeId,
         rating: 4,
+        verification: 'unverified',
+        incentiveDisclosure: 'none',
+        classificationState: 'unclassified',
       }),
       insertReview({
         authorOxyUserId: makeUserId('buyer'),
         targetType: 'seller',
         targetId: sellerId,
         rating: 3,
+        verification: 'unverified',
+        incentiveDisclosure: 'none',
+        classificationState: 'unclassified',
       }),
     ]);
 
@@ -533,6 +543,9 @@ describe('setReviewStatusIfIn — the review enforcement CAS', () => {
       targetType: 'listing',
       targetId: await makeListing(),
       rating: 4,
+      verification: 'unverified',
+      incentiveDisclosure: 'none',
+      classificationState: 'unclassified',
     });
     return review.id;
   }

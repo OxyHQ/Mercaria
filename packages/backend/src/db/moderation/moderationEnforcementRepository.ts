@@ -40,7 +40,7 @@ import type {
   ModerationEnforcementAction,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import type { REVIEW_STATUSES } from '../schema/buyers.js';
+import type { REVIEW_STATUSES } from '../schema/reviews.js';
 import { moderationEnforcements } from '../schema/moderation.js';
 
 /** `reviews.status` — the value set `restore` may put back. */

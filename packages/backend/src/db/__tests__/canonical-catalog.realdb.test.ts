@@ -92,6 +92,7 @@ import {
 } from '../../services/attributes/definition-registry.service.js';
 import { createSupplier } from '../procurement/supplierRepository.js';
 import { createSupplierAccount } from '../procurement/supplierAccountRepository.js';
+import { reviewAggregates } from '../schema/reviews.js';
 
 let db: Database;
 
@@ -221,6 +222,13 @@ afterAll(async () => {
     await db
       .delete(canonicalProductSourceLinks)
       .where(inArray(canonicalProductSourceLinks.productId, createdProductIds));
+    // `review_aggregates.canonical_product_id` is RESTRICT since #76 — a
+    // product's rating must be able to BLOCK its disappearance rather than
+    // vanish with it. A merge here rebuilds both products' aggregates, so the
+    // rows exist even though this suite writes no reviews.
+    await db
+      .delete(reviewAggregates)
+      .where(inArray(reviewAggregates.canonicalProductId, createdProductIds));
     await db
       .update(canonicalProducts)
       .set({ status: 'active', mergedIntoId: null })

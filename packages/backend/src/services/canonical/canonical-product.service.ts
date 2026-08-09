@@ -91,6 +91,9 @@ import {
   recordSourceObservation,
 } from '../../db/canonical/provenanceRepository.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
+import { rehomeReviewsForProductMerge } from '../reviews/review-migration.service.js';
+import { rebuildScopedAggregate } from '../reviews/review-aggregate.service.js';
+import { log } from '../../lib/logger.js';
 import { contentHashOf, type JsonValue } from './content-hash.js';
 import { normalizeAliasLookup, normalizeEntityName, slugFromName } from './normalization.js';
 import { normalizeAttributeKey } from './variant-signature.js';
@@ -801,6 +804,14 @@ export interface MergeCanonicalProductsResult {
   loserId: string;
   /** Redirect rows appended by this merge, the flattened hops included. */
   redirectsRecorded: number;
+  /** Product reviews moved onto the winner (#76 migration rule 4). */
+  reviewsRehomed: number;
+  /**
+   * Reviews left on the tombstone because their author already reviewed the
+   * winner. A merge must not delete one of a buyer's two genuine reviews, so
+   * these wait for an explicit operator assignment (#76 migration rule 5).
+   */
+  reviewsNeedingAssignment: string[];
 }
 
 /**
@@ -821,7 +832,7 @@ export async function mergeCanonicalProducts(
     throw validationError('mergeCanonicalProducts: an actor is required.');
   }
 
-  return getDb().transaction(async (tx) => {
+  const result = await getDb().transaction(async (tx) => {
     const loser = await findCanonicalProductById(tx, input.loserId);
     if (!loser) throw notFound(`Canonical product ${input.loserId} does not exist.`);
     const winnerRow = await findCanonicalProductById(tx, input.winnerId);
@@ -833,6 +844,8 @@ export async function mergeCanonicalProducts(
         winnerId: loser.mergedIntoId ?? input.winnerId,
         loserId: loser.id,
         redirectsRecorded: 0,
+        reviewsRehomed: 0,
+        reviewsNeedingAssignment: [],
       };
     }
     const winner = await resolveProductRow(tx, winnerRow);
@@ -846,7 +859,14 @@ export async function mergeCanonicalProducts(
     // away having written nothing at all.
     const stamped = await markCanonicalProductMerged(tx, loser.id, winner.id);
     if (!stamped) {
-      return { merged: false, winnerId: winner.id, loserId: loser.id, redirectsRecorded: 0 };
+      return {
+        merged: false,
+        winnerId: winner.id,
+        loserId: loser.id,
+        redirectsRecorded: 0,
+        reviewsRehomed: 0,
+        reviewsNeedingAssignment: [],
+      };
     }
 
     // Capture the tombstones BEFORE flattening overwrites their pointers.
@@ -900,8 +920,56 @@ export async function mergeCanonicalProducts(
       await refreshFamilyProductCount(tx, familyId, await countProductsForFamily(tx, familyId));
     }
 
-    return { merged: true, winnerId: winner.id, loserId: loser.id, redirectsRecorded };
+    /**
+     * #76 migration rule 4: a product merge rehomes the loser's PRODUCT reviews
+     * onto the winner and rebuilds the aggregates.
+     *
+     * Inside this transaction, so a failed merge leaves every review exactly
+     * where it was — and BEFORE the commit, so the append-only migration rows
+     * that record where each review came from cannot end up on the other side of
+     * a rollback from the move they describe. The aggregates are rebuilt after
+     * the commit (below): a rebuild inside would derive from rows nobody else
+     * can see yet.
+     */
+    const rehome = await rehomeReviewsForProductMerge(tx, loser.id, winner.id);
+    if (rehome.collisions.length > 0) {
+      // A buyer who legitimately reviewed BOTH products keeps both. The loser's
+      // tombstone still resolves through `merged_into_id`, so nothing is lost;
+      // which of the two survives on the winner is an operator decision (#76
+      // migration rule 5's split assignment, used in the other direction).
+      log.general.info(
+        { winnerId: winner.id, loserId: loser.id, collisions: rehome.collisions.length },
+        'Product merge left duplicate-author reviews on the tombstone for explicit assignment',
+      );
+    }
+
+    return {
+      merged: true,
+      winnerId: winner.id,
+      loserId: loser.id,
+      redirectsRecorded,
+      reviewsRehomed: rehome.rehomed,
+      reviewsNeedingAssignment: rehome.collisions,
+    };
   });
+
+  if (result.merged) {
+    // Outside the transaction, and both of them: the loser's aggregate must go
+    // to zero and the winner's must absorb what moved. Idempotent, so the sweep
+    // re-deriving them later changes nothing.
+    for (const productId of [result.loserId, result.winnerId]) {
+      try {
+        await rebuildScopedAggregate('product', productId);
+      } catch (err) {
+        log.general.warn(
+          { err, productId },
+          'Aggregate rebuild after a product merge failed (the sweep will re-derive it)',
+        );
+      }
+    }
+  }
+
+  return result;
 }
 
 /** Every redirect hop recorded from a product id — the history a merge preserves. */

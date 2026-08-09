@@ -42,7 +42,6 @@ export * from './pos';
 export * from './guests';
 export * from './buyers';
 export * from './notifications';
-export * from './moderation';
 // Canonical commerce graph (ADR 0002). `provenance` precedes `organizations`
 // and `merchants` for the same dependency reason as above: alias and
 // source-link tables reference `source_records`. `canonicalSupport.ts` is
@@ -63,6 +62,13 @@ export * from './canonicalCatalog';
 // `organization_manufactures` claim — a canonical product family, and its
 // evidence references `source_records`.
 export * from './relationships';
+// The review domain (#76) follows BOTH `merchants` and `canonicalCatalog`: a
+// scoped review, its eligibility and its aggregate each reference a canonical
+// product or a merchant by foreign key. It also has to precede `moderation`,
+// whose enforcement table types its previous-state column from `REVIEW_STATUSES`
+// — which is why `moderation` moved down from beside `notifications`.
+export * from './reviews';
+export * from './moderation';
 // Merchant claiming (#83) follows `merchants`: every one of its tables
 // references a merchant, and `merchant_claims.native_store_id` also reaches
 // back to `stores`, which is already the first export above.

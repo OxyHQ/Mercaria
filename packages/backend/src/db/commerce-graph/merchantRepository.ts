@@ -225,6 +225,31 @@ export async function setMerchantClaimVerdict(
   return row;
 }
 
+/**
+ * Move a merchant's rating aggregate — the PROJECTION of its `merchant` scoped
+ * review aggregate (#76).
+ *
+ * `services/reviews/review-aggregate.service` is the ONLY caller and the only
+ * writer of these two columns, and it derives both from review rows in the same
+ * call. See `setCanonicalProductRating` for the full reasoning; the columns are
+ * #54's and were unwritten until #76.
+ *
+ * A native store linked to this merchant shows THIS rating rather than its own
+ * (`resolveStoreRatingSource`), which is how one review reaches exactly one
+ * public aggregate.
+ */
+export async function setMerchantRating(
+  db: DatabaseOrTransaction,
+  merchantId: string,
+  rating: number,
+  ratingCount: number,
+): Promise<void> {
+  await db
+    .update(merchants)
+    .set({ rating, ratingCount, updatedAt: new Date() })
+    .where(eq(merchants.id, merchantId));
+}
+
 /** Every merchant with a row for this domain, verified holder first. */
 export async function findMerchantDomainsByDomain(
   db: DatabaseOrTransaction,

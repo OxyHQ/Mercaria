@@ -100,6 +100,25 @@ export const RESERVATION_SWEEP_INTERVAL_MS = 5 * MS_PER_MINUTE;
 export const AGGREGATE_SWEEP_CRON = '0 3 * * *';
 
 /**
+ * Cron for the daily SCOPED review-aggregate rebuild (#76), 03:20 daily.
+ *
+ * Twenty minutes after the legacy sweep, not beside it: the two walk disjoint
+ * sets of reviews (`findPublishedReviewTargets` excludes scoped rows, and
+ * `findScopedReviewTargets` returns only them), and staggering them keeps a
+ * shared Postgres from taking both scans at once for no benefit.
+ */
+export const SCOPED_AGGREGATE_SWEEP_CRON = '20 3 * * *';
+
+/**
+ * Cron for the #76 legacy-review classification job, 03:40 daily.
+ *
+ * After the aggregate sweeps, because classifying a review moves it between two
+ * aggregates and the job rebuilds both itself — running it first would leave the
+ * sweeps deriving figures the classification was about to invalidate.
+ */
+export const REVIEW_CLASSIFICATION_CRON = '40 3 * * *';
+
+/**
  * Cadence of the connector reconcile sweep: every 6 hours a periodic job re-pulls
  * every connected `pull`/`bidirectional` product catalog. This is the SAFETY NET
  * for missed real-time webhooks — a dropped `products/*` webhook is re-converged at
@@ -116,6 +135,10 @@ export const CONNECTOR_RECONCILE_INTERVAL_MS = 6 * MS_PER_HOUR;
  */
 export const SCHEDULER_EXPIRE_RESERVATIONS = 'maintenance:expire-reservations';
 export const SCHEDULER_RECOMPUTE_AGGREGATES = 'maintenance:recompute-aggregates';
+/** Stable scheduler id for the scoped review-aggregate rebuild sweep (#76). */
+export const SCHEDULER_REBUILD_REVIEW_AGGREGATES = 'maintenance:rebuild-review-aggregates';
+/** Stable scheduler id for the #76 legacy-review classification job. */
+export const SCHEDULER_CLASSIFY_LEGACY_REVIEWS = 'maintenance:classify-legacy-reviews';
 /** Stable scheduler id for the periodic connector reconcile sweep (sync queue). */
 export const SCHEDULER_CONNECTION_RECONCILE = 'sync:connection-reconcile';
 
@@ -131,6 +154,10 @@ export const JOB_LOW_INVENTORY_ALERT = 'low-inventory-alert';
 export const JOB_EXPIRE_RESERVATIONS = 'expire-reservations';
 /** Job name: daily full rating-aggregate sweep (repeatable). */
 export const JOB_RECOMPUTE_AGGREGATES_SWEEP = 'recompute-aggregates-sweep';
+/** Job name: daily SCOPED review-aggregate rebuild with drift reporting (#76, repeatable). */
+export const JOB_REBUILD_REVIEW_AGGREGATES = 'rebuild-review-aggregates';
+/** Job name: bounded pass of the #76 legacy-review classification (repeatable). */
+export const JOB_CLASSIFY_LEGACY_REVIEWS = 'classify-legacy-reviews';
 /** Job name: run an initial catalog backfill for a `pull` connection. */
 export const JOB_CONNECTION_BACKFILL = 'connection.backfill';
 /** Job name: periodic reconcile sweep — re-pull every connected pull catalog (repeatable). */

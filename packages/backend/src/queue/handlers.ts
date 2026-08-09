@@ -16,7 +16,7 @@ import {
   findStalePendingOrders,
 } from '../db/orders/orderRepository.js';
 import { findStoreById, type StoreMemberRecord } from '../db/stores/storeRepository.js';
-import { findPublishedReviewTargets } from '../db/buyers/reviewRepository.js';
+import { findPublishedReviewTargets } from '../db/reviews/reviewRepository.js';
 import { transition } from '../services/order.service.js';
 import { releaseCheckoutPayments } from '../services/payments/checkout-payment.service.js';
 import { sendNotification } from '../lib/notification-service.js';
@@ -274,6 +274,95 @@ export async function handleAggregateSweep(): Promise<void> {
   }
 
   log.general.info({ recomputed }, 'Rating-aggregate sweep complete');
+}
+
+/**
+ * How many bounded passes one scheduled run of a #76 sweep may take.
+ *
+ * A ceiling and not a `while (hasMore)`: a runaway loop on a shared Postgres is
+ * worse than finishing tomorrow, and both sweeps are idempotent and resumable,
+ * so the remainder is picked up by the next run with nothing lost.
+ */
+const MAX_SWEEP_PASSES = 25;
+
+/**
+ * Daily SCOPED review-aggregate rebuild (#76).
+ *
+ * Derives every scoped aggregate from the review rows and reports what
+ * disagreed with what was stored. DRIFT IS THE POINT: the rebuild converges the
+ * stored figures — it is the repair — and logs what it had to change, so a
+ * persistent disagreement shows up as a number rather than as silence. Zero
+ * drift over many runs is the healthy reading; a non-zero count names the exact
+ * (scope, target) to look at.
+ */
+export async function handleScopedAggregateSweep(): Promise<void> {
+  const { rebuildReviewAggregates } = await import(
+    '../services/reviews/review-aggregate.service.js'
+  );
+
+  let cursor: string | null = null;
+  let scanned = 0;
+  const drifted: { scope: string; targetId: string }[] = [];
+
+  for (let pass = 0; pass < MAX_SWEEP_PASSES; pass += 1) {
+    const report = await rebuildReviewAggregates(
+      cursor === null ? {} : { afterTargetKey: cursor },
+    );
+    scanned += report.scanned;
+    for (const drift of report.drifted) {
+      drifted.push({ scope: drift.scope, targetId: drift.targetId });
+      log.general.warn(
+        {
+          scope: drift.scope,
+          targetId: drift.targetId,
+          storedRating: drift.storedRating,
+          storedReviewCount: drift.storedReviewCount,
+          derivedRating: drift.derivedRating,
+          derivedReviewCount: drift.derivedReviewCount,
+        },
+        'Review aggregate drift detected and corrected',
+      );
+    }
+    if (!report.hasMore || report.nextTargetKey === null) break;
+    cursor = report.nextTargetKey;
+  }
+
+  log.general.info(
+    { scanned, drifted: drifted.length },
+    'Scoped review-aggregate rebuild complete',
+  );
+}
+
+/**
+ * Daily #76 legacy-review classification pass.
+ *
+ * Bounded and resumable through the `classification_state` column itself: a
+ * decided review leaves the job's predicate, so consecutive runs make progress
+ * with no stored cursor to keep honest. Reviews it REFUSED are not re-examined
+ * (they are waiting for a fact to arrive, not for another look) — an operator
+ * re-runs with `includeAmbiguous` after landing the facts.
+ */
+export async function handleReviewClassificationSweep(): Promise<void> {
+  const { classifyLegacyReviews } = await import(
+    '../services/reviews/review-migration.service.js'
+  );
+
+  let scanned = 0;
+  let classified = 0;
+  let ambiguous = 0;
+
+  for (let pass = 0; pass < MAX_SWEEP_PASSES; pass += 1) {
+    const report = await classifyLegacyReviews();
+    scanned += report.scanned;
+    classified += report.classified;
+    ambiguous += report.ambiguous;
+    if (!report.hasMore) break;
+  }
+
+  log.general.info(
+    { scanned, classified, ambiguous },
+    'Legacy review classification pass complete',
+  );
 }
 
 /**

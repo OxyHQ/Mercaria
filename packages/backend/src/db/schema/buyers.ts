@@ -1,9 +1,12 @@
 /**
  * The buyer's own side of the marketplace: `carts`, `cart_items`, `addresses`,
- * `favorites`, `reviews`, `seller_profiles`, `user_preferences`, `feedback`.
+ * `favorites`, `seller_profiles`, `user_preferences`, `feedback`.
  *
  * Every one of these is keyed by an Oxy account id and none of them can carry a
  * foreign key for it — Oxy owns identity and Mercaria reaches it over HTTP.
+ *
+ * `reviews` was here until #76 and lives in `schema/reviews.ts` now; see the
+ * note where it stood.
  */
 
 import { sql } from 'drizzle-orm';
@@ -18,22 +21,10 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
-import {
-  ALL_CURRENCY_CODES,
-  CART_LINE_REVIEW_REASONS,
-  type ReviewTargetType,
-} from '@mercaria/shared-types';
+import { ALL_CURRENCY_CODES, CART_LINE_REVIEW_REASONS } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks } from './columns';
 import { listings, productVariants } from './catalog';
 import { guestSessions } from './guests';
-import { orders } from './orders';
-import { stores } from './stores';
-
-/** `Review.targetType`. */
-export const REVIEW_TARGET_TYPES: readonly ReviewTargetType[] = ['listing', 'store', 'seller'];
-
-/** `Review.status`. */
-export const REVIEW_STATUSES = ['published', 'hidden'] as const;
 
 /** `Feedback.type`. */
 export const FEEDBACK_TYPES = ['bug', 'feature', 'improvement', 'other'] as const;
@@ -228,71 +219,15 @@ export const favorites = pgTable(
 );
 
 /**
- * `reviews` — a verified buyer's review of ONE target.
+ * `reviews` and its four #76 siblings live in `schema/reviews.ts`.
  *
- * A review targets a listing, a store or a P2P seller, and exactly the matching
- * target column is set — an invariant the Mongoose model stated only in prose
- * and enforced nowhere. It is a CHECK here.
- *
- * `order_id` is `restrict`: it is the link that makes the review VERIFIED, and
- * erasing the order would leave a review claiming a purchase with nothing behind
- * it. Nothing deletes an order, so it never fires.
+ * The table was born here and moved out when #76 gave it targets in the
+ * canonical graph: a scoped review references `canonical_products` and
+ * `merchants`, both of which are exported AFTER this module in the barrel's
+ * dependency order, so keeping the table here would have inverted that order
+ * for every table in this file. The review domain owns its own file now, the
+ * way every other domain in this schema does.
  */
-export const reviews = pgTable(
-  'reviews',
-  {
-    id: generatedId(),
-    /** An Oxy account id — no foreign key. */
-    authorOxyUserId: text().notNull(),
-    targetType: text({ enum: asEnumValues(REVIEW_TARGET_TYPES) }).notNull(),
-    listingId: text().references(() => listings.id, { onDelete: 'cascade' }),
-    storeId: text().references(() => stores.id, { onDelete: 'cascade' }),
-    /** An Oxy account id — no foreign key. Set iff `targetType = 'seller'`. */
-    sellerOxyUserId: text(),
-    orderId: text().references(() => orders.id, { onDelete: 'restrict' }),
-    rating: integer().notNull(),
-    title: text(),
-    body: text(),
-    status: text({ enum: asEnumValues(REVIEW_STATUSES) }).notNull().default('published'),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [
-    checkOneOf('reviews_target_type_check', t.targetType, REVIEW_TARGET_TYPES),
-    // `hidden` is written by moderation enforcement via `updateOne`, which runs
-    // no Mongoose validator — so a CHECK missing it would disarm review takedowns
-    // exactly as one missing `restricted` would disarm listing takedowns.
-    checkOneOf('reviews_status_check', t.status, REVIEW_STATUSES),
-    check(
-      'reviews_rating_check',
-      sql`${t.rating} between ${sql.raw(String(MIN_REVIEW_RATING))} and ${sql.raw(String(MAX_REVIEW_RATING))}`,
-    ),
-    // Exactly the target matching `targetType` is set, and the other two are not.
-    check(
-      'reviews_target_exclusivity_check',
-      sql`(${t.targetType} = 'listing' and ${t.listingId} is not null and ${t.storeId} is null and ${t.sellerOxyUserId} is null)
-          or (${t.targetType} = 'store' and ${t.storeId} is not null and ${t.listingId} is null and ${t.sellerOxyUserId} is null)
-          or (${t.targetType} = 'seller' and ${t.sellerOxyUserId} is not null and ${t.listingId} is null and ${t.storeId} is null)`,
-    ),
-    index('reviews_listing_id_status_created_at_idx').on(
-      t.listingId,
-      t.status,
-      t.createdAt.desc(),
-    ),
-    index('reviews_store_id_status_created_at_idx').on(t.storeId, t.status, t.createdAt.desc()),
-    index('reviews_seller_oxy_user_id_status_created_at_idx').on(
-      t.sellerOxyUserId,
-      t.status,
-      t.createdAt.desc(),
-    ),
-    // One review per buyer per listing. Store and seller uniqueness is still
-    // service-enforced, exactly as it is today — porting it to a constraint is a
-    // behaviour change that needs a duplicate audit first, not a schema decision.
-    uniqueIndex('reviews_author_oxy_user_id_listing_id_key')
-      .on(t.authorOxyUserId, t.listingId)
-      .where(sql`${t.listingId} is not null`),
-  ],
-);
 
 /**
  * `seller_profiles` — the marketplace aggregates Mercaria owns for a P2P seller.

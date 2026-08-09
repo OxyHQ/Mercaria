@@ -35,6 +35,7 @@ import { adjustSellerSalesCount } from '../db/buyers/sellerProfileRepository.js'
 import { adjustStoreSalesCount, findStoreRow } from '../db/stores/storeRepository.js';
 import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
+import { grantEligibilitiesForOrder } from './reviews/review-eligibility.service.js';
 import { hydrateOrders, summarizeOrders } from './order-hydration.service.js';
 import { enqueueOrderEvent, enqueueFulfillmentPush } from '../queue/producers.js';
 import type { OrderEvent } from '../queue/types.js';
@@ -191,6 +192,27 @@ export async function transition(
         // Customer lifetime spend aggregates in the store's SHOP currency.
         await upsertCustomerOnPaid(order.storeId, order.buyerOxyUserId, shopGrandTotal(order));
       }
+    }
+
+    /**
+     * #76: a completed native order earns review eligibility for the product,
+     * the merchant and the transaction. Granted HERE because `paid` is the
+     * first moment Mercaria knows the goods were bought, and idempotent because
+     * `UNIQUE(order_item_id, oxy_user_id, scope)` converges a redelivery.
+     *
+     * Best-effort, deliberately: the order is paid whether or not this runs, so
+     * a failure must not fail the transition and re-enter this whole block.
+     * The grant is re-run by any later call (an operator repair, a re-delivery),
+     * and until then the buyer sees no review prompt — which is a delay, not a
+     * wrong number.
+     */
+    try {
+      await grantEligibilitiesForOrder(order.id);
+    } catch (err) {
+      log.general.warn(
+        { err, orderId: order.id },
+        'Review eligibility grant failed after payment (best-effort)',
+      );
     }
   } else if (next === 'cancelled' || next === 'refunded') {
     if (wasPaid) {

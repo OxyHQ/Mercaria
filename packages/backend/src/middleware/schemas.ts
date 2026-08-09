@@ -870,24 +870,79 @@ export const paginationQuerySchema = z
 // Reviews
 // ---------------------------------------------------------------------------
 
-/** Body for `POST /reviews` (CreateReviewInput). The target id must match the type. */
+/**
+ * Body for `POST /reviews` (CreateReviewInput) — a SCOPED review (#76).
+ *
+ * `.strict()`, and that is load-bearing rather than tidy. Every field a
+ * forbidden evidence source would arrive in — `email`, `phone`,
+ * `guestSessionToken`, `portalToken`, `stripeCustomerId`, `paymentMethodId` —
+ * is refused by the schema before any handler sees it, so the eligibility
+ * service's named refusals are the second wall and not the first. A
+ * `.passthrough()` here would let one of them reach a `req.body` spread.
+ *
+ * `targetType` is deliberately NOT accepted: it is derived server-side from the
+ * scope, so a client cannot send a pair that disagrees.
+ *
+ * `verification`, `status` and `scope`-changing fields are absent for the same
+ * reason `status` always was: a client that could set them could publish a
+ * verified review it never earned, or move one out of `hidden`.
+ */
 export const createReviewSchema = z
   .object({
-    targetType: z.enum(['listing', 'store', 'seller']),
+    scope: z.enum(['product', 'merchant', 'native_transaction', 'p2p_listing', 'p2p_seller']),
+    canonicalProductId: z.string().trim().min(1).optional(),
+    merchantId: z.string().trim().min(1).optional(),
+    orderItemId: z.string().trim().min(1).optional(),
     listingId: z.string().trim().min(1).optional(),
-    storeId: z.string().trim().min(1).optional(),
     sellerOxyUserId: z.string().trim().min(1).optional(),
-    orderId: z.string().trim().min(1).optional(),
+    eligibilityId: z.string().trim().min(1).optional(),
     rating: z.number().int().min(1).max(5),
+    dimensions: z
+      .array(
+        z
+          .object({
+            key: z.enum([
+              'quality',
+              'durability',
+              'value_for_money',
+              'delivery_speed',
+              'packaging',
+              'communication',
+              'order_accuracy',
+              'condition_accuracy',
+              'description_accuracy',
+              'photo_accuracy',
+              'shipping_speed',
+              'reliability',
+            ]),
+            rating: z.number().int().min(1).max(5),
+          })
+          .strict(),
+      )
+      .max(6)
+      .optional(),
     title: z.string().trim().min(1).max(200).optional(),
     body: z.string().trim().max(5000).optional(),
+    // BCP-47 shape, matching `reviews_locale_shape_check` — the column would
+    // reject anything else, and a 400 explains it better than a 500.
+    locale: z
+      .string()
+      .trim()
+      .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/u)
+      .optional(),
+    incentiveDisclosure: z
+      .enum(['none', 'free_or_discounted_product', 'sweepstakes_entry', 'compensated', 'other'])
+      .optional(),
   })
+  .strict()
   .refine(
     (o) =>
-      (o.targetType === 'listing' && !!o.listingId) ||
-      (o.targetType === 'store' && !!o.storeId) ||
-      (o.targetType === 'seller' && !!o.sellerOxyUserId),
-    { message: 'targetType requires the matching target id' },
+      (o.scope === 'product' && !!o.canonicalProductId) ||
+      (o.scope === 'merchant' && !!o.merchantId) ||
+      (o.scope === 'native_transaction' && !!o.orderItemId) ||
+      (o.scope === 'p2p_listing' && !!o.listingId) ||
+      (o.scope === 'p2p_seller' && !!o.sellerOxyUserId),
+    { message: 'scope requires the matching target id' },
   );
 
 // ---------------------------------------------------------------------------
