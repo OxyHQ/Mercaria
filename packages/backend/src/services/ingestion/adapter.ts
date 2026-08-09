@@ -50,6 +50,22 @@ import type {
 /** What the framework asks an adapter for. */
 export interface AdapterFetchRequest {
   /**
+   * WHICH source this pass is for — the `catalog_sources` id.
+   *
+   * An IDENTIFIER, and deliberately nothing more. There is no repository, no
+   * handle and no service behind it, so an adapter holding it can do exactly one
+   * thing with it: scope a capability it was already constructed with. #65's
+   * eBay adapter needs it for both of its ports — the discovery cohort an
+   * operator configured for this source, and the tracked items whose continued
+   * existence a verification pass re-reads — and the alternative was overloading
+   * `sourceAccountRef`, which names a seat at the PROVIDER and would then have
+   * meant two things.
+   *
+   * It changes nothing about the write boundary: an id is not an authority, and
+   * `NormalizedSourceRecord` still has nowhere to put a canonical id.
+   */
+  readonly sourceId: string;
+  /**
    * Where to resume, in the ADAPTER's own cursor space. Opaque to the
    * framework, which only stores and returns it: a page token, an offset, a
    * date — whatever the provider paginates by.
@@ -207,9 +223,19 @@ export interface CatalogSourceAdapter {
    * "scheduled according to adapter capability", and a defaulted list would
    * make every adapter claim every capability by silence — including
    * `full_snapshot`, the ONE mode that authorises retiring what a pass did not
-   * see. An Awin CSV feed declares `full_snapshot`; an eBay Browse adapter
-   * declares `query_driven` and `targeted` and NOT `full_snapshot`, because no
-   * call it has enumerates a marketplace.
+   * see. An Awin CSV feed declares `full_snapshot`.
+   *
+   * #65's eBay Browse adapter declares `full_snapshot`, `query_driven` and
+   * `targeted`, and the first of those needs its reason stated, because the
+   * obvious reading is that it should not: no Browse call enumerates a
+   * MARKETPLACE, and none claims to. What `full_snapshot` means here is #68's
+   * own definition — the mode that ESTABLISHES ABSENCE — and an eBay pass
+   * establishes it by asking eBay about every item MERCARIA TRACKS, twenty ids
+   * at a time, which is the set a retirement could act on and the exact
+   * question the API License Agreement's deletion obligation turns on. Its
+   * discovery half is separately unable to report completeness at all
+   * (`services/ebay/cursor.ts`), so the entitlement this declaration grants is
+   * still spent only on the half that earns it.
    *
    * A source's own policy may NARROW this (`permitted_refresh_modes`) and can
    * never widen it: a capability is a fact about somebody else's API, and no

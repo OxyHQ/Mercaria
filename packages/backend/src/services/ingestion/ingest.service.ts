@@ -54,13 +54,17 @@ import type {
   CatalogSourceHealthState,
   CatalogSourceRejectionReason,
   CatalogSourceRightsVerdict,
+  ConditionMappingProviderId,
   NormalizedSourceRecord,
   OfferKind,
   SourceAnomalyFinding,
   SourceLinkMethod,
   SourceObservationDistribution,
 } from '@mercaria/shared-types';
-import { effectiveOfferLifetimeSeconds } from '@mercaria/shared-types';
+import {
+  CONDITION_MAPPING_PROVIDER_IDS,
+  effectiveOfferLifetimeSeconds,
+} from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
@@ -124,6 +128,7 @@ import {
 import { NORMALIZATION_VERSION, canonicalizeNormalizedRecord } from './normalization.js';
 import { redactSourceObservation } from './redact.js';
 import { resolveCatalogSourceAdapter } from './registry.js';
+import { resolveOfferMerchantId } from './seller-identity.js';
 import { resolveIngestionSource, type ResolvedIngestionSource } from './source.service.js';
 
 /**
@@ -185,6 +190,23 @@ export function sourceLinkMethodForStage(stage: string): SourceLinkMethod {
   return stage === 'existing_source_link' || stage === 'global_identifier'
     ? 'deterministic_identifier'
     : 'heuristic';
+}
+
+/**
+ * Which #90 ruleset vocabulary reads this source's condition wording, if any.
+ *
+ * `catalog_source_configs.provider` is an OPEN set (external key spaces are not
+ * Mercaria's to enumerate) and `condition_mapping_rulesets.provider` is a closed
+ * one, so the narrowing is a membership test rather than a cast. A provider with
+ * no vocabulary answers `undefined`, which `recordExternalOffer` reads as "no
+ * ruleset to consult" and turns into a preserved label with an `unknown`
+ * condition — the same fail-closed answer as a provider whose ruleset has not
+ * been published yet.
+ */
+function conditionMappingProviderFor(provider: string): ConditionMappingProviderId | undefined {
+  return (CONDITION_MAPPING_PROVIDER_IDS as readonly string[]).includes(provider)
+    ? (provider as ConditionMappingProviderId)
+    : undefined;
 }
 
 /** Compose a rejection note from FIELD NAMES. Never from values — see `redact.ts`. */
@@ -321,6 +343,7 @@ export async function runIngestionPage(input: {
   let page: AdapterFetchPage;
   try {
     page = await adapter.fetchPage({
+      sourceId: run.sourceId,
       cursor: run.cursor,
       pageSize: resolved.source.config.pageSize,
       credentialRef: resolved.source.config.credentialRef,
@@ -476,14 +499,36 @@ export async function runIngestionPage(input: {
 
   if (verdict.mayPublish) {
     for (const item of pending) {
-      await advanceObject({
-        object: item.object,
-        observationId: item.observationId,
-        resolved,
-        pipeline,
-        normalized: item.normalized,
-        now,
-      });
+      /**
+       * A failure AFTER intake is not an intake outcome.
+       *
+       * `catalog_source_runs_intake_total_check` is `fetched = stored +
+       * unchanged + rejected + quarantined`, an EQUALITY — so a record already
+       * counted as `stored` that then fails while matching or materializing its
+       * offer must not ALSO be counted as `rejected`. The run row would be
+       * refused outright, taking the whole page's bookkeeping with it, which is
+       * how one bad downstream row turns into a page that recorded nothing.
+       *
+       * Nothing rethrows, for the reason the intake path one stage earlier does
+       * not: a page that aborted on its worst record would leave the cursor
+       * stuck there forever. The observation is already durable and the object
+       * stays `observed`, so the next pass re-examines it.
+       */
+      try {
+        await advanceObject({
+          object: item.object,
+          observationId: item.observationId,
+          resolved,
+          pipeline,
+          normalized: item.normalized,
+          now,
+        });
+      } catch (error: unknown) {
+        log.general.warn(
+          { err: error, sourceId: run.sourceId, externalId: item.object.externalId },
+          '[Ingestion] the record was stored but could not be advanced; the next pass will retry it',
+        );
+      }
     }
   } else {
     for (const item of pending) {
@@ -653,6 +698,26 @@ async function persistOneRecord(args: {
     return;
   }
 
+  /**
+   * The page's clock is the AUTHORITY, and an adapter's read cannot be in its
+   * future.
+   *
+   * `now` is captured at the top of `runIngestionPage`; an adapter that stamps
+   * the REAL read instant necessarily runs a few milliseconds later, inside the
+   * fetch. Every downstream table then sees a record observed AFTER the page
+   * processing it — which `catalog_source_objects_seen_order_check` and
+   * `offers_confirmed_order_check` both refuse, for every record, not
+   * occasionally. The fixture adapter never exposed it because it stamps a fixed
+   * instant in the past; #65's eBay adapter, the first to stamp the truth,
+   * failed on its first realdb run.
+   *
+   * Clamping HERE rather than in each repository is what keeps it one fact in
+   * one place: an earlier observation is preserved exactly (which is what the
+   * monotonicity guard reads), and only the physically impossible direction is
+   * capped.
+   */
+  const observedAt = record.observedAt > now ? now : record.observedAt;
+
   const redacted = redactSourceObservation(normalized, record.raw);
   if (redacted === null) {
     await reject('payload_too_large');
@@ -686,7 +751,7 @@ async function persistOneRecord(args: {
     sourceId: run.sourceId,
     externalType: record.externalType,
     externalId: record.externalId,
-    observedAt: record.observedAt,
+    observedAt,
     staleAt,
     contentHash: redacted.contentHash,
     rawPayloadDigest: redacted.rawDigest,
@@ -702,7 +767,7 @@ async function persistOneRecord(args: {
     externalId: record.externalId,
     sourceRecordId: observation.record.id,
     contentHash: redacted.contentHash,
-    observedAt: record.observedAt,
+    observedAt,
     sourceUpdatedAt: record.sourceUpdatedAt ?? null,
     staleAt,
     price: normalized.price === undefined ? null : { ...normalized.price },
@@ -917,8 +982,21 @@ async function advanceObject(args: {
    * operator can see and fix rather than a merchant nobody authorised. The
    * object stays `matched`, which is honest: the canonical attachment happened
    * and the commercial half did not.
+   *
+   * `resolveOfferMerchantId` answers exactly that binding for every source that
+   * existed before #65. A source an operator marked `per_record` — a
+   * MARKETPLACE, whose every item is sold by a different account — resolves the
+   * seller from the record's own `merchantHint` instead, into a namespace no
+   * claimed merchant can occupy. `services/ingestion/seller-identity.ts` states
+   * why that does not weaken the boundary, and it answers `null` for the same
+   * reason this branch always did: there is nobody to attribute the sale to.
    */
-  const merchantId = resolved.source.config.merchantId;
+  const merchantId = await resolveOfferMerchantId({
+    resolved,
+    merchantHint: normalized.merchantHint,
+    sourceRecordId: observationId,
+    now,
+  });
   if (merchantId === null) return;
 
   const offerId = await materializeOffer({
@@ -969,6 +1047,7 @@ async function materializeOffer(args: {
 }): Promise<string> {
   const { object, observationId, resolved, merchantId, canonicalVariantId, normalized, now } = args;
   const rights = resolved.rights;
+  const conditionProvider = conditionMappingProviderFor(resolved.source.config.provider);
   const destinationUrl = rights.outbound_link ? normalized.sourceUrl : undefined;
   const kind = offerKindFor(rights, resolved.source.sourceKind, destinationUrl);
   const affiliateUrl = rights.affiliate_params ? normalized.affiliateUrl : undefined;
@@ -1000,6 +1079,16 @@ async function materializeOffer(args: {
       ...(normalized.conditionLabel === undefined
         ? {}
         : { conditionSourceLabel: normalized.conditionLabel }),
+      /**
+       * #90's ruleset reads the label; nothing here decides a taxonomy key.
+       *
+       * A source whose provider owns no ruleset vocabulary passes NOTHING, and
+       * `recordExternalOffer` then stores the wording with the condition
+       * `unknown` — the fail-closed direction, and the one that makes the first
+       * ruleset for a new source writable from what it actually says rather
+       * than from a guess about what it might.
+       */
+      ...(conditionProvider === undefined ? {} : { conditionMappingProvider: conditionProvider }),
       ...(normalized.merchantSku === undefined ? {} : { sellerSku: normalized.merchantSku }),
       merchantTitle: normalized.title,
       ...(destinationUrl === undefined ? {} : { destinationUrl }),

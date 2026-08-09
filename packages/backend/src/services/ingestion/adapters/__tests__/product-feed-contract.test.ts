@@ -225,6 +225,10 @@ describe('the adapter’s own failure classification', () => {
       let raised: unknown;
       try {
         await adapter.fetchPage({
+          // #65 added `sourceId` to the request — an identifier with no
+          // repository behind it, so an adapter can scope a capability it was
+          // already constructed with.
+          sourceId: 'source-for-contract-test',
           cursor: null,
           pageSize: 10,
           credentialRef: null,
@@ -253,6 +257,7 @@ describe('the adapter’s own failure classification', () => {
     });
     await expect(
       adapter.fetchPage({
+        sourceId: 'source-for-contract-test',
         cursor: null,
         pageSize: 10,
         credentialRef: null,

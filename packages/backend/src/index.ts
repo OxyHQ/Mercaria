@@ -217,6 +217,21 @@ connectPostgres()
         })
         .catch((err) => log.general.error({ err }, 'Feed import adapter registration failed'));
 
+      // Register the eBay Browse adapter (#65). A CALL rather than a module side
+      // effect, and for #62's own reason one direction over: an adapter that
+      // registered itself on import would be live in every process that pulled
+      // the module graph in, including the migration runner and a test that only
+      // wanted the normalizer. It is a no-op with `EBAY_ENABLED=false`, which is
+      // the default and which leaves every eBay source configurable, reviewable
+      // and refusing its runs with `adapter_missing`.
+      import('./services/ebay/register.js')
+        .then(({ registerEbayBrowseAdapter }) => {
+          registerEbayBrowseAdapter();
+        })
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'eBay Browse adapter registration failed'),
+        );
+
       // Hand back lapsed supplier holds, release lapsed quotes and evaluate
       // supplier health (#122). On EVERY task, and deliberately WITHOUT a lease:
       // every action it takes is an idempotent compare-and-swap, so N tasks

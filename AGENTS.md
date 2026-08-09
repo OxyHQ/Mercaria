@@ -2977,8 +2977,10 @@ SECOND row, and a price alert firing on a price nobody could buy.
   a priority class and `requestPriorityRefresh` is the entry point; "an old
   price cannot fire a new alert" is already true of anything obtained through
   `mayAppearInComparison`), **#77** (popularity), **#74** (ranking — a scanned
-  gate both ways), **#63/#65/#66** (the adapters — none registered, so every
-  task dead-letters and says why), **#86** (dashboards read
+  gate both ways), **#63/#66** (still no adapter, so
+  every task for those providers dead-letters and says why; **#65** SHIPPED
+  one, and its two-phase pass is what a refresh task drives for an eBay
+  source), **#86** (dashboards read
   `readSourceCatalogHealth`; scraping belongs to `oxy-infra`).
 ## The universal product-feed importer (#63)
 
@@ -3125,3 +3127,160 @@ becomes a `NormalizedSourceRecord`.
   tracked URL), **#59**, **#68**, durable upload storage (an upload lives on one
   task's disk and `feed_uploads.status='missing'` is a real state), and the
   dashboard mapping screens (every endpoint they need exists).
+## The eBay Browse catalog source (#65, selected by #64)
+
+`services/ebay/` (11 modules) + `services/ingestion/adapters/ebay.ts` +
+`db/ebay/` (4 repositories) + `db/schema/ebay.ts` (3 tables), plus
+`marketplace_seller_identities` and `catalog_source_configs.seller_identity` in
+the ingestion framework, and `/internal/ebay/*`. Full reference:
+**`docs/catalog-sources/ebay-browse.md`**; the provider facts are #64's
+(`docs/catalog-sources/2026-08-09-launch-sources.md`, binding); schema decisions:
+`db/schema/CONVENTIONS.md` §"The eBay Browse source". It implements #62's
+adapter contract, matches through #58 and offers through #57, and adds no schema
+fork to any of them.
+
+The failure mode that shapes it: **a search API is not a catalogue, and treating
+one as the other retires a healthy catalogue.**
+
+- **A DISCOVERY sweep may never claim a complete enumeration, and that is the
+  whole design.** eBay grants search-driven discovery and refuses an `offset`
+  past 10,000 — so a sweep of a 40,000-item category has provably not seen
+  30,000 of them, and an item can be public and simply not in this week's
+  results. Reporting `complete` from one would mass-expire everything below the
+  depth cut on the first sweep after a category grew. A pass is therefore
+  DISCOVERY then VERIFICATION, and only verification — which asks eBay about
+  every tracked item BY ID, and is the only thing that establishes the API
+  License Agreement's "no longer publicly available" deletion trigger — may
+  complete. `mayClaimCompleteEnumeration` states the conjunction once (verify
+  phase, cohort exhausted, nothing truncated, not incremental) so no caller can
+  assemble a weaker one, and every failure mode lands on `false`.
+- **THREE identities, mapped as three things** (acceptance 2). The marketplace
+  OPERATOR is the merchant bound to the source, the STOREFRONT is the bound
+  channel it operates, and the SELLER is `seller.username` per item.
+  ADR 0002 D8 derives marketplace-ness by comparing the offer's merchant against
+  the storefront's operator, so twenty sellers of one product produce twenty
+  offers under one canonical variant (`offers.commercial_key`). Binding one
+  merchant to an eBay source instead is not a coarser truth, it is a false one.
+- **`catalog_source_configs.seller_identity` is the opt-in, and it is what keeps
+  #62's write boundary intact.** `source_bound` is the default and every
+  pre-#65 source behaves exactly as before; `per_record` is an OPERATOR
+  asserting that this provider publishes a stable per-item seller identity. An
+  adapter still cannot name a merchant — it supplies `merchantHint`, which #62
+  already defines as a hint that resolves nothing — and the merchant lands in
+  `marketplace_seller_identities`, keyed `(provider, external_seller_id)` so one
+  eBay username is one merchant across every marketplace. A minted seller is
+  `unclaimed`, provider-namespaced, and grants no relationship, no store link
+  and no native checkout (a scanned gate). An item naming NO seller produces no
+  offer — falling back to the bound merchant would attribute the sale to eBay.
+- **Mercaria never composes or mutates an EPN link.** The outbound destination
+  is a two-branch union and BOTH branches carry a URL out of a response body;
+  `EBAY_FORBIDDEN_LINK_OPERATIONS` states the prohibition as a value, disjoint
+  from the destination kinds by a gate, and `ebay-isolation.test.ts` scans for
+  item-host URL construction, campaign parameters and parameter surgery with a
+  mutation self-test. The reason is commercial: attribution lives entirely in
+  eBay's own parameters, and a rebuilt link is indistinguishable from a working
+  one until a month of revenue is missing. **Approval loss has exactly one
+  detector** — a page that requested attribution and got none on EVERY item —
+  because an unattributed link is a perfectly good link and fails nowhere else.
+  It reports rather than throws.
+- **The condition carried to #90 is the `conditionId`, never the display name**,
+  which is localized ("Used" on GB, "Usado" on ES for the identical `3000`). A
+  ruleset keyed on display text needs one rule per language and answers
+  `unmapped` for every market nobody wrote rules for. `#65` WIDENED
+  `condition_mapping_rulesets.provider` from `CONNECTOR_PROVIDER_IDS` to
+  `CONDITION_MAPPING_PROVIDER_IDS`, a strict superset, so every existing
+  ruleset, rule and offer keeps its provider. The eBay ruleset is a
+  RECOMMENDATION an operator publishes (`EBAY_RECOMMENDED_CONDITION_RULES`), not
+  a migration: a ruleset written by a migration is a policy nobody signed. Until
+  it is published every eBay offer is `unmapped` with its id preserved.
+- **The call budget is keyed on the CREDENTIAL and the UTC day, never on the
+  source.** eBay meters 5,000 calls/day against the KEYSET and Mercaria runs one
+  source per marketplace, so a per-source budget would draw 25,000 against a
+  5,000-call agreement. The reservation is one conditional `UPDATE` whose empty
+  `RETURNING` set IS the refusal, with a CHECK stating the same bound at the row;
+  refusals are counted beside grants, because `calls_used` alone cannot tell a
+  quiet day from a day spent refusing everything. A budget refusal TRUNCATES the
+  pass rather than failing it — eBay is fine, Mercaria spent its allowance — and
+  truncation is what makes the completeness claim refuse.
+- **The access token is never written down.** Minted per process, held in memory,
+  dies with the task; a scanned gate fails the build if any module learns to
+  persist one. A two-hour bearer credential in a table is a row that grants API
+  access on eBay's side, in something with backups and replicas, to save one call
+  every two hours.
+- **Two switches, deliberately not the same lever.** `EBAY_FETCH_ENABLED` is the
+  hard fetch kill switch — deployment-wide, answered as a RETRYABLE outage so the
+  run is RELEASED with its cursor intact, no health moved and nothing retired,
+  resuming from the same page when flipped back. The DISPLAY switch is
+  `may_display` on the source's own #62 rights policy: versioned, per source,
+  reviewed. An env var for display would be a second answer to what
+  `catalog_source_policies` already answers. `EBAY_MARKETS` is an ALLOW-list
+  defaulting to `EBAY_ES` alone, unlike ADR 0006's block lists, because it is a
+  ROLLOUT cohort and the default has to be the smallest set.
+- **The error taxonomy reads the STATUS first and the `errorId` second**, for two
+  distinctions the status cannot make: a quota refusal wearing a 403 is a
+  `rate_limit` (reading it as auth would page somebody about a working
+  credential), and an expired token wearing a 400 is a RETRYABLE `auth_failure`
+  (the next attempt mints a fresh one). A real 401/403 is NOT retryable — that is
+  "stop safely": a revoked keyset answers identically every time, and #62 marks
+  the source `failed` and retires nothing.
+- **Reconciliation detects and repairs nothing** (`payment_discrepancies`
+  posture), samples RANDOMLY (taking the first N re-checks one corner forever and
+  reports it as a fact about all of it), and spends the same budget everything
+  else does.
+- **#65 does NOT call `describeCatalogSourceAdapterContract`**, and the reason is
+  a property of eBay: the shared suite asserts exact `fetch_count`/`fetched`
+  counters, which assume one framework page is one provider call (an eBay pass is
+  two phases by design), and asserts a provider-published `sourceUpdatedAt`,
+  which the Browse API does not publish for an item. Satisfying the second would
+  mean INVENTING a provider timestamp. `services/ebay/__tests__/ebay-ingestion.realdb.test.ts`
+  covers all thirteen concerns case by case under the same headings, against the
+  same tables, through the REAL adapter over a fake transport.
+- Env: `EBAY_ENABLED` (default false — registers the adapter at all),
+  `EBAY_FETCH_ENABLED`, `EBAY_ENVIRONMENT` (anything unrecognised is `sandbox`,
+  never `production` — a production keyset pointed at sandbox would quietly
+  ingest eBay's TEST catalogue), `EBAY_MARKETS`, `EPN_CAMPAIGN_ID`,
+  `EBAY_DAILY_CALL_LIMIT`, `EBAY_RECONCILIATION_SAMPLE_SIZE`. Operator surface
+  `/internal/ebay/*` behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list,
+  mounted while both switches are off — reading the budget is what somebody does
+  after flipping the kill switch.
+- **Two framework bugs #65's realdb suite caught, both fixed in `ingest.service.ts`
+  and neither visible to a mocked test.** (1) A page's `now` is captured BEFORE
+  the adapter runs, so any adapter stamping the REAL read instant produced
+  `observed_at > now` and violated `catalog_source_objects_seen_order_check` and
+  `offers_confirmed_order_check` on EVERY record — the fixture adapter never
+  exposed it because it stamps a fixed instant in the past. The record's
+  `observedAt` is now clamped to the page clock, in one place, so an earlier
+  observation is preserved exactly and only the physically impossible direction
+  is capped. (2) A record counted as `stored` that then failed while matching was
+  ALSO counted as `rejected`, which `catalog_source_runs_intake_total_check`
+  refuses — taking the whole page's bookkeeping with it. A post-intake failure is
+  now isolated and logged; the object stays `observed` and the next pass retries.
+- **`ebay-ingestion.realdb.test.ts` is a FOURTH participant in the global
+  active-matching-policy queue, and the suite starves at four.**
+  `match_policy_versions_active_key` is a partial unique with no scoping column
+  — ONE active policy in the whole database, correct for production — so every
+  realdb file needing one queues. `origin/main` carries three such files and is
+  green; adding this one makes somebody time out. Six configurations were
+  measured and none fixed it (150 s budgets, a 180 s per-test ceiling, per-test
+  release, backed-off retries, a nested-group hold, and borrowing the active
+  policy — the last REJECTED, because it makes the assertions depend on whichever
+  sibling ran first). Isolated to that one file by three runs: main alone green,
+  this branch minus that file green, that file alone green. The fix belongs to
+  the constraint's owner — the existing files releasing per test, or realdb files
+  needing a policy not running in parallel — and is deliberately not attempted
+  from #65, because an unverified change to three other issues' suites is worse
+  than an honest note.
+- **#68 LANDED while this was in review, and the two fit without either
+  changing.** #68 owns WHEN a source is re-read and how long an offer is worth
+  showing; #65 owns what an eBay pass DOES and what it may conclude. A refresh
+  task for an eBay source drives the same discovery-then-verification pass, and
+  #68's freshness verdict is derived at read time against the source's policy —
+  so neither the completeness rule nor the deletion obligation moves. What did
+  change is the deferral: refresh SCHEDULING is no longer owed.
+- Deferred with named seams: #37 (the outbound redirect — routing metadata is
+  modelled and `destination_url` stays the ORIGINAL), #74
+  (ranking, a scanned gate), #59 (review of an ambiguous match), #60 (minting
+  what a `create_new` recommends), per-seller eBay STOREFRONTS, and #94's
+  attribute registry (eBay's aspects are localized in both name and value, so
+  they are carried as option assignments for #58 to score and are not claimed as
+  registry values, which need a stable key and a unit).

@@ -288,3 +288,12 @@ export * from './ingestion';
 // snapshot/delta distinction that decides whether an omitted row means anything
 // at all.
 export * from './feed-import';
+// The eBay Browse catalog source (#65, the provider #64 selected) — the launch
+// marketplaces and their markets, the discovery-query vocabulary, the two
+// outbound destinations an eBay item may ever have (and the link operations
+// that may never become a third), eBay's own condition-id enumeration with the
+// #90 ruleset an operator publishes from it, the reconciliation findings, and
+// the provider's documented pagination and quota limits. Follows `./condition`,
+// whose taxonomy keys the recommended ruleset maps onto, and `./ingestion`,
+// whose adapter contract it is written against.
+export * from './ebay';

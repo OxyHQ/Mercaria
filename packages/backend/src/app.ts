@@ -65,6 +65,7 @@ import internalBackfillRouter from './routes/internal-backfill.js';
 import internalIngestionRouter from './routes/internal-ingestion.js';
 import internalOfferFreshnessRouter from './routes/internal-offer-freshness.js';
 import internalFeedImportsRouter from './routes/internal-feed-imports.js';
+import internalEbayRouter from './routes/internal-ebay.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
@@ -425,6 +426,17 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/feed-imports', internalFeedImportsRouter);
+  }
+  /**
+   * The eBay Browse source's operator surface (#65), on the SAME allow-list and
+   * for the same reason: deciding which eBay categories Mercaria ingests is the
+   * same power over the same graph as deciding what any other external source
+   * may do. It stays mounted while `EBAY_ENABLED` and `EBAY_FETCH_ENABLED` are
+   * off — reading the call budget is exactly what somebody does after flipping
+   * the fetch kill switch.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/ebay', internalEbayRouter);
   }
   // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
   // reason the two above have theirs: reading who merged which cart is a third

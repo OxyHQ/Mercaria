@@ -85,7 +85,10 @@ import {
 } from '../../db/schema/retailEligibility.js';
 import { catalogBackfillRecords } from '../../db/schema/backfill.js';
 import { productSaveAggregates, productSaves } from '../../db/schema/productSaves.js';
-import { catalogSourceConfigs } from '../../db/schema/ingestion.js';
+import {
+  catalogSourceConfigs,
+  marketplaceSellerIdentities,
+} from '../../db/schema/ingestion.js';
 
 /**
  * What the merge does with one referencing column.
@@ -450,6 +453,24 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         'ingested record to a merchant id, so a source left pointing at a tombstone would ' +
         'stop producing offers with no error anywhere. No unique spans it, because two feeds ' +
         'legitimately sell for one merchant.',
+    },
+    {
+      column: marketplaceSellerIdentities.merchantId,
+      phase: 'children',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [
+        marketplaceSellerIdentities.provider,
+        marketplaceSellerIdentities.externalSellerId,
+      ],
+      note:
+        "#65's marketplace-account identity: which merchant one eBay seller account IS. It " +
+        'follows the surviving merchant, and a COLLIDING identity — the same (provider, ' +
+        'external seller id) already recorded against the winner — stays on the tombstone, ' +
+        'because the unique means the two rows were always the same account and repointing ' +
+        'would refuse the whole merge over a duplicate that proves nothing new. The consequence ' +
+        'if it were repointed blindly is worse than a failed merge: this row is the ONLY path ' +
+        'from an ingested item to its seller, so two of them for one account would let the next ' +
+        'pass attribute the same seller to two merchants.',
     },
     {
       column: commerceRelationships.merchantId,

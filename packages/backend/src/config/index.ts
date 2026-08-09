@@ -14,6 +14,8 @@ import type {
   CanonicalReadMode,
   CheckoutPaymentSurfaceMethod,
   CurrencyCode,
+  EbayEnvironment,
+  EbayMarketplaceId,
   ModerationEnforcementMode,
   SavedItemsReadMode,
 } from '@mercaria/shared-types';
@@ -22,6 +24,8 @@ import {
   ANALYTICS_COLLECTION_MODES,
   CANONICAL_READ_MODES,
   CHECKOUT_PAYMENT_SURFACE_METHODS,
+  EBAY_ENVIRONMENTS,
+  EBAY_MARKETPLACE_IDS,
   SAVED_ITEMS_READ_MODES,
 } from '@mercaria/shared-types';
 import { tmpdir } from 'node:os';
@@ -2099,6 +2103,61 @@ export interface FeedImportConfig {
   readonly maxReportEntries: number;
 }
 
+/**
+ * The eBay Browse catalog source (#65, the provider #64 selected).
+ *
+ * ## Two switches that are deliberately NOT the same lever
+ *
+ * Issue #65 adapter rule 10 asks for "a hard kill switch for fetch and a
+ * separate public-display switch", and they are separate here — but only one of
+ * them is an environment variable, on purpose.
+ *
+ * `EBAY_FETCH_ENABLED` is the FETCH kill switch: deployment-wide, in front of
+ * every per-source right, and the thing somebody flips at 3am when eBay pages
+ * about traffic. The adapter answers it with a RETRYABLE outage, so #62 releases
+ * the run with its cursor intact, moves no health, retires nothing, and resumes
+ * from the same page the moment it is flipped back.
+ *
+ * The DISPLAY switch is `may_display` on the source's own rights policy (#62) —
+ * versioned, per source, reviewed and attributable. It is not an environment
+ * variable because withdrawing display is a rights decision with a paper trail
+ * and a per-market grain, where stopping fetch is a deployment lever. Making it
+ * an env var too would create a second answer to a question `catalog_source_policies`
+ * already answers, and the two could disagree.
+ *
+ * ## `EBAY_MARKETS` is an ALLOW-list, unlike the guest-rollout block lists
+ *
+ * ADR 0006's kill switches are block lists because they are incident levers and
+ * an allow-list typo silently switches everything else off. This is the opposite
+ * kind of thing: issue #65 acceptance 7 asks that "public rollout starts with a
+ * bounded category or market cohort before full enablement", so the default has
+ * to be the SMALLEST set rather than the largest. It defaults to `EBAY_ES`,
+ * which is #64's launch market, and widening it is a deliberate act.
+ *
+ * A value outside `EBAY_MARKETPLACE_IDS` is dropped rather than passed through:
+ * every member of that tuple costs a rights review, an EPN campaign and a
+ * category cohort, and a marketplace nobody reviewed is a marketplace Mercaria
+ * has no terms for.
+ */
+export interface EbayConfig {
+  /** `EBAY_ENABLED` — is the adapter registered at all. Default false. */
+  readonly enabled: boolean;
+  /** `EBAY_FETCH_ENABLED` — the HARD fetch kill switch. Default true. */
+  readonly fetchEnabled: boolean;
+  /** `EBAY_ENVIRONMENT` — `sandbox` or `production`. A sandbox keyset never feeds public pages. */
+  readonly environment: EbayEnvironment;
+  /** The marketplaces this deployment may query. The rollout cohort; defaults to ES. */
+  readonly markets: readonly EbayMarketplaceId[];
+  /** `EPN_CAMPAIGN_ID` — ten digits. Empty means run unattributed, which is a working state. */
+  readonly campaignId: string;
+  /** DERIVED: attribution is only requested when the campaign id is one EPN could have issued. */
+  readonly attributionEnabled: boolean;
+  /** `EBAY_DAILY_CALL_LIMIT` — the allowance each budget day is measured against. */
+  readonly dailyCallLimit: number;
+  /** How many tracked items one reconciliation sweep re-reads. */
+  readonly reconciliationSampleSize: number;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -2109,6 +2168,7 @@ export interface AppConfig {
   readonly catalogIngestion: CatalogIngestionConfig;
   readonly offerFreshness: OfferFreshnessConfig;
   readonly feedImport: FeedImportConfig;
+  readonly ebay: EbayConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
@@ -2126,6 +2186,43 @@ export interface AppConfig {
   readonly procurement: ProcurementConfig;
   readonly retail: MercariaRetailConfig;
   readonly postgres: PostgresConfig;
+}
+
+/**
+ * `EBAY_MARKETS` → the marketplaces this deployment may query.
+ *
+ * An ALLOW-list defaulting to the launch market alone (#65 acceptance 7). A
+ * value the tuple does not name is DROPPED rather than passed through: every
+ * marketplace costs a rights review, an EPN campaign and a category cohort, so
+ * one nobody reviewed is one Mercaria has no terms for. An entirely unrecognised
+ * list therefore resolves to NOTHING and the adapter queries nothing at all —
+ * fail-closed, and visible immediately as a source that fetches no records.
+ */
+function resolveEbayMarkets(): readonly EbayMarketplaceId[] {
+  const configured = strEnv('EBAY_MARKETS', 'EBAY_ES')
+    .split(',')
+    .map((value) => value.trim().toUpperCase())
+    .filter((value) => value !== '');
+  return configured.filter((value): value is EbayMarketplaceId =>
+    (EBAY_MARKETPLACE_IDS as readonly string[]).includes(value),
+  );
+}
+
+/**
+ * `EBAY_ENVIRONMENT` → which eBay key space this deployment's credential belongs
+ * to.
+ *
+ * Anything unrecognised resolves to `sandbox`, never to `production`. The two
+ * are different key spaces and a typo that promoted a sandbox keyset to the
+ * production host would fail every call with an auth error — which is loud, but
+ * the reverse (a production keyset pointed at sandbox) is quiet and would ingest
+ * eBay's TEST catalogue into a live comparison surface.
+ */
+function resolveEbayEnvironment(): EbayEnvironment {
+  const raw = strEnv('EBAY_ENVIRONMENT', 'sandbox').toLowerCase();
+  return (EBAY_ENVIRONMENTS as readonly string[]).includes(raw)
+    ? (raw as EbayEnvironment)
+    : 'sandbox';
 }
 
 /**
@@ -2204,6 +2301,20 @@ export const config: AppConfig = Object.freeze({
     stageTtlMs: intEnv('FEED_IMPORT_STAGE_TTL_MS', 6 * 60 * 60 * 1_000),
     previewSampleSize: intEnv('FEED_IMPORT_PREVIEW_SAMPLE_SIZE', 50),
     maxReportEntries: intEnv('FEED_IMPORT_MAX_REPORT_ENTRIES', 10_000),
+  }),
+  ebay: Object.freeze({
+    enabled: boolEnv('EBAY_ENABLED', false),
+    fetchEnabled: boolEnv('EBAY_FETCH_ENABLED', true),
+    environment: resolveEbayEnvironment(),
+    markets: Object.freeze(resolveEbayMarkets()),
+    campaignId: strEnv('EPN_CAMPAIGN_ID', ''),
+    // DERIVED from the id's own shape rather than configured beside it: eBay
+    // ignores an unrecognised `affiliateCampaignId` and answers with plain URLs,
+    // so a typo would present as "attribution silently stopped working" — the
+    // one failure mode this integration cannot otherwise see.
+    attributionEnabled: /^\d{10}$/u.test(strEnv('EPN_CAMPAIGN_ID', '')),
+    dailyCallLimit: intEnv('EBAY_DAILY_CALL_LIMIT', 5_000),
+    reconciliationSampleSize: intEnv('EBAY_RECONCILIATION_SAMPLE_SIZE', 40),
   }),
   matching: Object.freeze({
     pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),

@@ -200,3 +200,11 @@ export * from './offerFreshness';
 // adds NOTHING to any table above it — the whole migration is additive, which
 // is what makes turning the importer off a flag flip and never a data change.
 export * from './feedImport';
+// The eBay Browse catalog source (#65) is the very last export, downstream of
+// `ingestion` itself: its tables reference `catalog_sources` and nothing else,
+// and they exist for the three things eBay's own contract demands that no
+// provider-neutral framework could anticipate — a per-APPLICATION daily call
+// budget, a search-driven discovery cohort (eBay publishes no catalogue export
+// at all), and the record of a live re-read disagreeing with what Mercaria
+// serves. No observation, offer, match or rights column lives here.
+export * from './ebay';

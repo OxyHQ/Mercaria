@@ -58,7 +58,7 @@ import {
   CONDITION_RESTRICTION_REASONS,
   CONDITION_REVISION_ACTORS,
   CONDITION_ASSERTIONS,
-  CONNECTOR_PROVIDER_IDS,
+  CONDITION_MAPPING_PROVIDER_IDS,
   IDENTIFIED_CONDITION_REVISION_ACTORS,
   ITEM_CONDITION_KEYS,
 } from '@mercaria/shared-types';
@@ -312,13 +312,17 @@ export const conditionMappingRulesets = pgTable(
   {
     id: generatedId(),
     /**
-     * The connector/source platform these rules read.
+     * The connector or CATALOG SOURCE platform these rules read.
      *
-     * Typed from `CONNECTOR_PROVIDER_IDS` and CHECKed from the same tuple: a
-     * ruleset for a provider Mercaria cannot ingest from would be rules nothing
-     * ever runs, and the offer domain's `provider` column names the same set.
+     * Typed from `CONDITION_MAPPING_PROVIDER_IDS` and CHECKed from the same
+     * tuple: a ruleset for a provider Mercaria cannot ingest from would be rules
+     * nothing ever runs. #90 wrote this as `CONNECTOR_PROVIDER_IDS` because the
+     * only sources with condition wording were the connectors a store syncs its
+     * own shop from; #62's ingestion framework and #65's eBay adapter added a
+     * second kind entirely, and the tuple is a SUPERSET of the connector one so
+     * every existing ruleset, rule and offer keeps its provider unchanged.
      */
-    provider: text({ enum: asEnumValues(CONNECTOR_PROVIDER_IDS) }).notNull(),
+    provider: text({ enum: asEnumValues(CONDITION_MAPPING_PROVIDER_IDS) }).notNull(),
     /** Monotonic per provider. The number an offer cites. */
     version: integer().notNull(),
     state: text({ enum: asEnumValues(CONDITION_MAPPING_RULESET_STATES) })
@@ -333,7 +337,11 @@ export const conditionMappingRulesets = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('condition_mapping_rulesets_provider_check', t.provider, CONNECTOR_PROVIDER_IDS),
+    checkOneOf(
+      'condition_mapping_rulesets_provider_check',
+      t.provider,
+      CONDITION_MAPPING_PROVIDER_IDS,
+    ),
     checkOneOf('condition_mapping_rulesets_state_check', t.state, CONDITION_MAPPING_RULESET_STATES),
     check('condition_mapping_rulesets_version_check', sql`${t.version} > 0`),
     // A draft has never been published and everything else has. The publisher is

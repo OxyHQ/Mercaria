@@ -20,7 +20,7 @@
 
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import type { ConnectorProviderId, ItemConditionKey } from '@mercaria/shared-types';
+import type { ConditionMappingProviderId, ItemConditionKey } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { conditionMappingRulesets, conditionSourceMappings } from '../schema/condition.js';
 
@@ -37,7 +37,7 @@ export interface NewConditionSourceMapping {
 
 /** Open a new DRAFT ruleset for a provider, one version above its highest. */
 export async function createRulesetDraft(
-  provider: ConnectorProviderId,
+  provider: ConditionMappingProviderId,
   note: string | null,
 ): Promise<ConditionMappingRulesetRecord> {
   return getDb().transaction(async (tx) => {
@@ -67,7 +67,7 @@ export async function createRulesetDraft(
 
 /** The active ruleset for a provider, or `undefined` when none is published. */
 export async function findActiveRuleset(
-  provider: ConnectorProviderId,
+  provider: ConditionMappingProviderId,
 ): Promise<ConditionMappingRulesetRecord | undefined> {
   const [row] = await getDb()
     .select()
@@ -96,7 +96,7 @@ export async function findRulesetById(
 
 /** Every ruleset for a provider, newest version first. */
 export async function findRulesetsByProvider(
-  provider: ConnectorProviderId,
+  provider: ConditionMappingProviderId,
 ): Promise<ConditionMappingRulesetRecord[]> {
   return getDb()
     .select()

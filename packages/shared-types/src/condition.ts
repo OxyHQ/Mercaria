@@ -640,6 +640,39 @@ export function normalizeSourceConditionLabel(raw: string): string {
     .replace(/\s+/g, ' ');
 }
 
+/**
+ * Which providers may own a condition-mapping ruleset (#90, widened by #65).
+ *
+ * #90 typed `condition_mapping_rulesets.provider` from `CONNECTOR_PROVIDER_IDS`
+ * because the only sources with condition wording were the connectors a
+ * Mercaria store syncs its own shop from. #62's ingestion framework and #65's
+ * eBay adapter added a second kind of source entirely — somebody ELSE's
+ * catalogue, read through an adapter — and those publish condition wording too.
+ *
+ * The tuple is a SUPERSET of `CONNECTOR_PROVIDER_IDS`, which is what makes this
+ * a widening rather than a fork: every existing ruleset, rule and offer keeps
+ * its provider, `mapSourceCondition` keeps accepting a `ConnectorProviderId`
+ * because one is a member, and the CHECK the schema renders from this tuple only
+ * ever admits more. A second ruleset table for catalog sources would have been
+ * the fork — two places deciding what "Seller refurbished" means, with one
+ * confidence floor between them.
+ *
+ * It is deliberately NOT `string`. The floor, the review queue and the
+ * `offers_condition_mapped_shape_check` all key on a provider having exactly one
+ * ACTIVE ruleset, and an open set means a typo publishes a ruleset nothing ever
+ * reads while every offer stays `unmapped` for a reason nobody can see.
+ */
+export const CONDITION_MAPPING_PROVIDER_IDS = [
+  'shopify',
+  'woocommerce',
+  'etsy',
+  'prestashop',
+  'magento',
+  'ebay_browse',
+] as const;
+
+export type ConditionMappingProviderId = (typeof CONDITION_MAPPING_PROVIDER_IDS)[number];
+
 /** The lifecycle of a per-provider mapping ruleset (#90 migration rule 5). */
 export type ConditionMappingRulesetState = 'draft' | 'active' | 'superseded';
 

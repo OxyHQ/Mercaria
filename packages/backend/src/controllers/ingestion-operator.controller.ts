@@ -33,6 +33,7 @@ import { getRequiredOxyUserId } from '@oxyhq/core/server';
 import type {
   CatalogSourceExtractionMode,
   CatalogSourceKind,
+  CatalogSourceSellerIdentity,
   CatalogSourceStatus,
   SourceRecordExternalType,
 } from '@mercaria/shared-types';
@@ -87,6 +88,7 @@ function toSourceDTO(input: {
     readonly fetchCadenceSeconds: number | null;
     readonly freshnessTtlSeconds: number;
     readonly pageSize: number;
+    readonly sellerIdentity: string;
     readonly status: string;
     readonly statusReason: string | null;
     readonly healthState: string;
@@ -112,6 +114,7 @@ function toSourceDTO(input: {
     fetchCadenceSeconds: input.config.fetchCadenceSeconds,
     freshnessTtlSeconds: input.config.freshnessTtlSeconds,
     pageSize: input.config.pageSize,
+    sellerIdentity: input.config.sellerIdentity,
     status: input.config.status,
     statusReason: input.config.statusReason,
     healthState: input.config.healthState,
@@ -168,6 +171,9 @@ export async function configureSourceHandler(req: Request, res: Response): Promi
         ? {}
         : { rateLimitMinIntervalMs: body.rateLimitMinIntervalMs }),
       ...(body.pageSize === undefined ? {} : { pageSize: body.pageSize }),
+      ...(body.sellerIdentity === undefined
+        ? {}
+        : { sellerIdentity: body.sellerIdentity as CatalogSourceSellerIdentity }),
       ...(body.rightsNote === undefined ? {} : { rightsNote: body.rightsNote }),
     });
     sendSuccess(res, { source: toSourceDTO(resolved.source), rights: resolved.rights }, 201);
