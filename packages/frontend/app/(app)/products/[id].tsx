@@ -33,6 +33,7 @@ import type {
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { Footer } from "@/components/shell/Footer";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
+import { SellerLinkCard } from "@/components/seller/SellerLinkCard";
 import { useProduct, useProductReviews } from "@/lib/hooks/use-product";
 import { REVIEW_SCOPE_LABELS, useProductScopeReviews } from "@/lib/hooks/use-reviews";
 import { useListings } from "@/lib/hooks/use-listings";
@@ -363,6 +364,19 @@ function ProductBody({ listing }: ProductBodyProps) {
     }
   };
 
+  // Keyed on the OXY ACCOUNT ID, never on the handle: a handle can change and a
+  // renamed seller's every inbound link would 404, while the account id never
+  // moves. Same reasoning as the follow target's URI.
+  const onPressSeller = () => {
+    if (listing.seller?.oxyUserId) {
+      router.push(
+        `/sellers/${encodeURIComponent(listing.seller.oxyUserId)}` as Parameters<
+          typeof router.push
+        >[0],
+      );
+    }
+  };
+
   const onAddToCart = () => {
     if (!selectedVariant) return;
     addToCart.mutate({
@@ -578,6 +592,16 @@ function ProductBody({ listing }: ProductBodyProps) {
             {/* Store link card. */}
             {listing.store ? (
               <StoreLinkCard store={listing.store} onPress={onPressStore} />
+            ) : null}
+
+            {/* Seller link card (#92). Mutually exclusive with the store card
+                by `listings_owner_exclusivity_check`, and deliberately a
+                SEPARATE component rather than a generalised one: a store is
+                followed as `mercaria.store` and a person as `oxy.user`, and one
+                control serving both would be one edit from registering a human
+                being under a marketplace's namespace (#26). */}
+            {listing.seller ? (
+              <SellerLinkCard seller={listing.seller} onPress={onPressSeller} />
             ) : null}
           </View>
         </View>

@@ -32,6 +32,7 @@ import checkoutRouter from './routes/checkout.js';
 import ordersRouter from './routes/orders.js';
 import reviewsRouter from './routes/reviews.js';
 import sellerRouter from './routes/seller.js';
+import publicSellersRouter from './routes/public-sellers.js';
 import ratesRouter from './routes/rates.js';
 import meRouter from './routes/me.js';
 import adminRouter from './routes/admin/index.js';
@@ -171,6 +172,10 @@ export function createApp(): express.Express {
   // /admin/stores/:storeId/reports/* — same word, different domain.
   app.use('/reports', reportsRouter);
   app.use('/seller', sellerRouter);
+  // `/sellers` (PLURAL) is the PUBLIC P2P seller profile (#92); `/seller`
+  // (singular, above) is the authenticated seller's own management surface.
+  // One letter apart and opposite in who may read them — hence two routers.
+  app.use('/sellers', publicSellersRouter);
   app.use('/rates', ratesRouter);
   app.use('/me', meRouter);
   app.use('/admin', adminRouter);

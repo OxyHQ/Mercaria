@@ -27,6 +27,9 @@ export default function AppLayout() {
       <Stack screenOptions={SCREEN_OPTIONS}>
         <Stack.Screen name="index" />
         <Stack.Screen name="stores/[handle]" />
+        {/* The PUBLIC P2P seller page (#92), keyed on the Oxy account id —
+            never a handle, which a person can change. */}
+        <Stack.Screen name="sellers/[oxyUserId]" />
         <Stack.Screen name="products/[id]" />
         <Stack.Screen name="cart" />
         <Stack.Screen name="checkout" />
