@@ -103,6 +103,15 @@ const REQUIRED_EXTENSIONS: readonly RequiredExtension[] = [
       'catalogue queries, which need a real geography type with a GiST index ' +
       'rather than a bounding box dressed up as a distance.',
   },
+  {
+    name: 'pg_trgm',
+    reason:
+      'The canonical graph (ADR 0002 D21) does typo-tolerant alias and ' +
+      'candidate-name lookup through trigram GIN indexes ' +
+      '(`gin_trgm_ops` on the normalized alias/name columns). Unlike PostGIS ' +
+      'this is a TRUSTED extension, so the application role can create it ' +
+      'itself — no privileged provisioning step.',
+  },
 ];
 
 /** Whether `DRY_RUN` asks for a report instead of an apply. */

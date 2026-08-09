@@ -574,6 +574,56 @@ of a payment that Mercaria can honestly write a ledger entry from. Production ha
 never held a paid order, which is what makes that a non-problem rather than a
 migration.
 
+### The canonical commerce graph has NO source model either (#53, ADR 0002)
+
+Eight more Postgres-born tables, bound by ADR 0002 (`docs/adr/0002-canonical-
+commerce-graph.md`) rather than by any Mongoose model: `catalog_sources`,
+`source_records`, `organizations`, `brands`, `organization_aliases`,
+`brand_aliases`, `organization_source_links`, `brand_source_links`. The
+decisions that make their shapes answerable:
+
+- **Closed sets from shared-types tuples**, as everywhere else:
+  `CANONICAL_ENTITY_STATUSES`, `CANONICAL_ALIAS_KINDS`, `CATALOG_SOURCE_KINDS`,
+  `SOURCE_RECORD_EXTERNAL_TYPES`, `SOURCE_LINK_METHODS`, `SOURCE_LINK_STATUSES`
+  — each rendered into its CHECK by `checkOneOf`.
+- **Shared column shapes are stated once** in `canonicalSupport.ts`
+  (`canonicalLifecycleColumns()`, `aliasColumns()`, `sourceLinkColumns()`), the
+  `money()`/`dualMoney()` precedent. #54/#56 build their alias and source-link
+  tables from the SAME helpers; per-entity tables (never one polymorphic one)
+  so every child row keeps a real foreign key (ADR 0002 D16).
+- **`normalized_alias` is GENERATED** — `lower(btrim(alias))`, both IMMUTABLE —
+  so an alias and its lookup key cannot disagree. Deliberately shallow: the
+  deep normalization (accents, punctuation, legal suffixes) is application
+  vocabulary in `services/canonical/normalization.ts`, because a generated-
+  column rewrite silently drops the column's indexes (see Generated columns
+  above) and normalization rules evolve.
+- **`search_vector` uses the `'simple'` config**, not `'english'` — proper
+  nouns must not be stemmed ("Nike" is not a verb). Listing prose keeps its
+  `'english'` vector; the two configurations coexist on purpose (ADR 0002 D21).
+- **`pg_trgm` is a REQUIRED extension of the migrator** (beside `postgis` in
+  `migrate.ts`), never a numbered migration — the alias/name trigram GIN
+  indexes (`gin_trgm_ops`) depend on it. Unlike PostGIS it is TRUSTED, so the
+  application role creates it itself; no privileged provisioning step.
+- **Tombstones, not deletes**: a merged row keeps its slug (plain unique, no
+  partial — "never reused" is structural) and carries `merged_into_id` to the
+  FINAL winner, with a CHECK pair making a tombstone-without-target and a
+  self-redirect unrepresentable. Chains are flattened on write.
+- **Idempotency is natural uniques, not deterministic uuids** (ADR 0002 D22):
+  `catalog_sources.name`, the `source_records`
+  `(source_id, external_type, external_id, content_hash)` identity (plus a
+  shape CHECK that the hash IS a sha-256), the per-entity
+  `(entity_id, normalized_alias)` alias unique, and the source-link partial
+  unique `WHERE status = 'active'`. Every writer converges with
+  `ON CONFLICT DO NOTHING` in the moderation-event pattern.
+- **`source_records` is append-only** (`created_at`, no `updated_at` — the
+  `order_status_history` contract): changed content is a NEW row and the row
+  sequence is the observation history.
+- **Domains are two different claims**: `organizations.verified_domains` is
+  evidence-backed and written by exactly one service function;
+  `brands.observed_domains` is accumulated observation and never ownership
+  proof. Both are `text[]` + GIN because they are scalar sets queried by
+  element, not entities.
+
 ### Counters became sequences (`drizzle/0001_counter_sequences.sql`)
 
 `order_number_seq` and `rma_number_seq` replace the `Counter` collection's
@@ -592,7 +642,7 @@ deliberately not created and the dead function goes with the model in Fase 3.
 
 ## Register: every `jsonb` column, and why it earned it
 
-`jsonb` is for genuinely shape-less data only. Seven columns qualify in 58 tables;
+`jsonb` is for genuinely shape-less data only. Eight columns qualify in 70 tables;
 anything else with a known shape is real columns or a child table.
 
 | Column | Why it is genuinely open-shaped |
@@ -604,6 +654,7 @@ anything else with a known shape is real columns or a child table.
 | `payment_provider_events.payload_summary` | A provider's payload is not Mercaria's schema and a newer API version adds fields. It is stored REDACTED — an allow-list of ids, amounts, statuses and timestamps — so this is open-shaped data that has already been reduced, never the wholesale payload. |
 | `payment_outboxes.payload` | The domain event's own ids, whose key set differs per event type. Deliberately MINIMAL — ids, not snapshots — so the outbox cannot become a second, drifting source of truth. |
 | `connections.sync_settings_collection_mapping` | A `Map` whose KEYS are the external platform's own collection ids — an open set Mercaria does not define and cannot enumerate, so there is no column set to project into and no join to express. |
+| `source_records.payload` | One observed external object, verbatim under the source's `may_store` right (ADR 0002 D19). Source-shaped BY DEFINITION — projecting it into columns would drop whatever the source adds next, and the payload's whole job is to preserve what was actually said for later review and re-matching. Its content hash is a sibling REAL column, so the convergence unique never depends on jsonb equality. |
 
 Deliberately NOT jsonb, though a mechanical port would have made them so:
 `ModerationEnforcement.previousState` (three known keys → three CHECKed columns),
