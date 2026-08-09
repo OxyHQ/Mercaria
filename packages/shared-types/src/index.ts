@@ -238,3 +238,11 @@ export * from './curation';
 // with only an UNSUPPORTED branch — so a public wishlist and an auto-created
 // alert are both unrepresentable rather than merely unimplemented.
 export * from './product-save';
+// The external ingestion framework (#62, ADR 0002 D19/D22) — a source's
+// configuration and lifecycle, its NINE versioned rights, the ten health
+// classes one refresh may end in, the intake outcome partition that makes a run
+// row's counters add up, the object pipeline state, and the normalized record
+// every adapter must produce. Follows `./offer`, whose `OfferAvailability` the
+// normalized record carries. Its payload allow-list is what stops a provider
+// payload being stored wholesale.
+export * from './ingestion';

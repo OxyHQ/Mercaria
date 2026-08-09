@@ -61,6 +61,7 @@ import catalogAttributesRouter from './routes/catalog-attributes.js';
 import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
 import internalMatchingRouter from './routes/internal-matching.js';
 import internalBackfillRouter from './routes/internal-backfill.js';
+import internalIngestionRouter from './routes/internal-ingestion.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
@@ -364,6 +365,16 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/product-saves', internalProductSavesRouter);
+  }
+  /**
+   * The external ingestion framework's operator surface (#62), on the SAME
+   * allow-list and mounted for the same reason the backfill's is: configuring a
+   * source, reviewing its terms and draining it by hand is how a feed is
+   * brought up BEFORE `CATALOG_INGESTION_ENABLED` is switched on, and the
+   * evidence has to stay readable during the incident that turned the loop off.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/ingestion', internalIngestionRouter);
   }
   // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
   // reason the two above have theirs: reading who merged which cart is a third

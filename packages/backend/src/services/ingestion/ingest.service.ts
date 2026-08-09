@@ -1,0 +1,922 @@
+/**
+ * THE STAGED PIPELINE — #62's whole lifecycle, in one place.
+ *
+ * ```text
+ * fetch → validate rights + schema → persist observation → normalize
+ *       → deterministic match → optional review queue
+ *       → canonical link → offer upsert → freshness/expiry
+ * ```
+ *
+ * Every stage is here and none of them is in an adapter. That is the point of
+ * the issue: provider-specific code stays behind `CatalogSourceAdapter`, and
+ * everything that touches the commerce graph is this file plus the repositories
+ * it calls.
+ *
+ * ## The four write boundaries, and where each one actually lives
+ *
+ * 1. **Adapters never create canonical products, brands or merchants.** There
+ *    is no code path from here into a canonical WRITE service — the matcher is
+ *    called, and it never mints either (#58's own rule). A `create_new`
+ *    recommendation is RECORDED and the object is left `unmatched`; #60 owns
+ *    minting, and `ingestion-isolation.test.ts` fails the build if this domain
+ *    imports one.
+ * 2. **An offer is upserted only after canonical variant AND merchant
+ *    resolution.** {@link materializeOffer} takes both as required arguments,
+ *    and the merchant comes from the source's own binding rather than from a
+ *    payload hint — an adapter has no field through which to name one.
+ * 3. **Ambiguous matches route to review rather than to a guessed link.**
+ *    Anything that is not an `automatic_match` writes NO canonical link and NO
+ *    offer; the object goes to `review_required` citing the decision #59 reads.
+ * 4. **An external source cannot make an offer checkout-native.** The kind is
+ *    chosen from `EXTERNAL_OFFER_KINDS` here, and `offers_kind_shape_check`
+ *    forces `product_variant_id` NULL on every one of them — so there is no id
+ *    a cart line could hold, whatever this file does.
+ *
+ * ## Per-record isolation, page-level failure
+ *
+ * `#60`'s split, for its reasons. One bad record is caught, recorded as a
+ * rejection and skipped, because a page that aborted on its worst row would
+ * leave the cursor stuck on it forever. A failure of the FETCH is different:
+ * the cursor does not move and the run is released for retry, so the page
+ * re-runs from where it started.
+ *
+ * ## Ordering that a constraint depends on
+ *
+ * `catalog_source_runs_retirement_check` reads the run's `outcome` and
+ * `enumeration_complete` together, so the closing sequence is: classify →
+ * `finishSourceRun` → retire → `recordSourceRunRetirement`. Retiring before the
+ * outcome is stored would be refused by the row. Stated here and in
+ * `finishSourceRun`'s own docblock, because a constraint whose satisfaction
+ * depends on statement order deserves to be documented on both sides.
+ */
+
+import type {
+  CatalogSourceHealthState,
+  CatalogSourceRejectionReason,
+  CatalogSourceRightsVerdict,
+  NormalizedSourceRecord,
+  OfferKind,
+  SourceLinkMethod,
+} from '@mercaria/shared-types';
+import { config } from '../../config/index.js';
+import { log } from '../../lib/logger.js';
+import { getDb } from '../../db/postgres.js';
+import { recordSourceObservation } from '../../db/canonical/provenanceRepository.js';
+import { insertCanonicalProductSourceLink } from '../../db/canonical/canonicalProductRepository.js';
+import { insertCanonicalVariantSourceLink } from '../../db/canonical/canonicalVariantRepository.js';
+import {
+  recordSourceHealth,
+  releaseSourceLease,
+} from '../../db/ingestion/catalogSourceConfigRepository.js';
+import {
+  listUnseenSourceObjects,
+  quarantineSourceObject,
+  retireSourceObject,
+  setSourceObjectState,
+  upsertSourceObject,
+  type CatalogSourceObjectRow,
+} from '../../db/ingestion/catalogSourceObjectRepository.js';
+import { recordSourceRejection } from '../../db/ingestion/catalogSourceRejectionRepository.js';
+import {
+  finishSourceRun,
+  findSourceRun,
+  recordSourceRunPage,
+  recordSourceRunRetirement,
+  releaseSourceRun,
+  type CatalogSourceRunRow,
+} from '../../db/ingestion/catalogSourceRunRepository.js';
+import { retireOffers } from '../../db/offers/offerRepository.js';
+import { runMatch } from '../matching/match.service.js';
+import { recordExternalOffer } from '../offers/offer.service.js';
+import { classifyFetchError, type AdapterFetchPage, type AdapterRecord } from './adapter.js';
+import {
+  classifyRunOutcome,
+  isDegraded,
+  mayRetireUnseen,
+  nextRunDelayMs,
+  statusAfterRun,
+} from './health.js';
+import { NORMALIZATION_VERSION, canonicalizeNormalizedRecord } from './normalization.js';
+import { redactSourceObservation } from './redact.js';
+import { resolveCatalogSourceAdapter } from './registry.js';
+import { resolveIngestionSource, type ResolvedIngestionSource } from './source.service.js';
+
+/**
+ * The offer kinds an external source may produce.
+ *
+ * `native` is absent and unreachable: it is the kind a Mercaria listing
+ * projects, and it is the only one `offers_kind_shape_check` lets carry a
+ * `product_variant_id`. Naming the permitted set as a TYPE is what makes issue
+ * write boundary 7 — "an external source can never make an external offer
+ * checkout-native merely by ingestion" — a `tsc` error rather than a review
+ * comment.
+ */
+type ExternalOfferKind = Exclude<OfferKind, 'native'>;
+
+/** What one page did, as the dispatcher reads it. */
+export interface IngestPageResult {
+  readonly runId: string;
+  readonly sourceId: string;
+  readonly fetched: number;
+  readonly stored: number;
+  readonly rejected: number;
+  readonly offersUpserted: number;
+  /** `null` while more pages remain. */
+  readonly outcome: CatalogSourceHealthState | null;
+  /** Why nothing happened, when nothing did. */
+  readonly skipped: 'run_gone' | 'source_gone' | 'adapter_missing' | 'lease_lost' | null;
+}
+
+/** The four intake outcomes, tallied for one page. */
+interface IntakeTally {
+  fetched: number;
+  stored: number;
+  unchanged: number;
+  rejected: number;
+  quarantined: number;
+}
+
+/** The downstream tallies for one page. */
+interface PipelineTally {
+  matched: number;
+  reviewRequired: number;
+  unmatched: number;
+  offersUpserted: number;
+}
+
+/**
+ * The `canonical_*_source_links.method` a decision's stage justifies.
+ *
+ * `linkMethodForStage` (#58) does the same job for a NATIVE attachment and this
+ * is its source-observation counterpart, kept separate because the two
+ * vocabularies are genuinely different: `SOURCE_LINK_METHODS` has
+ * `connector_declared`, which no matcher stage produces, and
+ * `NATIVE_LISTING_LINK_METHODS` has `barcode_gtin`, which is not a member here.
+ * A confidence rides only a `heuristic` link, matching #57's rule that a
+ * deterministic attachment is certain by construction and a number on it could
+ * only read as doubt about a fact nobody doubted.
+ */
+export function sourceLinkMethodForStage(stage: string): SourceLinkMethod {
+  return stage === 'existing_source_link' || stage === 'global_identifier'
+    ? 'deterministic_identifier'
+    : 'heuristic';
+}
+
+/** Compose a rejection note from FIELD NAMES. Never from values — see `redact.ts`. */
+function describeRejection(reason: CatalogSourceRejectionReason, field?: string): string {
+  return field === undefined ? reason : `${reason}: ${field}`;
+}
+
+/**
+ * Has the price moved further than a real price move?
+ *
+ * A feed that renames its currency field, publishes minor units where it used
+ * to publish major ones, or serves a placeholder produces exactly this shape,
+ * and every one of them would otherwise become a headline price on a comparison
+ * page. The factor is configurable because "how much is too much" genuinely
+ * differs between a supermarket feed and an auction one; the check itself is
+ * not, and a CURRENCY change alone is always anomalous — a price that changed
+ * denomination is not a price that changed.
+ */
+function isAnomalousPriceChange(
+  previous: { amount: number; currency: string } | null,
+  next: { amount: number; currency: string } | undefined,
+  factor: number,
+): boolean {
+  if (previous === null || next === undefined) return false;
+  if (previous.currency !== next.currency) return true;
+  if (previous.amount === 0 || next.amount === 0) return previous.amount !== next.amount;
+  const ratio = next.amount / previous.amount;
+  return ratio >= factor || ratio <= 1 / factor;
+}
+
+/**
+ * Which offer kind these rights and this record justify.
+ *
+ * The rights DECIDE it, which is issue rights 5 and 6 made structural: a source
+ * Mercaria may not link out to produces an `informational` offer with no
+ * destination at all, and `offers_kind_shape_check` refuses a destination on
+ * that kind — so "no outbound link" is a shape rather than a `null` somebody
+ * remembered to pass.
+ */
+function offerKindFor(
+  rights: CatalogSourceRightsVerdict,
+  sourceKind: string,
+  destinationUrl: string | undefined,
+): ExternalOfferKind {
+  if (!rights.outbound_link || destinationUrl === undefined) return 'informational';
+  return sourceKind === 'affiliate_network' && rights.affiliate_params ? 'affiliate' : 'external';
+}
+
+/** Run one bounded page of one open run. */
+export async function runIngestionPage(input: {
+  runId: string;
+  leaseOwner: string;
+  now?: Date;
+}): Promise<IngestPageResult> {
+  const now = input.now ?? new Date();
+  const db = getDb();
+
+  const run = await findSourceRun(db, input.runId);
+  if (!run) {
+    return emptyResult(input.runId, '', 'run_gone');
+  }
+
+  const resolved = await resolveIngestionSource(run.sourceId, db);
+  if (!resolved) {
+    return emptyResult(run.id, run.sourceId, 'source_gone');
+  }
+
+  const adapter = resolveCatalogSourceAdapter(resolved.source.config.provider);
+  if (adapter === undefined) {
+    return emptyResult(run.id, run.sourceId, 'adapter_missing');
+  }
+
+  /**
+   * The rights gate, BEFORE the fetch.
+   *
+   * A source whose refresh right was withdrawn between the claim and now must
+   * not be contacted at all — that is what a rights suspension means, and
+   * checking afterwards would already have made the request. The run closes
+   * with `rights_suspended`, which `mayRetireUnseen` refuses, so a suspension
+   * can never expire a catalogue either.
+   */
+  if (!resolved.rights.automated_refresh) {
+    return closeRun({
+      run,
+      resolved,
+      leaseOwner: input.leaseOwner,
+      outcome: 'rights_suspended',
+      failed: false,
+      error: 'The active policy does not permit an automated refresh',
+      retryAfterMs: undefined,
+      now,
+    });
+  }
+
+  /**
+   * An EXTRACTION adapter needs the extraction right, not merely the refresh
+   * one. Checked here rather than trusting the operator to have configured a
+   * crawling provider against a crawling policy: two places establishing
+   * whether Mercaria may scrape a site could disagree, and the one that must
+   * win is the one holding the request.
+   */
+  if (adapter.extraction && !resolved.rights.extraction) {
+    return closeRun({
+      run,
+      resolved,
+      leaseOwner: input.leaseOwner,
+      outcome: 'rights_suspended',
+      failed: false,
+      error: 'The active policy does not permit extraction from this source',
+      retryAfterMs: undefined,
+      now,
+    });
+  }
+
+  const startedAt = Date.now();
+  let page: AdapterFetchPage;
+  try {
+    page = await adapter.fetchPage({
+      cursor: run.cursor,
+      pageSize: resolved.source.config.pageSize,
+      credentialRef: resolved.source.config.credentialRef,
+      sourceAccountRef: resolved.source.config.sourceAccountRef,
+      since: run.since,
+      territories: resolved.source.config.territories,
+    });
+  } catch (error: unknown) {
+    const failure = classifyFetchError(error);
+    if (failure.retryable) {
+      // The cursor is NOT moved, so the retry resumes from the page that
+      // failed rather than from the top of the feed.
+      const delayMs = nextRunDelayMs({
+        cadenceSeconds: resolved.source.config.fetchCadenceSeconds,
+        consecutiveFailures: resolved.source.config.consecutiveFailures + 1,
+        retryAfterMs: failure.retryAfterMs,
+        maxBackoffMs: config.catalogIngestion.maxBackoffMs,
+      });
+      await releaseSourceRun(db, {
+        id: run.id,
+        leaseOwner: input.leaseOwner,
+        availableAt: new Date(now.getTime() + delayMs),
+        error: failure.message,
+        now,
+      });
+      await releaseSourceLease(db, {
+        sourceId: run.sourceId,
+        leaseOwner: input.leaseOwner,
+        nextRunAt: new Date(now.getTime() + delayMs),
+        now,
+      });
+      return emptyResult(run.id, run.sourceId, null);
+    }
+    return closeRun({
+      run,
+      resolved,
+      leaseOwner: input.leaseOwner,
+      outcome: classifyRunOutcome({
+        enumerationComplete: false,
+        failure: failure.kind,
+        rejected: 0,
+        quarantined: 0,
+        reviewRequired: 0,
+        fetched: 0,
+        refreshPermitted: true,
+      }),
+      failed: true,
+      error: failure.message,
+      retryAfterMs: failure.retryAfterMs,
+      now,
+    });
+  }
+
+  const fetchDurationMs = page.fetchDurationMs ?? Date.now() - startedAt;
+  const intake: IntakeTally = { fetched: 0, stored: 0, unchanged: 0, rejected: 0, quarantined: 0 };
+  const pipeline: PipelineTally = {
+    matched: 0,
+    reviewRequired: 0,
+    unmatched: 0,
+    offersUpserted: 0,
+  };
+
+  const seenInPage = new Set<string>();
+  for (const record of page.records) {
+    intake.fetched += 1;
+    try {
+      await ingestOneRecord({
+        record,
+        run,
+        resolved,
+        seenInPage,
+        intake,
+        pipeline,
+        now,
+      });
+    } catch (error: unknown) {
+      // Per-record isolation. Nothing rethrows: a page that aborted on its
+      // worst record would leave the cursor stuck there forever.
+      intake.rejected += 1;
+      log.general.warn(
+        { err: error, sourceId: run.sourceId, externalId: record.externalId },
+        '[Ingestion] record failed and was recorded as a rejection',
+      );
+      await recordSourceRejection(db, {
+        runId: run.id,
+        sourceId: run.sourceId,
+        externalType: record.externalType,
+        externalId: record.externalId,
+        reasonCode: 'parse_failure',
+        detail: describeRejection('parse_failure'),
+        rawPayloadDigest: null,
+        now,
+      });
+    }
+  }
+
+  const owned = await recordSourceRunPage(db, {
+    id: run.id,
+    leaseOwner: input.leaseOwner,
+    cursor: page.nextCursor,
+    enumerationComplete: page.complete,
+    intake,
+    pipeline,
+    fetch: {
+      fetchCount: 1,
+      fetchDurationMs,
+      rateLimitHits: page.rateLimitHits ?? 0,
+    },
+    leaseUntil: new Date(now.getTime() + config.catalogIngestion.leaseMs),
+    now,
+  });
+  if (!owned) {
+    // The lease was reclaimed while this page ran. Another task is
+    // authoritative for the run; discarding this page's bookkeeping is the only
+    // safe reading, and the records themselves converge on the next pass.
+    return emptyResult(run.id, run.sourceId, 'lease_lost');
+  }
+
+  if (page.nextCursor !== null) {
+    return {
+      runId: run.id,
+      sourceId: run.sourceId,
+      fetched: intake.fetched,
+      stored: intake.stored,
+      rejected: intake.rejected,
+      offersUpserted: pipeline.offersUpserted,
+      outcome: null,
+      skipped: null,
+    };
+  }
+
+  const refreshed = await findSourceRun(db, run.id);
+  const totals = refreshed ?? run;
+  const outcome = classifyRunOutcome({
+    enumerationComplete: totals.enumerationComplete,
+    failure: null,
+    rejected: totals.rejected,
+    quarantined: totals.quarantined,
+    reviewRequired: totals.reviewRequired,
+    fetched: totals.fetched,
+    refreshPermitted: true,
+  });
+
+  return closeRun({
+    run: totals,
+    resolved,
+    leaseOwner: input.leaseOwner,
+    outcome,
+    failed: false,
+    error: null,
+    retryAfterMs: undefined,
+    now,
+    pageStats: { intake, pipeline },
+  });
+}
+
+/** One record, all the way through the pipeline. */
+async function ingestOneRecord(args: {
+  record: AdapterRecord;
+  run: CatalogSourceRunRow;
+  resolved: ResolvedIngestionSource;
+  seenInPage: Set<string>;
+  intake: IntakeTally;
+  pipeline: PipelineTally;
+  now: Date;
+}): Promise<void> {
+  const { record, run, resolved, seenInPage, intake, pipeline, now } = args;
+  const db = getDb();
+  const reject = async (
+    reasonCode: CatalogSourceRejectionReason,
+    field?: string,
+    digest?: string,
+  ): Promise<void> => {
+    intake.rejected += 1;
+    await recordSourceRejection(db, {
+      runId: run.id,
+      sourceId: run.sourceId,
+      externalType: record.externalType,
+      externalId: record.externalId.length > 0 ? record.externalId : null,
+      reasonCode,
+      detail: describeRejection(reasonCode, field),
+      rawPayloadDigest: digest ?? null,
+      now,
+    });
+  };
+
+  if (record.externalId.trim().length === 0) {
+    await reject('missing_external_id');
+    return;
+  }
+
+  const pageKey = `${record.externalType}:${record.externalId}`;
+  if (seenInPage.has(pageKey)) {
+    // Two rows for one object in one page. Applying both would make the second
+    // an "update" of the first within a single observation instant, which is
+    // exactly the ordering the monotonicity guard cannot adjudicate.
+    await reject('duplicate_in_page');
+    return;
+  }
+  seenInPage.add(pageKey);
+
+  const normalized = canonicalizeNormalizedRecord(record.normalized);
+  if (normalized === null) {
+    await reject('missing_title');
+    return;
+  }
+
+  const redacted = redactSourceObservation(normalized, record.raw);
+  if (redacted === null) {
+    await reject('payload_too_large');
+    return;
+  }
+
+  const staleAt = new Date(
+    now.getTime() + resolved.source.config.freshnessTtlSeconds * 1_000,
+  );
+
+  /**
+   * `may_store` decides whether the PAYLOAD is kept, not whether the
+   * observation is.
+   *
+   * `source_records.payload` is nullable for exactly this (ADR 0002 D19): a
+   * source Mercaria may read but not store keeps its hash and its observation
+   * time with no payload. The consequence is stated rather than hidden — the
+   * matcher's subject loader returns `null` for a payload-less record, so such
+   * a source produces provenance and freshness and never an offer.
+   */
+  const observation = await recordSourceObservation(db, {
+    sourceId: run.sourceId,
+    externalType: record.externalType,
+    externalId: record.externalId,
+    observedAt: record.observedAt,
+    staleAt,
+    contentHash: redacted.contentHash,
+    rawPayloadDigest: redacted.rawDigest,
+    normalizationVersion: NORMALIZATION_VERSION,
+    ...(record.sourceUpdatedAt === undefined ? {} : { sourceUpdatedAt: record.sourceUpdatedAt }),
+    ...(resolved.policy === undefined ? {} : { policyVersion: resolved.policy.version }),
+    ...(resolved.rights.store ? { payload: redacted.payload } : {}),
+  });
+
+  const upserted = await upsertSourceObject(db, {
+    sourceId: run.sourceId,
+    externalType: record.externalType,
+    externalId: record.externalId,
+    sourceRecordId: observation.record.id,
+    contentHash: redacted.contentHash,
+    observedAt: record.observedAt,
+    sourceUpdatedAt: record.sourceUpdatedAt ?? null,
+    staleAt,
+    price: normalized.price === undefined ? null : { ...normalized.price },
+    now,
+  });
+
+  if (upserted.outcome === 'stale') {
+    // Issue concurrency 3, and it is RECORDED rather than dropped: a source
+    // publishing its feed out of order is a fact somebody needs to see.
+    await reject('stale_observation', undefined, redacted.rawDigest);
+    return;
+  }
+
+  const object = upserted.row;
+  if (object === undefined) {
+    await reject('parse_failure');
+    return;
+  }
+
+  const previousPrice =
+    object.lastPriceAmount === null || object.lastPriceCurrency === null
+      ? null
+      : { amount: object.lastPriceAmount, currency: object.lastPriceCurrency };
+  if (
+    upserted.outcome !== 'inserted' &&
+    isAnomalousPriceChange(previousPrice, normalized.price, config.catalogIngestion.anomalyPriceFactor)
+  ) {
+    intake.quarantined += 1;
+    await quarantineSourceObject(db, {
+      id: object.id,
+      reason: 'anomalous_change',
+      detail: describeRejection('anomalous_change', 'price'),
+      now,
+    });
+    return;
+  }
+
+  if (upserted.outcome === 'unchanged') {
+    intake.unchanged += 1;
+    return;
+  }
+  intake.stored += 1;
+
+  // A quarantined object stays out of the pipeline until an operator releases
+  // it — the same content arriving again does not answer a decision about
+  // content.
+  if (object.state === 'quarantined') return;
+
+  await advanceObject({ object, observationId: observation.record.id, resolved, pipeline, normalized, now });
+}
+
+/**
+ * Match, link and materialize — the stages after persistence.
+ *
+ * Split out because it is also what an operator's "re-run this object" does,
+ * and a second implementation of the same four steps is how the manual path and
+ * the automatic one drift.
+ */
+async function advanceObject(args: {
+  object: CatalogSourceObjectRow;
+  observationId: string;
+  resolved: ResolvedIngestionSource;
+  pipeline: PipelineTally;
+  normalized: NormalizedSourceRecord;
+  now: Date;
+}): Promise<void> {
+  const { object, observationId, resolved, pipeline, normalized, now } = args;
+  const db = getDb();
+
+  const result = await runMatch({ kind: 'source_record', sourceRecordId: observationId }, { now });
+  const decision = result.decision;
+  if (decision === null) {
+    // No active matching policy, or the observation carries no stored payload.
+    // Both are configuration states rather than failures, and the object stays
+    // `observed` so the next pass re-examines it.
+    pipeline.unmatched += 1;
+    return;
+  }
+
+  if (decision.outcome !== 'automatic_match' || decision.matchedCanonicalVariantId === null) {
+    /**
+     * ISSUE WRITE BOUNDARY 3 and ACCEPTANCE 5.
+     *
+     * Nothing is linked and no offer is written. `manual_review` goes to #59's
+     * queue by way of the decision this object now cites; a `create_new`
+     * recommendation is left `unmatched`, because minting a canonical product
+     * is #60's and a matcher recommending one is not the same as anybody having
+     * decided to.
+     */
+    const state = decision.outcome === 'manual_review' ? 'review_required' : 'unmatched';
+    if (state === 'review_required') pipeline.reviewRequired += 1;
+    else pipeline.unmatched += 1;
+    await setSourceObjectState(db, {
+      id: object.id,
+      state,
+      matchDecisionId: decision.id,
+    });
+    return;
+  }
+
+  pipeline.matched += 1;
+  const method = sourceLinkMethodForStage(decision.decidedStage);
+  const matchRule = `${decision.decidedStage}:${decision.policyVersionId}`;
+
+  /**
+   * The canonical ATTACHMENT of a source observation — #58's other open seam,
+   * closed here.
+   *
+   * `match.service` deliberately writes only the NATIVE attachment and leaves
+   * this one to "the ingestion path that owns the observation", which is this
+   * file. Both links are `ON CONFLICT DO NOTHING` on their active partial
+   * unique, so a re-run of an unchanged object writes nothing at all.
+   */
+  await db.transaction(async (tx) => {
+    if (decision.matchedCanonicalProductId !== null) {
+      await insertCanonicalProductSourceLink(tx, {
+        productId: decision.matchedCanonicalProductId,
+        sourceRecordId: observationId,
+        method,
+        matchRule,
+        ...(method === 'heuristic' && decision.confidence !== null
+          ? { confidence: decision.confidence }
+          : {}),
+      });
+    }
+    if (decision.matchedCanonicalVariantId !== null) {
+      await insertCanonicalVariantSourceLink(tx, {
+        variantId: decision.matchedCanonicalVariantId,
+        sourceRecordId: observationId,
+        method,
+        matchRule,
+        ...(method === 'heuristic' && decision.confidence !== null
+          ? { confidence: decision.confidence }
+          : {}),
+      });
+    }
+    await setSourceObjectState(tx, {
+      id: object.id,
+      state: 'matched',
+      matchDecisionId: decision.id,
+    });
+  });
+
+  /**
+   * ISSUE WRITE BOUNDARY 2 — the merchant comes from the source's BINDING.
+   *
+   * A source with no merchant bound produces no offers, and that is a state an
+   * operator can see and fix rather than a merchant nobody authorised. The
+   * object stays `matched`, which is honest: the canonical attachment happened
+   * and the commercial half did not.
+   */
+  const merchantId = resolved.source.config.merchantId;
+  if (merchantId === null) return;
+
+  const offerId = await materializeOffer({
+    object,
+    observationId,
+    resolved,
+    merchantId,
+    canonicalVariantId: decision.matchedCanonicalVariantId,
+    confidence: method === 'heuristic' ? decision.confidence : null,
+    normalized,
+    now,
+  });
+  pipeline.offersUpserted += 1;
+  await setSourceObjectState(db, {
+    id: object.id,
+    state: 'offer_current',
+    matchDecisionId: decision.id,
+    offerId,
+  });
+}
+
+/**
+ * Write the offer, with the rights deciding what it may carry.
+ *
+ * `recordExternalOffer` (#57) is the only writer of an `offers` row reached
+ * from here, and it takes a `canonicalVariantId` it is GIVEN — this domain
+ * resolves nothing about identity. Three rights shape the row rather than being
+ * checked after it:
+ *
+ *  - `display_price` absent ⇒ NO price is persisted onto the offer. The
+ *    observation keeps it under the `store` right; the offer is the display
+ *    surface, and storing a price nothing may ever show is the thing a rights
+ *    withdrawal exists to prevent.
+ *  - `outbound_link` absent ⇒ the kind is `informational` and there is no
+ *    destination for `offers_kind_shape_check` to refuse.
+ *  - `affiliate_params` absent ⇒ no affiliate routing metadata at all, so #37
+ *    has nothing to compose a tracked URL from and degrades to the plain link.
+ */
+async function materializeOffer(args: {
+  object: CatalogSourceObjectRow;
+  observationId: string;
+  resolved: ResolvedIngestionSource;
+  merchantId: string;
+  canonicalVariantId: string;
+  confidence: number | null;
+  normalized: NormalizedSourceRecord;
+  now: Date;
+}): Promise<string> {
+  const { object, observationId, resolved, merchantId, canonicalVariantId, normalized, now } = args;
+  const rights = resolved.rights;
+  const destinationUrl = rights.outbound_link ? normalized.sourceUrl : undefined;
+  const kind = offerKindFor(rights, resolved.source.sourceKind, destinationUrl);
+  const affiliateUrl = rights.affiliate_params ? normalized.affiliateUrl : undefined;
+
+  return recordExternalOffer(
+    {
+      kind,
+      canonicalVariantId,
+      merchantId,
+      ...(resolved.source.config.storefrontId === null
+        ? {}
+        : { storefrontId: resolved.source.config.storefrontId }),
+      sourceRecordId: observationId,
+      provider: resolved.source.config.provider,
+      ...(resolved.source.config.sourceAccountRef === null
+        ? {}
+        : { sourceAccountRef: resolved.source.config.sourceAccountRef }),
+      externalOfferId: object.externalId,
+      ...(rights.display_price && normalized.price !== undefined
+        ? { price: { ...normalized.price } }
+        : {}),
+      ...(rights.display_price && normalized.compareAtPrice !== undefined
+        ? { compareAtPrice: { ...normalized.compareAtPrice } }
+        : {}),
+      ...(normalized.availability === undefined ? {} : { availability: normalized.availability }),
+      ...(normalized.availableQuantity === undefined
+        ? {}
+        : { availableQuantity: normalized.availableQuantity }),
+      ...(normalized.conditionLabel === undefined
+        ? {}
+        : { conditionSourceLabel: normalized.conditionLabel }),
+      ...(normalized.merchantSku === undefined ? {} : { sellerSku: normalized.merchantSku }),
+      merchantTitle: normalized.title,
+      ...(destinationUrl === undefined ? {} : { destinationUrl }),
+      ...(affiliateUrl === undefined
+        ? {}
+        : {
+            affiliate: {
+              network: resolved.source.config.provider,
+              // The composed URL is deliberately NOT stored as the destination
+              // (#57's rule): `destination_url` stays the ORIGINAL and #37
+              // builds the tracked address at redirect time, so a routing
+              // failure degrades to the plain link instead of a dead one.
+              trackingTemplate: affiliateUrl,
+            },
+          }),
+      ...(normalized.country === undefined ? {} : { country: normalized.country }),
+      ...(normalized.region === undefined ? {} : { region: normalized.region }),
+      ...(normalized.language === undefined ? {} : { language: normalized.language }),
+      ...(normalized.delivery === undefined
+        ? {}
+        : {
+            delivery: {
+              ...(normalized.delivery.cost === undefined
+                ? {}
+                : { cost: { ...normalized.delivery.cost } }),
+              ...(normalized.delivery.freeOver === undefined
+                ? {}
+                : { freeOver: { ...normalized.delivery.freeOver } }),
+              ...(normalized.delivery.minDays === undefined
+                ? {}
+                : { minDays: normalized.delivery.minDays }),
+              ...(normalized.delivery.maxDays === undefined
+                ? {}
+                : { maxDays: normalized.delivery.maxDays }),
+            },
+          }),
+      ...(normalized.returnPolicy === undefined ? {} : { returnPolicy: { ...normalized.returnPolicy } }),
+      observedAt: object.currentObservedAt,
+      staleAt: object.staleAt,
+      ...(args.confidence === null ? {} : { confidence: args.confidence }),
+    },
+    now,
+  );
+}
+
+/** Close a run: classify, finish, then retire — in that order. See the module docblock. */
+async function closeRun(args: {
+  run: CatalogSourceRunRow;
+  resolved: ResolvedIngestionSource;
+  leaseOwner: string;
+  outcome: CatalogSourceHealthState;
+  failed: boolean;
+  error: string | null;
+  retryAfterMs: number | undefined;
+  now: Date;
+  pageStats?: { intake: IntakeTally; pipeline: PipelineTally };
+}): Promise<IngestPageResult> {
+  const db = getDb();
+  const owned = await finishSourceRun(db, {
+    id: args.run.id,
+    leaseOwner: args.leaseOwner,
+    outcome: args.outcome,
+    failed: args.failed,
+    error: args.error,
+    now: args.now,
+  });
+  if (!owned) return emptyResult(args.run.id, args.run.sourceId, 'lease_lost');
+
+  let retired = 0;
+  if (mayRetireUnseen({ enumerationComplete: args.run.enumerationComplete, outcome: args.outcome })) {
+    retired = await retireUnseenForRun({
+      sourceId: args.run.sourceId,
+      seenSince: args.run.startedAt ?? args.now,
+      now: args.now,
+    });
+    await recordSourceRunRetirement(db, { id: args.run.id, retired });
+  }
+
+  const delayMs = nextRunDelayMs({
+    cadenceSeconds: args.resolved.source.config.fetchCadenceSeconds,
+    consecutiveFailures: isDegraded(args.outcome)
+      ? args.resolved.source.config.consecutiveFailures + 1
+      : 0,
+    retryAfterMs: args.retryAfterMs,
+    maxBackoffMs: config.catalogIngestion.maxBackoffMs,
+  });
+
+  await recordSourceHealth(db, {
+    sourceId: args.run.sourceId,
+    healthState: args.outcome,
+    status: statusAfterRun(args.resolved.source.config.status, args.outcome),
+    succeeded: !isDegraded(args.outcome),
+    fetchDurationMs: args.run.fetchDurationMs,
+    rateLimitHits: args.run.rateLimitHits,
+    error: args.error,
+    nextRunAt: new Date(args.now.getTime() + delayMs),
+    now: args.now,
+  });
+
+  return {
+    runId: args.run.id,
+    sourceId: args.run.sourceId,
+    fetched: args.pageStats?.intake.fetched ?? 0,
+    stored: args.pageStats?.intake.stored ?? 0,
+    rejected: args.pageStats?.intake.rejected ?? 0,
+    offersUpserted: args.pageStats?.pipeline.offersUpserted ?? 0,
+    outcome: args.outcome,
+    skipped: null,
+  };
+}
+
+/**
+ * Retire what a COMPLETE enumeration did not mention.
+ *
+ * Reached only through `mayRetireUnseen`, and it deliberately has no opinion of
+ * its own about whether retiring is allowed — asking it to would put the rule
+ * in two places, and the whole failure this domain guards against is the two
+ * places disagreeing.
+ *
+ * The offer is RETIRED and never deleted (#57): the row, its `source_record_id`
+ * and the append-only observation chain behind it all survive, which is what
+ * keeps the observed price history reachable afterwards.
+ */
+export async function retireUnseenForRun(input: {
+  sourceId: string;
+  seenSince: Date;
+  now: Date;
+}): Promise<number> {
+  const db = getDb();
+  const objects = await listUnseenSourceObjects(db, {
+    sourceId: input.sourceId,
+    seenSince: input.seenSince,
+    limit: config.catalogIngestion.retirementBatchSize,
+  });
+
+  let retired = 0;
+  for (const object of objects) {
+    if (object.offerId !== null) {
+      await retireOffers(db, [object.offerId], 'source_disappeared', input.now);
+    }
+    if (await retireSourceObject(db, { id: object.id, now: input.now })) retired += 1;
+  }
+  return retired;
+}
+
+function emptyResult(
+  runId: string,
+  sourceId: string,
+  skipped: IngestPageResult['skipped'],
+): IngestPageResult {
+  return {
+    runId,
+    sourceId,
+    fetched: 0,
+    stored: 0,
+    rejected: 0,
+    offersUpserted: 0,
+    outcome: null,
+    skipped,
+  };
+}

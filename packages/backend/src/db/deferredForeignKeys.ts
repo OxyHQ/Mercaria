@@ -978,4 +978,30 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'catalog_split_jobs.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'catalog_entity_suppressions.suppressed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'catalog_entity_suppressions.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
+
+  // ── The external ingestion framework (#62) ────────────────────────────────
+  //
+  // Three Oxy accounts and two FOREIGN key spaces. The Oxy ones are the usual
+  // reason; the two `external_id` columns are the interesting pair, because they
+  // are the identity of an object in somebody ELSE's system, which is the one
+  // thing a Mercaria foreign key can never point at.
+  { column: 'catalog_source_configs.status_changed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_source_policies.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_source_runs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'catalog_source_objects.external_id',
+    reason:
+      "A source's OWN id for an object it publishes — a foreign system's primary key, in a key " +
+      'space Mercaria neither defines nor controls. `(source_id, external_type, external_id)` is ' +
+      'the identity this domain converges on (#62 concurrency 1), and the only Mercaria row it ' +
+      'could reference is the one it identifies.',
+  },
+  {
+    column: 'catalog_source_rejections.external_id',
+    reason:
+      'The same foreign key space as `catalog_source_objects.external_id`, plus the reason a ' +
+      'rejection is recorded at all: the record was REFUSED, so there is no object row for it to ' +
+      'reference — and for `missing_external_id` the column is legitimately NULL, because the ' +
+      'record had none.',
+  },
 ];

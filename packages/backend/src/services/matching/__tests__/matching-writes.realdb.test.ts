@@ -182,8 +182,39 @@ interface PolicyOptions {
   readonly status?: 'draft' | 'active';
 }
 
+/**
+ * Take the GLOBALLY unique active-policy slot, waiting for it if another suite
+ * holds it.
+ *
+ * `match_policy_versions_active_key` is a partial unique on `status = 'active'`
+ * with no scoping column — ONE active policy in the whole database, which is
+ * correct for production and makes the slot a shared resource across the
+ * parallel test files that run on one throwaway database (#62's adapter contract
+ * suite is the other claimant). Two files each needing one is contention, not a
+ * bug in either, and the honest fix is to wait rather than to weaken the
+ * constraint. The budget is bounded and the failure is loud: a slot still held
+ * after it is a suite that leaked one.
+ */
+async function withActivePolicySlot<T>(create: () => Promise<T>): Promise<T> {
+  const deadline = Date.now() + 30_000;
+  for (;;) {
+    try {
+      return await create();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      const contended =
+        /match_policy_versions_active_key/u.test(message) ||
+        (error instanceof Error &&
+          /match_policy_versions_active_key/u.test(String((error as { cause?: unknown }).cause)));
+      if (!contended || Date.now() > deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+}
+
 async function makePolicy(name: string, options: PolicyOptions = {}): Promise<string> {
-  const row = await insertMatchPolicyVersion(db, {
+  const row = await withActivePolicySlot(async () =>
+    insertMatchPolicyVersion(db, {
     versionKey: `${name}-${RUN}`,
     status: options.status ?? 'draft',
     description: 'realdb fixture',
@@ -202,9 +233,10 @@ async function makePolicy(name: string, options: PolicyOptions = {}): Promise<st
     semanticEnabled: false,
     minBenchmarkPrecision: 0.98,
     minBenchmarkSamples: 20,
-    createdByOxyUserId: `operator-${RUN}`,
-    ...(options.status === 'active' ? { activatedAt: new Date() } : {}),
-  });
+      createdByOxyUserId: `operator-${RUN}`,
+      ...(options.status === 'active' ? { activatedAt: new Date() } : {}),
+    }),
+  );
   createdPolicyIds.push(row.id);
   return row.id;
 }

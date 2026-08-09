@@ -2597,6 +2597,91 @@ say which half a person meant (#80 migration rule 8, #59 split invariant 3). A
 strictly larger CHECK cannot fail a write the previous image makes, which is
 what makes the widening `pre`.
 
+### The external ingestion framework has no source model either (#62, ADR 0002 D19/D22)
+
+Five tables, and the same question as every domain since the port: what does a
+row have to make UNREPRESENTABLE rather than merely unlikely.
+
+- **`catalog_source_configs` is a 1:1 EXTENSION of `catalog_sources`, not a
+  fork.** `UNIQUE(source_id)` is what makes that literal: there is still one
+  source identity and one id, and this row is its ingestion half — the
+  `provider_accounts` relationship to a seller. The registry serves `operator`
+  and `backfill` sources too, and those have no cadence, no credential, no rate
+  limit and no health; twelve always-null columns on them would make the
+  registry describe ingestion rather than provenance. It also keeps the module
+  graph acyclic: `merchants.ts` already imports `provenance.ts` for its source
+  links, so a `merchant_id` on `catalog_sources` would close a cycle between two
+  table modules drizzle-kit evaluates eagerly.
+- **The nine rights are a VERSION, frozen once active** (a trigger plus a
+  one-active-per-source partial unique — the `fee_schedules` mechanism).
+  Withdrawing one is a NEW version, so the old survives with its reviewer, its
+  date and its terms URL intact. There is no UPDATE that could delete that
+  history and no DELETE anywhere in the domain.
+- **`catalog_sources`' three coarse rights columns become a PROJECTION** for a
+  source that has a config — the `review_aggregates` → entity `rating`
+  relationship (#76) — and `mercaria_catalog_source_rights_agree` is a
+  DEFERRABLE constraint trigger on all three tables that refuses any COMMIT in
+  which they disagree with `resolveSourceRights`. Deferred is the load-bearing
+  word: a rights change touches three tables and no statement order makes every
+  intermediate state consistent, so a check at COMMIT has no opinion about the
+  order and can be strict about the outcome. A registry row with no config is
+  returned early from and left entirely alone.
+- **`catalog_source_objects` is the CURRENT fact, and it is not a second
+  observation store.** `source_records` is append-only per content hash and
+  answers "what was seen, and when"; a convergence key and a monotonicity guard
+  need a row that answers "what is true now". `UNIQUE(source_id, external_type,
+  external_id)` is the identity the issue names, and
+  `mercaria_catalog_source_object_monotonic` refuses an UPDATE moving
+  `current_observed_at` or `current_source_updated_at` backwards. The upsert
+  carries the same predicate, so the ordinary path converges silently and the
+  trigger makes the rule true of every other path.
+- **No canonical product or variant COLUMN on the object.** The canonical
+  attachment is a `canonical_*_source_links` row (D19) and the verdict is a
+  `match_decisions` row; `last_match_decision_id` is a POINTER to the second.
+  A copy of either would be a second representation a #59 merge or a
+  re-evaluation could put out of step — and it would enrol this table in the
+  merge census for two entities it has no opinion about.
+- **`catalog_source_runs` counters split into a PARTITION and a set of
+  TALLIES.** `fetched = stored + unchanged + rejected + quarantined` is
+  equality, #60's vacuity floor ported: every fetched record gets exactly one
+  intake outcome, so a page that swallowed one cannot write a run row at all.
+  The downstream counters are `<=` bounds, because one record legitimately
+  produces both an offer and a review decision. Writing them as one partition
+  would have been a prettier CHECK and a false one.
+- **`catalog_source_runs_retirement_check` is the one that costs money.** A
+  non-zero `offers_retired` requires `enumeration_complete` AND an outcome in
+  `CATALOG_SOURCE_RETIRING_OUTCOMES`, rendered from the same tuple the service
+  reads. "Do not mass-expire healthy offers because one refresh failed" is
+  therefore held against a replay and a hand-written `UPDATE`, not only against
+  the sweep.
+- **`catalog_source_runs_started_shape_check` is deliberately NOT a
+  biconditional.** A run released for retry returns to `pending` with its
+  `started_at` and its cursor intact — the whole point of releasing rather than
+  failing it — and a biconditional would refuse exactly that write. Measured:
+  the adapter contract suite's rate-limit case fails on the biconditional form.
+- **`credential_ref` is a LOCATOR and is not a protected column.** Its CHECK
+  admits `connection:`, `env:` and `ssm:` with a bounded locator, so a pasted
+  bearer token is refused at the row. It stays out of `protectedColumns.ts`
+  because a locator is not a credential and protecting it would force explicit
+  column lists through `provenanceRepository`'s whole-row reads for no secrecy
+  gained; what keeps it out of every response is that the operator projection
+  NAMES its fields, gated statically.
+- **`catalog_source_rejections` is the only table here with a retention
+  deadline**, and the only one bounded by TRAFFIC rather than by the catalogue.
+  Every other table is one row per source or one per external object and must
+  never be swept — they are the audit history a rights suspension must not
+  delete. A table with two retention rules has one of them wrong, which is why
+  the residual is its own table rather than more columns on the object.
+- **Four nullable columns joined `source_records`** — `source_updated_at`,
+  `raw_payload_digest`, `normalization_version` and `policy_version` — and they
+  ride the SAME insert as the observation rather than a follow-up update: the
+  table is append-only, and on the `DO NOTHING` branch a second statement would
+  stamp THIS delivery's versions onto the row an earlier one created, quietly
+  claiming a fact was read under rules it was not. `policy_version` is the
+  version NUMBER and not a row id, because a foreign key would close a module
+  cycle; `(source_id, policy_version)` resolves it exactly against the policy
+  table's own unique.
+
 ## Register: every `jsonb` column, and why it earned it
 
 `jsonb` is for genuinely shape-less data only. Eight columns qualify in 129 tables;

@@ -148,8 +148,10 @@ describe('the migrated schema', () => {
     // the referral touch evidence store (#142), whose raw rows are retainable
     // separately from the durable attributions derived from them, and the SIX
     // analytics tables (#77), each with its own deadline because retention is
-    // per event CLASS and never one blanket TTL.
-    expect(EXPIRY_TARGETS).toHaveLength(14);
+    // per event CLASS and never one blanket TTL, and #62's ingestion rejection
+    // residual — the only table in that domain bounded by TRAFFIC rather than
+    // by the catalogue, which is why it is the only one swept.
+    expect(EXPIRY_TARGETS).toHaveLength(15);
   });
 });
 

@@ -151,3 +151,12 @@ export * from './backfill';
 // snapshots that must survive an offer refreshing in place and a canonical
 // entity merging — the `purchase_order_lines` rule.
 export * from './supplierPreflight';
+// The external ingestion framework (#62) follows all of them and is the last
+// export for a stronger reason than the backfill's: it is downstream of FIVE
+// layers at once. Its config binds a merchant and a storefront, its objects
+// point at a `match_decisions` row and at an `offers` row, and everything it
+// writes hangs off `catalog_sources` and `source_records`. Placing it earlier
+// would close a module cycle, which is also why a source's merchant binding
+// lives on `catalog_source_configs` and not on `catalog_sources` itself —
+// `merchants.ts` already imports `provenance.ts` for its source links.
+export * from './ingestion';

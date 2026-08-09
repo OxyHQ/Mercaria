@@ -85,6 +85,7 @@ import {
 } from '../../db/schema/retailEligibility.js';
 import { catalogBackfillRecords } from '../../db/schema/backfill.js';
 import { productSaveAggregates, productSaves } from '../../db/schema/productSaves.js';
+import { catalogSourceConfigs } from '../../db/schema/ingestion.js';
 
 /**
  * What the merge does with one referencing column.
@@ -440,6 +441,17 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       note: "#84's overlap finding, evidence about the merchant's offers; it follows them.",
     },
     {
+      column: catalogSourceConfigs.merchantId,
+      phase: 'children',
+      disposition: 'repoint',
+      note:
+        "#62's source binding: the seller of record every offer from that feed belongs to. It " +
+        'follows the surviving merchant, and it must — the binding is the ONLY path from an ' +
+        'ingested record to a merchant id, so a source left pointing at a tombstone would ' +
+        'stop producing offers with no error anywhere. No unique spans it, because two feeds ' +
+        'legitimately sell for one merchant.',
+    },
+    {
       column: commerceRelationships.merchantId,
       phase: 'relationships',
       disposition: 'conflict_gated',
@@ -520,6 +532,15 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       activeStatusColumn: offers.status,
       activeStatusValue: 'active',
       note: OFFER_NOTE,
+    },
+    {
+      column: catalogSourceConfigs.storefrontId,
+      phase: 'children',
+      disposition: 'repoint',
+      note:
+        "#62's source binding, the channel half. Same reasoning as the merchant column: a " +
+        'source pointing at a tombstoned storefront would keep ingesting and publish its ' +
+        'offers on a channel nobody reads. No unique spans it.',
     },
   ],
 
