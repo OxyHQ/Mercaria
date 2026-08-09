@@ -105,3 +105,6 @@ export * from './merchant';
 
 // Guest commerce identity DTOs (GuestSessionState, GuestSessionStatus, …) — ADR 0003, #103.
 export * from './guest';
+
+// Procurement — suppliers, supply agreements, procurement offers, purchase orders (#118).
+export * from './procurement';

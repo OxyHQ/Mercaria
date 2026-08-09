@@ -55,9 +55,40 @@
  */
 
 import type { DeferredForeignKey } from '@oxyhq/db/assert';
+import { procurementOffers } from './schema/procurement';
 
-/** Relations decided but not yet expressible — each one owes a `.references()`. */
-export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [];
+/**
+ * Relations decided but not yet expressible — each one owes a `.references()`.
+ *
+ * The two entries are #118's canonical-variant mapping, waiting on #56's
+ * `canonical_products` / `canonical_variants`. The moment those tables land,
+ * this gate fails and the entries must become real foreign keys — which is the
+ * ledger working as designed, not a breakage. `restrict` per ADR 0002 D20:
+ * canonical rows are never hard-deleted, and an offer's mapping must not be
+ * able to vanish out from under it. (The PO LINE copies of these columns stay
+ * permanently unconstrained below — they are snapshots.)
+ */
+export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [
+  {
+    table: procurementOffers,
+    column: procurementOffers.canonicalProductId,
+    parentTable: 'canonical_products',
+    parentColumn: 'id',
+    onDelete: 'restrict',
+    reason:
+      'An offer maps to canonical identity (#56, unbuilt); canonical rows are never ' +
+      'hard-deleted, so the mapping may not be orphaned silently.',
+  },
+  {
+    table: procurementOffers,
+    column: procurementOffers.canonicalVariantId,
+    parentTable: 'canonical_variants',
+    parentColumn: 'id',
+    onDelete: 'restrict',
+    reason:
+      'The exact-variant half of the mapping above — same target domain, same rule.',
+  },
+];
 
 /** Oxy owns identity; there is no `users` table and there must never be one. */
 const OXY_ACCOUNT = 'An Oxy account id. Oxy owns identity over HTTP; there is no users table.';
@@ -99,6 +130,25 @@ const PAYMENT_CORRELATION =
 const PROVIDER_OBJECT =
   "A payment provider's own object id. Their key space, stored for reconciliation and " +
   'deliberately never a Mercaria primary key.';
+
+/**
+ * An id in a SUPPLIER platform's own key space (#118). The same invariant as
+ * {@link PROVIDER_OBJECT}, one system family over: their key spaces differ per
+ * environment, and Mercaria neither mints nor validates them.
+ */
+const SUPPLIER_PLATFORM =
+  "A supplier platform's own id — a foreign system's key space, stored for correlation " +
+  'and deliberately never a Mercaria primary key.';
+
+/**
+ * A procurement record naming a commerce record it does not compose with — the
+ * {@link PAYMENT_CORRELATION} rule, applied to the B2B side: a purchase order
+ * is the durable record of money Mercaria owes a supplier, and it must be
+ * writable and readable whether or not the customer order row is reachable.
+ */
+const PROCUREMENT_CORRELATION =
+  'A B2B procurement record correlating to a commerce record it does not compose with. ' +
+  'A purchase order must stay writable and readable independently of its customer order.';
 
 /**
  * `*_id` columns that will NEVER carry a constraint, named `table.column` by
@@ -364,4 +414,33 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'native_store_links.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'native_store_links.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'storefronts.external_shop_id', reason: EXTERNAL_PLATFORM },
+
+  // ── Procurement (#118): supplier-platform ids, correlations and snapshots ─
+  //
+  // `suppliers.organization_id` is NOT here: it became a real `.references()`
+  // when #53's `organizations` landed. The offer-side canonical mapping is in
+  // DEFERRED_FOREIGN_KEYS above, waiting on #56's tables.
+  { column: 'supplier_accounts.provider_account_id', reason: SUPPLIER_PLATFORM },
+  { column: 'procurement_offers.supplier_external_id', reason: SUPPLIER_PLATFORM },
+  { column: 'purchase_orders.supplier_external_order_id', reason: SUPPLIER_PLATFORM },
+  { column: 'purchase_orders.order_id', reason: PROCUREMENT_CORRELATION },
+  {
+    column: 'purchase_orders.checkout_group_id',
+    reason:
+      'The same grouping token orders and payments carry; there is no checkout_groups ' +
+      'entity to point at.',
+  },
+  // The PO line snapshots: frozen at creation, immutable by trigger, and the
+  // targets legitimately move on (offers refresh in place, canonical entities
+  // merge) — the order_items.listing_id rule.
+  { column: 'purchase_order_lines.canonical_product_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'purchase_order_lines.canonical_variant_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'purchase_order_lines.procurement_offer_id', reason: COMMERCE_SNAPSHOT },
+  // Oxy-owned ids on procurement rows.
+  { column: 'supplier_events.by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supplier_agreements.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supplier_agreements.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supplier_agreement_evidence.collected_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supplier_agreement_evidence.oxy_file_id', reason: OXY_FILE },
+  { column: 'purchase_order_transitions.by_oxy_user_id', reason: OXY_ACCOUNT },
 ];
