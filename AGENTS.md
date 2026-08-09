@@ -776,6 +776,38 @@ in `oxy-infra`).
   only copy left is a final dump archived offline. Postgres is the sole authority
   for every byte this service owns.
 
+### Rebasing a migration behind another branch's
+
+Two branches that each generate a migration collide on the SAME index, and the
+resolution is mechanical — but every part of it that gets done by hand is a way
+to corrupt the chain silently. Measured across four branches rebased in one
+batch (#94, #105, #58, #77), each of which hit at least one of these:
+
+- **Never hand-rename a migration, hand-edit `meta/_journal.json`, or hand-write
+  a snapshot.** Delete your `.sql` AND your `meta/<idx>_snapshot.json`, restore
+  `_journal.json` to main's version, then re-run `db:generate` so drizzle emits
+  against the post-merge snapshot chain. A renamed file keeps a snapshot that
+  diffs against the wrong parent, and the damage appears in whoever generates
+  next, not in you.
+- **Regeneration DROPS every hand-written statement** — trigger and function
+  bodies, backfill `UPDATE`s, anything drizzle-kit cannot model. Re-apply them
+  and verify by grepping the regenerated file for each trigger/function pair and
+  for exactly one `-- oxy:deploy-phase=` line. Three of the four branches lost
+  their triggers here; all three would have applied cleanly and enforced nothing.
+- **A rebase can stage the deletion of an UPSTREAM snapshot** (`git status`
+  showing `D meta/00NN_snapshot.json` for a file that is not yours), which
+  breaks the NEXT `db:generate` rather than anything in your own PR. Before
+  pushing, assert the journal's idx set equals the set of `meta/*_snapshot.json`
+  files — a green suite does not catch this, because the migrator reads the
+  `.sql` files and never looks at a snapshot.
+- **A two-phase branch repeats the two-pass generation**: apply the additive
+  schema state, generate (`pre`), apply the clean-cut state, generate (`post`).
+  Never split one generated file in half by hand.
+- **`SCHEMA_TABLE_COUNT` in `db/__tests__/schema-conventions.test.ts` conflicts
+  on every such rebase and NEITHER side is right** — it is main's count plus
+  your net delta. Count it empirically from the barrel's `PgTable` exports;
+  arithmetic over the PR descriptions misses tables that MOVED between files.
+
 ## CORS: critical origins
 
 The Mercaria backend's `PRODUCTION_ORIGINS` lives in
