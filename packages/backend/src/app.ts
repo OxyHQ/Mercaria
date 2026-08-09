@@ -50,6 +50,8 @@ import internalCommerceGraphRouter from './routes/internal-commerce-graph.js';
 import canonicalProductsRouter from './routes/canonical-products.js';
 import productFamiliesRouter from './routes/product-families.js';
 import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
+import offersRouter from './routes/offers.js';
+import internalOffersRouter from './routes/internal-offers.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
 import guestSessionRouter from './routes/guest-session.js';
@@ -227,6 +229,17 @@ export function createApp(): express.Express {
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/canonical-catalog', internalCanonicalCatalogRouter);
   }
+  // The unified offer model (#57, ADR 0002 D18): what a canonical variant costs,
+  // where, from whom, and how current that is — native and external offers
+  // through ONE shape. Mounted after the canonical product layer because an
+  // offer prices one of its variants.
+  app.use('/offers', offersRouter);
+  // …and its operator surface, on the SAME allow-list the two above use: who
+  // may reshape the catalogue and who may withdraw an offer from a comparison
+  // are the same power over the same graph.
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/offers', internalOffersRouter);
+  }
   // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
   // reason the two above have theirs: reading who merged which cart is a third
   // power, and one list for all three would grant whichever an operator was not
@@ -269,10 +282,12 @@ export function createApp(): express.Express {
         '/brand-relationships',
         '/canonical-products',
         '/product-families',
+        '/offers',
         '/merchant-claims',
         '/guest/session',
         // `/internal/payments`, `/internal/commerce-graph`,
-        // `/internal/canonical-catalog` and `/internal/guest-commerce` are
+        // `/internal/canonical-catalog`, `/internal/offers` and
+        // `/internal/guest-commerce` are
         // deliberately ABSENT, and this is not an
         // oversight to correct: this list is public and unauthenticated, and the
         // operator surface answers 404 on a deployment with no operators
