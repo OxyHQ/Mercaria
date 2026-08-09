@@ -50,6 +50,7 @@ import internalCommerceGraphRouter from './routes/internal-commerce-graph.js';
 import canonicalProductsRouter from './routes/canonical-products.js';
 import productFamiliesRouter from './routes/product-families.js';
 import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
+import merchantClaimsRouter from './routes/merchant-claims.js';
 import guestSessionRouter from './routes/guest-session.js';
 import { config } from './config/index.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
@@ -203,6 +204,12 @@ export function createApp(): express.Express {
   // because a verified relationship is public catalogue identity; the evidence
   // behind it is not, and the projection has no field to carry it.
   app.use('/brand-relationships', brandRelationshipsRouter);
+  // Merchant claiming (#83). Mounted OUTSIDE `/admin` deliberately: that tree
+  // is reached through `loadStore`, which establishes a membership in ONE
+  // store, and a claim is made by a person about a merchant that may have no
+  // native store at all. Not gated on any flag — a merchant page that cannot
+  // say "claim this" is a dead end for the one person entitled to fix it.
+  app.use('/merchant-claims', merchantClaimsRouter);
   // …and the graph's operator surface, gated exactly as /internal/payments is
   // (its own allow-list; empty = not mounted, 404 — see
   // middleware/catalog-operator-authz.ts).
@@ -254,6 +261,7 @@ export function createApp(): express.Express {
         '/brand-relationships',
         '/canonical-products',
         '/product-families',
+        '/merchant-claims',
         '/guest/session',
         // `/internal/payments`, `/internal/commerce-graph` and
         // `/internal/canonical-catalog` are deliberately ABSENT, and this is not an

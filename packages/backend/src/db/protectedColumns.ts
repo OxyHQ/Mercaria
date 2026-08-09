@@ -113,4 +113,20 @@ export const PROTECTED_COLUMNS = {
    * is an explicit, greppable opt-in.
    */
   supplier_accounts: ['credentialReference'],
+
+  /**
+   * The digest of a merchant-claim challenge token (#83). Irreversible, and
+   * still protected for `channel_api_keys.hash`'s reason: handing it out hands
+   * an attacker an OFFLINE oracle to test guessed tokens against, with no rate
+   * limit and no log line. Nothing outside the verifier ever needs it.
+   */
+  merchant_claim_challenges: ['tokenHash'],
+
+  /**
+   * A claimant's private evidence (#83 security control 5): the business
+   * document's Oxy file id, the URL it points at, and whatever a claimant or
+   * reviewer wrote about it. Explicitly "outside public DTOs with restricted
+   * access", and the kind of material a whole-row read would ship first.
+   */
+  merchant_claim_evidence: ['oxyFileId', 'url', 'note'],
 } as const satisfies ProtectedColumnRegistry;

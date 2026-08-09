@@ -728,6 +728,47 @@ export interface CatalogConfig {
   readonly relationshipFourEyesRequired: boolean;
 }
 
+/**
+ * Merchant claiming (#83). Every value here is a BOUND rather than a feature
+ * switch — the claim surface itself is always mounted, because a merchant page
+ * that cannot say "claim this" is a dead end for the one person entitled to
+ * fix it.
+ */
+export interface MerchantClaimsConfig {
+  /**
+   * How long a claimant has to finish an attempt, in hours. Past it the claim
+   * expires lazily on the next read, the `guest_sessions` idle-expiry rule —
+   * the deadline is enforced where it is observed, so nothing can disagree
+   * with it.
+   */
+  readonly attemptTtlHours: number;
+  /** How long one challenge stays open, in minutes. Short by design. */
+  readonly challengeTtlMinutes: number;
+  /**
+   * How long a verified claim stands before it must prove itself again, in
+   * days (issue model field 9). Surfaced as `revalidationDue`; nothing
+   * automatically revokes on it, because losing a merchant's operator without
+   * a human deciding is worse than a stale verification.
+   */
+  readonly revalidateAfterDays: number;
+  /** Maximum verification attempts against one challenge before it is refused. */
+  readonly maxAttemptsPerChallenge: number;
+  /**
+   * The three DURABLE issuance budgets (issue security control 1: rate-limit
+   * by user, merchant, domain and network). The fourth axis — network — is the
+   * HTTP limiter's `rl:merchant-claims:` bucket, which is per-IP for anonymous
+   * callers and per-user for authenticated ones.
+   *
+   * These three are counted in Postgres rather than Redis on purpose: they are
+   * about how often a MERCHANT or a DOMAIN may be challenged across every
+   * claimant and every ECS task, which an in-memory or per-instance bucket
+   * cannot answer at all.
+   */
+  readonly maxChallengesPerUserPerHour: number;
+  readonly maxChallengesPerMerchantPerHour: number;
+  readonly maxChallengesPerDomainPerHour: number;
+}
+
 export interface FeedConfig {
   /** TTL (seconds) of the assembled home feed cached in Redis. */
   readonly cacheTtlSeconds: number;
@@ -853,6 +894,7 @@ export interface PostgresConfig {
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
+  readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
   readonly orders: OrdersConfig;
@@ -880,6 +922,18 @@ export const config: AppConfig = Object.freeze({
     graphOperatorOxyUserIds: Object.freeze(resolveCatalogOperatorIds()),
     graphOperatorSurfaceEnabled: resolveCatalogOperatorIds().length > 0,
     relationshipFourEyesRequired: boolEnv('CATALOG_FOUR_EYES_REQUIRED', true),
+  }),
+  merchantClaims: Object.freeze({
+    attemptTtlHours: intEnv('MERCHANT_CLAIM_ATTEMPT_TTL_HOURS', 14 * 24),
+    challengeTtlMinutes: intEnv('MERCHANT_CLAIM_CHALLENGE_TTL_MINUTES', 60 * 24),
+    revalidateAfterDays: intEnv('MERCHANT_CLAIM_REVALIDATE_AFTER_DAYS', 365),
+    maxAttemptsPerChallenge: intEnv('MERCHANT_CLAIM_MAX_ATTEMPTS_PER_CHALLENGE', 25),
+    maxChallengesPerUserPerHour: intEnv('MERCHANT_CLAIM_MAX_CHALLENGES_PER_USER_PER_HOUR', 20),
+    maxChallengesPerMerchantPerHour: intEnv(
+      'MERCHANT_CLAIM_MAX_CHALLENGES_PER_MERCHANT_PER_HOUR',
+      10,
+    ),
+    maxChallengesPerDomainPerHour: intEnv('MERCHANT_CLAIM_MAX_CHALLENGES_PER_DOMAIN_PER_HOUR', 10),
   }),
   feed: Object.freeze({
     cacheTtlSeconds: intEnv('FEED_CACHE_TTL_SECONDS', 60),

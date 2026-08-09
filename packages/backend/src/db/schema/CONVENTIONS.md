@@ -886,6 +886,71 @@ natural-unique idempotency. What is #56's own:
   carried as DEFERRED foreign keys while this domain was built; at integration
   the gate refused the deferral and both became real RESTRICT references. Same
   mechanism #54's section records, now used twice.
+### Merchant claiming (#83) has no source model either
+
+Five more Postgres-born tables, in `merchantClaims.ts`: `merchant_claims`,
+`merchant_claim_scopes`, `merchant_claim_challenges`,
+`merchant_claim_evidence`, `merchant_claim_events`. They sit ON TOP of #54's
+merchant layer and add nothing to it — `merchants.claim_state` stays ADR 0002
+D9's one stored verdict, and this domain is the only thing that moves it. What
+is #83's own, stated so a column whose shape looks arbitrary is answerable:
+
+- **`(merchant_id) WHERE state = 'verified'` is the whole of acceptance 4.** A
+  partial unique index, so two conflicting claimants cannot BOTH become the
+  sole verified operator — refused by the database rather than by a
+  read-then-write two racers would walk past. The service converts the refusal
+  into a DISPUTE instead of replacing the incumbent (scope rule 6). Several
+  verified OPERATORS per merchant still arrive, through the native store's own
+  membership after linkage (#84) — a `store_members` fact, never a second
+  verified claim. A second partial unique,
+  `(merchant_id, claimant_oxy_user_id) WHERE state IN (…active…)`, keeps one
+  live attempt per person; its predicate is rendered from
+  `MERCHANT_CLAIM_ACTIVE_STATES` so it cannot drift from the tuple the service
+  reads.
+- **"Single-use challenge" is `(claim_id) WHERE closed_at IS NULL` plus a CAS on
+  `closed_at`.** At most one challenge is ever open for a claim; issuing a new
+  one closes the old one in the same transaction; consuming is a conditional
+  UPDATE whose predicate optionally includes the expiry, so "an expired
+  challenge verifies nothing" is a property of the statement rather than of a
+  check somebody ran first.
+- **There is NO `challenge_id` on the claim** (issue model field 5 asks for
+  one). The partial unique above already defines "this claim's current
+  challenge" exactly, and a pointer beside it would be a second representation —
+  the `provider_accounts` no-`ready`-boolean rule. For the same reason the
+  challenge carries neither the METHOD nor the SUBJECT: both belong to the
+  claim, and a copy is how re-issuing a challenge would become a way to change
+  what a claim is about. The per-domain issuance budget therefore JOINS
+  challenges to their claim rather than reading a copy.
+- **`assurance` is not a column.** How much a method's proof is worth is a
+  property of the METHOD (`services/merchant-claims/claim-methods.ts`), derived
+  at read time. A `low` method can never reach `verified` without a reviewer,
+  which is where "a matching email domain alone cannot complete a claim"
+  (acceptance 2) is enforced.
+- **Two CHECKs encode facts a reviewer would otherwise have to remember:**
+  `merchant_claims_document_subject_check` says exactly one method is
+  subjectless (`(method = 'business_document') = (subject_kind IS NULL)`), so a
+  future subjectless method needs a migration — the visible decision; and
+  `merchant_claims_rejected_state_check` makes an anonymous rejection
+  unrepresentable, because an automatic refusal is an EXPIRY and the two must
+  not be confusable in the record.
+- **`merchant_claim_scopes.scope_ref` carries no foreign key**, deliberately:
+  one polymorphic column cannot reference three tables, and the alternative
+  (three nullable columns plus a CHECK) buys a constraint on rows whose targets
+  are never hard-deleted anyway. `requested`/`verified`/`out_of_scope` are three
+  states of ONE row, so a storefront a proof missed is visible rather than
+  silently absent.
+- **Both audit tables are append-only by shape** — `merchant_claim_events` and
+  `merchant_claim_evidence` carry their own timestamp and no `updated_at`, the
+  `order_status_history` contract. `evidence_accessed` is in the action tuple
+  because #83 requires every reviewer ACCESS to be audited, not only every
+  decision.
+- **Expiry is enforced where it is OBSERVED**, not by a sweep: a past
+  `expires_at` is turned into `expired` by a CAS on the read path (the
+  `guest_sessions` idle-expiry rule), and the transition clears the deadline so
+  a second read cannot write a second audit row. Nothing here is registered in
+  `expiryTargets.ts` — a claim record is evidence about a decision and is never
+  deleted.
+- **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed.
 
 ### The guest domain has NO source model either
 
@@ -1288,6 +1353,11 @@ add a row when a gate lands, and do not list one that does not run yet.
 | `UNIQUE(product_id, signature)`, the one-default-variant partial unique, the one-value-per-axis unique, the signature shape CHECK, the half-filled canonical-pair CHECK, the "not normalized ⇒ no magnitude" CHECK and the two-selected-values unique all fire | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
 | GTIN/UPC/EAN/GTIN-14 and ISBN-10/13 check digits accept a valid value and refuse one wrong by ONE digit; a UPC and the EAN padding to it collapse to one canonical value; unit conversion round-trips every unit in the table; an ambiguous unit spelling (`MW` vs `mW`) resolves to nothing rather than to the wrong one | `src/services/canonical/__tests__/{identifiers,units,variant-signature}.test.ts` | no |
 | `/internal/canonical-catalog/*` is operator-gated, unmounted on an empty allow-list, closed to the payments allow-list — and its source-fact endpoints REFUSE a canonical field (`name`, `slug`, `status`, `pinnedFields`) while accepting the same request without it | `src/routes/__tests__/internal-canonical-catalog.test.ts` | no |
+| At most ONE verified merchant claim per merchant, refused by the index rather than by a read-then-write; a contest DISPUTES instead of replacing the incumbent; a challenge is single-use and an expired one consumes nothing; one claim's token verifies no other claim; revocation returns the merchant to `unclaimed` while every public field survives; the state CHECKs refuse an undated verification, an unattributable revocation, an anonymous rejection and an empty dispute | `src/db/__tests__/merchant-claims.realdb.test.ts` | yes |
+| No merchant-claim module can reach the relationship/brand layer or grant operational access — claiming "Apple Store" creates no Apple relationship (#83 acceptance 6) | `src/services/merchant-claims/__tests__/relationship-isolation.test.ts` | no |
+| Every verification method's assurance and auto-verify verdict, including that no `low` method may auto-verify (#83 acceptance 2) | `src/services/merchant-claims/__tests__/claim-methods.test.ts` | no |
+| Domain control covers subdomains and NOT lookalikes; a platform proof covers that shop and not the merchant's other channels; a proof never reaches another merchant's storefront | `src/services/merchant-claims/__tests__/claim-scope.test.ts` | no |
+| A site verification refuses loopback, private, link-local and cloud-metadata targets, against the REAL SSRF guard | `src/services/merchant-claims/__tests__/site-verification.test.ts` | no |
 
 ### The three concurrency shapes a mocked test cannot see
 

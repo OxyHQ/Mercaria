@@ -56,6 +56,10 @@ export * from './canonicalCatalog';
 // `organization_manufactures` claim — a canonical product family, and its
 // evidence references `source_records`.
 export * from './relationships';
+// Merchant claiming (#83) follows `merchants`: every one of its tables
+// references a merchant, and `merchant_claims.native_store_id` also reaches
+// back to `stores`, which is already the first export above.
+export * from './merchantClaims';
 // Procurement (#118) follows `organizations`: `suppliers.organization_id`
 // references the canonical graph's organizations table. It now also follows
 // `canonicalCatalog`: `procurement_offers` maps to canonical products and
