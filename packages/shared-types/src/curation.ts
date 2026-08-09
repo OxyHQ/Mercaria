@@ -427,12 +427,19 @@ export const CURATION_LARGE_MERGE_IMPACT_THRESHOLD = 100;
  * 4. `identifiers` before `aliases` and `source_links`, because identifier
  *    resolution can RETIRE a row and the retirement must land before the
  *    collision gate sees two active owners.
- * 5. `redirects` stamps the tombstone LAST of the mutating phases: until it
+ * 5. `saves` moves what a PERSON recorded about the entity (#80's canonical
+ *    product saves). It sits after `reviews` and before `redirects` for the
+ *    reason every phase after `children` does — the rows hang off identities
+ *    the earlier phases settled — and it is its own phase rather than a line in
+ *    `reviews` because a save is a live preference a buyer will act on, not a
+ *    historical record, and an operator reading a phase trail has to be able to
+ *    tell which of the two a job was in the middle of.
+ * 6. `redirects` stamps the tombstone LAST of the mutating phases: until it
  *    runs, the loser is still a live entity and a crash leaves a resumable job
  *    rather than a half-dead identity nothing points at.
- * 6. `rollups` rebuilds counters FROM the rehomed rows (invariant 6), which is
+ * 7. `rollups` rebuilds counters FROM the rehomed rows (invariant 6), which is
  *    why it cannot precede them.
- * 7. `verify` is the final consistency check invariant 7 requires, and it is a
+ * 8. `verify` is the final consistency check invariant 7 requires, and it is a
  *    phase rather than an assertion so its failure is visible and resumable.
  */
 export type CatalogMergePhase =
@@ -445,6 +452,7 @@ export type CatalogMergePhase =
   | 'offers'
   | 'relationships'
   | 'reviews'
+  | 'saves'
   | 'redirects'
   | 'rollups'
   | 'verify'
@@ -460,6 +468,7 @@ export const CATALOG_MERGE_PHASES: readonly CatalogMergePhase[] = [
   'offers',
   'relationships',
   'reviews',
+  'saves',
   'redirects',
   'rollups',
   'verify',
@@ -479,11 +488,21 @@ export function nextMergePhase(phase: CatalogMergePhase): CatalogMergePhase | nu
  * an interrupted split never has rows pointing at an entity that does not
  * exist; `assignments` applies exactly the operator's list (invariant 1) and is
  * idempotent per item, which is what makes invariant 5's resume safe.
+ *
+ * `saves` is #80 migration rule 8 and split invariant 3: a split divides one
+ * identity into two, and no rule can say which of them a person's saved product
+ * meant — so every save of the source is MARKED for the buyer to resolve. It
+ * runs after `assignments` because the two candidates only both exist and only
+ * hold their final contents once the named rows have moved, and before
+ * `rollups` because the marking changes nothing a counter derives from. The
+ * marking is an UPDATE with its own predicate, so a resumed job re-runs it as a
+ * no-op.
  */
 export type CatalogSplitPhase =
   | 'plan'
   | 'mint'
   | 'assignments'
+  | 'saves'
   | 'redirects'
   | 'rollups'
   | 'verify'
@@ -493,6 +512,7 @@ export const CATALOG_SPLIT_PHASES: readonly CatalogSplitPhase[] = [
   'plan',
   'mint',
   'assignments',
+  'saves',
   'redirects',
   'rollups',
   'verify',

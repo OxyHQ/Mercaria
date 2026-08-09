@@ -35,6 +35,7 @@ import {
 } from '../../db/schema/canonicalCatalog.js';
 import { brands } from '../../db/schema/organizations.js';
 import { rebuildScopedAggregate } from '../reviews/review-aggregate.service.js';
+import { rebuildProductSaveAggregate } from '../../db/productSaves/productSaveAggregateRepository.js';
 
 /** `canonical_products.variant_count`, derived. */
 async function refreshVariantCount(productId: string, db: DatabaseOrTransaction): Promise<void> {
@@ -184,10 +185,38 @@ export async function rebuildEntityAggregates(
 ): Promise<void> {
   if (entityType === 'canonical_product') {
     await rebuildReviewScopes('product', [loserId, winnerId]);
+    await rebuildProductSaveCounts([loserId, winnerId]);
     return;
   }
   if (entityType === 'merchant') {
     await rebuildReviewScopes('merchant', [loserId, winnerId]);
+  }
+}
+
+/**
+ * #80's save counter, for both sides — DERIVED, never summed (#59 merge
+ * invariant 6).
+ *
+ * The loser's row is retained by the tombstone (`merge-plan.ts` says so and the
+ * census enforces it), so its count has to be re-derived too: after the merge it
+ * covers only the saves that stayed behind, and leaving the pre-merge figure
+ * there is exactly the number an operator would read when trying to understand
+ * what the merge did.
+ *
+ * Best-effort, like the review rebuild beside it and for the same reason: every
+ * row has already moved, the counter converges on its own sweep, and rolling a
+ * completed merge back over an aggregate would be the worse outcome.
+ */
+async function rebuildProductSaveCounts(canonicalProductIds: readonly string[]): Promise<void> {
+  for (const canonicalProductId of canonicalProductIds) {
+    try {
+      await rebuildProductSaveAggregate(canonicalProductId);
+    } catch (err) {
+      log.general.warn(
+        { err, canonicalProductId },
+        '[Curation] product save aggregate rebuild after a merge failed; the #80 sweep will re-derive it',
+      );
+    }
   }
 }
 

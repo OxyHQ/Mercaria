@@ -9,6 +9,7 @@
 
 import type { Request, Response } from 'express';
 import { getRequiredOxyUserId } from '@oxyhq/core/server';
+import type { ListingSaveIntent } from '@mercaria/shared-types';
 import { parsePagination } from '../utils/pagination.js';
 import { sendSuccess, sendPaginated } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
@@ -29,12 +30,20 @@ export async function listMyFavorites(req: Request, res: Response): Promise<void
   }
 }
 
-/** POST /favorites/:listingId — save (favorite) a listing (idempotent). */
+/**
+ * POST /favorites/:listingId — save (favorite) a listing (idempotent).
+ *
+ * The OPTIONAL `{intent}` body is #80 listing rule 4. Absent — which is every
+ * v1 client — the existing save's intent is left exactly as it is, so an old
+ * build cannot downgrade a pin the buyer set deliberately; present, it is what
+ * the buyer just said about this listing.
+ */
 export async function addFavorite(req: Request, res: Response): Promise<void> {
   const listingId = routeParam(req, 'listingId');
   try {
     const oxyUserId = getRequiredOxyUserId(req);
-    const result = await save(oxyUserId, listingId);
+    const { intent } = req.body as { intent?: ListingSaveIntent };
+    const result = await save(oxyUserId, listingId, intent);
     sendSuccess(res, result);
   } catch (err) {
     log.general.error({ err, listingId }, 'Failed to add favorite');

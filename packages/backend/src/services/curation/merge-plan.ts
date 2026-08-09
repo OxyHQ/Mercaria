@@ -84,6 +84,7 @@ import {
   retailSuppressions,
 } from '../../db/schema/retailEligibility.js';
 import { catalogBackfillRecords } from '../../db/schema/backfill.js';
+import { productSaveAggregates, productSaves } from '../../db/schema/productSaves.js';
 
 /**
  * What the merge does with one referencing column.
@@ -283,6 +284,22 @@ const MATCH_HISTORY_NOTE =
   'under a new identity, so it follows the winner — otherwise a re-evaluation would find no ' +
   'prior decision and re-propose a merge an operator already answered.';
 
+const PRODUCT_SAVE_NOTE =
+  "#80's canonical product save — a person's standing interest in this product, and #80 " +
+  'migration rule 7 requires a merge to rehome it automatically. The guard is exactly ' +
+  '`product_saves_oxy_user_id_canonical_product_id_key`: a buyer who saved BOTH sides already ' +
+  'has a save on the winner, so their loser-side row stays on the tombstone and the saved-items ' +
+  'read excludes a merged product — which loses nothing precisely BECAUSE the twin exists, and ' +
+  'is the only reading under which that exclusion is safe. Repointing it instead would violate ' +
+  'the unique and abort the phase.';
+
+const PRODUCT_SAVE_AGGREGATE_NOTE =
+  "#80's derived save counter. The `review_aggregates` disposition for the `review_aggregates` " +
+  "reason: the loser's row describes what the loser was saved by and stays with it, and the " +
+  "winner's is REBUILT from the rehomed saves rather than summed with it (#59 merge invariant " +
+  '6). Adding the two would double-count every buyer who saved both, and a count has no rows ' +
+  'beside it to catch that with.';
+
 /**
  * The plan, per mergeable entity.
  *
@@ -466,6 +483,16 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         "#76 makes the aggregate a PROJECTION of the reviews. The loser's row describes what " +
         'the loser scored and stays with it; the winner\'s is REBUILT from the rehomed reviews ' +
         'in `rollups`, never incremented (#59 merge invariant 6).',
+    },
+    {
+      column: productSaves.preferredMerchantId,
+      phase: 'saves',
+      disposition: 'repoint',
+      note:
+        "#80's optional preferred SELLER on a product save. Unconditional: nothing is unique on " +
+        'this column, and a buyer who narrowed their save to a merchant meant the business, ' +
+        'which after a merge trades under the surviving identity. Left on a tombstone the ' +
+        'preference would match no offer and quietly empty their saved-product page.',
     },
   ],
 
@@ -671,6 +698,19 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       disposition: 'retained_by_tombstone',
       note: BACKFILL_RECORD_NOTE,
     },
+    {
+      column: productSaves.canonicalProductId,
+      phase: 'saves',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [productSaves.oxyUserId],
+      note: PRODUCT_SAVE_NOTE,
+    },
+    {
+      column: productSaveAggregates.canonicalProductId,
+      phase: 'saves',
+      disposition: 'retained_by_tombstone',
+      note: PRODUCT_SAVE_AGGREGATE_NOTE,
+    },
   ],
 
   canonical_variant: [
@@ -824,6 +864,16 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'reviews',
       disposition: 'retained_by_tombstone',
       note: BACKFILL_RECORD_NOTE,
+    },
+    {
+      column: productSaves.preferredCanonicalVariantId,
+      phase: 'saves',
+      disposition: 'repoint',
+      note:
+        "#80's optional preferred CONFIGURATION on a product save. Unconditional: nothing is " +
+        'unique on this column, and after a merge that IS the same configuration — a preference ' +
+        'left on a tombstone would silently stop matching any offer and the buyer would be shown ' +
+        'the wrong variant of a product they explicitly narrowed.',
     },
     {
       column: catalogMergeConflicts.loserVariantId,

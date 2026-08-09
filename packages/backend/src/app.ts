@@ -26,6 +26,9 @@ import feedRouter from './routes/feed.js';
 import categoriesRouter from './routes/categories.js';
 import storesRouter from './routes/stores.js';
 import favoritesRouter from './routes/favorites.js';
+import productSavesRouter from './routes/product-saves.js';
+import savedItemsRouter from './routes/saved-items.js';
+import internalProductSavesRouter from './routes/internal-product-saves.js';
 import cartRouter from './routes/cart.js';
 import addressesRouter from './routes/addresses.js';
 import checkoutRouter from './routes/checkout.js';
@@ -162,6 +165,22 @@ export function createApp(): express.Express {
   app.use('/categories', categoriesRouter);
   app.use('/stores', storesRouter);
   app.use('/favorites', favoritesRouter);
+  /**
+   * Canonical product saves (#80). `/favorites` above is UNTOUCHED and stays
+   * mounted whatever these flags say — #80 acceptance 2 is that no existing
+   * favorite is dropped, and the surface a buyer's existing saves are served
+   * through is the first place that has to hold.
+   *
+   * `PRODUCT_SAVES_ENABLED` gates the MOUNT, so a deployment that has not
+   * adopted #80 404s both paths and behaves exactly as it did before. It does
+   * NOT gate the rows: saves already stored stay stored and come back when the
+   * flag does, because a rollback lever that cost buyers their list is not one
+   * anybody would pull.
+   */
+  if (config.productSaves.enabled) {
+    app.use('/product-saves', productSavesRouter);
+    app.use('/saved-items', savedItemsRouter);
+  }
   app.use('/cart', cartRouter);
   app.use('/addresses', addressesRouter);
   app.use('/checkout', checkoutRouter);
@@ -330,6 +349,20 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/backfill', internalBackfillRouter);
+  }
+  /**
+   * The product-save operator surface (#80), on the SAME allow-list and for the
+   * same reason as the five above: a save points at a canonical product and its
+   * counter is a canonical rollup.
+   *
+   * Deliberately NOT gated on `PRODUCT_SAVES_ENABLED`. That lever withdraws the
+   * BUYER surface, and an operator must still be able to read counter drift,
+   * rebuild a counter and erase an account's saves while it is off — gating this
+   * on it would hide the evidence during exactly the incident that turned the
+   * buyer surface off, which is #60's own reasoning for `/internal/backfill`.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/product-saves', internalProductSavesRouter);
   }
   // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
   // reason the two above have theirs: reading who merged which cart is a third

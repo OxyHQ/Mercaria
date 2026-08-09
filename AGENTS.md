@@ -1765,6 +1765,91 @@ below.
   needs), the seller-facing refinement UI, and bulk re-mapping of
   already-observed offers (#37).
 
+## Canonical product saves (#80): the save a buyer actually meant
+
+`services/product-saves/` + `db/productSaves/` + `db/schema/productSaves.ts`
+(3 tables) + `favorites.save_intent`, plus `/product-saves`, `/saved-items` and
+`/internal/product-saves/*`. Full reference: **`docs/product-saves.md`**; schema
+decisions: `db/schema/CONVENTIONS.md` §"Canonical product saves (#80)".
+
+`favorites` is NOT replaced and NOT forked. It stays one account's interest in
+one exact native LISTING — right for a handmade piece, an unmatched P2P item, a
+used copy whose seller photographs are the reason. What #80 adds is the save of
+a canonical PRODUCT, which survives the merchant who happened to be cheapest
+today delisting.
+
+- **`UNIQUE(oxy_user_id, canonical_product_id)` is acceptance 1**, and every
+  write is `ON CONFLICT DO NOTHING` — so a repeated tap creates nothing AND
+  changes nothing, `created_at` included, which is the saved list's ordering key.
+  A read-then-write would satisfy the words of acceptance 5 and fail the two
+  cases that happen: a double tap and a retry after a timeout the client never
+  saw.
+- **`save_intent` (`listing_save | listing_pin`) is the buyer answering "did you
+  mean this exact one".** A PIN is checked BEFORE the canonical mapping is even
+  looked at, so the strongest signal a buyer can give never loses to an automatic
+  match; an ABSENT intent on a write leaves an existing row's alone, so a v1
+  client cannot downgrade a pin.
+- **`matcher` is not confident enough to create a save.** #58 routes a heuristic
+  attachment to #59's queue precisely because nobody has agreed it yet, and a
+  save built on an unreviewed guess is a false merge with a person's intent
+  attached. `CONFIDENT_LINK_METHODS` is derived by SUBTRACTION from #57's tuple,
+  so a method added later is never confident by omission.
+- **No preferred variant is written by the migration.** The favorited listing
+  attaches to one configuration and recording it would narrow the save to it —
+  arbitrary for a buyer who favorited two colours, and permanent.
+- **Un-saving is PERMANENT against a replay.** `product_save_sources.save_id` is
+  `ON DELETE SET NULL` while `favorite_id` CASCADES: the record survives the save
+  and blocks a re-migration, where a cascade would let a replay resurrect a save
+  somebody removed. That is worse than a duplicate — a duplicate is visible and a
+  resurrection looks like the buyer's own doing.
+- **A merge rehomes saves; a colliding one STAYS on the tombstone.**
+  `repoint_if_absent` guarded on `oxy_user_id`, so a save is left behind only
+  when the same buyer already has one on the winner — which is the ONLY reading
+  under which the saved-items read excluding a merged product is safe, and a
+  realdb case pins exactly that.
+- **A split MARKS and never picks** (`saves` phase, new in both
+  `CATALOG_MERGE_PHASES` and `CATALOG_SPLIT_PHASES`). Deterministic migration was
+  refused: "keep it where it is" is silently wrong for whoever moved, with no
+  signal anywhere. The marking touches only `resolved` rows, so a resumed phase
+  is a no-op and an EARLIER unanswered ambiguity keeps naming its own job.
+- **The counter DERIVES and nothing increments** — no delta parameter exists in
+  the domain — and there is deliberately no `canonical_products.save_count`
+  projection beside `product_save_aggregates`. Reviews have their entity columns
+  only because those predated the aggregate. `listings.favorite_count` stays
+  incremental in the hot path and is now REPAIRABLE from `favorites`; the two
+  figures are never summed, because a total would double-count every migrated
+  favorite.
+- **Detection and repair are separate acts** (`payment_discrepancies` posture),
+  and the rebuild page visits BOTH the aggregates and the products that have
+  saves — the second creates a row that was never written, which a probe over
+  the aggregate table alone can never see.
+- **The count cannot name anybody**: no actor column on the aggregate, a
+  disclosure floor of 10 applied by ONE function (withheld as a STATE, never
+  rounded), and an operator trace that opens from a canonical product id and
+  returns only counts. `oxy_user_id` is the whole of what this domain stores
+  about a person, which is why erasure is one scoped DELETE.
+- **Saving subscribes to NOTHING** and **a save is not a ranking input** — both
+  scanned gates in `product-save-isolation.test.ts`, with a vacuity floor and a
+  mutation self-test. The `priceAlert` DTO field has ONE branch and it is the
+  unsupported one (#78), so the client renders nothing rather than a control
+  claiming an unbuilt feature exists.
+- **`on` read mode still returns listing saves** — the pinned ones and the ones
+  no product save represents. Dropping the second set would break acceptance 3
+  on the deploy that finishes the rollout. Representation is DERIVED at read time
+  from the migration record joined to a save that still exists, never stored.
+- Flags: `PRODUCT_SAVES_ENABLED` (the MOUNT; never the rows —
+  a rollback that cost buyers their list is not one anybody would pull),
+  `PRODUCT_SAVE_READS` (`off|dual|on`, default `off`),
+  `PRODUCT_SAVE_MIGRATION_ENABLED` (default false ⇒ every migration request is a
+  DRY RUN that reports what it would do). `/internal/product-saves/*` is on the
+  SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list and is deliberately NOT gated
+  on `PRODUCT_SAVES_ENABLED` — the evidence has to be readable during the
+  incident that turned the buyer surface off.
+- Deferred with named seams: #78 (price alerts and the price-history table), #74
+  (whether saves rank), #71 (the canonical product page), #59 (reviewing an
+  ambiguous listing→product mapping, which this domain refuses rather than
+  guessing).
+
 ## CrowdSource moderation: reports, cases, decisions, enforcement
 
 Abuse reports leave Mercaria durably, CrowdSource decides them with a randomly

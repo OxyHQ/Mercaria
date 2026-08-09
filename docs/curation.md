@@ -74,7 +74,7 @@ entirely. `merchant_domains` is where the evidence already lives.
 
 ```
 plan → awaiting_resolution → children → identifiers → aliases → source_links
-     → offers → relationships → reviews → redirects → rollups → verify → done
+     → offers → relationships → reviews → saves → redirects → rollups → verify → done
 ```
 
 1. `plan` measures the impact and **detects every conflict before a single row
@@ -169,7 +169,7 @@ somebody already ran, nor let an unapproved one through.
 `catalog_split_jobs` + `catalog_split_assignments`.
 
 ```
-plan → mint → assignments → redirects → rollups → verify → done
+plan → mint → assignments → saves → redirects → rollups → verify → done
 ```
 
 ### `revive_tombstone` is what makes acceptance 2 work
@@ -208,13 +208,25 @@ The ORIGINAL entity keeps its slug and its URL, and it is still correct for
 everything that stayed. A new entity gets a new slug nothing has ever linked to.
 There is no old address whose answer changes.
 
-### Invariant 3, honestly
+### Invariant 3, answered by the `saves` phase
 
-Mercaria has no product-save, alert or watchlist table today: `favorites` are
-saves of a native LISTING, and a canonical split never touches `listings`. The
-migration is deterministic because there is nothing ambiguous to migrate — and
-the day a canonical-product save table lands, the census (below) forces whoever
-adds it to decide what a merge and a split do with it.
+#80 landed the canonical-product save table the census was waiting for, and the
+answer is the SECOND half of the invariant's own sentence — "an explicit
+user-visible ambiguity state". The `saves` phase marks every save of the divided
+product `ambiguous_after_split`, naming the job so both candidates stay
+recoverable, and the buyer resolves it (`docs/product-saves.md`).
+
+Deterministic migration was considered and refused. "Keep the save where it is"
+would be deterministic and would silently be wrong for exactly the buyers whose
+interest moved to the new entity, with no signal anywhere that a decision had
+been made on their behalf — which is the "selecting a child silently" #80
+migration rule 8 forbids, and moving them all is the same mistake pointed the
+other way.
+
+Listing FAVORITES are still untouched: a canonical split never writes
+`listings`, so an exact listing save means what it meant before whatever
+happened upstream. Alerts and watchlists remain #78's, and the census below is
+what will force the same decision when they land.
 
 ---
 

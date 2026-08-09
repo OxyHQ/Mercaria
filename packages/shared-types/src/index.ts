@@ -221,3 +221,10 @@ export * from './backfill';
 // action. Deliberately carries no value meaning "delete an entity" — a merge
 // leaves a tombstone and a suppression hides without removing evidence.
 export * from './curation';
+// Canonical product saves and the listing-save migration (#80). Follows
+// `condition` (a save may prefer a condition SEGMENT), `money` and `curation`
+// (an ambiguous save names the split job that made it so). Carries exactly one
+// visibility, a disjoint list of the ones it refuses, and a price-alert seam
+// with only an UNSUPPORTED branch — so a public wishlist and an auto-created
+// alert are both unrepresentable rather than merely unimplemented.
+export * from './product-save';

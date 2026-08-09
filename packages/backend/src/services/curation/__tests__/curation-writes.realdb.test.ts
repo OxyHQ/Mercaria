@@ -49,6 +49,7 @@ import {
 } from '../../../db/schema/canonicalCatalog.js';
 import { catalogSources, sourceRecords } from '../../../db/schema/provenance.js';
 import { reviewAggregates } from '../../../db/schema/reviews.js';
+import { productSaveAggregates } from '../../../db/schema/productSaves.js';
 import { normalizeEntityName } from '../../canonical/normalization.js';
 import { variantSignature } from '../../canonical/variant-signature.js';
 import { claimMergeJobs, claimSplitJobs } from '../../../db/curation/jobRepository.js';
@@ -153,6 +154,12 @@ afterEach(async () => {
     await db
       .delete(reviewAggregates)
       .where(inArray(reviewAggregates.canonicalProductId, productIds));
+    // …and #80's save counter, which the same phase re-derives for both sides
+    // and which RESTRICTs its product for the same reason. Same fact, one
+    // domain over: their presence here is the merge working.
+    await db
+      .delete(productSaveAggregates)
+      .where(inArray(productSaveAggregates.canonicalProductId, productIds));
     // The tombstone must lose its pointer before its winner can be deleted.
     await db
       .update(canonicalProducts)

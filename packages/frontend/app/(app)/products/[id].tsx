@@ -39,6 +39,11 @@ import { useProduct, useProductReviews } from "@/lib/hooks/use-product";
 import { REVIEW_SCOPE_LABELS, useProductScopeReviews } from "@/lib/hooks/use-reviews";
 import { useListings } from "@/lib/hooks/use-listings";
 import { useAddCartItem } from "@/lib/hooks/use-cart";
+import {
+  useListingSaveContext,
+  useToggleListingSave,
+  useToggleProductSave,
+} from "@/lib/hooks/use-saves";
 
 /** Gold star fill (mirrors ReviewStars / MerchantCard constant). */
 const STAR_COLOR = "#FFB800";
@@ -330,7 +335,22 @@ function ProductBody({ listing }: ProductBodyProps) {
   );
   const [quantity, setQuantity] = useState(1);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
-  const [saved, setSaved] = useState(listing.saved ?? false);
+
+  /**
+   * The two save controls (#80 listing rules).
+   *
+   * The state is SERVER state, not `useState`: a save is stored under the Oxy
+   * account and is visible from every device, so a local boolean seeded from the
+   * listing DTO would disagree with the saved list the moment either changed.
+   * The context read also answers whether this listing HAS a canonical product,
+   * which decides whether there is one button here or two.
+   */
+  const saveContext = useListingSaveContext(listing.id);
+  const toggleProductSave = useToggleProductSave();
+  const toggleListingSave = useToggleListingSave();
+  const canonicalProductId = saveContext.data?.canonicalProductId;
+  const productSaved = saveContext.data?.productSaved ?? false;
+  const listingSaved = saveContext.data?.listingSaved ?? false;
 
   const selectedVariant = useMemo(
     () => matchVariant(listing.variants, options, selection),
@@ -560,27 +580,93 @@ function ProductBody({ listing }: ProductBodyProps) {
               </Text>
             ) : null}
 
-            {/* Save + Share. */}
-            <View className="flex-row gap-space-8">
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={saved ? "Remove from saved items" : "Save item"}
-                onPress={() => setSaved((s) => !s)}
-                className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
-              >
-                <Heart
-                  size={ICON_SIZE}
-                  className="text-text"
-                  fill={saved ? STAR_COLOR : "transparent"}
-                />
-                <Text className="text-buttonMedium text-text">
-                  {saved ? "Saved" : "Save"}
-                </Text>
-              </Pressable>
+            {/*
+              Save + Share (#80).
+
+              `Save product` and `Save this listing` are DIFFERENT controls and
+              are never collapsed: the first follows the model across every
+              seller, the second keeps this exact item — which is what a buyer
+              means about a handmade piece or a used copy whose photographs are
+              the reason they saved it. The product button appears only when
+              this listing HAS a confident canonical mapping; an unmatched P2P
+              listing shows the listing button alone, which is #80 listing rules
+              1 and 2 rendered rather than described.
+            */}
+            <View className="gap-space-8">
+              {canonicalProductId ? (
+                <View className="flex-row gap-space-8">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      productSaved ? "Remove this product from saved" : "Save this product"
+                    }
+                    onPress={() =>
+                      toggleProductSave.mutate({
+                        canonicalProductId,
+                        saved: productSaved,
+                        sourceContext: "listing_page",
+                        listingId: listing.id,
+                      })
+                    }
+                    className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
+                  >
+                    <Heart
+                      size={ICON_SIZE}
+                      className="text-text"
+                      fill={productSaved ? STAR_COLOR : "transparent"}
+                    />
+                    <Text className="text-buttonMedium text-text">
+                      {productSaved ? "Product saved" : "Save product"}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      listingSaved ? "Remove this listing from saved" : "Save this exact listing"
+                    }
+                    onPress={() =>
+                      toggleListingSave.mutate({
+                        listingId: listing.id,
+                        saved: listingSaved,
+                        // A buyer choosing THIS control while the product
+                        // button sits beside it has said the exact listing is
+                        // what they mean — which is exactly what a pin records,
+                        // and what the migration then leaves alone.
+                        pin: true,
+                      })
+                    }
+                    className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
+                  >
+                    <Text className="text-buttonMedium text-text">
+                      {listingSaved ? "Listing saved" : "Save this listing"}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    listingSaved ? "Remove this listing from saved" : "Save this listing"
+                  }
+                  onPress={() =>
+                    toggleListingSave.mutate({ listingId: listing.id, saved: listingSaved })
+                  }
+                  className="flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
+                >
+                  <Heart
+                    size={ICON_SIZE}
+                    className="text-text"
+                    fill={listingSaved ? STAR_COLOR : "transparent"}
+                  />
+                  <Text className="text-buttonMedium text-text">
+                    {listingSaved ? "Saved" : "Save"}
+                  </Text>
+                </Pressable>
+              )}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Share this product"
-                className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
+                className="flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
               >
                 <Share2 size={ICON_SIZE} className="text-text" />
                 <Text className="text-buttonMedium text-text">Share</Text>
