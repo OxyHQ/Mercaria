@@ -2089,6 +2089,78 @@ deliberately not created and the dead function goes with the model in Fase 3.
 > values from the `counters` documents, NOT from `max(order_number)`: a
 > gap-carrying counter is ahead of the highest number actually used.
 
+### The catalogue backfill has no source model either (#60, ADR 0002 D23/D24)
+
+Three more tables born in Postgres, in `schema/backfill.ts`:
+`catalog_backfill_runs`, `catalog_backfill_records`,
+`catalog_consistency_findings`. Full behaviour: **`docs/backfill.md`**. The
+decisions that are THIS domain's:
+
+- **A run's counters must ADD UP to what it scanned.**
+  `catalog_backfill_runs_counters_total_check` is
+  `scanned = unchanged + matched + created + enqueued + review_required +
+  unmatched + skipped + failed`, an EQUALITY and not a `<=`. That is the anti-
+  vacuity floor as a constraint: a page that swallowed a record cannot write a
+  row, and `<=` would admit the run that scanned a million rows and classified
+  none of them — which is the exact shape of a broken traversal reporting
+  success. `mercaria_backfill_run_counters_monotonic` backs it up by refusing an
+  UPDATE that lowers a counter, because a pass is many pages that ADD to one row
+  and no legitimate write ever lowers one.
+- **A reason and an outcome can never disagree.**
+  `catalog_backfill_records_reason_outcome_check` is rendered from the ONE
+  `CATALOG_BACKFILL_REASON_OUTCOMES` map in shared-types (the
+  `REVIEW_SCOPE_TARGET_TYPE` device, #76), `else false` and all, so an
+  unrecognised reason is unrepresentable even with the reason CHECK removed.
+  `record_error` beside `unchanged` would make a page that swallowed an
+  exception report as a clean one.
+- **`mode` is inside the record's identity key.**
+  `UNIQUE(mapping_version, mode, stage, subject_key)`: a re-run converges, a NEW
+  mapping version writes a new row beside the old one so two rule sets are
+  comparable, and a DRY RUN can never overwrite the apply it was meant to
+  predict — which is the only thing the two reports exist for.
+  `mercaria_backfill_record_identity_immutable` refuses an UPDATE that moves any
+  of those columns; `run_id` is deliberately NOT among them, because it names the
+  run that LAST examined the subject and moves with every re-run.
+- **`subject_key` carries NO foreign key**, and for BOTH of
+  `catalog_revisions.entity_id`'s reasons at once (D20): it spans stores,
+  listings, native variants, canonical products, native offers and vendor
+  STRINGS — one of which is not a row anywhere — and migration evidence has to
+  survive the deletion of the row it describes. The CANONICAL columns on the same
+  table are different and carry real `.references()` with RESTRICT, the audit-row
+  rule: they name rows this database never hard-deletes, and evidence must be
+  able to block a delete rather than vanish with it.
+- **At most ONE open consistency finding per (kind, subject)** — a partial unique
+  `WHERE resolved_at IS NULL`, the `commerce_relationships.endpoint_key` device
+  applied to a sweep that runs hourly and must converge rather than accumulate.
+  A finding RESOLVES by being re-examined and found consistent, never by being
+  deleted; `first_seen_at` is written only by the INSERT branch, so "since when"
+  survives every later pass.
+- **ONE resumable run per (stage, mode, mapping version, cohort)** — a partial
+  unique on the unfinished statuses. A completed run is history and the next pass
+  is a NEW row; without it two operators opening the same stage would each get a
+  cursor and each enqueue the whole catalogue.
+- **No `expiryTargets.ts` entry, for any of the three.** #60 job behaviour 7 is
+  explicit that rollback must not delete migration evidence, and a retention
+  sweep is precisely a thing that deletes evidence on a clock. The tables are
+  bounded by the catalogue (one row per subject per mapping version per mode),
+  not by traffic.
+- **Zero `jsonb`.** Reason codes are a closed `text` vocabulary with a CHECK,
+  counters are integers, and `detail` is bounded free text nothing queries — the
+  `match_decisions` reasoning, one domain over.
+- **No canonical id column on `listings` or `product_variants`.** #60's migration
+  step 1 offers "nullable canonical references on native records OR an equivalent
+  mapping collection selected in #52", and ADR 0002 D6 selected
+  `native_listing_links`. Both would be two representations of one attachment,
+  and they would disagree the first time a link was superseded.
+
+Two value sets were WIDENED by this issue's migration, both additively and both
+in `pre` (a strictly larger CHECK cannot fail a write the previous image makes):
+`native_listing_links.method` gains `backfill` — an attachment whose canonical
+side the migration MINTED from the native side, which #59 has to be able to tell
+apart from a connector declaring its own product identity — and
+`attribute_reindex_requests.reason` gains `backfill`, so #61's drain can tell a
+migration wave from ordinary editorial churn.
+
 ## Register: every `jsonb` column, and why it earned it
 
 `jsonb` is for genuinely shape-less data only. Eight columns qualify in 129 tables;

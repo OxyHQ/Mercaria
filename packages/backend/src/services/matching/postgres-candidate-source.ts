@@ -192,7 +192,23 @@ export class PostgresCandidateSource implements MatchCandidateSource {
         .from(canonicalProducts)
         .where(
           and(
-            sql`${canonicalProducts.searchTokens} && ${tokens}`,
+            /**
+             * `sql.param` and an explicit cast, never a bare array.
+             *
+             * A bare JS array interpolated into a `sql` template is bound as ONE
+             * scalar, and Postgres then parses its first element as an array
+             * literal — `malformed array literal: "<first token>"`, at RUNTIME,
+             * on a branch `tsc` cannot see (`~/Oxy/AGENTS.md` §Drizzle `sql`
+             * templates). `sql.param` binds the whole array as one parameter,
+             * and the cast gives it the wire type `&&` needs.
+             *
+             * This branch is only reached when a subject has discriminating
+             * tokens AND the trigram half returned fewer candidates than the
+             * limit, which is why the in-memory benchmark never exercised it —
+             * that source shares the pipeline's scoring and simplifies exactly
+             * this retrieval. Found by `backfill.realdb.test.ts`.
+             */
+            sql`${canonicalProducts.searchTokens} && ${sql.param(tokens)}::text[]`,
             ne(canonicalProducts.status, 'merged'),
             ne(canonicalProducts.status, 'suppressed'),
             ...(categoryPredicate === undefined ? [] : [categoryPredicate]),

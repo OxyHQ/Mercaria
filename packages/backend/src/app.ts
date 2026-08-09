@@ -56,6 +56,7 @@ import internalOffersRouter from './routes/internal-offers.js';
 import catalogAttributesRouter from './routes/catalog-attributes.js';
 import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
 import internalMatchingRouter from './routes/internal-matching.js';
+import internalBackfillRouter from './routes/internal-backfill.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
@@ -63,6 +64,11 @@ import guestSessionRouter from './routes/guest-session.js';
 import analyticsRouter from './routes/analytics.js';
 import internalAnalyticsRouter from './routes/internal-analytics.js';
 import { config } from './config/index.js';
+import {
+  requireCanonicalReads,
+  resolveCanonicalReadMode,
+  resolveOfferComparisonMode,
+} from './services/backfill/read-mode.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
 import { ALLOWED_ORIGINS } from './lib/allowed-origins.js';
 
@@ -237,9 +243,30 @@ export function createApp(): express.Express {
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/commerce-graph', internalCommerceGraphRouter);
   }
-  // The canonical PRODUCT layer (#56): public identity reads…
-  app.use('/canonical-products', canonicalProductsRouter);
-  app.use('/product-families', productFamiliesRouter);
+  /**
+   * The canonical PRODUCT layer (#56): public identity reads, behind #60's two
+   * rollout levers.
+   *
+   * `CANONICAL_PUBLIC_ROUTES_ENABLED` gates the MOUNT — the blunt lever, for a
+   * rollback that must not depend on every handler having remembered its gate —
+   * and `CANONICAL_READS` gates the reads themselves in `off | shadow | on`.
+   * Both default to today's behaviour, because these routes SHIPPED with #56 and
+   * a lever that withdrew them on the deploy that added it would be an outage
+   * rather than a rollout; see `services/backfill/read-mode.ts` for the full
+   * argument and ADR 0002 D24 for the vocabulary.
+   */
+  if (config.canonicalRollout.publicRoutesEnabled) {
+    app.use(
+      '/canonical-products',
+      requireCanonicalReads('canonical-products', resolveCanonicalReadMode),
+      canonicalProductsRouter,
+    );
+    app.use(
+      '/product-families',
+      requireCanonicalReads('product-families', resolveCanonicalReadMode),
+      productFamiliesRouter,
+    );
+  }
   // …and its own operator surface. A SEPARATE router from the graph's above,
   // sharing the ONE operator allow-list — the two surfaces belong to different
   // issues and move at different rates, but who may reshape the catalogue is a
@@ -247,11 +274,20 @@ export function createApp(): express.Express {
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/canonical-catalog', internalCanonicalCatalogRouter);
   }
-  // The unified offer model (#57, ADR 0002 D18): what a canonical variant costs,
-  // where, from whom, and how current that is — native and external offers
-  // through ONE shape. Mounted after the canonical product layer because an
-  // offer prices one of its variants.
-  app.use('/offers', offersRouter);
+  /**
+   * The unified offer model (#57, ADR 0002 D18): what a canonical variant costs,
+   * where, from whom, and how current that is — native and external offers
+   * through ONE shape. Mounted after the canonical product layer because an
+   * offer prices one of its variants.
+   *
+   * Behind its OWN read lever (`CANONICAL_OFFER_COMPARISON`), separate from
+   * `CANONICAL_READS` because the two bound different blast radii: withdrawing
+   * price comparison during an incident should not take the brand and product
+   * identity pages down with it (#60 feature flags 2 and 3).
+   */
+  if (config.canonicalRollout.publicRoutesEnabled) {
+    app.use('/offers', requireCanonicalReads('offers', resolveOfferComparisonMode), offersRouter);
+  }
   // The versioned attribute registry and the constraint language (#94): public
   // definition/facet reads and the pre-flight validation both search and #95's
   // interpreter run against…
@@ -273,6 +309,20 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/matching', internalMatchingRouter);
+  }
+  /**
+   * The staged migration's operator surface (#60), on the SAME allow-list and
+   * for the same reason as the four above: migrating the native catalogue into
+   * the canonical graph is the same power over the same graph as reshaping it.
+   *
+   * Deliberately NOT gated on `CANONICAL_GRAPH_ENABLED`. That lever stops the
+   * dispatcher LOOP, and an operator must still be able to open a run, read a
+   * report and see the flags while it is off — gating the surface on it would
+   * make "start the migration paused" impossible and would hide the evidence
+   * during exactly the incident that turned the loop off.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/backfill', internalBackfillRouter);
   }
   // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
   // reason the two above have theirs: reading who merged which cart is a third

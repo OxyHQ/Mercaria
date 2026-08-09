@@ -1475,6 +1475,81 @@ and Oxy.
 - Deferred: seller-authored profile content, ranking use of any signal here
   (#74), coarse local-discovery hints (they belong to a LISTING), and blocking
   from inside Mercaria (Oxy owns that graph).
+## The flag-gated catalogue backfill (#60, ADR 0002 D23/D24)
+
+`services/backfill/` + `db/backfill/` + `db/schema/backfill.ts` (3 tables) +
+`/internal/backfill/*`. The staged, reversible, resumable migration of the
+listing-first catalogue into the canonical graph. Full reference:
+**`docs/backfill.md`**; schema decisions: `db/schema/CONVENTIONS.md` §"The
+catalogue backfill". The failure mode that shapes everything here is a REPORT
+THAT SAYS IT WENT FINE — a traversal that read nothing, a page that swallowed its
+errors and a cohort that matched no rows all produce the output of a clean run.
+
+- **The vacuity floor is a CHECK, not a comment.**
+  `catalog_backfill_runs_counters_total_check` forces the outcome counters to SUM
+  to `scanned` (equality, never `<=`), so a page that swallowed a record cannot
+  write a row. Two more layers back it: `assertCohortIsNotEmpty` refuses a cohort
+  selecting no listings when the run is OPENED, and the metrics surface reports
+  `scannedFromRecords` counted from the evidence beside the runner's own counter,
+  plus `countsAgree`.
+- **A dry run cannot write, as a SHAPE.** Stages hold a `CanonicalGraphWriter`
+  and no repositories; `createGraphWriter` is the ONE place the choice is made,
+  and `backfill-isolation.test.ts` fails the build if a stage calls a canonical
+  write service directly. So the guarantee holds for stages nobody has written
+  yet. `CANONICAL_WRITE_PUBLICATION_ENABLED=false` downgrades an `apply` run to
+  the same writer, so the run still reports and changes nothing.
+- **A dry-run row may carry `created`/`matched`/`enqueued`** — in that mode an
+  outcome is a PREDICTION, and refusing to store one would make the mode unable
+  to report the counts it exists for. It never carries a canonical id.
+- **Idempotency is `(mapping_version, mode, stage, subject_key)`**, with `mode`
+  INSIDE the key so a dry run can never overwrite the apply it predicted.
+  `CATALOG_BACKFILL_MAPPING_VERSION` is a code CONSTANT and not a table: the
+  mapping is a procedure, and a table would let somebody publish a version whose
+  rules nobody shipped. `provisional_products` additionally reads its own prior
+  record, because a mint spans three services' transactions and a crash must not
+  leave a re-run failing forever on a slug.
+- **`provisional_products` is the stage #58 stopped short of**, and it WAITS for
+  a matcher verdict (`awaiting_match_decision`) rather than minting first —
+  minting first guarantees a duplicate for every listing whose barcode would have
+  resolved. A P2P listing is `unmatched`/`p2p_left_unattached`, which is a
+  SUCCESS. Its attachments record `method: 'backfill'` (its own member, added by
+  this issue: no connector declared them) with NULL confidence.
+- **Per-record error isolation is one helper.** `examineSubject` catches, logs,
+  records `record_error`/`failed` and continues; nothing rethrows, because a page
+  that aborted on its worst listing would leave the cursor stuck there forever. A
+  PAGE-level failure is different: the cursor is not moved and the run is
+  released `failed`, so it retries from where it started.
+- **The consistency sweep is THREE passes and repairs nothing.** Forward
+  (attachment → offer), reverse (offer → attachment → listing, which is
+  acceptance 6 verbatim), and a RETIREMENT pass that resolves findings whose
+  offer is no longer active — without it the ordinary fix (a convergence that
+  retires the offer) would leave `orphanedNativeOffers` reporting a problem that
+  had been solved. It repairs nothing because every kind has an idempotent remedy
+  a person can drive, and three of the four can mean a jury restricted the
+  listing.
+- **Six rollout levers, and the WRITE ones default OFF while the READ ones
+  default to today's behaviour.** `CANONICAL_GRAPH_ENABLED` (the dispatcher
+  LOOP) and `CANONICAL_WRITE_PUBLICATION_ENABLED` are the write levers;
+  `CANONICAL_READS`, `CANONICAL_OFFER_COMPARISON` (both `off|shadow|on`),
+  `CANONICAL_PUBLIC_ROUTES_ENABLED` and `CANONICAL_READ_COHORTS` are the read
+  ones. D24's `CANONICAL_READS=off` was written in phase 0, before #53–#57
+  SHIPPED the routes it gates; introducing it `off` would withdraw four live
+  public surfaces on the deploy that added it, which D24 forbids. Acceptance 5
+  asks that turning reads OFF restores listing-first, which says nothing about
+  the default.
+- **Nothing in a rollback deletes evidence** — no repository offers a delete, the
+  operator surface has no route that could call one, and `/internal/backfill`
+  stays mounted while every read lever is off, because the evidence has to be
+  readable during the incident that turned them off.
+- Operator surface: `/internal/backfill/*` behind the SAME
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58 use. A trace opens
+  from a SUBJECT KEY and nothing else — no seller, no person.
+- Deferred to their owners: #61 (the `attribute_reindex_requests` drain, and
+  every index/projection decision with numbers attached), #39 (favorites), #76 (a
+  product-level review projection), #59 (promoting a `draft` product, merges,
+  identifier disputes), #70/#71 (the `shadow` mode's both-answers comparison), and
+  product-level collections (a separate migration). All six are scanned gates or
+  named seams, not stubs.
 
 ## CrowdSource moderation: reports, cases, decisions, enforcement
 

@@ -282,13 +282,31 @@ export type NativeListingLinkMethod =
   /** A catalog operator decided it. */
   | 'operator'
   /** #58's matcher proposed it, with a rule id and a confidence. */
-  | 'matcher';
+  | 'matcher'
+  /**
+   * #60's backfill attached a native variant to a canonical variant IT MINTED
+   * from that same variant, in one transaction (ADR 0002 D23 phase 1).
+   *
+   * Its own member rather than `connector_declared`, which is what #58's
+   * `linkMethodForStage` originally anticipated: no connector declared this, and
+   * an attachment whose canonical side was created from the native side is a
+   * genuinely different provenance from a platform asserting its own product
+   * identity. #59's review tooling has to be able to tell "the migration minted
+   * this" from "Shopify said so" — one value meaning both would make that
+   * question unanswerable, which is the two-representations rule applied to a
+   * vocabulary instead of a column.
+   *
+   * Like every non-`matcher` method it carries NULL confidence: the mapping is
+   * certain by construction, because the backfill created both ends of it.
+   */
+  | 'backfill';
 
 export const NATIVE_LISTING_LINK_METHODS: readonly NativeListingLinkMethod[] = [
   'barcode_gtin',
   'connector_declared',
   'operator',
   'matcher',
+  'backfill',
 ];
 
 /** The lifecycle of one native-variant → canonical-variant attachment. */

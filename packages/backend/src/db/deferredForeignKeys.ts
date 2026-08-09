@@ -803,4 +803,39 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'analytics_search_queries.category_id', reason: ANALYTICS_CORRELATION },
   { column: 'analytics_rollups.store_id', reason: ANALYTICS_CORRELATION },
   { column: 'analytics_rollups.merchant_id', reason: ANALYTICS_CORRELATION },
+
+  // ── The native-catalogue backfill (#60, ADR 0002 D23) ──────────────────────
+  //
+  // Three columns, one reason with two independent halves, and both halves are
+  // the reason `catalog_revisions.entity_id` carries no key either (D20).
+  //
+  // (a) They SPAN key spaces. One `subject_key`/`subject_kind` pair addresses a
+  //     store, a listing, a native variant, a canonical product, a native offer
+  //     — or a `vendor_value`, which is a normalized brand-candidate STRING and
+  //     not a row anywhere at all. No single foreign key can be written.
+  // (b) Migration evidence must OUTLIVE its subject. Issue #60 job behaviour 7
+  //     is explicit that a rollback disables reads and offer publication without
+  //     deleting evidence, and a CASCADE from `listings` would delete the audit
+  //     of what the migration did to a listing at the moment somebody deleted
+  //     the listing — which is exactly when the audit matters.
+  //
+  // Note the CANONICAL columns on the same table are NOT here: they name rows in
+  // this database that D20 says are never hard-deleted, so they carry real
+  // `.references()` with RESTRICT, the audit-row rule.
+  { column: 'catalog_backfill_runs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'catalog_backfill_records.subject_key',
+    reason:
+      'Spans stores, listings, native variants, canonical products, native offers and vendor ' +
+      'STRINGS, so no single foreign key exists to write — and migration evidence has to ' +
+      'survive the deletion of the row it describes (#60 job behaviour 7). The ' +
+      '`catalog_revisions.entity_id` decision, for both of its reasons at once.',
+  },
+  {
+    column: 'catalog_consistency_findings.subject_key',
+    reason:
+      'The same spanning key space as `catalog_backfill_records.subject_key`, plus the reason a ' +
+      'finding exists at all: it records that a subject and its offer DISAGREE, which includes ' +
+      'the case where one of the two is already gone.',
+  },
 ];

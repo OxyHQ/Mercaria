@@ -218,6 +218,13 @@
       "when": 1786271755210,
       "tag": "0030_giant_energizer",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1786274568585,
+      "tag": "0031_cynical_penance",
+      "breakpoints": true
     }
   ]
 }

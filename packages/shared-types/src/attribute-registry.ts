@@ -602,7 +602,19 @@ export type AttributeReindexReason =
   | 'definition_published'
   | 'definition_deprecated'
   | 'normalization_rules_changed'
-  | 'operator_correction';
+  | 'operator_correction'
+  /**
+   * #60's staged catalogue backfill minted or attached this entity.
+   *
+   * Its own member rather than one of the five above, because none of them is
+   * true of it: no definition moved, no selection changed, no operator corrected
+   * anything — a canonical product simply came into existence, or a native
+   * listing became one of its offers. #61's drain will want to tell a migration
+   * wave apart from ordinary editorial churn, since the two have very different
+   * shapes (a hundred thousand rows in an hour versus a trickle), and one value
+   * meaning both would make that unanswerable.
+   */
+  | 'backfill';
 
 export const ATTRIBUTE_REINDEX_REASONS: readonly AttributeReindexReason[] = [
   'selected_value_changed',
@@ -610,6 +622,7 @@ export const ATTRIBUTE_REINDEX_REASONS: readonly AttributeReindexReason[] = [
   'definition_deprecated',
   'normalization_rules_changed',
   'operator_correction',
+  'backfill',
 ];
 
 /** Which canonical grain an attribute value annotates. */

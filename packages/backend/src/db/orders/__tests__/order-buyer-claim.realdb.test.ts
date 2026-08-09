@@ -22,7 +22,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import type { OrderAccessFacts, OrderAccessSubject } from '../../../services/orders/order-access.service.js';
 
@@ -369,10 +369,21 @@ describe('order_status_history_actor_check — invariant I1 in an audit row (D16
 
     // …and it IS in the table — otherwise the assertion above would pass for a
     // column that was never written, which is the vacuous version of it.
+    // Scoped to THIS order, not to `actor_kind = 'guest'` across the table.
+    // One throwaway database serves the whole suite and vitest runs files in
+    // parallel workers, so a `LIMIT 1` with no `ORDER BY` over every guest
+    // status event in the database returns an arbitrary row — another file's,
+    // whenever one exists — and the assertion then fails for a reason that has
+    // nothing to do with what it is testing. Measured.
     const [stored] = await db
       .select({ id: schema.orderStatusHistory.actorGuestSessionId })
       .from(schema.orderStatusHistory)
-      .where(eq(schema.orderStatusHistory.actorKind, 'guest'))
+      .where(
+        and(
+          eq(schema.orderStatusHistory.orderId, orderId),
+          eq(schema.orderStatusHistory.actorKind, 'guest'),
+        ),
+      )
       .limit(1);
     expect(stored?.id).toBe(`gs-${RUN}`);
   });
