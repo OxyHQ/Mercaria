@@ -102,10 +102,30 @@ describe('two equivalent measurements in different units', () => {
     expect(inches.normalizedNumber).toBe(millimetres.normalizedNumber);
     expect(normalizedFactsAgree(inches, millimetres, 1)).toBe(true);
 
-    // The centimetre spelling arrives through a different multiplication and
-    // differs in the last bit — which is exactly the case that would look like a
-    // CONFLICT if agreement were IEEE-754 equality.
     expect(normalizedFactsAgree(inches, centimetres, 1)).toBe(true);
+  });
+
+  it('agrees across conversions that land on DIFFERENT doubles', () => {
+    // The fixture that makes a strict and a loose reading disagree. `1.1 in`
+    // converts through 254/10 and `2.794 cm` through 10/1; both mean 27.94 mm
+    // and the two multiplications land on different doubles. Every pair whose
+    // conversions happen to be bit-identical (6.1 in / 15.494 cm is one) would
+    // pass against an `===` comparison, which is why this pair exists.
+    const definition = benchmarkResolved('screen_size');
+    const [inches] = normalizeAttributeObservation({ displayValue: '1.1 in', definition });
+    const [centimetres] = normalizeAttributeObservation({ displayValue: '2.794 cm', definition });
+    if (!inches || !centimetres) throw new Error('normalization produced no fact');
+
+    expect(inches.normalizedNumber).not.toBe(centimetres.normalizedNumber);
+    expect(normalizedFactsAgree(inches, centimetres, 1)).toBe(true);
+    expect(normalizedFactsAgree(inches, centimetres, null)).toBe(true);
+
+    // And a DECLARED precision genuinely coarsens: a source writing 27.9 mm
+    // means the same thing at one decimal place and not at three.
+    const [rounded] = normalizeAttributeObservation({ displayValue: '27.9 mm', definition });
+    if (!rounded) throw new Error('normalization produced no fact');
+    expect(normalizedFactsAgree(inches, rounded, 1)).toBe(true);
+    expect(normalizedFactsAgree(inches, rounded, 3)).toBe(false);
   });
 
   it('keeps the source unit so the conversion is reversible for display', () => {
@@ -120,11 +140,12 @@ describe('two equivalent measurements in different units', () => {
     const definition = benchmarkResolved('screen_size');
     const [coarse] = normalizeAttributeObservation({ displayValue: '6 in', definition });
     const [fine] = normalizeAttributeObservation({ displayValue: '6.10 in', definition });
-    expect(coarse?.sourceDecimals).toBe(0);
-    expect(fine?.sourceDecimals).toBe(2);
+    if (!coarse || !fine) throw new Error('normalization produced no fact');
+    expect(coarse.sourceDecimals).toBe(0);
+    expect(fine.sourceDecimals).toBe(2);
     // 6 in is 152.4 mm and 6.10 in is 154.94 mm: genuinely different values, and
     // they must NOT be collapsed by a coarse comparison.
-    expect(normalizedFactsAgree(coarse!, fine!, null)).toBe(false);
+    expect(normalizedFactsAgree(coarse, fine, null)).toBe(false);
   });
 });
 

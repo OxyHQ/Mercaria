@@ -623,11 +623,15 @@ function applyBounds(
 /**
  * Whether two normalized facts say the same thing.
  *
- * Comparison at the DECLARED precision, not at IEEE-754 equality: "6.1 in" and
- * "154.94 mm" both convert to 154.94 mm, but a third source writing "15.494 cm"
- * lands on 154.94000000000003 through a different multiplication. Comparing
- * those raw makes two sources that agree look like a conflict, and an operator
- * would be asked to resolve a disagreement that does not exist.
+ * Comparison at the DECLARED precision, not at IEEE-754 equality. Two sources
+ * meaning the same thing routinely land on different doubles: `1.1 in` converts
+ * through 254/10 to 27.940000000000004832 while `2.794 cm` converts through
+ * 10/1 to 27.940000000000001279 — measured, not assumed. Comparing those raw
+ * makes two sources that agree look like a conflict, and an operator would be
+ * asked to resolve a disagreement that does not exist. The same rounding also
+ * makes a source that wrote `27.9 mm` agree with one that wrote `1.1 in` when
+ * the definition declares one decimal place, which is what it means for a
+ * declared precision to be the comparison unit.
  *
  * The precision used is the definition's `decimalPlaces` when it declares one,
  * else the coarser of the two sources' own decimal counts — never finer than

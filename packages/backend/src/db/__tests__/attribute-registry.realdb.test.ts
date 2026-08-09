@@ -767,17 +767,20 @@ describe('conflicting sources', () => {
     await applyAttributeObservation({
       grain: { kind: 'product', id: productId },
       attributeKey,
-      displayValue: '6.1 in',
+      displayValue: '1.1 in',
       sourceRecordId: await mintSourceRecord('agrA'),
       confidence: 0.7,
     });
-    // A different SPELLING of the same fact, from a different source. It must
-    // corroborate rather than conflict — the whole point of comparing at the
-    // declared precision instead of at IEEE-754 equality.
+    // A different SPELLING of the same fact, from a different source, whose
+    // conversion lands on a DIFFERENT double (27.940000000000004832 vs
+    // 27.940000000000001279 — measured). It must corroborate rather than
+    // conflict, which is the whole point of comparing at the declared precision
+    // instead of at IEEE-754 equality; a pair whose conversions happened to be
+    // bit-identical would pass against either reading.
     const second = await applyAttributeObservation({
       grain: { kind: 'product', id: productId },
       attributeKey,
-      displayValue: '15.494 cm',
+      displayValue: '2.794 cm',
       sourceRecordId: await mintSourceRecord('agrB'),
       confidence: 0.7,
     });

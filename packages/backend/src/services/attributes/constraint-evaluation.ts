@@ -411,9 +411,11 @@ function valueEquals(value: ConstraintValue, fact: EvaluableFact): boolean {
       const magnitude = baseMagnitudeOf(value.magnitude, value.unit);
       if (magnitude === undefined || fact.normalizedNumber === undefined) return false;
       // Equality on a converted magnitude at IEEE-754 exactness is a coin flip:
-      // "6.1 in" and "15.494 cm" both mean 154.94 mm and differ in the last bit.
-      // The tolerance is half a unit at the SIXTH decimal of the base unit,
-      // which is finer than any source measures and coarser than float error.
+      // `1.1 in` and `2.794 cm` both mean 27.94 mm, and their two conversions
+      // land on doubles that differ in the last bits (measured — the pair that
+      // makes a strict and a loose reading disagree). The tolerance is half a
+      // unit at the SIXTH decimal of the base unit, which is finer than any
+      // source measures and coarser than float error.
       return Math.abs(fact.normalizedNumber - magnitude) <= 5e-7;
     }
   }
