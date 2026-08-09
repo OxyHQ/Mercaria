@@ -3255,28 +3255,74 @@ one as the other retires a healthy catalogue.**
   ALSO counted as `rejected`, which `catalog_source_runs_intake_total_check`
   refuses — taking the whole page's bookkeeping with it. A post-intake failure is
   now isolated and logged; the object stays `observed` and the next pass retries.
-- **`ebay-ingestion.realdb.test.ts` is a FOURTH participant in the global
-  active-matching-policy queue, and the suite starves at four.**
-  `match_policy_versions_active_key` is a partial unique with no scoping column
-  — ONE active policy in the whole database, correct for production — so every
-  realdb file needing one queues. `origin/main` carries three such files and is
-  green; adding this one makes somebody time out. Six configurations were
-  measured and none fixed it (150 s budgets, a 180 s per-test ceiling, per-test
-  release, backed-off retries, a nested-group hold, and borrowing the active
-  policy — the last REJECTED, because it makes the assertions depend on whichever
-  sibling ran first). Isolated to that one file by three runs: main alone green,
-  this branch minus that file green, that file alone green. The fix belongs to
-  the constraint's owner — the existing files releasing per test, or realdb files
-  needing a policy not running in parallel — and is deliberately not attempted
-  from #65, because an unverified change to three other issues' suites is worse
-  than an honest note.
-- **#68 LANDED while this was in review, and the two fit without either
-  changing.** #68 owns WHEN a source is re-read and how long an offer is worth
-  showing; #65 owns what an eBay pass DOES and what it may conclude. A refresh
-  task for an eBay source drives the same discovery-then-verification pass, and
-  #68's freshness verdict is derived at read time against the source's policy —
-  so neither the completeness rule nor the deletion obligation moves. What did
-  change is the deferral: refresh SCHEDULING is no longer owed.
+- **`ebay-ingestion.realdb.test.ts` was a FOURTH claimant of the global
+  active-matching-policy slot that did not take the lock — FIXED by #66 (#215),
+  and the lesson is that the slot is about who may MATCH, not who may INSERT a
+  policy row.** `match_policy_versions_active_key` is a partial unique with no
+  scoping column (ONE active policy in the whole database, correct for
+  production), so every realdb file needing one queues on #63's
+  `acquireActivePolicySlot` advisory lock. #65 shipped before that mutex existed
+  and kept a bounded retry loop instead; a retry loop is not a smaller lock,
+  because each retry is a failing INSERT — an aborted transaction — against the
+  small pool the holder needs in order to finish and release. The hold must
+  cover the whole FILE, not just the matching `describe`: every ingesting test
+  calls `runMatch`, which reads whichever policy is globally ACTIVE, so outside
+  the window this file's `match_decisions` cite a SIBLING's policy and that
+  sibling deletes it in its own teardown. Still REJECTED, for the original
+  reason: borrowing whichever policy is already active, which makes a file's
+  outcomes depend on which sibling ran first. Also measured and worse than
+  either: `ALTER TABLE … DISABLE TRIGGER` to free the slot takes an ACCESS
+  EXCLUSIVE lock on the table `runMatch` reads on every match, so it builds a
+  lock convoy rather than a queue. **The failures are harness-dependent** —
+  reproducible locally on several worker counts, and NOT reproduced on GitHub's
+  runner, whose scheduling differs; the defect is a fixture skipping a queue its
+  three siblings use, which is worth fixing whether or not CI happens to expose
+  it. A latent hazard remains and is nobody's bug today:
+  `adapter-contract-suite.ts` deletes its policy only when no decision cites it
+  and otherwise releases the lock with an `active` row still standing. It is
+  unreachable while every claimant holds the slot file-wide, so it was
+  deliberately NOT patched — a fix for a state nobody can trigger, in a file
+  three adapters share, is how a later reader loses track of which guard is
+  load-bearing.
+- **#68 LANDED while this was in review; the division of labour holds and #65
+  CONSUMES its removal channel rather than growing an eBay-specific one.** #68
+  owns WHEN a source is re-read and how long an offer is worth showing; #65 owns
+  what an eBay pass DOES and what it may conclude. A refresh task drives the
+  same discovery-then-verification pass and the freshness verdict is derived at
+  read time against the source's own policy, so the completeness rule does not
+  move. Refresh SCHEDULING is no longer owed.
+- **The deletion obligation has TWO channels and `ebayGetItems` splits them at
+  the point they are read.** `removedIds` is eBay NAMING an item in a not-found
+  warning (`errorId` 11006) inside an otherwise successful 200 — a POSITIVE
+  STATEMENT, emitted as a #68 `AdapterRemoval`, which `applyExplicitRemovals`
+  retires from ANY run including a targeted refresh of one id
+  (`retirement_kind = 'explicit_removal'`, offer reason `source_unavailable`).
+  `unansweredIds` is mere ABSENCE from `items` — a truncated response, a
+  marketplace restriction, a bad minute — which retires NOTHING and waits for
+  the ordinary completeness rule (`snapshot_omission` / `source_disappeared`).
+  So the obligation is dischargeable for an item somebody re-read today instead
+  of at the end of the next full sweep. Collapsing the two is the mass-expiry
+  failure this source is shaped around, and it is mutation-tested: feeding the
+  unanswered set into the removals turns TWO realdb cases red, one of them the
+  pre-existing complete-pass retirement test. The narrow read is also the
+  SAFE-failing one — `readNotFoundIds` degrades to "no positive statement" on
+  any warning shape it does not recognise, which delays a retirement and can
+  never cause one, which is what makes shipping it against an envelope shape no
+  approved keyset has confirmed acceptable. Both sets still feed the
+  reconciliation sample as `vanished`, because that report repairs nothing and
+  the distinction only matters where it decides a retirement.
+- **This domain defines no TTL, no staleness rule, no outage grace and no
+  retirement decision, and that is a scanned gate** (the sixth wall in
+  `ebay-isolation.test.ts`, with a vacuity floor and a mutation self-test).
+  #68's per-source policy and #62's `CATALOG_SOURCE_RETIRING_OUTCOMES` are the
+  single authorities. The gate exists because the tempting bug is a LOCAL one:
+  this domain knows eBay prices move hourly, so a private `EBAY_OFFER_TTL_SECONDS`
+  or an `isStale(offer)` helper reads as diligence rather than as a second
+  authority — and a second TTL does not announce itself, it silently wins
+  wherever it is consulted. The ONE lifetime #65 legitimately owns is the OAuth
+  access token's in `token.ts`, a CREDENTIAL's expiry rather than content
+  freshness, and the gate's allowance is narrowed to that file rather than to a
+  pattern anyone could reuse.
 - Deferred with named seams: #37 (the outbound redirect — routing metadata is
   modelled and `destination_url` stays the ORIGINAL), #74
   (ranking, a scanned gate), #59 (review of an ambiguous match), #60 (minting

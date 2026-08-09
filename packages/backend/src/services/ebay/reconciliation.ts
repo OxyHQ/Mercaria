@@ -270,7 +270,16 @@ export async function reconcileEbaySource(input: {
       });
     }
 
-    for (const missing of result.missingIds) {
+    /**
+     * Both unanswered sets are sampled as `vanished`, deliberately.
+     *
+     * The sample is a REPORT, and the question it answers is "how much of what
+     * Mercaria shows can eBay still be asked about" — which a positive removal
+     * and a silent absence both bear on. The distinction between them is
+     * consequential where it decides a RETIREMENT, and nothing here retires
+     * anything.
+     */
+    for (const missing of [...result.removedIds, ...result.unansweredIds]) {
       record('vanished');
       sampled += 1;
       await recordEbayReconciliationSample(db, {

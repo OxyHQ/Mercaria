@@ -227,3 +227,80 @@ describe('the adapter directory holds only adapters that reach nothing', () => {
     expect(/ebay\/register\.js/.test(stripped)).toBe(false);
   });
 });
+
+/**
+ * The SIXTH wall: freshness and retirement have ONE authority each, and it is
+ * not this domain.
+ *
+ * #68 owns how long an offer is worth showing (a per-source policy, its
+ * derivation, its outage grace) and #62 owns what may retire one
+ * (`CATALOG_SOURCE_RETIRING_OUTCOMES` plus the adapter's `complete` flag, or an
+ * explicit `AdapterRemoval`). #65 consumes both and defines neither.
+ *
+ * The gate exists because the tempting bug is a LOCAL one: this domain knows
+ * eBay prices move hourly, so a private `EBAY_OFFER_TTL_SECONDS` or a
+ * `isStale(offer)` helper reads as diligence rather than as a second authority.
+ * A second TTL does not announce itself — it silently wins wherever it is
+ * consulted, and the source's own reviewed policy stops meaning anything.
+ *
+ * The ONE lifetime this domain legitimately owns is the OAuth access token's,
+ * in `token.ts`. That is a CREDENTIAL's expiry, not content freshness, and the
+ * allowance is narrowed to that file rather than to a pattern anyone could
+ * reuse elsewhere.
+ */
+describe('freshness and retirement stay #68s and #62s (#65 consumes, never redefines)', () => {
+  /** A content lifetime of this domain's own. */
+  const LOCAL_TTL =
+    /(TTL|LIFETIME|MAX_AGE|FRESH_FOR|STALE_AFTER)_?[A-Z_]*\s*=|(ttlSeconds|staleAfterSeconds|freshnessSeconds|maxAgeSeconds)\s*[=:]/;
+
+  /** A staleness verdict derived here rather than read from #68. */
+  const LOCAL_STALENESS =
+    /function\s+(is|derive|assess|compute)[A-Za-z]*(Stale|Fresh|Freshness)|\b(isStale|isFresh|assessFreshness|deriveFreshness)\s*\(/;
+
+  /** An outage-grace rule of this domain's own. */
+  const LOCAL_GRACE = /(grace|GRACE)_?[A-Za-z_]*\s*[=:]\s*[0-9]/;
+
+  /**
+   * A retirement DECISION taken here.
+   *
+   * Emitting an `AdapterRemoval` is not one — the adapter reports what eBay
+   * said and #68's `applyExplicitRemovals` decides — so the detector is written
+   * against retiring, expiring or the retirement vocabulary of the tables, not
+   * against the word appearing at all.
+   */
+  const LOCAL_RETIREMENT =
+    /retireSourceObject|retireLapsedExternalOffers|declareOffersUnavailable|retirementKind\s*[=:]|retirementReason\s*[=:]|\.set\(\{[^}]*status:\s*['"`]retired/;
+
+  it('defines no TTL, staleness rule, grace window or retirement decision', () => {
+    let scanned = 0;
+    for (const relative of EBAY_DOMAIN_PATHS) {
+      const stripped = withoutComments(readDomainFile(relative));
+      scanned += 1;
+      expect(LOCAL_STALENESS.test(stripped), `${relative} derives its own staleness`).toBe(false);
+      expect(LOCAL_GRACE.test(stripped), `${relative} defines its own outage grace`).toBe(false);
+      expect(LOCAL_RETIREMENT.test(stripped), `${relative} decides a retirement`).toBe(false);
+      // `token.ts` owns the ACCESS TOKEN's lifetime, which is a credential's and
+      // not an offer's. Narrowed to that one file on purpose.
+      if (relative !== 'services/ebay/token.ts') {
+        expect(LOCAL_TTL.test(stripped), `${relative} defines its own content TTL`).toBe(false);
+      }
+    }
+    // The vacuity floor: a broken enumeration must not pass by scanning nothing.
+    expect(scanned).toBe(EBAY_DOMAIN_PATHS.length);
+    expect(scanned).toBeGreaterThanOrEqual(18);
+  });
+
+  it('the TTL, staleness, grace and retirement detectors actually detect', () => {
+    expect(LOCAL_TTL.test('const EBAY_OFFER_TTL_SECONDS = 3_600;')).toBe(true);
+    expect(LOCAL_TTL.test('const config = { ttlSeconds: 3600 };')).toBe(true);
+    expect(LOCAL_STALENESS.test('function isStaleOffer(offer) { return true; }')).toBe(true);
+    expect(LOCAL_STALENESS.test('if (isStale(offer)) return null;')).toBe(true);
+    expect(LOCAL_GRACE.test('const OUTAGE_GRACE_MS = 900_000;')).toBe(true);
+    expect(LOCAL_RETIREMENT.test('await retireSourceObject(db, { id, kind, now });')).toBe(true);
+    expect(LOCAL_RETIREMENT.test(".set({ status: 'retired' })")).toBe(true);
+    // And it does NOT fire on what this domain legitimately does: report what
+    // eBay said, and let #68 decide.
+    expect(LOCAL_RETIREMENT.test('const removals = result.removedIds.map(...)')).toBe(false);
+    expect(LOCAL_TTL.test('const lifetimeMs = expiresIn * 1_000;')).toBe(false);
+  });
+});

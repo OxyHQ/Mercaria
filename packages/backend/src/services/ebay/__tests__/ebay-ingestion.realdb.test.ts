@@ -124,8 +124,16 @@ function ean13(payload: string): string {
  * have proved that a function was called.
  */
 class FakeEbay implements EbayTransport {
-  /** Items by id. An id absent from here is an item eBay no longer answers for. */
+  /** Items by id. An id absent from here is one eBay simply fails to describe. */
   readonly items = new Map<string, EbayItem>();
+  /**
+   * Ids eBay POSITIVELY declares gone, with a not-found warning.
+   *
+   * Distinct from "absent from `items`" on purpose: that is the difference the
+   * removal path turns on, so a fake that could not express both would make
+   * the two indistinguishable in exactly the test that has to tell them apart.
+   */
+  readonly notFound = new Set<string>();
   /** Pages of item ids per discovery query value. */
   readonly searchPages = new Map<string, string[][]>();
   /** Force the next Browse GET to fail with this response. */
@@ -178,11 +186,21 @@ class FakeEbay implements EbayTransport {
     }
     this.calls.getItems += 1;
     const ids = (parsed.searchParams.get('item_ids') ?? '').split(',').filter((id) => id !== '');
+    const gone = ids.filter((id) => this.notFound.has(id));
     return {
       status: 200,
       headers: {},
       body: JSON.stringify({
         items: ids.map((id) => this.items.get(id)).filter((item) => item !== undefined),
+        ...(gone.length === 0
+          ? {}
+          : {
+              warnings: gone.map((id) => ({
+                errorId: 11006,
+                message: 'The specified item ID was not found.',
+                parameters: [{ name: 'itemId', value: id }],
+              })),
+            }),
       }),
     };
   }
@@ -742,7 +760,12 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
   /** Drive one whole pass to completion, one page at a time. */
   async function ingestToCompletion(
     sourceId: string,
-    options: { now?: Date; since?: Date; refreshMode?: CatalogRefreshMode } = {},
+    options: {
+      now?: Date;
+      since?: Date;
+      refreshMode?: CatalogRefreshMode;
+      targetExternalIds?: readonly string[];
+    } = {},
   ): Promise<{ runId: string; outcome: string | null; pages: number }> {
     const source = sourcesById.get(sourceId);
     if (source === undefined) throw new Error(`unknown eBay source ${sourceId}`);
@@ -754,6 +777,11 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       // #68's mode decides the shape of the pass. `full_snapshot` is the one
       // that runs discovery THEN verification and may conclude an absence.
       refreshMode: options.refreshMode ?? 'full_snapshot',
+      // `catalog_source_runs_target_shape_check` refuses a `targeted` run with
+      // an empty target list, so this is not an optional convenience.
+      ...(options.targetExternalIds === undefined
+        ? {}
+        : { targetExternalIds: options.targetExternalIds }),
       since: options.since ?? null,
       requestedByOxyUserId: OPERATOR,
       now: clock,
@@ -1274,7 +1302,18 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       source.fake.items.delete('v1|del|0');
       source.fake.searchPages.set('999', [[]]);
 
-      const later = new Date(Date.now() + 3_600_000);
+      /**
+       * HALF the source's freshness TTL, not all of it.
+       *
+       * `bringUpSource` configures `freshnessTtlSeconds: 3_600`, so advancing
+       * by exactly 3_600_000 ms puts the offer precisely ON its `stale_at`
+       * boundary and #68's expiry path races the retirement path this test is
+       * about — the offer comes back `source_expired` or `source_disappeared`
+       * depending on sub-millisecond ordering. Measured: green on one full-suite
+       * run and red on the next, with no code change between them. Staying
+       * inside the TTL leaves exactly one mechanism able to retire anything.
+       */
+      const later = new Date(Date.now() + 1_800_000);
       const second = await ingestToCompletion(source.sourceId, { now: later });
       expect(second.outcome).toBe('full_feed_success');
       // The verification pass asked about it BY ID and eBay did not answer, which
@@ -1296,6 +1335,123 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       expect(offer?.status).toBe('retired');
       expect(offer?.retirementReason).toBe('source_disappeared');
     });
+    /**
+     * #68's `AdapterRemoval` is the OTHER half of the deletion obligation, and
+     * the two halves answer different questions.
+     *
+     * A complete verification pass establishes "eBay no longer publishes this"
+     * from silence, which takes as long as the cohort takes to come round. A
+     * not-found WARNING is eBay saying it outright about one item, and #68
+     * acts on that from any run — so the obligation is discharged for an item
+     * somebody re-read today rather than at the end of the next full sweep.
+     */
+    it('retires a positively REMOVED item from a targeted refresh, with no complete pass', async () => {
+      await ensureMatchPolicy();
+      const canonical = await mintCanonicalVariant('removed', '620000000183');
+      const source = await bringUpSource('removed', { queries: [{ value: '4242' }] });
+      source.fake.items.set(
+        'v1|rem|0',
+        ebayItem({
+          id: 'v1|rem|0',
+          title: `eBay product removed ${RUN}`,
+          seller: `omega_${RUN}`,
+          price: '44.00',
+          gtin: canonical.gtin,
+        }),
+      );
+      source.fake.searchPages.set('4242', [['v1|rem|0']]);
+
+      expect((await ingestToCompletion(source.sourceId)).outcome).toBe('full_feed_success');
+      const [before] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(before?.state).toBe('offer_current');
+
+      // eBay now DECLARES it gone rather than merely omitting it.
+      source.fake.items.delete('v1|rem|0');
+      source.fake.notFound.add('v1|rem|0');
+
+      // Inside the TTL on purpose — see the note on the complete-pass test above.
+      const later = new Date(Date.now() + 1_800_000);
+      const targeted = await ingestToCompletion(source.sourceId, {
+        now: later,
+        refreshMode: 'targeted',
+        targetExternalIds: ['v1|rem|0'],
+      });
+      // NOT a complete enumeration — a targeted re-read of one id has seen
+      // nothing else, and the retirement below does not rest on it having.
+      expect(targeted.outcome).not.toBe('full_feed_success');
+
+      const [after] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(after?.state).toBe('retired');
+      // The retirement kind is what tells the two paths apart in the evidence:
+      // a statement, not an inference from silence.
+      expect(after?.retirementKind).toBe('explicit_removal');
+      const [offer] = await db
+        .select()
+        .from(offers)
+        .where(eq(offers.id, before?.offerId ?? '__none__'));
+      expect(offer?.status).toBe('retired');
+      expect(offer?.retirementReason).toBe('source_unavailable');
+      expect(offer?.declaredUnavailableAt).not.toBeNull();
+    });
+
+    it('does NOT retire an item eBay merely failed to describe', async () => {
+      await ensureMatchPolicy();
+      const canonical = await mintCanonicalVariant('silent', '620000000190');
+      const source = await bringUpSource('silent', { queries: [{ value: '4343' }] });
+      source.fake.items.set(
+        'v1|sil|0',
+        ebayItem({
+          id: 'v1|sil|0',
+          title: `eBay product silent ${RUN}`,
+          seller: `sigma_${RUN}`,
+          price: '55.00',
+          gtin: canonical.gtin,
+        }),
+      );
+      source.fake.searchPages.set('4343', [['v1|sil|0']]);
+
+      expect((await ingestToCompletion(source.sourceId)).outcome).toBe('full_feed_success');
+      const [before] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(before?.state).toBe('offer_current');
+
+      // eBay answers the batch and says NOTHING about this id — a truncated
+      // response, a marketplace restriction, a bad minute. Not a statement.
+      source.fake.items.delete('v1|sil|0');
+
+      // Inside the TTL on purpose — see the note on the complete-pass test above.
+      const later = new Date(Date.now() + 1_800_000);
+      await ingestToCompletion(source.sourceId, {
+        now: later,
+        refreshMode: 'targeted',
+        targetExternalIds: ['v1|sil|0'],
+      });
+
+      const [after] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      // Untouched. It leaves comparison on its own freshness deadline and is
+      // retired by the ordinary completeness rule when a full pass finishes —
+      // neither of which is this run's to decide.
+      expect(after?.state).not.toBe('retired');
+      expect(after?.retirementKind).toBeNull();
+      const [offer] = await db
+        .select()
+        .from(offers)
+        .where(eq(offers.id, before?.offerId ?? '__none__'));
+      expect(offer?.status).toBe('active');
+      expect(offer?.declaredUnavailableAt).toBeNull();
+    });
+
     it('retires NOTHING from a QUERY-DRIVEN pass, however clean it looks', async () => {
       await ensureMatchPolicy();
       const canonical = await mintCanonicalVariant('querydriven', '620000000152');

@@ -203,7 +203,7 @@ Encoded as #62 rights on the source's own policy version, from #64 §6:
 | #64 rule | How it is enforced |
 |---|---|
 | Store observations | `may_store`. The RAW payload is digested and discarded; what is stored is #62's allow-listed projection. |
-| **Delete when no longer publicly available** | The verification phase. Only a complete verification pass may retire, and it establishes the fact by ASKING eBay about each tracked item. |
+| **Delete when no longer publicly available** | The verification phase, by ASKING eBay about each tracked item. TWO channels, §9: a per-item not-found warning is a #68 `AdapterRemoval` and retires that item from any run; silence retires only from a complete pass. |
 | Display price and availability as returned | `may_display_price`. #62 shapes the offer by the right rather than checking after it: no `display_price` ⇒ no price on the offer at all. |
 | Outbound links are `itemAffiliateWebUrl` or the plain item URL only | §7. |
 | No AI training | Not a code path this integration has. Stated here because the contract states it, and because the stored projection is the only eBay content Mercaria holds. |
@@ -335,8 +335,35 @@ Mercaria's own freshness policy and the recommended launch value is **1 hour**
 for a marketplace whose prices and availability move continuously.
 
 Freshness is NOT the deletion obligation. Staleness says "this may have changed";
-deletion says "eBay no longer publishes it", and only a complete verification
-pass establishes the second.
+deletion says "eBay no longer publishes it".
+
+**There are two ways to establish the second, and #68 supplies the faster one.**
+A complete verification pass establishes it from SILENCE — eBay was asked about
+every tracked id and did not mention this one — which takes as long as the whole
+cohort takes to come round. A per-item not-found WARNING (`errorId` 11006 inside
+an otherwise successful 200) is eBay saying it outright about one item, which is
+#68's `AdapterRemoval`: `applyExplicitRemovals` retires it from ANY run, a
+targeted refresh of a single id included, with no complete enumeration involved.
+
+The two are kept apart at the point they are read, in `ebayGetItems`, because
+`AdapterRemoval` is a positive-statement channel and feeding it anything weaker
+is the mass-expiry failure this whole source is shaped around:
+
+| What eBay did | Field | May retire? |
+|---|---|---|
+| Named the id in a not-found warning | `removedIds` | Yes, immediately, from any run — `retirement_kind = 'explicit_removal'`, offer `retirement_reason = 'source_unavailable'`. |
+| Simply did not describe it | `unansweredIds` | No. A truncated response, a marketplace restriction or a bad minute all land here. It is retired by the ordinary completeness rule when a full pass finishes — `retirement_kind = 'snapshot_omission'`, offer `retirement_reason = 'source_disappeared'`. |
+
+Both sets feed the reconciliation sample as `vanished`, because that report asks
+"how much of what Mercaria shows can eBay still be asked about" and repairs
+nothing either way.
+
+> **Requires account approval:** `11006` is the documented Browse API per-item
+> "item not found" id, and the shape it arrives in (a `warnings` entry whose
+> `parameters` carry the offending item id) has not been observed against a live
+> approved keyset. `readNotFoundIds` degrades to "no positive statement" on any
+> shape it does not recognise, so an unverified assumption here delays a
+> retirement to the next complete pass and can never cause one.
 
 ## 10. Provider error taxonomy and retry rules
 
