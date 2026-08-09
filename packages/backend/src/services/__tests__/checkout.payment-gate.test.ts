@@ -127,6 +127,16 @@ vi.mock('../../db/payments/providerAccountRepository.js', () => ({
 // the property it exists to pin.
 vi.mock('../../db/postgres.js', () => ({ getDb: () => ({}) }));
 
+// The payment domain's one read of `guest_checkouts` (#107, ADR 0006 G7): the
+// metadata's `guestCheckoutId` comes from the GROUP rather than from a
+// parameter, so it survives a converging replay. Every checkout in this suite
+// is an Oxy buyer's, which has no contact row — `undefined` is the honest
+// answer, not a stub, and the guest branch is covered by the realdb suite where
+// a real row exists to find.
+vi.mock('../payments/guest-correlation.js', () => ({
+  findGuestCheckoutIdForGroup: () => Promise.resolve(undefined),
+}));
+
 // The fee context (#88), pinned to "no active schedule" — the zero-fee
 // configuration this suite's expectations were written against. Only the
 // schedule LOAD is stubbed; selection and the snapshot plan run for real.
@@ -471,6 +481,11 @@ describe('checkout with the Stripe rail on', () => {
       // the payment. The app's own build-time key is only the fallback.
       publishableKey: 'pk_test_gate_not_a_real_key',
       amount: { amount: 1000, currency: 'EUR' },
+      // #107's server-authoritative payment surfaces (ADR 0006 G2/G14) — what a
+      // client may RENDER, decided by the server and narrowed further by the
+      // device. Buyer origin is not an input to it: this is an Oxy checkout and
+      // the set is the same one a guest gets, which is B11 in one assertion.
+      methods: ['card', 'apple_pay', 'google_pay', 'link'],
     });
     // The charge is the group's own grand total, and its idempotency key is
     // derived from the payment id — ADR 0001 D11, never from the request.

@@ -319,6 +319,62 @@ describe('a guest places an order with an inline destination and contact', () =>
   });
 });
 
+/**
+ * The presentment currency a GUEST checks out in (#107).
+ *
+ * At the WIRE level, because the whole point is which carriage it travels in:
+ * `checkoutSchema` is `.strict()` and refuses `currency` in the BODY alongside
+ * `amount`, `paid` and `paymentStatus`, so the only way a guest can name one is
+ * the same `?currency=` query parameter `/cart` has used since #104. A test at
+ * the service level could not tell the two apart — it takes the value as an
+ * argument either way.
+ *
+ * Without this the guest path is unpayable rather than merely inconvenient: a
+ * guest has no preferences row, so their cart prices in the marketplace default
+ * (FAIR), and ADR 0001 D8 makes that unroutable through the card rail.
+ */
+describe('a guest names the currency they were shown', () => {
+  it('prices the order in the requested currency, from the QUERY string', async () => {
+    const cookie = await guestCartWithOneItem();
+    const res = await fetch(`${baseUrl}/checkout?currency=EUR`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN, cookie },
+      body: JSON.stringify({
+        destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
+        contact: { email: 'currency@example.com' },
+      }),
+    });
+    const raw = await res.text();
+    expect(res.status, raw).toBe(201);
+    const body = JSON.parse(raw) as { data: { checkoutGroupId: string } };
+
+    const [contact] = await db
+      .select()
+      .from(schema.guestCheckouts)
+      .where(eq(schema.guestCheckouts.checkoutGroupId, body.data.checkoutGroupId));
+    sessionIds.push(contact.guestSessionId);
+
+    const [order] = await db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.checkoutGroupId, body.data.checkoutGroupId));
+    expect(order.totalsGrandTotalPresentmentCurrency).toBe('EUR');
+  });
+
+  it('REFUSES the same value in the body, whatever the query string says', async () => {
+    const cookie = await guestCartWithOneItem();
+    const res = await guestCheckout(cookie, {
+      destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
+      contact: { email: 'currency-body@example.com' },
+      currency: 'EUR',
+    });
+    // 400 from the `.strict()` schema, not a silently stripped field: a body
+    // able to carry a money word is the surface on which one would eventually
+    // be trusted.
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('what a guest checkout is refused', () => {
   it('refuses a guest with no contact, before anything is reserved', async () => {
     const cookie = await guestCartWithOneItem();

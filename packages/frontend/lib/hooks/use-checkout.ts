@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CheckoutPaymentStatus, CheckoutInput, CheckoutResult } from '@mercaria/shared-types';
+import type {
+  CheckoutPaymentStatus,
+  CheckoutInput,
+  CheckoutResult,
+  CurrencyCode,
+} from '@mercaria/shared-types';
 import { getCheckoutPaymentStatus, postCheckout } from '../api/checkout';
 import { queryKeys } from './query-keys';
 
@@ -16,6 +21,13 @@ export interface CheckoutSubmission extends CheckoutInput {
    * checkout has completed.
    */
   idempotencyKey: string;
+  /**
+   * The presentment currency this checkout is priced in — a GUEST's.
+   *
+   * Sent as a query parameter rather than in the body (see `postCheckout`), and
+   * ignored server-side for a signed-in buyer.
+   */
+  currency?: CurrencyCode;
 }
 
 /**
@@ -27,7 +39,8 @@ export interface CheckoutSubmission extends CheckoutInput {
 export function useCheckout() {
   const queryClient = useQueryClient();
   return useMutation<CheckoutResult, Error, CheckoutSubmission>({
-    mutationFn: ({ idempotencyKey, ...input }) => postCheckout(input, idempotencyKey),
+    mutationFn: ({ idempotencyKey, currency, ...input }) =>
+      postCheckout(input, idempotencyKey, currency),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.cart.all });
       queryClient.invalidateQueries({ queryKey: ['orders', 'list'] });

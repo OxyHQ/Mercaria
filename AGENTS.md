@@ -1947,6 +1947,90 @@ substitute: Babel strips types, so `expo export` happily bundles code `tsc`
 rejects, and a `shared-types` change that broke the dashboard passed every build
 job.
 
+## Stripe guest checkout (#107, ADR 0006)
+
+`services/payments/guest-correlation.ts` + `services/checkout/guest-rollout.ts`
++ the `guestCheckoutId` metadata key and payment-surface set in
+`checkout-payment.service.ts` + the `guest_portal_initialization` outbox type,
+plus `packages/frontend/components/payment/CardPaymentStep{,.native}.tsx` and
+`app/(app)/checkout/return.tsx`. Full reference: `docs/payments.md` §"Guest
+checkout on the card rail". NO new tables — one `pre` migration widening two
+CHECKs. The load-bearing rules:
+
+- **After actor resolution there is nothing guest-shaped.** ADR 0006 G1: the
+  same PaymentIntent per group, capture, `seller-net-shares.ts` split,
+  transfers, ledger, refunds. `openCheckoutPayment` derives its amount from the
+  ORDERS and its key from the payment row — neither mentions a buyer, and the
+  adapter's `CreatePaymentRequest` has no buyer parameter to widen. A
+  `guest-*.service.ts` under `services/payments/` is wrong by construction.
+- **`guestCheckoutId` is READ from the group, never passed in.** It must be
+  byte-identical on a converging replay or Stripe rejects the reused
+  `pi:<paymentId>` key — and the converge path reaches `openCheckoutPayment`
+  with a group it did not create and no contact record in hand. It is the right
+  value to carry because it is INERT: authorizes nothing, outlives the purgeable
+  session, `UNIQUE` per group. `guest_correlation.ts` selects ONE column, and
+  that select list IS the boundary — the table also holds the ciphertext and the
+  routing HMAC.
+- **Metadata has TWO gates that fail differently.** The `PAYMENT_METADATA_KEYS`
+  allow-list catches a key nobody thought about; the forbidden-substring scan
+  catches one added on purpose under a plausible name (`buyerEmail`,
+  `guestSessionId`). Both THROW rather than filtering — a key that should not
+  exist is a defect in the composition, and dropping it silently ships it.
+- **A guest's presentment currency rides `?currency=`, never the body.**
+  `checkoutSchema` refuses `amount`, `paid`, `paymentStatus` and `currency`
+  alike (pinned by `checkout-schema.test.ts`), because a body able to carry a
+  money word is where one would eventually be trusted. Without the parameter a
+  guest prices in FAIR, which ADR 0001 D8 makes unroutable — they could reach
+  checkout and never be able to pay. It selects among currencies the server
+  already permits, and is IGNORED for an Oxy buyer.
+- **Verified success enqueues ONE `guest_portal_initialization` row and creates
+  NO credential.** Keyed on the checkout GROUP (one portal grant covers every
+  sibling), BEFORE settlement (a rail refusing transfers must not be why a buyer
+  cannot find their purchase). The division is mechanical: a grant token minted
+  inside payment processing would exist while metadata is being composed, so
+  minting after verification makes "it cannot be in metadata" a fact about the
+  call graph. #108 replaces one handler body.
+- **Method eligibility is server-authoritative and the DEVICE narrows it.**
+  `checkoutPaymentSurfaces()` takes NO arguments — the version of "buyer origin
+  cannot change it" (B11) a reviewer can check. A client cannot ADD a surface
+  the server withheld; the server cannot force one the device cannot show.
+- **No Stripe Customer, therefore no saving** (G4/G5). The save surfaces exist
+  only when a Customer plus a CustomerSession is configured, so configuring none
+  makes them ABSENT rather than hidden. Consent, not thrift: a `GuestSession` is
+  a purgeable device credential and storage outliving it is consentless
+  retention.
+- **Five kill switches, all BLOCK lists, all empty by default** — platform (from
+  the credential's CARRIAGE, not a client's claim), market, merchant, fulfilment
+  (`services/checkout/guest-rollout.ts`) and payment method
+  (`STRIPE_PAYMENT_SURFACE_METHODS`, deployment-wide because ONE client
+  component serves both actor kinds). Block lists rather than the house
+  allow-list convention because these are incident levers: turning a market off
+  at 3am must be adding one value, and an allow-list typo silently switches
+  everything else off. A refusal names NO lever — one reason code for four
+  dimensions, so a client cannot map the switchboard one input at a time.
+- **No lever gates anything durable** (G17). `guest-stripe-checkout-isolation.test.ts`
+  fails the build if the ingress, outbox, settlement, refund or reconciliation
+  paths learn to read `config.guest`. `STRIPE_ENABLED=false` is NOT a guest
+  rollback lever — it unmounts the webhooks and strands verified events.
+- **The #85 seam cannot be satisfied by accident.** `GuestSellerActivation` has
+  no `activated` member, so `GUEST_SELLER_ACTIVATION_REQUIRED=true` refuses
+  EVERY guest checkout under its own reason code until #85 supplies the state.
+  Default OFF is ADR 0006 G14's decision, not an omission: guest eligibility is
+  the intersection of the gates that already exist, and a per-merchant opt-in
+  list would be a second answer to what `onboarding_state` already answers.
+- **A guest is never routed to `/orders/...`.** That route is
+  account-authenticated and would 401 the person who just paid, so the success
+  screen hands over the ORDER NUMBER and promises no email or link #108 has not
+  built.
+- Deferred with named seams: #85 (the activation state), #108 (the grant, the
+  magic link, transactional mail), #109 (claiming), #111 (rollout review, and
+  the five `guest_payment_*` analytics event types #107 reassigned there — four
+  are client facts and the storefront has no analytics client, and emitting
+  `guest_payment_verified` from the payment domain would invert
+  `verified-conversion.ts`'s one-way seam for a number the metric already reads
+  from `payments`), #112 (guest P2P — refused at group construction with no flag,
+  deliberately).
+
 ## Gotchas
 
 **Dockerfile node-gyp pin.** The API Dockerfile lives at the **repo root**, not

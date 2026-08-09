@@ -71,6 +71,26 @@ export function paymentSucceededEventId(paymentId: string): string {
 }
 
 /**
+ * `payment:guest_portal_initialization:<checkoutGroupId>` — ADR 0006 G13.
+ *
+ * Keyed on the checkout GROUP rather than the payment, and the two would
+ * coincide today (one payment per group) but say different things. What #108
+ * initializes is access to a GROUP's orders — one portal grant covers every
+ * sibling of a multi-seller cart — so a group whose payment was cancelled and
+ * re-opened, or reconciled from a second provider object, must still produce ONE
+ * initialization rather than one per payment object.
+ *
+ * That is what makes #107 acceptance 10's "one secure guest-portal
+ * initialization event" a property of the id rather than of how many times the
+ * handler happens to run: a redelivered `payment_intent.succeeded`, a reclaimed
+ * lease and the reconciliation sweep applying the same success all derive this
+ * string and converge on the row that already exists.
+ */
+export function guestPortalInitializationEventId(checkoutGroupId: string): string {
+  return `payment:guest_portal_initialization:${checkoutGroupId}`;
+}
+
+/**
  * `payment:payment_failed:<paymentId>:<providerEventId>`.
  *
  * The provider event is IN the id because a payment can genuinely fail more than

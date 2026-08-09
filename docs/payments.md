@@ -831,6 +831,227 @@ two already answer, for a rollout nobody has planned yet.
 
 ---
 
+## Guest checkout on the card rail (#107, ADR 0006)
+
+What changes when the buyer has no Oxy account: **almost nothing, and the
+"almost" is the whole document.** After `middleware/commerce-actor.ts` resolves
+the actor, a guest payment is byte-for-byte the payment ADR 0001 defined — the
+same PaymentIntent per checkout group, the same immediate capture, the same
+`seller-net-shares.ts` split, the same transfers, the same ledger, the same
+refund and dispute paths. `openCheckoutPayment` derives its amount from the
+group's ORDERS and its Stripe idempotency key from the payment row; neither
+input mentions a buyer, and the adapter's `CreatePaymentRequest` has no buyer
+parameter to widen. A `guest-*.service.ts` under `services/payments/` would be
+wrong by construction (ADR 0006 G1).
+
+Code: `services/payments/guest-correlation.ts` (the one seam onto
+`guest_checkouts`), `services/checkout/guest-rollout.ts` (the kill switches and
+the #85 seam), the `guestCheckoutId` metadata key and the payment-surface set in
+`services/payments/checkout-payment.service.ts`, and the
+`guest_portal_initialization` outbox type. Client:
+`packages/frontend/components/payment/CardPaymentStep{,.native}.tsx` and
+`app/(app)/checkout/return.tsx`.
+
+### The four things that ARE guest-specific
+
+**1. One metadata key.** The PaymentIntent carries `guestCheckoutId` — the
+`guest_checkouts` row id — on a guest-origin group and nothing else new (ADR
+0006 G7). It is the correct value to carry precisely because it is inert: it
+authorizes nothing, it OUTLIVES the guest session (which is purgeable), and it
+is deterministic on replay because the row is `UNIQUE` per checkout group. That
+last property is load-bearing rather than pleasant — a converging retry must
+compose a byte-identical request or Stripe rejects the reused
+`pi:<paymentId>` key, and this is the one key whose value comes from a second
+table. It is therefore READ from the group inside `openCheckoutPayment` rather
+than passed in: the converge path reaches that function with a group it did not
+create and no contact record in hand.
+
+`buildPaymentMetadata` runs its output through TWO independent gates, which
+fail differently. The `PAYMENT_METADATA_KEYS` allow-list catches a key nobody
+thought about (a spread, a widened input type); the
+`FORBIDDEN_PAYMENT_METADATA_SUBSTRINGS` scan catches one somebody added on
+purpose under a plausible name (`buyerEmail`, `guestSessionId`, `portalToken`).
+Extending both, in one diff, to put a person in provider metadata is not
+something that happens by accident. Both THROW rather than filtering: a key
+that should not exist is a defect in the composition, and dropping it silently
+would let the defect ship.
+
+**2. A presentment currency that rides the QUERY STRING.** A guest has no
+preferences row, so without a way to say what they were shown their cart prices
+in the marketplace default (FAIR), which ADR 0001 D8 makes unroutable through
+the rail — a guest could reach checkout and never be able to pay. The carriage
+is `POST /checkout?currency=EUR`, the same one `/cart` has used since #104, and
+deliberately NOT a body field: `checkoutSchema` refuses `amount`, `paid`,
+`paymentStatus` and `currency` alike, because a body able to carry any of them
+is the surface on which one would eventually be trusted. What the parameter
+selects is a currency the SERVER already permits — `assertCheckoutCurrencyEligible`
+refuses anything outside `STRIPE_PRESENTMENT_CURRENCIES` before a unit is
+reserved — and every figure is still computed by the pricing engine from native
+catalogue prices at server-held rates. It is IGNORED for an Oxy buyer, whose
+stored preference stays the one authority.
+
+**3. A durable handoff to #108 on verified success.** The
+`payment_succeeded` handler enqueues ONE `guest_portal_initialization` outbox
+row per guest-origin checkout group, keyed
+`payment:guest_portal_initialization:<checkoutGroupId>`, carrying the group id,
+the guest checkout id and the order ids — and creates NO access credential. The
+division is a mechanism rather than a courtesy: a grant token minted inside
+payment processing would exist while the intent's metadata is being composed,
+and ADR 0006 B4 says no token may ever be in a position to reach it. Minting
+strictly after a verified event, from a consumer of this row, makes "it cannot
+be in metadata" a fact about the call graph.
+
+It is enqueued BEFORE settlement, deliberately: what it carries is the buyer's
+route back to an order they have just paid for, and a rail refusing transfers
+must not also be the reason they cannot find their purchase — the same ordering,
+and the same reason, as paying the orders before settling them. Keyed on the
+GROUP rather than the payment because what #108 initializes is access to a
+group's orders; one portal grant covers every sibling of a multi-seller cart.
+The handler's BODY is #108's; today it logs at `warn` naming the issue, and the
+durable row is what #107 owes.
+
+**4. Payment surfaces the SERVER names.** The handoff carries
+`methods: CheckoutPaymentSurfaceMethod[]` — `card | apple_pay | google_pay |
+link` — from `STRIPE_PAYMENT_SURFACE_METHODS`. The server names an upper bound
+and the DEVICE narrows it: only the browser knows whether an Apple Pay sheet
+exists on this machine, only Stripe knows whether the domain is registered, and
+only the server knows whether an operator switched a wallet off mid-incident. A
+client cannot ADD a surface the server withheld (both client surfaces are
+configured from this list), and the server cannot force one the device cannot
+show. `checkoutPaymentSurfaces()` takes NO arguments, which is the version of
+"buyer origin cannot change it" (B11) a reviewer can check.
+
+### The client surfaces ADR 0006 selected
+
+**Web (G2):** the Payment Element and the Express Checkout Element on ONE
+`Elements` instance, over the `{clientSecret, publishableKey}` handoff #47
+already returned, with one confirmation path (`elements.submit()` →
+`stripe.confirmPayment`) for both. Wallets render only in the ECE — Stripe shows
+them there "to avoid duplication" — and `availablepaymentmethodschange` hides
+the container when none is available, so there is no empty button row above the
+card form. NOT Checkout Sessions and NOT hosted Checkout: both model line items,
+tax, discounts and shipping, which Mercaria's pricing engine, discount and tax
+domains and `DualMoney` snapshots already own, so adopting either would create a
+second pricing authority for no buyer-visible gain.
+
+**Native (G3):** `@stripe/stripe-react-native` PaymentSheet, over the identical
+client secret, with **no customer configuration**. Not an embedded webview —
+wallets do not work in one and Link is unsupported there.
+
+**No Stripe Customer, and therefore no saving (G4/G5).** The adapter passes no
+`customer` and never sets `setup_future_usage`; there is no `SetupIntent` in
+this codebase. Neither client can offer saving because the Payment Element's
+save flows and PaymentSheet's "Save my info" checkbox exist only when a Customer
+(and CustomerSession) is configured — so the surface is ABSENT by construction
+rather than hidden behind an option. The reason is consent, not thrift: saving
+requires an account context in which the same person can later see, use and
+delete the stored method, and a `GuestSession` is a purgeable device credential.
+
+**Authentication returns (G10).** `STRIPE_CHECKOUT_RETURN_URL` plus the group id
+is composed by the SERVER — a URL built from a request header behind an ALB is
+an open redirect with a bank's own first hop in front of it — and lands on
+`/checkout/return`, which reads no `redirect_status` and resumes the poll. The
+guest cookie survives because the return is a top-level navigation to
+`mercaria.co` and `__Host-mercaria_guest` is `SameSite=Lax`. **The return proves
+nothing**; a buyer who never comes back loses nothing, because the webhook chain
+runs to completion server-side.
+
+### The rollout kill switches, and what they may not reach
+
+Five independent levers (#107 acceptance 13), four of them in
+`services/checkout/guest-rollout.ts` and every one a BLOCK list that is EMPTY by
+default, so the module is a no-op on a deployment that has configured nothing:
+
+| Lever | Dimension | Notes |
+|---|---|---|
+| `GUEST_CHECKOUT_BLOCKED_PLATFORMS` | platform | `web` / `native`, derived from the credential's CARRIAGE (cookie vs header), not from a name a client chose |
+| `GUEST_CHECKOUT_BLOCKED_MARKETS` | market | ISO-3166 alpha-2; composes with `CHECKOUT_DESTINATION_COUNTRIES` rather than replacing it |
+| `GUEST_CHECKOUT_BLOCKED_SELLER_KEYS` | merchant | `store:<id>` / `user:<id>`, matched byte for byte — a key embeds a uuid |
+| `GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS` | fulfilment | `standard` / `express` / `pickup` |
+| `STRIPE_PAYMENT_SURFACE_METHODS` | payment method | deployment-wide, not guest-scoped, and `card` cannot be removed |
+
+Block lists rather than the allow-lists the rest of the checkout path uses, and
+the reason is that these are incident levers rather than policy: turning one
+market off at 3am must be adding one value, not enumerating the thirty that stay
+on, and an allow-list with a typo silently switches everything else off — the
+one failure an incident lever must not have. The payment-method dimension is
+deployment-wide because ADR 0006 G2 puts both actor kinds on one client
+component: a wallet whose domain registration lapsed is broken for everybody,
+and a guest-only lever would be a second answer drifting from the first exactly
+when somebody is using it.
+
+**A refusal names no lever.** All four dimensions raise the same sentence under
+one reason code (`guest_rollout_blocked`), because a refusal that named the
+dimension would let a client map the switchboard by varying one input per
+request — and the buyer's remedy (wait, or sign in) is the same either way.
+WHICH lever fired is logged, beside the operator who set it.
+
+**None of them gates anything durable** (ADR 0006 G17). Every lever is read at
+the checkout REQUEST and by nothing in the webhook ingress, the outbox,
+settlement, refunds or reconciliation, so a guest checkout switched off while an
+intent is open drains to a terminal state exactly as it would have — orders
+paid, transfers made, the portal row written.
+`guest-stripe-checkout-isolation.test.ts` fails the build if a module in those
+paths learns to read `config.guest`. **`STRIPE_ENABLED=false` is NOT a guest
+rollback lever**: it kills the rail for everyone and unmounts the webhook
+routes, stranding verified events.
+
+### The #85 seam, and why it fails closed
+
+`readGuestSellerActivation` is the ONE function that decides whether a seller
+may sell to a guest beyond what payment readiness already decided.
+`GuestSellerActivation` has **no `activated` member** — there is no input, no
+configuration and no code path by which this version reports #85's requirement
+as satisfied — so `GUEST_SELLER_ACTIVATION_REQUIRED=true` refuses EVERY guest
+checkout, by name, under its own reason code (`guest_seller_not_activated`,
+separate from `seller_not_payment_ready` because one seller cannot be PAID and
+the other has not ACCEPTED, and a merchant sent to the wrong screen stays
+stuck). That is the fail-closed direction and the whole value of shipping the
+lever now: a deployment cannot believe it is enforcing merchant activation while
+enforcing nothing.
+
+The flag defaults OFF because that is ADR 0006 G14's decision rather than an
+omission — guest eligibility at launch is the intersection of the gates that
+already exist ("a store payment-ready for Oxy buyers is payment-ready for
+guests"), and a separate per-merchant guest opt-in list would be a second,
+drifting answer to the question `onboarding_state` already answers.
+
+### What a guest still cannot do
+
+**P2P is refused** at group construction (ADR 0003 D18 / ADR 0006 G18), and
+there is deliberately no flag for it — #112 owns any reversal and its evidence,
+and a dormant switch reads as a decision already taken. **A guest is never
+routed to `/orders/...`** on success: that route is account-authenticated and
+would answer 401 to the person who just paid, so until #108's portal lands the
+success screen hands over the ORDER NUMBER the buyer already holds and promises
+no email or link that does not yet exist.
+
+### Configuration
+
+```
+STRIPE_PAYMENT_SURFACE_METHODS=card,apple_pay,google_pay,link  # `card` always kept
+STRIPE_CHECKOUT_RETURN_URL=                  # e.g. https://mercaria.co/checkout/return
+
+GUEST_CHECKOUT_BLOCKED_PLATFORMS=            # web,native — EMPTY = nothing blocked
+GUEST_CHECKOUT_BLOCKED_MARKETS=              # ISO-3166 alpha-2
+GUEST_CHECKOUT_BLOCKED_SELLER_KEYS=          # store:<id>,user:<id> — case-sensitive
+GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS=   # standard,express,pickup
+GUEST_SELLER_ACTIVATION_REQUIRED=false       # the #85 seam; true refuses EVERY guest checkout
+```
+
+### What has NOT been verified
+
+- **A live Stripe test-mode guest purchase.** Every test here fakes Stripe's
+  API (a sandbox cannot make a charge succeed without a browser), so what is
+  proven is the request Mercaria composes and the state it derives from a
+  verified event — not that Stripe accepts the intent, that the Express Checkout
+  Element renders, or that a wallet sheet opens.
+- **Apple Pay and Google Pay end to end**, which need a device, a registered
+  payment domain and a native build.
+- **A real 3-D Secure redirect** through `/checkout/return`.
+
+---
+
 ## Marketplace fees (#88)
 
 How Mercaria's commission is DECIDED. ADR 0001 D3 already decided where it
@@ -1647,6 +1868,14 @@ PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS=600000   # 10 minutes
 PAYMENT_RECONCILIATION_LOOKBACK_MS=604800000            # 7 days, first pass only
 
 PAYMENT_OPERATOR_OXY_USER_IDS=                # comma-separated; EMPTY = no surface
+
+STRIPE_PAYMENT_SURFACE_METHODS=card,apple_pay,google_pay,link  # #107; `card` always kept
+STRIPE_CHECKOUT_RETURN_URL=                   # where a 3-D Secure return lands (#107)
+GUEST_CHECKOUT_BLOCKED_PLATFORMS=             # the four guest kill switches (#107);
+GUEST_CHECKOUT_BLOCKED_MARKETS=               # every one EMPTY = nothing blocked
+GUEST_CHECKOUT_BLOCKED_SELLER_KEYS=
+GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS=
+GUEST_SELLER_ACTIVATION_REQUIRED=false        # the #85 seam; true refuses EVERY guest checkout
 ```
 
 `PAYMENT_RECONCILIATION_*` values bound WORK rather than correctness, which is

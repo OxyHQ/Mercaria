@@ -15,7 +15,8 @@
  */
 
 import type { Request, Response } from 'express';
-import type { AnalyticsReasonCode, CheckoutInput } from '@mercaria/shared-types';
+import type { AnalyticsReasonCode, CheckoutInput, CurrencyCode } from '@mercaria/shared-types';
+import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
 import { sendSuccess } from '../utils/api-response.js';
 import { forbidden, respondWithError } from '../lib/errors/error-codes.js';
 import { checkout } from '../services/checkout.service.js';
@@ -46,6 +47,36 @@ function actorOf(req: Request): CommerceActor {
 }
 
 /**
+ * A GUEST's presentment currency, from `?currency=` — #107, and the same
+ * carriage `/cart` has used since #104.
+ *
+ * A QUERY parameter and deliberately not a body field. `checkoutSchema` is
+ * `.strict()` and refuses `amount`, `paid`, `paymentStatus` and `currency`
+ * alike, because a body able to carry any of them is the surface on which one
+ * would eventually be trusted; that decision is pinned by
+ * `checkout-schema.test.ts` and is not weakened here. What a guest needs is a
+ * different thing wearing the same word: not an assertion about money, but a
+ * choice among the presentment currencies the SERVER already permits. Without
+ * it a guest prices in the marketplace default, which ADR 0001 D8 makes
+ * unroutable through the card rail — so a signed-out buyer could reach checkout
+ * and never be able to pay.
+ *
+ * Validated against the shared tuple rather than trusted, for the reason the
+ * cart controller states: an unrecognised code must never become a currency.
+ * The service then ignores it entirely for an Oxy buyer, whose stored
+ * preference is the one authority, and refuses anything outside
+ * `STRIPE_PRESENTMENT_CURRENCIES` before a single unit is reserved.
+ */
+function requestedCurrency(req: Request): CurrencyCode | undefined {
+  const raw = req.query.currency;
+  if (typeof raw !== 'string') return undefined;
+  const upper = raw.trim().toUpperCase();
+  return (ALL_CURRENCY_CODES as readonly string[]).includes(upper)
+    ? (upper as CurrencyCode)
+    : undefined;
+}
+
+/**
  * The ONE mapping from a checkout refusal to its analytics reason code (#106,
  * closing #77's `#106` seam).
  *
@@ -65,6 +96,13 @@ const REFUSAL_REASON_TO_ANALYTICS: Record<CheckoutRefusalReason, AnalyticsReason
   destination_unsupported: 'destination_unsupported',
   destination_incomplete: 'destination_incomplete',
   seller_not_payment_ready: 'seller_not_payment_ready',
+  // #107's rollout levers. Both are ELIGIBILITY outcomes and neither is a
+  // destination one — a market withdrawn from guests is a decision about the
+  // parties, not about whether the address can be delivered to, and counting it
+  // as a destination failure would put an operator's switch into a metric
+  // merchants read as "our addresses do not validate".
+  guest_rollout_blocked: 'guest_rollout_blocked',
+  guest_seller_not_activated: 'guest_seller_not_activated',
 };
 
 /**
@@ -148,7 +186,12 @@ export async function postCheckout(req: Request, res: Response): Promise<void> {
     const raw = req.headers['idempotency-key'];
     const idempotencyKey = (Array.isArray(raw) ? raw[0] : raw) || undefined;
     const actor = actorOf(req);
-    const result = await checkout(actor, req.body as CheckoutInput, idempotencyKey);
+    const result = await checkout(
+      actor,
+      req.body as CheckoutInput,
+      idempotencyKey,
+      requestedCurrency(req),
+    );
     // TWO events for a guest, one for an authenticated buyer. `checkout_started`
     // is the discovery funnel's step and is emitted for EVERY actor kind — the
     // buyer-origin dimension is what tells the two funnels apart, which is what

@@ -75,26 +75,6 @@ export interface AnalyticsSeam {
  */
 export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
   {
-    issue: '#107',
-    capability: 'Stripe guest checkout — payment methods, action-required, verified success',
-    eventTypes: [
-      'guest_payment_methods_shown',
-      'guest_payment_method_selected',
-      'guest_payment_action_required',
-      'guest_payment_client_failed',
-      'guest_payment_verified',
-    ],
-    metricKeys: ['guest_verified_payment_conversion'],
-    contract:
-      'Method ids must be BOUNDED — a new ANALYTICS_REASON_CODES member or a dedicated tuple, ' +
-      'never the provider’s own string, which changes with their API. `guest_payment_verified` ' +
-      'must be emitted from the #48 event ingress after the payment aggregate moves, NEVER from ' +
-      'the client confirmation callback: it is on the server-only side of ' +
-      'ANALYTICS_CLIENT_EMITTABLE_EVENT_TYPES and the ingest endpoint refuses it. No card ' +
-      'brand, no last four, no Stripe Customer id, no wallet identity — none of them has a ' +
-      'column, and adding one fails analytics-forbidden-columns.test.ts.',
-  },
-  {
     issue: '#108',
     capability: 'Guest order portal and magic-link recovery',
     eventTypes: [
@@ -150,8 +130,16 @@ export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
   },
   {
     issue: '#111',
-    capability: 'Guest-commerce rollout gates and retention coordination',
-    eventTypes: [],
+    capability:
+      'Guest-commerce rollout gates, retention coordination, and the client payment ' +
+      'instrumentation #107 reassigned here',
+    eventTypes: [
+      'guest_payment_methods_shown',
+      'guest_payment_method_selected',
+      'guest_payment_action_required',
+      'guest_payment_client_failed',
+      'guest_payment_verified',
+    ],
     metricKeys: [],
     contract:
       'ADR 0003 I12 assigns #111 the job of documenting each guest metric’s dimension before it ' +
@@ -160,7 +148,26 @@ export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
       'it, plus the coordination of GUEST_* flags with ANALYTICS_ENABLED. The two are ' +
       'deliberately INDEPENDENT levers today: guest commerce must be rollback-able while ' +
       'analytics is down, and analytics must be disable-able without touching guest commerce ' +
-      '(experimentation rule 7 applied to the domain rather than to an experiment).',
+      '(experimentation rule 7 applied to the domain rather than to an experiment). ' +
+      'The five payment event types moved here from #107, which SHIPPED without them, and the ' +
+      'reason is worth keeping because it is the same shape as #77’s own reasoning. FOUR of ' +
+      'them (methods shown, method selected, action required, client failed) are facts only a ' +
+      'browser or a payment sheet knows, and the storefront has no analytics client at all — ' +
+      'building one is rollout instrumentation, not payment work. The FIFTH ' +
+      '(`guest_payment_verified`) is server-observable, and emitting it from the payment domain ' +
+      'was rejected on purpose: `verified-conversion.ts` establishes a ONE-WAY seam in which ' +
+      'analytics reads `payments` and the payment path never depends on telemetry, and ' +
+      '`guest_verified_payment_conversion` already takes its numerator from `payments` directly ' +
+      '(it carries no `seam` field and computes today). An event emitted from the outbox would ' +
+      'invert that direction to add a second, weaker source for a number nothing reads it for. ' +
+      'The original contract still binds whoever lands them: method ids must be BOUNDED — a new ' +
+      'ANALYTICS_REASON_CODES member or a dedicated tuple, never the provider’s own string, ' +
+      'which changes with their API. `guest_payment_verified` must come from the #48 event ' +
+      'ingress after the payment aggregate moves, NEVER from a client confirmation callback: it ' +
+      'is on the server-only side of ANALYTICS_CLIENT_EMITTABLE_EVENT_TYPES and the ingest ' +
+      'endpoint refuses it. No card brand, no last four, no Stripe Customer id, no wallet ' +
+      'identity — none of them has a column, and adding one fails ' +
+      'analytics-forbidden-columns.test.ts.',
   },
   {
     issue: '#74',

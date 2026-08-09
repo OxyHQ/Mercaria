@@ -116,6 +116,7 @@ import {
   assertSellerGroupsAcceptDestination,
   resolveShippingCostMinor,
 } from './checkout/fulfilment-eligibility.js';
+import { assertGuestCheckoutRolloutAllowed } from './checkout/guest-rollout.js';
 import { prepareGuestCheckoutContact } from './checkout/guest-checkout.service.js';
 import { reserve, release } from './inventory.service.js';
 import { summarizeOrders } from './order-hydration.service.js';
@@ -468,11 +469,17 @@ function requireGuestCheckoutId(guestCheckout: { id: string } | null): string {
  *   shipping selections and discount codes.
  * @param idempotencyKey - Optional client-supplied key; a replay with the same
  *   key returns the original orders instead of creating duplicates.
+ * @param requestedCurrency - A GUEST's presentment currency, from the request's
+ *   `?currency=` parameter (#107). Ignored for an Oxy buyer, whose stored
+ *   preference is the authority — the SAME rule and the same carriage `/cart`
+ *   uses, deliberately, because "which currency is this person shopping in" is
+ *   one question and two answers to it would eventually disagree.
  */
 export async function checkout(
   actor: CommerceActor,
   input: CheckoutInput,
   idempotencyKey?: string,
+  requestedCurrency?: CurrencyCode,
 ): Promise<CheckoutResult> {
   // 0. Which rail funds this checkout — refused here, before anything else
   // happens, when the buyer named one this deployment cannot serve. It is a
@@ -533,7 +540,31 @@ export async function checkout(
   }
 
   // 2. Load + validate the cart.
-  const cart = await getCart({ owner });
+  //
+  // `requestedCurrency` is a GUEST's presentment currency and is ignored for an
+  // Oxy owner — `resolvePresentmentCurrencyForOwner` reads their stored
+  // preference, and a request parameter able to override it would be a second
+  // authority over one fact (#104's rule, unchanged).
+  //
+  // Threading it here is what makes a signed-out card purchase possible at all
+  // (#107 acceptance 2): a guest has no preferences row, so without it every
+  // guest cart prices in the marketplace default, and ADR 0001 D8 makes that
+  // currency unroutable through the rail — a guest could reach checkout and
+  // never be able to pay.
+  //
+  // It arrives as a QUERY parameter and NOT in the body, which is a boundary
+  // worth keeping rather than a routing preference: `checkoutSchema` refuses
+  // `amount`, `paid`, `paymentStatus` and `currency` alike, because a body able
+  // to carry any of them is the surface where one would eventually be trusted.
+  // A display currency is a different kind of thing — it selects among the
+  // currencies the SERVER already permits (4e refuses anything outside
+  // `STRIPE_PRESENTMENT_CURRENCIES`) and every figure is still computed by the
+  // pricing engine from native catalogue prices at server-held rates — and it
+  // rides the same carriage `/cart` gave it in #104.
+  const cart = await getCart({
+    owner,
+    ...(requestedCurrency !== undefined ? { requestedCurrency } : {}),
+  });
   if (cart.items.length === 0) {
     throw conflict('Cart is empty');
   }
@@ -672,6 +703,24 @@ export async function checkout(
   // here instead of writing an order with a fabricated address.
   const shippingFulfilment: ShippingFulfilment = requireShippingFulfilment(contract);
   const shippingAddressSnapshot = snapshotAddress(shippingFulfilment.address);
+
+  // 4d-ter. The guest-checkout ROLLOUT kill switches and the #85 merchant
+  // activation seam (#107). Still before the reservation loop, for the reason
+  // 4c–4d-bis are: a question the deployment's own configuration answers must
+  // never have taken stock.
+  //
+  // AFTER the eligibility gate rather than before it, so a buyer whose cart has
+  // a genuine problem (a P2P seller, a pickup, an unpriceable method) is told
+  // about THAT rather than about an operator's kill switch — the specific,
+  // actionable refusal wins over the temporary one.
+  //
+  // A complete no-op for an Oxy buyer, and on any deployment that has
+  // configured no lever, which is the default.
+  assertGuestCheckoutRolloutAllowed({
+    actor,
+    destinationCountry: shippingFulfilment.address.country,
+    groups: eligibilityGroups,
+  });
 
   // 4e. Refuse a cart the rail cannot charge, in the same place and for the same
   // reason as 4d: ADR 0001 D8 limits card presentment to a configured set, and a
