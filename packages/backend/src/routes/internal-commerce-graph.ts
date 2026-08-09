@@ -9,23 +9,51 @@
  * gate live in different files. Full reasoning: `routes/internal-payments.ts`
  * and `middleware/catalog-operator-authz.ts`.
  *
- * Only LINKAGE lives here today. Merge/split/correction endpoints arrive with
- * #59's tooling and its `catalog_revisions` audit ledger (ADR 0002 D16) —
- * this router gains them then, behind this same gate.
+ * LINKAGE (#54) and the RELATIONSHIP review workflow (#55) live here. Merge and
+ * split endpoints arrive with #59's tooling and its `catalog_revisions` audit
+ * ledger (ADR 0002 D16) — this router gains them then, behind this same gate.
+ * The relationship CORRECTION path is #55's own and already here: it needs no
+ * revisions table, because a correction is a new row linked to the one it
+ * replaces rather than an edit anything has to record the before-state of.
  */
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
-import { validateBody } from '../middleware/validate.js';
+import { validateBody, validateQuery } from '../middleware/validate.js';
 import {
   nativeStoreLinkCreateSchema,
   nativeStoreLinkRevokeSchema,
 } from '../middleware/commerce-graph-schemas.js';
 import {
+  relationshipApproveSchema,
+  relationshipAssertSchema,
+  relationshipCorrectSchema,
+  relationshipEndSchema,
+  relationshipEvidenceRevokeSchema,
+  relationshipEvidenceSchema,
+  relationshipQueueQuerySchema,
+  relationshipReviewSchema,
+  relationshipVerifySchema,
+} from '../middleware/relationship-schemas.js';
+import {
   createNativeStoreLinkHandler,
   revokeNativeStoreLinkHandler,
 } from '../controllers/commerce-graph-operator.controller.js';
+import {
+  approveRelationshipHandler,
+  assertRelationshipHandler,
+  attachEvidenceHandler,
+  correctRelationshipHandler,
+  expireRelationshipHandler,
+  getRelationshipHandler,
+  listRelationshipQueueHandler,
+  rejectRelationshipHandler,
+  requestEvidenceHandler,
+  revokeEvidenceHandler,
+  revokeRelationshipHandler,
+  verifyRelationshipHandler,
+} from '../controllers/relationships-operator.controller.js';
 
 const router = Router();
 
@@ -47,6 +75,86 @@ router.post(
   '/native-store-links/:id/revoke',
   validateBody(nativeStoreLinkRevokeSchema),
   revokeNativeStoreLinkHandler,
+);
+
+// ── Relationships (#55) ─────────────────────────────────────────────────────
+//
+// The candidate queue and the five decisions the issue's operator workflow
+// names, plus the correction path. `approve` and `verify` are SEPARATE
+// endpoints deliberately: an endorsement and a verdict are different acts, and
+// collapsing them would make a four-eyes rule that one operator satisfies by
+// calling the same endpoint twice.
+
+/** GET — the candidate queue, with evidence summary, approvals and conflicts. */
+router.get('/relationships', validateQuery(relationshipQueueQuerySchema), listRelationshipQueueHandler);
+
+/** POST — record a CLAIM. It lands as a candidate whoever asks. */
+router.post('/relationships', validateBody(relationshipAssertSchema), assertRelationshipHandler);
+
+/** GET one claim with its evidence, review history and conflicts. */
+router.get('/relationships/:id', getRelationshipHandler);
+
+/** POST — attach one durable piece of proof. */
+router.post(
+  '/relationships/:id/evidence',
+  validateBody(relationshipEvidenceSchema),
+  attachEvidenceHandler,
+);
+
+/** POST — the proof lapses; the relationship and its history do not. */
+router.post(
+  '/relationships/:id/evidence/:evidenceId/revoke',
+  validateBody(relationshipEvidenceRevokeSchema),
+  revokeEvidenceHandler,
+);
+
+/** POST — one operator's endorsement of the current round (four eyes). */
+router.post(
+  '/relationships/:id/approve',
+  validateBody(relationshipApproveSchema),
+  approveRelationshipHandler,
+);
+
+/** POST — verify. Evidence gate, then four-eyes gate, then the CAS. */
+router.post(
+  '/relationships/:id/verify',
+  validateBody(relationshipVerifySchema),
+  verifyRelationshipHandler,
+);
+
+/** POST — refuse the claim. The row stays as the record that it was asked. */
+router.post(
+  '/relationships/:id/reject',
+  validateBody(relationshipReviewSchema),
+  rejectRelationshipHandler,
+);
+
+/** POST — send it back for more proof. */
+router.post(
+  '/relationships/:id/request-evidence',
+  validateBody(relationshipReviewSchema),
+  requestEvidenceHandler,
+);
+
+/** POST — time ran out on a claim that was true. */
+router.post(
+  '/relationships/:id/expire',
+  validateBody(relationshipEndSchema),
+  expireRelationshipHandler,
+);
+
+/** POST — a decision that the claim should no longer stand. */
+router.post(
+  '/relationships/:id/revoke',
+  validateBody(relationshipEndSchema),
+  revokeRelationshipHandler,
+);
+
+/** POST — close this row and open its corrected successor, in one transaction. */
+router.post(
+  '/relationships/:id/correct',
+  validateBody(relationshipCorrectSchema),
+  correctRelationshipHandler,
 );
 
 export default router;

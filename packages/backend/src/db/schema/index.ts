@@ -48,6 +48,10 @@ export * from './moderation';
 export * from './provenance';
 export * from './organizations';
 export * from './merchants';
+// `relationships` (#55) follows both: a commerce relationship references
+// organizations, brands, merchants and storefronts, and its evidence references
+// `source_records`.
+export * from './relationships';
 // Procurement (#118) follows `organizations`: `suppliers.organization_id`
 // references the canonical graph's organizations table.
 export * from './procurement';
