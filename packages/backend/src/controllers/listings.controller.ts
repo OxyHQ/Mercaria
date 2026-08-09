@@ -23,6 +23,13 @@ import { respondWithError, notFound, validationError } from '../lib/errors/error
 import { routeParam } from '../utils/request.js';
 import { findCanonicalProductIdForListing } from '../db/reviews/reviewTargetResolver.js';
 import { log } from '../lib/logger.js';
+// Discovery analytics (#77). These are the ONLY two analytics modules a
+// discovery surface may import — `analytics-ranking-isolation.test.ts` fails
+// the build on any other, so a ranking function can never reach a rollup, an
+// aggregate or a metric and "popularity we measured" cannot become an organic
+// ranking input by accident.
+import { emitAnalyticsEvent } from '../services/analytics/emit.js';
+import { instrumentSearch } from '../services/analytics/search-instrumentation.js';
 
 /**
  * Listing statuses publicly viewable on the product-detail page. `draft` and
@@ -78,8 +85,26 @@ function toListingQuery(parsed: z.infer<typeof listingQuerySchema>): ListingQuer
   return query;
 }
 
-/** GET /listings — browse/search. Cursor for infinite `newest`, offset otherwise. */
+/**
+ * GET /listings — browse/search. Cursor for infinite `newest`, offset otherwise.
+ *
+ * Instrumented for #77. `instrumentSearch` runs AFTER the results are in hand
+ * and returns a `queryEventId` echoed in the response, so the client can attach
+ * its impressions and clicks to this exact search. Three properties of that
+ * call are load-bearing:
+ *
+ *  - It cannot throw and cannot be awaited (`services/analytics/sink.ts`), so a
+ *    Postgres problem in telemetry cannot fail or slow a browse — acceptance 7.
+ *  - It returns `undefined` when collection is off, and the response field is
+ *    then simply absent. No branch, no flag, no empty string.
+ *  - The raw term reaches `redactSearchQuery` and nothing else. It is not
+ *    logged here and not held anywhere after the call.
+ */
 export async function browseListings(req: Request, res: Response): Promise<void> {
+  // The clock starts before the query, not before parsing: latency here is what
+  // the API spent SEARCHING, which is the figure the metric names, and folding
+  // in zod validation would make an invalid-request spike look like a slow index.
+  const startedAt = Date.now();
   try {
     const parsed = listingQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -92,11 +117,17 @@ export async function browseListings(req: Request, res: Response): Promise<void>
       const { limit } = parsePagination(req.query);
       const result = await searchListingsCursor(query, limit);
       const data = await hydrateListings(result.listings, { viewerId: req.user?.id });
+      const queryEventId = instrumentSearch(req, {
+        ...(query.q === undefined ? {} : { term: query.q }),
+        resultCount: result.listings.length,
+        latencyMs: Date.now() - startedAt,
+        ...(query.category === undefined ? {} : { categoryId: query.category }),
+      });
       const page: CursorPage<Listing> = { data, hasMore: result.hasMore };
       if (result.nextCursor) {
         page.nextCursor = result.nextCursor;
       }
-      sendSuccess(res, page);
+      sendSuccess(res, { ...page, ...(queryEventId === undefined ? {} : { queryEventId }) });
       return;
     }
 
@@ -104,6 +135,14 @@ export async function browseListings(req: Request, res: Response): Promise<void>
     const { page, limit } = parsePagination(req.query);
     const result = await searchListingsOffset(query, page, limit);
     const data = await hydrateListings(result.listings, { viewerId: req.user?.id });
+    instrumentSearch(req, {
+      ...(query.q === undefined ? {} : { term: query.q }),
+      // The rows on THIS page, not `result.total`: an impression is something
+      // that was served, and a page-3 request with 4,000 matches served twenty.
+      resultCount: result.listings.length,
+      latencyMs: Date.now() - startedAt,
+      ...(query.category === undefined ? {} : { categoryId: query.category }),
+    });
     sendPaginated(res, data, buildPagination(page, limit, result.total));
   } catch (err) {
     log.general.error({ err }, 'Failed to browse listings');
@@ -120,7 +159,6 @@ export async function getListingById(req: Request, res: Response): Promise<void>
       throw notFound('Listing not found');
     }
     const [dto] = await hydrateListings([row], { viewerId: req.user?.id });
-
     /**
      * The canonical product link, resolved HERE and only here (#76).
      *
@@ -137,6 +175,19 @@ export async function getListingById(req: Request, res: Response): Promise<void>
      * that disagree.
      */
     const canonicalProductId = await findCanonicalProductIdForListing(row.id);
+    // Emitted AFTER the 404 guard, so a view of something that does not exist
+    // is not counted as a product view — `product_page_view` is the denominator
+    // of two metrics, and inflating it with misses would deflate both. It
+    // carries the canonical product id resolved just above, which is what makes
+    // `duplicate_product_rate` and the coverage metrics answerable at all.
+    emitAnalyticsEvent(req, {
+      eventType: 'product_page_view',
+      entities: {
+        listingId: row.id,
+        ...(row.storeId === null ? {} : { storeId: row.storeId }),
+        ...(canonicalProductId === null ? {} : { canonicalProductId }),
+      },
+    });
     sendSuccess(res, canonicalProductId ? { ...dto, canonicalProductId } : dto);
   } catch (err) {
     log.general.error({ err, listingId: id }, 'Failed to load listing');

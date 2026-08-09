@@ -1197,6 +1197,99 @@ reference: **`docs/reviews.md`**; schema decisions: `db/schema/CONVENTIONS.md`
 - Deferred: #106/#109 (the seam above), #57/#71's `native_listing_links` (a
   listing resolves to a canonical product only through the identifier collision
   gate until then), merchant responses, and an HTTP operator surface.
+## Discovery analytics (#77): measurement that cannot build a person
+
+`services/analytics/` + `db/analytics/` + `db/schema/analytics.ts` (8 tables),
+`/analytics/events` (client ingest) and `/internal/analytics/*` (operator).
+Full reference: **`docs/analytics.md`**; schema decisions:
+`db/schema/CONVENTIONS.md` §"The discovery-analytics domain". Production
+collection is **OFF** (`ANALYTICS_COLLECTION_MODE=off`) until the privacy and
+retention review in `docs/analytics.md` is recorded.
+
+- **The whole domain is an ALLOW-LIST of typed COLUMNS. There is no `jsonb`
+  property bag and none may be added.** `services/payments/redact.ts` is the
+  precedent and the reasoning is stronger: a provider payload arrives shaped by
+  somebody else, while an analytics property is composed by our own code — so an
+  open bag is not a defence, it is the one mechanism by which an address, an
+  order note or a page payload reaches production. The ABSENT columns are the
+  enforcement: no email, hash, phone, card fingerprint, provider customer,
+  wallet, IP, user agent, device fingerprint or token, gated by a scan with a
+  vacuity floor and a mutation self-test.
+- **Two identity columns, mutually exclusive by CHECK, and neither is a person.**
+  `oxy_user_id` only for an `oxy` actor whose consent is not `denied`;
+  `pseudonymous_session_id` is a truncated sha-256 under a salt that ROTATES
+  every 24 h and is then DELETED at 45 days — deliberately SHORTER than the
+  events derived under it, which is what makes two epochs unlinkable rather than
+  merely inconvenient to link. The cost is stated: guest experiment and
+  return-rate continuity ends at each rotation.
+- **`analytics_events` is APPEND-ONLY by trigger and DELETE is deliberately
+  PERMITTED.** Append-only is identity rule 5 (a #109 claim cannot retroactively
+  absorb unrelated guest activity) surviving whoever adds an `update`; the delete
+  exception is because erasure on schedule is the policy and a trigger refusing
+  it would make retention fail silently. This inverts the ledger's posture on
+  purpose.
+- **Financial truth is never a client event.** No event type asserts a payment,
+  `ANALYTICS_CLIENT_EMITTABLE_EVENT_TYPES` contains no session, merge, claim,
+  eligibility or checkout event, and every money metric names `payments` /
+  `orders` / `refunds` / `affiliate_reports` as its source through the ONE seam,
+  `services/analytics/verified-conversion.ts` (the `order-linkage.ts` shape). A
+  REFUNDED payment still counts as a conversion, and **a successful guest
+  purchase with no claim is a COMPLETE conversion, never abandonment**.
+- **Analytics can never block commerce, and the SIGNATURE is the guarantee**:
+  `recordAnalyticsEvent`/`emitAnalyticsEvent` return `void`, so there is nothing
+  to await — a caller who tried gets a `tsc` error. The queue is bounded and
+  drops the OLDEST; a failed flush logs, counts and does NOT re-queue. Loss is
+  acceptable only because no metric that counts money reads these rows; a future
+  metric needing at-least-once delivery gets a durable outbox row in the commerce
+  transaction, never a "reliable" version of this queue.
+- **Raw query text is never retained.** Only the redacted form, only 30 days,
+  then nulled in place while the normalized tokens survive — a REDACTION the
+  shared expiry sweep cannot perform, so it lives in `retention.ts`. Tokens are
+  derived from the redacted text, never the original. Rule ORDER is load-bearing
+  (cards and IBANs before the digit run; credentialled URLs before emails), and
+  the phone rule's separators are MANDATORY or `iphone 15 128 256` reads as a
+  phone number and the best queries in the dataset are destroyed.
+- **`readTopQueries` is the ONLY query reader and its floor has no bypass** — 25
+  occurrences, applied on the row AND after the range SUM, for operators and
+  merchants alike, because a rare query is a near-identifier whoever is reading
+  it. `analytics_search_queries` has NO actor column at all.
+- **Metrics are DATA, not prose.** Twenty-two definitions naming numerator,
+  denominator, window, source, freshness and ATTRIBUTION LIMIT;
+  `analytics_rollups.metric_key` CHECKs against the same tuple, so a number
+  whose definition is unstated cannot be stored, and the read surface 404s a key
+  with no definition, so it cannot be served either.
+- **Coercive experiments are UNREPRESENTABLE.** No treatment kind could mean
+  "hide Continue as guest", "auto-create an account", "preselect marketing
+  consent" or "sell organic rank", and a negative list is scanned against the
+  positive one so a plausible future addition fails the build. An active
+  version's salt and allocation are frozen by trigger — editing the salt
+  re-buckets every unit mid-flight and nothing in the data says so.
+- **Ranking isolation is a test, both ways** — a discovery module may import the
+  emitter seam and nothing else in the domain, and no measurement module may
+  reference the fee or referral domain. `fee-ranking-isolation.test.ts` is the
+  precedent; this one adds the second direction because measured popularity is
+  one join from a plan-weighted ordering.
+- **`ANALYTICS_OPERATOR_OXY_USER_IDS` is a FOURTH allow-list** beside payments,
+  catalog and guest. Empty = not mounted (404). The operator trace opens from a
+  query event id or a checkout group and returns NEITHER identity column: "show
+  me everything this session did" is not a question the surface can be asked.
+- Merchant analytics: `/admin/stores/:storeId/analytics/summary` behind
+  `stats:read`, aggregate-only, suppressed below 10 (not rounded — "under 10"
+  plus a timestamp is a person on a small store), with the metric definitions
+  shipped beside the figures. No buyer-origin breakdown at all.
+- Seams, defined and emitted by NOTHING (a gate fails the build on an emission):
+  #106 eligibility + contact/destination validation, #107 payment detail, #108
+  portal/recovery, #109 claim, #110 cancellations and support, #111 rollout
+  gates, #74 ranking policy versions, #37 affiliate reports.
+  `services/analytics/seams.ts` carries each contract. **#106's is the one to
+  read**: those gates already RUN (#105's P2P and destination refusals), and
+  they are deferred only because each raises a generic `conflict()` with a
+  sentence — classifying one would mean matching message text, and emitting
+  only the ACCEPTED half would make `guest_eligibility_coverage` read a
+  confident permanent 100%. The refusals owe an error CODE, not a new event.
+  Contrast `guest_feature_gate_blocked`, which IS emitted today at
+  `GUEST_CART_DISABLED`/`GUEST_ISSUANCE_DISABLED` precisely because both are
+  bounded `ErrorCode`s.
 
 ## CrowdSource moderation: reports, cases, decisions, enforcement
 

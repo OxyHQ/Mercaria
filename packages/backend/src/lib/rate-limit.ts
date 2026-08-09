@@ -52,7 +52,15 @@ export type RateLimitScope =
   // The guest→Oxy cart merge (#104). Its own bucket, and a small one: a merge
   // is a once-per-session act, so a caller hammering it is retrying a failure
   // or probing, and neither should share the ordinary cart budget.
-  | 'cart-merge';
+  | 'cart-merge'
+  // Client analytics ingestion (#77). Its own bucket (`rl:analytics-ingest:`)
+  // and deliberately a GENEROUS one: an impression batch is the highest-volume
+  // legitimate request this API takes, and metering it on the general budget
+  // would make a shopper who scrolls a long results page spend the allowance
+  // they need to check out with. Nothing behind it writes commerce state, and
+  // the handler refuses every server-only event type before any database
+  // access, so the budget bounds cost rather than risk.
+  | 'analytics-ingest';
 
 /** The shared, prefixed Redis store for a scope, or `undefined` without Redis. */
 function scopeStore(scope: RateLimitScope): RedisStore | undefined {

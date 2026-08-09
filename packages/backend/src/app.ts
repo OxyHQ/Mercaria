@@ -59,6 +59,8 @@ import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
 import guestSessionRouter from './routes/guest-session.js';
+import analyticsRouter from './routes/analytics.js';
+import internalAnalyticsRouter from './routes/internal-analytics.js';
 import { config } from './config/index.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
 import { ALLOWED_ORIGINS } from './lib/allowed-origins.js';
@@ -274,6 +276,21 @@ export function createApp(): express.Express {
   if (config.guest.operatorSurfaceEnabled) {
     app.use('/internal/guest-commerce', internalGuestCommerceRouter);
   }
+  // Client analytics ingestion (#77). Mounted UNCONDITIONALLY, unlike the guest
+  // and Stripe routes above: a deployment that collects nothing answers 202 and
+  // records nothing rather than 404, because the endpoint's existence is not a
+  // secret and a client that got a 404 would retry it forever. The handler's own
+  // `config.analytics.enabled` check is the gate.
+  app.use('/analytics', analyticsRouter);
+  // …and the analytics operator surface, on its OWN allow-list — a FOURTH list
+  // beside payments, catalog and guest, for the fourth instance of the reason
+  // those three are separate: reading what every market searched for is a
+  // different power from repairing payments, rewiring the catalogue or
+  // inspecting a cart merge. Empty = not mounted, 404 — see
+  // middleware/analytics-operator-authz.ts.
+  if (config.analytics.operatorSurfaceEnabled) {
+    app.use('/internal/analytics', internalAnalyticsRouter);
+  }
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -314,9 +331,10 @@ export function createApp(): express.Express {
         '/merchant-claims',
         '/store-linkage',
         '/guest/session',
+        '/analytics',
         // `/internal/payments`, `/internal/commerce-graph`,
         // `/internal/canonical-catalog`, `/internal/offers`,
-        // `/internal/catalog-attributes` and
+        // `/internal/catalog-attributes`, `/internal/analytics` and
         // `/internal/guest-commerce` are
         // deliberately ABSENT, and this is not an
         // oversight to correct: this list is public and unauthenticated, and the

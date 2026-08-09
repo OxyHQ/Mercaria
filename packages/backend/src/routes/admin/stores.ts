@@ -31,6 +31,7 @@ import channelIngestRouter from './channel-ingest.js';
 import channelKeysRouter from './channel-keys.js';
 import paymentsRouter from './payments.js';
 import feesRouter from './fees.js';
+import analyticsRouter from './analytics.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -98,5 +99,10 @@ router.use('/:storeId/payments', paymentsRouter);
 // acceptance and fee/net preview. Beside `/payments` and not inside it — the
 // fee is a COMMERCIAL agreement with Mercaria, not a property of any rail.
 router.use('/:storeId/fees', feesRouter);
+// Discovery analytics for this store's own offers (#77). Beside `/reports` and
+// deliberately NOT inside it: reports are the ORDER-sourced surface with exact
+// figures, and this is discovery telemetry with privacy thresholds. Merging
+// them would put a suppressed number next to an exact one under one heading.
+router.use('/:storeId/analytics', analyticsRouter);
 
 export default router;

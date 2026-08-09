@@ -152,6 +152,21 @@ const PROCUREMENT_CORRELATION =
   'A purchase order must stay writable and readable independently of its customer order.';
 
 /**
+ * An entity a TELEMETRY row observed (#77).
+ *
+ * The direction of the argument is the opposite of every other reason above,
+ * which is why it needs its own: the others say "the target may vanish and this
+ * record must survive it". This one also says "this record must never be able
+ * to stop the target vanishing". Telemetry that could block a listing delete —
+ * or whose own retention sweep could cascade INTO the catalogue — would have
+ * made analytics a constraint on commerce, which is the same boundary
+ * `services/analytics/sink.ts` enforces at runtime.
+ */
+const ANALYTICS_CORRELATION =
+  'An entity a telemetry row observed. Analytics is swept on its own retention clock and ' +
+  'must neither block a commerce delete nor cascade into one.';
+
+/**
  * `*_id` columns that will NEVER carry a constraint, named `table.column` by
  * their SQL names (never the TypeScript property — an `endsWith('_id')` test
  * against `sellerId` matches nothing and passes vacuously).
@@ -709,4 +724,72 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'match_decisions.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'match_blocked_pairs.blocked_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'match_blocked_pairs.cleared_by_oxy_user_id', reason: OXY_ACCOUNT },
+
+  // ── Discovery analytics (#77) ─────────────────────────────────────────────
+  //
+  // EVERY id column in this domain is unconstrained, and that is one decision
+  // rather than fifteen omissions. Telemetry must never be able to block a
+  // commerce delete, and the sweep must never be able to cascade into one:
+  // these rows are swept on their own retention clock, and every entity they
+  // name outlives them. A foreign key would invert both properties — a listing
+  // that could not be removed because an impression referenced it, or an
+  // analytics retention sweep whose cascade reached the catalogue.
+  //
+  // The three identity-shaped ones carry an additional, different reason and
+  // are spelled out individually below, because "no FK" is the least
+  // interesting thing about them.
+  {
+    column: 'analytics_events.oxy_user_id',
+    reason: OXY_ACCOUNT,
+  },
+  {
+    column: 'analytics_events.pseudonymous_session_id',
+    reason:
+      'NOT an id at all in the sense this ledger means: it is a one-way sha-256 of a session ' +
+      'handle under a rotating server salt, and the row it "names" is deliberately ' +
+      'unrecoverable — the salt is DELETED 45 days in (db/expiryTargets.ts), after which ' +
+      'nobody including Mercaria can map it back to anything. A foreign key would require ' +
+      'exactly the reversible mapping the derivation exists to destroy.',
+  },
+  {
+    column: 'analytics_events.query_event_id',
+    reason:
+      'The correlation handle joining a click, an impression or an add-to-cart back to the ' +
+      'search that produced it. It names an `analytics_search_queries` row, which is swept on ' +
+      'a DIFFERENT retention clock (a query record outlives the discovery events derived from ' +
+      'it), so a constraint would make one sweep’s success depend on the other’s order.',
+  },
+  {
+    column: 'analytics_events.checkout_group_id',
+    reason:
+      'The RESTRICTED commerce correlation (#77 envelope field 5), admitted by CHECK on only ' +
+      'the event types at or after checkout begins. Unconstrained for the reason every ' +
+      'payment↔commerce link in this schema is: the checkout group is a grouping TOKEN, not a ' +
+      'row, and analytics is retained far more briefly than the orders it correlates to.',
+  },
+  { column: 'analytics_events.order_id', reason: ANALYTICS_CORRELATION },
+  { column: 'analytics_events.listing_id', reason: ANALYTICS_CORRELATION },
+  { column: 'analytics_events.product_variant_id', reason: ANALYTICS_CORRELATION },
+  { column: 'analytics_events.canonical_product_id', reason: ANALYTICS_CORRELATION },
+  { column: 'analytics_events.canonical_variant_id', reason: ANALYTICS_CORRELATION },
+  { column: 'analytics_events.offer_id', reason: ANALYTICS_CORRELATION },
+  { column: 'analytics_events.merchant_id', reason: ANALYTICS_CORRELATION },
+  { column: 'analytics_events.storefront_id', reason: ANALYTICS_CORRELATION },
+  {
+    column: 'analytics_events.category_id',
+    reason:
+      'A category slug or id exactly as the surface addressed it — which is the point: the ' +
+      'analytics record must say what the shopper actually used, including a slug that has ' +
+      'since been retired, and a foreign key would forbid recording it.',
+  },
+  { column: 'analytics_events.store_id', reason: ANALYTICS_CORRELATION },
+  {
+    column: 'analytics_search_queries.query_event_id',
+    reason:
+      'The other end of the correlation above. Unique here (one record per search) and ' +
+      'unconstrained for the same independent-retention reason.',
+  },
+  { column: 'analytics_search_queries.category_id', reason: ANALYTICS_CORRELATION },
+  { column: 'analytics_rollups.store_id', reason: ANALYTICS_CORRELATION },
+  { column: 'analytics_rollups.merchant_id', reason: ANALYTICS_CORRELATION },
 ];

@@ -102,3 +102,9 @@ export * from './storeLinkage';
 // row (`catalog`), and its whole purpose is to write the `native_listing_links`
 // attachment #57 defined and deliberately left unwritten.
 export * from './matching';
+// Discovery analytics (#77) comes last and references NOTHING: every entity id
+// it carries is correlation text with no foreign key, because these rows are
+// swept on their own retention clock and every entity they name outlives them.
+// That independence is the point — an analytics table able to block a delete
+// would make telemetry a constraint on commerce.
+export * from './analytics';
