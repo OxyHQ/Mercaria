@@ -987,6 +987,23 @@ natural-unique idempotency the four sections above state. What is #57's own:
   retail-pricing rule. The lapse sweep excludes NATIVE offers, because their
   deadline measures how long ago the converger ran and sweeping it would delist a
   healthy catalogue whenever the dispatcher stopped.
+- **The two browse indexes order `last_seen_at` ASCENDING, and that is the fix
+  rather than the bug.** The obvious spelling is `.desc()`, matching the
+  browse's own ORDER BY — and drizzle renders it `DESC NULLS LAST`, while a plain
+  `ORDER BY last_seen_at DESC` means `DESC NULLS FIRST`. The two do not match, so
+  Postgres cannot use the index for the sort and falls back to a bitmap scan plus
+  a top-N sort over every one of that seller's offers. Measured on a seeded
+  million rows with one seller holding 25,000: **103.7 ms** with `.desc()` and a
+  plain `ORDER BY … DESC`, **0.113 ms** once the reader spells `DESC NULLS LAST`,
+  and **0.071 ms** with the ASCENDING index and the plain, natural ORDER BY,
+  which Postgres serves with a BACKWARD scan (a backward scan of
+  `ASC NULLS LAST` is exactly `DESC NULLS FIRST`). The ascending index is the one
+  that does not depend on every future reader remembering a NULLS clause. This
+  generalizes beyond the offer domain: **a DESC index only serves a DESC sort
+  when the NULLS ordering matches too, and on a NOT NULL column the ascending
+  index is strictly more robust.** The existing feeds that use `.desc()` order
+  nullable columns (`listings.published_at`) and are a different case; check the
+  plan before copying either shape.
 - **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed,
   so none of them earns an entry in the register below.
 

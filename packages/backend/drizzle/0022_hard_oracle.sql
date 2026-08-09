@@ -180,8 +180,8 @@ CREATE UNIQUE INDEX "offers_active_native_variant_key" ON "offers" USING btree (
 CREATE UNIQUE INDEX "offers_active_commercial_key" ON "offers" USING btree ("commercial_key") WHERE "offers"."status" = 'active' and "offers"."kind" <> 'native';--> statement-breakpoint
 CREATE INDEX "offers_variant_comparison_idx" ON "offers" USING btree ("canonical_variant_id","price_amount","id") WHERE "offers"."status" = 'active';--> statement-breakpoint
 CREATE INDEX "offers_variant_country_idx" ON "offers" USING btree ("canonical_variant_id","country","price_amount") WHERE "offers"."status" = 'active';--> statement-breakpoint
-CREATE INDEX "offers_merchant_browse_idx" ON "offers" USING btree ("merchant_id","status","last_seen_at" DESC NULLS LAST) WHERE "offers"."merchant_id" is not null;--> statement-breakpoint
-CREATE INDEX "offers_storefront_browse_idx" ON "offers" USING btree ("storefront_id","status","last_seen_at" DESC NULLS LAST) WHERE "offers"."storefront_id" is not null;--> statement-breakpoint
+CREATE INDEX "offers_merchant_browse_idx" ON "offers" USING btree ("merchant_id","status","last_seen_at") WHERE "offers"."merchant_id" is not null;--> statement-breakpoint
+CREATE INDEX "offers_storefront_browse_idx" ON "offers" USING btree ("storefront_id","status","last_seen_at") WHERE "offers"."storefront_id" is not null;--> statement-breakpoint
 CREATE INDEX "offers_native_listing_idx" ON "offers" USING btree ("listing_id") WHERE "offers"."listing_id" is not null;--> statement-breakpoint
 CREATE INDEX "offers_freshness_idx" ON "offers" USING btree ("status","stale_at");--> statement-breakpoint
 CREATE INDEX "offers_source_record_idx" ON "offers" USING btree ("source_record_id") WHERE "offers"."source_record_id" is not null;
