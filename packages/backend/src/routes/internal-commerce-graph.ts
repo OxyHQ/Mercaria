@@ -49,6 +49,11 @@ import {
   merchantClaimRevokeSchema,
 } from '../middleware/merchant-claim-schemas.js';
 import {
+  storeLinkageCandidateSchema,
+  storeLinkageCorrectionSchema,
+  storeLinkageDecisionSchema,
+} from '../middleware/store-linkage-schemas.js';
+import {
   createNativeStoreLinkHandler,
   revokeNativeStoreLinkHandler,
 } from '../controllers/commerce-graph-operator.controller.js';
@@ -72,6 +77,14 @@ import {
   listClaimQueueHandler,
   revokeClaimHandler,
 } from '../controllers/merchant-claims-operator.controller.js';
+import {
+  decideLinkageRequestHandler,
+  getLinkageRequestForOperatorHandler,
+  listLinkageQueueHandler,
+  openLinkageCorrectionHandler,
+  proposeLinkageCandidateHandler,
+  revokeClaimAndUnlinkHandler,
+} from '../controllers/store-linkage-operator.controller.js';
 
 const router = Router();
 
@@ -191,5 +204,57 @@ router.post(
 
 /** Withdraw a verification. The merchant returns to `unclaimed`. */
 router.post('/claims/:id/revoke', validateBody(merchantClaimRevokeSchema), revokeClaimHandler);
+
+/**
+ * Withdraw a verification AND remove the management linkage it authorized
+ * (#84, revocation rule 1).
+ *
+ * A SEPARATE route from `/revoke` rather than a change to it. Revoking a claim
+ * without touching linkage stays legitimate — a merchant with no native store
+ * has nothing to unlink — and folding the two would make #83's own tests
+ * describe something else. The composition lives in the controller because
+ * `services/merchant-claims/` may not name `native_store_links` at all; see
+ * that file's docblock.
+ */
+router.post(
+  '/claims/:id/revoke-and-unlink',
+  validateBody(merchantClaimRevokeSchema),
+  revokeClaimAndUnlinkHandler,
+);
+
+// ── Merchant → native store linkage (#84) ───────────────────────────────────
+//
+// Here rather than on a surface of their own for the reason this gate exists:
+// deciding which native store a canonical merchant resolves to is the same
+// power as deciding who operates that merchant, over the same graph. The
+// CLAIMANT half of the flow is `/store-linkage/*`, authenticated but not
+// operator-gated — a merchant linking their own shop is not an operator act.
+
+/** The queue: requests awaiting a decision, and those stuck on a conflict. */
+router.get('/store-linkage/requests', listLinkageQueueHandler);
+
+/** POST — correct or end a linkage. Returns the stored impact preview. */
+router.post(
+  '/store-linkage/corrections',
+  validateBody(storeLinkageCorrectionSchema),
+  openLinkageCorrectionHandler,
+);
+
+/** GET one request with its candidates, adoptions and overlap findings. */
+router.get('/store-linkage/requests/:id', getLinkageRequestForOperatorHandler);
+
+/** POST — approve (naming the store) or reject a request awaiting review. */
+router.post(
+  '/store-linkage/requests/:id/decision',
+  validateBody(storeLinkageDecisionSchema),
+  decideLinkageRequestHandler,
+);
+
+/** POST — record a store an operator believes is right, as `operator` evidence. */
+router.post(
+  '/store-linkage/requests/:id/candidates',
+  validateBody(storeLinkageCandidateSchema),
+  proposeLinkageCandidateHandler,
+);
 
 export default router;

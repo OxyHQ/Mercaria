@@ -656,4 +656,15 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'entity between enqueue and drain, because "this id no longer exists" is a valid and ' +
       'useful thing for a re-index consumer to be told.',
   },
+  // ── Merchant → native store linkage (#84, ADR 0002 D4) ────────────────────
+  //
+  // Every ENTITY reference in this domain is a real `.references()`: the
+  // merchant, the authorizing claim, both store sides, the `native_store_links`
+  // rows a request produces and supersedes, the canonical variant an overlap is
+  // about, and both offers it names. What remains is the actor trail — three
+  // Oxy account ids and the opaque worker identity that holds an application
+  // lease, which belongs to no table at all.
+  { column: 'store_linkage_requests.claimant_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'store_linkage_requests.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'store_linkage_profile_adoptions.actor_oxy_user_id', reason: OXY_ACCOUNT },
 ];

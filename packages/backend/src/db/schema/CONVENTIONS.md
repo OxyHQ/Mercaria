@@ -1194,6 +1194,91 @@ is #83's own, stated so a column whose shape looks arbitrary is answerable:
   deleted.
 - **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed.
 
+### Merchant → native store linkage (#84) has no source model either
+
+Four more Postgres-born tables, in `storeLinkage.ts`: `store_linkage_requests`,
+`store_linkage_candidates`, `store_linkage_profile_adoptions`,
+`store_linkage_offer_overlaps`. They sit ON TOP of #54's `native_store_links`
+and #83's claims, and they add **no second mapping**: which merchant a store
+resolves to stays exactly one question with exactly one answer, in
+`native_store_links` (ADR 0002 D4). These four are the WORKFLOW that produces
+one of those rows, reverses one, or corrects one. What is #84's own:
+
+- **`store_linkage_requests_open_key` is the whole of acceptance 4** — replaying
+  store creation or linkage creates no duplicate store, merchant mapping or
+  follow target. A partial unique on the GENERATED `request_key` over the LIVE
+  states (`draft`, `awaiting_review`, `applying`, `applied`), whose predicate is
+  rendered from `STORE_LINKAGE_LIVE_STATES` so it cannot drift from the tuple
+  the service reads — the `merchant_claims_merchant_claimant_active_key` device.
+  A replayed `create_store` converges on the row that already exists, and
+  therefore on the store it already made.
+- **The generated key is `commerce_relationships.endpoint_key`, applied to a
+  different problem.** `requested_store_id` is legitimately NULL on every
+  `create_store` request, and Postgres treats NULLs as DISTINCT — so a plain
+  multi-column unique over `(claim_id, mode, requested_store_id)` admits exactly
+  the duplicate it exists to refuse. `coalesce(…) || '|' || …` collapses them
+  into one text value and the partial unique is taken on that.
+- **The key spans FOUR columns, and `supersedes_link_id` is the non-obvious
+  one.** Without it, a store could be corrected only ONCE per claim: an
+  `applied` request still holds its key, so a second correction would silently
+  converge on the first. Keyed on the LINK a request ends, each correction is
+  its own request while a replay of one still converges. `supersedes_link_id`
+  is CHECK-required exactly on `correct_link` and `unlink` — a biconditional, so
+  a correction with nothing to correct is as unrepresentable as a creation
+  claiming to supersede something.
+- **`mercaria_store_linkage_request_guard` exists because a generated unique key
+  whose inputs can be edited is not a unique key.** No CHECK can express it: a
+  CHECK evaluates one row and cannot compare it to its own previous version. The
+  trigger freezes the four key columns and makes `resolved_store_id` write-once
+  (the `retail_cost_quote_acceptances.order_id` contract, enforced by a CAS in
+  the repository AND a trigger behind it, for the caller who never comes through
+  the repository).
+- **"Exactly one follow target" has no index, and needs none.** A
+  `mercaria.store` target's identity is `https://mercaria.co/stores/<storeId>`
+  (frontend `lib/follow-graph.ts`), keyed on the store's IMMUTABLE id, and
+  `ensureFollowTarget` is idempotent on that URI — so one target is the SAME
+  fact as one store whose id never moves, which the open key plus the write-once
+  `resolved_store_id` already guarantee. The backend creates no target and
+  constructs no URI; `store-linkage-isolation.test.ts` fails the build if that
+  changes.
+- **The impact preview is SIX integer columns, never a jsonb summary.** The
+  `provider_accounts` requirements decision, and a security property rather than
+  tidiness: an integer column cannot hold a customer name, a listing title or an
+  order number, so an impact preview can never become a way to read a store's
+  book through the operator surface.
+- **"No name-only automatic linkage" is structural in four independent places**,
+  and the schema is the second: no name, similarity, score, confidence,
+  threshold or distance column exists in any of the four tables, so a matcher
+  acting on a resemblance has nowhere to record its answer. (The other three:
+  `STORE_LINKAGE_CANDIDATE_SOURCES` has no `name_match` member — the
+  `NATIVE_STORE_LINK_METHODS` device; every request schema is `.strict()` and
+  carries ids only; `linkage-candidates.ts` takes no name as a parameter.) Note
+  `store_linkage_profile_adoptions.field` legitimately carries the VALUE
+  `'name'` — the store's display name is one of the two adoptable fields — and a
+  value is not a column, which is why the gate checks column names and values
+  with two different patterns rather than one loosened one.
+- **`store_linkage_profile_adoptions` is append-only by TRIGGER** (the
+  `ledger_entries` / `order_fee_snapshots` / `relationship_reviews` precedent)
+  and carries its own `at` with no `updated_at`. `previous_value` is provenance,
+  and provenance that can be rewritten is not provenance. The two closed sets
+  beside it — two adoptable FIELDS (`name`, `description`) and one adoptable
+  SOURCE (`canonical_merchant`) — are what make "do not copy unverified external
+  profile fields into merchant-managed fields silently" unrepresentable rather
+  than merely refused; the handle is not a member, which is how `/m/<handle>`
+  stays stable.
+- **`store_linkage_offer_overlaps` is a FINDING and never a removal.** Both
+  offer references are RESTRICT and nothing in the domain issues an offer DELETE:
+  an external offer survives a merchant going native, with its `source_records`
+  chain intact. The row records which representation a DETERMINISTIC rule
+  preferred and which rule fired — the `payment_discrepancies` shape, with no
+  destructive effect of its own.
+- **The request row IS the job.** Lease columns and an ordered `step` cursor on
+  the record itself, the payment/moderation outbox contract, so an application
+  that dies half way is resumable rather than ambiguous. There is deliberately
+  no background dispatcher: every mode is driven by a person, and a loop
+  retrying identity changes on a clock is not something anybody asked for.
+- **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed.
+
 ### The guest domain has NO source model either
 
 `guest_sessions` (`schema/guests.ts`, `drizzle/0013_guest_sessions.sql`) and
