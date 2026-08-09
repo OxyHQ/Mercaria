@@ -54,6 +54,14 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # Runs BEFORE lint and the typechecks, and needs neither: it reads the
+      # tracked file listing, so it costs a couple of seconds and answers the
+      # one question a green build cannot — whether Mongo came back. Mongo does
+      # not return as a broken build; it returns as a dependency somebody
+      # hoisted, and every other step here passes while it does.
+      - name: Guard against MongoDB returning
+        run: bun run validate:no-mongo
+
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
 
