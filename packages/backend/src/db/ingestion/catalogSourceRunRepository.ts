@@ -20,6 +20,7 @@
 
 import { and, asc, desc, eq, gt, lte, or, sql } from 'drizzle-orm';
 import type {
+  CatalogRefreshMode,
   CatalogSourceHealthState,
   CatalogSourceRunKind,
 } from '@mercaria/shared-types';
@@ -43,6 +44,15 @@ export interface RunPipelineDelta {
   readonly reviewRequired: number;
   readonly unmatched: number;
   readonly offersUpserted: number;
+  /**
+   * Offers retired because the source explicitly declared them gone (#68).
+   *
+   * On the PAGE write and not beside the retirement count, because a removal is
+   * licensed by any run: `catalog_source_runs_retirement_check` guards
+   * `offers_retired` alone, and routing removals through it would refuse a
+   * legitimate deletion notice from an incremental feed.
+   */
+  readonly offersRemoved: number;
 }
 
 /** What one provider call cost. */
@@ -66,6 +76,14 @@ export async function openSourceRun(
   input: {
     sourceId: string;
     kind: CatalogSourceRunKind;
+    /**
+     * WHICH refresh this is (#68). REQUIRED and never defaulted: the one mode
+     * that must not be guessed is `full_snapshot`, since it alone can authorise
+     * retiring what a pass did not see.
+     */
+    refreshMode: CatalogRefreshMode;
+    /** The ids a TARGETED pass re-reads. Empty for every other mode, a CHECK. */
+    targetExternalIds?: readonly string[];
     since: Date | null;
     requestedByOxyUserId: string | null;
     now: Date;
@@ -76,6 +94,8 @@ export async function openSourceRun(
     .values({
       sourceId: input.sourceId,
       kind: input.kind,
+      refreshMode: input.refreshMode,
+      targetExternalIds: [...(input.targetExternalIds ?? [])],
       status: 'pending',
       since: input.since,
       availableAt: input.now,
@@ -194,6 +214,7 @@ export async function recordSourceRunPage(
       reviewRequired: sql`${catalogSourceRuns.reviewRequired} + ${input.pipeline.reviewRequired}`,
       unmatched: sql`${catalogSourceRuns.unmatched} + ${input.pipeline.unmatched}`,
       offersUpserted: sql`${catalogSourceRuns.offersUpserted} + ${input.pipeline.offersUpserted}`,
+      offersRemoved: sql`${catalogSourceRuns.offersRemoved} + ${input.pipeline.offersRemoved}`,
       fetchCount: sql`${catalogSourceRuns.fetchCount} + ${input.fetch.fetchCount}`,
       fetchDurationMs: sql`${catalogSourceRuns.fetchDurationMs} + ${input.fetch.fetchDurationMs}`,
       rateLimitHits: sql`${catalogSourceRuns.rateLimitHits} + ${input.fetch.rateLimitHits}`,

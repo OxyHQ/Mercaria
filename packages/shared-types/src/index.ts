@@ -213,6 +213,13 @@ export * from './canonical-product';
 // native checkout eligibility out of stored columns.
 export * from './offer';
 
+// Source-aware freshness, refresh scheduling and catalogue health (#68).
+// Follows `./offer` and `./ingestion` in the dependency order this list
+// encodes: it types an offer's `freshness` field and reads the ingestion
+// health vocabulary, and BOTH directions are type-only so the pair is not a
+// module cycle. There is no global TTL in it, structurally — see its docblock.
+export * from './offer-freshness';
+
 // Merchant → native `Store` linkage (#84, ADR 0002 D4/D9) — the request that
 // joins a verified merchant claim to exactly one native store, the candidate
 // evidence vocabulary (which has NO name-match member), the adoptable profile

@@ -48,7 +48,7 @@ import {
   listOffersForComparison,
   retireOffers,
   upsertExternalOffer,
-  retireLapsedExternalOffers,
+  listLapsedExternalOfferCandidates,
   retireOffersMissingFromSource,
   type InsertOfferInput,
 } from '../offers/offerRepository.js';
@@ -459,7 +459,7 @@ describe('active-offer uniqueness (acceptance 1)', () => {
     );
   });
 
-  it('refuses a duplicate ACTIVE source mapping, and permits it once the first retires', async () => {
+  it('refuses a duplicate source mapping, for the offer’s WHOLE LIFE (#68)', async () => {
     const canonicalVariantId = await mintCanonicalVariant('source-key');
     const merchantA = await mintMerchant('source-key-a');
     const merchantB = await mintMerchant('source-key-b');
@@ -490,10 +490,35 @@ describe('active-offer uniqueness (acceptance 1)', () => {
       ),
     );
 
-    // The index is PARTIAL on `status = 'active'`, so retiring the incumbent
-    // frees the mapping — which is what lets a source's offer be re-created
-    // after it disappeared without the history being deleted.
+    /**
+     * #68 NARROWED this index: `status = 'active'` LEFT the predicate.
+     *
+     * With it, retiring the incumbent freed the mapping and the next
+     * observation inserted a SECOND row for one external object — splitting its
+     * observed history across two ids with nothing to rejoin them. The identity
+     * now holds for the offer's whole life, so a source republishing an object
+     * it stopped publishing REVIVES the same row (`upsertExternalOffer`) rather
+     * than minting a rival, and a plain insert is still refused.
+     */
     await retireOffers(db, [first.id], 'source_disappeared');
+    await expectRefused('unique', () =>
+      db.insert(offers).values(
+        externalOffer({
+          canonicalVariantId,
+          merchantId: merchantB,
+          sourceRecordId,
+          externalOfferId,
+        }),
+      ),
+    );
+
+    // …and `superseded` is the ONE reason that leaves the index, which is what
+    // lets `0044` collapse a duplicate that accumulated under the old predicate
+    // without deleting a row or blanking its provenance.
+    await db
+      .update(offers)
+      .set({ retirementReason: 'superseded' })
+      .where(eq(offers.id, first.id));
     await db.insert(offers).values(
       externalOffer({
         canonicalVariantId,
@@ -724,7 +749,13 @@ describe('expiry removes an offer from current results and loses nothing (accept
       .returning({ id: offers.id });
     if (!offer) throw new Error('the lapsed offer was not written');
 
-    expect(await retireLapsedExternalOffers(db, 100)).toBeGreaterThanOrEqual(1);
+    // #68 made the sweep a two-step: the repository finds CANDIDATES and the
+    // live per-source policy decides. The candidate read is what this test
+    // pins; `offer-freshness.realdb.test.ts` drives the decision, including the
+    // outage grace that is the whole reason the two are separate.
+    const candidates = await listLapsedExternalOfferCandidates(db, { limit: 100, now: new Date() });
+    expect(candidates.map((candidate) => candidate.offerId)).toContain(offer.id);
+    expect(await retireOffers(db, [offer.id], 'source_expired')).toBe(1);
 
     const [after] = await db.select().from(offers).where(eq(offers.id, offer.id));
     expect(after?.status).toBe('retired');
@@ -762,9 +793,13 @@ describe('expiry removes an offer from current results and loses nothing (accept
       staleAt: past,
     });
 
-    await retireLapsedExternalOffers(db, 100);
+    const candidates = await listLapsedExternalOfferCandidates(db, { limit: 100, now: new Date() });
+    expect(candidates.some((candidate) => candidate.offerId === productVariantId)).toBe(false);
     const stored = await findActiveNativeOfferForVariant(db, productVariantId);
     expect(stored?.status).toBe('active');
+    // The exclusion is on KIND and not on the deadline: this offer's `stale_at`
+    // is in the past and it is still not a candidate.
+    expect(stored?.staleAt.getTime()).toBeLessThan(Date.now());
   });
 
   it('a source that stops publishing an offer retires it and leaves the rest alone', async () => {
@@ -1230,7 +1265,8 @@ describe('the READ gate is live, so a stale offer row is never buyable (acceptan
     // time — there is no copy on the offer to disagree with `catalog_sources`.
     expect(offer.provenance.mayDisplay).toBe(true);
     expect(offer.provenance.attributionRequired).toBe(false);
-    expect(offer.freshness.state).toBe('fresh');
+    // #68: the level comes from the SOURCE's own contract, resolved live.
+    expect(offer.freshness.level).toBe('current');
     // Derived from two foreign keys: the seller is not the channel's operator.
     expect(offer.sellerRole).toBe('marketplace');
     expect(offer.storefrontOperatorMerchantId).toBe(platform);

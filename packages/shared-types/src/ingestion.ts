@@ -300,6 +300,34 @@ export const CATALOG_SOURCE_OBJECT_STATES: readonly CatalogSourceObjectState[] =
   'retired',
 ];
 
+/**
+ * WHY an external object stopped being current (#68 acceptance 2 and 3).
+ *
+ * `catalog_source_objects.retired_at` says THAT it was retired; this says on
+ * what evidence, and the three are not interchangeable:
+ *
+ * - `explicit_removal` — the source itself declared the object gone. Evidence
+ *   from ANY run, complete or not, because it is a positive statement rather
+ *   than an inference from silence. eBay's licence makes it a deletion
+ *   obligation, not a staleness one.
+ * - `snapshot_omission` — a COMPLETE enumeration did not mention it. Evidence
+ *   only from a full snapshot; an incremental feed that omits an object has
+ *   said nothing about it (#62's `mayRetireUnseen`, #68 acceptance 3).
+ * - `ttl_expiry` — nothing said anything for longer than the source's own
+ *   freshness policy permits, and the outage grace has passed too.
+ *
+ * Collapsing them would make "did this merchant delist, or did our crawler
+ * stop?" unanswerable from the row afterwards, which is the question an
+ * operator opens the trace to ask.
+ */
+export type CatalogSourceRetirementKind = 'explicit_removal' | 'snapshot_omission' | 'ttl_expiry';
+
+export const CATALOG_SOURCE_RETIREMENT_KINDS: readonly CatalogSourceRetirementKind[] = [
+  'explicit_removal',
+  'snapshot_omission',
+  'ttl_expiry',
+];
+
 /** Why an object is being held out of the pipeline. */
 export type CatalogSourceQuarantineReason =
   | 'schema_drift'

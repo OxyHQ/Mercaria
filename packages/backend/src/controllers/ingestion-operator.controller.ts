@@ -371,6 +371,12 @@ export async function openSourceRunHandler(req: Request, res: Response): Promise
     const run = await openSourceRun(getDb(), {
       sourceId,
       kind: 'manual',
+      // A manual run with NO watermark asks for a full enumeration, exactly as
+      // #62's `since` docblock already states; with one it is incremental. It
+      // is stated here rather than derived downstream because `full_snapshot`
+      // is the only mode whose outcome may authorise retiring what a pass did
+      // not see, and that must never be inferred from a missing field.
+      refreshMode: body.since === undefined ? 'full_snapshot' : 'incremental',
       since: body.since === undefined ? null : new Date(body.since),
       requestedByOxyUserId: getRequiredOxyUserId(req),
       now: new Date(),

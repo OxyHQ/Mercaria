@@ -2771,3 +2771,135 @@ a statement is reconciled weeks later, and every naive recovery makes it likelie
   supplier billed; nothing here books anything), and the buyer RELAY EMAIL,
   which needs an outbound mail transport Mercaria does not have — so
   `SupplierRecipient` has no email member at all.
+
+## Source-aware offer freshness, refresh and catalogue health (#68)
+
+`services/offer-freshness/` (9 modules) + `db/offerFreshness/` (5 repositories)
++ `db/schema/offerFreshness.ts` (5 tables) + `/internal/offer-freshness/*`, plus
+four columns on tables #57 and #62 own. Full reference:
+**`docs/offer-freshness.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"Offer freshness and catalogue health (#68)". #62 turns a record into an offer;
+this decides how long that offer is worth showing, when it is re-read, how hard
+Mercaria may knock while re-reading it, and what happens when a feed publishes
+something that cannot be true.
+
+The failure mode that shapes it is a REFRESH THAT LOOKED FINE: a source down for
+an hour whose whole catalogue was retired on the deadline, a feed publishing
+majors where minors were, an offer republished after a gap and minted as a
+SECOND row, and a price alert firing on a price nobody could buy.
+
+- **There is no global TTL and four independent things make one
+  unrepresentable.** `SourceFreshnessPolicy` carries the id of the source it was
+  resolved for and `assessOfferFreshness` REFUSES a policy naming a different
+  one (`unknown`/`policy_source_mismatch`), so one shared object cannot serve
+  two sources; every duration lives on a row keyed to one source, with no
+  deployment-scoped row and no nullable `source_id`; `policy.ts` imports no
+  configuration, because the way a global TTL would actually arrive is somebody
+  reaching for `config.offerFreshness.defaultTtlSeconds` when a source has no
+  policy row; and `freshness-isolation.test.ts` fails the build on either. A
+  FRACTION or a MULTIPLE is deliberately permitted — `SOURCE_WARNING_FRACTION`
+  is two thirds of a different number for every source. The prohibition is on a
+  LIFETIME, not on every duration: a poll interval and a rate window are
+  Mercaria's own politeness and are legitimately deployment-wide.
+- **Four layers, each of which can only SHORTEN**: a published freshness
+  version, else the source's own config, capped by the rights policy's
+  contractual `cache_ttl_seconds` (`effectiveOfferLifetimeSeconds` is a `min`
+  with no parameter that could lengthen one), and — for an offer whose source is
+  a bare provenance registry row with no ingestion config — the OFFER's own
+  stored `stale_at`, per offer. That last layer exists so adopting #68 does not
+  withdraw #60's and the operator source's offers from comparison on the deploy
+  that adds it (ADR 0002 D24).
+- **The clock is the last CHECK (`lastSeenAt`), not the last CHANGE.** Running
+  the deadlines from `observedAt` expires every stable price on a feed that
+  republishes the same number daily, which is most of a catalogue. Both ages are
+  reported.
+- **`stale_at` is a PRE-FILTER and the derivation is the AUTHORITY.** The SQL
+  narrows a million rows on the indexed stored deadline; the projection
+  re-derives live and DROPS what it refuses. The two can only disagree after a
+  policy change and the intersection is a SUBSET of what the derivation admits —
+  so a cache cap that shortens a lifetime bites at the next read with no sweep
+  having run, and the disagreement can never SHOW an expired offer. A page may
+  return fewer than `limit`; the keyset cursor is unaffected.
+- **Grace delays the RETIREMENT, never the display.** An offer past its deadline
+  leaves comparison immediately, derived; the durable retirement waits while the
+  source is in a FETCH failure. `rights_suspended` earns NO grace — a withdrawn
+  right is a decision to stop showing the data, so extending its life is exactly
+  what the grace must never do — and neither does `schema_drift`, where Mercaria
+  read the feed fine and did not like what was in it.
+- **Absence and a statement are different evidence** (acceptance 2 versus 3).
+  `AdapterFetchPage.removals` carries positive statements and an OMISSION is not
+  expressible there at all; `catalog_source_objects.retirement_kind` records
+  which of the three paths retired an object; and
+  `catalog_source_runs_complete_mode_check` refuses a complete enumeration from
+  any mode but `full_snapshot`. Removals are counted in `offers_removed`, NOT in
+  `offers_retired`, which `catalog_source_runs_retirement_check` reserves for
+  inferences from silence.
+- **A returning offer revives the SAME row.** `offers_active_source_key` was
+  narrowed to `offers_source_identity_key` by dropping `status = 'active'` from
+  the predicate — with it, a retired offer did not occupy its source key and the
+  next observation minted a rival, splitting the observed history across two
+  ids. `superseded` is excluded from the new predicate, which is what lets the
+  `post` migration collapse a pre-existing duplicate without deleting a row.
+- **The refresh budget binds the FLEET.** `catalog_source_refresh_leases` is
+  `supplier_call_leases` (#122) pointed at an inbound source: "how many calls a
+  minute may this source receive across every ECS task" is not a question an
+  in-process bucket can answer. It does NOT replace #62's source lease, which is
+  about ownership.
+- **Capability first, and a refusal is recorded rather than downgraded.**
+  `chooseRefreshMode` reads the ADAPTER's declared `refreshModes` (now a
+  REQUIRED field, so no adapter claims everything by silence), narrowed by the
+  source's policy and never widened by it. A task asking for a mode the adapter
+  cannot do DEAD-LETTERS with `unsupported_mode`; a targeted refresh quietly
+  served as a full snapshot is a quota bill nobody asked for.
+- **A page is judged BEFORE any of it is published.** #62's loop was
+  persist-then-advance per record; #68 splits it, because by the time the last
+  row shows the distribution to be wrong the first ninety-nine have replaced
+  ninety-nine live prices. A quarantined page advances nothing —
+  `advanceObject` is unreachable, a property of the call graph. **A legitimate
+  half-price sale does not trip the scale detector** (2× against a factor of 10,
+  a real test) and **`mass_disappearance` is measured FIRST and is NOT gated by
+  the price-sample floor**: the pass that fails to mention everything is the one
+  that returns zero records, so gating it there made the worst case the one case
+  the detector was silent about. It gates RETIREMENT rather than publication.
+- **A quarantine ends by an operator RELEASE (actor mandatory) or a CORRECTED
+  run (actor forbidden)** — one CHECK, because a note is not a way to tell them
+  apart. The baseline is written only by a run that was not quarantined, or a
+  broken feed re-bases its own normal in two passes.
+- **`array_length` of an EMPTY array is NULL and a CHECK rejects only FALSE**, so
+  `array_length(col,1) >= 1` ADMITS the empty array it exists to refuse.
+  Measured twice here; both constraints read `coalesce(array_length(col,1),0)`.
+  Any future array-non-emptiness CHECK in this schema must do the same.
+- **Discriminated unions in this domain use STRING discriminants**
+  (`outcome: 'granted' | 'refused'`), because the backend compiles with
+  `strict: false` and without `strictNullChecks` TypeScript does not narrow a
+  union on the TRUTHINESS of a boolean-literal discriminant — `if (!x.granted)`
+  leaves the caller holding the whole union. #122 sidestepped it by discarding
+  one of its two refusal reasons; here the caller must act on the difference.
+- **No product availability/price PROJECTION was adopted**, and that is the
+  answer to "rebuild the summaries after eligible-offer changes": #61 measured
+  the alternative at one million offers and adopted no materialized view, so
+  `readProductOfferSummary` derives it live and there is nothing to fall out of
+  date. It goes through the SAME `listOffersForComparison` plus `projectOffer`
+  the public read uses, so the summary and the list cannot disagree.
+- Env: `OFFER_REFRESH_ENABLED` and `OFFER_EXPIRY_SWEEP_ENABLED` (both gate the
+  LOOP only; turning the sweep off cannot make a stale offer visible, because
+  the verdict is derived at read time) plus the loop tunables and the default
+  concurrency and per-minute allowance for a source that states none. Operator
+  surface `/internal/offer-freshness/*` behind the SAME
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/#62 use, and it
+  stays mounted while the loops are off.
+- **Two migrations**: `0043` (`pre` — five tables, four nullable columns, two
+  backfills, the widened retirement-reason CHECK, and the mode CHECKs written to
+  tolerate the NULL the serving image leaves) and `0044` (`post` —
+  `refresh_mode` NOT NULL, the duplicate collapse, the identity index swap, and
+  the retirement-evidence biconditional). Each `post` statement breaks a write
+  the previous image performs.
+- Deferred with named seams, none of them a stub that lies: **#37** (the
+  outbound redirect — this domain supplies `assertOfferOutboundEligible` and
+  composes no tracked URL), **#78/#79** (price history and alerts — `alerted` is
+  a priority class and `requestPriorityRefresh` is the entry point; "an old
+  price cannot fire a new alert" is already true of anything obtained through
+  `mayAppearInComparison`), **#77** (popularity), **#74** (ranking — a scanned
+  gate both ways), **#63/#65/#66** (the adapters — none registered, so every
+  task dead-letters and says why), **#86** (dashboards read
+  `readSourceCatalogHealth`; scraping belongs to `oxy-infra`).

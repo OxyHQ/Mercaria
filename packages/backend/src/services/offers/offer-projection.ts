@@ -23,17 +23,19 @@
  */
 
 import {
+  assessOfferFreshness,
   deriveNativeCheckoutEligibility,
   deriveOfferCondition,
   deriveOfferDelivery,
-  deriveOfferFreshness,
   deriveOfferSellerRole,
+  nativeOfferFreshness,
   type Offer,
   type OfferAffiliateRouting,
   type OfferConditionKey,
   type OfferProvenance,
   type OfferQualitySignal,
   type OfferReturnPolicy,
+  type SourceFreshnessPolicy,
 } from '@mercaria/shared-types';
 import type { OfferRow } from '../../db/offers/offerRepository.js';
 
@@ -49,6 +51,25 @@ export interface OfferProjectionContext {
   sellerReady: ReadonlyMap<string, boolean>;
   /** `catalog_sources` rights, by SOURCE RECORD id — the registry owns them, never the offer. */
   sourceRights: ReadonlyMap<string, { mayDisplay: boolean; attributionRequired: boolean }>;
+  /**
+   * Which SOURCE each observation came from, by source-record id (#68).
+   *
+   * The offer stores `source_record_id` and the freshness contract is keyed on
+   * the SOURCE, so the projection needs the hop — gathered once per page beside
+   * the rights, which come from the same join. A missing entry means the
+   * observation could not be resolved, and `assessOfferFreshness` answers
+   * `unknown` for a null source rather than guessing a contract.
+   */
+  offerSourceIds: ReadonlyMap<string, string>;
+  /**
+   * Each source's resolved freshness contract, by SOURCE id (#68).
+   *
+   * A policy names the source it was resolved for and
+   * `assessOfferFreshness` refuses one that names a different one, so a
+   * mis-keyed lookup here produces `unknown` rather than another source's
+   * deadlines. That is the structural half of "there is no global TTL".
+   */
+  freshnessPolicies: ReadonlyMap<string, SourceFreshnessPolicy>;
   /**
    * The #90 mapping-ruleset VERSION behind each `condition_mapping_ruleset_id`,
    * gathered once per page.
@@ -134,16 +155,35 @@ export function projectOffer(
   const sellerKey = row.listingId ? context.listingSellerKeys.get(row.listingId) : undefined;
   const sellerReady = sellerKey ? (context.sellerReady.get(sellerKey) ?? false) : false;
 
-  const freshness = deriveOfferFreshness(
-    {
-      observedAt: row.observedAt,
-      firstSeenAt: row.firstSeenAt,
-      lastSeenAt: row.lastSeenAt,
-      lastConfirmedAt: row.lastConfirmedAt,
-      staleAt: row.staleAt,
-    },
-    context.now,
-  );
+  /**
+   * #68 — the verdict comes from the SOURCE's own contract, not from a shared
+   * deadline.
+   *
+   * A native offer takes the other branch entirely: it has no source, its
+   * buyability is derived live from the listing below, and its `stale_at`
+   * measures how long ago the convergence dispatcher ran — expiring it on that
+   * clock would delist a healthy catalogue during a dispatcher outage.
+   */
+  const sourceId = row.sourceRecordId
+    ? (context.offerSourceIds.get(row.sourceRecordId) ?? null)
+    : null;
+  const observation = {
+    sourceId,
+    observedAt: row.observedAt,
+    firstSeenAt: row.firstSeenAt,
+    lastSeenAt: row.lastSeenAt,
+    lastConfirmedAt: row.lastConfirmedAt,
+    declaredUnavailableAt: row.declaredUnavailableAt,
+    storedExpiresAt: row.staleAt,
+  };
+  const freshness =
+    row.kind === 'native'
+      ? nativeOfferFreshness(observation, context.now)
+      : assessOfferFreshness(
+          observation,
+          sourceId === null ? null : (context.freshnessPolicies.get(sourceId) ?? null),
+          context.now,
+        );
 
   /**
    * `stale_observation` is added HERE rather than stored, for the reason the
@@ -157,8 +197,9 @@ export function projectOffer(
     : undefined;
 
   const storedSignals = row.qualitySignals as OfferQualitySignal[];
+  const staleNow = freshness.level === 'expired' || freshness.level === 'unavailable';
   const qualitySignals: OfferQualitySignal[] =
-    freshness.state === 'stale' && !storedSignals.includes('stale_observation')
+    staleNow && !storedSignals.includes('stale_observation')
       ? [...storedSignals, 'stale_observation']
       : storedSignals;
 

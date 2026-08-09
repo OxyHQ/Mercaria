@@ -56,8 +56,11 @@ import type {
   CatalogSourceRightsVerdict,
   NormalizedSourceRecord,
   OfferKind,
+  SourceAnomalyFinding,
   SourceLinkMethod,
+  SourceObservationDistribution,
 } from '@mercaria/shared-types';
+import { effectiveOfferLifetimeSeconds } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
@@ -85,10 +88,32 @@ import {
   releaseSourceRun,
   type CatalogSourceRunRow,
 } from '../../db/ingestion/catalogSourceRunRepository.js';
-import { retireOffers } from '../../db/offers/offerRepository.js';
+import { declareOffersUnavailable, retireOffers } from '../../db/offers/offerRepository.js';
+import {
+  countActiveSourceObjects,
+  findSourceObjectsByExternalIds,
+} from '../../db/ingestion/catalogSourceObjectRepository.js';
 import { runMatch } from '../matching/match.service.js';
 import { recordExternalOffer } from '../offers/offer.service.js';
-import { classifyFetchError, type AdapterFetchPage, type AdapterRecord } from './adapter.js';
+import {
+  EMPTY_DISTRIBUTION,
+  summariseObservations,
+  type ObservedPrice,
+} from '../offer-freshness/distribution.js';
+import {
+  judgePagePublication,
+  settleRunQuarantines,
+} from '../offer-freshness/quarantine.service.js';
+import {
+  resolveFreshnessFromRows,
+  type ResolvedFreshnessPolicy,
+} from '../offer-freshness/policy.js';
+import {
+  classifyFetchError,
+  type AdapterFetchPage,
+  type AdapterRecord,
+  type AdapterRemoval,
+} from './adapter.js';
 import {
   classifyRunOutcome,
   isDegraded,
@@ -233,6 +258,22 @@ export async function runIngestionPage(input: {
   }
 
   /**
+   * The source's own freshness contract (#68), resolved BEFORE the fetch so the
+   * deadline every observation is stamped with comes from a policy rather than
+   * from a constant.
+   *
+   * It is built from rows `resolveIngestionSource` has ALREADY read — the
+   * config and the active rights policy — so a page costs one extra query
+   * rather than four. There is no `undefined` branch to handle: a run only
+   * exists for a configured source, which is the whole of what this needs.
+   */
+  const freshness = await resolveFreshnessFromRows(
+    { config: resolved.source.config, rights: resolved.policy },
+    db,
+  );
+
+
+  /**
    * The rights gate, BEFORE the fetch.
    *
    * A source whose refresh right was withdrawn between the claim and now must
@@ -245,6 +286,7 @@ export async function runIngestionPage(input: {
     return closeRun({
       run,
       resolved,
+      freshness,
       leaseOwner: input.leaseOwner,
       outcome: 'rights_suspended',
       failed: false,
@@ -265,6 +307,7 @@ export async function runIngestionPage(input: {
     return closeRun({
       run,
       resolved,
+      freshness,
       leaseOwner: input.leaseOwner,
       outcome: 'rights_suspended',
       failed: false,
@@ -284,6 +327,8 @@ export async function runIngestionPage(input: {
       sourceAccountRef: resolved.source.config.sourceAccountRef,
       since: run.since,
       territories: resolved.source.config.territories,
+      mode: run.refreshMode,
+      externalIds: run.targetExternalIds,
     });
   } catch (error: unknown) {
     const failure = classifyFetchError(error);
@@ -314,6 +359,7 @@ export async function runIngestionPage(input: {
     return closeRun({
       run,
       resolved,
+      freshness,
       leaseOwner: input.leaseOwner,
       outcome: classifyRunOutcome({
         enumerationComplete: false,
@@ -340,17 +386,30 @@ export async function runIngestionPage(input: {
     offersUpserted: 0,
   };
 
+  /**
+   * PHASE 1 — PERSIST. Every record becomes an observation, whatever the page
+   * turns out to look like as a whole.
+   *
+   * Provenance is never withheld: an anomalous feed is a fact somebody needs to
+   * be able to inspect afterwards, and a page that stored nothing would leave
+   * the operator trace with nothing to show. What the gate below withholds is
+   * PUBLICATION.
+   */
   const seenInPage = new Set<string>();
+  const pending: PendingObject[] = [];
+  const prices: ObservedPrice[] = [];
   for (const record of page.records) {
     intake.fetched += 1;
     try {
-      await ingestOneRecord({
+      await persistOneRecord({
         record,
         run,
         resolved,
+        freshness,
         seenInPage,
         intake,
-        pipeline,
+        pending,
+        prices,
         now,
       });
     } catch (error: unknown) {
@@ -374,13 +433,82 @@ export async function runIngestionPage(input: {
     }
   }
 
+  /**
+   * PHASE 2 — EXPLICIT REMOVALS, before the gate and independent of it.
+   *
+   * A removal is a POSITIVE STATEMENT from the source and is evidence from any
+   * run, complete or not (#68 acceptance 2). It is applied before the
+   * distribution gate deliberately: the gate is about whether the PRICES this
+   * page carried can be believed, and a finding about prices says nothing about
+   * a deletion notice — holding one back would keep publishing a listing the
+   * source has told us is gone, which is the obligation eBay's licence makes
+   * non-negotiable.
+   */
+  const removed = await applyExplicitRemovals({
+    run,
+    freshness,
+    removals: page.removals ?? [],
+    now,
+  });
+
+  /**
+   * PHASE 3 — the PRE-PUBLICATION gate (#68 anomaly 2 and 5).
+   *
+   * The page's distribution is compared against the source's stored baseline
+   * BEFORE any of it becomes an offer. A quarantined page advances nothing, so
+   * "never overwrite prior current offers with unvalidated anomalous records"
+   * is a property of the call graph — `advanceObject` is simply unreachable —
+   * rather than of a branch somebody remembers to write.
+   *
+   * `unseenPriorObjects` is `null` here and is measured only at CLOSE, where a
+   * complete enumeration is the only thing that could establish an absence.
+   */
+  const distribution = summariseObservations({ sampleSize: intake.fetched, prices });
+  const verdict = await judgePagePublication(db, {
+    runId: run.id,
+    sourceId: run.sourceId,
+    distribution,
+    thresholds: freshness.anomalyThresholds,
+    unseenPriorObjects: null,
+    heldObjects: pending.length,
+    now,
+  });
+
+  if (verdict.mayPublish) {
+    for (const item of pending) {
+      await advanceObject({
+        object: item.object,
+        observationId: item.observationId,
+        resolved,
+        pipeline,
+        normalized: item.normalized,
+        now,
+      });
+    }
+  } else {
+    for (const item of pending) {
+      await quarantineSourceObject(db, {
+        id: item.object.id,
+        reason: 'anomalous_change',
+        detail: verdict.findings.map((finding) => finding.kind).join(','),
+        now,
+      });
+    }
+    // The intake partition stays exact: these records were STORED as
+    // observations and then HELD, and `quarantined` is the outcome that means
+    // "held out of the pipeline". Moving them rather than double-counting is
+    // what keeps `catalog_source_runs_intake_total_check` satisfiable.
+    intake.stored -= pending.length;
+    intake.quarantined += pending.length;
+  }
+
   const owned = await recordSourceRunPage(db, {
     id: run.id,
     leaseOwner: input.leaseOwner,
     cursor: page.nextCursor,
     enumerationComplete: page.complete,
     intake,
-    pipeline,
+    pipeline: { ...pipeline, offersRemoved: removed },
     fetch: {
       fetchCount: 1,
       fetchDurationMs,
@@ -424,6 +552,7 @@ export async function runIngestionPage(input: {
   return closeRun({
     run: totals,
     resolved,
+    freshness,
     leaseOwner: input.leaseOwner,
     outcome,
     failed: false,
@@ -431,20 +560,35 @@ export async function runIngestionPage(input: {
     retryAfterMs: undefined,
     now,
     pageStats: { intake, pipeline },
+    closingDistribution: distribution,
+    pageFindings: verdict.findings,
   });
 }
 
-/** One record, all the way through the pipeline. */
-async function ingestOneRecord(args: {
+/**
+ * One record, PERSISTED — and no further (#68).
+ *
+ * #62's `ingestOneRecord` went all the way from a payload to an offer. #68
+ * splits it after persistence, because "never overwrite prior current offers
+ * with unvalidated anomalous records" is a promise no per-record step can make:
+ * by the time the last row of a page shows the distribution to be wrong, the
+ * first ninety-nine have already replaced ninety-nine live prices.
+ *
+ * What survives from a record that gets this far is a {@link PendingObject},
+ * which the page-level gate either advances or quarantines.
+ */
+async function persistOneRecord(args: {
   record: AdapterRecord;
   run: CatalogSourceRunRow;
   resolved: ResolvedIngestionSource;
+  freshness: ResolvedFreshnessPolicy;
   seenInPage: Set<string>;
   intake: IntakeTally;
-  pipeline: PipelineTally;
+  pending: PendingObject[];
+  prices: ObservedPrice[];
   now: Date;
 }): Promise<void> {
-  const { record, run, resolved, seenInPage, intake, pipeline, now } = args;
+  const { record, run, resolved, freshness, seenInPage, intake, pending, prices, now } = args;
   const db = getDb();
   const reject = async (
     reasonCode: CatalogSourceRejectionReason,
@@ -491,9 +635,18 @@ async function ingestOneRecord(args: {
     return;
   }
 
-  const staleAt = new Date(
-    now.getTime() + resolved.source.config.freshnessTtlSeconds * 1_000,
-  );
+  /**
+   * The deadline comes from the SOURCE's own freshness contract (#68), capped
+   * by whatever its rights policy permits.
+   *
+   * `effectiveOfferLifetimeSeconds` is a `min` over the policy's expiry and the
+   * contractual cache cap, so a provider that permits 24 hours of caching gets
+   * 24 hours whatever a Mercaria operator typed. The fallback when a source has
+   * somehow lost its config between the claim and now is that source's OWN
+   * configured TTL — the same number #62 used, and still not a global one.
+   */
+  const lifetimeSeconds = effectiveOfferLifetimeSeconds(freshness.policy);
+  const staleAt = new Date(now.getTime() + lifetimeSeconds * 1_000);
 
   /**
    * `may_store` decides whether the PAYLOAD is kept, not whether the
@@ -531,6 +684,14 @@ async function ingestOneRecord(args: {
     price: normalized.price === undefined ? null : { ...normalized.price },
     now,
   });
+
+  // Every price this page carried feeds the distribution gate, INCLUDING the
+  // ones whose object turns out to be unchanged or quarantined: the question
+  // the gate asks is "what shape is this feed publishing", and filtering the
+  // sample by what Mercaria did with each row would answer a different one.
+  if (normalized.price !== undefined) {
+    prices.push({ amount: normalized.price.amount, currency: normalized.price.currency });
+  }
 
   if (upserted.outcome === 'stale') {
     // Issue concurrency 3, and it is RECORDED rather than dropped: a source
@@ -574,7 +735,63 @@ async function ingestOneRecord(args: {
   // content.
   if (object.state === 'quarantined') return;
 
-  await advanceObject({ object, observationId: observation.record.id, resolved, pipeline, normalized, now });
+  pending.push({ object, observationId: observation.record.id, normalized });
+}
+
+/** A persisted record awaiting the page-level publication gate (#68). */
+interface PendingObject {
+  readonly object: CatalogSourceObjectRow;
+  readonly observationId: string;
+  readonly normalized: NormalizedSourceRecord;
+}
+
+/**
+ * Apply what the source EXPLICITLY said is gone (#68 acceptance 2).
+ *
+ * The distinction this function exists to hold: a removal is a POSITIVE
+ * STATEMENT and licenses retirement from ANY run, while an OMISSION licenses it
+ * only from a complete enumeration (`retireUnseen`, below). Two code
+ * paths rather than one with a flag, because the difference is not a parameter
+ * — it is which run kinds may reach it at all.
+ *
+ * `retire_on_source_unavailable` decides whether the offer is RETIRED or merely
+ * marked. Either way it leaves comparison immediately: `assessOfferFreshness`
+ * reads `declared_unavailable_at` FIRST, so the derived level is `unavailable`
+ * whatever the clock or the status says.
+ */
+async function applyExplicitRemovals(args: {
+  run: CatalogSourceRunRow;
+  freshness: ResolvedFreshnessPolicy;
+  removals: readonly AdapterRemoval[];
+  now: Date;
+}): Promise<number> {
+  const { run, freshness, removals, now } = args;
+  if (removals.length === 0) return 0;
+  const db = getDb();
+
+  const objects = await findSourceObjectsByExternalIds(db, {
+    sourceId: run.sourceId,
+    externalIds: removals.map((removal) => removal.externalId),
+  });
+  const declaredAt = new Map(removals.map((removal) => [removal.externalId, removal.observedAt]));
+  // The source's own policy decides; it defaults TRUE, because retaining
+  // something a source says is gone breaks a contract rather than a page.
+  const retire = freshness.policy.retireOnSourceUnavailable;
+
+  let removed = 0;
+  for (const object of objects) {
+    if (object.state === 'retired') continue;
+    if (object.offerId !== null) {
+      removed += await declareOffersUnavailable(db, {
+        offerIds: [object.offerId],
+        declaredAt: declaredAt.get(object.externalId) ?? now,
+        retire,
+        now,
+      });
+    }
+    if (retire) await retireSourceObject(db, { id: object.id, kind: 'explicit_removal', now });
+  }
+  return removed;
 }
 
 /**
@@ -808,6 +1025,7 @@ async function materializeOffer(args: {
 async function closeRun(args: {
   run: CatalogSourceRunRow;
   resolved: ResolvedIngestionSource;
+  freshness: ResolvedFreshnessPolicy;
   leaseOwner: string;
   outcome: CatalogSourceHealthState;
   failed: boolean;
@@ -815,6 +1033,10 @@ async function closeRun(args: {
   retryAfterMs: number | undefined;
   now: Date;
   pageStats?: { intake: IntakeTally; pipeline: PipelineTally };
+  /** The closing page's distribution — the baseline candidate. See below. */
+  closingDistribution?: SourceObservationDistribution;
+  /** What the closing page's gate found, so a clean run can CORRECT them. */
+  pageFindings?: readonly SourceAnomalyFinding[];
 }): Promise<IngestPageResult> {
   const db = getDb();
   const owned = await finishSourceRun(db, {
@@ -827,15 +1049,78 @@ async function closeRun(args: {
   });
   if (!owned) return emptyResult(args.run.id, args.run.sourceId, 'lease_lost');
 
+  /**
+   * MASS DISAPPEARANCE gates RETIREMENT, and is measured only here (#68 anomaly
+   * 1 and 5).
+   *
+   * It is the one finding a page cannot make: "how much of the catalogue did
+   * this pass fail to mention" is only answerable once the pass is over, and
+   * only a COMPLETE enumeration makes silence mean anything at all. So the
+   * detector runs inside the `mayRetireUnseen` branch — which is also where its
+   * consequence lives, because a feed that dropped nine tenths of its rows must
+   * not have those rows retired on its say-so.
+   */
+  const thresholds = args.freshness.anomalyThresholds;
   let retired = 0;
+  let disappearanceFindings: readonly SourceAnomalyFinding[] = [];
+  // Counted ONCE and reused by both the detector and the baseline: two reads
+  // could legitimately disagree, since a retirement between them changes the
+  // answer — and the denominator the share was taken over is exactly what the
+  // baseline should record.
+  let knownObjects = 0;
+  let knownObjectsCounted = false;
   if (mayRetireUnseen({ enumerationComplete: args.run.enumerationComplete, outcome: args.outcome })) {
-    retired = await retireUnseenForRun({
+    const seenSince = args.run.startedAt ?? args.now;
+    const unseen = await listUnseenSourceObjects(db, {
       sourceId: args.run.sourceId,
-      seenSince: args.run.startedAt ?? args.now,
+      seenSince,
+      limit: config.catalogIngestion.retirementBatchSize,
+    });
+    knownObjects = await countActiveSourceObjects(db, args.run.sourceId);
+    knownObjectsCounted = true;
+
+    const verdict = await judgePagePublication(db, {
+      runId: args.run.id,
+      sourceId: args.run.sourceId,
+      distribution: args.closingDistribution ?? EMPTY_DISTRIBUTION,
+      thresholds,
+      unseenPriorObjects: unseen.length,
+      priorObjectCountOverride: knownObjects,
+      heldObjects: unseen.length,
       now: args.now,
     });
-    await recordSourceRunRetirement(db, { id: args.run.id, retired });
+    disappearanceFindings = verdict.findings;
+
+    if (verdict.mayPublish) {
+      retired = await retireUnseen(unseen, args.now);
+      await recordSourceRunRetirement(db, { id: args.run.id, retired });
+    }
   }
+
+  /**
+   * Adopt this run's distribution as the source's new baseline, and CORRECT the
+   * findings it no longer trips (#68 anomaly 4).
+   *
+   * The baseline is the CLOSING page's distribution rather than the whole run's,
+   * and that approximation is stated rather than hidden: a running median needs
+   * every price of a million-row feed in memory or a t-digest, and neither is
+   * worth building for a comparison whose job is to notice a change of SHAPE.
+   * A page is a representative sample of a paginated feed, and the detector's
+   * own minimum-sample floor is what keeps a short final page from becoming the
+   * baseline.
+   */
+  const closing = args.closingDistribution ?? EMPTY_DISTRIBUTION;
+  await settleRunQuarantines(db, {
+    runId: args.run.id,
+    sourceId: args.run.sourceId,
+    distribution: closing,
+    objectCount:
+      knownObjectsCounted || closing.sampleSize === 0
+        ? knownObjects
+        : await countActiveSourceObjects(db, args.run.sourceId),
+    findings: [...(args.pageFindings ?? []), ...disappearanceFindings],
+    now: args.now,
+  });
 
   const delayMs = nextRunDelayMs({
     cadenceSeconds: args.resolved.source.config.fetchCadenceSeconds,
@@ -882,24 +1167,22 @@ async function closeRun(args: {
  * and the append-only observation chain behind it all survive, which is what
  * keeps the observed price history reachable afterwards.
  */
-export async function retireUnseenForRun(input: {
-  sourceId: string;
-  seenSince: Date;
-  now: Date;
-}): Promise<number> {
+export async function retireUnseen(
+  objects: readonly CatalogSourceObjectRow[],
+  now: Date,
+): Promise<number> {
   const db = getDb();
-  const objects = await listUnseenSourceObjects(db, {
-    sourceId: input.sourceId,
-    seenSince: input.seenSince,
-    limit: config.catalogIngestion.retirementBatchSize,
-  });
-
   let retired = 0;
   for (const object of objects) {
     if (object.offerId !== null) {
-      await retireOffers(db, [object.offerId], 'source_disappeared', input.now);
+      await retireOffers(db, [object.offerId], 'source_disappeared', now);
     }
-    if (await retireSourceObject(db, { id: object.id, now: input.now })) retired += 1;
+    // `snapshot_omission` and never `explicit_removal`: this branch is reached
+    // only from a COMPLETE enumeration's silence, and recording it as a
+    // statement the source made would put a claim in the trace nobody made.
+    if (await retireSourceObject(db, { id: object.id, kind: 'snapshot_omission', now })) {
+      retired += 1;
+    }
   }
   return retired;
 }

@@ -40,6 +40,7 @@
  */
 
 import type {
+  CatalogRefreshMode,
   CatalogSourceFetchFailureKind,
   CatalogSourceKind,
   NormalizedSourceRecord,
@@ -73,8 +74,49 @@ export interface AdapterFetchRequest {
   readonly since: Date | null;
   /** Markets the source is configured for. Empty means unrestricted. */
   readonly territories: readonly string[];
+  /**
+   * WHICH refresh this is (#68 scheduler 1).
+   *
+   * An adapter that cannot enumerate completely never receives
+   * `full_snapshot`, because the scheduler reads {@link
+   * CatalogSourceAdapter.refreshModes} before opening the task — so an adapter
+   * does not have to defend against a mode it declared it cannot do. It is
+   * passed anyway because a provider often has a cheaper call for one of them
+   * (eBay's `getItems` batches twenty ids; its search does not).
+   */
+  readonly mode: CatalogRefreshMode;
+  /**
+   * The external ids to re-read, for a `targeted` refresh and no other mode.
+   *
+   * Empty for every whole-source mode, which is what
+   * `offer_refresh_tasks_mode_subject_check` guarantees one layer down: a
+   * snapshot cannot name an object and a targeted refresh must.
+   */
+  readonly externalIds: readonly string[];
   /** Bounds the fetch; the run's lease is what sets it. */
   readonly signal?: AbortSignal;
+}
+
+/**
+ * One object the source says is GONE (#68 acceptance 2, freshness input 5).
+ *
+ * The critical distinction this type exists to make: a removal is a POSITIVE
+ * STATEMENT and is therefore evidence from ANY run, complete or not — an eBay
+ * item that 404s on a targeted re-read, a feed row carrying a deletion marker.
+ * An OMISSION is an inference and is only evidence when the enumeration was
+ * complete, which is why omissions are not expressible here at all: an adapter
+ * reports what it SAW, and what it did not see is the framework's to interpret
+ * against `AdapterFetchPage.complete`.
+ *
+ * eBay's API License Agreement makes the difference operational rather than
+ * pedantic: content must be DELETED once the listing is no longer publicly
+ * available, which is a removal, not a staleness.
+ */
+export interface AdapterRemoval {
+  readonly externalType: SourceRecordExternalType;
+  readonly externalId: string;
+  /** When the source said so. Set by the adapter so a batch shares one instant. */
+  readonly observedAt: Date;
 }
 
 /** One record, exactly as one adapter read it. */
@@ -109,6 +151,14 @@ export interface AdapterRecord {
 /** One bounded page. */
 export interface AdapterFetchPage {
   readonly records: readonly AdapterRecord[];
+  /**
+   * Objects the source EXPLICITLY declared gone during this page (#68).
+   *
+   * Optional because most feeds never say it — a CSV that simply stops
+   * containing a row has made no statement — and an adapter that cannot observe
+   * a removal must not have to fabricate an empty promise about it.
+   */
+  readonly removals?: readonly AdapterRemoval[];
   /** `null` when there are no further pages. */
   readonly nextCursor: string | null;
   /**
@@ -150,6 +200,22 @@ export interface CatalogSourceAdapter {
    * by hoping the operator configured the right kind.
    */
   readonly extraction: boolean;
+  /**
+   * Which refresh modes this adapter can actually perform (#68 scheduler 1).
+   *
+   * NOT optional, and that is the point. #68 asks that refresh work be
+   * "scheduled according to adapter capability", and a defaulted list would
+   * make every adapter claim every capability by silence — including
+   * `full_snapshot`, the ONE mode that authorises retiring what a pass did not
+   * see. An Awin CSV feed declares `full_snapshot`; an eBay Browse adapter
+   * declares `query_driven` and `targeted` and NOT `full_snapshot`, because no
+   * call it has enumerates a marketplace.
+   *
+   * A source's own policy may NARROW this (`permitted_refresh_modes`) and can
+   * never widen it: a capability is a fact about somebody else's API, and no
+   * Mercaria row makes an API able to do something.
+   */
+  readonly refreshModes: readonly CatalogRefreshMode[];
   fetchPage(request: AdapterFetchRequest): Promise<AdapterFetchPage>;
 }
 

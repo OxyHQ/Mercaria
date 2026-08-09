@@ -2859,6 +2859,105 @@ here:
   of purchase orders and are what a chargeback months later is reconciled
   against, so they carry no deadline at all.
 
+## Offer freshness and catalogue health (#68)
+
+Five tables — `catalog_source_freshness_policies`, `offer_refresh_tasks`,
+`catalog_source_refresh_leases`, `catalog_source_distributions`,
+`catalog_source_run_quarantines` — plus four columns on tables #57 and #62 own.
+Full behaviour: `docs/offer-freshness.md`.
+
+**There is no deployment-scoped row anywhere in this domain, and no nullable
+`source_id` that could mean "all sources".** Every duration lives on a row keyed
+to ONE source. That is the schema half of "no global TTL"; the code half is that
+`services/offer-freshness/policy.ts` imports no configuration, and a scanned
+gate fails the build if it starts to.
+
+`catalog_source_freshness_policies` is the `fee_schedules` mechanism, third
+outing: a version frozen once active (a trigger), one active per source (a
+partial unique), a mandatory reviewer on an active row, and supersede-then-insert
+rather than an UPDATE. It is a separate table from `catalog_source_configs`
+because the config is operational state a dispatcher rewrites every fifteen
+minutes, while two of the three things these numbers encode are CONTRACTUAL — a
+negotiated cache term and a retention obligation — and "what were the terms in
+March" must stay answerable.
+
+`offer_refresh_tasks` is a CONVERGENCE queue (`offer_outboxes`' shape, not the
+moderation outbox's), and two devices carry its correctness:
+
+- `priority_rank` is a STORED GENERATED `case` over `priority_class`, rendered
+  from the same tuple the scheduler reads. The queue's ordering key is therefore
+  a function of the row rather than a number a service computed. The `else`
+  branch ranks an unrecognised class LAST, so a widening that forgot the
+  expression starves the new class instead of pre-empting every real one.
+- `subject_key` carries a SENTINEL (`*`) for a whole-source task rather than
+  NULL, because Postgres treats NULLs as DISTINCT and the convergence unique is
+  what makes five requests owe one refresh. The `offers.source_key` device.
+
+`catalog_source_refresh_leases` is `supplier_call_leases` (#122) verbatim,
+pointed at an inbound source: a slot is a ROW so concurrency is a row lock, and
+the per-minute allowance rides that same row so the rate bound is serialized by
+it. It does NOT replace #62's source lease, which is about ownership.
+
+`catalog_source_distributions` is ONE current row per source and not a history:
+the question is "does what arrived just now look like what this feed normally
+looks like", which needs the baseline and not a time series of them. Its run
+pointer is `ON DELETE SET NULL` — the baseline is a fact about the SOURCE and the
+run is provenance for it, so CASCADE would delete a live baseline and RESTRICT
+would make a run undeletable, which is a blocked teardown wearing a guarantee's
+name (`product_save_sources.save_id`'s reasoning).
+
+`catalog_source_run_quarantines` records the statistic, the baseline it was
+compared against and how it ended. `catalog_source_run_quarantines_actor_shape_check`
+makes the actor MANDATORY on a `released` row and FORBIDDEN on a `corrected`
+one — an operator taking responsibility and a feed coming back into range are
+different facts, and a note somebody wrote is not a way to tell them apart.
+
+### Two `array_length` traps, both silent in the PERMISSIVE direction
+
+`array_length` of an EMPTY array is NULL, and a CHECK rejects only FALSE — so
+`array_length(col, 1) >= 1` ADMITS the empty array it was written to refuse.
+Measured twice here: a targeted run with no ids and a refresh task with no
+reasons both committed. Both constraints now read
+`coalesce(array_length(col, 1), 0) >= 1`. Any future array-non-emptiness CHECK
+in this schema must do the same.
+
+### The columns added to tables this issue does not own
+
+- **`offers.declared_unavailable_at`** — when the SOURCE said the object is
+  gone. Stored rather than derived because it is a fact somebody told us, not a
+  deadline against a clock. A native offer cannot carry one (a CHECK), and the
+  `source_unavailable` retirement reason cannot be written without one (another
+  CHECK), so the difference between "the source said so" and "we inferred it
+  from a snapshot" is a fact about the row.
+- **`catalog_source_objects.retirement_kind`** — on what EVIDENCE it was
+  retired, biconditional with `retired_at`. `post`, because the image before #68
+  wrote the first half and not the second; `0043` backfills the existing rows to
+  `snapshot_omission`, which is the only path that retired anything before.
+- **`catalog_source_runs.refresh_mode` and `target_external_ids`** — which
+  refresh this pass is, and which objects a targeted one names.
+  `catalog_source_runs_complete_mode_check` is the third leg beside the
+  adapter's `complete` flag and the run's outcome: an incremental pass cannot
+  claim a complete enumeration. `refresh_mode` is added NULLABLE in `pre`,
+  backfilled, and made NOT NULL in `post` — adding it NOT NULL with no default
+  would break every run the serving image opens.
+- **`catalog_source_runs.offers_removed`** — a SEPARATE counter from
+  `offers_retired`, which `catalog_source_runs_retirement_check` reserves for
+  retirements inferred from a complete enumeration's silence. One column for
+  both would either refuse a legitimate deletion notice from an incremental feed
+  or make the CHECK meaningless.
+
+### `offers_active_source_key` was NARROWED to `offers_source_identity_key`
+
+`status = 'active'` LEFT the predicate. With it, a retired offer whose source
+published the object again did not conflict, so the upsert inserted a SECOND row
+for one external object and split its observed history across two ids. The
+identity now holds for the offer's whole life and a return is a revival.
+
+`superseded` is excluded from the new predicate, which is what lets `0044`
+collapse any pre-existing duplicate without deleting a row or blanking its
+provenance: the older copies are retired with the reason #57 already defines as
+"a newer offer took this one's active source mapping".
+
 ## Register: every `jsonb` column, and why it earned it
 
 `jsonb` is for genuinely shape-less data only. Eight columns qualify in 129 tables;

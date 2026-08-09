@@ -15,18 +15,18 @@
  * - `deriveNativeCheckoutEligibility` gets an UNTRACKED variant with zero
  *   available. Tracked-with-stock and tracked-without both agree under a naive
  *   `available > 0`; only the untracked-with-zero row tells the two apart.
- * - `deriveOfferFreshness` gets an instant exactly ON each boundary, because an
- *   off-by-one in `>=` versus `>` is invisible to a fixture in the middle of an
- *   interval.
+ * - the FRESHNESS derivation moved to `offer-freshness.test.ts` with #68, where
+ *   it takes a per-source policy rather than a bare deadline. The
+ *   boundary-fixture rule went with it: an instant exactly ON each threshold,
+ *   because an off-by-one in `>=` versus `>` is invisible to a fixture in the
+ *   middle of an interval.
  */
 
 import { describe, expect, it } from 'vitest';
 import {
   deriveNativeCheckoutEligibility,
   deriveOfferDelivery,
-  deriveOfferFreshness,
   deriveOfferSellerRole,
-  OFFER_AGING_FRACTION,
 } from '@mercaria/shared-types';
 
 describe('deriveOfferSellerRole (ADR 0002 D8)', () => {
@@ -98,45 +98,6 @@ describe('deriveOfferDelivery — unknown is not zero (issue acceptance 4)', () 
     expect(
       deriveOfferDelivery({ costAmount: 0, costCurrency: 'EUR', pickup: 'unavailable' }).pickup,
     ).toBe('unavailable');
-  });
-});
-
-describe('deriveOfferFreshness — derived from a deadline, never stored', () => {
-  const observedAt = new Date('2026-08-01T00:00:00.000Z');
-  const staleAt = new Date('2026-08-04T00:00:00.000Z');
-  const base = { observedAt, firstSeenAt: observedAt, lastSeenAt: observedAt, staleAt };
-  /** The exact instant the window turns `aging`, computed the way the function does. */
-  const agingAt = new Date(
-    observedAt.getTime() + (staleAt.getTime() - observedAt.getTime()) * OFFER_AGING_FRACTION,
-  );
-
-  it('is fresh one millisecond BEFORE the aging boundary and aging ON it', () => {
-    expect(deriveOfferFreshness(base, new Date(agingAt.getTime() - 1)).state).toBe('fresh');
-    expect(deriveOfferFreshness(base, agingAt).state).toBe('aging');
-  });
-
-  it('is aging one millisecond BEFORE the deadline and stale ON it', () => {
-    expect(deriveOfferFreshness(base, new Date(staleAt.getTime() - 1)).state).toBe('aging');
-    expect(deriveOfferFreshness(base, staleAt).state).toBe('stale');
-  });
-
-  it('is stale immediately when the source published a deadline in the past', () => {
-    // A source whose TTL already expired at observation time has no fresh window
-    // at all, and the guarded division must not turn that into a negative
-    // fraction nobody can reason about.
-    const backwards = {
-      ...base,
-      staleAt: new Date(observedAt.getTime() - 60_000),
-    };
-    expect(deriveOfferFreshness(backwards, observedAt).state).toBe('stale');
-  });
-
-  it('reports the issue’s expiry and the ADR’s deadline as ONE instant', () => {
-    expect(deriveOfferFreshness(base, observedAt).expiresAt).toBe(staleAt.toISOString());
-  });
-
-  it('never reports a negative age for an observation the clock has not reached', () => {
-    expect(deriveOfferFreshness(base, new Date(observedAt.getTime() - 5_000)).ageSeconds).toBe(0);
   });
 });
 

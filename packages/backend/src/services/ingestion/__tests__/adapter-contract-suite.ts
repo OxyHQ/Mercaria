@@ -56,6 +56,10 @@ import {
   catalogSourceRejections,
   catalogSourceRuns,
 } from '../../../db/schema/ingestion.js';
+import {
+  catalogSourceDistributions,
+  catalogSourceRunQuarantines,
+} from '../../../db/schema/offerFreshness.js';
 import { openSourceRun } from '../../../db/ingestion/catalogSourceRunRepository.js';
 import { runIngestionPage } from '../ingest.service.js';
 import {
@@ -233,6 +237,15 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       await db
         .delete(canonicalProductSourceLinks)
         .where(inArray(canonicalProductSourceLinks.productId, safeIds(createdProductIds)));
+      // #68's baseline and quarantine rows go FIRST: a clean run adopts its
+      // distribution as the source's baseline, and both tables reference the
+      // registry row the teardown is about to remove.
+      await db
+        .delete(catalogSourceRunQuarantines)
+        .where(inArray(catalogSourceRunQuarantines.sourceId, safeIds(createdSourceIds)));
+      await db
+        .delete(catalogSourceDistributions)
+        .where(inArray(catalogSourceDistributions.sourceId, safeIds(createdSourceIds)));
       await db
         .delete(matchDecisions)
         .where(inArray(matchDecisions.policyVersionId, safeIds(createdPolicyIds)));
@@ -246,15 +259,31 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       await db
         .delete(catalogSourceConfigs)
         .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
-      await db.execute(
-        sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
-      );
-      await db
-        .delete(catalogSourcePolicies)
-        .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
-      await db.execute(
-        sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
-      );
+      /**
+       * The disable/delete/enable window is taken under a SESSION ADVISORY
+       * LOCK (#68).
+       *
+       * `alter table … disable trigger` is DATABASE-WIDE and every realdb file
+       * shares one server, so two files inside this window at once leave one of
+       * them deleting against a trigger the other has just re-enabled —
+       * measured, as a teardown failure naming a trigger the test had disabled
+       * two statements earlier. The key's VALUE means nothing; its SAMENESS
+       * across every file that does this is the whole mechanism.
+       */
+      await db.execute(sql`select pg_advisory_lock(6820068)`);
+      try {
+        await db.execute(
+          sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
+        );
+        await db
+          .delete(catalogSourcePolicies)
+          .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
+        await db.execute(
+          sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+        );
+      } finally {
+        await db.execute(sql`select pg_advisory_unlock(6820068)`);
+      }
       await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
       await db
         .delete(productIdentifiers)
@@ -443,6 +472,10 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       const run = await openSourceRun(db, {
         sourceId,
         kind: 'manual',
+        // #68: a pass states its MODE. A run with no watermark asks for a full
+        // enumeration — #62's own reading of `since` — and only that mode may
+        // set `enumeration_complete`, which is what authorises retirement.
+        refreshMode: options.since === undefined ? 'full_snapshot' : 'incremental',
         since: options.since ?? null,
         requestedByOxyUserId: OPERATOR,
         now: options.now ?? new Date(),

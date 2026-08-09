@@ -83,15 +83,31 @@ afterAll(async () => {
   await db
     .delete(catalogSourceConfigs)
     .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
-  await db.execute(
-    sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
-  );
-  await db
-    .delete(catalogSourcePolicies)
-    .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
-  await db.execute(
-    sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
-  );
+  /**
+   * The disable/delete/enable window is taken under a SESSION ADVISORY
+   * LOCK (#68).
+   *
+   * `alter table … disable trigger` is DATABASE-WIDE and every realdb file
+   * shares one server, so two files inside this window at once leave one of
+   * them deleting against a trigger the other has just re-enabled —
+   * measured, as a teardown failure naming a trigger the test had disabled
+   * two statements earlier. The key's VALUE means nothing; its SAMENESS
+   * across every file that does this is the whole mechanism.
+   */
+  await db.execute(sql`select pg_advisory_lock(6820068)`);
+  try {
+    await db.execute(
+      sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
+    );
+    await db
+      .delete(catalogSourcePolicies)
+      .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
+    await db.execute(
+      sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+    );
+  } finally {
+    await db.execute(sql`select pg_advisory_unlock(6820068)`);
+  }
   await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
   await closePostgres();
 });
@@ -159,6 +175,7 @@ async function openRunningRun(sourceId: string): Promise<string> {
     .values({
       sourceId,
       kind: 'manual',
+      refreshMode: 'full_snapshot',
       status: 'running',
       startedAt: new Date(),
       availableAt: new Date(),
@@ -178,6 +195,7 @@ describe('the run row cannot lie about what it did', () => {
       db.insert(catalogSourceRuns).values({
         sourceId,
         kind: 'manual',
+        refreshMode: 'full_snapshot',
         status: 'running',
         startedAt: new Date(),
         availableAt: new Date(),
@@ -197,6 +215,7 @@ describe('the run row cannot lie about what it did', () => {
       .values({
         sourceId,
         kind: 'manual',
+        refreshMode: 'full_snapshot',
         status: 'running',
         startedAt: new Date(),
         availableAt: new Date(),
@@ -219,6 +238,7 @@ describe('the run row cannot lie about what it did', () => {
         db.insert(catalogSourceRuns).values({
           sourceId,
           kind: 'manual',
+          refreshMode: 'full_snapshot',
           status: 'completed',
           outcome,
           enumerationComplete: true,
@@ -240,6 +260,7 @@ describe('the run row cannot lie about what it did', () => {
         db.insert(catalogSourceRuns).values({
           sourceId,
           kind: 'manual',
+          refreshMode: 'full_snapshot',
           status: 'completed',
           outcome: 'full_feed_success',
           enumerationComplete: false,

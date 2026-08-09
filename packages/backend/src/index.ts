@@ -184,6 +184,25 @@ connectPostgres()
         .then(({ startCatalogIngestionDispatcher }) => startCatalogIngestionDispatcher())
         .catch((err) => log.general.error({ err }, 'Catalog ingestion dispatcher import failed'));
 
+      // Turn refresh TASKS into ingestion RUNS (#68). On EVERY task, with the
+      // same lease shape: a claim is `FOR UPDATE SKIP LOCKED` with an owner
+      // check, so N tasks share one queue and a dead task's lease is
+      // reclaimed. `OFFER_REFRESH_ENABLED` gates the LOOP and nothing durable —
+      // an alert raised while it is off is served when it comes back.
+      import('./services/offer-freshness/refresh-dispatcher.js')
+        .then(({ startOfferRefreshDispatcher }) => startOfferRefreshDispatcher())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Offer refresh dispatcher import failed'),
+        );
+
+      // Retire offers whose source's own policy has lapsed, WITH its outage
+      // grace (#68). Turning this off cannot make a stale offer visible: the
+      // freshness verdict is derived at read time against the live policy, so
+      // the sweep only decides when the durable retirement is written down.
+      import('./services/offer-freshness/expiry-sweep.js')
+        .then(({ startOfferExpirySweep }) => startOfferExpirySweep())
+        .catch((err: unknown) => log.general.error({ err }, 'Offer expiry sweep import failed'));
+
       // Hand back lapsed supplier holds, release lapsed quotes and evaluate
       // supplier health (#122). On EVERY task, and deliberately WITHOUT a lease:
       // every action it takes is an idempotent compare-and-swap, so N tasks
