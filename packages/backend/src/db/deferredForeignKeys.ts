@@ -33,7 +33,7 @@
  * stops "we'll add the constraint when the other table exists" from becoming a
  * permanent condition nobody revisits.
  *
- * ## Empty again, and how it was USED once
+ * ## Empty again, and how it was USED twice
  *
  * Fase 1 wrote 49 tables in one pass and the payment domain added eight more, so
  * for a long time no relation was ever left waiting on a parent that did not
@@ -45,8 +45,10 @@
  * with `source_records` in the barrel, the gate did exactly what it exists to
  * do: it refused the deferral, and every entry became a real `.references()`
  * (via `canonicalSupport.ts`'s `aliasColumns()`/`sourceLinkColumns()` and the
- * `merchant_domains` column) and left this list. An empty deferred list is the
- * correct end state, not an unstarted one.
+ * `merchant_domains` column) and left this list. It happened a second time with
+ * #118's `procurement_offers` canonical mapping, which waited on #56's product
+ * tables and was forced into real references the moment they landed. An empty
+ * deferred list is the correct end state, not an unstarted one.
  *
  * The payment domain's order and refund correlations are the entries most worth
  * reading before adding another PERMANENT one: they are permanently
@@ -55,54 +57,24 @@
  */
 
 import type { DeferredForeignKey } from '@oxyhq/db/assert';
-import { procurementOffers } from './schema/procurement';
-import { commerceRelationships } from './schema/relationships';
 
 /**
  * Relations decided but not yet expressible — each one owes a `.references()`.
  *
- * All three entries wait on #56's canonical catalogue tables: #118's
- * canonical-variant mapping on `canonical_products` / `canonical_variants`, and
- * #55's manufacturing endpoint on `canonical_product_families`. The moment
- * those tables land, this gate fails and the entries must become real foreign
- * keys — which is the ledger working as designed, not a breakage. `restrict`
- * per ADR 0002 D20: canonical rows are never hard-deleted, and neither an
- * offer's mapping nor an evidence-backed relationship's endpoint may vanish out
- * from under it. (The PO LINE copies of these columns stay permanently
- * unconstrained below — they are snapshots.)
+ * Empty again, and for the SECOND time by the mechanism working rather than by
+ * nobody having used it. #118 ledgered `procurement_offers.canonical_product_id`
+ * and `.canonical_variant_id` here, and #55 ledgered
+ * `commerce_relationships.product_family_id`, all three while #56's
+ * `canonical_products`, `canonical_variants` and `canonical_product_families`
+ * were being built in parallel; the moment those tables entered the barrel the
+ * gate refused every deferral, and all three became the real RESTRICT
+ * references they carry today (ADR 0002 D20: canonical rows are never
+ * hard-deleted, so neither an offer's mapping nor an evidence-backed claim's
+ * endpoint may be orphaned silently). The PO LINE copies of the offer's two
+ * columns stay permanently unconstrained below — they are snapshots, a
+ * different decision about a different row.
  */
-export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [
-  {
-    table: procurementOffers,
-    column: procurementOffers.canonicalProductId,
-    parentTable: 'canonical_products',
-    parentColumn: 'id',
-    onDelete: 'restrict',
-    reason:
-      'An offer maps to canonical identity (#56, unbuilt); canonical rows are never ' +
-      'hard-deleted, so the mapping may not be orphaned silently.',
-  },
-  {
-    table: procurementOffers,
-    column: procurementOffers.canonicalVariantId,
-    parentTable: 'canonical_variants',
-    parentColumn: 'id',
-    onDelete: 'restrict',
-    reason:
-      'The exact-variant half of the mapping above — same target domain, same rule.',
-  },
-  {
-    table: commerceRelationships,
-    column: commerceRelationships.productFamilyId,
-    parentTable: 'canonical_product_families',
-    parentColumn: 'id',
-    onDelete: 'restrict',
-    reason:
-      "The object endpoint of an `organization_manufactures` claim (#55, ADR 0002 D11), " +
-      'waiting on #56. RESTRICT because the relationship is evidence-backed history: a ' +
-      'family cannot be deleted out from under a claim that cites it.',
-  },
-];
+export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [];
 
 /** Oxy owns identity; there is no `users` table and there must never be one. */
 const OXY_ACCOUNT = 'An Oxy account id. Oxy owns identity over HTTP; there is no users table.';
@@ -441,10 +413,10 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
 
   // ── Canonical commerce graph (#55, ADR 0002 D17) ──────────────────────────
   //
-  // Every ENTITY endpoint on `commerce_relationships` is a real `.references()`;
-  // only `product_family_id` is deferred above, waiting on #56. What remains
-  // here is the actor trail — the people a verdict names — which is Oxy's key
-  // space in every row.
+  // Every ENTITY endpoint on `commerce_relationships` is a real `.references()`,
+  // `product_family_id` included since #56 landed the families table. What
+  // remains here is the actor trail — the people a verdict names — which is
+  // Oxy's key space in every row.
   { column: 'commerce_relationships.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'commerce_relationships.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'commerce_relationships.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
@@ -453,11 +425,31 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'relationship_evidence.oxy_file_id', reason: OXY_FILE },
   { column: 'relationship_reviews.actor_oxy_user_id', reason: OXY_ACCOUNT },
 
+  // ── Canonical commerce graph (#56, ADR 0002 D13–D16) ─────────────────────
+  //
+  // Every OTHER id-shaped column in `canonicalCatalog.ts` is a real foreign
+  // key, the polymorphic grains included: `canonical_images`,
+  // `canonical_attribute_values` and `canonical_field_provenance` each carry
+  // nullable entity references plus a CHECK that exactly one is set, because
+  // every endpoint's key space lives in THIS database (ADR 0002 D17's
+  // reasoning). What is left is Oxy's key space and Oxy's alone.
+  { column: 'canonical_images.file_id', reason: OXY_FILE },
+  { column: 'canonical_product_family_aliases.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'canonical_product_family_source_links.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'canonical_product_family_redirects.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'canonical_product_aliases.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'canonical_product_source_links.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'canonical_product_redirects.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'canonical_variant_aliases.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'canonical_variant_source_links.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'canonical_field_provenance.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'product_identifiers.assigned_by_oxy_user_id', reason: OXY_ACCOUNT },
+
   // ── Procurement (#118): supplier-platform ids, correlations and snapshots ─
   //
   // `suppliers.organization_id` is NOT here: it became a real `.references()`
-  // when #53's `organizations` landed. The offer-side canonical mapping is in
-  // DEFERRED_FOREIGN_KEYS above, waiting on #56's tables.
+  // when #53's `organizations` landed. Neither is the offer-side canonical
+  // mapping: it became one when #56's tables landed, the same way.
   { column: 'supplier_accounts.provider_account_id', reason: SUPPLIER_PLATFORM },
   { column: 'procurement_offers.supplier_external_id', reason: SUPPLIER_PLATFORM },
   { column: 'purchase_orders.supplier_external_order_id', reason: SUPPLIER_PLATFORM },

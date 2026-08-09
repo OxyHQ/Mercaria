@@ -71,6 +71,7 @@ import { asEnumValues, checkOneOf } from './columns';
 import { brands, organizations } from './organizations';
 import { merchants, storefronts } from './merchants';
 import { catalogSources, sourceRecords } from './provenance';
+import { canonicalProductFamilies } from './canonicalCatalog';
 
 /**
  * `commerce_relationships` — one typed, scoped, temporal, evidence-gated claim.
@@ -110,8 +111,12 @@ export const commerceRelationships = pgTable(
     organizationId: text().references(() => organizations.id, { onDelete: 'restrict' }),
     brandId: text().references(() => brands.id, { onDelete: 'restrict' }),
     merchantId: text().references(() => merchants.id, { onDelete: 'restrict' }),
-    /** #56's `canonical_product_families` — DEFERRED foreign key until it lands. */
-    productFamilyId: text(),
+    /**
+     * The object endpoint of an `organization_manufactures` claim. RESTRICT
+     * (ADR 0002 D20): a family is never hard-deleted out from under an
+     * evidence-backed claim that cites it.
+     */
+    productFamilyId: text().references(() => canonicalProductFamilies.id, { onDelete: 'restrict' }),
     /** The OBJECT brand of a brand → brand kind; NULL on every other kind. */
     relatedBrandId: text().references((): AnyPgColumn => brands.id, { onDelete: 'restrict' }),
 

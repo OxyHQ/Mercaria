@@ -134,6 +134,13 @@
       "when": 1786243534733,
       "tag": "0018_nappy_makkari",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786244081967,
+      "tag": "0019_short_corsair",
+      "breakpoints": true
     }
   ]
 }

@@ -127,3 +127,9 @@ export * from './relationship';
 // immutable cost quote and the eight accounting outputs. NOT the marketplace
 // fee above: a `mercaria_retail` order pays no marketplace fee at all.
 export * from './retail-pricing';
+
+// Canonical product layer DTOs and value sets (ProductFamily, CanonicalProduct,
+// CanonicalVariant, ProductIdentifier, AttributeDefinition, …) — issue #56,
+// ADR 0002 D13–D16. NOT the same thing as ProductSummary in `./product`, which
+// is a native-listing feed card projection.
+export * from './canonical-product';
