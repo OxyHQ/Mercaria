@@ -183,4 +183,42 @@ export const PROTECTED_COLUMNS = {
    * the value except the derivation itself.
    */
   analytics_pseudonym_salts: ['salt'],
+
+  /**
+   * A supplier preflight's request digest and its raw-answer pointer (#122
+   * quote fields 1 and 6).
+   *
+   * `request_fingerprint` and `idempotency_key` (which defaults to it) are
+   * HMACs over a request that INCLUDES the buyer's destination — postal code
+   * and city among it — so anyone holding one plus the key can confirm whether
+   * a guessed address was quoted for. That is `guest_checkouts.email_hash`'s
+   * situation exactly: irreversible and still an exact-match ORACLE, and the
+   * whole reason this domain stores no postal code is defeated if the value
+   * that stands in for one ships in a whole-row read.
+   *
+   * `source_record_ref` points into the restricted-access store holding what
+   * the provider actually sent. The pointer is not the payload, but handing it
+   * out hands out the way to ask for the payload, with none of the
+   * authorization the operator surface applies.
+   */
+  supplier_quotes: ['requestFingerprint', 'idempotencyKey', 'sourceRecordRef'],
+
+  /**
+   * The same digest on the sourcing trail (#122 selection 7). One attempt row
+   * per candidate tried, keyed on the request it was sourcing — so the oracle
+   * above is reachable through this table too unless it is registered here.
+   */
+  supplier_sourcing_attempts: ['requestFingerprint'],
+
+  /**
+   * The SUPPLIER's own reservation id (#122 acceptance 3).
+   *
+   * A live handle on a commitment somebody else is holding: presenting it to
+   * that supplier's API cancels the hold. `supplier_accounts.credential_reference`
+   * is the neighbouring case and this is the weaker one only in that the damage
+   * is bounded to one order — it is still a capability in a column, and the
+   * operator trace deliberately renders it as its last four characters
+   * (`provider_accounts`' account-id rule) rather than whole.
+   */
+  supplier_reservations: ['providerReservationId'],
 } as const satisfies ProtectedColumnRegistry;

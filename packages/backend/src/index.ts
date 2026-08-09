@@ -174,6 +174,23 @@ connectPostgres()
         .then(({ startCurationDispatcher }) => startCurationDispatcher())
         .catch((err) => log.general.error({ err }, 'Curation dispatcher import failed'));
 
+      // Hand back lapsed supplier holds, release lapsed quotes and evaluate
+      // supplier health (#122). On EVERY task, and deliberately WITHOUT a lease:
+      // every action it takes is an idempotent compare-and-swap, so N tasks
+      // running it produce the same end state as one, and a dead task strands
+      // nothing. The LOOP is gated by `SUPPLIER_PREFLIGHT_SWEEP_ENABLED`; what
+      // it records is not — a quote's expiry and a hold's supplier deadline are
+      // both read against the clock at every use, so turning this off cannot
+      // make a stale quote usable, it only stops Mercaria writing down that it
+      // lapsed.
+      import('./services/supplier-preflight/preflight-sweep.js')
+        .then(({ startSupplierPreflightSweep }) => {
+          startSupplierPreflightSweep();
+        })
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Supplier preflight sweep import failed'),
+        );
+
       // Retry stored Stripe events whose processing failed, and pick up any
       // whose task died between storing and interpreting them. Also on EVERY
       // task, same lease shape. The webhook ingress processes inline after
@@ -339,6 +356,10 @@ connectPostgres()
           './services/backfill/backfill-dispatcher.js'
         );
         stopCatalogBackfillDispatcher();
+        const { stopSupplierPreflightSweep } = await import(
+          './services/supplier-preflight/preflight-sweep.js'
+        );
+        stopSupplierPreflightSweep();
         stopExpirySweeper();
         // Analytics last of the loops, and the sink's stop AWAITS one final
         // flush — the only place in this domain anything waits on telemetry.

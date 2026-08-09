@@ -162,6 +162,16 @@ export * from './retail-pricing';
 // verdict as its `marketSupported` input.
 export * from './retail-eligibility';
 
+// Live supplier stock, shipping, quote and reservation preflight (#122, ADR
+// 0004 D4 step 1 / D5 / D9.3) — the twelve-member adapter capability contract,
+// the disjoint set of commitments the orchestration may never emulate, the
+// three-valued completeness that makes a provider timeout `unknown` rather than
+// `in stock`, and the deterministic sourcing vocabulary that cannot read a
+// commission or a ranking signal. FOLLOWS `./procurement` (whose supplier
+// account and offer it quotes against) and `./retail-eligibility` (whose
+// verdict gates whether a route may be preflighted at all).
+export * from './supplier-preflight';
+
 // The versioned category-attribute registry and its normalized values (#94):
 // value types, cardinality, unit families, lifecycle, evidence/display policy,
 // and the source/public projections of one recorded attribute fact. PRECEDES

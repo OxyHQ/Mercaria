@@ -143,3 +143,11 @@ export * from './analytics';
 // NOTHING to any existing table — the whole migration is additive scaffolding,
 // which is what makes rollback a flag flip.
 export * from './backfill';
+// Live supplier preflight (#122, ADR 0004 D4 step 1 / D5 / D9.3) comes after
+// `procurement`, whose supplier accounts and offers every quote is taken
+// against, and after the retail domains whose policy versions a quote
+// snapshots. It references NOTHING in the canonical graph: a quote is evidence
+// of what one supplier said at one instant, so its catalogue columns are
+// snapshots that must survive an offer refreshing in place and a canonical
+// entity merging — the `purchase_order_lines` rule.
+export * from './supplierPreflight';

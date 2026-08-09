@@ -200,6 +200,33 @@ function resolveGuestCommerceEnabled(): boolean {
   return false;
 }
 
+/**
+ * `SUPPLIER_PREFLIGHT_ENABLED`, subject to the half-configuration rule (#122).
+ *
+ * Enabling preflight without `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY` would leave
+ * the request digest unkeyed, and a country plus a postal code is a space small
+ * enough to enumerate — so an unkeyed digest is an offline oracle over buyers'
+ * addresses sitting in a column. The same argument `GUEST_COMMERCE_ENABLED`
+ * makes for its two keys, and it resolves the same way: stay OFF and say so,
+ * rather than run in a weaker mode nobody chose.
+ *
+ * Staying off is SAFE here in a way it would not be for a delivery queue: every
+ * preflight still runs, still records its attempt and still writes a quote —
+ * answering `unknown`, which blocks checkout. Nothing is silently permitted.
+ */
+function resolveSupplierPreflightEnabled(): boolean {
+  if (!boolEnv('SUPPLIER_PREFLIGHT_ENABLED', false)) return false;
+
+  if ((process.env.SUPPLIER_PREFLIGHT_FINGERPRINT_KEY?.trim() ?? '') !== '') return true;
+
+  log.general.error(
+    { missing: ['SUPPLIER_PREFLIGHT_FINGERPRINT_KEY'] },
+    '[SupplierPreflight] SUPPLIER_PREFLIGHT_ENABLED is set but the fingerprint key is ' +
+      'missing; staying OFF. Every preflight answers `unknown`, which blocks checkout.',
+  );
+  return false;
+}
+
 function resolveCrowdSourceEnabled(): boolean {
   if (!boolEnv('CROWDSOURCE_ENABLED', false)) return false;
 
@@ -583,6 +610,31 @@ function resolveAnalyticsOperatorIds(): readonly string[] {
  */
 function resolveRetailOperatorIds(): readonly string[] {
   return strEnv('RETAIL_OPERATOR_OXY_USER_IDS', '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id !== '');
+}
+
+/**
+ * `PROCUREMENT_OPERATOR_OXY_USER_IDS` → the supplier-preflight allow-list
+ * (#122 operations 4–5).
+ *
+ * A SIXTH list, and the reason is the same one that made the other five
+ * separate, applied to a power none of them holds: this surface reads what
+ * Mercaria PAYS its suppliers — wholesale unit costs, supplier fees, quoted
+ * shipping — and it flips the supplier and market kill switches. A compliance
+ * reviewer vetted to verify a product-safety certificate is not thereby vetted
+ * to see Mercaria's cost base, and a payments operator vetted to replay a
+ * charge is not thereby vetted to turn a market back on.
+ *
+ * Empty means `/internal/supplier-preflight` is not mounted at all: 404, never
+ * a 401 that would tell an unauthenticated caller the surface exists. That is a
+ * working configuration and it means nobody can publish a sourcing policy
+ * version, read a quote trace or stop a failing supplier — so it must be
+ * populated before `mercaria_retail` carries a live order.
+ */
+function resolveProcurementOperatorIds(): readonly string[] {
+  return strEnv('PROCUREMENT_OPERATOR_OXY_USER_IDS', '')
     .split(',')
     .map((id) => id.trim())
     .filter((id) => id !== '');
@@ -1606,6 +1658,54 @@ export interface RetailEligibilityConfig {
   readonly expiryHorizonDays: number;
 }
 
+/**
+ * Live supplier preflight (#122).
+ *
+ * Four independent levers, and the interaction is the part worth stating:
+ *
+ *  - `enabled` gates whether a PROVIDER IS CALLED at all. Off, every preflight
+ *    still runs, still records its attempt and still writes a durable quote —
+ *    one whose availability is `unknown` and whose block reason is
+ *    `preflight_disabled`, so checkout refuses. That is deliberately NOT the
+ *    "gate the loop, never the record" shape: there is no durable record being
+ *    withheld here, only a supplier not being asked, and the answer to not
+ *    having asked is `unknown`, which is exactly what the domain's honesty rule
+ *    requires.
+ *  - `sweepEnabled` gates the LOOP that releases lapsed holds and evaluates
+ *    health. Off, holds still lapse on the supplier's own clock and quotes
+ *    still expire against theirs — what stops is Mercaria recording it, which
+ *    is the ordinary outbox inversion.
+ *  - `fakeAdapterEnabled` is the failure-injection tooling (#122 operations 8).
+ *    It is double-gated: this flag AND the supplier account being in the `test`
+ *    environment, so a `live` account can never be served a fabricated answer
+ *    however the flag is set.
+ *  - `fingerprintKey` is demanded whenever `enabled` is true — the
+ *    half-configuration rule `GUEST_COMMERCE_ENABLED` established. An unset key
+ *    would mean an unkeyed request digest, which is an offline oracle over
+ *    buyers' postal codes.
+ */
+export interface SupplierPreflightConfig {
+  /** `SUPPLIER_PREFLIGHT_ENABLED` — may an adapter be called. Default false. */
+  readonly enabled: boolean;
+  /** `SUPPLIER_PREFLIGHT_SWEEP_ENABLED` — does the release/health loop run. */
+  readonly sweepEnabled: boolean;
+  readonly sweepIntervalMs: number;
+  readonly sweepBatchSize: number;
+  /** How many times a lapsed hold's release is retried before it is left visible. */
+  readonly maxReleaseAttempts: number;
+  /** `SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED` — the failure-injection adapter. */
+  readonly fakeAdapterEnabled: boolean;
+  /** HMAC key for the request digest. 64 hex characters; validated on first use. */
+  readonly fingerprintKey: string;
+  /**
+   * The Oxy accounts that may reach `/internal/supplier-preflight/*`. A SIXTH
+   * allow-list — see `resolveProcurementOperatorIds`.
+   */
+  readonly operatorOxyUserIds: readonly string[];
+  /** DERIVED from the allow-list. Empty = not mounted (404). */
+  readonly operatorSurfaceEnabled: boolean;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -1626,6 +1726,7 @@ export interface AppConfig {
   readonly referrals: ReferralsConfig;
   readonly analytics: AnalyticsConfig;
   readonly retailEligibility: RetailEligibilityConfig;
+  readonly supplierPreflight: SupplierPreflightConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -1891,6 +1992,17 @@ export const config: AppConfig = Object.freeze({
     operatorOxyUserIds: Object.freeze(resolveRetailOperatorIds()),
     operatorSurfaceEnabled: resolveRetailOperatorIds().length > 0,
     expiryHorizonDays: intEnv('RETAIL_EVIDENCE_EXPIRY_HORIZON_DAYS', 30),
+  }),
+  supplierPreflight: Object.freeze({
+    enabled: resolveSupplierPreflightEnabled(),
+    sweepEnabled: boolEnv('SUPPLIER_PREFLIGHT_SWEEP_ENABLED', true),
+    sweepIntervalMs: intEnv('SUPPLIER_PREFLIGHT_SWEEP_INTERVAL_MS', 30_000),
+    sweepBatchSize: intEnv('SUPPLIER_PREFLIGHT_SWEEP_BATCH_SIZE', 50),
+    maxReleaseAttempts: intEnv('SUPPLIER_PREFLIGHT_MAX_RELEASE_ATTEMPTS', 5),
+    fakeAdapterEnabled: boolEnv('SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED', false),
+    fingerprintKey: strEnv('SUPPLIER_PREFLIGHT_FINGERPRINT_KEY', ''),
+    operatorOxyUserIds: Object.freeze(resolveProcurementOperatorIds()),
+    operatorSurfaceEnabled: resolveProcurementOperatorIds().length > 0,
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

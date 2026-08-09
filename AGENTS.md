@@ -2177,6 +2177,7 @@ pin.
   `oxy-infra`; the full pre-launch list is `docs/payments.md`
   §"Production-readiness checklist".
 
+<<<<<<< HEAD
 ## Graph query benchmarks and the indexes they justified (#61, ADR 0002 D21)
 
 `services/graph-benchmark/` (5 modules) + `scripts/graph-query-benchmark.ts` +
@@ -2270,3 +2271,118 @@ tidy plan.
   smaller than it is because the property under test is a PLANNER decision — a
   gate that fires because a table is too small for an index to win is a gate
   whoever hits it next disables.
+=======
+## Live supplier preflight (#122, ADR 0004 D4 step 1 / D5 / D9.3)
+
+`services/supplier-preflight/` (14 modules) + `db/supplierPreflight/`
+(7 repositories) + `db/schema/supplierPreflight.ts` (8 tables) +
+`/internal/supplier-preflight/*`. What a supplier says NOW, immediately before
+Mercaria charges anybody. Full reference: **`docs/supplier-preflight.md`**;
+schema decisions: `db/schema/CONVENTIONS.md` §"The supplier preflight domain".
+#118 records what a catalogue FEED last claimed; this records what a supplier
+ANSWERED to one exact question, and the two are separate vocabularies precisely
+so the first can never be mistaken for the second.
+
+- **A capability the adapter did not declare has NO representable success**, in
+  four independent places — the `SupplierReservationOutcome` union (its only
+  `reserved` branch carries a non-optional provider id AND expiry),
+  `applyDeclaredCapabilities` (runs on EVERY answer, in the one place answers
+  enter, and REPORTS each removal as a `SupplierEmulatedCommitment` rather than
+  dropping it silently), `recordSupplierReservation`'s signature (it takes
+  `Extract<…, { state: 'reserved' }>`, so an unsupported outcome cannot call
+  it), and the table (`provider_reservation_id` + `provider_expires_at` NOT
+  NULL, plus a CHECK requiring `inventory_reservation` in
+  `declared_capabilities`). There is no `reserved` column on `supplier_quotes`
+  at all: a hold is a ROW, and its absence IS the absence of the commitment.
+  `SUPPLIER_EMULATED_COMMITMENTS` (6) is disjoint from
+  `SUPPLIER_ADAPTER_CAPABILITIES` (12) — the `RETAIL_FORBIDDEN_COMPONENT_KINDS`
+  device, applied to commitments.
+- **Every downgrade lands on the value that BLOCKS, not the one that refuses.**
+  `orderable` becomes `unknown` and never `unavailable`; `guaranteed` becomes
+  `advisory`; a window becomes absent and never zero. The supplier may well have
+  the stock — what is missing is Mercaria's right to claim it does.
+- **A timeout is `unknown`.** `unknownAnswer()` is the ONE function every failed
+  call produces and has no parameter that could make it answer otherwise.
+  `deriveSupplierPreflightCompleteness` is pure and three-valued (`complete |
+  partial | invalid`); only `complete` may check out, `block_reasons` is
+  non-empty exactly when the status is not `complete`, `exception_kind` present
+  exactly when `invalid`, and the same rule is a CHECK on the row. **Only the
+  three facts #122 names block a `complete` answer** — unknown availability, a
+  missing shipping cost, an ambiguous SKU; a delivery window and a tax treatment
+  block only when the active POLICY requires the capability, or a made-to-order
+  supplier could never sell anything. An `ambiguous` identity is an exception; a
+  `mismatched` one is a `partial` and a catalogue correction (#59) — different
+  facts. A `maxOrderableQuantity` of ZERO beside a minimum order quantity is NOT
+  a contradiction: it is how a supplier says out-of-stock.
+- **A quote stores NO address**, not even encrypted: `destination_country` and
+  `destination_region` are the whole of it, and `request_fingerprint` (an HMAC
+  under its own key) is what ties a quote to the destination it was taken for —
+  the `purchase_orders` redaction-by-shape device, one step further, because a
+  parcel needs a street and a QUOTE does not. The fingerprint, the idempotency
+  key, `source_record_ref` and `provider_reservation_id` are all PROTECTED (a
+  keyed digest is still an exact-match ORACLE — the `guest_checkouts.email_hash`
+  reasoning).
+- **Usage state is DERIVED**, never a column — `consumed_at`, `released_at`,
+  `superseded_by_quote_id` and `expires_at` state it completely. #122 lists it
+  as a stored field; this domain answers it with `deriveSupplierQuoteUsage` for
+  the reason every Oxy domain does.
+- **The idempotency policy is explicit**: a still-usable quote under the key is
+  RETURNED with no supplier call; an expired/consumed/released one is REFRESHED
+  under `<callerKey>#<supersededQuoteId>` (deterministic, so two racers collide
+  on the unique and the loser reads the winner back and releases any hold it
+  took). **A rotated session cannot duplicate a request** because the
+  fingerprint's input type has no session, actor or checkout-group member —
+  structural, not tested.
+- **Selection is a total order over eight criteria and cannot read a
+  commission.** `SourcingCandidateFacts` has no member for any of the eight
+  `SUPPLIER_FORBIDDEN_SOURCING_SIGNALS`, which are disjoint from the rankable
+  set by a test, and a policy version's `ranking_criteria` CHECK reads the
+  allowed tuple. An unknown cost sorts LAST; an ABSENT health measurement is
+  neutral (the `SELLER_TRUST_RESTRICTED_TIERS` rule); suppression, inactivity,
+  ineligibility, a missing capability and over-concentration are FILTERS rather
+  than penalties. Substitution checks product identity ALWAYS and commercial
+  terms only once terms are LOCKED; a failover supplier's own SKU is fine for a
+  mapped variant, and two unmapped SKUs are refused because they cannot be
+  PROVEN to be the same product.
+- **Summing per-item shipping when the supplier priced the basket is
+  unrepresentable** — `SupplierShippingQuote`'s `basket` branch has no per-line
+  member, its `unknown` branch has no cost, and `composeDeliveredTotal`'s
+  incomplete branch has no `total`. A mixed-currency group is reported unquoted,
+  never converted: this domain does no FX (a test).
+- **The provider lease is exact in both dimensions with ONE table** — a slot is
+  a row (concurrency, a row lock) carrying its own share of the per-minute
+  allowance (rate, the same lock). It can UNDER-admit on uneven arrivals, which
+  errs toward not exceeding the provider's published limit. The refusal
+  discriminator asks whether EVERY slot is exhausted, so a concurrent claim read
+  through MVCC lands on the transient `all_slots_busy` rather than the alarming
+  `rate_limited` — the reverse phrasing gets that backwards, measured.
+- **The health loop may raise and lift a `health_degraded` stop and NOTHING
+  else** — a CHECK restricts `automatic_health` to that kind with a NULL raiser,
+  so it cannot file a kill switch, and it never lifts an operator's stop.
+  `attempts = successes + failures` is a CHECK (equality), the
+  `catalog_backfill_runs` vacuity floor applied to a provider.
+- **`PROCUREMENT_OPERATOR_OXY_USER_IDS` is a SIXTH allow-list**, for a power
+  none of the other five holds: reading what Mercaria PAYS its suppliers and
+  flipping the supplier and market kill switches. Empty = not mounted (404). The
+  surface is READ plus two write kinds and NO third — there is no "set this
+  quote complete", no "extend this reservation", no "override this answer", and
+  a route test asserts those paths 404.
+- **The fake adapter is double-gated**, and the second gate is the load-bearing
+  one: `SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED` to be registrable, AND a
+  refusal of any `live` supplier account at call time whatever the flag says.
+- Env: `SUPPLIER_PREFLIGHT_ENABLED` (default false; requires
+  `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY` — an unkeyed digest is an offline oracle
+  over buyers' postal codes), `SUPPLIER_PREFLIGHT_SWEEP_ENABLED` and its
+  tunables, `SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED`,
+  `PROCUREMENT_OPERATOR_OXY_USER_IDS`. With preflight OFF every preflight still
+  runs, records its attempt and writes a quote answering `unknown` — nothing is
+  silently permitted. The sourcing policy KEY is a code constant.
+- Seams, each a named contract that fails closed: **#124** (the registry is
+  EMPTY and an unregistered provider answers `provider_unconfigured`, which
+  blocks; `authorizeSupplierFulfilment` refuses unconditionally because
+  `authorized: true` needs a purchase-order id the isolation gate forbids this
+  domain from importing — that `return` is the one line #124 replaces), **#123**
+  (`assertPreflightSatisfiesCheckout` is COMPLETE and waits on nothing), **#117**
+  (the capture sequence reads the quote and reservation deadlines), **#128**
+  (variance BOOKING), **#93/#37/#74**.
+>>>>>>> 42457e3 (wip: #122 (pre-rebase 2))
