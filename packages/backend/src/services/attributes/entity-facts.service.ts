@@ -15,12 +15,11 @@
  * evaluator's missing-data handling is for.
  */
 
-import { eq, inArray, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { CurrencyCode } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { listSelectedAttributeValues } from '../../db/canonical/attributeRepository.js';
 import { canonicalProducts, canonicalVariants } from '../../db/schema/canonicalCatalog.js';
-import { categories } from '../../db/schema/catalog.js';
 import { offerFactsPort, type OfferFactsContext } from './offer-facts.port.js';
 import type { CandidateFacts, EvaluableFact } from './constraint-evaluation.js';
 
@@ -152,38 +151,6 @@ function toEvaluableFact(row: {
     // field is here so the explanation can say so without a second read.
     sourceBacked: true,
   };
-}
-
-/** Categories a facet or scope check needs, resolved by id. Small and cached by nothing. */
-export async function categoryExists(
-  db: DatabaseOrTransaction,
-  categoryId: string,
-): Promise<boolean> {
-  const rows = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(eq(categories.id, categoryId))
-    .limit(1);
-  return rows.length > 0;
-}
-
-/** Canonical variant ids of several products, for a batched evaluation. */
-export async function variantIdsOfProducts(
-  db: DatabaseOrTransaction,
-  productIds: readonly string[],
-): Promise<Map<string, string[]>> {
-  if (productIds.length === 0) return new Map();
-  const rows = await db
-    .select({ id: canonicalVariants.id, productId: canonicalVariants.productId })
-    .from(canonicalVariants)
-    .where(inArray(canonicalVariants.productId, [...productIds]));
-  const byProduct = new Map<string, string[]>();
-  for (const row of rows) {
-    const list = byProduct.get(row.productId) ?? [];
-    list.push(row.id);
-    byProduct.set(row.productId, list);
-  }
-  return byProduct;
 }
 
 /** The presentment currency an offer context carries, when the caller named one. */

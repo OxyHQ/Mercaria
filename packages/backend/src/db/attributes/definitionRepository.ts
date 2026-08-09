@@ -25,7 +25,7 @@
  * (`CONVENTIONS.md`, third naming trap). Selecting ids sidesteps the whole class.
  */
 
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { AttributeLifecycleState } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import {
@@ -185,20 +185,6 @@ export async function transitionAttributeDefinition(
   return rows[0];
 }
 
-/** Update a DRAFT version's editable columns. Callers hold the draft guard. */
-export async function updateDraftAttributeDefinition(
-  db: DatabaseOrTransaction,
-  id: string,
-  patch: Partial<AttributeDefinitionInsert>,
-): Promise<AttributeDefinitionRow | undefined> {
-  const rows = await db
-    .update(attributeDefinitions)
-    .set(patch)
-    .where(and(eq(attributeDefinitions.id, id), eq(attributeDefinitions.lifecycleState, 'draft')))
-    .returning();
-  return rows[0];
-}
-
 /** Scope a definition version to a category. Converges on the pair's unique. */
 export async function addAttributeDefinitionCategory(
   db: DatabaseOrTransaction,
@@ -295,31 +281,6 @@ export async function listActiveDefinitionsForCategory(
     .orderBy(asc(attributeDefinitions.key));
 }
 
-/** Whether a definition's scope admits a category. The single-attribute form of the above. */
-export async function definitionAppliesToCategory(
-  db: DatabaseOrTransaction,
-  attributeDefinitionId: string,
-  categoryId: string,
-): Promise<boolean> {
-  const scopes = await listAttributeDefinitionCategories(db, attributeDefinitionId);
-  if (scopes.length === 0) return true;
-  const matched = await db.execute<{ id: string }>(sql`
-    with recursive ancestry as (
-      select id, parent_id, 0 as depth from categories where id = ${categoryId}
-      union all
-      select c.id, c.parent_id, ancestry.depth + 1
-      from categories c join ancestry on c.id = ancestry.parent_id
-    )
-    select s.id as id
-    from attribute_definition_categories s
-    join ancestry a on a.id = s.category_id
-    where s.attribute_definition_id = ${attributeDefinitionId}
-      and (a.depth = 0 or s.include_descendants)
-    limit 1
-  `);
-  return [...matched].length > 0;
-}
-
 export async function upsertAttributeLabel(
   db: DatabaseOrTransaction,
   attributeDefinitionId: string,
@@ -413,24 +374,4 @@ export async function listAttributeValueAliases(
     .from(attributeValueAliases)
     .where(inArray(attributeValueAliases.attributeDefinitionId, [...attributeDefinitionIds]))
     .orderBy(asc(attributeValueAliases.normalizedAlias));
-}
-
-/** Definitions with no category scope at all — the ones that apply anywhere. */
-export async function listUnscopedActiveDefinitions(
-  db: DatabaseOrTransaction,
-): Promise<AttributeDefinitionRow[]> {
-  const scoped = db
-    .select({ id: attributeDefinitionCategories.attributeDefinitionId })
-    .from(attributeDefinitionCategories);
-  return db
-    .select()
-    .from(attributeDefinitions)
-    .where(
-      and(
-        eq(attributeDefinitions.lifecycleState, 'active'),
-        sql`${attributeDefinitions.id} not in ${scoped}`,
-        isNull(attributeDefinitions.deprecatedAt),
-      ),
-    )
-    .orderBy(asc(attributeDefinitions.key));
 }

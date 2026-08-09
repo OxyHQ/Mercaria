@@ -43,7 +43,6 @@ import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   addAttributeDefinitionCategory,
   findActiveAttributeDefinition,
-  findAttributeDefinitionById,
   findAttributeDefinitionVersion,
   insertAttributeDefinition,
   insertAttributeEnumValue,
@@ -369,15 +368,6 @@ export async function listDefinitionHistory(
   key: string,
 ): Promise<ResolvedAttributeDefinition[]> {
   return hydrateMany(db, await listAttributeDefinitionVersions(db, normalizeAttributeKey(key)));
-}
-
-export async function resolveDefinitionById(
-  db: DatabaseOrTransaction,
-  id: string,
-): Promise<ResolvedAttributeDefinition | undefined> {
-  const row = await findAttributeDefinitionById(db, id);
-  if (!row) return undefined;
-  return resolveDefinitionRow(db, row);
 }
 
 async function resolveDefinitionRow(

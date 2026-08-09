@@ -34,7 +34,6 @@
 
 import {
   type AttributeEntityKind,
-  type AttributeSelectionState,
   type SourceLinkMethod,
 } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
@@ -464,9 +463,6 @@ export async function listEntityAttributeValues(
 ): Promise<CanonicalAttributeValueRow[]> {
   return listAttributeValues(getDb(), grain);
 }
-
-/** The selection states a public read surface treats as showable. */
-export const SHOWN_SELECTION_STATES: readonly AttributeSelectionState[] = ['selected'];
 
 /** Narrow a raw string to the entity kinds this domain annotates. */
 export function isAttributeEntityKind(value: string): value is AttributeEntityKind {

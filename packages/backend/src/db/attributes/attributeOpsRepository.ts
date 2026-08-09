@@ -52,18 +52,6 @@ export async function upsertAttributeSourceMapping(
   return row;
 }
 
-/** Every mapping one source declares, for the ingestion path that reads them all. */
-export async function listAttributeSourceMappings(
-  db: DatabaseOrTransaction,
-  catalogSourceId: string,
-): Promise<AttributeSourceMappingRow[]> {
-  return db
-    .select()
-    .from(attributeSourceMappings)
-    .where(eq(attributeSourceMappings.catalogSourceId, catalogSourceId))
-    .orderBy(asc(attributeSourceMappings.sourceField));
-}
-
 export async function findAttributeSourceMapping(
   db: DatabaseOrTransaction,
   catalogSourceId: string,

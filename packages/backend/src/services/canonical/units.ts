@@ -442,21 +442,6 @@ export function sourceDecimalPlaces(numberText: string): number {
 }
 
 /**
- * Round to `places` decimals, half away from zero.
- *
- * Deliberately NOT the pricing engine's half-even: this is a display and
- * comparison rounding over physical magnitudes, where the bias half-even exists
- * to remove (accumulating a sum of many rounded parts) does not arise — nothing
- * sums attribute magnitudes. Using the money rule here would suggest these
- * numbers reconcile against a total, and they do not.
- */
-export function roundToDecimals(value: number, places: number): number {
-  if (!Number.isFinite(value)) return value;
-  const factor = 10 ** Math.max(0, Math.min(12, Math.trunc(places)));
-  return Math.sign(value) * Math.round(Math.abs(value) * factor) / factor;
-}
-
-/**
  * Read a source display string as a quantity.
  *
  * @returns The parsed quantity, or `null` when the string is not a single
