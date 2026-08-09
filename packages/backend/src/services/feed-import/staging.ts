@@ -54,8 +54,12 @@ import type {
 import { config } from '../../config/index.js';
 import { boundedBytes, decodeText, decompressBytes, type FeedByteMeter } from './bytes.js';
 import { FeedImportRefusal } from './errors.js';
-import { mapFeedRecord, type ResolvedFeedMapping } from './mapping.js';
-import { streamFeedRecords, type FeedParseOptions } from './parse/index.js';
+import { mapFeedRecord, type MappedFeedRecord, type ResolvedFeedMapping } from './mapping.js';
+import {
+  streamFeedRecords,
+  type FeedParseOptions,
+  type FeedRawRecord,
+} from './parse/index.js';
 
 /** One mapped candidate, as a stage line holds it. Keys are short on purpose. */
 interface StagedLine {
@@ -152,6 +156,24 @@ export interface BuildStageInput {
   readonly mapping: ResolvedFeedMapping;
   /** Stop after this many records — a PREVIEW's bound (issue Mapping UX 1). */
   readonly sampleLimit?: number;
+  /**
+   * Watch every record as it is mapped, in the ONE pass that reads the feed.
+   *
+   * Added for #66, which measures per-advertiser identifier completeness,
+   * duplicate rate and deep-link validity — facts about a whole feed that are
+   * only cheaply obtainable while it is already streaming past. The
+   * alternatives were both worse: a second full read of the stage doubles the
+   * IO of every import, and a per-adapter copy of this loop is the second
+   * parser rule 1 exists to prevent.
+   *
+   * It returns `void`, so there is nothing to await and a slow observer cannot
+   * become part of the import's critical path — the `recordAnalyticsEvent`
+   * device (#77), where the signature IS the guarantee. A throw is deliberately
+   * NOT caught: the observer is Mercaria's own code reading values this loop has
+   * already validated, so an exception there is a defect and swallowing it would
+   * report a clean import over a measurement that never ran.
+   */
+  readonly observe?: (record: FeedRawRecord, mapped: MappedFeedRecord) => void;
 }
 
 /**
@@ -204,6 +226,7 @@ export async function buildFeedStage(input: BuildStageInput): Promise<FeedStage>
     for await (const record of streamFeedRecords(text, input.parseOptions)) {
       scanned += 1;
       const mapped = mapFeedRecord(record, input.mapping);
+      input.observe?.(record, mapped);
       for (const issue of mapped.issues) {
         if (issue.severity === 'warning') warnings += 1;
         if (issues.length < config.feedImport.maxReportEntries) issues.push(issue);

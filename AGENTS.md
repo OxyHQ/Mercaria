@@ -3284,3 +3284,122 @@ one as the other retires a healthy catalogue.**
   attribute registry (eBay's aspects are localized in both name and value, so
   they are carried as option assignments for #58 to score and are not claimed as
   registry values, which need a stable key and a unit).
+
+## The Awin retailer-network source (#66, source selected by #64)
+
+`services/awin/` (13 modules) + `db/awin/` (6 repositories) +
+`db/schema/awin.ts` (6 tables) + `services/ingestion/adapters/awin-feed.ts` +
+`/internal/awin/*`. Per-advertiser product feeds from the Awin affiliate
+network. Full reference: **`docs/catalog-sources/awin.md`**; schema decisions:
+`db/schema/CONVENTIONS.md` §"The Awin retailer-network source"; the source
+selection is `docs/catalog-sources/2026-08-09-launch-sources.md`, which is
+binding. #62 stays the framework, #63 stays the parser, #57 the offer, #58 the
+matcher, #68 freshness — nothing here is a second copy of any of them.
+
+- **ONE Awin advertiser is ONE `catalog_sources` row.** Not one source called
+  "Awin", and every other decision follows from it: a malformed advertiser feed
+  fails ITS run with no shared enumeration to make incomplete; each retailer is
+  a distinct merchant AND storefront because the binding is per source; the
+  kill switch, rights withdrawal, freshness TTL, cadence and territories are all
+  things #62/#68 already do PER SOURCE; and advertiser health and NETWORK health
+  become separately observable, which they could not be otherwise. The cost is
+  fifty registry rows and fifty rights policies for fifty advertisers — which is
+  the correct amount of work, because each IS a separate commercial
+  relationship.
+- **The tracking link is ADMITTED by a closed host set, never sanitised.**
+  `AWIN_TRACKING_HOSTS` is a code constant (a configurable set would make "which
+  hosts may Mercaria redirect to" answerable per deployment and per row, which
+  is the shape an open redirect takes), compared EXACTLY against a parsed
+  `hostname` — a suffix test admits `awin1.com.evil.example`. Mercaria never
+  CONSTRUCTS a tracked URL: attribution belongs to the link (#64 §6), and
+  composing one would assert a contract nobody read.
+- **There is NO second derivation of the offer's kind.** #62's `offerKindFor`
+  already derives `affiliate | external | informational` from the rights and the
+  source kind. #66 answers only the narrower question #62 cannot see — may
+  Mercaria hand the tracking URL over at all — and applies the answer by
+  WITHHOLDING it, so #62's `affiliate_params`-absent branch produces the right
+  offer with no new mechanism and nothing that could disagree. The assessment is
+  taken twice and stored NEITHER time (once for the measurement, once as each
+  record leaves the adapter): a verdict carried across a staged pass can outlive
+  a rights withdrawal, and the function is pure so the two cannot disagree.
+- **A feed can never establish a brand relationship** (adapter rule 7). The
+  adapter emits `brandHint`, which resolves nothing; #55's
+  `SUFFICIENT_EVIDENCE_KINDS` excludes everything a feed can supply; and
+  `awin-isolation.test.ts` fails the build if any module here reaches the
+  relationship layer, with `AWIN_FORBIDDEN_ADVERTISER_CLAIMS` naming the five
+  claims as VALUES disjoint from every vocabulary this domain records.
+- **The network budget binds the FLEET and is keyed on the ACCOUNT.**
+  `awin_network_leases` duplicates #68's `catalog_source_refresh_leases` on
+  purpose: #68's is keyed on `source_id`, so with one source per advertiser it
+  bounds each advertiser separately and the network not at all — fifty
+  advertisers at twenty calls a minute each is a thousand at one host under one
+  key. Both are claimed; they answer different questions. Awin's published
+  Publisher API limit (20/min) is a NETWORK limit, so this is what enforces it
+  and #67's transaction poll joins the same budget.
+- **What Awin SAYS and what Mercaria DECIDED are different columns, with
+  different writers.** `membership_status` (`not_joined | pending | joined |
+  declined | suspended | left`) versus `activation` (`candidate → sampling →
+  active`, plus `paused` and `closed`). Collapsing them makes "Awin suspended
+  us" indistinguishable from "we paused them". Only `joined` is commissionable.
+- **An unreadable feed-list row is SEEN, not skipped**, and the alternative is
+  silently destructive: closure is inferred from ABSENCE, so dropping a row
+  whose membership word Awin added last week would close a live programme and
+  retire its catalogue. `AwinFeedListEntry` has two branches and both carry the
+  ids; only the understood one applies a membership. Defaulting to `not_joined`
+  would be worse — it is a real state Awin also reports.
+- **An advertiser cannot reach `active` without a PASSED sample** (quality
+  control 4) — a CHECK, plus a service that reads the NEWEST sample, so a
+  regression cannot be activated over stale evidence. Resuming a `paused`
+  advertiser goes back to `sampling`, never straight to `active`. There is no
+  "activate anyway" parameter.
+- **The mapping is built over the columns Mercaria REQUESTS, not the ones a
+  header row carried** — the mapping is needed before the first record is read
+  and reading a record to discover the header is circular. What varies per
+  advertiser is MEASURED (`declaredColumns`, `awin_advertiser_quality`) rather
+  than configured, which is #64 §6's "never fabricate absent identifiers".
+  Identity is `aw_product_id`, a code CONSTANT: a per-feed column would be a
+  configuration surface for the one decision that re-mints and retires an entire
+  catalogue.
+- **A pass that scanned rows and mapped NONE of them is refused**
+  (`no_records_mapped`, added to #63's closed refusal set, classified
+  `schema_drift`). An EMPTY feed is deliberately different — `scanned = 0` is a
+  catalogue with nothing in it, which a complete enumeration may report and
+  which legitimately retires everything.
+- **#63 was EXTENDED, never forked**, in exactly two places, both generic:
+  `BuildStageInput.observe` (watch each record as it is mapped, in the ONE pass
+  that reads the feed — returns `void`, the `recordAnalyticsEvent` device, so a
+  slow observer cannot join the critical path) and the `no_records_mapped`
+  refusal reason. Everything else is CALLED: `buildFeedStage`,
+  `readFeedStagePage`, `feedCompletionVerdict`, `mayReportCompleteEnumeration`,
+  `openFeedStream`, `FeedImportRefusal`. #63's CONFIGURATION surface
+  (`resolve.ts`, `configuration.service.ts`, `report.service.ts`,
+  `preview.service.ts`) is NOT reused — a scanned gate — because it reads a
+  merchant-facing table an Awin advertiser has no row in.
+- **A circular foreign key is silently dropped by `drizzle-kit generate`.**
+  Measured here: `awin_advertisers.activating_sample_id` written as
+  `references((): AnyPgColumn => awinLinkSamples.id)` produced NO
+  `ADD CONSTRAINT` in the migration AND no entry in the snapshot, so the
+  declaration type-checked, enforced nothing, and left a later generation free
+  to emit it out of nowhere. Reverted to a plain column with the reason recorded
+  in `ID_COLUMNS_WITHOUT_FOREIGN_KEY`. **Verify any circular FK against the
+  GENERATED SQL, never against the declaration.**
+- Env: `AWIN_ENABLED` (gates the adapter registration only; accounts,
+  advertisers, feeds, quality snapshots, samples and every #62 row are stored
+  either way and turning it on drains the backlog), `AWIN_FEED_LIST_BASE_URL`,
+  `AWIN_PUBLISHER_API_BASE_URL`, `AWIN_NETWORK_CONCURRENCY`,
+  `AWIN_NETWORK_CALLS_PER_MINUTE`, `AWIN_NETWORK_LEASE_MS`,
+  `AWIN_LIST_TIMEOUT_MS`, `AWIN_SAMPLE_SIZE`. It demands NO credential up front,
+  unlike `FEED_IMPORT_ENABLED`: Awin's key is a LOCATOR on a row, so a
+  configuration is storable and reviewable with none present and an unconfigured
+  deployment gets an honest `auth_failure` naming the missing secret. Operator
+  surface `/internal/awin/*` on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
+  allow-list, mounted while `AWIN_ENABLED` is off.
+- Deferred, each a named contract that fails closed: **#67** (the outbound
+  redirect and commission reconciliation — the deep link is validated, stored
+  unmodified and never composed into a Mercaria URL; the ≤31-day window chunker
+  and the network budget are supplied and NOTHING calls the transactions
+  endpoint, so the seam fails closed by ABSENCE), **#59** (duplicate GTINs,
+  `create_new` and ambiguous matches all route to #58's queue), **#74**
+  (ranking — a scanned gate), **#65** (independent; convergence between the two
+  is exercised generically rather than waiting for it), **#84** (native-store
+  linkage), and the re-import sweep an `AWIN_MAPPING_VERSION` bump schedules.

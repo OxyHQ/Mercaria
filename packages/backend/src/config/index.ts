@@ -22,6 +22,7 @@ import type {
 import {
   ALL_CURRENCY_CODES,
   ANALYTICS_COLLECTION_MODES,
+  AWIN_PUBLISHER_API_CALLS_PER_MINUTE,
   CANONICAL_READ_MODES,
   CHECKOUT_PAYMENT_SURFACE_METHODS,
   EBAY_ENVIRONMENTS,
@@ -2076,6 +2077,47 @@ export interface ProcurementConfig {
  * feed produces a completed enumeration over half a catalogue, which is the one
  * shape that retires the other half.
  */
+/**
+ * The Awin retailer-network source (#66).
+ *
+ * `AWIN_ENABLED` gates the ADAPTER's registration and nothing durable: accounts,
+ * advertisers, feeds, quality snapshots, samples and every #62 row are stored
+ * and readable either way, every run refuses with #62's own `adapter_missing`,
+ * and turning it on drains the backlog.
+ *
+ * **It deliberately does NOT demand a credential**, unlike `FEED_IMPORT_ENABLED`
+ * and unlike the half-configuration rule elsewhere in this file. The difference
+ * is real: #63 demands its encryption key because a feed's credential has
+ * nowhere to GO without it, so a configuration would be unstorable. Awin's key
+ * is a LOCATOR on a row — storable and reviewable with no key present — and a
+ * deployment that registered the adapter before the locator resolves gets an
+ * honest `auth_failure` naming the missing secret rather than a silent no-op.
+ *
+ * `networkCallsPerMinute` defaults to Awin's own published limit rather than to
+ * a Mercaria guess, and it binds the FLEET: the lease that enforces it is keyed
+ * on the publisher ACCOUNT, because with one Mercaria source per advertiser a
+ * per-source budget bounds each advertiser separately and the network not at
+ * all.
+ */
+export interface AwinConfig {
+  /** `AWIN_ENABLED` — register the adapter. Never gates a durable record. */
+  readonly enabled: boolean;
+  /** Where the product-data feed list and downloads live. */
+  readonly feedListBaseUrl: string;
+  /** Where the Publisher API lives. #67 spends it; #66 calls it from nowhere. */
+  readonly publisherApiBaseUrl: string;
+  /** Concurrent calls to Awin, across the whole fleet. The lease slot count. */
+  readonly networkConcurrency: number;
+  /** The account's whole per-minute allowance, divided evenly across slots. */
+  readonly networkCallsPerMinute: number;
+  /** How long one network lease is held before another task may reclaim it. */
+  readonly networkLeaseMs: number;
+  /** Header timeout for the feed-list read. A product feed uses #63's. */
+  readonly listTimeoutMs: number;
+  /** Rows a pre-activation destination/tracking sample examines. */
+  readonly sampleSize: number;
+}
+
 export interface FeedImportConfig {
   /** `FEED_IMPORT_ENABLED` — register the adapter and mount the merchant surface. */
   readonly enabled: boolean;
@@ -2169,6 +2211,7 @@ export interface AppConfig {
   readonly offerFreshness: OfferFreshnessConfig;
   readonly feedImport: FeedImportConfig;
   readonly ebay: EbayConfig;
+  readonly awin: AwinConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
@@ -2315,6 +2358,19 @@ export const config: AppConfig = Object.freeze({
     attributionEnabled: /^\d{10}$/u.test(strEnv('EPN_CAMPAIGN_ID', '')),
     dailyCallLimit: intEnv('EBAY_DAILY_CALL_LIMIT', 5_000),
     reconciliationSampleSize: intEnv('EBAY_RECONCILIATION_SAMPLE_SIZE', 40),
+  }),
+  awin: Object.freeze({
+    enabled: boolEnv('AWIN_ENABLED', false),
+    feedListBaseUrl: strEnv('AWIN_FEED_LIST_BASE_URL', 'https://productdata.awin.com'),
+    publisherApiBaseUrl: strEnv('AWIN_PUBLISHER_API_BASE_URL', 'https://api.awin.com'),
+    networkConcurrency: intEnv('AWIN_NETWORK_CONCURRENCY', 2),
+    networkCallsPerMinute: intEnv(
+      'AWIN_NETWORK_CALLS_PER_MINUTE',
+      AWIN_PUBLISHER_API_CALLS_PER_MINUTE,
+    ),
+    networkLeaseMs: intEnv('AWIN_NETWORK_LEASE_MS', 120_000),
+    listTimeoutMs: intEnv('AWIN_LIST_TIMEOUT_MS', 30_000),
+    sampleSize: intEnv('AWIN_SAMPLE_SIZE', 25),
   }),
   matching: Object.freeze({
     pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),

@@ -186,6 +186,28 @@ const ANALYTICS_CORRELATION =
 export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: string }[] = [
   // ── Oxy account ids ───────────────────────────────────────────────────────
   { column: 'abuse_reports.reporter_oxy_user_id', reason: OXY_ACCOUNT },
+  // #66's three operator stamps. Oxy ids like every other row in this block,
+  // and two of them sit on APPEND-ONLY tables whose whole purpose is to answer
+  // "who decided this" — an actor column that could be erased with the account
+  // answers it with a NULL.
+  { column: 'awin_accounts.state_changed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'awin_advertisers.activation_changed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'awin_link_samples.taken_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // #66's activation evidence pointer. The natural constraint is CIRCULAR —
+  // `awin_link_samples.advertiser_row_id` references `awin_advertisers` back —
+  // which Postgres permits, broken by write order. It was written as a real
+  // `references((): AnyPgColumn => …)` and `drizzle-kit generate` SILENTLY
+  // DROPPED it: absent from the emitted SQL and absent from the snapshot, so
+  // the declaration type-checked, enforced nothing, and left a later
+  // generation free to emit it out of nowhere. A constraint that exists in the
+  // editor and not in the database is worse than one that exists in neither.
+  // `awin_advertisers_activation_sample_check` is what enforces the citation.
+  {
+    column: 'awin_advertisers.activating_sample_id',
+    reason:
+      'A circular reference drizzle-kit silently omits from both the migration and the ' +
+      'snapshot. The CHECK enforces that an active advertiser cites a sample.',
+  },
   { column: 'addresses.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'cart_merges.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'carts.oxy_user_id', reason: OXY_ACCOUNT },
@@ -246,6 +268,12 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'stores.logo_file_id', reason: OXY_FILE },
 
   // ── External commerce-platform ids ────────────────────────────────────────
+  // #66: Awin's own publisher, advertiser and feed ids. A foreign system's key
+  // space in the fullest sense — Mercaria neither mints nor validates them, and
+  // an advertiser id is stable only for as long as Awin says it is.
+  { column: 'awin_accounts.publisher_id', reason: EXTERNAL_PLATFORM },
+  { column: 'awin_advertisers.advertiser_id', reason: EXTERNAL_PLATFORM },
+  { column: 'awin_feeds.feed_id', reason: EXTERNAL_PLATFORM },
   { column: 'connections.external_shop_id', reason: EXTERNAL_PLATFORM },
   { column: 'listing_external_refs.external_id', reason: EXTERNAL_PLATFORM },
   { column: 'listings.source_external_id', reason: EXTERNAL_PLATFORM },

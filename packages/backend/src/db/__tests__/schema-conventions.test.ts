@@ -71,7 +71,7 @@ const tables = Object.values(schema).flatMap((value) => (is(value, PgTable) ? [v
  * EXACTLY, rather than as a minimum, is what makes that impossible in both
  * directions.
  */
-const SCHEMA_TABLE_COUNT = 245;
+const SCHEMA_TABLE_COUNT = 251;
 
 describe('schema conventions (static)', () => {
   it('exports exactly the tables the gates below are calibrated for', () => {
@@ -158,15 +158,25 @@ describe('schema conventions (static)', () => {
     // `currencyChecks(...)` entry was forgotten looks constrained in the editor
     // and is not constrained in the database.
     //
-    // Two deliberate exceptions, both the same shape: a currency chosen by a
+    // Three deliberate exceptions, all the same shape: a currency chosen by a
     // system that is not Mercaria, which may legitimately be a code Mercaria does
     // not list. `connections.shop_currency` is the external commerce platform's;
     // `provider_accounts.default_currency` is the payment rail's, and several EEA
     // settlement currencies (RON, CZK, HUF, BGN) are outside Mercaria's
     // presentment set — so a CHECK there would fail the SYNC of a real seller's
-    // account rather than reject a price. Named here so removing either
-    // exemption is a visible decision.
-    const EXEMPT = new Set(['connections.shop_currency', 'provider_accounts.default_currency']);
+    // account rather than reject a price. `awin_feeds.currency` (#66) is the
+    // network's declaration of what an advertiser trades in, and it is
+    // `offers.price_currency`'s own documented exception (ADR 0002 D18) one
+    // layer up: refusing a feed because its currency is outside the presentment
+    // set would decline a whole retailer's inventory over a display concern,
+    // where a row whose currency Mercaria cannot READ is already refused per
+    // record by #63's money reader with the code named. Named here so removing
+    // any exemption is a visible decision.
+    const EXEMPT = new Set([
+      'connections.shop_currency',
+      'provider_accounts.default_currency',
+      'awin_feeds.currency',
+    ]);
 
     const unconstrained: string[] = [];
     let scanned = 0;

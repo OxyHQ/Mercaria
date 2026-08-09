@@ -36,6 +36,15 @@ import type { CatalogSourceFetchFailureKind } from '@mercaria/shared-types';
  * traversal has nowhere to live) and the second names an inability. A merchant
  * told "zip archives are not accepted; send the file itself" can act; one told
  * "unsupported format" cannot.
+ *
+ * `no_records_mapped` was added by #66 and is the one reason here that is not
+ * about reading the FILE. A pass that scanned rows and mapped none of them read
+ * the bytes perfectly well and could not make a single record out of them,
+ * which is a change in the source's SHAPE — a renamed identity column, a
+ * relocated record path, a provider that started serving an error page with a
+ * 200. An empty feed is different and is not this: `scanned = 0` is a
+ * catalogue with nothing in it, which a complete enumeration is entitled to
+ * report and which legitimately retires everything the source had.
  */
 export type FeedRefusalReason =
   | 'configuration_missing'
@@ -55,6 +64,7 @@ export type FeedRefusalReason =
   | 'malformed_feed'
   | 'entity_declaration_refused'
   | 'record_path_not_found'
+  | 'no_records_mapped'
   | 'upload_missing'
   | 'stage_unavailable';
 
@@ -76,6 +86,7 @@ export const FEED_REFUSAL_REASONS: readonly FeedRefusalReason[] = [
   'malformed_feed',
   'entity_declaration_refused',
   'record_path_not_found',
+  'no_records_mapped',
   'upload_missing',
   'stage_unavailable',
 ];
@@ -144,6 +155,7 @@ const FETCH_KIND_BY_REASON: Readonly<Record<FeedRefusalReason, CatalogSourceFetc
   malformed_feed: 'parse_failure',
   entity_declaration_refused: 'parse_failure',
   record_path_not_found: 'schema_drift',
+  no_records_mapped: 'schema_drift',
   upload_missing: 'source_outage',
   stage_unavailable: 'source_outage',
 };
