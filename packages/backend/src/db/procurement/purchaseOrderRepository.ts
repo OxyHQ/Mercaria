@@ -24,7 +24,7 @@
  * module enforces atomicity, not the map.
  */
 
-import { and, eq, isNull, lte, sql } from 'drizzle-orm';
+import { and, eq, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import type {
   CurrencyCode,
   PurchaseOrderInitiator,
@@ -277,6 +277,10 @@ export interface PurchaseOrderTransitionPatch {
   lastSubmissionError?: string | null;
   operatorInterventionRequired?: boolean;
   operatorNote?: string;
+  /** The provider observation that caused this transition (#124). All three or none. */
+  providerState?: string;
+  providerStateObservedAt?: Date;
+  stateMappingVersion?: number;
 }
 
 /**
@@ -333,6 +337,13 @@ export async function transitionPurchaseOrder(
           ? { operatorInterventionRequired: patch.operatorInterventionRequired }
           : {}),
         ...(patch.operatorNote !== undefined ? { operatorNote: patch.operatorNote } : {}),
+        ...(patch.providerState !== undefined ? { providerState: patch.providerState } : {}),
+        ...(patch.providerStateObservedAt !== undefined
+          ? { providerStateObservedAt: patch.providerStateObservedAt }
+          : {}),
+        ...(patch.stateMappingVersion !== undefined
+          ? { stateMappingVersion: patch.stateMappingVersion }
+          : {}),
         updatedAt: at,
       })
       .where(
@@ -352,6 +363,97 @@ export async function transitionPurchaseOrder(
     });
     return row;
   });
+}
+
+/**
+ * Advance the provider-state stamp WITHOUT moving the machine (#124).
+ *
+ * A poll that confirms what Mercaria already believes still carries new
+ * information: it says the provider's own clock has moved past this point, so
+ * an event that was in flight and arrives later is stale and must not be
+ * applied. Without this write the monotonic guard would only advance on
+ * transitions, and a status confirmed for a week would keep re-admitting a
+ * week-old redelivery.
+ *
+ * The `WHERE` is the guard itself: an observation no newer than the one already
+ * recorded matches nothing and returns `false`, so the caller learns it was
+ * stale rather than having to compare timestamps a second time in a place that
+ * could disagree with this one.
+ */
+export async function advancePurchaseOrderProviderState(
+  input: {
+    purchaseOrderId: string;
+    providerState: string;
+    observedAt: Date;
+    stateMappingVersion: number;
+  },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const updated = await db
+    .update(purchaseOrders)
+    .set({
+      providerState: input.providerState,
+      providerStateObservedAt: input.observedAt,
+      stateMappingVersion: input.stateMappingVersion,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(purchaseOrders.id, input.purchaseOrderId),
+        or(
+          isNull(purchaseOrders.providerStateObservedAt),
+          lt(purchaseOrders.providerStateObservedAt, input.observedAt),
+        ),
+      ),
+    )
+    .returning({ id: purchaseOrders.id });
+  return updated.length === 1;
+}
+
+/**
+ * Attach the supplier's own order id to a purchase order, once (#124).
+ *
+ * Separate from a transition because a convergence LOOKUP learns the external
+ * id without learning a new state: the provider says "yes, I have that client
+ * reference, here is its id", and the purchase order is still `submitted`.
+ *
+ * The `WHERE` refuses to overwrite an id already recorded. Two suppliers'
+ * orders can never both be this purchase order's, and a second, different id
+ * arriving means something is wrong that a silent overwrite would erase — the
+ * caller turns `false` into a `duplicate_external_order` exception.
+ */
+export async function attachSupplierExternalOrderId(
+  input: { purchaseOrderId: string; supplierExternalOrderId: string },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const updated = await db
+    .update(purchaseOrders)
+    .set({ supplierExternalOrderId: input.supplierExternalOrderId, updatedAt: new Date() })
+    .where(
+      and(
+        eq(purchaseOrders.id, input.purchaseOrderId),
+        isNull(purchaseOrders.supplierExternalOrderId),
+      ),
+    )
+    .returning({ id: purchaseOrders.id });
+  return updated.length === 1;
+}
+
+/** Flag or clear the operator queue without moving the machine (#124). */
+export async function setPurchaseOrderOperatorIntervention(
+  input: { purchaseOrderId: string; required: boolean; note?: string },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const updated = await db
+    .update(purchaseOrders)
+    .set({
+      operatorInterventionRequired: input.required,
+      ...(input.note !== undefined ? { operatorNote: input.note.slice(0, MAX_NOTE_LENGTH) } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(purchaseOrders.id, input.purchaseOrderId))
+    .returning({ id: purchaseOrders.id });
+  return updated.length === 1;
 }
 
 /** Record one parcel — a redelivered callback updates the row it already made. */

@@ -34,6 +34,8 @@ import {
   SUPPLIER_ADAPTER_CAPABILITIES,
   SUPPLIER_EMULATED_COMMITMENTS,
   SUPPLIER_FORBIDDEN_SOURCING_SIGNALS,
+  SUPPLIER_ORDER_CAPABILITIES,
+  SUPPLIER_PREFLIGHT_CAPABILITIES,
   SUPPLIER_SOURCING_CRITERIA,
 } from '@mercaria/shared-types';
 
@@ -156,12 +158,24 @@ describe('supplier preflight vocabularies', () => {
     expect(overlap).toEqual([]);
   });
 
-  it('declares exactly the twelve capabilities #122 names', () => {
+  it('declares exactly the twelve PREFLIGHT capabilities #122 names', () => {
     // A floor AND a ceiling: #122's adapter contract is a numbered list of
     // twelve, and both directions matter — a capability quietly removed would
     // stop being enforced by `applyDeclaredCapabilities`, and one quietly added
     // would be enforced by nothing.
-    expect(SUPPLIER_ADAPTER_CAPABILITIES).toHaveLength(12);
+    //
+    // #124 EXTENDED the union with twelve order-side capabilities rather than
+    // forking it, so the assertion moved from the whole tuple to this half of
+    // it. The two halves keep separate floors and ceilings for the same reason
+    // the union is one: each is enforced by a different boundary
+    // (`applyDeclaredCapabilities` here, `applyDeclaredOrderCapabilities`
+    // there), and a capability in neither is enforced by nothing.
+    expect(SUPPLIER_PREFLIGHT_CAPABILITIES).toHaveLength(12);
+    expect(SUPPLIER_ORDER_CAPABILITIES).toHaveLength(12);
+    expect(SUPPLIER_ADAPTER_CAPABILITIES).toHaveLength(24);
+    // Disjoint, so no capability is enforced by both boundaries or by neither.
+    const preflight = new Set<string>(SUPPLIER_PREFLIGHT_CAPABILITIES);
+    expect(SUPPLIER_ORDER_CAPABILITIES.filter((entry) => preflight.has(entry))).toEqual([]);
   });
 
   it('has no sourcing criterion that names a commission or a rank', () => {

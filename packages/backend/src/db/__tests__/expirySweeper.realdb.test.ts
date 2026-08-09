@@ -426,7 +426,16 @@ describe('the registry the sweeper runs over', () => {
       'notifications',
       'payment_outboxes',
       'payment_provider_events',
+      // #124's two, and the FIVE it deliberately leaves out are the point:
+      // `supplier_order_attempts`, `purchase_order_line_outcomes`,
+      // `purchase_order_tracking_events`, `purchase_order_documents` and
+      // `procurement_exceptions` carry no deadline, because they are the
+      // evidence that a supplier order was placed, what it cost and what
+      // happened to it — bounded by the number of purchase orders rather than
+      // by traffic, and read during a chargeback months later.
+      'procurement_outboxes',
       'referral_touches',
+      'supplier_provider_events',
     ]);
   });
 

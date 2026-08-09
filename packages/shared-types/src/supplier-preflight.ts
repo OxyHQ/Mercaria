@@ -52,10 +52,16 @@
  */
 
 import type { CurrencyCode, Money } from './money';
+import type { SupplierOrderCapability, SupplierOrderEmulatedCommitment } from './supplier-order';
+import {
+  SUPPLIER_ORDER_CAPABILITIES,
+  SUPPLIER_ORDER_EMULATED_COMMITMENTS,
+  SUPPLIER_ORDER_EMULATED_COMMITMENT_LABELS,
+} from './supplier-order';
 
 /**
- * The TWELVE capabilities a supplier adapter declares (#122 "Adapter capability
- * contract").
+ * The TWELVE PREFLIGHT capabilities a supplier adapter declares (#122 "Adapter
+ * capability contract").
  *
  *  - `live_product_lookup` — confirm the exact product and variant now.
  *  - `live_stock_lookup` — a current availability answer, not a feed's.
@@ -70,7 +76,7 @@ import type { CurrencyCode, Money } from './money';
  *  - `cancellation_before_submission` — a draft can be abandoned cleanly.
  *  - `update_notifications` — webhooks or polling for later changes.
  */
-export type SupplierAdapterCapability =
+export type SupplierPreflightCapability =
   | 'live_product_lookup'
   | 'live_stock_lookup'
   | 'destination_shipping_quote'
@@ -84,8 +90,8 @@ export type SupplierAdapterCapability =
   | 'cancellation_before_submission'
   | 'update_notifications';
 
-/** {@link SupplierAdapterCapability} as the tuple the columns and CHECKs read. */
-export const SUPPLIER_ADAPTER_CAPABILITIES: readonly SupplierAdapterCapability[] = [
+/** {@link SupplierPreflightCapability} as the tuple #122's boundary reads. */
+export const SUPPLIER_PREFLIGHT_CAPABILITIES: readonly SupplierPreflightCapability[] = [
   'live_product_lookup',
   'live_stock_lookup',
   'destination_shipping_quote',
@@ -101,6 +107,29 @@ export const SUPPLIER_ADAPTER_CAPABILITIES: readonly SupplierAdapterCapability[]
 ];
 
 /**
+ * Everything a supplier adapter can declare — #122's twelve preflight
+ * capabilities and #124's twelve order ones, in ONE union.
+ *
+ * One union rather than two parallel ones, because the boundary that removes an
+ * undeclared claim (`applyDeclaredCapabilities`) and the CHECK that bounds a
+ * stored `declared_capabilities` array both read this tuple. Two lists
+ * describing one adapter can disagree, and the direction they disagree in is
+ * always the permissive one — an adapter that "supports cancellation" according
+ * to the list nobody enforces.
+ *
+ * The sub-tuples stay separately named and separately asserted, so each half
+ * keeps its own floor and ceiling: a capability quietly removed would stop
+ * being enforced, and one quietly added would be enforced by nothing.
+ */
+export type SupplierAdapterCapability = SupplierPreflightCapability | SupplierOrderCapability;
+
+/** {@link SupplierAdapterCapability} as the tuple the columns and CHECKs read. */
+export const SUPPLIER_ADAPTER_CAPABILITIES: readonly SupplierAdapterCapability[] = [
+  ...SUPPLIER_PREFLIGHT_CAPABILITIES,
+  ...SUPPLIER_ORDER_CAPABILITIES,
+];
+
+/**
  * The SIX commitments the orchestration may never manufacture (#122 "The
  * orchestration must not emulate a reservation…", generalized).
  *
@@ -111,7 +140,7 @@ export const SUPPLIER_ADAPTER_CAPABILITIES: readonly SupplierAdapterCapability[]
  * so a refusal names the exact thing attempted rather than answering
  * "unsupported".
  */
-export type SupplierEmulatedCommitment =
+export type SupplierPreflightEmulatedCommitment =
   | 'emulated_reservation'
   | 'assumed_stock_on_timeout'
   | 'inferred_price_guarantee'
@@ -119,14 +148,34 @@ export type SupplierEmulatedCommitment =
   | 'assumed_zero_shipping'
   | 'assumed_zero_tax';
 
+/** {@link SupplierPreflightEmulatedCommitment} as a tuple, for exhaustive iteration. */
+export const SUPPLIER_PREFLIGHT_EMULATED_COMMITMENTS: readonly SupplierPreflightEmulatedCommitment[] =
+  [
+    'emulated_reservation',
+    'assumed_stock_on_timeout',
+    'inferred_price_guarantee',
+    'synthetic_delivery_estimate',
+    'assumed_zero_shipping',
+    'assumed_zero_tax',
+  ];
+
+/**
+ * Every commitment this system may never manufacture — #122's six about a QUOTE
+ * being better than the supplier said, and #124's seven about an ORDER being
+ * further along than the supplier said.
+ *
+ * One union, for the reason {@link SupplierAdapterCapability} is one: the
+ * disjointness gate that keeps an emulation from being typed as a capability
+ * has to see both halves, or the order side gets none of it.
+ */
+export type SupplierEmulatedCommitment =
+  | SupplierPreflightEmulatedCommitment
+  | SupplierOrderEmulatedCommitment;
+
 /** {@link SupplierEmulatedCommitment} as a tuple, for exhaustive iteration. */
 export const SUPPLIER_EMULATED_COMMITMENTS: readonly SupplierEmulatedCommitment[] = [
-  'emulated_reservation',
-  'assumed_stock_on_timeout',
-  'inferred_price_guarantee',
-  'synthetic_delivery_estimate',
-  'assumed_zero_shipping',
-  'assumed_zero_tax',
+  ...SUPPLIER_PREFLIGHT_EMULATED_COMMITMENTS,
+  ...SUPPLIER_ORDER_EMULATED_COMMITMENTS,
 ];
 
 /**
@@ -134,6 +183,7 @@ export const SUPPLIER_EMULATED_COMMITMENTS: readonly SupplierEmulatedCommitment[
  * the answer explains the rule instead of citing a schema.
  */
 export const SUPPLIER_EMULATED_COMMITMENT_LABELS: Record<SupplierEmulatedCommitment, string> = {
+  ...SUPPLIER_ORDER_EMULATED_COMMITMENT_LABELS,
   emulated_reservation:
     'a local record named `reserved` for a supplier that made no commitment — a reservation row requires the supplier\'s own reservation id and expiry, both NOT NULL',
   assumed_stock_on_timeout:

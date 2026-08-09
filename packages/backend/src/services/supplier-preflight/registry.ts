@@ -17,9 +17,42 @@
  * supplier's stock in it, and the sweep that exists to release lapsed holds
  * would silently do nothing for that provider forever — the kind of gap that is
  * invisible until a supplier asks why their availability keeps dropping.
+ *
+ * #124 extends that check to the ORDER capabilities, one row per pair in
+ * {@link CAPABILITY_METHODS}. The consequence there is larger and in the same
+ * direction: an adapter declaring `order_cancellation` with no `cancelOrder`
+ * puts a cancel path in front of a buyer that nothing could ever send, and an
+ * adapter declaring `order_reference_lookup` with no
+ * `findOrderByClientReference` promises the ambiguity converger a lookup it
+ * does not have — which is exactly the promise that decides whether a lost
+ * response becomes a second supplier order.
  */
 
+import type { SupplierAdapterCapability } from '@mercaria/shared-types';
 import type { SupplierPreflightAdapter } from './adapter.js';
+
+/**
+ * Which declared capability requires which method on the adapter object.
+ *
+ * A TABLE rather than a chain of `if`s, so adding a capability without deciding
+ * what implements it is a visible omission. Two capabilities are deliberately
+ * absent because they license CONTENT other methods return rather than a call
+ * of their own: `order_partial_acceptance` (line outcomes) and `tracking_events`
+ * (carrier scans) are enforced at the capability boundary, not here.
+ */
+const CAPABILITY_METHODS: Readonly<Partial<Record<SupplierAdapterCapability, readonly string[]>>> = {
+  inventory_reservation: ['releaseReservation'],
+  order_draft_submission: ['submitOrder'],
+  order_state_read: ['readOrder'],
+  order_reference_lookup: ['findOrderByClientReference'],
+  order_cancellation: ['cancelOrder'],
+  shipment_read: ['readShipments'],
+  invoice_retrieval: ['readInvoice'],
+  credit_note_retrieval: ['readCreditNotes'],
+  return_authorization: ['createReturn', 'readReturn'],
+  order_webhooks: ['verifyWebhook'],
+  order_polling: ['pollChanges'],
+};
 
 /** Provider slug → adapter. Populated at startup; empty in this repository. */
 const adapters = new Map<string, SupplierPreflightAdapter>();
@@ -46,6 +79,25 @@ export function registerSupplierAdapter(adapter: SupplierPreflightAdapter): void
         'implements no `releaseReservation`. A hold nobody can hand back is a leak with a ' +
         'supplier’s stock in it, and the release sweep would silently do nothing for it.',
     );
+  }
+  // The declaration is checked against the implementation for every capability
+  // that names one. `Reflect.get` rather than a cast, because the order-side
+  // methods live on `SupplierOrderAdapter` (which extends this interface) and
+  // the registry deliberately accepts the base one — a preflight-only supplier
+  // is a legitimate registration.
+  for (const capability of adapter.capabilities) {
+    for (const method of CAPABILITY_METHODS[capability] ?? []) {
+      const implementation: unknown = Reflect.get(adapter, method);
+      if (typeof implementation !== 'function') {
+        throw new Error(
+          `Supplier adapter \`${adapter.provider}\` declares \`${capability}\` but implements ` +
+            `no \`${method}\`. A declared capability with no implementation is a promise the ` +
+            'orchestration acts on: it will route work to this adapter that nothing can ' +
+            'perform, and the failure surfaces as a stuck purchase order rather than as a ' +
+            'configuration mistake.',
+        );
+      }
+    }
   }
   adapters.set(adapter.provider, adapter);
 }

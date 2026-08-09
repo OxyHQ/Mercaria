@@ -168,6 +168,17 @@ export * from './retail-pricing';
 // verdict as its `marketSupported` input.
 export * from './retail-eligibility';
 
+// The provider-neutral supplier ORDER boundary (#124, ADR 0004 D4 steps 4–5 /
+// D6.6 / D10) — the twelve order-side adapter capabilities, the seven order-side
+// emulations nothing may manufacture, the normalized provider states a versioned
+// adapter mapping targets, the draft/submission/state/shipment/tracking/
+// cancellation/return/document types, and the six-class provider error
+// vocabulary whose `afterWrite` flag is what makes a lost response AMBIGUOUS
+// rather than failed. PRECEDES `./supplier-preflight`, which composes its
+// capability and emulation tuples into the single adapter contract both halves
+// are enforced against.
+export * from './supplier-order';
+
 // Live supplier stock, shipping, quote and reservation preflight (#122, ADR
 // 0004 D4 step 1 / D5 / D9.3) — the twelve-member adapter capability contract,
 // the disjoint set of commitments the orchestration may never emulate, the

@@ -45,6 +45,7 @@ import channelsIngestRouter from './routes/channels-ingest.js';
 import reportsRouter from './routes/reports.js';
 import crowdSourceWebhookRouter from './routes/crowdsource-webhook.js';
 import stripeWebhookRouter from './routes/stripe-webhook.js';
+import supplierWebhookRouter from './routes/supplier-webhook.js';
 import stripeOnboardingRouter from './routes/stripe-onboarding.js';
 import internalPaymentsRouter from './routes/internal-payments.js';
 import merchantsRouter from './routes/merchants.js';
@@ -70,6 +71,7 @@ import guestOrdersRouter from './routes/guest-orders.js';
 import analyticsRouter from './routes/analytics.js';
 import internalAnalyticsRouter from './routes/internal-analytics.js';
 import internalRetailEligibilityRouter from './routes/internal-retail-eligibility.js';
+import internalProcurementRouter from './routes/internal-procurement.js';
 import internalSupplierPreflightRouter from './routes/internal-supplier-preflight.js';
 import { config } from './config/index.js';
 import {
@@ -149,6 +151,19 @@ export function createApp(): express.Express {
   if (config.payments.stripe.enabled) {
     app.use('/webhooks/stripe', stripeWebhookRouter);
   }
+
+  // Inbound SUPPLIER webhooks (#124). The FOURTH raw-body mount, and the same
+  // rule: a supplier signs the bytes it sent, so a parser reaching the stream
+  // first breaks every delivery. The router mounts its own express.raw.
+  //
+  // The mount is NOT gated on a flag, unlike Stripe's, and the difference is
+  // real rather than an inconsistency: what makes a delivery verifiable here is
+  // the ACCOUNT named in the path and the credential behind it, so an
+  // unconfigured deployment already answers 401 to every delivery through the
+  // handler's own gates. A flag would add a second, coarser way to say the same
+  // thing — and one that could strand a supplier's events during an incident
+  // where their configuration is exactly what somebody is fixing.
+  app.use('/webhooks/suppliers', supplierWebhookRouter);
 
   // Body parsing
   app.use(express.json({ limit: '10mb' }));
@@ -424,6 +439,11 @@ export function createApp(): express.Express {
   // mounted, 404 — see middleware/procurement-operator-authz.ts.
   if (config.supplierPreflight.operatorSurfaceEnabled) {
     app.use('/internal/supplier-preflight', internalSupplierPreflightRouter);
+    // The supplier-ORDER half of the same power, on the SAME sixth list (#124).
+    // Deliberately not a seventh: reading what Mercaria pays a supplier and
+    // acting on a supplier order are one power, and splitting them would create
+    // a list to keep in sync with no distinction to justify it.
+    app.use('/internal/procurement', internalProcurementRouter);
   }
   // (Inbound connector webhooks are mounted above, before express.json.)
 

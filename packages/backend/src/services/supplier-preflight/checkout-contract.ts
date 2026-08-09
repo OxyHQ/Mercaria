@@ -8,21 +8,19 @@
  * a provider client — the `services/payments/provider-account.service.ts`
  * arrangement, one domain over.
  *
- * ## `authorizeSupplierFulfilment` refuses, always
+ * ## Nothing here authorizes fulfilment, and now nothing here MENTIONS it
  *
  * #122 states it outright: "a quote is not a PurchaseOrder and cannot
- * independently authorize supplier fulfilment." That is not a limitation of the
- * current implementation — it is the boundary, and it stays. Fulfilment is
- * authorized by a `purchase_orders` row created from a PAID order under ADR
- * 0004 D4 step 4, which is #124's work; the function below publishes the exact
- * shape that call will take and answers `authorized: false` for every input,
- * because the only value that could make it `true` is a purchase-order id this
- * module has no way to obtain and no import that could give it one. A test
- * fails the build if this domain ever imports the purchase-order repository.
+ * independently authorize supplier fulfilment." That is not a limitation of an
+ * implementation — it is the boundary, and it stays. #122 published a
+ * `authorizeSupplierFulfilment` here that refused unconditionally; #124 moved
+ * the function to `services/supplier-orders/fulfilment-authorization.ts`, where
+ * it can read the `purchase_orders` row that DOES authorize, rather than
+ * relaxing the isolation gate that forbids this domain from importing one.
  *
- * This is a seam that REFUSES, not a stub that lies (the
- * `grantEligibilitiesForClaimedGuestOrder` shape, #76): the contract, the
- * refusal vocabulary and the caller's branch all exist and are exercised.
+ * The property is unchanged and is now simply structural: this module has no
+ * function that could answer `authorized: true`, because it has no such
+ * function at all.
  *
  * ## `assertPreflightSatisfiesCheckout` is complete
  *
@@ -198,43 +196,20 @@ function versionMoved(
   return storedKey !== liveKey || storedVersion !== liveVersion;
 }
 
-/** Why fulfilment cannot be authorized from a quote. */
-export type SupplierFulfilmentRefusal =
-  | 'quote_is_not_a_purchase_order'
-  | 'purchase_order_orchestration_not_implemented';
-
-/** Authorized with the purchase order that authorizes it, or refused. */
-export type SupplierFulfilmentAuthorization =
-  | { authorized: true; purchaseOrderId: string }
-  | { authorized: false; reason: SupplierFulfilmentRefusal };
-
-/** What a caller would have to be holding to even ask. */
-export interface SupplierFulfilmentRequest {
-  quoteId: string;
-  orderId: string;
-  supplierAccountId: string;
-}
-
 /**
- * Authorize a supplier to fulfil — which this domain never does (#122 "A quote
- * is not a PurchaseOrder and cannot independently authorize supplier
- * fulfilment").
+ * `authorizeSupplierFulfilment` LIVES ELSEWHERE — see
+ * `services/supplier-orders/fulfilment-authorization.ts` (#124).
  *
- * The refusal is unconditional and reads no input, and that is the design:
- * `authorized: true` requires a `purchaseOrderId`, which only
- * `db/procurement/purchaseOrderRepository.ts` mints, which
- * `supplier-preflight-isolation.test.ts` forbids this domain from importing.
- * So the false branch is not a placeholder somebody will fill in here — the
- * true branch belongs to #124, which creates the purchase order from a PAID
- * order and calls the supplier itself.
+ * It was published here as a seam that refused unconditionally, because
+ * `authorized: true` requires a purchase-order id and
+ * `supplier-preflight-isolation.test.ts` forbids this domain from importing the
+ * purchase-order repository. #124 did not relax that wall — it is #122's "a
+ * quote is not a PurchaseOrder and cannot independently authorize supplier
+ * fulfilment", held structurally — so the FUNCTION moved to where it can read a
+ * purchase order, and this domain kept the property that made the seam
+ * meaningful in the first place: nothing here can authorize anything.
  *
- * The ONE line #124 replaces is the `return` below; everything around it — the
- * request shape, the refusal vocabulary and the caller's branch — is already
- * what it will use.
+ * This note is not a re-export and must not become one. It is here because a
+ * reader looking for the function in the module #122 published it from should
+ * find out where it went and why, rather than concluding it was dropped.
  */
-export function authorizeSupplierFulfilment(
-  request: SupplierFulfilmentRequest,
-): SupplierFulfilmentAuthorization {
-  void request;
-  return { authorized: false, reason: 'quote_is_not_a_purchase_order' };
-}

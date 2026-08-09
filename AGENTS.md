@@ -2617,3 +2617,157 @@ back to that purchase from a device holding no cart credential. Full reference:
   `returns:request`, `support:write` granted and unconsumed; `contact_change`),
   #111 (the three payment-notification thresholds), #93 (`order_ready_for_pickup`
   cannot fire while pickup fails closed at checkout).
+## Idempotent supplier adapters and PurchaseOrder orchestration (#124, ADR 0004 D4 steps 4–5 / D6.6 / D9.2 / D10)
+
+`services/supplier-orders/` (17 modules) + `db/supplierOrders/` (5
+repositories) + `db/schema/supplierOrders.ts` (7 tables) +
+`/webhooks/suppliers/:supplierAccountId` + `/internal/procurement/*`. How
+Mercaria actually BUYS from a supplier. Full reference:
+**`docs/purchase-orders.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"The supplier order orchestration". #122 records what a supplier says before
+Mercaria charges anybody; this places the order, watches it and cancels it.
+
+The failure mode that shapes all of it: **a supplier order placed TWICE for one
+customer order, because an HTTP response was lost.** Real money, invisible until
+a statement is reconciled weeks later, and every naive recovery makes it likelier.
+
+- **It EXTENDS #122's capability contract; it does not fork it.**
+  `SUPPLIER_ORDER_CAPABILITIES` (12) joins `SUPPLIER_PREFLIGHT_CAPABILITIES`
+  (12) into the one `SUPPLIER_ADAPTER_CAPABILITIES` tuple every
+  `declared_capabilities` CHECK reads, and `SUPPLIER_ORDER_EMULATED_COMMITMENTS`
+  (7) joins the six. Two lists describing one adapter can disagree, and the
+  direction they disagree in is always the permissive one. `SupplierOrderAdapter`
+  EXTENDS `SupplierPreflightAdapter` — one object, one slug, one registry entry
+  — and ten of the twelve capabilities name a METHOD `registerSupplierAdapter`
+  refuses an adapter for declaring without implementing.
+- **Every downgrade lands on the value that BLOCKS**, #122's rule applied to
+  orders: `partially_accepted`→`unknown` (never `accepted`), `delivered`→
+  `unknown`, shipments→`[]`, `duplicateOfExistingOrder`→`false`. Each removal is
+  REPORTED as the emulation it prevented and becomes a `capability_not_declared`
+  exception.
+- **`afterWrite` is what makes an outcome ambiguous, and the ADAPTER states it.**
+  Only the code holding the socket knows which side of the write a failure fell
+  on. An unclassified error reads as `afterWrite: 'unknown'`, treated exactly as
+  `yes` — reading it as "definitely nothing was written" is the assumption that
+  costs money. The error CLASS is deliberately not part of the answer: a
+  `validation` failure AFTER the write is still ambiguous, because some
+  providers validate asynchronously on an order they already created.
+  `supplier_order_attempts_ambiguity_shape_check` makes `ambiguous` unreachable
+  without it, so it is not a value a service could choose.
+- **There is NO plain retry path in `submission.service.ts` at all.** If the
+  last submission attempt is `ambiguous` or still `in_flight`, the provider is
+  ASKED whether it holds an order under Mercaria's client reference; a second
+  submission is reachable only after that answers "no". A provider that did not
+  declare `order_reference_lookup` cannot be asked, and that is where an
+  ambiguity becomes an operator's row (`unconverged_submission`) rather than
+  another attempt.
+- **Four mechanisms make a duplicate impossible, none a convention**: #118's
+  UNIQUE `idempotency_key`; the outbox row's DERIVED id (so an operator retry
+  claims the same row — idempotency item 6 held by a primary key); the attempt
+  row committed `in_flight` BEFORE the call; and #118's UNIQUE
+  `supplier_external_order_id` per account, whose refusal becomes a HALTING
+  `duplicate_external_order`.
+- **ONE chokepoint calls providers** (`provider-call.ts`, a scanned gate on the
+  registry import). Account state → suppression → capability → fetch lever →
+  credential → #122's provider lease → attempt row → call → outcome. **A refusal
+  is an OUTCOME**, written as an attempt row with a named reason: "we never
+  asked" and "we asked and it failed" lead an operator to opposite conclusions.
+  A SUBMISSION and a CANCELLATION are deliberately NOT gated by the fetch lever
+  — they are consequences of money that already moved.
+- **The mapping is a PROCEDURE the adapter ships, versioned, never a table**
+  (`CATALOG_BACKFILL_MAPPING_VERSION`'s reasoning). An unrecognized provider
+  status answers `unknown`, records `unmapped_provider_state` and moves nothing.
+  #124's sixteen states are all representable and only NINE are statuses (ADR
+  D9.2): `submitting` is an `in_flight` attempt, `partially accepted` is the
+  line-outcome trail, `credited` is a document, `exception` is a case. A status
+  for any of them would give the machine two ways to say one thing.
+- **One observation path, four callers**, and `decideProviderObservation`'s
+  check ORDER is load-bearing: staleness first (a late delivery is not a
+  regression — an at-least-once stream produces them constantly), then
+  `unknown`, then **a TERMINAL order receiving anything further** (before the
+  rank check, so a shipment on a cancelled order reaches the caller as
+  `shipment_after_cancellation` instead of being buried in the generic
+  regression bucket), then the rank regression. The ordering key is the
+  PROVIDER's `observed_at`; two racing deliveries produce receipt times whose
+  order says nothing.
+- **The webhook is the FOURTH raw-body mount** and its account is in the PATH,
+  never the body. An unverifiable delivery is REFUSED and COUNTED, never stored —
+  `SupplierEventVerification` has no `unverified` member, so it has no row shape.
+  An unknown account gets the SAME 401, because a distinguishable answer
+  enumerates account ids. **The mount is NOT flag-gated**, unlike Stripe's: what
+  makes a delivery verifiable here is the account and its credential, so an
+  unconfigured deployment already 401s — and a flag could strand a supplier's
+  events during the incident where their configuration is being fixed.
+- **Dedupe is TWO partial uniques, not one `NULLS NOT DISTINCT` constraint.** A
+  poll has no provider event id, so its identity is a content digest; making
+  NULLs collide would collapse every polled event for an account into one row.
+- **Polling is ONE self-rescheduling row per purchase order**, whose reschedule
+  RESETS the attempt counter (a poll that answered is a success). A terminal
+  order is confirmed for a bounded grace measured from its OWN terminal
+  timestamp, then polling stops. Webhook/poll disagreement is RECORDED
+  (`webhook_poll_disagreement`), never resolved by a rule about which source
+  wins.
+- **Cancellation keeps four answers apart** — requested / accepted / rejected /
+  ambiguous — and **nothing here refunds, restocks or deletes**. A supplier's
+  refusal returns the order to `accepted` and the recovery is #127's RMA;
+  calling it a cancellation would tell a buyer their money is coming back while
+  a parcel is on its way to them.
+- **Four exception kinds HALT fulfilment** (`PROCUREMENT_HALTING_EXCEPTION_KINDS`)
+  and raising one also sets `operator_intervention_required`, in ONE place, so
+  the flag and an open case cannot disagree. One OPEN case per condition by
+  partial unique — and a RESOLVED one is re-raisable, which a plain unique would
+  forbid forever.
+- **Credentials are a PORT whose default REFUSES.** Mercaria stores an SSM PATH
+  (#118); `credential.port.ts` resolves the value per call and answers `null`
+  until a deployment registers a reader, which the chokepoint turns into
+  `credential_not_valid`. The secret is passed TO the adapter, so an adapter
+  holds none between calls and cannot cache one across a rotation.
+- **Privacy is absence first**: no address, recipient, phone, email or document
+  URL column exists in the domain. Then the ALLOW-LIST
+  (`SUPPLIER_EVENT_PAYLOAD_FIELDS`, nested objects NOT walked — a nested object
+  is where a provider puts the address). Then the scrub, whose digit rule is
+  FIVE or more where #122's is six: five digits is the commonest postal length
+  there is, and this domain's requests carry a street where the preflight's do
+  not. `request_hash` and both event handles are PROTECTED.
+- **Three independent loop levers, none gating a durable record** (a scanned
+  gate): `PROCUREMENT_ORCHESTRATION_ENABLED` (submit/cancel, default false),
+  `PROCUREMENT_PROVIDER_FETCH_ENABLED` (outbound reads),
+  `PROCUREMENT_EVENT_PROCESSING_ENABLED` (applying stored events). The
+  per-supplier kill switch is a DIFFERENT mechanism —
+  `supplier_accounts.state = 'killed'` — and stops new submissions while status,
+  cancellation, return and reconciliation carry on (acceptance 5).
+- **The conformance suite is a SUITE, not a fixture dump.**
+  `services/supplier-orders/__tests__/adapter-conformance-suite.ts` covers all
+  fourteen cases against a REAL Postgres server through the REAL orchestration;
+  #125 passes a harness and gets every case for free. It builds the supplier,
+  account, agreement, order and purchase order itself, so two adapters are
+  measured against one commercial setup. "Successful QUOTE" stays #122's.
+- **`supplier_accounts` identity is now frozen by trigger** (`provider`,
+  `environment`, `provider_account_id`) — #124 security 8. Purchase orders,
+  quotes and events NAME an account rather than snapshotting its environment,
+  so freezing the account is what stops a flip reinterpreting every historical
+  row that points at it.
+- **`authorizeSupplierFulfilment` MOVED** from
+  `services/supplier-preflight/checkout-contract.ts` to
+  `services/supplier-orders/fulfilment-authorization.ts`. #122's isolation gate
+  forbids the preflight domain from importing the purchase-order repository, and
+  that wall was not relaxed — the function went where it can read the row that
+  DOES authorize. A clean cut: the old module exports it no longer and carries a
+  note saying where it went.
+- Operator surface `/internal/procurement/*` on the SAME sixth allow-list
+  (`PROCUREMENT_OPERATOR_OXY_USER_IDS`), NOT a seventh. Every write DRIVES an
+  existing idempotent path; there is deliberately no "set this purchase order
+  accepted", no "attach this external order id", no "clear this attempt" and no
+  "delete this event". The one mutation of a stored fact is closing an
+  EXCEPTION, attributably.
+- Seams, each a named contract that fails closed: **#123**
+  (`registerProcurementPaymentAuthorizationReader` — one function; the default
+  refuses every order under its own reason `authorization_reader_not_registered`,
+  so a deployment without retail checkout places no supplier orders and says
+  why), **#125** (no adapter is registered; the fake one is double-gated and
+  refuses any `live` account whatever the flag says), **#126** (the accepted /
+  rejected announcements), **#127** (returns — the adapter contract exists, the
+  RMA table is #127's), **#128** (`purchase_order_documents` records what a
+  supplier billed; nothing here books anything), and the buyer RELAY EMAIL,
+  which needs an outbound mail transport Mercaria does not have — so
+  `SupplierRecipient` has no email member at all.

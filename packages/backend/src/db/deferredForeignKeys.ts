@@ -750,6 +750,24 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'supplier_preflight_suppressions.raised_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'supplier_preflight_suppressions.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
 
+  // ── The supplier ORDER orchestration (#124) ───────────────────────────────
+  // Every entry below is a SUPPLIER PLATFORM's own key or an Oxy account id.
+  // There is deliberately not one deferred relation among them: this domain
+  // hangs entirely off tables that already exist, and the only ids it stores
+  // that are not Mercaria's are ids Mercaria could never constrain.
+  { column: 'supplier_order_attempts.provider_object_id', reason: SUPPLIER_PLATFORM },
+  { column: 'supplier_provider_events.provider_event_id', reason: SUPPLIER_PLATFORM },
+  { column: 'supplier_provider_events.provider_order_id', reason: SUPPLIER_PLATFORM },
+  { column: 'purchase_order_documents.provider_document_id', reason: SUPPLIER_PLATFORM },
+  {
+    column: 'purchase_order_documents.related_provider_document_id',
+    reason:
+      "The invoice a credit note reverses, by the SUPPLIER's own document id — their key " +
+      'space, and deliberately not a foreign key onto this same table: a credit note can ' +
+      'legitimately name an invoice Mercaria never retrieved.',
+  },
+  { column: 'procurement_exceptions.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+
   // ── Referral domain (#142, ADR 0005) ──────────────────────────────────────
   { column: 'referral_programs.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'referral_programs.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
