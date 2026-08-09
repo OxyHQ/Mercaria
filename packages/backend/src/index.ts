@@ -231,6 +231,20 @@ connectPostgres()
         .catch((err: unknown) =>
           log.general.error({ err }, 'eBay Browse adapter registration failed'),
         );
+      // Register the Awin retailer-network adapter (#66). Gated by
+      // `AWIN_ENABLED` and, like #63's, gating nothing durable: with the flag
+      // off, publisher accounts, advertisers, feeds, quality snapshots, samples
+      // and every #62 row are still stored and readable, every run refuses with
+      // `adapter_missing`, and turning it on drains the backlog. Unlike #63 it
+      // demands no credential up front — Awin's key is a LOCATOR on a row, so a
+      // configuration is storable and reviewable with none present, and a
+      // deployment that registers the adapter early gets an honest
+      // `auth_failure` naming the missing secret rather than a silent no-op.
+      import('./services/awin/register.js')
+        .then(({ registerAwinFeedAdapter }) => {
+          registerAwinFeedAdapter();
+        })
+        .catch((err: unknown) => log.general.error({ err }, 'Awin adapter registration failed'));
 
       // Hand back lapsed supplier holds, release lapsed quotes and evaluate
       // supplier health (#122). On EVERY task, and deliberately WITHOUT a lease:

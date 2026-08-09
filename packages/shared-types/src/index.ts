@@ -297,3 +297,13 @@ export * from './feed-import';
 // whose taxonomy keys the recommended ruleset maps onto, and `./ingestion`,
 // whose adapter contract it is written against.
 export * from './ebay';
+// The Awin retailer-network source (#66, selected by #64). Follows
+// `./ingestion` and `./feed-import`, whose framework and parsing stack it
+// consumes rather than forking. Carries the two lifecycles a NETWORK needs and
+// #62 cannot express — what Awin says about a programme and what Mercaria
+// decided about it — the closed set of network redirector hosts that is the
+// whole of what a tracking link may point at, the verdict vocabulary that says
+// WHICH thing a refused deep link got wrong, and the claims a feed's contents
+// may never establish about a retailer (disjoint from every fact this domain
+// can record, so #55 stays the only route to a badge).
+export * from './awin';

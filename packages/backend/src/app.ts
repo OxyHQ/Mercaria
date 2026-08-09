@@ -66,6 +66,7 @@ import internalIngestionRouter from './routes/internal-ingestion.js';
 import internalOfferFreshnessRouter from './routes/internal-offer-freshness.js';
 import internalFeedImportsRouter from './routes/internal-feed-imports.js';
 import internalEbayRouter from './routes/internal-ebay.js';
+import internalAwinRouter from './routes/internal-awin.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
@@ -437,6 +438,16 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/ebay', internalEbayRouter);
+  }
+  /**
+   * The Awin retailer-network operator surface (#66), on the SAME allow-list and
+   * mounted while `AWIN_ENABLED` is off — for `/internal/ingestion`'s reason:
+   * registering a publisher account, polling the feed list and reading what it
+   * found is how a network is brought up BEFORE the adapter is switched on, and
+   * the evidence has to stay readable during the incident that turned it off.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/awin', internalAwinRouter);
   }
   // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
   // reason the two above have theirs: reading who merged which cart is a third

@@ -819,8 +819,25 @@ describe('the queue: leases, revisions and coalescing', () => {
       trigger: 'catalog_write',
     });
 
-    const claimed = await claimMatchQueue({ leaseOwner: `owner-${RUN}`, batchSize: 50 });
-    const mine = claimed.find((job) => job.subjectKey === subjectKey);
+    // Claim until THIS subject appears, rather than assuming one batch of fifty
+    // contains it (#66).
+    //
+    // `claimMatchQueue` is global and unscoped — `FOR UPDATE SKIP LOCKED` over
+    // whatever is pending — so a sibling realdb file with fifty of its own rows
+    // queued crowds this one out and `claimed.find(...)` is `undefined`. The
+    // failure lands on a file that did nothing wrong and reads as a broken
+    // revision pair, which is the shape that gets a suite marked flaky. Measured
+    // at four full-suite runs in six once #65's eBay file started running to
+    // completion; successive claims walk the queue, because a claimed row is no
+    // longer pending.
+    let mine: Awaited<ReturnType<typeof claimMatchQueue>>[number] | undefined;
+    for (let sweep = 0; sweep < 20 && mine === undefined; sweep += 1) {
+      const claimed = await claimMatchQueue({ leaseOwner: `owner-${RUN}`, batchSize: 50 });
+      // An empty claim means the queue is drained and this subject is genuinely
+      // absent, which is a real failure rather than contention.
+      if (claimed.length === 0) break;
+      mine = claimed.find((job) => job.subjectKey === subjectKey);
+    }
     expect(mine).toBeDefined();
     if (!mine) throw new Error('unreachable');
 

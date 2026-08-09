@@ -34,6 +34,10 @@ import { uuidv7 } from '@oxyhq/db';
 import type { CatalogRefreshMode } from '@mercaria/shared-types';
 import { EBAY_BROWSE_PROVIDER } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
+import {
+  acquireActivePolicySlot,
+  type ActivePolicySlot,
+} from '../../ingestion/__tests__/active-policy-slot.js';
 import { insertMatchPolicyVersion } from '../../../db/matching/matchPolicyRepository.js';
 import { matchDecisions, matchPolicyVersions } from '../../../db/schema/matching.js';
 import {
@@ -221,6 +225,8 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
   const sourcesById = new Map<string, SourceUnderTest>();
   /** The active-policy slot this file holds right now, released after each test. */
   let heldPolicyId: string | null = null;
+  /** The GLOBAL mutex over that slot, held for this file's whole run. */
+  let policySlot: ActivePolicySlot | undefined;
 
   function safeIds(ids: readonly string[]): string[] {
     return ids.length === 0 ? ['__none__'] : [...ids];
@@ -305,6 +311,27 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       }),
     );
     registeredProviders.push(EBAY_BROWSE_PROVIDER);
+
+    /**
+     * Take the GLOBAL active-policy slot for this file's whole run (#66).
+     *
+     * This file's own note below records the contention it measured and left as
+     * a KNOWN LIMITATION, correctly declining to change three other issues'
+     * suites from here. It turns out no such change is needed: #63 already built
+     * the durable fix this file's note asks for — a session-level Postgres
+     * ADVISORY LOCK on a RESERVED connection (`active-policy-slot.ts`) — and
+     * three of the four claimants already take it. This file did not, so it
+     * published an active policy OUTSIDE the queue and every well-behaved
+     * claimant got a duplicate key from it. Measured on `origin/main` before
+     * this line existed: 14 failed tests across 5 files, none of them this one.
+     *
+     * Taking it in `beforeAll` rather than per test is deliberate: the hook
+     * budget (120 s) is the only one long enough to wait out a sibling file's
+     * whole run, and `ensureMatchPolicy` is called from INSIDE tests, whose
+     * timeout is far shorter. The per-test publish/release below is unchanged
+     * and still bounds how long an ACTIVE row exists.
+     */
+    policySlot = await acquireActivePolicySlot(db);
   }, 120_000);
 
   afterAll(async () => {
@@ -312,6 +339,8 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
     // Release the global slot BEFORE the teardown reads and writes, so a sibling
     // file waiting on it is unblocked by the earliest statement that can.
     await releaseMatchPolicy();
+    await policySlot?.release();
+    policySlot = undefined;
     for (const name of credentialEnvs) {
       delete process.env[`${name}_ID`];
       delete process.env[`${name}_SECRET`];
@@ -414,7 +443,16 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
    * rather than about whichever sibling happened to run first. Borrowing an
    * active policy was tried and rejected for exactly that reason.
    *
-   * ## KNOWN LIMITATION, measured, and it is not this file's to fix
+   * ## The limitation this note recorded is CLOSED (#66)
+   *
+   * The paragraphs below are kept because their measurements are still true of
+   * the retry loop, and because the rejected alternatives are worth not
+   * re-trying. What has changed is the conclusion: the durable fix did not need
+   * three other suites edited. #63's `acquireActivePolicySlot` — a session-level
+   * advisory lock on a reserved connection — was already the queue, three of the
+   * four claimants already took it, and this file did not. It now does, in
+   * `beforeAll`. The retry loop stays as belt and braces and should now never
+   * spin.
    *
    * `origin/main` carries THREE files that need the slot (#58's
    * `matching-writes`, #62's `adapter-contract` and #60's `backfill`) and is

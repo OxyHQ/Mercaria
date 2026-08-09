@@ -3057,6 +3057,122 @@ than the report that counts them, because the counts are what is read months
 later and the per-record detail is what a merchant downloads this week. Entries
 are the only table here bounded by TRAFFIC rather than by the catalogue.
 
+## The Awin retailer-network source (#66)
+
+`awin_accounts`, `awin_advertisers`, `awin_feeds`, `awin_advertiser_quality`,
+`awin_link_samples`, `awin_network_leases`. Full reference:
+`docs/catalog-sources/awin.md`; source selection is #64's decision document,
+which is binding.
+
+**One Awin advertiser is one `catalog_sources` row.** Not one source called
+"Awin", and every other decision here follows from that. It makes four otherwise
+hard properties free: a malformed advertiser feed fails ITS run and marks ITS
+source (there is no shared enumeration for it to make incomplete); each retailer
+is a distinct merchant AND storefront, because the binding is
+`catalog_source_configs.merchant_id`/`storefront_id` per source; the
+per-advertiser kill switch, rights withdrawal, freshness TTL, cadence and
+territory scoping are all things #62 and #68 already do PER SOURCE; and
+advertiser health and NETWORK health become separately observable, which they
+could not be if "Awin" were one source. The cost is stated rather than hidden —
+fifty advertisers is fifty registry rows and fifty rights policies to review —
+and it is the correct amount of work, because each of those IS a separate
+commercial relationship with separate terms.
+
+**`awin_network_leases` is #68's `catalog_source_refresh_leases` keyed on the
+ACCOUNT, and the duplication is the point.** #68's lease is keyed on
+`source_id`; with one source per advertiser it bounds each advertiser separately
+and the network not at all — fifty advertisers with an allowance of twenty each
+is a thousand calls a minute at one host under one key, which is how a publisher
+account gets suspended. Both are claimed on a feed download and they answer
+different questions: #68's is "how hard may Mercaria knock on THIS advertiser's
+feed", this one is "how hard may Mercaria knock on AWIN". The slot/row/counter
+mechanics are #122's `supplier_call_leases` unchanged, including the
+UNDER-admitting trade and the `rate_limited` versus `all_slots_busy`
+discriminator.
+
+**Two lifecycles, two columns, two writers.** `membership_status` is what AWIN
+says and only the discovery path writes it; `activation` is what MERCARIA
+decided and only the operator path writes it. Collapsing them makes "Awin
+suspended us" indistinguishable from "we paused them", which are opposite next
+actions. There is deliberately no function that moves both.
+
+**`awin_advertisers_activation_sample_check` is issue quality control 4 as a
+constraint.** An advertiser cannot be `active` without naming the
+`awin_link_samples` row that authorised it, and there is no "activate anyway"
+column: a waiver would be a second, quieter way to reach the one state that puts
+a tracked link in front of a buyer. `awin_advertisers_activation_attribution_check`
+adds that any activation past `candidate` names WHO and WHEN.
+
+**`awin_advertisers.activating_sample_id` carries NO foreign key, and that is a
+MEASURED drizzle-kit limitation rather than a preference.** The natural
+constraint is circular (`awin_link_samples.advertiser_row_id` references the
+advertiser back), which Postgres permits, broken by write order. It was written
+as `text().references((): AnyPgColumn => awinLinkSamples.id)` and `drizzle-kit
+generate` SILENTLY DROPPED it — absent from the emitted SQL AND absent from the
+snapshot, so the declaration type-checked, enforced nothing, and left a later
+generation free to emit it out of nowhere. A constraint that exists in the editor
+and not in the database is worse than one that exists in neither, so the column
+is plain and registered in `ID_COLUMNS_WITHOUT_FOREIGN_KEY` with that reason.
+The CHECK above plus `awin_link_samples` being append-only are what make the
+citation real. **Any future circular FK in this schema must be verified against
+the generated SQL, not against the declaration.**
+
+**`awin_advertiser_quality_totals_check` is `scanned = mapped + rejected`**,
+equality and never `<=` — #60's vacuity floor, so a pass that swallowed rows
+cannot write the snapshot at all. Its companion
+`awin_advertiser_quality_coverage_check` bounds every completeness count by
+`mapped`: `with_gtin > mapped` is arithmetically impossible, and its appearance
+would mean a counter was incremented somewhere the record was not, which is
+exactly the shape a partially-refactored measurement takes.
+
+**Two APPEND-ONLY tables, by trigger, against UPDATE and DELETE alike.** A
+quality history whose rows can be edited answers "was this feed always like
+this" with whatever somebody most recently believed, and the question is usually
+asked during an argument about whether a regression is new. A sample AUTHORISES
+an activation, so one that can be edited afterwards is not evidence — and the
+edit would be invisible beside an advertiser that has been live for a month.
+
+**`awin_link_samples_verdict_shape_check` reads
+`coalesce(array_length(col, 1), 0)`**, never `array_length(col, 1) >= 1`: on an
+EMPTY array `array_length` is NULL and a CHECK reads NULL as SATISFIED, so the
+obvious spelling admits exactly the row it exists to refuse. #68 measured this
+twice; every array-non-emptiness CHECK in this schema reads the coalesced form.
+
+**No feed URL column exists, anywhere in the domain.** Awin puts the
+product-data API key in the PATH
+(`productdata.awin.com/datafeed/list/apikey/<KEY>`), so a feed URL here is a
+credential wearing a hostname — #63's rule, inherited rather than re-decided.
+What is stored is a LOCATOR, shape-CHECKed to the same
+`^(connection|env|ssm):…$` pattern `catalog_source_configs.credential_ref` uses
+so a pasted key is refused by the database; the URL is composed at fetch time
+and never persisted, projected or logged.
+
+**`awin_feeds.currency` carries no `CurrencyCode` CHECK**, and is the third
+documented exception beside `connections.shop_currency` and
+`provider_accounts.default_currency`. It is `offers.price_currency`'s own
+exception (ADR 0002 D18) one layer up: an external platform trades in whatever
+it trades in, and refusing a feed because its currency is outside Mercaria's
+presentment set would decline a whole retailer's inventory over a display
+concern — where a row whose currency Mercaria cannot READ is already refused per
+record by #63's money reader, with the code named.
+
+**`awin_advertisers`' network identity is FROZEN by trigger** (`account_id`,
+`advertiser_id`) — #124's `supplier_accounts` decision, for its reason: every
+feed, quality snapshot, sample and `catalog_sources` row NAMES this advertiser
+rather than snapshotting which one it was, so re-pointing it silently
+reinterprets every historical row. `catalog_source_id` is deliberately NOT
+frozen: binding a source is a later operator act and the unique index already
+stops one source serving two advertisers.
+
+**There is no per-feed identity-column set, and no transactions table.**
+`AWIN_IDENTITY_COLUMNS` is a code constant naming ONE column (`aw_product_id`) —
+#63's frozen `identity_key_fields` taken one step further, because a column here
+would be a configuration surface for the one decision that re-mints and retires
+an entire catalogue when it moves. And #67 owns commission reconciliation: a
+transaction row Mercaria cannot attribute to a click it recorded is a number
+with nothing to compare it against, so the seam fails closed by ABSENCE, which
+is the strongest form.
+
 ## Register: every `jsonb` column, and why it earned it
 
 `jsonb` is for genuinely shape-less data only. Eight columns qualify in 129 tables;

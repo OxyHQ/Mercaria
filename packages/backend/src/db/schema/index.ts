@@ -208,3 +208,11 @@ export * from './feedImport';
 // at all), and the record of a live re-read disagreeing with what Mercaria
 // serves. No observation, offer, match or rights column lives here.
 export * from './ebay';
+// The Awin retailer-network source (#66) is last, and follows `./ingestion`
+// for the same reason `./feedImport` does plus one more: an Awin advertiser IS
+// a `catalog_sources` row (that is the structural decision the whole domain
+// follows from), its quality snapshots cite a `catalog_source_runs` row, and
+// its network lease is #68's source lease raised to the publisher ACCOUNT —
+// which #68's cannot be, because it is keyed on `source_id` and every
+// advertiser has its own. It adds no column to any table above it.
+export * from './awin';
