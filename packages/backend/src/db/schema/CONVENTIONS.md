@@ -662,6 +662,39 @@ natural-unique idempotency. What is #54's own:
   now. That is the mechanism working as designed, recorded here so the next
   parallel schema batch reuses it instead of inventing one.
 
+### The guest domain has NO source model either
+
+`guest_sessions` (`schema/guests.ts`, `drizzle/0013_guest_sessions.sql`) was
+born in Postgres for ADR 0003 (#103) — there was never a Mongoose model behind
+it and the backfill had nothing to copy into it. Its decisions, so a column
+whose shape looks arbitrary is answerable here:
+
+- **`token_hash` stores the hex SHA-256 of the bearer token, never the
+  plaintext, and there is deliberately NO pepper/HMAC key.** The preimage is 32
+  CSPRNG bytes (`mgs_` + base64url), so a leaked hash is neither invertible nor
+  dictionary-attackable — and a pepper would make every stored hash
+  unverifiable the day it rotated. This is the OPPOSITE decision from the
+  guest-checkout email hash (ADR 0003 D12), which is keyed precisely because an
+  email has dictionary-scale entropy. Do not "harmonize" the two.
+- **Status (`active | converted | expired | revoked`) is DERIVED from the
+  timestamp set, never a column** — the `provider_accounts` no-`ready`-boolean
+  rule. `guestSessionStatus` in `services/guest-session.service.ts` is the one
+  derivation.
+- **Only the ABSOLUTE expiry is a column.** Idle expiry (30 days from
+  `last_seen_at`) is enforced by the resolver, so the two cannot disagree.
+- **Purge is TWO expiry-sweep targets over one table** (`db/expiryTargets.ts`):
+  7 days past `expires_at` and 7 days past `revoked_at` — the registry cannot
+  express OR, and each column carries its own leading btree index for the gate.
+  Hard DELETE: audit continuity lives in OTHER tables' correlation text
+  (`order_status_history.actor_guest_session_id`, D16), never in kept sessions.
+- **`converted_at` + `converted_to_oxy_user_id` are a SEAM for #104/#109**,
+  written only by the merge/claim transaction; CHECKs force the pair to travel
+  together and force converted ⇒ revoked. The Oxy id carries no FK (Oxy owns
+  identity) and is in the `ID_COLUMNS_WITHOUT_FOREIGN_KEY` ledger.
+- **No email, address, payment method, device fingerprint, or locale/currency
+  preference columns** — contact belongs to `guest_checkouts` (#105+), and a
+  guest's presentment currency rides the request (ADR 0003 D8).
+
 ### Counters became sequences (`drizzle/0001_counter_sequences.sql`)
 
 `order_number_seq` and `rma_number_seq` replace the `Counter` collection's

@@ -33,6 +33,10 @@ export * from './ledger';
 export * from './reconciliation';
 export * from './pos';
 export * from './buyers';
+// `guests` follows `buyers` deliberately: #104 gives `carts` a
+// `guest_session_id` foreign key, so the session table must exist beside the
+// cart it will own. Nothing references guests today.
+export * from './guests';
 export * from './notifications';
 export * from './moderation';
 // Canonical commerce graph (ADR 0002). `provenance` precedes `organizations`

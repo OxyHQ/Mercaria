@@ -33,7 +33,13 @@ export type RateLimitScope =
   | 'rates'
   | 'channels'
   | 'reports'
-  | 'payments';
+  | 'payments'
+  // ADR 0003 D3/T10: guest-session ISSUANCE has its own bucket
+  // (`rl:guest-issue:`) — per IP, since the caller is anonymous by definition
+  // — so a farmer exhausts this budget, not the general one.
+  | 'guest-issue'
+  // The rest of the guest-session surface (inspect/rotate/revoke).
+  | 'guest';
 
 /**
  * Build a rate-limit middleware for a scope. The scope drives a unique

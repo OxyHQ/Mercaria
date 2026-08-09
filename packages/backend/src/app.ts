@@ -46,8 +46,10 @@ import internalPaymentsRouter from './routes/internal-payments.js';
 import merchantsRouter from './routes/merchants.js';
 import storefrontsRouter from './routes/storefronts.js';
 import internalCommerceGraphRouter from './routes/internal-commerce-graph.js';
+import guestSessionRouter from './routes/guest-session.js';
 import { config } from './config/index.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
+import { ALLOWED_ORIGINS } from './lib/allowed-origins.js';
 
 /**
  * Build the application.
@@ -61,37 +63,10 @@ import { makeRateLimiter } from './lib/rate-limit.js';
 export function createApp(): express.Express {
   const app = express();
 
-  // CORS — restricted to known origins
-  const PRODUCTION_ORIGINS = [
-    'https://mercaria.co',
-    'https://console.mercaria.co',
-    'https://gateway.mercaria.co',
-    'https://dashboard.mercaria.co',
-    'https://pos.mercaria.co',
-  ];
-
-  const DEV_ORIGINS = [
-    'http://localhost:4160',
-    'http://localhost:5173',
-    // Mercaria's Expo apps own the 816x block of the per-app local dev port map
-    // (frontend 8160, dashboard 8161, pos 8162), so several Oxy apps can run
-    // side by side on one machine.
-    'http://localhost:8160',
-    'exp://localhost:8160',
-    'http://10.0.2.2:8160',
-    'http://localhost:8161',
-    'exp://localhost:8161',
-    'http://10.0.2.2:8161',
-    'http://localhost:8162',
-    'exp://localhost:8162',
-    'http://10.0.2.2:8162',
-  ];
-
-  const allowedOrigins = [
-    ...(process.env.WEB_URL ? [process.env.WEB_URL] : []),
-    ...PRODUCTION_ORIGINS,
-    ...DEV_ORIGINS,
-  ];
+  // CORS — restricted to known origins. The list lives in
+  // `lib/allowed-origins.ts` because it is ALSO the guest CSRF gate's
+  // authority (ADR 0003 D10): one list, nothing to drift.
+  const allowedOrigins = ALLOWED_ORIGINS;
 
   app.use((req, res, next) => {
     cors({
@@ -107,7 +82,7 @@ export function createApp(): express.Express {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Service-Name', 'X-Timestamp', 'X-Signature', 'X-Session-Id', 'X-Device-Info', 'X-Oxy-User-Id', 'X-Workspace-Id'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Service-Name', 'X-Timestamp', 'X-Signature', 'X-Session-Id', 'X-Device-Info', 'X-Oxy-User-Id', 'X-Workspace-Id', 'X-Mercaria-Guest-Token', 'X-Mercaria-Guest-Transport', 'X-Mercaria-Guest-Client'],
       optionsSuccessStatus: 200,
     })(req, res, next);
   });
@@ -167,6 +142,15 @@ export function createApp(): express.Express {
   app.use('/cart', cartRouter);
   app.use('/addresses', addressesRouter);
   app.use('/checkout', checkoutRouter);
+  // Guest sessions (ADR 0003, #103). The MOUNT is gated like the Stripe routes
+  // above and for the same reason: a deployment without guest commerce answers
+  // 404 — the truthful answer — rather than advertising a credential surface
+  // it will refuse. The issuance KILL SWITCH is a different lever
+  // (`GUEST_SESSION_ISSUANCE_ENABLED`): it stops only NEW sessions, inside the
+  // router, so existing guests keep resolving during an incident.
+  if (config.guest.enabled) {
+    app.use('/guest/session', guestSessionRouter);
+  }
   app.use('/orders', ordersRouter);
   app.use('/reviews', reviewsRouter);
   // Abuse reports. Unrelated to the store SALES ANALYTICS at
@@ -248,6 +232,7 @@ export function createApp(): express.Express {
         '/stripe/onboarding',
         '/merchants',
         '/storefronts',
+        '/guest/session',
         // `/internal/payments` and `/internal/commerce-graph` are deliberately
         // ABSENT, and this is not an
         // oversight to correct: this list is public and unauthenticated, and the

@@ -59,6 +59,13 @@ export const ErrorCodes = {
   RATE_LIMITED: 'RATE_LIMITED',
   OUT_OF_STOCK: 'OUT_OF_STOCK',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
+  /**
+   * The guest-session issuance kill switch is thrown
+   * (`GUEST_SESSION_ISSUANCE_ENABLED=false`, ADR 0003). Existing sessions
+   * keep working; only NEW ones are refused, so clients retry later rather
+   * than discarding their state.
+   */
+  GUEST_ISSUANCE_DISABLED: 'GUEST_ISSUANCE_DISABLED',
 } as const;
 
 /** Union of the supported error code literals. */

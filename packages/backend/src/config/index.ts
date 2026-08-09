@@ -150,6 +150,43 @@ function resolveDatabaseUrl(): string {
   return url;
 }
 
+/**
+ * Whether guest commerce is switched on — ADR 0003 M8.
+ *
+ * `GUEST_COMMERCE_ENABLED=true` requires BOTH `GUEST_PII_ENCRYPTION_KEY` and
+ * `GUEST_EMAIL_HASH_KEY`, the `CROWDSOURCE_ENABLED` half-configuration rule:
+ * a deployment able to mint guest sessions but not to encrypt a guest
+ * checkout's contact (#105–#107) or route a magic link (#108) would take carts
+ * it can never carry to an order confirmation. Half-configured stays OFF and
+ * says so once at boot. The two keys are SEPARATE by design (D12): the hash
+ * key must be usable by the lookup path without ever being able to decrypt.
+ *
+ * There is deliberately no `GUEST_TOKEN_PEPPER` and none may be added: the
+ * session token hashes are keyless SHA-256 on purpose (256-bit random
+ * preimages need no key, and a pepper would make every stored hash
+ * unverifiable the day it rotated), while the email hash is keyed for the
+ * opposite entropy reason — the ADR's Environment section states both.
+ *
+ * This flag gates ISSUANCE surfaces (the `/guest/session` mount, new-session
+ * minting), never durable records: sessions issued while it was on are purged
+ * by the retention sweep on their own schedule whatever this says.
+ */
+function resolveGuestCommerceEnabled(): boolean {
+  if (!boolEnv('GUEST_COMMERCE_ENABLED', false)) return false;
+
+  const missing = (['GUEST_PII_ENCRYPTION_KEY', 'GUEST_EMAIL_HASH_KEY'] as const).filter(
+    (name) => (process.env[name]?.trim() ?? '') === '',
+  );
+  if (missing.length === 0) return true;
+
+  log.general.error(
+    { missing },
+    '[Guest] GUEST_COMMERCE_ENABLED is set but the integration is incomplete; staying OFF. ' +
+      'No guest session is issued and the /guest/session surface is not mounted.',
+  );
+  return false;
+}
+
 function resolveCrowdSourceEnabled(): boolean {
   if (!boolEnv('CROWDSOURCE_ENABLED', false)) return false;
 
@@ -586,6 +623,44 @@ export interface PaymentsConfig {
   readonly operatorSurfaceEnabled: boolean;
 }
 
+/**
+ * Guest commerce (ADR 0003, #103). Variable names are the ADR's, verbatim.
+ */
+export interface GuestConfig {
+  /**
+   * Whether guest commerce exists on this deployment — see
+   * `resolveGuestCommerceEnabled`. Gates the `/guest/session` MOUNT (an
+   * unconfigured deployment answers 404, the `STRIPE_ENABLED` rule) and the
+   * resolver's willingness to read guest credentials at all.
+   */
+  readonly enabled: boolean;
+  /**
+   * The issuance KILL SWITCH — `GUEST_SESSION_ISSUANCE_ENABLED`, default true.
+   *
+   * Distinct from `enabled` on purpose: flipping THIS off during an abuse
+   * incident stops new sessions being minted while every existing session
+   * keeps resolving, rotating and revoking — nobody's cart is destroyed to
+   * stop a farmer. Flipping `enabled` off is a decommission, not a lever.
+   */
+  readonly issuanceEnabled: boolean;
+  /**
+   * `GUEST_PII_ENCRYPTION_KEY` — AES-256-GCM key for the guest checkout
+   * contact snapshot (D12). Required for `enabled`; CONSUMED by #105–#107,
+   * carried here so the M8 half-configuration rule holds from day one.
+   */
+  readonly piiEncryptionKey: string;
+  /**
+   * `GUEST_EMAIL_HASH_KEY` — HMAC-SHA-256 key for email routing lookups
+   * (D12). Required for `enabled`; consumed by #108. SEPARATE from the
+   * encryption key by design: the lookup path must never be able to decrypt.
+   */
+  readonly emailHashKey: string;
+  /** Idle expiry, enforced by the resolver against `last_seen_at` (D3). */
+  readonly sessionIdleDays: number;
+  /** Absolute expiry, the `expires_at` column stamped at issuance (D3). */
+  readonly sessionAbsoluteDays: number;
+}
+
 export interface PaginationConfig {
   /** Default page size when the client does not specify a `limit`. */
   readonly defaultPageSize: number;
@@ -732,6 +807,7 @@ export interface AppConfig {
   readonly web: WebConfig;
   readonly crowdSource: CrowdSourceConfig;
   readonly payments: PaymentsConfig;
+  readonly guest: GuestConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -883,6 +959,14 @@ export const config: AppConfig = Object.freeze({
     }),
     operatorOxyUserIds: Object.freeze(resolvePaymentOperatorIds()),
     operatorSurfaceEnabled: resolvePaymentOperatorIds().length > 0,
+  }),
+  guest: Object.freeze({
+    enabled: resolveGuestCommerceEnabled(),
+    issuanceEnabled: boolEnv('GUEST_SESSION_ISSUANCE_ENABLED', true),
+    piiEncryptionKey: strEnv('GUEST_PII_ENCRYPTION_KEY', ''),
+    emailHashKey: strEnv('GUEST_EMAIL_HASH_KEY', ''),
+    sessionIdleDays: intEnv('GUEST_SESSION_IDLE_DAYS', 30),
+    sessionAbsoluteDays: intEnv('GUEST_SESSION_ABSOLUTE_DAYS', 90),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

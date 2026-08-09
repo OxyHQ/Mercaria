@@ -102,3 +102,6 @@ export * from './organization';
 // — issue #54, ADR 0002. NOT the same thing as MerchantSummary in `./product`,
 // which is a native-store feed card projection.
 export * from './merchant';
+
+// Guest commerce identity DTOs (GuestSessionState, GuestSessionStatus, …) — ADR 0003, #103.
+export * from './guest';
