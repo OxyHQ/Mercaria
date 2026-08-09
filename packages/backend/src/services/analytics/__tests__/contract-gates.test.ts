@@ -330,12 +330,18 @@ describe('#77 — the deferred events are a seam, never a fabricated event', () 
     );
     // The vacuity floor: a broken traversal would scan nothing and pass.
     expect(files.length).toBeGreaterThan(200);
-    // Twenty-two: #106's six (the eligibility and contact/destination gates run
-    // today but raise unbounded refusals — see `seams.ts`), #107's five,
-    // #108's three, #109's five and #110's three. Pinned EXACTLY rather than as
-    // a minimum, so both directions fail: a type quietly added to the deferred
-    // map without a seam entry, and one emitted without being removed from it.
-    expect(DEFERRED_EVENT_TYPES.length).toBe(22);
+    // Sixteen: #107's five, #108's three, #109's five and #110's three. Pinned
+    // EXACTLY rather than as a minimum, so both directions fail: a type quietly
+    // added to the deferred map without a seam entry, and one emitted without
+    // being removed from it.
+    //
+    // It was twenty-two until #106 closed its own seam — the six eligibility
+    // and contact/destination types. Ratcheting this number DOWN is the shape a
+    // closed seam takes here, and the assertion below is what proves the six
+    // are genuinely emitted rather than merely delisted: they are no longer in
+    // `DEFERRED_EVENT_TYPES`, so an emission of one is no longer an offence,
+    // and `checkout.controller.ts` performs it.
+    expect(DEFERRED_EVENT_TYPES.length).toBe(16);
 
     const offenders: string[] = [];
     for (const file of files) {

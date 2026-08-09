@@ -259,10 +259,22 @@ export async function grantEligibilitiesForOrder(
   const order = await findOrderById(orderId);
   if (!order) throw notFound('Order not found');
 
-  if (!order.buyerOxyUserId || order.buyerOxyUserId.startsWith('ext:')) {
-    // A connector-imported order carries an external buyer reference in that
-    // column, not an Oxy account. There is nobody to grant to, and inventing
-    // somebody is the failure mode this whole domain exists to prevent.
+  /**
+   * Only an `oxy`-origin order earns an AUTHENTICATED-purchase eligibility, and
+   * since #106 that is read from `buyer_origin` rather than sniffed off the
+   * buyer id's prefix.
+   *
+   * The three excluded shapes are excluded for three different reasons and none
+   * of them is "we could not tell": an `external` import's buyer is another
+   * platform's customer, an unclaimed guest has no Oxy account to grant to, and
+   * a CLAIMED guest order goes through
+   * {@link grantEligibilitiesForClaimedGuestOrder} — a different evidence type
+   * with a different proof, which is #76's whole point. Granting a claimed
+   * order here would attribute a guest purchase to an account under the
+   * authenticated evidence type, losing the distinction the claim exists to
+   * record.
+   */
+  if (order.buyerOrigin !== 'oxy' || !order.buyerOxyUserId) {
     return { granted: [], skipped: [] };
   }
 
@@ -285,10 +297,16 @@ export async function grantEligibilitiesForOrder(
  *     request (ADR 0003 D14).
  *  2. The claim id must be non-empty and the order must actually belong to the
  *     claimed checkout group.
- *  3. The order must carry a guest origin. It cannot today — `orders` has no
- *     `buyer_origin` column until #105/#106 add it — so the check reads the
- *     absence honestly and refuses rather than assuming an order with a NULL
- *     buyer is a guest's.
+ *  3. The order must carry a guest origin, and #106 made that CHECKABLE:
+ *     `orders.buyer_origin` exists, so a non-guest order is now refused for the
+ *     real reason rather than for the absence of a column. An order that IS
+ *     guest-origin still gets no eligibility, because of (4).
+ *  4. The claim must be verifiable, and it is not: `orders.claimed_by_oxy_user_id`
+ *     exists (#106 added it) but #109 owns its only writer, so no order in this
+ *     database can carry one and `evidence.claimedByOxyUserId` is a value this
+ *     module would have to take on trust. It does not. When #109 lands, this
+ *     guard becomes a comparison against the stored claimant and the refusal
+ *     below is deleted.
  *
  * `review-eligibility.test.ts` pins that an unclaimed guest order produces
  * ZERO eligibilities through EVERY exported path, and that this one refuses even
@@ -316,15 +334,36 @@ export async function grantEligibilitiesForClaimedGuestOrder(
   }
 
   /**
-   * The seam, stated as a refusal rather than as a comment.
+   * Guard 3, now a real check (#106).
    *
-   * `orders` has no `buyer_origin` column and no `claimed_by_oxy_user_id`
-   * column: #105/#106 add the first and #109 writes the second. Until both
-   * exist this module cannot tell a guest-origin order from any other, and
-   * granting on an unverifiable premise is precisely the failure #76 acceptance
-   * criteria 8 and 9 describe. So it refuses — loudly, naming the issue that
-   * closes it — and no code path can reach `insertEligibility` with
-   * `evidence_type = 'claimed_guest_purchase'`.
+   * A non-guest order can never carry a guest claim, and saying so BY NAME —
+   * rather than through the blanket refusal below — is what makes the seam
+   * shrink visibly as its dependencies land. `buyer_origin` is immutable by
+   * trigger, so this is not a race with anything.
+   */
+  if (order.buyerOrigin !== 'guest') {
+    throw forbidden(
+      'That order was not placed as a guest, so it cannot be claimed into an account. Its ' +
+        'buyer is already an Oxy account or an external platform.',
+    );
+  }
+
+  /**
+   * Guard 4 — the seam, stated as a refusal rather than as a comment.
+   *
+   * `orders.claimed_by_oxy_user_id` EXISTS since #106, and it is exactly what
+   * this module would compare `evidence.claimedByOxyUserId` against. What does
+   * not exist is anything that writes it: #109 owns the claim service, the
+   * `guest_order_access_grants` table it proves possession with, and the
+   * transaction that stamps the pair. So every order in this database has a
+   * NULL claimant, and a grant here would rest on a value the CALLER supplied —
+   * which is the failure #76 acceptance criteria 8 and 9 describe. It refuses,
+   * loudly, naming the issue that closes it, and no code path can reach
+   * `insertEligibility` with `evidence_type = 'claimed_guest_purchase'`.
+   *
+   * When #109 lands, this block becomes:
+   *   `if (order.claimedByOxyUserId !== evidence.claimedByOxyUserId) throw forbidden(…)`
+   * and the grant proceeds. Nothing else in this module changes.
    */
   log.general.warn(
     { orderId, claimId: evidence.claimId },
@@ -332,8 +371,8 @@ export async function grantEligibilitiesForClaimedGuestOrder(
   );
   throw forbidden(
     'Guest-origin review eligibility is not available yet. It requires the guest order-claim ' +
-      'record (#109) and the order buyer-origin columns (#106); until both exist Mercaria ' +
-      'cannot verify that this order began as a guest purchase, and it will not guess.',
+      'record (#109); the order carries no claimed account, so Mercaria cannot verify that ' +
+      'this purchase was claimed by the person asking, and it will not guess.',
   );
 }
 

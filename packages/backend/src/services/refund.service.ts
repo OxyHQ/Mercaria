@@ -409,6 +409,10 @@ export async function process(
     {
       status: isFullyRefunded ? 'refunded' : 'partially_refunded',
       at: new Date(),
+      // A refund is always driven by a MERCHANT or an operator through an
+      // authenticated admin surface — `actorOxyUserId` is the caller's own
+      // verified id, so the kind is `oxy` (ADR 0003 D16).
+      actorKind: 'oxy',
       byOxyUserId: actorOxyUserId,
       note: isFullyRefunded ? FULL_REFUND_NOTE : PARTIAL_REFUND_NOTE,
     },

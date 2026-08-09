@@ -37,7 +37,7 @@ import {
   findProviderAccountsByOwners,
   type ProviderAccountRow,
 } from '../../db/payments/providerAccountRepository.js';
-import { conflict } from '../../lib/errors/error-codes.js';
+import { checkoutRefusal } from '../checkout/refusal.js';
 
 /**
  * The rail a native checkout funds through.
@@ -176,7 +176,13 @@ export async function assertSellerGroupsPaymentReady(sellerKeys: readonly string
   }
   if (unready.length === 0) return;
 
-  throw conflict(
+  // A CLASSIFIED refusal (#106): the message is unchanged and so is the 409,
+  // but the reason code is what lets #77 count a rejected checkout without
+  // matching on this sentence. The import is one type and one factory from the
+  // checkout domain — this module still knows nothing about Stripe or about
+  // analytics.
+  throw checkoutRefusal(
+    'seller_not_payment_ready',
     `These sellers cannot accept payment right now: ${unready.join(', ')}. ` +
       'Remove them from your order to check out with the rest.',
   );

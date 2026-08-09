@@ -111,6 +111,7 @@ import {
 import { prepareGuestCheckoutContact } from './checkout/guest-checkout.service.js';
 import { reserve, release } from './inventory.service.js';
 import { summarizeOrders } from './order-hydration.service.js';
+import { statusEventActorColumns } from './order.service.js';
 import { resolveMedia } from './catalog-hydration.service.js';
 import { calculateTotals, type PricingLine, type PricingResult } from './pricing.service.js';
 import { normalizeDiscountCode } from './discount.service.js';
@@ -876,16 +877,21 @@ export async function checkout(
         appliedDiscounts: toOrderAllocations(pricing.appliedDiscounts),
         taxLines: toOrderTaxLines(pricing.taxLines),
         status: 'pending_payment',
-        // `byOxyUserId` is Oxy-only (ADR 0003 D16): a guest id never enters
-        // that column, and the guest actor's own audit dimension
-        // (`actor_kind`, `actor_guest_session_id`) is #106's to add. Until it
-        // exists, a guest's first status event is attributed to nobody rather
-        // than to a fabricated id.
+        // The actor, in the shape `order_status_history_actor_check` accepts
+        // (ADR 0003 D16, #106). `byOxyUserId` is Oxy-only — a guest id never
+        // enters that column — and a guest's first status event now names the
+        // guest SESSION row id in its own column rather than being attributed
+        // to nobody. Composed from the cart OWNER, so neither branch has the
+        // other's field to fill.
         statusHistory: [
           {
             status: 'pending_payment',
             at: new Date(),
-            ...(owner.kind === 'oxy_user' ? { byOxyUserId: owner.oxyUserId } : {}),
+            ...statusEventActorColumns(
+              owner.kind === 'oxy_user'
+                ? { kind: 'oxy', oxyUserId: owner.oxyUserId }
+                : { kind: 'guest', guestSessionId: owner.guestSessionId },
+            ),
           },
         ],
         // No `paymentProvider`: a freshly checked-out order has reserved stock

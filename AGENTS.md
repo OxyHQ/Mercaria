@@ -1168,12 +1168,90 @@ widening on `db/schema/orders.ts`. Schema decisions:
   write from a guest module, and any contact-based buyer lookup. The
   reachability detectors scan COMMENT-STRIPPED source, because the modules
   document what they refuse to do in the same vocabulary.
-- Deferred and NOT built here: #106 (the claim columns, `order_status_history`
-  actor dimensions, and the widening of `orders_buyer_identity_check` — it
-  WIDENS that constraint and the origin trigger rather than adding second
-  ones), #107 (the guest Stripe client surfaces and the portal), #108
-  (verification, magic links, transactional mail), #109 (claiming), #93
-  (pickup), #112 (guest P2P).
+- Deferred and NOT built here: #106 (landed — see below), #107 (the guest
+  Stripe client surfaces and the portal), #108 (verification, magic links,
+  transactional mail), #109 (claiming), #93 (pickup), #112 (guest P2P).
+
+## Guest buyers and immutable contact snapshots on orders (#106, ADR 0003 D6/D7/D13/D14/D16)
+
+`orders.claimed_by_oxy_user_id`/`claimed_at`, `order_status_history.actor_kind`/
+`actor_guest_session_id`, `guest_checkouts.contact_verified_at`/
+`contact_policy_version`, `services/orders/` (3 modules),
+`@mercaria/shared-types` `order-buyer.ts`. Full reference:
+**`docs/orders-buyers.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"`guest_checkouts` and the buyer origin". #105 made a guest order STORABLE;
+#106 makes it readable, ownable and auditable.
+
+- **`OrderBuyer` is the one union and has NO common id field** — `CommerceActor`'s
+  rule one layer down. `services/orders/order-buyer.ts` is its ONLY derivation
+  from a row; a shared `buyer.oxyUserId` would let a guest's later CLAIMANT be
+  read as the account that placed the purchase, which is a silent attribution
+  error rather than a crash.
+- **A claim is a SECOND owner and `origin` stays `guest` forever** (I7). #106
+  WIDENED `orders_buyer_identity_check` and `CREATE OR REPLACE`d the origin
+  trigger rather than adding second ones. The trigger permits NULL→value (a
+  claim, #109) and value→NULL (an audited unclaim) and **REFUSES value→value** —
+  which is what makes D14's 409 real: a service bug cannot answer a contested
+  claim any other way.
+- **Buyer access is stated TWICE and a realdb test drives both.** The list path
+  needs an indexable predicate (`buyerOrClaimantSql`) and the detail path needs
+  a pure decision (`authorizeOrderAccess`); two spellings of one rule can
+  disagree, so `order-buyer-claim.realdb.test.ts` runs one order matrix through
+  both. Mutation-tested — narrowing the SQL to the origin column fails exactly
+  that case. `OrderListFilter` keeps `buyerOxyUserId` BESIDE
+  `buyerOrClaimantOxyUserId`: "which orders did this account PLACE" and "which
+  may it SEE" are different questions and collapsing them widens the first.
+- **A cart token can never become order access, structurally** (I3):
+  `orderAccessSubjectForCommerceActor` maps a `guest` actor to `null`. The
+  service also takes no email, phone or order number — reject rules 1, 2 and 5
+  are held by the SIGNATURE, not by a branch. It deliberately does NOT check
+  store permissions; `requireStorePermission` still owns that.
+- **The seller projection is a different TYPE, not a filtered one.**
+  `MerchantOrder` `Omit`s the three buyer fields, so a merchant serializer that
+  reaches for a contact fails `tsc`. The label is the Oxy handle or the literal
+  `Guest` — never `Guest #4821` or a masked email, because any per-guest label
+  is a correlation key wearing a display name (I11), and never a buyer-origin
+  discriminant (DTO rule 5).
+- **`order_status_history.actor_guest_session_id` is in `PROTECTED_COLUMNS`**
+  and the repository selects `PUBLIC_STATUS_EVENT_COLUMNS` — the trail is
+  attached to EVERY order and serialized whole, so a plain `select()` would put
+  a guest's cross-order correlation key in a merchant response. `actor_kind` is
+  NOT protected: it says a guest acted without saying which.
+  `NewOrderStatusEvent.actorKind` is REQUIRED, so every writer states one.
+- **ONE contact snapshot, separately erasable, never copied onto the order.**
+  Contact rule 5 (never re-read a live source) and rule 10 (retention separable
+  from order financial data) pull opposite ways, and rule 10 wins: D15 erases the
+  contact while the orders are retained, and a copy on the immutable order is
+  exactly what erasure could not reach. `loadBuyerContacts` reads the FK'd
+  snapshot in one batched statement and makes NO profile call — rule 5
+  mechanically. An Oxy buyer's contact is stored NOWHERE and the projection says
+  `source: 'oxy_account'`.
+- **`Order.buyerOxyUserId` is the v1 spelling, and a claimed guest order carries
+  NONE** — filling it with the claimant would tell an old client that an Oxy
+  account made a purchase it did not make. Retires when supported clients read
+  `buyer`; the COLUMN is never dropped.
+- **The migration (`0030`, `pre`) has load-bearing ORDER**: the two backfills
+  (`actor_kind` from `by_oxy_user_id`, connector orders to `'external'` keyed on
+  `source_connection_id` and NOT on the `ext:` prefix) must run BEFORE the
+  CHECKs, or the actor CHECK fails on every historical row with a real actor.
+  The identity CHECK is added VALIDATED, not `NOT VALID` — the widening only
+  constrains columns the serving image leaves NULL.
+- **Four consistency probes no CHECK can express** (`readBuyerIdentityConsistency`,
+  on `/internal/guest-commerce/consistency`): a misclassified connector origin, a
+  mixed-origin group, a PARTIALLY claimed group, an orphaned guest contact. Read
+  only — each is a decision about a commercial record.
+- **#77's `#106` analytics seam is CLOSED.** The six event types emit now, and
+  what supplied them was not an event but a vocabulary: `CheckoutRefusalReason`
+  (`services/checkout/refusal.ts`, five members) thrown as a typed
+  `CheckoutRefusal`, mapped to `ANALYTICS_REASON_CODES` by one exhaustive
+  `Record` in `checkout.controller.ts` that fails `tsc` on an unclassified
+  addition. A refusal that is NOT one of the five is counted in NEITHER half —
+  there is no `other` bucket.
+- Seams left, none of them a stub that lies: #108 (`GuestOrderPortalGrant`'s
+  contract and `GuestOrderPortalView` exist; `resolveGuestPortalSubject` returns
+  `null`, so the whole portal path fails closed), #109 (the columns, the CHECK
+  and the trigger exist; `grantEligibilitiesForClaimedGuestOrder` still refuses
+  and names the one line #109 replaces), #110, #93, #112.
 ## Review scopes (#76): a rating answers ONE question
 
 `services/reviews/` + `db/reviews/` + `db/schema/reviews.ts` (5 tables). Full

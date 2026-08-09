@@ -1677,6 +1677,82 @@ The decisions:
   as long as its orders (ADR 0003 D11); erasure is D15's anonymization, which is
   a verified request rather than a sweep.
 
+#### The claim pair and the audit actor (#106)
+
+`0030` finished what #105 started, and every decision below is about a WIDENING
+rather than a new table — there is no #106 table, which is itself the point.
+
+- **`claimed_by_oxy_user_id` / `claimed_at` are a SECOND owner, and the widened
+  `orders_buyer_identity_check` states all three facts at once**: only a
+  `'guest'` order may carry them, the pair travels together
+  (`num_nonnulls(…) in (0, 2)`, the `guest_sessions.converted_*` mechanism), and
+  `buyer_oxy_user_id` stays NULL in that disjunct whether or not a claim
+  exists — so a claim can never be written into the ORIGIN column (I1 + I7 at
+  the storage layer). It is a WIDENING of the one constraint, not a second one:
+  there stays exactly one place that says what a buyer identity is.
+- **The identity CHECK was added VALIDATED again.** ADR 0003 M1 stages it
+  `NOT VALID`; it is unnecessary for the same reason #105 recorded — the
+  widening only constrains the two NEW columns, which the serving image leaves
+  NULL, so no existing row violates it.
+- **`mercaria_order_buyer_origin_immutable` was `CREATE OR REPLACE`d, not
+  joined by a second trigger.** `0023`'s own comment says #106 extends it: ONE
+  place says what a buyer identity may become, and replacing keeps the existing
+  trigger bound so there is no unguarded window. The three original rules are
+  repeated VERBATIM in the new body, because a replacement is a whole body and a
+  rule dropped there is a rule silently retired —
+  `order-buyer-claim.realdb.test.ts` re-asserts all three for exactly that
+  reason. The added rule is the claim pair's: NULL→value and value→NULL
+  permitted, **value→value REFUSED** (D14: a mis-claim is corrected by unclaim +
+  re-claim, two audited steps).
+- **`orders_claimed_by_created_at_idx` is PARTIAL**, and it is the second half of
+  ADR 0003 D7's buyer predicate (`buyer_oxy_user_id = $1 OR
+  claimed_by_oxy_user_id = $1`, two indexed scans). A full index would be almost
+  entirely NULLs; until any claim exists the plan degenerates to exactly the
+  pre-#106 one.
+- **`order_status_history` gained `actor_kind` + `actor_guest_session_id`, and
+  `order_status_history_actor_check` ties the id columns to the KIND.** Before
+  this, "a guest cancelled" and "the sweep cancelled" were the same row: both
+  NULL. The CHECK is what makes I1 reach an audit row — a service bug that put a
+  session id in `by_oxy_user_id` is refused by the database. `actor_kind`
+  defaults to `'system'` for the fast-default reason `buyer_origin` does, and
+  the backfill then corrects the rows that named an Oxy actor; every writer
+  states it explicitly.
+- **`actor_guest_session_id` is in `PROTECTED_COLUMNS` and `actor_kind` is
+  NOT.** The trail is attached to every order and serialized whole, so this is
+  the `customers.email` situation exactly — the most likely accidental
+  disclosure is the one nobody writes code to cause, and a session row id shared
+  across a guest's orders is the correlation key I11 forbids seller surfaces.
+  The kind says a guest acted without saying which, and the trail is useless
+  without it. The column carries no foreign key for
+  `guest_checkouts.guest_session_id`'s reason (`AUDIT_CORRELATION`): the session
+  is hard-deleted while the trail is retained.
+- **`guest_checkouts.contact_verified_at` is a BICONDITIONAL CHECK against the
+  stage** — present exactly when the stage is not `pending`. Both halves are
+  real failures: a verified stage with no instant cannot answer "when", and an
+  instant on a `pending` row claims a proof that never occurred.
+  `contact_policy_version` is NOT NULL with a default so the migration fills
+  existing rows without a rewrite; it exists because normalization, redaction
+  and retention are POLICY (D12/D15) and a stored contact must say which version
+  produced its forms — the versioned-attribute-definition reasoning applied to a
+  person's details.
+- **No `status`, `paid_at`, `claimed_at` or `closed_at` column on
+  `guest_checkouts`, and that is a decision, not an omission.** #106's
+  GuestCheckout model asks for a lifecycle and a claim state; both are DERIVED
+  from the group's ORDERS (`deriveGuestCheckoutLifecycle`,
+  `deriveGuestCheckoutClaim`), because ADR 0003 D6 puts the claim columns on
+  `orders` and two representations of one fact can disagree — the place that
+  must not happen is a portal telling a buyer their order is unpaid while the
+  ledger says otherwise. `partial` is a real derived value so a split claim is
+  VISIBLE, and it is what the operator consistency probe counts.
+- **The two `0030` backfills are hand-written and their POSITION is
+  load-bearing**: `order_status_history_actor_check` refuses `'system'` on a row
+  carrying `by_oxy_user_id`, which is every historical row with a real actor, so
+  the backfill must precede the CHECK. The connector backfill keys on
+  `source_connection_id IS NOT NULL`, never on the `ext:` prefix — a string
+  convention nothing enforces, which would both over- and under-match.
+  drizzle-kit cannot model an UPDATE or a trigger body, so a regeneration drops
+  both; see `AGENTS.md` §"Rebasing a migration behind another branch's".
+
 ### The procurement domain has NO source model either (#118)
 
 Eleven more tables born in Postgres, in `schema/procurement.ts`: `suppliers`,

@@ -317,7 +317,7 @@ async function seedScenario(label: string, options: { ready: boolean; settle?: b
     status: 'pending_payment',
     paymentStatus: 'unpaid',
     checkoutGroupId,
-    statusHistory: [{ status: 'pending_payment', at: new Date() }],
+    statusHistory: [{ status: 'pending_payment', at: new Date(), actorKind: 'system' }],
     appliedDiscounts: [],
     taxLines: [],
   });

@@ -32,6 +32,9 @@ const CONTACT_PATHS = [
   'services/checkout/destination.ts',
   'services/checkout/fulfilment-eligibility.ts',
   'services/checkout/guest-checkout.service.ts',
+  // #106's bounded refusal vocabulary — in this path because it is what the
+  // eligibility gates now throw, and therefore what a leak would travel in.
+  'services/checkout/refusal.ts',
   'db/guests/guestCheckoutRepository.ts',
   'lib/guest-pii.ts',
   'controllers/checkout.controller.ts',

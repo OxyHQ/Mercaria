@@ -68,7 +68,10 @@ function storeOrder(overrides: Record<string, unknown> = {}) {
   return {
     id: 'order-1',
     status: 'paid',
+    // #106: the grant reads `buyer_origin`, not the shape of the buyer id.
+    buyerOrigin: 'oxy',
     buyerOxyUserId: 'buyer-1',
+    claimedByOxyUserId: null,
     sellerType: 'store',
     sellerOxyUserId: null,
     storeId: 'store-1',
@@ -201,10 +204,15 @@ describe('grantEligibilitiesForOrder — a completed purchase, and nothing else'
   });
 
   it('grants NOTHING for a connector-imported order — there is no Oxy account to grant to', async () => {
-    // The buyer column carries `ext:<provider>:<id>` on an imported order.
-    // Inventing an author from it is the failure this whole domain exists to
-    // prevent, so the path returns empty rather than guessing.
-    findOrderById.mockResolvedValue(storeOrder({ buyerOxyUserId: 'ext:shopify:42' }));
+    // An imported order's origin is `external` and its buyer column carries the
+    // legacy `ext:<provider>:<id>` provenance. Inventing an author from it is
+    // the failure this whole domain exists to prevent, so the path returns
+    // empty rather than guessing — and since #106 it reads the ORIGIN rather
+    // than sniffing the prefix, so an import whose id lacked the prefix is
+    // excluded too.
+    findOrderById.mockResolvedValue(
+      storeOrder({ buyerOrigin: 'external', buyerOxyUserId: 'ext:shopify:42' }),
+    );
 
     const report = await grantEligibilitiesForOrder('order-1');
 
@@ -231,12 +239,10 @@ describe('the guest seam — #109 is not implemented, and this FAILS CLOSED', ()
     expect(insertEligibility).not.toHaveBeenCalled();
   });
 
-  it('refuses even a WELL-FORMED claim, naming the issues that close the seam', async () => {
-    // The important one. Everything looks right — both sides proven, a claim id,
-    // the correct checkout group — and it still refuses, because Mercaria cannot
-    // yet verify that the order began as a guest purchase (`orders` has no
-    // `buyer_origin` until #106, no `claimed_by_oxy_user_id` until #109) and
-    // will not guess. Acceptance criteria 8 and 9.
+  it('refuses a claim against an order that was never placed as a guest', async () => {
+    // #106 made this a REAL check: `buyer_origin` exists, so an `oxy` order is
+    // refused by name rather than by the blanket seam refusal below. Before
+    // #106 this case was indistinguishable from every other.
     findOrderById.mockResolvedValue(storeOrder());
 
     await expect(
@@ -250,8 +256,37 @@ describe('the guest seam — #109 is not implemented, and this FAILS CLOSED', ()
       (err: unknown) =>
         isMercariaError(err) &&
         err.code === ErrorCodes.FORBIDDEN &&
-        err.message.includes('#109') &&
-        err.message.includes('#106'),
+        err.message.includes('not placed as a guest'),
+    );
+    expect(insertEligibility).not.toHaveBeenCalled();
+  });
+
+  it('refuses even a WELL-FORMED claim on a GUEST order, naming the issue that closes the seam', async () => {
+    // The important one. Everything looks right — both sides proven, a claim
+    // id, the correct checkout group, and now a genuinely guest-origin order —
+    // and it STILL refuses, because the order carries no stored claimant to
+    // compare the caller's assertion against: #109 owns the only writer of
+    // `claimed_by_oxy_user_id`. Acceptance criteria 8 and 9.
+    findOrderById.mockResolvedValue(
+      storeOrder({
+        buyerOrigin: 'guest',
+        buyerOxyUserId: null,
+        buyerGuestCheckoutId: 'gc-1',
+      }),
+    );
+
+    await expect(
+      grantEligibilitiesForClaimedGuestOrder('order-1', {
+        claimId: 'claim-1',
+        checkoutGroupId: 'group-1',
+        claimedByOxyUserId: 'buyer-1',
+        bothSidesProven: true,
+      }),
+    ).rejects.toSatisfy(
+      (err: unknown) =>
+        isMercariaError(err) &&
+        err.code === ErrorCodes.FORBIDDEN &&
+        err.message.includes('#109'),
     );
     expect(insertEligibility).not.toHaveBeenCalled();
   });
@@ -276,7 +311,9 @@ describe('the guest seam — #109 is not implemented, and this FAILS CLOSED', ()
     // grant path over a guest-shaped order and confirm nothing reaches the
     // repository with the guest evidence type. An unclaimed guest order creates
     // no author and no draft (acceptance criterion 8).
-    findOrderById.mockResolvedValue(storeOrder({ buyerOxyUserId: null }));
+    findOrderById.mockResolvedValue(
+      storeOrder({ buyerOrigin: 'guest', buyerOxyUserId: null, buyerGuestCheckoutId: 'gc-1' }),
+    );
 
     const report = await grantEligibilitiesForOrder('order-1');
 

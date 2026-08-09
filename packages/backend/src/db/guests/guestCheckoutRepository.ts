@@ -16,7 +16,7 @@
  * end up in a query log.
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import type { GuestContactVerificationStage } from '@mercaria/shared-types';
 import { guestCheckouts } from '../schema/guests.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
@@ -116,6 +116,8 @@ export async function findGuestCheckoutByGroup(
       phoneCiphertext: guestCheckouts.phoneCiphertext,
       phoneRedacted: guestCheckouts.phoneRedacted,
       contactVerificationStage: guestCheckouts.contactVerificationStage,
+      contactVerifiedAt: guestCheckouts.contactVerifiedAt,
+      contactPolicyVersion: guestCheckouts.contactPolicyVersion,
       marketingOptIn: guestCheckouts.marketingOptIn,
       locale: guestCheckouts.locale,
       anonymizedAt: guestCheckouts.anonymizedAt,
@@ -126,6 +128,56 @@ export async function findGuestCheckoutByGroup(
     .where(eq(guestCheckouts.checkoutGroupId, checkoutGroupId))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * The DISPLAY half of a guest contact — every column except the three protected
+ * ones (#106 contact rules 2, 3 and 6).
+ *
+ * A separate row type rather than a filtered {@link GuestCheckoutRow}, and the
+ * difference is the whole point: `findGuestCheckoutByGroup` above NAMES the
+ * ciphertext and the hash because #108's mail and routing genuinely need them,
+ * and that naming is the greppable opt-in `db/protectedColumns.ts` describes.
+ * The hydration path needs none of it, so the shape it reads has no property to
+ * carry one — a projection that reached for a hash would fail `tsc`.
+ */
+export interface GuestContactDisplayRow {
+  readonly id: string;
+  readonly emailRedacted: string;
+  readonly phoneRedacted: string | null;
+  readonly contactVerificationStage: GuestContactVerificationStage;
+  readonly contactVerifiedAt: Date | null;
+  readonly contactPolicyVersion: string;
+  readonly marketingOptIn: boolean;
+  readonly anonymizedAt: Date | null;
+}
+
+/**
+ * The display contact for a BATCH of guest checkouts, keyed by row id.
+ *
+ * One statement for a whole page of orders, the `withChildren` discipline: a
+ * per-order lookup would put an N+1 on the buyer's own order list, which is the
+ * page a guest opens most.
+ */
+export async function findGuestContactsByIds(
+  db: DatabaseOrTransaction,
+  ids: readonly string[],
+): Promise<Map<string, GuestContactDisplayRow>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select({
+      id: guestCheckouts.id,
+      emailRedacted: guestCheckouts.emailRedacted,
+      phoneRedacted: guestCheckouts.phoneRedacted,
+      contactVerificationStage: guestCheckouts.contactVerificationStage,
+      contactVerifiedAt: guestCheckouts.contactVerifiedAt,
+      contactPolicyVersion: guestCheckouts.contactPolicyVersion,
+      marketingOptIn: guestCheckouts.marketingOptIn,
+      anonymizedAt: guestCheckouts.anonymizedAt,
+    })
+    .from(guestCheckouts)
+    .where(inArray(guestCheckouts.id, [...ids]));
+  return new Map(rows.map((row) => [row.id, row]));
 }
 
 /**
@@ -140,10 +192,18 @@ export async function setGuestCheckoutVerificationStage(
   db: DatabaseOrTransaction,
   checkoutGroupId: string,
   stage: GuestContactVerificationStage,
+  verifiedAt: Date | null,
 ): Promise<GuestCheckoutRow | null> {
   const [row] = await db
     .update(guestCheckouts)
-    .set({ contactVerificationStage: stage })
+    // The stage and its INSTANT move together, because
+    // `guest_checkouts_contact_verified_at_check` is a biconditional: a
+    // non-pending stage with no instant is refused, and so is an instant on a
+    // `pending` row. Passing the timestamp explicitly rather than defaulting it
+    // to `now()` here keeps #108's magic-link exchange the thing that decides
+    // WHEN the inbox was proven — which is the moment the link was consumed,
+    // not the moment this statement ran.
+    .set({ contactVerificationStage: stage, contactVerifiedAt: verifiedAt })
     .where(eq(guestCheckouts.checkoutGroupId, checkoutGroupId))
     .returning();
   return row ?? null;

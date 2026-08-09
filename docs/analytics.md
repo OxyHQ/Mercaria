@@ -197,17 +197,23 @@ rewriting history in a chart somebody already acted on.
 Claiming is a separate metric and a lower claim rate is never abandonment
 (#77's metrics note, acceptance 12).
 
-### The buyer-origin seam
+### Buyer origin comes from the stored column (#106 closed this seam)
 
-ADR 0003 D6's `orders.buyer_origin` is #106's, and it does not exist yet.
-`BUYER_ORIGIN_EXPRESSION` in `verified-conversion.ts` derives origin from the
-`ext:` prefix connector imports write into `buyer_oxy_user_id` — the only origin
-signal on the table today. Two consequences, stated rather than hidden:
+`BUYER_ORIGIN_EXPRESSION` in `verified-conversion.ts` used to derive origin from
+the `ext:` prefix connector imports write into `buyer_oxy_user_id` — the only
+origin signal the table carried, and the synthetic-identifier precedent ADR 0003
+opens by criticising. #106 made `orders.buyer_origin` real, immutable after
+insert (ADR 0003 D6) and backfilled, so the expression is now a rename
+(`'oxy'` → `'authenticated'`, to match `ANALYTICS_BUYER_ORIGINS`) rather than a
+guess. Two things that buys:
 
-- `'guest'` is not producible today (`buyer_oxy_user_id` is still `NOT NULL`),
-  so `guest_checkout_funnel`'s numerator reads zero, correctly.
-- When #106 lands, that expression becomes the column. One line, here, and
-  nowhere else.
+- `'guest'` is producible, so `guest_checkout_funnel`'s numerator is a
+  measurement rather than a structural zero.
+- **A claimed guest order still counts as GUEST, forever.** The column is
+  immutable and the claim lives in `claimed_by_oxy_user_id` beside it, so
+  identity rule 7 — a claim never rewrites which funnel a purchase belonged
+  to — is held by the schema. The old prefix derivation could not have held it
+  at all.
 
 ---
 
@@ -489,21 +495,29 @@ A metric reading zero and a metric that cannot yet be measured look identical on
 a chart and mean opposite things, which is why the definition carries the issue
 number and the dashboard renders "awaiting #108" rather than "0%".
 
-**#106's six are the seam worth reading**, because the gates they describe
-ALREADY RUN. #105 landed the P2P exclusion (ADR 0003 D18), the destination
-allow-list and the per-seller destination revalidation, and a guest checkout
-passes through all three today. What they lack is a BOUNDED refusal: each raises
-a generic `conflict()` carrying a sentence, so classifying one into a reason code
-would mean matching on message text — a fabricated classification that would
-mis-fire the first time somebody improved the wording.
+**#106's six are CLOSED, and how is worth reading**, because they were never
+deferred for want of a feature. #105 landed the P2P exclusion (ADR 0003 D18),
+the destination allow-list and the per-seller destination revalidation, and a
+guest checkout passed through all three from the day it shipped. What they
+lacked was a BOUNDED refusal: each raised a generic `conflict()` carrying a
+sentence, so classifying one would have meant matching on message text — a
+classification that mis-fires the first time somebody improves the wording, and
+mis-fires silently. Emitting only the ACCEPTED half was the other option and was
+worse: `guest_eligibility_coverage` would have read a permanent, confident 100%.
 
-Emitting only the ACCEPTED half was the other option and is worse:
-`guest_eligibility_coverage` would read a permanent, confident 100%. So the
-metric names the seam and reads as unmeasurable instead. #106 owes each refusal
-an error CODE — the `ANALYTICS_REASON_CODES` members are already there
-(`p2p_seller_excluded`, `market_not_supported`, `destination_unsupported`,
-`seller_not_payment_ready`) — after which both halves emit from the checkout
-controller with no further design.
+What #106 supplied was not an event but a VOCABULARY:
+`CheckoutRefusalReason` (`services/checkout/refusal.ts`), five members, thrown
+by the gates as a typed `CheckoutRefusal` and mapped to
+`ANALYTICS_REASON_CODES` by one exhaustive `Record` in
+`checkout.controller.ts` — which fails `tsc` if a reason is added without
+deciding how it is measured. Both halves emit now, from the controller,
+carrying the OUTCOME and nothing else.
+
+One consequence to keep in mind when reading the metric: a checkout that fails
+for a reason that is NOT one of the five (an empty cart, a stale line, a
+database error) is counted in NEITHER half, deliberately. Those are not
+eligibility verdicts, and folding them into the denominator would report a gate
+that never ran as a gate that said no. There is no `other` bucket.
 
 The ONE guest gate that IS emitted today is `guest_feature_gate_blocked`, at
 `GUEST_CART_DISABLED` and `GUEST_ISSUANCE_DISABLED`, for exactly the opposite

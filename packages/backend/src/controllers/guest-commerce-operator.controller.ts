@@ -24,6 +24,7 @@ import { config } from '../config/index.js';
 import { countOwnerlessCarts } from '../db/buyers/cartRepository.js';
 import { findCartMerges } from '../db/guests/cartMergeRepository.js';
 import { findConvertedSessionsWithCarts } from '../db/guests/guestSessionRepository.js';
+import { readBuyerIdentityConsistency } from '../db/orders/orderRepository.js';
 import { getDb } from '../db/postgres.js';
 import { log } from '../lib/logger.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
@@ -102,15 +103,21 @@ export async function listCartMergesHandler(req: Request, res: Response): Promis
  *  - **Ownerless carts.** `carts_owner_exclusivity_check` forbids them outright,
  *    so this is a cheap assertion that the constraint is present and validated
  *    rather than a check on the application.
+ *  - **The four buyer-identity invariants** (#106). `orders_buyer_identity_check`
+ *    sees ONE row, so it catches every illegal COMBINATION and none of these:
+ *    a misclassified connector origin, a checkout group whose siblings disagree
+ *    about their buyer, a PARTIALLY claimed group, and a guest contact with no
+ *    order. See `readBuyerIdentityConsistency` for what each one means.
  *
  * Guest CART enablement is reported too: an operator reading a zero merge count
  * during an incident should be able to see whether the flag is simply off.
  */
 export async function guestCommerceConsistencyHandler(_req: Request, res: Response): Promise<void> {
   try {
-    const [convertedWithCarts, ownerlessCarts] = await Promise.all([
+    const [convertedWithCarts, ownerlessCarts, buyerIdentity] = await Promise.all([
       findConvertedSessionsWithCarts(getDb(), MAX_INCONSISTENCY_SAMPLE),
       countOwnerlessCarts(),
+      readBuyerIdentityConsistency(),
     ]);
 
     sendSuccess(res, {
@@ -121,6 +128,16 @@ export async function guestCommerceConsistencyHandler(_req: Request, res: Respon
       // Row IDS, never cart contents — enough to open a trace, nothing more.
       convertedSessionsWithCartsSample: convertedWithCarts,
       ownerlessCarts,
+      /**
+       * The four cross-row buyer invariants (#106 migration rule 10,
+       * acceptance 9). All should read zero; each carries a bounded sample of
+       * order ids or checkout group ids so an operator can open a trace.
+       *
+       * Order ids and checkout group ids only — no buyer id, no claimant, no
+       * contact in any form. "Which orders are inconsistent" is answerable
+       * without "who bought them", and this surface asks only the first.
+       */
+      buyerIdentity,
       sampleLimit: MAX_INCONSISTENCY_SAMPLE,
     });
   } catch (err) {

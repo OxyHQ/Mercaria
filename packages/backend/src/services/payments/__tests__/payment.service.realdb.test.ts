@@ -164,7 +164,7 @@ async function seedOrder(
     status: 'pending_payment',
     paymentStatus: 'unpaid',
     checkoutGroupId,
-    statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: who.buyer }],
+    statusHistory: [{ status: 'pending_payment', at: new Date(), actorKind: 'oxy', byOxyUserId: who.buyer }],
     appliedDiscounts: [],
     taxLines: [],
   });
@@ -317,7 +317,7 @@ describe('a failed payment leaks no reservation', () => {
 
     const { transition } = await import('../../order.service.js');
     if (!order) throw new Error('order vanished');
-    await transition(order, 'cancelled', { note: 'reservation expired' });
+    await transition(order, 'cancelled', { actor: { kind: 'system' }, note: 'reservation expired' });
 
     const released = await findVariantById(variantId);
     expect(released?.inventoryAvailable).toBe(SEEDED_AVAILABLE);

@@ -3,7 +3,7 @@ import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft } from "lucide-react-native";
-import type { Order, OrderItem, Refund, RefundProviderState } from "@mercaria/shared-types";
+import type { MerchantOrder, OrderItem, Refund, RefundProviderState } from "@mercaria/shared-types";
 import {
   Text,
   Button,
@@ -80,7 +80,7 @@ function OrderDetailBody({ storeId, orderId }: { storeId: string; orderId: strin
   );
 }
 
-function OrderContent({ storeId, order }: { storeId: string; order: Order }) {
+function OrderContent({ storeId, order }: { storeId: string; order: MerchantOrder }) {
   return (
     <View className="gap-5">
       <View className="flex-row items-center justify-between">
@@ -134,7 +134,7 @@ function TotalRow({ label, amount, bold }: { label: string; amount: React.ReactN
   );
 }
 
-function TotalsCard({ order }: { order: Order }) {
+function TotalsCard({ order }: { order: MerchantOrder }) {
   const { totals } = order;
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
@@ -160,7 +160,7 @@ function TotalsCard({ order }: { order: Order }) {
   );
 }
 
-function ShippingAddressCard({ order }: { order: Order }) {
+function ShippingAddressCard({ order }: { order: MerchantOrder }) {
   const a = order.shippingAddress;
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
@@ -177,7 +177,7 @@ function ShippingAddressCard({ order }: { order: Order }) {
   );
 }
 
-function StatusHistoryCard({ order }: { order: Order }) {
+function StatusHistoryCard({ order }: { order: MerchantOrder }) {
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <Text className="mb-3 text-sm font-semibold text-foreground">History</Text>
@@ -222,7 +222,7 @@ const REFUND_STATE_CHIPS: Record<
   canceled: { label: "Canceled", bg: "bg-muted", text: "text-muted-foreground" },
 };
 
-function RefundsCard({ storeId, order }: { storeId: string; order: Order }) {
+function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder }) {
   // No extra `can("orders:read")` gate: the whole screen already sits behind
   // `RequireStore permission="orders:read"`, which is exactly what the GET
   // endpoint enforces, so a second check here could only ever agree with it.
@@ -291,7 +291,7 @@ const NEXT_STATUSES: { key: FulfillmentStatus; label: string }[] = [
   { key: "cancelled", label: "Cancel" },
 ];
 
-function FulfillmentCard({ storeId, order }: { storeId: string; order: Order }) {
+function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantOrder }) {
   const { can } = useActiveStoreContext();
   const patch = usePatchOrderStatus(storeId, order.id);
   const [tracking, setTracking] = useState(order.shipping.trackingNumber ?? "");
@@ -371,7 +371,7 @@ function RefundDialog({
   onOpenChange,
 }: {
   storeId: string;
-  order: Order;
+  order: MerchantOrder;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {

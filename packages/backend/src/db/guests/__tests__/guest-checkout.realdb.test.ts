@@ -195,12 +195,18 @@ describe('the immutability trigger (ADR 0003 D4)', () => {
     const groupId = uuidv7();
     const row = await ensureGuestCheckout(db, contactInput(groupId));
 
+    // The stage and its INSTANT move together —
+    // `guest_checkouts_contact_verified_at_check` is a biconditional, so
+    // passing a stage without a timestamp is refused by the server (#106).
+    const verifiedAt = new Date();
     const staged = await setGuestCheckoutVerificationStage(
       db,
       groupId,
       'verified_before_payment',
+      verifiedAt,
     );
     expect(staged?.contactVerificationStage).toBe('verified_before_payment');
+    expect(staged?.contactVerifiedAt?.toISOString()).toBe(verifiedAt.toISOString());
 
     await db
       .update(schema.guestCheckouts)

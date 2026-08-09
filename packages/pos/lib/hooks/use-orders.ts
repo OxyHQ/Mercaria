@@ -1,8 +1,8 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import type {
   PaginatedResponse,
-  Order,
-  OrderSummary,
+  MerchantOrder,
+  MerchantOrderSummary,
 } from "@mercaria/shared-types";
 import { fetchOrders, fetchOrder } from "../api/orders";
 import { queryKeys } from "../queryKeys";
@@ -12,7 +12,7 @@ const PAGE_LIMIT = 20;
 
 /** Paginated recent-orders list for the sales screen. */
 export function useOrders(storeId: string, page: number) {
-  return useQuery<PaginatedResponse<OrderSummary>>({
+  return useQuery<PaginatedResponse<MerchantOrderSummary>>({
     queryKey: queryKeys.orders.list(storeId, page),
     queryFn: () => fetchOrders(storeId, { page, limit: PAGE_LIMIT }),
     enabled: Boolean(storeId),
@@ -22,7 +22,7 @@ export function useOrders(storeId: string, page: number) {
 
 /** A single hydrated order (the receipt). */
 export function useOrder(storeId: string, id: string) {
-  return useQuery<Order>({
+  return useQuery<MerchantOrder>({
     queryKey: queryKeys.orders.detail(storeId, id),
     queryFn: () => fetchOrder(storeId, id),
     enabled: Boolean(storeId) && Boolean(id),

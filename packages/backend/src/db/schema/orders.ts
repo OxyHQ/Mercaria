@@ -44,6 +44,7 @@ import {
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
   CONNECTOR_PROVIDER_IDS,
+  ORDER_ACTOR_KINDS,
   ORDER_BUYER_ORIGINS,
   ORDER_PAYMENT_STATUSES,
   PAYMENT_PROVIDER_IDS,
@@ -162,6 +163,28 @@ export const orders = pgTable(
      * the row for exactly this reason.
      */
     buyerGuestCheckoutId: text().references(() => guestCheckouts.id, { onDelete: 'restrict' }),
+    /**
+     * The LATER Oxy owner of a guest-origin order (ADR 0003 D6, #106).
+     *
+     * Secondary ownership, never a rewrite of history: `buyer_origin` stays
+     * `'guest'` and this column answers a different question — whose account
+     * may now read, list and cancel the order. Two questions, two columns, and
+     * `orders_buyer_identity_check` below refuses this one on any origin but
+     * `'guest'`, so an `oxy` order can never acquire a second owner and an
+     * `'external'` import can never acquire a first.
+     *
+     * An Oxy account id, so no foreign key (Oxy owns identity), and #109's
+     * claim service is its ONLY writer. There is deliberately no code path that
+     * derives a claimant from a matching email: invariant I6 is held by the
+     * absence of such a query plus the trigger, not by a review comment.
+     */
+    claimedByOxyUserId: text(),
+    /**
+     * When the claim was made. Present EXACTLY with `claimed_by_oxy_user_id` —
+     * a claimant with no timestamp is an unauditable ownership change, and a
+     * timestamp with no claimant is a claim by nobody.
+     */
+    claimedAt: timestamptz(),
     sellerType: text({ enum: asEnumValues(ORDER_SELLER_TYPES) }).notNull(),
     /** An Oxy account id — no foreign key. Set iff `sellerType = 'user'`. */
     sellerOxyUserId: text(),
@@ -332,21 +355,38 @@ export const orders = pgTable(
      * is the `source_*` columns beside it. Naming the shape does not rewrite
      * those rows — ADR 0003 M4/M9 own that retirement.
      *
-     * ADR 0003 D6 states this CHECK with two more conjuncts, over
-     * `claimed_by_oxy_user_id` / `claimed_at`. Those columns are #106's and do
-     * not exist yet; #106 WIDENS this constraint rather than adding a second
-     * one, so there stays exactly one place that says what a buyer identity is.
+     * #106 WIDENED this constraint with ADR 0003 D6's two remaining conjuncts,
+     * over `claimed_by_oxy_user_id` / `claimed_at`, rather than adding a second
+     * one — so there stays exactly one place that says what a buyer identity
+     * is. The widening carries three separate facts:
+     *
+     *  - **Only a guest order may be claimed.** An `oxy` order already has an
+     *    owner and a second one would be an unexplained co-owner; an
+     *    `'external'` import's buyer is the source platform's and Mercaria
+     *    cannot give it away.
+     *  - **The claim PAIR travels together** (`num_nonnulls … in (0, 2)`), the
+     *    `guest_sessions.converted_*` mechanism: a claimant with no timestamp
+     *    is an unauditable ownership change.
+     *  - **A claimed order is still a guest order.** `buyer_oxy_user_id` stays
+     *    NULL in the guest disjunct whether or not a claim exists, so a claim
+     *    can never be written into the ORIGIN column (I1 + I7 at the storage
+     *    layer).
      */
     check(
       'orders_buyer_identity_check',
       sql`(${t.buyerOrigin} = 'oxy'
              and ${t.buyerOxyUserId} is not null
-             and ${t.buyerGuestCheckoutId} is null)
+             and ${t.buyerGuestCheckoutId} is null
+             and ${t.claimedByOxyUserId} is null
+             and ${t.claimedAt} is null)
           or (${t.buyerOrigin} = 'guest'
              and ${t.buyerGuestCheckoutId} is not null
-             and ${t.buyerOxyUserId} is null)
+             and ${t.buyerOxyUserId} is null
+             and num_nonnulls(${t.claimedByOxyUserId}, ${t.claimedAt}) in (0, 2))
           or (${t.buyerOrigin} = 'external'
-             and ${t.buyerGuestCheckoutId} is null)`,
+             and ${t.buyerGuestCheckoutId} is null
+             and ${t.claimedByOxyUserId} is null
+             and ${t.claimedAt} is null)`,
     ),
     // The seller side mirrors the listing owner: exactly one of the two is set.
     check(
@@ -382,6 +422,16 @@ export const orders = pgTable(
     index('orders_buyer_guest_checkout_id_idx')
       .on(t.buyerGuestCheckoutId)
       .where(sql`${t.buyerGuestCheckoutId} is not null`),
+    // The CLAIMED half of a buyer's order history (ADR 0003 D7). The buyer list
+    // predicate is `buyer_oxy_user_id = $1 OR claimed_by_oxy_user_id = $1`,
+    // executed as two indexed scans — this is the second, and
+    // `orders_buyer_created_at_idx` above is the first. Partial, because a
+    // claim is rare relative to orders and a full index would be almost
+    // entirely NULLs; until any claim exists the plan degenerates to exactly
+    // today's.
+    index('orders_claimed_by_created_at_idx')
+      .on(t.claimedByOxyUserId, t.createdAt.desc())
+      .where(sql`${t.claimedByOxyUserId} is not null`),
     // "Which orders does this payment fund?" — the reverse of `payment_id`, and
     // the join an operator trace walks. Partial, because most orders have no
     // payment yet and those rows would be the bulk of a full index.
@@ -486,6 +536,23 @@ export const orderItemOptionValues = pgTable(
  * `at`, and the ABSENCE of `updated_at` is the append-only contract. `created_at`
  * is not added either — `at` already is it, and two birth timestamps that can
  * disagree is exactly the redundancy this port removes.
+ *
+ * ## The actor is a KIND plus at most one id (ADR 0003 D16, #106)
+ *
+ * Before #106 the only actor column was `by_oxy_user_id`, so "a guest cancelled
+ * this" and "the expiry sweep cancelled this" were the same row: both NULL. The
+ * trail could not answer who acted, which is the one question an audit trail
+ * exists for. `actor_kind` answers it, and the two id columns are then
+ * mutually exclusive BY KIND rather than by convention:
+ *
+ *  - `oxy` / `operator` → `by_oxy_user_id`, `actor_guest_session_id` NULL;
+ *  - `guest` → `actor_guest_session_id`, `by_oxy_user_id` NULL;
+ *  - `system` → neither.
+ *
+ * `order_status_history_actor_check` states it, which is how invariant I1
+ * ("a guest id is never accepted where an Oxy id is expected") reaches audit
+ * rows: a service bug that put a session id in the Oxy column is refused by the
+ * database rather than discovered in a support conversation.
  */
 export const orderStatusHistory = pgTable(
   'order_status_history',
@@ -496,12 +563,59 @@ export const orderStatusHistory = pgTable(
       .references(() => orders.id, { onDelete: 'cascade' }),
     status: text({ enum: asEnumValues(ORDER_STATUSES) }).notNull(),
     at: timestamptz().notNull(),
-    /** An Oxy account id — no foreign key. NULL for a system transition. */
+    /**
+     * WHICH KIND of actor drove this transition.
+     *
+     * `default('system')` for the same reason `orders.buyer_origin` defaults:
+     * Postgres fills an existing table with a fast default and no rewrite. The
+     * backfill then corrects the rows that actually had an Oxy actor
+     * (`by_oxy_user_id IS NOT NULL` ⇒ `'oxy'`), so the default is the honest
+     * value for exactly the rows it survives on. Every writer states it
+     * EXPLICITLY; a new writer leaning on the default would silently attribute
+     * a person's action to the system.
+     */
+    actorKind: text({ enum: asEnumValues(ORDER_ACTOR_KINDS) }).notNull().default('system'),
+    /** An Oxy account id — no foreign key. Set iff `actor_kind` is oxy/operator. */
     byOxyUserId: text(),
+    /**
+     * The `guest_sessions` ROW ID when a guest acted — never the token.
+     *
+     * Correlation with no foreign key, and the reason is the same one
+     * `guest_checkouts.guest_session_id` carries: the session is HARD-DELETED
+     * by the retention sweep 7 days after it expires while this trail is
+     * retained with its order, so a cascade would erase an audit record and a
+     * restrict would block the purge. The trail outlives the credential without
+     * extending its life (ADR 0003 D11/D16).
+     *
+     * Registered in `db/protectedColumns.ts`: it is a guest identifier on a
+     * table every order DTO reads whole, and #106 buyer-model rule 7 says
+     * seller-facing hydration must not expose one. Withholding it structurally
+     * is stronger than remembering to omit it in a serializer.
+     */
+    actorGuestSessionId: text(),
     note: text(),
   },
   (t) => [
     checkOneOf('order_status_history_status_check', t.status, ORDER_STATUSES),
+    checkOneOf('order_status_history_actor_kind_check', t.actorKind, ORDER_ACTOR_KINDS),
+    // The kind decides which id column may be written, and NEITHER may hold the
+    // other's value. Written as one CHECK over three columns rather than two
+    // independent ones, because the illegal combinations are the dangerous
+    // ones: a guest session id in `by_oxy_user_id` is I1 broken in an audit row,
+    // and an actor kind with no id where the kind requires one is a trail that
+    // names nobody while claiming to name somebody.
+    check(
+      'order_status_history_actor_check',
+      sql`(${t.actorKind} in ('oxy', 'operator')
+             and ${t.byOxyUserId} is not null
+             and ${t.actorGuestSessionId} is null)
+          or (${t.actorKind} = 'guest'
+             and ${t.byOxyUserId} is null
+             and ${t.actorGuestSessionId} is not null)
+          or (${t.actorKind} = 'system'
+             and ${t.byOxyUserId} is null
+             and ${t.actorGuestSessionId} is null)`,
+    ),
     index('order_status_history_order_id_at_idx').on(t.orderId, t.at),
   ],
 );

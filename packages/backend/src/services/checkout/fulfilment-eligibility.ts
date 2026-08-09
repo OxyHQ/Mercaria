@@ -46,7 +46,8 @@
 
 import type { ShippingMethod } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
-import { conflict, validationError } from '../../lib/errors/error-codes.js';
+import { validationError } from '../../lib/errors/error-codes.js';
+import { checkoutRefusal } from './refusal.js';
 import type { CommerceActor } from '../commerce-actor.js';
 import type { ResolvedFulfilment } from './destination.js';
 
@@ -79,7 +80,8 @@ export function assertDestinationCountrySupported(country: string): void {
   const supported = config.checkout.destinationCountries;
   if (supported.length === 0) return;
   if (supported.includes(country)) return;
-  throw conflict(
+  throw checkoutRefusal(
+    'market_not_supported',
     `We cannot deliver to ${country} yet. Deliveries are available to: ${supported.join(', ')}.`,
   );
 }
@@ -94,7 +96,8 @@ export function assertDestinationCountrySupported(country: string): void {
 export function resolveShippingCostMinor(method: ShippingMethod): number {
   const rate = config.orders.shippingRates[method];
   if (typeof rate !== 'number' || !Number.isFinite(rate) || rate < 0) {
-    throw conflict(
+    throw checkoutRefusal(
+      'destination_unsupported',
       `Delivery by ${method} is not available right now. Choose another delivery option.`,
     );
   }
@@ -118,7 +121,8 @@ export function assertPickupLocationEligible(
   if (locationId.length === 0) {
     throw validationError('A pickup destination needs a location.');
   }
-  throw conflict(
+  throw checkoutRefusal(
+    'destination_incomplete',
     `Collection in person is not available yet for ${describeSellers(groups)}. ` +
       'Choose a delivery address instead.',
   );
@@ -141,7 +145,8 @@ export function assertGuestSellerTypesAllowed(
   if (actor.kind !== 'guest') return;
   const p2p = groups.filter((group) => group.sellerType === 'user');
   if (p2p.length === 0) return;
-  throw conflict(
+  throw checkoutRefusal(
+    'p2p_seller_excluded',
     `Buying from an individual seller needs an Oxy account: ${describeSellers(p2p)}. ` +
       'Sign in, or remove those items to check out with the rest.',
   );
@@ -184,7 +189,8 @@ export function assertSellerGroupsAcceptDestination(input: {
     return typeof rate !== 'number' || !Number.isFinite(rate) || rate < 0;
   });
   if (unpriceable.length > 0) {
-    throw conflict(
+    throw checkoutRefusal(
+      'destination_unsupported',
       `The delivery option chosen for ${describeSellers(unpriceable)} is not available. ` +
         'Choose another delivery option for them.',
     );
@@ -195,7 +201,8 @@ export function assertSellerGroupsAcceptDestination(input: {
   // postal address, and honouring either half alone would be guessing.
   const mismatched = input.groups.filter((group) => group.shippingMethod === 'pickup');
   if (mismatched.length > 0) {
-    throw conflict(
+    throw checkoutRefusal(
+      'destination_incomplete',
       `Collection was chosen for ${describeSellers(mismatched)} but this order has a delivery ` +
         'address. Choose collection for the whole order, or a delivery option for them.',
     );

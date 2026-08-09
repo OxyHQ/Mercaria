@@ -1733,7 +1733,18 @@ function buildExternalOrderDoc(
     appliedDiscounts: [],
     taxLines: [],
     status: order.status,
-    statusHistory: [{ status: order.status, at: new Date(), note: `Imported from ${conn.provider}` }],
+    // A connector import is the SYSTEM: the transition happened on another
+    // platform and Mercaria is recording it, so there is no Mercaria actor to
+    // name and inventing one would attribute somebody else's shop's action to
+    // an account here (ADR 0003 D16).
+    statusHistory: [
+      {
+        status: order.status,
+        at: new Date(),
+        actorKind: 'system',
+        note: `Imported from ${conn.provider}`,
+      },
+    ],
     paymentStatus: order.paymentStatus,
     paymentProvider: 'external',
     ...(paidAt ? { paymentPaidAt: paidAt } : {}),

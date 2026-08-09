@@ -34,7 +34,18 @@ export default [
     },
     rules: {
       "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      // `ignoreRestSiblings` makes OMIT-BY-REST-DESTRUCTURE lintable, and this
+      // codebase needs it for a security property rather than for tidiness:
+      // `hydrateOrdersForMerchant` (#106) builds a `MerchantOrder` by naming
+      // every buyer-identity field and discarding it into a rest spread, so a
+      // field added to `Order` cannot arrive in a merchant response by being
+      // picked up automatically. A `{...dto}` spread would carry it silently.
+      // The named-and-discarded siblings ARE the enforcement, so flagging them
+      // as unused would push the code back toward the unsafe form.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", ignoreRestSiblings: true },
+      ],
       "no-undef": "off", // TypeScript handles this
     },
   },

@@ -58,6 +58,7 @@ import type {
   FeeSnapshotResult,
   FxRateSnapshot,
   Money,
+  OrderActorKind,
   OrderBuyerOrigin,
   OrderSellerType,
   OrderSourceChannel,
@@ -87,6 +88,18 @@ const ORDER_NUMBER_PREFIX = 'MRC-';
 /** Every column of `orders` a client may see — `payment_reference` withheld. */
 const PUBLIC_ORDER_COLUMNS = publicColumns(orders, PROTECTED_COLUMNS);
 
+/**
+ * Every column of `order_status_history` a client may see —
+ * `actor_guest_session_id` withheld (#106, ADR 0003 D16).
+ *
+ * The trail is attached to EVERY order by {@link withChildren} and serialized
+ * whole, so an ordinary `select()` here would put a guest's session row id in a
+ * merchant's order response — the correlation key invariant I11 forbids. The
+ * operator surface names the column explicitly instead, which reads differently
+ * and stays greppable.
+ */
+const PUBLIC_STATUS_EVENT_COLUMNS = publicColumns(orderStatusHistory, PROTECTED_COLUMNS);
+
 /** One row of `orders`, without the protected payment reference. */
 export type OrderRow = SelectedRow<typeof PUBLIC_ORDER_COLUMNS>;
 
@@ -96,8 +109,8 @@ export type OrderItemRow = InferSelectModel<typeof orderItems>;
 /** One row of `order_item_option_values`. */
 export type OrderItemOptionValueRow = InferSelectModel<typeof orderItemOptionValues>;
 
-/** One row of `order_status_history`. */
-export type OrderStatusEventRow = InferSelectModel<typeof orderStatusHistory>;
+/** One row of `order_status_history`, without the protected guest session id. */
+export type OrderStatusEventRow = SelectedRow<typeof PUBLIC_STATUS_EVENT_COLUMNS>;
 
 /** One row of `order_applied_discounts`. */
 export type OrderAppliedDiscountRow = InferSelectModel<typeof orderAppliedDiscounts>;
@@ -133,11 +146,26 @@ export interface NewOrderItem {
   locationId?: string;
 }
 
-/** One lifecycle event as a caller supplies it. */
+/**
+ * One lifecycle event as a caller supplies it.
+ *
+ * The actor is a KIND plus at most one id, and the kind is REQUIRED (ADR 0003
+ * D16). Before #106 a caller could omit `byOxyUserId` and the row was
+ * indistinguishable from a sweep's; now omitting the actor means stating
+ * `actorKind: 'system'`, which is a claim about who acted rather than a gap.
+ * `order_status_history_actor_check` refuses every mismatched combination, so a
+ * writer that names an Oxy actor without an id, or a guest actor with one, is
+ * rejected by the database rather than by review.
+ */
 export interface NewOrderStatusEvent {
   status: OrderStatus;
   at: Date;
+  /** Which KIND of actor drove the transition. Never defaulted by a writer. */
+  actorKind: OrderActorKind;
+  /** Required for `oxy`/`operator`, forbidden otherwise. */
   byOxyUserId?: string;
+  /** Required for `guest`, forbidden otherwise. The session ROW id, never a token. */
+  actorGuestSessionId?: string;
   note?: string;
 }
 
@@ -266,7 +294,27 @@ export interface OrderTransitionPatch {
 
 /** Which orders a list query is scoped to. Exactly one owner field is set. */
 export interface OrderListFilter {
+  /**
+   * The ORIGIN buyer column alone.
+   *
+   * Kept beside {@link OrderListFilter.buyerOrClaimantOxyUserId} rather than
+   * replaced by it, because the two answer different questions and both are
+   * asked: "which orders did this account PLACE" (reports, the customer
+   * relation, anything that must not count somebody else's purchase as this
+   * account's own) versus "which orders may this account SEE" (every buyer
+   * surface). Collapsing them would silently widen the first.
+   */
   buyerOxyUserId?: string;
+  /**
+   * The buyer-ACCESS predicate: `buyer_oxy_user_id = $1 OR
+   * claimed_by_oxy_user_id = $1` (ADR 0003 D7, #106 DTO rule 6).
+   *
+   * Two indexed scans — `orders_buyer_created_at_idx` and
+   * `orders_claimed_by_created_at_idx` — so a claimed guest order appears in
+   * the claimant's history without a second query and without a join. Until any
+   * claim exists it degenerates to exactly today's plan.
+   */
+  buyerOrClaimantOxyUserId?: string;
   sellerOxyUserId?: string;
   storeId?: string;
   customerId?: string;
@@ -299,7 +347,7 @@ async function withChildren(
       .where(inArray(orderItems.orderId, orderIds))
       .orderBy(asc(orderItems.position), asc(orderItems.id)),
     db
-      .select()
+      .select(PUBLIC_STATUS_EVENT_COLUMNS)
       .from(orderStatusHistory)
       .where(inArray(orderStatusHistory.orderId, orderIds))
       .orderBy(asc(orderStatusHistory.at), asc(orderStatusHistory.id)),
@@ -361,11 +409,42 @@ function groupBy<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
   return grouped;
 }
 
+/**
+ * "This account placed it, OR this account claimed it" — ADR 0003 D7's buyer
+ * predicate, in ONE place.
+ *
+ * Written once and reused by every buyer-scoped read, because it is the
+ * definition of buyer ACCESS and a second spelling of it somewhere else is how
+ * a claimed order becomes visible on the list and invisible on the detail
+ * route. `services/orders/order-access.service.ts` holds the same rule for a
+ * loaded order; `order-access.realdb.test.ts` drives one matrix through both
+ * and fails if they disagree.
+ */
+function buyerOrClaimantSql(oxyUserId: string): SQL {
+  // `or` over two equalities rather than `coalesce(claimed_by, buyer) = $1`:
+  // the latter is not an indexable predicate on either column, so it would turn
+  // every buyer's order list into a sequential scan of the whole table.
+  const predicate = or(
+    eq(orders.buyerOxyUserId, oxyUserId),
+    eq(orders.claimedByOxyUserId, oxyUserId),
+  );
+  if (!predicate) {
+    // `or` is typed as possibly-undefined because it accepts a spread that
+    // could be empty; both arguments here are always present, so this is
+    // unreachable. Naming it beats a non-null assertion.
+    throw new Error('buyerOrClaimantSql produced an empty predicate');
+  }
+  return predicate;
+}
+
 /** The `WHERE` an {@link OrderListFilter} describes, or `undefined` for all orders. */
 function orderFilterSql(filter: OrderListFilter): SQL | undefined {
   const clauses: SQL[] = [];
   if (filter.buyerOxyUserId !== undefined) {
     clauses.push(eq(orders.buyerOxyUserId, filter.buyerOxyUserId));
+  }
+  if (filter.buyerOrClaimantOxyUserId !== undefined) {
+    clauses.push(buyerOrClaimantSql(filter.buyerOrClaimantOxyUserId));
   }
   if (filter.sellerOxyUserId !== undefined) {
     // Paired with the seller TYPE, exactly as the Mongo filter was: a store order
@@ -525,12 +604,11 @@ export async function findOrdersByCheckoutGroup(
   const rows = await db
     .select(PUBLIC_ORDER_COLUMNS)
     .from(orders)
-    .where(
-      and(
-        eq(orders.checkoutGroupId, checkoutGroupId),
-        eq(orders.buyerOxyUserId, owner.oxyUserId),
-      ),
-    )
+    // Buyer ACCESS, not the origin column: an Oxy account that claimed a guest
+    // group (#109) must be able to read that group's payment status, and
+    // scoping on `buyer_oxy_user_id` alone would answer 404 for an order it
+    // legitimately owns.
+    .where(and(eq(orders.checkoutGroupId, checkoutGroupId), buyerOrClaimantSql(owner.oxyUserId)))
     .orderBy(asc(orders.createdAt), asc(orders.id));
   return withChildren(rows, db);
 }
@@ -555,6 +633,143 @@ export async function findOrdersInCheckoutGroup(
     .where(eq(orders.checkoutGroupId, checkoutGroupId))
     .orderBy(asc(orders.createdAt), asc(orders.id));
   return withChildren(rows, db);
+}
+
+/** One buyer-identity invariant, counted, with a bounded sample of offenders. */
+export interface BuyerIdentityFinding {
+  /** How many rows violate it, over the whole table. */
+  readonly count: number;
+  /** Up to {@link BUYER_CONSISTENCY_SAMPLE} offending ids, so a person can look. */
+  readonly sample: string[];
+}
+
+/** Hard ceiling on ids one consistency finding returns. */
+const BUYER_CONSISTENCY_SAMPLE = 20;
+
+/**
+ * The four cross-row buyer invariants no CHECK can express (#106 migration
+ * rule 10, acceptance 9).
+ *
+ * `orders_buyer_identity_check` sees ONE row, which is why it catches every
+ * illegal COMBINATION and none of these: each compares a row against another
+ * row, or against a convention no constraint can encode. All four should always
+ * answer zero, and each is worth asking for a different reason.
+ */
+export interface BuyerIdentityConsistency {
+  /**
+   * `'oxy'` orders whose buyer id carries the legacy connector prefix.
+   *
+   * ADR 0003 M4's discriminating count, named there and kept as a standing
+   * check rather than a one-off migration assertion: the backfill keys on
+   * `source_connection_id`, so a connector import that arrived WITHOUT a
+   * connection row would still be misclassified — and it would look exactly
+   * like a real Oxy buyer to every report that groups by origin.
+   */
+  readonly legacyExternalMisclassified: BuyerIdentityFinding;
+  /**
+   * Checkout groups whose sibling orders disagree about `buyer_origin`.
+   *
+   * One cart is one buyer. The orders of a group are written in one transaction
+   * from one actor, so a disagreement means a write path composed a group from
+   * two actors — which would let a guest's order sit beside an authenticated
+   * one under a single payment.
+   */
+  readonly mixedOriginGroups: BuyerIdentityFinding;
+  /**
+   * Checkout groups PARTIALLY claimed — some orders carry a claimant, some do
+   * not, or they name different accounts.
+   *
+   * ADR 0003 D14 makes a claim group-atomic ("a group can never be split"), and
+   * the atomicity is a transaction rather than a constraint, so this is the
+   * only thing that can observe it failing. A partial claim is the state in
+   * which one order of a purchase is visible in an account's history and its
+   * sibling is not.
+   */
+  readonly partiallyClaimedGroups: BuyerIdentityFinding;
+  /**
+   * Guest contact records with no order at all.
+   *
+   * `orders.buyer_guest_checkout_id`'s `RESTRICT` foreign key makes the reverse
+   * (an order pointing at a missing contact) unrepresentable; this is the
+   * direction the database cannot state. A contact row for a checkout that
+   * never produced an order is a person's email retained for nothing, which is
+   * a retention defect rather than a correctness one — and it is exactly what a
+   * checkout that wrote the contact OUTSIDE the orders' transaction would leave
+   * behind (#105's transaction boundary is what prevents it).
+   */
+  readonly orphanedGuestCheckouts: BuyerIdentityFinding;
+}
+
+/**
+ * Turn one probe's rows into a finding.
+ *
+ * `count(*) over ()` in each statement below rather than a second `count`
+ * query: the window is evaluated BEFORE the `LIMIT`, so one statement yields
+ * the whole count alongside the bounded sample — and one statement cannot see
+ * two different table states the way two statements can.
+ */
+function toFinding(rows: readonly { id: string; total: string }[]): BuyerIdentityFinding {
+  return { count: Number(rows[0]?.total ?? 0), sample: rows.map((row) => row.id) };
+}
+
+/**
+ * Every buyer-identity invariant, counted.
+ *
+ * READ-ONLY and deliberately so: this is the guest-commerce operator surface's
+ * posture (`internal-guest-commerce.ts`) and there is nothing here to repair
+ * automatically. A misclassified origin, a mixed group and a partial claim are
+ * each a decision about a commercial record, and #50's rule — "nothing
+ * auto-deletes or rewrites financial history to hide a mismatch" — applies to a
+ * buyer identity for the same reason it applies to a ledger entry.
+ */
+export async function readBuyerIdentityConsistency(
+  db: DatabaseOrTransaction = getDb(),
+): Promise<BuyerIdentityConsistency> {
+  const [misclassified, mixedOrigin, partialClaim, orphanedContacts] = await Promise.all([
+    db.execute<{ id: string; total: string }>(
+      sql`select id, count(*) over () as total
+            from orders
+           where buyer_origin = 'oxy' and buyer_oxy_user_id like 'ext:%'
+           limit ${BUYER_CONSISTENCY_SAMPLE}`,
+    ),
+    db.execute<{ id: string; total: string }>(
+      sql`select checkout_group_id as id, count(*) over () as total
+            from (select checkout_group_id
+                    from orders
+                   where checkout_group_id is not null
+                   group by checkout_group_id
+                  having count(distinct buyer_origin) > 1) as mixed
+           limit ${BUYER_CONSISTENCY_SAMPLE}`,
+    ),
+    db.execute<{ id: string; total: string }>(
+      // `coalesce(…, '')` folds NULL into a comparable value so an unclaimed
+      // order and a claimed sibling count as TWO distinct claimants — which is
+      // exactly the partial claim being looked for. Without it Postgres would
+      // ignore the NULL and report a half-claimed group as consistent.
+      sql`select checkout_group_id as id, count(*) over () as total
+            from (select checkout_group_id
+                    from orders
+                   where checkout_group_id is not null
+                   group by checkout_group_id
+                  having count(distinct coalesce(claimed_by_oxy_user_id, '')) > 1) as partial
+           limit ${BUYER_CONSISTENCY_SAMPLE}`,
+    ),
+    db.execute<{ id: string; total: string }>(
+      sql`select id, count(*) over () as total
+            from guest_checkouts
+           where not exists (select 1
+                               from orders
+                              where orders.buyer_guest_checkout_id = guest_checkouts.id)
+           limit ${BUYER_CONSISTENCY_SAMPLE}`,
+    ),
+  ]);
+
+  return {
+    legacyExternalMisclassified: toFinding(misclassified),
+    mixedOriginGroups: toFinding(mixedOrigin),
+    partiallyClaimedGroups: toFinding(partialClaim),
+    orphanedGuestCheckouts: toFinding(orphanedContacts),
+  };
 }
 
 /**
@@ -621,6 +836,12 @@ export async function findOrderBySourceExternalId(
  * A join rather than a correlated subquery: `order_items` is in the statement's
  * own FROM, so there is no bare-column hazard, and `order_items_listing_id_idx`
  * serves the line side directly.
+ *
+ * Claim-aware since #106 (ADR 0003 D7): a purchase claimed into an Oxy account
+ * IS that account's purchase, so a claimant may review what they bought as a
+ * guest. That is the read half; the WRITE half — minting a
+ * `review_eligibilities` row for a claimed order — stays refused until #109
+ * supplies a claim record to verify against (`review-eligibility.service.ts`).
  */
 export async function buyerHasOrderForListing(
   buyerOxyUserId: string,
@@ -634,7 +855,7 @@ export async function buyerHasOrderForListing(
     .innerJoin(orderItems, eq(orderItems.orderId, orders.id))
     .where(
       and(
-        eq(orders.buyerOxyUserId, buyerOxyUserId),
+        buyerOrClaimantSql(buyerOxyUserId),
         eq(orderItems.listingId, listingId),
         inArray(orders.status, [...statuses]),
       ),
@@ -643,7 +864,11 @@ export async function buyerHasOrderForListing(
   return rows.length > 0;
 }
 
-/** Whether this buyer has ANY order in one of `statuses` from a given seller. */
+/**
+ * Whether this buyer has ANY order in one of `statuses` from a given seller.
+ *
+ * Claim-aware for {@link buyerHasOrderForListing}'s reason.
+ */
 export async function buyerHasOrderFromSeller(
   buyerOxyUserId: string,
   seller: { storeId: string } | { sellerOxyUserId: string },
@@ -660,7 +885,7 @@ export async function buyerHasOrderFromSeller(
     .from(orders)
     .where(
       and(
-        eq(orders.buyerOxyUserId, buyerOxyUserId),
+        buyerOrClaimantSql(buyerOxyUserId),
         inArray(orders.status, [...statuses]),
         sellerClause,
       ),
@@ -901,7 +1126,9 @@ async function insertOrderChildren(
         orderId,
         status: event.status,
         at: event.at,
+        actorKind: event.actorKind,
         byOxyUserId: event.byOxyUserId ?? null,
+        actorGuestSessionId: event.actorGuestSessionId ?? null,
         note: event.note ?? null,
       })),
     );
@@ -1085,10 +1312,16 @@ async function appendStatusEvent(
       orderId,
       status: event.status,
       at: event.at,
+      actorKind: event.actorKind,
       byOxyUserId: event.byOxyUserId ?? null,
+      actorGuestSessionId: event.actorGuestSessionId ?? null,
       note: event.note ?? null,
     })
-    .returning();
+    // NAMED columns, not a bare `.returning()`: the protected
+    // `actor_guest_session_id` must not travel back out on the row a caller
+    // hydrates. `PUBLIC_STATUS_EVENT_COLUMNS` is the same withholding the read
+    // path uses, so the appended event and a re-read of it are the same shape.
+    .returning(PUBLIC_STATUS_EVENT_COLUMNS);
   return row;
 }
 

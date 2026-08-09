@@ -1,8 +1,8 @@
 import type {
   ApiResponse,
   PaginatedResponse,
-  Order,
-  OrderSummary,
+  MerchantOrder,
+  MerchantOrderSummary,
   OrderStatus,
   Refund,
   CreateRefundInput,
@@ -20,14 +20,14 @@ export type FulfillmentStatus = "processing" | "shipped" | "delivered" | "cancel
 export async function fetchOrders(
   storeId: string,
   params: { page?: number; limit?: number; status?: OrderStatus } = {},
-): Promise<PaginatedResponse<OrderSummary>> {
-  const { data } = await apiClient.get<PaginatedResponse<OrderSummary>>(base(storeId), { params });
+): Promise<PaginatedResponse<MerchantOrderSummary>> {
+  const { data } = await apiClient.get<PaginatedResponse<MerchantOrderSummary>>(base(storeId), { params });
   return data;
 }
 
 /** GET a single hydrated order. */
-export async function fetchOrder(storeId: string, id: string): Promise<Order> {
-  const { data } = await apiClient.get<ApiResponse<Order>>(`${base(storeId)}/${id}`);
+export async function fetchOrder(storeId: string, id: string): Promise<MerchantOrder> {
+  const { data } = await apiClient.get<ApiResponse<MerchantOrder>>(`${base(storeId)}/${id}`);
   return unwrap(data);
 }
 
@@ -42,8 +42,8 @@ export async function patchOrderStatus(
   storeId: string,
   id: string,
   body: { status: FulfillmentStatus; trackingNumber?: string; note?: string },
-): Promise<Order> {
-  const { data } = await apiClient.patch<ApiResponse<Order>>(`${base(storeId)}/${id}/status`, body);
+): Promise<MerchantOrder> {
+  const { data } = await apiClient.patch<ApiResponse<MerchantOrder>>(`${base(storeId)}/${id}/status`, body);
   return unwrap(data);
 }
 

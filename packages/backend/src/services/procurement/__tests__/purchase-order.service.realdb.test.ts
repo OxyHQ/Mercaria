@@ -133,7 +133,7 @@ async function makeOrder(): Promise<string> {
     paymentStatus: 'paid',
     checkoutGroupId: uuidv7(),
     items: [],
-    statusHistory: [{ status: 'paid', at: new Date() }],
+    statusHistory: [{ status: 'paid', at: new Date(), actorKind: 'system' }],
     appliedDiscounts: [],
     taxLines: [],
   };
