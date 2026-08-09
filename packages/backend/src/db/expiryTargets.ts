@@ -73,6 +73,7 @@ import { guestSessions } from './schema/guests';
 import { moderationEvents, moderationOutboxes } from './schema/moderation';
 import { notifications } from './schema/notifications';
 import { paymentOutboxes, paymentProviderEvents } from './schema/payments';
+import { referralTouches } from './schema/referrals';
 
 /** `MODERATION_OUTBOX_RETENTION_SECONDS` — 14 days, long enough to investigate. */
 const MODERATION_OUTBOX_RETENTION_SECONDS = 14 * 24 * 60 * 60;
@@ -111,6 +112,20 @@ const PAYMENT_PROVIDER_EVENT_RETENTION_SECONDS = 90 * 24 * 60 * 60;
  * schema, not sweep code).
  */
 const GUEST_SESSION_PURGE_GRACE_SECONDS = 7 * 24 * 60 * 60;
+
+/**
+ * `REFERRAL_TOUCH_EVIDENCE_MARGIN_SECONDS` — 30 days BEYOND a touch's own
+ * attribution-window expiry, not a fixed retention from creation.
+ *
+ * The touch writer stamps `expires_at = attribution_window_expires_at + this`,
+ * and a CHECK on the table holds that ordering, so raw touch evidence always
+ * outlives its eligibility (a resolver may still be citing it) and never
+ * outlives it by more than the audit margin. This is issue #142's
+ * "keep raw high-volume touch data separately retainable from durable
+ * attribution and financial records": the durable attribution snapshots its
+ * winning evidence, and the raw stream leaves on this clock (ADR 0005 D6).
+ */
+const REFERRAL_TOUCH_EVIDENCE_MARGIN_SECONDS = 30 * 24 * 60 * 60;
 
 /**
  * Every table with an expiring column, and nothing else.
@@ -163,6 +178,16 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'its ledger entries are permanent; this is the raw envelope they were derived from.',
   },
   {
+    table: referralTouches,
+    column: referralTouches.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'Raw referral touch evidence, 30 days past its own attribution-window expiry. The ' +
+      'attribution a touch may have won has already snapshotted the winning evidence into ' +
+      'its own columns and carries winning_touch_id without a foreign key, so this sweep ' +
+      'erases the evidence trail’s live end and never an earned attribution (ADR 0005 D6).',
+  },
+  {
     table: notifications,
     column: notifications.dismissedAt,
     retentionSeconds: DISMISSED_NOTIFICATION_RETENTION_SECONDS,
@@ -204,4 +229,5 @@ export const RETENTION_SECONDS = {
   paymentOutbox: PAYMENT_OUTBOX_RETENTION_SECONDS,
   paymentProviderEvent: PAYMENT_PROVIDER_EVENT_RETENTION_SECONDS,
   guestSessionPurgeGrace: GUEST_SESSION_PURGE_GRACE_SECONDS,
+  referralTouchEvidenceMargin: REFERRAL_TOUCH_EVIDENCE_MARGIN_SECONDS,
 } as const;

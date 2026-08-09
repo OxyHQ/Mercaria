@@ -207,6 +207,32 @@ function resolveCrowdSourceEnabled(): boolean {
 }
 
 /**
+ * Whether the referral domain is switched on (#142, ADR 0005 "Environment").
+ *
+ * The `resolveCrowdSourceEnabled` rule, applied to the referral program:
+ * `REFERRALS_ENABLED=true` requires `REFERRAL_LINK_TOKEN_SECRET`, because a
+ * program that can issue codes but not signed links hands partners a
+ * half-working instrument set and nothing reports why. Half-configured is
+ * treated as OFF and says so once at boot.
+ *
+ * The gate stops SURFACES and LOOPS, never durable records — programs,
+ * partners, attributions and conversions already written remain exactly as
+ * they are, the standing rule every gate in this file follows.
+ */
+function resolveReferralsEnabled(): boolean {
+  if (!boolEnv('REFERRALS_ENABLED', false)) return false;
+
+  if ((process.env.REFERRAL_LINK_TOKEN_SECRET?.trim() ?? '') !== '') return true;
+
+  log.general.error(
+    { missing: ['REFERRAL_LINK_TOKEN_SECRET'] },
+    '[Referrals] REFERRALS_ENABLED is set but the integration is incomplete; staying OFF. ' +
+      'Durable referral records are unaffected.',
+  );
+  return false;
+}
+
+/**
  * Whether the Stripe rail is switched on.
  *
  * The `resolveCrowdSourceEnabled` rule, applied to a rail where the consequence
@@ -770,6 +796,21 @@ export interface FxConfig {
   readonly staticRates: Readonly<Partial<Record<Exclude<CurrencyCode, 'FAIR'>, number>>>;
 }
 
+export interface ReferralsConfig {
+  /**
+   * Whether the referral domain's surfaces and loops run — see
+   * `resolveReferralsEnabled`. Durable referral records are written regardless;
+   * the gate follows the standing "gate the loop, never the record" rule.
+   */
+  readonly enabled: boolean;
+  /**
+   * HMAC key for signed referral link tokens (#142). Absent rather than `''`
+   * when unset, so the link-token service names the missing variable instead of
+   * signing with an empty key.
+   */
+  readonly linkTokenSecret?: string;
+}
+
 export interface PostgresConfig {
   /**
    * `DATABASE_URL`. REQUIRED — every route this API serves reads Postgres.
@@ -808,6 +849,7 @@ export interface AppConfig {
   readonly crowdSource: CrowdSourceConfig;
   readonly payments: PaymentsConfig;
   readonly guest: GuestConfig;
+  readonly referrals: ReferralsConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -967,6 +1009,15 @@ export const config: AppConfig = Object.freeze({
     emailHashKey: strEnv('GUEST_EMAIL_HASH_KEY', ''),
     sessionIdleDays: intEnv('GUEST_SESSION_IDLE_DAYS', 30),
     sessionAbsoluteDays: intEnv('GUEST_SESSION_ABSOLUTE_DAYS', 90),
+  }),
+  referrals: Object.freeze({
+    enabled: resolveReferralsEnabled(),
+    // Spread-when-present, like the Stripe onboarding secret: absent rather
+    // than `''`, so the link-token service can name the missing variable
+    // instead of signing with an empty key.
+    ...(process.env.REFERRAL_LINK_TOKEN_SECRET?.trim()
+      ? { linkTokenSecret: process.env.REFERRAL_LINK_TOKEN_SECRET.trim() }
+      : {}),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),
