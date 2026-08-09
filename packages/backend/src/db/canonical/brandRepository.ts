@@ -184,6 +184,22 @@ export async function listBrandAliases(
     .orderBy(asc(brandAliases.createdAt), asc(brandAliases.id));
 }
 
+/**
+ * Every alias of several brands, in ONE round trip.
+ *
+ * A brand alias IS the evidence #58 rule 3 asks for when it lets an evidenced
+ * rebrand resolve a brand mismatch (an alias row carries its `source_record_id`),
+ * so the matcher reads the whole alias set of every candidate's brand on every
+ * evaluation.
+ */
+export async function listBrandAliasesForBrands(
+  db: DatabaseOrTransaction,
+  brandIds: readonly string[],
+): Promise<BrandAliasRow[]> {
+  if (brandIds.length === 0) return [];
+  return db.select().from(brandAliases).where(inArray(brandAliases.brandId, [...brandIds]));
+}
+
 /** Distinct brand ids any alias with this normalization points at. */
 export async function findBrandIdsByNormalizedAlias(
   db: DatabaseOrTransaction,

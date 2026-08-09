@@ -117,6 +117,46 @@ export async function listVariantsForProduct(
     .orderBy(asc(canonicalVariants.createdAt), asc(canonicalVariants.id));
 }
 
+/**
+ * Every variant of several products, in ONE round trip.
+ *
+ * The matcher (#58) scores a subject against every variant of every candidate
+ * product, so the per-product read above would be N queries per evaluation
+ * against a bounded candidate set — the shape that turns a bounded retrieval
+ * back into an unbounded one.
+ */
+export async function listVariantsForProducts(
+  db: DatabaseOrTransaction,
+  productIds: readonly string[],
+): Promise<CanonicalVariantRow[]> {
+  if (productIds.length === 0) return [];
+  return db
+    .select()
+    .from(canonicalVariants)
+    .where(inArray(canonicalVariants.productId, [...productIds]))
+    .orderBy(asc(canonicalVariants.createdAt), asc(canonicalVariants.id));
+}
+
+/**
+ * Which of these variants ARE bundles — i.e. own at least one component row.
+ *
+ * A bundle is a bundle because it has components (ADR 0002 D15), not because its
+ * name says so, and the matcher refuses to merge a bundle into one of its own
+ * components. Answering that from the component table rather than from prose is
+ * what makes rule 7 structural on the canonical side.
+ */
+export async function findBundleVariantIds(
+  db: DatabaseOrTransaction,
+  variantIds: readonly string[],
+): Promise<string[]> {
+  if (variantIds.length === 0) return [];
+  const rows = await db
+    .selectDistinct({ bundleVariantId: bundleComponents.bundleVariantId })
+    .from(bundleComponents)
+    .where(inArray(bundleComponents.bundleVariantId, [...variantIds]));
+  return rows.map((row) => row.bundleVariantId);
+}
+
 export async function countVariantsForProduct(
   db: DatabaseOrTransaction,
   productId: string,

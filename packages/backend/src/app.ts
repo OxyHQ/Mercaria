@@ -54,6 +54,7 @@ import offersRouter from './routes/offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
 import catalogAttributesRouter from './routes/catalog-attributes.js';
 import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
+import internalMatchingRouter from './routes/internal-matching.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
@@ -255,6 +256,16 @@ export function createApp(): express.Express {
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/offers', internalOffersRouter);
     app.use('/internal/catalog-attributes', internalCatalogAttributesRouter);
+  }
+
+  /**
+   * The matching operator surface (#58), on the SAME allow-list for the same
+   * reason: deciding that two things are one thing is the same power over the
+   * same graph as reshaping it. Empty list ⇒ never registered ⇒ 404, never a 401
+   * that would advertise the surface.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/matching', internalMatchingRouter);
   }
   // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
   // reason the two above have theirs: reading who merged which cart is a third

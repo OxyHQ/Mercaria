@@ -143,6 +143,16 @@ connectPostgres()
         .then(({ startOfferOutboxDispatcher }) => startOfferOutboxDispatcher())
         .catch((err) => log.general.error({ err }, 'Offer outbox dispatcher import failed'));
 
+      // Evaluate queued matching subjects (#58). On EVERY task, same lease
+      // shape. The LOOP is gated by `MATCH_PIPELINE_ENABLED` and the queue never
+      // is, so requests taken while matching is paused drain once it is switched
+      // on. This is the loop that closes #57's `native_listing_links` seam: an
+      // automatic match writes the attachment and asks the offer converger to
+      // run, which is how a native listing becomes a native offer end to end.
+      import('./services/matching/match-queue-dispatcher.js')
+        .then(({ startMatchQueueDispatcher }) => startMatchQueueDispatcher())
+        .catch((err) => log.general.error({ err }, 'Match queue dispatcher import failed'));
+
       // Retry stored Stripe events whose processing failed, and pick up any
       // whose task died between storing and interpreting them. Also on EVERY
       // task, same lease shape. The webhook ingress processes inline after
@@ -237,7 +247,7 @@ connectPostgres()
         await closeRedis();
         log.general.info('Redis connections closed');
 
-        // Stop all FOUR background loops before the pool they query through
+        // Stop every background loop before the pool they query through
         // goes. They share the pool `closePostgres` is about to end, so a loop
         // still claiming or sweeping would throw on a closed connection during
         // every shutdown. A dispatcher's stop only stops it claiming NEW work — the
@@ -263,6 +273,14 @@ connectPostgres()
           './services/payments/reconciliation/runner.js'
         );
         stopPaymentReconciler();
+        const { stopOfferOutboxDispatcher } = await import(
+          './services/offers/offer-outbox-dispatcher.js'
+        );
+        stopOfferOutboxDispatcher();
+        const { stopMatchQueueDispatcher } = await import(
+          './services/matching/match-queue-dispatcher.js'
+        );
+        stopMatchQueueDispatcher();
         stopExpirySweeper();
         log.general.info('Background loops stopped');
 

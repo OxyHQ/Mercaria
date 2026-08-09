@@ -1128,6 +1128,125 @@ shape looks arbitrary answerable:
   in `0025` breaks a write the previous image performs, which is exactly what
   `post` means. Both files state their own reasoning at the top.
 
+### The MATCHING layer of the same graph (#58, ADR 0002 D14/D19)
+
+Nine more Postgres-born tables, in `matching.ts`: `match_policy_versions`,
+`match_benchmark_runs`, `match_benchmark_categories`, `match_category_gates`,
+`match_decisions`, `match_decision_candidates`, `match_blocked_pairs`,
+`match_queue`, `match_sweep_cursors`. Deciding which canonical product a source
+record or a native listing IS. It inherits the closed-set-from-a-shared-types-tuple
+rule and the natural-unique idempotency the sections above state. What is #58's
+own — and every one of these is here because the WRONG answer, a false merge,
+looks exactly like the right one and is discovered by a customer:
+
+- **The blocker array is ONE CHECK standing in for four product rules.**
+  `match_decisions_blockers_auto_check` refuses `outcome = 'automatic_match'`
+  with a non-empty `blockers`, and `MATCH_BLOCKERS` carries every reason a merge
+  is forbidden — a conflicting identifier, a brand disagreement, a bundle
+  mistaken for its component, a missing axis, an operator's rejected pair, a
+  closed category gate. So "conflicting valid identifiers never auto-merge"
+  (#58 acceptance 2) is a CHECK rather than four branches somebody has to keep
+  writing, and adding a rule is adding a blocker. Two companion CHECKs close the
+  ways around it: `match_decisions_conflicting_identifier_check` refuses a
+  recorded conflicting identifier WITHOUT the blocker (otherwise the audit array
+  could say "conflicting" while the outcome said "merged"), and
+  `match_decisions_blockers_explained_check` (`blockers <@ reason_codes`) makes
+  every refusal name itself in the operator-facing explanation. The containment
+  is free at the type level too: `MatchBlocker` is a member of
+  `MatchReasonCode`, so a blocker that is not a reason code fails to compile.
+- **The subject is TWO nullable foreign keys plus a CHECK, and a THIRD column
+  that is not a denormalization of either.** `source_record_id` and
+  `product_variant_id` are the `product_identifiers` grain device (both key
+  spaces are in this database, so real FKs are available). `evaluation_key` is
+  GENERATED from `coalesce`, because Postgres treats NULLs as distinct and the
+  idempotency unique spans two legitimately-NULL columns — the
+  `offers.source_key` reasoning. `subject_key` is a PLAIN column, and it is the
+  STABLE identity: for an observation, `(source_id, external_type, external_id)`,
+  one join away. It exists because `source_records` is append-only and mints a
+  NEW row per content change (D19), so a blocked pair keyed on the observation
+  would evaporate on the next crawl and the matcher would re-propose the same
+  wrong merge — the exact failure acceptance 4 forbids. It is not generated
+  because a generated expression cannot read another table.
+- **`matched_canonical_product_id` beside `matched_canonical_variant_id` is not
+  the denormalization it looks like.** Rule 1 makes product identity a SEPARATE
+  stage from variant identity, so "the product resolved and the variant did not"
+  is a real and ordinary state — a listing that never said which colour it was.
+  One column could not record it. `match_decisions_grain_order_check` states the
+  dependency in the direction rule 1 asserts, and permits the converse.
+- **Confidence is NULL on a deterministic stage, and CHECK-enforced to be.**
+  `match_decisions_confidence_stage_check` refuses a number on
+  `existing_source_link`, `global_identifier`, `brand_scoped_identifier` and
+  `no_candidate`. This is the `source_links`/`native_listing_links` semantics
+  unchanged — NULL means certainty by construction and OUTRANKS every number —
+  and the CHECK is what stops two representations of certainty coexisting, which
+  would make a reviewer's `confidence < 0.9` filter silently skip one whole class
+  of decision.
+- **A category gate cites its measurement by a NOT NULL COMPOSITE foreign key.**
+  `match_category_gates.(benchmark_category_id, policy_version_id)` references
+  `match_benchmark_categories.(id, policy_version_id)`, so a gate with no
+  benchmark is unrepresentable AND a gate citing a run measured under a different
+  policy is refused by Postgres rather than by a comparison in a service. That is
+  acceptance 5 made structural. The two referenced identity keys are table
+  CONSTRAINTS rather than unique INDEXES on purpose: a composite FK needs its
+  referenced columns unique when the constraint is added, and drizzle-kit emits
+  table constraints with the CREATE TABLE while it emits indexes afterwards — a
+  unique index satisfies Postgres and loses the race in the generated migration.
+  What the SERVICE still enforces, because a CHECK may not contain a subquery, is
+  the cross-table comparison: did the cited slice's precision clear the policy's
+  bar, on enough samples. Both halves are pinned by realdb cases.
+- **Every benchmark RATE is `GENERATED ALWAYS ... STORED`.** Precision, recall,
+  automatic-match coverage and manual-review rate are functions of the confusion
+  matrix beside them, so a precision nobody measured is not a value these tables
+  can hold — an INSERT supplying one fails with SQLSTATE `428C9`. `NULLIF` on
+  each denominator yields NULL rather than zero, because "nothing was predicted
+  positive" and "precision is zero" are different facts and a launch gate must
+  not confuse them. Division is IMMUTABLE, so it is legal in a stored generated
+  column — unlike the `to_tsvector`/`unaccent` traps above. Two partition CHECKs
+  refuse a slice whose outcome counts or confusion cells do not sum to its total:
+  a run that lost cases would report a precision over a set nobody can reconstruct.
+- **A policy version is immutable once active, and a benchmark run is
+  append-only — both by TRIGGER.** `match_policy_versions_immutable` permits only
+  the lifecycle transition; `mercaria_match_benchmark_append_only` permits
+  exactly one UPDATE, stamping a run finished with nothing else moving. These are
+  triggers rather than CHECKs because they constrain a row against its own
+  HISTORY, which is what "immutable" means — the `retail_pricing_policies` and
+  `fee_schedule_versions` precedent. A policy somebody edited after the fact would
+  silently re-interpret every benchmark that cited it, and an editable
+  measurement is not one a gate can rest on.
+- **The seven feature columns are REAL columns, not a jsonb summary.** The
+  `provider_accounts` requirements-count reasoning: a `double precision` column
+  cannot hold a sentence, and "which candidates did brand disagreement rule out"
+  needs an indexable predicate. **A NULL feature is UNKNOWN and never a zero** —
+  the confidence arithmetic leaves an unknown out of the DENOMINATOR, so a
+  missing brand lowers the score by widening the uncertainty rather than by
+  asserting a disagreement nobody observed (#58 rule 5). Reading it as zero makes
+  every unbranded P2P listing unmatchable; reading it as the mean of the others
+  lets one strong feature and six unknowns score like seven.
+- **`match_queue` is ONE ROW PER SUBJECT, which makes it a convergence queue.**
+  The `offer_outboxes` port, inheriting both of its inversions of the moderation
+  outbox: the enqueue is `ON CONFLICT DO UPDATE` (a `DO NOTHING` would drop the
+  requests that arrived while one was pending), and there is no `expires_at` and
+  therefore no `db/expiryTargets.ts` entry — one row per subject, CASCADEing with
+  the native variant, so it cannot grow unboundedly, and a retention sweep would
+  delete pending matching work on a clock. The `requested_revision`/
+  `claimed_revision` pair closes the mid-run race, and the enqueue must NOT write
+  a flat `'pending'` over a `processing` row — that releases a live lease from
+  outside the worker. Pinned by a realdb case, as in the offer domain.
+- **`match_blocked_pairs` records the policy it was judged under and is NOT
+  scoped by it.** A block that expired on the next policy version would silently
+  re-propose every rejected pair on a tuning change; the column is the audit
+  trail, and clearing is a deliberate, attributable act
+  (`match_blocked_pairs_cleared_state_check`). `target_key` is the third
+  GENERATED `coalesce` key in the graph, for the third time for the same reason.
+- **`match_sweep_cursors` is `reconciliation_cursors`, ported** — the same lease
+  pair CHECK (`num_nonnulls(...) in (0, 2)`, so half a lease is unrepresentable),
+  the same caller-supplied primary key with no default, and the same rule that a
+  cursor is made durable BEFORE the lease is given up.
+- **Zero new `jsonb`.** Feature values, reason codes, blockers, identifiers and
+  the confusion matrix are all real columns or `text[]` with element CHECKs
+  rendered from the shared-types tuples, so this layer adds no row to the
+  register below.
+
 ### Merchant claiming (#83) has no source model either
 
 Five more Postgres-born tables, in `merchantClaims.ts`: `merchant_claims`,
@@ -1952,6 +2071,16 @@ add a row when a gate lands, and do not list one that does not run yet.
 | Every verification method's assurance and auto-verify verdict, including that no `low` method may auto-verify (#83 acceptance 2) | `src/services/merchant-claims/__tests__/claim-methods.test.ts` | no |
 | Domain control covers subdomains and NOT lookalikes; a platform proof covers that shop and not the merchant's other channels; a proof never reaches another merchant's storefront | `src/services/merchant-claims/__tests__/claim-scope.test.ts` | no |
 | A site verification refuses loopback, private, link-local and cloud-metadata targets, against the REAL SSRF guard | `src/services/merchant-claims/__tests__/site-verification.test.ts` | no |
+| The labelled matching benchmark covers all eight case kinds over ≥4 categories and ≥4 sources, meets the policy's precision floor with ZERO false merges, and is not achieving that by reviewing everything (recall and coverage floors) | `src/services/matching/__tests__/benchmark.test.ts` | no |
+| The whole matching dataset produces byte-identical decisions with a semantic scorer registered and with none, and the scorer is never called (#58 acceptance 6) | `src/services/matching/__tests__/pipeline.test.ts` | no |
+| Every relation marker fires on its shape and NOT on its near miss (`backpack` is not a pack, `showcase` is not a case), in English and Spanish | `src/services/matching/__tests__/relation-detection.test.ts` | no |
+| An unknown feature is left out of the confidence DENOMINATOR — asserted against both wrong answers (unknown-as-zero and unknown-as-mean), not just the right one | `src/services/matching/__tests__/policy.test.ts` | no |
+| No feed/search/catalogue-read module can reference the matching domain and no matching module can reference a fee, payment or referral one; the matcher writes no `offers` row and imports no canonical WRITE service; exactly ONE module writes `native_listing_links`; no operator schema accepts an outcome, confidence or blocker | `src/services/matching/__tests__/matching-isolation.test.ts` | no |
+| An `automatic_match` with any blocker, a conflicting identifier with no blocker, a blocker absent from the explanation, a variant match with no resolved product, and a number on a deterministic stage are all refused BY THE DATABASE | `src/services/matching/__tests__/matching-writes.realdb.test.ts` | yes |
+| A category gate cannot be opened below the policy's precision or sample floor, and the DATABASE refuses one citing a benchmark measured under a different policy; every benchmark rate is derived and a supplied one is refused | `src/services/matching/__tests__/matching-writes.realdb.test.ts` | yes |
+| An active policy version and a recorded benchmark refuse every edit and delete — and all three triggers EXIST in the catalogue (vacuity guard) | `src/services/matching/__tests__/matching-writes.realdb.test.ts` | yes |
+| The match queue coalesces repeats into one row, a mid-run enqueue leaves the row pending after completion without releasing the live lease, `SKIP LOCKED` really skips, and a completion from a non-owner writes nothing | `src/services/matching/__tests__/matching-writes.realdb.test.ts` | yes |
+| #57's seam is closed end to end: an unmatched variant materializes NO offer, a barcode match writes a `barcode_gtin` link with NULL confidence and the offer appears; a heuristic match waits for its category gate and attaches with a `matcher` link and a confidence once it opens; re-running is a genuine no-op | `src/services/matching/__tests__/matching-writes.realdb.test.ts` | yes |
 
 ### The three concurrency shapes a mocked test cannot see
 

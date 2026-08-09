@@ -197,6 +197,13 @@
       "when": 1786258960470,
       "tag": "0027_equal_blonde_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1786260093279,
+      "tag": "0028_long_cyclops",
+      "breakpoints": true
     }
   ]
 }

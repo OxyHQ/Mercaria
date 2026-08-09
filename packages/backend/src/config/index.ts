@@ -846,6 +846,32 @@ export interface CatalogConfig {
  * `native` offers can reach it structurally, and the verdict is derived live —
  * so there is no state a flag could protect that the shape does not.
  */
+/**
+ * Deterministic matching (#58).
+ *
+ * `MATCH_PIPELINE_ENABLED` gates the LOOP and never the durable record: with it
+ * off the queue still accepts every request and drains them once it is switched
+ * on. `MATCH_SEMANTIC_ENABLED` is the operational half of the three levers that
+ * keep semantic scoring off — the other two are the absence of a registered
+ * scorer (the default) and the policy version's own `semantic_enabled`.
+ */
+export interface MatchingConfig {
+  /** `MATCH_PIPELINE_ENABLED` — does the queue dispatcher run. */
+  readonly pipelineEnabled: boolean;
+  /** How many subjects one drain claims. */
+  readonly queueBatchSize: number;
+  /** How often the dispatcher polls, in milliseconds. */
+  readonly queuePollIntervalMs: number;
+  /** How many rows one bulk-sweep PAGE enqueues. */
+  readonly sweepBatchSize: number;
+  /**
+   * `MATCH_SEMANTIC_ENABLED` — may a REGISTERED scorer be consulted at all.
+   * Off by default, and off is the shipped state: no scorer exists in this
+   * repository, so the deterministic path is the one that actually runs.
+   */
+  readonly semanticEnabled: boolean;
+}
+
 export interface OffersConfig {
   /** `OFFER_MATERIALIZATION_ENABLED` — does the convergence dispatcher run. */
   readonly materializationEnabled: boolean;
@@ -1037,6 +1063,7 @@ export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
   readonly offers: OffersConfig;
+  readonly matching: MatchingConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
@@ -1071,6 +1098,13 @@ export const config: AppConfig = Object.freeze({
     materializationEnabled: boolEnv('OFFER_MATERIALIZATION_ENABLED', true),
     outboxBatchSize: intEnv('OFFER_OUTBOX_BATCH_SIZE', 25),
     outboxPollIntervalMs: intEnv('OFFER_OUTBOX_POLL_INTERVAL_MS', 5_000),
+  }),
+  matching: Object.freeze({
+    pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),
+    queueBatchSize: intEnv('MATCH_QUEUE_BATCH_SIZE', 25),
+    queuePollIntervalMs: intEnv('MATCH_QUEUE_POLL_INTERVAL_MS', 5_000),
+    sweepBatchSize: intEnv('MATCH_SWEEP_BATCH_SIZE', 500),
+    semanticEnabled: boolEnv('MATCH_SEMANTIC_ENABLED', false),
   }),
   merchantClaims: Object.freeze({
     attemptTtlHours: intEnv('MERCHANT_CLAIM_ATTEMPT_TTL_HOURS', 14 * 24),
