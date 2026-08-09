@@ -35,6 +35,7 @@ import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { brands, organizations } from '../schema/organizations.js';
 import { merchants } from '../schema/merchants.js';
 import { catalogSources } from '../schema/provenance.js';
+import { canonicalProductFamilies } from '../schema/canonicalCatalog.js';
 import {
   commerceRelationships,
   relationshipEvidence,
@@ -51,6 +52,7 @@ import {
 import { createOrganization } from '../../services/canonical/organization.service.js';
 import { createBrand } from '../../services/canonical/brand.service.js';
 import { createMerchant } from '../../services/commerce-graph/merchant.service.js';
+import { createProductFamily } from '../../services/canonical/product-family.service.js';
 import {
   assertRelationship,
   attachEvidence,
@@ -78,6 +80,7 @@ const createdOrganizationIds: string[] = [];
 const createdBrandIds: string[] = [];
 const createdMerchantIds: string[] = [];
 const createdSourceIds: string[] = [];
+const createdFamilyIds: string[] = [];
 
 const OPERATOR_A = `op-a-${RUN}`;
 const OPERATOR_B = `op-b-${RUN}`;
@@ -141,8 +144,28 @@ afterAll(async () => {
   if (createdSourceIds.length > 0) {
     await db.delete(catalogSources).where(inArray(catalogSources.id, createdSourceIds));
   }
+  // Families last: `product_family_id` is a RESTRICT reference from
+  // `commerce_relationships`, so a family cannot go before the claims citing
+  // it. Its alias and source-link children CASCADE.
+  if (createdFamilyIds.length > 0) {
+    await db
+      .delete(canonicalProductFamilies)
+      .where(inArray(canonicalProductFamilies.id, createdFamilyIds));
+  }
   await closePostgres();
 });
+
+/**
+ * A REAL canonical product family. `product_family_id` was a DEFERRED foreign
+ * key while #56 was built in parallel; the moment its tables landed the gate
+ * forced it into a real RESTRICT reference, so a fabricated id no longer
+ * inserts — the ledger working exactly as `deferredForeignKeys.ts` documents.
+ */
+async function mintProductFamily(name: string): Promise<string> {
+  const row = await createProductFamily({ name });
+  createdFamilyIds.push(row.id);
+  return row.id;
+}
 
 async function mintOrganization(name: string): Promise<string> {
   const row = await createOrganization({ name });
@@ -225,7 +248,7 @@ describe('the per-kind endpoint CHECK constrains subject and object entity kinds
       },
       {
         kind: 'organization_manufactures' as const,
-        endpoints: { organizationId, productFamilyId: `family-${RUN}` },
+        endpoints: { organizationId, productFamilyId: await mintProductFamily(`Endpoints Family ${RUN}`) },
       },
       {
         kind: 'merchant_official_channel_for_brand' as const,

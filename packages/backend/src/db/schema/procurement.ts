@@ -119,6 +119,7 @@ import {
   money,
 } from './columns';
 import { organizations } from './organizations';
+import { canonicalProducts, canonicalVariants } from './canonicalCatalog';
 
 /** Bound on any stored note or error — the `.slice()` at every writer. */
 const MAX_NOTE_LENGTH = 2_000;
@@ -641,11 +642,13 @@ export const supplierAgreementEvidence = pgTable(
  * honest about NOW. `first_seen_at` survives every refresh; `last_confirmed_at`
  * moves with each one.
  *
- * ## The canonical mapping is two plain columns
+ * ## The canonical mapping is two real foreign keys
  *
- * `canonical_product_id` / `canonical_variant_id` name #56's tables, which are
- * being built in parallel — no foreign key, no import, registered in the
- * ledger. Several offers carrying one `canonical_variant_id` is exactly how
+ * `canonical_product_id` / `canonical_variant_id` name #56's tables. They were
+ * ledgered as DEFERRED foreign keys while that domain was built in parallel;
+ * with those tables landed they are real RESTRICT references, which the
+ * `deferredForeignKeys.ts` gate forced rather than permitted to lapse.
+ * Several offers carrying one `canonical_variant_id` is exactly how
  * Mercaria sources one canonical variant from several suppliers without
  * minting several products (#118 acceptance 1). An unmapped offer (both NULL)
  * is stored and ineligible, never refused — matching is a later, separate
@@ -663,9 +666,15 @@ export const procurementOffers = pgTable(
       .references(() => supplierAccounts.id, { onDelete: 'restrict' }),
     /** The agreement version this offer is sourced under, once one governs it. */
     agreementId: text().references(() => supplierAgreements.id, { onDelete: 'restrict' }),
-    /** Canonical-graph ids (#56) — parallel domain, no foreign key. */
-    canonicalProductId: text(),
-    canonicalVariantId: text(),
+    /**
+     * Canonical-graph mapping (#56). These were DEFERRED foreign keys while
+     * that domain was being built in parallel; the moment its tables landed the
+     * `deferredForeignKeys.ts` gate refused the deferral and forced them into
+     * the real RESTRICT references they carry now — canonical rows are never
+     * hard-deleted (ADR 0002 D20), so a mapping may not be orphaned silently.
+     */
+    canonicalProductId: text().references(() => canonicalProducts.id, { onDelete: 'restrict' }),
+    canonicalVariantId: text().references(() => canonicalVariants.id, { onDelete: 'restrict' }),
     /** The supplier's own SKU — source-scoped, half of the upsert key. */
     supplierSku: text().notNull(),
     /** The supplier platform's own catalog/object id, when it has one. */

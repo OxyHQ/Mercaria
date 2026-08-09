@@ -47,6 +47,9 @@ import merchantsRouter from './routes/merchants.js';
 import storefrontsRouter from './routes/storefronts.js';
 import brandRelationshipsRouter from './routes/brand-relationships.js';
 import internalCommerceGraphRouter from './routes/internal-commerce-graph.js';
+import canonicalProductsRouter from './routes/canonical-products.js';
+import productFamiliesRouter from './routes/product-families.js';
+import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
 import guestSessionRouter from './routes/guest-session.js';
 import { config } from './config/index.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
@@ -206,6 +209,16 @@ export function createApp(): express.Express {
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/commerce-graph', internalCommerceGraphRouter);
   }
+  // The canonical PRODUCT layer (#56): public identity reads…
+  app.use('/canonical-products', canonicalProductsRouter);
+  app.use('/product-families', productFamiliesRouter);
+  // …and its own operator surface. A SEPARATE router from the graph's above,
+  // sharing the ONE operator allow-list — the two surfaces belong to different
+  // issues and move at different rates, but who may reshape the catalogue is a
+  // single question with a single answer.
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/canonical-catalog', internalCanonicalCatalogRouter);
+  }
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -239,9 +252,11 @@ export function createApp(): express.Express {
         '/merchants',
         '/storefronts',
         '/brand-relationships',
+        '/canonical-products',
+        '/product-families',
         '/guest/session',
-        // `/internal/payments` and `/internal/commerce-graph` are deliberately
-        // ABSENT, and this is not an
+        // `/internal/payments`, `/internal/commerce-graph` and
+        // `/internal/canonical-catalog` are deliberately ABSENT, and this is not an
         // oversight to correct: this list is public and unauthenticated, and the
         // operator surface answers 404 on a deployment with no operators
         // precisely so its existence is not discoverable. Advertising it here

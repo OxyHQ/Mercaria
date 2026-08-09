@@ -48,12 +48,18 @@ export * from './moderation';
 export * from './provenance';
 export * from './organizations';
 export * from './merchants';
-// `relationships` (#55) follows both: a commerce relationship references
-// organizations, brands, merchants and storefronts, and its evidence references
-// `source_records`.
+// The canonical PRODUCT layer (#56) follows `organizations` (families and
+// products reference `brands`) and `catalog` (both reference `categories`).
+export * from './canonicalCatalog';
+// `relationships` (#55) follows all of the above: a commerce relationship
+// references organizations, brands, merchants, storefronts and — for an
+// `organization_manufactures` claim — a canonical product family, and its
+// evidence references `source_records`.
 export * from './relationships';
 // Procurement (#118) follows `organizations`: `suppliers.organization_id`
-// references the canonical graph's organizations table.
+// references the canonical graph's organizations table. It now also follows
+// `canonicalCatalog`: `procurement_offers` maps to canonical products and
+// variants, which were a DEFERRED foreign key until #56 landed those tables.
 export * from './procurement';
 // Retail pricing (#120, ADR 0004 D3) follows `procurement`: a cost quote names
 // the supplier, account and agreement it was sourced under by foreign key.

@@ -40,6 +40,8 @@ import {
   transitionPurchaseOrder,
 } from '../../../db/procurement/purchaseOrderRepository.js';
 import { ingestProcurementOffer } from '../procurement-offer.service.js';
+import { createCanonicalProduct } from '../../canonical/canonical-product.service.js';
+import { listVariants } from '../../canonical/canonical-variant.service.js';
 
 beforeAll(async () => {
   await connectPostgres();
@@ -64,6 +66,27 @@ async function makeSupplierWithAccount(): Promise<{
     providerAccountId: `acct-${uuidv7()}`,
   });
   return { supplier, account };
+}
+
+/**
+ * A REAL canonical product and its default variant.
+ *
+ * These ids used to be fabricated strings, which worked only while
+ * `procurement_offers.canonical_product_id` / `.canonical_variant_id` were
+ * DEFERRED foreign keys. #56 landed the canonical tables, the
+ * `deferredForeignKeys.ts` gate forced both into real RESTRICT references, and
+ * the database now — correctly — refuses a mapping to a product that does not
+ * exist. That is the ledger working as designed, and the fixture has to mint
+ * what it claims to reference.
+ */
+async function makeCanonicalIdentity(): Promise<{
+  canonicalProductId: string;
+  canonicalVariantId: string;
+}> {
+  const product = await createCanonicalProduct({ name: `Ingest product ${uuidv7()}` });
+  const [variant] = await listVariants(product.id);
+  if (!variant) throw new Error('the default variant is missing');
+  return { canonicalProductId: product.id, canonicalVariantId: variant.id };
 }
 
 function observation(
@@ -134,15 +157,11 @@ describe('the source upsert converges', () => {
   it('a refresh that asserts no mapping leaves the matcher’s mapping alone', async () => {
     const { supplier, account } = await makeSupplierWithAccount();
     const sku = `SKU-${uuidv7()}`;
-    const canonicalVariantId = `canonical-variant-${uuidv7()}`;
+    const { canonicalProductId, canonicalVariantId } = await makeCanonicalIdentity();
     await ingestProcurementOffer(
       observation(
         { supplierId: supplier.id, supplierAccountId: account.id },
-        {
-          supplierSku: sku,
-          canonicalProductId: `canonical-product-${uuidv7()}`,
-          canonicalVariantId,
-        },
+        { supplierSku: sku, canonicalProductId, canonicalVariantId },
       ),
     );
 
@@ -158,8 +177,7 @@ describe('one canonical variant, several suppliers (#118 acceptance 1)', () => {
   it('two suppliers sourcing one variant are two OFFERS, never two products', async () => {
     const a = await makeSupplierWithAccount();
     const b = await makeSupplierWithAccount();
-    const canonicalProductId = `canonical-product-${uuidv7()}`;
-    const canonicalVariantId = `canonical-variant-${uuidv7()}`;
+    const { canonicalProductId, canonicalVariantId } = await makeCanonicalIdentity();
 
     await ingestProcurementOffer(
       observation(

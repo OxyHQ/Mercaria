@@ -713,10 +713,11 @@ decisions that make their shapes answerable:
   is load-bearing: an unrecognised kind is unrepresentable even with the kind
   CHECK removed, so widening the tuple without widening the CHECK fails the
   first write instead of admitting an endpoint-less row.
-- **`product_family_id` is the batch's second DEFERRED foreign key**, waiting on
-  #56's `canonical_product_families` (RESTRICT per D20). The gate flips it into
-  a real `.references()` the moment that table lands — the mechanism #54's
-  section records, used a second time exactly as designed.
+- **`product_family_id` was the batch's second DEFERRED foreign key**, waiting on
+  #56's `canonical_product_families` (RESTRICT per D20). #56 landed that table in
+  the same batch, the gate refused the deferral, and it is a real
+  `.references()` today — the mechanism #54's section records, used a second time
+  exactly as designed.
 - **Three of the issue's nine relationship types are deliberately NOT kinds.**
   *merchant operates storefront* is `storefronts.merchant_id`, *brand contains
   product family* and *brand markets product* resolve through
@@ -779,6 +780,112 @@ decisions that make their shapes answerable:
   back through the `superseded_by_id` self-FK.
 - **Zero new `jsonb`.** Nothing in this layer earned a register row: every
   evidence field a reviewer or a re-check needs is a real column.
+### The canonical PRODUCT layer of the same graph (#56, ADR 0002)
+
+Nineteen more Postgres-born tables, in `canonicalCatalog.ts`:
+`attribute_definitions`, `attribute_definition_categories`,
+`canonical_product_families`, `canonical_product_family_aliases`,
+`canonical_product_family_source_links`, `canonical_product_family_redirects`,
+`canonical_products`, `canonical_product_aliases`,
+`canonical_product_source_links`, `canonical_product_redirects`,
+`canonical_variants`, `canonical_variant_aliases`,
+`canonical_variant_source_links`, `canonical_variant_attributes`,
+`canonical_images`, `canonical_attribute_values`, `canonical_field_provenance`,
+`bundle_components`, `product_identifiers`. They inherit everything the #53 and
+#54 sections state — the shared-types tuples, the `canonicalSupport.ts` helpers,
+the generated `normalized_alias`, the `'simple'` search vector, the `pg_trgm`
+dependency, tombstone-not-delete with the merged-consistency CHECK pair, and
+natural-unique idempotency. What is #56's own:
+
+- **`status` is the ONE deliberate divergence from the shared lifecycle helper.**
+  `catalogLifecycleColumns()` spreads `canonicalLifecycleColumns()` and then
+  replaces its `status` column with one typed from `CANONICAL_CATALOG_STATUSES`
+  (`draft | active | discontinued | merged | suppressed`). Two of those are facts
+  about a PRODUCT that an organization does not have — `draft` for an unreviewed
+  provisional row, `discontinued` for a maker that stopped making it — and the
+  set deliberately DROPS `inactive`, because "not sold any more" already has a
+  precise source-observable name and a second vaguer value beside it is a fact
+  two writers can record two ways. The override is spelled out, not hidden, and
+  the CHECK is rendered from the same tuple that types the column.
+- **The variant SIGNATURE is what makes one iPhone one product.**
+  `canonical_variants.signature` is a sha-256 of the variant's option
+  assignments, sorted by attribute key with each value normalized (a quantity
+  normalizes to its base-unit magnitude, so "256 GB" and "0.256 TB" collapse);
+  `position` is display order and deliberately not an input.
+  `UNIQUE(product_id, signature)` is what makes that determinism load-bearing
+  rather than decorative — the second write of one configuration is refused by
+  the database, whichever order a source listed the options in. It is a plain
+  column maintained by `canonical-variant.service`, NOT generated: a generated
+  expression cannot read another table, and a shape CHECK
+  (`^[0-9a-f]{64}$`) stops a hand-written row occupying the key space.
+- **The product declares its axes; the variants must match them exactly.**
+  `canonical_products.variant_defining_attribute_keys` is the explicit marking
+  #56 attribute rule 5 asks for, held at the product because that is where the
+  fact lives (an iPhone's axes are storage and colour). Without it a variant
+  missing an axis would hash to a signature meaning something different from
+  what it says. The `text[]` is the `pinned_fields` precedent: a scalar set of
+  stable KEYS, not of ids.
+- **Identifiers: three uniqueness decisions, each for a different reason.**
+  `(canonical_scheme, canonical_value) WHERE status='active'` is the collision
+  gate — one active owner per GTIN, so a newcomer is written `disputed` and never
+  steals it. The paired per-entity active uniques stop duplicate ACTIVE
+  assignments of one identifier to one entity. MPN and `brand_model` get **no**
+  uniqueness at all, because MPNs collide across brands legitimately and a
+  constraint that has to be wrong sometimes is worse than none (ADR 0002 D14);
+  brand scope is enforced in the service, which refuses a brand-scoped scheme on
+  an entity resolving to no brand.
+- **Identifier values are immutable by TRIGGER**
+  (`product_identifiers_values_immutable`, migration 0017 — the
+  `purchase_order_lines` precedent): `raw_value` is the only record of what a
+  source actually said and `canonical_value` sits inside the collision gate, so
+  an in-place edit would destroy review evidence and silently move ownership of a
+  GTIN. The trigger permits exactly two updates, both deliberate: a STATUS
+  transition (how a correction is recorded) and an OWNER change (what a merge
+  does).
+- **Provenance is NOT NULL where it is the point.** `canonical_images` and
+  `canonical_attribute_values` both carry `source_record_id NOT NULL`, which is
+  what makes "every selected field and image is traceable to provenance" (#56
+  acceptance 4) structural rather than a habit — operator entry is a
+  `catalog_sources` row too (D19), so there is no "no source" case to carve out.
+  There is deliberately NO per-image rights column: rights are the SOURCE's
+  (`may_display`, `attribution_required`), and a copy here could disagree with
+  the registry that owns them.
+- **`canonical_field_provenance` is #53's provenance layer at FIELD grain, not a
+  second one** — a real `source_records` foreign key, the same
+  `SOURCE_LINK_METHODS` tuple, and the same `confidence` semantics (NULL means
+  deterministic/human and outranks every number). It is the one table here that
+  writes `ON CONFLICT DO UPDATE`: a field's provenance is a statement about the
+  value stored right now, not an accumulating history, and the history lives in
+  the append-only `source_records` rows.
+- **`canonical_attribute_values` keeps disagreements as facts.** One row per
+  (entity, key, observation), plus a `selected` flag with a partial unique so at
+  most one value per attribute is shown. When two equally-strong sources
+  disagree, NEITHER is selected and both are marked `conflicting` — the
+  structural form of "unknown or conflicting values remain source facts and are
+  not guessed", reinforced by a CHECK that only a `normalized` row may carry a
+  normalized value at all.
+- **Redirect HISTORY is its own append-only table**, per entity type
+  (`canonical_product_redirects`, `canonical_product_family_redirects`).
+  `merged_into_id` answers where a row points NOW and cannot answer where it
+  pointed before, because D16's chain flattening overwrites it; each hop is
+  appended instead, converging on `UNIQUE(from_id, to_id)` so a re-run grows no
+  rows. Variants deliberately have no redirect table: the issue asks for history
+  on family and product, and the variant tombstone IS the redirect every offer
+  reference resolves through.
+- **The polymorphic-grain tables use nullable FKs plus a CHECK**, never a
+  `{kind, id}` pair — `canonical_images`, `canonical_attribute_values`,
+  `canonical_field_provenance` and `product_identifiers` all address their entity
+  that way, because every endpoint's key space is in THIS database and real
+  foreign keys are available (the `commerce_relationships` reasoning, D17). That
+  is why none of them needs a `deferredForeignKeys.ts` entry.
+- **Zero new `jsonb`.** Identifiers, dimensions, attribute values, images and
+  provenance are all real columns or child tables, so this layer adds no row to
+  the register below.
+- **The parallel-development note, second instance:** #118's
+  `procurement_offers.canonical_product_id` / `.canonical_variant_id` were
+  carried as DEFERRED foreign keys while this domain was built; at integration
+  the gate refused the deferral and both became real RESTRICT references. Same
+  mechanism #54's section records, now used twice.
 
 ### The guest domain has NO source model either
 
@@ -1059,7 +1166,7 @@ deliberately not created and the dead function goes with the model in Fase 3.
 
 ## Register: every `jsonb` column, and why it earned it
 
-`jsonb` is for genuinely shape-less data only. Eight columns qualify in 107 tables;
+`jsonb` is for genuinely shape-less data only. Eight columns qualify in 129 tables;
 anything else with a known shape is real columns or a child table.
 
 | Column | Why it is genuinely open-shaped |
@@ -1173,6 +1280,14 @@ add a row when a gate lands, and do not list one that does not run yet.
 | The payment and procurement domains import NOTHING from each other, and each keeps its own order-linkage seam | `src/services/procurement/__tests__/role-separation.test.ts` | no |
 | ONE active referral attribution per (program, subject) under two CONCURRENT inserts; the code namespace refuses every case-variant of a taken spelling (the CHECK included); a replayed/concurrent conversion source event converges on one row; correction and supersession are append-only rows naming their predecessor; merge redirects preserve historical references; retirement and suspension block NEW attribution while historical conversions keep transitioning | `src/services/__tests__/referral-writes.realdb.test.ts` | yes |
 | Raw referral touches are swept on their own retention, separately from the attributions derived from them | `src/db/__tests__/expirySweeper.realdb.test.ts` | yes |
+| One product carries four canonical variants across two axes; two feeds listing the same options in a different ORDER and a different UNIT converge on ONE variant; a product with no axes gets exactly one default variant | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
+| A colliding GTIN is stored `disputed` and the existing owner does NOT move; the partial unique refuses a second active owner even from a writer that skips the service; a wrong check digit stores nothing; a correction APPENDS and the wrong value survives; the immutability trigger refuses a value edit while permitting a status and an owner change | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
+| A source title never becomes the canonical name (it becomes an alias plus a conflict); an MPN on a brandless entity is refused; a scheme at the wrong grain is refused | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
+| Every applied field gets a `canonical_field_provenance` row in the observation's own transaction; an image with no observation is unwritable; a re-delivered observation writes nothing new | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
+| A product merge tombstones the loser, records the merge AND the flatten hop, keeps resolution one hop, and leaves a `procurement_offers` reference to a merged variant still resolvable | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
+| `UNIQUE(product_id, signature)`, the one-default-variant partial unique, the one-value-per-axis unique, the signature shape CHECK, the half-filled canonical-pair CHECK, the "not normalized ⇒ no magnitude" CHECK and the two-selected-values unique all fire | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
+| GTIN/UPC/EAN/GTIN-14 and ISBN-10/13 check digits accept a valid value and refuse one wrong by ONE digit; a UPC and the EAN padding to it collapse to one canonical value; unit conversion round-trips every unit in the table; an ambiguous unit spelling (`MW` vs `mW`) resolves to nothing rather than to the wrong one | `src/services/canonical/__tests__/{identifiers,units,variant-signature}.test.ts` | no |
+| `/internal/canonical-catalog/*` is operator-gated, unmounted on an empty allow-list, closed to the payments allow-list — and its source-fact endpoints REFUSE a canonical field (`name`, `slug`, `status`, `pinnedFields`) while accepting the same request without it | `src/routes/__tests__/internal-canonical-catalog.test.ts` | no |
 
 ### The three concurrency shapes a mocked test cannot see
 
