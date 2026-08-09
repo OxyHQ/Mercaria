@@ -668,6 +668,54 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'retail_eligibility_audits.subject_id', reason: AUDIT_CORRELATION },
   { column: 'retail_eligibility_audits.actor_oxy_user_id', reason: OXY_ACCOUNT },
 
+  // ── Supplier preflight (#122, ADR 0004 D4 step 1 / D5 / D9.3) ─────────────
+  //
+  // The supplier, account and sourcing policy VERSION an answer was taken from
+  // are real RESTRICT foreign keys and are deliberately not here — an
+  // unattributable supplier answer is not evidence, the `retail_cost_quotes`
+  // reasoning one domain over. What is here is the same four classes the three
+  // domains above already ledger: catalogue snapshots whose targets legitimately
+  // move on, grouping tokens with no parent entity, commerce correlations the
+  // evidence must outlive, and a supplier platform's own key space.
+  { column: 'supplier_quotes.procurement_offer_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'supplier_quotes.canonical_product_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'supplier_quotes.canonical_variant_id', reason: COMMERCE_SNAPSHOT },
+  {
+    column: 'supplier_quotes.checkout_group_id',
+    reason:
+      'The same grouping token orders, payments, purchase orders and cost-quote ' +
+      'acceptances carry; there is no checkout_groups entity to point at.',
+  },
+  {
+    column: 'supplier_quotes.consumed_by_checkout_group_id',
+    reason:
+      'The checkout that actually spent this quote — the same grouping token as the ' +
+      'column above, recorded separately because "which checkout asked" and "which ' +
+      'checkout consumed" are different facts and collapsing them would let a quote ' +
+      'attach to a second checkout (#122 concurrency 3).',
+  },
+  { column: 'supplier_quotes.order_id', reason: PROCUREMENT_CORRELATION },
+  { column: 'supplier_reservations.procurement_offer_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'supplier_reservations.provider_reservation_id', reason: SUPPLIER_PLATFORM },
+  {
+    column: 'supplier_reservations.consumed_by_checkout_group_id',
+    reason:
+      'The same grouping token as supplier_quotes.consumed_by_checkout_group_id; there ' +
+      'is no checkout_groups entity to point at.',
+  },
+  { column: 'supplier_reservations.consumed_order_id', reason: PROCUREMENT_CORRELATION },
+  { column: 'supplier_sourcing_attempts.procurement_offer_id', reason: COMMERCE_SNAPSHOT },
+  {
+    column: 'supplier_sourcing_attempts.checkout_group_id',
+    reason:
+      'The same grouping token orders, payments and purchase orders carry; there is no ' +
+      'checkout_groups entity to point at.',
+  },
+  { column: 'supplier_sourcing_policies.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supplier_sourcing_policies.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supplier_preflight_suppressions.raised_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supplier_preflight_suppressions.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
+
   // ── Referral domain (#142, ADR 0005) ──────────────────────────────────────
   { column: 'referral_programs.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'referral_programs.approved_by_oxy_user_id', reason: OXY_ACCOUNT },

@@ -68,6 +68,7 @@ import guestSessionRouter from './routes/guest-session.js';
 import analyticsRouter from './routes/analytics.js';
 import internalAnalyticsRouter from './routes/internal-analytics.js';
 import internalRetailEligibilityRouter from './routes/internal-retail-eligibility.js';
+import internalSupplierPreflightRouter from './routes/internal-supplier-preflight.js';
 import { config } from './config/index.js';
 import {
   requireCanonicalReads,
@@ -394,6 +395,13 @@ export function createApp(): express.Express {
   // middleware/retail-operator-authz.ts.
   if (config.retailEligibility.operatorSurfaceEnabled) {
     app.use('/internal/retail-eligibility', internalRetailEligibilityRouter);
+  }
+  // …and the supply-operations surface, on its OWN allow-list — a SIXTH list,
+  // for a power none of the other five holds: this one reads what Mercaria PAYS
+  // its suppliers and flips the supplier and market kill switches. Empty = not
+  // mounted, 404 — see middleware/procurement-operator-authz.ts.
+  if (config.supplierPreflight.operatorSurfaceEnabled) {
+    app.use('/internal/supplier-preflight', internalSupplierPreflightRouter);
   }
   // (Inbound connector webhooks are mounted above, before express.json.)
 

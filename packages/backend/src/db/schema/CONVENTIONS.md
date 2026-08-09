@@ -2086,6 +2086,109 @@ is answerable:
   `retailPricing.ts` both record.
 - **Zero `jsonb`.** Every shape in this domain is Mercaria's own and closed.
 
+### The supplier preflight domain has NO source model either (#122, ADR 0004 D4 step 1 / D5 / D9.3)
+
+Eight more tables born in Postgres, in `schema/supplierPreflight.ts`:
+`supplier_sourcing_policies`, `supplier_quotes`,
+`supplier_quote_shipping_options`, `supplier_reservations`,
+`supplier_sourcing_attempts`, `supplier_call_leases`,
+`supplier_preflight_health`, `supplier_preflight_suppressions`. What a supplier
+ANSWERED to one exact question immediately before Mercaria charges anybody.
+Full behaviour: `docs/supplier-preflight.md`.
+
+The decisions that are THIS domain's, stated so a column that looks arbitrary
+is answerable:
+
+- **A reservation is a ROW, and the row cannot exist without the supplier's own
+  commitment.** There is no `reserved` boolean, no `reservation_state` and no
+  reservation column of any kind on `supplier_quotes`.
+  `supplier_reservations.provider_reservation_id` and `provider_expires_at` are
+  NOT NULL and `supplier_reservations_capability_declared_check` requires
+  `inventory_reservation` in `declared_capabilities` — so "the orchestration
+  must not emulate a reservation" is not a rule a service obeys; there is no row
+  shape in which it could be broken, whoever the writer is.
+- **`SupplierAvailabilityState` is a DIFFERENT vocabulary from #118's
+  `ProcurementAvailability`, deliberately.** That field records what a catalogue
+  FEED last said about an offer; this one records what the supplier answered
+  about this exact request. A shared union would let a feed's `in_stock` be read
+  as checkout authority, which is the one thing #122 acceptance 1 exists to
+  prevent.
+- **A quote stores NO address, not even encrypted.** `destination_country` and
+  `destination_region` are the coarse pair; there is no postal-code, city,
+  recipient, line, phone or email column, so the redaction is the SHAPE — the
+  `purchase_orders` device taken one step further, because a parcel needs a
+  street and a QUOTE does not. `request_fingerprint` (an HMAC under
+  `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY`) is what ties a quote to the destination
+  it was taken for: an auditor recomputes it from a destination they already
+  hold. It is PROTECTED for `guest_checkouts.email_hash`'s reason — irreversible
+  and still an exact-match ORACLE.
+- **Completeness is THREE CHECKs, not a convention.** `status = 'complete'`
+  requires an orderable availability (rendered from
+  `SUPPLIER_COMPLETE_AVAILABILITY_STATES`), a confirmed identity, a known unit
+  cost, a known shipping cost on a known basis and no destination restriction;
+  `block_reasons` is non-empty EXACTLY when the status is not `complete`; and
+  `exception_kind` is present EXACTLY when it is `invalid`. So a blocked quote
+  cannot be stored claiming completeness, a complete one cannot be stored with
+  an unexplained block, and an ambiguous provider answer cannot be filed as a
+  mere `partial`. The `retail_cost_quotes` device, one domain over.
+- **There is no `usage_state` column.** `consumed_at`, `released_at`,
+  `superseded_by_quote_id` and `expires_at` state it completely, so a stored
+  verdict beside them would be two representations of one fact whose
+  disagreement lands in a checkout gate. `deriveSupplierQuoteUsage` is the one
+  derivation — the `retail_cost_quotes` expiry rule.
+- **There is no `score` column on a sourcing attempt.** A stored score is a
+  number nobody can reproduce; the attempt records the deterministic RANK the
+  policy version produced plus a closed-set reason, which is what makes a
+  selection re-readable rather than re-derivable (#122 acceptance 7).
+- **The cross-row shipping invariant is the WRITER's**, like
+  `insertRetailCostQuote`'s sum: `selected_shipping_service_code` must name an
+  option the quote actually recorded and `shipping_cost` must be that option's
+  cost, which no CHECK can see. `insertSupplierQuote` is the single writer of
+  both tables, in one transaction, and refuses before issuing SQL.
+- **`supplier_call_leases` is ONE table doing two exact jobs.** A slot is a row,
+  so concurrency is exact (a row lock); each slot carries its own equal share of
+  the account's per-minute allowance, so rate is exact too (the same lock). The
+  trade is stated in the table's docblock: uneven arrivals can UNDER-admit,
+  which errs toward not exceeding the provider's published limit. The
+  alternative — one shared counter plus separate lease rows — needs two tables
+  to be exact in either dimension.
+- **`supplier_preflight_health.attempts = successes + failures` is a CHECK**,
+  equality and never `<=`, with `timeouts` and `rate_limited` bounded BY
+  `failures` rather than added to the total twice. A health verdict computed
+  from a lossy window is exactly the report that says everything is fine — the
+  `catalog_backfill_runs` vacuity floor (#60), applied to a provider.
+- **An automatic suppression can only ever be a HEALTH one.** A CHECK restricts
+  `origin = 'automatic_health'` to `kind = 'health_degraded'`, a NULL raiser, a
+  cited policy version and a mandatory expiry; every other kind requires an
+  operator id. So the loop that watches health cannot file a `kill_switch`, and
+  an automatic stop lapses on its own even if the loop never runs again — the
+  OPPOSITE posture from `retail_suppressions`, and right here because the thing
+  suppressed is a transient capability rather than a judgement about a product.
+  The scope→columns mapping is a `case` CHECK over all four combinations, so a
+  `market` stop cannot secretly name an account.
+- **Immutability is triggers, not review** (the ledger / fee / retail-pricing
+  precedent): a policy version freezes once it leaves `draft`; a quote's
+  identity, request and ANSWER columns freeze from birth while each usage
+  timestamp moves NULL → a value exactly once (which is what makes "a quote
+  consumed by one checkout cannot attach to another" true of `psql` too); a
+  reservation's provider facts and declared capabilities never change and its
+  retry counter never decreases; shipping options and sourcing attempts refuse
+  UPDATE and DELETE outright.
+- **No foreign key to `procurement_offers` or the canonical graph.** Offers
+  refresh in place and canonical entities merge; a quote is evidence of what was
+  true at one instant and must survive both verbatim — the
+  `purchase_order_lines` rule. Supplier, account and sourcing policy ARE real
+  RESTRICT foreign keys: an unattributable supplier answer is not evidence.
+- **No `orders` widening.** `commercial_role` / `seller_type = 'platform'` land
+  with the code that writes them (#123) — the reasoning `procurement.ts`,
+  `retailPricing.ts` and `retailEligibility.ts` all record.
+- **`expires_at` here is a VALIDITY deadline, not a retention one**, so this
+  domain registers NOTHING in `db/expiryTargets.ts` — these rows are the
+  evidence a charge was made against, retained like `payments`.
+- **Zero `jsonb`.** Every shape in this domain is Mercaria's own and closed;
+  a provider's answer is normalized to allow-listed, closed-set columns at the
+  adapter boundary and its raw form lives behind `source_record_ref`.
+
 ### The referral domain (#142, ADR 0005) has no source model either
 
 Nine tables born in Postgres (`drizzle/0015_referral_domain.sql`, phase `pre`):
