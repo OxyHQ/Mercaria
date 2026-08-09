@@ -35,6 +35,8 @@ import { getDb } from '../db/postgres.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
+// Discovery analytics (#77) — the emitter only.
+import { emitAnalyticsEvent } from '../services/analytics/emit.js';
 
 /** One evidence reference as the `.strict()` schemas admit it. */
 interface EvidenceInput {
@@ -63,6 +65,14 @@ export async function openClaimHandler(req: Request, res: Response): Promise<voi
       ...(body.connectionId !== undefined ? { connectionId: body.connectionId } : {}),
       ...(body.storefrontIds !== undefined ? { storefrontIds: body.storefrontIds } : {}),
       ...(body.nativeStoreId !== undefined ? { nativeStoreId: body.nativeStoreId } : {}),
+    });
+    // #77 discovery event 12. Emitted after `openClaim` returns, so a refusal
+    // (an unavailable method, an ineligible merchant, a claim already in
+    // progress) is not counted as an entry — the merchant-claim funnel's
+    // denominator must be attempts that actually opened a claim.
+    emitAnalyticsEvent(req, {
+      eventType: 'merchant_claim_entry',
+      entities: { merchantId: claim.merchantId },
     });
     sendSuccess(res, toMerchantClaimDTO(claim, await findScopesForClaim(getDb(), claim.id)), 201);
   } catch (error) {

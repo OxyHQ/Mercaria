@@ -149,4 +149,18 @@ export const PROTECTED_COLUMNS = {
    * read.
    */
   guest_checkouts: ['emailCiphertext', 'emailHash', 'phoneCiphertext'],
+
+  /**
+   * The rotating salt every pseudonymous analytics session id is derived under
+   * (#77 data-lifecycle rule 7).
+   *
+   * A LIVE secret, and the most consequential one in this registry despite
+   * looking like a housekeeping column: possession of the current epoch's salt
+   * turns every `analytics_events.pseudonymous_session_id` of that epoch back
+   * into the session handle it was derived from, which is precisely the
+   * re-identification the rotation exists to make impossible. The operator
+   * surface reads these rows for their epoch and window; nothing anywhere needs
+   * the value except the derivation itself.
+   */
+  analytics_pseudonym_salts: ['salt'],
 } as const satisfies ProtectedColumnRegistry;

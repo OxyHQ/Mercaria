@@ -391,7 +391,19 @@ describe('the registry the sweeper runs over', () => {
     // after ABSOLUTE expiry or after REVOCATION (ADR 0003 D11), and the
     // registry has no way to express OR — so each trigger is its own target
     // over its own indexed column.
+    // The six analytics tables (#77) join them for the same reason the payment
+    // ones did: born in Postgres, each carrying its own `expires_at` stamped
+    // from the retention class of what it holds. `analytics_pseudonym_salts` is
+    // the one worth reading twice — deleting a retired salt is what makes
+    // pseudonym rotation irreversible, so an un-swept row silently un-does the
+    // domain's central privacy guarantee (data-lifecycle rule 7).
     expect(EXPIRY_TARGETS.map((target) => getTableName(target.table)).sort()).toEqual([
+      'analytics_events',
+      'analytics_experiment_exposures',
+      'analytics_pseudonym_salts',
+      'analytics_query_aggregates',
+      'analytics_rollups',
+      'analytics_search_queries',
       'guest_sessions',
       'guest_sessions',
       'moderation_events',

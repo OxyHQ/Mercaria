@@ -48,6 +48,10 @@ import { getOxyUserId } from '@oxyhq/core/server';
 import type { GuestClientClass } from '@mercaria/shared-types';
 import { GUEST_CLIENT_CLASSES } from '@mercaria/shared-types';
 import { config } from '../config/index.js';
+// Discovery analytics (#77). The emitter only, and it cannot throw or be
+// awaited — a telemetry failure must never turn a guest's first add-to-cart
+// into an error.
+import { emitAnalyticsEvent } from '../services/analytics/emit.js';
 import { isAllowedBrowserOrigin } from '../lib/allowed-origins.js';
 import { log } from '../lib/logger.js';
 import type { CommerceActor } from '../services/commerce-actor.js';
@@ -456,5 +460,16 @@ export async function issueGuestActor(
   req.guestSessionContext = context;
   req.guestCredential = 'valid';
   req.commerceActor = { kind: 'guest', guestSessionId: session.id, transport };
+
+  // #77 guest event 1. Emitted AFTER the actor is swapped, so the event's own
+  // pseudonym is derived from the session that was just issued rather than from
+  // the anonymous state that preceded it — otherwise the first event of a guest's
+  // life would sit in a different pseudonym than every event after it, and the
+  // funnel would start one step in.
+  //
+  // The event carries no session id and no token: the pseudonym is a one-way
+  // hash under a rotating server salt, and `analytics_events` has no column
+  // either could arrive in.
+  emitAnalyticsEvent(req, { eventType: 'guest_session_issued' });
   return context;
 }

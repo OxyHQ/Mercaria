@@ -141,13 +141,15 @@ describe('the migrated schema', () => {
 
   it('registers every expiry target the schema needs', () => {
     // The anti-vacuity floor for the gate above: it reports nothing for an
-    // EMPTY target list, so a registry that lost an entry would pass it. Eight
-    // targets today — three ported TTL indexes, the payment outbox and the
-    // provider-event store (born in Postgres), guest_sessions TWICE (one entry
-    // per purge trigger: absolute expiry and revocation, ADR 0003 D11), and
+    // EMPTY target list, so a registry that lost an entry would pass it.
+    // Fourteen targets today — three ported TTL indexes, the payment outbox and
+    // the provider-event store (born in Postgres), guest_sessions TWICE (one
+    // entry per purge trigger: absolute expiry and revocation, ADR 0003 D11),
     // the referral touch evidence store (#142), whose raw rows are retainable
-    // separately from the durable attributions derived from them.
-    expect(EXPIRY_TARGETS).toHaveLength(8);
+    // separately from the durable attributions derived from them, and the SIX
+    // analytics tables (#77), each with its own deadline because retention is
+    // per event CLASS and never one blanket TTL.
+    expect(EXPIRY_TARGETS).toHaveLength(14);
   });
 });
 

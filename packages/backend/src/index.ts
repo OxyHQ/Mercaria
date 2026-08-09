@@ -197,6 +197,35 @@ connectPostgres()
       // all.
       startExpirySweeper();
 
+      // Discovery analytics (#77). THREE loops, all no-ops when
+      // `ANALYTICS_ENABLED` is false — production collection stays off until
+      // the privacy and retention review clears (acceptance 8).
+      //
+      // The sink is the one that matters for correctness: it is what makes
+      // "analytics loss or delay never blocks search, checkout, the order
+      // portal or outbound navigation" (acceptance 7) true, by moving every
+      // write off the request path into a bounded in-process queue that DROPS
+      // rather than growing. It runs on every task because the queue is
+      // process-local — there is nothing to coordinate and no lease to take.
+      import('./services/analytics/sink.js')
+        .then(({ startAnalyticsSink }) => startAnalyticsSink())
+        .catch((err) => log.general.error({ err }, 'Analytics sink import failed'));
+
+      // Roll a completed day's events into metric buckets. Leased per RUN, like
+      // the reconciliation sweeps, so N tasks share it. This is what makes the
+      // retention sweep safe: the numbers are written before the rows they came
+      // from expire (data-lifecycle rule 2).
+      import('./services/analytics/rollup.js')
+        .then(({ startAnalyticsRollup }) => startAnalyticsRollup())
+        .catch((err) => log.general.error({ err }, 'Analytics rollup import failed'));
+
+      // Null expired search-query text in place. The one retention operation the
+      // shared expiry sweep cannot perform — it deletes rows, and this is a
+      // redaction that leaves the row and its normalized tokens standing.
+      import('./services/analytics/retention.js')
+        .then(({ startAnalyticsRetention }) => startAnalyticsRetention())
+        .catch((err) => log.general.error({ err }, 'Analytics retention import failed'));
+
       // Start marketplace queue workers when Redis is configured; otherwise
       // async jobs run inline via the producers.
       import('./queue/connection.js').then(({ isQueueEnabled }) => {
@@ -282,6 +311,18 @@ connectPostgres()
         );
         stopMatchQueueDispatcher();
         stopExpirySweeper();
+        // Analytics last of the loops, and the sink's stop AWAITS one final
+        // flush — the only place in this domain anything waits on telemetry.
+        // Safe because the flush's own failure is already swallowed and the
+        // queue is bounded, so the wait is bounded too; a shutdown that hung on
+        // telemetry would be the bug this domain exists to prevent, one
+        // lifecycle stage later.
+        const { stopAnalyticsRollup } = await import('./services/analytics/rollup.js');
+        stopAnalyticsRollup();
+        const { stopAnalyticsRetention } = await import('./services/analytics/retention.js');
+        stopAnalyticsRetention();
+        const { stopAnalyticsSink } = await import('./services/analytics/sink.js');
+        await stopAnalyticsSink();
         log.general.info('Background loops stopped');
 
         // Close the Postgres pool, last: everything above may still be draining

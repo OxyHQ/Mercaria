@@ -9,8 +9,12 @@
  * deeply frozen so no code can mutate config at runtime.
  */
 
-import type { CurrencyCode, ModerationEnforcementMode } from '@mercaria/shared-types';
-import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
+import type {
+  AnalyticsCollectionMode,
+  CurrencyCode,
+  ModerationEnforcementMode,
+} from '@mercaria/shared-types';
+import { ALL_CURRENCY_CODES, ANALYTICS_COLLECTION_MODES } from '@mercaria/shared-types';
 import { log } from '../lib/logger.js';
 
 /**
@@ -414,6 +418,60 @@ function resolveCheckoutDestinationCountries(): readonly string[] {
     .split(',')
     .map((code) => code.trim().toUpperCase())
     .filter((code) => /^[A-Z]{2}$/.test(code));
+}
+
+/**
+ * `ANALYTICS_OPERATOR_OXY_USER_IDS` → the discovery-analytics allow-list (#77
+ * dashboards).
+ *
+ * A FOURTH list, for the fourth instance of the reason the other three are
+ * separate: reading what everybody searched for, tracing a funnel and reading a
+ * pseudonym epoch is a different power from repairing payments, from rewiring
+ * the catalogue and from inspecting a cart merge. One list for all four would
+ * grant whichever an operator was not vetted for — and this one is arguably the
+ * most sensitive of the four in aggregate, because it is the only surface that
+ * can answer "what are people looking for" across the whole marketplace.
+ *
+ * Empty means `/internal/analytics` is not mounted at all: 404, never a 401
+ * that would tell an unauthenticated caller the surface exists.
+ */
+function resolveAnalyticsOperatorIds(): readonly string[] {
+  return strEnv('ANALYTICS_OPERATOR_OXY_USER_IDS', '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id !== '');
+}
+
+/**
+ * Resolve the analytics collection mode (#77 envelope field 11, acceptance 8).
+ *
+ * Defaults to `off`, and an unrecognised value falls back to `off` rather than
+ * throwing — the same shape `resolveEnforcementMode` uses and for a stronger
+ * version of the same reason: a typo in a deploy variable must not be able to
+ * turn COLLECTION UP, and it must not take the API down either. Every other
+ * fallback in this file that could go either way defaults to the permissive
+ * side; this one defaults to collecting nothing.
+ */
+function resolveAnalyticsCollectionMode(): AnalyticsCollectionMode {
+  const raw = process.env.ANALYTICS_COLLECTION_MODE?.trim();
+  if (!raw) return 'off';
+  return (ANALYTICS_COLLECTION_MODES as readonly string[]).includes(raw)
+    ? (raw as AnalyticsCollectionMode)
+    : 'off';
+}
+
+/**
+ * Whether analytics collection is on.
+ *
+ * DERIVED from the mode, never a separate flag: `ANALYTICS_ENABLED=true` with
+ * `ANALYTICS_COLLECTION_MODE=off` is a contradiction, and the failure it
+ * produces — a deployment collecting under a mode it believes is off — is
+ * exactly the one acceptance 8 exists to prevent. `ANALYTICS_ENABLED` is still
+ * read, as a kill switch that can only ever turn collection DOWN.
+ */
+function resolveAnalyticsEnabled(): boolean {
+  if (resolveAnalyticsCollectionMode() === 'off') return false;
+  return boolEnv('ANALYTICS_ENABLED', false);
 }
 
 /**
@@ -1017,6 +1075,78 @@ export interface ReferralsConfig {
   readonly linkTokenSecret?: string;
 }
 
+/**
+ * Discovery analytics (#77).
+ *
+ * The whole domain is OFF by default and stays off in production until the
+ * privacy and retention review #77 acceptance 8 requires has been recorded.
+ * That is why `enabled` defaults to `false` while every other flag in this file
+ * that gates a mature subsystem defaults to `true`: collecting nothing is the
+ * safe failure, and a deployment that forgets to enable it loses telemetry
+ * rather than collecting under an unreviewed policy.
+ */
+export interface AnalyticsConfig {
+  /**
+   * Whether ANY event is recorded — see `resolveAnalyticsEnabled`. Gates the
+   * sink at its entry point, so with it off `recordAnalyticsEvent` returns
+   * before touching a queue and no timer is started at all.
+   */
+  readonly enabled: boolean;
+  /**
+   * `off | essential | full` — the collection mode a stored row records
+   * (envelope field 11). `off` and `enabled: false` are the same state
+   * expressed twice, which is why `enabled` is DERIVED from this rather than
+   * configured beside it: two flags for one fact could disagree, and the
+   * disagreement that matters is "we thought collection was off".
+   */
+  readonly collectionMode: AnalyticsCollectionMode;
+  /**
+   * The Oxy accounts that may reach `/internal/analytics/*`. A FOURTH
+   * allow-list beside payments, catalog and guest — see
+   * `resolveAnalyticsOperatorIds`.
+   */
+  readonly operatorOxyUserIds: readonly string[];
+  /**
+   * DERIVED from the allow-list, exactly as the other three are: a separate
+   * flag could only ever disagree with the list. Empty = not mounted (404).
+   */
+  readonly operatorSurfaceEnabled: boolean;
+  /**
+   * The hard cap on the in-process queue. When it is reached the OLDEST
+   * pending events are dropped — bounded memory is the property, and losing
+   * telemetry is the price. See `services/analytics/sink.ts`.
+   */
+  readonly queueMaxEvents: number;
+  /** How often the sink writes what is queued. */
+  readonly flushIntervalMs: number;
+  /** How many rows one flush statement carries. */
+  readonly flushBatchSize: number;
+  /**
+   * How long one pseudonym salt epoch lasts before a new one is opened
+   * (data-lifecycle rule 7). The retired epoch's salt is then DELETED on the
+   * shared expiry sweep, which is what makes rotation irreversible.
+   */
+  readonly pseudonymRotationHours: number;
+  /**
+   * The shared secret an internal client sets in `X-Mercaria-Internal-Traffic`
+   * so its requests are classified `internal` and excluded from every quality
+   * metric.
+   *
+   * Deliberately NOT an IP allow-list: an IP is one of the identifiers #77
+   * forbids as an analytics dimension, and a CIDR list would have needed the
+   * address recorded somewhere to be debuggable. Empty means no traffic can
+   * declare itself internal, which is the safe default — the failure is a
+   * smoke test appearing in a metric, not arbitrary traffic hiding from one.
+   */
+  readonly internalTrafficToken: string;
+  /** Whether the daily rollup loop runs on this task. Gates the LOOP only. */
+  readonly rollupEnabled: boolean;
+  /** How often the rollup looks for a day to compute. */
+  readonly rollupIntervalMs: number;
+  /** How many days back a cold start will compute before giving up on a pass. */
+  readonly rollupMaxBackfillDays: number;
+}
+
 export interface PostgresConfig {
   /**
    * `DATABASE_URL`. REQUIRED — every route this API serves reads Postgres.
@@ -1075,6 +1205,7 @@ export interface AppConfig {
   readonly payments: PaymentsConfig;
   readonly guest: GuestConfig;
   readonly referrals: ReferralsConfig;
+  readonly analytics: AnalyticsConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -1275,6 +1406,20 @@ export const config: AppConfig = Object.freeze({
     ...(process.env.REFERRAL_LINK_TOKEN_SECRET?.trim()
       ? { linkTokenSecret: process.env.REFERRAL_LINK_TOKEN_SECRET.trim() }
       : {}),
+  }),
+  analytics: Object.freeze({
+    enabled: resolveAnalyticsEnabled(),
+    collectionMode: resolveAnalyticsCollectionMode(),
+    operatorOxyUserIds: Object.freeze(resolveAnalyticsOperatorIds()),
+    operatorSurfaceEnabled: resolveAnalyticsOperatorIds().length > 0,
+    queueMaxEvents: intEnv('ANALYTICS_QUEUE_MAX_EVENTS', 10_000),
+    flushIntervalMs: intEnv('ANALYTICS_FLUSH_INTERVAL_MS', 2_000),
+    flushBatchSize: intEnv('ANALYTICS_FLUSH_BATCH_SIZE', 500),
+    pseudonymRotationHours: intEnv('ANALYTICS_PSEUDONYM_ROTATION_HOURS', 24),
+    internalTrafficToken: strEnv('ANALYTICS_INTERNAL_TRAFFIC_TOKEN', ''),
+    rollupEnabled: boolEnv('ANALYTICS_ROLLUP_ENABLED', true),
+    rollupIntervalMs: intEnv('ANALYTICS_ROLLUP_INTERVAL_MS', 15 * MINUTE_MS),
+    rollupMaxBackfillDays: intEnv('ANALYTICS_ROLLUP_MAX_BACKFILL_DAYS', 30),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

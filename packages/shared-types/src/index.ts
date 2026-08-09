@@ -172,3 +172,12 @@ export * from './store-linkage';
 // feature set a candidate is scored on, and the benchmark metrics an automatic
 // category gate has to cite.
 export * from './matching';
+
+// Discovery analytics and search-success measurement (#77) — the versioned
+// event envelope, the closed event/reason/consent/traffic vocabularies, the
+// search query-privacy constants, the metric definitions (as DATA, so a
+// dashboard cannot render a number whose denominator, window, source and
+// freshness are unstated) and the experimentation value sets. Deliberately
+// carries no field for contact, payment, device or network identity, which is
+// how ADR 0003 I12 is enforced rather than promised.
+export * from './analytics';

@@ -39,6 +39,10 @@ import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { routeParam } from '../utils/request.js';
+// Discovery and guest-commerce analytics (#77). The emitter only — nothing here
+// reads a metric, and `cart-merge-isolation.test.ts` already scans this path for
+// everything else it must not reach.
+import { emitAnalyticsEvent } from '../services/analytics/emit.js';
 import {
   clearGuestCredential,
   issueGuestActor,
@@ -108,6 +112,17 @@ async function cartViewForWrite(req: Request, res: Response): Promise<CartView |
     // A guest actor whose owner resolved to null means guest carts are off on
     // this deployment; a missing actor means the resolver did not run, which is
     // a wiring bug and must not silently write.
+    // #77 guest event 14 — "a feature flag or cohort gate blocked the flow".
+    // The ONE guest gate this backend can classify honestly today: the refusal
+    // is a bounded ErrorCode rather than a sentence, so the reason code is read
+    // off the decision rather than matched out of a message. The eligibility
+    // gates (#105's P2P and destination refusals) raise generic conflicts and
+    // are deferred to #106 for exactly that reason — see
+    // `services/analytics/seams.ts`.
+    emitAnalyticsEvent(req, {
+      eventType: 'guest_feature_gate_blocked',
+      reasonCode: 'guest_cart_disabled',
+    });
     sendError(
       res,
       ErrorCodes.GUEST_CART_DISABLED,
@@ -145,9 +160,35 @@ export async function addCartItem(req: Request, res: Response): Promise<void> {
   try {
     const view = await cartViewForWrite(req, res);
     if (!view) return;
-    sendSuccess(res, await addItem(view, req.body as AddCartItemInput), 201);
+    const input = req.body as AddCartItemInput;
+    const cart = await addItem(view, input);
+    // TWO events, and the pair is the point. `native_add_to_cart` is emitted for
+    // EVERY actor kind — it is the discovery funnel's step, and the actor
+    // dimension is what tells the authenticated and guest funnels apart, which
+    // is what "the same definitions" means mechanically. `guest_cart_item_added`
+    // is the guest-commerce funnel's own step, emitted only for a guest owner,
+    // because #77's guest event list asks for it by name and a metric that had
+    // to filter one event by actor kind would be a metric with a hidden
+    // denominator.
+    emitAnalyticsEvent(req, {
+      eventType: 'native_add_to_cart',
+      entities: {
+        listingId: input.listingId,
+        productVariantId: input.variantId,
+      },
+      measures: { quantity: input.quantity },
+      buyerOrigin: view.owner.kind === 'guest_session' ? 'guest' : 'authenticated',
+    });
+    if (view.owner.kind === 'guest_session') {
+      emitAnalyticsEvent(req, {
+        eventType: 'guest_cart_item_added',
+        entities: { productVariantId: input.variantId },
+        measures: { quantity: input.quantity, itemCount: cart.items.length },
+      });
+    }
+    sendSuccess(res, cart, 201);
   } catch (err) {
-    if (respondIfIssuanceDisabled(res, err)) return;
+    if (respondIfIssuanceDisabled(req, res, err)) return;
     log.general.error({ err }, 'Failed to add cart item');
     respondWithError(res, err, 'Failed to add item to cart');
   }
@@ -170,7 +211,7 @@ export async function updateCartItem(req: Request, res: Response): Promise<void>
     }
     sendSuccess(res, await updateItem(view, variantId, quantity));
   } catch (err) {
-    if (respondIfIssuanceDisabled(res, err)) return;
+    if (respondIfIssuanceDisabled(req, res, err)) return;
     log.general.error({ err, variantId }, 'Failed to update cart item');
     respondWithError(res, err, 'Failed to update cart item');
   }
@@ -288,6 +329,17 @@ export async function mergeGuestCartHandler(req: Request, res: Response): Promis
     // in the body is that client's discard instruction.
     const transport: GuestTransport = req.presentedGuestTransport ?? 'cookie';
     clearGuestCredential(res, transport);
+    // The merge OUTCOME, as a bounded reason code — never the session id, never
+    // a line, never a discount code. `cart_merges` already records the counts
+    // durably; this event exists so the funnel can show where a sign-in landed,
+    // and it deliberately carries no more than the audit row does.
+    emitAnalyticsEvent(req, {
+      eventType: 'guest_cart_merged',
+      reasonCode: result.merged ? 'merge_completed' : 'merge_already_done',
+      measures: {
+        itemCount: result.linesAdded + result.linesCombined,
+      },
+    });
     sendSuccess(res, result);
   } catch (err) {
     log.general.error({ err }, 'Failed to merge guest cart');
@@ -302,8 +354,15 @@ export async function mergeGuestCartHandler(req: Request, res: Response): Promis
  * A buyer whose add-to-cart lands during an abuse incident is told to try
  * again, not handed a 500 that reads as "the shop is broken".
  */
-function respondIfIssuanceDisabled(res: Response, err: unknown): boolean {
+function respondIfIssuanceDisabled(req: Request, res: Response, err: unknown): boolean {
   if (!(err instanceof GuestIssuanceDisabledError)) return false;
+  // The second real gate, and the same bounded-code reasoning as the cart one
+  // above: the incident kill switch is a decision this code MADE, not a
+  // sentence it has to parse back.
+  emitAnalyticsEvent(req, {
+    eventType: 'guest_feature_gate_blocked',
+    reasonCode: 'guest_issuance_disabled',
+  });
   sendError(
     res,
     ErrorCodes.GUEST_ISSUANCE_DISABLED,

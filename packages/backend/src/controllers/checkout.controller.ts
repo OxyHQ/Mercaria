@@ -23,6 +23,10 @@ import { cartOwnerForActor } from '../services/cart-owner.js';
 import type { CommerceActor } from '../services/commerce-actor.js';
 import { readCheckoutPaymentStatus } from '../services/payments/checkout-payment.service.js';
 import { log } from '../lib/logger.js';
+// Discovery analytics (#77) — the emitter only. `checkout.service` itself
+// imports NOTHING from this domain, for the reason it imports no Stripe module:
+// telemetry must not become structural to placing an order.
+import { emitAnalyticsEvent } from '../services/analytics/emit.js';
 
 /**
  * The actor the resolver left on the request.
@@ -42,7 +46,41 @@ export async function postCheckout(req: Request, res: Response): Promise<void> {
   try {
     const raw = req.headers['idempotency-key'];
     const idempotencyKey = (Array.isArray(raw) ? raw[0] : raw) || undefined;
-    const result = await checkout(actorOf(req), req.body as CheckoutInput, idempotencyKey);
+    const actor = actorOf(req);
+    const result = await checkout(actor, req.body as CheckoutInput, idempotencyKey);
+    // TWO events for a guest, one for an authenticated buyer. `checkout_started`
+    // is the discovery funnel's step and is emitted for EVERY actor kind — the
+    // buyer-origin dimension is what tells the two funnels apart, which is what
+    // "the same definitions" means mechanically. `guest_checkout_started` is the
+    // guest-commerce funnel's own step, which #77 asks for by name.
+    //
+    // Both carry the RESTRICTED checkout-group correlation (envelope field 5):
+    // these are event types `ANALYTICS_COMMERCE_CORRELATED_EVENT_TYPES` admits,
+    // because checkout has begun. Emitted AFTER the service returns, so a
+    // refused checkout (empty cart, stale line, seller not payment-ready,
+    // undeliverable destination) is not counted as a start — this event is the
+    // denominator of the conversion metrics, and inflating it with refusals
+    // would understate conversion in exactly the condition somebody is
+    // investigating.
+    //
+    // The NUMERATOR of those metrics never comes from here. It is read from
+    // `payments` through `services/analytics/verified-conversion.ts`, which is
+    // acceptance 9 and the reason no `order_paid` event type exists at all.
+    const buyerOrigin = actor.kind === 'guest' ? 'guest' : 'authenticated';
+    emitAnalyticsEvent(req, {
+      eventType: 'checkout_started',
+      checkoutGroupId: result.checkoutGroupId,
+      measures: { itemCount: result.orders.length },
+      buyerOrigin,
+    });
+    if (actor.kind === 'guest') {
+      emitAnalyticsEvent(req, {
+        eventType: 'guest_checkout_started',
+        checkoutGroupId: result.checkoutGroupId,
+        measures: { itemCount: result.orders.length },
+        buyerOrigin: 'guest',
+      });
+    }
     sendSuccess(res, result, 201);
   } catch (err) {
     // The error is logged WITHOUT the body: `req.body` carries the buyer's

@@ -1905,6 +1905,98 @@ so a column whose shape looks arbitrary is answerable:
 - **Zero `jsonb` columns.** Every shape in this domain is Mercaria's own and
   closed, so none of them earns an entry in the register below.
 
+### The discovery-analytics domain has no source model either (#77)
+
+Eight more tables born in Postgres, in `schema/analytics.ts`:
+`analytics_events`, `analytics_search_queries`, `analytics_query_aggregates`,
+`analytics_rollups`, `analytics_experiments`,
+`analytics_experiment_exposures`, `analytics_pseudonym_salts`,
+`analytics_rollup_cursors`. Full behaviour: **`docs/analytics.md`**. The
+decisions that are THIS domain's, stated so a column that looks arbitrary is
+answerable:
+
+- **Every event property is a typed COLUMN and there is no `jsonb` anywhere.**
+  The `payments.payload_summary` register entry is the closest precedent and
+  the reasoning here is the OPPOSITE way round: a provider payload arrives
+  shaped by somebody else and has to be reduced, while an analytics property is
+  composed by Mercaria's own code — so an open bag is not a defence against a
+  third party, it is the one mechanism by which a postal address, an order note
+  or a page payload reaches production. The absent columns ARE the enforcement
+  of #77's identity rules (no `email`, no `email_hash`, no `phone`, no
+  `card_fingerprint`, no `provider_customer_id`, no `wallet_identity`, no
+  `ip_address`, no `user_agent`, no `device_fingerprint`, no `token`), and a
+  scan with a vacuity floor and a mutation self-test fails the build on one.
+- **Two identity columns, mutually exclusive by CHECK, and NEITHER is a
+  person.** `oxy_user_id` is present only for an `oxy` actor whose consent
+  permits it (a second CHECK ties it to `consent_state <> 'denied'`).
+  `pseudonymous_session_id` is a truncated sha-256 of a session handle under a
+  ROTATING salt and is CHECK-forbidden on an `oxy` actor. This is the
+  `guest_sessions.token_hash` decision taken one step further: that hash is
+  unkeyed because its preimage carries 256 bits of entropy, and this one is
+  SALTED because its preimage is a row id an attacker may hold — and the salt
+  is then DELETED (45 days, `db/expiryTargets.ts`), which is what makes two
+  epochs unlinkable rather than merely inconvenient to link.
+- **`checkout_group_id`/`order_id` carry a per-event-type CHECK**, rendered
+  from `ANALYTICS_COMMERCE_CORRELATED_EVENT_TYPES`, so a `product_page_view`
+  carrying a checkout group is refused by the database. `buyer_origin` carries
+  the same shape against a narrower tuple. Both are #77 envelope fields whose
+  wording ("only for documented commerce metrics AFTER checkout begins") is a
+  restriction, and a restriction stated only in a service is a convention.
+- **`analytics_events` is APPEND-ONLY by trigger, and DELETE is deliberately
+  permitted.** The append-only half is #77 identity rule 5 (a completed claim
+  cannot retroactively absorb unrelated guest activity) surviving whoever adds
+  an `update` to the repository. The delete half is the deliberate exception:
+  erasure on schedule is the policy, and a trigger that refused it would make
+  the retention sweep fail silently forever. This inverts the
+  `mercaria_ledger_append_only` posture, which refuses both — because a ledger
+  entry is a permanent financial record and an analytics event is not.
+- **The rollup dimensions are NOT NULL with NO DEFAULT, and `''` means "not
+  sliced by this".** A nullable dimension would break the bucket unique
+  outright (Postgres treats NULLs as distinct — the
+  `commerce_relationships.endpoint_key` problem) and a `DEFAULT ''` is the
+  convention violation this document refuses. With neither, every writer states
+  which bucket it means.
+- **Numerator and denominator are stored SEPARATELY and the ratio never is.**
+  Two rollup rows can be added and two ratios cannot; `denominator = 0` is a
+  real storable state that reads as `null` rather than as zero, because
+  rendering 0% for "nobody searched" is the commonest way a dashboard lies.
+- **`analytics_rollups.metric_key` CHECKs against `ANALYTICS_METRIC_KEYS`**, so
+  a number whose definition is unstated cannot be STORED — the storage half of
+  #77 acceptance 6, whose read half is the surface 404ing an unknown key.
+- **`analytics_search_queries` has NO actor column of any kind**, which is
+  privacy rule 3 ("keep normalized query tokens separate from user identity")
+  as a fact rather than as a rule about when to populate one. It carries TWO
+  deadlines — `text_expires_at` nulls the redacted text in place while the row
+  survives, and `expires_at` removes the row — with a CHECK ordering them, or
+  the nulling sweep would have a window in which it can never run. The nulling
+  cannot be an `expiryTargets.ts` entry: that registry DELETES rows.
+- **`analytics_experiments` is one immutable VERSION per row** (the
+  `fee_schedules` precedent, trigger and one-active partial unique included).
+  What is worth reading twice is the `assignment_salt` freeze: editing it on a
+  running experiment silently re-buckets every unit mid-flight, so the same
+  person is control on Monday and treatment on Tuesday and nothing in the data
+  says so — an edit that looks entirely innocent ("we widened the rollout") and
+  destroys the result.
+- **`coalesce(array_length(…), 0)` in the experiment shape CHECK is
+  load-bearing, not defensive spelling.** `array_length` returns NULL for an
+  EMPTY array and a CHECK evaluating to NULL is SATISFIED, so the naive form
+  admits the empty guardrail list it was written to refuse while rejecting only
+  the near-misses. Measured, not assumed: the realdb case fails on the naive
+  form.
+- **Every id column is unconstrained, as ONE decision rather than fifteen
+  omissions** (`ANALYTICS_CORRELATION` in `deferredForeignKeys.ts`). Telemetry
+  must never block a commerce delete, and its retention sweep must never
+  cascade into one — the argument runs in the opposite direction from every
+  other no-FK reason in that ledger, which is why it has its own.
+  `pseudonymous_session_id` is ledgered separately: a foreign key there would
+  require exactly the reversible mapping the derivation exists to destroy.
+- **`analytics_pseudonym_salts.salt` is in `PROTECTED_COLUMNS`.** It looks like
+  a housekeeping column and is the most consequential secret in the registry:
+  possession of the current epoch's salt turns every pseudonym of that epoch
+  back into the session handle it came from.
+- **Zero `jsonb`.** Every shape in this domain is Mercaria's own and closed, so
+  none of them earns an entry in the register below.
+
 ### Counters became sequences (`drizzle/0001_counter_sequences.sql`)
 
 `order_number_seq` and `rma_number_seq` replace the `Counter` collection's
@@ -2081,6 +2173,13 @@ add a row when a gate lands, and do not list one that does not run yet.
 | An active policy version and a recorded benchmark refuse every edit and delete — and all three triggers EXIST in the catalogue (vacuity guard) | `src/services/matching/__tests__/matching-writes.realdb.test.ts` | yes |
 | The match queue coalesces repeats into one row, a mid-run enqueue leaves the row pending after completion without releasing the live lease, `SKIP LOCKED` really skips, and a completion from a non-owner writes nothing | `src/services/matching/__tests__/matching-writes.realdb.test.ts` | yes |
 | #57's seam is closed end to end: an unmatched variant materializes NO offer, a barcode match writes a `barcode_gtin` link with NULL confidence and the offer appears; a heuristic match waits for its category gate and attaches with a `matcher` link and a confidence once it opens; re-running is a genuine no-op | `src/services/matching/__tests__/matching-writes.realdb.test.ts` | yes |
+| No column in any analytics table can hold contact, payment, network or device identity; there is no `jsonb` property bag; every metric names its numerator, denominator, window, source and freshness; no money metric is sourced from telemetry; no experiment treatment kind could mean "hide Continue as guest", "auto-create an account", "preselect marketing consent" or "sell organic rank"; nothing in `src/` emits a deferred (#107–#110) event type | `src/services/analytics/__tests__/contract-gates.test.ts` | no |
+| Analytics loss NEVER blocks commerce: the writer throws on every call and the enqueue, the flush, the emitter and the search instrumentation all return normally, with the drop counters asserted so a silently-inert sink cannot pass for the wrong reason (#77 acceptance 7) | `src/services/analytics/__tests__/sink-never-blocks-commerce.test.ts` | no |
+| Query redaction destroys emails, phones, cards, IBANs, secrets, guest tokens, addresses and credentialled URLs — and leaves ordinary product queries intact, including `iphone 15 128 256 gb`, which a phone rule with optional separators eats (#77 acceptance 4) | `src/services/analytics/__tests__/redact-query.test.ts` | no |
+| Each of #77's ten identity and correlation rules, one test each: the two identity fields are exclusive, the pseudonym is salted and unlinkable across epochs, the event repository has no update path, buyer origin has no `claimed` value, no event type asserts a payment, and no client-emittable type can | `src/services/analytics/__tests__/identity-rules.test.ts` | no |
+| Organic ranking cannot read analytics (a discovery module may import the emitter seam and nothing else) and analytics cannot read commercial standing (no measurement module references the fee or referral domain); the ONE payment import is the named verified-conversion seam, and it reads COUNTS rather than money | `src/services/analytics/__tests__/analytics-ranking-isolation.test.ts` | no |
+| The analytics identity CHECKs refuse both-identities, a cross-kind identity, an epoch-less pseudonym and a consent-denied account id while ACCEPTING each legitimate shape; the commerce correlation and buyer origin are refused on a pre-checkout event; events refuse UPDATE and permit DELETE; the query floor suppresses a rare query and serves a popular one; rollup and aggregate upserts CONVERGE rather than doubling; the rollup lease admits one claimant and refuses a stale owner's write; one CURRENT salt epoch survives a rotation; an active experiment freezes its salt and allocation while a draft does not | `src/db/analytics/__tests__/analytics.realdb.test.ts` | yes |
+| `/internal/analytics/*` is operator-gated on its OWN fourth allow-list, unmounted on an empty one (404, not 401), closed to the payments allow-list — and `POST /analytics/events` refuses every server-owned event type while accepting the good entries beside them (#77 acceptance 3) | `src/routes/__tests__/internal-analytics.test.ts` | no |
 
 ### The three concurrency shapes a mocked test cannot see
 
