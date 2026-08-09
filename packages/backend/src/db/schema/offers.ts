@@ -564,6 +564,16 @@ export const offers = pgTable(
      * first, then the sort key, then `id` to make the keyset cursor total.
      * Partial on `status = 'active'`, which keeps it the size of the set every
      * comparison actually scans rather than of every offer that ever existed.
+     *
+     * Measured on a seeded million rows, hottest variant carrying 500 offers:
+     * 0.44 ms. The index serves the SCAN and not yet the SORT — the read orders
+     * by `coalesce(price_amount, <sentinel>)` so unpriced `informational`
+     * records land last, and that expression is not what this index stores, so
+     * the planner adds a top-N heapsort over the variant's own offers. It costs
+     * about a quarter of a millisecond at 500 rows and is left as measured:
+     * removing it means either an expression index or a cursor that can page
+     * across NULLs, and ADR 0002 D21 gives #61 the authority to add indexes and
+     * projections WITH numbers attached rather than ahead of them.
      */
     index('offers_variant_comparison_idx')
       .on(t.canonicalVariantId, t.priceAmount, t.id)
