@@ -92,6 +92,13 @@
       "when": 1786235411542,
       "tag": "0012_commerce_graph_merchants",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786236072572,
+      "tag": "0013_guest_sessions",
+      "breakpoints": true
     }
   ]
 }

@@ -141,10 +141,11 @@ describe('the migrated schema', () => {
 
   it('registers every expiry target the schema needs', () => {
     // The anti-vacuity floor for the gate above: it reports nothing for an
-    // EMPTY target list, so a registry that lost an entry would pass it. Five
-    // targets today — three ported TTL indexes plus the payment outbox and the
-    // provider-event store, which were born in Postgres.
-    expect(EXPIRY_TARGETS).toHaveLength(5);
+    // EMPTY target list, so a registry that lost an entry would pass it. Seven
+    // targets today — three ported TTL indexes, the payment outbox and the
+    // provider-event store (born in Postgres), plus guest_sessions TWICE (one
+    // entry per purge trigger: absolute expiry and revocation, ADR 0003 D11).
+    expect(EXPIRY_TARGETS).toHaveLength(7);
   });
 });
 

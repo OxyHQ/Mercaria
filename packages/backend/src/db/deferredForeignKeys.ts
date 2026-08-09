@@ -114,6 +114,12 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'draft_orders.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'favorites.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'feedback.oxy_user_id', reason: OXY_ACCOUNT },
+  // The #104/#109 conversion audit stamp. An Oxy id like every other row in
+  // this block — and doubly unconstrained on purpose: the session row is
+  // purged on retention (ADR 0003 D11) while the Oxy account lives on, and the
+  // Oxy account can be deleted while the audit stamp must survive as inert
+  // correlation text (D15, diagram 11).
+  { column: 'guest_sessions.converted_to_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'listings.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'notifications.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'order_status_history.by_oxy_user_id', reason: OXY_ACCOUNT },

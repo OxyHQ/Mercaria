@@ -503,14 +503,72 @@ in `oxy-infra`).
 ## CORS: critical origins
 
 The Mercaria backend's `PRODUCTION_ORIGINS` lives in
-`packages/backend/src/app.ts` and must include `https://mercaria.co`,
-`https://dashboard.mercaria.co` and `https://pos.mercaria.co`.
+`packages/backend/src/lib/allowed-origins.ts` (imported by `app.ts` for CORS
+and by the guest CSRF gate — ONE origin authority, ADR 0003 D10) and must
+include `https://mercaria.co`, `https://dashboard.mercaria.co` and
+`https://pos.mercaria.co`.
 
 The central Oxy API
 (`OxyHQServices/packages/api/src/config/allowedOrigins.ts`) must include
 `https://mercaria.co` and the pattern
 `/^https:\/\/[a-z0-9-]+\.mercaria\.co$/`. Without these,
 `api.oxy.so/auth/refresh-all` fails with CORS errors from every Mercaria app.
+
+## Guest sessions and the CommerceActor resolver (#103, ADR 0003)
+
+ADR 0003 (`docs/adr/0003-commerce-actor-guest-identity.md`) binds the whole
+guest-commerce epic (#101); #103 shipped its foundation. **No synthetic Oxy
+users, ever** — a guest is Mercaria's own credential, structurally incapable of
+appearing where an Oxy id is expected.
+
+- **`CommerceActor`** (`services/commerce-actor.ts`) is the ONE actor union —
+  `oxy | guest | anonymous`, deliberately with NO common `id` field so every
+  consumer must switch on `kind` (I1). Resolved once per request by
+  `middleware/commerce-actor.ts` (`resolveCommerceActor`), which COMPOSES the
+  existing `createOptionalOxyAuth` — never a second Oxy verifier. Cart/checkout
+  adopt it in #104 (M6/M7); until then only `/guest/session` consumes it.
+- **Precedence (D2): Oxy wins; a failed Bearer is a 401, never a downgrade to
+  the guest cookie; an invalid guest credential resolves as ABSENT** (marked
+  `req.guestCredential='invalid'`). A valid guest credential beside Oxy auth is
+  surfaced ONLY as `presentedGuestSessionId`, whose only legitimate consumers
+  are cart merge (#104) and claim (#109).
+- **Token:** `mgs_` + 32 CSPRNG bytes base64url; server stores hex SHA-256 only
+  (`guest_sessions.token_hash`, unique). NO pepper — see `CONVENTIONS.md`
+  §guest domain. Plaintext exists in exactly two response carriages:
+  `Set-Cookie` (web) or the `X-Mercaria-Guest-Token` response header (native,
+  declared with `X-Mercaria-Guest-Transport: header` on the issuing write) —
+  NEVER a response body, log line, URL or analytics event.
+- **Web cookie (D9):** `__Host-mercaria_guest` — HttpOnly, Secure,
+  SameSite=Lax, Path=/, no Domain. Dev uses `mercaria_guest_dev` WITHOUT
+  Secure under a different name, logged at first use — an explicit downgrade,
+  never a silent one.
+- **CSRF (D10):** strict Origin (else Referer) verification for every
+  cookie-authenticated state-changing request AND cookie-transport issuance,
+  against `lib/allowed-origins.ts` — the SAME list CORS reads; do not create a
+  second origin authority or a double-submit token. Header transport is exempt
+  (custom header ⇒ CORS preflight).
+- **Issuance is LAZY and a WRITE** (`issueGuestActor`): the ensure endpoint
+  today, cart writes in #104 — a page view never creates a row (T10).
+  Rate-limited on the dedicated `rl:guest-issue:` bucket. Rejection of
+  expired/revoked/malformed/unknown is UNIFORM (`null`/401); reasons exist only
+  in the `log.guest` security events, which carry row ids and never tokens.
+- **Expiry (D3/D11):** `expires_at` (90 d absolute) is the only stored
+  deadline; idle expiry (30 d from `last_seen_at`, written at ≥60 s
+  granularity) lives in the resolver. Rotation swaps `token_hash` in place with
+  a 60 s `previous_token_hash` grace; the 7-day activity rotation answers in
+  kind from the resolver. Purge = two expiry-sweep targets (7 d past
+  expiry/revocation), hard DELETE.
+- **Flags (M8):** `GUEST_COMMERCE_ENABLED` (default false) gates the MOUNT and
+  requires BOTH `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (the
+  half-configuration rule; keys are consumed by #105+/#108 but demanded now).
+  `GUEST_SESSION_ISSUANCE_ENABLED` (default true) is the incident kill switch:
+  stops NEW sessions only — existing ones keep resolving/rotating/revoking.
+  `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`. Production
+  stays OFF until the M8 security + privacy review clears.
+- **Conversion is a SEAM here:** `converted_at`/`converted_to_oxy_user_id` are
+  written only by #104/#109; there is deliberately no generic "reassign
+  session" endpoint, and `/guest/session` is the WHOLE public surface
+  (ensure/inspect/rotate/revoke).
 
 ## CrowdSource moderation: reports, cases, decisions, enforcement
 

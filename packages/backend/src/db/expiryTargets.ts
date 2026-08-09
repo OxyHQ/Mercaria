@@ -69,6 +69,7 @@
  */
 
 import type { ExpirySweepTarget } from '@oxyhq/db/expiry';
+import { guestSessions } from './schema/guests';
 import { moderationEvents, moderationOutboxes } from './schema/moderation';
 import { notifications } from './schema/notifications';
 import { paymentOutboxes, paymentProviderEvents } from './schema/payments';
@@ -100,6 +101,16 @@ const PAYMENT_OUTBOX_RETENTION_SECONDS = 14 * 24 * 60 * 60;
  * compare-and-swap that finds nothing to change.
  */
 const PAYMENT_PROVIDER_EVENT_RETENTION_SECONDS = 90 * 24 * 60 * 60;
+
+/**
+ * `GUEST_SESSION_PURGE_GRACE_SECONDS` — 7 days past expiry or revocation
+ * (ADR 0003 D11). The grace is operational headroom for incident forensics,
+ * not a soft-delete: after it the row is GONE, and everything downstream is
+ * built to survive that (`order_status_history.actor_guest_session_id` is
+ * correlation text, and the #104 cart FK will CASCADE so purge correctness is
+ * schema, not sweep code).
+ */
+const GUEST_SESSION_PURGE_GRACE_SECONDS = 7 * 24 * 60 * 60;
 
 /**
  * Every table with an expiring column, and nothing else.
@@ -160,6 +171,29 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'a NULL dismissed_at and are never swept — that NULL is how the retention is ' +
       'made conditional, since this registry has no way to express a filter.',
   },
+  // `guest_sessions` appears TWICE, one entry per purge trigger, because a
+  // session leaves for either of two independent reasons and this registry has
+  // no way to express OR. The pair cannot double-delete: a row matched by both
+  // predicates is deleted by whichever target runs first and the other finds
+  // nothing — the sweep is idempotent per row.
+  {
+    table: guestSessions,
+    column: guestSessions.expiresAt,
+    retentionSeconds: GUEST_SESSION_PURGE_GRACE_SECONDS,
+    reason:
+      'A guest session 7 days past its ABSOLUTE expiry (ADR 0003 D11). Hard delete: ' +
+      'authorization ended at expires_at (the resolver refuses it from that moment), ' +
+      'and the audit trail lives in other tables as correlation text, never here.',
+  },
+  {
+    table: guestSessions,
+    column: guestSessions.revokedAt,
+    retentionSeconds: GUEST_SESSION_PURGE_GRACE_SECONDS,
+    reason:
+      'A revoked (including converted — conversion revokes, D3) guest session 7 days ' +
+      'later. Revoked rows retain only the audit timestamps until purge; the ' +
+      'conversion stamp a claim needs long-term lives on the ORDER side, not here.',
+  },
 ];
 
 /** Every retention, exported so the writers that stamp `expires_at` agree with the sweep. */
@@ -169,4 +203,5 @@ export const RETENTION_SECONDS = {
   dismissedNotification: DISMISSED_NOTIFICATION_RETENTION_SECONDS,
   paymentOutbox: PAYMENT_OUTBOX_RETENTION_SECONDS,
   paymentProviderEvent: PAYMENT_PROVIDER_EVENT_RETENTION_SECONDS,
+  guestSessionPurgeGrace: GUEST_SESSION_PURGE_GRACE_SECONDS,
 } as const;

@@ -25,6 +25,9 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCodes.RATE_LIMITED]: 429,
   [ErrorCodes.OUT_OF_STOCK]: 409,
   [ErrorCodes.INTERNAL_ERROR]: 500,
+  // 503, not 4xx: the caller did nothing wrong — the issuance kill switch is
+  // thrown (ADR 0003), and retrying later is the correct client behaviour.
+  [ErrorCodes.GUEST_ISSUANCE_DISABLED]: 503,
 };
 
 export interface MercariaErrorParams {
