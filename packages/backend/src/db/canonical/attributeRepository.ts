@@ -1,34 +1,36 @@
 /**
- * Reads and writes for the attribute registry, the normalized attribute values,
- * the canonical images and the per-field provenance (#56).
+ * Reads and writes for the normalized attribute VALUES, the canonical images
+ * and the per-field provenance (#56, extended by #94).
  *
- * Four tables in one module because they share a shape and a rule: each is an
+ * Three tables in one module because they share a shape and a rule: each is an
  * ANNOTATION of a canonical entity carrying the observation it came from, and
  * each addresses its entity through nullable foreign keys plus a CHECK that
  * exactly one is set (the `commerce_relationships` pattern, ADR 0002 D17). That
  * shape is why every helper here takes an explicit grain rather than a
  * `{kind, id}` pair a caller could get half-right.
+ *
+ * The attribute REGISTRY moved to `db/attributes/definitionRepository.ts` with
+ * #94, which made definitions versioned. This module cites a definition version
+ * and never writes one.
  */
 
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type {
+  AttributeComponentAxis,
   AttributeNormalizationState,
-  AttributeValueType,
+  AttributeSelectionState,
+  AttributeVerificationState,
   CanonicalImageStatus,
+  CurrencyCode,
   SourceLinkMethod,
-  UnitFamily,
 } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import {
-  attributeDefinitionCategories,
-  attributeDefinitions,
   canonicalAttributeValues,
   canonicalFieldProvenance,
   canonicalImages,
 } from '../schema/canonicalCatalog.js';
 
-export type AttributeDefinitionRow = typeof attributeDefinitions.$inferSelect;
-export type AttributeDefinitionCategoryRow = typeof attributeDefinitionCategories.$inferSelect;
 export type CanonicalAttributeValueRow = typeof canonicalAttributeValues.$inferSelect;
 export type CanonicalImageRow = typeof canonicalImages.$inferSelect;
 export type CanonicalFieldProvenanceRow = typeof canonicalFieldProvenance.$inferSelect;
@@ -39,161 +41,50 @@ export type AnnotationGrain =
   | { readonly kind: 'product'; readonly id: string }
   | { readonly kind: 'variant'; readonly id: string };
 
-export interface InsertAttributeDefinitionInput {
-  key: string;
-  label: string;
-  valueType: AttributeValueType;
-  unitFamily?: UnitFamily;
-  baseUnit?: string;
-  allowedValues?: string[];
-  description?: string;
-}
-
-export async function insertAttributeDefinition(
-  db: DatabaseOrTransaction,
-  input: InsertAttributeDefinitionInput,
-): Promise<AttributeDefinitionRow> {
-  const rows = await db
-    .insert(attributeDefinitions)
-    .values({
-      key: input.key,
-      label: input.label,
-      valueType: input.valueType,
-      unitFamily: input.unitFamily ?? null,
-      baseUnit: input.baseUnit ?? null,
-      allowedValues: input.allowedValues ?? [],
-      description: input.description ?? null,
-    })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('insertAttributeDefinition returned no row.');
-  return row;
-}
-
-export async function findAttributeDefinitionByKey(
-  db: DatabaseOrTransaction,
-  key: string,
-): Promise<AttributeDefinitionRow | undefined> {
-  const rows = await db
-    .select()
-    .from(attributeDefinitions)
-    .where(eq(attributeDefinitions.key, key))
-    .limit(1);
-  return rows[0];
-}
-
-export async function findAttributeDefinitionsByKeys(
-  db: DatabaseOrTransaction,
-  keys: readonly string[],
-): Promise<AttributeDefinitionRow[]> {
-  if (keys.length === 0) return [];
-  return db
-    .select()
-    .from(attributeDefinitions)
-    .where(inArray(attributeDefinitions.key, [...keys]));
-}
-
-export async function listAttributeDefinitions(
-  db: DatabaseOrTransaction,
-): Promise<AttributeDefinitionRow[]> {
-  return db.select().from(attributeDefinitions).orderBy(asc(attributeDefinitions.key));
-}
-
-export async function setAttributeDefinitionActive(
-  db: DatabaseOrTransaction,
-  id: string,
-  isActive: boolean,
-): Promise<AttributeDefinitionRow | undefined> {
-  const rows = await db
-    .update(attributeDefinitions)
-    .set({ isActive })
-    .where(eq(attributeDefinitions.id, id))
-    .returning();
-  return rows[0];
-}
-
-/** Scope a definition to a category. Converges on the pair's unique. */
-export async function addAttributeDefinitionCategory(
-  db: DatabaseOrTransaction,
-  attributeDefinitionId: string,
-  categoryId: string,
-): Promise<AttributeDefinitionCategoryRow | undefined> {
-  const rows = await db
-    .insert(attributeDefinitionCategories)
-    .values({ attributeDefinitionId, categoryId })
-    .onConflictDoNothing({
-      target: [
-        attributeDefinitionCategories.attributeDefinitionId,
-        attributeDefinitionCategories.categoryId,
-      ],
-    })
-    .returning();
-  return rows[0];
-}
-
-export async function listAttributeDefinitionCategories(
-  db: DatabaseOrTransaction,
-  attributeDefinitionId: string,
-): Promise<string[]> {
-  const rows = await db
-    .select({ categoryId: attributeDefinitionCategories.categoryId })
-    .from(attributeDefinitionCategories)
-    .where(eq(attributeDefinitionCategories.attributeDefinitionId, attributeDefinitionId))
-    .orderBy(asc(attributeDefinitionCategories.categoryId));
-  return rows.map((row) => row.categoryId);
-}
-
-/**
- * Definitions that apply to a category: those scoped to it, plus every UNSCOPED
- * definition. Absence of a scope row means "applies anywhere" (see the table's
- * doc comment), so a query that only joined the scope table would answer with
- * the general attributes missing.
- */
-export async function listAttributeDefinitionsForCategory(
-  db: DatabaseOrTransaction,
-  categoryId: string,
-): Promise<AttributeDefinitionRow[]> {
-  const scoped = db
-    .select({ id: attributeDefinitionCategories.attributeDefinitionId })
-    .from(attributeDefinitionCategories)
-    .where(eq(attributeDefinitionCategories.categoryId, categoryId));
-  const anyScope = db
-    .select({ id: attributeDefinitionCategories.attributeDefinitionId })
-    .from(attributeDefinitionCategories);
-
-  return db
-    .select()
-    .from(attributeDefinitions)
-    .where(
-      and(
-        eq(attributeDefinitions.isActive, true),
-        sql`(${attributeDefinitions.id} in ${scoped} or ${attributeDefinitions.id} not in ${anyScope})`,
-      ),
-    )
-    .orderBy(asc(attributeDefinitions.key));
-}
-
 export interface UpsertAttributeValueInput {
   grain: Extract<AnnotationGrain, { kind: 'product' | 'variant' }>;
   attributeKey: string;
   sourceDisplayValue: string;
   sourceRecordId: string;
   normalizationState: AttributeNormalizationState;
+  normalizationRuleVersion: string;
+  method: SourceLinkMethod;
   attributeDefinitionId?: string;
+  definitionVersion?: number;
+  sourceUnit?: string;
   normalizedText?: string;
   normalizedNumber?: number;
+  normalizedNumberMax?: number;
+  rangeLowerInclusive?: boolean;
+  rangeUpperInclusive?: boolean;
   normalizedUnit?: string;
   normalizedBoolean?: boolean;
+  normalizedDate?: Date;
+  normalizedAmountMinor?: number;
+  normalizedCurrency?: CurrencyCode;
+  componentAxis?: AttributeComponentAxis;
+  position?: number;
+  locale?: string;
+  observedAt?: Date;
   confidence?: number;
 }
 
 /**
  * Record one attribute FACT.
  *
- * Converges on `(entity, key, source_record)` — re-applying an identical
- * observation writes nothing. A DIFFERENT source asserting a different value is
- * a second row, deliberately: the disagreement is the fact, and resolving it is
- * `markAttributeValueSelected`'s job or nobody's.
+ * Converges on `(entity, key, source_record, value_slot)` — re-applying an
+ * identical observation writes nothing. A DIFFERENT source asserting a different
+ * value is a second row, deliberately: the disagreement is the fact, and
+ * resolving it is an operator's job or nobody's.
+ *
+ * The SLOT is in the key because one observation legitimately produces several
+ * rows: a dimensions reading is three facts with three axes, and a ports reading
+ * is a set. Without it the second component of one observation would be absorbed
+ * as a duplicate of the first, silently.
+ *
+ * `value_slot` is a GENERATED column, so the conflict target names it and
+ * Postgres computes it — a caller cannot supply a slot that disagrees with the
+ * axis and position it actually wrote.
  */
 export async function upsertAttributeValue(
   db: DatabaseOrTransaction,
@@ -206,14 +97,28 @@ export async function upsertAttributeValue(
       productId: isProduct ? input.grain.id : null,
       variantId: isProduct ? null : input.grain.id,
       attributeDefinitionId: input.attributeDefinitionId ?? null,
+      definitionVersion: input.definitionVersion ?? null,
       attributeKey: input.attributeKey,
       sourceDisplayValue: input.sourceDisplayValue,
+      sourceUnit: input.sourceUnit ?? null,
       normalizedText: input.normalizedText ?? null,
       normalizedNumber: input.normalizedNumber ?? null,
+      normalizedNumberMax: input.normalizedNumberMax ?? null,
+      rangeLowerInclusive: input.rangeLowerInclusive ?? null,
+      rangeUpperInclusive: input.rangeUpperInclusive ?? null,
       normalizedUnit: input.normalizedUnit ?? null,
       normalizedBoolean: input.normalizedBoolean ?? null,
+      normalizedDate: input.normalizedDate ?? null,
+      normalizedAmountMinor: input.normalizedAmountMinor ?? null,
+      normalizedCurrency: input.normalizedCurrency ?? null,
+      componentAxis: input.componentAxis ?? null,
+      position: input.position ?? 0,
+      locale: input.locale ?? null,
       normalizationState: input.normalizationState,
+      normalizationRuleVersion: input.normalizationRuleVersion,
+      method: input.method,
       sourceRecordId: input.sourceRecordId,
+      observedAt: input.observedAt ?? null,
       confidence: input.confidence ?? null,
     })
     .onConflictDoNothing({
@@ -222,11 +127,13 @@ export async function upsertAttributeValue(
             canonicalAttributeValues.productId,
             canonicalAttributeValues.attributeKey,
             canonicalAttributeValues.sourceRecordId,
+            canonicalAttributeValues.valueSlot,
           ]
         : [
             canonicalAttributeValues.variantId,
             canonicalAttributeValues.attributeKey,
             canonicalAttributeValues.sourceRecordId,
+            canonicalAttributeValues.valueSlot,
           ],
       where: isProduct
         ? sql`${canonicalAttributeValues.productId} is not null`
@@ -280,11 +187,18 @@ export async function listAttributeValues(
     .orderBy(asc(canonicalAttributeValues.attributeKey), asc(canonicalAttributeValues.createdAt));
 }
 
-/** Clear the selection for one attribute of one entity. */
+/**
+ * Demote the currently selected value for one attribute SLOT of one entity.
+ *
+ * Slot-scoped rather than key-scoped, matching the partial unique: a `set`
+ * attribute legitimately shows several values at once, and clearing them all to
+ * select one would leave a product listing one port.
+ */
 export async function clearAttributeValueSelection(
   db: DatabaseOrTransaction,
   grain: Extract<AnnotationGrain, { kind: 'product' | 'variant' }>,
   attributeKey: string,
+  valueSlot: string,
 ): Promise<void> {
   const owner =
     grain.kind === 'product'
@@ -292,30 +206,40 @@ export async function clearAttributeValueSelection(
       : eq(canonicalAttributeValues.variantId, grain.id);
   await db
     .update(canonicalAttributeValues)
-    .set({ selected: false })
+    .set({ selectionState: 'superseded' })
     .where(
       and(
         owner,
         eq(canonicalAttributeValues.attributeKey, attributeKey),
-        eq(canonicalAttributeValues.selected, true),
+        eq(canonicalAttributeValues.valueSlot, valueSlot),
+        eq(canonicalAttributeValues.selectionState, 'selected'),
       ),
     );
 }
 
-export async function setAttributeValueSelected(
+export async function setAttributeValueSelectionState(
   db: DatabaseOrTransaction,
   id: string,
-  selected: boolean,
+  selectionState: AttributeSelectionState,
 ): Promise<CanonicalAttributeValueRow | undefined> {
   const rows = await db
     .update(canonicalAttributeValues)
-    .set({ selected })
+    .set({ selectionState })
     .where(eq(canonicalAttributeValues.id, id))
     .returning();
   return rows[0];
 }
 
-/** Mark a set of rows `conflicting` — the disagreement, recorded as such. */
+/**
+ * Mark a set of rows `conflicting` — the disagreement, recorded as such.
+ *
+ * The normalized columns are deliberately LEFT INTACT, unlike #56's version,
+ * which blanked them by folding `conflicting` into the normalization state. Both
+ * readings survive because both are facts: each row still says what its source
+ * said and what that normalized to, and the SELECTION says Mercaria shows
+ * neither. Erasing the parse would make the operator resolving the conflict
+ * unable to see what they were choosing between.
+ */
 export async function markAttributeValuesConflicting(
   db: DatabaseOrTransaction,
   ids: readonly string[],
@@ -323,15 +247,76 @@ export async function markAttributeValuesConflicting(
   if (ids.length === 0) return;
   await db
     .update(canonicalAttributeValues)
-    .set({
-      normalizationState: 'conflicting',
-      normalizedText: null,
-      normalizedNumber: null,
-      normalizedUnit: null,
-      normalizedBoolean: null,
-      selected: false,
-    })
+    .set({ selectionState: 'conflicting' })
     .where(inArray(canonicalAttributeValues.id, [...ids]));
+}
+
+/** Raise a value's verification state — corroboration, or an operator's decision. */
+export async function setAttributeValueVerification(
+  db: DatabaseOrTransaction,
+  ids: readonly string[],
+  verificationState: AttributeVerificationState,
+): Promise<void> {
+  if (ids.length === 0) return;
+  await db
+    .update(canonicalAttributeValues)
+    .set({ verificationState })
+    .where(inArray(canonicalAttributeValues.id, [...ids]));
+}
+
+/**
+ * Every entity carrying any value for one attribute key.
+ *
+ * The input to a definition change's re-index fan-out. `distinct` on each grain
+ * separately rather than one query with a coalesce, because the two columns are
+ * two different key spaces and coalescing them would make a product id and a
+ * variant id indistinguishable in the result.
+ */
+export async function listEntityIdsWithAttribute(
+  db: DatabaseOrTransaction,
+  attributeKey: string,
+): Promise<{ kind: 'product' | 'variant'; id: string }[]> {
+  const products = await db
+    .selectDistinct({ id: canonicalAttributeValues.productId })
+    .from(canonicalAttributeValues)
+    .where(
+      and(
+        eq(canonicalAttributeValues.attributeKey, attributeKey),
+        sql`${canonicalAttributeValues.productId} is not null`,
+      ),
+    );
+  const variants = await db
+    .selectDistinct({ id: canonicalAttributeValues.variantId })
+    .from(canonicalAttributeValues)
+    .where(
+      and(
+        eq(canonicalAttributeValues.attributeKey, attributeKey),
+        sql`${canonicalAttributeValues.variantId} is not null`,
+      ),
+    );
+
+  const entities: { kind: 'product' | 'variant'; id: string }[] = [];
+  for (const row of products) if (row.id !== null) entities.push({ kind: 'product', id: row.id });
+  for (const row of variants) if (row.id !== null) entities.push({ kind: 'variant', id: row.id });
+  return entities;
+}
+
+/** Every SELECTED value for a set of entities — what a read surface renders. */
+export async function listSelectedAttributeValues(
+  db: DatabaseOrTransaction,
+  grain: 'product' | 'variant',
+  entityIds: readonly string[],
+): Promise<CanonicalAttributeValueRow[]> {
+  if (entityIds.length === 0) return [];
+  const owner =
+    grain === 'product'
+      ? inArray(canonicalAttributeValues.productId, [...entityIds])
+      : inArray(canonicalAttributeValues.variantId, [...entityIds]);
+  return db
+    .select()
+    .from(canonicalAttributeValues)
+    .where(and(owner, eq(canonicalAttributeValues.selectionState, 'selected')))
+    .orderBy(asc(canonicalAttributeValues.attributeKey), asc(canonicalAttributeValues.position));
 }
 
 export interface InsertCanonicalImageInput {

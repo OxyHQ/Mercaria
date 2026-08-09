@@ -17,6 +17,11 @@
 
 import type { SourceFreshness, SourceLinkMethod } from './provenance';
 import type { CanonicalAlias } from './organization';
+import type {
+  AttributeComponentAxis,
+  AttributeNormalizationState,
+  AttributeSelectionState,
+} from './attribute-registry';
 
 /**
  * The lifecycle of a canonical CATALOGUE entity — family, product or variant.
@@ -261,108 +266,36 @@ export const IDENTIFIER_SCHEME_REGISTRY: Readonly<
   },
 });
 
-/** How an attribute definition types its values. */
-export type AttributeValueType = 'text' | 'number' | 'boolean' | 'enum' | 'quantity';
-
-export const ATTRIBUTE_VALUE_TYPES: readonly AttributeValueType[] = [
-  'text',
-  'number',
-  'boolean',
-  'enum',
-  'quantity',
-];
-
 /**
- * The dimension a `quantity` attribute measures. Every family names ONE base
- * unit, and normalization stores the magnitude in that base — so two sources
- * saying "256 GB" and "0.256 TB" land on one number and compare.
+ * One attribute assignment, as a read surface sees it.
  *
- * #94 owns the full attribute/unit taxonomy (ADR 0002 D15); this is the set the
- * conversion table implements today, and widening it is the same three-edit
- * change adding an identifier scheme is.
+ * The attribute VOCABULARY — value types, unit families, normalization states,
+ * the versioned {@link AttributeDefinition} itself — lives in
+ * `./attribute-registry` (#94), which owns the registry this layer cites. It
+ * moved there rather than being duplicated: a second copy of "what a value type
+ * is" is a second answer to what a stored value means.
  */
-export type UnitFamily =
-  | 'length'
-  | 'mass'
-  | 'volume'
-  | 'digital_storage'
-  | 'duration'
-  | 'power'
-  | 'energy'
-  | 'count';
-
-export const UNIT_FAMILIES: readonly UnitFamily[] = [
-  'length',
-  'mass',
-  'volume',
-  'digital_storage',
-  'duration',
-  'power',
-  'energy',
-  'count',
-];
-
-/**
- * What happened when a source's display string was normalized.
- *
- * Only `normalized` may carry a normalized value at all — the other three are
- * the structural form of "unknown or conflicting values remain source facts and
- * are not guessed" (#56 attribute rule 4). A row that could not be parsed keeps
- * the source's own words and nothing else.
- */
-export type AttributeNormalizationState =
-  | 'normalized'
-  | 'unknown_unit'
-  | 'unparsed'
-  | 'conflicting';
-
-export const ATTRIBUTE_NORMALIZATION_STATES: readonly AttributeNormalizationState[] = [
-  'normalized',
-  'unknown_unit',
-  'unparsed',
-  'conflicting',
-];
-
-/** One normalized attribute definition — the registry #56 attribute rule 1 asks for. */
-export interface AttributeDefinition {
-  id: string;
-  /** Stable machine key, `^[a-z][a-z0-9_]*$`. Never renamed; a rename is a new key. */
-  key: string;
-  label: string;
-  valueType: AttributeValueType;
-  /** Present exactly when `valueType` is `quantity`. */
-  unitFamily?: UnitFamily;
-  /** The unit normalized magnitudes are stored in. Present with `unitFamily`. */
-  baseUnit?: string;
-  /** The permitted values of an `enum` attribute; empty for every other type. */
-  allowedValues: string[];
-  /**
-   * Category ids this definition applies to. EMPTY means unscoped — an
-   * attribute that applies anywhere. That is the opposite reading from a
-   * procurement agreement's empty scope, and deliberately: a scope narrows a
-   * definition that is otherwise general, while a grant that names no
-   * destination grants none.
-   */
-  categoryIds: string[];
-  description?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** One attribute assignment, as a read surface sees it. */
 export interface CanonicalAttributeAssignment {
   key: string;
+  /** The definition version this assignment was normalized under. */
+  definitionVersion: number;
   /** The source's own words, preserved verbatim. */
   displayValue: string;
   /** Present only when `normalizationState` is `normalized`. */
   normalizedText?: string;
   normalizedNumber?: number;
+  /** The upper bound of a `range` value; the lower bound is `normalizedNumber`. */
+  normalizedNumberMax?: number;
   normalizedUnit?: string;
   normalizedBoolean?: boolean;
+  normalizedDate?: string;
+  /** The named component of a `structured` value — an explicit axis, never a position guess. */
+  componentAxis?: AttributeComponentAxis;
+  /** Position within a `set` or `ordered_list`; 0 for a single value. */
+  position: number;
   normalizationState: AttributeNormalizationState;
-  /** Whether this assignment is the one Mercaria shows for the attribute. */
-  selected: boolean;
+  /** Whether this assignment is the one Mercaria shows, and if not, why not. */
+  selectionState: AttributeSelectionState;
 }
 
 /** One option assignment that DEFINES a variant — an axis of its product. */

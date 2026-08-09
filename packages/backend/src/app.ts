@@ -52,6 +52,8 @@ import productFamiliesRouter from './routes/product-families.js';
 import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
 import offersRouter from './routes/offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
+import catalogAttributesRouter from './routes/catalog-attributes.js';
+import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
 import guestSessionRouter from './routes/guest-session.js';
@@ -234,11 +236,17 @@ export function createApp(): express.Express {
   // through ONE shape. Mounted after the canonical product layer because an
   // offer prices one of its variants.
   app.use('/offers', offersRouter);
-  // …and its operator surface, on the SAME allow-list the two above use: who
-  // may reshape the catalogue and who may withdraw an offer from a comparison
-  // are the same power over the same graph.
+  // The versioned attribute registry and the constraint language (#94): public
+  // definition/facet reads and the pre-flight validation both search and #95's
+  // interpreter run against…
+  app.use('/catalog-attributes', catalogAttributesRouter);
+  // …and their operator surfaces, on the SAME allow-list the ones above use:
+  // who may reshape the catalogue, who may withdraw an offer from a comparison
+  // and who may change what an attribute MEANS are the same power over the same
+  // graph. Separate routers because the three move at their own rates.
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/offers', internalOffersRouter);
+    app.use('/internal/catalog-attributes', internalCatalogAttributesRouter);
   }
   // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
   // reason the two above have theirs: reading who merged which cart is a third
@@ -283,10 +291,12 @@ export function createApp(): express.Express {
         '/canonical-products',
         '/product-families',
         '/offers',
+        '/catalog-attributes',
         '/merchant-claims',
         '/guest/session',
         // `/internal/payments`, `/internal/commerce-graph`,
-        // `/internal/canonical-catalog`, `/internal/offers` and
+        // `/internal/canonical-catalog`, `/internal/offers`,
+        // `/internal/catalog-attributes` and
         // `/internal/guest-commerce` are
         // deliberately ABSENT, and this is not an
         // oversight to correct: this list is public and unauthenticated, and the

@@ -48,7 +48,21 @@ export const BASE_UNITS: Readonly<Record<UnitFamily, string>> = Object.freeze({
   duration: 's',
   power: 'W',
   energy: 'Wh',
+  frequency: 'Hz',
+  data_rate: 'bit_s',
+  pixel_count: 'px',
+  luminance: 'cd_m2',
+  electric_charge: 'mAh',
   count: 'count',
+  // The three DIMENSIONLESS families (#94 normalization rule 8). Each has
+  // exactly one unit, and `convertUnit` refuses conversion across families — so
+  // an 85 % screen-to-body ratio, a 16:9 aspect ratio and a 4.5-star rating can
+  // never be compared to one another even though all three are bare numbers.
+  // That refusal IS what "percentages, ratios and ratings are distinct types"
+  // means mechanically; a shared `decimal` type would make it a convention.
+  percentage: 'pct',
+  ratio: 'ratio',
+  rating: 'rating_point',
 });
 
 /**
@@ -106,8 +120,56 @@ export const UNIT_DEFINITIONS: Readonly<Record<string, UnitDefinition>> = Object
   mWh: { family: 'energy', numerator: 1, denominator: 1000 },
   Wh: { family: 'energy', numerator: 1, denominator: 1 },
   kWh: { family: 'energy', numerator: 1000, denominator: 1 },
+  // frequency — base Hz (clock speeds, refresh rates)
+  Hz: { family: 'frequency', numerator: 1, denominator: 1 },
+  kHz: { family: 'frequency', numerator: 1000, denominator: 1 },
+  MHz: { family: 'frequency', numerator: 1_000_000, denominator: 1 },
+  GHz: { family: 'frequency', numerator: 1_000_000_000, denominator: 1 },
+  // data rate — base bit/s. BITS, not bytes: `Mbps` conventionally means
+  // megabits and `MBps` megabytes, and the two differ by 8. Byte-per-second
+  // spellings are deliberately absent rather than folded in, so a feed writing
+  // them lands on `unknown_unit` instead of an eightfold error.
+  bit_s: { family: 'data_rate', numerator: 1, denominator: 1 },
+  kbit_s: { family: 'data_rate', numerator: 1000, denominator: 1 },
+  Mbit_s: { family: 'data_rate', numerator: 1_000_000, denominator: 1 },
+  Gbit_s: { family: 'data_rate', numerator: 1_000_000_000, denominator: 1 },
+  // pixel count — base px (sensor resolution)
+  px: { family: 'pixel_count', numerator: 1, denominator: 1 },
+  MP: { family: 'pixel_count', numerator: 1_000_000, denominator: 1 },
+  // luminance — base cd/m² (screen brightness)
+  cd_m2: { family: 'luminance', numerator: 1, denominator: 1 },
+  // electric charge — base mAh (battery capacity, as consumers see it)
+  mAh: { family: 'electric_charge', numerator: 1, denominator: 1 },
+  Ah: { family: 'electric_charge', numerator: 1000, denominator: 1 },
   // count — base count
   count: { family: 'count', numerator: 1, denominator: 1 },
+  // The dimensionless families. One unit each, on purpose: a second unit would
+  // be a second scale, and a scale is what makes a bare number mean something.
+  pct: { family: 'percentage', numerator: 1, denominator: 1 },
+  ratio: { family: 'ratio', numerator: 1, denominator: 1 },
+  rating_point: { family: 'rating', numerator: 1, denominator: 1 },
+});
+
+/**
+ * CASE-SENSITIVE source spellings.
+ *
+ * A second table, consulted before the case-folding one, for the spellings whose
+ * case IS their meaning. `Mbps` is megabits per second and `MBps` is megabytes
+ * per second; folding either to a common key would make one of them an eightfold
+ * lie. Every entry here is matched verbatim, so a lower-cased variant of it
+ * still falls through to {@link UNIT_ALIASES} and, finding nothing, becomes
+ * `unknown_unit`.
+ */
+const UNIT_ALIASES_EXACT: Readonly<Record<string, string>> = Object.freeze({
+  Mbps: 'Mbit_s',
+  Gbps: 'Gbit_s',
+  Kbps: 'kbit_s',
+  kbps: 'kbit_s',
+  Mbit: 'Mbit_s',
+  Gbit: 'Gbit_s',
+  MPx: 'MP',
+  Megapixel: 'MP',
+  Megapixels: 'MP',
 });
 
 /**
@@ -117,14 +179,16 @@ export const UNIT_DEFINITIONS: Readonly<Record<string, UnitDefinition>> = Object
  * is load-bearing in two of these families: `mW` and `MW` differ by a factor of
  * a million, and `b` (bit) is not `B` (byte).
  *
- * That is also why three obvious-looking aliases are deliberately ABSENT — `mw`,
- * `mwh` and a bare `b`. Each folds two real units onto one key, so admitting it
- * would let a megawatt be stored as a milliwatt and a bitrate as a byte count,
- * silently and by a factor of 10⁹ and 8 respectively. Their unambiguous
- * spellings (`mW`, `mWh`, `byte`) still resolve through the exact-match path in
- * {@link resolveUnit}, so nothing legitimate is lost; a genuinely ambiguous
- * token becomes `unknown_unit`, which is a taxonomy gap somebody can see rather
- * than a wrong number nobody can.
+ * That is also why several obvious-looking aliases are deliberately ABSENT —
+ * `mw`, `mwh`, a bare `b`, `mhz`, and every byte-per-second spelling. Each folds
+ * two real units onto one key, so admitting it would let a megawatt be stored as
+ * a milliwatt, a megahertz as a millihertz and a bitrate as a byte count,
+ * silently and by factors of 10⁹, 10⁹ and 8 respectively. Their unambiguous
+ * spellings (`mW`, `mWh`, `byte`, `MHz`, `megahertz`, `Mbps`) still resolve —
+ * through the exact-match path in {@link resolveUnit} or through
+ * {@link UNIT_ALIASES_EXACT} — so nothing legitimate is lost; a genuinely
+ * ambiguous token becomes `unknown_unit`, which is a taxonomy gap somebody can
+ * see rather than a wrong number nobody can.
  *
  * Every other entry here is a spelling somebody actually writes; anything absent
  * is `unknown_unit`, never a guess.
@@ -230,6 +294,30 @@ const UNIT_ALIASES: Readonly<Record<string, string>> = Object.freeze({
   piece: 'count',
   pieces: 'count',
   units: 'count',
+  hz: 'Hz',
+  hertz: 'Hz',
+  khz: 'kHz',
+  kilohertz: 'kHz',
+  megahertz: 'MHz',
+  gigahertz: 'GHz',
+  ghz: 'GHz',
+  megapixel: 'MP',
+  megapixels: 'MP',
+  nit: 'cd_m2',
+  nits: 'cd_m2',
+  'cd/m2': 'cd_m2',
+  'cd/m²': 'cd_m2',
+  mah: 'mAh',
+  milliamp_hour: 'mAh',
+  ah: 'Ah',
+  '%': 'pct',
+  pct: 'pct',
+  percent: 'pct',
+  percentage: 'pct',
+  ratio: 'ratio',
+  star: 'rating_point',
+  stars: 'rating_point',
+  rating_point: 'rating_point',
 });
 
 /**
@@ -243,6 +331,10 @@ export function resolveUnit(token: string): string | null {
   const trimmed = token.trim();
   if (trimmed.length === 0) return null;
   if (Object.prototype.hasOwnProperty.call(UNIT_DEFINITIONS, trimmed)) return trimmed;
+  // Case-SENSITIVE aliases first: the spellings whose case is their meaning must
+  // be resolved before anything folds them.
+  const exact = UNIT_ALIASES_EXACT[trimmed];
+  if (exact !== undefined) return exact;
   const alias = UNIT_ALIASES[trimmed.toLowerCase()];
   return alias ?? null;
 }
@@ -305,11 +397,64 @@ export interface ParsedQuantity {
 /**
  * `^` a number, `$` a unit token — nothing in between but optional whitespace.
  *
- * Deliberately anchored and deliberately narrow. "6.1 in", "256GB" and
- * `6.1"` parse; "6–7 cm", "approx 6 cm", "6,1 cm" and "6 cm x 3 cm" do not, and
- * each of those is a value whose meaning a guess would get wrong.
+ * Deliberately anchored and deliberately narrow. "6.1 in", "256GB", "85 %",
+ * "2.4 GHz", "1200 cd/m2" and `6.1"` parse; "6–7 cm", "approx 6 cm", "6,1 cm"
+ * and "6 cm x 3 cm" do not, and each of those is a value whose meaning a guess
+ * would get wrong. (A RANGE is not unreadable, it is a different shape — see
+ * {@link RANGE_PATTERN}, which reads it as one value with two bounds rather than
+ * inventing a single magnitude from it.)
+ *
+ * The unit token admits digits, `%`, `/` and `²` after its first character so
+ * `cd/m2`, `cd/m²`, `bit_s` and `%` are expressible; it still may not START with
+ * one, which is what keeps "6 x 3" from parsing as a magnitude and a unit.
  */
-const QUANTITY_PATTERN = /^(-?\d+(?:\.\d+)?)\s*([A-Za-z_]+|")$/u;
+const QUANTITY_PATTERN = /^(-?\d+(?:\.\d+)?)\s*([A-Za-z_%][A-Za-z0-9_%/²]*|")$/u;
+
+/**
+ * A closed interval and its two bounds — "5-7 days", "0 – 35 °C", "5 to 7 days".
+ *
+ * Separate from {@link QUANTITY_PATTERN} because a range is a first-class value
+ * with inclusive/exclusive semantics (#94 normalization rule 6), not a quantity
+ * that failed to parse. Only the INCLUSIVE spellings are recognised: a hyphen
+ * between two numbers means "from … to …" in every catalogue that writes one,
+ * and there is no widely-written spelling for an exclusive bound. An exclusive
+ * bound therefore arrives only through the structured API, never from prose,
+ * which is the honest reading — inferring strictness from punctuation would be
+ * exactly the guess this module refuses.
+ */
+const RANGE_PATTERN =
+  /^(-?\d+(?:\.\d+)?)\s*(?:-|–|—|to|\.\.\.|\.\.)\s*(-?\d+(?:\.\d+)?)\s*([A-Za-z_%][A-Za-z0-9_%/²]*|")?$/u;
+
+/**
+ * How many decimal places a source's own number carried.
+ *
+ * The input to "preserve measurement precision and avoid false precision after
+ * conversion" (#94 normalization rule 3): a source that wrote `6.1 in` knows one
+ * decimal place, and rendering the converted 154.94 mm as `154.9` rather than
+ * `154.94000000000001` is the difference between reporting what is known and
+ * inventing two digits nobody measured. The magnitude STORED is always the full
+ * converted value — this governs comparison and display, never storage, because
+ * truncating on write would make the round trip lossy in the other direction.
+ */
+export function sourceDecimalPlaces(numberText: string): number {
+  const dot = numberText.indexOf('.');
+  return dot === -1 ? 0 : numberText.length - dot - 1;
+}
+
+/**
+ * Round to `places` decimals, half away from zero.
+ *
+ * Deliberately NOT the pricing engine's half-even: this is a display and
+ * comparison rounding over physical magnitudes, where the bias half-even exists
+ * to remove (accumulating a sum of many rounded parts) does not arise — nothing
+ * sums attribute magnitudes. Using the money rule here would suggest these
+ * numbers reconcile against a total, and they do not.
+ */
+export function roundToDecimals(value: number, places: number): number {
+  if (!Number.isFinite(value)) return value;
+  const factor = 10 ** Math.max(0, Math.min(12, Math.trunc(places)));
+  return Math.sign(value) * Math.round(Math.abs(value) * factor) / factor;
+}
 
 /**
  * Read a source display string as a quantity.
@@ -348,6 +493,10 @@ export interface NormalizedQuantity {
   readonly baseMagnitude?: number;
   readonly baseUnit?: string;
   readonly sourceUnit?: string;
+  /** The magnitude the source wrote, before conversion. */
+  readonly sourceMagnitude?: number;
+  /** Decimal places the source's own number carried. See {@link sourceDecimalPlaces}. */
+  readonly sourceDecimals?: number;
 }
 
 /**
@@ -371,5 +520,99 @@ export function normalizeQuantity(display: string): NormalizedQuantity {
   const baseMagnitude = toBaseUnit(parsed.magnitude, parsed.unit);
   if (baseMagnitude === null) return { state: 'unknown_unit' };
 
-  return { state: 'normalized', baseMagnitude, baseUnit, sourceUnit: parsed.unit };
+  const rawNumber = shaped[1] ?? '';
+  return {
+    state: 'normalized',
+    baseMagnitude,
+    baseUnit,
+    sourceUnit: parsed.unit,
+    sourceMagnitude: parsed.magnitude,
+    sourceDecimals: sourceDecimalPlaces(rawNumber),
+  };
+}
+
+/** A range and the unit both of its bounds are expressed in. */
+export interface ParsedRange {
+  readonly lower: number;
+  readonly upper: number;
+  /** Absent when the source wrote a bare interval ("5-7") with no unit token. */
+  readonly unit?: string;
+  readonly family?: UnitFamily;
+  readonly sourceDecimals: number;
+}
+
+/**
+ * Read a source display string as a RANGE (#94 normalization rule 6).
+ *
+ * Deliberately a separate entry point from {@link normalizeQuantity}, which
+ * still refuses "6–7 cm" as `unparsed`. That refusal is correct for a
+ * `single`-cardinality attribute — a range is not one magnitude, and picking
+ * either end or their midpoint is the invention this module exists to prevent.
+ * A `range`-cardinality attribute calls THIS, and gets both bounds.
+ *
+ * A range whose bounds are inverted ("7-5 days") is refused rather than
+ * reordered: the two readings — a typo, or a descending convention — are not
+ * distinguishable from the string, and silently swapping them would make a
+ * "5 days or less" constraint match a product that takes seven.
+ *
+ * @returns The parsed range, or `null` when the string is not one.
+ */
+export function parseRange(display: string): ParsedRange | null {
+  const match = RANGE_PATTERN.exec(display.trim());
+  if (!match) return null;
+  const [, rawLower, rawUpper, rawUnit] = match;
+  if (rawLower === undefined || rawUpper === undefined) return null;
+
+  const lower = Number(rawLower);
+  const upper = Number(rawUpper);
+  if (!Number.isFinite(lower) || !Number.isFinite(upper) || lower > upper) return null;
+
+  const sourceDecimals = Math.max(sourceDecimalPlaces(rawLower), sourceDecimalPlaces(rawUpper));
+  if (rawUnit === undefined) return { lower, upper, sourceDecimals };
+
+  const unit = resolveUnit(rawUnit);
+  if (unit === null) return null;
+  const family = unitFamilyOf(unit);
+  if (family === null) return null;
+  return { lower, upper, unit, family, sourceDecimals };
+}
+
+/** The base-unit normalization of a range, in the shape the value columns store. */
+export interface NormalizedRange {
+  readonly state: 'normalized' | 'unknown_unit' | 'unparsed';
+  readonly baseLower?: number;
+  readonly baseUpper?: number;
+  readonly baseUnit?: string;
+  readonly sourceUnit?: string;
+  readonly sourceDecimals?: number;
+}
+
+/** Normalize a range into its family's base unit. See {@link parseRange}. */
+export function normalizeRange(display: string): NormalizedRange {
+  const shaped = RANGE_PATTERN.exec(display.trim());
+  if (!shaped) return { state: 'unparsed' };
+
+  const parsed = parseRange(display);
+  // A shaped string that will not parse is either an inverted interval or an
+  // unreadable unit; both keep the source's words and neither invents a bound.
+  if (!parsed) return { state: 'unknown_unit' };
+  if (parsed.unit === undefined || parsed.family === undefined) {
+    // A bare interval with no unit. Dimensionless by construction, so it
+    // normalizes as a plain count of whatever the definition declares.
+    return { state: 'normalized', baseLower: parsed.lower, baseUpper: parsed.upper, sourceDecimals: parsed.sourceDecimals };
+  }
+
+  const baseUnit = BASE_UNITS[parsed.family];
+  const baseLower = toBaseUnit(parsed.lower, parsed.unit);
+  const baseUpper = toBaseUnit(parsed.upper, parsed.unit);
+  if (baseLower === null || baseUpper === null) return { state: 'unknown_unit' };
+
+  return {
+    state: 'normalized',
+    baseLower,
+    baseUpper,
+    baseUnit,
+    sourceUnit: parsed.unit,
+    sourceDecimals: parsed.sourceDecimals,
+  };
 }

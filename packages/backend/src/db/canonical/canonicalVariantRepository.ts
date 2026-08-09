@@ -134,6 +134,8 @@ export interface VariantAttributeInput {
   displayValue: string;
   normalizedValue: string;
   attributeDefinitionId?: string;
+  /** The registry version the key was read under. Travels with the definition id. */
+  definitionVersion?: number;
   normalizedNumber?: number;
   normalizedUnit?: string;
   normalizationState?: AttributeNormalizationState;
@@ -164,6 +166,7 @@ export async function replaceVariantAttributes(
       attributes.map((attribute, index) => ({
         variantId,
         attributeDefinitionId: attribute.attributeDefinitionId ?? null,
+        definitionVersion: attribute.definitionVersion ?? null,
         attributeKey: attribute.attributeKey,
         displayValue: attribute.displayValue,
         normalizedValue: attribute.normalizedValue,

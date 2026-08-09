@@ -50,6 +50,11 @@ export * from './moderation';
 export * from './provenance';
 export * from './organizations';
 export * from './merchants';
+// The versioned attribute REGISTRY (#94) precedes the canonical product layer:
+// `canonical_attribute_values` and `canonical_variant_attributes` both reference
+// `attribute_definitions`, and its own scope/alias/mapping children reference
+// `categories` (from `catalog`) and `catalog_sources` (from `provenance`).
+export * from './attributeRegistry';
 // The canonical PRODUCT layer (#56) follows `organizations` (families and
 // products reference `brands`) and `catalog` (both reference `categories`).
 export * from './canonicalCatalog';

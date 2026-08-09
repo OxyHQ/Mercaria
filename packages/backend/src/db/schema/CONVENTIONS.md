@@ -1006,6 +1006,127 @@ natural-unique idempotency the four sections above state. What is #57's own:
   plan before copying either shape.
 - **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed,
   so none of them earns an entry in the register below.
+### The versioned attribute registry (#94)
+
+Six more Postgres-born tables, in `attributeRegistry.ts`: `attribute_definitions`
+(MOVED here from `canonicalCatalog.ts` and reshaped), `attribute_labels`,
+`attribute_definition_categories` (moved), `attribute_enum_values`,
+`attribute_value_aliases`, `attribute_source_mappings`,
+`attribute_value_reviews`, `attribute_reindex_requests` — plus the #94 columns
+on `canonical_attribute_values` and `canonical_variant_attributes`. Full
+behaviour: **`docs/attributes.md`**. The decisions that make a column whose
+shape looks arbitrary answerable:
+
+- **A definition is a VERSION, and its meaning is frozen once published.**
+  `(key, version)` is the identity; a partial unique
+  (`attribute_definitions_one_active_per_key`) keeps exactly ONE version
+  `active`; and `attribute_definitions_immutable_once_published` (migration
+  `0022`, the `fee_schedules_immutable_once_active` mechanism) refuses every
+  semantic edit and every DELETE from the moment a version leaves `draft`. A
+  stored value cites the version it was normalized under, so changing what an
+  attribute means can never silently reinterpret facts recorded under the old
+  meaning — it publishes a new version and enqueues a re-normalization.
+  `label` and `description` are deliberately NOT frozen: "stored keys remain
+  stable when labels change" is only worth anything if a label can be corrected.
+  A second trigger freezes the enum VOCABULARY of a published version for the
+  same reason — an alias table that could change afterwards would let `USB C`
+  resolve to a different canonical value than it did when a value was stored.
+- **`attribute_definitions_reserved_key_check` refuses an OFFER fact.** A
+  definition keyed `price`, `availability`, `condition`, `shipping_cost` (twenty
+  names, `RESERVED_OFFER_FACT_KEYS` in shared-types) cannot exist, which is what
+  makes "price, shipping and availability use current eligible offers rather
+  than static product attributes" (#94 hard-constraint rule 6) structural. Those
+  facts are answered through `services/attributes/offer-facts.port.ts`, the seam
+  #57 fills. `msrp` is deliberately NOT reserved — a manufacturer's suggested
+  price is a fact about the product, and a `money`-typed attribute is its home.
+- **Every declaration pairing is a BICONDITIONAL, not a one-way requirement.** A
+  `measurement` or `structured` attribute has a unit family and nothing else may
+  carry one; a unit family travels with its base unit; `rating_scale_max` is
+  present exactly for the `rating` family (4.5 out of 5 is not 4.5 out of 10); a
+  `money` attribute names exactly one currency (the `fee_schedules` rule — an
+  amount whose currency lives in a label is a generic decimal wearing a
+  currency's clothes); `structured` is the only type that may declare component
+  axes and it must. A half-declared definition produces a value nobody can
+  interpret, so each direction is refused.
+- **Only an `objective` attribute may be `hard_constraint_capable`, and it must
+  be `filterable`.** An opinion must not be able to EXCLUDE a product, and a
+  requirement nobody can see as a filter is a rule they cannot check.
+- **`include_descendants` is per SCOPE row, not per definition.** That IS the
+  inheritance rule: "screen size, everywhere under Electronics" and "shoe width,
+  in Shoes and not in Shoe care" are both correct, and one global policy would
+  have to be wrong for one of them. NO scope rows means UNSCOPED — the opposite
+  reading from a procurement agreement's empty scope, because a scope NARROWS
+  something otherwise general.
+- **`canonical_attribute_values.value_slot` is GENERATED, and a plain
+  multi-column unique would NOT work.** Postgres treats NULLs as distinct, so a
+  unique over a nullable `component_axis` admits two axis-less rows for one key
+  and one source record — the exact duplicate it exists to refuse. The generated
+  `coalesce(component_axis,'') || '#' || position` (both IMMUTABLE) collapses
+  them, the `commerce_relationships.endpoint_key` device. The convergence and
+  selection uniques are taken over it, which is why one dimensions observation
+  legitimately writes three rows and a set attribute can show three ports while
+  a single-valued one still shows exactly one value.
+- **`selection_state` replaced #56's `selected` boolean, and `conflicting` moved
+  off the normalization state.** Disagreement is a property of the SELECTION
+  between two well-parsed facts, not of either one's parse; conflating them made
+  "we could not read it" and "two sources disagree" indistinguishable in the one
+  place an operator needs them apart. A conflicting row therefore KEEPS its
+  normalized columns — an operator resolving it must be able to see what they
+  are choosing between.
+- **`normalization_state` has five refusals and only `normalized` may carry a
+  value**, enforced by one CHECK covering every typed column at once (so
+  widening the value types cannot leave one outside it). The five are
+  distinguishable on purpose because they call for different work: `unparsed`
+  (not a value of the type), `unknown_unit` (a taxonomy gap), `out_of_range` (a
+  definitional impossibility), `implausible` (a source SCALE error — the right
+  number in the wrong scale, which a per-source mapping can fix), and
+  `marketing_claim`.
+- **`attribute_source_mappings.assumed_unit` is the ONLY place a unit may come
+  from when a source writes a bare number.** Not the attribute's base unit, not
+  a sibling value, not the magnitude's size — a human-recorded fact about the
+  FEED, which is what "never infer a unit from a number when the source is
+  genuinely ambiguous" requires mechanically.
+- **`verification_state` is not `confidence`.** `corroborated` means two
+  INDEPENDENT source records normalized to the same value — a fact about the
+  world; `confidence` is one source's estimate of itself. Neither is derivable
+  from the other, which is why both exist.
+- **The review queue's `(entity_kind, entity_id, attribute_key) WHERE
+  state='open'` partial unique** is what makes "one open review per entity and
+  attribute" true against two ingestion workers a millisecond apart, rather than
+  against a read-then-write they would both walk past. `priority` is FROZEN at
+  open time: "high-impact" is a judgement about the catalogue as it was, and
+  re-deriving it later would silently reorder a queue somebody is working
+  through.
+- **`attribute_reindex_requests` is the moderation-outbox shape with a
+  DETERMINISTIC id** (`<entityKind>:<entityId>:<attributeKey>:<reason>`), so a
+  repeat converges with `ON CONFLICT DO NOTHING` — no tuple version, no
+  timestamp. It is written now and DRAINED by whoever owns the search index
+  (#61): gate the loop, never the record. One row per ENTITY rather than one
+  naming the definition, because expanding "everything with key X changed"
+  inside a lease is unbounded work.
+- **There is NO coverage table.** Completeness by category, source and field is
+  a QUERY (`services/attributes/coverage.service.ts`); a stored number would be
+  a second representation of a fact the values already carry, stale the moment
+  an observation lands. Recorded as a decision in the schema file so the absence
+  does not read as an oversight.
+- **`attribute_value_reviews.entity_id` and `attribute_reindex_requests.entity_id`
+  carry no foreign key** — polymorphic by `entity_kind`, the
+  `merchant_claim_scopes.scope_ref` reasoning, and a reindex request is a JOB
+  that must survive whatever happens to its entity between enqueue and drain.
+  `resolved_value_id` likewise: it records the DECISION an operator made, and a
+  cascade would erase that record when the losing value was later corrected
+  away.
+- **Zero new `jsonb`.** Enum values, aliases, localized labels, category scopes
+  and validation rules are all real columns or child tables, so this layer adds
+  no row to the register below.
+- **The migration is a PAIR, and the split is the deploy-phase rule working.**
+  `0022` (`pre`) is additive plus two CHECK WIDENINGS and three index
+  replacements, all correct against the image still serving and the one
+  arriving; `0023` (`post`) carries the value-type clean cut
+  (`quantity`→`measurement`, `number`→`integer`/`decimal`, `text`→`string`), the
+  `conflicting`→refusal-state change, and the three column drops. Each statement
+  in `0023` breaks a write the previous image performs, which is exactly what
+  `post` means. Both files state their own reasoning at the top.
 
 ### Merchant claiming (#83) has no source model either
 
@@ -1611,6 +1732,20 @@ add a row when a gate lands, and do not list one that does not run yet.
 | `UNIQUE(product_id, signature)`, the one-default-variant partial unique, the one-value-per-axis unique, the signature shape CHECK, the half-filled canonical-pair CHECK, the "not normalized ⇒ no magnitude" CHECK and the two-selected-values unique all fire | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
 | GTIN/UPC/EAN/GTIN-14 and ISBN-10/13 check digits accept a valid value and refuse one wrong by ONE digit; a UPC and the EAN padding to it collapse to one canonical value; unit conversion round-trips every unit in the table; an ambiguous unit spelling (`MW` vs `mW`) resolves to nothing rather than to the wrong one | `src/services/canonical/__tests__/{identifiers,units,variant-signature}.test.ts` | no |
 | `/internal/canonical-catalog/*` is operator-gated, unmounted on an empty allow-list, closed to the payments allow-list — and its source-fact endpoints REFUSE a canonical field (`name`, `slug`, `status`, `pinnedFields`) while accepting the same request without it | `src/routes/__tests__/internal-canonical-catalog.test.ts` | no |
+| A published attribute definition version refuses every semantic edit and any DELETE, while a label correction and a draft edit both succeed; a second ACTIVE version is refused by the index even from a writer that skipped the service; the enum vocabulary of a published version is frozen | `src/db/__tests__/attribute-registry.realdb.test.ts` | yes |
+| Category scope INHERITS to descendants only where the scope row says so, and an UNSCOPED definition applies everywhere | `src/db/__tests__/attribute-registry.realdb.test.ts` | yes |
+| One structured observation writes three axis-named rows and a repeat writes nothing; a second SELECTED value in one slot is refused; a selected value that is not normalized is refused | `src/db/__tests__/attribute-registry.realdb.test.ts` | yes |
+| Two disagreeing sources select NEITHER, keep BOTH parses, open exactly ONE review however many disagree, and enqueue a reindex; a stronger source replaces a weaker selection; two agreeing independent sources become `corroborated` | `src/db/__tests__/attribute-registry.realdb.test.ts` | yes |
+| The definition CHECKs refuse a reserved OFFER key, a half-declared measurement/money/rating/structured attribute, a subjective or unfilterable hard constraint, and a publication with no audit | `src/db/__tests__/attribute-registry.realdb.test.ts` | yes |
+| The reindex log converges on its deterministic id and refuses a half-claimed lease | `src/db/__tests__/attribute-registry.realdb.test.ts` | yes |
+| Nothing in the attribute domain MUTATES a constraint's strength, the evaluator takes no strength parameter, and its verdict reads the hard outcomes only (#94 hard-constraint rule 4) | `src/services/attributes/__tests__/hard-constraint-isolation.test.ts` | no |
+| The evaluator reaches no attribute or offer STORAGE, every commerce facet is answered from the offer port, and the default port reports no data rather than plausible numbers (#94 hard-constraint rule 6) | `src/services/attributes/__tests__/hard-constraint-isolation.test.ts` | no |
+| The whole benchmark dataset normalizes to its stated outcome — mixed units, enum aliases, ranges, scale errors, uninferred units, cross-family refusals, marketing claims, typed refusals and the dimensionless families | `src/services/attributes/__tests__/normalization.test.ts` | no |
+| Two equivalent measurements in different units compare equal at the declared precision, keep their source unit, and are NOT collapsed when the sources genuinely measured differently (#94 acceptance 1) | `src/services/attributes/__tests__/normalization.test.ts` | no |
+| A hard constraint excludes, a preference never does, missing data is `unknown` under a NAMED policy and is never reported satisfied, and a variant-scoped fact cannot satisfy another variant's constraint (#94 acceptance 4) | `src/services/attributes/__tests__/constraint-evaluation.test.ts` | no |
+| Every operator in the #94 list, including inclusive/exclusive range ends, negative set membership over a multi-valued attribute, range facts read through the satisfying bound, and structured axes | `src/services/attributes/__tests__/constraint-evaluation.test.ts` | no |
+| A constraint set is refused before search for an unknown attribute, one outside the category, an unsupported operator, a cross-dimension unit, a mismatched currency, an inadmissible enum value, an inverted range or a missing axis — and reports EVERY issue, not the first | `src/services/attributes/__tests__/constraint-validation.test.ts` | no |
+| `/internal/catalog-attributes/*` is operator-gated, unmounted on an empty allow-list, closed to the payments allow-list; the observation endpoint refuses a canonical value; the PUBLIC surface stays mounted without operators and has no wire representation of a hard text requirement | `src/routes/__tests__/internal-catalog-attributes.test.ts` | no |
 | At most ONE verified merchant claim per merchant, refused by the index rather than by a read-then-write; a contest DISPUTES instead of replacing the incumbent; a challenge is single-use and an expired one consumes nothing; one claim's token verifies no other claim; revocation returns the merchant to `unclaimed` while every public field survives; the state CHECKs refuse an undated verification, an unattributable revocation, an anonymous rejection and an empty dispute | `src/db/__tests__/merchant-claims.realdb.test.ts` | yes |
 | No merchant-claim module can reach the relationship/brand layer or grant operational access — claiming "Apple Store" creates no Apple relationship (#83 acceptance 6) | `src/services/merchant-claims/__tests__/relationship-isolation.test.ts` | no |
 | Every verification method's assurance and auto-verify verdict, including that no `low` method may auto-verify (#83 acceptance 2) | `src/services/merchant-claims/__tests__/claim-methods.test.ts` | no |

@@ -25,7 +25,6 @@ import { authenticateToken } from '../middleware/auth.js';
 import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
 import { validateBody } from '../middleware/validate.js';
 import {
-  attributeDefinitionCreateSchema,
   canonicalMergeSchema,
   canonicalProductCreateSchema,
   canonicalProductObservationSchema,
@@ -41,7 +40,6 @@ import {
   createCanonicalProductHandler,
   createCanonicalVariantHandler,
   createProductFamilyHandler,
-  defineAttributeHandler,
   mergeCanonicalProductsHandler,
   mergeCanonicalVariantsHandler,
   mergeProductFamiliesHandler,
@@ -54,13 +52,6 @@ const router = Router();
 // against whatever a client claimed.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
-
-/** Attribute definitions — the registry every normalized value cites. */
-router.post(
-  '/attribute-definitions',
-  validateBody(attributeDefinitionCreateSchema),
-  defineAttributeHandler,
-);
 
 /** Product families. Creation is EXPLICIT; no source path mints one (#56). */
 router.post('/product-families', validateBody(productFamilyCreateSchema), createProductFamilyHandler);

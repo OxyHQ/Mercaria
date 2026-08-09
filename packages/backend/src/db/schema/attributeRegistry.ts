@@ -1,0 +1,593 @@
+/**
+ * The versioned category-attribute registry (#94) — `attribute_definitions` and
+ * its six satellites.
+ *
+ * #56 landed the first cut of this registry inside `canonicalCatalog.ts`,
+ * because the only thing that needed it was a variant axis. #94 makes it the
+ * substrate deterministic search runs on, and that changes the shape in one
+ * structural way: **a definition is now a VERSION**. `(key, version)` is the
+ * identity, a partial unique keeps exactly one version ACTIVE per key, and a
+ * trigger freezes every semantic column the moment a version leaves `draft` —
+ * the `fee_schedules` mechanism, applied to catalogue policy for the same
+ * reason. A stored attribute value cites the version it was normalized under, so
+ * changing what an attribute MEANS can never silently reinterpret facts recorded
+ * under the old meaning; it schedules a re-normalization instead.
+ *
+ * The two tables `canonicalCatalog.ts` used to own (`attribute_definitions`,
+ * `attribute_definition_categories`) MOVED here rather than being copied. #94
+ * owns the registry; the canonical catalogue cites it. A second registry beside
+ * the first is the outcome this file exists to prevent.
+ *
+ * ## What this layer structurally cannot hold
+ *
+ * - **No offer fact.** `attribute_definitions_reserved_key_check` refuses a
+ *   definition whose key names a price, a stock level, a shipping cost or a
+ *   condition. Those belong to a current eligible OFFER (#57) and are answered
+ *   through the offer port, never from a static product attribute
+ *   (#94 hard-constraint rule 6). Without this CHECK a source could assert
+ *   `price` as a specification and a shopper's price filter would find it.
+ * - **No source ranking or tie-break weight.** Two comparably attested,
+ *   contradictory facts stay contradictory. There is no column that could say
+ *   "prefer this feed", because the cost of preferring wrongly is a product page
+ *   asserting a specification nobody published.
+ * - **No `is_valid` boolean beside `lifecycle_state`,** and no `ready` flag
+ *   anywhere — the `provider_accounts` one-stored-verdict rule.
+ * - **No jsonb.** Enum values, aliases, labels, category scopes and validation
+ *   rules are all real columns or child tables.
+ */
+
+import { sql } from 'drizzle-orm';
+import {
+  boolean,
+  check,
+  doublePrecision,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
+import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import {
+  ATTRIBUTE_CARDINALITIES,
+  ATTRIBUTE_COMPONENT_AXES,
+  ATTRIBUTE_DISPLAY_POLICIES,
+  ATTRIBUTE_ENTITY_KINDS,
+  ATTRIBUTE_EVIDENCE_POLICIES,
+  ATTRIBUTE_LIFECYCLE_STATES,
+  ATTRIBUTE_OBJECTIVITIES,
+  ATTRIBUTE_REINDEX_REASONS,
+  ATTRIBUTE_REVIEW_REASONS,
+  ATTRIBUTE_REVIEW_STATES,
+  ATTRIBUTE_VALUE_TYPES,
+  RESERVED_OFFER_FACT_KEYS,
+  UNIT_FAMILIES,
+} from '@mercaria/shared-types';
+import { asEnumValues, checkOneOf, currencyChecks, CURRENCY_CODE_VALUES } from './columns';
+import { categories } from './catalog';
+import { catalogSources } from './provenance';
+
+/**
+ * `attribute_definitions` — one VERSION of one attribute's meaning.
+ *
+ * `key` is the stable machine name every stored value cites and is never
+ * renamed: a rename would silently re-point every value recorded under it, so a
+ * rename is a NEW key plus a migration of the values that use it. `label` and
+ * `description` are free to change at any time and are deliberately NOT part of
+ * anything a value stores — that is the whole of "stored keys remain stable when
+ * labels or descriptions change" (#94 registry rule, closing sentence).
+ *
+ * ## The CHECKs, and what each one makes unrepresentable
+ *
+ * Every pairing below is a biconditional rather than a one-way requirement,
+ * because a half-declared definition is the shape that produces a value nobody
+ * can interpret:
+ *
+ * - a `measurement` (and a `structured` value, whose components are magnitudes
+ *   on named axes) has a unit family and nothing else may carry one, so a
+ *   `string` attribute cannot claim a normalization it has no way to perform;
+ * - a unit family travels with its base unit, so normalization always has
+ *   somewhere to put the result;
+ * - `rating_scale_max` is present exactly for the `rating` family, because a
+ *   4.5 out of 5 and a 4.5 out of 10 are different facts and a scale-less rating
+ *   is neither;
+ * - a `money` attribute names exactly one currency, the `fee_schedules` rule —
+ *   an amount whose currency lives in a label is a generic decimal wearing a
+ *   currency's clothes (#94 normalization rule 9);
+ * - `structured` is the only type that may declare component axes, and it must;
+ * - only an `objective` attribute may be `hard_constraint_capable`, which is
+ *   what stops an editorial opinion from being able to EXCLUDE a product.
+ *
+ * `hard_constraint_capable ⇒ filterable` is the last of them: a requirement that
+ * excludes but cannot be offered as a filter is a rule with no way for a shopper
+ * to see it, which #94's explanation requirements rule out.
+ */
+export const attributeDefinitions = pgTable(
+  'attribute_definitions',
+  {
+    id: generatedId(),
+    /** Stable machine key — lowercase, snake_case, never renamed. */
+    key: text().notNull(),
+    /** Monotonic per key, assigned by the operator drafting the version. */
+    version: integer().notNull().default(1),
+    lifecycleState: text({ enum: asEnumValues(ATTRIBUTE_LIFECYCLE_STATES) })
+      .notNull()
+      .default('draft'),
+    /** The default-locale label. Localized ones live in `attribute_labels`. */
+    label: text().notNull(),
+    description: text(),
+    valueType: text({ enum: asEnumValues(ATTRIBUTE_VALUE_TYPES) }).notNull(),
+    cardinality: text({ enum: asEnumValues(ATTRIBUTE_CARDINALITIES) }).notNull().default('single'),
+    objectivity: text({ enum: asEnumValues(ATTRIBUTE_OBJECTIVITIES) })
+      .notNull()
+      .default('objective'),
+    /**
+     * Set exactly when `value_type` is `measurement` OR `structured`. A
+     * structured value's components are magnitudes on named axes — a dimensions
+     * attribute measures length three times — so it needs the same base unit
+     * every one of them normalizes into.
+     */
+    unitFamily: text({ enum: asEnumValues(UNIT_FAMILIES) }),
+    /** The unit normalized magnitudes are stored in. Travels with `unit_family`. */
+    baseUnit: text(),
+    /** Set exactly when `unit_family` is `rating` — a 5-star scale is not a 10-point one. */
+    ratingScaleMax: integer(),
+    /** Set exactly when `value_type` is `money`. A money attribute names ONE currency. */
+    currency: text({ enum: CURRENCY_CODE_VALUES }),
+    /** The axes a `structured` value carries, in order. Empty for every other type. */
+    componentAxes: text().array().notNull().default(sql`'{}'::text[]`),
+    /** Validation and precision rules (#94 registry rule 10). */
+    minValue: doublePrecision(),
+    maxValue: doublePrecision(),
+    decimalPlaces: integer(),
+    maxLength: integer(),
+    /** The scale-error detector's bounds. See the DTO's doc comment for why they are not min/max. */
+    implausibleAbove: doublePrecision(),
+    implausibleBelow: doublePrecision(),
+    variantDefining: boolean().notNull().default(false),
+    filterable: boolean().notNull().default(true),
+    sortable: boolean().notNull().default(false),
+    comparable: boolean().notNull().default(true),
+    hardConstraintCapable: boolean().notNull().default(false),
+    displayPolicy: text({ enum: asEnumValues(ATTRIBUTE_DISPLAY_POLICIES) })
+      .notNull()
+      .default('public'),
+    evidencePolicy: text({ enum: asEnumValues(ATTRIBUTE_EVIDENCE_POLICIES) })
+      .notNull()
+      .default('source_required'),
+    /** The operator who drafted it — an Oxy account id, no foreign key. */
+    createdByOxyUserId: text(),
+    /** The operator who published it — the audit half of "publish a new version". */
+    publishedByOxyUserId: text(),
+    publishedAt: timestamptz(),
+    deprecatedAt: timestamptz(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    checkOneOf('attribute_definitions_lifecycle_check', t.lifecycleState, ATTRIBUTE_LIFECYCLE_STATES),
+    checkOneOf('attribute_definitions_value_type_check', t.valueType, ATTRIBUTE_VALUE_TYPES),
+    checkOneOf('attribute_definitions_cardinality_check', t.cardinality, ATTRIBUTE_CARDINALITIES),
+    checkOneOf('attribute_definitions_objectivity_check', t.objectivity, ATTRIBUTE_OBJECTIVITIES),
+    checkOneOf('attribute_definitions_unit_family_check', t.unitFamily, UNIT_FAMILIES),
+    checkOneOf('attribute_definitions_display_policy_check', t.displayPolicy, ATTRIBUTE_DISPLAY_POLICIES),
+    checkOneOf('attribute_definitions_evidence_policy_check', t.evidencePolicy, ATTRIBUTE_EVIDENCE_POLICIES),
+    ...currencyChecks('attribute_definitions', [t.currency]),
+    check('attribute_definitions_key_shape_check', sql`${t.key} ~ '^[a-z][a-z0-9_]*$'`),
+    check('attribute_definitions_version_check', sql`${t.version} >= 1`),
+    // An offer fact is not a product attribute. See the file header.
+    check(
+      'attribute_definitions_reserved_key_check',
+      sql`${t.key} <> all (${sql.raw(`array[${RESERVED_OFFER_FACT_KEYS.map((k) => `'${k}'`).join(', ')}]::text[]`)})`,
+    ),
+    check(
+      'attribute_definitions_measurement_unit_check',
+      sql`(${t.valueType} in ('measurement', 'structured')) = (${t.unitFamily} is not null)`,
+    ),
+    check(
+      'attribute_definitions_base_unit_check',
+      sql`(${t.unitFamily} is null) = (${t.baseUnit} is null)`,
+    ),
+    check(
+      'attribute_definitions_rating_scale_check',
+      sql`(${t.unitFamily} is not distinct from 'rating') = (${t.ratingScaleMax} is not null)`,
+    ),
+    check(
+      'attribute_definitions_money_currency_check',
+      sql`(${t.valueType} = 'money') = (${t.currency} is not null)`,
+    ),
+    check(
+      'attribute_definitions_component_axes_check',
+      sql`(${t.valueType} = 'structured') = (array_length(${t.componentAxes}, 1) is not null)`,
+    ),
+    // Element-wise shape on a text[] cannot use `unnest` (a CHECK admits no
+    // subquery), so containment is the only expressible form — the
+    // `commerce_relationships.territories` precedent, one table over.
+    check(
+      'attribute_definitions_axes_domain_check',
+      sql`${t.componentAxes} <@ ${sql.raw(`array[${ATTRIBUTE_COMPONENT_AXES.map((a) => `'${a}'`).join(', ')}]::text[]`)}`,
+    ),
+    check(
+      'attribute_definitions_bounds_order_check',
+      sql`${t.minValue} is null or ${t.maxValue} is null or ${t.minValue} <= ${t.maxValue}`,
+    ),
+    check(
+      'attribute_definitions_plausible_order_check',
+      sql`${t.implausibleBelow} is null or ${t.implausibleAbove} is null or ${t.implausibleBelow} <= ${t.implausibleAbove}`,
+    ),
+    check(
+      'attribute_definitions_decimal_places_check',
+      sql`${t.decimalPlaces} is null or (${t.decimalPlaces} >= 0 and ${t.decimalPlaces} <= 12)`,
+    ),
+    check(
+      'attribute_definitions_max_length_check',
+      sql`${t.maxLength} is null or (${t.maxLength} >= 1 and ${t.maxLength} <= 4096)`,
+    ),
+    // An opinion may not exclude a product, and a rule nobody can see as a
+    // filter may not exclude one either.
+    check(
+      'attribute_definitions_hard_constraint_check',
+      sql`${t.hardConstraintCapable} is false or (${t.objectivity} = 'objective' and ${t.filterable})`,
+    ),
+    // A published version records who published it and when; a draft records
+    // neither. The `fee_schedules` activation-audit shape.
+    check(
+      'attribute_definitions_published_audit_check',
+      sql`(${t.lifecycleState} = 'draft') = (${t.publishedAt} is null)`,
+    ),
+    check(
+      'attribute_definitions_deprecated_at_check',
+      sql`${t.deprecatedAt} is null or ${t.lifecycleState} in ('deprecated', 'retired')`,
+    ),
+    uniqueIndex('attribute_definitions_key_version_key').on(t.key, t.version),
+    // Exactly one live meaning per key. The `fee_schedules_one_active_per_key`
+    // mechanism: "the active version of this attribute" is a single row rather
+    // than a query with a bug in it.
+    uniqueIndex('attribute_definitions_one_active_per_key')
+      .on(t.key)
+      .where(sql`${t.lifecycleState} = 'active'`),
+    index('attribute_definitions_lifecycle_idx').on(t.lifecycleState, t.key),
+  ],
+);
+
+/**
+ * `attribute_labels` — localized labels for a definition version
+ * (#94 registry rule 2).
+ *
+ * A child table rather than a jsonb map: the locale set is open, the rows are
+ * read by locale, and a map would make "which locales does this attribute have"
+ * a scan of every definition. Cascade, because a label is meaningless without
+ * the version it labels.
+ *
+ * Nothing a VALUE stores comes from here. That is the mechanical reason a label
+ * change is free: there is no write path from this table to a stored value.
+ */
+export const attributeLabels = pgTable(
+  'attribute_labels',
+  {
+    id: generatedId(),
+    attributeDefinitionId: text()
+      .notNull()
+      .references(() => attributeDefinitions.id, { onDelete: 'cascade' }),
+    /** BCP-47 tag, stored lower-case so a lookup cannot miss on case. */
+    locale: text().notNull(),
+    label: text().notNull(),
+    description: text(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check(
+      'attribute_labels_locale_shape_check',
+      sql`${t.locale} = lower(btrim(${t.locale})) and ${t.locale} ~ '^[a-z]{2,3}(-[a-z0-9]{2,8})*$'`,
+    ),
+    uniqueIndex('attribute_labels_locale_key').on(t.attributeDefinitionId, t.locale),
+  ],
+);
+
+/**
+ * `attribute_definition_categories` — the category SCOPE of a definition
+ * version, with its inheritance rule (#94 registry rule 4).
+ *
+ * A junction table rather than a `category_id[]` column, per CONVENTIONS: an
+ * array of ids cannot be joined or constrained, and this one is read both ways
+ * (which attributes apply to this category; which categories does this attribute
+ * cover). NO rows means the definition is UNSCOPED and applies anywhere — the
+ * opposite reading from a procurement agreement's empty scope, because a scope
+ * NARROWS something otherwise general while a grant that names no destination
+ * grants none.
+ *
+ * `include_descendants` is per SCOPE rather than per definition, which is the
+ * whole of the "inheritance rules" requirement. One global policy would have to
+ * be wrong for either "screen size, everywhere under Electronics" or "shoe
+ * width, in Shoes and not in Shoe care".
+ */
+export const attributeDefinitionCategories = pgTable(
+  'attribute_definition_categories',
+  {
+    id: generatedId(),
+    attributeDefinitionId: text()
+      .notNull()
+      .references(() => attributeDefinitions.id, { onDelete: 'cascade' }),
+    /** `restrict`: nothing deletes a category today, and a scope may not be orphaned. */
+    categoryId: text()
+      .notNull()
+      .references(() => categories.id, { onDelete: 'restrict' }),
+    /** Whether the scope reaches this category's subtree. See the doc above. */
+    includeDescendants: boolean().notNull().default(true),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('attribute_definition_categories_key').on(t.attributeDefinitionId, t.categoryId),
+    index('attribute_definition_categories_category_idx').on(t.categoryId),
+  ],
+);
+
+/**
+ * `attribute_enum_values` — the permitted values of an `enum` definition version
+ * (#94 registry rule 6).
+ *
+ * Rows rather than #56's `allowed_values text[]`, and the array column is gone
+ * rather than kept beside them: an alias has to resolve to exactly one canonical
+ * value, which needs a row to point at. Keeping both would be two
+ * representations of the permitted set, and the one an alias resolved against
+ * would be whichever the writer remembered to update.
+ *
+ * `value` is stored already normalized (lower-cased, whitespace-collapsed) and a
+ * CHECK enforces it, so a case-variant spelling cannot dodge the unique — the
+ * `merchant_domains.domain` device.
+ */
+export const attributeEnumValues = pgTable(
+  'attribute_enum_values',
+  {
+    id: generatedId(),
+    attributeDefinitionId: text()
+      .notNull()
+      .references(() => attributeDefinitions.id, { onDelete: 'cascade' }),
+    /** The canonical, normalized value stored on every assignment. */
+    value: text().notNull(),
+    /** What a shopper reads. Changing it never moves a stored value. */
+    label: text().notNull(),
+    position: integer().notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check(
+      'attribute_enum_values_normalized_check',
+      sql`${t.value} = lower(btrim(${t.value})) and ${t.value} <> ''`,
+    ),
+    uniqueIndex('attribute_enum_values_value_key').on(t.attributeDefinitionId, t.value),
+    index('attribute_enum_values_position_idx').on(t.attributeDefinitionId, t.position),
+  ],
+);
+
+/**
+ * `attribute_value_aliases` — source spellings that resolve to one canonical
+ * enum value (#94 registry rule 6, normalization rule 4).
+ *
+ * `UNIQUE(attribute_definition_id, normalized_alias)` is the load-bearing
+ * constraint: one alias resolves to at most ONE canonical value per definition,
+ * the ADR 0002 D16 rule that an alias never resolves to two entities. Without it
+ * "USB C" could map to both `usb_c` and `usb_c_thunderbolt` and the answer would
+ * depend on row order.
+ *
+ * `normalized_alias` is GENERATED from `alias` (`lower(btrim(...))`, both
+ * IMMUTABLE), the `<entity>_aliases` device, so the stored spelling and the
+ * lookup key cannot disagree. The SOURCE text is kept in `alias` — normalizing
+ * an enum alias never destroys what a source actually wrote (#94 normalization
+ * rule 4).
+ */
+export const attributeValueAliases = pgTable(
+  'attribute_value_aliases',
+  {
+    id: generatedId(),
+    attributeDefinitionId: text()
+      .notNull()
+      .references(() => attributeDefinitions.id, { onDelete: 'cascade' }),
+    enumValueId: text()
+      .notNull()
+      .references(() => attributeEnumValues.id, { onDelete: 'cascade' }),
+    /** The source's own spelling, verbatim. */
+    alias: text().notNull(),
+    normalizedAlias: text()
+      .notNull()
+      .generatedAlwaysAs(sql`lower(btrim("alias"))`),
+    /** Which source this spelling was seen from, when it came from one. */
+    catalogSourceId: text().references(() => catalogSources.id, { onDelete: 'restrict' }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('attribute_value_aliases_alias_key').on(t.attributeDefinitionId, t.normalizedAlias),
+    index('attribute_value_aliases_enum_value_idx').on(t.enumValueId),
+  ],
+);
+
+/**
+ * `attribute_source_mappings` — how one source's field names map onto the
+ * registry (#94 coverage rule 4).
+ *
+ * The recorded answer to "does `16 GB` mean memory or storage": this source's
+ * `memory_size` field is `ram_capacity`, and its values are in GB when it omits
+ * the unit. That `assumed_unit` column is the ONLY place a unit may come from
+ * when a source reports a bare number — never from the value, never from the
+ * attribute's base unit, never from what a similar feed usually means. It is a
+ * human-recorded fact about the FEED, which is exactly what "never infer a unit
+ * from a number when the source is genuinely ambiguous" requires.
+ *
+ * `category_ids` narrows a mapping when one source reuses a field name across
+ * categories. Empty means every category the attribute itself is scoped to,
+ * which is the common case and the honest default.
+ */
+export const attributeSourceMappings = pgTable(
+  'attribute_source_mappings',
+  {
+    id: generatedId(),
+    catalogSourceId: text()
+      .notNull()
+      .references(() => catalogSources.id, { onDelete: 'restrict' }),
+    /** The field name as the source spells it, stored folded for lookup. */
+    sourceField: text().notNull(),
+    /** The registry key it maps to. A NAME, not an id: the version is resolved at read. */
+    attributeKey: text().notNull(),
+    /** The unit this source's values carry when it omits one. See the doc above. */
+    assumedUnit: text(),
+    /** The component axis this field always carries, for a `structured` attribute. */
+    componentAxis: text({ enum: asEnumValues(ATTRIBUTE_COMPONENT_AXES) }),
+    categoryIds: text().array().notNull().default(sql`'{}'::text[]`),
+    note: text(),
+    createdByOxyUserId: text(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    checkOneOf(
+      'attribute_source_mappings_axis_check',
+      t.componentAxis,
+      ATTRIBUTE_COMPONENT_AXES,
+    ),
+    check(
+      'attribute_source_mappings_field_shape_check',
+      sql`${t.sourceField} = lower(btrim(${t.sourceField})) and ${t.sourceField} <> ''`,
+    ),
+    check(
+      'attribute_source_mappings_key_shape_check',
+      sql`${t.attributeKey} ~ '^[a-z][a-z0-9_]*$'`,
+    ),
+    uniqueIndex('attribute_source_mappings_field_key').on(t.catalogSourceId, t.sourceField),
+    index('attribute_source_mappings_attribute_idx').on(t.attributeKey),
+  ],
+);
+
+/**
+ * `attribute_value_reviews` — the queue for values a person has to settle
+ * (#94 coverage rules 2 and 5).
+ *
+ * One OPEN row per (entity, attribute), held by a partial unique on a GENERATED
+ * key rather than by a service read-then-write: two ingestion workers observing
+ * the same conflict a millisecond apart would otherwise open two rows, and the
+ * reviewer would resolve one of them.
+ *
+ * `priority` is a stored integer rather than a derived rank because "high-impact"
+ * is a product judgement (how many offers hang off this variant, whether the
+ * attribute is hard-constraint-capable) computed when the row is opened, and
+ * re-deriving it later against a changed catalogue would silently reorder a queue
+ * somebody is working through.
+ */
+export const attributeValueReviews = pgTable(
+  'attribute_value_reviews',
+  {
+    id: generatedId(),
+    entityKind: text({ enum: asEnumValues(ATTRIBUTE_ENTITY_KINDS) }).notNull(),
+    /**
+     * The canonical product or variant. No foreign key: one polymorphic column
+     * cannot reference two tables, and the alternative (two nullable columns
+     * plus a CHECK) buys a constraint on rows whose targets are never
+     * hard-deleted — the `merchant_claim_scopes.scope_ref` reasoning.
+     */
+    entityId: text().notNull(),
+    attributeKey: text().notNull(),
+    definitionVersion: integer().notNull(),
+    reason: text({ enum: asEnumValues(ATTRIBUTE_REVIEW_REASONS) }).notNull(),
+    state: text({ enum: asEnumValues(ATTRIBUTE_REVIEW_STATES) }).notNull().default('open'),
+    /** Higher is more urgent. Frozen at open time; see the doc above. */
+    priority: integer().notNull().default(0),
+    /** One line naming what disagrees, for a reviewer scanning the queue. */
+    summary: text().notNull(),
+    /** The value an operator chose, when the resolution was a choice. */
+    resolvedValueId: text(),
+    resolvedByOxyUserId: text(),
+    resolvedAt: timestamptz(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    checkOneOf('attribute_value_reviews_entity_kind_check', t.entityKind, ATTRIBUTE_ENTITY_KINDS),
+    checkOneOf('attribute_value_reviews_reason_check', t.reason, ATTRIBUTE_REVIEW_REASONS),
+    checkOneOf('attribute_value_reviews_state_check', t.state, ATTRIBUTE_REVIEW_STATES),
+    // A closed review names who closed it and when; an open one names neither.
+    // An anonymous resolution is unrepresentable, the `merchant_claims`
+    // rejected-state rule.
+    check(
+      'attribute_value_reviews_resolution_check',
+      sql`(${t.state} = 'open') = (${t.resolvedAt} is null and ${t.resolvedByOxyUserId} is null)`,
+    ),
+    check('attribute_value_reviews_priority_check', sql`${t.priority} >= 0`),
+    uniqueIndex('attribute_value_reviews_open_key')
+      .on(t.entityKind, t.entityId, t.attributeKey)
+      .where(sql`${t.state} = 'open'`),
+    index('attribute_value_reviews_queue_idx').on(t.state, t.priority.desc(), t.createdAt),
+    index('attribute_value_reviews_attribute_idx').on(t.attributeKey, t.state),
+  ],
+);
+
+/**
+ * `attribute_reindex_requests` — what has to be re-indexed, and why
+ * (#94 coverage rule 8).
+ *
+ * The moderation-outbox shape: the ROW is the job, its id is DETERMINISTIC so a
+ * repeat converges with `ON CONFLICT DO NOTHING`, and claims are leases with an
+ * owner check. It is written here and DRAINED by whoever owns the index — #61
+ * decides what that index is, and until it does, this table accumulates the
+ * durable record. Gate the loop, never the record: a request written today is
+ * still correct when a consumer appears.
+ *
+ * A definition change enqueues one row per affected ENTITY rather than one row
+ * naming the definition, because the consumer's unit of work is a document, and
+ * a single "everything with key X changed" row would have to be expanded by
+ * whoever drained it — at which point the expansion is unbounded work inside a
+ * lease.
+ */
+export const attributeReindexRequests = pgTable(
+  'attribute_reindex_requests',
+  {
+    /** Deterministic: `<entityKind>:<entityId>:<attributeKey>:<reason>`. No default. */
+    id: text().primaryKey(),
+    entityKind: text({ enum: asEnumValues(ATTRIBUTE_ENTITY_KINDS) }).notNull(),
+    /** No foreign key, for the `attribute_value_reviews.entity_id` reason. */
+    entityId: text().notNull(),
+    /** The attribute whose change caused this, when one did. */
+    attributeKey: text(),
+    definitionVersion: integer(),
+    reason: text({ enum: asEnumValues(ATTRIBUTE_REINDEX_REASONS) }).notNull(),
+    enqueuedAt: timestamptz().notNull(),
+    /** Lease columns — the `moderation_outboxes` claim shape. */
+    claimedAt: timestamptz(),
+    claimedBy: text(),
+    claimExpiresAt: timestamptz(),
+    processedAt: timestamptz(),
+    attempts: integer().notNull().default(0),
+    lastError: text(),
+  },
+  (t) => [
+    checkOneOf('attribute_reindex_requests_entity_kind_check', t.entityKind, ATTRIBUTE_ENTITY_KINDS),
+    checkOneOf('attribute_reindex_requests_reason_check', t.reason, ATTRIBUTE_REINDEX_REASONS),
+    check('attribute_reindex_requests_attempts_check', sql`${t.attempts} >= 0`),
+    // A claim is a lease: an owner and a deadline travel together, and neither
+    // is meaningful alone.
+    check(
+      'attribute_reindex_requests_claim_check',
+      sql`num_nonnulls(${t.claimedAt}, ${t.claimedBy}, ${t.claimExpiresAt}) in (0, 3)`,
+    ),
+    index('attribute_reindex_requests_pending_idx')
+      .on(t.enqueuedAt)
+      .where(sql`${t.processedAt} is null`),
+    index('attribute_reindex_requests_entity_idx').on(t.entityKind, t.entityId),
+  ],
+);
+
+/*
+ * An `attribute_coverage_runs` table is deliberately ABSENT.
+ *
+ * #94 coverage rule 1 asks for completeness measured by category, source and
+ * field. That is a QUERY over `canonical_attribute_values`, and storing its
+ * answer would be a second representation of a fact the values already carry —
+ * one that goes stale the moment an observation lands and that two writers could
+ * disagree about. `services/attributes/coverage.service.ts` computes it live;
+ * if a future dashboard needs history, a snapshot table arrives with the
+ * retention decision that justifies it, not before.
+ *
+ * Recorded here so the absence reads as a decision rather than an oversight —
+ * the register discipline `CONVENTIONS.md` asks for.
+ */

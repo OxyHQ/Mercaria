@@ -137,10 +137,22 @@ export * from './relationship';
 // fee above: a `mercaria_retail` order pays no marketplace fee at all.
 export * from './retail-pricing';
 
+// The versioned category-attribute registry and its normalized values (#94):
+// value types, cardinality, unit families, lifecycle, evidence/display policy,
+// and the source/public projections of one recorded attribute fact. PRECEDES
+// `./canonical-product`, which cites this vocabulary rather than owning it.
+export * from './attribute-registry';
+
+// The provider-neutral constraint language (#94): the operators, the hard/
+// preference distinction, bounded OR groups, validation results and explainable
+// evaluation outcomes. ONE schema for deterministic filters, grounded
+// comparison (#96) and natural-language interpretation (#95).
+export * from './constraint';
+
 // Canonical product layer DTOs and value sets (ProductFamily, CanonicalProduct,
-// CanonicalVariant, ProductIdentifier, AttributeDefinition, …) — issue #56,
-// ADR 0002 D13–D16. NOT the same thing as ProductSummary in `./product`, which
-// is a native-listing feed card projection.
+// CanonicalVariant, ProductIdentifier, …) — issue #56, ADR 0002 D13–D16. NOT
+// the same thing as ProductSummary in `./product`, which is a native-listing
+// feed card projection.
 export * from './canonical-product';
 
 // The unified offer model (#57, ADR 0002 D7/D8/D18) — one seller/channel

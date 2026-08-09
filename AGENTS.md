@@ -848,6 +848,67 @@ load-bearing:
   verification (#55); the dashboard/storefront UI (#84/#85). `role_email`
   delivery, per the transport rule above.
 
+## Category attributes, units and hard constraints (#94)
+
+`services/attributes/` + `db/attributes/` + `db/schema/attributeRegistry.ts`
+(6 new tables; `attribute_definitions` and its category scope MOVED here from
+`canonicalCatalog.ts` and reshaped) + `@mercaria/shared-types`
+`attribute-registry.ts` and `constraint.ts`. Full reference:
+**`docs/attributes.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"The versioned attribute registry". This EXTENDS #56's registry — there is one
+registry, not two.
+
+- **A definition is a VERSION and its meaning is frozen once published** (DB
+  trigger + one-active-per-key partial unique, the `fee_schedules` mechanism).
+  Every stored value cites the version and the normalization ruleset it was read
+  under, so changing an attribute's meaning schedules a re-normalization instead
+  of silently reinterpreting facts. Labels are deliberately NOT frozen: stored
+  KEYS are what stays stable.
+- **`RESERVED_OFFER_FACT_KEYS` is a CHECK.** `price`, `availability`,
+  `condition`, `shipping_cost` and sixteen more cannot be defined as product
+  attributes at all — they belong to current eligible OFFERS and are answered
+  through `services/attributes/offer-facts.port.ts`, the narrow seam #57 fills.
+  Until a port is registered the default answers NO data, so a hard commerce
+  constraint EXCLUDES rather than being satisfied from a stale feed. `msrp` is
+  deliberately not reserved.
+- **Hard vs preference is structural, four ways** (#94 rule 4): `strength` is a
+  readonly literal set at construction; validation partitions into two genuinely
+  different TYPES; `TextPreference` has no wire or type representation of
+  `'hard'`; and the verdict is derived from the hard outcomes inside the
+  evaluator. `hard-constraint-isolation.test.ts` fails the build otherwise, with
+  a mutation self-test on every pattern.
+- **Missing data is `unknown`, never a quiet yes.** A preference is never
+  reported satisfied on absence; a hard constraint resolves it by a NAMED policy
+  (`exclude_when_unknown` | `admit_and_report_unknown`) and the reason says
+  which. An OR group with one unknown member and no success is `unknown`, not
+  `failed`.
+- **A refusal is a first-class normalization outcome** — `unparsed`,
+  `unknown_unit`, `out_of_range`, `implausible`, `marketing_claim` — and only
+  `normalized` may carry a value. A unit comes from the source's own token or a
+  RECORDED per-source mapping, never from the attribute's base unit or the
+  magnitude's size.
+- **`conflicting` is a SELECTION state, not a parse state.** Two disagreeing
+  sources keep both parses and select neither; an operator must be able to see
+  what they are choosing between. Corroboration (two independent sources
+  agreeing) is a different field from confidence (one source's estimate of
+  itself).
+- **Percentages, ratios and ratings are distinct UNIT FAMILIES**, so no
+  constraint can compare a screen-to-body percentage against a review score.
+  Structured values name their AXES explicitly and refuse a component count that
+  does not match the declaration.
+- Public surface `/catalog-attributes/*` (definitions, facets, constraint
+  validate/evaluate, selected values). Operator surface
+  `/internal/catalog-attributes/*` behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
+  allow-list #54/#55/#56/#83 use. Provenance never reaches a public DTO.
+- **Two migrations, and the split is the deploy-phase rule working**: `0022`
+  (`pre`, additive plus widenings) and `0023` (`post`, the value-type clean cut
+  `quantity`→`measurement` / `number`→`integer`|`decimal` / `text`→`string`, and
+  three column drops). Each `post` statement breaks a write the previous image
+  performs.
+- Deferred with seams, not built: the offer model (#57), NL intent parsing
+  (#95), grounded comparison (#96), ranking (#74), the correction UI (#59), and
+  the consumer that drains `attribute_reindex_requests` (#61).
+
 ## Guest cart ownership and the merge (#104, ADR 0003 D8)
 
 The cart is owned by a `CartOwner` — `{kind:'oxy_user'} | {kind:'guest_session'}`

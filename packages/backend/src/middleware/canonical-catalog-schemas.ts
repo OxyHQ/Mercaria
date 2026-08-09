@@ -23,16 +23,12 @@
 
 import { z } from 'zod';
 import {
-  ATTRIBUTE_VALUE_TYPES,
   CANONICAL_ALIAS_KINDS,
   IDENTIFIER_SCHEMES,
   SOURCE_LINK_METHODS,
-  UNIT_FAMILIES,
-  type AttributeValueType,
   type CanonicalAliasKind,
   type IdentifierScheme,
   type SourceLinkMethod,
-  type UnitFamily,
 } from '@mercaria/shared-types';
 
 const ALIAS_KIND_VALUES = CANONICAL_ALIAS_KINDS as readonly [
@@ -47,11 +43,6 @@ const SOURCE_LINK_METHOD_VALUES = SOURCE_LINK_METHODS as readonly [
   SourceLinkMethod,
   ...SourceLinkMethod[],
 ];
-const ATTRIBUTE_VALUE_TYPE_VALUES = ATTRIBUTE_VALUE_TYPES as readonly [
-  AttributeValueType,
-  ...AttributeValueType[],
-];
-const UNIT_FAMILY_VALUES = UNIT_FAMILIES as readonly [UnitFamily, ...UnitFamily[]];
 
 const idSchema = z.string().trim().min(1).max(64);
 const slugSchema = z
@@ -208,19 +199,6 @@ export const identifierCorrectSchema = z
     scheme: z.enum(IDENTIFIER_SCHEME_VALUES),
     rawValue: z.string().trim().min(1).max(120),
     note: z.string().trim().min(10).max(2_000),
-  })
-  .strict();
-
-/** `POST /internal/canonical-catalog/attribute-definitions`. */
-export const attributeDefinitionCreateSchema = z
-  .object({
-    key: attributeKeySchema,
-    label: z.string().trim().min(1).max(160),
-    valueType: z.enum(ATTRIBUTE_VALUE_TYPE_VALUES),
-    unitFamily: z.enum(UNIT_FAMILY_VALUES).optional(),
-    allowedValues: z.array(z.string().trim().min(1).max(160)).max(200).optional(),
-    description: z.string().trim().max(2_000).optional(),
-    categoryIds: z.array(idSchema).max(200).optional(),
   })
   .strict();
 
