@@ -55,6 +55,9 @@ export * from './relationships';
 // Procurement (#118) follows `organizations`: `suppliers.organization_id`
 // references the canonical graph's organizations table.
 export * from './procurement';
+// Retail pricing (#120, ADR 0004 D3) follows `procurement`: a cost quote names
+// the supplier, account and agreement it was sourced under by foreign key.
+export * from './retailPricing';
 // Referrals (#142, ADR 0005) come last: their tables reference nothing outside
 // their own domain, and their subject/actor references are deliberately opaque.
 export * from './referrals';

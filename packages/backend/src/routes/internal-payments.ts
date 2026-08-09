@@ -64,6 +64,13 @@ import {
   listFeeSchedulesHandler,
   retireFeeScheduleHandler,
 } from '../controllers/fee-schedules-operator.controller.js';
+import { retailPricingPolicyCreateSchema } from '../middleware/retail-pricing-schemas.js';
+import {
+  activateRetailPricingPolicyHandler,
+  createRetailPricingPolicyHandler,
+  listRetailPricingPoliciesHandler,
+  retireRetailPricingPolicyHandler,
+} from '../controllers/retail-pricing-operator.controller.js';
 
 const router = Router();
 
@@ -120,5 +127,32 @@ router.post('/fee-schedules/:id/activate', activateFeeScheduleHandler);
 
 /** Withdraw an active version (or abandon a draft) without a replacement. */
 router.post('/fee-schedules/:id/retire', retireFeeScheduleHandler);
+
+// ── Retail pricing policies (#120) ──────────────────────────────────────────
+//
+// The other half of "what does Mercaria charge", and the half where Mercaria is
+// the SELLER: `mercaria_retail` is cost recovery with zero markup and zero
+// intended item profit (ADR 0004 D3). A policy version approves which of the
+// eight direct-cost components may enter a customer amount and nothing else —
+// there is no markup, margin, profit or padding field on the body, and a
+// request that reaches for one is refused by NAME rather than as an unknown
+// key. Same operator gate as the fee schedules above, same reason: no store
+// membership can express a platform-wide pricing decision.
+
+/** Every version of every retail pricing policy, with audit columns. */
+router.get('/retail-pricing-policies', listRetailPricingPoliciesHandler);
+
+/** Draft a new policy version. */
+router.post(
+  '/retail-pricing-policies',
+  validateBody(retailPricingPolicyCreateSchema),
+  createRetailPricingPolicyHandler,
+);
+
+/** Publish a draft, superseding the key's current active version. */
+router.post('/retail-pricing-policies/:id/activate', activateRetailPricingPolicyHandler);
+
+/** Withdraw an active version (or abandon a draft) without a replacement. */
+router.post('/retail-pricing-policies/:id/retire', retireRetailPricingPolicyHandler);
 
 export default router;

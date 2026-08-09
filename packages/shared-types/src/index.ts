@@ -121,3 +121,9 @@ export * from './fees';
 // (#55, ADR 0002 D10/D11/D17) — typed, scoped, temporal, evidence-backed claims,
 // plus the public badge vocabulary a product or brand page may render.
 export * from './relationship';
+
+// Zero-margin landed-cost vocabulary for `mercaria_retail` (#120, ADR 0004 D3)
+// — the allowed direct-cost components, the fourteen forbidden ones, the
+// immutable cost quote and the eight accounting outputs. NOT the marketplace
+// fee above: a `mercaria_retail` order pays no marketplace fee at all.
+export * from './retail-pricing';

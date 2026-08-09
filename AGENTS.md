@@ -441,6 +441,67 @@ repairs. Full mechanics, the fourteen discrepancy kinds and the incident runbook
   notifications, downloadable breakdowns. POS/connector orders carry no
   snapshot (no explicit channel policy yet — reads as zero fee).
 
+### Zero-margin retail pricing (#120): `mercaria_retail` is cost recovery
+
+`services/retail-pricing/` + `db/retailPricing/` + `db/schema/retailPricing.ts`
+(4 tables). Full reference: **`docs/retail-pricing.md`**; schema decisions:
+`db/schema/CONVENTIONS.md` §"The retail pricing domain"; binding decisions are
+ADR 0004 D3/D7/D8. This is NOT the marketplace fee — a `mercaria_retail` order
+pays none, and the retail engine cannot import `services/fees/` (a test).
+
+- **Markup is UNREPRESENTABLE, in four independent places**, not a default
+  somebody can change: the vocabulary (`RetailCostComponentKind`'s eight direct
+  costs and `RetailForbiddenComponentKind`'s fourteen prohibitions are DISJOINT
+  unions); the schema (no markup/margin/profit/padding column exists —
+  `absorption_cap_bps` is the domain's only bps column and bounds a Mercaria
+  LOSS); the API (`.strict()` schema, plus a refusal that names the exact
+  forbidden component instead of "unrecognized key"); and the formula
+  (`composeRetailCostOnlyTotal` has no parameter that could add anything, and
+  returns `markupMinor` re-derived from the components — a property test pins it
+  at zero over randomized inputs).
+- **The customer total IS the sum of the component rows.** Cross-row, so
+  `insertRetailCostQuote` is the SINGLE writer and refuses a mismatch before
+  issuing SQL. The eight components are modelled SEPARATELY, each naming its
+  source, currency, observation time and confidence (`quoted | guaranteed |
+  estimated | final`), never folded into one inflated unit price.
+- **An unknown cost is never zero.** `deriveRetailCompleteness` answers three
+  distinct questions — what it knows, what may be SHOWN, whether money may
+  move — and the completeness ⇔ presentation mapping is a CHECK, so a blocked
+  quote cannot be stored claiming an exact price. Expiry is NOT a completeness
+  value: it is derived from `expires_at` against the clock.
+- **Supplier costs stay in their SOURCE currency**; conversion happens once per
+  component, half-even, with the exact `FxRateSnapshot` stored (present EXACTLY
+  when the currencies differ, a biconditional CHECK). `fx_basis` distinguishes
+  Mercaria's QUOTED rate from the provider's FINAL one; the difference is
+  variance, never profit. **The FX base is the SOURCE currency** — no module here
+  names FAIR, FairCoin or OxyPay, and a test asserts it.
+- **Quantity is applied in the SOURCE currency, before the conversion.** Per-unit
+  conversion multiplies the rounding error by the quantity. No third rounding
+  scheme was invented: `fx.convert`'s half-even once per component, then an exact
+  integer sum, so nothing is split and `apportion` is not needed.
+- **The checkout lock is `UNIQUE(checkout_group_id, quote_id)`** — a retry READS
+  the locked total rather than re-pricing. A revised total is a NEW quote plus a
+  NEW acceptance naming the one it supersedes; nothing mutates an acceptance,
+  except `order_id` moving NULL → a value exactly once (the lock is taken before
+  the order row exists), enforced by both a CAS and a trigger.
+- **Variance is never margin.** Actuals below the locked amount are the
+  CUSTOMER's (`customer_adjustment_owed` → #128); above it, Mercaria absorbs —
+  there is no surcharge path and none may be built. The delta is recorded
+  whatever the tolerance says, and the tolerance is CHECK-bounded to 5 minor
+  units so it cannot be widened into a hiding place.
+- **A promotion is a Mercaria marketing expense, structurally**:
+  `buyer_payable = customer_total − subsidy` is a CHECK, the subsidy is bounded
+  to `[0, customer_total]`, every component is non-negative, and
+  `RetailSubsidySource` has ONE member.
+- **Eight accounting outputs and NO `retail_margin_revenue`** — a positive
+  variance has nowhere to be recognized as revenue. Ranking and referral
+  isolation are static gates mirroring `fee-ranking-isolation.test.ts`.
+- Operator surface: `/internal/payments/retail-pricing-policies*`, behind the
+  same payment-operator allow-list. Seams left to their owners: #121 supplies
+  `marketSupported`, #122 supplies the source costs, #123 calls the lock and
+  owns the `orders` widening, #128 BOOKS the variance this domain only
+  classifies, #129 renders `presentation` + `blockReasons`.
+
 ### Where it meets the rest of Mercaria
 
 The domain is **Postgres-native** (13 payment tables + 4 fee tables), like everything else the API serves
