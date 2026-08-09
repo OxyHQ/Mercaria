@@ -1278,7 +1278,7 @@ outside:
 
 ### `guest_checkouts` and the buyer origin on `orders` (#105)
 
-`guest_checkouts` (`schema/guests.ts`, `drizzle/0022_confused_mole_man.sql`) is
+`guest_checkouts` (`schema/guests.ts`, `drizzle/0023_ambitious_proemial_gods.sql`) is
 the third Postgres-born guest table, and the two `orders` columns beside it are
 the minimum of ADR 0003 D6 that a guest order needs in order to exist at all.
 The decisions:
