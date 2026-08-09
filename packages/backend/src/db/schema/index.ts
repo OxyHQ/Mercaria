@@ -108,3 +108,10 @@ export * from './matching';
 // That independence is the point — an analytics table able to block a delete
 // would make telemetry a constraint on commerce.
 export * from './analytics';
+// The native-catalogue backfill (#60, ADR 0002 D23/D24) is the LAST export,
+// because it is downstream of every graph layer above it and of the native
+// catalogue below them: a report row names a canonical product and variant
+// (#56), and its subjects are stores, listings and native variants. It adds
+// NOTHING to any existing table — the whole migration is additive scaffolding,
+// which is what makes rollback a flag flip.
+export * from './backfill';

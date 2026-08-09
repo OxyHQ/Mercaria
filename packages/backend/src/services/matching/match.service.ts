@@ -137,10 +137,12 @@ export async function requestNativeVariantMatch(
  * The `native_listing_links.method` a decision's stage justifies.
  *
  * A table rather than a condition, so adding a stage forces a decision about
- * what an attachment produced by it actually claims. `connector_declared` is
- * absent on purpose: no stage here is a platform declaring its own mapping —
- * that is #60's backfill and the connector sync, and a matcher claiming it would
- * be asserting evidence it does not have.
+ * what an attachment produced by it actually claims. Two members are absent on
+ * purpose, because no stage here is either of them: `connector_declared` is a
+ * platform declaring its own mapping (the connector sync), and `backfill` is
+ * #60's migration attaching a native variant to a canonical variant it minted
+ * from that same variant. A matcher recording either would be asserting evidence
+ * it does not have.
  */
 export function linkMethodForStage(stage: MatchEvaluation['decidedStage']): NativeListingLinkMethod {
   switch (stage) {

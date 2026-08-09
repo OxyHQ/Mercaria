@@ -153,6 +153,17 @@ connectPostgres()
         .then(({ startMatchQueueDispatcher }) => startMatchQueueDispatcher())
         .catch((err) => log.general.error({ err }, 'Match queue dispatcher import failed'));
 
+      // Page open catalogue-backfill runs (#60). On EVERY task, same lease
+      // shape. The LOOP is gated by `CANONICAL_GRAPH_ENABLED` and the run rows
+      // never are, so an operator can open a run while the loop is off and it
+      // resumes from its cursor once the flag goes on. A canary rollout does not
+      // use this loop at all — it pages by hand from `/internal/backfill` — so
+      // this exists for the unattended remainder and for resuming after a
+      // deploy.
+      import('./services/backfill/backfill-dispatcher.js')
+        .then(({ startCatalogBackfillDispatcher }) => startCatalogBackfillDispatcher())
+        .catch((err) => log.general.error({ err }, 'Catalog backfill dispatcher import failed'));
+
       // Retry stored Stripe events whose processing failed, and pick up any
       // whose task died between storing and interpreting them. Also on EVERY
       // task, same lease shape. The webhook ingress processes inline after
@@ -310,6 +321,10 @@ connectPostgres()
           './services/matching/match-queue-dispatcher.js'
         );
         stopMatchQueueDispatcher();
+        const { stopCatalogBackfillDispatcher } = await import(
+          './services/backfill/backfill-dispatcher.js'
+        );
+        stopCatalogBackfillDispatcher();
         stopExpirySweeper();
         // Analytics last of the loops, and the sink's stop AWAITS one final
         // flush — the only place in this domain anything waits on telemetry.

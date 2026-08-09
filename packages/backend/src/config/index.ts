@@ -11,10 +11,15 @@
 
 import type {
   AnalyticsCollectionMode,
+  CanonicalReadMode,
   CurrencyCode,
   ModerationEnforcementMode,
 } from '@mercaria/shared-types';
-import { ALL_CURRENCY_CODES, ANALYTICS_COLLECTION_MODES } from '@mercaria/shared-types';
+import {
+  ALL_CURRENCY_CODES,
+  ANALYTICS_COLLECTION_MODES,
+  CANONICAL_READ_MODES,
+} from '@mercaria/shared-types';
 import { log } from '../lib/logger.js';
 
 /**
@@ -418,6 +423,45 @@ function resolveCheckoutDestinationCountries(): readonly string[] {
     .split(',')
     .map((code) => code.trim().toUpperCase())
     .filter((code) => /^[A-Z]{2}$/.test(code));
+}
+
+/**
+ * A canonical READ lever — `off | shadow | on` (ADR 0002 D24, #60 flags 2–3).
+ *
+ * An unrecognised value falls back to `on` rather than throwing, and that
+ * direction is deliberate and the opposite of `resolveAnalyticsCollectionMode`'s:
+ * there, an unreadable value must not turn collection ON, because collecting
+ * what nobody asked for is the harm. Here the harm runs the other way — a typo
+ * in a rollout variable must not withdraw a shipped public surface from every
+ * shopper, which is an outage caused by a config file nobody was watching. The
+ * fallback is LOGGED at boot so it is never silent.
+ */
+function resolveCanonicalReadMode(variable: string): CanonicalReadMode {
+  const raw = strEnv(variable, 'on').trim().toLowerCase();
+  const mode = CANONICAL_READ_MODES.find((candidate) => candidate === raw);
+  if (mode !== undefined) return mode;
+  log.general.error(
+    { variable, value: raw, allowed: CANONICAL_READ_MODES },
+    "[config] canonical read mode is not recognised; falling back to 'on'",
+  );
+  return 'on';
+}
+
+/**
+ * `CANONICAL_READ_COHORTS` → which cohorts a canonical read may answer for.
+ *
+ * EMPTY means every cohort — the `CHECKOUT_DESTINATION_COUNTRIES` rule, and for
+ * the same reason: a list that meant "nothing" when unset would make adding the
+ * lever a silent outage. Entries are `<kind>:<value>` or the literal `all`; a
+ * malformed entry is DROPPED here and then matches nothing in
+ * `canonicalReadAllowedFor`, so a typo narrows the rollout instead of widening
+ * it.
+ */
+function resolveCanonicalReadCohorts(): readonly string[] {
+  return strEnv('CANONICAL_READ_COHORTS', '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry === 'all' || /^[a-z_]+:.+$/.test(entry));
 }
 
 /**
@@ -940,6 +984,66 @@ export interface OffersConfig {
 }
 
 /**
+ * The canonical-graph ROLLOUT levers (#60, ADR 0002 D24).
+ *
+ * Six independent switches plus two tunables, and the reason they are six rather
+ * than one is that each bounds a different blast radius. Turning off the offer
+ * comparison must not take the brand pages down with it; taking the public
+ * surface off the air is a blunter act than telling a product page to stop
+ * answering; and stopping the backfill LOOP is a different decision from
+ * forbidding an `apply` run to write.
+ *
+ * `services/backfill/read-mode.ts` holds the table of which lever gates what and
+ * the full argument for the defaults. The short version, because it is the part
+ * a reader will want here:
+ *
+ * - The two WRITE levers default OFF, as D24 binds. They are the ones that
+ *   mutate.
+ * - The four READ levers default to today's behaviour, because #53–#57 already
+ *   SHIPPED the routes they gate. A lever introduced with an `off` default would
+ *   withdraw four live public surfaces on the deploy that added it, which is not
+ *   a rollout — and #60 acceptance 5 asks that turning reads OFF restores the
+ *   listing-first experience, which says nothing about the default.
+ */
+export interface CanonicalRolloutConfig {
+  /** `CANONICAL_GRAPH_ENABLED` — does the backfill dispatcher LOOP run. */
+  readonly graphEnabled: boolean;
+  /**
+   * `CANONICAL_WRITE_PUBLICATION_ENABLED` — may an `apply` run mutate the
+   * canonical graph. Off downgrades every apply run to the dry-run writer, so
+   * the run still produces its complete report and changes nothing.
+   */
+  readonly writePublicationEnabled: boolean;
+  /** `CANONICAL_READS` — `off | shadow | on`, gating canonical PRODUCT reads. */
+  readonly reads: CanonicalReadMode;
+  /** `CANONICAL_OFFER_COMPARISON` — the same vocabulary, gating `GET /offers`. */
+  readonly offerComparison: CanonicalReadMode;
+  /**
+   * `CANONICAL_PUBLIC_ROUTES_ENABLED` — whether the public canonical routers are
+   * MOUNTED at all. The blunt lever, for a rollback that must not depend on
+   * every handler having remembered its gate.
+   */
+  readonly publicRoutesEnabled: boolean;
+  /**
+   * `CANONICAL_SEARCH_INDEXING_ENABLED` — may the backfill enqueue reindex
+   * requests. Off by default: #61 owns the consumer and has not landed, and a
+   * queue growing one row per canonical product with nothing draining it is
+   * work nobody asked for.
+   */
+  readonly searchIndexingEnabled: boolean;
+  /**
+   * `CANONICAL_READ_COHORTS` — which cohorts a canonical read may answer for.
+   * EMPTY means every cohort, the `CHECKOUT_DESTINATION_COUNTRIES` rule.
+   * Entries are `<kind>:<value>`, or the literal `all`.
+   */
+  readonly readCohorts: readonly string[];
+  /** How many subjects one backfill PAGE examines. */
+  readonly backfillBatchSize: number;
+  /** How often the backfill dispatcher polls, in milliseconds. */
+  readonly backfillPollIntervalMs: number;
+}
+
+/**
  * Merchant claiming (#83). Every value here is a BOUND rather than a feature
  * switch — the claim surface itself is always mounted, because a merchant page
  * that cannot say "claim this" is a dead end for the one person entitled to
@@ -1193,6 +1297,7 @@ export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
   readonly offers: OffersConfig;
+  readonly canonicalRollout: CanonicalRolloutConfig;
   readonly matching: MatchingConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
@@ -1229,6 +1334,17 @@ export const config: AppConfig = Object.freeze({
     materializationEnabled: boolEnv('OFFER_MATERIALIZATION_ENABLED', true),
     outboxBatchSize: intEnv('OFFER_OUTBOX_BATCH_SIZE', 25),
     outboxPollIntervalMs: intEnv('OFFER_OUTBOX_POLL_INTERVAL_MS', 5_000),
+  }),
+  canonicalRollout: Object.freeze({
+    graphEnabled: boolEnv('CANONICAL_GRAPH_ENABLED', false),
+    writePublicationEnabled: boolEnv('CANONICAL_WRITE_PUBLICATION_ENABLED', false),
+    reads: resolveCanonicalReadMode('CANONICAL_READS'),
+    offerComparison: resolveCanonicalReadMode('CANONICAL_OFFER_COMPARISON'),
+    publicRoutesEnabled: boolEnv('CANONICAL_PUBLIC_ROUTES_ENABLED', true),
+    searchIndexingEnabled: boolEnv('CANONICAL_SEARCH_INDEXING_ENABLED', false),
+    readCohorts: Object.freeze(resolveCanonicalReadCohorts()),
+    backfillBatchSize: intEnv('CANONICAL_BACKFILL_BATCH_SIZE', 200),
+    backfillPollIntervalMs: intEnv('CANONICAL_BACKFILL_POLL_INTERVAL_MS', 15_000),
   }),
   matching: Object.freeze({
     pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),

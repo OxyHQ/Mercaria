@@ -192,3 +192,10 @@ export * from './matching';
 // carries no field for contact, payment, device or network identity, which is
 // how ADR 0003 I12 is enforced rather than promised.
 export * from './analytics';
+
+// The flag-gated native-catalogue backfill (#60, ADR 0002 D23/D24) — the staged
+// migration's own vocabulary: its ordered stages, its dry-run/apply modes, its
+// cohort selectors, the per-record outcome and reason sets that make ambiguity a
+// first-class result rather than a weak match, the two-way consistency findings,
+// and the canonical read modes (`off | shadow | on`) every rollout lever reads.
+export * from './backfill';
