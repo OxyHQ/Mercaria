@@ -70,6 +70,7 @@ import {
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
   CONDITION_MAPPING_STATES,
+  MAX_MONEY_MINOR_UNITS,
   NATIVE_LISTING_LINK_METHODS,
   NATIVE_LISTING_LINK_STATUSES,
   OFFER_AVAILABILITY_STATES,
@@ -691,6 +692,41 @@ export const offers = pgTable(
      */
     index('offers_variant_comparison_idx')
       .on(t.canonicalVariantId, t.priceAmount, t.id)
+      .where(sql`${t.status} = 'active'`),
+    /**
+     * #61 — the sort the index above could not serve, as an EXPRESSION index.
+     *
+     * The docblock above states the gap and hands the fix to #61 with numbers
+     * attached; these are the numbers. `listOffersForComparison` orders by
+     * `coalesce(price_amount, <sentinel>)` so unpriced `informational` records
+     * land last, and a plain index on `price_amount` does not store that
+     * expression — so the planner read every active offer on the variant and
+     * top-N sorted them. Indexing the expression the reader actually sorts by
+     * makes it an ordered index scan that stops at the LIMIT.
+     *
+     * Measured on the seeded `medium` scale, hottest variant carrying 609
+     * offers: **0.564 ms → 0.049 ms**, rows scanned **580 → 20**, and the Sort
+     * node disappears from the plan. The market-scoped branch
+     * (`country = $1 or country is null`) takes the same index.
+     *
+     * ## The sentinel is `sql.raw` and that is not a style choice
+     *
+     * A value interpolated into a `sql` template inside a schema DEFINITION is
+     * written into the generated migration as the bound-parameter placeholder
+     * `$1`, and DDL cannot carry a parameter — so the migration fails at APPLY
+     * time while generating perfectly (`~/Oxy/AGENTS.md` §Drizzle `sql`
+     * templates). `sql.raw` emits the constant as text. It is rendered from
+     * `MAX_MONEY_MINOR_UNITS`, the SAME constant `UNPRICED_SORT_KEY` in
+     * `offerRepository.ts` reads, because an expression index whose constant
+     * differs from the reader's by one is not a slightly worse index — it is an
+     * index the planner silently cannot use.
+     */
+    index('offers_variant_price_sort_idx')
+      .on(
+        t.canonicalVariantId,
+        sql`coalesce(${t.priceAmount}, ${sql.raw(String(MAX_MONEY_MINOR_UNITS))}::bigint)`,
+        t.id,
+      )
       .where(sql`${t.status} = 'active'`),
     /**
      * The same read, narrowed by market — the shape a country-scoped product

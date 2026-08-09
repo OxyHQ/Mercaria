@@ -2091,3 +2091,97 @@ pin.
   money. Alerting and scraping for the metrics this exposes belong to
   `oxy-infra`; the full pre-launch list is `docs/payments.md`
   §"Production-readiness checklist".
+
+## Graph query benchmarks and the indexes they justified (#61, ADR 0002 D21)
+
+`services/graph-benchmark/` (5 modules) + `scripts/graph-query-benchmark.ts` +
+`db/__tests__/graph-plan-regression.realdb.test.ts`. Full reference:
+**`docs/performance/`** — `README.md` is how it is run and what it cannot tell
+you, `canonical-graph-benchmarks.md` is the decisions, and the `plans-*.md` are
+generated. The failure mode that shapes all of it: **a measurement of NOTHING
+looks exactly like a fast one** — an empty seed, a predicate that matched no
+rows and a plan taken against an empty table all produce a small number and a
+tidy plan.
+
+- **The SQL measured is the SQL the reader SENT, and there is no second
+  spelling anywhere.** Each shape in `workload.ts` CALLS the repository function
+  the API calls, against a drizzle handle carrying postgres.js's `debug` hook;
+  the recorded statement and its bound parameters are what get EXPLAINed. A
+  pasted query would drift silently and in the direction that flatters whoever
+  pasted it. A shape therefore cannot outlive its reader — delete the function
+  and the file stops compiling.
+- **Every number clears a floor before it may be printed.** Row counts are
+  floored against the SCALE (never against what the generator wrote — that is
+  circular), every shape declares `minRowsReturned`, and the load-bearing ones
+  declare `requireIndexes`/`forbidNodeTypes`. An unmet floor renders the report
+  as `## THIS RUN MEASURED NOTHING` and exits non-zero; it never prints a
+  smaller table. Both floors caught real faults during #61 — one harness bug
+  (mutating shapes sharing a transaction, so the sweep's later runs measured a
+  predicate the earlier ones had emptied) and one dataset bug (near-identical
+  product names, which would have published "the trigram index does not work" as
+  a fact about the schema rather than about the seed).
+- **`EXPLAIN ANALYZE` really EXECUTES, so a mutating shape runs in its OWN
+  rolled-back transaction — one per execution, not one around the measurement.**
+  Twenty-two executions sharing a transaction still see each other. The CAPTURE
+  is rolled back too, or the sweep permanently changes the dataset every later
+  shape is measured on.
+- **Two clocks, never averaged.** Plan facts come from one instrumented run;
+  p50/p95/p99 come from N uninstrumented ones. Quoting `EXPLAIN ANALYZE`'s
+  `Execution Time` as "the latency" reports the cost of measuring.
+- **`ORDER BY similarity(x, $1) DESC` cannot be served by ANY index; `ORDER BY
+  x <-> $1` can, by GiST.** They are the same ordering (`<->` is
+  `1 - similarity`). That respelling plus a GiST index took the candidate search
+  from 81.6 ms scanning 31,094 rows to 16.6 ms scanning 25. Do not "tidy" the
+  distance operator back into a `similarity` call — it compiles, returns the
+  same rows, and costs 6.6× more. A realdb test asserts the reader still spells
+  it `<->`.
+- **An expression index must render its constant with `sql.raw` AND read it from
+  the same constant the reader does.** `offers_variant_price_sort_idx` indexes
+  `coalesce(price_amount, MAX_MONEY_MINOR_UNITS)` because that is what
+  `listOffersForComparison` sorts by; a constant off by one is not a worse
+  index, it is one the planner silently cannot use. Interpolating it normally
+  writes a bound-parameter placeholder into the migration, which generates
+  cleanly and fails at APPLY time.
+- **NO projection, materialized view or denormalized read model was adopted, and
+  that is the finding** — at 1 M offers every measured read is an indexed
+  single-digit-millisecond query. `docs/performance/canonical-graph-benchmarks.md`
+  carries the explicit list of reads that stay normalized, the two whose
+  amplification is recorded but accepted (product-level offer comparison, 124×;
+  backfill evidence, 125×), and the six things a projection would have to carry
+  if one is ever adopted.
+- **Write cost is part of the decision and is stated, not waved past**: the
+  offer sort index costs +19% on `upsertExternalOffer` and +70% on a price
+  update. Accepted because the write cost is constant per row while the read
+  cost it removes grows with a variant's offer count.
+- **Findings recorded and deliberately NOT acted on** (each with its reason in
+  the doc): `offers_variant_comparison_idx` (103 MB) is chosen by no measured
+  shape but is not dropped, because these shapes do not enumerate every filter
+  branch the comparison read admits; `offers_merchant_browse_idx` has no reader
+  (#84 owns the page); `source_records.stale_at` has no index and no reader
+  (#68). #61 did NOT build the `attribute_reindex_requests` drain #60/#94 hand
+  to it — it is a consumer for a queue whose refresh semantics belong to a
+  projection, and #61 adopted none.
+- **`bun run build:shared-types` BEFORE `db:generate`, always — a stale `dist/`
+  makes a regeneration silently REVERT a sibling branch's CHECK widening.**
+  drizzle-kit renders every closed-value-set CHECK from the BUILT
+  `@mercaria/shared-types`, not from its source, so a `dist/` predating the
+  branch you just rebased onto emits `DROP CONSTRAINT … ADD CONSTRAINT …` pairs
+  narrowing the tuple back. Measured on #61's own rebase behind #107: the first
+  regeneration dropped `guest_portal_initialization` and two analytics reason
+  codes out of their CHECKs, in a migration whose diff looked entirely
+  plausible — three `CREATE INDEX` lines with two constraint statements above
+  them. It would have applied cleanly and broken the write #107 exists to
+  perform. This extends the rebase protocol above: after restoring the journal
+  and before regenerating, rebuild shared-types, and READ the regenerated file
+  for statements you did not intend rather than only checking that yours are
+  present.
+- **The benchmark is opt-in (`GRAPH_BENCHMARK=1` plus a `bench` database name,
+  plus a third `current_database()` check inside the generator, which
+  TRUNCATES); the plan-regression suite is what runs in CI.** It drives the SAME
+  workload table against a `ci` scale, has its OWN throwaway database (the
+  generator truncates, and the shared one carries every other realdb test's
+  fixtures), and mutation-tests itself by dropping an index inside a transaction
+  and confirming the gate goes red naming the shape. The `ci` scale is not
+  smaller than it is because the property under test is a PLANNER decision — a
+  gate that fires because a table is too small for an index to win is a gate
+  whoever hits it next disables.

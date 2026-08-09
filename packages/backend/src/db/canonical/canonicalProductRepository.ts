@@ -5,7 +5,7 @@
  * stamp is a one-statement CAS.
  */
 
-import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type {
   CanonicalAliasKind,
   CanonicalRedirectReason,
@@ -114,7 +114,35 @@ export async function findCanonicalProductsByNormalizedName(
     .where(eq(canonicalProducts.normalizedName, normalizedName));
 }
 
-/** Trigram candidates with pg_trgm's own score, ordered strongest first. */
+/**
+ * Trigram candidates with pg_trgm's own score, ordered strongest first.
+ *
+ * ## The ordering is spelled as a DISTANCE, and that spelling is the index (#61)
+ *
+ * The obvious spelling is `ORDER BY similarity(name, $1) DESC`, and it is what
+ * this read used until #61 measured it: no index can serve that ordering, so
+ * Postgres fetched every row above `pg_trgm.similarity_threshold` and top-N
+ * sorted it — 32,476 rows examined to return 25, at 87 ms, on the read #58 runs
+ * for every candidate retrieval.
+ *
+ * `<->` is pg_trgm's distance operator, defined as `1 - similarity(a, b)`, so
+ * ascending distance and descending similarity are the SAME ordering — and the
+ * GiST index (`canonical_products_normalized_name_gist_trgm_idx`) supports it as
+ * a real index scan. The plan becomes one scan carrying both `Index Cond: name %
+ * $1` and `Order By: name <-> $1`, no Sort node, 25 rows touched, 13 ms.
+ *
+ * The `%` predicate is unchanged, so the candidate SET is unchanged; only its
+ * ordering is computed differently. Ties among equally-similar rows resolve in
+ * whatever order the access method produces — which was already true of the
+ * sort this replaces, since neither spelling names a tiebreaker.
+ *
+ * The returned `similarity` VALUE is still `similarity()`, not the distance: it
+ * is what callers score on, and reporting `1 - x` under the same name would be
+ * a silent unit change.
+ *
+ * Do not "tidy" this back to `ORDER BY similarity(...) DESC` — it compiles,
+ * returns the same rows, and quietly costs 6.6× more.
+ */
 export async function searchCanonicalProductsByNameSimilarity(
   db: DatabaseOrTransaction,
   normalizedName: string,
@@ -125,7 +153,7 @@ export async function searchCanonicalProductsByNameSimilarity(
     .select({ product: canonicalProducts, similarity: score })
     .from(canonicalProducts)
     .where(sql`${canonicalProducts.normalizedName} % ${normalizedName}`)
-    .orderBy(desc(score))
+    .orderBy(sql`${canonicalProducts.normalizedName} <-> ${normalizedName}`)
     .limit(limit);
 }
 
