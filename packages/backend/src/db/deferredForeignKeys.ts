@@ -701,4 +701,12 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'store_linkage_requests.claimant_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'store_linkage_requests.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'store_linkage_profile_adoptions.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── Deterministic matching (#58, ADR 0002 D14/D19) ────────────────────────
+  { column: 'match_policy_versions.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'match_benchmark_runs.started_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'match_category_gates.enabled_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'match_category_gates.disabled_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'match_decisions.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'match_blocked_pairs.blocked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'match_blocked_pairs.cleared_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];

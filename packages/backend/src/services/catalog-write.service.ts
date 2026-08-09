@@ -69,6 +69,7 @@ import { conflict, notFound, validationError } from '../lib/errors/error-codes.j
 import { log } from '../lib/logger.js';
 import { getOrCreate as getOrCreateSellerProfile } from './seller-profile.service.js';
 import { requestNativeOfferSync } from './offers/native-offer.service.js';
+import { requestNativeVariantMatch } from './matching/match.service.js';
 
 /** The default variant title for single-variant (P2P) listings. */
 const DEFAULT_VARIANT_TITLE = 'Default Title';
@@ -169,10 +170,34 @@ function toListingImages(imageFileIds: string[]): ListingImageInput[] {
  * Both are listed here rather than left to be discovered, because a fourth
  * status-only write path that forgot would leave a listing's offers claiming it
  * is on sale.
+ *
+ * ## …and where the canonical MATCH is requested (#58)
+ *
+ * The two requests are made together and are deliberately not one request. They
+ * answer different questions and can be enabled independently: matching decides
+ * WHICH canonical variant a native variant is (and writes the
+ * `native_listing_links` row that #57 defined and left unwritten), while offer
+ * convergence decides what the listing's own offer rows should say. The order is
+ * load-bearing only in the sense that an attachment written by the matcher
+ * enqueues a SECOND convergence itself — so a listing whose variant is matched
+ * for the first time converges again immediately afterwards and materializes the
+ * offer it could not have before.
+ *
+ * Both are durable outbox rows and both swallow their own failures, so a
+ * catalogue write cannot fail because a projection or a matcher could not be
+ * QUEUED (#58 operations 4).
  */
 export async function syncListingFacets(listingId: string): Promise<void> {
   await recomputeListingFacets(listingId);
   await requestNativeOfferSync(listingId);
+
+  // Per VARIANT, because that is the grain a canonical attachment lives at: two
+  // variants of one listing are two different trade items and may match two
+  // different canonical variants, or one may match and the other may not.
+  const variants = await findVariantsByListing(listingId);
+  for (const variant of variants) {
+    await requestNativeVariantMatch({ productVariantId: variant.id, trigger: 'catalog_write' });
+  }
 }
 
 /**

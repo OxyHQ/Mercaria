@@ -166,3 +166,9 @@ export * from './offer';
 // evidence vocabulary (which has NO name-match member), the adoptable profile
 // fields, the deterministic offer-overlap rules and the impact preview.
 export * from './store-linkage';
+// Deterministic product and variant matching with explainable confidence (#58,
+// ADR 0002 D14/D19) — the ordered pipeline stages, the outcome and blocker sets
+// that make "a conflicting identifier never auto-merges" a CHECK, the closed
+// feature set a candidate is scored on, and the benchmark metrics an automatic
+// category gate has to cite.
+export * from './matching';

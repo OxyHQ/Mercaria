@@ -96,3 +96,9 @@ export * from './offers';
 // it, the native store on both sides, the `native_store_links` row it produces,
 // and — for its offer-overlap findings — a canonical variant and two offers.
 export * from './storeLinkage';
+// Deterministic matching (#58, ADR 0002 D14/D19) comes after `offers` because
+// it is downstream of everything the graph has: a decision names a canonical
+// product and variant (#56), a source record (#53) and a native `product_variants`
+// row (`catalog`), and its whole purpose is to write the `native_listing_links`
+// attachment #57 defined and deliberately left unwritten.
+export * from './matching';

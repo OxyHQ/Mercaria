@@ -207,6 +207,24 @@ export async function listCanonicalProductAliases(
     .orderBy(asc(canonicalProductAliases.createdAt), asc(canonicalProductAliases.id));
 }
 
+/**
+ * Every alias of several products, in ONE round trip.
+ *
+ * The matcher compares a declared model against a product's normalized name AND
+ * its aliases, over a bounded candidate set — so the per-product read above
+ * would be one query per candidate on every evaluation.
+ */
+export async function listCanonicalProductAliasesForProducts(
+  db: DatabaseOrTransaction,
+  productIds: readonly string[],
+): Promise<CanonicalProductAliasRow[]> {
+  if (productIds.length === 0) return [];
+  return db
+    .select()
+    .from(canonicalProductAliases)
+    .where(inArray(canonicalProductAliases.productId, [...productIds]));
+}
+
 export async function findCanonicalProductIdsByNormalizedAlias(
   db: DatabaseOrTransaction,
   normalizedAlias: string,
