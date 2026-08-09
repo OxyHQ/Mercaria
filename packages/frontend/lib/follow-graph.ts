@@ -7,6 +7,25 @@
  * to decide about that — its namespace, what following a store MEANS, and how a
  * store is named to the graph — is decided once, here.
  *
+ * ## TWO followable things, and only ONE of them is Mercaria's to name
+ *
+ * A native `Store` is a Mercaria-local organisation with its own handle, brand
+ * and policies and NO Oxy account behind it, so Mercaria defines
+ * `mercaria.store` in its own namespace at its own URI.
+ *
+ * A P2P SELLER is a person — an Oxy account (`Seller.oxyUserId`) — and is
+ * followed under the PLATFORM kind `oxy.user` at Oxy's own canonical user URI.
+ * Mercaria neither claims the `oxy` namespace nor registers that kind (the
+ * registry would refuse: `namespace_not_owned`), and nothing here may define a
+ * `mercaria.*` kind for a person. A `follow_targets` row carries ONE kind and
+ * `ensureFollowTarget` is idempotent on the URI, so whoever registers a URI
+ * first fixes its kind permanently: a person registered under `mercaria.*` at a
+ * `mercaria.co` URI would have their followers split from the identity every
+ * other Oxy app already follows, with no repair short of a data migration.
+ * `SELLER_FORBIDDEN_FOLLOW_KINDS` in `@mercaria/shared-types` names that
+ * prohibition as a value, and `seller-identity-isolation.test.ts` scans this
+ * file and fails the build on it.
+ *
  * See `@oxyhq/services` `docs/FOLLOWS.md` for the design this joins.
  */
 
@@ -15,7 +34,15 @@ import type { OxyServices } from '@oxyhq/core';
 /** Mercaria's namespace in the shared graph. Claimed once; ours permanently. */
 const FOLLOW_NAMESPACE = 'mercaria';
 
-/** The one kind Mercaria defines today: a shop a buyer wants to hear from. */
+/**
+ * The one kind Mercaria defines, today and by design: a shop a buyer wants to
+ * hear from.
+ *
+ * A PERSON's kind is not here and must never be added — `SELLER_FOLLOW_KIND`
+ * (`oxy.user`) and `oxyUserFollowUri` live in `@mercaria/shared-types`, are
+ * imported directly by `lib/hooks/use-seller-follow.ts`, and belong to the
+ * platform rather than to this namespace.
+ */
 export const STORE_FOLLOW_KIND = 'mercaria.store';
 
 /**

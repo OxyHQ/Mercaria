@@ -1323,6 +1323,81 @@ retention review in `docs/analytics.md` is recorded.
   `GUEST_CART_DISABLED`/`GUEST_ISSUANCE_DISABLED` precisely because both are
   bounded `ErrorCode`s.
 
+## Public P2P seller profiles (#92): a seller is an Oxy account
+
+`services/sellers/` (4 modules) + `routes/public-sellers.ts` +
+`@mercaria/shared-types` `seller-profile.ts`, plus the storefront's
+`app/(app)/sellers/[oxyUserId].tsx` and `components/seller/`. Full reference:
+**`docs/seller-profiles.md`**. NO new tables and NO migration — the whole
+domain is a projection over `listings`, `seller_profiles`, `review_aggregates`
+and Oxy.
+
+- **A person is followed as `oxy.user`, never a `mercaria.*` kind**, at
+  `https://oxy.so/users/<oxyUserId>` and never a `mercaria.co` URI. A
+  `follow_targets` row carries ONE kind and `ensureFollowTarget` is idempotent
+  on the URI, so whoever registers a URI FIRST fixes that human being's kind
+  permanently and splits their followers from every other Oxy app, with no
+  repair short of a data migration. Mercaria neither claims the `oxy` namespace
+  nor `registerFollowKind`s it (the registry refuses); `mercaria.store` stays
+  Mercaria's because a store has no Oxy account behind it.
+  `seller-identity-isolation.test.ts` scans BOTH packages — the one file that
+  could make this mistake is a storefront file, and the storefront has no test
+  runner — and is mutation-tested.
+- **`ensureFollowTarget` passes `uri` AND `localUserId`, and no `metadata`.**
+  The server derives the id from the URI and refuses a mismatch, so passing both
+  is a consistency assertion; metadata is refreshed only for the app that
+  PROVIDES a target, and Oxy provides this one — pushing Mercaria's idea of a
+  person's name would overwrite their identity for every Oxy surface.
+- **Mercaria stores NO follow state**: no table, no endpoint, no DTO field, no
+  follower list. `FollowTargetButton` reading Oxy's graph is why the profile and
+  the product-page seller card always agree.
+- **Visibility is DERIVED per request, never stored** (the #57
+  `deriveNativeCheckoutEligibility` divergence from the one-stored-verdict rule)
+  — `visible | private | restricted`, with deleted/unresolvable/blocked all
+  answered by ONE indistinguishable 404, because a distinguishable response is
+  an oracle. Privacy is checked BEFORE trust: reporting `trust_restricted` for a
+  private account leaks Oxy Trust's opinion of somebody who asked to be hidden.
+- **An absent Oxy Trust signal withholds nothing.** `null` covers both "never
+  scored" and "read failed"; restricting on absence turns an outage into a
+  marketplace-wide delisting. The policy itself is ONE named constant
+  (`SELLER_TRUST_RESTRICTED_TIERS = ['restricted']`) — #92's "explicit policy,
+  not a client guess". Mercaria computes no trust score and manufactures none
+  from listing/follow/sales counts.
+- **Viewer-scoped questions use the VIEWER's own bearer**, via a short-lived
+  `OxyServices` per signed-in request — never `oxyClient.setTokens(...)` on the
+  module-level singleton, which would leak one caller's session into another's
+  concurrent read. Block check is `getViewerGraph()` (ids only, keep the
+  boolean); it fails OPEN, the profile read fails CLOSED.
+- **The projection names every field** (the `provider_accounts` #46 precedent)
+  and `SELLER_PROFILE_FORBIDDEN_FIELDS` names the prohibition as a VALUE —
+  contact/location, payment onboarding, follower identities. Two gates: the
+  scanned static one and a RUNTIME walk of a real emitted profile.
+- **`owner_type = 'user'` is stated explicitly in the listings predicate**, not
+  left to `listings_owner_exclusivity_check` — a store's stock must never read
+  as a person's inventory (acceptance 4), and this is the one query where a
+  future widening of that CHECK would disclose it. `status = 'active'` excludes
+  `restricted`, which is what a takedown writes.
+- **Keyset paging on the EXISTING
+  `listings_owner_user_status_published_at_id_idx`**; both NULL branches of the
+  cursor comparison are written out, because SQL row comparison with a NULL
+  member yields NULL rather than true and would drop every undated row. The
+  LISTINGS route runs the same access gate as the profile route — otherwise a
+  client that skips the profile call pages through a private seller's inventory.
+- **Only the `p2p_seller` #76 aggregate appears**, under its own scope label;
+  product and item-condition ratings answer different questions about different
+  targets. Display name is the sanctioned coalesce, now applied in ONE place
+  (`toOxyProfile` in `oxy-user.service.ts`) that every seller card, review
+  author, order seller and cart line already flows through.
+- Surface: `GET /sellers/:oxyUserId` and `/sellers/:oxyUserId/listings`, both
+  `optionalAuth`, both on the dedicated `rl:sellers:` bucket (the route is keyed
+  on an Oxy ACCOUNT ID, so enumeration is the risk). `/sellers` (plural) is
+  public; `/seller` (singular) is the seller's own management surface. Report
+  goes to `POST /reports` with `reportedType: 'seller'` — stored locally by
+  design, and the UI never says whether it will be reviewed.
+- Deferred: seller-authored profile content, ranking use of any signal here
+  (#74), coarse local-discovery hints (they belong to a LISTING), and blocking
+  from inside Mercaria (Oxy owns that graph).
+
 ## CrowdSource moderation: reports, cases, decisions, enforcement
 
 Abuse reports leave Mercaria durably, CrowdSource decides them with a randomly

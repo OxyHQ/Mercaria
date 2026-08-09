@@ -26,6 +26,13 @@ export type RateLimitScope =
   | 'listings'
   | 'feed'
   | 'stores'
+  // The PUBLIC P2P seller profile (#92, privacy rule 5). Its own bucket
+  // (`rl:sellers:`) rather than sharing `'stores'`, because the risk is
+  // different in kind: this route is keyed on an Oxy ACCOUNT ID, so an
+  // unmetered surface is a way to walk the id space and learn which Oxy
+  // accounts sell here and what they sell. Sharing the shop page's budget would
+  // mean a crawler either exhausts shopping for everyone or is not bounded.
+  | 'sellers'
   | 'cart'
   | 'checkout'
   | 'orders'

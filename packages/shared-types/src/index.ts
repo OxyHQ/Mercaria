@@ -14,6 +14,13 @@ export * from './money';
 // Seller DTO.
 export * from './seller';
 
+// The PUBLIC P2P seller profile (#92) — the projection a seller page renders,
+// the closed visibility/withholding vocabulary, the one follow kind a person
+// may carry (`oxy.user`) and the forbidden kinds and fields that make "no
+// Mercaria person identity" and "no contact, location or payment data" values a
+// gate can fail the build on. PRECEDES `./listing`, which carries `Seller`.
+export * from './seller-profile';
+
 // Product variant DTO (ProductVariantDTO, VariantOptionValue).
 export * from './variant';
 

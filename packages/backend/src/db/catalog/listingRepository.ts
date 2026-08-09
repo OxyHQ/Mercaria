@@ -491,6 +491,122 @@ export async function findListingsPageForSeller(
 }
 
 /**
+ * The predicate for a P2P seller's PUBLIC inventory (#92).
+ *
+ * Three conjuncts and every one of them is load-bearing:
+ *
+ *  - `owner_type = 'user'` is #92 acceptance 4 and listing rule 8 — a seller
+ *    page must never show a store's stock as a person's own inventory merely
+ *    because that person operates the store. It is not redundant beside the
+ *    `oxy_user_id` match: `listings_owner_exclusivity_check` guarantees a
+ *    store-owned row has a NULL `oxy_user_id` TODAY, so stating only the id
+ *    would be relying on a schema invariant a future widening could relax, in
+ *    the one query where relaxing it discloses a shop's stock as somebody's
+ *    second-hand goods. Stating both makes it independent of that.
+ *  - `oxy_user_id` is the seller.
+ *  - `status = 'active'` is listing rule 5: sold, archived, restricted and
+ *    draft listings are not public. `restricted` is the one that matters most —
+ *    it is what a CrowdSource takedown writes, and a seller page reading any
+ *    other status would keep a delisted item visible on the one page most
+ *    likely to be linked from a report.
+ *
+ * Written ONCE and shared by the page, the count and the "seller since" read,
+ * so the three cannot disagree about what "public" means.
+ */
+function activeSellerListingsWhere(oxyUserId: string): SQL {
+  const predicate = and(
+    eq(listings.ownerType, 'user'),
+    eq(listings.oxyUserId, oxyUserId),
+    eq(listings.status, 'active'),
+  );
+  // Three non-undefined predicates always produce one, so this never throws —
+  // it exists so a future edit that drops a conjunct fails loudly instead of
+  // silently widening the predicate to the whole table.
+  if (!predicate) throw new Error('activeSellerListingsWhere produced no predicate');
+  return predicate;
+}
+
+/**
+ * One KEYSET page of a seller's public listings, newest first.
+ *
+ * Keyset and not offset (#92 listing rule 6): a seller publishes and archives
+ * while somebody is paging, and an offset silently skips or repeats rows
+ * exactly when they do. `after` is the last row of the previous page, and the
+ * ordering is the SAME `published_at desc nulls last, id desc nulls last` every
+ * other feed here uses (see the module header for why `desc()` is not that).
+ *
+ * `listings_owner_user_status_published_at_id_idx` already serves the whole
+ * thing — predicate, order and cursor — so this adds no index and no migration.
+ *
+ * Fetching `limit + 1` is the caller's job: the extra row answers "is there
+ * more" without a second count query, and its existence IS the cursor.
+ */
+export async function findActiveSellerListingsKeyset(
+  oxyUserId: string,
+  limit: number,
+  after: { publishedAt: Date | null; id: string } | undefined,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ListingRecord[]> {
+  const predicates: SQL[] = [activeSellerListingsWhere(oxyUserId)];
+
+  if (after) {
+    // NULL `published_at` sorts LAST, so a cursor on a NULL row has only the id
+    // left to discriminate by, and a cursor on a dated row also admits every
+    // NULL row behind it. Both branches are written out because that is what
+    // keeps the comparison agreeing with the index's `nulls last`: a plain
+    // `(published_at, id) < (?, ?)` row comparison does not, since SQL row
+    // comparison with a NULL member yields NULL rather than true.
+    predicates.push(
+      after.publishedAt === null
+        ? sql`${listings.publishedAt} is null and ${listings.id} < ${after.id}`
+        : sql`(${listings.publishedAt} < ${after.publishedAt.toISOString()}
+               or (${listings.publishedAt} = ${after.publishedAt.toISOString()} and ${listings.id} < ${after.id})
+               or ${listings.publishedAt} is null)`,
+    );
+  }
+
+  return db
+    .select()
+    .from(listings)
+    .where(and(...predicates))
+    .orderBy(...NEWEST_FIRST)
+    .limit(limit);
+}
+
+/** How many listings a seller currently has on public display. */
+export async function countActiveSellerListings(
+  oxyUserId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(listings)
+    .where(activeSellerListingsWhere(oxyUserId));
+  return row?.count ?? 0;
+}
+
+/**
+ * When a seller first PUBLISHED anything, or `null` if they never have.
+ *
+ * Across every status, not just the active ones: "seller since" is a fact about
+ * when this person started selling, and a seller whose first three items all
+ * sold has not become newer. `null` is a real answer and the caller renders
+ * nothing rather than a substitute date — a lazily-created `seller_profiles`
+ * row dates the moment somebody opened a screen, which is a fact about their
+ * browsing and not about their selling.
+ */
+export async function findSellerFirstPublishedAt(
+  oxyUserId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<Date | null> {
+  const [row] = await db
+    .select({ firstPublishedAt: sql<Date | null>`min(${listings.publishedAt})` })
+    .from(listings)
+    .where(and(eq(listings.ownerType, 'user'), eq(listings.oxyUserId, oxyUserId)));
+  return row?.firstPublishedAt ?? null;
+}
+
+/**
  * A page of a store's listings in ANY status — the dashboard product list.
  *
  * Separate from {@link findActiveStoreListingsPage} because the storefront must
