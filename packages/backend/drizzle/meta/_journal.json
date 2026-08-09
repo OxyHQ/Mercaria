@@ -120,6 +120,13 @@
       "when": 1786237996911,
       "tag": "0016_volatile_wiccan",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786241264585,
+      "tag": "0017_far_smasher",
+      "breakpoints": true
     }
   ]
 }

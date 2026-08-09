@@ -45,6 +45,7 @@ import stripeOnboardingRouter from './routes/stripe-onboarding.js';
 import internalPaymentsRouter from './routes/internal-payments.js';
 import merchantsRouter from './routes/merchants.js';
 import storefrontsRouter from './routes/storefronts.js';
+import brandRelationshipsRouter from './routes/brand-relationships.js';
 import internalCommerceGraphRouter from './routes/internal-commerce-graph.js';
 import guestSessionRouter from './routes/guest-session.js';
 import { config } from './config/index.js';
@@ -194,6 +195,11 @@ export function createApp(): express.Express {
   // identity reads…
   app.use('/merchants', merchantsRouter);
   app.use('/storefronts', storefrontsRouter);
+  // …the VERIFIED relationship reads (#55): official-store and
+  // authorized-reseller status, scoped to a market and an instant. Public,
+  // because a verified relationship is public catalogue identity; the evidence
+  // behind it is not, and the projection has no field to carry it.
+  app.use('/brand-relationships', brandRelationshipsRouter);
   // …and the graph's operator surface, gated exactly as /internal/payments is
   // (its own allow-list; empty = not mounted, 404 — see
   // middleware/catalog-operator-authz.ts).
@@ -232,6 +238,7 @@ export function createApp(): express.Express {
         '/stripe/onboarding',
         '/merchants',
         '/storefronts',
+        '/brand-relationships',
         '/guest/session',
         // `/internal/payments` and `/internal/commerce-graph` are deliberately
         // ABSENT, and this is not an

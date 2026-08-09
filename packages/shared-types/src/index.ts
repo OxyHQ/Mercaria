@@ -116,3 +116,8 @@ export * from './referral';
 // Marketplace fee vocabulary (#88): commercial modes, fee schedule value sets
 // and the merchant-facing schedule/acceptance/preview/snapshot DTOs.
 export * from './fees';
+
+// Verified organization/brand/official-store relationships and their evidence
+// (#55, ADR 0002 D10/D11/D17) — typed, scoped, temporal, evidence-backed claims,
+// plus the public badge vocabulary a product or brand page may render.
+export * from './relationship';

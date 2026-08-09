@@ -688,6 +688,98 @@ natural-unique idempotency. What is #54's own:
   now. That is the mechanism working as designed, recorded here so the next
   parallel schema batch reuses it instead of inventing one.
 
+### The relationship layer of the same graph (#55, ADR 0002 D10/D11/D17)
+
+Three more Postgres-born tables, in `relationships.ts`: `commerce_relationships`,
+`relationship_evidence`, `relationship_reviews`. A relationship is a typed,
+scoped, temporal, evidence-gated CLAIM between two canonical entities — never a
+boolean on an entity and never derivable from a name, a logo or a domain. The
+decisions that make their shapes answerable:
+
+- **Closed sets from shared-types tuples**, as everywhere else:
+  `RELATIONSHIP_KINDS`, `RELATIONSHIP_VERIFICATION_STATES`,
+  `RELATIONSHIP_ASSERTED_BY_KINDS`, `RELATIONSHIP_VERIFICATION_METHODS`,
+  `RELATIONSHIP_EVIDENCE_KINDS`, `RELATIONSHIP_EVIDENCE_STATUSES`,
+  `RELATIONSHIP_REVIEW_ACTIONS` — each rendered into its CHECK by `checkOneOf`.
+  `verification_method` has NO `name_match` member, the
+  `NATIVE_STORE_LINK_METHODS` device: "verified because the name matched" has no
+  value to be stored as.
+- **Endpoints are FIVE nullable FK columns plus a per-kind CHECK**, not four
+  (ADR D17) and not a polymorphic `{type, id}` quad. Four cover one column per
+  entity kind; the fifth, `related_brand_id`, is the OBJECT side of
+  `brand_succeeds_brand` — the issue's ninth relationship type, whose two ends
+  are both brands. A polymorphic quad would give up every foreign key in the
+  table to solve a problem exactly one kind has. The CHECK's `else false` branch
+  is load-bearing: an unrecognised kind is unrepresentable even with the kind
+  CHECK removed, so widening the tuple without widening the CHECK fails the
+  first write instead of admitting an endpoint-less row.
+- **`product_family_id` is the batch's second DEFERRED foreign key**, waiting on
+  #56's `canonical_product_families` (RESTRICT per D20). The gate flips it into
+  a real `.references()` the moment that table lands — the mechanism #54's
+  section records, used a second time exactly as designed.
+- **Three of the issue's nine relationship types are deliberately NOT kinds.**
+  *merchant operates storefront* is `storefronts.merchant_id`, *brand contains
+  product family* and *brand markets product* resolve through
+  `canonical_product_families.brand_id` (D17: containment is a foreign key,
+  assertable and temporal facts are rows). `STRUCTURAL_GRAPH_FACTS` in
+  shared-types names each one and where it lives, and
+  `services/commerce-graph/__tests__/relationship-kinds.test.ts` fails the build
+  if a kind ever duplicates one.
+- **`status` is ONE stored verdict and `confidence` is NOT a weaker form of it.**
+  The six states are the ISSUE's vocabulary, a superset of ADR D17's four:
+  `candidate` IS the ADR's `asserted` under the issue's name (nothing had been
+  written to this table, so the rename cost nothing), and `pending_review` and
+  `expired` are added — `pending_review` because a self-claim asking for a
+  decision is a different fact from one sitting unasked, `expired` because the
+  operator workflow has an explicit expire action. `expired`/`revoked` both
+  CHECK-require `valid_to`, and the public resolver requires the temporal window
+  as well as the status, so a lapsed claim produces no badge whether or not a
+  sweep has run. `confidence` is CHECK-restricted to rows an ingestion source
+  asserted, so a hand-verified row carries none at all.
+- **`endpoint_key` is GENERATED, and a plain multi-column unique would NOT
+  work.** Postgres treats NULLs as DISTINCT, so a unique over the five nullable
+  endpoint columns admits two rows with identical non-null endpoints and NULL
+  elsewhere — the exact duplicate it exists to refuse. The generated
+  `coalesce(...) || '|' || …` key (both functions IMMUTABLE) collapses them into
+  one text value, and the partial unique `(kind, endpoint_key) WHERE valid_to IS
+  NULL` uses it. `storefront_id` is part of the key because "official channel via
+  this storefront" and "official channel across every channel" are different
+  claims; `territories` is NOT, because markets are an ARRAY on one row (which is
+  what makes overlap detection unnecessary for identical endpoints).
+- **Two scope columns are shape-CHECKed rather than containment-CHECKed**, which
+  deviates from D17's wording with a stated reason: `territories` scopes the same
+  markets `storefronts.country` does one table over, and that column is
+  `~ '^[A-Z]{2}$'`. Two different validations of one vocabulary inside one graph
+  is the disagreement these conventions exist to prevent. Element-wise shape on a
+  `text[]` cannot use `unnest` (a CHECK admits no subquery), so both go through
+  `mercaria_immutable_array_to_string` — migration 0006's narrowed IMMUTABLE
+  wrapper, reused here for its second purpose. `'{}'` means WORLDWIDE / every
+  language: a relationship is a positive fact scoped down, the OPPOSITE of
+  `supplier_agreements`' empty scope, which is a grant and means none.
+- **`relationship_evidence` is typed rows, never a jsonb blob** (D17). A
+  `brand_statement` CHECK-requires BOTH its URL and its content digest, so the
+  claim survives the page changing; `domain_control` CHECK-requires
+  `subject_domain` and every other kind CHECK-forbids it, which is what keeps
+  "control of that hostname" from reading as proof of anything else; every kind
+  but `operator_attestation` must carry a locator. Revoking or expiring evidence
+  moves `status` and never deletes — the relationship it backed is untouched, and
+  the resulting gap surfaces as a `verified_without_active_evidence` conflict.
+- **`relationship_reviews` is append-only by TRIGGER and is also the four-eyes
+  MECHANISM.** `mercaria_relationship_review_append_only` refuses UPDATE and
+  DELETE (the `order_fee_snapshots` precedent), and the partial unique
+  `(relationship_id, review_round, actor_oxy_user_id) WHERE action = 'approve'`
+  is what makes a second endorsement by one operator impossible rather than
+  merely refused. `review_round` on the parent advances with every decision, so
+  an approval given for one version cannot be reused for the next — without
+  which "request more evidence, then approve alone" would defeat the rule.
+- **Both child tables are RESTRICT, not CASCADE**, though both are children
+  (D20): audit rows must be able to BLOCK a delete, not vanish with the row they
+  justify. Nothing in this layer is hard-deleted by a production flow —
+  expiry and revocation stamp `valid_to`, and a correction opens a NEW row linked
+  back through the `superseded_by_id` self-FK.
+- **Zero new `jsonb`.** Nothing in this layer earned a register row: every
+  evidence field a reviewer or a re-check needs is a real column.
+
 ### The guest domain has NO source model either
 
 `guest_sessions` (`schema/guests.ts`, `drizzle/0013_guest_sessions.sql`) was
@@ -976,6 +1068,11 @@ add a row when a gate lands, and do not list one that does not run yet.
 | A ledger transaction balances to zero per currency, and its rows refuse UPDATE and DELETE | `src/db/payments/__tests__/ledger.realdb.test.ts` | yes |
 | A published fee schedule version refuses every economic edit and any DELETE; at most one active version per key; snapshots and acceptances refuse UPDATE and DELETE; the snapshot CHECKs refuse a `mercaria_retail` fee, a schedule-less `calculated` row and a fee above its basis | `src/db/fees/__tests__/fee-schedules.realdb.test.ts` | yes |
 | No feed/search/catalogue-read module can reference the fee domain (organic-ranking isolation, #88 trust rule 1) | `src/services/fees/__tests__/fee-ranking-isolation.test.ts` | no |
+| Verification cannot become a PAID boost (#55 product behaviour 5): a relationship carries no commercial column, the relationship domain imports no fee/payment/referral module, and no ranking module reads the relationship domain today | `src/services/commerce-graph/__tests__/relationship-ranking-isolation.test.ts` | no |
+| Every relationship kind constrains its subject and object entity kinds; all NINE of #55's relationship types are answered, and never one of them twice (six kinds + three structural foreign keys) | `src/services/commerce-graph/__tests__/relationship-kinds.test.ts` | no |
+| An ingestion source cannot verify; a merchant self-claim is not self-verifying; domain control is insufficient for a brand badge and sufficient for the fact it proves; four eyes covers exactly the badge kinds; no ending is reversible | `src/services/commerce-graph/__tests__/relationship-authority.test.ts` | no |
+| Every conflict kind fires on its shape and NOT on its near miss (disjoint markets, succession chains, another relationship's revoked evidence, a future-dated claim) | `src/services/commerce-graph/__tests__/relationship-conflicts.test.ts` | no |
+| The per-kind endpoint CHECK accepts each kind's own pair and refuses every wrong one; a duplicate open claim is refused by the index AND by the service; ≤1 verified brand owner while two candidates coexist; a badge needs two DISTINCT operators; a market-scoped claim answers ES and not DE; a claim that expired yesterday produces no badge while still marked verified; revocation keeps the row, its verification facts, its evidence and its reviews; review rows refuse UPDATE and DELETE; the public projection carries exactly fourteen safe fields | `src/db/__tests__/relationships.realdb.test.ts` | yes |
 | The order status CAS refuses a stale `expected`, so two concurrent transitions produce exactly ONE winner and one history event | `src/db/__tests__/commerce.realdb.test.ts` | yes |
 | A discount's total-usage ceiling holds under two CONCURRENT redemptions at `totalMax - 1` | `src/db/__tests__/commerce.realdb.test.ts` | yes |
 | A replayed checkout's duplicate is refused by `orders_idempotency_key_key` and the survivor is findable by that key | `src/db/__tests__/commerce.realdb.test.ts` | yes |

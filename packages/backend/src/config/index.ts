@@ -714,6 +714,18 @@ export interface CatalogConfig {
    * the list. Empty list = the surface is not mounted at all (404, never 401).
    */
   readonly graphOperatorSurfaceEnabled: boolean;
+  /**
+   * Whether verifying a BADGE-producing relationship (#55) needs a second
+   * operator's approval — `CATALOG_FOUR_EYES_REQUIRED`, defaulting ON.
+   *
+   * Fail-closed is the right default here specifically because the artefact is a
+   * public claim about who a shopper is dealing with: an "Official store" badge
+   * minted in error misleads a buyer and is invisible to them, so the cost of
+   * requiring a second pair of eyes is a delay and the cost of not requiring one
+   * is a false statement. A single-operator deployment turns it off
+   * deliberately, rather than discovering it was never on.
+   */
+  readonly relationshipFourEyesRequired: boolean;
 }
 
 export interface FeedConfig {
@@ -867,6 +879,7 @@ export const config: AppConfig = Object.freeze({
     maxImagesPerListing: intEnv('MAX_IMAGES_PER_LISTING', 12),
     graphOperatorOxyUserIds: Object.freeze(resolveCatalogOperatorIds()),
     graphOperatorSurfaceEnabled: resolveCatalogOperatorIds().length > 0,
+    relationshipFourEyesRequired: boolEnv('CATALOG_FOUR_EYES_REQUIRED', true),
   }),
   feed: Object.freeze({
     cacheTtlSeconds: intEnv('FEED_CACHE_TTL_SECONDS', 60),

@@ -56,17 +56,20 @@
 
 import type { DeferredForeignKey } from '@oxyhq/db/assert';
 import { procurementOffers } from './schema/procurement';
+import { commerceRelationships } from './schema/relationships';
 
 /**
  * Relations decided but not yet expressible — each one owes a `.references()`.
  *
- * The two entries are #118's canonical-variant mapping, waiting on #56's
- * `canonical_products` / `canonical_variants`. The moment those tables land,
- * this gate fails and the entries must become real foreign keys — which is the
- * ledger working as designed, not a breakage. `restrict` per ADR 0002 D20:
- * canonical rows are never hard-deleted, and an offer's mapping must not be
- * able to vanish out from under it. (The PO LINE copies of these columns stay
- * permanently unconstrained below — they are snapshots.)
+ * All three entries wait on #56's canonical catalogue tables: #118's
+ * canonical-variant mapping on `canonical_products` / `canonical_variants`, and
+ * #55's manufacturing endpoint on `canonical_product_families`. The moment
+ * those tables land, this gate fails and the entries must become real foreign
+ * keys — which is the ledger working as designed, not a breakage. `restrict`
+ * per ADR 0002 D20: canonical rows are never hard-deleted, and neither an
+ * offer's mapping nor an evidence-backed relationship's endpoint may vanish out
+ * from under it. (The PO LINE copies of these columns stay permanently
+ * unconstrained below — they are snapshots.)
  */
 export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [
   {
@@ -87,6 +90,17 @@ export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [
     onDelete: 'restrict',
     reason:
       'The exact-variant half of the mapping above — same target domain, same rule.',
+  },
+  {
+    table: commerceRelationships,
+    column: commerceRelationships.productFamilyId,
+    parentTable: 'canonical_product_families',
+    parentColumn: 'id',
+    onDelete: 'restrict',
+    reason:
+      "The object endpoint of an `organization_manufactures` claim (#55, ADR 0002 D11), " +
+      'waiting on #56. RESTRICT because the relationship is evidence-backed history: a ' +
+      'family cannot be deleted out from under a claim that cites it.',
   },
 ];
 
@@ -424,6 +438,20 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'native_store_links.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'native_store_links.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'storefronts.external_shop_id', reason: EXTERNAL_PLATFORM },
+
+  // ── Canonical commerce graph (#55, ADR 0002 D17) ──────────────────────────
+  //
+  // Every ENTITY endpoint on `commerce_relationships` is a real `.references()`;
+  // only `product_family_id` is deferred above, waiting on #56. What remains
+  // here is the actor trail — the people a verdict names — which is Oxy's key
+  // space in every row.
+  { column: 'commerce_relationships.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'commerce_relationships.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'commerce_relationships.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'relationship_evidence.collected_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'relationship_evidence.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'relationship_evidence.oxy_file_id', reason: OXY_FILE },
+  { column: 'relationship_reviews.actor_oxy_user_id', reason: OXY_ACCOUNT },
 
   // ── Procurement (#118): supplier-platform ids, correlations and snapshots ─
   //
