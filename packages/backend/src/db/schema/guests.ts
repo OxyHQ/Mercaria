@@ -66,6 +66,7 @@ import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
   CART_MERGE_REASON_CODES,
   GUEST_CLIENT_CLASSES,
+  GUEST_CONTACT_POLICY_VERSION,
   GUEST_CONTACT_VERIFICATION_STAGES,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
@@ -306,6 +307,37 @@ export const guestCheckouts = pgTable(
       .notNull()
       .default('pending'),
     /**
+     * WHEN the contact inbox was proven (#106 GuestCheckout rule 3).
+     *
+     * The stage says whether verification happened before or after payment; the
+     * timestamp says when, which is what a support conversation and a retention
+     * audit both actually need. Kept as a second column rather than derived
+     * from the stage, because a stage is a classification and an instant is a
+     * fact — and `pre_payment` on a row created three weeks ago answers neither
+     * "when" nor "how long ago".
+     *
+     * Present exactly when the stage is not `pending`
+     * (`guest_checkouts_contact_verified_at_check`). #108 owns the transition
+     * and is the only writer of the pair.
+     */
+    contactVerifiedAt: timestamptz(),
+    /**
+     * Which contact POLICY version this row's values were captured under (#106
+     * GuestCheckout rule 7).
+     *
+     * Email normalization, redaction and retention are policy (ADR 0003
+     * D12/D15), and a stored contact must say which version of it produced the
+     * stored forms — otherwise changing the normalization rule silently
+     * reinterprets every row already written under the old one. The versioned
+     * attribute-definition and fee-schedule reasoning, applied to a person's
+     * details: a policy change schedules a re-derivation instead of quietly
+     * changing what a stored value means.
+     *
+     * NOT NULL with a default so the migration fills existing rows without a
+     * rewrite; the value is the version #105 actually wrote them under.
+     */
+    contactPolicyVersion: text().notNull().default(GUEST_CONTACT_POLICY_VERSION),
+    /**
      * Marketing consent, captured at this checkout.
      *
      * A column of its OWN and defaulting to false, because permission to send a
@@ -364,6 +396,14 @@ export const guestCheckouts = pgTable(
     check(
       'guest_checkouts_phone_pair_check',
       sql`num_nonnulls(${t.phoneCiphertext}, ${t.phoneRedacted}) in (0, 2)`,
+    ),
+    // A verification INSTANT exists exactly when the stage says one happened.
+    // A biconditional rather than two implications, because both halves are
+    // real failures: a verified stage with no instant cannot answer "when", and
+    // an instant on a `pending` row claims a proof that never occurred.
+    check(
+      'guest_checkouts_contact_verified_at_check',
+      sql`(${t.contactVerificationStage} = 'pending') = (${t.contactVerifiedAt} is null)`,
     ),
   ],
 );

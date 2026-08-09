@@ -53,37 +53,27 @@ export interface AnalyticsSeam {
 }
 
 /** Every seam, keyed by the owning issue. */
+/**
+ * `#106` is CLOSED, and it is the first entry this list has lost.
+ *
+ * It is worth recording how, because the shape generalises to the seven below.
+ * #77 did not defer those six event types because the gates were unbuilt — they
+ * already ran, on every guest checkout, since #105. It deferred them because
+ * every refusal was a generic `conflict()` carrying a SENTENCE, so classifying
+ * one would have meant matching message text: silently wrong the first time
+ * somebody improved the wording, and undetectable when it went wrong. Emitting
+ * only the ACCEPTED half was the other option and was worse, because
+ * `guest_eligibility_coverage` would have read a confident permanent 100%.
+ *
+ * What #106 supplied was not an event. It was `CheckoutRefusalReason` — a
+ * closed vocabulary in the CHECKOUT domain, thrown by the gates as a typed
+ * `CheckoutRefusal`, mapped to `ANALYTICS_REASON_CODES` by one exhaustive
+ * `Record` in `checkout.controller.ts` that fails `tsc` if a reason is added
+ * without deciding how it is measured. Then both halves emit and nothing is
+ * fabricated. The entries below want the same thing: a bounded fact the
+ * emitting domain already owns, never a string parsed after the event.
+ */
 export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
-  {
-    issue: '#106',
-    capability: 'Guest buyers on orders — contact/destination validation and the eligibility gate',
-    eventTypes: [
-      'guest_contact_validated',
-      'guest_contact_validation_failed',
-      'guest_destination_validated',
-      'guest_destination_validation_failed',
-      'guest_eligibility_accepted',
-      'guest_eligibility_rejected',
-    ],
-    metricKeys: ['guest_eligibility_coverage'],
-    contract:
-      'These six are deferred for a reason worth reading, because the gates they describe ' +
-      'ALREADY RUN: #105 landed `assertGuestSellerTypesAllowed` (ADR 0003 D18’s P2P exclusion), ' +
-      '`assertDestinationCountrySupported` and `assertSellerGroupsAcceptDestination`, and a ' +
-      'guest checkout passes through all three today. What they do not have is a BOUNDED ' +
-      'refusal: each raises a generic `conflict()` carrying a sentence, so classifying one into ' +
-      'a reason code would mean matching on message text — which is the fabricated event this ' +
-      'file exists to refuse, and which would silently mis-classify the first time somebody ' +
-      'improved the wording. Emitting only the ACCEPTED half was the other option and is ' +
-      'worse: `guest_eligibility_coverage` would read a permanent, confident 100%. So the ' +
-      'metric names this seam and reads as unmeasurable instead. #106 owes each refusal an ' +
-      'error CODE from `ANALYTICS_REASON_CODES` (the members are already there — ' +
-      '`p2p_seller_excluded`, `market_not_supported`, `destination_unsupported`, ' +
-      '`seller_not_payment_ready`), after which both halves emit from the checkout controller ' +
-      'with no further design. The validation events must carry the OUTCOME and nothing else: ' +
-      'no email, no phone, no address line — `guest_checkouts` holds the contact and this ' +
-      'domain has no column for any of it.',
-  },
   {
     issue: '#107',
     capability: 'Stripe guest checkout — payment methods, action-required, verified success',

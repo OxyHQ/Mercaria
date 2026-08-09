@@ -21,6 +21,11 @@ vi.mock('../../db/stores/storeRepository.js', () => ({ findStoreById: vi.fn() })
 
 vi.mock('../../services/order.service.js', () => ({
   transition: (...args: unknown[]) => transition(...args),
+  // The sweep names itself as the SYSTEM actor (#106, ADR 0003 D16). The mock
+  // must carry it: reading a name a `vi.mock` factory does not export throws
+  // inside the handler's own try/catch, which shows up as "transition was never
+  // called" rather than as an import error.
+  SYSTEM_ACTOR: { kind: 'system' },
 }));
 
 vi.mock('../../lib/notification-service.js', () => ({
@@ -45,7 +50,10 @@ describe('handleExpireReservations', () => {
     expect(transition).toHaveBeenCalledWith(
       stale,
       'cancelled',
-      expect.objectContaining({ note: 'reservation expired' }),
+      expect.objectContaining({
+        note: 'reservation expired',
+        actor: { kind: 'system' },
+      }),
     );
   });
 

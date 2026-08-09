@@ -212,7 +212,7 @@ describe('a frozen order cannot move', () => {
      * placed yesterday would be packed and shipped while its case is still open.
      */
     await expect(
-      transition(orderRecord() as never, 'processing', { actorOxyUserId: 'seller-1' }),
+      transition(orderRecord() as never, 'processing', { actor: { kind: 'oxy', oxyUserId: 'seller-1' } }),
     ).rejects.toThrow(/held pending a moderation decision/i);
   });
 
@@ -223,7 +223,7 @@ describe('a frozen order cannot move', () => {
      * questioning, which is the opposite of what the freeze is for.
      */
     await expect(
-      transition(orderRecord() as never, 'cancelled', { actorOxyUserId: 'buyer-1' }),
+      transition(orderRecord() as never, 'cancelled', { actor: { kind: 'oxy', oxyUserId: 'buyer-1' } }),
     ).resolves.toBeDefined();
     expect(transitionOrderStatus).toHaveBeenCalled();
   });
@@ -235,7 +235,7 @@ describe('a frozen order cannot move', () => {
      */
     await expect(
       transition(orderRecord({ moderationHold: null }) as never, 'processing', {
-        actorOxyUserId: 'seller-1',
+        actor: { kind: 'oxy', oxyUserId: 'seller-1' },
       }),
     ).resolves.toBeDefined();
     expect(transitionOrderStatus).toHaveBeenCalled();

@@ -837,8 +837,12 @@ export async function completeDraftOrder(
       appliedDiscounts: toOrderAllocations(pricing.appliedDiscounts),
       taxLines: toOrderTaxLines(pricing.taxLines),
       status: 'pending_payment',
+      // A POS sale is rung up by a signed-in cashier, so the actor is that Oxy
+      // account. POS and draft orders keep `buyer_origin: 'oxy'` and issue no
+      // guest credential (ADR 0003 D7); nothing on this path can produce a
+      // guest actor.
       statusHistory: [
-        { status: 'pending_payment', at: new Date(), byOxyUserId: actorOxyUserId },
+        { status: 'pending_payment', at: new Date(), actorKind: 'oxy', byOxyUserId: actorOxyUserId },
       ],
       // No `paymentProvider` here: it is stamped by the `manual_pos` payment
       // recorded below, which is what actually moves this order to `paid`.

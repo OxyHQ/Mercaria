@@ -12,10 +12,15 @@
  */
 
 import type {
+  BuyerContactProjection,
   CurrencyCode,
   DualMoney,
   FxRateSnapshot,
+  MerchantBuyerLabel,
+  MerchantOrder,
+  MerchantOrderSummary,
   Order as OrderDTO,
+  OrderBuyer,
   OrderItem,
   OrderSummary,
   Seller,
@@ -38,7 +43,10 @@ import {
   type SellerProfileRecord,
 } from '../db/buyers/sellerProfileRepository.js';
 import { findStoresByIds, type StoreRow } from '../db/stores/storeRepository.js';
+import { findGuestContactsByIds } from '../db/guests/guestCheckoutRepository.js';
+import { getDb } from '../db/postgres.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
+import { orderBuyerOf } from './orders/order-buyer.js';
 import { resolveMedia, toMerchantSummary } from './catalog-hydration.service.js';
 
 /**
@@ -243,11 +251,19 @@ function toPaymentInfo(order: OrderRecord): PaymentInfo {
   return dto;
 }
 
-/** Map a persisted status event to the `OrderStatusEvent` DTO. */
+/**
+ * Map a persisted status event to the `OrderStatusEvent` DTO.
+ *
+ * `actorGuestSessionId` cannot be forgotten here, because the row does not
+ * carry it: the column is registered in `db/protectedColumns.ts` and the
+ * repository selects `PUBLIC_STATUS_EVENT_COLUMNS`, so reaching for it fails
+ * `tsc` rather than shipping a guest correlation key to a merchant.
+ */
 function toStatusEvent(event: OrderStatusEventRow): OrderStatusEvent {
   const dto: OrderStatusEvent = {
     status: event.status,
     at: event.at.toISOString(),
+    actorKind: event.actorKind,
   };
   if (event.byOxyUserId) {
     dto.byOxyUserId = event.byOxyUserId;
@@ -259,10 +275,70 @@ function toStatusEvent(event: OrderStatusEventRow): OrderStatusEvent {
 }
 
 /**
+ * The redacted contact projection for a batch of orders (#106 contact rules).
+ *
+ * ONE statement for the whole page, and it reads the order's OWN contact
+ * snapshot — `guest_checkouts`, immutable by trigger and referenced by a
+ * `RESTRICT` foreign key — never a live Oxy profile. That is contact rule 5
+ * mechanically: there is no profile call on this path to forget to remove.
+ *
+ * An `oxy`-origin order gets `{source: 'oxy_account'}` and no value, because
+ * Mercaria stores none: an Oxy buyer's transactional channel is Oxy's own
+ * notification path, and copying their address here would create the profile
+ * mirror ADR 0003 D15 says does not exist. An `external` order gets nothing at
+ * all — its buyer was never Mercaria's contact.
+ *
+ * An ANONYMIZED contact (D15) renders as its stored `deleted`, which is the
+ * honest answer: the erasure reached the one copy, which is precisely what
+ * keeping one copy buys.
+ */
+async function loadBuyerContacts(
+  orders: OrderRecord[],
+): Promise<Map<string, BuyerContactProjection>> {
+  const guestCheckoutIds = [
+    ...new Set(orders.flatMap((o) => (o.buyerGuestCheckoutId ? [o.buyerGuestCheckoutId] : []))),
+  ];
+  const contacts = await findGuestContactsByIds(getDb(), guestCheckoutIds);
+
+  const byOrderId = new Map<string, BuyerContactProjection>();
+  for (const order of orders) {
+    if (order.buyerOrigin === 'oxy') {
+      byOrderId.set(order.id, { source: 'oxy_account' });
+      continue;
+    }
+    if (order.buyerGuestCheckoutId === null) continue;
+    const contact = contacts.get(order.buyerGuestCheckoutId);
+    // A missing row is unrepresentable — the foreign key is `RESTRICT` — so
+    // absence here means the id was never selected, not that the contact is
+    // gone. Skipping beats fabricating an empty projection that would read as
+    // "we have a contact and it is blank".
+    if (!contact) continue;
+    byOrderId.set(order.id, {
+      source: 'guest_checkout',
+      emailRedacted: contact.emailRedacted,
+      ...(contact.phoneRedacted !== null ? { phoneRedacted: contact.phoneRedacted } : {}),
+      verificationStage: contact.contactVerificationStage,
+      marketingOptIn: contact.marketingOptIn,
+      policyVersion: contact.contactPolicyVersion,
+    });
+  }
+  return byOrderId;
+}
+
+/**
  * Batched lookup of the seller (P2P) + store identities referenced by a list of
  * orders: ONE `getProfiles`, ONE `SellerProfile.find`, ONE `Store.find`.
+ *
+ * `extraOxyUserIds` rides the SAME `getProfiles` call rather than adding a
+ * second one — the merchant projection needs buyer handles (ADR 0003 D13's
+ * display label) and `getProfiles` already dedupes across a batch. The buyer's
+ * own projection passes none: a buyer does not need their own handle resolved
+ * to read their order.
  */
-async function loadSellerContext(orders: OrderRecord[]): Promise<{
+async function loadSellerContext(
+  orders: OrderRecord[],
+  extraOxyUserIds: readonly string[] = [],
+): Promise<{
   oxyProfiles: Map<string, OxyProfile>;
   sellerProfileByUser: Map<string, SellerProfileRecord>;
   storeById: Map<string, StoreRow>;
@@ -283,7 +359,7 @@ async function loadSellerContext(orders: OrderRecord[]): Promise<{
     storeIds.length > 0
       ? findStoresByIds(storeIds)
       : Promise.resolve([] as StoreRow[]),
-    getProfiles(userSellerIds),
+    getProfiles([...userSellerIds, ...extraOxyUserIds]),
   ]);
 
   const sellerProfileByUser = new Map<string, SellerProfileRecord>();
@@ -308,13 +384,22 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
     return [];
   }
 
-  const { oxyProfiles, sellerProfileByUser, storeById } = await loadSellerContext(orders);
+  const [{ oxyProfiles, sellerProfileByUser, storeById }, buyerContacts] = await Promise.all([
+    loadSellerContext(orders),
+    loadBuyerContacts(orders),
+  ]);
 
   return orders.map((order) => {
+    const buyer = orderBuyerOf(order);
     const dto: OrderDTO = {
       id: order.id,
       orderNumber: order.orderNumber,
-      buyerOxyUserId: order.buyerOxyUserId,
+      buyer,
+      // The v1 spelling, written only where its old meaning holds: the account
+      // that PLACED the order. A claimed guest order deliberately carries none
+      // — filling it with the claimant would tell an old client that an Oxy
+      // account made a purchase it did not make. See `Order.buyerOxyUserId`.
+      ...(buyer.origin === 'oxy' ? { buyerOxyUserId: buyer.oxyUserId } : {}),
       sellerType: order.sellerType,
       // The column is NOT NULL with a `storefront` default now, so the
       // back-compat coalesce the Mongo path needed is gone: a pre-B5 row acquires
@@ -403,8 +488,108 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
       dto.customerId = order.customerId;
     }
 
+    const contact = buyerContacts.get(order.id);
+    if (contact) {
+      dto.buyerContact = contact;
+    }
+
     return dto;
   });
+}
+
+/**
+ * The buyer's display label as a SELLER sees it — ADR 0003 D13.
+ *
+ * Two branches and no third: a resolved Oxy handle, or the literal `Guest`. An
+ * unresolvable Oxy profile falls back to the account id, which is the same
+ * fallback `toSeller` above already uses and is information the merchant could
+ * read from `buyer.oxyUserId` anyway.
+ *
+ * `Guest` is deliberately not `Guest #4821`, not a masked email and not an
+ * initial: any per-guest label is a correlation key wearing a display name, and
+ * invariant I11 says a seller API must not be able to correlate two of a
+ * guest's purchases. An `external` order gets the same label for a different
+ * reason — its buyer is the source platform's, and Mercaria has no name to
+ * give.
+ */
+function toMerchantBuyerLabel(
+  buyer: OrderBuyer,
+  oxyProfiles: Map<string, OxyProfile>,
+): MerchantBuyerLabel {
+  if (buyer.origin !== 'oxy') {
+    return { displayLabel: GUEST_BUYER_LABEL };
+  }
+  const profile = oxyProfiles.get(buyer.oxyUserId);
+  return {
+    displayLabel: profile?.displayName ?? profile?.username ?? buyer.oxyUserId,
+    oxyUserId: buyer.oxyUserId,
+  };
+}
+
+/**
+ * The ONE label every non-`oxy` buyer gets in a merchant projection.
+ *
+ * A constant rather than an inline literal because it is the thing a test
+ * asserts is IDENTICAL across two different guests' orders — which is the
+ * property, not the spelling.
+ */
+export const GUEST_BUYER_LABEL = 'Guest';
+
+/**
+ * Hydrate orders for the SELLER who fulfils them (#106 DTO rule 2, D13).
+ *
+ * Built by re-projecting the buyer DTO rather than by assembling a second one
+ * from the rows, so a field added to `Order` cannot arrive in a merchant
+ * response without somebody deciding: `MerchantOrder` `Omit`s the three buyer
+ * fields, and the destructure below names every one of them, so adding a fourth
+ * buyer-ish field to `Order` fails `tsc` here until it is classified.
+ *
+ * The `buyerContact` and legacy `buyerOxyUserId` are DISCARDED, not blanked:
+ * they are named on the left of the rest spread so they never enter
+ * `merchantSafe`. A `{...dto}` spread would carry both at runtime while the
+ * TYPE said otherwise, which is the silent version of this leak.
+ */
+export async function hydrateOrdersForMerchant(orders: OrderRecord[]): Promise<MerchantOrder[]> {
+  if (orders.length === 0) {
+    return [];
+  }
+  const buyerOxyUserIds = orders.flatMap((order) =>
+    order.buyerOrigin === 'oxy' && order.buyerOxyUserId ? [order.buyerOxyUserId] : [],
+  );
+  const [dtos, { oxyProfiles }] = await Promise.all([
+    hydrateOrders(orders),
+    loadSellerContext(orders, buyerOxyUserIds),
+  ]);
+
+  return dtos.map((dto) => {
+    const { buyer, buyerOxyUserId, buyerContact, ...merchantSafe } = dto;
+    return { ...merchantSafe, buyer: toMerchantBuyerLabel(buyer, oxyProfiles) };
+  });
+}
+
+/** {@link hydrateOrdersForMerchant}'s list projection. */
+export async function summarizeOrdersForMerchant(
+  orders: OrderRecord[],
+): Promise<MerchantOrderSummary[]> {
+  if (orders.length === 0) {
+    return [];
+  }
+  const buyerOxyUserIds = orders.flatMap((order) =>
+    order.buyerOrigin === 'oxy' && order.buyerOxyUserId ? [order.buyerOxyUserId] : [],
+  );
+  const [summaries, { oxyProfiles }] = await Promise.all([
+    summarizeOrders(orders),
+    loadSellerContext(orders, buyerOxyUserIds),
+  ]);
+
+  // `OrderSummary` never carried a buyer field, so there is nothing to strip
+  // here — the merchant summary is the existing shape PLUS a label. The map is
+  // aligned by index because `summarizeOrders` documents that it preserves
+  // order, and both arrays come from the same `orders` argument.
+  return summaries.map((summary, index) => ({
+    ...summary,
+    buyer: toMerchantBuyerLabel(orderBuyerOf(orders[index]), oxyProfiles),
+  }));
 }
 
 /**

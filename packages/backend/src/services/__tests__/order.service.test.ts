@@ -183,7 +183,7 @@ describe('order.service.transition — legal transitions', () => {
   for (const { from, to, paymentStatus } of legal) {
     it(`allows ${from} → ${to}`, async () => {
       const order = mockOrder(from, { paymentStatus });
-      const moved = await transition(order, to, { actorOxyUserId: 'actor-1' });
+      const moved = await transition(order, to, { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
       // The RETURNED record is what the caller hydrates, and it carries the
       // persisted status — the passed-in record is not mutated any more.
       expect(moved.status).toBe(to);
@@ -209,7 +209,7 @@ describe('order.service.transition — illegal transitions', () => {
   for (const { from, to } of illegal) {
     it(`rejects ${from} → ${to} with CONFLICT`, async () => {
       const order = mockOrder(from, { paymentStatus: 'paid' });
-      await expect(transition(order, to, {})).rejects.toSatisfy(
+      await expect(transition(order, to, { actor: { kind: 'system' } })).rejects.toSatisfy(
         (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
       );
       // Illegal transitions reject on the in-memory table check, before the CAS.
@@ -227,20 +227,20 @@ describe('order.service.transition — connector fulfillment push', () => {
       sourceExternalId: 'shp-1001',
     });
 
-    await transition(order, 'shipped', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'shipped', { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
 
     expect(enqueueFulfillmentPush).toHaveBeenCalledWith({ orderId: 'order-1' });
   });
 
   it('does NOT enqueue a fulfillment push for a native order (no source)', async () => {
     const order = mockOrder('processing', { paymentStatus: 'paid' });
-    await transition(order, 'shipped', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'shipped', { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
     expect(enqueueFulfillmentPush).not.toHaveBeenCalled();
   });
 
   it('does NOT enqueue a fulfillment push on a non-ship transition of a connector order', async () => {
     const order = mockOrder('pending_payment', { sourceExternalId: 'shp-1001' });
-    await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'paid', { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
     expect(enqueueFulfillmentPush).not.toHaveBeenCalled();
   });
 });
@@ -248,7 +248,7 @@ describe('order.service.transition — connector fulfillment push', () => {
 describe('order.service.transition — inventory effects', () => {
   it('cancel from pending_payment (unpaid) releases each line', async () => {
     const order = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
-    await transition(order, 'cancelled', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'cancelled', { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
     expect(release).toHaveBeenCalledTimes(2);
     // Items carry no locationId → the 3rd arg is undefined (default location).
     expect(release).toHaveBeenCalledWith('v1', 2, undefined);
@@ -259,7 +259,7 @@ describe('order.service.transition — inventory effects', () => {
 
   it('paid (user seller) commits each line, bumps salesCount, marks payment paid', async () => {
     const order = mockOrder('pending_payment', { sellerType: 'user' });
-    await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'paid', { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
     expect(commit).toHaveBeenCalledTimes(2);
     expect(commit).toHaveBeenCalledWith('v1', 2, undefined);
     expect(commit).toHaveBeenCalledWith('v2', 1, undefined);
@@ -276,7 +276,7 @@ describe('order.service.transition — inventory effects', () => {
 
   it('paid (store seller) bumps store salesCount and relates the customer via upsertOnPaid exactly once', async () => {
     const order = mockOrder('pending_payment', { sellerType: 'store' });
-    await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'paid', { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
     expect(adjustStoreSalesCount).toHaveBeenCalledWith('store-A', 1);
     expect(upsertCustomerOnPaid).toHaveBeenCalledTimes(1);
     expect(upsertCustomerOnPaid).toHaveBeenCalledWith('store-A', 'buyer-1', {
@@ -289,7 +289,7 @@ describe('order.service.transition — inventory effects', () => {
 
   it('refund of a paid order restocks each line (not release/commit) and marks payment refunded', async () => {
     const order = mockOrder('paid', { paymentStatus: 'paid' });
-    await transition(order, 'refunded', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'refunded', { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
     expect(restock).toHaveBeenCalledTimes(2);
     expect(restock).toHaveBeenCalledWith('v1', 2, undefined);
     expect(restock).toHaveBeenCalledWith('v2', 1, undefined);
@@ -307,7 +307,7 @@ describe('order.service.transition — inventory effects', () => {
     // map it returns rather than a list of refund documents to fold in memory.
     sumRestockedQuantities.mockResolvedValue(new Map([['v1', 2]]));
     const order = mockOrder('paid', { paymentStatus: 'paid' });
-    await transition(order, 'refunded', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'refunded', { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
     // Total restock calls across refund(2)+transition(1) units === 2 === ordered.
     expect(restock).toHaveBeenCalledTimes(1);
     expect(restock).toHaveBeenCalledWith('v2', 1, undefined);
@@ -332,7 +332,7 @@ describe('order.service.transition — paid converts NO currency', () => {
       grandTotalAmount: 4500,
     });
 
-    const moved = await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
+    const moved = await transition(order, 'paid', { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
 
     expect(moved.status).toBe('paid');
     // The sale still finalizes: stock committed, seller credited.
@@ -342,7 +342,7 @@ describe('order.service.transition — paid converts NO currency', () => {
 
   it('patches ONLY the payment columns — no settlement of any kind', async () => {
     const order = mockOrder('pending_payment', { sellerType: 'user' });
-    await transition(order, 'paid', { actorOxyUserId: 'actor-1' });
+    await transition(order, 'paid', { actor: { kind: 'oxy', oxyUserId: 'actor-1' } });
 
     // The patch is the WHOLE set of columns the move writes besides `status`
     // (which `transitionOrderStatus` takes as its own argument), so an exact key
@@ -370,9 +370,9 @@ describe('order.service.transition — atomic CAS (side effects run at most once
     const order2 = mockOrder('pending_payment', { paymentStatus: 'unpaid' });
 
     // Winner: releases the 2 lines once.
-    await transition(order1, 'cancelled', {});
+    await transition(order1, 'cancelled', { actor: { kind: 'system' } });
     // Loser: CAS matched nothing → CONFLICT, no inventory effect.
-    await expect(transition(order2, 'cancelled', {})).rejects.toSatisfy(
+    await expect(transition(order2, 'cancelled', { actor: { kind: 'system' } })).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
 

@@ -63,6 +63,26 @@ export const PROTECTED_COLUMNS = {
   orders: ['paymentReference'],
 
   /**
+   * The guest SESSION that drove a lifecycle transition (ADR 0003 D16, #106).
+   *
+   * A guest identifier on a table every order DTO reads WHOLE — `withChildren`
+   * attaches the status trail to each order and `order-hydration` serializes
+   * every event — so this is the `customers.email` situation exactly: the most
+   * likely accidental disclosure is the one nobody has to write a line of code
+   * to cause. #106 buyer-model rule 7 says seller-facing hydration cannot
+   * expose a guest security identifier, and invariant I11 says a seller API
+   * must not be able to CORRELATE two of a guest's purchases; a session row id
+   * shared across a guest's orders is precisely such a correlation key.
+   *
+   * It authorizes nothing on its own (possession of the TOKEN is what
+   * authorizes a guest, and no path leads from this id back to one), which is
+   * why the operator surface may name it explicitly. `actor_kind` is
+   * deliberately NOT registered: it says a guest acted without saying WHICH,
+   * and the audit trail is useless without it.
+   */
+  order_status_history: ['actorGuestSessionId'],
+
+  /**
    * Both AES-GCM envelopes — the store's platform access token and its
    * per-connection inbound webhook secret. Already withheld from the serialized
    * `Connection` DTO by hand today; this makes it structural. All six columns,

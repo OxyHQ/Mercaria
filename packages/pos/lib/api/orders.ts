@@ -1,8 +1,8 @@
 import type {
   ApiResponse,
   PaginatedResponse,
-  Order,
-  OrderSummary,
+  MerchantOrder,
+  MerchantOrderSummary,
 } from "@mercaria/shared-types";
 import apiClient from "./client";
 import { unwrap } from "./unwrap";
@@ -18,15 +18,15 @@ const base = (storeId: string) => `/admin/stores/${storeId}/orders`;
 export async function fetchOrders(
   storeId: string,
   params: { page?: number; limit?: number } = {},
-): Promise<PaginatedResponse<OrderSummary>> {
-  const { data } = await apiClient.get<PaginatedResponse<OrderSummary>>(base(storeId), {
+): Promise<PaginatedResponse<MerchantOrderSummary>> {
+  const { data } = await apiClient.get<PaginatedResponse<MerchantOrderSummary>>(base(storeId), {
     params,
   });
   return data;
 }
 
 /** GET a single hydrated order. */
-export async function fetchOrder(storeId: string, id: string): Promise<Order> {
-  const { data } = await apiClient.get<ApiResponse<Order>>(`${base(storeId)}/${id}`);
+export async function fetchOrder(storeId: string, id: string): Promise<MerchantOrder> {
+  const { data } = await apiClient.get<ApiResponse<MerchantOrder>>(`${base(storeId)}/${id}`);
   return unwrap(data);
 }

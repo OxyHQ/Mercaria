@@ -188,6 +188,22 @@ export type GuestContactVerificationStage =
   (typeof GUEST_CONTACT_VERIFICATION_STAGES)[number];
 
 /**
+ * The contact POLICY version a stored guest contact was captured under (#106
+ * GuestCheckout rule 7).
+ *
+ * Stamped on every `guest_checkouts` row and surfaced on the buyer's contact
+ * projection. It names the version of ADR 0003 D12's normalization (trim, NFC,
+ * lowercase the whole address, no plus-tag stripping, no dot folding), of the
+ * redaction forms and of the D15 erasure rules that produced the stored values.
+ *
+ * Bumping it is a DECISION with consequences, not a version-number ritual: a
+ * row stamped `v1` was normalized by the v1 rules, so changing the rules means
+ * either re-deriving those rows or accepting that two rows spell the same inbox
+ * differently. The stamp is what makes that choice visible instead of silent.
+ */
+export const GUEST_CONTACT_POLICY_VERSION = 'v1';
+
+/**
  * Where an order's buyer identity came from — ADR 0003 D6.
  *
  * IMMUTABLE after insert: a claim (#109) records a later Oxy owner in its own

@@ -1008,7 +1008,13 @@ async function seedCommerce(
       },
     ],
     statusHistory: [
-      { status: 'paid', at: posPaidAt, byOxyUserId: DEV_OWNER_OXY_USER_ID, note: 'pos sale' },
+      {
+        status: 'paid',
+        at: posPaidAt,
+        actorKind: 'oxy',
+        byOxyUserId: DEV_OWNER_OXY_USER_ID,
+        note: 'pos sale',
+      },
     ],
     appliedDiscounts: [],
     taxLines: [],
@@ -1106,6 +1112,7 @@ async function seedCommerce(
         {
           status: 'paid',
           at: paidAt,
+          actorKind: 'oxy',
           byOxyUserId: DEV_OWNER_OXY_USER_ID,
           note: 'storefront sale',
         },

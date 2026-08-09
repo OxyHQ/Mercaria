@@ -69,6 +69,10 @@ export * from './payment';
 // seller's standing with a payment rail, and the readiness native checkout gates on.
 export * from './provider-account';
 
+// Order buyer identity (OrderBuyer, OrderActorKind, MerchantBuyerLabel,
+// BuyerContactProjection, …) — ADR 0003 D6/D13/D16, #106.
+export * from './order-buyer';
+
 // Order DTOs (Order, OrderItem, OrderStatus, CheckoutInput, CheckoutResult, …).
 export * from './order';
 

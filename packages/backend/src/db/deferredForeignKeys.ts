@@ -194,6 +194,12 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'notifications.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'order_status_history.by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'orders.buyer_oxy_user_id', reason: OXY_ACCOUNT },
+  // #109's claim stamp. An Oxy id like every other row in this block, and
+  // doubly unconstrained for the reason `guest_sessions.converted_to_oxy_user_id`
+  // is: the Oxy account can be deleted while the claim must survive as inert
+  // correlation text on an immutable commercial record (ADR 0003 D15,
+  // diagram 11).
+  { column: 'orders.claimed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'orders.seller_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'payments.buyer_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'push_tokens.oxy_user_id', reason: OXY_ACCOUNT },
@@ -260,6 +266,11 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // ── Append-only audit correlations ────────────────────────────────────────
   { column: 'cart_merges.guest_session_id', reason: AUDIT_CORRELATION },
   { column: 'cart_merges.target_cart_id', reason: AUDIT_CORRELATION },
+  // ADR 0003 D16's guest actor in the lifecycle trail — the case the
+  // AUDIT_CORRELATION reason above was written for. The trail must outlive the
+  // credential it names without extending its life, which a cascade (erase the
+  // audit) and a restrict (block the purge) each break in opposite directions.
+  { column: 'order_status_history.actor_guest_session_id', reason: AUDIT_CORRELATION },
   {
     column: 'guest_checkouts.guest_session_id',
     reason:

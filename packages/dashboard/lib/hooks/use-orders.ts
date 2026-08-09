@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import type {
   PaginatedResponse,
-  Order,
-  OrderSummary,
+  MerchantOrder,
+  MerchantOrderSummary,
   OrderStatus,
   Refund,
   CreateRefundInput,
@@ -23,7 +23,7 @@ const PAGE_LIMIT = 20;
 
 /** Paginated order list (optionally filtered by status). */
 export function useOrders(storeId: string, page: number, status: OrderStatus | "all") {
-  return useQuery<PaginatedResponse<OrderSummary>>({
+  return useQuery<PaginatedResponse<MerchantOrderSummary>>({
     queryKey: queryKeys.orders.list(storeId, page, status),
     queryFn: () =>
       fetchOrders(storeId, {
@@ -38,7 +38,7 @@ export function useOrders(storeId: string, page: number, status: OrderStatus | "
 
 /** A single hydrated order. */
 export function useOrder(storeId: string, orderId: string) {
-  return useQuery<Order>({
+  return useQuery<MerchantOrder>({
     queryKey: queryKeys.orders.detail(storeId, orderId),
     queryFn: () => fetchOrder(storeId, orderId),
     enabled: Boolean(storeId) && Boolean(orderId),

@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { CheckCircle2 } from "lucide-react-native";
-import type { Order } from "@mercaria/shared-types";
+import type { MerchantOrder } from "@mercaria/shared-types";
 import { Text, Button, PriceDisplay, useColorScheme } from "@mercaria/ui";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -70,7 +70,7 @@ function Receipt({ storeId, orderId }: { storeId: string; orderId: string }) {
   );
 }
 
-function OrderLines({ order }: { order: Order }) {
+function OrderLines({ order }: { order: MerchantOrder }) {
   return (
     <View className="gap-2 rounded-2xl border border-border bg-surface p-4">
       {order.items.map((item, index) => (
@@ -90,7 +90,7 @@ function OrderLines({ order }: { order: Order }) {
   );
 }
 
-function OrderTotals({ order }: { order: Order }) {
+function OrderTotals({ order }: { order: MerchantOrder }) {
   const { totals } = order;
   return (
     <View className="gap-2 rounded-2xl border border-border bg-surface p-4">

@@ -337,7 +337,7 @@ async function seedOrder(
     status: 'pending_payment',
     paymentStatus: 'unpaid',
     checkoutGroupId,
-    statusHistory: [{ status: 'pending_payment', at: new Date(), byOxyUserId: who.buyer }],
+    statusHistory: [{ status: 'pending_payment', at: new Date(), actorKind: 'oxy', byOxyUserId: who.buyer }],
     appliedDiscounts: [],
     taxLines: [],
   });

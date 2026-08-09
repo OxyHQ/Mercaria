@@ -13,8 +13,11 @@
 
 import type {
   CurrencyCode,
+  MerchantOrder,
+  MerchantOrderSummary,
   Money,
   Order as OrderDTO,
+  OrderActorKind,
   OrderStatus,
   OrderSummary,
 } from '@mercaria/shared-types';
@@ -36,7 +39,12 @@ import { adjustStoreSalesCount, findStoreRow } from '../db/stores/storeRepositor
 import { commit, release, restock } from './inventory.service.js';
 import { upsertOnPaid as upsertCustomerOnPaid } from './customer.service.js';
 import { grantEligibilitiesForOrder } from './reviews/review-eligibility.service.js';
-import { hydrateOrders, summarizeOrders } from './order-hydration.service.js';
+import {
+  hydrateOrders,
+  hydrateOrdersForMerchant,
+  summarizeOrders,
+  summarizeOrdersForMerchant,
+} from './order-hydration.service.js';
 import { enqueueOrderEvent, enqueueFulfillmentPush } from '../queue/producers.js';
 import type { OrderEvent } from '../queue/types.js';
 import { zeroMoney } from '../utils/money.js';
@@ -72,14 +80,57 @@ const STATUS_TO_EVENT: Partial<Record<OrderStatus, OrderEvent>> = {
   cancelled: 'cancelled',
 };
 
+/**
+ * Who drove a transition, in the shape `order_status_history_actor_check`
+ * accepts (ADR 0003 D16).
+ *
+ * A union rather than two optional id fields, so "a guest cancelled this" and
+ * "the expiry sweep cancelled this" cannot both be spelled as an absence — and
+ * so a guest session id has no Oxy-shaped parameter to be passed through. The
+ * `CommerceActor` mechanism, applied to an audit row.
+ */
+export type TransitionActor =
+  | { readonly kind: 'oxy'; readonly oxyUserId: string }
+  | { readonly kind: 'operator'; readonly oxyUserId: string }
+  | { readonly kind: 'guest'; readonly guestSessionId: string }
+  | { readonly kind: 'system' };
+
+/** The system actor, named once so a call site says what it means. */
+export const SYSTEM_ACTOR: TransitionActor = { kind: 'system' };
+
 /** Options for a `transition` call. */
 interface TransitionOptions {
-  /** Oxy user id of the actor driving the transition (recorded in history). */
-  actorOxyUserId?: string;
+  /**
+   * Who is driving it. REQUIRED — before #106 this was an optional Oxy id and
+   * omitting it produced a row indistinguishable from the sweep's, so every
+   * caller now states which of the four it is.
+   */
+  actor: TransitionActor;
   /** Optional free-text note recorded on the status event. */
   note?: string;
   /** Tracking number to attach (e.g. when moving to `shipped`). */
   trackingNumber?: string;
+}
+
+/** The three status-event actor columns a {@link TransitionActor} writes. */
+export function statusEventActorColumns(actor: TransitionActor): {
+  actorKind: OrderActorKind;
+  byOxyUserId?: string;
+  actorGuestSessionId?: string;
+} {
+  switch (actor.kind) {
+    case 'oxy':
+      return { actorKind: 'oxy', byOxyUserId: actor.oxyUserId };
+    case 'operator':
+      return { actorKind: 'operator', byOxyUserId: actor.oxyUserId };
+    case 'guest':
+      // The session ROW id, never a token, and never `by_oxy_user_id` — the
+      // CHECK refuses that combination outright, which is invariant I1 reaching
+      // the audit trail (D16).
+      return { actorKind: 'guest', actorGuestSessionId: actor.guestSessionId };
+    case 'system':
+      return { actorKind: 'system' };
+  }
 }
 
 /** The order's grand total on the SHOP (merchant accounting) side. */
@@ -146,7 +197,7 @@ export async function transition(
   const event: NewOrderStatusEvent = {
     status: next,
     at: new Date(),
-    ...(opts.actorOxyUserId ? { byOxyUserId: opts.actorOxyUserId } : {}),
+    ...statusEventActorColumns(opts.actor),
     ...(opts.note ? { note: opts.note } : {}),
   };
 
@@ -236,8 +287,19 @@ export async function transition(
     }
   }
 
+  // The log names the actor KIND and, for an Oxy actor, the account. It never
+  // carries a guest session id: that is a `PROTECTED_COLUMNS` value and a log
+  // line is exactly where ADR 0003 D16 says an audit handle for a credential
+  // must not accumulate.
   log.general.info(
-    { orderId: order.id, status: next, actor: opts.actorOxyUserId },
+    {
+      orderId: order.id,
+      status: next,
+      actorKind: opts.actor.kind,
+      ...(opts.actor.kind === 'oxy' || opts.actor.kind === 'operator'
+        ? { actor: opts.actor.oxyUserId }
+        : {}),
+    },
     'Order transitioned',
   );
 
@@ -297,6 +359,12 @@ interface OrderPage {
   total: number;
 }
 
+/** {@link OrderPage} for a SELLER's list — each summary carries a buyer LABEL. */
+interface MerchantOrderPage {
+  data: MerchantOrderSummary[];
+  total: number;
+}
+
 /** Offset-paginated list parameters. */
 interface ListParams {
   page: number;
@@ -304,54 +372,74 @@ interface ListParams {
   status?: OrderStatus;
 }
 
-/** List the buyer's own orders (newest first), summarized + total count. */
+/**
+ * List the buyer's own orders (newest first), summarized + total count.
+ *
+ * Scoped by `buyerOrClaimantOxyUserId` since #106: a guest purchase claimed
+ * into this account (#109) is this account's order history, which is DTO
+ * rule 6. The predicate is two indexed scans and degenerates to exactly the
+ * pre-#106 plan until a claim exists.
+ */
 export async function getBuyerOrders(
   oxyUserId: string,
   { page, limit }: ListParams,
 ): Promise<OrderPage> {
-  const { rows, total } = await findOrdersPage({ buyerOxyUserId: oxyUserId }, page, limit);
+  const { rows, total } = await findOrdersPage(
+    { buyerOrClaimantOxyUserId: oxyUserId },
+    page,
+    limit,
+  );
   return { data: await summarizeOrders(rows), total };
 }
 
-/** Get a single order owned by the buyer (hydrated), or throw NOT_FOUND. */
+/** Get a single order the buyer owns or has claimed (hydrated), or throw NOT_FOUND. */
 export async function getOrderForBuyer(oxyUserId: string, id: string): Promise<OrderDTO> {
-  return hydrateOne(await loadOrder({ id, buyerOxyUserId: oxyUserId }));
+  return hydrateOne(await loadOrder({ id, buyerOrClaimantOxyUserId: oxyUserId }));
 }
 
 /** List a P2P seller's orders (optionally filtered by status), summarized. */
 export async function getSellerOrders(
   oxyUserId: string,
   { status, page, limit }: ListParams,
-): Promise<OrderPage> {
+): Promise<MerchantOrderPage> {
   const { rows, total } = await findOrdersPage(
     { sellerOxyUserId: oxyUserId, ...(status ? { status } : {}) },
     page,
     limit,
   );
-  return { data: await summarizeOrders(rows), total };
+  return { data: await summarizeOrdersForMerchant(rows), total };
 }
 
 /** List a store's orders (optionally filtered by status), summarized. */
 export async function getStoreOrders(
   storeId: string,
   { status, page, limit }: ListParams,
-): Promise<OrderPage> {
+): Promise<MerchantOrderPage> {
   const { rows, total } = await findOrdersPage(
     { storeId, ...(status ? { status } : {}) },
     page,
     limit,
   );
-  return { data: await summarizeOrders(rows), total };
+  return { data: await summarizeOrdersForMerchant(rows), total };
 }
 
-/** Get a single order owned by the store (hydrated), or throw NOT_FOUND. */
-export async function getOrderForStore(storeId: string, id: string): Promise<OrderDTO> {
-  return hydrateOne(await loadOrder({ id, storeId }));
+/** Get a single order owned by the store (merchant projection), or throw NOT_FOUND. */
+export async function getOrderForStore(storeId: string, id: string): Promise<MerchantOrder> {
+  return hydrateOneForMerchant(await loadOrder({ id, storeId }));
 }
 
 /** Hydrate one order record into its DTO, or throw NOT_FOUND. */
 async function hydrateOne(order: OrderRecord): Promise<OrderDTO> {
   const [dto] = await hydrateOrders([order]);
+  if (!dto) {
+    throw notFound('Order not found');
+  }
+  return dto;
+}
+
+/** {@link hydrateOne} for a SELLER's view — no buyer identity, no contact. */
+async function hydrateOneForMerchant(order: OrderRecord): Promise<MerchantOrder> {
+  const [dto] = await hydrateOrdersForMerchant([order]);
   if (!dto) {
     throw notFound('Order not found');
   }
@@ -383,7 +471,7 @@ export async function mockPay(oxyUserId: string, orderId: string): Promise<Order
   if (!config.orders.mockPayEnabled) {
     throw notFound('Not found');
   }
-  const order = await loadOrder({ id: orderId, buyerOxyUserId: oxyUserId });
+  const order = await loadOrder({ id: orderId, buyerOrClaimantOxyUserId: oxyUserId });
   const { checkoutGroupId } = order;
   if (!checkoutGroupId) {
     // Every checked-out order is stamped with a group. One without it never came
@@ -432,15 +520,24 @@ export async function mockPay(oxyUserId: string, orderId: string): Promise<Order
 
   // The paid transition happened through the payment's outbox handler on a
   // freshly loaded record, so the one in hand is stale.
-  return hydrateOne(await loadOrder({ id: orderId, buyerOxyUserId: oxyUserId }));
+  return hydrateOne(await loadOrder({ id: orderId, buyerOrClaimantOxyUserId: oxyUserId }));
 }
 
-/** Cancel the buyer's own order (releases the reservation if still unpaid). */
+/**
+ * Cancel the buyer's own order (releases the reservation if still unpaid).
+ *
+ * A CLAIMANT may cancel, and that is what "adds account ownership" means: after
+ * a #109 claim the order is in the account's history and behaves like every
+ * other order there. It is not the guest-side cancellation path — that runs on
+ * a portal grant and belongs to #110 — so nothing here needs a verification
+ * step the claim did not already require (ADR 0003 D14 puts a magic-link
+ * exchange in every claim chain).
+ */
 export async function cancelByBuyer(oxyUserId: string, orderId: string): Promise<OrderDTO> {
-  const order = await loadOrder({ id: orderId, buyerOxyUserId: oxyUserId });
+  const order = await loadOrder({ id: orderId, buyerOrClaimantOxyUserId: oxyUserId });
   return hydrateOne(
     await transition(order, 'cancelled', {
-      actorOxyUserId: oxyUserId,
+      actor: { kind: 'oxy', oxyUserId },
       note: 'cancelled by buyer',
     }),
   );
@@ -457,11 +554,11 @@ export async function fulfillSellerOrder(
   oxyUserId: string,
   orderId: string,
   { status, trackingNumber }: SellerFulfilInput,
-): Promise<OrderDTO> {
+): Promise<MerchantOrder> {
   const order = await loadOrder({ id: orderId, sellerOxyUserId: oxyUserId });
-  return hydrateOne(
+  return hydrateOneForMerchant(
     await transition(order, status, {
-      actorOxyUserId: oxyUserId,
+      actor: { kind: 'oxy', oxyUserId },
       ...(trackingNumber ? { trackingNumber } : {}),
     }),
   );
@@ -480,11 +577,11 @@ export async function patchStoreOrderStatus(
   orderId: string,
   { status, trackingNumber, note }: StoreStatusInput,
   actorOxyUserId: string,
-): Promise<OrderDTO> {
+): Promise<MerchantOrder> {
   const order = await loadOrder({ id: orderId, storeId });
-  return hydrateOne(
+  return hydrateOneForMerchant(
     await transition(order, status, {
-      actorOxyUserId,
+      actor: { kind: 'oxy', oxyUserId: actorOxyUserId },
       ...(trackingNumber ? { trackingNumber } : {}),
       ...(note ? { note } : {}),
     }),

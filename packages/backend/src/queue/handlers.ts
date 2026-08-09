@@ -17,7 +17,8 @@ import {
 } from '../db/orders/orderRepository.js';
 import { findStoreById, type StoreMemberRecord } from '../db/stores/storeRepository.js';
 import { findPublishedReviewTargets } from '../db/reviews/reviewRepository.js';
-import { transition } from '../services/order.service.js';
+import { SYSTEM_ACTOR, transition } from '../services/order.service.js';
+import { accountWithBuyerAccess, orderBuyerOf } from '../services/orders/order-buyer.js';
 import { releaseCheckoutPayments } from '../services/payments/checkout-payment.service.js';
 import { sendNotification } from '../lib/notification-service.js';
 import { config } from '../config/index.js';
@@ -117,13 +118,27 @@ export async function handleOrderEventNotification(job: OrderEventNotificationJo
 
   const buyerType = EVENT_TO_BUYER_TYPE[job.event];
   const buyerCopy = BUYER_COPY[job.event];
-  await notifySafe({
-    userId: order.buyerOxyUserId,
-    type: buyerType,
-    title: buyerCopy.title,
-    body: buyerCopy.body,
-    data: { orderId: job.orderId, orderNumber: order.orderNumber, event: job.event },
-  });
+  /**
+   * The account to notify — the original Oxy buyer, or the Oxy account that
+   * CLAIMED a guest order (ADR 0003 D7, #106 events rule 1).
+   *
+   * `notifications.oxy_user_id` is NOT NULL and stays so, so an unclaimed guest
+   * order produces NO notification row and no push: a guest's channel is
+   * transactional mail to their `guest_checkouts` contact, which #108 owns and
+   * which is deliberately not faked here. In-app notification for a guest order
+   * begins at the claim, addressed to the claimant — which is exactly what
+   * `accountWithBuyerAccess` returns.
+   */
+  const notifiableBuyer = accountWithBuyerAccess(orderBuyerOf(order));
+  if (notifiableBuyer !== undefined) {
+    await notifySafe({
+      userId: notifiableBuyer,
+      type: buyerType,
+      title: buyerCopy.title,
+      body: buyerCopy.body,
+      data: { orderId: job.orderId, orderNumber: order.orderNumber, event: job.event },
+    });
+  }
 
   const sellerCopy = SELLER_COPY[job.event];
   const sellerData = { orderId: job.orderId, orderNumber: order.orderNumber, event: job.event };
@@ -197,7 +212,10 @@ export async function handleExpireReservations(): Promise<void> {
   const releasedGroups = new Set<string>();
   for (const order of stale) {
     try {
-      await transition(order, 'cancelled', { note: 'reservation expired' });
+      // The sweep is the SYSTEM, and now says so: before #106 this row was
+      // indistinguishable from a guest's own cancellation, because both left
+      // `by_oxy_user_id` NULL (ADR 0003 D16).
+      await transition(order, 'cancelled', { actor: SYSTEM_ACTOR, note: 'reservation expired' });
       if (order.checkoutGroupId) {
         releasedGroups.add(order.checkoutGroupId);
       }

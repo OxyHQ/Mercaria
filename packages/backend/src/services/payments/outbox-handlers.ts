@@ -13,7 +13,7 @@
  */
 
 import type { PaymentOutboxRow } from '../../db/payments/paymentOutboxRepository.js';
-import { transition } from '../order.service.js';
+import { SYSTEM_ACTOR, transition } from '../order.service.js';
 import { findOrdersInCheckoutGroup, loadOrderForTransition } from './order-linkage.js';
 import { settlePaymentTransfers } from './settlement.service.js';
 import { log } from '../../lib/logger.js';
@@ -151,7 +151,11 @@ async function handlePaymentSucceeded(event: PaymentOutboxRow): Promise<void> {
       );
       continue;
     }
-    await transition(doc, 'paid', { note: 'payment succeeded' });
+    // The outbox handler is the SYSTEM: the buyer authorised a payment, the
+    // rail confirmed it and this handler applied it — no person drove this
+    // transition, and attributing it to the buyer would put an actor on a row
+    // they were not present for.
+    await transition(doc, 'paid', { actor: SYSTEM_ACTOR, note: 'payment succeeded' });
   }
 
   log.general.info(

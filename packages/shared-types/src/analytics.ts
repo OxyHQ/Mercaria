@@ -215,13 +215,14 @@ export const ANALYTICS_GUEST_EVENT_TYPES = [
   'guest_cart_merged',
   'guest_checkout_started',
   'guest_feature_gate_blocked',
-  // Seams — see ANALYTICS_DEFERRED_EVENT_TYPES.
+  // Emitted since #106, from the checkout controller's gate classification.
   'guest_contact_validated',
   'guest_contact_validation_failed',
   'guest_destination_validated',
   'guest_destination_validation_failed',
   'guest_eligibility_accepted',
   'guest_eligibility_rejected',
+  // Seams — see ANALYTICS_DEFERRED_EVENT_TYPES.
   'guest_payment_methods_shown',
   'guest_payment_method_selected',
   'guest_payment_action_required',
@@ -265,12 +266,11 @@ export type AnalyticsEventType = (typeof ANALYTICS_EVENT_TYPES)[number];
 export const ANALYTICS_DEFERRED_EVENT_TYPES: Readonly<
   Partial<Record<AnalyticsEventType, string>>
 > = {
-  guest_contact_validated: '#106',
-  guest_contact_validation_failed: '#106',
-  guest_destination_validated: '#106',
-  guest_destination_validation_failed: '#106',
-  guest_eligibility_accepted: '#106',
-  guest_eligibility_rejected: '#106',
+  // The six `#106` types that used to sit here are EMITTED now. #106 gave each
+  // guest checkout gate a bounded refusal reason (`CheckoutRefusalReason`), so
+  // `checkout.controller.ts` can classify an outcome without matching on
+  // message text — which is the exact condition #77 recorded as what the seam
+  // was waiting for.
   guest_payment_methods_shown: '#107',
   guest_payment_method_selected: '#107',
   guest_payment_action_required: '#107',
@@ -994,8 +994,12 @@ export const ANALYTICS_METRICS: readonly AnalyticsMetricDefinition[] = [
     merchantVisible: false,
     attributionLimit:
       'Measured where a guest actually reached the gate. A merchant no guest ever tried is ' +
-      'neither eligible nor ineligible here, so this cannot enumerate coverage across the catalogue.',
-    seam: '#106',
+      'neither eligible nor ineligible here, so this cannot enumerate coverage across the ' +
+      'catalogue. Both halves are emitted since #106, so the ratio is a measurement — but a ' +
+      'refusal that is not one of the five bounded CheckoutRefusalReasons (an empty cart, a ' +
+      'stale line, a database failure) is counted in NEITHER, deliberately: those are not ' +
+      'eligibility verdicts, and folding them into the denominator would report a gate that ' +
+      'never ran as a gate that said no.',
   },
 ] as const;
 

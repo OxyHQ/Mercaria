@@ -12,6 +12,14 @@
 import type { DualMoney, FxRateSnapshot, Money } from './money';
 import type { CheckoutContactInput, CheckoutDestination } from './checkout';
 import type {
+  BuyerContactProjection,
+  GuestCheckoutClaimState,
+  GuestCheckoutLifecycle,
+  MerchantBuyerLabel,
+  OrderActorKind,
+  OrderBuyer,
+} from './order-buyer';
+import type {
   CheckoutPaymentHandoff,
   CheckoutPaymentMethod,
   OrderPaymentStatus,
@@ -190,7 +198,23 @@ export interface OrderStatusEvent {
   status: OrderStatus;
   /** ISO-8601 time of the transition. */
   at: string;
-  /** Oxy user id of the actor who triggered it, when known. */
+  /**
+   * WHICH KIND of actor drove the transition (ADR 0003 D16).
+   *
+   * Carried because "nobody" and "a guest" were previously the same absence:
+   * before #106, a guest's own cancellation and an automated sweep both left a
+   * row with no actor at all. The guest's SESSION id is deliberately not here —
+   * it is a credential's audit handle, it is registered in `PROTECTED_COLUMNS`
+   * so the row type this DTO is built from does not even carry it, and it is
+   * readable only through the operator surface that names the column.
+   */
+  actorKind: OrderActorKind;
+  /**
+   * Oxy user id of the actor who triggered it, when known.
+   *
+   * Written ONLY for an `oxy` or `operator` actor kind — a guest id never
+   * enters this field, in the DTO or in the column behind it (I1).
+   */
   byOxyUserId?: string;
   /** Optional free-text note attached to the transition. */
   note?: string;
@@ -206,8 +230,49 @@ export interface Order extends Timestamps {
   id: string;
   /** Sequential, human-friendly order number (e.g. `MRC-000123`). */
   orderNumber: string;
-  /** Oxy user id of the buyer. */
-  buyerOxyUserId: string;
+  /**
+   * Who this order belongs to, historically and currently (#106, ADR 0003 D6).
+   *
+   * The AUTHORITATIVE buyer field. A `switch` on `buyer.origin` is the only way
+   * to read a buyer id, which is what stops a guest's later Oxy claimant being
+   * mistaken for the account that placed the purchase.
+   */
+  buyer: OrderBuyer;
+  /**
+   * Oxy user id of the buyer — the v1 spelling of `buyer.oxyUserId`.
+   *
+   * ## A versioned contract, not a deprecated shim
+   *
+   * Present on every `oxy`-origin order and absent on guest orders, which is
+   * exactly what an old client needs: a client that predates #105 has no way to
+   * EXPRESS a guest destination, so every order it can create is `oxy`-origin
+   * and every order it can read of its own carries this field with its old
+   * meaning and its old value. It is the same treatment `CheckoutInput.addressId`
+   * gets and for the same reason — a shipped mobile build cannot be recalled,
+   * and stranding a buyer mid-purchase over a field name is not a migration
+   * strategy.
+   *
+   * It is also NOT the claim: a claimed guest order appears in the claimant's
+   * order list with `buyer.origin === 'guest'` and NO `buyerOxyUserId`, because
+   * filling it in would tell an old client that an Oxy account placed a purchase
+   * it did not place. An old client shows such an order without a buyer id,
+   * which is honest; a new client reads `buyer`.
+   *
+   * **Retirement condition** (#106 migration rule 7): it is removed once every
+   * supported client version reads `buyer`, which is a client-fleet measurement
+   * and not a server decision. Until then the server keeps writing it and
+   * nothing derives anything from it — `orders.buyer_oxy_user_id` remains the
+   * live ORIGIN-owner column and is never dropped (ADR 0003 M9).
+   */
+  buyerOxyUserId?: string;
+  /**
+   * The immutable contact this order was placed with, redacted.
+   *
+   * Present only on the BUYER's own view of their order — a merchant projection
+   * has no field for it at all. Rendered from the order's own contact snapshot
+   * and never from a live profile; see {@link BuyerContactProjection}.
+   */
+  buyerContact?: BuyerContactProjection;
   /** Whether this order is fulfilled by a user (P2P) or a store. */
   sellerType: OrderSellerType;
   /** Oxy user id of the seller, for P2P orders. */
@@ -289,6 +354,65 @@ export interface OrderSummary {
   store?: MerchantSummary;
   /** ISO-8601 creation time. */
   createdAt: string;
+}
+
+/**
+ * What a SELLER receives for an order they fulfil — ADR 0003 D13, #106 DTO
+ * rule 2.
+ *
+ * A DIFFERENT type rather than {@link Order} with fields blanked at runtime.
+ * The three buyer-identity fields are `Omit`ted, so a merchant serializer that
+ * reaches for one fails `tsc` rather than shipping it, and a field added to
+ * `Order` later cannot leak into a merchant response by being picked up
+ * automatically — the `publicColumns` guarantee, expressed in the DTO layer.
+ *
+ * What a merchant DOES receive is unchanged and complete: the lines, the
+ * totals, the immutable shipping snapshot (recipient name, address, delivery
+ * phone), the chosen method and the status trail. That snapshot IS "only the
+ * fulfilment contact required for that order" — a parcel needs a name, an
+ * address and a number to ring at the door, and the buyer's account email is
+ * not among them. Buyer contact for a transactional message goes through
+ * Mercaria's own relay (#110), never to the seller raw.
+ */
+export interface MerchantOrder extends Omit<Order, 'buyer' | 'buyerOxyUserId' | 'buyerContact'> {
+  /** The display label and, for an `oxy` order only, the account id. */
+  buyer: MerchantBuyerLabel;
+}
+
+/** {@link MerchantOrder}'s list projection — {@link OrderSummary} plus the label. */
+export interface MerchantOrderSummary extends OrderSummary {
+  /** The display label and, for an `oxy` order only, the account id. */
+  buyer: MerchantBuyerLabel;
+}
+
+/**
+ * A guest's whole checkout GROUP, as the order portal renders it (#106 DTO
+ * rule 7).
+ *
+ * Grouped by `checkoutGroupId` because that is the SCOPE a portal grant is
+ * issued against (ADR 0003 D5): there is no grant to "an email's orders", so
+ * there is no DTO for one either. The sibling orders of a multi-seller cart are
+ * exactly the set one grant authorizes, and they arrive together or not at all.
+ *
+ * ## The ACCESS is #108's; the SHAPE is here
+ *
+ * Nothing in this repository can construct one of these for a guest today —
+ * `guest_order_access_grants` does not exist, so the portal subject in
+ * `services/orders/order-access.service.ts` is unconstructible and the whole
+ * path fails closed. What exists now is the contract and the grouping, so #108
+ * adds a grant table and a route and changes no projection.
+ */
+export interface GuestOrderPortalView {
+  /** The scope. Every order below shares it. */
+  checkoutGroupId: string;
+  /** Where the group stands as a whole, derived from its orders. */
+  lifecycle: GuestCheckoutLifecycle;
+  /** Whether an Oxy account has claimed the group (#109). */
+  claim: GuestCheckoutClaimState;
+  /** The contact the group was placed with, redacted. */
+  contact: BuyerContactProjection;
+  /** Every sibling order of the group, oldest first. */
+  orders: Order[];
 }
 
 /**

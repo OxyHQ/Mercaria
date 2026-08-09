@@ -177,7 +177,7 @@ async function orderInput(
     paymentStatus: 'unpaid',
     checkoutGroupId: uuidv7(),
     items: overrides.lines ?? [],
-    statusHistory: [{ status: 'pending_payment', at: new Date() }],
+    statusHistory: [{ status: 'pending_payment', at: new Date(), actorKind: 'system' }],
     appliedDiscounts: [],
     taxLines: [],
     ...overrides,
@@ -198,10 +198,12 @@ describe('the order status CAS', () => {
       transitionOrderStatus(order.id, 'pending_payment', 'paid', { paymentStatus: 'paid' }, {
         status: 'paid',
         at: new Date(),
+        actorKind: 'system',
       }),
       transitionOrderStatus(order.id, 'pending_payment', 'paid', { paymentStatus: 'paid' }, {
         status: 'paid',
         at: new Date(),
+        actorKind: 'system',
       }),
     ]);
 
@@ -224,10 +226,12 @@ describe('the order status CAS', () => {
     await transitionOrderStatus(order.id, 'pending_payment', 'paid', {}, {
       status: 'paid',
       at: new Date(),
+      actorKind: 'system',
     });
     const stale = await transitionOrderStatus(order.id, 'pending_payment', 'cancelled', {}, {
       status: 'cancelled',
       at: new Date(),
+      actorKind: 'system',
     });
 
     expect(stale).toBeNull();

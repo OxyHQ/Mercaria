@@ -67,27 +67,30 @@ export interface VerifiedConversionSlice {
 }
 
 /**
- * How buyer origin is derived TODAY, and the seam that replaces it.
+ * Buyer origin, read from the STORED column (#106 closed this seam).
  *
- * ADR 0003 D6 adds `orders.buyer_origin` (`oxy | guest | external`, immutable
- * after insert) and #106 owns it. Until then the column does not exist, and the
- * honest derivation from what DOES exist is the `ext:` prefix connector imports
- * write into `buyer_oxy_user_id` — the synthetic-identifier precedent ADR 0003
- * opens by criticising, and which is still the only origin signal on the table.
+ * It used to be derived from the `ext:` prefix connector imports write into
+ * `buyer_oxy_user_id` — the only origin signal the table carried, and the
+ * synthetic-identifier precedent ADR 0003 opens by criticising. #106 made
+ * `orders.buyer_origin` real, immutable after insert (ADR 0003 D6) and
+ * backfilled, so the derivation is now a rename rather than a guess.
  *
- * Two consequences are stated rather than hidden:
+ * Two things the rename buys, and both matter to what these numbers MEAN:
  *
- *  - `'guest'` is not producible today, because `buyer_oxy_user_id` is still
- *    `NOT NULL` and no guest order can exist. `guest_checkout_funnel`'s
- *    numerator therefore reads zero, correctly, rather than reading a number
- *    derived from something else.
- *  - When #106 lands, this expression becomes `orders.buyer_origin` and the
- *    `'authenticated'` label becomes `'oxy'`. That is a one-line change HERE and
- *    nowhere else, which is the whole reason the derivation is a named constant
- *    instead of an inline `case` in the query.
+ *  - `'guest'` is producible, so `guest_checkout_funnel`'s numerator is a
+ *    measurement instead of a structural zero.
+ *  - A claimed guest order still counts as GUEST, forever, because the column
+ *    is immutable and the claim lives in `claimed_by_oxy_user_id` beside it.
+ *    That is #77 identity rule 7 in the metric: a claim never rewrites which
+ *    funnel a purchase belonged to. The old prefix derivation could not have
+ *    held that property at all.
+ *
+ * The `'oxy'` value is relabelled `'authenticated'` because that is the word
+ * `ANALYTICS_BUYER_ORIGINS` uses on every event and rollup, and a metric that
+ * spelled the same dimension two ways would not join.
  */
 const BUYER_ORIGIN_EXPRESSION = sql<string>`
-  case when ${orders.buyerOxyUserId} like 'ext:%' then 'external' else 'authenticated' end
+  case ${orders.buyerOrigin} when 'oxy' then 'authenticated' else ${orders.buyerOrigin} end
 `;
 
 /**
