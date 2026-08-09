@@ -348,7 +348,54 @@ export const canonicalProducts = pgTable(
       'gin',
       t.normalizedName.op('gin_trgm_ops'),
     ),
+    /**
+     * #61 — the trigram index the candidate search ORDERS on.
+     *
+     * GiST beside the GIN above, and the two are not redundant spellings of one
+     * index: GIN serves the `%` CONTAINMENT filter and cannot serve a
+     * distance ORDER BY at all, so `searchCanonicalProductsByNameSimilarity`
+     * had to fetch every row above the similarity threshold and top-N sort it.
+     * GiST supports the `<->` distance operator as a real index scan, which is
+     * why that reader now spells its ordering `normalized_name <-> $1` — and
+     * that respelling is what makes this index usable rather than decorative.
+     *
+     * Measured on the seeded `medium` scale (100,000 products, one brand
+     * carrying 17,945 of them): **87.1 ms → 13.1 ms**, and the rows the
+     * executor touches drop from **32,476 to 25** — the plan becomes one index
+     * scan carrying BOTH `Index Cond: normalized_name % $1` and
+     * `Order By: normalized_name <-> $1`, with no Sort node. Index size is 13 MB
+     * against the GIN's 12 MB on a 34 MB table.
+     *
+     * The GIN index is deliberately KEPT. The KNN plan measured above does not
+     * touch it, which makes it a candidate for removal — but "the planner did
+     * not choose it in this query at this scale" is not "no query at any scale
+     * needs it", and #61's own rule is not to change what it did not measure.
+     * That measurement, and the drop if it holds, belong to a follow-up.
+     */
+    index('canonical_products_normalized_name_gist_trgm_idx').using(
+      'gist',
+      t.normalizedName.op('gist_trgm_ops'),
+    ),
     index('canonical_products_brand_id_idx').on(t.brandId),
+    /**
+     * #61 — the brand page, which is the read that amplified worst of all.
+     *
+     * `listProductsForBrand` filters on `brand_id`, excludes tombstones and
+     * orders by `(name, id)` with a LIMIT. `canonical_products_brand_id_idx`
+     * serves only the equality, so the sort became a top-N heapsort over EVERY
+     * product of that brand — and a big brand is exactly the page a person
+     * opens. Carrying the sort columns turns it into an ordered index scan that
+     * stops at the limit.
+     *
+     * Measured on the seeded `medium` scale, brand carrying 17,945 products:
+     * **5.011 ms → 0.097 ms**, rows scanned **17,945 → 20**. Index size 7.2 MB.
+     *
+     * Partial on `status <> 'merged'`, matching the reader's own predicate, so
+     * the index does not carry tombstones no page will ever show.
+     */
+    index('canonical_products_brand_page_idx')
+      .on(t.brandId, t.name, t.id)
+      .where(sql`${t.status} <> 'merged'`),
     index('canonical_products_family_id_idx').on(t.familyId),
     index('canonical_products_category_id_idx').on(t.categoryId),
     index('canonical_products_search_tokens_idx').using('gin', t.searchTokens),
