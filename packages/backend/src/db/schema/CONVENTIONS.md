@@ -1831,6 +1831,97 @@ rather than a new table — there is no #106 table, which is itself the point.
   drizzle-kit cannot model an UPDATE or a trigger body, so a regeneration drops
   both; see `AGENTS.md` §"Rebasing a migration behind another branch's".
 
+### The guest order portal (#108) has no source model either
+
+Five more tables born in Postgres, in `schema/guestPortal.ts`:
+`guest_order_access_grants`, `guest_portal_messages`,
+`guest_contact_suppressions`, `guest_recovery_attempts` and
+`guest_portal_operator_actions`. They sit ON TOP of `guest_checkouts` (#105) and
+add nothing to it — the contact stays one row per checkout group, and this
+domain reads it without ever copying an address out. Full behavioural reference:
+`docs/guest-portal.md`.
+
+- **ONE table for both credentials** (ADR 0003 D5): the 15-minute single-use
+  `mgx_` exchange token and the 30-day `mgp_` portal credential are the same
+  five facts — a hashed secret, a checkout group, an expiry, a revocation and an
+  inbox proof — differing only in lifetime and carriage. A second table would be
+  a second place to get a liveness rule wrong, and liveness is the whole of the
+  authorization.
+- **`checkout_group_id` is THE SCOPE and carries no foreign key** (there is no
+  `checkout_groups` table — `db/deferredForeignKeys.ts`). The referential
+  guarantee the domain actually needs is `guest_checkout_id`, which IS a real
+  FK, `ON DELETE RESTRICT`: both tables are Mercaria's, and the constraint makes
+  "a grant always has a contact to send to" structural. `RESTRICT` rather than
+  `CASCADE` because `guest_checkouts` is retained as long as its orders and is
+  never deleted — erasure NULLs its contact columns (D15) and leaves the row, so
+  a cascade would fire only in a state that must never occur, and firing would
+  destroy the access audit.
+- **`email_verified_at` is ONE column and the boolean is DERIVED.** ADR 0003 D5
+  names `email_verified boolean NOT NULL`; storing the instant instead is the
+  correction #106 already made to `guest_checkouts.contact_verified_at`, for the
+  reason `guest_sessions` has no status column — and the instant is what a
+  step-up freshness check needs anyway, so the boolean would have had to sit
+  beside it rather than replace it.
+- **Two CHECKs carry the verification model.**
+  `guest_order_access_grants_verification_origin_check` refuses a verification
+  instant on a `post_checkout` row, so paying — by card, by wallet, through
+  Stripe Link — cannot mark a contact proven in any code path (#108
+  email-verification rules 2 and 3).
+  `guest_order_access_grants_unverified_scope_check` holds an unproven PORTAL
+  credential to `UNVERIFIED_GRANTABLE_SCOPES`, so possession of the paying
+  device can never buy a retrospective read. It EXEMPTS `exchange` rows
+  deliberately: their scopes are a PROMISE of what the credential they mint will
+  carry, and an exchange token reads nothing — the only statement that accepts
+  one CONSUMES it. Caught by `guest-portal.realdb.test.ts` on its first run.
+- **`cardinality(scopes) >= 1`, never `array_length(scopes, 1) >= 1`.** On an
+  EMPTY array `array_length` returns NULL, `NULL >= 1` is NULL, and a CHECK
+  treats NULL as SATISFIED — so the obvious spelling admits exactly the row it
+  was written to refuse, silently. Also caught by the realdb suite, which is the
+  second thing it found and the reason a constraint without a real server behind
+  it is a comment.
+- **`purge_at` is the `notifications` resolution reused.** ADR 0003 D11 gives
+  exchange rows 24 h past expiry and portal rows 90 days, and
+  `ExpirySweepTarget` is `{table, column, retentionSeconds}` with no filter — so
+  one registry entry cannot express two retentions over one table. The condition
+  becomes a COLUMN, stamped by the writer that knows the purpose, registered with
+  `retentionSeconds: 0`. Stamped at insert and never advanced (the
+  `moderation_outboxes` decision), so a revocation cannot pull the deadline in;
+  `…_purge_after_expiry_check` refuses a row that could be swept while live.
+- **`token_hash`, `email_hash` and `subject_hash` are all in
+  `db/protectedColumns.ts`.** An irreversible digest handed to a client is an
+  OFFLINE ORACLE with no rate limit and no log line — `channel_api_keys.hash`'s
+  reasoning. The resolver legitimately needs `token_hash` (it re-makes the
+  accept decision with `verifySecret`), so `grantRepository` NAMES every column
+  in one `GRANT_COLUMNS` list; `listGrantsForGroup` deliberately does not use it,
+  because an operator trace has no business holding the digest.
+- **`guest_recovery_attempts` is a WINDOW, not an event log.** One row per
+  (axis, subject, window start), incremented in place by
+  `ON CONFLICT DO UPDATE SET attempts = attempts + 1 RETURNING` — one statement,
+  so a burst cannot have every racer read the same value and all pass a ceiling
+  they collectively exceeded. An event log would be a per-inbox activity trail
+  retained for the length of the window, which is precisely the correlation this
+  domain refuses everywhere else. The AXIS is in the digest's preimage, so a
+  value from one axis cannot be tested against another's rows.
+- **`guest_contact_suppressions` has a PARTIAL unique on `email_hash WHERE
+  lifted_at IS NULL`**, so two workers reacting to one bounce converge rather
+  than racing (the `retail_suppressions` device), and a lifted row frees the
+  slot so an address can be suppressed again later. Nothing expires: a hard
+  bounce does not heal on a schedule and a person who complained did not consent
+  again by waiting. A lift is attributable, dated and explained or a CHECK
+  refuses it.
+- **`guest_portal_operator_actions` is the `payment_repairs` shape** —
+  append-only, one row per ATTEMPT, a mandatory actor and reason, and a
+  biconditional CHECK on the refusal code. A refused attempt is the row worth
+  having: an audit that only recorded successes answers "did anyone try" with
+  silence.
+- **What is deliberately ABSENT from every table here**: an email in any form on
+  a grant, a message or an operator action; a postal address; an IP address
+  (`guest_recovery_attempts` holds a coarse network PREFIX, hashed, and is the
+  only table that touches one); a user agent, screen metric or any other device
+  characteristic — #108 recovery rule 2 asks for rate limiting "without
+  fingerprinting" and the absence is the enforcement. Nothing here can hold a
+  plaintext token.
+
 ### The procurement domain has NO source model either (#118)
 
 Eleven more tables born in Postgres, in `schema/procurement.ts`: `suppliers`,

@@ -181,6 +181,44 @@ export async function findGuestContactsByIds(
 }
 
 /**
+ * One contact row by its own id — the read behind a queued message's send.
+ *
+ * Names the protected columns, like `findGuestCheckoutByGroup` above and for
+ * the same reason: the send path decrypts the ciphertext at the moment of
+ * sending. It is a separate function because the message queue holds the
+ * `guest_checkouts` id (a real foreign key) rather than the group, so a lookup
+ * by group would be a join the foreign key already made unnecessary.
+ */
+export async function findGuestCheckoutById(
+  db: DatabaseOrTransaction,
+  id: string,
+): Promise<GuestCheckoutRow | null> {
+  const [row] = await db
+    .select({
+      id: guestCheckouts.id,
+      checkoutGroupId: guestCheckouts.checkoutGroupId,
+      guestSessionId: guestCheckouts.guestSessionId,
+      emailCiphertext: guestCheckouts.emailCiphertext,
+      emailHash: guestCheckouts.emailHash,
+      emailRedacted: guestCheckouts.emailRedacted,
+      phoneCiphertext: guestCheckouts.phoneCiphertext,
+      phoneRedacted: guestCheckouts.phoneRedacted,
+      contactVerificationStage: guestCheckouts.contactVerificationStage,
+      contactVerifiedAt: guestCheckouts.contactVerifiedAt,
+      contactPolicyVersion: guestCheckouts.contactPolicyVersion,
+      marketingOptIn: guestCheckouts.marketingOptIn,
+      locale: guestCheckouts.locale,
+      anonymizedAt: guestCheckouts.anonymizedAt,
+      createdAt: guestCheckouts.createdAt,
+      updatedAt: guestCheckouts.updatedAt,
+    })
+    .from(guestCheckouts)
+    .where(eq(guestCheckouts.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
  * Move a contact's verification stage (#108's seam).
  *
  * Exported now, with no caller in #105, deliberately: the COLUMN exists because

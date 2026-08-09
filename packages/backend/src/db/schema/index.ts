@@ -46,6 +46,11 @@ export * from './pos';
 // placed after `buyers` while nothing referenced it, which the #103 comment
 // said in as many words; that condition ended when the cart gained its owner.
 export * from './guests';
+// The guest order PORTAL (#108) follows `guests` for the same dependency
+// reason: `guest_order_access_grants.guest_checkout_id` and
+// `guest_portal_messages.guest_checkout_id` are real foreign keys onto
+// `guest_checkouts`, so the contact table is the parent.
+export * from './guestPortal';
 export * from './buyers';
 export * from './notifications';
 // Canonical commerce graph (ADR 0002). `provenance` precedes `organizations`

@@ -201,6 +201,20 @@ connectPostgres()
           log.general.error({ err }, 'Supplier preflight sweep import failed'),
         );
 
+      // Deliver the guest portal's transactional messages (#108). On EVERY
+      // task, leased through `FOR UPDATE SKIP LOCKED` like the outboxes above.
+      // The LOOP is gated by `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED` and the
+      // ROW never is: messages keep being enqueued while it is off and drain
+      // when it comes back, so an incident that stops mail going out does not
+      // also erase what was owed. With no transport registered — the shipped
+      // state, see `services/guest-portal/transport.ts` — every attempt fails
+      // `transport_unconfigured` visibly rather than pretending to send.
+      import('./services/guest-portal/message.service.js')
+        .then(({ startGuestPortalMessageDispatcher }) => startGuestPortalMessageDispatcher())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Guest portal message dispatcher import failed'),
+        );
+
       // Retry stored Stripe events whose processing failed, and pick up any
       // whose task died between storing and interpreting them. Also on EVERY
       // task, same lease shape. The webhook ingress processes inline after

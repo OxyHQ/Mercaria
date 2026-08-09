@@ -221,4 +221,41 @@ export const PROTECTED_COLUMNS = {
    * (`provider_accounts`' account-id rule) rather than whole.
    */
   supplier_reservations: ['providerReservationId'],
+
+  /**
+   * The digest of a guest portal credential — the `mgx_` exchange token or the
+   * `mgp_` portal credential (#108, ADR 0003 D5).
+   *
+   * `merchant_claim_challenges.token_hash` exactly, and the consequence is
+   * larger: this digest stands for a credential that reads a placed order's
+   * lines, totals and shipping address. Handing it out hands an attacker an
+   * OFFLINE oracle to test guessed tokens against with no rate limit and no log
+   * line — and the portal's own projection (`GuestPortalSessionState`) has no
+   * field it could arrive in, so registering it here closes the whole-row route
+   * that a projection cannot.
+   */
+  guest_order_access_grants: ['tokenHash'],
+
+  /**
+   * The keyed digest of a suppressed inbox (#108 privacy rule 5).
+   *
+   * `guest_checkouts.email_hash`'s reasoning, on a table whose whole purpose is
+   * to be queried by that value: irreversible and still an exact-match ORACLE,
+   * so anyone holding it can confirm whether a guessed address stopped
+   * receiving Mercaria's mail — which is a fact about a person's relationship
+   * with this marketplace that no client is owed.
+   */
+  guest_contact_suppressions: ['emailHash'],
+
+  /**
+   * The keyed digest a recovery throttle counts against (#108 recovery rule 2).
+   *
+   * The same oracle one axis wider: the subject is an email hash, an order
+   * number or a coarse network prefix depending on the row, and any of the
+   * three confirms a guess. The counters themselves are the only thing an
+   * operator ever needs, and the operator surface exposes none of these rows at
+   * all — the registration is what stops a future diagnostic from shipping one
+   * by reading the table whole.
+   */
+  guest_recovery_attempts: ['subjectHash'],
 } as const satisfies ProtectedColumnRegistry;

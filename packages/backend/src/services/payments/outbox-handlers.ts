@@ -16,6 +16,10 @@ import type { PaymentOutboxRow } from '../../db/payments/paymentOutboxRepository
 import { getDb } from '../../db/postgres.js';
 import { SYSTEM_ACTOR, transition } from '../order.service.js';
 import { findGuestCheckoutIdForGroup } from './guest-correlation.js';
+// #108's message queue. The ONE import the payment domain makes into the guest
+// portal, and it is deliberately the ENQUEUE and not the grant service: this
+// domain may say a confirmation is owed and may not mint a credential.
+import { enqueueGuestMessage } from '../guest-portal/message.service.js';
 import { findOrdersInCheckoutGroup, loadOrderForTransition } from './order-linkage.js';
 import { enqueuePaymentEvent, guestPortalInitializationEventId } from './payment-outbox.service.js';
 import { settlePaymentTransfers } from './settlement.service.js';
@@ -235,39 +239,54 @@ async function requestGuestPortalInitialization(
 }
 
 /**
- * The #108 seam.
+ * The #108 seam, CLOSED — and it enqueues a MESSAGE rather than minting a
+ * grant.
  *
- * The row is the deliverable #107 owes; the BODY of this handler is #108's. When
- * it lands, this function mints the `post_checkout` portal grant scoped to the
- * checkout group and enqueues the confirmation email carrying the magic-link
- * path — both inside Mercaria, both strictly after the provider event was
- * verified, neither of them anywhere near the payment's metadata.
+ * #107 wrote this expecting #108 to "mint the `post_checkout` portal grant
+ * scoped to the checkout group and enqueue the confirmation email". It does the
+ * second and deliberately not the first, for a reason #107's own argument
+ * supplies: a bearer token must never exist where nothing is waiting to receive
+ * it. This handler runs minutes after the buyer's request ended, so a grant
+ * minted here would have nowhere to go but a log line or a column. The
+ * confirmation credential is instead PULLED by the paying device from
+ * `POST /guest/orders/confirmation`, which is the same D5 row with the same
+ * origin and the same scope, minted at the first moment there is a client to
+ * hand it to (see `services/guest-portal/grant.service.ts`).
  *
- * ## Why it completes rather than throwing
+ * The link in the confirmation message is minted later still — inside the send
+ * transaction — so no plaintext token rests in a queue row either, and ADR 0006
+ * B4's "no token may ever be in a position to reach a PaymentIntent's metadata"
+ * stays a fact about the call graph.
  *
- * The alternative is tempting: a paid guest order with no portal is a real gap,
- * and throwing would make it visible as a dead letter. But the gap is not a
- * fault to be retried — the code that closes it does not exist yet, so every
- * attempt would fail identically for days before dead-lettering, filling the
- * operator surface with rows that describe an unfinished issue rather than a
- * broken deployment. It is logged at `warn` naming the issue, and it cannot be
- * mistaken for real handling: the durable row is there, the message says what is
- * missing, and `GUEST_COMMERCE_ENABLED` is off by default until #111's review,
- * so no production buyer reaches this state before #108 lands.
+ * ## Duplicate webhooks converge on ONE message
+ *
+ * The enqueue's id is deterministic on the checkout group, so a redelivered
+ * `payment_intent.succeeded`, a reconciliation sweep re-deriving the same fact
+ * and two tasks racing all collide on the primary key and write nothing —
+ * #108's initial-confirmation rule 7, held by the index rather than by a check.
+ * A retry of this whole event therefore converges rather than mailing twice.
+ *
+ * An `oxy`-origin group has no `guest_checkouts` row and the enqueue reports
+ * `false` without writing: an authenticated buyer's transactional channel is
+ * Oxy's own notifications, which this domain deliberately knows nothing about.
  */
 async function handleGuestPortalInitialization(event: PaymentOutboxRow): Promise<void> {
   const { checkoutGroupId, guestCheckoutId, orderIds } = readPayload(event);
-  log.general.warn(
-    {
-      eventId: event.id,
-      checkoutGroupId,
-      guestCheckoutId,
-      orders: orderIds?.length ?? 0,
-    },
-    '[Payments] a guest payment was verified and its portal initialization is recorded; the ' +
-      'grant and the confirmation email are #108 and are not minted here (ADR 0006 G13)',
+  if (checkoutGroupId === undefined) {
+    throw new Error('guest_portal_initialization payload carries no checkoutGroupId');
+  }
+
+  const enqueued = await enqueueGuestMessage({
+    checkoutGroupId,
+    kind: 'order_confirmation',
+  });
+
+  log.general.info(
+    { eventId: event.id, checkoutGroupId, guestCheckoutId, orders: orderIds?.length ?? 0, enqueued },
+    enqueued
+      ? '[Payments] guest order confirmation enqueued for a verified guest payment'
+      : '[Payments] guest order confirmation was already owed for this group; nothing enqueued',
   );
-  return await Promise.resolve();
 }
 
 /**

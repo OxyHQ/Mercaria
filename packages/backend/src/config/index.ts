@@ -1087,6 +1087,115 @@ export interface GuestConfig {
    * 13). See {@link GuestCheckoutRolloutConfig}.
    */
   readonly checkoutRollout: GuestCheckoutRolloutConfig;
+  /** The guest ORDER PORTAL (#108). See {@link GuestPortalConfig}. */
+  readonly portal: GuestPortalConfig;
+}
+
+/**
+ * The guest order portal (#108, ADR 0003 D5/D11/D17).
+ *
+ * ## Nothing here gates portal ACCESS, and that is acceptance 10
+ *
+ * "Existing guest orders remain accessible when guest checkout creation is
+ * feature-disabled later" — so the portal router mounts unconditionally, the
+ * exchange resolves unconditionally, and recovery answers unconditionally. Not
+ * one of the four levers above (`GUEST_COMMERCE_ENABLED`,
+ * `GUEST_SESSION_ISSUANCE_ENABLED`, `GUEST_CART_ENABLED`,
+ * `GUEST_INLINE_DESTINATION_ENABLED`) is read by any portal read path, and
+ * `guest-portal-isolation.test.ts` fails the build if one starts to be. ADR
+ * 0003 M8 states it in as many words: the flag gates issuance and guest
+ * checkout, "never the durable records: existing portal grants and magic-link
+ * recovery for already-placed guest orders keep working with the flag off".
+ *
+ * The ONE interaction worth stating, because it is a real consequence rather
+ * than an oversight: `POST /guest/orders/confirmation` mints a `post_checkout`
+ * grant from a live guest SESSION, and a session only resolves while
+ * `GUEST_COMMERCE_ENABLED` is on. With guest commerce switched off mid-flight,
+ * a buyer who has already paid reaches their orders through the emailed link
+ * rather than from the tab they paid in. That is the correct trade: the
+ * confirmation grant is a NEW credential derived from a credential the
+ * deployment has stopped honouring.
+ *
+ * ## The fifth lever gates a LOOP
+ *
+ * `deliveryEnabled` stops the dispatcher, never the row: messages keep being
+ * enqueued while it is off and drain when it is switched back on, the
+ * moderation-outbox rule. An incident in which mail must stop going out is the
+ * case it exists for, and losing the record of what was owed would turn a
+ * two-hour pause into a permanent gap.
+ */
+export interface GuestPortalConfig {
+  /**
+   * `GUEST_PORTAL_GRANT_DAYS` — how long a portal credential lives (ADR 0003
+   * D5/D11). ABSOLUTE: using a credential does not extend it, so a stolen one
+   * cannot be kept alive by using it.
+   */
+  readonly grantDays: number;
+  /**
+   * `GUEST_MAGIC_LINK_MINUTES` — an exchange token's whole lifetime (D5).
+   * Short because it rides in a URL, however carefully: the fragment keeps it
+   * out of server and proxy logs, and nothing keeps it out of a screenshot, a
+   * forwarded mail or a synced clipboard.
+   */
+  readonly magicLinkMinutes: number;
+  /**
+   * `GUEST_PORTAL_STEP_UP_MINUTES` — how recently the inbox must have been
+   * proven for a sensitive mutation (#108 authorization rule 3).
+   *
+   * A FRESHNESS window over `email_verified_at`, not a second credential: the
+   * portal session already proved the inbox, and what a step-up adds is that it
+   * proved it just now. Consuming a step-up link ROTATES the session (magic-link
+   * rule 9), so the window measures the newest proof rather than the oldest.
+   */
+  readonly stepUpMinutes: number;
+  /**
+   * `GUEST_MAGIC_LINK_BASE_URL` — the HTTPS universal/app-link base every
+   * emailed link is built on (ADR 0003 T14).
+   *
+   * EMPTY by default and refused rather than defaulted: a link built on a
+   * guessed host is a link that either does not work or works somewhere
+   * Mercaria does not control, and a custom scheme (which a rogue app can
+   * register) is not an option at all. An unset value makes every link-bearing
+   * message fail with `transport_unconfigured`, visibly, instead of mailing a
+   * broken URL.
+   */
+  readonly magicLinkBaseUrl: string;
+  /**
+   * `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED` — the dispatcher LOOP, default
+   * true. See the interface docblock: the row is never gated.
+   */
+  readonly deliveryEnabled: boolean;
+  /** `GUEST_PORTAL_MESSAGE_BATCH_SIZE` — rows claimed per dispatcher pass. */
+  readonly messageBatchSize: number;
+  /** `GUEST_PORTAL_MESSAGE_POLL_INTERVAL_MS` — how often the dispatcher wakes. */
+  readonly messagePollIntervalMs: number;
+  /** `GUEST_PORTAL_MESSAGE_LEASE_MS` — how long a claimed row stays claimed. */
+  readonly messageLeaseMs: number;
+  /**
+   * `GUEST_PORTAL_MESSAGE_MAX_ATTEMPTS` — attempts before `dead_letter`.
+   *
+   * A dead letter is VISIBLE in the operator trace, which is the point: a
+   * confirmation that never sent is a buyer who cannot find their order, and
+   * the alternative to a terminal state is a row retrying forever with nobody
+   * looking at it.
+   */
+  readonly messageMaxAttempts: number;
+  /**
+   * `GUEST_RECOVERY_WINDOW_MINUTES` — the durable throttle's counting window
+   * (#108 recovery rule 2).
+   */
+  readonly recoveryWindowMinutes: number;
+  /** `GUEST_RECOVERY_MAX_PER_EMAIL` — links per inbox per window. */
+  readonly recoveryMaxPerEmail: number;
+  /** `GUEST_RECOVERY_MAX_PER_ORDER` — attempts naming one order per window. */
+  readonly recoveryMaxPerOrder: number;
+  /**
+   * `GUEST_RECOVERY_MAX_PER_NETWORK` — attempts from one coarse address prefix
+   * per window. The WEAKEST axis deliberately: an IPv4 /24 and an IPv6 /64 are
+   * shared by whole offices and carriers, so this bounds a flood and identifies
+   * nobody.
+   */
+  readonly recoveryMaxPerNetwork: number;
 }
 
 /**
@@ -2008,6 +2117,21 @@ export const config: AppConfig = Object.freeze({
         blockedListEnv('GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS', 'lower'),
       ),
       sellerActivationRequired: boolEnv('GUEST_SELLER_ACTIVATION_REQUIRED', false),
+    }),
+    portal: Object.freeze({
+      grantDays: intEnv('GUEST_PORTAL_GRANT_DAYS', 30),
+      magicLinkMinutes: intEnv('GUEST_MAGIC_LINK_MINUTES', 15),
+      stepUpMinutes: intEnv('GUEST_PORTAL_STEP_UP_MINUTES', 15),
+      magicLinkBaseUrl: strEnv('GUEST_MAGIC_LINK_BASE_URL', ''),
+      deliveryEnabled: boolEnv('GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED', true),
+      messageBatchSize: intEnv('GUEST_PORTAL_MESSAGE_BATCH_SIZE', 25),
+      messagePollIntervalMs: intEnv('GUEST_PORTAL_MESSAGE_POLL_INTERVAL_MS', 5_000),
+      messageLeaseMs: intEnv('GUEST_PORTAL_MESSAGE_LEASE_MS', 60_000),
+      messageMaxAttempts: intEnv('GUEST_PORTAL_MESSAGE_MAX_ATTEMPTS', 8),
+      recoveryWindowMinutes: intEnv('GUEST_RECOVERY_WINDOW_MINUTES', 60),
+      recoveryMaxPerEmail: intEnv('GUEST_RECOVERY_MAX_PER_EMAIL', 5),
+      recoveryMaxPerOrder: intEnv('GUEST_RECOVERY_MAX_PER_ORDER', 5),
+      recoveryMaxPerNetwork: intEnv('GUEST_RECOVERY_MAX_PER_NETWORK', 30),
     }),
   }),
   referrals: Object.freeze({

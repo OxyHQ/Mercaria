@@ -48,8 +48,9 @@
  */
 
 import type { OrderBuyer, OrderSellerType } from '@mercaria/shared-types';
+import type { OrderRecord } from '../../db/orders/orderRepository.js';
 import type { CommerceActor } from '../commerce-actor.js';
-import { accountWithBuyerAccess } from './order-buyer.js';
+import { accountWithBuyerAccess, orderBuyerOf } from './order-buyer.js';
 
 /**
  * A live, scoped guest order-portal grant — ADR 0003 D5, owned by #108.
@@ -180,22 +181,50 @@ export function orderAccessSubjectForCommerceActor(
 }
 
 /**
- * The #108 seam, stated as a refusal rather than as a comment.
+ * The #108 seam, CLOSED — and closed as a pure translation rather than a
+ * lookup.
  *
- * `guest_order_access_grants` does not exist: there is no table, no token
- * prefix in circulation, no exchange endpoint and therefore no way to obtain a
- * {@link GuestOrderPortalGrant} this module did not fabricate — and this module
- * fabricates nothing. #108 replaces the body with a real lookup (hash the
- * presented `mgp_` token, resolve the row, apply D5's liveness rules) and
- * nothing else in this file changes: {@link authorizeOrderAccess} already
- * knows what to do with a grant.
+ * #106 wrote this function expecting #108 to replace its body with "hash the
+ * presented `mgp_` token, resolve the row, apply D5's liveness rules". It does
+ * all three, and none of them happens here: `services/guest-portal/` owns the
+ * token shape, the hash, the indexed lookup and the liveness predicate, and
+ * this module receives an already-resolved grant.
  *
- * It returns `null` rather than throwing, because "no portal credential
- * resolved" is the ordinary state of every request today and a throw would turn
- * an unmounted feature into a 500.
+ * The divergence is deliberate and it is in the direction #106's own docblock
+ * argues for two paragraphs above. `authorizeOrderAccess` is "pure, total and
+ * side-effect free — no database, no clock beyond the one passed in, no
+ * configuration", which is what makes the six accepts and six rejects a table a
+ * test can drive; putting a `getDb()` call in the same module would give this
+ * file a database dependency for the sake of one function, and every consumer
+ * of the pure decision would inherit it.
+ *
+ * It still returns `null` for the ordinary case — no portal credential on this
+ * request — because a throw would turn an anonymous browse into a 500.
  */
-export function resolveGuestPortalSubject(): OrderAccessSubject | null {
-  return null;
+export function resolveGuestPortalSubject(
+  grant: GuestOrderPortalGrant | null | undefined,
+): OrderAccessSubject | null {
+  if (grant === null || grant === undefined) return null;
+  return { kind: 'guest_portal', grant };
+}
+
+/**
+ * The six facts an access decision reads, projected from a stored order.
+ *
+ * Kept beside {@link OrderAccessFacts} rather than in the repository, so the
+ * projection and the decision stay in one file and cannot drift: adding a field
+ * to the decision without deciding where it comes from will not compile. The
+ * `OrderRecord` import is type-only, so this module still reaches no database.
+ */
+export function orderAccessFactsFromRecord(order: OrderRecord): OrderAccessFacts {
+  return {
+    id: order.id,
+    buyer: orderBuyerOf(order),
+    checkoutGroupId: order.checkoutGroupId,
+    sellerType: order.sellerType,
+    sellerOxyUserId: order.sellerOxyUserId,
+    storeId: order.storeId,
+  };
 }
 
 /**

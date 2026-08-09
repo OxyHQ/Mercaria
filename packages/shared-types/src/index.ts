@@ -132,6 +132,12 @@ export * from './merchant-claim';
 // Guest commerce identity DTOs (GuestSessionState, GuestSessionStatus, …) — ADR 0003, #103.
 export * from './guest';
 
+// The guest ORDER PORTAL — scopes, grant vocabulary, transactional message kinds
+// and the operator trace (ADR 0003 D5/D17, #108). Follows `./guest` because every
+// credential it describes is the one a guest session is NOT: a cart token names
+// no order, and a portal grant names exactly one checkout group.
+export * from './guest-portal';
+
 // Procurement — suppliers, supply agreements, procurement offers, purchase orders (#118).
 export * from './procurement';
 

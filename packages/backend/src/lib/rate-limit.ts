@@ -49,6 +49,19 @@ export type RateLimitScope =
   | 'guest-issue'
   // The rest of the guest-session surface (inspect/rotate/revoke).
   | 'guest'
+  // Guest order RECOVERY (#108 recovery rule 2) — the NETWORK axis of the three
+  // the issue names, and the only one a per-IP bucket can serve. Its own bucket
+  // (`rl:guest-recover:`) and a tight one: the endpoint always answers 202, so
+  // there is no failure a legitimate client retries, and the two durable axes
+  // (per inbox, per order reference) live in Postgres because "how often has
+  // THIS INBOX been asked for, across every ECS task" is not a question a
+  // per-process counter can answer.
+  | 'guest-recover'
+  // The authenticated guest PORTAL — the exchange, the reads and the two
+  // mutations. Separate from `'guest'` because the credentials are different
+  // and so is the risk: a portal token reaches a placed order's detail, while a
+  // guest session reaches a cart.
+  | 'guest-portal'
   // Merchant claiming (#83, security control 1) — the NETWORK axis of the four
   // the issue names. Its own bucket (`rl:merchant-claims:`) so a claim-farming
   // burst exhausts this budget and not the general one; the per-user,
