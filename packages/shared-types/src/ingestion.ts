@@ -200,6 +200,39 @@ export const CATALOG_SOURCE_FETCH_FAILURE_KINDS: readonly CatalogSourceFetchFail
   'parse_failure',
 ];
 
+/**
+ * Where the SELLER OF RECORD of one source's offers comes from (#65 adapter
+ * rule 3).
+ *
+ * `source_bound` is #62's original and remains the default and the behaviour of
+ * every source that existed before #65: the merchant is a property of the
+ * AGREEMENT with the source, bound once by an operator, and no payload can name
+ * one. It is right for a retailer feed, where the advertiser IS the merchant.
+ *
+ * `per_record` exists because a MARKETPLACE has no such merchant. Every eBay
+ * item is sold by a different account, and binding one merchant to the source
+ * would attribute forty thousand sellers' inventory to a single "eBay" row —
+ * which is not a smaller version of the truth, it is a different claim, and it
+ * makes issue #65 acceptance 2 ("the same product sold by several marketplace
+ * sellers produces separate offers under one canonical product") impossible to
+ * satisfy at all.
+ *
+ * The prohibition #62 states — "the merchant comes from the source's own
+ * BINDING, never from a payload hint" — is not weakened by this, and the shape
+ * is what keeps that true. The value is on the SOURCE, set by an operator, and
+ * the operator setting it is asserting one specific thing: that this provider
+ * publishes a stable per-item seller identity of its own. A source left at the
+ * default cannot mint a merchant however its payloads are shaped, and a
+ * `per_record` source mints them into a namespace keyed by
+ * `(provider, external seller id)` that no claimed merchant can occupy.
+ */
+export type CatalogSourceSellerIdentity = 'source_bound' | 'per_record';
+
+export const CATALOG_SOURCE_SELLER_IDENTITIES: readonly CatalogSourceSellerIdentity[] = [
+  'source_bound',
+  'per_record',
+];
+
 /** What kind of pass a run is. */
 export type CatalogSourceRunKind = 'backfill' | 'incremental' | 'webhook' | 'manual';
 

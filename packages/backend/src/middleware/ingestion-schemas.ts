@@ -11,6 +11,7 @@ import { z } from 'zod';
 import {
   CATALOG_SOURCE_EXTRACTION_MODES,
   CATALOG_SOURCE_KINDS,
+  CATALOG_SOURCE_SELLER_IDENTITIES,
   CATALOG_SOURCE_STATUSES,
   SOURCE_RECORD_EXTERNAL_TYPES,
 } from '@mercaria/shared-types';
@@ -51,6 +52,16 @@ export const configureSourceSchema = z
     rateLimitConcurrency: z.number().int().min(1).max(64).optional(),
     rateLimitMinIntervalMs: z.number().int().min(0).max(60_000).optional(),
     pageSize: z.number().int().min(1).max(1_000).optional(),
+    /**
+     * WHERE the seller of record comes from (#65).
+     *
+     * Optional, and OMITTING it keeps whatever is stored — which for every
+     * source that predates #65 is `source_bound`. Making it required would have
+     * changed the meaning of every existing operator request, and defaulting it
+     * in the schema would write the default over a marketplace source somebody
+     * had already configured.
+     */
+    sellerIdentity: z.enum(CATALOG_SOURCE_SELLER_IDENTITIES as [string, ...string[]]).optional(),
     rightsNote: z.string().trim().max(2_000).optional(),
   })
   .strict();

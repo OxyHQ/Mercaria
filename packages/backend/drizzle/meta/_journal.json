@@ -330,6 +330,13 @@
       "when": 1786311118213,
       "tag": "0046_fuzzy_captain_flint",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1786312263205,
+      "tag": "0047_wandering_thing",
+      "breakpoints": true
     }
   ]
 }

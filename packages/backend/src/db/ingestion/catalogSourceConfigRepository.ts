@@ -16,7 +16,11 @@
  */
 
 import { and, asc, eq, gt, isNotNull, lte, or, sql } from 'drizzle-orm';
-import type { CatalogSourceHealthState, CatalogSourceStatus } from '@mercaria/shared-types';
+import type {
+  CatalogSourceHealthState,
+  CatalogSourceSellerIdentity,
+  CatalogSourceStatus,
+} from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { CATALOG_SOURCE_MAX_TEXT_LENGTH, catalogSourceConfigs } from '../schema/ingestion.js';
 import { catalogSources } from '../schema/provenance.js';
@@ -44,6 +48,15 @@ export interface UpsertCatalogSourceConfigInput {
   rateLimitConcurrency?: number | null;
   rateLimitMinIntervalMs?: number | null;
   pageSize?: number;
+  /**
+   * WHERE the seller of record of this source's offers comes from (#65).
+   *
+   * Omitted leaves whatever is stored, which for a source that predates #65 is
+   * the `source_bound` default — every existing source keeps #62's behaviour
+   * exactly, and the marketplace path is reachable only by an operator asking
+   * for it.
+   */
+  sellerIdentity?: CatalogSourceSellerIdentity;
 }
 
 /**
@@ -74,6 +87,7 @@ export async function upsertCatalogSourceConfig(
       ? {}
       : { freshnessTtlSeconds: input.freshnessTtlSeconds }),
     ...(input.pageSize === undefined ? {} : { pageSize: input.pageSize }),
+    ...(input.sellerIdentity === undefined ? {} : { sellerIdentity: input.sellerIdentity }),
   };
 
   const rows = await db

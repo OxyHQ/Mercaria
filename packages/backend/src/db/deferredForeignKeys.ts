@@ -1107,4 +1107,31 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'there is nothing to reference. It is NULL whenever the refusal happened before the ' +
       'external id could be derived, which is the `missing_required_field` case on a key column.',
   },
+
+  // ── The eBay Browse catalog source (#65) ─────────────────────────────────
+  {
+    column: 'marketplace_seller_identities.external_seller_id',
+    reason:
+      "A MARKETPLACE's own id for one selling account — `seller.username` on eBay. It is the " +
+      'foreign half of the identity this table exists to hold, and the Mercaria half is the ' +
+      '`merchant_id` beside it, which DOES carry a real foreign key. Pointing this column at ' +
+      'anything in Mercaria would make it a second spelling of that one.',
+  },
+  {
+    column: 'ebay_discovery_queries.marketplace_id',
+    reason:
+      "eBay's own marketplace identifier (`EBAY_ES`), not a Mercaria row. It is CHECK-constrained " +
+      'against `EBAY_MARKETPLACE_IDS`, which is the closed tuple every member of costs a rights ' +
+      'review — a table of marketplaces would be a second, editable answer to what that tuple ' +
+      'already states.',
+  },
+  { column: 'ebay_discovery_queries.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'ebay_reconciliation_samples.external_id',
+    reason:
+      'The same foreign key space as `catalog_source_objects.external_id`, plus the reason a ' +
+      'reconciliation sample exists at all: a `vanished` finding is precisely the case where the ' +
+      'item is gone from the provider, and a `retired` object may later be swept — so a foreign ' +
+      'key would make the evidence deletable by the thing it is evidence about.',
+  },
 ];

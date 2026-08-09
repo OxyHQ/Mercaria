@@ -3380,3 +3380,89 @@ ADR 0004 D1/D4/D5/D8.
   `CONNECTED_MARKETPLACE_SELLER_TYPES` rather than the full tuple, so a schedule
   scoped to `platform` — selectable by nothing, but readable as a policy
   somebody set — has no row shape.
+## The eBay Browse source (#65)
+
+Three tables in `ebay.ts` — `ebay_call_budgets`, `ebay_discovery_queries`,
+`ebay_reconciliation_samples` — plus `marketplace_seller_identities` and
+`catalog_source_configs.seller_identity` in `ingestion.ts`, and a widening of
+`condition_mapping_rulesets.provider`. Full behaviour:
+`docs/catalog-sources/ebay-browse.md`.
+
+**#62 forbids an adapter forking the framework's schema, and #65 does not.** Not
+one column here describes an observation, an offer, a match or a rights policy,
+and no pipeline stage reads any of it. What these tables carry is the three
+things eBay's own contract demands that no provider-neutral framework could have
+anticipated.
+
+- **A QUOTA is a property of the application, not of a source.** eBay meters
+  5,000 calls/day against the KEYSET while Mercaria configures one
+  `catalog_sources` row per marketplace — five at the launch set. So
+  `ebay_call_budgets` is keyed `(application_key, budget_date)`, where
+  `application_key` is a sha-256 of the credential LOCATOR (never of a
+  credential: `catalog_source_configs.credential_ref` is CHECK-shaped so it
+  cannot be a secret). The digest is there because it is fixed-width and because
+  two sources naming one keyset must collapse by construction rather than by
+  string equality on a value somebody might write two ways. A budget keyed on
+  the source would let the fleet draw 25,000 calls against a 5,000-call
+  agreement.
+- **The bound is stated twice and neither is a second source of truth.** The
+  reservation is a conditional `UPDATE` (`calls_used + $n <= daily_limit`), which
+  is what makes it exact across every ECS task; `ebay_call_budgets_within_limit_check`
+  states the same rule at the row so a replay or a repair typed during an
+  incident cannot exceed it. The CHECK cannot grant and the predicate cannot
+  exceed it.
+- **`daily_limit` is stored PER DAY** rather than read from configuration at
+  report time, because eBay's application growth check really does raise it: a
+  run refused against 5,000 stays refused against 5,000 in the evidence after the
+  limit becomes 25,000, which is what makes "we were throttled on the 9th"
+  answerable a month later. `calls_refused` sits beside `calls_used` for the
+  vacuity reason `catalog_backfill_runs` states: the used count alone cannot tell
+  a quiet day from a day spent refusing everything.
+- **`ebay_discovery_queries` IS the catalogue.** eBay grants search-driven
+  discovery and publishes no export, so an eBay marketplace inside Mercaria is
+  exactly the union of these rows. A table rather than an environment variable
+  because it is the ROLLOUT COHORT (#65 acceptance 7): an operator widens it one
+  row at a time with the evidence of what each sweep returned beside it.
+  `max_offset` is CHECK-bounded below `EBAY_SEARCH_MAX_OFFSET` — a depth past
+  eBay's refusal point is a query that can only ever fail — and the constant is
+  rendered with `sql.raw`, because an interpolated one writes a `$1` placeholder
+  into the migration and DDL cannot carry a parameter.
+- **The sweep order is a `position` COLUMN, not `created_at`.** A pass resumes
+  by index, so the order must mean the same thing on the retry as on the
+  attempt; two rows sharing a millisecond order arbitrarily under a uuid v7
+  primary key.
+- **`ebay_reconciliation_samples` records and repairs nothing** (the
+  `payment_discrepancies` posture). Both money pairs carry the
+  `offers.price_currency` SHAPE-check exemption and a paired-null CHECK, and
+  `provider_affiliate_url_present` is nullable on purpose: NULL means attribution
+  was never requested, `false` means it was and eBay answered without one — the
+  only signal EPN approval has lapsed, because an unattributed link fails
+  nowhere else.
+- **`marketplace_seller_identities` is keyed `(provider, external_seller_id)`,
+  not on the source.** An eBay username is one account across every marketplace
+  it sells on, so scoping to a source would split one seller into five merchants
+  the moment DE and FR come up beside ES — and a merge is #59's most expensive
+  operation. It is NOT a copy of `merchant_source_links`: that answers "which
+  observation attached this merchant", one row per source record, and this
+  answers "which merchant IS this account", once per account. Neither is
+  derivable from the other. `merchant_id` is a real RESTRICT foreign key;
+  `external_seller_id` carries none and is registered in
+  `ID_COLUMNS_WITHOUT_FOREIGN_KEY` with its reason.
+- **`catalog_source_configs.seller_identity` defaults to `source_bound`**, so
+  every source that predates #65 keeps #62's behaviour exactly, and a
+  `per_record` source must additionally name BOTH a merchant and a storefront (a
+  CHECK): those are the marketplace OPERATOR and its CHANNEL, and
+  `storefronts.merchant_id` is what an offer's own merchant is compared AGAINST
+  to derive marketplace-ness (ADR 0002 D8). Both NULL would leave every eBay
+  offer indistinguishable from a retailer's own.
+- **`condition_mapping_rulesets.provider` was WIDENED, not forked** — from
+  `CONNECTOR_PROVIDER_IDS` to `CONDITION_MAPPING_PROVIDER_IDS`, a strict
+  superset. Every existing ruleset, rule and offer keeps its provider and the
+  rendered CHECK only ever admits more. A second ruleset table for catalog
+  sources would have been the fork: two places deciding what "Seller
+  refurbished" means, with one confidence floor between them.
+- **No token, no item payload, no merchant/offer/canonical id.** An eBay access
+  token is minted per process and held in memory (`services/ebay/token.ts`); eBay
+  content is stored exactly once, in `source_records.payload`, under #62's
+  allow-list and its `may_store` right — a second copy here would be a second
+  retention clock for data whose deletion obligation is contractual.

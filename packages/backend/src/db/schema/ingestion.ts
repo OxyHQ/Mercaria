@@ -91,6 +91,7 @@ import {
   CATALOG_SOURCE_RETIRING_OUTCOMES,
   CATALOG_SOURCE_RUN_KINDS,
   CATALOG_SOURCE_RUN_STATUSES,
+  CATALOG_SOURCE_SELLER_IDENTITIES,
   CATALOG_SOURCE_STATUSES,
   SOURCE_RECORD_EXTERNAL_TYPES,
 } from '@mercaria/shared-types';
@@ -171,6 +172,34 @@ export const catalogSourceConfigs = pgTable(
     merchantId: text().references(() => merchants.id, { onDelete: 'restrict' }),
     /** The channel, when the source publishes on one. Same binding, same reasoning. */
     storefrontId: text().references(() => storefronts.id, { onDelete: 'restrict' }),
+    /**
+     * WHERE the seller of record comes from (#65 adapter rule 3).
+     *
+     * `source_bound` is the default and #62's original behaviour: the bound
+     * merchant above, and no payload may name one. `per_record` is the
+     * MARKETPLACE case, where every item is sold by a different account and one
+     * bound merchant would attribute every seller's inventory to one row.
+     *
+     * The opt-in lives HERE — on a row an operator writes, per source — rather
+     * than in the adapter, and that placement is the whole of what keeps #62's
+     * write boundary 2 intact. An adapter still has no field through which to
+     * name a merchant; what a `per_record` source's adapter supplies is a
+     * `merchantHint`, which is what it always was: the source's own words for
+     * who is selling. The operator setting this column is the party asserting
+     * those words are a stable identity worth minting against, and
+     * `marketplace_seller_identities` is the namespace they land in.
+     *
+     * The BINDING is still demanded of a `per_record` source
+     * (`catalog_source_configs_seller_identity_check` below): the bound
+     * merchant becomes the marketplace OPERATOR — eBay itself — which is the
+     * merchant the source's storefront belongs to and the one an offer is
+     * compared against to derive that it is a marketplace offer at all
+     * (ADR 0002 D8). A marketplace with no operator bound has nothing to be a
+     * marketplace OF.
+     */
+    sellerIdentity: text({ enum: asEnumValues(CATALOG_SOURCE_SELLER_IDENTITIES) })
+      .notNull()
+      .default('source_bound'),
     /**
      * ISO 3166-1 alpha-2 markets this source's facts apply to (issue source
      * definition 4).
@@ -253,6 +282,27 @@ export const catalogSourceConfigs = pgTable(
   },
   (t) => [
     checkOneOf('catalog_source_configs_status_check', t.status, CATALOG_SOURCE_STATUSES),
+    checkOneOf(
+      'catalog_source_configs_seller_identity_value_check',
+      t.sellerIdentity,
+      CATALOG_SOURCE_SELLER_IDENTITIES,
+    ),
+    /**
+     * A marketplace must name its OPERATOR and its CHANNEL.
+     *
+     * `per_record` says the seller of every offer comes from the record; the
+     * bound merchant and storefront then mean something different from what
+     * they mean on a `source_bound` source — they are the marketplace itself,
+     * and `storefronts.merchant_id` is what an offer's own merchant is compared
+     * AGAINST to derive marketplace-ness (ADR 0002 D8). Both NULL would leave
+     * every eBay offer indistinguishable from a retailer's own, on a graph whose
+     * only representation of that difference is the comparison.
+     */
+    check(
+      'catalog_source_configs_seller_identity_check',
+      sql`${t.sellerIdentity} <> 'per_record'
+          or (${t.merchantId} is not null and ${t.storefrontId} is not null)`,
+    ),
     checkOneOf(
       'catalog_source_configs_health_state_check',
       t.healthState,
@@ -1088,5 +1138,120 @@ export const catalogSourceRejections = pgTable(
      * table where that matters.
      */
     index('catalog_source_rejections_expiry_idx').on(t.expiresAt),
+  ],
+);
+
+/**
+ * `marketplace_seller_identities` — one MARKETPLACE account, and the merchant
+ * Mercaria minted for it (#65 acceptance 2).
+ *
+ * ### Why this exists at all, when #62 says a merchant comes from a binding
+ *
+ * It still does. A `source_bound` source cannot reach this table, and no
+ * adapter can reach it at all — the row is written by the ingestion pipeline,
+ * from a `merchantHint` the adapter supplied, and ONLY for a source an operator
+ * marked `per_record`. What the operator asserts by setting that column is one
+ * specific, checkable thing: that this provider publishes a STABLE per-item
+ * seller identity of its own. eBay does — `seller.username` is eBay's own
+ * primary key for an account, and it arrives on every item.
+ *
+ * The prohibition #62 wrote was about an arbitrary feed naming a merchant it
+ * had no authority over. This is the opposite case and needs its own shape,
+ * because a marketplace has no single merchant to bind: binding one would
+ * attribute forty thousand sellers' inventory to a row called "eBay", which is
+ * not a coarser truth but a different and false one.
+ *
+ * ### The key is `(provider, external_seller_id)`, not `(source, …)`
+ *
+ * An eBay username is one account across every marketplace it sells on, so
+ * scoping the identity to a SOURCE would split one seller into five merchants
+ * the moment DE and FR come up beside ES — and a merge afterwards is #59's most
+ * expensive operation. The provider is the key space; the source is the place
+ * it was observed.
+ *
+ * ### The minted merchant cannot be confused with a claimed one
+ *
+ * `merchants.slug` is namespaced by provider on mint, `merchant_type` is
+ * `marketplace_seller` and `claim_state` stays `unclaimed`. Nothing here grants
+ * a relationship (#55), a native store link (#84) or native checkout: those are
+ * each their own audited act, and a scanned gate fails the build if this domain
+ * reaches any of them. The merchant this row names is a SELLER OF RECORD on a
+ * comparison surface and nothing more.
+ *
+ * ### It is not a copy of `merchant_source_links`
+ *
+ * That table answers "which observation attached this merchant", one row per
+ * source record, and it is written once when the identity is first seen so the
+ * provenance survives. This table answers "which merchant IS this account",
+ * once per account, and it is what makes the second sighting of a seller
+ * converge instead of minting a duplicate. Neither is derivable from the other:
+ * a link is per observation and this is per identity.
+ */
+export const marketplaceSellerIdentities = pgTable(
+  'marketplace_seller_identities',
+  {
+    id: generatedId(),
+    /**
+     * The adapter slug whose key space `external_seller_id` belongs to. Shape
+     * checked and not value checked, exactly as `catalog_source_configs.provider`
+     * is and for its reason: external key spaces are not Mercaria's to enumerate.
+     */
+    provider: text().notNull(),
+    /** The marketplace's own account id — a foreign key space, ledgered, no FK. */
+    externalSellerId: text().notNull(),
+    /** The merchant this account IS. RESTRICT: canonical rows are never deleted. */
+    merchantId: text()
+      .notNull()
+      .references(() => merchants.id, { onDelete: 'restrict' }),
+    /**
+     * Where it was FIRST observed. A provenance pointer, not part of the key:
+     * one account is observed through many sources and the merchant does not
+     * change when it is.
+     */
+    firstSourceId: text().references(() => catalogSources.id, { onDelete: 'restrict' }),
+    /** The observation that produced the mint. RESTRICT — D19: provenance blocks a delete. */
+    firstSourceRecordId: text().references(() => sourceRecords.id, { onDelete: 'restrict' }),
+    /**
+     * The account's own display name, as the marketplace published it.
+     *
+     * Kept so an operator can read the review surface, and deliberately NOT
+     * pushed onto `merchants.name` after the mint: a seller renaming their shop
+     * must not silently rewrite a canonical identity other rows point at, which
+     * is what `merchant_aliases` exists for and #59 owns.
+     */
+    displayName: text(),
+    firstSeenAt: timestamptz().notNull(),
+    lastSeenAt: timestamptz().notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check(
+      'marketplace_seller_identities_provider_shape_check',
+      sql`${t.provider} ~ '^[a-z0-9][a-z0-9_-]{0,63}$'`,
+    ),
+    check(
+      'marketplace_seller_identities_external_seller_id_check',
+      sql`length(btrim(${t.externalSellerId})) between 1 and 128`,
+    ),
+    /** Time cannot run backwards on one identity. */
+    check(
+      'marketplace_seller_identities_seen_order_check',
+      sql`${t.lastSeenAt} >= ${t.firstSeenAt}`,
+    ),
+    /**
+     * PROPERTY: one merchant per marketplace account, forever.
+     *
+     * This is what makes a second sighting converge and what makes issue #65
+     * acceptance 2 hold in the direction nobody tests — twenty sellers of one
+     * product produce twenty offers, and ONE seller appearing on twenty items
+     * produces one merchant.
+     */
+    uniqueIndex('marketplace_seller_identities_provider_external_seller_id_key').on(
+      t.provider,
+      t.externalSellerId,
+    ),
+    /** The reverse read: which marketplace accounts does this merchant hold? */
+    index('marketplace_seller_identities_merchant_id_idx').on(t.merchantId),
   ],
 );

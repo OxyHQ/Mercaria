@@ -29,8 +29,8 @@ import {
   normalizeSourceConditionLabel,
 } from '@mercaria/shared-types';
 import type {
+  ConditionMappingProviderId,
   ConditionMappingState,
-  ConnectorProviderId,
   OfferConditionKey,
 } from '@mercaria/shared-types';
 import {
@@ -95,7 +95,7 @@ export function unmappedOfferCondition(sourceLabel: string | null): OfferConditi
  * something observes its source again.
  */
 export async function mapSourceCondition(
-  provider: ConnectorProviderId,
+  provider: ConditionMappingProviderId,
   rawLabel: string | null | undefined,
 ): Promise<OfferConditionColumns> {
   const label = rawLabel?.trim();

@@ -24,7 +24,7 @@
 
 import type {
   ConditionGroup,
-  ConnectorProviderId,
+  ConditionMappingProviderId,
   Offer,
   OfferAvailability,
   OfferConditionKey,
@@ -345,7 +345,7 @@ export interface ExternalOfferObservation {
    * and stays `unknown` — the fail-closed direction, and the one that makes the
    * first ruleset for a new source writable from what it actually says.
    */
-  conditionMappingProvider?: ConnectorProviderId;
+  conditionMappingProvider?: ConditionMappingProviderId;
   sellerSku?: string;
   merchantTitle?: string;
   merchantVariantText?: string;

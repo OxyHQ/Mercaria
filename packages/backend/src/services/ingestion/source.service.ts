@@ -23,6 +23,7 @@ import type {
   CatalogSourceExtractionMode,
   CatalogSourceKind,
   CatalogSourceRightsVerdict,
+  CatalogSourceSellerIdentity,
   CatalogSourceStatus,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
@@ -121,6 +122,11 @@ export interface ConfigureIngestionSourceInput {
   rateLimitConcurrency?: number;
   rateLimitMinIntervalMs?: number;
   pageSize?: number;
+  /**
+   * WHERE the seller of record comes from (#65). Omitted keeps what is stored,
+   * which for every source that predates #65 is `source_bound`.
+   */
+  sellerIdentity?: CatalogSourceSellerIdentity;
   rightsNote?: string;
 }
 
@@ -165,6 +171,7 @@ export async function configureIngestionSource(
         ? {}
         : { freshnessTtlSeconds: input.freshnessTtlSeconds }),
       ...(input.pageSize === undefined ? {} : { pageSize: input.pageSize }),
+      ...(input.sellerIdentity === undefined ? {} : { sellerIdentity: input.sellerIdentity }),
     });
 
     await reprojectRights(tx, source.id);
