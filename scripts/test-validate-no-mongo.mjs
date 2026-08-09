@@ -484,6 +484,20 @@ const cases = [
     expectOutput: "tracked by git but could not be read",
   },
 
+  {
+    // Not Mercaria's own spelling, and included for that reason: a sibling Oxy
+    // service carries `MONGO_URI` on its live task definition, and a guard
+    // written for `MONGODB_URI` alone called that repository clean while the
+    // secret was still there. Without this fixture the two patterns are
+    // indistinguishable here, since nothing in this tree uses either spelling.
+    name: "the no-DB spelling MONGO_URI is caught too, and reported as itself",
+    files: filler({
+      "packages/backend/src/config/legacy.ts": "export const uri = process.env.MONGO_URI;\n",
+    }),
+    expectFailure: true,
+    expectOutput: "names MONGO_URI",
+  },
+
   // ------------------------------------------------------- self-protection ---
   {
     name: "a broken file listing cannot pass silently (vacuity floors)",
