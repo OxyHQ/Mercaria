@@ -36,19 +36,21 @@
  *    converts at the REFUND-time rate, so on a converted charge it is NOT the
  *    proportional share of what came in — and ADR 0001 D7 says to record it at
  *    its own captured amount rather than derive it.
- *  - **What the seller bears** is their share of the order, prorated by how much
- *    of that order has now been refunded, from `allocateSellerShares` — the SAME
- *    split the ledger credited at charge time and the settlement transferred.
+ *  - **What the seller bears** is their NET share of the order (gross split
+ *    minus the order's marketplace-fee snapshot, #88), prorated by how much of
+ *    that order has now been refunded, from `deriveSellerNetShares` — the SAME
+ *    net the ledger credited at charge time and the settlement transferred.
  *    Three readers of one definition; computing it a fourth way is how a
  *    `merchant_payable` account stops returning to zero.
  *
  * Mercaria's own residual is the difference between the second and the third,
- * and it is not a rate: it carries both the commission returned on the refunded
- * amount (ADR 0001 D5, zero until #88 lands a schedule) and the conversion
- * asymmetry Mercaria bears by the same decision. Computing it as a residual is
- * what keeps the seller's leg exactly closable by the reversal, which is the
- * property that makes a failed recovery visible as an open payable instead of a
- * rounding difference nobody can attribute.
+ * and it is not a rate: it carries the commission returned on the refunded
+ * amount (ADR 0001 D5 — the fee schedule's `proportional` refund policy, which
+ * is exactly what "the seller bears only their net share" implements) and the
+ * conversion asymmetry Mercaria bears by the same decision. Computing it as a
+ * residual is what keeps the seller's leg exactly closable by the reversal,
+ * which is the property that makes a failed recovery visible as an open payable
+ * instead of a rounding difference nobody can attribute.
  */
 
 import type { LedgerOwnerType, Money, PaymentProviderId } from '@mercaria/shared-types';
@@ -71,7 +73,7 @@ import {
 } from '../../db/payments/paymentRepository.js';
 import { insertLedgerTransaction } from '../../db/payments/ledgerRepository.js';
 import { refundPosting, transferReversal } from './ledger-postings.js';
-import { allocateSellerShares } from './settlement-shares.js';
+import { deriveSellerNetShares } from './seller-net-shares.js';
 import { findLinkedOrder, findOrdersInCheckoutGroup, type LinkedOrder } from './order-linkage.js';
 import { applyPaymentStatus, settlementBasis } from './payment.service.js';
 import {
@@ -275,11 +277,18 @@ export async function executeRefundAtProvider(refundId: string): Promise<RefundE
 /**
  * What this refund makes the seller liable for, in the platform's currency.
  *
- * Reads `allocateSellerShares` rather than the transfer row, deliberately: a
+ * Reads `deriveSellerNetShares` rather than the transfer row, deliberately: a
  * withheld transfer means the seller was never paid, and their receivable is
  * still OPEN — so the refund must still reduce it, and reading the amount from a
  * transfer that does not exist would silently make it zero and leave Mercaria
  * owing a seller for goods that came back.
+ *
+ * The share is the seller's NET (gross split minus the order's marketplace-fee
+ * snapshot, #88) — which is what makes the schedule's `proportional` refund
+ * policy fall out of the residual below: the seller only ever bears their net
+ * share of a refunded amount, so Mercaria's commission on it comes back through
+ * `mercariaShareMinor` with no second code path, prorated exactly as the
+ * cumulative liability is.
  */
 async function sellerShareOfRefund(input: {
   payment: PaymentRow;
@@ -289,15 +298,10 @@ async function sellerShareOfRefund(input: {
   const { payment, order, refund } = input;
   const orders = await findOrdersInCheckoutGroup(payment.checkoutGroupId);
   const settled = settlementBasis(payment);
-  const allocation = allocateSellerShares({
-    grossMinor: settled.grossMinor,
-    currency: settled.currency,
-    orders: orders.map((sibling) => ({
-      orderId: sibling.id,
-      ownerType: ownerTypeOf(sibling),
-      ownerId: sibling.sellerOwnerId,
-      weightMinor: sibling.presentmentTotalMinor,
-    })),
+  const allocation = deriveSellerNetShares({
+    settled,
+    presentmentGrossMinor: BigInt(payment.presentmentAmount),
+    orders,
   });
 
   const share = allocation.shares.find((candidate) => candidate.orderId === order.id);
@@ -438,9 +442,10 @@ async function refundTheBuyer(input: {
 
   const refundedPlatformMinor = BigInt(result.platform.amount.amount);
   // Mercaria's residual: the commission returned on the refunded amount (ADR
-  // 0001 D5, zero until #88) PLUS the conversion asymmetry it bears by the same
-  // decision. Computed as a residual rather than from a rate, so the seller's
-  // leg is exactly what the reversal will recover — see the file docblock.
+  // 0001 D5 — the schedule's `proportional` refund policy) PLUS the conversion
+  // asymmetry it bears by the same decision. Computed as a residual rather than
+  // from a rate, so the seller's leg is exactly what the reversal will recover
+  // — see the file docblock.
   const mercariaShareMinor = refundedPlatformMinor - input.sellerShareMinor;
 
   await db.transaction(async (tx) => {

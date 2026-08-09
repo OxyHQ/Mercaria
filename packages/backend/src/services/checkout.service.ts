@@ -83,6 +83,11 @@ import {
   resolveCheckoutRail,
   type CheckoutRail,
 } from './payments/checkout-payment.service.js';
+import { selectFeeSchedule } from './fees/fee-calculation.js';
+import {
+  loadFeeScheduleContext,
+  planConnectedMarketplaceFee,
+} from './fees/order-fees.service.js';
 import { addMoney, multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { uuidv7, isUniqueViolation } from '@oxyhq/db';
@@ -509,6 +514,25 @@ export async function checkout(
   // no-op when no rail is engaged.
   assertCheckoutCurrencyEligible(rail, cart.currency);
 
+  // 4f. Load the marketplace-fee context (#88) and pre-run schedule SELECTION
+  // for every group. Every native checkout order is a CONNECTED MARKETPLACE
+  // sale; its commercial mode and fee are snapshotted with the order in step
+  // 6-7, at authoritative pricing time, from THIS context — one instant for the
+  // whole checkout, so sibling orders cannot straddle an activation. Selection
+  // is repeated here purely so an AMBIGUOUS configuration (two active schedules
+  // matching one group) refuses the checkout BEFORE any stock is reserved — a
+  // configuration question that needs no stock should never have taken any,
+  // the same reasoning as 4c–4e. No schedule matching is a fine answer (the
+  // zero-fee configuration), so only the throw matters here.
+  const feeContext = await loadFeeScheduleContext();
+  for (const group of groups.values()) {
+    selectFeeSchedule({
+      schedules: feeContext.schedules,
+      facts: { sellerType: group.sellerType, currency: cart.currency },
+      at: feeContext.at,
+    });
+  }
+
   // 5. Reserve every line across ALL groups; roll back on any failure.
   const reserved: Reservation[] = [];
   try {
@@ -632,6 +656,23 @@ export async function checkout(
       };
       const orderNumber = await nextOrderNumber();
 
+      // The immutable fee snapshot (#88), composed from the SAME priced items
+      // the order freezes — presentment line totals and their item-level
+      // discount allocations, nothing else (the explicit fee base). It rides
+      // `insertOrder`'s one transaction, so an order cannot commit without its
+      // fee record. Note what is NOT passed: the buyer. A guest checkout with
+      // these same commercial facts produces this same snapshot.
+      const feeSnapshot = await planConnectedMarketplaceFee({
+        context: feeContext,
+        sellerType: group.sellerType,
+        sellerOwnerId: group.storeId ?? group.sellerOxyUserId ?? '',
+        currency: presentmentCurrency,
+        lines: items.map((item) => ({
+          lineTotalMinor: item.lineTotal.presentment.amount,
+          discountMinor: item.discountTotal?.presentment.amount ?? 0,
+        })),
+      });
+
       const doc: NewOrder = {
         orderNumber,
         buyerOxyUserId: oxyUserId,
@@ -662,6 +703,7 @@ export async function checkout(
         paymentStatus: 'unpaid',
         checkoutGroupId,
         ...(idempotencyKey ? { idempotencyKey: `${idempotencyKey}:${sellerKey}` } : {}),
+        feeSnapshot,
       };
 
       // ONE transaction per seller-order: the order row and all five child

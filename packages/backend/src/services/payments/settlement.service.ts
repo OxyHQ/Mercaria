@@ -55,7 +55,7 @@ import {
 } from '../../db/payments/paymentRepository.js';
 import { insertLedgerTransaction } from '../../db/payments/ledgerRepository.js';
 import { transferCreated } from './ledger-postings.js';
-import { allocateSellerShares } from './settlement-shares.js';
+import { deriveSellerNetShares } from './seller-net-shares.js';
 import { findOrdersInCheckoutGroup, type LinkedOrder } from './order-linkage.js';
 import { findSellerAccount, sellerKeyFor } from './provider-account.service.js';
 import { enqueuePaymentEvent, transferWithheldEventId } from './payment-outbox.service.js';
@@ -122,18 +122,14 @@ export async function settlePaymentTransfers(paymentId: string): Promise<Settlem
     return { created: 0, alreadySettled: 0, withheld: 0 };
   }
 
-  // The SAME split the ledger credited when the charge succeeded — see
-  // `settlement-shares.ts` for why one definition rather than two.
+  // The SAME net the ledger credited when the charge succeeded — gross split
+  // minus each order's marketplace-fee snapshot. See `seller-net-shares.ts`
+  // for why one definition rather than three.
   const settled = settlementBasis(payment);
-  const allocation = allocateSellerShares({
-    grossMinor: settled.grossMinor,
-    currency: settled.currency,
-    orders: orders.map((order) => ({
-      orderId: order.id,
-      ownerType: ownerTypeOf(order),
-      ownerId: order.sellerOwnerId,
-      weightMinor: order.presentmentTotalMinor,
-    })),
+  const allocation = deriveSellerNetShares({
+    settled,
+    presentmentGrossMinor: BigInt(payment.presentmentAmount),
+    orders,
   });
 
   const outcome: SettlementOutcome = { created: 0, alreadySettled: 0, withheld: 0 };

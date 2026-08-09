@@ -112,3 +112,7 @@ export * from './procurement';
 // Referral-domain vocabulary and partner-safe DTOs (#142, ADR 0005) — programs,
 // partners, instruments, touches, attributions, conversions.
 export * from './referral';
+
+// Marketplace fee vocabulary (#88): commercial modes, fee schedule value sets
+// and the merchant-facing schedule/acceptance/preview/snapshot DTOs.
+export * from './fees';

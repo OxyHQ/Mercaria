@@ -162,6 +162,9 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'carts.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'customers.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'draft_orders.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'fee_schedule_acceptances.accepted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'fee_schedules.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'fee_schedules.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'favorites.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'feedback.oxy_user_id', reason: OXY_ACCOUNT },
   // The #104/#109 conversion audit stamp. An Oxy id like every other row in
@@ -341,6 +344,13 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       "A payment provider's connected-account id — the same key space as the column above, " +
       'here as the natural key a provider event resolves through. Unique per provider and ' +
       'deliberately never a Mercaria primary key.',
+  },
+  {
+    column: 'fee_schedule_acceptances.owner_id',
+    reason:
+      'Polymorphic by owner_type — a store id or an Oxy account id, exactly as ' +
+      'provider_accounts.owner_id is, and one of those two key spaces is not in this ' +
+      'database at all.',
   },
   {
     column: 'provider_accounts.owner_id',

@@ -137,6 +137,19 @@ vi.mock('../../db/payments/providerAccountRepository.js', () => ({
   findProviderAccountByOwner: (...args: unknown[]) => findProviderAccountByOwner(...args),
 }));
 
+// The fee context (#88), pinned to "no active schedule" — the zero-fee
+// configuration every pre-#88 behaviour in this suite was written against.
+// Only the SCHEDULE LOAD is stubbed (it is the one Postgres read); selection,
+// calculation and the snapshot plan run for real, so every order this suite
+// creates carries a real `no_active_schedule` snapshot through `insertOrder`.
+vi.mock('../fees/order-fees.service.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../fees/order-fees.service.js')>();
+  return {
+    ...actual,
+    loadFeeScheduleContext: () => Promise.resolve({ at: new Date(), schedules: [] }),
+  };
+});
+
 import { checkout } from '../checkout.service.js';
 import { isMercariaError, outOfStock } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';

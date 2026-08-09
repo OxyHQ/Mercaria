@@ -127,6 +127,17 @@ vi.mock('../../db/payments/providerAccountRepository.js', () => ({
 // the property it exists to pin.
 vi.mock('../../db/postgres.js', () => ({ getDb: () => ({}) }));
 
+// The fee context (#88), pinned to "no active schedule" — the zero-fee
+// configuration this suite's expectations were written against. Only the
+// schedule LOAD is stubbed; selection and the snapshot plan run for real.
+vi.mock('../fees/order-fees.service.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../fees/order-fees.service.js')>();
+  return {
+    ...actual,
+    loadFeeScheduleContext: () => Promise.resolve({ at: new Date(), schedules: [] }),
+  };
+});
+
 // With the rail ON and a ready seller, checkout goes on to OPEN the payment.
 // Both seams are mocked at the narrowest point that still leaves the code under
 // test real: `checkout-payment.service` — which resolves the rail, refuses an

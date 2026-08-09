@@ -20,6 +20,8 @@ import {
   patchStoreOrderStatus,
   storeStats,
 } from '../../services/order.service.js';
+import { findOrderFeeSnapshot } from '../../db/fees/orderFeeSnapshotRepository.js';
+import { toOrderFeeSummary } from '../../services/fees/order-fees.service.js';
 import { log } from '../../lib/logger.js';
 
 /** The loaded store id for the current request (guaranteed by `loadStore`). */
@@ -45,12 +47,23 @@ export async function listStoreOrders(req: Request, res: Response): Promise<void
   }
 }
 
-/** GET /admin/stores/:storeId/orders/:id — a single hydrated store order. */
+/**
+ * GET /admin/stores/:storeId/orders/:id — a single hydrated store order, with
+ * its marketplace-fee snapshot (#88) when one exists. The fee and the resulting
+ * net come off the order's IMMUTABLE snapshot, never a live schedule — so the
+ * figure the merchant sees is the figure the settlement paid (trust rule 3).
+ * An order with no snapshot (POS, connector import, pre-#88) simply omits the
+ * field.
+ */
 export async function getStoreOrder(req: Request, res: Response): Promise<void> {
   const orderId = routeParam(req, 'id');
   try {
     const order = await getOrderForStore(storeId(req), orderId);
-    sendSuccess(res, order);
+    const feeSnapshot = await findOrderFeeSnapshot(orderId);
+    sendSuccess(res, {
+      ...order,
+      ...(feeSnapshot ? { marketplaceFee: toOrderFeeSummary(feeSnapshot) } : {}),
+    });
   } catch (err) {
     log.general.error({ err, orderId }, 'Failed to load store order');
     respondWithError(res, err, 'Failed to load order');

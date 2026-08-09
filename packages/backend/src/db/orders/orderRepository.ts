@@ -1,7 +1,9 @@
 /**
- * `orders` and its five child tables — `order_items`,
- * `order_item_option_values`, `order_status_history`,
- * `order_applied_discounts`, `order_tax_lines`.
+ * `orders` and its child tables — `order_items`, `order_item_option_values`,
+ * `order_status_history`, `order_applied_discounts`, `order_tax_lines`, plus
+ * the fee snapshot pair (`order_fee_snapshots` / `order_fee_snapshot_lines`,
+ * schema in `../schema/fees.ts`) whose WRITE lives here so it commits with the
+ * order.
  *
  * One Mongoose document became six tables, so this module is where "an order" is
  * assembled and taken apart again. {@link OrderRecord} is the row with all five
@@ -47,9 +49,13 @@ import { type SelectedRow } from '@oxyhq/db';
 import { publicColumns } from '@oxyhq/db/assert';
 import type {
   AddressSnapshot,
+  CommercialMode,
   ConnectorProviderId,
   CurrencyCode,
   DualMoney,
+  FeeBasis,
+  FeeClamp,
+  FeeSnapshotResult,
   FxRateSnapshot,
   Money,
   OrderSellerType,
@@ -61,6 +67,7 @@ import type {
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
+import { orderFeeSnapshotLines, orderFeeSnapshots } from '../schema/fees.js';
 import {
   orderAppliedDiscounts,
   orderItemOptionValues,
@@ -150,6 +157,33 @@ export interface NewOrderTaxLine {
   amount: Money;
 }
 
+/**
+ * The order's immutable marketplace-fee snapshot (#88), written with the order
+ * in the SAME transaction. Composed by `services/fees/order-fees.service.ts` at
+ * authoritative pricing time; the shape mirrors `order_fee_snapshots` and its
+ * CHECKs decide which fields travel together.
+ *
+ * `lineAllocationsMinor` is aligned to `items` by INDEX, exactly as
+ * `optionValues` is — the repository resolves the freshly-minted item ids.
+ */
+export interface NewOrderFeeSnapshot {
+  commercialMode: CommercialMode;
+  result: FeeSnapshotResult;
+  scheduleKey?: string;
+  scheduleVersion?: number;
+  basis?: FeeBasis;
+  basisAmount?: Money;
+  percentageBps?: number;
+  fixedFeeMinor?: number;
+  clampApplied?: FeeClamp;
+  fee?: Money;
+  roundingAdjustmentMinor?: number;
+  termsVersionAccepted?: string;
+  scopeSellerType?: OrderSellerType;
+  scopeCurrency?: CurrencyCode;
+  lineAllocationsMinor?: number[];
+}
+
 /** Connector provenance for an order imported from an external platform. */
 export interface NewOrderSource {
   connectionId: string;
@@ -197,6 +231,13 @@ export interface NewOrder {
   statusHistory: NewOrderStatusEvent[];
   appliedDiscounts: NewOrderAppliedDiscount[];
   taxLines: NewOrderTaxLine[];
+  /**
+   * OPTIONAL, and its absence is meaningful: an order with no snapshot row is
+   * read everywhere as the pre-#88 zero-fee reality (POS drafts and connector
+   * imports have no explicitly selected channel policy yet, and legacy orders
+   * predate the table). Native checkout ALWAYS supplies one.
+   */
+  feeSnapshot?: NewOrderFeeSnapshot;
 }
 
 /**
@@ -643,7 +684,7 @@ export async function nextOrderNumber(db: DatabaseOrTransaction = getDb()): Prom
 }
 
 /**
- * Create an order and all five of its child relations in ONE transaction.
+ * Create an order and all of its child relations in ONE transaction.
  *
  * Atomic because a partially-written order is not a degraded record, it is a
  * charge with no lines: `order-hydration` would serve it with an empty `items`,
@@ -744,14 +785,15 @@ export async function insertOrder(
   return 'transaction' in db ? db.transaction(run) : run(db);
 }
 
-/** Write an order's five child relations. Split out only to keep `insertOrder` readable. */
+/** Write an order's six child relations. Split out only to keep `insertOrder` readable. */
 async function insertOrderChildren(
   orderId: string,
   input: NewOrder,
   tx: DatabaseOrTransaction,
 ): Promise<void> {
+  let itemRows: { id: string }[] = [];
   if (input.items.length > 0) {
-    const itemRows = await tx
+    itemRows = await tx
       .insert(orderItems)
       .values(
         input.items.map((item, position) => ({
@@ -835,6 +877,56 @@ async function insertOrderChildren(
         position,
       })),
     );
+  }
+
+  // The immutable fee snapshot (#88) — in THIS transaction, deliberately: an
+  // order that committed without its snapshot would silently price under the
+  // zero-fee era, and a snapshot without its order is an unexplained commission
+  // record. `db/fees/orderFeeSnapshotRepository.ts` is reads-only for the same
+  // reason. The table's own CHECKs decide which fields must travel together;
+  // nothing is defaulted here beyond spelling absence as NULL.
+  if (input.feeSnapshot) {
+    const snapshot = input.feeSnapshot;
+    const [snapshotRow] = await tx
+      .insert(orderFeeSnapshots)
+      .values({
+        orderId,
+        commercialMode: snapshot.commercialMode,
+        result: snapshot.result,
+        scheduleKey: snapshot.scheduleKey ?? null,
+        scheduleVersion: snapshot.scheduleVersion ?? null,
+        basis: snapshot.basis ?? null,
+        basisAmountAmount: snapshot.basisAmount?.amount ?? null,
+        basisAmountCurrency: snapshot.basisAmount?.currency ?? null,
+        percentageBps: snapshot.percentageBps ?? null,
+        fixedFeeMinor: snapshot.fixedFeeMinor ?? null,
+        clampApplied: snapshot.clampApplied ?? null,
+        feeAmount: snapshot.fee?.amount ?? null,
+        feeCurrency: snapshot.fee?.currency ?? null,
+        roundingAdjustmentMinor: snapshot.roundingAdjustmentMinor ?? null,
+        termsVersionAccepted: snapshot.termsVersionAccepted ?? null,
+        scopeSellerType: snapshot.scopeSellerType ?? null,
+        scopeCurrency: snapshot.scopeCurrency ?? null,
+      })
+      .returning({ id: orderFeeSnapshots.id });
+
+    const allocations = snapshot.lineAllocationsMinor ?? [];
+    if (allocations.length > 0) {
+      if (allocations.length !== itemRows.length) {
+        throw new Error(
+          `Order ${orderId} carries ${String(allocations.length)} fee line allocations for ` +
+            `${String(itemRows.length)} items; the two are aligned by index and must match.`,
+        );
+      }
+      await tx.insert(orderFeeSnapshotLines).values(
+        allocations.map((amountMinor, position) => ({
+          snapshotId: snapshotRow.id,
+          orderItemId: itemRows[position].id,
+          amountMinor,
+          position,
+        })),
+      );
+    }
   }
 }
 

@@ -670,21 +670,26 @@ understate `processor_expense` permanently. For a card charge Stripe creates it
 with the charge, and the asynchronous methods that leave it pending are excluded
 from the launch (D3) precisely because their money moves later than their events.
 
-### One split, two readers
+### One net, three readers
 
-`settlement-shares.ts` is the ONLY definition of what a seller is owed. The
-ledger credits each order a payable when the charge succeeds, and the settlement
-step transfers that same figure; computed twice they would eventually disagree,
-and the symptom would be an account that never returns to zero for an order
-somebody is looking at.
+`seller-net-shares.ts` is the ONLY definition of what a seller is owed: the
+exact gross split (`settlement-shares.ts`, largest remainder, weighted by the
+orders' own totals) MINUS each order's immutable marketplace-fee snapshot
+(#88, below). The ledger credits each order a payable when the charge succeeds,
+the settlement step transfers that same figure, and the refund execution
+prorates the seller's liability off it; computed a fourth way they would
+eventually disagree, and the symptom would be an account that never returns to
+zero for an order somebody is looking at.
 
-It is a largest-remainder allocation of the gross across the orders, weighted by
-their own totals. Converting each order independently is the tempting
-alternative and leaks: ADR 0001 D3 defines the commission as gross minus the sum
-of the nets, so the rounding residue would be reported as commission revenue from
-nowhere. There is no commission arithmetic in that file at all — the rate is zero
-until #88, and encoding a zero-rate calculation would make it the second place
-the fee schedule lives.
+Converting each order independently is the tempting alternative and leaks: ADR
+0001 D3 defines the commission as gross minus the sum of the nets, so any
+rounding residue would be reported as commission revenue from nowhere. With the
+fee snapshots in, that residual is EXACTLY the sum of the per-order fees —
+`Σnets + Σfees = gross`, pinned by a randomized reconciliation test — so
+`commission_revenue` receives what the schedule charged and not one unit more.
+There is still no commission arithmetic in `settlement-shares.ts` itself, and
+no rate anywhere in the settlement path: the fee is read off the snapshot, and
+the snapshot alone.
 
 ### Idempotency: four layers, one charge
 
@@ -815,14 +820,115 @@ two already answer, for a rollout nobody has planned yet.
 - **Anything against live Stripe.** Every test uses a fake client; signatures are
   real, the API is not.
 - **Whether Stripe caps a `source_transaction` transfer at the charge's GROSS or
-  its NET.** Mercaria transfers the seller's full share and bears the processing
-  fee itself (ADR 0001 D5, commission rate zero until #88), so if the cap is the
-  net, a transfer for the whole of a small charge could be refused. That refusal
-  is not silent — it becomes a `transfer_withheld` exception with the rail's own
-  message — but it must be verified once a test-mode charge can actually be
-  settled, and #88's real commission rate removes the question.
+  its NET.** Mercaria bears the processing fee itself (ADR 0001 D5), so under a
+  zero-fee schedule (or none active) a transfer for the whole of a small charge
+  could be refused if the cap is the net. That refusal is not silent — it
+  becomes a `transfer_withheld` exception with the rail's own message — and a
+  real fee schedule (#88) shrinks every transfer below the gross anyway, but it
+  must still be verified once a test-mode charge can actually be settled.
 - **Apple Pay and Google Pay**, which need a device, a merchant identifier and a
   native build.
+
+---
+
+## Marketplace fees (#88)
+
+How Mercaria's commission is DECIDED. ADR 0001 D3 already decided where it
+LIVES (the ledger's residual, `gross − Σnets`); this domain is what makes the
+nets smaller than the gross. Code: `services/fees/` (pure calculation +
+selection + snapshot planning), `db/fees/` (repositories),
+`db/schema/fees.ts` (four tables), `services/payments/seller-net-shares.ts`
+(the settlement seam). Schema decisions: `db/schema/CONVENTIONS.md` §"The fee
+domain".
+
+### The commercial-mode boundary, snapshotted
+
+Every checkout order snapshots its commercial mode BEFORE fee calculation, so a
+later catalog or link change cannot reclassify it:
+
+| Mode | Marketplace fee |
+|---|---|
+| `connected_marketplace` | calculated from the fee schedule (every native checkout today) |
+| `external_referral` | structurally not applicable — affiliate economics are #67's, never this schedule |
+| `mercaria_retail` | structurally not applicable — #116/#120's zero-markup channel; NEVER posts `commission_revenue` |
+| `informational` | no transaction, no fee |
+
+"Not applicable" is a NULL fee, never a zero: the snapshot CHECKs make a
+`mercaria_retail` row carrying any fee amount unrepresentable, so it can never
+be read back as a zero-rate schedule outcome.
+
+### Versioned, immutable schedules
+
+`fee_schedules` holds one row per VERSION: key + version, name and merchant
+summary, effective window, scope (`eligible_seller_type`, `eligible_currency` —
+the COMPLETE scope set; buyer authentication state, guest origin, claim status,
+payment-method identity and contact data have no column and never will),
+percentage in basis points, optional fixed component and min/max clamps (all
+three pin `eligible_currency`, so a fee never mixes currencies), tax-treatment
+metadata, the refund policy (`proportional` is the only value that exists),
+status (`draft → active → superseded | retired`), terms version, and the
+creator/approver audit. A version is editable only as a draft — a database
+trigger freezes every economic column from `active` on and refuses DELETE
+outright — and a partial unique index allows ONE active version per key, so
+activation supersedes atomically. Policy changes are new versions, always.
+
+Operators manage schedules at `/internal/payments/fee-schedules*` (same gate as
+the repair surface; nothing there moves money). Merchants read, accept and
+preview at `/admin/stores/:storeId/fees/*` behind `store:manage` — the
+onboarding permission, because agreeing to what a store pays Mercaria is the
+owner's decision.
+
+### The calculation, and the snapshot it becomes
+
+At authoritative pricing time checkout loads the active schedules ONCE (one
+instant for the whole group), selects per order on the two scope facts, and
+refuses an AMBIGUOUS configuration (two matches) before anything is reserved.
+No active schedule is a fine answer: the fee is a real zero, recorded as
+`no_active_schedule` so it cannot be confused with a schedule that calculated
+zero.
+
+The fee base is EXPLICIT: `discounted_item_subtotal` — presentment-side line
+totals minus their item-level discount allocations. Tax, delivery and
+shipping-targeted discounts have no parameter, so they cannot enter. The
+percentage component rounds HALF-UP once at the order level (the 0-or-1 unit
+recorded as `rounding_adjustment_minor`); the fee is clamped by the schedule's
+min/max and capped at its own basis; line allocations split the rounded fee by
+the settlement domain's own largest-remainder rule and reconcile to it exactly.
+
+The result is written to `order_fee_snapshots` (+ `_lines`) IN THE SAME
+TRANSACTION as the order, append-only by trigger: mode, result, schedule
+key/version, basis, components, fee, rounding adjustment, the seller's accepted
+terms version, the scope facts used, and the calculation time. NOT stored, by
+construction: buyer contact, guest tokens, provider customer/Link identity,
+payment credentials. Guest and authenticated checkouts with the same commercial
+facts produce identical snapshots because no fee signature takes a buyer — and
+a later Oxy claim changes nothing, because nothing can change the snapshot.
+
+### Where the fee meets the money
+
+`deriveSellerNetShares` (the "one net, three readers" section above) subtracts
+each order's snapshot fee from its gross share. On a converted charge the fee
+converts at the charge's OWN captured ratio (`fee × platformGross ÷
+presentmentGross`, floored) — deterministic in the payment row, no live FX, so
+a retry, the settlement and a refund all derive the identical figure. The
+commission is still never passed anywhere: `chargeSucceeded` books the residual,
+which now equals the sum of the snapshot fees exactly. The provider's
+processing fee stays a separate `processor_expense` — the two are different
+facts and never net.
+
+Refunds implement the schedule's `proportional` policy with NO fee-specific
+code path: the seller's cumulative liability prorates their NET share, so
+Mercaria's commission on the refunded amount comes back through the refund
+posting's residual — all of it on a full refund, pro-rata on a partial one.
+
+### What #88 deliberately defers
+
+POS and connector-imported orders carry NO snapshot (no explicitly selected
+channel policy exists for them yet — an absent snapshot reads as zero fee,
+exactly like a pre-#88 order). The P2P seller acceptance surface, merchant
+notifications of future schedule changes, downloadable breakdowns and the
+checkout-time acceptance GATE belong to merchant activation (#85); the snapshot
+already records the accepted terms version when one exists.
 
 ---
 
@@ -912,11 +1018,13 @@ agree on any evenly-divisible order, which is why the test that pins this uses a
 CONVERTED charge with an odd share (3,667 refunded in halves → 1,833 then 1,834).
 
 **Mercaria's own residual is the difference between the second and the third.**
-It carries the commission returned on the refunded amount (D5, zero until #88)
-AND the conversion asymmetry Mercaria bears by the same decision. Computing it as
-a residual rather than from a rate is what keeps the seller's leg exactly
-closable by the reversal — which is the property that makes a failed recovery
-visible as an open payable instead of a rounding difference nobody can attribute.
+It carries the commission returned on the refunded amount (D5 — #88's
+`proportional` refund policy, falling out of the seller bearing only their NET
+share) AND the conversion asymmetry Mercaria bears by the same decision.
+Computing it as a residual rather than from a rate is what keeps the seller's
+leg exactly closable by the reversal — which is the property that makes a failed
+recovery visible as an open payable instead of a rounding difference nobody can
+attribute.
 
 ### Cross-currency asymmetry is recorded, not smoothed
 

@@ -357,6 +357,17 @@ async function seedSettledOrder(
      * shape in which a per-refund proration and a cumulative one can disagree.
      */
     platformGross?: number;
+    /**
+     * A marketplace-fee snapshot (#88) stamped on each order, presentment side.
+     * Absent means no snapshot row at all — the pre-#88 zero-fee reality every
+     * older test in this file was written against, unchanged.
+     */
+    feeMinorPerOrder?: number;
+    /**
+     * Stamp each order `mercaria_retail` / `not_applicable` instead — the mode
+     * the marketplace fee structurally excludes.
+     */
+    retailNotApplicable?: boolean;
   } = {},
 ): Promise<Fixture[]> {
   const suffix = `${label}-${RUN}-${uuidv7()}`;
@@ -500,6 +511,32 @@ async function seedSettledOrder(
       statusHistory: [{ status: 'pending_payment', at: new Date() }],
       appliedDiscounts: [],
       taxLines: [],
+      ...(options.retailNotApplicable
+        ? {
+            feeSnapshot: {
+              commercialMode: 'mercaria_retail' as const,
+              result: 'not_applicable' as const,
+            },
+          }
+        : {}),
+      ...(options.feeMinorPerOrder !== undefined && !options.retailNotApplicable
+        ? {
+            feeSnapshot: {
+              commercialMode: 'connected_marketplace' as const,
+              result: 'calculated' as const,
+              scheduleKey: 'realdb-fee',
+              scheduleVersion: 1,
+              basis: 'discounted_item_subtotal' as const,
+              basisAmount: { amount: ORDER_TOTAL, currency: 'EUR' as const },
+              percentageBps: Math.round((options.feeMinorPerOrder * 10_000) / ORDER_TOTAL),
+              fee: { amount: options.feeMinorPerOrder, currency: 'EUR' as const },
+              roundingAdjustmentMinor: 0,
+              scopeSellerType: 'store' as const,
+              scopeCurrency: 'EUR' as const,
+              lineAllocationsMinor: [options.feeMinorPerOrder],
+            },
+          }
+        : {}),
     });
     orderIds.push(order.id);
   }
@@ -1346,3 +1383,120 @@ function registerDispute(
     evidence_details: { due_by: Math.floor(Date.now() / 1000) + 86_400 },
   });
 }
+
+describe('the marketplace fee (#88) on the settled money path', () => {
+  /** The fee each of these scenarios stamps: 10% of `ORDER_TOTAL`. */
+  const FEE = 400;
+
+  it('books the commission as the residual and transfers the seller their NET', async () => {
+    const [fixture] = await seedSettledOrder('fee-charge', { feeMinorPerOrder: FEE });
+
+    // The transfer is the net — gross share minus the snapshot fee — and the
+    // ledger's payable is the SAME figure, because both read
+    // `deriveSellerNetShares`. One definition, two readers.
+    const transfer = await transferFor(fixture.paymentId, fixture.orderId);
+    expect(transfer?.amountAmount).toBe(ORDER_TOTAL - FEE);
+
+    // Commission revenue holds exactly the snapshot fee, as a CREDIT — ADR 0001
+    // D3's residual, now non-zero for the first time.
+    expect(await accountTotal(fixture.paymentId, 'commission_revenue')).toBe(-BigInt(FEE));
+
+    // …and it is DISTINCT from the provider's processing cost, which stays an
+    // expense on its own account (#88 calculation rule 11): the charge fee did
+    // not shrink the commission and the commission did not absorb the charge fee.
+    expect(await accountTotal(fixture.paymentId, 'processor_expense')).toBe(BigInt(CHARGE_FEE));
+
+    // The payable was credited net and settled net, so it closes to zero.
+    expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+  });
+
+  it('returns the whole commission on a full refund, per the proportional policy', async () => {
+    const [fixture] = await seedSettledOrder('fee-full-refund', { feeMinorPerOrder: FEE });
+
+    await processRefund(
+      fixture.storeId,
+      fixture.orderId,
+      { lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }] },
+      fixture.ownerId,
+    );
+
+    // The buyer got the WHOLE order back; the seller bore only their net.
+    expect(api.refundCalls[0]?.params.amount).toBe(ORDER_TOTAL);
+    expect(api.reversalCalls[0]?.params.amount).toBe(ORDER_TOTAL - FEE);
+
+    // The commission came back through the residual: credited at the charge,
+    // debited by the refund, net zero — Mercaria keeps nothing on a fully
+    // refunded order.
+    expect(await accountTotal(fixture.paymentId, 'commission_revenue')).toBe(0n);
+    expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+  });
+
+  it('returns the commission pro-rata on a partial refund', async () => {
+    const [fixture] = await seedSettledOrder('fee-half-refund', {
+      feeMinorPerOrder: FEE,
+      quantity: 2,
+    });
+
+    await processRefund(
+      fixture.storeId,
+      fixture.orderId,
+      { lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: false }] },
+      fixture.ownerId,
+    );
+
+    // Half the order back: the seller bears half their NET, and Mercaria keeps
+    // exactly half its commission.
+    expect(api.refundCalls[0]?.params.amount).toBe(ORDER_TOTAL / 2);
+    expect(api.reversalCalls[0]?.params.amount).toBe((ORDER_TOTAL - FEE) / 2);
+    expect(await accountTotal(fixture.paymentId, 'commission_revenue')).toBe(-BigInt(FEE / 2));
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+  });
+
+  it('converts the fee at the charge’s own captured ratio on a converted charge', async () => {
+    // 4,000 presentment landed as 3,667 platform. The snapshot fee (400,
+    // presentment) converts by the SAME ratio, floored: 366. Deterministic in
+    // the payment row alone — no live rate is consulted, so a later FX move can
+    // never change what this seller is owed.
+    const platformGross = 3_667;
+    const convertedFee = Math.floor((FEE * platformGross) / ORDER_TOTAL);
+    const [fixture] = await seedSettledOrder('fee-converted', {
+      feeMinorPerOrder: FEE,
+      platformGross,
+    });
+
+    const transfer = await transferFor(fixture.paymentId, fixture.orderId);
+    expect(transfer?.amountAmount).toBe(platformGross - convertedFee);
+    expect(await accountTotal(fixture.paymentId, 'commission_revenue')).toBe(-BigInt(convertedFee));
+    expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+  });
+
+  it('splits a multi-seller charge into per-order nets whose fees sum to the commission', async () => {
+    const fixtures = await seedSettledOrder('fee-multi', { orders: 2, feeMinorPerOrder: FEE });
+    const [first, second] = fixtures;
+
+    for (const fixture of fixtures) {
+      const transfer = await transferFor(fixture.paymentId, fixture.orderId);
+      expect(transfer?.amountAmount).toBe(ORDER_TOTAL - FEE);
+      expect(await accountTotal(first.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
+    }
+    expect(first.paymentId).toBe(second.paymentId);
+    expect(await accountTotal(first.paymentId, 'commission_revenue')).toBe(-BigInt(FEE * 2));
+    expect(await ledgerBalance(first.paymentId)).toEqual({ EUR: 0n });
+  });
+
+  it('mercaria_retail posts NO marketplace commission, structurally', async () => {
+    const [fixture] = await seedSettledOrder('fee-retail', { retailNotApplicable: true });
+
+    // The whole gross is the seller side; no commission leg EXISTS — not a
+    // zero-valued one, none at all (`chargeSucceeded` omits a zero leg, and the
+    // not-applicable snapshot contributes no fee to shrink the share).
+    const transfer = await transferFor(fixture.paymentId, fixture.orderId);
+    expect(transfer?.amountAmount).toBe(ORDER_TOTAL);
+    const entries = await ledgerFor(fixture.paymentId);
+    expect(entries.filter((entry) => entry.account === 'commission_revenue')).toHaveLength(0);
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+  });
+});

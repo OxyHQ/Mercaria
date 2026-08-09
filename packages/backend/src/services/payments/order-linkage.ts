@@ -34,6 +34,10 @@ import {
   linkPaymentToOrderId,
   type OrderRecord,
 } from '../../db/orders/orderRepository.js';
+import {
+  listOrderFeeSnapshots,
+  type OrderFeeSnapshotRecord,
+} from '../../db/fees/orderFeeSnapshotRepository.js';
 
 /** The order facts the payment domain needs, with no order-table shape in the signature. */
 export interface LinkedOrder {
@@ -65,10 +69,22 @@ export interface LinkedOrder {
   paymentId: string | null;
   /** The group this order was checked out in; the fallback handle for the trace. */
   checkoutGroupId: string | null;
+  /**
+   * The order's snapshotted marketplace fee (#88), presentment side, in minor
+   * units — the ONE fee figure the settlement math reads
+   * (`seller-net-shares.ts`). ZERO whenever no fee applies, and the three ways
+   * that happens are deliberately indistinguishable here: a `not_applicable`
+   * commercial mode, a `no_active_schedule` snapshot, and an order with no
+   * snapshot row at all (pre-#88, POS, connector import) all deduct nothing
+   * from the seller. The full snapshot, with the distinction intact, is read
+   * through `db/fees/orderFeeSnapshotRepository.ts` — this projection carries
+   * only what the money movement needs.
+   */
+  marketplaceFeePresentmentMinor: number;
 }
 
 /** Project one order record into the shape above. */
-function toLinkedOrder(order: OrderRecord): LinkedOrder {
+function toLinkedOrder(order: OrderRecord, feeSnapshot?: OrderFeeSnapshotRecord): LinkedOrder {
   return {
     id: order.id,
     status: order.status,
@@ -81,19 +97,23 @@ function toLinkedOrder(order: OrderRecord): LinkedOrder {
     presentmentCurrency: order.totalsGrandTotalPresentmentCurrency,
     paymentId: order.paymentId,
     checkoutGroupId: order.checkoutGroupId,
+    marketplaceFeePresentmentMinor: feeSnapshot?.feeAmount ?? 0,
   };
 }
 
 /** Every order a checkout group split into, oldest first. */
 export async function findOrdersInCheckoutGroup(checkoutGroupId: string): Promise<LinkedOrder[]> {
   const rows = await selectOrdersInCheckoutGroup(checkoutGroupId);
-  return rows.map(toLinkedOrder);
+  const feeSnapshots = await listOrderFeeSnapshots(rows.map((row) => row.id));
+  return rows.map((row) => toLinkedOrder(row, feeSnapshots.get(row.id)));
 }
 
 /** One order, or `undefined`. */
 export async function findLinkedOrder(orderId: string): Promise<LinkedOrder | undefined> {
   const row = await findOrderById(orderId);
-  return row ? toLinkedOrder(row) : undefined;
+  if (!row) return undefined;
+  const feeSnapshots = await listOrderFeeSnapshots([row.id]);
+  return toLinkedOrder(row, feeSnapshots.get(row.id));
 }
 
 /**
@@ -115,7 +135,9 @@ export async function findLinkedOrderByNumber(
   orderNumber: string,
 ): Promise<LinkedOrder | undefined> {
   const row = await selectOrderByNumber(orderNumber);
-  return row ? toLinkedOrder(row) : undefined;
+  if (!row) return undefined;
+  const feeSnapshots = await listOrderFeeSnapshots([row.id]);
+  return toLinkedOrder(row, feeSnapshots.get(row.id));
 }
 
 /**

@@ -563,6 +563,32 @@ nothing in `src/models/` for them to be a port OF: `payments`,
 `payment_attempts`, `payment_provider_events`, `transfers`, `payouts`,
 `payment_outboxes`, `provider_accounts`, `ledger_transactions`, `ledger_entries`.
 
+### The fee domain (#88) is Postgres-born too
+
+Four more tables with no source model: `fee_schedules` (versioned commercial
+policy — immutable once active, enforced by the
+`fee_schedules_immutable_once_active` trigger and the one-active-per-key
+partial unique index), `fee_schedule_acceptances` (the merchant-consent audit
+trail, append-only), and `order_fee_snapshots` + `order_fee_snapshot_lines`
+(one immutable fee record per checkout order, append-only, written ONLY inside
+`orderRepository.insertOrder`'s transaction so an order and its fee record
+cannot commit apart). Three decisions worth naming here because they look like
+rule deviations and are not:
+
+- **`schedule_key`/`schedule_version` on acceptances and snapshots carry NO
+  foreign key.** They are SNAPSHOT names, like an order line's frozen title —
+  the record must state what was agreed/charged even read apart from the
+  schedule row, and the immutability trigger protects the target anyway. They
+  are names, not `*_id` columns, so the classification gate is not being dodged.
+- **A `not_applicable` snapshot stores a NULL fee, never a zero** — the CHECK
+  `order_fee_snapshots_fee_presence_check` ties all six value fields to the
+  result BOTH ways ("all or none" AND "none exactly when not applicable"),
+  because a single biconditional lets a partially-filled row through on both
+  sides. `mercaria_retail` can therefore never read as a zero-rate schedule.
+- **The min/max fee bounds are bare `bigint` minor-unit columns**, not `money()`
+  pairs: their currency IS `eligible_currency` (CHECK-enforced), and a second
+  currency column would be a second representation of that fact.
+
 What they replaced was not a model but four fields — `Order.payment.{status,
 provider, reference, paidAt}` — plus the retired `settlement_*` columns. That
 subdocument had to be a state machine, an audit trail, an idempotency key and a
@@ -948,6 +974,8 @@ add a row when a gate lands, and do not list one that does not run yet.
 | snake_case tables and columns; every table has a PK; every timestamp is `timestamptz`; no `''` default; no `_id`/`__v` left over from Mongoose | `src/db/__tests__/schema.realdb.test.ts` | yes |
 | Every expiry-swept column has a supporting leading btree index — nothing else notices a later migration dropping one | `src/db/__tests__/schema.realdb.test.ts` | yes |
 | A ledger transaction balances to zero per currency, and its rows refuse UPDATE and DELETE | `src/db/payments/__tests__/ledger.realdb.test.ts` | yes |
+| A published fee schedule version refuses every economic edit and any DELETE; at most one active version per key; snapshots and acceptances refuse UPDATE and DELETE; the snapshot CHECKs refuse a `mercaria_retail` fee, a schedule-less `calculated` row and a fee above its basis | `src/db/fees/__tests__/fee-schedules.realdb.test.ts` | yes |
+| No feed/search/catalogue-read module can reference the fee domain (organic-ranking isolation, #88 trust rule 1) | `src/services/fees/__tests__/fee-ranking-isolation.test.ts` | no |
 | The order status CAS refuses a stale `expected`, so two concurrent transitions produce exactly ONE winner and one history event | `src/db/__tests__/commerce.realdb.test.ts` | yes |
 | A discount's total-usage ceiling holds under two CONCURRENT redemptions at `totalMax - 1` | `src/db/__tests__/commerce.realdb.test.ts` | yes |
 | A replayed checkout's duplicate is refused by `orders_idempotency_key_key` and the survivor is findable by that key | `src/db/__tests__/commerce.realdb.test.ts` | yes |
