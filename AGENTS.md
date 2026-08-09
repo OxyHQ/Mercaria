@@ -2286,7 +2286,6 @@ pin.
   `oxy-infra`; the full pre-launch list is `docs/payments.md`
   §"Production-readiness checklist".
 
-<<<<<<< HEAD
 ## Graph query benchmarks and the indexes they justified (#61, ADR 0002 D21)
 
 `services/graph-benchmark/` (5 modules) + `scripts/graph-query-benchmark.ts` +
@@ -2380,7 +2379,7 @@ tidy plan.
   smaller than it is because the property under test is a PLANNER decision — a
   gate that fires because a table is too small for an index to win is a gate
   whoever hits it next disables.
-=======
+
 ## Live supplier preflight (#122, ADR 0004 D4 step 1 / D5 / D9.3)
 
 `services/supplier-preflight/` (14 modules) + `db/supplierPreflight/`
@@ -2494,4 +2493,3 @@ so the first can never be mistaken for the second.
   (`assertPreflightSatisfiesCheckout` is COMPLETE and waits on nothing), **#117**
   (the capture sequence reads the quote and reservation deadlines), **#128**
   (variance BOOKING), **#93/#37/#74**.
->>>>>>> 42457e3 (wip: #122 (pre-rebase 2))
