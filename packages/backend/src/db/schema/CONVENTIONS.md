@@ -1155,6 +1155,94 @@ outside:
   and the "backfill existing carts to authenticated ownership" requirement is
   met by rewriting ZERO rows.
 
+### `guest_checkouts` and the buyer origin on `orders` (#105)
+
+`guest_checkouts` (`schema/guests.ts`, `drizzle/0022_confused_mole_man.sql`) is
+the third Postgres-born guest table, and the two `orders` columns beside it are
+the minimum of ADR 0003 D6 that a guest order needs in order to exist at all.
+The decisions:
+
+- **ONE contact identity per checkout GROUP, held by
+  `guest_checkouts_checkout_group_id_key`** — never one per order. Sibling
+  orders from a multi-seller cart share it; each ORDER keeps its own immutable
+  FULFILMENT snapshot (`shipping_address_*`, `shipping_method`), because
+  destinations can legitimately differ per seller and a contact cannot. Two
+  copies of one fact can disagree, and the place that must not happen is the
+  address a receipt is sent to.
+- **Three forms of one email, three columns, three jobs (ADR 0003 D12).**
+  `email_ciphertext` is AES-256-GCM under `GUEST_PII_ENCRYPTION_KEY`, key-id
+  prefixed (`v1:…`) so a rotation is re-encryption at read rather than a flag
+  day; `email_hash` is HMAC-SHA-256 under the SEPARATE `GUEST_EMAIL_HASH_KEY`;
+  `email_redacted` is the only form a support surface renders. **Two keys, on
+  purpose:** the lookup path must be able to hash without ever being able to
+  decrypt. The keyed hash here is the OPPOSITE decision from
+  `guest_sessions.token_hash` above, for the opposite entropy reason — do not
+  "harmonize" them.
+- **The ciphertext is a single self-describing column, not the three-column
+  `{ciphertext, iv, tag}` shape `connections` uses.** That shape is right where
+  the parts are read independently; here the whole value is written once and
+  read once, and one column is what makes D15's anonymization a single
+  `SET … = NULL` and lets the immutability trigger say "the contact may only
+  change to NULL" as a condition on one value rather than a consistency rule
+  across three.
+- **`guest_checkouts_anonymization_check` states the erasure transition WHOLE.**
+  Without it, `anonymized_at` would be a timestamp somebody could set while the
+  ciphertext stayed readable — a deletion record that did not delete. The email
+  and phone pair CHECKs are `in (0, 2)` rather than `= 2` for the same reason:
+  both halves exist together or neither does, and anonymization clears both.
+- **`marketing_opt_in` is a column of its own, defaulting to false.** Permission
+  to send a receipt comes from the purchase; permission to market comes from a
+  box the buyer ticked. One field for both would make every transactional send
+  look like consent to market, and the audit question "did they agree" would
+  have no answer.
+- **`contact_verification_stage` records whether the inbox was proven BEFORE or
+  AFTER the payment** and is deliberately not an enforcement point: ADR 0003
+  D17 puts payment on the pre-verification side of the line, because an email
+  typo is answered by the confirmation not arriving, not by refusing a card the
+  buyer already authorised. #108 owns the transition.
+- **`guest_session_id` carries no foreign key and `checkout_group_id` cannot.**
+  The session is HARD-DELETED by the retention sweep while this row is retained
+  with its orders, so a cascade would erase a commercial record and a restrict
+  would block the purge — surviving the credential is the whole reason the table
+  exists. The group is a shared token with no `checkout_groups` table. Both are
+  in `ID_COLUMNS_WITHOUT_FOREIGN_KEY`.
+- **`orders.buyer_guest_checkout_id` IS a real foreign key**, `ON DELETE
+  restrict` — and the contrast with every other id column on `orders` is the
+  rule, not an inconsistency: `guest_checkouts` is a Mercaria table, so Mercaria
+  can enforce the reference; an Oxy id cannot have one because Oxy owns
+  identity.
+- **`orders.buyer_oxy_user_id` became NULLABLE and `orders_buyer_identity_check`
+  is what makes that safe.** Three disjoint shapes, one constraint, because the
+  illegal combinations are the dangerous ones: a guest order carrying an Oxy id
+  is invariant I1 broken at the storage layer. `'external'` leaves the column
+  unconstrained so connector rows keep their `ext:` provenance until ADR 0003 M9
+  retires it. **#106 WIDENS this constraint** when it adds
+  `claimed_by_oxy_user_id`/`claimed_at`; it must not add a second one.
+- **Two hand-written triggers ship in the same migration as the DDL** —
+  `guest_checkouts_immutable` and `orders_buyer_origin_immutable` (the
+  `mercaria_fee_schedule_immutable` posture). A CHECK sees one row and cannot
+  express "this may not change"; a window in which the table exists and the
+  trigger does not is a window in which a placed group's contact can be
+  re-pointed at another inbox. Every comparison is `IS DISTINCT FROM`, never
+  `<>`: with a NULL on either side `<>` is NULL, which is not TRUE, which would
+  let exactly the transitions being guarded slip past.
+- **The identity CHECK was added VALIDATED.** ADR 0003 stages it `NOT VALID`,
+  expecting `ext:` rows to violate the final shape — they do not violate the
+  form landed here: every pre-existing row is `buyer_origin = 'oxy'` (the fast
+  default) with a non-null buyer and a null guest checkout, which satisfies the
+  first disjunct. M4's backfill then MOVES connector rows to `'external'`, keyed
+  on `source_connection_id IS NOT NULL` and not on the `ext:` prefix, which is a
+  string convention nothing enforces.
+- **`email_ciphertext`, `email_hash` and `phone_ciphertext` are in
+  `PROTECTED_COLUMNS`; the two redacted columns are not.** The hash is
+  registered even though it is irreversible, because it is an exact-match
+  ORACLE: anyone holding it can confirm whether a guessed address placed an
+  order, which is the correlation ADR 0003 I11 forbids seller and partner
+  surfaces. The redacted forms exist precisely to be read.
+- **Nothing here is registered in `expiryTargets.ts`.** A checkout contact lives
+  as long as its orders (ADR 0003 D11); erasure is D15's anonymization, which is
+  a verified request rather than a sweep.
+
 ### The procurement domain has NO source model either (#118)
 
 Eleven more tables born in Postgres, in `schema/procurement.ts`: `suppliers`,

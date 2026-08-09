@@ -128,6 +128,7 @@ async function seedOrder(
 
   const order = await insertOrder({
     orderNumber: await nextOrderNumber(),
+    buyerOrigin: 'oxy',
     buyerOxyUserId: who.buyer,
     sellerType: 'user',
     sellerOxyUserId: who.seller,

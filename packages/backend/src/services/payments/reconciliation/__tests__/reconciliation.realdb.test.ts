@@ -344,6 +344,7 @@ async function seedOrder(
 
   const order = await insertOrder({
     orderNumber: await nextOrderNumber(),
+    buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${seller.suffix}`,
     sellerType: 'store',
     storeId: seller.store.id,

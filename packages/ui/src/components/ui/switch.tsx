@@ -8,6 +8,15 @@ interface SwitchProps {
   disabled?: boolean;
   className?: string;
   size?: "default" | "sm";
+  /**
+   * The switch's accessible NAME.
+   *
+   * A switch renders no text of its own, so without this a screen reader
+   * announces "switch, off" and nothing else — the adjacent label is a sibling
+   * and is not automatically its name. Every consumer that puts a switch beside
+   * a sentence needs it, which is why it belongs here rather than in each app.
+   */
+  accessibilityLabel?: string;
 }
 
 const TRACK = { default: { w: 44, h: 26 }, sm: { w: 36, h: 22 } } as const;
@@ -16,7 +25,10 @@ const PADDING = 2;
 const SQUEEZE_RATIO = 0.75; // thumb height shrinks to 75% when pressed
 
 const Switch = React.forwardRef<React.ElementRef<typeof Pressable>, SwitchProps>(
-  ({ value, onValueChange, disabled, className, size = "default" }, ref) => {
+  (
+    { value, onValueChange, disabled, className, size = "default", accessibilityLabel },
+    ref,
+  ) => {
     const anim = React.useRef(new Animated.Value(value ? 1 : 0)).current;
     const pressAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -80,6 +92,7 @@ const Switch = React.forwardRef<React.ElementRef<typeof Pressable>, SwitchProps>
         role="switch"
         aria-checked={value}
         accessibilityState={{ checked: value, disabled }}
+        {...(accessibilityLabel !== undefined ? { accessibilityLabel } : {})}
         onPress={() => !disabled && onValueChange(!value)}
         onPressIn={onPressIn}
         onPressOut={onPressOut}

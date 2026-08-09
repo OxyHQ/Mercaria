@@ -959,6 +959,7 @@ async function seedCommerce(
 
   const posOrder = await insertOrder({
     orderNumber: await nextOrderNumber(),
+    buyerOrigin: 'oxy',
     buyerOxyUserId: DEV_BUYER_OXY_USER_ID,
     sellerType: 'store',
     storeId,
@@ -1054,6 +1055,7 @@ async function seedCommerce(
 
     await insertOrder({
       orderNumber: await nextOrderNumber(),
+      buyerOrigin: 'oxy',
       buyerOxyUserId: DEV_BUYER_OXY_USER_ID,
       sellerType: 'store',
       storeId,

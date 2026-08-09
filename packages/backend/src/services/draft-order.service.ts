@@ -811,6 +811,11 @@ export async function completeDraftOrder(
 
     order = await insertOrder({
       orderNumber,
+      // A POS sale always resolves a REAL Oxy id (the customer's, else the
+      // operator's), so it is an `'oxy'`-origin order like any storefront one.
+      // No guest credential is ever issued at a register — ADR 0003 D7 states
+      // this path stays `'oxy'` explicitly.
+      buyerOrigin: 'oxy',
       buyerOxyUserId,
       sellerType: 'store',
       storeId,

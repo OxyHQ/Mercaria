@@ -281,6 +281,7 @@ async function seedScenario(label: string, options: { ready: boolean; settle?: b
   const checkoutGroupId = `group-${suffix}`;
   const order = await insertOrder({
     orderNumber: await nextOrderNumber(),
+    buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${suffix}`,
     sellerType: 'store',
     storeId: store.id,

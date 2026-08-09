@@ -388,6 +388,35 @@ function resolveGuestOperatorIds(): readonly string[] {
 }
 
 /**
+ * `CHECKOUT_DESTINATION_COUNTRIES` → the markets this deployment delivers to
+ * (#105 eligibility rule 1).
+ *
+ * EMPTY means unrestricted, which is exactly the behaviour every checkout had
+ * before #105 — so adding the lever changes nothing until somebody sets it, and
+ * no existing buyer's saved address becomes undeliverable on deploy.
+ *
+ * It is deliberately NOT derived from `STRIPE_SELLER_COUNTRIES`: that list says
+ * where a SELLER's payout account may be incorporated (ADR 0001 D8), which is a
+ * different question from where a parcel may go, and conflating them would
+ * silently refuse an EEA seller shipping to a buyer one country outside the
+ * list. Real per-carrier destination coverage belongs to Moovo and this repo
+ * must not recreate it (`AGENTS.md` §Shipping); this is Mercaria's own market
+ * policy and nothing more.
+ *
+ * Values are upper-cased on read so `es,fr` and `ES,FR` mean the same thing;
+ * an entry that is not an assigned ISO-3166 alpha-2 code is dropped rather than
+ * carried, because a typo in this list would otherwise become a country nobody
+ * can ever deliver to and the symptom would be a buyer's refusal, not a boot
+ * error.
+ */
+function resolveCheckoutDestinationCountries(): readonly string[] {
+  return strEnv('CHECKOUT_DESTINATION_COUNTRIES', '')
+    .split(',')
+    .map((code) => code.trim().toUpperCase())
+    .filter((code) => /^[A-Z]{2}$/.test(code));
+}
+
+/**
  * The currency the platform account settles in — ADR 0001 D8, `EUR`.
  *
  * Falls back to `EUR` when the configured value is not a currency Mercaria
@@ -705,6 +734,34 @@ export interface GuestConfig {
    */
   readonly cartEnabled: boolean;
   /**
+   * Whether a guest may place an ORDER with an inline destination —
+   * `GUEST_INLINE_DESTINATION_ENABLED`, default true, meaningful only while
+   * `enabled` is on (#105 migration rule 8).
+   *
+   * The fourth lever, and separate from `cartEnabled` because the two bound
+   * different blast radii. The three states worth knowing:
+   *
+   *  - **`enabled` off** — no guest credential resolves at all; a signed-out
+   *    buyer is `anonymous`, has no cart, and checkout tells them to sign in.
+   *    This is a decommission, not a lever.
+   *  - **`cartEnabled` off, this on** — a guest session still resolves but owns
+   *    no cart, so there is nothing to check out and the refusal comes from the
+   *    cart surface. Turning THIS on cannot rescue that; the two compose, they
+   *    do not substitute.
+   *  - **`cartEnabled` on, this off** — the incident lever this issue adds. A
+   *    guest keeps their cart, keeps browsing, and is told plainly at checkout
+   *    that placing an order needs an account right now. Nothing durable is
+   *    gated: guest orders ALREADY placed keep their contact record, their
+   *    payment drains through the rail, and the webhook chain never reads this
+   *    flag (ADR 0006 G17 — gate the loop, never the durable record).
+   *
+   * Default TRUE rather than false, matching `cartEnabled`: `enabled` is the
+   * flag that is off by default and gates the whole domain, and an inner lever
+   * defaulting off would mean two switches to find during a rollout and one to
+   * forget.
+   */
+  readonly inlineDestinationEnabled: boolean;
+  /**
    * `GUEST_OPERATOR_OXY_USER_IDS` — who may read the guest-commerce
    * diagnostic. See `resolveGuestOperatorIds`.
    */
@@ -961,6 +1018,21 @@ export interface PostgresConfig {
   readonly maxLifetimeSeconds: number;
 }
 
+/**
+ * Checkout policy that is neither an order tunable nor a payment one (#105).
+ *
+ * Separate from `orders` because `orders` holds the mechanics of a placed
+ * order — reservation TTL, flat shipping rates, idempotency window — and this
+ * holds the policy that decides whether a checkout may be ATTEMPTED at all.
+ */
+export interface CheckoutConfig {
+  /**
+   * The markets this deployment delivers to, upper-case ISO-3166 alpha-2.
+   * EMPTY means unrestricted — see `resolveCheckoutDestinationCountries`.
+   */
+  readonly destinationCountries: readonly string[];
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -968,6 +1040,7 @@ export interface AppConfig {
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
+  readonly checkout: CheckoutConfig;
   readonly orders: OrdersConfig;
   readonly fx: FxConfig;
   readonly web: WebConfig;
@@ -1022,6 +1095,9 @@ export const config: AppConfig = Object.freeze({
   }),
   cart: Object.freeze({
     maxQuantityPerItem: intEnv('CART_MAX_QUANTITY_PER_ITEM', 99),
+  }),
+  checkout: Object.freeze({
+    destinationCountries: Object.freeze(resolveCheckoutDestinationCountries()),
   }),
   orders: Object.freeze({
     reservationTtlMs: intEnv('RESERVATION_TTL_MS', 15 * MINUTE_MS),
@@ -1149,6 +1225,7 @@ export const config: AppConfig = Object.freeze({
     enabled: resolveGuestCommerceEnabled(),
     issuanceEnabled: boolEnv('GUEST_SESSION_ISSUANCE_ENABLED', true),
     cartEnabled: boolEnv('GUEST_CART_ENABLED', true),
+    inlineDestinationEnabled: boolEnv('GUEST_INLINE_DESTINATION_ENABLED', true),
     operatorOxyUserIds: Object.freeze(resolveGuestOperatorIds()),
     operatorSurfaceEnabled: resolveGuestOperatorIds().length > 0,
     piiEncryptionKey: strEnv('GUEST_PII_ENCRYPTION_KEY', ''),

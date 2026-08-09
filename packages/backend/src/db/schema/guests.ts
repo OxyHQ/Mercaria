@@ -61,9 +61,13 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
-import { CART_MERGE_REASON_CODES, GUEST_CLIENT_CLASSES } from '@mercaria/shared-types';
+import {
+  CART_MERGE_REASON_CODES,
+  GUEST_CLIENT_CLASSES,
+  GUEST_CONTACT_VERIFICATION_STAGES,
+} from '@mercaria/shared-types';
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
 
 /** `guest_sessions` — one row per issued guest credential. */
@@ -209,6 +213,157 @@ export const cartMerges = pgTable(
       sql`${t.linesAdded} >= 0 and ${t.linesCombined} >= 0 and ${t.linesClamped} >= 0
           and ${t.linesFlagged} >= 0 and ${t.discountCodesAdded} >= 0
           and ${t.discountCodesDropped} >= 0`,
+    ),
+  ],
+);
+
+/**
+ * `guest_checkouts` — ONE contact identity per checkout GROUP (ADR 0003 D4,
+ * #105).
+ *
+ * This row is the reason guest commerce survives the credential that started
+ * it. A `guest_sessions` row is purged 7 days after it expires; a placed order
+ * is retained for the statutory commercial window. Between those two facts sits
+ * the question "who do we send this receipt to, in three weeks, after the
+ * session is gone" — and the answer is a durable row correlated by
+ * `checkout_group_id`, which is exactly what the payment path already keys on
+ * (`payments.checkout_group_id`). Nothing in the paid path reads
+ * `guest_sessions` (ADR 0003 diagram 6, ADR 0006 G9), and this table is why it
+ * does not have to.
+ *
+ * ## One per GROUP, never one per order
+ *
+ * `guest_checkouts_checkout_group_id_key`. A multi-seller cart splits into
+ * sibling orders that share a `checkout_group_id`, and they share this contact
+ * too — copying it onto each order would be two representations of one fact,
+ * which is the shape this schema refuses everywhere. Each ORDER still carries
+ * its own immutable FULFILMENT snapshot (`shipping_address_*`,
+ * `shipping_method`), because those genuinely can differ per seller; the
+ * contact cannot.
+ *
+ * ## Three forms of one email, three different jobs (ADR 0003 D12)
+ *
+ * `email_ciphertext` is AES-256-GCM under `GUEST_PII_ENCRYPTION_KEY`, key-id
+ * prefixed, and is the only form a transactional mail can be sent to.
+ * `email_hash` is HMAC-SHA-256 under the SEPARATE `GUEST_EMAIL_HASH_KEY` —
+ * keyed, unlike this schema's token hashes, because an email has
+ * dictionary-scale entropy and a plain hash column would be offline-reversible
+ * the day the table leaked. `email_redacted` (`j***@example.com`) is the only
+ * form a support surface ever renders (T15). All three are registered in
+ * `db/protectedColumns.ts`, so a whole-row select cannot ship them.
+ *
+ * `email_hash` has exactly TWO permitted uses and neither is implemented here:
+ * routing a magic-link request to its checkouts (#108) and abuse velocity
+ * counting. It is NEVER an authorization input (I2/I4) and never a join key to
+ * an Oxy account (I6) — and #105 correspondingly exposes no projection field
+ * for it and no endpoint that takes one.
+ *
+ * ## The `guest_session_id` correlation has NO foreign key, on purpose
+ *
+ * Sessions are hard-deleted by the retention sweep and this row must outlive
+ * them — the same rule `cart_merges.guest_session_id` follows, recorded in
+ * `db/deferredForeignKeys.ts`.
+ *
+ * ## What is deliberately ABSENT
+ *
+ * No name, no address (that is the ORDER's fulfilment snapshot, which sellers
+ * see and this does not), no payment detail, no IP, no device fingerprint, no
+ * Oxy user id in any form, and no referral or partner column — attribution is
+ * #142/#143's own model and can never be derived from a contact (#105 privacy
+ * rule 9). There is no `status` column either: whether a checkout completed is
+ * a property of its ORDERS.
+ */
+export const guestCheckouts = pgTable(
+  'guest_checkouts',
+  {
+    id: generatedId(),
+    /**
+     * The checkout group this contact belongs to. Correlation with no foreign
+     * key — there is no `checkout_groups` table; the group is a shared token
+     * (`db/deferredForeignKeys.ts`).
+     */
+    checkoutGroupId: text().notNull(),
+    /** The session that placed it. Correlation only — see the docblock. */
+    guestSessionId: text().notNull(),
+    /** AES-256-GCM, `v1:`-prefixed. NULL only after anonymization (D15). */
+    emailCiphertext: text(),
+    /** HMAC-SHA-256 of the NORMALIZED address. NULL only after anonymization. */
+    emailHash: text(),
+    /** `j***@example.com`, or the literal `deleted` after anonymization. */
+    emailRedacted: text().notNull(),
+    /** AES-256-GCM contact phone, when the buyer gave one. */
+    phoneCiphertext: text(),
+    /** `***42`, or absent. */
+    phoneRedacted: text(),
+    /**
+     * Whether the contact inbox was proven before or after the payment, or not
+     * at all yet (#105 GuestCheckout rule 8).
+     *
+     * RECORDED, never enforced: ADR 0003 D17 puts payment deliberately on the
+     * pre-verification side of the line. #108 owns the transition.
+     */
+    contactVerificationStage: text({ enum: asEnumValues(GUEST_CONTACT_VERIFICATION_STAGES) })
+      .notNull()
+      .default('pending'),
+    /**
+     * Marketing consent, captured at this checkout.
+     *
+     * A column of its OWN and defaulting to false, because permission to send a
+     * receipt comes from the purchase and permission to market comes from an
+     * unticked box the buyer ticked (#105 privacy rules 1-2). Storing them as
+     * one field would make every transactional send look like consent to
+     * market — and the audit question "did they agree" would have no answer.
+     */
+    marketingOptIn: boolean().notNull().default(false),
+    /** BCP-47, for the language a transactional mail is written in. */
+    locale: text(),
+    /** ADR 0003 D15's post-payment erasure stamp. */
+    anonymizedAt: timestamptz(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    // ONE contact per group — the structural half of "sibling orders share it".
+    uniqueIndex('guest_checkouts_checkout_group_id_key').on(t.checkoutGroupId),
+    // #108's magic-link routing walks this. NON-unique: one inbox, many
+    // checkouts. Partial, because an anonymized row has no hash to find.
+    index('guest_checkouts_email_hash_idx')
+      .on(t.emailHash)
+      .where(sql`${t.emailHash} is not null`),
+    // "Which checkouts did this session place?" — the operator trace, and the
+    // read #109's claim will need.
+    index('guest_checkouts_guest_session_id_idx').on(t.guestSessionId),
+    checkOneOf(
+      'guest_checkouts_contact_verification_stage_check',
+      t.contactVerificationStage,
+      GUEST_CONTACT_VERIFICATION_STAGES,
+    ),
+    // The two encrypted forms of the email move TOGETHER: a row with ciphertext
+    // and no hash could never be found by #108's recovery, and a row with a
+    // hash and no ciphertext could be found and not written to. Anonymization
+    // clears both, which is why the count is `in (0, 2)` and not `= 2`.
+    check(
+      'guest_checkouts_email_pair_check',
+      sql`num_nonnulls(${t.emailCiphertext}, ${t.emailHash}) in (0, 2)`,
+    ),
+    // Anonymization is a THREE-column transition and the CHECK states it whole:
+    // once `anonymized_at` is set there is no contact left, and while it is
+    // NULL there is. Without this, "anonymized" would be a timestamp somebody
+    // could set while the ciphertext stayed readable — a deletion record that
+    // did not delete.
+    check(
+      'guest_checkouts_anonymization_check',
+      sql`(${t.anonymizedAt} is null and ${t.emailCiphertext} is not null)
+          or (${t.anonymizedAt} is not null
+              and ${t.emailCiphertext} is null
+              and ${t.emailHash} is null
+              and ${t.phoneCiphertext} is null
+              and ${t.emailRedacted} = 'deleted')`,
+    ),
+    // The phone's two forms move together, same reasoning as the email pair.
+    check(
+      'guest_checkouts_phone_pair_check',
+      sql`num_nonnulls(${t.phoneCiphertext}, ${t.phoneRedacted}) in (0, 2)`,
     ),
   ],
 );

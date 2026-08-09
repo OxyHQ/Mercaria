@@ -58,6 +58,7 @@ import type {
   FeeSnapshotResult,
   FxRateSnapshot,
   Money,
+  OrderBuyerOrigin,
   OrderSellerType,
   OrderSourceChannel,
   OrderStatus,
@@ -68,6 +69,7 @@ import type {
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
 import { orderFeeSnapshotLines, orderFeeSnapshots } from '../schema/fees.js';
+import { guestCheckouts } from '../schema/guests.js';
 import {
   orderAppliedDiscounts,
   orderItemOptionValues,
@@ -195,7 +197,17 @@ export interface NewOrderSource {
 /** A whole order as a caller supplies it — the aggregate `insertOrder` writes. */
 export interface NewOrder {
   orderNumber: string;
-  buyerOxyUserId: string;
+  /**
+   * Where the buyer identity came from (ADR 0003 D6). Every writer states it
+   * EXPLICITLY rather than leaning on the column default: the default exists so
+   * the migration could fill a table of existing rows without a rewrite, and a
+   * new writer that forgot would silently produce an `oxy` order for a guest.
+   */
+  buyerOrigin: OrderBuyerOrigin;
+  /** Set iff `buyerOrigin` is `'oxy'` (or a legacy `'external'` `ext:` value). */
+  buyerOxyUserId?: string;
+  /** Set iff `buyerOrigin` is `'guest'` — the group's `guest_checkouts` row. */
+  buyerGuestCheckoutId?: string;
   sellerType: OrderSellerType;
   sellerOxyUserId?: string;
   storeId?: string;
@@ -460,19 +472,63 @@ export async function findOrders(
   return withChildren(rows, db);
 }
 
-/** Every order of one checkout group belonging to one buyer — the replay read. */
+/**
+ * Who a checkout group belongs to, for the reads that ARE the authorization.
+ *
+ * The two id spaces need different joins, not just different columns: an Oxy
+ * buyer is on the order row itself, while a guest reaches their orders through
+ * the contact record their session created (`orders.buyer_guest_checkout_id` →
+ * `guest_checkouts.guest_session_id`). Modelling that as one nullable string
+ * plus a boolean would be exactly the aliasing ADR 0003 I1 exists to prevent;
+ * the discriminated union forces the caller to say which it holds and the
+ * compiler forces this function to switch.
+ */
+export type CheckoutGroupOwner =
+  | { kind: 'oxy_user'; oxyUserId: string }
+  | { kind: 'guest_session'; guestSessionId: string };
+
+/**
+ * Every order of one checkout group belonging to one buyer — the replay read,
+ * and the authorization behind `GET /checkout/:groupId/payment-status`.
+ *
+ * A checkout group id is a server-issued uuid v7 and the orders under it are
+ * the only thing that proves whose it is, so this predicate IS the access
+ * check: a group belonging to somebody else comes back empty and the caller
+ * answers 404 rather than confirming it exists.
+ */
 export async function findOrdersByCheckoutGroup(
   checkoutGroupId: string,
-  buyerOxyUserId: string,
+  owner: CheckoutGroupOwner,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<OrderRecord[]> {
+  if (owner.kind === 'guest_session') {
+    // An INNER join, so an order with no contact record cannot match — which is
+    // every `oxy` and `external` order, by the identity CHECK. A guest sees the
+    // orders their own session's contact record names and nothing else.
+    const joined = await db
+      .select({ order: PUBLIC_ORDER_COLUMNS })
+      .from(orders)
+      .innerJoin(guestCheckouts, eq(orders.buyerGuestCheckoutId, guestCheckouts.id))
+      .where(
+        and(
+          eq(orders.checkoutGroupId, checkoutGroupId),
+          eq(guestCheckouts.guestSessionId, owner.guestSessionId),
+        ),
+      )
+      .orderBy(asc(orders.createdAt), asc(orders.id));
+    return withChildren(
+      joined.map((row) => row.order),
+      db,
+    );
+  }
+
   const rows = await db
     .select(PUBLIC_ORDER_COLUMNS)
     .from(orders)
     .where(
       and(
         eq(orders.checkoutGroupId, checkoutGroupId),
-        eq(orders.buyerOxyUserId, buyerOxyUserId),
+        eq(orders.buyerOxyUserId, owner.oxyUserId),
       ),
     )
     .orderBy(asc(orders.createdAt), asc(orders.id));
@@ -704,7 +760,9 @@ export async function insertOrder(
       .insert(orders)
       .values({
         orderNumber: input.orderNumber,
-        buyerOxyUserId: input.buyerOxyUserId,
+        buyerOrigin: input.buyerOrigin,
+        buyerOxyUserId: input.buyerOxyUserId ?? null,
+        buyerGuestCheckoutId: input.buyerGuestCheckoutId ?? null,
         sellerType: input.sellerType,
         sellerOxyUserId: input.sellerOxyUserId ?? null,
         storeId: input.storeId ?? null,

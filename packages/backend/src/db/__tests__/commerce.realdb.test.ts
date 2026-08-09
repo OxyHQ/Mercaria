@@ -152,6 +152,7 @@ async function orderInput(
   const grandTotal = overrides.totals?.grandTotal.shop.amount ?? 2000;
   return {
     orderNumber: await nextOrderNumber(),
+    buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${uuidv7()}`,
     sellerType: 'store',
     storeId,

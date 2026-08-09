@@ -180,6 +180,8 @@ function pricingResultFor(lineCount: number, subtotal: number): PricingResult {
 }
 
 const USER = 'buyer-1';
+/** The resolved actor checkout takes since #105 (ADR 0003 D1). */
+const ACTOR = { kind: 'oxy', oxyUserId: USER } as const;
 /** The cart OWNER checkout builds from that user id (#104). */
 const OWNER = { kind: 'oxy_user', oxyUserId: USER } as const;
 const ADDRESS_ID = uuidv7();
@@ -405,7 +407,7 @@ describe('checkout.service.checkout — multi-seller split', () => {
       Promise.resolve(orders.map((_, i) => ({ id: `o${i}`, orderNumber: `MRC-00000${i}`, status: 'pending_payment' }))),
     );
 
-    const result = await checkout(USER, { addressId: ADDRESS_ID });
+    const result = await checkout(ACTOR, { addressId: ADDRESS_ID });
 
     expect(insertOrder).toHaveBeenCalledTimes(3);
     const groupIds = insertOrder.mock.calls.map((c) => (c[0] as { checkoutGroupId: string }).checkoutGroupId);
@@ -479,7 +481,7 @@ describe('checkout.service.checkout — a native non-FAIR checkout', () => {
       { id: 'order-eur', orderNumber: 'MRC-000900', status: 'pending_payment' },
     ]);
 
-    await checkout(USER, { addressId: ADDRESS_ID });
+    await checkout(ACTOR, { addressId: ADDRESS_ID });
 
     expect(insertOrder).toHaveBeenCalledTimes(1);
     const doc = insertOrder.mock.calls[0][0] as {
@@ -531,7 +533,7 @@ describe('checkout.service.checkout — reservation rollback', () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(outOfStock('Insufficient stock to reserve'));
 
-    await expect(checkout(USER, { addressId: ADDRESS_ID })).rejects.toSatisfy(
+    await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.OUT_OF_STOCK,
     );
 
@@ -556,7 +558,7 @@ describe('checkout.service.checkout — idempotent replay', () => {
     findOrdersByCheckoutGroup.mockResolvedValueOnce(priorOrders);
     summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000001', status: 'paid' }]);
 
-    const result = await checkout(USER, { addressId: ADDRESS_ID }, 'idem-key-1');
+    const result = await checkout(ACTOR, { addressId: ADDRESS_ID }, 'idem-key-1');
 
     expect(result.checkoutGroupId).toBe(storedGroupId);
     expect(reserve).not.toHaveBeenCalled();
@@ -590,7 +592,7 @@ describe('checkout.service.checkout — totals', () => {
     );
     summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000010', status: 'pending_payment' }]);
 
-    await checkout(USER, { addressId: ADDRESS_ID });
+    await checkout(ACTOR, { addressId: ADDRESS_ID });
 
     const doc = insertOrder.mock.calls[0][0] as {
       items: {
@@ -638,7 +640,7 @@ describe('checkout.service.checkout — unpriced variant', () => {
     // the one the port made representable (Mongoose declared `price` required).
     findVariantsByIds.mockResolvedValueOnce([variantRow(V1, L1, null)]);
 
-    await expect(checkout(USER, { addressId: ADDRESS_ID })).rejects.toSatisfy(
+    await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );
 
@@ -700,7 +702,7 @@ describe('checkout.service.checkout — discounts', () => {
   it('persists the discount on the order and increments usage exactly once', async () => {
     arrangeDiscountedCheckout();
 
-    await checkout(USER, { addressId: ADDRESS_ID });
+    await checkout(ACTOR, { addressId: ADDRESS_ID });
 
     const doc = insertOrder.mock.calls[0][0] as {
       totals: { discountTotal: { shop: { amount: number } }; grandTotal: { shop: { amount: number } } };
@@ -732,7 +734,7 @@ describe('checkout.service.checkout — discounts', () => {
     findOrdersByCheckoutGroup.mockResolvedValueOnce([{ id: 'o1', checkoutGroupId: storedGroupId }]);
     summarizeOrders.mockResolvedValueOnce([{ id: 'o1', orderNumber: 'MRC-000020', status: 'paid' }]);
 
-    await checkout(USER, { addressId: ADDRESS_ID, discountCodes: ['WELCOME15'] }, 'idem-key-2');
+    await checkout(ACTOR, { addressId: ADDRESS_ID, discountCodes: ['WELCOME15'] }, 'idem-key-2');
 
     // Replay returns the prior orders — no pricing, no creation, no usage increment.
     expect(insertOrder).not.toHaveBeenCalled();
@@ -773,7 +775,7 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
   it('places only the requested seller group and removes just its lines (rest stays in cart)', async () => {
     arrangeTwoStoreCart();
 
-    const result = await checkout(USER, { addressId: ADDRESS_ID, sellerKeys: ['store:store-A'] });
+    const result = await checkout(ACTOR, { addressId: ADDRESS_ID, sellerKeys: ['store:store-A'] });
 
     // Only store-A's single line is reserved + ordered.
     expect(reserve).toHaveBeenCalledTimes(1);
@@ -791,7 +793,7 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
     arrangeTwoStoreCart();
 
     await expect(
-      checkout(USER, { addressId: ADDRESS_ID, sellerKeys: ['store:store-ZZZ'] }),
+      checkout(ACTOR, { addressId: ADDRESS_ID, sellerKeys: ['store:store-ZZZ'] }),
     ).rejects.toSatisfy(
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
     );

@@ -105,6 +105,7 @@ async function seedOrderWithSnapshot(
   const checkoutGroupId = uuidv7();
   const doc: NewOrder = {
     orderNumber: await nextOrderNumber(),
+    buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${uuidv7()}`,
     sellerType: 'user',
     sellerOxyUserId: seller,

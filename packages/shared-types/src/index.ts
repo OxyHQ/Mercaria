@@ -50,6 +50,10 @@ export * from './cart';
 // Address DTOs (Address, CreateAddressInput, UpdateAddressInput).
 export * from './address';
 
+// Checkout contact + destination contract (CheckoutDestination,
+// CheckoutAddressInput, CheckoutContactInput, OrderBuyerOrigin, …).
+export * from './checkout';
+
 // Payment + ledger vocabulary (PaymentProviderId, PaymentStatus, LedgerAccount, …).
 // The closed value sets the payment domain's columns, CHECKs and guards all read.
 export * from './payment';

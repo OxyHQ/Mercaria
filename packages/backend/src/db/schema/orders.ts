@@ -44,6 +44,7 @@ import {
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
   CONNECTOR_PROVIDER_IDS,
+  ORDER_BUYER_ORIGINS,
   ORDER_PAYMENT_STATUSES,
   PAYMENT_PROVIDER_IDS,
   REFUND_PROVIDER_STATES,
@@ -67,6 +68,7 @@ import {
   optionalMoney,
 } from './columns';
 import { connections } from './connectors';
+import { guestCheckouts } from './guests';
 import { DISCOUNT_VALUE_TYPES } from './merchandising';
 import { customers, stores } from './stores';
 
@@ -124,8 +126,42 @@ export const orders = pgTable(
     id: generatedId(),
     /** `MRC-000123` — printed and emailed, so it outlives this database. */
     orderNumber: text().notNull(),
-    /** An Oxy account id — no foreign key. */
-    buyerOxyUserId: text().notNull(),
+    /**
+     * An Oxy account id — no foreign key.
+     *
+     * NULLABLE since #105: a guest-origin order has no Oxy account behind it,
+     * and the alternative — a synthetic id in this column — is precisely the
+     * mistake ADR 0003's context section refuses (connector imports already
+     * smuggle `ext:<provider>:<id>` here, distinguishable only by a prefix
+     * nothing enforces). The column keeps its exact meaning for `'oxy'` orders:
+     * the ORIGIN owner. `orders_buyer_identity_check` below is what makes the
+     * nullability safe rather than merely permitted.
+     */
+    buyerOxyUserId: text(),
+    /**
+     * Where this order's buyer identity came from (ADR 0003 D6) — `oxy`,
+     * `guest` or `external`.
+     *
+     * `default('oxy')` is what let the migration add it to a table of existing
+     * rows without a rewrite, and it is also the honest value for every one of
+     * them. IMMUTABLE after insert, enforced by a trigger rather than a
+     * convention: a claim (#109) records a later Oxy owner in its own column
+     * and must never rewrite this one, so "who placed it" and "who owns it now"
+     * stay two facts (I7).
+     */
+    buyerOrigin: text({ enum: asEnumValues(ORDER_BUYER_ORIGINS) }).notNull().default('oxy'),
+    /**
+     * The contact identity for a guest-origin order (ADR 0003 D4). Set iff
+     * `buyer_origin = 'guest'`.
+     *
+     * A REAL foreign key, unlike every buyer/seller id column above, and the
+     * difference is the whole rule: `guest_checkouts` is a Mercaria table, so
+     * Mercaria can enforce the reference. `restrict`, because an order is the
+     * record of a sale and must never be orphaned from the contact it was
+     * placed with — anonymization (D15) empties the contact COLUMNS and keeps
+     * the row for exactly this reason.
+     */
+    buyerGuestCheckoutId: text().references(() => guestCheckouts.id, { onDelete: 'restrict' }),
     sellerType: text({ enum: asEnumValues(ORDER_SELLER_TYPES) }).notNull(),
     /** An Oxy account id — no foreign key. Set iff `sellerType = 'user'`. */
     sellerOxyUserId: text(),
@@ -257,6 +293,7 @@ export const orders = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
+    checkOneOf('orders_buyer_origin_check', t.buyerOrigin, ORDER_BUYER_ORIGINS),
     checkOneOf('orders_seller_type_check', t.sellerType, ORDER_SELLER_TYPES),
     checkOneOf('orders_source_channel_check', t.sourceChannel, ORDER_SOURCE_CHANNELS),
     checkOneOf('orders_source_provider_check', t.sourceProvider, CONNECTOR_PROVIDER_IDS),
@@ -280,6 +317,37 @@ export const orders = pgTable(
       t.fxRateFrom,
       t.fxRateTo,
     ]),
+    /**
+     * The BUYER side of the same exclusivity idea (ADR 0003 D6, #105).
+     *
+     * Three disjoint shapes, and the point of writing it as one CHECK rather
+     * than three nullable columns and a hope is that the illegal combinations
+     * are the dangerous ones: a guest order carrying an `buyer_oxy_user_id` is
+     * invariant I1 broken at the storage layer, and an `oxy` order carrying a
+     * `buyer_guest_checkout_id` would give an authenticated buyer's order a
+     * guest contact record nobody consented to.
+     *
+     * `'external'` leaves `buyer_oxy_user_id` unconstrained: connector imports
+     * write `ext:<provider>:<externalId>` there today, and their real identity
+     * is the `source_*` columns beside it. Naming the shape does not rewrite
+     * those rows — ADR 0003 M4/M9 own that retirement.
+     *
+     * ADR 0003 D6 states this CHECK with two more conjuncts, over
+     * `claimed_by_oxy_user_id` / `claimed_at`. Those columns are #106's and do
+     * not exist yet; #106 WIDENS this constraint rather than adding a second
+     * one, so there stays exactly one place that says what a buyer identity is.
+     */
+    check(
+      'orders_buyer_identity_check',
+      sql`(${t.buyerOrigin} = 'oxy'
+             and ${t.buyerOxyUserId} is not null
+             and ${t.buyerGuestCheckoutId} is null)
+          or (${t.buyerOrigin} = 'guest'
+             and ${t.buyerGuestCheckoutId} is not null
+             and ${t.buyerOxyUserId} is null)
+          or (${t.buyerOrigin} = 'external'
+             and ${t.buyerGuestCheckoutId} is null)`,
+    ),
     // The seller side mirrors the listing owner: exactly one of the two is set.
     check(
       'orders_seller_exclusivity_check',
@@ -308,6 +376,12 @@ export const orders = pgTable(
       t.createdAt.desc(),
     ),
     index('orders_checkout_group_id_idx').on(t.checkoutGroupId),
+    // "Which orders belong to this guest contact?" — the read #108's portal and
+    // #109's claim both walk. Partial, because guest orders are the minority
+    // and a full index would be almost entirely NULLs.
+    index('orders_buyer_guest_checkout_id_idx')
+      .on(t.buyerGuestCheckoutId)
+      .where(sql`${t.buyerGuestCheckoutId} is not null`),
     // "Which orders does this payment fund?" — the reverse of `payment_id`, and
     // the join an operator trace walks. Partial, because most orders have no
     // payment yet and those rows would be the bulk of a full index.

@@ -129,4 +129,24 @@ export const PROTECTED_COLUMNS = {
    * access", and the kind of material a whole-row read would ship first.
    */
   merchant_claim_evidence: ['oxyFileId', 'url', 'note'],
+
+  /**
+   * A guest buyer's contact, in both of the forms that are not for display
+   * (ADR 0003 D12, #105 privacy rule 7).
+   *
+   * `email_ciphertext` and `phone_ciphertext` are reversible with a key the
+   * process holds, so a whole-row read is a plaintext disclosure one
+   * `decryptGuestPii` away. `email_hash` is registered for a DIFFERENT reason
+   * and it is the one worth stating: it is irreversible, and it is still an
+   * exact-match ORACLE — anyone holding it can confirm whether a guessed
+   * address placed an order, which is the correlation ADR 0003 I11 says seller
+   * and partner surfaces must not be able to perform. It is also never
+   * legitimately client-facing: its two permitted uses (#108 routing, abuse
+   * counting) both happen inside the backend.
+   *
+   * `email_redacted` and `phone_redacted` are deliberately NOT registered —
+   * they are the support-surface display form (T15) and exist precisely to be
+   * read.
+   */
+  guest_checkouts: ['emailCiphertext', 'emailHash', 'phoneCiphertext'],
 } as const satisfies ProtectedColumnRegistry;

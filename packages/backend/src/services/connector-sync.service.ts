@@ -1702,6 +1702,13 @@ function buildExternalOrderDoc(
 
   const doc: NewOrder = {
     orderNumber,
+    // ADR 0003 D6's third origin, stated rather than left implicit. The `ext:`
+    // value above KEEPS going into `buyer_oxy_user_id` for now — it is this
+    // row's only provenance until ADR 0003 M9 retires it in favour of the
+    // `source_*` columns, and `orders_buyer_identity_check` leaves the column
+    // unconstrained for `'external'` precisely so that retirement can happen
+    // on its own schedule rather than as a side effect of guest checkout.
+    buyerOrigin: 'external',
     buyerOxyUserId,
     sellerType: 'store',
     storeId: conn.storeId,
