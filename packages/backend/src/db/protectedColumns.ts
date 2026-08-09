@@ -287,4 +287,21 @@ export const PROTECTED_COLUMNS = {
    * — an oracle over the same facts the summary is redacted to withhold.
    */
   supplier_provider_events: ['providerEventId', 'contentHash'],
+
+  /**
+   * A feed's authenticated download URL and its encrypted credential (#63
+   * security 5).
+   *
+   * `auth_ciphertext` is the obvious half — an AES-256-GCM envelope, the
+   * `connections` situation exactly. `feed_url` is the half that surprises
+   * people and is the reason this entry exists: the affiliate networks that
+   * matter carry the key IN the URL (Awin's product-feed download is
+   * `.../datafeed/list/apikey/<KEY>`, and several others use a query
+   * parameter), so a feed URL in this domain is a credential wearing a
+   * hostname. It is not a value a store member typed once and may read back —
+   * it is a bearer capability shared with everyone who can read the row, which
+   * is why every projection emits `redactFeedUrl`'s output and the fetcher
+   * names the column explicitly.
+   */
+  feed_configuration_versions: ['feedUrl', 'authCiphertext'],
 } as const satisfies ProtectedColumnRegistry;

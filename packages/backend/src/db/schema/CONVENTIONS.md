@@ -2957,6 +2957,105 @@ identity now holds for the offer's whole life and a return is a revival.
 collapse any pre-existing duplicate without deleting a row or blanking its
 provenance: the older copies are retired with the reason #57 already defines as
 "a newer offer took this one's active source mapping".
+## The universal feed importer (#63)
+
+Seven tables — `feed_configurations`, `feed_configuration_versions`,
+`feed_field_mappings`, `feed_value_mappings`, `feed_uploads`,
+`feed_import_reports`, `feed_import_report_entries` — and no change to any
+existing one. Full reference: `docs/feed-importer.md`.
+
+**A 1:1 extension of the #62 source, one layer further down.**
+`feed_configurations.source_id` is `UNIQUE`, so there is still exactly one source
+identity. Ownership and object identity are properties of the FEED, and
+`catalog_source_configs` describes an ingesting source of any kind — an API, a
+crawl, a marketplace — so twelve always-null columns on it to serve the
+file-shaped minority is the argument that table itself makes against living on
+`catalog_sources`.
+
+**`identity_key_fields` is FROZEN by a trigger**
+(`mercaria_feed_configuration_identity_frozen`), and it is the most consequential
+constraint in the domain. The external id every `catalog_source_objects` row is
+keyed on is derived from these columns of the merchant's own file. Change the
+list and every object gets a new id: the old ones stop being mentioned by a
+completed enumeration and are RETIRED, the new ones arrive as first-time
+observations, and the whole thing looks exactly like a seller who replaced their
+catalogue overnight — with no error anywhere. Re-keying a feed is a NEW
+configuration. There is deliberately no `external_id` mapping ROLE either: a role
+and a frozen key would be two answers to one question.
+
+**A mapping row has no fourth column.** `feed_field_mappings` carries
+`source_field`, `constant_value` (exactly one, by `num_nonnulls`) and a
+`transform` from a closed tuple. There is nowhere to put an expression, a
+template or a pattern, so "the importer executes nothing a feed supplies" (#63
+security 4) is the shape of the row rather than a validator somebody could
+relax. A fallback CHAIN is excluded for the same reason — "column A, else B,
+else the constant" is a conditional language.
+
+**A version is frozen once it leaves `draft`** and ONE is active per
+configuration — the `catalog_source_policies` / `fee_schedules` mechanism, and
+the same reason: every stored observation cites the version it was read under, so
+a version whose meaning could change would silently reinterpret facts already in
+the catalogue. The trigger deliberately EXCLUDES the lifecycle columns
+(`status`, `activated_at`, `activated_by_oxy_user_id`, `validated_report_id`,
+`superseded_at`), or activation would be impossible.
+
+**Activation cites its evidence by FOREIGN KEY.**
+`feed_configuration_versions_activation_check` requires `validated_report_id` on
+an active version, which is strictly more than a `validated` boolean: the report,
+its counts and its failures are still there to read months later. A CHECK cannot
+reach across tables, so "the report must be a `validation`" is a service refusal
+beside it, naming the rule.
+
+**The two foreign keys between versions and reports are a CYCLE, deliberately.**
+A version cites its validating report and a report names its version; each
+direction is load-bearing. Nothing in production deletes either, so the cycle
+costs nothing there — a test teardown has to break it by hand, and
+`feed-import-writes.realdb.test.ts` documents the only order that works.
+
+**`feed_import_reports_intake_total_check` is `scanned = valid + invalid`**,
+equality and never `<=` — #60's vacuity floor, ported for its reason: a pass that
+swallowed a row must not be able to write a report at all, so "zero invalid"
+stops being indistinguishable from "the loop never ran". `changed`, `unchanged`,
+`matched`, `created` and `review` are TALLIES bounded by `valid`, because a
+record can be changed AND match; writing them as one partition would have been a
+prettier constraint and a false one.
+
+**A report ENTRY carries no VALUES.** A field NAME, a record INDEX, an issue code
+and the record's external id — which is `describeRejection`'s rule (#62) applied
+to a file a merchant downloads. `observed_token` is the ONE exception and is
+doubly bounded by `feed_import_report_entries_token_shape_check`: restricted to
+`FEED_TOKEN_BEARING_ISSUE_CODES` (the three whose values come from a closed
+external vocabulary) AND to `FEED_ISSUE_TOKEN_MAX_LENGTH` characters of
+`[A-Za-z0-9 _./-]`. Rendered from the same constants the composer reads, so the
+constraint and the service cannot drift. Entries are append-only against UPDATE
+and deliberately deletable — retention sweeps them, and a trigger refusing DELETE
+would make retention fail silently (the `analytics_events` posture).
+
+**`feed_uploads.filename` is a LABEL, not a location.** A positive character
+class, no `..`, no leading dot, bounded — written that way rather than as a list
+of forbidden sequences, because a denylist over path syntax is what every
+traversal bug has walked around. The stored artefact is never named after it:
+`storage_key` is CSPRNG and shape-CHECKed. Only a plain file and a single-member
+gzip are accepted (`FEED_COMPRESSIONS`), so an accepted artefact has no entry
+paths at all.
+
+**Two PROTECTED columns**, both on `feed_configuration_versions`:
+`auth_ciphertext` (an AES-256-GCM envelope, the `connections` situation) and
+`feed_url`. The second surprises people and is the reason the entry exists — the
+affiliate networks that matter carry the key IN the URL, so a feed URL in this
+domain is a credential wearing a hostname.
+
+**No cadence, no freshness TTL, no data-use policy and no content hash.** All
+four already exist on the #62 source or on `source_records`, and a second copy
+would be two answers to one question with the loser being whichever the
+dispatcher does not read. Stated here because their ABSENCE is the decision.
+
+**Three retention targets**, all in `expiryTargets.ts`: uploads at 7 days (the
+bytes live on one task's disk and do not survive a deployment), reports at 90
+days (an active version cites one), entries at 30 days — deliberately SHORTER
+than the report that counts them, because the counts are what is read months
+later and the per-record detail is what a merchant downloads this week. Entries
+are the only table here bounded by TRAFFIC rather than by the catalogue.
 
 ## Register: every `jsonb` column, and why it earned it
 

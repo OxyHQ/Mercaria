@@ -161,7 +161,13 @@ describe('the migrated schema', () => {
     // supplier provider-event store) and deliberately leaves its five EVIDENCE
     // tables unswept: they are bounded by the number of purchase orders and are
     // what a chargeback months later is reconciled against.
-    expect(EXPIRY_TARGETS).toHaveLength(20);
+    // #63 adds THREE more, and their ORDER is the retention argument: a staged
+    // upload (7 days; the bytes live on one task's disk and do not survive a
+    // deployment), an import report (90 days; an ACTIVE mapping version cites
+    // one by foreign key) and its per-record entries (30 days, deliberately
+    // SHORTER than the report that counts them, and the only #63 table bounded
+    // by traffic).
+    expect(EXPIRY_TARGETS).toHaveLength(23);
   });
 });
 

@@ -23,7 +23,9 @@
  *  - the two refund aggregates answer their two different questions;
  *  - `date_trunc` buckets across a month boundary, which a serialized Mongo
  *    pipeline assertion could never have shown;
- *  - both sequences format and ascend.
+ *  - both sequences format and ascend, and are separate counters — asserted
+ *    against `pg_class` rather than by arithmetic, because the sequences are
+ *    DATABASE-wide and ten other files in this suite draw from them in parallel.
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -567,7 +569,26 @@ describe('the sales report', () => {
 });
 
 describe('the printed sequences', () => {
-  it('formats and ascends, and the two never share a counter', async () => {
+  /**
+   * The exact `+1` this used to assert is NOT assertable here, and the reason is
+   * the point rather than an inconvenience.
+   *
+   * `order_number_seq` and `rma_number_seq` are DATABASE-wide, and every realdb
+   * file in this suite shares one throwaway database and runs in parallel — ten
+   * other files draw from these two sequences. So a draw by another file
+   * legitimately lands between this file's two draws and the second number is
+   * `+2`, which is the sequence working exactly as `nextOrderNumber`'s header
+   * says it does: a number is never handed out twice, and gaps are expected.
+   * It stayed green by scheduling luck until a branch added test files and
+   * changed the interleaving (measured on CI, `expected 76 to be 75`).
+   *
+   * What survives concurrency is what the test is actually for: the printed
+   * FORMAT, that each number ASCENDS, and that the two counters are SEPARATE —
+   * the last asserted structurally against `pg_class` rather than inferred from
+   * arithmetic, which is both concurrency-proof and a stronger statement than
+   * two consecutive draws could make.
+   */
+  it('formats and ascends, and the two are separate counters', async () => {
     const firstOrder = await nextOrderNumber();
     const firstRma = await nextRmaNumber();
     const secondOrder = await nextOrderNumber();
@@ -575,9 +596,18 @@ describe('the printed sequences', () => {
 
     expect(firstOrder).toMatch(/^MRC-\d{6}$/);
     expect(firstRma).toMatch(/^RMA-\d{6}$/);
+    expect(secondOrder).toMatch(/^MRC-\d{6}$/);
+    expect(secondRma).toMatch(/^RMA-\d{6}$/);
 
     const seq = (formatted: string): number => Number(formatted.slice(4));
-    expect(seq(secondOrder)).toBe(seq(firstOrder) + 1);
-    expect(seq(secondRma)).toBe(seq(firstRma) + 1);
+    expect(seq(secondOrder)).toBeGreaterThan(seq(firstOrder));
+    expect(seq(secondRma)).toBeGreaterThan(seq(firstRma));
+
+    const relations = await db.execute<{ relname: string }>(
+      sql`select relname from pg_class
+          where relkind = 'S' and relname in ('order_number_seq', 'rma_number_seq')
+          order by relname`,
+    );
+    expect(relations.map((row) => row.relname)).toEqual(['order_number_seq', 'rma_number_seq']);
   });
 });

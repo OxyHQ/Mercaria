@@ -24,6 +24,8 @@ import {
   CHECKOUT_PAYMENT_SURFACE_METHODS,
   SAVED_ITEMS_READ_MODES,
 } from '@mercaria/shared-types';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { log } from '../lib/logger.js';
 
 /**
@@ -223,6 +225,34 @@ function resolveSupplierPreflightEnabled(): boolean {
     { missing: ['SUPPLIER_PREFLIGHT_FINGERPRINT_KEY'] },
     '[SupplierPreflight] SUPPLIER_PREFLIGHT_ENABLED is set but the fingerprint key is ' +
       'missing; staying OFF. Every preflight answers `unknown`, which blocks checkout.',
+  );
+  return false;
+}
+
+/**
+ * `FEED_IMPORT_ENABLED`, subject to the half-configuration rule (#63).
+ *
+ * The lever gates two things and neither of them is a durable record: whether
+ * the `product_feed` ADAPTER is registered (so whether any feed is fetched at
+ * all) and whether the merchant surface is mounted. Configurations, mapping
+ * versions, uploads and reports are stored either way, and turning the lever on
+ * drains the backlog — the `CATALOG_INGESTION_ENABLED` arrangement one layer up.
+ *
+ * `FEED_IMPORT_AUTH_ENCRYPTION_KEY` is demanded up front rather than on first
+ * use, because a feed whose download URL needs a bearer token cannot be
+ * CONFIGURED without it: the credential has nowhere to go. Running without the
+ * key would mean accepting authenticated-feed configurations that can never
+ * fetch, and reporting each failure as a source outage.
+ */
+function resolveFeedImportEnabled(): boolean {
+  if (!boolEnv('FEED_IMPORT_ENABLED', false)) return false;
+
+  if ((process.env.FEED_IMPORT_AUTH_ENCRYPTION_KEY?.trim() ?? '') !== '') return true;
+
+  log.general.error(
+    { missing: ['FEED_IMPORT_AUTH_ENCRYPTION_KEY'] },
+    '[FeedImport] FEED_IMPORT_ENABLED is set but the auth encryption key is missing; ' +
+      'staying OFF. Stored configurations, versions and reports are untouched.',
   );
   return false;
 }
@@ -1940,6 +1970,41 @@ export interface ProcurementConfig {
   readonly fakeAdapterEnabled: boolean;
 }
 
+/**
+ * The universal product-feed importer (#63).
+ *
+ * Every bound here is a REFUSAL threshold rather than a tuning knob: a feed that
+ * exceeds one is rejected with the limit named, never truncated. Truncating a
+ * feed produces a completed enumeration over half a catalogue, which is the one
+ * shape that retires the other half.
+ */
+export interface FeedImportConfig {
+  /** `FEED_IMPORT_ENABLED` — register the adapter and mount the merchant surface. */
+  readonly enabled: boolean;
+  /** AES-256-GCM key for a feed's stored credential. 64 hex chars; validated on first use. */
+  readonly authEncryptionKey: string;
+  /** Where a fetched feed and an upload are staged on the task's own disk. */
+  readonly stagingDir: string;
+  /** Hard cap on bytes read from a source, BEFORE decompression. */
+  readonly maxDownloadBytes: number;
+  /** Hard cap on bytes produced BY decompression — half of the bomb defence. */
+  readonly maxDecompressedBytes: number;
+  /** Cap on decompressed ÷ compressed — the other half; either alone is defeatable. */
+  readonly maxCompressionRatio: number;
+  /** Cap on records in one feed. A feed past it is refused, never truncated. */
+  readonly maxRecords: number;
+  /** Cap on ONE record's serialized size. Bounds the parser's own memory. */
+  readonly maxRecordBytes: number;
+  /** Time-to-first-byte deadline for a feed fetch. */
+  readonly fetchTimeoutMs: number;
+  /** How long a staged artefact survives before the sweep removes it. */
+  readonly stageTtlMs: number;
+  /** How many records a preview reads. Bounded by definition (issue Mapping UX 1). */
+  readonly previewSampleSize: number;
+  /** How many report entries one pass may write before it stops recording detail. */
+  readonly maxReportEntries: number;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -1949,6 +2014,7 @@ export interface AppConfig {
   readonly matching: MatchingConfig;
   readonly catalogIngestion: CatalogIngestionConfig;
   readonly offerFreshness: OfferFreshnessConfig;
+  readonly feedImport: FeedImportConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
@@ -2029,6 +2095,20 @@ export const config: AppConfig = Object.freeze({
     expirySweepEnabled: boolEnv('OFFER_EXPIRY_SWEEP_ENABLED', false),
     expirySweepBatchSize: intEnv('OFFER_EXPIRY_SWEEP_BATCH_SIZE', 500),
     expirySweepIntervalMs: intEnv('OFFER_EXPIRY_SWEEP_INTERVAL_MS', 60_000),
+  }),
+  feedImport: Object.freeze({
+    enabled: resolveFeedImportEnabled(),
+    authEncryptionKey: strEnv('FEED_IMPORT_AUTH_ENCRYPTION_KEY', ''),
+    stagingDir: strEnv('FEED_IMPORT_STAGING_DIR', join(tmpdir(), 'mercaria-feed-import')),
+    maxDownloadBytes: intEnv('FEED_IMPORT_MAX_DOWNLOAD_BYTES', 2 * 1024 * 1024 * 1024),
+    maxDecompressedBytes: intEnv('FEED_IMPORT_MAX_DECOMPRESSED_BYTES', 16 * 1024 * 1024 * 1024),
+    maxCompressionRatio: intEnv('FEED_IMPORT_MAX_COMPRESSION_RATIO', 200),
+    maxRecords: intEnv('FEED_IMPORT_MAX_RECORDS', 5_000_000),
+    maxRecordBytes: intEnv('FEED_IMPORT_MAX_RECORD_BYTES', 256 * 1024),
+    fetchTimeoutMs: intEnv('FEED_IMPORT_FETCH_TIMEOUT_MS', 30_000),
+    stageTtlMs: intEnv('FEED_IMPORT_STAGE_TTL_MS', 6 * 60 * 60 * 1_000),
+    previewSampleSize: intEnv('FEED_IMPORT_PREVIEW_SAMPLE_SIZE', 50),
+    maxReportEntries: intEnv('FEED_IMPORT_MAX_REPORT_ENTRIES', 10_000),
   }),
   matching: Object.freeze({
     pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),

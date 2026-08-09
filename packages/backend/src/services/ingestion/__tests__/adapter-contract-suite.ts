@@ -37,6 +37,7 @@ import { join } from 'node:path';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
+import { acquireActivePolicySlot, type ActivePolicySlot } from './active-policy-slot.js';
 import { insertMatchPolicyVersion } from '../../../db/matching/matchPolicyRepository.js';
 import { matchDecisions, matchPolicyVersions, matchQueue } from '../../../db/schema/matching.js';
 import {
@@ -122,38 +123,35 @@ export interface AdapterContractHarness {
    * adapter code", because it holds for modules nobody has written yet.
    */
   readonly adapterSourceDir: string;
-}
-
-/**
- * Take the GLOBALLY unique active-policy slot, waiting for it if another suite
- * holds it.
- *
- * `match_policy_versions_active_key` is a partial unique on `status = 'active'`
- * with no scoping column at all — ONE active policy in the whole database, which
- * is correct for production and makes the slot a shared resource across the
- * parallel test files that run on one throwaway database. Two files each
- * needing an active policy is not a bug in either; it is contention, and the
- * honest fix is to wait rather than to weaken the constraint or to serialise
- * the whole suite.
- *
- * The budget is bounded and the failure is loud: a slot still held after it is a
- * suite that leaked one, which is worth failing on.
- */
-async function withActivePolicySlot<T>(create: () => Promise<T>): Promise<T> {
-  const deadline = Date.now() + 30_000;
-  for (;;) {
-    try {
-      return await create();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      const contended =
-        /match_policy_versions_active_key/u.test(message) ||
-        (error instanceof Error &&
-          /match_policy_versions_active_key/u.test(String((error as { cause?: unknown }).cause)));
-      if (!contended || Date.now() > deadline) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  }
+  /**
+   * The page size the source under test is configured with. Default 50.
+   *
+   * An API's transport paginates by page TOKEN, so a scenario's pages are the
+   * provider's pages and this value never matters. A FILE has no page tokens:
+   * #63's importer reads the whole feed once and pages a local stage by record
+   * count, so the only way its harness can materialise "three pages" is to
+   * configure a page size of one. Stating it here rather than hard-coding 50 is
+   * what keeps the scenario in FRAMEWORK terms — "three pages" — instead of
+   * silently meaning "three provider requests".
+   */
+  readonly pageSize?: number;
+  /**
+   * Whether the adapter isolates an invalid record BEFORE handing it over.
+   *
+   * An API adapter passes on what the provider sent and the framework decides —
+   * so the bad record becomes a `catalog_source_rejections` row, which is what
+   * case 5 asserts. A FILE importer (#63) validates before normalization
+   * (issue #63 processing 2), because it is the only layer that knows which
+   * COLUMN a value came from and can say "column `titulo` is empty" rather than
+   * "a record had no title". Its refusal is recorded in its own report, so the
+   * framework legitimately sees nothing.
+   *
+   * Case 5's PROPERTY is the same either way and is asserted either way: one bad
+   * record does not take the page with it. What differs is WHERE the refusal is
+   * written, and a harness that sets this must say where — which #63's runner
+   * does, naming `feed_import_report_entries`.
+   */
+  readonly isolatesInvalidRecordsUpstream?: boolean;
 }
 
 /** A GS1 check digit, so a fixture GTIN really validates. */
@@ -188,6 +186,16 @@ const FORBIDDEN_IN_ADAPTER = [
  *
  * @param harness How to build the adapter under test, and where its modules live.
  */
+/**
+ * How long a case that needs the GLOBAL active-policy slot may take.
+ *
+ * `withActivePolicySlot`'s own budget is thirty seconds; vitest's default
+ * per-test timeout is ten, so without this the timeout fires first and the wait
+ * can never succeed. Comfortably longer than the budget, so a failure here means
+ * a leaked slot rather than an ordinary queue.
+ */
+const POLICY_CASE_TIMEOUT_MS = 60_000;
+
 export function describeCatalogSourceAdapterContract(harness: AdapterContractHarness): void {
   describe(`the CatalogSource adapter contract — ${harness.name}`, () => {
     let db: Database;
@@ -200,6 +208,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
     const createdProductIds: string[] = [];
     const createdVariantIds: string[] = [];
     const createdPolicyIds: string[] = [];
+    let policySlot: ActivePolicySlot | undefined;
 
     const OPERATOR = `contract-operator-${RUN}`;
 
@@ -207,8 +216,25 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       return ids.length === 0 ? ['__none__'] : [...ids];
     }
 
+    /**
+     * A twelve-digit GTIN payload unique to this RUN.
+     *
+     * The case's own payload keeps its low digits so a failure is still
+     * traceable to the case that wrote it; the RUN contributes the high ones.
+     */
+    function runScopedGtinPayload(payload: string): string {
+      const suffix = payload.slice(-6).padStart(6, '0');
+      let hash = 0;
+      for (const character of RUN) hash = (hash * 31 + character.charCodeAt(0)) % 1_000_000;
+      return `${String(hash).padStart(6, '0')}${suffix}`;
+    }
+
     beforeAll(async () => {
       db = await connectPostgres();
+      // Held for the WHOLE file. See `active-policy-slot.ts` — one active
+      // matching policy exists in the entire database, so the files that need
+      // one take turns rather than racing.
+      policySlot = await acquireActivePolicySlot(db);
     }, 120_000);
 
     afterAll(async () => {
@@ -246,9 +272,22 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       await db
         .delete(catalogSourceDistributions)
         .where(inArray(catalogSourceDistributions.sourceId, safeIds(createdSourceIds)));
+      // Scoped to THIS file's own observations rather than to a policy version.
+      //
+      // Since #63 added a second contract runner, two files share one active
+      // policy (see `ensureMatchPolicy`), so "every decision under this policy"
+      // reaches into a run in progress — and it fails loudly, because that run's
+      // `catalog_source_objects` still cite the decisions it would delete. The
+      // source records ARE file-scoped, so they are the right handle.
+      const ownRecordIds = (
+        await db
+          .select({ id: sourceRecords.id })
+          .from(sourceRecords)
+          .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)))
+      ).map((row) => row.id);
       await db
         .delete(matchDecisions)
-        .where(inArray(matchDecisions.policyVersionId, safeIds(createdPolicyIds)));
+        .where(inArray(matchDecisions.sourceRecordId, safeIds(ownRecordIds)));
       await db
         .delete(sourceRecords)
         .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
@@ -295,15 +334,33 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
         .delete(canonicalProducts)
         .where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
       await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
-      await db.execute(
-        sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
-      );
-      await db
-        .delete(matchPolicyVersions)
-        .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
-      await db.execute(
-        sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
-      );
+      // The policy version goes LAST, and only if nothing still cites it.
+      //
+      // Another contract file may have BORROWED it (see `ensureMatchPolicy`),
+      // and its decisions are not this file's to delete — so a policy with
+      // surviving references is left alone rather than removed out from under a
+      // run in progress. The database is a throwaway per suite run, so the cost
+      // of leaving it is nothing; the cost of removing it is the other file's
+      // teardown failing on a foreign key.
+      const stillCited = (
+        await db
+          .select({ id: matchDecisions.id })
+          .from(matchDecisions)
+          .where(inArray(matchDecisions.policyVersionId, safeIds(createdPolicyIds)))
+          .limit(1)
+      ).length;
+      if (stillCited === 0) {
+        await db.execute(
+          sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+        );
+        await db
+          .delete(matchPolicyVersions)
+          .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
+        await db.execute(
+          sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+        );
+      }
+      await policySlot?.release();
       await closePostgres();
     });
 
@@ -352,7 +409,12 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
 
       let gtin: string | null = null;
       if (gtinPayload !== undefined) {
-        gtin = ean13(gtinPayload);
+        // Scoped to this RUN, so two contract files on one throwaway database
+        // cannot collide on `product_identifiers_canonical_active_key` — a
+        // canonical identifier has exactly ONE active owner, which is correct
+        // for production and makes a hard-coded fixture GTIN a shared resource
+        // the moment a second runner exists.
+        gtin = ean13(runScopedGtinPayload(gtinPayload));
         await db.insert(productIdentifiers).values({
           variantId: variant.id,
           scheme: 'ean',
@@ -366,12 +428,30 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       return { productId: product.id, variantId: variant.id, gtin };
     }
 
-    /** The ACTIVE matching policy the pipeline needs to decide anything. */
+    /**
+     * The ACTIVE matching policy the pipeline needs to decide anything.
+     *
+     * `match_policy_versions_active_key` is a partial unique with NO scoping
+     * column — ONE active policy in the whole database — so it is a shared
+     * resource between the parallel realdb files that run on one throwaway
+     * database, and #63 made this the THIRD file that wants it
+     * (`matching-writes.realdb.test.ts` and the two contract runners).
+     *
+     * Each file creates its OWN, waiting for the slot. Reusing whichever policy
+     * happens to be active was tried and is WRONG: the borrower's decisions then
+     * reference a row the owner deletes at its own teardown, so a file that
+     * finishes first breaks one that has not — which is a worse failure than the
+     * contention, because it lands on a file that did nothing.
+     *
+     * The wait is what needs room: `withActivePolicySlot`'s budget is thirty
+     * seconds and vitest's default per-test timeout is ten, so the timeout fires
+     * first and both files fail on a resource neither is misusing. Every case
+     * that calls this therefore declares {@link POLICY_CASE_TIMEOUT_MS}.
+     */
     async function ensureMatchPolicy(): Promise<string> {
       const existing = createdPolicyIds[0];
       if (existing !== undefined) return existing;
-      const row = await withActivePolicySlot(async () =>
-        insertMatchPolicyVersion(db, {
+      const row = await insertMatchPolicyVersion(db, {
         versionKey: `contract-${RUN}`,
         status: 'active',
         description: 'adapter contract fixture',
@@ -390,10 +470,9 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
         semanticEnabled: false,
         minBenchmarkPrecision: 0.98,
         minBenchmarkSamples: 20,
-          createdByOxyUserId: OPERATOR,
-          activatedAt: new Date(),
-        }),
-      );
+        createdByOxyUserId: OPERATOR,
+        activatedAt: new Date(),
+      });
       createdPolicyIds.push(row.id);
       return row.id;
     }
@@ -443,7 +522,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
         provider,
         merchantId,
         freshnessTtlSeconds: 3_600,
-        pageSize: 50,
+        pageSize: harness.pageSize ?? 50,
       });
       const sourceId = resolved.source.config.sourceId;
       createdSourceIds.push(sourceId);
@@ -721,10 +800,22 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
         .where(eq(catalogSourceObjects.sourceId, source.sourceId));
       expect(objects.map((row) => row.externalId).sort()).toEqual(['ok-1', 'ok-2']);
 
-      const [rejection] = await db
+      const rejections = await db
         .select()
         .from(catalogSourceRejections)
         .where(eq(catalogSourceRejections.sourceId, source.sourceId));
+
+      if (harness.isolatesInvalidRecordsUpstream === true) {
+        // The adapter never handed the bad record over, so the FRAMEWORK has
+        // nothing to reject — and asserting a rejection here would force a file
+        // importer to smuggle an invalid record through its own validation just
+        // to be refused a second time. Where the refusal IS recorded is the
+        // harness's own test to make; see the field's docblock.
+        expect(rejections).toHaveLength(0);
+        return;
+      }
+
+      const [rejection] = rejections;
       expect(rejection?.reasonCode).toBe('missing_title');
       expect(rejection?.externalId).toBe('bad-1');
     });
@@ -839,7 +930,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
           ),
         );
       expect(links).toHaveLength(0);
-    });
+    }, POLICY_CASE_TIMEOUT_MS);
 
     // ── 9. Offer upsert ──────────────────────────────────────────────────────
     it('materializes an external offer after a canonical match, and re-upserts it', async () => {
@@ -918,7 +1009,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
         );
       expect(active).toHaveLength(1);
       expect(active[0]?.priceAmount).toBe(8_400);
-    });
+    }, POLICY_CASE_TIMEOUT_MS);
 
     // ── 10. Stale / expiry handoff ───────────────────────────────────────────
     it('retires what a COMPLETE enumeration stopped publishing, and nothing else', async () => {
@@ -970,7 +1061,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       expect(offer?.status).toBe('retired');
       expect(offer?.retirementReason).toBe('source_disappeared');
       expect(offer?.sourceRecordId).not.toBeNull();
-    });
+    }, POLICY_CASE_TIMEOUT_MS);
 
     it('retires NOTHING when the enumeration was incomplete', async () => {
       await ensureMatchPolicy();
@@ -1015,7 +1106,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
         .from(offers)
         .where(eq(offers.id, after?.offerId ?? '__none__'));
       expect(offer?.status).toBe('active');
-    });
+    }, POLICY_CASE_TIMEOUT_MS);
 
     // ── 11. Rights-disabled source ───────────────────────────────────────────
     it('refuses to refresh a source whose rights were withdrawn, keeping the audit', async () => {
@@ -1144,7 +1235,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       // left owed. A row here would mean two mechanisms were matching the same
       // subject.
       expect(queued).toHaveLength(0);
-    });
+    }, POLICY_CASE_TIMEOUT_MS);
 
     // ── 13. No direct canonical writes from adapter code ─────────────────────
     it('reaches no repository, database handle, canonical write or offer from adapter code', () => {

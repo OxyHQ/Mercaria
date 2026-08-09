@@ -202,6 +202,20 @@ connectPostgres()
       import('./services/offer-freshness/expiry-sweep.js')
         .then(({ startOfferExpirySweep }) => startOfferExpirySweep())
         .catch((err: unknown) => log.general.error({ err }, 'Offer expiry sweep import failed'));
+      // Register the universal product-feed adapter (#63) and start its staged-
+      // pass sweep. BOTH are gated by `FEED_IMPORT_ENABLED` and neither is a
+      // durable record: with the flag off, feed configurations, mapping
+      // versions, uploads and reports are all still stored and readable, every
+      // run refuses with `adapter_missing`, and turning it on drains the
+      // backlog. The sweep exists because a stage is a file on this task's own
+      // disk, and a task whose disk fills with abandoned stages stops serving
+      // requests.
+      import('./services/feed-import/register.js')
+        .then(({ registerProductFeedAdapter, startFeedStageSweeper }) => {
+          registerProductFeedAdapter();
+          startFeedStageSweeper();
+        })
+        .catch((err) => log.general.error({ err }, 'Feed import adapter registration failed'));
 
       // Hand back lapsed supplier holds, release lapsed quotes and evaluate
       // supplier health (#122). On EVERY task, and deliberately WITHOUT a lease:
@@ -421,6 +435,8 @@ connectPostgres()
           './services/ingestion/ingest-dispatcher.js'
         );
         stopCatalogIngestionDispatcher();
+        const { stopFeedStageSweeper } = await import('./services/feed-import/register.js');
+        stopFeedStageSweeper();
         stopExpirySweeper();
         // Analytics last of the loops, and the sink's stop AWAITS one final
         // flush — the only place in this domain anything waits on telemetry.

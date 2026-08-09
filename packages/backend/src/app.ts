@@ -64,6 +64,7 @@ import internalMatchingRouter from './routes/internal-matching.js';
 import internalBackfillRouter from './routes/internal-backfill.js';
 import internalIngestionRouter from './routes/internal-ingestion.js';
 import internalOfferFreshnessRouter from './routes/internal-offer-freshness.js';
+import internalFeedImportsRouter from './routes/internal-feed-imports.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
@@ -413,6 +414,17 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/offer-freshness', internalOfferFreshnessRouter);
+  }
+  /**
+   * The feed importer's operator surface (#63), on the SAME allow-list and
+   * mounted while `FEED_IMPORT_ENABLED` is off — for `/internal/backfill`'s
+   * reason: a merchant's mapping, their validation reports and the reason their
+   * last pass failed are exactly the evidence somebody needs during the incident
+   * that turned the importer off. It is read-only; every write belongs to the
+   * store that owns the feed.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/feed-imports', internalFeedImportsRouter);
   }
   // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
   // reason the two above have theirs: reading who merged which cart is a third

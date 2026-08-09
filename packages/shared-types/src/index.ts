@@ -270,3 +270,13 @@ export * from './product-save';
 // normalized record carries. Its payload allow-list is what stops a provider
 // payload being stored wholesale.
 export * from './ingestion';
+// The universal product-feed importer (#63). Follows `./ingestion`, whose
+// `NormalizedSourceRecord` every mapping produces and whose
+// `CATALOG_SOURCE_RETIRING_OUTCOMES` rule its delivery modes feed rather than
+// duplicate. Carries the five wire formats, the roles a column may be mapped
+// onto, the closed transform set (disjoint from the evaluator kinds it refuses,
+// so "the importer executes nothing a feed supplies" is checkable), the
+// record-issue vocabulary a downloadable error report is built from, and the
+// snapshot/delta distinction that decides whether an omitted row means anything
+// at all.
+export * from './feed-import';
