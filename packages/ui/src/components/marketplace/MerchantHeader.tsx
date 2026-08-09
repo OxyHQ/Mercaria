@@ -23,6 +23,12 @@ export interface MerchantHeaderProps {
   logoUrl?: string;
   /** Aggregate rating (0–5), when the merchant has reviews. */
   rating?: number;
+  /**
+   * What this rating is ABOUT (#76 UI rule 6). Defaults to the seller's
+   * service, which is what a merchant header rates; a caller showing a
+   * different scope here must say so.
+   */
+  scopeLabel?: string;
   /** Number of reviews contributing to `rating`. */
   reviewCount?: number;
   /** Tap the identity (logo + name) — typically navigates to the store. */
@@ -37,14 +43,33 @@ export interface MerchantHeaderProps {
   size?: "large" | "compact";
 }
 
-/** Compact "★ 4.4 (310.6K)" rating row used inside the header. */
-function HeaderRating({ rating, reviewCount }: { rating: number; reviewCount?: number }) {
+/**
+ * Compact "★ 4.4 (310.6K)" rating row used inside the header.
+ *
+ * `accessibilityLabel` names the SCOPE (#76 UI rule 6). A PDP carries this
+ * rating and the product rating side by side, and a reader hearing "4.4" twice
+ * has no way to tell the seller's service from the model's quality — which is
+ * the confusion the whole scope split exists to remove.
+ */
+function HeaderRating({
+  rating,
+  reviewCount,
+  scopeLabel,
+}: {
+  rating: number;
+  reviewCount?: number;
+  scopeLabel: string;
+}) {
+  const figure = `${rating}${reviewCount !== undefined ? ` (${formatReviewCount(reviewCount)})` : ""}`;
   return (
-    <View className="flex-row items-center gap-space-4">
+    <View
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={`${scopeLabel}: ${figure}`}
+      className="flex-row items-center gap-space-4"
+    >
       <Star size={HEADER_STAR_SIZE} color={STAR_COLOR} fill={STAR_COLOR} />
-      <Text className="text-captionBold text-text">
-        {`${rating}${reviewCount !== undefined ? ` (${formatReviewCount(reviewCount)})` : ""}`}
-      </Text>
+      <Text className="text-captionBold text-text">{figure}</Text>
     </View>
   );
 }
@@ -83,6 +108,7 @@ export function MerchantHeader({
   reviewCount,
   onPress,
   size = "compact",
+  scopeLabel = "Seller service",
 }: MerchantHeaderProps) {
   const isLarge = size === "large";
 
@@ -107,7 +133,11 @@ export function MerchantHeader({
             {name}
           </Text>
           {rating !== undefined ? (
-            <HeaderRating rating={rating} reviewCount={reviewCount} />
+            <HeaderRating
+              rating={rating}
+              reviewCount={reviewCount}
+              scopeLabel={scopeLabel}
+            />
           ) : null}
         </View>
       </Pressable>

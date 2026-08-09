@@ -25,6 +25,7 @@ import {
 import type { Collection, MerchantSummary, Review } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStoreReviews } from "@/lib/hooks/use-store";
+import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
 
 /** Light text tone over a brand-tinted surface (mirrors the store page). */
@@ -294,21 +295,36 @@ function ReviewsPage({
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }}
     >
       <Text className="text-headerBold" style={{ color: toneColor }}>
-        Reviews
+        {REVIEW_SCOPE_LABELS.merchant}
       </Text>
 
-      {/* Summary row: big rating + stars + ratings count. */}
+      {/*
+        The headline figure is the SELLER's — service, fulfilment, reliability.
+        The cards below it are the store's PRODUCTS' own listing feedback, which
+        is a different question about different things, so the two are labelled
+        separately rather than presented as one number over its own evidence
+        (#76 UI rules 5 and 6).
+      */}
       <View className="flex-row items-center gap-space-16">
         <Text className="text-headerBold" style={{ color: toneColor }}>
           {`${store.rating}`}
         </Text>
         <View className="flex-1 gap-space-4">
-          <ReviewStars rating={store.rating} count={total} size={SUMMARY_STAR_SIZE} />
+          <ReviewStars
+            rating={store.rating}
+            count={store.reviewCount}
+            size={SUMMARY_STAR_SIZE}
+            scopeLabel={REVIEW_SCOPE_LABELS.merchant}
+          />
           <Text className="text-caption" style={{ color: toneColor }}>
-            {`${formatReviewCount(total)} ratings`}
+            {`${formatReviewCount(store.reviewCount)} ratings · ${REVIEW_SCOPE_LABELS.merchant}`}
           </Text>
         </View>
       </View>
+
+      <Text className="text-captionMedium" style={{ color: toneColor }}>
+        {`${REVIEW_SCOPE_LABELS.p2p_listing} · ${formatReviewCount(total)}`}
+      </Text>
 
       {isLoading ? (
         <Text className="py-space-24 text-center text-body" style={{ color: toneColor }}>
@@ -408,13 +424,13 @@ function MenuPage({
       {/* ---- Reviews summary (navigates to the Reviews page) ---- */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="View reviews"
+        accessibilityLabel={`View ${REVIEW_SCOPE_LABELS.merchant.toLowerCase()} reviews`}
         onPress={onOpenReviews}
         className="rounded-radius-16 p-space-16 web:transition-colors web:hover:bg-white/10"
         style={{ backgroundColor: GLASS_FILL }}
       >
         <Text className="text-subtitle" style={{ color: toneColor }}>
-          Reviews
+          {REVIEW_SCOPE_LABELS.merchant}
         </Text>
         {hasReviews ? (
           <View className="mt-space-12 flex-row items-center gap-space-16">
@@ -426,6 +442,7 @@ function MenuPage({
                 rating={store.rating}
                 count={store.reviewCount}
                 size={SUMMARY_STAR_SIZE}
+                scopeLabel={REVIEW_SCOPE_LABELS.merchant}
               />
               <Text className="text-caption" style={{ color: toneColor }}>
                 {`${formatReviewCount(store.reviewCount)} ratings`}

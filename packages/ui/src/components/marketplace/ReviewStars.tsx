@@ -21,6 +21,18 @@ export interface ReviewStarsProps {
   count?: number;
   /** Star edge length in px. */
   size?: number;
+  /**
+   * What this rating is ABOUT, in the reader's own words — "Product quality",
+   * "Seller service", "Item condition and description".
+   *
+   * #76 UI rule 6: every rating label names its scope in accessible copy. A
+   * screen reader announcing "Average rating: 4.2" on a page carrying three
+   * different ratings cannot tell them apart, and the three answer different
+   * questions — which is the whole point of separating them. Optional so the
+   * component stays usable while a surface is being migrated; every call site
+   * in this repo passes one.
+   */
+  scopeLabel?: string;
 }
 
 function clamp01(value: number): number {
@@ -68,14 +80,23 @@ function Star({ fill, size, emptyColor }: StarProps) {
  * A 5-star average-rating row with deterministic partial fill. The rated
  * portion is gold (`#FFB800`); the remainder uses the theme muted color.
  */
-export function ReviewStars({ rating, count, size = DEFAULT_SIZE }: ReviewStarsProps) {
+export function ReviewStars({
+  rating,
+  count,
+  size = DEFAULT_SIZE,
+  scopeLabel,
+}: ReviewStarsProps) {
   const { colors } = useColorScheme();
 
   return (
     <View
       accessible
       accessibilityRole="image"
-      accessibilityLabel={`Average rating: ${rating}, based on ${count ?? 0} reviews`}
+      accessibilityLabel={
+        scopeLabel
+          ? `${scopeLabel}: average rating ${rating}, based on ${count ?? 0} reviews`
+          : `Average rating: ${rating}, based on ${count ?? 0} reviews`
+      }
       style={{ flexDirection: "row" }}
     >
       {Array.from({ length: STAR_COUNT }, (_, index) => (

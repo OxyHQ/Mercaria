@@ -18,6 +18,7 @@ import { parsePagination, buildPagination } from '../utils/pagination.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError, notFound } from '../lib/errors/error-codes.js';
 import { routeParam } from '../utils/request.js';
+import { resolveStoreRatingSource } from '../services/reviews/review-aggregate.service.js';
 import { log } from '../lib/logger.js';
 
 /** Response shape for the public store page. */
@@ -49,8 +50,30 @@ export async function getStoreByHandle(req: Request, res: Response): Promise<voi
     const { images } = await findListingChildren(rows.map((row) => row.id));
     const listings = await hydrateListings(rows, { viewerId: req.user?.id });
 
+    /**
+     * Where this store's public rating comes from (#76 migration rule 6).
+     *
+     * ONE call, one value: the merchant aggregate when the store resolves to a
+     * canonical merchant, its own legacy aggregate otherwise. Never both, and
+     * never a sum — which is what makes "merchant and native-store linkage must
+     * not double-count one review in two public aggregates" a property of the
+     * code rather than a rule somebody has to remember.
+     */
+    const ratingSource = await resolveStoreRatingSource(storeId);
+    const summary = toMerchantSummary(store, rows, images);
+
     const body: StorePageResponse = {
-      store: toMerchantSummary(store, rows, images),
+      store: ratingSource
+        ? {
+            ...summary,
+            // The rating SHOWN is the one the source names — not the store row's
+            // own figures, which are the legacy projection and are stale for a
+            // linked store by construction.
+            rating: ratingSource.rating,
+            reviewCount: ratingSource.reviewCount,
+            ratingSource,
+          }
+        : summary,
       listings,
       pagination: buildPagination(page, limit, total),
     };

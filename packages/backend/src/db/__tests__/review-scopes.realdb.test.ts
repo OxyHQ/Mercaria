@@ -312,8 +312,15 @@ async function writeReview(values: {
 }
 
 describe('the scope and its target cannot disagree', () => {
-  it('refuses a product review that names a merchant', async () => {
+  it('refuses a product review that ALSO names a merchant', async () => {
+    // BOTH targets set, which is the shape the CHECK exists to refuse and the
+    // only one that discriminates: a row naming ONLY the merchant fails on the
+    // missing product id whatever the CHECK says about the other five columns,
+    // so it would pass against a version that had stopped NULLing them.
+    // (Found by mutation-testing the migration: weakening every scoped branch to
+    // `"<own column>" is not null` left the single-target form still refused.)
     const merchantId = await makeMerchant();
+    const productId = await makeCanonicalProduct();
 
     // Written RAW, bypassing the repository's own expansion — a mocked insert
     // would accept this happily and the CHECK is the only thing that does not.
@@ -322,7 +329,27 @@ describe('the scope and its target cannot disagree', () => {
         authorOxyUserId: userId('buyer'),
         scope: 'product',
         targetType: 'canonical_product',
+        canonicalProductId: productId,
         merchantId,
+        verification: 'unverified',
+        incentiveDisclosure: 'none',
+        classificationState: 'native',
+        rating: 5,
+      }),
+    ).rejects.toSatisfy((err: unknown) =>
+      isCheckViolation(err, 'reviews_target_exclusivity_check'),
+    );
+  });
+
+  it('refuses a scoped review naming NO target at all', async () => {
+    // The other side of the same CHECK: the `is not null` half. Together the two
+    // tests pin both halves of every scoped branch, which is what the single
+    // original test did not do.
+    await expect(
+      db.insert(reviews).values({
+        authorOxyUserId: userId('buyer'),
+        scope: 'product',
+        targetType: 'canonical_product',
         verification: 'unverified',
         incentiveDisclosure: 'none',
         classificationState: 'native',

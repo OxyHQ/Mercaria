@@ -21,6 +21,7 @@ import { parsePagination, buildPagination } from '../utils/pagination.js';
 import { sendSuccess, sendPaginated } from '../utils/api-response.js';
 import { respondWithError, notFound, validationError } from '../lib/errors/error-codes.js';
 import { routeParam } from '../utils/request.js';
+import { findCanonicalProductIdForListing } from '../db/reviews/reviewTargetResolver.js';
 import { log } from '../lib/logger.js';
 
 /**
@@ -119,7 +120,24 @@ export async function getListingById(req: Request, res: Response): Promise<void>
       throw notFound('Listing not found');
     }
     const [dto] = await hydrateListings([row], { viewerId: req.user?.id });
-    sendSuccess(res, dto);
+
+    /**
+     * The canonical product link, resolved HERE and only here (#76).
+     *
+     * Not in `hydrateListings`, which also serves the feed, search and every
+     * store grid: the resolution walks each variant through the identifier
+     * collision gate, and paying that per card on a forty-item page to render
+     * something no card shows would be a real cost for nothing. The detail page
+     * is the one surface that needs it, so the detail handler is where it is
+     * paid.
+     *
+     * A `null` is left ABSENT rather than serialized: "Mercaria does not know
+     * which product this is" is what an omitted field means, and it is the
+     * honest answer for a listing with no barcode, an unclaimed one, or variants
+     * that disagree.
+     */
+    const canonicalProductId = await findCanonicalProductIdForListing(row.id);
+    sendSuccess(res, canonicalProductId ? { ...dto, canonicalProductId } : dto);
   } catch (err) {
     log.general.error({ err, listingId: id }, 'Failed to load listing');
     respondWithError(res, err, 'Failed to load listing');

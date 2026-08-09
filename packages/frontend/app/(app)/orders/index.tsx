@@ -7,6 +7,7 @@ import { ChevronRight, Package } from "lucide-react-native";
 import type { OrderStatus, OrderSummary } from "@mercaria/shared-types";
 import { Button, PriceDisplay, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
+import { ReviewEligibilityPrompts } from "@/components/reviews/ReviewEligibilityPrompts";
 import { useOrders } from "@/lib/hooks/use-orders";
 
 /** Friendly label per order status. */
@@ -73,6 +74,13 @@ function OrdersBody() {
   return (
     <>
       <SectionHeader title="Your orders" />
+
+      {/*
+        The verified-review surface (#76 UI rule 3). Above the list because it is
+        the thing with a deadline-free ask attached; it renders nothing at all
+        when the buyer has no open eligibility, which is the ordinary case.
+      */}
+      <ReviewEligibilityPrompts />
 
       {!isAuthenticated ? (
         <EmptyState title="No orders yet" subtitle="Sign in to see your order history." />

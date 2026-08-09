@@ -34,6 +34,7 @@ import { ScreenShell } from "@/components/shell/ScreenShell";
 import { Footer } from "@/components/shell/Footer";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { useProduct, useProductReviews } from "@/lib/hooks/use-product";
+import { REVIEW_SCOPE_LABELS, useProductScopeReviews } from "@/lib/hooks/use-reviews";
 import { useListings } from "@/lib/hooks/use-listings";
 import { useAddCartItem } from "@/lib/hooks/use-cart";
 
@@ -169,6 +170,26 @@ function summarizeReviews(reviews: Review[]): RatingSummary {
   };
 }
 
+/**
+ * The 5→1 bucket counts of a review PAGE.
+ *
+ * Split out from {@link summarizeReviews} for the scoped surfaces, whose average
+ * and total come from the server aggregate: the distribution bars describe the
+ * reviews actually on screen, which is what a reader can scroll to, while the
+ * headline figure describes every review there is. Mixing the two sources is
+ * deliberate and stated rather than accidental.
+ */
+function distributionOf(reviews: Review[]): RatingDistribution {
+  const distribution: RatingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+  for (const review of reviews) {
+    const bucket = Math.round(review.rating);
+    if (bucket >= 1 && bucket <= 5) {
+      distribution[bucket] += 1;
+    }
+  }
+  return distribution;
+}
+
 /** Inline store-link card (brand-bg cover + wordmark + footer name/rating). */
 function StoreLinkCard({ store, onPress }: { store: MerchantSummary; onPress: () => void }) {
   const toneColor = store.textTone === "light" ? "#FFFFFF" : "#111111";
@@ -263,13 +284,43 @@ function ProductBody({ listing }: ProductBodyProps) {
   const router = useRouter();
   const addToCart = useAddCartItem();
 
-  // Lifted reviews — fetched ONCE here, fed to both the title rating row and the
-  // ReviewSummaryCard so the rating shown under the title matches the summary.
-  const reviewsQuery = useProductReviews(listing.id, 1, REVIEW_PAGE_LIMIT);
-  const reviews = useMemo(() => reviewsQuery.data?.data ?? [], [reviewsQuery.data]);
-  const reviewSummary = useMemo(() => summarizeReviews(reviews), [reviews]);
-  const reviewTotal = reviewsQuery.data?.pagination.total ?? reviewSummary.total;
-  const hasReviews = reviewTotal > 0;
+  /**
+   * TWO review surfaces, because they answer two different questions (#76).
+   *
+   *  - the PRODUCT reviews of the canonical product this listing resolves to,
+   *    when it resolves to one. Their aggregate comes from the SERVER, not from
+   *    the page: averaging the twelve reviews that happened to arrive is what
+   *    this page did before #76, and page one of twelve is not the rating.
+   *  - this LISTING's own feedback — condition and description accuracy — which
+   *    is never presented as product quality (#76 UI rule 5).
+   *
+   * Neither is folded into the other, and neither is shown without a label
+   * naming what it is about (rule 6).
+   */
+  const productReviewsQuery = useProductScopeReviews(
+    listing.canonicalProductId,
+    1,
+    REVIEW_PAGE_LIMIT,
+  );
+  const productAggregate = productReviewsQuery.data?.aggregate;
+  const productReviews = useMemo(
+    () => productReviewsQuery.data?.data ?? [],
+    [productReviewsQuery.data],
+  );
+  const productDistribution = useMemo(
+    () => distributionOf(productReviews),
+    [productReviews],
+  );
+  const hasProductReviews = (productAggregate?.reviewCount ?? 0) > 0;
+
+  const listingReviewsQuery = useProductReviews(listing.id, 1, REVIEW_PAGE_LIMIT);
+  const listingReviews = useMemo(
+    () => listingReviewsQuery.data?.data ?? [],
+    [listingReviewsQuery.data],
+  );
+  const listingSummary = useMemo(() => summarizeReviews(listingReviews), [listingReviews]);
+  const listingReviewTotal = listingReviewsQuery.data?.pagination.total ?? listingSummary.total;
+  const hasListingReviews = listingReviewTotal > 0;
 
   const options = listing.options ?? [];
   const [selection, setSelection] = useState<Record<string, string>>(() =>
@@ -370,9 +421,19 @@ function ProductBody({ listing }: ProductBodyProps) {
               {listing.title}
             </Text>
 
-            {/* Rating row under the title — sourced from the lifted reviews. */}
-            {hasReviews ? (
-              <RatingLine rating={reviewSummary.average} count={reviewTotal} />
+            {/*
+              The rating row under the title is the PRODUCT rating, and it says
+              so. It appears only when this listing resolves to a canonical
+              product with reviews — a listing's own condition feedback belongs
+              further down under its own heading, and putting it here would make
+              "arrived scratched" read as the model's quality score.
+            */}
+            {hasProductReviews && productAggregate ? (
+              <RatingLine
+                rating={productAggregate.rating}
+                count={productAggregate.reviewCount}
+                scopeLabel={REVIEW_SCOPE_LABELS.product}
+              />
             ) : null}
 
             {/* Demand pill (static social proof). */}
@@ -548,15 +609,37 @@ function ProductBody({ listing }: ProductBodyProps) {
             <View className="flex-1" />
           )}
 
-          {/* Right column — reviews (fed by the lifted query, no re-fetch). */}
-          <View className="flex-1">
-            <ReviewSummaryCard
-              average={reviewSummary.average}
-              total={reviewTotal}
-              distribution={reviewSummary.distribution}
-              reviews={reviews}
-              isLoading={reviewsQuery.isLoading}
-            />
+          {/* Right column — the two review surfaces, stacked and each labelled. */}
+          <View className="flex-1 gap-space-16">
+            {listing.canonicalProductId ? (
+              <ReviewSummaryCard
+                scopeLabel={REVIEW_SCOPE_LABELS.product}
+                average={productAggregate?.rating ?? 0}
+                total={productAggregate?.reviewCount ?? 0}
+                distribution={productDistribution}
+                reviews={productReviews}
+                isLoading={productReviewsQuery.isLoading}
+                {...(productAggregate ? { unverified: productAggregate.unverified } : {})}
+              />
+            ) : null}
+
+            {/*
+              This listing's own feedback. The heading is `Item condition and
+              description` for a used item — never "Product reviews" — because a
+              scuff on one seller's copy is a fact about that copy (#76 UI rule
+              5). A new item's listing feedback carries the same scope and the
+              same heading, for the same reason: it describes THIS listing.
+            */}
+            {hasListingReviews || !listing.canonicalProductId ? (
+              <ReviewSummaryCard
+                scopeLabel={REVIEW_SCOPE_LABELS.p2p_listing}
+                average={listingSummary.average}
+                total={listingReviewTotal}
+                distribution={listingSummary.distribution}
+                reviews={listingReviews}
+                isLoading={listingReviewsQuery.isLoading}
+              />
+            ) : null}
           </View>
         </View>
 

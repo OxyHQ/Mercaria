@@ -144,6 +144,22 @@ export interface Listing extends Timestamps {
   options?: ListingOption[];
   /** Condition of the item. */
   condition: ListingCondition;
+  /**
+   * The canonical product this listing's variants resolve to, when they resolve
+   * to exactly ONE (#76 UI rule 1).
+   *
+   * Present only on the DETAIL read, never on a feed or a search page: resolving
+   * it walks the listing's variants through the identifier collision gate, which
+   * is a per-listing cost a grid of forty cards must not pay. Absent when the
+   * listing carries no barcode, when its barcode owns no active identifier, or
+   * when its variants disagree — all of which mean "Mercaria does not know which
+   * product this is", and none of which is guessed.
+   *
+   * It is what lets the product page show PRODUCT reviews (quality, durability,
+   * value) beside the listing's own condition feedback, instead of showing one
+   * blended star average that answers neither question.
+   */
+  canonicalProductId?: string;
   /** Lifecycle status. */
   status: ListingStatus;
   /** Category slug the listing belongs to (e.g. `electronics`). */

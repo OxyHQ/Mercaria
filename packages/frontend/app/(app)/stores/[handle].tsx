@@ -23,6 +23,7 @@ import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStore, useStoreCollections } from "@/lib/hooks/use-store";
+import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
 import { useListings } from "@/lib/hooks/use-listings";
 import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback";
 import { useWindowScrollY } from "@/lib/hooks/use-window-scroll";
@@ -86,6 +87,22 @@ function toProductSummary(listing: Listing, brand: string): ProductSummary {
 }
 
 /** A glassy, brand-tinted translucent pill — the store page's signature affordance. */
+/**
+ * What a store's headline rating is about (#76 UI rule 6).
+ *
+ * "Seller service" rather than "Reviews", because that is what a seller-level
+ * rating measures — fulfilment, packaging, communication, reliability. Product
+ * quality lives on the product page under its own heading, which is the
+ * separation #76 exists to make visible.
+ *
+ * One constant and not a function of `ratingSource`: whether the figure came
+ * from the canonical merchant's aggregate or from the store's own legacy one,
+ * it answers the same question about the same seller. The SOURCE decides which
+ * number is read (and `resolveStoreRatingSource` is what keeps one review out of
+ * two aggregates); it does not change what the number means.
+ */
+const STORE_RATING_LABEL = REVIEW_SCOPE_LABELS.merchant;
+
 function glassStyle(store: MerchantSummary) {
   return { backgroundColor: `${store.brandColor}${GLASS_ALPHA}` } as const;
 }
@@ -321,12 +338,27 @@ function StoreBody({ handle, store }: { handle: string; store: MerchantSummary }
               {store.name}
             </Text>
           )}
+          {/*
+            The store's rating names its SCOPE (#76 UI rule 6) — and the scope
+            depends on where the figure came from. A store linked to a canonical
+            merchant is showing the MERCHANT's service rating, resolved by one
+            server function that returns one value; an unlinked one is showing
+            its own. Never both, never a sum.
+          */}
           <View className="mt-3 flex-row items-center gap-2">
-            <ReviewStars rating={store.rating} count={store.reviewCount} size={16} />
+            <ReviewStars
+              rating={store.rating}
+              count={store.reviewCount}
+              size={16}
+              scopeLabel={STORE_RATING_LABEL}
+            />
             <Text className="text-sm font-semibold" style={{ color: toneColor }}>
               {`${store.rating} (${formatReviewCount(store.reviewCount)})`}
             </Text>
           </View>
+          <Text className="mt-1 text-xs opacity-80" style={{ color: toneColor }}>
+            {STORE_RATING_LABEL}
+          </Text>
         </View>
       </View>
 
