@@ -498,9 +498,73 @@ pays none, and the retail engine cannot import `services/fees/` (a test).
   isolation are static gates mirroring `fee-ranking-isolation.test.ts`.
 - Operator surface: `/internal/payments/retail-pricing-policies*`, behind the
   same payment-operator allow-list. Seams left to their owners: #121 supplies
-  `marketSupported`, #122 supplies the source costs, #123 calls the lock and
+  `marketSupported` (LANDED — see the section below; pass
+  `getRetailEligibility(...).verdict === 'eligible'`), #122 supplies the source
+  costs, #123 calls the lock and
   owns the `orders` widening, #128 BOOKS the variance this domain only
   classifies, #129 renders `presentation` + `blockReasons`.
+
+### Retail eligibility (#121): may Mercaria sell this at all
+
+`services/retail-eligibility/` + `db/retailEligibility/` +
+`db/schema/retailEligibility.ts` (9 tables), `/internal/retail-eligibility/*`.
+Full reference: **`docs/retail-eligibility.md`**; schema decisions:
+`db/schema/CONVENTIONS.md` §"The retail eligibility domain"; binding decisions
+are ADR 0004 D2.8–D2.10 and D12.3–D12.4. `getRetailEligibility(...)` is the ONE
+authoritative gate publication (#57/#129), search, cart and checkout (#123) read.
+
+- **The verdict is THREE-valued and `unknown` is not a soft yes.**
+  `eligible | ineligible | unknown`, and neither of the last two may publish or
+  check out. They are kept apart because they route differently — `unknown` to
+  the evidence queue, `ineligible` to a report of what Mercaria decided not to
+  sell — and `ineligible` beats `unknown` beats `eligible`, the
+  `deriveRetailCompleteness` severity rule applied to a verdict.
+- **An affiliate feed can never authorize a resale, structurally.**
+  `RetailResaleEvidenceKind` (12) and `RetailForbiddenEvidenceKind` (14) are
+  DISJOINT unions; the evidence table's `kind` CHECK and a policy version's
+  `required_resale_evidence_kinds` both read the allowed tuple, so a forbidden
+  kind has no row shape. `forbidden-evidence.ts` adds the ANSWER (it names the
+  prohibition over free text too) and is mounted BEFORE the `.strict()` schema,
+  which a test pins by MESSAGE.
+- **The verdict is DERIVED and never stored** — the `deriveNativeCheckoutEligibility`
+  divergence from the one-verdict rule, because the inputs sit on eleven tables
+  in three domains. That is what makes an expired document (acceptance 2) and a
+  recall (acceptance 5) bite with NO sweep having run, and it is why the
+  emergency path is one INSERT and is testable independently of source refresh.
+  `retail_eligibility_decisions` is a RECORDING (the `payment_discrepancies`
+  relationship); `eligibility.ts` imports no repository at all and a test fails
+  the build if it starts to.
+- **Expiry is derived from the clock.** The five REVIEWER states are stored;
+  `expired` is not storable. Only a VERIFICATION can lapse, so a rejected
+  document past its date is still `rejected` — "renew it" is the wrong next
+  action for something somebody refused.
+- **An empty scope array means NONE on a policy and UNRESTRICTED on evidence** —
+  the `supplier_agreements` grant semantics and the
+  `commerce_relationships.territories` scoped-down one, in one file for the
+  first time. A freshly drafted policy version therefore permits nothing.
+- **A decision cites its policy version by a NOT NULL COMPOSITE foreign key**
+  (the `match_category_gates` device), which is acceptance 7. A derivation made
+  with no active version answers `unknown`/`policy_missing` and is deliberately
+  NOT recorded: a record that cannot be reproduced is evidence of nothing.
+- **A recall can never be `advisory`** (a CHECK), one live suppression per
+  (scope, subject, kind) (a partial unique, so two operators converge), and a
+  lift is attributable, dated and explained.
+- **No exception can waive a recall, a suppression, a prohibited category, an
+  ambiguous match, missing or expired evidence, an unresolved tax treatment or
+  an unavailable refund rail** — `waived_reasons` is containment-CHECKed against
+  the waivable set, the HTTP enum IS that set, and four eyes is the row's shape
+  (two approvers differing from each other and from the requester).
+- **`RETAIL_OPERATOR_OXY_USER_IDS` is a FIFTH allow-list** beside payments,
+  catalog, guest and analytics. Empty = not mounted (404). Lifting a recall is a
+  compliance power and it is the only one of the five whose misuse puts an
+  unsafe product back on sale. There is NO flag that turns the gate off, and no
+  `RETAIL_ELIGIBILITY_POLICY_KEY` variable — the key is a code constant.
+- Seams left to their owners, each NAMED in code and docs rather than stubbed:
+  #122 (live stock/shipping/quote preflight, and the traceability provider whose
+  default reports NO DATA and therefore blocks), #123 (calling this gate from
+  checkout and the `orders` widening), #126 (customer recall notification), #127
+  (supplier cancellation, return, disposal), #59 (ambiguous-match review),
+  #120 (pricing, which consumes the verdict as `marketSupported`).
 
 ### Where it meets the rest of Mercaria
 
@@ -1779,6 +1843,13 @@ pin.
   shared `oxy-postgres` RDS instance; `DATABASE_URL` is live via GitHub secret →
   SSM `/oxy/mercaria/DATABASE_URL` → the task definition, and the task will not
   boot without it — see "PostgreSQL" above).
+- Set `RETAIL_OPERATOR_OXY_USER_IDS` to the Oxy compliance accounts that may
+  reach `/internal/retail-eligibility/*` — a FIFTH list, deliberately distinct
+  from the payments and catalog ones. EMPTY is a working configuration and means
+  the surface is not mounted at all, which also means nobody can publish an
+  eligibility policy version, verify a document or raise a recall. The full
+  pre-launch list is `docs/retail-eligibility.md`
+  §"Production-readiness checklist".
 - Set `PAYMENT_OPERATOR_OXY_USER_IDS` to the Oxy accounts that may reach
   `/internal/payments/*`. EMPTY is a working configuration and means the surface
   is not mounted at all — but it also means nobody can trace a payment, replay an

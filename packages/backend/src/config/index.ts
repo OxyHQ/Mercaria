@@ -487,6 +487,30 @@ function resolveAnalyticsOperatorIds(): readonly string[] {
 }
 
 /**
+ * `RETAIL_OPERATOR_OXY_USER_IDS` → the retail-eligibility allow-list (#121).
+ *
+ * A FIFTH list, for the fifth instance of the reason the other four are
+ * separate: approving a resale authorization, verifying a product-safety
+ * certificate and — above all — LIFTING A RECALL is a compliance power, not a
+ * payments one, not a catalogue-curation one, not a cart-diagnostic one and not
+ * an analytics one. Granting it to whoever may repair payments would grant the
+ * power they were not vetted for, which is the argument
+ * `resolveCatalogOperatorIds` already makes against sharing with payments.
+ *
+ * Empty means `/internal/retail-eligibility` is not mounted at all: 404, never
+ * a 401 that would tell an unauthenticated caller the surface exists. That is a
+ * working configuration and it means nobody can record a policy version, verify
+ * a document or raise a recall — so it must be populated before
+ * `mercaria_retail` carries a live order.
+ */
+function resolveRetailOperatorIds(): readonly string[] {
+  return strEnv('RETAIL_OPERATOR_OXY_USER_IDS', '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id !== '');
+}
+
+/**
  * Resolve the analytics collection mode (#77 envelope field 11, acceptance 8).
  *
  * Defaults to `off`, and an unrecognised value falls back to `off` rather than
@@ -1293,6 +1317,28 @@ export interface CheckoutConfig {
   readonly destinationCountries: readonly string[];
 }
 
+/** The retail eligibility gate's configuration (#121). */
+export interface RetailEligibilityConfig {
+  /**
+   * The Oxy accounts that may reach `/internal/retail-eligibility/*`. A FIFTH
+   * allow-list beside payments, catalog, guest and analytics — see
+   * `resolveRetailOperatorIds`.
+   */
+  readonly operatorOxyUserIds: readonly string[];
+  /**
+   * DERIVED from the allow-list, exactly as the other four are: a separate flag
+   * could only ever disagree with the list. Empty = not mounted (404).
+   */
+  readonly operatorSurfaceEnabled: boolean;
+  /**
+   * How far ahead the expiring-evidence dashboard looks (#121 operations 1).
+   * A window, not a threshold: documents that have ALREADY expired are always
+   * included, because a board that hides them looks clean while the catalogue
+   * is dark.
+   */
+  readonly expiryHorizonDays: number;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -1311,6 +1357,7 @@ export interface AppConfig {
   readonly guest: GuestConfig;
   readonly referrals: ReferralsConfig;
   readonly analytics: AnalyticsConfig;
+  readonly retailEligibility: RetailEligibilityConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -1536,6 +1583,11 @@ export const config: AppConfig = Object.freeze({
     rollupEnabled: boolEnv('ANALYTICS_ROLLUP_ENABLED', true),
     rollupIntervalMs: intEnv('ANALYTICS_ROLLUP_INTERVAL_MS', 15 * MINUTE_MS),
     rollupMaxBackfillDays: intEnv('ANALYTICS_ROLLUP_MAX_BACKFILL_DAYS', 30),
+  }),
+  retailEligibility: Object.freeze({
+    operatorOxyUserIds: Object.freeze(resolveRetailOperatorIds()),
+    operatorSurfaceEnabled: resolveRetailOperatorIds().length > 0,
+    expiryHorizonDays: intEnv('RETAIL_EVIDENCE_EXPIRY_HORIZON_DAYS', 30),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

@@ -148,6 +148,14 @@ export * from './relationship';
 // fee above: a `mercaria_retail` order pays no marketplace fee at all.
 export * from './retail-pricing';
 
+// Resale authorization, product compliance and market eligibility for
+// `mercaria_retail` (#121, ADR 0004 D2.8–D2.10, D12.3–D12.4) — the three-valued
+// verdict publication and checkout gate on, the disjoint evidence vocabularies
+// that make an affiliate feed unable to authorize a resale, and the versioned
+// policy every answer cites. FOLLOWS `./retail-pricing`, which consumes the
+// verdict as its `marketSupported` input.
+export * from './retail-eligibility';
+
 // The versioned category-attribute registry and its normalized values (#94):
 // value types, cardinality, unit families, lifecycle, evidence/display policy,
 // and the source/public projections of one recorded attribute fact. PRECEDES

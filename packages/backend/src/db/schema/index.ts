@@ -81,6 +81,13 @@ export * from './procurement';
 // Retail pricing (#120, ADR 0004 D3) follows `procurement`: a cost quote names
 // the supplier, account and agreement it was sourced under by foreign key.
 export * from './retailPricing';
+// Retail eligibility (#121, ADR 0004 D2.8–D2.10) follows `procurement` for the
+// same reason and additionally `canonicalCatalog` and `organizations`:
+// compliance evidence and suppressions reference a canonical product, a
+// canonical variant and a brand. It is the domain that decides whether a
+// `mercaria_retail` offer may exist at all, and `retailPricing` above consumes
+// its verdict as `marketSupported`.
+export * from './retailEligibility';
 // Referrals (#142, ADR 0005): their tables reference nothing outside their own
 // domain, and their subject/actor references are deliberately opaque.
 export * from './referrals';

@@ -620,6 +620,37 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'retail_pricing_policies.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'retail_pricing_policies.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
 
+  // ── Retail eligibility (#121, ADR 0004 D2.8–D2.10) ────────────────────────
+  //
+  // The policy VERSION a decision was made under is a real, NOT NULL COMPOSITE
+  // foreign key and is deliberately not here: an uncited decision would not be
+  // reproducible, which is the whole of acceptance 7. What IS here is the same
+  // three classes the two domains above already ledger — Oxy account ids, an
+  // Oxy media file id, and snapshots whose targets legitimately move on.
+  { column: 'retail_eligibility_policies.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_eligibility_policies.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_category_rules.recorded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_market_capabilities.recorded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_resale_evidence.oxy_file_id', reason: OXY_FILE },
+  { column: 'retail_resale_evidence.recorded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_resale_evidence.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_resale_evidence.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_compliance_evidence.oxy_file_id', reason: OXY_FILE },
+  { column: 'retail_compliance_evidence.recorded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_compliance_evidence.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_compliance_evidence.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_suppressions.raised_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_suppressions.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_eligibility_exceptions.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_eligibility_exceptions.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_eligibility_exceptions.second_approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_eligibility_exceptions.rejected_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_eligibility_exceptions.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_eligibility_decisions.procurement_offer_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'retail_eligibility_decisions.canonical_variant_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'retail_eligibility_audits.subject_id', reason: AUDIT_CORRELATION },
+  { column: 'retail_eligibility_audits.actor_oxy_user_id', reason: OXY_ACCOUNT },
+
   // ── Referral domain (#142, ADR 0005) ──────────────────────────────────────
   { column: 'referral_programs.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'referral_programs.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
