@@ -287,7 +287,11 @@ async function upsertProduct(
   const patch = toUpdatePatch(product, overridden);
   const changed = Object.keys(patch).length > 0;
   if (changed) {
-    await updateListing(listingId, patch);
+    // #90: a connector sync is a SOURCE assertion, not a seller's. It carries no
+    // account, so `writeListingConditionEvidence` refuses any condition that needs
+    // photographs rather than attributing them to nobody — and a connector patch
+    // never carries one today.
+    await updateListing(listingId, patch, { kind: 'source' });
   }
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
   await updateListingColumns(listingId, buildSource(conn, product));

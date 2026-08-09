@@ -102,6 +102,7 @@ async function seedOrder(
       title: 'A thing',
       description: '',
       condition: 'new',
+      conditionAssertion: 'seller_declared',
     })
     .returning({ id: listings.id });
 

@@ -18,9 +18,40 @@ import {
   ALL_CURRENCY_CODES,
   CHECKOUT_PAYMENT_METHODS,
   CHECKOUT_TEXT_LIMITS,
+  CONDITION_DETAIL_KINDS,
+  CONDITION_DETAIL_SEVERITIES,
+  ITEM_CONDITION_KEYS,
+  LEGACY_BINARY_CONDITIONS,
   MAX_MONEY_MINOR_UNITS,
+  type ConditionDetailKind,
+  type ConditionDetailSeverity,
   type CurrencyCode,
+  type ItemConditionKey,
+  type LegacyBinaryCondition,
 } from '@mercaria/shared-types';
+
+/**
+ * A shared tuple, narrowed to the non-empty form `z.enum` requires.
+ *
+ * Reading the SAME tuples the Postgres CHECKs are rendered from is what keeps a
+ * taxonomy key from being storable and unwritable; checking non-emptiness at
+ * module load beats asserting it with a cast.
+ */
+function conditionEnumValues<T extends string>(values: readonly T[]): readonly [T, ...T[]] {
+  const [first, ...rest] = values;
+  if (first === undefined) {
+    throw new Error('A z.enum of no values rejects every request');
+  }
+  return [first, ...rest];
+}
+
+const ITEM_CONDITION_KEY_VALUES = conditionEnumValues<ItemConditionKey>(ITEM_CONDITION_KEYS);
+const CONDITION_DETAIL_KIND_VALUES =
+  conditionEnumValues<ConditionDetailKind>(CONDITION_DETAIL_KINDS);
+const CONDITION_DETAIL_SEVERITY_VALUES =
+  conditionEnumValues<ConditionDetailSeverity>(CONDITION_DETAIL_SEVERITIES);
+const LEGACY_BINARY_CONDITION_VALUES =
+  conditionEnumValues<LegacyBinaryCondition>(LEGACY_BINARY_CONDITIONS);
 
 /**
  * The supported currency codes as a Zod-enum tuple, derived from the single
@@ -72,12 +103,52 @@ const seoSchema = z.object({
 // P2P listing
 // ---------------------------------------------------------------------------
 
+
+/**
+ * The #90 condition statement a client may send.
+ *
+ * `.strict()` throughout, and the shapes are checked here as well as by the
+ * CHECKs one layer down: a client gets a 400 naming the field rather than a 500
+ * carrying a constraint name, and the CHECKs stay because this is not the only
+ * writer.
+ */
+const conditionDetailSchema = z
+  .object({
+    kind: z.enum(CONDITION_DETAIL_KIND_VALUES),
+    severity: z.enum(CONDITION_DETAIL_SEVERITY_VALUES).optional(),
+    note: z.string().trim().min(1).max(1_000).optional(),
+  })
+  .strict();
+
+const conditionPhotoAnnotationSchema = z
+  .object({
+    fileId: z.string().trim().min(1),
+    showsDefect: z.boolean().optional(),
+    detailIndex: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+export const listingConditionSchema = z
+  .object({
+    key: z.enum(ITEM_CONDITION_KEY_VALUES),
+    details: z.array(conditionDetailSchema).max(50).optional(),
+    photoAnnotations: z.array(conditionPhotoAnnotationSchema).max(50).optional(),
+    // A boolean with NO default: a missing field is not consent (#90 policy
+    // rule 2), and `.default(false)` would read as one to whoever edits this
+    // next.
+    defectsAcknowledged: z.boolean().optional(),
+  })
+  .strict();
+
 /** Body for `POST /seller/listings` (CreateP2PListingInput). */
 export const createP2PListingSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().max(10_000),
   price: moneySchema,
-  condition: z.enum(['new', 'used']),
+  // #90: EXACTLY one of the two spellings. `resolveConditionInput` refuses both
+  // together — a 400 rather than a precedence rule nobody would remember.
+  condition: z.enum(LEGACY_BINARY_CONDITION_VALUES).optional(),
+  itemCondition: listingConditionSchema.optional(),
   category: z.string().trim().min(1),
   imageFileIds: z.array(z.string().trim().min(1)),
   tags: z.array(z.string().trim().min(1)).optional(),
@@ -90,7 +161,8 @@ export const updateListingSchema = z
     title: z.string().trim().min(1).max(200).optional(),
     description: z.string().max(10_000).optional(),
     price: moneySchema.optional(),
-    condition: z.enum(['new', 'used']).optional(),
+    condition: z.enum(LEGACY_BINARY_CONDITION_VALUES).optional(),
+    itemCondition: listingConditionSchema.optional(),
     category: z.string().trim().min(1).optional(),
     imageFileIds: z.array(z.string().trim().min(1)).optional(),
     tags: z.array(z.string().trim().min(1)).optional(),

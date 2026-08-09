@@ -110,6 +110,7 @@ beforeAll(async () => {
       title: `Checkout integration fixture ${RUN}`,
       description: '',
       condition: 'new',
+      conditionAssertion: 'seller_declared',
       status: 'active',
     })
     .returning();
@@ -442,7 +443,8 @@ describe('P2P stays blocked for guests until #112', () => {
         oxyUserId: `checkout-int-p2p-${RUN}`,
         title: `P2P fixture ${RUN}`,
         description: '',
-        condition: 'used',
+        condition: 'used_good',
+        conditionAssertion: 'seller_declared',
         status: 'active',
       })
       .returning();

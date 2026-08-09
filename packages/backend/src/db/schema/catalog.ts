@@ -32,8 +32,15 @@ import {
 } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
 import { createdAt, generatedId, geography, timestamptz, tsvector, updatedAt } from '@oxyhq/db';
-import { ALL_LISTING_STATUSES, CONNECTOR_PROVIDER_IDS } from '@mercaria/shared-types';
-import type { ListingCondition, ListingOwnerType } from '@mercaria/shared-types';
+import {
+  ALL_LISTING_STATUSES,
+  CONDITION_ASSERTIONS,
+  CONNECTOR_PROVIDER_IDS,
+  ITEM_CONDITION_KEYS,
+  UNREFINED_CONDITION_ASSERTIONS,
+  UNREFINED_CONDITION_KEYS,
+} from '@mercaria/shared-types';
+import type { ItemConditionKey, ListingOwnerType } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks, optionalMoney } from './columns';
 import { connections } from './connectors';
 import { locations, stores } from './stores';
@@ -41,8 +48,19 @@ import { locations, stores } from './stores';
 /** `Listing.ownerType`. */
 export const LISTING_OWNER_TYPES: readonly ListingOwnerType[] = ['user', 'store'];
 
-/** `Listing.condition`. */
-export const LISTING_CONDITIONS: readonly ListingCondition[] = ['new', 'used'];
+/**
+ * The value set `listings.condition` accepts — #90's nine taxonomy keys.
+ *
+ * The two-phase migration is what got here: `0030` (`pre`) widened the CHECK to
+ * a SUPERSET including the legacy `'used'` and backfilled every row, so the
+ * previous image could keep writing while it rolled; `0031` (`post`) narrowed it
+ * to this tuple, which breaks exactly that write and is why it is a `post`
+ * statement rather than an additive one.
+ */
+export const LISTING_CONDITION_VALUES: readonly ItemConditionKey[] = ITEM_CONDITION_KEYS;
+
+/** `Listing.conditionAssertion` — how the stored key came to be asserted. */
+export const LISTING_CONDITION_ASSERTIONS = CONDITION_ASSERTIONS;
 
 /**
  * `categories` — the marketplace taxonomy, a tree via `parentId`.
@@ -115,7 +133,30 @@ export const listings = pgTable(
     title: text().notNull(),
     /** NOT NULL with NO default — see `stores.description` for why `''` is not one. */
     description: text().notNull(),
-    condition: text({ enum: asEnumValues(LISTING_CONDITIONS) }).notNull(),
+    /** The #90 taxonomy key. Widened from the binary `new | used` by #90's two migrations. */
+    condition: text({ enum: asEnumValues(LISTING_CONDITION_VALUES) }).notNull(),
+    /**
+     * How this condition came to be asserted (#90).
+     *
+     * NO DEFAULT, deliberately: every writer states it, and a default would let
+     * a future insert that forgot record a listing as migrated when a human
+     * chose it. `0030` (`pre`) gave the column a `migrated_binary` default so
+     * the previous image's inserts could still land during the rollout, and
+     * `0031` (`post`) drops it — which is a `post` statement precisely because
+     * it breaks that image's write.
+     */
+    conditionAssertion: text({ enum: asEnumValues(LISTING_CONDITION_ASSERTIONS) }).notNull(),
+    /** The external source's own wording, when the key came from one (#90 evidence 5). */
+    conditionSourceLabel: text(),
+    /**
+     * When the seller affirmatively acknowledged the disclosed defects and
+     * missing parts (#90 policy rule 2).
+     *
+     * A timestamp rather than a boolean: "they agreed" and "they agreed at this
+     * point, to what was disclosed then" are different facts, and a dispute
+     * needs the second one.
+     */
+    conditionAcknowledgedAt: timestamptz(),
     status: text({ enum: asEnumValues(ALL_LISTING_STATUSES) }).notNull().default('draft'),
     /**
      * `restrict`: nothing deletes a category, and `set null` would promote an
@@ -225,7 +266,41 @@ export const listings = pgTable(
   },
   (t) => [
     checkOneOf('listings_owner_type_check', t.ownerType, LISTING_OWNER_TYPES),
-    checkOneOf('listings_condition_check', t.condition, LISTING_CONDITIONS),
+    checkOneOf('listings_condition_check', t.condition, LISTING_CONDITION_VALUES),
+    checkOneOf(
+      'listings_condition_assertion_check',
+      t.conditionAssertion,
+      LISTING_CONDITION_ASSERTIONS,
+    ),
+    /**
+     * #90 MIGRATION RULE 2, as a constraint rather than as care taken in a
+     * backfill: an UNREFINED assertion may only carry an unrefined key.
+     *
+     * `migrated_binary` and `legacy_client_binary` both mean "something coarse
+     * produced this and nobody has looked at the nine keys since", and
+     * `UNREFINED_CONDITION_KEYS` is `{new, used_good}` — `used_like_new` is
+     * deliberately not in it. So the legacy `used` can never become "like new",
+     * whether the writer is the migration, a v1 mobile client, a service bug or
+     * a `psql` session. Both tuples come from `@mercaria/shared-types`, so the
+     * rule the type system states and the rule the database enforces are the
+     * same list.
+     */
+    check(
+      'listings_unrefined_condition_check',
+      sql`${t.conditionAssertion} not in (${sql.raw(
+        UNREFINED_CONDITION_ASSERTIONS.map((a) => `'${a}'`).join(', '),
+      )})
+          or ${t.condition} in (${sql.raw(
+            UNREFINED_CONDITION_KEYS.map((k) => `'${k}'`).join(', '),
+          )})`,
+    ),
+    // A source's own wording belongs only to a condition a source declared.
+    // Without this a seller-declared listing could carry a label claiming an
+    // external platform said something it never did.
+    check(
+      'listings_condition_source_label_check',
+      sql`${t.conditionSourceLabel} is null or ${t.conditionAssertion} = 'source_declared'`,
+    ),
     // `restricted` MUST be in this list. It is written only by moderation
     // enforcement, via `updateOne`, which runs no Mongoose validator — so a CHECK
     // that omitted it would silently disarm every takedown.
@@ -262,6 +337,16 @@ export const listings = pgTable(
       t.status,
       t.priceRangeMinAmount,
       t.publishedAt.desc(),
+    ),
+    // #90 acceptance 2: filtering by condition must be independent of every other
+    // facet, which means it needs its own leading-column index rather than
+    // riding the category one and filtering on the heap. Same shape as the
+    // browse feeds above — the filter, then the ORDER BY, in that exact order.
+    index('listings_status_condition_published_at_id_idx').on(
+      t.status,
+      t.condition,
+      t.publishedAt.desc(),
+      t.id.desc(),
     ),
     index('listings_owner_store_status_published_at_id_idx').on(
       t.ownerType,

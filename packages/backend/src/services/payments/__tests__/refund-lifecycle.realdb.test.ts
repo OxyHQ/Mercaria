@@ -450,6 +450,7 @@ async function seedSettledOrder(
         title: `Refundable ${String(index)}`,
         description: '',
         condition: 'new',
+        conditionAssertion: 'seller_declared',
       })
       .returning({ id: catalogSchema.listings.id });
     const [variant] = await insertVariants(listing.id, [

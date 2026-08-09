@@ -27,11 +27,9 @@
  * offers, which is the entire reason the offer model is unified.
  */
 
-import type {
-  OfferAvailability,
-  OfferCondition,
-  OfferQualitySignal,
-} from '@mercaria/shared-types';
+import type { OfferAvailability, OfferQualitySignal } from '@mercaria/shared-types';
+import { declaredOfferCondition } from '../condition/condition-mapping.service.js';
+import { narrowStoredCondition } from '../condition/condition-projection.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { findListingById, type ListingRecord } from '../../db/catalog/listingRepository.js';
 import { findVariantsByListing, type VariantRecord } from '../../db/catalog/variantRepository.js';
@@ -140,9 +138,13 @@ function desiredNativeOffer(
     compareAtPriceCurrency: variant.compareAtPriceCurrency,
     availability: availabilityFor(variant),
     availableQuantity: availableQuantityFor(variant),
-    // The listing's condition is `new | used`, both members of `OfferCondition`.
-    // The widening is safe in this direction and is stated rather than cast.
-    condition: listing.condition satisfies OfferCondition,
+    // #90: a native offer projects a listing Mercaria already holds, so its
+    // condition is a FIRST-PARTY DECLARATION — no source label, no confidence,
+    // no ruleset. `declaredOfferCondition` produces exactly the column
+    // combination the `offers_condition_declared_shape_check` CHECK admits,
+    // which is why the converger builds it from one helper rather than setting
+    // five columns by hand at each of its call sites.
+    ...declaredOfferCondition(narrowStoredCondition(listing.condition)),
     sellerSku: variant.sku,
     merchantTitle: listing.title,
     merchantVariantText: variant.title,

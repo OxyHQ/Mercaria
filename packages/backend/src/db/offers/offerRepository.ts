@@ -36,9 +36,12 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+import { conditionKeysInGroup } from '@mercaria/shared-types';
 import type {
+  ConditionGroup,
   OfferAvailability,
-  OfferCondition,
+  OfferConditionKey,
   OfferKind,
   OfferRetirementReason,
 } from '@mercaria/shared-types';
@@ -170,6 +173,15 @@ export async function upsertExternalOffer(
         availability: sql`excluded.availability`,
         availableQuantity: sql`excluded.available_quantity`,
         condition: sql`excluded.condition`,
+        // #90: the four mapping columns move TOGETHER with the key. Carrying
+        // the key without them would leave a row claiming `refurbished_seller`
+        // beside the previous observation's source wording and confidence — a
+        // combination the shape CHECKs refuse, which is what makes the
+        // omission a failed write rather than a quietly wrong provenance.
+        conditionSourceLabel: sql`excluded.condition_source_label`,
+        conditionMappingState: sql`excluded.condition_mapping_state`,
+        conditionMappingConfidence: sql`excluded.condition_mapping_confidence`,
+        conditionMappingRulesetId: sql`excluded.condition_mapping_ruleset_id`,
         sellerSku: sql`excluded.seller_sku`,
         merchantTitle: sql`excluded.merchant_title`,
         merchantVariantText: sql`excluded.merchant_variant_text`,
@@ -240,6 +252,15 @@ export async function upsertNativeOffer(
         availability: sql`excluded.availability`,
         availableQuantity: sql`excluded.available_quantity`,
         condition: sql`excluded.condition`,
+        // #90: the four mapping columns move TOGETHER with the key. Carrying
+        // the key without them would leave a row claiming `refurbished_seller`
+        // beside the previous observation's source wording and confidence — a
+        // combination the shape CHECKs refuse, which is what makes the
+        // omission a failed write rather than a quietly wrong provenance.
+        conditionSourceLabel: sql`excluded.condition_source_label`,
+        conditionMappingState: sql`excluded.condition_mapping_state`,
+        conditionMappingConfidence: sql`excluded.condition_mapping_confidence`,
+        conditionMappingRulesetId: sql`excluded.condition_mapping_ruleset_id`,
         sellerSku: sql`excluded.seller_sku`,
         merchantTitle: sql`excluded.merchant_title`,
         merchantVariantText: sql`excluded.merchant_variant_text`,
@@ -367,7 +388,13 @@ export interface OfferComparisonQuery {
   country?: string;
   kinds?: readonly OfferKind[];
   availability?: readonly OfferAvailability[];
-  conditions?: readonly OfferCondition[];
+  conditions?: readonly OfferConditionKey[];
+  /**
+   * Whole condition SEGMENTS (#90 acceptance 2) — expanded to their keys by the
+   * service, which is what keeps one `IN` list here rather than two predicates
+   * that could disagree about `unknown`.
+   */
+  conditionGroups?: readonly ConditionGroup[];
   /** Exclude offers whose TTL has already passed (issue external rule 3). */
   excludeStale?: boolean;
   limit: number;
@@ -391,6 +418,27 @@ export interface OfferComparisonQuery {
  * round trip a `mode: 'number'` column already imposes.
  */
 const UNPRICED_SORT_KEY = Number.MAX_SAFE_INTEGER;
+
+/**
+ * The condition predicate, from keys and segments together (#90 acceptance 2).
+ *
+ * The two inputs are UNIONED into one key set and tested once. A caller asking
+ * for the refurbished segment plus one specific used key wants both, and two
+ * ANDed `IN` lists would answer with the empty set — silently, and only for the
+ * requests that combine them.
+ *
+ * `undefined` when neither is supplied, so `and(...)` drops it and an
+ * unfiltered read stays unfiltered.
+ */
+function conditionMembership(
+  query: Pick<OfferComparisonQuery, 'conditions' | 'conditionGroups'>,
+): SQL | undefined {
+  const keys = new Set<OfferConditionKey>(query.conditions ?? []);
+  for (const group of query.conditionGroups ?? []) {
+    for (const key of conditionKeysInGroup(group)) keys.add(key);
+  }
+  return keys.size > 0 ? inArray(offers.condition, [...keys]) : undefined;
+}
 
 /**
  * The comparison read: active offers on a variant (or on every variant of a
@@ -439,9 +487,11 @@ export async function listOffersForComparison(
         query.availability && query.availability.length > 0
           ? inArray(offers.availability, [...query.availability])
           : undefined,
-        query.conditions && query.conditions.length > 0
-          ? inArray(offers.condition, [...query.conditions])
-          : undefined,
+        // #90: keys and segments collapse into ONE membership test. Two
+        // predicates ANDed would make `?conditionKeys=used_good&
+        // conditionGroups=refurbished` return nothing, which is the opposite of
+        // what a facet UI sending both means.
+        conditionMembership(query),
         query.excludeStale ? gt(offers.staleAt, now) : undefined,
         query.after
           ? sql`(${sortPrice}, ${offers.id}) >

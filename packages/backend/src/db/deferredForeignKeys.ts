@@ -779,6 +779,19 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'match_blocked_pairs.blocked_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'match_blocked_pairs.cleared_by_oxy_user_id', reason: OXY_ACCOUNT },
 
+  // ── The condition domain (#90) ────────────────────────────────────────────
+  // `listing_condition_photos.file_id` is the ONE of these that is load-bearing
+  // rather than ordinary: it carries no foreign key for the usual Oxy-media
+  // reason, and `mercaria_reject_canonical_condition_photo` nonetheless refuses
+  // any value `canonical_images` already claims. A trigger rather than a
+  // constraint because the rule is "this id must NOT appear over there", which
+  // no foreign key can express.
+  { column: 'listing_condition_photos.file_id', reason: OXY_FILE },
+  { column: 'listing_condition_photos.uploaded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'listing_condition_revisions.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'condition_mapping_rulesets.published_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'condition_category_policies.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+
   // ── Discovery analytics (#77) ─────────────────────────────────────────────
   //
   // EVERY id column in this domain is unconstrained, and that is one decision

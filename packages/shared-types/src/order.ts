@@ -32,6 +32,7 @@ import type { Timestamps } from './common';
 import type { DiscountAllocation } from './discount';
 import type { TaxLine } from './tax';
 import type { ConnectorProviderId } from './integration';
+import type { OrderItemConditionSnapshot } from './condition';
 
 /**
  * Lifecycle status of an order.
@@ -148,6 +149,17 @@ export interface OrderItem {
    * storefront orders, which commit at the store's default location.
    */
   locationId?: string;
+  /**
+   * The item's condition AS PRESENTED AT CHECKOUT (#90 propagation rule 2,
+   * acceptance 3) — a snapshot, not a pointer.
+   *
+   * A discriminated union whose absent branch has no `key`, because orders
+   * placed before #90 carry no condition and nothing may invent one for them
+   * (#90 migration rule 3). A later correction to the listing never reaches
+   * here: the columns behind this refuse UPDATE outright, so refund and dispute
+   * evidence can cite it (#90 propagation rule 3).
+   */
+  condition: OrderItemConditionSnapshot;
 }
 
 /** Who fulfils an order: an individual P2P seller or a store. */

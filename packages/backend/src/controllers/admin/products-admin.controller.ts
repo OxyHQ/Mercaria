@@ -116,7 +116,13 @@ export async function listProducts(req: Request, res: Response): Promise<void> {
 export async function createProduct(req: Request, res: Response): Promise<void> {
   try {
     const id = storeId(req);
-    const listingId = await createStoreProduct(id, req.body as CreateStoreProductInput);
+    const listingId = await createStoreProduct(id, req.body as CreateStoreProductInput, {
+      // #90: the acting store member OWNS any condition evidence this product
+      // needs. `store:manage` is not the gate here — every member who may write
+      // a product may state its condition — but the photographs still have to
+      // be attributable to a person.
+      ...(req.userId ? { actorOxyUserId: req.userId } : {}),
+    });
     await schedulePush(id, listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto, 201);
@@ -143,7 +149,11 @@ export async function patchProduct(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
     const listingId = listing.id;
-    await updateListing(listingId, req.body as UpdateListingInput);
+    await updateListing(
+      listingId,
+      req.body as UpdateListingInput,
+      req.userId ? { kind: 'seller', oxyUserId: req.userId } : { kind: 'source' },
+    );
     await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto);

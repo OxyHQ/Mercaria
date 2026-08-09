@@ -149,7 +149,8 @@ async function seedListing(input: {
       oxyUserId: `merge-seller-${RUN}-${input.label}`,
       title: `Merge fixture ${input.label}`,
       description: '',
-      condition: 'used',
+      condition: 'used_good',
+      conditionAssertion: 'seller_declared',
       status: input.status ?? 'active',
     })
     .returning();

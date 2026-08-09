@@ -53,6 +53,7 @@ import productFamiliesRouter from './routes/product-families.js';
 import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
 import offersRouter from './routes/offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
+import internalCatalogConditionRouter from './routes/internal-catalog-condition.js';
 import catalogAttributesRouter from './routes/catalog-attributes.js';
 import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
 import internalMatchingRouter from './routes/internal-matching.js';
@@ -300,6 +301,11 @@ export function createApp(): express.Express {
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/offers', internalOffersRouter);
     app.use('/internal/catalog-attributes', internalCatalogAttributesRouter);
+    // The condition taxonomy (#90): versioned source-label mappings, category
+    // restrictions, and one listing's condition history. Same allow-list, same
+    // reason — what an external source's wording MEANS is a fact about this
+    // graph.
+    app.use('/internal/catalog-condition', internalCatalogConditionRouter);
   }
 
   /**

@@ -24,11 +24,13 @@
 
 import {
   deriveNativeCheckoutEligibility,
+  deriveOfferCondition,
   deriveOfferDelivery,
   deriveOfferFreshness,
   deriveOfferSellerRole,
   type Offer,
   type OfferAffiliateRouting,
+  type OfferConditionKey,
   type OfferProvenance,
   type OfferQualitySignal,
   type OfferReturnPolicy,
@@ -47,7 +49,29 @@ export interface OfferProjectionContext {
   sellerReady: ReadonlyMap<string, boolean>;
   /** `catalog_sources` rights, by SOURCE RECORD id — the registry owns them, never the offer. */
   sourceRights: ReadonlyMap<string, { mayDisplay: boolean; attributionRequired: boolean }>;
+  /**
+   * The #90 mapping-ruleset VERSION behind each `condition_mapping_ruleset_id`,
+   * gathered once per page.
+   *
+   * The offer stores the ruleset's row id and the DTO publishes its version
+   * number, because a version is the thing an operator corrects against and a
+   * row id is a key nobody outside this service can use. A missing entry means
+   * the version is simply omitted — an unresolvable ruleset must not become
+   * version 0, which reads as a real published ruleset.
+   */
+  conditionRulesetVersions: ReadonlyMap<string, number>;
   now: Date;
+}
+
+/**
+ * Narrow a stored offer condition to the taxonomy.
+ *
+ * The column's TypeScript type carries the transitional `'used'` until migration
+ * `0031` narrows the CHECK — the `listings` counterpart of this lives in
+ * `services/condition/condition-projection.ts` and both disappear together.
+ */
+function narrowStoredOfferCondition(stored: OfferConditionKey | 'used'): OfferConditionKey {
+  return stored === 'used' ? 'used_good' : stored;
 }
 
 function toProvenance(
@@ -128,6 +152,10 @@ export function projectOffer(
    * The stored signals are facts about what the source published; this one is a
    * fact about when.
    */
+  const rulesetVersion = row.conditionMappingRulesetId
+    ? context.conditionRulesetVersions.get(row.conditionMappingRulesetId)
+    : undefined;
+
   const storedSignals = row.qualitySignals as OfferQualitySignal[];
   const qualitySignals: OfferQualitySignal[] =
     freshness.state === 'stale' && !storedSignals.includes('stale_observation')
@@ -165,7 +193,12 @@ export function projectOffer(
       : {}),
     availability: row.availability,
     ...(row.availableQuantity === null ? {} : { availableQuantity: row.availableQuantity }),
-    condition: row.condition,
+    condition: deriveOfferCondition({
+      condition: narrowStoredOfferCondition(row.condition),
+      mappingState: row.conditionMappingState,
+      sourceLabel: row.conditionSourceLabel,
+      mappingRulesetVersion: rulesetVersion ?? null,
+    }),
 
     ...(row.sellerSku ? { sellerSku: row.sellerSku } : {}),
     ...(row.merchantTitle ? { merchantTitle: row.merchantTitle } : {}),

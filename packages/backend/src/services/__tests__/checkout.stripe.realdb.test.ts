@@ -295,7 +295,8 @@ async function seedSeller(input: {
       oxyUserId: sellerId,
       title: `Thing ${input.label}`,
       description: '',
-      condition: 'used',
+      condition: 'used_good',
+      conditionAssertion: 'seller_declared',
       status: 'active',
     })
     .returning();

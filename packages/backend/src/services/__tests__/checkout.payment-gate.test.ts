@@ -154,6 +154,15 @@ vi.mock('../../db/payments/paymentRepository.js', () => ({
   findNativePaymentByCheckoutGroupId: () => Promise.resolve(undefined),
 }));
 
+// #90: the condition domain's reads. Mocked as empty rather than left to hit a
+// mocked `getDb()` that has no `.select` — this suite mocks REPOSITORIES, and a
+// repository is exactly what these are.
+vi.mock('../../db/condition/conditionRepository.js', () => ({
+  findConditionDetailsForListings: vi.fn(async () => []),
+  findConditionPhotosForListings: vi.fn(async () => []),
+}));
+
+
 const USER = 'buyer-gate';
 /** The resolved actor checkout takes since #105 (ADR 0003 D1). */
 const ACTOR = { kind: 'oxy', oxyUserId: USER } as const;
@@ -218,6 +227,9 @@ function listingRow(): ListingRecord {
     title: 'Thing',
     description: 'A thing',
     condition: 'new',
+    conditionAssertion: 'seller_declared',
+    conditionSourceLabel: null,
+    conditionAcknowledgedAt: null,
     status: 'active',
     categoryId: null,
     categorySlugs: [],

@@ -206,6 +206,7 @@ async function makeListing(storeId: string): Promise<string> {
       title: `RS Listing ${RUN}`,
       description: '',
       condition: 'new',
+      conditionAssertion: 'seller_declared',
     })
     .returning({ id: listings.id });
   createdListingIds.push(listing.id);

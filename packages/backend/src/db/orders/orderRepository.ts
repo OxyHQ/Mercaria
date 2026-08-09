@@ -50,6 +50,7 @@ import { publicColumns } from '@oxyhq/db/assert';
 import type {
   AddressSnapshot,
   CommercialMode,
+  ConditionAssertion,
   ConnectorProviderId,
   CurrencyCode,
   DualMoney,
@@ -57,6 +58,7 @@ import type {
   FeeClamp,
   FeeSnapshotResult,
   FxRateSnapshot,
+  ItemConditionKey,
   Money,
   OrderActorKind,
   OrderBuyerOrigin,
@@ -144,6 +146,18 @@ export interface NewOrderItem {
   lineTotal: DualMoney;
   discountTotal?: DualMoney;
   locationId?: string;
+  /**
+   * The condition AS PRESENTED AT CHECKOUT (#90 propagation rule 2).
+   *
+   * Optional because a POS sale and a connector-imported order have no
+   * Mercaria-side condition to snapshot, and inventing one would be a claim
+   * about goods this service never described. The CHECK pairs the key with its
+   * assertion, so a caller supplying one and not the other is refused rather
+   * than storing half a snapshot.
+   */
+  conditionKey?: ItemConditionKey;
+  conditionAssertion?: ConditionAssertion;
+  conditionNotes?: string;
 }
 
 /**
@@ -1102,6 +1116,13 @@ async function insertOrderChildren(
           discountTotalPresentmentAmount: item.discountTotal?.presentment.amount ?? null,
           discountTotalPresentmentCurrency: item.discountTotal?.presentment.currency ?? null,
           locationId: item.locationId ?? null,
+          // #90: the condition snapshot. Written ONCE, at insert; the
+          // `mercaria_order_item_condition_immutable` trigger refuses every
+          // subsequent UPDATE of these three columns, so there is no repository
+          // path — and no future backfill — that can rewrite a placed order.
+          conditionKey: item.conditionKey ?? null,
+          conditionAssertion: item.conditionAssertion ?? null,
+          conditionNotes: item.conditionNotes ?? null,
           position,
         })),
       )

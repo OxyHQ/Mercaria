@@ -106,7 +106,10 @@ export async function updateMyListing(req: Request, res: Response): Promise<void
   try {
     const oxyUserId = getRequiredOxyUserId(req);
     await loadOwnedListing(id, oxyUserId);
-    await updateListing(id, req.body as UpdateListingInput);
+    await updateListing(id, req.body as UpdateListingInput, {
+      kind: 'seller',
+      oxyUserId,
+    });
     const dto = await hydrateById(id, oxyUserId);
     sendSuccess(res, dto);
   } catch (err) {

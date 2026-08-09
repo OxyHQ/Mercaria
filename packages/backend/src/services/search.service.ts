@@ -31,6 +31,7 @@
  * phrase-match, which Mongo's `$text` did support.
  */
 
+import { CONDITION_GROUPS } from '@mercaria/shared-types';
 import type { ListingQuery } from '@mercaria/shared-types';
 import {
   searchListingsKeyset,
@@ -67,7 +68,29 @@ function toFilters(query: ListingQuery): ListingSearchFilters {
   if (query.ownerType) filters.ownerType = query.ownerType;
   if (query.storeId) filters.storeId = query.storeId;
   if (query.category) filters.categorySlug = query.category;
-  if (query.condition) filters.condition = query.condition;
+  /**
+   * #90: the ONE place the v1 binary spelling is translated for reads.
+   *
+   * `condition=used` becomes every non-`new` GROUP, which is the honest reading
+   * of what a v1 client is asking for — it has no way to name a segment, and it
+   * meant "not factory-sealed". Mapping it to a single key instead would hide
+   * refurbished and for-parts listings from every shipped mobile build.
+   *
+   * The mutual exclusion is enforced at the controller, so this only ever sees
+   * one of the two.
+   */
+  if (query.condition) {
+    filters.conditionGroups =
+      query.condition === 'new'
+        ? ['new']
+        : CONDITION_GROUPS.filter((group) => group !== 'new');
+  }
+  if (query.conditionKeys && query.conditionKeys.length > 0) {
+    filters.conditionKeys = query.conditionKeys;
+  }
+  if (query.conditionGroups && query.conditionGroups.length > 0) {
+    filters.conditionGroups = query.conditionGroups;
+  }
   if (query.vendor) filters.vendor = query.vendor;
   if (query.productType) filters.productType = query.productType;
   if (query.collectionId) filters.collectionId = query.collectionId;

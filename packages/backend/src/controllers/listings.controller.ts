@@ -10,6 +10,11 @@
 
 import type { Request, Response } from 'express';
 import { z } from 'zod';
+import {
+  CONDITION_GROUPS,
+  ITEM_CONDITION_KEYS,
+  LEGACY_BINARY_CONDITIONS,
+} from '@mercaria/shared-types';
 import type { ListingQuery, CursorPage, Listing } from '@mercaria/shared-types';
 import {
   findListingById,
@@ -37,12 +42,54 @@ import { instrumentSearch } from '../services/analytics/search-instrumentation.j
  */
 const PUBLICLY_VIEWABLE_STATUSES: readonly ListingRecord['status'][] = ['active', 'sold'];
 
+/**
+ * The shared tuples, narrowed to the NON-EMPTY tuple `z.enum` requires.
+ *
+ * `asEnumValues`'s reasoning at the HTTP boundary: the shared lists are typed
+ * `readonly T[]`, and a cast would ASSERT non-emptiness where this checks it at
+ * module load. Reading the same tuples the Postgres CHECKs are rendered from is
+ * what stops a taxonomy key being storable and unqueryable.
+ */
+const LEGACY_BINARY_CONDITION_VALUES = zodEnumValues(LEGACY_BINARY_CONDITIONS);
+const ITEM_CONDITION_KEY_VALUES = zodEnumValues(ITEM_CONDITION_KEYS);
+const CONDITION_GROUP_VALUES = zodEnumValues(CONDITION_GROUPS);
+
+function zodEnumValues<T extends string>(values: readonly T[]): readonly [T, ...T[]] {
+  const [first, ...rest] = values;
+  if (first === undefined) {
+    throw new Error('A z.enum of no values rejects every request');
+  }
+  return [first, ...rest];
+}
+
+/**
+ * A repeatable comma-separated query parameter, validated against a closed set.
+ *
+ * `?conditionGroups=used,refurbished` and `?conditionGroups=used&
+ * conditionGroups=refurbished` both work, because express hands the second form
+ * back as an array and clients disagree about which to send. An unrecognised
+ * member is a 400 rather than a silent drop: silently ignoring it would answer
+ * a filter the caller did not ask for with results they would read as filtered.
+ */
+function commaSeparated<T extends string>(values: readonly [T, ...T[]]) {
+  const member = z.enum(values);
+  return z
+    .union([z.string(), z.array(z.string())])
+    .transform((raw) => (Array.isArray(raw) ? raw : raw.split(',')))
+    .pipe(z.array(member).min(1));
+}
+
 /** Coerce + validate the browse query string into a typed `ListingQuery`. */
 const listingQuerySchema = z
   .object({
     q: z.string().trim().min(1).optional(),
     category: z.string().trim().min(1).optional(),
-    condition: z.enum(['new', 'used']).optional(),
+    // #90: the v1 binary spelling, still accepted. `conditionKeys` and
+    // `conditionGroups` are the taxonomy filters; sending the v1 field beside
+    // either is a 400 rather than a precedence rule nobody would remember.
+    condition: z.enum(LEGACY_BINARY_CONDITION_VALUES).optional(),
+    conditionKeys: commaSeparated(ITEM_CONDITION_KEY_VALUES).optional(),
+    conditionGroups: commaSeparated(CONDITION_GROUP_VALUES).optional(),
     minPrice: z.coerce.number().int().nonnegative().optional(),
     maxPrice: z.coerce.number().int().nonnegative().optional(),
     storeId: z.string().trim().min(1).optional(),
@@ -64,7 +111,17 @@ function toListingQuery(parsed: z.infer<typeof listingQuerySchema>): ListingQuer
   const query: ListingQuery = {};
   if (parsed.q) query.q = parsed.q;
   if (parsed.category) query.category = parsed.category;
+  // #90: the two spellings can disagree (`condition=new` beside
+  // `conditionGroups=used`), so there is deliberately no precedence rule
+  // between them — the same decision the write path makes, for the same reason.
+  if (parsed.condition && (parsed.conditionKeys || parsed.conditionGroups)) {
+    throw validationError(
+      'Send either `condition` (v1) or `conditionKeys`/`conditionGroups`, not both',
+    );
+  }
   if (parsed.condition) query.condition = parsed.condition;
+  if (parsed.conditionKeys) query.conditionKeys = [...parsed.conditionKeys];
+  if (parsed.conditionGroups) query.conditionGroups = [...parsed.conditionGroups];
   if (typeof parsed.minPrice === 'number') query.minPrice = parsed.minPrice;
   if (typeof parsed.maxPrice === 'number') query.maxPrice = parsed.maxPrice;
   if (parsed.storeId) query.storeId = parsed.storeId;

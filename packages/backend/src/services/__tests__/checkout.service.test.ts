@@ -86,6 +86,14 @@ vi.mock('../../db/catalog/variantRepository.js', () => ({
   findVariantOptionValues: (...args: unknown[]) => findVariantOptionValues(...args),
 }));
 
+// #90: the condition domain's reads. Mocked as empty rather than left to hit a
+// mocked `getDb()` that has no `.select` — this suite mocks REPOSITORIES, and a
+// repository is exactly what these are.
+vi.mock('../../db/condition/conditionRepository.js', () => ({
+  findConditionDetailsForListings: vi.fn(async () => []),
+  findConditionPhotosForListings: vi.fn(async () => []),
+}));
+
 vi.mock('../../db/stores/storeRepository.js', () => ({
   findStoresByIds: (...args: unknown[]) => findStoresByIds(...args),
 }));
@@ -223,6 +231,9 @@ function listingRow(
     title: 'Thing',
     description: 'A thing',
     condition: 'new',
+    conditionAssertion: 'seller_declared',
+    conditionSourceLabel: null,
+    conditionAcknowledgedAt: null,
     status: 'active',
     categoryId: null,
     categorySlugs: [],

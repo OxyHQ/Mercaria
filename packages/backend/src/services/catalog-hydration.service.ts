@@ -56,6 +56,17 @@ import {
   type ListingRecord,
 } from '../db/catalog/listingRepository.js';
 import {
+  findConditionDetailsForListings,
+  findConditionPhotosForListings,
+  type ConditionDetailRecord,
+  type ConditionPhotoRecord,
+} from '../db/condition/conditionRepository.js';
+import {
+  narrowStoredCondition,
+  projectItemCondition,
+  projectLegacyCondition,
+} from './condition/condition-projection.js';
+import {
   findVariantOptionValues,
   findVariantsByListingIds,
   type VariantOptionValueRecord,
@@ -347,13 +358,34 @@ async function loadBatches(
   variantsByListing: Map<string, VariantRecord[]>;
   optionValuesByVariant: Map<string, VariantOptionValueRecord[]>;
   children: ListingChildren;
+  conditionDetailsByListing: Map<string, ConditionDetailRecord[]>;
+  conditionPhotosByListing: Map<string, ConditionPhotoRecord[]>;
 }> {
-  const [variants, children] = await Promise.all([
+  const [variants, children, conditionDetails, conditionPhotos] = await Promise.all([
     findVariantsByListingIds(listingIds),
     findListingChildren(listingIds),
+    findConditionDetailsForListings(listingIds),
+    findConditionPhotosForListings(listingIds),
   ]);
   const optionValuesByVariant = await findVariantOptionValues(variants.map((v) => v.id));
-  return { variantsByListing: groupVariants(variants), optionValuesByVariant, children };
+  return {
+    variantsByListing: groupVariants(variants),
+    optionValuesByVariant,
+    children,
+    conditionDetailsByListing: groupByListingId(conditionDetails),
+    conditionPhotosByListing: groupByListingId(conditionPhotos),
+  };
+}
+
+/** Bucket condition rows by their listing, preserving the query's own order. */
+function groupByListingId<T extends { listingId: string }>(rows: readonly T[]): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
+  for (const row of rows) {
+    const bucket = grouped.get(row.listingId);
+    if (bucket) bucket.push(row);
+    else grouped.set(row.listingId, [row]);
+  }
+  return grouped;
 }
 
 /**
@@ -372,7 +404,13 @@ export async function hydrateListings(
 
   // 1-2. Every variant, option value, image, selectable option and collection
   // membership for the whole page.
-  const { variantsByListing, optionValuesByVariant, children } = await loadBatches(listingIds);
+  const {
+    variantsByListing,
+    optionValuesByVariant,
+    children,
+    conditionDetailsByListing,
+    conditionPhotosByListing,
+  } = await loadBatches(listingIds);
 
   // 3. Split by ownerType; batch-load seller profiles and stores.
   const userOwnerIds = [
@@ -434,6 +472,11 @@ export async function hydrateListings(
       values: [...o.values],
     }));
 
+    // #90: `itemCondition` is the authoritative field and `condition` is the
+    // derived v1 projection of it. Both come from ONE key, so a v1 client's
+    // filter can never disagree with what the listing actually says.
+    const conditionKey = narrowStoredCondition(listing.condition);
+
     const dto: Listing = {
       id,
       ownerType: listing.ownerType,
@@ -441,7 +484,17 @@ export async function hydrateListings(
       description: listing.description,
       price,
       variants: variantDTOs,
-      condition: listing.condition,
+      itemCondition: projectItemCondition(
+        {
+          key: conditionKey,
+          assertion: listing.conditionAssertion,
+          sourceLabel: listing.conditionSourceLabel,
+          acknowledgedAt: listing.conditionAcknowledgedAt,
+        },
+        conditionDetailsByListing.get(id) ?? [],
+        conditionPhotosByListing.get(id) ?? [],
+      ),
+      condition: projectLegacyCondition(conditionKey),
       status: listing.status,
       category: listing.categorySlugs[listing.categorySlugs.length - 1] ?? '',
       images: toListingImages(children.images.get(id) ?? []),

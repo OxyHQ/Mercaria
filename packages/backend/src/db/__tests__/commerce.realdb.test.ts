@@ -118,6 +118,7 @@ async function makeVariant(storeId: string): Promise<{ listingId: string; varian
       title: 'Commerce product',
       description: '',
       condition: 'new',
+      conditionAssertion: 'seller_declared',
     })
     .returning({ id: listings.id });
 

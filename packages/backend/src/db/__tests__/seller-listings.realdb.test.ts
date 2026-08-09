@@ -67,7 +67,10 @@ function baseListing(): Omit<ListingInput, 'ownerType' | 'oxyUserId' | 'storeId'
   return {
     title: 'Seller realdb listing',
     description: '',
-    condition: 'used',
+    condition: 'used_good',
+    conditionAssertion: 'seller_declared',
+    conditionSourceLabel: null,
+    conditionAcknowledgedAt: null,
     categoryId: null,
     categorySlugs: [],
     tags: [],

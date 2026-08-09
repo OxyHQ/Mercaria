@@ -165,6 +165,7 @@ describe('primary keys', () => {
       description: 'a red bicycle for sale',
       tags: ['bike', 'red'],
       condition: 'new',
+      conditionAssertion: 'seller_declared',
     });
     await db.insert(listings).values({
       id: uuidListingId,
@@ -173,7 +174,8 @@ describe('primary keys', () => {
       title: 'Ceramic teapot',
       description: 'a small teapot',
       tags: ['kitchen'],
-      condition: 'used',
+      condition: 'used_good',
+      conditionAssertion: 'seller_declared',
     });
 
     const stored = await db
@@ -372,6 +374,7 @@ describe('the owner-exclusivity CHECK', () => {
           // reaching the CHECK this test exists to exercise.
           description: '',
           condition: 'new',
+          conditionAssertion: 'seller_declared',
         }),
       'check',
     );

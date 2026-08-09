@@ -1694,6 +1694,76 @@ errors and a cohort that matched no rows all produce the output of a clean run.
   identifier disputes), #70/#71 (the `shadow` mode's both-answers comparison), and
   product-level collections (a separate migration). All six are scanned gates or
   named seams, not stubs.
+## Item condition (#90): a taxonomy with evidence behind it
+
+`services/condition/` + `db/condition/` + `db/schema/condition.ts` (6 tables),
+plus columns on `listings`, `offers` and `order_items`. Full reference:
+**`docs/condition.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"The condition taxonomy (#90)". The binary `new | used` it replaces is GONE —
+a clean cut in the internal contract, with ONE versioned wire exception noted
+below.
+
+- **Nine stable KEYS, five SEGMENTS, and the copy is not frozen.**
+  `ITEM_CONDITION_KEYS` types both columns and renders both CHECKs (the
+  `ALL_CURRENCY_CODES` device); labels and plain-language explanations live in
+  `@mercaria/ui` `lib/condition.ts` precisely so they can change without
+  touching a stored value. Filters, price history and price alerts operate on
+  `ConditionGroup`, never on a key.
+- **An unrefined assertion can never carry a claim, and that is a CHECK.**
+  `listings_unrefined_condition_check` restricts `migrated_binary` and
+  `legacy_client_binary` to `UNREFINED_CONDITION_KEYS` = `{new, used_good}`, so
+  the legacy `used` can never become `used_like_new` — whether the writer is the
+  migration, a v1 client, a service bug or `psql`.
+- **A low-confidence source mapping can never carry a key.** Five
+  `offers_condition_*_shape_check` constraints; only `declared` and `mapped` may
+  sit beside a known condition, and `mapped` needs a confidence at or above
+  `CONDITION_MAPPING_CONFIDENCE_FLOOR` — rendered into the CHECK from the SAME
+  constant the mapper reads. Sub-floor rules are RECORDED and unappliable, never
+  discarded: deleting them would make the review queue impossible to build.
+- **A catalogue image can never be condition evidence** (acceptance 4), in two
+  independent places. The provenance vocabulary has only seller-owned members
+  (and `FORBIDDEN_CONDITION_PHOTO_PROVENANCES` names six that may never join it,
+  disjointness gated by a test); and
+  `mercaria_reject_canonical_condition_photo` refuses a `file_id` any
+  `canonical_images` row already claims — the attack the vocabulary cannot see.
+  Evidence is drawn from the listing's OWN gallery; there is deliberately no
+  second upload channel, because two places establishing a photograph's
+  ownership could disagree.
+- **The order snapshot is never rewritten.** All three `order_items` condition
+  columns refuse UPDATE outright — not "immutable once set", which would still
+  admit a backfill writing NULL → a value. Pre-#90 orders answer
+  `{recorded: false}` through `deriveOrderItemCondition`'s discriminated union,
+  so a refund or dispute surface cannot reach for a key that was never captured.
+- **The revision trail is append-only with a PRECISE delete exception**: UPDATE
+  refused always, DELETE refused only while the listing still exists, so the
+  `cascade` the foreign key already declares still works and an operator cannot
+  remove one correction to hide it.
+- **The v1 binary field is a VERSIONED CONTRACT, the one #90 adds.** `condition`
+  is still accepted on writes (sending it beside `itemCondition` is a 400, never
+  a precedence rule) and still SERVED, derived from `itemCondition.key` on every
+  read so the two cannot disagree. `LEGACY_CONDITION_CONTRACT.retiresWhen` states
+  the condition. Nothing is marked `@deprecated`; the `checkout` `addressId`
+  precedent, for the same reason — a shipped mobile build cannot be recalled.
+- **Category-specific facts belong to #94's registry.** Battery health,
+  activation lock and garment alterations are named in
+  `CONDITION_REGISTRY_DELEGATED_FACT_KEYS` and a gate fails the build if this
+  domain grows a column for one.
+- **Two migrations**: `0030` (`pre` — CHECKs widened to a superset including the
+  legacy `'used'`, every row backfilled, four trigger pairs, one `migration`
+  revision per listing) and `0031` (`post` — CHECKs narrowed, transitional
+  defaults dropped). `0030`'s hand-written statements sit in two anchored blocks
+  and its header states where each goes on a regeneration.
+- Operator surface: `/internal/catalog-condition/*` behind the SAME
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#56/#57/#58/#83/#94 use —
+  ruleset versions, category restrictions, and one listing's history. There is
+  deliberately no "set this listing's condition" and no bulk photo approval.
+- Deferred with named seams: ranking by condition (#74 — a gate fails the build
+  if a feed/search/collection module reaches this domain), the price-history
+  table and alerts (#78 — `ConditionGroup` is the segment they must not mix),
+  moderation reason codes for misleading condition or stock imagery (the
+  CrowdSource plan owns the vocabulary; #90 supplies the provenance a reviewer
+  needs), the seller-facing refinement UI, and bulk re-mapping of
+  already-observed offers (#37).
 
 ## CrowdSource moderation: reports, cases, decisions, enforcement
 

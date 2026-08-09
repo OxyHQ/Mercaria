@@ -40,6 +40,14 @@
  * migration in the same PR.
  */
 
+import { CONDITION_KEY_GROUP } from './condition';
+import type {
+  ConditionGroup,
+  ConditionMappingState,
+  OfferConditionDTO,
+  OfferConditionKey,
+} from './condition';
+
 /**
  * An offer's own money.
  *
@@ -154,18 +162,21 @@ export const OFFER_AVAILABILITY_STATES: readonly OfferAvailability[] = [
 ];
 
 /**
- * The condition of the goods on offer — `ListingCondition` plus `unknown`
- * (ADR 0002 D18).
+ * NOTE ON CONDITION — the local `OfferCondition` union that lived here is GONE.
  *
- * Deliberately NOT an import of `ListingCondition` widened at the type level:
- * this tuple is rendered into a CHECK, and a union built from another module's
- * union would make a widening THERE silently widen the constraint HERE without
- * a migration. #90 owns the full condition taxonomy and widens this set with
- * its own migration.
+ * It existed so that a widening of the listing taxonomy could not silently widen
+ * the `offers_condition_check` CHECK without a migration. #90 took ownership of
+ * the taxonomy and landed exactly that migration, so the vocabulary now lives in
+ * `./condition` as `OfferConditionKey` / `OFFER_CONDITION_KEYS` — the nine
+ * stable keys plus `unknown` — and BOTH the column type and the CHECK are
+ * rendered from that one tuple. The rule survives, in one place instead of two:
+ * widening the taxonomy is a code change PLUS a migration, in the same PR.
+ *
+ * An offer's condition is more than a key. {@link OfferConditionDTO} carries how
+ * it was arrived at, and a source mapping that did not clear
+ * `CONDITION_MAPPING_CONFIDENCE_FLOOR` cannot sit beside anything but `unknown`
+ * (#90 evidence rule 6, enforced by CHECK rather than by the mapper).
  */
-export type OfferCondition = 'new' | 'used' | 'unknown';
-
-export const OFFER_CONDITIONS: readonly OfferCondition[] = ['new', 'used', 'unknown'];
 
 /**
  * Whether collection in person is possible (issue commercial fact 7).
@@ -493,7 +504,15 @@ export interface Offer {
   availability: OfferAvailability;
   /** Present only when the source actually supplies it (issue commercial fact 3). */
   availableQuantity?: number;
-  condition: OfferCondition;
+  /**
+   * The condition, its segment and how it was arrived at (#90).
+   *
+   * The source's own wording is preserved verbatim beside the normalized key,
+   * so a shopper can see that "Ricondizionato — Grado B" became
+   * `refurbished_seller`, and an operator can correct the RULE without
+   * rewriting the observation that ran under the old one.
+   */
+  condition: OfferConditionDTO;
 
   /** The seller's own stock keeping unit — source-scoped, never a product identifier. */
   sellerSku?: string;
@@ -676,6 +695,39 @@ export function deriveOfferDelivery(input: {
     ...(input.minDays === null || input.minDays === undefined ? {} : { minDays: input.minDays }),
     ...(input.maxDays === null || input.maxDays === undefined ? {} : { maxDays: input.maxDays }),
     pickup: input.pickup,
+  };
+}
+
+/**
+ * Derive an offer's condition projection from its stored columns (#90).
+ *
+ * `group` is present EXACTLY when the key is known. That biconditional is the
+ * whole reason this is a function rather than a spread: a comparison surface
+ * bucketing offers by `condition.group` silently drops the unknown ones, which
+ * is correct, whereas defaulting them into `new` — the shape a `?? 'new'` would
+ * produce — would tell a shopper an unlabelled feed item is factory-sealed.
+ *
+ * It converts nothing and upgrades nothing: the key comes out exactly as the
+ * column holds it, and the CHECKs upstream are what guarantee an unmapped or
+ * sub-floor row holds `unknown` in the first place.
+ */
+export function deriveOfferCondition(input: {
+  condition: OfferConditionKey;
+  mappingState: ConditionMappingState;
+  sourceLabel?: string | null;
+  mappingRulesetVersion?: number | null;
+}): OfferConditionDTO {
+  const group: ConditionGroup | undefined =
+    input.condition === 'unknown' ? undefined : CONDITION_KEY_GROUP[input.condition];
+
+  return {
+    key: input.condition,
+    ...(group ? { group } : {}),
+    mappingState: input.mappingState,
+    ...(input.sourceLabel ? { sourceLabel: input.sourceLabel } : {}),
+    ...(input.mappingRulesetVersion === null || input.mappingRulesetVersion === undefined
+      ? {}
+      : { mappingRulesetVersion: input.mappingRulesetVersion }),
   };
 }
 

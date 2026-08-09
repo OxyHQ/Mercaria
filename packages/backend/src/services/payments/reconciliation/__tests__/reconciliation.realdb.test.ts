@@ -327,6 +327,7 @@ async function seedOrder(
       title: 'Reconcilable',
       description: '',
       condition: 'new',
+      conditionAssertion: 'seller_declared',
     })
     .returning({ id: catalogSchema.listings.id });
   const [variant] = await insertVariants(listing.id, [
