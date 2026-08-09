@@ -138,3 +138,9 @@ export * from './retail-pricing';
 // ADR 0002 D13–D16. NOT the same thing as ProductSummary in `./product`, which
 // is a native-listing feed card projection.
 export * from './canonical-product';
+
+// The unified offer model (#57, ADR 0002 D7/D8/D18) — one seller/channel
+// offering one canonical variant on specific terms, native or external, with
+// the derivations that keep marketplace-ness, freshness, unknown delivery and
+// native checkout eligibility out of stored columns.
+export * from './offer';
