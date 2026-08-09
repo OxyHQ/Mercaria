@@ -886,6 +886,110 @@ natural-unique idempotency. What is #56's own:
   carried as DEFERRED foreign keys while this domain was built; at integration
   the gate refused the deferral and both became real RESTRICT references. Same
   mechanism #54's section records, now used twice.
+### The OFFER layer of the same graph (#57, ADR 0002 D6/D8/D18)
+
+Three more Postgres-born tables, in `offers.ts`: `offers`, `native_listing_links`,
+`offer_outboxes`. An offer is one seller/channel offering one exact canonical
+variant under specific commercial terms at a point in time — the row every
+comparison surface reads, whether the seller is a Mercaria listing or a crawled
+retailer. It inherits the closed-set-from-a-shared-types-tuple rule and the
+natural-unique idempotency the four sections above state. What is #57's own:
+
+- **The per-kind CHECK is where "an external offer cannot enter the cart"
+  lives.** `offers_kind_shape_check` forces `product_variant_id` NULL on every
+  kind but `native`, and cart and checkout operate on `product_variants` and
+  nothing else — so the issue's external rule 1 is a SHAPE rather than a rule
+  somebody enforces: there is no id a cart line could hold. Its `else false`
+  branch is load-bearing for the reason `commerce_relationships`' is: an
+  unrecognised kind is unrepresentable even with the kind CHECK dropped, so
+  widening the tuple without widening the CHECK fails the first write.
+- **There is NO stored checkout-eligibility verdict, and that is the deliberate
+  divergence from the `onboarding_state` one-verdict rule.** Payment readiness
+  is one stored verdict because its inputs are all on the row being verdicted;
+  offer buyability is a conjunction over the LIVE `listings.status`, the LIVE
+  `product_variants` stock and `provider_accounts.onboarding_state` — three
+  tables this domain does not own. A stored copy is wrong for exactly as long as
+  it takes a converger to notice, and that window is when a restricted listing
+  must not be purchasable. `deriveNativeCheckoutEligibility` is the one
+  derivation, following `merchants`' native-checkout rule and
+  `procurement-eligibility.ts` (which took the same step for the same reason).
+  A realdb case pins it: a listing is restricted, the offer row is left ACTIVE
+  and stale, and the read still refuses.
+- **Two GENERATED keys, because a plain multi-column unique would NOT work.**
+  Postgres treats NULLs as distinct and both uniqueness rules span columns that
+  are legitimately NULL (a feed with no account concept, an offer on no
+  particular storefront), so `source_key` and `commercial_key` collapse their
+  columns with `coalesce` — the `commerce_relationships.endpoint_key` device.
+  ADR 0002 D18 suggests paired partial indexes for the second one; the generated
+  key is the same constraint with one index instead of two and is noted here as
+  an implementation choice, not a semantic change.
+- **The idempotent source key is NOT a second representation of
+  `source_record_id`.** That column names ONE observation; `provider` +
+  `source_account_ref` + `external_offer_id` name the thing observed ACROSS
+  observations, which is what an upsert must key on before it has minted a
+  record for the new one. The `order_fee_snapshots.schedule_key` reasoning, one
+  domain over.
+- **Unknown is stored as ABSENCE and never as zero.** The delivery cost is a
+  nullable money pair with a paired CHECK, `available_quantity` is a nullable
+  integer, and `pickup_state` is a three-member set rather than a nullable
+  boolean — so "the source said nothing", "the source said no" and "the source
+  said free" are three storable facts. A free-over threshold with no cost is
+  CHECK-refused, because it states what you would stop paying without ever
+  saying what you pay.
+- **Retirement is a status transition and nothing in the domain issues a
+  DELETE.** The row, its `source_record_id` and the append-only `source_records`
+  chain behind it are the historical reference #57 acceptance 5 protects. There
+  is deliberately **no price-history table**: ADR 0002 D18 assigns price HISTORY
+  to #78 and this table to current state, and the observed history already
+  exists — `source_records` mints a NEW row whenever content changes, so the
+  sequence of records IS the price history and expiry touches none of it.
+- **The currency columns carry a SHAPE check, not the tuple CHECK** — ADR 0002
+  D18's documented exception, the third member of the class
+  `connections.shop_currency` and `storefronts.currency` define. This is why
+  `money()`/`optionalMoney()` are NOT used here: those helpers type the column
+  from the presentment tuple by construction. The DTO follows: `OfferMoney`
+  rather than `Money`, so the type does not assert what the column does not.
+- **No canonical PRODUCT id, no native STORE id, no `catalog_sources` id.** Each
+  would be a second representation of a fact one join away — the product through
+  `canonical_variants.product_id` (a semi-join, and a variant merge cannot put it
+  out of step), the store through `listings.store_id`, the adapter through
+  `source_records.source_id`. `listing_id` IS denormalized beside
+  `product_variant_id`, the `inventory_levels.listing_id` precedent, because
+  "every offer of this listing" is the query the converger, the moderation path
+  and the operator trace all run.
+- **`offer_outboxes` is ONE ROW PER LISTING, which makes it a convergence queue
+  rather than a delivery queue.** The moderation and payment outboxes are one row
+  per EVENT with a deterministic id, because each delivers a distinct thing
+  exactly once; this one delivers a FIXED POINT, so five writes in a second owe
+  one convergence. That inverts two of their rules deliberately: the enqueue is
+  `ON CONFLICT DO UPDATE` (a `DO NOTHING` would drop the four requests that
+  arrived while one was pending, including the one that mattered), and there is
+  no `expires_at` and therefore no `db/expiryTargets.ts` entry — the table is one
+  row per listing and CASCADEs with it, so it cannot grow unboundedly, and a
+  retention sweep here would delete pending convergence work on a clock.
+- **The `requested_revision`/`claimed_revision` pair closes the mid-run race.** A
+  claim copies the first into the second and completion compares them, so a
+  request that lands during a convergence leaves the row `pending` instead of
+  being swallowed by the completion that follows it. The enqueue must NOT write a
+  flat `'pending'` over a `processing` row — that releases a live lease from
+  outside the worker, and the completion then fails its owner check and discards
+  its own outcome. Measured: the realdb case fails on the flat form.
+- **`native_listing_links.method` has NO `name_match` member**, the
+  `native_store_links` / `commerce_relationships` device: "attached because the
+  titles looked alike" has no value to be stored as, so a matcher must record
+  `matcher` with a rule id and a confidence #59 can review. `confidence` is
+  CHECK-restricted to `matcher` rows for the same reason it is restricted to
+  ingestion rows on a relationship.
+- **`offers.stale_at` is ONE deadline.** The issue asks for an expiry timestamp
+  and ADR 0002 D18 asks for `stale_at`; they are the same fact and a second
+  column would need a rule for which one wins. It is a VALIDITY deadline, not a
+  retention one, so this domain registers NOTHING in `db/expiryTargets.ts` — the
+  retail-pricing rule. The lapse sweep excludes NATIVE offers, because their
+  deadline measures how long ago the converger ran and sweeping it would delist a
+  healthy catalogue whenever the dispatcher stopped.
+- **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed,
+  so none of them earns an entry in the register below.
+
 ### Merchant claiming (#83) has no source model either
 
 Five more Postgres-born tables, in `merchantClaims.ts`: `merchant_claims`,

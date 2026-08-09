@@ -70,6 +70,12 @@ export * from './procurement';
 // Retail pricing (#120, ADR 0004 D3) follows `procurement`: a cost quote names
 // the supplier, account and agreement it was sourced under by foreign key.
 export * from './retailPricing';
-// Referrals (#142, ADR 0005) come last: their tables reference nothing outside
-// their own domain, and their subject/actor references are deliberately opaque.
+// Referrals (#142, ADR 0005): their tables reference nothing outside their own
+// domain, and their subject/actor references are deliberately opaque.
 export * from './referrals';
+// Offers (#57, ADR 0002 D18) come last of the graph layers because they sit
+// downstream of ALL of them: an offer references a canonical variant (#56), a
+// merchant and a storefront (#54), a source record (#53), and — for the native
+// projection — the pre-existing `listings` and `product_variants` (`catalog`,
+// the first exports above).
+export * from './offers';
