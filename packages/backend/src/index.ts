@@ -133,6 +133,16 @@ connectPostgres()
           log.general.error({ err }, 'Payment outbox dispatcher import failed'),
         );
 
+      // Converge native offers (#57). The third dispatcher, on the same lease
+      // shape as the two above and gated the same way — a catalogue write keeps
+      // enqueuing while `OFFER_MATERIALIZATION_ENABLED` is off, so switching it
+      // on drains the backlog rather than stranding it. Unlike the two above,
+      // its jobs are a FIXED POINT rather than a delivery: one row per listing,
+      // and running it twice changes nothing the second time.
+      import('./services/offers/offer-outbox-dispatcher.js')
+        .then(({ startOfferOutboxDispatcher }) => startOfferOutboxDispatcher())
+        .catch((err) => log.general.error({ err }, 'Offer outbox dispatcher import failed'));
+
       // Retry stored Stripe events whose processing failed, and pick up any
       // whose task died between storing and interpreting them. Also on EVERY
       // task, same lease shape. The webhook ingress processes inline after

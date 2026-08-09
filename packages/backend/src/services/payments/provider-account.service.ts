@@ -34,6 +34,7 @@ import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import {
   findProviderAccountByOwner,
+  findProviderAccountsByOwners,
   type ProviderAccountRow,
 } from '../../db/payments/providerAccountRepository.js';
 import { conflict } from '../../lib/errors/error-codes.js';
@@ -99,6 +100,53 @@ export async function isSellerPaymentReady(sellerKey: string): Promise<boolean> 
   if (!owner) return false;
   const account = await findSellerAccount(owner);
   return account?.onboardingState === 'ready';
+}
+
+/**
+ * The same verdict as {@link isSellerPaymentReady}, for MANY sellers in one
+ * query — the offer domain's read (#57 native rule 2).
+ *
+ * A comparison page can name twenty sellers, and asking one at a time would make
+ * a read of twenty offers twenty-one round trips. The verdict is identical:
+ * ADR 0001 D9's one stored `onboarding_state`, never re-derived here.
+ *
+ * With `STRIPE_ENABLED` off it returns before touching Postgres, exactly as
+ * {@link assertSellerGroupsPaymentReady} does and for the same reason: there is
+ * no rail to be ready for, so no account can exist and the question is not
+ * merely unanswered but meaningless. Every key maps to `false`, which is the
+ * fail-closed direction for a checkout affordance — and native checkout on that
+ * deployment goes through the dev-only `mockPay` seam anyway, which does not
+ * consult this.
+ *
+ * Keys this function cannot parse, and sellers with no account, are absent from
+ * the map rather than present as `false`. The caller's `?? false` is the same
+ * default either way, and an absent entry says "no account" while a stored
+ * `false` would claim a verdict nobody made.
+ */
+export async function readSellerPaymentReadiness(
+  sellerKeys: readonly string[],
+): Promise<Map<string, boolean>> {
+  const readiness = new Map<string, boolean>();
+  if (!config.payments.stripe.enabled || sellerKeys.length === 0) return readiness;
+
+  const owners = sellerKeys.flatMap((sellerKey) => {
+    const owner = parseSellerKey(sellerKey);
+    return owner ? [{ sellerKey, owner }] : [];
+  });
+  if (owners.length === 0) return readiness;
+
+  const rows = await findProviderAccountsByOwners(
+    getDb(),
+    NATIVE_RAIL,
+    owners.map(({ owner }) => owner),
+  );
+  const byKey = new Map(rows.map((row) => [sellerKeyFor(row), row.onboardingState]));
+
+  for (const { sellerKey } of owners) {
+    const state = byKey.get(sellerKey);
+    if (state !== undefined) readiness.set(sellerKey, state === 'ready');
+  }
+  return readiness;
 }
 
 /**

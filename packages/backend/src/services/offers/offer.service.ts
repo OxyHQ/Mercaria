@@ -1,0 +1,376 @@
+/**
+ * The offer READ surface, and the external-observation write (#57).
+ *
+ * ## The read gathers LIVE facts, once per page
+ *
+ * `hydrateOffers` collects the listing ids, variant ids and seller keys the
+ * page's native offers refer to, reads each set in ONE query, and hands them to
+ * the pure projection. That is the whole of "a moderation or inventory change
+ * cannot leave a buyable stale offer" (issue acceptance 6): the buyability
+ * verdict is computed from `listings.status` and `product_variants` as they are
+ * at the moment of the read, so the outbox's latency can make an offer's PRICE
+ * stale and can never make a restricted listing purchasable.
+ *
+ * ## The write never touches canonical facts
+ *
+ * `recordExternalOffer` writes an offer row and nothing else. It cannot mint,
+ * rename or re-point a canonical product or variant — it takes a
+ * `canonicalVariantId` it was GIVEN and stores it. That is issue external rule
+ * 5 ("a source can update merchant title and price without overwriting canonical
+ * product facts") made structural: there is no code path from here into the
+ * canonical write services, and `offer-isolation.test.ts` fails the build if one
+ * appears.
+ */
+
+import type {
+  Offer,
+  OfferAvailability,
+  OfferCondition,
+  OfferKind,
+  OfferPage,
+} from '@mercaria/shared-types';
+import { eq, inArray } from 'drizzle-orm';
+import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
+import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
+import { listings, productVariants } from '../../db/schema/catalog.js';
+import {
+  findOfferWithChannel,
+  listOffersForComparison,
+  retireOffersMissingFromSource,
+  upsertExternalOffer,
+  type InsertOfferInput,
+  type OfferWithChannel,
+} from '../../db/offers/offerRepository.js';
+import { validationError } from '../../lib/errors/error-codes.js';
+import { readSellerPaymentReadiness } from '../payments/provider-account.service.js';
+import { projectOffer, type OfferProjectionContext } from './offer-projection.js';
+
+/** The seller key shape `checkout.service` and the payments seam already share. */
+function sellerKeyForListing(row: { ownerType: string; storeId: string | null; oxyUserId: string | null }): string | null {
+  if (row.ownerType === 'store' && row.storeId) return `store:${row.storeId}`;
+  if (row.ownerType === 'user' && row.oxyUserId) return `user:${row.oxyUserId}`;
+  return null;
+}
+
+/**
+ * Read the live facts a page of offers needs, in four queries regardless of how
+ * many offers there are.
+ *
+ * Four, and no fewer: the listing statuses, the variant stock, the sellers'
+ * readiness and the sources' display rights are owned by four different domains
+ * and there is no join that reaches all of them. Doing it per row instead would
+ * make a twenty-offer comparison eighty round trips.
+ */
+export async function buildOfferProjectionContext(
+  rows: readonly OfferWithChannel[],
+  now: Date = new Date(),
+  db: DatabaseOrTransaction = getDb(),
+): Promise<OfferProjectionContext> {
+  const listingIds = [...new Set(rows.flatMap((row) => (row.offer.listingId ? [row.offer.listingId] : [])))];
+  const variantIds = [
+    ...new Set(rows.flatMap((row) => (row.offer.productVariantId ? [row.offer.productVariantId] : []))),
+  ];
+  const sourceRecordIds = [
+    ...new Set(rows.flatMap((row) => (row.offer.sourceRecordId ? [row.offer.sourceRecordId] : []))),
+  ];
+
+  const listingStatuses = new Map<string, string>();
+  const listingSellerKeys = new Map<string, string>();
+  const variantStock = new Map<string, { inventoryTracked: boolean; inventoryAvailable: number }>();
+  const sourceRights = new Map<string, { mayDisplay: boolean; attributionRequired: boolean }>();
+
+  if (listingIds.length > 0) {
+    const listingRows = await db
+      .select({
+        id: listings.id,
+        status: listings.status,
+        ownerType: listings.ownerType,
+        storeId: listings.storeId,
+        oxyUserId: listings.oxyUserId,
+      })
+      .from(listings)
+      .where(inArray(listings.id, listingIds));
+    for (const row of listingRows) {
+      listingStatuses.set(row.id, row.status);
+      const sellerKey = sellerKeyForListing(row);
+      if (sellerKey) listingSellerKeys.set(row.id, sellerKey);
+    }
+  }
+
+  if (variantIds.length > 0) {
+    const variantRows = await db
+      .select({
+        id: productVariants.id,
+        inventoryTracked: productVariants.inventoryTracked,
+        inventoryAvailable: productVariants.inventoryAvailable,
+      })
+      .from(productVariants)
+      .where(inArray(productVariants.id, variantIds));
+    for (const row of variantRows) {
+      variantStock.set(row.id, {
+        inventoryTracked: row.inventoryTracked,
+        inventoryAvailable: row.inventoryAvailable,
+      });
+    }
+  }
+
+  if (sourceRecordIds.length > 0) {
+    const rightsRows = await db
+      .select({
+        recordId: sourceRecords.id,
+        mayDisplay: catalogSources.mayDisplay,
+        attributionRequired: catalogSources.attributionRequired,
+      })
+      .from(sourceRecords)
+      .innerJoin(catalogSources, eq(catalogSources.id, sourceRecords.sourceId))
+      .where(inArray(sourceRecords.id, sourceRecordIds));
+    for (const row of rightsRows) {
+      sourceRights.set(row.recordId, {
+        mayDisplay: row.mayDisplay,
+        attributionRequired: row.attributionRequired,
+      });
+    }
+  }
+
+  // The payments seam, and the ONLY thing this domain reads from that domain.
+  const sellerReady = await readSellerPaymentReadiness([...new Set(listingSellerKeys.values())]);
+
+  return { listingStatuses, listingSellerKeys, variantStock, sourceRights, sellerReady, now };
+}
+
+/** How a caller asks for offers. Exactly one scope, validated before any query. */
+export interface ListOffersInput {
+  canonicalVariantId?: string;
+  canonicalProductId?: string;
+  country?: string;
+  kinds?: readonly OfferKind[];
+  availability?: readonly OfferAvailability[];
+  conditions?: readonly OfferCondition[];
+  /** Default TRUE: a lapsed offer is excluded from current results (external rule 3). */
+  includeStale?: boolean;
+  limit: number;
+  cursor?: string;
+  now?: Date;
+}
+
+/**
+ * Encode/decode the keyset cursor.
+ *
+ * `price:id`, with an empty price meaning "unpriced" — the sentinel the
+ * repository substitutes. Opaque to the client and deliberately not base64:
+ * an encoding that only LOOKS opaque invites somebody to decode and hand-craft
+ * one, and the repository validates the parts anyway.
+ */
+function encodeCursor(offer: { priceAmount: number | null; id: string }): string {
+  return `${offer.priceAmount ?? ''}:${offer.id}`;
+}
+
+function decodeCursor(cursor: string): { priceAmount: number | null; id: string } | undefined {
+  const separator = cursor.indexOf(':');
+  if (separator < 0) return undefined;
+  const rawPrice = cursor.slice(0, separator);
+  const id = cursor.slice(separator + 1);
+  if (id === '') return undefined;
+  if (rawPrice === '') return { priceAmount: null, id };
+  const priceAmount = Number(rawPrice);
+  if (!Number.isInteger(priceAmount)) return undefined;
+  return { priceAmount, id };
+}
+
+/**
+ * The comparison read: every current offer on one canonical variant, or on every
+ * variant of one canonical product, cheapest first.
+ *
+ * One page is fetched with `limit + 1` so "is there more" is answered without a
+ * second count query — the extra row is dropped and its existence IS the cursor.
+ */
+export async function listOffers(input: ListOffersInput): Promise<OfferPage> {
+  if ((input.canonicalVariantId ? 1 : 0) + (input.canonicalProductId ? 1 : 0) !== 1) {
+    throw validationError('Provide exactly one of canonicalVariantId or canonicalProductId');
+  }
+
+  const now = input.now ?? new Date();
+  const db = getDb();
+  const after = input.cursor ? decodeCursor(input.cursor) : undefined;
+  if (input.cursor && !after) throw validationError('Malformed cursor');
+
+  const rows = await listOffersForComparison(db, {
+    ...(input.canonicalVariantId ? { canonicalVariantId: input.canonicalVariantId } : {}),
+    ...(input.canonicalProductId ? { canonicalProductId: input.canonicalProductId } : {}),
+    ...(input.country ? { country: input.country } : {}),
+    ...(input.kinds ? { kinds: input.kinds } : {}),
+    ...(input.availability ? { availability: input.availability } : {}),
+    ...(input.conditions ? { conditions: input.conditions } : {}),
+    excludeStale: input.includeStale !== true,
+    limit: input.limit + 1,
+    ...(after ? { after } : {}),
+    now,
+  });
+
+  const page = rows.slice(0, input.limit);
+  const context = await buildOfferProjectionContext(page, now, db);
+  const offers = page.map((row) =>
+    projectOffer(row.offer, row.storefrontOperatorMerchantId, context),
+  );
+
+  const last = page[page.length - 1];
+  return {
+    offers,
+    ...(rows.length > input.limit && last
+      ? { nextCursor: encodeCursor({ priceAmount: last.offer.priceAmount, id: last.offer.id }) }
+      : {}),
+  };
+}
+
+/** One offer, fully projected — the operator trace's read and a deep link's. */
+export async function getOffer(id: string, now: Date = new Date()): Promise<Offer | undefined> {
+  const db = getDb();
+  const row = await findOfferWithChannel(db, id);
+  if (!row) return undefined;
+  const context = await buildOfferProjectionContext([row], now, db);
+  return projectOffer(row.offer, row.storefrontOperatorMerchantId, context);
+}
+
+/**
+ * One external observation, as an ingestion adapter supplies it.
+ *
+ * `canonicalVariantId` arrives from the caller and is never resolved here: the
+ * MATCHING pipeline is #58's, and a matcher living in the write path would make
+ * every ingestion run able to re-point a canonical attachment as a side effect
+ * of a price change. The seam is this field.
+ */
+export interface ExternalOfferObservation {
+  kind: Exclude<OfferKind, 'native'>;
+  canonicalVariantId: string;
+  merchantId: string;
+  storefrontId?: string;
+  sourceRecordId: string;
+  provider: string;
+  sourceAccountRef?: string;
+  externalOfferId: string;
+  price?: { amount: number; currency: string };
+  compareAtPrice?: { amount: number; currency: string };
+  availability?: OfferAvailability;
+  availableQuantity?: number;
+  condition?: OfferCondition;
+  sellerSku?: string;
+  merchantTitle?: string;
+  merchantVariantText?: string;
+  destinationUrl?: string;
+  affiliate?: {
+    network: string;
+    programRef?: string;
+    publisherRef?: string;
+    trackingTemplate?: string;
+  };
+  country?: string;
+  region?: string;
+  language?: string;
+  delivery?: {
+    cost?: { amount: number; currency: string };
+    freeOver?: { amount: number; currency: string };
+    minDays?: number;
+    maxDays?: number;
+  };
+  returnPolicy?: { url?: string; windowDays?: number; policyRef?: string };
+  observedAt: Date;
+  /** The source's own TTL for these terms — the issue's expiry, the ADR's `stale_at`. */
+  staleAt: Date;
+  confidence?: number;
+}
+
+/**
+ * Record one external observation, converging on its active source mapping.
+ *
+ * The quality signals are DERIVED from what the observation actually carried
+ * rather than declared by the adapter: an adapter that forgot to flag a missing
+ * price would otherwise produce an offer that reads as complete, and the whole
+ * point of the signals is to tell a ranking what it does not know.
+ */
+export async function recordExternalOffer(
+  observation: ExternalOfferObservation,
+  now: Date = new Date(),
+  db: DatabaseOrTransaction = getDb(),
+): Promise<string> {
+  const qualitySignals: InsertOfferInput['qualitySignals'] = [];
+  if (!observation.price) qualitySignals.push('missing_price');
+  if (!observation.availability || observation.availability === 'unknown') {
+    qualitySignals.push('missing_availability');
+  }
+  if (!observation.condition || observation.condition === 'unknown') {
+    qualitySignals.push('unmapped_condition');
+  }
+  if (!observation.delivery?.cost) qualitySignals.push('unknown_delivery');
+  if (observation.confidence !== undefined) qualitySignals.push('heuristic_match');
+
+  const row = await upsertExternalOffer(db, {
+    kind: observation.kind,
+    status: 'active',
+    canonicalVariantId: observation.canonicalVariantId,
+    merchantId: observation.merchantId,
+    storefrontId: observation.storefrontId ?? null,
+    sourceRecordId: observation.sourceRecordId,
+    provider: observation.provider,
+    sourceAccountRef: observation.sourceAccountRef ?? null,
+    externalOfferId: observation.externalOfferId,
+    priceAmount: observation.price?.amount ?? null,
+    priceCurrency: observation.price?.currency ?? null,
+    compareAtPriceAmount: observation.compareAtPrice?.amount ?? null,
+    compareAtPriceCurrency: observation.compareAtPrice?.currency ?? null,
+    availability: observation.availability ?? 'unknown',
+    availableQuantity: observation.availableQuantity ?? null,
+    condition: observation.condition ?? 'unknown',
+    sellerSku: observation.sellerSku ?? null,
+    merchantTitle: observation.merchantTitle ?? null,
+    merchantVariantText: observation.merchantVariantText ?? null,
+    destinationUrl: observation.destinationUrl ?? null,
+    affiliateNetwork: observation.affiliate?.network ?? null,
+    affiliateProgramRef: observation.affiliate?.programRef ?? null,
+    affiliatePublisherRef: observation.affiliate?.publisherRef ?? null,
+    affiliateTrackingTemplate: observation.affiliate?.trackingTemplate ?? null,
+    country: observation.country ?? null,
+    region: observation.region ?? null,
+    language: observation.language ?? null,
+    deliveryCostAmount: observation.delivery?.cost?.amount ?? null,
+    deliveryCostCurrency: observation.delivery?.cost?.currency ?? null,
+    deliveryFreeOverAmount: observation.delivery?.freeOver?.amount ?? null,
+    deliveryFreeOverCurrency: observation.delivery?.freeOver?.currency ?? null,
+    deliveryMinDays: observation.delivery?.minDays ?? null,
+    deliveryMaxDays: observation.delivery?.maxDays ?? null,
+    returnPolicyUrl: observation.returnPolicy?.url ?? null,
+    returnPolicyWindowDays: observation.returnPolicy?.windowDays ?? null,
+    returnPolicyRef: observation.returnPolicy?.policyRef ?? null,
+    observedAt: observation.observedAt,
+    firstSeenAt: observation.observedAt,
+    lastSeenAt: now,
+    lastConfirmedAt: now,
+    staleAt: observation.staleAt,
+    sourceConfidence: observation.confidence ?? null,
+    qualitySignals,
+  });
+
+  return row.id;
+}
+
+/**
+ * Close out a source refresh: everything that source no longer publishes
+ * retires (issue external rule 4).
+ *
+ * `source_disappeared`, never a DELETE — the offer row, its `source_record_id`
+ * and the append-only `source_records` chain behind it survive, which is what
+ * keeps the observed price history reachable after the offer stops being
+ * current (acceptance 5).
+ */
+export async function closeSourceRefresh(
+  scope: { provider: string; sourceAccountRef?: string },
+  observedExternalOfferIds: readonly string[],
+  now: Date = new Date(),
+  db: DatabaseOrTransaction = getDb(),
+): Promise<number> {
+  return retireOffersMissingFromSource(
+    db,
+    { provider: scope.provider, sourceAccountRef: scope.sourceAccountRef ?? null },
+    observedExternalOfferIds,
+    now,
+  );
+}

@@ -587,4 +587,23 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'aggregate’s own event key space, the payment_provider_events.provider_event_id shape. ' +
       'Half of the one-source-one-conversion unique key and the input to the idempotency key.',
   },
+
+  // ── Offers (#57, ADR 0002 D18) ────────────────────────────────────────────
+  {
+    column: 'offers.external_offer_id',
+    reason:
+      'The SOURCE platform’s own id for this offer — a foreign system’s key space, and a ' +
+      'component of the idempotent source mapping (issue #57 index 1). It is deliberately ' +
+      'NOT a reference to source_records.external_id: that names one OBSERVATION, while this ' +
+      'names the thing observed across observations, which is what an upsert has to key on ' +
+      'before it has minted a record for the new one.',
+  },
+  {
+    column: 'native_listing_links.decided_by_oxy_user_id',
+    reason: OXY_ACCOUNT,
+  },
+  {
+    column: 'native_listing_links.revoked_by_oxy_user_id',
+    reason: OXY_ACCOUNT,
+  },
 ];
