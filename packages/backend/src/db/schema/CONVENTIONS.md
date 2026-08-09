@@ -695,6 +695,86 @@ whose shape looks arbitrary is answerable here:
   preference columns** — contact belongs to `guest_checkouts` (#105+), and a
   guest's presentment currency rides the request (ADR 0003 D8).
 
+### The procurement domain has NO source model either (#118)
+
+Eleven more tables born in Postgres, in `schema/procurement.ts`: `suppliers`,
+`supplier_contacts`, `supplier_events`, `supplier_accounts`,
+`supplier_agreements`, `supplier_agreement_evidence`, `procurement_offers`,
+`purchase_orders`, `purchase_order_lines`, `purchase_order_transitions`,
+`purchase_order_shipments`. The private supply side of Mercaria retail (ADR
+0004): nothing here is a merchant, a brand or a payment counterparty, and the
+domain never imports the payment domain (pinned by
+`services/procurement/__tests__/role-separation.test.ts`).
+
+The decisions that are THIS domain's, stated so a column that looks arbitrary
+is answerable:
+
+- **One purchase order, one currency, structurally.** `purchase_orders` carries
+  ONE `currency` column and five bare `bigint` amount columns
+  (`items/shipping/tax/duty/total`), so a second currency per PO is
+  unrepresentable — the no-`direction`-column reasoning. There is deliberately
+  NO CHECK that the amounts sum: the total is the SUPPLIER's own arithmetic
+  from their quote, rounding included, and #128 reconciles it against their
+  invoice; a constraint would reject the record of what the supplier actually
+  said. The lines carry amounts with NO currency column of their own — the
+  parent's one currency denominates them.
+- **No third sequence.** The commerce gate pins exactly two
+  (`order_number_seq`, `rma_number_seq`); a purchase order's external reference
+  is its own id (ADR 0004 D6.6), so no `po_number` exists to mint.
+- **Immutability is triggers, not review** (`0014`, the ledger-trigger
+  precedent): `purchase_order_lines` refuse UPDATE and DELETE from birth (the
+  line set IS the quote snapshot); `purchase_orders` identity columns
+  (supplier, account, agreement, order, idempotency key, checkout group) never
+  change — which is how a supplier MERGE is structurally unable to rewrite a
+  historical PO — and the money, fx and destination columns freeze the moment
+  the row leaves `draft`, which is what "source refresh cannot silently change
+  a submitted order's cost snapshot" means mechanically.
+- **`credential_reference` is a secret-store PATH, never a secret.** A CHECK
+  pins the path shape (leading `/`, path charset, ≤512), so a pasted API key
+  fails the WRITE; the column is also in `PROTECTED_COLUMNS`, so only the
+  explicit opt-in (`readCredentialReference`) can read it back. ADR 0004 D6.5
+  names the store: SSM under `/oxy/mercaria/suppliers/*`.
+- **`supplier_accounts.provider` is an OPEN, shape-checked set** — unlike
+  `PAYMENT_PROVIDER_IDS`. Supplier platforms arrive per supplier (#125), and
+  gating the durable RECORD of an account on Mercaria having shipped its
+  adapter would invert "gate the loop, never the record". The CHECK pins a
+  machine-slug shape; the #124 adapter registry closes the set operationally.
+- **The organization linkage is a real RESTRICT foreign key**
+  (`suppliers.organization_id` → `organizations.id`): #53 landed first, so the
+  parallel-development deferral resolved into the constraint at integration —
+  the same mechanism #54's section records. The offer-side canonical mapping
+  (`procurement_offers.canonical_product_id` / `canonical_variant_id`) still
+  waits on #56 and sits in `DEFERRED_FOREIGN_KEYS`, where the gate will force
+  it into a real `.references()` the moment those tables land. On
+  `purchase_order_lines` the same columns are SNAPSHOTS and permanently
+  unconstrained (the `order_items.listing_id` rule).
+- **An agreement's empty scope array means NONE** — deliberately the OPPOSITE
+  of ADR 0002's `commerce_relationships.territories` (`'{}'` = worldwide). A
+  relationship is a positive fact scoped down; an agreement is a GRANT, and a
+  grant that names no destination grants none. Fail closed
+  (`services/procurement/agreement-scope.ts`).
+- **A supplier merge repoints accounts and offers ONLY.** Agreements stay on
+  the tombstone (a signed contract names the record that signed it, and
+  `UNIQUE(supplier_id, version)` would collide the version sequences);
+  `findActiveAgreementsForSupplier` resolves them forward through
+  `merged_into_id`. Purchase orders are never repointed — the trigger refuses.
+- **Eligibility is DERIVED, never stored** (#118 offer item 15). No `eligible`
+  column exists anywhere;
+  `services/procurement/procurement-eligibility.ts` recomputes the verdict
+  from supplier + account + agreement + freshness facts each time — the
+  `onboarding_state` one-verdict rule, taken one step further because the
+  facts live on four tables.
+- **The PO destination reuses `addressColumns`, and the SHAPE is the
+  redaction**: recipient, address, carrier phone — no email column, no buyer
+  identity, no order-history reference exists to leak (ADR 0004 D2.7/D10).
+- **Append-only tables say so by their columns**: `supplier_events`,
+  `purchase_order_transitions` (both `at`, no `updated_at`) and
+  `supplier_agreement_evidence` (no `updated_at`) follow the
+  `order_status_history` contract.
+- **Zero `jsonb`.** Every shape in this domain is Mercaria's own and closed;
+  supplier payloads are redacted to normalized reason codes plus a bounded
+  `supplier_note` at the call site, never stored wholesale.
+
 ### Counters became sequences (`drizzle/0001_counter_sequences.sql`)
 
 `order_number_seq` and `rma_number_seq` replace the `Counter` collection's
@@ -814,6 +894,10 @@ add a row when a gate lands, and do not list one that does not run yet.
 | The sales report buckets across a month boundary and sums only the store's shop currency | `src/db/__tests__/commerce.realdb.test.ts` | yes |
 | Both sequences format (`MRC-%06d` / `RMA-%06d`) and ascend independently, and no third one exists | `src/db/__tests__/commerce.realdb.test.ts`, `src/services/__tests__/draft-order-complete.realdb.test.ts` | yes |
 | The generated `search_vector` stems and case-folds TAGS, and keeps its GIN index across the column rewrite | `src/db/__tests__/catalog.realdb.test.ts` | yes |
+| EXACTLY ONE purchase order survives two concurrent claims on one idempotency key, with one line set and one birth event | `src/db/procurement/__tests__/procurement.realdb.test.ts` | yes |
+| The procurement triggers hold: PO lines refuse UPDATE/DELETE, identity columns are immutable, money/destination freeze after `draft` — and both triggers EXIST in the catalogue (vacuity guard) | `src/db/procurement/__tests__/procurement.realdb.test.ts` | yes |
+| A pasted secret fails `credential_reference`'s path CHECK; one platform account maps to one Mercaria row; `(supplier, version)` is unique; an incomplete approval is refused by CHECK | `src/db/procurement/__tests__/procurement.realdb.test.ts` | yes |
+| The payment and procurement domains import NOTHING from each other, and each keeps its own order-linkage seam | `src/services/procurement/__tests__/role-separation.test.ts` | no |
 
 ### The three concurrency shapes a mocked test cannot see
 

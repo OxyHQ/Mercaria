@@ -93,4 +93,24 @@ export const PROTECTED_COLUMNS = {
 
   /** A contact address a reporter typed in, on a table an admin surface reads whole. */
   feedback: ['email'],
+
+  /**
+   * Operator working notes on a B2B counterparty — risk assessments,
+   * negotiation detail, evidence pointers. Explicitly "hidden from public
+   * DTOs" by #118, and the kind of commercially sensitive text a whole-row
+   * read would ship first.
+   */
+  suppliers: ['internalNotes'],
+
+  /** A supplier-side person's contact details — the `customers` precedent exactly. */
+  supplier_contacts: ['email', 'phone'],
+
+  /**
+   * The secret-store PATH to a supplier account's credentials (ADR 0004 D6.5).
+   * Not the secret itself — the CHECK on the column makes a pasted key
+   * unstorable — but the pointer names the target of an attack and nothing
+   * outside the adapter's credential resolver ever needs it. Reading it back
+   * is an explicit, greppable opt-in.
+   */
+  supplier_accounts: ['credentialReference'],
 } as const satisfies ProtectedColumnRegistry;

@@ -46,3 +46,6 @@ export * from './moderation';
 export * from './provenance';
 export * from './organizations';
 export * from './merchants';
+// Procurement (#118) follows `organizations`: `suppliers.organization_id`
+// references the canonical graph's organizations table.
+export * from './procurement';
