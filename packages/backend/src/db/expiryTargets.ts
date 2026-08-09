@@ -78,6 +78,7 @@ import {
   analyticsSearchQueries,
 } from './schema/analytics';
 import { guestSessions } from './schema/guests';
+import { catalogSourceRejections } from './schema/ingestion';
 import { moderationEvents, moderationOutboxes } from './schema/moderation';
 import { notifications } from './schema/notifications';
 import { paymentOutboxes, paymentProviderEvents } from './schema/payments';
@@ -154,6 +155,25 @@ const REFERRAL_TOUCH_EVIDENCE_MARGIN_SECONDS = 30 * 24 * 60 * 60;
  * rotate nothing.
  */
 const ANALYTICS_SALT_RETENTION_SECONDS = 45 * 24 * 60 * 60;
+
+/**
+ * `CATALOG_SOURCE_REJECTION_RETENTION_SECONDS` — 30 days past the deadline the
+ * writer stamps, which it sets to the rejection's own moment.
+ *
+ * #62's rejection residual is the ONE table in the ingestion domain bounded by
+ * TRAFFIC rather than by the catalogue: a provider that starts returning
+ * malformed rows writes one row per record per run, forever. Every other table
+ * there is one row per source or one per external object and must NEVER be
+ * swept — the objects and their runs are the audit history issue acceptance 6
+ * protects.
+ *
+ * Thirty days is chosen against what the rows are FOR: telling schema drift
+ * from a bad page needs the last few runs of a source, not last quarter's. The
+ * counters that survive them live on `catalog_source_runs`, which is bounded by
+ * the number of passes and is not swept, so deleting the detail never deletes
+ * the fact that records were rejected.
+ */
+const CATALOG_SOURCE_REJECTION_RETENTION_SECONDS = 30 * 24 * 60 * 60;
 
 /**
  * Every table with an expiring column, and nothing else.
@@ -309,6 +329,16 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'it, no one including Mercaria can recompute an old epoch’s pseudonym from a session ' +
       'handle, so two epochs cannot be joined even in principle (#77 data-lifecycle rule 7).',
   },
+  {
+    table: catalogSourceRejections,
+    column: catalogSourceRejections.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'One record an ingestion run refused, 30 days later (#62). The deadline is stamped at ' +
+      'write time so this registry needs no filter. It is the only #62 table with a ' +
+      'retention: configs, policies, objects and runs are bounded by the catalogue and are ' +
+      'the audit history a rights suspension must not delete.',
+  },
 ];
 
 /** Every retention, exported so the writers that stamp `expires_at` agree with the sweep. */
@@ -321,4 +351,5 @@ export const RETENTION_SECONDS = {
   guestSessionPurgeGrace: GUEST_SESSION_PURGE_GRACE_SECONDS,
   referralTouchEvidenceMargin: REFERRAL_TOUCH_EVIDENCE_MARGIN_SECONDS,
   analyticsSalt: ANALYTICS_SALT_RETENTION_SECONDS,
+  catalogSourceRejection: CATALOG_SOURCE_REJECTION_RETENTION_SECONDS,
 } as const;

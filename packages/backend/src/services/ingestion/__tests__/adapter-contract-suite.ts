@@ -1,0 +1,1154 @@
+/**
+ * THE REUSABLE ADAPTER CONTRACT SUITE — issue #62 §"Tests", all thirteen cases.
+ *
+ * #63 (affiliate networks), #65 (merchant feeds) and #66 (marketplace APIs) each
+ * call {@link describeCatalogSourceAdapterContract} with a harness that
+ * materialises a SCENARIO in their own transport, and get every case below for
+ * free. That is what "the framework supports #63, #65 and #66 without schema
+ * forks" (issue acceptance 7) means operationally: the same thirteen assertions,
+ * against the same tables, for every provider Mercaria ever adds.
+ *
+ * ## The scenario is stated in FRAMEWORK terms, not transport terms
+ *
+ * A harness is handed "two pages, the second failing with a rate limit" and
+ * decides how its own provider expresses that — an in-memory list for the
+ * fixture, a stubbed HTTP server for a real network. If the scenario were HTTP
+ * fixtures, the suite would only ever fit adapters that speak HTTP.
+ *
+ * ## This file is NOT named `*.test.ts`, deliberately
+ *
+ * vitest collects `src/**\/*.test.ts`, and a suite that ran itself with no
+ * adapter would be a file full of cases nobody could interpret.
+ * `adapter-contract.test.ts` is the one that runs it, against the fixture
+ * adapter; a provider package adds its own one-line runner.
+ *
+ * ## It runs against a REAL Postgres server
+ *
+ * Seven of the thirteen cases are properties of a constraint, a partial unique,
+ * a trigger or an upsert predicate, and none of those exists under a mock — a
+ * mocked `insert` accepts a statement the server rejects outright. Cases 3, 4,
+ * 7, 9, 10, 11 and 12 would every one of them pass green and ship broken.
+ */
+
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { uuidv7 } from '@oxyhq/db';
+import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
+import { insertMatchPolicyVersion } from '../../../db/matching/matchPolicyRepository.js';
+import { matchDecisions, matchPolicyVersions, matchQueue } from '../../../db/schema/matching.js';
+import {
+  canonicalProducts,
+  canonicalProductSourceLinks,
+  canonicalVariants,
+  canonicalVariantSourceLinks,
+  productIdentifiers,
+} from '../../../db/schema/canonicalCatalog.js';
+import { merchants } from '../../../db/schema/merchants.js';
+import { offers } from '../../../db/schema/offers.js';
+import { catalogSources, sourceRecords } from '../../../db/schema/provenance.js';
+import {
+  catalogSourceConfigs,
+  catalogSourceObjects,
+  catalogSourcePolicies,
+  catalogSourceRejections,
+  catalogSourceRuns,
+} from '../../../db/schema/ingestion.js';
+import { openSourceRun } from '../../../db/ingestion/catalogSourceRunRepository.js';
+import { runIngestionPage } from '../ingest.service.js';
+import {
+  registerCatalogSourceAdapter,
+  unregisterCatalogSourceAdapter,
+} from '../registry.js';
+import {
+  changeIngestionSourceStatus,
+  configureIngestionSource,
+  publishIngestionSourcePolicy,
+} from '../source.service.js';
+import type { AdapterRecord, CatalogSourceAdapter, CatalogSourceFetchError } from '../adapter.js';
+
+/** One page of a scenario, in framework terms. */
+export interface ContractPage {
+  readonly records: readonly AdapterRecord[];
+  /** Fail this page instead of answering it. */
+  readonly failWith?: CatalogSourceFetchError;
+  readonly rateLimitHits?: number;
+}
+
+/**
+ * A page, or just its records.
+ *
+ * Most cases care about records and nothing else, and a suite that made every
+ * one of them write `{ records: [...] }` would bury the two cases that actually
+ * exercise a failure. {@link normalizeContractPages} is what a harness calls to
+ * get the uniform shape.
+ */
+export type ContractPageInput = ContractPage | readonly AdapterRecord[];
+
+/** What the adapter under test should be made to do. */
+export interface ContractScenario {
+  readonly pages: readonly ContractPageInput[];
+  /** Whether the last page reports a COMPLETE enumeration. Default true. */
+  readonly completeOnLastPage?: boolean;
+  /** Whether the adapter fetches by crawling. Default false. */
+  readonly extraction?: boolean;
+}
+
+/** Read every page in its uniform shape — what a harness calls first. */
+export function normalizeContractPages(scenario: ContractScenario): readonly ContractPage[] {
+  return scenario.pages.map((page) => (Array.isArray(page) ? { records: page } : (page as ContractPage)));
+}
+
+/** What a provider package supplies to get all thirteen cases. */
+export interface AdapterContractHarness {
+  /** Names the suite in test output — "the fixture feed", "the Awin adapter". */
+  readonly name: string;
+  /** A slug prefix; the suite appends a per-run suffix so registrations cannot collide. */
+  readonly providerPrefix: string;
+  /** Build an adapter that behaves as the scenario describes. */
+  createAdapter(provider: string, scenario: ContractScenario): CatalogSourceAdapter;
+  /**
+   * The directory holding the provider's own modules, for case 13.
+   *
+   * Absolute. The scan reads every `.ts` in it and asserts none reaches a
+   * repository, a canonical write service, the offer domain or a database
+   * handle — which is the strongest form of "no direct canonical writes from
+   * adapter code", because it holds for modules nobody has written yet.
+   */
+  readonly adapterSourceDir: string;
+}
+
+/**
+ * Take the GLOBALLY unique active-policy slot, waiting for it if another suite
+ * holds it.
+ *
+ * `match_policy_versions_active_key` is a partial unique on `status = 'active'`
+ * with no scoping column at all — ONE active policy in the whole database, which
+ * is correct for production and makes the slot a shared resource across the
+ * parallel test files that run on one throwaway database. Two files each
+ * needing an active policy is not a bug in either; it is contention, and the
+ * honest fix is to wait rather than to weaken the constraint or to serialise
+ * the whole suite.
+ *
+ * The budget is bounded and the failure is loud: a slot still held after it is a
+ * suite that leaked one, which is worth failing on.
+ */
+async function withActivePolicySlot<T>(create: () => Promise<T>): Promise<T> {
+  const deadline = Date.now() + 30_000;
+  for (;;) {
+    try {
+      return await create();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      const contended =
+        /match_policy_versions_active_key/u.test(message) ||
+        (error instanceof Error &&
+          /match_policy_versions_active_key/u.test(String((error as { cause?: unknown }).cause)));
+      if (!contended || Date.now() > deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+}
+
+/** A GS1 check digit, so a fixture GTIN really validates. */
+function gs1CheckDigit(payload: string): number {
+  let sum = 0;
+  for (let index = 0; index < payload.length; index += 1) {
+    const digit = Number(payload[payload.length - 1 - index]);
+    sum += index % 2 === 0 ? digit * 3 : digit;
+  }
+  return (10 - (sum % 10)) % 10;
+}
+
+function ean13(payload: string): string {
+  const twelve = payload.padStart(12, '0');
+  return `${twelve}${String(gs1CheckDigit(twelve))}`;
+}
+
+/** Anything a provider module may not reach. Case 13's detectors. */
+const FORBIDDEN_IN_ADAPTER = [
+  { name: 'a repository', pattern: /db\/[a-zA-Z-]+\/[a-zA-Z]+Repository/ },
+  { name: 'a database handle', pattern: /db\/postgres|getDb\(|drizzle-orm/ },
+  {
+    name: 'a canonical write service',
+    pattern: /canonical-product\.service|canonical-variant\.service|brand\.service|organization\.service|product-identifier\.service/,
+  },
+  { name: 'the offer domain', pattern: /offers\/offer\.service|offerRepository|recordExternalOffer/ },
+  { name: 'the matching pipeline', pattern: /matching\/match\.service|runMatch/ },
+] as const;
+
+/**
+ * Run every contract case against one adapter implementation.
+ *
+ * @param harness How to build the adapter under test, and where its modules live.
+ */
+export function describeCatalogSourceAdapterContract(harness: AdapterContractHarness): void {
+  describe(`the CatalogSource adapter contract — ${harness.name}`, () => {
+    let db: Database;
+    /** Unique to this run, so parallel files cannot collide on a shared database. */
+    const RUN = uuidv7().slice(-12);
+
+    const registeredProviders: string[] = [];
+    const createdSourceIds: string[] = [];
+    const createdMerchantIds: string[] = [];
+    const createdProductIds: string[] = [];
+    const createdVariantIds: string[] = [];
+    const createdPolicyIds: string[] = [];
+
+    const OPERATOR = `contract-operator-${RUN}`;
+
+    function safeIds(ids: readonly string[]): string[] {
+      return ids.length === 0 ? ['__none__'] : [...ids];
+    }
+
+    beforeAll(async () => {
+      db = await connectPostgres();
+    }, 120_000);
+
+    afterAll(async () => {
+      for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
+
+      // Children first: every intra-graph key here is RESTRICT, and the rights
+      // trigger is DEFERRED so a half-torn-down source would raise at commit.
+      // The OBJECTS go before the offers they point at: `offer_id` is a
+      // RESTRICT foreign key, which is the whole reason an offer is retired and
+      // never deleted in production.
+      await db
+        .delete(catalogSourceObjects)
+        .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));
+      await db
+        .delete(offers)
+        .where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
+      await db
+        .delete(catalogSourceRejections)
+        .where(inArray(catalogSourceRejections.sourceId, safeIds(createdSourceIds)));
+      await db
+        .delete(catalogSourceRuns)
+        .where(inArray(catalogSourceRuns.sourceId, safeIds(createdSourceIds)));
+      await db
+        .delete(canonicalVariantSourceLinks)
+        .where(inArray(canonicalVariantSourceLinks.variantId, safeIds(createdVariantIds)));
+      await db
+        .delete(canonicalProductSourceLinks)
+        .where(inArray(canonicalProductSourceLinks.productId, safeIds(createdProductIds)));
+      await db
+        .delete(matchDecisions)
+        .where(inArray(matchDecisions.policyVersionId, safeIds(createdPolicyIds)));
+      await db
+        .delete(sourceRecords)
+        .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
+      // The policies must go before the configs, and the configs before the
+      // registry rows — but the rights trigger compares them, so the config is
+      // removed FIRST: with no config the trigger returns early and a source
+      // with orphaned rights is no longer a contradiction.
+      await db
+        .delete(catalogSourceConfigs)
+        .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
+      await db.execute(
+        sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
+      );
+      await db
+        .delete(catalogSourcePolicies)
+        .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
+      await db.execute(
+        sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+      );
+      await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
+      await db
+        .delete(productIdentifiers)
+        .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
+      await db
+        .delete(canonicalVariants)
+        .where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
+      await db
+        .delete(canonicalProducts)
+        .where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+      await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
+      await db.execute(
+        sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+      );
+      await db
+        .delete(matchPolicyVersions)
+        .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
+      await db.execute(
+        sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+      );
+      await closePostgres();
+    });
+
+    /** A merchant this source's offers belong to. */
+    async function mintMerchant(label: string): Promise<string> {
+      const [row] = await db
+        .insert(merchants)
+        .values({
+          name: `Contract merchant ${label} ${RUN}`,
+          slug: `contract-merchant-${label}-${RUN}`,
+        })
+        .returning({ id: merchants.id });
+      if (!row) throw new Error('merchant insert returned no row');
+      createdMerchantIds.push(row.id);
+      return row.id;
+    }
+
+    /** A canonical product plus one variant, optionally carrying a GTIN. */
+    async function mintCanonicalVariant(
+      label: string,
+      gtinPayload?: string,
+    ): Promise<{ productId: string; variantId: string; gtin: string | null }> {
+      const [product] = await db
+        .insert(canonicalProducts)
+        .values({
+          name: `Contract product ${label} ${RUN}`,
+          normalizedName: `contract product ${label} ${RUN}`,
+          slug: `contract-product-${label}-${RUN}`,
+        })
+        .returning({ id: canonicalProducts.id });
+      if (!product) throw new Error('canonical product insert returned no row');
+      createdProductIds.push(product.id);
+
+      const [variant] = await db
+        .insert(canonicalVariants)
+        .values({
+          productId: product.id,
+          name: 'Default',
+          // `canonical_variants_signature_shape_check` demands a sha-256 hex:
+          // the signature is a CONTENT key, not a label.
+          signature: createHash('sha256').update(`contract-${label}-${RUN}`).digest('hex'),
+        })
+        .returning({ id: canonicalVariants.id });
+      if (!variant) throw new Error('canonical variant insert returned no row');
+      createdVariantIds.push(variant.id);
+
+      let gtin: string | null = null;
+      if (gtinPayload !== undefined) {
+        gtin = ean13(gtinPayload);
+        await db.insert(productIdentifiers).values({
+          variantId: variant.id,
+          scheme: 'ean',
+          rawValue: gtin,
+          normalizedValue: gtin,
+          canonicalScheme: 'gtin',
+          canonicalValue: gtin.padStart(14, '0'),
+          status: 'active',
+        });
+      }
+      return { productId: product.id, variantId: variant.id, gtin };
+    }
+
+    /** The ACTIVE matching policy the pipeline needs to decide anything. */
+    async function ensureMatchPolicy(): Promise<string> {
+      const existing = createdPolicyIds[0];
+      if (existing !== undefined) return existing;
+      const row = await withActivePolicySlot(async () =>
+        insertMatchPolicyVersion(db, {
+        versionKey: `contract-${RUN}`,
+        status: 'active',
+        description: 'adapter contract fixture',
+        autoMinConfidence: 0.5,
+        reviewMinConfidence: 0.2,
+        minCandidateSeparation: 0.01,
+        maxCandidates: 25,
+        minTitleSimilarity: 0.1,
+        weightIdentifier: 6,
+        weightBrand: 3,
+        weightModel: 2,
+        weightAttribute: 4,
+        weightTitle: 1,
+        weightCategory: 2,
+        weightSemantic: 0,
+        semanticEnabled: false,
+        minBenchmarkPrecision: 0.98,
+        minBenchmarkSamples: 20,
+          createdByOxyUserId: OPERATOR,
+          activatedAt: new Date(),
+        }),
+      );
+      createdPolicyIds.push(row.id);
+      return row.id;
+    }
+
+    /** Rights granting everything, which is what most cases want out of the way. */
+    const FULL_RIGHTS = {
+      mayDisplay: true,
+      mayStore: true,
+      mayCache: true,
+      cacheTtlSeconds: 3_600,
+      mayDisplayPrice: true,
+      mayDisplayMedia: true,
+      mayLinkOut: true,
+      mayAppendAffiliateParams: true,
+      mayIndex: true,
+      mayRefreshAutomatically: true,
+      extractionMode: 'disallowed' as const,
+      attributionRequired: true,
+    };
+
+    interface SourceUnderTest {
+      readonly sourceId: string;
+      readonly provider: string;
+      readonly merchantId: string;
+      readonly adapter: CatalogSourceAdapter;
+    }
+
+    /**
+     * Configure a source, publish its rights, activate it and register the
+     * adapter — the whole bring-up a real operator performs, so every case runs
+     * against a source that got here the supported way.
+     */
+    async function bringUpSource(
+      label: string,
+      scenario: ContractScenario,
+      rights: Partial<typeof FULL_RIGHTS> = {},
+    ): Promise<SourceUnderTest> {
+      const provider = `${harness.providerPrefix}-${label}-${RUN}`.toLowerCase().slice(0, 64);
+      const adapter = harness.createAdapter(provider, scenario);
+      registerCatalogSourceAdapter(adapter);
+      registeredProviders.push(provider);
+
+      const merchantId = await mintMerchant(label);
+      const resolved = await configureIngestionSource({
+        name: `Contract source ${label} ${RUN}`,
+        kind: adapter.kind,
+        provider,
+        merchantId,
+        freshnessTtlSeconds: 3_600,
+        pageSize: 50,
+      });
+      const sourceId = resolved.source.config.sourceId;
+      createdSourceIds.push(sourceId);
+
+      await publishIngestionSourcePolicy({
+        sourceId,
+        reviewedByOxyUserId: OPERATOR,
+        ...FULL_RIGHTS,
+        ...rights,
+      });
+      await changeIngestionSourceStatus({
+        sourceId,
+        status: 'active',
+        actorOxyUserId: OPERATOR,
+        reason: 'contract suite',
+      });
+
+      return { sourceId, provider, merchantId, adapter };
+    }
+
+    /** Drive a whole run to completion, one page at a time. */
+    async function ingestToCompletion(
+      sourceId: string,
+      options: { since?: Date; now?: Date } = {},
+    ): Promise<{ runId: string; outcome: string | null }> {
+      const run = await openSourceRun(db, {
+        sourceId,
+        kind: 'manual',
+        since: options.since ?? null,
+        requestedByOxyUserId: OPERATOR,
+        now: options.now ?? new Date(),
+      });
+      const leaseOwner = `contract-${RUN}`;
+      const clock = options.now ?? new Date();
+      let outcome: string | null = null;
+      for (let page = 0; page < 20; page += 1) {
+        // The dispatcher claims before driving; the contract exercises the same
+        // page function it does, so a claim is taken the same way.
+        //
+        // The lease is anchored to the CLOCK THE PAGE WILL RUN AT, not to the
+        // wall clock. A case that moves `now` forward to exercise a later
+        // refresh would otherwise hand itself an already-expired lease, and
+        // every terminal write would report `lease_lost` — which reads exactly
+        // like a reclaimed run and is entirely an artefact of the harness.
+        await db
+          .update(catalogSourceRuns)
+          .set({
+            status: 'running',
+            leaseOwner,
+            leaseUntil: new Date(clock.getTime() + 120_000),
+            // `started_at` comes from the DRIVING clock, not `now()`.
+            //
+            // The retirement sweep reads `seen_since = run.started_at` and
+            // compares it against each object's `last_seen_at`, which the page
+            // stamps from the clock it was given. A case that moves the clock to
+            // exercise a later refresh would otherwise stamp `last_seen_at`
+            // BEFORE a wall-clock `started_at`, so every re-published object
+            // would read as unseen and be retired — a failure that depends on
+            // the time of day the suite happens to run, and that passed for
+            // hours before it did not.
+            //
+            // An ISO string with an explicit cast, never a bare `Date`:
+            // postgres.js infers a parameter's wire type from ordinary
+            // positional binding and cannot for one inside a function call, so
+            // a `Date` here throws in the DRIVER with a message that never
+            // mentions the column (`~/Oxy/AGENTS.md`, the `sql`-template traps).
+            startedAt: sql`coalesce(${catalogSourceRuns.startedAt}, ${clock.toISOString()}::timestamptz)`,
+          })
+          .where(and(eq(catalogSourceRuns.id, run.id), inArray(catalogSourceRuns.status, ['pending', 'running'])));
+        const result = await runIngestionPage({
+          runId: run.id,
+          leaseOwner,
+          ...(options.now === undefined ? {} : { now: options.now }),
+        });
+        if (result.outcome !== null) {
+          outcome = result.outcome;
+          break;
+        }
+        if (result.skipped !== null) break;
+      }
+      return { runId: run.id, outcome };
+    }
+
+    /** A well-formed record with everything the offer path needs. */
+    function record(input: {
+      externalId: string;
+      title: string;
+      gtin?: string;
+      price?: number;
+      observedAt?: Date;
+      sourceUpdatedAt?: Date;
+      url?: string;
+    }): AdapterRecord {
+      return {
+        externalType: 'offer',
+        externalId: input.externalId,
+        observedAt: input.observedAt ?? new Date('2026-08-09T10:00:00.000Z'),
+        ...(input.sourceUpdatedAt === undefined ? {} : { sourceUpdatedAt: input.sourceUpdatedAt }),
+        raw: { id: input.externalId, name: input.title, price: input.price },
+        normalized: {
+          title: input.title,
+          identifiers: input.gtin === undefined ? [] : [{ scheme: 'ean', value: input.gtin }],
+          options: [],
+          media: [],
+          ...(input.price === undefined ? {} : { price: { amount: input.price, currency: 'EUR' } }),
+          ...(input.url === undefined ? {} : { sourceUrl: input.url }),
+        },
+      };
+    }
+
+    // ── 1. Stable external ids ────────────────────────────────────────────────
+    it('converges on the SAME source object across deliveries (stable external ids)', async () => {
+      const source = await bringUpSource('stable', {
+        pages: [[record({ externalId: 'sku-1', title: 'Stable widget' })]],
+      });
+      await ingestToCompletion(source.sourceId);
+      await ingestToCompletion(source.sourceId);
+
+      const objects = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(objects).toHaveLength(1);
+      // The second delivery MENTIONED it, which is what the retirement sweep
+      // reads — an identical re-delivery that left the count at 1 would retire
+      // every stable feed's whole catalogue.
+      expect(objects[0]?.observationCount).toBeGreaterThanOrEqual(2);
+    });
+
+    // ── 2. Pagination / cursor behaviour ─────────────────────────────────────
+    it('follows the cursor across pages and stores every record exactly once', async () => {
+      const source = await bringUpSource('paging', {
+        pages: [
+          [record({ externalId: 'p1-a', title: 'Page one A' })],
+          [record({ externalId: 'p2-a', title: 'Page two A' })],
+          [record({ externalId: 'p3-a', title: 'Page three A' })],
+        ],
+      });
+      await ingestToCompletion(source.sourceId);
+
+      const objects = await db
+        .select({ externalId: catalogSourceObjects.externalId })
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(objects.map((row) => row.externalId).sort()).toEqual(['p1-a', 'p2-a', 'p3-a']);
+
+      const runs = await db
+        .select()
+        .from(catalogSourceRuns)
+        .where(eq(catalogSourceRuns.sourceId, source.sourceId));
+      const run = runs[0];
+      expect(run?.fetchCount).toBe(3);
+      expect(run?.fetched).toBe(3);
+      // The vacuity floor, observed rather than assumed: the intake partition
+      // must ADD UP, and the CHECK would have refused the row otherwise.
+      expect((run?.stored ?? 0) + (run?.unchanged ?? 0) + (run?.rejected ?? 0) + (run?.quarantined ?? 0)).toBe(3);
+    });
+
+    // ── 3. Duplicate observation ─────────────────────────────────────────────
+    it('treats an identical re-delivery as UNCHANGED and mints no second observation', async () => {
+      const source = await bringUpSource('duplicate', {
+        pages: [[record({ externalId: 'dup-1', title: 'Duplicate widget', price: 1_000 })]],
+      });
+      await ingestToCompletion(source.sourceId);
+      const first = await db
+        .select()
+        .from(sourceRecords)
+        .where(eq(sourceRecords.sourceId, source.sourceId));
+      expect(first).toHaveLength(1);
+
+      await ingestToCompletion(source.sourceId);
+      const second = await db
+        .select()
+        .from(sourceRecords)
+        .where(eq(sourceRecords.sourceId, source.sourceId));
+      // The content-hash unique is what makes this a genuine no-op; a service
+      // that re-inserted would produce two rows with one hash.
+      expect(second).toHaveLength(1);
+
+      const runs = await db
+        .select()
+        .from(catalogSourceRuns)
+        .where(eq(catalogSourceRuns.sourceId, source.sourceId))
+        .orderBy(catalogSourceRuns.createdAt);
+      expect(runs[1]?.unchanged).toBe(1);
+      expect(runs[1]?.stored).toBe(0);
+    });
+
+    // ── 4. Reordered updates ─────────────────────────────────────────────────
+    it('refuses an OLDER observation and keeps the newer current fact', async () => {
+      const newer = new Date('2026-08-09T12:00:00.000Z');
+      const older = new Date('2026-08-09T08:00:00.000Z');
+
+      const source = await bringUpSource('reorder', {
+        pages: [
+          [
+            record({
+              externalId: 'ro-1',
+              title: 'Newer title',
+              price: 2_000,
+              observedAt: newer,
+              sourceUpdatedAt: newer,
+            }),
+          ],
+        ],
+      });
+      await ingestToCompletion(source.sourceId, { now: newer });
+
+      // A redelivery of the SAME object carrying an earlier source timestamp —
+      // a retry of yesterday's page, a webhook delivered late, a second mirror.
+      const stale = harness.createAdapter(source.provider, {
+        pages: [
+          [
+            record({
+              externalId: 'ro-1',
+              title: 'Older title',
+              price: 500,
+              observedAt: older,
+              sourceUpdatedAt: older,
+            }),
+          ],
+        ],
+      });
+      unregisterCatalogSourceAdapter(source.provider);
+      registerCatalogSourceAdapter(stale);
+      await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T13:00:00.000Z') });
+
+      const [object] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(
+          and(
+            eq(catalogSourceObjects.sourceId, source.sourceId),
+            eq(catalogSourceObjects.externalId, 'ro-1'),
+          ),
+        );
+      expect(object?.currentSourceUpdatedAt?.toISOString()).toBe(newer.toISOString());
+      expect(object?.lastPriceAmount).toBe(2_000);
+
+      // And it is RECORDED rather than dropped: a source publishing out of order
+      // is a fact somebody needs to see.
+      const rejections = await db
+        .select()
+        .from(catalogSourceRejections)
+        .where(
+          and(
+            eq(catalogSourceRejections.sourceId, source.sourceId),
+            eq(catalogSourceRejections.reasonCode, 'stale_observation'),
+          ),
+        );
+      expect(rejections.length).toBeGreaterThanOrEqual(1);
+    });
+
+    // ── 5. Partial failure ───────────────────────────────────────────────────
+    it('isolates one bad record and keeps the rest of the page', async () => {
+      const source = await bringUpSource('partial', {
+        pages: [
+          [
+            record({ externalId: 'ok-1', title: 'Fine widget' }),
+            // No title: the one field with no absent form.
+            { ...record({ externalId: 'bad-1', title: 'x' }), normalized: { title: '   ', identifiers: [], options: [], media: [] } },
+            record({ externalId: 'ok-2', title: 'Also fine' }),
+          ],
+        ],
+      });
+      await ingestToCompletion(source.sourceId);
+
+      const objects = await db
+        .select({ externalId: catalogSourceObjects.externalId })
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(objects.map((row) => row.externalId).sort()).toEqual(['ok-1', 'ok-2']);
+
+      const [rejection] = await db
+        .select()
+        .from(catalogSourceRejections)
+        .where(eq(catalogSourceRejections.sourceId, source.sourceId));
+      expect(rejection?.reasonCode).toBe('missing_title');
+      expect(rejection?.externalId).toBe('bad-1');
+    });
+
+    // ── 6. Auth / rate-limit behaviour ───────────────────────────────────────
+    it('fails an auth error CLOSED and retries a rate limit without retiring anything', async () => {
+      const { CatalogSourceFetchError } = await import('../adapter.js');
+
+      const authSource = await bringUpSource('auth', {
+        pages: [
+          {
+            records: [],
+            failWith: new CatalogSourceFetchError('auth_failure', 'bad credential'),
+          },
+        ],
+      });
+      const authRun = await ingestToCompletion(authSource.sourceId);
+      expect(authRun.outcome).toBe('auth_failure');
+
+      const [authRunRow] = await db
+        .select()
+        .from(catalogSourceRuns)
+        .where(eq(catalogSourceRuns.id, authRun.runId));
+      // The retirement CHECK is what makes this structural rather than polite:
+      // a non-zero count on a non-retiring outcome cannot be stored at all.
+      expect(authRunRow?.offersRetired).toBe(0);
+      expect(authRunRow?.status).toBe('failed');
+
+      const [authConfig] = await db
+        .select()
+        .from(catalogSourceConfigs)
+        .where(eq(catalogSourceConfigs.sourceId, authSource.sourceId));
+      expect(authConfig?.healthState).toBe('auth_failure');
+      expect(authConfig?.status).toBe('failed');
+      expect(authConfig?.consecutiveFailures).toBe(1);
+
+      const limitSource = await bringUpSource('ratelimit', {
+        pages: [
+          {
+            records: [],
+            failWith: new CatalogSourceFetchError('rate_limit', 'slow down', {
+              retryAfterMs: 90_000,
+            }),
+          },
+        ],
+      });
+      const limitRun = await ingestToCompletion(limitSource.sourceId);
+      // A rate limit is RETRYABLE, so the run is released rather than finished
+      // — the cursor stays put and the page re-runs from where it started.
+      expect(limitRun.outcome).toBeNull();
+      const [limitRunRow] = await db
+        .select()
+        .from(catalogSourceRuns)
+        .where(eq(catalogSourceRuns.id, limitRun.runId));
+      expect(limitRunRow?.status).toBe('pending');
+      expect(limitRunRow?.offersRetired).toBe(0);
+    });
+
+    // ── 7. Source record provenance ──────────────────────────────────────────
+    it('records the provenance every offer must be able to answer', async () => {
+      const source = await bringUpSource('provenance', {
+        pages: [[record({ externalId: 'prov-1', title: 'Provenance widget', price: 4_200 })]],
+      });
+      await ingestToCompletion(source.sourceId);
+
+      const [observation] = await db
+        .select()
+        .from(sourceRecords)
+        .where(eq(sourceRecords.sourceId, source.sourceId));
+      expect(observation?.normalizationVersion).toBeGreaterThanOrEqual(1);
+      expect(observation?.policyVersion).toBe(1);
+      expect(observation?.rawPayloadDigest).toMatch(/^[0-9a-f]{64}$/u);
+      expect(observation?.contentHash).toMatch(/^[0-9a-f]{64}$/u);
+      expect(observation?.staleAt).not.toBeNull();
+      // The RAW payload is digested and discarded; what is stored is the
+      // allow-listed projection, in the matcher's own vocabulary.
+      expect(observation?.payload).toMatchObject({ title: 'Provenance widget', price: 4_200 });
+
+      const [object] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(object?.currentSourceRecordId).toBe(observation?.id);
+      expect(object?.lastSuccessfulSourceRecordId).toBe(observation?.id);
+    });
+
+    // ── 8. Match ambiguity ───────────────────────────────────────────────────
+    it('routes an unresolvable record to review and writes NO canonical link', async () => {
+      await ensureMatchPolicy();
+      const source = await bringUpSource('ambiguity', {
+        pages: [[record({ externalId: 'amb-1', title: 'Nothing resembles this at all' })]],
+      });
+      await ingestToCompletion(source.sourceId);
+
+      const [object] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      // Whatever the matcher decided, it was not an automatic match — so the
+      // object is out of the offer path and cites the decision #59 reads.
+      expect(['review_required', 'unmatched']).toContain(object?.state);
+      expect(object?.offerId).toBeNull();
+      expect(object?.lastMatchDecisionId).not.toBeNull();
+
+      const links = await db
+        .select()
+        .from(canonicalVariantSourceLinks)
+        .where(
+          inArray(
+            canonicalVariantSourceLinks.sourceRecordId,
+            safeIds([object?.currentSourceRecordId ?? '__none__']),
+          ),
+        );
+      expect(links).toHaveLength(0);
+    });
+
+    // ── 9. Offer upsert ──────────────────────────────────────────────────────
+    it('materializes an external offer after a canonical match, and re-upserts it', async () => {
+      await ensureMatchPolicy();
+      const canonical = await mintCanonicalVariant('offer', '620000000091');
+      const gtin = canonical.gtin;
+      expect(gtin).not.toBeNull();
+
+      const source = await bringUpSource('offerupsert', {
+        pages: [
+          [
+            record({
+              externalId: 'offer-1',
+              title: `Contract product offer ${RUN}`,
+              gtin: gtin ?? undefined,
+              price: 9_900,
+              url: 'https://retailer.example/p/offer-1',
+            }),
+          ],
+        ],
+      });
+      await ingestToCompletion(source.sourceId);
+
+      const [object] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(object?.state).toBe('offer_current');
+      expect(object?.offerId).not.toBeNull();
+
+      const [offer] = await db
+        .select()
+        .from(offers)
+        .where(eq(offers.id, object?.offerId ?? '__none__'));
+      expect(offer?.canonicalVariantId).toBe(canonical.variantId);
+      expect(offer?.merchantId).toBe(source.merchantId);
+      expect(offer?.priceAmount).toBe(9_900);
+      // ISSUE WRITE BOUNDARY 7: an external offer carries no native variant, so
+      // there is no id a cart line could hold, whatever the pipeline did.
+      expect(offer?.productVariantId).toBeNull();
+      expect(offer?.kind).not.toBe('native');
+
+      // And the canonical ATTACHMENT was written — #58's other open seam.
+      const links = await db
+        .select()
+        .from(canonicalVariantSourceLinks)
+        .where(eq(canonicalVariantSourceLinks.variantId, canonical.variantId));
+      expect(links.length).toBeGreaterThanOrEqual(1);
+
+      // A second pass with a changed price re-upserts the SAME offer rather
+      // than minting a second active one — the active source key is unique.
+      unregisterCatalogSourceAdapter(source.provider);
+      registerCatalogSourceAdapter(
+        harness.createAdapter(source.provider, {
+          pages: [
+            [
+              record({
+                externalId: 'offer-1',
+                title: `Contract product offer ${RUN}`,
+                gtin: gtin ?? undefined,
+                price: 8_400,
+                url: 'https://retailer.example/p/offer-1',
+                observedAt: new Date('2026-08-09T14:00:00.000Z'),
+              }),
+            ],
+          ],
+        }),
+      );
+      await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T14:05:00.000Z') });
+
+      const active = await db
+        .select()
+        .from(offers)
+        .where(
+          and(eq(offers.canonicalVariantId, canonical.variantId), eq(offers.status, 'active')),
+        );
+      expect(active).toHaveLength(1);
+      expect(active[0]?.priceAmount).toBe(8_400);
+    });
+
+    // ── 10. Stale / expiry handoff ───────────────────────────────────────────
+    it('retires what a COMPLETE enumeration stopped publishing, and nothing else', async () => {
+      await ensureMatchPolicy();
+      const canonical = await mintCanonicalVariant('expiry', '620000000107');
+      const gtin = canonical.gtin ?? undefined;
+
+      const source = await bringUpSource('expiry', {
+        pages: [
+          [
+            record({
+              externalId: 'exp-1',
+              title: `Contract product expiry ${RUN}`,
+              gtin,
+              price: 5_000,
+              url: 'https://retailer.example/p/exp-1',
+            }),
+          ],
+        ],
+      });
+      await ingestToCompletion(source.sourceId);
+
+      const [before] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(before?.state).toBe('offer_current');
+
+      // The next COMPLETE enumeration does not mention it.
+      unregisterCatalogSourceAdapter(source.provider);
+      registerCatalogSourceAdapter(harness.createAdapter(source.provider, { pages: [[]] }));
+      const later = new Date('2026-08-10T10:00:00.000Z');
+      const run = await ingestToCompletion(source.sourceId, { now: later });
+      expect(run.outcome).toBe('full_feed_success');
+
+      const [after] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(after?.state).toBe('retired');
+      expect(after?.retiredAt).not.toBeNull();
+
+      // The offer is RETIRED and never deleted: the row, its source record and
+      // the observation chain behind it all survive.
+      const [offer] = await db
+        .select()
+        .from(offers)
+        .where(eq(offers.id, before?.offerId ?? '__none__'));
+      expect(offer?.status).toBe('retired');
+      expect(offer?.retirementReason).toBe('source_disappeared');
+      expect(offer?.sourceRecordId).not.toBeNull();
+    });
+
+    it('retires NOTHING when the enumeration was incomplete', async () => {
+      await ensureMatchPolicy();
+      const canonical = await mintCanonicalVariant('incomplete', '620000000114');
+      const gtin = canonical.gtin ?? undefined;
+
+      const source = await bringUpSource('incomplete', {
+        pages: [
+          [
+            record({
+              externalId: 'inc-1',
+              title: `Contract product incomplete ${RUN}`,
+              gtin,
+              price: 5_000,
+              url: 'https://retailer.example/p/inc-1',
+            }),
+          ],
+        ],
+      });
+      await ingestToCompletion(source.sourceId);
+
+      // A pass that read the feed but never claimed to have finished it.
+      unregisterCatalogSourceAdapter(source.provider);
+      registerCatalogSourceAdapter(
+        harness.createAdapter(source.provider, { pages: [[]], completeOnLastPage: false }),
+      );
+      const run = await ingestToCompletion(source.sourceId, {
+        now: new Date('2026-08-10T11:00:00.000Z'),
+      });
+      expect(run.outcome).toBe('partial_feed');
+
+      const [after] = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      // "The half I read did not mention it" is not evidence about the half I
+      // did not read. THIS is the case that stops one failed refresh
+      // mass-expiring a healthy catalogue.
+      expect(after?.state).toBe('offer_current');
+      const [offer] = await db
+        .select()
+        .from(offers)
+        .where(eq(offers.id, after?.offerId ?? '__none__'));
+      expect(offer?.status).toBe('active');
+    });
+
+    // ── 11. Rights-disabled source ───────────────────────────────────────────
+    it('refuses to refresh a source whose rights were withdrawn, keeping the audit', async () => {
+      const source = await bringUpSource('rights', {
+        pages: [[record({ externalId: 'rights-1', title: 'Rights widget' })]],
+      });
+      await ingestToCompletion(source.sourceId);
+
+      // A suspension is a NEW policy version granting nothing.
+      await publishIngestionSourcePolicy({
+        sourceId: source.sourceId,
+        reviewedByOxyUserId: OPERATOR,
+        mayDisplay: false,
+        mayStore: false,
+        mayCache: false,
+        mayDisplayPrice: false,
+        mayDisplayMedia: false,
+        mayLinkOut: false,
+        mayAppendAffiliateParams: false,
+        mayIndex: false,
+        mayRefreshAutomatically: false,
+        extractionMode: 'disallowed',
+        attributionRequired: true,
+        reviewNote: 'suspended by the contract suite',
+      });
+
+      const run = await ingestToCompletion(source.sourceId, {
+        now: new Date('2026-08-10T12:00:00.000Z'),
+      });
+      expect(run.outcome).toBe('rights_suspended');
+
+      const [runRow] = await db
+        .select()
+        .from(catalogSourceRuns)
+        .where(eq(catalogSourceRuns.id, run.runId));
+      // A suspension must never expire a catalogue either.
+      expect(runRow?.offersRetired).toBe(0);
+      expect(runRow?.fetched).toBe(0);
+
+      // The audit survives: BOTH versions are there, the first with its rights
+      // and its reviewer intact.
+      const policies = await db
+        .select()
+        .from(catalogSourcePolicies)
+        .where(eq(catalogSourcePolicies.sourceId, source.sourceId));
+      expect(policies).toHaveLength(2);
+      const first = policies.find((row) => row.version === 1);
+      expect(first?.status).toBe('superseded');
+      expect(first?.mayRefreshAutomatically).toBe(true);
+      expect(first?.reviewedByOxyUserId).toBe(OPERATOR);
+
+      // And the registry's coarse rights followed, which the deferred trigger
+      // would have refused the commit for otherwise.
+      const [registry] = await db
+        .select()
+        .from(catalogSources)
+        .where(eq(catalogSources.id, source.sourceId));
+      expect(registry?.mayDisplay).toBe(false);
+      expect(registry?.mayStore).toBe(false);
+
+      // The observations taken while the rights held are untouched.
+      const observations = await db
+        .select()
+        .from(sourceRecords)
+        .where(eq(sourceRecords.sourceId, source.sourceId));
+      expect(observations.length).toBeGreaterThanOrEqual(1);
+    });
+
+    // ── 12. PostgreSQL transactional / idempotent behaviour ──────────────────
+    it('converges two CONCURRENT deliveries of one version onto one object', async () => {
+      const source = await bringUpSource('concurrent', {
+        pages: [[record({ externalId: 'conc-1', title: 'Concurrent widget', price: 700 })]],
+      });
+
+      // Two runs of the same page at once. The identity unique is what makes
+      // this converge; without it the second insert would mint a second object
+      // for one external id.
+      await Promise.all([
+        ingestToCompletion(source.sourceId),
+        ingestToCompletion(source.sourceId),
+      ]);
+
+      const objects = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(objects).toHaveLength(1);
+
+      // And only ONE run was ever open: the open-run partial unique refuses a
+      // competing pass rather than letting two enumerate the same feed.
+      const runs = await db
+        .select()
+        .from(catalogSourceRuns)
+        .where(eq(catalogSourceRuns.sourceId, source.sourceId));
+      expect(runs).toHaveLength(1);
+    });
+
+    it('leaves no orphaned queue or decision rows behind a converged object', async () => {
+      await ensureMatchPolicy();
+      const source = await bringUpSource('idempotent', {
+        pages: [[record({ externalId: 'idem-1', title: 'Idempotent widget' })]],
+      });
+      await ingestToCompletion(source.sourceId);
+      await ingestToCompletion(source.sourceId);
+      await ingestToCompletion(source.sourceId);
+
+      const objects = await db
+        .select()
+        .from(catalogSourceObjects)
+        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+      expect(objects).toHaveLength(1);
+
+      const observations = await db
+        .select()
+        .from(sourceRecords)
+        .where(eq(sourceRecords.sourceId, source.sourceId));
+      // Three passes over unchanged content: ONE observation. The convergence
+      // key did its job at every layer.
+      expect(observations).toHaveLength(1);
+
+      const queued = await db
+        .select()
+        .from(matchQueue)
+        .where(inArray(matchQueue.sourceRecordId, safeIds([observations[0]?.id ?? '__none__'])));
+      // The ingestion path evaluates inline rather than queuing, so nothing is
+      // left owed. A row here would mean two mechanisms were matching the same
+      // subject.
+      expect(queued).toHaveLength(0);
+    });
+
+    // ── 13. No direct canonical writes from adapter code ─────────────────────
+    it('reaches no repository, database handle, canonical write or offer from adapter code', () => {
+      const files = readdirSync(harness.adapterSourceDir)
+        .filter((entry) => entry.endsWith('.ts'))
+        .filter((entry) => statSync(join(harness.adapterSourceDir, entry)).isFile());
+
+      // The vacuity floor: an empty directory would pass every assertion below.
+      expect(files.length, `no adapter modules found in ${harness.adapterSourceDir}`).toBeGreaterThan(0);
+
+      for (const file of files) {
+        const source = readFileSync(join(harness.adapterSourceDir, file), 'utf8');
+        expect(source.length, `${file} looks empty — did it move?`).toBeGreaterThan(100);
+        for (const { name, pattern } of FORBIDDEN_IN_ADAPTER) {
+          expect(pattern.test(source), `${file} reaches ${name}`).toBe(false);
+        }
+      }
+    });
+
+    it('the case-13 detectors actually detect — the mutation self-test', () => {
+      const positives = [
+        "import { upsertSourceObject } from '../../db/ingestion/catalogSourceObjectRepository.js';",
+        "import { getDb } from '../../db/postgres.js';",
+        "import { applyCanonicalProduct } from '../canonical/canonical-product.service.js';",
+        "import { recordExternalOffer } from '../offers/offer.service.js';",
+        "import { runMatch } from '../matching/match.service.js';",
+      ];
+      positives.forEach((line, index) => {
+        const detector = FORBIDDEN_IN_ADAPTER[index];
+        expect(detector, `no detector at index ${index}`).toBeDefined();
+        expect(detector?.pattern.test(line), `detector ${index} missed its own positive`).toBe(true);
+      });
+      // And an ordinary adapter line trips none of them.
+      const ordinary = "const response = await fetch(`${base}/products?page=${cursor}`);";
+      for (const { name, pattern } of FORBIDDEN_IN_ADAPTER) {
+        expect(pattern.test(ordinary), `${name} detector fires on an ordinary fetch`).toBe(false);
+      }
+    });
+  });
+}

@@ -173,6 +173,16 @@ connectPostgres()
       import('./services/curation/curation-dispatcher.js')
         .then(({ startCurationDispatcher }) => startCurationDispatcher())
         .catch((err) => log.general.error({ err }, 'Curation dispatcher import failed'));
+      // Schedule and page external ingestion runs (#62). On EVERY task, same
+      // lease shape, and TWO claims rather than one: a source lease says which
+      // task feeds a source, a run lease says which task is driving the current
+      // pass, and a pass outlives a tick. The LOOP is gated by
+      // `CATALOG_INGESTION_ENABLED` and neither the source configuration, its
+      // reviewed policy nor an open run ever is, so turning the flag on drains
+      // the backlog rather than stranding it.
+      import('./services/ingestion/ingest-dispatcher.js')
+        .then(({ startCatalogIngestionDispatcher }) => startCatalogIngestionDispatcher())
+        .catch((err) => log.general.error({ err }, 'Catalog ingestion dispatcher import failed'));
 
       // Hand back lapsed supplier holds, release lapsed quotes and evaluate
       // supplier health (#122). On EVERY task, and deliberately WITHOUT a lease:
@@ -360,6 +370,10 @@ connectPostgres()
           './services/supplier-preflight/preflight-sweep.js'
         );
         stopSupplierPreflightSweep();
+        const { stopCatalogIngestionDispatcher } = await import(
+          './services/ingestion/ingest-dispatcher.js'
+        );
+        stopCatalogIngestionDispatcher();
         stopExpirySweeper();
         // Analytics last of the loops, and the sink's stop AWAITS one final
         // flush — the only place in this domain anything waits on telemetry.

@@ -404,6 +404,10 @@ describe('the registry the sweeper runs over', () => {
       'analytics_query_aggregates',
       'analytics_rollups',
       'analytics_search_queries',
+      // #62's rejection RESIDUAL is the only ingestion table with a deadline:
+      // it is bounded by traffic, while every other one is bounded by the
+      // catalogue and is the audit history a rights suspension must not delete.
+      'catalog_source_rejections',
       'guest_sessions',
       'guest_sessions',
       'moderation_events',

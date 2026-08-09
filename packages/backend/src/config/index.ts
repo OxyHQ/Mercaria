@@ -1317,6 +1317,41 @@ export interface MatchingConfig {
   readonly semanticEnabled: boolean;
 }
 
+/**
+ * The external ingestion framework (#62).
+ *
+ * `CATALOG_INGESTION_ENABLED` gates the LOOP and never the durable record — the
+ * `CROWDSOURCE_ENABLED` rule. A source can be configured, its policy reviewed
+ * and published, and a manual run opened while the dispatcher is off; turning it
+ * on drains the backlog rather than stranding it.
+ *
+ * There is deliberately NO flag over the rights, the tables or the operator
+ * surface. Rights are per-source and versioned, which is a finer instrument than
+ * a global switch and the one an incident actually needs; and the evidence has
+ * to stay readable during the incident that turned the loop off, which is why
+ * `/internal/ingestion` stays mounted whatever this flag says.
+ */
+export interface CatalogIngestionConfig {
+  /** `CATALOG_INGESTION_ENABLED` — does the dispatcher run. */
+  readonly enabled: boolean;
+  /** How many sources one dispatcher tick claims. */
+  readonly batchSize: number;
+  /** How often the dispatcher polls, in milliseconds. */
+  readonly pollIntervalMs: number;
+  /** How long a source or run lease lasts. Long enough for one page. */
+  readonly leaseMs: number;
+  /** The ceiling on the exponential backoff between failed refreshes. */
+  readonly maxBackoffMs: number;
+  /** How many unseen objects one closing run may retire. */
+  readonly retirementBatchSize: number;
+  /**
+   * How far a price may move before the observation is quarantined instead of
+   * applied (#62 health 8). A ratio, either direction: 20 means a twentyfold
+   * rise or a twentyfold fall.
+   */
+  readonly anomalyPriceFactor: number;
+}
+
 export interface OffersConfig {
   /** `OFFER_MATERIALIZATION_ENABLED` — does the convergence dispatcher run. */
   readonly materializationEnabled: boolean;
@@ -1713,6 +1748,7 @@ export interface AppConfig {
   readonly offers: OffersConfig;
   readonly canonicalRollout: CanonicalRolloutConfig;
   readonly matching: MatchingConfig;
+  readonly catalogIngestion: CatalogIngestionConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
@@ -1771,6 +1807,15 @@ export const config: AppConfig = Object.freeze({
     readCohorts: Object.freeze(resolveCanonicalReadCohorts()),
     backfillBatchSize: intEnv('CANONICAL_BACKFILL_BATCH_SIZE', 200),
     backfillPollIntervalMs: intEnv('CANONICAL_BACKFILL_POLL_INTERVAL_MS', 15_000),
+  }),
+  catalogIngestion: Object.freeze({
+    enabled: boolEnv('CATALOG_INGESTION_ENABLED', false),
+    batchSize: intEnv('CATALOG_INGESTION_BATCH_SIZE', 5),
+    pollIntervalMs: intEnv('CATALOG_INGESTION_POLL_INTERVAL_MS', 30_000),
+    leaseMs: intEnv('CATALOG_INGESTION_LEASE_MS', 120_000),
+    maxBackoffMs: intEnv('CATALOG_INGESTION_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
+    retirementBatchSize: intEnv('CATALOG_INGESTION_RETIREMENT_BATCH_SIZE', 500),
+    anomalyPriceFactor: intEnv('CATALOG_INGESTION_ANOMALY_PRICE_FACTOR', 20),
   }),
   matching: Object.freeze({
     pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),

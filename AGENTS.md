@@ -1850,6 +1850,115 @@ today delisting.
   ambiguous listing→product mapping, which this domain refuses rather than
   guessing).
 
+## External ingestion (#62, ADR 0002 D19/D22): adapters, rights, staged pipeline
+
+`services/ingestion/` + `db/ingestion/` + `db/schema/ingestion.ts` (5 tables) +
+`/internal/ingestion/*`. The provider-neutral framework through which APIs,
+affiliate feeds, merchant feeds and controlled extraction become source
+observations, canonical matches and fresh external offers. Full reference:
+**`docs/ingestion.md`**; schema decisions: `db/schema/CONVENTIONS.md` §"The
+external ingestion framework". It EXTENDS what exists — `catalog_sources` and
+`source_records` stay the registry and the observation store, #58 stays the
+matcher, #57 stays the offer — and adds the machinery nobody owned.
+
+The failure mode that shapes it is an INGESTION THAT LOOKED FINE: a refresh that
+failed authentication and retired a healthy catalogue, a re-delivery that
+overwrote today's price with last week's, a payload bag that carried a
+provider's access token into production, and an adapter that minted a canonical
+product from a title.
+
+- **The write boundary is the adapter's SIGNATURE.** A `CatalogSourceAdapter`
+  gets no database, no transaction, no repository and no service, and returns a
+  `NormalizedSourceRecord` that has no canonical id, no merchant id and no offer
+  id to put one in. `ingestion-isolation.test.ts` scans the `adapters/`
+  DIRECTORY, so the wall holds for adapters nobody has written yet. Failure
+  kinds are a closed set NARROWER than the framework's health vocabulary — an
+  adapter cannot classify a rights suspension, a matching ambiguity or an
+  anomalous change, because it cannot observe any of them.
+- **Only a COMPLETE enumeration may retire anything**, and that needs the
+  ADAPTER's `complete` flag AND an outcome in `CATALOG_SOURCE_RETIRING_OUTCOMES`
+  (one member). `catalog_source_runs_retirement_check` is rendered from the same
+  tuple `health.ts` reads, so a rate limit or a parse failure cannot mass-expire
+  a catalogue through the service, a replay or `psql`. `partial_feed` is
+  excluded deliberately: "the half I read did not mention it" is not evidence
+  about the half I did not read.
+- **The nine rights are a versioned, reviewed POLICY, and withdrawing one is a
+  NEW version** — frozen once active by trigger, one active per source by
+  partial unique. That is acceptance 6 as a shape: no UPDATE could delete the
+  history and the domain issues no DELETE. `catalog_sources`' three coarse
+  columns are a PROJECTION of `resolveSourceRights(status, policy)`, and
+  `mercaria_catalog_source_rights_agree` is a DEFERRABLE constraint trigger
+  refusing any COMMIT where they disagree — deferred because a rights change
+  touches three tables and no statement order makes every intermediate state
+  consistent. A source with no config is left alone, which is what keeps #60's
+  backfill and the operator source working unchanged.
+- **`paused` and `failed` are different on purpose.** `paused` stops refresh and
+  extraction and leaves display; `failed` stays fully refreshable, because a
+  source that answered 500 once must retry without a person re-enabling it. A
+  run marks a source `failed` only when the FETCH failed — a pass that read the
+  feed and refused half of it is degraded and stays `active`.
+- **An older observation can never overwrite a newer current fact**, twice: the
+  upsert's `ON CONFLICT … WHERE` makes an out-of-order delivery a silent no-op
+  (the empty `RETURNING` IS the answer) and
+  `mercaria_catalog_source_object_monotonic` states it at the row. The ordering
+  key is `source_updated_at` when both sides publish one — two workers reading
+  two pages concurrently produce `observed_at` values whose order says nothing.
+- **The RAW payload is digested and discarded.** What is stored is the
+  normalized projection built from `CATALOG_SOURCE_PAYLOAD_FIELDS`, an
+  ALLOW-list (`services/payments/redact.ts`'s precedent), and **its key names
+  are the MATCHER's read contract** — a second vocabulary would leave every
+  ingested record matching on a title and nothing else, silently. An oversized
+  projection is REFUSED rather than truncated: truncation hashes differently
+  every delivery, so the convergence key would stop converging.
+- **`may_store` decides whether the PAYLOAD is kept, not whether the observation
+  is** — and the consequence is stated rather than hidden: the matcher's subject
+  loader returns `null` for a payload-less record, so such a source produces
+  provenance and freshness and never an offer.
+- **The offer is shaped by the rights rather than checked after.** No
+  `display_price` ⇒ no price on the offer (the observation keeps it); no
+  `outbound_link` ⇒ the kind is `informational` and the CHECK refuses a
+  destination; no `affiliate_params` ⇒ no routing metadata for #37 to compose
+  from. The merchant comes from the source's own BINDING, never from a payload
+  hint — a source with no merchant produces no offers, which is a state an
+  operator can fix rather than a merchant nobody authorised.
+- **This closes #58's OTHER seam.** An automatic match writes
+  `canonical_product_source_links` and `canonical_variant_source_links` in one
+  transaction with the object's state — the attachment `match.service`
+  deliberately left to "the ingestion path that owns the observation". Anything
+  that is not an `automatic_match` writes no link and no offer and cites the
+  decision #59 reads; a CHECK makes `review_required` unwritable without one.
+- **`catalog_source_rejections` is the RESIDUAL and the only table here with a
+  retention deadline.** A `rejected` counter says a page dropped eleven records;
+  only these rows say all eleven were the same field a provider renamed. The
+  metrics report rejections from the runs' counter AND from the evidence, with
+  `countsAgree` beside them (#60's `scannedFromRecords` device).
+- **A reusable CONTRACT SUITE, not a fixture dump.**
+  `services/ingestion/__tests__/adapter-contract-suite.ts` covers all thirteen
+  cases against a REAL Postgres server; #63/#65/#66 each pass a harness that
+  materialises a SCENARIO in their own transport and get every case for free.
+  The fixture provider is a real adapter over an in-memory feed and is
+  registered by NOTHING — a test-only provider auto-registered in production is
+  how a live catalogue gets ingested into.
+- **`match_policy_versions_active_key` is GLOBAL** (one active policy in the
+  whole database), which makes it a shared resource between parallel realdb test
+  files. Both claimants wait for the slot with a bounded retry rather than
+  weakening the constraint; do not "fix" a collision there by scoping the index.
+- Env: `CATALOG_INGESTION_ENABLED` (gates the LOOP only),
+  `CATALOG_INGESTION_BATCH_SIZE`, `_POLL_INTERVAL_MS`, `_LEASE_MS`,
+  `_MAX_BACKOFF_MS`, `_RETIREMENT_BATCH_SIZE`, `_ANOMALY_PRICE_FACTOR`.
+  Operator surface `/internal/ingestion/*` behind the SAME
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60 use, and it
+  stays mounted while the loop is off — bringing a feed up by hand is the
+  supported path, and the evidence has to be readable during the incident that
+  turned the loop off.
+- Deferred, each a named contract that fails closed: #63/#65/#66 (the adapters —
+  NONE is registered, so every run refuses and says why), #37 (the
+  outbound/affiliate redirect), #59 (review and corrections), #60 (minting what
+  a `create_new` recommends), #74/#61 (ranking, indexes with numbers attached),
+  #116/#121 (supplier-backed `mercaria_retail` eligibility, which this framework
+  cannot reach), and the re-normalization drain a `NORMALIZATION_VERSION` bump
+  schedules.
+
 ## CrowdSource moderation: reports, cases, decisions, enforcement
 
 Abuse reports leave Mercaria durably, CrowdSource decides them with a randomly

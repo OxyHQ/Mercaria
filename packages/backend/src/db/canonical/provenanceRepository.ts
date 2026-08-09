@@ -109,6 +109,23 @@ export interface RecordSourceObservationInput {
   contentHash: string;
   /** Stored only when the source's `may_store` right allows it. */
   payload?: unknown;
+  /**
+   * The source's OWN last-modified, when it publishes one (#62 observation 7).
+   * Distinct from `observedAt`, which is when Mercaria looked.
+   */
+  sourceUpdatedAt?: Date;
+  /**
+   * sha-256 hex of the RAW provider payload (#62 observation 4).
+   *
+   * The raw bytes are never stored — `payload` holds the allow-listed
+   * projection — so this is what keeps the observation traceable to what
+   * produced it without retaining any of it.
+   */
+  rawPayloadDigest?: string;
+  /** The normalization ruleset version that produced `payload` (#62 observation 9). */
+  normalizationVersion?: number;
+  /** The rights version the observation was read under (#62 observation 8). */
+  policyVersion?: number;
 }
 
 export interface RecordSourceObservationResult {
@@ -123,6 +140,13 @@ export interface RecordSourceObservationResult {
  * Identical content re-delivered writes NOTHING — no tuple churn, no timestamp
  * movement — and hands back the existing row. Changed content is a new row; the
  * sequence of rows is the observation history.
+ *
+ * #62's four columns ride the SAME insert rather than a follow-up update, and
+ * that is load-bearing: an observation is append-only, so a second statement
+ * stamping the policy and normalization versions onto it would be a write to an
+ * immutable row — and on the DO NOTHING branch it would stamp the versions of
+ * THIS delivery onto the row an earlier one created, quietly claiming a fact was
+ * read under rules it was not.
  */
 export async function recordSourceObservation(
   db: DatabaseOrTransaction,
@@ -138,6 +162,10 @@ export async function recordSourceObservation(
       staleAt: input.staleAt ?? null,
       contentHash: input.contentHash,
       payload: input.payload ?? null,
+      sourceUpdatedAt: input.sourceUpdatedAt ?? null,
+      rawPayloadDigest: input.rawPayloadDigest ?? null,
+      normalizationVersion: input.normalizationVersion ?? null,
+      policyVersion: input.policyVersion ?? null,
     })
     .onConflictDoNothing({
       target: [
