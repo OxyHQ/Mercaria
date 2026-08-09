@@ -27,6 +27,7 @@ import type {
   CurrencyPreference,
   UpdateCurrencyPreferenceInput,
 } from '@mercaria/shared-types';
+import type { CartOwner } from '../db/buyers/cartRepository.js';
 import {
   findPreferredCurrency,
   upsertUserPreference,
@@ -60,6 +61,39 @@ function toCurrencyPreference(row: UserPreferenceRecord): CurrencyPreference {
  */
 export async function resolvePresentmentCurrency(oxyUserId: string): Promise<CurrencyCode> {
   return (await findPreferredCurrency(oxyUserId)) ?? DEFAULT_PRESENTMENT_CURRENCY;
+}
+
+/**
+ * The presentment currency for either kind of cart owner (#104, ADR 0003 D8).
+ *
+ * The two branches differ because the two owners differ in what they can
+ * STORE, not because guests get special treatment:
+ *
+ *  - An **Oxy** owner has a `user_preferences` row, so their stored choice is
+ *    the authority and {@link resolvePresentmentCurrency} answers exactly as it
+ *    always has. `requested` is deliberately IGNORED for them: a query
+ *    parameter able to override a stored preference would be a second authority
+ *    over one fact, and "keep Oxy behaviour unchanged" is an explicit #104
+ *    requirement.
+ *  - A **guest** owner has no preferences row and the ADR says not to give them
+ *    one (D8: "the client sends it per request, falling back to FAIR"). Their
+ *    display currency therefore rides the request. It is DISPLAY only — the
+ *    catalogue still stores native prices and checkout still reprices — so a
+ *    client choosing it decides nothing a buyer could not decide anyway.
+ *
+ * `requested` reaches here already validated against `ALL_CURRENCY_CODES` by
+ * the route schema; an unrecognized code never becomes a currency.
+ */
+export async function resolvePresentmentCurrencyForOwner(
+  owner: CartOwner,
+  requested?: CurrencyCode,
+): Promise<CurrencyCode> {
+  switch (owner.kind) {
+    case 'oxy_user':
+      return resolvePresentmentCurrency(owner.oxyUserId);
+    case 'guest_session':
+      return requested ?? DEFAULT_PRESENTMENT_CURRENCY;
+  }
 }
 
 /**

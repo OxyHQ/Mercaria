@@ -180,6 +180,8 @@ function pricingResultFor(lineCount: number, subtotal: number): PricingResult {
 }
 
 const USER = 'buyer-1';
+/** The cart OWNER checkout builds from that user id (#104). */
+const OWNER = { kind: 'oxy_user', oxyUserId: USER } as const;
 const ADDRESS_ID = uuidv7();
 
 /** Every row fixture carries the same timestamps; none of them is asserted on. */
@@ -411,7 +413,7 @@ describe('checkout.service.checkout — multi-seller split', () => {
     expect(result.checkoutGroupId).toBe(groupIds[0]);
     expect(result.orders).toHaveLength(3);
     expect(reserve).toHaveBeenCalledTimes(3);
-    expect(clearCart).toHaveBeenCalledWith(USER);
+    expect(clearCart).toHaveBeenCalledWith(OWNER);
 
     // The disabled half of the #46 checkout gate, pinned where three real seller
     // groups have just gone through the whole path: not one readiness lookup
@@ -781,7 +783,7 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
     expect(result.orders).toHaveLength(1);
 
     // Partial checkout: remove only the placed line, keep the rest — never clearCart.
-    expect(removeCartLines).toHaveBeenCalledWith(USER, [V1]);
+    expect(removeCartLines).toHaveBeenCalledWith(OWNER, [V1]);
     expect(clearCart).not.toHaveBeenCalled();
   });
 

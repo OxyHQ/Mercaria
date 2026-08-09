@@ -331,7 +331,7 @@ async function seedBuyer(input: {
     country: 'ES',
   });
 
-  const cart = await ensureCart(buyerId);
+  const cart = await ensureCart({ kind: 'oxy_user', oxyUserId: buyerId });
   for (const line of input.lines) {
     await upsertCartItem(cart.id, line);
   }

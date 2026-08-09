@@ -34,11 +34,13 @@ export * from './payments';
 export * from './ledger';
 export * from './reconciliation';
 export * from './pos';
-export * from './buyers';
-// `guests` follows `buyers` deliberately: #104 gives `carts` a
-// `guest_session_id` foreign key, so the session table must exist beside the
-// cart it will own. Nothing references guests today.
+// `guests` PRECEDES `buyers` since #104: `carts.guest_session_id` is a real
+// foreign key onto `guest_sessions`, so the session table is the parent and
+// belongs on the parent side of the dependency order this list encodes. It was
+// placed after `buyers` while nothing referenced it, which the #103 comment
+// said in as many words; that condition ended when the cart gained its owner.
 export * from './guests';
+export * from './buyers';
 export * from './notifications';
 export * from './moderation';
 // Canonical commerce graph (ADR 0002). `provenance` precedes `organizations`

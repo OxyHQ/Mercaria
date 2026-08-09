@@ -299,11 +299,15 @@ function CheckoutBody() {
   const effectiveAddressId = selectedAddressId ?? defaultAddressId;
 
   if (!isAuthenticated) {
+    // Guest CHECKOUT is #105–#107; #104 stops at the cart. The copy says so
+    // plainly and, crucially, tells the buyer their cart survives — because it
+    // does: signing in merges it into the account's cart, exactly once.
     return (
       <View className="items-center px-8 py-24">
         <Text className="text-center text-lg font-bold text-foreground">Sign in to check out</Text>
         <Text className="mt-1 text-center text-sm text-muted-foreground">
-          You need an account to place an order.
+          Placing an order needs an account for now. Your cart is saved — sign in and it comes
+          with you.
         </Text>
       </View>
     );

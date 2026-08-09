@@ -10,7 +10,7 @@
  * fed image ROWS rather than a listing.
  *
  * The cart's OWN storage is Postgres too now, so `Cart` is gone and what stands
- * in its place is the cart REPOSITORY — `findCartByUser` returning a flat record
+ * in its place is the cart REPOSITORY — `findCartByOwner` returning a flat record
  * with an `items` array, plus the four mutators. The store and seller-profile
  * reads are repositories as well. Only the media chokepoint (`resolveMedia`) and
  * the buyer's presentment currency are still mocked as plain functions.
@@ -32,7 +32,7 @@ import type {
 } from '../../db/catalog/listingRepository.js';
 import type { VariantRecord } from '../../db/catalog/variantRepository.js';
 
-const findCartByUser = vi.fn();
+const findCartByOwner = vi.fn();
 const ensureCart = vi.fn();
 const upsertCartItem = vi.fn();
 const deleteCartItem = vi.fn();
@@ -46,12 +46,12 @@ const findSellerProfilesByUserIds = vi.fn();
 const getProfilesMock = vi.fn();
 
 vi.mock('../../db/buyers/cartRepository.js', () => ({
-  findCartByUser: (...args: unknown[]) => findCartByUser(...args),
+  findCartByOwner: (...args: unknown[]) => findCartByOwner(...args),
   ensureCart: (...args: unknown[]) => ensureCart(...args),
   upsertCartItem: (...args: unknown[]) => upsertCartItem(...args),
   deleteCartItem: (...args: unknown[]) => deleteCartItem(...args),
   deleteCartItems: vi.fn(),
-  clearCartForUser: vi.fn(),
+  clearCartForOwner: vi.fn(),
   setPendingDiscountCodes: vi.fn(),
 }));
 
@@ -88,14 +88,19 @@ vi.mock('../catalog-hydration.service.js', () => ({
 
 // The cart is displayed in the buyer's presentment currency; these fixtures use FAIR.
 vi.mock('../user-preference.service.js', () => ({
-  resolvePresentmentCurrency: () => Promise.resolve('FAIR'),
+  resolvePresentmentCurrencyForOwner: () => Promise.resolve('FAIR'),
 }));
 
 import { addItem, revalidate, getCart } from '../cart.service.js';
-import type { CartItemRow, CartRecord } from '../../db/buyers/cartRepository.js';
+import type { CartItemRow, CartOwner, CartRecord } from '../../db/buyers/cartRepository.js';
+import type { CartView } from '../cart.service.js';
 import type { StoreRow } from '../../db/stores/storeRepository.js';
 
 const USER = 'user-1';
+/** The Oxy owner every fixture in this file belongs to (#104). */
+const OWNER: CartOwner = { kind: 'oxy_user', oxyUserId: USER };
+/** The view every entry point now takes: an owner, no requested currency. */
+const VIEW: CartView = { owner: OWNER };
 const LISTING_ID = uuidv7();
 const VARIANT_ID = uuidv7();
 const CART_ID = uuidv7();
@@ -230,11 +235,12 @@ interface MockCartItem {
   quantity: number;
 }
 
-/** A stored cart, as `findCartByUser` returns it: the row plus its line rows. */
+/** A stored cart, as `findCartByOwner` returns it: the row plus its line rows. */
 function storedCart(items: MockCartItem[]): CartRecord {
   return {
     id: CART_ID,
     oxyUserId: USER,
+    guestSessionId: null,
     pendingDiscountCodes: [],
     createdAt: AT,
     updatedAt: AT,
@@ -243,6 +249,7 @@ function storedCart(items: MockCartItem[]): CartRecord {
       cartId: CART_ID,
       ...item,
       addedAt: AT,
+      mergeReviewReason: null,
       createdAt: AT,
       updatedAt: AT,
     })) as CartItemRow[],
@@ -250,7 +257,7 @@ function storedCart(items: MockCartItem[]): CartRecord {
 }
 
 beforeEach(() => {
-  findCartByUser.mockReset();
+  findCartByOwner.mockReset();
   ensureCart.mockReset();
   upsertCartItem.mockReset();
   deleteCartItem.mockReset();
@@ -283,7 +290,7 @@ describe('cart.service.addItem', () => {
     findListingById.mockResolvedValueOnce(listingRow());
     findVariantById.mockResolvedValueOnce(variantRow({ inventoryAvailable: 3 }));
     // No existing cart → the `ensureCart` path.
-    findCartByUser
+    findCartByOwner
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(
         storedCart([{ listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 3 }]),
@@ -292,10 +299,10 @@ describe('cart.service.addItem', () => {
     findVariantsByIds.mockResolvedValueOnce([variantRow({ inventoryAvailable: 3 })]);
     findListingsByIds.mockResolvedValueOnce([listingRow()]);
 
-    const cart = await addItem(USER, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 50 });
+    const cart = await addItem(VIEW, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 50 });
 
     // The written cart line was clamped to 3 (available).
-    expect(ensureCart).toHaveBeenCalledWith(USER);
+    expect(ensureCart).toHaveBeenCalledWith(OWNER);
     expect(upsertCartItem).toHaveBeenCalledWith(CART_ID, {
       listingId: LISTING_ID,
       variantId: VARIANT_ID,
@@ -311,12 +318,12 @@ describe('cart.service.addItem', () => {
     const existing = storedCart([
       { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2 },
     ]);
-    findCartByUser.mockResolvedValueOnce(existing).mockResolvedValueOnce(existing);
+    findCartByOwner.mockResolvedValueOnce(existing).mockResolvedValueOnce(existing);
 
     findVariantsByIds.mockResolvedValueOnce([variantRow({ inventoryAvailable: 10 })]);
     findListingsByIds.mockResolvedValueOnce([listingRow()]);
 
-    await addItem(USER, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 3 });
+    await addItem(VIEW, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 3 });
 
     // 2 (existing) + 3 (added) = 5, within available(10). The upsert writes the
     // ABSOLUTE clamped total, never a delta — the clamp has already been applied.
@@ -336,13 +343,13 @@ describe('cart.service.addItem', () => {
     const existing = storedCart([
       { listingId: LISTING_ID, variantId: uuidv7(), quantity: 1 },
     ]);
-    findCartByUser.mockResolvedValueOnce(existing).mockResolvedValueOnce(existing);
+    findCartByOwner.mockResolvedValueOnce(existing).mockResolvedValueOnce(existing);
 
     // getCart hydration lookups (the EUR line converts to the FAIR presentment).
     findVariantsByIds.mockResolvedValueOnce([variantRow({ priceCurrency: 'EUR' })]);
     findListingsByIds.mockResolvedValueOnce([listingRow()]);
 
-    await addItem(USER, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 1 });
+    await addItem(VIEW, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 1 });
 
     // The differing-currency line is written (no cross-currency rejection).
     expect(upsertCartItem).toHaveBeenCalledWith(CART_ID, {
@@ -365,7 +372,7 @@ describe('cart.service.revalidate', () => {
     ]);
     findListingsByIds.mockResolvedValueOnce([listingRow()]);
 
-    const dto = await revalidate(cart);
+    const dto = await revalidate(cart, VIEW);
 
     expect(dto.items).toHaveLength(1);
     expect(dto.items[0].stale).toBe(true);
@@ -397,7 +404,7 @@ describe('cart.service.revalidate', () => {
     ]);
     findListingsByIds.mockResolvedValueOnce([listingRow(), listingRow({ id: LISTING_2 })]);
 
-    const dto = await revalidate(cart);
+    const dto = await revalidate(cart, VIEW);
 
     // line totals: 1000*2 + 2500*1 = 4500.
     expect(dto.subtotal).toEqual({ amount: 4500, currency: 'FAIR' });
@@ -415,7 +422,7 @@ describe('cart.service.revalidate', () => {
     ]);
     findListingsByIds.mockResolvedValueOnce([listingRow()]);
 
-    const dto = await revalidate(cart);
+    const dto = await revalidate(cart, VIEW);
 
     // Same treatment as a vanished variant: a line the buyer must remove, priced
     // at zero and flagged, rather than a ⊜0 item they could actually buy.
@@ -439,7 +446,7 @@ describe('cart.service groups', () => {
     findListingsByIds.mockResolvedValueOnce([listingRow()]);
     findStoresByIds.mockResolvedValueOnce([storeRow()]);
 
-    const dto = await revalidate(cart);
+    const dto = await revalidate(cart, VIEW);
 
     expect(dto.groups).toHaveLength(1);
     const group = dto.groups[0];
@@ -481,7 +488,7 @@ describe('cart.service groups', () => {
       new Map([[SELLER_USER, { id: SELLER_USER, username: 'jane', displayName: 'Jane Doe', avatar: 'av-1' }]]),
     );
 
-    const dto = await revalidate(cart);
+    const dto = await revalidate(cart, VIEW);
 
     expect(dto.groups).toHaveLength(1);
     expect(dto.groups[0].vendor).toEqual({
@@ -497,8 +504,8 @@ describe('cart.service groups', () => {
 
 describe('cart.service.getCart', () => {
   it('returns an empty FAIR cart when the buyer has no cart document', async () => {
-    findCartByUser.mockResolvedValueOnce(null);
-    const dto = await getCart(USER);
+    findCartByOwner.mockResolvedValueOnce(null);
+    const dto = await getCart(VIEW);
     expect(dto.items).toEqual([]);
     expect(dto.subtotal).toEqual({ amount: 0, currency: 'FAIR' });
   });

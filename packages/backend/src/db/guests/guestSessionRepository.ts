@@ -13,8 +13,9 @@
  * cannot end up in a query log.
  */
 
-import { and, eq, gt, isNull, lt, or } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { GuestClientClass } from '@mercaria/shared-types';
+import { carts } from '../schema/buyers.js';
 import { guestSessions } from '../schema/guests.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
@@ -181,4 +182,92 @@ export async function findGuestSessionById(
 ): Promise<GuestSessionRow | undefined> {
   const [row] = await db.select().from(guestSessions).where(eq(guestSessions.id, id)).limit(1);
   return row;
+}
+
+/**
+ * Fetch by row id with the row LOCKED `FOR UPDATE` — the cart merge's
+ * serialization point (#104).
+ *
+ * Every attempt to merge one guest session queues here, so the "has this
+ * session already been converted?" read and the conversion stamp that answers
+ * it cannot interleave. Under READ COMMITTED the loser re-evaluates against the
+ * winner's committed row once the lock is granted, which is what makes it read
+ * `converted_at` as SET rather than as the NULL it saw before blocking — the
+ * whole "signing in merges carts exactly once under concurrent retries"
+ * acceptance rests on that re-evaluation.
+ *
+ * Only meaningful inside a transaction; outside one the lock is released at
+ * statement end, hence the transaction handle in the signature.
+ */
+export async function findGuestSessionByIdForUpdate(
+  tx: DatabaseOrTransaction,
+  id: string,
+): Promise<GuestSessionRow | undefined> {
+  const [row] = await tx
+    .select()
+    .from(guestSessions)
+    .where(eq(guestSessions.id, id))
+    .limit(1)
+    .for('update');
+  return row;
+}
+
+/**
+ * Stamp the conversion audit pair and revoke, in ONE statement (#104, ADR 0003
+ * D3).
+ *
+ * Sign-in REVOKES a guest session rather than upgrading it, and the schema
+ * refuses to represent it any other way: `guest_sessions_conversion_check`
+ * forces the audit pair to travel together and
+ * `guest_sessions_converted_revoked_check` forces converted ⇒ revoked. Writing
+ * all three columns here is what keeps those CHECKs satisfiable — a caller that
+ * set them in two statements would leave an unrepresentable intermediate state.
+ *
+ * `revoked_at` is set only when it is not already set, so an operator's earlier
+ * revocation timestamp is preserved rather than rewritten by the conversion.
+ *
+ * The predicate is a compare-and-swap on NOT-yet-converted, so a second call
+ * returns `false` — the ordinary outcome of a retry, not a failure.
+ */
+export async function convertGuestSession(
+  tx: DatabaseOrTransaction,
+  input: { id: string; oxyUserId: string; now: Date },
+): Promise<boolean> {
+  const updated = await tx
+    .update(guestSessions)
+    .set({
+      convertedAt: input.now,
+      convertedToOxyUserId: input.oxyUserId,
+      // `${input.now}` alone would be a raw `Date` bound against an EXPRESSION,
+      // which has no column to take a type from: postgres.js refuses it with
+      // `ERR_INVALID_ARG_TYPE` at query time on code that type-checks perfectly
+      // (`db/schema/CONVENTIONS.md` — "a `Date` is not a safe parameter against
+      // an EXPRESSION"). The ISO string plus an explicit cast is the fix.
+      revokedAt: sql`coalesce(${guestSessions.revokedAt}, ${input.now.toISOString()}::timestamptz)`,
+    })
+    .where(and(eq(guestSessions.id, input.id), isNull(guestSessions.convertedAt)))
+    .returning({ id: guestSessions.id });
+  return updated.length === 1;
+}
+
+/**
+ * Sessions marked converted that STILL own a cart — the consistency check #104
+ * requires, and one that should always answer zero.
+ *
+ * A converted session's cart is deleted in the same transaction that converts
+ * it, so a hit here means a merge committed a conversion without draining its
+ * cart: exactly the invariant no CHECK can express (it spans two tables) and
+ * therefore the one worth querying for. Bounded and id-only — the operator
+ * surface never needs the cart's contents to know something is wrong.
+ */
+export async function findConvertedSessionsWithCarts(
+  db: DatabaseOrTransaction,
+  limit: number,
+): Promise<{ guestSessionId: string; cartId: string }[]> {
+  return db
+    .select({ guestSessionId: guestSessions.id, cartId: carts.id })
+    .from(guestSessions)
+    .innerJoin(carts, eq(carts.guestSessionId, guestSessions.id))
+    .where(isNotNull(guestSessions.convertedAt))
+    .limit(limit);
 }

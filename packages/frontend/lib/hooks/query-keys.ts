@@ -9,6 +9,12 @@ export const queryKeys = {
   },
   cart: {
     all: ["cart"] as const,
+    /**
+     * The guest→Oxy merge (#104). A separate key so React Query's own
+     * once-per-`enabled`-transition semantics can stand in for the sign-in
+     * effect that would otherwise watch the auth state.
+     */
+    merge: ["cart", "merge"] as const,
   },
   addresses: {
     all: ["addresses"] as const,

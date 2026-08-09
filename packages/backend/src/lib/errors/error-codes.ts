@@ -28,6 +28,9 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   // 503, not 4xx: the caller did nothing wrong — the issuance kill switch is
   // thrown (ADR 0003), and retrying later is the correct client behaviour.
   [ErrorCodes.GUEST_ISSUANCE_DISABLED]: 503,
+  // 403, not 503: this deployment does not do guest carts at all, so retrying
+  // never helps. The client's correct response is to offer sign-in (#104).
+  [ErrorCodes.GUEST_CART_DISABLED]: 403,
 };
 
 export interface MercariaErrorParams {

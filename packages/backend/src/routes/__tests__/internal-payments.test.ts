@@ -85,6 +85,11 @@ vi.mock('../../lib/rate-limit.js', () => ({
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
       next();
     },
+  // `routes/cart.ts` reaches this module through `createApp()` too (#104).
+  makeActorRateLimiter:
+    () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      next();
+    },
 }));
 vi.mock('../../lib/logger.js', () => ({
   log: {

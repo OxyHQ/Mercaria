@@ -15,6 +15,15 @@
  *     and to `config.cart.maxQuantityPerItem`.
  *   - NO inventory is reserved here — reservation happens at checkout (F4). The
  *     cart is a soft wishlist-to-buy.
+ *
+ * ## The owner is a `CartOwner`, not "a user" (#104, ADR 0003 D8)
+ *
+ * Every entry point takes the owner VALUE — an Oxy account or a guest session —
+ * and there is exactly ONE service, one hydration path, one grouping path and
+ * one pricing preview for both. That is invariant I9 kept cheap: nothing here
+ * asks which kind of buyer it is serving except where the answer genuinely
+ * differs (the presentment currency, which a guest has no row to store in), so
+ * there is nothing guest-shaped to fork.
  */
 
 import type {
@@ -27,13 +36,14 @@ import type {
   Money,
 } from '@mercaria/shared-types';
 import {
-  clearCartForUser,
+  clearCartForOwner,
   deleteCartItem,
   deleteCartItems,
   ensureCart,
-  findCartByUser,
+  findCartByOwner,
   setPendingDiscountCodes,
   upsertCartItem,
+  type CartOwner,
   type CartRecord,
 } from '../db/buyers/cartRepository.js';
 import {
@@ -59,7 +69,7 @@ import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { calculateTotals, type PricingLine } from './pricing.service.js';
 import { normalizeDiscountCode } from './discount.service.js';
 import { getRates, convert } from './fx.service.js';
-import { resolvePresentmentCurrency } from './user-preference.service.js';
+import { resolvePresentmentCurrencyForOwner } from './user-preference.service.js';
 import { multiplyMoney, sumMoney, zeroMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
@@ -239,6 +249,21 @@ function clampQuantity(requested: number, tracked: boolean, available: number): 
 }
 
 /**
+ * WHO is asking, and in what currency they want to be quoted.
+ *
+ * The owner is the authority for everything that touches storage; the
+ * requested currency is DISPLAY only and is honoured for a guest owner alone.
+ * An Oxy buyer's presentment currency is the one they stored (ADR 0003 D8
+ * keeps authenticated behaviour exactly as it was), and letting a query
+ * parameter override it would be a second authority over one fact.
+ */
+export interface CartView {
+  readonly owner: CartOwner;
+  /** A guest's per-request display currency; ignored for an Oxy owner. */
+  readonly requestedCurrency?: CurrencyCode;
+}
+
+/**
  * Build the hydrated `Cart` DTO for a stored cart document, reading live prices
  * and availability from the variants. A line whose variant/listing is gone, or
  * whose live `available` is below its quantity, is flagged `stale`.
@@ -247,13 +272,13 @@ function clampQuantity(requested: number, tracked: boolean, available: number): 
  * run (per store represented in the cart) to surface `discountTotal`/`taxPreview`/
  * `total`. The preview is presentation-only — checkout re-computes authoritatively.
  */
-async function buildCartDTO(cart: CartRecord): Promise<CartDTO> {
+async function buildCartDTO(cart: CartRecord, view: CartView): Promise<CartDTO> {
   const id = cart.id;
   const pendingDiscountCodes = [...cart.pendingDiscountCodes];
 
   // The cart is displayed in the buyer's PRESENTMENT currency (their preferred
   // currency, or FAIR). Native prices are converted into it for display.
-  const currency = await resolvePresentmentCurrency(cart.oxyUserId);
+  const currency = await resolvePresentmentCurrencyForOwner(view.owner, view.requestedCurrency);
 
   if (cart.items.length === 0) {
     const empty: CartDTO = { id, items: [], groups: [], currency, subtotal: { amount: 0, currency } };
@@ -330,6 +355,14 @@ async function buildCartDTO(cart: CartRecord): Promise<CartDTO> {
     // Tracked + understocked, or listing no longer sellable → stale.
     if ((tracked && available < item.quantity) || listing.status !== 'active') {
       dto.stale = true;
+    }
+    // A merge's verdict on this line, surfaced until the buyer acts on it. It
+    // is SEPARATE from `stale` on purpose: `stale` is re-derived from live
+    // catalogue state on every hydration and clears itself when stock returns,
+    // while "your 7 became 3" is a fact about what the merge did and is not
+    // re-derivable afterwards.
+    if (item.mergeReviewReason !== null) {
+      dto.reviewReason = item.mergeReviewReason;
     }
     return dto;
   });
@@ -462,17 +495,28 @@ async function previewDiscounts(
 }
 
 /**
- * Get the buyer's cart, hydrated with live unit prices, availability and a
- * subtotal (in the buyer's presentment currency). Returns an empty cart (no
- * document yet) in the buyer's presentment currency.
+ * The empty cart an owner with no row yet — or no owner at all — is shown.
+ *
+ * A READ never creates anything (ADR 0003 T10), so a signed-out visitor who has
+ * never written gets this shape rather than a freshly minted guest session.
+ * `id` is the empty string exactly as it always was for an Oxy buyer with no
+ * cart row; the client treats it as "nothing here", never as a handle.
  */
-export async function getCart(oxyUserId: string): Promise<CartDTO> {
-  const cart = await findCartByUser(oxyUserId);
+export function emptyCart(currency: CurrencyCode): CartDTO {
+  return { id: '', items: [], groups: [], currency, subtotal: { amount: 0, currency } };
+}
+
+/**
+ * Get the owner's cart, hydrated with live unit prices, availability and a
+ * subtotal (in their presentment currency). Returns an empty cart (no row yet)
+ * in that same currency.
+ */
+export async function getCart(view: CartView): Promise<CartDTO> {
+  const cart = await findCartByOwner(view.owner);
   if (!cart) {
-    const currency = await resolvePresentmentCurrency(oxyUserId);
-    return { id: '', items: [], groups: [], currency, subtotal: { amount: 0, currency } };
+    return emptyCart(await resolvePresentmentCurrencyForOwner(view.owner, view.requestedCurrency));
   }
-  return buildCartDTO(cart);
+  return buildCartDTO(cart, view);
 }
 
 /**
@@ -485,7 +529,7 @@ export async function getCart(oxyUserId: string): Promise<CartDTO> {
  * a different native currency is accepted and converted to the buyer's
  * presentment currency at hydration/checkout.
  */
-export async function addItem(oxyUserId: string, input: AddCartItemInput): Promise<CartDTO> {
+export async function addItem(view: CartView, input: AddCartItemInput): Promise<CartDTO> {
   if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
     throw validationError('quantity must be a positive integer');
   }
@@ -514,7 +558,7 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
     throw conflict('Variant is out of stock');
   }
 
-  const cart = await findCartByUser(oxyUserId);
+  const cart = await findCartByOwner(view.owner);
   const existing = cart?.items.find((i) => i.variantId === input.variantId);
   const desired = (existing?.quantity ?? 0) + input.quantity;
   const quantity = clampQuantity(desired, tracked, available);
@@ -523,24 +567,34 @@ export async function addItem(oxyUserId: string, input: AddCartItemInput): Promi
   }
 
   // `ensureCart` rather than a find-then-insert: two concurrent first adds would
-  // both miss and the second would fail `carts_oxy_user_id_key`, turning an
+  // both miss and the second would fail the owner's unique index, turning an
   // ordinary double-tap into a 500.
-  const cartId = cart?.id ?? (await ensureCart(oxyUserId)).id;
+  const cartId = cart?.id ?? (await ensureCart(view.owner)).id;
   await upsertCartItem(cartId, {
     listingId: input.listingId,
     variantId: input.variantId,
     quantity,
   });
-  return getCart(oxyUserId);
+  return getCart(view);
 }
 
 /**
- * Set the absolute quantity of a variant already in the cart. A quantity of `0`
- * removes the line. The new quantity is clamped to live availability (tracked)
- * and `maxQuantityPerItem`. Returns the freshly hydrated cart.
+ * Set the ABSOLUTE quantity of a variant in the cart — the IDEMPOTENT mutation
+ * (#104 route requirement 9).
+ *
+ * `addItem` increments, so a native client that retries an offline-queued add
+ * double-counts; this one states the quantity it wants and converges however
+ * many times it arrives, which is why it also CREATES the line when the cart
+ * does not hold it yet. A quantity of `0` removes the line, and removing a line
+ * that is not there is likewise a no-op rather than a 404 — an idempotent
+ * mutation that answers differently on the second call is not idempotent.
+ *
+ * The new quantity is clamped to live availability (tracked) and
+ * `maxQuantityPerItem`, and the write clears any merge review flag on the line:
+ * setting the quantity explicitly IS the acknowledgement.
  */
 export async function updateItem(
-  oxyUserId: string,
+  view: CartView,
   variantId: string,
   quantity: number,
 ): Promise<CartDTO> {
@@ -548,46 +602,56 @@ export async function updateItem(
     throw validationError('quantity must be a non-negative integer');
   }
 
-  const cart = await findCartByUser(oxyUserId);
-  if (!cart) {
-    throw notFound('Cart not found');
-  }
-
-  const line = cart.items.find((i) => i.variantId === variantId);
-  if (!line) {
-    throw notFound('Item not in cart');
-  }
+  const cart = await findCartByOwner(view.owner);
 
   if (quantity === 0) {
-    await deleteCartItem(cart.id, variantId);
-    return getCart(oxyUserId);
+    if (cart) {
+      await deleteCartItem(cart.id, variantId);
+    }
+    return getCart(view);
   }
 
   const variant = await findVariantById(variantId);
   if (!variant) {
     throw notFound('Variant not found');
   }
+  // The line's listing is the variant's CURRENT owner, read live — never the
+  // listing id a previous line happened to record, which a canonical remap may
+  // since have moved (#104 merge conflict case 5, same revalidation rule).
+  const listing = await findListingById(variant.listingId);
+  if (!listing) {
+    throw notFound('Listing not found');
+  }
+  if (listing.status !== 'active') {
+    throw conflict('Listing is not available for purchase');
+  }
 
   const clamped = clampQuantity(quantity, variant.inventoryTracked, variant.inventoryAvailable);
   if (clamped <= 0) {
     throw conflict('Variant is out of stock');
   }
-  await upsertCartItem(cart.id, {
-    listingId: line.listingId,
+  const cartId = cart?.id ?? (await ensureCart(view.owner)).id;
+  await upsertCartItem(cartId, {
+    listingId: listing.id,
     variantId,
     quantity: clamped,
   });
-  return getCart(oxyUserId);
+  return getCart(view);
 }
 
-/** Remove a variant line from the cart. Returns the freshly hydrated cart. */
-export async function removeItem(oxyUserId: string, variantId: string): Promise<CartDTO> {
-  const cart = await findCartByUser(oxyUserId);
-  if (!cart) {
-    throw notFound('Cart not found');
+/**
+ * Remove a variant line from the cart. Returns the freshly hydrated cart.
+ *
+ * Idempotent: removing from a cart that does not exist, or a line that is not
+ * in it, answers with the (empty) cart rather than a 404 — the second DELETE of
+ * a retried request must not look like a different outcome from the first.
+ */
+export async function removeItem(view: CartView, variantId: string): Promise<CartDTO> {
+  const cart = await findCartByOwner(view.owner);
+  if (cart) {
+    await deleteCartItem(cart.id, variantId);
   }
-  await deleteCartItem(cart.id, variantId);
-  return getCart(oxyUserId);
+  return getCart(view);
 }
 
 /**
@@ -595,8 +659,8 @@ export async function removeItem(oxyUserId: string, variantId: string): Promise<
  * all line items; the cart document is retained. Pending discount codes are also
  * cleared — they were one-shot inputs to the checkout that just consumed them.
  */
-export async function clearCart(oxyUserId: string): Promise<void> {
-  await clearCartForUser(oxyUserId);
+export async function clearCart(owner: CartOwner): Promise<void> {
+  await clearCartForOwner(owner);
 }
 
 /**
@@ -605,11 +669,11 @@ export async function clearCart(oxyUserId: string): Promise<void> {
  * that places only some groups and keeps the rest in the cart. A no-op when
  * `variantIds` is empty.
  */
-export async function removeCartLines(oxyUserId: string, variantIds: string[]): Promise<void> {
+export async function removeCartLines(owner: CartOwner, variantIds: string[]): Promise<void> {
   if (variantIds.length === 0) {
     return;
   }
-  const cart = await findCartByUser(oxyUserId);
+  const cart = await findCartByOwner(owner);
   if (!cart) {
     return;
   }
@@ -622,17 +686,45 @@ export async function removeCartLines(oxyUserId: string, variantIds: string[]): 
  * cart, else VALIDATION_ERROR. The code is normalized (trim + uppercase). Returns
  * the freshly hydrated cart (with the discount preview).
  */
-export async function applyDiscountCode(oxyUserId: string, code: string): Promise<CartDTO> {
+export async function applyDiscountCode(view: CartView, code: string): Promise<CartDTO> {
   const normalized = normalizeDiscountCode(code);
   if (normalized.length === 0) {
     throw validationError('Discount code is required');
   }
 
-  const cart = await findCartByUser(oxyUserId);
+  const cart = await findCartByOwner(view.owner);
   if (!cart || cart.items.length === 0) {
     throw conflict('Cart is empty');
   }
 
+  const valid = await discountCodeAppliesToCart(cart, normalized);
+  if (valid === 'no_store_lines') {
+    throw validationError('No store items in cart to apply a discount to');
+  }
+  if (!valid) {
+    throw validationError('Discount code is not valid for the items in your cart');
+  }
+
+  if (!cart.pendingDiscountCodes.includes(normalized)) {
+    await setPendingDiscountCodes(cart.id, [...cart.pendingDiscountCodes, normalized]);
+  }
+  return getCart(view);
+}
+
+/**
+ * Whether a normalized code names an ACTIVE, in-window discount on a store the
+ * cart actually buys from.
+ *
+ * Shared by `applyDiscountCode` and the merge's conservative code carry-over,
+ * so "is this code still meaningful for these lines" has exactly one answer in
+ * the codebase. `'no_store_lines'` is distinguished from a plain `false`
+ * because the two produce different messages for a buyer applying a code and
+ * the SAME outcome (drop it) for a merge.
+ */
+export async function discountCodeAppliesToCart(
+  cart: CartRecord,
+  normalizedCode: string,
+): Promise<boolean | 'no_store_lines'> {
   // The distinct store ids of the cart's store-owned listings.
   const listings = await findListingsByIds(cart.items.map((i) => i.listingId));
   const storeIds = [
@@ -641,27 +733,19 @@ export async function applyDiscountCode(oxyUserId: string, code: string): Promis
     ),
   ];
   if (storeIds.length === 0) {
-    throw validationError('No store items in cart to apply a discount to');
+    return 'no_store_lines';
   }
 
   // The code and the scheduled window are checked in ONE statement — the code
   // lives on the child row and the window on the parent, so a two-step read could
   // accept a code that an expired discount merely still carries.
-  const valid = await activeDiscountCodeExists(storeIds, normalized, new Date());
-  if (!valid) {
-    throw validationError('Discount code is not valid for the items in your cart');
-  }
-
-  if (!cart.pendingDiscountCodes.includes(normalized)) {
-    await setPendingDiscountCodes(cart.id, [...cart.pendingDiscountCodes, normalized]);
-  }
-  return getCart(oxyUserId);
+  return activeDiscountCodeExists(storeIds, normalizedCode, new Date());
 }
 
 /** Remove a pinned discount code from the cart. Returns the freshly hydrated cart. */
-export async function removeDiscountCode(oxyUserId: string, code: string): Promise<CartDTO> {
+export async function removeDiscountCode(view: CartView, code: string): Promise<CartDTO> {
   const normalized = normalizeDiscountCode(code);
-  const cart = await findCartByUser(oxyUserId);
+  const cart = await findCartByOwner(view.owner);
   if (!cart) {
     throw notFound('Cart not found');
   }
@@ -670,7 +754,7 @@ export async function removeDiscountCode(oxyUserId: string, code: string): Promi
   if (remaining.length !== cart.pendingDiscountCodes.length) {
     await setPendingDiscountCodes(cart.id, remaining);
   }
-  return getCart(oxyUserId);
+  return getCart(view);
 }
 
 /**
@@ -679,6 +763,6 @@ export async function removeDiscountCode(oxyUserId: string, code: string): Promi
  * (there is no stored price to drift); the cart view and later checkout call
  * this to surface stale lines before payment.
  */
-export async function revalidate(cart: CartRecord): Promise<CartDTO> {
-  return buildCartDTO(cart);
+export async function revalidate(cart: CartRecord, view: CartView): Promise<CartDTO> {
+  return buildCartDTO(cart, view);
 }
