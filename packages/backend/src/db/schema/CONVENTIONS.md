@@ -775,6 +775,68 @@ is answerable:
   supplier payloads are redacted to normalized reason codes plus a bounded
   `supplier_note` at the call site, never stored wholesale.
 
+### The referral domain (#142, ADR 0005) has no source model either
+
+Nine tables born in Postgres (`drizzle/0015_referral_domain.sql`, phase `pre`):
+`referral_programs`, `referral_partners`, `referral_codes`, `referral_links`,
+`referral_touches`, `referral_attributions`, `referral_subject_redirects`,
+`referral_conversions`, `referral_events`. The decisions that are load-bearing,
+so a column whose shape looks arbitrary is answerable:
+
+- **A program row is one immutable VERSION.** `program_id` is a stable grouping
+  token (the `checkout_group_id` shape — no `programs` parent entity),
+  `UNIQUE(program_id, version)`, and a partial unique on `(program_id) WHERE
+  status = 'active'` keeps exactly ONE version live. Editing is a CAS on
+  `status = 'draft'`; publishing ENDS the prior active version in the same
+  transaction. Policy columns (`commission_rule_ref`, `cap_policy_ref`,
+  `payout_policy_ref`, readiness summaries on partners) are SEAMS naming
+  records #144/#146 own — plain references, never foreign keys to tables that
+  do not exist.
+- **The partner owner is the `provider_accounts` polymorphic pair** (`user` |
+  `store` + one id column), `UNIQUE(owner_type, owner_id)` — one partner per
+  owner, ever (ADR 0005 D2), for the same reasons recorded on that table.
+- **Codes are stored NORMALIZED lower-case** (CHECK
+  `^[a-z0-9][a-z0-9-]{2,31}$`) with the unique index on the EXPRESSION
+  `lower(code)`, so case-insensitive global uniqueness holds even against a
+  writer that skips normalization. A retired code keeps its row and reservation
+  forever; a vanity rename is a NEW row pointing at its canonical ancestor
+  (`alias_of_code_id`), never a rewrite.
+- **Destinations are a closed type + an opaque ref** — no URL column exists
+  anywhere in the domain, which is what makes an open redirect unrepresentable.
+  The one type→route mapping is `services/referrals/destinations.ts`.
+- **`referral_touches` is append-only (no `updated_at`), swept on its own
+  `expires_at`** (registered in `db/expiryTargets.ts`), and NOTHING takes a
+  foreign key into it: an attribution SNAPSHOTS its winning evidence and
+  carries `winning_touch_id` unconstrained, so raw touch volume is retainable
+  separately from durable records (ADR 0005 D6). The only actor identities
+  representable are an opaque guest-session ref (#103's key space — no import,
+  no FK) and an Oxy user id, held mutually exclusive by CHECK; contact and
+  payment data have no columns to arrive in.
+- **Winner cardinality is the partial unique index**
+  `(program_id, subject_kind, subject_ref) WHERE state = 'active'` — one active
+  attribution per program and subject (ADR 0005 D4), enforced against
+  concurrent resolvers by the database, not the service.
+- **Supersession/correction pointers run BACKWARDS in time.** The successor row
+  names its predecessor (`supersedes_attribution_id`, a real self-FK), never
+  the reverse: the predecessor already exists and never changes, so the FK
+  always resolves, while a forward pointer would require editing a resolved row
+  to know its future — measured as an unresolvable-FK failure before the
+  direction was flipped.
+- **`referral_conversions` carries TWO unique indexes over one fact** — the
+  deterministic idempotency key (`refconv:<kind>:<eventId>`) and
+  `(source_kind, source_event_id)`. Its insert's `ON CONFLICT DO NOTHING` is
+  deliberately ARBITER-LESS: Postgres checks the two indexes in no
+  deterministic order, and a `DO NOTHING` targeting only one let a legitimate
+  concurrent replay RAISE on the other, intermittently. No amount columns: what
+  a conversion is worth is #144/#145's territory.
+- **`referral_events` is the append-only audit trail** (closed action tuple,
+  mandatory actor + reason — the `payment_repairs` discipline), and
+  `referral_subject_redirects` records identity merges as `from → to` redirects
+  (`UNIQUE(subject_kind, from_ref)`) so history keeps its references and reads
+  resolve through the redirect.
+- **Zero `jsonb` columns.** Every shape in this domain is Mercaria's own and
+  closed, so none of them earns an entry in the register below.
+
 ### Counters became sequences (`drizzle/0001_counter_sequences.sql`)
 
 `order_number_seq` and `rma_number_seq` replace the `Counter` collection's
@@ -793,7 +855,7 @@ deliberately not created and the dead function goes with the model in Fase 3.
 
 ## Register: every `jsonb` column, and why it earned it
 
-`jsonb` is for genuinely shape-less data only. Eight columns qualify in 78 tables;
+`jsonb` is for genuinely shape-less data only. Eight columns qualify in 99 tables;
 anything else with a known shape is real columns or a child table.
 
 | Column | Why it is genuinely open-shaped |
@@ -898,6 +960,8 @@ add a row when a gate lands, and do not list one that does not run yet.
 | The procurement triggers hold: PO lines refuse UPDATE/DELETE, identity columns are immutable, money/destination freeze after `draft` — and both triggers EXIST in the catalogue (vacuity guard) | `src/db/procurement/__tests__/procurement.realdb.test.ts` | yes |
 | A pasted secret fails `credential_reference`'s path CHECK; one platform account maps to one Mercaria row; `(supplier, version)` is unique; an incomplete approval is refused by CHECK | `src/db/procurement/__tests__/procurement.realdb.test.ts` | yes |
 | The payment and procurement domains import NOTHING from each other, and each keeps its own order-linkage seam | `src/services/procurement/__tests__/role-separation.test.ts` | no |
+| ONE active referral attribution per (program, subject) under two CONCURRENT inserts; the code namespace refuses every case-variant of a taken spelling (the CHECK included); a replayed/concurrent conversion source event converges on one row; correction and supersession are append-only rows naming their predecessor; merge redirects preserve historical references; retirement and suspension block NEW attribution while historical conversions keep transitioning | `src/services/__tests__/referral-writes.realdb.test.ts` | yes |
+| Raw referral touches are swept on their own retention, separately from the attributions derived from them | `src/db/__tests__/expirySweeper.realdb.test.ts` | yes |
 
 ### The three concurrency shapes a mocked test cannot see
 

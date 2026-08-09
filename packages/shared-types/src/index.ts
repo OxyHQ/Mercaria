@@ -108,3 +108,7 @@ export * from './guest';
 
 // Procurement — suppliers, supply agreements, procurement offers, purchase orders (#118).
 export * from './procurement';
+
+// Referral-domain vocabulary and partner-safe DTOs (#142, ADR 0005) — programs,
+// partners, instruments, touches, attributions, conversions.
+export * from './referral';

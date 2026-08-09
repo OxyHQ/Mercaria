@@ -443,4 +443,50 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'supplier_agreement_evidence.collected_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'supplier_agreement_evidence.oxy_file_id', reason: OXY_FILE },
   { column: 'purchase_order_transitions.by_oxy_user_id', reason: OXY_ACCOUNT },
+
+  // ── Referral domain (#142, ADR 0005) ──────────────────────────────────────
+  { column: 'referral_programs.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_programs.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'referral_programs.program_id',
+    reason:
+      'The stable program identity shared by that program’s version rows. It names a set ' +
+      'of rows in this same table, not a row in another one — the checkout_group_id shape; ' +
+      'there is no programs parent entity and inventing one would add a table nothing reads.',
+  },
+  {
+    column: 'referral_partners.owner_id',
+    reason:
+      'Polymorphic by owner_type — a store id or an Oxy account id, exactly as ' +
+      'provider_accounts.owner_id is, and one of those two key spaces is not in this ' +
+      'database at all (ADR 0005 D2 mirrors the provider_accounts owner shape deliberately).',
+  },
+  { column: 'referral_touches.oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'referral_attributions.program_id',
+    reason:
+      'The same stable program identity referral_programs.program_id carries, denormalized ' +
+      'onto the attribution because it is half of the winner-cardinality unique index — the ' +
+      'exact version row is referenced separately through program_version_id, which IS ' +
+      'constrained.',
+  },
+  {
+    column: 'referral_attributions.winning_touch_id',
+    reason:
+      'Correlation into the separately-retained touch evidence store. Touch rows are swept ' +
+      'on their own retention (issue #142, migration/scale 6; ADR 0005 D6), so a constraint ' +
+      'here would either block the sweep or delete earned attributions with their evidence — ' +
+      'the attribution snapshots the facts it was decided on into its own columns instead.',
+  },
+  {
+    column: 'referral_events.subject_id',
+    reason: 'Polymorphic by subject_type, exactly as moderation_enforcements.subject_id is.',
+  },
+  {
+    column: 'referral_conversions.source_event_id',
+    reason:
+      'The durable event WITHIN a source aggregate a conversion was derived from — the ' +
+      'aggregate’s own event key space, the payment_provider_events.provider_event_id shape. ' +
+      'Half of the one-source-one-conversion unique key and the input to the idempotency key.',
+  },
 ];

@@ -49,3 +49,6 @@ export * from './merchants';
 // Procurement (#118) follows `organizations`: `suppliers.organization_id`
 // references the canonical graph's organizations table.
 export * from './procurement';
+// Referrals (#142, ADR 0005) come last: their tables reference nothing outside
+// their own domain, and their subject/actor references are deliberately opaque.
+export * from './referrals';
