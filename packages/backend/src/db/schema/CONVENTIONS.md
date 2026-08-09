@@ -2773,6 +2773,92 @@ row have to make UNREPRESENTABLE rather than merely unlikely.
   cycle; `(source_id, policy_version)` resolves it exactly against the policy
   table's own unique.
 
+### The supplier order orchestration has no source model either (#124, ADR 0004 D4 steps 4–5 / D6.6 / D10)
+
+Seven tables, all born in Postgres, all hanging off #118's `purchase_orders`.
+`procurement_outboxes`, `supplier_order_attempts`, `supplier_provider_events`,
+`purchase_order_line_outcomes`, `purchase_order_tracking_events`,
+`purchase_order_documents` and `procurement_exceptions`. Plus three nullable
+columns on `purchase_orders` (`provider_state`, `provider_state_observed_at`,
+`state_mapping_version`) with one shape CHECK holding them together.
+
+Full reference: `docs/purchase-orders.md`. The schema decisions worth reading
+here:
+
+- **The attempt log is append-only from BELOW, with a PRECISE update
+  exception.** `supplier_order_attempts` necessarily exists before its outcome
+  does — it is committed `in_flight` BEFORE the provider is called, which is
+  what makes a crash mid-request leave durable evidence — so the trigger refuses
+  DELETE always and refuses UPDATE once the row has left `in_flight`. "One write
+  to terminate it, then frozen" is what append-only means for a row of this
+  shape, and the alternative (an insert-only table plus a second row per
+  outcome) would make "was this attempt ever resolved" a join rather than a
+  column.
+- **`ambiguous` is unreachable without an after-write failure**, by CHECK
+  (`supplier_order_attempts_ambiguity_shape_check`). The entire convergence path
+  rests on that outcome meaning "the request may have been applied"; leaving it
+  a value a service could choose would make the guarantee a property of whoever
+  wrote the call site.
+- **`request_hash` is a sha-256 of the canonical REQUEST, and it is
+  PROTECTED.** The request contains the buyer's street address, so the digest is
+  an exact-match oracle over it — `guest_checkouts.email_hash`'s situation, one
+  domain over, and the reason it is registered in `db/protectedColumns.ts`
+  beside the ciphertext it summarises. Storing the request itself would put the
+  address in a second table beside `purchase_orders`' one snapshot, which is
+  what the destination's redaction-by-shape exists to avoid.
+- **`supplier_provider_events` has TWO dedupe indexes, not one constraint.** A
+  webhook dedupes on the provider's own event id; a POLL has none — it is a
+  snapshot Mercaria asked for — so its identity is a content digest. Two partial
+  uniques, because `NULLS NOT DISTINCT` (which `payment_provider_events`
+  correctly uses for its optional account scope) makes NULLs COLLIDE and would
+  collapse every polled event for an account into a single row. A CHECK ties the
+  delivery kind to the identity: a webhook must carry an event id and a poll
+  must not.
+- **`verification` has no `unverified` value.** An unverified callback has no
+  row shape, so it cannot be stored now and applied later by a sweep that never
+  re-checked. That is #124 polling-and-webhooks item 8 made structural rather
+  than enforced at one call site.
+- **`observed_at` is the PROVIDER's clock and is the ordering key**, with
+  `purchase_orders.provider_state_observed_at` as the monotonic high-water mark
+  — the `mercaria_catalog_source_object_monotonic` device (#62). Two deliveries
+  racing produce two RECEIPT times whose order says nothing about the world.
+- **`supplier_accounts` gained an identity trigger** (`provider`, `environment`,
+  `provider_account_id` frozen). Purchase orders, quotes and events all NAME an
+  account rather than snapshotting its environment — which is right, because a
+  snapshot is a second representation of one fact — and freezing the account's
+  identity is what makes that safe. Without it, flipping `environment` from
+  `test` to `live` would silently reinterpret every historical row pointing at
+  it, which is #124 security item 8 ("keep test and production accounts
+  impossible to mix").
+- **`procurement_exceptions` has TWO partial uniques**, one keyed on the
+  purchase order and one on the account, because an account-scoped condition (a
+  rejected credential, an exhausted quota, a lagging stream) has no order to key
+  on and opening one case per affected order would fill the queue with copies of
+  a single problem. Both carry `WHERE resolved_at IS NULL`, which is what makes
+  a resolved case re-raisable when the condition genuinely recurs. `detail` is
+  TEXT and there is deliberately no `jsonb` bag: an exception's context is
+  composed by Mercaria's own code, which is the shape `analytics_events` refuses
+  an open bag for.
+- **Line outcomes and carrier scans are append-only outright.** They are what a
+  party OUTSIDE Mercaria said happened, and a correction is a new observation
+  with a later `observed_at` — which is what makes the trail readable as a
+  history rather than as a current opinion. `purchase_order_documents` is the
+  one exception and UPDATES on a re-read, because a supplier legitimately
+  restates an invoice's total before it is final and #128 reconciles against the
+  newest statement.
+- **No address, recipient, phone, email or document URL column exists anywhere
+  in this domain.** The destination lives once, on `purchase_orders` (#118). A
+  tracking event carries a country and a region and nothing finer, because a
+  carrier's final scan is at the delivery address. A supplier portal's document
+  link is routinely a signed URL — a credential wearing a location — so
+  `purchase_order_documents` carries the provider's own document reference and
+  no link.
+- **Two of the seven are swept and five are NOT.** `procurement_outboxes` (14
+  days) and `supplier_provider_events` (90) are bounded by TRAFFIC, exactly like
+  their payment counterparts. The five evidence tables are bounded by the number
+  of purchase orders and are what a chargeback months later is reconciled
+  against, so they carry no deadline at all.
+
 ## Register: every `jsonb` column, and why it earned it
 
 `jsonb` is for genuinely shape-less data only. Eight columns qualify in 129 tables;

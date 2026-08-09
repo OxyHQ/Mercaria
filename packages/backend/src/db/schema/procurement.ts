@@ -897,6 +897,32 @@ export const purchaseOrders = pgTable(
     cancelledAt: timestamptz(),
     submissionAttempts: integer().notNull().default(0),
     lastSubmissionError: text(),
+    /**
+     * The provider's own status string when its state was last APPLIED (#124).
+     *
+     * Kept beside `status` rather than mapped away, because an operator
+     * comparing Mercaria's machine against the supplier's dashboard needs the
+     * word the supplier uses, and because an unmapped value is diagnosable only
+     * if it was recorded.
+     */
+    providerState: text(),
+    /**
+     * The PROVIDER's clock for the last observation applied to `status` (#124).
+     *
+     * The monotonic guard: an event whose own `observed_at` precedes this is
+     * stored and NOT applied. Two deliveries racing produce two receipt times
+     * whose order says nothing about the world, so the ordering key is the
+     * provider's — the `mercaria_catalog_source_object_monotonic` device (#62).
+     */
+    providerStateObservedAt: timestamptz(),
+    /**
+     * Which version of the adapter's mapping produced the applied state (#124).
+     *
+     * Recorded per purchase order rather than assumed global, so a mapping
+     * corrected in a later release is visible as a version difference between
+     * two orders instead of silently reinterpreting the older one.
+     */
+    stateMappingVersion: integer(),
     /** An operator has to look — the exception queue's flag (#118 PO item 14). */
     operatorInterventionRequired: boolean().notNull().default(false),
     operatorNote: text(),
@@ -925,6 +951,18 @@ export const purchaseOrders = pgTable(
     check(
       'purchase_orders_attempts_check',
       sql`${t.submissionAttempts} >= 0`,
+    ),
+    // A recorded provider state names the mapping version that read it and the
+    // instant the provider observed it. A state with no version is a claim
+    // nobody can reproduce, and one with no observation time cannot be ordered
+    // against the next delivery — which is what the monotonic guard needs.
+    check(
+      'purchase_orders_provider_state_shape_check',
+      sql`num_nonnulls(${t.providerState}, ${t.providerStateObservedAt}, ${t.stateMappingVersion}) in (0, 3)`,
+    ),
+    check(
+      'purchase_orders_state_mapping_version_check',
+      sql`${t.stateMappingVersion} is null or ${t.stateMappingVersion} >= 1`,
     ),
     check(
       'purchase_orders_last_error_length_check',

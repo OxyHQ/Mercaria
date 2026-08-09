@@ -215,6 +215,20 @@ connectPostgres()
           log.general.error({ err }, 'Guest portal message dispatcher import failed'),
         );
 
+      // Place, cancel, poll and interpret supplier orders (#124). THREE loops,
+      // on EVERY task, each gated by its own lever and none of them gating a
+      // durable record: with the orchestration off a paid retail order's job is
+      // parked, with provider fetch off webhooks are still received and stored,
+      // and with event processing off events accumulate and nothing
+      // customer-visible moves. The per-supplier kill switch is a different
+      // mechanism (`supplier_accounts.state = 'killed'`) and stops NEW
+      // submissions while status, cancellation and reconciliation carry on.
+      import('./services/supplier-orders/dispatcher.js')
+        .then(({ startProcurementDispatchers }) => startProcurementDispatchers())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Procurement dispatcher import failed'),
+        );
+
       // Retry stored Stripe events whose processing failed, and pick up any
       // whose task died between storing and interpreting them. Also on EVERY
       // task, same lease shape. The webhook ingress processes inline after

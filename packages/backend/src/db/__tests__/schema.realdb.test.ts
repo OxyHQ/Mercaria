@@ -156,8 +156,12 @@ describe('the migrated schema', () => {
     // has no filter to express two retentions over one table), the
     // transactional-message queue, and the recovery throttle's counters — which
     // are a throttle rather than a history, so keeping them past their window
-    // would be keeping a record that somebody asked about an inbox.
-    expect(EXPIRY_TARGETS).toHaveLength(18);
+    // would be keeping a record that somebody asked about an inbox. #124 adds
+    // TWO of exactly that traffic-bounded shape (the procurement outbox and the
+    // supplier provider-event store) and deliberately leaves its five EVIDENCE
+    // tables unswept: they are bounded by the number of purchase orders and are
+    // what a chargeback months later is reconciled against.
+    expect(EXPIRY_TARGETS).toHaveLength(20);
   });
 });
 

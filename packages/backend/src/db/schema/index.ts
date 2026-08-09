@@ -156,6 +156,15 @@ export * from './backfill';
 // snapshots that must survive an offer refreshing in place and a canonical
 // entity merging — the `purchase_order_lines` rule.
 export * from './supplierPreflight';
+// The supplier ORDER orchestration (#124, ADR 0004 D4 steps 4–5) follows the
+// preflight for the same reason the preflight follows `procurement`: every one
+// of its seven tables hangs off a `purchase_orders` row, a
+// `purchase_order_lines` row, a `purchase_order_shipments` row or a
+// `supplier_accounts` row, and none of them is referenced by anything above.
+// It reaches NOTHING in the payment domain — a supplier acceptance is not a
+// payment fact and a Stripe success is not a procurement one (ADR 0004 D1), and
+// a static gate fails the build if that changes.
+export * from './supplierOrders';
 // The external ingestion framework (#62) follows all of them and is the last
 // export for a stronger reason than the backfill's: it is downstream of FIVE
 // layers at once. Its config binds a merchant and a storefront, its objects

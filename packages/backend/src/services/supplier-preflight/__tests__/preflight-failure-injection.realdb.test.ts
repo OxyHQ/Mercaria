@@ -57,7 +57,8 @@ import {
   runSupplierPreflight,
   SUPPLIER_SOURCING_POLICY_KEY,
 } from '../preflight.service.js';
-import { assertPreflightSatisfiesCheckout, authorizeSupplierFulfilment } from '../checkout-contract.js';
+import { assertPreflightSatisfiesCheckout } from '../checkout-contract.js';
+import { authorizeSupplierFulfilment } from '../../supplier-orders/fulfilment-authorization.js';
 
 let db: Database;
 
@@ -393,15 +394,17 @@ describe('the fake adapter cannot reach a live account', () => {
 });
 
 describe('a quote can never authorize fulfilment', () => {
-  it('refuses unconditionally', () => {
-    // #122's own sentence. The true branch needs a purchase-order id this
-    // domain has no import that could produce — which the isolation gate pins.
-    expect(
+  it('refuses an order with no purchase order under it', async () => {
+    // #122's own sentence, now answered by the module that CAN read a purchase
+    // order (#124). The property under test is unchanged: a quote id buys
+    // nothing, and the only thing that authorizes is a submitted purchase
+    // order — so an order with none is refused by name rather than by absence.
+    await expect(
       authorizeSupplierFulfilment({
         quoteId: 'quote-1',
-        orderId: 'order-1',
+        orderId: 'order-with-no-purchase-order',
         supplierAccountId: 'acct-1',
       }),
-    ).toEqual({ authorized: false, reason: 'quote_is_not_a_purchase_order' });
+    ).resolves.toEqual({ authorized: false, reason: 'purchase_order_not_found' });
   });
 });

@@ -258,4 +258,33 @@ export const PROTECTED_COLUMNS = {
    * by reading the table whole.
    */
   guest_recovery_attempts: ['subjectHash'],
+
+  /**
+   * The digest of what was actually SENT to a supplier (#124 idempotency 8).
+   *
+   * `supplier_quotes.request_fingerprint`'s situation, one step worse: a
+   * preflight request carries a country and a postal code, while a SUBMISSION
+   * carries the recipient's name, street and phone number — so the sha-256 over
+   * it is an exact-match oracle over a specific person's home address. Anyone
+   * holding the hash plus a guess can confirm the guess.
+   *
+   * It exists because #124 requires persisting what was sent before
+   * acknowledging, so a second attempt that differs is visible rather than
+   * silently overwriting the first. Storing the request itself would put the
+   * address in a second table beside `purchase_orders`' one snapshot, which is
+   * the duplication the destination's redaction-by-shape exists to avoid.
+   */
+  supplier_order_attempts: ['requestHash'],
+
+  /**
+   * A stored provider event's own id and its content digest (#124 polling and
+   * webhooks 3).
+   *
+   * `provider_event_id` is a live handle in the supplier's key space: several
+   * fulfilment APIs will replay an event, or answer questions about an order,
+   * to whoever presents one. `content_hash` is the digest of the normalized
+   * observation, which includes the tracking numbers and the provider order id
+   * — an oracle over the same facts the summary is redacted to withhold.
+   */
+  supplier_provider_events: ['providerEventId', 'contentHash'],
 } as const satisfies ProtectedColumnRegistry;

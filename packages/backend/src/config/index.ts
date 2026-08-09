@@ -1850,6 +1850,55 @@ export interface SupplierPreflightConfig {
   readonly operatorSurfaceEnabled: boolean;
 }
 
+/**
+ * The supplier ORDER orchestration (#124).
+ *
+ * THREE independent loop levers, and the independence is the point (#124
+ * polling and webhooks 10: "keep provider fetch and public-order projection
+ * independently pausable"):
+ *
+ *  - {@link orchestrationEnabled} gates the dispatcher that SUBMITS and CANCELS.
+ *    Off, a paid retail order's job is parked and delivers when it is back on.
+ *  - {@link providerFetchEnabled} gates OUTBOUND reads — polling and status
+ *    lookups. Off, webhooks are still received and still stored; Mercaria just
+ *    stops asking.
+ *  - {@link eventProcessingEnabled} gates APPLYING stored events, which is what
+ *    moves a purchase order and therefore what a customer sees. Off, events
+ *    accumulate durably and nothing customer-visible changes.
+ *
+ * None of the three gates a durable record, and a static gate fails the build
+ * if one starts to. The PER-SUPPLIER kill switch is a different mechanism
+ * entirely — `supplier_accounts.state = 'killed'` (#118) — and stops NEW
+ * submissions while status, cancellation, return and reconciliation keep
+ * working, which is #124 acceptance 5.
+ */
+export interface ProcurementConfig {
+  /** `PROCUREMENT_ORCHESTRATION_ENABLED` — the submit/cancel dispatcher. Default false. */
+  readonly orchestrationEnabled: boolean;
+  /** `PROCUREMENT_PROVIDER_FETCH_ENABLED` — outbound status reads and polling. */
+  readonly providerFetchEnabled: boolean;
+  /** `PROCUREMENT_EVENT_PROCESSING_ENABLED` — applying stored provider events. */
+  readonly eventProcessingEnabled: boolean;
+  readonly outboxBatchSize: number;
+  readonly outboxPollIntervalMs: number;
+  readonly outboxLeaseMs: number;
+  readonly eventBatchSize: number;
+  readonly eventPollIntervalMs: number;
+  readonly eventLeaseMs: number;
+  /** Never poll one purchase order more often than this — the provider's limit. */
+  readonly pollMinIntervalMs: number;
+  /** How long a TERMINAL order keeps being confirmed before polling stops. */
+  readonly pollTerminalGraceMs: number;
+  /** How long a provider may go silent before `event_lag_sla_breach` is raised. */
+  readonly eventLagSlaMs: number;
+  /** The deadline every provider call carries. */
+  readonly callTimeoutMs: number;
+  /** How old an unresolved attempt must be before the converger picks it up. */
+  readonly convergenceGraceMs: number;
+  /** `PROCUREMENT_FAKE_ADAPTER_ENABLED` — the conformance/rehearsal adapter. */
+  readonly fakeAdapterEnabled: boolean;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -1872,6 +1921,7 @@ export interface AppConfig {
   readonly analytics: AnalyticsConfig;
   readonly retailEligibility: RetailEligibilityConfig;
   readonly supplierPreflight: SupplierPreflightConfig;
+  readonly procurement: ProcurementConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -2172,6 +2222,23 @@ export const config: AppConfig = Object.freeze({
     fingerprintKey: strEnv('SUPPLIER_PREFLIGHT_FINGERPRINT_KEY', ''),
     operatorOxyUserIds: Object.freeze(resolveProcurementOperatorIds()),
     operatorSurfaceEnabled: resolveProcurementOperatorIds().length > 0,
+  }),
+  procurement: Object.freeze({
+    orchestrationEnabled: boolEnv('PROCUREMENT_ORCHESTRATION_ENABLED', false),
+    providerFetchEnabled: boolEnv('PROCUREMENT_PROVIDER_FETCH_ENABLED', true),
+    eventProcessingEnabled: boolEnv('PROCUREMENT_EVENT_PROCESSING_ENABLED', true),
+    outboxBatchSize: intEnv('PROCUREMENT_OUTBOX_BATCH_SIZE', 25),
+    outboxPollIntervalMs: intEnv('PROCUREMENT_OUTBOX_POLL_INTERVAL_MS', 5_000),
+    outboxLeaseMs: intEnv('PROCUREMENT_OUTBOX_LEASE_MS', 60_000),
+    eventBatchSize: intEnv('PROCUREMENT_EVENT_BATCH_SIZE', 50),
+    eventPollIntervalMs: intEnv('PROCUREMENT_EVENT_POLL_INTERVAL_MS', 5_000),
+    eventLeaseMs: intEnv('PROCUREMENT_EVENT_LEASE_MS', 60_000),
+    pollMinIntervalMs: intEnv('PROCUREMENT_POLL_MIN_INTERVAL_MS', 300_000),
+    pollTerminalGraceMs: intEnv('PROCUREMENT_POLL_TERMINAL_GRACE_MS', 86_400_000),
+    eventLagSlaMs: intEnv('PROCUREMENT_EVENT_LAG_SLA_MS', 3_600_000),
+    callTimeoutMs: intEnv('PROCUREMENT_CALL_TIMEOUT_MS', 20_000),
+    convergenceGraceMs: intEnv('PROCUREMENT_CONVERGENCE_GRACE_MS', 60_000),
+    fakeAdapterEnabled: boolEnv('PROCUREMENT_FAKE_ADAPTER_ENABLED', false),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

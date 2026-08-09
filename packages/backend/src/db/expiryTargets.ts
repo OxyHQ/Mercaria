@@ -88,6 +88,7 @@ import { moderationEvents, moderationOutboxes } from './schema/moderation';
 import { notifications } from './schema/notifications';
 import { paymentOutboxes, paymentProviderEvents } from './schema/payments';
 import { referralTouches } from './schema/referrals';
+import { procurementOutboxes, supplierProviderEvents } from './schema/supplierOrders';
 
 /** `MODERATION_OUTBOX_RETENTION_SECONDS` — 14 days, long enough to investigate. */
 const MODERATION_OUTBOX_RETENTION_SECONDS = 14 * 24 * 60 * 60;
@@ -412,6 +413,36 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'write time so this registry needs no filter. It is the only #62 table with a ' +
       'retention: configs, policies, objects and runs are bounded by the catalogue and are ' +
       'the audit history a rights suspension must not delete.',
+  },
+  // The supplier order orchestration (#124). TWO entries, and the two omissions
+  // beside them are the point: `supplier_order_attempts`,
+  // `purchase_order_line_outcomes`, `purchase_order_tracking_events`,
+  // `purchase_order_documents` and `procurement_exceptions` carry NO deadline,
+  // because they are the evidence that a supplier order was placed, what it
+  // cost and what happened to it — the record #128 reconciles an invoice
+  // against and the one an operator reads during a chargeback. They are bounded
+  // by the number of purchase orders, not by traffic.
+  {
+    table: procurementOutboxes,
+    column: procurementOutboxes.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'A delivered or dead-lettered procurement job, 14 days after it was enqueued — the ' +
+      'payment outbox’s figure and reasoning. Deleting a PENDING one would lose a supplier ' +
+      'order a customer has already paid for; that cannot happen silently, because the ' +
+      'purchase order it owes stays visible in `purchase_orders.status = draft`, which is ' +
+      'where a stalled dispatcher must be noticed.',
+  },
+  {
+    table: supplierProviderEvents,
+    column: supplierProviderEvents.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'An inbound supplier event, 90 days after receipt — the payment provider event’s ' +
+      'figure, chosen against the same question: how long might someone need to read the ' +
+      'raw envelope. What it was interpreted INTO is permanent (the purchase order, its ' +
+      'append-only transitions, its line outcomes and its tracking trail), so this sweep ' +
+      'removes the envelope and never the fact.',
   },
 ];
 
