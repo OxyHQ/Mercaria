@@ -2,15 +2,15 @@ import { useMemo, useRef, useState } from "react";
 import { View, Pressable } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxyhq/services";
 import { Check, Plus } from "lucide-react-native";
 import { nanoid } from "nanoid/non-secure";
 import type {
   Address,
   CartGroup,
+  CheckoutDestination,
   CheckoutPaymentHandoff,
   CheckoutPaymentStatus,
-  CreateAddressInput,
   Money,
 } from "@mercaria/shared-types";
 import {
@@ -23,10 +23,17 @@ import {
   formatMoney,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
-import { AddressForm } from "@/components/address/AddressForm";
+import {
+  CheckoutDestinationForm,
+  EMPTY_CHECKOUT_DRAFT,
+  cleanAddress,
+  cleanContact,
+  isDraftComplete,
+  type CheckoutDestinationDraft,
+} from "@/components/checkout/CheckoutDestinationForm";
 import { toast } from "@oxyhq/bloom/toast";
 import { useCart } from "@/lib/hooks/use-cart";
-import { useAddresses, useCreateAddress } from "@/lib/hooks/use-addresses";
+import { useAddresses } from "@/lib/hooks/use-addresses";
 import { useCheckout, useCheckoutPaymentStatus } from "@/lib/hooks/use-checkout";
 import { CardPaymentStep } from "@/components/payment/CardPaymentStep";
 
@@ -83,6 +90,33 @@ function AddressOption({
         </Text>
       </View>
     </Pressable>
+  );
+}
+
+/**
+ * Signing in, offered as a BENEFIT rather than as a gate (#105 frontend rules
+ * 1-3).
+ *
+ * Every capability named here exists today: saved addresses are the account's
+ * address book (this screen renders them right below), the cart merge is #104's
+ * `POST /cart/merge`, and account-owned order history is `GET /orders`. Nothing
+ * is promised that a buyer could not go and use five seconds after signing in —
+ * and nothing about a payment rail is mentioned at all, because which rails
+ * exist is not a property of having an account.
+ */
+function SignInBenefit() {
+  return (
+    <View className="rounded-2xl border border-border bg-card p-4">
+      <Text className="text-sm font-semibold text-foreground">Have an Oxy account?</Text>
+      <Text className="mt-1 text-sm text-muted-foreground">
+        Signing in brings your saved addresses, keeps this cart on your other devices, and keeps
+        this order in your account&apos;s order history. You can also check out as a guest — it
+        takes the same amount of typing.
+      </Text>
+      <Button variant="outline" className="mt-3 self-start" onPress={() => openAccountDialog()}>
+        <Text className="text-sm font-medium text-foreground">Sign in</Text>
+      </Button>
+    </View>
   );
 }
 
@@ -253,13 +287,27 @@ function CheckoutBody() {
   const { seller } = useLocalSearchParams<{ seller?: string }>();
   const { isAuthenticated } = useOxy();
   const { data: cart, isLoading: cartLoading } = useCart();
+  // Saved addresses are an ACCOUNT feature, and `useAddresses` is already
+  // gated on `isAuthenticated` internally — a signed-out checkout issues no
+  // request that would 401, and renders no saved-address list to select from
+  // (#105 frontend rule 6).
   const { data: addresses, isLoading: addressesLoading } = useAddresses();
-  const createAddress = useCreateAddress();
   const checkout = useCheckout();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [addingAddress, setAddingAddress] = useState(false);
+  const [usingInlineAddress, setUsingInlineAddress] = useState(false);
   const [discountCode, setDiscountCode] = useState("");
+  /**
+   * The typed destination and contact.
+   *
+   * Lifted to the SCREEN, not held inside the form: a failed mutation re-renders
+   * this component and does not unmount it, so every field survives an ordinary
+   * validation error with no persistence anywhere (#105 frontend rule 9). It is
+   * never written to a URL, to storage or to a log (rule 10) — it exists here
+   * and in one request body.
+   */
+  const [draft, setDraft] = useState<CheckoutDestinationDraft>(EMPTY_CHECKOUT_DRAFT);
+  const [formError, setFormError] = useState<string | null>(null);
   // The placed group and its payment handoff, once the order exists. Holding
   // them here is what turns checkout into two steps without a second route:
   // orders are placed and reserved, and the buyer then pays for them.
@@ -293,27 +341,25 @@ function CheckoutBody() {
     return groups.filter((g) => groupKey(g) === seller);
   }, [cart, seller]);
 
-  // Effective address: the explicit selection, else the default, else the first.
-  const list = addresses ?? [];
-  const defaultAddressId = list.find((a) => a.isDefault)?.id ?? list[0]?.id;
+  const savedAddresses = isAuthenticated ? (addresses ?? []) : [];
+  const defaultAddressId = savedAddresses.find((a) => a.isDefault)?.id ?? savedAddresses[0]?.id;
   const effectiveAddressId = selectedAddressId ?? defaultAddressId;
+  // A saved address is used when the buyer HAS one and has not chosen to type a
+  // different one. Everyone else — every guest, and any signed-in buyer with an
+  // empty address book — types one inline, through the same form.
+  const usingSavedAddress =
+    isAuthenticated && !usingInlineAddress && effectiveAddressId !== undefined;
 
-  if (!isAuthenticated) {
-    // Guest CHECKOUT is #105–#107; #104 stops at the cart. The copy says so
-    // plainly and, crucially, tells the buyer their cart survives — because it
-    // does: signing in merges it into the account's cart, exactly once.
+  if (cartLoading && !cart) {
     return (
-      <View className="items-center px-8 py-24">
-        <Text className="text-center text-lg font-bold text-foreground">Sign in to check out</Text>
-        <Text className="mt-1 text-center text-sm text-muted-foreground">
-          Placing an order needs an account for now. Your cart is saved — sign in and it comes
-          with you.
-        </Text>
+      <View className="px-4 py-16">
+        <View className="mb-4 h-40 w-full rounded-3xl bg-muted" />
+        <View className="h-40 w-full rounded-3xl bg-muted" />
       </View>
     );
   }
 
-  if ((cartLoading && !cart) || (addressesLoading && !addresses)) {
+  if (isAuthenticated && addressesLoading && !addresses) {
     return (
       <View className="px-4 py-16">
         <View className="mb-4 h-40 w-full rounded-3xl bg-muted" />
@@ -336,32 +382,48 @@ function CheckoutBody() {
     );
   }
 
-  const onCreateAddress = (input: CreateAddressInput) => {
-    createAddress.mutate(input, {
-      onSuccess: (created) => {
-        setSelectedAddressId(created.id);
-        setAddingAddress(false);
-        toast.success("Address saved");
-      },
-      onError: () => toast.error("Couldn't save the address"),
-    });
-  };
-
   const goToOrder = (orderId: string | undefined) =>
     router.replace(
       (orderId ? `/orders/${orderId}` : "/orders") as Parameters<typeof router.replace>[0],
     );
 
+  /** The destination this press will send, or `null` when it is incomplete. */
+  const buildDestination = (): CheckoutDestination | null => {
+    if (usingSavedAddress && effectiveAddressId) {
+      return { type: "saved_address", addressId: effectiveAddressId };
+    }
+    if (!isDraftComplete(draft)) return null;
+    return {
+      type: "inline_shipping_address",
+      address: cleanAddress(draft.address),
+      // Opt-IN, and only ever true for a signed-in buyer — the form does not
+      // render the control for anyone else.
+      ...(isAuthenticated && draft.saveToAddressBook ? { saveToAddressBook: true } : {}),
+    };
+  };
+
   const onPlaceOrder = () => {
-    if (!effectiveAddressId) {
-      toast.error("Add a shipping address first");
+    const destination = buildDestination();
+    if (!destination) {
+      setFormError("Fill in your email and delivery address to continue.");
       return;
     }
+    // A guest MUST supply contact; a signed-in buyer may, and it is sent when
+    // they filled it in. The server re-checks both — this only avoids a round
+    // trip for a form the buyer can see is incomplete.
+    const contact = cleanContact(draft.contact);
+    if (!isAuthenticated && contact.email.length === 0) {
+      setFormError("Enter the email address your receipt should go to.");
+      return;
+    }
+    setFormError(null);
     idempotencyKey.current ??= nanoid();
     checkout.mutate(
       {
         idempotencyKey: idempotencyKey.current,
-        addressId: effectiveAddressId,
+        destination,
+        ...(contact.email.length > 0 ? { contact } : {}),
+        ...(draft.marketingOptIn ? { marketingOptIn: true } : {}),
         ...(seller ? { sellerKeys: [seller] } : {}),
         ...(discountCode.trim() ? { discountCodes: [discountCode.trim()] } : {}),
       },
@@ -385,16 +447,17 @@ function CheckoutBody() {
             payment: result.payment,
           });
         },
-        onError: () => toast.error("Couldn't place your order"),
+        // The server's message names a FIELD or a SELLER and never a value, so
+        // it is safe to show and is more useful than a generic sentence.
+        onError: (error) => setFormError(error.message),
       },
     );
   };
 
-  const needsAddress = list.length === 0 || addingAddress;
-
   // The payment step replaces the form once the orders exist: the address and
-  // the discount are already snapshotted onto them and editing either would
-  // change nothing.
+  // the contact are already snapshotted onto them, and editing either would
+  // change nothing. This is also why no draft has to survive a bank redirect —
+  // by then there is no draft left to lose.
   if (placed) {
     return (
       <PaymentStep
@@ -430,54 +493,94 @@ function CheckoutBody() {
     <View className="px-4">
       <SectionHeader title="Checkout" />
       <View className="gap-5">
-        {/* Shipping address */}
-        <View className="gap-3">
-          <Text className="text-sm font-semibold text-foreground">Shipping address</Text>
-          {needsAddress ? (
+        {/*
+          Signing in is offered ONCE, at the top, as an alternative to a path
+          that is already open — never as a gate in front of it (#105 frontend
+          rules 1-2). A guest reaches the form below by scrolling, not by
+          dismissing anything.
+        */}
+        {isAuthenticated ? null : <SignInBenefit />}
+
+        {/* Saved addresses: an account feature, rendered only for an account. */}
+        {isAuthenticated && savedAddresses.length > 0 ? (
+          <View className="gap-3">
+            <Text className="text-sm font-semibold text-foreground">Shipping address</Text>
+            {usingInlineAddress ? null : (
+              <>
+                {savedAddresses.map((address) => (
+                  <AddressOption
+                    key={address.id}
+                    address={address}
+                    selected={address.id === effectiveAddressId}
+                    onSelect={() => setSelectedAddressId(address.id)}
+                  />
+                ))}
+              </>
+            )}
+            <Button
+              variant="outline"
+              className="self-start"
+              onPress={() => setUsingInlineAddress(!usingInlineAddress)}
+            >
+              <Plus size={16} className="text-foreground" />
+              <Text className="ml-1 text-sm font-medium text-foreground">
+                {usingInlineAddress ? "Use a saved address" : "Deliver somewhere else"}
+              </Text>
+            </Button>
+          </View>
+        ) : null}
+
+        {/*
+          ONE inline form for both actor kinds. A signed-in buyer sees it when
+          they have no saved address or chose to type a different one; a guest
+          always sees it. There is no guest-only variant to drift.
+        */}
+        {usingSavedAddress ? null : (
+          <View className="gap-3">
+            <Text className="text-sm font-semibold text-foreground">
+              {isAuthenticated ? "Deliver to" : "Continue as guest"}
+            </Text>
+            {isAuthenticated ? null : (
+              <Text className="text-sm text-muted-foreground">
+                No account needed. Tell us where it goes and how to reach you about this order.
+              </Text>
+            )}
             <View className="rounded-2xl border border-border bg-card p-4">
-              <AddressForm
-                onSubmit={onCreateAddress}
-                onCancel={list.length > 0 ? () => setAddingAddress(false) : undefined}
-                isSubmitting={createAddress.isPending}
-                submitLabel="Use this address"
+              <CheckoutDestinationForm
+                draft={draft}
+                onChange={setDraft}
+                canSaveToAddressBook={isAuthenticated}
               />
             </View>
-          ) : (
-            <>
-              {list.map((address) => (
-                <AddressOption
-                  key={address.id}
-                  address={address}
-                  selected={address.id === effectiveAddressId}
-                  onSelect={() => setSelectedAddressId(address.id)}
-                />
-              ))}
-              <Button variant="outline" className="self-start" onPress={() => setAddingAddress(true)}>
-                <Plus size={16} className="text-foreground" />
-                <Text className="ml-1 text-sm font-medium text-foreground">Add a new address</Text>
-              </Button>
-            </>
-          )}
-        </View>
+          </View>
+        )}
 
         {/* Discount code (optional) */}
         <View className="gap-1.5">
-          <Label>Discount code (optional)</Label>
+          <Label nativeID="checkout-discount">Discount code (optional)</Label>
           <Input
+            aria-labelledby="checkout-discount"
+            accessibilityLabel="Discount code"
             value={discountCode}
             onChangeText={setDiscountCode}
             placeholder="SAVE10"
             autoCapitalize="characters"
+            autoCorrect={false}
           />
         </View>
 
         <OrderSummaryCard groups={targetGroups} />
 
-        <Button
-          disabled={!effectiveAddressId}
-          isLoading={checkout.isPending}
-          onPress={onPlaceOrder}
-        >
+        {formError ? (
+          <View
+            accessibilityRole="alert"
+            className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4"
+          >
+            <Text className="text-sm text-foreground">{formError}</Text>
+          </View>
+        ) : null}
+
+        <Button isLoading={checkout.isPending} onPress={onPlaceOrder}>
           <Text className="text-sm font-semibold text-primary-foreground">Place order</Text>
         </Button>
       </View>

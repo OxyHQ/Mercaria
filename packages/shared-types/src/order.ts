@@ -10,6 +10,7 @@
  */
 
 import type { DualMoney, FxRateSnapshot, Money } from './money';
+import type { CheckoutContactInput, CheckoutDestination } from './checkout';
 import type {
   CheckoutPaymentHandoff,
   CheckoutPaymentMethod,
@@ -290,10 +291,56 @@ export interface OrderSummary {
   createdAt: string;
 }
 
-/** Body for `POST /checkout` — place orders from the buyer's current cart. */
+/**
+ * Body for `POST /checkout` — place orders from the buyer's current cart.
+ *
+ * ## `destination` and `addressId` are ONE field in two contract versions
+ *
+ * `addressId` is the v1 spelling and is still accepted: it means exactly
+ * `{type: 'saved_address', addressId}` and the server maps it to that before
+ * anything else looks at it (#105 migration rules 1-2). This is a VERSIONED
+ * CONTRACT, not a compatibility shim — a shipped mobile build cannot be
+ * recalled, and refusing its checkout would strand a buyer mid-purchase over a
+ * field name. It retires when the supported client versions have migrated
+ * (#105 migration rule 7), and until then exactly one of the two may be
+ * present: sending both is a 400 rather than a precedence rule nobody would
+ * remember.
+ *
+ * An OLD client is therefore an authenticated client by construction — it has
+ * no way to express a guest destination — which is why the guest path can be
+ * added without any client-version negotiation at all.
+ */
 export interface CheckoutInput {
-  /** The saved address to ship to (snapshotted onto each order). */
-  addressId: string;
+  /**
+   * Where this checkout's goods go. Required unless the v1 `addressId` is used.
+   *
+   * A guest actor may name `inline_shipping_address` or `pickup` and can never
+   * name `saved_address`: the address book is Oxy-scoped, and a guest carries no
+   * Oxy id to scope a lookup with (ADR 0003 I1).
+   */
+  destination?: CheckoutDestination;
+  /**
+   * v1: the saved address to ship to. Equivalent to
+   * `{type: 'saved_address', addressId}`; see the interface docblock.
+   */
+  addressId?: string;
+  /**
+   * How to reach the buyer about this order.
+   *
+   * REQUIRED for a guest — ADR 0003 D4's contact record cannot exist without
+   * it — and optional for an authenticated buyer, whose transactional channel
+   * is their Oxy account. It is never filled in from an Oxy profile behind the
+   * buyer's back (#105 actor rule 6): absent means absent.
+   */
+  contact?: CheckoutContactInput;
+  /**
+   * Opt in to marketing email. Defaults to FALSE, is never required to buy, and
+   * is deliberately a field of its own rather than a property of `contact`:
+   * permission to send a receipt comes from the purchase, permission to market
+   * comes from here, and one must never be read as the other (#105 privacy
+   * rules 1-2, 10).
+   */
+  marketingOptIn?: boolean;
   /**
    * Restrict the checkout to these seller groups, keyed exactly like the order
    * grouping (`store:<storeId>` or `user:<oxyUserId>`). When provided, only the

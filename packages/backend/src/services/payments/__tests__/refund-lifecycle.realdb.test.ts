@@ -473,6 +473,7 @@ async function seedSettledOrder(
 
     const order = await insertOrder({
       orderNumber: await nextOrderNumber(),
+      buyerOrigin: 'oxy',
       buyerOxyUserId: `buyer-${suffix}`,
       sellerType: 'store',
       storeId: store.id,

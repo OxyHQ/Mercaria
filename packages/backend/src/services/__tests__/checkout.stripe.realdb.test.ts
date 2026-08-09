@@ -460,7 +460,7 @@ describe('checkout on the Stripe rail — single seller', () => {
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
 
-    const result = await checkout(buyer.buyerId, { addressId: buyer.addressId }, `key-${RUN}-eur1`);
+    const result = await checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, `key-${RUN}-eur1`);
 
     expect(result.orders).toHaveLength(1);
     const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
@@ -508,7 +508,7 @@ describe('checkout on the Stripe rail — single seller', () => {
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
 
-    const result = await checkout(buyer.buyerId, { addressId: buyer.addressId }, `key-${RUN}-eur2`);
+    const result = await checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, `key-${RUN}-eur2`);
     const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
     const paymentId = String(payment?.id);
     const intentId = String(payment?.providerObjectId);
@@ -585,7 +585,7 @@ describe('checkout on the Stripe rail — single seller', () => {
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
 
-    const result = await checkout(buyer.buyerId, { addressId: buyer.addressId }, `key-${RUN}-usd1`);
+    const result = await checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, `key-${RUN}-usd1`);
     const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
     const paymentId = String(payment?.id);
     const intentId = String(payment?.providerObjectId);
@@ -634,7 +634,7 @@ describe('checkout on the Stripe rail — multi-seller', () => {
       ],
     });
 
-    const result = await checkout(buyer.buyerId, { addressId: buyer.addressId }, `key-${RUN}-multi`);
+    const result = await checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, `key-${RUN}-multi`);
     expect(result.orders).toHaveLength(2);
 
     // ONE intent for the whole group (ADR 0001 D4): one statement line, one SCA
@@ -688,7 +688,7 @@ describe('checkout on the Stripe rail — multi-seller', () => {
       ],
     });
 
-    const result = await checkout(buyer.buyerId, { addressId: buyer.addressId }, `key-${RUN}-iso`);
+    const result = await checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, `key-${RUN}-iso`);
     const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
     const paymentId = String(payment?.id);
     const intentId = String(payment?.providerObjectId);
@@ -772,8 +772,8 @@ describe('checkout on the Stripe rail — idempotency and refusals', () => {
     // `orders_idempotency_key_key`: the loser rolls its own reservations back
     // and returns the winner's group.
     const [first, replay] = await Promise.all([
-      checkout(buyer.buyerId, { addressId: buyer.addressId }, key),
-      checkout(buyer.buyerId, { addressId: buyer.addressId }, key),
+      checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, key),
+      checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, key),
     ]);
 
     expect(replay.checkoutGroupId).toBe(first.checkoutGroupId);
@@ -804,7 +804,7 @@ describe('checkout on the Stripe rail — idempotency and refusals', () => {
     });
 
     await expect(
-      checkout(buyer.buyerId, { addressId: buyer.addressId }, `key-${RUN}-gbp`),
+      checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, `key-${RUN}-gbp`),
     ).rejects.toThrow(/not available in GBP.*EUR or USD/is);
 
     // Nothing was reserved and no charge was opened: a currency question needs
@@ -822,7 +822,7 @@ describe('checkout on the Stripe rail — idempotency and refusals', () => {
     });
     const key = `key-${RUN}-retry`;
 
-    const result = await checkout(buyer.buyerId, { addressId: buyer.addressId }, key);
+    const result = await checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, key);
     const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
     const intentId = String(payment?.providerObjectId);
     const [before] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
@@ -875,7 +875,7 @@ describe('checkout on the Stripe rail — abandonment and a late capture', () =>
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
 
-    const result = await checkout(buyer.buyerId, { addressId: buyer.addressId }, `key-${RUN}-sweep`);
+    const result = await checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, `key-${RUN}-sweep`);
     const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
     const paymentId = String(payment?.id);
     const intentId = String(payment?.providerObjectId);
@@ -930,8 +930,8 @@ describe('the buyer-facing payment status', () => {
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
 
-    const result = await checkout(buyer.buyerId, { addressId: buyer.addressId }, `key-${RUN}-status`);
-    const before = await readCheckoutPaymentStatus(buyer.buyerId, result.checkoutGroupId);
+    const result = await checkout({ kind: 'oxy', oxyUserId: buyer.buyerId }, { addressId: buyer.addressId }, `key-${RUN}-status`);
+    const before = await readCheckoutPaymentStatus({ kind: 'oxy_user', oxyUserId: buyer.buyerId }, result.checkoutGroupId);
     expect(before.status).toBe('created');
     expect(before.orders).toHaveLength(1);
     expect(before.orders[0]?.paymentStatus).toBe('unpaid');
@@ -945,7 +945,7 @@ describe('the buyer-facing payment status', () => {
       intentId,
     });
 
-    const after = await readCheckoutPaymentStatus(buyer.buyerId, result.checkoutGroupId);
+    const after = await readCheckoutPaymentStatus({ kind: 'oxy_user', oxyUserId: buyer.buyerId }, result.checkoutGroupId);
     expect(after.status).toBe('succeeded');
     expect(after.orders[0]?.status).toBe('paid');
     expect(after.orders[0]?.paymentStatus).toBe('paid');
@@ -954,7 +954,7 @@ describe('the buyer-facing payment status', () => {
     // concerned — a 404, never a 403, because its existence is not a fact to
     // confirm.
     await expect(
-      readCheckoutPaymentStatus(`stranger-${RUN}`, result.checkoutGroupId),
+      readCheckoutPaymentStatus({ kind: 'oxy_user', oxyUserId: `stranger-${RUN}` }, result.checkoutGroupId),
     ).rejects.toThrow(/not found/i);
   });
 });

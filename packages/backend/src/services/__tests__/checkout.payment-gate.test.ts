@@ -155,6 +155,8 @@ vi.mock('../../db/payments/paymentRepository.js', () => ({
 }));
 
 const USER = 'buyer-gate';
+/** The resolved actor checkout takes since #105 (ADR 0003 D1). */
+const ACTOR = { kind: 'oxy', oxyUserId: USER } as const;
 const ADDRESS_ID = uuidv7();
 const LISTING = uuidv7();
 const VARIANT = uuidv7();
@@ -390,7 +392,7 @@ describe('checkout with the Stripe rail on', () => {
   it('refuses a seller who has never onboarded, naming their group', async () => {
     findProviderAccountByOwner.mockResolvedValue(undefined);
 
-    await expect(checkout(USER, { addressId: ADDRESS_ID })).rejects.toThrow(
+    await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toThrow(
       new RegExp(`store:${STORE}`),
     );
     // The order that matters: the eligibility question needed no stock, so no
@@ -404,7 +406,7 @@ describe('checkout with the Stripe rail on', () => {
     async (state) => {
       findProviderAccountByOwner.mockResolvedValue(accountRow(state));
 
-      await expect(checkout(USER, { addressId: ADDRESS_ID })).rejects.toThrow(
+      await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toThrow(
         /cannot accept payment/i,
       );
       expect(reserve).not.toHaveBeenCalled();
@@ -418,7 +420,7 @@ describe('checkout with the Stripe rail on', () => {
 
     // The message names the eligible set: switching display currency is the
     // buyer's only remedy, and a client cannot offer it without knowing to what.
-    await expect(checkout(USER, { addressId: ADDRESS_ID })).rejects.toThrow(
+    await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toThrow(
       /not available in FAIR.*EUR or USD/is,
     );
     expect(reserve).not.toHaveBeenCalled();
@@ -428,7 +430,7 @@ describe('checkout with the Stripe rail on', () => {
   it('opens NO payment when the buyer picks the dev mock rail', async () => {
     findProviderAccountByOwner.mockResolvedValue(accountRow('ready'));
 
-    const result = await checkout(USER, { addressId: ADDRESS_ID, paymentMethod: 'mock' });
+    const result = await checkout(ACTOR, { addressId: ADDRESS_ID, paymentMethod: 'mock' });
 
     // The order is placed exactly as before, and no charge object exists: the
     // dev seam funds the whole group afterwards through `POST /orders/:id/
@@ -442,7 +444,7 @@ describe('checkout with the Stripe rail on', () => {
   it('places the order when the seller is ready, and hands back the payment', async () => {
     findProviderAccountByOwner.mockResolvedValue(accountRow('ready'));
 
-    const result = await checkout(USER, { addressId: ADDRESS_ID });
+    const result = await checkout(ACTOR, { addressId: ADDRESS_ID });
 
     expect(result.orders).toHaveLength(1);
     expect(reserve).toHaveBeenCalledTimes(1);

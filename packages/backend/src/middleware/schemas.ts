@@ -17,6 +17,7 @@ import {
   ABUSE_REPORTED_TYPES,
   ALL_CURRENCY_CODES,
   CHECKOUT_PAYMENT_METHODS,
+  CHECKOUT_TEXT_LIMITS,
   MAX_MONEY_MINOR_UNITS,
   type CurrencyCode,
 } from '@mercaria/shared-types';
@@ -601,10 +602,75 @@ const orderStatusSchema = z.enum([
  * It also pins the payment surface itself: the only thing a client may say about
  * payment here is WHICH RAIL, never an amount, a token, a status or a provider
  * object. Everything else about the money is server-derived (#45 invariant 6).
+ * `.strict()` is what stops a billing address arriving here too: billing
+ * details belong to the Stripe element and never reach a Mercaria server
+ * (ADR 0006 G6), and there is no key for one to arrive under.
+ *
+ * ## Shape only; the ACTOR rules live in the service
+ *
+ * This schema says what a well-formed body looks like. It deliberately does NOT
+ * say "a guest must supply contact" or "a guest may not name a saved address":
+ * those are properties of the CALLER, and the identical body is complete for an
+ * authenticated buyer and incomplete for a guest. Encoding them here would put
+ * half the actor rules in a schema that cannot see an actor and half in
+ * `services/checkout/destination.ts`, and the half nobody remembers is the one
+ * that gets it wrong.
  */
+const checkoutAddressSchema = z
+  .object({
+    recipientName: z.string().min(1).max(CHECKOUT_TEXT_LIMITS.recipientName),
+    line1: z.string().min(1).max(CHECKOUT_TEXT_LIMITS.line1),
+    line2: z.string().max(CHECKOUT_TEXT_LIMITS.line2).optional(),
+    city: z.string().min(1).max(CHECKOUT_TEXT_LIMITS.city),
+    region: z.string().max(CHECKOUT_TEXT_LIMITS.region).optional(),
+    postalCode: z.string().min(1).max(CHECKOUT_TEXT_LIMITS.postalCode),
+    // Length only here. Membership of the real ISO-3166 list, the postal-code
+    // format and the Unicode/control-character rules are all
+    // `services/checkout/contact.ts`'s, because they are ONE policy and a
+    // second copy in a schema is a second policy.
+    country: z.string().length(2),
+    phone: z.string().max(CHECKOUT_TEXT_LIMITS.phone).optional(),
+  })
+  .strict();
+
+const checkoutContactSchema = z
+  .object({
+    email: z.string().min(1).max(CHECKOUT_TEXT_LIMITS.email),
+    phone: z.string().max(CHECKOUT_TEXT_LIMITS.phone).optional(),
+  })
+  .strict();
+
+const checkoutDestinationSchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal('saved_address'),
+      addressId: z.string().trim().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('inline_shipping_address'),
+      address: checkoutAddressSchema,
+      saveToAddressBook: z.boolean().optional(),
+      saveLabel: z.string().trim().min(1).max(120).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('pickup'),
+      locationId: z.string().trim().min(1),
+      pickupContact: checkoutContactSchema,
+    })
+    .strict(),
+]);
+
 export const checkoutSchema = z
   .object({
-    addressId: z.string().trim().min(1),
+    /** The v1 contract. See `CheckoutInput`'s docblock for why it is still here. */
+    addressId: z.string().trim().min(1).optional(),
+    destination: checkoutDestinationSchema.optional(),
+    contact: checkoutContactSchema.optional(),
+    marketingOptIn: z.boolean().optional(),
     sellerKeys: z.array(z.string().trim().min(1)).optional(),
     shippingSelections: z.record(z.string(), shippingMethodSchema).optional(),
     discountCodes: z.array(z.string().trim().min(1)).optional(),

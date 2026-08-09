@@ -108,6 +108,7 @@ async function makeOrder(): Promise<string> {
   createdStoreIds.push(store.id);
   const input: NewOrder = {
     orderNumber: await nextOrderNumber(),
+    buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${suffix}`,
     sellerType: 'store',
     storeId: store.id,

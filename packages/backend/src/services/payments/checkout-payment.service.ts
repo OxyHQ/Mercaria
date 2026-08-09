@@ -39,7 +39,11 @@ import {
   attachPaymentProviderObject,
   findNativePaymentByCheckoutGroupId,
 } from '../../db/payments/paymentRepository.js';
-import { findOrdersByCheckoutGroup, type OrderRecord } from '../../db/orders/orderRepository.js';
+import {
+  findOrdersByCheckoutGroup,
+  type CheckoutGroupOwner,
+  type OrderRecord,
+} from '../../db/orders/orderRepository.js';
 import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import { ensurePayment } from './payment.service.js';
@@ -142,7 +146,16 @@ export function assertCheckoutCurrencyEligible(rail: CheckoutRail, currency: Cur
 export async function openCheckoutPayment(input: {
   rail: CheckoutRail;
   checkoutGroupId: string;
-  buyerOxyUserId: string;
+  /**
+   * The Oxy buyer, when there is one.
+   *
+   * OPTIONAL since #105, and the omission is the whole of the guest change in
+   * this file: `payments.buyer_oxy_user_id` was already nullable, correlation
+   * runs `payments.checkout_group_id` → `guest_checkouts` (ADR 0003 D4), and
+   * the rail's own request has no buyer parameter to widen (ADR 0006 G1). A
+   * guest payment is byte-for-byte the payment ADR 0001 defined.
+   */
+  buyerOxyUserId?: string;
   /**
    * The group's orders — the source of both the amount and the metadata ids.
    *
@@ -171,7 +184,7 @@ export async function openCheckoutPayment(input: {
     provider: 'stripe',
     checkoutGroupId: input.checkoutGroupId,
     presentment: amount,
-    buyerOxyUserId: input.buyerOxyUserId,
+    ...(input.buyerOxyUserId !== undefined ? { buyerOxyUserId: input.buyerOxyUserId } : {}),
   });
 
   const result =
@@ -271,16 +284,23 @@ const METADATA_VALUE_MAX_LENGTH = 500;
  * What the buyer may learn about their checkout group's payment.
  *
  * Scoped to the CALLER's own orders — `findOrdersByCheckoutGroup` filters by
- * buyer, so a group id belonging to somebody else answers 404 rather than
+ * owner, so a group id belonging to somebody else answers 404 rather than
  * leaking that it exists. That is the whole authorization: a checkout group is a
  * server-issued uuid, and the orders under it are the only thing that proves who
  * it belongs to.
+ *
+ * The owner is a `CheckoutGroupOwner` since #105, not an Oxy id: a guest who
+ * placed the group polls this endpoint exactly as an Oxy buyer does, and the
+ * guest branch scopes through `guest_checkouts.guest_session_id` rather than a
+ * buyer column (ADR 0006 G10). Widening the SCOPE is all that changes — the
+ * projection is identical and still answers from the payment aggregate, so a
+ * client of either kind still cannot forge paid state.
  */
 export async function readCheckoutPaymentStatus(
-  oxyUserId: string,
+  owner: CheckoutGroupOwner,
   checkoutGroupId: string,
 ): Promise<CheckoutPaymentStatus> {
-  const orders = await findOrdersByCheckoutGroup(checkoutGroupId, oxyUserId);
+  const orders = await findOrdersByCheckoutGroup(checkoutGroupId, owner);
   if (orders.length === 0) {
     throw notFound('Checkout not found');
   }

@@ -162,6 +162,13 @@
       "when": 1786253918382,
       "tag": "0022_hard_oracle",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786255905626,
+      "tag": "0023_ambitious_proemial_gods",
+      "breakpoints": true
     }
   ]
 }

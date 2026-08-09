@@ -241,6 +241,24 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // ── Append-only audit correlations ────────────────────────────────────────
   { column: 'cart_merges.guest_session_id', reason: AUDIT_CORRELATION },
   { column: 'cart_merges.target_cart_id', reason: AUDIT_CORRELATION },
+  {
+    column: 'guest_checkouts.guest_session_id',
+    reason:
+      'The session that placed a guest checkout. A real foreign key here would be exactly ' +
+      'backwards: the session is HARD-DELETED by the retention sweep 7 days after it expires ' +
+      '(ADR 0003 D11) while the checkout is retained with its orders for the statutory ' +
+      'commercial window, so a cascade would erase a commercial record and a restrict would ' +
+      'block the purge the retention policy requires. Surviving the credential is the whole ' +
+      'reason this table exists (D4) — the paid path correlates through checkout_group_id and ' +
+      'never reads guest_sessions at all (ADR 0006 G9).',
+  },
+  {
+    column: 'guest_checkouts.checkout_group_id',
+    reason:
+      'The same grouping token orders, payments and purchase orders carry; there is no ' +
+      'checkout_groups table to reference. Its uniqueness here is what makes one contact ' +
+      'identity per group structural (ADR 0003 D4).',
+  },
 
   // ── Commerce snapshots: the target may be deleted, the record may not ─────
   { column: 'draft_order_applied_discounts.discount_id', reason: COMMERCE_SNAPSHOT },
