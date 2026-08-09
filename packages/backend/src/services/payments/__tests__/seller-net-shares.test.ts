@@ -28,6 +28,7 @@ function order(input: {
     id: input.id,
     status: 'pending_payment',
     sellerType: input.sellerType ?? 'store',
+    commercialRole: 'connected_marketplace',
     sellerOwnerId: `owner-${input.id}`,
     buyerOxyUserId: 'buyer',
     shopTotalMinor: input.totalMinor,

@@ -189,6 +189,14 @@ export * from './supplier-order';
 // verdict gates whether a route may be preflighted at all).
 export * from './supplier-preflight';
 
+// Mercaria-retail native checkout (#123, ADR 0004 D4/D5/D7/D8) — why a retail
+// line may be refused, the durable procurement intent a paid retail order
+// triggers on, the five definitive procurement failures a compensating refund
+// answers, and the reconciliation input #128 books. FOLLOWS every domain above:
+// it consumes #121's verdict, #122's preflight, #120's locked quote and #124's
+// orchestration, and adds no vocabulary any of them could have owned.
+export * from './retail-checkout';
+
 // The versioned category-attribute registry and its normalized values (#94):
 // value types, cardinality, unit families, lifecycle, evidence/display policy,
 // and the source/public projections of one recorded attribute fact. PRECEDES

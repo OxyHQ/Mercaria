@@ -2225,6 +2225,83 @@ CHECKs. The load-bearing rules:
   from `payments`), #112 (guest P2P — refused at group construction with no flag,
   deliberately).
 
+## Mercaria-retail on native checkout (#123, ADR 0004 D1/D4/D5/D7/D8)
+
+`services/checkout/retail.ts` + `services/retail-checkout/` (3 modules) +
+`db/retailCheckout/` + `db/schema/retailCheckout.ts` (4 tables) + the
+`commercial_role` / `platform` widening on `orders`. Mercaria selling items
+ITSELF and procuring them per order from a B2B supplier. Full reference:
+`docs/payments.md` §"Mercaria-retail on the card rail". The rules that are
+load-bearing:
+
+- **`sellerType = 'platform'` ⇔ `commercialRole = 'mercaria_retail'` is ONE
+  CHECK**, and a `platform` order carries NEITHER owner column — which is what
+  makes "no connected-seller transfer exists for a retail order" structural:
+  transfer creation looks a `provider_accounts` row up by (ownerType, ownerId)
+  and a retail order has no owner id to look one up with. Widening that
+  exclusivity CHECK is the single edit that could put Mercaria's own retail
+  share into a Connect transfer.
+- **The retail share is SUBTRACTED from the commission residual**, and the
+  subtraction is the load-bearing half. `chargeSucceeded` defines commission as
+  `gross − Σ(seller nets)`; without the subtraction the retail share would
+  still be booked — as `commission_revenue` — and the ledger would balance
+  perfectly while reporting margin on a zero-markup sale (D7 proof 1). ONE
+  allocation over ALL orders, then a PARTITION in `seller-net-shares.ts`:
+  allocating the two kinds separately rounds twice and leaks the difference into
+  the residual.
+- **`retail_cost_recovery` is the ONE ledger account #123 adds.** ADR 0004 D7
+  names five and assigns them to #128 "together with the code that writes
+  them"; #123 IS that code for exactly one, because a retail order's share has
+  to be credited somewhere the moment the charge is booked.
+- **Retail lines are partitioned out BEFORE grouping**, so the readiness gate,
+  the reservation loop, the discount engine and the fee planner never see one.
+  ADR 0004 D5's "local inventory is not reserved" is that absence, not a branch
+  — there is no `if (sellerType === 'platform')` in `checkout.service` to
+  delete.
+- **The buyer's refusal names none of the ten conditions.** ONE code
+  (`retail_line_ineligible`), the `guest_rollout_blocked` decision with a
+  sharper case: distinguishing `supplier_stock_unknown` from `cost_incomplete`
+  from `retail_disabled` would let a client vary one input at a time and read
+  out a supplier's live stock position and Mercaria's wholesale cost coverage.
+- **The join lives in `services/retail-checkout/`, NOT in
+  `services/payments/`.** `role-separation.test.ts` (#118) forbids anything
+  under `services/payments/` importing the procurement domain, and that gate is
+  correct — satisfying D4 step 4 by importing across it would widen it to admit
+  the REVERSE edge, which is the one it exists to prevent. The outbox reaches
+  the handlers through `retail-outbox.port.ts`.
+- **Three ports, three DIFFERENT defaults, and getting one backwards breaks
+  something.** The #124 authorization reader REFUSES (a missing authorization
+  must fail closed or a deployment procures against whatever is `paid`); the
+  outcome consumer is SILENT (a marketplace-only deployment has nothing to
+  announce, and throwing would dead-letter every purchase order it ever
+  placed); the outbox consumer THROWS (a `procurement_requested` row is a paid
+  buyer waiting, and completing it silently reports success on nothing).
+- **Everything a purchase order is composed from is FROZEN at checkout.**
+  `retail_procurement_intents` + `retail_procurement_intent_lines`, written in
+  the order's transaction, append-only by trigger. Nothing on the trigger path
+  re-reads a procurement offer, a policy version or an agreement — the buyer's
+  amount is frozen, so procuring against anything else is how a locked amount
+  and an actual cost stop describing one purchase.
+- **`retail_cost_variance_records` BOOKS NOTHING** — no account column, no
+  ledger pointer, no threshold verdict. #123 observes, #128 recognizes. The
+  direction is DERIVED from the same subtraction the CHECK re-computes, so no
+  caller can store a `customer_owed` row with a negative delta (a surcharge
+  wearing a refund's name, D8.4).
+- **Manual capture is NOT implemented and must not be added.** ADR 0004 D4
+  selected immediate capture on verified Stripe facts (2–7 day windows Mercaria
+  does not control, one capture per authorization, gated delayed-capture
+  programs) and rejected holding an authorization. #123's issue text lists both
+  branches; only the selected one exists.
+- Env: `MERCARIA_RETAIL_ENABLED` (ENTRY only, default false, half-configured is
+  OFF — requires `SUPPLIER_PREFLIGHT_ENABLED` and a non-empty
+  `RETAIL_OPERATOR_OXY_USER_IDS`), `RETAIL_BLOCKED_SUPPLIERS`,
+  `RETAIL_BLOCKED_MARKETS`, `GUEST_CHECKOUT_BLOCKED_SUPPLIERS`. The pricing
+  policy KEY is a code constant.
+- Deferred with named seams: #129 (the offer and checkout UX, and D9.1's
+  "confirming availability" state), #128 (the variance recognition and the
+  other four accounts), #125 (the pilot and the binding operator surface),
+  #126/#127 (customer communication, returns and RMAs).
+
 ## Gotchas
 
 **Dockerfile node-gyp pin.** The API Dockerfile lives at the **repo root**, not

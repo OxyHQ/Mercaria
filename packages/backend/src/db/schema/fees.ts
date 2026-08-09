@@ -57,6 +57,7 @@ import { bigint } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
   COMMERCIAL_MODES,
+  CONNECTED_MARKETPLACE_SELLER_TYPES,
   FEE_BASES,
   FEE_CLAMPS,
   FEE_REFUND_POLICIES,
@@ -72,7 +73,7 @@ import {
   CURRENCY_CODE_VALUES,
   optionalMoney,
 } from './columns';
-import { ORDER_SELLER_TYPES, orderItems, orders } from './orders';
+import { orderItems, orders } from './orders';
 
 /**
  * A fee amount bound (min/max clamp), in minor units of the schedule's
@@ -106,7 +107,7 @@ export const feeSchedules = pgTable(
     /** NULL = open-ended. */
     effectiveEnd: timestamptz(),
     /** Scope: which seller kind. NULL = both stores and P2P sellers. */
-    eligibleSellerType: text({ enum: asEnumValues(ORDER_SELLER_TYPES) }),
+    eligibleSellerType: text({ enum: asEnumValues(CONNECTED_MARKETPLACE_SELLER_TYPES) }),
     /**
      * Scope: the ONE presentment currency this schedule applies to, and the
      * currency of every absolute amount it carries. NULL = any currency, which
@@ -142,7 +143,7 @@ export const feeSchedules = pgTable(
     checkOneOf('fee_schedules_status_check', t.status, FEE_SCHEDULE_STATUSES),
     checkOneOf('fee_schedules_tax_treatment_check', t.taxTreatment, FEE_TAX_TREATMENTS),
     checkOneOf('fee_schedules_refund_policy_check', t.refundPolicy, FEE_REFUND_POLICIES),
-    checkOneOf('fee_schedules_eligible_seller_type_check', t.eligibleSellerType, ORDER_SELLER_TYPES),
+    checkOneOf('fee_schedules_eligible_seller_type_check', t.eligibleSellerType, CONNECTED_MARKETPLACE_SELLER_TYPES),
     ...currencyChecks('fee_schedules', [t.eligibleCurrency, t.fixedFeeCurrency]),
     check('fee_schedules_version_check', sql`${t.version} >= 1`),
     // Trust rule 6: no negative fee outside supported policy — and none is
@@ -294,7 +295,7 @@ export const orderFeeSnapshots = pgTable(
     /** The terms version the seller had accepted at placement, when any. */
     termsVersionAccepted: text(),
     /** The seller-type fact schedule selection read. */
-    scopeSellerType: text({ enum: asEnumValues(ORDER_SELLER_TYPES) }),
+    scopeSellerType: text({ enum: asEnumValues(CONNECTED_MARKETPLACE_SELLER_TYPES) }),
     /** The currency fact schedule selection read (the order's presentment currency). */
     scopeCurrency: text({ enum: CURRENCY_CODE_VALUES }),
     /** The calculation time. No `updated_at` — the row is append-only. */
@@ -305,7 +306,7 @@ export const orderFeeSnapshots = pgTable(
     checkOneOf('order_fee_snapshots_result_check', t.result, FEE_SNAPSHOT_RESULTS),
     checkOneOf('order_fee_snapshots_basis_check', t.basis, FEE_BASES),
     checkOneOf('order_fee_snapshots_clamp_applied_check', t.clampApplied, FEE_CLAMPS),
-    checkOneOf('order_fee_snapshots_scope_seller_type_check', t.scopeSellerType, ORDER_SELLER_TYPES),
+    checkOneOf('order_fee_snapshots_scope_seller_type_check', t.scopeSellerType, CONNECTED_MARKETPLACE_SELLER_TYPES),
     ...currencyChecks('order_fee_snapshots', [
       t.basisAmountCurrency,
       t.feeCurrency,

@@ -3320,3 +3320,63 @@ Anything in this document that a gate does NOT enforce is enforced by review.
 The money-column shape, the `ON DELETE` reasoning, the enum-widening audit and
 the re-applied Mongoose normalizations are all in that category — they are the
 ones to read this file for before opening a PR, not after.
+
+## Mercaria-retail native checkout (#123)
+
+`retail_offer_bindings`, `retail_procurement_intents`,
+`retail_procurement_intent_lines`, `retail_cost_variance_records`, plus
+`orders.commercial_role` and the `platform` seller type. Binding decisions:
+ADR 0004 D1/D4/D5/D8.
+
+- **`orders.commercial_role`** is NOT NULL with a `connected_marketplace`
+  default. The default exists so the migration could fill an existing table
+  without a rewrite; `NewOrder` makes the field REQUIRED so no writer leans on
+  it, exactly as `buyerOrigin` does and for the same reason.
+- **`orders_commercial_role_seller_check`** is the biconditional
+  `(seller_type = 'platform') = (commercial_role = 'mercaria_retail')`, as ONE
+  CHECK rather than two implications. Both directions fail differently and both
+  are money: a `platform` order marked marketplace books its whole gross as
+  commission on a zero-markup sale; a retail order naming a seller credits that
+  seller a payable the settlement step transfers to them.
+- **`orders_seller_exclusivity_check` gained a third disjunct** — `platform`
+  with BOTH owner columns NULL. That absence is the mechanism behind "no
+  connected-seller transfer exists for a retail order": there is no owner id to
+  look a `provider_accounts` row up with.
+- **`retail_offer_bindings` is the ONE thing that makes a catalogue variant a
+  retail line.** The cart holds a `product_variants` row and nothing else
+  (#57's wall, unchanged), so retail-ness is a fact ABOUT a variant stored
+  beside it. `UNIQUE(product_variant_id) WHERE retired_at IS NULL`: two live
+  bindings would make "which supplier does this line come from" a question with
+  two answers. Retirement keeps the row — a placed order's intent names it.
+- **`retail_procurement_intents` is `UNIQUE(order_id, supplier_id)`** — ADR
+  0004 D5's "one PurchaseOrder per supplier", one table earlier, and the same
+  pair `po:<orderId>:<supplierId>` and the outbox row id derive from.
+  `failure_kind` appears EXACTLY on a `failed` intent and `purchase_order_id`
+  EXACTLY on a `purchase_order_created` one, both by CHECK: a status and its
+  pointer are two spellings of one fact.
+- **`retail_procurement_intent_lines` is a child TABLE, not a `jsonb` column.**
+  The `jsonb` register admits a column only when nothing queries into it, and
+  everything queries into these — a variance comparison sums their accepted
+  totals, an operator trace lists them beside the purchase-order lines they
+  became, and #128 reconciles a supplier invoice line against one.
+  `UNIQUE(acceptance_id)`: a #120 acceptance locks ONE quote for ONE group, so
+  two lines citing it would count one locked amount twice.
+- **`retail_cost_variance_records` has no account column, no ledger pointer and
+  no threshold verdict**, and that absence IS the #123/#128 split. Its
+  `..._delta_check` states the subtraction and BOTH halves of the
+  direction/sign biconditional in one CHECK, so `customer_owed` with a negative
+  delta — a surcharge wearing a refund's name — has no row shape.
+  `UNIQUE(intent_id, source)`, keyed on the intent rather than the order plus a
+  nullable purchase order, because a NULLABLE column in a unique key admits the
+  duplicate it exists to prevent.
+- **Two hand-written triggers** (re-apply on any regeneration):
+  `mercaria_retail_variance_append_only` refuses UPDATE *and* DELETE;
+  `mercaria_retail_intent_lines_append_only` refuses UPDATE only — DELETE is
+  permitted there because `intent_id` cascades from the order, and refusing it
+  would break a cascade the foreign keys already declare rather than protect
+  anything.
+- **The fee domain's seller scope narrowed.** `fee_schedules.eligible_seller_type`
+  and `order_fee_snapshots.scope_seller_type` render their CHECKs from
+  `CONNECTED_MARKETPLACE_SELLER_TYPES` rather than the full tuple, so a schedule
+  scoped to `platform` — selectable by nothing, but readable as a policy
+  somebody set — has no row shape.

@@ -103,6 +103,11 @@ const REFUSAL_REASON_TO_ANALYTICS: Record<CheckoutRefusalReason, AnalyticsReason
   // merchants read as "our addresses do not validate".
   guest_rollout_blocked: 'guest_rollout_blocked',
   guest_seller_not_activated: 'guest_seller_not_activated',
+  // #123. An ELIGIBILITY outcome, not a destination one: a retail line refused
+  // for unknown supplier stock or an incomplete cost is a fact about what
+  // Mercaria can source, and counting it as a destination failure would tell a
+  // merchant-facing metric that addresses are failing validation.
+  retail_line_ineligible: 'retail_line_ineligible',
 };
 
 /**

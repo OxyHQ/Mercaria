@@ -76,6 +76,20 @@ export const CHECKOUT_REFUSAL_REASONS = [
    * terms). Collapsing them would send a merchant to the wrong screen.
    */
   'guest_seller_not_activated',
+  /**
+   * #123: a `mercaria_retail` line failed the ten-way conjunction — ADR 0004
+   * D3's fail-closed rule made visible at the gate.
+   *
+   * ONE reason for all ten conditions, the `guest_rollout_blocked` decision
+   * applied to a harder case. Which condition fired is genuinely sensitive
+   * here rather than merely operational: `supplier_stock_unknown` versus
+   * `cost_incomplete` versus `retail_disabled` would let a client vary one
+   * input at a time and read out a supplier's live stock position, Mercaria's
+   * wholesale cost coverage and the operator's incident levers. The
+   * {@link RetailCheckoutRefusal} vocabulary IS carried — into the log line and
+   * the operator trace, where the reader is already authorized.
+   */
+  'retail_line_ineligible',
 ] as const;
 
 /** One of {@link CHECKOUT_REFUSAL_REASONS}. */

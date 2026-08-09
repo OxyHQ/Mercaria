@@ -111,6 +111,7 @@ async function makeOrder(): Promise<string> {
     buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${suffix}`,
     sellerType: 'store',
+    commercialRole: 'connected_marketplace',
     storeId: store.id,
     shippingAddress: {
       recipientName: 'Retail Buyer',

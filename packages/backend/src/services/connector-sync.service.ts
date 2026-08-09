@@ -1715,6 +1715,7 @@ function buildExternalOrderDoc(
     buyerOrigin: 'external',
     buyerOxyUserId,
     sellerType: 'store',
+    commercialRole: 'connected_marketplace',
     storeId: conn.storeId,
     // An online sale imported from a connected platform; `source` marks provenance.
     sourceChannel: 'storefront',

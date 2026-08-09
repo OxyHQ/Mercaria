@@ -285,6 +285,7 @@ async function seedScenario(label: string, options: { ready: boolean; settle?: b
     buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${suffix}`,
     sellerType: 'store',
+    commercialRole: 'connected_marketplace',
     storeId: store.id,
     items: [
       {

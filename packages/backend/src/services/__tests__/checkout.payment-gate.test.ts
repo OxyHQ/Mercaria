@@ -87,6 +87,24 @@ vi.mock('../../db/stores/storeRepository.js', () => ({
 vi.mock('../../db/buyers/addressRepository.js', () => ({
   findAddress: (...args: unknown[]) => findAddress(...args),
 }));
+/**
+ * No cart line is a Mercaria-retail line in these fixtures (#123).
+ *
+ * Mocked rather than left to reach Postgres, exactly as every other repository
+ * in this file is: `partitionRetailLines` asks which variants carry a LIVE
+ * binding, and it asks BEFORE grouping — so an unmocked lookup would be the one
+ * database call in a suite that has no connection.
+ *
+ * An empty map means every line groups by its seller, which is what these
+ * marketplace fixtures are about. The retail path's own behaviour is pinned by
+ * `retail-checkout-isolation.test.ts` and `retail-checkout.realdb.test.ts`,
+ * where a binding is a real row against a real server.
+ */
+vi.mock('../../db/retailCheckout/retailCheckoutRepository.js', () => ({
+  findLiveRetailBindingsForVariants: vi.fn(async () => new Map()),
+  insertRetailProcurementIntents: vi.fn(async () => []),
+}));
+
 vi.mock('../../db/orders/orderRepository.js', () => ({
   insertOrder: (...args: unknown[]) => insertOrder(...args),
   findOrdersByCheckoutGroup: (...args: unknown[]) => findOrdersByCheckoutGroup(...args),

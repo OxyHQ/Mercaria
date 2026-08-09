@@ -468,6 +468,13 @@ export const ANALYTICS_REASON_CODES = [
   // beside the operator who set it — not in an event a dashboard slices.
   'guest_rollout_blocked',
   'guest_seller_not_activated',
+  // #123's retail gate. ONE code for its ten conditions, the same reasoning the
+  // two above use and a stronger case for it: which condition fired would let a
+  // dashboard — and anybody who can read one — infer a supplier's live stock
+  // position and Mercaria's wholesale cost coverage from a metric. The
+  // condition IS recorded, in the operator trace, where the reader is already
+  // authorized to see what Mercaria pays its suppliers.
+  'retail_line_ineligible',
   // Cart merge outcomes (the bounded set #104 already records).
   'merge_completed',
   'merge_already_done',

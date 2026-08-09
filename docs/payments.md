@@ -1052,6 +1052,175 @@ GUEST_SELLER_ACTIVATION_REQUIRED=false       # the #85 seam; true refuses EVERY 
 
 ---
 
+## Mercaria-retail on the card rail (#123, ADR 0004)
+
+Mercaria sells some items ITSELF and procures them, per order, from a B2B
+supplier who ships directly to the buyer. At the payment layer such an order is
+indistinguishable from a marketplace charge — `provider: 'stripe'`, one
+PaymentIntent per checkout group, immediate capture — because at the payment
+layer they *are* the same thing: a card charge Mercaria captured as merchant of
+record. What differs is everything around it.
+
+Binding decisions: **ADR 0004** (`docs/adr/0004-mercaria-retail-dropship.md`).
+Nothing below re-decides any of them.
+
+### The order
+
+- `orders.commercial_role` is `connected_marketplace | mercaria_retail`, chosen
+  before checkout and immutable. `sellerType` gained **`platform`**, and
+  `sellerType = 'platform'` ⇔ `commercialRole = 'mercaria_retail'` is a CHECK.
+  Both directions of that biconditional matter: a `platform` order marked
+  marketplace would put its whole gross into commission arithmetic with no
+  seller to net against, and a retail order naming a seller would credit that
+  seller a payable the settlement step would then transfer to them.
+- A `platform` order carries NEITHER owner column, and that is what makes "no
+  connected-seller transfer exists for a retail order" structural: transfer
+  creation looks a `provider_accounts` row up by (ownerType, ownerId), and a
+  retail order has no owner id to look one up with. There is no Mercaria
+  account on its own rail and creating one is forbidden.
+- ONE retail order per checkout group, however many suppliers its lines come
+  from — Mercaria is one seller (D5). Multi-supplier splitting happens at the
+  PurchaseOrder grain beneath it, which is what keeps ADR 0001's
+  one-PaymentIntent-per-group invariant intact on a mixed cart.
+- Its fee snapshot is `mercaria_retail` / `not_applicable` with a **NULL fee,
+  never a zero** — a zero would read as a schedule that calculated nothing.
+- Shop currency IS the presentment currency (D5): Mercaria is the seller, so its
+  accounting side and the platform side coincide, and the `fxRate` snapshot is
+  the identity. A retail order can be placed with no FX provider reachable.
+
+### The ten-way gate, and where it runs
+
+`services/checkout/retail.ts` owns it, and `checkout.service` calls exactly two
+functions there — it never learns what a supplier is. The order of the checks is
+the rest of checkout's: everything answerable from configuration and
+already-loaded rows runs before anything that calls a supplier, so a refused
+checkout never spends a provider call.
+
+1. the entry flag and both kill switches (configuration only);
+2. the binding's own supply side (one indexed read);
+3. #121's verdict — `unknown` is NOT a soft yes;
+4. #122's live preflight (the first outbound call);
+5. #122's `assertPreflightSatisfiesCheckout` revalidation;
+6. #120's compose, which fails closed on an unknown cost;
+7. #120's lock, idempotent on `(checkoutGroupId, quoteId)`.
+
+A buyer's refusal names NONE of the ten conditions — one reason code
+(`retail_line_ineligible`) covers all of them, because distinguishing them would
+let a client vary one input at a time and read out a supplier's live stock
+position, Mercaria's wholesale cost coverage and the operator's incident levers.
+The condition IS recorded, in the log line and the operator trace.
+
+**Local inventory is not reserved.** Retail lines are partitioned out BEFORE
+grouping, so the readiness gate, the reservation loop, the discount engine and
+the fee planner never see one — there is no `if (sellerType === 'platform')`
+anywhere in `checkout.service` to delete. The residual oversell risk is exactly
+the procurement-failure risk ADR 0004 D4 prices at "compensating refund".
+
+### The money
+
+The allocation runs over ALL the group's orders so the split stays exact; the
+PARTITION then decides what each share means. A retail share credits
+`retail_cost_recovery` — the ONE ledger account #123 adds, and the other four
+ADR 0004 D7 names arrive with #128, with the code that writes them — and is
+SUBTRACTED from the commission residual.
+
+That subtraction is the load-bearing half. Without it the retail share would
+still be booked, as `commission_revenue`, because ADR 0001 D3 defines the
+residual as everything the sellers were not owed — and the ledger would balance
+perfectly while reporting Mercaria margin on a sale whose planned margin is
+zero. The commission is now "the charge minus what the sellers are owed minus
+what retail recovered", which is D4 concern 8 verbatim.
+
+### Procurement, and the two directions across the wall
+
+- **Payment → procurement.** A retail order reaching `paid` enqueues one
+  `procurement_requested` payment-outbox row per supplier, keyed on
+  `(orderId, supplierId)` — the same pair `po:<orderId>:<supplierId>` and
+  `retail_procurement_intents_order_supplier_key` derive from, so three
+  independent mechanisms converge a redelivered success, a reclaimed lease and
+  an operator retry on ONE purchase order.
+- **Procurement → refund.** A DEFINITIVE failure (rejected, expired, cancelled)
+  announces through `procurement-outcome.port.ts` and enqueues one
+  `retail_procurement_failed` row, whose handler creates the compensating refund
+  through #49's existing domain. A retryable provider error, an ambiguous
+  submission and an unanswered poll are none of those: refunding a buyer for a
+  timeout that resolves an hour later refunds them for goods on their way.
+
+Both handlers live in **`services/retail-checkout/`**, not in
+`services/payments/`, and reach the outbox through `retail-outbox.port.ts`.
+`role-separation.test.ts` (#118) fails the build if anything under
+`services/payments/` imports the procurement domain, and that gate is correct
+and stays — satisfying ADR 0004 D4 step 4 by importing across it would have
+widened the gate to admit the REVERSE edge too, which is the one it exists to
+prevent. `services/retail-checkout/` is neither domain, may read both, and
+nothing in either may call it back.
+
+The port defaults differ deliberately: the authorization reader REFUSES (a
+missing authorization must fail closed, or a deployment procures against
+whatever happens to be `paid`), the outcome consumer is SILENT (a marketplace-
+only deployment has nothing to announce), and the outbox consumer THROWS (a
+`procurement_requested` row is a paid buyer waiting to be procured for, and
+completing it silently would report success on nothing).
+
+### Cost variance
+
+`retail_cost_variance_records` is the durable reconciliation input #128 BOOKS
+and #123 only OBSERVES. It carries no account, no ledger pointer and no
+threshold verdict: recognizing a variance — moving it to `customer_adjustment`,
+deciding whether it clears the automatic-refund threshold, disposing of it at
+finality — is D8's set of decisions and #128's to make.
+
+`direction` is a closed three-member set and its sign agreement with `delta` is
+a CHECK, so a `customer_owed` row whose actual EXCEEDED the lock — a surcharge
+wearing a refund's name (D8.4) — has no row shape. The repository DERIVES the
+direction from the same subtraction, so no caller has a parameter it could get
+backwards. Append-only by trigger against UPDATE *and* DELETE.
+
+Two sources today: a supplier's acceptance (the earliest actual #123 can see)
+and a cancelled purchase order (attributable cost ZERO, so the whole locked
+amount is owed back — recorded beside the refund, so the two describe one
+event).
+
+### Configuration
+
+```
+MERCARIA_RETAIL_ENABLED=false        # ENTRY only; never the outbox, PO, refund or reconciliation
+RETAIL_BLOCKED_SUPPLIERS=            # supplier ids withdrawn from sale, every buyer
+RETAIL_BLOCKED_MARKETS=              # ISO-3166 alpha-2 destinations withdrawn from sale
+GUEST_CHECKOUT_BLOCKED_SUPPLIERS=    # the #107 guest axes, extended by a supplier one
+```
+
+`MERCARIA_RETAIL_ENABLED=true` additionally requires `SUPPLIER_PREFLIGHT_ENABLED`
+and a non-empty `RETAIL_OPERATOR_OXY_USER_IDS` — half-configured is OFF (the
+`CROWDSOURCE_ENABLED` pattern). Without either, every retail line refuses at
+checkout anyway, and a catalogue of items nobody can buy with no message saying
+why is worse than the feature being off.
+
+**No lever gates anything durable**, and `retail-checkout-isolation.test.ts`
+fails the build if the authorization reader, the fulfilment service, the payment
+outbox handlers or #124's outcome port learn to read `config.retail`. A
+rollback closes entry immediately; in-flight purchase orders finish or cancel,
+and the compensating refunds run through the standard path.
+
+### What #123 deliberately did NOT build
+
+- **The buyer-facing UX** (#129) — the offer surface, the "we are confirming
+  availability with our fulfilment partner" state ADR 0004 D9.1 requires between
+  charge and acceptance, and the cost breakdown.
+- **The ledger recognition of variance** (#128) — the other four retail
+  accounts, the `customer_adjustment` extraction and the automatic-refund
+  threshold. #123 writes the input; nothing here books.
+- **Manual capture.** ADR 0004 D4 selected immediate capture on verified Stripe
+  facts and rejected holding an authorization, so there is no authorization
+  window to monitor and no capture to schedule. #123's issue text lists both
+  branches; only the selected one is implemented, which is what "implement
+  exactly the sequence selected by #117" means.
+- **Supplier payment.** ADR 0004 D6's prefunded balance is a treasury operation
+  the app records and never executes; the draw books with #128.
+- **The operator surface for bindings.** `retail_offer_bindings` is written by
+  the repository and has no HTTP route yet — #129 and the #125 pilot own how an
+  operator creates one.
+
 ## Marketplace fees (#88)
 
 How Mercaria's commission is DECIDED. ADR 0001 D3 already decided where it

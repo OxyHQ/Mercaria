@@ -318,6 +318,7 @@ async function seedOrder(listingId: string, variantId: string): Promise<string> 
     buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${RUN}`,
     sellerType: 'user',
+    commercialRole: 'connected_marketplace',
     sellerOxyUserId: `seller-${RUN}`,
     items: [
       {

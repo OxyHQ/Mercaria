@@ -158,6 +158,7 @@ async function orderInput(
     buyerOrigin: 'oxy',
     buyerOxyUserId: `buyer-${uuidv7()}`,
     sellerType: 'store',
+    commercialRole: 'connected_marketplace',
     storeId,
     shippingAddress: {
       recipientName: 'Buyer',

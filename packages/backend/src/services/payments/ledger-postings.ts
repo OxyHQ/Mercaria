@@ -53,6 +53,22 @@ export interface SellerShare {
   netMinor: bigint;
 }
 
+/**
+ * What one `mercaria_retail` order recovered out of a charge — ADR 0004 D7.
+ *
+ * It has NO owner, and the absence is the type doing its job. A `SellerShare`
+ * names who is owed the money, and every reader that holds one goes on to
+ * credit them a payable and then transfer it. A retail order's seller is
+ * Mercaria: there is nobody to owe and nobody to pay, so a share of that shape
+ * would be a receivable against ourselves that the settlement step would
+ * happily try to send somewhere.
+ */
+export interface RetailRecoveryShare {
+  orderId: string;
+  /** This order's share of the charge, in the platform settlement currency. */
+  recoveryMinor: bigint;
+}
+
 /** `Money.amount` as the `bigint` the ledger stores. */
 export function toLedgerAmount(money: Money): bigint {
   return BigInt(money.amount);
@@ -85,9 +101,27 @@ export function toLedgerAmount(money: Money): bigint {
  * provider, a future direct-settlement one) is an ordinary case rather than an
  * exception.
  *
+ * ## The retail legs, and why they change what the residual MEANS
+ *
+ * ADR 0004 D4 concern 8: a mixed group's split runs over ALL its orders so the
+ * allocation stays exact, but a `mercaria_retail` order's share never enters
+ * transfer creation or commission arithmetic. Here that is one credit to
+ * `retail_cost_recovery` per retail order and one subtraction from the
+ * residual.
+ *
+ * The subtraction is the load-bearing half. Without it the retail share would
+ * still be booked — as `commission_revenue`, because the residual is DEFINED as
+ * everything the sellers were not owed — and the ledger would balance perfectly
+ * while reporting Mercaria margin on a sale whose planned margin is zero (D7
+ * proof 1). So the commission is now "the charge minus what the sellers are
+ * owed minus what retail recovered", which is ADR 0001 D3's residual restricted
+ * to marketplace orders, exactly as D4 concern 8 words it.
+ *
  * @param grossMinor What the platform received, in `currency`.
  * @param feeMinor The provider's processing fee, borne by Mercaria (ADR D5).
- * @param shares One entry per seller order in the checkout group.
+ * @param shares One entry per CONNECTED-MARKETPLACE seller order in the group.
+ * @param retailShares One entry per `mercaria_retail` order in the group.
+ *   Empty for every marketplace-only checkout, which is every checkout today.
  */
 export function chargeSucceeded(input: {
   paymentId: string;
@@ -95,9 +129,12 @@ export function chargeSucceeded(input: {
   grossMinor: bigint;
   feeMinor: bigint;
   shares: readonly SellerShare[];
+  retailShares?: readonly RetailRecoveryShare[];
 }): LedgerPosting {
+  const retailShares = input.retailShares ?? [];
   const payableTotal = input.shares.reduce((total, share) => total + share.netMinor, 0n);
-  const commissionMinor = input.grossMinor - payableTotal;
+  const retailTotal = retailShares.reduce((total, share) => total + share.recoveryMinor, 0n);
+  const commissionMinor = input.grossMinor - payableTotal - retailTotal;
 
   const entries: LedgerEntryInput[] = [
     // Funds landed on the platform balance, net of what the provider kept.
@@ -122,6 +159,19 @@ export function chargeSucceeded(input: {
       amountMinor: -share.netMinor,
       ownerType: share.ownerType,
       ownerId: share.ownerId,
+      orderId: share.orderId,
+    });
+  }
+  // The retail legs. `orderId` and no owner: the entry names WHICH retail order
+  // recovered the money — which is what makes D7 proof 2 (recovery bounded by
+  // cost, per order) a query rather than an intention — while carrying nobody
+  // to owe it to.
+  for (const share of retailShares) {
+    if (share.recoveryMinor === 0n) continue;
+    entries.push({
+      account: 'retail_cost_recovery',
+      currency: input.currency,
+      amountMinor: -share.recoveryMinor,
       orderId: share.orderId,
     });
   }

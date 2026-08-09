@@ -969,6 +969,7 @@ async function seedCommerce(
     buyerOrigin: 'oxy',
     buyerOxyUserId: DEV_BUYER_OXY_USER_ID,
     sellerType: 'store',
+    commercialRole: 'connected_marketplace',
     storeId,
     customerId: customer.id,
     sourceChannel: 'pos',
@@ -1071,6 +1072,7 @@ async function seedCommerce(
       buyerOrigin: 'oxy',
       buyerOxyUserId: DEV_BUYER_OXY_USER_ID,
       sellerType: 'store',
+      commercialRole: 'connected_marketplace',
       storeId,
       sourceChannel: 'storefront',
       shippingAddress: {

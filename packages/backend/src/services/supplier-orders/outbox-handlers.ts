@@ -21,6 +21,8 @@
 import type { ProcurementOutboxEventType } from '@mercaria/shared-types';
 import { log } from '../../lib/logger.js';
 import type { ProcurementOutboxRow } from '../../db/supplierOrders/outboxRepository.js';
+import { findPurchaseOrderById } from '../../db/procurement/purchaseOrderRepository.js';
+import { announceProcurementOutcome } from './procurement-outcome.port.js';
 import { sendPurchaseOrderCancellation } from './cancellation.service.js';
 import { pollPurchaseOrderStatus } from './polling.service.js';
 import { submitPurchaseOrderToSupplier } from './submission.service.js';
@@ -64,15 +66,82 @@ export async function runProcurementOutboxEvent(event: ProcurementOutboxRow): Pr
       return;
     }
     case 'purchase_order_accepted':
-    case 'purchase_order_rejected':
+    case 'purchase_order_rejected': {
+      // Still announcements, and still terminal HERE. What changed with #123 is
+      // that the announcement now reaches a registered CONSUMER rather than
+      // only a log line — the compensating refund (D4 step 5) and the cost
+      // variance #128 books are decisions this domain must not make, so it
+      // hands the fact across a port instead of importing the domain that
+      // makes them. #126 and #127 join the same port when they land.
+      await notifyProcurementOutcome(eventType, purchaseOrderIdOf(event));
+      return;
+    }
     case 'purchase_order_exception': {
-      // Seams. See the module docblock: the consumers are #126, #127 and #128,
-      // and each owns a decision this domain must not make.
+      // NOT announced. An exception is a condition an OPERATOR resolves, and
+      // several of the halting kinds are ambiguous about whether a supplier
+      // holds an order — announcing one as a definitive failure would refund a
+      // buyer for goods that may already be shipping. #123's compensating
+      // refund is driven from the two terminal outcomes above and from an
+      // operator's explicit cancellation, never from an open case.
       log.general.debug(
         { eventId: event.id, eventType, purchaseOrderId: event.payload['purchaseOrderId'] },
-        '[Procurement] announcement recorded; consumers are #126/#127/#128',
+        '[Procurement] exception recorded; an operator resolves it (#127/#128)',
       );
       return;
     }
   }
+}
+
+/**
+ * Turn one terminal purchase-order state into the notice its consumer reads.
+ *
+ * The purchase order is RE-READ rather than taken from the payload, for the
+ * reason every `account.*` handler re-reads a Stripe account: an announcement
+ * can be delivered late, and the amount a compensating refund is sized from
+ * must be the one the row holds now.
+ *
+ * `rejected`, `expired` and `cancelled` all map to a DEFINITIVE failure and are
+ * kept apart, because an operator's next action differs: a rejection is the
+ * supplier's answer, an expiry is silence, and a cancellation is Mercaria's own
+ * decision. A purchase order in any other state produces no notice at all — a
+ * `submitted` or `accepted` order has not failed, and announcing one as a
+ * failure would refund a buyer mid-fulfilment.
+ */
+async function notifyProcurementOutcome(
+  eventType: 'purchase_order_accepted' | 'purchase_order_rejected',
+  purchaseOrderId: string,
+): Promise<void> {
+  const purchaseOrder = await findPurchaseOrderById(purchaseOrderId);
+  if (!purchaseOrder) {
+    throw new Error(`Purchase order ${purchaseOrderId} does not exist; its outcome is unreadable`);
+  }
+
+  if (eventType === 'purchase_order_accepted') {
+    if (purchaseOrder.status !== 'accepted') return;
+    await announceProcurementOutcome({
+      kind: 'accepted',
+      purchaseOrderId,
+      orderId: purchaseOrder.orderId,
+      acceptedCostMinor: purchaseOrder.totalAmount,
+    });
+    return;
+  }
+
+  const failure =
+    purchaseOrder.status === 'rejected'
+      ? 'supplier_rejected'
+      : purchaseOrder.status === 'expired'
+        ? 'acceptance_expired'
+        : purchaseOrder.status === 'cancelled'
+          ? 'operator_cancelled'
+          : undefined;
+  if (failure === undefined) return;
+
+  await announceProcurementOutcome({
+    kind: 'failed',
+    purchaseOrderId,
+    orderId: purchaseOrder.orderId,
+    failure,
+    detail: `purchase order ${purchaseOrder.status}`,
+  });
 }

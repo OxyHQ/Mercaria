@@ -323,6 +323,29 @@ export const DISPUTE_OUTCOMES: readonly DisputeOutcome[] = ['won', 'lost'];
  * | `refunds` | debit | money was returned to a buyer |
  * | `disputes` | debit | a disputed amount was debited from the platform |
  * | `reserves` | debit | funds were withheld from a seller |
+ * | `retail_cost_recovery` | credit | a buyer paid Mercaria's own costs back on a `mercaria_retail` order |
+ *
+ * ## Why `retail_cost_recovery` is here and the other four retail accounts are not
+ *
+ * ADR 0004 D7 names FIVE retail accounts and assigns them to #128 "together
+ * with the code that writes them". #123 is that code for exactly one of them:
+ * a retail order's share of a charge has to be credited SOMEWHERE the moment
+ * the charge is booked, because `chargeSucceeded` defines Mercaria's commission
+ * as `gross − Σ(seller nets)` and a retail order has no seller net. Leaving it
+ * out would not leave it unbooked — it would book the whole retail share as
+ * `commission_revenue`, which is D7 proof 1 broken in the direction that reads
+ * as margin on a zero-markup sale.
+ *
+ * The other four (`supplier_prepaid`, `platform_funds`, `procurement_expense`,
+ * `customer_adjustment`) record movements #123 does not make: a prefund top-up,
+ * a balance draw at supplier acceptance, and the variance recognition #128
+ * books. They arrive with #128, under the same rule.
+ *
+ * It is credit-normal and bounded by cost BY CONSTRUCTION rather than by a
+ * constraint: nothing may credit it beyond what the buyer paid, and every
+ * excess over actual cost is extracted to `customer_adjustment` before finality
+ * (D8.3). There is deliberately no `retail_margin_revenue`, so a positive
+ * variance has no account to be recognized as revenue in.
  *
  * `merchant_payable` is the only account carried PER OWNER: its rows name the
  * seller (`ownerType` + `ownerId`) and usually the order, because "what do we
@@ -340,7 +363,8 @@ export type LedgerAccount =
   | 'processor_expense'
   | 'refunds'
   | 'disputes'
-  | 'reserves';
+  | 'reserves'
+  | 'retail_cost_recovery';
 
 /** {@link LedgerAccount} as the tuple the column types and CHECKs read. */
 export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
@@ -351,6 +375,32 @@ export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
   'refunds',
   'disputes',
   'reserves',
+  'retail_cost_recovery',
+];
+
+/**
+ * The accounts a `mercaria_retail` order's money may EVER be credited to — ADR
+ * 0004 D7 proof 1, as a value a test can run rather than a paragraph.
+ *
+ * Stated positively and kept beside the chart itself, because the thing it
+ * defends is an omission: `commission_revenue` is not in it, and cannot be
+ * added without this line changing in the same diff as whatever made it
+ * necessary.
+ */
+export const RETAIL_REVENUE_SIDE_ACCOUNTS: readonly LedgerAccount[] = ['retail_cost_recovery'];
+
+/**
+ * Accounts that may never carry an entry naming a `mercaria_retail` order.
+ *
+ * `commission_revenue` — ADR 0004 D7 proof 1: Mercaria earns no commission on
+ * its own retail sale, and there is no schedule that could produce one (#88's
+ * `mercaria_retail` mode snapshots a NULL fee, never a zero).
+ * `merchant_payable` — a retail order has no connected seller to owe; a payable
+ * for one would be settled to somebody by the settlement step.
+ */
+export const RETAIL_FORBIDDEN_ACCOUNTS: readonly LedgerAccount[] = [
+  'commission_revenue',
+  'merchant_payable',
 ];
 
 /**
@@ -485,6 +535,33 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
  * reclaimed lease and a reconciliation sweep re-deriving the same success all
  * converge on one row — which is what "one secure guest-portal initialization
  * event" (#107 acceptance 10) means mechanically, rather than one per delivery.
+ *
+ * ## `procurement_requested` is WORK, and it is where ADR 0004 D4 step 4 lands
+ *
+ * A `mercaria_retail` order reaching `paid` is the ONE moment supplier
+ * procurement may begin: the customer's money is fully captured and the
+ * customer amount can never rise again. The row carries the durable procurement
+ * INTENT this checkout composed — one row per (order, supplier) — and its
+ * handler turns that intent into a PurchaseOrder through #124's idempotent
+ * orchestration. It is work rather than an announcement for the
+ * `payment_refunded` reason: a supplier call living in the webhook handler
+ * evaporates on a restart, leaving a paid order nobody ever procured.
+ *
+ * The direction is deliberate and one-way. Procurement is triggered BY payment
+ * state and never the reverse — a supplier's acceptance is not payment truth
+ * (ADR 0004 D1) — which is why there is no `procurement_accepted` type here.
+ *
+ * ## `retail_procurement_failed` is the compensating refund, and it is an EXCEPTION
+ *
+ * ADR 0004 D4 step 5: every procurement failure — rejection, stock-out,
+ * timeout, an over-cap cost increase, a partial failure — resolves through the
+ * EXISTING refund domain rather than a new primitive. This row is what carries
+ * a #124 failure across the wall into that domain, and its handler creates the
+ * compensating refund (full, or of the affected lines) exactly once.
+ *
+ * Its id carries the PURCHASE ORDER, not the failure delivery: a re-delivered
+ * supplier rejection describes the same failed procurement, and a refund per
+ * delivery would return the buyer's money twice.
  */
 export type PaymentOutboxEventType =
   | 'payment_succeeded'
@@ -499,7 +576,9 @@ export type PaymentOutboxEventType =
   | 'refund_failed'
   | 'reversal_failed'
   | 'refund_unmatched'
-  | 'guest_portal_initialization';
+  | 'guest_portal_initialization'
+  | 'procurement_requested'
+  | 'retail_procurement_failed';
 
 /** {@link PaymentOutboxEventType} as the tuple the column types and CHECKs read. */
 export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
@@ -519,6 +598,9 @@ export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
   'refund_unmatched',
   // #107's handoff to #108 — see the notes above.
   'guest_portal_initialization',
+  // #123's two, ADR 0004 D4 steps 4–5 — see the notes above.
+  'procurement_requested',
+  'retail_procurement_failed',
 ];
 
 /**
