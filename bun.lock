@@ -29,6 +29,7 @@
         "esbuild": "^0.27.7",
         "expo-server-sdk": "^6.1.0",
         "express": "^4.22.2",
+        "express-rate-limit": "^8.3.1",
         "helmet": "^8.3.0",
         "ioredis": "^5.11.1",
         "pino": "^10.3.1",

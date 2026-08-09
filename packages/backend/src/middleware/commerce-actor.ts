@@ -101,6 +101,18 @@ declare global {
       guestCredential?: GuestCredentialState;
       /** Present iff a guest credential RESOLVED (valid) on this request. */
       guestSessionContext?: GuestSessionRequestContext;
+      /**
+       * How a VALID guest credential reached an Oxy-authenticated request.
+       *
+       * Set only on the precedence branch where Oxy wins and the guest session
+       * is therefore surfaced as `presentedGuestSessionId` alone — there is no
+       * `guestSessionContext` on that branch, deliberately, because the session
+       * is inert for every consumer except merge (#104) and claim (#109).
+       * Those two need the TRANSPORT so a revocation can answer in kind: clear
+       * the cookie for a web client, and tell a native client to discard what
+       * it holds in secure storage (ADR 0003 D9).
+       */
+      presentedGuestTransport?: GuestTransport;
     }
   }
 }
@@ -334,7 +346,9 @@ async function resolveGuestHalf(req: Request, res: Response, next: NextFunction)
   if (oxyUserId) {
     // Oxy wins (D2). The guest session is surfaced ONLY as the possession
     // proof for merge (#104) and claim (#109); it is not touched, not
-    // rotated, and no other code may read it.
+    // rotated, and no other code may read it. The transport rides beside it so
+    // those two can revoke the credential in the carriage it arrived in.
+    req.presentedGuestTransport = presented.transport;
     req.commerceActor = {
       kind: 'oxy',
       oxyUserId,

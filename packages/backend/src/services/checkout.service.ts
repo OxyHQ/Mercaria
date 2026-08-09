@@ -69,6 +69,7 @@ import {
 import { findStoresByIds } from '../db/stores/storeRepository.js';
 import { redeemDiscountCode } from '../db/merchandising/discountRepository.js';
 import { findAddress, type AddressRecord } from '../db/buyers/addressRepository.js';
+import type { CartOwner } from '../db/buyers/cartRepository.js';
 import { getCart, clearCart, removeCartLines } from './cart.service.js';
 import { reserve, release } from './inventory.service.js';
 import { summarizeOrders } from './order-hydration.service.js';
@@ -404,7 +405,13 @@ export async function checkout(
   }
 
   // 2. Load + validate the cart.
-  const cart = await getCart(oxyUserId);
+  //
+  // Checkout is Oxy-only today: `routes/checkout.ts` keeps its mandatory
+  // `authenticateToken` and guest checkout is #105-#107. The owner is
+  // constructed here rather than threaded through so the one place that would
+  // have to change when guest checkout lands is visible and named.
+  const owner: CartOwner = { kind: 'oxy_user', oxyUserId };
+  const cart = await getCart({ owner });
   if (cart.items.length === 0) {
     throw conflict('Cart is empty');
   }
@@ -801,9 +808,9 @@ export async function checkout(
     const placedVariantIds = [...groups.values()].flatMap((group) =>
       group.lines.map((line) => line.cartItem.variantId),
     );
-    await removeCartLines(oxyUserId, placedVariantIds);
+    await removeCartLines(owner, placedVariantIds);
   } else {
-    await clearCart(oxyUserId);
+    await clearCart(owner);
   }
 
   // 11. Best-effort: notify buyer + seller of each placed order. A notification

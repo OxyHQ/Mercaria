@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import { useOxy } from "@oxyhq/services";
+import { openAccountDialog, useOxy } from "@oxyhq/services";
 import { ShoppingBag } from "lucide-react-native";
 import {
   CartLineItem,
@@ -18,6 +18,7 @@ import {
 import type { CartGroup, CartVendor } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useCart, useUpdateCartItem, useRemoveCartItem } from "@/lib/hooks/use-cart";
+import { useGuestCredential } from "@/lib/stores/guest-credential-store";
 import { useFeed } from "@/lib/hooks/use-feed";
 
 /** Vendor logo edge length (px) in the cart-group header. */
@@ -25,7 +26,21 @@ const VENDOR_LOGO_SIZE = 40;
 /** Heading of the bottom recommendation shelf. */
 const RECOMMENDATION_TITLE = "You might also like";
 
-/** Empty / signed-out state — never crashes, mirrors the home error/empty rhythm. */
+/**
+ * What an Oxy account adds to a cart that already works without one (#104).
+ *
+ * CONCRETE and true, which is the whole requirement: each line names something
+ * the guest path genuinely does not have. "Cross-device" is deliberately worded
+ * as a benefit of signing IN rather than as a description of the guest cart —
+ * a guest cart lives on ONE device and the copy must never imply otherwise.
+ */
+const ACCOUNT_BENEFITS = [
+  "Your cart follows you to your other devices",
+  "Saved addresses, so checkout is one step",
+  "Every order in one place, tied to your account",
+];
+
+/** Empty state — never crashes, mirrors the home error/empty rhythm. */
 function CartEmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <View className="items-center px-8 py-24">
@@ -34,6 +49,62 @@ function CartEmptyState({ title, subtitle }: { title: string; subtitle: string }
       </View>
       <Text className="text-center text-lg font-bold text-foreground">{title}</Text>
       <Text className="mt-1 text-center text-sm text-muted-foreground">{subtitle}</Text>
+    </View>
+  );
+}
+
+/**
+ * The signed-out invitation. It sits BELOW the cart and blocks nothing — the
+ * point of #104 is that the guest path is complete, so this is an offer and
+ * never a gate.
+ */
+function AccountBenefitsCard() {
+  return (
+    <View className="mb-4 rounded-3xl border border-border bg-card p-4 web:shadow">
+      <Text className="text-base font-bold text-foreground">Shopping as a guest</Text>
+      <Text className="mt-1 text-sm text-muted-foreground">
+        You can check out without an account. With one, you also get:
+      </Text>
+      <View className="mt-3 gap-1.5">
+        {ACCOUNT_BENEFITS.map((benefit) => (
+          <Text key={benefit} className="text-sm text-foreground">
+            {`• ${benefit}`}
+          </Text>
+        ))}
+      </View>
+      <Text className="mt-3 text-xs text-muted-foreground">
+        Sign in any time — the items already in your cart come with you.
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Sign in to your Oxy account"
+        onPress={() => openAccountDialog()}
+        className="mt-4 items-center rounded-full border border-border py-3 web:hover:opacity-90 active:opacity-90"
+      >
+        <Text className="text-sm font-semibold text-foreground">Sign in</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/**
+ * The recovery state for a device whose secure storage refused us (#104 guest
+ * UX requirement 7).
+ *
+ * Honest rather than alarming: the cart works right now and will not survive a
+ * restart, and the fix in the buyer's hands is to sign in. Shown only when
+ * storage actually failed, so a healthy device never sees it.
+ */
+function GuestStorageWarning() {
+  return (
+    <View className="mb-4 rounded-3xl border border-destructive/40 bg-card p-4">
+      <Text accessibilityRole="alert" className="text-sm font-semibold text-foreground">
+        This cart may not survive closing the app
+      </Text>
+      <Text className="mt-1 text-sm text-muted-foreground">
+        We could not save your cart securely on this device. You can keep shopping and check out
+        now. Signing in keeps your cart safe.
+      </Text>
     </View>
   );
 }
@@ -120,7 +191,8 @@ function CartGroupCard({
 function CartBody() {
   const router = useRouter();
   const { isAuthenticated } = useOxy();
-  const { data: cart, isLoading } = useCart();
+  const { data: cart, isLoading, isError } = useCart();
+  const { storageAvailable } = useGuestCredential();
   const { data: feed } = useFeed();
 
   const updateItem = useUpdateCartItem();
@@ -166,23 +238,36 @@ function CartBody() {
     <>
       <SectionHeader title="Your cart" />
 
-      {!isAuthenticated ? (
-        <CartEmptyState
-          title="Your cart is empty"
-          subtitle="Sign in to start adding items to your cart."
-        />
-      ) : isLoading && !cart ? (
-        <View className="px-4 py-16">
+      {/* Signing out of the cart is no longer a state this screen has: the cart
+          belongs to whoever the server resolves the caller to be, so a guest
+          sees their own real cart here and the auth check below decides only
+          what to OFFER them, never what to withhold (#104). */}
+      {isLoading && !cart ? (
+        <View className="px-4 py-16" accessibilityRole="progressbar" accessibilityLabel="Loading your cart">
           <View className="mb-4 h-40 w-full rounded-3xl bg-muted" />
           <View className="h-40 w-full rounded-3xl bg-muted" />
         </View>
-      ) : groups.length === 0 ? (
+      ) : isError && !cart ? (
         <CartEmptyState
-          title="Your cart is empty"
-          subtitle="Browse the marketplace and add items you love."
+          title="We could not load your cart"
+          subtitle="Check your connection and try again — nothing has been lost."
         />
+      ) : groups.length === 0 ? (
+        <>
+          <CartEmptyState
+            title="Your cart is empty"
+            subtitle="Browse the marketplace and add items you love."
+          />
+          {!isAuthenticated ? (
+            <View className="px-4">
+              <AccountBenefitsCard />
+            </View>
+          ) : null}
+        </>
       ) : (
         <View className="px-4">
+          {!isAuthenticated && !storageAvailable ? <GuestStorageWarning /> : null}
+
           {groups.map((group) => (
             <CartGroupCard
               key={`${group.vendor.kind}:${group.vendor.id}`}
@@ -214,6 +299,10 @@ function CartBody() {
               </Pressable>
             </View>
           ) : null}
+
+          {/* The offer sits BELOW the cart and its checkout buttons, so it can
+              never read as a step between the buyer and their purchase. */}
+          {!isAuthenticated ? <AccountBenefitsCard /> : null}
         </View>
       )}
 

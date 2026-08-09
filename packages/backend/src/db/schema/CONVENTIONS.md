@@ -954,10 +954,11 @@ is #83's own, stated so a column whose shape looks arbitrary is answerable:
 
 ### The guest domain has NO source model either
 
-`guest_sessions` (`schema/guests.ts`, `drizzle/0013_guest_sessions.sql`) was
-born in Postgres for ADR 0003 (#103) — there was never a Mongoose model behind
-it and the backfill had nothing to copy into it. Its decisions, so a column
-whose shape looks arbitrary is answerable here:
+`guest_sessions` (`schema/guests.ts`, `drizzle/0013_guest_sessions.sql`) and
+`cart_merges` (same file, `drizzle/0017_guest_cart_ownership.sql`) were born in
+Postgres for ADR 0003 (#103, #104) — there was never a Mongoose model behind
+either and the backfill had nothing to copy into them. Their decisions, so a
+column whose shape looks arbitrary is answerable here:
 
 - **`token_hash` stores the hex SHA-256 of the bearer token, never the
   plaintext, and there is deliberately NO pepper/HMAC key.** The preimage is 32
@@ -977,13 +978,61 @@ whose shape looks arbitrary is answerable here:
   express OR, and each column carries its own leading btree index for the gate.
   Hard DELETE: audit continuity lives in OTHER tables' correlation text
   (`order_status_history.actor_guest_session_id`, D16), never in kept sessions.
-- **`converted_at` + `converted_to_oxy_user_id` are a SEAM for #104/#109**,
-  written only by the merge/claim transaction; CHECKs force the pair to travel
-  together and force converted ⇒ revoked. The Oxy id carries no FK (Oxy owns
+- **`converted_at` + `converted_to_oxy_user_id` were a SEAM for #104/#109** and
+  #104 filled the first half in: `services/cart-merge.service.ts` is now the
+  only writer of the pair, through `convertGuestSession`, which sets both plus
+  `revoked_at` in ONE statement — the CHECKs (pair travels together, converted ⇒
+  revoked) are unsatisfiable any other way. The Oxy id carries no FK (Oxy owns
   identity) and is in the `ID_COLUMNS_WITHOUT_FOREIGN_KEY` ledger.
 - **No email, address, payment method, device fingerprint, or locale/currency
   preference columns** — contact belongs to `guest_checkouts` (#105+), and a
   guest's presentment currency rides the request (ADR 0003 D8).
+
+`cart_merges` (#104) records one guest→Oxy cart merge, and its four decisions:
+
+- **`UNIQUE(guest_session_id)` IS the idempotency mechanism.** #104 asks for "a
+  durable merge operation id OR unique source-session constraint"; this is the
+  second and the stronger, because it needs no client cooperation. A merge is a
+  fact about a SESSION — one guest session merges exactly once, ever — so the
+  constraint states the invariant instead of trusting a header a retrying
+  native client might regenerate.
+- **Counts and bounded reason codes only.** Six integer counters and a
+  `text[]` CHECKed against `CART_MERGE_REASON_CODES`; no listing id, variant
+  id, title, price or discount code. An operator reading the table cannot learn
+  what anyone is buying, because there is no column for it.
+- **APPEND-ONLY by trigger** (`mercaria_cart_merge_append_only`, the
+  `mercaria_ledger_append_only` posture). Counters are written ONCE, inside the
+  merge transaction, computed from what that transaction actually did — so a
+  crashed merge leaves no half-counted row to correct, and any aggregate is a
+  QUERY over these rows. That is what makes the counters repairable: recompute
+  from the events, never patch a stored total. A test that needs to clean up
+  cannot: the trigger refuses DELETE and TRUNCATE is table-level, so
+  `cart-merge.realdb.test.ts` scopes by a per-run id set instead — the
+  `ledger.realdb.test.ts` rule.
+- **Three id columns, no foreign keys, three reasons.** `oxy_user_id` is a
+  foreign service's key. `guest_session_id` is correlation: the session is
+  hard-deleted by the retention sweep 7 days after the very revocation the
+  merge performs, and the audit must outlive it. `target_cart_id` likewise —
+  this row records an EVENT, and a cascade from `carts` would let a cart's
+  disappearance erase the history of what was merged into it. All three are in
+  `ID_COLUMNS_WITHOUT_FOREIGN_KEY` under `AUDIT_CORRELATION` / `OXY_ACCOUNT`.
+
+`carts` gained its guest owner in the same change (ADR 0003 D8) — `oxy_user_id`
+became nullable, `guest_session_id` arrived as a real FK with `ON DELETE
+CASCADE`, `carts_owner_exclusivity_check` enforces exactly one, and both
+uniques became partial. The reasoning is in the table's own docblock; two
+things are worth repeating here because they are easy to get wrong from the
+outside:
+
+- **`ON CONFLICT` must repeat a partial index's predicate** or Postgres refuses
+  to infer it (`there is no unique or exclusion constraint matching the ON
+  CONFLICT specification`) — which turns `ensureCart`'s ordinary double-tap
+  handling back into a 500. `ownerConflictTarget` carries the `where`.
+- **The CHECK was added VALIDATED, not `NOT VALID`.** The ADR stages the
+  `orders` identity CHECK as `NOT VALID` because legacy `ext:` rows genuinely
+  violate its final shape; `carts` has no such rows, so validation is immediate
+  and the "backfill existing carts to authenticated ownership" requirement is
+  met by rewriting ZERO rows.
 
 ### The procurement domain has NO source model either (#118)
 

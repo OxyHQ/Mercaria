@@ -127,6 +127,21 @@ const SUPPLIER_PLATFORM =
   'and deliberately never a Mercaria primary key.';
 
 /**
+ * An APPEND-ONLY audit row naming something whose disappearance must not erase
+ * the history of what happened to it (#104).
+ *
+ * `cart_merges` is the case: the guest session it names is hard-deleted by the
+ * retention sweep 7 days after the very revocation the merge performed (ADR
+ * 0003 D11), and the cart it names is a live row a cascade could take with it.
+ * A foreign key here would make the audit trail a function of whether its
+ * subjects still exist, which is exactly backwards — the same reasoning that
+ * keeps `order_status_history.actor_guest_session_id` correlation text (D16).
+ */
+const AUDIT_CORRELATION =
+  'An append-only audit row naming a record it must outlive. Its subject is purged on ' +
+  'retention or deletable by cascade, and the history of what happened must survive it.';
+
+/**
  * A procurement record naming a commerce record it does not compose with — the
  * {@link PAYMENT_CORRELATION} rule, applied to the B2B side: a purchase order
  * is the durable record of money Mercaria owes a supplier, and it must be
@@ -145,6 +160,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // ── Oxy account ids ───────────────────────────────────────────────────────
   { column: 'abuse_reports.reporter_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'addresses.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'cart_merges.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'carts.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'customers.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'draft_orders.created_by_oxy_user_id', reason: OXY_ACCOUNT },
@@ -221,6 +237,10 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
     column: 'moderation_enforcements.subject_id',
     reason: 'Polymorphic by subject_type, exactly as abuse_reports.reported_id is.',
   },
+
+  // ── Append-only audit correlations ────────────────────────────────────────
+  { column: 'cart_merges.guest_session_id', reason: AUDIT_CORRELATION },
+  { column: 'cart_merges.target_cart_id', reason: AUDIT_CORRELATION },
 
   // ── Commerce snapshots: the target may be deleted, the record may not ─────
   { column: 'draft_order_applied_discounts.discount_id', reason: COMMERCE_SNAPSHOT },

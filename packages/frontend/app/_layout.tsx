@@ -15,6 +15,7 @@ import { KeyboardProvider } from '@/lib/keyboard';
 import { useColorScheme } from '@mercaria/ui';
 import { AppFxProvider } from '@/lib/fx';
 import { setTokenGetter } from '@/lib/api/client';
+import { useGuestCartMerge } from '@/lib/hooks/use-cart';
 import { OXY_CLIENT_ID } from '@/lib/config';
 import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
 import 'react-native-reanimated';
@@ -36,6 +37,14 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
   const { oxyServices } = useOxy();
 
   setTokenGetter(() => oxyServices.getAccessToken() || null);
+
+  // The guest→Oxy cart merge (#104). Mounted once, at the top, because the
+  // trigger is signing IN and that can happen on any screen. It is a React
+  // Query query rather than an effect on purpose: `enabled` flipping true runs
+  // it exactly once, deduplicates, retries a failure and never re-runs — which
+  // is the scheduling an effect would otherwise have to reimplement. Calling it
+  // twice would converge anyway, server-side.
+  useGuestCartMerge();
 
   // Resolve Oxy file IDs to thumbnail download URLs for any Bloom component
   // that reads useImageResolver() (e.g. Avatar with a raw file id `source`).

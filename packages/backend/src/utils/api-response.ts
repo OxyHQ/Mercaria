@@ -66,6 +66,13 @@ export const ErrorCodes = {
    * than discarding their state.
    */
   GUEST_ISSUANCE_DISABLED: 'GUEST_ISSUANCE_DISABLED',
+  /**
+   * A signed-out caller tried to write to a cart on a deployment where guest
+   * carts are switched off (`GUEST_CART_ENABLED=false`, or guest commerce off
+   * entirely — #104). Distinct from `UNAUTHORIZED` on purpose: the client's
+   * correct response is to offer sign-in, not to retry with a credential.
+   */
+  GUEST_CART_DISABLED: 'GUEST_CART_DISABLED',
 } as const;
 
 /** Union of the supported error code literals. */

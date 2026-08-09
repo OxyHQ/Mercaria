@@ -459,6 +459,22 @@ function ProductBody({ listing }: ProductBodyProps) {
               onBuyNow={onBuyNow}
             />
 
+            {/*
+              Add-to-cart had NO error surface at all: signed out, the button was
+              enabled, the request 401'd and the page said nothing (#104). The
+              button now works for a guest too, so the remaining failures are real
+              ones — out of stock, offline, guest carts switched off — and each of
+              them has to reach the buyer rather than vanish.
+            */}
+            {addToCart.isError ? (
+              <Text
+                accessibilityRole="alert"
+                className="mt-space-8 text-sm font-medium text-destructive"
+              >
+                {addToCart.error.message}
+              </Text>
+            ) : null}
+
             {/* Save + Share. */}
             <View className="flex-row gap-space-8">
               <Pressable

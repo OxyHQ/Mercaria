@@ -51,6 +51,7 @@ import canonicalProductsRouter from './routes/canonical-products.js';
 import productFamiliesRouter from './routes/product-families.js';
 import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
+import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
 import guestSessionRouter from './routes/guest-session.js';
 import { config } from './config/index.js';
 import { makeRateLimiter } from './lib/rate-limit.js';
@@ -226,6 +227,13 @@ export function createApp(): express.Express {
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/canonical-catalog', internalCanonicalCatalogRouter);
   }
+  // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
+  // reason the two above have theirs: reading who merged which cart is a third
+  // power, and one list for all three would grant whichever an operator was not
+  // vetted for. Empty = not mounted, 404 — see middleware/guest-operator-authz.ts.
+  if (config.guest.operatorSurfaceEnabled) {
+    app.use('/internal/guest-commerce', internalGuestCommerceRouter);
+  }
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -263,8 +271,9 @@ export function createApp(): express.Express {
         '/product-families',
         '/merchant-claims',
         '/guest/session',
-        // `/internal/payments`, `/internal/commerce-graph` and
-        // `/internal/canonical-catalog` are deliberately ABSENT, and this is not an
+        // `/internal/payments`, `/internal/commerce-graph`,
+        // `/internal/canonical-catalog` and `/internal/guest-commerce` are
+        // deliberately ABSENT, and this is not an
         // oversight to correct: this list is public and unauthenticated, and the
         // operator surface answers 404 on a deployment with no operators
         // precisely so its existence is not discoverable. Advertising it here

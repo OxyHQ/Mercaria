@@ -370,6 +370,24 @@ function resolveCatalogOperatorIds(): readonly string[] {
 }
 
 /**
+ * `GUEST_OPERATOR_OXY_USER_IDS` → the guest-commerce diagnostic allow-list
+ * (#104 idempotency requirement 8).
+ *
+ * A THIRD list, for the third reason the two above are separate from each
+ * other: reading who merged which cart is a different power from repairing
+ * payments and from rewiring the catalogue, and one list for all three would
+ * grant whichever an operator was not vetted for. Empty means the
+ * `/internal/guest-commerce` surface is not mounted at all — 404, never a 401
+ * that would advertise it.
+ */
+function resolveGuestOperatorIds(): readonly string[] {
+  return strEnv('GUEST_OPERATOR_OXY_USER_IDS', '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id !== '');
+}
+
+/**
  * The currency the platform account settles in — ADR 0001 D8, `EUR`.
  *
  * Falls back to `EUR` when the configured value is not a currency Mercaria
@@ -669,6 +687,34 @@ export interface GuestConfig {
    * stop a farmer. Flipping `enabled` off is a decommission, not a lever.
    */
   readonly issuanceEnabled: boolean;
+  /**
+   * Whether a guest session may OWN a cart — `GUEST_CART_ENABLED`, default
+   * true, meaningful only while `enabled` is on (#104 acceptance 10).
+   *
+   * The third lever, independent of the two above because it answers a
+   * different question. `enabled` is "does this deployment have guest commerce
+   * at all"; `issuanceEnabled` is "may new credentials be minted right now";
+   * this is "may a credential own commerce state". Guest CHECKOUT (#105–#107)
+   * gets a fourth for the same reason, which is what "feature flags support
+   * guest cart independently from guest checkout" asks for.
+   *
+   * With this OFF, guest cart reads answer empty and guest cart writes are
+   * refused — but the MERGE stays available, because gating it would strand
+   * every cart created while it was on. Gate the loop, never the durable
+   * record.
+   */
+  readonly cartEnabled: boolean;
+  /**
+   * `GUEST_OPERATOR_OXY_USER_IDS` — who may read the guest-commerce
+   * diagnostic. See `resolveGuestOperatorIds`.
+   */
+  readonly operatorOxyUserIds: readonly string[];
+  /**
+   * Whether `/internal/guest-commerce` exists on this deployment. DERIVED from
+   * the allow-list for the reason `payments.operatorSurfaceEnabled` is: a
+   * separate flag could only ever disagree with the list.
+   */
+  readonly operatorSurfaceEnabled: boolean;
   /**
    * `GUEST_PII_ENCRYPTION_KEY` — AES-256-GCM key for the guest checkout
    * contact snapshot (D12). Required for `enabled`; CONSUMED by #105–#107,
@@ -1072,6 +1118,9 @@ export const config: AppConfig = Object.freeze({
   guest: Object.freeze({
     enabled: resolveGuestCommerceEnabled(),
     issuanceEnabled: boolEnv('GUEST_SESSION_ISSUANCE_ENABLED', true),
+    cartEnabled: boolEnv('GUEST_CART_ENABLED', true),
+    operatorOxyUserIds: Object.freeze(resolveGuestOperatorIds()),
+    operatorSurfaceEnabled: resolveGuestOperatorIds().length > 0,
     piiEncryptionKey: strEnv('GUEST_PII_ENCRYPTION_KEY', ''),
     emailHashKey: strEnv('GUEST_EMAIL_HASH_KEY', ''),
     sessionIdleDays: intEnv('GUEST_SESSION_IDLE_DAYS', 30),

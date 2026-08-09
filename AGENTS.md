@@ -782,6 +782,82 @@ load-bearing:
   verification (#55); the dashboard/storefront UI (#84/#85). `role_email`
   delivery, per the transport rule above.
 
+## Guest cart ownership and the merge (#104, ADR 0003 D8)
+
+The cart is owned by a `CartOwner` — `{kind:'oxy_user'} | {kind:'guest_session'}`
+— and `/cart` runs on `resolveCommerceActor` instead of `authenticateToken`.
+ONE cart service, one hydration path, one grouping path for both kinds (I9):
+there is nothing guest-shaped to fork, and no `GuestCart` model.
+
+- **Two owner columns plus a CHECK, never a polymorphic pair.** An Oxy id must
+  not carry an FK (Oxy owns identity) while `carts.guest_session_id` MUST —
+  `ON DELETE CASCADE` is what makes retention correct by construction. Both
+  uniques are PARTIAL, so every `ON CONFLICT` on them must repeat the
+  predicate or Postgres refuses to infer the arbiter and `ensureCart` 500s.
+- **`cartOwnerForActor` is the ONE actor→owner translation.** Neither union has
+  a common `id` field, so the compiler forces a `switch` and a guest id can
+  never reach `oxy_user_id` (I1).
+- **Issuance is lazy and only on a write that CREATES state** — `POST /cart/items`
+  and `PATCH /cart/items/:variantId`. A GET never mints (T10), and neither does
+  a DELETE: removing a line from a cart that does not exist creates nothing.
+- **Idempotency is explicit.** POST increments and is the one non-idempotent
+  mutation; PATCH sets an ABSOLUTE quantity and CREATES the line, so it is what
+  a retrying native client uses; DELETE converges on an empty cart rather than
+  404ing the second time.
+- **`makeActorRateLimiter`** keys on `actorRateKey` (`rl:cart:`, `rl:cart-merge:`),
+  so guests are bucketed per SESSION — a per-IP bucket would make one NAT one
+  guest. Its anonymous branch runs the address through `ipKeyGenerator` (a v6
+  client otherwise walks its own /64 around the limit).
+- **A guest's presentment currency rides the request** (`?currency=`, validated
+  against `ALL_CURRENCY_CODES`) because they have no preferences row; an Oxy
+  buyer's STORED preference stays authoritative and the parameter is ignored for
+  them. Display only either way.
+- **The merge is ONE transaction**, entered only from `POST /cart/merge`, which
+  is the only consumer of `presentedGuestSessionId` besides #109. Nothing merges
+  implicitly. Exactly-once rests on three mechanisms — `FOR UPDATE` on the
+  session row, `FOR UPDATE` on the guest cart, and
+  `UNIQUE(cart_merges.guest_session_id)`. Mutation-tested: the two locks are
+  INDEPENDENTLY sufficient (removing either alone leaves the suite green);
+  removing both doubles a quantity and fails the race test.
+- **Quantities are summed and clamped IN SQL** (`LEAST(existing + incoming,
+  ceiling)`), so a concurrent add from another authenticated device is summed
+  with rather than overwritten, and the review flag is written by the SAME
+  expression that applies the clamp — the caller counts clamps off the returned
+  flag rather than re-deriving them.
+- **No item disappears.** An out-of-stock line survives as ONE unit flagged
+  `listing_unavailable` (a zero quantity is unrepresentable), which hydration
+  marks `stale` and checkout refuses — so keeping it oversells nothing.
+  `cart_items.merge_review_reason` is a STORED fact, unlike `stale`, which is
+  re-derived live; the buyer clears it by setting that line's quantity.
+- **Conversion is stamped LAST** and rolls back with everything else, which is
+  how "converted only after the merge commits" and "a failed merge leaves both
+  carts recoverable and the session active" are the same property.
+- **What the merge cannot reach** is a test, not a promise —
+  `services/__tests__/cart-merge-isolation.test.ts` scans the whole cart path
+  for the payment domain, the referral domain, inventory writers, discount
+  redemption and any OxyPay/FairCoin reference. Guest CHECKOUT (#105–#107),
+  referral attribution (#141/#143) and a "discard instead of merge" mode (which
+  ADR 0003 does not grant — not calling the endpoint IS the choice) are all
+  deliberately absent.
+- **Flags are three independent levers**, and #105–#107 adds a fourth:
+  `GUEST_COMMERCE_ENABLED` (the domain), `GUEST_SESSION_ISSUANCE_ENABLED` (the
+  incident kill switch for NEW credentials), `GUEST_CART_ENABLED` (may a
+  credential own commerce state). With the cart lever off, reads answer empty
+  and writes get `GUEST_CART_DISABLED` (403) — but the MERGE stays available,
+  because gating it would strand every cart created while it was on.
+- **`GUEST_OPERATOR_OXY_USER_IDS`** gates `/internal/guest-commerce/*`
+  (cart-merge trace by correlation id + a consistency check), a THIRD
+  allow-list beside payments and catalog for the reason those two are separate.
+  Empty = not mounted (404). Read-only: every repair is already an idempotent
+  path a buyer drives.
+- **Frontend:** `lib/stores/guest-credential-store.ts` holds the NATIVE token
+  (`expo-secure-store`, hydrated at module import so it is on the first
+  request); web holds nothing because the credential is an `HttpOnly` cookie
+  and `apiClient` sets `withCredentials`. `useGuestCartMerge` is a React Query
+  QUERY, not an effect — `enabled` flipping true is the once-per-sign-in
+  trigger. There is no analytics module in this app and #104 adds none;
+  ADR 0003 I12's dimensions belong to #111's rollout work.
+
 ## CrowdSource moderation: reports, cases, decisions, enforcement
 
 Abuse reports leave Mercaria durably, CrowdSource decides them with a randomly

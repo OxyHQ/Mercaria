@@ -1,7 +1,7 @@
 {
   "name": "@mercaria/backend",
   "version": "1.0.0",
-  "description": "Mercaria API — buy/sell marketplace backend by Oxy",
+  "description": "Mercaria API \u2014 buy/sell marketplace backend by Oxy",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -32,6 +32,7 @@
     "esbuild": "^0.27.7",
     "expo-server-sdk": "^6.1.0",
     "express": "^4.22.2",
+    "express-rate-limit": "^8.3.1",
     "helmet": "^8.3.0",
     "ioredis": "^5.11.1",
     "pino": "^10.3.1",
