@@ -900,8 +900,8 @@ registry, not two.
   validate/evaluate, selected values). Operator surface
   `/internal/catalog-attributes/*` behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
   allow-list #54/#55/#56/#83 use. Provenance never reaches a public DTO.
-- **Two migrations, and the split is the deploy-phase rule working**: `0022`
-  (`pre`, additive plus widenings) and `0023` (`post`, the value-type clean cut
+- **Two migrations, and the split is the deploy-phase rule working**: `0024`
+  (`pre`, additive plus widenings) and `0025` (`post`, the value-type clean cut
   `quantity`→`measurement` / `number`→`integer`|`decimal` / `text`→`string`, and
   three column drops). Each `post` statement breaks a write the previous image
   performs.

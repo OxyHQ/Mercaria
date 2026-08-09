@@ -1021,7 +1021,7 @@ shape looks arbitrary answerable:
   `(key, version)` is the identity; a partial unique
   (`attribute_definitions_one_active_per_key`) keeps exactly ONE version
   `active`; and `attribute_definitions_immutable_once_published` (migration
-  `0022`, the `fee_schedules_immutable_once_active` mechanism) refuses every
+  `0024`, the `fee_schedules_immutable_once_active` mechanism) refuses every
   semantic edit and every DELETE from the moment a version leaves `draft`. A
   stored value cites the version it was normalized under, so changing what an
   attribute means can never silently reinterpret facts recorded under the old
@@ -1120,12 +1120,12 @@ shape looks arbitrary answerable:
   and validation rules are all real columns or child tables, so this layer adds
   no row to the register below.
 - **The migration is a PAIR, and the split is the deploy-phase rule working.**
-  `0022` (`pre`) is additive plus two CHECK WIDENINGS and three index
+  `0024` (`pre`) is additive plus two CHECK WIDENINGS and three index
   replacements, all correct against the image still serving and the one
-  arriving; `0023` (`post`) carries the value-type clean cut
+  arriving; `0025` (`post`) carries the value-type clean cut
   (`quantity`→`measurement`, `number`→`integer`/`decimal`, `text`→`string`), the
   `conflicting`→refusal-state change, and the three column drops. Each statement
-  in `0023` breaks a write the previous image performs, which is exactly what
+  in `0025` breaks a write the previous image performs, which is exactly what
   `post` means. Both files state their own reasoning at the top.
 
 ### Merchant claiming (#83) has no source model either
