@@ -169,6 +169,20 @@
       "when": 1786255905626,
       "tag": "0023_ambitious_proemial_gods",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786256519922,
+      "tag": "0024_greedy_wendigo",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1786256572399,
+      "tag": "0025_complex_tattoo",
+      "breakpoints": true
     }
   ]
 }

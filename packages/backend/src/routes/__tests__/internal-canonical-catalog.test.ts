@@ -153,11 +153,10 @@ afterAll(async () => {
 
 /** Every path the surface exposes, with a method and a minimal valid body. */
 const PATHS: readonly { method: 'POST'; path: string; body: unknown }[] = [
-  {
-    method: 'POST',
-    path: '/internal/canonical-catalog/attribute-definitions',
-    body: { key: 'storage', label: 'Storage', valueType: 'text' },
-  },
+  // `/attribute-definitions` was HERE until #94, which made a definition a
+  // versioned record with a lifecycle and moved the whole registry to
+  // `/internal/catalog-attributes/definitions` — its own router on the SAME
+  // operator allow-list, gated by `internal-catalog-attributes.test.ts`.
   {
     method: 'POST',
     path: '/internal/canonical-catalog/product-families',

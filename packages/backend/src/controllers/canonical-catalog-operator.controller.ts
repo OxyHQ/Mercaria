@@ -17,11 +17,9 @@
 
 import type { Request, Response } from 'express';
 import type {
-  AttributeValueType,
   CanonicalAliasKind,
   IdentifierScheme,
   SourceLinkMethod,
-  UnitFamily,
 } from '@mercaria/shared-types';
 import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
 import {
@@ -38,7 +36,6 @@ import {
   assignIdentifier,
   correctIdentifier,
 } from '../services/canonical/product-identifier.service.js';
-import { defineAttribute } from '../services/canonical/attribute.service.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
@@ -273,34 +270,6 @@ export async function correctIdentifierHandler(req: Request, res: Response): Pro
   }
 }
 
-/** POST /internal/canonical-catalog/attribute-definitions */
-export async function defineAttributeHandler(req: Request, res: Response): Promise<void> {
-  try {
-    const body = req.body as {
-      key: string;
-      label: string;
-      valueType: AttributeValueType;
-      unitFamily?: UnitFamily;
-      allowedValues?: string[];
-      description?: string;
-      categoryIds?: string[];
-    };
-    const definition = await defineAttribute(body);
-    sendSuccess(
-      res,
-      {
-        id: definition.id,
-        key: definition.key,
-        valueType: definition.valueType,
-        unitFamily: definition.unitFamily,
-        baseUnit: definition.baseUnit,
-      },
-      201,
-    );
-  } catch (error) {
-    respondWithError(res, error, 'Defining the attribute failed');
-  }
-}
 
 /** POST /internal/canonical-catalog/product-families/:winnerId/merge */
 export async function mergeProductFamiliesHandler(req: Request, res: Response): Promise<void> {

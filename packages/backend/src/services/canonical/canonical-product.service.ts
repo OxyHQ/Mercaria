@@ -1039,17 +1039,26 @@ async function toPublicCanonicalProduct(
 
   const attributes: CanonicalAttributeAssignment[] = attributeRows.map((attribute) => ({
     key: attribute.attributeKey,
+    definitionVersion: attribute.definitionVersion ?? 0,
     displayValue: attribute.sourceDisplayValue,
     ...(attribute.normalizedText === null ? {} : { normalizedText: attribute.normalizedText }),
     ...(attribute.normalizedNumber === null
       ? {}
       : { normalizedNumber: attribute.normalizedNumber }),
+    ...(attribute.normalizedNumberMax === null
+      ? {}
+      : { normalizedNumberMax: attribute.normalizedNumberMax }),
     ...(attribute.normalizedUnit === null ? {} : { normalizedUnit: attribute.normalizedUnit }),
     ...(attribute.normalizedBoolean === null
       ? {}
       : { normalizedBoolean: attribute.normalizedBoolean }),
+    ...(attribute.normalizedDate === null
+      ? {}
+      : { normalizedDate: attribute.normalizedDate.toISOString() }),
+    ...(attribute.componentAxis === null ? {} : { componentAxis: attribute.componentAxis }),
+    position: attribute.position,
     normalizationState: attribute.normalizationState,
-    selected: attribute.selected,
+    selectionState: attribute.selectionState,
   }));
 
   const fieldProvenance: FieldProvenance[] = [];

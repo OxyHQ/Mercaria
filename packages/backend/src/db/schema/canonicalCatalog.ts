@@ -3,8 +3,13 @@
  * ADR 0002 D13–D16: `canonical_product_families`, `canonical_products`,
  * `canonical_variants`, their alias / source-link / redirect children,
  * `canonical_variant_attributes`, `bundle_components`, `product_identifiers`,
- * `attribute_definitions` (+ its category scope), `canonical_attribute_values`,
- * `canonical_images` and `canonical_field_provenance`.
+ * `canonical_attribute_values`, `canonical_images` and
+ * `canonical_field_provenance`.
+ *
+ * The attribute REGISTRY (`attribute_definitions` and its satellites) lived here
+ * until #94 made it versioned and moved it to `attributeRegistry.ts`. This file
+ * cites those definitions through a real foreign key and declares none of its
+ * own — one registry, not two.
  *
  * A FAMILY groups comparable products under a brand (iPhone). A PRODUCT is one
  * model as marketed and compared (iPhone 16 Pro). A VARIANT is one exact
@@ -51,6 +56,7 @@
 
 import { sql, type SQL } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   check,
   doublePrecision,
@@ -63,8 +69,10 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, tsvector, updatedAt } from '@oxyhq/db';
 import {
+  ATTRIBUTE_COMPONENT_AXES,
   ATTRIBUTE_NORMALIZATION_STATES,
-  ATTRIBUTE_VALUE_TYPES,
+  ATTRIBUTE_SELECTION_STATES,
+  ATTRIBUTE_VERIFICATION_STATES,
   CANONICAL_ALIAS_KINDS,
   CANONICAL_CATALOG_STATUSES,
   CANONICAL_IDENTIFIER_SCHEMES,
@@ -74,13 +82,16 @@ import {
   IDENTIFIER_STATUSES,
   SOURCE_LINK_METHODS,
   SOURCE_LINK_STATUSES,
-  UNIT_FAMILIES,
 } from '@mercaria/shared-types';
-import { asEnumValues, checkOneOf } from './columns';
+import { asEnumValues, checkOneOf, currencyChecks, CURRENCY_CODE_VALUES } from './columns';
 import { aliasColumns, canonicalLifecycleColumns, sourceLinkColumns } from './canonicalSupport';
 import { sourceRecords } from './provenance';
 import { brands } from './organizations';
 import { categories } from './catalog';
+// The attribute REGISTRY moved to `attributeRegistry.ts` with #94, which owns
+// it; this layer cites definitions rather than declaring them. Importing the
+// table (instead of re-declaring one) is what keeps there being exactly one.
+import { attributeDefinitions } from './attributeRegistry';
 
 /**
  * #53's lifecycle shape with the catalogue's own `status` value set.
@@ -99,91 +110,6 @@ function catalogLifecycleColumns() {
       .default('active'),
   };
 }
-
-/**
- * `attribute_definitions` — the typed attribute registry (#56 attribute rule 1).
- *
- * `key` is the stable machine name every assignment cites and is UNIQUE
- * forever: renaming a key would silently re-point every stored value, so a
- * rename is a NEW definition and a migration of the values that use it.
- *
- * The value-type/unit CHECK pair is the load-bearing part. A `quantity`
- * attribute without a unit family cannot be normalized at all — its magnitudes
- * would be bare numbers whose meaning depends on whatever unit each source
- * happened to use — and a unit family without a base unit gives normalization
- * nowhere to store the result. Both directions are refused, so a half-declared
- * quantity attribute is unrepresentable rather than merely discouraged.
- *
- * #94 owns the full attribute/unit TAXONOMY (ADR 0002 D15). What lands here is
- * the mechanism: this registry, `canonical_attribute_values`' normalized columns
- * and the deterministic conversion table in `services/canonical/units.ts`.
- */
-export const attributeDefinitions = pgTable(
-  'attribute_definitions',
-  {
-    id: generatedId(),
-    /** Stable machine key — lowercase, snake_case, never renamed. */
-    key: text().notNull(),
-    label: text().notNull(),
-    valueType: text({ enum: asEnumValues(ATTRIBUTE_VALUE_TYPES) }).notNull(),
-    /** Set exactly when `valueType` is `quantity`. */
-    unitFamily: text({ enum: asEnumValues(UNIT_FAMILIES) }),
-    /** The unit normalized magnitudes are stored in. Travels with `unitFamily`. */
-    baseUnit: text(),
-    /** The permitted values of an `enum` attribute; empty for every other type. */
-    allowedValues: text().array().notNull().default(sql`'{}'::text[]`),
-    description: text(),
-    isActive: boolean().notNull().default(true),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [
-    checkOneOf('attribute_definitions_value_type_check', t.valueType, ATTRIBUTE_VALUE_TYPES),
-    checkOneOf('attribute_definitions_unit_family_check', t.unitFamily, UNIT_FAMILIES),
-    check('attribute_definitions_key_shape_check', sql`${t.key} ~ '^[a-z][a-z0-9_]*$'`),
-    // A quantity needs a unit family, and nothing else may carry one: a "text"
-    // attribute with a unit family would claim a normalization it cannot have.
-    check(
-      'attribute_definitions_quantity_unit_check',
-      sql`(${t.valueType} = 'quantity') = (${t.unitFamily} is not null)`,
-    ),
-    check(
-      'attribute_definitions_base_unit_check',
-      sql`(${t.unitFamily} is null) = (${t.baseUnit} is null)`,
-    ),
-    uniqueIndex('attribute_definitions_key_key').on(t.key),
-  ],
-);
-
-/**
- * `attribute_definition_categories` — the category SCOPE of a definition.
- *
- * A junction table rather than a `category_id[]` column, per CONVENTIONS: an
- * array of ids cannot be joined or constrained, and this one is read both ways
- * (which attributes apply to this category; which categories does this
- * attribute cover). NO rows means the definition is UNSCOPED and applies
- * anywhere — the opposite reading from a procurement agreement's empty scope,
- * because a scope NARROWS something otherwise general while a grant that names
- * no destination grants none.
- */
-export const attributeDefinitionCategories = pgTable(
-  'attribute_definition_categories',
-  {
-    id: generatedId(),
-    attributeDefinitionId: text()
-      .notNull()
-      .references(() => attributeDefinitions.id, { onDelete: 'cascade' }),
-    /** `restrict`: nothing deletes a category today, and a scope may not be orphaned. */
-    categoryId: text()
-      .notNull()
-      .references(() => categories.id, { onDelete: 'restrict' }),
-    createdAt: createdAt(),
-  },
-  (t) => [
-    uniqueIndex('attribute_definition_categories_key').on(t.attributeDefinitionId, t.categoryId),
-    index('attribute_definition_categories_category_idx').on(t.categoryId),
-  ],
-);
 
 /**
  * `canonical_product_families` — a brand's product LINE (ADR 0002 D2/D13).
@@ -642,10 +568,16 @@ export const canonicalVariantAttributes = pgTable(
     variantId: text()
       .notNull()
       .references(() => canonicalVariants.id, { onDelete: 'cascade' }),
-    /** The registry entry, when the key is a defined attribute (free text until #94). */
+    /** The registry entry, when the key is a defined attribute. */
     attributeDefinitionId: text().references(() => attributeDefinitions.id, {
       onDelete: 'restrict',
     }),
+    /**
+     * The registry version this axis was normalized under (#94). NULL when the
+     * key is not in the registry at all, which stays legal: a source may name an
+     * axis nobody has defined yet, and refusing it would lose the variant.
+     */
+    definitionVersion: integer(),
     /** The normalized dimension key — `storage`, `color`, `pack_count`, `region`. */
     attributeKey: text().notNull(),
     /** The source's own words. */
@@ -681,6 +613,12 @@ export const canonicalVariantAttributes = pgTable(
     check(
       'canonical_variant_attrs_unit_check',
       sql`${t.normalizedUnit} is null or ${t.normalizedNumber} is not null`,
+    ),
+    // A version without a definition names nothing; a definition without a
+    // version cannot be reproduced. They travel together (#94 value rule 2).
+    check(
+      'canonical_variant_attrs_definition_version_check',
+      sql`(${t.attributeDefinitionId} is null) = (${t.definitionVersion} is null)`,
     ),
     // One value per axis per variant: a variant with two storages is not a
     // variant, and the signature would depend on which row won.
@@ -772,12 +710,33 @@ export const canonicalImages = pgTable(
  * thing — screen size, weight, material — and it holds it as a SOURCE FACT, one
  * row per (entity, key, observation).
  *
- * That is why there is a `selected` flag rather than one row per key: when two
+ * That is why there is a `selection_state` rather than one row per key: when two
  * sources disagree, BOTH rows survive, neither is selected, and both are marked
- * `conflicting`. The partial uniques hold at most one SELECTED value per key,
- * so a read surface has exactly one answer while the disagreement stays visible
- * for review. Guessing a winner is not available — there is no code path that
- * writes a value no source asserted.
+ * `conflicting`. The partial uniques hold at most one SELECTED value per
+ * attribute SLOT, so a read surface has exactly one answer per slot while the
+ * disagreement stays visible for review. Guessing a winner is not available —
+ * there is no code path that writes a value no source asserted.
+ *
+ * ## What #94 added, and why each column is not derivable
+ *
+ * - `definition_version` + `normalization_rule_version` — an evaluation must be
+ *   able to say which rules produced a number. Without them, changing what an
+ *   attribute means silently reinterprets every value recorded under the old
+ *   meaning instead of scheduling a re-normalization.
+ * - `source_unit` — the unit the source WROTE, kept beside the converted one, so
+ *   "6.1 in" is still recoverable from a row storing 154.94 mm. Reversibility
+ *   for display is a requirement, and a conversion that discards its input is
+ *   not reversible.
+ * - `normalized_number_max` + the two inclusivity flags — a range is one value,
+ *   and its strictness is part of it (#94 normalization rule 6).
+ * - `component_axis` + `position` (through the generated `value_slot`) — a
+ *   dimensions observation is three facts with named axes, not one string whose
+ *   axis order a reader guesses (rule 7).
+ * - `normalized_amount_minor` + `normalized_currency` — currency stays in the
+ *   `Money` domain rather than becoming a generic decimal (rule 9).
+ * - `verification_state` — corroboration by a second independent source is a
+ *   fact about the WORLD; `confidence` is one source's estimate of itself. A
+ *   number cannot stand in for the other.
  */
 export const canonicalAttributeValues = pgTable(
   'canonical_attribute_values',
@@ -788,20 +747,71 @@ export const canonicalAttributeValues = pgTable(
     attributeDefinitionId: text().references(() => attributeDefinitions.id, {
       onDelete: 'restrict',
     }),
+    /** The registry version this value was normalized under (#94 value rule 2). */
+    definitionVersion: integer(),
     attributeKey: text().notNull(),
     /** The source's own words, verbatim — never normalized away. */
     sourceDisplayValue: text().notNull(),
+    /** The unit the source wrote, before conversion (#94 value rule 5). */
+    sourceUnit: text(),
     normalizedText: text(),
     normalizedNumber: doublePrecision(),
+    /** The UPPER bound of a `range` value; `normalized_number` is the lower one. */
+    normalizedNumberMax: doublePrecision(),
+    /** Range strictness, per end (#94 normalization rule 6). Both travel with the max. */
+    rangeLowerInclusive: boolean(),
+    rangeUpperInclusive: boolean(),
     normalizedUnit: text(),
     normalizedBoolean: boolean(),
+    normalizedDate: timestamptz(),
+    /**
+     * A `money`-typed value, in minor units. A bare `bigint` rather than a
+     * `money()` pair, the `fee_schedules` min/max rule: the currency is the
+     * DEFINITION's one pinned currency, so a second currency column here would
+     * be a second representation of it — and the two could disagree. The
+     * `normalized_currency` column beside it exists ONLY to keep the row
+     * self-describing for a value whose definition has since been superseded.
+     */
+    normalizedAmountMinor: bigint({ mode: 'number' }),
+    normalizedCurrency: text({ enum: CURRENCY_CODE_VALUES }),
+    /** The named component of a `structured` value — an explicit axis, never a guess. */
+    componentAxis: text({ enum: asEnumValues(ATTRIBUTE_COMPONENT_AXES) }),
+    /** Position within a `set` or `ordered_list`; 0 for a single value. */
+    position: integer().notNull().default(0),
+    /**
+     * The convergence and selection SLOT.
+     *
+     * GENERATED because a plain multi-column unique over a nullable
+     * `component_axis` would NOT work: Postgres treats NULLs as distinct, so two
+     * axis-less rows for one key and one source record would both be admitted —
+     * exactly the duplicate the unique exists to refuse. Collapsing the pair into
+     * one text value is the `commerce_relationships.endpoint_key` device, and
+     * both functions in it are IMMUTABLE.
+     */
+    valueSlot: text()
+      .notNull()
+      .generatedAlwaysAs(sql`coalesce("component_axis", '') || '#' || "position"::text`),
     normalizationState: text({ enum: asEnumValues(ATTRIBUTE_NORMALIZATION_STATES) }).notNull(),
-    /** Whether this is the value Mercaria shows. At most one per (entity, key). */
-    selected: boolean().notNull().default(false),
+    /** Whether this is the value Mercaria shows, and if not, why not. */
+    selectionState: text({ enum: asEnumValues(ATTRIBUTE_SELECTION_STATES) })
+      .notNull()
+      .default('candidate'),
+    /** How much INDEPENDENT backing this fact has — not the same as `confidence`. */
+    verificationState: text({ enum: asEnumValues(ATTRIBUTE_VERIFICATION_STATES) })
+      .notNull()
+      .default('unverified'),
+    /** BCP-47 tag when the value is locale-specific (a localized colour name). */
+    locale: text(),
     /** The observation this fact came from. NOT NULL — same rule as images. */
     sourceRecordId: text()
       .notNull()
       .references(() => sourceRecords.id, { onDelete: 'restrict' }),
+    /** When the source observed it. Distinct from when Mercaria wrote the row. */
+    observedAt: timestamptz(),
+    /** How the value was attached — the `SOURCE_LINK_METHODS` vocabulary, reused. */
+    method: text({ enum: asEnumValues(SOURCE_LINK_METHODS) }).notNull().default('connector_declared'),
+    /** The normalization ruleset that produced the columns above (#94 value rule 10). */
+    normalizationRuleVersion: text().notNull().default('nr-1'),
     /** 0–1; NULL for a deterministic or human assertion, which outranks numbers. */
     confidence: doublePrecision(),
     createdAt: createdAt(),
@@ -813,6 +823,19 @@ export const canonicalAttributeValues = pgTable(
       t.normalizationState,
       ATTRIBUTE_NORMALIZATION_STATES,
     ),
+    checkOneOf(
+      'canonical_attribute_values_selection_check',
+      t.selectionState,
+      ATTRIBUTE_SELECTION_STATES,
+    ),
+    checkOneOf(
+      'canonical_attribute_values_verification_check',
+      t.verificationState,
+      ATTRIBUTE_VERIFICATION_STATES,
+    ),
+    checkOneOf('canonical_attribute_values_axis_check', t.componentAxis, ATTRIBUTE_COMPONENT_AXES),
+    checkOneOf('canonical_attribute_values_method_check', t.method, SOURCE_LINK_METHODS),
+    ...currencyChecks('canonical_attribute_values', [t.normalizedCurrency]),
     check(
       'canonical_attribute_values_grain_check',
       sql`(${t.productId} is not null)::int + (${t.variantId} is not null)::int = 1`,
@@ -821,36 +844,78 @@ export const canonicalAttributeValues = pgTable(
       'canonical_attribute_values_key_shape_check',
       sql`${t.attributeKey} = lower(btrim(${t.attributeKey})) and ${t.attributeKey} <> ''`,
     ),
+    check(
+      'canonical_attribute_values_definition_version_check',
+      sql`(${t.attributeDefinitionId} is null) = (${t.definitionVersion} is null)`,
+    ),
     // "Never guessed", structurally: only a normalized row carries a normalized
-    // value of any kind.
+    // value of any kind. Every typed column is inside the same refusal, so
+    // widening the value types cannot leave one of them outside it.
     check(
       'canonical_attribute_values_parsed_check',
-      sql`${t.normalizationState} = 'normalized' or (${t.normalizedText} is null and ${t.normalizedNumber} is null and ${t.normalizedUnit} is null and ${t.normalizedBoolean} is null)`,
+      sql`${t.normalizationState} = 'normalized' or (
+        ${t.normalizedText} is null and ${t.normalizedNumber} is null
+        and ${t.normalizedNumberMax} is null and ${t.normalizedUnit} is null
+        and ${t.normalizedBoolean} is null and ${t.normalizedDate} is null
+        and ${t.normalizedAmountMinor} is null and ${t.normalizedCurrency} is null
+      )`,
     ),
     check(
       'canonical_attribute_values_unit_check',
       sql`${t.normalizedUnit} is null or ${t.normalizedNumber} is not null`,
     ),
+    // A range is a lower bound, an upper bound and two strictnesses, or it is
+    // not a range. A half-filled interval compares wrongly rather than failing.
+    check(
+      'canonical_attribute_values_range_check',
+      sql`num_nonnulls(${t.normalizedNumberMax}, ${t.rangeLowerInclusive}, ${t.rangeUpperInclusive}) in (0, 3)`,
+    ),
+    check(
+      'canonical_attribute_values_range_lower_check',
+      sql`${t.normalizedNumberMax} is null or (${t.normalizedNumber} is not null and ${t.normalizedNumber} <= ${t.normalizedNumberMax})`,
+    ),
+    // A `Money` is present in both columns or in neither (`fee_schedules`).
+    check(
+      'canonical_attribute_values_money_check',
+      sql`num_nonnulls(${t.normalizedAmountMinor}, ${t.normalizedCurrency}) in (0, 2)`,
+    ),
+    check('canonical_attribute_values_position_check', sql`${t.position} >= 0`),
+    // Only a NORMALIZED value may be the one shown. A row that could not be read
+    // is unshowable by construction, not by a filter somebody remembered.
+    check(
+      'canonical_attribute_values_selected_state_check',
+      sql`${t.selectionState} <> 'selected' or ${t.normalizationState} = 'normalized'`,
+    ),
     check(
       'canonical_attribute_values_confidence_check',
       sql`${t.confidence} is null or (${t.confidence} >= 0 and ${t.confidence} <= 1)`,
     ),
-    // Convergence: re-applying one observation is a no-op, per grain.
+    // Convergence: re-applying one observation is a no-op, per grain and per
+    // slot — a dimensions observation legitimately writes three rows.
     uniqueIndex('canonical_attribute_values_product_key')
-      .on(t.productId, t.attributeKey, t.sourceRecordId)
+      .on(t.productId, t.attributeKey, t.sourceRecordId, t.valueSlot)
       .where(sql`${t.productId} is not null`),
     uniqueIndex('canonical_attribute_values_variant_key')
-      .on(t.variantId, t.attributeKey, t.sourceRecordId)
+      .on(t.variantId, t.attributeKey, t.sourceRecordId, t.valueSlot)
       .where(sql`${t.variantId} is not null`),
-    // One SELECTED value per attribute per entity — the read surface's answer.
+    // One SELECTED value per attribute SLOT per entity — the read surface's
+    // answer. Slot-scoped rather than key-scoped so a `set` attribute can show
+    // three ports while a `single` one still shows exactly one value.
     uniqueIndex('canonical_attribute_values_product_selected_key')
-      .on(t.productId, t.attributeKey)
-      .where(sql`${t.selected} and ${t.productId} is not null`),
+      .on(t.productId, t.attributeKey, t.valueSlot)
+      .where(sql`${t.selectionState} = 'selected' and ${t.productId} is not null`),
     uniqueIndex('canonical_attribute_values_variant_selected_key')
-      .on(t.variantId, t.attributeKey)
-      .where(sql`${t.selected} and ${t.variantId} is not null`),
+      .on(t.variantId, t.attributeKey, t.valueSlot)
+      .where(sql`${t.selectionState} = 'selected' and ${t.variantId} is not null`),
     index('canonical_attribute_values_key_idx').on(t.attributeKey, t.normalizedText),
+    // The range scan every numeric filter and facet runs.
+    index('canonical_attribute_values_numeric_idx')
+      .on(t.attributeKey, t.normalizedNumber)
+      .where(sql`${t.selectionState} = 'selected'`),
     index('canonical_attribute_values_record_idx').on(t.sourceRecordId),
+    index('canonical_attribute_values_review_idx')
+      .on(t.attributeKey, t.selectionState)
+      .where(sql`${t.selectionState} = 'conflicting'`),
   ],
 );
 

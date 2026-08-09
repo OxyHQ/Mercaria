@@ -30,6 +30,8 @@ import { catalogSources, sourceRecords } from '../schema/provenance.js';
 import {
   attributeDefinitionCategories,
   attributeDefinitions,
+} from '../schema/attributeRegistry.js';
+import {
   bundleComponents,
   canonicalAttributeValues,
   canonicalFieldProvenance,
@@ -83,10 +85,11 @@ import {
   correctIdentifier,
   resolveIdentifier,
 } from '../../services/canonical/product-identifier.service.js';
+import { applyAttributeObservation } from '../../services/attributes/attribute-observation.service.js';
 import {
-  applyAttributeObservation,
-  defineAttribute,
-} from '../../services/canonical/attribute.service.js';
+  draftAttributeDefinition,
+  publishAttributeDefinition,
+} from '../../services/attributes/definition-registry.service.js';
 import { createSupplier } from '../procurement/supplierRepository.js';
 import { createSupplierAccount } from '../procurement/supplierAccountRepository.js';
 
@@ -102,6 +105,36 @@ const createdBrandIds: string[] = [];
 const createdCategoryIds: string[] = [];
 const createdSourceIds: string[] = [];
 const createdAttributeKeys: string[] = [];
+
+/**
+ * Draft and publish one attribute definition in a single step.
+ *
+ * #94 made a definition a VERSION with a lifecycle, so "define an attribute"
+ * is two audited acts. These tests care about the resulting meaning, not the
+ * lifecycle — the lifecycle has its own coverage in
+ * `attribute-registry.realdb.test.ts` — so the helper keeps them readable
+ * without pretending the two steps are one.
+ */
+async function defineAttribute(input: {
+  key: string;
+  label: string;
+  valueType: 'string' | 'measurement' | 'boolean' | 'integer' | 'decimal' | 'enum';
+  unitFamily?: 'mass' | 'length' | 'digital_storage';
+  categoryIds?: string[];
+}): Promise<{ id: string; key: string }> {
+  const draft = await draftAttributeDefinition({
+    key: input.key,
+    label: input.label,
+    valueType: input.valueType,
+    ...(input.unitFamily === undefined ? {} : { unitFamily: input.unitFamily }),
+    ...(input.categoryIds === undefined
+      ? {}
+      : { categoryScopes: input.categoryIds.map((categoryId) => ({ categoryId })) }),
+    actorOxyUserId: `operator-${RUN}`,
+  });
+  const published = await publishAttributeDefinition(draft.key, draft.version, `operator-${RUN}`);
+  return { id: published.id, key: published.key };
+}
 const createdSupplierIds: string[] = [];
 
 /** A catalog source registered once for this run; every observation cites it. */
@@ -226,6 +259,18 @@ afterAll(async () => {
       await db
         .delete(attributeDefinitionCategories)
         .where(inArray(attributeDefinitionCategories.attributeDefinitionId, definitionIds));
+      // A PUBLISHED definition version refuses DELETE
+      // (`attribute_definitions_immutable_once_published`), because a stored
+      // value cites its version and deleting it would leave that value
+      // uninterpretable. Teardown therefore demotes to `draft` first — the one
+      // pair of columns the trigger leaves movable, and the one the CHECK
+      // requires to move together. That the cleanup has to do this IS the
+      // guarantee working; a suite that could delete a published version would
+      // be evidence the trigger does not hold.
+      await db
+        .update(attributeDefinitions)
+        .set({ lifecycleState: 'draft', publishedAt: null, deprecatedAt: null })
+        .where(inArray(attributeDefinitions.id, definitionIds));
       await db.delete(attributeDefinitions).where(inArray(attributeDefinitions.id, definitionIds));
     }
   }
@@ -325,7 +370,7 @@ describe('acceptance 1 — one model, several capacities and colours, ONE produc
     await defineAttribute({
       key: storageKey,
       label: 'Storage',
-      valueType: 'quantity',
+      valueType: 'measurement',
       unitFamily: 'digital_storage',
     });
 
@@ -373,7 +418,7 @@ describe('acceptance 1 — one model, several capacities and colours, ONE produc
     await defineAttribute({
       key: storageKey,
       label: 'Capacity',
-      valueType: 'quantity',
+      valueType: 'measurement',
       unitFamily: 'digital_storage',
     });
     const productId = await mintProduct({ label: 'Convergence Phone', axes: [storageKey, 'color'] });
@@ -1074,7 +1119,7 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
     await defineAttribute({
       key,
       label: 'Screen size',
-      valueType: 'quantity',
+      valueType: 'measurement',
       unitFamily: 'length',
     });
     const productId = await mintProduct({ label: 'Screen Product', axes: [key] });
@@ -1099,7 +1144,7 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
   it('keeps an unparsable value as a SOURCE FACT with no magnitude at all', async () => {
     const key = `weight_${RUN.replace(/\W/gu, '')}`.slice(0, 30);
     createdAttributeKeys.push(key);
-    await defineAttribute({ key, label: 'Weight', valueType: 'quantity', unitFamily: 'mass' });
+    await defineAttribute({ key, label: 'Weight', valueType: 'measurement', unitFamily: 'mass' });
     const productId = await mintProduct({ label: 'Unparsed Product', axes: [key] });
     const created = await createVariant({ productId, options: [{ key, value: 'about 200 grams' }] });
 
@@ -1127,7 +1172,7 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
   it('keeps two disagreeing sources as facts, selecting NEITHER', async () => {
     const key = `material_${RUN.replace(/\W/gu, '')}`.slice(0, 30);
     createdAttributeKeys.push(key);
-    await defineAttribute({ key, label: 'Material', valueType: 'text' });
+    await defineAttribute({ key, label: 'Material', valueType: 'string' });
     const productId = await mintProduct({ label: 'Conflict Product' });
 
     const first = await db
@@ -1177,8 +1222,10 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
       .from(canonicalAttributeValues)
       .where(eq(canonicalAttributeValues.productId, productId));
     expect(rows).toHaveLength(2);
-    expect(rows.every((row) => row.selected === false)).toBe(true);
-    expect(rows.every((row) => row.normalizationState === 'conflicting')).toBe(true);
+    expect(rows.every((row) => row.selectionState === 'conflicting')).toBe(true);
+    // The PARSE survives the conflict: an operator resolving it must be able to
+    // see what they are choosing between (#94 moved `conflicting` off the parse).
+    expect(rows.every((row) => row.normalizationState === 'normalized')).toBe(true);
     // Both source strings survive verbatim — the disagreement IS the record.
     expect(rows.map((row) => row.sourceDisplayValue).sort()).toEqual(['Aluminium', 'Titanium']);
   });
@@ -1186,7 +1233,7 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
   it('refuses two SELECTED values for one attribute of one entity', async () => {
     const key = `finish_${RUN.replace(/\W/gu, '')}`.slice(0, 30);
     createdAttributeKeys.push(key);
-    await defineAttribute({ key, label: 'Finish', valueType: 'text' });
+    await defineAttribute({ key, label: 'Finish', valueType: 'string' });
     const productId = await mintProduct({ label: 'Selection Product' });
 
     const record = await db
@@ -1229,7 +1276,7 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
         sourceDisplayValue: 'Gloss',
         normalizedText: 'gloss',
         normalizationState: 'normalized',
-        selected: true,
+        selectionState: 'selected',
         sourceRecordId: otherId,
       }),
     );
@@ -1238,10 +1285,21 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
   it('refuses a duplicate attribute definition key and a half-declared quantity', async () => {
     const key = `dupkey_${RUN.replace(/\W/gu, '')}`.slice(0, 30);
     createdAttributeKeys.push(key);
-    await defineAttribute({ key, label: 'Duplicate', valueType: 'text' });
-    await expect(defineAttribute({ key, label: 'Duplicate again', valueType: 'text' })).rejects.toThrow(
-      /already defined/u,
+    const first = await defineAttribute({ key, label: 'Duplicate', valueType: 'string' });
+    // A second VERSION of one key is the whole point of the versioned registry.
+    // A second ACTIVE version is refused by the partial unique, whichever writer
+    // tries it — including one that skipped the publish service entirely.
+    await expectRefused('unique', () =>
+      db.insert(attributeDefinitions).values({
+        key,
+        version: 99,
+        lifecycleState: 'active',
+        publishedAt: new Date(),
+        label: 'Duplicate again',
+        valueType: 'string',
+      }),
     );
+    expect(first.key).toBe(key);
 
     // The database refuses the same half-declared shapes the service does, so a
     // writer that skipped the service still cannot store a quantity with no unit.
@@ -1249,14 +1307,14 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
       db.insert(attributeDefinitions).values({
         key: `nounit_${RUN.replace(/\W/gu, '')}`.slice(0, 30),
         label: 'No unit',
-        valueType: 'quantity',
+        valueType: 'measurement',
       }),
     );
     await expectRefused('check', () =>
       db.insert(attributeDefinitions).values({
         key: `Bad-Key-${RUN}`.slice(0, 30),
         label: 'Bad key',
-        valueType: 'text',
+        valueType: 'string',
       }),
     );
   });
@@ -1352,10 +1410,10 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
     const scoped = await defineAttribute({
       key: scopedKey,
       label: 'Scoped',
-      valueType: 'text',
+      valueType: 'string',
       categoryIds: [categoryId],
     });
-    await defineAttribute({ key: globalKey, label: 'Global', valueType: 'text' });
+    await defineAttribute({ key: globalKey, label: 'Global', valueType: 'string' });
 
     const rows = await db
       .select()

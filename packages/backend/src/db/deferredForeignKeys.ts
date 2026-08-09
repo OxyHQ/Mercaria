@@ -624,4 +624,36 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
     column: 'native_listing_links.revoked_by_oxy_user_id',
     reason: OXY_ACCOUNT,
   },
+
+  // The attribute registry (#94).
+  { column: 'attribute_definitions.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'attribute_definitions.published_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'attribute_source_mappings.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'attribute_value_reviews.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'attribute_value_reviews.entity_id',
+    reason:
+      'Polymorphic by entity_kind — a canonical product or a canonical variant, the ' +
+      'merchant_claim_scopes.scope_ref shape. One column cannot reference two tables, and ' +
+      'the alternative (two nullable columns plus a CHECK) buys a constraint on rows whose ' +
+      'targets are never hard-deleted: a merged canonical entity keeps its row as a ' +
+      'tombstone (ADR 0002 D12), so the reference always resolves.',
+  },
+  {
+    column: 'attribute_value_reviews.resolved_value_id',
+    reason:
+      'The canonical_attribute_values row an operator chose, recorded as the DECISION they ' +
+      'made rather than as a live pointer. A cascade from the value would erase the record ' +
+      'of what was decided when the losing value was later corrected away, and a RESTRICT ' +
+      'would block a legitimate correction on a closed review — the ' +
+      'referral_attributions.winning_touch_id reasoning.',
+  },
+  {
+    column: 'attribute_reindex_requests.entity_id',
+    reason:
+      'Polymorphic by entity_kind, exactly as attribute_value_reviews.entity_id is. The row ' +
+      'is also a JOB rather than a relationship: it must survive whatever happens to the ' +
+      'entity between enqueue and drain, because "this id no longer exists" is a valid and ' +
+      'useful thing for a re-index consumer to be told.',
+  },
 ];

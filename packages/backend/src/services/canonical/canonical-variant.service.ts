@@ -57,7 +57,7 @@ import {
   type CanonicalVariantRow,
   type VariantAttributeInput,
 } from '../../db/canonical/canonicalVariantRepository.js';
-import { findAttributeDefinitionsByKeys } from '../../db/canonical/attributeRepository.js';
+import { findActiveAttributeDefinitionsByKeys } from '../../db/attributes/definitionRepository.js';
 import { repointVariantIdentifiers } from '../../db/canonical/productIdentifierRepository.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import {
@@ -90,7 +90,7 @@ export interface VariantOptionInput {
  */
 function normalizeOption(
   option: VariantOptionInput,
-  definitionId: string | undefined,
+  definition: { id: string; version: number } | undefined,
   isQuantity: boolean,
   index: number,
 ): VariantAttributeInput {
@@ -112,7 +112,9 @@ function normalizeOption(
         normalizedUnit: quantity.baseUnit,
         normalizationState: 'normalized',
         position: option.position ?? index,
-        ...(definitionId === undefined ? {} : { attributeDefinitionId: definitionId }),
+        ...(definition === undefined
+          ? {}
+          : { attributeDefinitionId: definition.id, definitionVersion: definition.version }),
       };
     }
     return {
@@ -121,7 +123,9 @@ function normalizeOption(
       normalizedValue: normalizeOptionValue(displayValue),
       normalizationState: quantity.state,
       position: option.position ?? index,
-      ...(definitionId === undefined ? {} : { attributeDefinitionId: definitionId }),
+      ...(definition === undefined
+        ? {}
+        : { attributeDefinitionId: definition.id, definitionVersion: definition.version }),
     };
   }
 
@@ -131,7 +135,9 @@ function normalizeOption(
     normalizedValue: normalizeOptionValue(displayValue),
     normalizationState: 'normalized',
     position: option.position ?? index,
-    ...(definitionId === undefined ? {} : { attributeDefinitionId: definitionId }),
+    ...(definition === undefined
+      ? {}
+      : { attributeDefinitionId: definition.id, definitionVersion: definition.version }),
   };
 }
 
@@ -165,12 +171,17 @@ async function normalizeOptionSet(
     );
   }
 
-  const definitions = await findAttributeDefinitionsByKeys(db, supplied);
+  const definitions = await findActiveAttributeDefinitionsByKeys(db, supplied);
   const byKey = new Map(definitions.map((definition) => [definition.key, definition]));
 
   return options.map((option, index) => {
     const definition = byKey.get(normalizeAttributeKey(option.key));
-    return normalizeOption(option, definition?.id, definition?.valueType === 'quantity', index);
+    return normalizeOption(
+      option,
+      definition === undefined ? undefined : { id: definition.id, version: definition.version },
+      definition?.valueType === 'measurement',
+      index,
+    );
   });
 }
 
