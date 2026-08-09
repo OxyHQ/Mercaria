@@ -35,3 +35,9 @@ export * from './pos';
 export * from './buyers';
 export * from './notifications';
 export * from './moderation';
+// Canonical commerce graph (ADR 0002). `provenance` precedes `organizations`
+// for the same dependency reason as above: alias and source-link tables
+// reference `source_records`. `canonicalSupport.ts` is schema support like
+// `columns.ts` and is deliberately NOT exported here.
+export * from './provenance';
+export * from './organizations';

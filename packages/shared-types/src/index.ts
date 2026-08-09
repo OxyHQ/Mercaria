@@ -91,3 +91,9 @@ export * from './moderation';
 
 // Payment reconciliation, discrepancy and operator-repair vocabulary (#50).
 export * from './reconciliation';
+
+// Canonical-graph provenance vocabulary (CatalogSourceKind, SourceLinkMethod, …) — ADR 0002 D19.
+export * from './provenance';
+
+// Canonical Organization and Brand DTOs (Organization, Brand, CanonicalAlias, AliasResolution).
+export * from './organization';
