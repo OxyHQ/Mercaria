@@ -97,3 +97,8 @@ export * from './provenance';
 
 // Canonical Organization and Brand DTOs (Organization, Brand, CanonicalAlias, AliasResolution).
 export * from './organization';
+
+// Canonical merchant/storefront graph DTOs (Merchant, Storefront, NativeStoreLink, …)
+// — issue #54, ADR 0002. NOT the same thing as MerchantSummary in `./product`,
+// which is a native-store feed card projection.
+export * from './merchant';

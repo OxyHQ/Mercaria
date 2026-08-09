@@ -292,6 +292,21 @@ function resolvePaymentOperatorIds(): readonly string[] {
 }
 
 /**
+ * `CATALOG_OPERATOR_OXY_USER_IDS` → the canonical-graph operator allow-list
+ * (ADR 0002 D17/D24). The same interim-allow-list reasoning as
+ * `resolvePaymentOperatorIds` above, deliberately a SEPARATE variable: who may
+ * link merchants to stores and who may repair payments are different powers,
+ * and one list for both would grant whichever one the operator was not vetted
+ * for. Empty means the `/internal/commerce-graph` surface is not mounted.
+ */
+function resolveCatalogOperatorIds(): readonly string[] {
+  return strEnv('CATALOG_OPERATOR_OXY_USER_IDS', '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id !== '');
+}
+
+/**
  * The currency the platform account settles in — ADR 0001 D8, `EUR`.
  *
  * Falls back to `EUR` when the configured value is not a currency Mercaria
@@ -583,6 +598,21 @@ export interface CatalogConfig {
   readonly maxVariantsPerProduct: number;
   /** Maximum number of gallery images a single listing may have. */
   readonly maxImagesPerListing: number;
+  /**
+   * The Oxy accounts that may reach `/internal/commerce-graph/*` — the
+   * canonical-graph operator surface (#54's linkage endpoints today; #59's
+   * merge tooling reads the SAME list when it lands). ADR 0002 D17/D24 name
+   * the variable (`CATALOG_OPERATOR_OXY_USER_IDS`) and bind it to the payments
+   * precedent: an interim allow-list, not a role — see
+   * `resolveCatalogOperatorIds`.
+   */
+  readonly graphOperatorOxyUserIds: readonly string[];
+  /**
+   * DERIVED from the allow-list, exactly as `payments.operatorSurfaceEnabled`
+   * is and for the same reason: a separate flag could only ever disagree with
+   * the list. Empty list = the surface is not mounted at all (404, never 401).
+   */
+  readonly graphOperatorSurfaceEnabled: boolean;
 }
 
 export interface FeedConfig {
@@ -717,6 +747,8 @@ export const config: AppConfig = Object.freeze({
   catalog: Object.freeze({
     maxVariantsPerProduct: intEnv('MAX_VARIANTS_PER_PRODUCT', 100),
     maxImagesPerListing: intEnv('MAX_IMAGES_PER_LISTING', 12),
+    graphOperatorOxyUserIds: Object.freeze(resolveCatalogOperatorIds()),
+    graphOperatorSurfaceEnabled: resolveCatalogOperatorIds().length > 0,
   }),
   feed: Object.freeze({
     cacheTtlSeconds: intEnv('FEED_CACHE_TTL_SECONDS', 60),
