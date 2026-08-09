@@ -10,7 +10,7 @@ root for the deferred work.
 ## Architecture
 
 - `packages/frontend/` — Expo app (React Native + Web), expo-router, NativeWind 5
-- `packages/backend/` — Express backend API (TypeScript, MongoDB/Mongoose, Socket.IO)
+- `packages/backend/` — Express backend API (TypeScript, PostgreSQL via drizzle-orm, Socket.IO)
 
 Auth and SSO are handled entirely by the Oxy SDK (`@oxyhq/core`,
 `@oxyhq/services`). The backend uses `@oxyhq/core/server`
