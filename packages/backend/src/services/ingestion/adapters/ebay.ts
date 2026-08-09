@@ -444,18 +444,31 @@ export function createEbayBrowseAdapter(deps: EbayAdapterDeps): CatalogSourceAda
     reportAttribution({ request, itemCount: result.items.length, records });
 
     /**
-     * The ids eBay no longer answers for are simply NOT EMITTED.
+     * The two ways an id can come back unanswered leave here by DIFFERENT
+     * routes, and that is #68's distinction rather than a refinement of it.
      *
-     * That is the whole retirement mechanism, and it works because #62 retires
-     * what a complete enumeration did not mention. Emitting a tombstone record
-     * would need a shape `NormalizedSourceRecord` does not have, and deleting
-     * anything from here would be the write boundary this adapter exists not to
-     * have. `result.missingIds` is therefore consumed by nothing — the absence
-     * IS the report.
+     * `removedIds` is eBay stating the listing is gone, which is exactly the
+     * `AdapterRemoval` #68 defines and the evidence the API License
+     * Agreement's deletion obligation turns on. It retires that one object
+     * from THIS batch, with no complete enumeration involved — which is what
+     * makes the obligation satisfiable at all, since a verification pass over
+     * a large cohort takes many runs to come round.
+     *
+     * `unansweredIds` leaves by the OTHER route: not emitted, not declared.
+     * An absence is not a statement, so it retires nothing today and is
+     * caught by the ordinary completeness rule when a verification pass
+     * finishes. Reading it as a removal would retire a healthy item the
+     * moment eBay served a short response.
      */
+    const removals = result.removedIds.map((externalId) => ({
+      externalType: 'offer' as const,
+      externalId,
+      observedAt: now,
+    }));
     const lastId = ids[ids.length - 1] ?? cursor.afterExternalId;
     return {
       records,
+      ...(removals.length === 0 ? {} : { removals }),
       nextCursor: serializeEbayCursor({ ...cursor, afterExternalId: lastId }),
       complete: false,
       fetchDurationMs: Date.now() - startedAt,

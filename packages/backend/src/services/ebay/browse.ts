@@ -61,8 +61,63 @@ export interface EbaySearchPage {
 /** The result of one `getItems` batch: what is still live, and what is gone. */
 export interface EbayGetItemsResult {
   readonly items: readonly EbayItem[];
-  /** Ids eBay did NOT answer for. The deletion signal, and nothing else. */
-  readonly missingIds: readonly string[];
+  /**
+   * Ids eBay POSITIVELY declared gone, by answering with a not-found warning.
+   *
+   * This is the only set that may become a #68 `AdapterRemoval`, because
+   * `applyExplicitRemovals` retires from ANY run — a targeted batch included —
+   * without waiting for a complete enumeration. Feeding it anything weaker
+   * than a statement is the mass-expiry failure this whole domain is shaped
+   * around, one phase later.
+   */
+  readonly removedIds: readonly string[];
+  /**
+   * Ids eBay neither described nor declared gone.
+   *
+   * Absence is not a statement: a truncated response, an item eBay declined to
+   * serve to this marketplace and one it simply failed to describe all land
+   * here, and none of them is evidence the listing ended. It feeds the
+   * reconciliation sample, which repairs nothing.
+   */
+  readonly unansweredIds: readonly string[];
+}
+
+/**
+ * eBay `errorId`s inside a 200 that mean THIS ITEM is gone.
+ *
+ * `11006` is the Browse API's per-item "item not found". It arrives in the
+ * `warnings` array of an otherwise successful response, because a batch where
+ * nineteen of twenty ids resolve is a success with a note about the twentieth.
+ */
+const EBAY_ITEM_NOT_FOUND_WARNING_IDS: readonly number[] = [11006];
+
+/**
+ * Read the ids eBay named in a not-found warning, defensively.
+ *
+ * Only ids that were actually REQUESTED are returned. eBay puts the offending
+ * value in a `parameters` entry, and a provider that changes which parameter
+ * carries it — or wraps it, or localises the surrounding message — degrades to
+ * "no positive statement", which retires nothing. The failure direction is the
+ * whole reason it is written this way: an id read wrongly out of a warning is
+ * an item retired on a misparse.
+ */
+function readNotFoundIds(parsed: Record<string, unknown>, requested: readonly string[]): string[] {
+  const warnings = parsed.warnings;
+  if (!Array.isArray(warnings)) return [];
+  const requestedSet = new Set(requested);
+  const found: string[] = [];
+  for (const warning of warnings) {
+    if (warning === null || typeof warning !== 'object') continue;
+    const { errorId, parameters } = warning as { errorId?: unknown; parameters?: unknown };
+    if (typeof errorId !== 'number' || !EBAY_ITEM_NOT_FOUND_WARNING_IDS.includes(errorId)) continue;
+    if (!Array.isArray(parameters)) continue;
+    for (const parameter of parameters) {
+      if (parameter === null || typeof parameter !== 'object') continue;
+      const value = (parameter as { value?: unknown }).value;
+      if (typeof value === 'string' && requestedSet.has(value)) found.push(value);
+    }
+  }
+  return found;
 }
 
 function headersFor(context: EbayBrowseContext): Record<string, string> {
@@ -143,17 +198,19 @@ export async function ebaySearch(
  * is the operation that answers "is it still publicly available on eBay" — the
  * question the API License Agreement's deletion obligation turns on.
  *
- * The `missingIds` set is computed by DIFFERENCE against what came back rather
- * than by reading eBay's warning envelope. That is deliberate: the envelope's
- * shape and its per-item error codes are the least stable part of the response,
- * while "I asked for these twenty and eBay described eighteen" is a fact about
- * the response body that cannot drift.
+ * The two ways an id can come back unanswered are kept APART, because #68 acts
+ * on one of them and must never act on the other. A not-found WARNING is eBay
+ * saying the listing is gone, which is the deletion trigger and becomes an
+ * `AdapterRemoval`. Mere ABSENCE from `items` is not a statement about
+ * anything, and is computed by difference precisely because it is the weaker
+ * fact: "I asked for twenty and eBay described eighteen" cannot drift, and
+ * cannot retire anything either.
  */
 export async function ebayGetItems(
   context: EbayBrowseContext,
   itemIds: readonly string[],
 ): Promise<EbayGetItemsResult> {
-  if (itemIds.length === 0) return { items: [], missingIds: [] };
+  if (itemIds.length === 0) return { items: [], removedIds: [], unansweredIds: [] };
   if (itemIds.length > EBAY_GET_ITEMS_MAX_IDS) {
     // A caller batching wrong is a code defect, and eBay answers it with a 400
     // that reads as schema drift. Refusing here names the real cause.
@@ -188,6 +245,10 @@ export async function ebayGetItems(
     if (typeof item?.itemId === 'string') returned.add(item.itemId);
     if (typeof item?.legacyItemId === 'string') returned.add(item.legacyItemId);
   }
-  const missingIds = itemIds.filter((id) => !returned.has(id));
-  return { items, missingIds };
+  const notFound = new Set(readNotFoundIds(parsed, itemIds));
+  return {
+    items,
+    removedIds: itemIds.filter((id) => notFound.has(id)),
+    unansweredIds: itemIds.filter((id) => !returned.has(id) && !notFound.has(id)),
+  };
 }
