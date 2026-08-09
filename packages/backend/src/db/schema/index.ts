@@ -109,6 +109,14 @@ export * from './storeLinkage';
 // row (`catalog`), and its whole purpose is to write the `native_listing_links`
 // attachment #57 defined and deliberately left unwritten.
 export * from './matching';
+// Catalog curation (#59, ADR 0002 D12/D16) follows `matching` because it is
+// downstream of the WHOLE graph: a review item points at a `match_decisions`
+// row and a `match_policy_versions` row, a merge conflict names a
+// `product_identifiers`, `canonical_variants`, `commerce_relationships` or
+// `offers` row, and every revision may cite the observation and the policy the
+// act was taken under. It is the last graph layer for the same reason `offers`
+// was the last before `matching`: nothing in the graph references IT.
+export * from './curation';
 // Discovery analytics (#77) comes last and references NOTHING: every entity id
 // it carries is correlation text with no foreign key, because these rows are
 // swept on their own retention clock and every entity they name outlives them.

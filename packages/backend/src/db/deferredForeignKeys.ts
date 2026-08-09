@@ -122,6 +122,18 @@ const PROVIDER_OBJECT =
  * {@link PROVIDER_OBJECT}, one system family over: their key spaces differ per
  * environment, and Mercaria neither mints nor validates them.
  */
+/**
+ * A curation row naming an entity whose TABLE is chosen by a sibling `*_type`
+ * column (#59). ADR 0002 D16 states this reason for `catalog_revisions.entity_id`
+ * and every other column carrying it shares both halves: the column spans entity
+ * types, and it must survive the tombstone the very act it records creates.
+ */
+const CURATION_ENTITY =
+  'A curated entity id whose table is selected by a sibling `*_type` column (ADR 0002 D16). ' +
+  'It spans entity types and must stay readable after the merge it records tombstones its ' +
+  'subject; the alternative is one nullable foreign key per entity kind on a row that names ' +
+  'exactly one of them.';
+
 const SUPPLIER_PLATFORM =
   "A supplier platform's own id — a foreign system's key space, stored for correlation " +
   'and deliberately never a Mercaria primary key.';
@@ -869,4 +881,35 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'finding exists at all: it records that a subject and its offer DISAGREE, which includes ' +
       'the case where one of the two is already gone.',
   },
+  // ── Catalog curation (#59, ADR 0002 D12/D16) ──────────────────────────────
+  //
+  // Six columns, ONE reason, and the ADR states it for the first of them:
+  // `catalog_revisions.entity_id` "deliberately has no FK (it spans entity
+  // types and must survive tombstones)". The other five share both halves of
+  // that reason exactly — each names a row in one of seven to thirteen tables
+  // chosen by a sibling `*_type` column, and each must stay readable after the
+  // very merge it records has stamped its subject a tombstone.
+  //
+  // What the absence gives up is bounded and closed elsewhere: ADR 0002 D20
+  // makes every canonical entity RESTRICT-protected from hard deletion by its
+  // own children, so a curation row naming an entity that VANISHED is not a
+  // state this database can reach — the entity would still be there, merged.
+  { column: 'catalog_revisions.entity_id', reason: CURATION_ENTITY },
+  { column: 'catalog_review_items.subject_id', reason: CURATION_ENTITY },
+  { column: 'catalog_review_items.counterpart_id', reason: CURATION_ENTITY },
+  { column: 'catalog_merge_jobs.loser_id', reason: CURATION_ENTITY },
+  { column: 'catalog_merge_jobs.winner_id', reason: CURATION_ENTITY },
+  { column: 'catalog_split_jobs.source_entity_id', reason: CURATION_ENTITY },
+  { column: 'catalog_split_jobs.target_entity_id', reason: CURATION_ENTITY },
+  { column: 'catalog_entity_suppressions.entity_id', reason: CURATION_ENTITY },
+  { column: 'catalog_revisions.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_review_items.assigned_to_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_review_items.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_merge_jobs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_merge_jobs.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_merge_conflicts.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_split_jobs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_split_jobs.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_entity_suppressions.suppressed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_entity_suppressions.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];

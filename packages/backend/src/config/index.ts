@@ -944,17 +944,41 @@ export interface CatalogConfig {
    */
   readonly graphOperatorSurfaceEnabled: boolean;
   /**
-   * Whether verifying a BADGE-producing relationship (#55) needs a second
-   * operator's approval — `CATALOG_FOUR_EYES_REQUIRED`, defaulting ON.
+   * Whether a high-impact canonical-graph act needs a SECOND operator's approval
+   * — `CATALOG_FOUR_EYES_REQUIRED`, defaulting ON.
+   *
+   * TWO domains read it and it is deliberately ONE field: verifying a
+   * badge-producing relationship (#55) and merging or splitting a canonical
+   * entity (#59) are the same kind of decision — irreversible in practice,
+   * invisible to the person it affects — and a deployment that wants one gated
+   * wants the other. A second variable would be a second thing to keep in step
+   * for a distinction nobody has drawn.
    *
    * Fail-closed is the right default here specifically because the artefact is a
    * public claim about who a shopper is dealing with: an "Official store" badge
    * minted in error misleads a buyer and is invisible to them, so the cost of
    * requiring a second pair of eyes is a delay and the cost of not requiring one
-   * is a false statement. A single-operator deployment turns it off
-   * deliberately, rather than discovering it was never on.
+   * is a false statement. The merge half is the same argument with the artefact
+   * changed: a wrong merge ends an identity, and the seller whose sales landed
+   * on somebody else's page finds out months later. A single-operator deployment
+   * turns it off deliberately, rather than discovering it was never on.
    */
-  readonly relationshipFourEyesRequired: boolean;
+  readonly fourEyesRequired: boolean;
+  /**
+   * Whether the #59 curation dispatcher RUNS — `CURATION_JOBS_ENABLED`,
+   * defaulting on.
+   *
+   * It gates the LOOP and nothing else. An operator may still request a merge
+   * with it off; the job sits `pending` and runs when it comes back. Gating the
+   * REQUEST instead would silently lose work somebody thought they had
+   * scheduled, which is the inversion the payment and moderation outboxes
+   * already record.
+   */
+  readonly curationJobsEnabled: boolean;
+  /** How many merge and split jobs one dispatcher pass claims. */
+  readonly curationBatchSize: number;
+  /** How often the dispatcher looks for work. */
+  readonly curationPollIntervalMs: number;
 }
 
 /**
@@ -1375,7 +1399,10 @@ export const config: AppConfig = Object.freeze({
     maxImagesPerListing: intEnv('MAX_IMAGES_PER_LISTING', 12),
     graphOperatorOxyUserIds: Object.freeze(resolveCatalogOperatorIds()),
     graphOperatorSurfaceEnabled: resolveCatalogOperatorIds().length > 0,
-    relationshipFourEyesRequired: boolEnv('CATALOG_FOUR_EYES_REQUIRED', true),
+    fourEyesRequired: boolEnv('CATALOG_FOUR_EYES_REQUIRED', true),
+    curationJobsEnabled: boolEnv('CURATION_JOBS_ENABLED', true),
+    curationBatchSize: intEnv('CURATION_JOB_BATCH_SIZE', 5),
+    curationPollIntervalMs: intEnv('CURATION_JOB_POLL_INTERVAL_MS', 10_000),
   }),
   offers: Object.freeze({
     materializationEnabled: boolEnv('OFFER_MATERIALIZATION_ENABLED', true),

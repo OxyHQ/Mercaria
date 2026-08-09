@@ -163,6 +163,16 @@ connectPostgres()
       import('./services/backfill/backfill-dispatcher.js')
         .then(({ startCatalogBackfillDispatcher }) => startCatalogBackfillDispatcher())
         .catch((err) => log.general.error({ err }, 'Catalog backfill dispatcher import failed'));
+      // Run operator merge and split jobs (#59). On EVERY task, same lease
+      // shape. The LOOP is gated by `CURATION_JOBS_ENABLED` and the REQUEST
+      // never is, so a merge an operator scheduled while the loop was off runs
+      // when it comes back — the outbox inversion, applied to a job an operator
+      // is waiting on. A job BLOCKED on an undecided conflict is deliberately
+      // not claimable: retrying a judgement only a person can make would spin
+      // this loop and bury real faults among things waiting for review.
+      import('./services/curation/curation-dispatcher.js')
+        .then(({ startCurationDispatcher }) => startCurationDispatcher())
+        .catch((err) => log.general.error({ err }, 'Curation dispatcher import failed'));
 
       // Retry stored Stripe events whose processing failed, and pick up any
       // whose task died between storing and interpreting them. Also on EVERY
@@ -305,6 +315,10 @@ connectPostgres()
           './services/payments/stripe/event-dispatcher.js'
         );
         stopStripeEventDispatcher();
+        const { stopCurationDispatcher } = await import(
+          './services/curation/curation-dispatcher.js'
+        );
+        stopCurationDispatcher();
         const { stopStripeAccountReconciler } = await import(
           './services/payments/stripe/account-reconciler.js'
         );

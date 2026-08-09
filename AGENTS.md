@@ -754,6 +754,86 @@ load-bearing:
   their ATTACHMENT (`canonical_*_source_links`) belongs to the ingestion path
   that owns the observation, not to the matcher.
 
+## Catalogue curation (#59, ADR 0002 D12/D16): review, merge, split, correct
+
+`services/curation/` + `db/curation/` + `db/schema/curation.ts` (8 tables) + the
+curation half of `routes/internal-commerce-graph.ts`. Full reference:
+**`docs/curation.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"Catalogue curation". #58 decides what a matcher may do WITHOUT a person; this
+is everything it refused, plus the corrections no automatic rule may make.
+
+The failure mode that shapes it: a merge is the only operation in the graph that
+ENDS an identity, and its damage is invisible — every page still renders, and
+the two things quietly made one are found months later by a seller whose sales
+landed on somebody else's product page. A HALF-finished merge is worse than
+either state.
+
+- **The rehoming plan is checked against the SCHEMA, not read out of the code.**
+  `merge-plan.ts` declares every column referencing each of the seven mergeable
+  entities and what a merge does with it; `merge-plan-census.test.ts` walks the
+  drizzle tables for every foreign key targeting one and asserts the plan covers
+  EXACTLY that set. **A new table referencing a mergeable entity fails the build
+  until somebody decides what a merge does with it** — which is the point,
+  because finding fewer referencing tables looks identical to there BEING fewer.
+  `untouched` WITH A REASON is a decision the census accepts; silence is not.
+  It fired on its first rebase: #60 and #121 added EIGHT references between
+  them and the build refused until each had a disposition. The one to read is
+  `retail_suppressions` — a recall stores its id TWICE (a typed FK plus the
+  polymorphic `scope_ref` the derivation matches on, forced equal by CHECK), so
+  the plan moves both together, and the absence guard is narrowed to the partial
+  unique's own `WHERE lifted_at IS NULL` predicate. **A guard wider than the
+  index it guards is a bug in the safe-looking direction**: a LIFTED suppression
+  on the winner would block a LIVE one from following its entity, silently
+  un-suppressing a recalled product.
+- **Nothing moves until every collision has an explicit decision** (#59 merge
+  invariant 4). The `plan` phase probes six conflict kinds, each naming a REAL
+  unique index; the job BLOCKS while any is undecided. `blocked` is a separate
+  status from `failed` and is NOT claimable: retrying a judgement only a person
+  can make spins the dispatcher and buries real faults.
+- **Resumability is the PHASE RECORDS, not the phase column.**
+  `catalog_merge_job_phases` is `UNIQUE(job_id, phase)` + append-only: a phase
+  already stamped is skipped, one claimed but never stamped is RE-RUN. Every
+  rehoming statement is idempotent, so `verify` is literally a re-run of every
+  plan target asserting nothing moves — the verification and the idempotency
+  proof in one, with no second description of the plan to drift.
+- **Each phase runs in its OWN transaction**, and #76's aggregate rebuild runs
+  AFTER the phase commits. Calling it inside deadlocks the merge against itself:
+  `rebuildScopedAggregate` opens its own connection and writes the row the
+  transaction locked. Presents as a hang until the runner's timeout, no error.
+- **The tombstone is stamped LAST of the mutating phases.** Until then the loser
+  is a live entity and a crash leaves a resumable job; stamping first leaves a
+  dead identity with live children and nothing saying which phase was owed.
+- **A split may REVIVE a tombstone**, and that is what makes "a mistaken merge
+  can be split without losing source mappings" work: every mapping is keyed on
+  the entity's ID, so minting a fresh row satisfies the word and destroys the
+  thing. `new_entity` is CHECK-restricted to a canonical PRODUCT — a variant's
+  identity is its option assignments, and minting one would invent them.
+- **The assignment list IS the split.** Anything not named stays; a trigger
+  freezes the list once the job leaves `plan`, so the set an operator approved
+  with an impact estimate beside it is the set that executes.
+- **The timeline is append-only against UPDATE *and* DELETE** — the inverse of
+  `analytics_events`, deliberately. A compensating correction NAMES the revision
+  it undoes (backwards in time, so it always resolves) and RECORDS the undo
+  rather than performing it: replaying a `before` snapshot would write columns
+  whose meaning has since moved.
+- **Four eyes is two CHECKs** (`approved_by <> requested_by`, and "cannot leave
+  planning unapproved"), reading ONE flag `CATALOG_FOUR_EYES_REQUIRED` that #55
+  also reads — a merge and a badge are the same kind of decision. The impact and
+  the approval requirement are SNAPSHOTTED, so a threshold change cannot
+  retroactively unapprove a job somebody ran.
+- **A `BEFORE UPDATE` trigger must not compare a STORED GENERATED column** — it
+  is computed AFTER the trigger, so `NEW.<col>` is NULL and the comparison
+  raises on every update. Cost a real bug here; caught only by the realdb suite.
+- Env: `CURATION_JOBS_ENABLED` (gates the LOOP, never the request),
+  `CURATION_JOB_BATCH_SIZE`, `CURATION_JOB_POLL_INTERVAL_MS`. Operator surface
+  is `/internal/commerce-graph/*` behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
+  allow-list #54/#55/#56/#57/#83 use.
+- **Known gap, stated in `docs/curation.md`:** the pre-#59 direct merge
+  endpoints on `/internal/canonical-catalog` (#53/#56's `mergeCanonicalProducts`
+  and siblings) still merge in one transaction WITHOUT the conflict gate, the
+  census-complete plan, the impact estimate or the timeline. The merge an
+  operator should use is `POST /internal/commerce-graph/merge-jobs`.
+
 ## Shipping: Moovo, not ready
 
 Shipping UI is HIDDEN everywhere. The backend retains only a seam (the

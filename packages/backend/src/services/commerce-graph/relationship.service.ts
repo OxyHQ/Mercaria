@@ -500,7 +500,7 @@ export async function verifyRelationship(
     );
   }
 
-  if (requiresFourEyes(relationship.kind, config.catalog.relationshipFourEyesRequired)) {
+  if (requiresFourEyes(relationship.kind, config.catalog.fourEyesRequired)) {
     const approvals = await listApprovalsForRound(db, {
       relationshipId: relationship.id,
       reviewRound: relationship.reviewRound,
@@ -858,7 +858,7 @@ export async function listCandidateQueue(params: {
         activeEvidenceCount: own.filter((item) => item.status === 'active').length,
         evidenceKinds: [...new Set(own.map((item) => item.kind))],
         approvedByOxyUserIds: roundApprovals.map((item) => item.actorOxyUserId),
-        requiresFourEyes: requiresFourEyes(row.kind, config.catalog.relationshipFourEyesRequired),
+        requiresFourEyes: requiresFourEyes(row.kind, config.catalog.fourEyesRequired),
         conflicts: await conflictsFor(db, row, at),
       };
     }),
@@ -887,7 +887,7 @@ export async function getRelationshipForOperator(id: string): Promise<{
     evidence: evidence.map(toEvidenceDTO),
     reviews: reviews.map(toReviewDTO),
     conflicts,
-    requiresFourEyes: requiresFourEyes(row.kind, config.catalog.relationshipFourEyesRequired),
+    requiresFourEyes: requiresFourEyes(row.kind, config.catalog.fourEyesRequired),
   };
 }
 
