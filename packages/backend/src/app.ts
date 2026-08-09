@@ -63,6 +63,7 @@ import internalCatalogAttributesRouter from './routes/internal-catalog-attribute
 import internalMatchingRouter from './routes/internal-matching.js';
 import internalBackfillRouter from './routes/internal-backfill.js';
 import internalIngestionRouter from './routes/internal-ingestion.js';
+import internalOfferFreshnessRouter from './routes/internal-offer-freshness.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
@@ -401,6 +402,17 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/ingestion', internalIngestionRouter);
+  }
+  /**
+   * Source-aware freshness, refresh scheduling and catalogue health (#68), on
+   * the SAME allow-list as the ingestion surface above and mounted for the same
+   * reason: publishing a source's freshness policy, reading its quarantine
+   * board and draining it by hand is how a feed is brought up BEFORE
+   * `OFFER_REFRESH_ENABLED` is switched on, and the evidence has to stay
+   * readable during the incident that turned the loop off.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/offer-freshness', internalOfferFreshnessRouter);
   }
   // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
   // reason the two above have theirs: reading who merged which cart is a third

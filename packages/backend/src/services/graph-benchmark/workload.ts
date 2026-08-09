@@ -39,7 +39,7 @@ import { findActiveCanonicalOwner } from '../../db/canonical/productIdentifierRe
 import { listProductsForFamily } from '../../db/canonical/canonicalProductRepository.js';
 import {
   listOffersForComparison,
-  retireLapsedExternalOffers,
+  listLapsedExternalOfferCandidates,
 } from '../../db/offers/offerRepository.js';
 import { findCurrentRelationships } from '../../db/commerce-graph/relationshipRepository.js';
 import { listPendingMatchReviews } from '../../db/matching/matchDecisionRepository.js';
@@ -248,15 +248,24 @@ export const WORKLOAD_SHAPES: readonly WorkloadShape[] = [
   {
     id: 'Q13',
     workloadItem: 12,
-    title: 'Offer freshness sweep — retire what lapsed',
-    reader: 'db/offers/offerRepository.ts::retireLapsedExternalOffers',
+    title: 'Offer freshness sweep — find what lapsed',
+    reader: 'db/offers/offerRepository.ts::listLapsedExternalOfferCandidates',
     // The sweep's whole job is to find lapsed rows; if it returns none the seed
     // produced no lapsed offers and every number below is about an empty
     // predicate. This is the shape whose floor matters most, because "nothing
     // to do" is also what a healthy production sweep reports.
+    //
+    // #68 made the sweep a READ: whether a lapsed offer may be retired now
+    // depends on its source's grace window and current health, which no single
+    // UPDATE can join without re-implementing the policy in SQL. So this shape
+    // no longer mutates, and what it measures is the candidate scan plus the
+    // provenance join the policy lookup needs.
     expectation: { minRowsReturned: 1 },
-    mutates: true,
-    run: (db) => retireLapsedExternalOffers(db, 500, new Date('2026-01-01T00:00:00.000Z')),
+    run: (db) =>
+      listLapsedExternalOfferCandidates(db, {
+        limit: 500,
+        now: new Date('2026-01-01T00:00:00.000Z'),
+      }),
   },
   {
     id: 'Q14',
@@ -376,9 +385,9 @@ export const EXPLORATORY_SHAPES: readonly ExploratoryShape[] = [
     workloadItem: 12,
     title: 'Freshness scan WITHOUT the write — what the sweep’s predicate costs',
     provenance:
-      'A FRAGMENT of a shipped read: #57’s retireLapsedExternalOffers issues one UPDATE whose ' +
-      'sub-select is this. Isolated so the scan cost is separable from the write cost, which ' +
-      'Q13 measures together.',
+      'A FRAGMENT of a shipped read: #68’s listLapsedExternalOfferCandidates selects exactly ' +
+      'this before its provenance join. Isolated so the index scan is separable from the join ' +
+      'cost, which Q13 measures together.',
     expectation: { minRowsReturned: 1, requireIndexes: ['offers_freshness_idx'] },
     build: () => sql`
       select ${offers.id} from ${offers}

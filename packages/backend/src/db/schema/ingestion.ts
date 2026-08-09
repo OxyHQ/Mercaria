@@ -79,12 +79,15 @@ import { sql } from 'drizzle-orm';
 import { bigint, boolean, check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, inList, timestamptz, updatedAt } from '@oxyhq/db';
 import {
+  CATALOG_REFRESH_MODES,
+  CATALOG_SNAPSHOT_REFRESH_MODES,
   CATALOG_SOURCE_EXTRACTION_MODES,
   CATALOG_SOURCE_HEALTH_STATES,
   CATALOG_SOURCE_OBJECT_STATES,
   CATALOG_SOURCE_POLICY_STATUSES,
   CATALOG_SOURCE_QUARANTINE_REASONS,
   CATALOG_SOURCE_REJECTION_REASONS,
+  CATALOG_SOURCE_RETIREMENT_KINDS,
   CATALOG_SOURCE_RETIRING_OUTCOMES,
   CATALOG_SOURCE_RUN_KINDS,
   CATALOG_SOURCE_RUN_STATUSES,
@@ -602,6 +605,19 @@ export const catalogSourceObjects = pgTable(
     quarantineDetail: text(),
     /** Set when the source stopped publishing it; the row and its history stay. */
     retiredAt: timestamptz(),
+    /**
+     * On what EVIDENCE it was retired (#68 acceptance 2 and 3).
+     *
+     * `retired_at` says that it happened; this says why anybody was entitled to
+     * conclude it. The three are not interchangeable — an explicit removal is a
+     * positive statement from any run, a snapshot omission is an inference that
+     * only a COMPLETE enumeration licenses, and a TTL expiry is nobody saying
+     * anything for longer than the source's own policy permits. Collapsing them
+     * would make "did this merchant delist, or did our crawler stop" a question
+     * the row cannot answer, which is the first thing an operator opens the
+     * trace to ask.
+     */
+    retirementKind: text({ enum: asEnumValues(CATALOG_SOURCE_RETIREMENT_KINDS) }),
 
     /** How many deliveries have named this object. A poison object climbs it. */
     observationCount: integer().notNull().default(1),
@@ -647,6 +663,24 @@ export const catalogSourceObjects = pgTable(
     check(
       'catalog_source_objects_retired_shape_check',
       sql`(${t.state} = 'retired') = (${t.retiredAt} is not null)`,
+    ),
+    checkOneOf(
+      'catalog_source_objects_retirement_kind_check',
+      t.retirementKind,
+      CATALOG_SOURCE_RETIREMENT_KINDS,
+    ),
+    /**
+     * A retirement states its evidence (#68).
+     *
+     * A biconditional, so neither half can exist alone: a `retired_at` with no
+     * kind is a retirement nobody can account for, and a kind with no
+     * `retired_at` claims an object was retired when it is still live. It is a
+     * `post` statement because the image before #68 wrote the first half and
+     * not the second.
+     */
+    check(
+      'catalog_source_objects_retirement_evidence_check',
+      sql`(${t.retiredAt} is not null) = (${t.retirementKind} is not null)`,
     ),
     /**
      * An object claiming a CURRENT offer must name one.
@@ -761,6 +795,29 @@ export const catalogSourceRuns = pgTable(
     enumerationComplete: boolean().notNull().default(false),
     /** The incremental watermark this pass asked from. */
     since: timestamptz(),
+    /**
+     * WHICH refresh this pass is (#68 scheduler 1).
+     *
+     * Stored rather than derived from `since`, even though the two agree for
+     * every run #62 opened. A `targeted` pass and a `query_driven` pass both
+     * carry a watermark and neither enumerates anything, so `since is null`
+     * cannot tell the four apart — and the one that must not be guessed is
+     * `full_snapshot`, since it is the only mode whose OUTCOME may authorise
+     * retiring what the pass did not see.
+     */
+    refreshMode: text({ enum: asEnumValues(CATALOG_REFRESH_MODES) }).notNull(),
+    /**
+     * The external ids a TARGETED pass was opened for, and nothing else.
+     *
+     * A priority refresh re-reads a named list — eBay's `getItems` takes twenty
+     * ids in one call — and the list has to survive a task dying mid-pass, so it
+     * lives on the run rather than in the dispatcher's memory. Empty for every
+     * whole-source mode, a CHECK.
+     */
+    targetExternalIds: text()
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
 
     // ── The intake partition (issue observability 2) ─────────────────────────
     fetched: integer().notNull().default(0),
@@ -775,6 +832,18 @@ export const catalogSourceRuns = pgTable(
     unmatched: integer().notNull().default(0),
     offersUpserted: integer().notNull().default(0),
     offersRetired: integer().notNull().default(0),
+    /**
+     * Offers retired because the source EXPLICITLY declared them gone (#68).
+     *
+     * A SEPARATE counter from `offers_retired`, which
+     * `catalog_source_runs_retirement_check` reserves for retirements inferred
+     * from a complete enumeration's silence. A removal is a positive statement
+     * and is licensed by any run at all, so putting the two in one column would
+     * either make the CHECK refuse a legitimate deletion notice or make the
+     * CHECK meaningless — and it would leave an operator unable to tell "the
+     * merchant delisted forty items" from "our snapshot missed forty items".
+     */
+    offersRemoved: integer().notNull().default(0),
 
     // ── Fetch statistics (issue observability 1, 7) ──────────────────────────
     fetchCount: integer().notNull().default(0),
@@ -802,6 +871,23 @@ export const catalogSourceRuns = pgTable(
   },
   (t) => [
     checkOneOf('catalog_source_runs_kind_check', t.kind, CATALOG_SOURCE_RUN_KINDS),
+    checkOneOf('catalog_source_runs_refresh_mode_check', t.refreshMode, CATALOG_REFRESH_MODES),
+    /**
+     * A TARGETED pass names objects; every other mode cannot (#68).
+     *
+     * The biconditional matters in both directions: a targeted run with an
+     * empty list would fetch nothing and report a clean pass, and a snapshot
+     * carrying ids would read as targeted while spending a snapshot's quota.
+     */
+    check(
+      'catalog_source_runs_target_shape_check',
+      // `coalesce(array_length(…), 0)`: `array_length` of an EMPTY array is
+      // NULL, so the bare comparison yields `true = NULL` → NULL for a targeted
+      // run with no ids, and a CHECK rejects only FALSE — the row this
+      // constraint exists to refuse would have been admitted. Measured.
+      sql`(${t.refreshMode} = 'targeted')
+          = (coalesce(array_length(${t.targetExternalIds}, 1), 0) >= 1)`,
+    ),
     checkOneOf('catalog_source_runs_status_check', t.status, CATALOG_SOURCE_RUN_STATUSES),
     checkOneOf('catalog_source_runs_outcome_check', t.outcome, CATALOG_SOURCE_HEALTH_STATES),
     check(
@@ -809,6 +895,7 @@ export const catalogSourceRuns = pgTable(
       sql`${t.fetched} >= 0 and ${t.stored} >= 0 and ${t.unchanged} >= 0 and ${t.rejected} >= 0
           and ${t.quarantined} >= 0 and ${t.matched} >= 0 and ${t.reviewRequired} >= 0
           and ${t.unmatched} >= 0 and ${t.offersUpserted} >= 0 and ${t.offersRetired} >= 0
+          and ${t.offersRemoved} >= 0
           and ${t.fetchCount} >= 0 and ${t.fetchDurationMs} >= 0 and ${t.rateLimitHits} >= 0
           and ${t.attempts} >= 0`,
     ),
@@ -828,6 +915,20 @@ export const catalogSourceRuns = pgTable(
       'catalog_source_runs_downstream_bound_check',
       sql`${t.matched} <= ${t.fetched} and ${t.reviewRequired} <= ${t.fetched}
           and ${t.unmatched} <= ${t.fetched} and ${t.offersUpserted} <= ${t.fetched}`,
+    ),
+    /**
+     * #68 — and only a SNAPSHOT could ever be a complete enumeration.
+     *
+     * `enumeration_complete` is the adapter's claim and PROPERTY 2 below is the
+     * outcome's; this is the third leg, about the MODE. An incremental or
+     * targeted pass that set the flag would satisfy both of the others while
+     * having asked the source for a fraction of its catalogue, which is
+     * acceptance 3's failure exactly.
+     */
+    check(
+      'catalog_source_runs_complete_mode_check',
+      sql`not ${t.enumerationComplete}
+          or ${t.refreshMode} in (${sql.raw(inList(CATALOG_SNAPSHOT_REFRESH_MODES))})`,
     ),
     /**
      * PROPERTY 2 — only a COMPLETE enumeration may retire anything.

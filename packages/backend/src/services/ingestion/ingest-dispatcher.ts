@@ -32,6 +32,7 @@
  * There is no second ingestion path for the initial load.
  */
 
+import type { CatalogRefreshMode } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
@@ -80,7 +81,8 @@ async function scheduleDueSources(now: Date): Promise<number> {
 
   let opened = 0;
   for (const source of claimed) {
-    if (resolveCatalogSourceAdapter(source.provider) === undefined) {
+    const adapter = resolveCatalogSourceAdapter(source.provider);
+    if (adapter === undefined) {
       log.general.debug(
         { sourceId: source.sourceId, provider: source.provider },
         '[Ingestion] no adapter registered; source skipped',
@@ -94,6 +96,29 @@ async function scheduleDueSources(now: Date): Promise<number> {
       continue;
     }
 
+    /**
+     * WHICH mode this pass runs in — the adapter's declaration decides (#68
+     * scheduler 1).
+     *
+     * An adapter that cannot enumerate completely never gets `full_snapshot`,
+     * which is the mode whose outcome can authorise retiring what a pass did
+     * not see. An eBay-style Browse adapter is exactly that case: no call it
+     * has enumerates a marketplace, so a snapshot it was scheduled for would
+     * either lie about completeness or retire a catalogue on a search result.
+     *
+     * The fallback is `incremental` and never `full_snapshot`, because the
+     * safe direction on an unclear capability is the mode that retires nothing.
+     */
+    const wantsSnapshot = source.lastSuccessAt === null;
+    const mode: CatalogRefreshMode =
+      wantsSnapshot && adapter.refreshModes.includes('full_snapshot')
+        ? 'full_snapshot'
+        : adapter.refreshModes.includes('incremental')
+          ? 'incremental'
+          : adapter.refreshModes.includes('query_driven')
+            ? 'query_driven'
+            : 'incremental';
+
     // `openSourceRun` converges on the open-run partial unique, so a source
     // whose previous pass is still running gets that pass back rather than a
     // second one. `lastSuccessAt` is the incremental watermark; its absence
@@ -101,7 +126,8 @@ async function scheduleDueSources(now: Date): Promise<number> {
     await openSourceRun(db, {
       sourceId: source.sourceId,
       kind: source.lastSuccessAt === null ? 'backfill' : 'incremental',
-      since: source.lastSuccessAt,
+      refreshMode: mode,
+      since: mode === 'full_snapshot' ? null : source.lastSuccessAt,
       requestedByOxyUserId: null,
       now,
     });

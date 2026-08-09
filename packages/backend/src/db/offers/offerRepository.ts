@@ -49,6 +49,7 @@ import type { DatabaseOrTransaction } from '../postgres.js';
 import { canonicalVariants } from '../schema/canonicalCatalog.js';
 import { offers } from '../schema/offers.js';
 import { storefronts } from '../schema/merchants.js';
+import { sourceRecords } from '../schema/provenance.js';
 
 export type OfferRow = typeof offers.$inferSelect;
 export type InsertOfferInput = typeof offers.$inferInsert;
@@ -161,8 +162,29 @@ export async function upsertExternalOffer(
     .values(values)
     .onConflictDoUpdate({
       target: offers.sourceKey,
-      targetWhere: sql`${offers.status} = 'active' and ${offers.externalOfferId} is not null`,
+      // #68: the arbiter is the LIFETIME identity, not the active one.
+      //
+      // `offers_active_source_key` was partial on `status = 'active'`, so a
+      // retired offer that the source published again did not conflict and a
+      // SECOND row was inserted for the same external object — acceptance 5's
+      // failure, and one that leaves the observed history split across two
+      // rows with no way to rejoin them. `offers_source_identity_key` drops the
+      // status from the predicate, so an external offer is one row for its
+      // whole life and a return is an UPDATE.
+      targetWhere: sql`${offers.externalOfferId} is not null
+        and (${offers.retirementReason} is null or ${offers.retirementReason} <> 'superseded')`,
       set: {
+        // THE REVIVAL (#68 acceptance 5). A source republishing an object it
+        // stopped publishing brings the SAME offer back: same id, same
+        // `first_seen_at`, same `source_record_id` chain behind it — so a save,
+        // a price alert or an operator's link still resolves. Minting a fresh
+        // row would satisfy the word "revive" and destroy the thing.
+        status: sql`'active'`,
+        retirementReason: sql`null`,
+        retiredAt: sql`null`,
+        // Cleared on revival: the source is publishing it again, so whatever it
+        // once said about the object being gone is no longer its position.
+        declaredUnavailableAt: sql`null`,
         merchantId: sql`excluded.merchant_id`,
         storefrontId: sql`excluded.storefront_id`,
         sourceRecordId: sql`excluded.source_record_id`,
@@ -344,39 +366,108 @@ export async function retireOffersMissingFromSource(
 }
 
 /**
- * Retire every ACTIVE EXTERNAL offer whose own TTL has passed (issue external
- * rule 3).
+ * Record that a source EXPLICITLY declared these offers' objects gone, and
+ * retire them when its policy says to (#68 acceptance 2).
  *
- * NATIVE offers are deliberately excluded, and the exclusion is the decision
- * rather than an oversight. A native offer's `stale_at` measures how long ago
- * the CONVERGER last touched it, not a source's own validity window — so a
- * dispatcher outage would otherwise delist a healthy catalogue on a clock. The
- * issue scopes this sweep to external sources in as many words, and native
- * staleness is a DISPLAY signal (`stale_observation`) that changes nothing about
- * whether the listing is buyable, which the live checkout derivation answers.
+ * ONE statement, because `offers_source_unavailable_reason_check` ties the
+ * reason to the declaration: writing the reason first would be refused outright,
+ * and writing the declaration first in a separate statement would leave a window
+ * in which an offer is marked unavailable with no retirement anybody asked for.
  *
- * Bounded and resumable by construction: it takes a `limit` and orders by the
- * deadline, so a sweep over a backlog makes progress in chunks a lease can
- * finish rather than in one statement that holds locks for minutes.
+ * `retire` comes from the source's own freshness policy
+ * (`retire_on_source_unavailable`), which defaults TRUE — eBay's licence
+ * requires deleting content once a listing is no longer publicly available, and
+ * retaining something a source says is gone is the direction that breaks a
+ * contract rather than a page. A source whose policy says otherwise keeps the
+ * offer ACTIVE with the declaration recorded, and `assessOfferFreshness` reads
+ * `declared_unavailable_at` FIRST — so the offer answers `unavailable` and
+ * leaves comparison either way.
  */
-export async function retireLapsedExternalOffers(
+export async function declareOffersUnavailable(
   db: DatabaseOrTransaction,
-  limit: number,
-  now: Date = new Date(),
+  input: {
+    offerIds: readonly string[];
+    declaredAt: Date;
+    retire: boolean;
+    now: Date;
+  },
 ): Promise<number> {
+  if (input.offerIds.length === 0) return 0;
   const rows = await db
     .update(offers)
-    .set({ status: 'retired', retirementReason: 'source_expired', retiredAt: now })
-    .where(
-      sql`${offers.id} in (
-        select ${offers.id} from ${offers}
-        where ${and(eq(offers.status, 'active'), ne(offers.kind, 'native'), lte(offers.staleAt, now))}
-        order by ${asc(offers.staleAt)}
-        limit ${limit}
-      )`,
-    )
+    .set({
+      declaredUnavailableAt: input.declaredAt,
+      ...(input.retire
+        ? {
+            status: 'retired' as const,
+            retirementReason: 'source_unavailable' as const,
+            retiredAt: input.now,
+          }
+        : {}),
+    })
+    .where(and(inArray(offers.id, [...input.offerIds]), eq(offers.status, 'active')))
     .returning({ id: offers.id });
   return rows.length;
+}
+
+/**
+ * The offers an expiry sweep should CONSIDER — #68's replacement for #57's
+ * blind `retireLapsedExternalOffers`.
+ *
+ * ### Why this returns candidates instead of retiring them
+ *
+ * #57 retired everything past `stale_at` in one statement. #68 cannot: whether
+ * an offer may be retired now depends on its SOURCE's own grace window and on
+ * that source's current health, neither of which is a column on this table and
+ * neither of which a single UPDATE could join without re-implementing the
+ * policy resolution in SQL. A second spelling of the freshness rule is exactly
+ * the disagreement that would let a transient outage delist a catalogue.
+ *
+ * So the repository finds rows whose STORED deadline has passed — indexed,
+ * bounded, resumable — and `expiry-sweep.ts` applies the live policy to each.
+ * The stored deadline is a conservative PRE-FILTER in the same sense the
+ * comparison read's is: it can only offer up fewer candidates than the live
+ * policy would, never more, because it is stamped from the same policy at
+ * observation time.
+ *
+ * NATIVE offers are excluded, and the exclusion is a decision rather than an
+ * oversight (#57's, unchanged): a native offer's `stale_at` measures how long
+ * ago the CONVERGER ran, so sweeping on it would delist a healthy catalogue
+ * during a dispatcher outage.
+ */
+export interface LapsedOfferCandidate {
+  offerId: string;
+  sourceId: string | null;
+  lastSeenAt: Date;
+  observedAt: Date;
+  firstSeenAt: Date;
+  lastConfirmedAt: Date | null;
+  declaredUnavailableAt: Date | null;
+  /** The offer's own stored deadline — the last-resort contract. */
+  staleAt: Date;
+}
+
+export async function listLapsedExternalOfferCandidates(
+  db: DatabaseOrTransaction,
+  input: { limit: number; now: Date },
+): Promise<LapsedOfferCandidate[]> {
+  const rows = await db
+    .select({
+      offerId: offers.id,
+      sourceId: sourceRecords.sourceId,
+      lastSeenAt: offers.lastSeenAt,
+      observedAt: offers.observedAt,
+      firstSeenAt: offers.firstSeenAt,
+      lastConfirmedAt: offers.lastConfirmedAt,
+      declaredUnavailableAt: offers.declaredUnavailableAt,
+      staleAt: offers.staleAt,
+    })
+    .from(offers)
+    .leftJoin(sourceRecords, eq(sourceRecords.id, offers.sourceRecordId))
+    .where(and(eq(offers.status, 'active'), ne(offers.kind, 'native'), lte(offers.staleAt, input.now)))
+    .orderBy(asc(offers.staleAt))
+    .limit(input.limit);
+  return rows;
 }
 
 /** How a comparison read is narrowed and paged. */

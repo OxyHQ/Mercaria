@@ -385,6 +385,22 @@ export const offers = pgTable(
      */
     staleAt: timestamptz().notNull(),
     /**
+     * When the SOURCE ITSELF declared this offer's object gone (#68).
+     *
+     * A positive statement, and therefore evidence from ANY run — an eBay item
+     * that 404s on a targeted re-read, a feed row carrying an explicit deletion
+     * marker. That is what makes it different from `source_disappeared`, which
+     * is INFERRED from absence and is only evidence when the enumeration was
+     * complete (#68 acceptance 2 versus 3).
+     *
+     * It is stored rather than derived because it is a fact somebody told us,
+     * not a deadline against a clock — the same reason `retired_at` is stored
+     * while staleness is not. `assessOfferFreshness` reads it FIRST, so an
+     * offer the source says is gone reads `unavailable` whatever its TTL says,
+     * in the window before the retirement commits.
+     */
+    declaredUnavailableAt: timestamptz(),
+    /**
      * 0–1 machine confidence in the canonical attachment, CHECKed to appear
      * only on rows an external source produced. A native offer is a projection
      * of a row Mercaria already holds and has nothing to be unsure about.
@@ -639,20 +655,68 @@ export const offers = pgTable(
       'offers_confirmed_order_check',
       sql`${t.lastConfirmedAt} is null or ${t.lastConfirmedAt} >= ${t.firstSeenAt}`,
     ),
+    /**
+     * A NATIVE offer has no source that could declare it gone (#68).
+     *
+     * Its lifecycle follows its listing, through the convergence outbox, and a
+     * declaration on one would put a second authority beside `listings.status`
+     * — which is the exact arrangement #57 refused when it made checkout
+     * eligibility a live derivation rather than a column.
+     */
+    check(
+      'offers_declared_unavailable_shape_check',
+      sql`${t.declaredUnavailableAt} is null or ${t.kind} <> 'native'`,
+    ),
+    /**
+     * `source_unavailable` names a declaration, so there must be one (#68).
+     *
+     * Without this the reason would be writable by any path that felt like it,
+     * and the distinction between "the source said so" and "we inferred it from
+     * a snapshot" — which is what an operator opens the trace to check — would
+     * be a convention rather than a fact about the row.
+     */
+    check(
+      'offers_source_unavailable_reason_check',
+      sql`${t.retirementReason} is distinct from 'source_unavailable'
+          or ${t.declaredUnavailableAt} is not null`,
+    ),
 
     /**
-     * ISSUE INDEX 1 — the unique ACTIVE source mapping by provider, source
-     * account and external id.
+     * ISSUE INDEX 1 (#57), NARROWED BY #68 — the unique source mapping by
+     * provider, source account and external id, for the offer's WHOLE LIFE.
      *
      * On the GENERATED key, because Postgres treats NULLs as distinct and a
      * source with no account concept would otherwise be able to register the
      * same external offer id twice. Partial on `external_offer_id is not null`
      * so native offers, which have no external identity at all, do not collide
      * with one another on an all-empty key.
+     *
+     * ### `status = 'active'` was in this predicate and #68 removed it
+     *
+     * With it, a RETIRED offer whose source published the object again did not
+     * conflict — so the upsert inserted a SECOND row for one external object,
+     * splitting its observed history across two ids with nothing to rejoin
+     * them. #68 acceptance 5 asks that a returning offer revive the same
+     * identity, and the only way to make that a property rather than a habit is
+     * for the identity to be unique across the whole life of the row: the
+     * upsert then finds the retired offer and brings it back, keeping its id,
+     * its `first_seen_at` and every link into it.
+     *
+     * ### `superseded` is excluded, and that is what makes the migration safe
+     *
+     * `superseded` already means "a newer offer took this one's active source
+     * mapping" (#57's own vocabulary). Excluding it gives the `post` migration
+     * a way to collapse any pre-existing duplicate WITHOUT deleting a row or
+     * blanking its provenance: the older copies are retired with that reason
+     * and leave the index, which is a decision an operator can read afterwards
+     * rather than a row that vanished.
      */
-    uniqueIndex('offers_active_source_key')
+    uniqueIndex('offers_source_identity_key')
       .on(t.sourceKey)
-      .where(sql`${t.status} = 'active' and ${t.externalOfferId} is not null`),
+      .where(
+        sql`${t.externalOfferId} is not null
+            and (${t.retirementReason} is null or ${t.retirementReason} <> 'superseded')`,
+      ),
     /**
      * ADR 0002 D18's active-offer uniqueness for the NATIVE kind: one active
      * offer per native variant. A second would double the seller in every

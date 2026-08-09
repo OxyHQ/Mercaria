@@ -25,12 +25,13 @@
  * because it could not compile.
  */
 
-import type { CatalogSourceKind } from '@mercaria/shared-types';
+import { CATALOG_REFRESH_MODES, type CatalogRefreshMode, type CatalogSourceKind } from '@mercaria/shared-types';
 import {
   CatalogSourceFetchError,
   type AdapterFetchPage,
   type AdapterFetchRequest,
   type AdapterRecord,
+  type AdapterRemoval,
   type CatalogSourceAdapter,
 } from '../adapter.js';
 
@@ -42,12 +43,25 @@ export interface FixtureBehaviour {
   readonly rateLimitHits?: number;
   /** Report the page as the last of a COMPLETE enumeration. */
   readonly complete?: boolean;
+  /** Objects the source EXPLICITLY declares gone during this page (#68). */
+  readonly removals?: readonly AdapterRemoval[];
 }
 
 export interface FixtureAdapterOptions {
   readonly provider: string;
   readonly kind?: CatalogSourceKind;
   readonly extraction?: boolean;
+  /**
+   * Which refresh modes this fixture declares (#68).
+   *
+   * Defaults to ALL of them, because most tests are about something else and a
+   * fixture that refused three quarters of the scheduler's requests would make
+   * every one of them assert the wrong thing. A test about capability says so
+   * explicitly — which is the fixture rule the module docblock already states,
+   * applied to the one field where "everything" is the convenient default and
+   * "nothing" is the safe one.
+   */
+  readonly refreshModes?: readonly CatalogRefreshMode[];
   /** Pages, in order. The cursor is the index of the NEXT one. */
   readonly pages: readonly (readonly AdapterRecord[])[];
   /** Per-page behaviour, keyed by page index. */
@@ -83,6 +97,7 @@ export function createFixtureAdapter(options: FixtureAdapterOptions): FixtureAda
     provider: options.provider,
     kind: options.kind ?? 'feed',
     extraction: options.extraction ?? false,
+    refreshModes: options.refreshModes ?? CATALOG_REFRESH_MODES,
     requests,
     async fetchPage(request: AdapterFetchRequest): Promise<AdapterFetchPage> {
       requests.push(request);
@@ -103,6 +118,7 @@ export function createFixtureAdapter(options: FixtureAdapterOptions): FixtureAda
 
       return {
         records,
+        ...(behaviour?.removals === undefined ? {} : { removals: behaviour.removals }),
         nextCursor: isLast ? null : String(index + 1),
         complete: behaviour?.complete ?? (isLast && completeOnLastPage),
         fetchDurationMs: 1,

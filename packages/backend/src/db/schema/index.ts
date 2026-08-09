@@ -174,3 +174,14 @@ export * from './supplierOrders';
 // lives on `catalog_source_configs` and not on `catalog_sources` itself —
 // `merchants.ts` already imports `provenance.ts` for its source links.
 export * from './ingestion';
+
+// Source-aware freshness, refresh scheduling and catalogue health (#68) is now
+// the last export, and it follows `./ingestion` for the same reason ingestion
+// follows everything else: it is downstream of it. Its quarantines reference a
+// `catalog_source_runs` row, its policies and leases reference
+// `catalog_sources`, and its tasks reference `offers`. It sits after ingestion
+// rather than inside it because #62 owns "how a record becomes an offer" and
+// this owns "how long that offer is worth showing and when it is re-read" —
+// two lifecycles over one graph, and merging the files would put a scheduler's
+// lease table beside a rights policy.
+export * from './offerFreshness';

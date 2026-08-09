@@ -47,6 +47,11 @@ import type {
   OfferConditionDTO,
   OfferConditionKey,
 } from './condition';
+// TYPE-ONLY, deliberately: `./offer-freshness` imports `OfferAvailability` and
+// `OfferMoney` back from here, and a value import in either direction would
+// make that a real module cycle. Type imports are erased, so the two files can
+// describe each other without either having to be loaded first.
+import type { OfferFreshnessAssessment } from './offer-freshness';
 
 /**
  * An offer's own money.
@@ -128,7 +133,19 @@ export type OfferRetirementReason =
   /** A newer offer took this one's active source mapping. */
   | 'superseded'
   /** A catalog operator retired it by hand, with a reason recorded beside it. */
-  | 'operator';
+  | 'operator'
+  /**
+   * The source EXPLICITLY declared the object gone (#68).
+   *
+   * Distinct from `source_disappeared`, which is inferred from an object's
+   * ABSENCE in a complete snapshot, and that distinction is the whole of #68
+   * acceptance 2 versus 3: an omission is only evidence when the enumeration
+   * was complete, while a positive statement is evidence from any run at all.
+   * It is also a different obligation — eBay's licence requires deleting
+   * content once a listing is no longer publicly available, so the two must not
+   * be collapsed into one reason an operator cannot tell apart afterwards.
+   */
+  | 'source_unavailable';
 
 export const OFFER_RETIREMENT_REASONS: readonly OfferRetirementReason[] = [
   'source_disappeared',
@@ -137,6 +154,7 @@ export const OFFER_RETIREMENT_REASONS: readonly OfferRetirementReason[] = [
   'variant_removed',
   'superseded',
   'operator',
+  'source_unavailable',
 ];
 
 /**
@@ -252,16 +270,23 @@ export const OFFER_QUALITY_SIGNALS: readonly OfferQualitySignal[] = [
 ];
 
 /**
- * How fresh an observation is — DERIVED from `observedAt`/`staleAt` against the
- * clock, never stored.
+ * NOTE ON FRESHNESS — the local `fresh | aging | stale` union that lived here
+ * is GONE, a clean cut taken by #68.
  *
- * The retail-pricing rule, applied to offers: a stored freshness value beside
- * the deadline that determines it is two representations of one fact, and the
- * stored one is wrong for exactly as long as nobody has swept it.
+ * It derived one state from `observedAt` and `staleAt` alone, which cannot
+ * express any of the things a source contract actually says: eBay's obligation
+ * to delete content once a listing is no longer publicly available, a
+ * contractual cache cap that must SHORTEN a lifetime somebody configured, or
+ * the difference between "the source has not answered for an hour" and "the
+ * source said this is gone". It also ran the clock from the last CHANGE rather
+ * than the last CHECK, which expires every stable price on a feed that
+ * republishes the same number daily.
+ *
+ * The vocabulary now lives in `./offer-freshness` as
+ * {@link OfferFreshnessAssessment}, derived against a per-source
+ * {@link SourceFreshnessPolicy} that names the source it was resolved for —
+ * see that module's docblock for why a global TTL is unrepresentable.
  */
-export type OfferFreshnessState = 'fresh' | 'aging' | 'stale';
-
-export const OFFER_FRESHNESS_STATES: readonly OfferFreshnessState[] = ['fresh', 'aging', 'stale'];
 
 /**
  * The seller's relationship to the channel (ADR 0002 D8) — DERIVED from two
@@ -384,30 +409,6 @@ export interface OfferProvenance {
   mayDisplay?: boolean;
   /** Whether showing them requires naming the source. */
   attributionRequired?: boolean;
-}
-
-/**
- * How current an offer is, all of it derived (issue identity 9, commercial 9).
- *
- * `expiresAt` is deliberately the SAME instant as the staleness deadline rather
- * than a second column: the issue asks for an expiry timestamp and the ADR asks
- * for `stale_at`, and they are one fact — the moment the source's terms stop
- * being trustworthy. Two deadlines would need a rule for which one wins.
- */
-export interface OfferFreshness {
-  state: OfferFreshnessState;
-  /** When the source was READ. */
-  observedAt: string;
-  /** The first time this offer was ever seen. */
-  firstSeenAt: string;
-  /** The last time any observation touched it. */
-  lastSeenAt: string;
-  /** The last time the source RE-STATED these exact terms, when it ever did. */
-  lastConfirmedAt?: string;
-  /** When the terms stop being trustworthy — the issue's expiry, the ADR's `staleAt`. */
-  expiresAt: string;
-  /** Whole seconds since `observedAt` at the moment of the derivation. */
-  ageSeconds: number;
 }
 
 /**
@@ -545,7 +546,7 @@ export interface Offer {
   returnPolicy?: OfferReturnPolicy;
 
   provenance: OfferProvenance;
-  freshness: OfferFreshness;
+  freshness: OfferFreshnessAssessment;
   qualitySignals: readonly OfferQualitySignal[];
 
   /** The derived checkout verdict. Always present, and `eligible: false` for every non-native offer. */
@@ -602,57 +603,6 @@ export function deriveOfferSellerRole(
 ): OfferSellerRole {
   if (!sellerMerchantId || !storefrontOperatorMerchantId) return 'unknown';
   return sellerMerchantId === storefrontOperatorMerchantId ? 'direct' : 'marketplace';
-}
-
-/**
- * The fraction of an offer's TTL that must elapse before it reads `aging`.
- *
- * A single boundary would make every offer either fresh or stale, which hides
- * the interval a refresh sweep (#68) exists to act in. Two thirds is a choice,
- * not a measurement, and it is here rather than at the call sites so that
- * changing it changes one number.
- */
-export const OFFER_AGING_FRACTION = 2 / 3;
-
-/**
- * Derive how current an offer is from its own timestamps (never stored).
- *
- * `now` is a parameter rather than a `new Date()` inside, so the derivation is
- * a pure function of its inputs and a test can put the clock exactly on a
- * boundary instead of racing it.
- */
-export function deriveOfferFreshness(
-  input: {
-    observedAt: Date;
-    firstSeenAt: Date;
-    lastSeenAt: Date;
-    lastConfirmedAt?: Date | null;
-    staleAt: Date;
-  },
-  now: Date,
-): OfferFreshness {
-  const observed = input.observedAt.getTime();
-  const stale = input.staleAt.getTime();
-  const current = now.getTime();
-
-  // A TTL that already expired at observation time (a source publishing a past
-  // deadline) has no fresh window at all, so guard the division rather than
-  // letting a zero or negative span produce a fraction nobody can reason about.
-  const span = stale - observed;
-  const agingAt = span > 0 ? observed + span * OFFER_AGING_FRACTION : stale;
-
-  const state: OfferFreshnessState =
-    current >= stale ? 'stale' : current >= agingAt ? 'aging' : 'fresh';
-
-  return {
-    state,
-    observedAt: input.observedAt.toISOString(),
-    firstSeenAt: input.firstSeenAt.toISOString(),
-    lastSeenAt: input.lastSeenAt.toISOString(),
-    ...(input.lastConfirmedAt ? { lastConfirmedAt: input.lastConfirmedAt.toISOString() } : {}),
-    expiresAt: input.staleAt.toISOString(),
-    ageSeconds: Math.max(0, Math.floor((current - observed) / 1000)),
-  };
 }
 
 /**

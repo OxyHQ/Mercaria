@@ -30,7 +30,9 @@ import type {
   OfferConditionKey,
   OfferKind,
   OfferPage,
+  SourceFreshnessPolicy,
 } from '@mercaria/shared-types';
+import { mayAppearInComparison } from '@mercaria/shared-types';
 import {
   mapSourceCondition,
   unmappedOfferCondition,
@@ -50,6 +52,7 @@ import {
 } from '../../db/offers/offerRepository.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 import { readSellerPaymentReadiness } from '../payments/provider-account.service.js';
+import { resolveSourceFreshnessPolicies } from '../offer-freshness/policy.js';
 import { projectOffer, type OfferProjectionContext } from './offer-projection.js';
 
 /** The seller key shape `checkout.service` and the payments seam already share. */
@@ -85,6 +88,10 @@ export async function buildOfferProjectionContext(
   const listingSellerKeys = new Map<string, string>();
   const variantStock = new Map<string, { inventoryTracked: boolean; inventoryAvailable: number }>();
   const sourceRights = new Map<string, { mayDisplay: boolean; attributionRequired: boolean }>();
+  // #68: which SOURCE each observation came from. Gathered in the same join as
+  // the rights, because the freshness contract is keyed on the source and the
+  // offer only stores the observation.
+  const offerSourceIds = new Map<string, string>();
 
   if (listingIds.length > 0) {
     const listingRows = await db
@@ -125,6 +132,7 @@ export async function buildOfferProjectionContext(
     const rightsRows = await db
       .select({
         recordId: sourceRecords.id,
+        sourceId: sourceRecords.sourceId,
         mayDisplay: catalogSources.mayDisplay,
         attributionRequired: catalogSources.attributionRequired,
       })
@@ -136,7 +144,16 @@ export async function buildOfferProjectionContext(
         mayDisplay: row.mayDisplay,
         attributionRequired: row.attributionRequired,
       });
+      offerSourceIds.set(row.recordId, row.sourceId);
     }
+  }
+
+  // #68: one freshness contract per SOURCE on the page, never per offer. A
+  // page carrying forty offers from three feeds resolves three policies.
+  const resolvedPolicies = await resolveSourceFreshnessPolicies([...offerSourceIds.values()], db);
+  const freshnessPolicies = new Map<string, SourceFreshnessPolicy>();
+  for (const [sourceId, resolved] of resolvedPolicies) {
+    freshnessPolicies.set(sourceId, resolved.policy);
   }
 
   // #90: the ruleset row ids the page's offers cite → their VERSION numbers, in
@@ -166,6 +183,8 @@ export async function buildOfferProjectionContext(
     listingSellerKeys,
     variantStock,
     sourceRights,
+    offerSourceIds,
+    freshnessPolicies,
     conditionRulesetVersions,
     sellerReady,
     now,
@@ -246,9 +265,28 @@ export async function listOffers(input: ListOffersInput): Promise<OfferPage> {
 
   const page = rows.slice(0, input.limit);
   const context = await buildOfferProjectionContext(page, now, db);
-  const offers = page.map((row) =>
+  const projected = page.map((row) =>
     projectOffer(row.offer, row.storefrontOperatorMerchantId, context),
   );
+
+  /**
+   * #68 public behaviour 1 and 3 — the LIVE derivation has the last word.
+   *
+   * `stale_at` narrowed the million rows (indexed, cheap, stamped from the same
+   * policy at observation time); this drops anything the source's CURRENT
+   * contract refuses. The two can only disagree after a policy change, and the
+   * intersection is a SUBSET of what the derivation admits — so a contractual
+   * cache cap that shortens a lifetime bites at the next read with no sweep
+   * having run, and the disagreement can never show an expired offer.
+   *
+   * The visible cost is stated rather than hidden: a page may return fewer than
+   * `limit` offers, and the caller follows `nextCursor` exactly as before,
+   * because the cursor is a keyset over the SQL order which this does not
+   * touch.
+   */
+  const offers = input.includeStale === true
+    ? projected
+    : projected.filter((offer) => mayAppearInComparison(offer.freshness));
 
   const last = page[page.length - 1];
   return {

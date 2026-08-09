@@ -1461,6 +1461,47 @@ export interface CatalogIngestionConfig {
   readonly anomalyPriceFactor: number;
 }
 
+/**
+ * #68 — source-aware refresh scheduling, expiry and catalogue health.
+ *
+ * Note what is NOT here, deliberately: there is no default TTL, no default
+ * warning threshold and no default expiry. Every freshness duration is a
+ * property of ONE source and lives on that source's row, and
+ * `services/offer-freshness/policy.ts` imports no configuration at all so the
+ * temptation cannot be acted on — `freshness-isolation.test.ts` fails the build
+ * if it ever is. What lives here is the LOOP's shape: how often it polls, how
+ * many tasks it claims, how long it holds a lease.
+ */
+export interface OfferFreshnessConfig {
+  /** `OFFER_REFRESH_ENABLED` — does the refresh dispatcher run. Gates the LOOP only. */
+  readonly refreshEnabled: boolean;
+  /** How many refresh tasks one dispatcher tick claims. */
+  readonly refreshBatchSize: number;
+  /** How often the refresh dispatcher polls, in milliseconds. */
+  readonly refreshPollIntervalMs: number;
+  /** How long a refresh task lease lasts. Long enough for one provider call. */
+  readonly refreshLeaseMs: number;
+  /** The ceiling on the exponential backoff between refused refresh attempts. */
+  readonly refreshMaxBackoffMs: number;
+  /**
+   * Concurrency and per-minute allowance a source gets when its own config
+   * states none.
+   *
+   * NOT a freshness duration: it is how hard Mercaria may knock, which is a
+   * property of Mercaria's own politeness rather than of any source's contract.
+   * A source that publishes its own limits carries them on
+   * `catalog_source_configs`, and those always win.
+   */
+  readonly defaultRefreshConcurrency: number;
+  readonly defaultRefreshCallsPerMinute: number;
+  /** `OFFER_EXPIRY_SWEEP_ENABLED` — does the expiry sweep run. Gates the LOOP only. */
+  readonly expirySweepEnabled: boolean;
+  /** How many offers one expiry sweep pass may retire. */
+  readonly expirySweepBatchSize: number;
+  /** How often the expiry sweep runs, in milliseconds. */
+  readonly expirySweepIntervalMs: number;
+}
+
 export interface OffersConfig {
   /** `OFFER_MATERIALIZATION_ENABLED` — does the convergence dispatcher run. */
   readonly materializationEnabled: boolean;
@@ -1907,6 +1948,7 @@ export interface AppConfig {
   readonly canonicalRollout: CanonicalRolloutConfig;
   readonly matching: MatchingConfig;
   readonly catalogIngestion: CatalogIngestionConfig;
+  readonly offerFreshness: OfferFreshnessConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
@@ -1975,6 +2017,18 @@ export const config: AppConfig = Object.freeze({
     maxBackoffMs: intEnv('CATALOG_INGESTION_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
     retirementBatchSize: intEnv('CATALOG_INGESTION_RETIREMENT_BATCH_SIZE', 500),
     anomalyPriceFactor: intEnv('CATALOG_INGESTION_ANOMALY_PRICE_FACTOR', 20),
+  }),
+  offerFreshness: Object.freeze({
+    refreshEnabled: boolEnv('OFFER_REFRESH_ENABLED', false),
+    refreshBatchSize: intEnv('OFFER_REFRESH_BATCH_SIZE', 25),
+    refreshPollIntervalMs: intEnv('OFFER_REFRESH_POLL_INTERVAL_MS', 15_000),
+    refreshLeaseMs: intEnv('OFFER_REFRESH_LEASE_MS', 120_000),
+    refreshMaxBackoffMs: intEnv('OFFER_REFRESH_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
+    defaultRefreshConcurrency: intEnv('OFFER_REFRESH_DEFAULT_CONCURRENCY', 2),
+    defaultRefreshCallsPerMinute: intEnv('OFFER_REFRESH_DEFAULT_CALLS_PER_MINUTE', 60),
+    expirySweepEnabled: boolEnv('OFFER_EXPIRY_SWEEP_ENABLED', false),
+    expirySweepBatchSize: intEnv('OFFER_EXPIRY_SWEEP_BATCH_SIZE', 500),
+    expirySweepIntervalMs: intEnv('OFFER_EXPIRY_SWEEP_INTERVAL_MS', 60_000),
   }),
   matching: Object.freeze({
     pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),

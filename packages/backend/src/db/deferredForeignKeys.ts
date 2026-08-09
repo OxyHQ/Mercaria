@@ -1056,4 +1056,13 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'reference — and for `missing_external_id` the column is legitimately NULL, because the ' +
       'record had none.',
   },
+
+  // ── #68, offer freshness and catalogue health ─────────────────────────────
+  //
+  // Three Oxy accounts and nothing else. Every other id in the domain is a real
+  // foreign key — a freshness policy names its source, a refresh task names its
+  // source and (optionally) its offer, a quarantine names its run.
+  { column: 'catalog_source_freshness_policies.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'offer_refresh_tasks.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_source_run_quarantines.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];

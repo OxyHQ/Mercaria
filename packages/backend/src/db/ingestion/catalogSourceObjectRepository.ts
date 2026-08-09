@@ -27,10 +27,11 @@
  * the only thing left and is used alone.
  */
 
-import { and, asc, eq, isNotNull, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, lt, ne, sql } from 'drizzle-orm';
 import type {
   CatalogSourceObjectState,
   CatalogSourceQuarantineReason,
+  CatalogSourceRetirementKind,
   SourceRecordExternalType,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
@@ -268,7 +269,7 @@ export async function releaseSourceObjectQuarantine(
  * re-retiring what the first already did, which is what makes the retirement
  * step idempotent — and the count it reports honest rather than cumulative.
  *
- * The caller is `retireUnseenForRun`, which is reached ONLY through
+ * The caller is `retireUnseen`, which is reached ONLY through
  * `mayRetireUnseen`. This function has no opinion about whether retiring is
  * allowed; asking it to would put the rule in two places.
  */
@@ -290,17 +291,71 @@ export async function listUnseenSourceObjects(
     .limit(input.limit);
 }
 
-/** Stamp one object retired. The row, its history and its offer pointer stay. */
+/**
+ * Stamp one object retired. The row, its history and its offer pointer stay.
+ *
+ * `kind` is REQUIRED, not defaulted, since #68:
+ * `catalog_source_objects_retirement_evidence_check` is a biconditional, so a
+ * caller that omitted it would fail the write rather than store a retirement
+ * nobody can account for. The three kinds are genuinely different evidence —
+ * see the column's docblock — and a default would make the commonest one look
+ * like the answer to a question nobody asked.
+ */
 export async function retireSourceObject(
   db: DatabaseOrTransaction,
-  input: { id: string; now: Date },
+  input: { id: string; kind: CatalogSourceRetirementKind; now: Date },
 ): Promise<boolean> {
   const rows = await db
     .update(catalogSourceObjects)
-    .set({ state: 'retired', retiredAt: input.now })
+    .set({ state: 'retired', retiredAt: input.now, retirementKind: input.kind })
     .where(and(eq(catalogSourceObjects.id, input.id), ne(catalogSourceObjects.state, 'retired')))
     .returning({ id: catalogSourceObjects.id });
   return rows.length === 1;
+}
+
+/**
+ * How many of one source's objects are NOT retired (#68 anomaly 1).
+ *
+ * The denominator the mass-disappearance detector divides by. Counted at the
+ * moment a baseline is captured and STORED beside it, rather than read live at
+ * detection time — a half-finished retirement sweep would otherwise shrink the
+ * denominator between the two reads and make the share look smaller exactly
+ * when a catalogue is vanishing.
+ */
+export async function countActiveSourceObjects(
+  db: DatabaseOrTransaction,
+  sourceId: string,
+): Promise<number> {
+  const rows = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(catalogSourceObjects)
+    .where(
+      and(eq(catalogSourceObjects.sourceId, sourceId), ne(catalogSourceObjects.state, 'retired')),
+    );
+  return rows[0]?.total ?? 0;
+}
+
+/**
+ * The objects one source names, by external id — what an explicit removal
+ * resolves through (#68 acceptance 2).
+ *
+ * Batched, because a page can declare twenty removals and a lookup per removal
+ * would make a deletion notice more expensive than the fetch that carried it.
+ */
+export async function findSourceObjectsByExternalIds(
+  db: DatabaseOrTransaction,
+  input: { sourceId: string; externalIds: readonly string[] },
+): Promise<CatalogSourceObjectRow[]> {
+  if (input.externalIds.length === 0) return [];
+  return db
+    .select()
+    .from(catalogSourceObjects)
+    .where(
+      and(
+        eq(catalogSourceObjects.sourceId, input.sourceId),
+        inArray(catalogSourceObjects.externalId, [...input.externalIds]),
+      ),
+    );
 }
 
 /** One source's objects by state — the review backlog and quarantine board. */
