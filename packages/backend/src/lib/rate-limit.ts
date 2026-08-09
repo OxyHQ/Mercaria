@@ -80,7 +80,17 @@ export type RateLimitScope =
   // they need to check out with. Nothing behind it writes commerce state, and
   // the handler refuses every server-only event type before any database
   // access, so the budget bounds cost rather than risk.
-  | 'analytics-ingest';
+  | 'analytics-ingest'
+  // The merchant product-feed surface (#63 security 7). Its own bucket
+  // (`rl:feed-import:`) so a merchant iterating on a mapping does not spend the
+  // allowance they need to run their shop.
+  | 'feed-import'
+  // The two feed routes that FETCH — preview, validate, upload and sync — on a
+  // much smaller budget (`rl:feed-import-fetch:`). Each causes an outbound
+  // request to a host the MERCHANT chose, so an unmetered surface is a way to
+  // make Mercaria hammer a third party, or to make it download a gigabyte on
+  // demand, repeatedly.
+  | 'feed-import-fetch';
 
 /** The shared, prefixed Redis store for a scope, or `undefined` without Redis. */
 function scopeStore(scope: RateLimitScope): RedisStore | undefined {

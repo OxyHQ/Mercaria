@@ -588,8 +588,32 @@ async function persistOneRecord(args: {
   prices: ObservedPrice[];
   now: Date;
 }): Promise<void> {
-  const { record, run, resolved, freshness, seenInPage, intake, pending, prices, now } = args;
+  const { record, run, resolved, freshness, seenInPage, intake, pending, prices } = args;
   const db = getDb();
+
+  /**
+   * The clock every "seen at" and "confirmed at" stamp is taken from.
+   *
+   * `args.now` is the DISPATCHER TICK's clock, taken before the adapter was
+   * called; `record.observedAt` is when the adapter actually read the record. So
+   * for any adapter that stamps its own read time — which is every real one —
+   * `observedAt` is LATER than `now` by however long the fetch took, and
+   * `catalog_source_objects_seen_order_check` (`last_seen_at >=
+   * first_observed_at`) and `offers_confirmed_order_check` both fail on the
+   * FIRST observation of every object.
+   *
+   * The fixture adapter never showed it because its records carry a fixed date
+   * in the past. #63's importer, which stamps the instant it staged the feed, is
+   * the first real adapter to reach it — and the failure is not cosmetic: the
+   * record is caught, recorded as a `parse_failure` rejection and skipped, so a
+   * feed would ingest NOTHING while reporting a clean run.
+   *
+   * Taking the max is truthful rather than defensive: Mercaria has certainly
+   * seen the object at least as recently as it observed it. The retirement sweep
+   * is unaffected — it compares `last_seen_at` against the RUN's `started_at`,
+   * and a value never earlier than the tick still satisfies it.
+   */
+  const now = record.observedAt > args.now ? record.observedAt : args.now;
   const reject = async (
     reasonCode: CatalogSourceRejectionReason,
     field?: string,

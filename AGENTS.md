@@ -2903,3 +2903,148 @@ SECOND row, and a price alert firing on a price nobody could buy.
   gate both ways), **#63/#65/#66** (the adapters — none registered, so every
   task dead-letters and says why), **#86** (dashboards read
   `readSourceCatalogHealth`; scraping belongs to `oxy-infra`).
+## The universal product-feed importer (#63)
+
+`services/feed-import/` (19 modules + `parse/`) + `db/feedImport/` +
+`db/schema/feedImport.ts` (7 tables) + `services/ingestion/adapters/product-feed.ts`,
+plus `/admin/stores/:storeId/feeds/*` and `/internal/feed-imports/*`. Full
+reference: **`docs/feed-importer.md`**; schema decisions:
+`db/schema/CONVENTIONS.md` §"The universal feed importer (#63)". This is NOT a
+second ingestion pipeline — #62 stays the framework, #58 the matcher, #57 the
+offer. What #63 owns is the step nobody did: how a file of somebody else's rows
+becomes a `NormalizedSourceRecord`.
+
+- **A delta feed can never claim a completed enumeration, and that is the
+  TYPE.** `FeedCompletionVerdict`'s `delta` branch has no `enumeratedFully`
+  member, so there is no `if` to get wrong; #62's retirement rule
+  (`CATALOG_SOURCE_RETIRING_OUTCOMES`) is fed rather than reimplemented. Three
+  things must hold before a completed enumeration is reported — `snapshot` mode,
+  the read reached the END, and this is the last page. **A conditional `304 Not
+  Modified` is NOT an enumeration**: it is the trap conditional requests
+  introduce, and a complete enumeration of zero records retires everything the
+  source has. There is deliberately no DEFAULT delivery mode: the wrong answer
+  either retires a healthy catalogue or leaves delisted products on sale forever.
+- **An object's IDENTITY is frozen, by trigger.**
+  `feed_configurations.identity_key_fields` names the merchant's own key columns
+  and cannot be UPDATEd — re-keying re-mints every object, retires the catalogue
+  behind the old ids, and looks exactly like a seller who replaced their
+  catalogue overnight. Re-keying is a NEW configuration. The join is INJECTIVE
+  (parts escaped before joining), because a collision there is two of a
+  merchant's products sharing one source object.
+- **The importer executes NOTHING a feed or a mapping supplies**, four ways: the
+  disjoint `FEED_FIELD_TRANSFORMS`/`FEED_FORBIDDEN_TRANSFORM_KINDS` unions
+  (`regex_replace` is prohibited — a source-supplied pattern is a small language
+  and a DoS primitive); `feed_field_mappings` has `source_field` XOR
+  `constant_value` plus a closed `transform` and NO fourth column (a fallback
+  chain is a conditional language and is excluded too); `.strict()` schemas
+  refuse an undeclared field rather than stripping it; and a scanned gate with a
+  mutation self-test covers `eval`, `new Function`, `node:vm` and four template
+  engines.
+- **Every cap REFUSES rather than truncating.** A truncated feed is a
+  complete-LOOKING enumeration over half a catalogue, which retires the other
+  half. Decompression bombs are bounded in BOTH dimensions (absolute output AND
+  ratio) because either alone is defeatable.
+- **Path traversal is unrepresentable.** Only a plain file and a single-member
+  gzip are accepted — a gzip member has no entry NAME — and every multi-entry
+  container is refused BY NAME from its magic bytes, so renaming `feed.zip`
+  changes nothing. The merchant's filename is a LABEL; `storage_key` is CSPRNG
+  and is the only thing that reaches the filesystem.
+- **A feed URL is a CREDENTIAL** (Awin's download carries the key in the path),
+  so `feed_url` sits in `protectedColumns.ts` beside `auth_ciphertext`, every
+  projection emits `redactFeedUrl`'s host-only form — including for the store
+  that typed it — and `readFeedVersionSecrets` is the ONE reader, with its caller
+  list pinned at three by a gate. SSRF is `safeFetch` and nothing hand-rolled,
+  HTTPS-only, streamed and bounded.
+- **An error report carries no VALUES.** A record INDEX, an issue code, a
+  severity, a role and the merchant's own column NAME — they have the file, so
+  the index is what they need. The ONE exception is `observed_token`, CHECK-bound
+  to the three issue codes whose values come from a closed external vocabulary
+  AND to sixteen characters of a restricted alphabet.
+- **Validation happens BEFORE normalization and produces a VALUE, never a
+  throw.** Only the mapping layer knows which COLUMN a value came from. This is a
+  documented divergence from #62 contract case 5 — a file importer refuses an
+  invalid row upstream, so the framework has nothing to reject — and the shared
+  suite carries `isolatesInvalidRecordsUpstream` for it.
+- **One pass, staged once, paged afterwards.** #62's page contract fits an API;
+  a file has no page tokens and the dispatcher drives one page per tick, so a
+  million-row feed would be eight hours of held HTTP or a thousand
+  re-downloads. The first page reads the feed ONCE into a local JSONL stage keyed
+  by the feed's own CONTENT DIGEST; a reclaiming task rebuilds it once and
+  resumes only if the digest matches, restarting from zero otherwise (safe —
+  everything downstream converges on a content hash).
+- **Money is read once, in STRING arithmetic** (`Math.round(1.0050 * 100)` is
+  100 and 101 is correct), with the both-separators-present / three-trailing-
+  digits rules stated and their cost admitted. A currency outside
+  `CURRENCY_PRECISION` cannot be converted from major units and is refused BY
+  NAME; the escape hatch is `money_minor_units`.
+- **Suggestions are DATA**: `suggestFeedFieldMappings` has no writer, so "do not
+  apply mappings silently" is the absence of a function. Google Merchant column
+  names are ALIASES, never a claim of protocol compatibility.
+- Merchant surface behind `channels:write` (a feed is a sales channel's
+  inventory arriving by file); the tenant gate is ONE function and answers 404,
+  never 403. Operator surface on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
+  allow-list and READ-ONLY — every write belongs to the store that owns the feed,
+  and pausing a source already exists on `/internal/ingestion`. Two rate-limit
+  buckets, the smaller one for the four routes that fetch. The upload route has
+  NO body parser (`express.raw` buffers) and refuses a JSON content type, because
+  the global parser would have consumed the stream and left an empty feed.
+- Env: `FEED_IMPORT_ENABLED` (gates the adapter registration and the merchant
+  MOUNT, never a durable record; requires `FEED_IMPORT_AUTH_ENCRYPTION_KEY` — its
+  own key, separate from the connector and guest ones) plus nine refusal
+  thresholds. Raise `CATALOG_INGESTION_LEASE_MS` above the largest feed's stage
+  build: the stage is built inside one page.
+- **#63 surfaced and fixed TWO #62 bugs the fixture adapter could not show**,
+  both because its records carry a fixed date in the past. (1) The pipeline
+  stamped "seen at" from the dispatcher TICK's clock while `observedAt` comes
+  from the adapter's own read — so `observedAt > now` for every real adapter, and
+  `catalog_source_objects_seen_order_check` / `offers_confirmed_order_check`
+  failed on the FIRST observation of every object, silently, as a per-record
+  `parse_failure`: a feed would ingest NOTHING and report a clean run. Fixed with
+  `max(now, observedAt)` — and it has to be stated in **TWO** places, which is
+  the part worth remembering: #68 split the page loop so the OBJECT is persisted
+  per record (`persistOneRecord`) and the OFFER is materialised per PAGE
+  (`advanceObject` → `recordExternalOffer`), so the two writes no longer share a
+  clock. Fixing only the record half leaves every external offer failing
+  `offers_confirmed_order_check`, which is exactly how the second site was found
+  — on the rebase behind #68, with the first fix already in. (2)
+  `match_policy_versions_active_key` is GLOBAL, so a THIRD claimant made the slot
+  contention fatal — a file inserting a decision whose policy another file had
+  just deleted, and a wait outliving vitest's per-test timeout, both landing on a
+  file that did nothing wrong. Fixed with a real mutex
+  (`services/ingestion/__tests__/active-policy-slot.ts`): a session-level
+  Postgres ADVISORY LOCK on a RESERVED connection, held for the file's whole run
+  — session-level because a file holds the slot across many tests, reserved
+  because a pooled connection returned between statements carries the lock away.
+  BORROWING whichever policy was active was tried first and is wrong: the
+  borrower's decisions reference a row the owner deletes at its own teardown.
+- **What a feed TRANSPORT can do is not what one configured feed MEANS**, and
+  #68's `refreshModes` is where the two meet. The adapter declares
+  `['full_snapshot', 'incremental']` — one static declaration serving both a
+  snapshot and a delta feed, narrowed per source by the policy's
+  `permitted_refresh_modes`, because "this URL publishes deltas" is a fact about
+  that publisher rather than about reading a CSV. Declaring `full_snapshot` is
+  NOT what authorises retiring an omitted record: `complete` is, and it comes
+  from the version's own `FeedCompletionVerdict`, so a delta feed handed a
+  `full_snapshot` run by a misconfigured policy still reports an incomplete pass.
+  Neither `targeted` nor `query_driven` is declared — a feed is one file at one
+  URL, with no call that re-reads a named list of ids. A MANUAL sync reads the
+  active version's delivery mode to name its mode (`manualRefreshModeFor`) and
+  REFUSES when there is no active version, rather than defaulting to the one
+  mode that can retire a catalogue.
+- **The reusable contract another adapter calls is written down**, module by
+  module, in `docs/feed-importer.md` §"The reusable contract another adapter
+  calls" — there is no barrel, because the house rule is to import from the
+  owning module. `bytes.ts` (`boundedBytes` / `decompressBytes` / `decodeText`),
+  `parse/index.ts` (`streamFeedRecords`) and `mapping.ts` (`mapFeedRecord`) are
+  PURE: an `AsyncIterable`, a plain options object, a plain mapping, no
+  database. `ResolvedFeedMapping` holds no row id, so #66 builds one IN MEMORY
+  from an advertiser's declared columns and never touches #63's tables — while
+  `resolve.ts`, `configuration.service.ts`, `report.service.ts` and
+  `preview.service.ts` are the parts it must NOT reuse, because they read a
+  merchant-facing configuration an Awin advertiser has no row in.
+- Deferred with named seams: **#66** (Awin — the contract above), **#65** (eBay,
+  an API), **#37** (the outbound redirect — `affiliate_url` is mapped and
+  stored, nothing composes a
+  tracked URL), **#59**, **#68**, durable upload storage (an upload lives on one
+  task's disk and `feed_uploads.status='missing'` is a real state), and the
+  dashboard mapping screens (every endpoint they need exists).

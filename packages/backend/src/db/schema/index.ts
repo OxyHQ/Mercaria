@@ -185,3 +185,10 @@ export * from './ingestion';
 // two lifecycles over one graph, and merging the files would put a scheduler's
 // lease table beside a rights policy.
 export * from './offerFreshness';
+// The universal product-feed importer (#63) follows `ingestion`, which is not
+// alphabetical and not preference: a feed configuration binds a
+// `catalog_sources` row (so the whole provenance chain must precede it) and a
+// `stores` row (the tenant boundary `channels:write` is checked against). It
+// adds NOTHING to any table above it — the whole migration is additive, which
+// is what makes turning the importer off a flag flip and never a data change.
+export * from './feedImport';

@@ -30,6 +30,7 @@ import channelsRouter from './channels.js';
 import channelIngestRouter from './channel-ingest.js';
 import channelKeysRouter from './channel-keys.js';
 import paymentsRouter from './payments.js';
+import feedsRouter from './feeds.js';
 import feesRouter from './fees.js';
 import analyticsRouter from './analytics.js';
 
@@ -99,6 +100,13 @@ router.use('/:storeId/payments', paymentsRouter);
 // acceptance and fee/net preview. Beside `/payments` and not inside it — the
 // fee is a COMMERCIAL agreement with Mercaria, not a property of any rail.
 router.use('/:storeId/fees', feesRouter);
+// The product-feed importer (#63), behind `channels:write` — a feed is a sales
+// channel's inventory arriving by file, which is the same permission connecting
+// a Shopify shop needs. Deliberately NOT under `/channels`: a connector pushes
+// Mercaria's state to a platform a store operates, and a feed reads somebody
+// else's catalogue in. Collapsing them would put an inbound file behind a
+// surface whose whole vocabulary is outbound.
+router.use('/:storeId/feeds', feedsRouter);
 // Discovery analytics for this store's own offers (#77). Beside `/reports` and
 // deliberately NOT inside it: reports are the ORDER-sourced surface with exact
 // figures, and this is discovery telemetry with privacy thresholds. Merging

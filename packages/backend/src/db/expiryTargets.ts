@@ -84,6 +84,11 @@ import {
   guestRecoveryAttempts,
 } from './schema/guestPortal';
 import { catalogSourceRejections } from './schema/ingestion';
+import {
+  feedImportReportEntries,
+  feedImportReports,
+  feedUploads,
+} from './schema/feedImport';
 import { moderationEvents, moderationOutboxes } from './schema/moderation';
 import { notifications } from './schema/notifications';
 import { paymentOutboxes, paymentProviderEvents } from './schema/payments';
@@ -212,6 +217,39 @@ const ANALYTICS_SALT_RETENTION_SECONDS = 45 * 24 * 60 * 60;
  * the fact that records were rejected.
  */
 const CATALOG_SOURCE_REJECTION_RETENTION_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * A staged upload artefact (#63). Seven days, which is a deliberately SHORT
+ * deadline: the bytes live on one ECS task's own disk, so the row outliving the
+ * file it names is the normal case rather than the exception, and a
+ * three-month-old upload row whose artefact went with the task that received it
+ * is a `missing` refusal waiting to confuse somebody.
+ */
+const FEED_UPLOAD_RETENTION_SECONDS = 7 * 24 * 60 * 60;
+
+/**
+ * A feed import, validation or preview report (#63), 90 days later.
+ *
+ * The report is the evidence an ACTIVE mapping version cites
+ * (`feed_configuration_versions.validated_report_id`), which is why the foreign
+ * key is RESTRICT and why the deadline is generous: an activation nobody can
+ * read the justification for is an activation nobody can review. It is still
+ * bounded, because these are written per pass and a daily feed writes 365 a
+ * year.
+ */
+const FEED_IMPORT_REPORT_RETENTION_SECONDS = 90 * 24 * 60 * 60;
+
+/**
+ * One record's refusal inside a report (#63), 30 days later — deliberately
+ * SHORTER than the report that summarizes it.
+ *
+ * The COUNTS are what an operator reads months later; the per-record detail is
+ * what a merchant downloads this week to fix their file. This table is the only
+ * one in the domain bounded by TRAFFIC rather than by the catalogue: a feed that
+ * starts returning malformed rows writes one row per record per pass, forever,
+ * and a report whose entries have been swept still reports how many there were.
+ */
+const FEED_IMPORT_REPORT_ENTRY_RETENTION_SECONDS = 30 * 24 * 60 * 60;
 
 /**
  * Every table with an expiring column, and nothing else.
@@ -444,6 +482,33 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'append-only transitions, its line outcomes and its tracking trail), so this sweep ' +
       'removes the envelope and never the fact.',
   },
+  {
+    table: feedUploads,
+    column: feedUploads.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'A staged feed upload (#63), seven days after it was received. The bytes it names live ' +
+      'on one task\'s disk and do not survive a deployment, so a long-lived row here would ' +
+      'only ever be a `missing` refusal with a plausible-looking date on it.',
+  },
+  {
+    table: feedImportReports,
+    column: feedImportReports.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'One preview, validation or import pass over a feed (#63), 90 days later. Generous ' +
+      'because an ACTIVE mapping version cites its validating report by foreign key, and an ' +
+      'activation nobody can read the justification for is an activation nobody can review.',
+  },
+  {
+    table: feedImportReportEntries,
+    column: feedImportReportEntries.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'One record a feed pass refused (#63), 30 days later — SHORTER than the report that ' +
+      'counts it, because the counts are what is read months later and the per-record detail ' +
+      'is what a merchant downloads this week. The only #63 table bounded by traffic.',
+  },
 ];
 
 /** Every retention, exported so the writers that stamp `expires_at` agree with the sweep. */
@@ -459,4 +524,7 @@ export const RETENTION_SECONDS = {
   catalogSourceRejection: CATALOG_SOURCE_REJECTION_RETENTION_SECONDS,
   guestRecoveryAttempt: GUEST_RECOVERY_ATTEMPT_RETENTION_SECONDS,
   guestPortalMessage: GUEST_PORTAL_MESSAGE_RETENTION_SECONDS,
+  feedUpload: FEED_UPLOAD_RETENTION_SECONDS,
+  feedImportReport: FEED_IMPORT_REPORT_RETENTION_SECONDS,
+  feedImportReportEntry: FEED_IMPORT_REPORT_ENTRY_RETENTION_SECONDS,
 } as const;

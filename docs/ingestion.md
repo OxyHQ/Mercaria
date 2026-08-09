@@ -456,6 +456,17 @@ global switch and the one an incident actually needs.
   SCENARIO in their own transport and get every case for free. The scenario is
   stated in framework terms rather than HTTP fixtures, so it fits an adapter
   that speaks anything.
+
+  #63's runner added two harness fields, and both are the scenario staying in
+  FRAMEWORK terms rather than quietly meaning "HTTP". `pageSize` exists because a
+  FILE has no page tokens — #63 reads the whole feed once and pages a local stage
+  by record count, so "three pages" can only mean "three records at one per
+  page". `isolatesInvalidRecordsUpstream` exists because a file importer
+  validates BEFORE normalization (it is the only layer that knows which COLUMN a
+  value came from), so an invalid row never becomes an `AdapterRecord` and the
+  framework legitimately has nothing to reject; case 5's PROPERTY — one bad
+  record does not take the page with it — is asserted either way, and what
+  differs is where the refusal is written.
 - **`adapter-contract.test.ts`** — runs it against the fixture provider, which
   is a real adapter over an in-memory feed. Acceptance 1 end to end: records in,
   PostgreSQL observations and matched external offers out.
@@ -474,13 +485,25 @@ global switch and the one an incident actually needs.
 
 Each is a NAMED contract that fails closed, never a stub that lies.
 
-- **#63 / #65 / #66 — the adapters.** No adapter is registered by default. A
-  deployment running this code can configure sources, review their policies and
-  see every run refuse for want of an adapter, which is a seam that fails closed
-  and reports why. `catalog_source_configs.provider` carries a SHAPE check and
-  not a value check for that reason (`offers.provider`'s decision): gating the
-  durable configuration on Mercaria having shipped an adapter would invert "gate
-  the loop, never the record".
+- **#63 — LANDED.** The universal product-feed importer registers the
+  `product_feed` adapter (gated by `FEED_IMPORT_ENABLED`, which gates the LOOP
+  and never the record) and runs this whole contract suite against it over a real
+  CSV — see `docs/feed-importer.md`. It surfaced two bugs in THIS framework that
+  the fixture adapter could not show, both because its records carry a fixed date
+  in the past: `ingestOneRecord` stamped "seen at" from the dispatcher tick while
+  `observedAt` comes from the adapter's own read, so every real adapter failed
+  `catalog_source_objects_seen_order_check` on the first observation of every
+  object — silently, as a per-record `parse_failure`, meaning a feed would ingest
+  NOTHING and report a clean run; and `match_policy_versions_active_key`'s
+  contention became fatal the moment a SECOND contract runner existed, because
+  the suite's wait for the slot outlives vitest's own per-test timeout.
+- **#65 / #66 — the remaining adapters.** Neither is registered. A deployment can
+  configure such a source, review its policy and see every run refuse for want of
+  an adapter, which is a seam that fails closed and reports why.
+  `catalog_source_configs.provider` carries a SHAPE check and not a value check
+  for that reason (`offers.provider`'s decision): gating the durable
+  configuration on Mercaria having shipped an adapter would invert "gate the
+  loop, never the record".
 - **#37 — the outbound/affiliate redirect.** The routing metadata is modelled
   and `destination_url` stays the ORIGINAL; nothing here composes a tracked URL.
 - **#59 — the review UI and corrections.** This framework routes to the queue
@@ -500,7 +523,10 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 1. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or the surface is not mounted and
    nobody can configure a source or review a policy.
-2. At least one adapter registered (#63/#65/#66). Until then every run refuses.
+2. At least one adapter registered. #63's `product_feed` is registered by
+   `FEED_IMPORT_ENABLED=true` (which additionally requires
+   `FEED_IMPORT_AUTH_ENCRYPTION_KEY`); #65 and #66 ship none yet, and until an
+   adapter exists for a source's provider every run refuses.
 3. For each source: a merchant BOUND (no merchant, no offers), a policy version
    published and reviewed, and the status moved to `active`.
 4. `CATALOG_INGESTION_ENABLED=true` only after a source has been drained by hand

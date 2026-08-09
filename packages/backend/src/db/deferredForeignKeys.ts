@@ -1065,4 +1065,28 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'catalog_source_freshness_policies.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'offer_refresh_tasks.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'catalog_source_run_quarantines.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+
+  // ── The universal product-feed importer (#63) ─────────────────────────────
+  //
+  // Five Oxy accounts and one FOREIGN key space — the same split #62 has, and
+  // for the same reasons.
+  { column: 'feed_configurations.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'feed_configuration_versions.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'feed_configuration_versions.activated_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'feed_uploads.uploaded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'feed_import_reports.requested_by_oxy_user_id',
+    reason:
+      OXY_ACCOUNT +
+      ' A scheduled import additionally records the literal `system:feed-import`, because no ' +
+      'Oxy account asked for it and attributing one would be a false audit trail.',
+  },
+  {
+    column: 'feed_import_report_entries.external_id',
+    reason:
+      'The same foreign key space as `catalog_source_objects.external_id`, and one step further ' +
+      'from a Mercaria row: the record was REFUSED before it ever became an observation, so ' +
+      'there is nothing to reference. It is NULL whenever the refusal happened before the ' +
+      'external id could be derived, which is the `missing_required_field` case on a key column.',
+  },
 ];

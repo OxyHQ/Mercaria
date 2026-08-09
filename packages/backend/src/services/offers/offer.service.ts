@@ -385,6 +385,31 @@ export async function recordExternalOffer(
   now: Date = new Date(),
   db: DatabaseOrTransaction = getDb(),
 ): Promise<string> {
+  /**
+   * The clock every "seen at" and "confirmed at" stamp on the OFFER is taken
+   * from — the sibling of `persistOneRecord`'s, one table over.
+   *
+   * `now` is the caller's clock, which for the ingestion path is the dispatcher
+   * TICK's, taken before the adapter was called; `observation.observedAt` is
+   * when the adapter actually read the record. For any adapter that stamps its
+   * own read time — which is every real one — `observedAt` is LATER than `now`
+   * by however long the fetch took, and since `firstSeenAt` is `observedAt`
+   * while these two were the caller's clock, `offers_confirmed_order_check`
+   * (`last_confirmed_at >= first_seen_at`) failed on the FIRST write of every
+   * external offer.
+   *
+   * It is the same fault the object write carries the same correction for, and
+   * it has to be stated in BOTH places: #68 split the page loop so the object is
+   * persisted per record and the offer is materialised per PAGE, so the two
+   * writes no longer share a clock. Fixing only the record half leaves this one
+   * failing, which is how it was found.
+   *
+   * Taking the max is truthful rather than defensive: Mercaria has certainly
+   * seen the offer at least as recently as it observed it. Native convergence is
+   * unaffected — its `observedAt` IS its `now`, so the max is an identity.
+   */
+  const seenAt = observation.observedAt > now ? observation.observedAt : now;
+
   // #90: the taxonomy key is decided by the versioned ruleset, never by the
   // adapter. A rule below the floor produces `unknown` plus a `review_pending`
   // state, so this call is also where "a low-confidence mapping is never
@@ -450,8 +475,8 @@ export async function recordExternalOffer(
     returnPolicyRef: observation.returnPolicy?.policyRef ?? null,
     observedAt: observation.observedAt,
     firstSeenAt: observation.observedAt,
-    lastSeenAt: now,
-    lastConfirmedAt: now,
+    lastSeenAt: seenAt,
+    lastConfirmedAt: seenAt,
     staleAt: observation.staleAt,
     sourceConfidence: observation.confidence ?? null,
     qualitySignals,

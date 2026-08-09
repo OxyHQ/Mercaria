@@ -416,6 +416,17 @@ describe('the registry the sweeper runs over', () => {
       // it is bounded by traffic, while every other one is bounded by the
       // catalogue and is the audit history a rights suspension must not delete.
       'catalog_source_rejections',
+      // #63's THREE, and the split is the retention argument made visible: the
+      // per-record ENTRIES expire first (30 days — a merchant downloads them
+      // this week, and they are the only #63 table bounded by traffic), the
+      // REPORT that counts them outlives them (90 days — an active mapping
+      // version cites one by foreign key), and a staged UPLOAD goes soonest of
+      // all (7 days — the bytes live on one task's disk and do not survive a
+      // deployment, so a long-lived row is a `missing` refusal with a
+      // plausible-looking date on it).
+      'feed_import_report_entries',
+      'feed_import_reports',
+      'feed_uploads',
       'guest_order_access_grants',
       'guest_portal_messages',
       'guest_recovery_attempts',
