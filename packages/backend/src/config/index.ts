@@ -775,6 +775,30 @@ export interface CatalogConfig {
 }
 
 /**
+ * The unified offer model (#57, ADR 0002 D18).
+ *
+ * ONE lever and two tunables. `materializationEnabled` gates the convergence
+ * LOOP and nothing else: catalogue writes keep enqueuing while it is off, so
+ * turning it on drains the backlog rather than stranding it (the
+ * `CROWDSOURCE_ENABLED` rule — gate the loop, never the durable record).
+ *
+ * There is deliberately no flag over the offer TABLES and none over the READ
+ * surface. Rows written while the loop is off stay valid when it turns on, and a
+ * comparison read of an empty offer table is an empty list, which is the honest
+ * answer rather than an error. Nor is there a second flag over checkout: only
+ * `native` offers can reach it structurally, and the verdict is derived live —
+ * so there is no state a flag could protect that the shape does not.
+ */
+export interface OffersConfig {
+  /** `OFFER_MATERIALIZATION_ENABLED` — does the convergence dispatcher run. */
+  readonly materializationEnabled: boolean;
+  /** How many listings one drain claims. */
+  readonly outboxBatchSize: number;
+  /** How often the dispatcher polls, in milliseconds. */
+  readonly outboxPollIntervalMs: number;
+}
+
+/**
  * Merchant claiming (#83). Every value here is a BOUND rather than a feature
  * switch — the claim surface itself is always mounted, because a merchant page
  * that cannot say "claim this" is a dead end for the one person entitled to
@@ -940,6 +964,7 @@ export interface PostgresConfig {
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
+  readonly offers: OffersConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
@@ -968,6 +993,11 @@ export const config: AppConfig = Object.freeze({
     graphOperatorOxyUserIds: Object.freeze(resolveCatalogOperatorIds()),
     graphOperatorSurfaceEnabled: resolveCatalogOperatorIds().length > 0,
     relationshipFourEyesRequired: boolEnv('CATALOG_FOUR_EYES_REQUIRED', true),
+  }),
+  offers: Object.freeze({
+    materializationEnabled: boolEnv('OFFER_MATERIALIZATION_ENABLED', true),
+    outboxBatchSize: intEnv('OFFER_OUTBOX_BATCH_SIZE', 25),
+    outboxPollIntervalMs: intEnv('OFFER_OUTBOX_POLL_INTERVAL_MS', 5_000),
   }),
   merchantClaims: Object.freeze({
     attemptTtlHours: intEnv('MERCHANT_CLAIM_ATTEMPT_TTL_HOURS', 14 * 24),

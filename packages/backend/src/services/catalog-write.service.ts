@@ -68,6 +68,7 @@ import { config } from '../config/index.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 import { getOrCreate as getOrCreateSellerProfile } from './seller-profile.service.js';
+import { requestNativeOfferSync } from './offers/native-offer.service.js';
 
 /** The default variant title for single-variant (P2P) listings. */
 const DEFAULT_VARIANT_TITLE = 'Default Title';
@@ -152,9 +153,26 @@ function toListingImages(imageFileIds: string[]): ListingImageInput[] {
  * Shared by this service and `inventory.service`. Returns nothing: the Mongo
  * version handed back the variant docs so a caller could avoid a re-query, and
  * no caller ever did.
+ *
+ * ## It is also where the native OFFER projection is requested (#57)
+ *
+ * ADR 0002 D18 binds native offers to "the same `catalog-write` chokepoint that
+ * already maintains `syncListingFacets`", and this is that chokepoint: every
+ * create, update, variant change and stock movement in this service and in
+ * `inventory.service` passes through here. The request is a durable outbox row,
+ * not a synchronous rebuild, so a comparison projection can never fail a
+ * catalogue write.
+ *
+ * Two paths deliberately do NOT reach here and call `requestNativeOfferSync`
+ * themselves: {@link archiveListing}, which changes a status without touching a
+ * variant, and moderation enforcement, which lives in another service entirely.
+ * Both are listed here rather than left to be discovered, because a fourth
+ * status-only write path that forgot would leave a listing's offers claiming it
+ * is on sale.
  */
 export async function syncListingFacets(listingId: string): Promise<void> {
   await recomputeListingFacets(listingId);
+  await requestNativeOfferSync(listingId);
 }
 
 /**
@@ -466,12 +484,21 @@ export async function updateListing(
   }
 }
 
-/** Archive a listing (soft-delete). Used by P2P DELETE and store DELETE. */
+/**
+ * Archive a listing (soft-delete). Used by P2P DELETE and store DELETE.
+ *
+ * The offer sync is requested EXPLICITLY here rather than through
+ * `syncListingFacets`, because archiving changes no variant and the facets do
+ * not move — but the listing has stopped being offerable, and an archived
+ * listing that kept a live offer is exactly what issue #57's native rule 5
+ * forbids.
+ */
 export async function archiveListing(listingId: string): Promise<void> {
   const updated = await updateListingColumns(listingId, { status: 'archived' });
   if (!updated) {
     throw notFound('Listing not found');
   }
+  await requestNativeOfferSync(listingId);
 }
 
 /** Add a variant to a store product. Recomputes facets. Returns the variant id. */

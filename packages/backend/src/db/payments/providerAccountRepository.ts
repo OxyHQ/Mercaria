@@ -91,6 +91,44 @@ export async function findProviderAccountByOwner(
 }
 
 /**
+ * Several sellers' accounts on one rail, in ONE query.
+ *
+ * A comparison page (#57) can name twenty sellers, and calling
+ * {@link findProviderAccountByOwner} per seller would make a read of twenty
+ * offers twenty-one round trips. The predicate is an OR of the owner PAIRS
+ * rather than `ownerId IN (…)`, deliberately: an id set alone would match a
+ * store whose id happens to equal an Oxy account id, which is possible because
+ * the two key spaces are minted by different systems and neither is aware of the
+ * other.
+ *
+ * Owners with no account are simply absent from the result — this returns rows,
+ * not a verdict, and the service above decides what absence means.
+ */
+export async function findProviderAccountsByOwners(
+  db: DatabaseOrTransaction,
+  provider: 'stripe',
+  owners: readonly { ownerType: ProviderAccountOwnerType; ownerId: string }[],
+): Promise<ProviderAccountRow[]> {
+  if (owners.length === 0) return [];
+  return db
+    .select()
+    .from(providerAccounts)
+    .where(
+      and(
+        eq(providerAccounts.provider, provider),
+        or(
+          ...owners.map((owner) =>
+            and(
+              eq(providerAccounts.ownerType, owner.ownerType),
+              eq(providerAccounts.ownerId, owner.ownerId),
+            ),
+          ),
+        ),
+      ),
+    );
+}
+
+/**
  * The account a provider event is about.
  *
  * The whole reason `provider_accounts` exists as a table: an inbound

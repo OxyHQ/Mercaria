@@ -61,6 +61,7 @@ import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { planEnforcement, type PlannedEnforcementAction } from './enforcement-plan.js';
 import { notifySellerOfRequestedChanges } from './seller-notification.js';
+import { requestNativeOfferSync } from '../offers/native-offer.service.js';
 
 export interface EnforcementSubject {
   /**
@@ -128,6 +129,16 @@ async function restrictListing(listingId: string): Promise<EffectResult> {
   }
 
   await updateListingColumns(listingId, { status: 'restricted' });
+  /**
+   * The comparison projection is asked to catch up (#57 native rules 2 and 5).
+   *
+   * It is NOT what stops the item being bought — `deriveNativeCheckoutEligibility`
+   * reads `listings.status` live, so the restriction above already did that, in
+   * this statement, with no queue between it and the buyer. This request is so a
+   * product page stops SHOWING the restricted listing among its offers, which is
+   * a display fact and correctly eventual.
+   */
+  await requestNativeOfferSync(listingId);
   return { changed: true, previousState: { listingStatus: listing.status } };
 }
 
@@ -154,6 +165,9 @@ async function requestListingChanges(listingId: string): Promise<EffectResult> {
   }
 
   await updateListingColumns(listingId, { status: 'draft' });
+  // A draft is not offerable either — see `restrictListing` for why this is a
+  // display catch-up and not the thing that stops a sale.
+  await requestNativeOfferSync(listingId);
 
   // Best-effort: a seller who is not told cannot fix the listing, but a
   // notification failure must not undo an enforcement that already committed.
@@ -262,9 +276,14 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
    */
   const restoredStatus: ListingStatus = previous.previousState.listingStatus ?? 'active';
   const restored = await setListingStatusIfIn(subject.id, restoredStatus, ['restricted', 'draft']);
-  return restored
-    ? { changed: true }
-    : { changed: false, reason: 'The listing was neither restricted nor awaiting changes' };
+  if (!restored) {
+    return { changed: false, reason: 'The listing was neither restricted nor awaiting changes' };
+  }
+  // The other direction of the same request: a relisted item has to come BACK
+  // into the comparison surface, and an accepted appeal that left the offer
+  // retired would restore the listing and nothing a shopper can see.
+  await requestNativeOfferSync(subject.id);
+  return { changed: true };
 }
 
 /**
