@@ -182,6 +182,8 @@ function PaymentStep({
   status,
   awaiting,
   error,
+  isGuest,
+  orderNumbers,
   onCompleted,
   onCancelled,
   onFailed,
@@ -191,6 +193,10 @@ function PaymentStep({
   status: CheckoutPaymentStatus["status"];
   awaiting: boolean;
   error: string | null;
+  /** Whether this purchase was placed without an Oxy account (#107 client rule 8). */
+  isGuest: boolean;
+  /** The placed orders' numbers — what a guest keeps instead of a link. */
+  orderNumbers: string[];
   onCompleted: () => void;
   onCancelled: () => void;
   onFailed: (message: string) => void;
@@ -198,15 +204,46 @@ function PaymentStep({
 }) {
   if (status === "succeeded") {
     return (
-      <View className="px-4">
+      // A live region: this screen changes under the buyer while they are not
+      // touching it (the poll answers), so a screen reader has to be told rather
+      // than waiting to be asked.
+      <View className="px-4" accessibilityLiveRegion="polite">
         <SectionHeader title="Payment received" />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
             Thank you. Your order is confirmed and the seller has been notified.
           </Text>
-          <Button onPress={onDone}>
-            <Text className="text-sm font-semibold text-primary-foreground">View your order</Text>
-          </Button>
+          {isGuest ? (
+            /*
+              A guest is NOT sent to `/orders/...`: that route is
+              account-authenticated and would answer 401 for the person who just
+              paid (#107 client rule 8). The secure guest order experience is
+              #108's — a magic-linked, grant-scoped portal — and until it lands
+              the honest thing to hand over is the order number the buyer
+              already holds, which is what a support conversation starts from.
+              Nothing here promises an email or a link that does not yet exist.
+            */
+            <>
+              <View className="rounded-2xl border border-border bg-card p-4">
+                <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {orderNumbers.length > 1 ? "Your order numbers" : "Your order number"}
+                </Text>
+                <Text className="mt-1 text-base font-bold text-foreground" selectable>
+                  {orderNumbers.join("  ·  ")}
+                </Text>
+                <Text className="mt-2 text-sm text-muted-foreground">
+                  Keep this to hand — it identifies your purchase if you need to get in touch.
+                </Text>
+              </View>
+              <Button variant="outline" onPress={onDone}>
+                <Text className="text-sm font-medium text-foreground">Keep shopping</Text>
+              </Button>
+            </>
+          ) : (
+            <Button onPress={onDone}>
+              <Text className="text-sm font-semibold text-primary-foreground">View your order</Text>
+            </Button>
+          )}
         </View>
       </View>
     );
@@ -214,7 +251,7 @@ function PaymentStep({
 
   if (status === "canceled") {
     return (
-      <View className="px-4">
+      <View className="px-4" accessibilityLiveRegion="polite">
         <SectionHeader title="Payment cancelled" />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
@@ -222,7 +259,9 @@ function PaymentStep({
             the shop.
           </Text>
           <Button variant="outline" onPress={onDone}>
-            <Text className="text-sm font-medium text-foreground">Back to your orders</Text>
+            <Text className="text-sm font-medium text-foreground">
+              {isGuest ? "Keep shopping" : "Back to your orders"}
+            </Text>
           </Button>
         </View>
       </View>
@@ -231,7 +270,7 @@ function PaymentStep({
 
   if (awaiting) {
     return (
-      <View className="px-4">
+      <View className="px-4" accessibilityLiveRegion="polite">
         <SectionHeader title="Confirming your payment" />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
@@ -240,7 +279,9 @@ function PaymentStep({
               : "We are confirming this with your bank. Your order is reserved meanwhile."}
           </Text>
           <Button variant="outline" onPress={onDone}>
-            <Text className="text-sm font-medium text-foreground">Check later from your orders</Text>
+            <Text className="text-sm font-medium text-foreground">
+              {isGuest ? "Keep shopping" : "Check later from your orders"}
+            </Text>
           </Button>
         </View>
       </View>
@@ -263,7 +304,11 @@ function PaymentStep({
           <Text className="text-lg font-bold text-foreground">{formatMoney(payment.amount)}</Text>
         </View>
         {error ? (
-          <View className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4">
+          <View
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+            className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4"
+          >
             <Text className="text-sm text-foreground">{error}</Text>
           </View>
         ) : null}
@@ -314,6 +359,8 @@ function CheckoutBody() {
   const [placed, setPlaced] = useState<{
     checkoutGroupId: string;
     firstOrderId: string | undefined;
+    /** What a guest is handed instead of a link they cannot follow (#107). */
+    orderNumbers: string[];
     payment: CheckoutPaymentHandoff;
   } | null>(null);
   const [sheetDone, setSheetDone] = useState(false);
@@ -382,10 +429,23 @@ function CheckoutBody() {
     );
   }
 
-  const goToOrder = (orderId: string | undefined) =>
+  /**
+   * Where a buyer goes when they leave this screen.
+   *
+   * `/orders` is ACCOUNT-authenticated, so a guest is sent to the storefront
+   * instead: routing them to a page that would answer 401 is the "route to the
+   * secure guest order experience rather than an authenticated-only order
+   * route" rule failing closed while #108 builds the portal that replaces this.
+   */
+  const leaveCheckout = (orderId: string | undefined) => {
+    if (!isAuthenticated) {
+      router.replace("/" as Parameters<typeof router.replace>[0]);
+      return;
+    }
     router.replace(
       (orderId ? `/orders/${orderId}` : "/orders") as Parameters<typeof router.replace>[0],
     );
+  };
 
   /** The destination this press will send, or `null` when it is incomplete. */
   const buildDestination = (): CheckoutDestination | null => {
@@ -424,6 +484,13 @@ function CheckoutBody() {
         destination,
         ...(contact.email.length > 0 ? { contact } : {}),
         ...(draft.marketingOptIn ? { marketingOptIn: true } : {}),
+        // The currency the buyer has been reading prices in, echoed back so a
+        // GUEST is charged in it (#107). It leaves as a QUERY parameter, not a
+        // body field — see `postCheckout` — and is ignored server-side for a
+        // signed-in buyer, whose stored preference stays the one authority,
+        // which is why it is sent unconditionally rather than behind an
+        // `isAuthenticated` branch this screen would have to keep in step with.
+        ...(cart?.currency ? { currency: cart.currency } : {}),
         ...(seller ? { sellerKeys: [seller] } : {}),
         ...(discountCode.trim() ? { discountCodes: [discountCode.trim()] } : {}),
       },
@@ -436,7 +503,7 @@ function CheckoutBody() {
           if (!result.payment) {
             idempotencyKey.current = null;
             toast.success("Order placed");
-            goToOrder(first?.id);
+            leaveCheckout(first?.id);
             return;
           }
           setPaymentError(null);
@@ -444,6 +511,7 @@ function CheckoutBody() {
           setPlaced({
             checkoutGroupId: result.checkoutGroupId,
             firstOrderId: first?.id,
+            orderNumbers: result.orders.map((order) => order.orderNumber),
             payment: result.payment,
           });
         },
@@ -465,6 +533,8 @@ function CheckoutBody() {
         status={paymentStatus.data?.status}
         awaiting={sheetDone}
         error={paymentError}
+        isGuest={!isAuthenticated}
+        orderNumbers={placed.orderNumbers}
         onCompleted={() => {
           // The buyer finished the sheet. Nothing is marked paid here — the
           // poll above asks the server, which answers from a verified event.
@@ -474,8 +544,12 @@ function CheckoutBody() {
         onCancelled={() => {
           setPlaced(null);
           setSheetDone(false);
-          toast.info("Your order is reserved. You can pay for it from your orders.");
-          goToOrder(placed.firstOrderId);
+          toast.info(
+            isAuthenticated
+              ? "Your order is reserved. You can pay for it from your orders."
+              : "Your order is reserved for a short while. Check out again to pay for it.",
+          );
+          leaveCheckout(placed.firstOrderId);
         }}
         onFailed={(message) => {
           setSheetDone(false);
@@ -483,7 +557,7 @@ function CheckoutBody() {
         }}
         onDone={() => {
           setPlaced(null);
-          goToOrder(placed.firstOrderId);
+          leaveCheckout(placed.firstOrderId);
         }}
       />
     );

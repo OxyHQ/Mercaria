@@ -271,11 +271,18 @@ export const ANALYTICS_DEFERRED_EVENT_TYPES: Readonly<
   // `checkout.controller.ts` can classify an outcome without matching on
   // message text — which is the exact condition #77 recorded as what the seam
   // was waiting for.
-  guest_payment_methods_shown: '#107',
-  guest_payment_method_selected: '#107',
-  guest_payment_action_required: '#107',
-  guest_payment_client_failed: '#107',
-  guest_payment_verified: '#107',
+  // These five were #107's and are #111's. #107 SHIPPED the guest Stripe rail
+  // without them, deliberately: four are facts only a browser or a payment
+  // sheet knows and the storefront has no analytics client, and emitting the
+  // fifth from the payment domain would invert `verified-conversion.ts`'s
+  // one-way seam to duplicate a number `guest_verified_payment_conversion`
+  // already reads from `payments`. The full reasoning, and the contract that
+  // still binds whoever lands them, is on #111's entry in `seams.ts`.
+  guest_payment_methods_shown: '#111',
+  guest_payment_method_selected: '#111',
+  guest_payment_action_required: '#111',
+  guest_payment_client_failed: '#111',
+  guest_payment_verified: '#111',
   guest_order_portal_opened: '#108',
   guest_recovery_requested: '#108',
   guest_recovery_exchanged: '#108',
@@ -441,6 +448,13 @@ export const ANALYTICS_REASON_CODES = [
   'guest_cart_disabled',
   'guest_issuance_disabled',
   'guest_checkout_disabled',
+  // #107's rollout kill switches and the #85 activation seam. Two codes for
+  // five levers: `guest_rollout_blocked` covers platform, market, merchant and
+  // fulfilment because a metric wants "how often did a rollout gate refuse",
+  // and WHICH lever fired is an operational fact that belongs in a log line
+  // beside the operator who set it — not in an event a dashboard slices.
+  'guest_rollout_blocked',
+  'guest_seller_not_activated',
   // Cart merge outcomes (the bounded set #104 already records).
   'merge_completed',
   'merge_already_done',

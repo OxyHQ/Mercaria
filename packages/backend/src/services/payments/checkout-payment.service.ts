@@ -29,10 +29,15 @@ import type {
   CheckoutPaymentHandoff,
   CheckoutPaymentMethod,
   CheckoutPaymentStatus,
+  CheckoutPaymentSurfaceMethod,
   CurrencyCode,
   Money,
 } from '@mercaria/shared-types';
-import { assertSafeMoneyAmount } from '@mercaria/shared-types';
+import {
+  assertSafeMoneyAmount,
+  FORBIDDEN_PAYMENT_METADATA_SUBSTRINGS,
+  PAYMENT_METADATA_KEYS,
+} from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import {
@@ -46,6 +51,7 @@ import {
 } from '../../db/orders/orderRepository.js';
 import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
+import { findGuestCheckoutIdForGroup } from './guest-correlation.js';
 import { ensurePayment } from './payment.service.js';
 import { isResumableProvider } from './provider.js';
 import { resolvePaymentProvider } from './registry.js';
@@ -187,6 +193,15 @@ export async function openCheckoutPayment(input: {
     ...(input.buyerOxyUserId !== undefined ? { buyerOxyUserId: input.buyerOxyUserId } : {}),
   });
 
+  // ADR 0006 G7's third metadata key, read from the group rather than passed in
+  // by the caller. Reading it here is what makes it survive a CONVERGING
+  // replay: `summarizePriorGroup` re-opens a payment for a group it did not
+  // create and has no contact record in hand, so a parameter would be absent
+  // exactly when the metadata has to come out byte-identical.
+  //
+  // `undefined` for an Oxy buyer's group — the ordinary case, not a failure.
+  const guestCheckoutId = await findGuestCheckoutIdForGroup(input.checkoutGroupId);
+
   const result =
     payment.providerObjectId && isResumableProvider(provider)
       ? await provider.resumePayment(payment.providerObjectId)
@@ -200,6 +215,7 @@ export async function openCheckoutPayment(input: {
           paymentId: payment.id,
           checkoutGroupId: input.checkoutGroupId,
           orderIds,
+          ...(guestCheckoutId !== undefined ? { guestCheckoutId } : {}),
         }),
       });
 
@@ -216,13 +232,74 @@ export async function openCheckoutPayment(input: {
   }
 
   const stripe = config.payments.stripe;
+  const returnUrl = checkoutReturnUrl(input.checkoutGroupId);
   return {
     paymentId: payment.id,
     provider: 'stripe',
     clientSecret: result.clientAction.value,
     ...(stripe.publishableKey ? { publishableKey: stripe.publishableKey } : {}),
     amount,
+    methods: checkoutPaymentSurfaces(),
+    ...(returnUrl !== undefined ? { returnUrl } : {}),
   };
+}
+
+/**
+ * Which payment surfaces this deployment permits a client to render — #107's
+ * server-authoritative method eligibility, and the whole of what "authoritative"
+ * means here.
+ *
+ * The server names an UPPER BOUND and the device narrows it. That split is not a
+ * compromise, it is the only correct division of the question: only the browser
+ * knows whether an Apple Pay sheet exists on this machine and only Stripe knows
+ * whether the domain is registered, while only the server knows whether an
+ * operator has switched a wallet off mid-incident. A client cannot ADD a surface
+ * the server withheld — the Express Checkout Element and PaymentSheet are both
+ * configured from this list — and the server cannot force one the device cannot
+ * show.
+ *
+ * Buyer origin is deliberately NOT an input. ADR 0006 G2 puts both actor kinds
+ * on one client component, B11 forbids origin-dependent treatment, and a guest
+ * offered a smaller set of ways to pay than an account holder would be exactly
+ * the second-class checkout ADR 0003 refuses. It takes no arguments at all,
+ * which is the version of that promise a reviewer can check.
+ */
+export function checkoutPaymentSurfaces(): readonly CheckoutPaymentSurfaceMethod[] {
+  return config.payments.stripe.paymentSurfaceMethods;
+}
+
+/**
+ * Where a buyer sent away for authentication comes back to — ADR 0006 G10.
+ *
+ * The group id is appended by the SERVER onto a configured origin, so a client
+ * cannot choose where a bank redirect lands (the `onboardingBaseUrl` reasoning:
+ * a URL built from a request header behind an ALB is an open redirect with a
+ * bank's own first hop in front of it). What it carries is one opaque
+ * server-issued uuid and nothing else — no token, no order number, no contact,
+ * because the return proves nothing and the status endpoint authenticates its
+ * caller separately.
+ *
+ * A malformed configured value produces NO return url rather than a broken one:
+ * `confirmPayment` then runs with `redirect: 'if_required'`, in-frame
+ * authentication still completes, and only a full-redirect challenge fails —
+ * visibly, in front of the buyer. Returning a URL that cannot be parsed would
+ * instead be handed to Stripe and fail inside their sheet.
+ */
+export function checkoutReturnUrl(checkoutGroupId: string): string | undefined {
+  const configured = config.payments.stripe.checkoutReturnUrl;
+  if (configured === undefined) return undefined;
+  try {
+    const url = new URL(configured);
+    url.searchParams.set('checkoutGroupId', checkoutGroupId);
+    return url.toString();
+  } catch {
+    log.general.error(
+      { configured },
+      '[Payments] STRIPE_CHECKOUT_RETURN_URL is not a valid URL; payment authentication will ' +
+        'complete in place and a redirect-only challenge will fail visibly',
+    );
+    return undefined;
+  }
 }
 
 /**
@@ -249,7 +326,8 @@ function groupPresentmentTotal(orders: readonly OrderRecord[]): Money {
 }
 
 /**
- * The rail's metadata for a payment — ADR 0001 D11's contract.
+ * The rail's metadata for a payment — ADR 0001 D11's contract, extended by
+ * ADR 0006 G7 with one guest key.
  *
  * `paymentId` is the correlation the webhook resolver reads, and it is the ONLY
  * one anything depends on. `orderIds` is reconciliation convenience for a person
@@ -259,22 +337,72 @@ function groupPresentmentTotal(orders: readonly OrderRecord[]): Money {
  * `orderCount` is always present, so a reader can tell a dropped list from a
  * single-seller checkout.
  *
- * The ids are SORTED. A repeated call must produce a byte-identical request or
- * the rail rejects the reused idempotency key, and "the order the rows came back
- * in" is not a guarantee worth resting that on.
+ * `guestCheckoutId` appears on a guest-origin payment and nowhere else. It is
+ * the DURABLE Mercaria correlation (ADR 0006 B2) — it outlives the guest
+ * session, it authorizes nothing, and it is deterministic on replay because
+ * `guest_checkouts` is UNIQUE per checkout group. That last property is load
+ * bearing rather than pleasant: a converging retry must compose a byte-identical
+ * request or Stripe rejects the reused idempotency key, and this is the one key
+ * whose value comes from a second table.
+ *
+ * The ids are SORTED, for the same reason: "the order the rows came back in" is
+ * not a guarantee worth resting a reused idempotency key on.
+ *
+ * ## The two gates below are not belt and braces
+ *
+ * They fail differently, which is why both are here. The allow-list catches a
+ * key nobody thought about — a spread, a widened input type, a field added to
+ * this function's parameter object. The forbidden-substring scan catches a key
+ * somebody added ON PURPOSE under a plausible name (`buyerEmail`,
+ * `guestSessionId`, `portalToken`), which the allow-list would also catch but
+ * which a future author might be tempted to "fix" by extending the allow-list.
+ * Extending BOTH, in one diff, to put an email in provider metadata is not
+ * something that happens by accident.
+ *
+ * They throw rather than filtering. A metadata key that should not exist is a
+ * defect in the composition above, and silently dropping it would let the defect
+ * ship — while a payment that refuses to open is a checkout failure somebody
+ * fixes that afternoon.
  */
 function buildPaymentMetadata(input: {
   paymentId: string;
   checkoutGroupId: string;
   orderIds: readonly string[];
+  /** The `guest_checkouts` row id, on a guest-origin group only (G7). */
+  guestCheckoutId?: string;
 }): Record<string, string> {
   const joined = [...input.orderIds].sort().join(',');
-  return {
+  const metadata: Record<string, string> = {
     paymentId: input.paymentId,
     checkoutGroupId: input.checkoutGroupId,
+    ...(input.guestCheckoutId !== undefined ? { guestCheckoutId: input.guestCheckoutId } : {}),
     orderCount: String(input.orderIds.length),
     ...(joined.length <= METADATA_VALUE_MAX_LENGTH ? { orderIds: joined } : {}),
   };
+  assertPaymentMetadataKeys(metadata);
+  return metadata;
+}
+
+/**
+ * Refuse metadata carrying a key ADR 0006 G7 does not name — see
+ * {@link buildPaymentMetadata} for why there are two independent checks.
+ *
+ * Exported so the isolation suite can drive it against composed records rather
+ * than re-deriving the rule, which would be a second copy of it.
+ */
+export function assertPaymentMetadataKeys(metadata: Record<string, string>): void {
+  for (const key of Object.keys(metadata)) {
+    if (!(PAYMENT_METADATA_KEYS as readonly string[]).includes(key)) {
+      throw conflict(`Payment metadata may not carry '${key}'.`);
+    }
+    const lowered = key.toLowerCase();
+    const forbidden = FORBIDDEN_PAYMENT_METADATA_SUBSTRINGS.find((substring) =>
+      lowered.includes(substring),
+    );
+    if (forbidden !== undefined) {
+      throw conflict(`Payment metadata may not carry '${key}'.`);
+    }
+  }
 }
 
 /** Stripe's per-value metadata limit. */

@@ -253,6 +253,13 @@
       "when": 1786279171831,
       "tag": "0035_many_katie_power",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1786281101662,
+      "tag": "0036_easy_stryfe",
+      "breakpoints": true
     }
   ]
 }

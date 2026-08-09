@@ -489,6 +489,13 @@ describe('checkout on the Stripe rail — single seller', () => {
 
     // The handoff carries the client material and NOTHING else (issue #47,
     // backend 7): no charge id, no connected account, no seller identity.
+    //
+    // Exhaustive on purpose, and it earned its keep when #107 added `methods`:
+    // a field appearing in the buyer's handoff has to be a decision somebody
+    // made, not a spread that grew. `methods` is the server-authoritative
+    // payment-surface set (ADR 0006 G2/G14) — a list of what a client may
+    // RENDER, carrying nothing about the buyer, the seller or the charge.
+    // `returnUrl` is absent because this deployment configures no return origin.
     expect(result.payment).toEqual({
       paymentId: payment?.id,
       provider: 'stripe',
@@ -498,6 +505,7 @@ describe('checkout on the Stripe rail — single seller', () => {
         amount: order.totalsGrandTotalPresentmentAmount,
         currency: 'EUR',
       },
+      methods: ['card', 'apple_pay', 'google_pay', 'link'],
     });
   });
 

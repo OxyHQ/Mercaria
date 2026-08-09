@@ -291,8 +291,8 @@ for the same reason it applies to a ledger entry.
 
 | Owner | What is left | What exists now |
 |---|---|---|
-| **#107** | Guest Stripe client surfaces | — |
-| **#108** | `guest_order_access_grants`, magic links, transactional mail, the portal ROUTE | `GuestOrderPortalGrant`'s contract, the grant branch of `authorizeOrderAccess`, `resolveGuestPortalSubject` (returns `null`), `GuestOrderPortalView` and `buildGuestOrderPortalView`, `setGuestCheckoutVerificationStage`'s timestamp |
+| **#107** | LANDED — see below | The Stripe client surfaces, the `guestCheckoutId` metadata key, the rollout kill switches, and the `guest_portal_initialization` outbox row #108 consumes |
+| **#108** | `guest_order_access_grants`, magic links, transactional mail, the portal ROUTE | `GuestOrderPortalGrant`'s contract, the grant branch of `authorizeOrderAccess`, `resolveGuestPortalSubject` (returns `null`), `GuestOrderPortalView` and `buildGuestOrderPortalView`, `setGuestCheckoutVerificationStage`'s timestamp, and #107's durable `guest_portal_initialization` row (keyed on the checkout GROUP, carrying `{checkoutGroupId, guestCheckoutId, orderIds}`) |
 | **#109** | The claim service — the ONLY writer of `claimed_by_oxy_user_id` | The columns, the CHECK, the trigger's two permitted transitions, the claim-aware reads, the review-eligibility guard that becomes one comparison |
 | **#110** | Guest cancellations, returns, support | The claimant's own cancel path (an Oxy account acting on its own order) |
 | **#93** | Pickup validation | `assertPickupLocationEligible`, now refusing with a bounded reason |
@@ -303,3 +303,25 @@ for the same reason it applies to a ledger entry.
 closed; `grantEligibilitiesForClaimedGuestOrder` refuses unconditionally and
 says which issue closes it; `buildGuestOrderPortalView` does real work on an
 already-authorized group and supplies no authorization of its own.
+
+### What #107 handed #108, and what it deliberately did not
+
+On the verified `payment_intent.succeeded` of a guest-origin group, the
+`payment_succeeded` outbox handler enqueues ONE `guest_portal_initialization`
+row, keyed `payment:guest_portal_initialization:<checkoutGroupId>` so a
+redelivered event, a reclaimed lease and a reconciliation sweep re-deriving the
+same success all converge on it. #108 replaces the body of
+`handleGuestPortalInitialization` with the grant mint and the confirmation
+email.
+
+It creates **no access credential**, and that division is a mechanism rather
+than a courtesy: a grant token minted inside payment processing would exist
+while the PaymentIntent's metadata is being composed, and ADR 0006 B4 says no
+token may ever be in a position to reach it. Minting strictly after a verified
+event, from a consumer of this row, makes "it cannot be in metadata" a fact
+about the call graph rather than a rule somebody has to honour.
+
+Until #108 lands, a guest's success screen is honest about what exists: it hands
+over the ORDER NUMBER the buyer already holds and routes them to the storefront
+rather than to `/orders/...`, which is account-authenticated and would answer
+401 to the person who just paid. No email and no link is promised.

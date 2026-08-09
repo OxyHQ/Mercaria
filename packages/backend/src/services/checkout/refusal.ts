@@ -60,6 +60,22 @@ export const CHECKOUT_REFUSAL_REASONS = [
   'destination_incomplete',
   /** ADR 0001 D9: a seller in the cart cannot be paid. */
   'seller_not_payment_ready',
+  /**
+   * #107: an operator has withdrawn guest checkout from this platform, market,
+   * merchant or fulfilment path. ONE reason for all four dimensions on purpose
+   * — which lever fired is an operational fact for a log line, and telling a
+   * buyer's client which dimension of a rollout they fell outside would let it
+   * enumerate the levers by varying one input at a time.
+   */
+  'guest_rollout_blocked',
+  /**
+   * #107: the #85 merchant-activation seam refused. Separate from
+   * `seller_not_payment_ready` because the two say different things about the
+   * same seller — one cannot be PAID, the other has not ACCEPTED — and the
+   * remedies differ (finish Stripe onboarding vs accept the guest-checkout
+   * terms). Collapsing them would send a merchant to the wrong screen.
+   */
+  'guest_seller_not_activated',
 ] as const;
 
 /** One of {@link CHECKOUT_REFUSAL_REASONS}. */

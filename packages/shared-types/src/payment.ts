@@ -468,6 +468,23 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
  *    dashboard refund, an issuer-forced one). It is NOT turned into a local
  *    refund: that would restock goods nobody returned and decrement a customer's
  *    lifetime spend for a decision Mercaria did not take.
+ *
+ * ## `guest_portal_initialization` is a HANDOFF, and the reason it is a row
+ *
+ * ADR 0006 G13: verified payment success on a guest-origin group has to produce
+ * post-purchase access — the `post_checkout` portal grant and the confirmation
+ * email #108 owns. #107 emits this row and creates no credential, and the two
+ * halves of that sentence are the same decision: a grant token minted inside
+ * payment processing would exist while the PaymentIntent's metadata is being
+ * composed, and B4 says no token may ever be in a position to reach it. Minting
+ * strictly AFTER a verified event, from a consumer of this row, is what makes
+ * "it cannot be in metadata" a fact about the call graph rather than a rule
+ * somebody has to remember.
+ *
+ * Its id is derived from the CHECKOUT GROUP, so a redelivered provider event, a
+ * reclaimed lease and a reconciliation sweep re-deriving the same success all
+ * converge on one row — which is what "one secure guest-portal initialization
+ * event" (#107 acceptance 10) means mechanically, rather than one per delivery.
  */
 export type PaymentOutboxEventType =
   | 'payment_succeeded'
@@ -481,7 +498,8 @@ export type PaymentOutboxEventType =
   | 'provider_account_changed'
   | 'refund_failed'
   | 'reversal_failed'
-  | 'refund_unmatched';
+  | 'refund_unmatched'
+  | 'guest_portal_initialization';
 
 /** {@link PaymentOutboxEventType} as the tuple the column types and CHECKs read. */
 export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
@@ -499,6 +517,8 @@ export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
   'refund_failed',
   'reversal_failed',
   'refund_unmatched',
+  // #107's handoff to #108 — see the notes above.
+  'guest_portal_initialization',
 ];
 
 /**
@@ -537,6 +557,104 @@ export type CheckoutPaymentMethod = 'stripe' | 'mock';
 export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = ['stripe', 'mock'];
 
 /**
+ * Which payment SURFACES the server permits for one checkout — ADR 0006 G2/G3
+ * and G14's payment-method row, #107's "method eligibility is server-
+ * authoritative".
+ *
+ * A different question from {@link CheckoutPaymentMethod}, which names the RAIL
+ * a checkout funds through. Every member below rides the one card rail: Apple
+ * Pay and Google Pay are card-based wallets inside Stripe's `card` payment
+ * method type (ADR 0001 D3), and Link surfaces as autofill over the card form
+ * without being a method type of its own (G15). So this tuple decides what a
+ * client may RENDER, never what money does — which is why widening it cannot
+ * change a charge, a transfer, a fee or a ledger entry.
+ *
+ * The set the server names is an upper bound and the device narrows it: only
+ * the browser knows whether an Apple Pay sheet exists on this machine, and only
+ * Stripe knows whether a domain is registered. The two-sided narrowing is the
+ * point — a client cannot ADD a surface the server withheld (which is what
+ * "server-authoritative" buys), and the server cannot force one the device
+ * cannot show.
+ *
+ * Asynchronous methods (SEPA, Klarna, PayPal, Amazon Pay, bank debits) are
+ * deliberately absent and may not be added here: ADR 0001 D3 excludes them
+ * because a method that fails days after `source_transaction` transfers were
+ * requested has no automatic recovery under separate charges and transfers.
+ * Adding one is an ADR, a transfer-timing decision and a migration — not a
+ * member on this tuple.
+ */
+export const CHECKOUT_PAYMENT_SURFACE_METHODS = [
+  'card',
+  'apple_pay',
+  'google_pay',
+  'link',
+] as const;
+
+/** One of {@link CHECKOUT_PAYMENT_SURFACE_METHODS}. */
+export type CheckoutPaymentSurfaceMethod = (typeof CHECKOUT_PAYMENT_SURFACE_METHODS)[number];
+
+/**
+ * Every key a Mercaria-created provider object's metadata may carry — ADR 0006
+ * G7, as a value rather than a paragraph.
+ *
+ * The list is short because it is an ALLOW-list, and it is an allow-list for the
+ * `redact.ts` reason one layer over: a deny-list of forbidden keys is correct
+ * only until somebody adds a field, which is exactly when a sensitive one
+ * appears. Metadata is composed in ONE function from typed server-issued ids,
+ * and {@link FORBIDDEN_PAYMENT_METADATA_SUBSTRINGS} is the second, independent
+ * gate over the same output.
+ *
+ *  - `paymentId` — the correlation the webhook resolver reads, and the only
+ *    load-bearing key.
+ *  - `checkoutGroupId` — the group, equal to the intent's `transfer_group`.
+ *  - `guestCheckoutId` — the durable `guest_checkouts` row id (B2), on
+ *    guest-origin payments only. Deterministic on replay, because the row is
+ *    UNIQUE per checkout group, so a converging retry composes byte-identical
+ *    metadata and the reused idempotency key stays valid.
+ *  - `orderCount` — so a dropped `orderIds` list is distinguishable from N=1.
+ *  - `orderIds` — reconciliation convenience for a person reading the rail's
+ *    dashboard, included only when it fits the provider's value limit.
+ *
+ * What is NOT here is the security property: no guest session id, no token or
+ * token hash of any kind, no email in any form (plaintext, HMAC or redacted),
+ * and no Oxy user id.
+ */
+export const PAYMENT_METADATA_KEYS = [
+  'paymentId',
+  'checkoutGroupId',
+  'guestCheckoutId',
+  'orderCount',
+  'orderIds',
+] as const;
+
+/** One of {@link PAYMENT_METADATA_KEYS}. */
+export type PaymentMetadataKey = (typeof PAYMENT_METADATA_KEYS)[number];
+
+/**
+ * Substrings that may never appear in a metadata KEY — ADR 0006 B4, stated
+ * positively so a test can run it against a real composed record.
+ *
+ * The allow-list above already excludes everything here; this exists because the
+ * two gates fail differently. The allow-list catches a key nobody thought about;
+ * this catches a key somebody deliberately added under a plausible name
+ * (`buyerEmail`, `sessionToken`, `guestSessionId`) and would have to defeat
+ * twice.
+ */
+export const FORBIDDEN_PAYMENT_METADATA_SUBSTRINGS = [
+  'token',
+  'secret',
+  'email',
+  'phone',
+  'session',
+  'hash',
+  'oxyuser',
+  'magic',
+  'portal',
+  'grant',
+  'cart',
+] as const;
+
+/**
  * Everything the buyer's client is given to complete a payment, and NOTHING
  * else (issue #47, backend 7).
  *
@@ -569,4 +687,32 @@ export interface CheckoutPaymentHandoff {
    */
   publishableKey?: string;
   amount: Money;
+  /**
+   * The payment surfaces this checkout may render — #107's server-authoritative
+   * method eligibility.
+   *
+   * Always present and never empty on a handoff: a handoff with nothing to
+   * render is a checkout that cannot be paid, and the server refuses it rather
+   * than returning client material for an empty sheet. See
+   * {@link CHECKOUT_PAYMENT_SURFACE_METHODS} for what the set does and does not
+   * decide — in particular that the device narrows it further and can never
+   * widen it.
+   */
+  methods: readonly CheckoutPaymentSurfaceMethod[];
+  /**
+   * Where a buyer sent away for authentication comes back to — ADR 0006 G10.
+   *
+   * Composed by the SERVER from a configured origin plus this group's id, so a
+   * client cannot choose where a bank redirect lands. Absent when the
+   * deployment has configured no return origin, in which case the web client
+   * confirms with `redirect: 'if_required'` and an authentication that insists
+   * on a full redirect fails visibly rather than landing somewhere unintended.
+   *
+   * It carries the checkout group id and NOTHING else. That id is an opaque
+   * server-issued uuid and is not a credential: knowing it authorizes nothing,
+   * because the status endpoint authenticates the caller separately. The return
+   * itself proves nothing at all — the verified provider event is the authority
+   * (G10), the same posture as onboarding's `return_url` (ADR 0001 D2).
+   */
+  returnUrl?: string;
 }

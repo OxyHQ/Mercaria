@@ -12,6 +12,7 @@
 import type {
   AnalyticsCollectionMode,
   CanonicalReadMode,
+  CheckoutPaymentSurfaceMethod,
   CurrencyCode,
   ModerationEnforcementMode,
 } from '@mercaria/shared-types';
@@ -19,6 +20,7 @@ import {
   ALL_CURRENCY_CODES,
   ANALYTICS_COLLECTION_MODES,
   CANONICAL_READ_MODES,
+  CHECKOUT_PAYMENT_SURFACE_METHODS,
 } from '@mercaria/shared-types';
 import { log } from '../lib/logger.js';
 
@@ -321,6 +323,60 @@ function resolveStripePresentmentCurrencies(): readonly CurrencyCode[] {
     );
   }
   return known;
+}
+
+/**
+ * Split `STRIPE_PAYMENT_SURFACE_METHODS` into the surfaces a client may render
+ * — #107's payment-method kill switch. See {@link StripeConfig.paymentSurfaceMethods}.
+ *
+ * VALIDATED against the closed tuple, for the reason
+ * `resolveStripePresentmentCurrencies` validates its own: a surface Mercaria
+ * does not know is a surface no client can render, so accepting it would put a
+ * value into a handoff that every reader would then have to defend against.
+ *
+ * `card` is re-added whatever the variable says, and that is not a silent
+ * override of an operator's intent — it is the difference between narrowing a
+ * checkout and breaking it. "No card form at all" is `STRIPE_ENABLED=false`,
+ * which also unmounts the webhooks and is a decision with a blast radius; a
+ * method list that could produce it by typo would be an incident lever whose
+ * worst failure is silent.
+ */
+function resolveStripePaymentSurfaceMethods(): readonly CheckoutPaymentSurfaceMethod[] {
+  const raw = process.env.STRIPE_PAYMENT_SURFACE_METHODS?.trim();
+  if (raw === undefined || raw === '') return [...CHECKOUT_PAYMENT_SURFACE_METHODS];
+
+  const configured = raw
+    .split(',')
+    .map((method) => method.trim().toLowerCase())
+    .filter((method) => method !== '');
+
+  const known = configured.filter((method): method is CheckoutPaymentSurfaceMethod =>
+    (CHECKOUT_PAYMENT_SURFACE_METHODS as readonly string[]).includes(method),
+  );
+  const unknown = configured.filter((method) => !(known as readonly string[]).includes(method));
+  if (unknown.length > 0) {
+    log.general.error(
+      { unknown, known },
+      '[Stripe] STRIPE_PAYMENT_SURFACE_METHODS names payment surfaces Mercaria does not know; ' +
+        'they are ignored.',
+    );
+  }
+  return known.includes('card') ? known : ['card', ...known];
+}
+
+/**
+ * Split one of the `GUEST_CHECKOUT_BLOCKED_*` incident levers.
+ *
+ * Upper-cased or not according to what the dimension's values actually are: a
+ * country code is compared upper-case, a seller key and a method name
+ * lower-case. Passing that in rather than normalising both ways is what stops
+ * `store:ABC` and `store:abc` being treated as one seller.
+ */
+function blockedListEnv(name: string, casing: 'upper' | 'lower'): readonly string[] {
+  return strEnv(name, '')
+    .split(',')
+    .map((value) => (casing === 'upper' ? value.trim().toUpperCase() : value.trim().toLowerCase()))
+    .filter((value) => value !== '');
 }
 
 /**
@@ -732,6 +788,44 @@ export interface StripeConfig {
   readonly accountSyncBatchSize: number;
   /** How often the sweep looks for stale accounts. */
   readonly accountSyncIntervalMs: number;
+  /**
+   * Which payment SURFACES a client may render — `STRIPE_PAYMENT_SURFACE_METHODS`,
+   * defaulting to every member of `CHECKOUT_PAYMENT_SURFACE_METHODS`.
+   *
+   * #107's payment-method kill switch, and it is DEPLOYMENT-WIDE rather than
+   * guest-scoped. ADR 0006 G2 puts both actor kinds on one `CardPaymentStep`,
+   * so a wallet whose domain registration lapsed or whose sheet is broken is
+   * broken for everybody — a guest-only lever would be a second answer to one
+   * question, drifting from the first exactly when somebody is using it in an
+   * incident.
+   *
+   * `card` is refused as a removal: a checkout with no way to enter a card is
+   * a checkout nobody can complete, and the lever for that is `STRIPE_ENABLED`.
+   * Narrowing to the empty set therefore cannot happen by typo.
+   *
+   * This can only ever REMOVE a surface. Adding `link` here does not add
+   * Stripe's `link` payment-method TYPE to the adapter's `['card']` constant
+   * (ADR 0006 G15) — Link surfaces as autofill over the card form and every
+   * resulting charge is a card charge.
+   */
+  readonly paymentSurfaceMethods: readonly CheckoutPaymentSurfaceMethod[];
+  /**
+   * Where a buyer sent to their bank for authentication comes back to —
+   * `STRIPE_CHECKOUT_RETURN_URL`, ADR 0006 G10.
+   *
+   * Configured rather than derived from the request, for the reason
+   * `onboardingBaseUrl` is: `req.get('host')` behind an ALB is
+   * attacker-controlled, so a return URL built from it is an open redirect with
+   * a bank's own first hop in front of it.
+   *
+   * Optional, like the onboarding URLs and unlike the webhook secrets. Its
+   * absence has no silent failure mode: `confirmPayment` runs with
+   * `redirect: 'if_required'`, in-frame 3-D Secure still completes, and an
+   * authentication that insists on a full redirect fails visibly in front of
+   * the buyer instead of landing somewhere unintended. Requiring it would take
+   * the whole rail down over a URL typo.
+   */
+  readonly checkoutReturnUrl?: string;
 }
 
 /**
@@ -914,6 +1008,98 @@ export interface GuestConfig {
   readonly sessionIdleDays: number;
   /** Absolute expiry, the `expires_at` column stamped at issuance (D3). */
   readonly sessionAbsoluteDays: number;
+  /**
+   * The guest-checkout rollout kill switches (#107 fraud rule 8, acceptance
+   * 13). See {@link GuestCheckoutRolloutConfig}.
+   */
+  readonly checkoutRollout: GuestCheckoutRolloutConfig;
+}
+
+/**
+ * The independent guest-checkout kill switches — #107 acceptance 13, and every
+ * one of them is a BLOCK list that is empty by default.
+ *
+ * ## Why block lists and not allow lists
+ *
+ * The house convention elsewhere (`CHECKOUT_DESTINATION_COUNTRIES`,
+ * `STRIPE_PRESENTMENT_CURRENCIES`) is an allow-list whose empty value means
+ * unrestricted, and that is right for a market POLICY: the set is small, known
+ * and changes with a business decision. These four are not policy, they are
+ * incident levers, and the two want opposite defaults. Turning one market off
+ * at 3am must be adding one value, not enumerating the thirty that stay on —
+ * and an allow-list with a typo silently switches everything else off, which is
+ * the one failure an incident lever must not have.
+ *
+ * The fourth dimension #107 names — payment method — is deliberately NOT here:
+ * it is `stripe.paymentSurfaceMethods`, deployment-wide, for the reason stated
+ * there.
+ *
+ * ## None of them gates anything durable
+ *
+ * ADR 0006 G17: every lever here is read at the CHECKOUT REQUEST, and by
+ * nothing in the webhook ingress, the outbox, settlement, refunds or
+ * reconciliation. A guest checkout blocked while a PaymentIntent is already
+ * open drains to a terminal state exactly as it would have, and a
+ * `guest-rollout-isolation.test.ts` gate fails the build if a module in those
+ * paths learns to read this config.
+ */
+export interface GuestCheckoutRolloutConfig {
+  /**
+   * `GUEST_CHECKOUT_BLOCKED_PLATFORMS` — `web`, `native`, or both.
+   *
+   * DERIVED from which carriage the guest credential arrived in (ADR 0003 D9:
+   * cookie is web, the `X-Mercaria-Guest-Token` header is native), so it is
+   * server-observed rather than read off a client-supplied name. It is still an
+   * OPERATIONAL lever and not a security boundary — a native client could
+   * present a cookie — which is exactly why every gate that carries security
+   * weight (seller readiness, the P2P exclusion, currency, market) is derived
+   * from server state and none of them is on this list.
+   */
+  readonly blockedPlatforms: readonly string[];
+  /**
+   * `GUEST_CHECKOUT_BLOCKED_MARKETS` — ISO-3166 alpha-2 destination countries.
+   *
+   * Composes with `CHECKOUT_DESTINATION_COUNTRIES` rather than replacing it:
+   * that one is Mercaria's market policy for EVERY buyer, this one withdraws a
+   * market from GUESTS while authenticated checkout there keeps working.
+   */
+  readonly blockedMarkets: readonly string[];
+  /**
+   * `GUEST_CHECKOUT_BLOCKED_SELLER_KEYS` — `store:<id>` / `user:<id>`.
+   *
+   * The merchant dimension. It can only ever REMOVE a seller: there is
+   * deliberately no per-merchant guest OPT-IN list, because ADR 0006 G14
+   * decided guest eligibility is the intersection of the gates that already
+   * exist ("a store payment-ready for Oxy buyers is payment-ready for guests")
+   * and an opt-in list would be a second, drifting answer to the question
+   * `onboarding_state` already answers.
+   */
+  readonly blockedSellerKeys: readonly string[];
+  /**
+   * `GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS` — `standard`, `express`,
+   * `pickup`.
+   *
+   * The fulfilment-path dimension. `pickup` is already refused for every actor
+   * by the #93 seam, so blocking it changes nothing today; it is on the list
+   * because the lever must exist before the path does, not after.
+   */
+  readonly blockedFulfilmentMethods: readonly string[];
+  /**
+   * `GUEST_SELLER_ACTIVATION_REQUIRED` — the #85 seam, default FALSE.
+   *
+   * #85 owns merchant activation readiness and has not landed, so no seller
+   * carries an activation record and nothing can invent one. Turning this ON
+   * therefore refuses EVERY guest checkout, by name, until #85 supplies the
+   * state — which is the fail-closed direction and the whole point of shipping
+   * the lever now: the seam cannot be satisfied by accident, and the day #85
+   * lands its author changes one function body rather than discovering that
+   * guest checkout had been quietly ignoring merchant activation all along.
+   *
+   * OFF by default because that is ADR 0006 G14's decision, not an omission:
+   * at launch there is no per-merchant guest activation concept, and defaulting
+   * this on would refuse a checkout the ADR says is eligible.
+   */
+  readonly sellerActivationRequired: boolean;
 }
 
 export interface PaginationConfig {
@@ -1565,6 +1751,13 @@ export const config: AppConfig = Object.freeze({
       accountSyncStaleAfterMs: intEnv('STRIPE_ACCOUNT_SYNC_STALE_AFTER_MS', 6 * 60 * 60 * 1_000),
       accountSyncBatchSize: intEnv('STRIPE_ACCOUNT_SYNC_BATCH_SIZE', 25),
       accountSyncIntervalMs: intEnv('STRIPE_ACCOUNT_SYNC_INTERVAL_MS', 15 * 60 * 1_000),
+      paymentSurfaceMethods: Object.freeze(resolveStripePaymentSurfaceMethods()),
+      // Spread-when-present, like the onboarding URLs above: absent rather than
+      // `''`, so the handoff omits the field instead of handing a client an
+      // empty string it would confirm a payment against.
+      ...(process.env.STRIPE_CHECKOUT_RETURN_URL?.trim()
+        ? { checkoutReturnUrl: process.env.STRIPE_CHECKOUT_RETURN_URL.trim() }
+        : {}),
     }),
     reconciliation: Object.freeze({
       enabled: boolEnv('PAYMENT_RECONCILIATION_ENABLED', true),
@@ -1587,6 +1780,24 @@ export const config: AppConfig = Object.freeze({
     emailHashKey: strEnv('GUEST_EMAIL_HASH_KEY', ''),
     sessionIdleDays: intEnv('GUEST_SESSION_IDLE_DAYS', 30),
     sessionAbsoluteDays: intEnv('GUEST_SESSION_ABSOLUTE_DAYS', 90),
+    checkoutRollout: Object.freeze({
+      blockedPlatforms: Object.freeze(
+        blockedListEnv('GUEST_CHECKOUT_BLOCKED_PLATFORMS', 'lower'),
+      ),
+      blockedMarkets: Object.freeze(blockedListEnv('GUEST_CHECKOUT_BLOCKED_MARKETS', 'upper')),
+      blockedSellerKeys: Object.freeze(
+        // NOT lower-cased: a seller key embeds a uuid, and folding its case
+        // would make one lever entry match two different sellers.
+        strEnv('GUEST_CHECKOUT_BLOCKED_SELLER_KEYS', '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter((value) => value !== ''),
+      ),
+      blockedFulfilmentMethods: Object.freeze(
+        blockedListEnv('GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS', 'lower'),
+      ),
+      sellerActivationRequired: boolEnv('GUEST_SELLER_ACTIVATION_REQUIRED', false),
+    }),
   }),
   referrals: Object.freeze({
     enabled: resolveReferralsEnabled(),

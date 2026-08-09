@@ -13,8 +13,11 @@
  */
 
 import type { PaymentOutboxRow } from '../../db/payments/paymentOutboxRepository.js';
+import { getDb } from '../../db/postgres.js';
 import { SYSTEM_ACTOR, transition } from '../order.service.js';
+import { findGuestCheckoutIdForGroup } from './guest-correlation.js';
 import { findOrdersInCheckoutGroup, loadOrderForTransition } from './order-linkage.js';
+import { enqueuePaymentEvent, guestPortalInitializationEventId } from './payment-outbox.service.js';
 import { settlePaymentTransfers } from './settlement.service.js';
 import { log } from '../../lib/logger.js';
 
@@ -37,6 +40,9 @@ interface PaymentEventPayload {
   previousState?: string;
   onboardingState?: string;
   reason?: string;
+  /** `guest_portal_initialization`: the durable guest correlation (#107 → #108). */
+  guestCheckoutId?: string;
+  orderIds?: readonly string[];
   /** #49's refund, dispute, transfer and payout events. */
   refundId?: string;
   disputeId?: string;
@@ -69,6 +75,12 @@ function readPayload(event: PaymentOutboxRow): PaymentEventPayload {
     ...(typeof record.sellerKey === 'string' ? { sellerKey: record.sellerKey } : {}),
     ...(typeof record.releasedStatus === 'string'
       ? { releasedStatus: record.releasedStatus }
+      : {}),
+    ...(typeof record.guestCheckoutId === 'string'
+      ? { guestCheckoutId: record.guestCheckoutId }
+      : {}),
+    ...(Array.isArray(record.orderIds)
+      ? { orderIds: record.orderIds.filter((id): id is string => typeof id === 'string') }
       : {}),
     ...(typeof record.accountRowId === 'string' ? { accountRowId: record.accountRowId } : {}),
     ...(typeof record.ownerType === 'string' ? { ownerType: record.ownerType } : {}),
@@ -163,9 +175,99 @@ async function handlePaymentSucceeded(event: PaymentOutboxRow): Promise<void> {
     '[Payments] payment succeeded applied to its orders',
   );
 
+  // BEFORE settlement, deliberately. What this enqueues is the buyer's route
+  // back to an order they have just paid for; settlement is money owed to
+  // sellers. A rail that is refusing transfers must not also be the reason a
+  // buyer cannot find their purchase — the same ordering, and the same reason,
+  // as paying the orders before settling them.
+  await requestGuestPortalInitialization(checkoutGroupId, orders.map((order) => order.id));
+
   if (paymentId) {
     await settlePaymentTransfers(paymentId);
   }
+}
+
+/**
+ * A guest-origin group's payment is verified: hand #108 the durable, idempotent
+ * row it initializes the order portal from — ADR 0006 G13, #107 acceptance 10.
+ *
+ * ## What it deliberately does NOT do
+ *
+ * It creates no access credential. #107 emits the row and #108 mints the
+ * `post_checkout` grant from it, and that division is a mechanism rather than a
+ * courtesy: a grant token minted inside payment processing would EXIST while a
+ * PaymentIntent's metadata is being composed, and ADR 0006 B4 says no token may
+ * ever be in a position to reach it. Minting strictly after a verified event,
+ * from a consumer of this row, makes "it cannot be in metadata" a fact about the
+ * call graph.
+ *
+ * ## Guest-origin is asked as "is there a contact record", not as a status
+ *
+ * `guest_checkouts` is UNIQUE per checkout group and exists for exactly the
+ * groups a guest placed (`orders_buyer_identity_check` refuses a guest order
+ * without one), so its presence IS the origin. Asking that way also produces the
+ * id the payload has to carry, in one read instead of a read plus a join — and
+ * it goes through `guest-correlation.ts`, the one seam that cannot return a
+ * contact value.
+ *
+ * ## A failure here retries the whole event, and that is safe
+ *
+ * The enqueue is the last thing before settlement, the paid transitions above
+ * are skipped on a re-run, and the row's id is derived from the checkout group —
+ * so the retry converges rather than initializing a second portal.
+ */
+async function requestGuestPortalInitialization(
+  checkoutGroupId: string,
+  orderIds: readonly string[],
+): Promise<void> {
+  const guestCheckoutId = await findGuestCheckoutIdForGroup(checkoutGroupId);
+  if (guestCheckoutId === undefined) return;
+
+  const created = await enqueuePaymentEvent(getDb(), {
+    id: guestPortalInitializationEventId(checkoutGroupId),
+    eventType: 'guest_portal_initialization',
+    payload: { checkoutGroupId, guestCheckoutId, orderIds: [...orderIds].sort() },
+  });
+  log.general.info(
+    { checkoutGroupId, guestCheckoutId, created },
+    '[Payments] guest portal initialization requested for a verified guest payment',
+  );
+}
+
+/**
+ * The #108 seam.
+ *
+ * The row is the deliverable #107 owes; the BODY of this handler is #108's. When
+ * it lands, this function mints the `post_checkout` portal grant scoped to the
+ * checkout group and enqueues the confirmation email carrying the magic-link
+ * path — both inside Mercaria, both strictly after the provider event was
+ * verified, neither of them anywhere near the payment's metadata.
+ *
+ * ## Why it completes rather than throwing
+ *
+ * The alternative is tempting: a paid guest order with no portal is a real gap,
+ * and throwing would make it visible as a dead letter. But the gap is not a
+ * fault to be retried — the code that closes it does not exist yet, so every
+ * attempt would fail identically for days before dead-lettering, filling the
+ * operator surface with rows that describe an unfinished issue rather than a
+ * broken deployment. It is logged at `warn` naming the issue, and it cannot be
+ * mistaken for real handling: the durable row is there, the message says what is
+ * missing, and `GUEST_COMMERCE_ENABLED` is off by default until #111's review,
+ * so no production buyer reaches this state before #108 lands.
+ */
+async function handleGuestPortalInitialization(event: PaymentOutboxRow): Promise<void> {
+  const { checkoutGroupId, guestCheckoutId, orderIds } = readPayload(event);
+  log.general.warn(
+    {
+      eventId: event.id,
+      checkoutGroupId,
+      guestCheckoutId,
+      orders: orderIds?.length ?? 0,
+    },
+    '[Payments] a guest payment was verified and its portal initialization is recorded; the ' +
+      'grant and the confirmation email are #108 and are not minted here (ADR 0006 G13)',
+  );
+  return await Promise.resolve();
 }
 
 /**
@@ -518,6 +620,8 @@ export async function runPaymentOutboxEvent(event: PaymentOutboxRow): Promise<vo
       return await handleReversalFailed(event);
     case 'refund_unmatched':
       return await handleRefundUnmatched(event);
+    case 'guest_portal_initialization':
+      return await handleGuestPortalInitialization(event);
     default:
       throw new Error(
         `No handler for payment outbox event type '${String(event.eventType)}' in this version.`,
