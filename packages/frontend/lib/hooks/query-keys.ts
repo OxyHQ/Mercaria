@@ -41,4 +41,25 @@ export const queryKeys = {
     reviews: (id: string, page: number) =>
       ["listings", id, "reviews", page] as const,
   },
+  /**
+   * The SCOPED review reads (#76). Deliberately keyed under `reviews` rather
+   * than under `listings`/`stores`: a product review is not a fact about any
+   * one listing, and a merchant review is not a fact about any one store —
+   * filing them under an entity key would make an invalidation of that entity
+   * silently drop a rating that belongs to a different target.
+   *
+   * Each scope has an `…All` prefix key so a write can invalidate every PAGE of
+   * a target in one call; the per-page keys are separate cache entries, as they
+   * are for the legacy reads.
+   */
+  reviews: {
+    productAll: (canonicalProductId: string) =>
+      ["reviews", "product", canonicalProductId] as const,
+    product: (canonicalProductId: string, page: number) =>
+      ["reviews", "product", canonicalProductId, page] as const,
+    merchantAll: (merchantId: string) => ["reviews", "merchant", merchantId] as const,
+    merchant: (merchantId: string, page: number) =>
+      ["reviews", "merchant", merchantId, page] as const,
+    eligibilities: ["reviews", "eligibilities"] as const,
+  },
 } as const;

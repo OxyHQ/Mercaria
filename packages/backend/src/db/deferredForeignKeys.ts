@@ -186,6 +186,10 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'refunds.seller_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'reviews.author_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'reviews.seller_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'review_eligibilities.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'review_eligibilities.seller_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'review_aggregates.seller_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'review_target_migrations.actor_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'seller_profiles.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'store_members.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'user_preferences.oxy_user_id', reason: OXY_ACCOUNT },
@@ -494,6 +498,36 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'merchant_claim_evidence.oxy_file_id', reason: OXY_FILE },
   { column: 'merchant_claim_evidence.collected_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'merchant_claim_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
+
+  // ── Review scopes (#76) ───────────────────────────────────────────────────
+  //
+  // Every review, eligibility and aggregate target is a REAL reference
+  // (`canonical_products`, `merchants`, `order_items`, `listings`, `stores`) and
+  // is deliberately absent from this list. What is here is the Oxy ids above
+  // plus these two, and neither is a deferral:
+  {
+    column: 'review_eligibilities.claim_id',
+    reason:
+      'The #109 guest-order claim that moved a purchase into an Oxy account. Recorded as a ' +
+      'SEAM: `guest_order_claims` does not exist yet, and until it does the only writer of ' +
+      'this column refuses to run, so no row can carry a value. When #109 lands, this entry ' +
+      'moves to DEFERRED_FOREIGN_KEYS and then to a real .references() — it is here rather ' +
+      'than there because the deferred gate fires on a table NAME appearing in the schema and ' +
+      'nothing has been designed for it to fire on yet.',
+  },
+  {
+    column: 'review_target_migrations.from_target_ref',
+    reason:
+      'The target a review pointed at BEFORE a scope decision. It spans six target key ' +
+      'spaces and must survive a canonical tombstone, so it can name no one table — the ' +
+      'catalog_revisions.entity_id reasoning, in an append-only audit row.',
+  },
+  {
+    column: 'review_target_migrations.to_target_ref',
+    reason:
+      'The target a review points at AFTER a scope decision — the same six key spaces, the ' +
+      'same append-only audit row, the same reason.',
+  },
 
   // ── Procurement (#118): supplier-platform ids, correlations and snapshots ─
   //

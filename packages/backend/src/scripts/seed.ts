@@ -46,13 +46,14 @@ import { categories, listings } from '../db/schema/catalog.js';
 import { STORE_PERMISSIONS, stores } from '../db/schema/stores.js';
 import { orders, refunds } from '../db/schema/orders.js';
 import { draftOrders } from '../db/schema/pos.js';
-import { reviews, sellerProfiles } from '../db/schema/buyers.js';
+import { sellerProfiles } from '../db/schema/buyers.js';
+import { reviews } from '../db/schema/reviews.js';
 import { insertCategory } from '../db/catalog/categoryRepository.js';
 import { findVariantsByListing, type VariantRecord } from '../db/catalog/variantRepository.js';
 import { insertStore, updateStoreColumns } from '../db/stores/storeRepository.js';
 import { insertLocation } from '../db/stores/locationRepository.js';
 import { insertOrder, nextOrderNumber } from '../db/orders/orderRepository.js';
-import { insertReview } from '../db/buyers/reviewRepository.js';
+import { insertReview } from '../db/reviews/reviewRepository.js';
 import {
   adjustSellerSalesCount,
   ensureSellerProfile,
@@ -824,6 +825,12 @@ async function seedReviews(
         rating: review.rating,
         title: review.title,
         body: review.body,
+        // Seeded rows are LEGACY-shaped on purpose: they carry no eligibility,
+        // so they exercise the compatibility window and the classification job
+        // rather than pretending a purchase that never happened.
+        verification: 'unverified',
+        incentiveDisclosure: 'none',
+        classificationState: 'unclassified',
       });
       counts.reviews += 1;
     }

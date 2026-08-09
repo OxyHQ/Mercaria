@@ -10,6 +10,7 @@
  */
 
 import type { Money } from './money';
+import type { StoreRatingSource } from './review';
 
 /** A product as summarized for browse/feed cards. */
 export interface ProductSummary {
@@ -64,6 +65,19 @@ export interface MerchantSummary {
   rating: number;
   /** Number of reviews contributing to `rating`. */
   reviewCount: number;
+  /**
+   * WHERE `rating` and `reviewCount` came from (#76 migration rule 6).
+   *
+   * A native store that resolves to a canonical merchant shows the MERCHANT
+   * aggregate — that is the actor buyers are rating, and the link is what says
+   * the two are the same actor. An unlinked store shows its own legacy
+   * aggregate. Exactly one of the two, resolved by one server function that
+   * holds one value at a time, so a review can never be counted in both.
+   *
+   * Present only on the store DETAIL read; a feed card carries the projected
+   * figures without the provenance, which is why this is optional.
+   */
+  ratingSource?: StoreRatingSource;
   /** Which text tone reads best over this merchant's brand color/cover. */
   textTone: TextTone;
   /** 2–3 featured product thumbnails shown along the bottom of the card. */

@@ -41,7 +41,7 @@ import {
 } from '@mercaria/shared-types';
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
 import { ALL_LISTING_STATUSES } from '@mercaria/shared-types';
-import { REVIEW_STATUSES } from './buyers';
+import { REVIEW_STATUSES } from './reviews';
 
 /** `AbuseReport.localStatus`. */
 export const ABUSE_REPORT_LOCAL_STATUSES: readonly AbuseReportLocalStatus[] = [

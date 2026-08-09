@@ -1075,6 +1075,61 @@ widening on `db/schema/orders.ts`. Schema decisions:
   ones), #107 (the guest Stripe client surfaces and the portal), #108
   (verification, magic links, transactional mail), #109 (claiming), #93
   (pickup), #112 (guest P2P).
+## Review scopes (#76): a rating answers ONE question
+
+`services/reviews/` + `db/reviews/` + `db/schema/reviews.ts` (5 tables). Full
+reference: **`docs/reviews.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"Review scopes (#76)".
+
+- **`ReviewScope` is the QUESTION, `ReviewTargetType` is the COLUMN**, and they
+  are not two representations of one fact: `target_type='listing'` cannot say
+  whether a review is about the product or the condition of one used copy. A
+  CHECK pair ties them, rendered from the one `REVIEW_SCOPE_TARGET_TYPE` map. A
+  NULL scope means the classification job has not decided (or refused).
+- **`reviews` moved from `schema/buyers.ts` to `schema/reviews.ts`; its ID did
+  NOT move.** CrowdSource holds review ids and `moderation_enforcements` is
+  keyed on them, so a new table would have orphaned every open case.
+- **A BRAND rating is unrepresentable in four places** — the disjoint
+  `REVIEW_FORBIDDEN_SCOPES`/`REVIEW_SCOPES` unions, no brand-shaped column in any
+  of the five tables, a refusal that names `brand` instead of saying
+  "unrecognized value", and a scanned gate proving no module in the domain can
+  reach the brand layer. The retail-pricing markup device, reused.
+- **Eligibility's evidence is an ORDER LINE and nothing else.** No email, phone,
+  payment-method, card-fingerprint, session or referral column exists, and
+  `REVIEW_FORBIDDEN_EVIDENCE_SOURCES` names fourteen signals that may never
+  create one — disjoint from the two evidence types, each refused BY NAME.
+  `UNIQUE(order_item_id, oxy_user_id, scope)` makes a claim retry, a replay and
+  two concurrent grants converge on one row.
+- **The #109 guest path FAILS CLOSED.** `grantEligibilitiesForClaimedGuestOrder`
+  publishes the exact contract #109 will call and then refuses unconditionally,
+  because `orders` has no `buyer_origin` (#106) or `claimed_by_oxy_user_id`
+  (#109) to verify against — and a CHECK makes a claimed-guest row without a
+  claim id unrepresentable, so nothing can invent one.
+- **`review_aggregates` is the authority; the entity `rating` columns are
+  PROJECTIONS** written by one function from one derivation. Everything derives
+  and nothing increments, which is what makes the rebuild idempotent — and what
+  lets moderation call it after hiding a review. Verified and unverified never
+  blend: two column pairs, no combined total anywhere to reach for.
+- **A native store's public rating comes from ONE function.**
+  `resolveStoreRatingSource` returns the merchant aggregate OR the legacy store
+  aggregate, never both, so a review cannot reach two public aggregates.
+- **The classification job never guesses.** A legacy listing review becomes
+  `p2p_listing` and NEVER `product` (reading it as one would put "arrived
+  scratched" on the model's quality rating); a store review with no merchant
+  link stays where it is with the missing fact recorded. `unclassified` and
+  `ambiguous` are different states on purpose. Every decision appends to
+  `review_target_migrations`, append-only by trigger.
+- **Moderation is unchanged** — the plan table, its mapping and its tests are
+  untouched. What #76 adds is a re-derive of the scoped aggregate on each side
+  of the status CAS, best-effort because the enforcement has already committed.
+- **Self-review detection is two independent layers** (the order's seller, and
+  ownership of the target), and the refusal is UNIFORM: naming the relation
+  would disclose somebody's store membership. What it cannot see — a second
+  personal account, a friend, an agency — is documented rather than guessed at,
+  because detecting it would mean reading the data this domain excludes.
+- Deferred: #106/#109 (the seam above), #57/#71's `native_listing_links` (a
+  listing resolves to a canonical product only through the identifier collision
+  gate until then), merchant responses, and an HTTP operator surface.
 
 ## CrowdSource moderation: reports, cases, decisions, enforcement
 

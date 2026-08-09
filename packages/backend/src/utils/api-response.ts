@@ -21,15 +21,28 @@ export function sendSuccess<T>(res: Response, data: T, status = 200): void {
   res.status(status).json(body);
 }
 
-/** Send a paginated success response (the `PaginatedResponse<T>` shape). */
+/**
+ * Send a paginated success response (the `PaginatedResponse<T>` shape), with an
+ * optional envelope EXTENSION beside `data` and `pagination`.
+ *
+ * `extra` exists for the case #76 introduced and it is narrow on purpose: a page
+ * whose reader needs a figure derived from the WHOLE set, not from the page. A
+ * scoped review page ships its aggregate there, because a client that averaged
+ * the twelve reviews it received would display a number that is not the target's
+ * rating — and #75's structured data has to mirror the number the page shows.
+ *
+ * It is not a general metadata bag. Anything a caller can compute from `data`
+ * belongs in `data`.
+ */
 export function sendPaginated<T>(
   res: Response,
   data: T[],
   pagination: Pagination,
+  extra?: Readonly<Record<string, unknown>>,
   status = 200,
 ): void {
   const body: PaginatedResponse<T> = { data, pagination };
-  res.status(status).json(body);
+  res.status(status).json(extra ? { ...body, ...extra } : body);
 }
 
 /**

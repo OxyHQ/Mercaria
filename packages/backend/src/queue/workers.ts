@@ -24,6 +24,8 @@ import {
   JOB_LOW_INVENTORY_ALERT,
   JOB_EXPIRE_RESERVATIONS,
   JOB_RECOMPUTE_AGGREGATES_SWEEP,
+  JOB_REBUILD_REVIEW_AGGREGATES,
+  JOB_CLASSIFY_LEGACY_REVIEWS,
   JOB_CONNECTION_BACKFILL,
   JOB_CONNECTION_RECONCILE,
   JOB_WEBHOOK_PROCESS,
@@ -34,6 +36,8 @@ import {
 } from './constants.js';
 import {
   handleRecomputeAggregates,
+  handleReviewClassificationSweep,
+  handleScopedAggregateSweep,
   handleOrderEventNotification,
   handleLowInventoryAlert,
   handleExpireReservations,
@@ -94,6 +98,12 @@ async function processMaintenanceJob(job: Job<MaintenanceJobData>): Promise<void
       return;
     case JOB_RECOMPUTE_AGGREGATES_SWEEP:
       await handleAggregateSweep();
+      return;
+    case JOB_REBUILD_REVIEW_AGGREGATES:
+      await handleScopedAggregateSweep();
+      return;
+    case JOB_CLASSIFY_LEGACY_REVIEWS:
+      await handleReviewClassificationSweep();
       return;
     default:
       throw new UnrecoverableError(`Unknown maintenance job: ${job.name}`);

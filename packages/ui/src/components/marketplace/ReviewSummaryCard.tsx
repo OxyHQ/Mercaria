@@ -29,6 +29,20 @@ export interface ReviewSummaryCardProps {
   reviews: Review[];
   /** Whether the reviews query is still loading (suppresses the empty state). */
   isLoading: boolean;
+  /**
+   * The heading — what these reviews are ABOUT (#76 UI rule 6). Defaults to the
+   * pre-#76 wording so an un-migrated surface keeps rendering, but every call
+   * site in this repo names its scope: "Product reviews", "Seller service",
+   * "Item condition and description".
+   */
+  scopeLabel?: string;
+  /**
+   * Reviews with no purchase behind them, counted SEPARATELY (#76 verification
+   * rule 5). Shown as its own line rather than folded into `total`, because the
+   * whole point of the split is that the two do not carry the same weight — and
+   * a card that summed them would put that decision back in the renderer.
+   */
+  unverified?: { rating: number; count: number };
 }
 
 /**
@@ -43,14 +57,16 @@ export function ReviewSummaryCard({
   distribution,
   reviews,
   isLoading,
+  scopeLabel = "Reviews",
+  unverified,
 }: ReviewSummaryCardProps) {
   return (
     <View className="gap-space-16 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20">
-      <Text className="text-subtitle text-text">Reviews</Text>
+      <Text className="text-subtitle text-text">{scopeLabel}</Text>
 
       {total === 0 && !isLoading ? (
         <Text className="text-bodySmall text-text-tertiary">
-          No reviews yet. Be the first to review this product.
+          {`No ${scopeLabel.toLowerCase()} yet.`}
         </Text>
       ) : (
         <>
@@ -58,10 +74,20 @@ export function ReviewSummaryCard({
           <View className="flex-row gap-space-24">
             <View className="items-start">
               <Text className="text-headerBold text-text">{average.toFixed(1)}</Text>
-              <ReviewStars rating={average} count={total} size={SUMMARY_STAR_SIZE} />
+              <ReviewStars
+                rating={average}
+                count={total}
+                size={SUMMARY_STAR_SIZE}
+                scopeLabel={scopeLabel}
+              />
               <Text className="mt-space-4 text-caption text-text-tertiary">
-                {`${formatReviewCount(total)} ratings`}
+                {`${formatReviewCount(total)} verified ratings`}
               </Text>
+              {unverified && unverified.count > 0 ? (
+                <Text className="mt-space-2 text-caption text-text-tertiary">
+                  {`${formatReviewCount(unverified.count)} unverified · ${unverified.rating.toFixed(1)}`}
+                </Text>
+              ) : null}
             </View>
             <View className="flex-1 justify-center gap-space-4">
               {RATING_BUCKETS.map((bucket) => {
@@ -90,7 +116,7 @@ export function ReviewSummaryCard({
               contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
             >
               {reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+                <ReviewCard key={review.id} review={review} scopeLabel={scopeLabel} />
               ))}
             </ScrollView>
           ) : null}

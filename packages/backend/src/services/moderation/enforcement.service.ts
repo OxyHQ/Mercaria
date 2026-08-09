@@ -52,7 +52,13 @@ import {
   setListingStatusIfIn,
   updateListingColumns,
 } from '../../db/catalog/listingRepository.js';
-import { findReviewById, setReviewStatusIfIn } from '../../db/buyers/reviewRepository.js';
+import {
+  findReviewById,
+  scopedTargetOfReview,
+  setReviewStatusIfIn,
+  type ReviewRecord,
+} from '../../db/reviews/reviewRepository.js';
+import { rebuildScopedAggregate } from '../reviews/review-aggregate.service.js';
 import {
   findFreezableOrderIdsForListing,
   setOrderModerationHold,
@@ -201,7 +207,40 @@ async function hideReview(reviewId: string): Promise<EffectResult> {
   const hidden = await setReviewStatusIfIn(reviewId, 'hidden', ['published']);
   if (!hidden) return { changed: false, reason: 'The review was already hidden' };
 
+  await refreshAggregateForReview(review, 'hide');
+
   return { changed: true, previousState: { reviewStatus: review.status } };
+}
+
+/**
+ * Re-derive the scoped aggregate a review belongs to, after its status moved.
+ *
+ * #76 moderation rule 3: a hidden review leaves the aggregate counts and rating
+ * "through an idempotent rebuild or transactional update". This is the idempotent
+ * rebuild, called at the moment the status changed rather than left to the daily
+ * sweep — a jury hiding a defamatory review and its star still counting for
+ * twenty-four hours is not an acceptable window.
+ *
+ * It runs AFTER the CAS and is deliberately best-effort: the enforcement already
+ * committed, the rebuild is idempotent, and the sweep re-derives it anyway, so a
+ * failure here must not turn a successful takedown into a retryable one that
+ * would re-claim its ledger row. A legacy review with no scope has its
+ * projection maintained by the legacy sweep instead.
+ */
+async function refreshAggregateForReview(
+  review: ReviewRecord,
+  occasion: 'hide' | 'restore',
+): Promise<void> {
+  const target = scopedTargetOfReview(review);
+  if (!target) return;
+  try {
+    await rebuildScopedAggregate(target.scope, target.targetId);
+  } catch (err) {
+    log.moderation.warn(
+      { err, reviewId: review.id, occasion },
+      'Review aggregate rebuild after moderation failed (the sweep will re-derive it)',
+    );
+  }
 }
 
 /**
@@ -257,7 +296,12 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
   if (subject.type === 'review') {
     const restoredStatus = previous.previousState.reviewStatus ?? 'published';
     const restored = await setReviewStatusIfIn(subject.id, restoredStatus, ['hidden']);
-    return restored ? { changed: true } : { changed: false, reason: 'The review was not hidden' };
+    if (!restored) return { changed: false, reason: 'The review was not hidden' };
+    // The review is visible again, so its rating counts again — the same
+    // idempotent rebuild the takedown ran, in the other direction.
+    const review = await findReviewById(subject.id);
+    if (review) await refreshAggregateForReview(review, 'restore');
+    return { changed: true };
   }
 
   /**

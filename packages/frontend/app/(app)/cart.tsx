@@ -17,6 +17,7 @@ import {
 } from "@mercaria/ui";
 import type { CartGroup, CartVendor } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
+import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
 import { useCart, useUpdateCartItem, useRemoveCartItem } from "@/lib/hooks/use-cart";
 import { useGuestCredential } from "@/lib/stores/guest-credential-store";
 import { useFeed } from "@/lib/hooks/use-feed";
@@ -149,7 +150,14 @@ function CartGroupCard({
           </Text>
           {showRating ? (
             <View className="mt-0.5 flex-row items-center gap-1.5">
-              <ReviewStars rating={vendor.rating ?? 0} count={vendor.reviewCount} size={12} />
+              {/* Named scope (#76 UI rule 6): this is the SELLER's service
+                  rating, not a rating of what is in the basket. */}
+              <ReviewStars
+                rating={vendor.rating ?? 0}
+                count={vendor.reviewCount}
+                size={12}
+                scopeLabel={REVIEW_SCOPE_LABELS.merchant}
+              />
               <Text className="text-xs text-muted-foreground">
                 {`${vendor.rating} (${formatReviewCount(vendor.reviewCount ?? 0)})`}
               </Text>

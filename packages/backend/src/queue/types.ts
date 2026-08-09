@@ -106,6 +106,20 @@ export interface LowInventoryAlertJob {
 /** Periodic reservation-sweep job — no payload. */
 export type ExpireReservationsJob = Record<string, never>;
 
+/**
+ * One bounded pass of the scoped review-aggregate rebuild (#76).
+ *
+ * `afterTargetKey` is what makes the pass RESUMABLE: the handler loops until
+ * the sweep reports no more work, so a run with more targets than one batch
+ * still finishes, and a crash mid-run costs one batch.
+ */
+export interface RebuildReviewAggregatesJob {
+  afterTargetKey?: string;
+}
+
+/** One bounded pass of the #76 legacy-review classification. No payload. */
+export type ClassifyLegacyReviewsJob = Record<string, never>;
+
 /** Job names enqueued onto the events queue. */
 export type MarketplaceEventJobName =
   | 'recompute-aggregates'
@@ -113,7 +127,11 @@ export type MarketplaceEventJobName =
   | 'low-inventory-alert';
 
 /** Job names enqueued onto the maintenance (repeatable) queue. */
-export type MaintenanceJobName = 'expire-reservations' | 'recompute-aggregates-sweep';
+export type MaintenanceJobName =
+  | 'expire-reservations'
+  | 'recompute-aggregates-sweep'
+  | 'rebuild-review-aggregates'
+  | 'classify-legacy-reviews';
 
 /** Job names enqueued onto the connector-sync queue. */
 export type MarketplaceSyncJobName =
@@ -142,4 +160,8 @@ export type MarketplaceEventJobData =
   | LowInventoryAlertJob;
 
 /** Union of every maintenance-queue job payload. */
-export type MaintenanceJobData = ExpireReservationsJob | RecomputeAggregatesJob;
+export type MaintenanceJobData =
+  | ExpireReservationsJob
+  | RecomputeAggregatesJob
+  | RebuildReviewAggregatesJob
+  | ClassifyLegacyReviewsJob;

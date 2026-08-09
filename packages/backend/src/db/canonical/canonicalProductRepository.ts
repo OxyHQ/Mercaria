@@ -386,6 +386,32 @@ export async function repointCanonicalProductSourceLinks(
     .where(eq(canonicalProductSourceLinks.productId, loserId));
 }
 
+/**
+ * Move a canonical product's rating aggregate — the PROJECTION of its `product`
+ * scoped review aggregate (#76).
+ *
+ * `services/reviews/review-aggregate.service` is the ONLY caller and the only
+ * writer of these two columns; both figures are derived from review rows in the
+ * same call that lands here. A projection with one writer cannot disagree with
+ * its source, which is what keeps this from being a second representation of
+ * what `review_aggregates` holds. #56 product rule 11 asked for these columns
+ * and left them unwritten; this is what fills them.
+ *
+ * Absolute SET, never a delta: the caller derived both figures, so this is the
+ * whole answer rather than an adjustment to one.
+ */
+export async function setCanonicalProductRating(
+  db: DatabaseOrTransaction,
+  productId: string,
+  rating: number,
+  ratingCount: number,
+): Promise<void> {
+  await db
+    .update(canonicalProducts)
+    .set({ rating, ratingCount, updatedAt: new Date() })
+    .where(eq(canonicalProducts.id, productId));
+}
+
 /** The merge CAS — see `productFamilyRepository.markFamilyMerged`. */
 export async function markCanonicalProductMerged(
   db: DatabaseOrTransaction,

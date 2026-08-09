@@ -530,7 +530,7 @@ and a column whose shape looks arbitrary is usually answered here.
 | `Cart` | `carts` + `cart_items` |
 | `Address` | `addresses` |
 | `Favorite` | `favorites` |
-| `Review` | `reviews` |
+| `Review` | `reviews` (moved to `schema/reviews.ts` by #76) |
 | `SellerProfile` | `seller_profiles` |
 | `UserPreference` | `user_preferences` |
 | `Feedback` | `feedback` |
@@ -1278,6 +1278,115 @@ one of those rows, reverses one, or corrects one. What is #84's own:
   no background dispatcher: every mode is driven by a person, and a loop
   retrying identity changes on a clock is not something anybody asked for.
 - **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed.
+### Review scopes (#76) — `reviews` moved, and gained four siblings
+
+`reviews` was born in `buyers.ts` (from the `Review` Mongoose model, above) and
+lives in `schema/reviews.ts` since #76, beside four Postgres-born tables:
+`review_dimensions`, `review_eligibilities`, `review_aggregates` +
+`review_dimension_aggregates`, and `review_target_migrations`.
+
+**The table moved; the ID did not.** CrowdSource holds review ids as
+`subject.externalId` and a `moderation_enforcements` row is keyed on the
+decision plus that id, so a NEW table would have orphaned every open case — the
+"ids have LEFT this system" rule at the top of this document, applied to a
+domain rewrite rather than to a backfill. Widening the existing row is the only
+shape that keeps moderation working through the change. The file move itself is
+forced by the barrel's dependency order: a scoped review references
+`canonical_products` and `merchants`, both exported after `buyers`.
+
+The decisions that make a column whose shape looks arbitrary answerable:
+
+- **`scope` and `target_type` are two columns and NOT two representations of
+  one fact.** `target_type` says which COLUMN holds the thing being rated;
+  `scope` says which QUESTION the rating answers. They genuinely differ, and the
+  difference is the whole issue: `target_type = 'listing'` cannot say whether a
+  review is about the product or about the condition of one used copy.
+  `reviews_scope_target_type_check` ties them, rendered from the same
+  `REVIEW_SCOPE_TARGET_TYPE` map every consumer reads, so they cannot disagree.
+  A NULL `scope` means exactly one thing: the classification job has not decided
+  (or has decided it cannot), and `reviews_classification_consistency_check`
+  ties that to `classification_state` both ways.
+- **`target_key` is GENERATED, and a plain multi-column unique would NOT work**
+  — the `commerce_relationships.endpoint_key` device, for the same reason:
+  Postgres treats NULLs as DISTINCT, so a unique over six nullable target
+  columns admits exactly the duplicate it exists to refuse. The partial unique
+  `(author_oxy_user_id, scope, target_key) WHERE scope IS NOT NULL` is what
+  "one review per author per scoped target" means. The pre-#76
+  `reviews_author_oxy_user_id_listing_id_key` is kept verbatim: classifying a
+  listing review to `p2p_listing` does not move `listing_id`, so both indexes
+  cover the row and agree.
+- **There is deliberately NO `consumed_by_review_id` on `review_eligibilities`.**
+  `reviews.eligibility_id` already names the pair and its partial unique already
+  makes it at most one; a pointer back would be a second representation of one
+  fact (the `provider_accounts` no-`ready`-boolean rule). The eligibility keeps
+  its own `state` + `consumed_at`, which are facts about the GRANT rather than
+  about the review.
+- **There is deliberately NO `published_at` column.** #76's model asks for a
+  publication timestamp, and in Mercaria that is `created_at`: a review has no
+  draft state, so it becomes visible the moment it is written. A second column
+  holding the same instant is what this document refuses everywhere else, so the
+  DTO derives it. `edited_at` DOES earn a column — it is not derivable from
+  anything, and `updated_at` moves on a moderation status change too, so an
+  edited review and a hidden one would otherwise be indistinguishable.
+- **The eligibility carries TWO order-line references and they are different
+  roles.** `order_item_id` is the EVIDENCE (set on every row, whatever the
+  scope); `target_order_item_id` is the TARGET of a `native_transaction`
+  eligibility. They coincide for that one scope; collapsing them would make a
+  product eligibility read as a transaction one.
+- **`UNIQUE(order_item_id, oxy_user_id, scope)` is #76 verification rule 11 as
+  DDL** — at most one eligibility per (line, author, scope), whatever a claim
+  retry or a migration replay performs. Not partial: all three columns are NOT
+  NULL, so a plain unique is exact.
+- **`review_eligibilities.claim_id` has no foreign key and is not a deferral.**
+  `guest_order_claims` (#109) does not exist, so the deferred-FK gate has no
+  table name to fire on; the biconditional
+  `review_eligibilities_claim_check` is what makes the seam structural — a
+  `claimed_guest_purchase` row without a claim id is unrepresentable, and the
+  only function that could write one refuses to run.
+- **`review_aggregates` is the authority; the entity `rating`/`rating_count`
+  columns are PROJECTIONS.** `canonical_products.rating` (#56 product rule 11),
+  `merchants.rating` (#54), `listings.rating` and `seller_profiles.rating` are
+  written by `review-aggregate.service` alone, in the same call, from the same
+  derived figures. A projection with ONE writer cannot disagree with its source;
+  a second WRITER could — which is why the legacy `recomputeAggregate` path and
+  the scoped rebuild are careful to cover disjoint review sets
+  (`findPublishedReviewTargets` excludes every scoped row).
+  What forced a table rather than more columns: the verified/unverified split,
+  the per-dimension averages, the target TYPE stated explicitly, the rebuild
+  bookkeeping — and `native_transaction`, whose target is an order line and has
+  no rating column at all.
+- **No `total_count` column, deliberately.** `rating`/`review_count` cover
+  VERIFIED published reviews; `unverified_rating`/`unverified_count` sit beside
+  them and are never summed in. A combined total is exactly what "labelled and
+  weighted separately" forbids, and a serializer that cannot find one cannot
+  ship one.
+- **No `brand_id`, `organization_id` or `product_family_id` anywhere in the five
+  tables.** The brand rating #76 forbids has no row shape — an absence, not a
+  rule. `REVIEW_FORBIDDEN_SCOPES` names the prohibition as a value, disjoint
+  from `REVIEW_SCOPES`, and `review-scope-isolation.test.ts` scans every column
+  of all five tables plus every module of the domain.
+- **No email, phone, contact, token, card, wallet or payment column either**,
+  scanned by the same gate against the real drizzle column sets — because a
+  column is what a serializer can ship, and a comment mentioning "email" is not.
+- **`review_target_migrations` is APPEND-ONLY by trigger**
+  (`mercaria_review_target_migration_append_only`, the `order_fee_snapshots`
+  posture). `reviews.scope` answers where a review points NOW and cannot answer
+  where it pointed before, because a rehome overwrites it — the
+  `canonical_product_redirects` limitation, answered the same way. Its
+  `from_target_ref`/`to_target_ref` carry no foreign key: they span six target
+  key spaces and must survive a canonical tombstone
+  (the `catalog_revisions.entity_id` reasoning). The unique
+  `(review_id, action, coalesce(to_target_ref, ''))` converges a replay, and the
+  `coalesce` is what makes that true for a REFUSAL, which names no destination.
+- **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed.
+- **A behaviour change the test suite had to absorb**, listed here beside the
+  others at the bottom of this document: `review_eligibilities.order_id` /
+  `.order_item_id` and every canonical target reference are RESTRICT, because
+  the eligibility IS the purchase evidence a verified review points at and a
+  product's rating must be able to BLOCK its disappearance. Nothing in
+  production deletes an order or a canonical product; a TEST that does now has
+  to clear the evidence first (`draft-order-complete.realdb.test.ts`,
+  `canonical-catalog.realdb.test.ts`).
 
 ### The guest domain has NO source model either
 
@@ -1790,6 +1899,13 @@ add a row when a gate lands, and do not list one that does not run yet.
 | A ledger transaction balances to zero per currency, and its rows refuse UPDATE and DELETE | `src/db/payments/__tests__/ledger.realdb.test.ts` | yes |
 | A published fee schedule version refuses every economic edit and any DELETE; at most one active version per key; snapshots and acceptances refuse UPDATE and DELETE; the snapshot CHECKs refuse a `mercaria_retail` fee, a schedule-less `calculated` row and a fee above its basis | `src/db/fees/__tests__/fee-schedules.realdb.test.ts` | yes |
 | No feed/search/catalogue-read module can reference the fee domain (organic-ranking isolation, #88 trust rule 1) | `src/services/fees/__tests__/fee-ranking-isolation.test.ts` | no |
+| A brand rating is unrepresentable (#76): the forbidden and real scope tuples are disjoint, no review table carries a brand-shaped column, and no review-domain module can reach the brand layer | `src/services/reviews/__tests__/review-scope-isolation.test.ts` | no |
+| No review table has a column that could hold buyer contact, payment or credential data (#76 model rule 12), scanned against the real drizzle column sets | `src/services/reviews/__tests__/review-scope-isolation.test.ts` | no |
+| No forbidden signal (email match, Stripe Customer/Link/wallet/card fingerprint, affiliate click, conversion report, portal/checkout token, guest-session possession) can be an evidence type, and the review domain cannot import the payment or referral domains | `src/services/reviews/__tests__/review-scope-isolation.test.ts` | no |
+| A fulfilment dimension is unrepresentable on a product review and a product-quality dimension on a service one; condition feedback belongs to the used listing alone (#76 acceptance 1 and 2) | `src/services/reviews/__tests__/review-scope-isolation.test.ts`, `src/services/reviews/__tests__/review-scope.test.ts` | no |
+| Every forbidden evidence source is refused BY NAME, an unclaimed guest order grants nothing through any exported path, and the #109 seam refuses a well-formed claim | `src/services/reviews/__tests__/review-eligibility.test.ts` | no |
+| The classification job never promotes a legacy listing review to `product`, leaves an unlinked store review where it is with the missing fact recorded, and appends its decision in the same transaction | `src/services/reviews/__tests__/review-migration.test.ts` | no |
+| A scope and its target cannot disagree; one review per author per scoped target on the GENERATED key; an eligibility is granted once and spent once under concurrency; a claimed-guest eligibility needs its claim id; a hidden review leaves the aggregate; drift is detected and corrected; the migration log refuses UPDATE and DELETE | `src/db/__tests__/review-scopes.realdb.test.ts` | yes |
 | Verification cannot become a PAID boost (#55 product behaviour 5): a relationship carries no commercial column, the relationship domain imports no fee/payment/referral module, and no ranking module reads the relationship domain today | `src/services/commerce-graph/__tests__/relationship-ranking-isolation.test.ts` | no |
 | Every relationship kind constrains its subject and object entity kinds; all NINE of #55's relationship types are answered, and never one of them twice (six kinds + three structural foreign keys) | `src/services/commerce-graph/__tests__/relationship-kinds.test.ts` | no |
 | An ingestion source cannot verify; a merchant self-claim is not self-verifying; domain control is insufficient for a brand badge and sufficient for the fact it proves; four eyes covers exactly the badge kinds; no ending is reversible | `src/services/commerce-graph/__tests__/relationship-authority.test.ts` | no |

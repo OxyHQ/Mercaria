@@ -14,12 +14,18 @@ import { isQueueEnabled } from './connection.js';
 import {
   SCHEDULER_EXPIRE_RESERVATIONS,
   SCHEDULER_RECOMPUTE_AGGREGATES,
+  SCHEDULER_REBUILD_REVIEW_AGGREGATES,
+  SCHEDULER_CLASSIFY_LEGACY_REVIEWS,
   SCHEDULER_CONNECTION_RECONCILE,
   RESERVATION_SWEEP_INTERVAL_MS,
   AGGREGATE_SWEEP_CRON,
+  SCOPED_AGGREGATE_SWEEP_CRON,
+  REVIEW_CLASSIFICATION_CRON,
   CONNECTOR_RECONCILE_INTERVAL_MS,
   JOB_EXPIRE_RESERVATIONS,
   JOB_RECOMPUTE_AGGREGATES_SWEEP,
+  JOB_REBUILD_REVIEW_AGGREGATES,
+  JOB_CLASSIFY_LEGACY_REVIEWS,
   JOB_CONNECTION_RECONCILE,
 } from './constants.js';
 import { log } from '../lib/logger.js';
@@ -47,6 +53,20 @@ export async function registerSchedules(): Promise<void> {
     SCHEDULER_RECOMPUTE_AGGREGATES,
     { pattern: AGGREGATE_SWEEP_CRON },
     { name: JOB_RECOMPUTE_AGGREGATES_SWEEP, data: {} },
+  );
+
+  // #76's two sweeps. Both are bounded and resumable, and both are idempotent,
+  // so a missed run costs freshness and never correctness.
+  await queue.upsertJobScheduler(
+    SCHEDULER_REBUILD_REVIEW_AGGREGATES,
+    { pattern: SCOPED_AGGREGATE_SWEEP_CRON },
+    { name: JOB_REBUILD_REVIEW_AGGREGATES, data: {} },
+  );
+
+  await queue.upsertJobScheduler(
+    SCHEDULER_CLASSIFY_LEGACY_REVIEWS,
+    { pattern: REVIEW_CLASSIFICATION_CRON },
+    { name: JOB_CLASSIFY_LEGACY_REVIEWS, data: {} },
   );
 
   // The connector reconcile sweep lives on the SYNC queue (its work talks to
@@ -77,6 +97,8 @@ export async function removeSchedules(): Promise<void> {
   }
   await queue.removeJobScheduler(SCHEDULER_EXPIRE_RESERVATIONS);
   await queue.removeJobScheduler(SCHEDULER_RECOMPUTE_AGGREGATES);
+  await queue.removeJobScheduler(SCHEDULER_REBUILD_REVIEW_AGGREGATES);
+  await queue.removeJobScheduler(SCHEDULER_CLASSIFY_LEGACY_REVIEWS);
 
   const syncQueue = getSyncQueue();
   if (syncQueue) {

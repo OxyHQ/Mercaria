@@ -59,6 +59,7 @@ import { closePostgres, connectPostgres, type Database } from '../../db/postgres
 import { locations, stores } from '../../db/schema/stores.js';
 import { listings } from '../../db/schema/catalog.js';
 import { orders } from '../../db/schema/orders.js';
+import { reviewEligibilities } from '../../db/schema/reviews.js';
 import { draftOrders } from '../../db/schema/pos.js';
 import { insertListing } from '../../db/catalog/listingRepository.js';
 import { insertVariants } from '../../db/catalog/variantRepository.js';
@@ -102,7 +103,16 @@ afterEach(async () => {
     // `draft_orders.location_id` is RESTRICT too, so the drafts go before the
     // locations and — because a completed draft points at its order — before the
     // orders as well.
+    //
+    // `review_eligibilities.order_id` is RESTRICT since #76 — the eligibility IS
+    // the purchase evidence a review points at, so it must be able to BLOCK an
+    // order's disappearance rather than vanish with it. Nothing in production
+    // deletes an order; a test that does has to clear the evidence first.
     await pg.delete(draftOrders).where(eq(draftOrders.storeId, storeId));
+    await pg.execute(
+      sql`delete from ${reviewEligibilities}
+          where order_id in (select id from ${orders} where store_id = ${storeId})`,
+    );
     await pg.delete(orders).where(eq(orders.storeId, storeId));
     await pg.delete(listings).where(eq(listings.storeId, storeId));
     await pg.delete(locations).where(eq(locations.storeId, storeId));
