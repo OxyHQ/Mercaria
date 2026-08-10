@@ -1371,4 +1371,28 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'as the benchmark run beside it: a foreign key would make a past interpretation deletable ' +
       'by a catalogue change, or a category undeletable because somebody once searched in it.',
   },
+
+  // ── Retail service requests (#127) ────────────────────────────────────────
+  // Every Oxy account id this domain holds: who asked, who decided, who
+  // published a policy exception, who withdrew one, who reported a quantity
+  // movement, and who released a refund suspension while a dispute was open.
+  // Oxy owns identity, so none of them can carry a foreign key.
+  { column: 'retail_service_requests.requester_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_service_requests.decider_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_service_request_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_return_line_dispositions.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_service_policy_exceptions.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_service_policy_exceptions.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_service_policy_exceptions.withdrawn_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_dispute_coordinations.released_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'retail_service_request_evidence.file_id',
+    reason:
+      "An OXY STORAGE file id — the buyer's own upload, in Oxy's key space and not Mercaria's. " +
+      'Evidence is DECLARED rather than attached (the `abuse_reports` posture #110 already ' +
+      'adopted): Mercaria holds no Oxy service credential, so it cannot read the file, compute a ' +
+      'digest or scan it, and a table here to reference would be a copy of somebody else’s ' +
+      'storage. Never a URL, and never a `mercaria.co` one — a reviewer’s browser fetching such a ' +
+      'URL would tell this host when its content is being looked at.',
+  },
 ];

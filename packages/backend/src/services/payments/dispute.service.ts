@@ -69,6 +69,7 @@ import {
 } from '../../db/payments/paymentRepository.js';
 import { insertLedgerTransaction } from '../../db/payments/ledgerRepository.js';
 import { disputeCreated, disputeLost, disputeWon, transferReversal } from './ledger-postings.js';
+import { coordinateRetailDisputeIfAny } from './retail-dispute.port.js';
 import { findLinkedOrder, findOrdersInCheckoutGroup, type LinkedOrder } from './order-linkage.js';
 import { enqueuePaymentEvent, paymentDisputedEventId } from './payment-outbox.service.js';
 import { ownerTypeOf, recordReversalFailed, recoverableFrom } from './refund-execution.service.js';
@@ -146,6 +147,15 @@ export async function recordDispute(
     ...(observed.reason ? { reason: observed.reason } : {}),
     ...(observed.evidenceDueBy ? { evidenceDueBy: observed.evidenceDueBy } : {}),
   });
+
+  // #127. A dispute that names a `mercaria_retail` order opens a coordination
+  // and SUSPENDS Mercaria's own refund paths on that order, so a chargeback
+  // cannot also produce an unnoticed duplicate refund (#127 rule 10). The port
+  // is what keeps the dependency one-way: this domain owns the signature and
+  // never names the retail one, and a non-retail order is a no-op.
+  if (row.orderId !== null) {
+    await coordinateRetailDisputeIfAny({ disputeId: row.id, orderId: row.orderId });
+  }
 
   const booked = await bookOpeningIfNeeded(row, payment);
   const summary: DisputeOutcomeSummary = { disputeId: row.id, booked, closed: false };

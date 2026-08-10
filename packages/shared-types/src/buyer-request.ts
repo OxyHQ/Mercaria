@@ -209,6 +209,16 @@ export type CancellationCompletionMode = (typeof CANCELLATION_COMPLETION_MODES)[
  * sibling order or this order's contents.
  */
 export const CANCELLATION_INELIGIBILITY_REASONS = [
+  /**
+   * The order is `mercaria_retail` and belongs to #127's domain.
+   *
+   * A CLEAN CUT rather than a shim. #110's decision path runs on
+   * `requireStorePermission` against the order's STORE, and a `platform` order
+   * has none — `orders.store_id` is NULL on one by CHECK — so a request filed
+   * here would sit forever with nobody able to decide it. #127 answers the same
+   * buyer with a decider that exists, and this reason names the path to take.
+   */
+  'retail_order',
   /** Dispatched or delivered. The remedy is a return — rule 6's "return path". */
   'order_already_dispatched',
   /** Already cancelled or fully refunded. There is nothing left to do. */
@@ -369,6 +379,9 @@ export const SUPPORTED_RETURN_RESOLUTIONS: readonly ReturnResolution[] = ['refun
  * data — the mirror of rule 6's return offer.
  */
 export const RETURN_INELIGIBILITY_REASONS = [
+  /** The order is `mercaria_retail` and belongs to #127. See the cancellation
+   * reason of the same name for why this is a refusal rather than a fallback. */
+  'retail_order',
   /** Not dispatched yet. The remedy is a cancellation. */
   'order_not_delivered',
   /** Already fully refunded or cancelled. */

@@ -262,6 +262,15 @@ export * from './awin';
 // rather than a data change. There is deliberately no carrier, package, label
 // or scan table here at all — Moovo owns those, and the absence is asserted.
 export * from './retailFulfilment';
+// Retail cancellations, returns, warranties, supplier RMAs and customer refunds
+// (#127) follows `./retailFulfilment` because it is downstream of everything
+// that one is: `./orders` and `./payments` (a request names an order, a refund
+// and a dispute), `./procurement` (a recovery and an RMA name a purchase
+// order), `./guestPortal` (a requester's grant) and `./catalog` (a policy
+// exception names a category). Its twelve tables carry NO ledger account and no
+// ledger pointer at all — #128 books what this domain classifies, the division
+// `retail_cost_variance_records` already holds.
+export * from './retailServiceRequests';
 // The ranking policy register (#74) is the last export and references NOTHING —
 // not an offer, not a merchant, not a source. That independence IS the domain's
 // shape: a policy version says how to ORDER offers and never which ones exist,

@@ -194,6 +194,56 @@ const EN: Record<GuestPortalMessageKind, Copy> = {
       'device that had access has been signed out.\n\n' +
       `If this was not you, request a new access link:\n${f.portalUrl}`,
   },
+  retail_service_request_received: {
+    subject: () => 'Mercaria — we have your request',
+    body: (f) =>
+      `We have your request about ${orderLine(f)}. Mercaria is the seller, so we handle it ` +
+      `from here — there is nobody else for you to contact. The status and what happens next ` +
+      `are on your order page.\n\n${f.portalUrl}`,
+  },
+  retail_cancellation_updated: {
+    subject: () => 'Mercaria — an update on your cancellation',
+    body: (f) =>
+      `There is an update on the cancellation you asked for on ${orderLine(f)}. Your order ` +
+      `page has the current status and, if a refund is coming, its amount.\n\n${f.portalUrl}`,
+  },
+  retail_return_authorized: {
+    subject: () => 'Mercaria — your return is authorised',
+    body: (f) =>
+      `We have authorised the return for ${orderLine(f)}. Your order page has the ` +
+      `instructions and the date we need it back by.\n\n${f.portalUrl}`,
+  },
+  retail_return_updated: {
+    subject: () => 'Mercaria — an update on your return',
+    body: (f) =>
+      `There is an update on the return for ${orderLine(f)}. Receiving an item and completing ` +
+      `a refund are separate steps, and your order page shows where each one stands.` +
+      `\n\n${f.portalUrl}`,
+  },
+  retail_warranty_updated: {
+    subject: () => 'Mercaria — an update on your guarantee claim',
+    body: (f) =>
+      `There is an update on the guarantee claim for ${orderLine(f)}. Your order page has the ` +
+      `detail and any date you need to act by.\n\n${f.portalUrl}`,
+  },
+  retail_service_delayed: {
+    subject: () => 'Mercaria — your request is taking longer than expected',
+    body: (f) =>
+      `Your request about ${orderLine(f)} is taking longer than we expected. It is still open ` +
+      `and we are still working on it — nothing you need to do.\n\n${f.portalUrl}`,
+  },
+  retail_safety_notice: {
+    subject: () => 'Mercaria — important safety notice about your order',
+    body: (f) =>
+      `This is a safety notice about ${orderLine(f)}. Please stop using the item and read the ` +
+      `instructions on your order page.\n\n${f.portalUrl}`,
+  },
+  retail_service_request_closed: {
+    subject: () => 'Mercaria — your request is closed',
+    body: (f) =>
+      `Your request about ${orderLine(f)} is now closed. The outcome and any refund are on ` +
+      `your order page.\n\n${f.portalUrl}`,
+  },
 };
 
 const ES: Record<GuestPortalMessageKind, Copy> = {
@@ -322,6 +372,57 @@ const ES: Record<GuestPortalMessageKind, Copy> = {
       'Se han revocado los enlaces de acceso a un pedido de Mercaria hecho con esta dirección, ' +
       'y cualquier otro dispositivo con acceso se ha desconectado.\n\n' +
       `Si no has sido tú, pide un enlace nuevo:\n${f.portalUrl}`,
+  },
+  retail_service_request_received: {
+    subject: () => 'Mercaria — hemos recibido tu solicitud',
+    body: (f) =>
+      `Hemos recibido tu solicitud sobre ${orderLine(f)}. Mercaria es la vendedora, así que ` +
+      `nos ocupamos nosotros: no tienes que contactar con nadie más. El estado y los ` +
+      `siguientes pasos están en la página de tu pedido.\n\n${f.portalUrl}`,
+  },
+  retail_cancellation_updated: {
+    subject: () => 'Mercaria — novedades sobre tu cancelación',
+    body: (f) =>
+      `Hay novedades sobre la cancelación que pediste en ${orderLine(f)}. En la página de tu ` +
+      `pedido tienes el estado actual y, si va a haber reembolso, su importe.\n\n${f.portalUrl}`,
+  },
+  retail_return_authorized: {
+    subject: () => 'Mercaria — tu devolución está autorizada',
+    body: (f) =>
+      `Hemos autorizado la devolución de ${orderLine(f)}. En la página de tu pedido tienes las ` +
+      `instrucciones y la fecha límite para enviárnosla.\n\n${f.portalUrl}`,
+  },
+  retail_return_updated: {
+    subject: () => 'Mercaria — novedades sobre tu devolución',
+    body: (f) =>
+      `Hay novedades sobre la devolución de ${orderLine(f)}. Recibir un artículo y completar un ` +
+      `reembolso son pasos distintos, y en la página de tu pedido puedes ver en qué punto está ` +
+      `cada uno.\n\n${f.portalUrl}`,
+  },
+  retail_warranty_updated: {
+    subject: () => 'Mercaria — novedades sobre tu reclamación de garantía',
+    body: (f) =>
+      `Hay novedades sobre la reclamación de garantía de ${orderLine(f)}. En la página de tu ` +
+      `pedido tienes el detalle y cualquier fecha en la que tengas que actuar.` +
+      `\n\n${f.portalUrl}`,
+  },
+  retail_service_delayed: {
+    subject: () => 'Mercaria — tu solicitud está tardando más de lo previsto',
+    body: (f) =>
+      `Tu solicitud sobre ${orderLine(f)} está tardando más de lo que esperábamos. Sigue ` +
+      `abierta y seguimos trabajando en ella: no tienes que hacer nada.\n\n${f.portalUrl}`,
+  },
+  retail_safety_notice: {
+    subject: () => 'Mercaria — aviso de seguridad importante sobre tu pedido',
+    body: (f) =>
+      `Este es un aviso de seguridad sobre ${orderLine(f)}. Deja de usar el artículo y lee las ` +
+      `instrucciones en la página de tu pedido.\n\n${f.portalUrl}`,
+  },
+  retail_service_request_closed: {
+    subject: () => 'Mercaria — tu solicitud está cerrada',
+    body: (f) =>
+      `Tu solicitud sobre ${orderLine(f)} ya está cerrada. El resultado y cualquier reembolso ` +
+      `están en la página de tu pedido.\n\n${f.portalUrl}`,
   },
 };
 

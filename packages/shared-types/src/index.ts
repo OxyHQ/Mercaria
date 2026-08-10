@@ -417,3 +417,11 @@ export * from './search-intent';
 // embedded experience, a brand has three relationship states rather than a
 // badge and its absence, and a catalogue card has no rating field at all.
 export * from './merchant-page';
+// Retail cancellations, returns, warranties, supplier RMAs and customer refunds
+// (#127). Downstream of `./retail-fulfilment` and `./supplier-order`: it names
+// the order whose role snapshot supplies the four consumer windows and the
+// purchase order a recovery is claimed against, and it adds nothing to either.
+// Its two halves — what Mercaria owes a BUYER and what it may recover from a
+// SUPPLIER — share no amount, no state and no field, which is ADR 0004 D8.5
+// held by the types rather than by whoever writes the next decision service.
+export * from './retail-service-request';
