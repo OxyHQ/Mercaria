@@ -118,7 +118,14 @@ export type RateLimitScope =
   // and would make the model's cost bounded by the number that bounds a
   // category page. Keyed on the ACTOR, so a guest is bucketed per SESSION
   // rather than per IP — one NAT is not one shopper.
-  | 'search-intent';
+  | 'search-intent'
+  // The public routing and SEO surface (#75). Its own bucket (`rl:seo:`) and a
+  // GENEROUS one, for the reason `analytics-ingest` has its own: the caller is
+  // the Cloudflare Worker on behalf of a crawler, one request per page view,
+  // and metering it on the general budget would make a crawl spend the
+  // allowance shoppers need. Everything behind it is a public read that writes
+  // nothing, so the budget bounds cost rather than risk.
+  | 'seo';
 
 /** The shared, prefixed Redis store for a scope, or `undefined` without Redis. */
 function scopeStore(scope: RateLimitScope): RedisStore | undefined {

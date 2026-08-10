@@ -18,6 +18,7 @@ import type {
   EbayMarketplaceId,
   ModerationEnforcementMode,
   SavedItemsReadMode,
+  SeoIndexingMode,
 } from '@mercaria/shared-types';
 import {
   ALL_CURRENCY_CODES,
@@ -28,6 +29,7 @@ import {
   EBAY_ENVIRONMENTS,
   EBAY_MARKETPLACE_IDS,
   SAVED_ITEMS_READ_MODES,
+  SEO_INDEXING_MODES,
 } from '@mercaria/shared-types';
 import { tmpdir } from 'node:os';
 import { PRINTFUL_BASE_URL } from '../services/printful/transport-contract.js';
@@ -644,6 +646,40 @@ function resolveCanonicalReadMode(
     '[config] canonical read mode is not recognised; falling back',
   );
   return fallback;
+}
+
+/**
+ * `SEO_INDEXING_MODE` → whether public pages may be indexed (#75 acceptance 8).
+ *
+ * Defaults to `off`, and that IS today's behaviour: the SEO layer is new, so a
+ * deployment that adopts this image without a decision keeps serving what it
+ * served yesterday. An unrecognised value falls back to `off` rather than to
+ * the value that publishes a catalogue.
+ */
+function resolveSeoIndexingMode(): SeoIndexingMode {
+  const raw = strEnv('SEO_INDEXING_MODE', 'off').trim().toLowerCase();
+  const mode = SEO_INDEXING_MODES.find((candidate) => candidate === raw);
+  if (mode !== undefined) return mode;
+  log.general.error(
+    { value: raw, allowed: SEO_INDEXING_MODES },
+    '[config] SEO_INDEXING_MODE is not recognised; falling back to off',
+  );
+  return 'off';
+}
+
+/**
+ * `SEO_CANARY_CATEGORY_IDS` → the categories the indexing canary covers.
+ *
+ * EMPTY means NOTHING is indexed under `canary`, deliberately the opposite of
+ * `CANONICAL_READ_COHORTS`: there an empty list preserves today's behaviour,
+ * and here it would publish the whole catalogue under a flag whose name
+ * promises a slice of it.
+ */
+function resolveSeoCanaryCategoryIds(): readonly string[] {
+  return strEnv('SEO_CANARY_CATEGORY_IDS', '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id !== '');
 }
 
 /**
@@ -1944,6 +1980,29 @@ export interface PriceSignalsConfig {
   readonly traceLimit: number;
 }
 
+/**
+ * Public routing and the search-engine surface (#75).
+ *
+ * Two levers with different blast radii, and two cache lifetimes. The argument
+ * for the split is in `services/seo/rollout.ts`; the short version is that a
+ * correct sharing card and an invitation to index the catalogue are different
+ * decisions, so they are different variables.
+ */
+export interface SeoConfig {
+  /** `SEO_ROUTES_ENABLED` — are the public `/seo/*` routers MOUNTED at all. */
+  readonly routesEnabled: boolean;
+  /** `SEO_INDEXING_MODE` — `off | canary | on`. */
+  readonly indexingMode: SeoIndexingMode;
+  /** `SEO_CANARY_CATEGORY_IDS` — which categories `canary` indexes. Empty = none. */
+  readonly canaryCategoryIds: readonly string[];
+  /** How many URLs one sitemap page holds. */
+  readonly sitemapPageSize: number;
+  /** `Cache-Control: max-age` on a rendered document, in seconds. */
+  readonly documentCacheSeconds: number;
+  /** `Cache-Control: max-age` on a sitemap or on `robots.txt`, in seconds. */
+  readonly sitemapCacheSeconds: number;
+}
+
 export interface OfferFreshnessConfig {
   /** `OFFER_REFRESH_ENABLED` — does the refresh dispatcher run. Gates the LOOP only. */
   readonly refreshEnabled: boolean;
@@ -2648,6 +2707,7 @@ export interface AppConfig {
   readonly priceHistory: PriceHistoryConfig;
   readonly priceAlerts: PriceAlertsConfig;
   readonly priceSignals: PriceSignalsConfig;
+  readonly seo: SeoConfig;
   readonly feedImport: FeedImportConfig;
   readonly ebay: EbayConfig;
   readonly awin: AwinConfig;
@@ -2853,6 +2913,17 @@ export const config: AppConfig = Object.freeze({
     merchantSubjectLimit: intEnv('PRICE_SIGNAL_MERCHANT_SUBJECT_LIMIT', 200),
     massChangeSampleLimit: intEnv('PRICE_SIGNAL_MASS_CHANGE_SAMPLE_LIMIT', 5_000),
     traceLimit: intEnv('PRICE_SIGNAL_TRACE_LIMIT', 200),
+  }),
+  seo: Object.freeze({
+    routesEnabled: boolEnv('SEO_ROUTES_ENABLED', false),
+    indexingMode: resolveSeoIndexingMode(),
+    canaryCategoryIds: Object.freeze(resolveSeoCanaryCategoryIds()),
+    // Half of the 50,000-URL sitemap limit, so a collection can double before
+    // the page size has to be revisited, and small enough that one page is a
+    // couple of megabytes rather than fifty.
+    sitemapPageSize: intEnv('SEO_SITEMAP_PAGE_SIZE', 25_000),
+    documentCacheSeconds: intEnv('SEO_DOCUMENT_CACHE_SECONDS', 300),
+    sitemapCacheSeconds: intEnv('SEO_SITEMAP_CACHE_SECONDS', 3_600),
   }),
   feedImport: Object.freeze({
     enabled: resolveFeedImportEnabled(),
