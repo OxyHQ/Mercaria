@@ -39,6 +39,7 @@ export const OFFER_LABEL_TEXT: Readonly<Record<OfferComparisonLabel, string>> = 
   authorized_reseller: "Authorised reseller",
   fastest_known_delivery: "Fastest known delivery",
   best_nearby_pickup: "Best nearby pickup",
+  cheapest_new: "Cheapest new",
   cheapest_used: "Cheapest used",
   native_mercaria_checkout: "Buy on Mercaria",
 };
@@ -62,6 +63,7 @@ export const OFFER_LABEL_EXPLANATIONS: Readonly<Record<OfferLabelReason, string>
   verified_authorized_reseller: "A reseller the brand has verified as authorised.",
   shortest_known_delivery: "The shortest delivery estimate any of these sellers published.",
   nearest_collection_point: "The nearest collection point we know of.",
+  lowest_item_price_new_segment: "The lowest item price among the offers sold as new.",
   lowest_item_price_used_segment: "The lowest item price among the second-hand offers.",
   buyable_on_mercaria: "You can buy this here, without leaving Mercaria.",
 };

@@ -59,6 +59,7 @@ import offersRouter from './routes/offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
 import searchRouter from './routes/search.js';
 import internalSearchRouter from './routes/internal-search.js';
+import productPageRouter from './routes/product-page.js';
 import priceHistoryRouter from './routes/price-history.js';
 import internalPriceHistoryRouter from './routes/internal-price-history.js';
 import internalCatalogConditionRouter from './routes/internal-catalog-condition.js';
@@ -378,6 +379,25 @@ export function createApp(): express.Express {
   app.use('/search', searchRouter);
 
   /**
+   * The canonical product page (#71): one product's identity, its
+   * configurations, every eligible way to acquire it and the verified channels
+   * behind them — composed from #56, #74, #57, #68, #90 and #55 in ONE read.
+   *
+   * Mounted UNCONDITIONALLY and gated inside the handler, for the reason
+   * `/search` is: `CANONICAL_READS=shadow` means "compute the canonical answer
+   * AND the listing-first one and record the comparison", which a middleware
+   * that returns first can never do. `off` and `shadow` are both a 404, so the
+   * visible behaviour matches every other gated canonical surface, and
+   * `services/backfill/read-mode.ts` named this page as the second surface that
+   * would compare both answers.
+   *
+   * `GET /listings/:id` — the listing-first product experience — is UNTOUCHED
+   * and keeps serving whatever this lever says (#71 acceptance 7), which is
+   * what leaves #75 free to migrate the public routes on its own schedule.
+   */
+  app.use('/product-page', productPageRouter);
+
+  /**
    * Currency-safe price history (#78), behind its OWN read lever.
    *
    * `PRICE_HISTORY_PUBLIC_READS_ENABLED` gates the MOUNT and nothing durable:
@@ -600,6 +620,7 @@ export function createApp(): express.Express {
         '/brand-relationships',
         '/canonical-products',
         '/product-families',
+        '/product-page',
         '/offers',
         '/catalog-attributes',
         '/merchant-claims',

@@ -2,6 +2,7 @@ import {
   CURRENCY_PRECISION,
   CURRENCY_SYMBOLS,
   type Money,
+  type OfferMoney,
 } from "@mercaria/shared-types";
 
 /**
@@ -29,6 +30,29 @@ export function formatMoney(money: Money): string {
   const symbol = CURRENCY_SYMBOLS[money.currency];
   const major = money.amount / DECIMAL_RADIX ** CURRENCY_PRECISION[money.currency];
   return `${symbol}${major.toFixed(DISPLAY_FRACTION_DIGITS)}`;
+}
+
+/**
+ * Format an OFFER's own money — the price in the currency its SOURCE published
+ * (#71 offer row 3, "price and source currency").
+ *
+ * Deliberately separate from {@link formatMoney}, because an `OfferMoney`'s
+ * currency is a shape-checked string rather than a `CurrencyCode`: an external
+ * platform reports whatever it trades in, which may be outside Mercaria's
+ * presentment set (ADR 0002 D18's documented exception).
+ *
+ * Returns `null` when the precision is unknown, and that refusal is the whole
+ * point. The amount is in MINOR units, so rendering `129900 RON` without
+ * knowing whether RON has two decimals or none is a figure wrong by a factor of
+ * a hundred — the "unknown is never zero" rule applied to a divisor. A caller
+ * that gets `null` shows the currency code and no number, which is the honest
+ * statement that Mercaria cannot express this price.
+ */
+export function formatSourceMoney(money: OfferMoney): string | null {
+  const precision = CURRENCY_PRECISION[money.currency as Money["currency"]];
+  if (precision === undefined) return null;
+  const major = money.amount / DECIMAL_RADIX ** precision;
+  return `${major.toFixed(DISPLAY_FRACTION_DIGITS)} ${money.currency}`;
 }
 
 /** Threshold above which review counts are abbreviated with a "K" suffix. */
