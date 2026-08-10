@@ -1030,7 +1030,13 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
           ],
         ],
       });
-      await ingestToCompletion(source.sourceId);
+      // Both passes are PINNED, deliberately — the first call used to take the
+      // real wall clock while the second was a literal, so the ordering
+      // between them was an accident of the day the suite happened to run.
+      // Once real time passed the literal the 'before' pass fell AFTER the
+      // 'later' one and this case failed with nothing wrong. Never restore a
+      // bare `ingestToCompletion(source.sourceId)` above a pinned second call.
+      await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T09:00:00.000Z') });
 
       const [before] = await db
         .select()
@@ -1041,7 +1047,17 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       // The next COMPLETE enumeration does not mention it.
       unregisterCatalogSourceAdapter(source.provider);
       registerCatalogSourceAdapter(harness.createAdapter(source.provider, { pages: [[]] }));
-      const later = new Date('2026-08-10T10:00:00.000Z');
+      // Derived from the row's OWN observed clock, not a second literal.
+      // `persistOneRecord` clamps the stamped clock to
+      // `max(record.observedAt, now)`, and some adapters under this shared
+      // suite (Awin, the product-feed importer) stamp the REAL wall clock
+      // when they read a staged record — so `before.lastSeenAt` is whatever
+      // instant the suite actually ran at for those cases, not the pinned
+      // `now` above. A literal `later` would need to out-run that real clock
+      // forever, which no fixed date can do; an offset from what was really
+      // stamped keeps the ordering a property of the test rather than of the
+      // day — or the millisecond — it happens to run.
+      const later = new Date((before?.lastSeenAt ?? new Date()).getTime() + 60 * 60 * 1000);
       const run = await ingestToCompletion(source.sourceId, { now: later });
       expect(run.outcome).toBe('full_feed_success');
 
@@ -1081,7 +1097,9 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
           ],
         ],
       });
-      await ingestToCompletion(source.sourceId);
+      // Pinned for the same reason as the retirement case above: a bare
+      // wall-clock first pass would eventually run AFTER this literal.
+      await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T10:00:00.000Z') });
 
       // A pass that read the feed but never claimed to have finished it.
       unregisterCatalogSourceAdapter(source.provider);
@@ -1089,7 +1107,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
         harness.createAdapter(source.provider, { pages: [[]], completeOnLastPage: false }),
       );
       const run = await ingestToCompletion(source.sourceId, {
-        now: new Date('2026-08-10T11:00:00.000Z'),
+        now: new Date('2026-08-09T11:00:00.000Z'),
       });
       expect(run.outcome).toBe('partial_feed');
 
@@ -1113,7 +1131,8 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       const source = await bringUpSource('rights', {
         pages: [[record({ externalId: 'rights-1', title: 'Rights widget' })]],
       });
-      await ingestToCompletion(source.sourceId);
+      // Pinned for the same reason as the two cases above.
+      await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T11:00:00.000Z') });
 
       // A suspension is a NEW policy version granting nothing.
       await publishIngestionSourcePolicy({
@@ -1134,7 +1153,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       });
 
       const run = await ingestToCompletion(source.sourceId, {
-        now: new Date('2026-08-10T12:00:00.000Z'),
+        now: new Date('2026-08-09T12:00:00.000Z'),
       });
       expect(run.outcome).toBe('rights_suspended');
 
