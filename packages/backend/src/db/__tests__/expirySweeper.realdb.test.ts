@@ -428,6 +428,13 @@ describe('the registry the sweeper runs over', () => {
       'feed_import_reports',
       'feed_uploads',
       'guest_order_access_grants',
+      // #109's ONE, and the two it leaves out are the point: a claim records
+      // who owns a purchase and a revocation records an operator correcting
+      // that, so a retention shorter than the orders would answer "who claimed
+      // this, and did anyone detach it" with silence. Only the follow-up JOB
+      // expires — and what surfaces a stalled dispatcher is the CLAIM, which is
+      // retained and still shows in the trace with no eligibility beside it.
+      'guest_order_claim_outbox',
       'guest_portal_messages',
       'guest_recovery_attempts',
       'guest_sessions',

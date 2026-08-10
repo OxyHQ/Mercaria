@@ -277,6 +277,19 @@ connectPostgres()
           log.general.error({ err }, 'Guest portal message dispatcher import failed'),
         );
 
+      // Drain a completed claim's follow-up work (#109) — the verified-purchase
+      // eligibility grant and the "your orders moved" notice. On EVERY task,
+      // leased like the outboxes above. The LOOP is gated by
+      // `GUEST_CLAIM_PROJECTION_ENABLED` and the ROW never is: a claim made
+      // while it is off leaves its work queued and it drains when the lever
+      // comes back, so an incident that stops the projection cannot cost a
+      // buyer the right to review a purchase they own.
+      import('./services/guest-claims/claim-outbox.service.js')
+        .then(({ startGuestClaimDispatcher }) => startGuestClaimDispatcher())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Guest claim dispatcher import failed'),
+        );
+
       // Place, cancel, poll and interpret supplier orders (#124). THREE loops,
       // on EVERY task, each gated by its own lever and none of them gating a
       // durable record: with the orchestration off a paid retail order's job is

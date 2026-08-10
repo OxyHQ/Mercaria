@@ -330,20 +330,28 @@ describe('#77 — the deferred events are a seam, never a fabricated event', () 
     );
     // The vacuity floor: a broken traversal would scan nothing and pass.
     expect(files.length).toBeGreaterThan(200);
-    // Thirteen: #107's five, #109's five and #110's three. Pinned EXACTLY
-    // rather than as a minimum, so both directions fail: a type quietly added
-    // to the deferred map without a seam entry, and one emitted without being
-    // removed from it.
+    // Ten: #107's five (now #111's), #109's remaining TWO (also #111's) and
+    // #110's three. Pinned EXACTLY rather than as a minimum, so both directions
+    // fail: a type quietly added to the deferred map without a seam entry, and
+    // one emitted without being removed from it.
     //
     // It was twenty-two until #106 closed its own seam — the six eligibility
-    // and contact/destination types — and sixteen until #108 closed the three
-    // portal and recovery ones. Ratcheting this number DOWN is the shape a
+    // and contact/destination types — sixteen until #108 closed the three
+    // portal and recovery ones, and thirteen until #109 closed the three a
+    // SERVER can honestly observe. Ratcheting this number DOWN is the shape a
     // closed seam takes here, and the assertion below is what proves the closed
     // ones are genuinely emitted rather than merely delisted: they are no
     // longer in `DEFERRED_EVENT_TYPES`, so an emission of one is no longer an
     // offence, and `checkout.controller.ts` (#106) and `routes/guest-orders.ts`
-    // (#108) perform it.
-    expect(DEFERRED_EVENT_TYPES.length).toBe(13);
+    // (#108, #109) perform it.
+    //
+    // #109's SPLIT is the one to read: `guest_claim_started`,
+    // `guest_claim_completed` and `guest_claim_conflicted` come off this list
+    // because the claim transaction produces each of them, while
+    // `guest_claim_offered` and `guest_claim_declined` stay on it and move to
+    // #111 — an offer is a screen having been shown and a decline is somebody
+    // navigating away, and the server can observe neither without inventing it.
+    expect(DEFERRED_EVENT_TYPES.length).toBe(10);
 
     const offenders: string[] = [];
     for (const file of files) {
@@ -361,10 +369,19 @@ describe('#77 — the deferred events are a seam, never a fabricated event', () 
   });
 
   it('the emission detector actually detects — the mutation self-test', () => {
-    const seeded = "emitAnalyticsEvent(req, { eventType: 'guest_claim_completed' });";
+    // `guest_claim_declined` rather than `guest_claim_completed`, which #109
+    // now EMITS. A self-test seeded with a type that has been closed would pass
+    // for the wrong reason today and start failing the day the type it names is
+    // implemented — which is the failure mode this whole file exists to catch,
+    // one level up.
+    const seeded = "emitAnalyticsEvent(req, { eventType: 'guest_claim_declined' });";
     expect(DEFERRED_EVENT_TYPES.some((t) => seeded.includes(`eventType: '${t}'`))).toBe(true);
     const innocent = "emitAnalyticsEvent(req, { eventType: 'product_page_view' });";
     expect(DEFERRED_EVENT_TYPES.some((t) => innocent.includes(`eventType: '${t}'`))).toBe(false);
+    // And the CLOSED direction, which the count alone cannot state: a type
+    // #109 emits must not be readable as an offence any more.
+    const closed = "emitAnalyticsEvent(req, { eventType: 'guest_claim_completed' });";
+    expect(DEFERRED_EVENT_TYPES.some((t) => closed.includes(`eventType: '${t}'`))).toBe(false);
   });
 
   it('every deferred type names an owning issue, and every seam is documented', () => {

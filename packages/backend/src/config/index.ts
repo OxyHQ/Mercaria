@@ -1180,6 +1180,80 @@ export interface GuestConfig {
   readonly checkoutRollout: GuestCheckoutRolloutConfig;
   /** The guest ORDER PORTAL (#108). See {@link GuestPortalConfig}. */
   readonly portal: GuestPortalConfig;
+  /** Claiming a group into an Oxy account (#109). See {@link GuestClaimConfig}. */
+  readonly claim: GuestClaimConfig;
+}
+
+/**
+ * Claiming a guest checkout group into an Oxy account (#109, ADR 0003 D14).
+ *
+ * ## Three levers, and NOT ONE of them gates a stored claim
+ *
+ * A claim is an ownership record. Turning a lever off must never make an
+ * already-claimed order stop belonging to the account that claimed it, stop
+ * appearing in its history, or stop being readable by an operator — so
+ * `authorizeOrderAccess`, the buyer list predicate, the claim trace and the
+ * consistency probe read NONE of these, and
+ * `guest-claim-isolation.test.ts` fails the build if one starts to.
+ *
+ *  - **`enabled`** gates the claim WRITE. This is the `GUEST_CART_ENABLED`
+ *    shape rather than the outbox one: refusing a claim writes nothing at all,
+ *    so there is no durable record being suppressed. What it must not do — and
+ *    does not — is gate the READ of a claim already made.
+ *  - **`projectionEnabled`** gates the dispatcher LOOP. Follow-up work keeps
+ *    being enqueued while it is off and drains when it comes back, the
+ *    moderation-outbox rule.
+ *  - **`fourEyesRequired`** decides whether a revocation needs a SECOND
+ *    operator, and it is snapshotted onto the request row when the request is
+ *    opened (the `catalog_merge_jobs` device, #59) — so flipping it can never
+ *    retroactively unapprove a correction somebody already executed, nor
+ *    silently approve one already pending.
+ */
+export interface GuestClaimConfig {
+  /**
+   * `GUEST_CLAIM_ENABLED` — may a group be claimed right now. Default TRUE.
+   *
+   * Default true rather than false, matching `cartEnabled` and
+   * `inlineDestinationEnabled`: `GUEST_COMMERCE_ENABLED` is the flag that is
+   * off by default and gates the whole domain, and an inner lever defaulting
+   * off would mean a deployment that turned the portal on gets a claim endpoint
+   * refusing for a reason nobody chose. This is an incident lever — the case it
+   * exists for is an abuse pattern in claiming specifically, where the remedy
+   * must not be switching guest commerce off underneath people who have already
+   * paid.
+   */
+  readonly enabled: boolean;
+  /**
+   * `GUEST_CLAIM_FOUR_EYES_REQUIRED` — must a revocation be approved by a
+   * SECOND operator. Default TRUE.
+   *
+   * Detaching a claim is the one operator power in guest commerce that changes
+   * who owns a purchase, and the shape of its misuse is a single insider
+   * quietly moving somebody's order history. Default on for the reason
+   * `CATALOG_FOUR_EYES_REQUIRED` is: the flag exists so a deployment with one
+   * operator can function at all, not so a deployment with several can skip it.
+   */
+  readonly fourEyesRequired: boolean;
+  /**
+   * `GUEST_CLAIM_PROJECTION_ENABLED` — the follow-up dispatcher LOOP, default
+   * true. Never the row.
+   */
+  readonly projectionEnabled: boolean;
+  /** `GUEST_CLAIM_JOB_BATCH_SIZE` — rows claimed per dispatcher pass. */
+  readonly jobBatchSize: number;
+  /** `GUEST_CLAIM_JOB_POLL_INTERVAL_MS` — how often the dispatcher wakes. */
+  readonly jobPollIntervalMs: number;
+  /** `GUEST_CLAIM_JOB_LEASE_MS` — how long a claimed row stays claimed. */
+  readonly jobLeaseMs: number;
+  /**
+   * `GUEST_CLAIM_JOB_MAX_ATTEMPTS` — attempts before `dead_letter`.
+   *
+   * A dead letter is VISIBLE in the claim trace, which is the point: an
+   * eligibility grant that never ran is a buyer who owns a purchase and cannot
+   * review it, and the alternative to a terminal state is a row retrying
+   * forever with nobody looking at it.
+   */
+  readonly jobMaxAttempts: number;
 }
 
 /**
@@ -2654,6 +2728,15 @@ export const config: AppConfig = Object.freeze({
       recoveryMaxPerEmail: intEnv('GUEST_RECOVERY_MAX_PER_EMAIL', 5),
       recoveryMaxPerOrder: intEnv('GUEST_RECOVERY_MAX_PER_ORDER', 5),
       recoveryMaxPerNetwork: intEnv('GUEST_RECOVERY_MAX_PER_NETWORK', 30),
+    }),
+    claim: Object.freeze({
+      enabled: boolEnv('GUEST_CLAIM_ENABLED', true),
+      fourEyesRequired: boolEnv('GUEST_CLAIM_FOUR_EYES_REQUIRED', true),
+      projectionEnabled: boolEnv('GUEST_CLAIM_PROJECTION_ENABLED', true),
+      jobBatchSize: intEnv('GUEST_CLAIM_JOB_BATCH_SIZE', 25),
+      jobPollIntervalMs: intEnv('GUEST_CLAIM_JOB_POLL_INTERVAL_MS', 5_000),
+      jobLeaseMs: intEnv('GUEST_CLAIM_JOB_LEASE_MS', 60_000),
+      jobMaxAttempts: intEnv('GUEST_CLAIM_JOB_MAX_ATTEMPTS', 8),
     }),
   }),
   referrals: Object.freeze({

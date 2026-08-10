@@ -83,6 +83,7 @@ import {
   guestPortalMessages,
   guestRecoveryAttempts,
 } from './schema/guestPortal';
+import { guestOrderClaimOutbox } from './schema/guestClaims';
 import { catalogSourceRejections } from './schema/ingestion';
 import {
   feedImportReportEntries,
@@ -178,6 +179,24 @@ const GUEST_RECOVERY_ATTEMPT_RETENTION_SECONDS = 7 * 24 * 60 * 60;
  * critical fact to be in the portal and not only in an email.
  */
 const GUEST_PORTAL_MESSAGE_RETENTION_SECONDS = 14 * 24 * 60 * 60;
+
+/**
+ * How long a claim's durable follow-up job survives (#109).
+ *
+ * The same 14 days as the two outboxes above, and the same reasoning applies
+ * unchanged — but the record that surfaces a stalled dispatcher is different
+ * and worth naming: `guest_order_claims` is retained indefinitely, so a claim
+ * whose eligibility grant was never performed is still visible in the operator
+ * trace long after the job that owed it has aged out. That asymmetry is why
+ * the job may expire at all: nothing about the ownership it recorded goes with
+ * it.
+ *
+ * The CLAIM tables themselves are deliberately NEVER swept — a claim is a
+ * commercial-ownership record and a revocation is the audit of a correction
+ * somebody made to one, and both must outlive every credential and every
+ * session involved in producing them.
+ */
+const GUEST_CLAIM_OUTBOX_RETENTION_SECONDS = 14 * 24 * 60 * 60;
 
 /**
  * The analytics retention constants (#77 data-lifecycle rules 1, 2 and 7).
@@ -370,6 +389,22 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'moderation — the order it is about stays placed, paid and readable in the portal, ' +
       'which is where a stalled dispatcher must be noticed.',
   },
+  // Guest order CLAIMING (#109). ONE entry, and the two claim tables it leaves
+  // out are the point: `guest_order_claims` records who owns a purchase and
+  // `guest_order_claim_revocations` records an operator correcting that, and a
+  // retention shorter than the orders themselves would answer "who claimed
+  // this, and did anyone detach it" with silence — the same reasoning that
+  // keeps `guest_portal_operator_actions` unswept.
+  {
+    table: guestOrderClaimOutbox,
+    column: guestOrderClaimOutbox.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'A completed, failed or dead-lettered claim follow-up job, 14 days after the claim was ' +
+      'made. Deleting one still PENDING loses that work silently — exactly as it would for ' +
+      'moderation — and what surfaces it is the CLAIM, which is retained indefinitely and ' +
+      'still shows in the operator trace with no eligibility grant beside it.',
+  },
   {
     table: guestRecoveryAttempts,
     column: guestRecoveryAttempts.windowStartedAt,
@@ -524,6 +559,7 @@ export const RETENTION_SECONDS = {
   catalogSourceRejection: CATALOG_SOURCE_REJECTION_RETENTION_SECONDS,
   guestRecoveryAttempt: GUEST_RECOVERY_ATTEMPT_RETENTION_SECONDS,
   guestPortalMessage: GUEST_PORTAL_MESSAGE_RETENTION_SECONDS,
+  guestClaimOutbox: GUEST_CLAIM_OUTBOX_RETENTION_SECONDS,
   feedUpload: FEED_UPLOAD_RETENTION_SECONDS,
   feedImportReport: FEED_IMPORT_REPORT_RETENTION_SECONDS,
   feedImportReportEntry: FEED_IMPORT_REPORT_ENTRY_RETENTION_SECONDS,

@@ -58,6 +58,11 @@ import {
   requestStepUpLink,
 } from '../services/guest-portal/recovery.service.js';
 import { grantHasScope } from '../services/guest-portal/scopes.js';
+import {
+  claimGuestCheckoutGroup,
+  previewGuestClaim,
+  type GuestClaimRefusal,
+} from '../services/guest-claims/claim.service.js';
 // #77's emitter, and ONLY the emitter. It returns `void`, so there is nothing
 // to await and a telemetry failure cannot turn a buyer's order read into an
 // error — the signature is the guarantee.
@@ -379,6 +384,160 @@ async function secureGroup(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * `GET /guest/orders/:groupId/claim` — the claim REVIEW screen's read (#109).
+ *
+ * Requires BOTH proofs, exactly as the POST does, and changes nothing. It is a
+ * separate route rather than a field on the portal view because the portal view
+ * is served to a credential with no Oxy session behind it, and "would this
+ * account already own these" has no answer without one.
+ *
+ * It is also what makes "never auto-submit the claim immediately after
+ * sign-in" (UX rule 10) a property of the API: there is no response from this
+ * endpoint that completes a claim.
+ */
+async function readClaimPreview(req: Request, res: Response): Promise<void> {
+  const grant = req.portalGrant;
+  if (grant === undefined || req.params.groupId !== grant.checkoutGroupId) {
+    sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+    return;
+  }
+  const actor = req.commerceActor;
+  if (actor?.kind !== 'oxy') {
+    // The same 401 an absent portal credential gets, and for the same reason:
+    // an unauthenticated caller learns nothing about whether this group is
+    // claimable, claimed, or real.
+    sendError(res, ErrorCodes.UNAUTHORIZED, 'Sign in to save these orders', 401);
+    return;
+  }
+
+  const preview = await previewGuestClaim({ grant, oxyUserId: actor.oxyUserId });
+  if (preview === null) {
+    sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+    return;
+  }
+  sendSuccess(res, preview);
+}
+
+/**
+ * `POST /guest/orders/:groupId/claim` — move the group into the Oxy account
+ * (#109, ADR 0003 D14 and diagram 8).
+ *
+ * The two proofs are read from the request and NOTHING else is: the resolved
+ * portal grant and the resolved Oxy actor. The body is EMPTY — there is no
+ * schema, because a body able to carry an account id, an email or an order
+ * number is where one would eventually be trusted, and the claim service has no
+ * parameter for any of them either.
+ *
+ * A success clears the portal credential, because the claim revoked it: leaving
+ * a dead cookie in the jar would make the next portal read a confusing 401
+ * rather than an obvious "you are signed in now".
+ */
+async function performClaim(req: Request, res: Response): Promise<void> {
+  const grant = req.portalGrant;
+  if (grant === undefined || req.params.groupId !== grant.checkoutGroupId) {
+    sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+    return;
+  }
+  const actor = req.commerceActor;
+  if (actor?.kind !== 'oxy') {
+    sendError(res, ErrorCodes.UNAUTHORIZED, 'Sign in to save these orders', 401);
+    return;
+  }
+
+  // Emitted BEFORE the attempt, so the denominator counts confirmations rather
+  // than successes. A started claim that then conflicts is exactly the case
+  // `oxy_claim_funnel` needs both halves of.
+  emitAnalyticsEvent(req, {
+    eventType: 'guest_claim_started',
+    buyerOrigin: 'guest',
+    checkoutGroupId: grant.checkoutGroupId,
+  });
+
+  const outcome = await claimGuestCheckoutGroup({
+    grant,
+    oxyUserId: actor.oxyUserId,
+    // The ONE consumer of this field besides #104's own merge endpoint. It is
+    // not a proof and is never compared — see `claim.service.ts`.
+    ...(actor.presentedGuestSessionId === undefined
+      ? {}
+      : { presentedGuestSessionId: actor.presentedGuestSessionId }),
+    now: new Date(),
+  });
+
+  if (outcome.status === 'refused') {
+    refuseClaim(req, res, grant.checkoutGroupId, outcome.refusal);
+    return;
+  }
+
+  clearPortalCredential(res, req.portalTransport ?? 'cookie');
+  emitAnalyticsEvent(req, {
+    eventType: 'guest_claim_completed',
+    buyerOrigin: 'guest',
+    checkoutGroupId: grant.checkoutGroupId,
+  });
+  sendSuccess(res, outcome.result, outcome.result.alreadyClaimed ? 200 : 201);
+}
+
+/**
+ * Map a bounded refusal onto a status and a sentence.
+ *
+ * An exhaustive `switch` rather than a lookup with a fallback, so a refusal
+ * added to the service's union without deciding how a buyer is told fails
+ * `tsc` — the `CheckoutRefusalReason` device (#106).
+ *
+ * None of the sentences names the account holding a contested group. A rival
+ * claimant learns that somebody else holds it, which they must in order to
+ * understand the refusal, and never who — that is a fact about a stranger's
+ * purchase.
+ */
+function refuseClaim(
+  req: Request,
+  res: Response,
+  checkoutGroupId: string,
+  refusal: GuestClaimRefusal,
+): void {
+  switch (refusal) {
+    case 'claiming_unavailable':
+      sendError(
+        res,
+        ErrorCodes.GUEST_CLAIM_DISABLED,
+        'Saving orders to an Oxy account is temporarily unavailable. Your order is unaffected.',
+        403,
+      );
+      return;
+    case 'claim_scope_missing':
+    case 'inbox_not_verified':
+      sendError(
+        res,
+        ErrorCodes.FORBIDDEN,
+        'Confirm your email address before saving these orders to your account',
+        403,
+      );
+      return;
+    case 'access_revoked':
+      sendError(res, ErrorCodes.UNAUTHORIZED, 'Portal access is not valid', 401);
+      return;
+    case 'group_not_found':
+      sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+      return;
+    case 'claimed_by_another_account':
+      emitAnalyticsEvent(req, {
+        eventType: 'guest_claim_conflicted',
+        buyerOrigin: 'guest',
+        checkoutGroupId,
+      });
+      sendError(
+        res,
+        ErrorCodes.CONFLICT,
+        'These orders are already saved to another Oxy account. Contact support if that is ' +
+          'not what you expected — Mercaria will not move them automatically.',
+        409,
+      );
+      return;
+  }
+}
+
+/**
  * `DELETE /guest/orders/session` — sign this credential out.
  *
  * Always 204: revocation is idempotent, and answering differently for a live,
@@ -459,6 +618,31 @@ router.post(
   makeRateLimiter('guest-portal'),
   requirePortalSession,
   handle(secureGroup, 'Failed to secure access'),
+);
+
+/**
+ * The claim pair (#109). BOTH resolvers run, and that is the two-sided proof
+ * ADR 0003 D14 requires expressed as middleware: `requirePortalSession` refuses
+ * without a live portal credential, and the handler refuses without an `oxy`
+ * actor. Neither alone reaches the service.
+ *
+ * `resolveCommerceActor` is mounted here rather than router-wide for the reason
+ * `/confirmation` states: a second credential resolution on every portal read
+ * costs a database round trip nothing else needs.
+ */
+router.get(
+  '/:groupId/claim',
+  makeRateLimiter('guest-claim'),
+  requirePortalSession,
+  resolveCommerceActor,
+  handle(readClaimPreview, 'Failed to read the claim preview'),
+);
+router.post(
+  '/:groupId/claim',
+  makeRateLimiter('guest-claim'),
+  requirePortalSession,
+  resolveCommerceActor,
+  handle(performClaim, 'Failed to save these orders to your account'),
 );
 
 /**

@@ -86,6 +86,15 @@ export const ErrorCodes = {
    * correct response is to offer sign-in, not to retry with a credential.
    */
   GUEST_CART_DISABLED: 'GUEST_CART_DISABLED',
+  /**
+   * Claiming a guest checkout group is switched off on this deployment
+   * (`GUEST_CLAIM_ENABLED=false`, #109). The `GUEST_CART_DISABLED` precedent
+   * and for its reason: the client's correct response is to hide the offer and
+   * carry on, not to retry with a different credential or to tell somebody
+   * their proof was rejected. It is deliberately distinct from `FORBIDDEN`,
+   * which a client should read as "this credential cannot do that".
+   */
+  GUEST_CLAIM_DISABLED: 'GUEST_CLAIM_DISABLED',
 } as const;
 
 /** Union of the supported error code literals. */

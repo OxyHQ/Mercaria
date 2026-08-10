@@ -145,10 +145,12 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
       'only missing piece is the flow that changes a request’s state.',
   },
   claim_completed: {
-    trigger: null,
-    note: '#109 owns claiming. The message is the security notice a claim owes: after a claim, ' +
-      'emailed access is revoked (ADR 0003 D14) and the person needs to be told where their ' +
-      'orders went.',
+    trigger: 'services/guest-claims/claim-outbox.service.ts (notifyClaimCompleted)',
+    note: 'Enqueued from the claim’s durable outbox rather than from the claim transaction, so ' +
+      'a mail failure can never roll back an ownership change. It is the security notice a ' +
+      'claim owes: the claim revoked every outstanding portal credential (ADR 0003 D14), and ' +
+      'somebody reading their order through a link needs to know why it stopped working and ' +
+      'where the order went.',
   },
   access_link_recovery: {
     trigger: 'services/guest-portal/recovery.service.ts',

@@ -36,7 +36,7 @@
 
 import Head from "expo-router/head";
 import { View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useOxy } from "@oxyhq/services";
 import { Button, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
@@ -84,6 +84,35 @@ function CheckoutReturnBody() {
           <Text className="text-sm text-muted-foreground">
             Thank you. Your order is confirmed and the seller has been notified.
           </Text>
+          {/*
+            #109 UX rule 1: the OFFER, on the guest confirmation. Shown only to
+            a signed-out buyer, because an authenticated one already has these
+            orders in their history — there is nothing to claim.
+
+            It is a LINK to the review screen rather than an action, and rule 2
+            is why the copy says "you do not need to": claiming is optional, the
+            order is already confirmed, and the review screen is where the
+            benefits and the confirmation live. Guest proof is still required
+            there (rule 8) — the link carries a checkout group and nothing that
+            could stand in for one.
+          */}
+          {!isAuthenticated ? (
+            <>
+              <Link
+                href={{ pathname: "/guest-orders/claim", params: { group: checkoutGroupId } }}
+                asChild
+              >
+                <Button variant="outline">
+                  <Text className="text-sm font-medium text-foreground">
+                    Save these orders to Oxy
+                  </Text>
+                </Button>
+              </Link>
+              <Text className="text-sm text-muted-foreground">
+                Optional. Your order is confirmed either way.
+              </Text>
+            </>
+          ) : null}
           <Button onPress={leave}>
             <Text className="text-sm font-semibold text-primary-foreground">
               {isAuthenticated ? "View your orders" : "Keep shopping"}
