@@ -212,4 +212,25 @@ export const queryKeys = {
     basket: (params: Readonly<Record<string, string | number | undefined>>) =>
       ["comparison", "basket", params] as const,
   },
+  /**
+   * The composed brand and family PAGES (#72).
+   *
+   * Keyed under `catalogPages` rather than under a brand or product key: a
+   * page is a COMPOSITION over four domains, so invalidating "the brand" would
+   * not be the same act as invalidating this read, and filing it under one of
+   * its inputs would make an unrelated invalidation drop it silently.
+   *
+   * The browse keys carry a serialized filter set, because two filter sets are
+   * two different lists and a shared key would serve one under the other's
+   * cursor.
+   */
+  catalogPages: {
+    brand: (handle: string, market: string) => ["catalogPages", "brand", handle, market] as const,
+    brandProducts: (handle: string, filters: string) =>
+      ["catalogPages", "brand", handle, "products", filters] as const,
+    family: (handle: string, params: string) =>
+      ["catalogPages", "family", handle, params] as const,
+    familyProducts: (handle: string, filters: string) =>
+      ["catalogPages", "family", handle, "products", filters] as const,
+  },
 } as const;

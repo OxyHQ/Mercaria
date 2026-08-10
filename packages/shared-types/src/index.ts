@@ -457,3 +457,12 @@ export * from './seo';
 // branch has no number to read: a merchant demand figure of zero and one that
 // cannot be measured mean opposite things.
 export * from './merchant-demand';
+// Brand and product-family PAGES (#72). Follows `./provenance`, `./relationship`,
+// `./offer-freshness` and `./search`: it composes what those already publish —
+// catalogue identity, a verified relationship inside its window, a current
+// offer summary — and adds no fact of its own. Its two official-channel tuples
+// are DISJOINT, which is what makes "a matching name, logo or domain cannot
+// produce a badge" a property of the vocabulary rather than of whoever writes
+// the next composer, and its asset/text unions carry the RIGHTS a fact is shown
+// under so a description copied out of a feed cannot be rendered without them.
+export * from './catalog-page';

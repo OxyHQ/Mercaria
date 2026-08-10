@@ -151,37 +151,40 @@ describe('a catalogue page is judged by its catalogue', () => {
     ).toEqual([]);
   });
 
-  it('keeps a brand out while its page is still planned', () => {
-    expect(sitemapEntriesFor('brands', [brandRow()], ORIGIN, INDEXING_ON).length).toBe(0);
+  it('keeps a BRAND with a catalogue and no description of its own', () => {
+    // #72 shipped `/brands/:handle`, so this collection now emits URLs too —
+    // the merchants precedent above, for a brand page whose content is its
+    // product list rather than a description of its own.
+    expect(sitemapEntriesFor('brands', [brandRow()], ORIGIN, INDEXING_ON)).toEqual([
+      { loc: 'https://mercaria.co/brands/apple', lastmod: LASTMOD.toISOString() },
+    ]);
   });
 
   it('refuses a brand with one product, and accepts one with two', () => {
-    // Asked of the policy directly, because the route is not live yet.
-    const verdict = (entries: number) =>
-      decideIndexability({
-        routeAvailability: 'live',
-        indexingPermitted: true,
-        identity: 'canonical',
-        moderation: 'clear',
-        sourceIndexRight: 'granted',
-        content: entries >= 2 ? 'sufficient' : 'thin',
-        offerInformation: 'not_applicable',
-        locale: 'complete',
-        filterUniqueness: 'not_a_filter_page',
-      });
-    expect(verdict(1).outcome).toBe('refused');
-    expect(verdict(2).outcome).toBe('indexable');
+    // Through `sitemapEntriesFor` directly now the route is live — the
+    // 'drops a merchant whose catalogue is too small' precedent above.
+    expect(
+      sitemapEntriesFor(
+        'brands',
+        [brandRow({ slug: 'solo', catalogueEntryCount: 1 })],
+        ORIGIN,
+        INDEXING_ON,
+      ),
+    ).toEqual([]);
+    expect(sitemapEntriesFor('brands', [brandRow({ catalogueEntryCount: 2 })], ORIGIN, INDEXING_ON)).toEqual([
+      { loc: 'https://mercaria.co/brands/apple', lastmod: LASTMOD.toISOString() },
+    ]);
   });
 });
 
 describe('a route with no screen contributes NOTHING', () => {
-  it('brands and categories are empty while their pages are planned', () => {
+  it('categories are empty while the page is still planned', () => {
     // The registry's `availability` reaching the sitemap: a URL advertised
     // before its screen ships is a crawl target that answers "This screen does
-    // not exist". #73 landed and `merchants` now emits (above); when #72 lands
-    // these stop being empty too, and `seo-routes.test.ts` is what forces the
-    // flip rather than leaving the page unindexable in silence.
-    expect(sitemapEntriesFor('brands', [brandRow()], ORIGIN, INDEXING_ON)).toEqual([]);
+    // not exist". #73 landed and `merchants` emits (above), #72 landed and
+    // `brands` emits too (above) — `categories` is the one still `planned`,
+    // and `seo-routes.test.ts` is what forces its own flip rather than leaving
+    // that page unindexable in silence.
     expect(sitemapEntriesFor('categories', [brandRow({ slug: 'phones' })], ORIGIN, INDEXING_ON)).toEqual([]);
   });
 });

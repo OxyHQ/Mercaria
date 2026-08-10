@@ -1584,6 +1584,33 @@ that ends an identity, and its damage is invisible until a seller finds it:
 - **One new `jsonb` PAIR** (`catalog_revisions.before`/`after`, above) and
   nothing else: impact counts, reason codes, conflict kinds and phase progress
   are all real columns, because an operator filters and compares on them.
+- **#72 WIDENED two of this table's closed sets and added no column**
+  (migration `0055`, `pre`): `detector` gains `public_correction` and
+  `reason_codes` gains `public_correction_submitted`, so a reader disputing a
+  published fact from a brand or family page lands in the SAME queue a detector
+  raises rather than in a second one. `public_correction` is its own member
+  rather than `operator` because the two lead a reviewer to opposite conclusions
+  — an `operator` item is somebody inside Mercaria referring work they already
+  looked at. **No `reported_by` column was added, deliberately**: a submitter
+  recorded beside their dispute is a submitter who can accrue standing, and #72
+  identity rule 1 is that nobody accrues any. The consequence is stated in
+  `docs/catalog-pages.md` rather than hidden — `dedupe_key` is grained per
+  SUBJECT and the conflict branch REPLACES `reason_codes`, so two readers
+  disputing two fields of one brand converge on one item and only the first
+  field reaches `note`. Per-field reason codes would be worse than none: they
+  would drop whichever field arrived first while looking precise.
+
+### The brand and product-family PAGES add no table at all (#72)
+
+`services/catalog-pages/` reads eleven tables across five domains and owns none
+of them, which is why it has no section of its own here. The decision worth
+recording is the one it did NOT make: no projection, no materialized view and no
+denormalized read model, because #61 measured that alternative at one million
+offers, adopted none, and had already indexed this exact read
+(`canonical_products_brand_page_idx` on `(brand_id, name, id) WHERE status <>
+'merged'`). Its keyset readers keep that index's exact shape — `(name, id)`
+ascending, tombstones excluded — rather than inventing an ordering it cannot
+serve. Full reasoning: `docs/catalog-pages.md`.
 
 ### The guest domain has NO source model either
 

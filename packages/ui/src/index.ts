@@ -315,3 +315,18 @@ export {
   explanationFallbackNotice,
   explanationRejectionText,
 } from "./lib/comparison-labels";
+// ---------------------------------------------------------------------------
+// Brand and product-family pages (#72) — a CANONICAL product card and the
+// verified-relationship badge. Separate from `ProductCard`, which renders one
+// seller's LISTING: this one renders a product the marketplace as a whole
+// sells, so it carries a representative price and an offer count rather than a
+// price and a save affordance.
+// ---------------------------------------------------------------------------
+export {
+  CanonicalProductCard,
+  type CanonicalProductCardProps,
+} from "./components/marketplace/CanonicalProductCard";
+export {
+  OfficialChannelBadge,
+  type OfficialChannelBadgeProps,
+} from "./components/marketplace/OfficialChannelBadge";

@@ -201,7 +201,22 @@ export type CurationDetector =
   | 'attribute_conflict_scan'
   | 'orphan_scan'
   | 'policy_regression_scan'
-  | 'operator';
+  | 'operator'
+  /**
+   * A reader disputed a published catalogue fact from a public page (#72
+   * identity rule 2).
+   *
+   * Its own member rather than `operator`, because the two lead a reviewer to
+   * opposite conclusions: an `operator` item is somebody inside Mercaria
+   * referring work they have already looked at, and this is somebody outside
+   * saying a page is wrong. Merging them would make a queue full of public
+   * disputes read as a queue full of internal referrals.
+   *
+   * The item records the DISPUTE and never the disputer — there is no column
+   * for one here, deliberately, so submitting a correction confers no standing
+   * (#72 identity rule 1).
+   */
+  | 'public_correction';
 
 export const CURATION_DETECTORS: readonly CurationDetector[] = [
   'match_pipeline',
@@ -212,6 +227,7 @@ export const CURATION_DETECTORS: readonly CurationDetector[] = [
   'orphan_scan',
   'policy_regression_scan',
   'operator',
+  'public_correction',
 ];
 
 /**
@@ -258,7 +274,22 @@ export type CurationReasonCode =
   | 'unattached_offer'
   | 'lost_automatic_match'
   | 'gained_blocker'
-  | 'operator_referred';
+  | 'operator_referred'
+  /**
+   * A reader disputed a published fact from a public catalogue page (#72
+   * identity rule 2), through `POST /catalog-pages/corrections`.
+   *
+   * ONE code rather than one per disputed FIELD, and the reason is a property
+   * of this table: an item converges on `dedupe_key`, which is grained per
+   * SUBJECT, and the conflict branch REPLACES `reason_codes`. Per-field codes
+   * would therefore drop whichever field was reported first the moment a second
+   * reader reported another one — worse than not recording it, because the item
+   * would look precise while being wrong. The first submission's field reaches
+   * the `note` (which the conflict branch leaves alone) and `detection_count`
+   * carries the volume; per-field fidelity needs a column this table does not
+   * have, and adding one is #59's decision, not #72's.
+   */
+  | 'public_correction_submitted';
 
 export const CURATION_REASON_CODES: readonly CurationReasonCode[] = [
   'ambiguous_candidates',
@@ -278,6 +309,7 @@ export const CURATION_REASON_CODES: readonly CurationReasonCode[] = [
   'lost_automatic_match',
   'gained_blocker',
   'operator_referred',
+  'public_correction_submitted',
 ];
 
 /**
