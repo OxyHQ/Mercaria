@@ -1554,4 +1554,53 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'guest_abuse_interventions.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'guest_launch_gate_signoffs.signed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'guest_rollout_stage_advances.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+
+  // ── Merchant plans, entitlements and subscription billing (#89) ───────────
+  // Two key spaces and nothing else. The Oxy accounts are who published a
+  // policy, who agreed to one and who granted an exception; the provider ids
+  // belong to the BILLING rail, which is a different object family from the
+  // Connect side above and is deliberately never joined to it (acceptance 2).
+  { column: 'merchant_plans.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_plans.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_plan_acceptances.accepted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_subscriptions.accepted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_subscription_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'entitlement_grants.granted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'entitlement_grants.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'merchant_plan_prices.provider_price_id',
+    reason:
+      "A billing provider's own price object. Their key space, and it differs between test and " +
+      'live mode — which is exactly why the row carries `livemode` beside it rather than a ' +
+      'deployment-time constant a client could be shipped with.',
+  },
+  {
+    column: 'billing_customers.provider_customer_id',
+    reason:
+      "A billing provider's own customer object — the merchant Mercaria CHARGES, which is a " +
+      'different object family from the connected account it PAYS. There is deliberately no ' +
+      'relation between this table and `provider_accounts`: #89 acceptance 2 is that the two ' +
+      'cannot be confused or cross-linked, and two tables with no key between them is how.',
+  },
+  {
+    column: 'merchant_subscriptions.provider_subscription_id',
+    reason:
+      "A billing provider's own subscription object, in the same key space as the customer " +
+      'above. Unique per provider and mode, and deliberately never a Mercaria primary key.',
+  },
+  {
+    column: 'merchant_subscription_events.provider_event_id',
+    reason:
+      "The billing provider's own event id, carried so a REPLAY converges — the operator " +
+      'surface can re-run a processed event deliberately, and this is the claim that stops it ' +
+      'booking a second ledger transaction. `payment_provider_events` dedupes RECEIPT; this ' +
+      'dedupes APPLICATION, and the two are different questions.',
+  },
+  {
+    column: 'merchant_subscription_events.provider_invoice_id',
+    reason:
+      "The billing provider's own invoice object. Mercaria issues no invoice of its own for a " +
+      'subscription — the provider does, and the merchant reads it in the hosted portal — so ' +
+      'there is nothing here to reference and no `invoices` table that should exist.',
+  },
 ];

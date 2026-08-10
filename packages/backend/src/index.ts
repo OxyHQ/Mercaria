@@ -459,6 +459,29 @@ connectPostgres()
         .then(({ startPaymentReconciler }) => startPaymentReconciler())
         .catch((err) => log.general.error({ err }, 'Payment reconciler import failed'));
 
+      // Merchant subscription billing (#89). Registering the rail is gated on
+      // `STRIPE_ENABLED` and deliberately NOT on `MERCHANT_BILLING_ENABLED`:
+      // that flag gates a merchant's ACTIONS, while the adapter is what applies
+      // provider events and reconciles subscriptions that already exist — so
+      // registering it only when merchants may upgrade would strand every live
+      // subscription the moment somebody pulled the incident lever.
+      import('./services/billing/stripe/stripe-billing.js')
+        .then(({ registerStripeBillingProvider }) => registerStripeBillingProvider())
+        .catch((err) => log.general.error({ err }, 'Stripe billing registration failed'));
+
+      // Re-read subscriptions the rail has not told us about lately, and catch
+      // the audit trail up on grace periods that have run out. The DEADLINE is
+      // what removes a past-due merchant's paid extras — the resolver compares
+      // it against the clock — so a deployment that never runs this loop still
+      // downgrades on time; what the loop adds is the record.
+      import('./services/billing/reconciler.js')
+        .then(({ startMerchantSubscriptionReconciler }) =>
+          startMerchantSubscriptionReconciler(),
+        )
+        .catch((err) =>
+          log.general.error({ err }, 'Merchant subscription reconciler import failed'),
+        );
+
       // Reap expired rows. Postgres has no TTL index, so nothing sweeps unless
       // this loop does — without it the tables in `db/expiryTargets.ts` grow
       // forever, with no error and no failing test.

@@ -496,3 +496,11 @@ export * from './catalog-page';
 // whoever writes the next screen, and its guidance shape carries no field a
 // client could read as a price to submit.
 export * from './sell-yours';
+// Merchant plans, entitlements and optional subscription billing (#89). Last,
+// and it references NOTHING above it except `./money` — which is the domain's
+// shape: an entitlement says what a merchant may DO and never what a listing,
+// an offer or an order IS, so nothing it holds can reach the catalogue. Its two
+// capability tuples are DISJOINT, which is what makes "catalogue, orders,
+// refunds, financial records and data export can never become paid-only" a
+// property of the vocabulary rather than a rule in a service.
+export * from './merchant-plan';

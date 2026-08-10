@@ -4869,3 +4869,84 @@ domain's own key, a Mercaria-minted row id, or a COARSE network range.
   block the retention sweep forever and CASCADE would erase the audit of an
   erasure the day the credential aged out). All registered in
   `db/deferredForeignKeys.ts`.
+## Merchant plans, entitlements and subscription billing (#89)
+
+Ten more Postgres-born tables with no source model: `merchant_plans`,
+`merchant_plan_prices`, `merchant_plan_acceptances`, `entitlement_definitions`,
+`plan_entitlements`, `billing_customers`, `merchant_subscriptions`,
+`merchant_subscription_events`, `entitlement_grants` and
+`entitlement_usage_counters`. Full reference: `docs/merchant-plans.md`.
+
+The domain references only `stores` (whose merchant the plan is a relationship
+with) and `ledger_transactions` (whose balanced posting a settled invoice names).
+It references `payments` NOT AT ALL, and that omission is the schema decision
+worth reading first.
+
+- **`billing_customers` has no relation to `provider_accounts`, and must never
+  grow one.** A Connect account is a seller Mercaria PAYS; a billing customer is
+  a merchant Mercaria CHARGES. Two objects, two provider key spaces, opposite
+  directions of money — and #89 acceptance 2 asks that they cannot be confused or
+  cross-linked. Two tables with no key between them is how, and a test walks the
+  real drizzle columns of both billing tables asserting no name could hold a
+  connected-account id.
+- **Versioning is the `fee_schedules` mechanism reused, plus ONE index it has no
+  counterpart for.** `merchant_plans_one_active_per_key` is the familiar half;
+  `merchant_plans_one_active_free_plan` is a partial unique on `tier` where
+  `tier = 'free' AND status = 'active'`, so at most one active free version
+  exists in the whole database. A store with no subscription resolves against
+  "the active free plan", and with two of them that phrase names nothing. It is
+  GLOBAL, which makes it a shared resource between parallel realdb tests the way
+  `match_policy_versions_active_key` is — the suite retires its free plan rather
+  than scoping the index.
+- **`limit_kind` is DENORMALIZED onto `plan_entitlements` and
+  `entitlement_grants`, tied by a COMPOSITE foreign key** to
+  `UNIQUE(capability_key, limit_kind)` on the definition — the
+  `match_category_gates` device. Without the copy, "a `flag` carries no number"
+  is a cross-table condition no CHECK can express; with it the rule is intra-row
+  and real, and the copy is provably the definition's own. The definition's
+  contract columns are frozen by trigger, so the target never moves under it.
+  The CHECK is ONE-DIRECTIONAL (`limit_kind <> 'flag' OR limit_value IS NULL`)
+  because NULL must stay legal on a quantified kind: it means UNLIMITED, and a
+  biconditional would make that unrepresentable.
+- **`entitlement_definitions.capability_key` is CHECKed against
+  `MERCHANT_ENTITLEMENT_CAPABILITIES`, which is DISJOINT from
+  `MERCHANT_UNGATEABLE_CAPABILITIES`.** So `order_management`,
+  `refund_issuance`, `financial_record_access` and `data_export` have no row
+  shape anywhere in the schema — the guarantee that they cannot become paid-only
+  is the absence of a value, not a rule in a service.
+- **`merchant_subscriptions` requires the provider trio NOT NULL**, so a row
+  exists only for a real billing relationship. A partnership with no charge is an
+  `entitlement_grants` row, and a free store simply has no subscription — which
+  is what makes `subscription is null` mean "free", unambiguously, everywhere.
+  One row per store, REUSED across cancellations, because "what happened to this
+  merchant's billing" should be one chain to read.
+- **`merchant_subscriptions_grace_deadline_check` is `status <> 'past_due' OR
+  grace_expires_at IS NOT NULL`.** A past-due subscription with no deadline
+  either never expires or expires immediately depending on which reader you ask —
+  the exact shape of a control that cannot be told from its own absence.
+- **The acceptance triple on the subscription is NOT NULL**, and
+  `merchant_plan_acceptances` exists as a TABLE rather than only those three
+  columns because of ORDER: a merchant agrees BEFORE the hosted checkout, and the
+  subscription row cannot exist until the rail has created one. The alternatives
+  were putting an Oxy account id into provider metadata, or letting a
+  subscription exist with no recorded consent.
+- **`merchant_subscription_events.provider_event_id` carries a PARTIAL unique**,
+  and it is a SECOND idempotency layer rather than a duplicate of
+  `payment_provider_events`': that one dedupes RECEIPT (a redelivery), this one
+  dedupes APPLICATION (an operator replaying an already-processed event). The
+  `ON CONFLICT` must repeat the index predicate — Postgres cannot infer a partial
+  index as an arbiter from the column alone.
+- **The audit table is append-only by trigger, which forces the invoice booking's
+  ORDER**: the row cannot be written and then stamped with the ledger transaction
+  it booked, so the posting comes FIRST and a claim that finds the event already
+  applied THROWS, rolling the posting back inside the same transaction.
+- **`entitlement_usage_counters` stores no LIMIT.** It lives on the immutable
+  plan version or on the grant; a copy here would be a second representation of
+  one fact and would be the stale one every time a merchant changed plan. `used`
+  is `bigint({ mode: 'number' })` for the money-column reason — an API-call
+  counter over years outgrows a signed `integer`, and the failure would be a wrap
+  rather than a refusal.
+- **`period_key` is the literal `total` for a `total` limit and a period-derived
+  string for a `per_period` one**, so both kinds share one table and one unique
+  index without a nullable column that would make two rows for one period
+  possible (Postgres treats NULLs as distinct).

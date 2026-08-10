@@ -17,10 +17,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   isWrongScope,
+  platformScopeEventTypes,
   STRIPE_CONNECT_EVENT_TYPES,
   STRIPE_PLATFORM_EVENT_TYPES,
 } from '../event-scopes.js';
 import { routedStripeEventTypes } from '../stripe-event-router.js';
+import { STRIPE_BILLING_EVENT_TYPES } from '../../../billing/stripe/subscription-events.js';
 import { STRIPE_API_VERSION } from '../client.js';
 
 /** ADR 0001, "Stripe configuration" — platform scope (`connect=false`). */
@@ -50,6 +52,23 @@ const ADR_CONNECT = [
   'payout.failed',
 ];
 
+/**
+ * Issue #89's merchant-billing subscriptions, platform scope.
+ *
+ * Transcribed by hand here for the SAME reason the ADR lists are: the value of
+ * this file is that the expected lists came from the decision rather than from
+ * the source, so changing the source alone breaks it. They are a separate tuple
+ * from the ADR's because they are a separate decision — ADR 0001 predates
+ * merchant subscriptions entirely, and appending to its transcription would
+ * destroy the one thing that transcription is for.
+ */
+const BILLING_PLATFORM = [
+  'customer.subscription.updated',
+  'customer.subscription.deleted',
+  'invoice.paid',
+  'invoice.payment_failed',
+];
+
 describe('the subscription lists match ADR 0001', () => {
   it('platform scope', () => {
     expect([...STRIPE_PLATFORM_EVENT_TYPES]).toEqual(ADR_PLATFORM);
@@ -59,13 +78,23 @@ describe('the subscription lists match ADR 0001', () => {
     expect([...STRIPE_CONNECT_EVENT_TYPES]).toEqual(ADR_CONNECT);
   });
 
+  it('#89 adds exactly four merchant-billing types, platform scope', () => {
+    expect([...STRIPE_BILLING_EVENT_TYPES]).toEqual(BILLING_PLATFORM);
+  });
+
+  it('the platform endpoint is subscribed to the ADR list plus #89 s four', () => {
+    expect([...platformScopeEventTypes()]).toEqual([...ADR_PLATFORM, ...BILLING_PLATFORM]);
+  });
+
   it('the two scopes are disjoint', () => {
     /**
      * The scope check is built on the assumption that a type belongs to at most
      * one endpoint. A type in both would make `isWrongScope` refuse a delivery
      * at BOTH paths — an endpoint that rejects everything it subscribes to.
      */
-    const overlap = ADR_PLATFORM.filter((type) => ADR_CONNECT.includes(type));
+    const overlap = [...ADR_PLATFORM, ...BILLING_PLATFORM].filter((type) =>
+      ADR_CONNECT.includes(type),
+    );
     expect(overlap).toEqual([]);
   });
 
@@ -87,7 +116,9 @@ describe('every subscribed type has a handler', () => {
      * non-handling of an event someone deliberately turned on.
      */
     const routed = new Set(routedStripeEventTypes());
-    const unrouted = [...ADR_PLATFORM, ...ADR_CONNECT].filter((type) => !routed.has(type));
+    const unrouted = [...ADR_PLATFORM, ...BILLING_PLATFORM, ...ADR_CONNECT].filter(
+      (type) => !routed.has(type),
+    );
     expect(unrouted).toEqual([]);
   });
 
@@ -100,7 +131,12 @@ describe('every subscribed type has a handler', () => {
      * addition has to be justified rather than just added.
      */
     expect([...routedStripeEventTypes()].sort()).toEqual(
-      [...ADR_PLATFORM, ...ADR_CONNECT, 'payment_intent.requires_action'].sort(),
+      [
+        ...ADR_PLATFORM,
+        ...BILLING_PLATFORM,
+        ...ADR_CONNECT,
+        'payment_intent.requires_action',
+      ].sort(),
     );
   });
 });
@@ -116,13 +152,22 @@ describe('isWrongScope', () => {
     expect(isWrongScope('connect', 'account.updated')).toBe(false);
   });
 
+  it("accepts #89's billing types at the platform endpoint and refuses them at connect", () => {
+    // `invoice.paid` was the example of a type in NEITHER list until #89
+    // subscribed to it. It is now a platform type, so the connect endpoint must
+    // refuse it — which is what the scope check is for.
+    expect(isWrongScope('platform', 'invoice.paid')).toBe(false);
+    expect(isWrongScope('connect', 'invoice.paid')).toBe(true);
+    expect(isWrongScope('connect', 'customer.subscription.updated')).toBe(true);
+  });
+
   it('accepts a type in NEITHER list, at both endpoints', () => {
     /**
      * An unrecognised type is STORED as evidence rather than refused (#45's
      * rule, restated in `event-scopes.ts`): refusing it would make an endpoint
      * someone subscribed to `*` retry into a 400 until Stripe disabled it.
      */
-    expect(isWrongScope('platform', 'invoice.paid')).toBe(false);
-    expect(isWrongScope('connect', 'invoice.paid')).toBe(false);
+    expect(isWrongScope('platform', 'customer.created')).toBe(false);
+    expect(isWrongScope('connect', 'customer.created')).toBe(false);
   });
 });

@@ -328,6 +328,24 @@ export const DISPUTE_OUTCOMES: readonly DisputeOutcome[] = ['won', 'lost'];
  * | `platform_funds` | credit | Mercaria's own out-of-band cash entered or left the payment domain |
  * | `procurement_expense` | debit | goods or fulfilment cost was incurred for a retail order |
  * | `customer_adjustment` | credit | a positive cost variance is owed back to a buyer and not yet refunded |
+ * | `subscription_revenue` | credit | Mercaria's merchant subscription revenue was reduced (a correction) |
+ *
+ * ## `subscription_revenue` is its own account, and that is acceptance 6
+ *
+ * Issue #89 asks that "subscription revenue, marketplace fees and affiliate
+ * commission report separately". Marketplace commission is the RESIDUAL of a
+ * charge (ADR 0001 D3), which exists nowhere but `commission_revenue`; a
+ * merchant's monthly subscription is a different transaction entirely, settled
+ * on Mercaria's own platform account with no seller, no order and no transfer.
+ * Booking it into `commission_revenue` would make the one figure ADR 0001 D3
+ * says exists nowhere else stop meaning what it means, and no report could
+ * separate them afterwards. It is credit-normal, like every other revenue
+ * account here.
+ *
+ * A subscription is deliberately NOT a `payments` row: that table is the
+ * marketplace charge aggregate, one per checkout group, correlated to orders.
+ * The subscription domain records its own invoices on
+ * `merchant_subscription_events`, which names the ledger transaction it booked.
  *
  * ## The five retail accounts, and why they landed across two issues
  *
@@ -386,7 +404,8 @@ export type LedgerAccount =
   | 'supplier_prepaid'
   | 'platform_funds'
   | 'procurement_expense'
-  | 'customer_adjustment';
+  | 'customer_adjustment'
+  | 'subscription_revenue';
 
 /** {@link LedgerAccount} as the tuple the column types and CHECKs read. */
 export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
@@ -404,6 +423,8 @@ export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
   'platform_funds',
   'procurement_expense',
   'customer_adjustment',
+  // #89's one addition — see the note above.
+  'subscription_revenue',
 ];
 
 /**
@@ -480,6 +501,16 @@ export const LEDGER_OWNER_TYPES: readonly LedgerOwnerType[] = ['store', 'user', 
  * two kinds: the pair has to net to zero on `customer_adjustment` for the
  * obligation to be closed, and reading that off one kind is what makes it a
  * query.
+ *
+ * `subscription_invoice_paid` is #89's ONE addition, and it is the only kind
+ * here that names no payment, order, refund or dispute. A merchant subscription
+ * settles on Mercaria's own platform account with none of those, so the
+ * transaction's correlation columns are all NULL and the
+ * `merchant_subscription_events` row that booked it is what points back. #89
+ * adds no kind for a subscription REFUND: the initial plan design is
+ * cancellation at period end with no proration, so a credit is an operator
+ * decision that books through `adjustment` — the existing mechanism, rather than
+ * a kind nothing would write.
  */
 export type LedgerTransactionKind =
   | 'charge_succeeded'
@@ -489,6 +520,7 @@ export type LedgerTransactionKind =
   | 'dispute_created'
   | 'dispute_won'
   | 'dispute_lost'
+  | 'subscription_invoice_paid'
   | 'adjustment'
   | 'prefund_top_up'
   | 'procurement_settled'
@@ -504,6 +536,8 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
   'dispute_created',
   'dispute_won',
   'dispute_lost',
+  // #89's one addition — see the note above.
+  'subscription_invoice_paid',
   'adjustment',
   // ADR 0004 D7's four, landed by #128 — see the note above.
   'prefund_top_up',

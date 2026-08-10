@@ -334,3 +334,12 @@ export * from './sellYours';
 // shared checkout-group token, a Mercaria-minted handle that authorizes
 // nothing, or a keyed digest, all registered in `db/deferredForeignKeys.ts`.
 export * from './guestGovernance';
+// Merchant plans, entitlements and subscription billing (#89) is the last
+// export and references only `./stores` (whose merchant the plan is a
+// relationship with) and `./ledger` (whose balanced posting a settled invoice
+// names). It deliberately references `./payments` NOT AT ALL: a Connect account
+// and a subscription billing customer are two objects in two key spaces that
+// mean opposite things, and acceptance 2 asks that they cannot be cross-linked
+// — two tables with no relation between them is how. It adds no column to any
+// table above it, which is what makes turning billing off a flag flip.
+export * from './merchantPlans';

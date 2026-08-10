@@ -350,6 +350,40 @@ function resolveMercariaRetailEnabled(): boolean {
   return false;
 }
 
+/**
+ * `MERCHANT_BILLING_ENABLED` → may a merchant start or manage a PAID plan (#89
+ * acceptance 8: "Billing remains feature-flagged until the real initial plan has
+ * implemented value and completed production-readiness review").
+ *
+ * The half-configuration rule, for the reason `CROWDSOURCE_ENABLED` has it: a
+ * billing surface without a rail behind it sends merchants to a hosted checkout
+ * that cannot be created, so the honest state is OFF with a message naming what
+ * is missing.
+ *
+ * ## What this flag does NOT gate, and why that matters more than what it does
+ *
+ * It gates the two ACTIONS that would open a hosted provider session, and
+ * NOTHING durable. Entitlement resolution runs regardless, subscription rows are
+ * read and applied regardless, and provider events are stored and processed
+ * regardless — because a flag that could strand a merchant who has already paid
+ * is not a rollback lever, it is an incident. `merchant-plan-isolation.test.ts`
+ * fails the build if the resolver, the event path or the ledger posting starts
+ * reading it.
+ */
+function resolveMerchantBillingEnabled(): boolean {
+  if (!boolEnv('MERCHANT_BILLING_ENABLED', false)) return false;
+
+  if (resolveStripeEnabled()) return true;
+
+  log.general.error(
+    { missing: ['STRIPE_ENABLED'] },
+    '[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; ' +
+      'staying OFF. Entitlements, existing subscriptions and provider events are unaffected — ' +
+      'this flag gates starting or managing a paid plan only.',
+  );
+  return false;
+}
+
 function resolveCrowdSourceEnabled(): boolean {
   if (!boolEnv('CROWDSOURCE_ENABLED', false)) return false;
 
@@ -2975,7 +3009,43 @@ export interface AppConfig {
   readonly procurement: ProcurementConfig;
   readonly retail: MercariaRetailConfig;
   readonly retailReconciliation: RetailReconciliationConfig;
+  readonly merchantBilling: MerchantBillingConfig;
   readonly postgres: PostgresConfig;
+}
+
+/**
+ * Merchant plans, entitlements and optional subscription billing (#89).
+ *
+ * Two levers and four tunables, and NEITHER lever gates a durable record.
+ * `enabled` decides whether a merchant may open a hosted provider session;
+ * `reconciliationEnabled` decides whether the periodic re-read LOOP runs. A
+ * merchant's entitlements resolve, their subscription applies provider events
+ * and their invoices book to the ledger whatever both say.
+ */
+export interface MerchantBillingConfig {
+  /** May a merchant start or manage a PAID plan — see `resolveMerchantBillingEnabled`. */
+  readonly enabled: boolean;
+  /**
+   * Whether the periodic subscription re-read runs (#89 billing rule 7).
+   *
+   * Defaults ON, unlike `enabled`: webhooks are the normal path and are NOT a
+   * substitute for reconciliation — an event that was never delivered is
+   * invisible to everything that waits to be told (#50's opening sentence,
+   * applied to subscriptions). It costs nothing on a deployment with no
+   * subscriptions, because the page comes back empty.
+   */
+  readonly reconciliationEnabled: boolean;
+  /** How often the reconciliation sweep runs. */
+  readonly reconciliationIntervalMs: number;
+  /** Subscriptions re-read per sweep page. */
+  readonly reconciliationBatchSize: number;
+  /**
+   * Where the provider sends a merchant back after a hosted session.
+   *
+   * Absent rather than `''` when unset, so the adapter refuses to open a session
+   * it could not return from instead of building a URL out of an empty string.
+   */
+  readonly returnUrl?: string;
 }
 
 /**
@@ -3575,6 +3645,18 @@ export const config: AppConfig = Object.freeze({
     enabled: boolEnv('RETAIL_RECONCILIATION_ENABLED', false),
     batchSize: intEnv('RETAIL_RECONCILIATION_BATCH_SIZE', 25),
     pollIntervalMs: intEnv('RETAIL_RECONCILIATION_POLL_INTERVAL_MS', 60_000),
+  }),
+  merchantBilling: Object.freeze({
+    enabled: resolveMerchantBillingEnabled(),
+    reconciliationEnabled: boolEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_ENABLED', true),
+    reconciliationIntervalMs: intEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS', 6 * 60 * MINUTE_MS),
+    reconciliationBatchSize: intEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_BATCH_SIZE', 50),
+    // Spread-when-present, like the Stripe onboarding URLs: absent rather than
+    // `''`, so opening a session names the missing variable instead of sending a
+    // merchant to a hosted page that returns nowhere.
+    ...(process.env.MERCHANT_BILLING_RETURN_URL?.trim()
+      ? { returnUrl: process.env.MERCHANT_BILLING_RETURN_URL.trim() }
+      : {}),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

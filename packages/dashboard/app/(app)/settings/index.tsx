@@ -10,6 +10,7 @@ import {
   MapPin,
   Plug,
   CreditCard,
+  Sparkles,
   ChevronRight,
   type LucideIcon,
 } from "lucide-react-native";
@@ -89,6 +90,18 @@ const ITEMS: SettingsItem[] = [
     description: "Get paid for orders placed on Mercaria",
     icon: CreditCard,
     href: "/settings/payments",
+    permission: "store:manage",
+  },
+  // A sibling of "Payments & payouts" and deliberately worded the other way
+  // round: that row is money coming IN for orders, this one is what a store pays
+  // Mercaria for tooling. Two directions, two lifecycles, and merging them would
+  // make a plan look like a condition of getting paid.
+  {
+    key: "plan",
+    label: "Plan & billing",
+    description: "What your store gets, and what you pay for it",
+    icon: Sparkles,
+    href: "/settings/plan",
     permission: "store:manage",
   },
 ];
