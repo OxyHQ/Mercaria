@@ -144,6 +144,7 @@ import {
   type RetailCheckoutPlan,
 } from './checkout/retail.js';
 import { insertRetailProcurementIntents } from '../db/retailCheckout/retailCheckoutRepository.js';
+import { recordRetailFulfilmentPlan } from './retail-fulfilment/order-role.service.js';
 import { addMoney, multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { uuidv7, isUniqueViolation } from '@oxyhq/db';
@@ -1306,10 +1307,31 @@ export async function checkout(
         }),
         tx,
       );
-      await insertRetailProcurementIntents(
+      const procurementIntents = await insertRetailProcurementIntents(
         tx,
         retailPlan.intents.map((intent) => ({ ...intent, orderId: retailOrder.id })),
       );
+      // #126: the order-role snapshot, one fulfilment intent per supplier with
+      // the mode its agreement PERMITTED, the exact line allocations and the
+      // delivery promise the buyer accepted — all in this same transaction, for
+      // the reason the intents above are: each is meaningless without the
+      // order, and the order is a captured charge with no record of who sold it
+      // without them. Nothing here calls a supplier or Moovo.
+      await recordRetailFulfilmentPlan(tx, {
+        orderId: retailOrder.id,
+        lines: retailPlan.lines.map((planned) => ({
+          supplierId: planned.binding.supplierId,
+          quantity: planned.quantity,
+          deliveryDaysMin: planned.deliveryDaysMin,
+          deliveryDaysMax: planned.deliveryDaysMax,
+        })),
+        procurementIntents: procurementIntents.map((intent) => ({
+          id: intent.id,
+          supplierId: intent.supplierId,
+          agreementId: intent.agreementId,
+        })),
+        placedAt: new Date(),
+      });
       rows.push(retailOrder);
     }
     return rows;

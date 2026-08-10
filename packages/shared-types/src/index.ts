@@ -307,3 +307,10 @@ export * from './ebay';
 // may never establish about a retailer (disjoint from every fact this domain
 // can record, so #55 stays the only route to a badge).
 export * from './awin';
+// Supplier-fulfilled Mercaria-retail fulfilment (#126). Last, and downstream of
+// `./retail-checkout` and `./supplier-order`: it names the fulfilment intent a
+// frozen procurement intent becomes and the destination a purchase order's
+// redacted snapshot supplies, and it adds nothing to either. It carries no
+// carrier, package, label or scan vocabulary at all — that is #126 acceptance 2
+// and the absence is stated as prohibitions rather than left implicit.
+export * from './retail-fulfilment';

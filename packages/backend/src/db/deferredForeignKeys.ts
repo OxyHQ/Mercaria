@@ -1162,4 +1162,16 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'item is gone from the provider, and a `retired` object may later be swept — so a foreign ' +
       'key would make the evidence deletable by the thing it is evidence about.',
   },
+
+  // ── Supplier-fulfilled retail fulfilment (#126) ──────────────────────────
+  {
+    column: 'retail_fulfilment_intents.moovo_transport_request_id',
+    reason:
+      "MOOVO's own id for one movement, in another Oxy service's key space. There is nothing in " +
+      'this database to reference and there must not be: #126 acceptance 2 is that Mercaria ' +
+      'contains no carrier or transport system, so a `moovo_transports` table here would be the ' +
+      'second source of truth the whole design exists to avoid. The Mercaria half of the pairing ' +
+      'is `moovo_source_reference`, which is GENERATED from this row and is what an inbound Moovo ' +
+      'event resolves against.',
+  },
 ];

@@ -3515,3 +3515,106 @@ CHECK the database would have refused all looked identical to a green suite.
   handling; a WooCommerce `product.*` webhook collapsing a variable product to
   one variant permanently; and the non-atomic create-then-stamp that strands a
   listing no later sync can match.
+
+## Supplier-fulfilled retail fulfilment and the Moovo boundary (#126, ADR 0004 D2.6/D2.7/D2.8/D9.4/D9.6/D9.9)
+
+`services/retail-fulfilment/` (7 modules) + `db/retailFulfilment/` +
+`db/schema/retailFulfilment.ts` (4 tables) + one nullable defaulted column on
+`supplier_agreements`. Full reference: **`docs/retail-fulfilment.md`**; schema
+decisions: `db/schema/CONVENTIONS.md` §"Supplier-fulfilled retail fulfilment
+(#126)". One coherent Mercaria order while an approved supplier prepares the
+goods and **Moovo owns the physical logistics**.
+
+**Four of its dependencies are OPEN and unbuilt** — #156 (the canonical Oxy
+service client for Moovo), #157 (the fulfilment aggregate and read projection),
+#158 (the durable logistics-event inbox) and #159 (quotes, bookings, labels,
+return transport). Those four ARE the Moovo half, so this issue shipped the
+Mercaria half and left every Moovo-facing call as a seam that refuses
+unconditionally and names the issue that owes it.
+
+- **Six of the ten snapshot facts already have immutable homes and are NOT
+  copied.** `order_items`, `orders.totals` and #123's append-only procurement
+  intent already hold the product, price, tax, agreement, offer, quote and
+  purchase-order citations. A second immutable record of one fact is the failure
+  the snapshot exists to prevent, and the copy nobody reconciles is the one a
+  customer finds on a receipt. `retail_order_role_snapshots` holds the remainder:
+  the seller of record, the #117 disclosure, and the four consumer-rights
+  windows. The buyer CONTACT PATH is DERIVED from `orders.buyer_origin`, never
+  stored.
+- **The four windows are stored as NUMBERS beside their version, and the terms
+  are a CODE CONSTANT, not a table.** A version pointer is only as durable as the
+  code that can still resolve it; a table would let somebody publish a withdrawal
+  window no shipped terms document contains, and it would be snapshotted onto
+  real orders as what those buyers agreed to.
+- **Permitted is not chosen — two mode columns, two clocks.**
+  `permitted_fulfilment_mode` is contractual and frozen at purchase;
+  `fulfilment_mode` is operational and unknowable until a supplier accepts and
+  confirms package readiness. One column would freeze a mode nobody could know or
+  leave the grant rewritable after the sale. Two make the containment a real
+  INTRA-ROW CHECK, and a trigger makes the operational one write-once.
+  `chooseFulfilmentMode`'s `undecided` branch has NO `mode` property, so "we do
+  not know yet" cannot be read as `supplier_controlled`.
+- **Mode A needs its own contractual grant.**
+  `supplier_agreements.moovo_label_dispatch_permitted` (default FALSE) is
+  separate from `dropship_rights_granted`: one says the supplier may ship under
+  Mercaria's name, the other says a third party may execute against Mercaria's
+  carrier account. Deriving one from the other puts Mercaria's logistics
+  documents into a warehouse that never agreed to handle them. Today Mode A is
+  UNREACHABLE — no adapter reports verified package facts and no Moovo port is
+  registered — and that is stated rather than hidden.
+- **`moovo_source_reference` is GENERATED from the row's id.** Deterministic
+  because a booking's idempotency and an inbound event's convergence both key on
+  it; a per-attempt value would differ between two racers and defeat the property
+  it exists for. `findRetailFulfilmentIntentBySourceReference` takes a reference
+  and NOTHING else and returns one row or none — #126 privacy 9 held by the
+  shape of the lookup rather than by a filter.
+- **The over-allocation invariant is cross-row and the repository is its single
+  writer**, locking `order_items` `FOR UPDATE` first. A REPLACEMENT is excluded in
+  BOTH directions — from the committed sum AND from the incoming request — because
+  it re-ships units already allocated; the first implementation had only one half
+  and refused every replacement. A CANCELLED intent releases its claim. The
+  reconciliation reader LEFT-joins, so a line with NO allocation shows as zero —
+  the "lost" half of #126 mapping 8, which an inner join cannot report.
+- **The promise trail is APPEND-ONLY and a failed refresh is a ROW.** A mutable
+  "current estimate" column is precisely the mechanism by which a past promise is
+  silently rewritten. A supplier's SLA arrives `advisory` and no code path
+  upgrades it; only `mercaria_checkout` may author the `guaranteed`
+  accepted-at-checkout promise, by CHECK. The accepted promise is the SLOWEST
+  line — an order arrives when its last parcel does.
+- **`retail_delivery_promises_observed_shape_check` is TWO biconditionals, not
+  one over their conjunction.** The obvious spelling is SATISFIED by
+  `outcome='unknown'` with a window and no basis, because both sides evaluate
+  false — admitting exactly the row rule 10 exists to forbid. Caught by the
+  real-server suite; any future multi-column "present exactly when" CHECK in this
+  schema must be written the same way.
+- **The seven state axes derive from seven different inputs and none from
+  another's.** `RetailFulfilmentStateInputs` has no member that feeds two, and
+  `RetailFulfilmentAxisState`'s `known: false` branch has no `state` property, so
+  an unknown axis cannot be rendered at all. An UNPARSEABLE Moovo observation time
+  answers `unknown`, never fresh. All six of #126's examples are tests.
+- **Acceptance 2 is a scanned gate plus a WALK of the real tables** —
+  `services/__tests__/retail-logistics-isolation.test.ts`: no carrier client, no
+  outbound HTTP, no scheduler, no carrier-state mapping, no guest-portal or
+  service credential, no payment import, and no carrier/package/label/scan/
+  weight/dimension/manifest/poll column in any of the four tables. Vacuity floors
+  on both the file count and the column count, plus a mutation self-test on every
+  detector.
+- Env: `MERCARIA_RETAIL_SELLER_LEGAL_ENTITY` and `MERCARIA_RETAIL_SELLER_COUNTRY`,
+  both demanded by `MERCARIA_RETAIL_ENABLED`'s half-configuration rule and neither
+  defaulted — defaulting the country would print `ES` on every receipt of a
+  deployment that never configured one. **#126 adds NO flag of its own**: a
+  rollback must leave placed orders' fulfilment intact, and
+  `retail-checkout-isolation.test.ts` already fails the build if a post-entry
+  module reads `config.retail`.
+- Seams, each a named contract that fails closed: **#156/#157/#158/#159** (the
+  whole Moovo half; `MoovoTransportProjection` is published as a TYPE and NO table
+  holds a shipment count, package, event id, checkpoint or freshness, because a
+  column nothing could populate is a second source of truth for a fact Mercaria
+  does not hold), **#127** (return authorization), **#162/#129** (the buyer and
+  support tracking experience), **#124/#125** (verified package facts), the
+  TRANSACTIONAL NOTIFICATIONS (six of nine are Moovo milestones; the procurement
+  half needs `procurement-outcome.port.ts` to become a fan-out AND an outbound
+  mail transport Mercaria still does not have), and the OPERATOR SURFACE (nine of
+  its twelve exception cases are questions about Moovo state; when the other three
+  get a route it belongs on `/internal/procurement/*` behind the existing
+  `PROCUREMENT_OPERATOR_OXY_USER_IDS` list, not a seventh).

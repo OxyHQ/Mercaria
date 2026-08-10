@@ -304,4 +304,34 @@ export const PROTECTED_COLUMNS = {
    * names the column explicitly.
    */
   feed_configuration_versions: ['feedUrl', 'authCiphertext'],
+
+  /**
+   * The source's own handle for a delivery statement (#126 privacy 11).
+   *
+   * `source_ref` holds a #122 supplier-quote id on a supplier observation and a
+   * Moovo transport id on a logistics one. Neither is the buyer's to see: the
+   * first is a procurement handle in the same key space `supplier_quote_ref` is
+   * already protected in, and the second identifies a movement in another Oxy
+   * service to whoever presents it. The promise itself — the window, the basis,
+   * when it was observed — is exactly what a buyer SHOULD see, which is why the
+   * protection is on this one column and not on the row.
+   */
+  retail_delivery_promises: ['sourceRef'],
+
+  /**
+   * Mercaria's application-scoped handle for one fulfilment intent, and Moovo's
+   * own transport id (#126 privacy 9).
+   *
+   * `moovo_source_reference` is what an inbound Moovo event resolves against.
+   * It authorizes nothing on its own — the resolution is an exact-match lookup
+   * that returns one intent or none — but it is the ONE value that, presented
+   * to Moovo, names a specific Mercaria fulfilment, and a buyer-facing DTO
+   * carrying one hands every reader a cross-service correlation key for
+   * somebody else's parcel. `moovo_transport_request_id` is the same fact from
+   * the other side.
+   *
+   * The tracking a buyer legitimately sees comes from Moovo's own safe
+   * presentation (#126 privacy 7, #162), never from either of these.
+   */
+  retail_fulfilment_intents: ['moovoSourceReference', 'moovoTransportRequestId'],
 } as const satisfies ProtectedColumnRegistry;
