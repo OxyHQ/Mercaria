@@ -898,19 +898,66 @@ describe('the observation upsert converges (ADR 0002 D22)', () => {
 // ── The convergence queue ───────────────────────────────────────────────────
 
 describe('the convergence outbox', () => {
+  /** How many rows one claim takes. Named so the helper and its test agree. */
+  const CLAIM_BATCH_SIZE = 100;
+
   /**
-   * Claim a batch and pick out THIS listing's job.
+   * Claim THIS listing's job, without depending on or disturbing the queue.
    *
-   * The queue is shared with every other case in this file, and a claim takes
-   * the oldest due rows regardless of listing — so taking `claimed[0]` would
-   * quietly assert against somebody else's row and pass or fail on test order.
+   * `claimOfferOutbox` takes the OLDEST due rows across the whole table with no
+   * listing filter, and the queue is GLOBAL: every case in this file, every
+   * other realdb file that creates a listing (`syncListingFacets` enqueues on
+   * create, update, variant and stock change), and `backfill.realdb.test.ts`'s
+   * `drainOfferOutbox` all share one throwaway database. So the old helper —
+   * one batch of 100, hoping its own row was inside it — had two failure modes,
+   * and BOTH were read as timing flake:
+   *
+   *  - once more than 100 older rows are pending, this listing's row is the
+   *    NEWEST and sits beyond the batch, so the helper reports "no convergence
+   *    job was claimed" for a row that is sitting right there. Deterministic
+   *    rather than flaky — the regression test below seeds past the threshold
+   *    and failed 5 runs out of 5 before this fix;
+   *  - and claiming 100 rows STEALS up to 99 belonging to whatever else is
+   *    running, marking them `processing` under this lease so their real owners
+   *    can no longer complete them.
+   *
+   * Backdating this row and taking exactly ONE fixes both: the row under test is
+   * guaranteed to be the oldest, so queue depth stops mattering, and nothing
+   * else is touched. Looping over batches until the row turned up was tried
+   * first and is WORSE — it drains the entire due queue, and measured across the
+   * six files that share it, that turned one failure into five.
+   *
+   * `claimOfferOutbox` is deliberately unchanged: oldest-first across the whole
+   * table with no listing filter is correct production behaviour for a shared
+   * queue. The bug was a TEST assuming one batch contained its own row.
    */
   async function claimJobFor(listingId: string, leaseOwner: string) {
-    const jobs = await claimOfferOutbox({ leaseOwner, batchSize: 100 }, db);
-    const job = jobs.find((candidate) => candidate.listingId === listingId);
-    if (!job) throw new Error(`no convergence job was claimed for ${listingId}`);
+    await db
+      .update(offerOutboxes)
+      .set({ availableAt: new Date(0) })
+      .where(eq(offerOutboxes.listingId, listingId));
+
+    const [job] = await claimOfferOutbox({ leaseOwner, batchSize: 1 }, db);
+    if (!job || job.listingId !== listingId) {
+      throw new Error(`no convergence job was claimed for ${listingId}`);
+    }
     return job;
   }
+
+  it('finds its own job even when older rows fill more than one claim batch', async () => {
+    const storeId = await mintStore('outbox-batch-window');
+    const older = new Date(Date.now() - 60 * 60 * 1000);
+    for (let index = 0; index < CLAIM_BATCH_SIZE + 5; index += 1) {
+      const seeded = await mintListing({ storeId });
+      await enqueueOfferConvergence(seeded, db, new Date(older.getTime() + index));
+    }
+
+    const listingId = await mintListing({ storeId });
+    await enqueueOfferConvergence(listingId, db);
+
+    const claimed = await claimJobFor(listingId, `owner-window-${RUN}`);
+    expect(claimed.listingId).toBe(listingId);
+  });
 
   it('coalesces repeated requests into ONE row, bumping the revision', async () => {
     const storeId = await mintStore('outbox-coalesce');
