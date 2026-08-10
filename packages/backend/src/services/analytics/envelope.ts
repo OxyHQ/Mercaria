@@ -31,12 +31,14 @@ import type {
   AnalyticsMeasures,
   AnalyticsReasonCode,
   AnalyticsTrafficClass,
+  GuestPaymentMethodCategory,
 } from '@mercaria/shared-types';
 import {
   ANALYTICS_BUYER_ORIGIN_EVENT_TYPES,
   ANALYTICS_COMMERCE_CORRELATED_EVENT_TYPES,
   ANALYTICS_DISCOVERY_EVENT_TYPES,
   ANALYTICS_ENVELOPE_VERSION,
+  ANALYTICS_PAYMENT_METHOD_EVENT_TYPES,
   ANALYTICS_EXPERIMENT_EVENT_TYPES,
   ANALYTICS_GUEST_EVENT_TYPES,
 } from '@mercaria/shared-types';
@@ -127,6 +129,18 @@ export function mayCarryBuyerOrigin(type: AnalyticsEventType): boolean {
   return (ANALYTICS_BUYER_ORIGIN_EVENT_TYPES as readonly string[]).includes(type);
 }
 
+/**
+ * Whether an event type may carry the bounded payment-method category (#111).
+ *
+ * Rendered from the same tuple the CHECK is, so the service and the database
+ * cannot drift. A category on any other type is DROPPED here rather than
+ * rejected — an event the database would refuse must not take a whole flush
+ * batch with it, which is the same reasoning `mayCarryBuyerOrigin` follows.
+ */
+export function mayCarryPaymentMethodCategory(type: AnalyticsEventType): boolean {
+  return (ANALYTICS_PAYMENT_METHOD_EVENT_TYPES as readonly string[]).includes(type);
+}
+
 /** Every event type, in one array, for the gates that enumerate them. */
 export const ALL_EVENT_TYPES: readonly AnalyticsEventType[] = [
   ...ANALYTICS_DISCOVERY_EVENT_TYPES,
@@ -148,6 +162,7 @@ export interface AnalyticsEventDraft {
   readonly measures?: AnalyticsMeasures;
   readonly reasonCode?: AnalyticsReasonCode;
   readonly buyerOrigin?: AnalyticsBuyerOrigin;
+  readonly paymentMethodCategory?: GuestPaymentMethodCategory;
   readonly checkoutGroupId?: string;
   readonly orderId?: string;
   readonly searchPolicyVersion?: string;
@@ -190,6 +205,7 @@ export function buildAnalyticsEvent(draft: AnalyticsEventDraft, now: Date): Anal
   // Field 5. Dropped rather than rejected — see the module docblock.
   const correlationAllowed = mayCarryCommerceCorrelation(draft.eventType);
   const originAllowed = mayCarryBuyerOrigin(draft.eventType);
+  const methodAllowed = mayCarryPaymentMethodCategory(draft.eventType);
 
   // The experiment triple travels whole or not at all; the CHECK refuses a
   // partial one, and composing a partial one here would 500 the flush rather
@@ -240,6 +256,7 @@ export function buildAnalyticsEvent(draft: AnalyticsEventDraft, now: Date): Anal
     // is the floor a stored row can carry.
     collectionMode: storableCollectionMode(config.analytics.collectionMode),
     buyerOrigin: originAllowed ? (draft.buyerOrigin ?? null) : null,
+    paymentMethodCategory: methodAllowed ? (draft.paymentMethodCategory ?? null) : null,
     reasonCode: draft.reasonCode ?? null,
     position: measures.position ?? null,
     resultCount: measures.resultCount ?? null,

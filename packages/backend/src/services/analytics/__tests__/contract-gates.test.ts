@@ -25,6 +25,7 @@ import {
   ANALYTICS_METRIC_KEYS,
   ANALYTICS_METRIC_SOURCES,
   ANALYTICS_METRIC_WINDOWS,
+  ANALYTICS_STRUCTURALLY_UNEMITTED_EVENT_TYPES,
 } from '@mercaria/shared-types';
 import * as analyticsSchema from '../../../db/schema/analytics.js';
 import {
@@ -34,7 +35,7 @@ import {
 } from '../metrics.js';
 import { assignVariant, assignmentBucket, findForbiddenTreatmentKinds } from '../experiments.js';
 import { ALL_EVENT_TYPES, eventClassFor } from '../envelope.js';
-import { ANALYTICS_SEAMS, DEFERRED_EVENT_TYPES } from '../seams.js';
+import { ANALYTICS_SEAMS, DEFERRED_EVENT_TYPES, NEVER_EMITTED_EVENT_TYPES } from '../seams.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -352,12 +353,24 @@ describe('#77 — the deferred events are a seam, never a fabricated event', () 
     // `guest_claim_offered` and `guest_claim_declined` stay on it and move to
     // #111 — an offer is a screen having been shown and a decline is somebody
     // navigating away, and the server can observe neither without inventing it.
-    expect(DEFERRED_EVENT_TYPES.length).toBe(7);
+    //
+    // #111 took it to ZERO, which is a different kind of change from the four
+    // before it and needed the gate re-pointed rather than re-counted. Six of
+    // its seven types are emitted by a storefront analytics client it built;
+    // the seventh, `guest_payment_verified`, moved to
+    // `ANALYTICS_STRUCTURALLY_UNEMITTED_EVENT_TYPES` — never emitted, by
+    // decision rather than by schedule. Scanning only the DEFERRED set would
+    // therefore have made this gate vacuous on the very deploy that closed the
+    // last seam: nothing to look for, no offenders, green forever, and the one
+    // type that must never be emitted guarded by nothing. The scan set is now
+    // the union, which is non-empty by construction.
+    expect(DEFERRED_EVENT_TYPES.length).toBe(0);
+    expect(NEVER_EMITTED_EVENT_TYPES.length).toBe(1);
 
     const offenders: string[] = [];
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
-      for (const type of DEFERRED_EVENT_TYPES) {
+      for (const type of NEVER_EMITTED_EVENT_TYPES) {
         // An EMISSION, not a mention: `eventType: 'guest_claim_completed'` is
         // the shape every call site takes, and a docblock naming the type is
         // exactly what the seam contract is written in.
@@ -370,19 +383,27 @@ describe('#77 — the deferred events are a seam, never a fabricated event', () 
   });
 
   it('the emission detector actually detects — the mutation self-test', () => {
-    // `guest_claim_declined` rather than `guest_claim_completed`, which #109
-    // now EMITS. A self-test seeded with a type that has been closed would pass
-    // for the wrong reason today and start failing the day the type it names is
-    // implemented — which is the failure mode this whole file exists to catch,
-    // one level up.
-    const seeded = "emitAnalyticsEvent(req, { eventType: 'guest_claim_declined' });";
-    expect(DEFERRED_EVENT_TYPES.some((t) => seeded.includes(`eventType: '${t}'`))).toBe(true);
+    // `guest_payment_verified`, the one type that may never be emitted. It is
+    // the right seed precisely BECAUSE it will never be implemented: a self-test
+    // seeded with a merely-deferred type passes today and starts failing the
+    // day somebody lands it, which is the failure mode this file exists to
+    // catch, one level up.
+    const seeded = "emitAnalyticsEvent(req, { eventType: 'guest_payment_verified' });";
+    expect(NEVER_EMITTED_EVENT_TYPES.some((t) => seeded.includes(`eventType: '${t}'`))).toBe(true);
     const innocent = "emitAnalyticsEvent(req, { eventType: 'product_page_view' });";
-    expect(DEFERRED_EVENT_TYPES.some((t) => innocent.includes(`eventType: '${t}'`))).toBe(false);
-    // And the CLOSED direction, which the count alone cannot state: a type
-    // #109 emits must not be readable as an offence any more.
-    const closed = "emitAnalyticsEvent(req, { eventType: 'guest_claim_completed' });";
-    expect(DEFERRED_EVENT_TYPES.some((t) => closed.includes(`eventType: '${t}'`))).toBe(false);
+    expect(NEVER_EMITTED_EVENT_TYPES.some((t) => innocent.includes(`eventType: '${t}'`))).toBe(
+      false,
+    );
+    // And the CLOSED direction, which the count alone cannot state: the six
+    // types #111 now emits must not be readable as an offence any more.
+    for (const closed of [
+      'guest_claim_completed',
+      'guest_claim_declined',
+      'guest_payment_methods_shown',
+    ]) {
+      const line = `emitAnalyticsEvent(req, { eventType: '${closed}' });`;
+      expect(NEVER_EMITTED_EVENT_TYPES.some((t) => line.includes(`eventType: '${t}'`))).toBe(false);
+    }
   });
 
   it('every deferred type names an owning issue, and every seam is documented', () => {
@@ -393,6 +414,13 @@ describe('#77 — the deferred events are a seam, never a fabricated event', () 
     const claimed = new Set(ANALYTICS_SEAMS.flatMap((seam) => seam.eventTypes));
     for (const type of DEFERRED_EVENT_TYPES) {
       expect(claimed.has(type), `${type} is deferred and no seam claims it`).toBe(true);
+    }
+    // And every STRUCTURALLY unemitted type names its decision rather than an
+    // issue — a sentence, because "never, and here is why" is not a number.
+    for (const [type, reason] of Object.entries(ANALYTICS_STRUCTURALLY_UNEMITTED_EVENT_TYPES)) {
+      expect(reason.length, `${type} is never emitted and says nothing about why`).toBeGreaterThan(
+        30,
+      );
     }
     for (const seam of ANALYTICS_SEAMS) {
       expect(seam.contract.length, `${seam.issue} has no contract`).toBeGreaterThan(100);

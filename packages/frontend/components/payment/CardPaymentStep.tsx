@@ -51,7 +51,8 @@
  * (ADR 0006 G10); the verified webhook is the authority.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { paymentMethodCategoryFor, track } from '../../lib/analytics';
 import { View } from 'react-native';
 import {
   Elements,
@@ -119,6 +120,22 @@ export function CardPaymentStep({
   );
 }
 
+/**
+ * The four CLIENT payment facts #111 emits from here.
+ *
+ * They are emitted from this component and nowhere else because this is the
+ * only place that knows them: which surfaces the sheet actually OFFERED (the
+ * server's permission narrowed by the device's capability), which one the buyer
+ * pressed, whether the issuer demanded a step-up, and whether the confirmation
+ * failed before the server ever saw it. #107 deferred all four rather than
+ * derive them server-side, and this closes that half of its seam.
+ *
+ * What is NOT emitted here is `guest_payment_verified`. Paid state is read from
+ * `payments` and a browser must not be able to assert one — the server's ingest
+ * endpoint refuses the type outright, so this is a property of the contract
+ * rather than of this component's restraint.
+ */
+
 /** The two elements and the one submit button, inside the `Elements` context. */
 function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymentStepProps) {
   const stripe = useStripe();
@@ -183,6 +200,10 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
     try {
       const submitted = await elements.submit();
       if (submitted.error) {
+        // A failure BEFORE the rail was called. Counted as a client failure
+        // because that is exactly what it is — nothing reached Stripe, so no
+        // server-side record of this attempt exists or ever will.
+        track('guest_payment_client_failed');
         onFailed(submitted.error.message ?? 'Your payment details could not be confirmed.');
         return;
       }
@@ -194,15 +215,35 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
         ...(payment.returnUrl ? { confirmParams: { return_url: payment.returnUrl } } : {}),
       });
       if (error) {
+        track('guest_payment_client_failed');
         onFailed(error.message ?? 'Your payment could not be completed.');
         return;
       }
-      // The buyer finished. Whether they PAID is the server's to say.
+      // The buyer finished. Whether they PAID is the server's to say — and this
+      // emits NO success event for that reason: `guest_payment_verified` comes
+      // from `payments`, never from here.
       onCompleted();
     } finally {
       setSubmitting(false);
     }
   }, [stripe, elements, payment.returnUrl, onCompleted, onFailed]);
+
+  /**
+   * What the sheet OFFERED, once the wallet answer has arrived.
+   *
+   * Deliberately keyed on `walletsAvailable` rather than emitted on mount: the
+   * denominator of `guest_express_method_usage` is "sheets that offered a
+   * wallet", and emitting before Stripe has answered would count every sheet as
+   * having offered one. `null` is the third state that makes the wait
+   * expressible.
+   */
+  useEffect(() => {
+    if (walletsAvailable === null) return;
+    const offered = payment.methods.filter((method) =>
+      walletsAvailable ? true : method === 'card',
+    );
+    track('guest_payment_methods_shown', { itemCount: offered.length });
+  }, [walletsAvailable, payment.methods]);
 
   return (
     <View className="gap-4">
@@ -231,6 +272,16 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
                   : Object.values(methods).some((method) => method?.available === true),
               );
             }}
+            onClick={(event) => {
+              // The express surface names WHICH wallet was pressed; the card
+              // form below cannot, because a `PaymentElement` submit does not
+              // say which tab the buyer was on. That asymmetry is why the card
+              // path emits its selection at SUBMIT and this one emits here.
+              track('guest_payment_method_selected', {
+                paymentMethodCategory: paymentMethodCategoryFor(event.expressPaymentType),
+              });
+              event.resolve();
+            }}
             onConfirm={() => void confirm()}
           />
           <Text className="text-center text-xs text-muted-foreground">or pay by card</Text>
@@ -238,7 +289,10 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
       )}
       <PaymentElement />
       <Button
-        onPress={() => void confirm()}
+        onPress={() => {
+          track('guest_payment_method_selected', { paymentMethodCategory: 'card' });
+          void confirm();
+        }}
         disabled={!stripe || submitting}
         isLoading={submitting}
         accessibilityLabel="Pay now"

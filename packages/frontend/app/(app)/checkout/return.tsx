@@ -34,10 +34,12 @@
  * back, not a step the payment depends on.
  */
 
+import { useEffect } from "react";
 import Head from "expo-router/head";
 import { View } from "react-native";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { useOxy } from "@oxyhq/services";
+import { track } from "../../../lib/analytics";
 import { Button, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useCheckoutPaymentStatus } from "@/lib/hooks/use-checkout";
@@ -51,6 +53,26 @@ function CheckoutReturnBody() {
   // from their bank, and the only thing left to do is ask the server.
   const paymentStatus = useCheckoutPaymentStatus(checkoutGroupId, Boolean(checkoutGroupId));
   const status = paymentStatus.data?.status;
+
+  /**
+   * `guest_payment_action_required` (#111), emitted from HERE and not from the
+   * payment step.
+   *
+   * The step-up is invisible to the component that started the payment:
+   * `confirmPayment` with `redirect: 'if_required'` either handles the
+   * challenge inline and returns, or navigates the whole page away — and in the
+   * second case there is no callback to fire, because the JavaScript that would
+   * have fired it is gone. ARRIVING on this route is therefore the only
+   * client-observable evidence that an issuer demanded one, which is why the
+   * event belongs to the return screen.
+   *
+   * It says nothing about the OUTCOME. Whether the payment succeeded is read
+   * from `payments` by the poll below, and no event asserts it.
+   */
+  useEffect(() => {
+    if (!checkoutGroupId) return;
+    track('guest_payment_action_required');
+  }, [checkoutGroupId]);
 
   const leave = () =>
     router.replace(

@@ -30,6 +30,7 @@
  * why this paragraph describes the prohibition rather than spelling it.
  */
 
+import { useEffect } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { View } from "react-native";
@@ -38,6 +39,7 @@ import { Button, SectionHeader, Text } from "@mercaria/ui";
 import type { GuestClaimBlockReason, GuestClaimOrderRef } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useGuestClaim, useGuestClaimPreview } from "@/lib/hooks/use-guest-claim";
+import { track } from "@/lib/analytics";
 
 /**
  * What a claim actually gets you, today.
@@ -79,6 +81,22 @@ function ClaimBody() {
 
   const checkoutGroupId = params.group;
   const preview = useGuestClaimPreview(checkoutGroupId, isAuthenticated);
+
+  /**
+   * `guest_claim_offered` (#111), emitted when the review screen has actually
+   * RENDERED an offer.
+   *
+   * #109 deferred this rather than derive it from the preview ENDPOINT being
+   * read, and the distinction is the whole reason it is here: a client can poll
+   * that endpoint, and a claim made from a link the buyer never looked at would
+   * still have counted an offer. The condition below is "the preview resolved
+   * AND it says a claim is possible" — an unclaimable preview is not an offer,
+   * it is an explanation.
+   */
+  useEffect(() => {
+    if (preview.data === undefined || !preview.data.claimable) return;
+    track("guest_claim_offered");
+  }, [preview.data]);
 
   if (!checkoutGroupId) {
     return (
@@ -215,8 +233,23 @@ function ClaimBody() {
             {alreadyClaimedByYou ? "Confirm" : "Save these orders to my account"}
           </Text>
         </Button>
-        {/* UX rule 9: declining leaves purchase access exactly as it was. */}
-        <Button variant="outline" onPress={() => router.back()} disabled={claim.isPending}>
+        {/*
+          UX rule 9: declining leaves purchase access exactly as it was.
+
+          `guest_claim_declined` (#111) is emitted from THIS press and from
+          nowhere else. #109 deferred it rather than derive it from "a preview
+          was read and no claim followed", because the server cannot tell that
+          from a lost connection, a closed tab or a person who went to find
+          their password. An explicit dismissal is the only decline there is.
+        */}
+        <Button
+          variant="outline"
+          onPress={() => {
+            track("guest_claim_declined");
+            router.back();
+          }}
+          disabled={claim.isPending}
+        >
           <Text className="text-sm font-medium text-foreground">Not now</Text>
         </Button>
       </View>

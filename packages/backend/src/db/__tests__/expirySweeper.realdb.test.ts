@@ -427,6 +427,15 @@ describe('the registry the sweeper runs over', () => {
       'feed_import_report_entries',
       'feed_import_reports',
       'feed_uploads',
+      // #111's THREE, and the six it leaves out are the point: these are the
+      // only tables in that domain bounded by TRAFFIC. The retention POLICY,
+      // the runs, the legal holds and the two erasure-audit tables must outlive
+      // the data they are about — a retention that deleted the record of what
+      // the retention WAS, or of why a deletion did NOT happen, answers the
+      // only question an auditor asks with silence. The list is SORTED, which
+      // is why the third of the three sits further down.
+      'guest_abuse_counters',
+      'guest_abuse_interventions',
       'guest_order_access_grants',
       // #109's ONE, and the two it leaves out are the point: a claim records
       // who owns a purchase and a revocation records an operator correcting
@@ -437,6 +446,7 @@ describe('the registry the sweeper runs over', () => {
       'guest_order_claim_outbox',
       'guest_portal_messages',
       'guest_recovery_attempts',
+      'guest_security_signal_counters',
       'guest_sessions',
       'guest_sessions',
       // #86's ONE, and the six it leaves out are the point:

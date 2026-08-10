@@ -30,6 +30,8 @@
  *    it impossible for a browser to claim one.
  */
 
+import type { GuestPaymentMethodCategory } from './guest-governance';
+
 /**
  * The envelope contract version.
  *
@@ -277,18 +279,15 @@ export const ANALYTICS_DEFERRED_EVENT_TYPES: Readonly<
   // `checkout.controller.ts` can classify an outcome without matching on
   // message text — which is the exact condition #77 recorded as what the seam
   // was waiting for.
-  // These five were #107's and are #111's. #107 SHIPPED the guest Stripe rail
-  // without them, deliberately: four are facts only a browser or a payment
-  // sheet knows and the storefront has no analytics client, and emitting the
-  // fifth from the payment domain would invert `verified-conversion.ts`'s
-  // one-way seam to duplicate a number `guest_verified_payment_conversion`
-  // already reads from `payments`. The full reasoning, and the contract that
-  // still binds whoever lands them, is on #111's entry in `seams.ts`.
-  guest_payment_methods_shown: '#111',
-  guest_payment_method_selected: '#111',
-  guest_payment_action_required: '#111',
-  guest_payment_client_failed: '#111',
-  guest_payment_verified: '#111',
+  // The four CLIENT payment types that used to sit here are EMITTED now. #111
+  // built the storefront analytics client #107 said was rollout instrumentation
+  // rather than payment work, and each of the four is exactly what #107's
+  // contract required: a browser fact, carrying a BOUNDED method category from
+  // `GUEST_PAYMENT_METHOD_CATEGORIES` rather than the provider's own string.
+  //
+  // `guest_payment_verified` is NOT among them and never will be. It moved to
+  // {@link ANALYTICS_STRUCTURALLY_UNEMITTED_EVENT_TYPES}, which is a different
+  // and stronger statement than a seam — see the note there.
   // The three `#108` types (`guest_order_portal_opened`,
   // `guest_recovery_requested`, `guest_recovery_exchanged`) that used to sit
   // here are EMITTED now. What closed
@@ -306,14 +305,14 @@ export const ANALYTICS_DEFERRED_EVENT_TYPES: Readonly<
   // countable without an account's email, the losing claimant's identity or a
   // credential ever reaching a column.
   //
-  // The two below stay deferred and move to #111, exactly as #107's five did
-  // and for the same reason: an OFFER is a screen having been shown and a
-  // DECLINE is somebody navigating away, and the storefront has no analytics
-  // client at all. Building one is rollout instrumentation, not claim work —
-  // and deriving either server-side would be fabrication, since the server
-  // cannot tell a decline from a person closing a tab.
-  guest_claim_offered: '#111',
-  guest_claim_declined: '#111',
+  // #109's other two are EMITTED now, from the claim screen itself. They were
+  // deferred here because an OFFER is a screen having been shown and a DECLINE
+  // is somebody navigating away — facts a server cannot observe — and #111
+  // supplied the only thing that could close them honestly: a client that
+  // emits the offer when the review screen RENDERS (never when the preview
+  // endpoint is read, which a client can poll) and the decline on an EXPLICIT
+  // dismissal (never on "a preview was read and no claim followed", which is
+  // indistinguishable from a lost connection).
   // The three `#110` types (`guest_cancellation_requested`,
   // `guest_return_requested`, `guest_support_request_created`) that used to sit
   // here are EMITTED now, from `controllers/buyer-requests.controller.ts` and
@@ -324,6 +323,39 @@ export const ANALYTICS_DEFERRED_EVENT_TYPES: Readonly<
   // ANALYTICS_COMMERCE_CORRELATED_EVENT_TYPES) and the actor KIND, and nothing
   // else: the request's reason code, the buyer's note and every support message
   // body have no column here and must not acquire one.
+};
+
+/**
+ * Event types that are in the vocabulary and will NEVER be emitted, with the
+ * decision that settled it (#111).
+ *
+ * This is a different statement from {@link ANALYTICS_DEFERRED_EVENT_TYPES} and
+ * the difference is the point. A deferred type is waiting for an issue; a type
+ * here has been decided against, permanently, and the gate that refuses an
+ * emission of it is no longer a temporary courtesy to a future author but the
+ * enforcement of a design decision.
+ *
+ * Retiring the type from the tuple instead was considered and rejected twice
+ * over. It would rewrite `analytics_events_event_type_check` for no change in
+ * what any row can hold, and — the load-bearing half — it would DELETE the
+ * record of why the obvious thing is not done, leaving the next person to
+ * rediscover it by building it.
+ */
+export const ANALYTICS_STRUCTURALLY_UNEMITTED_EVENT_TYPES: Readonly<
+  Partial<Record<AnalyticsEventType, string>>
+> = {
+  /**
+   * `verified-conversion.ts` establishes a ONE-WAY seam: analytics reads
+   * `payments`, and no payment path ever depends on telemetry.
+   * `guest_verified_payment_conversion` already takes its numerator from
+   * `payments` directly, carries no `seam` field and computes today — so an
+   * event emitted from the #48 ingress would invert that direction to add a
+   * second, weaker source for a number nothing would read it for. #107 declined
+   * to emit it from the payment domain and #111, which inherited it, declines
+   * to emit it at all. The rule the decision rests on is #111 analytics rule 5:
+   * paid state joins from verified payment records, never from an event.
+   */
+  guest_payment_verified: 'Financial truth is read from `payments`; see verified-conversion.ts.',
 };
 
 /**
@@ -355,6 +387,20 @@ export const ANALYTICS_CLIENT_EMITTABLE_EVENT_TYPES = [
   'sell_yours_entry',
   'surface_error',
   'experiment_exposed',
+  // #111's six. Each is a fact only a browser or a payment sheet knows, and
+  // NONE of them can move money or identity: which methods a sheet OFFERED,
+  // which one was pressed, whether the issuer demanded a step-up, whether the
+  // confirmation failed on the client, whether a claim screen was rendered, and
+  // whether it was explicitly dismissed. `guest_payment_verified` is
+  // deliberately NOT here and never will be — the paid state comes from
+  // `payments`, which is what makes forging one from a browser impossible
+  // rather than merely refused.
+  'guest_payment_methods_shown',
+  'guest_payment_method_selected',
+  'guest_payment_action_required',
+  'guest_payment_client_failed',
+  'guest_claim_offered',
+  'guest_claim_declined',
 ] as const;
 
 /** One of {@link ANALYTICS_CLIENT_EMITTABLE_EVENT_TYPES}. */
@@ -414,6 +460,35 @@ export const ANALYTICS_BUYER_ORIGIN_EVENT_TYPES = [
   'guest_eligibility_accepted',
   'guest_eligibility_rejected',
   'guest_payment_verified',
+] as const;
+
+/**
+ * The event types that may carry the bounded payment-method category (#111
+ * analytics measure 5).
+ *
+ * A CHECK renders this tuple, so a `search_submitted` carrying a method
+ * category is refused by the database — the `buyer_origin` device, and the
+ * narrowness matters for the same reason: a method dimension on a discovery
+ * event would let a merchant-facing report be sliced by how somebody paid.
+ *
+ * `guest_payment_action_required` and `guest_payment_client_failed` are on the
+ * list because "which methods produce step-ups" and "which methods fail on the
+ * client" are the two questions a rollout actually asks before enabling a new
+ * one. `guest_payment_verified` is NOT — it is never emitted at all.
+ *
+ * {@link ANALYTICS_ENVELOPE_VERSION} deliberately does NOT move for this
+ * addition. It moves when a field's MEANING changes, and no existing field's
+ * has; and the ambiguity a new nullable column normally introduces ("is this
+ * NULL because the row predates the field, or because the field does not
+ * apply?") cannot arise here, because every type on this list was emitted by
+ * nothing before #111 — so every pre-existing row is of a type that could never
+ * have carried one.
+ */
+export const ANALYTICS_PAYMENT_METHOD_EVENT_TYPES = [
+  'guest_payment_methods_shown',
+  'guest_payment_method_selected',
+  'guest_payment_action_required',
+  'guest_payment_client_failed',
 ] as const;
 
 /* -------------------------------------------------------------------------- */
@@ -509,6 +584,16 @@ export const ANALYTICS_REASON_CODES = [
   'claim_completed',
   'claim_declined',
   'claim_conflicted',
+  // #111's abuse friction. THREE codes for one decision, unlike the single
+  // `guest_rollout_blocked` above, and the asymmetry is deliberate: a rollout
+  // lever is an operator's private choice a buyer cannot act on, while friction
+  // is something the person is TOLD and must be able to act on — waiting, or
+  // proving their inbox, or knowing a human will look. Naming the MEASURE
+  // discloses nothing about the thresholds: which pattern fired and what the
+  // count was stay in the intervention row, where the reader is an operator.
+  'abuse_cooldown',
+  'abuse_verification_required',
+  'abuse_manual_review',
   // The honest fallback. Present so a new refusal is recorded as UNCLASSIFIED
   // rather than squeezed into a code that means something else.
   'other',
@@ -1059,6 +1144,196 @@ export const ANALYTICS_METRICS: readonly AnalyticsMetricDefinition[] = [
       'eligibility verdicts, and folding them into the denominator would report a gate that ' +
       'never ran as a gate that said no.',
   },
+  // ── #111's product metrics ────────────────────────────────────────────────
+  // The issue names fourteen. SIX are already defined above and are not
+  // duplicated (`guest_verified_payment_conversion`, `order_portal_delivery_success`,
+  // `oxy_claim_funnel`, `guest_post_purchase_demand`, `guest_eligibility_coverage`,
+  // `native_gmv`), and its eleventh — "platform and market differences" — is
+  // deliberately NOT a metric at all: `client_surface` and `market` are
+  // dimensions every one of these already carries and every rollup already
+  // buckets by, so a separate metric would be the same numbers under a second
+  // name that could disagree with the first.
+  {
+    key: 'guest_add_to_cart_rate',
+    title: 'Guest versus authenticated add-to-cart rate',
+    numerator: 'native_add_to_cart events, sliced by the buyer_origin the event carries',
+    denominator: 'product_page_view events in the same window, sliced by actor kind',
+    window: 'day',
+    source: 'analytics_events',
+    freshnessSeconds: 3600,
+    humanOnly: true,
+    merchantVisible: false,
+    attributionLimit:
+      'The two slices are NOT a controlled comparison. A signed-in shopper and a guest are ' +
+      'self-selected populations that differ in intent before they differ in flow, so a gap ' +
+      'here is a description of who uses which and never evidence that one flow converts ' +
+      'better. Comparing them under an experiment is the only way to answer that, and #77 ' +
+      'forbids the treatment that would be needed to try.',
+  },
+  {
+    key: 'guest_cart_progression_rate',
+    title: 'Guest cart-to-checkout rate',
+    numerator: 'guest_checkout_started events',
+    denominator: 'guest_cart_created events in the same window',
+    window: 'rolling_7d',
+    source: 'analytics_events',
+    freshnessSeconds: 3600,
+    humanOnly: true,
+    merchantVisible: false,
+    attributionLimit:
+      'NOT a money metric, and the KEY says so deliberately: both halves are client-observed ' +
+      'pre-payment events, and a checkout STARTED is not a purchase. The naming is load-bearing ' +
+      'rather than stylistic — `findFinancialSourceViolations` treats any key containing ' +
+      '"conversion" or "checkout" as a claim about money and demands a durable source, and it ' +
+      'refused this metric under both of its first two names, correctly. The money questions are ' +
+      '`guest_checkout_funnel` (from `orders`) and `guest_verified_payment_conversion` (from ' +
+      '`payments`). ' +
+      'A cart created near the end of a window is counted against a checkout that may fall ' +
+      'into the next one, so the ratio is stable over a week and misleading over an hour. ' +
+      'A guest whose pseudonym rotates mid-journey appears in both halves under two ' +
+      'dimensions, which is the cost the 24-hour salt rotation was chosen knowing.',
+  },
+  {
+    key: 'guest_funnel_step_failure_rate',
+    title: 'Guest validation and payment drop-off',
+    numerator:
+      'guest_contact_validation_failed, guest_destination_validation_failed and ' +
+      'guest_payment_client_failed events, reported per bounded reason code',
+    denominator: 'guest_checkout_started events in the same window',
+    window: 'day',
+    source: 'analytics_events',
+    freshnessSeconds: 3600,
+    humanOnly: true,
+    merchantVisible: false,
+    attributionLimit:
+      'The key carries no financial marker, for `guest_cart_progression_rate`\'s reason: every ' +
+      'input is a client-observed failure and none of them is money. ' +
+      'Counts FAILURES, not abandonment. Somebody who reaches the payment sheet and closes the ' +
+      'tab appears nowhere in the numerator, and the server cannot tell that from a lost ' +
+      'connection — which is the same reason guest_claim_declined has to come from an explicit ' +
+      'dismissal rather than from a preview nobody acted on.',
+  },
+  {
+    key: 'guest_express_method_usage',
+    title: 'Express payment method usage',
+    numerator: 'guest_payment_method_selected events carrying a wallet payment_method_category',
+    denominator: 'guest_payment_methods_shown events that offered at least one wallet category',
+    window: 'rolling_7d',
+    source: 'analytics_events',
+    freshnessSeconds: 3600,
+    humanOnly: true,
+    merchantVisible: false,
+    attributionLimit:
+      'The denominator is what the SHEET offered, which the device narrows — a browser with no ' +
+      'wallet configured never sees one and never enters either half. So this measures uptake ' +
+      'among people who could have used it, and can never be read as "how many buyers own a ' +
+      'wallet".',
+  },
+  {
+    key: 'guest_recovery_success_rate',
+    title: 'Guest order recovery success',
+    numerator: 'guest_recovery_exchanged events',
+    denominator: 'guest_recovery_requested events in the same window',
+    window: 'rolling_7d',
+    source: 'analytics_events',
+    freshnessSeconds: 3600,
+    humanOnly: true,
+    merchantVisible: false,
+    attributionLimit:
+      'The denominator counts every request whether or not an inbox matched — deliberately, ' +
+      'because an event emitted only on a match would rebuild the enumeration oracle the ' +
+      'uniform 202 exists to close. So a low rate can mean links are not arriving OR that ' +
+      'people are typing addresses that never bought anything, and this metric cannot ' +
+      'distinguish them. It will read ZERO while no mail transport is registered.',
+    seam: '#108 transport',
+  },
+  {
+    key: 'guest_abuse_intervention_rate',
+    title: 'Guest abuse intervention rate',
+    numerator: 'guest_abuse_interventions rows created in the window',
+    denominator: 'succeeded payments plus guest_checkout_started events in the same window',
+    window: 'rolling_7d',
+    source: 'payments',
+    freshnessSeconds: 3600,
+    humanOnly: false,
+    merchantVisible: false,
+    attributionLimit:
+      'A rate against ACTIVITY, not against people — the denominator deliberately mixes two ' +
+      'units because the alternative is a per-person denominator this domain refuses to be ' +
+      'able to compute. Read it as "how often does a control fire", never as "what fraction of ' +
+      'shoppers are abusive".',
+  },
+  {
+    key: 'guest_abuse_false_positive_rate',
+    title: 'Abuse intervention false-positive correction rate',
+    numerator: 'guest_abuse_interventions rows an operator moved to false_positive',
+    denominator: 'guest_abuse_interventions rows created in the same window',
+    window: 'rolling_28d',
+    source: 'payments',
+    freshnessSeconds: 86400,
+    humanOnly: false,
+    merchantVisible: false,
+    attributionLimit:
+      'A LOWER bound and known to be one: it counts the false positives somebody complained ' +
+      'about and an operator agreed with. Most people who hit an unjust cooldown wait it out ' +
+      'and never appear here, which is why a small number is not evidence the controls are ' +
+      'accurate. It is measurable at all only because a corrected intervention is kept rather ' +
+      'than deleted.',
+  },
+  {
+    key: 'guest_share_of_native_gmv',
+    title: 'Guest share of native GMV and support demand',
+    numerator: 'succeeded payment totals on orders whose buyer_origin is guest, per shop currency',
+    denominator: 'succeeded payment totals on all native orders, per shop currency',
+    window: 'rolling_28d',
+    source: 'payments',
+    freshnessSeconds: 900,
+    humanOnly: false,
+    merchantVisible: false,
+    attributionLimit:
+      'Per shop currency and never mixed, for native_gmv’s reason. A claimed guest order stays ' +
+      'in the guest numerator FOREVER — buyer_origin is immutable — so this measures which ' +
+      'flow made the sale and never which kind of account exists today. Read beside ' +
+      'guest_post_purchase_demand: a guest share of GMV above the guest share of support ' +
+      'demand is the case for the flow, and below it is the case against.',
+  },
+  {
+    key: 'guest_payment_return_recovery',
+    title: 'Session-expiry and payment-return recovery success',
+    numerator:
+      'checkout groups with a succeeded payment that later produced a guest_order_portal_opened ' +
+      'event, whether the credential came from the paying tab or from a recovery exchange',
+    denominator: 'checkout groups with a succeeded payment on a guest-origin order',
+    window: 'rolling_7d',
+    source: 'payments',
+    freshnessSeconds: 3600,
+    humanOnly: false,
+    merchantVisible: false,
+    attributionLimit:
+      'The one metric here whose FAILING half is the thing that matters: a buyer who paid and ' +
+      'never opened their order is the worst state guest commerce has, and this is where it is ' +
+      'visible. It cannot distinguish somebody who never came back from somebody who came back ' +
+      'and could not get in — the security signal for portal-initialization lag is what ' +
+      'separates those, and a rate here dropping without that signal moving means people are ' +
+      'simply not returning.',
+  },
+  {
+    key: 'guest_portal_initialization_lag',
+    title: 'Portal initialization lag after verified payment',
+    numerator:
+      'seconds between a payment reaching succeeded and its guest_portal_initialization outbox ' +
+      'row completing, reported as a p95',
+    denominator: 'one — a latency, not a ratio; the denominator names the payment population',
+    window: 'day',
+    source: 'payments',
+    freshnessSeconds: 900,
+    humanOnly: false,
+    merchantVisible: false,
+    attributionLimit:
+      'Measures the QUEUE, not the buyer’s experience. The row completing means a grant exists ' +
+      'and, once a transport is registered, that a message was handed over — never that it ' +
+      'arrived. Delivery is the mail provider’s to report and Mercaria has none.',
+  },
 ] as const;
 
 /** Every metric key, for the rollup CHECK and the read surfaces. */
@@ -1315,6 +1590,17 @@ export interface AnalyticsEnvelope {
   readonly collectionMode: AnalyticsCollectionMode;
   /** Field 12 — only on {@link ANALYTICS_BUYER_ORIGIN_EVENT_TYPES}. */
   readonly buyerOrigin?: AnalyticsBuyerOrigin;
+  /**
+   * The BOUNDED payment-method category (#111 analytics measure 5), only on
+   * {@link ANALYTICS_PAYMENT_METHOD_EVENT_TYPES}.
+   *
+   * A real typed column and not a measure, because it is a category rather than
+   * a number — and a real column rather than a reuse of `reasonCode`, because a
+   * method and a refusal are different facts and one column holding both would
+   * make "how many people were shown Apple Pay" unanswerable without knowing
+   * which values in it are methods.
+   */
+  readonly paymentMethodCategory?: GuestPaymentMethodCategory;
   /** A bounded reason code. Never a message. */
   readonly reasonCode?: AnalyticsReasonCode;
   /** The typed measures allow-list. */

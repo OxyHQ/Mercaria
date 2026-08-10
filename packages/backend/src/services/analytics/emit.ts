@@ -36,6 +36,7 @@ import type {
   AnalyticsMeasures,
   AnalyticsReasonCode,
   AnalyticsTrafficClass,
+  GuestPaymentMethodCategory,
 } from '@mercaria/shared-types';
 import type { CommerceActor } from '../commerce-actor.js';
 import { config } from '../../config/index.js';
@@ -52,6 +53,8 @@ export interface EmitAnalyticsInput {
   readonly measures?: AnalyticsMeasures;
   readonly reasonCode?: AnalyticsReasonCode;
   readonly buyerOrigin?: AnalyticsBuyerOrigin;
+  /** RESTRICTED — kept only on the four payment event types (#111). */
+  readonly paymentMethodCategory?: GuestPaymentMethodCategory;
   /** RESTRICTED — kept only on the event types field 5 admits. */
   readonly checkoutGroupId?: string;
   /** RESTRICTED — same rule. */

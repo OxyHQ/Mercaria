@@ -191,7 +191,14 @@ describe('the migrated schema', () => {
     // #86 adds ONE — a merchant demand SNAPSHOT — and leaves its six others
     // unswept: two CASCADE from the snapshot, and the four acquisition tables
     // are the record of what people decided, which a retention clock destroys.
-    expect(EXPIRY_TARGETS).toHaveLength(29);
+    // #111 adds THREE, and the SIX it leaves out are the point: the abuse
+    // counters, the interventions they produced and the security signal counts
+    // are the only tables in that domain bounded by TRAFFIC, while the
+    // retention POLICY, the retention RUNS, the legal HOLDS and the two erasure
+    // audit tables must all outlive the data they are about — a retention that
+    // deleted the record of what the retention WAS, or of why a deletion did
+    // NOT happen, would answer the only question an auditor asks with silence.
+    expect(EXPIRY_TARGETS).toHaveLength(32);
   });
 });
 

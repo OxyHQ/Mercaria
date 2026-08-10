@@ -1517,4 +1517,41 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       "key but the reverse: `mercaria_seller_draft_reject_borrowed_photo` refuses a file id the " +
       "catalogue or another seller's listing already claims.",
   },
+  // ── Guest-commerce governance (#111) ──────────────────────────────────────
+  // Every id in this domain is either a Mercaria-minted handle that authorizes
+  // nothing or a keyed digest. The three checkout-group columns carry the same
+  // shared token every other guest table records, and the two grant references
+  // carry `guest_order_claims.source_grant_id`'s exact problem.
+  {
+    column: 'guest_legal_holds.checkout_group_id',
+    reason:
+      'The group a hold protects; the same shared token, the same absent table. A hold must ' +
+      'also be raisable for a group whose contact record has already been minimized, which a ' +
+      'foreign key onto guest_checkouts would still permit and a foreign key onto a ' +
+      'checkout_groups table would not — there is no such table and #111 does not add one.',
+  },
+  { column: 'guest_legal_holds.raised_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'guest_legal_holds.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'guest_data_requests.checkout_group_id',
+    reason:
+      'The group an export or erasure request covers (#111). The same shared token; and the ' +
+      'request must outlive everything it erased, so there is nothing left for it to reference.',
+  },
+  {
+    column: 'guest_data_requests.source_grant_id',
+    reason:
+      'The guest_order_access_grants row that authorized the request — guest_order_claims.' +
+      'source_grant_id’s exact reasoning, with a sharper consequence: grants are hard-DELETED ' +
+      'at their own purge_at, so CASCADE would erase the audit of an erasure the day the ' +
+      'credential aged out, and RESTRICT would block the retention sweep forever.',
+  },
+  { column: 'guest_data_requests.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'guest_retention_policy_versions.published_by_oxy_user_id',
+    reason: OXY_ACCOUNT,
+  },
+  { column: 'guest_abuse_interventions.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'guest_launch_gate_signoffs.signed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'guest_rollout_stage_advances.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];

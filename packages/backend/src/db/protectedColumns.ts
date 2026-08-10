@@ -415,6 +415,27 @@ export const PROTECTED_COLUMNS = {
 
   /** The same pair on a quantity movement. See above. */
   retail_return_line_dispositions: ['actorOxyUserId', 'actorGrantId'],
+
+  /**
+   * The keyed digest an abuse counter and its intervention are keyed on (#111
+   * abuse control 2).
+   *
+   * `guest_recovery_attempts.subject_hash`'s reasoning, one domain wider and
+   * with a second consequence worth stating. The preimage is a session id, a
+   * checkout id, a normalized email hash or a coarse network prefix, so the
+   * value is an exact-match ORACLE over every one of them — but it is ALSO the
+   * only cross-row join key this domain has, which is exactly why it must not
+   * reach an operator surface. A trace that returned the hash would let a
+   * reader ask "what else did this subject do", which is the correlation the
+   * per-scope preimage exists to prevent: two scopes' digests of one subject
+   * are deliberately different values, and a projection carrying both would
+   * make them one again.
+   *
+   * What an operator legitimately needs is the COUNT and the pattern that
+   * fired, and the intervention row carries both without this column.
+   */
+  guest_abuse_counters: ['subjectHash'],
+  guest_abuse_interventions: ['subjectHash'],
 } as const satisfies ProtectedColumnRegistry;
 
 /**

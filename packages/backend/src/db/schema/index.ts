@@ -325,3 +325,12 @@ export * from './retailReconciliation';
 // it, which is what keeps a merge or a catalogue correction from leaving a
 // half-finished listing describing a product under its old name.
 export * from './sellYours';
+// Guest-commerce governance (#111) is last of the guest domains and downstream
+// of all of them: it names the tables #103–#110 write in its data inventory,
+// and its retention policy versions state what each of their sweeps is FOR. It
+// adds NO column to any of them — the whole domain is nine tables of its own,
+// which is what makes turning the governance surface off a mount decision
+// rather than a data change. It references nothing: every id it holds is a
+// shared checkout-group token, a Mercaria-minted handle that authorizes
+// nothing, or a keyed digest, all registered in `db/deferredForeignKeys.ts`.
+export * from './guestGovernance';

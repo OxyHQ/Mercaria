@@ -65,6 +65,8 @@ import {
   ANALYTICS_ACTOR_KINDS,
   ANALYTICS_BUYER_ORIGINS,
   ANALYTICS_BUYER_ORIGIN_EVENT_TYPES,
+  ANALYTICS_PAYMENT_METHOD_EVENT_TYPES,
+  GUEST_PAYMENT_METHOD_CATEGORIES,
   ANALYTICS_CLIENT_SURFACES,
   ANALYTICS_COLLECTION_MODES,
   ANALYTICS_COMMERCE_CORRELATED_EVENT_TYPES,
@@ -148,6 +150,16 @@ export const analyticsEvents = pgTable(
     consentState: text({ enum: asEnumValues(ANALYTICS_CONSENT_STATES) }).notNull(),
     collectionMode: text({ enum: asEnumValues(ANALYTICS_COLLECTION_MODES) }).notNull(),
     buyerOrigin: text({ enum: asEnumValues(ANALYTICS_BUYER_ORIGINS) }),
+    /**
+     * The bounded payment-method category (#111 analytics measure 5).
+     *
+     * A real column and not a measure, because it is a CATEGORY rather than a
+     * number, and not a reuse of `reason_code`, because a method and a refusal
+     * are different facts — one column holding both would make "how many people
+     * were shown Apple Pay" unanswerable without knowing which of its values
+     * are methods.
+     */
+    paymentMethodCategory: text({ enum: asEnumValues(GUEST_PAYMENT_METHOD_CATEGORIES) }),
     reasonCode: text({ enum: asEnumValues(ANALYTICS_REASON_CODES) }),
     // -- The typed measures allow-list. Five, and a sixth is a migration.
     position: integer(),
@@ -173,6 +185,11 @@ export const analyticsEvents = pgTable(
     ),
     checkOneOf('analytics_events_buyer_origin_check', t.buyerOrigin, ANALYTICS_BUYER_ORIGINS),
     checkOneOf('analytics_events_reason_code_check', t.reasonCode, ANALYTICS_REASON_CODES),
+    checkOneOf(
+      'analytics_events_payment_method_category_check',
+      t.paymentMethodCategory,
+      GUEST_PAYMENT_METHOD_CATEGORIES,
+    ),
 
     // Identity rule 1, as a constraint: the two identity fields are mutually
     // exclusive, an Oxy id belongs only to an Oxy actor, and a pseudonym never
@@ -213,6 +230,14 @@ export const analyticsEvents = pgTable(
       'analytics_events_buyer_origin_scope_check',
       sql`${t.buyerOrigin} is null
           or ${t.eventType} in (${sql.raw(inList(ANALYTICS_BUYER_ORIGIN_EVENT_TYPES))})`,
+    ),
+    // The payment-method dimension, scoped exactly as buyer origin is and for
+    // the same reason: a discovery event carrying one would let a merchant
+    // report be sliced by how somebody paid.
+    check(
+      'analytics_events_payment_method_scope_check',
+      sql`${t.paymentMethodCategory} is null
+          or ${t.eventType} in (${sql.raw(inList(ANALYTICS_PAYMENT_METHOD_EVENT_TYPES))})`,
     ),
     // An experiment assignment travels whole or not at all: a variant with no
     // experiment cannot be attributed and an experiment with no variant cannot
