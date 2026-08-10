@@ -125,7 +125,14 @@ export type RateLimitScope =
   // and metering it on the general budget would make a crawl spend the
   // allowance shoppers need. Everything behind it is a public read that writes
   // nothing, so the budget bounds cost rather than risk.
-  | 'seo';
+  | 'seo'
+  // Merchant demand analytics (#86). Its own bucket (`rl:merchant-demand:`) for
+  // two reasons at once: a read builds a reporting SNAPSHOT when there is none
+  // for the window, which is several aggregate scans rather than an indexed
+  // lookup, and the PREVIEW half is unauthenticated and keyed on a merchant id,
+  // so an unmetered surface is a way to walk the merchant id space and learn
+  // roughly how much demand Mercaria carries for each of them.
+  | 'merchant-demand';
 
 /** The shared, prefixed Redis store for a scope, or `undefined` without Redis. */
 function scopeStore(scope: RateLimitScope): RedisStore | undefined {

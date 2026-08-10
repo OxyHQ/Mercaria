@@ -439,6 +439,14 @@ describe('the registry the sweeper runs over', () => {
       'guest_recovery_attempts',
       'guest_sessions',
       'guest_sessions',
+      // #86's ONE, and the six it leaves out are the point:
+      // `merchant_demand_metrics` and `merchant_demand_products` CASCADE from
+      // the snapshot the sweep removes, so a second deadline on them could only
+      // ever disagree with it; and the four `merchant_acquisition_*` tables
+      // carry none at all, because an outreach log and an operator audit are the
+      // record of what people decided and a retention clock on them destroys
+      // the evidence they exist to keep.
+      'merchant_demand_snapshots',
       'moderation_events',
       'moderation_outboxes',
       'notifications',

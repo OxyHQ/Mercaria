@@ -33,7 +33,22 @@ export type StorePermission =
   | 'customers:write'
   | 'draft_orders:write'
   | 'refunds:write'
-  | 'channels:write';
+  | 'channels:write'
+  /**
+   * Merchant DEMAND analytics (#86 privacy 3) — deliberately NOT `stats:read`.
+   *
+   * `stats:read` answers "how did my shop trade": my orders, my products, my
+   * customers, all of them facts about transactions this store already has.
+   * This answers "what is the market doing around my products": how often
+   * Mercaria showed them, how many visits it sent, which of them have demand
+   * and no offer. That is a commercial-strategy surface rather than a
+   * shop-floor one, and #86 asks for an EXPLICIT permission — a permission
+   * every role already holds by default is not explicit.
+   *
+   * Held by `owner` and `admin` and NOT by `staff`, which is the one place the
+   * role matrix diverges from `stats:read`.
+   */
+  | 'analytics:read';
 
 /**
  * Store-wide policy documents + the return window. `returnWindowDays` and

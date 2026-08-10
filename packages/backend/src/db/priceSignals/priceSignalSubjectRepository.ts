@@ -81,6 +81,17 @@ export interface MerchantOfferSubject {
   readonly canonicalVariantId: string;
   readonly canonicalProductId: string | null;
   readonly market: string | null;
+  /**
+   * The offer's OWN declared condition and listed currency (#86).
+   *
+   * They are here so an aggregate over a merchant's subjects can evaluate each
+   * one in the segment and currency the MERCHANT priced it in, rather than in a
+   * segment and currency somebody chose on their behalf. `readMerchantCompetitiveness`
+   * does not read them: it answers a per-(segment, currency) question the caller
+   * asked, which is a different question.
+   */
+  readonly condition: string;
+  readonly priceCurrency: string | null;
 }
 
 /**
@@ -101,6 +112,8 @@ export async function listMerchantOfferSubjects(
       canonicalVariantId: offers.canonicalVariantId,
       canonicalProductId: canonicalVariants.productId,
       market: offers.country,
+      condition: offers.condition,
+      priceCurrency: offers.priceCurrency,
     })
     .from(offers)
     .leftJoin(canonicalVariants, eq(canonicalVariants.id, offers.canonicalVariantId))

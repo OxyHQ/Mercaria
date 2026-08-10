@@ -40,9 +40,14 @@ export const STORE_ROLES: readonly StoreRole[] = ['owner', 'admin', 'staff'];
 /**
  * `StoreMember.permissions` element.
  *
- * Seventeen values, and THIS list is the authority — the column's CHECK is built
- * from it. The role matrix in `AGENTS.md` says "16 perms" and predates
- * `channels:write`; that count is the stale one.
+ * Eighteen values, and THIS list is the authority — the column's CHECK is built
+ * from it, and `middleware/schemas.ts` and `middleware/store-authz.ts` both read
+ * it rather than restating it.
+ *
+ * `analytics:read` (#86) is the newest and the only one an ADMIN holds that
+ * STAFF does not get by default beside the six configuration permissions: it
+ * answers "what is the market doing around my products" rather than "how did my
+ * shop trade", which is what `stats:read` answers and what a shop floor needs.
  */
 export const STORE_PERMISSIONS: readonly StorePermission[] = [
   'store:manage',
@@ -62,6 +67,7 @@ export const STORE_PERMISSIONS: readonly StorePermission[] = [
   'draft_orders:write',
   'refunds:write',
   'channels:write',
+  'analytics:read',
 ];
 
 /** `Store.textTone`. */

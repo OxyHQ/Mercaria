@@ -84,6 +84,7 @@ import {
   guestRecoveryAttempts,
 } from './schema/guestPortal';
 import { guestOrderClaimOutbox } from './schema/guestClaims';
+import { merchantDemandSnapshots } from './schema/merchantDemand';
 import { catalogSourceRejections } from './schema/ingestion';
 import {
   feedImportReportEntries,
@@ -620,6 +621,26 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       '`ANALYTICS_QUERY_TEXT_RETENTION_DAYS`, stamped at write time, so the redacted text ' +
       'here and the redacted text in `analytics_search_queries` leave on the same clock ' +
       'rather than one outliving the other under a policy nobody wrote down.',
+  },
+  // Merchant demand snapshots (#86). ONE entry, and the two child tables have
+  // none: `merchant_demand_metrics` and `merchant_demand_products` CASCADE from
+  // the snapshot, so a swept report leaves no metric row pointing at a report
+  // that is gone. The four `merchant_acquisition_*` tables deliberately carry no
+  // `expires_at` at all — an outreach log and an operator audit are the record
+  // of what people decided, and a retention clock on them destroys the evidence
+  // they exist to keep.
+  {
+    table: merchantDemandSnapshots,
+    column: merchantDemandSnapshots.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'A merchant demand report, at the deadline its writer stamped from ' +
+      '`MERCHANT_DEMAND_SNAPSHOT_RETENTION_DAYS`. It holds aggregate counts and product ids ' +
+      'and no actor dimension of any kind, so nothing about a person survives in one — the ' +
+      'retention exists because a superseded report accumulates, not because it is sensitive. ' +
+      'DELETE is deliberately PERMITTED on all three tables (the `analytics_events` posture): ' +
+      'erasure on a schedule is the policy, and a trigger refusing it would make this sweep ' +
+      'fail silently on every row it was supposed to remove.',
   },
 ];
 

@@ -298,3 +298,11 @@ export * from './priceAlerts';
 // catalogue row, and there is deliberately no column anywhere here for a raw
 // query, a product, a merchant or an offer.
 export * from './searchIntent';
+// Merchant demand analytics and the acquisition pipeline (#86) is the last
+// export and is downstream of `./merchants` (a snapshot is ABOUT a canonical
+// merchant), `./canonicalCatalog` (a product row names a canonical product) and
+// nothing else. It adds no column to any table above it and holds no claim
+// verdict, no contact value and no ranking input — a snapshot is a RECORDING of
+// what demand was at an instant, and the acquisition pipeline records what
+// people decided about it.
+export * from './merchantDemand';

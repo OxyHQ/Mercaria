@@ -448,3 +448,12 @@ export * from './retail-service-request';
 // offer-checkout union carries a URL on ONE branch, which is what stops an
 // external offer being described as purchasable on Mercaria.
 export * from './seo';
+// Merchant demand analytics and the acquisition pipeline (#86). Follows
+// `./analytics` — whose merchant cohort floor it REUSES rather than inventing a
+// second one for the same question — and `./money`, since three of its metrics
+// are amounts and each names its own currency. Its four money/demand LABELS are
+// separate kinds precisely so nothing can add them, there is no total field
+// anywhere in it, and every figure is a three-way union whose unavailable
+// branch has no number to read: a merchant demand figure of zero and one that
+// cannot be measured mean opposite things.
+export * from './merchant-demand';

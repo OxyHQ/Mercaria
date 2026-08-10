@@ -28,6 +28,7 @@ import {
   CHECKOUT_PAYMENT_SURFACE_METHODS,
   EBAY_ENVIRONMENTS,
   EBAY_MARKETPLACE_IDS,
+  MERCHANT_DEMAND_WINDOW_DAYS,
   SAVED_ITEMS_READ_MODES,
   SEO_INDEXING_MODES,
 } from '@mercaria/shared-types';
@@ -719,6 +720,36 @@ function resolveAnalyticsOperatorIds(): readonly string[] {
     .split(',')
     .map((id) => id.trim())
     .filter((id) => id !== '');
+}
+
+/**
+ * `MERCHANT_DEMAND_DEFAULT_WINDOW_DAYS` → one of the closed window set.
+ *
+ * A value the tuple does not name falls back to 30 rather than being honoured:
+ * the closed set exists so overlapping windows cannot be differenced, and a
+ * deployment able to widen it through an environment variable would not be a
+ * closed set.
+ */
+function resolveMerchantDemandWindowDays(): number {
+  const configured = intEnv('MERCHANT_DEMAND_DEFAULT_WINDOW_DAYS', 30);
+  return (MERCHANT_DEMAND_WINDOW_DAYS as readonly number[]).includes(configured)
+    ? configured
+    : 30;
+}
+
+/**
+ * `MERCHANT_DEMAND_MARKETS` → the markets a demand read may be sliced by.
+ *
+ * Upper-cased and shape-filtered to ISO 3166-1 alpha-2; anything else is
+ * DROPPED rather than passed through, so a typo narrows the surface instead of
+ * opening a slice nobody meant to offer. Empty is the default and means the
+ * undimensioned bucket only.
+ */
+function resolveMerchantDemandMarkets(): readonly string[] {
+  return strEnv('MERCHANT_DEMAND_MARKETS', '')
+    .split(',')
+    .map((market) => market.trim().toUpperCase())
+    .filter((market) => /^[A-Z]{2}$/.test(market));
 }
 
 /**
@@ -2364,6 +2395,58 @@ export interface CheckoutConfig {
   readonly destinationCountries: readonly string[];
 }
 
+/**
+ * Merchant demand analytics and the acquisition pipeline (#86).
+ *
+ * TWO levers, and NEITHER gates a durable record. A snapshot is a report
+ * somebody may need during the incident that turned the surfaces off, and the
+ * operator acquisition surface stays mounted on the analytics allow-list while
+ * both of these are false — the evidence has to be readable while the merchant
+ * surfaces are down, which is the rule every operator surface in this codebase
+ * follows.
+ *
+ * There is no `MERCHANT_DEMAND_OPERATOR_OXY_USER_IDS`. The acquisition pipeline
+ * runs on `ANALYTICS_OPERATOR_OXY_USER_IDS` because it is exactly the power that
+ * list already grants — reading what demand is doing across the marketplace —
+ * and a seventh allow-list would be a second answer to who has it.
+ */
+export interface MerchantDemandConfig {
+  /**
+   * The CLAIMED-merchant dashboard mount. Default false.
+   *
+   * Off, a merchant reads no demand figures and every snapshot already built
+   * stays on file and stays readable by an operator.
+   */
+  readonly dashboardEnabled: boolean;
+  /**
+   * The UNCLAIMED-merchant public preview mount. Default false, and separate
+   * from the dashboard on purpose: the preview is the one surface an
+   * unauthenticated caller can reach, so it has to be switchable off without
+   * taking a verified merchant's own reporting with it.
+   */
+  readonly previewEnabled: boolean;
+  /** How long a snapshot is kept. Stamped on the row at write time. */
+  readonly snapshotRetentionDays: number;
+  /**
+   * The default reporting window, in days. Always a member of
+   * `MERCHANT_DEMAND_WINDOW_DAYS` — an unrecognised value falls back rather
+   * than widening the closed set through configuration.
+   */
+  readonly defaultWindowDays: number;
+  /**
+   * The markets a caller may slice by, upper-case ISO 3166-1 alpha-2.
+   *
+   * EMPTY by default, and empty means only the undimensioned bucket is
+   * askable. Overlapping SLICES difference exactly as overlapping windows do —
+   * every-market minus ES is the rest of the world, and on a small catalogue
+   * that is one country and sometimes one person. A deployment opts markets in
+   * deliberately, and until it does the surface cannot be sliced at all.
+   */
+  readonly markets: readonly string[];
+  /** How many product-level rows one snapshot may carry. */
+  readonly maxProductRows: number;
+}
+
 /** The retail eligibility gate's configuration (#121). */
 export interface RetailEligibilityConfig {
   /**
@@ -2726,6 +2809,7 @@ export interface AppConfig {
   readonly buyerRequests: BuyerRequestsConfig;
   readonly retailService: RetailServiceRequestsConfig;
   readonly analytics: AnalyticsConfig;
+  readonly merchantDemand: MerchantDemandConfig;
   readonly retailEligibility: RetailEligibilityConfig;
   readonly supplierPreflight: SupplierPreflightConfig;
   readonly procurement: ProcurementConfig;
@@ -3255,6 +3339,14 @@ export const config: AppConfig = Object.freeze({
     rollupEnabled: boolEnv('ANALYTICS_ROLLUP_ENABLED', true),
     rollupIntervalMs: intEnv('ANALYTICS_ROLLUP_INTERVAL_MS', 15 * MINUTE_MS),
     rollupMaxBackfillDays: intEnv('ANALYTICS_ROLLUP_MAX_BACKFILL_DAYS', 30),
+  }),
+  merchantDemand: Object.freeze({
+    dashboardEnabled: boolEnv('MERCHANT_DEMAND_ENABLED', false),
+    previewEnabled: boolEnv('MERCHANT_DEMAND_PREVIEW_ENABLED', false),
+    snapshotRetentionDays: intEnv('MERCHANT_DEMAND_SNAPSHOT_RETENTION_DAYS', 400),
+    defaultWindowDays: resolveMerchantDemandWindowDays(),
+    markets: Object.freeze(resolveMerchantDemandMarkets()),
+    maxProductRows: intEnv('MERCHANT_DEMAND_MAX_PRODUCT_ROWS', 200),
   }),
   retailEligibility: Object.freeze({
     operatorOxyUserIds: Object.freeze(resolveRetailOperatorIds()),
