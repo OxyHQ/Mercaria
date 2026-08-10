@@ -2431,6 +2431,22 @@ export interface PrintfulConfig {
   readonly baseUrl: string;
 }
 
+/**
+ * Buyer post-purchase requests — cancellations, returns and support (#110).
+ *
+ * THREE levers and none of them gates a durable record. See the value block at
+ * the bottom of this file for what each one stops.
+ */
+export interface BuyerRequestsConfig {
+  /** Gates the buyer-facing WRITE paths. Reads and decisions stay open. */
+  readonly requestsEnabled: boolean;
+  /** Gates the refund-settlement sweep LOOP, never a row. */
+  readonly reconcilerEnabled: boolean;
+  readonly reconcileIntervalMs: number;
+  readonly reconcileBatchSize: number;
+  readonly reconcileGraceMs: number;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -2457,6 +2473,7 @@ export interface AppConfig {
   readonly payments: PaymentsConfig;
   readonly guest: GuestConfig;
   readonly referrals: ReferralsConfig;
+  readonly buyerRequests: BuyerRequestsConfig;
   readonly analytics: AnalyticsConfig;
   readonly retailEligibility: RetailEligibilityConfig;
   readonly supplierPreflight: SupplierPreflightConfig;
@@ -2881,6 +2898,34 @@ export const config: AppConfig = Object.freeze({
     ...(process.env.REFERRAL_LINK_TOKEN_SECRET?.trim()
       ? { linkTokenSecret: process.env.REFERRAL_LINK_TOKEN_SECRET.trim() }
       : {}),
+  }),
+  /**
+   * Buyer post-purchase requests — cancellations, returns and support (#110).
+   *
+   * THREE levers and none of them gates a durable record, which is the house
+   * rule and is load-bearing here: a cancellation request is a buyer waiting
+   * for an answer, and a flag that stopped the row being written would lose it
+   * silently.
+   *
+   * `requestsEnabled` gates the buyer-facing MOUNT, so a deployment can stop
+   * accepting NEW requests during an incident while every request already filed
+   * stays decidable by its seller and readable by its buyer — the
+   * `GUEST_SESSION_ISSUANCE_ENABLED` shape.
+   *
+   * `reconcilerEnabled` gates the sweep LOOP only. A return waiting on a rail
+   * is still advanced by the merchant and operator surfaces, so turning the
+   * timer off during an incident cannot make a refund unfinishable.
+   */
+  buyerRequests: Object.freeze({
+    requestsEnabled: boolEnv('BUYER_REQUESTS_ENABLED', true),
+    reconcilerEnabled: boolEnv('BUYER_REQUEST_RECONCILER_ENABLED', true),
+    reconcileIntervalMs: intEnv('BUYER_REQUEST_RECONCILE_INTERVAL_MS', MINUTE_MS),
+    reconcileBatchSize: intEnv('BUYER_REQUEST_RECONCILE_BATCH_SIZE', 50),
+    // A grace period before a `refund_pending` return is swept. The inline
+    // drain in `refund.service` usually finishes the job, and sweeping a row a
+    // request handler is still working on would race it into the same
+    // compare-and-swap for no benefit.
+    reconcileGraceMs: intEnv('BUYER_REQUEST_RECONCILE_GRACE_MS', 30_000),
   }),
   analytics: Object.freeze({
     enabled: resolveAnalyticsEnabled(),

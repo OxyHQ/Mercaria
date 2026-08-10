@@ -4223,3 +4223,111 @@ treating an unpublished delivery cost as free.
   these charts), and `taxInclusion`, which is modelled and is `unknown` for
   every row because `offers` records no tax-inclusion fact — closing it is an
   offer-side column and belongs to #57.
+## Buyer post-purchase requests (#110): cancellations, returns and support
+
+`services/buyer-requests/` (13 modules) + `db/buyerRequests/` (4 repositories) +
+`db/schema/buyerRequests.ts` (8 tables) + `controllers/buyer-requests.controller.ts`
++ `routes/buyer-requests.ts`, mounted TWICE — under `/orders/:id` for an
+authenticated buyer and under `/guest/orders/:groupId/orders/:id` for a portal
+credential. Full reference: **`docs/buyer-requests.md`**; schema decisions:
+`db/schema/CONVENTIONS.md` §"Buyer post-purchase requests (#110)".
+
+- **A buyer never sets order status; a buyer files a REQUEST**, and the
+  enforcement is the IMPORT GRAPH. The two buyer-side services import no order
+  writer, no refund service, no inventory function and nothing from
+  `services/payments/`; the two DECISION services import all of them and are the
+  only ones that may. `buyer-request-isolation.test.ts` asserts both directions
+  — the absences AND that the decision services genuinely reach `transition` and
+  `refund.service`, so the gate cannot pass by those having been renamed away.
+  That is acceptance 2, checkable by reading a list of imports.
+- **A read-only credential cannot reach a mutation, as a SHAPE.** Every mutating
+  function takes a `BuyerRequestActor`, which only `authorizeBuyerRequest` can
+  mint, because the type carries a MODULE-PRIVATE `unique symbol` no other file
+  can supply. "Did this path check the scope?" is answered by the path existing
+  at all rather than by reading it. `authorizeBuyerRequest` COMPOSES #106's
+  `authorizeOrderAccess` and re-decides nothing, which makes rules 4 and 5 free.
+- **Step-up is required for the two SUBMIT actions and nothing else.** The line
+  is whether the action moves MONEY OR GOODS. The attack it closes is vandalism,
+  not theft — a refund always returns to the original instrument, so a stolen
+  30-day credential gains nobody money. Requiring it on WITHDRAW would put an
+  email round trip between a buyer and the undo of their own mistake.
+- **`accepted` is not `completed`, and there is no `failed`.** A completion that
+  did not complete leaves the request `accepted` with a bounded
+  `completion_failure`, and the retry is the SAME idempotent call — the
+  `payment_repairs` posture. The completion MODE is re-derived from the order's
+  live payment state rather than read off the request: a buyer can ask while a
+  payment is still verifying, and completing in `release` mode then would
+  release a reservation on money already taken.
+- **Convergence needs BOTH indexes and neither covers the other.** The partial
+  unique on the OPEN states converges two racers on one row; the idempotency
+  unique converges one client's retry AFTER the first was decided. Pinned by a
+  realdb case that runs the two submissions CONCURRENTLY — a sequential pair
+  passes under a read-then-write that a real race defeats.
+- **Restock waits for `received`, and that is why `received` is a state.** A
+  cancellation refunds and restocks immediately (the goods never left); a return
+  cannot, because refunding at approval would put units back on the shelf that
+  are still in a parcel. The refund's idempotency key is derived from the
+  REQUEST, and `refund.service` short-circuits on it BEFORE touching inventory —
+  which is what makes "cannot double-restock" true rather than likely.
+- **A cancellation refunds delivery; a return does not.** A cancelled order was
+  never shipped; a returned one was carried. A discretionary gesture belongs on
+  the merchant's own refund surface.
+- **The dependency onto #49 points ONE way.** This domain reads
+  `refunds.provider_state`; nothing in the payment domain knows it exists. A
+  hook from `refund-execution.service` into here would invert the seam that
+  keeps the money path free of everything built on top of it. `reconciler.ts` is
+  the bounded, leased sweep that catches a rail answering late.
+- **`support_messages` and `buyer_request_events` are APPEND-ONLY against UPDATE
+  *and* DELETE**, and both foreign keys are `RESTRICT` rather than `CASCADE` so
+  the declaration and the trigger agree — a cascade would be a way to delete
+  rows by deleting a parent. A request LINE's variant and requested quantity are
+  frozen by trigger; only `approved_quantity` moves, and it is the only quantity
+  the refund reads.
+- **The merchant allow-list is a VALUE walked at RUNTIME.** The first spelling
+  was `Omit<T, never>`, which compiles, looks like #106's `MerchantOrder` device
+  and can NEVER fail — there is no buyer-identifying field on a request today,
+  so subtracting the empty set enforces nothing and would go on enforcing
+  nothing after somebody added one. `requesterLabel` is the literal `Buyer`,
+  with no buyer-origin discriminant anywhere in either merchant shape.
+- **Eligibility is DERIVED, never stored** (the `deriveNativeCheckoutEligibility`
+  divergence): the inputs are the live order status, the live payment status,
+  the status HISTORY, any open request and the clock. `order_already_dispatched`
+  reads the HISTORY, because an order that shipped and was then partially
+  refunded reads `partially_refunded` today.
+- **`replacement` is representable and REFUSED at submit** (`role_email`
+  device), and **contact/address correction is EXCLUDED ENTIRELY** — rule 10's
+  own escape, taken because revalidating shipping, tax and fraud needs systems
+  Mercaria does not have and verifying a NEW inbox needs a flow that does not
+  exist. #108's `contact_change:request` stays defined and ungrantable.
+- **Support attachments are EXCLUDED**, because rule 5 asks for malware scanning
+  Mercaria has none of and metadata it holds no credential to read. Return
+  EVIDENCE is a bare Oxy `file_id`, the `abuse_reports` posture, with the digest
+  gap stated rather than faked — one provenance channel, the #90 reasoning.
+- **`strict: false` means STRING discriminants**, not `eligible: true|false`.
+  Every union in the domain (`CancellationEligibility`, `ReturnEligibility`,
+  `BuyerRequestAuthorization`) uses one, because without `strictNullChecks`
+  TypeScript does not narrow on a boolean-literal discriminant — the #68 finding,
+  hit again here on the first typecheck.
+- Env: `BUYER_REQUESTS_ENABLED` (the buyer WRITE mount; a 503 under its own
+  `BUYER_REQUESTS_DISABLED` code, because the capability exists and is paused),
+  `BUYER_REQUEST_RECONCILER_ENABLED` and its three tunables. NEITHER gates a
+  durable record. Operator surface `/internal/guest-commerce/buyer-requests/*`
+  on the SAME `GUEST_OPERATOR_OXY_USER_IDS` allow-list #104/#108 use — NOT the
+  payment one, because a support agent tracing a stuck return should not thereby
+  see every store's money. A trace opens from an ORDER; the ONE write drives an
+  existing idempotent path.
+- **#77's `#110` seam is CLOSED** — the three event types emit from the
+  controller AFTER the write succeeded, so `guest_post_purchase_demand` counts
+  requests FILED rather than attempted. They carry the order and the actor kind
+  and nothing else; the reason code, the buyer's note and every support message
+  body have no column and must not acquire one.
+- **The one gap this issue NAMES rather than closes:** `refund.service.process`
+  is store-scoped and `/admin/stores/:storeId/orders/:id/refunds` is its only
+  route, so a P2P order has no refund path in this repository and never had one.
+  Unreachable for a guest (guest P2P checkout is refused until #112), reachable
+  for an authenticated buyer of a P2P order, and recorded as
+  `refund_path_unavailable` rather than silently never happening.
+- Seams: #93 (pickup — `pickup_not_supported` is a real unreachable branch),
+  #112 (guest P2P, and the P2P refund path that must land with it), #111
+  (retention), #102 (the privacy review that could enable contact correction),
+  Oxy service credentials (evidence digests), Moovo (return shipping).

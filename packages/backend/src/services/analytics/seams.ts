@@ -107,21 +107,6 @@ export interface AnalyticsSeam {
  */
 export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
   {
-    issue: '#110',
-    capability: 'Guest cancellations, returns and support requests',
-    eventTypes: [
-      'guest_cancellation_requested',
-      'guest_return_requested',
-      'guest_support_request_created',
-    ],
-    metricKeys: ['guest_post_purchase_demand'],
-    contract:
-      'Free-text support content has no column and must not acquire one — a bounded reason code ' +
-      'from ANALYTICS_REASON_CODES, or a new member of that tuple, is the whole of what a ' +
-      'support event may say. The order correlation is admitted for these types by ' +
-      'ANALYTICS_COMMERCE_CORRELATED_EVENT_TYPES; the buyer’s contact is not, in any form.',
-  },
-  {
     issue: '#111',
     capability:
       'Guest-commerce rollout gates, retention coordination, and the client payment ' +

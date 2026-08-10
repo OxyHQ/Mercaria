@@ -95,6 +95,16 @@ export const ErrorCodes = {
    * which a client should read as "this credential cannot do that".
    */
   GUEST_CLAIM_DISABLED: 'GUEST_CLAIM_DISABLED',
+  /**
+   * `BUYER_REQUESTS_ENABLED=false` — the #110 incident lever.
+   *
+   * A 503 rather than a 403, and the difference is the client's correct
+   * response: this deployment DOES do cancellations and returns, it has
+   * temporarily stopped taking NEW ones, and every request already filed is
+   * still readable and still decidable. Retrying later is right; giving up is
+   * not — which is why it does not share `GUEST_CART_DISABLED`'s 403.
+   */
+  BUYER_REQUESTS_DISABLED: 'BUYER_REQUESTS_DISABLED',
 } as const;
 
 /** Union of the supported error code literals. */

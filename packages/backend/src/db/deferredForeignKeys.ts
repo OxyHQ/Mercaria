@@ -424,6 +424,30 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'refund_line_items.location_id', reason: COMMERCE_SNAPSHOT },
   { column: 'refund_line_items.variant_id', reason: COMMERCE_SNAPSHOT },
 
+  // ── Buyer post-purchase requests (#110) ───────────────────────────────────
+  //
+  // The two line tables are the same historical snapshot as `order_items` and
+  // `refund_line_items` above: a request names what was BOUGHT, and that fact
+  // must survive the variant being deleted from the catalogue. The four actor
+  // columns are Oxy accounts. The evidence reference is Oxy's, not Mercaria's.
+  { column: 'cancellation_request_lines.variant_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'return_request_lines.variant_id', reason: COMMERCE_SNAPSHOT },
+  { column: 'cancellation_requests.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'cancellation_requests.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'return_requests.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'return_requests.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'support_messages.author_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'buyer_request_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'return_request_evidence.file_id',
+    reason:
+      "An Oxy file id the buyer already uploaded to their OWN Oxy storage — the `abuse_reports` " +
+      'posture, and a bare id rather than a URL for the same reason moderation gives: a URL on ' +
+      'this host would tell Mercaria when a seller looked at the photograph. Mercaria holds no ' +
+      'Oxy service credential, so it cannot read the file, compute a digest or scan it, and ' +
+      'asserting any of the three would be worse than admitting it has none.',
+  },
+
   // ── Payment-domain correlations ───────────────────────────────────────────
   //
   // A payment record CORRELATES to an order; it does not compose with it, even

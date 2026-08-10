@@ -68,6 +68,7 @@ import {
 // error — the signature is the guarantee.
 import { emitAnalyticsEvent } from '../services/analytics/emit.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
+import buyerRequestRouter from './buyer-requests.js';
 
 const router = Router();
 
@@ -643,6 +644,41 @@ router.post(
   requirePortalSession,
   resolveCommerceActor,
   handle(performClaim, 'Failed to save these orders to your account'),
+);
+
+/**
+ * #110's buyer-request surface, for a PORTAL credential.
+ *
+ * The same router the authenticated `/orders/:id` mount uses — ADR 0003 I9,
+ * because nothing below it is guest-shaped. Two guards run before it and each
+ * does a different job:
+ *
+ *  - `requirePortalSession` refuses a request that presented no live
+ *    credential, uniformly, exactly as every other portal read does.
+ *  - The group comparison mirrors the reads above. It is deliberately
+ *    REDUNDANT: `authorizeOrderAccess` compares the ORDER's checkout group
+ *    against the grant's inside the authorizer, so a credential for another
+ *    group is already refused. Keeping the path check means a wrong `:groupId`
+ *    is a 404 here rather than reaching the service and being refused there for
+ *    a reason a client could tell apart.
+ *
+ * Note the path carries BOTH ids. The group is what the credential names and
+ * the order is what a request is filed against; a request naming only the group
+ * would be one that acted on every sibling at once, which is exactly what
+ * authorization rule 5 refuses.
+ */
+router.use(
+  '/:groupId/orders/:id',
+  makeRateLimiter('buyer-requests'),
+  requirePortalSession,
+  (req, res, next) => {
+    if (req.portalGrant?.checkoutGroupId !== req.params.groupId) {
+      sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+      return;
+    }
+    next();
+  },
+  buyerRequestRouter,
 );
 
 /**

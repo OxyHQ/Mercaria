@@ -303,6 +303,20 @@ connectPostgres()
           log.general.error({ err }, 'Guest claim dispatcher import failed'),
         );
 
+      // Finish a return whose refund committed and whose RAIL has since paid
+      // (#110). `refund.service` drains the provider outbox inline, so this
+      // catches the slow cases — a rail that took its time, a task that died
+      // mid-drain — which would otherwise leave a buyer's portal saying a
+      // refund is on its way forever. The LOOP is gated by
+      // `BUYER_REQUEST_RECONCILER_ENABLED`; the merchant and operator surfaces
+      // drive the same idempotent path, so turning it off cannot make a refund
+      // unfinishable.
+      import('./services/buyer-requests/reconciler.js')
+        .then(({ startBuyerRequestReconciler }) => startBuyerRequestReconciler())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Buyer-request reconciler import failed'),
+        );
+
       // Place, cancel, poll and interpret supplier orders (#124). THREE loops,
       // on EVERY task, each gated by its own lever and none of them gating a
       // durable record: with the orchestration off a paid retail order's job is

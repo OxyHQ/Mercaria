@@ -51,6 +51,10 @@ import {
   traceGuestClaimsHandler,
   withdrawClaimRevocationHandler,
 } from '../controllers/guest-claim-operator.controller.js';
+import {
+  reconcileBuyerRequest,
+  traceBuyerRequests,
+} from '../controllers/buyer-requests.controller.js';
 
 const router = Router();
 
@@ -101,5 +105,24 @@ router.get('/claims/checkouts/:checkoutGroupId', traceGuestClaimsHandler);
 router.post('/claims/:claimId/revocations', requestClaimRevocationHandler);
 router.post('/claim-revocations/:revocationId/approve', approveClaimRevocationHandler);
 router.post('/claim-revocations/:revocationId/withdraw', withdrawClaimRevocationHandler);
+
+/**
+ * The buyer-request half (#110), on the SAME allow-list rather than a seventh.
+ *
+ * The power is the same one #104 and #108 already grant here — reading what a
+ * guest did with their purchase and driving a path they can drive themselves —
+ * so a new list would be a second answer to a question `GUEST_OPERATOR_OXY_USER_IDS`
+ * already answers. It is deliberately NOT the payment operator list: a support
+ * agent tracing a stuck return should not thereby be able to see every store's
+ * money.
+ *
+ * A trace opens from an ORDER and nothing else, and the ONE write drives
+ * `reconcileReturnRefund` — an idempotent path a merchant also drives, so this
+ * surface adds a trigger and no new way to move money. There is deliberately no
+ * "set this request completed", no "override this decision", no "approve this
+ * return" and no way to write into a support thread as somebody else.
+ */
+router.get('/buyer-requests/orders/:orderId', traceBuyerRequests);
+router.post('/buyer-requests/returns/:requestId/reconcile', reconcileBuyerRequest);
 
 export default router;

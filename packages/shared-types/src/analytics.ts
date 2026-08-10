@@ -314,9 +314,16 @@ export const ANALYTICS_DEFERRED_EVENT_TYPES: Readonly<
   // cannot tell a decline from a person closing a tab.
   guest_claim_offered: '#111',
   guest_claim_declined: '#111',
-  guest_cancellation_requested: '#110',
-  guest_return_requested: '#110',
-  guest_support_request_created: '#110',
+  // The three `#110` types (`guest_cancellation_requested`,
+  // `guest_return_requested`, `guest_support_request_created`) that used to sit
+  // here are EMITTED now, from `controllers/buyer-requests.controller.ts` and
+  // AFTER the write succeeded — so the numerator counts requests that were
+  // FILED rather than requests that were attempted, which is what
+  // `guest_post_purchase_demand`'s "requests, not outcomes" means. They carry
+  // the ORDER (admitted for these types by
+  // ANALYTICS_COMMERCE_CORRELATED_EVENT_TYPES) and the actor KIND, and nothing
+  // else: the request's reason code, the buyer's note and every support message
+  // body have no column here and must not acquire one.
 };
 
 /**
@@ -1029,8 +1036,9 @@ export const ANALYTICS_METRICS: readonly AnalyticsMetricDefinition[] = [
     merchantVisible: false,
     attributionLimit:
       'Requests, not outcomes. A cancellation asked for and refused counts here exactly as one ' +
-      'that was granted; the refund domain is where money is counted.',
-    seam: '#110',
+      'that was granted; the refund domain is where money is counted. A request filed by a ' +
+      'CLAIMANT of a guest order counts too — it is the same purchase — which is why the ' +
+      'numerator is the three event types rather than an actor-kind filter over them.',
   },
   {
     key: 'guest_eligibility_coverage',

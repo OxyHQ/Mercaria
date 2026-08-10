@@ -57,6 +57,12 @@ export * from './guestPortal';
 // is one of the portal's grants.
 export * from './guestClaims';
 export * from './buyers';
+// Buyer post-purchase requests (#110) follow `guestPortal` AND `orders`: a
+// request's requester triple references `guest_order_access_grants`, and every
+// request, thread and message hangs off `orders`/`refunds`. `orders` is
+// exported further up with the commerce core, so this is the later of the two
+// parents and the correct position.
+export * from './buyerRequests';
 export * from './notifications';
 // Canonical commerce graph (ADR 0002). `provenance` precedes `organizations`
 // and `merchants` for the same dependency reason as above: alias and
