@@ -257,6 +257,16 @@ demonstrably admitted them. A card whose every offer failed the live derivation
 is DROPPED rather than rendered priceless — a card a shopper can tap and find
 nothing behind is the dishonest empty state rule 6 is about.
 
+The count that decides between them ALWAYS joins the canonical product, even
+with no brand or category filter. The browse only ever shows `active` and
+`discontinued` products, so a merchant whose offers all point at `draft` mints
+(#60's backfill) or at merged tombstones has nothing browsable — and a count
+without the join would see those offers and report `filtered_out` when nothing
+was filtered. An offer's `canonical_variant_id` is NOT NULL, so the join drops a
+row for exactly one reason. Pinned by a realdb case whose fixture is the only
+shape that tells the two versions apart, and mutation-tested: removing the join
+turns exactly that case red.
+
 ### The outbound action is a named seam that fails closed
 
 Storefront rule 4 asks that an external storefront action link to the real
