@@ -38,11 +38,17 @@ attach. `GET /:idOrSlug` (#54's identity read) is deliberately NOT widened into
 the page: several surfaces poll it, and turning it into a page read would make
 every one of them pay for eleven joins they do not use.
 
-Both browses take `storefrontId`, `sellers`, `categoryId`, `brandId`, `market`,
-`conditionGroups`, `availability`, `limit` and `cursor`. The schema is
-`.strict()`, and what it therefore **cannot** be asked for is a `sort`, a
-`boost`, an `order` or a `pin` — ranking is #74's and a merchant page must not
-become a second place an ordering is decided.
+Both browses take `storefrontId`, `sellers`, `market`, `conditionGroups`,
+`availability`, `limit` and `cursor`; `/catalog` additionally takes `brandId`
+and `categoryId`. The schema is `.strict()`, and what it therefore **cannot** be
+asked for is a `sort`, a `boost`, an `order` or a `pin` — ranking is #74's and a
+merchant page must not become a second place an ordering is decided.
+
+`/offers` REFUSES `brandId` and `categoryId` rather than accepting and ignoring
+them. Both are facts about the canonical PRODUCT, and applying them would join
+two more tables into the statement `offers_merchant_browse_idx` serves — while
+accepting a parameter that changes nothing is the quiet failure a shopper reads
+as "this merchant has no Apple products on this channel".
 
 ## The rules that are load-bearing
 

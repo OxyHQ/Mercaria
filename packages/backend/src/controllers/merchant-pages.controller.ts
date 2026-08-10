@@ -24,7 +24,7 @@ import {
 import { getMerchantPublic } from '../services/commerce-graph/merchant.service.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
-import { respondWithError } from '../lib/errors/error-codes.js';
+import { respondWithError, validationError } from '../lib/errors/error-codes.js';
 
 /** Page size when a caller states none. */
 const DEFAULT_PAGE_LIMIT = 24;
@@ -103,9 +103,27 @@ export async function getMerchantCatalogHandler(req: Request, res: Response): Pr
   }
 }
 
-/** GET /merchants/:idOrSlug/offers — the offer-level view, not deduplicated. */
+/**
+ * GET /merchants/:idOrSlug/offers — the offer-level view, not deduplicated.
+ *
+ * A brand or category filter is REFUSED here rather than accepted and ignored.
+ * Both are facts about the canonical PRODUCT, so applying them would join two
+ * more tables into the statement `offers_merchant_browse_idx` serves — and
+ * accepting a parameter that changes nothing is the quiet failure a shopper
+ * reads as "this merchant has no Apple products on this channel". The product
+ * view takes them; this view's own question is which channel, which seller and
+ * which market.
+ */
 export async function getMerchantOffersHandler(req: Request, res: Response): Promise<void> {
   try {
+    const query = req.query as CatalogQuery;
+    if (query.brandId !== undefined || query.categoryId !== undefined) {
+      throw validationError(
+        'Brand and category are canonical product facts: filter them on ' +
+          '/catalog. The offer view filters by channel, seller, market, ' +
+          'condition and availability.',
+      );
+    }
     sendSuccess(res, await getMerchantOffers(await resolveBrowse(req)));
   } catch (error) {
     respondWithError(res, error, 'Merchant offer read failed');
