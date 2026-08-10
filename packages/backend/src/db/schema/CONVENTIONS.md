@@ -3657,3 +3657,72 @@ refused always, DELETE refused only while the order exists — #90's
 condition-revision device, so the declared cascade still works), the promise trail
 is APPEND-ONLY on the same terms, the intent's contractual half is FROZEN, and the
 chosen mode and Moovo transport are WRITE-ONCE.
+
+## The bounded retail pilot (#125)
+
+`retail_pilot_cohorts`, `retail_pilot_skus`, `retail_pilot_stop_thresholds`,
+`retail_pilot_stops`, `supplier_funding_observations`. Full reference:
+`docs/retail-pilot.md`; the provider document is `docs/suppliers/printful.md`.
+
+- **A cohort is a VERSION, frozen once active** — the `fee_schedules`
+  mechanism (a partial unique on `(cohort_key) WHERE status = 'active'` plus a
+  `BEFORE UPDATE` trigger). Every column but the lifecycle three (`status`,
+  `superseded_at`, `updated_at`) is refused on a published row, so a widening
+  is a NEW version with its own author, date and rationale. That is #125
+  acceptance 8's "expansion requires a measured review" as a schema property
+  rather than a habit.
+- **These bounds are ROWS and not environment variables**, which is a
+  deliberate divergence from every other rollout lever in this codebase
+  (`RETAIL_BLOCKED_MARKETS`, `GUEST_CHECKOUT_BLOCKED_SUPPLIERS`, …). The
+  difference is that those are INCIDENT levers — flipping one at 3am must be
+  adding a value — while these are a published policy somebody signed and
+  orders were placed under. `published_by_oxy_user_id` is NOT NULL on an active
+  row, and an environment variable has no author, no date and no history.
+- **`retail_pilot_skus` and `retail_pilot_stop_thresholds` may not GROW on a
+  published cohort** (a shared trigger reading the parent's status), and DELETE
+  is deliberately still permitted: removing a SKU NARROWS the pilot, which is
+  always safe and is what an operator does when a product-safety flag lands.
+  Adding one is the change nobody writes a review for, which is exactly why it
+  is the one refused.
+- **`cardinality`, never `array_length`, on the permitted-shipping-service
+  check.** On `{}` the latter is NULL and a CHECK reads NULL as SATISFIED, so
+  the obvious spelling admits exactly the empty list it exists to refuse. The
+  constraint is scoped to `status <> 'active'` so a draft may legitimately be
+  incomplete.
+- **The audience percentage is a BICONDITIONAL** — present exactly when
+  `audience = 'percentage'`. A percentage with no number admits nobody or
+  everybody depending on who reads it; a number beside another audience is a
+  bound nothing applies.
+- **`funding_alert >= funding_floor` is a CHECK.** An alert below the floor
+  fires after checkout has already stopped, which is a notification about an
+  outage rather than a warning before one.
+- **`retail_pilot_stops` is append-only against DELETE and permits exactly ONE
+  update: the lift.** A pilot that stopped and was restarted is the most
+  important row in its own history. `origin` and `raised_by_oxy_user_id` are a
+  biconditional (an `automatic` stop names nobody, an `operator` one must),
+  because attributing a threshold evaluation to a person makes the trail say
+  something false and leaving an operator's decision unattributed makes it say
+  nothing. The lift columns are `num_nonnulls(...) in (0, 3)` — attributable,
+  dated and explained, or none of them.
+- **One LIVE stop per (cohort, metric, scope, scope_ref)**, a partial unique on
+  `WHERE lifted_at IS NULL` — the `retail_suppressions` device. Two evaluations
+  of one breach converge on one row and page once. `scope_ref` is a plain text
+  handle rather than a polymorphic foreign-key set, because the four scopes name
+  four different kinds of thing; `(scope = 'pilot') = (scope_ref = '')` is a
+  CHECK so a pilot-wide stop cannot also claim a subject.
+- **`supplier_funding_observations` is append-only against UPDATE *and*
+  DELETE**, and there is deliberately no mutable balance column on
+  `supplier_accounts`. A single figure is one stale write away from admitting a
+  checkout against money that is not there; a correction is a NEW observation,
+  the ledger's posture. `recorded_by_oxy_user_id` is NOT NULL exactly for
+  `operator_entry` — a figure a person typed and a figure an API returned are
+  different kinds of evidence and must not be told apart by guessing.
+- **No payment credential column exists in any of the five tables**, and none
+  may be added. A top-up is a treasury act in the provider's own dashboard under
+  ADR 0004 D6.5 dual control; what Mercaria records is the RESULT. The defence
+  is absence, the analytics domain's, rather than redaction.
+- **Placement in the barrel:** after `retailCheckout` and before `ingestion`. A
+  cohort names a supplier and an account, a SKU entry names a procurement offer,
+  and the domain reaches back into nothing else — a stop pauses ENTRY and never
+  fulfilment, so there is no purchase order, order or payment reference here to
+  make a forward one.

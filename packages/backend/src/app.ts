@@ -77,6 +77,7 @@ import internalAnalyticsRouter from './routes/internal-analytics.js';
 import internalRetailEligibilityRouter from './routes/internal-retail-eligibility.js';
 import internalProcurementRouter from './routes/internal-procurement.js';
 import internalSupplierPreflightRouter from './routes/internal-supplier-preflight.js';
+import internalRetailPilotRouter from './routes/internal-retail-pilot.js';
 import { config } from './config/index.js';
 import {
   requireCanonicalReads,
@@ -491,6 +492,10 @@ export function createApp(): express.Express {
     // acting on a supplier order are one power, and splitting them would create
     // a list to keep in sync with no distinction to justify it.
     app.use('/internal/procurement', internalProcurementRouter);
+    // …and the bounded pilot (#125), on the SAME sixth list for the same
+    // reason: publishing the bounds Mercaria buys under and pausing entry when
+    // a threshold is crossed is the supply-operations power, not a seventh one.
+    app.use('/internal/retail-pilot', internalRetailPilotRouter);
   }
   // (Inbound connector webhooks are mounted above, before express.json.)
 

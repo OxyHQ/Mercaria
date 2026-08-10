@@ -197,6 +197,14 @@ export * from './supplier-preflight';
 // orchestration, and adds no vocabulary any of them could have owned.
 export * from './retail-checkout';
 
+// The bounded retail PILOT (#125): the audience ladder, the thirteen stop
+// thresholds and their units and scopes, the supplier-funding sources, and the
+// admission verdict a retail checkout is gated on. FOLLOWS `./retail-checkout`,
+// which it gates, and owns nothing any of #120–#124 could have owned — it
+// answers "how much of this is Mercaria willing to do today", which none of
+// them asks.
+export * from './retail-pilot';
+
 // The versioned category-attribute registry and its normalized values (#94):
 // value types, cardinality, unit families, lifecycle, evidence/display policy,
 // and the source/public projections of one recorded attribute fact. PRECEDES

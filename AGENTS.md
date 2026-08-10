@@ -3618,3 +3618,128 @@ unconditionally and names the issue that owes it.
   its twelve exception cases are questions about Moovo state; when the other three
   get a route it belongs on `/internal/procurement/*` behind the existing
   `PROCUREMENT_OPERATOR_OXY_USER_IDS` list, not a seventh).
+
+## The Printful supplier adapter and the bounded retail pilot (#125, provider selected by #119)
+
+`services/supplier-orders/adapters/printful.ts` +
+`services/ingestion/adapters/printful-catalog.ts` + `services/printful/`
+(transport, registration) + `services/retail-pilot/` + `db/retailPilot/` +
+`db/schema/retailPilot.ts` (5 tables) + `/internal/retail-pilot/*`. Full
+references: **`docs/suppliers/printful.md`** (the twenty-section provider
+document) and **`docs/retail-pilot.md`**; schema decisions:
+`db/schema/CONVENTIONS.md` §"The bounded retail pilot". #124 said how Mercaria
+buys from *a* supplier; this is the first real one, plus the bounds on how much
+of it Mercaria is willing to do.
+
+**There is no Printful account, nothing is contractual, and `live` is refused in
+code.** `docs/suppliers/2026-08-09-first-dropship-supplier.md` §11's eight-item
+entry checklist is entirely OPEN, so #125 acceptance 3 (live preflight and order
+creation) and 6 (packaging and customer documents) are NOT satisfiable here and
+are not claimed. Everything that does not depend on an account is built.
+
+- **The adapter declares thirteen of twenty-four capabilities, and every absence
+  is load-bearing.** Printful is PRINT-ON-DEMAND: nothing is picked off a shelf,
+  so `inventory_reservation` is undeclared and a reservation is unrepresentable;
+  nothing published states how long a price is good for, so `price_guarantee`
+  and `quote_expiry` are undeclared; returns are a CLAIM process rather than an
+  API RMA. `tax_duty_estimate` is the one worth reading — Printful DOES publish
+  `POST /tax/rates` and declaring it would look like diligence, but it answers
+  about the DESTINATION's sales tax while a preflight needs the tax on the
+  supply TO MERCARIA, which is input-deductible and never a customer cost
+  (#119 §4.5). Every undeclared claim is stripped at #122's and #124's boundary
+  and lands on the value that BLOCKS.
+- **`findOrderByClientReference` returns `null` only when absence is PROVEN, and
+  THROWS otherwise.** #124 treats `null` as proof the provider holds no order,
+  and it is the one path on which a second submission is reachable. Printful
+  documents `@external_id` addressing for Sync Products and Variants and **not
+  for the Orders API**, so the lookup enumerates recent orders and requires TWO
+  things before answering `null`: the scan was exhaustive (a page bound reached
+  is not an enumeration finished), and at least one order carried an
+  `external_id` PROPERTY — or there were no orders at all. Orders existing with
+  none exposing the field is a check that cannot tell success from failure, and
+  its failure direction is a duplicate supplier order.
+- **`live` is refused by a CODE branch, not a flag.** `LIVE_REFUSED_UNTIL_GATED`
+  in the adapter throws for every `live` account; lifting it is a deliberate
+  change that records §11's gates as done, because a setting is what gets
+  flipped at 3am by somebody who has not read the checklist. The credential
+  check underneath it (empty, `-`, `TODO` refused) is the layer that remains
+  afterwards. There is **no `PRINTFUL_ENVIRONMENT` variable and none may be
+  added** — the account row carries its environment, frozen by trigger.
+- **`afterWrite` is OBSERVED by the transport, never guessed.** The request is
+  flushed explicitly and a flag flips when `end()` completes: a failure before
+  that wrote nothing, and everything after it — a read timeout, an aborted
+  response — is `true`. An unparseable 2xx is `afterWrite: true` too: the call
+  succeeded and nobody can read what it did.
+- **Both adapters are PURE and both directories are WALLS.** The transport is a
+  port (`services/printful/transport-contract.ts`) and the credential arrives
+  per call, so the existing `supplier-order-isolation` and `ingestion-isolation`
+  scans cover them. It also makes the conformance suites meaningful: a fake WIRE
+  measures the real adapter, the real orchestration and the real attempt log,
+  where a mocked adapter would measure the mock.
+- **The EU bound is ENFORCED at quote time, not assumed.** #119 §3 records that
+  Printful publishes no per-order guarantee of an EU fulfilment origin, so
+  `resolveAvailability` answers `orderable` only for a variant available in an
+  EU-dispatchable selling region. `PRINTFUL_EU_FULFILMENT_COUNTRIES` is a code
+  constant: which countries are in the customs union is a fact about the union,
+  and a configurable list is one typo from admitting a dispatch D2.9 forbids.
+- **A supplier catalogue cannot publish a wholesale cost, structurally.** A
+  Printful `catalog_sources` row is bound to NO MERCHANT, and #62's rule is that
+  a merchant-less source produces no offers at all — so the cost has nowhere
+  public to land whatever a rights policy says. That is also #125 rule 2's
+  separation from affiliate source records, which ARE merchant-bound.
+- **`incremental` is NOT declared by the catalogue adapter.** Printful publishes
+  no verifiable changed-since filter, and an adapter claiming one would return
+  everything and call it a delta. `complete` needs the last page AND no
+  truncation — a bound reached is not an enumeration finished.
+- **The pilot's bounds are ROWS, not environment variables**, and that
+  divergence from every other rollout lever here is deliberate: those are
+  incident levers (flip one value at 3am), these are a published policy somebody
+  signed and orders were placed under. A cohort version is frozen once active,
+  its SKU allow-list and thresholds may not GROW afterwards (narrowing is still
+  permitted), and a widening is a NEW version with its own author, date and
+  rationale — acceptance 8 as a schema property.
+- **No active cohort ⇒ every retail line is refused.** An empty pilot IS the off
+  position, which is why this domain adds NO environment variable of its own.
+- **A stop pauses ENTRY and nothing else**, and it is a property of the CALL
+  GRAPH: the gate is called from `planRetailCheckout` and nowhere else, so
+  placed purchase orders keep being submitted, polled, cancelled, refunded and
+  reconciled. `retail-pilot-isolation.test.ts` fails the build if a procurement,
+  payment or ranking module starts calling it — and its mutation self-test
+  caught a real gap in its own detector (a relative `../payments/` import would
+  have slipped past the first pattern).
+- **The gate runs LAST, after #120's lock, and the cost is stated.** The value
+  ceilings bound the amount a buyer would be charged, which does not exist until
+  it is locked; every earlier position would need a partial second copy of the
+  rule or a "provisional" verdict, and a bound with a soft state is not a bound.
+  A retail line outside the pilot has therefore spent one preflight when it is
+  refused — acceptable because a retail line exists only where an operator made
+  a binding, and because nothing is charged or ordered at that point.
+- **A threshold nobody measured is `unmeasured`, never `within`** — the vacuity
+  floor, applied to a safety bound. A rate is additionally refused off a sample
+  below twenty; a COUNT has no such floor. The UNIT is stored beside the value
+  and a mismatch is refused rather than compared. A breach is strictly `>`, so a
+  one-occurrence stop is written with a threshold of ZERO.
+- **Absent funding REFUSES**, inverting the `SELLER_TRUST_RESTRICTED_TIERS` rule
+  on purpose: an absent trust signal withholds nothing because restricting on
+  absence turns an outage into a delisting, but an absent balance is Mercaria
+  not knowing whether it can pay. The floor is compared against the balance
+  MINUS this order's draw, or the check would admit the order that empties the
+  wallet. **No payment credential is stored anywhere** — a top-up is a treasury
+  act and Mercaria records only the result.
+- Env: `PRINTFUL_ENABLED` (default false — registers both adapters, never gates
+  a durable record; demands NO credential up front, for `AWIN_ENABLED`'s reason)
+  and `PRINTFUL_BASE_URL`. The pilot adds none. Operator surface
+  `/internal/retail-pilot/*` on the SAME sixth allow-list
+  (`PROCUREMENT_OPERATOR_OXY_USER_IDS`) #122/#124 use — not a seventh.
+- Seams left, each failing closed and none a stub that lies: **the
+  procurement-offer projection** (Printful source records do not yet become
+  `procurement_offers`, so no Printful item is sellable at all — `retail_pilot_skus.procurement_offer_id`
+  is nullable precisely so a SKU can be allow-listed before it exists),
+  **#128** (variance recognition, and the measurement producers for eight of the
+  thirteen thresholds — a sweep computing only the five it can reach would
+  report "no breaches" for the rest, which is the vacuous monitor `unmeasured`
+  exists to expose), **#116** (the `mercaria_retail` offer KIND — `OfferKind`
+  has no such member, which is why the publication bound is a checkout gate
+  rather than an offer filter), **#126/#127** (dispatch, tracking, returns), and
+  Printful's real webhook SIGNATURE scheme (account-gated; `verifyWebhook` is
+  one synchronous function to replace).

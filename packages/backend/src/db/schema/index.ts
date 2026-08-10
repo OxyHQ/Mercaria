@@ -173,6 +173,13 @@ export * from './supplierOrders';
 // order and an acceptance. Placing it earlier would make five of its foreign
 // keys forward references.
 export * from './retailCheckout';
+// The bounded retail PILOT (#125) follows `retailCheckout`, and could not
+// precede it: a cohort names a supplier and a supplier account, a SKU
+// allow-list entry names a procurement offer, and the whole domain exists to
+// gate the checkout above it. It reaches back into nothing else — a stop pauses
+// ENTRY and never fulfilment, so there is no purchase order, order or payment
+// reference here to make a forward one.
+export * from './retailPilot';
 // The external ingestion framework (#62) follows all of them and is the last
 // export for a stronger reason than the backfill's: it is downstream of FIVE
 // layers at once. Its config binds a merchant and a storefront, its objects

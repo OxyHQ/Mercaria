@@ -738,6 +738,15 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'retail_compliance_evidence.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'retail_suppressions.raised_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'retail_suppressions.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // The bounded retail pilot (#125). Every one of these names the PERSON who
+  // published a bound, allow-listed a SKU, raised a stop or lifted one — which
+  // is the whole reason those bounds are rows rather than environment
+  // variables, and the reason none of them may be null on an operator act.
+  { column: 'retail_pilot_cohorts.published_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_pilot_skus.added_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_pilot_stops.raised_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_pilot_stops.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supplier_funding_observations.recorded_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'retail_eligibility_exceptions.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'retail_eligibility_exceptions.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'retail_eligibility_exceptions.second_approved_by_oxy_user_id', reason: OXY_ACCOUNT },
