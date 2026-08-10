@@ -233,4 +233,19 @@ export const queryKeys = {
     familyProducts: (handle: string, filters: string) =>
       ["catalogPages", "family", handle, "products", filters] as const,
   },
+  /**
+   * The "Sell yours" flow (#91).
+   *
+   * The PREVIEW is keyed with its currency and market because those change what
+   * the price guidance says — two sellers looking at one draft in two currencies
+   * are asking two different questions and must not share a cache entry. The
+   * `…Root` prefix is what a mutation invalidates, so a saved step drops every
+   * currency's preview rather than only the one the screen happens to hold.
+   */
+  sellerDrafts: () => ["seller-drafts"] as const,
+  sellerDraftPreviewRoot: (draftId: string) => ["seller-drafts", draftId] as const,
+  sellerDraftPreview: (draftId: string, params?: { currency?: string; market?: string }) =>
+    ["seller-drafts", draftId, params?.currency ?? "", params?.market ?? ""] as const,
+  sellerMatchCandidates: (params: { identifier?: string; q?: string }) =>
+    ["seller-drafts", "candidates", params.identifier ?? "", params.q ?? ""] as const,
 } as const;

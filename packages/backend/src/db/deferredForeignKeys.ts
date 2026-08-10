@@ -1500,4 +1500,21 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'RESTRICT would make the trail block the merge — so the column is a plain id and a ' +
       'tombstoned merchant\'s audits stay readable under the id somebody acted on.',
   },
+
+  // ── The canonical "Sell yours" flow (#91) ────────────────────────────────
+  // The whole of what a draft stores about a person: who is selling, and who
+  // asserted each canonical match. Oxy owns identity, so neither carries a
+  // foreign key — and the assertion column additionally sits on an APPEND-ONLY
+  // table whose one job is answering "who decided this", which a NULL left
+  // behind by an erased account could not do.
+  { column: 'seller_listing_drafts.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'seller_draft_match_assertions.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'seller_draft_images.file_id',
+    reason:
+      'An Oxy media file id, like every other `file_id` in this schema — Oxy owns the asset and ' +
+      'this database has no table to reference. The guarantee that matters here is not a foreign ' +
+      "key but the reverse: `mercaria_seller_draft_reject_borrowed_photo` refuses a file id the " +
+      "catalogue or another seller's listing already claims.",
+  },
 ];

@@ -307,7 +307,7 @@ export * from './searchIntent';
 // people decided about it.
 export * from './merchantDemand';
 // Zero-profit cost reconciliation (#128) is the last export of the retail
-// chain and the most downstream table set in the schema: a reconciliation names
+// chain and the most downstream table set among them: a reconciliation names
 // an `orders` row, its components cite the `retail_cost_quotes` composition
 // through #123's procurement intent, its supplier credits name a
 // `purchase_orders` row and a `purchase_order_documents` reference, its
@@ -317,3 +317,11 @@ export * from './merchantDemand';
 // reconciliation that could be reached by the things it reconciles would be able
 // to change them.
 export * from './retailReconciliation';
+// The "Sell yours" seller draft (#91) is downstream of `./canonicalCatalog`
+// (the product a seller declares), `./catalog` (the listing a draft becomes and
+// the category it is filed under) and `./condition` (whose disclosure
+// vocabulary its staged details reuse verbatim rather than forking). It adds NO
+// column to any table above it: a draft references the graph and copies none of
+// it, which is what keeps a merge or a catalogue correction from leaving a
+// half-finished listing describing a product under its old name.
+export * from './sellYours';

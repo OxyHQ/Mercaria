@@ -405,7 +405,23 @@ export const listingImages = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index('listing_images_listing_id_position_idx').on(t.listingId, t.position)],
+  (t) => [
+    index('listing_images_listing_id_position_idx').on(t.listingId, t.position),
+    /**
+     * "Does any listing already show this file?", answered per row.
+     *
+     * Added by #91 and read by ONE thing: the
+     * `mercaria_seller_draft_reject_borrowed_photo` trigger, which fires on every
+     * photograph a seller adds to a draft and is what makes "detect reused
+     * canonical or merchant images" (#91 trust rule 2) true against a file id no
+     * service-layer check can recognise. Without this index that trigger scans
+     * every listing image in the catalogue on every upload.
+     *
+     * The `canonical_images` half of the same trigger is served by
+     * `canonical_images_file_id_idx`, which #90 added for its own trigger.
+     */
+    index('listing_images_file_id_idx').on(t.fileId),
+  ],
 );
 
 /**

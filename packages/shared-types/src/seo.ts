@@ -588,6 +588,9 @@ export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
   '/cart',
   '/checkout',
   '/orders',
+  // The "Sell yours" flow (#91): an authenticated draft-in-progress, reached
+  // only from a credential, and never a landing page a crawler should find.
+  '/sell',
   '/saved',
   '/watchlists',
   '/notifications',

@@ -4732,3 +4732,65 @@ this schema is a `length()` call, never a `{m,n}`.
 `native_store_links`, from `provider_accounts.onboarding_state` and from the
 presence of an active native offer. A copy here would be the one that goes stale
 the moment a claim is revoked, on an operator's screen.
+
+## The "Sell yours" seller draft (#91)
+
+`seller_listing_drafts`, `seller_draft_condition_details`, `seller_draft_images`
+and `seller_draft_match_assertions` — one in-flight flow that becomes exactly one
+P2P listing. Reference: `docs/sell-yours.md`.
+
+- **There is no canonical TEXT on any of these tables.** No prefilled title,
+  brand, model or attribute is stored: the draft holds what the SELLER typed and
+  a read joins the canonical row for the rest. A stored copy would be a second
+  representation of a fact the graph already owns, and a merge, a rename or a
+  correction would leave a half-finished listing describing a product under its
+  old name — which the seller would then publish.
+- **Four columns point at `canonical_products` / `canonical_variants` and each
+  has a merge disposition.** The DRAFT is `repoint`ed (after a merge that IS the
+  same product, and a draft left on a tombstone publishes an attachment to a dead
+  identity); the ASSERTIONS are `retained_by_tombstone`, because an assertion
+  records what a person declared THEN and could not be repointed anyway — the
+  table refuses UPDATE.
+- **`published_listing_id` moves NULL → value exactly once**, held by a trigger
+  permitting NULL→value and value→NULL and refusing value→value. #106's
+  buyer-origin trigger, for its reason: the refusal is what makes "repeated
+  submits create one listing" impossible for a service bug to get wrong. The
+  `published` CHECK is stated on `published_at`, NOT on the id — the id may
+  legitimately become NULL again when a seller deletes the listing, and a
+  biconditional on it would turn that deletion into a constraint violation.
+- **`seller_draft_match_assertions` is append-only with #90's PRECISE delete
+  exception**: UPDATE always refused, DELETE refused only while the parent draft
+  still exists. An unconditional delete refusal makes the `ON DELETE cascade` on
+  `draft_id` fail, so a draft carrying any assertion becomes undeletable and an
+  erasure request against it fails at the database. The first version of the
+  trigger had exactly that bug and the realdb suite caught it in the TEARDOWN.
+- **`cardinality(blockers) >= 1`, never `array_length`.** A `gate_refused` row
+  that named no blocker explains nothing, and `array_length` of an empty array is
+  NULL, which a CHECK reads as SATISFIED — the obvious spelling admits exactly
+  the row it exists to refuse. Measured twice before in this schema (#68, #108).
+- **A match state and its ids cannot disagree.** `unmatched` and
+  `seller_rejected` carry NO product — a rejection that kept the id it rejected
+  would read, to every consumer, exactly like a proposal — and everything else
+  carries at least a product, because #58 resolves product identity before
+  variant identity and "matched the model, not the configuration" is real.
+- **Coordinates are stored ALREADY COARSENED**, rounded at the write boundary by
+  `coarsenSellerCoordinate`. Rounding at read time would leave the precise
+  position in the table, in backups and in every operator query — a privacy
+  property that depends on each reader remembering is not one.
+- **`included_accessories` is a `text[]`; what is MISSING is not here.** A
+  missing part is #90's `missing_accessory` condition detail, which carries a
+  mandatory note and counts toward the disclosure gate. Two vocabularies for one
+  fact would let a seller list a missing remote as an "included accessory" and
+  satisfy nothing.
+- **`seller_draft_images` carries #90's seller-owned provenance vocabulary and a
+  trigger the vocabulary cannot replace.** `mercaria_seller_draft_reject_borrowed_photo`
+  refuses a `file_id` any `canonical_images` row claims (the catalogue's own
+  picture) or any OTHER account's `listing_images` row shows (the merchant-photo
+  case). The seller's own listings are deliberately allowed — relisting is
+  republishing your own photograph. `listing_images_file_id_idx` is what keeps
+  the second lookup off a sequential scan, and it is declared in the drizzle
+  schema rather than hand-written so a regeneration cannot drop it.
+- **No column could hold identity evidence**, and that is the whole of #91
+  seller-owned field 10 here: `SELLER_PROOF_FIELD_KINDS` is defined and the API
+  refuses each kind BY NAME, because a protected store with no reviewer carries
+  every risk of holding a serial number and none of the benefit.

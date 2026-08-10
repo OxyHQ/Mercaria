@@ -476,3 +476,12 @@ export * from './merchant-demand';
 // the next composer, and its asset/text unions carry the RIGHTS a fact is shown
 // under so a description copied out of a feed cannot be rendered without them.
 export * from './catalog-page';
+// The canonical "Sell yours" flow (#91). Downstream of `./condition` (the
+// seller-owned taxonomy a draft carries verbatim), `./offer` (the attachment a
+// publication may write) and `./price-history` (the observations guidance is
+// read from). Its two field tuples are DISJOINT — what a canonical product may
+// prefill and what only the seller may state — so "a specification is not
+// evidence about the item" is a property of the vocabulary rather than of
+// whoever writes the next screen, and its guidance shape carries no field a
+// client could read as a price to submit.
+export * from './sell-yours';

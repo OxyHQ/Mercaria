@@ -210,18 +210,36 @@ export async function syncListingFacets(listingId: string): Promise<void> {
   }
 }
 
+/** Where a P2P listing's coarse public location comes from, when the seller opted in. */
+export interface P2PListingPlacement {
+  longitude: number;
+  latitude: number;
+}
+
 /**
- * Create a P2P (secondhand) listing owned by an individual user. Creates the
- * listing (`ownerType: 'user'`) plus a single Default-Title variant carrying the
- * price and `available = quantity ?? 1`. Lazily ensures the seller's profile
- * exists. Returns the new listing's id.
+ * Write a P2P listing, its gallery, its condition evidence and its single
+ * variant — all inside the CALLER's transaction.
+ *
+ * Extracted from {@link createP2PListing} so #91's publication can commit the
+ * listing, its native attachment and the draft's own publication stamp together.
+ * A publication spread across three transactions has a crash window in which a
+ * listing exists that no draft names, and the retry then creates a second one —
+ * exactly what #91 acceptance 3 forbids.
+ *
+ * Two things moved INTO the transaction as part of that extraction and are
+ * strictly better there: the variant insert (a listing with no variant is not a
+ * sellable state anything should observe) and, for the caller, whatever else
+ * belongs with it. `syncListingFacets` deliberately stays OUTSIDE, because it
+ * enqueues outbox work whose whole point is that it survives independently.
  */
-export async function createP2PListing(
+export async function insertP2PListingWithin(
+  tx: Parameters<typeof insertListing>[3],
   oxyUserId: string,
   input: CreateP2PListingInput,
+  placement: P2PListingPlacement | null,
+  now: Date,
 ): Promise<string> {
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
-  await getOrCreateSellerProfile(oxyUserId);
 
   const quantity = input.quantity ?? 1;
 
@@ -232,88 +250,107 @@ export async function createP2PListing(
   if (!resolvedCondition) {
     throw validationError('A listing must state its condition');
   }
-  const now = new Date();
   const conditionColumns = conditionColumnsFor(resolvedCondition, now);
 
   // Multi-currency: the price is stored in its NATIVE currency exactly as given
   // (no FAIR conversion). Settlement to FAIR happens later, at the paid boundary.
   const price = input.price;
 
-  const listingId = await getDb().transaction(async (tx) => {
-    await assertConditionAllowed(tx, {
-      resolved: resolvedCondition,
-      categoryId,
-      categorySlugs,
-    });
-
-    const listing = await insertListing(
-      {
-        ownerType: 'user',
-        oxyUserId,
-        storeId: null,
-        title: input.title,
-        description: input.description,
-        ...conditionColumns,
-        conditionSourceLabel: null,
-        status: 'active',
-        categoryId,
-        categorySlugs,
-        tags: input.tags ?? [],
-        priceRangeMinAmount: price.amount,
-        priceRangeMinCurrency: price.currency,
-        priceRangeMaxAmount: price.amount,
-        priceRangeMaxCurrency: price.currency,
-        hasInventory: quantity > 0,
-        variantCount: 1,
-        longitude: null,
-        latitude: null,
-        vendor: null,
-        productType: null,
-        handle: null,
-        seoTitle: null,
-        seoDescription: null,
-        sourceConnectionId: null,
-        sourceProvider: null,
-        sourceExternalId: null,
-        sourceExternalUpdatedAt: null,
-        overriddenFields: [],
-        rating: 0,
-        reviewCount: 0,
-        favoriteCount: 0,
-        publishedAt: now,
-      },
-      toListingImages(input.imageFileIds),
-      [],
-      tx,
-    );
-
-    // Inside the SAME transaction as the listing row: the disclosures and the
-    // evidence gate are part of what makes the listing publishable, so a listing
-    // that commits without them is the failure this ordering removes.
-    await writeListingConditionEvidence(tx, {
-      listingId: listing.id,
-      actor: { kind: 'seller', oxyUserId },
-      galleryFileIds: input.imageFileIds,
-      resolved: resolvedCondition,
-      categoryId,
-      categorySlugs,
-      now,
-    });
-
-    return listing.id;
+  await assertConditionAllowed(tx, {
+    resolved: resolvedCondition,
+    categoryId,
+    categorySlugs,
   });
 
-  await insertVariants(listingId, [
+  const listing = await insertListing(
     {
-      title: DEFAULT_VARIANT_TITLE,
-      priceAmount: price.amount,
-      priceCurrency: price.currency,
-      inventoryTracked: true,
-      inventoryAvailable: quantity,
-      position: 0,
-      optionValues: [],
+      ownerType: 'user',
+      oxyUserId,
+      storeId: null,
+      title: input.title,
+      description: input.description,
+      ...conditionColumns,
+      conditionSourceLabel: null,
+      status: 'active',
+      categoryId,
+      categorySlugs,
+      tags: input.tags ?? [],
+      priceRangeMinAmount: price.amount,
+      priceRangeMinCurrency: price.currency,
+      priceRangeMaxAmount: price.amount,
+      priceRangeMaxCurrency: price.currency,
+      hasInventory: quantity > 0,
+      variantCount: 1,
+      longitude: placement?.longitude ?? null,
+      latitude: placement?.latitude ?? null,
+      vendor: null,
+      productType: null,
+      handle: null,
+      seoTitle: null,
+      seoDescription: null,
+      sourceConnectionId: null,
+      sourceProvider: null,
+      sourceExternalId: null,
+      sourceExternalUpdatedAt: null,
+      overriddenFields: [],
+      rating: 0,
+      reviewCount: 0,
+      favoriteCount: 0,
+      publishedAt: now,
     },
-  ]);
+    toListingImages(input.imageFileIds),
+    [],
+    tx,
+  );
+
+  // Inside the SAME transaction as the listing row: the disclosures and the
+  // evidence gate are part of what makes the listing publishable, so a listing
+  // that commits without them is the failure this ordering removes.
+  await writeListingConditionEvidence(tx, {
+    listingId: listing.id,
+    actor: { kind: 'seller', oxyUserId },
+    galleryFileIds: input.imageFileIds,
+    resolved: resolvedCondition,
+    categoryId,
+    categorySlugs,
+    now,
+  });
+
+  await insertVariants(
+    listing.id,
+    [
+      {
+        title: DEFAULT_VARIANT_TITLE,
+        priceAmount: price.amount,
+        priceCurrency: price.currency,
+        inventoryTracked: true,
+        inventoryAvailable: quantity,
+        position: 0,
+        optionValues: [],
+      },
+    ],
+    tx,
+  );
+
+  return listing.id;
+}
+
+/**
+ * Create a P2P (secondhand) listing owned by an individual user. Creates the
+ * listing (`ownerType: 'user'`) plus a single Default-Title variant carrying the
+ * price and `available = quantity ?? 1`. Lazily ensures the seller's profile
+ * exists. Returns the new listing's id.
+ */
+export async function createP2PListing(
+  oxyUserId: string,
+  input: CreateP2PListingInput,
+): Promise<string> {
+  await getOrCreateSellerProfile(oxyUserId);
+  const now = new Date();
+
+  const listingId = await getDb().transaction((tx) =>
+    insertP2PListingWithin(tx, oxyUserId, input, null, now),
+  );
 
   await syncListingFacets(listingId);
   return listingId;

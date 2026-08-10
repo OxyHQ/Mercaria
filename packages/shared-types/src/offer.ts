@@ -335,7 +335,27 @@ export type NativeListingLinkMethod =
    * Like every non-`matcher` method it carries NULL confidence: the mapping is
    * certain by construction, because the backfill created both ends of it.
    */
-  | 'backfill';
+  | 'backfill'
+  /**
+   * The SELLER said so, in #91's "Sell yours" flow, and #58's deterministic
+   * blockers did not refuse it.
+   *
+   * Its own member rather than `operator` or `matcher`, and the distinction is
+   * the one #59's tooling most needs: a catalogue operator deciding an
+   * attachment and the person who owns the item deciding it are different kinds
+   * of evidence with different remedies. An operator's mistake is corrected by
+   * another operator; a seller's is corrected by asking the seller, or by a
+   * `wrong_product_match` report.
+   *
+   * It carries NULL confidence like every non-`matcher` method, for the same
+   * reason: a person saying "this is the phone I am selling" has no score, and a
+   * number beside it could only be read as doubt about a fact nobody scored.
+   * What makes it trustworthy is not a threshold — it is that
+   * `services/sell-yours/match-gate.ts` refused to write it if a valid
+   * identifier, the brand, the pack count, the category, a bundle relation or an
+   * operator's own rejection disagreed.
+   */
+  | 'seller_declared';
 
 export const NATIVE_LISTING_LINK_METHODS: readonly NativeListingLinkMethod[] = [
   'barcode_gtin',
@@ -343,6 +363,7 @@ export const NATIVE_LISTING_LINK_METHODS: readonly NativeListingLinkMethod[] = [
   'operator',
   'matcher',
   'backfill',
+  'seller_declared',
 ];
 
 /** The lifecycle of one native-variant → canonical-variant attachment. */

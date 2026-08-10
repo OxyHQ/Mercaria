@@ -28,6 +28,21 @@ export async function findCategoryBySlug(
   return row ?? null;
 }
 
+/**
+ * One category by id — the reverse of the resolver above.
+ *
+ * A canonical product stores a category ID while a listing write and every
+ * client speak in SLUGS, so #91's prefill needs this direction to tell a seller
+ * which category the catalogue already files their product under.
+ */
+export async function findCategoryById(
+  id: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<CategoryRecord | null> {
+  const [row] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+  return row ?? null;
+}
+
 /** One ACTIVE category by slug — the public browse read. */
 export async function findActiveCategoryBySlug(
   slug: string,

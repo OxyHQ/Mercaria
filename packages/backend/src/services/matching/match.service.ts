@@ -257,6 +257,33 @@ async function attachIfAutomatic(
   if (evaluation.matchedCanonicalVariantId === null) return false;
 
   const existing = await findActiveLinkForVariant(tx, subject.productVariantId);
+  /**
+   * A SELLER's own declaration is never overwritten by a score (#91).
+   *
+   * `seller_declared` is written by `services/sell-yours/` only after the same
+   * deterministic blockers this pipeline reads have been checked against the
+   * exact pair the seller chose — so a matcher preferring a different candidate
+   * here is a heuristic disagreeing with a person who owns the item, about the
+   * item. #80's `save_intent` pin, one layer down: the strongest signal anybody
+   * can give must not lose to an automatic one.
+   *
+   * The disagreement is not lost. The decision row is still written above with
+   * its own `matched_canonical_variant_id`, so "the matcher would have chosen
+   * something else" is readable by comparing it against the active link — which
+   * is what `readSellerDraftConsistency` reports and what a `wrong_product_match`
+   * report is investigated against.
+   */
+  if (existing && existing.method === 'seller_declared') {
+    log.general.info(
+      {
+        productVariantId: subject.productVariantId,
+        declaredCanonicalVariantId: existing.canonicalVariantId,
+        matcherCanonicalVariantId: evaluation.matchedCanonicalVariantId,
+      },
+      '[Matching] leaving a seller-declared attachment in place',
+    );
+    return false;
+  }
   if (existing && existing.canonicalVariantId === evaluation.matchedCanonicalVariantId) {
     // Already attached to exactly this variant. Re-running the pipeline must be
     // a genuine no-op — no tuple churn, no superseded history row recording a

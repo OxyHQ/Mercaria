@@ -1683,6 +1683,34 @@ export interface CatalogConfig {
  *   shape: the request is always answerable, only the write is gated, so an
  *   operator can measure the migration before authorising it.
  */
+/**
+ * The canonical "Sell yours" flow (#91).
+ *
+ * ONE lever, and it gates the MOUNT rather than a loop or a row. There is no
+ * durable queue here to gate: a draft is a person's unfinished work, so the
+ * "gate the loop, never the record" rule has nothing to bite on — the analogous
+ * mistake would be a flag that DELETED drafts, and nobody would pull that lever
+ * either. With it off the flow is unavailable and every existing draft is still
+ * exactly where its owner left it.
+ *
+ * Deliberately absent: a flag that disables the deterministic match gate. A
+ * "just attach what the seller said" switch is the false merge with an
+ * off-switch, and the incident it would be reached for during is precisely the
+ * one where it must not be available.
+ */
+export interface SellYoursConfig {
+  /** `SELL_YOURS_ENABLED` — mounts `/seller/drafts`. Never touches a stored draft. */
+  readonly enabled: boolean;
+  /** How many live offers one guidance segment samples. */
+  readonly guidanceOfferSampleSize: number;
+  /** How many sold order lines one guidance segment samples. */
+  readonly guidanceSoldSampleSize: number;
+  /** How many drafts the seller's own resume list returns. */
+  readonly draftListLimit: number;
+  /** How many canonical candidates an identify-step search offers. */
+  readonly candidateLimit: number;
+}
+
 export interface ProductSavesConfig {
   /** `PRODUCT_SAVES_ENABLED` — mounts `/product-saves` and `/saved-items`. */
   readonly enabled: boolean;
@@ -2806,6 +2834,7 @@ export interface AppConfig {
   readonly catalog: CatalogConfig;
   readonly productSaves: ProductSavesConfig;
   readonly watchlists: WatchlistsConfig;
+  readonly sellYours: SellYoursConfig;
   readonly offers: OffersConfig;
   readonly canonicalRollout: CanonicalRolloutConfig;
   readonly matching: MatchingConfig;
@@ -2920,6 +2949,13 @@ export const config: AppConfig = Object.freeze({
     curationJobsEnabled: boolEnv('CURATION_JOBS_ENABLED', true),
     curationBatchSize: intEnv('CURATION_JOB_BATCH_SIZE', 5),
     curationPollIntervalMs: intEnv('CURATION_JOB_POLL_INTERVAL_MS', 10_000),
+  }),
+  sellYours: Object.freeze({
+    enabled: boolEnv('SELL_YOURS_ENABLED', true),
+    guidanceOfferSampleSize: intEnv('SELL_YOURS_GUIDANCE_OFFER_SAMPLE_SIZE', 100),
+    guidanceSoldSampleSize: intEnv('SELL_YOURS_GUIDANCE_SOLD_SAMPLE_SIZE', 200),
+    draftListLimit: intEnv('SELL_YOURS_DRAFT_LIST_LIMIT', 25),
+    candidateLimit: intEnv('SELL_YOURS_CANDIDATE_LIMIT', 10),
   }),
   productSaves: Object.freeze({
     enabled: boolEnv('PRODUCT_SAVES_ENABLED', false),

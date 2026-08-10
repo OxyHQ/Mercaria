@@ -23,6 +23,45 @@ import {
   deleteMyListing,
 } from '../controllers/seller-listings.controller.js';
 import { listSellerOrders, fulfillOrderHandler } from '../controllers/seller-orders.controller.js';
+import {
+  deleteDraft,
+  getDraftPreview,
+  listDrafts,
+  listMatchCandidates,
+  patchDraft,
+  publishDraft,
+  startDraft,
+} from '../controllers/sell-yours.controller.js';
+import {
+  patchSellerDraftSchema,
+  sellerDraftPreviewQuerySchema,
+  sellerMatchCandidateQuerySchema,
+  startSellerDraftSchema,
+} from '../middleware/sell-yours-schemas.js';
+import { assertNoProofFields } from '../services/sell-yours/draft.service.js';
+import { config } from '../config/index.js';
+import { respondWithError } from '../lib/errors/error-codes.js';
+
+/**
+ * The proof-field gate, as middleware so it runs BEFORE the `.strict()` parse.
+ *
+ * A `.strict()` schema would answer "unrecognized key" for a serial number,
+ * which tells a seller nothing about why Mercaria will not take it. #121's
+ * `forbidden-evidence.ts` mounts its own refusal ahead of the schema for the
+ * same reason, and a test there pins the answer by MESSAGE.
+ */
+function assertNoProofFieldsMiddleware(
+  req: Parameters<typeof startDraft>[0],
+  res: Parameters<typeof startDraft>[1],
+  next: () => void,
+): void {
+  try {
+    assertNoProofFields((req.body ?? {}) as Record<string, unknown>);
+    next();
+  } catch (err) {
+    respondWithError(res, err, 'Failed to validate the listing draft');
+  }
+}
 
 /**
  * Seller API — the individual (P2P) seller's own profile + listings.
@@ -71,6 +110,61 @@ router.patch(
   updateMyListing,
 );
 router.delete('/listings/:id', makeRateLimiter('listings'), validateId('id'), deleteMyListing);
+
+/**
+ * The "Sell yours" flow (#91).
+ *
+ * Mounted under `/seller` because a draft is one seller's own work-in-progress
+ * and the router's `authenticateToken` already establishes them — the same
+ * reasoning `/seller/listings` uses. `SELL_YOURS_ENABLED` gates the MOUNT and
+ * never a stored draft: with it off the flow is unavailable and every draft is
+ * exactly where its owner left it.
+ *
+ * `assertNoProofFieldsMiddleware` runs BEFORE the `.strict()` schemas, so a
+ * seller who sends a serial number is told what Mercaria does not accept and
+ * why, instead of "unrecognized key" (#121's `forbidden-evidence.ts` device).
+ *
+ * `/drafts/candidates` is registered before `/drafts/:id` — otherwise
+ * `candidates` is read as a draft id and every scan answers 404.
+ */
+if (config.sellYours.enabled) {
+  router.get(
+    '/drafts/candidates',
+    makeRateLimiter('listings'),
+    validateQuery(sellerMatchCandidateQuerySchema),
+    listMatchCandidates,
+  );
+  router.get('/drafts', makeRateLimiter('listings'), listDrafts);
+  router.post(
+    '/drafts',
+    makeRateLimiter('listings'),
+    assertNoProofFieldsMiddleware,
+    validateBody(startSellerDraftSchema),
+    startDraft,
+  );
+  router.get(
+    '/drafts/:id',
+    makeRateLimiter('listings'),
+    validateId('id'),
+    validateQuery(sellerDraftPreviewQuerySchema),
+    getDraftPreview,
+  );
+  router.patch(
+    '/drafts/:id',
+    makeRateLimiter('listings'),
+    validateId('id'),
+    assertNoProofFieldsMiddleware,
+    validateBody(patchSellerDraftSchema),
+    patchDraft,
+  );
+  router.delete('/drafts/:id', makeRateLimiter('listings'), validateId('id'), deleteDraft);
+  router.post(
+    '/drafts/:id/publish',
+    makeRateLimiter('listings'),
+    validateId('id'),
+    publishDraft,
+  );
+}
 
 // Seller orders (incoming P2P orders + fulfilment).
 router.get('/orders', makeRateLimiter('orders'), validateQuery(orderListQuerySchema), listSellerOrders);
