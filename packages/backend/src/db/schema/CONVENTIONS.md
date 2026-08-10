@@ -2342,6 +2342,58 @@ so a column whose shape looks arbitrary is answerable:
 - **Zero `jsonb` columns.** Every shape in this domain is Mercaria's own and
   closed, so none of them earns an entry in the register below.
 
+### Referral reward rules (#144, ADR 0005 D9–D19)
+
+Four more tables born in Postgres, in `schema/referralRewards.ts`
+(`drizzle/0060_colorful_speed_demon.sql`, phase `pre`):
+`referral_reward_rules`, `referral_campaign_budgets`, `referral_rewards`,
+`referral_reward_adjustments`. Full reference: `docs/referral-rewards.md`. The
+decisions that are load-bearing:
+
+- **The funding-source CHECK is the funding boundary.**
+  `referral_reward_rules.funding_source_id` and
+  `referral_rewards.funding_source_id` both CHECK against
+  `REFERRAL_FUNDING_SOURCE_IDS` (four members), which is DISJOINT from
+  `REFERRAL_FORBIDDEN_FUNDING_KINDS` (twelve) by a test. Adding a member is a
+  code change plus a `pre` migration, the standing closed-value-set rule — and
+  here it is also the one place a retail margin could ever become fundable.
+- **A rule row is one immutable VERSION.** `rule_id` is a stable grouping token
+  (the `referral_programs.program_id` shape — no parent entity),
+  `UNIQUE(rule_id, version)`, plus a partial unique on `(rule_id) WHERE status =
+  'active'`. `referral_reward_rules_immutable_once_active` refuses every column
+  change on a non-draft row and refuses DELETE — the `fee_schedules` trigger,
+  reused because it is the same decision.
+- **`reward_currency` is nullable and two CHECKs keep it honest**: present
+  exactly when `currency_mode = 'fixed_currency'`, and REQUIRED the moment any
+  amount-valued term exists (fixed amount, minimum, any cap). An amount with no
+  currency cannot be compared against a base whose currency varies. The domain
+  performs no FX at all, so a mismatch is a refusal rather than a conversion.
+- **ONE currency column on a reward, not two.** The reward and its funding are
+  always denominated the same, because nothing converts; two columns forced
+  equal by a CHECK would be two representations of one fact.
+  `gross_amount_minor <= funding_amount_minor` is what makes "never pay more
+  than the eligible funding" a property of the ROW.
+- **`UNIQUE(conversion_id)` is the accrual's idempotency**, with `ON CONFLICT DO
+  NOTHING` plus a re-read. One unique index over the fact, so unlike
+  `referral_conversions` the arbiter is NAMED.
+- **`referral_rewards` refuses DELETE and refuses a net that GROWS**
+  (`mercaria_referral_reward_frozen`), and freezes its identity, its rule pin
+  and its funding snapshot. Only the state machine and the net moving DOWN are
+  writable. `state` carries ADR 0005's whole machine; #144 writes `held` and
+  `voided`, and #145/#148 are the writers of the other three.
+- **`referral_reward_adjustments` is append-only by trigger** against UPDATE and
+  DELETE both, keyed on the deterministic
+  `refrewrev:<rewardId>:<cause>:<sourceRef>`. `delta_amount_minor <= 0`; the
+  recovery state is a biconditional pair of CHECKs over `(delta, liability)`, so
+  `partner_liability` and a zero delta are mutually exclusive.
+- **A budget's identity is frozen and its allocation only GROWS**
+  (`mercaria_referral_campaign_budget_guard`). Cutting a campaign is
+  `status = 'closed'`, which is prospective; a shrink would be retroactive and
+  could strand claims already made. `claimed_minor` moves both ways — a reversal
+  releases what it took back — and `claimed_minor <= budget_minor` is the CHECK
+  the conditional claim relies on.
+- **Zero `jsonb` columns**, for the same reason the #142 tables have none.
+
 ### The discovery-analytics domain has no source model either (#77)
 
 Eight more tables born in Postgres, in `schema/analytics.ts`:
@@ -3437,6 +3489,9 @@ add a row when a gate lands, and do not list one that does not run yet.
 | The payment and procurement domains import NOTHING from each other, and each keeps its own order-linkage seam | `src/services/procurement/__tests__/role-separation.test.ts` | no |
 | ONE active referral attribution per (program, subject) under two CONCURRENT inserts; the code namespace refuses every case-variant of a taken spelling (the CHECK included); a replayed/concurrent conversion source event converges on one row; correction and supersession are append-only rows naming their predecessor; merge redirects preserve historical references; retirement and suspension block NEW attribution while historical conversions keep transitioning | `src/services/__tests__/referral-writes.realdb.test.ts` | yes |
 | Raw referral touches are swept on their own retention, separately from the attributions derived from them | `src/db/__tests__/expirySweeper.realdb.test.ts` | yes |
+| The fifteen #144 cases: a reward is a share of REALIZED ledger commission and never of gross spend; the funding-source CHECK refuses `mercaria_retail` margin and cost variance on a rule AND on a reward; an activated rule version cannot be edited or deleted; a duplicate or CONCURRENT conversion produces one reward whose amount does not move when the base does; a partial refund appends a negative adjustment and a full one voids; a PAID reward is never un-paid and becomes a partner liability; a budget claim is atomic and a budget cannot shrink; a retail bounty leaves the order and its #88 fee snapshot byte-identical INCLUDING `xmin` | `src/services/__tests__/referral-rewards.realdb.test.ts` | yes |
+| Referral funding cannot reach the fee, pricing, retail, procurement, ranking, search, discount, checkout or FX domains, and the ONE ledger importer is the named read-only seam | `src/services/referrals/rewards/__tests__/reward-funding-isolation.test.ts` | no |
+| The allowed and forbidden referral funding unions are disjoint; no reward column is named for a forbidden source; the `.strict()` rule schema refuses every forbidden-shaped field and the refusal names the prohibition | `src/services/referrals/rewards/__tests__/forbidden-funding.test.ts` | no |
 | One product carries four canonical variants across two axes; two feeds listing the same options in a different ORDER and a different UNIT converge on ONE variant; a product with no axes gets exactly one default variant | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
 | A colliding GTIN is stored `disputed` and the existing owner does NOT move; the partial unique refuses a second active owner even from a writer that skips the service; a wrong check digit stores nothing; a correction APPENDS and the wrong value survives; the immutability trigger refuses a value edit while permitting a status and an owner change | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
 | A source title never becomes the canonical name (it becomes an alias plus a conflict); an MPN on a brandless entity is refused; a scheme at the wrong grain is refused | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |

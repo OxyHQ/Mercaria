@@ -164,6 +164,10 @@ export * from './procurement';
 // partners, instruments, touches, attributions, conversions.
 export * from './referral';
 
+// Versioned referral reward rules, the closed funding-source set and the
+// disjoint set of things that may never fund a reward (#144, ADR 0005).
+export * from './referral-reward';
+
 // Marketplace fee vocabulary (#88): commercial modes, fee schedule value sets
 // and the merchant-facing schedule/acceptance/preview/snapshot DTOs.
 export * from './fees';

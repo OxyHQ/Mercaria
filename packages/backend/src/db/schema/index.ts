@@ -113,6 +113,10 @@ export * from './retailEligibility';
 // Referrals (#142, ADR 0005): their tables reference nothing outside their own
 // domain, and their subject/actor references are deliberately opaque.
 export * from './referrals';
+// Referral reward rules, budgets, rewards and reversals (#144, ADR 0005)
+// FOLLOW `referrals`: a reward references a conversion, an attribution, a
+// partner and a program version, so every one of its parents is above it.
+export * from './referralRewards';
 // Offers (#57, ADR 0002 D18) come last of the graph layers because they sit
 // downstream of ALL of them: an offer references a canonical variant (#56), a
 // merchant and a storefront (#54), a source record (#53), and — for the native
