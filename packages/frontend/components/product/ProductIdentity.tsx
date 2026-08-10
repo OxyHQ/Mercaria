@@ -1,5 +1,4 @@
-import { useRouter } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { Image } from 'expo-image';
 import type { CanonicalProduct } from '@mercaria/shared-types';
 import { RatingLine, Text } from '@mercaria/ui';
@@ -31,7 +30,6 @@ export interface ProductIdentityProps {
 }
 
 export function ProductIdentity({ product, rating }: ProductIdentityProps) {
-  const router = useRouter();
   const images = product.images.filter((image) => image.fileId || image.sourceUrl);
   const specs = product.attributes.slice(0, 8);
   // ACTIVE only: a retired or disputed identifier keeps its row (ADR 0002 D14)
@@ -63,35 +61,22 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
       ) : null}
 
       <View className="gap-space-8">
-        {product.brandId ? (
-          <Pressable
-            accessibilityRole="link"
-            accessibilityLabel="Go to the brand page"
-            onPress={() =>
-              router.push(`/brands/${product.brandId}` as Parameters<typeof router.push>[0])
-            }
-          >
-            <Text className="text-caption text-text-brand">Brand</Text>
-          </Pressable>
-        ) : null}
-
+        {/*
+          The brand and the family are NAMED and not linked, because the
+          storefront has no `/brands/:id` or `/product-families/:id` route yet —
+          #72 and #73 own those pages. #71 asks to link an identity "to its
+          public page when available", and a link to a route that does not
+          resolve is worse than the text: `typedRoutes` is on and INERT in this
+          expo-router major, so a dead `router.push` compiles, ships and fails
+          under a shopper's thumb as "This screen does not exist".
+          `product-page-isolation.test.ts` walks the real `app/` tree and fails
+          the build on a target that does not resolve, so whoever adds those
+          pages can turn these into links and be told at once if they got the
+          path wrong.
+        */}
         <Text className="text-headerBold text-text" accessibilityRole="header">
           {product.name}
         </Text>
-
-        {product.familyId ? (
-          <Pressable
-            accessibilityRole="link"
-            accessibilityLabel="Go to the product family"
-            onPress={() =>
-              router.push(
-                `/product-families/${product.familyId}` as Parameters<typeof router.push>[0],
-              )
-            }
-          >
-            <Text className="text-caption text-text-brand">See the whole range</Text>
-          </Pressable>
-        ) : null}
 
         {rating !== undefined && rating.reviewCount > 0 ? (
           <RatingLine

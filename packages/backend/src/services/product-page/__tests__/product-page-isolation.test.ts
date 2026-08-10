@@ -277,6 +277,108 @@ describe('WALL 4: the page writes nothing', () => {
   });
 });
 
+/* ────────────────────────────────────────────────────────────────────────── */
+/* WALL 6: every route the page navigates to EXISTS                           */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * `typedRoutes` is ON in this app and INERT on this expo-router major
+ * (`~/Oxy/AGENTS.md`): `router.push('/definitely-not-a-route')` type-checks
+ * clean, ships, and fails under a shopper's thumb as "This screen does not
+ * exist". This issue hit it — a "Report a problem" control pointed at
+ * `/settings/support`, which is not a screen — so the gate is here rather than
+ * in a note somebody reads afterwards.
+ *
+ * Mention's `settingsRouteTargets.test.ts` is the shape being followed, scoped
+ * to the files #71 owns for its reason: a repository-wide version would need
+ * real false-positive handling for dynamic segments before anybody could trust
+ * it, and a gate that cries wolf is a gate the next person disables.
+ */
+const APP_ROOT = join(STOREFRONT_ROOT, 'app');
+
+/** Every route the real `app/` tree serves, as `/`-joined segment patterns. */
+function existingRoutes(): string[] {
+  const routes: string[] = [];
+  const walk = (directory: string, segments: string[]): void => {
+    for (const entry of readdirSync(directory)) {
+      const absolute = join(directory, entry);
+      if (statSync(absolute).isDirectory()) {
+        // A `(group)` is transparent in the URL — the whole point of the
+        // convention, and the thing a naive path check gets wrong.
+        walk(absolute, entry.startsWith('(') ? segments : [...segments, entry]);
+        continue;
+      }
+      if (!entry.endsWith('.tsx') || entry.startsWith('_') || entry.startsWith('+')) continue;
+      const name = entry.replace(/\.tsx$/u, '');
+      routes.push(`/${(name === 'index' ? segments : [...segments, name]).join('/')}`);
+    }
+  };
+  walk(APP_ROOT, []);
+  return routes;
+}
+
+/** Does one navigation target resolve against a route pattern? */
+function routeExists(target: string, routes: readonly string[]): boolean {
+  const wanted = target.split('/').filter((segment) => segment !== '');
+  return routes.some((route) => {
+    const pattern = route.split('/').filter((segment) => segment !== '');
+    if (pattern.length !== wanted.length) return false;
+    return pattern.every((segment, index) => {
+      // A `[param]` matches anything, and so does an interpolated segment on
+      // the calling side — a value nobody can check statically.
+      if (segment.startsWith('[')) return true;
+      const actual = wanted[index] ?? '';
+      return actual.includes('${') ? true : segment === actual;
+    });
+  });
+}
+
+/** Every literal `router.push`/`router.replace` target in the page's files. */
+function navigationTargets(): { relative: string; target: string }[] {
+  const found: { relative: string; target: string }[] = [];
+  for (const file of storefrontSources()) {
+    const source = withoutComments(file.source);
+    for (const match of source.matchAll(/router\.(?:push|replace)\(\s*[`'"]([^`'"]+)[`'"]/gu)) {
+      const target = match[1];
+      if (target === undefined || !target.startsWith('/')) continue;
+      found.push({ relative: file.relative, target });
+    }
+  }
+  return found;
+}
+
+describe('WALL 6: every route this page navigates to exists', () => {
+  it('resolves every literal navigation target against the real app tree', () => {
+    const routes = existingRoutes();
+    // Floors on BOTH sides: an empty route list would pass nothing, and an
+    // empty target list would pass vacuously.
+    expect(routes.length, 'the app tree walk found nothing').toBeGreaterThanOrEqual(15);
+    const targets = navigationTargets();
+    expect(targets.length, 'no navigation target was extracted').toBeGreaterThanOrEqual(4);
+
+    for (const { relative, target } of targets) {
+      expect(
+        routeExists(target, routes),
+        `${relative} navigates to ${target}, which is not a screen — typedRoutes is inert, ` +
+          'so nothing else would catch this before a shopper did',
+      ).toBe(true);
+    }
+  });
+
+  it('the resolver actually resolves — the mutation self-test', () => {
+    const routes = existingRoutes();
+    expect(routeExists('/settings/feedback', routes)).toBe(true);
+    expect(routeExists('/products/${id}', routes)).toBe(true);
+    expect(routeExists('/sellers/${oxyUserId}', routes)).toBe(true);
+    // The three this issue deliberately does NOT link to, and the one that
+    // caused the bug. If any of these starts resolving, the page can link to it.
+    expect(routeExists('/settings/support', routes)).toBe(false);
+    expect(routeExists('/merchants/${slug}', routes)).toBe(false);
+    expect(routeExists('/brands/${id}', routes)).toBe(false);
+    expect(routeExists('/definitely-not-a-route-xyz', routes)).toBe(false);
+  });
+});
+
 describe('WALL 5: the page names no currency', () => {
   it('no module names FAIR, FairCoin or OxyPay', () => {
     let scanned = 0;

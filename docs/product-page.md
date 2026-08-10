@@ -283,6 +283,36 @@ off the router is not mounted, which is a configuration fact rather than a
 transient failure; an error box would advertise a feature the deployment does
 not have.
 
+## Links that are NAMED rather than followed
+
+The brand, the product family and every merchant identity are rendered as TEXT.
+There is no `/brands/:id`, `/product-families/:id` or `/merchants/:slug` route in
+the storefront yet (#72, #73 and #84 own those pages), and #71 asks to link an
+identity "to its public page **when available**".
+
+A dead link is worse than the name, because nothing would catch it:
+`typedRoutes` is ON in this app and INERT on this expo-router major, so
+`router.push('/merchants/apple')` type-checks, ships, and fails under a
+shopper's thumb as "This screen does not exist". This issue proved it — a
+"Report a problem" control shipped pointing at `/settings/support`, which is not
+a screen.
+
+`product-page-isolation.test.ts` WALL 6 is the gate: it walks the real `app/`
+tree (with `(group)` segments transparent, `index` as the directory and
+`[param]` matching anything), extracts every literal `router.push`/`replace`
+target from the files this issue owns, and fails the build on one that does not
+resolve. Floors on both sides — an empty route list or an empty target list
+fails rather than passes — and it is mutation-tested by restoring the dead link
+that started it. When #72/#73/#84 land their pages, whoever turns these back
+into links is told at once if the path is wrong.
+
+Reporting the PRODUCT DATA goes to feedback rather than to abuse reporting, and
+the vocabulary is the reason: `ABUSE_REPORTED_TYPES` is
+`listing | review | seller | store` and has no `product` member. A canonical
+product is Mercaria's own catalogue record — a wrong specification is a data
+correction (#59's queue), not somebody's content to be moderated. Reporting a
+LISTING is on that listing's own page, where `POST /reports` has a type for it.
+
 ## Seams left to their owners
 
 Each is a named contract that fails closed, not a stub that lies:

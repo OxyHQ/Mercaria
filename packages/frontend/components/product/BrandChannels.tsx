@@ -1,5 +1,4 @@
-import { Pressable, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View } from 'react-native';
 import type { ProductPageBrandChannel } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
 
@@ -56,7 +55,6 @@ function ChannelList({
   explanation: string;
   channels: readonly ProductPageBrandChannel[];
 }) {
-  const router = useRouter();
   if (channels.length === 0) return null;
 
   return (
@@ -65,21 +63,22 @@ function ChannelList({
         {title}
       </Text>
       <Text className="text-caption text-text-secondary">{explanation}</Text>
+      {/*
+        NAMED, not linked, for the reason `OfferRow` states: there is no
+        `/merchants/:slug` route in this app yet (#84/#73), and a link to a
+        route that does not resolve is worse than the name — `typedRoutes` is
+        INERT here, so nothing would catch it before a shopper did.
+      */}
       {channels.map((channel) => (
-        <Pressable
+        <View
           key={`${channel.merchantId}:${channel.storefrontId ?? 'all'}`}
-          accessibilityRole="link"
-          accessibilityLabel={`Visit ${channel.merchantName}`}
-          onPress={() =>
-            router.push(`/merchants/${channel.merchantSlug}` as Parameters<typeof router.push>[0])
-          }
           className="rounded-radius-28 border border-border-secondary p-space-12"
         >
           <Text className="text-bodyTitleSmall text-text">{channel.merchantName}</Text>
           {channel.storefrontName ? (
             <Text className="text-caption text-text-secondary">{channel.storefrontName}</Text>
           ) : null}
-        </Pressable>
+        </View>
       ))}
     </View>
   );

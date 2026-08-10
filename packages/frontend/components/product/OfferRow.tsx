@@ -141,15 +141,16 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
   if (seller.kind === 'merchant') {
     return (
       <View className="gap-space-2">
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={`Visit ${seller.name}`}
-          onPress={() =>
-            router.push(`/merchants/${seller.slug}` as Parameters<typeof router.push>[0])
-          }
-        >
-          <Text className="text-bodyTitleSmall text-text">{seller.name}</Text>
-        </Pressable>
+        {/*
+          NAMED, not linked: the storefront has no `/merchants/:slug` route yet
+          (#84/#73 own it). #71 asks to link an identity "to its public page
+          when available", and `typedRoutes` is INERT in this expo-router major,
+          so a dead push would compile, ship and fail under a shopper's thumb.
+          `product-page-isolation.test.ts` walks the real `app/` tree, so
+          whoever adds the page can make this a link and be told at once if the
+          path is wrong.
+        */}
+        <Text className="text-bodyTitleSmall text-text">{seller.name}</Text>
         {seller.storefront ? (
           <Text className="text-caption text-text-secondary">
             {seller.marketplaceSeller

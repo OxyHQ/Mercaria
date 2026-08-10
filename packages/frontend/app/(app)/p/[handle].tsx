@@ -210,10 +210,20 @@ export default function CanonicalProductPageScreen() {
             </Text>
           </Pressable>
 
+          {/*
+            Reporting the PRODUCT DATA goes to feedback, not to abuse reporting,
+            and the vocabulary is why: `ABUSE_REPORTED_TYPES` is
+            `listing | review | seller | store` and has no `product` member. A
+            canonical product is Mercaria's OWN catalogue record — a wrong
+            specification is a data correction (#59's queue), not somebody's
+            content to be moderated. Reporting a LISTING is on that listing's own
+            page, where the listing is the subject and `POST /reports` has a type
+            for it.
+          */}
           <Pressable
             accessibilityRole="link"
             accessibilityLabel="Report a problem with this product's information"
-            onPress={() => router.push('/settings/support' as Parameters<typeof router.push>[0])}
+            onPress={() => router.push('/settings/feedback' as Parameters<typeof router.push>[0])}
             className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
           >
             <Text className="text-buttonMedium text-text">Report a problem</Text>

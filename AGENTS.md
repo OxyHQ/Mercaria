@@ -4402,6 +4402,15 @@ at request time from the reads that measurement covers.
   comparison counts eligible OFFERS against ACTIVE NATIVE LISTINGS read through
   `native_listing_links`: a DIFFERENT route, because measuring one table twice
   is a check that cannot fail. #71 adds NO lever of its own.
+- **A brand, a family and every merchant are NAMED and not linked**, because
+  those storefront routes do not exist yet (#72/#73/#84) and `typedRoutes` is ON
+  and INERT here — a dead `router.push` compiles, ships and fails under a
+  shopper's thumb. This issue proved it by shipping one (`/settings/support`),
+  so WALL 6 of the isolation test now walks the real `app/` tree and fails the
+  build on any literal navigation target that does not resolve. Reporting
+  PRODUCT DATA goes to feedback, not abuse reporting: `ABUSE_REPORTED_TYPES` has
+  no `product` member, because a canonical product is Mercaria's own catalogue
+  record and a wrong specification is #59's correction rather than moderation.
 - Analytics: `product_page_view` and one `offer_impression` per served offer
   (carrying `rankingPolicyVersion`), both server-side. `variant_selected`,
   `offer_expanded`, `offer_selected`, `external_outbound_click`, `save_action`,
