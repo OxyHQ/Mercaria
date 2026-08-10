@@ -255,6 +255,50 @@ export function listingPageFacts(listing: Listing): SeoVisibleFacts {
   };
 }
 
+/**
+ * What a brand or family page displays about itself.
+ *
+ * ONE shape for both, because the two pages render the same four facts about
+ * different subjects — a name, a description, a mark and a catalogue. A second
+ * near-identical projector is a second place to forget a field, and
+ * `document.ts` already keeps them apart where it matters, by emitting a
+ * `Brand` node for one and no entity node for the other.
+ */
+export interface CatalogueEntityFactsInput {
+  readonly routeId: 'brand' | 'product_family';
+  readonly slug: string;
+  readonly name: string;
+  readonly description: string | undefined;
+  /** An Oxy media file id, when the entity carries a mark. */
+  readonly logoFileId: string | undefined;
+}
+
+/**
+ * Project a brand or a product family (#72).
+ *
+ * No offers and no identifiers: neither page is about acquiring one thing. Its
+ * content is its CATALOGUE, so `assessCatalogueContent` — not
+ * `assessVisibleContent` — is what decides whether it earns a result, exactly
+ * as it does for a merchant.
+ */
+export function catalogueEntityFacts(input: CatalogueEntityFactsInput): SeoVisibleFacts {
+  const path = buildRoutePath(input.routeId, input.slug);
+  const description = (input.description ?? '').trim();
+  return {
+    title: input.name,
+    ...(description === '' ? {} : { description }),
+    imageUrls: input.logoFileId === undefined ? [] : [resolveMedia(input.logoFileId)],
+    breadcrumbs: [
+      { name: 'Home', path: buildRoutePath('home') },
+      { name: input.name, path },
+    ],
+    entityName: input.name,
+    gtins: [],
+    offers: [],
+    variantNames: [],
+  };
+}
+
 /** What a merchant page displays about the merchant itself. */
 export interface MerchantFactsInput {
   readonly slug: string;

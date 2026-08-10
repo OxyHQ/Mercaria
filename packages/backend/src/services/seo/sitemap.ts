@@ -50,8 +50,15 @@ import { assessCatalogueContent, assessVisibleContent, decideIndexability } from
 import type { SeoIdentityQuality, SeoModerationState } from './indexability.js';
 import { buildRoutePath, publicRoute } from './routes.js';
 
-/** Which route each collection's URLs are built from. */
-const ROUTE_BY_COLLECTION = Object.freeze({
+/**
+ * Which route each collection's URLs are built from.
+ *
+ * EXPORTED, because `sitemap.service.ts` has to ask the same question when it
+ * decides whether a collection may be read at all (#256). Two copies of this
+ * map is two answers to "which route is this collection about", and the one
+ * that drifts is the one nobody reads.
+ */
+export const ROUTE_BY_COLLECTION = Object.freeze({
   products: 'canonical_product',
   brands: 'brand',
   merchants: 'merchant',

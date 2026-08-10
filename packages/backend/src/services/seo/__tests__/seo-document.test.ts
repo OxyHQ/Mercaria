@@ -19,7 +19,7 @@ import {
   SITE_NAME,
 } from '../document.js';
 import { escapeHtml, escapeJsonLd, renderSeoHead } from '../head.js';
-import { merchantPageFacts } from '../visible-facts.js';
+import { catalogueEntityFacts, merchantPageFacts } from '../visible-facts.js';
 
 const ORIGIN = 'https://mercaria.co';
 const INDEXABLE: SeoIndexability = { outcome: 'indexable' };
@@ -299,5 +299,91 @@ describe('a merchant page', () => {
     });
     expect(unrated.rating).toBeUndefined();
     expect(unrated.description).toBeUndefined();
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Brand and family pages (#72's screens, served by #256)                     */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+describe('a brand page', () => {
+  const facts = catalogueEntityFacts({
+    routeId: 'brand',
+    slug: 'apple',
+    name: 'Apple',
+    description: 'Consumer electronics designed in California.',
+    logoFileId: 'file-apple-logo',
+  });
+
+  it('shows its mark, its name and a trail to itself', () => {
+    expect(facts.entityName).toBe('Apple');
+    expect(facts.imageUrls).toHaveLength(1);
+    expect(facts.breadcrumbs).toEqual([
+      { name: 'Home', path: '/' },
+      { name: 'Apple', path: '/brands/apple' },
+    ]);
+  });
+
+  it('carries no offers and no identifiers — it is not about acquiring a thing', () => {
+    expect(facts.offers).toEqual([]);
+    expect(facts.gtins).toEqual([]);
+    expect(facts.offerCurrency).toBeUndefined();
+  });
+
+  it('emits a Brand node', () => {
+    const document = composeDocument({
+      routeId: 'brand',
+      facts,
+      canonicalUrl: `${ORIGIN}/brands/apple`,
+      origin: ORIGIN,
+      indexability: INDEXABLE,
+    });
+    expect(document.structuredData.map((node) => node['@type'])).toEqual([
+      'Brand',
+      'BreadcrumbList',
+    ]);
+    const brand = document.structuredData[0] ?? {};
+    expect(brand.name).toBe('Apple');
+    expect(brand.url).toBe(`${ORIGIN}/brands/apple`);
+    expect(brand.offers).toBeUndefined();
+  });
+});
+
+describe('a product-family page', () => {
+  const facts = catalogueEntityFacts({
+    routeId: 'product_family',
+    slug: 'iphone',
+    name: 'iPhone',
+    description: undefined,
+    logoFileId: undefined,
+  });
+
+  it('has no mark of its own and says so by omission', () => {
+    expect(facts.imageUrls).toEqual([]);
+    expect(facts.description).toBeUndefined();
+    expect(facts.breadcrumbs[1]).toEqual({ name: 'iPhone', path: '/families/iphone' });
+  });
+
+  it('emits only a breadcrumb trail — schema.org has no honest node for a line', () => {
+    const document = composeDocument({
+      routeId: 'product_family',
+      facts,
+      canonicalUrl: `${ORIGIN}/families/iphone`,
+      origin: ORIGIN,
+      indexability: INDEXABLE,
+    });
+    expect(document.structuredData.map((node) => node['@type'])).toEqual(['BreadcrumbList']);
+  });
+
+  it('carries NO structured data at all when the policy refuses it', () => {
+    const document = composeDocument({
+      routeId: 'product_family',
+      facts,
+      canonicalUrl: `${ORIGIN}/families/iphone`,
+      origin: ORIGIN,
+      indexability: { outcome: 'refused', reason: 'thin_content' },
+    });
+    expect(document.structuredData).toEqual([]);
+    expect(document.robots).toBe('noindex,follow');
   });
 });

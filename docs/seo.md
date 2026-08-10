@@ -56,8 +56,8 @@ screen that renders it and its sitemap collection.
 | `native_store` | `/stores/:handle` | handle | live | — |
 | `native_store_legacy` | `/m/:handle` | handle | redirect only | — |
 | `seller` | `/sellers/:oxyUserId` | id | live | — |
-| `brand` | `/brands/:handle` | id or slug | planned (#72) | `brands` |
-| `product_family` | `/families/:handle` | id or slug | planned (#72) | — |
+| `brand` | `/brands/:handle` | id or slug | live | `brands` |
+| `product_family` | `/families/:handle` | id or slug | live | — |
 | `merchant` | `/merchants/:handle` | id or slug | live | `merchants` |
 | `category_browse` | `/categories/:handle` | id or slug | planned | `categories` |
 
@@ -233,6 +233,43 @@ offset — the last page of a million-row collection skips 975,000 index entries
 which is an index-only scan of a btree Mercaria already maintains, once per
 collection per crawl, cacheable for an hour. A keyset cursor would be cheaper
 and could not be addressed by page number, which is what an index has to name.
+
+### Membership needs a RESOLVER, not just a live route
+
+A sitemap entry is an invitation to crawl a URL, so it depends on whether this
+domain publishes a document for that route — not merely on whether a screen
+renders it. Those are two facts, set in two files by two different changes.
+
+#256 is what happens when they drift. #72 shipped the brand screens; the route
+registry's gate correctly forced `brand` to `live`; that woke the dormant
+`brands` collection while `seo.service.ts` still answered `no_document`, because
+no resolver had been written. Every active brand with two or more products was
+advertised, and `_worker.js` turns only `not_found` into a 404 — so each URL
+served the bare SPA shell at 200, with the generic title, the generic canonical
+and no `noindex`. A thin duplicate, advertised by the policy built to refuse one.
+
+Nothing in between could have noticed: `classifySitemapRows` builds
+`SeoIndexabilityFacts` from row statistics and calls `decideIndexability`
+directly, and that type has no field which could carry resolvability.
+
+The fix is structural rather than a reason code. `seo.service.ts` dispatches
+through a TABLE (`ROUTE_RESOLVERS`) instead of a `switch`, so "which routes do I
+serve at all" becomes a question that can be asked without a database;
+`routeServesDocument` answers it; `readerFor` returns `null` for a collection
+whose route does not resolve; and `assertSitemapCollectionsResolve` runs at
+MODULE LOAD, so the process refuses to boot rather than advertising a shell.
+
+`categories` stopped needing a special case — its route is `planned`, so it has
+no resolver, so it has no reader. What was a hardcoded exception now falls out
+of the rule.
+
+**No `SeoNonIndexableReason` member was added, deliberately.** "Live but
+unresolved" is a fact about Mercaria's own completeness rather than about the
+page, so it does not belong in a vocabulary whose every other member describes
+the entity or the request; and once the pairing is enforced the condition is
+unrepresentable, which would leave the member unreachable — the dead value this
+codebase's own rule about one-member vocabularies forbids. The condition is
+prevented, not reported.
 
 ### `lastmod` is a meaningful public change
 
