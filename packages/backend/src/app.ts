@@ -66,6 +66,8 @@ import internalSearchIntentRouter from './routes/internal-search-intent.js';
 import priceHistoryRouter from './routes/price-history.js';
 import internalPriceHistoryRouter from './routes/internal-price-history.js';
 import priceAlertsRouter from './routes/price-alerts.js';
+import seoRouter from './routes/seo.js';
+import internalSeoRouter from './routes/internal-seo.js';
 import internalPriceAlertsRouter from './routes/internal-price-alerts.js';
 import priceSignalsRouter from './routes/price-signals.js';
 import merchantCompetitivenessRouter from './routes/merchant-competitiveness.js';
@@ -490,6 +492,36 @@ export function createApp(): express.Express {
   // the gate is #83's verified claim, checked in the service, and a caller who is
   // not the claimant gets the same 404 an unclaimed merchant does.
   app.use('/merchant-competitiveness', merchantCompetitivenessRouter);
+  /**
+   * Public routing and the search-engine surface (#75).
+   *
+   * What the Cloudflare Worker asks before it serves a page: which document a
+   * URL resolves to, whether it redirects, the crawl rules and the sitemaps.
+   *
+   * `SEO_ROUTES_ENABLED` gates the MOUNT — the blunt lever, so a rollback does
+   * not depend on every handler having remembered its gate. Off, the worker's
+   * lookup 404s, it serves the storefront shell exactly as it does today, and
+   * the static `robots.txt` and `sitemap.xml` the app ships are what a crawler
+   * gets. Indexing has its OWN lever (`SEO_INDEXING_MODE`), because a correct
+   * title and a correct sharing card are worth having before anybody is invited
+   * to index the catalogue.
+   */
+  if (config.seo.routesEnabled) {
+    app.use('/seo', seoRouter);
+  }
+  /**
+   * …and its operator surface, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
+   * allow-list, and NOT gated on `SEO_ROUTES_ENABLED`.
+   *
+   * The `/internal/price-history` arrangement, for its reason: the evidence has
+   * to be readable during the incident that turned the public surface off, and
+   * "why is this page not indexed" is exactly the question somebody asks after
+   * pulling the lever. Read-only — every write an operator might want here is a
+   * second authority over what the indexability policy already decides.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/seo', internalSeoRouter);
+  }
   // The versioned attribute registry and the constraint language (#94): public
   // definition/facet reads and the pre-flight validation both search and #95's
   // interpreter run against…

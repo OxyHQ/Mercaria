@@ -2,6 +2,14 @@
   "name": "mercaria",
   "compatibility_date": "2026-06-30",
   "main": "./dist/_worker.js",
+  // Where the worker asks what a public URL is (#75). A plain `var` and not a
+  // secret: it is a public API origin the browser already talks to, and the
+  // routes behind it need no credential — a crawler is told nothing a visitor
+  // is not. Unset, the worker skips the metadata layer entirely and serves the
+  // storefront exactly as it did before #75.
+  "vars": {
+    "SEO_API_ORIGIN": "https://api.mercaria.co"
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",

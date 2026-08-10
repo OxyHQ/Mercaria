@@ -1,22 +1,14 @@
-# Mercaria by Oxy - Robots.txt
+# Mercaria by Oxy
+#
+# This is the FLAG-OFF FLOOR. When SEO_ROUTES_ENABLED is on, the worker proxies
+# /robots.txt to the API, which renders the same rules from
+# SEO_ROBOTS_DISALLOWED_PATHS in @mercaria/shared-types. This copy is what a
+# crawler gets when the API cannot answer.
+#
+# The two must agree: packages/backend/src/services/seo/__tests__/seo-robots.test.ts
+# parses this file and fails the build when its Disallow set differs from the
+# rendered one. Edit the shared tuple, then this file, in the same change.
 
-# Google, Bing, and major search engines
-User-agent: Googlebot
-User-agent: Bingbot
-User-agent: Slurp
-User-agent: DuckDuckBot
-Allow: /
-Disallow: /settings/
-Disallow: /reset-password
-Disallow: /forgot-password
-Crawl-delay: 0
-
-# Public, indexable entry points
-Allow: /
-Allow: /login
-Allow: /register
-
-# Block aggressive scraping bots
 User-agent: AhrefsBot
 User-agent: SemrushBot
 User-agent: MJ12bot
@@ -24,14 +16,22 @@ User-agent: DotBot
 User-agent: BLEXBot
 Disallow: /
 
-# All other bots
 User-agent: *
 Allow: /
+Disallow: /search
+Disallow: /compare
 Disallow: /settings/
-Disallow: /reset-password
+Disallow: /cart
+Disallow: /checkout
+Disallow: /orders
+Disallow: /saved
+Disallow: /watchlists
+Disallow: /notifications
+Disallow: /price-alerts
+Disallow: /guest-orders/
 Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /out/
+Disallow: /internal/
 
-# Sitemaps
 Sitemap: https://mercaria.co/sitemap.xml
-
-# Host: https://mercaria.co

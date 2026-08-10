@@ -1,5 +1,17 @@
 /**
- * Auto-generated sitemap.xml for Mercaria
+ * The STATIC sitemap.xml — the `SEO_ROUTES_ENABLED=false` floor (#75).
+ *
+ * The real sitemaps are served by the API and proxied by `public/_worker.js`:
+ * four paginated collections behind an index, with membership decided by the
+ * indexability policy and `lastmod` from meaningful public changes
+ * (`docs/seo.md`). This file writes what a crawler gets when that lookup cannot
+ * answer — the home page and nothing else, which is honest for a deployment
+ * that has not switched the SEO layer on.
+ *
+ * It deliberately does NOT enumerate the catalogue. A build-time list would be
+ * a second sitemap authority, stale from the moment it was written, and it
+ * could not apply the policy at all.
+ *
  * Run: bun run generate-sitemap
  */
 

@@ -434,3 +434,13 @@ export * from './merchant-page';
 // SUPPLIER — share no amount, no state and no field, which is ADR 0004 D8.5
 // held by the types rather than by whoever writes the next decision service.
 export * from './retail-service-request';
+// Public routing and the search-engine surface (#75). After everything it
+// describes an ADDRESS for, because it is the only module that says what a
+// public URL for one of the entities above IS: the route registry, the
+// redirect vocabulary, the indexability policy's operator-facing reasons, and
+// the visible-fact projection both the rendered `<head>` and the JSON-LD are
+// built from. Its two query-parameter tuples are DISJOINT, which is what stops
+// a tracking parameter minting a second canonical address, and its
+// offer-checkout union carries a URL on ONE branch, which is what stops an
+// external offer being described as purchasable on Mercaria.
+export * from './seo';
