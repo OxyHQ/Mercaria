@@ -64,6 +64,8 @@ import internalMatchingRouter from './routes/internal-matching.js';
 import internalBackfillRouter from './routes/internal-backfill.js';
 import internalIngestionRouter from './routes/internal-ingestion.js';
 import internalOfferFreshnessRouter from './routes/internal-offer-freshness.js';
+import offerComparisonRouter from './routes/offer-comparison.js';
+import internalRankingRouter from './routes/internal-ranking.js';
 import internalFeedImportsRouter from './routes/internal-feed-imports.js';
 import internalEbayRouter from './routes/internal-ebay.js';
 import internalAwinRouter from './routes/internal-awin.js';
@@ -341,6 +343,17 @@ export function createApp(): express.Express {
    */
   if (config.canonicalRollout.publicRoutesEnabled) {
     app.use('/offers', requireCanonicalReads('offers', resolveOfferComparisonMode), offersRouter);
+    /**
+     * The RANKED comparison (#74), behind the same canonical-read lever as
+     * `/offers` and for the same reason: it is the same catalogue read, with a
+     * policy applied on top. A deployment that has withdrawn offer comparison
+     * must not keep serving a ranked version of it.
+     */
+    app.use(
+      '/offer-comparison',
+      requireCanonicalReads('offer-comparison', resolveOfferComparisonMode),
+      offerComparisonRouter,
+    );
   }
   // The versioned attribute registry and the constraint language (#94): public
   // definition/facet reads and the pre-flight validation both search and #95's
@@ -417,6 +430,16 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/offer-freshness', internalOfferFreshnessRouter);
+  }
+  /**
+   * The ranking policy surface (#74), on the SAME allow-list and mounted whether
+   * or not anything has been published: a deployment ranking under the BUILT-IN
+   * policy is exactly when somebody needs to read what that policy is, and
+   * gating this on having published one would make preparing the first
+   * publication impossible.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/ranking', internalRankingRouter);
   }
   /**
    * The feed importer's operator surface (#63), on the SAME allow-list and

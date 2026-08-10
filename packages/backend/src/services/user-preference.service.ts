@@ -42,7 +42,7 @@ import {
  * preference is charged in theirs, and the order settles per its payment
  * provider either way.
  */
-const DEFAULT_PRESENTMENT_CURRENCY: CurrencyCode = 'FAIR';
+export const DEFAULT_PRESENTMENT_CURRENCY: CurrencyCode = 'FAIR';
 
 /** Project a preference row down to the wire DTO (display fields only). */
 function toCurrencyPreference(row: UserPreferenceRecord): CurrencyPreference {

@@ -1227,4 +1227,11 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'is `moovo_source_reference`, which is GENERATED from this row and is what an inbound Moovo ' +
       'event resolves against.',
   },
+  // ── The ranking policy register (#74) ─────────────────────────────────────
+  // The whole of what this table holds about a person: who drafted a policy
+  // version and who let it serve traffic. There is nothing else — no actor on a
+  // comparison, no viewer, no session — because a ranking is derived per request
+  // and this domain stores no request.
+  { column: 'ranking_policy_versions.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'ranking_policy_versions.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];

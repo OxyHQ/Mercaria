@@ -53,6 +53,16 @@ const RANKING_PATHS = [
   'routes/feed.ts',
   'routes/listings.ts',
   'db/catalog/listingRepository.ts',
+  // The offer comparison (#74) — the surface that now decides which offers a
+  // shopper sees and in what order. It joined this list with the domain that
+  // created it, which is what these lists are for.
+  'services/ranking/eligibility.ts',
+  'services/ranking/ranking.ts',
+  'services/ranking/labels.ts',
+  'services/ranking/facts.ts',
+  'services/ranking/comparison.service.ts',
+  'controllers/offer-comparison.controller.ts',
+  'routes/offer-comparison.ts',
 ];
 
 /**
@@ -63,6 +73,19 @@ const RANKING_PATHS = [
  */
 const COMMERCIAL_REFERENCE =
   /\bfees\/|\bpayments\/|\breferrals\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee|ledgerRepository|referral_programs/;
+
+/**
+ * The ONE discovery module #74 permits to read a verification, and the reason it
+ * is named here rather than the pattern being loosened.
+ *
+ * `services/ranking/facts.ts` gathers the page's facts once and hands them to a
+ * PURE scorer, so the verification is read in one place, at one moment, through
+ * the public finder — and every other module in the ranking domain sees only
+ * `OfferRankingFacts.relationship`, a three-valued standing with no id, no
+ * evidence and no review state attached. Naming the exception keeps adding a
+ * second one a visible act.
+ */
+const RANKING_RELATIONSHIP_SEAM = 'services/ranking/facts.ts';
 
 /** Reaching the relationship domain, from any direction. */
 const RELATIONSHIP_REFERENCE =
@@ -117,15 +140,40 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
     ).toBe(false);
   });
 
-  it('keeps organic ranking out of the relationship domain today', () => {
-    // Not a permanent wall — a brand page ordering official channels first is
-    // legitimate and arrives with #72/#74. What this holds is that the first
-    // ranking module to read a verification does so in a diff that changes this
-    // list, where a reviewer will see it.
+  it('lets ranking read a verification through ONE named seam, and nowhere else', () => {
+    // This gate said in as many words that it was "not a permanent wall — a
+    // brand page ordering official channels first is legitimate and arrives with
+    // #72/#74", and that what it held was that the first ranking module to read
+    // a verification would do so in a diff that changes this list.
+    //
+    // #74 IS that diff. Ranking input 9 makes a verified direct-channel or
+    // authorized-reseller relationship a visible TRUST ATTRIBUTE, so the wall
+    // becomes a seam: exactly one module may read it, it reads the public
+    // finder and nothing else, and the other twelve discovery modules still may
+    // not — which keeps the property this gate was protecting (a use of
+    // verification is visible in a diff) while permitting the use the issue
+    // asked for.
     let scanned = 0;
     for (const relative of RANKING_PATHS) {
       const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
       expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+
+      if (relative === RANKING_RELATIONSHIP_SEAM) {
+        // The seam may reach the domain — but only through the READ repository.
+        // A write service or the resolution service reaching it here would be a
+        // ranking module able to CHANGE what it then ranks on.
+        for (const line of source.split('\n')) {
+          if (!RELATIONSHIP_REFERENCE.test(line)) continue;
+          if (!line.includes('import') && !line.includes('from ')) continue;
+          expect(
+            line.includes('db/commerce-graph/relationshipRepository.js'),
+            `${relative} reaches the relationship domain outside the read seam: ${line.trim()}`,
+          ).toBe(true);
+        }
+        scanned += 1;
+        continue;
+      }
+
       expect(
         RELATIONSHIP_REFERENCE.test(source),
         `${relative} reads the relationship domain; add it to this gate deliberately`,
@@ -133,6 +181,17 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
       scanned += 1;
     }
     expect(scanned).toBe(RANKING_PATHS.length);
+  });
+
+  it('the seam is a real file and it really does read the relationship domain', () => {
+    // The vacuity half of the carve-out: an exemption for a file that does NOT
+    // reach the domain would silently widen the gate the day somebody moved the
+    // read into a different module — the exemption would still be listed, and
+    // the new module would be scanned as if it were ordinary.
+    const seam = readFileSync(join(SRC_ROOT, RANKING_RELATIONSHIP_SEAM), 'utf8');
+    expect(seam.length).toBeGreaterThan(200);
+    expect(RELATIONSHIP_REFERENCE.test(seam)).toBe(true);
+    expect(seam).toContain('findCurrentRelationships');
   });
 
   it('the relationship detector actually detects — the mutation self-test', () => {

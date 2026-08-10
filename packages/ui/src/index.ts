@@ -36,6 +36,20 @@ export {
 } from "./lib/condition";
 
 // ---------------------------------------------------------------------------
+// Offer comparison labels (#74) — the reader-facing copy for the labels and
+// reason codes the ranking service emits. Same split as the condition taxonomy
+// above and for the same reason: the reason CODE is what an impression and an
+// operator trace carry, the sentence is what a shopper reads, and only one of
+// the two is allowed to change without a contract change.
+// ---------------------------------------------------------------------------
+export {
+  OFFER_LABEL_EXPLANATIONS,
+  OFFER_LABEL_TEXT,
+  explainOfferLabel,
+  offerLabelText,
+} from "./lib/offer-labels";
+
+// ---------------------------------------------------------------------------
 // App shell — the shared responsive layout, sidebar rail, and page mask
 // ---------------------------------------------------------------------------
 export { AppShell, type AppShellProps } from "./components/shell/AppShell";

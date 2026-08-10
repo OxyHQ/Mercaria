@@ -241,6 +241,14 @@ export * from './offer';
 // module cycle. There is no global TTL in it, structurally — see its docblock.
 export * from './offer-freshness';
 
+// Transparent offer eligibility, ranking and comparison labels (#74). Follows
+// `./offer` and `./offer-freshness` for the same dependency reason: it types an
+// eligible offer, its converted cost and its labels from both. The two
+// vocabularies it adds are deliberately separate — an exclusion reason belongs
+// to eligibility and a signal belongs to ranking, and no weight can reach a
+// reason.
+export * from './offer-ranking';
+
 // Merchant → native `Store` linkage (#84, ADR 0002 D4/D9) — the request that
 // joins a verified merchant claim to exactly one native store, the candidate
 // evidence vocabulary (which has NO name-match member), the adoptable profile

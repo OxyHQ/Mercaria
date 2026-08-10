@@ -3861,3 +3861,118 @@ their order.
   order, which a claimant reaches through the account path that already exists),
   **#111** (the two client analytics types), **#141-#143** (every referral
   consequence, which this domain records none of and can reach none of).
+## Transparent offer eligibility, ranking and comparison labels (#74)
+
+`services/ranking/` (10 modules) + `db/ranking/` + `db/schema/ranking.ts`
+(1 table) + `GET /offer-comparison` (public) + `/internal/ranking/*` (operator),
+plus `@mercaria/shared-types` `offer-ranking.ts` and `@mercaria/ui`
+`lib/offer-labels.ts`. Full reference: **`docs/offer-ranking.md`**; schema
+decisions: `db/schema/CONVENTIONS.md` §"The ranking policy register (#74)".
+Choosing and EXPLAINING the offers a shopper sees, over #44's money, #55's
+verified relationships, #57's offers, #68's freshness, #76's ratings and #90's
+conditions.
+
+- **ELIGIBILITY and RANKING are two modules, two vocabularies and two verdict
+  types**, because the natural single-pass version ("score everything, drop what
+  scores zero") makes a weight change able to reveal an expired, restricted or
+  suppressed offer. `OfferRankingFacts` — the whole of what a scorer sees —
+  carries no listing status, no moderation state, no freshness level and no
+  suppression set, so a weight has nowhere to reach. `rankOffers` additionally
+  THROWS on a candidate whose `OfferAdmission` does not cover
+  `OFFER_ELIGIBILITY_RULES`: a rule added to the tuple and not wired into the
+  derivation fails the first comparison instead of quietly widening what is shown.
+- **Eligibility CONSUMES #57's `deriveNativeCheckoutEligibility` and re-derives
+  nothing.** Rules 7 and 9 read `offer.checkout`, computed at projection time
+  from the LIVE listing, variant stock and seller readiness. Nothing in this
+  domain reads a listing, a variant or a provider account.
+- **`cheapest_known_total` is UNREACHABLE for an offer with unknown shipping, not
+  guarded against it.** `selectCheapestKnownTotal` takes a type whose `total` is
+  a required `Money`, and the unknown branch of `OfferComparisonTotal` has no
+  amount to build one from. The same device runs through the domain: the unknown
+  branch of `RankingSignalOutcome` carries no `normalized` and no `weight`, so an
+  unknown cannot enter a weighted sum at all — #58's denominator rule held by the
+  type rather than by whoever writes the loop.
+- **An unknown is left out of BOTH halves of the mean, and a PENALTY would be
+  wrong** — a penalty asserts something about the offer, when the only thing
+  known is a gap in Mercaria's information. **`merchant_rating` is the one place
+  that bit back and it is worth reading**: on the absolute 0–5 scale a genuine
+  4.5★ normalized to 0.9, below the ~1.0 an unknown is imputed at, so a merchant
+  with NO rating outscored one with a good rating. A scenario test caught it; the
+  fix was set-relative normalization like every other set-relative signal, and
+  the cost (two merchants at 4.4 and 4.5 put the first at 0) is the property
+  `item_price` already has for a one-cent difference.
+- **The prohibited inputs are stopped in FOUR independent places**: disjoint
+  `OFFER_RANKING_SIGNALS` / `OFFER_FORBIDDEN_RANKING_SIGNALS` tuples; no field on
+  the facts type; ONE weight COLUMN per allowed signal and none for anything else
+  (a gate asserts the counts are equal); and `offer-ranking-isolation.test.ts`,
+  which fails the build if any module here reaches fees, referrals, retail
+  pricing, the ledger, a plan or a commission.
+- **`native_offer_preference` is the subtle one.** `native_mercaria_checkout` IS
+  a label — "you can buy this here" is information — and must never be a term in
+  the SCORE. A test pins a native and an external candidate with identical facts
+  scoring identically. **FAIR gets no advantage because the domain names no
+  currency at all**: the caller supplies the comparison currency, and a scanned
+  gate fails the build on any FAIR/FairCoin/OxyPay spelling under
+  `services/ranking/`.
+- **The tie-break is `sha256(policyVersion + ':' + offerId)`, deliberately NOT an
+  id.** `generatedId()` is a uuid v7 whose leading bits are a timestamp, so
+  ordering ties by id is ordering by INGESTION TIME — what policy rule 7 forbids
+  by name, and a permanent advantage to whichever source crawled first. The
+  comparator is TOTAL, so `sort`'s stability cannot leak the input order; a
+  property test shuffles the input and asserts the output is unchanged.
+- **An INTENT selects a documented primary sort key and never a weight.** An
+  unknown fact sorts LAST under an intent keyed on it and can never carry that
+  intent's label. `cheapest` is THREE tiers — known total, then known item price,
+  then neither — because an offer whose postage nobody published may not be
+  called cheaper OR buried beneath one whose full price is known.
+- **Policy versions are the `fee_schedules` device with ONE exception**:
+  immutable from `canary` onward (trigger), one `active` and one `canary` per key
+  (two partial uniques), and `canary_share_bps` is the single column a serving
+  version may still move — a ramp is a rollout control, is monotone over subjects,
+  and a version per ramp step would make the impression log unreadable.
+- **There IS a built-in policy, and that is a deliberate divergence from #58 and
+  #121's "no active version ⇒ refuse".** The asymmetry is the consequence:
+  refusing a compliance verdict withholds a sale nobody proved may happen, while
+  refusing to rank would withhold the comparison surface on every fresh
+  deployment. `BUILTIN_RANKING_POLICY` is a real named version every impression
+  records; changing its weights means a NEW version string in the same change.
+- **The canary is keyed on the comparison SUBJECT, never on a person** — no
+  actor, session or device is in the bucket preimage. #77 owns experiments over
+  people; this is a rollout over the catalogue, which is why
+  `analytics_experiments.ranking_policy_version` stays #111's.
+- **The guardrail metric list may not be EMPTY** (`cardinality(...) >= 1`, never
+  `array_length`, which is NULL on `{}` and would admit the row it refuses).
+  "Evaluate click and conversion outcomes alongside trust guardrails, not as the
+  only objective" is a CHECK. Naming a metric is all this domain does with one —
+  it reads no measurement.
+- **Dominance is DETECTED and never repaired.** A shuffle applied to satisfy a
+  threshold would be an undocumented ranking input. A comparison shorter than the
+  policy's window produces no findings at all.
+- **The operator route set is CLOSED and has no boost, pin, hide or set-rank** —
+  the four shapes a sponsored-placement surface takes. A gate enumerates the
+  registered routes EXACTLY. Withdrawing an offer is `/internal/offers/:id/retire`
+  (#57); suppressing a merchant is the canonical graph's.
+- **#55's ranking gate became a SEAM rather than being deleted.** That gate said
+  it was "not a permanent wall … the first ranking module to read a verification
+  does so in a diff that changes this list", and #74 is that diff: exactly one
+  module (`services/ranking/facts.ts`) may reach the relationship domain, through
+  the READ repository only, and the other twelve discovery modules still may not.
+- Env: `RANKING_CANARY_ENABLED` (default true) and nothing else. It gates neither
+  a durable record nor the surface — rollback is activating an earlier version,
+  and what an incident needs is a way to stop routing to a canary WITHOUT editing
+  the row. There is no `RANKING_ENABLED` and the policy KEY is a code constant.
+  Operator surface is on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list and
+  is mounted while nothing is published.
+- **#77's `#74` seam is CLOSED on the impression half**: every
+  `offer_impression` from `/offer-comparison` carries `rankingPolicyVersion`.
+  `/offers` (#57) deliberately passes none — it serves a plain cheapest-first SQL
+  order under no policy, and stamping a version on it would attribute that
+  ordering to weights it never consulted.
+- Seams left, each failing closed: **#93** (`resolvePickupProximity` refuses, so
+  `best_nearby_pickup` is never awarded), **a tax-inclusion column**
+  (`resolveOfferTaxInclusion` answers `unknown` — guessing from the market is how
+  a 21% error enters a total), **#70** (canonical search consumes
+  `rankOfferComparison`; nothing here reaches into search), **#84** (a native
+  offer names no merchant, so its seller rating is unknown — neutral, which
+  prevents a hidden native preference AND a hidden native penalty), **#111** (the
+  experiment arm).
