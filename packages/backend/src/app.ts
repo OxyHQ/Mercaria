@@ -99,6 +99,7 @@ import internalRetailEligibilityRouter from './routes/internal-retail-eligibilit
 import internalProcurementRouter from './routes/internal-procurement.js';
 import internalSupplierPreflightRouter from './routes/internal-supplier-preflight.js';
 import internalRetailPilotRouter from './routes/internal-retail-pilot.js';
+import internalRetailReconciliationRouter from './routes/internal-retail-reconciliation.js';
 import { config } from './config/index.js';
 import {
   requireCanonicalReads,
@@ -753,6 +754,11 @@ export function createApp(): express.Express {
     // reason: publishing the bounds Mercaria buys under and pausing entry when
     // a threshold is crossed is the supply-operations power, not a seventh one.
     app.use('/internal/retail-pilot', internalRetailPilotRouter);
+    // #128's cost reconciliation, on the SAME sixth allow-list: it reads the
+    // supplier invoice by component, which is the wholesale cost base that list
+    // exists for. It stays mounted while the sweep is off — the evidence has to
+    // be readable during the incident that turned it off.
+    app.use('/internal/retail-reconciliation', internalRetailReconciliationRouter);
   }
   // (Inbound connector webhooks are mounted above, before express.json.)
 

@@ -828,6 +828,31 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'retail_pilot_stops.raised_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'retail_pilot_stops.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'supplier_funding_observations.recorded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── #128's cost reconciliation ────────────────────────────────────────────
+  { column: 'retail_reconciliation_policies.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_reconciliation_policies.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_reconciliation_exceptions.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'retail_reconciliation_operator_actions.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  // The order an audit row is about. NO foreign key, unlike every other order
+  // pointer in this domain: an audit trail that a cascade could delete is not
+  // one, and an attempt against an order that turns out not to exist is exactly
+  // the attempt a review most wants to see.
+  { column: 'retail_reconciliation_operator_actions.order_id', reason: AUDIT_CORRELATION },
+  // The supplier's own credit-note reference. Their key space, never a
+  // Mercaria key — the `purchase_order_documents.provider_document_id` rule.
+  { column: 'retail_supplier_credits.provider_document_id', reason: SUPPLIER_PLATFORM },
+  // The chain from a superseded obligation to the one that replaced it. A
+  // SELF-reference, which `drizzle-kit generate` silently drops from both the
+  // migration and the snapshot (measured on #66's
+  // `awin_advertisers.activating_sample_id`) — so it is a plain column, and
+  // `supersedeAdjustment`'s compare-and-swap on `superseded_by_id IS NULL` is
+  // what makes the chain one-way.
+  {
+    column: 'retail_customer_adjustments.superseded_by_id',
+    reason:
+      'A self-reference drizzle-kit silently omits from both the migration and the snapshot. ' +
+      'The one-way CAS in `supersedeAdjustment` is what enforces the chain.',
+  },
   { column: 'retail_eligibility_exceptions.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'retail_eligibility_exceptions.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'retail_eligibility_exceptions.second_approved_by_oxy_user_id', reason: OXY_ACCOUNT },

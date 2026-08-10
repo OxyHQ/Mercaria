@@ -535,3 +535,293 @@ export function adjustment(input: {
     entries: input.entries,
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/*  ADR 0004 D7's procurement postings (#128)                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Prefund top-up — Mercaria put money on deposit with a supplier.
+ *
+ * | Debit | Credit |
+ * |---|---|
+ * | supplier_prepaid (T) | platform_funds (T) |
+ *
+ * `platform_funds` is Mercaria's own out-of-band cash entering the payment
+ * domain. The movement itself happens on bank rails under dual control and
+ * outside this application entirely (ADR 0004 D6.5) — the app RECORDS treasury
+ * acts, it does not execute them — so this posting is derived from the durable
+ * observations #125 already stores rather than from a transfer Mercaria made.
+ *
+ * `supplier_prepaid` is carried per owner, and its owner type is `supplier`: a
+ * supplier is not a seller on this marketplace and has no connected account
+ * (ADR 0004 D6.8), so filing its deposit under `store` or `user` would put a
+ * wholesale balance into the key space every payable query reads.
+ */
+export function prefundTopUp(input: {
+  supplierId: string;
+  currency: CurrencyCode;
+  amountMinor: bigint;
+}): LedgerPosting {
+  return {
+    transaction: {
+      kind: 'prefund_top_up',
+      description: `Prefunded balance topped up with supplier ${input.supplierId}`,
+    },
+    entries: [
+      {
+        account: 'supplier_prepaid',
+        currency: input.currency,
+        amountMinor: input.amountMinor,
+        ownerType: 'supplier',
+        ownerId: input.supplierId,
+      },
+      {
+        account: 'platform_funds',
+        currency: input.currency,
+        amountMinor: -input.amountMinor,
+      },
+    ],
+  };
+}
+
+/**
+ * A purchase order drew against the supplier's prefunded balance.
+ *
+ * | Debit | Credit |
+ * |---|---|
+ * | procurement_expense (S) | supplier_prepaid (S) |
+ *
+ * ADR 0004 D6.4: the draw happens at supplier ACCEPTANCE and never at
+ * submission, because a rejected or expired purchase order must cost nothing.
+ * The amount is the supplier's own, in the supplier's own currency — the
+ * customer side of this order is a different number on a different rail, and
+ * converting one into the other here would invent a rate nothing recorded.
+ *
+ * `order_id` is carried on the expense leg so ADR 0004 D7 proof 2 — recovery
+ * bounded by cost, PER ORDER — is a query rather than an intention.
+ */
+export function procurementSettled(input: {
+  orderId: string;
+  supplierId: string;
+  purchaseOrderId: string;
+  currency: CurrencyCode;
+  amountMinor: bigint;
+}): LedgerPosting {
+  return {
+    transaction: {
+      kind: 'procurement_settled',
+      description: `Purchase order ${input.purchaseOrderId} drawn against prefunded balance`,
+      orderId: input.orderId,
+    },
+    entries: [
+      {
+        account: 'procurement_expense',
+        currency: input.currency,
+        amountMinor: input.amountMinor,
+        orderId: input.orderId,
+      },
+      {
+        account: 'supplier_prepaid',
+        currency: input.currency,
+        amountMinor: -input.amountMinor,
+        ownerType: 'supplier',
+        ownerId: input.supplierId,
+      },
+    ],
+  };
+}
+
+/**
+ * An attributable fulfilment cost Mercaria paid directly, outside a supplier
+ * invoice.
+ *
+ * | Debit | Credit |
+ * |---|---|
+ * | procurement_expense (L) | platform_funds (L) |
+ *
+ * Separate from {@link procurementSettled} because the money leaves a different
+ * place: a supplier draw shrinks a deposit Mercaria has already funded, while a
+ * carrier charge leaves the operating account. Booking both against
+ * `supplier_prepaid` would make a supplier's deposit appear to pay for freight
+ * it never handled, and the balance would stop reconciling against the
+ * supplier's own statement — which is the one external check on it.
+ */
+export function directFulfilmentCost(input: {
+  orderId: string;
+  currency: CurrencyCode;
+  amountMinor: bigint;
+  description: string;
+}): LedgerPosting {
+  return {
+    transaction: {
+      kind: 'procurement_settled',
+      description: input.description,
+      orderId: input.orderId,
+    },
+    entries: [
+      {
+        account: 'procurement_expense',
+        currency: input.currency,
+        amountMinor: input.amountMinor,
+        orderId: input.orderId,
+      },
+      {
+        account: 'platform_funds',
+        currency: input.currency,
+        amountMinor: -input.amountMinor,
+      },
+    ],
+  };
+}
+
+/**
+ * A supplier credit or RMA reversal came back against a cost already booked.
+ *
+ * | Debit | Credit |
+ * |---|---|
+ * | supplier_prepaid (K) | procurement_expense (K) |
+ *
+ * The exact reverse of a draw, and that is the point: the cost of this order
+ * genuinely went down, so `procurement_expense` goes down with it and the
+ * deposit goes back up. There is no revenue leg and no account one could be
+ * added to — ADR 0004 D8.5 and #128 supplier-credit rule 5 ("credits cannot be
+ * silently classified as retail revenue") are held by the chart of accounts
+ * rather than by this function.
+ *
+ * It does NOT touch the customer side. Whether a lower cost means a buyer is
+ * owed something is the reconciliation equation's question, answered on the next
+ * revision — and a credit that accompanies a customer RETURN answers it in the
+ * negative, because the refund lowered the customer side by the same amount.
+ */
+export function supplierCreditReceived(input: {
+  orderId?: string;
+  supplierId: string;
+  purchaseOrderId: string;
+  currency: CurrencyCode;
+  amountMinor: bigint;
+}): LedgerPosting {
+  return {
+    transaction: {
+      kind: 'supplier_credit',
+      description: `Supplier credit against purchase order ${input.purchaseOrderId}`,
+      ...(input.orderId ? { orderId: input.orderId } : {}),
+    },
+    entries: [
+      {
+        account: 'supplier_prepaid',
+        currency: input.currency,
+        amountMinor: input.amountMinor,
+        ownerType: 'supplier',
+        ownerId: input.supplierId,
+      },
+      {
+        account: 'procurement_expense',
+        currency: input.currency,
+        amountMinor: -input.amountMinor,
+        ...(input.orderId ? { orderId: input.orderId } : {}),
+      },
+    ],
+  };
+}
+
+/**
+ * A positive cost variance recognized: the surplus stops being recovery and
+ * becomes a liability to the buyer.
+ *
+ * | Debit | Credit |
+ * |---|---|
+ * | retail_cost_recovery (V⁺) | customer_adjustment (V⁺) |
+ *
+ * ADR 0004 D7's proof 2 in one posting. Recovery is bounded by cost at finality
+ * because every excess over cost is EXTRACTED here before finality, and the
+ * extraction has exactly one destination: there is no `retail_margin_revenue` to
+ * credit instead, so the money cannot go anywhere else.
+ *
+ * `customer_adjustment` carries the ORDER and no owner. The buyer's identity is
+ * deliberately absent from the ledger — a guest credential is purged on its own
+ * clock while these entries are retained, and a per-buyer handle in a permanent
+ * financial record is a correlation key wearing an owner id.
+ *
+ * A NEGATIVE variance has no counterpart function, and the absence is the
+ * decision: Mercaria absorbing a shortfall is not a movement. The costs were
+ * booked as `procurement_expense` when they were incurred, and the absorption is
+ * visible as D7 proof 2's strict inequality between recovery and cost. A posting
+ * for it would be an entry against itself.
+ */
+export function retailVarianceRecognized(input: {
+  orderId: string;
+  currency: CurrencyCode;
+  amountMinor: bigint;
+}): LedgerPosting {
+  return {
+    transaction: {
+      kind: 'retail_variance',
+      description: `Positive cost variance owed back on retail order ${input.orderId}`,
+      orderId: input.orderId,
+    },
+    entries: [
+      {
+        account: 'retail_cost_recovery',
+        currency: input.currency,
+        amountMinor: input.amountMinor,
+        orderId: input.orderId,
+      },
+      {
+        account: 'customer_adjustment',
+        currency: input.currency,
+        amountMinor: -input.amountMinor,
+        orderId: input.orderId,
+      },
+    ],
+  };
+}
+
+/**
+ * The recognized adjustment was actually paid back to the buyer.
+ *
+ * | Debit | Credit |
+ * |---|---|
+ * | customer_adjustment (V⁺) | provider_clearing (V⁺) |
+ *
+ * The liability closes and the platform balance goes down by what left it. The
+ * pair with {@link retailVarianceRecognized} is why both carry the kind
+ * `retail_variance`: an order whose `customer_adjustment` nets to zero has been
+ * made whole, and reading that off ONE kind is what makes it a query rather than
+ * a join across two vocabularies.
+ *
+ * The rail movement itself is #49's, unchanged — this books what that movement
+ * MEANS. Deliberately NOT the `refunds` account: `refunds` is money returned
+ * because a buyer sent goods back or an order was cancelled, and an adjustment
+ * is money returned because Mercaria over-charged. Merging them would make the
+ * refund rate of a zero-margin channel unreadable.
+ */
+export function customerAdjustmentRefunded(input: {
+  orderId: string;
+  refundId: string;
+  currency: CurrencyCode;
+  amountMinor: bigint;
+}): LedgerPosting {
+  return {
+    transaction: {
+      kind: 'retail_variance',
+      description: `Cost adjustment refunded on retail order ${input.orderId}`,
+      orderId: input.orderId,
+      refundId: input.refundId,
+    },
+    entries: [
+      {
+        account: 'customer_adjustment',
+        currency: input.currency,
+        amountMinor: input.amountMinor,
+        orderId: input.orderId,
+      },
+      {
+        account: 'provider_clearing',
+        currency: input.currency,
+        amountMinor: -input.amountMinor,
+        orderId: input.orderId,
+      },
+    ],
+  };
+}

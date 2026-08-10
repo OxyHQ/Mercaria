@@ -280,6 +280,80 @@ export async function sumLedgerAccountForRefund(
 }
 
 /**
+ * What has been booked to one account for one PAYMENT, per currency.
+ *
+ * #128's only route to the actual provider processing cost. `payments` records
+ * the presentment amount, the platform amount and the captured rate, and
+ * deliberately no fee column — the fee goes straight to `processor_expense`
+ * when the charge is booked (ADR 0001 D5), so the book is where it lives and
+ * reading it back is how the reconciliation trues an ESTIMATED provider cost to
+ * the ACTUAL one (ADR 0004 D8.7 case a).
+ *
+ * The `sumLedgerAccountForRefund` shape, one correlation column over.
+ */
+export async function sumLedgerAccountForPayment(
+  db: DatabaseOrTransaction,
+  input: { paymentId: string; account: LedgerAccount },
+): Promise<{ currency: string; totalMinor: bigint }[]> {
+  const rows = await db
+    .select({
+      currency: ledgerEntries.currency,
+      total: sql<string>`sum(${ledgerEntries.amountMinor})`,
+    })
+    .from(ledgerEntries)
+    .innerJoin(ledgerTransactions, eq(ledgerTransactions.id, ledgerEntries.transactionId))
+    .where(
+      and(
+        eq(ledgerTransactions.paymentId, input.paymentId),
+        eq(ledgerEntries.account, input.account),
+      ),
+    )
+    .groupBy(ledgerEntries.currency);
+
+  // `sum()` over an int8 column comes back as NUMERIC, which postgres.js hands
+  // back as a STRING — reading it as a number would silently lose precision on
+  // exactly the figure a cost reconciliation is built from.
+  return rows.map((row) => ({ currency: row.currency, totalMinor: BigInt(row.total) }));
+}
+
+/**
+ * What has been booked to one account for one ORDER, per currency.
+ *
+ * ADR 0004 D7 proof 2 as a query: for a retail order at finality, net
+ * `retail_cost_recovery` must be no greater than its attributable debits to
+ * `procurement_expense` and `processor_expense`. That comparison needs the
+ * per-ORDER balance of three accounts, and the order is the correlation every
+ * retail entry carries — a retail order has no seller, so `owner_id` is NULL on
+ * all of them and the owner index cannot answer it.
+ */
+export async function sumLedgerAccountForOrder(
+  db: DatabaseOrTransaction,
+  input: { orderId: string; accounts: readonly LedgerAccount[] },
+): Promise<{ account: string; currency: string; totalMinor: bigint }[]> {
+  if (input.accounts.length === 0) return [];
+  const rows = await db
+    .select({
+      account: ledgerEntries.account,
+      currency: ledgerEntries.currency,
+      total: sql<string>`sum(${ledgerEntries.amountMinor})`,
+    })
+    .from(ledgerEntries)
+    .where(
+      and(
+        eq(ledgerEntries.orderId, input.orderId),
+        inArray(ledgerEntries.account, [...input.accounts]),
+      ),
+    )
+    .groupBy(ledgerEntries.account, ledgerEntries.currency);
+
+  return rows.map((row) => ({
+    account: row.account,
+    currency: row.currency,
+    totalMinor: BigInt(row.total),
+  }));
+}
+
+/**
  * Payment ids that have NO ledger transaction of a given kind.
  *
  * The absence check behind `ledger_transaction_missing` (#50, jobs 5(a)). A

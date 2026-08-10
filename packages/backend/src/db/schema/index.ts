@@ -290,19 +290,30 @@ export * from './ranking';
 // the observation log and the notification feed and writes to none of them, so
 // nothing here can change what a shopper is shown or what a source published.
 export * from './priceAlerts';
-// Natural-language shopping intent (#95) is the last export and, like
-// `./ranking`, references almost nothing: one foreign key onto `guest_sessions`
-// (so purging a guest credential purges the clarification state derived from
-// it) and nothing else in the graph. That independence is the domain's shape —
-// an interpretation is a QUERY, so nothing it holds may outlive or constrain a
-// catalogue row, and there is deliberately no column anywhere here for a raw
-// query, a product, a merchant or an offer.
+// Natural-language shopping intent (#95) is, like `./ranking`, a domain that
+// references almost nothing: one foreign key onto `guest_sessions` (so purging a
+// guest credential purges the clarification state derived from it) and nothing
+// else in the graph. That independence is the domain's shape — an interpretation
+// is a QUERY, so nothing it holds may outlive or constrain a catalogue row, and
+// there is deliberately no column anywhere here for a raw query, a product, a
+// merchant or an offer.
 export * from './searchIntent';
-// Merchant demand analytics and the acquisition pipeline (#86) is the last
-// export and is downstream of `./merchants` (a snapshot is ABOUT a canonical
+// Merchant demand analytics and the acquisition pipeline (#86) is an
+// export downstream of `./merchants` (a snapshot is ABOUT a canonical
 // merchant), `./canonicalCatalog` (a product row names a canonical product) and
 // nothing else. It adds no column to any table above it and holds no claim
 // verdict, no contact value and no ranking input — a snapshot is a RECORDING of
 // what demand was at an instant, and the acquisition pipeline records what
 // people decided about it.
 export * from './merchantDemand';
+// Zero-profit cost reconciliation (#128) is the last export of the retail
+// chain and the most downstream table set in the schema: a reconciliation names
+// an `orders` row, its components cite the `retail_cost_quotes` composition
+// through #123's procurement intent, its supplier credits name a
+// `purchase_orders` row and a `purchase_order_documents` reference, its
+// adjustments name a `refunds` row, and its recognitions name a
+// `ledger_transactions` row. Everything it points at already exists above it and
+// nothing above it points back — which is the domain's shape, because a
+// reconciliation that could be reached by the things it reconciles would be able
+// to change them.
+export * from './retailReconciliation';

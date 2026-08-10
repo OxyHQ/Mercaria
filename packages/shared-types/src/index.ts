@@ -228,6 +228,16 @@ export * from './retail-checkout';
 // them asks.
 export * from './retail-pilot';
 
+// Zero-profit cost RECONCILIATION for `mercaria_retail` (#128, ADR 0004
+// D7/D8): the twelve separately represented accounting components and the
+// fourteen forbidden ones, the reconciliation evidence kinds, the four
+// interpretations of a cost variance, the customer-adjustment lifecycle, the
+// supplier-credit classification, the currency-aware tolerance bounds and the
+// ten metrics. LAST of the retail chain: it consumes #120's quote, #123's
+// procurement intent, #124's purchase orders and documents and #125's stop
+// thresholds, and is the only one of them that BOOKS anything.
+export * from './retail-reconciliation';
+
 // The versioned category-attribute registry and its normalized values (#94):
 // value types, cardinality, unit families, lifecycle, evidence/display policy,
 // and the source/public projections of one recorded attribute fact. PRECEDES

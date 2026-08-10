@@ -407,6 +407,22 @@ connectPostgres()
           log.general.error({ err }, 'Retail procurement port registration failed'),
         );
 
+      // Reconcile retail orders against their supplier and provider evidence,
+      // and pay what the equation says is owed back (#128, ADR 0004 D7/D8). On
+      // EVERY task, leased on its own `reconciliation_cursors` row.
+      //
+      // It runs its own timer rather than joining the payment reconciliation
+      // runner because it reads purchase orders and supplier invoices, and
+      // `role-separation.test.ts` forbids `services/payments/` from importing
+      // the procurement domain. `RETAIL_RECONCILIATION_ENABLED` gates this LOOP
+      // and nothing durable: an operator reconciling an order by hand still
+      // writes its revision, raises its exceptions and books what it recognizes.
+      import('./services/retail-reconciliation/runner.js')
+        .then(({ startRetailReconciliationSweep }) => startRetailReconciliationSweep())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Retail reconciliation sweep import failed'),
+        );
+
       // Retry stored Stripe events whose processing failed, and pick up any
       // whose task died between storing and interpreting them. Also on EVERY
       // task, same lease shape. The webhook ingress processes inline after

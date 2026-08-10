@@ -254,6 +254,18 @@ export const PAYMENT_REPAIR_OUTCOMES: readonly PaymentRepairOutcome[] = [
  * The job name IS the cursor's primary key, which is what makes the cursor table
  * need no uniqueness of its own and makes a lease a plain compare-and-swap on a
  * known row (issue #50, jobs 7).
+ *
+ * ## `retail_reconciliation` shares the TABLE and not the RUNNER
+ *
+ * #128's cost reconciliation is the same shape of job — leased, bounded,
+ * resumable, its findings deduped — so it takes a cursor row here rather than
+ * growing a second lease mechanism to get wrong. What it cannot share is the
+ * runner: it reads purchase orders and supplier invoices, and
+ * `role-separation.test.ts` (#118) forbids anything under `services/payments/`
+ * from importing the procurement domain. So it lives in
+ * `services/retail-reconciliation/runner.ts` and claims only its own row, while
+ * `services/payments/reconciliation/runner.ts` dispatches only the four it owns
+ * and REFUSES any other job by name rather than falling through to one of them.
  */
 export type ReconciliationJob =
   /** Open local payments against the rail's current state (jobs 1 and 4). */
@@ -263,10 +275,30 @@ export type ReconciliationJob =
   /** The ledger against itself and against the payments it describes (jobs 5). */
   | 'ledger_audit'
   /** Connected-account readiness, independently of onboarding redirects (jobs 6). */
-  | 'account_readiness';
+  | 'account_readiness'
+  /** Retail orders against their supplier and provider evidence (#128). */
+  | 'retail_reconciliation';
 
 /** {@link ReconciliationJob} as the tuple the column type and CHECK read. */
 export const RECONCILIATION_JOBS: readonly ReconciliationJob[] = [
+  'open_payments',
+  'provider_objects',
+  'ledger_audit',
+  'account_readiness',
+  'retail_reconciliation',
+];
+
+/**
+ * The jobs `services/payments/reconciliation/runner.ts` owns.
+ *
+ * A strict subset of {@link RECONCILIATION_JOBS}, and the reason it is a value
+ * rather than a list inside the runner is that the runner's dispatch must be
+ * able to REFUSE a job it does not own. A dispatch written as a chain of `if`s
+ * with a final fall-through silently runs the last job for every unrecognised
+ * name — so adding a member above would have made the retail sweep run the
+ * account-readiness one, with a clean log line and no error.
+ */
+export const PAYMENT_RECONCILIATION_JOBS: readonly ReconciliationJob[] = [
   'open_payments',
   'provider_objects',
   'ledger_audit',

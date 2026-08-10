@@ -125,6 +125,15 @@ const EN: Record<GuestPortalMessageKind, Copy> = {
     subject: () => 'Mercaria — your refund is complete',
     body: (f) => `The refund for ${orderLine(f)} is complete.\n\n${f.portalUrl}`,
   },
+  // #128. It says WHY without quoting a figure: the amount, the components and
+  // the state live behind the portal credential, and an email that carried them
+  // would put a buyer's money into a forwarded message.
+  cost_adjustment_issued: {
+    subject: () => 'Mercaria — we are returning part of what you paid',
+    body: (f) =>
+      `${orderLine(f)} cost us less to fulfil than you were charged, so the difference is ` +
+      `yours. You do not need to do anything.\n\nSee the details:\n${f.portalUrl}`,
+  },
   return_request_updated: {
     subject: () => 'Mercaria — your return request was updated',
     body: (f) => `There is an update on your return for ${orderLine(f)}.\n\n${f.portalUrl}`,
@@ -303,6 +312,12 @@ const ES: Record<GuestPortalMessageKind, Copy> = {
   refund_completed: {
     subject: () => 'Mercaria — tu reembolso está completo',
     body: (f) => `El reembolso de ${orderLine(f)} está completo.\n\n${f.portalUrl}`,
+  },
+  cost_adjustment_issued: {
+    subject: () => 'Mercaria — te devolvemos parte de lo que pagaste',
+    body: (f) =>
+      `${orderLine(f)} nos costó menos de lo que se te cobró, así que la diferencia es tuya. ` +
+      `No tienes que hacer nada.\n\nConsulta el detalle:\n${f.portalUrl}`,
   },
   return_request_updated: {
     subject: () => 'Mercaria — novedades de tu devolución',
