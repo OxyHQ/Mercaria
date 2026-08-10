@@ -632,15 +632,18 @@ function resolveSavedItemsReadMode(): SavedItemsReadMode {
   return 'off';
 }
 
-function resolveCanonicalReadMode(variable: string): CanonicalReadMode {
-  const raw = strEnv(variable, 'on').trim().toLowerCase();
+function resolveCanonicalReadMode(
+  variable: string,
+  fallback: CanonicalReadMode = 'on',
+): CanonicalReadMode {
+  const raw = strEnv(variable, fallback).trim().toLowerCase();
   const mode = CANONICAL_READ_MODES.find((candidate) => candidate === raw);
   if (mode !== undefined) return mode;
   log.general.error(
-    { variable, value: raw, allowed: CANONICAL_READ_MODES },
-    "[config] canonical read mode is not recognised; falling back to 'on'",
+    { variable, value: raw, allowed: CANONICAL_READ_MODES, fallback },
+    '[config] canonical read mode is not recognised; falling back',
   );
-  return 'on';
+  return fallback;
 }
 
 /**
@@ -1816,6 +1819,18 @@ export interface CanonicalRolloutConfig {
   /** `CANONICAL_OFFER_COMPARISON` — the same vocabulary, gating `GET /offers`. */
   readonly offerComparison: CanonicalReadMode;
   /**
+   * `CANONICAL_SEARCH` — #70's canonical multi-entity discovery, `off` by
+   * default.
+   *
+   * The exception to the paragraph above, and it proves the rule rather than
+   * breaking it: the read levers default to TODAY'S BEHAVIOUR, and today's
+   * behaviour for `GET /search` is that it does not exist. `off` and `shadow`
+   * both answer 404 and leave `GET /listings` — the listing-first search #70
+   * replaces — serving exactly as it does now, which is what makes the rollback
+   * in #70 acceptance 8 one environment variable.
+   */
+  readonly search: CanonicalReadMode;
+  /**
    * `CANONICAL_PUBLIC_ROUTES_ENABLED` — whether the public canonical routers are
    * MOUNTED at all. The blunt lever, for a rollback that must not depend on
    * every handler having remembered its gate.
@@ -2476,6 +2491,11 @@ export const config: AppConfig = Object.freeze({
     writePublicationEnabled: boolEnv('CANONICAL_WRITE_PUBLICATION_ENABLED', false),
     reads: resolveCanonicalReadMode('CANONICAL_READS'),
     offerComparison: resolveCanonicalReadMode('CANONICAL_OFFER_COMPARISON'),
+    // The one canonical read lever that defaults OFF — see its own doc comment
+    // on `CanonicalRolloutConfig.search`. An unrecognised value must not roll a
+    // deployment FORWARD into a surface it has not adopted, which is why the
+    // fallback is passed explicitly rather than inherited.
+    search: resolveCanonicalReadMode('CANONICAL_SEARCH', 'off'),
     publicRoutesEnabled: boolEnv('CANONICAL_PUBLIC_ROUTES_ENABLED', true),
     searchIndexingEnabled: boolEnv('CANONICAL_SEARCH_INDEXING_ENABLED', false),
     readCohorts: Object.freeze(resolveCanonicalReadCohorts()),

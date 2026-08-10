@@ -469,6 +469,18 @@ export interface CanonicalRolloutFlags {
   readonly writePublicationEnabled: boolean;
   readonly reads: CanonicalReadMode;
   readonly offerComparison: CanonicalReadMode;
+  /**
+   * `CANONICAL_SEARCH` — #70's canonical multi-entity discovery surface.
+   *
+   * A SEVENTH lever rather than a widening of `reads`, for the reason the other
+   * six are separate: withdrawing search during an incident must not take the
+   * product identity pages down with it. It is the ONE canonical read lever
+   * whose default is `off`, because it gates a surface that did not previously
+   * exist — where `reads` and `offerComparison` gate routes #56/#57 shipped
+   * without a flag, and defaulting THOSE off would be an outage rather than a
+   * rollout (ADR 0002 D24).
+   */
+  readonly search: CanonicalReadMode;
   readonly publicRoutesEnabled: boolean;
   readonly searchIndexingEnabled: boolean;
   /** Empty means every cohort. Entries are `<kind>:<value>`. */

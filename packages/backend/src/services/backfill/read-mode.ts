@@ -12,6 +12,7 @@
  * | Canonical-write publication | `CANONICAL_WRITE_PUBLICATION_ENABLED` | whether an `apply` run may mutate the graph (`graph-writer.ts`) |
  * | Canonical product reads | `CANONICAL_READS` | `/canonical-products`, `/product-families` handlers |
  * | Native-offer comparison | `CANONICAL_OFFER_COMPARISON` | the `GET /offers` handler |
+ * | Canonical search (#70) | `CANONICAL_SEARCH` | the `GET /search` handler |
  * | Public canonical routes | `CANONICAL_PUBLIC_ROUTES_ENABLED` | the MOUNT of all of the above |
  * | Cohorts | `CANONICAL_READ_COHORTS` | which objects a permitted read may answer for |
  *
@@ -41,10 +42,11 @@
  * module gates, `off` and `shadow` are both 404, and `shadow` additionally
  * counts the request so a rollout has evidence of demand before it is turned on.
  *
- * The surfaces where `shadow` will compute BOTH answers and compare them are
- * #70's feed and #71's product page, which do not exist yet. This module gives
- * them `resolveCanonicalReadMode` and {@link recordCanonicalShadowRead}, and
- * says so rather than pretending the comparison already happens.
+ * #70's `GET /search` is the first surface where `shadow` computes BOTH answers
+ * and compares them — see `services/search/shadow.ts`, which records the
+ * comparison and still serves nothing. #71's product page is the other one and
+ * does not exist yet; this module gives it `resolveCanonicalReadMode` and
+ * {@link recordCanonicalShadowRead} rather than pretending it already compares.
  */
 
 import type { NextFunction, Request, Response } from 'express';
@@ -85,6 +87,7 @@ export function canonicalRolloutFlags(): CanonicalRolloutFlags {
     writePublicationEnabled: config.canonicalRollout.writePublicationEnabled,
     reads: config.canonicalRollout.reads,
     offerComparison: config.canonicalRollout.offerComparison,
+    search: config.canonicalRollout.search,
     publicRoutesEnabled: config.canonicalRollout.publicRoutesEnabled,
     searchIndexingEnabled: config.canonicalRollout.searchIndexingEnabled,
     readCohorts: config.canonicalRollout.readCohorts,
@@ -99,6 +102,19 @@ export function resolveCanonicalReadMode(): CanonicalReadMode {
 /** The native-offer COMPARISON read mode. */
 export function resolveOfferComparisonMode(): CanonicalReadMode {
   return config.canonicalRollout.offerComparison;
+}
+
+/**
+ * The canonical SEARCH read mode (#70).
+ *
+ * Its own lever, `off` by default, and the ONE place in this table where
+ * `shadow` does what the docblock above says the mode was invented for: #70's
+ * handler computes the canonical answer AND the listing-first one, records the
+ * comparison (`services/search/shadow.ts`) and serves neither, because the
+ * surface is not public yet. On the other gated routes `shadow` only counts.
+ */
+export function resolveCanonicalSearchMode(): CanonicalReadMode {
+  return config.canonicalRollout.search;
 }
 
 /**

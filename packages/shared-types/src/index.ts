@@ -328,10 +328,19 @@ export * from './ebay';
 // may never establish about a retailer (disjoint from every fact this domain
 // can record, so #55 stays the only route to a badge).
 export * from './awin';
-// Supplier-fulfilled Mercaria-retail fulfilment (#126). Last, and downstream of
+// Supplier-fulfilled Mercaria-retail fulfilment (#126). Downstream of
 // `./retail-checkout` and `./supplier-order`: it names the fulfilment intent a
 // frozen procurement intent becomes and the destination a purchase order's
 // redacted snapshot supplies, and it adds nothing to either. It carries no
 // carrier, package, label or scan vocabulary at all — that is #126 acceptance 2
 // and the absence is stated as prohibitions rather than left implicit.
 export * from './retail-fulfilment';
+// Canonical multi-entity product discovery (#70). Follows `./offer` and
+// `./offer-freshness`, whose `ProductOfferSummary` a product result carries
+// rather than re-deriving, and `./condition`, whose SEGMENTS are the only
+// new/used vocabulary a filter may name. Its two relevance-signal tuples are
+// DISJOINT, which is what makes "a commission cannot change organic ranking" a
+// property of the vocabulary rather than of whoever writes the next scorer, and
+// it deliberately has no `variant` result kind — variant-level intent is
+// reported as the matched configuration of a PRODUCT, so one phone is one row.
+export * from './search';

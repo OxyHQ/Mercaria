@@ -3976,3 +3976,123 @@ conditions.
   offer names no merchant, so its seller rating is unknown — neutral, which
   prevents a hidden native preference AND a hidden native penalty), **#111** (the
   experiment arm).
+
+
+## Canonical multi-entity product discovery (#70, ADR 0002 D21/D24)
+
+`services/search/` (8 modules) + `db/search/` (2 repositories) + `GET /search`
++ `/internal/search/*`, plus `@mercaria/shared-types` `search.ts`. Full
+reference: **`docs/search.md`**; the measured numbers are
+`docs/performance/plans-search-small.md` (#61's harness, #61's workload table,
+nine new shapes Q16–Q24).
+
+**NO new tables, NO new indexes, NO migration** — that is the finding. Every
+read the pipeline issues is a bounded scan over an index #56/#57/#61 already
+built, and the two places it deliberately uses none are dimension tables with a
+measurement beside them.
+
+- **A commercial payment cannot influence organic relevance, three ways.** The
+  vocabulary (`SEARCH_RELEVANCE_SIGNALS` and
+  `SEARCH_FORBIDDEN_RELEVANCE_SIGNALS` are DISJOINT); the SIGNATURE
+  (`EntityRelevanceInput` has a field for every permitted signal and none for
+  any forbidden one — the `SourcingCandidateFacts` device); and
+  `search-relevance-isolation.test.ts`, which scans `services/search/` and
+  `db/search/` WHOLE so the wall holds for modules nobody has written yet, with
+  a file-count floor, comment stripping, and a mutation self-test per detector.
+  `SEARCH_RELEVANCE_SIGNALS` has NO popularity member: #70 admits one "only when
+  explicitly defined and resistant to manipulation" and nothing here defines
+  such a measure, so adding it is a decision with a mechanism rather than an
+  omission to fill in.
+- **There is no `variant` result kind.** #70 lists `CanonicalVariant` as a
+  search ENTITY, not a result kind; variant-level intent is reported as
+  `matchedVariant` on the PRODUCT. Giving it a kind puts forty rows of one phone
+  on one page, which is the duplication acceptance 1 exists to remove.
+- **The stage bands do not OVERLAP** — `floor(n) + headroom(n) < floor(n-1)`
+  for every adjacent pair, asserted over the tuple rather than a hand-written
+  list. That is what makes #70 acceptance 2 arithmetic (an exact identifier can
+  never be overtaken by a perfect fuzzy match), what reduces the signals to
+  tiebreakers WITHIN a stage — the only honest role for a `ts_rank` and a
+  trigram distance that are not calibrated against each other — and what makes
+  the ordering explicable.
+- **Relevance is computed BEFORE any offer is read**, which is the mechanism and
+  not an optimisation: it bounds the offer read (sort first, examine the top
+  slice) and it makes the separation from #74 structural, since the ordering
+  exists before any price does.
+- **A bare identifier answers ALONE** — no fuzzy stage, no other entity kind.
+  `mpn` and `brand_model` are excluded from identifier recognition (both accept
+  any string, so including them would make every one-word query
+  "identifier-only" and switch fuzzy retrieval off for prose). A MISTYPED
+  barcode is not an identifier and falls through to the lexical stages.
+- **#70 adds ONE freshness predicate #68 does not have, and it caught a real
+  bug.** `nativeOfferFreshness` measures how long ago the CONVERGER ran, so a
+  native offer whose listing was restricted five minutes ago is still `current`
+  — correct for `GET /offers`, which shows an ineligible row with its reasons,
+  and wrong for a summary claiming "from 100 €". `contributesToSummary` also
+  excludes `listing_restricted` / `listing_not_active`, and deliberately NOT
+  `out_of_stock` or `seller_not_payment_ready`: those block checkout and are not
+  removals. The `stale_at` pre-filter is genuinely only a narrowing —
+  mutation-testing it away leaves the lapsed-offer case GREEN.
+- **The N+1 is unrepresentable, in two statements per PAGE.**
+  `rankProductOfferIds` (`row_number() over (partition by product_id …)`, a
+  two-column projection) then one typed hydration of exactly those ids, then ONE
+  `buildOfferProjectionContext`. A plan test asserts twenty products produce ONE
+  statement. `summariseProjectedOffers` was EXTRACTED from #68's
+  `readProductOfferSummary` so both fetch paths share one derivation at the SAME
+  depth — two depths would make `currentOfferCount` differ between a search page
+  and a product page with nothing saying why.
+- **The keyset cursor carries the last candidate CONSIDERED, not the last
+  SERVED.** An offer filter can drop a candidate after it is scored, and a
+  cursor on the last served row re-considers and re-drops everything between the
+  two on every later page. The score travels as an INTEGER of micro-units (a
+  float round-tripped through a decimal string repeats or drops exactly one row
+  per page), and the cursor is bound to a FINGERPRINT of the query, filters and
+  kinds — a foreign cursor is UNREADABLE, never misapplied.
+- **A price bound names its currency, and `unconvertible` is a third answer.**
+  Not `false`: an unpriced offer, a currency outside the presentment set and an
+  unservable pair all mean "Mercaria cannot say" and none may read as "too
+  expensive". Those currencies are named in `SearchFxContext`. ONE `getRates`
+  per request.
+- **#74's seam FAILS CLOSED.** `registerSearchOfferSelector` has no default:
+  until #74 registers one, no result carries `selectedOffer` — not the cheapest
+  under another name. The summary still reports the LOWEST PRICE, which is a
+  fact about the offers and names no seller.
+- **`CANONICAL_SEARCH` is a SEVENTH canonical read lever and the ONE that
+  defaults `off`** — the read levers' rule, not an exception: they default to
+  today's behaviour, and today's behaviour for `GET /search` is that it does not
+  exist. `off` and `shadow` are both a 404; `shadow` computes BOTH answers and
+  records the comparison (ADR 0002 D24 phase 3, the first surface where it does
+  more than count). The lever lives in the HANDLER, not in
+  `requireCanonicalReads`, because a middleware that returns before the handler
+  can never compute anything — which would make `shadow` and `off` the same.
+  `GET /listings?q=` is untouched, so acceptance 8's rollback is one variable.
+- **The shadow comparison measures COUNTS and zero-result agreement and NOT
+  overlap**, for the reason `analytics/search-instrumentation.ts` already gives
+  about the same join: a listing reaches a canonical product by two unbatched
+  routes that are not the same set, and a title-matched number would be worse
+  than none because a rollout decision would rest on it.
+- Operator surface `/internal/search/*` on the SAME
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list, mounted while the public lever is
+  off. READ plus one EXPLAIN and no third: there is no "boost this product", no
+  "pin this result" and no "set the weights" — every one would be a ranking
+  control outside the versioned policy. The explain emits NO analytics event: a
+  diagnostic query is not a search somebody performed, and counting it would put
+  staff traffic into `zero_result_rate`.
+- Two plan facts recorded because the gate went red on them first: **exact name
+  is served by the GiST trigram index** at the `ci` scale, not the plain btree
+  (pg_trgm supports `=` on PG17, so two indexes serve it and the choice is
+  statistics — the gate forbids `Seq Scan` and pins no name), and the
+  **identifier read is a BitmapOr** over two plain indexes rather than the
+  collision gate's partial unique, because it is a disjunction over several
+  schemes at once.
+- **The narrow candidate projection is NOT faster at `small`** (1.981 ms against
+  the wide reader's 2.007 ms). #61 attributed Q10's cost to heap width at
+  `medium`; at 10,000 products that is not the cost. It is kept because it is
+  strictly less work, and the honest statement is that its benefit is
+  unmeasured at this scale rather than demonstrated.
+- Deferred with named seams, each failing closed: **#74** (offer selection),
+  **#71** (the product page), **#93** (nearby/pickup — no parameter exists to
+  accept, so it is unrepresentable rather than ignored), **#77** (filter-USE
+  measurement needs a typed column in a domain #70 does not own; category filter
+  use IS measured through the existing column), **#37**, **#95** (no LLM is the
+  primary retrieval system, per the issue), and autocomplete (a different
+  latency budget and a per-KEYSTROKE privacy posture, its own issue).
