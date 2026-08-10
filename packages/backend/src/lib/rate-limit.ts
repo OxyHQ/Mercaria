@@ -62,6 +62,13 @@ export type RateLimitScope =
   // and so is the risk: a portal token reaches a placed order's detail, while a
   // guest session reaches a cart.
   | 'guest-portal'
+  // Claiming a checkout group into an Oxy account (#109). Its own bucket
+  // (`rl:guest-claim:`) and a small one: a claim is a once-per-group act
+  // requiring BOTH a verified Oxy session and a verified portal credential, so
+  // a caller hammering it is retrying a refusal or probing for a group somebody
+  // else holds — and neither should spend the budget the portal's ordinary
+  // reads need.
+  | 'guest-claim'
   // Merchant claiming (#83, security control 1) — the NETWORK axis of the four
   // the issue names. Its own bucket (`rl:merchant-claims:`) so a claim-farming
   // burst exhausts this budget and not the general one; the per-user,

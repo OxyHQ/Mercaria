@@ -138,6 +138,11 @@ export * from './guest';
 // no order, and a portal grant names exactly one checkout group.
 export * from './guest-portal';
 
+// Claiming a guest checkout group into an Oxy account (ADR 0003 D14, #109).
+// Follows `./guest-portal` because the credential half of the claim's two-sided
+// proof is one of its grants, and the claim exists to END emailed access.
+export * from './guest-claim';
+
 // Procurement — suppliers, supply agreements, procurement offers, purchase orders (#118).
 export * from './procurement';
 

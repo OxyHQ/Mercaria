@@ -159,6 +159,33 @@ export async function findLiveGrantByTokenHash(
 }
 
 /**
+ * Whether the grant with this ID is STILL live, at this instant.
+ *
+ * The claim transaction's revalidation (#109 claim-transaction rule 1). The
+ * middleware resolved the credential when the request arrived; between then and
+ * the commit a buyer on another device can press "secure my access", and a
+ * claim that went through anyway would be one authorized by a credential its
+ * owner had just revoked.
+ *
+ * Selects the ID alone, deliberately: the caller already holds the resolved row
+ * and needs a yes or no, and re-reading `token_hash` into a second place is how
+ * a digest ends up somewhere it was never needed. Returns a boolean rather than
+ * a row so there is nothing to accidentally serialize.
+ */
+export async function grantIsStillLive(
+  db: DatabaseOrTransaction,
+  grantId: string,
+  now: Date,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: guestOrderAccessGrants.id })
+    .from(guestOrderAccessGrants)
+    .where(and(eq(guestOrderAccessGrants.id, grantId), liveGrantPredicate(now)))
+    .limit(1);
+  return row !== undefined;
+}
+
+/**
  * Consume an exchange grant atomically — the whole of "single use".
  *
  * `UPDATE … SET consumed_at = $now WHERE token_hash = $hash AND purpose =

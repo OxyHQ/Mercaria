@@ -368,6 +368,50 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'in the payment_repairs shape: the record of what staff did on a buyer’s behalf must ' +
       'outlive every row it refers to, so no referential action may reach it.',
   },
+  {
+    column: 'guest_order_claims.checkout_group_id',
+    reason:
+      'The group a claim covers; the same shared token, the same absent table (#109). The ' +
+      'claim’s referential anchor is guest_checkout_id, a real foreign key onto the contact ' +
+      'record — and the group’s uniqueness there is what makes a claim group-atomic.',
+  },
+  {
+    column: 'guest_order_claims.source_grant_id',
+    reason:
+      'The guest_order_access_grants row that proved possession of the order (#109 ' +
+      'claim-model 4). A foreign key would break in BOTH directions, which is why neither ' +
+      'action is right: grants are hard-DELETED at their own purge_at (ADR 0003 D11), so ' +
+      'RESTRICT would block the retention sweep forever and CASCADE would erase the claim’s ' +
+      'own proof the day the credential aged out. The claim outlives the credential, exactly ' +
+      'as guest_checkouts outlives the session that placed it.',
+  },
+  {
+    column: 'guest_order_claims.claimed_by_oxy_user_id',
+    reason: OXY_ACCOUNT,
+  },
+  {
+    column: 'guest_order_claims.revoked_by_oxy_user_id',
+    reason: OXY_ACCOUNT,
+  },
+  {
+    column: 'guest_order_claim_revocations.requested_by_oxy_user_id',
+    reason: OXY_ACCOUNT,
+  },
+  {
+    column: 'guest_order_claim_revocations.approved_by_oxy_user_id',
+    reason: OXY_ACCOUNT,
+  },
+  {
+    column: 'guest_order_claim_revocations.withdrawn_by_oxy_user_id',
+    reason: OXY_ACCOUNT,
+  },
+  {
+    column: 'guest_order_claim_outbox.checkout_group_id',
+    reason:
+      'The group whose claim owes this follow-up work (#109). Denormalized correlation so the ' +
+      'operator trace opens from a checkout group without joining, in a domain whose whole ' +
+      'read surface is keyed on one; claim_id beside it IS a real foreign key.',
+  },
 
   // ── Commerce snapshots: the target may be deleted, the record may not ─────
   { column: 'draft_order_applied_discounts.discount_id', reason: COMMERCE_SNAPSHOT },

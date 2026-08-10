@@ -5,8 +5,8 @@
  * or a referral. These tests prove the behaviour on the paths that do exist:
  * that a completed order grants the three scopes it resolves to, that a REPLAY
  * grants nothing new, that an unclaimed guest order grants NOTHING through any
- * exported path, and that the #109 seam refuses even a well-formed-looking
- * claim.
+ * exported path, and — since #109 landed — that the guest path grants only when
+ * the ORDER ROW already carries the account the caller names.
  *
  * Acceptance criteria answered here: 3 (idempotent, tied to the right line),
  * 8 (an unclaimed guest purchase cannot publish or create an author), 9 (a
@@ -261,17 +261,19 @@ describe('the guest seam — #109 is not implemented, and this FAILS CLOSED', ()
     expect(insertEligibility).not.toHaveBeenCalled();
   });
 
-  it('refuses even a WELL-FORMED claim on a GUEST order, naming the issue that closes the seam', async () => {
-    // The important one. Everything looks right — both sides proven, a claim
-    // id, the correct checkout group, and now a genuinely guest-origin order —
-    // and it STILL refuses, because the order carries no stored claimant to
-    // compare the caller's assertion against: #109 owns the only writer of
-    // `claimed_by_oxy_user_id`. Acceptance criteria 8 and 9.
+  it('refuses a WELL-FORMED claim on a guest order the DATABASE says nobody claimed', async () => {
+    // The important one, and #109 sharpened rather than removed it. Everything
+    // the CALLER supplies looks right — both sides proven, a claim id, the
+    // correct checkout group, a genuinely guest-origin order — and it still
+    // refuses, because `claimed_by_oxy_user_id` is NULL. The assertion is a
+    // value a caller states; the column is the fact. Acceptance criteria 8
+    // and 9.
     findOrderById.mockResolvedValue(
       storeOrder({
         buyerOrigin: 'guest',
         buyerOxyUserId: null,
         buyerGuestCheckoutId: 'gc-1',
+        claimedByOxyUserId: null,
       }),
     );
 
@@ -286,9 +288,72 @@ describe('the guest seam — #109 is not implemented, and this FAILS CLOSED', ()
       (err: unknown) =>
         isMercariaError(err) &&
         err.code === ErrorCodes.FORBIDDEN &&
-        err.message.includes('#109'),
+        err.message.includes('not claimed by the account'),
     );
     expect(insertEligibility).not.toHaveBeenCalled();
+  });
+
+  it('refuses a claim naming an account the order does NOT carry', async () => {
+    // The forgery case, and it is the one the stored comparison exists for: the
+    // order IS claimed, by somebody else, and a caller asserting their own id
+    // gets nothing. Without the comparison this would be indistinguishable from
+    // the happy path below.
+    findOrderById.mockResolvedValue(
+      storeOrder({
+        buyerOrigin: 'guest',
+        buyerOxyUserId: null,
+        buyerGuestCheckoutId: 'gc-1',
+        claimedByOxyUserId: 'the-real-claimant',
+      }),
+    );
+
+    await expect(
+      grantEligibilitiesForClaimedGuestOrder('order-1', {
+        claimId: 'claim-1',
+        checkoutGroupId: 'group-1',
+        claimedByOxyUserId: 'an-impostor',
+        bothSidesProven: true,
+      }),
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.FORBIDDEN,
+    );
+    expect(insertEligibility).not.toHaveBeenCalled();
+  });
+
+  it('grants under the CLAIMED evidence type when the order carries that claimant', async () => {
+    // The happy path #109 opened. Note the evidence TYPE and the claim id: a
+    // claimed guest purchase must never be recorded as an authenticated one,
+    // because that would lose the distinction the claim exists to record — and
+    // `review_eligibilities`' own CHECK makes the type and the claim id
+    // biconditional, so a grant of this type without a claim to cite is
+    // unrepresentable.
+    findOrderById.mockResolvedValue(
+      storeOrder({
+        buyerOrigin: 'guest',
+        buyerOxyUserId: null,
+        buyerGuestCheckoutId: 'gc-1',
+        claimedByOxyUserId: 'claimant-7',
+      }),
+    );
+    findCanonicalProductIdForVariant.mockResolvedValue(null);
+    findMerchantIdForStore.mockResolvedValue(null);
+    insertEligibility.mockResolvedValue(grantedRow('native_transaction', 'line-1'));
+
+    const report = await grantEligibilitiesForClaimedGuestOrder('order-1', {
+      claimId: 'claim-1',
+      checkoutGroupId: 'group-1',
+      claimedByOxyUserId: 'claimant-7',
+      bothSidesProven: true,
+    });
+
+    expect(report.granted).toHaveLength(1);
+    expect(insertEligibility).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oxyUserId: 'claimant-7',
+        evidenceType: 'claimed_guest_purchase',
+        claimId: 'claim-1',
+      }),
+    );
   });
 
   it('refuses a claim for a different checkout group', async () => {

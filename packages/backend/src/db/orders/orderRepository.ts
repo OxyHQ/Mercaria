@@ -663,6 +663,100 @@ export async function findOrdersInCheckoutGroup(
   return withChildren(rows, db);
 }
 
+/**
+ * Stamp every UNCLAIMED guest order of one group with its new claimant (#109,
+ * ADR 0003 D14).
+ *
+ * The ONE writer of `claimed_by_oxy_user_id` in the NULL → value direction, and
+ * a CAS rather than a plain update: the predicate carries
+ * `claimed_by_oxy_user_id IS NULL`, so an order another transaction claimed
+ * between this caller's read and this statement is simply not matched. The
+ * caller compares the returned count against the group's order count and
+ * refuses the claim when they differ, which is what makes "confirm every target
+ * order still belongs to the same guest checkout" (claim-transaction rule 3) a
+ * property of the statement rather than of a stale read.
+ *
+ * `buyer_origin = 'guest'` is stated explicitly rather than left to
+ * `orders_buyer_identity_check`. The CHECK already forbids a claim on an `oxy`
+ * or `external` order, so this predicate never changes the outcome — it changes
+ * the FAILURE MODE, from a constraint violation that aborts the whole claim
+ * transaction to a row that simply does not match and a count the caller can
+ * report on. A mixed-origin group is a real (if pathological) state
+ * `readBuyerIdentityConsistency` already counts.
+ *
+ * @returns the ids actually stamped, so the caller can assert atomicity.
+ */
+export async function stampCheckoutGroupClaim(
+  db: DatabaseOrTransaction,
+  input: { checkoutGroupId: string; claimedByOxyUserId: string; now: Date },
+): Promise<string[]> {
+  const rows = await db
+    .update(orders)
+    .set({
+      claimedByOxyUserId: input.claimedByOxyUserId,
+      claimedAt: input.now,
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        eq(orders.checkoutGroupId, input.checkoutGroupId),
+        eq(orders.buyerOrigin, 'guest'),
+        sql`${orders.claimedByOxyUserId} is null`,
+      ),
+    )
+    .returning({ id: orders.id });
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Detach a claim — the value → NULL transition the D6 trigger permits (#109
+ * revocation).
+ *
+ * Guarded on the CLAIMANT, not just the group: an operator executing a
+ * revocation names the claim they approved, and a group claimed by somebody
+ * else in the meantime must not be detached by a stale approval. The trigger
+ * forbids value → value regardless, so this is the only shape a correction can
+ * take — detach, then let the rightful buyer claim through the ordinary
+ * two-sided proof.
+ *
+ * `buyer_origin` is untouched, which is invariant I7: a claim was never the
+ * origin, so removing one cannot change it.
+ */
+export async function clearCheckoutGroupClaim(
+  db: DatabaseOrTransaction,
+  input: { checkoutGroupId: string; claimedByOxyUserId: string; now: Date },
+): Promise<string[]> {
+  const rows = await db
+    .update(orders)
+    .set({ claimedByOxyUserId: null, claimedAt: null, updatedAt: input.now })
+    .where(
+      and(
+        eq(orders.checkoutGroupId, input.checkoutGroupId),
+        eq(orders.claimedByOxyUserId, input.claimedByOxyUserId),
+      ),
+    )
+    .returning({ id: orders.id });
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Append ONE lifecycle event without moving the order's status.
+ *
+ * A claim is an ownership event rather than a status change, and ADR 0003 D14
+ * asks for it on the order's own trail — which is where a support conversation
+ * looks. Exposing the append separately is what stops a caller reaching for
+ * {@link setOrderStatus} and writing the current status back over itself, an
+ * UPDATE that would move `updated_at` on an immutable commercial record to
+ * record something that is not a status at all.
+ */
+export async function appendOrderStatusEvent(
+  orderId: string,
+  event: NewOrderStatusEvent,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<OrderStatusEventRow> {
+  return await appendStatusEvent(orderId, event, db);
+}
+
 /** One buyer-identity invariant, counted, with a bounded sample of offenders. */
 export interface BuyerIdentityFinding {
   /** How many rows violate it, over the whole table. */

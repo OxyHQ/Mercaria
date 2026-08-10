@@ -3726,3 +3726,70 @@ chosen mode and Moovo transport are WRITE-ONCE.
   and the domain reaches back into nothing else — a stop pauses ENTRY and never
   fulfilment, so there is no purchase order, order or payment reference here to
   make a forward one.
+## Claiming a guest checkout (#109)
+
+Three tables — `guest_order_claims`, `guest_order_claim_revocations`,
+`guest_order_claim_outbox` — in `schema/guestClaims.ts`. Full behaviour:
+`docs/guest-claims.md`; binding decisions ADR 0003 D14.
+
+- **The claim row does NOT duplicate the ownership fact.** That lives on
+  `orders.claimed_by_oxy_user_id` / `claimed_at` (#106), and this table adds
+  only what those columns cannot carry: a stable id to cite, WHICH credential
+  proved possession, which policy version required which proofs, how many
+  siblings the claim covered, and the contests and corrections that are not
+  ownership at all. Both are written under one lock in one transaction, and
+  `readClaimConsistency` counts the drift a future write path could introduce —
+  the two invariants no CHECK can express, because each compares a claim row
+  against orders in another table.
+- **`guest_order_claims_active_group_key` IS acceptance 8.**
+  `UNIQUE(checkout_group_id) WHERE state = 'completed'` — two accounts racing
+  for one group produce one winner and one refusal FROM THE DATABASE, so
+  "concurrent and conflicting claims cannot silently transfer ownership" does
+  not depend on a service comparison running in the right order. The
+  `merchant_claims` device (#83), and a `revoked` row does not occupy the index,
+  which is what lets a corrected group be claimed again.
+- **`source_grant_id` carries NO foreign key, and both actions would break it.**
+  Grants are hard-DELETED at their own `purge_at` (ADR 0003 D11), so `RESTRICT`
+  would block the retention sweep forever and `CASCADE` would erase the claim's
+  own proof the day the credential aged out. The claim outlives the credential,
+  exactly as `guest_checkouts` outlives the session that placed it. Registered
+  in `deferredForeignKeys.ts` with that reason.
+- **`guest_checkout_id` IS a real foreign key, `RESTRICT`** — the
+  `guest_portal_messages` decision. A claim of a group with no contact record is
+  unrepresentable rather than refused at execution time, and `RESTRICT` rather
+  than `CASCADE` because D15 ANONYMIZES a contact rather than deleting it: a
+  cascade would make an erasure request quietly delete the audit of who took
+  ownership of a purchase.
+- **The state shape is ONE disjunction, not three implications.** A set of
+  implications admits a row satisfying none of them — a `completed` row carrying
+  a revocation reason would pass "revoked ⇒ reason" vacuously. `revoked` keeps
+  `completed_at`: the claim DID happen, and a correction that erased when it
+  happened would be the "delete history" #109 revocation rule 4 forbids.
+- **`pending` and `rejected` are ABSENT from the state tuple, for two different
+  reasons.** `pending` is unrepresentable because the claim is one transaction —
+  there is no instant at which a claim exists and is not complete, so the value
+  would be a state nothing could advance. `rejected` names a refusal this table
+  never sees: every refusal the domain can produce happens BEFORE both proofs
+  are in hand, and a refusal recorded before them would be a row an anonymous
+  caller could create. The one refusal that arrives WITH both proofs is a
+  contest, and that is `conflicted`.
+- **Four eyes is two CHECKs plus a SNAPSHOT.**
+  `approved_by <> requested_by` makes self-approval unrepresentable whatever the
+  service does, the execute shape refuses an unapproved execution while
+  `four_eyes_required` is true, and that flag is snapshotted at request time
+  (the `catalog_merge_jobs` device, #59) so flipping the deployment lever can
+  neither retroactively unapprove an executed correction nor silently approve a
+  pending one. `UNIQUE(claim_id) WHERE state='pending_approval'` makes two
+  operators reaching the same conclusion converge on one record.
+- **The outbox is the moderation outbox, ported unchanged where it matters** —
+  a DETERMINISTIC caller-supplied text primary key (`guest-claim:<type>:<claimId>`),
+  `ON CONFLICT DO NOTHING`, two partial indexes for the two claim branches, and
+  a length-CHECKed `last_error`. It carries no contact, no credential and no
+  order detail: it names a claim and a kind of work, and every handler reads what
+  it needs from the tables that own it.
+- **ONE expiry target, and the two omissions are the point.** Only
+  `guest_order_claim_outbox` is swept (14 days, the traffic-bounded row). A
+  claim records who owns a purchase and a revocation records an operator
+  correcting that; a retention shorter than the orders would answer the only
+  question either exists for with silence — the reasoning that keeps
+  `guest_portal_operator_actions` unswept.

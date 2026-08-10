@@ -13,8 +13,9 @@
  *    the Oxy owner from `orders.buyer_oxy_user_id`, which the order service is
  *    the only writer of.
  *  - {@link grantEligibilitiesForClaimedGuestOrder} — the guest path. Requires a
- *    {@link GuestOrderClaimEvidence} it cannot synthesise, and FAILS CLOSED
- *    until #109 supplies one.
+ *    {@link GuestOrderClaimEvidence} it cannot synthesise, AND checks the
+ *    claimant it names against `orders.claimed_by_oxy_user_id` as stored. #109
+ *    supplies the evidence; the column is what makes it worth anything.
  *
  * There is no third function, and `review-eligibility-isolation.test.ts` fails
  * the build if this module or the review service ever imports the payment, the
@@ -284,33 +285,35 @@ export async function grantEligibilitiesForOrder(
 /**
  * Grant eligibility for a guest order a #109 claim moved into an Oxy account.
  *
- * ## This FAILS CLOSED and is meant to
+ * ## Four guards, and the LAST one is the whole security property
  *
- * #109 is not implemented. Until it is, there is no `guest_order_claims` table,
- * no claim service and therefore no way to obtain a {@link GuestOrderClaimEvidence}
- * whose `bothSidesProven` this module did not fabricate — and this module
- * fabricates nothing. Every guard below refuses, in order, and the last of them
- * refuses unconditionally:
+ * #109 has landed, and what closed this seam was not a new proof — it was the
+ * stored one. `orders.claimed_by_oxy_user_id` now has exactly one writer (the
+ * claim transaction, ADR 0003 D14), so this module can COMPARE the caller's
+ * assertion against a column instead of taking it on trust:
  *
- *  1. `bothSidesProven` must be true. #109's claim service is the only thing
- *     that can set it, because it is the only thing that sees both proofs in one
- *     request (ADR 0003 D14).
+ *  1. `bothSidesProven` must be true. Only #109's claim service can set it,
+ *     because only it sees both proofs in one request — and note that this
+ *     alone would be worthless, since a caller states it. It is the cheap gate
+ *     that makes the expensive one's failures legible.
  *  2. The claim id must be non-empty and the order must actually belong to the
  *     claimed checkout group.
- *  3. The order must carry a guest origin, and #106 made that CHECKABLE:
- *     `orders.buyer_origin` exists, so a non-guest order is now refused for the
- *     real reason rather than for the absence of a column. An order that IS
- *     guest-origin still gets no eligibility, because of (4).
- *  4. The claim must be verifiable, and it is not: `orders.claimed_by_oxy_user_id`
- *     exists (#106 added it) but #109 owns its only writer, so no order in this
- *     database can carry one and `evidence.claimedByOxyUserId` is a value this
- *     module would have to take on trust. It does not. When #109 lands, this
- *     guard becomes a comparison against the stored claimant and the refusal
- *     below is deleted.
+ *  3. The order must carry a guest origin. `buyer_origin` is immutable by
+ *     trigger, so this is not a race with anything.
+ *  4. **`orders.claimed_by_oxy_user_id` must EQUAL the claimant the evidence
+ *     names.** That is the guard #76 acceptance criteria 8 and 9 are about: a
+ *     caller cannot name an account the database does not already agree owns
+ *     these orders, so a forged evidence object grants nothing, and a claim
+ *     that was REVOKED (the pair moved value → NULL) stops granting the moment
+ *     it is revoked with no sweep having run.
  *
- * `review-eligibility.test.ts` pins that an unclaimed guest order produces
- * ZERO eligibilities through EVERY exported path, and that this one refuses even
- * when handed a well-formed-looking evidence object.
+ * There is deliberately still no email, portal-token or session parameter — #76
+ * verification rule 9 held by the signature rather than by a branch.
+ *
+ * `review-eligibility.test.ts` pins that an unclaimed guest order produces ZERO
+ * eligibilities through EVERY exported path, and that this one refuses a
+ * well-formed-looking evidence object naming an account the order does not
+ * carry.
  */
 export async function grantEligibilitiesForClaimedGuestOrder(
   orderId: string,
@@ -349,30 +352,50 @@ export async function grantEligibilitiesForClaimedGuestOrder(
   }
 
   /**
-   * Guard 4 — the seam, stated as a refusal rather than as a comment.
+   * Guard 4 — the comparison the seam was waiting for (#109).
    *
-   * `orders.claimed_by_oxy_user_id` EXISTS since #106, and it is exactly what
-   * this module would compare `evidence.claimedByOxyUserId` against. What does
-   * not exist is anything that writes it: #109 owns the claim service, the
-   * `guest_order_access_grants` table it proves possession with, and the
-   * transaction that stamps the pair. So every order in this database has a
-   * NULL claimant, and a grant here would rest on a value the CALLER supplied —
-   * which is the failure #76 acceptance criteria 8 and 9 describe. It refuses,
-   * loudly, naming the issue that closes it, and no code path can reach
-   * `insertEligibility` with `evidence_type = 'claimed_guest_purchase'`.
+   * The evidence's `claimedByOxyUserId` is a value the CALLER supplied, and
+   * this is where it stops being taken on trust: the order's own column is
+   * written by exactly one transaction (ADR 0003 D14) and the D6 trigger
+   * refuses every value → value rewrite, so a match here means the database
+   * already agrees this account owns these orders.
    *
-   * When #109 lands, this block becomes:
-   *   `if (order.claimedByOxyUserId !== evidence.claimedByOxyUserId) throw forbidden(…)`
-   * and the grant proceeds. Nothing else in this module changes.
+   * Both failure shapes are refused by the same test, and both matter: an
+   * UNCLAIMED order has NULL there and never equals a real account id, and a
+   * REVOKED claim moved the pair back to NULL — so a job that runs after a
+   * revocation grants nothing, with no sweep and no second flag to keep in
+   * step. The refusal names neither the stored claimant nor the asserted one,
+   * because "who owns this purchase" is a fact about somebody else.
    */
-  log.general.warn(
-    { orderId, claimId: evidence.claimId },
-    'Guest-origin review eligibility requested before #109 landed; refusing (fail closed)',
-  );
-  throw forbidden(
-    'Guest-origin review eligibility is not available yet. It requires the guest order-claim ' +
-      'record (#109); the order carries no claimed account, so Mercaria cannot verify that ' +
-      'this purchase was claimed by the person asking, and it will not guess.',
+  if (
+    order.claimedByOxyUserId === null ||
+    order.claimedByOxyUserId !== evidence.claimedByOxyUserId
+  ) {
+    log.general.warn(
+      { orderId, claimId: evidence.claimId },
+      'Guest-origin review eligibility refused: the order does not carry the claimed account',
+    );
+    throw forbidden(
+      'That order was not claimed by the account this eligibility names, so Mercaria cannot ' +
+        'treat it as a verified purchase for them.',
+    );
+  }
+
+  /**
+   * The grant, under its OWN evidence type.
+   *
+   * `claimed_guest_purchase` rather than `authenticated_purchase`, and the
+   * `claim_id` travels with it — `review_eligibilities`' own CHECK makes the
+   * pair biconditional, so an eligibility of this type without a claim to cite
+   * is unrepresentable. Losing the distinction would attribute a guest purchase
+   * to an account under the authenticated type, which is exactly the fact the
+   * claim exists to record.
+   */
+  return grantForOrder(
+    order,
+    evidence.claimedByOxyUserId,
+    'claimed_guest_purchase',
+    evidence.claimId,
   );
 }
 

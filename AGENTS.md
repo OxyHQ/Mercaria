@@ -3743,3 +3743,121 @@ are not claimed. Everything that does not depend on an account is built.
   rather than an offer filter), **#126/#127** (dispatch, tracking, returns), and
   Printful's real webhook SIGNATURE scheme (account-gated; `verifyWebhook` is
   one synchronous function to replace).
+## Claiming a guest checkout into an Oxy account (#109, ADR 0003 D14)
+
+`services/guest-claims/` (5 modules) + `db/guestClaims/` (3 repositories) +
+`db/schema/guestClaims.ts` (3 tables) + the claim pair on
+`routes/guest-orders.ts` and the claim half of
+`routes/internal-guest-commerce.ts`, plus the storefront's
+`app/(app)/guest-orders/claim.tsx`. Moving ACCESS to a guest's placed orders
+into an Oxy account — and, much more of the work, everything that makes sure
+nothing else can. Full reference: **`docs/guest-claims.md`**; schema decisions:
+`db/schema/CONVENTIONS.md` §"Claiming a guest checkout (#109)".
+
+The failure mode that shapes it: an account acquiring somebody else's purchase
+because two email addresses matched. It is silent, it looks exactly like a
+feature working, and the person it happens to finds out when a stranger cancels
+their order.
+
+- **The proof is a CONJUNCTION held by the SIGNATURE.**
+  `claimGuestCheckoutGroup` takes a resolved portal grant, an Oxy user id, an
+  optional presented cart session and a clock — and #109's nine "insufficient by
+  themselves" rules fall out of that parameter list rather than out of branches.
+  A matching email, an order number, a card, a wallet, a merchant's message,
+  being a seller on a sibling order, an operator typing an account id and every
+  referral handle are all UNREPRESENTABLE, not refused. `claim:write` is
+  grantable only to a credential whose inbox was proven, so **paying cannot
+  produce a claimable credential in any code path** — a CHECK, not a rule.
+- **The GRANT is revalidated in the transaction; the OXY SESSION is not, and
+  that is a decision.** A second device can press "secure my access" mid-flight
+  (conflict case 4), so the credential is re-read. Re-verifying the bearer would
+  mean an HTTP round trip to Oxy while a row lock is held — a lock whose
+  duration becomes a function of somebody else's availability — and a token that
+  expires four milliseconds after the request was authorized does not
+  retroactively unauthorize it. Conflict case 5 is answered by the request's own
+  verification.
+- **The already-claimed check runs BEFORE that revalidation, and the ordering
+  was measured.** A winning claim revokes every outstanding credential for its
+  group including the LOSER's, so revalidating first answers a genuine contest
+  with a credential error and never writes the `conflicted` row an operator
+  needs. The consequence worth stating rather than hiding: a client retrying on
+  the SAME credential is answered 401 by the MIDDLEWARE, because the claim it is
+  retrying revoked it — rule 12 is about what the SERVICE answers, and it
+  converges for every request that reaches it.
+- **The lock is load-bearing for the AUDIT, not for the ownership** — measured,
+  not assumed. Removing `FOR UPDATE` on `guest_checkouts` leaves the outcome
+  correct (the partial unique refuses the second `completed` row and the loser
+  stamps nothing) and LOSES the `conflicted` row: both racers read "unclaimed",
+  so the loser never sees a claim to contest and fails at the insert instead.
+  The realdb race test asserts the contested row, which is the only thing that
+  notices.
+- **A claim covers every sibling or none.** The stamp is a CAS on
+  `claimed_by_oxy_user_id IS NULL` and the returned count is compared against
+  the group's; a partial stamp RAISES. `buyer_origin` stays `guest` forever
+  (I7), and `Order.buyerOxyUserId` stays EMPTY on a claimed guest order —
+  filling it would tell an old client an account placed a purchase it did not.
+- **A claim REVOKES every outstanding portal credential for the group,
+  including the one that authorized it** (D14). No `exceptGrantId`: sparing the
+  presenting credential is right for "secure my access", where the point is to
+  keep the person who pressed it signed in, and wrong here, where the point is
+  that emailed access has been superseded.
+- **The cart merge runs AFTER the commit and only on the session the request
+  PRESENTED.** After, because `mergeGuestCart` opens its own transaction and
+  taking it inside is #59's merge-runner deadlock. Only the presented session,
+  because a portal grant proves an INBOX and not a browser — draining the
+  checkout's original session by fiat would move a cart the caller has not
+  proved they hold, which on a shared device may be somebody else's basket.
+- **A pending payment does NOT block a claim** (conflict case 7), and neither
+  does a cancelled or refunded sibling (case 6). Claiming is about ACCESS;
+  refusing would strand a buyer whose bank redirect is slow at the moment they
+  most want to track it. **Mercaria computes no second account-eligibility
+  verdict** either (case 9) — Oxy owns identity, the authenticated session IS
+  the test, and a second verdict could only disagree with it.
+- **A claimant cannot detach their own orders, and that is the answer to
+  revocation rule 2.** Detaching is the value → NULL half of an ownership MOVE:
+  self-service, somebody who briefly held a claim can erase the trail and let
+  the group be re-claimed with no operator seeing that ownership changed hands.
+  The correction is TWO operators and TWO requests (one person can type two
+  ids — #55's reasoning), with `four_eyes_required` snapshotted per request.
+- **The follow-up work is an OUTBOX, not a call.** Conflict case 11 is "claim
+  event emitted but downstream projection failed"; granting eligibility inline
+  has exactly that failure mode with no record of it. Two types so a missing
+  mail transport cannot stop a verified-purchase grant. `bothSidesProven: true`
+  is asserted in the handler and #76 does NOT take it on trust — it compares the
+  named claimant against `orders.claimed_by_oxy_user_id` as STORED, which is
+  what closes that seam and what makes a revoked claim stop granting with no
+  sweep having run.
+- **The referral boundary is a scanned gate covering BOTH packages.** A claim
+  changes order access, not acquisition history — and "the path cannot reach the
+  referral domain in either direction" is strictly stronger than "these rows did
+  not move this time". The scan includes the STOREFRONT screens, so UX rule 12
+  is a build failure rather than a copy review. The commercial half (one order,
+  at most one conversion, a claim replays and creates nothing) is #142's and its
+  own realdb file already drives it; the claim's realdb file deliberately does
+  not rebuild that fixture stack against a GLOBAL program namespace.
+- Env: `GUEST_CLAIM_ENABLED` (the WRITE, default true — an incident lever whose
+  alternative would be switching guest commerce off underneath people who have
+  already paid), `GUEST_CLAIM_FOUR_EYES_REQUIRED` (default true),
+  `GUEST_CLAIM_PROJECTION_ENABLED` (the LOOP) and its tunables. **Not one gates
+  a stored claim**, and `guest-claim-isolation.test.ts` fails the build if the
+  read paths, the projection or the operator surface starts reading one.
+- Operator surface `/internal/guest-commerce/claims*` on the SAME
+  `GUEST_OPERATOR_OXY_USER_IDS` allow-list #104/#108 use, not a seventh. Two
+  reads and three writes that are three STEPS of one capability; there is no
+  "claim this group for account X" and no "move it to another account", because
+  reject rule 7 and revocation rule 1 forbid exactly that in one step.
+- **#77's `#109` seam is HALF closed, and the split is the point.**
+  `guest_claim_started`, `guest_claim_completed` and `guest_claim_conflicted`
+  emit from the claim path — the CLAIM ROW supplied them, an id that authorizes
+  nothing. `guest_claim_offered` and `guest_claim_declined` moved to #111: an
+  offer is a screen having been shown and a decline is somebody navigating away,
+  the server observes neither, and the nearest substitutes (a preview read, a
+  claim that never arrived) are different facts. `oxy_claim_funnel` therefore
+  has a live numerator and no denominator, which its `seam` field says on the
+  dashboard rather than reading as a rate.
+- Seams left, none of them a stub that lies: **#108** (the transactional
+  transport — the `claim_completed` message is composed, queued and retried and
+  nothing SENDS), **#110** (cancellations, returns and support for a claimed
+  order, which a claimant reaches through the account path that already exists),
+  **#111** (the two client analytics types), **#141-#143** (every referral
+  consequence, which this domain records none of and can reach none of).

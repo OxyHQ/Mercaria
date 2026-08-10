@@ -299,11 +299,21 @@ export const ANALYTICS_DEFERRED_EVENT_TYPES: Readonly<
   // `guest_recovery_requested` carries NO checkout group, deliberately: it is
   // emitted on every request whether or not anything matched, and a group on it
   // would turn the metric into the enumeration oracle the 202 exists to close.
-  guest_claim_offered: '#109',
-  guest_claim_started: '#109',
-  guest_claim_completed: '#109',
-  guest_claim_declined: '#109',
-  guest_claim_conflicted: '#109',
+  // Three of `#109`'s five types are EMITTED now (`guest_claim_started`,
+  // `guest_claim_completed`, `guest_claim_conflicted`). What closed that half
+  // of the seam was the CLAIM ROW: a started attempt, a completed claim and a
+  // contest each produce a stable row id and a checkout group, so the funnel is
+  // countable without an account's email, the losing claimant's identity or a
+  // credential ever reaching a column.
+  //
+  // The two below stay deferred and move to #111, exactly as #107's five did
+  // and for the same reason: an OFFER is a screen having been shown and a
+  // DECLINE is somebody navigating away, and the storefront has no analytics
+  // client at all. Building one is rollout instrumentation, not claim work —
+  // and deriving either server-side would be fabrication, since the server
+  // cannot tell a decline from a person closing a tab.
+  guest_claim_offered: '#111',
+  guest_claim_declined: '#111',
   guest_cancellation_requested: '#110',
   guest_return_requested: '#110',
   guest_support_request_created: '#110',
@@ -896,8 +906,13 @@ export const ANALYTICS_METRICS: readonly AnalyticsMetricDefinition[] = [
     merchantVisible: false,
     attributionLimit:
       'A decline is a valid outcome and is counted as one, never as an error and never as a lost ' +
-      'conversion (identity rule 6). This ratio says nothing about whether commerce succeeded.',
-    seam: '#109',
+      'conversion (identity rule 6). This ratio says nothing about whether commerce succeeded. ' +
+      'The NUMERATOR computes today — #109 emits `guest_claim_completed` from the claim ' +
+      'transaction — and the DENOMINATOR does not, because an offer is a screen having been ' +
+      'shown and the storefront has no analytics client. Reading the ratio against a started ' +
+      'claim instead would answer a different question (how often a confirmed claim succeeds, ' +
+      'which is almost always) and quietly rename the metric.',
+    seam: '#111',
   },
   {
     key: 'saved_intent_return_rate',

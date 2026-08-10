@@ -167,7 +167,12 @@ describe('the migrated schema', () => {
     // one by foreign key) and its per-record entries (30 days, deliberately
     // SHORTER than the report that counts them, and the only #63 table bounded
     // by traffic).
-    expect(EXPIRY_TARGETS).toHaveLength(23);
+    // #109 adds ONE — a completed claim's follow-up JOB, the same
+    // traffic-bounded shape — and deliberately leaves its two other tables
+    // unswept: a claim records who owns a purchase and a revocation records an
+    // operator correcting that, so a retention shorter than the orders would
+    // answer the only question either exists for with silence.
+    expect(EXPIRY_TARGETS).toHaveLength(24);
   });
 });
 

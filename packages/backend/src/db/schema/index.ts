@@ -51,6 +51,11 @@ export * from './guests';
 // `guest_portal_messages.guest_checkout_id` are real foreign keys onto
 // `guest_checkouts`, so the contact table is the parent.
 export * from './guestPortal';
+// Guest order CLAIMING (#109) follows `guestPortal` for the same dependency
+// reason once more: `guest_order_claims.guest_checkout_id` is a real foreign
+// key onto `guest_checkouts`, and the credential its `source_grant_id` records
+// is one of the portal's grants.
+export * from './guestClaims';
 export * from './buyers';
 export * from './notifications';
 // Canonical commerce graph (ADR 0002). `provenance` precedes `organizations`

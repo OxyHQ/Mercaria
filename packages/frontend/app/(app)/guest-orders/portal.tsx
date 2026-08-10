@@ -103,6 +103,10 @@ function PortalBody() {
   const state = exchange.data ?? session.data;
   const group = state?.checkoutGroupId ?? params.group;
   const canReadOrders = state?.scopes.includes("orders:read") ?? false;
+  // #109: `claim:write` is granted only to a credential whose inbox is proven,
+  // so this is the same line ADR 0003 D17 draws — a device may watch the order,
+  // a proven inbox may move it into an account.
+  const canClaim = state?.scopes.includes("claim:write") ?? false;
 
   const view = useGuestPortalView(group, Boolean(state) && canReadOrders);
   const status = useGuestPortalStatus(group, Boolean(state) && !canReadOrders);
@@ -151,6 +155,26 @@ function PortalBody() {
           entries={status.data?.orders}
         />
       )}
+
+      {/*
+        #109 UX rule 1: the OFFER, on the portal. It is a LINK to the review
+        screen and not a claim button, because a claim needs a confirmation and
+        a signed-in account, and offering the action from here would make the
+        press ambiguous — UX rule 10's "never auto-submit" starts at the point
+        the person decides, not at the point the request is sent.
+
+        Shown only to a credential that could actually claim (`claim:write` is
+        a verified-credential scope), so nobody is offered something the server
+        would refuse. The order is unaffected either way, which the review
+        screen says outright.
+      */}
+      {canClaim && group ? (
+        <Link href={{ pathname: "/guest-orders/claim", params: { group } }} asChild>
+          <Button variant="outline">
+            <Text className="text-sm font-medium text-foreground">Save these orders to Oxy</Text>
+          </Button>
+        </Link>
+      ) : null}
 
       <Button variant="outline" onPress={() => signOut.mutate()} disabled={signOut.isPending}>
         <Text className="text-sm font-medium text-foreground">Sign out of this order</Text>

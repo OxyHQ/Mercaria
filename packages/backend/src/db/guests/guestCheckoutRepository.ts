@@ -131,6 +131,48 @@ export async function findGuestCheckoutByGroup(
 }
 
 /**
+ * The group's contact row, LOCKED — the claim transaction's serialization point
+ * (#109 claim-transaction rule 2).
+ *
+ * `guest_checkouts` is the right row to lock and the alternatives are worse.
+ * Locking the ORDERS would serialize a claim against every fulfilment write on
+ * the group, which is a lock a merchant would feel; locking nothing and relying
+ * on the partial unique index alone leaves the two claim RACERS both stamping
+ * orders before one of them loses the insert, which is precisely the "silently
+ * transfer ownership" acceptance 8 forbids. The contact row is one per group by
+ * unique index (ADR 0003 D4), so it names the group exactly and nothing on the
+ * commerce path contends for it.
+ *
+ * Selects ONLY the four columns a claim reads. The ciphertext and the hash are
+ * deliberately absent: a claim needs to know a contact record EXISTS and which
+ * session placed it, and giving the claim path a shape that could hold an
+ * encrypted address would make the notification's decrypt-at-send discipline
+ * (#108) something this domain could route around.
+ */
+export async function findGuestCheckoutByGroupForUpdate(
+  db: DatabaseOrTransaction,
+  checkoutGroupId: string,
+): Promise<{
+  id: string;
+  checkoutGroupId: string;
+  guestSessionId: string;
+  anonymizedAt: Date | null;
+} | null> {
+  const [row] = await db
+    .select({
+      id: guestCheckouts.id,
+      checkoutGroupId: guestCheckouts.checkoutGroupId,
+      guestSessionId: guestCheckouts.guestSessionId,
+      anonymizedAt: guestCheckouts.anonymizedAt,
+    })
+    .from(guestCheckouts)
+    .where(eq(guestCheckouts.checkoutGroupId, checkoutGroupId))
+    .limit(1)
+    .for('update');
+  return row ?? null;
+}
+
+/**
  * The DISPLAY half of a guest contact — every column except the three protected
  * ones (#106 contact rules 2, 3 and 6).
  *

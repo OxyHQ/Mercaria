@@ -83,30 +83,29 @@ export interface AnalyticsSeam {
  * emitted on every request whether or not anything matched, because an event
  * emitted only on a match — or one carrying the group it matched — would be the
  * enumeration oracle the 202 exists to close.
+ *
+ * `#109` is CLOSED in the half a server can honestly measure, and the SPLIT is
+ * the part worth recording. What supplied its three server-side types was the
+ * CLAIM ROW — a started attempt, a completed claim and a contest each produce a
+ * stable row id and a checkout group id, so the funnel is countable without the
+ * claiming account's email, the losing claimant's identity or a portal
+ * credential ever reaching a column. Identity rule 5 held for free rather than
+ * by care: `analytics_events` has an insert and two reads and no update path at
+ * all, so "retroactively absorb unrelated guest activity" has no statement to be
+ * performed by, and `buyer_origin` on every already-stored event stays `guest`
+ * because the column is written once — the same guarantee ADR 0003 D6's trigger
+ * gives the order itself.
+ *
+ * Its other two types moved to #111 rather than being emitted approximately.
+ * An OFFER is a screen having been shown and a DECLINE is somebody navigating
+ * away; the server sees neither, and the nearest server-side substitutes — a
+ * preview read and a claim that never arrived — are not the same facts. That is
+ * the same refusal #77's own header describes, applied by the issue that would
+ * have benefited most from cheating: `oxy_claim_funnel`'s numerator computes
+ * today and its denominator does not, which is visible on the dashboard as a
+ * seam rather than as a rate.
  */
 export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
-  {
-    issue: '#109',
-    capability: 'Claiming a guest checkout into an Oxy account',
-    eventTypes: [
-      'guest_claim_offered',
-      'guest_claim_started',
-      'guest_claim_completed',
-      'guest_claim_declined',
-      'guest_claim_conflicted',
-    ],
-    metricKeys: ['oxy_claim_funnel'],
-    contract:
-      'Identity rule 5 is the hard one and it is a rule about what NOT to write. A completed ' +
-      'claim may connect that exact checkout group’s FUTURE account-owned events to the Oxy ' +
-      'user; it may not rewrite a single stored row. There is deliberately no update path in ' +
-      'db/analytics/eventRepository.ts — the table has an insert and two reads — so ' +
-      '"retroactively absorb unrelated guest activity" has no statement to be performed by. ' +
-      'A DECLINE is a normal outcome (rule 6) and is emitted as one, not as a surface_error. ' +
-      'And `buyer_origin` on every already-stored event stays `guest`, because the column is ' +
-      'written once and never updated — which is the same guarantee ADR 0003 D6’s trigger gives ' +
-      'the order.',
-  },
   {
     issue: '#110',
     capability: 'Guest cancellations, returns and support requests',
@@ -133,8 +132,10 @@ export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
       'guest_payment_action_required',
       'guest_payment_client_failed',
       'guest_payment_verified',
+      'guest_claim_offered',
+      'guest_claim_declined',
     ],
-    metricKeys: [],
+    metricKeys: ['oxy_claim_funnel'],
     contract:
       'ADR 0003 I12 assigns #111 the job of documenting each guest metric’s dimension before it ' +
       'ships. This domain has already chosen conservatively — actor KIND plus, for the funnel ' +
@@ -161,7 +162,16 @@ export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
       'is on the server-only side of ANALYTICS_CLIENT_EMITTABLE_EVENT_TYPES and the ingest ' +
       'endpoint refuses it. No card brand, no last four, no Stripe Customer id, no wallet ' +
       'identity — none of them has a column, and adding one fails ' +
-      'analytics-forbidden-columns.test.ts.',
+      'analytics-forbidden-columns.test.ts. ' +
+      'The two CLAIM types arrived here from #109 for the same reason the four client payment ' +
+      'ones did, and they are the sharper case because a server-side substitute exists and is ' +
+      'wrong: `guest_claim_offered` must come from the review screen RENDERING, never from the ' +
+      'preview endpoint being read (a client can poll it, and a claim made from a link the ' +
+      'buyer never looked at would still count an offer), and `guest_claim_declined` must come ' +
+      'from an explicit dismissal, never from "a preview was read and no claim followed" — the ' +
+      'server cannot tell that from a lost connection. Until both land, `oxy_claim_funnel` has ' +
+      'a live numerator and no denominator, which is what its `seam` field says on the ' +
+      'dashboard.',
   },
   {
     issue: '#74',

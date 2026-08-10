@@ -32,7 +32,22 @@ export const queryKeys = {
     status: (checkoutGroupId: string) =>
       ["guest-portal", "status", checkoutGroupId] as const,
   },
+  /**
+   * Claiming a guest checkout group into an Oxy account (#109).
+   *
+   * Its own namespace beside `guestPortal` rather than a key inside it, for the
+   * reason the two credential stores are separate: a claim REMOVES the portal
+   * session, so a successful claim clears both — and one shared namespace would
+   * make "forget the portal" and "forget the claim preview" the same call, when
+   * only the first is true on a sign-out.
+   */
+  guestClaim: {
+    all: ["guest-claim"] as const,
+    preview: (checkoutGroupId: string) =>
+      ["guest-claim", "preview", checkoutGroupId] as const,
+  },
   orders: {
+    all: ["orders"] as const,
     list: (page: number) => ["orders", "list", page] as const,
     detail: (id: string) => ["orders", "detail", id] as const,
   },

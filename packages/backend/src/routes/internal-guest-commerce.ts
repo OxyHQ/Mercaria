@@ -44,6 +44,13 @@ import {
   revokeGuestGroupAccessHandler,
   traceGuestPortalHandler,
 } from '../controllers/guest-portal-operator.controller.js';
+import {
+  approveClaimRevocationHandler,
+  guestClaimConsistencyHandler,
+  requestClaimRevocationHandler,
+  traceGuestClaimsHandler,
+  withdrawClaimRevocationHandler,
+} from '../controllers/guest-claim-operator.controller.js';
 
 const router = Router();
 
@@ -70,5 +77,29 @@ router.post(
   resendGuestAccessLinkHandler,
 );
 router.post('/portal/checkouts/:checkoutGroupId/revoke-access', revokeGuestGroupAccessHandler);
+
+/**
+ * The CLAIM half (#109). Two reads and three writes, and the three writes are
+ * three STEPS of one capability — detaching a claim — rather than three
+ * capabilities.
+ *
+ * There is deliberately no "claim this group for account X" and no "move this
+ * group to another account". #109 reject rule 7 says an operator typing an Oxy
+ * user id is not a proof, and revocation rule 1 forbids moving a claimed
+ * checkout between accounts self-service; permitting an operator to do it in
+ * one step would defeat both. A correction is a DETACH, after which the
+ * rightful buyer claims through the ordinary two-sided proof from their own
+ * inbox — which is the only path in the system that can establish who they are.
+ *
+ * `/claims/consistency` is registered BEFORE `/claims/checkouts/:id` because
+ * Express matches in order, and it is a distinct path segment rather than a
+ * parameter for the same reason: a group id that happened to read
+ * `consistency` must not reach a different handler.
+ */
+router.get('/claims/consistency', guestClaimConsistencyHandler);
+router.get('/claims/checkouts/:checkoutGroupId', traceGuestClaimsHandler);
+router.post('/claims/:claimId/revocations', requestClaimRevocationHandler);
+router.post('/claim-revocations/:revocationId/approve', approveClaimRevocationHandler);
+router.post('/claim-revocations/:revocationId/withdraw', withdrawClaimRevocationHandler);
 
 export default router;

@@ -31,6 +31,11 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   // 403, not 503: this deployment does not do guest carts at all, so retrying
   // never helps. The client's correct response is to offer sign-in (#104).
   [ErrorCodes.GUEST_CART_DISABLED]: 403,
+  // 403, matching `GUEST_CART_DISABLED` rather than the 503 above: claiming is
+  // switched off for this deployment, so retrying later is not the client's
+  // correct behaviour — hiding the offer is. The buyer's ORDER is unaffected
+  // either way, which is what the message says (#109).
+  [ErrorCodes.GUEST_CLAIM_DISABLED]: 403,
 };
 
 export interface MercariaErrorParams {
