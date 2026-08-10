@@ -11,6 +11,7 @@ a report at all when a floor it cannot vouch for goes unmet — see
 | [`plans-medium-before.md`](./plans-medium-before.md) | Generated report, `medium` scale, **before** #61's indexes. |
 | [`plans-medium.md`](./plans-medium.md) | Generated report, `medium` scale, **after**. Same dataset, not re-seeded. |
 | [`plans-small.md`](./plans-small.md) | Generated report, `small` scale, after. |
+| [`plans-search-small.md`](./plans-search-small.md) | Generated report, `small` scale, with **#70's nine search shapes** (Q16–Q24). Same harness, same workload table; `docs/search.md` carries the decisions it justified. |
 
 ## Running it
 

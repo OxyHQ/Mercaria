@@ -32,6 +32,7 @@
 
 import {
   rollUpOfferAvailability,
+  type Offer,
   type OfferAvailability,
   type OfferMoney,
   type ProductOfferSummary,
@@ -51,8 +52,14 @@ import { projectOffer } from '../offers/offer-projection.js';
  * therefore reported as "of the offers examined" and the doc says so; a product
  * with more current offers than this is one whose exact count nobody is
  * deciding anything from.
+ *
+ * EXPORTED for #70, which summarises a whole page of products in one batched
+ * read rather than one product at a time. The depth has to be the same number
+ * or a product's summary would say one thing on a search page and another on
+ * its own page — two answers to `currentOfferCount` differing by a limit
+ * nobody can see.
  */
-const SUMMARY_OFFER_LIMIT = 200;
+export const SUMMARY_OFFER_LIMIT = 200;
 
 /**
  * Summarise the offers a comparison surface would currently show for one
@@ -78,9 +85,43 @@ export async function readProductOfferSummary(
   });
 
   const context = await buildOfferProjectionContext(rows, now, db);
-  const current = rows
-    .map((row) => projectOffer(row.offer, row.storefrontOperatorMerchantId, context))
-    .filter((offer) => offer.freshness.level === 'current' || offer.freshness.level === 'warning');
+  return summariseProjectedOffers(
+    input.canonicalProductId,
+    rows.map((row) => projectOffer(row.offer, row.storefrontOperatorMerchantId, context)),
+  );
+}
+
+/**
+ * Whether a projected offer is CURRENT enough to appear in a summary.
+ *
+ * Exported because #70's batched path filters before it groups by product, and
+ * a second spelling of "current" is exactly how a search page and a product
+ * page start disagreeing about whether something is on sale.
+ */
+export function isCurrentForSummary(offer: Offer): boolean {
+  return offer.freshness.level === 'current' || offer.freshness.level === 'warning';
+}
+
+/**
+ * The summary derivation itself — PURE, over offers already projected.
+ *
+ * Split out of {@link readProductOfferSummary} for #70, which fetches the
+ * cheapest offers of a WHOLE PAGE of products in one statement and cannot call
+ * the per-product reader without turning a search page into forty round trips
+ * (the N+1 #70's performance section forbids by name). The two paths differ in
+ * how they FETCH and share this, so the answer cannot depend on which one
+ * asked.
+ *
+ * The offers must arrive CHEAPEST FIRST, which is the order both fetchers use:
+ * the lowest price is taken as the first PRICED offer rather than by comparing
+ * integers, because comparing a 1,199 EUR offer against a 4,500 PLN one by
+ * their minor units answers with whichever currency has the smaller unit.
+ */
+export function summariseProjectedOffers(
+  canonicalProductId: string,
+  projected: readonly Offer[],
+): ProductOfferSummary {
+  const current = projected.filter(isCurrentForSummary);
 
   const availabilities: OfferAvailability[] = current.map((offer) => offer.availability);
   let lowestPrice: OfferMoney | undefined;
@@ -90,12 +131,6 @@ export async function readProductOfferSummary(
 
   for (const offer of current) {
     if (offer.freshness.level === 'warning') warningOfferCount += 1;
-
-    // The cheapest is taken WITHIN a currency: comparing a 1,199 EUR offer
-    // against a 4,500 PLN one by their integer amounts would answer with
-    // whichever currency has the smaller unit. The list is already ordered
-    // cheapest-first by the repository, so the first PRICED offer is the
-    // cheapest in the ordering the page itself uses.
     if (lowestPrice === undefined && offer.price !== undefined) lowestPrice = offer.price;
 
     const observedAt = offer.freshness.observedAt;
@@ -104,7 +139,7 @@ export async function readProductOfferSummary(
   }
 
   return {
-    canonicalProductId: input.canonicalProductId,
+    canonicalProductId,
     currentOfferCount: current.length,
     availability: rollUpOfferAvailability(availabilities),
     ...(lowestPrice === undefined ? {} : { lowestPrice }),

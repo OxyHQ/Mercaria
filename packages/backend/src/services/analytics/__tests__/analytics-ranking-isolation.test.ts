@@ -63,6 +63,18 @@ const RANKING_PATHS = [
   'services/ranking/comparison.service.ts',
   'controllers/offer-comparison.controller.ts',
   'routes/offer-comparison.ts',
+  // #70's canonical discovery path. The controller is the ONE module here that
+  // may reach an analytics module at all, and it may reach exactly the two
+  // seams below — a search that could read `readTopQueries` would be ranking by
+  // what everybody else searched for, which is measured popularity by another
+  // name.
+  'services/search/canonical-search.service.ts',
+  'services/search/relevance.ts',
+  'services/search/offer-context.ts',
+  'controllers/search.controller.ts',
+  'routes/search.ts',
+  'db/search/searchCandidateRepository.ts',
+  'db/search/searchOfferRepository.ts',
 ];
 
 /**

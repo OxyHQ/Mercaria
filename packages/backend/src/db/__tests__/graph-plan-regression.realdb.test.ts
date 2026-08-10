@@ -278,6 +278,63 @@ describe('canonical graph query plans', () => {
     expect(analysis.nodeTypes).not.toContain('Sort');
   });
 
+  it("#70's narrow candidate reader still orders by DISTANCE, not by similarity", async () => {
+    // Q21 is Q10's twin with a two-column projection, and it inherits Q10's
+    // trap exactly: `ORDER BY similarity(...) DESC` returns the same rows in
+    // the same order and can be served by NO index, which cost 6.6x when #61
+    // measured it. A future reader "tidying" `<->` back into a `similarity`
+    // call compiles, passes every other check, and is invisible without this.
+    const statement = await captureShapeStatement('Q21');
+    expect(
+      statement.text,
+      'the search candidate reader stopped spelling its ordering as a distance',
+    ).toContain('<->');
+  });
+
+  it("#70's page offer ranking reads a whole page's offers in ONE statement", async () => {
+    // The property that makes the N+1 #70's performance section forbids
+    // structurally impossible: twenty products produce ONE statement, not
+    // twenty. Asserted on what the reader SENT rather than on a latency, which
+    // on shared CI hardware is a flake generator.
+    const shape = WORKLOAD_SHAPES.find((candidate) => candidate.id === 'Q24');
+    expect(shape, 'Q24 is missing from the workload').toBeDefined();
+    if (!shape) return;
+    recording = true;
+    captured = [];
+    try {
+      await shape.run(db, graph);
+    } finally {
+      recording = false;
+    }
+    expect(captured).toHaveLength(1);
+  });
+
+  it("#70's token retrieval detects a dropped index — the search mutation self-test", async () => {
+    // The same shape as the brand-page self-test below, pointed at the index
+    // #70's token stage depends on: without
+    // `canonical_products_search_tokens_idx` the array-overlap predicate falls
+    // back to a heap scan of every canonical product.
+    const shape = WORKLOAD_SHAPES.find((candidate) => candidate.id === 'Q20');
+    expect(shape, 'Q20 is missing from the workload').toBeDefined();
+    if (!shape) return;
+
+    const statement = await captureShapeStatement('Q20');
+    const healthy = await explainOnPool(statement);
+    expect(findVacuityViolations('Q20', healthy, shape.expectation)).toEqual([]);
+
+    const mutated = await explainInRollback(
+      statement,
+      'drop index canonical_products_search_tokens_idx',
+    );
+    const violations = findVacuityViolations('Q20', mutated, shape.expectation);
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations.join('\n')).toMatch(/Q20/);
+
+    // And the index really is back — the rollback undid the drop.
+    const restored = await explainOnPool(statement);
+    expect(findVacuityViolations('Q20', restored, shape.expectation)).toEqual([]);
+  }, 120_000);
+
   it('the plan assertions actually detect — the mutation self-test', async () => {
     // Break the thing the gate guards and confirm the gate sees it: drop the
     // brand-page index inside a transaction, re-plan the brand page without it,

@@ -257,6 +257,11 @@ function aliasFor(productIndex: number): string {
   return `${syntheticWord(productIndex + 300_000, 3)} ${modelToken(productIndex)}`;
 }
 
+/** One merchant's name. The seed and #70's search shapes read this one function. */
+function merchantName(index: number): string {
+  return `${syntheticWord(index + 700_000, 2)} store`;
+}
+
 function productName(brandIndex: number, productIndex: number): string {
   return [
     syntheticWord(brandIndex, 3),
@@ -301,6 +306,15 @@ export interface SeededGraph {
   readonly knownProductName: string;
   readonly knownModelCode: string;
   readonly knownAlias: string;
+  /**
+   * The busiest merchant's own name — #70's merchant-search shapes' input.
+   *
+   * Derived from the SAME generator the seed writes with rather than
+   * transcribed, for the reason `workload.ts` calls real readers: a second
+   * spelling of a fixture drifts silently and the shape then measures a query
+   * that matches nothing, which reads exactly like a fast one.
+   */
+  readonly knownMerchantName: string;
   readonly matchPolicyVersionId: string;
   readonly backfillRunId: string;
   readonly market: string;
@@ -498,6 +512,7 @@ function buildSeedPlan(scale: BenchmarkScale): SeedPlan {
       // `normalized_alias` is `lower(btrim(alias))` and every word here is
       // already lowercase and untrimmed, so the two forms coincide.
       knownAlias: aliasFor(hottestProduct - (hottestProduct % 3)),
+      knownMerchantName: merchantName(0),
       matchPolicyVersionId: POLICY_VERSION_ID,
       backfillRunId: BACKFILL_RUN_ID,
       market: 'ES',
@@ -750,7 +765,7 @@ export async function seedGraph(
     Array.from({ length: scale.merchants }, (_, index) => ({
       id: `bx-merch-${String(index)}`,
       slug: `bench-merch-${String(index)}`,
-      name: `${syntheticWord(index + 700_000, 2)} store`,
+      name: merchantName(index),
     })),
     (batch) => db.insert(merchants).values([...batch]).then(() => undefined),
   );

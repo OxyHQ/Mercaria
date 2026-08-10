@@ -57,6 +57,8 @@ import productFamiliesRouter from './routes/product-families.js';
 import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
 import offersRouter from './routes/offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
+import searchRouter from './routes/search.js';
+import internalSearchRouter from './routes/internal-search.js';
 import internalCatalogConditionRouter from './routes/internal-catalog-condition.js';
 import catalogAttributesRouter from './routes/catalog-attributes.js';
 import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
@@ -355,6 +357,23 @@ export function createApp(): express.Express {
       offerComparisonRouter,
     );
   }
+  /**
+   * Canonical multi-entity product discovery (#70): products, brands, families,
+   * merchants and storefronts through ONE ordered result set, with offers
+   * attached as commercial context rather than as the search identity.
+   *
+   * Mounted UNCONDITIONALLY, and its rollout lever (`CANONICAL_SEARCH`, `off`
+   * by default) lives inside the handler rather than in
+   * `requireCanonicalReads` — `shadow` here means "compute the canonical answer
+   * AND the listing-first one and record the comparison", which a middleware
+   * that returns before the handler can never do. `off` and `shadow` are both a
+   * 404, so the visible behaviour matches every other gated canonical surface.
+   *
+   * `GET /listings?q=` — the listing-first search this replaces — is UNTOUCHED
+   * and keeps serving whatever this lever says, which is what makes #70
+   * acceptance 8's rollback one environment variable.
+   */
+  app.use('/search', searchRouter);
   // The versioned attribute registry and the constraint language (#94): public
   // definition/facet reads and the pre-flight validation both search and #95's
   // interpreter run against…
@@ -365,6 +384,10 @@ export function createApp(): express.Express {
   // graph. Separate routers because the three move at their own rates.
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/offers', internalOffersRouter);
+    // …and #70's, on the same list and mounted while the public search lever is
+    // off: the shadow evidence a rollout is judged on has to be readable during
+    // the incident that turned the surface off.
+    app.use('/internal/search', internalSearchRouter);
     app.use('/internal/catalog-attributes', internalCatalogAttributesRouter);
     // The condition taxonomy (#90): versioned source-label mappings, category
     // restrictions, and one listing's condition history. Same allow-list, same

@@ -43,6 +43,15 @@ const RANKING_PATHS = [
   'services/ranking/comparison.service.ts',
   'controllers/offer-comparison.controller.ts',
   'routes/offer-comparison.ts',
+  // #70's canonical discovery path. Added here as well as being covered by
+  // `search-relevance-isolation.test.ts`, which gates all SEVEN prohibited
+  // relevance inputs over the whole domain: this list is the one a reader looks
+  // at to answer "what ranks listings", and a canonical search absent from it
+  // would read as a surface nobody had considered.
+  'services/search/canonical-search.service.ts',
+  'services/search/relevance.ts',
+  'services/search/offer-context.ts',
+  'controllers/search.controller.ts',
 ];
 
 /**

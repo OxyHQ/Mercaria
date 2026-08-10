@@ -45,6 +45,18 @@ import { findCurrentRelationships } from '../../db/commerce-graph/relationshipRe
 import { listPendingMatchReviews } from '../../db/matching/matchDecisionRepository.js';
 import { listBackfillRecordsForRun } from '../../db/backfill/backfillRecordRepository.js';
 import { searchListingsPage } from '../../db/catalog/listingRepository.js';
+import {
+  findIdentifierOwners,
+  findProductAliasCandidates,
+  findProductIdsByDiscriminatingTokens,
+  findProductIdsByNamePrefix,
+  findProductIdsByNormalizedName,
+  searchMerchantIdsByLexicalRank,
+  searchProductIdsByLexicalRank,
+  searchProductIdsByNameSimilarity,
+} from '../../db/search/searchCandidateRepository.js';
+import { rankProductOfferIds } from '../../db/search/searchOfferRepository.js';
+import { escapeLikePattern } from '../search/normalize.js';
 import { offers } from '../../db/schema/offers.js';
 import { canonicalVariants } from '../../db/schema/canonicalCatalog.js';
 import type { SeededGraph } from './dataset.js';
@@ -284,6 +296,163 @@ export const WORKLOAD_SHAPES: readonly WorkloadShape[] = [
         PAGE,
         db,
       ),
+  },
+  /* -- #70's canonical search: the six query classes the issue names --------- */
+  {
+    id: 'Q16',
+    workloadItem: 10,
+    title: 'Search — exact canonical name (#70 query class 3)',
+    reader: 'db/search/searchCandidateRepository.ts::findProductIdsByNormalizedName',
+    /**
+     * The requirement is "an index", not a NAMED index, and that is a
+     * measurement rather than a hedge.
+     *
+     * TWO indexes legitimately serve an equality on `normalized_name` — the
+     * plain btree #56 built and, on PostgreSQL 17, the GiST trigram index #61
+     * added beside it (`pg_trgm` supports `=`). Measured at the `ci` scale the
+     * planner chose the GiST one; which it prefers is a statistics decision and
+     * pinning either answer would fail the build on the scale that disagrees.
+     * What must not regress is the sequential scan, and that is what is pinned.
+     */
+    expectation: { minRowsReturned: 1, forbidNodeTypes: ['Seq Scan'] },
+    run: (db, graph) => findProductIdsByNormalizedName(db, graph.knownProductName, 60),
+  },
+  {
+    id: 'Q17',
+    workloadItem: 10,
+    title: 'Search — exact alias, with the alias KIND the ranking reads',
+    reader: 'db/search/searchCandidateRepository.ts::findProductAliasCandidates',
+    expectation: {
+      minRowsReturned: 1,
+      requireIndexes: ['canonical_product_aliases_alias_idx'],
+      forbidNodeTypes: ['Seq Scan'],
+    },
+    run: (db, graph) => findProductAliasCandidates(db, graph.knownAlias, 60),
+  },
+  {
+    id: 'Q18',
+    workloadItem: 10,
+    title: 'Search — name PREFIX, served by the trigram GIN (#70 candidate technique 3)',
+    reader: 'db/search/searchCandidateRepository.ts::findProductIdsByNamePrefix',
+    /**
+     * NO index requirement, for Q10's reason and one more.
+     *
+     * `pg_trgm`'s GIN serves `LIKE 'abc%'`, which is why #56's GIN was worth
+     * keeping when #61 added the GiST beside it — but whether the planner
+     * PREFERS it to a heap scan is a selectivity question, and at the `ci`
+     * scale a four-thousand-row table can legitimately go either way. Pinning
+     * an answer here would turn a scale-dependent fact into a failing build on
+     * the scale that disagrees, which is the gate-that-cries-wolf failure.
+     */
+    expectation: { minRowsReturned: 1 },
+    run: (db, graph) =>
+      findProductIdsByNamePrefix(db, escapeLikePattern(graph.knownProductName.slice(0, 8)), 60),
+  },
+  {
+    id: 'Q19',
+    workloadItem: 10,
+    title: 'Search — full-text lexical query over the product vector (#70 class 3)',
+    reader: 'db/search/searchCandidateRepository.ts::searchProductIdsByLexicalRank',
+    expectation: {
+      minRowsReturned: 1,
+      requireIndexes: ['canonical_products_search_vector_idx'],
+      forbidNodeTypes: ['Seq Scan'],
+    },
+    run: (db, graph) => searchProductIdsByLexicalRank(db, graph.knownProductName, 60),
+  },
+  {
+    id: 'Q20',
+    workloadItem: 10,
+    title: 'Search — discriminating-token overlap (#70 class 2, brand plus model)',
+    reader: 'db/search/searchCandidateRepository.ts::findProductIdsByDiscriminatingTokens',
+    expectation: {
+      minRowsReturned: 1,
+      requireIndexes: ['canonical_products_search_tokens_idx'],
+      forbidNodeTypes: ['Seq Scan'],
+    },
+    run: (db, graph) => findProductIdsByDiscriminatingTokens(db, [graph.knownModelCode], 60),
+  },
+  {
+    id: 'Q21',
+    workloadItem: 10,
+    title: 'Search — typo/fuzzy candidates, NARROW projection (#70 class 6)',
+    reader: 'db/search/searchCandidateRepository.ts::searchProductIdsByNameSimilarity',
+    /**
+     * Q10's twin, projecting an id and a score instead of 26 columns.
+     *
+     * #61 measured Q10 at 16.6 ms and attributed the remainder to "heap access
+     * for 25 wide rows", handing the narrower candidate projection to #70. This
+     * is that projection, measured beside its parent so the difference is a
+     * number rather than a claim. Same expectation as Q10 and for the same
+     * reason: which access method wins is scale-dependent.
+     */
+    expectation: { minRowsReturned: 1 },
+    run: (db, graph) => searchProductIdsByNameSimilarity(db, graph.knownProductName, 25),
+  },
+  {
+    id: 'Q22',
+    workloadItem: 1,
+    title: 'Search — exact identifier, several schemes in ONE round trip (#70 class 1)',
+    reader: 'db/search/searchCandidateRepository.ts::findIdentifierOwners',
+    /**
+     * Also "an index" rather than a named one, for a different reason worth
+     * recording: this read is a DISJUNCTION — several (scheme, value) pairs OR
+     * a set of canonical GTIN values, because one query can be several
+     * identifiers at once — and Postgres answers it with a BitmapOr over
+     * `product_identifiers_scheme_value_idx` and
+     * `product_identifiers_canonical_value_idx` rather than through the
+     * collision gate's partial unique that `findActiveCanonicalOwner` (Q02)
+     * uses for its single-value form. Both are indexed; the choice is the
+     * planner's, and forbidding the scan is the property that matters.
+     */
+    expectation: { minRowsReturned: 1, forbidNodeTypes: ['Seq Scan'] },
+    run: (db, graph) =>
+      findIdentifierOwners(
+        db,
+        [{ scheme: 'ean', normalizedValue: graph.knownGtin }],
+        [graph.knownGtinCanonical],
+      ),
+  },
+  {
+    id: 'Q23',
+    workloadItem: 8,
+    title: 'Search — merchant by name (#70 query class 5)',
+    reader: 'db/search/searchCandidateRepository.ts::searchMerchantIdsByLexicalRank',
+    /**
+     * NO index requirement, and this one is a DECISION rather than a
+     * scale caveat: `merchants` is a dimension table (120 rows at `ci`, 600 at
+     * `medium`, 2,000 at `large`) and #61's rule is not to add an index a
+     * measured read does not justify. The shape is here so the claim "a scan of
+     * a two-thousand-row table is cheap enough" carries a number, and so the
+     * row count at which it stops being true becomes visible.
+     */
+    expectation: { minRowsReturned: 1 },
+    run: (db, graph) => searchMerchantIdsByLexicalRank(db, graph.knownMerchantName, 60),
+  },
+  {
+    id: 'Q24',
+    workloadItem: 14,
+    title: 'Search — the PAGE offer ranking: cheapest offers of twenty products at once',
+    reader: 'db/search/searchOfferRepository.ts::rankProductOfferIds',
+    /**
+     * The shape that makes a search page's offer read bounded, and the one #70
+     * would have paid an N+1 for.
+     *
+     * NO forbidden node type: the window function's partition spans a product's
+     * variants, so a Sort survives by construction — #61 recorded exactly that
+     * for Q15 (2,482 rows scanned for 20, accepted at 3 ms) and this is the
+     * same amplification multiplied by the page width. It is the shape to watch
+     * as fan-out grows, and it is the one a "cheapest offer per product"
+     * projection would fix if one is ever justified.
+     */
+    expectation: { minRowsReturned: 1 },
+    run: (db) =>
+      rankProductOfferIds(db, {
+        canonicalProductIds: Array.from({ length: PAGE }, (_, index) => `bx-prod-${String(index)}`),
+        limitPerProduct: 200,
+        scope: {},
+        now: new Date('2026-01-01T00:00:00.000Z'),
+      }),
   },
   {
     id: 'Q15',
