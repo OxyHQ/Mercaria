@@ -169,7 +169,11 @@ async function mintBrand(label: string): Promise<string> {
 }
 
 /** A canonical product plus one variant — the grain every offer attaches to. */
-async function mintCanonicalVariant(label: string, brandId?: string): Promise<{
+async function mintCanonicalVariant(
+  label: string,
+  brandId?: string,
+  status: 'active' | 'draft' = 'active',
+): Promise<{
   productId: string;
   variantId: string;
 }> {
@@ -179,7 +183,7 @@ async function mintCanonicalVariant(label: string, brandId?: string): Promise<{
       name: `MP canonical ${label} ${RUN}`,
       normalizedName: `mp canonical ${label} ${RUN}`,
       slug: `mp-canonical-${label}-${RUN}`,
-      status: 'active',
+      status,
       ...(brandId === undefined ? {} : { brandId }),
     })
     .returning({ id: canonicalProducts.id });
@@ -587,6 +591,22 @@ describe('filters return only eligible current offers', () => {
     });
     expect(filteredPage.entries).toEqual([]);
     expect(filteredPage.emptyReason).toBe('filtered_out');
+  });
+
+  it('reports a merchant whose only products are DRAFT as having no offers', async () => {
+    // The fixture that exercises the distinction the always-taken
+    // canonical-product join exists to make. #60's backfill mints provisional
+    // products in `draft` and promoting one is #59's decision, so a merchant
+    // whose offers all point at drafts has nothing BROWSABLE — and a count that
+    // skipped the join would see the offers, find the page empty and report
+    // `filtered_out` when nothing was filtered.
+    const merchantId = await mintMerchant('draftonly');
+    const { variantId } = await mintCanonicalVariant('draftonly', undefined, 'draft');
+    await mintOffer({ canonicalVariantId: variantId, merchantId });
+
+    const page = await getMerchantCatalog({ merchantId, scope: { kind: 'merchant' }, limit: 24 });
+    expect(page.entries).toEqual([]);
+    expect(page.emptyReason).toBe('no_offers');
   });
 
   it('scopes a browse to one channel', async () => {

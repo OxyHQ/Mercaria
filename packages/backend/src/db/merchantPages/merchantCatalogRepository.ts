@@ -130,11 +130,6 @@ function scopePredicates(input: {
   return predicates;
 }
 
-/** Whether a filter set needs the canonical-product join at all. */
-function needsProductJoin(filters?: MerchantCatalogFilters): boolean {
-  return filters?.brandId !== undefined || filters?.categoryId !== undefined;
-}
-
 /* -------------------------------------------------------------------------- */
 /*  The census                                                                  */
 /* -------------------------------------------------------------------------- */
@@ -214,6 +209,16 @@ export async function countMerchantOfferCensus(
  * without a second query per case: zero active means the merchant has nothing;
  * active but nothing current means every source has gone quiet; both non-zero
  * with an empty page means the filters excluded it.
+ *
+ * The canonical-product join is ALWAYS taken, even with no brand or category
+ * filter, and that is the difference between an honest answer and a plausible
+ * one. `listMerchantCatalogProductIds` only ever browses `active` and
+ * `discontinued` products, so a merchant whose offers all point at `draft`
+ * mints (#60's backfill) or at merged tombstones has nothing browsable — and a
+ * count taken without the join would report those offers as present and the
+ * page would say `filtered_out` when nothing was filtered. An offer's
+ * `canonical_variant_id` is NOT NULL, so the join drops a row for exactly one
+ * reason: the product is not browsable.
  */
 export async function countScopedOffers(
   db: DatabaseOrTransaction,
@@ -224,13 +229,6 @@ export async function countScopedOffers(
     now: Date;
   },
 ): Promise<{ active: number; current: number }> {
-  const base = db
-    .select({
-      active: sql<number>`count(*)::int`,
-      current: sql<number>`count(*) filter (where ${offers.staleAt} > ${input.now.toISOString()}::timestamptz)::int`,
-    })
-    .from(offers);
-
   const predicates = scopePredicates({
     merchantId: input.merchantId,
     scope: input.scope,
@@ -239,12 +237,15 @@ export async function countScopedOffers(
     currentOnly: false,
   });
 
-  const rows = needsProductJoin(input.filters)
-    ? await base
-        .innerJoin(canonicalVariants, eq(canonicalVariants.id, offers.canonicalVariantId))
-        .innerJoin(canonicalProducts, eq(canonicalProducts.id, canonicalVariants.productId))
-        .where(and(...predicates, ...productPredicates(input.filters)))
-    : await base.where(and(...predicates));
+  const rows = await db
+    .select({
+      active: sql<number>`count(*)::int`,
+      current: sql<number>`count(*) filter (where ${offers.staleAt} > ${input.now.toISOString()}::timestamptz)::int`,
+    })
+    .from(offers)
+    .innerJoin(canonicalVariants, eq(canonicalVariants.id, offers.canonicalVariantId))
+    .innerJoin(canonicalProducts, eq(canonicalProducts.id, canonicalVariants.productId))
+    .where(and(...predicates, ...productPredicates(input.filters)));
 
   const row = rows[0];
   return { active: row?.active ?? 0, current: row?.current ?? 0 };
