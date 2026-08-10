@@ -1713,6 +1713,34 @@ export interface CatalogIngestionConfig {
  * if it ever is. What lives here is the LOOP's shape: how often it polls, how
  * many tasks it claims, how long it holds a lease.
  */
+/**
+ * Offer ranking (#74).
+ *
+ * ONE lever, and it deliberately gates neither a durable record nor the
+ * comparison surface itself. Ranking is DERIVED at read time from offers this
+ * domain never writes, so the rollback acceptance 7 asks for is activating an
+ * earlier policy version — a row, not an environment variable. What an incident
+ * needs instead is a way to stop routing anybody to a canary WITHOUT editing the
+ * row, so the canary can be resumed once the cause is understood; that is this.
+ *
+ * There is deliberately no `RANKING_ENABLED`. Turning ranking off would leave
+ * the comparison surface with no defined order at all, and a deployment that has
+ * published no policy already has one — `BUILTIN_RANKING_POLICY`, a named
+ * version every impression records.
+ */
+export interface RankingConfig {
+  /**
+   * `RANKING_CANARY_ENABLED` — may a `canary` policy version serve anybody.
+   *
+   * Defaults TRUE, which is not a rollout decision: a canary exists only because
+   * an operator created one, and requiring a second switch to make their own
+   * creation take effect is the half-configuration trap this codebase refuses
+   * elsewhere. Setting it false pins every comparison to the active arm and
+   * leaves the canary row exactly as it was.
+   */
+  readonly canaryEnabled: boolean;
+}
+
 export interface OfferFreshnessConfig {
   /** `OFFER_REFRESH_ENABLED` — does the refresh dispatcher run. Gates the LOOP only. */
   readonly refreshEnabled: boolean;
@@ -2351,6 +2379,7 @@ export interface AppConfig {
   readonly matching: MatchingConfig;
   readonly catalogIngestion: CatalogIngestionConfig;
   readonly offerFreshness: OfferFreshnessConfig;
+  readonly ranking: RankingConfig;
   readonly feedImport: FeedImportConfig;
   readonly ebay: EbayConfig;
   readonly awin: AwinConfig;
@@ -2461,6 +2490,9 @@ export const config: AppConfig = Object.freeze({
     maxBackoffMs: intEnv('CATALOG_INGESTION_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
     retirementBatchSize: intEnv('CATALOG_INGESTION_RETIREMENT_BATCH_SIZE', 500),
     anomalyPriceFactor: intEnv('CATALOG_INGESTION_ANOMALY_PRICE_FACTOR', 20),
+  }),
+  ranking: Object.freeze({
+    canaryEnabled: boolEnv('RANKING_CANARY_ENABLED', true),
   }),
   offerFreshness: Object.freeze({
     refreshEnabled: boolEnv('OFFER_REFRESH_ENABLED', false),

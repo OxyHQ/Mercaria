@@ -3793,3 +3793,64 @@ Three tables — `guest_order_claims`, `guest_order_claim_revocations`,
   correcting that; a retention shorter than the orders would answer the only
   question either exists for with silence — the reasoning that keeps
   `guest_portal_operator_actions` unswept.
+## The ranking policy register (#74)
+
+ONE table in `ranking.ts` — `ranking_policy_versions` — and it references
+NOTHING: not an offer, not a merchant, not a source. That independence IS the
+domain's shape. A policy version says how to ORDER offers and never which ones
+exist, so nothing it holds can outlive or constrain a catalogue row, and a
+rollback is a status change rather than a data migration. Full behaviour:
+`docs/offer-ranking.md`.
+
+- **The weights are COLUMNS, one per allowed signal, and that is the
+  prohibition.** `match_policy_versions` is the precedent — a closed set of
+  features, one column each — and here it does a second job.
+  `OFFER_FORBIDDEN_RANKING_SIGNALS` names eleven things that may never influence
+  organic rank, and the strongest possible statement of that is not a CHECK: it
+  is that **no column exists to hold one**. There is no
+  `weight_affiliate_commission`, no `weight_plan`, no `weight_fair`, no
+  `weight_native`. A `jsonb` weight bag would have undone all of it in one line,
+  which is why there is not one — `analytics_events`' reasoning, applied to a
+  policy. A gate asserts the weight-column count EQUALS the allowed-signal count,
+  so a forbidden weight cannot be added and an allowed signal cannot be silently
+  left unweighted.
+- **Immutable once it has SERVED TRAFFIC, not once it is published.** The
+  `mercaria_ranking_policy_version_immutable` trigger returns early only while
+  the row is `draft`; from `canary` onward every column that decides an order is
+  frozen. That is what makes "the same eligible input produces the same order for
+  one policy version" a property of the data.
+- **`canary_share_bps` is the ONE column a serving version may still move**, and
+  it is named in the trigger rather than left out of it. A ramp is a rollout
+  control and not a policy term: the share decides WHICH comparison subjects are
+  routed to the version and never what order any of them gets, and because the
+  bucket is a hash of the subject compared against the share, raising it only
+  ADDS subjects. Freezing it would make every ramp step a new version, and a
+  version per ramp step makes the impression log unreadable. `description` is
+  frozen despite not being economic — it is what an operator reads when deciding
+  whether to roll back.
+- **TWO partial uniques, because a rollout has exactly two arms.**
+  `one_active_per_key` and `one_canary_per_key`. Activation must therefore
+  SUPERSEDE, which is why `activateRankingPolicyVersion` runs the supersede FIRST
+  inside one transaction — reversing the order makes every activation fail
+  against the index rather than being a style preference.
+- **`cardinality(...) >= 1`, never `array_length(...) >= 1`, on both metric
+  lists.** `array_length` of an empty array is NULL and a CHECK rejects only
+  FALSE, so the obvious spelling ADMITS exactly the row the constraint exists to
+  refuse. Measured against a real server here, as it was twice in #68. Both
+  columns are `NOT NULL DEFAULT '{}'`, so the predicate is never NULL for a
+  different reason.
+- **The metric keys are CHECK-contained against `ANALYTICS_METRIC_KEYS`** — the
+  same tuple `analytics_rollups.metric_key` reads — so a policy cannot be
+  evaluated against a number nobody has defined. Naming a metric is ALL this
+  domain does with one: it reads no measurement, which
+  `analytics-ranking-isolation.test.ts` enforces in both directions.
+- **`(status = 'canary') = (canary_share_bps > 0)` is a biconditional**, not two
+  one-way implications: a non-canary carrying a share would be a second answer to
+  "who is on the new policy", and a canary routing nothing is not a canary.
+- **No impression table, no evaluation table, no ranked-result cache.** An
+  impression is an `analytics_events` row carrying `ranking_policy_version`
+  (#77's seam, closed by this issue); a comparison between two versions is
+  computed live from ONE eligible set, which is what makes "canaried, compared
+  and rolled back without re-ingesting offers" true by construction; and a ranked
+  page is a projection #61 measured the alternative for and adopted no
+  materialized view.

@@ -69,6 +69,16 @@ const RANKING_PATHS = [
   'controllers/listings.controller.ts',
   'routes/feed.ts',
   'routes/listings.ts',
+  // The offer comparison (#74) — the surface that now decides which offers a
+  // shopper sees and in what order. It joined this list with the domain that
+  // created it, which is what these lists are for.
+  'services/ranking/eligibility.ts',
+  'services/ranking/ranking.ts',
+  'services/ranking/labels.ts',
+  'services/ranking/facts.ts',
+  'services/ranking/comparison.service.ts',
+  'controllers/offer-comparison.controller.ts',
+  'routes/offer-comparison.ts',
 ];
 
 const CURATION_REFERENCE =

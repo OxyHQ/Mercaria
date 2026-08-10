@@ -237,3 +237,10 @@ export * from './awin';
 // rather than a data change. There is deliberately no carrier, package, label
 // or scan table here at all — Moovo owns those, and the absence is asserted.
 export * from './retailFulfilment';
+// The ranking policy register (#74) is the last export and references NOTHING —
+// not an offer, not a merchant, not a source. That independence IS the domain's
+// shape: a policy version says how to ORDER offers and never which ones exist,
+// so nothing it holds can outlive or constrain a catalogue row. Its one
+// cross-domain tie is a CHECK against #77's metric-key tuple, which is a
+// shared-types value rather than a table.
+export * from './ranking';

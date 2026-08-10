@@ -175,15 +175,24 @@ export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
   },
   {
     issue: '#74',
-    capability: 'Ranking policy versions',
+    capability: 'Ranking policy versions on an EXPERIMENT’s arm — the impression half has LANDED',
     eventTypes: [],
     metricKeys: [],
     contract:
-      'Every event and every search record carries `search_policy_version` and ' +
-      '`ranking_policy_version` columns that are NULL today because no policy version exists to ' +
-      'record. #74 supplies them; nothing here has to change but the value passed at the call ' +
-      'site. `analytics_experiments.ranking_policy_version` is the same seam for a ranking ' +
-      'experiment’s arm.',
+      'The impression half of this seam is CLOSED. #74 shipped versioned ranking policies and ' +
+      '`offer-comparison.controller.ts` passes `rankingPolicyVersion` on every `offer_impression` ' +
+      'it emits, so a measured result can be attributed to the policy that produced it — and ' +
+      'exactly as this contract predicted, nothing in this domain changed but the value passed at ' +
+      'the call site. A deployment that has published no policy records the BUILT-IN version ' +
+      '(`builtin-…`), which is a real version an operator can look up rather than a NULL that ' +
+      'reads as "unranked". `/offers` (#57) deliberately still passes none: it serves a plain ' +
+      'cheapest-first SQL order under no policy at all, and stamping a version on it would ' +
+      'attribute that ordering to weights it never consulted. ' +
+      'What REMAINS is `analytics_experiments.ranking_policy_version`, the arm of a ranking ' +
+      'EXPERIMENT, and it belongs to #111 rather than to #74: #74’s rollout is a canary over ' +
+      'comparison SUBJECTS (a canonical product or variant), deliberately carrying no actor, ' +
+      'session or device in its bucket preimage, so it is not an experiment over people and must ' +
+      'not be recorded as one. `search_policy_version` is #70’s and is untouched.',
   },
   {
     issue: '#37',
