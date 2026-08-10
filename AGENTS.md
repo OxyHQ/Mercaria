@@ -5060,3 +5060,123 @@ domain is a projection, the #92 shape taken for the #57 reason.
   refusal branch has no `url` property), **#74** (ranking — a scanned gate both
   ways), **#84** (the linkage flow; this page only READS `native_store_links`),
   **#71** (the product page a card links to).
+
+## Grounded comparison and multi-merchant basket optimization (#96)
+
+`services/comparison/` (18 modules) + `POST /comparison`,
+`POST /comparison/basket`, `POST /comparison/basket/revalidate`, plus
+`@mercaria/shared-types` `comparison-basket.ts`, `@mercaria/ui`'s
+`ComparisonTableView` / `ComparisonExplanationBlock` / `BasketPlanCard` and the
+storefront's `app/(app)/compare.tsx`. Full reference:
+**`docs/comparison-basket.md`**. **NO new tables and NO migration** — the
+snapshot is returned, never stored, because a stored plan served later is the
+stale plan UX rule 9 forbids.
+
+- **The DETERMINISTIC answer is computed first and unconditionally**, and a
+  provider's draft replaces it only after surviving every check. Written the
+  other way round the fallback is a `catch` block, and a `catch` block is
+  exercised by nothing — so acceptance 7 is the behaviour of every deployment
+  that has registered no provider, which today is all of them. The templates are
+  asserted to PASS the validator, so the two halves agree on what a grounded
+  sentence is.
+- **A model package carries no ids, and a citation is a per-comparison opaque
+  handle.** `ExplanationPackage` drops `recordId`, `canonicalPath` and every
+  host, so a generated sentence cannot contain one; and an invented handle
+  cannot accidentally resolve to a real record, which an invented id could.
+  **"Introduced a number" is decidable** — membership in the package's grounded
+  token set, extracted by the same function from the same rendered strings,
+  which is why `render.ts` is the one place a value is rendered.
+- **A refusal is TOTAL.** One ungrounded sentence rejects the whole draft;
+  stripping it would leave an argument resting on a claim that is gone and would
+  make the failure invisible.
+- **`not_comparable` is the DEFAULT direction, and that is rule 6 rather than a
+  gap.** The registry records what an attribute MEANS and never which direction
+  a shopper prefers, because that is a property of the CATEGORY. A direction is
+  declared per key in `policy.ts` with the reason it is category-independent
+  written down; everything else reports a DIFFERENCE with both values and no
+  better/worse claim. A range is never a tradeoff.
+- **`not_applicable` is a fourth cell state and never a flavour of unknown.**
+  "Nobody recorded this" invites a shopper to look; "this does not apply here"
+  tells them there is nothing to look for.
+- **The reclassification never touches the VERDICT.** `buildConstraintColumn`
+  moves only an `unknown` outcome; the verdict is #94's verbatim, so a hard
+  requirement it failed stays failed. Anything else is acceptance 5 relaxed
+  through a display concern.
+- **The basket is uncapacitated facility location with per-facility setup
+  costs** — NP-hard, and the per-line minimum is WRONG because per-merchant
+  delivery couples the lines. Exact by merchant-subset enumeration to
+  `MAX_SOLVER_MERCHANTS` (14), then a deterministic greedy; a candidate cap, a
+  merchant cap or the 750 ms budget each downgrades the answer to `approximate`
+  with its reason and a lower bound. **The candidate cap is checked FIRST** — an
+  exact search over a truncated set is an exact answer to the wrong question.
+- **A merchant serving several lines has an UNKNOWN delivery unless every one of
+  its offers quotes the same cost and the same free-over threshold.** Summing
+  per-offer costs overstates every merchant that combines shipping; taking the
+  max or the min invents a policy Mercaria has not observed. The threshold is
+  applied to that merchant's OWN item subtotal.
+- **`cheapest_known_total` is refused on every real basket today**, with
+  `tax_inclusion_unknown`: #74's `resolveOfferTaxInclusion` always answers
+  unknown, and a tax treatment nobody recorded is an unknown cost. That is
+  acceptance 4 working, not a gap — `cheapest_known_item_prices` is what a
+  shopper gets, under a name that says what it compared.
+- **Pruning never crosses a distinction bucket** (`merchant, condition, channel,
+  standing, delivery-known`), and `dominates` checks the bucket ITSELF rather
+  than trusting its caller, because it is exported. Inside a bucket there are
+  FOUR gated axes — item price, delivery, window, freshness — each "left may not
+  be worse", and only then "better on one". The count is stated because the
+  missing gate was item price: it appeared only in the better-on-one test, so a
+  cheaper DELIVERY let a dearer offer delete a cheaper one before the solver
+  ran, silently corrupting every objective.
+- **`maxMerchants` is SATISFIED on both paths, never just reported.** The exact
+  search enforces it by construction; the greedy path chooses merchants up front
+  with a deterministic greedy SET COVER (most lines covered, then cheaper total,
+  then key) and drops what will not fit into `unresolved` with
+  `merchant_limit_would_be_exceeded`. Returning an over-cap plan labelled
+  `approximate` says "could not prove optimal" where the truth is "ignored your
+  limit".
+- **Revalidation compares a TERMS fingerprint** — item price, delivery AND the
+  free-shipping threshold — because the figure a shopper reads for an incomplete
+  plan is "at least X, plus delivery from N merchants". `renderCandidateTerms`
+  and `toCandidate` in `basket/candidate-source.ts` are the ONE construction the
+  solve and the revalidation share, and that module is the ONE place FX rates
+  are resolved.
+- **The exact search's decoupling is a PREMISE, not a theorem**, and it holds
+  only because #74's tax-inclusion seam answers `unknown` — so no plan has a
+  known delivered total and the comparator collapses to the separable item
+  subtotal. A test fails the day the seam answers otherwise, because
+  `proven_optimal` printed beside a wrong answer is how an unrecomputed
+  assumption cashes out.
+- **A mixed plan is TWO transactions structurally**: `BasketPlanActions` has one
+  optional native cart action and a LIST of external merchants, and no member
+  that could mean "check this out". The external side hands over a HOST, never a
+  URL (#71's decision). Revalidation refuses on ANY price movement, downward
+  included — a cheaper basket is still a different basket.
+- Env: **none**. This domain owns no table, writes no row and runs no loop, so a
+  lever could only gate a read `CANONICAL_PUBLIC_ROUTES_ENABLED`,
+  `CANONICAL_OFFER_COMPARISON` and `PRICE_HISTORY_PUBLIC_READS_ENABLED` already
+  gate. There is no operator surface for the same reason: the response IS the
+  trace.
+- **#95's intent is CONSUMED through #94's language, with no adapter.**
+  `ShoppingInterpretation.constraints` IS a #94 `ConstraintSet`, and
+  `POST /comparison` validates it through #94's own validator — so the two meet
+  in `constraint.ts` and neither imports the other. `ValidatedConstraintSet`'s
+  brand is unforgeable, so a client cannot claim a set is pre-validated. The
+  BASKET takes its condition filter once at the REQUEST (#95 produces one per
+  query, not one per line); a line that names its own keeps them exactly — a
+  DEFAULT, never an intersection. `pruneBasketCandidates` is the ONE authority
+  for it, and `gatherCandidates`' narrowing of the #74 read is an optimisation
+  that may only ever be WIDER.
+- **#81's watchlist is CONSUMED, not ported around.** `POST /comparison/basket`
+  takes `lines` or a `watchlistId` and the second branch calls `readWatchlist`
+  directly — no port and no registry, because a fail-closed seam for a
+  dependency that is on `main` is a stub that lies. An `ambiguous_after_split`
+  item stays a LINE carrying `watchlist_item_unresolved` and contributes no
+  candidates: planning it would put the wrong product in a basket, and dropping
+  it would make a basket of four silently plan three and report success.
+- Seams, each failing closed: **#93** (`BasketPickupPreference` is a bare request
+  with no coordinates and no radius; `best_nearby_pickup` is refused whether or
+  not it was asked for), **an offer-side tax column**, **#37/#67** (a host, never
+  a composed URL), **an explanation PROVIDER** (nothing registers one), and
+  **#77** (no event is emitted — a comparison view is a fact only a browser
+  knows). #95 is consumed rather than
+  deferred — see above.
