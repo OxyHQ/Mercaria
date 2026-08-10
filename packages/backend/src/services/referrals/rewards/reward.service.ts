@@ -65,6 +65,8 @@ import {
   appendRewardAdjustment,
   findRewardById,
   findRewardByConversion,
+  lockCampaignCapWindow,
+  lockPartnerCapWindow,
   listRewardsForFundingRecord,
   sumCampaignAccruals,
   sumPartnerAccruals,
@@ -203,7 +205,6 @@ export async function accrueRewardForConversion(
 
     const realized = await resolveFundingAdapter(rule.fundingSourceId).realize({
       recordRef,
-      at: conversion.occurredAt,
       db: tx,
     });
     if (realized.outcome === 'unavailable') {
@@ -246,6 +247,13 @@ export async function accrueRewardForConversion(
           `pays a fixed ${String(computed)}`,
       );
     }
+
+    // Take the cap locks BEFORE either sum is read, and hold them to commit.
+    // Both, in this fixed order, in one place: a sum-then-insert is not a bound
+    // under READ COMMITTED, and two locks acquired in two orders by two callers
+    // is a deadlock. Uncapped rules take neither, so an ordinary accrual
+    // serializes against nothing.
+    await lockAccrualCapWindows(tx, { rule, partnerId: attribution.partnerId, currency });
 
     const partnerHeadroom = await resolvePartnerHeadroom(tx, {
       rule,
@@ -332,6 +340,34 @@ export async function accrueRewardForConversion(
     }
     return { outcome: 'accrued', reward: row, created };
   });
+}
+
+/**
+ * Take the advisory locks the rule's caps need, in ONE fixed order.
+ *
+ * The order is partner-then-campaign and is the only order any caller uses,
+ * which is what stops two accruals that each need both from deadlocking against
+ * each other. A rule with no cap of a kind takes no lock of that kind: an
+ * uncapped accrual must not queue behind an unrelated one.
+ *
+ * There is deliberately no lock for the `fixed_budget` claim beside these:
+ * `claimCampaignBudget` is already an atomic compare-and-swap on the budget ROW
+ * and needs none — and it runs strictly AFTER these, so the acquisition order
+ * across all three is fixed too.
+ */
+async function lockAccrualCapWindows(
+  db: DatabaseOrTransaction,
+  input: { rule: ReferralRewardRuleRow; partnerId: string; currency: CurrencyCode },
+): Promise<void> {
+  if (input.rule.maxRewardPerPartnerPeriodMinor !== null) {
+    await lockPartnerCapWindow(db, { partnerId: input.partnerId, currency: input.currency });
+  }
+  if (input.rule.maxRewardPerCampaignMinor !== null && input.rule.campaignRef !== null) {
+    await lockCampaignCapWindow(db, {
+      campaignRef: input.rule.campaignRef,
+      currency: input.currency,
+    });
+  }
 }
 
 /** What the per-partner period cap leaves, or `undefined` when the rule sets none. */
@@ -521,7 +557,6 @@ async function reverseRewardIn(
   if (outcome === 'recompute') {
     const realized = await resolveFundingAdapter(reward.fundingSourceId).realize({
       recordRef: reward.fundingRecordRef,
-      at: occurredAt,
       db: tx,
     });
     // An unavailable base is treated as ZERO here, and only here. Everywhere

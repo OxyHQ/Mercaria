@@ -1341,6 +1341,169 @@ describe('case 10: dispute / reversal', () => {
   });
 });
 
+describe('case 7 under CONCURRENCY: a cap bounds the total, not each accrual', () => {
+  /**
+   * The case the sequential cap test cannot reach.
+   *
+   * `sumPartnerAccruals` / `sumCampaignAccruals` are a READ followed by an
+   * INSERT, and this backend runs at Postgres's default READ COMMITTED with no
+   * isolation-level override anywhere. Two accruals for the SAME partner but
+   * DIFFERENT conversions therefore both see the other's row as absent — no row
+   * lock can help, because the row that would need locking does not exist yet.
+   * The result is a cap silently exceeded with no refusal recorded, which is
+   * exactly what #144 acceptance 7 forbids.
+   *
+   * `UNIQUE(conversion_id)` does NOT cover this: it converges two accruals of
+   * ONE conversion, and these are two.
+   *
+   * Repeated, because a race test that passes once has proven nothing — and
+   * with a FRESH partner per iteration, so an earlier iteration's accruals
+   * cannot be what exhausts the cap.
+   */
+  const ITERATIONS = 6;
+
+  it('never exceeds the per-partner cap, and the loser records a refusal', async () => {
+    const ruleId = `race-partner-${TAG}`;
+    const CAP = 1_000;
+    await makeActiveRule(ruleId, {
+      rateBps: 10_000,
+      maxRewardPerPartnerPeriodMinor: CAP,
+      partnerCapPeriod: 'lifetime',
+    });
+    const { programId, versionId } = await makeActiveProgram(ruleId);
+
+    for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
+      const partner = await makeApprovedPartner(`race-p${String(iteration)}`);
+      const code = await issueCode({ partnerId: partner.id, programId });
+      const conversions = await Promise.all(
+        [0, 1].map(async (index) =>
+          makeEligibleConversion({
+            programId,
+            programVersionId: versionId,
+            partnerId: partner.id,
+            codeId: code.id,
+            ruleVersionRef: `${ruleId}@v1`,
+            subjectRef: `buyer-race-p${String(iteration)}-${String(index)}-${TAG}`,
+            sourceRef: `order-race-p${String(iteration)}-${String(index)}-${TAG}`,
+          }),
+        ),
+      );
+      const payments = await Promise.all([
+        makePaymentWithCommission(CAP),
+        makePaymentWithCommission(CAP),
+      ]);
+
+      const outcomes = await Promise.all(
+        conversions.map(async (conversion, index) =>
+          accrueRewardForConversion({
+            conversionId: conversion.conversionId,
+            fundingRecordRef: payments[index],
+          }),
+        ),
+      );
+
+      const accrued = await db
+        .select()
+        .from(referralRewards)
+        .where(eq(referralRewards.partnerId, partner.id));
+      const total = accrued.reduce((sum, row) => sum + row.grossAmountMinor, 0);
+      expect(
+        total,
+        `iteration ${String(iteration)} paid ${String(total)} against a cap of ${String(CAP)}`,
+      ).toBeLessThanOrEqual(CAP);
+
+      // …and the money that was NOT paid was refused out loud. A cap that held
+      // by paying two rewards of half the size would satisfy the sum above and
+      // still be wrong: a percentage rule pays the rate or explains itself.
+      const refused = outcomes.filter((outcome) => outcome.outcome === 'refused');
+      expect(refused).toHaveLength(1);
+      expect(refused[0].outcome === 'refused' && refused[0].reason).toBe('cap_reached');
+      expect(accrued).toHaveLength(1);
+      expect(accrued[0].grossAmountMinor).toBe(CAP);
+    }
+  });
+
+  it('never exceeds the per-campaign cap under two partners at once', async () => {
+    // The campaign cap spans PARTNERS, so its race needs two of them — which is
+    // also why a lock keyed on the partner cannot serialize it and it needs its
+    // own key.
+    const ruleId = `race-campaign-${TAG}`;
+    const campaignRef = `campaign-race-${TAG}`;
+    const CAP = 1_000;
+    const { programId, versionId } = await makeActiveProgram(ruleId);
+    await makeActiveRule(ruleId, {
+      programId,
+      campaignRef,
+      rateBps: 10_000,
+      maxRewardPerCampaignMinor: CAP,
+    });
+
+    for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
+      // A fresh CAMPAIGN per iteration, because the cap is campaign-scoped and
+      // spans every rule version naming it.
+      const iterationCampaign = `${campaignRef}-${String(iteration)}`;
+      const iterationRuleId = `${ruleId}-${String(iteration)}`;
+      await makeActiveRule(iterationRuleId, {
+        programId,
+        campaignRef: iterationCampaign,
+        rateBps: 10_000,
+        maxRewardPerCampaignMinor: CAP,
+      });
+      const partners = await Promise.all([
+        makeApprovedPartner(`race-c${String(iteration)}a`),
+        makeApprovedPartner(`race-c${String(iteration)}b`),
+      ]);
+      const prepared = await Promise.all(
+        partners.map(async (partner, index) => {
+          const code = await issueCode({ partnerId: partner.id, programId });
+          const conversion = await makeEligibleConversion({
+            programId,
+            programVersionId: versionId,
+            partnerId: partner.id,
+            codeId: code.id,
+            ruleVersionRef: `${iterationRuleId}@v1`,
+            subjectRef: `buyer-race-c${String(iteration)}-${String(index)}-${TAG}`,
+            sourceRef: `order-race-c${String(iteration)}-${String(index)}-${TAG}`,
+          });
+          return {
+            conversionId: conversion.conversionId,
+            paymentId: await makePaymentWithCommission(CAP),
+          };
+        }),
+      );
+
+      const outcomes = await Promise.all(
+        prepared.map(async (entry) =>
+          accrueRewardForConversion({
+            conversionId: entry.conversionId,
+            fundingRecordRef: entry.paymentId,
+          }),
+        ),
+      );
+
+      const accrued = await db
+        .select()
+        .from(referralRewards)
+        .innerJoin(
+          referralRewardRules,
+          eq(referralRewardRules.id, referralRewards.ruleVersionId),
+        )
+        .where(eq(referralRewardRules.campaignRef, iterationCampaign));
+      const total = accrued.reduce(
+        (sum, row) => sum + row.referral_rewards.grossAmountMinor,
+        0,
+      );
+      expect(
+        total,
+        `iteration ${String(iteration)} paid ${String(total)} against a campaign cap of ${String(CAP)}`,
+      ).toBeLessThanOrEqual(CAP);
+      const refused = outcomes.filter((outcome) => outcome.outcome === 'refused');
+      expect(refused).toHaveLength(1);
+      expect(refused[0].outcome === 'refused' && refused[0].reason).toBe('cap_reached');
+    }
+  });
+});
+
 describe('case 11: idempotent duplicate conversion', () => {
   it('produces the SAME reward, and does not re-read a base that has moved', async () => {
     const ruleId = `c11-${TAG}`;

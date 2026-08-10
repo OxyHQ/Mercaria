@@ -50,19 +50,29 @@ import { findCampaignBudgetById } from '../../../db/referrals/campaignBudgetRepo
 import { readRealizedCommissionForPayment } from '../../../db/referrals/commissionBaseRepository.js';
 
 /**
- * What an adapter is asked. Deliberately narrow: a funding RECORD reference and
- * the instant the question is being asked as of.
+ * What an adapter is asked: a funding RECORD reference, and a handle.
  *
  * There is no order, no cart, no buyer, no basket total and no fee snapshot in
  * this type, which is what makes "a rule must never compute a percentage of
  * gross basket value" a property of the call graph rather than a rule somebody
  * has to remember at the one site that could break it.
+ *
+ * ## There is deliberately no "as of" instant
+ *
+ * An earlier draft carried one, and no adapter could honour it. The commission
+ * reader has no time bound and could not usefully take one: a charge's
+ * `commission_revenue` postings are written by the payment OUTBOX, strictly
+ * after the payment-success instant an accrual would pass, so bounding the read
+ * there would make every accrual read zero. The budget adapter has nothing
+ * temporal to bound at all. A parameter promising a guarantee nothing provides
+ * is the kind of comment that survives forever and is wrong, so it is gone —
+ * every adapter reads the record's state NOW, which is what all three callers
+ * actually want. #67/#89 add a temporal parameter WITH the code that honours it,
+ * if their bases turn out to need one.
  */
 export interface RealizeFundingInput {
   /** The funding record's own id: a payment id, a budget row id, a #67/#89 record. */
   recordRef: string;
-  /** The instant the base is being read as of — a conversion's own event time. */
-  at: Date;
   db: DatabaseOrTransaction;
 }
 
@@ -81,7 +91,6 @@ export interface ReferralFundingAdapter {
  */
 export type AffiliateCommissionReader = (input: {
   recordRef: string;
-  at: Date;
   db: DatabaseOrTransaction;
 }) => Promise<{ amountMinor: number; currency: CurrencyCode; version: string; observedAt: Date } | undefined>;
 
@@ -167,11 +176,7 @@ const affiliateAdapter: ReferralFundingAdapter = {
   sourceId: 'affiliate',
   async realize(input) {
     if (!affiliateReader) return { outcome: 'unavailable', reason: 'reader_not_registered' };
-    const reconciled = await affiliateReader({
-      recordRef: input.recordRef,
-      at: input.at,
-      db: input.db,
-    });
+    const reconciled = await affiliateReader({ recordRef: input.recordRef, db: input.db });
     if (!reconciled) return { outcome: 'unavailable', reason: 'not_yet_reconciled' };
     return {
       outcome: 'realized',
@@ -188,11 +193,7 @@ const subscriptionAdapter: ReferralFundingAdapter = {
   sourceId: 'subscription',
   async realize(input) {
     if (!subscriptionReader) return { outcome: 'unavailable', reason: 'reader_not_registered' };
-    const recognized = await subscriptionReader({
-      recordRef: input.recordRef,
-      at: input.at,
-      db: input.db,
-    });
+    const recognized = await subscriptionReader({ recordRef: input.recordRef, db: input.db });
     if (!recognized) return { outcome: 'unavailable', reason: 'not_yet_reconciled' };
     return {
       outcome: 'realized',

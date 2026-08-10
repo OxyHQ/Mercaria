@@ -186,6 +186,36 @@ The pipeline, and the order matters:
    the refusal.
 8. **The row**, `ON CONFLICT DO NOTHING` on `UNIQUE(conversion_id)`.
 
+### All three bounds hold under concurrency, by two different mechanisms
+
+"Never pay more than the eligible funding/budget or configured cap" (#144
+acceptance 7) is three separate bounds, and each needed its own answer. This
+backend runs at Postgres's default READ COMMITTED — there is no isolation-level
+override anywhere in it or in `@oxyhq/db` — so none of them is safe by
+inheritance.
+
+| Bound | Mechanism | Why not the other one |
+|---|---|---|
+| Campaign **budget** | An atomic compare-and-swap: `set claimed_minor = claimed_minor + $n where budget_minor - claimed_minor >= $n and status = 'open'`, empty `RETURNING` ⇒ refused. | A budget IS a row, so a row-level CAS says the whole thing. |
+| Per-partner **period cap** | `pg_advisory_xact_lock` on `(partner, currency)`, taken before the sum and held to commit. | A cap is a property of a SET. A `FOR UPDATE` on the summed rows locks the wrong thing — the row that would need locking is the one that does not exist yet, and Postgres takes no predicate locks below SERIALIZABLE. A running-total row per (partner, period) would be a second representation of a fact the rewards already carry, could not express a `lifetime` cap, and would orphan its buckets when a rule changed its period. |
+| Per-campaign **cap** | The same, on `(campaign, currency)`. | It spans PARTNERS, so the partner key cannot serialize it. |
+
+Both locks are taken in ONE place (`lockAccrualCapWindows`) in a fixed
+partner-then-campaign order, so two accruals that each need both cannot
+deadlock; the budget CAS runs strictly after them, fixing the order across all
+three. An uncapped rule takes neither lock, so an ordinary accrual serializes
+against nothing. Both refuse the root connection through `requireTransaction` —
+a transaction-scoped lock taken outside a transaction is released the instant
+the implicit transaction commits, which serializes nothing and looks exactly
+like a lock that worked.
+
+The realdb suite runs both races six times per run against a real server, with a
+fresh partner and a fresh campaign per iteration, and asserts BOTH that the
+total never exceeds the cap and that the loser recorded `cap_reached` — a cap
+that "held" by paying two half-size rewards would satisfy the sum and still be
+wrong. The lock is mutation-tested: disabling `lockAccrualCapWindows` pays 2 000
+against a cap of 1 000 on the first iteration of both races.
+
 Every refusal appends a `reward_accrual_refused` audit row naming one of
 fourteen reasons and returns; it does NOT reject the conversion. A conversion is
 a verified milestone that genuinely happened, and refusing to pay for it does

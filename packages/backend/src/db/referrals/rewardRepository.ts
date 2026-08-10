@@ -31,6 +31,7 @@ import type {
   ReferralRewardState,
 } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
+import { requireTransaction } from '../moderation/transactionGuard.js';
 import {
   referralRewardAdjustments,
   referralRewardRules,
@@ -183,6 +184,78 @@ export async function listRewardsByPartner(
 }
 
 /**
+ * The two advisory-lock CLASSES this domain claims.
+ *
+ * Postgres's two-argument advisory locks live in a lock space that is entirely
+ * separate from the one-argument `bigint` form, and every other advisory lock
+ * in this repository is one-argument (the realdb suites' active-policy slot and
+ * policy-teardown locks). So these cannot collide with anything already taken,
+ * and the two classes cannot collide with each other however the keys hash.
+ */
+const PARTNER_CAP_LOCK_CLASS = 144_001;
+const CAMPAIGN_CAP_LOCK_CLASS = 144_002;
+
+/**
+ * Serialize the cap window for one partner, until the caller's transaction ends.
+ *
+ * ## Why a lock and not a `FOR UPDATE`
+ *
+ * A cap is enforced by SUMMING existing rewards and then INSERTING one. Under
+ * READ COMMITTED — which this backend runs at, with no isolation-level override
+ * anywhere — two concurrent accruals for the same partner both read the other's
+ * row as absent and both insert, and the cap is exceeded with no refusal
+ * recorded. `SELECT … FOR UPDATE` cannot fix that: the row that would need
+ * locking is the one that does not exist yet, and Postgres takes no predicate
+ * locks below SERIALIZABLE.
+ *
+ * `referral_campaign_budgets` has the other shape of answer — a single
+ * conditional `UPDATE` whose empty result IS the refusal — and it works there
+ * because a budget IS a row. A partner cap is a property of a SET, so the
+ * equivalent would be a running-total row per (partner, period), which is a
+ * second representation of a fact the rewards already carry and which cannot
+ * express a `lifetime` cap or survive a rule changing its period. The lock is
+ * the honest version: it makes the read-then-write window exclusive without
+ * inventing a counter that can disagree with the rows it counts.
+ *
+ * Transaction-scoped, so it is released by the commit or the rollback and never
+ * by a caller remembering to. The currency is IN the key because the cap and
+ * the sum are both currency-scoped, so two accruals in different currencies are
+ * genuinely independent and should not contend.
+ *
+ * @throws {MissingTransactionError} When handed the root connection — a
+ *   transaction-scoped lock taken outside a transaction is released the instant
+ *   the implicit transaction commits, which serializes NOTHING and looks
+ *   exactly like a lock that worked.
+ */
+export async function lockPartnerCapWindow(
+  db: DatabaseOrTransaction,
+  input: { partnerId: string; currency: CurrencyCode },
+): Promise<void> {
+  const tx = requireTransaction(db, 'lockPartnerCapWindow');
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(${PARTNER_CAP_LOCK_CLASS}, hashtext(${`${input.partnerId}:${input.currency}`}))`,
+  );
+}
+
+/**
+ * Serialize the cap window for one campaign, until the caller's transaction
+ * ends. Everything in {@link lockPartnerCapWindow}'s docblock applies.
+ *
+ * It needs a key of its own rather than riding the partner's: a campaign cap
+ * spans partners, so two accruals under one campaign by two different partners
+ * are exactly the race it exists to stop and share no partner key.
+ */
+export async function lockCampaignCapWindow(
+  db: DatabaseOrTransaction,
+  input: { campaignRef: string; currency: CurrencyCode },
+): Promise<void> {
+  const tx = requireTransaction(db, 'lockCampaignCapWindow');
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(${CAMPAIGN_CAP_LOCK_CLASS}, hashtext(${`${input.campaignRef}:${input.currency}`}))`,
+  );
+}
+
+/**
  * What one partner has accrued in one currency since an instant — the
  * per-partner period cap's input (#144 field 10).
  *
@@ -190,6 +263,10 @@ export async function listRewardsByPartner(
  * that much of the partner's allowance, which is the reading under which a cap
  * bounds what Mercaria actually owes. Voided rewards contribute nothing and are
  * excluded by their own zero net rather than by a filter.
+ *
+ * The figure is only a BOUND if the caller took {@link lockPartnerCapWindow}
+ * first and holds it through the insert — this function reads, it does not
+ * serialize.
  */
 export async function sumPartnerAccruals(
   db: DatabaseOrTransaction,
@@ -215,6 +292,8 @@ export async function sumPartnerAccruals(
  * a campaign spans several rule versions, and a copy of the campaign ref on
  * every reward would be a second representation of a fact the immutable rule
  * already carries.
+ *
+ * As above, a BOUND only under {@link lockCampaignCapWindow}.
  */
 export async function sumCampaignAccruals(
   db: DatabaseOrTransaction,
