@@ -49,8 +49,16 @@ describe('the benchmark workload', () => {
 
   it('has a vacuity floor on its own size', () => {
     // A traversal that returned nothing would satisfy every "for each" above.
+    //
+    // The exploratory floor came DOWN from five to four when #73 shipped the
+    // merchant page: X01 was exploratory because `offers_merchant_browse_idx`
+    // had no reader, and a shape whose reader arrives stops being exploratory
+    // (`workload.ts` states that rule). A floor that could never drop would
+    // forbid exactly the improvement #61 recorded that shape hoping for — so it
+    // moves down deliberately, with the promotion named, rather than being
+    // padded with a shape nobody asked for.
     expect(WORKLOAD_SHAPES.length).toBeGreaterThanOrEqual(15);
-    expect(EXPLORATORY_SHAPES.length).toBeGreaterThanOrEqual(5);
+    expect(EXPLORATORY_SHAPES.length).toBeGreaterThanOrEqual(4);
   });
 
   it('gives every shape a unique id', () => {

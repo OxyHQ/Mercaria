@@ -408,3 +408,12 @@ export * from './price-alert';
 // availability or specification value, which is what makes "a model cannot
 // invent one" a property of the shape rather than of a validation step.
 export * from './search-intent';
+// The merchant page and its catalogue browse (#73). Follows `./merchant`,
+// `./merchant-claim`, `./offer`, `./relationship` and `./review`, composing
+// what each already publishes rather than restating any of it. Its shapes exist
+// to keep four things apart that a page is forever tempted to collapse — a
+// MERCHANT, a STOREFRONT, a native Mercaria STORE and a BRAND — so a channel
+// entry names its operator, a native store appears as a link and never as an
+// embedded experience, a brand has three relationship states rather than a
+// badge and its absence, and a catalogue card has no rating field at all.
+export * from './merchant-page';

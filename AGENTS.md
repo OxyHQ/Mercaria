@@ -4969,3 +4969,94 @@ evaluated the reversal, and the exclusion stands.
   seller surface), **#111** (the guest cohort this decision would have measured),
   **#91** (condition refinement, so evidence measures sellers rather than a
   missing feature).
+
+
+## Merchant and storefront pages (#73, ADR 0002 D3/D4/D8/D9/D10)
+
+`services/merchant-pages/` (7 modules) + `db/merchantPages/` (1 repository) +
+`controllers/merchant-pages.controller.ts` + `middleware/merchant-page-schemas.ts`
++ three routes on `routes/merchants.ts`, plus the storefront's
+`app/(app)/merchants/[idOrSlug].tsx` and `components/merchant/`. Full reference:
+**`docs/merchant-pages.md`**. **NO new tables and NO migration** — the whole
+domain is a projection, the #92 shape taken for the #57 reason.
+
+- **Two channel lists, because marketplace-ness is a COMPARISON.**
+  `operatedChannels` is `storefronts.merchant_id`; `sellingChannels` is the
+  channels this merchant's own offers sit on, each naming its operator, with
+  `operatedByThisMerchant` carrying ADR D8's comparison already made. A page
+  with ONE list has to pick a side and is wrong for half the merchants — a
+  retailer's country sites are channels it OPERATES, a marketplace seller's are
+  somebody else's.
+- **Three catalogue scopes, and `channel_all_sellers` is acceptance 2.** It
+  shows every seller's offers on one channel, each keeping its own
+  `merchantId` and `sellerRole`, and it is permitted ONLY for a channel this
+  merchant operates: somebody else's channel is somebody else's page.
+- **The native store is a LINK, and the alternatives are DISJOINT VALUES.**
+  `MERCHANT_NATIVE_STORE_PRESENTATIONS` has one member;
+  `MERCHANT_REJECTED_NATIVE_STORE_PRESENTATIONS` names `redirect` and `embed`.
+  A redirect would make the merchant route unreachable and the merchant would BE
+  the store; an embed would be a second rendering of what the store APIs own.
+  **The ONE follow identity is protected by ABSENCE** — no module in the domain,
+  in EITHER package, may name `ensureFollowTarget`, `registerFollowKind`, a
+  follow hook or button, or the `mercaria.store`/`oxy.user` kinds, which covers
+  native-store rules 3 and 6 with one gate.
+- **The page WRITES NOTHING**, which is why native-store rule 5 needs no merge
+  policy. No INSERT, UPDATE or DELETE and no write service, asserted.
+  `findLinkedStoreIdentity` selects THREE columns rather than calling
+  `findStoreById`, which attaches the store's MEMBERS — reading and dropping
+  them would leave the guarantee resting on a serializer.
+- **Three brand states, not a badge and its absence.**
+  `no_verified_relationship` is a first-class answer with its own copy, because
+  an ordinary retailer holds no relationship row at all (D10) and rendering
+  silence leaves a reader unable to tell "we checked" from "we have not looked".
+  Built from the union of #55's verified badges and the brands the merchant's
+  current offers actually cover — neither set alone can produce all three.
+- **Safe public language is a CLOSED four-member vocabulary** derived from two
+  already-public facts. No member can mean "a claim was rejected", "an operator
+  is reviewing evidence" or "N people are claiming this". A verified claim
+  outranks a squatter's live one, or a claimed merchant would read as
+  "claim in progress" and get a claim button.
+- **ONE rating, scope-labelled, and NONE on a card.**
+  `MerchantCatalogEntry` has no rating field and
+  `MERCHANT_CATALOG_FORBIDDEN_ENTRY_FIELDS` names five as values a gate scans
+  for. The storefront renders `MerchantProductCard` rather than `ProductCard`
+  precisely because the latter's `ProductSummary` REQUIRES `rating`.
+- **The order is a FACT and the dedup is a `group by`.**
+  `max(last_seen_at) desc` — the order `offers_merchant_browse_idx` was built to
+  serve — with the product id as tiebreak, which is not optional because one
+  ingestion page stamps one `last_seen_at` across every offer it writes.
+- **The keyset timestamp is EXACT epoch microseconds, never a JS `Date`.**
+  postgres.js truncates `timestamptz` to milliseconds, and in a DESCENDING
+  keyset a truncated boundary SKIPS every row between the truncated and the true
+  value. Nothing writes sub-millisecond `last_seen_at` today, which is exactly
+  what would make it arrive later as "page two is missing products".
+- **`stale_at` narrows and the live derivation decides** (#68), so a page may
+  return fewer rows than its limit. The offer MIX is the one place counted on
+  the stored deadline — projecting a merchant's whole offer set to count it is
+  not affordable — which makes it an upper bound, stated in the DTO.
+  `staleOfferCount` is the difference, and it is a fact about Mercaria's
+  information rather than about the shop.
+- **Three empty reasons**: `no_offers` | `stale_sources` | `filtered_out`. SQL
+  having found products the live derivation then refused is `stale_sources`,
+  because the filters demonstrably admitted them. A card with no current offer
+  is DROPPED rather than rendered priceless.
+- **#61's two unread indexes now have a reader, and it is PROVEN.** X01 was
+  promoted from `EXPLORATORY_SHAPES` to Q25 (a shape whose reader arrives stops
+  being exploratory), Q26 measures the channel scope so
+  `offers_storefront_browse_idx` is proven rather than assumed, and Q27 measures
+  the dedup browse with no required index on purpose (a `group by` ordered by an
+  aggregate keeps its Sort). `graph-plan-regression.realdb.test.ts`
+  mutation-tests Q25 by dropping the index in a rolled-back transaction. The
+  exploratory floor in `workload.test.ts` came DOWN from 5 to 4 with the
+  promotion named — a floor that could never drop would forbid the improvement.
+- **Known gap, stated rather than quietly narrowed: `MerchantSummary` is still
+  un-rehomed.** ADR 0002's glossary assigns re-homing that home-feed card DTO
+  for a native STORE to #70–#73; #70 did not and #73 did not, because it is a
+  twenty-file cross-package rename in a batch of fourteen parallel branches with
+  no numbered requirement behind it. What #73 holds instead is the half that
+  matters: the isolation gate fails the build if any merchant-page surface, in
+  either package, imports it. The rename remains owed.
+- Seams: **#67/#37** (`resolveChannelOutbound` refuses unconditionally and its
+  refusal branch has no `url` property), **#74** (ranking — a scanned gate both
+  ways), **#84** (the linkage flow; this page only READS `native_store_links`),
+  **#71** (the product page a card links to).

@@ -335,6 +335,47 @@ describe('canonical graph query plans', () => {
     expect(findVacuityViolations('Q20', restored, shape.expectation)).toEqual([]);
   }, 120_000);
 
+  it("#73's merchant browse detects a dropped index — the merchant-page self-test", async () => {
+    // #61 recorded `offers_merchant_browse_idx` as an index with NO reader and
+    // named the merchant page as its future owner. #73 is that reader, so the
+    // claim "the index serves it" has to be demonstrated rather than assumed:
+    // drop the index inside a transaction, re-plan, and confirm the SAME
+    // expectation the loop above applies now fails and names the shape.
+    //
+    // The ascending-index property is what is really under test. #57's schema
+    // comment records that the obvious `.desc()` spelling renders
+    // `DESC NULLS LAST`, which a plain `ORDER BY … DESC` (meaning
+    // `DESC NULLS FIRST`) cannot use — 103.7 ms against 0.071 ms on a seeded
+    // million rows. Nothing but a plan assertion sees that difference.
+    const shape = WORKLOAD_SHAPES.find((candidate) => candidate.id === 'Q25');
+    expect(shape, 'Q25 is missing from the workload').toBeDefined();
+    if (!shape) return;
+
+    const statement = await captureShapeStatement('Q25');
+    const healthy = await explainOnPool(statement);
+    expect(healthy.indexNames).toContain('offers_merchant_browse_idx');
+    expect(findVacuityViolations('Q25', healthy, shape.expectation)).toEqual([]);
+
+    const mutated = await explainInRollback(statement, 'drop index offers_merchant_browse_idx');
+    const violations = findVacuityViolations('Q25', mutated, shape.expectation);
+    expect(violations.length).toBeGreaterThan(0);
+    expect(violations.join('\n')).toMatch(/Q25/);
+    expect(violations.join('\n')).toMatch(/offers_merchant_browse_idx/);
+
+    // And the index really is back — the rollback undid the drop.
+    const restored = await explainOnPool(statement);
+    expect(restored.indexNames).toContain('offers_merchant_browse_idx');
+  }, 120_000);
+
+  it("#73's channel browse reads the STOREFRONT index, not the merchant one", async () => {
+    // The two scopes of one statement, and the reason Q26 exists beside Q25: a
+    // single measurement would leave `offers_storefront_browse_idx` — #61's
+    // OTHER unread index — proven by nothing.
+    const analysis = await explainOnPool(await captureShapeStatement('Q26'));
+    expect(analysis.indexNames).toContain('offers_storefront_browse_idx');
+    expect(analysis.indexNames).not.toContain('offers_merchant_browse_idx');
+  }, 120_000);
+
   it('the plan assertions actually detect — the mutation self-test', async () => {
     // Break the thing the gate guards and confirm the gate sees it: drop the
     // brand-page index inside a transaction, re-plan the brand page without it,

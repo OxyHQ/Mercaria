@@ -17,6 +17,7 @@ import { Router } from 'express';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { validateQuery } from '../middleware/validate.js';
 import { merchantLookupQuerySchema } from '../middleware/commerce-graph-schemas.js';
+import { merchantCatalogQuerySchema } from '../middleware/merchant-page-schemas.js';
 import {
   getMerchant,
   getMerchantByNativeStore,
@@ -24,6 +25,11 @@ import {
   getMerchantClaimEligibility,
   lookupMerchants,
 } from '../controllers/merchants.controller.js';
+import {
+  getMerchantCatalogHandler,
+  getMerchantOffersHandler,
+  getMerchantPageHandler,
+} from '../controllers/merchant-pages.controller.js';
 
 const router = Router();
 
@@ -46,5 +52,31 @@ router.get('/:idOrSlug/native-checkout-eligibility', getMerchantCheckoutEligibil
  * belongs on this page (#83). Public and evidence-free: it names nobody.
  */
 router.get('/:idOrSlug/claim-eligibility', getMerchantClaimEligibility);
+
+/**
+ * The merchant PAGE (#73) — identity and aliases, standing in safe public
+ * language, the operating organization when verified and useful, both channel
+ * lists with their operators, the linked native store as a LINK, the verified
+ * brand standings, the offer mix and the merchant-scoped review aggregate.
+ *
+ * Separate from `GET /:idOrSlug` rather than widening it: that route is #54's
+ * identity read, several surfaces poll it, and turning it into a page read
+ * would make every one of them pay for eleven joins they do not use.
+ */
+router.get('/:idOrSlug/page', getMerchantPageHandler);
+
+/** GET /merchants/:idOrSlug/catalog — canonical products, deduplicated (#73). */
+router.get(
+  '/:idOrSlug/catalog',
+  validateQuery(merchantCatalogQuerySchema),
+  getMerchantCatalogHandler,
+);
+
+/** GET /merchants/:idOrSlug/offers — the offer-level comparison view (#73). */
+router.get(
+  '/:idOrSlug/offers',
+  validateQuery(merchantCatalogQuerySchema),
+  getMerchantOffersHandler,
+);
 
 export default router;
