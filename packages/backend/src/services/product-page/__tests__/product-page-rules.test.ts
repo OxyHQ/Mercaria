@@ -79,13 +79,13 @@ function externalOffer(overrides: Partial<Offer> = {}): Offer {
       lastSeenAt: '2026-08-10T00:00:00.000Z',
       ageSeconds: 10,
       checkedAgeSeconds: 10,
-      expiry: { bounded: false, reason: 'no_policy' },
+      expiry: { bounded: false },
     },
     qualitySignals: [],
     checkout: { eligible: false, reasons: ['not_native'] },
     destinationUrl: 'https://shop.example.test/item/1?utm=x',
     ...overrides,
-  } as Offer;
+  };
 }
 
 describe('the partition — one offer, one group (#71 offer groups)', () => {
