@@ -399,7 +399,15 @@ const constraintGroupSchema = z
   })
   .strict();
 
-const productConstraintSchema = z.union([leafConstraintSchema, constraintGroupSchema]);
+/**
+ * Any constraint a set may contain.
+ *
+ * EXPORTED so #96's comparison and basket surfaces parse the constraint
+ * language through this one schema. A second spelling of the same grammar is a
+ * second answer to what a shopper asked for, and the two would disagree at
+ * exactly the operator #94 refused and #96 accepted.
+ */
+export const productConstraintSchema = z.union([leafConstraintSchema, constraintGroupSchema]);
 
 /** `POST /catalog-attributes/constraints/validate`. */
 export const constraintSetValidateSchema = z

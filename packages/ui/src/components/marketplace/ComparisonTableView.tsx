@@ -1,0 +1,191 @@
+import { ScrollView, View } from "react-native";
+import type {
+  ComparisonCell,
+  ComparisonTable,
+  ComparisonTableRow,
+} from "@mercaria/shared-types";
+import { Text } from "../ui/text";
+import {
+  comparisonNotApplicableText,
+  comparisonUnknownText,
+} from "../../lib/comparison-labels";
+
+/** How wide one product column is. Fixed, so the row header stays readable. */
+const COLUMN_WIDTH = 160;
+
+export interface ComparisonTableViewProps {
+  table: ComparisonTable;
+  /** Subject ref → the product's name. The table carries refs, never names. */
+  namesByRef: Readonly<Record<string, string>>;
+  /** Show only the rows whose cells actually differ (#96 UX rule 3's default). */
+  differencesOnly?: boolean;
+}
+
+/**
+ * The DETERMINISTIC comparison table (#96 UX rules 3 and 10).
+ *
+ * Rendered before any generated narrative and independently of whether one
+ * exists — this component takes no explanation prop at all, so a page cannot
+ * accidentally make the table conditional on a model having answered.
+ *
+ * ## Accessible without charts and without colour
+ *
+ * There is no bar, no sparkline and no colour scale anywhere in it. Every cell
+ * is TEXT, an unknown says which kind of unknown it is in words, and a
+ * `not applicable` says so rather than rendering an em dash a screen reader
+ * announces as nothing. #96 UX rule 10 asks for exactly this, and the
+ * `OfferLabelBadge` argument applies twice over here: a green "better" cell
+ * would be a recommendation the server did not make, on a row whose direction
+ * is usually `not_comparable`.
+ *
+ * Direction is stated in the row HEADER as words ("higher is better") rather
+ * than implied by position or colour, and a row with no declared direction says
+ * nothing at all — which is the honest rendering of "these differ and neither
+ * is better".
+ */
+export function ComparisonTableView({
+  table,
+  namesByRef,
+  differencesOnly = false,
+}: ComparisonTableViewProps) {
+  const rows = differencesOnly ? table.rows.filter((row) => row.differs) : table.rows;
+
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator accessibilityRole="none">
+      <View className="gap-space-2">
+        <View className="flex-row border-b border-border-secondary pb-space-8">
+          <View style={{ width: COLUMN_WIDTH }}>
+            <Text className="text-captionBold text-text-secondary">Specification</Text>
+          </View>
+          {table.subjectRefs.map((subjectRef) => (
+            <View key={subjectRef} style={{ width: COLUMN_WIDTH }} className="px-space-8">
+              <Text className="text-captionBold text-text">
+                {namesByRef[subjectRef] ?? subjectRef}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {rows.map((row) => (
+          <ComparisonRow key={row.key} row={row} subjectRefs={table.subjectRefs} />
+        ))}
+
+        {rows.length === 0 ? (
+          <Text className="py-space-12 text-body text-text-secondary">
+            Nothing recorded differs between these products.
+          </Text>
+        ) : null}
+      </View>
+    </ScrollView>
+  );
+}
+
+/** One row: its label, its direction in words, and one cell per product. */
+function ComparisonRow({
+  row,
+  subjectRefs,
+}: {
+  row: ComparisonTableRow;
+  subjectRefs: readonly string[];
+}) {
+  return (
+    <View className="flex-row border-b border-border-secondary py-space-8">
+      <View style={{ width: COLUMN_WIDTH }} className="gap-space-2">
+        <Text className="text-caption text-text">{row.label}</Text>
+        {row.unit === undefined ? null : (
+          <Text className="text-caption text-text-secondary">in {row.unit}</Text>
+        )}
+        {row.direction === "not_comparable" ? null : (
+          <Text className="text-caption text-text-secondary">
+            {row.direction === "higher_is_better" ? "higher is better" : "lower is better"}
+          </Text>
+        )}
+      </View>
+      {subjectRefs.map((subjectRef) => (
+        <View key={subjectRef} style={{ width: COLUMN_WIDTH }} className="px-space-8">
+          <CellText cell={row.cells[subjectRef]} label={row.label} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * One cell, as words.
+ *
+ * The five states render five DIFFERENT sentences, and the two that matter most
+ * are the last two: "Not recorded" invites a shopper to go and look, while
+ * "Does not apply" tells them there is nothing to look for. Collapsing them
+ * into a dash would lose the distinction the whole table is built around.
+ *
+ * An INFERRED value says so beside the figure, because #96 product-comparison
+ * rule 5 asks for an inference to be labelled distinctly from a source-backed
+ * fact — and a shopper deciding on a converted magnitude should know it was
+ * converted.
+ */
+function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: string }) {
+  if (cell === undefined) {
+    return (
+      <Text className="text-caption text-text-secondary" accessibilityLabel={`${label}: not recorded`}>
+        Not recorded
+      </Text>
+    );
+  }
+
+  switch (cell.state) {
+    case "source_backed":
+      return (
+        <Text className="text-caption text-text" accessibilityLabel={`${label}: ${cell.value.rendered}`}>
+          {cell.value.rendered}
+        </Text>
+      );
+    case "inferred":
+      return (
+        <View className="gap-space-2">
+          <Text
+            className="text-caption text-text"
+            accessibilityLabel={`${label}: ${cell.value.rendered}, inferred`}
+          >
+            {cell.value.rendered}
+          </Text>
+          <Text className="text-caption text-text-secondary">converted, not stated</Text>
+        </View>
+      );
+    case "conflicting":
+      return (
+        <View className="gap-space-2">
+          <Text
+            className="text-caption text-text"
+            accessibilityLabel={`${label}: sources disagree`}
+          >
+            Sources disagree
+          </Text>
+          {cell.candidates.map((value) => (
+            <Text key={value.rendered} className="text-caption text-text-secondary">
+              {value.rendered}
+            </Text>
+          ))}
+        </View>
+      );
+    case "unknown":
+      return (
+        <Text
+          className="text-caption text-text-secondary"
+          accessibilityLabel={`${label}: ${comparisonUnknownText(cell.reason)}`}
+        >
+          {comparisonUnknownText(cell.reason)}
+        </Text>
+      );
+    case "not_applicable":
+      return (
+        <Text
+          className="text-caption text-text-secondary"
+          accessibilityLabel={`${label}: ${comparisonNotApplicableText(cell.reason)}`}
+        >
+          {comparisonNotApplicableText(cell.reason)}
+        </Text>
+      );
+    default:
+      return <Text className="text-caption text-text-secondary">Not recorded</Text>;
+  }
+}

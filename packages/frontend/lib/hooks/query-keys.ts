@@ -193,4 +193,23 @@ export const queryKeys = {
     offers: (idOrSlug: string, params: unknown) =>
       ["merchants", "offers", idOrSlug, params] as const,
   },
+  /**
+   * Grounded comparison and basket plans (#96).
+   *
+   * The whole REQUEST is in the key, because every field of it changes the
+   * answer: a different currency is a different set of converted prices, a
+   * different channel policy is a different candidate set, and a different
+   * objective is a different plan. A key that named only the products would
+   * serve one shopper's constraints to another's screen.
+   *
+   * A basket plan is deliberately NOT persisted anywhere — see the api client's
+   * header. What survives a navigation is the query cache's short window, and
+   * acting on a plan revalidates it first.
+   */
+  comparison: {
+    compare: (params: Readonly<Record<string, string | number | undefined>>) =>
+      ["comparison", "compare", params] as const,
+    basket: (params: Readonly<Record<string, string | number | undefined>>) =>
+      ["comparison", "basket", params] as const,
+  },
 } as const;

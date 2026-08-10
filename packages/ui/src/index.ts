@@ -286,3 +286,32 @@ export {
   type SearchClarificationProps,
   type SearchInterpretationProps,
 } from "./components/marketplace/SearchInterpretation";
+
+// #96's grounded comparison and basket surfaces. Here rather than in an app
+// because the COPY they read (`comparison-labels`) lives here, and because all
+// three apps eventually render a comparison — a component whose words and whose
+// markup sit in different packages is a copy change that ships without the
+// thing it describes.
+export {
+  ComparisonTableView,
+  type ComparisonTableViewProps,
+} from "./components/marketplace/ComparisonTableView";
+export {
+  ComparisonExplanationBlock,
+  type ComparisonExplanationBlockProps,
+} from "./components/marketplace/ComparisonExplanationBlock";
+export {
+  BasketPlanCard,
+  type BasketPlanCardProps,
+} from "./components/marketplace/BasketPlanCard";
+export {
+  basketApproximationText,
+  basketReasonText,
+  basketResultDefinition,
+  basketResultText,
+  comparisonNotApplicableText,
+  comparisonUnavailableText,
+  comparisonUnknownText,
+  explanationFallbackNotice,
+  explanationRejectionText,
+} from "./lib/comparison-labels";

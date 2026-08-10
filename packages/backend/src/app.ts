@@ -78,6 +78,7 @@ import internalBackfillRouter from './routes/internal-backfill.js';
 import internalIngestionRouter from './routes/internal-ingestion.js';
 import internalOfferFreshnessRouter from './routes/internal-offer-freshness.js';
 import offerComparisonRouter from './routes/offer-comparison.js';
+import comparisonRouter from './routes/comparison.js';
 import internalRankingRouter from './routes/internal-ranking.js';
 import internalFeedImportsRouter from './routes/internal-feed-imports.js';
 import internalEbayRouter from './routes/internal-ebay.js';
@@ -378,6 +379,25 @@ export function createApp(): express.Express {
       offerComparisonRouter,
     );
   }
+  /**
+   * Grounded product comparison and multi-merchant basket optimization (#96),
+   * behind the SAME blunt MOUNT lever as the canonical surfaces above.
+   *
+   * A comparison serves canonical identity plus #74's ranked offers, so a
+   * deployment that has withdrawn the public canonical surface must not keep
+   * answering here. The offers HALF is gated separately inside the handler by
+   * `CANONICAL_OFFER_COMPARISON`, and with it off a comparison still answers —
+   * with every subject reporting `offer_comparison_withheld` rather than
+   * rendering as a product nobody sells.
+   *
+   * There is deliberately no `COMPARISON_ENABLED`: this domain owns no table,
+   * writes no row and runs no loop, so a third lever could only gate a read two
+   * existing levers already gate.
+   */
+  if (config.canonicalRollout.publicRoutesEnabled) {
+    app.use('/comparison', comparisonRouter);
+  }
+
   /**
    * Canonical multi-entity product discovery (#70): products, brands, families,
    * merchants and storefronts through ONE ordered result set, with offers
