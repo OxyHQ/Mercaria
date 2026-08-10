@@ -56,6 +56,10 @@ import {
   searchProductIdsByNameSimilarity,
 } from '../../db/search/searchCandidateRepository.js';
 import { rankProductOfferIds } from '../../db/search/searchOfferRepository.js';
+import {
+  listMerchantCatalogProductIds,
+  listMerchantOfferIds,
+} from '../../db/merchantPages/merchantCatalogRepository.js';
 import { escapeLikePattern } from '../search/normalize.js';
 import { offers } from '../../db/schema/offers.js';
 import { canonicalVariants } from '../../db/schema/canonicalCatalog.js';
@@ -463,6 +467,86 @@ export const WORKLOAD_SHAPES: readonly WorkloadShape[] = [
     run: (db, graph) =>
       listOffersForComparison(db, { canonicalProductId: graph.hottestProductId, limit: PAGE }),
   },
+  {
+    id: 'Q25',
+    workloadItem: 8,
+    title: 'Merchant page — one seller’s current offers, most recently seen first',
+    reader: 'db/merchantPages/merchantCatalogRepository.ts::listMerchantOfferIds',
+    /**
+     * X01 measured this shape as EXPLORATORY SQL because #61 found the index
+     * `offers_merchant_browse_idx` with no shipped reader and recorded the fact
+     * rather than dropping it. #73 is that reader — the merchant page's
+     * offer-level view — so the shape moves to this list, which is the rule
+     * this file states: a shape cannot outlive its reader, and a shape whose
+     * reader arrives stops being exploratory.
+     *
+     * The ascending index served backwards is the property under test; #61's
+     * schema comment records why `.desc()` is the wrong spelling and what it
+     * costs (103.7 ms against 0.071 ms on a seeded million rows).
+     */
+    expectation: {
+      minRowsReturned: 1,
+      requireIndexes: ['offers_merchant_browse_idx'],
+      forbidNodeTypes: ['Seq Scan'],
+    },
+    run: (db, graph) =>
+      listMerchantOfferIds(db, {
+        merchantId: graph.busiestMerchantId,
+        scope: { kind: 'merchant' },
+        limit: PAGE,
+        now: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+  },
+  {
+    id: 'Q26',
+    workloadItem: 8,
+    title: 'Merchant page — everything offered on one CHANNEL, every seller',
+    reader: 'db/merchantPages/merchantCatalogRepository.ts::listMerchantOfferIds',
+    /**
+     * The marketplace lens, and the first reader of the OTHER index #61
+     * recorded as unread: `offers_storefront_browse_idx`. The same statement as
+     * Q25 under a different scope, which is exactly why it is measured
+     * separately — the scope decides which index can serve it, and a single
+     * measurement would leave the second one unproven.
+     */
+    expectation: {
+      minRowsReturned: 1,
+      requireIndexes: ['offers_storefront_browse_idx'],
+      forbidNodeTypes: ['Seq Scan'],
+    },
+    run: (db, graph) =>
+      listMerchantOfferIds(db, {
+        merchantId: graph.busiestMerchantId,
+        scope: { kind: 'channel_all_sellers', storefrontId: graph.busiestStorefrontId },
+        limit: PAGE,
+        now: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+  },
+  {
+    id: 'Q27',
+    workloadItem: 8,
+    title: 'Merchant page — the catalogue browse, deduplicated by canonical product',
+    reader: 'db/merchantPages/merchantCatalogRepository.ts::listMerchantCatalogProductIds',
+    /**
+     * NO forbidden node type and no required index, deliberately.
+     *
+     * Deduplicating a seller's offers to one card per canonical product is a
+     * `group by` over that seller's whole active offer set, and the ordering key
+     * is an AGGREGATE — so a Sort survives by construction, exactly as #61
+     * recorded for Q14's window function. What this shape is here to catch is
+     * the amplification growing without anybody noticing: it is the merchant
+     * page's most expensive read and the one a "cheapest offer per product"
+     * projection would fix if one is ever justified.
+     */
+    expectation: { minRowsReturned: 1 },
+    run: (db, graph) =>
+      listMerchantCatalogProductIds(db, {
+        merchantId: graph.busiestMerchantId,
+        scope: { kind: 'merchant' },
+        limit: PAGE,
+        now: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+  },
 ];
 
 /**
@@ -478,21 +562,6 @@ export const WORKLOAD_SHAPES: readonly WorkloadShape[] = [
 const UNPRICED_SORT_KEY = Number.MAX_SAFE_INTEGER;
 
 export const EXPLORATORY_SHAPES: readonly ExploratoryShape[] = [
-  {
-    id: 'X01',
-    workloadItem: 8,
-    title: 'Merchant page — one seller’s current offers, most recently seen first',
-    provenance:
-      '#57 built offers_merchant_browse_idx for this and NO shipped reader issues it. ' +
-      'The merchant storefront page is #84; ranking is #74. Measured so both inherit a number.',
-    expectation: { minRowsReturned: 1, requireIndexes: ['offers_merchant_browse_idx'] },
-    build: (graph) => sql`
-      select ${offers.id}, ${offers.priceAmount}, ${offers.lastSeenAt}
-      from ${offers}
-      where ${offers.merchantId} = ${graph.busiestMerchantId} and ${offers.status} = 'active'
-      order by ${offers.lastSeenAt} desc
-      limit ${PAGE}`,
-  },
   {
     id: 'X02',
     workloadItem: 8,

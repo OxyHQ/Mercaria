@@ -178,4 +178,19 @@ export const queryKeys = {
     priceHistory: (canonicalProductId: string, segment: string, currency: string) =>
       ["product-page", canonicalProductId, "price-history", segment, currency] as const,
   },
+  /**
+   * The merchant page and its two browses (#73).
+   *
+   * The browse keys carry the whole parameter object, because a cursor is only
+   * meaningful inside the scope and filters it was minted under — keying a
+   * channel-scoped page under the merchant's plain key would let a stale cursor
+   * from one scope be replayed into another.
+   */
+  merchants: {
+    page: (idOrSlug: string) => ["merchants", "page", idOrSlug] as const,
+    catalog: (idOrSlug: string, params: unknown) =>
+      ["merchants", "catalog", idOrSlug, params] as const,
+    offers: (idOrSlug: string, params: unknown) =>
+      ["merchants", "offers", idOrSlug, params] as const,
+  },
 } as const;
