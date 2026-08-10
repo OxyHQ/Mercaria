@@ -123,6 +123,10 @@ export async function readCanonicalProductPage(
   }
 
   const { offers, servedOffers } = await readOffers(request, product.id, variants);
+  // A withheld offers half means the page is NOT answering the offers question,
+  // so a count of zero beside every configuration would answer it — with the
+  // one sentence the withheld branch exists to prevent.
+  const countsAreMeaningful = offers.available === true;
 
   const page: CanonicalProductPage = {
     product,
@@ -135,7 +139,9 @@ export async function readCanonicalProductPage(
             canonicalProductId: product.id,
           },
         }),
-    variants: withOfferCounts(variants, servedOffers),
+    variants: countsAreMeaningful
+      ? withOfferCounts(variants, servedOffers)
+      : variants.map((variant) => ({ ...variant })),
     ...(request.canonicalVariantId === undefined
       ? {}
       : { selectedVariantId: request.canonicalVariantId }),

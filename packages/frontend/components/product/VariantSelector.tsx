@@ -59,8 +59,14 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Varia
               // The offer COUNT is in the label rather than a separate badge:
               // "256 GB, Black — 4 offers" is one thing to announce, and a
               // count rendered as its own chip is a second focus stop that
-              // reads as another control.
-              accessibilityLabel={`${label}, ${variant.offerCount} offers on this page`}
+              // reads as another control. It is ABSENT when the offers half is
+              // withheld — a "0 offers" there would answer the question the
+              // page is not answering.
+              accessibilityLabel={
+                variant.offerCount === undefined
+                  ? label
+                  : `${label}, ${variant.offerCount} offers on this page`
+              }
               onPress={() => onSelect(variant.id)}
               className={`rounded-radius-max border px-space-16 py-space-8 ${
                 selectedVariantId === variant.id ? 'border-text bg-bg-fill' : 'border-border-secondary'

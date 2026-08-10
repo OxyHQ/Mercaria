@@ -97,8 +97,15 @@ export interface ProductPageVariant {
   readonly name?: string;
   readonly isDefault: boolean;
   readonly options: CanonicalVariant['options'];
-  /** How many of the SERVED offers price this configuration. Never a stock count. */
-  readonly offerCount: number;
+  /**
+   * How many of the SERVED offers price this configuration. Never a stock count.
+   *
+   * ABSENT when the offers half is withheld, and that is the same rule
+   * {@link ProductPageOffers} holds one level up: a zero on a page that is not
+   * answering the offers question reads as "nobody sells this configuration",
+   * which is exactly the sentence the withheld branch exists to prevent.
+   */
+  readonly offerCount?: number;
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */

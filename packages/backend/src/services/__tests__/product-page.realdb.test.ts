@@ -393,6 +393,12 @@ describe('the composed read (#71 route rules 3 and 5)', () => {
     // The withheld branch has no rows to read at all — the shape is what stops
     // a renderer saying "no offers" about a lever somebody turned off.
     expect('rows' in result.page.offers).toBe(false);
+    // And the same rule one level down: a count of ZERO beside every
+    // configuration would answer the offers question this page is refusing to
+    // answer, so there is no count at all.
+    for (const variant of result.page.variants) {
+      expect(variant.offerCount).toBeUndefined();
+    }
   });
 });
 

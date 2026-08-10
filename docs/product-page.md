@@ -175,7 +175,10 @@ either, whatever it happens to hold.
   configuration instead.
 - **`ProductPageVariant` is a projection**, not `CanonicalVariant`: a
   forty-configuration product would otherwise carry forty copies of every
-  identifier, image and provenance row for a control that renders a name.
+  identifier, image and provenance row for a control that renders a name. Its
+  `offerCount` is ABSENT on a withheld page rather than zero — the withheld
+  rule, one level down: a zero beside every configuration answers the offers
+  question the page is not answering.
 
 ## Seller identity spans two systems
 
