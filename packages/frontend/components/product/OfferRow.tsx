@@ -39,8 +39,6 @@ import {
 
 export interface OfferRowProps {
   row: ProductPageOfferRow;
-  /** The currency every converted figure on this page is expressed in. */
-  onExpandSeller?: (seller: ProductPageSeller) => void;
   /** Called for a native, purchasable offer. Never reachable for an external one. */
   onAddToCart?: (input: { listingId: string; productVariantId: string }) => void;
   addToCartPending?: boolean;

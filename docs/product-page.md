@@ -313,6 +313,27 @@ product is Mercaria's own catalogue record — a wrong specification is a data
 correction (#59's queue), not somebody's content to be moderated. Reporting a
 LISTING is on that listing's own page, where `POST /reports` has a type for it.
 
+## Four requirements answered by a statement rather than a control
+
+- **Language.** The page resolves a MARKET (`?market=`) and a display CURRENCY
+  (a signed-in buyer's stored preference, else `?currency=`), and it resolves no
+  language: each offer carries its own `language` from the source that published
+  it, and the page's copy comes from the app's i18n. Filtering offers by
+  language would remove a perfectly buyable offer for being described in another
+  one, which is not what "resolve language consistently" can honestly mean here.
+- **Merged status.** A merged product's page is never rendered — its handle
+  resolves to the winner and the URL is replaced — so there is no merge notice
+  to show. The redirect IS the statement.
+- **Merchant rating.** #71 offer row 7 asks for "merchant rating OR relationship
+  badge with clear meaning", and the badge is what this page renders: a rating on
+  an external merchant would need a #76 aggregate the merchant does not have,
+  and a NATIVE offer names no merchant at all until #84 links native stores to
+  them (#74 records the same gap for its own signal).
+- **Sharing.** #71 actions 6 asks that the canonical product URL be shared
+  rather than an ephemeral offer URL, and that holds by construction: the page's
+  own address is the canonical one and a redirect replaces it before anybody can
+  copy the old one. There is deliberately no decorative share button.
+
 ## Seams left to their owners
 
 Each is a named contract that fails closed, not a stub that lies:
