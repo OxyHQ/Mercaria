@@ -383,10 +383,13 @@ export function createApp(): express.Express {
    * configurations, every eligible way to acquire it and the verified channels
    * behind them — composed from #56, #74, #57, #68, #90 and #55 in ONE read.
    *
-   * Mounted UNCONDITIONALLY and gated inside the handler, for the reason
-   * `/search` is: `CANONICAL_READS=shadow` means "compute the canonical answer
-   * AND the listing-first one and record the comparison", which a middleware
-   * that returns first can never do. `off` and `shadow` are both a 404, so the
+   * Behind the SAME blunt MOUNT lever as `/canonical-products` — this page
+   * serves canonical identity, so a deployment that has withdrawn the public
+   * canonical surface must not keep answering here — and gated inside the
+   * HANDLER rather than by `requireCanonicalReads`, for the reason `/search`
+   * is: `CANONICAL_READS=shadow` means "compute the canonical answer AND the
+   * listing-first one and record the comparison", which a middleware that
+   * returns first can never do. `off` and `shadow` are both a 404, so the
    * visible behaviour matches every other gated canonical surface, and
    * `services/backfill/read-mode.ts` named this page as the second surface that
    * would compare both answers.
@@ -395,7 +398,9 @@ export function createApp(): express.Express {
    * and keeps serving whatever this lever says (#71 acceptance 7), which is
    * what leaves #75 free to migrate the public routes on its own schedule.
    */
-  app.use('/product-page', productPageRouter);
+  if (config.canonicalRollout.publicRoutesEnabled) {
+    app.use('/product-page', productPageRouter);
+  }
 
   /**
    * Currency-safe price history (#78), behind its OWN read lever.

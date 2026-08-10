@@ -4394,8 +4394,10 @@ at request time from the reads that measurement covers.
   comparison cannot contain another configuration's offer (acceptance 4) — and a
   configuration belonging to another product is REFUSED rather than ignored,
   because ignoring it silently widens the page to everything.
-- **The lever lives in the HANDLER** (#70's reason: `shadow` must compute both
-  answers), and the COHORT check runs there too — the first handler to call
+- **The MOUNT is behind `CANONICAL_PUBLIC_ROUTES_ENABLED`** (the blunt lever
+  `/canonical-products` uses — this page serves canonical identity) and the MODE
+  gate lives in the HANDLER (#70's reason: `shadow` must compute both
+  answers), with the COHORT check there too — the first handler to call
   `canonicalReadPermitted`, which `read-mode.ts` always intended. The shadow
   comparison counts eligible OFFERS against ACTIVE NATIVE LISTINGS read through
   `native_listing_links`: a DIFFERENT route, because measuring one table twice

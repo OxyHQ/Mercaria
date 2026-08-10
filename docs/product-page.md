@@ -205,8 +205,11 @@ disagree in the direction that mislabels who a buyer's warranty is with.
 | `CANONICAL_READ_COHORTS` | the cohort check, with the PRODUCT in hand |
 | `CANONICAL_OFFER_COMPARISON` | decides the offers half alone (withheld branch) |
 
-**This page adds no lever of its own.** The gate lives in the HANDLER rather
-than in `requireCanonicalReads`, for #70's reason: `shadow` means compute the
+**This page adds no lever of its own.** The MOUNT is behind
+`CANONICAL_PUBLIC_ROUTES_ENABLED`, the same blunt lever `/canonical-products`
+sits behind — a deployment that has withdrawn the public canonical surface must
+not keep answering here — and the mode gate lives in the HANDLER rather than in
+`requireCanonicalReads`, for #70's reason: `shadow` means compute the
 canonical answer AND the listing-first one and record the comparison, which a
 middleware that returns first can never do. `services/backfill/read-mode.ts`
 named this page as the second surface that would do it, and
