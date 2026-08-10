@@ -65,6 +65,7 @@ import {
 } from '../db/buyers/sellerProfileRepository.js';
 import { activeDiscountCodeExists } from '../db/merchandising/discountRepository.js';
 import { resolveMedia } from './catalog-hydration.service.js';
+import { guestCheckoutAvailabilityFor } from './guest-p2p/gate.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { calculateTotals, type PricingLine } from './pricing.service.js';
 import { normalizeDiscountCode } from './discount.service.js';
@@ -115,6 +116,7 @@ async function buildGroups(
   items: CartItemDTO[],
   listingById: Map<string, ListingRecord>,
   currency: CurrencyCode,
+  owner: CartOwner,
 ): Promise<CartGroup[]> {
   // Vendor keys, in first-seen order, plus the owner ids to batch-load.
   const storeIds = new Set<string>();
@@ -187,7 +189,15 @@ async function buildGroups(
     if (!vendor) {
       throw new Error(`Cart group vendor missing for key ${key}`);
     }
-    return {
+    // Whether the CALLER may check this group out (#112). The same server rule
+    // checkout will enforce, said here so a guest sees it before they get to
+    // the payment step rather than at it; `undefined` for an Oxy owner, so the
+    // field is absent on every authenticated cart.
+    const guestCheckout = guestCheckoutAvailabilityFor(owner, {
+      sellerKey: key,
+      sellerType: vendor.kind,
+    });
+    const group: CartGroup = {
       vendor,
       items: groupItems,
       subtotal: sumMoney(
@@ -195,6 +205,10 @@ async function buildGroups(
         currency,
       ),
     };
+    if (guestCheckout) {
+      group.guestCheckout = guestCheckout;
+    }
+    return group;
   });
 }
 
@@ -372,7 +386,7 @@ async function buildCartDTO(cart: CartRecord, view: CartView): Promise<CartDTO> 
     currency,
   );
 
-  const groups = await buildGroups(items, listingById, currency);
+  const groups = await buildGroups(items, listingById, currency, view.owner);
 
   const dto: CartDTO = { id, items, groups, currency, subtotal };
 

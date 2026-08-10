@@ -42,6 +42,23 @@ function groupKey(group: CartGroup): string {
   return `${group.vendor.kind}:${group.vendor.id}`;
 }
 
+/**
+ * The seller keys `?seller=` names — one, several (comma-separated), or none.
+ *
+ * A LIST because a mixed cart has to be separable (#112): a guest whose cart
+ * holds both a shop and a person can check out the shop's group, and the cart
+ * sends the keys that are actually checkout-able rather than the whole cart the
+ * server would then refuse. A single key parses to a one-element list, so every
+ * link that existed before behaves exactly as it did.
+ */
+function parseSellerKeys(seller: string | undefined): string[] {
+  if (!seller) return [];
+  return seller
+    .split(",")
+    .map((key) => key.trim())
+    .filter((key) => key.length > 0);
+}
+
 /** Sum the subtotals of the groups being checked out (all share one currency). */
 function sumSubtotals(groups: CartGroup[]): Money | null {
   if (groups.length === 0) return null;
@@ -393,12 +410,13 @@ function CheckoutBody() {
   // makes an order paid.
   const paymentStatus = useCheckoutPaymentStatus(placed?.checkoutGroupId, sheetDone);
 
-  // Target groups: a single seller when `?seller=` is present, else the whole cart.
+  // Target groups: the sellers `?seller=` names, else the whole cart.
+  const sellerKeys = useMemo(() => parseSellerKeys(seller), [seller]);
   const targetGroups = useMemo<CartGroup[]>(() => {
     const groups = cart?.groups ?? [];
-    if (!seller) return groups;
-    return groups.filter((g) => groupKey(g) === seller);
-  }, [cart, seller]);
+    if (sellerKeys.length === 0) return groups;
+    return groups.filter((g) => sellerKeys.includes(groupKey(g)));
+  }, [cart, sellerKeys]);
 
   const savedAddresses = isAuthenticated ? (addresses ?? []) : [];
   const defaultAddressId = savedAddresses.find((a) => a.isDefault)?.id ?? savedAddresses[0]?.id;
@@ -503,7 +521,7 @@ function CheckoutBody() {
         // which is why it is sent unconditionally rather than behind an
         // `isAuthenticated` branch this screen would have to keep in step with.
         ...(cart?.currency ? { currency: cart.currency } : {}),
-        ...(seller ? { sellerKeys: [seller] } : {}),
+        ...(sellerKeys.length > 0 ? { sellerKeys } : {}),
         ...(discountCode.trim() ? { discountCodes: [discountCode.trim()] } : {}),
       },
       {

@@ -55,6 +55,10 @@ import {
   reconcileBuyerRequest,
   traceBuyerRequests,
 } from '../controllers/buyer-requests.controller.js';
+import {
+  guestP2PPolicyHandler,
+  traceGuestP2PListingHandler,
+} from '../controllers/guest-p2p-operator.controller.js';
 
 const router = Router();
 
@@ -124,5 +128,21 @@ router.post('/claim-revocations/:revocationId/withdraw', withdrawClaimRevocation
  */
 router.get('/buyer-requests/orders/:orderId', traceBuyerRequests);
 router.post('/buyer-requests/returns/:requestId/reconcile', reconcileBuyerRequest);
+
+/**
+ * The guest-P2P policy half (#112), on the SAME allow-list and READ ONLY.
+ *
+ * Two reads and no third. There is deliberately no "authorize this seller", no
+ * "waive this criterion" and no "enable the pilot": approving a bounded scope
+ * of guest P2P checkout is a dated decision recorded in `docs/guest-p2p/`, and
+ * a route that could do it would be a way to grant one without the record.
+ *
+ * The trace opens from a LISTING, so "what did this guest try to buy" is not a
+ * question this surface can be asked. It stays mounted whatever the
+ * authorization state is, for the reason every other operator surface here
+ * does: the evidence has to be readable while the answer is no.
+ */
+router.get('/p2p/policy', guestP2PPolicyHandler);
+router.get('/p2p/listings/:listingId', traceGuestP2PListingHandler);
 
 export default router;

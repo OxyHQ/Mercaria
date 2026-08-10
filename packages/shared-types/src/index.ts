@@ -148,6 +148,15 @@ export * from './guest-portal';
 // proof is one of its grants, and the claim exists to END emailed access.
 export * from './guest-claim';
 
+// Whether a guest may buy from an individual seller (#112, ADR 0003 D18 / ADR
+// 0006 G18). Follows the three guest modules because it is a POLICY over them
+// and adds no credential, no identity and no order concept of its own. Its
+// criterion tuples are DISJOINT from its forbidden-input tuple, which is what
+// makes "a card fingerprint, a reusable buyer handle or paid placement can
+// never make a seller guest-eligible" a property of the vocabulary rather than
+// of whoever writes the next rule.
+export * from './guest-p2p';
+
 // Procurement — suppliers, supply agreements, procurement offers, purchase orders (#118).
 export * from './procurement';
 

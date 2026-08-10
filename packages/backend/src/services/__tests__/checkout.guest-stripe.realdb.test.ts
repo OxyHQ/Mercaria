@@ -209,8 +209,11 @@ beforeEach(() => {
  * A payment-ready STORE and its listing.
  *
  * A store rather than an individual, because ADR 0003 D18 refuses a guest
- * checkout from a `user` seller and #112 owns any reversal — so a P2P fixture
- * here would be refused before the rail was ever consulted.
+ * checkout from a `user` seller — the refusal #112 measured and kept. The P2P
+ * fixture beside it (`seedP2PSeller`) exists precisely to prove that, and it is
+ * deliberately as READY as this one: the point of the case at the bottom of
+ * this file is that a P2P group is refused for reasons that have nothing to do
+ * with the rail being unable to pay the seller.
  */
 async function seedStoreSeller(label: string): Promise<{
   storeId: string;
@@ -299,15 +302,87 @@ async function seedStoreSeller(label: string): Promise<{
   return { storeId: store.id, listingId: listing.id, variantId: variant.id };
 }
 
-/** A live guest session holding a cart with one line. */
-async function seedGuestCart(line: {
+/**
+ * A payment-ready INDIVIDUAL and their listing (#112).
+ *
+ * Fully payment-ready, on purpose: `assertSellerGroupsPaymentReady` would
+ * refuse an unready seller too, and a fixture that failed both gates could not
+ * tell which one fired. This one can be paid, and is still refused for a guest.
+ *
+ * An individual's stock is not held at a location, which is why this fixture is
+ * shorter than its store sibling.
+ */
+async function seedP2PSeller(label: string): Promise<{
+  sellerOxyUserId: string;
   listingId: string;
   variantId: string;
-  quantity: number;
-}): Promise<{ guestSessionId: string }> {
+  sellerKey: string;
+}> {
+  const sellerOxyUserId = `p2p-seller-${RUN}-${label}`;
+  const account = await insertProviderAccount(db, {
+    provider: 'stripe',
+    ownerType: 'user',
+    ownerId: sellerOxyUserId,
+    providerAccountId: `acct_p2p_${RUN}_${label}`,
+    country: 'ES',
+  });
+  await applyProviderAccountState(db, {
+    id: account.id,
+    state: {
+      onboardingState: 'ready',
+      chargesEnabled: false,
+      payoutsEnabled: true,
+      transfersCapability: 'active',
+      requirementsCurrentlyDue: 0,
+      requirementsEventuallyDue: 0,
+      requirementsPastDue: 0,
+      requirementsPendingVerification: 0,
+      disabledReasonCodes: [],
+      syncedAt: new Date(),
+    },
+  });
+
+  const [listing] = await db
+    .insert(catalogSchema.listings)
+    .values({
+      ownerType: 'user',
+      oxyUserId: sellerOxyUserId,
+      title: `Guest P2P Thing ${label}`,
+      description: '',
+      condition: 'used_good',
+      conditionAssertion: 'seller_declared',
+      status: 'active',
+    })
+    .returning();
+  const [variant] = await insertVariants(listing.id, [
+    {
+      title: 'Default',
+      priceAmount: 2_500,
+      priceCurrency: 'EUR',
+      inventoryTracked: true,
+      inventoryAvailable: 5,
+      position: 0,
+      optionValues: [],
+    },
+  ]);
+
+  return {
+    sellerOxyUserId,
+    listingId: listing.id,
+    variantId: variant.id,
+    sellerKey: `user:${sellerOxyUserId}`,
+  };
+}
+
+/** A live guest session holding a cart with the given lines. */
+async function seedGuestCart(
+  ...lines: { listingId: string; variantId: string; quantity: number }[]
+): Promise<{ guestSessionId: string }> {
   const issued = await issueGuestSession({ clientClass: 'web', now: new Date() });
   const cart = await ensureCart({ kind: 'guest_session', guestSessionId: issued.session.id });
-  await upsertCartItem(cart.id, line);
+  for (const line of lines) {
+    await upsertCartItem(cart.id, line);
+  }
   return { guestSessionId: issued.session.id };
 }
 
@@ -452,6 +527,87 @@ describe('a guest pays for a store order', () => {
     expect(new Set(api.intentCalls.map((call) => call.idempotencyKey)).size).toBe(1);
     expect(bodies[0]).toContain(contact.id);
     expect(api.intents.size).toBe(1);
+  });
+});
+
+describe('a guest cannot buy from an individual, and a mixed cart separates (#112)', () => {
+  it('refuses a P2P-only guest cart before any stock is reserved or any intent opened', async () => {
+    const seller = await seedP2PSeller('only');
+    const { guestSessionId } = await seedGuestCart({
+      listingId: seller.listingId,
+      variantId: seller.variantId,
+      quantity: 1,
+    });
+
+    await expect(
+      checkout(
+        { kind: 'guest', guestSessionId, transport: 'cookie' },
+        {
+          destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
+          contact: { email: 'guest.p2p.only@example.com' },
+        },
+        `idem-p2p-only-${RUN}`,
+        'EUR',
+      ),
+    ).rejects.toThrow(/individual seller/);
+
+    // No rail call at all — the gate runs before the reservation loop, so the
+    // refusal has taken no stock and told Stripe nothing.
+    expect(api.intentCalls).toHaveLength(0);
+    const [variant] = await db
+      .select({ available: catalogSchema.productVariants.inventoryAvailable })
+      .from(catalogSchema.productVariants)
+      .where(eq(catalogSchema.productVariants.id, seller.variantId));
+    expect(variant.available).toBe(5);
+  });
+
+  it('refuses a MIXED cart naming only the individual, then charges the store group alone', async () => {
+    const store = await seedStoreSeller('mixed');
+    const person = await seedP2PSeller('mixed');
+    const { guestSessionId } = await seedGuestCart(
+      { listingId: store.listingId, variantId: store.variantId, quantity: 1 },
+      { listingId: person.listingId, variantId: person.variantId, quantity: 1 },
+    );
+    const actor = { kind: 'guest', guestSessionId, transport: 'cookie' } as const;
+    const body = {
+      destination: { type: 'inline_shipping_address' as const, address: INLINE_ADDRESS },
+      contact: { email: 'guest.p2p.mixed@example.com' },
+    };
+
+    // The whole cart is refused, and the message names the group to deselect —
+    // never the store's, which is still perfectly buyable.
+    await expect(checkout(actor, body, `idem-p2p-mixed-${RUN}`, 'EUR')).rejects.toThrow(
+      new RegExp(person.sellerKey),
+    );
+    expect(api.intentCalls).toHaveLength(0);
+
+    // Deselecting it is the documented remedy, and it works: one order, one
+    // intent, and the P2P line is still sitting in the cart untouched.
+    const placed = await checkout(
+      actor,
+      { ...body, sellerKeys: [`store:${store.storeId}`] },
+      `idem-p2p-mixed-store-${RUN}`,
+      'EUR',
+    );
+
+    expect(placed.orders).toHaveLength(1);
+    expect(api.intentCalls).toHaveLength(1);
+
+    // The charge covers the store order and nothing else. This is acceptance 6
+    // read off the rail: a mixed cart cannot accidentally charge a P2P group.
+    const orders = await db
+      .select({
+        id: orderSchema.orders.id,
+        sellerType: orderSchema.orders.sellerType,
+      })
+      .from(orderSchema.orders)
+      .where(eq(orderSchema.orders.checkoutGroupId, placed.checkoutGroupId));
+    expect(orders).toHaveLength(1);
+    expect(orders[0].sellerType).toBe('store');
+    expect(api.intentCalls[0].params.metadata).toMatchObject({
+      orderCount: '1',
+      orderIds: orders[0].id,
+    });
   });
 });
 

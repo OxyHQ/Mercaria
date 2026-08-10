@@ -11,16 +11,15 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CommerceActor } from '../../commerce-actor.js';
+import { assertGuestP2PCheckoutAllowed } from '../../guest-p2p/gate.js';
 import type { ResolvedFulfilment } from '../destination.js';
 import {
-  assertGuestSellerTypesAllowed,
   assertPickupLocationEligible,
   assertSellerGroupsAcceptDestination,
   resolveShippingCostMinor,
   type EligibilitySellerGroup,
 } from '../fulfilment-eligibility.js';
 
-const OXY: CommerceActor = { kind: 'oxy', oxyUserId: 'buyer-1' };
 const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-1', transport: 'cookie' };
 
 const SHIPPING: ResolvedFulfilment = {
@@ -62,30 +61,32 @@ describe('shipping cost is resolved, never assumed', () => {
   });
 });
 
-describe('the guest P2P gate (ADR 0003 D18, ADR 0006 G18)', () => {
-  it('refuses a guest buying from an individual seller, naming that seller', () => {
-    try {
-      assertGuestSellerTypesAllowed(GUEST, [
-        group({ sellerKey: 'store:store-A' }),
-        group({ sellerKey: 'user:seller-9', sellerType: 'user' }),
-      ]);
-      expect.unreachable('a guest P2P group must be refused');
-    } catch (err) {
-      const message = (err as Error).message;
-      // Named, and ONLY the offending one: the remedy is to deselect it.
-      expect(message).toContain('user:seller-9');
-      expect(message).not.toContain('store:store-A');
-    }
-  });
-
-  it('leaves an Oxy buyer P2P group alone', () => {
+describe('the guest P2P gate is no longer this module\'s (#112)', () => {
+  // The gate MOVED to `services/guest-p2p/gate.ts`, which is where its policy,
+  // its published criteria and its second call site before payment creation
+  // live. What is asserted here is the ORDERING this file's own gate depends
+  // on: `checkout.service` runs the P2P gate first, so a guest whose cart holds
+  // an individual's listing is told THAT rather than being sent to fix a
+  // destination. Full behaviour: `services/guest-p2p/__tests__/gate.test.ts`.
+  it('refuses a guest P2P group before any destination question is asked', () => {
     expect(() =>
-      assertGuestSellerTypesAllowed(OXY, [group({ sellerKey: 'user:seller-9', sellerType: 'user' })]),
-    ).not.toThrow();
+      assertGuestP2PCheckoutAllowed({
+        actor: GUEST,
+        groups: [group({ sellerKey: 'user:seller-9', sellerType: 'user' })],
+      }),
+    ).toThrow(/individual seller/);
   });
 
-  it('leaves a guest store-only cart alone', () => {
-    expect(() => assertGuestSellerTypesAllowed(GUEST, [group()])).not.toThrow();
+  it('takes no actor at all, so it cannot answer a seller-type question twice', () => {
+    // The signature is the assertion: `assertSellerGroupsAcceptDestination` has
+    // no actor parameter, so a P2P group reaches the destination checks like
+    // any other and the seller TYPE is decided in exactly one place.
+    expect(() =>
+      assertSellerGroupsAcceptDestination({
+        fulfilment: SHIPPING,
+        groups: [group({ sellerKey: 'user:seller-9', sellerType: 'user' })],
+      }),
+    ).not.toThrow();
   });
 });
 
@@ -98,7 +99,6 @@ describe('pickup fails CLOSED until #93', () => {
   it('refuses through the whole gate too, so no caller can skip it', () => {
     expect(() =>
       assertSellerGroupsAcceptDestination({
-        actor: OXY,
         fulfilment: {
           kind: 'pickup',
           locationId: 'loc-1',
@@ -117,7 +117,6 @@ describe('mixed destination and method', () => {
   it('refuses collection chosen for one seller alongside a delivery address', () => {
     try {
       assertSellerGroupsAcceptDestination({
-        actor: OXY,
         fulfilment: SHIPPING,
         groups: [group(), group({ sellerKey: 'store:store-B', shippingMethod: 'pickup' })],
       });
@@ -132,7 +131,6 @@ describe('mixed destination and method', () => {
   it('accepts a plain multi-seller delivery', () => {
     expect(() =>
       assertSellerGroupsAcceptDestination({
-        actor: OXY,
         fulfilment: SHIPPING,
         groups: [group(), group({ sellerKey: 'store:store-B', shippingMethod: 'express' })],
       }),
@@ -141,9 +139,8 @@ describe('mixed destination and method', () => {
 
   it('leaks nothing about the cart in a refusal', () => {
     try {
-      assertSellerGroupsAcceptDestination({
+      assertGuestP2PCheckoutAllowed({
         actor: GUEST,
-        fulfilment: SHIPPING,
         groups: [group({ sellerKey: 'user:seller-9', sellerType: 'user' })],
       });
       expect.unreachable('a guest P2P group must be refused');

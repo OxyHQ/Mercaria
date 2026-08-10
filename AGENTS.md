@@ -4883,3 +4883,89 @@ validated constraint set and #70's deterministic retrieval. Full reference:
   a model may name them, and `selectClarifications` drops a question with fewer
   than two options so a half-built one is silently invisible rather than
   visibly missing.
+## Guest checkout from an individual seller (#112): the gate and its decision
+
+`services/guest-p2p/` (5 modules) + `controllers/guest-p2p-operator.controller.ts`
++ `@mercaria/shared-types` `guest-p2p.ts`, plus the `guestCheckout` annotation on
+`CartGroup` and the two call sites in `checkout.service`. **NO new tables and NO
+migration.** The dated decision is
+**`docs/guest-p2p/2026-08-10-guest-p2p-checkout-decision.md`** and its outcome is
+**no-go**: ADR 0003 D18 and ADR 0006 G18 excluded guest P2P at launch, #112
+evaluated the reversal, and the exclusion stands.
+
+- **There is no feature flag, and that is the decision rather than an omission.**
+  `GuestP2PAuthorization` has no member meaning yes (the `GuestSellerActivation`
+  and `LIVE_REFUSED_UNTIL_GATED` device), so no configuration, operator action or
+  service bug can enable it. D18 anticipated "a config flag whose flip is a
+  decision recorded on #112"; this IS that record, its answer is no, and a switch
+  whose flip would enable an unapproved scope is the dormant switch #105 refused.
+  The flag arrives WITH the approval, in the change that adds the second member.
+- **The gate runs TWICE and the second call is the load-bearing one.** At group
+  construction (before any reservation) and again immediately before
+  `openCheckoutPayment`, over the CREATED ORDERS rather than the planned groups —
+  so acceptance 6 ("a mixed cart cannot accidentally charge an ineligible P2P
+  group") is a property of the charge, not of the plan. Refusing there needs no
+  new failure handling: a `CheckoutRefusal` is a `MercariaError`, the orders stay
+  `pending_payment` holding their reservations, and the sweep releases them.
+- **`openGatedCheckoutPayment` is the ONE place `checkout.service` opens a
+  payment, and that is structural rather than remembered.** The service reaches
+  `openCheckoutPayment` from exactly one line;
+  `checkout-payment-gate.test.ts` counts it and fails the build on a second.
+  Review caught the reason it matters: the payment-stage gate first sat INLINE
+  beside the fresh-path call, while the Redis idempotency fast-path and the
+  unique-violation converge both reach the rail through `summarizePriorGroup` —
+  which opens the same payment for a group it did not create, and skipped the
+  gate. Harmless only while the authorization is a build-time constant, and
+  precisely what a `go` decision would turn into a real hole.
+- **ONE reason code (`p2p_seller_excluded`) and it names only the `user`
+  groups** — the mixed cart's remedy is the existing `sellerKeys` deselection,
+  and a refusal that named a criterion would be a switchboard a client could read
+  out one input at a time.
+- **`assertGuestSellerTypesAllowed` is GONE from `fulfilment-eligibility.ts`** (a
+  clean cut, #105's one-clause version), and that module no longer takes an actor
+  at all — the seller TYPE is decided in exactly one place.
+- **Twenty published criteria, and two of the three outcomes BLOCK.**
+  `satisfied | refused | unevaluable`; `unevaluable` names who would supply the
+  input and is never a soft yes. A census test fails the build if a criterion is
+  published and never evaluated, or evaluated and never published.
+  `eligibility.ts` imports no repository (the `getRetailEligibility` rule, a
+  scanned gate); `facts.ts` is the module that reads, and it defaults nothing.
+- **The bounded scope is a CODE CONSTANT** (`GUEST_P2P_BOUNDED_SCOPE`), not a
+  table and not an environment variable: a pilot's bounds are a published policy
+  somebody signs, so widening them is a commit with an author and a date. Its
+  category allow-list is EMPTY, which permits nothing (grant semantics, not the
+  unrestricted-when-empty kind).
+- **Two findings are facts about this repository, not risks**, and they are why
+  the answer is no rather than "insufficient data": a P2P order has NO refund
+  path for any actor (`orderHasRefundPath`, named by #110), and a P2P seller has
+  no surface to answer a cancellation, return or support thread on (every
+  merchant route is behind `requireStorePermission`). Do not remove either
+  citation without re-running the decision.
+- **`GUEST_P2P_FORBIDDEN_CRITERIA` names ten inputs that may never decide
+  eligibility**, disjoint from the criterion vocabulary by a test: a public buyer
+  identity, a reusable handle, a Trust score Mercaria computed about a guest, a
+  card fingerprint, an email domain, paid placement, a ranking penalty for guest
+  status, an auto-created Oxy account, off-platform contact and seller
+  self-attestation.
+- **Visible before checkout:** `CartGroup.guestCheckout` carries the same verdict
+  checkout enforces, ABSENT for an Oxy owner (never `available`), and the
+  storefront replaces that group's checkout button with a sign-in path. The
+  whole-cart button then places only the checkout-able groups —
+  `/checkout?seller=` accepts a comma-separated list for exactly that.
+- Operator surface: `/internal/guest-commerce/p2p/*` on the SAME
+  `GUEST_OPERATOR_OXY_USER_IDS` allow-list #104/#108/#109/#110 use, READ ONLY and
+  two routes. There is deliberately no "authorize this seller", no "waive this
+  criterion" and no "enable the pilot": approving a bounded scope is a dated
+  decision, and a route that could grant one would be a way around the record.
+  The trace opens from a LISTING id, so "what did this guest try to buy" is
+  unaskable.
+- Seams, each named in the decision document with what would close it: **#43**
+  (CLOSED — ADR 0001 already assigns an individual payee's unrecoverable
+  chargeback to Mercaria and bounds it with nothing; what is owed is an
+  amendment adding a reserve, a payout delay or an exposure limit), **#85**
+  (the P2P policy-acceptance surface — the one `unevaluable` criterion), **#93**
+  (every pickup and meetup fact; the fulfilment criterion answers `unevaluable`
+  for a pickup destination and BLOCKS), **#110** (the P2P refund path and the P2P
+  seller surface), **#111** (the guest cohort this decision would have measured),
+  **#91** (condition refinement, so evidence measures sellers rather than a
+  missing feature).
