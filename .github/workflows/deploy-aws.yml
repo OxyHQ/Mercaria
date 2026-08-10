@@ -43,6 +43,25 @@ on:
           - pre-post
           - all
 
+# `@oxyhq/db`'s migrator takes NO lock against a second concurrent migrator, and
+# says so in its own runner: drizzle reads the ledger's high-water mark OUTSIDE
+# its transaction, so two runs both read the same mark and both attempt the same
+# DDL. The runner explicitly assigns the interlock to the caller, naming this
+# exact case — "a deploy's own migration step racing a manually dispatched one".
+# Measured in a sibling repo: the loser exits 1 on an already-applied statement
+# while the ledger ends CORRECT (one row, no duplicates), so the cost is a red
+# deploy that has already pushed its image and never reaches the rollout — not a
+# damaged database. Mercaria is the only Oxy backend that was still missing this.
+#
+# `cancel-in-progress` is deliberately FALSE, and it reads like an optimisation
+# to flip. It is the opposite. Cancelling between `run-task` and its exit-code
+# check ORPHANS a live migration task and reports nothing; and cancellation does
+# not prevent this workflow family's defensive rollback — it TRIGGERS it, which
+# was measured in Allo on 2026-08-09 while trying to stop one.
+concurrency:
+  group: deploy-aws-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: read
