@@ -285,6 +285,15 @@ export * from './price-history';
 // measured negative, and every published figure keeps #78's FX basis.
 export * from './price-signals';
 
+// Grounded product comparison and multi-merchant basket optimization (#96).
+// Follows `./offer-ranking`, `./constraint` and `./condition` in this list
+// because it composes all three and defines none of them again: a comparison is
+// #74's ranked, currency-safe offers under #94's validated constraints, with an
+// opaque record reference behind every fact so a generated explanation can be
+// checked rather than trusted. The two vocabularies it adds are the recommendation
+// inputs and their DISJOINT prohibitions, and the basket's own reason codes.
+export * from './comparison-basket';
+
 // Merchant → native `Store` linkage (#84, ADR 0002 D4/D9) — the request that
 // joins a verified merchant claim to exactly one native store, the candidate
 // evidence vocabulary (which has NO name-match member), the adoptable profile
