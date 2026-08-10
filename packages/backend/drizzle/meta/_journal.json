@@ -372,6 +372,13 @@
       "when": 1786328232521,
       "tag": "0052_abnormal_microbe",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1786328763330,
+      "tag": "0053_public_living_mummy",
+      "breakpoints": true
     }
   ]
 }

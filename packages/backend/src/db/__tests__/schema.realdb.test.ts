@@ -172,7 +172,12 @@ describe('the migrated schema', () => {
     // unswept: a claim records who owns a purchase and a revocation records an
     // operator correcting that, so a retention shorter than the orders would
     // answer the only question either exists for with silence.
-    expect(EXPIRY_TARGETS).toHaveLength(24);
+    // #78 adds ONE — a price OBSERVATION, at the deadline its source's own
+    // rights policy set — and leaves its three other tables unswept: points are
+    // removed by CASCADE with the observation they cite, a series is one row per
+    // question anybody asked, and the write metrics are the counters that make a
+    // broken deduplication visible, which is exactly what must not age out.
+    expect(EXPIRY_TARGETS).toHaveLength(25);
   });
 });
 

@@ -1744,6 +1744,52 @@ export interface RankingConfig {
   readonly canaryEnabled: boolean;
 }
 
+/**
+ * Currency-safe price history (#78).
+ *
+ * ## The anchor interval is NOT the global TTL #68 forbids
+ *
+ * #68's prohibition is on a deployment-wide FRESHNESS LIFETIME — how long a
+ * source's facts stay trustworthy — because that is a property of an agreement
+ * with one source, and one number cannot be right for eBay's licence, an
+ * Amazon-style 24-hour cap and an Awin feed at once. `anchorIntervalSeconds` is
+ * a property of Mercaria's own STORAGE: how often it is prepared to write a row
+ * saying nothing changed. It cannot extend how long anything is SHOWN, and it
+ * is the same class as a poll interval, which #68 explicitly permits to be
+ * deployment-wide.
+ *
+ * ## `seriesCurrencies` is EMPTY by default, and that is the rollout position
+ *
+ * With no currencies configured, every observation is still written and NO
+ * series is enqueued — the durable record is never gated and the derived answer
+ * is (the "gate the loop, never the record" rule applied one level up). A
+ * deployment lists the currencies it will actually serve charts in; there is no
+ * hard-coded default currency here, because #78 forbids adding a
+ * FairCoin-specific assumption and a default of any single code would be one.
+ */
+export interface PriceHistoryConfig {
+  /** `PRICE_HISTORY_ENABLED` — does the rebuild dispatcher run. Gates the LOOP only. */
+  readonly enabled: boolean;
+  /** `PRICE_HISTORY_PUBLIC_READS_ENABLED` — is `/price-history` mounted at all. */
+  readonly publicReadsEnabled: boolean;
+  /** Which display currencies this deployment builds series in. Empty = none. */
+  readonly seriesCurrencies: readonly CurrencyCode[];
+  /** How long an identical observation is suppressed before it is written as an anchor. */
+  readonly anchorIntervalSeconds: number;
+  /** How far back a rebuild looks, and the oldest range a read may ask for. */
+  readonly retentionWindowDays: number;
+  /** The widest span one read may request. */
+  readonly maxQuerySpanDays: number;
+  /** How many observations one rebuild may pull into the process. */
+  readonly rebuildObservationLimit: number;
+  readonly rebuildBatchSize: number;
+  readonly rebuildPollIntervalMs: number;
+  readonly rebuildLeaseMs: number;
+  readonly rebuildMaxBackoffMs: number;
+  /** How many observations an operator trace returns for one offer. */
+  readonly traceLimit: number;
+}
+
 export interface OfferFreshnessConfig {
   /** `OFFER_REFRESH_ENABLED` — does the refresh dispatcher run. Gates the LOOP only. */
   readonly refreshEnabled: boolean;
@@ -2395,6 +2441,7 @@ export interface AppConfig {
   readonly catalogIngestion: CatalogIngestionConfig;
   readonly offerFreshness: OfferFreshnessConfig;
   readonly ranking: RankingConfig;
+  readonly priceHistory: PriceHistoryConfig;
   readonly feedImport: FeedImportConfig;
   readonly ebay: EbayConfig;
   readonly awin: AwinConfig;
@@ -2428,6 +2475,27 @@ export interface AppConfig {
  * list therefore resolves to NOTHING and the adapter queries nothing at all —
  * fail-closed, and visible immediately as a source that fetches no records.
  */
+/**
+ * `PRICE_HISTORY_SERIES_CURRENCIES` → the display currencies this deployment
+ * builds price series in (#78).
+ *
+ * EMPTY by default, and unlike `EBAY_MARKETS` there is no fallback member:
+ * every default here would name one currency, and #78 currency rule 9 forbids
+ * adding a FairCoin-specific assumption while rule 8 warns that a currency
+ * being representable does not make it a rail. An unrecognised code is dropped
+ * rather than accepted, so a typo builds one fewer series instead of failing
+ * every rebuild against a CHECK.
+ */
+function resolvePriceHistorySeriesCurrencies(): readonly CurrencyCode[] {
+  const configured = strEnv('PRICE_HISTORY_SERIES_CURRENCIES', '')
+    .split(',')
+    .map((value) => value.trim().toUpperCase())
+    .filter((value) => value !== '');
+  return configured.filter((value): value is CurrencyCode =>
+    (ALL_CURRENCY_CODES as readonly string[]).includes(value),
+  );
+}
+
 function resolveEbayMarkets(): readonly EbayMarketplaceId[] {
   const configured = strEnv('EBAY_MARKETS', 'EBAY_ES')
     .split(',')
@@ -2525,6 +2593,20 @@ export const config: AppConfig = Object.freeze({
     expirySweepEnabled: boolEnv('OFFER_EXPIRY_SWEEP_ENABLED', false),
     expirySweepBatchSize: intEnv('OFFER_EXPIRY_SWEEP_BATCH_SIZE', 500),
     expirySweepIntervalMs: intEnv('OFFER_EXPIRY_SWEEP_INTERVAL_MS', 60_000),
+  }),
+  priceHistory: Object.freeze({
+    enabled: boolEnv('PRICE_HISTORY_ENABLED', false),
+    publicReadsEnabled: boolEnv('PRICE_HISTORY_PUBLIC_READS_ENABLED', false),
+    seriesCurrencies: Object.freeze(resolvePriceHistorySeriesCurrencies()),
+    anchorIntervalSeconds: intEnv('PRICE_HISTORY_ANCHOR_INTERVAL_SECONDS', 24 * 60 * 60),
+    retentionWindowDays: intEnv('PRICE_HISTORY_RETENTION_WINDOW_DAYS', 400),
+    maxQuerySpanDays: intEnv('PRICE_HISTORY_MAX_QUERY_SPAN_DAYS', 400),
+    rebuildObservationLimit: intEnv('PRICE_HISTORY_REBUILD_OBSERVATION_LIMIT', 50_000),
+    rebuildBatchSize: intEnv('PRICE_HISTORY_REBUILD_BATCH_SIZE', 10),
+    rebuildPollIntervalMs: intEnv('PRICE_HISTORY_REBUILD_POLL_INTERVAL_MS', 30_000),
+    rebuildLeaseMs: intEnv('PRICE_HISTORY_REBUILD_LEASE_MS', 120_000),
+    rebuildMaxBackoffMs: intEnv('PRICE_HISTORY_REBUILD_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
+    traceLimit: intEnv('PRICE_HISTORY_TRACE_LIMIT', 500),
   }),
   feedImport: Object.freeze({
     enabled: resolveFeedImportEnabled(),

@@ -442,6 +442,15 @@ describe('the registry the sweeper runs over', () => {
       'moderation_events',
       'moderation_outboxes',
       'notifications',
+      // #78's ONE, and the three it leaves out are the point:
+      // `offer_price_series`, `offer_price_points` and
+      // `offer_price_write_metrics` carry no deadline of their own. Points are
+      // removed by CASCADE when the observation they cite is, which is what
+      // keeps "every point traces to an immutable observation" true at every
+      // instant rather than true until a sweep; a series is one row per
+      // question anybody asked; and the metrics are the counters that make a
+      // broken dedup visible, which is exactly what must not quietly age out.
+      'offer_price_snapshots',
       'payment_outboxes',
       'payment_provider_events',
       // #124's two, and the FIVE it deliberately leaves out are the point:

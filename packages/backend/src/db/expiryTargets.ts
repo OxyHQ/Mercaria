@@ -91,6 +91,7 @@ import {
   feedUploads,
 } from './schema/feedImport';
 import { moderationEvents, moderationOutboxes } from './schema/moderation';
+import { offerPriceSnapshots } from './schema/priceHistory';
 import { notifications } from './schema/notifications';
 import { paymentOutboxes, paymentProviderEvents } from './schema/payments';
 import { referralTouches } from './schema/referrals';
@@ -543,6 +544,26 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'One record a feed pass refused (#63), 30 days later — SHORTER than the report that ' +
       'counts it, because the counts are what is read months later and the per-record detail ' +
       'is what a merchant downloads this week. The only #63 table bounded by traffic.',
+  },
+  // Price history (#78). ONE entry, and the three omissions beside it are the
+  // decision: `offer_price_series`, `offer_price_points` and
+  // `offer_price_write_metrics` carry no deadline of their own. Points are
+  // removed by CASCADE when the observation they cite is, which is what keeps
+  // "every point traces to an immutable observation" true at every instant
+  // rather than true until a sweep; a series is one row per question anybody
+  // asked and is bounded by the catalogue; and the metrics are the counters
+  // that make a broken dedup visible, which is exactly the thing that must not
+  // quietly age out.
+  {
+    table: offerPriceSnapshots,
+    column: offerPriceSnapshots.retentionExpiresAt,
+    retentionSeconds: 0,
+    reason:
+      'One price observation, at the deadline its SOURCE’s own rights policy set (#78 ' +
+      'snapshot policy 8). The column is NULL for a source with no contractual cache cap, ' +
+      'which is the ordinary case, and the sweep never touches a NULL — the ' +
+      '`notifications.dismissed_at` shape. Stamped at write time, so a later policy change ' +
+      'cannot retroactively shorten what was lawfully kept and cannot lengthen it either.',
   },
 ];
 

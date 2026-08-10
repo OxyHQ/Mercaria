@@ -202,6 +202,19 @@ connectPostgres()
       import('./services/offer-freshness/expiry-sweep.js')
         .then(({ startOfferExpirySweep }) => startOfferExpirySweep())
         .catch((err: unknown) => log.general.error({ err }, 'Offer expiry sweep import failed'));
+
+      // Keep derived price series in agreement with the observations behind
+      // them (#78). `PRICE_HISTORY_ENABLED` gates the LOOP and nothing durable:
+      // every offer write records its observation whatever this flag says, and
+      // turning it on drains whatever accumulated while it was off. Turning it
+      // OFF cannot make a stored point disappear either — what stops is the
+      // convergence, and a series reports its own `rebuiltAt` and coverage so a
+      // reader can see exactly how stale it is.
+      import('./services/price-history/rebuild-dispatcher.js')
+        .then(({ startPriceSeriesRebuildDispatcher }) => startPriceSeriesRebuildDispatcher())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Price-history rebuild dispatcher import failed'),
+        );
       // Register the universal product-feed adapter (#63) and start its staged-
       // pass sweep. BOTH are gated by `FEED_IMPORT_ENABLED` and neither is a
       // durable record: with the flag off, feed configurations, mapping

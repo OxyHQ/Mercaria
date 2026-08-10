@@ -205,6 +205,12 @@ export * from './ingestion';
 // two lifecycles over one graph, and merging the files would put a scheduler's
 // lease table beside a rights policy.
 export * from './offerFreshness';
+// Currency-safe offer price history (#78) follows `offerFreshness`, which is
+// its immediate upstream and not an alphabetical accident: an observation cites
+// an `offers` row, a `source_records` row and a `catalog_source_runs` row, and
+// the derivation reads #68's freshness verdict and #68's run quarantines to
+// decide what may enter a chart. It adds no column to any of them.
+export * from './priceHistory';
 // The universal product-feed importer (#63) follows `ingestion`, which is not
 // alphabetical and not preference: a feed configuration binds a
 // `catalog_sources` row (so the whole provenance chain must precede it) and a

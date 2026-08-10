@@ -3854,3 +3854,88 @@ rollback is a status change rather than a data migration. Full behaviour:
   and rolled back without re-ingesting offers" true by construction; and a ranked
   page is a projection #61 measured the alternative for and adopted no
   materialized view.
+## Price history (#78)
+
+`offer_price_snapshots`, `offer_price_series`, `offer_price_points`,
+`offer_price_write_metrics`. ADR 0002 D18 assigned a price-history TABLE to #78
+and left #57 holding current state; these are that table, plus the derived
+answer a chart reads and the counters that make the derivation's health
+observable. Full reference: `docs/price-history.md`.
+
+- **`offer_price_snapshots` carries NO canonical, merchant or storefront id**,
+  and that omission is what makes issue operations 4 — "preserve history through
+  offer, product and merchant merge workflows" — hold with no write and no
+  census entry. The offer names all four; #59's `offers` phase repoints the
+  offer; one rebuild picks up the loser's whole history under the winner. It is
+  #57's own reasoning for refusing a canonical product id on `offers` (a
+  denormalized copy is a second representation a merge can put out of step with
+  the first) with one addition: here the copy would be UNFIXABLE, because the
+  row is immutable.
+- **`item_price_amount` is NOT NULL, which is snapshot policy 5 as a shape.** "A
+  source outage does not create a false unavailable or zero-price point" is
+  strongest as a table in which a priceless observation has no row: there is
+  nothing for a chart to read as zero and nothing for a later `coalesce` to turn
+  into one. The writer skips such an offer and COUNTS the refusal.
+- **`item_price_currency` carries #57's OPEN shape check and
+  `offer_price_points.native_currency` carries the presentment tuple's.** An
+  observation records what a platform SAID, so narrowing it there would refuse
+  the observation rather than the comparison; only a convertible currency can
+  become a POINT, so a value outside the tuple there would mean raw minor units
+  had been compared across currencies (currency rule 6).
+- **`cardinality(change_reasons) >= 1`, never `array_length(...) >= 1`.**
+  `array_length` of an empty array is NULL, a CHECK rejects only FALSE, and the
+  obvious spelling ADMITS exactly the row it exists to refuse. Measured twice in
+  #68 and once in #108 before this file was written; the realdb suite pins it
+  with an empty-array fixture, which is the only fixture that can tell the two
+  spellings apart.
+- **`offer_price_points`' five FX columns are present EXACTLY when a conversion
+  happened**, and `fx_from` must equal the point's own `native_currency` — one
+  biconditional CHECK. A converted amount whose rate is unidentifiable is
+  precisely what currency rule 4 forbids; an unconverted amount carrying a rate
+  claims a conversion that did not happen. `fx_to` cannot be checked here (it is
+  a column of `offer_price_series`), so the derivation asserts it and a realdb
+  case pins it — what the constraint holds is the half a service bug plausibly
+  gets wrong.
+- **`snapshot_id` is NOT NULL and CASCADEs**, which is the one place this domain
+  accepts data loss and the reason acceptance 6 is true at every instant rather
+  than true until a sweep runs. A source whose agreement requires deletion takes
+  its chart with it; the alternative — a nullable reference — leaves a point
+  asserting a price with nothing behind it.
+- **The immutability trigger refuses UPDATE and PERMITS DELETE**, inverting the
+  ledger's posture and matching `analytics_events`. Erasure on a schedule is the
+  policy here: `retention_expires_at` is stamped at write time from the SOURCE's
+  own `catalog_source_policies.cache_ttl_seconds`, and a trigger refusing DELETE
+  would make the shared expiry sweep fail silently on every row it was
+  contractually obliged to remove. NULL — no source-imposed deadline — is the
+  ordinary case and the sweep never touches it (`notifications.dismissed_at`'s
+  shape).
+- **`supersedes_snapshot_id` is a self-reference with NO `onDelete` action**, so
+  a retention sweep that removed a corrected observation while its correction
+  survived is REFUSED rather than leaving a correction pointing at nothing.
+- **No condition GROUP column on a snapshot.** It is
+  `CONDITION_KEY_GROUP[condition_key]`, total by construction; storing it would
+  be a second representation one derivation away. `offer_price_points.segment`
+  IS stored, because a point is ABOUT one segment — which is what makes
+  acceptance 2 impossible to get wrong by forgetting a filter.
+- **`offer_price_series` is two nullable scope columns plus a `case … else
+  false` CHECK**, the `carts` owner device: a polymorphic `scope_id` would carry
+  no foreign key and could name a deleted entity forever. Its `series_key` is
+  GENERATED, because Postgres treats NULLs as distinct and both
+  `canonical_product_id` and `market` are legitimately NULL.
+- **The series ROW is the job** (`payment_provider_events`' rule), with
+  `offer_outboxes`' `DO UPDATE` enqueue rather than the moderation outbox's `DO
+  NOTHING`: a series is a request for a FIXED POINT, so five observations in a
+  second owe one rebuild. The conflict branch must NOT write a flat `'pending'`
+  over a `processing` row — measured in #57, it releases a live lease from
+  outside the worker.
+- **`covered_from`/`covered_through` are what make a GAP distinguishable from an
+  UNBUILT range.** Without them "no point in this bucket" means both "nobody was
+  offering this" and "the rebuild has not reached here", and only one of those is
+  a fact about prices.
+- **`offer_price_write_metrics` is the one place in the domain that
+  INCREMENTS**, because a deduplicated observation leaves no row: counting rows
+  answers "how much did we keep" and never "how much did we suppress". Keyed per
+  DAY and per SOURCE — the second is the load-bearing half, because one global
+  row per day is a hot row every ingestion write in the fleet would contend on.
+  Its `metric_key` is GENERATED for the NULLs-are-distinct reason, since
+  `source_id` is legitimately NULL for a native offer.
