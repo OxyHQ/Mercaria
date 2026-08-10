@@ -57,6 +57,10 @@ import { projectOffer, type OfferProjectionContext } from './offer-projection.js
 // Price history (#78) — the observation this offer write produced. The ONLY
 // import of that domain from here, and it runs in the caller's transaction.
 import { recordOfferPriceObservation } from '../price-history/record.service.js';
+// Price alerts (#79) — the durable "somebody's condition may have changed"
+// event. A REPOSITORY and not a service: this write path decides nothing about
+// alerts, it only records that this product is worth looking at again.
+import { requestPriceAlertEvaluation } from '../../db/priceAlerts/priceAlertEvaluationRepository.js';
 
 /** The seller key shape `checkout.service` and the payments seam already share. */
 function sellerKeyForListing(row: { ownerType: string; storeId: string | null; oxyUserId: string | null }): string | null {
@@ -520,6 +524,21 @@ export async function recordExternalOffer(
     sourceRunId: observation.sourceRunId ?? null,
     freshnessLevel: observation.staleAt <= observation.observedAt ? 'expired' : 'current',
   });
+
+  /**
+   * The price-alert evaluation request (#79 evaluation 1), in the SAME
+   * transaction as the offer.
+   *
+   * "Evaluate from durable offer-change events, not client polling" is this
+   * call: the two places an offer's terms are observed are the two places this
+   * runs, so an alert cannot miss a change that actually happened, and a
+   * rolled-back write leaves no job for a change that did not.
+   *
+   * It is CHEAP on a catalogue nobody watches — one indexed `exists` and no row
+   * — which is why it can sit on the hottest write path in the system. See the
+   * repository's own docblock.
+   */
+  await requestPriceAlertEvaluation(row.canonicalVariantId, db, now);
 
   return row.id;
 }

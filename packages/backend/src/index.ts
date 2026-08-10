@@ -215,6 +215,26 @@ connectPostgres()
         .catch((err: unknown) =>
           log.general.error({ err }, 'Price-history rebuild dispatcher import failed'),
         );
+      // Decide which buyers' price alerts a change of offer satisfies (#79).
+      // `PRICE_ALERT_EVALUATION_ENABLED` gates the LOOP: a queue row is written
+      // on every offer write to a WATCHED product whatever this flag says, so
+      // turning it on drains the backlog and turning it off loses no qualifying
+      // event — the offers are still there to be decided against.
+      import('./services/price-alerts/evaluation-dispatcher.js')
+        .then(({ startPriceAlertEvaluationDispatcher }) => startPriceAlertEvaluationDispatcher())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Price-alert evaluation dispatcher import failed'),
+        );
+      // Deliver what those evaluations decided. `PRICE_ALERT_NOTIFICATIONS_ENABLED`
+      // is issue #79 operations 5's GLOBAL KILL SWITCH, independent of alert
+      // storage: with it off, triggers and delivery rows keep accumulating and
+      // nothing is sent. It is a SEPARATE loop from the evaluator's so a stuck
+      // transport cannot hold the lease that decides prices.
+      import('./services/price-alerts/delivery-dispatcher.js')
+        .then(({ startPriceAlertDeliveryDispatcher }) => startPriceAlertDeliveryDispatcher())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Price-alert delivery dispatcher import failed'),
+        );
       // Register the universal product-feed adapter (#63) and start its staged-
       // pass sweep. BOTH are gated by `FEED_IMPORT_ENABLED` and neither is a
       // durable record: with the flag off, feed configurations, mapping

@@ -4429,3 +4429,112 @@ at request time from the reads that measurement covers.
   `rel=canonical`, structured data; `/products/:id` is untouched, which is
   acceptance 7), **#111** (the storefront analytics client), **#73** (the brand
   page this links to).
+## Product and variant price alerts (#79)
+
+`services/price-alerts/` (10 modules) + `db/priceAlerts/` (5 repositories) +
+`db/schema/priceAlerts.ts` (5 tables) + `/price-alerts` (buyer) and
+`/internal/price-alerts/*` (operator), plus the storefront's
+`app/(app)/price-alerts.tsx` and `@mercaria/ui`'s `PriceAlertCard`. Full
+reference: **`docs/price-alerts.md`**; schema decisions:
+`db/schema/CONVENTIONS.md` §"Price alerts (#79)". #78 records what a source
+said; #74 decides which offers may be shown; this is one buyer saying "tell me
+when it goes under this" and the machinery that makes telling them happen
+EXACTLY once.
+
+- **The trigger key names FOUR facts and no clock** — alert, offer,
+  OBSERVED-PRICE VERSION (`offer_price_snapshots.id`) and alert policy version —
+  and `price_alert_triggers_identity_key` is rendered from exactly those
+  columns. A key without the observation fires once and never again; a key with
+  a TIMESTAMP fires on every sweep. A qualifying price with NO observation
+  BLOCKS (`no_observed_price_version`) rather than triggering with a NULL, which
+  Postgres treats as distinct in a unique index. The convergence is the
+  DATABASE's: `ON CONFLICT DO NOTHING … RETURNING`, whose empty result IS the
+  "already notified" answer, because a read-then-write lets two workers both see
+  "no".
+- **The comparison is a RE-RUN of #74 immediately before triggering**, through
+  #57's and #74's own functions — so a restricted listing, a lapsed source
+  contract, a suppressed merchant and an unquotable currency are all refused by
+  the domains that own them. **This domain defines no TTL, no staleness rule and
+  no freshness lifetime**, and a scanned gate says so: "an old price cannot fire
+  a new alert" is already true of anything obtained through
+  `mayAppearInComparison`.
+- **Unknown never satisfies anything**, three ways: a `known_total` is answered
+  from #74's `OfferComparisonTotal`, whose unknown branch has NO amount; an
+  `in_stock` requirement needs a POSITIVE statement (most feeds publish none);
+  and a minimum quantity needs a published one. A `known_total` alert and an
+  `item_price` alert therefore behave differently on exactly the offers whose
+  postage nobody published — acceptance 2, held by the type.
+- **Evaluation is driven by durable OFFER-CHANGE events and the enqueue is
+  free.** The two offer-write chokepoints enqueue in the SAME transaction, and
+  the first statement is a GATE: one indexed `exists` for the offer's product,
+  so a catalogue nobody watches writes no row. The queue is ONE row per PRODUCT
+  with `offer_outboxes`' revision pair — a convergence queue, which is issue
+  abuse rule 2's batch fan-out expressed as an enqueue.
+- **Four repeat policies, and the armed question is TWO TIMESTAMPS.**
+  `once | reset_threshold | cooldown_better_low | always`; a `reset_threshold`
+  alert is armed when `rearmed_at > last_triggered_at`, and the re-arm runs on
+  EVERY evaluation because an alert re-arms on a price that did NOT qualify.
+  `cooldown_better_low` needs BOTH halves — elapsed AND materially better (1%,
+  floored at one minor unit) — and either alone is what the rule prevents.
+- **Evaluation and DELIVERY are separate durable jobs, and the direction that
+  matters is the reverse of the usual one**: a delivery retried a hundred times
+  re-reads the delivery row and never the price, so acceptance 6 is a property
+  of the IMPORT GRAPH (a scanned gate). The delivery id is
+  `sha256(trigger + ':' + channel)`, deterministic, so a repeat converges.
+- **A withheld notification leaves a ROW.** Before sending, the offer is re-read
+  through #74's OWN `evaluateOfferEligibility`; a failure is `suppressed` with
+  `destination_no_longer_eligible`, terminal, counted — because "how many did we
+  withhold" is issue operations 3's stale-link measurement and a table of
+  messages that were SENT cannot answer it. Quiet hours DEFER (evaluated in the
+  buyer's IANA zone with `Intl`, never an offset) and never drop.
+- **The notification carries NO URL of any kind** — the canonical product, the
+  qualifying variant and the offer id, and nothing that could be a
+  now-unvalidated destination (notification 3). The payload is an allow-list
+  walked at RUNTIME against `PRICE_ALERT_FORBIDDEN_NOTIFICATION_FIELDS`. The
+  product NAME is absent too: the composition is pure and a stale name in a push
+  payload is the field that goes wrong silently.
+- **`email` is representable and UNSENDABLE.** Mercaria has no outbound mail
+  transport and stores no address for an Oxy buyer; the registry in
+  `services/price-alerts/transport.ts` is EMPTY and every attempt fails
+  `transport_unconfigured` visibly with the row intact (#108's decision, quoted
+  there). The opt-in column, the queue row, the retry, the failure code and the
+  operator metric all exist and all work.
+- **Nobody can ask who is watching a product.** No route, no operator handle and
+  no repository function takes a product, a merchant or an account; the one read
+  by product exists because the evaluator must have it. Issue abuse rule 6 is
+  held by the question being unrepresentable, and `price_alerts_subject_idx` is
+  composite-and-partial so it cannot serve one either.
+- **A MERGE rehomes and a SPLIT pauses.** `merge-plan.ts` gains an `alerts`
+  phase (a new member of `CatalogMergePhase` AND `CatalogSplitPhase`); every
+  scope column `repoint`s (a scope on a tombstone matches no offer and the alert
+  silently stops firing) and triggers are `retained_by_tombstone`. The
+  provenance stamp runs BEFORE the generic rehomer, scoped to the LOSER, because
+  afterwards "the alerts that just moved" is indistinguishable from "the ones
+  always there"; the phase then enqueues an evaluation for the WINNER. A split
+  MARKS and PAUSES — #80's decision plus one thing more, because an alert on the
+  wrong side of a split would actively notify.
+- **#80's `ProductSavePriceAlert` seam is CLOSED**, and the supported branch
+  carries no alert id, no target and no subscription state: reading one would
+  mean the saved-list domain importing this one, which
+  `product-save-isolation.test.ts` still refuses. The saved list says the
+  capability exists and the client asks `/price-alerts` what the buyer has set.
+- Env: `PRICE_ALERTS_ENABLED` (the buyer MOUNT, default false),
+  `PRICE_ALERT_EVALUATION_ENABLED` (the evaluation LOOP, default false),
+  **`PRICE_ALERT_NOTIFICATIONS_ENABLED`** (issue operations 5's GLOBAL kill
+  switch independent of alert storage — default TRUE, unlike the two rollout
+  levers, because an incident lever that ships off is a feature nobody notices
+  is missing), plus the two abuse caps and the loop tunables. **NOT ONE of the
+  three gates a durable record**, and a scanned gate says so. Operator surface
+  is on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list — two reads and one
+  write, and the write drives the existing idempotent evaluation.
+- Seams, each a named contract that fails closed: **an outbound mail transport**
+  (one `registerPriceAlertEmailTransport` call plus a decision about where the
+  address comes from), **#93** (`nearby_pickup` is in the tuple, the column and
+  the CHECK; the write schema refuses it BY NAME and the evaluator blocks with
+  `proximity_scope_unsupported`), **#68's `requestPriorityRefresh('alerted')`**
+  (published and deliberately not called — the queue is fed by offer WRITES, so
+  an alert never needs a re-read to be CORRECT; what it would buy is latency on
+  a slow-cadence source, which nobody has measured), **#77** (no analytics event
+  is emitted), **#71** (the product page's own "watch this price" control), and
+  **#81** (a watchlist is a different thing and this domain has no field for
+  one).

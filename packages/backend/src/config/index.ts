@@ -1790,6 +1790,48 @@ export interface PriceHistoryConfig {
   readonly traceLimit: number;
 }
 
+/**
+ * Price alerts (#79).
+ *
+ * THREE independent levers, and the middle one is issue operations 5's "global
+ * notification kill switch independent of alert storage" — which is why it is
+ * separate from the other two rather than folded into `enabled`. With alerts
+ * enabled, evaluation running and notifications OFF, alerts keep being
+ * evaluated and triggers keep being written; nothing is delivered and nothing
+ * is lost, so flipping it back drains the backlog.
+ *
+ * NOT ONE of the three gates a durable record. `price-alert-isolation.test.ts`
+ * fails the build if the trigger writer, the evaluation enqueue or the
+ * notification enqueue learns to read one.
+ */
+export interface PriceAlertsConfig {
+  /** `PRICE_ALERTS_ENABLED` — is the buyer surface mounted at all. */
+  readonly enabled: boolean;
+  /** `PRICE_ALERT_EVALUATION_ENABLED` — does the evaluator run. The LOOP only. */
+  readonly evaluationEnabled: boolean;
+  /** `PRICE_ALERT_NOTIFICATIONS_ENABLED` — the kill switch. The LOOP only. */
+  readonly notificationsEnabled: boolean;
+  /** Issue abuse rule 1: how many non-deleted alerts one account may hold. */
+  readonly maxActivePerUser: number;
+  /** Issue abuse rule 1: how many an account may create per window. */
+  readonly createRateLimit: number;
+  readonly createRateWindowMs: number;
+  readonly evaluationBatchSize: number;
+  readonly evaluationPollIntervalMs: number;
+  readonly evaluationLeaseMs: number;
+  readonly evaluationMaxBackoffMs: number;
+  /** How many offers one comparison read pulls per subject. */
+  readonly evaluationOfferLimit: number;
+  readonly notificationBatchSize: number;
+  readonly notificationPollIntervalMs: number;
+  readonly notificationLeaseMs: number;
+  readonly notificationMaxBackoffMs: number;
+  /** After this many failed attempts a delivery becomes a visible `dead_letter`. */
+  readonly notificationMaxAttempts: number;
+  /** How many rows an operator trace returns for one alert. */
+  readonly traceLimit: number;
+}
+
 export interface OfferFreshnessConfig {
   /** `OFFER_REFRESH_ENABLED` — does the refresh dispatcher run. Gates the LOOP only. */
   readonly refreshEnabled: boolean;
@@ -2458,6 +2500,7 @@ export interface AppConfig {
   readonly offerFreshness: OfferFreshnessConfig;
   readonly ranking: RankingConfig;
   readonly priceHistory: PriceHistoryConfig;
+  readonly priceAlerts: PriceAlertsConfig;
   readonly feedImport: FeedImportConfig;
   readonly ebay: EbayConfig;
   readonly awin: AwinConfig;
@@ -2624,6 +2667,28 @@ export const config: AppConfig = Object.freeze({
     rebuildLeaseMs: intEnv('PRICE_HISTORY_REBUILD_LEASE_MS', 120_000),
     rebuildMaxBackoffMs: intEnv('PRICE_HISTORY_REBUILD_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
     traceLimit: intEnv('PRICE_HISTORY_TRACE_LIMIT', 500),
+  }),
+  priceAlerts: Object.freeze({
+    enabled: boolEnv('PRICE_ALERTS_ENABLED', false),
+    evaluationEnabled: boolEnv('PRICE_ALERT_EVALUATION_ENABLED', false),
+    // Default TRUE, unlike the other two: it is an INCIDENT lever, and an
+    // incident lever that ships in the off position is a feature nobody notices
+    // is missing. The two above are rollout levers and default off.
+    notificationsEnabled: boolEnv('PRICE_ALERT_NOTIFICATIONS_ENABLED', true),
+    maxActivePerUser: intEnv('PRICE_ALERT_MAX_ACTIVE_PER_USER', 200),
+    createRateLimit: intEnv('PRICE_ALERT_CREATE_RATE_LIMIT', 60),
+    createRateWindowMs: intEnv('PRICE_ALERT_CREATE_RATE_WINDOW_MS', 60 * 60 * 1_000),
+    evaluationBatchSize: intEnv('PRICE_ALERT_EVALUATION_BATCH_SIZE', 20),
+    evaluationPollIntervalMs: intEnv('PRICE_ALERT_EVALUATION_POLL_INTERVAL_MS', 15_000),
+    evaluationLeaseMs: intEnv('PRICE_ALERT_EVALUATION_LEASE_MS', 120_000),
+    evaluationMaxBackoffMs: intEnv('PRICE_ALERT_EVALUATION_MAX_BACKOFF_MS', 60 * 60 * 1_000),
+    evaluationOfferLimit: intEnv('PRICE_ALERT_EVALUATION_OFFER_LIMIT', 50),
+    notificationBatchSize: intEnv('PRICE_ALERT_NOTIFICATION_BATCH_SIZE', 50),
+    notificationPollIntervalMs: intEnv('PRICE_ALERT_NOTIFICATION_POLL_INTERVAL_MS', 10_000),
+    notificationLeaseMs: intEnv('PRICE_ALERT_NOTIFICATION_LEASE_MS', 60_000),
+    notificationMaxBackoffMs: intEnv('PRICE_ALERT_NOTIFICATION_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
+    notificationMaxAttempts: intEnv('PRICE_ALERT_NOTIFICATION_MAX_ATTEMPTS', 8),
+    traceLimit: intEnv('PRICE_ALERT_TRACE_LIMIT', 100),
   }),
   feedImport: Object.freeze({
     enabled: resolveFeedImportEnabled(),

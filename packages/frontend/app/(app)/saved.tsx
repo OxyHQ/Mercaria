@@ -72,6 +72,19 @@ export default function SavedScreen() {
     toggleListing.mutate({ listingId: item.listingId, saved: true });
   };
 
+  /**
+   * #79 UX rule 1 — an alert is created FROM a surface a buyer is already on.
+   *
+   * This navigates and never subscribes: #80 API rule 6 is that saving creates
+   * no alert, and the saved-list domain may not even read one (its own isolation
+   * gate). The card renders this affordance only when the deployment has price
+   * alerts mounted, which the DTO says.
+   */
+  const createAlert = (item: SavedItem) => {
+    if (item.kind !== "product") return;
+    router.push(`/price-alerts?canonicalProductId=${item.save.canonicalProductId}`);
+  };
+
   const answerSplit = (item: SavedItem, resolution: ProductSaveSplitResolution) => {
     if (item.kind !== "product") return;
     resolveSplit.mutate({ saveId: item.save.id, resolution });
@@ -117,6 +130,7 @@ export default function SavedScreen() {
                 // It is also the only answer that cannot lose an interest they
                 // had; narrowing it afterwards is one tap on this same page.
                 onResolveSplit={(entry) => answerSplit(entry, "keep_both")}
+                onCreatePriceAlert={createAlert}
               />
             ))}
 

@@ -44,6 +44,9 @@ import { enqueueOfferConvergence } from '../../db/offers/offerOutboxRepository.j
 // Price history (#78) — the observation this convergence produced. The ONLY
 // import of that domain from here, and it runs in the caller's transaction.
 import { recordOfferPriceObservation } from '../price-history/record.service.js';
+// Price alerts (#79) — the second of the two offer-change chokepoints. See the
+// note beside the call, and `offer.service.ts` for the same one.
+import { requestPriceAlertEvaluation } from '../../db/priceAlerts/priceAlertEvaluationRepository.js';
 import { log } from '../../lib/logger.js';
 
 /**
@@ -250,6 +253,9 @@ async function convergeInTransaction(
       observedAt: now,
       freshnessLevel: 'current',
     });
+    // #79's durable offer-change event, in the same transaction. Converges on
+    // one row per PRODUCT, so a listing with forty variants owes one evaluation.
+    await requestPriceAlertEvaluation(offer.canonicalVariantId, db, now);
     keptVariantIds.add(variant.id);
     materialized += 1;
   }

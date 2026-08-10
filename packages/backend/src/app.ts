@@ -62,6 +62,8 @@ import internalSearchRouter from './routes/internal-search.js';
 import productPageRouter from './routes/product-page.js';
 import priceHistoryRouter from './routes/price-history.js';
 import internalPriceHistoryRouter from './routes/internal-price-history.js';
+import priceAlertsRouter from './routes/price-alerts.js';
+import internalPriceAlertsRouter from './routes/internal-price-alerts.js';
 import internalCatalogConditionRouter from './routes/internal-catalog-condition.js';
 import catalogAttributesRouter from './routes/catalog-attributes.js';
 import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
@@ -416,6 +418,18 @@ export function createApp(): express.Express {
   if (config.priceHistory.publicReadsEnabled) {
     app.use('/price-history', priceHistoryRouter);
   }
+  /**
+   * Price alerts (#79) — the buyer's own surface, gated by `PRICE_ALERTS_ENABLED`.
+   *
+   * The MOUNT and nothing else: alerts already stored keep being evaluated and
+   * keep notifying while this is off, because a flag that stopped a buyer's
+   * alert firing would make the rollback lever cost them the thing they were
+   * waiting for. The two levers that DO stop work are the evaluation and
+   * delivery loops, and neither gates a durable record either.
+   */
+  if (config.priceAlerts.enabled) {
+    app.use('/price-alerts', priceAlertsRouter);
+  }
   // The versioned attribute registry and the constraint language (#94): public
   // definition/facet reads and the pre-flight validation both search and #95's
   // interpreter run against…
@@ -479,6 +493,15 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/product-saves', internalProductSavesRouter);
+  }
+  /**
+   * The price-alert operator surface (#79), on the SAME allow-list and mounted
+   * regardless of `PRICE_ALERTS_ENABLED` — #80's reasoning exactly: an operator
+   * has to be able to read the evaluation lag and trace an alert during the
+   * incident that turned the buyer surface off.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/price-alerts', internalPriceAlertsRouter);
   }
   /**
    * The external ingestion framework's operator surface (#62), on the SAME

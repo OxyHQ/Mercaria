@@ -85,6 +85,11 @@ import {
 } from '../../db/schema/retailEligibility.js';
 import { catalogBackfillRecords } from '../../db/schema/backfill.js';
 import { productSaveAggregates, productSaves } from '../../db/schema/productSaves.js';
+import {
+  priceAlertEvaluations,
+  priceAlerts,
+  priceAlertTriggers,
+} from '../../db/schema/priceAlerts.js';
 import { offerPriceSeries } from '../../db/schema/priceHistory.js';
 import {
   catalogSourceConfigs,
@@ -122,6 +127,27 @@ export type RehomeDisposition =
   | 'untouched';
 
 /** One referencing column and what the merge does with it. */
+const PRICE_ALERT_NOTE =
+  "#79's price alert — one buyer's own price condition. REPOINTED unconditionally: nothing is " +
+  'unique on this column (a buyer legitimately holds "under 500 new" and "under 300 used" on one ' +
+  'product), so there is no collision to guard against, and an alert left on a tombstone would ' +
+  'watch a product no offer points at any more — it would simply stop notifying, silently, which ' +
+  'is the failure a person notices only by the absence of something. The PROVENANCE stamp ' +
+  '(`rehomed_from_canonical_product_id`) is applied by the `alerts` phase runner before the ' +
+  'generic move, because the rehomer sets a column to the WINNER and this one records the loser.';
+
+const PRICE_ALERT_SPLIT_TARGET_NOTE =
+  "The other candidate of a split #79's alert is still waiting on an answer about. Repointed for " +
+  'the same reason the subject is: a buyer asked to choose between a product and a TOMBSTONE is ' +
+  'being offered a dead identity, and the winner is what that candidate has become.';
+
+const PRICE_ALERT_TRIGGER_NOTE =
+  "#79's trigger — the immutable RECORD that one offer crossed one buyer's target at one " +
+  'observed price. RETAINED by the tombstone, the `catalog_backfill_records` disposition and its ' +
+  'reasoning: repointing it would rewrite what was actually observed, and the trigger names the ' +
+  'OFFER and the observation as well, neither of which a product merge touches. Its foreign keys ' +
+  'are RESTRICT and a tombstone is a live row, so nothing is orphaned.';
+
 export interface RehomeTarget {
   /** The column holding the entity id. A real drizzle column, so a rename breaks the build. */
   readonly column: AnyPgColumn;
@@ -540,6 +566,22 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         'which after a merge trades under the surviving identity. Left on a tombstone the ' +
         'preference would match no offer and quietly empty their saved-product page.',
     },
+    {
+      column: priceAlerts.merchantId,
+      phase: 'alerts',
+      disposition: 'repoint',
+      note:
+        "#79's optional merchant SCOPE on a price alert. Unconditional, for the reason the " +
+        'saved-product preference beside it is: a buyer who narrowed an alert to a merchant meant ' +
+        'the business, which after a merge trades under the surviving identity — and left on a ' +
+        'tombstone the scope would match no offer and the alert would silently never fire.',
+    },
+    {
+      column: priceAlertTriggers.merchantId,
+      phase: 'alerts',
+      disposition: 'retained_by_tombstone',
+      note: PRICE_ALERT_TRIGGER_NOTE,
+    },
   ],
 
   storefront: [
@@ -575,6 +617,15 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         "#62's source binding, the channel half. Same reasoning as the merchant column: a " +
         'source pointing at a tombstoned storefront would keep ingesting and publish its ' +
         'offers on a channel nobody reads. No unique spans it.',
+    },
+    {
+      column: priceAlerts.storefrontId,
+      phase: 'alerts',
+      disposition: 'repoint',
+      note:
+        "#79's optional channel SCOPE on a price alert — the merchant scope one join over, and " +
+        'the same decision: a scope left on a tombstoned storefront matches no offer, so the ' +
+        'alert stops firing without ever saying it has.',
     },
   ],
 
@@ -772,6 +823,36 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       disposition: 'retained_by_tombstone',
       note: PRICE_SERIES_NOTE,
     },
+    {
+      column: priceAlerts.canonicalProductId,
+      phase: 'alerts',
+      disposition: 'repoint',
+      note: PRICE_ALERT_NOTE,
+    },
+    {
+      column: priceAlerts.splitTargetCanonicalProductId,
+      phase: 'alerts',
+      disposition: 'repoint',
+      note: PRICE_ALERT_SPLIT_TARGET_NOTE,
+    },
+    {
+      column: priceAlertTriggers.canonicalProductId,
+      phase: 'alerts',
+      disposition: 'retained_by_tombstone',
+      note: PRICE_ALERT_TRIGGER_NOTE,
+    },
+    {
+      column: priceAlertEvaluations.canonicalProductId,
+      phase: 'alerts',
+      disposition: 'retained_by_tombstone',
+      note:
+        "#79's evaluation QUEUE is one row per subject, and this one is a standing request to " +
+        'look at the LOSER. Repointing it would collide with the winner\'s own row (a unique ' +
+        'spans the column) and would say nothing the winner does not already have; leaving it ' +
+        'costs one claim that evaluates zero alerts — the loser has none after this phase — and ' +
+        'then reads `done` forever. What the WINNER needs is a fresh request, and the phase ' +
+        'runner enqueues one after the move rather than trying to carry the loser\'s across.',
+    },
   ],
 
   canonical_variant: [
@@ -935,6 +1016,21 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         'unique on this column, and after a merge that IS the same configuration — a preference ' +
         'left on a tombstone would silently stop matching any offer and the buyer would be shown ' +
         'the wrong variant of a product they explicitly narrowed.',
+    },
+    {
+      column: priceAlerts.canonicalVariantId,
+      phase: 'alerts',
+      disposition: 'repoint',
+      note:
+        "#79's optional exact CONFIGURATION on a price alert. Unconditional, the saved-product " +
+        'preference beside it exactly: after a merge that IS the same configuration, and an ' +
+        'alert narrowed to a tombstone variant would match no offer and never fire again.',
+    },
+    {
+      column: priceAlertTriggers.canonicalVariantId,
+      phase: 'alerts',
+      disposition: 'retained_by_tombstone',
+      note: PRICE_ALERT_TRIGGER_NOTE,
     },
     {
       column: catalogMergeConflicts.loserVariantId,

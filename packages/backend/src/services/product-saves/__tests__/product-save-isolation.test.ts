@@ -72,12 +72,17 @@ function withoutComments(source: string): string {
  * Reaching an alert, a watch or a notification subscription, from any direction.
  *
  * Written as REACHES rather than as the word "alert", deliberately: this domain
- * carries a `priceAlert` DTO field whose only value says alerts are not
- * implemented (`PRODUCT_SAVE_PRICE_ALERT_SEAM`), and a detector that fired on
- * the field name would fire on the very thing that states the refusal — which
- * makes the obvious fix "delete the seam". So it looks for an IMPORT of an
+ * carries a `priceAlert` DTO field, and a detector that fired on the field name
+ * would fire on the very thing that states what the domain may and may not do —
+ * which makes the obvious fix "delete the seam". So it looks for an IMPORT of an
  * alert or notification module, one of the tables such a thing would live in,
  * or a call that creates or sends one.
+ *
+ * #79 SHIPPED price alerts and closed #80's one-branch seam, and this wall did
+ * not move: saving still subscribes to nothing, and the supported branch of
+ * `ProductSavePriceAlert` deliberately carries no alert id, no target and no
+ * subscription state — because reading one would mean this domain importing
+ * `services/price-alerts/`, which the pattern below still refuses.
  */
 const ALERT_REFERENCE =
   /from\s+'[^']*(alerts?|notification|watchlist)[^']*'|price_alerts?\b|price_watches\b|alert_subscriptions\b|web_push_subscriptions\b|push_tokens\b|create(Price)?(Alert|Watch)\w*\(|subscribeTo\w*\(|enqueueNotification\w*\(|sendNotification\w*\(|notifyUser\w*\(|createNotification\w*\(/;
@@ -142,10 +147,13 @@ describe('saving a product has no side effects and no reach', () => {
     expect(PRODUCT_SAVE_FORBIDDEN_SIDE_EFFECTS.length).toBeGreaterThanOrEqual(5);
     // The positive control for WALL 1: proving the domain reaches no alert is
     // only half the claim — #80 API rule 6 also asks the API to OFFER the
-    // action, so the projection has to actually carry the named refusal rather
-    // than omitting the field entirely.
+    // action, so the projection has to actually carry the field rather than
+    // omitting it entirely. Since #79 landed, the value is a DEPLOYMENT fact
+    // (is the surface mounted) and never a per-save read, which is what keeps
+    // it on the right side of the wall above.
     const projection = domain.find((file) => file.relative.endsWith('saved-product-view.ts'));
-    expect(projection?.source).toContain('PRODUCT_SAVE_PRICE_ALERT_SEAM');
+    expect(projection?.source).toContain('PRODUCT_SAVE_PRICE_ALERT_SUPPORTED');
+    expect(projection?.source).toContain('PRODUCT_SAVE_PRICE_ALERT_DISABLED');
   });
 
   it('WALL 2: no ranking module can reach the product-save domain', () => {
@@ -230,8 +238,13 @@ describe('saving a product has no side effects and no reach', () => {
     // …and does NOT fire on the #78 seam this domain legitimately carries,
     // which is the whole reason the detector is written as a reach rather than
     // as the word: firing here would make deleting the refusal the fix.
-    expect(ALERT_REFERENCE.test("reason: 'price_alerts_not_implemented'")).toBe(false);
-    expect(ALERT_REFERENCE.test('priceAlert: PRODUCT_SAVE_PRICE_ALERT_SEAM,')).toBe(false);
+    expect(ALERT_REFERENCE.test("reason: 'price_alerts_disabled'")).toBe(false);
+    expect(ALERT_REFERENCE.test('priceAlert: PRODUCT_SAVE_PRICE_ALERT_SUPPORTED,')).toBe(false);
+    // …and DOES fire on the one thing #79 landing could tempt somebody into:
+    // reading the alert domain from here to say "you already have one".
+    expect(
+      ALERT_REFERENCE.test("import { listPriceAlerts } from '../price-alerts/alert.service.js';"),
+    ).toBe(true);
 
     expect(SAVE_DOMAIN_REFERENCE.test("import { x } from '../product-saves/best-offer.js';")).toBe(
       true,

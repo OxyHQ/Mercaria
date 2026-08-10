@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
-import { Heart, Package, TrendingDown, TrendingUp } from "lucide-react-native";
+import { Bell, Heart, Package, TrendingDown, TrendingUp } from "lucide-react-native";
 import { ALL_CURRENCY_CODES, type CurrencyCode, type SavedItem } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
@@ -17,6 +17,14 @@ export interface SavedItemCardProps {
   onRemove?: (item: SavedItem) => void;
   /** Answer a split ambiguity. Only ever called for a product entry. */
   onResolveSplit?: (item: SavedItem) => void;
+  /**
+   * Start creating a price alert for this product (#79).
+   *
+   * The card NAVIGATES and never subscribes: #80's "the API offers the action
+   * without creating an alert automatically" is held here by the handler being
+   * the caller's, and by this component holding no alert state to report.
+   */
+  onCreatePriceAlert?: (item: SavedItem) => void;
 }
 
 /**
@@ -46,6 +54,7 @@ export function SavedItemCard({
   onPress,
   onRemove,
   onResolveSplit,
+  onCreatePriceAlert,
 }: SavedItemCardProps) {
   const imageSource =
     item.kind === "product"
@@ -77,7 +86,11 @@ export function SavedItemCard({
 
       <View className="flex-1 gap-space-4">
         {item.kind === "product" ? (
-          <ProductBody item={item} onResolveSplit={onResolveSplit} />
+          <ProductBody
+            item={item}
+            onResolveSplit={onResolveSplit}
+            onCreatePriceAlert={onCreatePriceAlert}
+          />
         ) : (
           <ListingBody item={item} />
         )}
@@ -100,9 +113,11 @@ export function SavedItemCard({
 function ProductBody({
   item,
   onResolveSplit,
+  onCreatePriceAlert,
 }: {
   item: Extract<SavedItem, { kind: "product" }>;
   onResolveSplit?: (item: SavedItem) => void;
+  onCreatePriceAlert?: (item: SavedItem) => void;
 }) {
   return (
     <>
@@ -161,14 +176,27 @@ function ProductBody({
       ) : null}
 
       {/*
-        The #78 price-alert seam renders NOTHING, deliberately.
-        `item.priceAlert.supported` is the literal `false` — the type has no
-        supported branch — so saving creates no alert and there is nothing yet
-        for one to be created in. A greyed-out bell would be an affordance that
-        claims an unbuilt feature exists, and a branch on a value that can only
-        be false would be dead code pretending to be a choice. The field stays
-        on the DTO so #78 has a contract to fill.
+        #79 closed the seam #80 opened, so the affordance is real — and it is
+        still rendered ONLY on the supported branch. A deployment with
+        `PRICE_ALERTS_ENABLED` off gets nothing rather than a greyed-out bell,
+        because a control that claims an unbuilt feature exists is exactly what
+        the one-branch seam was avoiding.
+
+        It says "Set" and never "Alert set": this card carries no alert state at
+        all (the DTO has none — the saved-list domain may not read #79's), so
+        anything about what the buyer has already set would be a guess.
       */}
+      {item.priceAlert.supported && onCreatePriceAlert ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Set a price alert for this product"
+          onPress={() => onCreatePriceAlert(item)}
+          className="mt-space-4 flex-row items-center gap-space-4 self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-4"
+        >
+          <Bell size={ICON_SIZE - 4} className="text-text-secondary" />
+          <Text className="text-caption text-text">Set a price alert</Text>
+        </Pressable>
+      ) : null}
     </>
   );
 }

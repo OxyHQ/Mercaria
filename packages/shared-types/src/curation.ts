@@ -453,6 +453,7 @@ export type CatalogMergePhase =
   | 'relationships'
   | 'reviews'
   | 'saves'
+  | 'alerts'
   | 'redirects'
   | 'rollups'
   | 'verify'
@@ -469,6 +470,13 @@ export const CATALOG_MERGE_PHASES: readonly CatalogMergePhase[] = [
   'relationships',
   'reviews',
   'saves',
+  // #79's price alerts. An ordinary rehoming phase like `saves` and not bespoke
+  // logic: the columns it moves are declared in `merge-plan.ts` like every
+  // other, so the census still forces a decision when a new one appears. It
+  // runs AFTER `saves` because the two are independent and the order of two
+  // independent phases has to be SOME order — and before `rollups`, because
+  // nothing a counter derives from moves here.
+  'alerts',
   'redirects',
   'rollups',
   'verify',
@@ -497,12 +505,19 @@ export function nextMergePhase(phase: CatalogMergePhase): CatalogMergePhase | nu
  * `rollups` because the marking changes nothing a counter derives from. The
  * marking is an UPDATE with its own predicate, so a resumed job re-runs it as a
  * no-op.
+ *
+ * `alerts` is #79 evaluation 9 and is the same shape for the same reason, with
+ * one thing more: an ambiguous ALERT is also PAUSED, because a save sitting on
+ * the wrong side of a split shows a buyer the wrong page while an alert on the
+ * wrong side would actively notify them about a product they may not have
+ * meant. Deterministic migration was refused here exactly as it was there.
  */
 export type CatalogSplitPhase =
   | 'plan'
   | 'mint'
   | 'assignments'
   | 'saves'
+  | 'alerts'
   | 'redirects'
   | 'rollups'
   | 'verify'
@@ -513,6 +528,7 @@ export const CATALOG_SPLIT_PHASES: readonly CatalogSplitPhase[] = [
   'mint',
   'assignments',
   'saves',
+  'alerts',
   'redirects',
   'rollups',
   'verify',
