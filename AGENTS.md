@@ -4096,3 +4096,130 @@ measurement beside them.
   use IS measured through the existing column), **#37**, **#95** (no LLM is the
   primary retrieval system, per the issue), and autocomplete (a different
   latency budget and a per-KEYSTROKE privacy posture, its own issue).
+## Currency-safe offer price history (#78, ADR 0002 D18)
+
+`services/price-history/` (7 modules) + `db/priceHistory/` (4 repositories) +
+`db/schema/priceHistory.ts` (4 tables) + `/price-history` (public) and
+`/internal/price-history/*` (operator). Full reference:
+**`docs/price-history.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"Price history (#78)". #57 holds an offer's CURRENT terms and states outright
+that the price-history TABLE belongs here; this is that table, plus the derived
+series a chart reads.
+
+The failure mode that shapes it is a CHART THAT LOOKS CONTINUOUS, CONFIDENT AND
+CHEAP while being a lie: a line drawn through three months nobody offered the
+thing, a "lowest ever" that is the used one on a page about the new one, an old
+price silently reconverted at today's rate, and a "known total" computed by
+treating an unpublished delivery cost as free.
+
+- **An OBSERVATION and a POINT are different kinds of fact, and the types keep
+  them apart.** An observation is what one source said at one instant —
+  immutable, in the source's own currency. A point is a derived answer that
+  NAMES the observation it came from. `mercaria_offer_price_snapshot_immutable`
+  raises on UPDATE, so a correction is a SUPERSEDING record and no stored price
+  is ever rewritten.
+- **DELETE is deliberately PERMITTED, inverting the ledger's posture and
+  matching `analytics_events`.** Erasure on a schedule is the policy:
+  `retention_expires_at` is stamped at write time from the SOURCE's own
+  `catalog_source_policies.cache_ttl_seconds`, and a trigger refusing DELETE
+  would make the shared expiry sweep fail SILENTLY on every row it was
+  contractually obliged to remove. `snapshot_id` CASCADEs, so acceptance 6 —
+  every point traces to an immutable observation — is true at EVERY instant
+  rather than true until a sweep runs.
+- **`offer_id` CASCADEs too, and that is the one direction this domain gives
+  ground on.** #57 chose CASCADE from `listings` onto `offers` because a seller
+  deleting their listing must not be blocked; a RESTRICT here put this table in
+  front of that flow and failed `offers.realdb.test.ts` on `23503` the moment
+  one observation existed. Nothing meaningful is lost: an observation explains
+  an OFFER's terms, and retirement — how an offer normally leaves — is a status
+  transition that touches nothing here.
+- **A SNAPSHOT carries no canonical, merchant or storefront id**, and that
+  omission is how issue operations 4 (preserve history through merges) holds
+  with NO write and NO rehoming: the offer names all four, #59's `offers` phase
+  repoints the offer, one rebuild picks up the loser's whole history under the
+  winner. `merge-plan.ts` therefore retains `offer_price_series` with the
+  TOMBSTONE — two series cannot be concatenated, because each of their points
+  names the ONE cheapest observation in its bucket and the cheapest across both
+  is neither list — and `rebuildEntityAggregates` re-arms both sides.
+- **Only an OBSERVATION writes an observation.** A retirement writes NOTHING,
+  which is snapshot policy 5: a point at the last known price on a day nobody
+  could buy the thing is the most misleading shape a chart takes. An offer with
+  no price produces no row at all (`item_price_amount` is NOT NULL) and the
+  refusal is COUNTED. The write runs in the caller's transaction with NO
+  `try`/`catch`: in PostgreSQL one failed statement aborts the whole
+  transaction, so catching it would leave a page reporting success having
+  committed nothing.
+- **Dedup and anchors are ONE interval**, and it is NOT the global TTL #68
+  forbids: that prohibition is on a source's FRESHNESS LIFETIME, and this is
+  Mercaria's own STORAGE cadence, which can never extend how long anything is
+  shown. A suppressed observation leaves no row, which is why
+  `offer_price_write_metrics` exists — counting rows answers "how much did we
+  keep" and never "how much did we suppress".
+- **Every conversion carries its quote, and `PriceHistoryValue` is a
+  discriminated union on `basis`.** A consumer cannot render a figure without
+  seeing whether it is `source_native`, `historical_quote` or
+  `current_rate_reinterpretation`; the last carries BOTH quotes and is OPT-IN,
+  because the honest answer to "I cannot price that in your currency" is silence
+  rather than a number with a footnote. Five FX columns are present EXACTLY when
+  a conversion happened (a biconditional CHECK) and `fx_from` must equal the
+  point's own `native_currency`.
+- **A point's `native_currency` carries the presentment tuple's CHECK while an
+  observation's carries #57's OPEN one.** An observation records what a platform
+  SAID; only a convertible currency can become a POINT, so a value outside the
+  tuple would mean raw minor units had been compared across currencies. An
+  unconvertible observation is stored faithfully and excluded under
+  `currency_not_convertible`.
+- **A GAP and an UNBUILT range are different answers**, which is what
+  `covered_from`/`covered_through` exist for: "no point in this bucket" means
+  both "nobody was offering this" and "the rebuild has not reached here", and
+  only one of those is a fact about prices. Both are returned as explicit
+  RANGES, beside a plain-language summary and a data table — API rule 7 is part
+  of the payload, not a client concern, because a summary composed on three
+  clients is three summaries.
+- **The rebuild is DELETE-then-INSERT in one transaction, never an upsert**, and
+  its tiebreak is `(observedAt, snapshotId)` and never the primary key: a uuid
+  v7 key is NOT monotonic within a millisecond, so a rebuild that tie-broke on
+  the id would produce a different chart on every run for the same data.
+- **A stored aggregate at all is the deliberate divergence from #61 and #68**,
+  and the reason is the FX map rather than scale: choosing the lowest price
+  across four currencies needs rates that live in a service, so the comparison
+  cannot be pushed into SQL. Which is exactly why a MERCHANT-scoped read —
+  bounded by one seller's own offers — is still derived LIVE from the same pure
+  function, with no series row at all.
+- **`mercaria_retail_item_price` is representable and produces NOTHING** —
+  `OfferKind` has no `mercaria_retail` member until #116 — and a test pins the
+  emptiness so closing the seam is a change to the OFFER vocabulary rather than
+  to this domain. `official_store_item_price` is empty until #55 verifies a
+  `merchant_official_channel_for_brand` relationship inside its window.
+- **Five scanned walls**, each with a vacuity floor and a mutation self-test
+  (`price-history-isolation.test.ts`): no referral reference, no FairCoin or
+  OxyPay spelling (RAW source, copy included), no price alert (#79's, and #80's
+  `ProductSavePriceAlert` seam stays unsupported), no ranking (#74's, both
+  directions) and no payment rail. `PRICE_HISTORY_FORBIDDEN_DTO_FIELDS` names
+  the referral prohibition as a VALUE, gated statically AND by a realdb walk of
+  a REAL emitted response.
+- Env: `PRICE_HISTORY_ENABLED` (the rebuild LOOP, default false),
+  `PRICE_HISTORY_PUBLIC_READS_ENABLED` (the buyer MOUNT, default false),
+  `PRICE_HISTORY_SERIES_CURRENCIES` (**EMPTY by default** — a default would put
+  ONE currency into the contract, which currency rules 8 and 9 keep out; with it
+  empty every observation is still written and NO series is enqueued),
+  `PRICE_HISTORY_ANCHOR_INTERVAL_SECONDS` and the rebuild tunables. Operator
+  surface on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
+  #54/#56/#57/#58/#60/#62/#68 use, mounted while the loop is off.
+- Operator surface is TWO reads and ONE write, and the omissions are the design:
+  there is no "set this point", no "hide this observation", no "correct this
+  price" and no delete — every one would be a way to make a price history say
+  something nobody observed. The trace opens from an OFFER id and nothing else.
+- **Shard and archival strategy is RECORDED and not adopted** (operations 5):
+  `offer_price_snapshots` is the only table here whose size is a function of
+  traffic, the natural partition key is `observed_at` by month because every
+  read is time-bounded, and nothing is partitioned today because drizzle-kit
+  models no partitioning and the prerequisite is a measurement on #61's shape
+  rather than a guess.
+- Deferred with named seams: **#79** (alerts — nothing here reads or writes one
+  and a gate says so), **#116** (the `mercaria_retail` offer kind), **#74**
+  (ranking), **#59** (the correction WORKFLOW; the superseding record is the
+  shape it takes and the column exists), **#71** (the product page that renders
+  these charts), and `taxInclusion`, which is modelled and is `unknown` for
+  every row because `offers` records no tax-inclusion fact — closing it is an
+  offer-side column and belongs to #57.

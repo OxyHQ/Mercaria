@@ -249,6 +249,13 @@ export * from './offer-freshness';
 // reason.
 export * from './offer-ranking';
 
+// Currency-safe offer price history and product-level trends (#78, ADR 0002
+// D18's price-history seam). Follows `./offer` and `./condition`: an
+// observation is what a source said, a point is a derived answer that names
+// the observation it came from, and a converted amount cannot be expressed
+// without the quote that produced it.
+export * from './price-history';
+
 // Merchant → native `Store` linkage (#84, ADR 0002 D4/D9) — the request that
 // joins a verified merchant claim to exactly one native store, the candidate
 // evidence vocabulary (which has NO name-match member), the adoptable profile

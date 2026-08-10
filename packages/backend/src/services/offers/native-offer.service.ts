@@ -41,6 +41,9 @@ import {
   type InsertOfferInput,
 } from '../../db/offers/offerRepository.js';
 import { enqueueOfferConvergence } from '../../db/offers/offerOutboxRepository.js';
+// Price history (#78) — the observation this convergence produced. The ONLY
+// import of that domain from here, and it runs in the caller's transaction.
+import { recordOfferPriceObservation } from '../price-history/record.service.js';
 import { log } from '../../lib/logger.js';
 
 /**
@@ -226,7 +229,27 @@ async function convergeInTransaction(
   for (const variant of variants) {
     const canonicalVariantId = canonicalByVariant.get(variant.id);
     if (!canonicalVariantId) continue;
-    await upsertNativeOffer(db, desiredNativeOffer(listing, variant, canonicalVariantId, now));
+    const offer = await upsertNativeOffer(
+      db,
+      desiredNativeOffer(listing, variant, canonicalVariantId, now),
+    );
+    /**
+     * The price observation (#78), in the SAME transaction as the convergence.
+     *
+     * A native offer is `current` and UNBOUNDED by #68's own rule — its
+     * `stale_at` measures how long ago this converger ran, not how long the
+     * price is trustworthy — so the level recorded here is `current` and is not
+     * computed from a deadline that means something else.
+     *
+     * The write deduplicates itself: a convergence that changed nothing writes
+     * no observation until the anchor interval has passed, which matters
+     * because this path runs on every listing edit, every stock movement and
+     * every moderation action.
+     */
+    await recordOfferPriceObservation(db, offer, {
+      observedAt: now,
+      freshnessLevel: 'current',
+    });
     keptVariantIds.add(variant.id);
     materialized += 1;
   }

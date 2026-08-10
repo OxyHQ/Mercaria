@@ -35,6 +35,10 @@ import {
 } from '../../db/schema/canonicalCatalog.js';
 import { brands } from '../../db/schema/organizations.js';
 import { rebuildScopedAggregate } from '../reviews/review-aggregate.service.js';
+import {
+  listPriceSeriesForScopeIds,
+  requestPriceSeriesRebuildByIds,
+} from '../../db/priceHistory/priceSeriesRepository.js';
 import { rebuildProductSaveAggregate } from '../../db/productSaves/productSaveAggregateRepository.js';
 
 /** `canonical_products.variant_count`, derived. */
@@ -186,10 +190,46 @@ export async function rebuildEntityAggregates(
   if (entityType === 'canonical_product') {
     await rebuildReviewScopes('product', [loserId, winnerId]);
     await rebuildProductSaveCounts([loserId, winnerId]);
+    await rearmPriceSeries({ canonicalProductIds: [loserId, winnerId] });
+    return;
+  }
+  if (entityType === 'canonical_variant') {
+    await rearmPriceSeries({ canonicalVariantIds: [loserId, winnerId] });
     return;
   }
   if (entityType === 'merchant') {
     await rebuildReviewScopes('merchant', [loserId, winnerId]);
+  }
+}
+
+/**
+ * #78's price series, for both sides — RE-ARMED, never rehomed (#59 merge
+ * invariant 6).
+ *
+ * A series is a projection, so `merge-plan.ts` retains the loser's with the
+ * tombstone and there is no row to move. What the merge changes is the INPUT:
+ * a price observation carries no canonical id at all, so the `offers` phase
+ * repointing the offers is what puts the loser's whole history under the
+ * winner, and one rebuild picks it up. The tombstone's own series rebuilds to
+ * ZERO points for the same reason, which is how it self-clears instead of
+ * sitting as a stale answer forever.
+ *
+ * Best-effort and outside the phase transaction, like the two rebuilds beside
+ * it: this only bumps a revision, the dispatcher does the work, and a merge
+ * that has already moved every row must not be rolled back over a queue entry.
+ */
+async function rearmPriceSeries(scope: {
+  canonicalProductIds?: readonly string[];
+  canonicalVariantIds?: readonly string[];
+}): Promise<void> {
+  try {
+    const series = await listPriceSeriesForScopeIds(scope);
+    await requestPriceSeriesRebuildByIds(series.map((row) => row.id));
+  } catch (err) {
+    log.general.warn(
+      { err, scope },
+      '[Curation] price-series re-arm after a merge failed; the next observation will request it',
+    );
   }
 }
 

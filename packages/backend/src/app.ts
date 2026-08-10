@@ -59,6 +59,8 @@ import offersRouter from './routes/offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
 import searchRouter from './routes/search.js';
 import internalSearchRouter from './routes/internal-search.js';
+import priceHistoryRouter from './routes/price-history.js';
+import internalPriceHistoryRouter from './routes/internal-price-history.js';
 import internalCatalogConditionRouter from './routes/internal-catalog-condition.js';
 import catalogAttributesRouter from './routes/catalog-attributes.js';
 import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
@@ -374,6 +376,21 @@ export function createApp(): express.Express {
    * acceptance 8's rollback one environment variable.
    */
   app.use('/search', searchRouter);
+
+  /**
+   * Currency-safe price history (#78), behind its OWN read lever.
+   *
+   * `PRICE_HISTORY_PUBLIC_READS_ENABLED` gates the MOUNT and nothing durable:
+   * observations are recorded on every offer write whatever it says, and the
+   * operator surface below stays mounted while it is off. A chart is the one
+   * part of this domain that can be WRONG in public — a line drawn through a
+   * period nobody observed, a currency reinterpreted without saying so — so the
+   * buyer-facing half is the half that gets a lever, exactly as `#80`'s
+   * `PRODUCT_SAVES_ENABLED` gates a surface and never a row.
+   */
+  if (config.priceHistory.publicReadsEnabled) {
+    app.use('/price-history', priceHistoryRouter);
+  }
   // The versioned attribute registry and the constraint language (#94): public
   // definition/facet reads and the pre-flight validation both search and #95's
   // interpreter run against…
@@ -394,6 +411,11 @@ export function createApp(): express.Express {
     // reason — what an external source's wording MEANS is a fact about this
     // graph.
     app.use('/internal/catalog-condition', internalCatalogConditionRouter);
+    // Price history (#78): metrics, one offer's observation trail, and a
+    // rebuild trigger. Mounted while `PRICE_HISTORY_ENABLED` is off, because
+    // the evidence has to be readable during the incident that turned the loop
+    // off — #62's and #68's rule for their own operator surfaces.
+    app.use('/internal/price-history', internalPriceHistoryRouter);
   }
 
   /**

@@ -85,6 +85,7 @@ import {
 } from '../../db/schema/retailEligibility.js';
 import { catalogBackfillRecords } from '../../db/schema/backfill.js';
 import { productSaveAggregates, productSaves } from '../../db/schema/productSaves.js';
+import { offerPriceSeries } from '../../db/schema/priceHistory.js';
 import {
   catalogSourceConfigs,
   marketplaceSellerIdentities,
@@ -296,6 +297,18 @@ const PRODUCT_SAVE_NOTE =
   'read excludes a merged product — which loses nothing precisely BECAUSE the twin exists, and ' +
   'is the only reading under which that exclusion is safe. Repointing it instead would violate ' +
   'the unique and abort the phase.';
+
+const PRICE_SERIES_NOTE =
+  "#78's derived price series — the `review_aggregates` and `product_save_aggregates` " +
+  'disposition, for their reason plus one of its own. It is a PROJECTION: the loser\'s row ' +
+  'answers a question about the loser and stays with it, and the winner\'s is REBUILT rather ' +
+  'than merged, because two series cannot be concatenated — each of their points names the ' +
+  'ONE cheapest eligible observation in its bucket, and the cheapest across both is neither ' +
+  'list. The rebuild needs no rehoming at all: an observation carries no canonical id, the ' +
+  'offers it belongs to have already been repointed by the `offers` phase, and re-running the ' +
+  'derivation therefore picks up the loser\'s whole history under the winner. A rebuild of the ' +
+  'tombstone\'s own series yields zero points for the same reason, so it self-clears rather ' +
+  'than sitting as a stale answer forever. `rebuildEntityAggregates` requests both.';
 
 const PRODUCT_SAVE_AGGREGATE_NOTE =
   "#80's derived save counter. The `review_aggregates` disposition for the `review_aggregates` " +
@@ -753,6 +766,12 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       disposition: 'retained_by_tombstone',
       note: PRODUCT_SAVE_AGGREGATE_NOTE,
     },
+    {
+      column: offerPriceSeries.canonicalProductId,
+      phase: 'offers',
+      disposition: 'retained_by_tombstone',
+      note: PRICE_SERIES_NOTE,
+    },
   ],
 
   canonical_variant: [
@@ -931,6 +950,12 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'children',
       disposition: 'untouched',
       note: 'The other side of the same record. See above.',
+    },
+    {
+      column: offerPriceSeries.canonicalVariantId,
+      phase: 'offers',
+      disposition: 'retained_by_tombstone',
+      note: PRICE_SERIES_NOTE,
     },
   ],
 };

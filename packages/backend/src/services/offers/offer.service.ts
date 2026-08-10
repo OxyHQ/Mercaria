@@ -54,6 +54,9 @@ import { validationError } from '../../lib/errors/error-codes.js';
 import { readSellerPaymentReadiness } from '../payments/provider-account.service.js';
 import { resolveSourceFreshnessPolicies } from '../offer-freshness/policy.js';
 import { projectOffer, type OfferProjectionContext } from './offer-projection.js';
+// Price history (#78) — the observation this offer write produced. The ONLY
+// import of that domain from here, and it runs in the caller's transaction.
+import { recordOfferPriceObservation } from '../price-history/record.service.js';
 
 /** The seller key shape `checkout.service` and the payments seam already share. */
 function sellerKeyForListing(row: { ownerType: string; storeId: string | null; oxyUserId: string | null }): string | null {
@@ -320,6 +323,17 @@ export interface ExternalOfferObservation {
   merchantId: string;
   storefrontId?: string;
   sourceRecordId: string;
+  /**
+   * The `catalog_sources` row behind that observation (#78).
+   *
+   * Passed rather than resolved from `sourceRecordId`, which would be one extra
+   * query per ingested record on the hottest write path in the system. The
+   * caller already holds it: an ingestion pass resolved the source before it
+   * fetched anything.
+   */
+  sourceId?: string;
+  /** The ingestion RUN, so #68's quarantine stays answerable when history is read (#78). */
+  sourceRunId?: string;
   provider: string;
   sourceAccountRef?: string;
   externalOfferId: string;
@@ -480,6 +494,31 @@ export async function recordExternalOffer(
     staleAt: observation.staleAt,
     sourceConfidence: observation.confidence ?? null,
     qualitySignals,
+  });
+
+  /**
+   * The price observation (#78), in the SAME transaction as the offer.
+   *
+   * An offer written with no observation behind it, or an observation with no
+   * offer, is exactly the drift the price-history domain exists to prevent. A
+   * failure here propagates: this runs inside the caller's transaction, so
+   * catching it would leave every later statement failing with `25P02` while
+   * the page reported success (`record.service.ts` states it in full), and
+   * `advanceObject` already isolates a post-intake failure per record.
+   *
+   * The freshness level is the one the OBSERVATION was taken under, and it is
+   * computed rather than resolved: an observation is zero seconds old when it
+   * is taken, so the only verdict other than `current` available at that moment
+   * is one the source itself declared by publishing a deadline already in the
+   * past. The finer per-source WARNING fraction is a statement about age and
+   * has nothing to say here.
+   */
+  await recordOfferPriceObservation(db, row, {
+    observedAt: observation.observedAt,
+    sourceRecordId: observation.sourceRecordId,
+    sourceId: observation.sourceId ?? null,
+    sourceRunId: observation.sourceRunId ?? null,
+    freshnessLevel: observation.staleAt <= observation.observedAt ? 'expired' : 'current',
   });
 
   return row.id;

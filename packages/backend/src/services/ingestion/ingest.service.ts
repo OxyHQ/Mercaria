@@ -521,6 +521,13 @@ export async function runIngestionPage(input: {
           resolved,
           pipeline,
           normalized: item.normalized,
+          // #78: the RUN, threaded down so the price observation this write
+          // produces can name it. A quarantine is raised against a run, and
+          // the price-history derivation excludes an observation whose run is
+          // still held — which is how "a quarantined record does not enter
+          // public history until released" is answered at READ time rather
+          // than by mutating an immutable row.
+          runId: run.id,
           now,
         });
       } catch (error: unknown) {
@@ -896,6 +903,8 @@ async function advanceObject(args: {
   resolved: ResolvedIngestionSource;
   pipeline: PipelineTally;
   normalized: NormalizedSourceRecord;
+  /** The run this observation was read in (#78) — see the call site. */
+  runId: string;
   now: Date;
 }): Promise<void> {
   const { object, observationId, resolved, pipeline, normalized, now } = args;
@@ -1007,6 +1016,7 @@ async function advanceObject(args: {
     canonicalVariantId: decision.matchedCanonicalVariantId,
     confidence: method === 'heuristic' ? decision.confidence : null,
     normalized,
+    runId: args.runId,
     now,
   });
   pipeline.offersUpserted += 1;
@@ -1043,6 +1053,7 @@ async function materializeOffer(args: {
   canonicalVariantId: string;
   confidence: number | null;
   normalized: NormalizedSourceRecord;
+  runId: string;
   now: Date;
 }): Promise<string> {
   const { object, observationId, resolved, merchantId, canonicalVariantId, normalized, now } = args;
@@ -1061,6 +1072,11 @@ async function materializeOffer(args: {
         ? {}
         : { storefrontId: resolved.source.config.storefrontId }),
       sourceRecordId: observationId,
+      // #78: the source and the run behind this observation, passed rather
+      // than resolved from the record id — one extra query per ingested record
+      // on the hottest write path, for a value this pass already holds.
+      sourceId: resolved.source.config.sourceId,
+      sourceRunId: args.runId,
       provider: resolved.source.config.provider,
       ...(resolved.source.config.sourceAccountRef === null
         ? {}
