@@ -389,7 +389,15 @@ describe('WALL 6: every route this page navigates to exists', () => {
     // The three this issue deliberately does NOT link to, and the one that
     // caused the bug. If any of these starts resolving, the page can link to it.
     expect(routeExists('/settings/support', routes)).toBe(false);
-    expect(routeExists('/merchants/${slug}', routes)).toBe(false);
+    // NOT '/merchants/${slug}' — that WAS this line until #73 shipped the real
+    // merchant page and turned a passing negative control into a failure with
+    // nothing wrong: a route the roadmap has not reached yet is not evidence
+    // that `routeExists` can say "no", it is a control with an expiry date. A
+    // NUL byte can never appear in a real file or directory name on ANY
+    // filesystem, so this target is structurally impossible rather than merely
+    // unbuilt, and stays a valid negative control no matter what the storefront
+    // ships next.
+    expect(routeExists('/merchants\u0000-impossible/${slug}', routes)).toBe(false);
     expect(routeExists('/brands/${id}', routes)).toBe(false);
     expect(routeExists('/definitely-not-a-route-xyz', routes)).toBe(false);
   });
