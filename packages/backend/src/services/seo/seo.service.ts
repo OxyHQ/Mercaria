@@ -36,6 +36,8 @@
 import type {
   Brand,
   CurrencyCode,
+  ProductFamily,
+  PublicRouteId,
   SeoIndexability,
   SeoResolution,
 } from '@mercaria/shared-types';
@@ -46,6 +48,7 @@ import { findStoreByHandle } from '../../db/stores/storeRepository.js';
 import { findCanonicalProductIdForListing } from '../../db/reviews/reviewTargetResolver.js';
 import { findProductSeoFacts } from '../../db/seo/seoRepository.js';
 import { getPublicBrand } from '../canonical/brand.service.js';
+import { getPublicProductFamily } from '../canonical/product-family.service.js';
 import { getMerchantPublic } from '../commerce-graph/merchant.service.js';
 import { getPublicCanonicalProduct } from '../canonical/canonical-product.service.js';
 import { hydrateListings } from '../catalog-hydration.service.js';
@@ -64,6 +67,7 @@ import { buildIdentityRedirect, resolveRouteRedirect } from './redirects.js';
 import { buildRoutePath, matchPublicRoute } from './routes.js';
 import { indexingPermittedFor } from './rollout.js';
 import {
+  catalogueEntityFacts,
   homeFacts,
   listingPageFacts,
   merchantPageFacts,
@@ -171,50 +175,73 @@ export async function diagnoseSeoUrl(request: ResolveSeoRequest): Promise<SeoDia
     };
   }
 
-  const origin = config.web.origin;
-
-  switch (route.id) {
-    case 'home':
-      return resolveHome(origin);
-    case 'canonical_product':
-      return resolveCanonicalProduct(handle ?? '', request, origin);
-    case 'legacy_listing':
-      return resolveLegacyListing(handle ?? '', origin);
-    case 'native_store':
-      return resolveNativeStore(handle ?? '', origin);
-    case 'merchant':
-      return resolveMerchant(handle ?? '', request, origin);
-    /**
-     * A seller page is a person whose identity Oxy owns, and #92 derives its
-     * visibility PER REQUEST from Oxy's own privacy and trust state. A title
-     * composed here would either duplicate that decision or outlive it — and a
-     * search result for an account that later goes private is not something a
-     * later read can withdraw. So Mercaria publishes no server-rendered
-     * document for it and the shell is served exactly as it is today.
-     */
-    case 'seller':
-      return { resolution: { outcome: 'no_document' } };
-    /**
-     * #72's brand and family pages are live screens as of this issue, but this
-     * domain has not yet been taught to compose a document for either: no
-     * `resolveBrand`/`resolveProductFamily` exists, and `SeoNonIndexableReason`
-     * has no member for "live but unresolved" — inventing one is a decision
-     * about the domain's own closed vocabulary, not a fact this rebase can
-     * assert. So the shell is served exactly as it is today, with no verdict at
-     * all, the same absence the seller case above states for a different
-     * reason. Closing this seam means giving each its own case here.
-     */
-    case 'brand':
-    case 'product_family':
-      return { resolution: { outcome: 'no_document' } };
-    case 'category_browse':
-    case 'native_store_legacy':
-      // Unreachable: both are `planned` or `redirect_only` and were answered
-      // above. The branch exists so adding a route without deciding what it
-      // resolves fails `tsc` rather than falling into a default.
-      return { resolution: { outcome: 'no_document' } };
-  }
+  const resolver = ROUTE_RESOLVERS[route.id];
+  // A route this domain publishes no document for. The shell is served exactly
+  // as it is today — `no_document`, never `not_found`, because the page is real
+  // and only its metadata is absent.
+  if (resolver === null) return { resolution: { outcome: 'no_document' } };
+  return resolver({ handle: handle ?? '', request, origin: config.web.origin });
 }
+
+/** Everything a per-route resolver is given. */
+interface RouteResolverInput {
+  /** The route's single dynamic segment, decoded. Empty on a static route. */
+  readonly handle: string;
+  readonly request: ResolveSeoRequest;
+  readonly origin: string;
+}
+
+type RouteResolver = (input: RouteResolverInput) => Promise<SeoDiagnosis> | SeoDiagnosis;
+
+/**
+ * Which routes this domain publishes a document for — a TABLE, not a `switch`.
+ *
+ * A switch answers "what do I do for this route" and cannot answer "which
+ * routes do I serve at all". That second question is the one #256 turned out to
+ * need: `sitemap.service.ts` has to know, before it reads a single row, whether
+ * a collection's pages will carry any metadata — and with the answer buried in
+ * control flow the only way to find out was to call the resolver, which needs a
+ * database and an entity that may not exist.
+ *
+ * `null` is a DECISION and every one is explained where it sits. The table is
+ * total over `PublicRouteId`, so a new route cannot be added without stating
+ * which it is — the property the switch also had, kept.
+ */
+const ROUTE_RESOLVERS: Readonly<Record<PublicRouteId, RouteResolver | null>> = Object.freeze({
+  home: ({ origin }) => resolveHome(origin),
+  canonical_product: ({ handle, request, origin }) =>
+    resolveCanonicalProduct(handle, request, origin),
+  legacy_listing: ({ handle, origin }) => resolveLegacyListing(handle, origin),
+  native_store: ({ handle, origin }) => resolveNativeStore(handle, origin),
+  merchant: ({ handle, request, origin }) => resolveMerchant(handle, request, origin),
+  brand: ({ handle, request, origin }) => resolveBrandPage(handle, request, origin),
+  product_family: ({ handle, request, origin }) => resolveFamilyPage(handle, request, origin),
+  /**
+   * A seller page is a person whose identity Oxy owns, and #92 derives its
+   * visibility PER REQUEST from Oxy's own privacy and trust state. A title
+   * composed here would either duplicate that decision or outlive it — and a
+   * search result for an account that later goes private is not something a
+   * later read can withdraw.
+   */
+  seller: null,
+  /** Reserved patterns: `planned` and `redirect_only` are answered above. */
+  category_browse: null,
+  native_store_legacy: null,
+});
+
+/**
+ * Does this domain publish a server-rendered document for this route?
+ *
+ * Read by `sitemap.service.ts` before it opens a collection. A sitemap entry is
+ * an invitation to crawl a URL, and a URL this domain serves no metadata for is
+ * a bare SPA shell with the generic title, the generic canonical and no
+ * `noindex` — a thin duplicate advertised by the very policy built to refuse
+ * one. That is #256, and this function is what makes it unrepresentable.
+ */
+export function routeServesDocument(routeId: PublicRouteId): boolean {
+  return ROUTE_RESOLVERS[routeId] !== null;
+}
+
 
 /** The home page. Static facts, and indexable whenever indexing is on at all. */
 function resolveHome(origin: string): SeoDiagnosis {
@@ -529,6 +556,182 @@ async function resolveMerchant(
           canonicalQueryOf('merchant', request.query),
         ),
         origin,
+        indexability: verdict,
+      }),
+    },
+    indexability: verdict,
+  };
+}
+
+/**
+ * `/brands/:handle` — a canonical brand's page (#72), closing #256.
+ *
+ * `getPublicBrand` does NOT resolve a merge tombstone — unlike
+ * `getPublicProductFamily` beside it, which does — so the hop is taken here,
+ * explicitly, and a winner that fails to resolve answers 404 rather than
+ * composing a 301 to a page that is not there. Asymmetries between two reads
+ * this similar are exactly what a caller assumes away.
+ */
+async function resolveBrandPage(
+  handle: string,
+  request: ResolveSeoRequest,
+  origin: string,
+): Promise<SeoDiagnosis> {
+  const requested = await getPublicBrand(handle);
+  if (!requested || requested.status === 'suppressed') {
+    return { resolution: { outcome: 'not_found' } };
+  }
+
+  let brand = requested;
+  if (requested.status === 'merged') {
+    const winner =
+      requested.mergedIntoId === undefined ? undefined : await getPublicBrand(requested.mergedIntoId);
+    if (!winner || winner.status === 'suppressed') return { resolution: { outcome: 'not_found' } };
+    brand = winner;
+  }
+
+  const redirect = catalogueRedirect('brand', handle, brand.id, brand.slug, request);
+  if (redirect) return redirect;
+
+  return catalogueDiagnosis({
+    routeId: 'brand',
+    slug: brand.slug,
+    name: brand.name,
+    description: brand.description,
+    logoFileId: brand.logoFileId,
+    entryCount: brand.productCount,
+    // A brand belongs to no category, so `canary` withholds it — the
+    // fail-closed answer every uncategorised entity gets.
+    categoryId: null,
+    active: brand.status === 'active',
+    request,
+    origin,
+  });
+}
+
+/**
+ * `/families/:handle` — a product line's page (#72), closing #256.
+ *
+ * `getPublicProductFamily` resolves the merge chain itself, so a tombstone
+ * arrives already pointing at its winner and the only redirect left to compose
+ * is the canonical spelling.
+ */
+async function resolveFamilyPage(
+  handle: string,
+  request: ResolveSeoRequest,
+  origin: string,
+): Promise<SeoDiagnosis> {
+  const family: ProductFamily | undefined = await getPublicProductFamily(handle);
+  if (!family || family.status === 'suppressed') {
+    return { resolution: { outcome: 'not_found' } };
+  }
+
+  const redirect = catalogueRedirect('product_family', handle, family.id, family.slug, request);
+  if (redirect) return redirect;
+
+  return catalogueDiagnosis({
+    routeId: 'product_family',
+    slug: family.slug,
+    name: family.name,
+    description: family.description,
+    logoFileId: undefined,
+    entryCount: family.productCount,
+    // A family DOES carry a category, so a canary can include one — the only
+    // catalogue entity of the three that can.
+    categoryId: family.categoryId ?? null,
+    active: family.status === 'active',
+    request,
+    origin,
+  });
+}
+
+/**
+ * The 301 a catalogue page owes when the address was not the canonical one.
+ *
+ * The reason is discriminated the way `resolveCanonicalProduct` already does
+ * it: an address naming the entity's OWN id is a canonical-spelling correction,
+ * and anything else that resolved here — a tombstone's id or its slug — came
+ * through a merge. Comparing against the SLUG cannot tell them apart, because
+ * by this point the handle differs from the slug in both cases.
+ */
+function catalogueRedirect(
+  routeId: 'brand' | 'product_family',
+  handle: string,
+  entityId: string,
+  slug: string,
+  request: ResolveSeoRequest,
+): SeoDiagnosis | undefined {
+  if (handle === slug) return undefined;
+  const reason = handle === entityId ? 'canonical_spelling' : 'merged';
+  return {
+    resolution: {
+      outcome: 'redirect',
+      redirect: buildIdentityRedirect(
+        buildRoutePath(routeId, slug),
+        carryQueryAcrossRedirect(request.query),
+        reason,
+      ),
+    },
+  };
+}
+
+/** Everything a brand and a family answer identically. */
+interface CatalogueDiagnosisInput {
+  readonly routeId: 'brand' | 'product_family';
+  readonly slug: string;
+  readonly name: string;
+  readonly description: string | undefined;
+  readonly logoFileId: string | undefined;
+  readonly entryCount: number;
+  readonly categoryId: string | null;
+  readonly active: boolean;
+  readonly request: ResolveSeoRequest;
+  readonly origin: string;
+}
+
+/**
+ * Compose a catalogue entity's document.
+ *
+ * Judged by its CATALOGUE, like a merchant: neither page has a description
+ * worth indexing on its own, and a brand with one product duplicates that
+ * product's own page — which is #75 policy rule 8 arriving through a different
+ * door.
+ */
+function catalogueDiagnosis(input: CatalogueDiagnosisInput): SeoDiagnosis {
+  const facts = catalogueEntityFacts({
+    routeId: input.routeId,
+    slug: input.slug,
+    name: input.name,
+    description: input.description,
+    logoFileId: input.logoFileId,
+  });
+
+  const verdict = decideIndexability({
+    routeAvailability: 'live',
+    indexingPermitted: indexingPermittedFor(input.categoryId),
+    identity: 'canonical',
+    moderation: input.active ? 'clear' : 'suppressed',
+    // Mercaria's own canonical record; the products beneath it carry their
+    // sources' rights on their own pages.
+    sourceIndexRight: 'granted',
+    content: assessCatalogueContent(input.name, input.entryCount),
+    offerInformation: 'not_applicable',
+    locale: 'complete',
+    filterUniqueness: 'not_a_filter_page',
+  });
+
+  return {
+    resolution: {
+      outcome: 'document',
+      document: composeDocument({
+        routeId: input.routeId,
+        facts,
+        canonicalUrl: buildCanonicalUrl(
+          input.origin,
+          buildRoutePath(input.routeId, input.slug),
+          canonicalQueryOf(input.routeId, input.request.query),
+        ),
+        origin: input.origin,
         indexability: verdict,
       }),
     },

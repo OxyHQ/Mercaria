@@ -26,28 +26,49 @@ import {
   type SeoSitemapCandidateRow,
 } from '../../db/seo/seoRepository.js';
 import { indexingPermittedFor } from './rollout.js';
+import { routeServesDocument } from './seo.service.js';
+import { publicRoute } from './routes.js';
 import {
   classifySitemapRows,
+  ROUTE_BY_COLLECTION,
   sitemapEntriesFor,
   sitemapPageCount,
   sitemapPagePath,
 } from './sitemap.js';
 
-/**
- * The reader for each collection, or `null` for one with no rows to read.
- *
- * `categories` is `null` because Mercaria ships no category browse page: the
- * route is `planned`, so `decideIndexability` would refuse every candidate
- * anyway, and querying the taxonomy to build a list nothing can be kept from is
- * work with a misleading shape. The collection stays in the registry so the
- * pattern is reserved and the day a screen lands there is one function to add.
- */
 type CollectionReader = {
   readonly count: () => Promise<number>;
   readonly page: (offset: number, limit: number) => Promise<SeoSitemapCandidateRow[]>;
 };
 
+/**
+ * The rows a collection lists, or `null` when it lists nothing.
+ *
+ * ## Why resolvability gates this, and #256
+ *
+ * A sitemap entry is an INVITATION TO CRAWL a URL. If this domain publishes no
+ * document for that route, the crawler is handed the bare SPA shell at 200 —
+ * the generic title, the generic canonical, no `noindex` — which is a thin
+ * duplicate advertised by the very policy built to refuse one.
+ *
+ * That is not hypothetical: #72 shipped the brand screens, the route registry's
+ * gate correctly forced `brand` to `live`, and the dormant `brands` collection
+ * woke up while `seo.service.ts` still answered `no_document` for it. Route
+ * AVAILABILITY and document RESOLVABILITY are different facts, and membership
+ * depends on the second.
+ *
+ * So the reader is `null` unless the collection's route actually resolves a
+ * document, and `assertSitemapCollectionsResolve` below makes that a BOOT
+ * failure rather than a quiet empty page — the `redirects.ts` precedent. A
+ * reader that exists but whose route cannot serve is unrepresentable rather
+ * than merely unlikely.
+ *
+ * `categories` needs no special case any more: its route is `planned`, so it
+ * has no resolver, so it has no reader. What used to be a hardcoded exception
+ * now falls out of the rule.
+ */
 function readerFor(collection: SeoSitemapCollection): CollectionReader | null {
+  if (!routeServesDocument(ROUTE_BY_COLLECTION[collection])) return null;
   const db = getDb();
   switch (collection) {
     case 'products':
@@ -66,9 +87,38 @@ function readerFor(collection: SeoSitemapCollection): CollectionReader | null {
         page: (offset, limit) => listMerchantSitemapPage(db, offset, limit),
       };
     case 'categories':
+      // Unreachable: `category_browse` has no resolver, so the guard above
+      // already answered. The branch keeps the switch total, so adding a
+      // collection without a reader fails `tsc`.
       return null;
   }
 }
+
+/**
+ * Every sitemap collection's route must resolve a document — asserted at MODULE
+ * LOAD, so the process refuses to boot rather than advertising a URL it serves
+ * no metadata for.
+ *
+ * A boot failure and not a test-only gate for the reason `redirects.ts` states
+ * about its own loop proof: the two facts live in different files and drift
+ * silently, and the visible symptom here is a crawler indexing thin pages,
+ * which nobody sees without a crawler telling them.
+ */
+export function assertSitemapCollectionsResolve(): void {
+  for (const collection of SEO_SITEMAP_COLLECTIONS) {
+    const routeId = ROUTE_BY_COLLECTION[collection];
+    const route = publicRoute(routeId);
+    if (route.availability === 'live' && !routeServesDocument(routeId)) {
+      throw new Error(
+        `Sitemap collection '${collection}' lists '${routeId}', which is live but has no ` +
+          'document resolver — every URL it advertises would be served as a bare shell. ' +
+          'Add a resolver to ROUTE_RESOLVERS in seo.service.ts.',
+      );
+    }
+  }
+}
+
+assertSitemapCollectionsResolve();
 
 /**
  * One page of one collection.
