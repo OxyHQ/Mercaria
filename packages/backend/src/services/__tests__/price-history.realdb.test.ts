@@ -669,14 +669,34 @@ describe('the derived series', () => {
     if (!series) return;
 
     const rebuildOnce = async (): Promise<Record<string, unknown>[]> => {
-      const [claimed] = await claimPriceSeriesRebuilds({
-        leaseOwner: `owner-${RUN}`,
-        batchSize: 10,
-        // A due row only. Both rebuilds claim the same series because the
-        // completion re-arms it — the point of the exercise is that the SECOND
-        // run writes the same rows, not that it is skipped.
-        now: new Date(),
-      });
+      // Claiming is a QUEUE drain, not a lookup: `claimPriceSeriesRebuilds`
+      // takes the due rows of the WHOLE table ordered by `available_at`, and
+      // `UPDATE … RETURNING` returns them in no defined order. Other cases in
+      // this file leave series pending — the variant case below says so in its
+      // own comment — so neither "ours is index 0" nor "ours is in the first
+      // batch" holds. Asserting position made this case fail roughly one run in
+      // three, and it failed on whichever pull request happened to be unlucky
+      // rather than on the one that changed anything.
+      //
+      // So: drain until this series has been claimed, rebuild every sibling the
+      // drain took (leaving a stranded lease behind would break the next case
+      // instead of this one), and assert on identity rather than on order.
+      let claimed: Awaited<ReturnType<typeof claimPriceSeriesRebuilds>>[number] | undefined;
+      for (let attempt = 0; attempt < 5 && !claimed; attempt += 1) {
+        const batch = await claimPriceSeriesRebuilds({
+          leaseOwner: `owner-${RUN}`,
+          batchSize: 50,
+          // A due row only. Both rebuilds claim the same series because the
+          // completion re-arms it — the point of the exercise is that the
+          // SECOND run writes the same rows, not that it is skipped.
+          now: new Date(),
+        });
+        if (batch.length === 0) break;
+        claimed = batch.find((row) => row.id === series.id);
+        for (const row of batch) {
+          if (row.id !== series.id) await rebuildPriceSeries(row, `owner-${RUN}`);
+        }
+      }
       expect(claimed?.id).toBe(series.id);
       if (!claimed) return [];
       const owned = await rebuildPriceSeries(claimed, `owner-${RUN}`);
