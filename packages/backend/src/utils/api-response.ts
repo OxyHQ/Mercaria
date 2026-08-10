@@ -105,6 +105,16 @@ export const ErrorCodes = {
    * not — which is why it does not share `GUEST_CART_DISABLED`'s 403.
    */
   BUYER_REQUESTS_DISABLED: 'BUYER_REQUESTS_DISABLED',
+  /**
+   * A watchlist mutation carried a stale `expectedVersion` (#81 acceptance 4).
+   *
+   * Its own code rather than a bare `CONFLICT`, because the client's correct
+   * behaviour is specific and automatable: re-read the list, re-apply the edit
+   * against what it now says, and retry. A generic conflict leaves a client
+   * either giving up or matching on message text, and message text is not a
+   * contract.
+   */
+  WATCHLIST_VERSION_CONFLICT: 'WATCHLIST_VERSION_CONFLICT',
 } as const;
 
 /** Union of the supported error code literals. */

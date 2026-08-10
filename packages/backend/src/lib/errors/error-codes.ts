@@ -38,6 +38,9 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCodes.GUEST_CLAIM_DISABLED]: 403,
   // 503: the capability exists and is paused. See the code's own docblock.
   [ErrorCodes.BUYER_REQUESTS_DISABLED]: 503,
+  // 409: two clients edited one list and this one lost. The remedy is the
+  // client's and it is mechanical — re-read, re-apply, retry (#81).
+  [ErrorCodes.WATCHLIST_VERSION_CONFLICT]: 409,
 };
 
 export interface MercariaErrorParams {

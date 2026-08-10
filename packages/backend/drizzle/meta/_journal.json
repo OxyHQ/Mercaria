@@ -400,6 +400,13 @@
       "when": 1786350730881,
       "tag": "0056_many_pepper_potts",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1786352237566,
+      "tag": "0057_acoustic_sphinx",
+      "breakpoints": true
     }
   ]
 }

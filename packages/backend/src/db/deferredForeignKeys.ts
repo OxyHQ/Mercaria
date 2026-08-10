@@ -1293,4 +1293,32 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'compared with `>`, so a product that no longer exists costs one page boundary and nothing ' +
       'else.',
   },
+
+  // ── Private watchlists (#81) ──────────────────────────────────────────────
+  { column: 'watchlists.oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'watchlist_snapshot_items.selected_offer_id',
+    reason:
+      '#81 correction rule 5: "list history retains the offer used at the time." `offers` ' +
+      'CASCADEs from `listings` (#57 chose that so a seller deleting a listing is never ' +
+      'blocked), so a real foreign key here would DELETE the history the rule exists to keep — ' +
+      'silently, and exactly when the offer that made a price interesting went away. The id is ' +
+      'inert text beside the amounts and the quote, so the row remains a complete account of ' +
+      'the evaluation with or without the offer row.',
+  },
+  {
+    column: 'watchlist_snapshot_items.selected_canonical_variant_id',
+    reason:
+      'The configuration the selected offer priced, recorded for the same reason and with the ' +
+      'same lifetime: a variant merged away later is still what was measured that day, and a ' +
+      'RESTRICT here would let a snapshot block a merge the catalogue owns.',
+  },
+  {
+    column: 'watchlist_snapshot_items.ranking_policy_version',
+    reason:
+      "#74's policy VERSION string, not a row id. It is what makes two snapshots comparable at " +
+      'all, and it must survive a version being archived — a foreign key onto ' +
+      '`ranking_policy_versions` would make retiring a policy either impossible or destructive ' +
+      'of the history that cites it. The BUILT-IN policy has no row there in the first place.',
+  },
 ];

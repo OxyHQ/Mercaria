@@ -77,6 +77,7 @@ import {
 import { reassignRowById } from '../../db/curation/rehomeRepository.js';
 import { markProductSavesAmbiguousAfterSplit } from '../../db/productSaves/productSaveRepository.js';
 import { markPriceAlertsAmbiguousAfterSplit } from '../../db/priceAlerts/priceAlertRepository.js';
+import { markWatchlistItemsAmbiguousAfterSplit } from '../../db/watchlists/watchlistItemRepository.js';
 import type { CatalogSplitJobRow } from '../../db/schema/curation.js';
 import {
   canonicalAttributeValues,
@@ -460,8 +461,8 @@ async function runAssignmentPhase(
 }
 
 /**
- * `saves` — hand every affected product save back to its owner (#80 migration
- * rule 8, #59 split invariant 3).
+ * `saves` — hand every affected product save AND watchlist entry back to its
+ * owner (#80 migration rule 8, #81 correction rule 2, #59 split invariant 3).
  *
  * Only a canonical PRODUCT split marks anything. A variant split moves offers
  * and identifiers between two configurations of the SAME product: a save's
@@ -483,8 +484,18 @@ async function runSavesPhase(
   if (job.entityType !== 'canonical_product') {
     return { rowsAffected: 0, targetEntityId: job.targetEntityId };
   }
-  const marked = await markProductSavesAmbiguousAfterSplit(job.sourceEntityId, job.id, db);
-  return { rowsAffected: marked, targetEntityId: job.targetEntityId };
+  // Two domains, one phase, and they are marked together on purpose: a split
+  // asks ONE question ("which of these two did you mean") of everybody holding
+  // the source product, and a buyer who saved it AND put it in a build list is
+  // owed the same prompt on both. Splitting this into two phases would let a
+  // resumed job answer one and not the other.
+  const markedSaves = await markProductSavesAmbiguousAfterSplit(job.sourceEntityId, job.id, db);
+  const markedItems = await markWatchlistItemsAmbiguousAfterSplit(
+    job.sourceEntityId,
+    job.id,
+    db,
+  );
+  return { rowsAffected: markedSaves + markedItems, targetEntityId: job.targetEntityId };
 }
 
 /**

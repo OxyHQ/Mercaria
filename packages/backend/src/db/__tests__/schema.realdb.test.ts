@@ -177,7 +177,13 @@ describe('the migrated schema', () => {
     // removed by CASCADE with the observation they cite, a series is one row per
     // question anybody asked, and the write metrics are the counters that make a
     // broken deduplication visible, which is exactly what must not age out.
-    expect(EXPIRY_TARGETS).toHaveLength(25);
+    // #81 adds ONE — a RECORDED evaluation of a private watchlist, the only
+    // table in that domain whose size is a function of how often somebody opens
+    // a list — and leaves its three others unswept: a list and its items are a
+    // person's own data, removed when they remove them, and a snapshot's LINES
+    // CASCADE with the snapshot, so a line can never outlive the evaluation it
+    // describes.
+    expect(EXPIRY_TARGETS).toHaveLength(26);
   });
 });
 

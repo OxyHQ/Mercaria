@@ -463,6 +463,14 @@ describe('the registry the sweeper runs over', () => {
       'procurement_outboxes',
       'referral_touches',
       'supplier_provider_events',
+      // #81's ONE, and the three it leaves out are the point: a watchlist and
+      // its items are a person's own data, removed when THEY remove them, and a
+      // snapshot's LINES cascade with the snapshot — so a line can never
+      // outlive the evaluation it describes and the sweep never has to know
+      // they exist. Only the recorded evaluation has a deadline, because it is
+      // the only table here whose size is a function of how often somebody
+      // opens a list.
+      'watchlist_snapshots',
     ]);
   });
 

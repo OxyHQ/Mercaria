@@ -28,6 +28,7 @@ import storesRouter from './routes/stores.js';
 import favoritesRouter from './routes/favorites.js';
 import productSavesRouter from './routes/product-saves.js';
 import savedItemsRouter from './routes/saved-items.js';
+import watchlistsRouter from './routes/watchlists.js';
 import internalProductSavesRouter from './routes/internal-product-saves.js';
 import cartRouter from './routes/cart.js';
 import addressesRouter from './routes/addresses.js';
@@ -215,6 +216,16 @@ export function createApp(): express.Express {
   if (config.productSaves.enabled) {
     app.use('/product-saves', productSavesRouter);
     app.use('/saved-items', savedItemsRouter);
+  }
+  /**
+   * Private watchlists (#81) — mounted under their own flag, beside the saves
+   * they are deliberately not part of. A watchlist is a GROUPING with a purpose
+   * and a save is a standing interest in one product; a deployment may adopt
+   * either without the other, which is why the two flags are independent. The
+   * flag gates the MOUNT and never the rows.
+   */
+  if (config.watchlists.enabled) {
+    app.use('/watchlists', watchlistsRouter);
   }
   app.use('/cart', cartRouter);
   app.use('/addresses', addressesRouter);

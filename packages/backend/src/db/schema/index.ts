@@ -146,6 +146,13 @@ export * from './curation';
 // candidates were. It also follows `canonicalCatalog`, `merchants`, `buyers`
 // (a migration record names the `favorites` row it read) and `catalog`.
 export * from './productSaves';
+// Private watchlists (#81) follow `productSaves` for the same dependencies —
+// `canonicalCatalog`, `merchants` and `curation`, whose split job an ambiguous
+// item names — and are exported beside them because the two are read together
+// on the same buyer surfaces. They share no row, no counter and no aggregate: a
+// watchlist is a GROUPING with a purpose, not a second answer to "did this
+// buyer save this product".
+export * from './watchlists';
 // Discovery analytics (#77) comes last and references NOTHING: every entity id
 // it carries is correlation text with no foreign key, because these rows are
 // swept on their own retention clock and every entity they name outlives them.
