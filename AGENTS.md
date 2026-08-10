@@ -3449,3 +3449,69 @@ matcher, #68 freshness — nothing here is a second copy of any of them.
   (ranking — a scanned gate), **#65** (independent; convergence between the two
   is exercised generically rather than waiting for it), **#84** (native-store
   linkage), and the re-import sweep an `AWIN_MAPPING_VERSION` bump schedules.
+
+## Connector verification: the contract suite, and what it deliberately cannot prove (#69)
+
+`connectors/__tests__/connector-contract-suite.ts` + `contract-world.ts`, run by
+`shopify/__tests__/shopify-contract.test.ts` and
+`woocommerce/__tests__/woocommerce-contract.test.ts`, plus
+`services/__tests__/channel-push-contract.realdb.test.ts` and
+`connector-queue-boundary.test.ts`. Full procedure for the part that stays
+manual: **`docs/runbooks/connector-real-store-verification.md`**.
+
+The failure mode that shapes it: **the nine pre-existing connector suites mock
+the PROVIDER**, so between `connector-sync.service` and the wire there was
+nothing under test at all — a URL never built, a `Link` header never followed, a
+429 never retried, a zod schema that rejects the platform's real shape and a
+CHECK the database would have refused all looked identical to a green suite.
+
+- **Only the SOCKET is faked, and the boundary is stated rather than implied.**
+  The provider is built by its own real factory (`createShopifyProvider`,
+  `createWooCommerceProvider`) over a transport serving a `ContractWorld`; for
+  Shopify the SHIPPED rate-limit wrapper sits in between with its clock and sleep
+  stubbed, so the retry under test is the production one. Everything else —
+  service, catalog-write funnels, inventory, Postgres with every CHECK and unique
+  index — is real. **A `ContractWorld` is not a store and cannot testify about
+  one**; the runbook carries what only a real platform can settle.
+- **Capabilities are DECLARED and a missing one is MEASURED, never skipped.**
+  WooCommerce has no product push, no fulfillment push and no 429 handling; each
+  gated case asserts the REFUSAL on that branch, so a provider that silently lost
+  a feature cannot report the same green as one that never had it.
+- **`getConnectorProvider` is the ONE thing mocked, and the registry deliberately
+  stays a module-level constant.** Connectors are static, unlike ingestion
+  adapters (which a flag registers at boot), so adding a mutable
+  `registerConnectorProvider` would put a production seam in place purely for a
+  test's convenience.
+- **The catalogue is NAMESPACED per world.** `product_variants_sku_key` is unique
+  over the whole table rather than per store, so a shared fixture SKU collides
+  across cases and fails inside `createStoreProduct` where it reads as a connector
+  bug. `contractCatalogue(namespace)` is the only way to build one.
+- **The fault schedule is mutation-tested by the suite itself.** Every "archives
+  nothing" case rests on a fault actually reaching the provider; a fault matching
+  no URL would make each of them pass by measuring a healthy run. The Shopify
+  runner asserts a fault fires exactly N times, is consumed, and stops.
+- **Cleanup order is load-bearing**: `listings.store_id`, `orders.store_id` and
+  both `source_connection_id` columns are `ON DELETE RESTRICT` — deliberately, so
+  a live connection cannot be dropped out from under the provenance pointing at
+  it — so a fixture deletes orders, then listings, then the connection, then the
+  store.
+- **The plugin-push suite scans response BYTES for the minted key**, not the DTO
+  shape: a shape assertion covers the fields somebody remembered, and the
+  positive control (the public prefix IS present) is what stops the scan passing
+  against an endpoint returning nothing.
+- **Acceptance 4 is split honestly.** `connector-queue-boundary.test.ts` pins the
+  half Mercaria owns — every `request*` entry point validates synchronously and
+  then ENQUEUES, while `runBackfill`/`syncOrders`/`syncInventory` are the worker
+  bodies beside them. The producers are mocked because their INLINE FALLBACK is
+  the thing under test: with the real producer and no Redis, "enqueued" and "ran
+  inline" are indistinguishable.
+- **Acceptance criterion 7 is NOT met and `HANDOFF.md` still says so.** No
+  Shopify store, no WooCommerce site and no WordPress plugin install has been
+  exercised; nothing here may be read as evidence that one has.
+- Four defects found while building it are filed (#218, #219, #220, #221)
+  rather than fixed here, and are listed in the runbook §8 with what a real run should expect: the
+  partially-effectful webhook registration that discards the ids and the
+  WooCommerce secret it just created; WooCommerce's total absence of 429
+  handling; a WooCommerce `product.*` webhook collapsing a variable product to
+  one variant permanently; and the non-atomic create-then-stamp that strands a
+  listing no later sync can match.

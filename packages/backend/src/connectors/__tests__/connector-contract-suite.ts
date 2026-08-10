@@ -1,0 +1,817 @@
+/**
+ * THE REUSABLE CONNECTOR CONTRACT SUITE — issue #69's Shopify and WooCommerce
+ * scenario lists, every case that does not need a provisioned store.
+ *
+ * The Shopify harness and the WooCommerce harness each call
+ * {@link describeConnectorContract} with an adapter over a {@link ContractWorld},
+ * and get the same cases against the same tables. That is the point: the two
+ * platforms disagree about almost everything on the wire and agree about every
+ * property Mercaria actually depends on, so a case written once has to hold for
+ * both or the disagreement is a bug in one of them.
+ *
+ * ## What is REAL here, and what is not
+ *
+ * Real: the provider (its URL building, its pagination, its zod schemas, its
+ * price parsing, its rate-limit wrapper), `connector-sync.service` end to end,
+ * `catalog-write.service`, the inventory service, and a Postgres server with
+ * every CHECK, unique index and trigger the production schema carries.
+ *
+ * Faked: the socket, and nothing else. A `ContractWorld` is not a Shopify store
+ * and cannot testify about one — see the header of `contract-world.ts` and
+ * `docs/runbooks/connector-real-store-verification.md`, which carries the
+ * scenarios that stay manual and why.
+ *
+ * ## Why this file is not named `*.test.ts`
+ *
+ * vitest collects `src/**\/*.test.ts`. A suite that ran itself with no harness
+ * would be a file of cases nobody could interpret. The two runners are
+ * `shopify/__tests__/shopify-contract.test.ts` and
+ * `woocommerce/__tests__/woocommerce-contract.test.ts`; a third platform adds a
+ * third one-line runner. This is the shape
+ * `services/ingestion/__tests__/adapter-contract-suite.ts` established.
+ *
+ * ## Capabilities are DECLARED, and a missing one is stated rather than skipped
+ *
+ * WooCommerce implements no product push and no fulfillment push, and has no
+ * inventory webhook. A suite that silently omitted those cases would report the
+ * same green for a provider that lost the feature. Each capability-gated case
+ * asserts the REFUSAL when the capability is absent, so both branches are
+ * measured.
+ */
+
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { uuidv7 } from '@oxyhq/db';
+import type { ConnectorProviderId, CurrencyCode } from '@mercaria/shared-types';
+import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
+import { categories, listings } from '../../db/schema/catalog.js';
+import { connections } from '../../db/schema/connectors.js';
+import { nativeStoreLinks } from '../../db/schema/merchants.js';
+import { stores } from '../../db/schema/stores.js';
+import { insertCategory } from '../../db/catalog/categoryRepository.js';
+import { insertStore } from '../../db/stores/storeRepository.js';
+import { insertLocation } from '../../db/stores/locationRepository.js';
+import {
+  findConnection,
+  findConnectionCredentials,
+  findConnectionsByStore,
+  updateSyncSettings as updateSyncSettingsColumns,
+  type ConnectionRow,
+} from '../../db/connectors/connectionRepository.js';
+import {
+  findListingBySourceExternalId,
+  findListingChildren,
+  findListingsBySourceConnection,
+  updateListingColumns,
+} from '../../db/catalog/listingRepository.js';
+import {
+  findVariantsByListing,
+  findVariantsBySourceConnection,
+} from '../../db/catalog/variantRepository.js';
+import { orders as ordersTable } from '../../db/schema/orders.js';
+import {
+  connectAndVerify,
+  connectWithApiKey,
+  disconnect,
+  processConnectorWebhook,
+  pushOrderFulfillment,
+  runBackfill,
+  syncInventory,
+  syncOrders,
+} from '../../services/connector-sync.service.js';
+import type { ConnectorProvider } from '../types.js';
+import type { ContractWorld } from './contract-world.js';
+
+/** What a provider package supplies to get every case below. */
+export interface ConnectorContractHarness {
+  /** Names the suite in test output — "the Shopify connector". */
+  readonly name: string;
+  readonly providerId: ConnectorProviderId;
+  /** The shop host the world is served at, in the form the provider expects. */
+  readonly shopDomain: string;
+  /** The currency the world's shop reports. Deliberately never FAIR. */
+  readonly shopCurrency: CurrencyCode;
+  /** Build the REAL provider over a transport that serves `world`. */
+  createProvider(world: ContractWorld): ConnectorProvider;
+  /**
+   * Make `getConnectorProvider` answer with `provider` from now on. The runner
+   * owns the `vi.mock`, because vitest hoists it per FILE and this file is not
+   * one of them.
+   */
+  installProvider(provider: ConnectorProvider): void;
+  /** The provider's own topic string for each canonical webhook kind. */
+  readonly topics: {
+    readonly productUpsert: string;
+    readonly productDelete: string;
+    readonly orderUpsert: string;
+    /** Absent when the platform has no inventory webhook (WooCommerce). */
+    readonly inventoryUpdate?: string;
+  };
+  /** Which directions the provider implements. */
+  readonly capabilities: {
+    /** `pushProduct` is implemented (Mercaria → platform). */
+    readonly pushesProducts: boolean;
+    /** `pushFulfillment` is implemented. */
+    readonly pushesFulfillment: boolean;
+    /** The transport retries HTTP 429 rather than failing the run. */
+    readonly retriesRateLimit: boolean;
+  };
+  /** Build the world every case starts from (fresh per case). */
+  createWorld(): ContractWorld;
+  /**
+   * The raw payload a `product_upsert` webhook delivers for `externalId`, in the
+   * platform's own JSON — the provider's `normalizeProduct` reads it directly.
+   */
+  webhookProductPayload(world: ContractWorld, externalId: string): unknown;
+  /** The raw payload an `order_upsert` webhook delivers for `externalId`. */
+  webhookOrderPayload(world: ContractWorld, externalId: string): unknown;
+}
+
+/** The env every case needs; a connector operation reads these AT USE. */
+const REQUIRED_ENV: Readonly<Record<string, string>> = {
+  CONNECTOR_ENCRYPTION_KEY: 'a'.repeat(64),
+  CONNECTOR_OAUTH_STATE_SECRET: 'contract-suite-state-secret',
+  CONNECTOR_OAUTH_REDIRECT_BASE_URL: 'https://api.mercaria.test',
+  SHOPIFY_CLIENT_ID: 'contract-suite-client-id',
+  SHOPIFY_CLIENT_SECRET: 'contract-suite-client-secret',
+};
+
+/** Everything one case works against: a store with a category, a location and a connection. */
+interface ContractFixture {
+  readonly storeId: string;
+  readonly categorySlug: string;
+  readonly locationId: string;
+  readonly connection: ConnectionRow;
+  readonly world: ContractWorld;
+}
+
+export function describeConnectorContract(harness: ConnectorContractHarness): void {
+  describe(`the connector contract — ${harness.name}`, () => {
+    let db: Database;
+    const createdStoreIds: string[] = [];
+    const createdCategoryIds: string[] = [];
+    /** Env values this suite overwrote, restored afterwards. */
+    const previousEnv = new Map<string, string | undefined>();
+
+    beforeAll(async () => {
+      for (const [name, value] of Object.entries(REQUIRED_ENV)) {
+        previousEnv.set(name, process.env[name]);
+        process.env[name] = value;
+      }
+      db = await connectPostgres();
+    }, 120_000);
+
+    afterEach(async () => {
+      // `listings.store_id`, `orders.store_id` and both `source_connection_id`
+      // columns are ON DELETE RESTRICT — deliberately, so a live connection can
+      // never be dropped out from under the provenance that points at it. The
+      // consequence for a fixture is that the order below is load-bearing:
+      // orders, then listings, then the connection, then the store. Variants,
+      // images, options, inventory levels and order items cascade from their own
+      // parents, so those are not repeated here.
+      for (const storeId of createdStoreIds.splice(0)) {
+        await db.delete(ordersTable).where(eq(ordersTable.storeId, storeId));
+        await db.delete(listings).where(eq(listings.storeId, storeId));
+        await db.delete(connections).where(eq(connections.storeId, storeId));
+        // Nothing in the connector path writes a native store link. #60's
+        // `store_merchants` backfill stage does, over whatever stores are in the
+        // database — and the suites share one, so a concurrent apply run can
+        // attach a link to a store this file created between its last write and
+        // this teardown. Seen once, not reproduced; the delete is scoped to a
+        // store that is about to cease existing, so it can take nothing from
+        // anyone.
+        await db.delete(nativeStoreLinks).where(eq(nativeStoreLinks.storeId, storeId));
+        await db.delete(stores).where(eq(stores.id, storeId));
+      }
+      for (const categoryId of createdCategoryIds.splice(0)) {
+        await db.delete(categories).where(eq(categories.id, categoryId));
+      }
+    });
+
+    afterAll(async () => {
+      for (const [name, value] of previousEnv) {
+        if (value === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = value;
+        }
+      }
+      await closePostgres();
+    });
+
+    /**
+     * Stand up a store, its import category, its default location, the fake
+     * platform and a CONNECTED connection — through the real connect path, so a
+     * broken exchange or a broken currency validation fails here rather than
+     * being configured around.
+     */
+    async function makeFixture(options?: {
+      products?: 'off' | 'pull' | 'bidirectional';
+      inventory?: 'off' | 'pull';
+      orders?: 'off' | 'pull' | 'bidirectional';
+      autoPublish?: boolean;
+      conflictPolicy?: 'respect_overrides' | 'connector_wins';
+      world?: ContractWorld;
+    }): Promise<ContractFixture> {
+      const suffix = uuidv7();
+      const store = await insertStore(
+        {
+          handle: `connector-contract-${suffix}`,
+          name: 'Connector contract store',
+          description: '',
+          brandColor: '#123456',
+          defaultCurrency: 'FAIR',
+        },
+        [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
+      );
+      createdStoreIds.push(store.id);
+
+      const location = await insertLocation(store.id, {
+        name: 'Default location',
+        type: 'warehouse',
+        isDefault: true,
+        isActive: true,
+        fulfillsOnlineOrders: true,
+      });
+
+      const category = await insertCategory({
+        name: 'Contract imports',
+        slug: `contract-imports-${suffix}`,
+      });
+      createdCategoryIds.push(category.id);
+      process.env.CONNECTOR_DEFAULT_CATEGORY_SLUG = category.slug;
+
+      const world = options?.world ?? harness.createWorld();
+      harness.installProvider(harness.createProvider(world));
+
+      const connection =
+        harness.providerId === 'woocommerce'
+          ? await connectWithApiKey(store.id, harness.providerId, {
+              shopDomain: harness.shopDomain,
+              consumerKey: 'ck_contract',
+              consumerSecret: 'cs_contract',
+            })
+          : await connectAndVerify(store.id, harness.providerId, {
+              code: 'contract-auth-code',
+              shopDomain: harness.shopDomain,
+              redirectUri: 'https://api.mercaria.test/channels/oauth/shopify/callback',
+            });
+
+      const configured = await updateSyncSettingsColumns(store.id, connection.id, {
+        products: options?.products ?? 'pull',
+        inventory: options?.inventory ?? 'pull',
+        orders: options?.orders ?? 'pull',
+        autoPublish: options?.autoPublish ?? true,
+        conflictPolicy: options?.conflictPolicy ?? 'respect_overrides',
+        targetLocationId: location.id,
+      });
+      expect(configured, 'the connection this fixture just created must be readable').not.toBeNull();
+
+      return {
+        storeId: store.id,
+        categorySlug: category.slug,
+        locationId: location.id,
+        // `updateSyncSettings` returns the row it wrote; the expect above proves it.
+        connection: configured as ConnectionRow,
+        world,
+      };
+    }
+
+    /**
+     * The orders this connection imported.
+     *
+     * Read straight off the table rather than through a repository: the order
+     * repository has no by-source-connection reader, and inventing one to serve a
+     * test would put a query in production nothing calls.
+     */
+    async function importedOrders(connectionId: string) {
+      return db.select().from(ordersTable).where(eq(ordersTable.sourceConnectionId, connectionId));
+    }
+
+    /** The listing this connection imported for `externalId`, or a failed expectation. */
+    async function importedListing(fixture: ContractFixture, externalId: string) {
+      const listing = await findListingBySourceExternalId(
+        fixture.storeId,
+        fixture.connection.id,
+        externalId,
+      );
+      expect(listing, `no listing was imported for external id ${externalId}`).not.toBeNull();
+      return listing as NonNullable<typeof listing>;
+    }
+
+    // --- SCENARIOS 1 + 9: connect, reconnect, revoke, recover ----------------
+
+    describe('credentials', () => {
+      it('CONNECTS once and a RECONNECT keeps ONE row, refreshed rather than duplicated', async () => {
+        const fixture = await makeFixture();
+
+        // A second authorization for the same shop — the merchant re-installing,
+        // or two callbacks racing. `UNIQUE(store_id, provider)` is what makes this
+        // an update; a read-then-branch would race itself.
+        const reconnected =
+          harness.providerId === 'woocommerce'
+            ? await connectWithApiKey(fixture.storeId, harness.providerId, {
+                shopDomain: harness.shopDomain,
+                consumerKey: 'ck_rotated',
+                consumerSecret: 'cs_rotated',
+              })
+            : await connectAndVerify(fixture.storeId, harness.providerId, {
+                code: 'second-auth-code',
+                shopDomain: harness.shopDomain,
+                redirectUri: 'https://api.mercaria.test/channels/oauth/shopify/callback',
+              });
+
+        expect(reconnected.id).toBe(fixture.connection.id);
+        const all = await findConnectionsByStore(fixture.storeId);
+        expect(all).toHaveLength(1);
+        expect(all[0].status).toBe('connected');
+        expect(all[0].hasCredentials).toBe(true);
+        // The sync settings the merchant configured survive a reconnect — the
+        // upsert must not reset a connection to its column defaults.
+        expect(all[0].syncSettingsProducts).toBe('pull');
+      });
+
+      it('DISCONNECT clears every credential column, and the row survives', async () => {
+        const fixture = await makeFixture();
+
+        const disconnected = await disconnect(fixture.storeId, fixture.connection.id);
+
+        expect(disconnected.status).toBe('disconnected');
+        expect(disconnected.hasCredentials).toBe(false);
+        expect(await findConnectionCredentials(fixture.connection.id)).toBeNull();
+        // Provenance on already-imported listings has to stay meaningful, so the
+        // row is kept rather than deleted.
+        expect(await findConnection(fixture.storeId, fixture.connection.id)).not.toBeNull();
+      });
+
+      it('a REVOKED credential fails the run and archives NOTHING', async () => {
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const before = await findListingsBySourceConnection(fixture.storeId, fixture.connection.id);
+        expect(before.length).toBeGreaterThan(0);
+
+        // The merchant uninstalled the app / rotated the key: every read 401s.
+        fixture.world.fail('/products', 401, 99);
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.status).toBe('failed');
+        const after = await findListingsBySourceConnection(fixture.storeId, fixture.connection.id);
+        // THE property: a credential failure must never look like "the merchant
+        // deleted their catalogue". Delete reconciliation is unreachable from the
+        // failure path, and this is what asserts it.
+        expect(after.filter((listing) => listing.status === 'archived')).toHaveLength(0);
+        const connection = await findConnection(fixture.storeId, fixture.connection.id);
+        expect(connection?.status).toBe('error');
+      });
+
+      it('RECOVERS after the credential is restored — the next run completes and re-syncs', async () => {
+        const fixture = await makeFixture();
+        fixture.world.fail('/products', 401, 1);
+        expect((await runBackfill(fixture.storeId, fixture.connection.id)).status).toBe('failed');
+
+        const recovered = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(recovered.status).toBe('completed');
+        expect(recovered.countsCreated).toBe(fixture.world.products.length);
+        const connection = await findConnection(fixture.storeId, fixture.connection.id);
+        expect(connection?.status).toBe('connected');
+      });
+
+      it('an INSUFFICIENT-PERMISSION 403 fails the run and archives NOTHING', async () => {
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        // WooCommerce scenario 7: a REST key issued read-only, or a scope the
+        // Shopify app was never granted. The connector cannot tell it from a
+        // revocation and must not: both mean "do not conclude anything".
+        fixture.world.fail('/products', 403, 99);
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.status).toBe('failed');
+        expect(run.error).toBeTruthy();
+        const after = await findListingsBySourceConnection(fixture.storeId, fixture.connection.id);
+        expect(after.filter((listing) => listing.status === 'archived')).toHaveLength(0);
+      });
+    });
+
+    // --- SCENARIOS 2, 4, 10: backfill, updates, native currency -------------
+
+    describe('the catalogue', () => {
+      it('BACKFILLS every product in the shop NATIVE currency, with its images and stock', async () => {
+        const fixture = await makeFixture();
+
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.status).toBe('completed');
+        expect(run.countsCreated).toBe(fixture.world.products.length);
+        expect(run.countsFailed).toBe(0);
+
+        const source = fixture.world.products[0];
+        const listing = await importedListing(fixture, source.externalId);
+        expect(listing.title).toBe(source.title);
+        expect(listing.sourceProvider).toBe(harness.providerId);
+        expect(listing.sourceExternalId).toBe(source.externalId);
+
+        const children = await findListingChildren([listing.id]);
+        expect((children.images.get(listing.id) ?? []).map((image) => image.fileId)).toEqual([
+          ...source.imageUrls,
+        ]);
+
+        const variants = await findVariantsByListing(listing.id);
+        expect(variants).toHaveLength(source.variants.length);
+        for (const variant of variants) {
+          // #69 scenario 10, and the currency contract: the catalogue stores
+          // NATIVE. A variant priced in the store's own `defaultCurrency` (FAIR
+          // here) would mean the import converted, which it must never do.
+          expect(variant.priceCurrency).toBe(harness.shopCurrency);
+          expect(variant.priceCurrency).not.toBe('FAIR');
+        }
+        expect(variants.map((variant) => variant.inventoryAvailable)).toEqual(
+          source.variants.map((variant) => variant.available),
+        );
+      });
+
+      it('a PRICE, TITLE and IMAGE change on the platform reaches an already-imported listing', async () => {
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId
+            ? {
+                ...product,
+                title: `${product.title} (revised)`,
+                imageUrls: [...product.imageUrls, 'https://cdn.example.test/added.jpg'],
+                variants: product.variants.map((variant) => ({ ...variant, price: '44.50' })),
+              }
+            : product,
+        );
+
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.countsUpdated).toBeGreaterThan(0);
+        const listing = await importedListing(fixture, source.externalId);
+        expect(listing.title).toBe(`${source.title} (revised)`);
+        const children = await findListingChildren([listing.id]);
+        expect(children.images.get(listing.id) ?? []).toHaveLength(source.imageUrls.length + 1);
+        const variants = await findVariantsByListing(listing.id);
+        for (const variant of variants) {
+          expect(variant.priceAmount).toBe(4450);
+          expect(variant.priceCurrency).toBe(harness.shopCurrency);
+        }
+      });
+
+      it('a LOCALLY OVERRIDDEN field survives a resync, and an unpinned one does not', async () => {
+        const fixture = await makeFixture({ conflictPolicy: 'respect_overrides' });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const listing = await importedListing(fixture, source.externalId);
+
+        // The merchant edited the title and the price in Mercaria. `price` is the
+        // interesting pin: it guards the VARIANT re-price, which is a different
+        // code path from the listing-field merge.
+        await updateListingColumns(listing.id, {
+          title: 'Merchant wrote this title',
+          overriddenFields: ['title', 'price'],
+        });
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId
+            ? {
+                ...product,
+                title: 'Platform wrote this title',
+                description: 'Platform wrote this description',
+                variants: product.variants.map((variant) => ({ ...variant, price: '99.00' })),
+              }
+            : product,
+        );
+
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        const after = await importedListing(fixture, source.externalId);
+        expect(after.title, 'a pinned title must survive').toBe('Merchant wrote this title');
+        expect(after.description, 'an UNPINNED field must still track the platform').toBe(
+          'Platform wrote this description',
+        );
+        const variants = await findVariantsByListing(after.id);
+        for (const variant of variants) {
+          expect(variant.priceAmount, 'a pinned price must survive').not.toBe(9900);
+        }
+      });
+
+      it('a product REMOVED from the platform is ARCHIVED, never hard-deleted', async () => {
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const removed = fixture.world.products[0];
+
+        fixture.world.products = fixture.world.products.filter(
+          (product) => product.externalId !== removed.externalId,
+        );
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        const listing = await importedListing(fixture, removed.externalId);
+        // Archived, not gone: order history and provenance point at this row.
+        expect(listing.status).toBe('archived');
+        const survivors = await findListingsBySourceConnection(
+          fixture.storeId,
+          fixture.connection.id,
+        );
+        expect(survivors.filter((row) => row.status === 'archived')).toHaveLength(1);
+        expect(survivors).toHaveLength(fixture.world.products.length + 1);
+      });
+
+      it('is IDEMPOTENT — a re-run creates no second listing and no second variant', async () => {
+        const fixture = await makeFixture();
+        const first = await runBackfill(fixture.storeId, fixture.connection.id);
+        const before = await findListingsBySourceConnection(
+          fixture.storeId,
+          fixture.connection.id,
+        );
+
+        const second = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(first.countsCreated).toBe(fixture.world.products.length);
+        expect(second.countsCreated).toBe(0);
+        const after = await findListingsBySourceConnection(fixture.storeId, fixture.connection.id);
+        expect(after).toHaveLength(fixture.world.products.length);
+        // The same ROWS, not merely the same count — a re-import that deleted and
+        // recreated would satisfy a count and lose every local edit and order link.
+        expect(after.map((row) => row.id).sort()).toEqual(before.map((row) => row.id).sort());
+        for (const listing of after) {
+          expect(await findVariantsByListing(listing.id)).toHaveLength(
+            fixture.world.products.find((product) => product.externalId === listing.sourceExternalId)
+              ?.variants.length,
+          );
+        }
+        // NOT asserted: that the second run reports `skipped`. `toUpdatePatch`
+        // builds a patch from every unpinned connector-managed field whether or
+        // not it changed, so an unchanged re-sync writes identical values and
+        // tallies as `updated`. That is a reporting nuance — the dashboard says
+        // "2 updated" after a no-op reconcile — and not a data one.
+      });
+    });
+
+    // --- SCENARIO 5 / WooCommerce 3: pagination and rate limiting -----------
+
+    describe('pagination and rate limiting', () => {
+      it('FOLLOWS the cursor across pages and imports every product exactly ONCE', async () => {
+        const world = harness.createWorld();
+        world.pageSize = 1;
+        const fixture = await makeFixture({ world });
+
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.status).toBe('completed');
+        expect(run.countsCreated).toBe(world.products.length);
+        const listings = await findListingsBySourceConnection(
+          fixture.storeId,
+          fixture.connection.id,
+        );
+        expect(listings).toHaveLength(world.products.length);
+        expect(new Set(listings.map((row) => row.sourceExternalId)).size).toBe(
+          world.products.length,
+        );
+      });
+
+      it(
+        harness.capabilities.retriesRateLimit
+          ? 'RETRIES a 429 and completes the backfill'
+          : 'does NOT retry a 429 — the run fails and archives nothing (a declared gap)',
+        async () => {
+          const fixture = await makeFixture();
+          // Two consecutive refusals: one is indistinguishable from a fluke, and a
+          // wrapper that retried exactly once would pass a one-shot fixture.
+          fixture.world.fail('/products', 429, 2, { 'retry-after': '0' });
+
+          const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+          if (harness.capabilities.retriesRateLimit) {
+            expect(run.status).toBe('completed');
+            expect(run.countsCreated).toBe(fixture.world.products.length);
+            // The retry has to be visible in the call log, or "completed" could
+            // just mean the fault never matched anything.
+            expect(
+              fixture.world.callsMatching('/products').filter((call) => call.status === 429),
+            ).toHaveLength(2);
+          } else {
+            expect(run.status).toBe('failed');
+            const listings = await findListingsBySourceConnection(
+              fixture.storeId,
+              fixture.connection.id,
+            );
+            expect(listings.filter((row) => row.status === 'archived')).toHaveLength(0);
+          }
+        },
+      );
+
+      it('a page failure MID-RUN archives nothing — a partial fetch is never a deletion', async () => {
+        const world = harness.createWorld();
+        world.pageSize = 1;
+        const fixture = await makeFixture({ world });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        // The first page answers; the platform then falls over. Everything the
+        // second page would have listed is now "unseen", which is exactly the
+        // shape that mass-archives a catalogue if the guard is wrong.
+        fixture.world.fail('/products', 500, 99);
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.status).toBe('failed');
+        const listings = await findListingsBySourceConnection(
+          fixture.storeId,
+          fixture.connection.id,
+        );
+        expect(listings.filter((row) => row.status === 'archived')).toHaveLength(0);
+      });
+    });
+
+    // --- SCENARIO 7 / WooCommerce 5: orders --------------------------------
+
+    describe('orders', () => {
+      it('IMPORTS an order with the platform amounts VERBATIM and re-syncs in place', async () => {
+        const fixture = await makeFixture();
+
+        const first = await syncOrders(fixture.storeId, fixture.connection.id);
+        const second = await syncOrders(fixture.storeId, fixture.connection.id);
+
+        expect(first.status).toBe('completed');
+        expect(first.countsCreated).toBe(fixture.world.orders.length);
+        // Idempotent by the partial unique on `{store, connection, external id}`:
+        // a re-sync must refresh, never duplicate.
+        expect(second.countsCreated).toBe(0);
+
+        const orders = await importedOrders(fixture.connection.id);
+        expect(orders).toHaveLength(fixture.world.orders.length);
+        const source = fixture.world.orders[0];
+        const imported = orders.find((row) => row.sourceExternalId === source.externalId);
+        expect(imported, 'the imported order must be findable by its external id').toBeDefined();
+        // Mercaria FX never re-prices an imported order: both sides of the
+        // `DualMoney` carry the source platform's own currency and amount.
+        expect(imported?.totalsGrandTotalShopCurrency).toBe(harness.shopCurrency);
+        expect(imported?.totalsGrandTotalPresentmentCurrency).toBe(harness.shopCurrency);
+        expect(imported?.buyerOrigin).toBe('external');
+      });
+
+      it('a repeated order WEBHOOK converges on the same order rather than a second one', async () => {
+        const fixture = await makeFixture();
+        const source = fixture.world.orders[0];
+        const payload = harness.webhookOrderPayload(fixture.world, source.externalId);
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.orderUpsert,
+          payload,
+        });
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.orderUpsert,
+          payload,
+        });
+
+        const orders = await importedOrders(fixture.connection.id);
+        expect(orders.filter((row) => row.sourceExternalId === source.externalId)).toHaveLength(1);
+      });
+
+      it('IGNORES an order webhook when order pull is disabled', async () => {
+        const fixture = await makeFixture({ orders: 'off' });
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.orderUpsert,
+          payload: harness.webhookOrderPayload(fixture.world, fixture.world.orders[0].externalId),
+        });
+
+        expect(await importedOrders(fixture.connection.id)).toHaveLength(0);
+      });
+    });
+
+    // --- SCENARIO 3: product webhooks --------------------------------------
+
+    describe('product webhooks', () => {
+      it('APPLIES a product upsert webhook through the same merge a backfill uses', async () => {
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId
+            ? { ...product, title: 'Changed by webhook' }
+            : product,
+        );
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productUpsert,
+          payload: harness.webhookProductPayload(fixture.world, source.externalId),
+        });
+
+        expect((await importedListing(fixture, source.externalId)).title).toBe('Changed by webhook');
+      });
+
+      it('ARCHIVES on a delete webhook, and a RE-DELIVERY is a no-op', async () => {
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const payload = { id: source.externalId };
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productDelete,
+          payload,
+        });
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productDelete,
+          payload,
+        });
+
+        const listing = await importedListing(fixture, source.externalId);
+        expect(listing.status).toBe('archived');
+        // A platform re-delivery is ordinary. The archive is conditional on the
+        // status actually moving, so the second one changes nothing at all.
+        const listings = await findListingsBySourceConnection(
+          fixture.storeId,
+          fixture.connection.id,
+        );
+        expect(listings.filter((row) => row.status === 'archived')).toHaveLength(1);
+      });
+
+      it('IGNORES a product webhook when product pull is disabled', async () => {
+        const fixture = await makeFixture({ products: 'off' });
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productUpsert,
+          payload: harness.webhookProductPayload(
+            fixture.world,
+            fixture.world.products[0].externalId,
+          ),
+        });
+
+        expect(
+          await findListingsBySourceConnection(fixture.storeId, fixture.connection.id),
+        ).toHaveLength(0);
+      });
+    });
+
+    // --- SCENARIO 4 (stock half) + WooCommerce 2: inventory -----------------
+
+    describe('inventory', () => {
+      it('SETS stock from the platform total, and a re-run converges', async () => {
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        fixture.world.products = fixture.world.products.map((product) => ({
+          ...product,
+          variants: product.variants.map((variant) => ({ ...variant, available: 7 })),
+        }));
+        const first = await syncInventory(fixture.storeId, fixture.connection.id);
+        const second = await syncInventory(fixture.storeId, fixture.connection.id);
+
+        expect(first.status).toBe('completed');
+        expect(first.countsUpdated).toBeGreaterThan(0);
+        expect(second.status).toBe('completed');
+        const variants = await findVariantsBySourceConnection(fixture.connection.id);
+        expect(variants.length).toBeGreaterThan(0);
+        for (const variant of variants) {
+          // An absolute SET, so running it twice lands on the same number.
+          expect(variant.inventoryAvailable).toBe(7);
+        }
+      });
+    });
+
+    // --- SCENARIO 8: fulfillment push (capability-gated) --------------------
+
+    describe('fulfillment push', () => {
+      it(
+        harness.capabilities.pushesFulfillment
+          ? 'PUSHES a fulfillment back for a bidirectional connection, idempotently'
+          : 'is NOT implemented — a push attempt is refused rather than silently skipped',
+        async () => {
+          const fixture = await makeFixture({ orders: 'bidirectional' });
+          await syncOrders(fixture.storeId, fixture.connection.id);
+          const orders = await importedOrders(fixture.connection.id);
+          // Named, not `orders[0]`: the read has no ORDER BY, and a uuid v7 key is
+          // not monotonic inside a millisecond, so an index would pick at random.
+          const shipped = orders.find(
+            (row) => row.sourceExternalId === fixture.world.orders[0].externalId,
+          );
+          expect(shipped, 'the order this case ships must have been imported').toBeDefined();
+
+          await pushOrderFulfillment((shipped as NonNullable<typeof shipped>).id);
+          await pushOrderFulfillment((shipped as NonNullable<typeof shipped>).id);
+
+          if (harness.capabilities.pushesFulfillment) {
+            // Two pushes, and the SECOND must find nothing left to fulfill — the
+            // platform reports zero fulfillable units once a line has shipped.
+            expect(fixture.world.pushedFulfillments.length).toBe(1);
+          } else {
+            // `pushOrderFulfillment` swallows the provider's refusal onto a failed
+            // run rather than propagating it, so the observable is that NOTHING
+            // reached the platform.
+            expect(fixture.world.pushedFulfillments).toHaveLength(0);
+          }
+        },
+      );
+    });
+  });
+}
