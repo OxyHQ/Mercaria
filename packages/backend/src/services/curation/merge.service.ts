@@ -61,6 +61,8 @@ import {
   unblockMergeJob,
 } from '../../db/curation/jobRepository.js';
 import { applyRehomeTarget } from '../../db/curation/rehomeRepository.js';
+import { stampPriceAlertRehoming } from '../../db/priceAlerts/priceAlertRepository.js';
+import { requestPriceAlertEvaluationForProduct } from '../../db/priceAlerts/priceAlertEvaluationRepository.js';
 import type { CatalogMergeJobRow } from '../../db/schema/curation.js';
 import { estimateMergeImpact, impactColumnValues } from './impact.js';
 import { CURATED_ENTITIES } from './entity-registry.js';
@@ -394,6 +396,44 @@ async function runRehomingPhase(
 }
 
 /**
+ * `alerts` — #79's price alerts, and the ONE thing the generic rehomer cannot do.
+ *
+ * The plan's targets move the columns exactly as every other phase's do; what
+ * this adds is the PROVENANCE stamp, which has to run FIRST and be scoped to the
+ * LOSER. `applyRehomeTarget` sets a column to the WINNER's id and knows nothing
+ * about where a row came from, so a stamp applied afterwards would have to find
+ * "the alerts on the winner that just moved" — which is indistinguishable from
+ * the alerts that were always there.
+ *
+ * Only a canonical-product merge stamps: an alert's `rehomed_from` names the
+ * product it was watching, and a variant, merchant or storefront merge changes a
+ * SCOPE rather than the subject. The stamp is idempotent by predicate — after
+ * the move there are no alerts left on the loser — so `verify` re-running the
+ * plan targets is unaffected.
+ */
+async function runAlertsPhase(
+  job: CatalogMergeJobRow,
+  db: DatabaseOrTransaction,
+): Promise<PhaseOutcome> {
+  if (job.entityType === 'canonical_product') {
+    await stampPriceAlertRehoming({ canonicalProductId: job.loserId, now: new Date() }, db);
+  }
+  let moved = 0;
+  for (const target of targetsForPhase(job.entityType, 'alerts')) {
+    moved += await applyRehomeTarget(target, job.loserId, job.winnerId, db);
+  }
+  if (moved > 0) {
+    // The alerts that just moved have never been judged against the WINNER's
+    // offers. The loser's own queue row stays with the tombstone (see the plan's
+    // note), so without this the rehomed alerts would wait for the next time a
+    // seller happened to change a price on the winner. The enqueue converges, so
+    // a merge that moved four hundred alerts still owes one evaluation.
+    await requestPriceAlertEvaluationForProduct(job.winnerId, db);
+  }
+  return { rowsAffected: moved };
+}
+
+/**
  * `redirects` — mint the alias, flatten the chain and stamp the tombstone.
  *
  * The ORDER inside is load-bearing: the tombstones pointing at the loser are
@@ -534,6 +574,7 @@ async function runPhase(
   if (phase === 'plan') return runPlanPhase(job, db);
   if (phase === 'awaiting_resolution') return runResolutionPhase(job, db);
   if (REHOMING_PHASES.includes(phase)) return runRehomingPhase(job, phase, db);
+  if (phase === 'alerts') return runAlertsPhase(job, db);
   if (phase === 'redirects') return runRedirectPhase(job, db);
   if (phase === 'rollups') {
     return { rowsAffected: await rebuildEntityRollups(job.entityType, job.loserId, job.winnerId, db) };

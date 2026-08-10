@@ -256,3 +256,11 @@ export * from './retailFulfilment';
 // cross-domain tie is a CHECK against #77's metric-key tuple, which is a
 // shared-types value rather than a table.
 export * from './ranking';
+// Price alerts (#79) are the last export, and they are downstream of nearly
+// everything above: an alert names a `canonical_products` row, a trigger names
+// an `offers` row AND the immutable `offer_price_snapshots` row behind its
+// price (#78), and a delivery record names the `notifications` row it produced.
+// That dependency direction is the domain's shape — this reads the catalogue,
+// the observation log and the notification feed and writes to none of them, so
+// nothing here can change what a shopper is shown or what a source published.
+export * from './priceAlerts';

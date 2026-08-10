@@ -386,6 +386,13 @@
       "when": 1786329822913,
       "tag": "0054_bizarre_pixie",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1786337799256,
+      "tag": "0055_fine_hobgoblin",
+      "breakpoints": true
     }
   ]
 }

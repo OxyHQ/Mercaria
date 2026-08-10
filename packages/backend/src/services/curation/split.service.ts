@@ -76,6 +76,7 @@ import {
 } from '../../db/curation/jobRepository.js';
 import { reassignRowById } from '../../db/curation/rehomeRepository.js';
 import { markProductSavesAmbiguousAfterSplit } from '../../db/productSaves/productSaveRepository.js';
+import { markPriceAlertsAmbiguousAfterSplit } from '../../db/priceAlerts/priceAlertRepository.js';
 import type { CatalogSplitJobRow } from '../../db/schema/curation.js';
 import {
   canonicalAttributeValues,
@@ -487,6 +488,40 @@ async function runSavesPhase(
 }
 
 /**
+ * `alerts` — #79 evaluation 9, and the same refusal as `saves` with one thing
+ * more.
+ *
+ * A split divides one identity into two and nothing in the data says which of
+ * them a person meant, so every alert on the source is MARKED for the buyer to
+ * resolve. What it adds beyond the saved-product case is a PAUSE: a save on the
+ * wrong side of a split shows somebody the wrong page next time they look, and
+ * an alert on the wrong side would go and tell them about a product they may
+ * never have been watching.
+ *
+ * Idempotent by predicate, so a resumed job re-runs it as a no-op — and an alert
+ * already made ambiguous by an EARLIER split keeps naming that earlier job,
+ * because retargeting an unanswered question at a newer one destroys the pair of
+ * candidates the buyer was being asked about.
+ */
+async function runAlertsPhase(
+  job: CatalogSplitJobRow,
+  db: DatabaseOrTransaction,
+): Promise<SplitPhaseOutcome> {
+  if (job.entityType !== 'canonical_product') {
+    return { rowsAffected: 0, targetEntityId: job.targetEntityId };
+  }
+  const marked = await markPriceAlertsAmbiguousAfterSplit(
+    {
+      sourceCanonicalProductId: job.sourceEntityId,
+      splitJobId: job.id,
+      targetCanonicalProductId: job.targetEntityId,
+    },
+    db,
+  );
+  return { rowsAffected: marked, targetEntityId: job.targetEntityId };
+}
+
+/**
  * `verify` — assigned versus applied (#59 split invariant 5).
  *
  * Every assignment must have reached a terminal state. A pending one means the
@@ -522,6 +557,8 @@ async function runSplitPhase(
       return runAssignmentPhase(job, db);
     case 'saves':
       return runSavesPhase(job, db);
+    case 'alerts':
+      return runAlertsPhase(job, db);
     case 'redirects':
       // Deliberately nothing. The source keeps its slug and its URL, and the
       // destination has a new one nothing has ever linked to — so there is no

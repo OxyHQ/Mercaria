@@ -4070,3 +4070,102 @@ observable. Full reference: `docs/price-history.md`.
   row per day is a hot row every ingestion write in the fleet would contend on.
   Its `metric_key` is GENERATED for the NULLs-are-distinct reason, since
   `source_id` is legitimately NULL for a native offer.
+
+## Price alerts (#79)
+
+Five tables: `price_alerts`, `price_alert_evaluations`, `price_alert_triggers`,
+`price_alert_trigger_quotes`, `price_alert_notifications`. Full reference:
+`docs/price-alerts.md`.
+
+- **`price_alert_triggers_identity_key` is
+  `(alert_id, offer_id, observed_price_version, alert_policy_version)`** — the
+  four facts `priceAlertTriggerKey` names, and NO clock. The observed-price
+  version is `offer_price_snapshots.id` (#78), so "the same price, re-read" is
+  recognisable; a timestamp instead would make every sweep a new identity, which
+  is the duplicate-notification bug the whole domain is shaped around.
+  `observed_price_version` is NOT NULL for a Postgres-specific reason: a NULL in
+  a unique index is DISTINCT from every other NULL, so a nullable column there
+  would let every evaluation insert another row.
+- **There is deliberately no unique on `(oxy_user_id, canonical_product_id)`.**
+  A buyer legitimately holds "under 500 new" and "under 300 used" on one phone —
+  #80's saved PRODUCT is one interest per buyer and is unique for that reason,
+  while an alert is a CONDITION. The consequence is stated in `merge-plan.ts`:
+  nothing is unique here, so every rehome is an unconditional `repoint` with no
+  absence guard to get wrong.
+- **`price_alerts_subject_idx` is COMPOSITE with the state and PARTIAL on
+  `enabled`.** The evaluator must read by product; a bare index on
+  `canonical_product_id` would make "who is watching this" a cheap question, and
+  issue abuse rule 6 says no merchant-facing surface may answer it.
+- **A repeat policy carries EXACTLY the input it needs**, both directions, two
+  CHECKs. Without the "required" half an alert could claim `reset_threshold`
+  with nothing to re-arm against — `once` under another name; without the
+  "forbidden" half a threshold could sit on an `always` alert and read, to
+  whoever looked next, as a rule being applied.
+  `price_alerts_reset_above_target_check` is the third: a threshold at or below
+  the target can never be crossed by a price that was under the target.
+- **`(a is null) >= (b is not null)` is NOT an implication, and it cost a real
+  bug here.** `price_alerts_last_triggered_shape_check` was first written that
+  way to mean "an amount implies an instant"; it evaluates to the OPPOSITE
+  implication and rejected every trigger the domain wrote. `tsc` and every
+  mocked insert accepted it and the real-server suite caught it on its first
+  run. Any future one-way implication in this schema is written
+  `A is null or B is not null`.
+- **There is no `armed` boolean.** Whether a `reset_threshold` alert may fire
+  again is `rearmed_at > last_triggered_at`, two timestamps that each record a
+  real event. A boolean beside them is a second representation of one fact.
+- **Quiet hours are three columns or none** (a CHECK): a window with no zone is
+  a window in the SERVER's time, which is not a fact about the buyer's night.
+- **An ambiguous alert names its split job AND is `paused`** — two CHECKs, not
+  one. The pause is the buyer-visible half and the resolution state is the
+  reason; what the second refuses is an ambiguity that leaves the alert live,
+  which would keep notifying about a product the buyer may not have meant. #80's
+  saved product needs no such pause: a save on the wrong side shows the wrong
+  page, an alert on the wrong side goes and tells somebody.
+- **`price_alert_evaluations` is ONE row per canonical PRODUCT**, unique, with
+  `offer_outboxes`' revision pair and its `DO UPDATE` enqueue — a convergence
+  queue, so forty offer writes on a popular product owe one evaluation (issue
+  abuse rule 2). Its `last_evaluated_alerts` / `last_qualified_alerts` are the
+  VACUITY floor (`catalog_backfill_runs`' device): a subject with forty alerts
+  reporting zero evaluated is a broken read, and a table of triggers can only
+  ever show the runs that produced one. A CHECK holds `qualified <= evaluated`.
+- **`price_alert_trigger_quotes` is a CHILD table and not ten columns**, because
+  a `known_total` legitimately converts two components from two source
+  currencies. "A quote exists exactly when a conversion happened" is CROSS-ROW
+  and no CHECK can see it, so `insertPriceAlertTrigger` is the SINGLE writer and
+  refuses a mismatch before issuing SQL — `insertRetailCostQuote`'s device.
+  `price_alert_trigger_quotes_distinct_check` refuses `from = to`: a row saying
+  nothing happened is not evidence.
+- **`price_alert_triggers_basis_shape_check` refuses a delivery cost on an
+  `item_price` trigger.** Not tidiness: a delivery figure beside an item-price
+  comparison is exactly what somebody later reads as "the total was this", which
+  is the unknown-shipping confusion acceptance 2 exists to keep apart.
+  `price_alert_triggers_satisfies_target_check` refuses a trigger whose amount
+  does not satisfy the target it names.
+- **`price_alert_notifications.id` is DETERMINISTIC and has no default** —
+  `sha256(trigger_id + ':' + channel)`, the `moderation_outboxes` decision, so a
+  repeat converges on the same row rather than queueing a second message about
+  one piece of news.
+- **`suppressed` is a terminal STATE with a coded reason**, never a delete and
+  never a skip: issue operations 3 asks for stale-link suppression to be
+  monitored and a table of messages that were sent cannot answer it. Two paired
+  CHECKs hold the shape — a `delivered` row has an instant and nothing else
+  does, a `suppressed` row has a reason and nothing else does.
+- **`notification_id` is `SET NULL` and not CASCADE.** The ninety-day retention
+  sweep reaps a dismissed `notifications` row; the delivery RECORD outlives it,
+  and losing the delivery history to a retention rule about a feed entry would
+  make issue notification 6's outcomes unanswerable for old alerts. It is also
+  the ONLY way `openedAt` is answered — `notifications.read_at` is the one place
+  "they read it" is stored, so `PriceAlertNotificationState` has no `opened`
+  member.
+- **`price_alerts.rehomed_from_canonical_product_id` carries NO foreign key**,
+  unlike every other canonical reference in the table, and is registered in
+  `ID_COLUMNS_WITHOUT_FOREIGN_KEY`: it is a historical statement about where the
+  alert used to point, and a constraint on it would tie a buyer's own record to
+  the continued existence of a tombstone somebody may later prune.
+- **No contact column of any kind exists** — not an address, not a hash, not a
+  push token. The transactional channel is Oxy's own notification service, which
+  already holds the registrations; a copy here would be a second retention
+  obligation with no owner and would put a buyer's inbox one join from a
+  catalogue table. `oxy_user_id` is the whole of what this domain stores about a
+  person, which is why erasure is one scoped DELETE and everything CASCADEs from
+  the alert.

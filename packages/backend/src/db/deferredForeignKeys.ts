@@ -245,6 +245,19 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // it is also the WHOLE of what this domain stores about a person, which is
   // what makes #80 privacy rule 5 ("delete or anonymize") resolve to a single
   // scoped DELETE rather than an anonymization pass over copied profile fields.
+  { column: 'price_alerts.oxy_user_id', reason: OXY_ACCOUNT },
+  // #79's merge PROVENANCE stamp — which product an alert was rehomed OFF.
+  // Deliberately not a foreign key, unlike every other canonical reference in
+  // that table: it is a historical statement about where the alert used to
+  // point, and a constraint on it would tie a buyer's own record to the
+  // continued existence of a tombstone somebody may later prune. The columns
+  // that decide what an alert WATCHES all carry real references.
+  {
+    column: 'price_alerts.rehomed_from_canonical_product_id',
+    reason:
+      'A historical provenance stamp, not a live pointer. See the comment above and ' +
+      "`merge-plan.ts`'s `alerts` phase.",
+  },
   { column: 'product_saves.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'push_tokens.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'refunds.processed_by_oxy_user_id', reason: OXY_ACCOUNT },

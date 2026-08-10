@@ -31,10 +31,14 @@
  *    this issue", and the honest way to say that is to make one unrepresentable
  *    rather than to leave a boolean defaulted to false.
  * 4. **Saving subscribes to nothing.** #80 asks for a price-alert ACTION that
- *    does not create an alert automatically; {@link ProductSavePriceAlert} has
- *    only an unsupported branch, so there is no field a client could read a
- *    subscription id out of, and {@link PRODUCT_SAVE_FORBIDDEN_SIDE_EFFECTS}
- *    names the five side effects a save may never have.
+ *    does not create an alert automatically. #79 has since shipped the thing an
+ *    action creates, so {@link ProductSavePriceAlert} now has a SUPPORTED branch
+ *    — and that branch still carries no alert id, no target and no subscription
+ *    state, because this domain may not reach #79's at all
+ *    (`product-save-isolation.test.ts`). It says the capability exists; the
+ *    client asks `/price-alerts` what the buyer has already set.
+ *    {@link PRODUCT_SAVE_FORBIDDEN_SIDE_EFFECTS} still names the five side
+ *    effects a save may never have, and creating an alert is one of them.
  *
  * The tuples below are the closed value sets the schema's CHECK constraints are
  * rendered from (`text` + CHECK, never a pg enum — see
@@ -303,25 +307,43 @@ export type SavedProductOffer =
     };
 
 /**
- * The price-alert seam (#78).
+ * Whether this deployment can turn a saved product into a price alert (#79).
  *
- * ONE branch, and it is the unsupported one. #80 asks the API to offer the
- * action without creating an alert; until #78 ships the thing an action would
- * create, the honest contract is a named refusal a client can render as a
- * disabled affordance — never an endpoint that accepts a subscription and drops
- * it, and never a boolean that reads as "you are subscribed".
+ * #80 shipped this with ONE branch — the unsupported one — because the thing an
+ * action would create did not exist and a control claiming otherwise is worse
+ * than no control. #79 built it, and closing the seam is this union gaining a
+ * `supported: true` branch that a client renders the affordance from.
+ *
+ * ## The supported branch carries no alert STATE, deliberately
+ *
+ * Not an alert id, not a target, not "you already have one". Reading any of
+ * those would mean this domain reaching #79's, which
+ * `product-save-isolation.test.ts` fails the build for — and correctly, because
+ * "saving subscribes to nothing" is the property that scan protects. The client
+ * asks `GET /price-alerts?canonicalProductId=…` for what the buyer has set; the
+ * saved list only needs to know whether to offer the button.
+ *
+ * A STRING discriminant is deliberately not used here: this union is consumed by
+ * `@mercaria/ui` and `@mercaria/frontend`, both of which compile under `strict`,
+ * so a boolean literal narrows correctly. The backend never switches on it.
  */
-export interface ProductSavePriceAlert {
-  readonly supported: false;
-  readonly reason: 'price_alerts_not_implemented';
-  readonly ownedBy: '#78';
-}
+export type ProductSavePriceAlert =
+  | { readonly supported: true }
+  | { readonly supported: false; readonly reason: 'price_alerts_disabled' };
 
-/** The constant every projection returns for {@link ProductSavePriceAlert}. */
-export const PRODUCT_SAVE_PRICE_ALERT_SEAM: ProductSavePriceAlert = {
+/** What a projection returns when this deployment has price alerts mounted. */
+export const PRODUCT_SAVE_PRICE_ALERT_SUPPORTED: ProductSavePriceAlert = { supported: true };
+
+/**
+ * What it returns when `PRICE_ALERTS_ENABLED` is off.
+ *
+ * A deployment-level fact and not a per-save one, which is why the reason names
+ * the flag rather than the buyer or the product: there is nothing about THIS
+ * save that makes an alert impossible.
+ */
+export const PRODUCT_SAVE_PRICE_ALERT_DISABLED: ProductSavePriceAlert = {
   supported: false,
-  reason: 'price_alerts_not_implemented',
-  ownedBy: '#78',
+  reason: 'price_alerts_disabled',
 };
 
 /** How a save stands with respect to a split that divided its product. */

@@ -364,3 +364,11 @@ export * from './retail-fulfilment';
 // it deliberately has no `variant` result kind — variant-level intent is
 // reported as the matched configuration of a PRODUCT, so one phone is one row.
 export * from './search';
+// Product and variant price alerts (#79). Follows `./condition` (an alert is
+// scoped to a condition SEGMENT), `./money` (a target names its currency and a
+// trigger retains the quote that converted into it) and `./offer-ranking`,
+// whose eligible set is the only thing an evaluation may consider. It carries
+// no contact field of any kind — the transactional channel is Oxy's own
+// notification service — and its trigger key names the observed-price VERSION,
+// which is what makes one qualifying observation one notification.
+export * from './price-alert';

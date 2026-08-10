@@ -205,6 +205,10 @@ export {
   type SavedItemCardProps,
 } from "./components/marketplace/SavedItemCard";
 export {
+  PriceAlertCard,
+  type PriceAlertCardProps,
+} from "./components/marketplace/PriceAlertCard";
+export {
   ProductGallery,
   type ProductGalleryImage,
   type ProductGalleryProps,

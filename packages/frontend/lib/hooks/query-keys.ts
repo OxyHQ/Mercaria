@@ -20,6 +20,20 @@ export const queryKeys = {
     all: ["addresses"] as const,
   },
   /**
+   * Price alerts (#79).
+   *
+   * `suggestion` is keyed on the product AND the currency, because the same
+   * product priced in two currencies is two different answers and a shared key
+   * would show a buyer a target in a currency they did not ask for.
+   */
+  priceAlerts: {
+    all: ["price-alerts"] as const,
+    forProduct: (canonicalProductId: string) =>
+      ["price-alerts", "product", canonicalProductId] as const,
+    suggestion: (canonicalProductId: string, currency: string) =>
+      ["price-alerts", "suggestion", canonicalProductId, currency] as const,
+  },
+  /**
    * The guest order PORTAL (#108). Its own namespace rather than a branch of
    * `orders`, because the two are reached with different credentials and a
    * shared key would let a sign-out clear one buyer's cache and not the other's.
