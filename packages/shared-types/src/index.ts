@@ -79,6 +79,11 @@ export * from './provider-account';
 // BuyerContactProjection, …) — ADR 0003 D6/D13/D16, #106.
 export * from './order-buyer';
 
+// Buyer post-purchase requests (cancellations, returns, support threads) —
+// #110. A buyer files a REQUEST; a seller decides it; the decision drives the
+// existing order and refund services.
+export * from './buyer-request';
+
 // Order DTOs (Order, OrderItem, OrderStatus, CheckoutInput, CheckoutResult, …).
 export * from './order';
 

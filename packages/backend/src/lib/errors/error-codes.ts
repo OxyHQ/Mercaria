@@ -36,6 +36,8 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   // correct behaviour — hiding the offer is. The buyer's ORDER is unaffected
   // either way, which is what the message says (#109).
   [ErrorCodes.GUEST_CLAIM_DISABLED]: 403,
+  // 503: the capability exists and is paused. See the code's own docblock.
+  [ErrorCodes.BUYER_REQUESTS_DISABLED]: 503,
 };
 
 export interface MercariaErrorParams {

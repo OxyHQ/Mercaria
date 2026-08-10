@@ -257,13 +257,23 @@ export interface GuestOrderStatusEntry {
 /**
  * Every transactional message the portal domain can compose.
  *
- * Fourteen kinds for #108's twelve numbered notifications, because three of the
+ * Seventeen for #108's twelve numbered notifications, because three of the
  * numbered items name two distinct events ("payment pending OR failed",
  * "shipped AND tracking update", "refund pending AND completed") and one event
  * the issue names elsewhere — the security notice for an access change — has no
  * number of its own. Splitting them is what lets a message be idempotent: two
  * events sharing one kind would collide on the deterministic id and the second
  * would silently never send.
+ *
+ * #110 adds seven for its own ten numbered notifications. The arithmetic is
+ * worth stating because it is not one-to-one: "cancellation approved OR
+ * rejected" is two events with opposite meanings and gets two kinds; "return
+ * approved, rejected or awaiting item" and "return received" are four STATES of
+ * one request and share `return_request_updated`, distinguished by the state
+ * passed as the enqueue's `dedupeSuffix` — which is the mechanism that keeps
+ * them idempotent without a kind each. "Cancellation completed" needs no kind
+ * at all: completing one cancels or refunds the order, and `order_cancelled`
+ * and `refund_completed` already fire from the transition.
  *
  * NOT every kind has a live trigger today. `GUEST_PORTAL_MESSAGE_TRIGGERS`
  * (backend) names the enqueuer for each, or the issue that owes it, and a test
@@ -283,7 +293,14 @@ export const GUEST_PORTAL_MESSAGE_KINDS = [
   'order_cancelled',
   'refund_pending',
   'refund_completed',
+  'refund_failed',
+  'cancellation_request_received',
+  'cancellation_request_approved',
+  'cancellation_request_rejected',
+  'return_request_received',
   'return_request_updated',
+  'support_response_available',
+  'buyer_action_required',
   'claim_completed',
   'access_link_recovery',
   'access_link_step_up',

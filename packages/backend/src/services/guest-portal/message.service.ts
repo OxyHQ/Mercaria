@@ -122,11 +122,11 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
       'it leaves the order in `partially_refunded`, which is a different fact.',
   },
   refund_pending: {
-    trigger: null,
-    note: '#49 owns the provider-side refund lifecycle and #110 owns the buyer-facing return ' +
-      'flow. The commerce record commits before the rail is called (ADR 0001 D7), so ' +
-      '"pending" here would mean the RAIL has not paid yet — a distinction the buyer cannot ' +
-      'act on and that the portal already shows.',
+    trigger: 'services/buyer-requests/return-decision.service.ts',
+    note: '#110. Deferred by #108 on the reasoning that "pending" would mean the RAIL had not ' +
+      'paid yet, which a buyer cannot act on. In a RETURN it means something different and ' +
+      'actionable — the seller approved, the goods are accounted for, and the money is coming — ' +
+      'which is why the trigger lives in the return flow and not in the payment domain.',
   },
   tracking_updated: {
     trigger: null,
@@ -140,10 +140,49 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
       '(`assertPickupLocationEligible` refuses every pickup), so no order can reach this state.',
   },
   return_request_updated: {
-    trigger: null,
-    note: '#110 owns guest returns. The scope (`returns:request`) is already granted, so the ' +
-      'only missing piece is the flow that changes a request’s state.',
+    trigger: 'services/buyer-requests/return-decision.service.ts',
+    note: '#110. ONE kind for approved / rejected / awaiting-item / received / cancelled, told ' +
+      'apart by the STATE passed as the enqueue’s `dedupeSuffix`. Five kinds would have been ' +
+      'five sentences pointing at the same portal page; the suffix is what keeps them ' +
+      'idempotent without a kind each.',
   },
+  refund_failed: {
+    trigger: 'services/buyer-requests/return-decision.service.ts',
+    note: '#110. The rail reported the money did NOT go, on a refund the commerce record has ' +
+      'already committed. The only message in that domain about something Mercaria is fixing ' +
+      'rather than something the buyer must do — sent because the alternative is a person ' +
+      'watching a refund that never arrives with no way to tell whether anybody knows.',
+  },
+  cancellation_request_received: {
+    trigger: 'services/buyer-requests/cancellation-request.service.ts',
+    note: '#110. Enqueued when a buyer files a cancellation request.',
+  },
+  cancellation_request_approved: {
+    trigger: 'services/buyer-requests/cancellation-decision.service.ts',
+    note: '#110. TWO kinds rather than one carrying an outcome: the subject lines have to ' +
+      'differ, and a template branching on a state would be a fifth place the state is spelled.',
+  },
+  cancellation_request_rejected: {
+    trigger: 'services/buyer-requests/cancellation-decision.service.ts',
+    note: '#110. The rejection half of the pair above. The body never quotes the seller’s ' +
+      'reason — it lives on the order page, behind the portal credential.',
+  },
+  return_request_received: {
+    trigger: 'services/buyer-requests/return-request.service.ts',
+    note: '#110. Enqueued when a buyer files a return request.',
+  },
+  support_response_available: {
+    trigger: 'services/buyer-requests/support.service.ts',
+    note: '#110. A SELLER or an operator wrote into the thread. A buyer writing to their own ' +
+      'thread notifies nobody, and the body carries no message text — the thread is behind the ' +
+      'portal credential and an email is not.',
+  },
+  buyer_action_required: {
+    trigger: 'services/buyer-requests/return-decision.service.ts',
+    note: '#110 communication item 10. Fired when a return is approved WITH a ship-back ' +
+      'deadline, which is the only deadline in that domain a buyer can miss.',
+  },
+
   claim_completed: {
     trigger: 'services/guest-claims/claim-outbox.service.ts (notifyClaimCompleted)',
     note: 'Enqueued from the claim’s durable outbox rather than from the claim transaction, so ' +

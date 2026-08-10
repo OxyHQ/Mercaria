@@ -69,6 +69,12 @@ export type RateLimitScope =
   // else holds — and neither should spend the budget the portal's ordinary
   // reads need.
   | 'guest-claim'
+  // Buyer post-purchase requests — cancellations, returns and support (#110).
+  // Its own bucket (`rl:buyer-requests:`) rather than sharing `'guest-portal'`,
+  // because the two are reached by the same credential and exhausting one must
+  // not lock somebody out of the other: a person who filed three cancellations
+  // in a minute should still be able to READ the order they are worried about.
+  | 'buyer-requests'
   // Merchant claiming (#83, security control 1) — the NETWORK axis of the four
   // the issue names. Its own bucket (`rl:merchant-claims:`) so a claim-farming
   // burst exhausts this budget and not the general one; the per-user,

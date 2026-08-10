@@ -260,6 +260,51 @@ export const PROTECTED_COLUMNS = {
   guest_recovery_attempts: ['subjectHash'],
 
   /**
+   * Who a buyer's support message and buyer-request audit event actually was
+   * (#110 merchant rule 8, support rule 6).
+   *
+   * `order_status_history.actor_guest_session_id`'s reasoning, applied to a
+   * surface that BOTH sides read. `support_messages` is serialized to the
+   * seller and to the buyer from one repository, so a plain `select()` would
+   * put the buyer's Oxy account id in the seller's response and the seller's
+   * staff account id in the buyer's — neither of which either party is owed,
+   * and the buyer half is exactly the correlation key #106 spends a column
+   * keeping out of a merchant projection.
+   *
+   * `author_grant_id` is a PORTAL grant id. #108 establishes that a grant id
+   * authorizes nothing and is safe in an operator trace, and that is precisely
+   * why it is protected HERE and not there: it is stable across every message a
+   * buyer writes from one credential, so a merchant holding it can tell two
+   * conversations came from one device. The audit needs it; a projection does
+   * not.
+   *
+   * The KINDs beside them are deliberately NOT protected — `buyer` and `guest`
+   * say somebody acted without saying who, which is what a timeline needs.
+   */
+  support_messages: ['authorOxyUserId', 'authorGrantId'],
+
+  /** The same two facts on the shared request audit trail. See above. */
+  buyer_request_events: ['actorOxyUserId', 'actorGrantId'],
+
+  /**
+   * The portal grant that authorized a buyer's request (#110 cancellation
+   * field 6, "access-session audit").
+   *
+   * Recorded because the audit has to say which credential filed a
+   * cancellation, and protected because the merchant queue reads these rows: a
+   * seller who could see it would be able to group a buyer's requests across
+   * orders by device, which is the correlation the whole portal design refuses.
+   * `requested_by_oxy_user_id` joins it because a merchant must not be able to
+   * tell a claimed guest order's requester from an account holder's — merchant
+   * rule 7, and the reason the merchant projection's label is the literal
+   * `Buyer`.
+   */
+  cancellation_requests: ['requestedByGrantId', 'requestedByOxyUserId'],
+
+  /** The same pair on return requests. See above. */
+  return_requests: ['requestedByGrantId', 'requestedByOxyUserId'],
+
+  /**
    * The digest of what was actually SENT to a supplier (#124 idempotency 8).
    *
    * `supplier_quotes.request_fingerprint`'s situation, one step worse: a

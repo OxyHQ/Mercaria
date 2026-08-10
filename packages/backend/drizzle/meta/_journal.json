@@ -379,6 +379,13 @@
       "when": 1786328763330,
       "tag": "0053_public_living_mummy",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1786329822913,
+      "tag": "0054_bizarre_pixie",
+      "breakpoints": true
     }
   ]
 }

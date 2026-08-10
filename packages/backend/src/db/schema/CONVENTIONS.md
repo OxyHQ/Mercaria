@@ -3173,6 +3173,137 @@ transaction row Mercaria cannot attribute to a click it recorded is a number
 with nothing to compare it against, so the seam fails closed by ABSENCE, which
 is the strongest form.
 
+## Buyer post-purchase requests (#110)
+
+Eight tables: `cancellation_requests` + `cancellation_request_lines`,
+`return_requests` + `return_request_lines` + `return_request_evidence`,
+`support_threads` + `support_messages`, and the shared `buyer_request_events`.
+No source model — Postgres-born, like everything since the port. Full behaviour:
+`docs/buyer-requests.md`.
+
+### The property the schema exists to hold
+
+**Nothing here can change an order.** There is no status column, no payment
+column, no money column and no inventory column in any of the eight. A request
+records what somebody ASKED FOR and what somebody DECIDED; the order moves
+through `order.service.transition` and the money through
+`refund.service.process`. The only trace of either that lands here is
+`refund_id` — a POINTER to a row those services wrote, never a copy of what it
+says. So acceptance 2 survives a service bug, a replay and `psql`, and a realdb
+case walks `information_schema` to prove no such column exists.
+
+### `guest_checkout_id` is NOT a column, and #110 asks for one
+
+Cancellation field 2 says "order id and guest checkout id". `orders` already
+carries `buyer_guest_checkout_id` (#105), so storing it again would be two
+representations of one fact — and the place it would bite is a request whose
+contact was erased under ADR 0003 D15 while a stale copy still pointed at it.
+The join answers the question; the duplicate could only ever disagree.
+
+### Two actor triples, both mirroring `order_status_history`
+
+A requester and a decider, each a KIND plus at most one identifier, with a CHECK
+refusing every other combination — ADR 0003 D16's shape, so a guest session id
+has no Oxy-shaped column to arrive in and "a guest acted" is recordable without
+saying which guest. The DECIDER additionally may not be `guest` or `system`:
+deciding is an authorized act by a named person, refused at the row rather than
+in a service branch.
+
+`requested_by_grant_id` is the "access-session audit" of field 6 and is
+`ON DELETE SET NULL`, because #108's retention sweep purges grant rows at 90 days
+and a `RESTRICT` would deadlock that sweep against every request ever filed.
+
+### The state CHECKs are BICONDITIONALS
+
+`(state in decided-states) = (decided_at is not null)`,
+`(state = 'rejected') = (decision_note is not null)`,
+`(state = 'completed') = (completed_at is not null)`,
+`(state in ('received','refund_pending','completed')) = (received_at is not null)`.
+
+Stated both ways rather than as implications, because each one-directional half
+admits a row that reads as a lie: a `withdrawn` request claiming a seller
+rejected it, a decision note on an acceptance, a completed request with no
+instant. `num_nonnulls(kind, actor, at) in (0, 3)` carries the decision triple —
+the `guest_contact_suppressions_lift_check` shape.
+
+`completion_failure` is restricted to the states from which work is still OWED,
+so a terminal request cannot carry one — recording a failure on a completed
+request would say the money both did and did not move.
+
+### Two partial uniques per request table, and neither covers the other
+
+`…_open_order_key` is `UNIQUE(order_id)` partial on the OPEN states, rendered
+from the same `OPEN_*_REQUEST_STATES` tuple the service reads — two racers
+converge on one row. `…_idempotency_key_key` is partial on `is not null` — one
+client's retry converges AFTER the first was decided, which the open-state index
+cannot do because the order is free again by then.
+
+Keyed on the ORDER and never on the checkout group. That is authorization rule 5
+and acceptance 3 in one index: a request against one sibling neither blocks nor
+reaches another.
+
+### Append-only, and the foreign keys agree with the triggers
+
+`buyer_request_events` and `support_messages` refuse UPDATE *and* DELETE by
+trigger, and both name their parents `RESTRICT` rather than `CASCADE` — a
+cascade would be a way to delete rows by deleting a parent, and the trigger
+would then either break the delete or be walked around by it. `RESTRICT` makes
+the declaration and the trigger say the same thing.
+
+`return_request_evidence` refuses UPDATE only: its foreign key IS `CASCADE`
+because evidence is part of the request's own body rather than an audit of it,
+and what must not happen is a file id being SWAPPED after a seller decided on
+it.
+
+A request LINE's `variant_id` and `requested_quantity` are frozen by trigger;
+`approved_quantity` is the one column a decision writes and the only quantity
+the refund reads, so letting the first two move would let a decision rewrite
+what the buyer asked for and then refund against it.
+
+### `buyer_request_events` uses two nullable columns and a CHECK
+
+`cancellation_request_id` XOR `return_request_id`, `num_nonnulls(...) = 1` — the
+`orders.store_id` XOR `seller_oxy_user_id` house rule rather than a
+`subject_type` plus a `subject_id`. A real foreign key on each half is what stops
+an event naming a request that does not exist, which is precisely the row a
+reconstructed timeline would be missing.
+
+### `support_threads` narrows rather than alternates
+
+`order_id` is always present and `return_request_id` narrows it. A return-scoped
+thread is still about the order the return is against, so making them
+alternatives would have meant a polymorphic subject and a seller who cannot find
+the conversation from the order they are fulfilling.
+
+Both uniques are PARTIAL — `UNIQUE(order_id) WHERE return_request_id IS NULL`
+and `UNIQUE(return_request_id) WHERE return_request_id IS NOT NULL` — because
+Postgres treats NULLs as distinct and a plain two-column unique would let a
+buyer open unlimited order-level threads. The `commerce_relationships`
+endpoint-key trap, one domain over.
+
+### Protected columns
+
+`support_messages.author_oxy_user_id` / `author_grant_id`,
+`buyer_request_events.actor_oxy_user_id` / `actor_grant_id`, and
+`cancellation_requests` / `return_requests` `requested_by_grant_id` /
+`requested_by_oxy_user_id`.
+
+One repository serves BOTH sides of a support thread, so without the filter the
+seller's view would carry the buyer's account id and the buyer's would carry the
+seller's staff account. A grant id authorizes nothing — #108 establishes that,
+which is exactly why it is protected HERE and not there: it is stable across
+every message one credential writes, so a merchant holding it could group a
+buyer's conversations by device. The actor KINDS are deliberately NOT protected:
+`buyer` and `guest` say somebody acted without saying who.
+
+### The one migration
+
+`0049`, `pre`. Eight tables plus one WIDENING of
+`guest_portal_messages_kind_check` for #110's seven message kinds — a
+drop-and-re-add whose new tuple is a strict superset, so every write the serving
+image performs still passes. Five hand-written triggers sit below the generated
+block with the regeneration check in the file header.
+
 ## Register: every `jsonb` column, and why it earned it
 
 `jsonb` is for genuinely shape-less data only. Eight columns qualify in 129 tables;

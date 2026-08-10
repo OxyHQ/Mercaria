@@ -129,6 +129,44 @@ const EN: Record<GuestPortalMessageKind, Copy> = {
     subject: () => 'Mercaria — your return request was updated',
     body: (f) => `There is an update on your return for ${orderLine(f)}.\n\n${f.portalUrl}`,
   },
+  refund_failed: {
+    subject: () => 'Mercaria — there was a problem with your refund',
+    body: (f) =>
+      `The refund for ${orderLine(f)} did not go through. Nothing is needed from you — we are ` +
+      `sorting it out.\n\n${f.portalUrl}`,
+  },
+  cancellation_request_received: {
+    subject: () => 'Mercaria — we have your cancellation request',
+    body: (f) =>
+      `We passed your cancellation request for ${orderLine(f)} to the seller.\n\n${f.portalUrl}`,
+  },
+  cancellation_request_approved: {
+    subject: () => 'Mercaria — your cancellation was approved',
+    body: (f) =>
+      `The seller approved your cancellation for ${orderLine(f)}.\n\n${f.portalUrl}`,
+  },
+  cancellation_request_rejected: {
+    subject: () => 'Mercaria — your cancellation was not approved',
+    body: (f) =>
+      `The seller could not cancel ${orderLine(f)}. The reason is on your order ` +
+      `page.\n\n${f.portalUrl}`,
+  },
+  return_request_received: {
+    subject: () => 'Mercaria — we have your return request',
+    body: (f) => `We passed your return request for ${orderLine(f)} to the seller.\n\n${f.portalUrl}`,
+  },
+  support_response_available: {
+    subject: () => 'Mercaria — there is a reply about your order',
+    body: (f) =>
+      `There is a new message about ${orderLine(f)}. Read and reply on your order ` +
+      `page.\n\n${f.portalUrl}`,
+  },
+  buyer_action_required: {
+    subject: () => 'Mercaria — something needs you before a deadline',
+    body: (f) =>
+      `${orderLine(f)} needs an action from you before a deadline. The details are on your ` +
+      `order page.\n\n${f.portalUrl}`,
+  },
   claim_completed: {
     subject: () => 'Mercaria — your orders are now in your Oxy account',
     body: (f) =>
@@ -219,6 +257,44 @@ const ES: Record<GuestPortalMessageKind, Copy> = {
   return_request_updated: {
     subject: () => 'Mercaria — novedades de tu devolución',
     body: (f) => `Hay novedades de tu devolución de ${orderLine(f)}.\n\n${f.portalUrl}`,
+  },
+  refund_failed: {
+    subject: () => 'Mercaria — ha habido un problema con tu reembolso',
+    body: (f) =>
+      `El reembolso de ${orderLine(f)} no se ha completado. No necesitas hacer nada: lo estamos ` +
+      `resolviendo.\n\n${f.portalUrl}`,
+  },
+  cancellation_request_received: {
+    subject: () => 'Mercaria — hemos recibido tu solicitud de cancelación',
+    body: (f) =>
+      `Hemos enviado tu solicitud de cancelación de ${orderLine(f)} al vendedor.\n\n${f.portalUrl}`,
+  },
+  cancellation_request_approved: {
+    subject: () => 'Mercaria — tu cancelación se ha aprobado',
+    body: (f) => `El vendedor ha aprobado la cancelación de ${orderLine(f)}.\n\n${f.portalUrl}`,
+  },
+  cancellation_request_rejected: {
+    subject: () => 'Mercaria — tu cancelación no se ha aprobado',
+    body: (f) =>
+      `El vendedor no ha podido cancelar ${orderLine(f)}. El motivo está en la página de tu ` +
+      `pedido.\n\n${f.portalUrl}`,
+  },
+  return_request_received: {
+    subject: () => 'Mercaria — hemos recibido tu solicitud de devolución',
+    body: (f) =>
+      `Hemos enviado tu solicitud de devolución de ${orderLine(f)} al vendedor.\n\n${f.portalUrl}`,
+  },
+  support_response_available: {
+    subject: () => 'Mercaria — hay una respuesta sobre tu pedido',
+    body: (f) =>
+      `Hay un mensaje nuevo sobre ${orderLine(f)}. Puedes leerlo y responder en la página de tu ` +
+      `pedido.\n\n${f.portalUrl}`,
+  },
+  buyer_action_required: {
+    subject: () => 'Mercaria — necesitamos algo tuyo antes de una fecha límite',
+    body: (f) =>
+      `${orderLine(f)} necesita una acción tuya antes de una fecha límite. Tienes los detalles ` +
+      `en la página de tu pedido.\n\n${f.portalUrl}`,
   },
   claim_completed: {
     subject: () => 'Mercaria — tus pedidos ya están en tu cuenta de Oxy',

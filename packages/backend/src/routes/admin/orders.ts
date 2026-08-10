@@ -16,6 +16,18 @@ import {
   createOrderRefund,
   listOrderRefunds,
 } from '../../controllers/admin/refunds-admin.controller.js';
+import {
+  cancelReturn,
+  closeMerchantSupportThread,
+  completeCancellation,
+  decideCancellation,
+  decideReturn,
+  instructReturn,
+  listMerchantRequests,
+  postMerchantSupportMessage,
+  receiveReturn,
+  refundReturn,
+} from '../../controllers/buyer-requests.controller.js';
 
 /**
  * Store orders sub-router, mounted at `/admin/stores/:storeId/orders`.
@@ -52,6 +64,86 @@ router.get(
   requireStorePermission('orders:read'),
   validateId('id'),
   listOrderRefunds,
+);
+
+/**
+ * #110's merchant surface for buyer requests.
+ *
+ * The permissions REUSE what already exists rather than adding narrower ones —
+ * "reuse current refund permissions and add narrower request permissions only
+ * where needed", and none was needed. The split is by what the action does, not
+ * by what it is called:
+ *
+ *  - `orders:read` reads the queue and answers a support thread. A staff member
+ *    who can already see the order can already see the question about it, and
+ *    replying to a buyer is not a money power.
+ *  - `orders:fulfill` decides and completes a CANCELLATION, issues return
+ *    instructions and marks a return received. These move goods and order
+ *    state, which is exactly what that permission already gates.
+ *  - `refunds:write` decides a RETURN and commits its refund. Approving a
+ *    return is a commitment to give money back, so it sits with the permission
+ *    that already means that — which is also why `admin` and `owner` hold it
+ *    and `staff` does not.
+ */
+router.get(
+  '/:id/buyer-requests',
+  requireStorePermission('orders:read'),
+  validateId('id'),
+  listMerchantRequests,
+);
+router.post(
+  '/:id/cancellation-requests/:requestId/decision',
+  requireStorePermission('orders:fulfill'),
+  validateId('id'),
+  decideCancellation,
+);
+router.post(
+  '/:id/cancellation-requests/:requestId/complete',
+  requireStorePermission('orders:fulfill'),
+  validateId('id'),
+  completeCancellation,
+);
+router.post(
+  '/:id/return-requests/:requestId/decision',
+  requireStorePermission('refunds:write'),
+  validateId('id'),
+  decideReturn,
+);
+router.post(
+  '/:id/return-requests/:requestId/instructions',
+  requireStorePermission('orders:fulfill'),
+  validateId('id'),
+  instructReturn,
+);
+router.post(
+  '/:id/return-requests/:requestId/received',
+  requireStorePermission('orders:fulfill'),
+  validateId('id'),
+  receiveReturn,
+);
+router.post(
+  '/:id/return-requests/:requestId/refund',
+  requireStorePermission('refunds:write'),
+  validateId('id'),
+  refundReturn,
+);
+router.post(
+  '/:id/return-requests/:requestId/cancel',
+  requireStorePermission('refunds:write'),
+  validateId('id'),
+  cancelReturn,
+);
+router.post(
+  '/:id/support',
+  requireStorePermission('orders:read'),
+  validateId('id'),
+  postMerchantSupportMessage,
+);
+router.post(
+  '/:id/support/close',
+  requireStorePermission('orders:read'),
+  validateId('id'),
+  closeMerchantSupportThread,
 );
 
 export default router;

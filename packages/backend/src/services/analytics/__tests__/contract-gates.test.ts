@@ -337,13 +337,14 @@ describe('#77 — the deferred events are a seam, never a fabricated event', () 
     //
     // It was twenty-two until #106 closed its own seam — the six eligibility
     // and contact/destination types — sixteen until #108 closed the three
-    // portal and recovery ones, and thirteen until #109 closed the three a
-    // SERVER can honestly observe. Ratcheting this number DOWN is the shape a
-    // closed seam takes here, and the assertion below is what proves the closed
-    // ones are genuinely emitted rather than merely delisted: they are no
-    // longer in `DEFERRED_EVENT_TYPES`, so an emission of one is no longer an
-    // offence, and `checkout.controller.ts` (#106) and `routes/guest-orders.ts`
-    // (#108, #109) perform it.
+    // portal and recovery ones, ten until #109 closed the three a SERVER can
+    // honestly observe, and seven until #110 closed the cancellation, return
+    // and support ones. Ratcheting this number DOWN is the shape a closed seam
+    // takes here, and the assertion below is what proves the closed ones are
+    // genuinely emitted rather than merely delisted: they are no longer in
+    // `DEFERRED_EVENT_TYPES`, so an emission of one is no longer an offence,
+    // and `checkout.controller.ts` (#106), `routes/guest-orders.ts` (#108,
+    // #109) and `buyer-requests.controller.ts` (#110) perform it.
     //
     // #109's SPLIT is the one to read: `guest_claim_started`,
     // `guest_claim_completed` and `guest_claim_conflicted` come off this list
@@ -351,7 +352,7 @@ describe('#77 — the deferred events are a seam, never a fabricated event', () 
     // `guest_claim_offered` and `guest_claim_declined` stay on it and move to
     // #111 — an offer is a screen having been shown and a decline is somebody
     // navigating away, and the server can observe neither without inventing it.
-    expect(DEFERRED_EVENT_TYPES.length).toBe(10);
+    expect(DEFERRED_EVENT_TYPES.length).toBe(7);
 
     const offenders: string[] = [];
     for (const file of files) {
