@@ -254,6 +254,14 @@ export * from './offer-freshness';
 // reason.
 export * from './offer-ranking';
 
+// The canonical product page (#71) — the composed read a product page renders:
+// #56's identity, #74's ranked comparison, #57's offers, #55's verified
+// channels and the seller identity behind each row. Follows all of them in this
+// list because it types nothing of its own that they do not already define; it
+// adds the PARTITION (one offer, one group), the withheld-offers branch and the
+// outbound seam that fails closed.
+export * from './product-page';
+
 // Currency-safe offer price history and product-level trends (#78, ADR 0002
 // D18's price-history seam). Follows `./offer` and `./condition`: an
 // observation is what a source said, a point is a derived answer that names

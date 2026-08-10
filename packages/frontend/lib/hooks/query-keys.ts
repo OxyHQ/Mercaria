@@ -121,4 +121,21 @@ export const queryKeys = {
       ["reviews", "merchant", merchantId, page] as const,
     eligibilities: ["reviews", "eligibilities"] as const,
   },
+  /**
+   * The canonical product page (#71). Its own namespace rather than a branch of
+   * `listings`, because the two are different things: a listing is one seller's
+   * item and a canonical product is the model every seller's item resolves to,
+   * and an invalidation of one must not drop the other.
+   *
+   * The PARAMS are in the key — the variant especially. A variant-scoped page is
+   * a different server read whose comparison cannot contain another
+   * configuration's offer, so filtering one cached product-wide answer down
+   * would show the wrong price for as long as a refetch took.
+   */
+  productPage: {
+    detail: (handle: string, params: Readonly<Record<string, string | number | undefined>>) =>
+      ["product-page", handle, params] as const,
+    priceHistory: (canonicalProductId: string, segment: string, currency: string) =>
+      ["product-page", canonicalProductId, "price-history", segment, currency] as const,
+  },
 } as const;

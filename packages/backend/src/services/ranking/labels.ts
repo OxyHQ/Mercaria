@@ -209,6 +209,26 @@ export function awardComparisonLabels(
     });
   }
 
+  // `cheapest_new` — within the NEW segment only, and the exact twin of
+  // `cheapest_used` below. #71's product page needs a "cheapest new" beside its
+  // "best overall"; deriving one on the page would be a second comparison
+  // outside this policy version, so it is awarded here, from the same ranked
+  // order, under the same tie-break. An offer whose condition the source did
+  // not publish is NOT in the segment — `conditionGroup` is undefined for it,
+  // and reading that as `new` is the coercion `deriveOfferCondition` refuses.
+  const cheapestNew = selectMinimum(entries, (entry) => {
+    const facts = entry.candidate.facts;
+    if (facts.conditionGroup !== 'new') return undefined;
+    return hasKnownPrice(facts.itemPrice) ? facts.itemPrice.amount.amount : undefined;
+  });
+  if (cheapestNew !== undefined && hasKnownPrice(cheapestNew.candidate.facts.itemPrice)) {
+    award(awards, cheapestNew.candidate.offerId, {
+      label: 'cheapest_new',
+      reason: OFFER_LABEL_REASON.cheapest_new,
+      amount: cheapestNew.candidate.facts.itemPrice.amount,
+    });
+  }
+
   // `cheapest_used` — within the USED segment only. `open_box` and
   // `refurbished` are deliberately outside it (`isUsedConditionGroup`): a
   // refurbished unit with a manufacturer warranty is a different proposition,

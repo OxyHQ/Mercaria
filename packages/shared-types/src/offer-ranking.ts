@@ -528,6 +528,18 @@ export const OFFER_COMPARISON_EXPERIENCES: readonly OfferComparisonExperience[] 
  * One offer may carry several. Each is awarded independently, carries its own
  * reason code and its own basis, and is rendered independently — a label is
  * never a summary of the others.
+ *
+ * ## `cheapest_new` is #71's addition, and it belongs HERE rather than there
+ *
+ * #71's product page asks for a "cheapest new offer" beside its "best overall",
+ * and a page that picked one itself would be running a second comparison —
+ * outside the versioned policy, attributable to no impression, and impossible
+ * to reproduce from an operator trace. It is awarded exactly as
+ * `cheapest_used` already is (lowest KNOWN item price within one condition
+ * segment, taken from the tie-broken order), so the two segments are answered
+ * by one mechanism instead of one being a policy fact and the other a UI
+ * decision. Like every label it is awarded from the ranked order and is never
+ * a term in the score.
  */
 export type OfferComparisonLabel =
   | 'best_overall'
@@ -537,6 +549,7 @@ export type OfferComparisonLabel =
   | 'authorized_reseller'
   | 'fastest_known_delivery'
   | 'best_nearby_pickup'
+  | 'cheapest_new'
   | 'cheapest_used'
   | 'native_mercaria_checkout';
 
@@ -548,9 +561,40 @@ export const OFFER_COMPARISON_LABELS: readonly OfferComparisonLabel[] = [
   'authorized_reseller',
   'fastest_known_delivery',
   'best_nearby_pickup',
+  'cheapest_new',
   'cheapest_used',
   'native_mercaria_checkout',
 ];
+
+/**
+ * Whether a label is a COMPARISON against the others or a STANDING fact about
+ * one offer.
+ *
+ * The distinction was documented from the start and was not readable by code:
+ * a comparison label goes to exactly one offer, taken from the already
+ * tie-broken order, while a standing label goes to every offer that holds it.
+ * #71's product page needs to render the two differently — a highlight names
+ * one offer, a badge sits on a row — and deriving it from the label's SPELLING
+ * (`cheapest_*`, `best_*`) would be a string rule that rots the first time a
+ * label is renamed.
+ *
+ * A `Record` over the union, so a label added without a classification is a
+ * compile error rather than something that silently reads as a comparison.
+ */
+export const OFFER_LABEL_KIND: Readonly<
+  Record<OfferComparisonLabel, 'comparison' | 'standing'>
+> = {
+  best_overall: 'comparison',
+  cheapest_item_price: 'comparison',
+  cheapest_known_total: 'comparison',
+  official_direct_store: 'standing',
+  authorized_reseller: 'standing',
+  fastest_known_delivery: 'comparison',
+  best_nearby_pickup: 'comparison',
+  cheapest_new: 'comparison',
+  cheapest_used: 'comparison',
+  native_mercaria_checkout: 'standing',
+};
 
 /**
  * Why a label was awarded — machine-readable, one per label, total by
@@ -569,6 +613,7 @@ export type OfferLabelReason =
   | 'verified_authorized_reseller'
   | 'shortest_known_delivery'
   | 'nearest_collection_point'
+  | 'lowest_item_price_new_segment'
   | 'lowest_item_price_used_segment'
   | 'buyable_on_mercaria';
 
@@ -580,6 +625,7 @@ export const OFFER_LABEL_REASONS: readonly OfferLabelReason[] = [
   'verified_authorized_reseller',
   'shortest_known_delivery',
   'nearest_collection_point',
+  'lowest_item_price_new_segment',
   'lowest_item_price_used_segment',
   'buyable_on_mercaria',
 ];
@@ -593,6 +639,7 @@ export const OFFER_LABEL_REASON: Readonly<Record<OfferComparisonLabel, OfferLabe
   authorized_reseller: 'verified_authorized_reseller',
   fastest_known_delivery: 'shortest_known_delivery',
   best_nearby_pickup: 'nearest_collection_point',
+  cheapest_new: 'lowest_item_price_new_segment',
   cheapest_used: 'lowest_item_price_used_segment',
   native_mercaria_checkout: 'buyable_on_mercaria',
 };

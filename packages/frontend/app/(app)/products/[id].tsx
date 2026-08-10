@@ -480,6 +480,34 @@ function ProductBody({ listing }: ProductBodyProps) {
             */}
             <ConditionBadge condition={listing.itemCondition} showExplanation />
 
+            {/*
+              The way through to the CANONICAL product page (#71).
+
+              Shown only when this listing resolves to a canonical product,
+              because that page is about the MODEL and this one is about one
+              seller's copy of it: a link offered on an unmatched P2P listing
+              would lead to a page that does not exist for it. #75 owns the full
+              public-route migration; this is the entry point that makes the
+              comparison reachable in the meantime, and `/products/:id` keeps
+              working exactly as it does (#71 acceptance 7).
+            */}
+            {listing.canonicalProductId ? (
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="Compare every offer for this product"
+                onPress={() =>
+                  router.push(
+                    `/p/${encodeURIComponent(listing.canonicalProductId ?? '')}` as Parameters<
+                      typeof router.push
+                    >[0],
+                  )
+                }
+                className="self-start rounded-radius-max border border-border-secondary px-space-16 py-space-8"
+              >
+                <Text className="text-buttonMedium text-text">Compare all offers</Text>
+              </Pressable>
+            ) : null}
+
             {/* Demand pill (static social proof). */}
             <DemandPill label={DEMAND_COPY} />
 

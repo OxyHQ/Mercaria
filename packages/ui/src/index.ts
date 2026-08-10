@@ -16,6 +16,7 @@ export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 export {
   formatMoney,
   formatReviewCount,
+  formatSourceMoney,
   type ProductSummary,
 } from "./lib/format";
 
@@ -227,3 +228,18 @@ export {
   ConditionBadge,
   type ConditionBadgeProps,
 } from "./components/marketplace/ConditionBadge";
+// An OFFER's condition, which may be `unknown` — a different type and a
+// different sentence from a listing's, because most external feeds publish no
+// condition at all and "New" is what a shared fallback would render for them.
+export {
+  OfferConditionBadge,
+  type OfferConditionBadgeProps,
+} from "./components/marketplace/OfferConditionBadge";
+// One #74 comparison label, rendered from the award that earned it. Here rather
+// than in an app because the COPY it reads already lives here (`offer-labels`),
+// and a badge whose words and whose component sit in different packages is a
+// copy change that ships without the thing it describes.
+export {
+  OfferLabelBadge,
+  type OfferLabelBadgeProps,
+} from "./components/marketplace/OfferLabelBadge";

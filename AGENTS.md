@@ -4331,3 +4331,101 @@ credential. Full reference: **`docs/buyer-requests.md`**; schema decisions:
   #112 (guest P2P, and the P2P refund path that must land with it), #111
   (retention), #102 (the privacy review that could enable contact correction),
   Oxy service credentials (evidence digests), Moovo (return shipping).
+
+## The canonical product page (#71, ADR 0002 D6/D8/D18/D24)
+
+`services/product-page/` (5 modules) + `db/productPage/productPageRepository.ts`
++ `routes/product-page.ts` + `controllers/product-page.controller.ts` +
+`middleware/product-page-schemas.ts` + `@mercaria/shared-types`
+`product-page.ts`, plus the storefront's `app/(app)/p/[handle].tsx` and
+`components/product/`, and `@mercaria/ui`'s `OfferConditionBadge`,
+`OfferLabelBadge` and `formatSourceMoney`. Full reference:
+**`docs/product-page.md`**. **NO new tables and NO migration** — #61 measured
+the graph at a million offers and adopted no projection, so the page is composed
+at request time from the reads that measurement covers.
+
+- **It COMPOSES and does not decide.** Identity is #56's, the order and the
+  labels are #74's, an offer's terms are #57's, freshness #68's, condition
+  #90's, badges #55's. What #71 adds is three decisions — the partition, the
+  withheld-offers branch and the outbound seam — and
+  `product-page-isolation.test.ts` fails the build if a module here starts to
+  rank, order, write, name a currency or reach commercial standing. It scans the
+  STOREFRONT files too (#92's precedent: the storefront has no test runner).
+- **The composition is server-side because the JOIN is what goes wrong.**
+  `/offers` is a keyset page in a DIFFERENT order, so a client joining it to
+  `/offer-comparison` drops whichever ranked offer fell outside its window —
+  silently, as a hole in the comparison. `rankOfferComparison` already returns
+  both halves; serving them together is the only place the join cannot be wrong,
+  and it is where the seller identity each row needs is batched.
+- **One offer, ONE group, and a highlight is a POINTER.** The partition is by
+  CONDITION first (#90 never blends segments), with verified official standing
+  splitting the `new` segment. An official store's REFURBISHED offer therefore
+  lands under refurbished with its badge intact, an `authorized_reseller` is not
+  `official_direct` (#55 keeps them separate), and `condition_unknown` is its
+  own group — folding it into `new_retail` tells a shopper an unlabelled feed
+  item is factory-sealed.
+- **`cheapest_new` is a #74 LABEL this issue added**, awarded exactly as
+  `cheapest_used` is (lowest known item price in one condition segment, from the
+  tie-broken order). A page picking one itself would be a second comparison
+  outside the versioned policy, unattributable to any impression.
+  `OFFER_LABEL_KIND` landed with it: #74 documented the comparison/standing
+  distinction and no code could read it, and deriving it from a label's spelling
+  is a string rule that rots on the first rename.
+- **Withheld is not empty.** `ProductPageOffers`'s withheld branch has no rows,
+  no policy and no currency to read, so a deployment with
+  `CANONICAL_OFFER_COMPARISON` off cannot render as a product nobody sells.
+  `excludedCount` is the COUNT and never the list — "why is my offer missing" is
+  a seller's question `/offer-comparison` answers, and a shopper's page carrying
+  it would publish one seller's refusal to every other seller's customers.
+- **The outbound handoff FAILS CLOSED, and #67 is closed-but-unbuilt.** Issue
+  #67 (the `/out/:token` redirect) was auto-closed by a keyword in #66's PR body
+  (commit `7e22da6`) and the code does not exist. The page discloses the
+  destination HOST — a hostname is not a link and carries no parameters — and
+  refuses the handoff, because a raw link asserts at RENDER time what only a
+  click can establish (#68's `assertOfferOutboundEligible` exists for exactly
+  that) and discards the relationship an `affiliate` offer exists under.
+  Building the redirect here would be #37's route without the token, the click
+  record, the bot handling or the open-redirect defence.
+- **An external row carries no variant id and no listing id**, so #71 acceptance
+  3 is a shape rather than a check; the native branch carries both and is
+  switched on the DERIVED checkout verdict, so a native offer never gets an
+  outbound branch either.
+- **A variant-scoped page is a different READ, not a filtered one** — the
+  comparison cannot contain another configuration's offer (acceptance 4) — and a
+  configuration belonging to another product is REFUSED rather than ignored,
+  because ignoring it silently widens the page to everything.
+- **The MOUNT is behind `CANONICAL_PUBLIC_ROUTES_ENABLED`** (the blunt lever
+  `/canonical-products` uses — this page serves canonical identity) and the MODE
+  gate lives in the HANDLER (#70's reason: `shadow` must compute both
+  answers), with the COHORT check there too — the first handler to call
+  `canonicalReadPermitted`, which `read-mode.ts` always intended. The shadow
+  comparison counts eligible OFFERS against ACTIVE NATIVE LISTINGS read through
+  `native_listing_links`: a DIFFERENT route, because measuring one table twice
+  is a check that cannot fail. #71 adds NO lever of its own.
+- **A brand, a family and every merchant are NAMED and not linked**, because
+  those storefront routes do not exist yet (#72/#73/#84) and `typedRoutes` is ON
+  and INERT here — a dead `router.push` compiles, ships and fails under a
+  shopper's thumb. This issue proved it by shipping one (`/settings/support`),
+  so WALL 6 of the isolation test now walks the real `app/` tree and fails the
+  build on any literal navigation target that does not resolve. Reporting
+  PRODUCT DATA goes to feedback, not abuse reporting: `ABUSE_REPORTED_TYPES` has
+  no `product` member, because a canonical product is Mercaria's own catalogue
+  record and a wrong specification is #59's correction rather than moderation.
+- Analytics: `product_page_view` and one `offer_impression` per served offer
+  (carrying `rankingPolicyVersion`), both server-side. `variant_selected`,
+  `offer_expanded`, `offer_selected`, `external_outbound_click`, `save_action`,
+  `alert_action` and `sell_yours_entry` are NOT emitted — every one is a fact
+  only a browser knows and the storefront has no analytics client; deriving them
+  server-side would be fabrication (a variant-scoped READ is a deep link as
+  often as a selection). They are #111's, with #107's and #109's client facts.
+- Seams, each named rather than stubbed: **#37/#67** (the redirect;
+  `ProductPageOutbound`'s `outbound` branch is a MERCARIA path by type, so
+  nothing here can become a tracked URL), **#41** ("Sell yours" and nearby
+  pickup — `best_nearby_pickup` is never awarded while #93 publishes no
+  collection point, so the control is ABSENT rather than dead), **#79/#39**
+  (price alerts), **#80** (a per-product save READ — until one exists the save
+  control is a one-way idempotent SAVE, because a toggle over an unknown state
+  un-saves on the first press), **#75** (public routes, the HTTP 301,
+  `rel=canonical`, structured data; `/products/:id` is untouched, which is
+  acceptance 7), **#111** (the storefront analytics client), **#73** (the brand
+  page this links to).
