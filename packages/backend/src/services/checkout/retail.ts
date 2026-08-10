@@ -65,6 +65,10 @@ import {
 } from '../retail-eligibility/retail-eligibility.service.js';
 import { composeRetailCostQuote } from '../retail-pricing/retail-cost-quote.service.js';
 import { lockRetailCostQuote } from '../retail-pricing/retail-cost-quote.service.js';
+import {
+  evaluateRetailPilotAdmission,
+  retailPilotAudienceFor,
+} from '../retail-pilot/pilot.service.js';
 import { assertPreflightSatisfiesCheckout } from '../supplier-preflight/checkout-contract.js';
 import { runSupplierPreflight } from '../supplier-preflight/preflight.service.js';
 import { SUPPLIER_SOURCING_POLICY_KEY } from '../supplier-preflight/preflight.service.js';
@@ -167,6 +171,15 @@ export interface PlannedRetailLine<TLine> {
   quoteId: string;
   supplierQuoteRef: string | null;
   supplierSku: string;
+  /**
+   * The SUPPLIER's own shipping service, as #122's quote selected it.
+   *
+   * Carried so #125's pilot can bound which services it permits. Deliberately
+   * the supplier's code and not Mercaria's `ShippingMethod`: the pilot's bound
+   * is "supported shipping services only", and `standard` is not a service — it
+   * is Mercaria's word for whichever one the supplier happened to choose.
+   */
+  supplierShippingServiceCode: string | null;
   canonicalProductId: string | null;
   canonicalVariantId: string | null;
   supplierUnitCost: Money;
@@ -536,6 +549,7 @@ export async function planRetailCheckout<TLine>(
       quoteId: quote.quote.id,
       supplierQuoteRef: preflight.quote.id,
       supplierSku: offer.supplierSku,
+      supplierShippingServiceCode: preflight.quote.selectedShippingServiceCode,
       canonicalProductId: offer.canonicalProductId,
       canonicalVariantId: offer.canonicalVariantId,
       supplierUnitCost: unitCost,
@@ -554,6 +568,60 @@ export async function planRetailCheckout<TLine>(
   }
 
   const lockedTotal = sumLockedTotals(planned, input.presentmentCurrency);
+
+  // 8. #125's bounded pilot: is Mercaria willing to do this AT ALL, today.
+  //
+  // LAST, and after the locks, for one reason that is worth stating because it
+  // costs something: the pilot's value ceilings are bounds on the amount a
+  // buyer would be charged, and that amount does not exist until #120 has
+  // composed and locked it. Every earlier position would need either a second,
+  // partial copy of the same rule or a third "provisional" verdict, and #125's
+  // whole posture is that a bound with a soft state is not a bound.
+  //
+  // The cost is real and bounded: a retail line OUTSIDE the pilot has already
+  // spent one supplier preflight by the time it is refused. That is acceptable
+  // because a retail line exists only where an operator created a
+  // `retail_offer_bindings` row (#123), so "a retail line the pilot does not
+  // admit" is a configuration mismatch rather than ordinary traffic — and
+  // because nothing has been charged, reserved or ordered at this point.
+  //
+  // Refusing here also refuses the WHOLE checkout rather than one line, which
+  // is correct: the locked total this is measured against is the group's.
+  for (const line of planned) {
+    const admission = await evaluateRetailPilotAdmission(
+      {
+        supplierId: line.binding.supplierId,
+        supplierAccountId: line.binding.supplierAccountId,
+        supplierSku: line.supplierSku,
+        destinationCountry,
+        currency: input.presentmentCurrency,
+        quantity: line.quantity,
+        lineTotalMinor: line.lockedTotal.amount,
+        orderTotalMinor: lockedTotal.amount,
+        shippingServiceCode: line.supplierShippingServiceCode,
+        audience: retailPilotAudienceFor({
+          // Neither is knowable here yet: #125's cohort ladder needs a staff
+          // and invite list that no Mercaria surface publishes. Until one
+          // does, every buyer counts as `public`, so a cohort narrower than
+          // `public` admits NOBODY — which is the fail-closed direction and
+          // makes the ladder's narrow rungs a real bound rather than a
+          // decorative one.
+          isStaff: false,
+          isInvited: false,
+        }),
+        at: now,
+      },
+      input.db ? { db: input.db } : {},
+    );
+    if (admission.outcome === 'refused') {
+      log.general.info(
+        { reason: admission.reason, bindingId: line.binding.id },
+        '[Retail] the bounded pilot refused a retail line',
+      );
+      refuseRetail('retail_disabled', line.binding.id);
+    }
+  }
+
   return { lines: planned, lockedTotal, intents: composeIntents(planned, input.checkoutGroupId) };
 }
 

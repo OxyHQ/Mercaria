@@ -30,6 +30,7 @@ import {
   SAVED_ITEMS_READ_MODES,
 } from '@mercaria/shared-types';
 import { tmpdir } from 'node:os';
+import { PRINTFUL_BASE_URL } from '../services/printful/transport-contract.js';
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
 
@@ -2237,6 +2238,36 @@ export interface EbayConfig {
   readonly reconciliationSampleSize: number;
 }
 
+/**
+ * The Printful supplier integration (#125), the provider #119 selected.
+ *
+ * `PRINTFUL_ENABLED` gates the REGISTRATION of the two adapters and nothing
+ * durable: supplier accounts, agreements, procurement offers, purchase orders,
+ * quotes and every #62 row are stored and readable either way. With it off,
+ * every preflight answers `provider_unconfigured` (which blocks) and every
+ * purchase order refuses with `adapter_missing`, and turning it on drains the
+ * backlog — the `AWIN_ENABLED` arrangement.
+ *
+ * **It deliberately demands NO credential**, for Awin's reason rather than
+ * #63's: Printful's token is a LOCATOR on a `supplier_accounts` row (an SSM
+ * path), so an account is storable and reviewable with no secret present, and a
+ * deployment that registers the adapter before the locator resolves gets an
+ * honest refusal naming the missing secret rather than a silent no-op.
+ *
+ * **There is no `PRINTFUL_ENVIRONMENT` variable, and none may be added.** A
+ * supplier account carries its own `environment`, frozen by trigger (#124), and
+ * a deployment-wide variable able to disagree with it is the one shape that
+ * could point a live account at a rehearsal — the `CROWDSOURCE_APP_ID` rule.
+ * Whether a call may go live is decided by the account plus the presence of a
+ * provisioned credential, which is a fact a flag cannot fake.
+ */
+export interface PrintfulConfig {
+  /** `PRINTFUL_ENABLED` — register the adapters. Never gates a durable record. */
+  readonly enabled: boolean;
+  /** The API root. A code default; overridable only to point a rehearsal elsewhere. */
+  readonly baseUrl: string;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -2249,6 +2280,7 @@ export interface AppConfig {
   readonly feedImport: FeedImportConfig;
   readonly ebay: EbayConfig;
   readonly awin: AwinConfig;
+  readonly printful: PrintfulConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
@@ -2408,6 +2440,10 @@ export const config: AppConfig = Object.freeze({
     networkLeaseMs: intEnv('AWIN_NETWORK_LEASE_MS', 120_000),
     listTimeoutMs: intEnv('AWIN_LIST_TIMEOUT_MS', 30_000),
     sampleSize: intEnv('AWIN_SAMPLE_SIZE', 25),
+  }),
+  printful: Object.freeze({
+    enabled: boolEnv('PRINTFUL_ENABLED', false),
+    baseUrl: strEnv('PRINTFUL_BASE_URL', PRINTFUL_BASE_URL),
   }),
   matching: Object.freeze({
     pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),
