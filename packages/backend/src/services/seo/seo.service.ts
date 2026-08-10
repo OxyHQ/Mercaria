@@ -194,13 +194,24 @@ export async function diagnoseSeoUrl(request: ResolveSeoRequest): Promise<SeoDia
      */
     case 'seller':
       return { resolution: { outcome: 'no_document' } };
+    /**
+     * #72's brand and family pages are live screens as of this issue, but this
+     * domain has not yet been taught to compose a document for either: no
+     * `resolveBrand`/`resolveProductFamily` exists, and `SeoNonIndexableReason`
+     * has no member for "live but unresolved" — inventing one is a decision
+     * about the domain's own closed vocabulary, not a fact this rebase can
+     * assert. So the shell is served exactly as it is today, with no verdict at
+     * all, the same absence the seller case above states for a different
+     * reason. Closing this seam means giving each its own case here.
+     */
     case 'brand':
     case 'product_family':
+      return { resolution: { outcome: 'no_document' } };
     case 'category_browse':
     case 'native_store_legacy':
-      // Unreachable: every one of these is `planned` or `redirect_only` and was
-      // answered above. The branch exists so adding a route without deciding
-      // what it resolves fails `tsc` rather than falling into a default.
+      // Unreachable: both are `planned` or `redirect_only` and were answered
+      // above. The branch exists so adding a route without deciding what it
+      // resolves fails `tsc` rather than falling into a default.
       return { resolution: { outcome: 'no_document' } };
   }
 }

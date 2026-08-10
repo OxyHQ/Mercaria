@@ -64,17 +64,25 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = Object.freeze([
     screen: 'app/(app)/p/[handle].tsx',
     sitemapCollection: 'products',
   },
+  /**
+   * #72 shipped the real screen. Its document is still `no_document`
+   * (`seo.service.ts`'s `resolveBrand`/`resolveProductFamily` seam) — being
+   * `live` here is about the SCREEN existing, not about this domain knowing
+   * how to compose a title for it yet.
+   */
   {
     id: 'product_family',
     pattern: '/families/:handle',
     identity: 'handle',
-    availability: 'planned',
+    availability: 'live',
+    screen: 'app/(app)/families/[handle].tsx',
   },
   {
     id: 'brand',
     pattern: '/brands/:handle',
     identity: 'handle',
-    availability: 'planned',
+    availability: 'live',
+    screen: 'app/(app)/brands/[handle].tsx',
     sitemapCollection: 'brands',
   },
   {

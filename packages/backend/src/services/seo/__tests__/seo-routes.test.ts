@@ -219,7 +219,11 @@ describe('DIRECTION 3: a planned route has NOT quietly shipped', () => {
       ).toBe(false);
       checked += 1;
     }
-    expect(checked, 'no non-live route was checked').toBeGreaterThanOrEqual(3);
+    // Floor DOWN from 3 to 2 with #72: `product_family` and `brand` flipped to
+    // `live` in the same change that shipped their screens, leaving
+    // `category_browse` (`planned`) and `native_store_legacy` (`redirect_only`)
+    // — a floor that could never drop would forbid exactly that flip.
+    expect(checked, 'no non-live route was checked').toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -291,7 +295,8 @@ describe('liveness is read before a link is composed', () => {
     expect(routeIsLive('canonical_product')).toBe(true);
     // #73 shipped the merchant page, so this domain serves and sitemaps it.
     expect(routeIsLive('merchant')).toBe(true);
-    // If this flips, #72 has landed and the brand breadcrumb starts appearing.
-    expect(routeIsLive('brand')).toBe(false);
+    // #72 has landed: the brand breadcrumb in `visible-facts.ts` now appears on
+    // a canonical product page carrying a brand.
+    expect(routeIsLive('brand')).toBe(true);
   });
 });

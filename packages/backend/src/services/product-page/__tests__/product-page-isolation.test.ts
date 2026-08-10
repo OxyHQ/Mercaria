@@ -386,7 +386,7 @@ describe('WALL 6: every route this page navigates to exists', () => {
     expect(routeExists('/settings/feedback', routes)).toBe(true);
     expect(routeExists('/products/${id}', routes)).toBe(true);
     expect(routeExists('/sellers/${oxyUserId}', routes)).toBe(true);
-    // The three this issue deliberately does NOT link to, and the one that
+    // The ones this issue deliberately does NOT link to, and the one that
     // caused the bug. If any of these starts resolving, the page can link to it.
     expect(routeExists('/settings/support', routes)).toBe(false);
     // NOT '/merchants/${slug}' — that WAS this line until #73 shipped the real
@@ -398,8 +398,17 @@ describe('WALL 6: every route this page navigates to exists', () => {
     // unbuilt, and stays a valid negative control no matter what the storefront
     // ships next.
     expect(routeExists('/merchants\u0000-impossible/${slug}', routes)).toBe(false);
-    expect(routeExists('/brands/${id}', routes)).toBe(false);
     expect(routeExists('/definitely-not-a-route-xyz', routes)).toBe(false);
+    // `/brands/[handle]` USED to be in that list and now resolves, because #72
+    // built it. That is this assertion doing its job rather than a regression:
+    // it exists to notice exactly this, and the comment above says what to do
+    // when it fires. The product page still does not link there, because its
+    // `brand` is a vendor LABEL (`brandLabel`, the store or seller name) and
+    // not the canonical brand entity — linking needs a canonical brand handle
+    // on the product projection, which is #230-style integration work rather
+    // than a route swap. Tracked separately; flipping this to `true` without
+    // that handle would only mean the route resolves.
+    expect(routeExists('/brands/${id}', routes)).toBe(true);
   });
 });
 

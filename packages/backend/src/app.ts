@@ -55,6 +55,7 @@ import brandRelationshipsRouter from './routes/brand-relationships.js';
 import internalCommerceGraphRouter from './routes/internal-commerce-graph.js';
 import canonicalProductsRouter from './routes/canonical-products.js';
 import productFamiliesRouter from './routes/product-families.js';
+import catalogPagesRouter from './routes/catalog-pages.js';
 import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
 import offersRouter from './routes/offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
@@ -349,6 +350,23 @@ export function createApp(): express.Express {
       '/product-families',
       requireCanonicalReads('product-families', resolveCanonicalReadMode),
       productFamiliesRouter,
+    );
+    /**
+     * Brand and product-family PAGES (#72) — the composed reads a shopper
+     * navigating from a product actually loads.
+     *
+     * Behind `CANONICAL_READS` and NOT behind `CANONICAL_OFFER_COMPARISON`,
+     * which is the split #60 made for exactly this page: withdrawing price
+     * comparison during an incident must not take the brand and product
+     * identity pages down with it. The offer lever is read INSIDE the handler
+     * instead, and a page whose offer half was withdrawn says so
+     * (`offerContext: 'withdrawn'`) rather than looking like a brand nobody
+     * sells.
+     */
+    app.use(
+      '/catalog-pages',
+      requireCanonicalReads('catalog-pages', resolveCanonicalReadMode),
+      catalogPagesRouter,
     );
   }
   // …and its own operator surface. A SEPARATE router from the graph's above,
