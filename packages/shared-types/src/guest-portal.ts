@@ -294,6 +294,13 @@ export const GUEST_PORTAL_MESSAGE_KINDS = [
   'refund_pending',
   'refund_completed',
   'refund_failed',
+  // #128. Its own kind rather than `refund_pending`, because the two are
+  // opposite facts about who acted: a refund is pending because the buyer asked
+  // for one, and a cost adjustment is issued because Mercaria found it had
+  // charged more than the order finally cost. A recipient who reads "your refund
+  // is on its way" for something they never requested has been told the wrong
+  // thing about their own order.
+  'cost_adjustment_issued',
   'cancellation_request_received',
   'cancellation_request_approved',
   'cancellation_request_rejected',

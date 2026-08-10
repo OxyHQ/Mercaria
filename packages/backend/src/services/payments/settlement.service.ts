@@ -45,7 +45,7 @@
  * its posting never runs.
  */
 
-import type { LedgerOwnerType, Money } from '@mercaria/shared-types';
+import type { Money, ProviderAccountOwnerType } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import {
   claimTransferProviderObject,
@@ -149,8 +149,19 @@ export async function settlePaymentTransfers(paymentId: string): Promise<Settlem
   return outcome;
 }
 
-/** The ledger's owner vocabulary, from the order's seller type. */
-function ownerTypeOf(order: LinkedOrder): LedgerOwnerType {
+/**
+ * The seller's owner vocabulary, from the order's seller type.
+ *
+ * Typed `ProviderAccountOwnerType` rather than `LedgerOwnerType`, and the
+ * narrowing is load-bearing rather than tidy. #128 widened the LEDGER's owner
+ * vocabulary with `supplier` for `supplier_prepaid`, and this value is used for
+ * two different things: crediting a payable, and looking a CONNECTED ACCOUNT
+ * up. A supplier has no connected account and must never have one (ADR 0004
+ * D6.8), so the type that reaches `findSellerAccount` has to be the narrower of
+ * the two. It is still assignable to `LedgerOwnerType`, so the payable posting
+ * is unchanged — which is exactly the direction the widening should flow.
+ */
+function ownerTypeOf(order: LinkedOrder): ProviderAccountOwnerType {
   return order.sellerType === 'store' ? 'store' : 'user';
 }
 

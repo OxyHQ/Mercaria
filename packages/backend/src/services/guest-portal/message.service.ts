@@ -121,6 +121,15 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
     note: 'The `refunded` status transition. A PARTIAL refund is deliberately not this kind — ' +
       'it leaves the order in `partially_refunded`, which is a different fact.',
   },
+  cost_adjustment_issued: {
+    trigger: 'services/retail-reconciliation/notifications.ts',
+    note: '#128. A `mercaria_retail` order reconciled to LESS than the buyer was charged, so the ' +
+      'surplus is theirs. Its own kind rather than `refund_pending`, because the two are ' +
+      'opposite facts about who acted — a buyer who reads "your refund is on its way" for ' +
+      'something they never requested has been told the wrong thing about their own order. ' +
+      'Deduped on the ADJUSTMENT id, so a reconciliation re-run converges and a later revision ' +
+      'that finds a different surplus sends its own.',
+  },
   refund_pending: {
     trigger: 'services/buyer-requests/return-decision.service.ts',
     note: '#110. Deferred by #108 on the reasoning that "pending" would mean the RAIL had not ' +

@@ -4350,6 +4350,67 @@ Five tables: `price_alerts`, `price_alert_evaluations`, `price_alert_triggers`,
   catalogue table. `oxy_user_id` is the whole of what this domain stores about a
   person, which is why erasure is one scoped DELETE and everything CASCADEs from
   the alert.
+
+## Zero-profit cost reconciliation (#128)
+
+Ten tables — `retail_reconciliation_policies`,
+`retail_reconciliation_tolerances`, `retail_reconciliations`,
+`retail_reconciliation_components`, `retail_reconciliation_evidence`,
+`retail_reconciliation_exceptions`, `retail_customer_adjustments`,
+`retail_supplier_credits`, `retail_ledger_recognitions` and
+`retail_reconciliation_operator_actions` — plus five CHECK widenings on tables
+other domains own. Full reference: `docs/retail-reconciliation.md`.
+
+- **The tolerance CHECK is a rendered `CASE`, and `else -1` is load-bearing.**
+  `retail_reconciliation_tolerances_bound_check` bounds the tolerance per
+  currency from `RETAIL_RECONCILIATION_MAX_TOLERANCE_MINOR`, because one integer
+  means five hundredths of a euro and five hundred-millionths of a FAIR. A CASE
+  with no matching branch yields NULL, a comparison against NULL is NULL, and a
+  CHECK rejects only FALSE — so the obvious spelling would SATISFY the constraint
+  for exactly the currency it failed to cover. Any future rendered `CASE` in this
+  schema needs the same `else`.
+- **`retail_reconciliations_outcome_shape_check` is a biconditional**, so an
+  incomplete reconciliation has NO verdict. That is #128 acceptance 7 as a row
+  shape: the fabricated zero it prevents produces the whole customer amount as a
+  surplus.
+- **`retail_reconciliations_variance_check` writes every branch as
+  `(outcome = 'x') = (<condition>)`, in full parentheses.** The shorter
+  `outcome <> 'x' or <cond>` constrains ONE direction, so a row could carry
+  `mercaria_absorbed` with a positive variance as long as it also failed to be
+  `customer_adjustment_required`. And SQL binds `AND` tighter than `OR`, so a
+  chain of those without parentheses does not mean what it reads as.
+- **Amounts are non-negative MAGNITUDES; the COMPONENT carries the sign**
+  (`RETAIL_COMPONENT_ROLES`). A signed column would let one writer record a
+  supplier credit as a negative cost and another as a positive recovery, and both
+  would balance while meaning opposite things.
+- **`retail_ledger_recognitions` is the claim every posting takes**, keyed
+  `(kind, claim_key)` where the key names the durable thing the posting is ABOUT
+  — a purchase order, a revision, an adjustment — and never a run id or a
+  timestamp, both of which would make every claim unique and defeat the index
+  silently.
+- **`retail_supplier_credits` is strictly append-only because recording and
+  booking are ONE transaction**: the row is inserted with its
+  `ledger_transaction_id` already set, so there is no later UPDATE for the trigger
+  to refuse. The alternative — a nullable pointer filled in afterwards — would
+  have needed the `retail_cost_quote_acceptances.order_id` one-way exception.
+- **`retail_customer_adjustments.superseded_by_id` carries NO foreign key.** It
+  is a SELF-reference, which `drizzle-kit generate` silently drops from both the
+  migration and the snapshot (measured on #66's
+  `awin_advertisers.activating_sample_id`), so it is a plain column registered in
+  `ID_COLUMNS_WITHOUT_FOREIGN_KEY` and the one-way CAS in `supersedeAdjustment`
+  is what enforces the chain.
+- **`retail_reconciliation_operator_actions.order_id` carries no foreign key
+  either**, and that one is deliberate rather than forced: an audit trail a
+  cascade could delete is not one, and an attempt against an order that turns out
+  not to exist is exactly the attempt a review most wants to see.
+- **There is no `finalised_at` column.** ADR 0004 D8.6's finality is the latest of
+  three LIVE conditions bounded at 180 days from delivery, derived at projection
+  time — the `deriveNativeCheckoutEligibility` divergence, and the place two
+  representations must not disagree is the decision to stop owing a buyer money.
+- **`LEDGER_OWNER_TYPES` gained `supplier`** for `supplier_prepaid`. A supplier
+  is Mercaria's B2B counterparty with no storefront, no connected account and no
+  order here, so filing its deposit under `store` or `user` would put a wholesale
+  balance into the key space every payable query reads.
 ## Private watchlists (#81)
 
 Four tables, no source model: `watchlists`, `watchlist_items`,

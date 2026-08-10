@@ -37,7 +37,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { ReconciliationJob } from '@mercaria/shared-types';
+import { PAYMENT_RECONCILIATION_JOBS, type ReconciliationJob } from '@mercaria/shared-types';
 import { config } from '../../../config/index.js';
 import { getDb } from '../../../db/postgres.js';
 import {
@@ -181,11 +181,32 @@ async function runOnePage(input: {
     return { scanned: page.scanned, discrepancies: page.discrepancies, nextCursor: page.nextCursor };
   }
 
-  const sweep = await reconcileAccountReadiness({ limit });
-  // Always a complete pass: #46's sweep carries its own cursor as a column
-  // (`provider_accounts.last_synced_at`), so there is nothing for this one to
-  // resume from — see `account-readiness.job.ts`.
-  return { scanned: sweep.refreshed + sweep.failed, discrepancies: sweep.discrepancies, nextCursor: null };
+  if (job === 'account_readiness') {
+    const sweep = await reconcileAccountReadiness({ limit });
+    // Always a complete pass: #46's sweep carries its own cursor as a column
+    // (`provider_accounts.last_synced_at`), so there is nothing for this one to
+    // resume from — see `account-readiness.job.ts`.
+    return {
+      scanned: sweep.refreshed + sweep.failed,
+      discrepancies: sweep.discrepancies,
+      nextCursor: null,
+    };
+  }
+
+  // Not one of ours. `RECONCILIATION_JOBS` is wider than
+  // `PAYMENT_RECONCILIATION_JOBS` — #128's retail reconciliation takes a cursor
+  // row here and is run by its own runner, because it reads purchase orders and
+  // supplier invoices and `role-separation.test.ts` forbids this directory from
+  // importing the procurement domain.
+  //
+  // The refusal replaces a FALL-THROUGH, and the difference matters: a chain of
+  // `if`s ending in the account-readiness call would have run that sweep for
+  // every unrecognised job name, with a clean log line and no error. A name this
+  // runner does not own is a routing defect, and it says so.
+  throw new Error(
+    `'${job}' is not a job services/payments/reconciliation owns. The jobs it dispatches are ` +
+      `${PAYMENT_RECONCILIATION_JOBS.join(', ')}; anything else has its own runner.`,
+  );
 }
 
 /**

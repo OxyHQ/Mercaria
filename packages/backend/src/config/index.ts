@@ -2447,6 +2447,31 @@ export interface MerchantDemandConfig {
   readonly maxProductRows: number;
 }
 
+ * Zero-profit cost reconciliation (#128).
+ *
+ * ONE lever, and it gates the LOOP only. Every durable record this domain
+ * writes — a revision, an exception, a customer adjustment, a supplier credit,
+ * a ledger posting — is written by a path an operator can drive by hand, and
+ * `retail-reconciliation-isolation.test.ts` fails the build if any module but
+ * the runner reads this flag. Switching a sweep off during an incident should
+ * park work, not lose the record of it, and the record here is money owed to
+ * buyers.
+ *
+ * There is deliberately no separate "recognition enabled" lever. Recognizing a
+ * positive variance is what makes ADR 0004 D7 proof 2 true — recovery bounded
+ * by cost, because every excess is extracted before finality — so a deployment
+ * that reconciled without recognizing would be one whose books report margin on
+ * a zero-margin channel, which is the one state this whole domain exists to
+ * make unreachable.
+ */
+export interface RetailReconciliationConfig {
+  /** `RETAIL_RECONCILIATION_ENABLED` — does the sweep timer run. Default false. */
+  readonly enabled: boolean;
+  /** How many retail orders one page reconciles. */
+  readonly batchSize: number;
+  readonly pollIntervalMs: number;
+}
+
 /** The retail eligibility gate's configuration (#121). */
 export interface RetailEligibilityConfig {
   /**
@@ -2814,6 +2839,7 @@ export interface AppConfig {
   readonly supplierPreflight: SupplierPreflightConfig;
   readonly procurement: ProcurementConfig;
   readonly retail: MercariaRetailConfig;
+  readonly retailReconciliation: RetailReconciliationConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -3393,6 +3419,11 @@ export const config: AppConfig = Object.freeze({
     blockedCohorts: Object.freeze(blockedListEnv('NL_INTENT_BLOCKED_COHORTS', 'upper')),
     parseTimeoutMs: intEnv('NL_INTENT_PARSE_TIMEOUT_MS', 4_000),
     sessionTtlSeconds: intEnv('NL_INTENT_SESSION_TTL_SECONDS', 30 * 60),
+  }),
+  retailReconciliation: Object.freeze({
+    enabled: boolEnv('RETAIL_RECONCILIATION_ENABLED', false),
+    batchSize: intEnv('RETAIL_RECONCILIATION_BATCH_SIZE', 25),
+    pollIntervalMs: intEnv('RETAIL_RECONCILIATION_POLL_INTERVAL_MS', 60_000),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

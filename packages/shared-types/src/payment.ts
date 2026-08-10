@@ -301,7 +301,7 @@ export type DisputeOutcome = 'won' | 'lost';
 export const DISPUTE_OUTCOMES: readonly DisputeOutcome[] = ['won', 'lost'];
 
 /**
- * Mercaria's chart of accounts. Seven accounts, and no more without a decision.
+ * Mercaria's chart of accounts. Twelve accounts, and no more without a decision.
  *
  * ## The sign convention, stated once
  *
@@ -324,33 +324,51 @@ export const DISPUTE_OUTCOMES: readonly DisputeOutcome[] = ['won', 'lost'];
  * | `disputes` | debit | a disputed amount was debited from the platform |
  * | `reserves` | debit | funds were withheld from a seller |
  * | `retail_cost_recovery` | credit | a buyer paid Mercaria's own costs back on a `mercaria_retail` order |
+ * | `supplier_prepaid` | debit | Mercaria's money on deposit with a supplier grew (a top-up, a credit) or shrank (a purchase-order draw) |
+ * | `platform_funds` | credit | Mercaria's own out-of-band cash entered or left the payment domain |
+ * | `procurement_expense` | debit | goods or fulfilment cost was incurred for a retail order |
+ * | `customer_adjustment` | credit | a positive cost variance is owed back to a buyer and not yet refunded |
  *
- * ## Why `retail_cost_recovery` is here and the other four retail accounts are not
+ * ## The five retail accounts, and why they landed across two issues
  *
- * ADR 0004 D7 names FIVE retail accounts and assigns them to #128 "together
- * with the code that writes them". #123 is that code for exactly one of them:
- * a retail order's share of a charge has to be credited SOMEWHERE the moment
- * the charge is booked, because `chargeSucceeded` defines Mercaria's commission
- * as `gross − Σ(seller nets)` and a retail order has no seller net. Leaving it
- * out would not leave it unbooked — it would book the whole retail share as
- * `commission_revenue`, which is D7 proof 1 broken in the direction that reads
- * as margin on a zero-markup sale.
+ * ADR 0004 D7 names five and assigns them to #128 "together with the code that
+ * writes them". #123 was that code for exactly one of them: a retail order's
+ * share of a charge has to be credited SOMEWHERE the moment the charge is
+ * booked, because `chargeSucceeded` defines Mercaria's commission as
+ * `gross − Σ(seller nets)` and a retail order has no seller net. Leaving it out
+ * would not have left it unbooked — it would have booked the whole retail share
+ * as `commission_revenue`, which is D7 proof 1 broken in the direction that
+ * reads as margin on a zero-markup sale.
  *
- * The other four (`supplier_prepaid`, `platform_funds`, `procurement_expense`,
- * `customer_adjustment`) record movements #123 does not make: a prefund top-up,
- * a balance draw at supplier acceptance, and the variance recognition #128
- * books. They arrive with #128, under the same rule.
+ * #128 is that code for the other four, and the rule held rather than being
+ * waived: each arrives together with the posting builder that writes it
+ * (`prefundTopUp`, `procurementSettled`, `directFulfilmentCost`,
+ * `retailVarianceRecognized`, `customerAdjustmentRefunded` and
+ * `supplierCreditReceived` in `services/payments/ledger-postings.ts`) and with
+ * the migration that widens this CHECK, in one change.
  *
- * It is credit-normal and bounded by cost BY CONSTRUCTION rather than by a
- * constraint: nothing may credit it beyond what the buyer paid, and every
- * excess over actual cost is extracted to `customer_adjustment` before finality
- * (D8.3). There is deliberately no `retail_margin_revenue`, so a positive
- * variance has no account to be recognized as revenue in.
+ * `retail_cost_recovery` is credit-normal and bounded by cost BY CONSTRUCTION
+ * rather than by a constraint: nothing may credit it beyond what the buyer paid,
+ * and every excess over actual cost is extracted to `customer_adjustment` before
+ * finality (D8.3). There is deliberately no `retail_margin_revenue`, so a
+ * positive variance has no account to be recognized as revenue in.
  *
- * `merchant_payable` is the only account carried PER OWNER: its rows name the
- * seller (`ownerType` + `ownerId`) and usually the order, because "what do we
- * owe this seller for this order" is the question the account exists to answer.
- * The others are platform-wide and leave both owner columns NULL.
+ * ## Which accounts are carried PER OWNER, and the one that deliberately is not
+ *
+ * `merchant_payable` names the seller (`ownerType` + `ownerId`) and usually the
+ * order, because "what do we owe this seller for this order" is the question the
+ * account exists to answer. `supplier_prepaid` names the SUPPLIER whose deposit
+ * it is, for the same reason and under its own owner type.
+ *
+ * `customer_adjustment` is carried per ORDER — the entry's existing `order_id`
+ * column — and NOT per buyer, which is a privacy decision rather than an
+ * omission. A guest buyer's credential is purged on its own retention clock, and
+ * any per-buyer handle in a permanently retained financial record is a
+ * correlation key wearing an owner id (#106 identity rule 11). The order is the
+ * durable thing the money is about, and it resolves to a buyer only through the
+ * paths that are already authorized to make that resolution.
+ *
+ * The remaining accounts are platform-wide and leave both owner columns NULL.
  *
  * There is deliberately no buyer-funds account. Mercaria is the merchant of
  * record (ADR 0001 D1) and never holds a buyer balance; money arrives already
@@ -364,7 +382,11 @@ export type LedgerAccount =
   | 'refunds'
   | 'disputes'
   | 'reserves'
-  | 'retail_cost_recovery';
+  | 'retail_cost_recovery'
+  | 'supplier_prepaid'
+  | 'platform_funds'
+  | 'procurement_expense'
+  | 'customer_adjustment';
 
 /** {@link LedgerAccount} as the tuple the column types and CHECKs read. */
 export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
@@ -376,6 +398,12 @@ export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
   'disputes',
   'reserves',
   'retail_cost_recovery',
+  // ADR 0004 D7's four procurement accounts, landed by #128 with the builders
+  // that write them.
+  'supplier_prepaid',
+  'platform_funds',
+  'procurement_expense',
+  'customer_adjustment',
 ];
 
 /**
@@ -387,7 +415,16 @@ export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
  * added without this line changing in the same diff as whatever made it
  * necessary.
  */
-export const RETAIL_REVENUE_SIDE_ACCOUNTS: readonly LedgerAccount[] = ['retail_cost_recovery'];
+export const RETAIL_REVENUE_SIDE_ACCOUNTS: readonly LedgerAccount[] = [
+  'retail_cost_recovery',
+  // #128: recognizing a positive variance CREDITS this and DEBITS
+  // `retail_cost_recovery` by the same amount, which is what makes recovery
+  // bounded by cost at finality (D7 proof 2) an arithmetic fact rather than an
+  // intention. It is on the credit side of a retail order's movements and
+  // therefore belongs in this list — and it is not revenue: it is a liability to
+  // the buyer, which is precisely why the surplus cannot be reported as margin.
+  'customer_adjustment',
+];
 
 /**
  * Accounts that may never carry an entry naming a `mercaria_retail` order.
@@ -404,16 +441,22 @@ export const RETAIL_FORBIDDEN_ACCOUNTS: readonly LedgerAccount[] = [
 ];
 
 /**
- * Who a `merchant_payable` entry is owed to — a business store or a P2P seller.
+ * Who an owned entry names — a business store, a P2P seller, or a supplier.
  *
- * The same two kinds `Order.sellerType` distinguishes, named the same way, so a
- * payable row and the order it came from can be joined without a translation
- * table.
+ * The first two are the kinds `Order.sellerType` distinguishes, named the same
+ * way, so a `merchant_payable` row and the order it came from can be joined
+ * without a translation table.
+ *
+ * `supplier` is #128's, for `supplier_prepaid`. It is a THIRD kind rather than a
+ * reuse of `store`: a supplier is Mercaria's B2B counterparty and has no
+ * storefront, no connected account and no order on this marketplace (ADR 0004
+ * D2.2/D6.8), so filing its deposit under a seller kind would put a wholesale
+ * balance into the key space every payable query reads.
  */
-export type LedgerOwnerType = 'store' | 'user';
+export type LedgerOwnerType = 'store' | 'user' | 'supplier';
 
 /** {@link LedgerOwnerType} as the tuple the column types and CHECKs read. */
-export const LEDGER_OWNER_TYPES: readonly LedgerOwnerType[] = ['store', 'user'];
+export const LEDGER_OWNER_TYPES: readonly LedgerOwnerType[] = ['store', 'user', 'supplier'];
 
 /**
  * What a ledger transaction records. One kind per row in ADR 0001's
@@ -422,6 +465,21 @@ export const LEDGER_OWNER_TYPES: readonly LedgerOwnerType[] = ['store', 'user'];
  * `adjustment` is the operator escape hatch, and it is NOT a licence to edit
  * history: entries are append-only, so a correction is a new transaction whose
  * entries reverse the ones that were wrong (#45 invariant 2).
+ *
+ * ## The four procurement kinds (ADR 0004 D7, landed by #128)
+ *
+ * `prefund_top_up`, `procurement_settled`, `retail_variance` and
+ * `supplier_credit` are the retail movements that are not also marketplace ones.
+ * Retail charges and refunds deliberately do NOT get kinds of their own — they
+ * reuse `charge_succeeded` and `refund`, because they are the same physical
+ * events on the same rail and a separate kind would make every payment query
+ * ask which sort of sale it was.
+ *
+ * `retail_variance` covers BOTH the recognition of a positive variance and the
+ * refund that discharges it, which are two transactions of one kind rather than
+ * two kinds: the pair has to net to zero on `customer_adjustment` for the
+ * obligation to be closed, and reading that off one kind is what makes it a
+ * query.
  */
 export type LedgerTransactionKind =
   | 'charge_succeeded'
@@ -431,7 +489,11 @@ export type LedgerTransactionKind =
   | 'dispute_created'
   | 'dispute_won'
   | 'dispute_lost'
-  | 'adjustment';
+  | 'adjustment'
+  | 'prefund_top_up'
+  | 'procurement_settled'
+  | 'retail_variance'
+  | 'supplier_credit';
 
 /** {@link LedgerTransactionKind} as the tuple the column types and CHECKs read. */
 export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
@@ -443,6 +505,11 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
   'dispute_won',
   'dispute_lost',
   'adjustment',
+  // ADR 0004 D7's four, landed by #128 — see the note above.
+  'prefund_top_up',
+  'procurement_settled',
+  'retail_variance',
+  'supplier_credit',
 ];
 
 /**
