@@ -183,7 +183,12 @@ describe('the migrated schema', () => {
     // person's own data, removed when they remove them, and a snapshot's LINES
     // CASCADE with the snapshot, so a line can never outlive the evaluation it
     // describes.
-    expect(EXPIRY_TARGETS).toHaveLength(26);
+    // #95 adds TWO — a clarification session and a recorded interpretation —
+    // and leaves its two benchmark tables unswept: a recorded run is what an
+    // enablement rests on, and an enablement is a decision somebody made, so a
+    // retention on either would leave the parser enabled with its
+    // justification gone.
+    expect(EXPIRY_TARGETS).toHaveLength(28);
   });
 });
 

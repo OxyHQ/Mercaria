@@ -7,6 +7,16 @@ export const queryKeys = {
   feed: {
     all: ["feed"] as const,
   },
+  /**
+   * Natural-language search (#95). The RESULTS key carries the filters, so
+   * removing a chip is a new key and therefore a new fetch — which is what
+   * makes editing an interpretation re-run the search without re-parsing it.
+   */
+  searchIntent: {
+    all: ["search-intent"] as const,
+    results: (term: string, filters: unknown) =>
+      ["search-intent", "results", term, filters] as const,
+  },
   cart: {
     all: ["cart"] as const,
     /**

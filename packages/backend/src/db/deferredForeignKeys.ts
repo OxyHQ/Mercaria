@@ -1321,4 +1321,54 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       '`ranking_policy_versions` would make retiring a policy either impossible or destructive ' +
       'of the history that cites it. The BUILT-IN policy has no row there in the first place.',
   },
+
+  // ── Natural-language shopping intent (#95) ────────────────────────────────
+  // The whole of what this domain stores about a person: who ran a benchmark
+  // and who enabled a (category, language) pair. There is no actor on an
+  // interpretation and no actor on a turn — a session names an OWNER, and that
+  // one DOES carry a foreign key onto `guest_sessions` for its guest half.
+  { column: 'search_intent_benchmark_runs.ran_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'search_intent_enablements.enabled_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'search_intent_benchmark_runs.category_id',
+    reason:
+      'The category a run MEASURED, recorded as evidence rather than as a live pointer. A ' +
+      'foreign key would make a recorded measurement deletable by a catalogue change — and the ' +
+      'measurement is what an enablement rests on, so losing it would leave the parser enabled ' +
+      'with its justification gone. `restrict` would be worse still: it would make a category ' +
+      'undeletable because somebody once benchmarked it.',
+  },
+  {
+    column: 'search_intent_enablements.category_id',
+    reason:
+      'The same key space as the run it cites, and NULL is the language-wide row rather than an ' +
+      'absent pointer — a foreign key cannot express that distinction, and a category removed ' +
+      'from the catalogue must leave its enablement behind as the record of a decision somebody ' +
+      'made rather than silently un-enabling a language.',
+  },
+  { column: 'search_intent_sessions.oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'search_intent_sessions.open_clarification_id',
+    reason:
+      'The id of the ONE question awaiting an answer — a value this domain COMPOSES ' +
+      '(`clar-<kind>`) rather than a row anywhere. There is deliberately no clarification table: ' +
+      'a question is derived from the interpretation on every turn, so storing one would be a ' +
+      'second, staler answer to what the planner just computed.',
+  },
+  {
+    column: 'search_intent_turns.query_event_id',
+    reason:
+      "#77's own correlation handle for the search this turn produced. It is what makes " +
+      '"compare parsed and fallback search quality" answerable without adding a column to the ' +
+      'analytics domain, and it must NOT be a foreign key: the two halves are swept on their own ' +
+      'retention clocks, and #77 removing its half first would either delete this row or block ' +
+      'its own erasure.',
+  },
+  {
+    column: 'search_intent_turns.category_id',
+    reason:
+      'What the interpretation RESOLVED to at the time, recorded as evidence. The same reasoning ' +
+      'as the benchmark run beside it: a foreign key would make a past interpretation deletable ' +
+      'by a catalogue change, or a category undeletable because somebody once searched in it.',
+  },
 ];

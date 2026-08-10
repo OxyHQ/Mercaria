@@ -96,6 +96,7 @@ import { notifications } from './schema/notifications';
 import { paymentOutboxes, paymentProviderEvents } from './schema/payments';
 import { referralTouches } from './schema/referrals';
 import { watchlistSnapshots } from './schema/watchlists';
+import { searchIntentSessions, searchIntentTurns } from './schema/searchIntent';
 import { procurementOutboxes, supplierProviderEvents } from './schema/supplierOrders';
 
 /**
@@ -593,6 +594,32 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'the only table in the domain whose size is a function of how often a buyer opens a ' +
       'list, which is why it is the only one with a deadline — and why the write DEDUPLICATES ' +
       'an unchanged evaluation rather than relying on the sweep to clean up after it.',
+  },
+  // #95's two query-side tables. Both carry a deadline the WRITER stamps, and
+  // neither has an append-only trigger — a trigger refusing DELETE would make
+  // the retention this domain most needs fail silently, which is
+  // `analytics_events`' own reasoning and applies with more force here: a turn
+  // holds a redacted shopping query, so the sweep is the erasure.
+  {
+    table: searchIntentSessions,
+    column: searchIntentSessions.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'One shopper’s bounded clarification conversation (#95). The column IS the deadline, ' +
+      'stamped at creation from `SEARCH_INTENT_SESSION_TTL_SECONDS`. A session outliving ' +
+      'the shopping trip it belongs to is a clarification history nobody is using and ' +
+      'everybody would rather not keep.',
+  },
+  {
+    table: searchIntentTurns,
+    column: searchIntentTurns.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'One recorded interpretation (#95), holding #77’s REDACTED query form and the mode ' +
+      'and reason a fallback rate is computed from. Its deadline is #77’s own ' +
+      '`ANALYTICS_QUERY_TEXT_RETENTION_DAYS`, stamped at write time, so the redacted text ' +
+      'here and the redacted text in `analytics_search_queries` leave on the same clock ' +
+      'rather than one outliving the other under a policy nobody wrote down.',
   },
 ];
 

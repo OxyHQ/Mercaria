@@ -61,6 +61,8 @@ import internalOffersRouter from './routes/internal-offers.js';
 import searchRouter from './routes/search.js';
 import internalSearchRouter from './routes/internal-search.js';
 import productPageRouter from './routes/product-page.js';
+import searchIntentRouter from './routes/search-intent.js';
+import internalSearchIntentRouter from './routes/internal-search-intent.js';
 import priceHistoryRouter from './routes/price-history.js';
 import internalPriceHistoryRouter from './routes/internal-price-history.js';
 import priceAlertsRouter from './routes/price-alerts.js';
@@ -393,6 +395,12 @@ export function createApp(): express.Express {
    * acceptance 8's rollback one environment variable.
    */
   app.use('/search', searchRouter);
+  // Natural-language shopping intent (#95). Mounted UNCONDITIONALLY, unlike
+  // `/search` itself: the deterministic interpreter is the FLOOR rather than a
+  // degraded mode, so `NL_INTENT_ENABLED` gates whether a MODEL may be called
+  // and never whether the surface exists. A deployment with it off still has a
+  // working natural-language search box.
+  app.use('/search-intent', searchIntentRouter);
 
   /**
    * The canonical product page (#71): one product's identity, its
@@ -476,6 +484,11 @@ export function createApp(): express.Express {
     // off: the shadow evidence a rollout is judged on has to be readable during
     // the incident that turned the surface off.
     app.use('/internal/search', internalSearchRouter);
+    // …and #95's, on the same list and mounted while the model half is off: the
+    // benchmark an operator runs to turn it back ON lives here, and so does the
+    // fallback-rate evidence they would be reading during the incident that
+    // turned it off.
+    app.use('/internal/search-intent', internalSearchIntentRouter);
     app.use('/internal/catalog-attributes', internalCatalogAttributesRouter);
     // The condition taxonomy (#90): versioned source-label mappings, category
     // restrictions, and one listing's condition history. Same allow-list, same

@@ -110,7 +110,15 @@ export type RateLimitScope =
   // each subject costs a comparison read plus a price-history derivation. Sharing
   // the `'admin'` budget would let a merchant refreshing a dashboard exhaust the
   // allowance they need to run their shop.
-  | 'merchantCompetitiveness';
+  | 'merchantCompetitiveness'
+  // Natural-language intent parsing (#95 safety rule 8). Its own bucket
+  // (`rl:search-intent:`) and a small one, because a parse is the one read on
+  // this API that may call an outbound MODEL: sharing the `'listings'` budget
+  // would let a parse flood exhaust the allowance a shopper needs to browse,
+  // and would make the model's cost bounded by the number that bounds a
+  // category page. Keyed on the ACTOR, so a guest is bucketed per SESSION
+  // rather than per IP — one NAT is not one shopper.
+  | 'search-intent';
 
 /** The shared, prefixed Redis store for a scope, or `undefined` without Redis. */
 function scopeStore(scope: RateLimitScope): RedisStore | undefined {

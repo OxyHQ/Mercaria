@@ -269,3 +269,20 @@ export {
   OfferLabelBadge,
   type OfferLabelBadgeProps,
 } from "./components/marketplace/OfferLabelBadge";
+
+// ---------------------------------------------------------------------------
+// Natural-language search interpretation (#95). Presentational only: the three
+// ORIGIN voices are rendered distinctly, because "never pretend a model
+// inference was explicitly stated by the user" is a rendering decision as much
+// as a data one — and removing a chip is a CALLBACK, so whether it re-parses,
+// re-searches or both stays the app's decision.
+// ---------------------------------------------------------------------------
+export {
+  SearchClarification,
+  SearchInterpretation,
+  type InterpretationChip,
+  type InterpretationGap,
+  type InterpretationOrigin,
+  type SearchClarificationProps,
+  type SearchInterpretationProps,
+} from "./components/marketplace/SearchInterpretation";
