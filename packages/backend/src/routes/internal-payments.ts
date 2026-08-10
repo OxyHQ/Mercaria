@@ -57,6 +57,15 @@ import {
   runRepairHandler,
   tracePaymentHandler,
 } from '../controllers/payments-operator.controller.js';
+import {
+  retailServiceCancelHandler,
+  retailServiceCompleteHandler,
+  retailServiceDecideHandler,
+  retailServiceEscalateSafetyHandler,
+  retailServiceQueueHandler,
+  retailServiceReleaseSuspensionHandler,
+  retailServiceTraceHandler,
+} from '../controllers/retail-service-operator.controller.js';
 import { feeScheduleCreateSchema } from '../middleware/fees-schemas.js';
 import {
   activateFeeScheduleHandler,
@@ -154,5 +163,52 @@ router.post('/retail-pricing-policies/:id/activate', activateRetailPricingPolicy
 
 /** Withdraw an active version (or abandon a draft) without a replacement. */
 router.post('/retail-pricing-policies/:id/retire', retireRetailPricingPolicyHandler);
+
+// ── Retail service requests (#127) ──────────────────────────────────────────
+//
+// The CUSTOMER half of #127's operator surface: deciding what Mercaria owes a
+// buyer on a `mercaria_retail` order, and driving it. It belongs on this gate
+// because it moves Mercaria's own money, which is what this allow-list already
+// exists for — a `platform` order has no store, so no store permission could
+// express the authority and inventing one would be a second identity system.
+//
+// Nothing here carries a supplier recovery, a wholesale figure or an RMA
+// reference: `projectRetailServiceRequestForCustomer` is the projection these
+// handlers serve and it has no member one could be put in. The SIDE-BY-SIDE
+// trace is `/internal/procurement/retail-service/*`, behind the sixth list.
+//
+// Every write drives an existing idempotent path. There is no "set this request
+// completed", no "override this outcome" and no delete.
+
+/** GET — the open queue, oldest first. */
+router.get('/retail-service-requests', retailServiceQueueHandler);
+
+/** GET — one request as the buyer sees it, plus its append-only trail. */
+router.get('/retail-service-requests/:requestId', retailServiceTraceHandler);
+
+/** POST — accept or reject, and name the customer outcome. */
+router.post('/retail-service-requests/:requestId/decide', retailServiceDecideHandler);
+
+/** POST — drive the accepted outcome. Idempotent on the refund's own key. */
+router.post('/retail-service-requests/:requestId/complete', retailServiceCompleteHandler);
+
+/** POST — terminate an accepted request Mercaria will not deliver, with a reason. */
+router.post('/retail-service-requests/:requestId/cancel', retailServiceCancelHandler);
+
+/** POST — escalate a warranty case to product safety, with a reason. */
+router.post(
+  '/retail-service-requests/:requestId/escalate-safety',
+  retailServiceEscalateSafetyHandler,
+);
+
+/**
+ * POST — release a refund suspension while a card dispute is open.
+ *
+ * The one mutation of a stored fact this surface performs, and the one #127
+ * rule 10 exists for: a refund committed while a dispute runs must be a decision
+ * somebody made and can be shown to have made. Attributable, dated and explained
+ * by CHECK.
+ */
+router.post('/retail-disputes/:disputeId/release-suspension', retailServiceReleaseSuspensionHandler);
 
 export default router;

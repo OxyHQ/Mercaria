@@ -78,6 +78,7 @@ export async function loadBuyerRequestOrder(
     policy: {
       id: order.id,
       status: order.status,
+      commercialRole: order.commercialRole,
       paymentStatus: order.paymentStatus,
       shippingMethod: order.shippingMethod,
       sourceExternalId: order.sourceExternalId,

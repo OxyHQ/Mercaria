@@ -77,6 +77,27 @@ export const BUYER_REQUEST_ACTIONS = {
   'return:withdraw': { scope: 'returns:request', requiresStepUp: false },
   'support:write': { scope: 'support:write', requiresStepUp: false },
   'request:read': { scope: 'orders:read', requiresStepUp: false },
+  /**
+   * #127's four retail actions, on this table rather than on a second one.
+   *
+   * A `mercaria_retail` order is one MERCARIA sold, so #110's decision path —
+   * which runs on `requireStorePermission` against the order's store — cannot
+   * reach it; but the BUYER half is identical, because after the credential is
+   * resolved there is nothing retail-shaped about asking for a remedy. Reusing
+   * this table is what makes that literal: one unforgeable actor, one scope
+   * check, one step-up rule and one composition of #106's order access, whatever
+   * the order's commercial role turns out to be.
+   *
+   * Two scopes rather than one, mapped per REQUEST KIND by
+   * `retailRequestAction` in `services/retail-service-requests/request-kinds.ts`:
+   * a portal credential granted `cancellations:request` can ask Mercaria to stop
+   * a purchase and cannot open a warranty claim with it, and the reverse. A
+   * single `retail:request` scope would collapse two different grants into one.
+   */
+  'retail_cancellation:submit': { scope: 'cancellations:request', requiresStepUp: true },
+  'retail_cancellation:withdraw': { scope: 'cancellations:request', requiresStepUp: false },
+  'retail_remedy:submit': { scope: 'returns:request', requiresStepUp: true },
+  'retail_remedy:withdraw': { scope: 'returns:request', requiresStepUp: false },
 } as const satisfies Record<string, { scope: GuestOrderScope; requiresStepUp: boolean }>;
 
 /** One of {@link BUYER_REQUEST_ACTIONS}. */
@@ -103,6 +124,8 @@ export type BuyerRequestAction = keyof typeof BUYER_REQUEST_ACTIONS;
 export const STEP_UP_REQUIRED_ACTIONS: readonly BuyerRequestAction[] = [
   'cancellation:submit',
   'return:submit',
+  'retail_cancellation:submit',
+  'retail_remedy:submit',
 ];
 
 /**

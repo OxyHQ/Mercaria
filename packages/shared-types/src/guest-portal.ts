@@ -305,6 +305,21 @@ export const GUEST_PORTAL_MESSAGE_KINDS = [
   'access_link_recovery',
   'access_link_step_up',
   'access_security_notice',
+  // #127 — the retail service-request kinds. Eight rather than the twelve the
+  // issue's communication section lists, because four of the twelve are already
+  // covered: "evidence or action required" is `buyer_action_required`, and the
+  // three refund states are `refund_pending` / `refund_completed` /
+  // `refund_failed`. Adding retail-specific spellings of those would be four
+  // more templates saying the same sentence and four more places a copy fix has
+  // to land.
+  'retail_service_request_received',
+  'retail_cancellation_updated',
+  'retail_return_authorized',
+  'retail_return_updated',
+  'retail_warranty_updated',
+  'retail_service_delayed',
+  'retail_safety_notice',
+  'retail_service_request_closed',
 ] as const;
 
 /** One of {@link GUEST_PORTAL_MESSAGE_KINDS}. */

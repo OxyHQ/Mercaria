@@ -30,6 +30,15 @@ import {
   procurementSubmitHandler,
   procurementTraceHandler,
 } from '../controllers/procurement-operator.controller.js';
+import {
+  retailRecoveryOpenHandler,
+  retailRecoveryQueueHandler,
+  retailRecoverySettleHandler,
+  retailRecoveryTraceHandler,
+  retailReturnReportHandler,
+  retailRmaRequestHandler,
+  retailSupplierCancelHandler,
+} from '../controllers/retail-service-operator.controller.js';
 
 const router = Router();
 
@@ -60,5 +69,28 @@ router.post(
   validateBody(procurementExceptionResolutionSchema),
   procurementResolveExceptionHandler,
 );
+
+/**
+ * #127's SUPPLIER half, on this router and not on the payment one.
+ *
+ * These are the only routes in the retail service domain that disclose a
+ * wholesale figure or a supplier RMA reference, and this list already exists for
+ * exactly that power — "reading what Mercaria PAYS its suppliers". The CUSTOMER
+ * half lives on `/internal/payments/retail-service-requests/*` behind the
+ * payment-operator list, so #127's *"side by side without conflating them"* is a
+ * property of which router serves which projection.
+ *
+ * Every write drives an existing idempotent path: the RMA request converges on
+ * its derived key, the movement converges on the caller's, the recovery
+ * converges on `recovery:<requestId>:<kind>`, and the supplier cancellation is
+ * #124's own idempotent request.
+ */
+router.get('/retail-service/recoveries', retailRecoveryQueueHandler);
+router.get('/retail-service/requests/:requestId', retailRecoveryTraceHandler);
+router.post('/retail-service/requests/:requestId/rma', retailRmaRequestHandler);
+router.post('/retail-service/requests/:requestId/return-movements', retailReturnReportHandler);
+router.post('/retail-service/requests/:requestId/recoveries', retailRecoveryOpenHandler);
+router.post('/retail-service/requests/:requestId/recoveries/settle', retailRecoverySettleHandler);
+router.post('/retail-service/requests/:requestId/supplier-cancel', retailSupplierCancelHandler);
 
 export default router;

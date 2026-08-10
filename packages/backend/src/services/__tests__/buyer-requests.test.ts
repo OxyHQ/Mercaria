@@ -51,6 +51,11 @@ function orderFacts(overrides: Partial<BuyerRequestOrderFacts> = {}): BuyerReque
   return {
     id: 'order-1',
     status: 'paid',
+    // The default is a MARKETPLACE order, which is what every case in this file
+    // is about. #127 owns `mercaria_retail`, and the case below asserts both
+    // derivations refuse one by name rather than answering for #110's decider,
+    // which a `platform` order has none of.
+    commercialRole: 'connected_marketplace',
     paymentStatus: 'paid',
     shippingMethod: 'standard',
     sourceExternalId: null,

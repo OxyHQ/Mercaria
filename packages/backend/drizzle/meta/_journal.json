@@ -414,6 +414,13 @@
       "when": 1786354225719,
       "tag": "0058_jittery_johnny_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1786356141546,
+      "tag": "0059_icy_dragon_man",
+      "breakpoints": true
     }
   ]
 }

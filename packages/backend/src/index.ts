@@ -350,6 +350,30 @@ connectPostgres()
           log.general.error({ err }, 'Buyer-request reconciler import failed'),
         );
 
+      // The same job for a `mercaria_retail` order (#127), plus the delay
+      // notice. A retail request's refund goes back on Mercaria's own timeline
+      // and the RAIL answers whenever it answers; without this a buyer whose
+      // portal they never revisit would sit at "your refund is on its way"
+      // forever. The LOOP is gated by `RETAIL_SERVICE_RECONCILER_ENABLED` and
+      // the operator surface drives the same idempotent path, so turning it off
+      // cannot make a refund unfinishable.
+      //
+      // `registerRetailServiceConsumers` is beside it and is UNCONDITIONAL: it
+      // wires the retail dispute coordination onto #49's port, which is what
+      // suspends Mercaria's refund paths while a chargeback runs. Registering
+      // from here rather than from the payment domain is what keeps that
+      // dependency pointing one way.
+      import('./services/retail-service-requests/reconciler.js')
+        .then(({ startRetailServiceReconciler }) => startRetailServiceReconciler())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Retail service reconciler import failed'),
+        );
+      import('./services/retail-service-requests/registration.js')
+        .then(({ registerRetailServiceConsumers }) => registerRetailServiceConsumers())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Retail service consumer registration failed'),
+        );
+
       // Place, cancel, poll and interpret supplier orders (#124). THREE loops,
       // on EVERY task, each gated by its own lever and none of them gating a
       // durable record: with the orchestration off a paid retail order's job is

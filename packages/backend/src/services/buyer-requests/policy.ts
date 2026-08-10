@@ -45,6 +45,16 @@ import { DEFAULT_RETURN_WINDOW_DAYS } from '@mercaria/shared-types';
 export interface BuyerRequestOrderFacts {
   readonly id: string;
   readonly status: string;
+  /**
+   * The commercial model the order was sold under (#123).
+   *
+   * Checked FIRST in both derivations: a `mercaria_retail` order has no store,
+   * so #110's whole decision path — `requireStorePermission` on the order's
+   * store — cannot reach it, and a request filed here would sit forever with
+   * nobody able to decide it. #127 owns those orders and answers the same buyer
+   * with a decider that exists.
+   */
+  readonly commercialRole: string;
   readonly paymentStatus: string;
   readonly shippingMethod: string;
   /** Non-null for an order imported from a connected platform. */
@@ -131,6 +141,9 @@ export function returnWindowDays(facts: BuyerRequestOrderFacts): number {
 export function resolveCancellationEligibility(
   facts: BuyerRequestOrderFacts,
 ): CancellationEligibility {
+  if (facts.commercialRole === 'mercaria_retail') {
+    return { verdict: 'ineligible', reason: 'retail_order' };
+  }
   if (CLOSED_ORDER_STATUSES.has(facts.status)) {
     return { verdict: 'ineligible', reason: 'order_already_closed' };
   }
@@ -180,6 +193,9 @@ export function resolveReturnEligibility(
   facts: BuyerRequestOrderFacts,
   now: Date,
 ): ReturnEligibility {
+  if (facts.commercialRole === 'mercaria_retail') {
+    return { verdict: 'ineligible', reason: 'retail_order' };
+  }
   if (CLOSED_ORDER_STATUSES.has(facts.status)) {
     return { verdict: 'ineligible', reason: 'order_already_closed' };
   }

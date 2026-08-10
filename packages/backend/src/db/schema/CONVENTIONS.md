@@ -4417,3 +4417,73 @@ about what they deliberately do NOT hold.
   foreign key** (registered in `deferredForeignKeys.ts`): a recorded
   measurement must not be deletable by a catalogue change, and `restrict` would
   make a category undeletable because somebody once benchmarked it.
+
+## Retail service requests (#127)
+
+`retail_service_requests`, `retail_service_request_lines`,
+`retail_service_request_evidence`, `retail_service_request_events`,
+`retail_service_policy_exceptions`, `retail_return_cases`,
+`retail_return_case_lines`, `retail_return_line_dispositions`,
+`retail_warranty_cases`, `supplier_return_authorizations`,
+`supplier_recoveries`, `retail_dispute_coordinations`. Full reference:
+`docs/retail-service-requests.md`.
+
+- **The wall down the middle is ONE column.** The CUSTOMER half carries no
+  supplier amount, no supplier state and no purchase-order reference; the
+  SUPPLIER half carries no customer amount and no refund pointer.
+  `supplier_recoveries.service_request_id` is the only join and it points from
+  the supplier side to the customer side, never back — ADR 0004 D8.5 as a shape,
+  gated by `retail-service-isolation.test.ts` and mutation-tested.
+- **TWO deadline columns, never one.** `statutory_deadline_at` and
+  `commercial_deadline_at`, with the effective one derived as the LATER of them.
+  A single column cannot express "a supplier's narrower policy may not reduce a
+  statutory right": by the time the two are one number the narrower one has
+  already won and nothing records that it did. `supplier_response_due_at` is a
+  THIRD clock that bounds nothing on the customer side and drives no transition
+  (#127 policy rule 9).
+- **No ledger account and no ledger pointer anywhere.** ADR 0004 D7 assigns the
+  five retail accounts and four transaction kinds to #128 *together with the code
+  that writes them*, so this domain classifies and #128 books —
+  `retail_cost_variance_records`' division (#123), for the same reason.
+- **`cardinality`, never `array_length`,** on
+  `retail_service_policy_exceptions.excluded_kinds`. `array_length(col, 1)` is
+  NULL on `{}` and a CHECK reads NULL as SATISFIED, so the obvious spelling
+  admits exactly the row it refuses — an exception that excludes nothing while
+  claiming to. Pinned by a real-server case.
+- **A policy exception's SOURCE is a disjoint union.**
+  `RETAIL_POLICY_EXCEPTION_SOURCES` (statutory instrument, Mercaria policy) and
+  `RETAIL_FORBIDDEN_POLICY_EXCEPTION_SOURCES` (six a supplier could supply) share
+  no member, so a supply agreement's narrower returns policy has no value it
+  could be recorded under. Four eyes is `reviewed_by <> requested_by` at the row;
+  immutability once published is a trigger; one LIVE exception per (market,
+  category) is a partial unique.
+- **Quantities SUM; they are never counters.**
+  `retail_return_line_dispositions` is append-only against UPDATE *and* DELETE,
+  and the cross-row cap lives in the repository with the case line locked
+  `FOR UPDATE`. A mutable `received_quantity` is how two concurrent scans both
+  read three and both write six. Only `shipped` consumes a unit's returnability
+  (`RETAIL_RETURN_CONSUMING_DISPOSITIONS`) — capping `received` would refuse a
+  supplier reporting receipt of units a buyer over-declared, which is a real
+  event. There is NO amount column: `credited` is recorded here so an operator
+  sees both sides, and the money is on `supplier_recoveries`.
+- **A GUEST can never be the decider.** The actor CHECK alone would accept one,
+  so `retail_service_requests_decider_authority_check` names the three kinds that
+  may. Mercaria decides a retail remedy (#127 responsibility rule 2).
+- **An outcome moves NULL → value exactly once.** The trigger permits the
+  decision and REFUSES value → value, the `orders.claimed_by_oxy_user_id` device
+  (#106): a service bug cannot silently re-decide a remedy the buyer was already
+  told about, and re-deciding is a NEW request.
+- **A release of a refund suspension is all-or-none.**
+  `retail_dispute_coordinations_release_shape_check` demands a reason, an actor
+  AND an instant together. The word in #127 rule 10 is *unnoticed* — a deliberate
+  double payment is sometimes right, and an unnoticed one never is.
+- **`supplier_recoveries.service_request_id` is `ON DELETE SET NULL`** while
+  every other reference in the domain is RESTRICT or CASCADE. A recovery outlives
+  the customer matter it arose from: a credit note can arrive after a request is
+  closed, and losing the recovery would lose money Mercaria is owed.
+- **The evidence `file_id` is an OXY id and is CHECK-refused as a URL.** Never a
+  `mercaria.co` one — a reviewer's browser fetching such a URL would tell this
+  host when its content is being looked at (`abuse_reports`' posture, #110's
+  before it). The service refuses one too; both are needed, because the service
+  protects the ordinary path and the CHECK protects a backfill, a replay and
+  `psql`.

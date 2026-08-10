@@ -2601,6 +2601,38 @@ export interface BuyerRequestsConfig {
   readonly reconcileGraceMs: number;
 }
 
+/**
+ * Retail cancellations, returns, warranties, supplier RMAs and refunds (#127).
+ *
+ * TWO levers, and the split is #110's for #110's reason. `requestsEnabled` gates
+ * the buyer-facing WRITE paths and is a 503 rather than a 403: this deployment
+ * DOES do retail returns, it has temporarily stopped taking new ones, and
+ * retrying later is the client's correct response. Reads, decisions, refunds,
+ * return cases, warranty cases, supplier recoveries and every request already
+ * filed are unaffected — a buyer waiting for a refund must not lose it because
+ * somebody paused intake.
+ *
+ * `reconcilerEnabled` gates the settlement sweep LOOP and nothing else. Every
+ * request it would advance is also advanced by the operator surface's
+ * `complete`, which drives the same idempotent path, and by the buyer's own
+ * portal read, which shows the true rail state whatever the loop is doing.
+ *
+ * **Neither is `MERCARIA_RETAIL_ENABLED`, and this domain never reads it.**
+ * #127 acceptance 8 is *"existing cases remain operable after new retail
+ * checkout or supplier integration is paused"*, and
+ * `retail-service-isolation.test.ts` fails the build if any module here learns
+ * to read `config.retail` or a supplier account's kill switch.
+ */
+export interface RetailServiceRequestsConfig {
+  /** Gates the buyer-facing WRITE paths. Reads and decisions stay open. */
+  readonly requestsEnabled: boolean;
+  /** Gates the refund-settlement sweep LOOP, never a row. */
+  readonly reconcilerEnabled: boolean;
+  readonly reconcileIntervalMs: number;
+  readonly reconcileBatchSize: number;
+  readonly reconcileGraceMs: number;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -2632,6 +2664,7 @@ export interface AppConfig {
   readonly guest: GuestConfig;
   readonly referrals: ReferralsConfig;
   readonly buyerRequests: BuyerRequestsConfig;
+  readonly retailService: RetailServiceRequestsConfig;
   readonly analytics: AnalyticsConfig;
   readonly retailEligibility: RetailEligibilityConfig;
   readonly supplierPreflight: SupplierPreflightConfig;
@@ -3122,6 +3155,21 @@ export const config: AppConfig = Object.freeze({
     // request handler is still working on would race it into the same
     // compare-and-swap for no benefit.
     reconcileGraceMs: intEnv('BUYER_REQUEST_RECONCILE_GRACE_MS', 30_000),
+  }),
+  /**
+   * #127. Defaults ON, like #110's, and for the same reason: a deployment that
+   * sells retail owes its buyers a way to cancel and return, and shipping that
+   * capability switched off would be shipping it broken.
+   */
+  retailService: Object.freeze({
+    requestsEnabled: boolEnv('RETAIL_SERVICE_REQUESTS_ENABLED', true),
+    reconcilerEnabled: boolEnv('RETAIL_SERVICE_RECONCILER_ENABLED', true),
+    reconcileIntervalMs: intEnv('RETAIL_SERVICE_RECONCILE_INTERVAL_MS', MINUTE_MS),
+    reconcileBatchSize: intEnv('RETAIL_SERVICE_RECONCILE_BATCH_SIZE', 50),
+    // A grace before a committed refund is swept. The buyer's own portal read
+    // reports the rail state live, so sweeping a row a handler is still working
+    // on would race it into the same compare-and-swap for no benefit.
+    reconcileGraceMs: intEnv('RETAIL_SERVICE_RECONCILE_GRACE_MS', 30_000),
   }),
   analytics: Object.freeze({
     enabled: resolveAnalyticsEnabled(),

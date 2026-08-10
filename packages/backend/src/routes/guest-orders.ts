@@ -69,6 +69,7 @@ import {
 import { emitAnalyticsEvent } from '../services/analytics/emit.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
 import buyerRequestRouter from './buyer-requests.js';
+import retailServiceRequestRouter from './retail-service-requests.js';
 
 const router = Router();
 
@@ -679,6 +680,28 @@ router.use(
     next();
   },
   buyerRequestRouter,
+);
+
+/**
+ * #127's retail service requests on the portal, behind the same gate.
+ *
+ * Same path, same credential, same group check — a guest buyer's rights over a
+ * retail order are the same rights an account holder has (#127 responsibility
+ * rule 7), and the way that is made true is by the two mounts sharing a router
+ * rather than by two code paths agreeing.
+ */
+router.use(
+  '/:groupId/orders/:id',
+  makeRateLimiter('buyer-requests'),
+  requirePortalSession,
+  (req, res, next) => {
+    if (req.portalGrant?.checkoutGroupId !== req.params.groupId) {
+      sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+      return;
+    }
+    next();
+  },
+  retailServiceRequestRouter,
 );
 
 /**

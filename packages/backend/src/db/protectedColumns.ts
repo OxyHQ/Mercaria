@@ -396,4 +396,46 @@ export const PROTECTED_COLUMNS = {
    * returned, and it reads differently from an ordinary select.
    */
   watchlist_items: ['note'],
+
+  /**
+   * The two actor identifiers on #127's request trail, for the reason
+   * `buyer_request_events` carries the same pair: the trail is attached to every
+   * request and is serialized whole to a buyer AND to an operator from one
+   * repository, so a plain `select()` would put a guest's cross-order
+   * correlation key in a response.
+   *
+   * `actor_kind` is deliberately NOT protected. It says a guest acted without
+   * saying which guest, which is #106's distinction and the whole reason the
+   * kind and the identifier are two columns.
+   */
+  retail_service_request_events: ['actorOxyUserId', 'actorGrantId'],
+
+  /** The same pair on a request itself. See `cancellation_requests` above. */
+  retail_service_requests: ['requesterGrantId', 'requesterOxyUserId'],
+
+  /** The same pair on a quantity movement. See above. */
+  retail_return_line_dispositions: ['actorOxyUserId', 'actorGrantId'],
 } as const satisfies ProtectedColumnRegistry;
+
+/**
+ * ## What #127 deliberately does NOT protect, and where it is protected instead
+ *
+ * `retail_return_cases.destination` and `.label_reference`,
+ * `supplier_return_authorizations.provider_reference` and every money column on
+ * `supplier_recoveries` are all things a BUYER must never see (#127 return rule
+ * 5, experience rule 8) — and none of them is in the registry above.
+ *
+ * The reason is that this registry is a read-side filter and those four are read
+ * legitimately, by the return orchestration and by the procurement operator
+ * surface, which is exactly who the power belongs to. Listing them here would
+ * force every one of those reads through a second explicit query and leave the
+ * protection looking stronger than it is.
+ *
+ * They are protected by SHAPE instead: `RetailServiceReturnCaseView` has no
+ * destination, label or RMA member and `RetailServiceRequestView` has no
+ * recovery member at all, so a serializer reaching for one fails `tsc` — the
+ * `MerchantOrder` device (#106). `retail-service-isolation.test.ts` then walks a
+ * REAL emitted customer view against `RETAIL_SERVICE_FORBIDDEN_CUSTOMER_INPUTS`
+ * at runtime, which is the half a type cannot check: a field added under a
+ * plausible name to the view itself.
+ */

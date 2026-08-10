@@ -203,6 +203,53 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
     trigger: 'services/guest-portal/portal.service.ts (secureAccess)',
     note: 'Sent when a buyer revokes every other credential for their group.',
   },
+  retail_service_request_received: {
+    trigger: 'services/retail-service-requests/notifications.ts',
+    note: '#127. Enqueued after the request row commits, so it counts requests that were FILED ' +
+      'rather than attempted. Its body says Mercaria handles it from here, which is #127 ' +
+      'experience rule 1 in the one place a buyer would otherwise go looking for a supplier.',
+  },
+  retail_cancellation_updated: {
+    trigger: 'services/retail-service-requests/notifications.ts',
+    note: '#127. ONE kind for pending / accepted / unavailable, told apart by the state in the ' +
+      'dedupe suffix — #108’s own mechanism. Three kinds would be three sentences pointing ' +
+      'at the same portal page, and the outcome the buyer needs is the refund amount, which ' +
+      'the page carries.',
+  },
+  retail_return_authorized: {
+    trigger: 'services/retail-service-requests/notifications.ts',
+    note: '#127. Its own kind rather than a state of `retail_return_updated`, because it is the ' +
+      'one return message that asks the buyer to DO something before a deadline and its ' +
+      'subject line has to say so.',
+  },
+  retail_return_updated: {
+    trigger: 'services/retail-service-requests/notifications.ts',
+    note: '#127. In transit, received and inspected, told apart by the dedupe suffix. The body ' +
+      'states that receiving and refunding are separate steps, which is #127 experience rule 5 ' +
+      'and the single most common support question a returns flow generates.',
+  },
+  retail_warranty_updated: {
+    trigger: 'services/retail-service-requests/notifications.ts',
+    note: '#127. Every warranty case movement, told apart by the state in the suffix.',
+  },
+  retail_service_delayed: {
+    trigger: 'services/retail-service-requests/notifications.ts',
+    note: '#127 communication item 10 — "supplier delay only in customer-appropriate language". ' +
+      'The body names no supplier and no reason, because both are procurement facts and ' +
+      'because "our supplier has not replied" tells a buyer to go and find one.',
+  },
+  retail_safety_notice: {
+    trigger: 'services/retail-service-requests/notifications.ts',
+    note: '#127 communication item 11. Enqueued when a `safety_recall` request is raised ' +
+      'against an order, and deliberately NOT deduped on a state — a recall notice re-sent is ' +
+      'better than one swallowed.',
+  },
+  retail_service_request_closed: {
+    trigger: 'services/retail-service-requests/notifications.ts',
+    note: '#127 communication item 12. Sent on every terminal state, so a rejected request ' +
+      'produces a message rather than silence — a buyer who is told no can act on it, and one ' +
+      'who is told nothing opens a second request.',
+  },
 };
 
 /** Order statuses that produce a guest lifecycle message, and which kind. */

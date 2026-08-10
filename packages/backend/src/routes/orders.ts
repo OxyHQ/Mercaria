@@ -10,6 +10,7 @@ import {
   mockPayMyOrder,
 } from '../controllers/orders.controller.js';
 import buyerRequestRouter from './buyer-requests.js';
+import retailServiceRequestRouter from './retail-service-requests.js';
 
 /**
  * Buyer orders API — the authenticated buyer's own orders.
@@ -41,5 +42,20 @@ router.post('/:id/mock-pay', makeRateLimiter('orders'), validateId('id'), mockPa
  * The same router serves the guest portal — see `routes/buyer-requests.ts`.
  */
 router.use('/:id', validateId('id'), buyerRequestRouter);
+
+/**
+ * #127's retail service requests, on the SAME order path.
+ *
+ * A separate router rather than more paths on #110's, because the two domains
+ * are decided by different authorities: a marketplace request is answered by the
+ * SELLER who made the sale, and a `mercaria_retail` order has no seller but
+ * Mercaria. Merging them would put a store-permission table and a
+ * payment-operator allow-list behind one set of handlers.
+ *
+ * Both mount on the same `:id`, so a buyer with a mixed basket reaches #110's
+ * paths on their marketplace order and #127's on their retail one, and neither
+ * can reach the other's decider.
+ */
+router.use('/:id', validateId('id'), retailServiceRequestRouter);
 
 export default router;
