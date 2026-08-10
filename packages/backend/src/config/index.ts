@@ -1630,6 +1630,34 @@ export interface ProductSavesConfig {
 }
 
 /**
+ * Private watchlists (#81).
+ *
+ * ONE flag, and it gates the MOUNT and nothing else. The three-lever shape #80
+ * needed does not apply here: there is no read mode to roll back to, because
+ * there was no watchlist surface before this issue, and there is no write gate
+ * on a migration because there is no migration — a watchlist is created by a
+ * person, not derived from anything.
+ *
+ * What the flag does NOT gate is the ROWS. A list already stored stays stored
+ * and comes back when the flag does, for #80's reason: a rollback lever that
+ * cost buyers their lists is not one anybody would pull, so it would sit unused
+ * during exactly the incident it exists for.
+ *
+ * `snapshotPageSize` bounds the history read and `evaluationConcurrency` bounds
+ * how many offer comparisons one basket runs at once — a 200-item list firing
+ * 200 of them together is a self-inflicted load spike on the read path every
+ * product page shares.
+ */
+export interface WatchlistsConfig {
+  /** `WATCHLISTS_ENABLED` — mounts `/watchlists`. */
+  readonly enabled: boolean;
+  /** How many recorded evaluations one history page returns. */
+  readonly snapshotPageSize: number;
+  /** How many items one basket evaluation prices at a time. */
+  readonly evaluationConcurrency: number;
+}
+
+/**
  * The unified offer model (#57, ADR 0002 D18).
  *
  * ONE lever and two tunables. `materializationEnabled` gates the convergence
@@ -2539,6 +2567,7 @@ export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
   readonly productSaves: ProductSavesConfig;
+  readonly watchlists: WatchlistsConfig;
   readonly offers: OffersConfig;
   readonly canonicalRollout: CanonicalRolloutConfig;
   readonly matching: MatchingConfig;
@@ -2655,6 +2684,11 @@ export const config: AppConfig = Object.freeze({
     migrationApplyEnabled: boolEnv('PRODUCT_SAVE_MIGRATION_ENABLED', false),
     migrationBatchSize: intEnv('PRODUCT_SAVE_MIGRATION_BATCH_SIZE', 200),
     counterSweepBatchSize: intEnv('PRODUCT_SAVE_COUNTER_SWEEP_BATCH_SIZE', 500),
+  }),
+  watchlists: Object.freeze({
+    enabled: boolEnv('WATCHLISTS_ENABLED', false),
+    snapshotPageSize: intEnv('WATCHLIST_SNAPSHOT_PAGE_SIZE', 50),
+    evaluationConcurrency: intEnv('WATCHLIST_EVALUATION_CONCURRENCY', 6),
   }),
   offers: Object.freeze({
     materializationEnabled: boolEnv('OFFER_MATERIALIZATION_ENABLED', true),

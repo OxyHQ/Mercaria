@@ -4267,3 +4267,85 @@ Five tables: `price_alerts`, `price_alert_evaluations`, `price_alert_triggers`,
   catalogue table. `oxy_user_id` is the whole of what this domain stores about a
   person, which is why erasure is one scoped DELETE and everything CASCADEs from
   the alert.
+## Private watchlists (#81)
+
+Four tables, no source model: `watchlists`, `watchlist_items`,
+`watchlist_snapshots`, `watchlist_snapshot_items`. A GROUPING with a purpose,
+plus the bounded, reproducible record of what that group cost at the moments it
+was evaluated. Behaviour: **`docs/watchlists.md`**.
+
+- **`watchlists.version` is the optimistic-concurrency token and the LIST is the
+  unit.** Every mutation of the list OR of one of its items is a
+  compare-and-swap on it, in one statement, with `oxy_user_id` in the SAME
+  predicate — "is this mine" and "is my copy current" are one question at the
+  database, so there is no window between finding a list and checking it. A
+  per-item token would let a reorder computed against one membership be applied
+  to another, which is the case a token exists to catch.
+- **`display_currency` is NOT NULL and `market` is nullable.** A basket total
+  has to name a currency, so a list without one could not be evaluated at all; a
+  market is a NARROWING, and its absence is what #74's comparison already does
+  with no market. `market` is CHECKed `~ '^[A-Z]{2}$'` rather than length-checked
+  — the comparison upper-cases what it is given, so a lower-case value stored
+  here would narrow nothing while looking like a restriction that was applied.
+- **`UNIQUE(watchlist_id, canonical_product_id)`** is what makes an add
+  idempotent under a double tap AND what a product merge converges on
+  (`repoint_if_absent` guarded on `watchlist_id`, #80's device). A list holding
+  both sides of a merge keeps the loser-side row on the tombstone, and the
+  evaluation derives `product_merged_into_existing_item` for it — so the basket
+  counts the product once rather than twice.
+- **`position` is deliberately NOT unique.** Ordering is `(position, added_at,
+  id)`, a TOTAL order, so ties break deterministically. A unique would turn every
+  reorder into a two-phase renumber or a DEFERRABLE constraint that leaves the
+  list unreadable to a concurrent transaction mid-reorder.
+- **`watchlist_items.note` is in `PROTECTED_COLUMNS`** — the `customers.email`
+  situation exactly: the evaluation reads items WHOLE and writes snapshot rows
+  from what it read, so a `select()` plus a spread is all it would take for a
+  person's free text to reach a durable table. The owner's own read names every
+  column explicitly (`OWNER_ITEM_COLUMNS`), which is what the registry's opt-in
+  is for and what makes that one read visibly different from every other.
+- **`watchlist_snapshots_item_counts_check` is a VACUITY FLOOR** —
+  `item_count = priced + unresolved`, equality and never `<=`, #60's
+  `catalog_backfill_runs_counters_total_check` for its reason. The cross-row half
+  (do those counters describe the lines being inserted) is the repository's, the
+  `insertRetailCostQuote` device.
+- **`cardinality(material_changes) >= 1`, NEVER `array_length`.** On an empty
+  array `array_length` is NULL and a CHECK reads NULL as SATISFIED, so the
+  obvious spelling admits exactly the row it refuses. Measured in #68 and #108;
+  this is the third table to state it and the realdb suite pins it.
+- **`watchlist_snapshots_total_shape_check` ties completeness to the total**:
+  `completeness <> 'unknown'` exactly when both `total_amount` and `basis` are
+  present, #120's completeness ⇔ presentation constraint.
+- **`content_digest` is NOT unique**, deliberately. A total that returns to a
+  previous value weeks later is a new observation and must be storable; the
+  dedupe compares against the LATEST snapshot only, under a `FOR UPDATE` lock on
+  the list row.
+- **The line shape is THREE CHECKs, and the third was found by the realdb
+  suite.** A `priced` biconditional and an `unresolved` biconditional both
+  evaluate false for an unresolved line carrying a price, so the obvious pair
+  ADMITS the row #81 item rule 7 exists to forbid.
+  `watchlist_snapshot_items_unresolved_empty_check` enumerates the fifteen
+  columns such a line must not carry, with `num_nonnulls`, so a column added
+  later has to be added there too.
+- **The FX quote is a `case` biconditional**, #78's
+  `offer_price_points_fx_shape_check`: five columns present exactly when a
+  conversion happened, `fx_from` equal to the line's own native currency and
+  `fx_to` to the display currency. A same-currency line carries NO quote, which
+  is correct — `fx.convert` returns the input object byte-identical on an equal
+  pair.
+- **`selected_offer_id` and `selected_canonical_variant_id` carry NO foreign
+  key** (`ID_COLUMNS_WITHOUT_FOREIGN_KEY`). `offers` CASCADEs from `listings`
+  (#57 chose that so a seller deleting a listing is never blocked), so an FK
+  would DELETE the history #81 correction rule 5 exists to keep — silently, and
+  exactly when the offer that made a price interesting went away.
+- **`watchlist_item_id` is `ON DELETE SET NULL` and `canonical_product_id` is
+  RESTRICT.** Removing an entry must not erase what it once cost; a line must
+  still say WHAT was priced afterwards.
+- **A snapshot is APPEND-ONLY against UPDATE and DELETE is PERMITTED** — the
+  `analytics_events` / `offer_price_snapshots` posture, inverting the ledger's.
+  Erasure on a schedule IS the retention policy, so a trigger refusing DELETE
+  would make the shared expiry sweep fail silently on every row it was meant to
+  remove. The LINE trigger permits exactly one update — `watchlist_item_id`
+  going NULL — which is the referential action the schema itself declares.
+- **No demand aggregate, no share token, no follower column, and only
+  `watchlists` carries an account id.** Each absence is the enforcement of a #81
+  privacy rule, and `watchlist-isolation.test.ts` scans for all of them.

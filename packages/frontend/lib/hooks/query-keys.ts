@@ -115,6 +115,22 @@ export const queryKeys = {
     listingContext: (listingId: string) => ["saves", "listing", listingId] as const,
   },
   /**
+   * Private watchlists (#81), and the BASKET is a key of its own beside the
+   * list it belongs to.
+   *
+   * Two keys rather than one query returning both, because they fail
+   * independently: opening a list reads two tables, while pricing it runs an
+   * offer comparison per item. A single key would put a failing comparison into
+   * the same error state as the list and take the editing with it, which is
+   * exactly what #81 acceptance 7 forbids.
+   */
+  watchlists: {
+    all: ["watchlists"] as const,
+    detail: (watchlistId: string) => ["watchlists", "detail", watchlistId] as const,
+    basket: (watchlistId: string) => ["watchlists", "basket", watchlistId] as const,
+    snapshots: (watchlistId: string) => ["watchlists", "snapshots", watchlistId] as const,
+  },
+  /**
    * The SCOPED review reads (#76). Deliberately keyed under `reviews` rather
    * than under `listings`/`stores`: a product review is not a fact about any
    * one listing, and a merchant review is not a fact about any one store —

@@ -379,4 +379,21 @@ export const PROTECTED_COLUMNS = {
    * presentation (#126 privacy 7, #162), never from either of these.
    */
   retail_fulfilment_intents: ['moovoSourceReference', 'moovoTransportRequestId'],
+
+  /**
+   * A watchlist item's PRIVATE note (#81 model rule 9, privacy rules 2 and 4).
+   *
+   * This is the `customers.email` situation exactly: the basket evaluation reads
+   * `watchlist_items` WHOLE — it needs the quantity, the preferences and the
+   * product on every row — and then writes a `watchlist_snapshot_items` row from
+   * what it read. A `select()` plus a spread is all it would take for a person's
+   * free text to land in a durable table nobody scoped to them, and #81 says
+   * merchants receive thresholded aggregates and never notes, and that notes
+   * never enter analytics.
+   *
+   * The owner's own list projection names it explicitly, which is what the
+   * registry's opt-in is for: that read is the one place a note is legitimately
+   * returned, and it reads differently from an ordinary select.
+   */
+  watchlist_items: ['note'],
 } as const satisfies ProtectedColumnRegistry;

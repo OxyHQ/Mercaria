@@ -90,6 +90,7 @@ import {
   priceAlerts,
   priceAlertTriggers,
 } from '../../db/schema/priceAlerts.js';
+import { watchlistItems, watchlistSnapshotItems } from '../../db/schema/watchlists.js';
 import { offerPriceSeries } from '../../db/schema/priceHistory.js';
 import { priceSignalEvaluations, priceSignalFeedback } from '../../db/schema/priceSignals.js';
 import {
@@ -324,6 +325,24 @@ const PRODUCT_SAVE_NOTE =
   'read excludes a merged product — which loses nothing precisely BECAUSE the twin exists, and ' +
   'is the only reading under which that exclusion is safe. Repointing it instead would violate ' +
   'the unique and abort the phase.';
+
+const WATCHLIST_ITEM_NOTE =
+  "#81's watchlist entry — a person's declared intention to buy this product, in a list with a " +
+  'purpose. #81 correction rule 1 requires a merge to rehome it idempotently, and the guard is ' +
+  'exactly `watchlist_items_watchlist_id_canonical_product_id_key`: a list holding BOTH sides of ' +
+  'a merge already has an entry for the winner, so the loser-side row stays on the tombstone ' +
+  'rather than aborting the phase. That is not a silent loss — the basket evaluation derives ' +
+  '`product_merged_into_existing_item` for it and excludes it from the total, so the buyer is ' +
+  'told to remove a duplicate rather than being charged for one product twice. Merging the two ' +
+  "rows' QUANTITIES instead was refused: a merge changing how many of something somebody asked " +
+  'for is a decision about their money that no automatic rule may make.';
+
+const WATCHLIST_SNAPSHOT_LINE_NOTE =
+  "#81's recorded evaluation of one item, at one moment. It is HISTORY and stays with the " +
+  'entity it measured: repointing it would rewrite what a buyer was shown, which is the same ' +
+  'objection `catalog_backfill_records` and the curation timeline already carry. The reader ' +
+  'still resolves the product through `merged_into_id`, one hop by construction (ADR 0002 D16), ' +
+  'and the line carries its own amounts and quote so it reads completely without any of them.';
 
 const PRICE_SERIES_NOTE =
   "#78's derived price series — the `review_aggregates` and `product_save_aggregates` " +
@@ -594,6 +613,16 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'alerts',
       disposition: 'retained_by_tombstone',
       note: PRICE_ALERT_TRIGGER_NOTE,
+    },
+    {
+      column: watchlistItems.preferredMerchantId,
+      phase: 'saves',
+      disposition: 'repoint',
+      note:
+        "#81's optional preferred SELLER on a watchlist entry. The `product_saves` disposition " +
+        'for its reason, with one of its own: a preference stranded on a tombstone matches no ' +
+        'offer, and an item that matches no offer leaves the basket total — so the failure ' +
+        'shows up as a number quietly going down rather than as anything anybody would look at.',
     },
   ],
 
@@ -889,6 +918,19 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         'then reads `done` forever. What the WINNER needs is a fresh request, and the phase ' +
         'runner enqueues one after the move rather than trying to carry the loser\'s across.',
     },
+    {
+      column: watchlistItems.canonicalProductId,
+      phase: 'saves',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [watchlistItems.watchlistId],
+      note: WATCHLIST_ITEM_NOTE,
+    },
+    {
+      column: watchlistSnapshotItems.canonicalProductId,
+      phase: 'saves',
+      disposition: 'untouched',
+      note: WATCHLIST_SNAPSHOT_LINE_NOTE,
+    },
   ],
 
   canonical_variant: [
@@ -1111,6 +1153,23 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'offers',
       disposition: 'retained_by_tombstone',
       note: PRICE_SERIES_NOTE,
+    },
+    {
+      column: watchlistItems.preferredCanonicalVariantId,
+      phase: 'saves',
+      disposition: 'repoint',
+      note:
+        "#81's optional preferred CONFIGURATION on a watchlist entry — `product_saves`' " +
+        'disposition for its reason. Unconditional: nothing is unique on this column, and after ' +
+        'a merge that IS the same configuration. Left on a tombstone the preference would stop ' +
+        'matching any offer and the item would evaluate as `preferred_variant_retired` forever, ' +
+        'silently dropping out of the basket total a buyer is watching.',
+    },
+    {
+      column: watchlistSnapshotItems.preferredCanonicalVariantId,
+      phase: 'saves',
+      disposition: 'untouched',
+      note: WATCHLIST_SNAPSHOT_LINE_NOTE,
     },
   ],
 };

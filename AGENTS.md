@@ -4655,3 +4655,99 @@ merchant's offer five times so a market of one reads as a market of five.
   OFFERS behind a signal, not of the signal, so copying them onto every evaluation
   row would be a denormalized second representation), **`taxInclusion`** (an
   offer-side column belonging to #57, which #74 waits on too) and **#79** (alerts).
+## Private watchlists and currency-safe basket tracking (#81)
+
+`services/watchlists/` (8 modules) + `db/watchlists/` (3 repositories) +
+`db/schema/watchlists.ts` (4 tables) + `/watchlists/*`, plus the storefront's
+`app/(app)/watchlists/` and `components/watchlist/`. Full reference:
+**`docs/watchlists.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"Private watchlists (#81)". A GROUPING with a purpose — a PC build, a nursery —
+plus the bounded, reproducible record of what that group cost at the moments it
+was evaluated.
+
+`product_saves` (#80) is NOT forked and NOT extended. A save answers "did this
+buyer save this product"; a watchlist answers "what would this SET cost me right
+now". They share no row, no counter and no aggregate, and a scanned gate fails
+the build if a module here reaches the save domain.
+
+- **A total names ONE currency and ONE basis, or it is not a total.** Every
+  amount is converted by #74's comparison before this domain sees it, each
+  carrying its own `FxRateSnapshot`; `composeWatchlistTotal` REFUSES a line in
+  another currency rather than skipping it — skipping is the quiet exclusion the
+  issue exists to prevent, wearing a defensive check's clothing. The basis
+  belongs to the WHOLE total: `delivered_total` only when EVERY contributing line
+  knows its delivery, else `item_price` for all of them. "Delivered where known,
+  bare price where not" is a figure that is neither, and it is the one a buyer
+  would mistake for what they will actually pay.
+- **The selection intent is `cheapest`, and that is a decision.** A watchlist
+  tracks COST, so the selection key has to be cost; `balanced` would put a number
+  on the page that no ordering of the offers explains.
+- **An item that could not be priced is REPORTED, never dropped.** Nine reasons,
+  each a fact the evaluation read, and `no_eligible_offer` (the buyer's own
+  filters) is never collapsed with `price_not_convertible` (nothing they can do)
+  — reporting the second as the first sends somebody to loosen a filter that was
+  never the problem.
+- **Three of the item states are DERIVED and one is stored.**
+  `product_unavailable`, `product_merged_into_existing_item` and
+  `preferred_variant_retired` are computed at evaluation time from
+  `canonical_products`/`canonical_variants` — the
+  `deriveNativeCheckoutEligibility` divergence — so a merge or a suppression
+  bites with no sweep having run. Only `ambiguous_after_split` is stored, because
+  a split is a decision a job took at a moment and the two candidates exist as a
+  pair only in that job.
+- **Nothing claims a multi-store optimum.** `WatchlistBasketOptimization` has ONE
+  branch and it is the unperformed one; `WATCHLIST_FORBIDDEN_CLAIMS` names six
+  sentences a surface may never render, and the gate scans the backend AND the
+  storefront screens in RAW source — comments included, because a claim in a
+  comment is a sentence somebody pastes into a screen next week. #42 owns the
+  optimization.
+- **The LIST is the concurrency unit.** `watchlists.version` is a
+  compare-and-swap carrying `oxy_user_id` in the same predicate, on every
+  mutation including item ones; a mismatch is `WATCHLIST_VERSION_CONFLICT` (409),
+  whose remedy is mechanical. A per-item token would let a reorder computed
+  against one membership be applied to another.
+- **A reorder is TOTAL or refused.** "These three go first" is ambiguous the
+  moment two of the rest share a position, and the ambiguity is invisible.
+- **Evaluating is a READ and recording is a WRITE.** `GET .../basket` stores
+  nothing; `POST .../snapshots` records one, deduplicated on a `content_digest`
+  compared against the LATEST snapshot under a `FOR UPDATE` lock. The digest
+  covers the LINES, not only the total: two items moving by equal and opposite
+  amounts leave the total exactly where it was, and a history that deduplicated
+  that would show a flat line through the week both prices moved. A dedupe is a
+  SUCCESS.
+- **`material_changes` is never empty** (`cardinality(...) >= 1`, never
+  `array_length`, which is NULL on `{}`) and `policy_version_changed` is the kind
+  to read: a different #74 policy can select a different offer at unchanged
+  prices, so a total that moved across one is NOT attributable to the items — and
+  the DIFF refuses to attribute it, by name, as it does across a currency or
+  basis change.
+- **The snapshot line shape needed THREE CHECKs and the third was found by the
+  realdb suite**: a `priced` biconditional and an `unresolved` biconditional both
+  read false for an unresolved line carrying a price, so the obvious pair admits
+  exactly the row item rule 7 forbids.
+  `watchlist_snapshot_items_unresolved_empty_check` closes it with
+  `num_nonnulls` over all fifteen columns.
+- **A snapshot is APPEND-ONLY against UPDATE and DELETE is PERMITTED** — the
+  `analytics_events` posture, because erasure on a schedule IS the retention
+  policy and a trigger refusing DELETE would make the sweep fail silently.
+  `selected_offer_id` carries NO foreign key: `offers` CASCADEs from `listings`,
+  so one would delete the history correction rule 5 exists to keep.
+- **Privacy is absence.** One member on `WatchlistVisibility`; no share token, no
+  follower, no demand aggregate (counting how many private lists hold a product
+  is `product_save_aggregates`' question at a different grain, with a floor
+  already); no analytics emission at all; `note` in `PROTECTED_COLUMNS` so it
+  cannot reach a snapshot row; only `watchlists` carries an account id, so an
+  erasure is one scoped DELETE. **No operator surface and no seventh allow-list**
+  — none of the six should read a private list, and every repair is a path the
+  owner already drives.
+- Env: `WATCHLISTS_ENABLED` (default false; gates the MOUNT and never the rows),
+  `WATCHLIST_SNAPSHOT_PAGE_SIZE`, `WATCHLIST_EVALUATION_CONCURRENCY`.
+- Deferred with named seams, none of them a stub that lies: **#42** (the
+  multi-store optimization), **#79** (price alerts — `WatchlistItemPriceAlert`
+  has one branch and it is the unsupported one, and no schema carries a field to
+  ask for one; the TARGET amount is the half that is representable today),
+  **#94** (item-level template semantics — a template supplies a name, an icon
+  and a description and names no products), **#78** (the price CHART; this domain
+  compares against its own basis-matched snapshots, which answer a different
+  question about a different subject), **#71** (the product page each row links
+  to).

@@ -95,7 +95,19 @@ import { offerPriceSnapshots } from './schema/priceHistory';
 import { notifications } from './schema/notifications';
 import { paymentOutboxes, paymentProviderEvents } from './schema/payments';
 import { referralTouches } from './schema/referrals';
+import { watchlistSnapshots } from './schema/watchlists';
 import { procurementOutboxes, supplierProviderEvents } from './schema/supplierOrders';
+
+/**
+ * `WATCHLIST_SNAPSHOT_RETENTION_SECONDS` — 400 days, matching #78's price-history
+ * query span.
+ *
+ * A basket history is only useful against a seasonal comparison ("what did this
+ * build cost me last Black Friday"), so anything under a year answers the one
+ * question people actually ask with a gap. 400 rather than 365 so a year-ago
+ * comparison still resolves on the day it is made.
+ */
+const WATCHLIST_SNAPSHOT_RETENTION_SECONDS = 400 * 24 * 60 * 60;
 
 /** `MODERATION_OUTBOX_RETENTION_SECONDS` — 14 days, long enough to investigate. */
 const MODERATION_OUTBOX_RETENTION_SECONDS = 14 * 24 * 60 * 60;
@@ -565,6 +577,23 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       '`notifications.dismissed_at` shape. Stamped at write time, so a later policy change ' +
       'cannot retroactively shorten what was lawfully kept and cannot lengthen it either.',
   },
+  // Private watchlists (#81). ONE entry, and the three omissions are the
+  // decision: `watchlists` and `watchlist_items` are a person's own data and are
+  // removed when they remove them, and `watchlist_snapshot_items` CASCADE from
+  // the snapshot they belong to — so the sweep never has to know they exist and
+  // a line can never outlive the evaluation it describes.
+  {
+    table: watchlistSnapshots,
+    column: watchlistSnapshots.retentionExpiresAt,
+    retentionSeconds: 0,
+    reason:
+      'One recorded evaluation of one private list (#81 snapshot policy). The column IS the ' +
+      'deadline, stamped at write time from `WATCHLIST_SNAPSHOT_RETENTION_SECONDS`, so a later ' +
+      'change to that window cannot retroactively shorten history somebody was shown. It is ' +
+      'the only table in the domain whose size is a function of how often a buyer opens a ' +
+      'list, which is why it is the only one with a deadline — and why the write DEDUPLICATES ' +
+      'an unchanged evaluation rather than relying on the sweep to clean up after it.',
+  },
 ];
 
 /** Every retention, exported so the writers that stamp `expires_at` agree with the sweep. */
@@ -584,4 +613,5 @@ export const RETENTION_SECONDS = {
   feedUpload: FEED_UPLOAD_RETENTION_SECONDS,
   feedImportReport: FEED_IMPORT_REPORT_RETENTION_SECONDS,
   feedImportReportEntry: FEED_IMPORT_REPORT_ENTRY_RETENTION_SECONDS,
+  watchlistSnapshot: WATCHLIST_SNAPSHOT_RETENTION_SECONDS,
 } as const;
