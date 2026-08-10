@@ -1,6 +1,8 @@
 # Mercaria — Connectors deploy runbook (handoff)
 
-The connectors platform (Shopify + WooCommerce sync, ingestion API, WordPress plugin) is **code-complete and CI-green** but has **never run against a real store** — everything is unit-tested with mocked HTTP. This runbook lists the exact steps to make it live in production. Everything here needs your accounts/infra; the code is ready for it.
+The connectors platform (Shopify + WooCommerce sync, ingestion API, WordPress plugin) is **code-complete and CI-green** and has **still never run against a real Shopify store, a real WooCommerce site or a real WordPress plugin install** — acceptance criterion 7 of #69 is not met and this sentence stays until it is.
+
+What changed with #69 is the *shape* of the remaining unknown. It is no longer "everything is unit-tested with mocked HTTP": the providers, the sync service and the database are now exercised together, with only the socket faked, so the unknown is narrowed to what only a real platform can settle. §5 says precisely which scenarios are automated, which are manual, and which known defects a real run will meet. The ordered, copy-pasteable procedure lives in **`docs/runbooks/connector-real-store-verification.md`**.
 
 ## 0. What's deployed vs what's inert
 The connector backend, dashboard "Sales channels" UI, ingestion API, and the WooCommerce plugin (repo `OxyHQ/mercaria-woocommerce`) are all on `main` and deploy with the normal Mercaria pipeline. They are **inert until** the env below is set + a Partner app exists.
@@ -16,7 +18,7 @@ Generate + set these on the **Mercaria backend** (ECS):
 | `CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL` | e.g. `https://dashboard.mercaria.co/channels` | Where the merchant lands after authorizing. |
 | `CONNECTOR_DEFAULT_CATEGORY_SLUG` | e.g. `home` | An existing category slug imported products default to. |
 | `SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET` | from the Partner app (§2) | |
-| `SHOPIFY_SCOPES` | `read_products,write_products,read_inventory,read_orders,write_merchant_managed_fulfillment_orders` | Missing a scope degrades that feature gracefully (webhook registration is best-effort). |
+| `SHOPIFY_SCOPES` | the full string in `docs/runbooks/connector-real-store-verification.md` §3.2 | The code DEFAULT is `read_products` alone. Missing a scope does NOT degrade gracefully: the connector registers the order and inventory webhook topics unconditionally, the first refusal throws, and the subscriptions already created are left live on Shopify with their ids discarded (§5.3). |
 | `REDIS_URL` | ElastiCache Valkey (already in `oxy-infra`) | **Important:** without it, syncs run INLINE in the request → large backfills time out, and the scheduled 6h reconcile never runs. Required for production. |
 
 Guest commerce (#103, ADR 0003 — DO NOT enable before the M8 security + privacy review): `GUEST_COMMERCE_ENABLED=true` requires BOTH `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (each `openssl rand -hex 32`, two DIFFERENT keys — D12) or it stays OFF and logs once at boot. `GUEST_SESSION_ISSUANCE_ENABLED=false` is the incident kill switch (stops new sessions only). Tunables `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`.
@@ -40,16 +42,53 @@ Repo: `OxyHQ/mercaria-woocommerce` (private). To ship:
 2. Merchant flow: in the Mercaria dashboard, on a WooCommerce `push_in` connection, **generate a Channel API Key** (`mck_…`, shown once) → paste it (+ the API base URL + connection id) into the plugin's Settings → Mercaria page → the plugin pushes the Woo catalog/stock to `{base}/channels/ingest/{connectionId}/{products,inventory}` with `Authorization: Bearer mck_…`. The key is long-lived (no OAuth needed).
 
 ## 5. Real-store E2E verification (the remaining unknown)
-Everything is unit-green with mocked HTTP; verify against a real dev store:
-- [ ] Shopify OAuth connect succeeds; a backfill imports products with native currency + images.
-- [ ] A price/inventory change in Shopify propagates (webhook + the 6h reconcile).
-- [ ] Deleting a product in Shopify archives it in Mercaria.
-- [ ] `overriddenFields` (a locally-edited price/collection) survives re-sync.
-- [ ] A Shopify order appears in Mercaria (source-stamped, DualMoney); marking it shipped pushes a fulfillment back.
-- [ ] WooCommerce connect-key + plugin push a Woo catalog in.
-- [ ] A large catalog backfill completes without 429 failures (needs `REDIS_URL`).
+
+Full procedure, scope table, evidence template, enablement checklist and
+rollback: **`docs/runbooks/connector-real-store-verification.md`**.
+
+### 5.1 Now AUTOMATED (CI, every push)
+
+Four suites drive the REAL providers (URL building, pagination, zod schemas,
+price parsing, and Shopify's 429/leaky-bucket wrapper), the REAL
+`connector-sync.service` and a REAL Postgres server. Only the socket is faked.
+
+| Suite | Cases |
+|---|---|
+| `connectors/shopify/__tests__/shopify-contract.test.ts` | 23 |
+| `connectors/woocommerce/__tests__/woocommerce-contract.test.ts` | 21 |
+| `services/__tests__/channel-push-contract.realdb.test.ts` | 15 — all eight plugin-push scenarios, over real HTTP |
+| `services/__tests__/connector-queue-boundary.test.ts` | 8 — every sync entry point enqueues instead of working inline |
+
+The shared cases live in `connectors/__tests__/connector-contract-suite.ts`; a
+new platform gets all of them by writing one harness.
+
+Covered at contract level: connect/reconnect/disconnect, credential revocation
+and recovery, insufficient permission, backfill, price/title/image/stock updates,
+override preservation, archive-on-removal, cursor pagination, rate-limit
+behaviour, order import idempotency, native currency preservation, product and
+order webhooks, inventory convergence, fulfillment push idempotency, channel-key
+minting/rotation/revocation, cross-store and cross-connection rejection, and
+"the plaintext key never appears in any response after creation".
+
+### 5.2 Still MANUAL — needs a provisioned store
+
+- [ ] Shopify OAuth connect against a real Partner app, with the GRANTED scopes read back.
+- [ ] A backfill of a > 250-product catalogue, paginated and rate-limited for real.
+- [ ] Real `products/*`, `orders/*` and `inventory_levels/update` deliveries.
+- [ ] A real fulfillment pushed back and visible in Shopify.
+- [ ] A WooCommerce pull from a real WordPress site (> 100 products, `manage_stock: 'parent'` variations).
+- [ ] A real WordPress plugin install pushing its catalogue and stock in.
+- [ ] Evidence recorded for each, redacted, per the runbook.
+
+### 5.3 Defects found while building the suites (filed, referencing #69)
+
+- **#218** — webhook registration is partially effectful and DISCARDS the ids it created — orphaned subscriptions on disconnect, duplicates on reconnect; on WooCommerce the per-connection secret is lost too, so every delivery 401s forever. Triggered by the DEFAULT `SHOPIFY_SCOPES=read_products`, which cannot register the order/inventory topics.
+- **#219** — WooCommerce has NO 429 handling (Shopify has a full retry + throttle); one 429 fails the whole run.
+- **#220** — a WooCommerce `product.*` webhook collapses a variable product to ONE variant at the parent's lowest price, permanently.
+- **#221** — an import is not atomic between creating the listing and stamping provenance; a failure between them strands a listing no later sync can match.
 
 ## 6. Known limitations (code, not blockers)
 - FX static rates for the 15 new currencies are dev defaults — need a real feed for accuracy.
 - `collectionMapping` populates from Shopify collects on backfill; a webhook-driven single-product update carries no collection context (reconciled at the next backfill).
 - Fulfillment holds/cancellations beyond line-level partial fulfillment are not mapped.
+- A no-change resync tallies as `updated`, not `skipped` — the listing patch is built from every unpinned connector-managed field whether or not it changed.
