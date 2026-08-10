@@ -88,6 +88,18 @@ const STOREFRONT_PATHS = [
   'lib/hooks/use-product-page.ts',
 ];
 
+/**
+ * The files WALL 6 checks navigation targets in.
+ *
+ * #71's own files, PLUS the listing page — which this issue does not own, and
+ * on which it added exactly one thing: the entry point into the canonical page.
+ * That link is held to the same route gate as the page's own, and to NOTHING
+ * else. Putting a file this issue does not own through the other five walls is
+ * how a gate starts crying wolf at whoever edits it next, and a gate that cries
+ * wolf is the one somebody deletes.
+ */
+const NAVIGATION_PATHS = [...STOREFRONT_PATHS, 'app/(app)/products/[id].tsx'];
+
 function storefrontSources(): { relative: string; source: string }[] {
   return STOREFRONT_PATHS.map((relative) => ({
     relative,
@@ -336,7 +348,11 @@ function routeExists(target: string, routes: readonly string[]): boolean {
 /** Every literal `router.push`/`router.replace` target in the page's files. */
 function navigationTargets(): { relative: string; target: string }[] {
   const found: { relative: string; target: string }[] = [];
-  for (const file of storefrontSources()) {
+  const sources = NAVIGATION_PATHS.map((relative) => ({
+    relative,
+    source: readFileSync(join(STOREFRONT_ROOT, relative), 'utf8'),
+  }));
+  for (const file of sources) {
     const source = withoutComments(file.source);
     for (const match of source.matchAll(/router\.(?:push|replace)\(\s*[`'"]([^`'"]+)[`'"]/gu)) {
       const target = match[1];
@@ -354,7 +370,7 @@ describe('WALL 6: every route this page navigates to exists', () => {
     // empty target list would pass vacuously.
     expect(routes.length, 'the app tree walk found nothing').toBeGreaterThanOrEqual(15);
     const targets = navigationTargets();
-    expect(targets.length, 'no navigation target was extracted').toBeGreaterThanOrEqual(4);
+    expect(targets.length, 'no navigation target was extracted').toBeGreaterThanOrEqual(6);
 
     for (const { relative, target } of targets) {
       expect(

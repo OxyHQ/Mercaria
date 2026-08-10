@@ -313,6 +313,20 @@ product is Mercaria's own catalogue record — a wrong specification is a data
 correction (#59's queue), not somebody's content to be moderated. Reporting a
 LISTING is on that listing's own page, where `POST /reports` has a type for it.
 
+## Reaching the page
+
+`/products/:id` — the listing page — gains ONE control: "Compare all offers",
+shown only when that listing resolves to a canonical product. A link on an
+unmatched P2P listing would lead to a page that does not exist for it, and the
+listing page itself is otherwise untouched (#71 acceptance 7). #75 owns the full
+public-route migration; this is what makes the comparison reachable in the
+meantime.
+
+That one link is scanned by WALL 6 and by NOTHING else in the gate: putting a
+file this issue does not own through the other five walls is how a gate starts
+firing at whoever edits it next, and a gate that cries wolf is the one somebody
+deletes.
+
 ## Four requirements answered by a statement rather than a control
 
 - **Language.** The page resolves a MARKET (`?market=`) and a display CURRENCY
