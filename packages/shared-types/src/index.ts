@@ -269,6 +269,13 @@ export * from './product-page';
 // without the quote that produced it.
 export * from './price-history';
 
+// Trustworthy price signals and merchant competitiveness (#82). Follows
+// `./price-history` and `./offer-ranking`, whose immutable observations and
+// eligible offers are its only two inputs: a signal is a CLAIM about a price,
+// so `unmeasured` is a state rather than a missing number, `not_present` is a
+// measured negative, and every published figure keeps #78's FX basis.
+export * from './price-signals';
+
 // Merchant → native `Store` linkage (#84, ADR 0002 D4/D9) — the request that
 // joins a verified merchant claim to exactly one native store, the candidate
 // evidence vocabulary (which has NO name-match member), the adoptable profile

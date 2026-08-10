@@ -4538,3 +4538,120 @@ EXACTLY once.
   is emitted), **#71** (the product page's own "watch this price" control), and
   **#81** (a watchlist is a different thing and this domain has no field for
   one).
+## Trustworthy price signals and merchant competitiveness (#82)
+
+`services/price-signals/` (11 modules) + `db/priceSignals/` (4 repositories) +
+`db/schema/priceSignals.ts` (4 tables) + `/price-signals` (public),
+`/merchant-competitiveness/*` (merchant) and `/internal/price-signals/*`
+(operator), plus `@mercaria/ui` `lib/price-signal-labels.ts` (the copy). Turning
+#78's immutable observations and #74's eligible offers into CLAIMS about a price.
+Full reference: **`docs/price-signals.md`**; schema decisions:
+`db/schema/CONVENTIONS.md` §"Price signals (#82)".
+
+The failure mode that shapes it is a CONFIDENT LABEL COMPUTED OFF NOTHING: a
+"historic low" that is one retailer's decimal-point error, a "good price" from two
+observations rendered exactly like one from two hundred, a "lowest ever" that
+blends the used copy into the new one, and a syndicator republishing one
+merchant's offer five times so a market of one reads as a market of five.
+
+- **THREE states, and the middle one is the one people collapse.** `measured`
+  carries a value AND its evidence; `unmeasured` carries a reason and NEITHER
+  (#74's `RankingSignalOutcome` device); between them is `not_present`, which
+  means the derivation RAN over a sample that cleared every floor and the
+  condition does not hold. Reporting that as `unmeasured` tells a merchant their
+  data is too thin when it is fine; reporting it as `measured` with a zero tells a
+  shopper there was a drop of nothing.
+- **Every published figure is a #78 `PriceHistoryValue`, never a bare `Money`.**
+  #78 made the FX basis a discriminant so a consumer cannot render a converted
+  figure without seeing that it was converted; flattening it at the last hop would
+  undo that at the hop a shopper actually reads.
+- **The outlier rule is a CONJUNCTION — a modified z-score AND a relative
+  floor — and each half alone is wrong.** The z-score alone deletes every real
+  discount on a TIGHT market: measured here, twelve retailers within 2% give a MAD
+  of ten minor units and a genuine half-price sale scores a modified z of 33, so
+  "recent low" would report everything except the sale it exists to report. The
+  relative floor alone deletes a legitimate low on a VOLATILE market. Together
+  they are statistical policy 6's distinction between a sale price and a scale
+  error — #78 reached the same place with `PRICE_SCALE_SHIFT_FACTOR`. **When MAD
+  is ZERO nothing is an outlier**, or the naive implementation excludes every
+  price that is not the mode, which fires exactly where a catalogue is healthiest.
+  An outlier is NAMED in the evidence, never deleted.
+- **Deduplication runs BEFORE outlier detection, and it is keyed on the SELLER.**
+  Reversed, five syndicated copies of one wrong price form their own cluster, pull
+  the median to themselves and make the CORRECT prices the outliers — the failure
+  deduplication exists to prevent, arriving through the door marked "robust
+  statistics". An offer whose seller cannot be identified is EXCLUDED rather than
+  given a key of its own: a per-offer fallback inflates the distinct-seller count
+  in the one direction that makes a weak sample look strong.
+- **Nothing interpolates.** The median of an even sample is the LOWER middle value
+  and a quartile is nearest-rank, so every published figure is a price somebody
+  actually charged and traceable to one immutable row.
+- **No built-in policy, which is the deliberate divergence from #74.** No active
+  version ⇒ every signal is `unmeasured`/`no_active_policy`. A ranking must
+  produce SOME order or the comparison surface has none; a claim about a price
+  need not be made at all. **And no `canary`**: a ranking canary shows two
+  shoppers two ORDERS, a signal canary would show them two contradictory CLAIMS
+  about one price. Version comparison is a `candidate_comparison` RUN — every
+  number, no shopper.
+- **`PRICE_SIGNAL_MIN_DISTINCT_SELLERS_FLOOR` is a CHECK and the reason is NOT
+  disclosure.** Every offer read here is one `/offer-comparison` already publishes,
+  so an aggregate over them discloses nothing new. The floor exists because the
+  WORD has to mean something: a "market median" over two sellers is one rival's
+  price wearing a statistical name. `goodPriceBelowMedianBps >= typicalBandBps` is
+  a CHECK for a sharper reason — overlapping thresholds make one price satisfy
+  both verdicts, decided by comparison ORDER in the code rather than by the row.
+- **The merchant surface is gated by #83's verified claim and is NOT a seventh
+  allow-list.** An unclaimed merchant, a pending claim, a revoked one and a caller
+  who is somebody else all answer the SAME 404. `MerchantCompetitivenessRow` has
+  no competitor id, name or price — gated statically AND by a realdb walk of a
+  REAL emitted response (#92's two-gate rule) — and this domain reads NO
+  buyer-side data at all, which is why #77's suppress-below-ten posture has
+  nothing here to apply to.
+- **`price_signal_evaluations` is a RECORDING, never a cache**, and a scanned
+  gate fails the build if a read path selects from it: the inputs live on tables
+  in four other domains, and a cached "good price" survives the moderation
+  restriction and the rights withdrawal that should have withdrawn it. Its counter
+  CHECKs SUM by EQUALITY (#60's vacuity floor) and the metrics report
+  `signalsFromRecords` beside the run's own counter with `countsAgree`.
+- **Isolation is a test, in BOTH directions.** No module under
+  `services/ranking/` may reference this domain (acceptance 6 — a measured
+  position is one join from "merchants who price aggressively rank higher"), and
+  this domain may reach #74 only through the ADMISSION half (`eligibility.ts`,
+  `facts.ts`, `money.ts`) and never the policy, the score, the labels or the
+  dominance detector — #74's own narrowing of #55's gate, reused.
+- **The CSV export renders exactly the rows the JSON carries**, and every cell
+  guards a leading `=`/`+`/`-`/`@`: a spreadsheet reads those as a FORMULA and
+  every value here comes from a catalogue somebody else writes.
+- Env: `PRICE_SIGNALS_ENABLED` (the measurement LOOP),
+  `PRICE_SIGNALS_PUBLIC_READS_ENABLED` (the buyer MOUNT) and seven bounds. **Not
+  one threshold that decides what a signal MEANS is in the environment** — every
+  one is a `price_signal_policy_versions` column, versioned and frozen once it
+  serves, because acceptance 4 asks that a signal be reproducible from immutable
+  observations and a POLICY VERSION and a number read out of the environment is
+  reproducible from neither. Operator surface on the SAME
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list, mounted while the sweep is off and
+  while nothing is published.
+- **One real bug the realdb suite caught on its first run:**
+  `activatePriceSignalPolicyVersion` superseded the incumbent of whatever
+  `PRICE_SIGNAL_POLICY_KEY` names rather than of the target row's OWN key. The
+  partial unique is per key, so the supersede left the real incumbent standing and
+  the activation failed on the index. The two spellings agree today; the column
+  exists because a second comparison surface with its own policy is foreseeable.
+- **The one thing #82 asks for that Mercaria cannot measure, stated rather than
+  stubbed:** product-level DEMAND (competitiveness item 4). `resolveProductDemand`
+  answers no data and the insight is `unmeasured`/`demand_measurement_unavailable`.
+  #77 defines no product-level demand metric — its twenty-two definitions are
+  search, funnel, conversion and coverage rates, none keyed on a canonical
+  product, and `analytics_rollups` has no product dimension. The two substitutes a
+  later reader reaches for are both wrong: `product_save_aggregates` (#80) counts
+  an intent to return rather than demand and carries its own disclosure floor and
+  ranking wall, and `analytics_search_queries` (#77) is a phrase rather than a
+  product with a hard floor of twenty-five.
+- Other seams, each named rather than stubbed: **#71** (the canonical product page
+  that renders these — the API, the copy and the accessible summary are complete
+  and nothing in the storefront consumes them), **#40** (the merchant dashboard
+  screens — every endpoint they need exists, including the export, the filters and
+  the keyset paging), **source/category label distributions** (properties of the
+  OFFERS behind a signal, not of the signal, so copying them onto every evaluation
+  row would be a denormalized second representation), **`taxInclusion`** (an
+  offer-side column belonging to #57, which #74 waits on too) and **#79** (alerts).

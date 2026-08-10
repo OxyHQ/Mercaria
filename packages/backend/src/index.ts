@@ -235,6 +235,19 @@ connectPostgres()
         .catch((err: unknown) =>
           log.general.error({ err }, 'Price-alert delivery dispatcher import failed'),
         );
+      // Measure how often a trustworthy price signal can be made (#82).
+      // `PRICE_SIGNALS_ENABLED` gates the LOOP and nothing durable: a policy
+      // version is still publishable and activatable with it off, a merchant
+      // still reads their own competitiveness, a shopper still sees a badge, and
+      // turning it on drains whatever runs an operator queued. A run is never
+      // created by the loop — it is queued explicitly against a named cohort and
+      // a named policy version, which is what makes comparing a candidate against
+      // the live distribution controllable at all.
+      import('./services/price-signals/sweep-dispatcher.js')
+        .then(({ startPriceSignalSweepDispatcher }) => startPriceSignalSweepDispatcher())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Price-signal sweep dispatcher import failed'),
+        );
       // Register the universal product-feed adapter (#63) and start its staged-
       // pass sweep. BOTH are gated by `FEED_IMPORT_ENABLED` and neither is a
       // durable record: with the flag off, feed configurations, mapping

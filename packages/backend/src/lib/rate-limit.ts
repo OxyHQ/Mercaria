@@ -103,7 +103,14 @@ export type RateLimitScope =
   // request to a host the MERCHANT chose, so an unmetered surface is a way to
   // make Mercaria hammer a third party, or to make it download a gigabyte on
   // demand, repeatedly.
-  | 'feed-import-fetch';
+  | 'feed-import-fetch'
+  // A merchant's own competitiveness analysis (#82). Its own bucket
+  // (`rl:merchant-competitiveness:`) because the COST profile is unlike anything
+  // else here: one request examines a page of the merchant's own subjects, and
+  // each subject costs a comparison read plus a price-history derivation. Sharing
+  // the `'admin'` budget would let a merchant refreshing a dashboard exhaust the
+  // allowance they need to run their shop.
+  | 'merchantCompetitiveness';
 
 /** The shared, prefixed Redis store for a scope, or `undefined` without Redis. */
 function scopeStore(scope: RateLimitScope): RedisStore | undefined {

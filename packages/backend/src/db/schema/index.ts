@@ -217,6 +217,12 @@ export * from './offerFreshness';
 // the derivation reads #68's freshness verdict and #68's run quarantines to
 // decide what may enter a chart. It adds no column to any of them.
 export * from './priceHistory';
+// Trustworthy price signals (#82) follows `priceHistory`, whose observations are
+// one of its two inputs, and `merchants`, which its correction reports name. It
+// adds no column to either: a signal is DERIVED at read time from tables this
+// domain does not own, and what it stores is the versioned policy that decides
+// what a claim means plus the sweep that measures how often one can be made.
+export * from './priceSignals';
 // The universal product-feed importer (#63) follows `ingestion`, which is not
 // alphabetical and not preference: a feed configuration binds a
 // `catalog_sources` row (so the whole provenance chain must precede it) and a
