@@ -25,17 +25,20 @@
  * unrepresentable and the two orderings cannot differ. `finished_at` IS nullable
  * and is deliberately never sorted on.
  *
- * ## Nothing reads a run back
+ * ## The readers arrived with #87, and both share ONE ordering
  *
- * There is no list or find function, because no route or service reads
- * `sync_runs` today — `toSyncRunDTO` serializes the run the CALLER just wrote.
- * The dashboard's status feed is served by the live `sync:progress` Socket.IO
- * events. This module grows with its callers rather than shipping a reader
- * nothing calls, which is how a repository accumulates a second, subtly
- * different way to answer the same question.
+ * For a long time nothing read a run back: `toSyncRunDTO` serialized the run the
+ * CALLER had just written, and the dashboard's feed was the live `sync:progress`
+ * Socket.IO events alone. #87 is the caller that changed it, because a socket
+ * only tells a merchant what happened while they were watching.
+ *
+ * {@link listSyncRunsForConnection} and {@link findLatestSyncRunPerConnection}
+ * order identically, deliberately: the "last run" on the channel list is the
+ * first row of that channel's history, and two orderings would let those two
+ * screens disagree about which run was last.
  */
 
-import { eq } from 'drizzle-orm';
+import { desc, eq, inArray, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import type { SyncRunCounts, SyncRunKind, SyncRunStatus } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
@@ -100,4 +103,60 @@ export async function finishSyncRun(
     .where(eq(syncRuns.id, runId))
     .returning();
   return row;
+}
+
+/**
+ * One connection's runs, newest first (#87 management 1 and 8).
+ *
+ * The module header above says no reader exists because nothing read a run
+ * back — the dashboard's feed was the live `sync:progress` socket alone. #87 is
+ * the caller that changes it: a socket delivers what happens while somebody is
+ * watching, and the channel screen has to answer "what happened overnight" to a
+ * merchant who was not.
+ *
+ * `started_at desc` is safe without `nulls last` for the reason the header
+ * gives: the column is `NOT NULL`, so no NULL can sort first. The tiebreak on
+ * `id` makes the order TOTAL — two runs opened in the same millisecond would
+ * otherwise page unstably, and a uuid v7 is not monotonic within one.
+ */
+export async function listSyncRunsForConnection(
+  connectionId: string,
+  limit: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<SyncRunRecord[]> {
+  return await db
+    .select()
+    .from(syncRuns)
+    .where(eq(syncRuns.connectionId, connectionId))
+    .orderBy(desc(syncRuns.startedAt), desc(syncRuns.id))
+    .limit(limit);
+}
+
+/**
+ * The newest run per connection, for a set of connections.
+ *
+ * One statement rather than N: the channel list renders every connection with
+ * its last run, and a per-row query there is the N+1 #70 made unrepresentable in
+ * its own domain. `row_number()` over the same ordering
+ * {@link listSyncRunsForConnection} uses, so the "last run" on the list and the
+ * first row of the history cannot disagree.
+ */
+export async function findLatestSyncRunPerConnection(
+  connectionIds: readonly string[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<Map<string, SyncRunRecord>> {
+  if (connectionIds.length === 0) return new Map();
+  const ranked = db
+    .select({
+      run: syncRuns,
+      rank: sql<number>`row_number() over (partition by ${syncRuns.connectionId} order by ${syncRuns.startedAt} desc, ${syncRuns.id} desc)`.as(
+        'rank',
+      ),
+    })
+    .from(syncRuns)
+    .where(inArray(syncRuns.connectionId, [...connectionIds]))
+    .as('ranked');
+
+  const rows = await db.select().from(ranked).where(eq(ranked.rank, 1));
+  return new Map(rows.map((row) => [row.run.connectionId, row.run]));
 }

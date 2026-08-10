@@ -45,7 +45,7 @@ import {
   type ContractWorld,
 } from '../../__tests__/contract-world.js';
 import { describeConnectorContract } from '../../__tests__/connector-contract-suite.js';
-import { createWooCommerceProvider } from '../index.js';
+import { createWooCommerceProvider, wooCommerceProvider } from '../index.js';
 import type { WooCommerceHttpResponse, WooCommerceTransport } from '../http.js';
 
 /** The provider `getConnectorProvider` currently answers with. */
@@ -299,11 +299,8 @@ describeConnectorContract({
     // WooCommerce has no inventory webhook — a stock change fires
     // `product.updated`, so there is no topic to name here.
   },
-  capabilities: {
-    pushesProducts: false,
-    pushesFulfillment: false,
-    retriesRateLimit: false,
-  },
+  // The SHIPPED declaration, not a copy of it — see the harness field's note.
+  capabilities: wooCommerceProvider.capabilities,
   createWorld: () => {
     const catalogue = contractCatalogue(uuidv7());
     return createContractWorld({

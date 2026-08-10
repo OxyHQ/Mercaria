@@ -1,9 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   ChannelApiKey,
+  ChannelAuditEntry,
+  ChannelDisconnectPolicy,
+  ChannelOnboardingSession,
+  ChannelPauseScope,
+  ChannelReadiness,
+  ChannelReconciliationSummary,
+  ChannelSummary,
+  ChannelTypeDescriptor,
+  ChannelTypeId,
   Connection,
   ConnectorProviderId,
   GenerateChannelApiKeyInput,
+  SyncRun,
   UpdateSyncSettingsInput,
 } from "@mercaria/shared-types";
 import {
@@ -16,6 +26,21 @@ import {
   fetchChannelKeys,
   generateChannelKey,
   revokeChannelKey,
+  abandonChannelOnboarding,
+  activateChannelOnboarding,
+  advanceChannelOnboarding,
+  disconnectChannelWithPolicy,
+  fetchChannelAudit,
+  fetchChannelCatalog,
+  fetchChannelOnboarding,
+  fetchChannelOnboardingSession,
+  fetchChannelReadiness,
+  fetchChannelReconciliation,
+  fetchChannelRuns,
+  fetchChannelSummary,
+  pauseChannel,
+  startChannelOnboarding,
+  type AdvanceChannelOnboardingInput,
   type ConnectKeyInput,
 } from "../api/channels";
 import { queryKeys } from "../queryKeys";
@@ -125,5 +150,187 @@ export function useRevokeChannelKey(storeId: string) {
   return useMutation({
     mutationFn: (keyId: string) => revokeChannelKey(storeId, keyId),
     onSuccess: () => invalidateChannelKeys(queryClient, storeId),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The unified channel surface (#87).
+// ---------------------------------------------------------------------------
+
+/**
+ * Invalidate everything a channel WRITE can move.
+ *
+ * The list, the summary and the readiness result all describe the same
+ * connections from three angles, so a pause that refreshed only the list would
+ * leave the readiness banner claiming a catalogue is live while the row beside
+ * it says paused. One helper rather than three call sites remembering.
+ */
+function invalidateChannelSurface(
+  queryClient: ReturnType<typeof useQueryClient>,
+  storeId: string,
+) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.channels(storeId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.channelSummary(storeId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.channelReadiness(storeId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.channelAudit(storeId) });
+}
+
+/**
+ * What may be connected on this deployment, and what is wrong with each.
+ *
+ * `staleTime` is generous because a descriptor changes when the DEPLOYMENT
+ * changes — a new connector, an OAuth app configured — not when a merchant does
+ * anything. Refetching it on every focus would be a request per tab switch for
+ * an answer that is the same all day.
+ */
+export function useChannelCatalog(storeId: string) {
+  return useQuery<ChannelTypeDescriptor[]>({
+    queryKey: queryKeys.channelCatalog(storeId),
+    queryFn: () => fetchChannelCatalog(storeId),
+    enabled: Boolean(storeId),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Connectors, feeds and the native catalogue in ONE shape. */
+export function useChannelSummary(storeId: string) {
+  return useQuery<ChannelSummary[]>({
+    queryKey: queryKeys.channelSummary(storeId),
+    queryFn: () => fetchChannelSummary(storeId),
+    enabled: Boolean(storeId),
+  });
+}
+
+/** The ONE authoritative readiness result (#87 acceptance 7). */
+export function useChannelReadiness(storeId: string) {
+  return useQuery<ChannelReadiness>({
+    queryKey: queryKeys.channelReadiness(storeId),
+    queryFn: () => fetchChannelReadiness(storeId),
+    enabled: Boolean(storeId),
+  });
+}
+
+/** One connection's sync history, newest first. */
+export function useChannelRuns(storeId: string, connectionId: string) {
+  return useQuery<SyncRun[]>({
+    queryKey: queryKeys.channelRuns(storeId, connectionId),
+    queryFn: () => fetchChannelRuns(storeId, connectionId),
+    enabled: Boolean(storeId) && Boolean(connectionId),
+  });
+}
+
+/** What Mercaria already indexed for this connection's merchant. */
+export function useChannelReconciliation(storeId: string, connectionId: string) {
+  return useQuery<ChannelReconciliationSummary>({
+    queryKey: queryKeys.channelReconciliation(storeId, connectionId),
+    queryFn: () => fetchChannelReconciliation(storeId, connectionId),
+    enabled: Boolean(storeId) && Boolean(connectionId),
+  });
+}
+
+/** Who changed what about this store's channels. */
+export function useChannelAudit(storeId: string) {
+  return useQuery<ChannelAuditEntry[]>({
+    queryKey: queryKeys.channelAudit(storeId),
+    queryFn: () => fetchChannelAudit(storeId),
+    enabled: Boolean(storeId),
+  });
+}
+
+/** Pause or resume ONE scope. */
+export function usePauseChannel(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      connectionId: string;
+      scope: ChannelPauseScope;
+      paused: boolean;
+    }) => pauseChannel(storeId, input.connectionId, { scope: input.scope, paused: input.paused }),
+    onSuccess: () => invalidateChannelSurface(queryClient, storeId),
+  });
+}
+
+/** Disconnect with an explicit policy for what the channel produced. */
+export function useDisconnectChannelWithPolicy(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { connectionId: string; policy: ChannelDisconnectPolicy }) =>
+      disconnectChannelWithPolicy(storeId, input.connectionId, input.policy),
+    onSuccess: () => invalidateChannelSurface(queryClient, storeId),
+  });
+}
+
+// ── The connection wizard ───────────────────────────────────────────────────
+
+function invalidateOnboarding(
+  queryClient: ReturnType<typeof useQueryClient>,
+  storeId: string,
+  sessionId?: string,
+) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.channelOnboarding(storeId) });
+  if (sessionId) {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.channelOnboardingSession(storeId, sessionId),
+    });
+  }
+}
+
+/** This store's onboarding sessions, newest first. */
+export function useChannelOnboardingSessions(storeId: string) {
+  return useQuery<ChannelOnboardingSession[]>({
+    queryKey: queryKeys.channelOnboarding(storeId),
+    queryFn: () => fetchChannelOnboarding(storeId),
+    enabled: Boolean(storeId),
+  });
+}
+
+/** One session, with its LIVE activation blockers. */
+export function useChannelOnboardingSession(storeId: string, sessionId: string) {
+  return useQuery<ChannelOnboardingSession>({
+    queryKey: queryKeys.channelOnboardingSession(storeId, sessionId),
+    queryFn: () => fetchChannelOnboardingSession(storeId, sessionId),
+    enabled: Boolean(storeId) && Boolean(sessionId),
+  });
+}
+
+/** Start (or resume) a wizard. Idempotent server-side. */
+export function useStartChannelOnboarding(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (channelType: ChannelTypeId) => startChannelOnboarding(storeId, channelType),
+    onSuccess: (session) => invalidateOnboarding(queryClient, storeId, session.id),
+  });
+}
+
+/** Record a wizard step. */
+export function useAdvanceChannelOnboarding(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { sessionId: string } & AdvanceChannelOnboardingInput) => {
+      const { sessionId, ...patch } = input;
+      return advanceChannelOnboarding(storeId, sessionId, patch);
+    },
+    onSuccess: (session) => invalidateOnboarding(queryClient, storeId, session.id),
+  });
+}
+
+/** Activate. Refused, with reasons, when a blocker still applies. */
+export function useActivateChannelOnboarding(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) => activateChannelOnboarding(storeId, sessionId),
+    onSuccess: (session) => {
+      invalidateOnboarding(queryClient, storeId, session.id);
+      invalidateChannelSurface(queryClient, storeId);
+    },
+  });
+}
+
+/** Abandon a session, freeing the live slot for its channel type. */
+export function useAbandonChannelOnboarding(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) => abandonChannelOnboarding(storeId, sessionId),
+    onSuccess: (session) => invalidateOnboarding(queryClient, storeId, session.id),
   });
 }

@@ -15,11 +15,15 @@ import {
 } from "lucide-react-native";
 import type {
   ChannelApiKey,
+  ChannelDisconnectPolicy,
+  ChannelPauseScope,
+  ChannelReconciliationSummary,
   Connection,
   ConnectionStatus,
   GenerateChannelApiKeyResult,
   SyncResourceDirection,
 } from "@mercaria/shared-types";
+import { CHANNEL_DISCONNECT_POLICIES } from "@mercaria/shared-types";
 import {
   Text,
   Button,
@@ -39,11 +43,16 @@ import {
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { formatWhen } from "@/components/channels/channel-presentation";
 import {
   useChannels,
   useUpdateChannelSettings,
   useChannelKeys,
+  useChannelReconciliation,
+  useChannelRuns,
+  useDisconnectChannelWithPolicy,
   useGenerateChannelKey,
+  usePauseChannel,
   useRevokeChannelKey,
 } from "@/lib/hooks/use-channels";
 
@@ -151,7 +160,10 @@ function ChannelSettingsBody({
       {connection.mode === "push_in" ? (
         <ChannelApiKeys storeId={storeId} connection={connection} />
       ) : null}
-      <SyncHistory connection={connection} />
+      <PauseControls storeId={storeId} connection={connection} />
+      <SyncHistory storeId={storeId} connection={connection} />
+      <Reconciliation storeId={storeId} connection={connection} />
+      <DisconnectPanel storeId={storeId} connection={connection} />
     </Screen>
   );
 }
@@ -257,31 +269,329 @@ function DirectionField({
   );
 }
 
-function SyncHistory({ connection }: { connection: Connection }) {
+/**
+ * The real run history (#87 management 8).
+ *
+ * The placeholder this replaces said a per-run history was "a follow-up — the
+ * channels list endpoint returns the connection status and last-synced time
+ * only". `GET .../channels/:id/runs` is that follow-up: a socket tells a
+ * merchant what happens while they are watching, and this is what happened
+ * overnight.
+ */
+function SyncHistory({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { colors } = useColorScheme();
+  const runs = useChannelRuns(storeId, connection.id);
+
   return (
     <View className="mt-8 gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">Sync history</Text>
-      <View className="flex-row items-start gap-3 rounded-2xl border border-border bg-surface p-4">
-        <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
-          <History size={18} color={colors.mutedForeground} />
+      {runs.isPending ? (
+        <ScreenLoading />
+      ) : runs.isError ? (
+        <ScreenMessage title="Couldn't load the history" body="Please try again." />
+      ) : (runs.data ?? []).length === 0 ? (
+        <View className="flex-row items-start gap-3 rounded-2xl border border-border bg-surface p-4">
+          <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
+            <History size={18} color={colors.mutedForeground} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-semibold text-foreground">No syncs yet</Text>
+            <Text className="mt-0.5 text-xs text-muted-foreground">
+              {formatSyncedAt(connection.lastSyncAt)}
+            </Text>
+          </View>
         </View>
-        <View className="flex-1">
-          <Text className="text-sm font-semibold text-foreground">
-            {STATUS_LABEL[connection.status]}
-          </Text>
-          <Text className="mt-0.5 text-xs text-muted-foreground">
-            {formatSyncedAt(connection.lastSyncAt)}
-          </Text>
-          <Text className="mt-2 text-xs text-muted-foreground">
-            A per-run sync history (created / updated / skipped / failed tallies) is a follow-up —
-            the channels list endpoint returns the connection status and last-synced time only.
-          </Text>
+      ) : (
+        <View className="gap-2">
+          {(runs.data ?? []).map((run) => (
+            <View key={run.id} className="rounded-2xl border border-border bg-surface p-4">
+              <View className="flex-row items-center gap-2">
+                <Text className="text-sm font-semibold text-foreground">{run.kind}</Text>
+                <View
+                  className={`rounded-full px-2 py-0.5 ${
+                    run.status === "failed" ? "bg-destructive/10" : "bg-muted"
+                  }`}
+                >
+                  <Text
+                    className={`text-[10px] font-semibold ${
+                      run.status === "failed" ? "text-destructive" : "text-muted-foreground"
+                    }`}
+                  >
+                    {run.status}
+                  </Text>
+                </View>
+              </View>
+              <Text className="mt-0.5 text-xs text-muted-foreground">
+                {formatWhen(run.startedAt, "unknown")}
+              </Text>
+              <Text className="mt-1 text-xs text-muted-foreground">
+                {run.counts.created} created · {run.counts.updated} updated ·{" "}
+                {run.counts.skipped} skipped · {run.counts.failed} failed
+              </Text>
+              {/*
+                Runbook §8.5, said out loud rather than left to puzzle over: a
+                resync that changed nothing still tallies as `updated`, because
+                the patch is built from every unpinned connector-managed field
+                whether or not it differed. A merchant reading "40 updated" after
+                a no-op reconcile would otherwise conclude their catalogue is
+                being rewritten nightly.
+              */}
+              {run.counts.updated > 0 && run.counts.created === 0 ? (
+                <Text className="mt-1 text-[11px] text-muted-foreground">
+                  &ldquo;Updated&rdquo; counts every product examined, not only the ones that
+                  differed.
+                </Text>
+              ) : null}
+              {run.error ? (
+                <Text className="mt-1 text-xs text-destructive">{run.error}</Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Pausing fetch and publication independently (#87 management 4).
+ *
+ * Two switches rather than one, because they are two facts with opposite
+ * remedies: a merchant investigating wrong prices stops PUBLICATION while the
+ * connector keeps observing; a merchant whose host is rate-limiting stops FETCH
+ * and leaves what is already imported on sale.
+ */
+function PauseControls({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const pause = usePauseChannel(storeId);
+  const paused = new Set(connection.pausedScopes ?? []);
+
+  const toggle = (scope: ChannelPauseScope, next: boolean) => {
+    pause.mutate(
+      { connectionId: connection.id, scope, paused: next },
+      {
+        onSuccess: (result) =>
+          toast.success(
+            result.changed
+              ? next
+                ? "Paused"
+                : "Resumed"
+              : "Already in that state",
+          ),
+        onError: () => toast.error("Couldn't change the pause state"),
+      },
+    );
+  };
+
+  return (
+    <View className="mt-8 gap-3">
+      <Text className="text-sm font-semibold text-muted-foreground">Pause</Text>
+      <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+        <View className="flex-row items-center justify-between gap-3">
+          <View className="flex-1">
+            <Text className="text-sm font-medium text-foreground">Pause importing</Text>
+            <Text className="mt-0.5 text-xs text-muted-foreground">
+              Stop reading from the platform. What is already imported stays on sale.
+            </Text>
+          </View>
+          <Switch
+            value={paused.has("fetch")}
+            onValueChange={(next) => toggle("fetch", next)}
+          />
+        </View>
+        <View className="flex-row items-center justify-between gap-3">
+          <View className="flex-1">
+            <Text className="text-sm font-medium text-foreground">Pause publishing</Text>
+            <Text className="mt-0.5 text-xs text-muted-foreground">
+              Keep importing, but stop this channel&apos;s products reaching buyers.
+            </Text>
+          </View>
+          <Switch
+            value={paused.has("publication")}
+            onValueChange={(next) => toggle("publication", next)}
+          />
         </View>
       </View>
     </View>
   );
 }
+
+/**
+ * What Mercaria already indexed for this merchant (#87 reconcile).
+ *
+ * A REPORT, never an action: both representations survive, both keep their own
+ * observation chain, and the comparison surface goes on showing what each seller
+ * published. The binding gap is shown plainly when there is one, because the
+ * commonest of them — an unclaimed merchant — is the ordinary state of a store
+ * and explains why the numbers are zero.
+ */
+function Reconciliation({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const report = useChannelReconciliation(storeId, connection.id);
+  if (report.isPending || report.isError || !report.data) return null;
+  const data = report.data;
+
+  return (
+    <View className="mt-8 gap-3">
+      <Text className="text-sm font-semibold text-muted-foreground">
+        Matching your existing catalog
+      </Text>
+      <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+        {data.bindingGap ? (
+          <Text className="text-xs text-muted-foreground">{BINDING_GAP_COPY[data.bindingGap]}</Text>
+        ) : null}
+        <View className="flex-row flex-wrap gap-4">
+          <View className="min-w-[140px] gap-0.5">
+            <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
+              Already indexed
+            </Text>
+            <Text className="text-base font-semibold text-foreground">
+              {data.existingExternalOffers}
+            </Text>
+          </View>
+          <View className="min-w-[140px] gap-0.5">
+            <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
+              From this store
+            </Text>
+            <Text className="text-base font-semibold text-foreground">{data.nativeOffers}</Text>
+          </View>
+          <View className="min-w-[140px] gap-0.5">
+            <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
+              Same product, twice
+            </Text>
+            <Text className="text-base font-semibold text-foreground">{data.overlaps.length}</Text>
+          </View>
+          <View className="min-w-[140px] gap-0.5">
+            <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
+              Awaiting review
+            </Text>
+            <Text className="text-base font-semibold text-foreground">{data.awaitingReview}</Text>
+          </View>
+        </View>
+        <Text className="text-xs text-muted-foreground">
+          Nothing is deleted or merged. Where the same product appears twice, Mercaria shows your
+          own store&apos;s listing as the main one and keeps the other&apos;s price history intact.
+        </Text>
+        {data.awaitingReview > 0 ? (
+          <Text className="text-xs text-muted-foreground">
+            {data.awaitingReview} product{data.awaitingReview === 1 ? "" : "s"} could not be
+            matched automatically and are queued for a person to confirm.
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** Why a connection could not be tied to a verified merchant, in plain words. */
+const BINDING_GAP_COPY: Record<NonNullable<ChannelReconciliationSummary["bindingGap"]>, string> = {
+  merchant_not_claimed:
+    "This store is not linked to a verified merchant, so there is nothing to match against yet.",
+  store_not_linked:
+    "This store is not linked to a merchant profile, so there is nothing to match against yet.",
+  storefront_not_matched:
+    "Mercaria has not indexed this exact shop before, so there is nothing to match against.",
+  channel_has_no_domain: "This channel has no web address to match against.",
+};
+
+/**
+ * Disconnecting, with an explicit policy (#87 management 7).
+ *
+ * Three options and no default. They are all defensible and only the merchant
+ * knows which they mean — somebody moving to editing in Mercaria wants their
+ * listings kept, somebody who connected the wrong shop wants them gone. Picking
+ * one silently is how a catalogue disappears.
+ */
+function DisconnectPanel({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const router = useRouter();
+  const disconnect = useDisconnectChannelWithPolicy(storeId);
+  const [policy, setPolicy] = useState<ChannelDisconnectPolicy>("keep_listings");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  return (
+    <View className="mt-8 gap-3">
+      <Text className="text-sm font-semibold text-muted-foreground">Disconnect</Text>
+      <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+        <Text className="text-xs text-muted-foreground">
+          Choose what happens to the {DISCONNECT_POLICY_LABEL[policy].toLowerCase()} this channel
+          imported. Your price history and anything another channel imported are never touched.
+        </Text>
+        <ToggleGroup
+          type="single"
+          value={policy}
+          onValueChange={(next) => {
+            if (typeof next === "string" && next !== "") {
+              setPolicy(next as ChannelDisconnectPolicy);
+            }
+          }}
+        >
+          {CHANNEL_DISCONNECT_POLICIES.map((option) => (
+            <ToggleGroupItem key={option} value={option}>
+              <Text className="text-xs font-medium">{DISCONNECT_POLICY_LABEL[option]}</Text>
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <Text className="text-xs text-muted-foreground">
+          {DISCONNECT_POLICY_HELP[policy]}
+        </Text>
+        <Button variant="destructive" onPress={() => setConfirmOpen(true)}>
+          <Text className="font-semibold text-destructive-foreground">Disconnect channel</Text>
+        </Button>
+      </View>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disconnect {PROVIDER_NAME[connection.provider]}?</DialogTitle>
+            <DialogDescription>{DISCONNECT_POLICY_HELP[policy]}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onPress={() => setConfirmOpen(false)}>
+              <Text className="font-semibold text-foreground">Cancel</Text>
+            </Button>
+            <Button
+              variant="destructive"
+              isLoading={disconnect.isPending}
+              onPress={() =>
+                disconnect.mutate(
+                  { connectionId: connection.id, policy },
+                  {
+                    onSuccess: (result) => {
+                      toast.success(
+                        `Disconnected — ${result.listingsAffected} product${
+                          result.listingsAffected === 1 ? "" : "s"
+                        } changed, ${result.externalOffersPreserved} price record${
+                          result.externalOffersPreserved === 1 ? "" : "s"
+                        } kept`,
+                      );
+                      router.replace("/channels");
+                    },
+                    onError: () => toast.error("Couldn't disconnect the channel"),
+                  },
+                )
+              }
+            >
+              <Text className="font-semibold text-destructive-foreground">Disconnect</Text>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </View>
+  );
+}
+
+const DISCONNECT_POLICY_LABEL: Record<ChannelDisconnectPolicy, string> = {
+  keep_listings: "Keep products",
+  unpublish_listings: "Unpublish",
+  archive_listings: "Archive",
+};
+
+const DISCONNECT_POLICY_HELP: Record<ChannelDisconnectPolicy, string> = {
+  keep_listings:
+    "Stop syncing and leave every product exactly as it is — still on sale, and now yours to edit in Mercaria.",
+  unpublish_listings:
+    "Stop syncing and take this channel's products off sale, keeping them as drafts you can republish.",
+  archive_listings:
+    "Stop syncing and archive this channel's products. Sold and moderated products are left alone.",
+};
 
 /** Human-readable "last used" line for a key, or a never-used fallback. */
 function formatLastUsed(iso: string | undefined): string {

@@ -958,6 +958,15 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
     // Shopify signs every webhook with the app's client secret — one app-wide secret,
     // so no per-connection secret is minted (see `shopify/webhook.ts`).
     webhookSecretStrategy: 'app_secret',
+    // Read by the #69 contract suite AND by #87's channel catalog. Shopify
+    // implements both pushes, `shopify/http.ts` carries the 429 retry with its
+    // leaky-bucket self-throttle, and `inventory_levels/update` is a real topic.
+    capabilities: {
+      pushesProducts: true,
+      pushesFulfillment: true,
+      retriesRateLimit: true,
+      inventoryWebhook: true,
+    },
 
     buildAuthorizeUrl({ shopDomain, redirectUri, state, scopes }) {
       const { clientId } = getShopifyCredentials();

@@ -60,3 +60,19 @@ export function getShopifyCredentials(): ShopifyCredentials {
 export function getShopifyClientSecret(): string {
   return requireEnv(CLIENT_SECRET_ENV);
 }
+
+/**
+ * Whether this deployment has Shopify app credentials at all — asked, not
+ * caught.
+ *
+ * #87's channel catalog needs to say "Shopify cannot be connected on this
+ * deployment" without starting a flow, and calling `getShopifyCredentials()` in
+ * a `try` to find out would make a configuration question look like an error
+ * path. Both halves are required because the exchange needs both.
+ */
+export function hasShopifyCredentials(): boolean {
+  return (
+    (process.env[CLIENT_ID_ENV]?.trim() ?? '') !== '' &&
+    (process.env[CLIENT_SECRET_ENV]?.trim() ?? '') !== ''
+  );
+}

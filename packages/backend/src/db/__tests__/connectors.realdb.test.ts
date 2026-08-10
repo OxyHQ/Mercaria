@@ -207,7 +207,7 @@ describe('the all-or-nothing credential CHECK', () => {
 
     expect(await findConnectionWebhookSecret(conn.id, 'shopify')).toEqual(ENVELOPE);
 
-    const disconnected = await disconnectConnection(storeId, conn.id);
+    const disconnected = await disconnectConnection(storeId, conn.id, 'keep_listings');
 
     expect(disconnected?.status).toBe('disconnected');
     expect(disconnected?.webhookIds).toEqual([]);
@@ -245,7 +245,7 @@ describe('the all-or-nothing credential CHECK', () => {
     const storeId = await makeStore();
     const conn = await makeConnection(storeId);
 
-    await disconnectConnection(storeId, conn.id);
+    await disconnectConnection(storeId, conn.id, 'keep_listings');
 
     // Nothing in `src/` deletes a connection: `listings.source_connection_id`
     // points at it, so the provenance on already-imported products would go with
@@ -437,7 +437,7 @@ describe('the reconcile sweep filter', () => {
     // each of the three predicates is genuinely load-bearing.
     const disconnected = await makeConnection(disconnectedStore);
     await updateSyncSettings(disconnectedStore, disconnected.id, { products: 'pull' });
-    await disconnectConnection(disconnectedStore, disconnected.id);
+    await disconnectConnection(disconnectedStore, disconnected.id, 'keep_listings');
 
     const pushOnly = await makeConnection(pushOnlyStore);
     await updateSyncSettings(pushOnlyStore, pushOnly.id, { products: 'push' });
@@ -468,7 +468,7 @@ describe('the reconcile sweep filter', () => {
 
     // A disconnected connection stops receiving webhooks — the ingress must not
     // enqueue work for a shop that revoked the app.
-    await disconnectConnection(storeId, conn.id);
+    await disconnectConnection(storeId, conn.id, 'keep_listings');
     expect(await findConnectionIdsByShopDomain('shopify', domain)).toEqual([]);
   });
 });

@@ -33,7 +33,7 @@ import {
   type ContractWorld,
 } from '../../__tests__/contract-world.js';
 import { describeConnectorContract } from '../../__tests__/connector-contract-suite.js';
-import { createShopifyProvider } from '../index.js';
+import { createShopifyProvider, shopifyProvider } from '../index.js';
 import { createShopifyTransport, type ShopifyHttpResponse, type ShopifyTransport } from '../http.js';
 
 /** The provider `getConnectorProvider` currently answers with. */
@@ -372,11 +372,8 @@ describeConnectorContract({
     orderUpsert: 'orders/updated',
     inventoryUpdate: 'inventory_levels/update',
   },
-  capabilities: {
-    pushesProducts: true,
-    pushesFulfillment: true,
-    retriesRateLimit: true,
-  },
+  // The SHIPPED declaration, not a copy of it — see the harness field's note.
+  capabilities: shopifyProvider.capabilities,
   createWorld: () => {
     const catalogue = contractCatalogue(uuidv7());
     return createContractWorld({

@@ -74,6 +74,7 @@ import { merchantClaims } from '../../db/schema/merchantClaims.js';
 import { commerceRelationships } from '../../db/schema/relationships.js';
 import { nativeListingLinks, offers } from '../../db/schema/offers.js';
 import { storeLinkageOfferOverlaps, storeLinkageRequests } from '../../db/schema/storeLinkage.js';
+import { channelOnboardingSessions } from '../../db/schema/channels.js';
 import { reviewAggregates, reviewEligibilities, reviews } from '../../db/schema/reviews.js';
 import { matchBlockedPairs, matchDecisionCandidates, matchDecisions } from '../../db/schema/matching.js';
 import { procurementOffers, suppliers } from '../../db/schema/procurement.js';
@@ -559,6 +560,18 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       note: 'A linkage REQUEST is a record of what was asked, and it follows the surviving merchant.',
     },
     {
+      column: channelOnboardingSessions.merchantId,
+      phase: 'children',
+      disposition: 'repoint',
+      note:
+        "#87's connection wizard records the merchant it bound to when it opened. It follows " +
+        'the survivor unconditionally: nothing is unique on the column, and a LIVE session left ' +
+        'on a tombstone would show a merchant that no longer exists and reconcile against a ' +
+        'catalogue nobody can reach. A finished session repoints too — it is operational state ' +
+        'nothing cites as evidence, so preserving the pre-merge id would buy no audit value and ' +
+        'cost the same broken read on a resume.',
+    },
+    {
       column: storeLinkageOfferOverlaps.merchantId,
       phase: 'offers',
       disposition: 'repoint',
@@ -718,6 +731,15 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         "#79's optional channel SCOPE on a price alert — the merchant scope one join over, and " +
         'the same decision: a scope left on a tombstoned storefront matches no offer, so the ' +
         'alert stops firing without ever saying it has.',
+    },
+    {
+      column: channelOnboardingSessions.storefrontId,
+      phase: 'children',
+      disposition: 'repoint',
+      note:
+        "#87's connection wizard, the channel half. It moves WITH the merchant column above — " +
+        'the pair names one binding, and repointing one without the other would leave a session ' +
+        'claiming a storefront that belongs to a different merchant.',
     },
   ],
 

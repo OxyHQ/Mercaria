@@ -27,6 +27,7 @@ import {
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
   CHANNEL_API_KEY_SCOPES,
+  CHANNEL_DISCONNECT_POLICIES,
   CONNECTOR_PROVIDER_IDS,
   type ConnectionMode,
   type ConnectionStatus,
@@ -176,6 +177,36 @@ export const connections = pgTable(
     webhookIds: text().array().notNull().default(sql`'{}'::text[]`),
     connectedAt: timestamptz().notNull(),
     lastSyncAt: timestamptz(),
+
+    /**
+     * When fetching from the platform was paused, and when publishing to buyers
+     * was — TWO columns, never one tri-state (#87 management 4).
+     *
+     * They are different facts with opposite remedies. A merchant investigating
+     * wrong prices pauses PUBLICATION so buyers stop seeing them while the
+     * connector keeps observing; a merchant whose WordPress host is rate-limiting
+     * pauses FETCH and leaves what is already imported on sale. A single column
+     * could not express both at once without a fourth value meaning exactly what
+     * two flags mean, and `status` cannot carry either: `disconnected` is the
+     * absence of a credential, and a pause must survive a reconnect.
+     *
+     * An INSTANT rather than a boolean, because "since when" is the first thing
+     * anybody asks about a paused channel and a boolean cannot answer it.
+     */
+    fetchPausedAt: timestamptz(),
+    publicationPausedAt: timestamptz(),
+
+    /**
+     * What the last disconnect decided to do with this connection's listings.
+     *
+     * Recorded rather than derived because it is a DECISION a person made
+     * (#87 management 7, acceptance 4) and the listings it applied to are
+     * indistinguishable afterwards from listings nobody touched. NULL until this
+     * connection has been disconnected at least once; a reconnect leaves it
+     * standing, so it always names the most recent disconnect.
+     */
+    disconnectPolicy: text({ enum: asEnumValues(CHANNEL_DISCONNECT_POLICIES) }),
+    disconnectedAt: timestamptz(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -203,6 +234,18 @@ export const connections = pgTable(
       'connections_conflict_policy_check',
       t.syncSettingsConflictPolicy,
       CONFLICT_POLICIES,
+    ),
+    checkOneOf(
+      'connections_disconnect_policy_check',
+      t.disconnectPolicy,
+      CHANNEL_DISCONNECT_POLICIES,
+    ),
+    // A policy without the instant it was applied, or an instant with no policy,
+    // would each be half of one fact — and the half that survives reads as the
+    // whole. Written together by `disconnect`, so the pair is all or nothing.
+    check(
+      'connections_disconnect_record_check',
+      sql`num_nonnulls(${t.disconnectPolicy}, ${t.disconnectedAt}) in (0, 2)`,
     ),
     // An encrypted envelope is all three parts or none — a `ciphertext` with no
     // `tag` decrypts to nothing while still reading as a configured connection.

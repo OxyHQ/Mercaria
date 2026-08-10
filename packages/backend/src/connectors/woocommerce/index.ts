@@ -781,6 +781,18 @@ export function createWooCommerceProvider(
     // so a fresh secret is minted per connection and set on every webhook (see
     // `webhook.ts`); the ingress route verifies with the connection's stored secret.
     webhookSecretStrategy: 'per_connection',
+    // Read by the #69 contract suite AND by #87's channel catalog. Every `false`
+    // here is measured rather than assumed: the suite asserts the REFUSAL on
+    // each of these branches, so a capability that silently appeared or
+    // disappeared cannot report the same green. `retriesRateLimit` is #219 —
+    // `woocommerce/http.ts` has neither a `Retry-After` retry nor a
+    // self-throttle, and `assertOk` turns any 429 into a failed run.
+    capabilities: {
+      pushesProducts: false,
+      pushesFulfillment: false,
+      retriesRateLimit: false,
+      inventoryWebhook: false,
+    },
 
     // WooCommerce authorizes with a static API key/secret (see connect-key), not
     // an OAuth authorize→callback exchange. `buildAuthorizeUrl` is synchronous, so

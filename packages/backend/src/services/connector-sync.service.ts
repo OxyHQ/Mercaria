@@ -54,6 +54,7 @@ import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import type {
   AddressSnapshot,
+  ChannelDisconnectPolicy,
   Connection as ConnectionDTO,
   ConnectorProviderId,
   CreateStoreProductInput,
@@ -283,6 +284,19 @@ export function toConnectionDTO(conn: ConnectionRow): ConnectionDTO {
   }
   if (conn.lastSyncAt) {
     dto.lastSyncAt = conn.lastSyncAt.toISOString();
+  }
+  // #87: the pause axes, as the SET a client needs rather than the two instants
+  // the row stores. Omitted when nothing is paused, so an older client reading
+  // no field behaves exactly as it did.
+  const pausedScopes: ('fetch' | 'publication')[] = [];
+  if (conn.fetchPausedAt) pausedScopes.push('fetch');
+  if (conn.publicationPausedAt) pausedScopes.push('publication');
+  if (pausedScopes.length > 0) {
+    dto.pausedScopes = pausedScopes;
+  }
+  if (conn.disconnectPolicy && conn.disconnectedAt) {
+    dto.disconnectPolicy = conn.disconnectPolicy;
+    dto.disconnectedAt = conn.disconnectedAt.toISOString();
   }
   return dto;
 }
@@ -626,7 +640,11 @@ export async function updateSyncSettings(
  * refuse a partial clear, and `''` would pass them while leaving a connection
  * that reads as authorized and decrypts to nothing.
  */
-export async function disconnect(storeId: string, connectionId: string): Promise<ConnectionRow> {
+export async function disconnect(
+  storeId: string,
+  connectionId: string,
+  policy: ChannelDisconnectPolicy,
+): Promise<ConnectionRow> {
   const existing = await findConnection(storeId, connectionId);
   if (!existing) {
     throw notFound('Connection not found');
@@ -647,7 +665,7 @@ export async function disconnect(storeId: string, connectionId: string): Promise
     }
   }
 
-  const conn = await disconnectConnection(storeId, connectionId);
+  const conn = await disconnectConnection(storeId, connectionId, policy);
   if (!conn) {
     throw notFound('Connection not found');
   }

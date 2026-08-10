@@ -355,6 +355,26 @@ export interface NormalizedOrder {
 }
 
 /**
+ * What a connector provider can do, declared once by the provider itself.
+ *
+ * Every member is a fact about code that shipped rather than a configuration:
+ * `pushesProducts` is whether `pushProduct` does something or refuses,
+ * `retriesRateLimit` is whether the transport honours a `Retry-After` or turns
+ * a 429 into a failed run. A provider that loses a capability and forgets to
+ * say so is caught by the contract suite, which measures the branch either way.
+ */
+export interface ConnectorCapabilities {
+  /** `pushProduct` publishes a Mercaria listing to the platform. */
+  readonly pushesProducts: boolean;
+  /** `pushFulfillment` reports a Mercaria fulfilment back to the platform. */
+  readonly pushesFulfillment: boolean;
+  /** The transport retries an HTTP 429 rather than failing the run. */
+  readonly retriesRateLimit: boolean;
+  /** The platform delivers a webhook when a stock level changes. */
+  readonly inventoryWebhook: boolean;
+}
+
+/**
  * A single external-commerce platform. One implementation per platform; the
  * registry maps a {@link ConnectorProviderId} to its instance.
  */
@@ -375,6 +395,23 @@ export interface ConnectorProvider {
    *    mint + persist a `webhookSecret` when registering.
    */
   readonly webhookSecretStrategy: 'app_secret' | 'per_connection';
+  /**
+   * Which directions this provider actually implements — ONE declaration, three
+   * readers.
+   *
+   * It lived in the #69 contract-suite harnesses until #87 needed it on a
+   * merchant-facing screen. Restating it there would have produced a second
+   * description of one fact, and the direction those two disagree in is always
+   * the flattering one: a channel catalog claiming WooCommerce pushes products
+   * is a promise a merchant configures a sync around.
+   *
+   * Now the provider declares it, `channel-catalog.ts` reads it, and the
+   * contract suite reads it too — so a declaration that stopped being true
+   * turns the suite RED, because every capability-gated case asserts the
+   * SUCCESS when it is `true` and the REFUSAL when it is `false`. There is no
+   * spelling of this that is wrong and green.
+   */
+  readonly capabilities: ConnectorCapabilities;
 
   /**
    * Build the platform's OAuth authorize URL the merchant's browser is sent to.
