@@ -193,6 +193,62 @@ describe('only the runner reads the sweep’s feature flag', () => {
   });
 });
 
+describe('a cost adjustment cannot outrun a chargeback', () => {
+  /**
+   * #127 wiring item 1, and the failure it closes is the *unnoticed* double
+   * payment ADR 0004 rule 10 names: a dispute suspends refunds on an order, a
+   * cost adjustment IS a refund, and a suspended order that still pays one has
+   * paid the same money twice with nothing recording that it did.
+   *
+   * A positive gate rather than a wall. The other gates here assert an absence;
+   * this asserts a PRESENCE, because the way this breaks is somebody deleting
+   * two lines during a refactor and every existing test staying green.
+   */
+  const adjustment = () => code(join(SERVICE_DIR, 'adjustment.service.ts'));
+
+  it('consults #127’s own suspension reader before serving an obligation', () => {
+    // #127's reader, imported from #127. Re-deriving "is this order suspended"
+    // here would be a second answer to a question that already has one, and the
+    // two would disagree the first time #127 widened what suspends a refund.
+    expect(adjustment()).toMatch(
+      /from\s+['"][^'"]*db\/retailServiceRequests\/policyRepository[^'"]*['"]/,
+    );
+    expect(adjustment()).toMatch(/await\s+findRetailRefundSuspension\(/);
+    // And it produces the block reason, so `dispute_open` stops being a code
+    // with no producer — which is what it was before this wiring landed.
+    expect(adjustment()).toMatch(/return\s+'dispute_open'/);
+  });
+
+  it('checks the suspension BEFORE the automation floor', () => {
+    // The order is load-bearing. `settleRetailCustomerAdjustmentOnRequest`
+    // clears `below_automation_threshold` and re-derives; if the floor were
+    // consulted first, an operator clearing it would clear the last thing
+    // standing between a held order and a second payment.
+    const source = adjustment();
+    const suspension = source.indexOf('findRetailRefundSuspension(');
+    const floor = source.indexOf("=== 'below_automation_threshold'");
+    expect(suspension).toBeGreaterThan(-1);
+    expect(floor).toBeGreaterThan(-1);
+    expect(suspension).toBeLessThan(floor);
+  });
+
+  it('WOULD catch the check being dropped (mutation self-test)', () => {
+    // Every assertion above must fail on a source with the call removed, or the
+    // gate is decorative — the mistake #125's detector made and this file's own
+    // ranking wall made before it.
+    const mutated = adjustment()
+      .replace(/import \{ findRetailRefundSuspension \}[^;]+;/, '')
+      .replace(/if \(await findRetailRefundSuspension\([^)]*\)\) return 'dispute_open';/, '');
+    expect(mutated).not.toMatch(/await\s+findRetailRefundSuspension\(/);
+    expect(mutated).not.toMatch(
+      /from\s+['"][^'"]*db\/retailServiceRequests\/policyRepository[^'"]*['"]/,
+    );
+    // And the mutation really applied — a substitution that matched nothing is
+    // indistinguishable from one that survived.
+    expect(mutated).not.toEqual(adjustment());
+  });
+});
+
 describe('no margin, profit or markup exists anywhere in the domain', () => {
   it('names no forbidden component in any of the ten tables', () => {
     const tables = Object.values(schema).filter((value): value is PgTable => is(value, PgTable));

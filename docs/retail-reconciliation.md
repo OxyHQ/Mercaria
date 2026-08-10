@@ -577,15 +577,39 @@ reproduced or reviewed.
 
 ## Seams left, each failing closed
 
-- **#127 (retail returns and supplier RMAs).** Its `supplier_recoveries` table is
-  Mercaria's record of what it expects back from a supplier and books nothing, by
-  its own design. #128 reconciles against the DOCUMENTS a supplier issued
-  (`purchase_order_documents`), which exist on `main`, so nothing here depends on
-  that branch. When it lands, a recovery's `service_request_id` gives the
-  operator view the customer half beside the supplier half; the classification
-  this domain derives from "does this order have a refund" becomes derivable from
-  the return case directly, which is strictly more precise and changes no
-  arithmetic.
+- **#127 (retail returns and supplier RMAs) — LANDED, and wired.** Its
+  `supplier_recoveries` table is still Mercaria's record of what it expects back
+  from a supplier and still books nothing, by its own design; #128 reconciles
+  against the DOCUMENTS a supplier issued (`purchase_order_documents`). Four
+  places consume it, and each replaced an approximation rather than adding a
+  feature:
+  1. **The dispute suspension.** `refundBlockReason` calls #127's own
+     `findRetailRefundSuspension` and produces `dispute_open`, which until now
+     was a block reason with no producer. It is consulted BEFORE the automation
+     floor, because `settleRetailCustomerAdjustmentOnRequest` clears the floor
+     and re-derives — checked second, an operator clearing it would clear the
+     last thing between a held order and a second payment.
+  2. **The credit classification.** `return_linked` now means a `supplier_recoveries`
+     row on the same PURCHASE ORDER names a service request that HAS a return
+     case, not "does this order have any refund". A failed procurement refunds
+     the buyer and draws a supplier credit too, and reading that refund as a
+     return classified a pure `cost_reduction` as `return_linked` — suppressing
+     exactly the customer adjustment the zero-profit policy owes. It is the
+     return CASE and deliberately not the recovery's KIND: a kind is #127's word
+     for what Mercaria is claiming from a supplier, and only the case says goods
+     came back from a buyer. ADR 0004 D8.5 stands — no recovery AMOUNT is read
+     and no customer figure is derived from one.
+  3. **`retail_supplier_credits.supplier_recovery_id`**, nullable, on this
+     domain's own (unreleased) migration rather than a second one. A CHECK makes
+     it required for `return_linked` as an IMPLICATION, never a biconditional: a
+     `cost_reduction` credit beside a cancelled-procurement recovery legitimately
+     names one, and an `=` would refuse that row.
+  4. **`missing_customer_refund_record`** asks whether the RETURN CASE's own
+     refund exists, matched on the idempotency key `commitRetailServiceRefund`
+     derives (`retailRefundIdempotencyKey`, reused rather than re-spelled). An
+     order can carry a refund for something else entirely, and reading one of
+     those as the return's refund lets a return-linked credit through with its
+     customer side genuinely missing.
 - **A supplier-invoice LINE breakdown.** #124 records a document total and its
   tax; until an adapter reports lines, the item cost carries the residual and
   says so. Closing it is a #124 column plus a change to one branch in

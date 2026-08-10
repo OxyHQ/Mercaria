@@ -101,6 +101,8 @@ export interface OrderRefundRecord {
   amountMinor: number;
   currency: string;
   providerState: string | null;
+  /** `null` for a refund committed by any path that does not derive one. */
+  idempotencyKey: string | null;
   createdAt: Date;
 }
 
@@ -126,6 +128,9 @@ export async function listRefundsForOrder(
       amountMinor: refunds.totalRefundedPresentmentAmount,
       currency: refunds.totalRefundedPresentmentCurrency,
       providerState: refunds.providerState,
+      // The refund's own idempotency key, which is how a refund committed BY a
+      // #127 service request is told apart from any other refund on the order.
+      idempotencyKey: refunds.idempotencyKey,
       createdAt: refunds.createdAt,
     })
     .from(refunds)
@@ -136,6 +141,7 @@ export async function listRefundsForOrder(
     amountMinor: row.amountMinor,
     currency: row.currency,
     providerState: row.providerState,
+    idempotencyKey: row.idempotencyKey,
     createdAt: row.createdAt,
   }));
 }

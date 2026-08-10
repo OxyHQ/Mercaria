@@ -109,6 +109,7 @@ import {
 import { ledgerTransactions } from './ledger';
 import { orders, refunds } from './orders';
 import { purchaseOrders, suppliers } from './procurement';
+import { supplierRecoveries } from './retailServiceRequests';
 
 /** Bound on any stored note, reason or reference — the `.slice()` at every writer. */
 const MAX_NOTE_LENGTH = 2_000;
@@ -878,6 +879,21 @@ export const retailSupplierCredits = pgTable(
     providerDocumentId: text().notNull(),
     /** The supplier invoice it reverses, when the document names one. */
     supplierInvoiceReference: text(),
+    /**
+     * The #127 recovery this credit was classified against, when one exists.
+     *
+     * `return_linked` is not a guess about what a credit "looks like": it is a
+     * claim that a customer RETURN is on the other side of it, and this column
+     * names the row that established it. Recording the evidence beside the
+     * verdict is what makes the classification auditable rather than a rule
+     * somebody would have to re-run to check.
+     *
+     * Nullable, because a `cost_reduction` credit legitimately has no recovery
+     * behind it — a supplier correcting its own overcharge names nothing on
+     * Mercaria's side. `ON DELETE restrict`: a credit cites its evidence, so the
+     * evidence may not vanish from under it.
+     */
+    supplierRecoveryId: text().references(() => supplierRecoveries.id, { onDelete: 'restrict' }),
     /** What the supplier credited, in the SUPPLIER's own currency. */
     ...money('credit'),
     /** The same amount in the affected order's accounting currency. */
@@ -923,6 +939,16 @@ export const retailSupplierCredits = pgTable(
     check(
       'retail_supplier_credits_order_shape_check',
       sql`(${t.classification} = 'unattributable') = (${t.orderId} is null)`,
+    ),
+    // An IMPLICATION and deliberately not a biconditional. `return_linked`
+    // requires the recovery that established the return; the converse is false,
+    // because a recovery of a non-return kind (a cancelled procurement, a lost
+    // parcel) legitimately sits beside a `cost_reduction` credit and naming it
+    // is still the right thing to record. Writing this as `=` would refuse
+    // exactly that row.
+    check(
+      'retail_supplier_credits_return_evidence_check',
+      sql`${t.classification} <> 'return_linked' or ${t.supplierRecoveryId} is not null`,
     ),
     check(
       'retail_supplier_credits_fx_presence_check',

@@ -54,6 +54,7 @@ import {
   isLedgerRecognitionClaimed,
 } from '../../db/retailReconciliation/supplierCreditRepository.js';
 import { findReconcilableOrder } from '../../db/retailReconciliation/evidenceSourceRepository.js';
+import { findRetailRefundSuspension } from '../../db/retailServiceRequests/policyRepository.js';
 import { customerAdjustmentRefunded } from '../payments/ledger-postings.js';
 import { enqueuePaymentEvent, paymentRefundedEventId } from '../payments/payment-outbox.service.js';
 import { log } from '../../lib/logger.js';
@@ -289,6 +290,20 @@ async function refundBlockReason(input: {
   | undefined
 > {
   const { order, adjustment } = input;
+
+  // #127 chargeback rule 5, consulted through #127's OWN reader rather than
+  // re-derived here: ONE mechanism, ONE place. A chargeback suspends refunds on
+  // an order, and a cost adjustment is a refund — so committing one while a
+  // dispute holds the order is the *unnoticed* double payment rule 10 names.
+  //
+  // It is checked FIRST, ahead of the automation floor, and the order is
+  // load-bearing. The floor is a policy about whether Mercaria refunds UNASKED,
+  // and `settleRetailCustomerAdjustmentOnRequest` clears it before re-deriving;
+  // a suspension is a prohibition on the money moving at all. Checked second, an
+  // operator clearing the floor would clear the last thing standing between a
+  // held order and a second payment.
+  if (await findRetailRefundSuspension(input.adjustment.orderId)) return 'dispute_open';
+
   if (adjustment.method === 'recorded_payable' && adjustment.blockReason === 'below_automation_threshold') {
     // ADR 0004 D8.2: at or below the threshold the surplus stays on
     // `customer_adjustment`, refundable on request. An operator pressing retry

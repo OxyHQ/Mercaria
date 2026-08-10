@@ -60,6 +60,7 @@ import {
   listPurchaseOrdersForOrder,
   listRefundsForOrder,
   listSupplierDocumentsForPurchaseOrders,
+  type OrderRefundRecord,
   type ReconcilableOrder,
 } from '../../db/retailReconciliation/evidenceSourceRepository.js';
 import { listSupplierCreditsForOrder } from '../../db/retailReconciliation/supplierCreditRepository.js';
@@ -67,6 +68,9 @@ import type {
   NewReconciliationComponent,
   NewReconciliationEvidence,
 } from '../../db/retailReconciliation/reconciliationRepository.js';
+import { findRetailReturnCaseForRequest } from '../../db/retailServiceRequests/returnCaseRepository.js';
+import { listSupplierRecoveriesForPurchaseOrder } from '../../db/retailServiceRequests/supplierRecoveryRepository.js';
+import { retailRefundIdempotencyKey } from '../retail-service-requests/refund-bridge.js';
 import { apportion } from '../payments/settlement-shares.js';
 import { roundMinorUnits } from '../../utils/money.js';
 import type { ReconciliationTerm } from './equation.js';
@@ -173,6 +177,48 @@ function convertWithStoredRate(
 }
 
 /** Gather everything one order's reconciliation reads. */
+/**
+ * Which return cases behind these credits have no refund of their OWN yet.
+ *
+ * `commitRetailServiceRefund` derives every refund it writes from the request
+ * (`retailRefundIdempotencyKey`), so the request's refund is identifiable by
+ * that key and by nothing else about the refund. Reused rather than re-spelled:
+ * two spellings of one key would disagree the first time #127 changed its
+ * prefix, and this side would silently stop finding refunds that exist.
+ *
+ * A recovery with no service request, or one whose request has no return case,
+ * contributes nothing — it was never a customer return, so no refund is owed
+ * for it here.
+ *
+ * @returns the service-request ids still missing their refund, for the refusal
+ *   to name. An operator who cannot see WHICH return is unmatched has to open
+ *   every one.
+ */
+async function findReturnRequestsWithoutRefund(
+  credits: readonly { purchaseOrderId: string; supplierRecoveryId: string }[],
+  refunds: readonly OrderRefundRecord[],
+  db: DatabaseOrTransaction,
+): Promise<string[]> {
+  if (credits.length === 0) return [];
+  const keys = new Set(
+    refunds.map((refund) => refund.idempotencyKey).filter((key): key is string => key !== null),
+  );
+  const missing = new Set<string>();
+  for (const credit of credits) {
+    // #127 publishes no single-recovery reader and this domain does not add one
+    // to somebody else's repository — the per-purchase-order list is the reader
+    // that exists, and a purchase order carries a handful of recoveries.
+    const recoveries = await listSupplierRecoveriesForPurchaseOrder(credit.purchaseOrderId, db);
+    const recovery = recoveries.find((row) => row.id === credit.supplierRecoveryId);
+    if (!recovery?.serviceRequestId) continue;
+    const returnCase = await findRetailReturnCaseForRequest(recovery.serviceRequestId, db);
+    if (!returnCase) continue;
+    if (keys.has(retailRefundIdempotencyKey(recovery.serviceRequestId))) continue;
+    missing.add(recovery.serviceRequestId);
+  }
+  return [...missing];
+}
+
 export async function gatherReconciliationEvidence(
   orderId: string,
   db: DatabaseOrTransaction = getDb(),
@@ -491,7 +537,7 @@ export async function gatherReconciliationEvidence(
   /* ---------------------------------------------------------------------- */
 
   const credits = await listSupplierCreditsForOrder(orderId, db);
-  let returnLinkedCredits = 0;
+  const returnLinkedCredits: { purchaseOrderId: string; supplierRecoveryId: string }[] = [];
   for (const credit of credits) {
     record({
       kind: 'supplier_credit_note',
@@ -502,7 +548,12 @@ export async function gatherReconciliationEvidence(
       },
       observedAt: credit.issuedAt,
     });
-    if (credit.classification === 'return_linked') returnLinkedCredits += 1;
+    if (credit.classification === 'return_linked' && credit.supplierRecoveryId) {
+      returnLinkedCredits.push({
+        purchaseOrderId: credit.purchaseOrderId,
+        supplierRecoveryId: credit.supplierRecoveryId,
+      });
+    }
     add('supplier_credit', {
       sourceMinor: credit.creditAmount,
       sourceCurrency: credit.creditCurrency as CurrencyCode,
@@ -557,14 +608,28 @@ export async function gatherReconciliationEvidence(
   // lowers the customer side by the same amount, leaving the variance
   // unchanged. A credit whose refund has not been recorded would lower one side
   // alone and manufacture a surplus to refund a second time.
-  if (returnLinkedCredits > 0 && refunds.length === 0) {
+  //
+  // The question is the RETURN CASE's OWN refund, not "has this order any
+  // refund at all". An order can carry a refund for something else entirely — a
+  // cancelled second line, a goodwill gesture, a failed procurement — and
+  // reading one of those as the return's refund lets a return-linked credit
+  // through with its customer side genuinely missing, which is the exact
+  // arithmetic this block exists to prevent. The link is the recovery's own
+  // service request, and the refund #127 commits for one carries a DERIVED
+  // idempotency key, so the match is on identity rather than on coincidence.
+  const unmatchedReturnRequests = await findReturnRequestsWithoutRefund(
+    returnLinkedCredits,
+    refunds,
+    db,
+  );
+  if (unmatchedReturnRequests.length > 0) {
     blocked.push({
       kind: 'missing_customer_refund_record',
       detail:
-        `This order carries ${String(returnLinkedCredits)} supplier credit(s) linked to a ` +
-        'customer return, and no customer refund has been recorded against it. Counting the ' +
-        'credit alone would lower the cost side without lowering the customer side and would ' +
-        'create a second refund for money that has already gone back.',
+        `This order carries supplier credit(s) linked to a customer return whose own refund ` +
+        `has not been recorded: ${unmatchedReturnRequests.join(', ')}. Counting the credit ` +
+        'alone would lower the cost side without lowering the customer side and would create ' +
+        'a second refund for money that has already gone back.',
     });
   }
 

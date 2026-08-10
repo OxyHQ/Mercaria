@@ -755,3 +755,68 @@ describe('the global ledger still nets to zero per currency', () => {
     expect(Number(count?.n)).toBeGreaterThanOrEqual(10);
   });
 });
+
+describe('a `return_linked` credit must name the return that made it one', () => {
+  // #127 wiring item 3. The classification is a CLAIM that a customer return is
+  // on the other side of the credit; `supplier_recovery_id` is the row that
+  // established it. Without the CHECK, a service bug could write the claim with
+  // nothing behind it, and a `return_linked` credit suppresses exactly the
+  // customer adjustment the zero-profit policy owes.
+  //
+  // Both cases below use a purchase order id that does not exist, which is
+  // deliberate: a row-level CHECK is evaluated during the tuple insert and a
+  // foreign key is a trigger fired after it, so WHICH of the two fires tells
+  // the two cases apart with no fixture chain to build. The existing
+  // no-order case above relies on the same ordering.
+  it('refuses `return_linked` with no recovery, and gets PAST the check with one', async () => {
+    const missingEvidence = await violatedConstraint(() =>
+      db.execute(sql`
+        insert into retail_supplier_credits
+          (id, classification, order_id, purchase_order_id, provider_document_id,
+           credit_amount, credit_currency, accounting_amount, accounting_currency,
+           issued_at, recorded_at, claim_key)
+        values (${`cr-${RUN}-rl1`}, 'return_linked', ${orderId}, ${`po-${RUN}-absent`}, 'DOC-RL1',
+                100, 'EUR', 100, 'EUR', now(), now(), ${`ck-${RUN}-rl1`})
+      `),
+    );
+    expect(missingEvidence).toBe('retail_supplier_credits_return_evidence_check');
+
+    // The negative control, and the reason it is not optional: without it the
+    // assertion above passes for a row refused by anything at all. Naming a
+    // recovery satisfies the CHECK, so the insert travels FURTHER and dies on
+    // the foreign key instead — a different constraint, which is what proves
+    // the first failure was the CHECK doing its job rather than the FK.
+    const pastTheCheck = await violatedConstraint(() =>
+      db.execute(sql`
+        insert into retail_supplier_credits
+          (id, classification, order_id, purchase_order_id, provider_document_id,
+           supplier_recovery_id,
+           credit_amount, credit_currency, accounting_amount, accounting_currency,
+           issued_at, recorded_at, claim_key)
+        values (${`cr-${RUN}-rl2`}, 'return_linked', ${orderId}, ${`po-${RUN}-absent`}, 'DOC-RL2',
+                ${`rec-${RUN}-absent`},
+                100, 'EUR', 100, 'EUR', now(), now(), ${`ck-${RUN}-rl2`})
+      `),
+    );
+    expect(pastTheCheck).not.toBe('retail_supplier_credits_return_evidence_check');
+    expect(pastTheCheck).toContain('purchase_order');
+  });
+
+  it('leaves a `cost_reduction` credit free to name no recovery', async () => {
+    // The implication runs ONE way. A supplier correcting its own overcharge
+    // has no recovery behind it, and a biconditional would refuse that row —
+    // which is the shape this test exists to keep somebody from "tidying" into
+    // an `=`.
+    const outcome = await violatedConstraint(() =>
+      db.execute(sql`
+        insert into retail_supplier_credits
+          (id, classification, order_id, purchase_order_id, provider_document_id,
+           credit_amount, credit_currency, accounting_amount, accounting_currency,
+           issued_at, recorded_at, claim_key)
+        values (${`cr-${RUN}-cr1`}, 'cost_reduction', ${orderId}, ${`po-${RUN}-absent`}, 'DOC-CR1',
+                100, 'EUR', 100, 'EUR', now(), now(), ${`ck-${RUN}-cr1`})
+      `),
+    );
+    expect(outcome).not.toBe('retail_supplier_credits_return_evidence_check');
+  });
+});

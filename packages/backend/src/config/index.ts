@@ -2447,6 +2447,7 @@ export interface MerchantDemandConfig {
   readonly maxProductRows: number;
 }
 
+/**
  * Zero-profit cost reconciliation (#128).
  *
  * ONE lever, and it gates the LOOP only. Every durable record this domain

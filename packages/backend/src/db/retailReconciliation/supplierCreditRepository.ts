@@ -30,6 +30,13 @@ export interface NewRetailSupplierCredit {
   orderId?: string;
   providerDocumentId: string;
   supplierInvoiceReference?: string;
+  /**
+   * The #127 recovery that established a `return_linked` classification.
+   *
+   * Required by CHECK for `return_linked` and optional otherwise, so the
+   * verdict and the evidence for it are written together or not at all.
+   */
+  supplierRecoveryId?: string;
   credit: { amount: number; currency: CurrencyCode };
   accounting: { amount: number; currency: CurrencyCode };
   fxSnapshot?: FxRateSnapshot;
@@ -94,6 +101,7 @@ export async function claimRetailSupplierCredit(
       ...(input.supplierInvoiceReference
         ? { supplierInvoiceReference: input.supplierInvoiceReference }
         : {}),
+      ...(input.supplierRecoveryId ? { supplierRecoveryId: input.supplierRecoveryId } : {}),
       creditAmount: input.credit.amount,
       creditCurrency: input.credit.currency,
       accountingAmount: input.accounting.amount,

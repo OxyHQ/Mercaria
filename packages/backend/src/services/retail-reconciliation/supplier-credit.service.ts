@@ -8,11 +8,22 @@
  *
  * ## The classification is rules 2 and 3, and it is DERIVED from evidence
  *
- * A credit is `return_linked` when the purchase order it reverses belongs to an
- * order that has a customer return or refund against it, and `cost_reduction`
- * otherwise. The distinction is not a label somebody chooses: it decides whether
- * the credit may produce a customer adjustment, and a chooser would eventually
- * choose wrong in the direction that keeps money.
+ * A credit is `return_linked` when #127 holds a RETURN CASE behind it: a
+ * `supplier_recoveries` row on the same purchase order, naming a service
+ * request that has a return case. `cost_reduction` otherwise. The distinction is
+ * not a label somebody chooses: it decides whether the credit may produce a
+ * customer adjustment, and a chooser would eventually choose wrong in the
+ * direction that keeps money.
+ *
+ * The signal is the RETURN CASE and deliberately not "does this order have any
+ * refund". A failed procurement refunds the buyer and draws a supplier credit
+ * too, and reading that refund as a return classifies a pure `cost_reduction`
+ * as `return_linked` — which suppresses exactly the customer adjustment the
+ * zero-profit policy owes. It is also not the recovery's KIND: a kind is #127's
+ * word for what Mercaria is claiming from a supplier, while what this needs to
+ * know is whether goods came back from a buyer, and only the return case says
+ * that. ADR 0004 D8.5 stands — nothing here reads a recovery's AMOUNT, and no
+ * customer figure is derived from one.
  *
  * Neither classification touches the customer's refund. Rule 2's "does not
  * reduce an already-promised customer refund" is held by this module writing
@@ -37,11 +48,10 @@
  */
 
 import type { CurrencyCode } from '@mercaria/shared-types';
-import { getDb } from '../../db/postgres.js';
+import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { insertLedgerTransaction } from '../../db/payments/ledgerRepository.js';
 import {
   listPurchaseOrdersForOrder,
-  listRefundsForOrder,
   listSupplierDocumentsForPurchaseOrders,
 } from '../../db/retailReconciliation/evidenceSourceRepository.js';
 import { raiseReconciliationException } from '../../db/retailReconciliation/exceptionRepository.js';
@@ -51,8 +61,41 @@ import {
   isLedgerRecognitionClaimed,
   supplierCreditClaimKey,
 } from '../../db/retailReconciliation/supplierCreditRepository.js';
+import { findRetailReturnCaseForRequest } from '../../db/retailServiceRequests/returnCaseRepository.js';
+import { listSupplierRecoveriesForPurchaseOrder } from '../../db/retailServiceRequests/supplierRecoveryRepository.js';
 import { supplierCreditReceived } from '../payments/ledger-postings.js';
 import { log } from '../../lib/logger.js';
+
+/**
+ * Which purchase orders have a customer RETURN behind them, and the recovery
+ * row that says so.
+ *
+ * Two hops on purpose. A `supplier_recoveries` row alone is Mercaria claiming
+ * something back from a supplier and says nothing about goods coming back from
+ * a buyer — a cancelled procurement opens one too. The RETURN CASE is the
+ * customer-side fact, and it is reached through the recovery's own
+ * `service_request_id`, so the link Mercaria records is the link #127 made.
+ *
+ * A recovery naming no service request contributes nothing: it was opened by an
+ * operator against a supplier, with no buyer on the other side of it.
+ */
+async function resolveReturnEvidenceByPurchaseOrder(
+  purchaseOrderIds: readonly string[],
+  db: DatabaseOrTransaction,
+): Promise<Map<string, string>> {
+  const evidence = new Map<string, string>();
+  for (const purchaseOrderId of purchaseOrderIds) {
+    const recoveries = await listSupplierRecoveriesForPurchaseOrder(purchaseOrderId, db);
+    for (const recovery of recoveries) {
+      if (!recovery.serviceRequestId) continue;
+      const returnCase = await findRetailReturnCaseForRequest(recovery.serviceRequestId, db);
+      if (!returnCase) continue;
+      evidence.set(purchaseOrderId, recovery.id);
+      break;
+    }
+  }
+  return evidence;
+}
 
 /** What one ingestion pass over an order's credit notes did. */
 export interface SupplierCreditIngestOutcome {
@@ -85,10 +128,13 @@ export async function ingestSupplierCreditsForOrder(input: {
   const creditNotes = documents.filter((doc) => doc.kind === 'credit_note');
   if (creditNotes.length === 0) return { recorded: 0, booked: 0 };
 
-  // A customer return or refund on this order is what makes a credit
-  // `return_linked`. Read once for the whole pass rather than per credit.
-  const refunds = await listRefundsForOrder(input.orderId, db);
-  const hasCustomerReturn = refunds.length > 0;
+  // The return evidence, per PURCHASE ORDER rather than per order: a multi-line
+  // retail order can have one line returned and another merely re-priced, and
+  // an order-wide answer would classify both credits the same way.
+  const returnEvidence = await resolveReturnEvidenceByPurchaseOrder(
+    purchaseOrders.map((po) => po.id),
+    db,
+  );
 
   let recorded = 0;
   let booked = 0;
@@ -105,10 +151,12 @@ export async function ingestSupplierCreditsForOrder(input: {
     const netMinor = note.totalAmount - (note.taxAmount ?? 0);
     if (netMinor <= 0) continue;
 
-    const classification = hasCustomerReturn ? 'return_linked' : 'cost_reduction';
+    const recoveryId = returnEvidence.get(po.id);
+    const classification = recoveryId === undefined ? 'cost_reduction' : 'return_linked';
 
     const didRecord = await recordAndBookSupplierCredit({
       classification,
+      ...(recoveryId ? { supplierRecoveryId: recoveryId } : {}),
       orderId: input.orderId,
       supplierId: po.supplierId,
       purchaseOrderId: po.id,
@@ -213,6 +261,8 @@ export async function recordUnattributableSupplierCredit(input: {
  */
 async function recordAndBookSupplierCredit(input: {
   classification: 'return_linked' | 'cost_reduction';
+  /** Present exactly when the classification is `return_linked` — a CHECK. */
+  supplierRecoveryId?: string;
   orderId: string;
   supplierId: string;
   purchaseOrderId: string;
@@ -266,6 +316,7 @@ async function recordAndBookSupplierCredit(input: {
         ...(input.supplierInvoiceReference
           ? { supplierInvoiceReference: input.supplierInvoiceReference }
           : {}),
+        ...(input.supplierRecoveryId ? { supplierRecoveryId: input.supplierRecoveryId } : {}),
         credit: { amount: input.amountMinor, currency: input.currency },
         // The credit is recorded in the SUPPLIER's own currency on both sides.
         // Converting it into the order's accounting currency is the
