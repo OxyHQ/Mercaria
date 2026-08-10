@@ -64,6 +64,9 @@ import priceHistoryRouter from './routes/price-history.js';
 import internalPriceHistoryRouter from './routes/internal-price-history.js';
 import priceAlertsRouter from './routes/price-alerts.js';
 import internalPriceAlertsRouter from './routes/internal-price-alerts.js';
+import priceSignalsRouter from './routes/price-signals.js';
+import merchantCompetitivenessRouter from './routes/merchant-competitiveness.js';
+import internalPriceSignalsRouter from './routes/internal-price-signals.js';
 import internalCatalogConditionRouter from './routes/internal-catalog-condition.js';
 import catalogAttributesRouter from './routes/catalog-attributes.js';
 import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
@@ -430,6 +433,24 @@ export function createApp(): express.Express {
   if (config.priceAlerts.enabled) {
     app.use('/price-alerts', priceAlertsRouter);
   }
+  /**
+   * Trustworthy price signals (#82), behind their OWN read lever.
+   *
+   * `PRICE_SIGNALS_PUBLIC_READS_ENABLED` gates the MOUNT and nothing durable, for
+   * the reason #78's lever exists: a badge is the one part of this domain that
+   * can be WRONG in public, so the buyer-facing half is the half that gets a
+   * lever. The merchant surface below is NOT gated by it — a merchant reading
+   * their own analysis is not a claim shown to a shopper, and gating it would
+   * take a dashboard away to fix a badge.
+   */
+  if (config.priceSignals.publicReadsEnabled) {
+    app.use('/price-signals', priceSignalsRouter);
+  }
+  // A merchant's own competitiveness analysis (#82, supporting #40). Not under
+  // `/admin/stores/:storeId` because the subject is a canonical-graph MERCHANT:
+  // the gate is #83's verified claim, checked in the service, and a caller who is
+  // not the claimant gets the same 404 an unclaimed merchant does.
+  app.use('/merchant-competitiveness', merchantCompetitivenessRouter);
   // The versioned attribute registry and the constraint language (#94): public
   // definition/facet reads and the pre-flight validation both search and #95's
   // interpreter run against…
@@ -455,6 +476,13 @@ export function createApp(): express.Express {
     // the evidence has to be readable during the incident that turned the loop
     // off — #62's and #68's rule for their own operator surfaces.
     app.use('/internal/price-history', internalPriceHistoryRouter);
+    // Price signals (#82): policy versions, measurement runs, coverage and label
+    // distribution, the mass-change diff, and the merchant correction queue. Same
+    // allow-list, same reason — what a claim about a price MEANS is a fact about
+    // this graph. Mounted while the sweep is off and while nothing is published,
+    // because a deployment with no active version is exactly when somebody needs
+    // to publish one.
+    app.use('/internal/price-signals', internalPriceSignalsRouter);
   }
 
   /**

@@ -51,6 +51,28 @@ export {
 } from "./lib/offer-labels";
 
 // ---------------------------------------------------------------------------
+// Price signals (#82) — the reader-facing copy for the signals, the quality
+// labels, the merchant competitiveness rows and the informational
+// recommendations. Same split as the two above, with one addition of its own:
+// there is a sentence per STATE, because "we could not tell" and "we looked and
+// the condition does not hold" are different things to say and rendering one as
+// the other is the dishonesty the whole domain exists to prevent.
+// ---------------------------------------------------------------------------
+export {
+  MERCHANT_COMPETITIVENESS_TITLE,
+  MERCHANT_ELIGIBILITY_LOSS_TEXT,
+  PRICE_POSITION_TEXT,
+  PRICE_QUALITY_CONFIDENCE_TEXT,
+  PRICE_QUALITY_LABEL_TEXT,
+  PRICE_SIGNAL_MEANING,
+  PRICE_SIGNAL_RECOMMENDATION_TEXT,
+  PRICE_SIGNAL_TITLE,
+  PRICE_SIGNAL_UNMEASURED_TEXT,
+  priceSignalAccessibleSummary,
+  priceSignalBadgeText,
+} from "./lib/price-signal-labels";
+
+// ---------------------------------------------------------------------------
 // App shell — the shared responsive layout, sidebar rail, and page mask
 // ---------------------------------------------------------------------------
 export { AppShell, type AppShellProps } from "./components/shell/AppShell";

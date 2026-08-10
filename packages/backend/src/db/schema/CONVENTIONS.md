@@ -3985,6 +3985,104 @@ rollback is a status change rather than a data migration. Full behaviour:
   and rolled back without re-ingesting offers" true by construction; and a ranked
   page is a projection #61 measured the alternative for and adopted no
   materialized view.
+## Price signals (#82)
+
+`price_signal_policy_versions`, `price_signal_runs`, `price_signal_evaluations`,
+`price_signal_feedback`. What a CLAIM about a price means, the sweep that
+measures how often one can be made, what it found, and the corrections merchants
+file against it. Full reference: `docs/price-signals.md`.
+
+- **NOT ONE column is added to a table this domain does not own**, and that is the
+  finding rather than an omission. A signal is DERIVED at read time from #78's
+  immutable observations and #74's eligible offers — the
+  `deriveNativeCheckoutEligibility` divergence from the one-stored-verdict rule,
+  with more force than anywhere it has applied before: the inputs sit on five
+  tables in four domains, so a cached "good price" survives the moderation
+  restriction, the rights withdrawal and the retirement that should have withdrawn
+  it. `price_signal_evaluations` is a RECORDING (the `payment_discrepancies` and
+  `retail_eligibility_decisions` relationship) and a scanned gate fails the build
+  if a read path selects from it.
+- **The money columns carry NO currency of their own**, which is a stated
+  divergence from the `money()` four-column shape this document otherwise
+  requires. Every figure on an evaluation is expressed in that row's
+  `display_currency`, which is part of the SUBJECT's identity; a per-figure
+  currency column would be a second representation of one fact, and the failure it
+  enables is precisely this domain's own — a row whose headline amount and whose
+  subject disagree about what currency the number is in. The divergence is narrow:
+  it applies only where a row already carries the currency as part of its
+  identity.
+- **`min_distinct_sellers` is CHECK-floored at
+  `PRICE_SIGNAL_MIN_DISTINCT_SELLERS_FLOOR`, rendered with `sql.raw`.** The floor
+  is not about disclosure — every offer read here is one `/offer-comparison`
+  already publishes — it is about the word MARKET meaning something: a median over
+  two sellers is one rival's price wearing a statistical name. `sql.raw` because
+  interpolating the constant normally writes the literal bound-parameter
+  placeholder `$1` into the generated migration, which generates cleanly and fails
+  at APPLY time.
+- **`good_price_below_median_bps >= typical_band_bps` is a CHECK.** Overlapping
+  thresholds make one price satisfy both verdicts, and which one a shopper sees
+  would be decided by the ORDER of the comparisons in the code rather than by the
+  row.
+- **`cardinality(guardrail_metric_keys) >= 1`, never `array_length(...) >= 1`.**
+  `array_length('{}', 1)` is NULL, a CHECK rejects only FALSE, and the obvious
+  spelling ADMITS exactly the empty evaluation plan it exists to refuse. Measured
+  four times in this schema before this table was written; the realdb suite pins
+  it with an empty-array fixture, which is the only fixture that can tell the two
+  spellings apart.
+- **Two shape CHECKs are written as SEPARATE implications, never as one over
+  their conjunction** — the #126 finding. `price_signal_evaluations_value_shape_check`
+  says both "only a measured row may carry a figure" AND "a measured row must
+  carry one"; the conjunction form is SATISFIED by a row where both halves are
+  false, admitting exactly the shape it exists to forbid.
+  `price_signal_feedback_resolution_shape_check` is two biconditionals for the
+  same reason.
+- **A confidence belongs to a LABEL** (`(confidence is not null) = (label is not
+  null)`). The two are one fact in two columns — issue item 8's "backed by a
+  documented policy AND confidence" — and a confidence beside no label is a
+  strength rating for a claim nobody made.
+- **The run counters SUM by EQUALITY, never `<=`**, on both axes
+  (`catalog_backfill_runs`' device): a page that swallowed a subject cannot write
+  a row at all, and a sweep that measured nothing produces the output of a clean
+  one without it. The metrics surface reports `signalsFromRecords` counted off the
+  evidence beside the run's own counter, with `countsAgree`.
+- **An evaluation cites its policy version by a NOT NULL COMPOSITE foreign key**
+  onto the run (the `match_category_gates` device), so a row naming a different
+  policy from the run that produced it is UNREPRESENTABLE rather than merely
+  wrong. The composite target is a `unique()` CONSTRAINT and not a
+  `uniqueIndex()`: drizzle-kit emits every `ADD CONSTRAINT … FOREIGN KEY` before
+  every `CREATE UNIQUE INDEX`, so a foreign key targeting an index fails at apply
+  time with `42830`.
+- **Both `subject_key` columns are GENERATED**, the #78 `series_key` reason:
+  Postgres treats NULLs as distinct and `canonical_product_id`,
+  `canonical_variant_id` and `market` are each legitimately NULL, so a plain
+  multi-column unique would let a resumed run write a subject twice and let a
+  merchant file the same open report twice.
+- **`price_signal_feedback`'s open partial unique is predicated on `resolved_at
+  IS NULL`, not on `status = 'open'`.** They are the same set by the resolution
+  CHECK, and a NULL predicate is the one a partial index expresses without a
+  second copy of the status vocabulary.
+- **The policy trigger freezes every column that decides what a claim MEANS once
+  the row leaves `draft`, and freezes NONE of the lifecycle.** Freezing `status`,
+  `activated_at`, `superseded_at`, `archived_at` or `approved_by_oxy_user_id`
+  would make activation and rollback impossible; the realdb suite asserts both
+  halves, because a trigger refusing everything would pass a test that only
+  checked the refusal.
+- **The evaluation trigger refuses UPDATE and PERMITS DELETE**, inverting the
+  ledger's posture and matching `analytics_events` and #78's snapshots. A
+  measurement that can be rewritten measures nothing; retention on a schedule is
+  an operator decision, and a trigger refusing DELETE would make it fail silently.
+- **Every reference to a mergeable entity is `retained_by_tombstone`** in
+  `merge-plan.ts`. An evaluation records what the prices of THAT identity looked
+  like at a point in time and a correction report is a complaint about a claim
+  published concerning it; repointing either would attribute one product's
+  measurements — or one merchant's complaint — to another, and the next sweep
+  produces fresh rows for the merged catalogue under the winner anyway.
+- **`price_signal_runs.cursor_canonical_product_id` carries NO foreign key** and
+  is ledgered in `ID_COLUMNS_WITHOUT_FOREIGN_KEY` as a keyset CURSOR: a foreign
+  key would make a resumable run un-resumable the moment its cursor product was
+  merged away, because the cursor would be RESTRICTed or nulled and either outcome
+  silently restarts the sweep from the beginning.
+
 ## Price history (#78)
 
 `offer_price_snapshots`, `offer_price_series`, `offer_price_points`,

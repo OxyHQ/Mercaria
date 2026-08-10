@@ -1832,6 +1832,52 @@ export interface PriceAlertsConfig {
   readonly traceLimit: number;
 }
 
+/**
+ * Trustworthy price signals (#82).
+ *
+ * Note what is NOT here, deliberately: not one threshold, floor or window that
+ * decides what a signal MEANS. Every one of those lives on a
+ * `price_signal_policy_versions` row, versioned, frozen once it serves and cited
+ * by every evaluation — because acceptance 4 asks that a signal be reproducible
+ * from immutable observations and a POLICY VERSION, and a number read out of the
+ * environment is reproducible from neither. What lives here is the shape of the
+ * LOOP and the size of a page.
+ *
+ * There is also no `PRICE_SIGNAL_POLICY_KEY`: the key is a code constant, per
+ * the house rule every other versioned policy in this codebase follows.
+ */
+export interface PriceSignalsConfig {
+  /**
+   * `PRICE_SIGNALS_ENABLED` — does the monitoring sweep dispatcher run.
+   *
+   * Gates the LOOP and nothing durable. With it off a policy version can still be
+   * published and activated, a merchant can still read their own
+   * competitiveness, and the operator surface still answers — what stops is the
+   * background measurement, which is a cost rather than a capability.
+   */
+  readonly enabled: boolean;
+  /**
+   * `PRICE_SIGNALS_PUBLIC_READS_ENABLED` — is `/price-signals` mounted.
+   *
+   * The buyer-facing half is the half that gets a lever, exactly as #78's
+   * `PRICE_HISTORY_PUBLIC_READS_ENABLED` gates a chart and never a row: a badge
+   * is the one part of this domain that can be WRONG in public.
+   */
+  readonly publicReadsEnabled: boolean;
+  /** How many offers one subject's cross-sectional sample may pull in. */
+  readonly offerSampleLimit: number;
+  /** How many canonical products one sweep page examines. */
+  readonly sweepBatchSize: number;
+  readonly sweepPollIntervalMs: number;
+  readonly sweepLeaseMs: number;
+  /** How many of a merchant's own offers one competitiveness read examines. */
+  readonly merchantSubjectLimit: number;
+  /** How many verdicts the mass-change detector compares between two runs. */
+  readonly massChangeSampleLimit: number;
+  /** How many recorded evaluations an operator trace returns for one subject. */
+  readonly traceLimit: number;
+}
+
 export interface OfferFreshnessConfig {
   /** `OFFER_REFRESH_ENABLED` — does the refresh dispatcher run. Gates the LOOP only. */
   readonly refreshEnabled: boolean;
@@ -2501,6 +2547,7 @@ export interface AppConfig {
   readonly ranking: RankingConfig;
   readonly priceHistory: PriceHistoryConfig;
   readonly priceAlerts: PriceAlertsConfig;
+  readonly priceSignals: PriceSignalsConfig;
   readonly feedImport: FeedImportConfig;
   readonly ebay: EbayConfig;
   readonly awin: AwinConfig;
@@ -2689,6 +2736,17 @@ export const config: AppConfig = Object.freeze({
     notificationMaxBackoffMs: intEnv('PRICE_ALERT_NOTIFICATION_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
     notificationMaxAttempts: intEnv('PRICE_ALERT_NOTIFICATION_MAX_ATTEMPTS', 8),
     traceLimit: intEnv('PRICE_ALERT_TRACE_LIMIT', 100),
+  }),
+  priceSignals: Object.freeze({
+    enabled: boolEnv('PRICE_SIGNALS_ENABLED', false),
+    publicReadsEnabled: boolEnv('PRICE_SIGNALS_PUBLIC_READS_ENABLED', false),
+    offerSampleLimit: intEnv('PRICE_SIGNAL_OFFER_SAMPLE_LIMIT', 200),
+    sweepBatchSize: intEnv('PRICE_SIGNAL_SWEEP_BATCH_SIZE', 25),
+    sweepPollIntervalMs: intEnv('PRICE_SIGNAL_SWEEP_POLL_INTERVAL_MS', 60_000),
+    sweepLeaseMs: intEnv('PRICE_SIGNAL_SWEEP_LEASE_MS', 300_000),
+    merchantSubjectLimit: intEnv('PRICE_SIGNAL_MERCHANT_SUBJECT_LIMIT', 200),
+    massChangeSampleLimit: intEnv('PRICE_SIGNAL_MASS_CHANGE_SAMPLE_LIMIT', 5_000),
+    traceLimit: intEnv('PRICE_SIGNAL_TRACE_LIMIT', 200),
   }),
   feedImport: Object.freeze({
     enabled: resolveFeedImportEnabled(),

@@ -1271,4 +1271,26 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // and this domain stores no request.
   { column: 'ranking_policy_versions.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'ranking_policy_versions.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── Trustworthy price signals (#82) ───────────────────────────────────────
+  // Four Oxy accounts and ONE cursor, and that is the whole of what this domain
+  // stores about a person. There is no actor on an evaluation, no viewer, no
+  // session and no buyer anywhere in it — a signal is derived per request from
+  // offers Mercaria already publishes, and the merchant surface reads no
+  // buyer-side data at all, which is why #77's suppress-below-ten posture has
+  // nothing here to apply to.
+  { column: 'price_signal_policy_versions.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'price_signal_policy_versions.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'price_signal_feedback.reported_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'price_signal_feedback.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'price_signal_runs.cursor_canonical_product_id',
+    reason:
+      'A KEYSET CURSOR, not a reference. It records where a sweep had reached so the next page ' +
+      'resumes rather than restarting and double-counting into a counter CHECK that would then ' +
+      'refuse the row. A foreign key would make a resumable run un-resumable the moment its ' +
+      'cursor product was merged away or deleted — the cursor would be RESTRICTed or nulled, and ' +
+      'either outcome silently restarts the sweep from the beginning. The value is only ever ' +
+      'compared with `>`, so a product that no longer exists costs one page boundary and nothing ' +
+      'else.',
+  },
 ];

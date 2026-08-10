@@ -91,6 +91,7 @@ import {
   priceAlertTriggers,
 } from '../../db/schema/priceAlerts.js';
 import { offerPriceSeries } from '../../db/schema/priceHistory.js';
+import { priceSignalEvaluations, priceSignalFeedback } from '../../db/schema/priceSignals.js';
 import {
   catalogSourceConfigs,
   marketplaceSellerIdentities,
@@ -426,6 +427,18 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
   ],
 
   merchant: [
+    {
+      column: priceSignalFeedback.merchantId,
+      phase: 'rollups',
+      disposition: 'retained_by_tombstone',
+      note:
+        'A correction report a merchant filed against a claim Mercaria PUBLISHED concerning that ' +
+        'identity (#82 monitoring 4). Retained by the tombstone for the same reason the ' +
+        'evaluations are: the report is evidence about a signal that WAS shown, and repointing it ' +
+        'would file a complaint against a product nobody complained about. It also keeps the ' +
+        '`..._open_key` partial unique out of the merge entirely, which is the collision this ' +
+        'disposition avoids rather than resolves.',
+    },
     flattenTarget(merchants.mergedIntoId),
     aliasTarget(merchantAliases.merchantId, merchantAliases.normalizedAlias),
     sourceLinkTarget(
@@ -668,6 +681,29 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
   ],
 
   canonical_product: [
+    {
+      column: priceSignalEvaluations.canonicalProductId,
+      phase: 'rollups',
+      disposition: 'retained_by_tombstone',
+      note:
+        'A recorded measurement of what the prices of THIS identity looked like at a point in ' +
+        'time, under a named policy version (#82). It stays with the tombstone for the ' +
+        '`review_aggregates` reason plus one of its own: moving it would attribute measurements ' +
+        'of one product to another, and the next sweep produces fresh rows for the merged ' +
+        'catalogue under the winner — so nothing is lost and nothing is invented.',
+    },
+    {
+      column: priceSignalFeedback.canonicalProductId,
+      phase: 'rollups',
+      disposition: 'retained_by_tombstone',
+      note:
+        'A correction report a merchant filed against a claim Mercaria PUBLISHED concerning that ' +
+        'identity (#82 monitoring 4). Retained by the tombstone for the same reason the ' +
+        'evaluations are: the report is evidence about a signal that WAS shown, and repointing it ' +
+        'would file a complaint against a product nobody complained about. It also keeps the ' +
+        '`..._open_key` partial unique out of the merge entirely, which is the collision this ' +
+        'disposition avoids rather than resolves.',
+    },
     flattenTarget(canonicalProducts.mergedIntoId),
     aliasTarget(canonicalProductAliases.productId, canonicalProductAliases.normalizedAlias),
     sourceLinkTarget(
@@ -856,6 +892,29 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
   ],
 
   canonical_variant: [
+    {
+      column: priceSignalEvaluations.canonicalVariantId,
+      phase: 'rollups',
+      disposition: 'retained_by_tombstone',
+      note:
+        'A recorded measurement of what the prices of THIS identity looked like at a point in ' +
+        'time, under a named policy version (#82). It stays with the tombstone for the ' +
+        '`review_aggregates` reason plus one of its own: moving it would attribute measurements ' +
+        'of one product to another, and the next sweep produces fresh rows for the merged ' +
+        'catalogue under the winner — so nothing is lost and nothing is invented.',
+    },
+    {
+      column: priceSignalFeedback.canonicalVariantId,
+      phase: 'rollups',
+      disposition: 'retained_by_tombstone',
+      note:
+        'A correction report a merchant filed against a claim Mercaria PUBLISHED concerning that ' +
+        'identity (#82 monitoring 4). Retained by the tombstone for the same reason the ' +
+        'evaluations are: the report is evidence about a signal that WAS shown, and repointing it ' +
+        'would file a complaint against a product nobody complained about. It also keeps the ' +
+        '`..._open_key` partial unique out of the merge entirely, which is the collision this ' +
+        'disposition avoids rather than resolves.',
+    },
     flattenTarget(canonicalVariants.mergedIntoId),
     aliasTarget(canonicalVariantAliases.variantId, canonicalVariantAliases.normalizedAlias),
     sourceLinkTarget(
