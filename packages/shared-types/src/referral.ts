@@ -446,7 +446,9 @@ export type ReferralEventSubjectType =
   | 'code'
   | 'link'
   | 'attribution'
-  | 'conversion';
+  | 'conversion'
+  | 'reward_rule'
+  | 'reward';
 
 /** {@link ReferralEventSubjectType} as a tuple. */
 export const REFERRAL_EVENT_SUBJECT_TYPES: readonly ReferralEventSubjectType[] = [
@@ -456,6 +458,11 @@ export const REFERRAL_EVENT_SUBJECT_TYPES: readonly ReferralEventSubjectType[] =
   'link',
   'attribution',
   'conversion',
+  // #144's two subjects. Added to the SAME trail rather than given one of their
+  // own: "what happened to this referral" is one question, and an operator
+  // answering it should not have to know which table the answer lives beside.
+  'reward_rule',
+  'reward',
 ];
 
 /**
@@ -494,7 +501,15 @@ export type ReferralEventAction =
   | 'conversion_verified'
   | 'conversion_rejected'
   | 'conversion_reversed'
-  | 'conversion_corrected';
+  | 'conversion_corrected'
+  | 'reward_rule_drafted'
+  | 'reward_rule_activated'
+  | 'reward_rule_superseded'
+  | 'reward_rule_retired'
+  | 'reward_accrued'
+  | 'reward_accrual_refused'
+  | 'reward_reversed'
+  | 'reward_voided';
 
 /** {@link ReferralEventAction} as a tuple. */
 export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
@@ -527,6 +542,19 @@ export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
   'conversion_rejected',
   'conversion_reversed',
   'conversion_corrected',
+  // #144. `reward_accrual_refused` is the one that carries ADR 0005 D16: an
+  // accrual that produced nothing leaves a row saying which of the thirteen
+  // named reasons applied, because a partner-support question deserves an
+  // answer and an effect that did not happen must be distinguishable from one
+  // that silently vanished.
+  'reward_rule_drafted',
+  'reward_rule_activated',
+  'reward_rule_superseded',
+  'reward_rule_retired',
+  'reward_accrued',
+  'reward_accrual_refused',
+  'reward_reversed',
+  'reward_voided',
 ];
 
 /** Who performed an audited referral action. */

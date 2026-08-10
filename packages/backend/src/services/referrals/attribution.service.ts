@@ -53,6 +53,7 @@ import {
   resolveSubjectRef,
 } from '../../db/referrals/subjectRedirectRepository.js';
 import { appendReferralEvent } from '../../db/referrals/eventRepository.js';
+import { resolvePinnedRewardRuleRef } from './rewards/rule.service.js';
 
 /** How the resolver answered. Every arm is an ANSWER, including the refusals. */
 export type AttributionOutcome =
@@ -127,6 +128,14 @@ export async function attributeTouch(touchId: string): Promise<AttributionOutcom
     }
 
     const windowMs = version.attributionWindowDays * 24 * 60 * 60 * 1_000;
+    // ADR 0005 D19: the rule VERSION is pinned here and nowhere later. The
+    // program names a rule (`commission_rule_ref`); what an attribution records
+    // is `<ruleId>@v<version>` for the version live at THIS moment, so a rate
+    // change afterwards creates a new version that governs nothing already
+    // attributed. A rule with no published version yet carries its bare ref
+    // through — attribution is never blocked by an unpublished rule, and the
+    // accrual refuses later with the recorded `no_pinned_rule_version`.
+    const ruleVersionRef = await resolvePinnedRewardRuleRef(tx, version.commissionRuleRef);
     const create = {
       ...scope,
       programVersionId: version.id,
@@ -136,7 +145,7 @@ export async function attributeTouch(touchId: string): Promise<AttributionOutcom
       evidenceTouchKind: touch.touchKind,
       evidenceOccurredAt: touch.occurredAt,
       attributionPolicy: version.attributionPolicy,
-      ruleVersionRef: version.commissionRuleRef,
+      ruleVersionRef,
       expiresAt: new Date(touch.occurredAt.getTime() + windowMs),
       originalActorKind: touch.actorKind,
     };

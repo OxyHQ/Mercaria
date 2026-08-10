@@ -421,6 +421,13 @@
       "when": 1786356141546,
       "tag": "0059_icy_dragon_man",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1786359705752,
+      "tag": "0060_colorful_speed_demon",
+      "breakpoints": true
     }
   ]
 }

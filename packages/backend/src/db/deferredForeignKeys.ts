@@ -950,6 +950,46 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'Half of the one-source-one-conversion unique key and the input to the idempotency key.',
   },
 
+  // ── Referral reward rules and budgets (#144, ADR 0005) ────────────────────
+  {
+    column: 'referral_reward_rules.rule_id',
+    reason:
+      'The stable rule identity shared by that rule’s version rows — the ' +
+      'referral_programs.program_id shape one table over, and a set of rows in THIS table ' +
+      'rather than a row in another. An attribution pins one exact version through ' +
+      '`<ruleId>@v<version>`, and referral_rewards.rule_version_id IS a foreign key.',
+  },
+  {
+    column: 'referral_reward_rules.program_id',
+    reason:
+      'The stable program identity, matching referral_attributions.program_id: a rule pays ' +
+      'under a PROGRAM rather than under one of its version rows, so that a program version ' +
+      'published tomorrow does not orphan the rule paying under it today.',
+  },
+  {
+    column: 'referral_reward_rules.funding_source_id',
+    reason:
+      'A closed value from REFERRAL_FUNDING_SOURCE_IDS, CHECKed against that tuple. It names ' +
+      'an ADAPTER in code, not a row: the four approved sources are static and a table of ' +
+      'them would let a fifth be added with no migration, no CHECK widening and no review — ' +
+      'which is the funding boundary ADR 0005 exists to close.',
+  },
+  { column: 'referral_reward_rules.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_reward_rules.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'referral_rewards.funding_source_id',
+    reason:
+      'The same closed adapter name the rule carries, snapshotted onto the reward so the ' +
+      'funding record ref beside it can be read without resolving the rule version.',
+  },
+  {
+    column: 'referral_campaign_budgets.program_id',
+    reason:
+      'The stable program identity again — a campaign belongs to a program, not to one of ' +
+      'its version rows.',
+  },
+  { column: 'referral_campaign_budgets.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+
   // ── Offers (#57, ADR 0002 D18) ────────────────────────────────────────────
   {
     column: 'offers.external_offer_id',
