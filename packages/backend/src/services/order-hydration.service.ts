@@ -46,7 +46,10 @@ import {
 import { findStoresByIds, type StoreRow } from '../db/stores/storeRepository.js';
 import { findGuestContactsByIds } from '../db/guests/guestCheckoutRepository.js';
 import { getDb } from '../db/postgres.js';
+import type { RetailOrderExperience } from '@mercaria/shared-types';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
+import { resolveOrderCommercialPresentations } from './commercial-presentation/order-commercial.service.js';
+import { readRetailOrderExperience } from './commercial-presentation/retail-order.service.js';
 import { orderBuyerOf } from './orders/order-buyer.js';
 import { resolveMedia, toMerchantSummary } from './catalog-hydration.service.js';
 
@@ -393,6 +396,31 @@ async function loadSellerContext(
  * lookups. Maps the persisted `shippingAddressSnapshot` to the DTO's
  * `shippingAddress`, and serializes every `Date` to ISO-8601. Preserves order.
  */
+/**
+ * The seller's public display name for one order, from the batch the caller
+ * already loaded.
+ *
+ * Shared by the full hydration and the summary because both build the SAME
+ * `commercial` disclosure and two spellings of one label can disagree — which
+ * on this surface means a buyer seeing one seller in their order list and
+ * another on the order. Empty for a `platform` order, which has no owner column
+ * to resolve one from: Mercaria's own name comes off the role snapshot, not
+ * from here.
+ */
+function sellerLabelFor(
+  order: OrderRecord,
+  storeById: Map<string, StoreRow>,
+  oxyProfiles: Map<string, OxyProfile>,
+): string {
+  if (order.sellerType === 'store' && order.storeId) {
+    return storeById.get(order.storeId)?.name ?? '';
+  }
+  if (order.sellerType === 'user' && order.sellerOxyUserId) {
+    return oxyProfiles.get(order.sellerOxyUserId)?.displayName ?? order.sellerOxyUserId;
+  }
+  return '';
+}
+
 export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> {
   if (orders.length === 0) {
     return [];
@@ -403,12 +431,45 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
     loadBuyerContacts(orders),
   ]);
 
+  // #129: who sold each order, from #123's stored `commercial_role` rather than
+  // from anything live. One batched snapshot read for every `platform` order.
+  const commercialByOrder = await resolveOrderCommercialPresentations(
+    orders.map((order) => ({
+      orderId: order.id,
+      sellerType: order.sellerType,
+      sellerLabel: sellerLabelFor(order, storeById, oxyProfiles),
+    })),
+  );
+
+  // The retail buyer experience, for `platform` orders only. Read here rather
+  // than in `summarizeOrders` because it costs a promise-trail read per order
+  // and a list does not render a delivery window — an order LIST needs to know
+  // WHO sold it, a DETAIL page needs to know where it has got to.
+  const retailByOrder = new Map<string, RetailOrderExperience>();
+  await Promise.all(
+    orders
+      .filter((order) => order.sellerType === 'platform')
+      .map(async (order) => {
+        const experience = await readRetailOrderExperience({
+          orderId: order.id,
+          orderStatus: order.status,
+          paymentStatus: order.paymentStatus,
+        });
+        if (experience) retailByOrder.set(order.id, experience);
+      }),
+  );
+
   return orders.map((order) => {
     const buyer = orderBuyerOf(order);
+    const commercial = commercialByOrder.get(order.id);
+    if (!commercial) {
+      throw new Error(`Order ${order.id} has no commercial presentation`);
+    }
     const dto: OrderDTO = {
       id: order.id,
       orderNumber: order.orderNumber,
       buyer,
+      commercial,
       // The v1 spelling, written only where its old meaning holds: the account
       // that PLACED the order. A claimed guest order deliberately carries none
       // — filling it with the claimant would tell an old client that an Oxy
@@ -505,6 +566,11 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
     const contact = buyerContacts.get(order.id);
     if (contact) {
       dto.buyerContact = contact;
+    }
+
+    const retail = retailByOrder.get(order.id);
+    if (retail) {
+      dto.retail = retail;
     }
 
     return dto;
@@ -616,12 +682,24 @@ export async function summarizeOrders(orders: OrderRecord[]): Promise<OrderSumma
   }
 
   const { oxyProfiles, sellerProfileByUser, storeById } = await loadSellerContext(orders);
+  const commercialByOrder = await resolveOrderCommercialPresentations(
+    orders.map((order) => ({
+      orderId: order.id,
+      sellerType: order.sellerType,
+      sellerLabel: sellerLabelFor(order, storeById, oxyProfiles),
+    })),
+  );
 
   return orders.map((order) => {
+    const commercial = commercialByOrder.get(order.id);
+    if (!commercial) {
+      throw new Error(`Order ${order.id} has no commercial presentation`);
+    }
     const summary: OrderSummary = {
       id: order.id,
       orderNumber: order.orderNumber,
       status: order.status,
+      commercial,
       grandTotal: dual(
         order.totalsGrandTotalShopAmount,
         order.totalsGrandTotalShopCurrency,

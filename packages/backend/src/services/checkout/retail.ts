@@ -101,6 +101,27 @@ export const RETAIL_CHECKOUT_PRICING_POLICY_KEY = 'mercaria-retail-pricing';
  * seller may well be selling the same model a supplier carries, and reading
  * that as "Mercaria sells this" would reclassify somebody else's sale.
  */
+/**
+ * The seller key every retail line is grouped under.
+ *
+ * ONE key for the whole retail order, because Mercaria is ONE seller (ADR 0004
+ * D5) however many suppliers the lines come from. Multi-supplier splitting
+ * happens at the PurchaseOrder grain, under this single order — which is what
+ * keeps ADR 0001's one-PaymentIntent-per-group invariant intact on a mixed
+ * cart.
+ *
+ * It is in the same namespace as `store:<id>` and `user:<id>` so `sellerKeys`
+ * (per-seller checkout) works unchanged: a buyer with a mixed cart deselects
+ * `platform` exactly as they would deselect a store.
+ *
+ * It lives HERE rather than in `checkout.service` because the CART now names it
+ * too (#129 gives each group the key its own checkout would take), and two
+ * spellings of one key would disagree in the direction that matters: a cart
+ * button sending `platform:` or `mercaria` reaches checkout as "no matching
+ * cart items" and a buyer with only Mercaria-sold items cannot pay at all.
+ */
+export const RETAIL_SELLER_KEY = 'platform';
+
 export interface RetailCheckoutLine<TLine> {
   line: TLine;
   variantId: string;

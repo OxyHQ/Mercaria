@@ -41,6 +41,7 @@ import {
 import {
   acceptRetailCostQuote,
   findRetailCostQuoteById,
+  findRetailCostQuoteForPresentation,
   insertRetailCostQuote,
   linkRetailAcceptanceToOrder,
   listRetailCostQuoteAcceptancesForGroup,
@@ -705,5 +706,106 @@ describe('the checkout lock', () => {
       .from(retailCostQuotes)
       .where(eq(retailCostQuotes.id, quote.id));
     expect(after.xmin).toBe(before.xmin);
+  });
+});
+
+/**
+ * #129's presentation read, which is deliberately WIDER than the chargeable one.
+ *
+ * `findChargeableRetailCostQuote` answers "may money move against this" and so
+ * filters `completeness = 'complete'`; this answers "what may a page SAY", and
+ * a quote that concluded `not_purchasable` is exactly the answer #120's
+ * `presentation` and `blockReasons` exist to give. Every case here turns on a
+ * NULL or an ordering that a mocked repository cannot express: `is null`
+ * against `= 'ES'`, an expiry compared to a real clock, and `created_at`
+ * ordering across rows inserted in one transaction.
+ */
+describe("the quote a page may quote from", () => {
+  it('prefers a quote composed FOR the market over a destination-less one', async () => {
+    const policy = await makeActivePolicy();
+    const sourcing = await makeSourcing();
+    const variantId = `var-${uuidv7()}`;
+
+    // The destination-less quote first, so the market-scoped one is NOT simply
+    // the newest row: without the destination preference this case would pass
+    // on `created_at` alone and prove nothing.
+    const anywhere = await insertRetailCostQuote(
+      db,
+      quoteInput(policy, sourcing, {
+        canonicalVariantId: variantId,
+        destinationCountry: null,
+        completeness: 'awaiting_destination',
+        presentation: 'starting_item_cost',
+        blockReasons: ['destination_unknown'],
+      }),
+    );
+    const forSpain = await insertRetailCostQuote(
+      db,
+      quoteInput(policy, sourcing, { canonicalVariantId: variantId, destinationCountry: 'ES' }),
+    );
+
+    const withMarket = await findRetailCostQuoteForPresentation({
+      canonicalVariantId: variantId,
+      destinationCountry: 'es',
+    });
+    expect(withMarket?.id).toBe(forSpain.quote.id);
+
+    // With NO destination, the market-scoped quote must not be reachable: it
+    // prices shipping and tax into Spain, and showing it to somebody who has
+    // told Mercaria nothing would be a total composed for another country.
+    const withoutMarket = await findRetailCostQuoteForPresentation({
+      canonicalVariantId: variantId,
+    });
+    expect(withoutMarket?.id).toBe(anywhere.quote.id);
+    expect(withoutMarket?.presentation).toBe('starting_item_cost');
+  });
+
+  it('returns a BLOCKED quote, which the chargeable read filters away', async () => {
+    const policy = await makeActivePolicy();
+    const sourcing = await makeSourcing();
+    const variantId = `var-${uuidv7()}`;
+    const blocked = await insertRetailCostQuote(
+      db,
+      quoteInput(policy, sourcing, {
+        canonicalVariantId: variantId,
+        completeness: 'blocked_tax_undetermined',
+        presentation: 'not_purchasable',
+        blockReasons: ['tax_undetermined'],
+      }),
+    );
+
+    const found = await findRetailCostQuoteForPresentation({
+      canonicalVariantId: variantId,
+      destinationCountry: 'ES',
+    });
+    expect(found?.id).toBe(blocked.quote.id);
+    // The whole point: the page learns WHY, rather than being unable to tell a
+    // blocked offer from one nobody has priced.
+    expect(found?.blockReasons).toEqual(['tax_undetermined']);
+  });
+
+  it('never returns an EXPIRED quote, in either direction', async () => {
+    const policy = await makeActivePolicy();
+    const sourcing = await makeSourcing();
+    const variantId = `var-${uuidv7()}`;
+    const quotedAt = new Date(Date.now() - 7_200_000);
+    await insertRetailCostQuote(
+      db,
+      quoteInput(policy, sourcing, {
+        canonicalVariantId: variantId,
+        quotedAt,
+        expiresAt: new Date(quotedAt.getTime() + 900_000),
+      }),
+    );
+
+    expect(
+      await findRetailCostQuoteForPresentation({
+        canonicalVariantId: variantId,
+        destinationCountry: 'ES',
+      }),
+    ).toBeUndefined();
+    expect(
+      await findRetailCostQuoteForPresentation({ canonicalVariantId: variantId }),
+    ).toBeUndefined();
   });
 });

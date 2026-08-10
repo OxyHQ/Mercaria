@@ -510,3 +510,12 @@ export * from './sell-yours';
 // refunds, financial records and data export can never become paid-only" a
 // property of the vocabulary rather than a rule in a service.
 export * from './merchant-plan';
+// What a buyer is told about who is selling, who is paid and what rights come
+// with the purchase (#129). Downstream of `./fees` (whose `CommercialMode`
+// tuple it reads rather than duplicating — one vocabulary, two readers: the
+// fee snapshot and the buyer's disclosure), `./retail-pricing` (whose
+// `presentation` and `blockReasons` it renders) and `./retail-eligibility`
+// (whose price-finality determination it carries verbatim). Its union has no
+// common field, so a surface must switch on the mode and cannot put
+// `Sold by Mercaria` on somebody else's sale.
+export * from './commercial-presentation';

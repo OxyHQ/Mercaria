@@ -54,6 +54,7 @@ import {
 } from '../../db/orders/orderRepository.js';
 import { decryptGuestPii } from '../../lib/guest-pii.js';
 import { log } from '../../lib/logger.js';
+import { orderSellerLabel } from '../commercial-presentation/presentation.js';
 import { hydrateOrders } from '../order-hydration.service.js';
 import { mintExchangeGrant } from './grant.service.js';
 import {
@@ -556,9 +557,17 @@ async function orderDetail(
   };
 }
 
-/** The seller's public display name. Never a payout account and never a contact. */
-export function sellerLabel(order: Order): string | undefined {
-  return order.store?.name ?? order.seller?.displayName;
+/**
+ * The seller's public display name. Never a payout account and never a contact.
+ *
+ * Read from the order's own commercial presentation (#129) rather than by
+ * coalescing `store` and `seller`: a `platform` order carries NEITHER by
+ * construction, so the coalesce answered `undefined` for exactly the orders
+ * Mercaria sells itself — leaving a guest's portal row and their confirmation
+ * message with a blank seller.
+ */
+export function sellerLabel(order: Order): string {
+  return orderSellerLabel(order.commercial);
 }
 
 /**

@@ -26,6 +26,7 @@ import type {
   PaymentProviderId,
   PaymentStatus,
 } from './payment';
+import type { CommercialPresentation, RetailOrderExperience } from './commercial-presentation';
 import type { Seller } from './seller';
 import type { MerchantSummary } from './product';
 import type { Timestamps } from './common';
@@ -402,6 +403,28 @@ export interface Order extends Timestamps {
   payment: PaymentInfo;
   /** Id tying together the sibling orders created from the same checkout. */
   checkoutGroupId: string;
+  /**
+   * Who sold this order, and what the buyer is told about it (#129 §"Order and
+   * receipt").
+   *
+   * Derived from `sellerType` and `commercial_role`, which a CHECK ties
+   * together — never re-derived from a retail binding, because a binding
+   * retired after the sale must not change what a receipt says. For a
+   * `platform` order this is the ONLY seller field: `seller` and `store` are
+   * both absent by construction, so a surface reading them for a retail order
+   * renders nothing at all.
+   */
+  commercial: CommercialPresentation;
+  /**
+   * The Mercaria-retail buyer experience, present exactly on a `platform` order
+   * that has its #126 role snapshot.
+   *
+   * Carries ADR 0004 D9.1's progress stage and #126's two delivery statements
+   * kept SEPARATE. Absent on every marketplace order — there is no supplier, no
+   * accepted-versus-current distinction and no supply-confirmation window to
+   * report, and an empty shape would invite a screen to render one.
+   */
+  retail?: RetailOrderExperience;
 }
 
 /** A compact order projection for buyer/seller order lists. */
@@ -422,6 +445,13 @@ export interface OrderSummary {
   seller?: Seller;
   /** Hydrated store identity, for `sellerType: 'store'`. */
   store?: MerchantSummary;
+  /**
+   * Who sold it (#129). Present on a summary as well as on the full order,
+   * because an order LIST is a purchase surface too: a row reading only a total
+   * and a status cannot tell a buyer whether Mercaria or a merchant sold it,
+   * and `sellerType: 'platform'` leaves `seller` and `store` both empty.
+   */
+  commercial: CommercialPresentation;
   /** ISO-8601 creation time. */
   createdAt: string;
 }

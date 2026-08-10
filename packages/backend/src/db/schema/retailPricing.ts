@@ -421,6 +421,14 @@ export const retailCostQuotes = pgTable(
     index('retail_cost_quotes_variant_market_idx')
       .on(t.canonicalVariantId, t.destinationCountry, t.expiresAt)
       .where(sql`${t.completeness} = 'complete'`),
+    // "What may a page SAY about this variant" — #129's presentation read,
+    // which is deliberately NOT restricted to `complete` (a blocked quote is
+    // the answer that names its own block reasons) and so cannot use the
+    // partial index above. Added because the read otherwise has no index at
+    // all, not as a tuning guess: #61's rule is that an index needs a
+    // measurement, and the measurement here is that the alternative is a
+    // sequential scan of every quote ever composed on every product view.
+    index('retail_cost_quotes_variant_presentation_idx').on(t.canonicalVariantId, t.createdAt),
     // Reproducibility: find every quote that composed to one exact content.
     index('retail_cost_quotes_content_hash_idx').on(t.contentHash),
   ],

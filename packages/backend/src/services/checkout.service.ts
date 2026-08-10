@@ -143,6 +143,7 @@ import {
   type ConnectedMarketplaceSellerType,
 } from './fees/order-fees.service.js';
 import {
+  RETAIL_SELLER_KEY,
   partitionRetailLines,
   planRetailCheckout,
   type RetailCheckoutPlan,
@@ -208,21 +209,6 @@ interface SellerGroup {
   storeId?: string;
   lines: ResolvedLine[];
 }
-
-/**
- * The seller key every retail line is grouped under.
- *
- * ONE key for the whole retail order, because Mercaria is ONE seller (ADR 0004
- * D5) however many suppliers the lines come from. Multi-supplier splitting
- * happens at the PurchaseOrder grain, under this single order — which is what
- * keeps ADR 0001's one-PaymentIntent-per-group invariant intact on a mixed
- * cart.
- *
- * It is in the same namespace as `store:<id>` and `user:<id>` so `sellerKeys`
- * (per-seller checkout) works unchanged: a buyer with a mixed cart deselects
- * `platform` exactly as they would deselect a store.
- */
-const RETAIL_SELLER_KEY = 'platform';
 
 /**
  * Build the immutable address snapshot each seller order carries.

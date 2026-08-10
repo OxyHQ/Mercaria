@@ -27,6 +27,7 @@
  */
 
 import type {
+  CommercialPresentation,
   AddCartItemInput,
   Cart as CartDTO,
   CartGroup,
@@ -66,6 +67,9 @@ import {
 import { activeDiscountCodeExists } from '../db/merchandising/discountRepository.js';
 import { resolveMedia } from './catalog-hydration.service.js';
 import { guestCheckoutAvailabilityFor } from './guest-p2p/gate.js';
+import { RETAIL_SELLER_KEY } from './checkout/retail.js';
+import { marketplacePresentation } from './commercial-presentation/presentation.js';
+import { resolveVariantCommercialPresentations } from './commercial-presentation/variant-commercial.service.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { calculateTotals, type PricingLine } from './pricing.service.js';
 import { normalizeDiscountCode } from './discount.service.js';
@@ -146,6 +150,26 @@ async function buildGroups(
   const order: string[] = [];
   const linesByVendor = new Map<string, CartItemDTO[]>();
   const vendorByKey = new Map<string, CartVendor>();
+  const commercialByKey = new Map<string, CommercialPresentation>();
+  const sellerKeyByKey = new Map<string, string>();
+
+  // #129 cart rules 1-3: which of these variants Mercaria sells ITSELF, read
+  // from the same live `retail_offer_bindings` authority checkout partitions
+  // on. One batched call for the whole cart. A variant with no answer keeps the
+  // owner's marketplace presentation, which is what it is.
+  const commercialByVariant = await resolveVariantCommercialPresentations(
+    items.flatMap((item) => {
+      const listing = listingById.get(item.listingId);
+      if (!listing) return [];
+      const sellerKind = listing.ownerType === 'store' ? 'store' : 'user';
+      const store = listing.storeId ? storeById.get(listing.storeId) : undefined;
+      const sellerLabel =
+        listing.ownerType === 'store'
+          ? (store?.name ?? '')
+          : (oxyProfiles.get(listing.oxyUserId ?? '')?.displayName ?? '');
+      return [{ variantId: item.variantId, sellerKind, sellerLabel } as const];
+    }),
+  );
 
   for (const item of items) {
     const listing = listingById.get(item.listingId);
@@ -153,25 +177,41 @@ async function buildGroups(
       continue;
     }
 
-    let key: string | undefined;
+    let vendorKey: string | undefined;
     let vendor: CartVendor | undefined;
 
     if (listing.ownerType === 'store' && listing.storeId) {
       const storeId = listing.storeId;
       const store = storeById.get(storeId);
       if (store) {
-        key = `store:${storeId}`;
+        vendorKey = `store:${storeId}`;
         vendor = toStoreVendor(store);
       }
     } else if (listing.ownerType === 'user' && listing.oxyUserId) {
       const oxyUserId = listing.oxyUserId;
-      key = `user:${oxyUserId}`;
+      vendorKey = `user:${oxyUserId}`;
       vendor = toSellerVendor(oxyUserId, sellerProfileByUser.get(oxyUserId), oxyProfiles.get(oxyUserId));
     }
 
-    if (!key || !vendor) {
+    if (!vendorKey || !vendor) {
       continue;
     }
+
+    // A line whose commercial mode nobody resolved keeps the vendor's own
+    // marketplace presentation rather than being dropped: the catalogue owner
+    // IS selling it unless a live retail binding says otherwise, and dropping
+    // the line would make an item vanish from the cart.
+    const commercial =
+      commercialByVariant.get(item.variantId) ??
+      marketplacePresentation({ sellerKind: vendor.kind, sellerLabel: vendor.name });
+    // The commercial mode is part of the group's identity. Without it a cart
+    // holding one Mercaria-sold item and one marketplace item from the same
+    // catalogue owner would render ONE card claiming a single seller for both.
+    const key = `${commercial.mode}|${vendorKey}`;
+    // What `sellerKeys` takes for this group. Mercaria's own lines answer to
+    // the flat `platform` key #123 placed in the same namespace, so a per-group
+    // checkout works for a retail group exactly as it does for a store.
+    const sellerKey = commercial.mode === 'mercaria_retail' ? RETAIL_SELLER_KEY : vendorKey;
 
     const bucket = linesByVendor.get(key);
     if (bucket) {
@@ -180,13 +220,17 @@ async function buildGroups(
       order.push(key);
       linesByVendor.set(key, [item]);
       vendorByKey.set(key, vendor);
+      commercialByKey.set(key, commercial);
+      sellerKeyByKey.set(key, sellerKey);
     }
   }
 
   return order.map((key) => {
     const groupItems = linesByVendor.get(key) ?? [];
     const vendor = vendorByKey.get(key);
-    if (!vendor) {
+    const commercial = commercialByKey.get(key);
+    const sellerKey = sellerKeyByKey.get(key);
+    if (!vendor || !commercial || !sellerKey) {
       throw new Error(`Cart group vendor missing for key ${key}`);
     }
     // Whether the CALLER may check this group out (#112). The same server rule
@@ -199,6 +243,8 @@ async function buildGroups(
     });
     const group: CartGroup = {
       vendor,
+      commercial,
+      sellerKey,
       items: groupItems,
       subtotal: sumMoney(
         groupItems.map((i) => i.lineTotal),

@@ -1,12 +1,22 @@
 import { View } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import type { Order, OrderItem, OrderStatus } from "@mercaria/shared-types";
+import type {
+  Order,
+  OrderItem,
+  OrderStatus,
+  RetailDeliveryStatement,
+  RetailOrderExperience,
+} from "@mercaria/shared-types";
 import {
   Button,
+  CommercialDisclosure,
   PriceDisplay,
   SectionHeader,
   Text,
+  commercialSellerLabel,
+  retailOrderProgressExplanation,
+  retailOrderProgressLabel,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { toast } from "@oxyhq/bloom/toast";
@@ -30,6 +40,75 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   refunded: "Refunded",
   partially_refunded: "Partially refunded",
 };
+
+/**
+ * One delivery window, or the honest absence of one.
+ *
+ * A window with only one end is rendered with only that end. #126 stores the
+ * two bounds separately because a source may publish one, and filling the other
+ * in — with the same date, with "or later", with anything — would be Mercaria
+ * inventing half a promise.
+ */
+function DeliveryLine({ label, statement }: { label: string; statement: RetailDeliveryStatement }) {
+  const earliest = statement.earliestAt ? new Date(statement.earliestAt).toLocaleDateString() : null;
+  const latest = statement.latestAt ? new Date(statement.latestAt).toLocaleDateString() : null;
+  const window =
+    earliest && latest ? `${earliest} – ${latest}` : (earliest ?? latest ?? "No dates given");
+  return (
+    <View className="gap-0.5">
+      <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </Text>
+      <Text className="text-sm text-foreground">{window}</Text>
+      <Text className="text-xs text-muted-foreground">
+        {statement.basis === "guaranteed"
+          ? "This is the delivery window we promised you."
+          : "An estimate from our fulfilment partner, not a promise."}
+        {statement.stale ? " We have not been able to refresh it recently." : ""}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Where a Mercaria-retail order has got to, and when it is expected (#129 order
+ * rule 4, ADR 0004 D9.1, #126 rule 9).
+ *
+ * The two delivery statements are rendered SEPARATELY and neither substitutes
+ * for the other. An absent `currentDelivery` means nothing has been observed
+ * since checkout — it does not mean the accepted window still holds, and
+ * showing the accepted one under a "current estimate" heading would be the
+ * silent rewrite #126 built an append-only trail to prevent.
+ */
+function RetailProgressCard({ retail }: { retail: RetailOrderExperience }) {
+  return (
+    <View className="gap-3 rounded-2xl border border-border bg-card p-4">
+      <Text
+        className="text-sm font-semibold text-foreground"
+        accessibilityRole="header"
+        accessibilityLiveRegion="polite"
+      >
+        {retailOrderProgressLabel(retail.stage)}
+      </Text>
+      <Text className="text-sm text-muted-foreground">
+        {retailOrderProgressExplanation(retail.stage)}
+      </Text>
+      {retail.acceptedDelivery ? (
+        <DeliveryLine label="Delivery you were promised" statement={retail.acceptedDelivery} />
+      ) : null}
+      {retail.currentDelivery ? (
+        <DeliveryLine label="Latest estimate" statement={retail.currentDelivery} />
+      ) : null}
+      {retail.refreshFailing ? (
+        // A third fact, beside both windows. Without it a buyer would read the
+        // newest observed estimate as current when its refresh has been failing.
+        <Text accessibilityRole="alert" className="text-xs text-muted-foreground">
+          We have not been able to refresh this estimate. It may be out of date.
+        </Text>
+      ) : null}
+    </View>
+  );
+}
 
 /** Small status chip. */
 function StatusPill({ status }: { status: OrderStatus }) {
@@ -166,7 +245,11 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
     );
   }
 
-  const sellerName = order.store?.name ?? order.seller?.displayName;
+  // #129 order rules 1 and 2: the seller comes from the order's own commercial
+  // presentation, which #123 stored with the order. A `platform` order has
+  // neither `store` nor `seller` by construction, so the old coalesce rendered
+  // nothing at all for exactly the sales Mercaria makes itself.
+  const sellerName = commercialSellerLabel(order.commercial);
 
   return (
     <View className="px-4">
@@ -178,9 +261,16 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
             {new Date(order.createdAt).toLocaleString()}
           </Text>
         </View>
-        {sellerName ? (
-          <Text className="text-sm text-muted-foreground">Sold by {sellerName}</Text>
-        ) : null}
+        <Text className="text-sm text-muted-foreground">Sold by {sellerName}</Text>
+        <CommercialDisclosure presentation={order.commercial} showExplanations />
+
+        {/*
+          The Mercaria-retail progress and delivery statements (#129 order rule
+          4, ADR 0004 D9.1). Present only on a retail order; a marketplace order
+          has no supply-confirmation window and no accepted-versus-current
+          distinction to report.
+        */}
+        {order.retail ? <RetailProgressCard retail={order.retail} /> : null}
 
         <ItemsCard items={order.items} />
         <TotalsCard order={order} />
