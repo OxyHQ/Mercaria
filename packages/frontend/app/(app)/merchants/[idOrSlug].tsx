@@ -151,6 +151,25 @@ export default function MerchantScreen() {
   const entries = useMemo(() => (pages ?? []).flatMap((catalog) => catalog.entries), [pages]);
   const emptyReason = (pages ?? [])[0]?.emptyReason;
 
+  /**
+   * Every channel worth offering as a scope: the ones this merchant OPERATES
+   * (requirement 4, "current storefronts by market or channel") and the ones it
+   * SELLS THROUGH (requirement 3, which for a marketplace seller is somebody
+   * else's channel).
+   *
+   * The union rather than either list alone. A first-party retailer's German
+   * site with nothing current on it still belongs here — selecting it answers
+   * "we know about this channel and have nothing from it right now", which is a
+   * fact, and dropping it would make an operated channel invisible. The
+   * `sellingChannels` entry wins a collision because it is the one the server
+   * counted this merchant's own offers into.
+   */
+  const channels = useMemo(() => {
+    const byId = new Map((page?.operatedChannels ?? []).map((c) => [c.storefront.id, c]));
+    for (const channel of page?.sellingChannels ?? []) byId.set(channel.storefront.id, channel);
+    return [...byId.values()];
+  }, [page]);
+
   const head = (
     <Head>
       <title>{page ? `${page.merchant.name} — Mercaria` : "Mercaria"}</title>
@@ -271,7 +290,7 @@ export default function MerchantScreen() {
       <OfferMix page={page} />
 
       <MerchantChannelPicker
-        channels={page.sellingChannels}
+        channels={channels}
         selectedStorefrontId={storefrontId}
         onSelect={setStorefrontId}
       />
