@@ -481,6 +481,25 @@ export const supplierAgreements = pgTable(
      * the gate data #121 reads.
      */
     blindDropshipVerified: boolean().notNull().default(false),
+    /**
+     * May Mercaria hand this supplier a Moovo-issued label and a pickup slot
+     * for it to dispatch against — #126 Mode A requirement 1.
+     *
+     * A CONTRACTUAL grant with its own column rather than something derived
+     * from `dropship_rights_granted`, because the two are different
+     * permissions: dropship rights say the supplier may ship to Mercaria's
+     * customer under Mercaria's name, and this says a third party may execute
+     * against Mercaria's own carrier account. A supplier can reasonably hold
+     * the first and refuse the second — its warehouse would have to accept
+     * somebody else's collections — so deriving one from the other would put
+     * Mercaria's logistics documents into a warehouse that never agreed to
+     * handle them.
+     *
+     * Defaults FALSE, which is what makes Mode A opt-in per agreement version.
+     * A supplier with neither this nor dropship rights cannot fulfil at all,
+     * and that refusal lands at checkout where the buyer can act on it.
+     */
+    moovoLabelDispatchPermitted: boolean().notNull().default(false),
     catalogDataRightsGranted: boolean().notNull().default(false),
     imageRightsGranted: boolean().notNull().default(false),
     pricingDataRightsGranted: boolean().notNull().default(false),

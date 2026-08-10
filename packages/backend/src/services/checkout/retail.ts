@@ -186,6 +186,25 @@ export interface PlannedRetailLine<TLine> {
    */
   shippingShare: Money;
   taxShare: Money;
+  /**
+   * The SUPPLIER's stated transit range for this line, from #122's quote
+   * (`supplier_quotes.delivery_days_min` / `_max`), or NULL where it stated
+   * none.
+   *
+   * Carried so #126 can record the delivery promise the buyer accepted, in the
+   * order's own transaction, from the answer that was actually used to price
+   * it — ADR 0004 D9.9's *"derived from the supplier quote's stated service and
+   * transit range, snapshotted on the order"*. Re-reading the supplier quote
+   * later would not do: #122 purges its own quotes on its own retention
+   * schedule, so by the time a buyer asks what they were promised the evidence
+   * may be gone.
+   *
+   * NULL is preserved rather than defaulted, because #126 rule 10 is *"unknown
+   * cost/estimate is not zero/on time"* and a zero here would become a promise
+   * of same-day delivery.
+   */
+  deliveryDaysMin: number | null;
+  deliveryDaysMax: number | null;
 }
 
 /** What checkout builds one `platform` order and its intents from. */
@@ -529,6 +548,8 @@ export async function planRetailCheckout<TLine>(
         currency: input.presentmentCurrency,
       },
       taxShare: { amount: shareOf('tax_duty'), currency: input.presentmentCurrency },
+      deliveryDaysMin: preflight.quote.deliveryDaysMin,
+      deliveryDaysMax: preflight.quote.deliveryDaysMax,
     });
   }
 

@@ -216,3 +216,12 @@ export * from './ebay';
 // which #68's cannot be, because it is keyed on `source_id` and every
 // advertiser has its own. It adds no column to any table above it.
 export * from './awin';
+// Supplier-fulfilled Mercaria-retail fulfilment (#126) is last, downstream of
+// `./retailCheckout` (whose frozen procurement intent each fulfilment intent
+// names), `./orders` (whose items its allocations point at) and `./procurement`
+// (whose agreement supplies the permitted mode). It adds ONE nullable,
+// defaulted column to `supplier_agreements` and nothing else to any table above
+// it, which is what makes turning supplier-fulfilled retail off a flag flip
+// rather than a data change. There is deliberately no carrier, package, label
+// or scan table here at all — Moovo owns those, and the absence is asserted.
+export * from './retailFulfilment';

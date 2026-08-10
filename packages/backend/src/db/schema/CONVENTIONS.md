@@ -3582,3 +3582,78 @@ anticipated.
   content is stored exactly once, in `source_records.payload`, under #62's
   allow-list and its `may_store` right — a second copy here would be a second
   retention clock for data whose deletion obligation is contractual.
+
+## Supplier-fulfilled retail fulfilment (#126)
+
+`retail_order_role_snapshots`, `retail_fulfilment_intents`,
+`retail_fulfilment_line_allocations`, `retail_delivery_promises`, plus ONE
+nullable defaulted column on `supplier_agreements`. Full reference:
+`docs/retail-fulfilment.md`.
+
+**Six of #126's ten snapshot facts are NOT columns here**, and the omission is
+the decision: the product, variant, quantity and accepted price are
+`order_items`; tax and shipping are `orders.totals`; the agreement, offer and
+cost-quote citations are `retail_procurement_intents` and its append-only lines;
+the purchase-order reference is that table's own pointer. Copying one would be a
+second immutable record of one fact, and the copy nobody reconciles is the one a
+customer finds on a receipt.
+
+**No carrier, package, label, scan, weight, dimension, manifest or poll-cursor
+column exists in any of the four tables, and none may be added.** #126 acceptance
+2 forbids Mercaria containing a carrier system, and
+`services/__tests__/retail-logistics-isolation.test.ts` WALKS these tables (not a
+grep of the source) and fails the build on one. Two nullable Moovo columns are
+permitted and are the whole of the seam: `moovo_transport_request_id` and
+`moovo_transport_registered_at`. Shipment counts, package contents, event ids,
+checkpoints and projection freshness belong to #157's aggregate and #158's inbox;
+a column here that nothing could populate would be a second source of truth for a
+fact Mercaria does not hold.
+
+**`retail_fulfilment_intents` carries TWO mode columns and that is deliberate.**
+`permitted_fulfilment_mode` is a CONTRACTUAL fact frozen at purchase;
+`fulfilment_mode` is OPERATIONAL and unknowable until a supplier has accepted.
+One column would either freeze a mode nobody could yet know or leave the
+contractual grant rewritable after the sale. Two make
+`retail_fulfilment_intents_mode_permitted_check` a real INTRA-ROW CHECK — the only
+kind Postgres can enforce — and `mercaria_retail_fulfilment_write_once` makes the
+operational one NULL→value exactly once (the `orders.claimed_by_oxy_user_id`
+device, #106).
+
+**`moovo_source_reference` is a STORED GENERATED column over `id`**
+(`'mercaria:retail-fulfilment:' || "id"`), rendered with `sql.raw` for the prefix
+so the constant does not become a `$1` placeholder in the migration. Deterministic
+because a booking's idempotency and an inbound event's convergence both key on it;
+a value minted per attempt would differ between two racers and defeat the property
+it exists for. **The freeze trigger must NOT compare it** — it is STORED GENERATED,
+so `NEW.<col>` is NULL inside a `BEFORE` trigger and the comparison raises on
+every update.
+
+**The over-allocation invariant is CROSS-ROW and therefore not a CHECK.** The sum
+of ORIGINAL allocations against one order item, over intents that are neither
+cancelled nor superseded, may never exceed that item's quantity.
+`insertRetailFulfilmentIntents` is the single writer, locks the `order_items` rows
+`FOR UPDATE` first, and accumulates the batch's own requests so two intents in one
+call cannot each pass an independently-correct check. A REPLACEMENT is excluded in
+BOTH directions — from the committed sum and from the incoming request — because
+it re-ships units already allocated.
+
+**`retail_delivery_promises_observed_shape_check` is TWO biconditionals, not one
+over their conjunction**, and the difference was a real bug the real-server suite
+caught. `(outcome = 'observed') = (basis is not null AND a window is present)` is
+SATISFIED by `outcome = 'unknown'` with a window and no basis — both sides
+evaluate false — so the obvious spelling admits exactly the row #126 rule 10
+exists to forbid. Any future "present exactly when" CHECK over more than one
+column in this schema must be written the same way.
+
+**`supplier_agreements.moovo_label_dispatch_permitted`** is a separate grant from
+`dropship_rights_granted`, defaulting FALSE. Dropship rights say the supplier may
+ship to Mercaria's customer under Mercaria's name; this says a third party may
+execute against Mercaria's own carrier account. A supplier can hold the first and
+refuse the second, so deriving one from the other puts Mercaria's logistics
+documents into a warehouse that never agreed to handle them.
+
+Four hand-written triggers in `0049`: the role snapshot is IMMUTABLE (UPDATE
+refused always, DELETE refused only while the order exists — #90's
+condition-revision device, so the declared cascade still works), the promise trail
+is APPEND-ONLY on the same terms, the intent's contractual half is FROZEN, and the
+chosen mode and Moovo transport are WRITE-ONCE.

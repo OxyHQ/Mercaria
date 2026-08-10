@@ -274,16 +274,39 @@ function resolveFeedImportEnabled(): boolean {
  * would take an otherwise healthy marketplace down over a feature that is off
  * by default.
  */
+function retailSellerLegalEntityName(): string {
+  return strEnv('MERCARIA_RETAIL_SELLER_LEGAL_ENTITY', '').trim();
+}
+
+/**
+ * `MERCARIA_RETAIL_SELLER_COUNTRY`, upper-cased.
+ *
+ * Not defaulted to a market. ADR 0004 D9.9 puts the platform entity in Spain at
+ * launch, and defaulting to `ES` would let a deployment that never configured
+ * one write `ES` onto every receipt it issues — which is worse than being off,
+ * because it is wrong in a way nobody notices until a consumer authority asks.
+ */
+function retailSellerLegalEntityCountry(): string {
+  return strEnv('MERCARIA_RETAIL_SELLER_COUNTRY', '').trim().toUpperCase();
+}
+
 function resolveMercariaRetailEnabled(): boolean {
   if (!boolEnv('MERCARIA_RETAIL_ENABLED', false)) return false;
 
   const hasPreflight = resolveSupplierPreflightEnabled();
   const hasRetailOperators = resolveRetailOperatorIds().length > 0;
-  if (hasPreflight && hasRetailOperators) return true;
+  // #126: a retail order's role snapshot names the selling entity, is written
+  // in the buyer's own transaction, and its CHECK refuses an empty name or a
+  // country that is not two upper-case letters. Demanding both here turns that
+  // into a boot-time message instead of a failed checkout for the first buyer.
+  const hasSeller =
+    retailSellerLegalEntityName() !== '' && /^[A-Z]{2}$/.test(retailSellerLegalEntityCountry());
+  if (hasPreflight && hasRetailOperators && hasSeller) return true;
 
   const missing = [
     hasPreflight ? undefined : 'SUPPLIER_PREFLIGHT_ENABLED',
     hasRetailOperators ? undefined : 'RETAIL_OPERATOR_OXY_USER_IDS',
+    hasSeller ? undefined : 'MERCARIA_RETAIL_SELLER_LEGAL_ENTITY/MERCARIA_RETAIL_SELLER_COUNTRY',
   ].filter((name): name is string => name !== undefined);
   log.general.error(
     { missing },
@@ -1412,6 +1435,20 @@ export interface MercariaRetailConfig {
   readonly blockedSuppliers: readonly string[];
   /** `RETAIL_BLOCKED_MARKETS` — ISO-3166 alpha-2 destinations withdrawn from sale. */
   readonly blockedMarkets: readonly string[];
+  /**
+   * `MERCARIA_RETAIL_SELLER_LEGAL_ENTITY` — the legal entity named as seller on
+   * every `mercaria_retail` order (#126 order-role snapshot item 1).
+   *
+   * Deployment configuration rather than a code constant because it is a
+   * real-world fact about whoever is running this deployment, and a wrong one
+   * is on a receipt. It is demanded by the half-configuration rule below: a
+   * retail order's role snapshot is written in the buyer's own transaction and
+   * its CHECK refuses an empty entity name, so a deployment that cannot name
+   * its seller would fail at the moment a buyer paid rather than at boot.
+   */
+  readonly sellerLegalEntityName: string;
+  /** `MERCARIA_RETAIL_SELLER_COUNTRY` — ISO-3166-1 alpha-2 of that entity. */
+  readonly sellerLegalEntityCountry: string;
 }
 
 export interface PaginationConfig {
@@ -2643,6 +2680,8 @@ export const config: AppConfig = Object.freeze({
     enabled: resolveMercariaRetailEnabled(),
     blockedSuppliers: Object.freeze(blockedListEnv('RETAIL_BLOCKED_SUPPLIERS', 'lower')),
     blockedMarkets: Object.freeze(blockedListEnv('RETAIL_BLOCKED_MARKETS', 'upper')),
+    sellerLegalEntityName: retailSellerLegalEntityName(),
+    sellerLegalEntityCountry: retailSellerLegalEntityCountry(),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),
