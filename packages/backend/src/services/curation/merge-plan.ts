@@ -94,6 +94,11 @@ import { watchlistItems, watchlistSnapshotItems } from '../../db/schema/watchlis
 import { offerPriceSeries } from '../../db/schema/priceHistory.js';
 import { priceSignalEvaluations, priceSignalFeedback } from '../../db/schema/priceSignals.js';
 import {
+  merchantAcquisitionCandidates,
+  merchantDemandProducts,
+  merchantDemandSnapshots,
+} from '../../db/schema/merchantDemand.js';
+import {
   catalogSourceConfigs,
   marketplaceSellerIdentities,
 } from '../../db/schema/ingestion.js';
@@ -447,6 +452,31 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
 
   merchant: [
     {
+      column: merchantDemandSnapshots.merchantId,
+      phase: 'rollups',
+      disposition: 'retained_by_tombstone',
+      note:
+        'A REPORTING SNAPSHOT of what demand was for that identity in a stated window, under ' +
+        'stated policy versions (#86). Retained by the tombstone for the reason a superseded ' +
+        'snapshot is kept at all: it is what a merchant was SHOWN, and repointing it would ' +
+        'attribute one identity’s demand to another retrospectively — while its ' +
+        '`..._live_key` partial unique on (merchant, market, window) would collide the moment ' +
+        'both sides had a snapshot for the same period. The winner’s next build measures the ' +
+        'merged catalogue, which is the correct answer going forward and is a NEW snapshot.',
+    },
+    {
+      column: merchantAcquisitionCandidates.merchantId,
+      phase: 'rollups',
+      disposition: 'retained_by_tombstone',
+      note:
+        'One merchant’s standing in the acquisition pipeline (#86), with its outreach log and ' +
+        'its audit trail hanging off it. Retained: `(merchant_id)` is UNIQUE, so two candidates ' +
+        'cannot become one without deciding whose exclusion, whose do-not-contact request and ' +
+        'whose assignment survives — and a do-not-contact request is exactly the fact a merge ' +
+        'must never silently drop. The winner is enrolled afresh by the operator surface, and ' +
+        'both trails stay readable under the ids somebody acted on.',
+    },
+    {
       column: priceSignalFeedback.merchantId,
       phase: 'rollups',
       disposition: 'retained_by_tombstone',
@@ -720,6 +750,17 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         '`review_aggregates` reason plus one of its own: moving it would attribute measurements ' +
         'of one product to another, and the next sweep produces fresh rows for the merged ' +
         'catalogue under the winner — so nothing is lost and nothing is invented.',
+    },
+    {
+      column: merchantDemandProducts.canonicalProductId,
+      phase: 'rollups',
+      disposition: 'retained_by_tombstone',
+      note:
+        'A product-level row INSIDE a merchant demand snapshot (#86), which is itself retained ' +
+        'by the tombstone. Repointing it would move a row into a report it is not part of, and ' +
+        'the snapshot’s coverage CHECK (`products_offered = disclosed + suppressed`) would then ' +
+        'be false for both sides. Two snapshots cannot be concatenated for #78’s reason: each ' +
+        'row’s counts are scoped to the merchant that owned the offers.',
     },
     {
       column: priceSignalFeedback.canonicalProductId,

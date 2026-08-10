@@ -1435,4 +1435,44 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'storage. Never a URL, and never a `mercaria.co` one — a reviewer’s browser fetching such a ' +
       'URL would tell this host when its content is being looked at.',
   },
+
+  // ── Merchant demand analytics and the acquisition pipeline (#86) ─────────
+  {
+    column: 'merchant_demand_snapshots.superseded_by_id',
+    reason:
+      'A self-reference the WRITE ORDER forbids. The partial unique permits one LIVE snapshot ' +
+      'per window, so the outgoing one must be stamped superseded BEFORE its replacement is ' +
+      'inserted — and `superseded_at`/`superseded_by_id` travel together by CHECK, so the ' +
+      'successor must be NAMED one statement before it exists. A real foreign key would refuse ' +
+      'exactly that statement. The id is minted with `uuidv7()` in ' +
+      '`insertMerchantDemandSnapshot`, which is the only writer.',
+  },
+  {
+    column: 'merchant_demand_metrics.storefront_id',
+    reason:
+      'A reporting DIMENSION, `\'\'` when the figure is not sliced by one — the ' +
+      '`analytics_rollups` convention, which a foreign key cannot express (the empty string is ' +
+      'not a storefront). A snapshot also outlives the storefronts it describes: a channel ' +
+      'retired last month is still what last month\'s demand arrived through.',
+  },
+  {
+    column: 'merchant_demand_metrics.source_id',
+    reason:
+      'The same reporting dimension, for a catalogue source. Identical reasoning, and the ' +
+      'retirement case is more common: sources are paused and closed while their history stays ' +
+      'the explanation for what a merchant saw.',
+  },
+  { column: 'merchant_acquisition_candidates.assigned_to_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_acquisition_candidates.excluded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_acquisition_contact_sources.recorded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_acquisition_outreach.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_acquisition_audits.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'merchant_acquisition_audits.merchant_id',
+    reason:
+      'The audit is the record of what an operator TRIED, and it has to outlive the thing they ' +
+      'tried it on. A cascade would delete the trail when a merchant is merged away, and a ' +
+      'RESTRICT would make the trail block the merge — so the column is a plain id and a ' +
+      'tombstoned merchant\'s audits stay readable under the id somebody acted on.',
+  },
 ];

@@ -26,12 +26,15 @@
  */
 
 import {
+  ALL_CURRENCY_CODES,
+  conditionGroupFor,
   PRICE_SIGNAL_POLICY_KEY,
   priceDeltaBps,
   priceMarketPositionFor,
   priceSampleShortfall,
   type ConditionGroup,
   type CurrencyCode,
+  type ItemConditionKey,
   type MerchantCompetitivenessResponse,
   type MerchantCompetitivenessRow,
   type MerchantEligibilityLossReason,
@@ -168,6 +171,100 @@ export async function readMerchantCompetitiveness(
       subjectsUnmeasured: unmeasured,
     },
   };
+}
+
+/**
+ * How many of a merchant's subjects have a price comparison AVAILABLE (#86
+ * fact 9) — two counts, no credential, no chosen segment and no chosen currency.
+ *
+ * ## Why this is not "coverage", and why it is not the same number
+ *
+ * {@link readMerchantCompetitiveness}'s `coverage` is a rate over ONE condition
+ * segment in ONE comparison currency, both named by the caller. It answers "of
+ * the subjects I asked about in EUR, in the new-condition segment, how many
+ * could you measure". This answers a different question: "of this merchant's
+ * subjects, how many could be measured at all, each evaluated in the segment and
+ * the currency the MERCHANT priced it in".
+ *
+ * **The two can legitimately disagree**, and a reader who compares them without
+ * knowing why will conclude one is broken. A used-condition offer counts here
+ * and is invisible to a `segment: 'new'` read; an offer listed in GBP counts here
+ * and may be unmeasurable in a EUR read if its sample loses entries to an
+ * unresolvable pair. Neither is wrong — they are answers to two questions, which
+ * is why they have two names and why the definition travels with each of them.
+ *
+ * ## It is an exact AGGREGATION and invents nothing
+ *
+ * Every input is a `MerchantCompetitivenessRow.state` produced by
+ * {@link buildSubjectRows} — the SAME function the merchant surface renders from,
+ * called with the same policy. Nothing here decides what "measurable" means; it
+ * counts subjects for which #82 already said `measured` at least once. That is
+ * the whole reason it lives in this file rather than in the domain that consumes
+ * it: a second definition of measurability, in another domain, is exactly the
+ * second answer ADR 0002's one-verdict rule forbids.
+ *
+ * ## No credential
+ *
+ * Two counts disclose nothing the claim gate protects — it is the ROWS that
+ * carry a merchant's own prices and its competitors' aggregates, and this
+ * returns none of them. So the merchant is resolved from the id alone, which is
+ * what lets a reporting SNAPSHOT be a function of the merchant and the window
+ * rather than of whoever asked for it.
+ *
+ * Bounded by `limit`, exactly as the merchant surface is, and `subjectsExamined`
+ * is returned so a caller can state the denominator rather than imply one.
+ */
+export async function countMerchantComparableSubjects(input: {
+  readonly merchantId: string;
+  readonly limit: number;
+  readonly market?: string;
+  readonly now?: Date;
+}): Promise<{ readonly subjectsExamined: number; readonly subjectsComparable: number }> {
+  const now = input.now ?? new Date();
+  const active = await findActivePriceSignalPolicy();
+  const policy = active === undefined ? undefined : toPriceSignalPolicy(active);
+
+  const subjects = await listMerchantOfferSubjects({
+    merchantId: input.merchantId,
+    limit: input.limit,
+  });
+
+  let comparable = 0;
+  let examined = 0;
+
+  for (const subject of subjects) {
+    const currency = asComparisonCurrency(subject.priceCurrency);
+    // An offer whose listed currency Mercaria cannot compare in is EXAMINED and
+    // not comparable, rather than skipped. Skipping it would shrink the
+    // denominator and turn "we cannot compare this one" into a silently better
+    // rate — the direction a merchant-facing figure must never round.
+    examined += 1;
+    if (currency === undefined) continue;
+
+    const context = await buildPriceSignalContext({
+      canonicalVariantId: subject.canonicalVariantId,
+      segment: conditionGroupFor(subject.condition as ItemConditionKey),
+      ...(input.market === undefined ? {} : { market: input.market }),
+      currency,
+      focusMerchantId: input.merchantId,
+      ...(policy === undefined ? {} : { policy }),
+      now,
+    });
+
+    if (buildSubjectRows(context, policy, input.merchantId).some((row) => row.state === 'measured')) {
+      comparable += 1;
+    }
+  }
+
+  return { subjectsExamined: examined, subjectsComparable: comparable };
+}
+
+/** The offer's listed currency, when it is one Mercaria can compare in. */
+function asComparisonCurrency(currency: string | null): CurrencyCode | undefined {
+  if (currency === null) return undefined;
+  return (ALL_CURRENCY_CODES as readonly string[]).includes(currency)
+    ? (currency as CurrencyCode)
+    : undefined;
 }
 
 /** The seven insights for ONE of the merchant's subjects. */

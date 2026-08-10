@@ -188,7 +188,10 @@ describe('the migrated schema', () => {
     // enablement rests on, and an enablement is a decision somebody made, so a
     // retention on either would leave the parser enabled with its
     // justification gone.
-    expect(EXPIRY_TARGETS).toHaveLength(28);
+    // #86 adds ONE — a merchant demand SNAPSHOT — and leaves its six others
+    // unswept: two CASCADE from the snapshot, and the four acquisition tables
+    // are the record of what people decided, which a retention clock destroys.
+    expect(EXPIRY_TARGETS).toHaveLength(29);
   });
 });
 

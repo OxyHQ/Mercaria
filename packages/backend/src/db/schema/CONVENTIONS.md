@@ -4543,3 +4543,104 @@ about what they deliberately do NOT hold.
   before it). The service refuses one too; both are needed, because the service
   protects the ordinary path and the CHECK protects a backfill, a replay and
   `psql`.
+## Merchant demand analytics and the acquisition pipeline (#86)
+
+Seven tables: `merchant_demand_snapshots` + `merchant_demand_metrics` +
+`merchant_demand_products` (the reproducible reporting record) and
+`merchant_acquisition_candidates` + `merchant_acquisition_contact_sources` +
+`merchant_acquisition_outreach` + `merchant_acquisition_audits` (the internal
+workflow). Domain reference: `docs/merchant-demand.md`.
+
+### There is no `value` column and there is no `total` column
+
+A count, an amount and a rate are three shapes and each gets its own columns on
+`merchant_demand_metrics`, with CHECKs rendered from
+`MERCHANT_DEMAND_MONEY_METRIC_KEYS` and `MERCHANT_DEMAND_RATE_METRIC_KEYS`
+deciding which may be present for which key. A single numeric `value` with a
+unit beside it is how a currency ends up added to a click count, and #86's
+"keep affiliate commission, external order value, native GMV and inferred demand
+as separately labelled metrics" is the instruction not to build that. `kind` is
+STORED rather than looked up, for `analytics_rollups.source`'s reason: "which of
+these numbers is money somebody else reported" has to be answerable by a query.
+
+An unmeasurable metric is STORED with `unavailable_reason` and no value.
+Omitting the row would make "we did not measure it" and "this version has no
+such metric" the same absence.
+
+### `aggregate_basis` is what stops a partial total wearing a full name
+
+A product-composed figure and the product breakdown beside it are ONE partition:
+the disclosed rows plus at most one residual over the withheld ones. When too
+few products are withheld for the residual to hide them
+(`MERCHANT_DEMAND_RESIDUAL_MIN_CONTRIBUTORS`, 2) it is folded away and the
+figure covers the disclosed rows only — a different number, so it carries a
+different basis. The column is NULL for every metric with no breakdown to be
+differenced against, and a CHECK refuses it beside a suppressed or unavailable
+row: a basis describes a figure, and those have none.
+
+### The dimension columns are `''`, never NULL
+
+`market`, `channel`, `storefront_id` and `source_id` are NOT NULL with NO
+DEFAULT — the `analytics_rollups` rule. A NULLable dimension breaks the bucket
+unique outright (Postgres treats NULLs as distinct) and a `DEFAULT ''` is the
+convention violation this file refuses; with neither, every writer states which
+bucket it means. `storefront_id` and `source_id` therefore carry no foreign key
+and are ledgered in `ID_COLUMNS_WITHOUT_FOREIGN_KEY`: the empty string is not a
+storefront, and a snapshot outlives the channels and sources it describes.
+
+### `superseded_by_id` carries no foreign key, and the write order is why
+
+The partial unique permits ONE live snapshot per `(merchant, market, window)`,
+so the outgoing snapshot must be stamped superseded BEFORE its replacement is
+inserted; and `superseded_at`/`superseded_by_id` travel together by CHECK, so
+the successor must be NAMED one statement before it exists. A real foreign key
+would refuse exactly that statement. The id is minted with `uuidv7()` in
+`insertMerchantDemandSnapshot`, the only writer.
+
+### The coverage counters are an EQUALITY check
+
+`products_offered = product_rows_disclosed + product_rows_suppressed`, not
+`<=` — #60's `catalog_backfill_runs` vacuity floor applied to a report. A build
+that lost a product row between counting and writing cannot store the row at
+all, so "I found fewer" and "there were fewer" stop looking identical.
+
+### DELETE is permitted; UPDATE is not
+
+`mercaria_merchant_demand_snapshot_immutable` permits only
+`superseded_at`/`superseded_by_id` moving NULL → a value once; the two child
+tables refuse UPDATE outright. All three PERMIT DELETE, inverting the ledger and
+matching `analytics_events` and `offer_price_snapshots`: erasure on a schedule is
+the policy, `expires_at` is registered in `db/expiryTargets.ts`, the children
+CASCADE, and a trigger refusing DELETE would make the sweep fail silently.
+
+`merchant_acquisition_outreach` and `merchant_acquisition_audits` refuse BOTH
+and carry no `expires_at` at all — a retention clock on the record of what
+people decided destroys the evidence it exists to keep.
+
+### No column in the domain can hold a contact
+
+There is no `email`, `phone`, `contact_name` or `contact_value` column in any of
+the seven tables, and a test walks the real drizzle tables to keep it that way.
+`merchant_acquisition_contact_sources` stores WHERE a public business contact is
+published — kind, https URL, a locator note, who recorded it — which is the
+strongest reading of #86 privacy 7: a prohibition on where a value came FROM is
+a rule, and nowhere for a value to LAND is a fact. `locator_note` is
+shape-CHECKed against an at-sign and a five-digit run, because it is the one
+place a note could quietly become the value it points at.
+
+### A regex repetition count above 255 fails at INSERT time
+
+`source_url ~ '^https://[^[:space:]]{3,500}$'` generates cleanly, applies
+cleanly, and then refuses EVERY row with `invalid repetition count(s)` — the
+CHECK's regex is compiled when a row is checked, not when the constraint is
+added. PostgreSQL caps a repetition count at 255. Any length bound above it in
+this schema is a `length()` call, never a `{m,n}`.
+
+### The claim verdict is not duplicated here
+
+`merchant_acquisition_candidates` has no claim column, no `claimed_at` and no
+`is_claimed`. `merchants.claim_state` is ADR 0002 D9's one stored verdict and
+#83 is its only writer; the conversion funnel is derived on read from it, from
+`native_store_links`, from `provider_accounts.onboarding_state` and from the
+presence of an active native offer. A copy here would be the one that goes stale
+the moment a claim is revoked, on an operator's screen.

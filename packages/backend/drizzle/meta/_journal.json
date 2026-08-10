@@ -428,6 +428,13 @@
       "when": 1786359705752,
       "tag": "0060_colorful_speed_demon",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1786361282042,
+      "tag": "0061_swift_talos",
+      "breakpoints": true
     }
   ]
 }

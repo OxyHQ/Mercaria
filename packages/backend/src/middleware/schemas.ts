@@ -29,6 +29,7 @@ import {
   type ItemConditionKey,
   type LegacyBinaryCondition,
 } from '@mercaria/shared-types';
+import { STORE_PERMISSIONS } from '../db/schema/stores.js';
 
 /**
  * A shared tuple, narrowed to the non-empty form `z.enum` requires.
@@ -483,25 +484,16 @@ export const createStoreSchema = z.object({
 });
 
 const storeRoleSchema = z.enum(['owner', 'admin', 'staff']);
-const storePermissionSchema = z.enum([
-  'store:manage',
-  'members:manage',
-  'products:read',
-  'products:write',
-  'inventory:write',
-  'locations:write',
-  'collections:write',
-  'discounts:write',
-  'settings:write',
-  'orders:read',
-  'orders:fulfill',
-  'stats:read',
-  'customers:read',
-  'customers:write',
-  'draft_orders:write',
-  'refunds:write',
-  'channels:write',
-]);
+/**
+ * Read from `db/schema/stores.ts` rather than retyped.
+ *
+ * That tuple is what renders the CHECK on `store_members.permissions`, so a
+ * hand-copied list here could accept a permission the database then refuses to
+ * store — a 500 on an invite, from two lists that merely LOOKED identical. It
+ * was a hand-copied list until #86 added an eighteenth permission and had to
+ * edit it in three places.
+ */
+const storePermissionSchema = z.enum(conditionEnumValues(STORE_PERMISSIONS));
 
 /** Partial store-policies patch (core update + settings update). */
 const storePoliciesSchema = z.object({

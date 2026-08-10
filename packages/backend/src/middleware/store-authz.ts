@@ -61,8 +61,18 @@ const ADMIN_PERMISSIONS: readonly StorePermission[] = ALL_PERMISSIONS.filter(
  * POS, but NOT configure the business. Staff get products/inventory (read+write),
  * orders (read+fulfill), customers (read+write), draft orders (POS), and stats —
  * and are DENIED `members:manage`, `store:manage`, `settings:write`,
- * `discounts:write`, `refunds:write`, `locations:write`, `collections:write`
- * and `channels:write`.
+ * `discounts:write`, `refunds:write`, `locations:write`, `collections:write`,
+ * `channels:write` and `analytics:read`.
+ *
+ * `analytics:read` is the interesting exclusion, because staff DO hold
+ * `stats:read` and the two look alike from a distance. They are not the same
+ * question: `stats:read` is this store's own trading record, which a shop floor
+ * needs; `analytics:read` (#86) is market demand around the store's products —
+ * how often Mercaria showed them, how many visits it sent elsewhere, which of
+ * them have demand and no offer. That is commercial strategy, and #86 privacy 3
+ * asks for an EXPLICIT permission, which a permission every role already holds
+ * would not be. A store that wants a staff member to see it grants it
+ * explicitly, which is exactly what the grant union is for.
  */
 const STAFF_PERMISSIONS: readonly StorePermission[] = [
   'products:read',
@@ -90,6 +100,7 @@ const STAFF_PERMISSIONS: readonly StorePermission[] = [
  * | locations:write    |   ✓   |   ✓   |       |
  * | collections:write  |   ✓   |   ✓   |       |
  * | channels:write     |   ✓   |   ✓   |       |
+ * | analytics:read     |   ✓   |   ✓   |       |
  * | products:read      |   ✓   |   ✓   |   ✓   |
  * | products:write     |   ✓   |   ✓   |   ✓   |
  * | inventory:write    |   ✓   |   ✓   |   ✓   |
@@ -100,10 +111,11 @@ const STAFF_PERMISSIONS: readonly StorePermission[] = [
  * | customers:write    |   ✓   |   ✓   |   ✓   |
  * | draft_orders:write |   ✓   |   ✓   |   ✓   |
  *
- * - `owner` — every permission (17/17, incl. `store:manage`).
- * - `admin` — every permission EXCEPT `store:manage` (16/17).
- * - `staff` — the operational shop-floor + POS set (9/17); cannot configure the
- *   business (no manage/settings/discounts/refunds/locations/collections/channels).
+ * - `owner` — every permission (18/18, incl. `store:manage`).
+ * - `admin` — every permission EXCEPT `store:manage` (17/18).
+ * - `staff` — the operational shop-floor + POS set (9/18); cannot configure the
+ *   business (no manage/settings/discounts/refunds/locations/collections/channels)
+ *   and cannot read market demand analytics.
  */
 export const ROLE_PERMISSIONS: Record<StoreRole, StorePermission[]> = {
   owner: [...ALL_PERMISSIONS],

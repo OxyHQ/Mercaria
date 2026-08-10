@@ -92,6 +92,8 @@ import guestSessionRouter from './routes/guest-session.js';
 import guestOrdersRouter from './routes/guest-orders.js';
 import analyticsRouter from './routes/analytics.js';
 import internalAnalyticsRouter from './routes/internal-analytics.js';
+import merchantDemandRouter from './routes/merchant-demand.js';
+import internalMerchantDemandRouter from './routes/internal-merchant-demand.js';
 import internalRetailEligibilityRouter from './routes/internal-retail-eligibility.js';
 import internalProcurementRouter from './routes/internal-procurement.js';
 import internalSupplierPreflightRouter from './routes/internal-supplier-preflight.js';
@@ -691,6 +693,23 @@ export function createApp(): express.Express {
   // middleware/analytics-operator-authz.ts.
   if (config.analytics.operatorSurfaceEnabled) {
     app.use('/internal/analytics', internalAnalyticsRouter);
+  }
+  // Merchant demand analytics (#86). The MERCHANT-facing router mounts only
+  // when at least one of its two levers is on: the dashboard and the public
+  // preview are separate switches because the preview is the one surface an
+  // unauthenticated caller reaches, and turning it off must not take a claimed
+  // merchant's own reporting with it. Each route re-reads its own lever, so the
+  // mount is a cheap outer guard rather than the authority.
+  if (config.merchantDemand.dashboardEnabled || config.merchantDemand.previewEnabled) {
+    app.use('/merchant-demand', merchantDemandRouter);
+  }
+  // …and the operator acquisition pipeline, on the SAME analytics allow-list —
+  // deliberately not a seventh list, because reading what demand is doing
+  // across the marketplace is the power that list already grants. It mounts
+  // while BOTH merchant levers are off: the evidence has to be readable during
+  // the incident that turned them off.
+  if (config.analytics.operatorSurfaceEnabled) {
+    app.use('/internal/merchant-demand', internalMerchantDemandRouter);
   }
   // …and the retail compliance surface, on its OWN allow-list — a FIFTH list,
   // for the fifth instance of the same reason: approving a resale
