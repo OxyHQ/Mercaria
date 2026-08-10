@@ -70,6 +70,10 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/watchlists/[watchlistId].tsx',
   'app/(app)/checkout/index.tsx',
   'app/(app)/checkout/return.tsx',
+  // The "Sell yours" flow (#91) — an authenticated draft-in-progress, reached
+  // only from a credential, and never a landing page a crawler should index.
+  'app/(app)/sell/index.tsx',
+  'app/(app)/sell/[draftId].tsx',
   'app/(app)/guest-orders/claim.tsx',
   'app/(app)/guest-orders/recover.tsx',
   'app/(app)/guest-orders/portal.tsx',

@@ -98,6 +98,7 @@ import {
   merchantDemandProducts,
   merchantDemandSnapshots,
 } from '../../db/schema/merchantDemand.js';
+import { sellerDraftMatchAssertions, sellerListingDrafts } from '../../db/schema/sellYours.js';
 import {
   catalogSourceConfigs,
   marketplaceSellerIdentities,
@@ -348,6 +349,25 @@ const WATCHLIST_SNAPSHOT_LINE_NOTE =
   'objection `catalog_backfill_records` and the curation timeline already carry. The reader ' +
   'still resolves the product through `merged_into_id`, one hop by construction (ADR 0002 D16), ' +
   'and the line carries its own amounts and quote so it reads completely without any of them.';
+
+const SELL_YOURS_DRAFT_NOTE =
+  "#91's in-flight `Sell yours` draft, which POINTS at the product a seller says they are " +
+  'selling and copies nothing from it. Repointed unconditionally: after a merge that IS the ' +
+  'same product, and a draft left on a tombstone would publish an attachment to a dead ' +
+  'identity — the listing would appear on no product page and the seller would have no way ' +
+  'to tell why. Nothing is unique on either column, and the accompanying `match_state` is ' +
+  'unaffected: what the seller decided about the product does not change when two rows ' +
+  'describing that product become one.';
+
+const SELL_YOURS_ASSERTION_NOTE =
+  "#91's append-only record of what a seller declared, confirmed, rejected or had refused. " +
+  'It stays with the tombstone, and the table could not be repointed even if that were the ' +
+  'right answer — it refuses UPDATE by trigger. That is the same reasoning as ' +
+  '`catalog_merge_conflicts` above: an assertion is the history of a statement a person made ' +
+  'about a specific row at a specific time, and rewriting it to be about the surviving row ' +
+  'would make the one question this table exists to answer — why is this listing attached to ' +
+  'that product — unanswerable afterwards. The DRAFT is repointed, so the seller\'s live ' +
+  'intent follows the merge while the trail of how it got there does not move.';
 
 const PRICE_SERIES_NOTE =
   "#78's derived price series — the `review_aggregates` and `product_save_aggregates` " +
@@ -972,6 +992,18 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       disposition: 'untouched',
       note: WATCHLIST_SNAPSHOT_LINE_NOTE,
     },
+    {
+      column: sellerListingDrafts.canonicalProductId,
+      phase: 'children',
+      disposition: 'repoint',
+      note: SELL_YOURS_DRAFT_NOTE,
+    },
+    {
+      column: sellerDraftMatchAssertions.canonicalProductId,
+      phase: 'children',
+      disposition: 'retained_by_tombstone',
+      note: SELL_YOURS_ASSERTION_NOTE,
+    },
   ],
 
   canonical_variant: [
@@ -1211,6 +1243,18 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'saves',
       disposition: 'untouched',
       note: WATCHLIST_SNAPSHOT_LINE_NOTE,
+    },
+    {
+      column: sellerListingDrafts.canonicalVariantId,
+      phase: 'children',
+      disposition: 'repoint',
+      note: SELL_YOURS_DRAFT_NOTE,
+    },
+    {
+      column: sellerDraftMatchAssertions.canonicalVariantId,
+      phase: 'children',
+      disposition: 'retained_by_tombstone',
+      note: SELL_YOURS_ASSERTION_NOTE,
     },
   ],
 };

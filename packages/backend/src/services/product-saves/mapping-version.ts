@@ -21,7 +21,7 @@
  */
 import { NATIVE_LISTING_LINK_METHODS, type NativeListingLinkMethod } from '@mercaria/shared-types';
 
-export const PRODUCT_SAVE_MIGRATION_VERSION = '2026-08-09.1';
+export const PRODUCT_SAVE_MIGRATION_VERSION = '2026-08-10.1';
 
 /**
  * The link methods a migration may read as a CONFIDENT canonical mapping (#80
@@ -38,6 +38,20 @@ export const PRODUCT_SAVE_MIGRATION_VERSION = '2026-08-09.1';
  * with a person's intent attached — the failure mode #58's own header describes,
  * one layer up. A `matcher` link an operator later confirms arrives here as
  * `operator`, and the buyer's favorite is still there waiting for it.
+ *
+ * ## `seller_declared` (#91) is CONFIDENT, and that is a decision rather than an
+ * omission
+ *
+ * #91 added a sixth method, so this exclusion list had to be re-read rather than
+ * left alone — which is exactly what the subtraction below exists to force. The
+ * answer is that it stays out of this list, for a reason that does not apply to
+ * `matcher`: an attachment written by the "Sell yours" flow is a NAMED person
+ * asserting, about their own item, on a surface that showed them the product,
+ * with `services/sell-yours/match-gate.ts` having refused to write it if a valid
+ * identifier, the brand, the pack count, the category, a bundle relation or an
+ * operator's own rejection disagreed. Somebody HAS agreed it, which is the whole
+ * of what `matcher` lacks. `sell-yours/__tests__/link-method-confidence.test.ts`
+ * pins the classification so it cannot quietly flip either way.
  */
 export const UNCONFIDENT_LINK_METHODS: readonly NativeListingLinkMethod[] = ['matcher'];
 

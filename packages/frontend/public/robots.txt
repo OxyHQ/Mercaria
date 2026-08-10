@@ -24,6 +24,7 @@ Disallow: /settings/
 Disallow: /cart
 Disallow: /checkout
 Disallow: /orders
+Disallow: /sell
 Disallow: /saved
 Disallow: /watchlists
 Disallow: /notifications
