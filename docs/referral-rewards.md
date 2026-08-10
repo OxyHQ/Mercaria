@@ -166,9 +166,15 @@ The pipeline, and the order matters:
    `no_pinned_rule_version` — resolving "whichever version is active now" is
    what D19 forbids.
 3. **The funding adapter**, which is the ONLY base computation in the domain.
-   `RealizeFundingInput` carries a record ref and an instant, and has no order,
+   `RealizeFundingInput` carries a record ref and a handle, and has no order,
    cart, basket or fee-snapshot member — "a rule must never compute a percentage
-   of gross basket value" is a property of the call graph.
+   of gross basket value" is a property of the call graph. It carries no "as of"
+   instant, deliberately: a charge's `commission_revenue` postings are written
+   by the payment OUTBOX, strictly after the payment-success instant an accrual
+   would pass, so bounding the ledger read there would make every accrual read
+   zero — and the budget adapter has nothing temporal to bound at all. Every
+   adapter reads the record's state NOW, which is what all three callers want.
+   #67/#89 add a temporal parameter WITH the code that honours one.
 4. **The formula.** `percentageOfRealizedBase` is the only rounding in the
    domain: **half to even**, computed in `bigint`, `assertSafeMoneyAmount` on the
    way out. Half-even rather than half-up because a reward is a small percentage
