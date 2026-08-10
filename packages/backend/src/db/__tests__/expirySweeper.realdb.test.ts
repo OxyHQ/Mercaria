@@ -462,6 +462,13 @@ describe('the registry the sweeper runs over', () => {
       // by traffic, and read during a chargeback months later.
       'procurement_outboxes',
       'referral_touches',
+      // #95's two query-side tables. A session is one shopper's bounded
+      // clarification conversation and a turn holds #77's REDACTED query form,
+      // so for the turn the sweep IS the erasure — which is why neither table
+      // has an append-only trigger: one refusing DELETE would make the
+      // retention this domain most needs fail silently.
+      'search_intent_sessions',
+      'search_intent_turns',
       'supplier_provider_events',
       // #81's ONE, and the three it leaves out are the point: a watchlist and
       // its items are a person's own data, removed when THEY remove them, and a

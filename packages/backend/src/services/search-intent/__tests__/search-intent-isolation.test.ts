@@ -1,0 +1,255 @@
+/**
+ * What the intent domain cannot reach, asserted STRUCTURALLY (#95 model
+ * boundary, safety rules 2 and 6, and the ranking wall every discovery domain
+ * carries).
+ *
+ * A behavioural fixture can only show that today's code does not do a thing. A
+ * module that cannot REACH the data cannot use it, which is the stronger
+ * statement, and it is what `fee-ranking-isolation.test.ts` established and
+ * `search-relevance-isolation.test.ts` widened. This is that gate pointed at
+ * the natural-language path, with five walls:
+ *
+ * 1. **No catalogue TEXT reaches a parser** (safety rule 2). No module here
+ *    reads a listing description, a review body, a merchant profile or a source
+ *    record payload — so "catalog descriptions, reviews and merchant text are
+ *    never concatenated as trusted parser instructions" is a property of the
+ *    import graph rather than of whoever writes the next prompt.
+ * 2. **No account secret, payment detail, private list or precise location**
+ *    (safety rule 6). The `ModelParseInput` type has no field for one; this is
+ *    the second, independent statement of it, covering the modules that COMPOSE
+ *    that input.
+ * 3. **No ranking.** A preference's importance is an ORDINAL RANK here and a
+ *    weight is #74's — a query parser reaching `services/ranking/` would be a
+ *    second, unversioned ranking authority arriving through the search box.
+ * 4. **No fee, referral or retail-cost reference.** The same seven commercial
+ *    signals #70's gate names, because an interpretation feeds retrieval and
+ *    anything it could read, retrieval could rank by.
+ * 5. **No provider SDK and no credential.** #95 model-boundary rule 1 is a
+ *    provider-NEUTRAL interface: a named vendor SDK or an API-key read anywhere
+ *    in this domain would mean the port had been closed by importing one rather
+ *    than by registering one.
+ *
+ * The fifth wall additionally scans the STOREFRONT's search path, which is
+ * #92's `seller-identity-isolation.test.ts` device: model-boundary rule 8 says
+ * provider choice and prompt logic stay outside React components, the
+ * storefront has no test runner of its own, and the one file that could break
+ * that rule is a storefront file.
+ *
+ * ## The defences that make a green run mean something
+ *
+ * A vacuity floor on the file count and on each file's size; a mutation
+ * self-test per detector against a seeded positive AND a seeded negative; and
+ * comment stripping, because every module here documents what it refuses to do
+ * in exactly the vocabulary the detectors look for.
+ */
+
+import { describe, expect, it } from 'vitest';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  INTENT_CANDIDATE_ELEMENTS,
+  INTENT_FORBIDDEN_MODEL_OUTPUTS,
+} from '@mercaria/shared-types';
+
+const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+/** Walked whole, so the wall holds for modules nobody has written yet. */
+const SCANNED_DIRECTORIES = ['services/search-intent', 'db/searchIntent'];
+
+/** The files that serve the domain from outside those directories. */
+const SCANNED_FILES = [
+  'controllers/search-intent.controller.ts',
+  'controllers/internal-search-intent.controller.ts',
+  'routes/search-intent.ts',
+  'routes/internal-search-intent.ts',
+  'middleware/search-intent-schemas.ts',
+];
+
+/**
+ * The STOREFRONT's search path, relative to the repository root.
+ *
+ * Scanned for the provider/credential wall ONLY — the other four are about a
+ * server's import graph. #92's gate scans both packages for the same reason:
+ * the storefront has no test runner, so a rule about a client file is a build
+ * failure here or it is a copy review.
+ */
+const SCANNED_CLIENT_FILES = [
+  'packages/frontend/app/(app)/search.tsx',
+  'packages/frontend/lib/hooks/use-search-intent.ts',
+  'packages/frontend/lib/api/search-intent.ts',
+  'packages/ui/src/components/marketplace/SearchInterpretation.tsx',
+];
+
+/** The repository root, two levels above `packages/backend/src`. */
+const REPO_ROOT = join(SRC_ROOT, '..', '..', '..');
+
+/**
+ * The smallest number of modules this domain can plausibly have.
+ *
+ * Sixteen at the time of writing (thirteen under `services/search-intent`
+ * including the benchmark, two under `db/searchIntent`) plus the five files
+ * above. The floor is below that so ordinary refactoring does not fail the
+ * build, and far enough above zero that a walk returning nothing — the way this
+ * gate would silently stop working — cannot pass.
+ */
+const MINIMUM_SCANNED_FILES = 14;
+
+/** What reaching each prohibited thing looks like, from any direction. */
+const FORBIDDEN_REFERENCES: readonly { wall: string; pattern: RegExp }[] = [
+  {
+    wall: 'catalogue_text',
+    pattern:
+      /listings\.description|listing\.description|reviews\/|reviewRepository|source_records|sourceRecord|catalogSourceObject|merchant\.description|storefront\.description/i,
+  },
+  {
+    wall: 'shopper_private_data',
+    pattern:
+      /guest_checkouts|guestCheckout|addressRepository|findAddress|paymentIntent|providerAccount|savedItems|favoriteRepository|orderRepository|cartRepository|latitude|longitude|postalCode/i,
+  },
+  {
+    wall: 'ranking',
+    pattern: /services\/ranking|\.\.\/ranking\/|rankOffers|rankingPolicy|ranking_policy_versions/i,
+  },
+  {
+    wall: 'commercial_signal',
+    pattern:
+      /commission|fees\/|feeSchedule|order_fee_snapshots|referrals\/|referral_|retail-pricing\/|retailCost|sponsor|proPlan|acceptsFair|faircoin|oxypay/i,
+  },
+  {
+    wall: 'provider_sdk_or_credential',
+    pattern:
+      /['"](?:openai|@anthropic-ai\/[a-z-]+|@google\/[a-z-]+|cohere-ai|mistralai|ollama)['"]|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|apiKey\s*[:=]|process\.env\.[A-Z_]*API_KEY/i,
+  },
+];
+
+/**
+ * Strip block and line comments.
+ *
+ * Simple, and simple in the safe direction: a string literal containing `//`
+ * would lose its tail, which can only make the scan see LESS code and therefore
+ * only produce a false PASS on that one line — never a false failure somebody
+ * would disable the gate to silence. The mutation self-test below is what
+ * proves the detectors still fire on real code.
+ */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+function walk(directory: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(directory)) {
+    const full = join(directory, entry);
+    if (statSync(full).isDirectory()) {
+      // The domain's own tests name the prohibitions in order to test them.
+      if (entry === '__tests__') continue;
+      files.push(...walk(full));
+      continue;
+    }
+    if (entry.endsWith('.ts')) files.push(full);
+  }
+  return files;
+}
+
+function scannedPaths(): string[] {
+  const paths = SCANNED_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative)));
+  paths.push(...SCANNED_FILES.map((relative) => join(SRC_ROOT, relative)));
+  return paths;
+}
+
+describe('the natural-language intent domain cannot reach what it must not', () => {
+  it('no module on the intent path references a prohibited thing', () => {
+    const paths = scannedPaths();
+    expect(paths.length, 'the intent domain scan found too few files').toBeGreaterThanOrEqual(
+      MINIMUM_SCANNED_FILES,
+    );
+
+    const violations: string[] = [];
+    for (const path of paths) {
+      const raw = readFileSync(path, 'utf8');
+      expect(raw.length, `${path} looks empty — did it move?`).toBeGreaterThan(200);
+      const source = stripComments(raw);
+      for (const reference of FORBIDDEN_REFERENCES) {
+        const match = reference.pattern.exec(source);
+        if (match !== null) violations.push(`${path} reaches ${reference.wall}: ${match[0]}`);
+      }
+    }
+    expect(violations, violations.join('\n')).toEqual([]);
+  });
+
+  it('every detector actually detects — the mutation self-test', () => {
+    const positives: Readonly<Record<string, string>> = {
+      catalogue_text: "const hint = listing.description ?? '';",
+      shopper_private_data: "const saved = await findAddress(oxyUserId, addressId);",
+      ranking: "import { rankOffers } from '../ranking/rank.js';",
+      commercial_signal: "const cut = await readAffiliateReport(offer).commission;",
+      provider_sdk_or_credential: "import OpenAI from 'openai';",
+    };
+    // An ordinary line from this domain: it reads the registry and the unit
+    // table and nothing else, which is what the whole gate is protecting.
+    const negative =
+      "import { resolveActiveDefinition } from '../attributes/definition-registry.service.js';";
+
+    for (const reference of FORBIDDEN_REFERENCES) {
+      const seeded = positives[reference.wall];
+      expect(seeded, `no positive fixture for ${reference.wall}`).toBeDefined();
+      expect(
+        reference.pattern.test(seeded ?? ''),
+        `the ${reference.wall} detector no longer fires on a real reference`,
+      ).toBe(true);
+      expect(
+        reference.pattern.test(negative),
+        `the ${reference.wall} detector fires on an ordinary registry read`,
+      ).toBe(false);
+    }
+  });
+
+  it('the STOREFRONT names no provider, credential or prompt', () => {
+    // Model-boundary rule 8: provider choice and prompt logic remain outside
+    // React components. The client submits a QUERY and reads an
+    // interpretation; a vendor SDK, an API key or a prompt string in any of
+    // these files would mean the boundary had moved into the browser.
+    const detector = FORBIDDEN_REFERENCES.find(
+      (reference) => reference.wall === 'provider_sdk_or_credential',
+    );
+    expect(detector, 'the provider detector went missing').toBeDefined();
+    const prompts = /systemPrompt|system_prompt|promptTemplate|messages\s*:\s*\[\s*\{\s*role/i;
+
+    const violations: string[] = [];
+    for (const relative of SCANNED_CLIENT_FILES) {
+      const path = join(REPO_ROOT, relative);
+      const raw = readFileSync(path, 'utf8');
+      expect(raw.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+      const source = stripComments(raw);
+      const provider = detector?.pattern.exec(source);
+      if (provider !== null && provider !== undefined) {
+        violations.push(`${relative} names a provider or a credential: ${provider[0]}`);
+      }
+      const prompt = prompts.exec(source);
+      if (prompt !== null) violations.push(`${relative} composes a prompt: ${prompt[0]}`);
+    }
+    expect(violations, violations.join('\n')).toEqual([]);
+  });
+
+  it('the comment stripper does not hide code from the scan', () => {
+    expect(stripComments('const x = listing.description;')).toContain('listing.description');
+    expect(stripComments('// nothing here reads a listing.description\nconst x = 1;')).not.toContain(
+      'listing.description',
+    );
+    expect(stripComments('/** never imports openai */\nconst x = 1;')).not.toContain('openai');
+  });
+
+  it('what a model may produce and what it may never are DISJOINT vocabularies', () => {
+    // The vocabulary half of the wall — the `RETAIL_FORBIDDEN_COMPONENT_KINDS`
+    // device. A plausible-looking future addition that is both producible and
+    // forbidden fails the build rather than being quietly admitted.
+    const producible = new Set<string>(INTENT_CANDIDATE_ELEMENTS);
+    const overlap = INTENT_FORBIDDEN_MODEL_OUTPUTS.filter((output) =>
+      producible.has(output as string),
+    );
+    expect(overlap, `elements in both tuples: ${overlap.join(', ')}`).toEqual([]);
+    // …and neither is empty, so the disjointness above is not vacuous.
+    expect(INTENT_CANDIDATE_ELEMENTS.length).toBeGreaterThanOrEqual(10);
+    expect(INTENT_FORBIDDEN_MODEL_OUTPUTS.length).toBe(10);
+  });
+});

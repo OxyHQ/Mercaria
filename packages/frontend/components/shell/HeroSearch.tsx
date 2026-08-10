@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { View } from "react-native";
+import { useRouter } from "expo-router";
 import { Search } from "@oxyhq/bloom/search";
 import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
 import { useColorScheme } from "@mercaria/ui";
@@ -10,16 +11,17 @@ import { useColorScheme } from "@mercaria/ui";
 
 export function HeroSearch() {
   const { colors } = useColorScheme();
+  const router = useRouter();
   const [query, setQuery] = useState("");
 
-  // A real submit handler that reads the query. There is no `/search` route
-  // yet, so it does nothing harmful (no navigation to a missing route). Wire
-  // the navigation here once the search screen exists.
+  // The query travels in the URL and nothing else does (#95 client rule 6):
+  // `/search` re-interprets from the term, so a shared link reproduces the
+  // search without carrying a session id or anybody's clarification history.
   const handleSubmit = useCallback(() => {
     const trimmed = query.trim();
     if (!trimmed) return;
-    // Intentionally a no-op until the search route is built.
-  }, [query]);
+    router.push({ pathname: "/search", params: { q: trimmed } });
+  }, [query, router]);
 
   return (
     <View className="items-center px-4 pb-4 pt-6">

@@ -4751,3 +4751,135 @@ the build if a module here reaches the save domain.
   compares against its own basis-matched snapshots, which answer a different
   question about a different subject), **#71** (the product page each row links
   to).
+
+## Natural-language shopping intent (#95)
+
+`services/search-intent/` (13 modules incl. the benchmark) + `db/searchIntent/`
+(2 repositories) + `db/schema/searchIntent.ts` (4 tables) + `POST /search-intent`
++ `/internal/search-intent/*`, plus `@mercaria/ui`'s `SearchInterpretation` and
+the storefront's `app/(app)/search.tsx`. Turning ordinary language into #94's
+validated constraint set and #70's deterministic retrieval. Full reference:
+**`docs/search-intent.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"Natural-language shopping intent (#95)".
+
+- **The deterministic interpreter is the FLOOR, not a degraded mode**, and that
+  is a fact about the call graph: `plan.service.ts` builds the deterministic
+  draft FIRST, unconditionally, and a model may only produce a SECOND draft that
+  is merged into it — filling gaps, never replacing, widening or removing (every
+  merge branch is an "if the deterministic pass produced nothing here"). So a
+  provider regression costs coverage and can never cost correctness, and a
+  deployment with no provider — which is every deployment, since nothing
+  registers one — has a working natural-language search box.
+- **A model produces a CANDIDATE and four independent mechanisms bound it**: the
+  type has NO id field of any kind (so a product, variant, offer, merchant or
+  brand id is unrepresentable rather than refused); it carries no price,
+  availability or specification VALUE; the schema is `.strict()` so an
+  undeclared key is refused rather than stripped; and every key, unit, enum
+  value and currency must resolve against #94's live registry.
+  `INTENT_FORBIDDEN_MODEL_OUTPUTS` (10) is DISJOINT from
+  `INTENT_CANDIDATE_ELEMENTS` (10) by a test. **Only four of the ten are
+  SCANNED for** — the other six have no field capable of expressing one, so a
+  check for them would be one that can never fail, which reads as coverage.
+- **Hard constraints are never silently weakened, and the translation is TOTAL.**
+  #94 can express `ne`, `not_in`, an exclusive bound and an "any of" group;
+  #70's `SearchFilters` can express none of them. Every hard constraint is
+  assigned an `IntentEnforcementSite` — `retrieval_filter`,
+  `constraint_evaluation` or `unenforceable` — and an `unenforceable` one
+  REFUSES the plan naming itself. `constraint_evaluation` is not a downgrade
+  (identical three-valued outcome, same `missingDataPolicy`); it costs retrieval
+  efficiency. `known_total` lands there because #70's price filter compares the
+  OFFER price, and answering it with that filter would answer a different
+  question.
+- **The paraphrase is COMPOSED and has THREE voices.** No field on the result
+  could hold model prose. `IntentElementOrigin` (`user_explicit` /
+  `deterministic_rule` / `model_inferred`) travels on every element so the
+  renderer can say "you asked for", "we read" and "we guessed" — clarification
+  rule 6 made structural rather than reviewed.
+- **An unresolvable term is REPORTED, never dropped or approximated.**
+  `unsupported_by_retrieval` is the one to read: understood COMPLETELY and
+  unenforceable, which is a different failure from not having understood it. A
+  nearby request is exactly that (#93 supplies no pickup state and #70 has no
+  proximity parameter), so it is reported rather than accepted-and-ignored.
+- **A numeric BOUND is hard; a bare magnitude is a preference.** "At least 16 GB"
+  excludes; "16 GB laptop" is descriptive and reading it as hard removes every
+  32 GB machine. The asymmetry has a direction — promoting a leaning excludes
+  products the shopper would have bought. A hard requirement on an attribute
+  #94 marks `hardConstraintCapable: false` is degraded AND reported.
+- **The interpreter REFUSES rather than guessing in four places**: a magnitude
+  whose unit fits several attributes and whose words name none (`14 inches`), an
+  ambiguous grouped number in a language with no decimal convention on file
+  (`1,299`), an ambiguous currency symbol (`$`, `¥`, `kr` — `€ £ ₹ zł R$ ⊜` each
+  name one and resolve), and a brand or merchant name (resolution is an EXACT
+  normalized-name lookup returning exactly ONE row; two is an ambiguity).
+- **Attribute names come from the REGISTRY's own localized labels**, and the
+  NEAREST match wins with length as the tie-break. Nearness is load-bearing and
+  was measured: `16 GB de memoria y almacenamiento de al menos 512 GB` puts both
+  words inside the first magnitude's window, and a longest-match rule reads
+  `16 GB` as STORAGE — so the query asks for storage twice and never mentions
+  memory.
+- **A preference's importance is an ORDINAL RANK, never a weight.** A weight
+  would be a second, unversioned ranking authority arriving through the search
+  box; #74's policy versions are the only place one may live, and a scanned gate
+  fails the build if this domain reaches `services/ranking/`.
+- **Clarification is bounded three ways** — a KIND at most once per session
+  (which is why the vocabulary is closed: two phrasings of one question are one
+  kind), at most 2 ROUNDS per SESSION (a per-request bound is no bound), at most
+  2 questions at once. "Search anyway" is the client not sending an answer;
+  there is no endpoint for it, which is what guarantees a clarification can
+  never block a search. An answer is applied as an INPUT to the interpretation
+  rather than as an edit to its output.
+- **No raw query text is stored anywhere in this domain and no column could hold
+  one.** Rule 3 ("preserve the original query") and safety rule 7 (#77's
+  redaction and retention) pull opposite ways; rule 7 wins and rule 3 is
+  satisfied client-side, where the original already lives — the shopper typed
+  it, the share-safe URL carries it, and a clarification answer re-submits it.
+  The URL carries the QUERY and never the session id or the answers.
+- **Acceptance 8 needed NO change to #77's domain.** `search_intent_turns`
+  carries the mode, the reason, the counts and `query_event_id` — #77's own
+  correlation handle, which authorizes nothing — so the two halves are joinable
+  and each is swept on its own clock.
+- **Two tables, four CHECKs worth knowing**: the session's owner biconditional
+  per actor kind; the turn's `(mode = 'deterministic') = (fallback_reason is not
+  null)`; the enablement's NOT NULL COMPOSITE foreign key onto the run's
+  `(id, dataset_digest)` (acceptance 7 as a constraint — the
+  `match_category_gates` device); and TWO partial uniques on the enablement,
+  because Postgres treats NULLs as DISTINCT and a NULL `category_id` IS the
+  language-wide row.
+- **The benchmark is a GATE, content-addressed.** Twelve case classes, five
+  languages, an in-memory registry so the whole set runs in CI on every push.
+  The DIGEST is what makes acceptance 7 real: editing a case invalidates every
+  recorded threshold until somebody re-measures.
+  `INTENT_BENCHMARK_FLOOR_MEASURES` states each measure's DIRECTION as data —
+  reading `false_hard_constraint_rate` as a floor would enable the parser
+  precisely when it is inventing requirements — and CI asserts that rate at
+  exactly ZERO for the deterministic interpreter.
+- Env: `NL_INTENT_ENABLED` (default false — the MODEL half only),
+  `NL_INTENT_BLOCKED_COHORTS` (a BLOCK list, `<MARKET>:<language>`, naming
+  NOBODY — there is no per-person bucket anywhere in this domain),
+  `NL_INTENT_PARSE_TIMEOUT_MS`, `NL_INTENT_SESSION_TTL_SECONDS`. **There is
+  deliberately NO lever that turns the surface off** — the deterministic path is
+  the floor, so one would withdraw a working feature for no benefit. Its own
+  rate-limit bucket (`rl:search-intent:`, keyed on the ACTOR), because a parse
+  may call a provider and a search does not.
+- Operator surface `/internal/search-intent/*` on the SAME
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/#62/#68/#70/#78
+  use, mounted while the model half is off. The route set is CLOSED: no
+  "interpret this query as X", no "pin this attribute", no "add a synonym", no
+  "set the weights" — every one would be an interpretation rule outside the
+  versioned rules and the benchmarked model.
+- **The model provider is a NAMED, FAIL-CLOSED seam.** Nothing registers one, no
+  API key lives here and no provider dependency is installed; closing it is one
+  module implementing `ShoppingIntentParser` plus one
+  `registerShoppingIntentParser` call, and nothing else in #95 changes. A
+  provider never throws its way to a fallback (`refused`/`failed` members), and
+  the DEADLINE is the caller's — a provider that hangs is exactly the case a
+  provider-supplied timeout does not cover.
+- Seams left, each failing closed: **#93** (proximity is `unenforceable`;
+  nearby is reported), **#74** (ranking, a scanned gate), **#96** (it reads the
+  same `ConstraintSet`), **#71** (an interpretation names no product), and FOUR
+  clarification kinds that are DEFINED and not produced today
+  (`missing_unit`, `requirement_strength`, `entity_disambiguation`,
+  `condition`) — none arises from a reading the deterministic interpreter makes,
+  a model may name them, and `selectClarifications` drops a question with fewer
+  than two options so a half-built one is silently invisible rather than
+  visibly missing.

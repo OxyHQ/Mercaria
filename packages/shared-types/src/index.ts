@@ -388,3 +388,14 @@ export * from './search';
 // notification service — and its trigger key names the observed-price VERSION,
 // which is what makes one qualifying observation one notification.
 export * from './price-alert';
+// Natural-language shopping intent (#95). LAST, and downstream of everything a
+// parse must resolve against: `./constraint` (the language an interpretation
+// produces), `./search` (the filters retrieval is actually given),
+// `./attribute-registry`, `./condition`, `./money` and `./offer`. It defines no
+// vocabulary any of them already owns — an interpretation names #94's attribute
+// keys, #90's condition SEGMENTS and #70's filter fields, so a query parser
+// cannot become a second, quieter definition of what a requirement means. Its
+// candidate type has no product, merchant or offer id and no price,
+// availability or specification value, which is what makes "a model cannot
+// invent one" a property of the shape rather than of a validation step.
+export * from './search-intent';

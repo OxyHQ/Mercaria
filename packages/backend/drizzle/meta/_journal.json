@@ -407,6 +407,13 @@
       "when": 1786352237566,
       "tag": "0057_acoustic_sphinx",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1786354225719,
+      "tag": "0058_jittery_johnny_storm",
+      "breakpoints": true
     }
   ]
 }

@@ -277,3 +277,11 @@ export * from './ranking';
 // the observation log and the notification feed and writes to none of them, so
 // nothing here can change what a shopper is shown or what a source published.
 export * from './priceAlerts';
+// Natural-language shopping intent (#95) is the last export and, like
+// `./ranking`, references almost nothing: one foreign key onto `guest_sessions`
+// (so purging a guest credential purges the clarification state derived from
+// it) and nothing else in the graph. That independence is the domain's shape —
+// an interpretation is a QUERY, so nothing it holds may outlive or constrain a
+// catalogue row, and there is deliberately no column anywhere here for a raw
+// query, a product, a merchant or an offer.
+export * from './searchIntent';

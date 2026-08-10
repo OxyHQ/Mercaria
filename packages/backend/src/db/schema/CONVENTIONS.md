@@ -4349,3 +4349,71 @@ was evaluated. Behaviour: **`docs/watchlists.md`**.
 - **No demand aggregate, no share token, no follower column, and only
   `watchlists` carries an account id.** Each absence is the enforcement of a #81
   privacy rule, and `watchlist-isolation.test.ts` scans for all of them.
+
+## Natural-language shopping intent (#95)
+
+`db/schema/searchIntent.ts` — four tables, and the interesting decisions are
+about what they deliberately do NOT hold.
+
+- **No raw query text exists anywhere in this domain, and there is no column one
+  could occupy.** `search_intent_turns.redacted_query` holds what #77's
+  `redactSearchQuery` produced and nothing else. That resolves a genuine tension
+  rather than sidestepping one: #95 clarification rule 3 asks that the ORIGINAL
+  query be preserved and safety rule 7 asks that #77's redaction and retention
+  policy apply, and the two pull in opposite directions. Rule 7 wins, and rule 3
+  is satisfied on the CLIENT side, which is where the original already lives —
+  the shopper typed it, the share-safe URL carries it, and a clarification
+  answer re-submits it. The cost is stated rather than hidden: a shopper who
+  loses their tab loses the query, and an operator tracing an interpretation
+  sees the redacted form.
+- **`search_intent_sessions` follows `carts`' owner shape exactly**: an Oxy id
+  carries no foreign key (Oxy owns identity) while a guest session id MUST, `ON
+  DELETE CASCADE`, so purging a guest credential purges the clarification state
+  derived from it with no sweep involved. The `anonymous` branch has NEITHER and
+  is a real state rather than a gap — most shopping traffic carries no
+  credential, and refusing to clarify for those shoppers would make the feature
+  reachable only after somebody had put something in a cart. Such a session is
+  addressed by its id alone; what that id grants is almost nothing, because the
+  surface never reads a session back to a client.
+- **The owner CHECK is a biconditional per kind**, not merely a mutual
+  exclusion. An Oxy id on an `anonymous` row would make the ownership predicate
+  answer about the wrong subject, so each kind requires its own column present
+  AND the other two absent.
+- **`search_intent_turns` carries the fallback BICONDITIONAL as a CHECK**:
+  `(mode = 'deterministic') = (fallback_reason is not null)`. A model turn
+  carrying a reason inflates the fallback rate and a deterministic turn carrying
+  none leaves a fallback nobody can attribute — the row exists to make that rate
+  computable, so both shapes are unrepresentable rather than discouraged.
+- **`query_event_id` is #77's own correlation handle and is NOT a foreign key.**
+  It is what makes "compare parsed and fallback search quality" (#95 acceptance
+  8) answerable without adding a single column to the analytics domain, and the
+  two halves are swept on their own retention clocks — a foreign key would make
+  #77's erasure either delete this row or block itself.
+- **Neither table has an append-only trigger, and that inverts
+  `analytics_events`' posture deliberately.** The rows are written once and never
+  updated by any code path, so a trigger would guard against a writer that does
+  not exist — and the DELETE the retention sweep performs would then need an
+  exception, which is exactly the shape that makes a retention failure silent.
+  Both are registered in `db/expiryTargets.ts`, and for the turn the sweep IS
+  the erasure.
+- **`search_intent_enablements` cites its measurement by a NOT NULL COMPOSITE
+  foreign key** onto `search_intent_benchmark_runs (id, dataset_digest)` — the
+  `match_category_gates` device, and #95 acceptance 7 as a constraint rather
+  than a process. `restrict` rather than `cascade`: deleting a run an enablement
+  rests on would leave the parser enabled with its justification gone. The
+  target is a `unique()` CONSTRAINT and never a `uniqueIndex()`, because
+  drizzle-kit emits every FK before every `CREATE UNIQUE INDEX`.
+- **TWO partial uniques on the enablement, not one plain unique**, because
+  Postgres treats NULLs as DISTINCT: a `unique(category_id, language)` would
+  admit any number of language-wide rows for one language and the service would
+  read whichever it found first. A NULL `category_id` IS the language-wide row,
+  and the gate requires BOTH it and the category row.
+- **Every benchmark measure is a COLUMN**, the `ranking_policy_versions`
+  decision: a jsonb bag would let a run report whatever its author found
+  flattering, and a number whose definition is unstated cannot be stored.
+  Adding a measure needs a column and a migration, which is the right amount of
+  friction for changing what "the parser is good enough" means.
+- **`search_intent_benchmark_runs.category_id` and the enablement's carry no
+  foreign key** (registered in `deferredForeignKeys.ts`): a recorded
+  measurement must not be deletable by a catalogue change, and `restrict` would
+  make a category undeletable because somebody once benchmarked it.

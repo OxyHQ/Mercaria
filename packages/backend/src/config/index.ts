@@ -1773,6 +1773,44 @@ export interface RankingConfig {
 }
 
 /**
+ * Natural-language shopping intent (#95).
+ *
+ * Two levers and two lists, and the division is the point. `enabled` gates the
+ * MODEL half only: with it off — the default — `POST /search-intent` still
+ * answers, deterministically, with `fallbackReason: 'parser_disabled'`. There
+ * is deliberately NO lever that turns the surface off, because the
+ * deterministic interpreter is the floor rather than a degraded mode, and a
+ * lever that could withdraw it would be a lever that turns a working search box
+ * into a 404 for no benefit.
+ *
+ * `blockedCohorts` is a BLOCK list — the ADR 0006 incident-lever shape rather
+ * than this codebase's usual allow-list — because turning a cohort off at 3am
+ * must be adding one value, and an allow-list typo silently switches everything
+ * else off. A cohort is `<MARKET>:<language>` (`ES:es`), `<MARKET>:*` or
+ * `*:<language>`, and it deliberately names NOBODY: there is no per-person
+ * bucket anywhere in this domain, because a bucket keyed on an actor is the
+ * correlation key #77's whole design exists to avoid, and a kill switch does
+ * not need one to do its job.
+ */
+export interface SearchIntentConfig {
+  /**
+   * `NL_INTENT_ENABLED` — may a registered model parser be CALLED at all.
+   *
+   * Default false. With no parser registered it changes nothing observable
+   * (`provider_unconfigured` and `parser_disabled` are both a deterministic
+   * answer), and the two are still distinct in the recorded turn so an operator
+   * can tell "we turned it off" from "nobody wired one up".
+   */
+  readonly enabled: boolean;
+  /** `NL_INTENT_BLOCKED_COHORTS` — the incident kill switch. EMPTY by default. */
+  readonly blockedCohorts: readonly string[];
+  /** `NL_INTENT_PARSE_TIMEOUT_MS` — the caller's deadline on a provider call. */
+  readonly parseTimeoutMs: number;
+  /** `NL_INTENT_SESSION_TTL_SECONDS` — how long a clarification session lives. */
+  readonly sessionTtlSeconds: number;
+}
+
+/**
  * Currency-safe price history (#78).
  *
  * ## The anchor interval is NOT the global TTL #68 forbids
@@ -2574,6 +2612,7 @@ export interface AppConfig {
   readonly catalogIngestion: CatalogIngestionConfig;
   readonly offerFreshness: OfferFreshnessConfig;
   readonly ranking: RankingConfig;
+  readonly searchIntent: SearchIntentConfig;
   readonly priceHistory: PriceHistoryConfig;
   readonly priceAlerts: PriceAlertsConfig;
   readonly priceSignals: PriceSignalsConfig;
@@ -3137,6 +3176,12 @@ export const config: AppConfig = Object.freeze({
     blockedMarkets: Object.freeze(blockedListEnv('RETAIL_BLOCKED_MARKETS', 'upper')),
     sellerLegalEntityName: retailSellerLegalEntityName(),
     sellerLegalEntityCountry: retailSellerLegalEntityCountry(),
+  }),
+  searchIntent: Object.freeze({
+    enabled: boolEnv('NL_INTENT_ENABLED', false),
+    blockedCohorts: Object.freeze(blockedListEnv('NL_INTENT_BLOCKED_COHORTS', 'upper')),
+    parseTimeoutMs: intEnv('NL_INTENT_PARSE_TIMEOUT_MS', 4_000),
+    sessionTtlSeconds: intEnv('NL_INTENT_SESSION_TTL_SECONDS', 30 * 60),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),
