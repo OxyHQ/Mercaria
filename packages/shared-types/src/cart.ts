@@ -45,6 +45,38 @@ export interface CartVendor {
 }
 
 /**
+ * Why a guest cannot check this group out — a CLOSED set (#112).
+ *
+ * One member, and that is the point rather than an oversight: #112 default
+ * state 1 says a guest cart may DISPLAY a P2P group and checkout must block it,
+ * and a refusal spanning several conditions gets ONE reason code so a client
+ * cannot vary one input at a time and read out the switchboard. Every member
+ * must also be a `CHECKOUT_REFUSAL_REASONS` member in the backend — a test
+ * asserts it, so the sentence a buyer reads at checkout and the flag their cart
+ * already carried can never disagree.
+ */
+export const GUEST_CHECKOUT_BLOCK_REASONS = ['p2p_seller_excluded'] as const;
+
+/** One of {@link GUEST_CHECKOUT_BLOCK_REASONS}. */
+export type GuestCheckoutBlockReason = (typeof GUEST_CHECKOUT_BLOCK_REASONS)[number];
+
+/**
+ * Whether the CALLER — as the server resolved them — may check this group out.
+ *
+ * Present only for a guest actor: an Oxy buyer has no such question, and
+ * emitting `available` for them would put a guest-shaped field on every
+ * authenticated cart. A STRING discriminant with no value property on the
+ * blocked branch, so "blocked" cannot be read as a total or a price.
+ *
+ * `signInResolves` is #112's "optional Oxy sign-in path", stated by the server
+ * rather than assumed by the client: the same group is checkout-able by the
+ * same person the moment they hold an Oxy session, and no other remedy exists.
+ */
+export type GuestCheckoutGroupAvailability =
+  | { status: 'available' }
+  | { status: 'blocked'; reason: GuestCheckoutBlockReason; signInResolves: boolean };
+
+/**
  * A cart's lines grouped by their owning vendor. Rendered Shop.app-style: one
  * card per vendor with the vendor header, its lines, and its own subtotal +
  * checkout affordance.
@@ -56,6 +88,12 @@ export interface CartGroup {
   items: CartItemDTO[];
   /** Sum of this group's item `lineTotal`s (always in `Cart.currency`). */
   subtotal: Money;
+  /**
+   * Whether a GUEST caller may check this group out (#112). Absent for an Oxy
+   * buyer, and absent is never "blocked" — a client that cannot read this field
+   * renders exactly what it rendered before.
+   */
+  guestCheckout?: GuestCheckoutGroupAvailability;
 }
 
 /**

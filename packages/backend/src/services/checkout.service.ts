@@ -116,6 +116,10 @@ import {
   resolveShippingCostMinor,
 } from './checkout/fulfilment-eligibility.js';
 import { assertGuestCheckoutRolloutAllowed } from './checkout/guest-rollout.js';
+import {
+  assertGuestP2PCheckoutAllowed,
+  assertGuestP2PPaymentAllowed,
+} from './guest-p2p/gate.js';
 import { prepareGuestCheckoutContact } from './checkout/guest-checkout.service.js';
 import { reserve, release } from './inventory.service.js';
 import { summarizeOrders } from './order-hydration.service.js';
@@ -309,22 +313,52 @@ async function rollbackReservations(reserved: Reservation[]): Promise<void> {
  * involved converges rather than creating — see `openCheckoutPayment`.
  */
 async function summarizePriorGroup(
+  actor: CommerceActor,
   owner: CartOwner,
   checkoutGroupId: string,
   rail: CheckoutRail,
 ): Promise<CheckoutResult> {
   const prior = await findOrdersByCheckoutGroup(checkoutGroupId, checkoutGroupOwner(owner));
-  const payment = await openCheckoutPayment({
-    rail,
-    checkoutGroupId,
-    ...(owner.kind === 'oxy_user' ? { buyerOxyUserId: owner.oxyUserId } : {}),
-    orders: prior,
-  });
+  const payment = await openGatedCheckoutPayment({ actor, owner, rail, checkoutGroupId, orders: prior });
   return {
     checkoutGroupId,
     orders: await summarizeOrders(prior),
     ...(payment ? { payment } : {}),
   };
+}
+
+/**
+ * The ONE place this service opens a payment — every path, fresh or converged.
+ *
+ * `openCheckoutPayment` is called here and nowhere else in this file, and
+ * `checkout-payment-gate.test.ts` fails the build if a second call appears.
+ * That is what makes the guest P2P revalidation (#112 checkout behaviour 2) a
+ * property of the CALL GRAPH rather than of whoever remembers it: the fresh
+ * path, the Redis idempotency fast-path and the unique-violation converge all
+ * reach the rail through this function, so none of them can charge a group the
+ * gate would refuse.
+ *
+ * It was NOT that way when #112 first landed — the gate sat inline beside the
+ * fresh-path call and the two converge paths went straight to
+ * `summarizePriorGroup`, which opens the same payment. Harmless while the
+ * authorization is a build-time constant, and exactly the thing a `go` decision
+ * would turn into a real hole, because the point of the payment-stage call is
+ * to re-check something that CAN change between order placement and the charge.
+ */
+async function openGatedCheckoutPayment(input: {
+  actor: CommerceActor;
+  owner: CartOwner;
+  rail: CheckoutRail;
+  checkoutGroupId: string;
+  orders: readonly OrderRecord[];
+}): Promise<CheckoutPaymentHandoff | undefined> {
+  assertGuestP2PPaymentAllowed({ actor: input.actor, orders: input.orders });
+  return openCheckoutPayment({
+    rail: input.rail,
+    checkoutGroupId: input.checkoutGroupId,
+    ...(input.owner.kind === 'oxy_user' ? { buyerOxyUserId: input.owner.oxyUserId } : {}),
+    orders: input.orders,
+  });
 }
 
 /**
@@ -720,7 +754,7 @@ export async function checkout(
         if (stored && stored !== IDEMPOTENCY_PENDING) {
           const prior = await findOrdersByCheckoutGroup(stored, checkoutGroupOwner(owner));
           if (prior.length > 0) {
-            return await summarizePriorGroup(owner, stored, rail);
+            return await summarizePriorGroup(actor, owner, stored, rail);
           }
         } else if (stored === IDEMPOTENCY_PENDING) {
           throw conflict('Checkout already in progress');
@@ -907,18 +941,30 @@ export async function checkout(
   // shelf. Nothing about the cart's CONTENTS appears in any refusal it raises,
   // so a rejection leaks no inventory (#105 acceptance 4).
   //
-  // It also carries three refusals that are not about geography: the guest P2P
-  // gate (ADR 0003 D18), the pickup seam (#93, which fails CLOSED), and a
-  // per-seller shipping selection this deployment cannot price — an unpriced
-  // method is refused rather than shipped for nothing.
+  // It also carries two refusals that are not about geography: the pickup seam
+  // (#93, which fails CLOSED) and a per-seller shipping selection this
+  // deployment cannot price — an unpriced method is refused rather than shipped
+  // for nothing.
   const eligibilityGroups = [...groups.entries()].map(([sellerKey, group]) => ({
     sellerKey,
     sellerType: group.sellerType,
     shippingMethod:
       contract.impliedShippingMethod ?? input.shippingSelections?.[sellerKey] ?? 'standard',
   }));
+
+  // The guest P2P gate (#112, ADR 0003 D18 / ADR 0006 G18) runs FIRST among the
+  // eligibility refusals, and the ordering is the one #105 established: a
+  // buyer whose cart contains an individual's listing is told THAT, rather
+  // than being sent to fix a postcode or a delivery option that would not have
+  // helped. It refuses only the `user` groups and names them, so the remedy is
+  // the `sellerKeys` deselection the client already implements.
+  //
+  // Server-authoritative by SELLER TYPE, read off `listings.owner_type` above —
+  // never off anything a client sent. It runs again immediately before the
+  // rail is opened; see step 9.
+  assertGuestP2PCheckoutAllowed({ actor, groups: eligibilityGroups });
+
   assertSellerGroupsAcceptDestination({
-    actor,
     fulfilment: contract.fulfilment,
     groups: eligibilityGroups,
   });
@@ -1376,7 +1422,7 @@ export async function checkout(
             { ownerKind: owner.kind, idempotencyKey },
             'Concurrent/replayed checkout detected; converging on prior order group',
           );
-          const converged = await summarizePriorGroup(owner, prior.checkoutGroupId, rail);
+          const converged = await summarizePriorGroup(actor, owner, prior.checkoutGroupId, rail);
           if (converged.orders.length > 0) {
             return converged;
           }
@@ -1420,12 +1466,23 @@ export async function checkout(
   // Cancelling the orders instead would throw away a completed, priced, reserved
   // checkout because a third party had a bad minute, and the reservation sweep
   // already releases anything nobody comes back for.
+  // The guest P2P gate runs again inside `openGatedCheckoutPayment`, over the
+  // orders that are about to be CHARGED rather than the groups this checkout
+  // planned (#112 checkout behaviour 2, acceptance 6) — and it runs there rather
+  // than here so the two converge paths above cannot reach the rail around it.
+  //
+  // Refusing at this point is safe and needs no new failure handling: a
+  // `CheckoutRefusal` is a `MercariaError`, so the catch below rethrows it
+  // unchanged; the orders stay `pending_payment` holding their reservations and
+  // the reservation sweep releases them. Nothing is charged, which is the only
+  // property that matters here.
   let payment: CheckoutPaymentHandoff | undefined;
   try {
-    payment = await openCheckoutPayment({
+    payment = await openGatedCheckoutPayment({
+      actor,
+      owner,
       rail,
       checkoutGroupId,
-      ...(owner.kind === 'oxy_user' ? { buyerOxyUserId: owner.oxyUserId } : {}),
       orders: created,
     });
   } catch (err) {

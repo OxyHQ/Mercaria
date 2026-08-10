@@ -15,7 +15,7 @@ import {
   formatReviewCount,
   type ProductSummary,
 } from "@mercaria/ui";
-import type { CartGroup, CartVendor } from "@mercaria/shared-types";
+import type { CartGroup, CartVendor, Money } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
 import { useCart, useUpdateCartItem, useRemoveCartItem } from "@/lib/hooks/use-cart";
@@ -58,6 +58,13 @@ function CartEmptyState({ title, subtitle }: { title: string; subtitle: string }
  * The signed-out invitation. It sits BELOW the cart and blocks nothing — the
  * point of #104 is that the guest path is complete, so this is an offer and
  * never a gate.
+ *
+ * It is WITHHELD when nothing in the cart can be checked out as a guest
+ * (#112): "You can check out without an account" is then simply false, and
+ * `GuestGroupBlockedNotice` is already saying the true thing with the same
+ * sign-in button. An offer that contradicts the screen it sits under reads as
+ * a bug, and this one would be reassuring somebody about a purchase they
+ * cannot make.
  */
 function AccountBenefitsCard() {
   return (
@@ -183,13 +190,54 @@ function CartGroupCard({
         <Text className="text-sm text-muted-foreground">Subtotal</Text>
         <PriceDisplay price={group.subtotal} primaryClassName="text-base font-bold" />
       </View>
+      {group.guestCheckout?.status === "blocked" ? (
+        <GuestGroupBlockedNotice vendorName={vendor.name} />
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Continue to checkout with ${vendor.name}`}
+          onPress={() => onCheckout(vendor)}
+          className="mt-4 items-center rounded-full bg-primary py-3.5 web:hover:opacity-90 active:opacity-90"
+        >
+          <Text className="text-sm font-semibold text-primary-foreground">
+            Continue to checkout
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+/**
+ * What a guest sees on a group they cannot check out (#112).
+ *
+ * The SERVER decided this — `CartGroup.guestCheckout` carries the same verdict
+ * checkout will enforce — so the items stay visible and priced and only the
+ * checkout affordance changes. Hiding the group instead would make the cart
+ * disagree with what the buyer added, and leaving the button would send them to
+ * a refusal they could have been told about here.
+ *
+ * The copy says what is true and offers the one remedy that works. It does not
+ * name a criterion, a policy or a seller's readiness: the server sends ONE
+ * reason for the whole gate, and a client that could tell those apart would be
+ * a switchboard somebody could read out one item at a time.
+ */
+function GuestGroupBlockedNotice({ vendorName }: { vendorName: string }) {
+  return (
+    <View className="mt-4 rounded-2xl border border-border bg-secondary p-4">
+      <Text className="text-sm font-semibold text-foreground">
+        Buying from a person needs an account
+      </Text>
+      <Text className="mt-1 text-sm text-muted-foreground">
+        {`Items from ${vendorName} cannot be bought as a guest yet. Sign in to check out — everything already in your cart comes with you.`}
+      </Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Continue to checkout with ${vendor.name}`}
-        onPress={() => onCheckout(vendor)}
-        className="mt-4 items-center rounded-full bg-primary py-3.5 web:hover:opacity-90 active:opacity-90"
+        accessibilityLabel="Sign in to your Oxy account to buy from this seller"
+        onPress={() => openAccountDialog()}
+        className="mt-4 items-center rounded-full bg-primary py-3 web:hover:opacity-90 active:opacity-90"
       >
-        <Text className="text-sm font-semibold text-primary-foreground">Continue to checkout</Text>
+        <Text className="text-sm font-semibold text-primary-foreground">Sign in</Text>
       </Pressable>
     </View>
   );
@@ -227,9 +275,15 @@ function CartBody() {
     );
   };
 
-  // Whole-cart checkout: place every group (one order per seller).
+  // Whole-cart checkout: place every group the CALLER may actually place.
+  //
+  // A guest whose cart mixes a shop with a person gets the shop's group and is
+  // told why the rest is left behind (#112: a mixed cart is separated before
+  // the payment, never charged as a whole and then refused). With nothing
+  // blocked this pushes the bare `/checkout` route exactly as it always did.
   const onCheckoutAll = () => {
-    router.push("/checkout" as Parameters<typeof router.push>[0]);
+    const target = blockedGroups.length === 0 ? "/checkout" : `/checkout?seller=${checkoutableKeys.join(",")}`;
+    router.push(target as Parameters<typeof router.push>[0]);
   };
 
   // Bottom recommendation shelf: flatten product-feed-section products.
@@ -241,6 +295,22 @@ function CartBody() {
   }, [feed]);
 
   const groups = cart?.groups ?? [];
+  const blockedGroups = groups.filter((group) => group.guestCheckout?.status === "blocked");
+  const checkoutableGroups = groups.filter((group) => group.guestCheckout?.status !== "blocked");
+  const checkoutableKeys = checkoutableGroups.map(
+    (group) => `${group.vendor.kind}:${group.vendor.id}`,
+  );
+  // Summed on the client purely for DISPLAY, and only over one currency: every
+  // cart line is already converted to `cart.currency` at hydration, so this is
+  // an addition rather than a conversion. Checkout reprices authoritatively.
+  // `null` with no cart, rather than a defaulted currency — the presentment
+  // currency is the server's answer and a fallback here would be a second one.
+  const checkoutableTotal: Money | null = cart
+    ? {
+        amount: checkoutableGroups.reduce((total, group) => total + group.subtotal.amount, 0),
+        currency: cart.currency,
+      }
+    : null;
 
   return (
     <>
@@ -288,29 +358,40 @@ function CartBody() {
           ))}
 
           {/* Whole-cart checkout — only meaningful with more than one vendor
-              (with a single group the per-vendor button already does this). */}
-          {groups.length > 1 && cart ? (
+              (with a single group the per-vendor button already does this), and
+              only when at least one group is checkout-able for this caller. */}
+          {groups.length > 1 && checkoutableTotal && checkoutableKeys.length > 0 ? (
             <View className="mb-4 rounded-3xl border border-border bg-card p-4 web:shadow">
               <View className="flex-row items-center justify-between">
-                <Text className="text-sm text-muted-foreground">Cart total</Text>
-                <PriceDisplay price={cart.subtotal} primaryClassName="text-base font-bold" />
+                <Text className="text-sm text-muted-foreground">
+                  {blockedGroups.length === 0 ? "Cart total" : "Available now"}
+                </Text>
+                {/* The figure has to be the one the button will charge. Showing
+                    the whole cart's subtotal beside a button that places only
+                    part of it is the mismatch a buyer reads as a bug. */}
+                <PriceDisplay price={checkoutableTotal} primaryClassName="text-base font-bold" />
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Check out everything in your cart"
+                accessibilityLabel={
+                  blockedGroups.length === 0
+                    ? "Check out everything in your cart"
+                    : "Check out the items you can buy as a guest"
+                }
                 onPress={onCheckoutAll}
                 className="mt-4 items-center rounded-full bg-primary py-3.5 web:hover:opacity-90 active:opacity-90"
               >
                 <Text className="text-sm font-semibold text-primary-foreground">
-                  Checkout everything
+                  {blockedGroups.length === 0 ? "Checkout everything" : "Checkout available items"}
                 </Text>
               </Pressable>
             </View>
           ) : null}
 
           {/* The offer sits BELOW the cart and its checkout buttons, so it can
-              never read as a step between the buyer and their purchase. */}
-          {!isAuthenticated ? <AccountBenefitsCard /> : null}
+              never read as a step between the buyer and their purchase — and
+              it is withheld outright when none of them would work. */}
+          {!isAuthenticated && checkoutableKeys.length > 0 ? <AccountBenefitsCard /> : null}
         </View>
       )}
 

@@ -48,7 +48,6 @@ import type { ShippingMethod } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 import { checkoutRefusal } from './refusal.js';
-import type { CommerceActor } from '../commerce-actor.js';
 import type { ResolvedFulfilment } from './destination.js';
 
 /** One seller group as the eligibility gate needs to see it. */
@@ -129,30 +128,6 @@ export function assertPickupLocationEligible(
 }
 
 /**
- * The P2P gate — ADR 0003 D18, ADR 0006 G18, #105 actor rule 7.
- *
- * A guest checkout whose group is a `user` seller is refused at GROUP
- * construction, server-side, and is deselectable through the existing
- * `sellerKeys` mechanism — the same seam and the same refusal shape as the
- * payment-readiness gate. #112 owns any future reversal and its evidence; there
- * is no flag here to flip, deliberately, because the criteria are not met and a
- * dormant switch reads as a decision already taken.
- */
-export function assertGuestSellerTypesAllowed(
-  actor: CommerceActor,
-  groups: readonly EligibilitySellerGroup[],
-): void {
-  if (actor.kind !== 'guest') return;
-  const p2p = groups.filter((group) => group.sellerType === 'user');
-  if (p2p.length === 0) return;
-  throw checkoutRefusal(
-    'p2p_seller_excluded',
-    `Buying from an individual seller needs an Oxy account: ${describeSellers(p2p)}. ` +
-      'Sign in, or remove those items to check out with the rest.',
-  );
-}
-
-/**
  * Revalidate the resolved destination against every selected seller.
  *
  * The per-seller half. Today the only seller-specific dimension Mercaria can
@@ -168,14 +143,19 @@ export function assertGuestSellerTypesAllowed(
  * so a rejection here has taken no stock and leaks none. A refusal names seller
  * keys and a country and nothing about what is in the cart (rule: "inventory is
  * not leaked by a rejection").
+ *
+ * The guest P2P gate is NOT here. #105 put it in this file because it was one
+ * clause; #112 gave it a policy, a published criterion set and a second call
+ * site immediately before payment creation, so it lives in
+ * `services/guest-p2p/gate.ts` and `checkout.service` calls it just before this
+ * function. The ordering is unchanged and deliberate: a buyer whose cart
+ * contains a person's listing is told THAT, rather than about a pickup or a
+ * postcode they would then fix for nothing.
  */
 export function assertSellerGroupsAcceptDestination(input: {
-  actor: CommerceActor;
   fulfilment: ResolvedFulfilment;
   groups: readonly EligibilitySellerGroup[];
 }): void {
-  assertGuestSellerTypesAllowed(input.actor, input.groups);
-
   if (input.fulfilment.kind === 'pickup') {
     assertPickupLocationEligible(input.fulfilment.locationId, input.groups);
   }
