@@ -4950,3 +4950,71 @@ worth reading first.
   string for a `per_period` one**, so both kinds share one table and one unique
   index without a nullable column that would make two rows for one period
   possible (Postgres treats NULLs as distinct).
+## Channel onboarding and the channel audit trail (#87)
+
+`db/schema/channels.ts` — `channel_onboarding_sessions` and
+`channel_audit_events`, plus four nullable columns on `connections`. Full
+reference: `docs/channels.md`.
+
+- **There is NO credential column on a session, and none may be added.** Wizard
+  step 4 ("collect credentials only through the secure provider-specific flow")
+  is that absence rather than a rule somebody follows, and it matters more here
+  than almost anywhere: an abandoned session outlives its flow BY DESIGN, so a
+  consumer secret parked on one would sit unencrypted for as long as the merchant
+  never came back. The credential flows write to `connections` (AES-GCM, both
+  envelopes, `num_nonnulls(...) in (0,3)`) or mint a channel key; a session
+  records only WHICH connection resulted. Held by two gates in
+  `channel-isolation.test.ts` — a SCAN of the domain for the credential
+  vocabulary, and a WALK of the real table for a credential-shaped column, which
+  catch different mistakes.
+- **`channel_onboarding_sessions_live_key` is PARTIAL on `state =
+  'in_progress'`**, which is #87 acceptance 2 ("previewing or retrying a
+  connection creates no duplicate channel") held at the FIRST step rather than
+  defended at the last. Partial rather than plain so finished sessions accumulate
+  as history — a plain unique would make a merchant who disconnected unable to
+  ever reconnect through the wizard. Every `ON CONFLICT` on it must REPEAT the
+  predicate or Postgres refuses to infer the arbiter (the `ensureCart` lesson,
+  #104).
+- **The preview counters partition `scanned`, by equality and never `<=`**
+  (`..._preview_total_check`) — `catalog_backfill_runs`' vacuity floor applied to
+  a wizard, because a record the preview read and dropped on the floor would
+  otherwise be invisible, and a preview that silently loses records is the one
+  that says "nothing to review" about a feed full of problems. Its sibling
+  `..._preview_complete_check` makes the seven columns all-or-none: five counters
+  with a missing `scanned` reads as a preview that examined nothing, which is
+  also what a broken mapping produces.
+- **`activation_blockers` is stored and NOTHING decides from it.** It exists so a
+  resumed wizard shows what it showed; `deriveActivationBlockers` re-derives
+  against the LIVE connection on every read and every activation attempt. A
+  session previewed last week whose connection has since errored must not be
+  activatable because a column still says it was fine.
+- **`channel_audit_events.changed_fields` carries field NAMES and never values**
+  — #63's error-report rule applied to an audit trail, for a sharper reason: the
+  values a channel change carries include a consumer secret and an API key pair,
+  so a trail recording before-and-after would be a plaintext credential store
+  nobody classified as one. `recordChannelAuditEvent` has no parameter a value
+  could go in.
+- **Append-only by trigger, with a PRECISE delete exception.** UPDATE always
+  raises; DELETE raises only while the STORE still exists — #90's
+  `listing_condition_revisions` device, and the exception is exactly as wide as
+  the `ON DELETE CASCADE` above it. A blanket refusal reads as the stricter
+  choice and is the wrong one: it makes a store with any channel history
+  undeletable forever, because the cascade the foreign key declares can never
+  run. `channels.realdb.test.ts` found that on its FIRST run, in every other
+  case's `afterEach`.
+- **`connections` gains TWO pause instants, not one tri-state.**
+  `fetch_paused_at` and `publication_paused_at` are different facts with opposite
+  remedies (stop reading from a rate-limiting host; stop publishing wrong prices
+  while still observing), and one column could not express both at once without a
+  fourth value meaning what two flags mean. INSTANTS rather than booleans because
+  "since when" is the first thing anybody asks about a paused channel.
+- **`disconnect_policy` and `disconnected_at` are written together or not at
+  all** (`connections_disconnect_record_check`, `num_nonnulls(...) in (0, 2)`) —
+  half of that fact reads as the whole one. The policy is RECORDED rather than
+  derived because it is a DECISION a person made, and the listings it applied to
+  are indistinguishable afterwards from listings nobody touched.
+- **`channel_onboarding_sessions.merchant_id` / `.storefront_id` are `repoint` in
+  `merge-plan.ts`, both of them.** The census fired on this table the moment it
+  landed, which is what it is for. They move together — the pair names ONE
+  binding, and repointing one without the other would leave a session claiming a
+  storefront that belongs to a different merchant.

@@ -1,6 +1,18 @@
 import type {
   ApiResponse,
   ChannelApiKey,
+  ChannelAuditEntry,
+  ChannelDisconnectPolicy,
+  ChannelDisconnectResult,
+  ChannelOnboardingSession,
+  ChannelOnboardingStep,
+  ChannelPauseScope,
+  ChannelPreviewCounts,
+  ChannelReadiness,
+  ChannelReconciliationSummary,
+  ChannelSummary,
+  ChannelTypeDescriptor,
+  ChannelTypeId,
   Connection,
   ConnectionStatus,
   ConnectorProviderId,
@@ -136,6 +148,190 @@ export async function revokeChannelKey(
 ): Promise<ChannelApiKey> {
   const { data } = await apiClient.delete<ApiResponse<ChannelApiKey>>(
     `${keysBase(storeId)}/${keyId}`,
+  );
+  return unwrap(data);
+}
+
+// ---------------------------------------------------------------------------
+// The unified channel surface (#87). The catalog, the readiness result, the
+// one-shape channel list, run history, reconciliation, pause and the
+// policy-carrying disconnect.
+// ---------------------------------------------------------------------------
+
+/** GET what may be connected on this deployment, and what is wrong with each. */
+export async function fetchChannelCatalog(storeId: string): Promise<ChannelTypeDescriptor[]> {
+  const { data } = await apiClient.get<ApiResponse<ChannelTypeDescriptor[]>>(
+    `${base(storeId)}/catalog`,
+  );
+  return unwrap(data);
+}
+
+/** GET connectors, feeds and the native catalogue in ONE shape. */
+export async function fetchChannelSummary(storeId: string): Promise<ChannelSummary[]> {
+  const { data } = await apiClient.get<ApiResponse<ChannelSummary[]>>(`${base(storeId)}/summary`);
+  return unwrap(data);
+}
+
+/**
+ * GET the ONE authoritative readiness result (#87 acceptance 7).
+ *
+ * The screen renders this rather than deriving anything from the connection
+ * list: a client that computed "can this merchant sell" from provider flags is
+ * exactly what this endpoint replaces.
+ */
+export async function fetchChannelReadiness(storeId: string): Promise<ChannelReadiness> {
+  const { data } = await apiClient.get<ApiResponse<ChannelReadiness>>(
+    `${base(storeId)}/readiness`,
+  );
+  return unwrap(data);
+}
+
+/** GET one connection's sync history, newest first. */
+export async function fetchChannelRuns(storeId: string, connectionId: string): Promise<SyncRun[]> {
+  const { data } = await apiClient.get<ApiResponse<SyncRun[]>>(
+    `${base(storeId)}/${connectionId}/runs`,
+  );
+  return unwrap(data);
+}
+
+/** GET what Mercaria already indexed for this connection's merchant. */
+export async function fetchChannelReconciliation(
+  storeId: string,
+  connectionId: string,
+): Promise<ChannelReconciliationSummary> {
+  const { data } = await apiClient.get<ApiResponse<ChannelReconciliationSummary>>(
+    `${base(storeId)}/${connectionId}/reconciliation`,
+  );
+  return unwrap(data);
+}
+
+/** GET who changed what about this store's channels. */
+export async function fetchChannelAudit(storeId: string): Promise<ChannelAuditEntry[]> {
+  const { data } = await apiClient.get<ApiResponse<ChannelAuditEntry[]>>(`${base(storeId)}/audit`);
+  return unwrap(data);
+}
+
+/** What a pause change reports back. `changed` is false when it was already so. */
+export interface PauseChannelResult {
+  connectionId: string;
+  scope: ChannelPauseScope;
+  paused: boolean;
+  changed: boolean;
+}
+
+/** POST to pause or resume ONE scope of a connection. */
+export async function pauseChannel(
+  storeId: string,
+  connectionId: string,
+  input: { scope: ChannelPauseScope; paused: boolean },
+): Promise<PauseChannelResult> {
+  const { data } = await apiClient.post<ApiResponse<PauseChannelResult>>(
+    `${base(storeId)}/${connectionId}/pause`,
+    input,
+  );
+  return unwrap(data);
+}
+
+/**
+ * POST to disconnect with an explicit policy for what the channel produced.
+ *
+ * Distinct from {@link disconnectChannel}, which is the v1 `DELETE` and always
+ * keeps listings. A merchant choosing what happens to their catalogue uses this.
+ */
+export async function disconnectChannelWithPolicy(
+  storeId: string,
+  connectionId: string,
+  policy: ChannelDisconnectPolicy,
+): Promise<ChannelDisconnectResult> {
+  const { data } = await apiClient.post<ApiResponse<ChannelDisconnectResult>>(
+    `${base(storeId)}/${connectionId}/disconnect`,
+    { policy },
+  );
+  return unwrap(data);
+}
+
+// ── The connection wizard ───────────────────────────────────────────────────
+
+const onboardingBase = (storeId: string) => `${base(storeId)}/onboarding`;
+
+/** GET this store's onboarding sessions, newest first. */
+export async function fetchChannelOnboarding(
+  storeId: string,
+): Promise<ChannelOnboardingSession[]> {
+  const { data } = await apiClient.get<ApiResponse<ChannelOnboardingSession[]>>(
+    onboardingBase(storeId),
+  );
+  return unwrap(data);
+}
+
+/** GET one session. */
+export async function fetchChannelOnboardingSession(
+  storeId: string,
+  sessionId: string,
+): Promise<ChannelOnboardingSession> {
+  const { data } = await apiClient.get<ApiResponse<ChannelOnboardingSession>>(
+    `${onboardingBase(storeId)}/${sessionId}`,
+  );
+  return unwrap(data);
+}
+
+/**
+ * POST to start (or resume) a wizard for a channel type.
+ *
+ * Idempotent server-side: a merchant with a live session for this channel gets
+ * that session back rather than a second one, so a double tap or a retry cannot
+ * create a duplicate.
+ */
+export async function startChannelOnboarding(
+  storeId: string,
+  channelType: ChannelTypeId,
+): Promise<ChannelOnboardingSession> {
+  const { data } = await apiClient.post<ApiResponse<ChannelOnboardingSession>>(
+    onboardingBase(storeId),
+    { channelType },
+  );
+  return unwrap(data);
+}
+
+/** What a wizard step may record. There is deliberately no credential field. */
+export interface AdvanceChannelOnboardingInput {
+  step?: ChannelOnboardingStep;
+  connectionId?: string;
+  feedConfigurationId?: string;
+  preview?: ChannelPreviewCounts;
+}
+
+/** PATCH a session's step. */
+export async function advanceChannelOnboarding(
+  storeId: string,
+  sessionId: string,
+  input: AdvanceChannelOnboardingInput,
+): Promise<ChannelOnboardingSession> {
+  const { data } = await apiClient.patch<ApiResponse<ChannelOnboardingSession>>(
+    `${onboardingBase(storeId)}/${sessionId}`,
+    input,
+  );
+  return unwrap(data);
+}
+
+/** POST to activate. Refused, with reasons, when a blocker still applies. */
+export async function activateChannelOnboarding(
+  storeId: string,
+  sessionId: string,
+): Promise<ChannelOnboardingSession> {
+  const { data } = await apiClient.post<ApiResponse<ChannelOnboardingSession>>(
+    `${onboardingBase(storeId)}/${sessionId}/activate`,
+  );
+  return unwrap(data);
+}
+
+/** DELETE (abandon) a session, freeing the live slot for its channel type. */
+export async function abandonChannelOnboarding(
+  storeId: string,
+  sessionId: string,
+): Promise<ChannelOnboardingSession> {
+  const { data } = await apiClient.delete<ApiResponse<ChannelOnboardingSession>>(
+    `${onboardingBase(storeId)}/${sessionId}`,
   );
   return unwrap(data);
 }

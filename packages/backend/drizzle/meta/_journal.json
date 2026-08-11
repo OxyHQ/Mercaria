@@ -470,6 +470,13 @@
       "when": 1786407650952,
       "tag": "0066_clear_slapstick",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1786408544279,
+      "tag": "0067_hard_nightmare",
+      "breakpoints": true
     }
   ]
 }

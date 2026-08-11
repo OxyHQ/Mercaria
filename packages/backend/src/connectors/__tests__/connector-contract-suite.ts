@@ -74,12 +74,13 @@ import {
   connectWithApiKey,
   disconnect,
   processConnectorWebhook,
+  pushListingToChannels,
   pushOrderFulfillment,
   runBackfill,
   syncInventory,
   syncOrders,
 } from '../../services/connector-sync.service.js';
-import type { ConnectorProvider } from '../types.js';
+import type { ConnectorCapabilities, ConnectorProvider } from '../types.js';
 import type { ContractWorld } from './contract-world.js';
 
 /** What a provider package supplies to get every case below. */
@@ -107,15 +108,16 @@ export interface ConnectorContractHarness {
     /** Absent when the platform has no inventory webhook (WooCommerce). */
     readonly inventoryUpdate?: string;
   };
-  /** Which directions the provider implements. */
-  readonly capabilities: {
-    /** `pushProduct` is implemented (Mercaria → platform). */
-    readonly pushesProducts: boolean;
-    /** `pushFulfillment` is implemented. */
-    readonly pushesFulfillment: boolean;
-    /** The transport retries HTTP 429 rather than failing the run. */
-    readonly retriesRateLimit: boolean;
-  };
+  /**
+   * The SHIPPED provider's own capability declaration — passed, never restated.
+   *
+   * #87 moved this onto `ConnectorProvider` because a merchant-facing channel
+   * catalog needs it too, and a second copy here would let the suite go on
+   * measuring a claim the catalog no longer makes. Each runner passes
+   * `<provider>.capabilities` from the module-level singleton, so the value the
+   * suite gates its cases on is the value production reads.
+   */
+  readonly capabilities: ConnectorCapabilities;
   /** Build the world every case starts from (fresh per case). */
   createWorld(): ContractWorld;
   /**
@@ -197,6 +199,24 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         }
       }
       await closePostgres();
+    });
+
+    /**
+     * The harness's topic map and the provider's `inventoryWebhook` state the
+     * same fact, so they are pinned against each other rather than left to
+     * drift.
+     *
+     * They are separate because each is needed where the other cannot go: a
+     * test must DELIVER an inventory webhook and needs the platform's own topic
+     * string, while #87's merchant channel catalog must say "stock moves only on
+     * a scheduled pull" and can see nothing inside `registerWebhooks`. This is
+     * the assertion that stops a provider gaining an inventory webhook while the
+     * catalog goes on telling merchants it has none.
+     */
+    it('declares an inventory webhook exactly when its topic map names one', () => {
+      expect(harness.capabilities.inventoryWebhook).toBe(
+        harness.topics.inventoryUpdate !== undefined,
+      );
     });
 
     /**
@@ -334,7 +354,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
       it('DISCONNECT clears every credential column, and the row survives', async () => {
         const fixture = await makeFixture();
 
-        const disconnected = await disconnect(fixture.storeId, fixture.connection.id);
+        const disconnected = await disconnect(fixture.storeId, fixture.connection.id, 'keep_listings');
 
         expect(disconnected.status).toBe('disconnected');
         expect(disconnected.hasCredentials).toBe(false);
@@ -777,6 +797,45 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           expect(variant.inventoryAvailable).toBe(7);
         }
       });
+    });
+
+    // --- SCENARIO 6: product push (capability-gated) ------------------------
+
+    describe('product push', () => {
+      it(
+        harness.capabilities.pushesProducts
+          ? 'PUSHES a store listing out to a bidirectional connection'
+          : 'is NOT implemented — a push attempt reaches the platform with nothing',
+        async () => {
+          // A listing this connection did NOT import, so the loop-prevention
+          // branch (never push a listing back to the connection it came from)
+          // cannot be what makes the `false` case pass. Without that the absent
+          // capability and a correctly-skipped origin push would be
+          // indistinguishable, which is the whole failure this suite exists to
+          // rule out.
+          const fixture = await makeFixture({ products: 'bidirectional' });
+          await runBackfill(fixture.storeId, fixture.connection.id);
+          const imported = await importedListing(
+            fixture,
+            fixture.world.products[0].externalId,
+          );
+          await updateListingColumns(imported.id, {
+            sourceConnectionId: null,
+            sourceExternalId: null,
+          });
+
+          await pushListingToChannels(fixture.storeId, imported.id);
+
+          if (harness.capabilities.pushesProducts) {
+            expect(fixture.world.pushedProducts).toHaveLength(1);
+          } else {
+            // `pushListingToChannels` records the provider's refusal on a failed
+            // run rather than propagating it, so the observable is that NOTHING
+            // reached the platform.
+            expect(fixture.world.pushedProducts).toHaveLength(0);
+          }
+        },
+      );
     });
 
     // --- SCENARIO 8: fulfillment push (capability-gated) --------------------

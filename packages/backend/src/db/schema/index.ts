@@ -343,3 +343,12 @@ export * from './guestGovernance';
 // — two tables with no relation between them is how. It adds no column to any
 // table above it, which is what makes turning billing off a flag flip.
 export * from './merchantPlans';
+// Channel onboarding and the channel audit trail (#87) are the last export,
+// downstream of `./connectors` (the connection a session creates), `./feedImport`
+// (the feed configuration a `product_feed` session creates) and `./merchants`
+// (the verified merchant and exact storefront a session binds to). It adds four
+// nullable columns to `connections` — two pause instants and the disconnect
+// decision — and nothing to any other table above it. There is deliberately NO
+// credential column on a session, which is what makes "credentials are collected
+// only through the provider's own flow" a property of the schema.
+export * from './channels';

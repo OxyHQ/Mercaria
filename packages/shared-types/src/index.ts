@@ -111,6 +111,12 @@ export * from './report';
 // Connector/integration DTOs (Connection, SyncSettings, SyncRun, ConnectorProviderId, …).
 export * from './integration';
 
+// The unified sales-channel catalog, readiness, onboarding and disconnect
+// vocabulary (#87). Follows `./integration`, whose `ConnectorProviderId` and
+// `SyncResourceDirection` it types against — a channel TYPE is broader than a
+// connector provider id, and two of its members have no provider at all.
+export * from './channel-catalog';
+
 // Abuse-report + CrowdSource moderation DTOs (AbuseReport, ModerationEnforcementAction, …).
 // NOTE: unrelated to `./report` above, which is the store SALES ANALYTICS surface.
 export * from './moderation';

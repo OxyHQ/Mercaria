@@ -113,6 +113,26 @@ export interface Connection {
   connectedAt: string;
   /** ISO-8601 time of the most recent completed sync, when any. */
   lastSyncAt?: string;
+  /**
+   * Which scopes are currently paused (#87 management 4).
+   *
+   * A LIST rather than two booleans, because the two stored columns are
+   * instants and what a client needs is the set. Empty is the ordinary state, so
+   * an older client reading no field behaves exactly as it did.
+   *
+   * Typed as `ChannelPauseScope[]` in `./channel-catalog`, which imports FROM
+   * this module — so it is spelled structurally here rather than importing back
+   * and creating a cycle. The two are pinned together by
+   * `channel-summary.service.ts`, which builds both from the same columns.
+   */
+  pausedScopes?: ('fetch' | 'publication')[];
+  /**
+   * What the last disconnect decided to do with this connection's listings, and
+   * when. Absent until this connection has been disconnected at least once; a
+   * reconnect leaves them standing, so they always name the most recent one.
+   */
+  disconnectPolicy?: 'keep_listings' | 'unpublish_listings' | 'archive_listings';
+  disconnectedAt?: string;
 }
 
 /** The kind of work a `SyncRun` performed. */

@@ -129,10 +129,23 @@ export async function syncChannelHandler(req: Request, res: Response): Promise<v
   }
 }
 
-/** DELETE /admin/stores/:storeId/channels/:connectionId — disconnect a channel. */
+/**
+ * DELETE /admin/stores/:storeId/channels/:connectionId — disconnect a channel,
+ * keeping its listings.
+ *
+ * The v1 spelling, and it is a VERSIONED CONTRACT rather than a shim: a shipped
+ * dashboard build calls it, and #87 cannot recall one. `keep_listings` is the
+ * behaviour this route has always had — it stopped syncing and touched nothing —
+ * so mapping it to that policy preserves what every existing caller gets rather
+ * than quietly giving them a new one.
+ *
+ * A merchant choosing a policy uses
+ * `POST /admin/stores/:storeId/channels/:connectionId/disconnect`. This route
+ * retires when supported dashboard versions have migrated.
+ */
 export async function disconnectChannelHandler(req: Request, res: Response): Promise<void> {
   try {
-    const conn = await disconnect(storeId(req), routeParam(req, 'connectionId'));
+    const conn = await disconnect(storeId(req), routeParam(req, 'connectionId'), 'keep_listings');
     sendSuccess(res, { id: conn.id, status: conn.status });
   } catch (err) {
     log.general.error({ err, connectionId: req.params.connectionId }, 'Failed to disconnect channel');

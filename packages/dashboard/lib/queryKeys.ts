@@ -57,6 +57,26 @@ export const queryKeys = {
   locations: (storeId: string) => ["stores", storeId, "locations"] as const,
   channels: (storeId: string) => ["stores", storeId, "channels"] as const,
   channelKeys: (storeId: string) => ["stores", storeId, "channel-keys"] as const,
+  /** The unified sales-channel surface (#87). */
+  channelCatalog: (storeId: string) => ["stores", storeId, "channel-catalog"] as const,
+  channelSummary: (storeId: string) => ["stores", storeId, "channel-summary"] as const,
+  channelReadiness: (storeId: string) => ["stores", storeId, "channel-readiness"] as const,
+  channelAudit: (storeId: string) => ["stores", storeId, "channel-audit"] as const,
+  channelRuns: (storeId: string, connectionId: string) =>
+    ["stores", storeId, "channels", connectionId, "runs"] as const,
+  channelReconciliation: (storeId: string, connectionId: string) =>
+    ["stores", storeId, "channels", connectionId, "reconciliation"] as const,
+  channelOnboarding: (storeId: string) => ["stores", storeId, "channel-onboarding"] as const,
+  channelOnboardingSession: (storeId: string, sessionId: string) =>
+    ["stores", storeId, "channel-onboarding", sessionId] as const,
+  /** The store's product feeds (#63), which #87 gives screens. */
+  feeds: (storeId: string) => ["stores", storeId, "feeds"] as const,
+  feed: (storeId: string, configurationId: string) =>
+    ["stores", storeId, "feeds", configurationId] as const,
+  feedStatus: (storeId: string, configurationId: string) =>
+    ["stores", storeId, "feeds", configurationId, "status"] as const,
+  feedReports: (storeId: string, configurationId: string) =>
+    ["stores", storeId, "feeds", configurationId, "reports"] as const,
   customers: {
     list: (storeId: string, page: number, search: string) =>
       ["stores", storeId, "customers", { page, search }] as const,

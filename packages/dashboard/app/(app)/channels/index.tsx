@@ -1,127 +1,69 @@
-import React, { useMemo, useState } from "react";
+/**
+ * Sales channels — ONE area for every way a merchant supplies a catalogue (#87).
+ *
+ * ## What changed, and why it is not cosmetic
+ *
+ * This screen used to hold a local `PROVIDERS` table with an `available` flag
+ * per connector. That table was the thing #87 acceptance 7 names: a
+ * provider-specific client flag standing in for a readiness result nobody owned.
+ * It also could not describe the product feed (#63) or the native catalogue at
+ * all, so a merchant had three mental models for one question.
+ *
+ * Everything on this screen now comes from the server:
+ *
+ *  - the CATALOG (`GET .../channels/catalog`) says what may be connected, what
+ *    each channel supports, and what is wrong with it today — including the four
+ *    open connector defects (#218–#221), which a merchant sees BEFORE choosing
+ *    rather than after a week of silent webhook failures;
+ *  - the SUMMARY (`GET .../channels/summary`) is connectors, feeds and the
+ *    native catalogue in one shape;
+ *  - the READINESS result (`GET .../channels/readiness`) is the one authority on
+ *    whether a merchant can actually sell, with its three axes kept apart
+ *    (#87 UX 5 and 6).
+ *
+ * The credential forms moved to the wizard's connect step, which is where a
+ * provider-specific screen belongs (#87 UX 2): a Shopify consent redirect and a
+ * WooCommerce key pair genuinely are different things, and everything around
+ * them is now shared.
+ */
+
+import React from "react";
 import { View, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import Head from "expo-router/head";
-import * as WebBrowser from "expo-web-browser";
 import {
+  ArrowRight,
+  CheckCircle2,
+  CircleAlert,
+  FileSpreadsheet,
   Plug,
   Store as StoreIcon,
-  RefreshCw,
-  Settings2,
-  Trash2,
-  Plus,
-  ExternalLink,
 } from "lucide-react-native";
 import type {
-  Connection,
-  ConnectionStatus,
-  ConnectorProviderId,
+  ChannelHealthState,
+  ChannelReadiness,
+  ChannelSummary,
+  ChannelTypeDescriptor,
 } from "@mercaria/shared-types";
-import {
-  Text,
-  Button,
-  Input,
-  Label,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  useColorScheme,
-} from "@mercaria/ui";
+import { Button, Text, useColorScheme } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import {
-  useChannels,
-  useConnectChannel,
-  useConnectKeyChannel,
-  useSyncChannel,
-  useDisconnectChannel,
+  CHANNEL_TYPE_NAME,
+  ChannelLimitationRow,
+  ChannelStateBadge,
+  NativeCheckoutBadge,
+  READINESS_BLOCKER_COPY,
+  formatWhen,
+} from "@/components/channels/channel-presentation";
+import {
+  useChannelCatalog,
+  useChannelReadiness,
+  useChannelSummary,
+  useStartChannelOnboarding,
 } from "@/lib/hooks/use-channels";
-
-/**
- * Presentational metadata for each connector. `available` gates whether the
- * "Connect" affordance is live: Shopify + WooCommerce ship first (both `pull`
- * connectors), the rest are placeholders until their `ConnectorProvider` lands
- * server-side. `credentialStrategy` chooses the connect flow — an OAuth redirect
- * (Shopify) or an in-app API-key form (WooCommerce).
- */
-interface ProviderMeta {
-  id: ConnectorProviderId;
-  name: string;
-  blurb: string;
-  available: boolean;
-  credentialStrategy: "oauth" | "api_key";
-}
-
-const PROVIDERS: readonly ProviderMeta[] = [
-  {
-    id: "shopify",
-    name: "Shopify",
-    blurb: "Sync products, inventory and orders from your Shopify store.",
-    available: true,
-    credentialStrategy: "oauth",
-  },
-  {
-    id: "woocommerce",
-    name: "WooCommerce",
-    blurb: "Sync your WooCommerce catalog with a REST API key.",
-    available: true,
-    credentialStrategy: "api_key",
-  },
-  {
-    id: "etsy",
-    name: "Etsy",
-    blurb: "Import your Etsy listings.",
-    available: false,
-    credentialStrategy: "oauth",
-  },
-  {
-    id: "prestashop",
-    name: "PrestaShop",
-    blurb: "PrestaShop catalog sync.",
-    available: false,
-    credentialStrategy: "oauth",
-  },
-  {
-    id: "magento",
-    name: "Magento",
-    blurb: "Adobe Commerce / Magento sync.",
-    available: false,
-    credentialStrategy: "oauth",
-  },
-] as const;
-
-const PROVIDER_NAME: Record<ConnectorProviderId, string> = {
-  shopify: "Shopify",
-  woocommerce: "WooCommerce",
-  etsy: "Etsy",
-  prestashop: "PrestaShop",
-  magento: "Magento",
-};
-
-const STATUS_STYLES: Record<ConnectionStatus, string> = {
-  connected: "bg-primary/10 text-primary",
-  error: "bg-destructive/10 text-destructive",
-  disconnected: "bg-muted text-muted-foreground",
-};
-
-const STATUS_LABEL: Record<ConnectionStatus, string> = {
-  connected: "Connected",
-  error: "Needs attention",
-  disconnected: "Disconnected",
-};
-
-/** Human-readable timestamp, or a fallback when a channel has never synced. */
-function formatSyncedAt(iso: string | undefined): string {
-  if (!iso) return "Never synced";
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return "Never synced";
-  return `Last synced ${when.toLocaleString()}`;
-}
 
 export default function ChannelsScreen() {
   return (
@@ -137,468 +79,332 @@ export default function ChannelsScreen() {
 }
 
 function ChannelsBody({ storeId }: { storeId: string }) {
-  const { data, isPending, isError, refetch } = useChannels(storeId);
-  const [connectProvider, setConnectProvider] = useState<ProviderMeta | null>(null);
+  const summary = useChannelSummary(storeId);
+  const catalog = useChannelCatalog(storeId);
+  const readiness = useChannelReadiness(storeId);
 
-  const connectedProviderIds = useMemo(
-    () => new Set((data ?? []).map((c) => c.provider)),
-    [data],
-  );
-
-  const action = <StoreSwitcher />;
+  const pending = summary.isPending || catalog.isPending || readiness.isPending;
+  const failed = summary.isError || catalog.isError || readiness.isError;
 
   return (
     <Screen
       title="Sales channels"
-      subtitle="Connect external stores to sync products, inventory and orders into Mercaria"
-      action={action}
+      subtitle="Every way your products reach Mercaria — connected stores, product feeds and your own catalog"
+      action={<StoreSwitcher />}
     >
-      {isPending ? (
+      {pending ? (
         <ScreenLoading />
-      ) : isError ? (
+      ) : failed ? (
         <ScreenMessage title="Couldn't load channels" body="Please try again." />
       ) : (
         <View className="gap-8">
-          <ConnectedChannels storeId={storeId} connections={data ?? []} />
+          {readiness.data ? <ReadinessPanel readiness={readiness.data} /> : null}
+          <ConnectedChannels channels={summary.data ?? []} />
           <AvailableChannels
-            connectedProviderIds={connectedProviderIds}
-            onConnect={(provider) => setConnectProvider(provider)}
+            storeId={storeId}
+            descriptors={catalog.data ?? []}
+            connected={summary.data ?? []}
           />
         </View>
-      )}
-
-      {connectProvider?.credentialStrategy === "api_key" ? (
-        <ConnectKeyDialog
-          storeId={storeId}
-          provider={connectProvider}
-          open
-          onOpenChange={(open) => {
-            if (!open) setConnectProvider(null);
-          }}
-          onConnected={() => {
-            void refetch();
-          }}
-        />
-      ) : (
-        <ConnectChannelDialog
-          storeId={storeId}
-          provider={connectProvider}
-          open={connectProvider !== null}
-          onOpenChange={(open) => {
-            if (!open) setConnectProvider(null);
-          }}
-          onConnected={() => {
-            void refetch();
-          }}
-        />
       )}
     </Screen>
   );
 }
 
-function ConnectedChannels({
-  storeId,
-  connections,
-}: {
-  storeId: string;
-  connections: Connection[];
-}) {
-  if (connections.length === 0) {
-    return (
-      <View className="items-center justify-center rounded-2xl border border-dashed border-border py-12">
-        <Plug size={32} className="text-muted-foreground" />
-        <Text className="mt-4 text-base font-semibold text-foreground">
-          No channels connected
-        </Text>
-        <Text className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-          Connect a store below to start syncing its catalog into Mercaria.
+/**
+ * The readiness axes, side by side and never collapsed (#87 UX 5 and 6).
+ *
+ * A merchant with a perfect Shopify sync and no Stripe account sees a healthy
+ * catalogue, blocked payouts, and a list naming exactly which of the two is in
+ * the way. One combined badge would say "not ready" and leave them guessing.
+ */
+function ReadinessPanel({ readiness }: { readiness: ChannelReadiness }) {
+  const { colors } = useColorScheme();
+  const ready = readiness.nativeCheckout.state === "healthy";
+
+  return (
+    <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+      <View className="flex-row items-center gap-2">
+        {ready ? (
+          <CheckCircle2 size={18} color={colors.primary} />
+        ) : (
+          <CircleAlert size={18} color={colors.mutedForeground} />
+        )}
+        <Text className="text-sm font-semibold text-foreground">
+          {ready ? "Ready to sell on Mercaria" : "Not selling on Mercaria yet"}
         </Text>
       </View>
-    );
-  }
+
+      <View className="flex-row flex-wrap gap-3">
+        <ReadinessAxis
+          label="Catalog"
+          state={readiness.catalog.state}
+          detail={
+            readiness.catalog.connectedChannelTypes.length === 0
+              ? "No channel connected"
+              : `${readiness.catalog.connectedChannelTypes.length} channel${
+                  readiness.catalog.connectedChannelTypes.length === 1 ? "" : "s"
+                } · ${
+                  readiness.catalog.lastSuccessfulSyncAt
+                    ? `last synced ${formatWhen(readiness.catalog.lastSuccessfulSyncAt, "never")}`
+                    : "never synced"
+                }`
+          }
+        />
+        <ReadinessAxis
+          label="Payouts"
+          state={readiness.payments.state}
+          detail={
+            readiness.payments.railEnabled
+              ? readiness.payments.state === "healthy"
+                ? "Set up"
+                : "Not set up"
+              : "Card payments are off for this deployment"
+          }
+        />
+      </View>
+
+      {readiness.nativeCheckout.blockers.length > 0 ? (
+        <View className="gap-1.5 rounded-xl bg-muted p-3">
+          {readiness.nativeCheckout.blockers.map((blocker) => (
+            <Text key={blocker} className="text-xs text-muted-foreground">
+              {READINESS_BLOCKER_COPY[blocker]}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function ReadinessAxis({
+  label,
+  detail,
+  state,
+}: {
+  label: string;
+  detail: string;
+  state: ChannelHealthState;
+}) {
+  const tone =
+    state === "healthy"
+      ? "text-primary"
+      : state === "degraded"
+        ? "text-foreground"
+        : "text-muted-foreground";
+  return (
+    <View className="min-w-[180px] flex-1 gap-0.5">
+      <Text className="text-[10px] font-semibold uppercase text-muted-foreground">{label}</Text>
+      <Text className={`text-xs font-medium ${tone}`}>{detail}</Text>
+    </View>
+  );
+}
+
+/** Everything currently supplying a catalogue, in one list. */
+function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
+  const router = useRouter();
+  const { colors } = useColorScheme();
+
+  // The native catalogue is always present, so "nothing connected" means nothing
+  // BESIDES it — a list that hid the native row would tell a merchant with fifty
+  // hand-typed products that they have no channels at all.
+  const external = channels.filter((channel) => channel.channelType !== "native");
 
   return (
     <View className="gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Connected</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">Your channels</Text>
+      {external.length === 0 ? (
+        <View className="items-center justify-center rounded-2xl border border-dashed border-border py-12">
+          <Plug size={32} className="text-muted-foreground" />
+          <Text className="mt-4 text-base font-semibold text-foreground">
+            Only your Mercaria catalog
+          </Text>
+          <Text className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
+            Connect a store or a product feed below to bring an existing catalog in.
+          </Text>
+        </View>
+      ) : null}
       <View className="gap-2">
-        {connections.map((connection) => (
-          <ChannelRow key={connection.id} storeId={storeId} connection={connection} />
+        {channels.map((channel) => (
+          <Pressable
+            key={channel.id}
+            disabled={channel.channelType === "native"}
+            onPress={() =>
+              router.push(
+                channel.channelType === "product_feed"
+                  ? `/channels/feeds/${channel.id}`
+                  : `/channels/${channel.id}`,
+              )
+            }
+            className="rounded-2xl border border-border bg-surface p-4 active:opacity-70"
+          >
+            <View className="flex-row items-start gap-3">
+              <View className="h-11 w-11 items-center justify-center rounded-xl bg-muted">
+                {channel.channelType === "product_feed" ? (
+                  <FileSpreadsheet size={20} color={colors.mutedForeground} />
+                ) : (
+                  <StoreIcon size={20} color={colors.mutedForeground} />
+                )}
+              </View>
+              <View className="flex-1 gap-1">
+                <View className="flex-row flex-wrap items-center gap-2">
+                  <Text className="text-sm font-semibold text-foreground">
+                    {CHANNEL_TYPE_NAME[channel.channelType]}
+                  </Text>
+                  <ChannelStateBadge state={channel.state} />
+                  <NativeCheckoutBadge supported={channel.supportsNativeCheckout} />
+                </View>
+                <Text className="text-xs text-muted-foreground">{channel.label}</Text>
+                <Text className="text-xs text-muted-foreground">
+                  {channel.lastSyncAt
+                    ? `Last synced ${formatWhen(channel.lastSyncAt, "never")}`
+                    : "Never synced"}
+                  {channel.nextScheduledSyncAt
+                    ? ` · next ${formatWhen(channel.nextScheduledSyncAt, "unscheduled")}`
+                    : ""}
+                </Text>
+                {channel.pausedScopes.length > 0 ? (
+                  <Text className="text-xs font-medium text-muted-foreground">
+                    Paused: {channel.pausedScopes.join(" and ")}
+                  </Text>
+                ) : null}
+                {channel.lastRunCounts ? (
+                  <Text className="text-xs text-muted-foreground">
+                    Last run — {channel.lastRunCounts.created} created,{" "}
+                    {channel.lastRunCounts.updated} updated, {channel.lastRunCounts.skipped}{" "}
+                    skipped, {channel.lastRunCounts.failed} failed
+                  </Text>
+                ) : null}
+              </View>
+              {channel.channelType === "native" ? null : (
+                <ArrowRight size={16} color={colors.mutedForeground} />
+              )}
+            </View>
+          </Pressable>
         ))}
       </View>
     </View>
   );
 }
 
-function ChannelRow({ storeId, connection }: { storeId: string; connection: Connection }) {
+/**
+ * What may be connected, straight from the server's catalog.
+ *
+ * "Already connected" is decided against the SUMMARY rather than a local flag —
+ * which is also what makes the WooCommerce pull connector and the WooCommerce
+ * plugin correctly exclude each other: they share a `connections` unique index,
+ * and the summary is what knows.
+ */
+function AvailableChannels({
+  storeId,
+  descriptors,
+  connected,
+}: {
+  storeId: string;
+  descriptors: ChannelTypeDescriptor[];
+  connected: ChannelSummary[];
+}) {
   const router = useRouter();
   const { colors } = useColorScheme();
-  const sync = useSyncChannel(storeId);
-  const disconnect = useDisconnectChannel(storeId);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const start = useStartChannelOnboarding(storeId);
 
-  const onSync = () => {
-    sync.mutate(connection.id, {
-      onSuccess: (run) =>
-        toast.success(
-          run.status === "failed"
-            ? "Sync finished with errors — check the channel"
-            : "Sync started",
-        ),
-      onError: () => toast.error("Couldn't start the sync"),
-    });
-  };
-
-  const onDisconnect = () => {
-    disconnect.mutate(connection.id, {
-      onSuccess: () => {
-        toast.success("Channel disconnected");
-        setConfirmOpen(false);
-      },
-      onError: () => toast.error("Couldn't disconnect the channel"),
-    });
-  };
-
-  return (
-    <View className="rounded-2xl border border-border bg-surface p-4">
-      <View className="flex-row items-start gap-3">
-        <View className="h-11 w-11 items-center justify-center rounded-xl bg-muted">
-          <StoreIcon size={20} color={colors.mutedForeground} />
-        </View>
-        <View className="flex-1">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-sm font-semibold text-foreground">
-              {PROVIDER_NAME[connection.provider]}
-            </Text>
-            <View className={`rounded-full px-2 py-0.5 ${STATUS_STYLES[connection.status]}`}>
-              <Text
-                className={`text-[10px] font-semibold ${STATUS_STYLES[connection.status].split(" ")[1]}`}
-              >
-                {STATUS_LABEL[connection.status]}
-              </Text>
-            </View>
-          </View>
-          {connection.shopDomain ? (
-            <Text className="mt-0.5 text-xs text-muted-foreground">{connection.shopDomain}</Text>
-          ) : null}
-          <Text className="mt-0.5 text-xs text-muted-foreground">
-            {formatSyncedAt(connection.lastSyncAt)}
-          </Text>
-        </View>
-      </View>
-
-      <View className="mt-4 flex-row flex-wrap items-center gap-2">
-        <Button variant="outline" size="sm" onPress={onSync} isLoading={sync.isPending}>
-          <View className="flex-row items-center gap-1.5">
-            <RefreshCw size={14} color={colors.foreground} />
-            <Text className="text-xs font-semibold text-foreground">Sync now</Text>
-          </View>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onPress={() => router.push(`/channels/${connection.id}`)}
-        >
-          <View className="flex-row items-center gap-1.5">
-            <Settings2 size={14} color={colors.foreground} />
-            <Text className="text-xs font-semibold text-foreground">Settings</Text>
-          </View>
-        </Button>
-        <Pressable
-          onPress={() => setConfirmOpen(true)}
-          className="ml-auto h-8 flex-row items-center gap-1.5 rounded-lg px-2.5 active:opacity-70"
-        >
-          <Trash2 size={14} color={colors.mutedForeground} />
-          <Text className="text-xs font-medium text-muted-foreground">Disconnect</Text>
-        </Pressable>
-      </View>
-
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Disconnect {PROVIDER_NAME[connection.provider]}?</DialogTitle>
-            <DialogDescription>
-              Mercaria will stop syncing with{" "}
-              {connection.shopDomain ?? "this store"}. Products already imported stay in your
-              catalog.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onPress={() => setConfirmOpen(false)}>
-              <Text className="font-semibold text-foreground">Cancel</Text>
-            </Button>
-            <Button variant="destructive" onPress={onDisconnect} isLoading={disconnect.isPending}>
-              <Text className="font-semibold text-destructive-foreground">Disconnect</Text>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </View>
+  const connectedTypes = new Set(
+    connected
+      .filter((channel) => channel.channelType !== "native")
+      .map((channel) => channel.channelType),
   );
-}
+  // The two WooCommerce channels share `UNIQUE(store_id, provider)`, so having
+  // either rules out the other. Stated here because it is a fact about the
+  // schema that the descriptor's `single_connection_per_provider` limitation
+  // explains but cannot enforce on a button.
+  const wooTaken = connectedTypes.has("woocommerce") || connectedTypes.has("woocommerce_plugin");
 
-function AvailableChannels({
-  connectedProviderIds,
-  onConnect,
-}: {
-  connectedProviderIds: Set<ConnectorProviderId>;
-  onConnect: (provider: ProviderMeta) => void;
-}) {
-  const { colors } = useColorScheme();
+  const onConnect = (descriptor: ChannelTypeDescriptor) => {
+    start.mutate(descriptor.channelType, {
+      onSuccess: (session) => router.push(`/channels/onboarding/${session.id}`),
+      onError: () => toast.error(`Couldn't start connecting ${descriptor.name}`),
+    });
+  };
 
   return (
     <View className="gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Add channel</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">Add a channel</Text>
       <View className="gap-2">
-        {PROVIDERS.map((provider) => {
-          const alreadyConnected = connectedProviderIds.has(provider.id);
-          return (
-            <View
-              key={provider.id}
-              className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-4"
-            >
-              <View className="h-11 w-11 items-center justify-center rounded-xl bg-muted">
-                <StoreIcon size={20} color={colors.mutedForeground} />
-              </View>
-              <View className="flex-1">
-                <View className="flex-row items-center gap-2">
-                  <Text className="text-sm font-semibold text-foreground">{provider.name}</Text>
-                  {!provider.available ? (
-                    <View className="rounded-full bg-muted px-2 py-0.5">
-                      <Text className="text-[10px] font-semibold text-muted-foreground">
-                        Coming soon
+        {descriptors
+          .filter((descriptor) => descriptor.channelType !== "native")
+          .map((descriptor) => {
+            const taken = descriptor.channelType.startsWith("woocommerce")
+              ? wooTaken
+              : connectedTypes.has(descriptor.channelType);
+            const connectable = descriptor.availability === "available" && !taken;
+            // Only what a merchant should read BEFORE choosing. The full list,
+            // informational entries included, is on the wizard's channel step.
+            const notable = descriptor.limitations.filter(
+              (limitation) => limitation.severity !== "informational",
+            );
+
+            return (
+              <View
+                key={descriptor.channelType}
+                className="gap-3 rounded-2xl border border-border bg-surface p-4"
+              >
+                <View className="flex-row items-start gap-3">
+                  <View className="h-11 w-11 items-center justify-center rounded-xl bg-muted">
+                    {descriptor.kind === "product_feed" ? (
+                      <FileSpreadsheet size={20} color={colors.mutedForeground} />
+                    ) : (
+                      <StoreIcon size={20} color={colors.mutedForeground} />
+                    )}
+                  </View>
+                  <View className="flex-1 gap-1">
+                    <View className="flex-row flex-wrap items-center gap-2">
+                      <Text className="text-sm font-semibold text-foreground">
+                        {descriptor.name}
                       </Text>
+                      <NativeCheckoutBadge supported={descriptor.supportsNativeCheckout} />
+                      {descriptor.availability === "not_implemented" ? (
+                        <View className="rounded-full bg-muted px-2 py-0.5">
+                          <Text className="text-[10px] font-semibold text-muted-foreground">
+                            Not available yet
+                          </Text>
+                        </View>
+                      ) : null}
+                      {descriptor.availability === "not_configured" ? (
+                        <View className="rounded-full bg-muted px-2 py-0.5">
+                          <Text className="text-[10px] font-semibold text-muted-foreground">
+                            Not configured here
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
+                    <Text className="text-xs text-muted-foreground">{descriptor.summary}</Text>
+                  </View>
+                  {descriptor.availability === "available" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!connectable}
+                      isLoading={start.isPending}
+                      onPress={() => onConnect(descriptor)}
+                    >
+                      <Text className="text-xs font-semibold text-foreground">
+                        {taken ? "Connected" : "Connect"}
+                      </Text>
+                    </Button>
                   ) : null}
                 </View>
-                <Text className="mt-0.5 text-xs text-muted-foreground">{provider.blurb}</Text>
-              </View>
-              {provider.available ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onPress={() => onConnect(provider)}
-                  disabled={alreadyConnected}
-                >
-                  <View className="flex-row items-center gap-1.5">
-                    <Plus size={14} color={colors.foreground} />
-                    <Text className="text-xs font-semibold text-foreground">
-                      {alreadyConnected ? "Connected" : "Connect"}
-                    </Text>
+
+                {notable.length > 0 ? (
+                  <View className="gap-2 rounded-xl bg-muted p-3">
+                    {notable.map((limitation) => (
+                      <ChannelLimitationRow key={limitation.code} limitation={limitation} />
+                    ))}
                   </View>
-                </Button>
-              ) : null}
-            </View>
-          );
-        })}
+                ) : null}
+              </View>
+            );
+          })}
       </View>
     </View>
-  );
-}
-
-function ConnectChannelDialog({
-  storeId,
-  provider,
-  open,
-  onOpenChange,
-  onConnected,
-}: {
-  storeId: string;
-  provider: ProviderMeta | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConnected: () => void;
-}) {
-  const { colors } = useColorScheme();
-  const connect = useConnectChannel(storeId);
-  const [shopDomain, setShopDomain] = useState("");
-  const [redirecting, setRedirecting] = useState(false);
-
-  const submit = async () => {
-    if (!provider) return;
-    const domain = shopDomain.trim().toLowerCase();
-    if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(domain)) {
-      toast.error("Enter a valid *.myshopify.com domain");
-      return;
-    }
-    try {
-      setRedirecting(true);
-      const { authorizeUrl } = await connect.mutateAsync({
-        provider: provider.id,
-        shopDomain: domain,
-      });
-      // Real OAuth requires the deploy-time Shopify Partner app + callback URL;
-      // this opens the server-issued authorize URL (web: new tab, native: in-app
-      // browser). The connection is created by the out-of-band OAuth callback, so
-      // we refetch when the browser closes to surface it.
-      await WebBrowser.openBrowserAsync(authorizeUrl);
-      onConnected();
-      setShopDomain("");
-      onOpenChange(false);
-      toast.success("Finish authorizing in the browser to complete the connection");
-    } catch {
-      toast.error("Couldn't start the Shopify connection");
-    } finally {
-      setRedirecting(false);
-    }
-  };
-
-  const busy = connect.isPending || redirecting;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Connect {provider?.name ?? "channel"}</DialogTitle>
-          <DialogDescription>
-            Enter your Shopify store domain. You&apos;ll be redirected to Shopify to authorize
-            Mercaria, then brought back here.
-          </DialogDescription>
-        </DialogHeader>
-        <View className="gap-4">
-          <View className="gap-1.5">
-            <Label>Shop domain</Label>
-            <Input
-              value={shopDomain}
-              onChangeText={setShopDomain}
-              placeholder="your-store.myshopify.com"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-          </View>
-          <View className="flex-row items-start gap-2 rounded-xl bg-muted p-3">
-            <ExternalLink size={14} color={colors.mutedForeground} />
-            <Text className="flex-1 text-xs text-muted-foreground">
-              Authorization opens on Shopify. Grant the requested scopes to finish connecting.
-            </Text>
-          </View>
-          <Button onPress={submit} isLoading={busy} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">Continue to Shopify</Text>
-          </Button>
-        </View>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/**
- * API-key connect dialog (WooCommerce). Unlike the OAuth flow there is no browser
- * redirect: the merchant pastes their WooCommerce REST API consumer key/secret and
- * the server verifies them against the site, creating the connection synchronously.
- */
-function ConnectKeyDialog({
-  storeId,
-  provider,
-  open,
-  onOpenChange,
-  onConnected,
-}: {
-  storeId: string;
-  provider: ProviderMeta | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConnected: () => void;
-}) {
-  const { colors } = useColorScheme();
-  const connect = useConnectKeyChannel(storeId);
-  const [siteUrl, setSiteUrl] = useState("");
-  const [consumerKey, setConsumerKey] = useState("");
-  const [consumerSecret, setConsumerSecret] = useState("");
-
-  const reset = () => {
-    setSiteUrl("");
-    setConsumerKey("");
-    setConsumerSecret("");
-  };
-
-  const submit = async () => {
-    if (!provider) return;
-    const shopDomain = siteUrl.trim();
-    let isHttps = false;
-    try {
-      isHttps = new URL(shopDomain).protocol === "https:";
-    } catch {
-      isHttps = false;
-    }
-    if (!isHttps) {
-      toast.error("Enter your site URL starting with https://");
-      return;
-    }
-    if (consumerKey.trim() === "" || consumerSecret.trim() === "") {
-      toast.error("Enter both the consumer key and secret");
-      return;
-    }
-    try {
-      await connect.mutateAsync({
-        provider: provider.id,
-        shopDomain,
-        consumerKey: consumerKey.trim(),
-        consumerSecret: consumerSecret.trim(),
-      });
-      onConnected();
-      reset();
-      onOpenChange(false);
-      toast.success("WooCommerce connected");
-    } catch {
-      toast.error("Couldn't connect — check the site URL and API keys");
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Connect {provider?.name ?? "channel"}</DialogTitle>
-          <DialogDescription>
-            Create a read-only REST API key in WooCommerce (WooCommerce → Settings → Advanced →
-            REST API) and paste the details below.
-          </DialogDescription>
-        </DialogHeader>
-        <View className="gap-4">
-          <View className="gap-1.5">
-            <Label>Site URL</Label>
-            <Input
-              value={siteUrl}
-              onChangeText={setSiteUrl}
-              placeholder="https://your-store.com"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Consumer key</Label>
-            <Input
-              value={consumerKey}
-              onChangeText={setConsumerKey}
-              placeholder="ck_..."
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Consumer secret</Label>
-            <Input
-              value={consumerSecret}
-              onChangeText={setConsumerSecret}
-              placeholder="cs_..."
-              autoCapitalize="none"
-              autoCorrect={false}
-              secureTextEntry
-            />
-          </View>
-          <View className="flex-row items-start gap-2 rounded-xl bg-muted p-3">
-            <ExternalLink size={14} color={colors.mutedForeground} />
-            <Text className="flex-1 text-xs text-muted-foreground">
-              Your keys are verified against your store and stored encrypted. Read access is
-              enough to import your catalog.
-            </Text>
-          </View>
-          <Button onPress={submit} isLoading={connect.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">Connect WooCommerce</Text>
-          </Button>
-        </View>
-      </DialogContent>
-    </Dialog>
   );
 }

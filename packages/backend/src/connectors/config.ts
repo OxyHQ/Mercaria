@@ -63,3 +63,17 @@ export function getOAuthSuccessRedirectUrl(): string | undefined {
   const raw = process.env[SUCCESS_REDIRECT_ENV];
   return raw && raw.trim() !== '' ? raw.trim() : undefined;
 }
+
+/**
+ * The public base URL, or `undefined` when this deployment has none.
+ *
+ * Every OAuth callback and every inbound webhook address is built from it, so a
+ * deployment without it can complete no connect flow on any platform. #87's
+ * channel catalog asks rather than catching, for `hasShopifyCredentials`'
+ * reason: a missing base is a configuration state to report, not a failure to
+ * recover from.
+ */
+export function getConnectorRedirectBase(): string | undefined {
+  const raw = process.env[REDIRECT_BASE_ENV];
+  return raw && raw.trim() !== '' ? raw.trim().replace(/\/+$/, '') : undefined;
+}

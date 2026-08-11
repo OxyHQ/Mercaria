@@ -1603,4 +1603,11 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'subscription — the provider does, and the merchant reads it in the hosted portal — so ' +
       'there is nothing here to reference and no `invoices` table that should exist.',
   },
+  // ── Unified sales-channel onboarding (#87) ────────────────────────────────
+  // Who started a connection wizard, and who performed each audited channel
+  // act. The whole of what these two tables hold about a person — an onboarding
+  // session stores no credential and the audit trail stores field NAMES rather
+  // than values, so there is nothing else about anybody in either.
+  { column: 'channel_onboarding_sessions.started_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'channel_audit_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
 ];

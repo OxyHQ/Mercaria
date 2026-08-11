@@ -61,10 +61,14 @@
  * constraint settles.
  */
 
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { type SelectedRow } from '@oxyhq/db';
 import { publicColumns } from '@oxyhq/db/assert';
-import type { ConnectorProviderId } from '@mercaria/shared-types';
+import type {
+  ChannelDisconnectPolicy,
+  ChannelPauseScope,
+  ConnectorProviderId,
+} from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
 import { connections } from '../schema/connectors.js';
@@ -474,6 +478,7 @@ export async function setConnectionWebhooks(
 export async function disconnectConnection(
   storeId: string,
   connectionId: string,
+  policy: ChannelDisconnectPolicy,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ConnectionRow | null> {
   const [row] = await db
@@ -487,9 +492,55 @@ export async function disconnectConnection(
       webhookSecretCiphertext: null,
       webhookSecretIv: null,
       webhookSecretTag: null,
+      // #87 management 7: the merchant's decision about their listings is
+      // recorded rather than inferred. Written with its instant in the same
+      // statement, because `connections_disconnect_record_check` accepts the
+      // pair or neither — half of this fact reads as the whole one.
+      disconnectPolicy: policy,
+      disconnectedAt: new Date(),
       updatedAt: new Date(),
     })
     .where(and(eq(connections.id, connectionId), eq(connections.storeId, storeId)))
+    .returning(CONNECTION_COLUMNS);
+  return row ?? null;
+}
+
+/**
+ * Pause or resume ONE scope of a connection (#87 management 4).
+ *
+ * A conditional `UPDATE` whose predicate carries the CURRENT state, so its empty
+ * `RETURNING` set IS the "already in that state" answer — the
+ * `moderation_events` claim device. Two merchants pressing pause converge on one
+ * instant rather than the second overwriting the first's "paused since", which
+ * is the whole reason the columns are instants.
+ *
+ * `status` is deliberately untouched. A pause is a decision about what Mercaria
+ * DOES with a working connection; `disconnected` and `error` are facts about
+ * whether it works at all, and collapsing them would make resuming a paused
+ * channel indistinguishable from reconnecting a broken one.
+ */
+export async function setConnectionPause(
+  storeId: string,
+  connectionId: string,
+  scope: ChannelPauseScope,
+  paused: boolean,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ConnectionRow | null> {
+  const column = scope === 'fetch' ? connections.fetchPausedAt : connections.publicationPausedAt;
+  const [row] = await db
+    .update(connections)
+    .set(
+      scope === 'fetch'
+        ? { fetchPausedAt: paused ? new Date() : null, updatedAt: new Date() }
+        : { publicationPausedAt: paused ? new Date() : null, updatedAt: new Date() },
+    )
+    .where(
+      and(
+        eq(connections.id, connectionId),
+        eq(connections.storeId, storeId),
+        paused ? isNull(column) : isNotNull(column),
+      ),
+    )
     .returning(CONNECTION_COLUMNS);
   return row ?? null;
 }
