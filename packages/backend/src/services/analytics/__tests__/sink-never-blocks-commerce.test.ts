@@ -101,6 +101,7 @@ function anEvent() {
     consentState: 'granted' as const,
     collectionMode: 'full' as const,
     buyerOrigin: null,
+    paymentMethodCategory: null,
     reasonCode: null,
     position: null,
     resultCount: null,

@@ -4794,3 +4794,78 @@ P2P listing. Reference: `docs/sell-yours.md`.
   seller-owned field 10 here: `SELLER_PROOF_FIELD_KINDS` is defined and the API
   refuses each kind BY NAME, because a protected store with no reviewer carries
   every risk of holding a serial number and none of the benefit.
+## Guest-commerce governance (#111)
+
+Nine tables (`db/schema/guestGovernance.ts`) for retention, privacy requests,
+abuse controls, security counters and the staged rollout. Full reference:
+`docs/guest-governance.md`.
+
+**The shape of the domain is easiest to see through what is ABSENT from all
+nine.** There is no email column, no phone, no address, no token, no device
+identifier, no user agent and no IP address anywhere in it. The three places a
+person's own value would otherwise have to appear are a keyed digest under this
+domain's own key, a Mercaria-minted row id, or a COARSE network range.
+
+- **`guest_abuse_counters` and `guest_security_signal_counters` are COUNTS per
+  window, never a row per attempt.** A privacy decision before an efficiency
+  one: a row per token-verification failure is both a log of activity nobody
+  consented to and an amplification primitive whose volume an attacker chooses.
+  `guest_recovery_attempts` (#108) generalised. `guest_security_signal_counters`
+  additionally has NO subject column at all and must never acquire one — the
+  other counters are keyed on a subject because they exist to LIMIT it, and
+  these exist to say something is happening more than usual.
+- **`subject_hash` is in `PROTECTED_COLUMNS` for TWO reasons**, and the second
+  is the sharper one. A keyed digest is an exact-match oracle (the
+  `guest_checkouts.email_hash` reasoning); it is ALSO the only cross-row join
+  key this domain has, so a trace returning it would let a reader ask "what else
+  did this subject do". The SCOPE is in the digest's preimage precisely so two
+  scopes' digests of one subject are different values.
+- **`guest_retention_policy_versions` is the POLICY; `db/expiryTargets.ts` is
+  the MECHANISM.** They answer different questions and neither can answer the
+  other's — the registry says which column the sweep reads, this says which data
+  class a retention belongs to, whether a hold pauses it, and WHEN a change to
+  either took effect and who published it. Frozen by trigger once published, one
+  ACTIVE row per (key, class) by partial unique: the `fee_schedules` device.
+- **Its mechanism CHECK is an IMPLICATION, not a biconditional**, and the
+  correction is worth reading because the biconditional is the tempting
+  spelling. It refuses a `none` mechanism carrying a TTL (a class claiming never
+  to be deleted with a clock beside it). It PERMITS a sweep with no fixed
+  offset, which is legitimate and common — three of the thirteen classes have
+  one, because the deadline is stamped on the row (`retentionSeconds: 0`) or the
+  row leaves by CASCADE. The biconditional made all three unrepresentable and
+  the schedule's first test run exposed it.
+- **`guest_retention_runs_counters_total_check` is `examined = minimized +
+  deleted + skipped_held + failed`**, an EQUALITY and never `<=` — #60's vacuity
+  floor. A pass that swallowed a row cannot write a row. A companion CHECK
+  refuses a DRY RUN reporting a delete, which is what keeps the two modes
+  distinguishable. Its cursor column is named `cursor` and not `cursor_id`, the
+  `catalog_backfill_runs` name: it is a position, not a reference.
+- **`guest_legal_holds` is scoped to a class AND a group**, NOT NULL on both.
+  "Only the relevant deletion" means a dispute over one order cannot freeze
+  every abandoned cart, so a hold with no class is unrepresentable rather than
+  refused. One LIVE hold per (group, class) by partial unique; a lifted row does
+  not occupy it, so a reopened dispute is expressible.
+- **`guest_data_requests` carries no exported VALUE.** A stored export is a
+  second copy of everything the request concerned, in a table whose retention is
+  longer than the data it duplicates. Its `retained_classes` and
+  `retained_reasons` are positionally aligned and their equal cardinality is a
+  CHECK using `cardinality`, never `array_length` — on an empty array the latter
+  is NULL and a CHECK reads NULL as SATISFIED.
+- **`guest_launch_gate_signoffs` and `guest_rollout_stage_advances` are
+  APPEND-ONLY against UPDATE *and* DELETE** by trigger — the
+  `buyer_request_events` posture. A sign-off somebody edited is not a sign-off.
+  A WITHDRAWAL is a later row saying `no`. There is deliberately NO
+  `current_stage` column anywhere: the stage is the latest PERMITTED advance,
+  derived, because a stored pointer beside an append-only history is two
+  representations of one fact and the one that would be wrong is the one an
+  operator reads during an incident.
+- **Every "present exactly when" CHECK here is written as TWO implications**,
+  never one over their conjunction — the #126
+  `retail_delivery_promises_observed_shape_check` finding, applied before it
+  could cost anything.
+- **No table references another domain.** Every id is a shared checkout-group
+  token, an Oxy account id, or a grant id whose foreign key would break in both
+  directions (grants are hard-DELETED at their own `purge_at`, so RESTRICT would
+  block the retention sweep forever and CASCADE would erase the audit of an
+  erasure the day the credential aged out). All registered in
+  `db/deferredForeignKeys.ts`.

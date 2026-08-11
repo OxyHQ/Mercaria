@@ -44,6 +44,7 @@ import {
 } from '@stripe/stripe-react-native';
 import { Button, Text } from '@mercaria/ui';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/config';
+import { track } from '@/lib/analytics';
 import type { CardPaymentStepProps } from './types';
 
 export function CardPaymentStep({
@@ -118,6 +119,13 @@ function PaymentSheetButton({
         return;
       }
       setReady(true);
+      // What the SHEET will offer, once it is prepared — the native half of
+      // #111's `guest_payment_methods_shown`. Emitted after `initPaymentSheet`
+      // succeeds rather than on mount, for the web component's reason: a sheet
+      // that failed to prepare offered nothing, and counting it would inflate
+      // the denominator of `guest_express_method_usage` with attempts nobody
+      // ever saw.
+      track('guest_payment_methods_shown', { itemCount: payment.methods.length });
     };
     void prepare();
     return () => {
@@ -139,19 +147,35 @@ function PaymentSheetButton({
       const { error } = await presentPaymentSheet();
       if (error) {
         if (error.code === PaymentSheetError.Canceled) {
+          // A cancellation is NOT a client failure. The buyer changed their
+          // mind, which is a legitimate outcome and not a drop-off caused by
+          // anything Mercaria did — folding the two together would make
+          // `guest_funnel_step_failure_rate` unreadable.
           onCancelled();
           return;
         }
+        track('guest_payment_client_failed');
         onFailed(error.message);
         return;
       }
-      // The buyer finished. Whether they PAID is the server's to say.
+      // The buyer finished. Whether they PAID is the server's to say — and no
+      // success event is emitted here, for that reason.
       onCompleted();
     } finally {
       setBusy(false);
     }
   };
 
+  /*
+   * There is deliberately NO `guest_payment_method_selected` on this path.
+   *
+   * `presentPaymentSheet` resolves with an error or with nothing; the native
+   * sheet does not report which method the buyer pressed, and inventing one
+   * from `payment.methods` would record "card" for every wallet purchase on
+   * iOS. `guest_express_method_usage` is therefore a WEB measurement, which its
+   * attribution limit has to say — a metric that silently means something
+   * different per platform is worse than one that is absent on one of them.
+   */
   return (
     <View className="gap-3">
       <Button

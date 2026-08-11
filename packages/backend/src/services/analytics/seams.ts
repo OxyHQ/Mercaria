@@ -33,7 +33,11 @@
  */
 
 import type { AnalyticsEventType } from '@mercaria/shared-types';
-import { ANALYTICS_DEFERRED_EVENT_TYPES, ANALYTICS_METRICS } from '@mercaria/shared-types';
+import {
+  ANALYTICS_DEFERRED_EVENT_TYPES,
+  ANALYTICS_METRICS,
+  ANALYTICS_STRUCTURALLY_UNEMITTED_EVENT_TYPES,
+} from '@mercaria/shared-types';
 
 /** One deferred capability, with the issue that owns it and what it will need. */
 export interface AnalyticsSeam {
@@ -107,58 +111,6 @@ export interface AnalyticsSeam {
  */
 export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
   {
-    issue: '#111',
-    capability:
-      'Guest-commerce rollout gates, retention coordination, and the client payment ' +
-      'instrumentation #107 reassigned here',
-    eventTypes: [
-      'guest_payment_methods_shown',
-      'guest_payment_method_selected',
-      'guest_payment_action_required',
-      'guest_payment_client_failed',
-      'guest_payment_verified',
-      'guest_claim_offered',
-      'guest_claim_declined',
-    ],
-    metricKeys: ['oxy_claim_funnel'],
-    contract:
-      'ADR 0003 I12 assigns #111 the job of documenting each guest metric’s dimension before it ' +
-      'ships. This domain has already chosen conservatively — actor KIND plus, for the funnel ' +
-      'only, an opaque checkout group — so what #111 owes is the review that ratifies or narrows ' +
-      'it, plus the coordination of GUEST_* flags with ANALYTICS_ENABLED. The two are ' +
-      'deliberately INDEPENDENT levers today: guest commerce must be rollback-able while ' +
-      'analytics is down, and analytics must be disable-able without touching guest commerce ' +
-      '(experimentation rule 7 applied to the domain rather than to an experiment). ' +
-      'The five payment event types moved here from #107, which SHIPPED without them, and the ' +
-      'reason is worth keeping because it is the same shape as #77’s own reasoning. FOUR of ' +
-      'them (methods shown, method selected, action required, client failed) are facts only a ' +
-      'browser or a payment sheet knows, and the storefront has no analytics client at all — ' +
-      'building one is rollout instrumentation, not payment work. The FIFTH ' +
-      '(`guest_payment_verified`) is server-observable, and emitting it from the payment domain ' +
-      'was rejected on purpose: `verified-conversion.ts` establishes a ONE-WAY seam in which ' +
-      'analytics reads `payments` and the payment path never depends on telemetry, and ' +
-      '`guest_verified_payment_conversion` already takes its numerator from `payments` directly ' +
-      '(it carries no `seam` field and computes today). An event emitted from the outbox would ' +
-      'invert that direction to add a second, weaker source for a number nothing reads it for. ' +
-      'The original contract still binds whoever lands them: method ids must be BOUNDED — a new ' +
-      'ANALYTICS_REASON_CODES member or a dedicated tuple, never the provider’s own string, ' +
-      'which changes with their API. `guest_payment_verified` must come from the #48 event ' +
-      'ingress after the payment aggregate moves, NEVER from a client confirmation callback: it ' +
-      'is on the server-only side of ANALYTICS_CLIENT_EMITTABLE_EVENT_TYPES and the ingest ' +
-      'endpoint refuses it. No card brand, no last four, no Stripe Customer id, no wallet ' +
-      'identity — none of them has a column, and adding one fails ' +
-      'analytics-forbidden-columns.test.ts. ' +
-      'The two CLAIM types arrived here from #109 for the same reason the four client payment ' +
-      'ones did, and they are the sharper case because a server-side substitute exists and is ' +
-      'wrong: `guest_claim_offered` must come from the review screen RENDERING, never from the ' +
-      'preview endpoint being read (a client can poll it, and a claim made from a link the ' +
-      'buyer never looked at would still count an offer), and `guest_claim_declined` must come ' +
-      'from an explicit dismissal, never from "a preview was read and no claim followed" — the ' +
-      'server cannot tell that from a lost connection. Until both land, `oxy_claim_funnel` has ' +
-      'a live numerator and no denominator, which is what its `seam` field says on the ' +
-      'dashboard.',
-  },
-  {
     issue: '#74',
     capability: 'Ranking policy versions on an EXPERIMENT’s arm — the impression half has LANDED',
     eventTypes: [],
@@ -192,10 +144,31 @@ export const ANALYTICS_SEAMS: readonly AnalyticsSeam[] = [
   },
 ];
 
-/** Every deferred event type, flattened — the gate scans for these. */
+/** Every deferred event type, flattened. EMPTY since #111 closed the last one. */
 export const DEFERRED_EVENT_TYPES: readonly AnalyticsEventType[] = Object.keys(
   ANALYTICS_DEFERRED_EVENT_TYPES,
 ) as AnalyticsEventType[];
+
+/**
+ * Every type nothing may emit — the deferred ones PLUS the structurally
+ * unemitted ones.
+ *
+ * The union exists because #111 emptied the first set, and a gate that scanned
+ * only that set would have become VACUOUS on the deploy that closed the last
+ * seam: zero types to look for, zero offenders found, green forever, and the
+ * one type that must never be emitted no longer guarded by anything. A check
+ * that cannot distinguish success from failure is worse than no check, and
+ * "every seam is closed" is precisely the moment that trap springs.
+ *
+ * So the scan set is the union and it is non-empty by construction: a type is
+ * on it because an issue has not landed, or because a decision says it never
+ * will. Both mean the same thing to the scanner and different things to a
+ * reader, which is why the two tuples stay separate.
+ */
+export const NEVER_EMITTED_EVENT_TYPES: readonly AnalyticsEventType[] = [
+  ...DEFERRED_EVENT_TYPES,
+  ...(Object.keys(ANALYTICS_STRUCTURALLY_UNEMITTED_EVENT_TYPES) as AnalyticsEventType[]),
+];
 
 /**
  * Every metric that names a seam, so the dashboard can label it.

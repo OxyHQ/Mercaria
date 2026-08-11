@@ -212,6 +212,35 @@ function resolveGuestCommerceEnabled(): boolean {
 }
 
 /**
+ * `GUEST_ABUSE_CONTROLS_ENABLED`, subject to the half-configuration rule (#111).
+ *
+ * Enabling the controls without `GUEST_ABUSE_SUBJECT_HASH_KEY` would leave every
+ * counter subject digested under no key — and the preimages here are an email, a
+ * checkout id and a /24, three spaces small enough to enumerate exhaustively. An
+ * unkeyed digest is therefore an offline ORACLE over "has this address bought
+ * anything" sitting in a table, which is precisely what the digest exists to
+ * prevent. `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY`'s reasoning, and it resolves the
+ * same way: stay OFF and say so.
+ *
+ * Staying off is SAFE in the direction that matters and is not free, which is
+ * worth stating rather than glossing. The COUNTERS still cannot be written
+ * (there is no key to digest a subject with), so a deployment in this state is
+ * measuring nothing — unlike the preflight, which still records an `unknown`.
+ * What it cannot do is apply friction to somebody based on a subject it could
+ * not safely name, which is the failure worth choosing.
+ */
+function resolveGuestAbuseControlsEnabled(): boolean {
+  if (!boolEnv('GUEST_ABUSE_CONTROLS_ENABLED', false)) return false;
+  if ((process.env.GUEST_ABUSE_SUBJECT_HASH_KEY?.trim() ?? '') !== '') return true;
+
+  log.general.error(
+    '[Guest] GUEST_ABUSE_CONTROLS_ENABLED is set but GUEST_ABUSE_SUBJECT_HASH_KEY is missing; ' +
+      'staying OFF. No abuse counter is written and no friction is applied.',
+  );
+  return false;
+}
+
+/**
  * `SUPPLIER_PREFLIGHT_ENABLED`, subject to the half-configuration rule (#122).
  *
  * Enabling preflight without `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY` would leave
@@ -1252,6 +1281,82 @@ export interface GuestConfig {
   readonly portal: GuestPortalConfig;
   /** Claiming a group into an Oxy account (#109). See {@link GuestClaimConfig}. */
   readonly claim: GuestClaimConfig;
+  /** Retention, abuse controls and rollout (#111). See {@link GuestGovernanceConfig}. */
+  readonly governance: GuestGovernanceConfig;
+}
+
+/**
+ * Guest-commerce governance (#111) — retention, abuse controls and the staged
+ * rollout.
+ *
+ * ## What is deliberately NOT here
+ *
+ * There is no lever for the DATA-REQUEST surface. An export or erasure request
+ * is a legal obligation rather than a feature, and a deployment able to switch
+ * it off is a deployment that can silently stop honouring one — the same
+ * reasoning #108 used to decide no lever may gate a portal READ.
+ *
+ * There is no `GUEST_ROLLOUT_STAGE` either, and its absence is load-bearing.
+ * The current stage is DERIVED from the latest permitted advance, so a variable
+ * naming one would be a second representation of a fact the advance history
+ * already holds — and the one that would be wrong is the one an operator reads
+ * at 3am. Advancing is a recorded, gated, attributable act, never an
+ * environment change.
+ *
+ * ## The two levers that DO exist gate a LOOP and an ACTION, never a record
+ *
+ * `abuseControlsEnabled` off still COUNTS: every counter is written, so a
+ * deployment that turned the controls off during an incident can still see what
+ * was happening while they were off, and turning them back on does not start
+ * from zero. What it stops is the INTERVENTION — the friction a person feels.
+ *
+ * `retentionJobEnabled` off stops the sweep and nothing else. Rows keep their
+ * deadlines, the lag counter keeps rising, and the operator surface keeps
+ * reporting it — which is exactly what has to remain true, because a paused
+ * retention job is the one failure in this domain that is invisible from
+ * everywhere else.
+ */
+export interface GuestGovernanceConfig {
+  /**
+   * `GUEST_ABUSE_CONTROLS_ENABLED`, default FALSE — may friction be APPLIED.
+   *
+   * Default off, unlike the three guest levers that default on, and the
+   * discriminator is whether the flag demands a SECRET.
+   * `GUEST_COMMERCE_ENABLED` and `SUPPLIER_PREFLIGHT_ENABLED` both do and both
+   * default off, for the reason this one does: a flag that defaults ON and
+   * demands a key it has not been given makes every unconfigured deployment log
+   * an error at boot about a feature nobody asked for, and an error nobody can
+   * act on is one everybody learns to scroll past.
+   *
+   * Requires {@link abuseSubjectHashKey}: an unkeyed digest over an email or a
+   * network prefix is an offline oracle anybody with the table can run, which
+   * is the `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY` rule applied to a counter.
+   */
+  readonly abuseControlsEnabled: boolean;
+  /** `GUEST_ABUSE_SUBJECT_HASH_KEY` — the HMAC key every counter subject is digested under. */
+  readonly abuseSubjectHashKey: string;
+  /** `GUEST_RETENTION_JOB_ENABLED`, default true — gates the LOOP only. */
+  readonly retentionJobEnabled: boolean;
+  /** How many rows one retention pass examines. Bounded, indexed batches. */
+  readonly retentionBatchSize: number;
+  /** How often the retention loop wakes. */
+  readonly retentionPollIntervalMs: number;
+  /**
+   * `GUEST_RETENTION_DRY_RUN`, default TRUE — the one default in this file that
+   * is deliberately the cautious side of every other rollout lever.
+   *
+   * A retention job DELETES, and the cost of the two errors is not symmetric: a
+   * dry run that should have deleted leaves data for another day, and an apply
+   * that should not have deleted leaves nothing at all. The `observe` default
+   * `CROWDSOURCE_ENFORCEMENT_MODE` chose, for the same asymmetry.
+   */
+  readonly retentionDryRun: boolean;
+  /**
+   * How long a security-signal counter's window is, in seconds. One value for
+   * every signal: a per-signal window would make two counters incomparable and
+   * is a tuning knob nobody would ever set correctly for fifteen signals.
+   */
+  readonly signalWindowSeconds: number;
 }
 
 /**
@@ -3335,6 +3440,15 @@ export const config: AppConfig = Object.freeze({
       jobPollIntervalMs: intEnv('GUEST_CLAIM_JOB_POLL_INTERVAL_MS', 5_000),
       jobLeaseMs: intEnv('GUEST_CLAIM_JOB_LEASE_MS', 60_000),
       jobMaxAttempts: intEnv('GUEST_CLAIM_JOB_MAX_ATTEMPTS', 8),
+    }),
+    governance: Object.freeze({
+      abuseControlsEnabled: resolveGuestAbuseControlsEnabled(),
+      abuseSubjectHashKey: strEnv('GUEST_ABUSE_SUBJECT_HASH_KEY', ''),
+      retentionJobEnabled: boolEnv('GUEST_RETENTION_JOB_ENABLED', true),
+      retentionBatchSize: intEnv('GUEST_RETENTION_BATCH_SIZE', 500),
+      retentionPollIntervalMs: intEnv('GUEST_RETENTION_POLL_INTERVAL_MS', 900_000),
+      retentionDryRun: boolEnv('GUEST_RETENTION_DRY_RUN', true),
+      signalWindowSeconds: intEnv('GUEST_SIGNAL_WINDOW_SECONDS', 300),
     }),
   }),
   referrals: Object.freeze({

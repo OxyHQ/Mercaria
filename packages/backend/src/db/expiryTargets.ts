@@ -91,6 +91,11 @@ import {
   feedImportReports,
   feedUploads,
 } from './schema/feedImport';
+import {
+  guestAbuseCounters,
+  guestAbuseInterventions,
+  guestSecuritySignalCounters,
+} from './schema/guestGovernance';
 import { moderationEvents, moderationOutboxes } from './schema/moderation';
 import { offerPriceSnapshots } from './schema/priceHistory';
 import { notifications } from './schema/notifications';
@@ -251,6 +256,26 @@ const ANALYTICS_SALT_RETENTION_SECONDS = 45 * 24 * 60 * 60;
  * the fact that records were rejected.
  */
 const CATALOG_SOURCE_REJECTION_RETENTION_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * `GUEST_SECURITY_EVIDENCE_RETENTION_SECONDS` — 90 days past a counting
+ * window's START, for the abuse counters, the interventions they produced and
+ * the security signal counts (#111 retention class `security_audit_event`).
+ *
+ * `guest_recovery_attempts` is the precedent and this is deliberately LONGER
+ * than its seven days, for a reason worth stating because the two look like the
+ * same table. That one is purely a THROTTLE: after its longest window it counts
+ * nothing, and its only remaining property is that somebody once asked about an
+ * inbox — which is exactly the correlation the portal domain refuses to keep.
+ * These are also EVIDENCE. "Was this happening in March" is a question an
+ * incident review asks in June, and an intervention somebody is contesting as a
+ * false positive has to still be there when they contest it.
+ *
+ * Ninety days is bounded on the other side by the same reasoning: none of these
+ * rows is worth keeping for a year, and the aggregate a dashboard reads is
+ * written by the rollup long before the counters expire.
+ */
+const GUEST_SECURITY_EVIDENCE_RETENTION_SECONDS = 90 * 24 * 60 * 60;
 
 /**
  * A staged upload artefact (#63). Seven days, which is a deliberately SHORT
@@ -568,6 +593,45 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
   // asked and is bounded by the catalogue; and the metrics are the counters
   // that make a broken dedup visible, which is exactly the thing that must not
   // quietly age out.
+  // Guest-commerce governance (#111). THREE entries, and the six omissions
+  // beside them are the decision. `guest_retention_policy_versions` is the
+  // policy itself — a retention that deleted the record of what the retention
+  // WAS would answer the only question an auditor asks with silence.
+  // `guest_retention_runs` is the auditable count of what each pass did
+  // (retention rule 6), `guest_legal_holds` is why a deletion did NOT happen,
+  // `guest_data_requests` and `guest_data_class_dispositions` are the audit of
+  // an erasure — all four must outlive the data they are about, or the erasure
+  // and the failure to perform one become indistinguishable. The two rollout
+  // tables are a decision history that is bounded by the number of stages.
+  {
+    table: guestAbuseCounters,
+    column: guestAbuseCounters.windowStartedAt,
+    retentionSeconds: GUEST_SECURITY_EVIDENCE_RETENTION_SECONDS,
+    reason:
+      'One abuse counter, 90 days past its window start. Bounded by TRAFFIC rather than by ' +
+      'purchases — the only table in this domain that is — so it is the one that grows forever ' +
+      'without an entry here. Deleting it can never reset a live throttle: the longest ' +
+      'configured window is 24 hours.',
+  },
+  {
+    table: guestAbuseInterventions,
+    column: guestAbuseInterventions.expiresAt,
+    retentionSeconds: GUEST_SECURITY_EVIDENCE_RETENTION_SECONDS,
+    reason:
+      'One applied friction, 90 days after it stopped applying. Swept on expires_at rather than ' +
+      'created_at so the clock runs from the end of the intervention: a 24-hour manual review ' +
+      'raised on day one is retained for 90 days from the day it lapsed, not from the day it ' +
+      'fired. The false-positive RATE it feeds is a rollup, written long before this.',
+  },
+  {
+    table: guestSecuritySignalCounters,
+    column: guestSecuritySignalCounters.windowStartedAt,
+    retentionSeconds: GUEST_SECURITY_EVIDENCE_RETENTION_SECONDS,
+    reason:
+      'One security signal count, 90 days past its window. It names nobody — there is no ' +
+      'subject column on this table at all — so what expires is a number, and what an alert ' +
+      'needed it for happened at the time.',
+  },
   {
     table: offerPriceSnapshots,
     column: offerPriceSnapshots.retentionExpiresAt,
@@ -662,4 +726,5 @@ export const RETENTION_SECONDS = {
   feedImportReport: FEED_IMPORT_REPORT_RETENTION_SECONDS,
   feedImportReportEntry: FEED_IMPORT_REPORT_ENTRY_RETENTION_SECONDS,
   watchlistSnapshot: WATCHLIST_SNAPSHOT_RETENTION_SECONDS,
+  guestSecurityEvidence: GUEST_SECURITY_EVIDENCE_RETENTION_SECONDS,
 } as const;

@@ -52,6 +52,9 @@ import { config } from '../config/index.js';
 // awaited — a telemetry failure must never turn a guest's first add-to-cart
 // into an error.
 import { emitAnalyticsEvent } from '../services/analytics/emit.js';
+import { checkGuestAbuse } from '../services/guest-governance/abuse.service.js';
+import { recordSecuritySignal } from '../services/guest-governance/security-signals.service.js';
+import { networkRangeOf } from '../services/guest-governance/subject.js';
 import { isAllowedBrowserOrigin } from '../lib/allowed-origins.js';
 import { log } from '../lib/logger.js';
 import type { CommerceActor } from '../services/commerce-actor.js';
@@ -241,6 +244,10 @@ function isStateChanging(method: string): boolean {
 function passesCookieCsrf(req: Request, res: Response): boolean {
   const origin = requestBrowserOrigin(req);
   if (isAllowedBrowserOrigin(origin)) return true;
+  // #111 security monitoring 2. Counted, never a row per attempt: a sustained
+  // rate means either an attack or a deploy that forgot an origin, and neither
+  // question needs to know WHO.
+  recordSecuritySignal('csrf_failure');
   log.guest.warn(
     { origin: origin ?? null, path: req.path, method: req.method },
     '[Guest] cookie-authenticated write refused: Origin/Referer not allow-listed (CSRF)',
@@ -445,6 +452,32 @@ export async function issueGuestActor(
   }
 
   const now = new Date();
+
+  // #111 abuse control 1 and 4 — session FARMING, bounded on a COARSE network
+  // range and never on a device.
+  //
+  // The check runs BEFORE anything is minted, which is the whole point: a
+  // refusal after issuance would have created the row it was refusing. The
+  // friction is explicit (a stated wait the response carries) rather than a
+  // silent failure, and the refusal names the MEASURE without naming the
+  // threshold — a buyer can act on "wait 15 minutes" and cannot act on "you
+  // are the 201st".
+  const verdict = await checkGuestAbuse({
+    scope: 'session_issuance',
+    subjectValue: networkRangeOf(req.ip ?? ''),
+    now,
+  });
+  if (verdict.outcome === 'friction') {
+    recordSecuritySignal('session_issuance_rate');
+    sendError(
+      res,
+      ErrorCodes.RATE_LIMITED,
+      `Too many new sessions from this network. Try again after ${verdict.retryAt.toISOString()}.`,
+      429,
+    );
+    return undefined;
+  }
+
   const { session, token } = await issueGuestSession({
     clientClass: declaredClientClass(req, transport),
     now,

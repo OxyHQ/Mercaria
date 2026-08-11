@@ -329,6 +329,17 @@ export * from './matching';
 // how ADR 0003 I12 is enforced rather than promised.
 export * from './analytics';
 
+// Guest-commerce governance (#111) — the sixteen-class data inventory, the
+// thirteen-class retention schedule, the abuse vocabulary (whose permitted axes
+// and FORBIDDEN signals are disjoint tuples a test checks, so "no device
+// fingerprinting" is a build failure rather than a promise), the security
+// signal register with its runbooks and safe correlation handles, the
+// feature-gate register naming the lever that answers each capability, and the
+// staged rollout with its fourteen launch gates. Follows `./analytics` because
+// its payment-method categories are the bounded ids that domain's event
+// contract demands, and its metrics extend that domain's registry.
+export * from './guest-governance';
+
 // The flag-gated native-catalogue backfill (#60, ADR 0002 D23/D24) — the staged
 // migration's own vocabulary: its ordered stages, its dry-run/apply modes, its
 // cohort selectors, the per-record outcome and reason sets that make ambiguity a

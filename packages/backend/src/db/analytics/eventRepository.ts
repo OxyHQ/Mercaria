@@ -23,6 +23,7 @@ import type {
   AnalyticsEventClass,
   AnalyticsEventType,
   AnalyticsReasonCode,
+  GuestPaymentMethodCategory,
   AnalyticsTrafficClass,
 } from '@mercaria/shared-types';
 import { ANALYTICS_HUMAN_TRAFFIC_CLASSES } from '@mercaria/shared-types';
@@ -71,6 +72,7 @@ export interface AnalyticsEventInsert {
   readonly consentState: AnalyticsConsentState;
   readonly collectionMode: AnalyticsCollectionMode;
   readonly buyerOrigin: AnalyticsBuyerOrigin | null;
+  readonly paymentMethodCategory: GuestPaymentMethodCategory | null;
   readonly reasonCode: AnalyticsReasonCode | null;
   readonly position: number | null;
   readonly resultCount: number | null;

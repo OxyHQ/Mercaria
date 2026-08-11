@@ -178,6 +178,7 @@ function anEvent(overrides: Partial<AnalyticsEventInsert> = {}): AnalyticsEventI
     consentState: 'granted',
     collectionMode: 'full',
     buyerOrigin: null,
+    paymentMethodCategory: null,
     reasonCode: null,
     position: null,
     resultCount: null,

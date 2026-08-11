@@ -59,6 +59,7 @@ import {
   guestP2PPolicyHandler,
   traceGuestP2PListingHandler,
 } from '../controllers/guest-p2p-operator.controller.js';
+import internalGuestGovernanceRouter from './internal-guest-governance.js';
 
 const router = Router();
 
@@ -144,5 +145,18 @@ router.post('/buyer-requests/returns/:requestId/reconcile', reconcileBuyerReques
  */
 router.get('/p2p/policy', guestP2PPolicyHandler);
 router.get('/p2p/listings/:listingId', traceGuestP2PListingHandler);
+
+/**
+ * The GOVERNANCE half (#111), mounted LAST and on the same allow-list.
+ *
+ * Its own router file rather than more routes here, and the split is not
+ * cosmetic: every route above opens from one buyer's checkout group, order or
+ * claim, and three of the routes below are legitimately deployment-scoped (the
+ * retention runs, the security signals, the rollout). Keeping them apart is
+ * what lets "this surface cannot be asked what an inbox has ever accessed" stay
+ * readable as a property of the routes above rather than as a claim somebody
+ * has to re-check every time one is added.
+ */
+router.use('/governance', internalGuestGovernanceRouter);
 
 export default router;

@@ -44,10 +44,12 @@ import type { Request, Response } from 'express';
 import {
   ANALYTICS_CLIENT_EMITTABLE_EVENT_TYPES,
   ANALYTICS_REASON_CODES,
+  GUEST_PAYMENT_METHOD_CATEGORIES,
   type AnalyticsClientEmittableEventType,
   type AnalyticsEntityIds,
   type AnalyticsMeasures,
   type AnalyticsReasonCode,
+  type GuestPaymentMethodCategory,
 } from '@mercaria/shared-types';
 import { config } from '../config/index.js';
 import { ErrorCodes, sendError, sendSuccess } from '../utils/api-response.js';
@@ -66,6 +68,7 @@ interface RawEventEntry {
   entities?: unknown;
   measures?: unknown;
   reasonCode?: unknown;
+  paymentMethodCategory?: unknown;
   searchPolicyVersion?: unknown;
   rankingPolicyVersion?: unknown;
 }
@@ -182,8 +185,23 @@ export function ingestAnalyticsEventsHandler(req: Request, res: Response): void 
       typeof reasonCode === 'string' &&
       (ANALYTICS_REASON_CODES as readonly string[]).includes(reasonCode);
 
+    // #111's four payment types and two claim types are client-emittable, and
+    // the payment ones carry a BOUNDED method category. A value outside the
+    // tuple is DROPPED rather than rejecting the entry: the category is a
+    // dimension, not the fact, so an unrecognised one costs a slice and losing
+    // the whole event costs the funnel. `envelope.ts` drops it again for any
+    // event type the CHECK would refuse it on, so a client cannot attach one to
+    // an impression by sending it here.
+    const methodCategory = raw.paymentMethodCategory;
+    const validMethodCategory =
+      typeof methodCategory === 'string' &&
+      (GUEST_PAYMENT_METHOD_CATEGORIES as readonly string[]).includes(methodCategory);
+
     emitAnalyticsEvent(req, {
       eventType: eventType as AnalyticsClientEmittableEventType,
+      ...(validMethodCategory
+        ? { paymentMethodCategory: methodCategory as GuestPaymentMethodCategory }
+        : {}),
       occurredAt: readOccurredAt(raw.occurredAt, now),
       entities: readEntities(raw.entities),
       measures: readMeasures(raw.measures),

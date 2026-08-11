@@ -531,7 +531,21 @@ describe('deduplication, anchors and the counters that make them visible', () =>
   it('suppresses an identical re-read and COUNTS the suppression', async () => {
     const source = await bringUpSource('dedup');
     const { variantId } = await mintCanonicalVariant('dedup');
-    const first = new Date(Date.now() - 3 * DAY_MS);
+    // Pinned to NOON UTC, deliberately, rather than a bare `Date.now() - 3 *
+    // DAY_MS` — this test writes three observations 60s and 120s apart and
+    // then reads the write-metrics counters back by the CALENDAR DAY of the
+    // first one. A bare wall-clock offset carries whatever time-of-day the
+    // suite happens to run at, and within the last two minutes of a UTC day
+    // the 120-second offset below crosses into the NEXT day's bucket,
+    // splitting the count `findPriceWriteMetrics` reads back — the ingestion
+    // contract suite's "safely later" literal, one layer over: here the
+    // hazard is the CLOCK'S OWN position, not a fixed date drifting into the
+    // past. Noon is twelve hours from either boundary, so the offsets below
+    // can never cross one.
+    const now = new Date();
+    const first = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 3, 12, 0, 0),
+    );
 
     const offerId = await observe({
       source,
