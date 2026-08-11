@@ -40,6 +40,7 @@ import type {
   Money,
   ProductSummary,
   ProductThumbnail,
+  CommercialPresentation,
   ProductVariantDTO,
   MerchantSummary,
   Seller,
@@ -77,6 +78,7 @@ import { log } from '../lib/logger.js';
 import { oxyClient } from '../middleware/auth.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { getFavoritedListingIds } from './favorite.service.js';
+import { resolveVariantCommercialPresentations } from './commercial-presentation/variant-commercial.service.js';
 
 /** Matches an absolute http(s) URL (seeded CDN assets pass through unchanged). */
 const ABSOLUTE_URL = /^https?:\/\//i;
@@ -125,6 +127,7 @@ const NO_PRICE: Money = { amount: 0, currency: 'FAIR' };
 function toVariantDTO(
   variant: VariantRecord,
   optionValues: VariantOptionValueRecord[],
+  commercial?: CommercialPresentation,
 ): ProductVariantDTO {
   const available = variant.inventoryAvailable;
   const inStock = !variant.inventoryTracked || available > 0;
@@ -145,6 +148,13 @@ function toVariantDTO(
   const compareAt = variantCompareAtPrice(variant);
   if (compareAt) {
     dto.compareAtPrice = compareAt;
+  }
+  // #129: who is selling THIS configuration. Absent when the caller did not
+  // resolve it — never defaulted to the listing owner, because an unanswered
+  // question and "the catalogue owner sells it" are different claims and only
+  // one of them is safe to make without reading the retail bindings.
+  if (commercial) {
+    dto.commercial = commercial;
   }
   return dto;
 }
@@ -441,6 +451,27 @@ export async function hydrateListings(
   // 5. (optional) Batch-load the viewer's favorites.
   const savedSet = await loadSavedSet(opts.viewerId, listingIds);
 
+  // 5b. #129: which of these variants Mercaria sells ITSELF, from the same live
+  // `retail_offer_bindings` authority checkout partitions on. One batched read
+  // for the whole page, so a listing with forty configurations costs one
+  // statement. The seller label travels with each subject because a
+  // marketplace presentation must name a real seller and this is the one place
+  // that has already resolved both identities.
+  const commercialByVariant = await resolveVariantCommercialPresentations(
+    rawListings.flatMap((listing) => {
+      const sellerKind = listing.ownerType === 'store' ? 'store' : 'user';
+      const sellerLabel =
+        listing.ownerType === 'store'
+          ? (storeById.get(listing.storeId ?? '')?.name ?? '')
+          : (oxyProfiles.get(listing.oxyUserId ?? '')?.displayName ?? listing.oxyUserId ?? '');
+      return (variantsByListing.get(listing.id) ?? []).map((variant) => ({
+        variantId: variant.id,
+        sellerKind,
+        sellerLabel,
+      }));
+    }),
+  );
+
   // For each store, the listings it owns within THIS batch (for thumbnails).
   const listingsByStore = new Map<string, ListingRecord[]>();
   for (const l of rawListings) {
@@ -456,7 +487,7 @@ export async function hydrateListings(
     const id = listing.id;
     const variants = variantsByListing.get(id) ?? [];
     const variantDTOs = variants.map((v) =>
-      toVariantDTO(v, optionValuesByVariant.get(v.id) ?? []),
+      toVariantDTO(v, optionValuesByVariant.get(v.id) ?? [], commercialByVariant.get(v.id)),
     );
     const cheapest = cheapestVariant(variants);
 

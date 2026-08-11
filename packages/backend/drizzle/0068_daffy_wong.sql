@@ -1,0 +1,22 @@
+-- oxy:deploy-phase=pre
+--
+-- Transparent offer, checkout and order UX (#129).
+--
+-- Purely ADDITIVE: ONE index, and no new table, column or constraint. The whole
+-- of #129 is a projection over facts other domains already store — #57's offer
+-- kinds, #123's `retail_offer_bindings` and `orders.commercial_role`, #120's
+-- quote `presentation`/`block_reasons` and #126's role snapshot and promise
+-- trail — so there is nothing new for a buyer surface to be the authority on.
+--
+-- The index serves `findRetailCostQuoteForPresentation`: "what may a page SAY
+-- about this variant", which is deliberately NOT restricted to
+-- `completeness = 'complete'` (a blocked quote is the answer that names its own
+-- block reasons) and so cannot use the partial
+-- `retail_cost_quotes_variant_market_idx`. Added because the read otherwise has
+-- no index at all — a sequential scan of every quote ever composed, on every
+-- product view — rather than as a tuning guess.
+--
+-- NO HAND-WRITTEN STATEMENTS. A regeneration may replace this file's body
+-- freely; only this header needs re-applying.
+--
+CREATE INDEX "retail_cost_quotes_variant_presentation_idx" ON "retail_cost_quotes" USING btree ("canonical_variant_id","created_at");

@@ -10,6 +10,7 @@
  * NEVER exposed on the wire — clients only ever see `available` and `inStock`.
  */
 
+import type { CommercialPresentation } from './commercial-presentation';
 import type { Money } from './money';
 
 /** A single option assignment for a variant (e.g. `{ name: 'Size', value: 'M' }`). */
@@ -40,4 +41,22 @@ export interface ProductVariantDTO {
   available: number;
   /** Whether this variant can be purchased right now. */
   inStock: boolean;
+  /**
+   * Who is selling THIS configuration, and what the buyer is told about it
+   * (#129).
+   *
+   * On the VARIANT rather than on the `Listing`, because that is where the fact
+   * lives: `retail_offer_bindings` is keyed on `product_variant_id`, so a
+   * listing can in principle carry some configurations Mercaria sells itself
+   * and some it does not. A listing-level claim would have to pick one answer
+   * for both, and the wrong half of that pick is `Sold by Mercaria` over
+   * somebody else's stock. It also means switching a swatch can change the
+   * disclosure, which is truthful rather than surprising.
+   *
+   * Optional because a variant reaches a client from several projections and
+   * only the ones that resolved the binding may state one — an ABSENT
+   * disclosure is a surface that has not answered the question, which a client
+   * must treat as "do not claim a seller", never as a marketplace default.
+   */
+  commercial?: CommercialPresentation;
 }

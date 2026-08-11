@@ -5,7 +5,13 @@ import { useRouter } from "expo-router";
 import { useOxy } from "@oxyhq/services";
 import { ChevronRight, Package } from "lucide-react-native";
 import type { OrderStatus, OrderSummary } from "@mercaria/shared-types";
-import { Button, PriceDisplay, SectionHeader, Text } from "@mercaria/ui";
+import {
+  Button,
+  PriceDisplay,
+  SectionHeader,
+  Text,
+  commercialSellerLabel,
+} from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { ReviewEligibilityPrompts } from "@/components/reviews/ReviewEligibilityPrompts";
 import { useOrders } from "@/lib/hooks/use-orders";
@@ -35,7 +41,10 @@ function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
 }
 
 function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void }) {
-  const sellerName = order.store?.name ?? order.seller?.displayName;
+  // From the order's own commercial presentation (#129): a `platform` order has
+  // neither `store` nor `seller`, so the old coalesce left Mercaria's own sales
+  // with no seller in the list at all.
+  const sellerName = commercialSellerLabel(order.commercial);
   return (
     <Pressable
       accessibilityRole="button"
@@ -49,7 +58,7 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
         </Text>
         <Text className="mt-0.5 text-xs text-muted-foreground" numberOfLines={1}>
           {STATUS_LABEL[order.status]}
-          {sellerName ? ` · ${sellerName}` : ""}
+          {` · ${sellerName}`}
           {` · ${order.itemCount} item${order.itemCount === 1 ? "" : "s"}`}
         </Text>
         <Text className="mt-0.5 text-xs text-muted-foreground">

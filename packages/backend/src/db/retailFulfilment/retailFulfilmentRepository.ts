@@ -385,6 +385,26 @@ export async function findRetailOrderRoleSnapshot(
   return row;
 }
 
+/**
+ * The order-role snapshots for MANY retail orders, keyed by order id — the read
+ * an order list makes (#129).
+ *
+ * A batch rather than a loop over {@link findRetailOrderRoleSnapshot}: a buyer
+ * with twenty orders would otherwise cost twenty statements to answer one
+ * question, and the natural fix at the call site is to skip the snapshot and
+ * use today's terms, which is exactly the thing the snapshot exists to prevent.
+ */
+export async function findRetailOrderRoleSnapshots(
+  orderIds: readonly string[],
+): Promise<Map<string, RetailOrderRoleSnapshotRow>> {
+  if (orderIds.length === 0) return new Map();
+  const rows = await getDb()
+    .select()
+    .from(retailOrderRoleSnapshots)
+    .where(inArray(retailOrderRoleSnapshots.orderId, [...new Set(orderIds)]));
+  return new Map(rows.map((row) => [row.orderId, row]));
+}
+
 /** Every fulfilment intent on one order, oldest first. */
 export async function listRetailFulfilmentIntents(
   orderId: string,

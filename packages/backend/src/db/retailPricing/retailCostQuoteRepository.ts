@@ -41,7 +41,7 @@ import type {
   RetailQuoteSupersedeReason,
   RetailSubsidySource,
 } from '@mercaria/shared-types';
-import type { DatabaseOrTransaction } from '../postgres.js';
+import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import {
   retailCostQuoteAcceptances,
   retailCostQuoteComponents,
@@ -258,6 +258,60 @@ export async function findChargeableRetailCostQuote(
     .orderBy(desc(retailCostQuotes.createdAt))
     .limit(1);
   return row;
+}
+
+/**
+ * The newest still-valid quote for one variant, whatever it CONCLUDED — the
+ * read #129's offer surface makes.
+ *
+ * Deliberately NOT `findChargeableRetailCostQuote`, and the difference is the
+ * point. That one answers "may money move against this", so it filters
+ * `completeness = 'complete'`; this one answers "what may a page SAY", and a
+ * quote that concluded `not_purchasable` is exactly the answer #120's
+ * `presentation` and `blockReasons` exist to give. Narrowing to `complete` here
+ * would leave a blocked offer indistinguishable from one nobody has priced, and
+ * those route differently: the first states why, the second says nothing.
+ *
+ * Expiry is still filtered against the caller's clock — an expired quote is not
+ * evidence about today's price in either direction.
+ *
+ * The destination fallback is ordered rather than combined: a quote composed
+ * FOR this market beats a destination-less one, because the second knows
+ * nothing about shipping or tax into it and can only ever support a starting
+ * item cost. With no destination supplied only the destination-less quote is
+ * eligible, so a figure composed for Germany can never be shown to somebody who
+ * has told Mercaria nothing.
+ */
+export async function findRetailCostQuoteForPresentation(input: {
+  canonicalVariantId: string;
+  destinationCountry?: string;
+  at?: Date;
+  db?: DatabaseOrTransaction;
+}): Promise<RetailCostQuoteRecord | undefined> {
+  const db = input.db ?? getDb();
+  const at = input.at ?? new Date();
+  const newestValid = async (destination: string | null) => {
+    const [row] = await db
+      .select()
+      .from(retailCostQuotes)
+      .where(
+        and(
+          eq(retailCostQuotes.canonicalVariantId, input.canonicalVariantId),
+          destination === null
+            ? isNull(retailCostQuotes.destinationCountry)
+            : eq(retailCostQuotes.destinationCountry, destination),
+          gt(retailCostQuotes.expiresAt, at),
+        ),
+      )
+      .orderBy(desc(retailCostQuotes.createdAt))
+      .limit(1);
+    return row;
+  };
+  if (input.destinationCountry) {
+    const forMarket = await newestValid(input.destinationCountry.toUpperCase());
+    if (forMarket) return forMarket;
+  }
+  return newestValid(null);
 }
 
 /** What a checkout lock is taken from. */

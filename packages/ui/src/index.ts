@@ -73,6 +73,28 @@ export {
 } from "./lib/price-signal-labels";
 
 // ---------------------------------------------------------------------------
+// Commercial disclosures (#129) — the reader-facing copy for who is selling,
+// who is paid and what rights come with the purchase. Same split again: the
+// disclosure KEY is what a placed order's role snapshot pins and what the
+// server's `commercialDisclosureKeys` decides, and the sentence is what a
+// shopper reads. A screen renders the list the server composed; it never
+// decides a legal role for itself.
+// ---------------------------------------------------------------------------
+export {
+  COMMERCIAL_DISCLOSURE_EXPLANATIONS,
+  COMMERCIAL_DISCLOSURE_LABELS,
+  RETAIL_BLOCK_REASON_EXPLANATIONS,
+  RETAIL_ORDER_PROGRESS_EXPLANATIONS,
+  RETAIL_ORDER_PROGRESS_LABELS,
+  RETAIL_UNQUOTED_EXPLANATIONS,
+  commercialDisclosureExplanation,
+  commercialDisclosureLabel,
+  commercialSellerLabel,
+  retailOrderProgressExplanation,
+  retailOrderProgressLabel,
+} from "./lib/commercial-copy";
+
+// ---------------------------------------------------------------------------
 // App shell — the shared responsive layout, sidebar rail, and page mask
 // ---------------------------------------------------------------------------
 export { AppShell, type AppShellProps } from "./components/shell/AppShell";
@@ -330,3 +352,16 @@ export {
   OfficialChannelBadge,
   type OfficialChannelBadgeProps,
 } from "./components/marketplace/OfficialChannelBadge";
+
+// ---------------------------------------------------------------------------
+// Commercial disclosures (#129) — the disclosure list a screen renders
+// exactly as the server composed it. Here rather than in an app because the
+// COPY it reads (`commercial-copy`) lives here, and because all three apps
+// eventually render a disclosure — a component whose words and whose markup
+// sit in different packages is a copy change that ships without the thing it
+// describes.
+// ---------------------------------------------------------------------------
+export {
+  CommercialDisclosure,
+  type CommercialDisclosureProps,
+} from "./components/marketplace/CommercialDisclosure";

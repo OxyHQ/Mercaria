@@ -6,6 +6,7 @@ import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Heart, Minus, Plus, Share2, Star } from "lucide-react-native";
 import {
+  CommercialDisclosure,
   ConditionBadge,
   DemandPill,
   MerchantHeader,
@@ -506,6 +507,25 @@ function ProductBody({ listing }: ProductBodyProps) {
               >
                 <Text className="text-buttonMedium text-text">Compare all offers</Text>
               </Pressable>
+            ) : null}
+
+            {/*
+              WHO is selling this configuration (#129 acceptance 1), above the
+              price and above every buy affordance — a shopper deciding whether
+              to press Buy needs to know whether Mercaria, a merchant or another
+              retailer is on the other side of it, and finding that out at
+              checkout is finding it out too late.
+
+              It hangs off the SELECTED VARIANT rather than the listing because
+              that is where the fact lives: a retail binding is keyed on
+              `product_variant_id`, so switching a swatch can legitimately
+              change the seller. Nothing renders when the server did not answer
+              — an unstated disclosure is a surface that has not resolved the
+              question, and defaulting it to the catalogue owner is the
+              mislabelling this component exists to prevent.
+            */}
+            {selectedVariant?.commercial ? (
+              <CommercialDisclosure presentation={selectedVariant.commercial} showExplanations />
             ) : null}
 
             {/* Demand pill (static social proof). */}

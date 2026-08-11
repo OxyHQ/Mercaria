@@ -66,6 +66,10 @@ vi.mock('../../db/catalog/variantRepository.js', () => ({
   findVariantsByIds: (...args: unknown[]) => findVariantsByIds(...args),
 }));
 
+const findLiveRetailBindingsForVariants = vi.fn(
+  async (..._args: unknown[]): Promise<Map<string, unknown>> => new Map(),
+);
+
 vi.mock('../../db/stores/storeRepository.js', () => ({
   findStoresByIds: (...args: unknown[]) => findStoresByIds(...args),
 }));
@@ -89,6 +93,21 @@ vi.mock('../catalog-hydration.service.js', () => ({
 // The cart is displayed in the buyer's presentment currency; these fixtures use FAIR.
 vi.mock('../user-preference.service.js', () => ({
   resolvePresentmentCurrencyForOwner: () => Promise.resolve('FAIR'),
+}));
+
+/**
+ * #129 groups by COMMERCIAL MODE as well as by vendor, so hydration asks which
+ * variants carry a live retail binding. Mocked at the repository — the same
+ * layer every other read in this file is mocked at — rather than at
+ * `resolveVariantCommercialPresentations`, so the real derivation, the real
+ * `partitionRetailLines` split and the real presentation builders all still
+ * run. `findLiveRetailBindingsForVariants` is what a test that wants a
+ * Mercaria-sold line overrides; empty is "every line is the catalogue owner's",
+ * which is what these fixtures are.
+ */
+vi.mock('../../db/retailCheckout/retailCheckoutRepository.js', () => ({
+  findLiveRetailBindingsForVariants: (...args: unknown[]) =>
+    findLiveRetailBindingsForVariants(...args),
 }));
 
 import { addItem, revalidate, getCart } from '../cart.service.js';

@@ -21,6 +21,8 @@ import {
   SectionHeader,
   Text,
   formatMoney,
+  CommercialDisclosure,
+  commercialSellerLabel,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import {
@@ -145,9 +147,23 @@ function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
       <View className="gap-4">
         {groups.map((group) => (
           <View key={groupKey(group)} className="gap-2">
+            {/*
+              #129 checkout rule 1: the customer-facing SELLER for every order
+              group, before payment. From the group's commercial presentation
+              and never from `vendor.name`, which names whose CATALOGUE the
+              lines came from — a different party on anything Mercaria sells
+              itself.
+            */}
             <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {group.vendor.name}
+              {commercialSellerLabel(group.commercial)}
             </Text>
+            {/*
+              And what that means: the payment destination, the fulfilment
+              disclosure and the return and warranty windows, spelled out rather
+              than chipped, because this is the last screen before money moves
+              (#129 checkout rules 5 and 6).
+            */}
+            <CommercialDisclosure presentation={group.commercial} showExplanations />
             {group.items.map((item) => (
               <View key={item.variantId} className="flex-row items-center justify-between gap-3">
                 <View className="min-w-0 flex-1">

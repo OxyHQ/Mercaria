@@ -7,11 +7,13 @@ import { openAccountDialog, useOxy } from "@oxyhq/services";
 import { ShoppingBag } from "lucide-react-native";
 import {
   CartLineItem,
+  CommercialDisclosure,
   PriceDisplay,
   ProductShelf,
   ReviewStars,
   SectionHeader,
   Text,
+  commercialSellerLabel,
   formatReviewCount,
   type ProductSummary,
 } from "@mercaria/ui";
@@ -129,17 +131,29 @@ function CartGroupCard({
   onPressVendor: (vendor: CartVendor) => void;
   onChangeQuantity: (variantId: string, qty: number) => void;
   onRemove: (variantId: string) => void;
-  onCheckout: (vendor: CartVendor) => void;
+  onCheckout: (group: CartGroup) => void;
 }) {
-  const { vendor } = group;
-  const showRating = vendor.rating !== undefined;
+  const { vendor, commercial } = group;
+  // #129 cart rules 1-3: the SELLER a buyer reads comes from the group's
+  // commercial presentation, never from `vendor.name`. `vendor` names whose
+  // CATALOGUE the lines came from, which is what the logo and the storefront
+  // link need — and on a group Mercaria sells itself those are two different
+  // parties, so rendering the vendor's name as the seller is exactly the
+  // mislabelling acceptance 2 forbids.
+  const sellerName = commercialSellerLabel(commercial);
+  // A rating is a rating OF THE VENDOR. On a Mercaria-sold group it would read
+  // as a rating of Mercaria, which nobody left, so it is withheld rather than
+  // relabelled.
+  const showRating = vendor.rating !== undefined && commercial.mode === "connected_marketplace";
+  const linksToVendor = commercial.mode === "connected_marketplace";
 
   return (
     <View className="mb-4 overflow-hidden rounded-3xl border border-border bg-card p-4 web:shadow">
-      {/* Header: vendor link (logo + name + rating) */}
+      {/* Header: the seller, linked to the vendor page only when they are one. */}
       <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={`Visit ${vendor.name}`}
+        accessibilityRole={linksToVendor ? "link" : "text"}
+        accessibilityLabel={linksToVendor ? `Visit ${sellerName}` : `Sold by ${sellerName}`}
+        disabled={!linksToVendor}
         onPress={() => onPressVendor(vendor)}
         className="flex-row items-center gap-3"
       >
@@ -153,7 +167,7 @@ function CartGroupCard({
         </View>
         <View className="min-w-0 flex-1">
           <Text numberOfLines={1} className="text-base font-bold text-foreground">
-            {vendor.name}
+            {sellerName}
           </Text>
           {showRating ? (
             <View className="mt-0.5 flex-row items-center gap-1.5">
@@ -173,6 +187,11 @@ function CartGroupCard({
         </View>
       </Pressable>
 
+      {/* What this group's commercial mode means, from the server's own list. */}
+      <View className="mt-3">
+        <CommercialDisclosure presentation={commercial} />
+      </View>
+
       {/* Lines */}
       <View className="mt-4 gap-4">
         {group.items.map((item) => (
@@ -191,12 +210,12 @@ function CartGroupCard({
         <PriceDisplay price={group.subtotal} primaryClassName="text-base font-bold" />
       </View>
       {group.guestCheckout?.status === "blocked" ? (
-        <GuestGroupBlockedNotice vendorName={vendor.name} />
+        <GuestGroupBlockedNotice vendorName={sellerName} />
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Continue to checkout with ${vendor.name}`}
-          onPress={() => onCheckout(vendor)}
+          accessibilityLabel={`Continue to checkout with ${sellerName}`}
+          onPress={() => onCheckout(group)}
           className="mt-4 items-center rounded-full bg-primary py-3.5 web:hover:opacity-90 active:opacity-90"
         >
           <Text className="text-sm font-semibold text-primary-foreground">
@@ -268,10 +287,17 @@ function CartBody() {
     removeItem.mutate(variantId);
   };
 
-  // Per-vendor checkout: place just this seller's group (the rest stay in cart).
-  const onCheckout = (vendor: CartVendor) => {
+  // Per-group checkout: place just this group (the rest stay in cart).
+  //
+  // The key comes from the SERVER (`group.sellerKey`) rather than being built
+  // from `vendor.kind` and `vendor.id`: Mercaria's own lines answer to the flat
+  // `platform` key #123 put in the same namespace, and a client composing
+  // `store:<id>` for them would be told there are no matching cart items.
+  const onCheckout = (group: CartGroup) => {
     router.push(
-      `/checkout?seller=${vendor.kind}:${vendor.id}` as Parameters<typeof router.push>[0],
+      `/checkout?seller=${encodeURIComponent(group.sellerKey)}` as Parameters<
+        typeof router.push
+      >[0],
     );
   };
 
@@ -297,9 +323,7 @@ function CartBody() {
   const groups = cart?.groups ?? [];
   const blockedGroups = groups.filter((group) => group.guestCheckout?.status === "blocked");
   const checkoutableGroups = groups.filter((group) => group.guestCheckout?.status !== "blocked");
-  const checkoutableKeys = checkoutableGroups.map(
-    (group) => `${group.vendor.kind}:${group.vendor.id}`,
-  );
+  const checkoutableKeys = checkoutableGroups.map((group) => group.sellerKey);
   // Summed on the client purely for DISPLAY, and only over one currency: every
   // cart line is already converted to `cart.currency` at hydration, so this is
   // an addition rather than a conversion. Checkout reprices authoritatively.

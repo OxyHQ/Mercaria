@@ -16,6 +16,7 @@
  * already has and which authorizes nothing.
  */
 
+import type { CommercialPresentation } from './commercial-presentation';
 import type { CurrencyCode, Money } from './money';
 
 /**
@@ -77,14 +78,38 @@ export type GuestCheckoutGroupAvailability =
   | { status: 'blocked'; reason: GuestCheckoutBlockReason; signInResolves: boolean };
 
 /**
- * A cart's lines grouped by their owning vendor. Rendered Shop.app-style: one
- * card per vendor with the vendor header, its lines, and its own subtotal +
- * checkout affordance.
+ * A cart's lines grouped by their owning vendor AND their commercial mode.
+ * Rendered Shop.app-style: one card per group with its seller header, its
+ * lines, and its own subtotal + checkout affordance.
  */
 export interface CartGroup {
-  /** The store/seller that owns this group's lines. */
+  /** The store/seller whose catalogue these lines come from. */
   vendor: CartVendor;
-  /** The subset of cart items owned by this vendor, in cart order. */
+  /**
+   * Who is SELLING this group, and what the buyer is told about it (#129 cart
+   * rules 1-3).
+   *
+   * Groups are split by commercial mode as well as by vendor, so a cart holding
+   * one item Mercaria sells itself and one from the same catalogue owner has
+   * TWO groups rather than one mislabelled card. `vendor` still names the
+   * catalogue owner, because an item's page link and thumbnail need it — but
+   * the seller a buyer reads comes from here, and the union has no common label
+   * field, so a screen cannot render one mode's seller for another's.
+   */
+  commercial: CommercialPresentation;
+  /**
+   * The value `CheckoutInput.sellerKeys` takes to check out THIS group alone.
+   *
+   * Composed by the server rather than by the client, because the client cannot
+   * compose it correctly: a marketplace group's key is `store:<id>` or
+   * `user:<id>`, and Mercaria's own lines answer to the flat `platform` key
+   * #123 put in the same namespace. A screen building the key from
+   * `vendor.kind` and `vendor.id` would send `store:<id>` for a group Mercaria
+   * sells, and checkout would answer "no matching cart items" to a buyer whose
+   * basket is full.
+   */
+  sellerKey: string;
+  /** The subset of cart items in this group, in cart order. */
   items: CartItemDTO[];
   /** Sum of this group's item `lineTotal`s (always in `Cart.currency`). */
   subtotal: Money;

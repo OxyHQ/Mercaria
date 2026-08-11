@@ -58,6 +58,7 @@ import productFamiliesRouter from './routes/product-families.js';
 import catalogPagesRouter from './routes/catalog-pages.js';
 import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
 import offersRouter from './routes/offers.js';
+import retailOffersRouter from './routes/retail-offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
 import searchRouter from './routes/search.js';
 import internalSearchRouter from './routes/internal-search.js';
@@ -390,6 +391,14 @@ export function createApp(): express.Express {
    */
   if (config.canonicalRollout.publicRoutesEnabled) {
     app.use('/offers', requireCanonicalReads('offers', resolveOfferComparisonMode), offersRouter);
+    /**
+     * #129's retail price presentation. Mounted UNCONDITIONALLY, unlike
+     * `/offers`: the canonical read levers gate the comparison surface, and
+     * this answers a question about a variant Mercaria sells itself, which a
+     * deployment with comparison switched off still has to be able to price
+     * honestly. It refuses nothing — with no quote it answers `unquoted`.
+     */
+    app.use('/retail-offers', retailOffersRouter);
     /**
      * The RANKED comparison (#74), behind the same canonical-read lever as
      * `/offers` and for the same reason: it is the same catalogue read, with a
