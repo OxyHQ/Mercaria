@@ -32,6 +32,7 @@ import channelKeysRouter from './channel-keys.js';
 import paymentsRouter from './payments.js';
 import feedsRouter from './feeds.js';
 import feesRouter from './fees.js';
+import planRouter from './plan.js';
 import analyticsRouter from './analytics.js';
 
 /**
@@ -100,6 +101,12 @@ router.use('/:storeId/payments', paymentsRouter);
 // acceptance and fee/net preview. Beside `/payments` and not inside it — the
 // fee is a COMMERCIAL agreement with Mercaria, not a property of any rail.
 router.use('/:storeId/fees', feesRouter);
+// The store's own plan, entitlements and optional subscription billing (#89).
+// Beside `/fees` and not inside it: a marketplace fee is what Mercaria takes
+// from a SALE, and a plan is what a merchant pays Mercaria for TOOLING. They are
+// two versioned policies with different lifecycles, and no plan selects a fee
+// schedule — which is easier to keep true when the two surfaces are separate.
+router.use('/:storeId/plan', planRouter);
 // The product-feed importer (#63), behind `channels:write` — a feed is a sales
 // channel's inventory arriving by file, which is the same permission connecting
 // a Shopify shop needs. Deliberately NOT under `/channels`: a connector pushes

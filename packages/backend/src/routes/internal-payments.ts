@@ -73,6 +73,27 @@ import {
   listFeeSchedulesHandler,
   retireFeeScheduleHandler,
 } from '../controllers/fee-schedules-operator.controller.js';
+import {
+  entitlementGrantCreateSchema,
+  entitlementGrantRevokeSchema,
+  merchantPlanCreateSchema,
+  merchantPlanPriceCreateSchema,
+  planEntitlementCreateSchema,
+} from '../middleware/merchant-plans-schemas.js';
+import {
+  activateMerchantPlanHandler,
+  createEntitlementGrantHandler,
+  createMerchantPlanHandler,
+  createMerchantPlanPriceHandler,
+  createPlanEntitlementHandler,
+  listEntitlementDefinitionsHandler,
+  listMerchantPlansHandler,
+  reconcileMerchantSubscriptionsHandler,
+  retireMerchantPlanHandler,
+  revokeEntitlementGrantHandler,
+  syncEntitlementDefinitionsHandler,
+  traceStoreEntitlementsHandler,
+} from '../controllers/merchant-plans-operator.controller.js';
 import { retailPricingPolicyCreateSchema } from '../middleware/retail-pricing-schemas.js';
 import {
   activateRetailPricingPolicyHandler,
@@ -210,5 +231,68 @@ router.post(
  * by CHECK.
  */
 router.post('/retail-disputes/:disputeId/release-suspension', retailServiceReleaseSuspensionHandler);
+
+// ── Merchant plans, entitlements and subscription billing (#89) ─────────────
+//
+// The third versioned commercial policy behind this gate, and the same
+// reasoning: publishing a plan is a platform-wide decision no store membership
+// can express. Nothing here moves money — a plan prices FUTURE subscriptions,
+// and an existing one names an immutable version — except the grant, which only
+// ever ADDS a capability and is audited on both sides.
+//
+// The `definitions` routes are declared BEFORE `/:id`, because Express matches
+// in order and `definitions` would otherwise be read as a plan id.
+
+/** The capability catalogue this deployment defines. */
+router.get('/merchant-plans/definitions', listEntitlementDefinitionsHandler);
+
+/** Publish the CODE catalogue into the database. Fails closed until it is run. */
+router.post('/merchant-plans/definitions/sync', syncEntitlementDefinitionsHandler);
+
+/** One store's effective entitlements, grants and subscription trail. */
+router.get('/merchant-plans/stores/:storeId', traceStoreEntitlementsHandler);
+
+/** Every version of every plan, with its prices and entitlements. */
+router.get('/merchant-plans', listMerchantPlansHandler);
+
+/** Draft a new plan version. */
+router.post('/merchant-plans', validateBody(merchantPlanCreateSchema), createMerchantPlanHandler);
+
+/** Publish one provider price for a DRAFT version. */
+router.post(
+  '/merchant-plans/:id/prices',
+  validateBody(merchantPlanPriceCreateSchema),
+  createMerchantPlanPriceHandler,
+);
+
+/** Add one capability to a DRAFT version. */
+router.post(
+  '/merchant-plans/:id/entitlements',
+  validateBody(planEntitlementCreateSchema),
+  createPlanEntitlementHandler,
+);
+
+/** Publish a draft — refused when it names a capability this deployment lacks. */
+router.post('/merchant-plans/:id/activate', activateMerchantPlanHandler);
+
+/** Withdraw an active version (or abandon a draft) without a replacement. */
+router.post('/merchant-plans/:id/retire', retireMerchantPlanHandler);
+
+/** Grant a capability outside a plan — a trial, a migration, a partnership. */
+router.post(
+  '/entitlement-grants',
+  validateBody(entitlementGrantCreateSchema),
+  createEntitlementGrantHandler,
+);
+
+/** Withdraw a grant, attributably. */
+router.post(
+  '/entitlement-grants/:id/revoke',
+  validateBody(entitlementGrantRevokeSchema),
+  revokeEntitlementGrantHandler,
+);
+
+/** Run one reconciliation page by hand — the loop's single-shot equivalent. */
+router.post('/merchant-subscriptions/reconcile', reconcileMerchantSubscriptionsHandler);
 
 export default router;

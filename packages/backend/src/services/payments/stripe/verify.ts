@@ -310,6 +310,17 @@ export function stripeObjectIds(event: Stripe.Event): Record<string, string> {
       return ids({ payout: self, destination: record.destination, account: event.account });
     case 'account':
       return ids({ account: self });
+    case 'subscription':
+      // Merchant subscription billing (#89). The customer travels with it
+      // because a subscription resolves to a Mercaria store THROUGH the billing
+      // customer, and nothing else on the object names one.
+      return ids({ subscription: self, customer: record.customer });
+    case 'invoice':
+      // The subscription an invoice belongs to lives under `parent`, which is
+      // not a flat id — it is read from the retrieved invoice by the handler.
+      // Only the ids that ARE flat are extracted here, which keeps this function
+      // what it says it is: the ids an event NAMES, never a derivation.
+      return ids({ invoice: self, customer: record.customer });
     default:
       // `account.external_account.updated` carries a `card` or `bank_account`,
       // and `account.application.deauthorized` an `application` — both identify

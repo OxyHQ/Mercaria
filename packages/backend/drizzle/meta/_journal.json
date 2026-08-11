@@ -463,6 +463,13 @@
       "when": 1786405928723,
       "tag": "0065_purple_human_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1786407650952,
+      "tag": "0066_clear_slapstick",
+      "breakpoints": true
     }
   ]
 }

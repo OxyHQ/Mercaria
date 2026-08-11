@@ -48,6 +48,12 @@ export const queryKeys = {
   // Payment onboarding. A sibling of `channels`, never a child of it: a sales
   // channel is where a catalogue is listed and this is where money is settled.
   payments: (storeId: string) => ["stores", storeId, "payments"] as const,
+  // The store's own PLAN, a sibling of `payments` and never a child: one is what
+  // Mercaria pays the store for orders, the other what the store pays Mercaria
+  // for tooling. Two different directions of money with two different
+  // lifecycles.
+  plan: (storeId: string) => ["stores", storeId, "plan"] as const,
+  planCatalog: (storeId: string) => ["stores", storeId, "plan", "catalog"] as const,
   locations: (storeId: string) => ["stores", storeId, "locations"] as const,
   channels: (storeId: string) => ["stores", storeId, "channels"] as const,
   channelKeys: (storeId: string) => ["stores", storeId, "channel-keys"] as const,

@@ -69,7 +69,7 @@ holding a stale figure.
 
 ### The chart of accounts
 
-Seven accounts. `LedgerAccount` in `@mercaria/shared-types` carries the same
+Nine accounts. `LedgerAccount` in `@mercaria/shared-types` carries the same
 table with the per-account meaning of a positive entry.
 
 | Account | Normal balance | What it holds |
@@ -81,6 +81,18 @@ table with the per-account meaning of a positive entry.
 | `refunds` | debit | Money returned to buyers |
 | `disputes` | debit | Disputed principal, held until the outcome is known |
 | `reserves` | debit | Funds withheld from a seller |
+| `retail_cost_recovery` | credit | A buyer paying Mercaria's own costs back on a `mercaria_retail` order (#123) |
+| `subscription_revenue` | credit | Merchant subscription revenue (#89) |
+
+`subscription_revenue` is its own account rather than a use of
+`commission_revenue`, and that is #89 acceptance 6. Marketplace commission is
+ADR 0001 D3's residual and exists nowhere else at all; booking a merchant's
+monthly subscription into it would make the one figure that already exists
+nowhere else stop meaning what it means, with no way to separate the two
+afterwards. A subscription is also not a `payments` row — that table is the
+marketplace charge aggregate, one per checkout group, correlated to orders — so
+its transaction names no payment and `merchant_subscription_events` is what
+points back at the posting. Full reference: `docs/merchant-plans.md`.
 
 There is deliberately no buyer-funds account: Mercaria is the merchant of record
 (D1) and never holds a buyer balance. Money arrives already captured, which
