@@ -197,6 +197,8 @@ function pagedResponse<T>(
 function createShopifyFake(world: ContractWorld): ShopifyTransport {
   /** Units still fulfillable per external order id; absent means "not yet asked". */
   const fulfillable = new Map<string, number>();
+  /** Never reused, even after a delete — see the create branch below. */
+  let nextWebhookId = 0;
 
   function remainingFor(externalOrderId: string): number {
     const existing = fulfillable.get(externalOrderId);
@@ -214,7 +216,7 @@ function createShopifyFake(world: ContractWorld): ShopifyTransport {
     url: string,
     body?: string,
   ): ShopifyHttpResponse {
-    const fault = world.takeFault(url);
+    const fault = world.takeFault(url, method);
     if (fault) {
       world.record({ method, url, status: fault.status });
       return { status: fault.status, headers: fault.headers, body: '{}' };
@@ -319,19 +321,45 @@ function createShopifyFake(world: ContractWorld): ShopifyTransport {
       }
       return { status: 201, headers: {}, body: JSON.stringify({ fulfillment: { id: 'f-1' } }) };
     }
-    if (method === 'POST' && path === `${API_PREFIX}/webhooks.json`) {
-      const parsed = body ? (JSON.parse(body) as { webhook: { topic: string; address: string } }) : null;
-      const id = `wh-${world.webhooks.length + 1}`;
-      world.webhooks.push({
-        id,
-        topic: parsed?.webhook.topic ?? 'unknown',
-        deliveryUrl: parsed?.webhook.address ?? '',
+    if (path === `${API_PREFIX}/webhooks.json`) {
+      if (method === 'POST') {
+        const parsed = body
+          ? (JSON.parse(body) as { webhook: { topic: string; address: string } })
+          : null;
+        // A monotonic counter rather than `length + 1`: reconciliation DELETES,
+        // so a length-derived id would be reissued and two different
+        // subscriptions would share one — which is exactly the state a
+        // duplicate-suppression case must be able to tell apart from a correct
+        // one.
+        const id = `wh-${(nextWebhookId += 1)}`;
+        world.webhooks.push({
+          id,
+          topic: parsed?.webhook.topic ?? 'unknown',
+          deliveryUrl: parsed?.webhook.address ?? '',
+        });
+        return ok({ webhook: { id } });
+      }
+      // `GET /webhooks.json` — what the shop actually holds, which is what
+      // #218's reconciliation reads before it creates anything.
+      return ok({
+        webhooks: world.webhooks.map((webhook) => ({
+          id: webhook.id,
+          topic: webhook.topic,
+          address: webhook.deliveryUrl,
+        })),
       });
-      return ok({ webhook: { id } });
     }
     const webhookDeleteMatch = path.match(/^\/admin\/api\/[^/]+\/webhooks\/([^/]+)\.json$/);
     if (method === 'DELETE' && webhookDeleteMatch) {
-      world.deletedWebhookIds.push(webhookDeleteMatch[1]);
+      const id = webhookDeleteMatch[1];
+      world.deletedWebhookIds.push(id);
+      // The fake's list has to MOVE, or a reconcile that deleted and recreated
+      // would read the stale set on the next pass and every duplicate assertion
+      // would be measuring the fixture rather than the connector.
+      const index = world.webhooks.findIndex((webhook) => webhook.id === id);
+      if (index >= 0) {
+        world.webhooks.splice(index, 1);
+      }
       return ok({});
     }
 
@@ -372,8 +400,10 @@ describeConnectorContract({
     orderUpsert: 'orders/updated',
     inventoryUpdate: 'inventory_levels/update',
   },
-  // The SHIPPED declaration, not a copy of it — see the harness field's note.
+  // The SHIPPED declarations, not copies of them — see the harness fields' notes.
   capabilities: shopifyProvider.capabilities,
+  webhookSecretStrategy: shopifyProvider.webhookSecretStrategy,
+  webhookPathFragment: '/webhooks.json',
   createWorld: () => {
     const catalogue = contractCatalogue(uuidv7());
     return createContractWorld({

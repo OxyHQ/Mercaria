@@ -19,7 +19,7 @@ import {
   updateSyncSettings,
   requestBackfill,
   disconnect,
-  toConnectionDTO,
+  toConnectionDTOWithWebhookFailures,
 } from '../../services/connector-sync.service.js';
 import { isImplementedProvider } from '../../connectors/registry.js';
 import { sendSuccess } from '../../utils/api-response.js';
@@ -90,7 +90,7 @@ export async function connectKeyChannelHandler(req: Request, res: Response): Pro
       consumerKey,
       consumerSecret,
     });
-    sendSuccess(res, toConnectionDTO(conn));
+    sendSuccess(res, await toConnectionDTOWithWebhookFailures(conn));
   } catch (err) {
     log.general.error({ err, provider: req.params.provider }, 'Failed to connect channel with API key');
     respondWithError(res, err, 'Failed to connect channel');
@@ -105,7 +105,7 @@ export async function patchChannelSettingsHandler(req: Request, res: Response): 
       routeParam(req, 'connectionId'),
       req.body as UpdateSyncSettingsInput,
     );
-    sendSuccess(res, toConnectionDTO(conn));
+    sendSuccess(res, await toConnectionDTOWithWebhookFailures(conn));
   } catch (err) {
     log.general.error({ err, connectionId: req.params.connectionId }, 'Failed to update channel settings');
     respondWithError(res, err, 'Failed to update channel settings');

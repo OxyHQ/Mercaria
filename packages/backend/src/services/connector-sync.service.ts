@@ -56,6 +56,7 @@ import type {
   AddressSnapshot,
   ChannelDisconnectPolicy,
   Connection as ConnectionDTO,
+  ConnectionWebhookFailure,
   ConnectorProviderId,
   CreateStoreProductInput,
   CreateStoreProductVariantInput,
@@ -78,11 +79,12 @@ import {
   findConnectionByProvider,
   findConnectionCredentials,
   findConnectionsByStore,
+  findConnectionWebhookFailures,
   findPullConnectionsToReconcile,
   findPushConnections,
   markConnectionError,
   markConnectionSynced,
-  setConnectionWebhooks,
+  recordConnectionWebhookRegistration,
   touchConnectionLastSync,
   updateSyncSettings as updateSyncSettingsColumns,
   upsertConnection,
@@ -260,8 +262,17 @@ function toSyncSettingsDTO(conn: ConnectionRow): SyncSettingsDTO {
  * It never included credentials and now it CANNOT: {@link ConnectionRow} is read
  * through `publicColumns`, so the six envelope columns are absent from the type
  * and a line added here that tried to serialize one would fail `tsc`.
+ *
+ * `webhookFailures` is a PARAMETER rather than something read here, because it
+ * lives on a child table and every caller has a LIST of connections — reading it
+ * inside would make a merchant's channels screen an N+1. It defaults to none, so
+ * a caller that has not read them serializes a connection with no refused
+ * topics rather than a wrong one.
  */
-export function toConnectionDTO(conn: ConnectionRow): ConnectionDTO {
+export function toConnectionDTO(
+  conn: ConnectionRow,
+  webhookFailures: readonly ConnectionWebhookFailure[] = [],
+): ConnectionDTO {
   const dto: ConnectionDTO = {
     id: conn.id,
     storeId: conn.storeId,
@@ -298,6 +309,11 @@ export function toConnectionDTO(conn: ConnectionRow): ConnectionDTO {
     dto.disconnectPolicy = conn.disconnectPolicy;
     dto.disconnectedAt = conn.disconnectedAt.toISOString();
   }
+  // #218: the topics that will NOT deliver, named. Omitted when there are none,
+  // so a healthy connection serializes exactly as it did before.
+  if (webhookFailures.length > 0) {
+    dto.webhookFailures = webhookFailures.map((failure) => ({ ...failure }));
+  }
   return dto;
 }
 
@@ -325,10 +341,24 @@ export function toSyncRunDTO(run: SyncRunRecord): SyncRunDTO {
   return dto;
 }
 
-/** List a store's connections (no credentials). */
+/**
+ * List a store's connections (no credentials).
+ *
+ * The refused webhook topics are read in ONE batched statement for the whole
+ * list — see {@link toConnectionDTO} for why they are not read per connection.
+ */
 export async function listConnections(storeId: string): Promise<ConnectionDTO[]> {
   const connections = await findConnectionsByStore(storeId);
-  return connections.map(toConnectionDTO);
+  const failures = await findConnectionWebhookFailures(connections.map((conn) => conn.id));
+  return connections.map((conn) => toConnectionDTO(conn, failures.get(conn.id) ?? []));
+}
+
+/** One connection's DTO, with the topics its last registration could not subscribe. */
+export async function toConnectionDTOWithWebhookFailures(
+  conn: ConnectionRow,
+): Promise<ConnectionDTO> {
+  const failures = await findConnectionWebhookFailures([conn.id]);
+  return toConnectionDTO(conn, failures.get(conn.id) ?? []);
 }
 
 /** Resolve the OAuth scopes to request for `providerId` (provider-specific config). */
@@ -377,16 +407,37 @@ function generateWebhookSecret(): string {
 }
 
 /**
- * Register the provider's webhooks for a connection and persist their ids onto
- * `conn.webhookIds`. For a `per_connection` provider (WooCommerce) a fresh secret is
- * minted, passed to the provider (which sets it on every webhook), and stored
- * ENCRYPTED on `conn.webhookSecret` for inbound verification; `app_secret` providers
- * (Shopify) verify with the app secret and store nothing here.
+ * Register the provider's webhooks for a connection and persist EVERYTHING the
+ * attempt left behind — the ids, the secret they were registered with, and the
+ * topics the platform refused — in one write (#218).
  *
- * Best-effort: a registration failure logs and leaves the connection working WITHOUT
- * real-time sync (backfill + scheduled re-sync still apply) — it never fails the
- * connect. Any previously-registered webhooks are removed first (idempotent) so a
- * reconnect never accumulates duplicates.
+ * For a `per_connection` provider (WooCommerce) a fresh secret is minted, passed
+ * to the provider (which sets it on every webhook it creates) and stored
+ * ENCRYPTED for inbound verification; `app_secret` providers (Shopify) verify
+ * with the app secret and store nothing here.
+ *
+ * ## What #218 changed, and why each half matters
+ *
+ * The provider no longer throws on the first refused topic: it returns both
+ * lists, so a partial registration PERSISTS the subscriptions that exist rather
+ * than discarding them. That is what makes disconnect able to delete them and a
+ * retry able to converge — and on WooCommerce it is what stops the secret being
+ * lost beside the ids, which turned every delivery into a permanent 401.
+ *
+ * The stale-webhook delete this used to perform first is GONE, and its
+ * disappearance is the fix rather than a simplification: it deleted
+ * `conn.webhookIds`, which on a connection broken by this very bug is EMPTY
+ * while live subscriptions keep delivering. The provider now reconciles against
+ * the platform's own list, which is a superset of what Mercaria believes it
+ * created and therefore the only thing that converges an already-orphaned shop.
+ *
+ * The secret is written only when at least one subscription was created with it:
+ * an attempt that created none must not replace the envelope that still verifies
+ * whatever survived.
+ *
+ * Best-effort: a THROWN registration (a provider bug, a missing secret) logs and
+ * leaves the connection working WITHOUT real-time sync — backfill and the
+ * scheduled re-sync still apply, and it never fails the connect.
  *
  * @returns The connection carrying the ids that were just registered, or the one
  *   it was given when nothing was written. The caller serializes this into the
@@ -400,31 +451,36 @@ async function registerConnectionWebhooks(
 ): Promise<ConnectionRow> {
   const provider = getConnectorProvider(conn.provider);
   try {
-    if (conn.webhookIds.length > 0) {
-      await provider
-        .deleteWebhooks(auth, conn.webhookIds)
-        .catch((err) =>
-          log.general.warn(
-            { err, connectionId: conn.id },
-            'Failed to remove stale connector webhooks before re-registering',
-          ),
-        );
-    }
     const secret =
       provider.webhookSecretStrategy === 'per_connection' ? generateWebhookSecret() : undefined;
-    const ids = await provider.registerWebhooks(auth, {
+    const result = await provider.registerWebhooks(auth, {
       address: getWebhookAddress(conn.provider),
       connectionId: conn.id,
       ...(secret !== undefined ? { secret } : {}),
     });
-    // The secret is written only when one was minted; an `app_secret` provider
-    // leaves the stored envelope untouched rather than clearing it, which is what
-    // the `$set` built without the key did.
-    const updated = await setConnectionWebhooks(
-      conn.id,
-      ids,
-      secret !== undefined ? encryptSecret(secret) : undefined,
-    );
+    const created = result.subscriptions.length > 0;
+    const updated = await recordConnectionWebhookRegistration(conn.id, {
+      webhookIds: result.subscriptions.map((subscription) => subscription.id),
+      ...(secret !== undefined && created ? { secret: encryptSecret(secret) } : {}),
+      failures: result.failures.map((failure) => ({
+        topic: failure.topic,
+        reason: failure.reason,
+        ...(failure.httpStatus === undefined ? {} : { httpStatus: failure.httpStatus }),
+      })),
+    });
+    if (result.failures.length > 0) {
+      // The topics, never the reason alone: "which events will not arrive" is
+      // the operator's question, and the persisted rows are what a merchant
+      // surface renders. The log line is for the incident, not for the merchant.
+      log.general.warn(
+        {
+          connectionId: conn.id,
+          registered: result.subscriptions.length,
+          refused: result.failures.map((failure) => `${failure.topic}:${failure.reason}`),
+        },
+        'Connector webhook registration was refused for some topics',
+      );
+    }
     return updated ?? conn;
   } catch (err) {
     log.general.warn(

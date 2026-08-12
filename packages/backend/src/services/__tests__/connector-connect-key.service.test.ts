@@ -18,7 +18,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const findConnectionByProvider = vi.fn();
 const upsertConnection = vi.fn();
-const setConnectionWebhooks = vi.fn();
+const recordConnectionWebhookRegistration = vi.fn();
 const encryptSecret = vi.fn();
 const getConnectorProvider = vi.fn();
 const verifyConnection = vi.fn();
@@ -26,7 +26,9 @@ const verifyConnection = vi.fn();
 vi.mock('../../db/connectors/connectionRepository.js', () => ({
   findConnectionByProvider: (...args: unknown[]) => findConnectionByProvider(...args),
   upsertConnection: (...args: unknown[]) => upsertConnection(...args),
-  setConnectionWebhooks: (...args: unknown[]) => setConnectionWebhooks(...args),
+  recordConnectionWebhookRegistration: (...args: unknown[]) =>
+    recordConnectionWebhookRegistration(...args),
+  findConnectionWebhookFailures: vi.fn().mockResolvedValue(new Map()),
   findConnection: vi.fn(),
   findConnectionById: vi.fn(),
   findConnectionCredentials: vi.fn(),

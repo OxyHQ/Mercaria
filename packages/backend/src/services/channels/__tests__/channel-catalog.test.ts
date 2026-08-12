@@ -65,12 +65,17 @@ describe('the catalog reads the provider rather than restating it', () => {
   });
 });
 
-describe('the four open defects #69 filed are surfaced, not hidden', () => {
-  it('carries each one with its issue number', () => {
+describe('the open defects #69 filed are surfaced, not hidden', () => {
+  it('carries each one with its issue number, and drops the ones that are fixed', () => {
     // The coordinator's instruction on this issue in so many words: where
     // onboarding would walk a merchant into a known defect, say so and reference
-    // the issue. A merchant connecting WooCommerce today gets no live updates
-    // (#218) and a failed sync on any rate-limiting host (#219).
+    // the issue.
+    //
+    // The EXACT set, not a `toContain`: a list that only ever grows is a wizard
+    // warning about problems somebody fixed, which is the cry-wolf failure one
+    // step further on — and it is the direction this list will drift, because
+    // adding an entry is somebody's diligence and removing one is somebody
+    // remembering. #218's entry went with the fix; #219, #220 and #221 stand.
     const limitations = describeChannel('woocommerce').limitations;
     const byIssue = new Map(
       limitations
@@ -78,7 +83,11 @@ describe('the four open defects #69 filed are surfaced, not hidden', () => {
         .map((limitation) => [limitation.openIssue, limitation]),
     );
 
-    expect([...byIssue.keys()].sort()).toEqual([218, 219, 220, 221]);
+    expect([...byIssue.keys()].sort()).toEqual([219, 220, 221]);
+    expect(
+      limitations.map((limitation) => limitation.code),
+      'a fixed defect must not be reported to a merchant',
+    ).not.toContain('webhook_registration_not_atomic');
     for (const limitation of byIssue.values()) {
       expect(limitation.severity).toBe('degrades');
       // The summary says what the MERCHANT will observe. A summary describing

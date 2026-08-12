@@ -67,11 +67,13 @@ import { publicColumns } from '@oxyhq/db/assert';
 import type {
   ChannelDisconnectPolicy,
   ChannelPauseScope,
+  ConnectionWebhookFailure,
   ConnectorProviderId,
+  ConnectorWebhookFailureReason,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
-import { connections } from '../schema/connectors.js';
+import { connections, connectionWebhookFailures } from '../schema/connectors.js';
 
 /** Every column of `connections` a caller may see — both envelopes withheld. */
 const PUBLIC_CONNECTION_COLUMNS = publicColumns(connections, PROTECTED_COLUMNS);
@@ -426,13 +428,44 @@ export async function updateSyncSettings(
   return row ?? null;
 }
 
+/** One topic a registration could not subscribe, as the caller supplies it. */
+export interface WebhookFailureRecord {
+  readonly topic: string;
+  readonly reason: ConnectorWebhookFailureReason;
+  readonly httpStatus?: number;
+}
+
+/** Everything ONE webhook registration attempt leaves behind. */
+export interface WebhookRegistrationRecord {
+  /** The subscriptions that exist on the platform after the attempt. */
+  readonly webhookIds: readonly string[];
+  /**
+   * The encrypted secret those subscriptions were registered with, for a
+   * `per_connection` provider. ABSENT leaves the stored envelope untouched,
+   * which is what the Mongo `$set` built without the key did — and what an
+   * `app_secret` provider needs, since it mints none.
+   */
+  readonly secret?: EncryptedEnvelope;
+  /** The topics the platform refused. Empty replaces whatever was recorded. */
+  readonly failures: readonly WebhookFailureRecord[];
+}
+
 /**
- * Record the platform webhook ids registered for a connection, and — for a
- * `per_connection` provider — the encrypted secret they were registered with.
+ * Record what ONE webhook-registration attempt left behind — ids, secret and
+ * refused topics — in a single transaction (#218).
  *
- * `secret` absent leaves the stored envelope untouched, which is what the Mongo
- * `$set` built without the key did. Clearing one is {@link disconnectConnection}'s
- * job, and it is the only path that may write those columns `null`.
+ * The three are one fact and are written together for a reason the bug itself
+ * demonstrates: before #218 the ids and the secret were written by this
+ * statement while a refused topic threw before reaching it, so a partial
+ * registration persisted NEITHER — leaving live subscriptions Mercaria held no
+ * id for and, on WooCommerce, signed with a secret it had never stored. Three
+ * separate writes could reproduce that in miniature at any crash point, so
+ * there is deliberately no way to write one without the others.
+ *
+ * The failures are REPLACED wholesale rather than merged: a topic that
+ * succeeded this time must stop being reported, and `UNIQUE(connection_id,
+ * topic)` means a merge would need an upsert-then-prune that says the same
+ * thing less clearly.
  *
  * @returns The updated row, so the connect response carries the ids that were
  *   just registered. The Mongoose path got that by assigning `conn.webhookIds`
@@ -440,28 +473,83 @@ export async function updateSyncSettings(
  *   was to keep the object the caller was about to serialize in step with the
  *   database, which returning the row does honestly.
  */
-export async function setConnectionWebhooks(
+export async function recordConnectionWebhookRegistration(
   connectionId: string,
-  webhookIds: string[],
-  secret: EncryptedEnvelope | undefined,
+  record: WebhookRegistrationRecord,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ConnectionRow | null> {
-  const [row] = await db
-    .update(connections)
-    .set({
-      webhookIds: [...webhookIds],
-      ...(secret
-        ? {
-            webhookSecretCiphertext: secret.ciphertext,
-            webhookSecretIv: secret.iv,
-            webhookSecretTag: secret.tag,
-          }
-        : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(connections.id, connectionId))
-    .returning(CONNECTION_COLUMNS);
-  return row ?? null;
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(connections)
+      .set({
+        webhookIds: [...record.webhookIds],
+        ...(record.secret
+          ? {
+              webhookSecretCiphertext: record.secret.ciphertext,
+              webhookSecretIv: record.secret.iv,
+              webhookSecretTag: record.secret.tag,
+            }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(connections.id, connectionId))
+      .returning(CONNECTION_COLUMNS);
+    if (!row) {
+      return null;
+    }
+
+    await tx
+      .delete(connectionWebhookFailures)
+      .where(eq(connectionWebhookFailures.connectionId, connectionId));
+    if (record.failures.length > 0) {
+      await tx.insert(connectionWebhookFailures).values(
+        record.failures.map((failure) => ({
+          connectionId,
+          topic: failure.topic,
+          reason: failure.reason,
+          httpStatus: failure.httpStatus ?? null,
+        })),
+      );
+    }
+    return row;
+  });
+}
+
+/**
+ * The refused topics recorded for each of `connectionIds`, newest attempt only.
+ *
+ * Batched, because every caller has a LIST of connections — the admin channel
+ * list, the readiness derivation — and one query per connection is the shape
+ * that turns a merchant's channels screen into an N+1.
+ */
+export async function findConnectionWebhookFailures(
+  connectionIds: readonly string[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<Map<string, ConnectionWebhookFailure[]>> {
+  const byConnection = new Map<string, ConnectionWebhookFailure[]>();
+  if (connectionIds.length === 0) {
+    return byConnection;
+  }
+  const rows = await db
+    .select()
+    .from(connectionWebhookFailures)
+    .where(inArray(connectionWebhookFailures.connectionId, [...connectionIds]))
+    .orderBy(connectionWebhookFailures.topic);
+  for (const row of rows) {
+    const failure: ConnectionWebhookFailure = {
+      topic: row.topic,
+      reason: row.reason,
+      recordedAt: row.createdAt.toISOString(),
+      ...(row.httpStatus === null ? {} : { httpStatus: row.httpStatus }),
+    };
+    const bucket = byConnection.get(row.connectionId);
+    if (bucket) {
+      bucket.push(failure);
+    } else {
+      byConnection.set(row.connectionId, [failure]);
+    }
+  }
+  return byConnection;
 }
 
 /**
@@ -480,6 +568,16 @@ export async function disconnectConnection(
   connectionId: string,
   policy: ChannelDisconnectPolicy,
   db: DatabaseOrTransaction = getDb(),
+): Promise<ConnectionRow | null> {
+  return db.transaction(async (tx) => disconnectWithin(tx, storeId, connectionId, policy));
+}
+
+/** The disconnect's statements, in the transaction that keeps them one act. */
+async function disconnectWithin(
+  db: DatabaseOrTransaction,
+  storeId: string,
+  connectionId: string,
+  policy: ChannelDisconnectPolicy,
 ): Promise<ConnectionRow | null> {
   const [row] = await db
     .update(connections)
@@ -502,7 +600,17 @@ export async function disconnectConnection(
     })
     .where(and(eq(connections.id, connectionId), eq(connections.storeId, storeId)))
     .returning(CONNECTION_COLUMNS);
-  return row ?? null;
+  if (!row) {
+    return null;
+  }
+  // The refused topics described the subscriptions that were live; there are
+  // none now. Leaving them would report "these events will not arrive" about a
+  // channel that receives nothing at all, which is a different fact and the one
+  // `status: 'disconnected'` already carries.
+  await db
+    .delete(connectionWebhookFailures)
+    .where(eq(connectionWebhookFailures.connectionId, connectionId));
+  return row;
 }
 
 /**

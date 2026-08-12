@@ -46,7 +46,10 @@ import type {
 } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
-import { findConnectionsByStore } from '../../db/connectors/connectionRepository.js';
+import {
+  findConnectionsByStore,
+  findConnectionWebhookFailures,
+} from '../../db/connectors/connectionRepository.js';
 import { findLatestSyncRunPerConnection } from '../../db/connectors/syncRunRepository.js';
 import { listFeedConfigurationsForStore } from '../../db/feedImport/feedConfigurationRepository.js';
 import { listings } from '../../db/schema/catalog.js';
@@ -83,6 +86,16 @@ export async function deriveChannelReadiness(storeId: string): Promise<ChannelRe
   const latestRuns = await findLatestSyncRunPerConnection(live.map((connection) => connection.id));
   const successes = [...latestRuns.values()].filter((run) => run.status === 'completed');
   const anyRunFailed = [...latestRuns.values()].some((run) => run.status === 'failed');
+  // #218: a live connection whose last registration could not subscribe a topic
+  // is a catalogue that stops tracking the platform between scheduled syncs,
+  // with every run reporting `completed`. That is precisely the state a run
+  // status cannot express and a merchant discovers as "my prices are stale", so
+  // it degrades the axis rather than being visible only on the channel's own
+  // screen. The refused TOPICS are on the connection DTO; this is the alarm.
+  const webhookFailures = await findConnectionWebhookFailures(
+    live.map((connection) => connection.id),
+  );
+  const anyWebhookRefused = [...webhookFailures.values()].some((topics) => topics.length > 0);
   const lastSuccessfulSyncAt = successes
     .map((run) => run.finishedAt ?? run.startedAt)
     .sort((a, b) => b.getTime() - a.getTime())[0];
@@ -128,7 +141,11 @@ export async function deriveChannelReadiness(storeId: string): Promise<ChannelRe
   return {
     storeId,
     catalog: {
-      state: catalogState(connectedChannelTypes.length, anyRunFailed, successes.length),
+      state: catalogState(
+        connectedChannelTypes.length,
+        anyRunFailed || anyWebhookRefused,
+        successes.length,
+      ),
       connectedChannelTypes,
       nativeCheckoutCapableCount: nativeCheckoutCapable.length,
       lastSuccessfulSyncAt: lastSuccessfulSyncAt?.toISOString(),
@@ -147,18 +164,18 @@ export async function deriveChannelReadiness(storeId: string): Promise<ChannelRe
 /**
  * The catalogue axis.
  *
- * `degraded` rather than `blocked` when a run failed but earlier ones succeeded:
- * the products are there and one pass did not land, which is a different thing
- * from having no catalogue at all — and a merchant who cannot tell the two apart
+ * `degraded` rather than `blocked` when something did not land but earlier
+ * passes succeeded: the products are there, which is a different thing from
+ * having no catalogue at all — and a merchant who cannot tell the two apart
  * either panics about a transient failure or ignores a real one.
  */
 function catalogState(
   connectedCount: number,
-  anyRunFailed: boolean,
+  anythingNotLanding: boolean,
   successCount: number,
 ): ChannelHealthState {
   if (connectedCount === 0) return 'blocked';
-  if (anyRunFailed || successCount === 0) return 'degraded';
+  if (anythingNotLanding || successCount === 0) return 'degraded';
   return 'healthy';
 }
 

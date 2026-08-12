@@ -17,11 +17,14 @@ is what the rules ARE and why.
 
 **A merchant walked into a known defect and did not know.** #69's connector
 contract suite filed four open defects (#218–#221) while proving what the
-connectors do and do not do. The most consequential — #218 — means that
-connecting WooCommerce today registers webhooks part-way, loses the signing
-secret with them, and leaves every delivery rejected forever. The channel works;
-live updates simply never arrive. A merchant who is not told reports it as
-Mercaria being broken, weeks later, after wondering why prices lag.
+connectors do and do not do. The most consequential — #218, since FIXED — meant
+that connecting WooCommerce registered webhooks part-way, lost the signing secret
+with them, and left every delivery rejected forever. The channel worked; live
+updates simply never arrived. A merchant who is not told reports that as Mercaria
+being broken, weeks later, after wondering why prices lag. What replaced the
+limitation is not silence: a refused topic is now RECORDED on the connection and
+served as `Connection.webhookFailures`, so the merchant is told which events will
+not arrive rather than told that a whole channel is degraded.
 
 **A client answered "can I sell yet" from provider flags.** The dashboard held a
 hard-coded `PROVIDERS` table with an `available` boolean per connector. It could
@@ -104,10 +107,16 @@ different copy per code and because "does this block activation" has to be
 checkable — a sentence is not. Each carries a severity and, where one exists,
 the OPEN Mercaria issue that would remove it.
 
-The four #69 defects appear on WooCommerce as `degrades` with their issue
-numbers, and their summaries say what the MERCHANT will observe rather than what
-the code does wrong: "live updates from WooCommerce do not currently arrive"
-is actionable; "`registerWebhooks` discards its ids" is not.
+The #69 defects that are still open appear on WooCommerce as `degrades` with
+their issue numbers, and their summaries say what the MERCHANT will observe
+rather than what the code does wrong: "a sync fails outright if the WordPress
+host rate-limits it" is actionable; "`registerWebhooks` discards its ids" is not.
+
+**A fixed defect leaves the list, and `channel-catalog.test.ts` asserts the EXACT
+issue set rather than containment.** A list that only ever grows is a wizard
+warning about problems somebody solved, which is the cry-wolf failure one step
+on — and it is the direction this list drifts, because adding an entry is
+somebody's diligence and removing one is somebody remembering.
 
 `blocks_activation` is the only severity the onboarding gate reads, so it means
 "no merchant can get past this" rather than "this is bad". Today only an
@@ -365,13 +374,17 @@ key pair genuinely are different things (#87 UX 2).
 
 ## Known defects a merchant is told about
 
-These are #69's, filed and open. The catalog carries each with its issue number
-so onboarding does not walk a merchant into one silently.
+These are #69's, filed and still open. The catalog carries each with its issue
+number so onboarding does not walk a merchant into one silently.
 
-- **#218 — WooCommerce live updates do not arrive.** Webhook registration is
-  partially effectful and discards the ids and the per-connection secret it
-  created, so every delivery is rejected. Scheduled syncs are unaffected.
-  Disconnecting cannot remove the subscriptions WooCommerce created.
+**#218 is FIXED and is no longer in the list.** Registration is per-topic fault
+tolerant, reconciles against the platform's own subscription list before creating
+anything, and persists the ids, the secret and the refused topics in one
+transaction. What a merchant sees instead of a blanket limitation is the actual
+refusals: `Connection.webhookFailures` names each topic with its HTTP status and
+a classified reason, and `ChannelReadiness` reports the catalogue axis as
+`degraded` while any exist.
+
 - **#219 — WooCommerce has no rate-limit handling.** A sync fails outright if the
   WordPress host answers 429, which hosts behind Cloudflare or Wordfence do
   routinely. The failure is safe — nothing is archived — but needs a manual
@@ -421,7 +434,7 @@ Each is a named contract rather than a stub that lies.
 
 ## Production-readiness checklist
 
-- [ ] #218 fixed, or the WooCommerce limitation copy updated to match reality.
+- [x] #218 fixed — the limitation is gone from the catalog and the refused topics are served per connection instead.
 - [ ] `CONNECTOR_OAUTH_REDIRECT_BASE_URL` set, or the catalog correctly reports
       every connector as `not_configured` (it does — verify on the real
       deployment rather than trusting this line).

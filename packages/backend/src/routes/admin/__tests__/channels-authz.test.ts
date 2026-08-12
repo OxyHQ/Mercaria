@@ -22,7 +22,7 @@ vi.mock('../../../services/connector-sync.service.js', () => ({
   updateSyncSettings: vi.fn(),
   requestBackfill: vi.fn().mockResolvedValue(undefined),
   disconnect: vi.fn(),
-  toConnectionDTO: vi.fn().mockReturnValue({ id: '2'.repeat(24) }),
+  toConnectionDTOWithWebhookFailures: vi.fn().mockResolvedValue({ id: '2'.repeat(24) }),
 }));
 vi.mock('../../../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },

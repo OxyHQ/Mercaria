@@ -39,6 +39,7 @@ import type {
   NormalizedOrderLine,
   NormalizedProduct,
   NormalizedVariant,
+  PlatformWebhookSubscription,
   PushFulfillment,
   PushFulfillmentLine,
   PushProduct,
@@ -46,6 +47,11 @@ import type {
   PushVariant,
   ShopIdentity,
 } from '../types.js';
+import {
+  classifyWebhookHttpStatus,
+  reconcileWebhookSubscriptions,
+  type WebhookProbe,
+} from '../webhook-registration.js';
 import { getShopifyCredentials } from './config.js';
 import { shopifyTransport, type ShopifyHttpResponse, type ShopifyTransport } from './http.js';
 
@@ -78,6 +84,42 @@ const ORDER_WEBHOOK_TOPICS = ['orders/create', 'orders/updated'] as const;
  * `off` simply ignores the delivery.
  */
 const INVENTORY_WEBHOOK_TOPICS = ['inventory_levels/update'] as const;
+/**
+ * Every topic `registerWebhooks` subscribes, in registration order.
+ *
+ * Exported because it is half of a fact whose other half lives in
+ * `config.ts` — Shopify gates `POST /webhooks.json` on the READ scope of the
+ * topic being subscribed, so the default scope set and this list have to agree
+ * or the default configuration lands in exactly #218's partial registration.
+ * {@link WEBHOOK_TOPIC_SCOPES} is that agreement, and
+ * `__tests__/shopify-scopes.test.ts` is what fails when it stops holding.
+ */
+export const SHOPIFY_WEBHOOK_TOPICS = [
+  ...PRODUCT_WEBHOOK_TOPICS,
+  ...ORDER_WEBHOOK_TOPICS,
+  ...INVENTORY_WEBHOOK_TOPICS,
+] as const;
+
+/**
+ * The OAuth scope Shopify requires before it will subscribe each topic.
+ *
+ * A TABLE rather than a prefix rule: `inventory_levels/update` needs
+ * `read_inventory` and nothing about the string says so, and a rule derived from
+ * the prefix would silently answer for a topic nobody has checked. Exhaustive
+ * over {@link SHOPIFY_WEBHOOK_TOPICS} by construction — the `Record` key type is
+ * what makes adding a topic without deciding its scope a `tsc` failure rather
+ * than a registration that 403s on a real store.
+ */
+export const WEBHOOK_TOPIC_SCOPES: Readonly<
+  Record<(typeof SHOPIFY_WEBHOOK_TOPICS)[number], string>
+> = {
+  'products/create': 'read_products',
+  'products/update': 'read_products',
+  'products/delete': 'read_products',
+  'orders/create': 'read_orders',
+  'orders/updated': 'read_orders',
+  'inventory_levels/update': 'read_inventory',
+};
 /** Shopify's cap on `inventory_item_ids` per `inventory_levels.json` request. */
 const INVENTORY_ITEMS_PER_REQUEST = 50;
 /**
@@ -147,6 +189,19 @@ const productsResponseSchema = z.object({
 
 const webhookResponseSchema = z.object({
   webhook: z.object({ id: z.union([z.number(), z.string()]) }),
+});
+
+/** `GET /webhooks.json` — every subscription this shop currently holds. */
+const webhookListResponseSchema = z.object({
+  webhooks: z
+    .array(
+      z.object({
+        id: z.union([z.number(), z.string()]),
+        topic: z.string(),
+        address: z.string().default(''),
+      }),
+    )
+    .default([]),
 });
 
 /** A create/update product mutation response — only the assigned id is consumed. */
@@ -685,6 +740,21 @@ function assertOk(response: ShopifyHttpResponse, context: string): void {
   }
 }
 
+/**
+ * Parse a JSON body, or `undefined` when it is not JSON.
+ *
+ * The webhook-registration path classifies an unreadable body as
+ * `unexpected_response` rather than raising, so it needs the failure as a VALUE.
+ * Every other caller wants the throw and uses {@link parseJson}.
+ */
+function safeParseJson(response: ShopifyHttpResponse): unknown {
+  try {
+    return JSON.parse(response.body);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Parse a JSON body or throw a clear error. */
 function parseJson(response: ShopifyHttpResponse, context: string): unknown {
   try {
@@ -815,6 +885,47 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
    * it never leaks between the singleton and injected test providers.
    */
   const collectionIndexCache = new Map<string, { index: Map<string, string[]>; builtAt: number }>();
+
+  /**
+   * `GET /webhooks.json`, as a PROBE rather than a throw.
+   *
+   * The registration path needs the refusal as a value — it turns it into one
+   * failure per desired topic — while `listWebhooks` on the provider interface
+   * is an ordinary read that raises. One request builder, two callers, so the
+   * two cannot answer differently about what the platform said.
+   */
+  async function listShopifyWebhooks(
+    auth: ConnectorAuth,
+  ): Promise<WebhookProbe<PlatformWebhookSubscription[]>> {
+    let response: ShopifyHttpResponse;
+    try {
+      response = await transport.get(
+        `${apiBase(auth.shopDomain)}/webhooks.json?limit=${PAGE_LIMIT}`,
+        { 'X-Shopify-Access-Token': auth.accessToken, Accept: 'application/json' },
+      );
+    } catch {
+      return { outcome: 'refused', reason: 'transport_error' };
+    }
+    if (response.status < 200 || response.status >= 300) {
+      return {
+        outcome: 'refused',
+        reason: classifyWebhookHttpStatus(response.status),
+        httpStatus: response.status,
+      };
+    }
+    const parsed = webhookListResponseSchema.safeParse(safeParseJson(response));
+    if (!parsed.success) {
+      return { outcome: 'refused', reason: 'unexpected_response', httpStatus: response.status };
+    }
+    return {
+      outcome: 'ok',
+      value: parsed.data.webhooks.map((webhook) => ({
+        id: String(webhook.id),
+        topic: webhook.topic,
+        deliveryUrl: webhook.address,
+      })),
+    };
+  }
 
   async function verifyConnection(auth: ConnectorAuth): Promise<ShopIdentity> {
     const response = await transport.get(`${apiBase(auth.shopDomain)}/shop.json`, {
@@ -1174,30 +1285,86 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
       }
     },
 
-    async registerWebhooks(auth: ConnectorAuth, params: { address: string }): Promise<string[]> {
-      const ids: string[] = [];
-      for (const topic of [
-        ...PRODUCT_WEBHOOK_TOPICS,
-        ...ORDER_WEBHOOK_TOPICS,
-        ...INVENTORY_WEBHOOK_TOPICS,
-      ]) {
-        const response = await transport.post(
-          `${apiBase(auth.shopDomain)}/webhooks.json`,
-          {
-            'X-Shopify-Access-Token': auth.accessToken,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          JSON.stringify({ webhook: { topic, address: params.address, format: 'json' } }),
-        );
-        assertOk(response, `webhook create (${topic})`);
-        const parsed = webhookResponseSchema.safeParse(parseJson(response, 'webhook create'));
-        if (!parsed.success) {
-          throw validationError(`Unexpected Shopify webhook payload: ${parsed.error.message}`);
+    listWebhooks(auth: ConnectorAuth): Promise<PlatformWebhookSubscription[]> {
+      return listShopifyWebhooks(auth).then((probe) => {
+        if (probe.outcome === 'refused') {
+          throw validationError(
+            `Shopify webhook list failed (${probe.reason}${
+              probe.httpStatus === undefined ? '' : `, HTTP ${probe.httpStatus}`
+            })`,
+          );
         }
-        ids.push(String(parsed.data.webhook.id));
-      }
-      return ids;
+        return probe.value;
+      });
+    },
+
+    /**
+     * Register every topic, tolerating each refusal separately (#218).
+     *
+     * Shopify's secret is the APP secret, so a subscription an earlier
+     * registration created still verifies — hence `adoptExisting: true`, which
+     * also means a reconnect costs one `GET` rather than twelve calls.
+     */
+    registerWebhooks(auth: ConnectorAuth, params: { address: string }) {
+      const headers = {
+        'X-Shopify-Access-Token': auth.accessToken,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      };
+      return reconcileWebhookSubscriptions({
+        topics: SHOPIFY_WEBHOOK_TOPICS,
+        deliveryUrl: params.address,
+        adoptExisting: true,
+        list: () => listShopifyWebhooks(auth),
+        create: async (topic) => {
+          let response: ShopifyHttpResponse;
+          try {
+            response = await transport.post(
+              `${apiBase(auth.shopDomain)}/webhooks.json`,
+              headers,
+              JSON.stringify({ webhook: { topic, address: params.address, format: 'json' } }),
+            );
+          } catch {
+            return { outcome: 'refused', reason: 'transport_error' };
+          }
+          if (response.status < 200 || response.status >= 300) {
+            return {
+              outcome: 'refused',
+              reason: classifyWebhookHttpStatus(response.status),
+              httpStatus: response.status,
+            };
+          }
+          const parsed = webhookResponseSchema.safeParse(safeParseJson(response));
+          if (!parsed.success) {
+            return {
+              outcome: 'refused',
+              reason: 'unexpected_response',
+              httpStatus: response.status,
+            };
+          }
+          return { outcome: 'ok', value: String(parsed.data.webhook.id) };
+        },
+        remove: async (id) => {
+          let response: ShopifyHttpResponse;
+          try {
+            response = await transport.del(
+              `${apiBase(auth.shopDomain)}/webhooks/${encodeURIComponent(id)}.json`,
+              { 'X-Shopify-Access-Token': auth.accessToken, Accept: 'application/json' },
+            );
+          } catch {
+            return { outcome: 'refused', reason: 'transport_error' };
+          }
+          // 404 = already gone, which is the outcome asked for (idempotent).
+          if (response.status === 404 || (response.status >= 200 && response.status < 300)) {
+            return { outcome: 'ok', value: undefined };
+          }
+          return {
+            outcome: 'refused',
+            reason: classifyWebhookHttpStatus(response.status),
+            httpStatus: response.status,
+          };
+        },
+      });
     },
 
     async deleteWebhooks(auth: ConnectorAuth, webhookIds: string[]): Promise<void> {

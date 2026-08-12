@@ -118,6 +118,8 @@ interface ScheduledFault {
   readonly pathFragment: string;
   readonly status: number;
   readonly headers: Record<string, string>;
+  /** When set, only this METHOD is faulted — see {@link ContractWorld.fail}. */
+  readonly method?: ContractCall['method'];
   remaining: number;
 }
 
@@ -161,10 +163,26 @@ export interface ContractWorld {
   /**
    * Schedule a fault. The next `times` requests whose URL contains `pathFragment`
    * are answered with `status` (and `headers`) instead of the real answer.
+   *
+   * `method` narrows it to one verb, and the webhook cases need that rather than
+   * want it: both platforms serve the subscription LIST and the subscription
+   * CREATE from the same path, so a fault keyed on the URL alone cannot express
+   * "the platform refuses to create this topic" — it refuses the list too, and
+   * the connector then correctly declines to create anything, which measures a
+   * different property entirely.
    */
-  fail(pathFragment: string, status: number, times: number, headers?: Record<string, string>): void;
+  fail(
+    pathFragment: string,
+    status: number,
+    times: number,
+    headers?: Record<string, string>,
+    method?: ContractCall['method'],
+  ): void;
   /** Consume a scheduled fault for `url`, or `undefined` when none applies. */
-  takeFault(url: string): { status: number; headers: Record<string, string> } | undefined;
+  takeFault(
+    url: string,
+    method?: ContractCall['method'],
+  ): { status: number; headers: Record<string, string> } | undefined;
   /** Record an answered request. */
   record(call: ContractCall): void;
   /** How many requests the fake answered whose URL contains `pathFragment`. */
@@ -197,11 +215,22 @@ export function createContractWorld(init: {
     deletedWebhookIds,
     pushedProducts,
     pushedFulfillments,
-    fail(pathFragment, status, times, headers = {}) {
-      faults.push({ pathFragment, status, headers, remaining: times });
+    fail(pathFragment, status, times, headers = {}, method) {
+      faults.push({
+        pathFragment,
+        status,
+        headers,
+        remaining: times,
+        ...(method === undefined ? {} : { method }),
+      });
     },
-    takeFault(url) {
-      const fault = faults.find((f) => f.remaining > 0 && url.includes(f.pathFragment));
+    takeFault(url, method) {
+      const fault = faults.find(
+        (f) =>
+          f.remaining > 0 &&
+          url.includes(f.pathFragment) &&
+          (f.method === undefined || f.method === method),
+      );
       if (!fault) {
         return undefined;
       }

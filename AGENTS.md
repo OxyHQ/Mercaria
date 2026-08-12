@@ -3508,13 +3508,25 @@ CHECK the database would have refused all looked identical to a green suite.
 - **Acceptance criterion 7 is NOT met and `HANDOFF.md` still says so.** No
   Shopify store, no WooCommerce site and no WordPress plugin install has been
   exercised; nothing here may be read as evidence that one has.
-- Four defects found while building it are filed (#218, #219, #220, #221)
-  rather than fixed here, and are listed in the runbook §8 with what a real run should expect: the
-  partially-effectful webhook registration that discards the ids and the
-  WooCommerce secret it just created; WooCommerce's total absence of 429
-  handling; a WooCommerce `product.*` webhook collapsing a variable product to
-  one variant permanently; and the non-atomic create-then-stamp that strands a
-  listing no later sync can match.
+- Four defects found while building it were filed (#218, #219, #220, #221)
+  rather than fixed there. **#218 is FIXED:** `registerWebhooks` returns a
+  structured result (every subscription that exists, every topic REFUSED with its
+  status and a classified reason), reconciles against the platform's OWN
+  subscription list before creating anything — ADOPTING on Shopify, RECREATING on
+  WooCommerce, where the secret is fixed at creation and never disclosed again —
+  and `registerConnectionWebhooks` persists the ids, the secret and the refusals
+  in ONE transaction. So a partial registration is disconnectable, retryable
+  without duplicating anything, converges a shop already carrying orphans, and
+  NAMES the events that will not arrive (`Connection.webhookFailures`, plus a
+  `degraded` catalogue axis on `ChannelReadiness`). `SHOPIFY_SCOPES` now defaults
+  to the full runbook §3.2 string, gated by `shopify-scopes.test.ts` against both
+  the registered topics and the endpoints each declared capability calls — the
+  old `['read_products']` default WAS the configuration that triggered it.
+  #219, #220 and #221 stand, and are listed in the runbook §8 with what a real
+  run should expect: WooCommerce's total absence of 429 handling; a WooCommerce
+  `product.*` webhook collapsing a variable product to one variant permanently;
+  and the non-atomic create-then-stamp that strands a listing no later sync can
+  match.
 
 ## Supplier-fulfilled retail fulfilment and the Moovo boundary (#126, ADR 0004 D2.6/D2.7/D2.8/D9.4/D9.6/D9.9)
 

@@ -16,6 +16,7 @@
 import type {
   AddressSnapshot,
   ConnectorProviderId,
+  ConnectorWebhookFailureReason,
   CurrencyCode,
   DualMoney,
   FxRateSnapshot,
@@ -64,6 +65,51 @@ export type WebhookEventKind =
   | 'order_upsert'
   /** A stock-level change for a single inventory item (re-fetch + absolute set). */
   | 'inventory_update';
+
+/**
+ * One webhook subscription as the PLATFORM currently holds it.
+ *
+ * `deliveryUrl` is the whole point: it is what tells a subscription Mercaria's
+ * endpoint owns apart from one somebody else's integration created on the same
+ * shop, and reconciliation may only ever touch the former.
+ */
+export interface PlatformWebhookSubscription {
+  /** The platform's own subscription id. */
+  readonly id: string;
+  /** The platform's own topic string (`products/update`, `product.updated`). */
+  readonly topic: string;
+  /** Where the platform delivers it. */
+  readonly deliveryUrl: string;
+}
+
+/** One subscription this connector holds after a registration. */
+export interface RegisteredWebhook {
+  readonly id: string;
+  readonly topic: string;
+}
+
+/** One topic the platform would not subscribe, and why. */
+export interface WebhookRegistrationFailure {
+  readonly topic: string;
+  readonly reason: ConnectorWebhookFailureReason;
+  /** The status the platform answered; absent when the call never reached it. */
+  readonly httpStatus?: number;
+}
+
+/**
+ * What a registration attempt left behind — BOTH halves, always.
+ *
+ * The two lists are not complementary views of one fact: a partial registration
+ * has entries in each, and reporting only the successes is how #218's ids got
+ * discarded while reporting only the failures would lose the subscriptions that
+ * DO exist. `subscriptions` is what the caller persists and disconnect deletes
+ * by; `failures` is what a merchant surface renders as "these events will not
+ * arrive".
+ */
+export interface WebhookRegistrationResult {
+  readonly subscriptions: readonly RegisteredWebhook[];
+  readonly failures: readonly WebhookRegistrationFailure[];
+}
 
 /** The external shop's identity, as reported by the platform. */
 export interface ShopIdentity {
@@ -499,10 +545,32 @@ export interface ConnectorProvider {
   pushFulfillment(auth: ConnectorAuth, fulfillment: PushFulfillment): Promise<void>;
 
   /**
+   * Every webhook subscription that currently exists on the platform for this
+   * shop, whatever created it and wherever it delivers.
+   *
+   * The registration path reads it BEFORE creating anything (#218), because
+   * `Connection.webhookIds` records what Mercaria believes it created while the
+   * platform records what EXISTS — and those two diverge exactly when it
+   * matters. A registration that failed part-way left live subscriptions
+   * Mercaria holds no id for, and every later reconnect added another full set
+   * beside them. Reconciling against the platform's own list is the only thing
+   * that converges a shop already in that state.
+   */
+  listWebhooks(auth: ConnectorAuth): Promise<PlatformWebhookSubscription[]>;
+
+  /**
    * Register the provider's webhooks pointing at `address` (the public
-   * inbound-webhook base URL for the provider). Returns the platform's ids for the
-   * created subscriptions, to persist on the `Connection` and delete on disconnect.
-   * The set of topics is the provider's own concern.
+   * inbound-webhook base URL for the provider). The set of topics is the
+   * provider's own concern.
+   *
+   * PER-TOPIC FAULT TOLERANT (#218), and that is the contract rather than an
+   * implementation detail: it returns every subscription that exists on the
+   * platform when it finishes — created here, or adopted from an earlier
+   * registration — AND every topic the platform refused, with the status and a
+   * classified {@link ConnectorWebhookFailureReason}. It never throws on a
+   * refused topic and never abandons a subscription it created, so a PARTIAL
+   * registration still leaves the caller able to persist the ids, disconnect
+   * cleanly, and retry without duplicating anything.
    *
    * `connectionId` + `secret` support `per_connection` webhook auth: a provider that
    * cannot lean on one app-wide secret (WooCommerce) builds a per-connection delivery
@@ -514,7 +582,7 @@ export interface ConnectorProvider {
   registerWebhooks(
     auth: ConnectorAuth,
     params: { address: string; connectionId: string; secret?: string },
-  ): Promise<string[]>;
+  ): Promise<WebhookRegistrationResult>;
 
   /**
    * Delete the given webhook subscriptions by their platform ids. Idempotent: an

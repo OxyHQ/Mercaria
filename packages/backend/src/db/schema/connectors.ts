@@ -29,6 +29,7 @@ import {
   CHANNEL_API_KEY_SCOPES,
   CHANNEL_DISCONNECT_POLICIES,
   CONNECTOR_PROVIDER_IDS,
+  CONNECTOR_WEBHOOK_FAILURE_REASONS,
   type ConnectionMode,
   type ConnectionStatus,
   type SyncResourceDirection,
@@ -258,6 +259,58 @@ export const connections = pgTable(
       sql`num_nonnulls(${t.webhookSecretCiphertext}, ${t.webhookSecretIv}, ${t.webhookSecretTag}) in (0, 3)`,
     ),
     uniqueIndex('connections_store_id_provider_key').on(t.storeId, t.provider),
+  ],
+);
+
+/**
+ * `connection_webhook_failures` — the topics the platform REFUSED at the last
+ * registration (#218).
+ *
+ * ## Why a child table and not a column
+ *
+ * The fact is a repeated `{topic, reason, status}` record, which
+ * `CONVENTIONS.md` §"Arrays and objects" sends to real columns or a child table
+ * — and the two representable alternatives are both worse. Three parallel
+ * `text[]`/`integer[]` columns on `connections` are three representations of one
+ * fact that can disagree in LENGTH, which is exactly why
+ * `product_variant_option_values` is a table. A `jsonb` bag fails the register's
+ * only test: the shape is known, Mercaria's own code composes it, and `reason`
+ * is a CLOSED value set that a `jsonb` value could not carry a CHECK for.
+ *
+ * ## It describes the LAST attempt, not a history
+ *
+ * Every registration replaces this connection's rows wholesale, in the same
+ * transaction that writes `connections.webhook_ids` and the webhook secret — so
+ * the three can never describe different attempts. `UNIQUE(connection_id,
+ * topic)` is what makes that replacement converge rather than accumulate: a
+ * topic is refused or it is not, and one row is the whole of that fact.
+ *
+ * `http_status` is NULLABLE and the null case is load-bearing: a
+ * `transport_error` never reached the platform, so there is no status to record
+ * and a zero would be a status nobody answered.
+ */
+export const connectionWebhookFailures = pgTable(
+  'connection_webhook_failures',
+  {
+    id: generatedId(),
+    connectionId: text()
+      .notNull()
+      .references(() => connections.id, { onDelete: 'cascade' }),
+    /** The PLATFORM's own topic string (`orders/create`, `product.updated`). */
+    topic: text().notNull(),
+    reason: text({ enum: asEnumValues(CONNECTOR_WEBHOOK_FAILURE_REASONS) }).notNull(),
+    /** The status the platform answered; NULL when the call never reached it. */
+    httpStatus: integer(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    checkOneOf(
+      'connection_webhook_failures_reason_check',
+      t.reason,
+      CONNECTOR_WEBHOOK_FAILURE_REASONS,
+    ),
+    uniqueIndex('connection_webhook_failures_connection_id_topic_key').on(t.connectionId, t.topic),
   ],
 );
 
