@@ -3522,11 +3522,17 @@ CHECK the database would have refused all looked identical to a green suite.
   to the full runbook §3.2 string, gated by `shopify-scopes.test.ts` against both
   the registered topics and the endpoints each declared capability calls — the
   old `['read_products']` default WAS the configuration that triggered it.
-  #219, #220 and #221 stand, and are listed in the runbook §8 with what a real
-  run should expect: WooCommerce's total absence of 429 handling; a WooCommerce
-  `product.*` webhook collapsing a variable product to one variant permanently;
-  and the non-atomic create-then-stamp that strands a listing no later sync can
-  match.
+  **#219 is FIXED:** `createWooCommerceTransport` retries a 429 (`Retry-After`
+  capped at 30s per wait, else an equal-jitter backoff, bounded by a 60s total
+  budget and five retries) on every method including the registration POST, and
+  the 429 still surfaces afterwards so a rate-limited run fails as before and
+  archives nothing. Shopify's proactive self-throttle was deliberately NOT
+  ported — WordPress publishes no leaky-bucket header, and `no_rate_limit_retry`
+  became a CAPABILITY-derived channel limitation rather than a hardcoded defect.
+  #220 and #221 stand, and are listed in the runbook §8 with what a real run
+  should expect: a WooCommerce `product.*` webhook collapsing a variable product
+  to one variant permanently; and the non-atomic create-then-stamp that strands a
+  listing no later sync can match.
 
 ## Supplier-fulfilled retail fulfilment and the Moovo boundary (#126, ADR 0004 D2.6/D2.7/D2.8/D9.4/D9.6/D9.9)
 

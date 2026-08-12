@@ -864,13 +864,19 @@ export function createWooCommerceProvider(
     // Read by the #69 contract suite AND by #87's channel catalog. Every `false`
     // here is measured rather than assumed: the suite asserts the REFUSAL on
     // each of these branches, so a capability that silently appeared or
-    // disappeared cannot report the same green. `retriesRateLimit` is #219 —
-    // `woocommerce/http.ts` has neither a `Retry-After` retry nor a
-    // self-throttle, and `assertOk` turns any 429 into a failed run.
+    // disappeared cannot report the same green.
+    //
+    // `retriesRateLimit` is TRUE since #219: `createWooCommerceTransport` wraps
+    // the raw layer with a `Retry-After`-honouring 429 retry. It is deliberately
+    // NOT Shopify's full wrapper — WordPress publishes no leaky-bucket header,
+    // so there is no proactive self-throttle to port and inventing one would be
+    // Mercaria guessing somebody's hosting plan (see `http.ts`). The contract
+    // suite's shared 429 case now asserts the retry rather than the failure, and
+    // the retries are visible in the fake platform's call log.
     capabilities: {
       pushesProducts: false,
       pushesFulfillment: false,
-      retriesRateLimit: false,
+      retriesRateLimit: true,
       inventoryWebhook: false,
     },
 

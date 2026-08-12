@@ -8,18 +8,19 @@
  * is a real WordPress site — see
  * `docs/runbooks/connector-real-store-verification.md`.
  *
- * ## Two DECLARED differences from Shopify, both measured rather than skipped
+ * The transport is injected at the RAW layer (`createWooCommerceTransport(fake,
+ * …)`) rather than replacing `wooCommerceTransport` wholesale, so the 429 retry
+ * under test is the shipped one. Its clock and sleep are stubbed, so a
+ * `Retry-After` of ten seconds costs nothing.
  *
- * 1. `retriesRateLimit: false`. The WooCommerce transport has no 429 wrapper at
- *    all, where the Shopify one carries a `Retry-After`-honouring retry plus a
- *    leaky-bucket self-throttle. A WordPress host behind Cloudflare, Wordfence or
- *    a plan-level rate limit answers 429 routinely, so this is not theoretical.
- *    The suite asserts the CURRENT behaviour — the run fails and archives
- *    nothing — which is safe but is not what the issue's "pagination and retry"
- *    scenario asks for. Filed as its own issue; see the runbook.
- * 2. `pushesProducts` / `pushesFulfillment: false`. The provider rejects both by
- *    design: the Woo → Mercaria direction is the WordPress plugin's push-in path,
- *    not an outbound push from this pull connector.
+ * ## The DECLARED difference from Shopify, measured rather than skipped
+ *
+ * `pushesProducts` / `pushesFulfillment: false`. The provider rejects both by
+ * design: the Woo → Mercaria direction is the WordPress plugin's push-in path,
+ * not an outbound push from this pull connector. `retriesRateLimit` was the
+ * other one until #219; it is `true` now, and the SAME shared case that asserted
+ * the failed run asserts the retry — with the 429s visible in the fake's call
+ * log, so "completed" cannot mean the fault never matched anything.
  *
  * ## The webhook payload here is the REAL shape, deliberately
  *
@@ -46,7 +47,11 @@ import {
 } from '../../__tests__/contract-world.js';
 import { describeConnectorContract } from '../../__tests__/connector-contract-suite.js';
 import { createWooCommerceProvider, wooCommerceProvider } from '../index.js';
-import type { WooCommerceHttpResponse, WooCommerceTransport } from '../http.js';
+import {
+  createWooCommerceTransport,
+  type WooCommerceHttpResponse,
+  type WooCommerceTransport,
+} from '../http.js';
 
 /** The provider `getConnectorProvider` currently answers with. */
 let installed: ConnectorProvider | undefined;
@@ -316,7 +321,15 @@ describeConnectorContract({
   providerId: 'woocommerce',
   shopDomain: SITE,
   shopCurrency: 'GBP',
-  createProvider: (world) => createWooCommerceProvider(createWooCommerceFake(world)),
+  createProvider: (world) =>
+    createWooCommerceProvider(
+      // The SHIPPED 429 retry over the fake socket, with its clock and sleep
+      // stubbed — so a `Retry-After` is honoured without a real timer.
+      createWooCommerceTransport(createWooCommerceFake(world), {
+        sleep: () => Promise.resolve(),
+        now: () => 0,
+      }),
+    ),
   installProvider: (provider) => {
     installed = provider;
   },

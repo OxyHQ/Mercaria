@@ -254,7 +254,7 @@ catalogue, a real leaky bucket, a real fulfillment order — is only here.
 |---|---|---|---|
 | W1 | REST credential connection | Dashboard → add a WooCommerce channel with the site URL + key/secret | Connection `connected`, `shopCurrency` matching the site, ONE row |
 | W2 | Product, variant and inventory backfill | Enable product pull, sync | `completed`; variable products import with EVERY variation; `manage_stock: 'parent'` variations get the parent's stock |
-| W3 | Pagination and retry | Backfill the > 100-product site | Every product imported. **Expect a 429 to fail the whole run** — see §8.2; note whether the host produced one |
+| W3 | Pagination and retry | Backfill the > 100-product site | Every product imported. A 429 is now RETRIED (§8.2) — note whether the host produced one at all, whether it carried `Retry-After`, and its value. A run that still `failed` on `HTTP 429` means the retries were exhausted: record the wall-clock duration |
 | W4 | Product update and removal | Edit a product, then trash one, then resync | The edit follows; the trashed product's listing reaches `archived` |
 | W5 | Order import where configured | Enable order pull, sync | One Mercaria order per Woo order, single-currency `DualMoney` |
 | W6 | Native currency preservation | Inspect an imported variant | The site's currency, never FAIR |
@@ -305,13 +305,27 @@ platform REFUSED are persisted in ONE transaction, so:
   registration** — the observable is `deletedWebhookIds` growing on every
   reconnect with the topic set unchanged. Record it if you see it.
 
-### 8.2 WooCommerce has no rate-limit handling at all (#219)
+### 8.2 WooCommerce rate-limit handling — FIXED (#219), with a stated limit
 
-`shopify/http.ts` carries a 429 retry honouring `Retry-After` plus a leaky-bucket
-self-throttle. `woocommerce/http.ts` has neither, and `assertOk` turns any 429
-into a failed run. A WordPress host behind Cloudflare, Wordfence or a plan-level
-limit answers 429 routinely. The failure is SAFE — a failed run archives nothing
-— but W3 as written cannot pass on a host that rate-limits.
+`woocommerce/http.ts` now wraps its raw layer in `createWooCommerceTransport`: a
+429 is retried, honouring `Retry-After` when the host sends one (capped at 30s
+per wait) else an equal-jitter exponential backoff, bounded by a 60s total wait
+budget and five retries. It applies to GET, DELETE and the registration POST — a
+429 means the request was not processed. After the retries the 429 still
+surfaces, so a genuinely rate-limited run fails exactly as it always did and
+still archives nothing.
+
+**What was deliberately NOT built, so nobody adds it later thinking it was
+forgotten:** the proactive self-throttle Shopify's transport has. Shopify
+publishes `X-Shopify-Shop-Api-Call-Limit` describing one documented, uniform
+leaky bucket; WordPress publishes nothing of the kind and has no uniform limit to
+describe. Reading an `X-WP-*`-shaped header would be inventing a contract, and a
+fixed per-host minimum interval would be Mercaria guessing somebody's hosting
+plan — slowing every healthy site to protect the ones it cannot measure.
+
+**What a real store still settles:** whether a real host's 429 carries a
+`Retry-After` at all, and whether its value is inside the 30s cap. Record both
+during W3.
 
 ### 8.3 A WooCommerce webhook collapses a variable product to one variant (#220)
 

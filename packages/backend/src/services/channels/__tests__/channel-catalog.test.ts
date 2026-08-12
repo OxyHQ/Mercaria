@@ -52,6 +52,21 @@ describe('the catalog reads the provider rather than restating it', () => {
     expect(channelSupportsDirection(descriptor.resources, 'products', 'off')).toBe(true);
   });
 
+  it('withholds a capability-derived limitation once the capability is TRUE', () => {
+    // #219 turned `no_rate_limit_retry` from a hardcoded WooCommerce defect into
+    // a derivation, so the assertion is on the DERIVATION rather than on the
+    // absence: both premises stated, then both descriptors checked. With both
+    // flags false this would be checking nothing and still passing.
+    expect(shopifyProvider.capabilities.retriesRateLimit).toBe(true);
+    expect(wooCommerceProvider.capabilities.retriesRateLimit).toBe(true);
+
+    for (const channelType of ['shopify', 'woocommerce'] as const) {
+      expect(describeChannel(channelType).limitations.map((limitation) => limitation.code)).not.toContain(
+        'no_rate_limit_retry',
+      );
+    }
+  });
+
   it('names the missing capability as a limitation as well as an absent direction', () => {
     // Two different questions: what a form may offer, and what a merchant should
     // know before choosing the channel. A merchant who sees only the absence
@@ -75,7 +90,8 @@ describe('the open defects #69 filed are surfaced, not hidden', () => {
     // warning about problems somebody fixed, which is the cry-wolf failure one
     // step further on — and it is the direction this list will drift, because
     // adding an entry is somebody's diligence and removing one is somebody
-    // remembering. #218's entry went with the fix; #219, #220 and #221 stand.
+    // remembering. #218's and #219's entries went with their fixes; #220 and
+    // #221 stand.
     const limitations = describeChannel('woocommerce').limitations;
     const byIssue = new Map(
       limitations
@@ -83,11 +99,13 @@ describe('the open defects #69 filed are surfaced, not hidden', () => {
         .map((limitation) => [limitation.openIssue, limitation]),
     );
 
-    expect([...byIssue.keys()].sort()).toEqual([219, 220, 221]);
-    expect(
-      limitations.map((limitation) => limitation.code),
-      'a fixed defect must not be reported to a merchant',
-    ).not.toContain('webhook_registration_not_atomic');
+    expect([...byIssue.keys()].sort()).toEqual([220, 221]);
+    for (const fixed of ['webhook_registration_not_atomic', 'no_rate_limit_retry'] as const) {
+      expect(
+        limitations.map((limitation) => limitation.code),
+        `${fixed} is fixed and must not be reported to a merchant`,
+      ).not.toContain(fixed);
+    }
     for (const limitation of byIssue.values()) {
       expect(limitation.severity).toBe('degrades');
       // The summary says what the MERCHANT will observe. A summary describing
@@ -97,7 +115,7 @@ describe('the open defects #69 filed are surfaced, not hidden', () => {
   });
 
   it('does not attach them to Shopify', () => {
-    // All four are WooCommerce's. Attaching them everywhere would be the
+    // Every one is WooCommerce's. Attaching them everywhere would be the
     // cry-wolf failure — a warning on every channel is a warning on none.
     const shopify = describeChannel('shopify').limitations;
     expect(shopify.filter((limitation) => limitation.openIssue !== undefined)).toEqual([]);
