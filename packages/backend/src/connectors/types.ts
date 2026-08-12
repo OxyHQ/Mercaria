@@ -494,8 +494,36 @@ export interface ConnectorProvider {
   ): Promise<{ products: NormalizedProduct[]; nextCursor?: string }>;
 
   /**
+   * Complete a raw WEBHOOK payload into the shape {@link normalizeProduct} needs,
+   * fetching from the platform when the delivery is not self-contained (#220).
+   *
+   * A webhook carries the product as the PLATFORM serializes it, which is not
+   * always the shape the pull path assembles. WooCommerce's `product.*` delivery
+   * carries `variations` as a list of IDS and no variation objects, so the
+   * payload declares an option axis it cannot price — and before #220 the
+   * normalizer fell through to its single-variant branch and imported a variable
+   * product as ONE variant at the parent's lowest price, with no option values
+   * and no stock, permanently. Shopify's delivery already carries its variants,
+   * so its implementation returns the payload unchanged.
+   *
+   * It is a SEPARATE, ASYNC seam rather than a branch inside `normalizeProduct`
+   * because `normalizeProduct` is pure and synchronous and must stay so: it is
+   * the one part of a provider a test can drive with no transport, and making it
+   * async to accommodate one platform's delivery shape would put a network call
+   * inside the function every other case relies on being inert.
+   *
+   * It THROWS rather than degrading when the expansion cannot complete. A
+   * payload that arrives incomplete and is imported anyway is exactly #220; the
+   * webhook run fails, nothing is written, and the next backfill converges.
+   */
+  expandWebhookProduct(auth: ConnectorAuth, raw: unknown): Promise<unknown>;
+
+  /**
    * Map ONE raw platform product into a {@link NormalizedProduct}, pricing every
    * variant in `shopCurrency` (the shop's validated native currency).
+   *
+   * PURE and SYNCHRONOUS. A payload that declares variations it does not carry
+   * is REFUSED rather than collapsed (#220) — see {@link expandWebhookProduct}.
    */
   normalizeProduct(raw: unknown, shopCurrency: CurrencyCode): NormalizedProduct;
 

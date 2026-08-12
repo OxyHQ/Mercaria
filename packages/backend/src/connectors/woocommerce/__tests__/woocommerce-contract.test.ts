@@ -344,6 +344,9 @@ describeConnectorContract({
   capabilities: wooCommerceProvider.capabilities,
   webhookSecretStrategy: wooCommerceProvider.webhookSecretStrategy,
   webhookPathFragment: '/webhooks',
+  // A `product.*` delivery carries `variations` as IDS, so completing it means
+  // fetching `/products/{id}/variations` (#220).
+  webhookExpansionPathFragment: '/variations',
   createWorld: () => {
     const catalogue = contractCatalogue(uuidv7());
     return createContractWorld({

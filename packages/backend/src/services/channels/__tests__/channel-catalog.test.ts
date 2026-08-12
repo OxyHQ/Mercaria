@@ -90,8 +90,7 @@ describe('the open defects #69 filed are surfaced, not hidden', () => {
     // warning about problems somebody fixed, which is the cry-wolf failure one
     // step further on — and it is the direction this list will drift, because
     // adding an entry is somebody's diligence and removing one is somebody
-    // remembering. #218's and #219's entries went with their fixes; #220 and
-    // #221 stand.
+    // remembering. #218, #219 and #220 left with their fixes; #221 stands.
     const limitations = describeChannel('woocommerce').limitations;
     const byIssue = new Map(
       limitations
@@ -99,8 +98,12 @@ describe('the open defects #69 filed are surfaced, not hidden', () => {
         .map((limitation) => [limitation.openIssue, limitation]),
     );
 
-    expect([...byIssue.keys()].sort()).toEqual([220, 221]);
-    for (const fixed of ['webhook_registration_not_atomic', 'no_rate_limit_retry'] as const) {
+    expect([...byIssue.keys()].sort()).toEqual([221]);
+    for (const fixed of [
+      'webhook_registration_not_atomic',
+      'no_rate_limit_retry',
+      'variable_product_collapsed_on_webhook',
+    ] as const) {
       expect(
         limitations.map((limitation) => limitation.code),
         `${fixed} is fixed and must not be reported to a merchant`,

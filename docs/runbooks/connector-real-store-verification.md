@@ -260,10 +260,13 @@ catalogue, a real leaky bucket, a real fulfillment order — is only here.
 | W6 | Native currency preservation | Inspect an imported variant | The site's currency, never FAIR |
 | W7 | Invalid / insufficient permission | Re-connect with a READ-ONLY key, then sync and check webhooks | The sync still works; webhook registration is REFUSED per topic. `webhookIds` is empty AND `webhookFailures` names every topic with its status and reason (§8.1) — record them verbatim. `GET .../channels/readiness` reports `catalog.state: degraded` |
 
-Also verify, because it is the defect in §8.3: **create a NEW variable product in
-WooCommerce and let the `product.created` webhook import it** (do not backfill
-first). Expect it to arrive with ONE variant at the parent's lowest price, out of
-stock, and to STAY that way through later syncs. Record what you see.
+Also verify, because §8.3 fixed it and only a real store settles the wire shape:
+**create a NEW variable product in WooCommerce and let the `product.created`
+webhook import it** (do not backfill first). Expect EVERY variation, each at its
+own price with its own option values and stock. Then **add a variation on the
+site and re-sync**: expect the new variant to appear. Then **delete one and
+re-sync**: expect it to survive at zero stock rather than disappear. Record what
+you see, including the webhook run's tallies.
 
 ---
 
@@ -327,15 +330,41 @@ plan — slowing every healthy site to protect the ones it cannot measure.
 `Retry-After` at all, and whether its value is inside the 30s cap. Record both
 during W3.
 
-### 8.3 A WooCommerce webhook collapses a variable product to one variant (#220)
+### 8.3 Variable products over webhooks — FIXED (#220)
 
 A `product.created` / `product.updated` delivery carries the product WITHOUT its
-variations (WooCommerce sends `variations: [ids]`). The provider's
-`normalizeProduct` therefore takes the single-variant branch and produces one
-variant at the parent's lowest price, with no option values and `available: 0`,
-while still declaring the option axis. Measured directly against the provider.
-Because `importProduct` never ADDS variants to an existing listing, a product
-first seen through a webhook stays wrong permanently.
+variations (WooCommerce sends `variations: [ids]`), so `normalizeProduct` used to
+take the single-variant branch and produce one variant at the parent's lowest
+price, with no option values and `available: 0`, beside an option axis declaring
+several. `importProduct` never ADDED variants to an existing listing, so it
+stayed wrong permanently.
+
+Three changes, and each closes a different half:
+
+- **The webhook path COMPLETES the payload before normalizing.**
+  `expandWebhookProduct` is an explicit provider seam — Shopify's returns the
+  payload unchanged, WooCommerce's fetches `GET /products/{id}/variations` — so
+  `normalizeProduct` stays pure and synchronous and both paths normalize the same
+  shape.
+- **The pure normalizer REFUSES a payload that declares variations it does not
+  carry**, so the collapse cannot be reintroduced by a later simplification. A
+  refused delivery fails the webhook RUN and writes nothing: the listing keeps
+  its variants, nothing is archived, and the next backfill converges. Note it
+  does NOT cause a platform re-delivery — the ingress route enqueues and the
+  worker records the failure — so the safety net is the scheduled reconcile
+  sweep, not WooCommerce.
+- **A variant the platform ADDED is created on the next sync.** That is what
+  makes any earlier collapse self-healing rather than permanent.
+
+**A variant the platform REMOVED is unsold, never deleted:** its stock is set to
+zero with tracking on, once. Deleting it would cascade it out of live carts,
+saved items and offers; leaving it buyable would read the platform's silence as
+availability.
+
+**What a real store still settles:** whether a real `product.updated` delivery
+carries `variations` in the id shape the provider reads (a plugin that alters
+the REST response could change it), and whether the extra variations call
+completes inside the webhook job's lifetime for a product with many variations.
 
 ### 8.4 An import is not atomic between creating a listing and stamping provenance (#221)
 

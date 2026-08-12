@@ -153,10 +153,17 @@ export function channelSupportsDirection(
  *
  * A code rather than free text because the dashboard renders a different
  * explanation per code and because a limitation that blocks activation has to be
- * checkable — a sentence is not. Four of these name an OPEN defect
- * (#218–#221, found by #69 while building the connector contract suite) and the
- * descriptor carries the issue number so the merchant-facing copy can say which
- * one, rather than describing a healthy channel and letting them find out.
+ * checkable — a sentence is not. One of these names an OPEN defect (#221, found
+ * by #69 while building the connector contract suite) and the descriptor carries
+ * the issue number so the merchant-facing copy can say which one, rather than
+ * describing a healthy channel and letting them find out.
+ *
+ * **A member leaves this tuple when nothing produces it any more.** #218 and
+ * #220 were fixed and their codes went with them; a code with no producer is a
+ * vocabulary a dashboard still renders copy for, which is how a wizard ends up
+ * warning about a problem somebody solved. `no_rate_limit_retry` STAYS, because
+ * #219's fix made it capability-DERIVED rather than unproduceable: both shipped
+ * transports retry today and a future one that does not gets it automatically.
  */
 export const CHANNEL_LIMITATION_CODES = [
   /** The provider implements no `pushProduct`, so Mercaria cannot publish out. */
@@ -169,8 +176,6 @@ export const CHANNEL_LIMITATION_CODES = [
   'no_inventory_webhook',
   /** `connections` is unique on `(store_id, provider)` — one connection per platform. */
   'single_connection_per_provider',
-  /** A `product.*` webhook collapses a variable product to one variant, permanently. */
-  'variable_product_collapsed_on_webhook',
   /** Creating a listing and stamping its provenance are separate statements. */
   'listing_stamp_not_atomic',
   /** A no-change resync is tallied as `updated` rather than `skipped`. */

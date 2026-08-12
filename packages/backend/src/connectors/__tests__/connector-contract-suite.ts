@@ -133,6 +133,17 @@ export interface ConnectorContractHarness {
    * share on this platform, for a method-scoped fault.
    */
   readonly webhookPathFragment: string;
+  /**
+   * The URL fragment the provider fetches to COMPLETE a webhook payload (#220),
+   * or ABSENT when this platform's deliveries are self-contained.
+   *
+   * Declared like a capability and measured on BOTH branches: a platform whose
+   * delivery is incomplete must make the extra call and must fail closed when it
+   * cannot, and a platform whose delivery is complete must make no call at all.
+   * A suite that only ran the first would report the same green for a provider
+   * that silently stopped expanding.
+   */
+  readonly webhookExpansionPathFragment?: string;
   /** Build the world every case starts from (fresh per case). */
   createWorld(): ContractWorld;
   /**
@@ -743,6 +754,92 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         expect(survivors).toHaveLength(fixture.world.products.length + 1);
       });
 
+      it('CREATES a variant the platform ADDED to an existing product', async () => {
+        // #220's other half. Re-pricing used to skip an unmatched incoming
+        // variant with the comment "creation is a later phase", and that skip is
+        // what made a collapsed import permanent: no later sync could add the
+        // variants a first, incomplete delivery missed.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const listing = await importedListing(fixture, source.externalId);
+        const before = await findVariantsByListing(listing.id);
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId
+            ? {
+                ...product,
+                optionNames: product.optionNames.length > 0 ? product.optionNames : ['Size'],
+                variants: [
+                  ...product.variants,
+                  {
+                    externalVariantId: `${source.externalId}-added`,
+                    externalInventoryItemId: `${source.externalId}-added-item`,
+                    optionValues: [{ name: product.optionNames[0] ?? 'Size', value: 'XL' }],
+                    price: '31.00',
+                    sku: `${source.externalId}-ADDED`,
+                    available: 4,
+                  },
+                ],
+              }
+            : product,
+        );
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.status).toBe('completed');
+        const after = await findVariantsByListing(listing.id);
+        expect(after).toHaveLength(before.length + 1);
+        const added = after.find((variant) => variant.sku === `${source.externalId}-ADDED`);
+        expect(added, 'the added variant must exist').toBeDefined();
+        expect(added?.priceAmount).toBe(3100);
+        expect(added?.inventoryAvailable).toBe(4);
+        // Stamped, or it is a variant the inventory sync can never find again —
+        // which is a variant that exists and never updates.
+        expect(added?.sourceConnectionId).toBe(fixture.connection.id);
+        expect(added?.sourceExternalVariantId).toBe(`${source.externalId}-added`);
+      });
+
+      it('UNSELLS a variant the platform REMOVED, and never deletes it', async () => {
+        // The documented semantics: a variant id is referenced by cart lines,
+        // saves, offers and the canonical links, every one `ON DELETE CASCADE`,
+        // so deleting it would empty it out of live carts and retire an offer.
+        // Leaving it buyable would be reading the platform's silence as
+        // availability. So it stays, unsellable.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products.find((product) => product.variants.length > 1);
+        expect(source, 'the fixture catalogue must carry a multi-variant product').toBeDefined();
+        const multiVariant = source as NonNullable<typeof source>;
+        const listing = await importedListing(fixture, multiVariant.externalId);
+        const removed = multiVariant.variants[0];
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === multiVariant.externalId
+            ? {
+                ...product,
+                variants: product.variants.filter(
+                  (variant) => variant.externalVariantId !== removed.externalVariantId,
+                ),
+              }
+            : product,
+        );
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        const after = await findVariantsByListing(listing.id);
+        expect(after, 'the row must SURVIVE — carts and offers point at it').toHaveLength(
+          multiVariant.variants.length,
+        );
+        const orphan = after.find((variant) => variant.sku === removed.sku);
+        expect(orphan, 'the removed variant must still exist').toBeDefined();
+        expect(orphan?.inventoryAvailable).toBe(0);
+        // Tracking ON, or the zero means nothing: an untracked variant ignores
+        // its stock entirely and stays buyable.
+        expect(orphan?.inventoryTracked).toBe(true);
+        // Its SIBLING is untouched, so this is a removal and not a wipe.
+        const survivor = after.find((variant) => variant.sku === multiVariant.variants[1].sku);
+        expect(survivor?.inventoryAvailable).toBe(multiVariant.variants[1].available);
+      });
+
       it('is IDEMPOTENT — a re-run creates no second listing and no second variant', async () => {
         const fixture = await makeFixture();
         const first = await runBackfill(fixture.storeId, fixture.connection.id);
@@ -957,6 +1054,92 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         );
         expect(listings.filter((row) => row.status === 'archived')).toHaveLength(1);
       });
+
+      it('imports EVERY variant of a MULTI-VARIANT product first seen through a webhook', async () => {
+        // #220. No backfill first, deliberately: the delivery is the ONLY thing
+        // Mercaria has seen of this product, which is the ordinary case for
+        // anything created on the platform after the connection exists (both
+        // `*/create` topics are registered). A WooCommerce delivery carries
+        // `variations` as IDS and no variation objects, so before #220 this
+        // imported ONE variant at the parent's lowest price with no option
+        // values and no stock — and stayed that way, because nothing added the
+        // missing variants later.
+        const fixture = await makeFixture();
+        const source = fixture.world.products.find((product) => product.variants.length > 1);
+        expect(source, 'the fixture catalogue must carry a multi-variant product').toBeDefined();
+        const multiVariant = source as NonNullable<typeof source>;
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productUpsert,
+          payload: harness.webhookProductPayload(fixture.world, multiVariant.externalId),
+        });
+
+        const listing = await importedListing(fixture, multiVariant.externalId);
+        const variants = await findVariantsByListing(listing.id);
+        expect(variants).toHaveLength(multiVariant.variants.length);
+        expect(variants.map((variant) => variant.priceAmount).sort((a, b) => a - b)).toEqual(
+          multiVariant.variants
+            .map((variant) => Math.round(Number(variant.price) * 100))
+            .sort((a, b) => a - b),
+        );
+        // The stock too: a collapsed import reports zero for a product whose
+        // variations each track their own, and a price assertion alone would
+        // pass on a single variant that happened to be the cheapest.
+        expect(variants.map((variant) => variant.inventoryAvailable).sort((a, b) => a - b)).toEqual(
+          multiVariant.variants.map((variant) => variant.available).sort((a, b) => a - b),
+        );
+      });
+
+      it(
+        harness.webhookExpansionPathFragment === undefined
+          ? 'needs NO extra call — the delivery is self-contained'
+          : 'FAILS the run and changes NOTHING when the payload cannot be completed',
+        async () => {
+          const fixture = await makeFixture();
+          await runBackfill(fixture.storeId, fixture.connection.id);
+          const source = fixture.world.products.find((product) => product.variants.length > 1);
+          expect(source, 'the fixture catalogue must carry a multi-variant product').toBeDefined();
+          const multiVariant = source as NonNullable<typeof source>;
+          const before = await importedListing(fixture, multiVariant.externalId);
+          const variantsBefore = await findVariantsByListing(before.id);
+
+          if (harness.webhookExpansionPathFragment === undefined) {
+            // The measured half of the absent branch: build the provider over a
+            // transport that THROWS on every call, and complete the payload with
+            // it. A provider that quietly started fetching would raise here
+            // rather than pass, which is what makes this an assertion about the
+            // delivery rather than a case that skips.
+            const deadProvider = harness.createProvider(harness.createWorld());
+            const untouched = harness.webhookProductPayload(
+              fixture.world,
+              multiVariant.externalId,
+            );
+            expect(
+              await deadProvider.expandWebhookProduct(
+                { accessToken: 'unused', shopDomain: harness.shopDomain },
+                untouched,
+              ),
+            ).toBe(untouched);
+            return;
+          }
+
+          fixture.world.fail(harness.webhookExpansionPathFragment, 500, 99);
+          await processConnectorWebhook({
+            connectionId: fixture.connection.id,
+            topic: harness.topics.productUpsert,
+            payload: harness.webhookProductPayload(fixture.world, multiVariant.externalId),
+          });
+
+          // Fail CLOSED: a payload that cannot be completed writes nothing. The
+          // listing keeps every variant it had, and — the half that matters most
+          // — it is not archived, because "the platform did not answer" is never
+          // evidence that a merchant deleted anything.
+          const after = await importedListing(fixture, multiVariant.externalId);
+          expect(after.status).toBe(before.status);
+          expect(await findVariantsByListing(after.id)).toHaveLength(variantsBefore.length);
+        },
+      );
 
       it('IGNORES a product webhook when product pull is disabled', async () => {
         const fixture = await makeFixture({ products: 'off' });

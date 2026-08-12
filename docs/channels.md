@@ -377,6 +377,12 @@ key pair genuinely are different things (#87 UX 2).
 These are #69's, filed and still open. The catalog carries each with its issue
 number so onboarding does not walk a merchant into one silently.
 
+**#220 is FIXED too** — a webhook payload is completed before it is normalized,
+one that cannot be completed is refused rather than collapsed, and a variant the
+platform added is created on the next sync. Its code left
+`CHANNEL_LIMITATION_CODES` with it: a code no descriptor produces is a
+vocabulary the dashboard still renders copy for.
+
 **#219 is FIXED and is no longer in the list either** — the WooCommerce
 transport retries a 429 — and its code did not simply disappear:
 `no_rate_limit_retry` is now DERIVED from `capabilities.retriesRateLimit` beside
@@ -391,9 +397,6 @@ refusals: `Connection.webhookFailures` names each topic with its HTTP status and
 a classified reason, and `ChannelReadiness` reports the catalogue axis as
 `degraded` while any exist.
 
-- **#220 — a WooCommerce webhook collapses a variable product.** A product first
-  seen through a webhook is imported with one variant at the lowest price and no
-  stock, permanently. Running a full sync before relying on webhooks avoids it.
 - **#221 — an import is not atomic between creating a listing and stamping its
   provenance.** A failure in between strands a listing no later sync can match.
 

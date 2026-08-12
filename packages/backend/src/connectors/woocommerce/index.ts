@@ -139,6 +139,13 @@ const wooProductSchema = z.object({
   attributes: z.array(wooProductAttributeSchema).default([]),
   images: z.array(wooImageSchema).default([]),
   categories: z.array(wooCategorySchema).default([]),
+  /**
+   * WooCommerce's own field: the IDS of this product's variations, and nothing
+   * more. It is what a `product.*` webhook carries in place of the variation
+   * objects, so it is exactly the evidence that a payload is INCOMPLETE rather
+   * than describing a product with no variations (#220).
+   */
+  variations: z.array(z.union([z.number(), z.string()])).default([]),
   expandedVariations: z.array(wooVariationSchema).optional(),
 });
 
@@ -323,12 +330,37 @@ function buildVariants(
   return [simpleVariant(product, shopCurrency)];
 }
 
-/** Map an already-parsed WooCommerce product (+ its variations) to a `NormalizedProduct`. */
+/**
+ * Map an already-parsed WooCommerce product (+ its variations) to a
+ * `NormalizedProduct`, REFUSING a payload that declares variations it does not
+ * carry (#220).
+ *
+ * That refusal is the structural half of the fix and it lives HERE rather than
+ * at the webhook path, because here it covers every caller: the pull path, the
+ * webhook path, and whatever calls `normalizeProduct` next. `product.variations`
+ * is WooCommerce's own id list, so a non-empty one with nothing expanded beside
+ * it is positive evidence of an INCOMPLETE payload — not a product without
+ * variations, which carries an empty list.
+ *
+ * Without it, `buildVariants` falls through to `simpleVariant` and produces one
+ * variant at the parent's price (which WooCommerce sets to the LOWEST
+ * variation's), carrying no option values and no stock, beside an option axis
+ * declaring several values. Nothing errors, the listing is created, and
+ * `importProduct` used to be unable to add the missing variants afterwards — so
+ * the collapse was permanent. A simplification that "tidies away" the guard
+ * reintroduces exactly that, which is why it is a refusal in the pure function
+ * rather than a check somebody remembers to make.
+ */
 function normalizeParsed(
   product: WooProduct,
   shopCurrency: CurrencyCode,
   variations: WooVariation[],
 ): NormalizedProduct {
+  if (product.variations.length > 0 && variations.length === 0) {
+    throw validationError(
+      `WooCommerce product ${String(product.id)} declares ${product.variations.length} variations and carries none — refusing to import it as a single variant`,
+    );
+  }
   const options = toOptions(product);
   const variants = buildVariants(product, shopCurrency, variations);
   if (variants.length === 0) {
@@ -899,6 +931,41 @@ export function createWooCommerceProvider(
       }
       const nextCursor = page < totalPages ? String(page + 1) : undefined;
       return nextCursor ? { products, nextCursor } : { products };
+    },
+
+    /**
+     * Fetch the variations a `product.*` delivery names but does not carry (#220).
+     *
+     * WooCommerce serializes `variations` as a list of IDS, so a variable
+     * product's webhook payload declares an option axis it cannot price. This is
+     * the extra call the delivery makes possible — it carries the product id, and
+     * the connection already holds credentials — and its result is the SAME
+     * `expandedVariations` contract `fetchProducts` fills, so the webhook path
+     * and the backfill path normalize identically from here on.
+     *
+     * A payload that is already complete (a `simple` product, or one somebody
+     * expanded upstream) is returned unchanged rather than re-fetched. A payload
+     * this cannot parse is returned unchanged too: `normalizeProduct` owns the
+     * refusal, and a second one here would be a different error for the same
+     * fact. A fetch that FAILS throws, which fails the webhook run — nothing is
+     * written and no listing is touched, which is the fail-closed half.
+     */
+    async expandWebhookProduct(auth: ConnectorAuth, raw: unknown): Promise<unknown> {
+      const parsed = wooProductSchema.safeParse(raw);
+      if (!parsed.success) {
+        return raw;
+      }
+      const product = parsed.data;
+      if (product.variations.length === 0 || (product.expandedVariations?.length ?? 0) > 0) {
+        return raw;
+      }
+      const expandedVariations = await fetchAllVariations(auth, String(product.id));
+      // Spread the ORIGINAL payload, not the parsed one: the parse drops every
+      // field the schema does not name, and this value goes straight back into
+      // `normalizeProduct`, which is the only thing entitled to decide what it
+      // reads. A `raw` that is not an object cannot reach here — it would have
+      // failed the parse above.
+      return { ...(raw as Record<string, unknown>), expandedVariations };
     },
 
     normalizeProduct: normalizeWooCommerceProduct,
