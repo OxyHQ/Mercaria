@@ -47,7 +47,8 @@ vi.mock('../../db/connectors/connectionRepository.js', () => ({
   findConnectionsByStore: vi.fn(),
   findPullConnectionsToReconcile: vi.fn(),
   disconnectConnection: vi.fn(),
-  setConnectionWebhooks: vi.fn(),
+  recordConnectionWebhookRegistration: vi.fn(),
+  findConnectionWebhookFailures: vi.fn().mockResolvedValue(new Map()),
   updateSyncSettings: vi.fn(),
   upsertConnection: vi.fn(),
 }));

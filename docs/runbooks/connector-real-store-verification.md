@@ -93,6 +93,7 @@ version pinned at the code constant `API_VERSION`, currently **`2024-10`**):
 | `GET /inventory_levels.json` | `fetchInventory` | `read_inventory` (Shopify also gates the location join on `read_locations` — confirm in the Partner scope picker) |
 | `GET /orders/{id}/fulfillment_orders.json` | `pushFulfillment` | `read_merchant_managed_fulfillment_orders` |
 | `POST /fulfillments.json` | `pushFulfillment` | `write_merchant_managed_fulfillment_orders` |
+| `GET /webhooks.json` | `listWebhooks` / `registerWebhooks` (reconcile) | the READ scope of every topic below |
 | `POST /webhooks.json`, `DELETE /webhooks/{id}.json` | `registerWebhooks` / `deleteWebhooks` | the READ scope of every topic below |
 
 An order routed to a fulfillment service or a third-party location needs
@@ -106,12 +107,21 @@ those needs the matching scopes.
 SHOPIFY_SCOPES=read_products,write_products,read_orders,read_inventory,read_locations,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders
 ```
 
-**The default is `read_products` alone** (`shopify/config.ts` `DEFAULT_SCOPES`).
-Leaving it at the default is the configuration that triggers the webhook
-registration defect in §8.1 (#218): the connector registers order and inventory topics
-unconditionally, the first one Shopify refuses throws, and the product
-subscriptions it already created are left live on Shopify with their ids
-discarded.
+**That string IS the code default** (`shopify/config.ts` `DEFAULT_SCOPES`), so
+`SHOPIFY_SCOPES` only needs setting to request something NARROWER. It used to be
+`read_products` alone, which is the configuration that triggered #218 (§8.1):
+the connector registers order and inventory topics unconditionally, Shopify
+gates each `POST /webhooks.json` on that topic's READ scope, and the refusal
+threw away the subscriptions already created.
+
+`shopify/__tests__/shopify-scopes.test.ts` is the gate that keeps the two in
+step — it fails the build if a registered topic's scope, or an endpoint behind a
+declared capability, is missing from this default, and also if the default
+requests a scope nothing calls. **A narrower `SHOPIFY_SCOPES` is still a
+supported choice, and the consequence is now visible rather than silent:** the
+topics Shopify refuses are recorded on the connection and reported as
+`webhookFailures`, and `ChannelReadiness` reads the catalogue axis as
+`degraded`.
 
 ### 3.3 The webhook topics the connector registers
 
@@ -248,7 +258,7 @@ catalogue, a real leaky bucket, a real fulfillment order — is only here.
 | W4 | Product update and removal | Edit a product, then trash one, then resync | The edit follows; the trashed product's listing reaches `archived` |
 | W5 | Order import where configured | Enable order pull, sync | One Mercaria order per Woo order, single-currency `DualMoney` |
 | W6 | Native currency preservation | Inspect an imported variant | The site's currency, never FAIR |
-| W7 | Invalid / insufficient permission | Re-connect with a READ-ONLY key, then sync and check webhooks | The sync still works; webhook registration FAILED (a warn line) and `webhookIds` is EMPTY — this is the §8.1 shape |
+| W7 | Invalid / insufficient permission | Re-connect with a READ-ONLY key, then sync and check webhooks | The sync still works; webhook registration is REFUSED per topic. `webhookIds` is empty AND `webhookFailures` names every topic with its status and reason (§8.1) — record them verbatim. `GET .../channels/readiness` reports `catalog.state: degraded` |
 
 Also verify, because it is the defect in §8.3: **create a NEW variable product in
 WooCommerce and let the `product.created` webhook import it** (do not backfill
@@ -262,21 +272,38 @@ stock, and to STAY that way through later syncs. Record what you see.
 These were found while building the automated suites. They are not blockers for
 running the scenarios; they change what you should expect to see.
 
-### 8.1 Webhook registration is partially effectful and loses the ids it created (#218)
+### 8.1 Webhook registration — FIXED (#218), and what a real run still settles
 
-`registerWebhooks` loops the topics and throws on the first the platform
-refuses. Every subscription created BEFORE that point is live on the platform,
-and the ids collected so far are discarded — `registerConnectionWebhooks` catches
-the throw and never calls `setConnectionWebhooks`. So:
+`registerWebhooks` no longer throws on the first refused topic. It reads the
+platform's OWN subscription list first (`GET /webhooks.json`, `GET /webhooks`),
+reconciles what already points at Mercaria's delivery URL — ADOPTING on Shopify,
+where one app secret verifies everything, and DELETING-then-recreating on
+WooCommerce, where the secret is fixed at creation and never disclosed again —
+then creates the rest per topic. The ids, the webhook secret and the topics the
+platform REFUSED are persisted in ONE transaction, so:
 
-- disconnect deletes nothing (Mercaria has no ids), leaving live subscriptions
-  delivering to an endpoint that no longer has a connection;
-- every reconnect creates ANOTHER set, so deliveries multiply.
+- a partial registration is disconnectable (Mercaria holds every id) and
+  retryable (a retry adopts or replaces rather than adding a second set);
+- a shop already carrying orphaned subscriptions from the old behaviour
+  CONVERGES on the next connect, because the reconcile reads the platform rather
+  than `webhookIds`;
+- the refused topics are readable — `Connection.webhookFailures` names each
+  topic, its HTTP status and a classified reason, and `ChannelReadiness` reports
+  the catalogue axis as `degraded` while any exist.
 
-On WooCommerce it is worse: the per-connection webhook SECRET is minted in the
-same call and stored in the same write, so any webhooks Woo did create are signed
-with a secret Mercaria never stored — every delivery 401s, permanently, with no
-id to delete them by.
+**What a real store still settles, and what to record:**
+
+- that Shopify's `GET /webhooks.json` and WooCommerce's `GET /webhooks` return
+  the `address` / `delivery_url` and `topic` fields the providers parse, for a
+  shop with subscriptions from ANOTHER app installed;
+- that a read-only WooCommerce REST key produces the refusal this expects — run
+  W7 and record `webhookFailures` verbatim (topics + status + reason);
+- that WooCommerce's per-connection delivery URL survives its own normalization,
+  so the exact-URL comparison the reconcile makes actually matches on the second
+  pass. **If a real Woo site rewrites the delivery URL it was given, the reconcile
+  will not recognise its own subscriptions and will recreate them every
+  registration** — the observable is `deletedWebhookIds` growing on every
+  reconnect with the topic set unchanged. Record it if you see it.
 
 ### 8.2 WooCommerce has no rate-limit handling at all (#219)
 
@@ -360,8 +387,10 @@ Ordered least to most drastic. Every step is reversible except the last.
    deletes the platform webhooks, marks the connection `disconnected` and clears
    all six credential columns in one statement. The row and every imported
    listing's provenance SURVIVE, so reconnecting resumes rather than
-   re-importing. **Check the platform's own webhook list afterwards** — per §8.1,
-   Mercaria may hold no ids to delete.
+   re-importing. **Check the platform's own webhook list afterwards** — since
+   #218 Mercaria holds an id for every subscription it created, but a connection
+   that last registered before that fix may still carry orphans, and the way to
+   clear those is to RECONNECT (which reconciles) before disconnecting.
 4. **Stop the push-in surface for one merchant.** Revoke every channel key:
    `DELETE /admin/stores/{storeId}/channel-keys/{keyId}`. The plugin's next push
    gets 401; nothing already imported changes. Rotation is mint-then-revoke, in

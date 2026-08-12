@@ -34,6 +34,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
+import { CONNECTOR_WEBHOOK_FAILURE_REASONS } from '@mercaria/shared-types';
 import {
   constraintNameOf,
   isCheckViolation,
@@ -42,16 +43,21 @@ import {
   uuidv7,
 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
-import { channelApiKeys, connections } from '../schema/connectors.js';
+import {
+  channelApiKeys,
+  connections,
+  connectionWebhookFailures,
+} from '../schema/connectors.js';
 import { stores } from '../schema/stores.js';
 import {
   disconnectConnection,
   findConnection,
   findConnectionCredentials,
   findConnectionIdsByShopDomain,
+  findConnectionWebhookFailures,
   findConnectionWebhookSecret,
   findPullConnectionsToReconcile,
-  setConnectionWebhooks,
+  recordConnectionWebhookRegistration,
   updateSyncSettings,
   upsertConnection,
 } from '../connectors/connectionRepository.js';
@@ -203,7 +209,11 @@ describe('the all-or-nothing credential CHECK', () => {
   it('clears BOTH envelopes to NULL on disconnect, never to an empty string', async () => {
     const storeId = await makeStore();
     const conn = await makeConnection(storeId);
-    await setConnectionWebhooks(conn.id, ['wh-1', 'wh-2'], ENVELOPE);
+    await recordConnectionWebhookRegistration(conn.id, {
+      webhookIds: ['wh-1', 'wh-2'],
+      secret: ENVELOPE,
+      failures: [],
+    });
 
     expect(await findConnectionWebhookSecret(conn.id, 'shopify')).toEqual(ENVELOPE);
 
@@ -251,6 +261,167 @@ describe('the all-or-nothing credential CHECK', () => {
     // points at it, so the provenance on already-imported products would go with
     // it. A disconnect that started deleting would pass every mocked test.
     expect(await findConnection(storeId, conn.id)).not.toBeNull();
+  });
+});
+
+describe('the webhook-registration record (#218)', () => {
+  it('writes the ids, the secret and the refused topics as ONE act', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    const updated = await recordConnectionWebhookRegistration(conn.id, {
+      webhookIds: ['wh-1', 'wh-2'],
+      secret: ENVELOPE,
+      failures: [
+        { topic: 'orders/create', reason: 'permission_denied', httpStatus: 403 },
+        { topic: 'inventory_levels/update', reason: 'transport_error' },
+      ],
+    });
+
+    expect(updated?.webhookIds).toEqual(['wh-1', 'wh-2']);
+    expect(await findConnectionWebhookSecret(conn.id, 'shopify')).toEqual(ENVELOPE);
+    const failures = (await findConnectionWebhookFailures([conn.id])).get(conn.id);
+    expect(failures?.map((failure) => failure.topic)).toEqual([
+      // Ordered by topic, so a merchant surface renders a stable list rather
+      // than whatever order the platform refused things in.
+      'inventory_levels/update',
+      'orders/create',
+    ]);
+    // A `transport_error` never reached the platform, so it carries NO status.
+    // Absent rather than zero: a zero is a status nobody answered.
+    expect(failures?.[0]).toEqual({
+      topic: 'inventory_levels/update',
+      reason: 'transport_error',
+      recordedAt: expect.any(String),
+    });
+    expect(failures?.[1].httpStatus).toBe(403);
+  });
+
+  it('REPLACES the refused topics rather than accumulating them', async () => {
+    // A topic that succeeded this time must stop being reported. The unique on
+    // `(connection_id, topic)` is what makes a re-registration converge; an
+    // insert-only writer would raise on the second attempt, and an upsert
+    // without the prune would keep reporting a refusal that is over.
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    await recordConnectionWebhookRegistration(conn.id, {
+      webhookIds: [],
+      failures: [
+        { topic: 'orders/create', reason: 'permission_denied', httpStatus: 403 },
+        { topic: 'orders/updated', reason: 'permission_denied', httpStatus: 403 },
+      ],
+    });
+
+    await recordConnectionWebhookRegistration(conn.id, {
+      webhookIds: ['wh-1'],
+      failures: [{ topic: 'orders/create', reason: 'rate_limited', httpStatus: 429 }],
+    });
+
+    const failures = (await findConnectionWebhookFailures([conn.id])).get(conn.id);
+    expect(failures).toHaveLength(1);
+    expect(failures?.[0]).toMatchObject({ topic: 'orders/create', reason: 'rate_limited' });
+  });
+
+  it('is IDEMPOTENT — the same registration twice leaves one row per topic', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const record = {
+      webhookIds: ['wh-1'],
+      failures: [{ topic: 'orders/create', reason: 'permission_denied' as const, httpStatus: 403 }],
+    };
+
+    await recordConnectionWebhookRegistration(conn.id, record);
+    await recordConnectionWebhookRegistration(conn.id, record);
+
+    expect((await findConnectionWebhookFailures([conn.id])).get(conn.id)).toHaveLength(1);
+  });
+
+  it('REFUSES a reason outside the closed set', async () => {
+    // The CHECK is rendered from `CONNECTOR_WEBHOOK_FAILURE_REASONS`, and a
+    // mocked insert would accept this string happily. `reason` is what a
+    // merchant surface branches on, so a value nothing can render is a blank
+    // row where a remedy should be.
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    let caught: unknown;
+    try {
+      await db.insert(connectionWebhookFailures).values({
+        connectionId: conn.id,
+        topic: 'orders/create',
+        // The point is a value the TYPE forbids: `text({ enum })` narrows in
+        // TypeScript and emits no DDL, so this is the only way to ask whether
+        // the CHECK beside it exists at all.
+        reason: 'the_platform_was_grumpy' as (typeof CONNECTOR_WEBHOOK_FAILURE_REASONS)[number],
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(isCheckViolation(caught, 'connection_webhook_failures_reason_check')).toBe(true);
+    expect(constraintNameOf(caught)).toBe('connection_webhook_failures_reason_check');
+  });
+
+  it('REFUSES two rows for one topic on one connection', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    await db.insert(connectionWebhookFailures).values({
+      connectionId: conn.id,
+      topic: 'orders/create',
+      reason: 'permission_denied',
+    });
+
+    let caught: unknown;
+    try {
+      await db.insert(connectionWebhookFailures).values({
+        connectionId: conn.id,
+        topic: 'orders/create',
+        reason: 'rate_limited',
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(
+      isUniqueViolation(caught, 'connection_webhook_failures_connection_id_topic_key'),
+    ).toBe(true);
+  });
+
+  it('permits the SAME topic on a DIFFERENT connection', async () => {
+    // Without this the assertion above would also pass for a unique on `topic`
+    // alone, which would let one store's refused topic hide every other store's.
+    const conn = await makeConnection(await makeStore());
+    const other = await makeConnection(await makeStore());
+
+    await recordConnectionWebhookRegistration(conn.id, {
+      webhookIds: [],
+      failures: [{ topic: 'orders/create', reason: 'permission_denied' }],
+    });
+    await recordConnectionWebhookRegistration(other.id, {
+      webhookIds: [],
+      failures: [{ topic: 'orders/create', reason: 'permission_denied' }],
+    });
+
+    const byConnection = await findConnectionWebhookFailures([conn.id, other.id]);
+    expect(byConnection.get(conn.id)).toHaveLength(1);
+    expect(byConnection.get(other.id)).toHaveLength(1);
+  });
+
+  it('DISCONNECT forgets the refused topics with the ids', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    await recordConnectionWebhookRegistration(conn.id, {
+      webhookIds: ['wh-1'],
+      failures: [{ topic: 'orders/create', reason: 'permission_denied', httpStatus: 403 }],
+    });
+
+    await disconnectConnection(storeId, conn.id, 'keep_listings');
+
+    // "These events will not arrive" is a fact about live subscriptions, and a
+    // disconnected connection has none — `status: 'disconnected'` already says
+    // that nothing arrives, and leaving the rows would report a narrower
+    // problem that is no longer the one.
+    expect(await findConnectionWebhookFailures([conn.id])).toEqual(new Map());
   });
 });
 
@@ -325,7 +496,11 @@ describe('publicColumns on connections', () => {
   it('returns a row with NO credential properties at runtime', async () => {
     const storeId = await makeStore();
     const conn = await makeConnection(storeId);
-    await setConnectionWebhooks(conn.id, [], ENVELOPE);
+    await recordConnectionWebhookRegistration(conn.id, {
+      webhookIds: [],
+      secret: ENVELOPE,
+      failures: [],
+    });
 
     const row = await findConnection(storeId, conn.id);
     const keys = Object.keys(row ?? {});

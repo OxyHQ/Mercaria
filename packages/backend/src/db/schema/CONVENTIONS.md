@@ -5018,3 +5018,33 @@ reference: `docs/channels.md`.
   landed, which is what it is for. They move together — the pair names ONE
   binding, and repointing one without the other would leave a session claiming a
   storefront that belongs to a different merchant.
+
+## Durable connector webhook registration (#218)
+
+ONE table, `connection_webhook_failures`, and it is the shape rule §"Arrays and
+objects" reaches by elimination rather than a choice between equals.
+
+- **A child table, because the fact is a repeated `{topic, reason, status}`
+  RECORD.** Three parallel `text[]`/`integer[]` columns on `connections` are
+  three representations of one fact that can disagree in LENGTH, which is exactly
+  why `product_variant_option_values` is a table. A `jsonb` bag fails the
+  register's only test: the shape is known, Mercaria's own code composes it, and
+  `reason` is a CLOSED value set a `jsonb` value could carry no CHECK for.
+- **`UNIQUE(connection_id, topic)` makes the write a REPLACEMENT rather than a
+  history.** Every registration deletes this connection's rows and inserts the
+  current refusals, in the SAME transaction that writes `connections.webhook_ids`
+  and the webhook secret — the three describe one attempt and can never describe
+  different ones. That transaction is #218 itself: the ids and the secret used to
+  be written by a statement a refused topic threw before reaching, so a partial
+  registration persisted NEITHER, leaving live subscriptions Mercaria held no id
+  for and (on WooCommerce, whose secret is fixed at creation) signed with a
+  secret it had never stored.
+- **`http_status` is NULLABLE and the null case is load-bearing.** A
+  `transport_error` never reached the platform, so there is no status to record
+  and a zero would be a status nobody answered. The `ConnectionWebhookFailure`
+  DTO omits the property rather than sending `0`, the same distinction
+  `deriveOfferDelivery`'s unknown branch makes about an absent delivery cost.
+- **A disconnect DELETES these rows** rather than keeping them. "These events
+  will not arrive" is a fact about live subscriptions, and a disconnected
+  connection has none — `status = 'disconnected'` already says nothing arrives,
+  and leaving the rows would report a narrower problem that is no longer the one.

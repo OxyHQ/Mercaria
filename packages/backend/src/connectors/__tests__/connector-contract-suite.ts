@@ -55,6 +55,8 @@ import {
   findConnection,
   findConnectionCredentials,
   findConnectionsByStore,
+  findConnectionWebhookFailures,
+  recordConnectionWebhookRegistration,
   updateSyncSettings as updateSyncSettingsColumns,
   type ConnectionRow,
 } from '../../db/connectors/connectionRepository.js';
@@ -118,6 +120,19 @@ export interface ConnectorContractHarness {
    * suite gates its cases on is the value production reads.
    */
   readonly capabilities: ConnectorCapabilities;
+  /**
+   * The SHIPPED provider's webhook-secret strategy, passed for the same reason
+   * `capabilities` is. #218's registration cases have to know the delivery URL
+   * the provider builds, and it is the strategy that decides it: a
+   * `per_connection` provider appends the connection id so the ingress route can
+   * resolve the exact connection, an `app_secret` one does not.
+   */
+  readonly webhookSecretStrategy: ConnectorProvider['webhookSecretStrategy'];
+  /**
+   * The URL fragment BOTH the subscription list and the subscription create
+   * share on this platform, for a method-scoped fault.
+   */
+  readonly webhookPathFragment: string;
   /** Build the world every case starts from (fresh per case). */
   createWorld(): ContractWorld;
   /**
@@ -220,6 +235,29 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
     });
 
     /**
+     * Run the provider's own connect path for `storeId`.
+     *
+     * Extracted because #218's cases RE-connect deliberately: webhook
+     * registration happens inside the connect, so a case that wants to observe a
+     * refusal, a reconnect or an orphaned shop has to arrange the world and then
+     * run the real thing again — not call a registration helper the production
+     * path does not use.
+     */
+    async function connectStore(storeId: string): Promise<ConnectionRow> {
+      return harness.providerId === 'woocommerce'
+        ? connectWithApiKey(storeId, harness.providerId, {
+            shopDomain: harness.shopDomain,
+            consumerKey: 'ck_contract',
+            consumerSecret: 'cs_contract',
+          })
+        : connectAndVerify(storeId, harness.providerId, {
+            code: 'contract-auth-code',
+            shopDomain: harness.shopDomain,
+            redirectUri: 'https://api.mercaria.test/channels/oauth/shopify/callback',
+          });
+    }
+
+    /**
      * Stand up a store, its import category, its default location, the fake
      * platform and a CONNECTED connection — through the real connect path, so a
      * broken exchange or a broken currency validation fails here rather than
@@ -264,18 +302,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
       const world = options?.world ?? harness.createWorld();
       harness.installProvider(harness.createProvider(world));
 
-      const connection =
-        harness.providerId === 'woocommerce'
-          ? await connectWithApiKey(store.id, harness.providerId, {
-              shopDomain: harness.shopDomain,
-              consumerKey: 'ck_contract',
-              consumerSecret: 'cs_contract',
-            })
-          : await connectAndVerify(store.id, harness.providerId, {
-              code: 'contract-auth-code',
-              shopDomain: harness.shopDomain,
-              redirectUri: 'https://api.mercaria.test/channels/oauth/shopify/callback',
-            });
+      const connection = await connectStore(store.id);
 
       const configured = await updateSyncSettingsColumns(store.id, connection.id, {
         products: options?.products ?? 'pull',
@@ -411,6 +438,182 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         expect(run.error).toBeTruthy();
         const after = await findListingsBySourceConnection(fixture.storeId, fixture.connection.id);
         expect(after.filter((listing) => listing.status === 'archived')).toHaveLength(0);
+      });
+    });
+
+    // --- #218: webhook registration is durable and idempotent ---------------
+
+    describe('webhook registration', () => {
+      /** The delivery URL this provider's subscriptions carry for `connectionId`. */
+      function deliveryUrlFor(connectionId: string): string {
+        const address = `https://api.mercaria.test/channels/webhooks/${harness.providerId}`;
+        return harness.webhookSecretStrategy === 'per_connection'
+          ? `${address}/${encodeURIComponent(connectionId)}`
+          : address;
+      }
+
+      /**
+       * Put a connected fixture back into the state a FIRST registration starts
+       * from — nothing on the platform, nothing recorded — so a fault armed
+       * afterwards is exercised by every provider.
+       *
+       * Without it the two reconcile modes diverge on this setup rather than on
+       * the property under test: an `app_secret` provider adopts what is already
+       * there and never issues the create the fault is waiting for.
+       */
+      async function resetRegistration(fixture: ContractFixture): Promise<void> {
+        fixture.world.webhooks.splice(0, fixture.world.webhooks.length);
+        fixture.world.deletedWebhookIds.splice(0, fixture.world.deletedWebhookIds.length);
+        await recordConnectionWebhookRegistration(fixture.connection.id, {
+          webhookIds: [],
+          failures: [],
+        });
+      }
+
+      it('SUBSCRIBES every topic and PERSISTS the ids the platform created', async () => {
+        const fixture = await makeFixture();
+
+        // The connection ROW, not the object `makeFixture` was handed: the
+        // property under test is that the ids reached the DATABASE, which is
+        // exactly what #218 lost.
+        const stored = await findConnection(fixture.storeId, fixture.connection.id);
+        expect(stored?.webhookIds.length).toBeGreaterThan(0);
+        expect([...(stored?.webhookIds ?? [])].sort()).toEqual(
+          fixture.world.webhooks.map((webhook) => webhook.id).sort(),
+        );
+        for (const webhook of fixture.world.webhooks) {
+          expect(webhook.deliveryUrl).toBe(deliveryUrlFor(fixture.connection.id));
+        }
+        expect(await findConnectionWebhookFailures([fixture.connection.id])).toEqual(new Map());
+      });
+
+      it('PERSISTS the ids it DID create when the platform refuses a topic, and NAMES the refusal', async () => {
+        // The whole of #218 in one case. The platform refuses ONE create and
+        // answers the rest; before the fix the ids already created were
+        // discarded — live subscriptions Mercaria held no id for — and on a
+        // `per_connection` provider the signing secret went with them, so every
+        // delivery 401'd forever.
+        //
+        // The fault is scoped to the CREATE verb: both platforms serve the list
+        // and the create from one path, and a URL-only fault would refuse the
+        // list, at which point the connector correctly declines to create
+        // anything and this case would be measuring the wrong refusal.
+        const fixture = await makeFixture();
+        await resetRegistration(fixture);
+        fixture.world.fail(harness.webhookPathFragment, 403, 1, {}, 'POST');
+
+        await connectStore(fixture.storeId);
+
+        const stored = await findConnection(fixture.storeId, fixture.connection.id);
+        expect(
+          stored?.webhookIds.length,
+          'the subscriptions the platform DID create must be persisted',
+        ).toBeGreaterThan(0);
+        expect([...(stored?.webhookIds ?? [])].sort()).toEqual(
+          fixture.world.webhooks.map((webhook) => webhook.id).sort(),
+        );
+
+        const failures = (await findConnectionWebhookFailures([fixture.connection.id])).get(
+          fixture.connection.id,
+        );
+        expect(failures).toHaveLength(1);
+        expect(failures?.[0].reason).toBe('permission_denied');
+        expect(failures?.[0].httpStatus).toBe(403);
+        // The merchant surface names the TOPIC, so the refused one has to be a
+        // real topic that is genuinely absent from the platform — not whatever
+        // string came back, and not one that also got registered.
+        expect(fixture.world.webhooks.map((webhook) => webhook.topic)).not.toContain(
+          failures?.[0].topic,
+        );
+      });
+
+      it('a RECONNECT leaves ONE subscription per topic, not two sets', async () => {
+        const fixture = await makeFixture();
+        const firstTopics = fixture.world.webhooks.map((webhook) => webhook.topic).sort();
+        expect(firstTopics.length).toBeGreaterThan(0);
+
+        await connectStore(fixture.storeId);
+
+        const topics = fixture.world.webhooks.map((webhook) => webhook.topic);
+        expect(new Set(topics).size, 'a reconnect must not add a second set').toBe(topics.length);
+        expect(topics.sort()).toEqual(firstTopics);
+        const stored = await findConnection(fixture.storeId, fixture.connection.id);
+        expect([...(stored?.webhookIds ?? [])].sort()).toEqual(
+          fixture.world.webhooks.map((webhook) => webhook.id).sort(),
+        );
+      });
+
+      it('CONVERGES a shop whose live subscriptions Mercaria holds no id for', async () => {
+        // The state a deployment broken by #218 is ALREADY in: subscriptions
+        // live on the platform, `webhook_ids` empty. Deleting `conn.webhookIds`
+        // first — what the service used to do — converges nothing here, because
+        // there is nothing in it to delete, and the next create adds a second
+        // full set. Reconciling against the PLATFORM's own list is the only
+        // thing that does.
+        const fixture = await makeFixture();
+        const orphanTopics = fixture.world.webhooks.map((webhook) => webhook.topic).sort();
+        expect(orphanTopics.length).toBeGreaterThan(0);
+        await recordConnectionWebhookRegistration(fixture.connection.id, {
+          webhookIds: [],
+          failures: [],
+        });
+
+        await connectStore(fixture.storeId);
+
+        const topics = fixture.world.webhooks.map((webhook) => webhook.topic);
+        expect(new Set(topics).size, 'an orphan must not become a duplicate').toBe(topics.length);
+        expect(topics.sort()).toEqual(orphanTopics);
+        const stored = await findConnection(fixture.storeId, fixture.connection.id);
+        expect(
+          [...(stored?.webhookIds ?? [])].sort(),
+          'every live subscription must now be one Mercaria can delete',
+        ).toEqual(fixture.world.webhooks.map((webhook) => webhook.id).sort());
+      });
+
+      it("LEAVES another connection's subscriptions alone", async () => {
+        // The reconcile compares the delivery URL EXACTLY. This subscription is
+        // deliberately shaped as the sibling that a `startsWith` would swallow:
+        // the connector's own webhook ADDRESS plus a different connection's id.
+        // Deleting it is a cross-store deletion dressed as tidying up.
+        //
+        // The per-connection half of the same property — connection A's
+        // reconcile against connection B's URL under one base — is pinned in
+        // `__tests__/webhook-registration.test.ts`, where a `ContractWorld` for
+        // one store cannot construct a second connection to be wrong about.
+        const fixture = await makeFixture();
+        const foreign = {
+          id: 'wh-someone-else',
+          topic: harness.topics.productUpsert,
+          deliveryUrl: `https://api.mercaria.test/channels/webhooks/${harness.providerId}/some-other-connection`,
+        };
+        fixture.world.webhooks.push(foreign);
+
+        await connectStore(fixture.storeId);
+
+        expect(fixture.world.webhooks).toContainEqual(foreign);
+        expect(fixture.world.deletedWebhookIds).not.toContain(foreign.id);
+        const stored = await findConnection(fixture.storeId, fixture.connection.id);
+        expect(stored?.webhookIds).not.toContain(foreign.id);
+      });
+
+      it('DISCONNECT deletes every subscription it holds an id for, and forgets the refusals', async () => {
+        const fixture = await makeFixture();
+        await resetRegistration(fixture);
+        fixture.world.fail(harness.webhookPathFragment, 403, 1, {}, 'POST');
+        await connectStore(fixture.storeId);
+        const registered = fixture.world.webhooks.map((webhook) => webhook.id).sort();
+        expect(registered.length).toBeGreaterThan(0);
+        expect(
+          (await findConnectionWebhookFailures([fixture.connection.id])).get(fixture.connection.id),
+        ).toHaveLength(1);
+        fixture.world.deletedWebhookIds.splice(0, fixture.world.deletedWebhookIds.length);
+
+        await disconnect(fixture.storeId, fixture.connection.id, 'keep_listings');
+
+        // A PARTIAL registration is disconnectable — the half #218 made
+        // impossible, because the ids were never stored to delete by.
+        expect(fixture.world.deletedWebhookIds.sort()).toEqual(registered);
+        expect(await findConnectionWebhookFailures([fixture.connection.id])).toEqual(new Map());
       });
     });
 

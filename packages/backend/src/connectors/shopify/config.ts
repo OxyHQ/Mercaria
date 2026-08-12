@@ -15,8 +15,52 @@ const CLIENT_ID_ENV = 'SHOPIFY_CLIENT_ID';
 const CLIENT_SECRET_ENV = 'SHOPIFY_CLIENT_SECRET';
 /** Env var: comma/space-separated OAuth scopes to request. */
 const SCOPES_ENV = 'SHOPIFY_SCOPES';
-/** Default scopes when `SHOPIFY_SCOPES` is unset — read products only (Fase 1). */
-const DEFAULT_SCOPES = ['read_products'];
+/**
+ * The scopes the connector needs when `SHOPIFY_SCOPES` is unset.
+ *
+ * It was `['read_products']` and that was the configuration #218 lands in: the
+ * connector registers order and inventory webhook topics unconditionally, and
+ * Shopify gates `POST /webhooks.json` on the READ scope of the topic — so the
+ * DEFAULT deployment registered three product topics, was refused the other
+ * three, and (before #218's fix) discarded the three ids it had just created.
+ * A partial registration reported as a working connection is not graceful
+ * degradation; it is a merchant told their channel is connected while half its
+ * events silently never arrive.
+ *
+ * Every member is here because an endpoint the connector CALLS needs it, and
+ * the list is `docs/runbooks/connector-real-store-verification.md` §3.2 rather
+ * than a re-derivation: §3.1 tabulates every endpoint against its scope, and
+ * `__tests__/shopify-scopes.test.ts` asserts this default still covers both the
+ * registered webhook topics (`WEBHOOK_TOPIC_SCOPES`) and the endpoints behind
+ * each declared capability.
+ *
+ * It requests MORE than a pull-only merchant strictly needs, and that is the
+ * deliberate half: `pushProduct` and `pushFulfillment` are shipped capabilities
+ * the merchant can switch on per resource at any time, and a scope Shopify did
+ * not grant at install can only be added by re-authorizing — so withholding
+ * them turns a settings toggle into a reconnect. A merchant who wants a
+ * narrower grant sets `SHOPIFY_SCOPES` explicitly.
+ */
+const DEFAULT_SCOPES = [
+  'read_products',
+  'write_products',
+  'read_orders',
+  'read_inventory',
+  'read_locations',
+  'read_merchant_managed_fulfillment_orders',
+  'write_merchant_managed_fulfillment_orders',
+];
+
+/**
+ * The scopes a deployment gets when it configures none.
+ *
+ * Exported for the gate in `__tests__/shopify-scopes.test.ts`, which is the
+ * thing that fails when a topic or an endpoint is added without its scope. It is
+ * a copy the test could not make for itself: reading the default through
+ * `getShopifyCredentials()` would require the env to be unset, which a suite
+ * that sets `SHOPIFY_CLIENT_ID` cannot rely on.
+ */
+export const SHOPIFY_DEFAULT_SCOPES: readonly string[] = DEFAULT_SCOPES;
 
 /** Resolved Shopify app credentials. */
 export interface ShopifyCredentials {

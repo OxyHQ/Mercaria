@@ -102,7 +102,7 @@ export function providerForChannelType(
 }
 
 /**
- * The four defects #69 filed while building the connector contract suite.
+ * The connector defects #69 filed that are still OPEN.
  *
  * They are carried as DATA, per channel type, with the issue number attached,
  * because #87's whole point is one place a merchant reads before connecting —
@@ -111,17 +111,14 @@ export function providerForChannelType(
  * what the code does wrong: "live updates will not arrive" is actionable and
  * "`registerWebhooks` discards its ids" is not.
  *
- * They leave when the issues close. Nothing derives them, so nothing can
- * silently stop reporting one.
+ * They leave when the issues close, and #218 has: registration is now per-topic
+ * fault tolerant, reconciled against the platform's own subscription list, and
+ * persists the ids, the secret and the refused topics in ONE write — so a
+ * partial registration is disconnectable, retryable, and names the events that
+ * will not arrive instead of looking healthy. Nothing derives this list, so
+ * nothing can silently stop reporting what remains.
  */
 const WOOCOMMERCE_OPEN_DEFECTS: readonly ChannelLimitation[] = [
-  {
-    code: 'webhook_registration_not_atomic',
-    severity: 'degrades',
-    summary:
-      'Live updates from WooCommerce do not currently arrive: webhook registration fails part-way through the default topic set and the per-connection signing secret is lost with it, so every delivery is rejected. Scheduled syncs are unaffected. Disconnecting cannot remove the subscriptions WooCommerce created, so they must be deleted in WooCommerce itself.',
-    openIssue: 218,
-  },
   {
     code: 'no_rate_limit_retry',
     severity: 'degrades',

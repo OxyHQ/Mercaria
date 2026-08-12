@@ -61,8 +61,14 @@ import type {
   NormalizedOrderLine,
   NormalizedProduct,
   NormalizedVariant,
+  PlatformWebhookSubscription,
   ShopIdentity,
 } from '../types.js';
+import {
+  classifyWebhookHttpStatus,
+  reconcileWebhookSubscriptions,
+  type WebhookProbe,
+} from '../webhook-registration.js';
 import { REGISTERED_WEBHOOK_TOPICS } from './webhook.js';
 import { wooCommerceTransport, type WooCommerceHttpResponse, type WooCommerceTransport } from './http.js';
 
@@ -700,6 +706,30 @@ function pageFromCursor(cursor: string | undefined): number {
 /** A `POST /webhooks` response — only the created subscription's id is consumed. */
 const webhookCreateResponseSchema = z.object({ id: z.union([z.number(), z.string()]) });
 
+/** `GET /webhooks` — every subscription this site currently holds. */
+const webhookListResponseSchema = z.array(
+  z.object({
+    id: z.union([z.number(), z.string()]),
+    topic: z.string(),
+    delivery_url: z.string().default(''),
+  }),
+);
+
+/**
+ * Parse a JSON body, or `undefined` when it is not JSON.
+ *
+ * The webhook-registration path classifies an unreadable body as
+ * `unexpected_response` rather than raising, so it needs the failure as a VALUE.
+ * Every other caller wants the throw and uses {@link parseJson}.
+ */
+function safeParseJson(response: WooCommerceHttpResponse): unknown {
+  try {
+    return JSON.parse(response.body);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Construct a WooCommerce provider over `transport`. The default transport is the
  * real SSRF-safe one; tests inject a fake to exercise the mapping/paging logic.
@@ -707,6 +737,56 @@ const webhookCreateResponseSchema = z.object({ id: z.union([z.number(), z.string
 export function createWooCommerceProvider(
   transport: WooCommerceTransport = wooCommerceTransport,
 ): ConnectorProvider {
+  /**
+   * `GET /webhooks`, as a PROBE rather than a throw.
+   *
+   * The registration path needs the refusal as a value — it turns it into one
+   * failure per desired topic — while `listWebhooks` on the provider interface
+   * is an ordinary read that raises. One request builder, two callers, so the
+   * two cannot answer differently about what the site said.
+   */
+  async function listWooCommerceWebhooks(
+    auth: ConnectorAuth,
+  ): Promise<WebhookProbe<PlatformWebhookSubscription[]>> {
+    const all: PlatformWebhookSubscription[] = [];
+    let page = 1;
+    for (;;) {
+      const params = new URLSearchParams({ per_page: String(PAGE_LIMIT), page: String(page) });
+      let response: WooCommerceHttpResponse;
+      try {
+        response = await transport.get(
+          `${apiBase(auth.shopDomain)}/webhooks?${params.toString()}`,
+          authHeaders(auth),
+        );
+      } catch {
+        return { outcome: 'refused', reason: 'transport_error' };
+      }
+      if (response.status < 200 || response.status >= 300) {
+        return {
+          outcome: 'refused',
+          reason: classifyWebhookHttpStatus(response.status),
+          httpStatus: response.status,
+        };
+      }
+      const parsed = webhookListResponseSchema.safeParse(safeParseJson(response));
+      if (!parsed.success) {
+        return { outcome: 'refused', reason: 'unexpected_response', httpStatus: response.status };
+      }
+      all.push(
+        ...parsed.data.map((webhook) => ({
+          id: String(webhook.id),
+          topic: webhook.topic,
+          deliveryUrl: webhook.delivery_url,
+        })),
+      );
+      const pages = totalPagesFromHeaders(response);
+      if (parsed.data.length === 0 || page >= pages) {
+        return { outcome: 'ok', value: all };
+      }
+      page += 1;
+    }
+  }
+
   /** Fetch every variation of a `variable` product, paginating the variations endpoint. */
   async function fetchAllVariations(
     auth: ConnectorAuth,
@@ -891,38 +971,104 @@ export function createWooCommerceProvider(
       }
     },
 
-    async registerWebhooks(
+    listWebhooks(auth: ConnectorAuth): Promise<PlatformWebhookSubscription[]> {
+      return listWooCommerceWebhooks(auth).then((probe) => {
+        if (probe.outcome === 'refused') {
+          throw validationError(
+            `WooCommerce webhook list failed (${probe.reason}${
+              probe.httpStatus === undefined ? '' : `, HTTP ${probe.httpStatus}`
+            })`,
+          );
+        }
+        return probe.value;
+      });
+    },
+
+    /**
+     * Register every topic, tolerating each refusal separately (#218).
+     *
+     * `adoptExisting: false`, and that is forced rather than chosen: WooCommerce
+     * fixes a webhook's `secret` AT CREATION and never discloses it again, so a
+     * subscription left over from an earlier registration is signed with a
+     * secret this call does not hold — every delivery would 401 forever, which
+     * is #218's worst half. Deleting first is what makes the secret persisted
+     * beside these ids verify every one of them.
+     */
+    registerWebhooks(
       auth: ConnectorAuth,
       params: { address: string; connectionId: string; secret?: string },
-    ): Promise<string[]> {
+    ) {
       if (!params.secret) {
         throw validationError('WooCommerce webhook registration requires a per-connection secret');
       }
+      const secret = params.secret;
       // A per-CONNECTION delivery URL so the ingress route resolves the exact
-      // connection (and thus its stored secret) for HMAC verification.
+      // connection (and thus its stored secret) for HMAC verification. It is
+      // also what scopes reconciliation: another connection's subscriptions
+      // carry another id in this URL and are compared EXACTLY, so they are
+      // never adopted and never deleted.
       const deliveryUrl = `${params.address.replace(/\/+$/, '')}/${encodeURIComponent(params.connectionId)}`;
       const headers = { ...authHeaders(auth), 'Content-Type': 'application/json' };
-      const ids: string[] = [];
-      for (const topic of REGISTERED_WEBHOOK_TOPICS) {
-        const response = await transport.post(
-          `${apiBase(auth.shopDomain)}/webhooks`,
-          headers,
-          JSON.stringify({
-            name: `Mercaria ${topic}`,
-            topic,
-            delivery_url: deliveryUrl,
-            secret: params.secret,
-            status: 'active',
-          }),
-        );
-        assertOk(response, `webhook create (${topic})`);
-        const parsed = webhookCreateResponseSchema.safeParse(parseJson(response, 'webhook create'));
-        if (!parsed.success) {
-          throw validationError(`Unexpected WooCommerce webhook payload: ${parsed.error.message}`);
-        }
-        ids.push(String(parsed.data.id));
-      }
-      return ids;
+      return reconcileWebhookSubscriptions({
+        topics: REGISTERED_WEBHOOK_TOPICS,
+        deliveryUrl,
+        adoptExisting: false,
+        list: () => listWooCommerceWebhooks(auth),
+        create: async (topic) => {
+          let response: WooCommerceHttpResponse;
+          try {
+            response = await transport.post(
+              `${apiBase(auth.shopDomain)}/webhooks`,
+              headers,
+              JSON.stringify({
+                name: `Mercaria ${topic}`,
+                topic,
+                delivery_url: deliveryUrl,
+                secret,
+                status: 'active',
+              }),
+            );
+          } catch {
+            return { outcome: 'refused', reason: 'transport_error' };
+          }
+          if (response.status < 200 || response.status >= 300) {
+            return {
+              outcome: 'refused',
+              reason: classifyWebhookHttpStatus(response.status),
+              httpStatus: response.status,
+            };
+          }
+          const parsed = webhookCreateResponseSchema.safeParse(safeParseJson(response));
+          if (!parsed.success) {
+            return {
+              outcome: 'refused',
+              reason: 'unexpected_response',
+              httpStatus: response.status,
+            };
+          }
+          return { outcome: 'ok', value: String(parsed.data.id) };
+        },
+        remove: async (id) => {
+          let response: WooCommerceHttpResponse;
+          try {
+            response = await transport.del(
+              `${apiBase(auth.shopDomain)}/webhooks/${encodeURIComponent(id)}?force=true`,
+              authHeaders(auth),
+            );
+          } catch {
+            return { outcome: 'refused', reason: 'transport_error' };
+          }
+          // 404 = already gone, which is the outcome asked for (idempotent).
+          if (response.status === 404 || (response.status >= 200 && response.status < 300)) {
+            return { outcome: 'ok', value: undefined };
+          }
+          return {
+            outcome: 'refused',
+            reason: classifyWebhookHttpStatus(response.status),
+            httpStatus: response.status,
+          };
+        },
+      });
     },
 
     async deleteWebhooks(auth: ConnectorAuth, webhookIds: string[]): Promise<void> {

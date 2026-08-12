@@ -203,12 +203,15 @@ function wooOrderJson(order: ContractOrder, currency: string): Record<string, un
 
 /** Build the fake WooCommerce REST server for `world`. */
 function createWooCommerceFake(world: ContractWorld): WooCommerceTransport {
+  /** Never reused, even after a delete — see the create branch below. */
+  let nextWebhookId = 0;
+
   function answer(
     method: 'GET' | 'POST' | 'DELETE',
     url: string,
     body?: string,
   ): WooCommerceHttpResponse {
-    const fault = world.takeFault(url);
+    const fault = world.takeFault(url, method);
     if (fault) {
       world.record({ method, url, status: fault.status });
       return { status: fault.status, headers: fault.headers, body: '{}' };
@@ -254,23 +257,48 @@ function createWooCommerceFake(world: ContractWorld): WooCommerceTransport {
         { 'x-wp-totalpages': String(totalPages(world.orders, world.pageSize)) },
       );
     }
-    if (method === 'POST' && path === `${API_PREFIX}/webhooks`) {
-      const parsed = body
-        ? (JSON.parse(body) as { topic: string; delivery_url: string; secret: string })
-        : null;
-      const id = `wh-${world.webhooks.length + 1}`;
-      world.webhooks.push({
-        id,
-        topic: parsed?.topic ?? 'unknown',
-        deliveryUrl: parsed?.delivery_url ?? '',
-        ...(parsed?.secret ? { secret: parsed.secret } : {}),
-      });
-      return ok({ id });
+    if (path === `${API_PREFIX}/webhooks`) {
+      if (method === 'POST') {
+        const parsed = body
+          ? (JSON.parse(body) as { topic: string; delivery_url: string; secret: string })
+          : null;
+        // A monotonic counter rather than `length + 1`: reconciliation DELETES
+        // before it recreates, so a length-derived id would be reissued and two
+        // different subscriptions would share one — which is exactly the state a
+        // duplicate-suppression case must be able to tell apart from a correct one.
+        const id = `wh-${(nextWebhookId += 1)}`;
+        world.webhooks.push({
+          id,
+          topic: parsed?.topic ?? 'unknown',
+          deliveryUrl: parsed?.delivery_url ?? '',
+          ...(parsed?.secret ? { secret: parsed.secret } : {}),
+        });
+        return ok({ id });
+      }
+      // `GET /webhooks` — what the site actually holds, which is what #218's
+      // reconciliation reads before it creates anything. WooCommerce paginates
+      // it like every other collection, so the page header is real.
+      return ok(
+        world.webhooks.map((webhook) => ({
+          id: webhook.id,
+          topic: webhook.topic,
+          delivery_url: webhook.deliveryUrl,
+        })),
+        { 'x-wp-totalpages': '1' },
+      );
     }
     const webhookDeleteMatch = path.match(/^\/wp-json\/wc\/v3\/webhooks\/([^/]+)$/);
     if (method === 'DELETE' && webhookDeleteMatch) {
-      world.deletedWebhookIds.push(webhookDeleteMatch[1]);
-      return ok({ id: webhookDeleteMatch[1] });
+      const id = webhookDeleteMatch[1];
+      world.deletedWebhookIds.push(id);
+      // The fake's list has to MOVE, or a reconcile that deleted and recreated
+      // would read the stale set on the next pass and every duplicate assertion
+      // would be measuring the fixture rather than the connector.
+      const index = world.webhooks.findIndex((webhook) => webhook.id === id);
+      if (index >= 0) {
+        world.webhooks.splice(index, 1);
+      }
+      return ok({ id });
     }
 
     return { status: 404, headers: {}, body: JSON.stringify({ message: `no route for ${path}` }) };
@@ -299,8 +327,10 @@ describeConnectorContract({
     // WooCommerce has no inventory webhook — a stock change fires
     // `product.updated`, so there is no topic to name here.
   },
-  // The SHIPPED declaration, not a copy of it — see the harness field's note.
+  // The SHIPPED declarations, not copies of them — see the harness fields' notes.
   capabilities: wooCommerceProvider.capabilities,
+  webhookSecretStrategy: wooCommerceProvider.webhookSecretStrategy,
+  webhookPathFragment: '/webhooks',
   createWorld: () => {
     const catalogue = contractCatalogue(uuidv7());
     return createContractWorld({

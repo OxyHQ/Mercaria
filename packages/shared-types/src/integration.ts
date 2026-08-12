@@ -77,6 +77,60 @@ export interface SyncSettings {
 export type ConnectionStatus = 'connected' | 'error' | 'disconnected';
 
 /**
+ * Why the platform refused to create ONE webhook subscription (#218).
+ *
+ * A closed set, because a merchant surface has to say which events will not
+ * arrive AND what to do about it, and the remedies genuinely differ: a
+ * `permission_denied` is a scope or an API key the merchant must widen, a
+ * `topic_not_supported` is a platform that will never send that event, and a
+ * `rate_limited` or `platform_error` is worth simply retrying. A sentence
+ * cannot be branched on, and an HTTP status alone cannot either — 403 means the
+ * same thing on both platforms, and 400 does not.
+ *
+ * It is deliberately NARROWER than the set of HTTP statuses a platform can
+ * answer: everything unclassifiable lands on `unexpected_response`, which is
+ * honest, rather than on the nearest plausible member, which is not.
+ */
+export const CONNECTOR_WEBHOOK_FAILURE_REASONS = [
+  /** 401/403 — the credential does not carry the scope this topic needs. */
+  'permission_denied',
+  /** 429 — the platform was throttling; the topic is fine and a retry may take it. */
+  'rate_limited',
+  /** 400/422 — the platform refused the subscription itself. */
+  'topic_not_supported',
+  /** 5xx — the platform failed. */
+  'platform_error',
+  /** A 2xx whose body carried no usable subscription id, or an unclassifiable status. */
+  'unexpected_response',
+  /** The call never reached the platform (DNS, TLS, timeout, SSRF refusal). */
+  'transport_error',
+] as const;
+
+export type ConnectorWebhookFailureReason = (typeof CONNECTOR_WEBHOOK_FAILURE_REASONS)[number];
+
+/**
+ * One webhook topic the platform would NOT subscribe, recorded on the connection.
+ *
+ * The record exists because the alternative is silence: before #218 a refused
+ * topic left a warning in a log line nobody reads and a connection that looks
+ * healthy, so a merchant discovered it as "my prices stopped updating" weeks
+ * later. Every registration REPLACES this list wholesale, so it always describes
+ * the most recent attempt rather than accumulating history.
+ */
+export interface ConnectionWebhookFailure {
+  /** The PLATFORM's own topic string (`orders/create`, `product.updated`). */
+  readonly topic: string;
+  readonly reason: ConnectorWebhookFailureReason;
+  /**
+   * The HTTP status the platform answered, when the call reached it. Absent for
+   * a `transport_error`, which is precisely the case where there is no status.
+   */
+  readonly httpStatus?: number;
+  /** ISO-8601 time of the registration attempt that recorded it. */
+  readonly recordedAt: string;
+}
+
+/**
  * A store's link to an external commerce platform. NOTE: this DTO carries NO
  * credentials — the encrypted secret blob stays server-side and never leaves the
  * API.
@@ -109,6 +163,14 @@ export interface Connection {
   syncSettings: SyncSettings;
   /** Ids of webhooks registered on the external platform for this connection. */
   webhookIds: string[];
+  /**
+   * The topics the platform refused at the last registration (#218).
+   *
+   * Omitted when there are none, so an older client reading no field behaves
+   * exactly as it did — and a merchant surface that renders it is naming events
+   * that will NOT arrive, which is the one thing `webhookIds` cannot say.
+   */
+  webhookFailures?: ConnectionWebhookFailure[];
   /** ISO-8601 time the connection was established. */
   connectedAt: string;
   /** ISO-8601 time of the most recent completed sync, when any. */

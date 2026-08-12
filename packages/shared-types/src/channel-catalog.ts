@@ -171,8 +171,6 @@ export const CHANNEL_LIMITATION_CODES = [
   'single_connection_per_provider',
   /** A `product.*` webhook collapses a variable product to one variant, permanently. */
   'variable_product_collapsed_on_webhook',
-  /** Webhook registration is partially effectful and discards the ids it created. */
-  'webhook_registration_not_atomic',
   /** Creating a listing and stamping its provenance are separate statements. */
   'listing_stamp_not_atomic',
   /** A no-change resync is tallied as `updated` rather than `skipped`. */
@@ -192,7 +190,7 @@ export type ChannelLimitationCode = (typeof CHANNEL_LIMITATION_CODES)[number];
  *
  * `blocks_activation` is the only one the onboarding gate reads. `degrades`
  * means the channel works and something a merchant would reasonably expect does
- * not — the four open defects are all here, because each leaves a channel that
+ * not — every open connector defect is here, because each leaves a channel that
  * connects successfully and then misbehaves, which is exactly the shape a
  * wizard would otherwise hide.
  */
