@@ -111,7 +111,7 @@ export function providerForChannelType(
  * what the code does wrong: "live updates will not arrive" is actionable and
  * "`registerWebhooks` discards its ids" is not.
  *
- * They leave when the issues close, and two have. #218: registration is now
+ * They leave when the issues close, and three have. #218: registration is now
  * per-topic fault tolerant, reconciled against the platform's own subscription
  * list, and persists the ids, the secret and the refused topics in ONE write —
  * so a partial registration is disconnectable, retryable, and names the events
@@ -119,18 +119,15 @@ export function providerForChannelType(
  * transport retries a 429, so its entry became a CAPABILITY-derived limitation
  * (below) rather than a defect — which is where it belonged all along, since
  * "does this transport retry a rate limit" is a fact about shipped code and
- * `ConnectorProvider.capabilities` is where this module reads those.
+ * `ConnectorProvider.capabilities` is where this module reads those. #220: a
+ * webhook payload is COMPLETED before it is normalized, a payload that cannot be
+ * completed is REFUSED rather than collapsed, and a variant the platform added
+ * is created on the next sync — so the collapse is neither reachable nor
+ * permanent.
  *
  * Nothing derives what remains, so nothing can silently stop reporting one.
  */
 const WOOCOMMERCE_OPEN_DEFECTS: readonly ChannelLimitation[] = [
-  {
-    code: 'variable_product_collapsed_on_webhook',
-    severity: 'degrades',
-    summary:
-      'A product with several variations that Mercaria first sees through a webhook is imported with a single variant at the lowest price and no stock, permanently. Running a full sync before relying on webhooks avoids it.',
-    openIssue: 220,
-  },
   {
     code: 'listing_stamp_not_atomic',
     severity: 'degrades',

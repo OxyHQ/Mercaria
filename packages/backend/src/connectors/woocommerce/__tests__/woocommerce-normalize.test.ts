@@ -6,6 +6,13 @@
  * embedded variations become variants with paired option values, sale prices map
  * to `compareAtPrice`, image URLs pass through verbatim, and stock/tracking map
  * from WooCommerce's `manage_stock`/`stock_quantity`.
+ *
+ * It also carries #220's structural refusal, which nothing else can measure: the
+ * webhook path EXPANDS a payload before it reaches here, so with that expansion
+ * in place the guard is unreachable end to end — and a guard whose removal fails
+ * no test is a guard that gets tidied away. It exists for the day somebody
+ * simplifies the expansion seam, so its test has to reach the pure function
+ * directly.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -69,6 +76,72 @@ const variableProduct = {
     },
   ],
 };
+
+/**
+ * The same variable product exactly as a `product.updated` WEBHOOK delivers it:
+ * `variations` as IDS, no variation objects, and the parent carrying the LOWEST
+ * variation price with an empty `regular_price` — which is what WooCommerce
+ * itself publishes for a variable parent.
+ */
+const unexpandedVariableProduct = {
+  ...variableProduct,
+  price: '1000.00',
+  regular_price: '',
+  sale_price: '',
+  manage_stock: false,
+  stock_quantity: null,
+  variations: [3001, 3002],
+  expandedVariations: undefined,
+};
+
+describe('normalizeWooCommerceProduct — #220, an incomplete payload is REFUSED', () => {
+  it('refuses a payload declaring variations it does not carry', () => {
+    // The measured shape from the issue: this used to produce ONE variant at
+    // 1000.00 (the cheapest variation's price), with `optionValues: []` and
+    // `available: 0`, beside an option axis declaring two values — and
+    // `importProduct` could not add the missing variants afterwards, so the
+    // listing stayed wrong until somebody deleted it.
+    expect(() => normalizeWooCommerceProduct(unexpandedVariableProduct, 'USD')).toThrow(
+      /declares 2 variations and carries none/,
+    );
+  });
+
+  it('refuses an EXPANSION that came back empty, not only an absent one', () => {
+    // `expandedVariations: []` is what a fetch that answered with nothing
+    // produces. Reading it as "no variations" would collapse the product exactly
+    // as an absent field does, so both spellings have to refuse.
+    expect(() =>
+      normalizeWooCommerceProduct(
+        { ...unexpandedVariableProduct, expandedVariations: [] },
+        'USD',
+      ),
+    ).toThrow(/declares 2 variations and carries none/);
+  });
+
+  it('ACCEPTS a product that declares no variations at all', () => {
+    // The other side of the discriminant, and the reason the guard reads
+    // `product.variations` rather than `type === 'variable'`: a product WooCommerce
+    // publishes with an empty variation list is complete, and refusing it would
+    // make a simple product unimportable.
+    const product = normalizeWooCommerceProduct(simpleProduct, 'USD');
+    expect(product.variants).toHaveLength(1);
+  });
+
+  it('ACCEPTS the same payload once its variations are expanded', () => {
+    // The positive control on the refusal: if this threw too, the guard would be
+    // refusing every variable product rather than the incomplete ones, and the
+    // case above would pass for the wrong reason.
+    const product = normalizeWooCommerceProduct(
+      { ...unexpandedVariableProduct, expandedVariations: variableProduct.expandedVariations },
+      'USD',
+    );
+    expect(product.variants).toHaveLength(2);
+    expect(product.variants.map((variant) => variant.optionValues)).toEqual([
+      [{ name: 'Size', value: 'S' }],
+      [{ name: 'Size', value: 'M' }],
+    ]);
+  });
+});
 
 describe('normalizeWooCommerceProduct', () => {
   it('maps a simple product to a single option-less variant in the native currency', () => {

@@ -1143,6 +1143,18 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
       return nextCursor ? { products, nextCursor } : { products };
     },
 
+    /**
+     * A NO-OP for Shopify (#220).
+     *
+     * A `products/*` delivery carries the product's full `variants` array, so
+     * the webhook payload and a `products.json` entry are the same shape and
+     * `normalizeProduct` reads both identically. The seam exists because
+     * WooCommerce's delivery does NOT (it sends variation ids), and a provider
+     * that needs no completion says so by returning the payload rather than by
+     * the interface having an optional method somebody has to remember to check.
+     */
+    expandWebhookProduct: (_auth: ConnectorAuth, raw: unknown) => Promise.resolve(raw),
+
     normalizeProduct: normalizeShopifyProduct,
 
     async pushProduct(auth: ConnectorAuth, product: PushProduct): Promise<PushProductResult> {

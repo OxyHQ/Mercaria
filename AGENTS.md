@@ -3529,10 +3529,23 @@ CHECK the database would have refused all looked identical to a green suite.
   archives nothing. Shopify's proactive self-throttle was deliberately NOT
   ported — WordPress publishes no leaky-bucket header, and `no_rate_limit_retry`
   became a CAPABILITY-derived channel limitation rather than a hardcoded defect.
-  #220 and #221 stand, and are listed in the runbook §8 with what a real run
-  should expect: a WooCommerce `product.*` webhook collapsing a variable product
-  to one variant permanently; and the non-atomic create-then-stamp that strands a
-  listing no later sync can match.
+  **#220 is FIXED:** the webhook path COMPLETES a delivery before normalizing
+  (`expandWebhookProduct` — a no-op on Shopify, a `GET /products/{id}/variations`
+  on WooCommerce, so `normalizeProduct` stays pure and synchronous), the pure
+  normalizer REFUSES a payload declaring variations it does not carry rather than
+  collapsing it, and `convergeVariants` CREATES a variant the platform added — so
+  an earlier collapse self-heals on the next sync instead of being permanent. A
+  variant the platform REMOVED is unsold (stock zero, tracking on) and never
+  deleted, because a variant id cascades into carts, saves, offers and the
+  canonical links. **#221 stands**, and is in the runbook §8 with what a real run
+  should expect: the non-atomic create-then-stamp that strands a listing no later
+  sync can match.
+- **A fixed defect leaves `WOOCOMMERCE_OPEN_DEFECTS` and, unless something still
+  produces it, leaves `CHANNEL_LIMITATION_CODES` too** — `channel-catalog.test.ts`
+  asserts the EXACT open-issue set rather than containment, because a list that
+  only ever grows is a wizard warning about problems somebody solved.
+  `no_rate_limit_retry` is the one that stayed: #219 made it capability-DERIVED
+  rather than unproduceable.
 
 ## Supplier-fulfilled retail fulfilment and the Moovo boundary (#126, ADR 0004 D2.6/D2.7/D2.8/D9.4/D9.6/D9.9)
 

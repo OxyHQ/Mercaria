@@ -134,6 +134,7 @@ import { categorySlugExists } from '../db/catalog/categoryRepository.js';
 import { setListingAutomatedMemberships } from '../db/merchandising/collectionRepository.js';
 import { findLocation } from '../db/stores/locationRepository.js';
 import {
+  addVariant,
   createStoreProduct,
   updateListing,
   updateVariant,
@@ -958,24 +959,44 @@ async function stampVariantSources(
     return;
   }
   const variants = await findVariantsByListing(listingId);
-  const connectionId = conn.id;
   for (let i = 0; i < variants.length && i < product.variants.length; i += 1) {
-    const normalized = product.variants[i];
-    if (normalized.externalVariantId === undefined && normalized.externalInventoryItemId === undefined) {
-      continue;
-    }
-    await updateVariantColumns(
-      listingId,
-      variants[i].id,
-      {
-        sourceConnectionId: connectionId,
-        sourceProvider: conn.provider,
-        sourceExternalVariantId: normalized.externalVariantId ?? null,
-        sourceExternalInventoryItemId: normalized.externalInventoryItemId ?? null,
-      },
-      undefined,
-    );
+    await stampVariantSource(conn, listingId, variants[i].id, product.variants[i]);
   }
+}
+
+/**
+ * Stamp ONE variant with the platform's variant + inventory-item ids.
+ *
+ * Extracted from {@link stampVariantSources} because #220's convergence creates
+ * a variant OUTSIDE the create path and it needs the same four columns written
+ * the same way — an unstamped variant is invisible to the inventory sync and to
+ * every later match, which is a variant that exists and never updates again.
+ * A normalized variant carrying neither id is a no-op, so the ingest path (which
+ * supplies none) is unaffected.
+ */
+async function stampVariantSource(
+  conn: ConnectionRow,
+  listingId: string,
+  variantId: string,
+  normalized: NormalizedVariant,
+): Promise<void> {
+  if (
+    normalized.externalVariantId === undefined &&
+    normalized.externalInventoryItemId === undefined
+  ) {
+    return;
+  }
+  await updateVariantColumns(
+    listingId,
+    variantId,
+    {
+      sourceConnectionId: conn.id,
+      sourceProvider: conn.provider,
+      sourceExternalVariantId: normalized.externalVariantId ?? null,
+      sourceExternalInventoryItemId: normalized.externalInventoryItemId ?? null,
+    },
+    undefined,
+  );
 }
 
 /**
@@ -1064,9 +1085,9 @@ interface RepriceVariant {
 }
 
 /**
- * Re-price the EXISTING variants of a re-synced listing from the incoming
- * normalized product (Fix: price changes previously applied only at variant
- * CREATE, so a platform price edit never reached an already-imported listing).
+ * CONVERGE the variants of a re-synced listing onto the incoming normalized
+ * product: re-price the ones that match, CREATE the ones the platform added, and
+ * unsell the ones it removed.
  *
  * Each incoming variant is matched to an existing one by `sku` first, then by its
  * option-value tuple; the connection's `priceRules` (markup + rounding) are applied
@@ -1077,14 +1098,50 @@ interface RepriceVariant {
  * (no write), so a re-sync of unchanged prices is a true no-op. An existing variant
  * is matched at most once.
  *
- * RESPECTS `overriddenFields`: when the merchant has pinned `price` (the marker put
- * into `overridden` only under `respect_overrides`), re-pricing is skipped entirely
- * — the local price wins, exactly like the pinned listing fields in `toUpdatePatch`.
+ * ## What #220 added, and the two decisions in it
  *
- * Returns true when at least one variant's price/compareAtPrice was changed, so the
- * caller can count the product as `updated` even when no listing-level field moved.
+ * An UNMATCHED INCOMING variant is now CREATED. It used to be skipped with the
+ * comment "creation is a later phase", and that skip is what made #220
+ * permanent: a variable product first seen through a webhook was created with
+ * one wrong variant and no later sync could add the missing ones, so the listing
+ * stayed wrong until somebody deleted and re-imported it. Creation goes through
+ * `addVariant` — the same funnel the merchant surface uses, so the variant-count
+ * cap, the position numbering and the facet recompute all apply — and is stamped
+ * with its platform ids so the inventory sync can find it.
+ *
+ * An UNMATCHED EXISTING variant — one the platform stopped listing — is left in
+ * place with its stock set to ZERO and tracking ON. It is never deleted and
+ * never archived, and both halves of that are decisions:
+ *
+ *  - **Never deleted.** A variant id is referenced by `cart_items`,
+ *    `product_save_*`, `offers`, `canonical_variant_source_links` and the
+ *    matching links, every one of them `ON DELETE CASCADE` — so deleting one
+ *    silently empties it out of live carts and retires an offer. A configuration
+ *    somebody stopped selling is not a reason to erase what buyers did with it.
+ *  - **Unsold rather than left alone.** Mercaria cannot fulfil a configuration
+ *    the platform no longer has, so leaving it buyable would be reading silence
+ *    as availability. Zeroing the stock stops the sale, breaks no reference, and
+ *    keeps the row visible to a merchant who wants to understand what happened.
+ *    Tracking is turned ON because an UNTRACKED variant ignores its stock
+ *    entirely — zeroing one without that would look like a fix and change
+ *    nothing. It is written ONCE: a variant already unsellable is skipped, so a
+ *    re-sync does not write per removed variant forever.
+ *
+ * Neither is reachable from a FAILED or PARTIAL fetch: `runBackfill` throws out
+ * of its page loop on a fetch failure, and the webhook path refuses an
+ * unexpanded payload before any of this — the same posture
+ * `archiveUnseenSourcedListings` takes at the product grain.
+ *
+ * RESPECTS `overriddenFields`: when the merchant has pinned `price` (the marker put
+ * into `overridden` only under `respect_overrides`), the whole convergence is
+ * skipped — the local variant set wins, exactly like the pinned listing fields in
+ * `toUpdatePatch`.
+ *
+ * Returns true when anything moved, so the caller can count the product as
+ * `updated` even when no listing-level field did.
  */
-async function repriceExistingVariants(
+async function convergeVariants(
+  conn: ConnectionRow,
   listingId: string,
   product: NormalizedProduct,
   overridden: Set<string>,
@@ -1121,14 +1178,21 @@ async function repriceExistingVariants(
   }
 
   const consumed = new Set<string>();
-  let repriced = false;
+  let changed = false;
 
   for (const incoming of product.variants) {
     const match =
       (incoming.sku ? bySku.get(incoming.sku) : undefined) ??
       byOptionKey.get(variantMatchKey(incoming.optionValues));
     if (!match) {
-      continue; // a NEW variant added on the platform — creation is a later phase
+      // A variant ADDED on the platform. #220: creating it here is what makes a
+      // listing first seen through an incomplete webhook, or a product whose
+      // merchant added a size last week, converge on the next sync instead of
+      // staying wrong until somebody deletes and re-imports it.
+      const created = await addVariant(listingId, toVariantInput(incoming, priceRules));
+      await stampVariantSource(conn, listingId, created, incoming);
+      changed = true;
+      continue;
     }
     const matchId = match.variant.id;
     if (consumed.has(matchId)) {
@@ -1172,10 +1236,25 @@ async function repriceExistingVariants(
       patch.compareAtPrice = targetCompareAt ?? null;
     }
     await updateVariant(listingId, matchId, patch);
-    repriced = true;
+    changed = true;
   }
 
-  return repriced;
+  // Variants the platform stopped listing — see this function's header for why
+  // they are unsold rather than deleted, and why the write happens once.
+  for (const variant of existingVariants) {
+    if (consumed.has(variant.id)) {
+      continue;
+    }
+    if (variant.inventoryTracked && variant.inventoryAvailable === 0) {
+      continue; // already unsellable — a re-sync must not write per removed variant
+    }
+    await updateVariant(listingId, variant.id, {
+      inventory: { tracked: true, available: 0 },
+    });
+    changed = true;
+  }
+
+  return changed;
 }
 
 /** Import ONE normalized product (create or override-respecting update). */
@@ -1231,8 +1310,9 @@ async function importProduct(
     // never carries one today.
     await updateListing(listingId, patch, { kind: 'source' });
   }
-  // Re-price existing variants from the incoming product (respects a pinned `price`).
-  const repriced = await repriceExistingVariants(listingId, product, overridden, opts.priceRules);
+  // #220: converge the variant SET, not just the prices — create what the
+  // platform added, unsell what it removed (respects a pinned `price`).
+  const repriced = await convergeVariants(conn, listingId, product, overridden, opts.priceRules);
   await applyCollectionMapping(conn, listingId, product, overridden);
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
   await updateListingColumns(listingId, buildSource(conn, product));
@@ -1552,7 +1632,15 @@ async function handleProductWebhook(
     throw validationError('Connection has no supported shop currency');
   }
   const provider = getConnectorProvider(conn.provider);
-  const product = provider.normalizeProduct(payload, conn.shopCurrency);
+  // #220: complete the delivery BEFORE normalizing. A WooCommerce `product.*`
+  // payload carries `variations` as ids and no variation objects, so without
+  // this the pure normalizer refuses it (and, before the refusal existed,
+  // collapsed a variable product to one variant at the parent's lowest price,
+  // permanently). Shopify's implementation returns the payload unchanged.
+  // A failed expansion THROWS, which fails this webhook run without writing
+  // anything — the next backfill converges.
+  const expanded = await provider.expandWebhookProduct(await decryptAuth(conn), payload);
+  const product = provider.normalizeProduct(expanded, conn.shopCurrency);
   const categorySlug = await resolveImportCategorySlug();
   const outcome = await importProduct(conn, product, {
     categorySlug,
