@@ -13,9 +13,9 @@
  *
  *  - the CATALOG (`GET .../channels/catalog`) says what may be connected, what
  *    each channel supports, and what is wrong with it today — including the
- *    connector defects that are still OPEN (#219–#221; #218 is fixed), which a
- *    merchant sees BEFORE choosing rather than after a week of silent webhook
- *    failures;
+ *    connector defects that are still OPEN (#220–#221; #218 and #219 are fixed),
+ *    which a merchant sees BEFORE choosing rather than after a week of silent
+ *    webhook failures;
  *  - the SUMMARY (`GET .../channels/summary`) is connectors, feeds and the
  *    native catalogue in one shape;
  *  - the READINESS result (`GET .../channels/readiness`) is the one authority on

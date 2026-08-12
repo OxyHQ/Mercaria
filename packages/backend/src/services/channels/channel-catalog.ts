@@ -111,21 +111,19 @@ export function providerForChannelType(
  * what the code does wrong: "live updates will not arrive" is actionable and
  * "`registerWebhooks` discards its ids" is not.
  *
- * They leave when the issues close, and #218 has: registration is now per-topic
- * fault tolerant, reconciled against the platform's own subscription list, and
- * persists the ids, the secret and the refused topics in ONE write — so a
- * partial registration is disconnectable, retryable, and names the events that
- * will not arrive instead of looking healthy. Nothing derives this list, so
- * nothing can silently stop reporting what remains.
+ * They leave when the issues close, and two have. #218: registration is now
+ * per-topic fault tolerant, reconciled against the platform's own subscription
+ * list, and persists the ids, the secret and the refused topics in ONE write —
+ * so a partial registration is disconnectable, retryable, and names the events
+ * that will not arrive instead of looking healthy. #219: the WooCommerce
+ * transport retries a 429, so its entry became a CAPABILITY-derived limitation
+ * (below) rather than a defect — which is where it belonged all along, since
+ * "does this transport retry a rate limit" is a fact about shipped code and
+ * `ConnectorProvider.capabilities` is where this module reads those.
+ *
+ * Nothing derives what remains, so nothing can silently stop reporting one.
  */
 const WOOCOMMERCE_OPEN_DEFECTS: readonly ChannelLimitation[] = [
-  {
-    code: 'no_rate_limit_retry',
-    severity: 'degrades',
-    summary:
-      'A sync fails outright if the WordPress host rate-limits it, which hosts behind Cloudflare, Wordfence or a plan-level limit do routinely. The failure is safe — nothing is archived or changed — but the sync must be retried by hand.',
-    openIssue: 219,
-  },
   {
     code: 'variable_product_collapsed_on_webhook',
     severity: 'degrades',
@@ -357,6 +355,18 @@ function describeChannelType(channelType: ChannelTypeId): ChannelTypeDescriptor 
       code: 'no_inventory_webhook',
       severity: 'informational',
       summary: `${CONNECTOR_NAMES[channelType]} does not notify Mercaria when stock changes, so stock is refreshed on the scheduled sync rather than immediately.`,
+    });
+  }
+  if (!capabilities.retriesRateLimit) {
+    // #219 landed this as a DERIVATION rather than leaving it a hardcoded
+    // WooCommerce defect: both shipped transports retry a 429 today, so this
+    // branch reports nothing — and a third platform that arrives without a
+    // retry gets the limitation automatically instead of by somebody
+    // remembering to add a row.
+    connectorLimitations.push({
+      code: 'no_rate_limit_retry',
+      severity: 'degrades',
+      summary: `A sync fails outright if ${CONNECTOR_NAMES[channelType]} rate-limits it. The failure is safe — nothing is archived or changed — but the sync must be retried by hand.`,
     });
   }
   connectorLimitations.push(RESYNC_COUNTS_UNCHANGED);

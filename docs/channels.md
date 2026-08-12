@@ -377,6 +377,12 @@ key pair genuinely are different things (#87 UX 2).
 These are #69's, filed and still open. The catalog carries each with its issue
 number so onboarding does not walk a merchant into one silently.
 
+**#219 is FIXED and is no longer in the list either** — the WooCommerce
+transport retries a 429 — and its code did not simply disappear:
+`no_rate_limit_retry` is now DERIVED from `capabilities.retriesRateLimit` beside
+the other three capability limitations, so a third platform that arrives without
+a retry gets it automatically instead of by somebody remembering to add a row.
+
 **#218 is FIXED and is no longer in the list.** Registration is per-topic fault
 tolerant, reconciles against the platform's own subscription list before creating
 anything, and persists the ids, the secret and the refused topics in one
@@ -385,10 +391,6 @@ refusals: `Connection.webhookFailures` names each topic with its HTTP status and
 a classified reason, and `ChannelReadiness` reports the catalogue axis as
 `degraded` while any exist.
 
-- **#219 — WooCommerce has no rate-limit handling.** A sync fails outright if the
-  WordPress host answers 429, which hosts behind Cloudflare or Wordfence do
-  routinely. The failure is safe — nothing is archived — but needs a manual
-  retry.
 - **#220 — a WooCommerce webhook collapses a variable product.** A product first
   seen through a webhook is imported with one variant at the lowest price and no
   stock, permanently. Running a full sync before relying on webhooks avoids it.
