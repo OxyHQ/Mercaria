@@ -45,6 +45,7 @@ import { canonicalProducts } from '../schema/canonicalCatalog.js';
 import { merchants } from '../schema/merchants.js';
 import { orderItems, orders } from '../schema/orders.js';
 import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import {
   reviewAggregates,
   reviewDimensionAggregates,
@@ -149,9 +150,7 @@ afterAll(async () => {
   if (createdMerchantIds.length > 0) {
     await db.delete(merchants).where(inArray(merchants.id, createdMerchantIds));
   }
-  if (createdStoreIds.length > 0) {
-    await db.delete(stores).where(inArray(stores.id, createdStoreIds));
-  }
+  await deleteTestStores(db, createdStoreIds);
   // `review_target_migrations` is append-only by trigger: it cannot be cleaned
   // up, which is the point. Rows are scoped by a per-run review id and left.
   await closePostgres();

@@ -41,6 +41,7 @@ import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { declaredOfferCondition } from '../../services/condition/condition-mapping.service.js';
 import { listings } from '../schema/catalog.js';
 import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import { merchants, nativeStoreLinks, storefronts } from '../schema/merchants.js';
 import { brands } from '../schema/organizations.js';
 import { commerceRelationships } from '../schema/relationships.js';
@@ -67,7 +68,6 @@ const created = {
   sourceRecords: [] as string[],
   sources: [] as string[],
   relationships: [] as string[],
-  links: [] as string[],
   listings: [] as string[],
   stores: [] as string[],
   storefronts: [] as string[],
@@ -96,9 +96,12 @@ afterAll(async () => {
   await db
     .delete(commerceRelationships)
     .where(inArray(commerceRelationships.id, safeIds(created.relationships)));
-  await db.delete(nativeStoreLinks).where(inArray(nativeStoreLinks.id, safeIds(created.links)));
   await db.delete(listings).where(inArray(listings.id, safeIds(created.listings)));
-  await db.delete(stores).where(inArray(stores.id, safeIds(created.stores)));
+  // Every link this file mints sits on a store it also owns, so the shared
+  // teardown's store-scoped clear covers them — and covers the one it does NOT
+  // own, which a delete by recorded link id never could. Links still go before
+  // the merchants below, because `merchant_id` RESTRICTs them.
+  await deleteTestStores(db, safeIds(created.stores));
   await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(created.variants)));
   await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(created.products)));
   await db.delete(storefronts).where(inArray(storefronts.id, safeIds(created.storefronts)));
@@ -313,7 +316,10 @@ async function mintNativeStoreLink(merchantId: string, handle: string): Promise<
     })
     .returning({ id: nativeStoreLinks.id });
   if (!link) throw new Error('mintNativeStoreLink produced no link');
-  created.links.push(link.id);
+  // The link id is deliberately NOT accumulated: `deleteTestStores` clears
+  // `native_store_links` by STORE, which covers both the links this file mints
+  // and any the backfill attaches, so a per-id list would be a second teardown
+  // path that can only be less complete than the one that runs.
   return store.id;
 }
 

@@ -45,6 +45,7 @@ import type { CatalogBackfillMode, CatalogBackfillStage } from '@mercaria/shared
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { listingOptions, listings } from '../../db/schema/catalog.js';
 import { stores, storeMembers } from '../../db/schema/stores.js';
+import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { canonicalProducts, canonicalVariants } from '../../db/schema/canonicalCatalog.js';
 import { nativeListingLinks, offers } from '../../db/schema/offers.js';
 import { merchants, nativeStoreLinks } from '../../db/schema/merchants.js';
@@ -128,7 +129,7 @@ afterAll(async () => {
       await db.delete(merchants).where(inArray(merchants.id, merchantIds));
     }
     await db.delete(storeMembers).where(inArray(storeMembers.storeId, createdStoreIds));
-    await db.delete(stores).where(inArray(stores.id, createdStoreIds));
+    await deleteTestStores(db, createdStoreIds);
   }
   await closePostgres();
 });

@@ -31,7 +31,7 @@ import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { inventoryLevels, listings } from '../schema/catalog.js';
 import { collections, listingCollections } from '../schema/merchandising.js';
 import { favorites } from '../schema/buyers.js';
-import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import { insertStore } from '../stores/storeRepository.js';
 import { insertLocation } from '../stores/locationRepository.js';
 import {
@@ -154,7 +154,7 @@ afterEach(async () => {
     // variants, levels, memberships and favorites — go before the store does.
     await db.delete(listings).where(eq(listings.storeId, storeId));
     await db.delete(collections).where(eq(collections.storeId, storeId));
-    await db.delete(stores).where(eq(stores.id, storeId));
+    await deleteTestStores(db, [storeId]);
   }
 });
 

@@ -56,7 +56,8 @@ vi.mock('../../queue/producers.js', () => ({
 }));
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
-import { locations, stores } from '../../db/schema/stores.js';
+import { locations } from '../../db/schema/stores.js';
+import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { listings } from '../../db/schema/catalog.js';
 import { orders } from '../../db/schema/orders.js';
 import { reviewEligibilities } from '../../db/schema/reviews.js';
@@ -116,7 +117,7 @@ afterEach(async () => {
     await pg.delete(orders).where(eq(orders.storeId, storeId));
     await pg.delete(listings).where(eq(listings.storeId, storeId));
     await pg.delete(locations).where(eq(locations.storeId, storeId));
-    await pg.delete(stores).where(eq(stores.id, storeId));
+    await deleteTestStores(pg, [storeId]);
   }
 });
 

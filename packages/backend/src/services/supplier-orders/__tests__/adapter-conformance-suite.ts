@@ -39,7 +39,7 @@ import { uuidv7 } from '@oxyhq/db';
 import type { CurrencyCode } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, getDb, type Database } from '../../../db/postgres.js';
 import { orders } from '../../../db/schema/orders.js';
-import { stores } from '../../../db/schema/stores.js';
+import { deleteTestStores } from '../../../db/__tests__/store-teardown.js';
 import { insertStore } from '../../../db/stores/storeRepository.js';
 import { insertOrder, nextOrderNumber, type NewOrder } from '../../../db/orders/orderRepository.js';
 import { createSupplier } from '../../../db/procurement/supplierRepository.js';
@@ -161,9 +161,40 @@ export function runSupplierAdapterConformanceSuite(
     resetProcurementPaymentAuthorizationReader();
     for (const storeId of createdStoreIds.splice(0)) {
       await db.delete(orders).where(eq(orders.storeId, storeId));
-      await db.delete(stores).where(eq(stores.id, storeId));
+      await deleteTestStores(db, [storeId]);
     }
   });
+
+  /**
+   * Process ONE event, named by its id, rather than draining a batch.
+   *
+   * `processSupplierProviderEvents({ batchSize: N })` claims the OLDEST N due
+   * events in the WHOLE database — `claimSupplierProviderEvent` orders by
+   * `received_at` with no account scoping — and two files drive this suite
+   * against one shared database (`supplier-orders.realdb.test.ts` and
+   * `printful-conformance.realdb.test.ts`), with more producers of due events
+   * beside them. So a sibling's rows can fill the batch, this file's own event
+   * is never reached, and the assertion after it reads the purchase order in the
+   * state it had BEFORE the event — measured, as `expected 'accepted' to be
+   * 'shipped'` in a full parallel run and green in isolation.
+   *
+   * `eventId` forces `batchSize` to 1 AND puts the id in the claim predicate, so
+   * what this drains is this file's row whatever else is queued.
+   *
+   * The floor is that the row was CLAIMED — the four outcome counters summing
+   * to one — and deliberately not that it was `processed`. A targeted claim
+   * matching nothing returns a zero-filled result rather than throwing, so
+   * without a floor every later expectation would be measuring an event nobody
+   * applied; but asserting `processed` would assert an OUTCOME, and case 5's
+   * second event is legitimately stored-and-skipped as an out-of-order
+   * delivery. That is not hypothetical: `processed === 1` was the first
+   * spelling here and case 5 failed on it immediately.
+   */
+  async function drainOwnEvent(eventId: string): Promise<void> {
+    const result = await processSupplierProviderEvents({ eventId });
+    const claimed = result.processed + result.skipped + result.failed + result.deadLettered;
+    expect(claimed, `event ${eventId} was never claimed`).toBe(1);
+  }
 
   /** A real customer order plus its whole supply side and one draft purchase order. */
   async function makePurchaseOrder(): Promise<{
@@ -457,21 +488,23 @@ export function runSupplierAdapterConformanceSuite(
         stateMappingVersion: harness.adapter.stateMappingVersion,
         payload: {},
       };
-      await ingestSupplierEvent({
+      const lateShipped = await ingestSupplierEvent({
         ...base,
         providerEventId: 'evt-late-shipped',
         state: 'shipped',
         providerState: 'DISPATCHED',
         observedAt: later,
       });
-      await ingestSupplierEvent({
+      const earlyAccepted = await ingestSupplierEvent({
         ...base,
         providerEventId: 'evt-early-accepted',
         state: 'accepted',
         providerState: 'CONFIRMED',
         observedAt: earlier,
       });
-      await processSupplierProviderEvents({ batchSize: 10 });
+      // Drained BY ID, in the order they were received — see `drainOwnEvent`.
+      await drainOwnEvent(lateShipped.event.id);
+      await drainOwnEvent(earlyAccepted.event.id);
 
       const purchaseOrder = await findPurchaseOrderById(purchaseOrderId);
       expect(purchaseOrder?.status).toBe('shipped');
@@ -498,7 +531,7 @@ export function runSupplierAdapterConformanceSuite(
       await harness.inject(clientReference, 'healthy');
       await submitPurchaseOrderToSupplier(purchaseOrderId);
 
-      await ingestSupplierEvent({
+      const partialShip = await ingestSupplierEvent({
         supplierAccountId,
         provider: harness.provider,
         delivery: 'webhook',
@@ -533,7 +566,7 @@ export function runSupplierAdapterConformanceSuite(
           },
         ],
       });
-      await processSupplierProviderEvents({ batchSize: 10 });
+      await drainOwnEvent(partialShip.event.id);
 
       const purchaseOrder = await findPurchaseOrderById(purchaseOrderId);
       // The WHOLE-order status is `shipped`; which lines shipped is the

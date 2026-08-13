@@ -21,7 +21,7 @@ import { uuidv7 } from '@oxyhq/db';
 import type { CurrencyCode } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { orders } from '../../../db/schema/orders.js';
-import { stores } from '../../../db/schema/stores.js';
+import { deleteTestStores } from '../../../db/__tests__/store-teardown.js';
 import { insertStore } from '../../../db/stores/storeRepository.js';
 import {
   insertOrder,
@@ -80,7 +80,7 @@ afterAll(async () => {
 afterEach(async () => {
   for (const storeId of createdStoreIds.splice(0)) {
     await db.delete(orders).where(eq(orders.storeId, storeId));
-    await db.delete(stores).where(eq(stores.id, storeId));
+    await deleteTestStores(db, [storeId]);
   }
 });
 

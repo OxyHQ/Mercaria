@@ -37,6 +37,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import { merchants, nativeStoreLinks } from '../schema/merchants.js';
 import { merchantClaims, merchantClaimScopes } from '../schema/merchantClaims.js';
 import {
@@ -127,6 +128,12 @@ afterAll(async () => {
     }
   }
   if (createdMerchantIds.length > 0) {
+    // By MERCHANT, because these merchants are about to go and a link RESTRICTs
+    // them. This is NOT the store side of the same problem, and reading it as
+    // such is what made this file the one that failed a full local run: the
+    // backfill's `store_merchants` pass links every active store under ITS OWN
+    // merchant, so that row is invisible to this predicate. `deleteTestStores`
+    // below is what clears it.
     await db
       .delete(nativeStoreLinks)
       .where(inArray(nativeStoreLinks.merchantId, createdMerchantIds));
@@ -134,9 +141,7 @@ afterAll(async () => {
     await db.delete(merchantClaims).where(inArray(merchantClaims.id, createdClaimIds));
     await db.delete(merchants).where(inArray(merchants.id, createdMerchantIds));
   }
-  if (createdStoreIds.length > 0) {
-    await db.delete(stores).where(inArray(stores.id, createdStoreIds));
-  }
+  await deleteTestStores(db, createdStoreIds);
   await closePostgres();
 });
 

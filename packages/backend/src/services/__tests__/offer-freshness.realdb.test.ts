@@ -41,14 +41,12 @@ import {
 } from '../ingestion/source.service.js';
 import { publishFreshnessPolicy } from '../../db/offerFreshness/freshnessPolicyRepository.js';
 import { openSourceRun } from '../../db/ingestion/catalogSourceRunRepository.js';
-import { recordSourceHealth } from '../../db/ingestion/catalogSourceConfigRepository.js';
 import { recordExternalOffer, listOffers } from '../offers/offer.service.js';
 import { findOfferById, retireOffers } from '../../db/offers/offerRepository.js';
 import { retireUnseen } from '../ingestion/ingest.service.js';
 import { runIngestionPage } from '../ingestion/ingest.service.js';
 import { registerCatalogSourceAdapter, unregisterCatalogSourceAdapter } from '../ingestion/registry.js';
 import { createFixtureAdapter, fixtureRecord } from '../ingestion/adapters/fixture.js';
-import { sweepExpiredOffers } from '../offer-freshness/expiry-sweep.js';
 import { assertOfferOutboundEligible } from '../offer-freshness/outbound-gate.js';
 import { readSourceCatalogHealth } from '../offer-freshness/health.service.js';
 import { readProductOfferSummary } from '../offer-freshness/product-summary.js';
@@ -395,85 +393,16 @@ async function attachObject(input: {
 
 // ── Acceptance 1 ────────────────────────────────────────────────────────────
 
-describe('acceptance 1 — a transient source outage does not remove every prior offer', () => {
-  it('withholds retirement during the grace, and retires once it passes', async () => {
-    const { sourceId, provider, merchantId } = await bringUpSource('outage');
-    await publishFreshness(sourceId);
-    const { variantId } = await mintCanonicalVariant('outage');
-    const offerId = await seedOffer({
-      sourceId,
-      merchantId,
-      variantId,
-      provider,
-      externalOfferId: `outage-${RUN}`,
-      // Two hours: past the one-hour expiry, inside the two-hour grace.
-      agoSeconds: 7_200,
-    });
-
-    // The source is DOWN, not broken: a fetch failure, which is the only class
-    // that earns grace.
-    await recordSourceHealth(db, {
-      sourceId,
-      healthState: 'source_outage',
-      status: 'failed',
-      succeeded: false,
-      fetchDurationMs: 0,
-      rateLimitHits: 0,
-      error: 'connection reset',
-      nextRunAt: new Date(),
-      now: new Date(),
-    });
-
-    const duringOutage = await sweepExpiredOffers(new Date());
-    expect(duringOutage.withheld).toBeGreaterThanOrEqual(1);
-    const survived = await findOfferById(db, offerId);
-    expect(survived?.status).toBe('active');
-
-    // …and it is ALREADY invisible, which is what makes the grace safe: the
-    // catalogue is kept, and nothing old is presented as fresh.
-    const page = await listOffers({ canonicalVariantId: variantId, limit: 10 });
-    expect(page.offers).toHaveLength(0);
-
-    // Past the grace, the same sweep retires it.
-    const later = new Date(Date.now() + 3 * 3_600_000);
-    const afterGrace = await sweepExpiredOffers(later);
-    expect(afterGrace.retired).toBeGreaterThanOrEqual(1);
-    const retired = await findOfferById(db, offerId);
-    expect(retired?.status).toBe('retired');
-    expect(retired?.retirementReason).toBe('source_expired');
-  });
-
-  it('a RIGHTS SUSPENSION earns no grace — the exclusion that matters', async () => {
-    const { sourceId, provider, merchantId } = await bringUpSource('suspended');
-    await publishFreshness(sourceId);
-    const { variantId } = await mintCanonicalVariant('suspended');
-    const offerId = await seedOffer({
-      sourceId,
-      merchantId,
-      variantId,
-      provider,
-      externalOfferId: `suspended-${RUN}`,
-      agoSeconds: 7_200,
-    });
-    await recordSourceHealth(db, {
-      sourceId,
-      healthState: 'rights_suspended',
-      status: 'active',
-      succeeded: false,
-      fetchDurationMs: 0,
-      rateLimitHits: 0,
-      error: null,
-      nextRunAt: new Date(),
-      now: new Date(),
-    });
-
-    // A withdrawn right is a decision to STOP showing the data, so extending
-    // its life is precisely what the grace must never do.
-    const result = await sweepExpiredOffers(new Date());
-    expect(result.retired).toBeGreaterThanOrEqual(1);
-    expect((await findOfferById(db, offerId))?.status).toBe('retired');
-  });
-});
+/**
+ * Acceptance 1 lives in `offer-freshness-sweep.realdb.test.ts`, on a database
+ * of its own.
+ *
+ * It is the only part of #68 that calls `sweepExpiredOffers`, which is global
+ * by design and which the grace case has to run with a clock three hours in the
+ * future — so against this shared database it retired other files' offers.
+ * Everything else in this file identifies the rows it asserts on and is safe
+ * here. Do not move a sweep back into this file.
+ */
 
 // ── Acceptance 2 and 3 ──────────────────────────────────────────────────────
 

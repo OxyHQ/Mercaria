@@ -40,7 +40,7 @@ import { offerRetirementDueAt } from '@mercaria/shared-types';
 import type { CatalogSourceHealthState } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
-import { getDb } from '../../db/postgres.js';
+import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { findCatalogSourceConfig } from '../../db/ingestion/catalogSourceConfigRepository.js';
 import {
   listLapsedExternalOfferCandidates,
@@ -69,9 +69,17 @@ let running = false;
  * and one in TypeScript — is exactly the disagreement that would let a
  * transient outage delist a catalogue, so there is only the second, and the
  * first narrows.
+ *
+ * `db` is the house trailing-handle convention and exists so a test can run the
+ * sweep against its OWN throwaway database. It changes which DATABASE the pass
+ * reads, never which ROWS: there is no scoping predicate here and none may be
+ * added, because a sweep that skipped rows would be a freshness rule with two
+ * spellings again. In production every caller takes the default.
  */
-export async function sweepExpiredOffers(now: Date = new Date()): Promise<ExpirySweepResult> {
-  const db = getDb();
+export async function sweepExpiredOffers(
+  now: Date = new Date(),
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ExpirySweepResult> {
   const candidates = await listLapsedExternalOfferCandidates(db, {
     limit: config.offerFreshness.expirySweepBatchSize,
     now,

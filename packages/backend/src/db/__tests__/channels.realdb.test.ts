@@ -28,7 +28,7 @@ import { constraintNameOf, isCheckViolation, isUniqueViolation, uuidv7 } from '@
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { channelAuditEvents, channelOnboardingSessions } from '../schema/channels.js';
 import { connections } from '../schema/connectors.js';
-import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import {
   closeChannelOnboardingSession,
   findChannelOnboardingSession,
@@ -118,7 +118,9 @@ afterEach(async () => {
   for (const storeId of createdStoreIds.splice(0)) {
     // Both new tables CASCADE from `stores`, so dropping the store is enough —
     // and that it IS enough is worth relying on rather than deleting by hand.
-    await db.delete(stores).where(eq(stores.id, storeId));
+    // The canonical link a backfill pass may have attached does NOT cascade,
+    // which is why this goes through the shared teardown.
+    await deleteTestStores(db, [storeId]);
   }
 });
 
@@ -469,7 +471,7 @@ describe('`channel_audit_events` is append-only, by trigger', () => {
 
     // Deliberately NOT registered for the shared cleanup: this case owns the
     // deletion, and registering it would delete the store twice.
-    await db.delete(stores).where(eq(stores.id, store.id));
+    await deleteTestStores(db, [store.id]);
 
     expect(await listChannelAuditEvents(store.id, { limit: 10 })).toEqual([]);
   });
