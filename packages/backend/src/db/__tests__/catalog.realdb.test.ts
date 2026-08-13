@@ -24,9 +24,10 @@
  *    NOTHING so a filter that silently dropped the text would fail.
  */
 
+import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { constraintNameOf, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { inventoryLevels, listings } from '../schema/catalog.js';
 import { collections, listingCollections } from '../schema/merchandising.js';
@@ -46,11 +47,14 @@ import {
 import {
   countVariants,
   deleteVariant,
+  findVariantBySourceInventoryItemId,
   findVariantsByListing,
   insertVariants,
   recomputeVariantRollup,
   reserveVariantScalar,
+  updateVariant as updateVariantColumns,
 } from '../catalog/variantRepository.js';
+import { upsertConnection } from '../connectors/connectionRepository.js';
 import { insertLevels, reserveAtLocation, setLevelAvailable } from '../catalog/inventoryLevelRepository.js';
 import {
   findCollectionProductsPage,
@@ -844,5 +848,344 @@ describe('collection membership', () => {
       .where(eq(listingCollections.collectionId, collection.id));
     expect(remaining).toHaveLength(1);
     expect(remaining[0].listingId).toBe(handPicked);
+  });
+});
+
+describe('stable variant identity (#259)', () => {
+  /** A connected `pull` connection for `storeId`, to stamp variants against. */
+  async function makeConnection(storeId: string, provider: 'shopify' | 'woocommerce' = 'woocommerce') {
+    return upsertConnection(storeId, provider, {
+      mode: 'pull',
+      status: 'connected',
+      connectedAt: new Date(),
+      shopDomain: `shop-${uuidv7()}.example.test`,
+      shopCurrency: 'USD',
+      scopes: [],
+    });
+  }
+
+  /** A store listing carrying `count` bare variants. */
+  async function makeVariants(storeId: string, count: number) {
+    const listingId = await makeListing(storeId);
+    const variants = await insertVariants(
+      listingId,
+      Array.from({ length: count }, (_, i) => ({
+        title: `V${i}`,
+        optionValues: [],
+        priceAmount: 1000,
+        priceCurrency: 'FAIR' as const,
+        inventoryTracked: true,
+        inventoryAvailable: 1,
+        position: i,
+      })),
+    );
+    return { listingId, variants };
+  }
+
+  it('the partial unique index EXISTS after migration', async () => {
+    // The one thing a functional test can never detect. Every case below would
+    // still pass on the SERVICE's refusal alone, while the database went on
+    // accepting exactly the row the refusal exists to make impossible — and the
+    // service is not the only writer (`psql`, a backfill, a future importer).
+    const rows = await db.execute<{ indexdef: string }>(
+      sql`select indexdef from pg_indexes
+          where tablename = 'product_variants'
+            and indexname = 'product_variants_source_external_variant_key'`,
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].indexdef).toMatch(/UNIQUE/);
+    expect(rows[0].indexdef).toMatch(/source_connection_id/);
+    expect(rows[0].indexdef).toMatch(/source_external_variant_id IS NOT NULL/);
+  });
+
+  it('REFUSES two variants of one connection stamped with the same external variation id', async () => {
+    // The state `convergeVariants` used to create on an ordinary SKU rename:
+    // the incoming variant matched nothing, was CREATED, and was stamped with the
+    // external id the original still carried — two local rows claiming one
+    // platform variation, each unselling the other on alternate syncs.
+    //
+    // It is also the risk the position-matched `stampVariantSources` carries: it
+    // pairs local variants to normalized ones by INDEX, so any drift between the
+    // two orders now raises here instead of mis-stamping in silence.
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const { listingId, variants } = await makeVariants(storeId, 2);
+
+    await updateVariantColumns(
+      listingId,
+      variants[0].id,
+      { sourceConnectionId: conn.id, sourceProvider: 'woocommerce', sourceExternalVariantId: '3001' },
+      undefined,
+    );
+
+    let caught: unknown;
+    try {
+      await updateVariantColumns(
+        listingId,
+        variants[1].id,
+        { sourceConnectionId: conn.id, sourceProvider: 'woocommerce', sourceExternalVariantId: '3001' },
+        undefined,
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(isUniqueViolation(caught)).toBe(true);
+    expect(constraintNameOf(caught)).toBe('product_variants_source_external_variant_key');
+  });
+
+  it('ACCEPTS the same external variation id on a DIFFERENT connection', async () => {
+    // The key is per CONNECTION, and it has to be: two connected shops number
+    // their variations in their own key spaces and collide constantly. Without
+    // this control the case above would also pass on an index over the id alone.
+    const storeId = await makeStore();
+    const woo = await makeConnection(storeId, 'woocommerce');
+    const shopify = await makeConnection(storeId, 'shopify');
+    const { listingId, variants } = await makeVariants(storeId, 2);
+
+    await updateVariantColumns(
+      listingId,
+      variants[0].id,
+      { sourceConnectionId: woo.id, sourceProvider: 'woocommerce', sourceExternalVariantId: '3001' },
+      undefined,
+    );
+    const second = await updateVariantColumns(
+      listingId,
+      variants[1].id,
+      { sourceConnectionId: shopify.id, sourceProvider: 'shopify', sourceExternalVariantId: '3001' },
+      undefined,
+    );
+
+    expect(second?.sourceExternalVariantId).toBe('3001');
+  });
+
+  it("ACCEPTS a simple product's PRODUCT-id stamp beside a variable product's VARIATION-id stamp", async () => {
+    // WooCommerce stamps a SIMPLE product's variant with the PRODUCT id and a
+    // variable product's with the VARIATION id, into one key space per
+    // connection. That they cannot collide is a claim about WordPress — products
+    // and variations are both rows of `posts`, which numbers them from one
+    // sequence — and it is a claim this index would punish if it were wrong, so
+    // it is worth a fixture rather than a sentence.
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const { listingId: simpleListing, variants: simpleVariants } = await makeVariants(storeId, 1);
+    const { listingId: variableListing, variants: variableVariants } = await makeVariants(storeId, 1);
+
+    await updateVariantColumns(
+      simpleListing,
+      simpleVariants[0].id,
+      { sourceConnectionId: conn.id, sourceProvider: 'woocommerce', sourceExternalVariantId: '111' },
+      undefined,
+    );
+    const variable = await updateVariantColumns(
+      variableListing,
+      variableVariants[0].id,
+      { sourceConnectionId: conn.id, sourceProvider: 'woocommerce', sourceExternalVariantId: '3001' },
+      undefined,
+    );
+
+    expect(variable?.sourceExternalVariantId).toBe('3001');
+  });
+
+  it('ACCEPTS any number of UNSTAMPED variants — the index is PARTIAL', async () => {
+    // Every P2P listing and every hand-created store product is unstamped, and a
+    // unique over a nullable pair would be fine in Postgres (NULLs are distinct)
+    // — but the predicate is what says so out loud, and this is what would fail
+    // if somebody "tidied" it away and the pair were ever compared as equal.
+    const storeId = await makeStore();
+    const { listingId } = await makeVariants(storeId, 3);
+
+    expect(await findVariantsByListing(listingId)).toHaveLength(3);
+  });
+});
+
+/**
+ * Migration 0071's collapse of PRE-EXISTING violators, against a real server.
+ *
+ * `CREATE UNIQUE INDEX` FAILS at apply time over rows that already violate it,
+ * and by the migration's own reasoning those rows are exactly what the bug
+ * produced: pre-#259 `convergeVariants` created a second variant on a SKU rename
+ * and stamped it with the external id the original still held. So the collapse
+ * is not defensive tidying — it is the difference between a deploy that applies
+ * and one that aborts halfway through a release.
+ *
+ * The statements are READ OUT OF THE MIGRATION FILE rather than retyped: a probe
+ * that retypes them measures the retyping, and would go on passing after somebody
+ * regenerated the file and lost the hand-written half (which `db:generate` drops
+ * every time).
+ *
+ * They run against a TEMP table shadowing `product_variants`, and that is a
+ * deliberate trade rather than a shortcut. Seeding a violator into the REAL table
+ * needs the index dropped first, and `DROP INDEX` holds ACCESS EXCLUSIVE on
+ * `product_variants` for the whole transaction — on a shared test database that
+ * is a lock convoy in front of every sibling file touching a variant, which is
+ * the failure mode `ebay-ingestion.realdb.test.ts` already records for
+ * `DISABLE TRIGGER`. Neither statement reads a column outside the four below.
+ * That the migration applies against the REAL schema is established separately
+ * and more strongly: every realdb suite in this repo runs on a throwaway database
+ * built by the real migrator, and the index-existence case above reads the result.
+ */
+describe("migration 0071's collapse of pre-existing violators", () => {
+  /** The two halves of the migration, as SHIPPED, with the comments stripped. */
+  function migrationStatements(): { collapse: string; createIndex: string } {
+    const sql = readFileSync('drizzle/0071_lively_joseph.sql', 'utf8');
+    const [collapse, createIndex] = sql
+      .split('--> statement-breakpoint')
+      .map((half) =>
+        half
+          .split('\n')
+          .filter((line) => !line.trimStart().startsWith('--'))
+          .join('\n')
+          .trim(),
+      );
+    // A floor on the extraction itself: a split that matched nothing would hand
+    // both assertions an empty string, and an empty string runs without error.
+    expect(collapse.startsWith('UPDATE "product_variants"')).toBe(true);
+    expect(createIndex.startsWith('CREATE UNIQUE INDEX')).toBe(true);
+    return { collapse, createIndex };
+  }
+
+  /**
+   * Stand the four columns both statements read up as a TEMP table shadowing
+   * `product_variants`, seeded with the violating shape, and hand `body` the
+   * migration's own statements.
+   */
+  async function withSeededViolators(
+    body: (
+      tx: Parameters<Parameters<Database['transaction']>[0]>[0],
+      statements: { collapse: string; createIndex: string },
+    ) => Promise<void>,
+  ): Promise<void> {
+    const statements = migrationStatements();
+    await db
+      .transaction(async (tx) => {
+        // `LIKE … INCLUDING DEFAULTS` rather than a hand-picked column list, so
+        // the shadow carries the REAL column set and a repository function can be
+        // run against it. Indexes and CHECKs are deliberately NOT copied: the
+        // unique is what these cases create themselves, and the currency CHECKs
+        // have nothing to do with provenance. Foreign keys are never copied by
+        // `LIKE`, which is what lets the seed name listings and connections that
+        // do not exist.
+        await tx.execute(sql`
+          create temp table "product_variants"
+            (like public."product_variants" including defaults) on commit drop
+        `);
+        // Three rows of one connection claiming variation 3001 — the shape the
+        // OLD matcher produced on a SKU rename — and every one of them carrying
+        // the same INVENTORY-ITEM id too, because `stampVariantSource` writes the
+        // four provenance columns together from one normalized variant.
+        await tx.execute(sql`
+          insert into "product_variants"
+            ("id", "listing_id", "position", "source_connection_id", "source_provider",
+             "source_external_variant_id", "source_external_inventory_item_id")
+          values
+            ('a', 'listing-1', 0, 'conn-1', 'woocommerce', '3001', 'item-3001'),
+            ('b', 'listing-1', 1, 'conn-1', 'woocommerce', '3001', 'item-3001'),
+            ('c', 'listing-1', 2, 'conn-1', 'woocommerce', '3001', 'item-3001'),
+            ('d', 'listing-2', 0, 'conn-2', 'woocommerce', '3001', 'item-3001'),
+            ('e', 'listing-3', 0, null, null, '3001', 'item-3001'),
+            ('f', 'listing-3', 1, null, null, '3001', 'item-3001'),
+            ('g', 'listing-3', 2, null, null, null, null)
+        `);
+        await body(tx, statements);
+        throw new Error('ROLLBACK');
+      })
+      .catch((error: Error) => {
+        if (error.message !== 'ROLLBACK') throw error;
+      });
+  }
+
+  it('the SEED really violates — without the collapse the index REFUSES', async () => {
+    // The positive control, and the one this whole block rests on: "the migration
+    // applied" is equally true of a fixture that never created a duplicate, and a
+    // seed that stopped violating (a typo in an id, a column renamed) would leave
+    // the case below passing while measuring nothing at all.
+    await withSeededViolators(async (tx, { createIndex }) => {
+      let caught: unknown;
+      try {
+        await tx.execute(sql.raw(createIndex));
+      } catch (error) {
+        caught = error;
+      }
+      expect(isUniqueViolation(caught)).toBe(true);
+      expect(constraintNameOf(caught)).toBe('product_variants_source_external_variant_key');
+    });
+  });
+
+  it('CONVERGES rather than aborting: the collapse runs, then the index is created', async () => {
+    await withSeededViolators(async (tx, { collapse, createIndex }) => {
+      await tx.execute(sql.raw(collapse));
+      // The statement the whole migration exists to reach. It ABORTS the deploy
+      // if the collapse did not do its job.
+      await tx.execute(sql.raw(createIndex));
+
+      const rows = await tx.execute<{ id: string; v: string | null }>(
+        sql`select "id", "source_external_variant_id" as v from "product_variants" order by "id"`,
+      );
+      expect(rows.filter((row) => row.v !== null).map((row) => row.id)).toEqual([
+        // The survivor of the violating group is the row that has held the
+        // identity longest — lowest position, then lowest id.
+        'a',
+        // A DIFFERENT connection keeps its stamp: the key is per connection, and
+        // two shops number their variations in their own key spaces.
+        'd',
+        // NULL connection ids are excluded deliberately — they can never collide
+        // under a partial unique over both columns, so nulling them would destroy
+        // provenance to satisfy a constraint that was never going to fire.
+        'e',
+        'f',
+      ]);
+      // The losers are UNSTAMPED, not deleted. A variant id cascades into carts,
+      // saves, offers and the canonical links (#220's reasoning), and unstamped is
+      // precisely the state `convergeVariants`' legacy tier re-matches and
+      // re-stamps on the next sync.
+      const rowsById = new Map(rows.map((row) => [row.id, row.v]));
+      expect(rowsById.get('b')).toBeNull();
+      expect(rowsById.get('c')).toBeNull();
+      expect(rows).toHaveLength(7);
+    });
+  });
+
+  it('leaves ONE variant carrying the collapsed INVENTORY-ITEM id, not three', async () => {
+    // The half-stamped loser, which is the failure clearing only the variant id
+    // would have left behind. Nothing constrains
+    // `(source_connection_id, source_external_inventory_item_id)` — the index
+    // above is over the VARIANT id — and both of its readers pick arbitrarily
+    // among matches: `findVariantBySourceInventoryItemId` is `limit(1)` with no
+    // ORDER BY, and `syncInventory` builds a Map whose last writer wins over an
+    // unordered read. So a shop left half-collapsed routes stock onto a variant
+    // that no longer converges and that nothing sells, silently, about half the
+    // time — the #259 failure arriving through the repair for it.
+    //
+    // The COUNT is the assertion that means something. Asserting only that the
+    // lookup returns the survivor would pass one time in three against the
+    // broken collapse, because the lookup has no ORDER BY to be wrong about.
+    await withSeededViolators(async (tx, { collapse }) => {
+      const before = await tx.execute<{ n: number }>(
+        sql`select count(*)::int as n from "product_variants"
+            where "source_connection_id" = 'conn-1'
+              and "source_external_inventory_item_id" = 'item-3001'`,
+      );
+      expect(before[0].n, 'the premise: the seed really duplicates the item id').toBe(3);
+
+      await tx.execute(sql.raw(collapse));
+
+      const after = await tx.execute<{ n: number }>(
+        sql`select count(*)::int as n from "product_variants"
+            where "source_connection_id" = 'conn-1'
+              and "source_external_inventory_item_id" = 'item-3001'`,
+      );
+      expect(after[0].n).toBe(1);
+      // And it is the SURVIVOR the live reader resolves to — the repository
+      // function itself, against the shadow, rather than a re-spelling of its
+      // WHERE clause that could agree with a query nobody runs.
+      const resolved = await findVariantBySourceInventoryItemId('conn-1', 'item-3001', tx);
+      expect(resolved?.id).toBe('a');
+      // The OTHER connection is untouched, for the reason the variant-id key is
+      // per connection: two shops number their inventory items independently.
+      const sibling = await findVariantBySourceInventoryItemId('conn-2', 'item-3001', tx);
+      expect(sibling?.id).toBe('d');
+    });
   });
 });

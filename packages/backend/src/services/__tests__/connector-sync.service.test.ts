@@ -230,7 +230,10 @@ function product(overrides: Partial<NormalizedProduct> = {}): NormalizedProduct 
     productType: 'Widget',
     options: [],
     imageUrls: ['https://cdn.shopify.com/img.jpg'],
-    variants: [{ optionValues: [], price: { amount: 1999, currency: 'USD' }, inventory: { tracked: true, available: 3 } }],
+    variants: {
+      enumeration: 'complete',
+      variants: [{ optionValues: [], price: { amount: 1999, currency: 'USD' }, inventory: { tracked: true, available: 3 } }],
+    },
     ...overrides,
   };
 }
@@ -392,24 +395,27 @@ describe('runBackfill — create path', () => {
     fetchProducts.mockResolvedValue({
       products: [
         product({
-          variants: [
-            {
-              optionValues: [],
-              price: { amount: 1999, currency: 'USD' },
-              inventory: { tracked: true, available: 3 },
-              externalVariantId: 'v1',
-              externalInventoryItemId: 'inv1',
-            },
-            // A second variant the platform gave NO ids for: stamped all-NULL
-            // rather than given the connection, because it is unfindable by
-            // either key and recording the connection would claim a link
-            // nothing can follow.
-            {
-              optionValues: [],
-              price: { amount: 2999, currency: 'USD' },
-              inventory: { tracked: true, available: 1 },
-            },
-          ],
+          variants: {
+            enumeration: 'complete',
+            variants: [
+              {
+                optionValues: [],
+                price: { amount: 1999, currency: 'USD' },
+                inventory: { tracked: true, available: 3 },
+                externalVariantId: 'v1',
+                externalInventoryItemId: 'inv1',
+              },
+              // A second variant the platform gave NO ids for: stamped all-NULL
+              // rather than given the connection, because it is unfindable by
+              // either key and recording the connection would claim a link
+              // nothing can follow.
+              {
+                optionValues: [],
+                price: { amount: 2999, currency: 'USD' },
+                inventory: { tracked: true, available: 1 },
+              },
+            ],
+          },
         }),
       ],
     });
@@ -738,7 +744,14 @@ describe('runBackfill — Fix 1: re-prices existing variants', () => {
     // Stored variant keyed by SKU, at a price the incoming product will change.
     stubExistingVariants([existingVariant({ id: 'v-sku', sku: 'ABC', priceAmount: 1000 })]);
     fetchProducts.mockResolvedValue({
-      products: [product({ variants: [{ optionValues: [], sku: 'ABC', price: { amount: 2500, currency: 'USD' }, inventory: { tracked: true, available: 1 } }] })],
+      products: [
+        product({
+          variants: {
+            enumeration: 'complete',
+            variants: [{ optionValues: [], sku: 'ABC', price: { amount: 2500, currency: 'USD' }, inventory: { tracked: true, available: 1 } }],
+          },
+        }),
+      ],
     });
 
     await runBackfill(STORE_ID, CONNECTION_ID);

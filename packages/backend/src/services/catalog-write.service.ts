@@ -853,10 +853,21 @@ export async function archiveListing(listingId: string): Promise<void> {
   await requestNativeOfferSync(listingId);
 }
 
-/** Add a variant to a store product. Recomputes facets. Returns the variant id. */
+/**
+ * Add a variant to a store product. Recomputes facets. Returns the variant id.
+ *
+ * `opts.locationId` is where the new variant's stock is placed, and it exists for
+ * the same reason `createStoreProduct` takes one: a connector stocks at the
+ * connection's TARGET location, and putting one variant of a listing at the store
+ * DEFAULT instead does not merely misfile it — `recomputeVariantScalarFromLevels`
+ * SUMS the levels, so the next inventory sync writing the target's level leaves
+ * the variant carrying both numbers at once. Absent → the store default, which is
+ * the merchant surface's behaviour and was the only behaviour before.
+ */
 export async function addVariant(
   listingId: string,
   input: CreateStoreProductVariantInput,
+  opts: { locationId?: string } = {},
 ): Promise<string> {
   const listing = await findListingById(listingId);
   if (!listing) {
@@ -897,14 +908,15 @@ export async function addVariant(
   const [created] = await insertVariants(listingId, [variant]);
 
   // Store variants are added only through this path (the listing is
-  // `ownerType: 'store'`). Stock the new variant at the store's default location
-  // so the level sum matches the scalar `available` just written.
-  const defaultLocationId = await resolveDefaultLocationId(String(listing.storeId));
+  // `ownerType: 'store'`). Stock the new variant at the caller's location, else
+  // the store's default, so the level sum matches the scalar `available` just
+  // written.
+  const stockLocationId = opts.locationId ?? (await resolveDefaultLocationId(String(listing.storeId)));
   await insertLevels([
     {
       variantId: created.id,
       listingId,
-      locationId: defaultLocationId,
+      locationId: stockLocationId,
       available: input.inventory.available,
     },
   ]);
@@ -925,15 +937,34 @@ export interface UpdateVariantInput {
   inventory?: { tracked?: boolean; available?: number };
 }
 
-/** Update a variant in place. Recomputes facets afterwards. */
+/**
+ * Update a variant in place. Recomputes facets afterwards.
+ *
+ * `opts.locationId` is where an absolute `inventory.available` is written. It is
+ * the fix for a silent no-op rather than a convenience: a connector's stock lives
+ * at the connection's TARGET location, and this used to route every set to the
+ * store DEFAULT, so a connector zeroing a removed variant inserted a 0 beside the
+ * target's surviving stock — `recomputeVariantScalarFromLevels` summed them and
+ * the variant stayed on sale. Absent → the store default, which is the merchant
+ * surface's behaviour and was the only behaviour before.
+ */
 export async function updateVariant(
   listingId: string,
   variantId: string,
   patch: UpdateVariantInput,
+  opts: { locationId?: string } = {},
 ): Promise<void> {
   const columns: Parameters<typeof updateVariantColumns>[2] = {};
 
-  if (patch.title !== undefined) columns.title = patch.title;
+  if (patch.title !== undefined) {
+    columns.title = patch.title;
+  } else if (patch.optionValues !== undefined) {
+    // A variant's title is a RENDERING of its option assignments — that is how
+    // both create paths build it — so moving the assignments and leaving the
+    // title behind labels a variant `S` while it sits on `Small`. A caller that
+    // states a title of its own keeps it.
+    columns.title = variantTitleFromOptions(patch.optionValues);
+  }
   if (patch.sku !== undefined) columns.sku = patch.sku;
   if (patch.barcode !== undefined) columns.barcode = patch.barcode;
   // Multi-currency: any submitted price/compareAtPrice is stored NATIVE as given.
@@ -977,7 +1008,7 @@ export async function updateVariant(
   }
 
   if (routeToLevel && patch.inventory?.available !== undefined && listing?.storeId) {
-    const locationId = await resolveDefaultLocationId(listing.storeId);
+    const locationId = opts.locationId ?? (await resolveDefaultLocationId(listing.storeId));
     await setLevelAvailable({
       variantId,
       listingId,

@@ -259,6 +259,8 @@ catalogue, a real leaky bucket, a real fulfillment order — is only here.
 | W5 | Order import where configured | Enable order pull, sync | One Mercaria order per Woo order, single-currency `DualMoney` |
 | W6 | Native currency preservation | Inspect an imported variant | The site's currency, never FAIR |
 | W7 | Invalid / insufficient permission | Re-connect with a READ-ONLY key, then sync and check webhooks | The sync still works; webhook registration is REFUSED per topic. `webhookIds` is empty AND `webhookFailures` names every topic with its status and reason (§8.1) — record them verbatim. `GET .../channels/readiness` reports `catalog.state: degraded` |
+| W8 | A product with MORE THAN 100 variations | Create (or find) a variable product with > 100 variations, then backfill | Every variation imports — the variations endpoint is paged, so a second page is fetched. Record the number of `/variations` requests and whether each page carried `X-WP-TotalPages`. A product refused as `declared_not_fetched` means the site's `variations` id list and the variations endpoint disagree: record BOTH, since only a real site settles whether WooCommerce publishes the full id list at that size (§8.3) |
+| W9 | A site that strips `X-WP-TotalPages` | Put the site behind a caching/security plugin that removes response headers (or confirm one already does), then backfill | Every product still imports and NOTHING is archived. Mercaria pages on until an EMPTY page instead of trusting a missing header, so expect exactly one extra `/products` request at the end; record the request count and confirm `counts` shows no archives. A run that archived listings here is the #259 catalogue failure and must be reported (§8.3) |
 
 Also verify, because §8.3 fixed it and only a real store settles the wire shape:
 **create a NEW variable product in WooCommerce and let the `product.created`
@@ -365,6 +367,49 @@ availability.
 carries `variations` in the id shape the provider reads (a plugin that alters
 the REST response could change it), and whether the extra variations call
 completes inside the webhook job's lifetime for a product with many variations.
+
+#### 8.3.1 Incomplete responses and stable variant identity — FIXED (#259)
+
+#220 stopped a payload that declared variations and carried NONE. #259 covers
+the responses that carry SOME, and the identity question underneath them.
+
+- **A variant set now says what the provider could PROVE about it.**
+  `NormalizedProduct.variants` is a union whose `incomplete` branch carries a
+  gap — `declared_not_fetched`, `fetched_not_declared`, `duplicate_fetched`,
+  `pagination_unprovable`, `declares_variants_and_carries_none` — and no variant
+  list, so nothing downstream can read an unproven enumeration as one. A product
+  in that state is refused by `importProduct` before ANY write: no listing field,
+  no variant, no unsell, on every retry.
+- **The declared/fetched id comparison is the WooCommerce rule.** A variable
+  parent publishes its variation ids, so the fetched set matching the declared
+  set is decisive and costs no extra request. A `variable` product carrying no
+  usable variation is refused rather than collapsed into one parent-priced
+  variant — the synthetic simple variant is gone.
+- **Pagination is proven, not assumed.** A missing or malformed
+  `X-WP-TotalPages` used to read as "one page", so a full first page proved a
+  complete enumeration — and for the PRODUCTS list that proof is what
+  `runBackfill` hands to `archiveUnseenSourcedListings`, which soft-archives
+  every listing past page 1. Enumerations now finish on a usable header or an
+  EMPTY page. A merely SHORT page is deliberately not a proof: `per_page` is a
+  request, a site is free to serve fewer, and then every page is short.
+- **Identity is the platform's own variation id first.** SKU and option tuple
+  are a migration fallback for rows the connector never stamped, and an
+  ambiguous fallback match refuses the product instead of picking one — a
+  `product_variants_source_external_variant_key` unique index makes the
+  ambiguity unreachable for stamped rows in the first place. A merchant editing
+  a SKU or renaming an option keeps the same local variant id, so its carts,
+  saved items, offers and order history survive the edit.
+- **An unsell lands at the connection's TARGET location.** It used to be written
+  at the store DEFAULT while the connector's stock sat at the target, and the
+  variant scalar is the SUM of its levels — so the zero landed beside the
+  surviving stock and the "unsold" variant stayed fully buyable wherever a
+  merchant had configured a target location.
+
+**What a real store still settles:** whether WooCommerce publishes the complete
+`variations` id list on the `products` LIST response for a product with many
+variations (W8), whether a real header-stripping plugin leaves the body intact
+so the empty-page rule terminates (W9), and whether a real site ever serves a
+`per_page` smaller than the 100 requested.
 
 ### 8.4 An import is atomic between creating a listing and stamping provenance (#221 — FIXED)
 

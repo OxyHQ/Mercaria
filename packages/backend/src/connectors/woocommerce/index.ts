@@ -12,8 +12,10 @@
  *  - `verifyConnection` → GET `/wc/v3/data/currencies/current` — confirms the
  *    credentials AND reports the shop's settlement currency in one call.
  *  - `fetchProducts` → GET `/wc/v3/products?per_page=100&page=N` (paginated via the
- *    `X-WP-TotalPages` header), fetching each `variable` product's variations from
- *    `/wc/v3/products/{id}/variations` and mapping them into variants.
+ *    `X-WP-TotalPages` header when the site publishes a usable one, else by reading
+ *    on until an EMPTY page — see `enumerationFinished`), fetching each variable
+ *    product's variations from `/wc/v3/products/{id}/variations` and mapping them
+ *    into variants.
  *  - `fetchInventory` → re-reads the same product/variation `stock_quantity`, keyed by
  *    product/variation id (WooCommerce has no separate inventory-item id), summing to
  *    the provider-neutral `NormalizedInventoryLevel` the inventory sync consumes.
@@ -63,6 +65,7 @@ import type {
   NormalizedVariant,
   PlatformWebhookSubscription,
   ShopIdentity,
+  VariantSet,
 } from '../types.js';
 import {
   classifyWebhookHttpStatus,
@@ -119,10 +122,32 @@ const wooVariationSchema = z.object({
 });
 
 /**
+ * What ONE read of a product's variations endpoint gathered, and what it could
+ * PROVE about it.
+ *
+ * `complete` is not a property of the variations — it is a property of the READ,
+ * which is why it travels beside them rather than being re-derived downstream:
+ * only the loop that issued the requests knows whether it saw an end. #259's
+ * `pagination_unprovable` gap is this flag reaching `normalizeProduct`.
+ */
+const wooVariationEnumerationSchema = z.object({
+  variations: z.array(wooVariationSchema),
+  /** Whether the paged read PROVED it reached the end (see {@link enumerationFinished}). */
+  complete: z.boolean(),
+  /** How many pages it read getting there — the evidence in the refusal. */
+  pagesRead: z.number().int().min(0),
+});
+
+/**
  * A WooCommerce product. `expandedVariations` is NOT a WooCommerce field — it is
  * the connector's expansion contract: `fetchProducts` fetches a `variable`
  * product's variations from the variations endpoint and passes them alongside the
  * product, and the pure `normalizeProduct` reads them when present.
+ *
+ * It carries the READ rather than a bare array (#259). A truncated variations
+ * response and a complete one are the same list of objects; the difference is
+ * whether the loop that produced it ever saw an end, and that fact only exists
+ * where the requests were made.
  */
 const wooProductSchema = z.object({
   id: z.union([z.number(), z.string()]),
@@ -148,7 +173,7 @@ const wooProductSchema = z.object({
    * than describing a product with no variations (#220).
    */
   variations: z.array(z.union([z.number(), z.string()])).default([]),
-  expandedVariations: z.array(wooVariationSchema).optional(),
+  expandedVariations: wooVariationEnumerationSchema.optional(),
 });
 
 const productsResponseSchema = z.array(wooProductSchema);
@@ -156,7 +181,21 @@ const variationsResponseSchema = z.array(wooVariationSchema);
 
 type WooProduct = z.infer<typeof wooProductSchema>;
 type WooVariation = z.infer<typeof wooVariationSchema>;
+type WooVariationEnumeration = z.infer<typeof wooVariationEnumerationSchema>;
 type WooManageStock = z.infer<typeof wooManageStockSchema>;
+
+/**
+ * The expansion a product that was never asked about carries: nothing read, and
+ * nothing proven. A `simple` product reaches `normalizeProduct` with this and is
+ * mapped from its own price/stock fields; a product with a variation axis
+ * reaches it with this only when the payload was never expanded, which is the
+ * `declares_variants_and_carries_none` gap #220 found.
+ */
+const NO_VARIATION_EXPANSION: WooVariationEnumeration = {
+  variations: [],
+  complete: false,
+  pagesRead: 0,
+};
 
 /** Build a clear, honest error for a method the WooCommerce connector does not support. */
 function notImplementedError(method: string): MercariaError {
@@ -316,66 +355,149 @@ function toOptions(product: WooProduct): { name: string; values: string[] }[] {
     .map((a) => ({ name: a.name, values: [...a.options] }));
 }
 
-/** Build the variant list: a variable product's variations, else a single variant. */
-function buildVariants(
+/**
+ * Whether this product has a VARIATION AXIS at all — the discriminant every
+ * completeness decision below turns on.
+ *
+ * Two independent statements, either of which is enough: WooCommerce's own
+ * `type`, and its `variations` id list. Reading only the type misses a payload
+ * whose type field a plugin rewrote; reading only the id list misses #259 case 1
+ * (a `variable` product whose `variations` came back empty), which is exactly
+ * the shape that used to fall through to `simpleVariant` and import a shirt with
+ * four sizes as one option-less variant at the cheapest size's price.
+ */
+function carriesVariationAxis(product: WooProduct): boolean {
+  return product.type === 'variable' || product.variations.length > 0;
+}
+
+/** Map a variable product's fetched variations into variants, priced in `shopCurrency`. */
+function toVariants(
   product: WooProduct,
   shopCurrency: CurrencyCode,
-  variations: WooVariation[],
+  variations: readonly WooVariation[],
 ): NormalizedVariant[] {
-  if (product.type === 'variable' && variations.length > 0) {
-    const parent: ParentStock = {
-      tracked: product.manage_stock === true,
-      quantity: product.stock_quantity ?? null,
-    };
-    return variations.map((v) => variationToVariant(v, shopCurrency, parent));
+  const parent: ParentStock = {
+    tracked: product.manage_stock === true,
+    quantity: product.stock_quantity ?? null,
+  };
+  return variations.map((v) => variationToVariant(v, shopCurrency, parent));
+}
+
+/** The ids appearing more than once in `ids`, each reported once, in order. */
+function duplicatesOf(ids: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const duplicated = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) {
+      duplicated.add(id);
+    }
+    seen.add(id);
   }
-  return [simpleVariant(product, shopCurrency)];
+  return [...duplicated];
 }
 
 /**
- * Map an already-parsed WooCommerce product (+ its variations) to a
- * `NormalizedProduct`, REFUSING a payload that declares variations it does not
- * carry (#220).
+ * Decide what a product's variations read PROVED — the whole of #259's
+ * completeness rule for WooCommerce.
  *
- * That refusal is the structural half of the fix and it lives HERE rather than
- * at the webhook path, because here it covers every caller: the pull path, the
- * webhook path, and whatever calls `normalizeProduct` next. `product.variations`
- * is WooCommerce's own id list, so a non-empty one with nothing expanded beside
- * it is positive evidence of an INCOMPLETE payload — not a product without
- * variations, which carries an empty list.
+ * A product with no variation axis is complete by construction: the parent IS
+ * the variant, and WooCommerce publishes its price and stock on the product
+ * itself. Everything else has to clear a comparison:
  *
- * Without it, `buildVariants` falls through to `simpleVariant` and produces one
- * variant at the parent's price (which WooCommerce sets to the LOWEST
- * variation's), carrying no option values and no stock, beside an option axis
- * declaring several values. Nothing errors, the listing is created, and
- * `importProduct` used to be unable to add the missing variants afterwards — so
- * the collapse was permanent. A simplification that "tidies away" the guard
- * reintroduces exactly that, which is why it is a refusal in the pure function
- * rather than a check somebody remembers to make.
+ *  1. A variation id carried TWICE means the enumeration is not a set, so no
+ *    conclusion drawn from it is safe — checked first, because a duplicate
+ *    corrupts both of the comparisons below.
+ *  2. A variation axis with NO usable variation is the #220 collapse: whether
+ *    the payload named the ids (a webhook delivery nobody expanded) or named
+ *    none at all (a `variable` product whose list came back empty), the honest
+ *    answer is that this product's variants are unknown — never one synthetic
+ *    variant at the parent's lowest-variation price.
+ *  3. When the payload DECLARED ids, the declared and fetched sets must agree
+ *    exactly. That comparison is DECISIVE and needs no pagination proof: a set
+ *    that matches the platform's own manifest was fully read however many pages
+ *    it took.
+ *  4. With nothing declared, the read is the only evidence there is, so it has
+ *    to have proven it reached the end itself.
+ */
+function resolveVariantSet(
+  product: WooProduct,
+  shopCurrency: CurrencyCode,
+  expansion: WooVariationEnumeration,
+): VariantSet {
+  if (!carriesVariationAxis(product)) {
+    return { enumeration: 'complete', variants: [simpleVariant(product, shopCurrency)] };
+  }
+
+  const declaredIds = product.variations.map((id) => String(id));
+  const fetchedIds = expansion.variations.map((variation) => String(variation.id));
+
+  const duplicates = duplicatesOf(fetchedIds);
+  if (duplicates.length > 0) {
+    return { enumeration: 'incomplete', gap: { kind: 'duplicate_fetched', duplicateIds: duplicates } };
+  }
+  if (fetchedIds.length === 0) {
+    return {
+      enumeration: 'incomplete',
+      gap: { kind: 'declares_variants_and_carries_none', declared: declaredIds.length },
+    };
+  }
+
+  if (declaredIds.length > 0) {
+    const fetched = new Set(fetchedIds);
+    const missingIds = declaredIds.filter((id) => !fetched.has(id));
+    if (missingIds.length > 0) {
+      return { enumeration: 'incomplete', gap: { kind: 'declared_not_fetched', missingIds } };
+    }
+    const declared = new Set(declaredIds);
+    const unexpectedIds = fetchedIds.filter((id) => !declared.has(id));
+    if (unexpectedIds.length > 0) {
+      return { enumeration: 'incomplete', gap: { kind: 'fetched_not_declared', unexpectedIds } };
+    }
+    return {
+      enumeration: 'complete',
+      variants: toVariants(product, shopCurrency, expansion.variations),
+    };
+  }
+
+  if (!expansion.complete) {
+    return {
+      enumeration: 'incomplete',
+      gap: { kind: 'pagination_unprovable', pagesRead: expansion.pagesRead },
+    };
+  }
+  return {
+    enumeration: 'complete',
+    variants: toVariants(product, shopCurrency, expansion.variations),
+  };
+}
+
+/**
+ * Map an already-parsed WooCommerce product (+ what its variations read proved)
+ * to a `NormalizedProduct`.
+ *
+ * The completeness verdict lives HERE rather than at the webhook path, because
+ * here it covers every caller: the pull path, the webhook path, and whatever
+ * calls `normalizeProduct` next. It is a VALUE rather than a throw since #259 —
+ * the sync service turns a gap into one bounded refusal, and the union is what
+ * stops a consumer reading an unproven enumeration as a variant list. Before
+ * #220 this function fell through to `simpleVariant` and produced one variant at
+ * the parent's price (which WooCommerce sets to the LOWEST variation's),
+ * carrying no option values and no stock, beside an option axis declaring
+ * several values; nothing errored, the listing was created, and no later sync
+ * could add the missing variants.
  */
 function normalizeParsed(
   product: WooProduct,
   shopCurrency: CurrencyCode,
-  variations: WooVariation[],
+  expansion: WooVariationEnumeration,
 ): NormalizedProduct {
-  if (product.variations.length > 0 && variations.length === 0) {
-    throw validationError(
-      `WooCommerce product ${String(product.id)} declares ${product.variations.length} variations and carries none — refusing to import it as a single variant`,
-    );
-  }
-  const options = toOptions(product);
-  const variants = buildVariants(product, shopCurrency, variations);
-  if (variants.length === 0) {
-    throw validationError(`WooCommerce product ${String(product.id)} has no variants`);
-  }
-
   const normalized: NormalizedProduct = {
     externalId: String(product.id),
     title: product.name,
     description: product.description ?? '',
-    options,
+    options: toOptions(product),
     imageUrls: product.images.map((img) => img.src),
-    variants,
+    variants: resolveVariantSet(product, shopCurrency, expansion),
   };
   // WooCommerce's `*_gmt` fields carry no zone; a value that carries one anyway
   // is read AS its own offset rather than discarded (#221) — see
@@ -396,16 +518,16 @@ function normalizeParsed(
 
 /**
  * PURE: map a raw WooCommerce product into a `NormalizedProduct` in `shopCurrency`.
- * For a `variable` product, embed the fetched variations under `expandedVariations`
- * (as `fetchProducts` does); when absent, a single variant is derived from the
- * product's own price/stock fields.
+ * For a product with a variation axis, embed the variations read under
+ * `expandedVariations` (as `fetchProducts` does); a product without one is
+ * derived from its own price/stock fields.
  */
 export function normalizeWooCommerceProduct(raw: unknown, shopCurrency: CurrencyCode): NormalizedProduct {
   const parsed = wooProductSchema.safeParse(raw);
   if (!parsed.success) {
     throw validationError(`Malformed WooCommerce product: ${parsed.error.message}`);
   }
-  return normalizeParsed(parsed.data, shopCurrency, parsed.data.expandedVariations ?? []);
+  return normalizeParsed(parsed.data, shopCurrency, parsed.data.expandedVariations ?? NO_VARIATION_EXPANSION);
 }
 
 // --- WooCommerce ORDER schemas (only the fields we consume) ------------------
@@ -724,11 +846,80 @@ function parseJson(response: WooCommerceHttpResponse, context: string): unknown 
   }
 }
 
-/** Read `X-WP-TotalPages` (the WordPress REST pagination header), defaulting to 1. */
-function totalPagesFromHeaders(response: WooCommerceHttpResponse): number {
+/**
+ * `X-WP-TotalPages` as a FINITE INTEGER ≥ 1, or `undefined` when the site did
+ * not publish a usable one.
+ *
+ * `undefined` is the whole point (#259). This header decides where every paged
+ * read in this file ENDS, and defaulting an absent or malformed one to 1 makes a
+ * FULL first page prove a complete enumeration — after which the products loop
+ * hands `archiveUnseenSourcedListings` a complete-LOOKING set and soft-archives
+ * the merchant's entire catalogue beyond page 1. WordPress caching and security
+ * plugins strip response headers as ordinary configuration, so this is not an
+ * exotic site.
+ */
+function declaredTotalPages(response: WooCommerceHttpResponse): number | undefined {
   const raw = response.headers['x-wp-totalpages'];
-  const parsed = raw ? Number(raw) : 1;
-  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 1 ? parsed : undefined;
+}
+
+/**
+ * Whether reading `page` FINISHED the enumeration — the only two proofs this
+ * connector accepts.
+ *
+ *  - The site declared a total page count and the loop reached it.
+ *  - The page came back EMPTY, which a site still holding rows cannot answer.
+ *
+ * A merely SHORT page is deliberately NOT a proof, and that is the one judgement
+ * here worth defending. `per_page` is a REQUEST: a site is free to serve fewer
+ * (a `rest_post_per_page` filter, a hardened host, a plugin), and then EVERY
+ * page is short — so reading a short page as the end would stop a 5,000-product
+ * catalogue after its first ten products and hand delete-reconciliation a set it
+ * would archive 4,990 listings against. The empty-page rule costs exactly one
+ * extra request per enumeration and only on a site that publishes no page count.
+ *
+ * `itemsOnPage < PAGE_LIMIT` is therefore the TIDY-UP to refuse. It reads as an
+ * obvious optimisation — one request saved, and #259's own design brief proposed
+ * it before this reasoning was measured against it — which is exactly why the
+ * cost of adopting it is written down here rather than left to be rediscovered:
+ * the failure it reintroduces is silent, arrives as a mass archive on somebody
+ * else's shop, and no functional test of a healthy site can see it.
+ * `woocommerce-provider.test.ts`'s "a SHORT page is NOT taken as the end either"
+ * is the case that goes red.
+ */
+function enumerationFinished(
+  response: WooCommerceHttpResponse,
+  itemsOnPage: number,
+  page: number,
+): boolean {
+  if (itemsOnPage === 0) {
+    return true;
+  }
+  const declared = declaredTotalPages(response);
+  return declared !== undefined && page >= declared;
+}
+
+/**
+ * How many pages one enumeration reads before it refuses to keep going.
+ *
+ * The bound exists so a site answering full pages forever — a broken plugin, a
+ * cache serving one page under every `page` parameter — cannot spin a sync run
+ * indefinitely. At {@link PAGE_LIMIT} per page it admits 100,000 rows, which is
+ * past any WooCommerce catalogue this connector is expected to read and short
+ * enough that hitting it is evidence rather than patience.
+ */
+const MAX_ENUMERATION_PAGES = 1000;
+
+/** The bounded refusal a paged read raises when it cannot prove it finished. */
+function unprovableEnumeration(context: string, page: number): MercariaError {
+  return validationError(
+    `WooCommerce ${context} read ${page} pages without proving a complete enumeration ` +
+      `(no usable X-WP-TotalPages header and no empty page) — refusing to treat it as complete`,
+  );
 }
 
 /** Parse a `page` cursor (a 1-based page number as a string), or start at page 1. */
@@ -816,19 +1007,33 @@ export function createWooCommerceProvider(
           deliveryUrl: webhook.delivery_url,
         })),
       );
-      const pages = totalPagesFromHeaders(response);
-      if (parsed.data.length === 0 || page >= pages) {
+      if (enumerationFinished(response, parsed.data.length, page)) {
         return { outcome: 'ok', value: all };
+      }
+      if (page >= MAX_ENUMERATION_PAGES) {
+        // A subscription list this call could not finish reading must not be
+        // reconciled against: #218's reconcile ADOPTS and DELETES from it, so a
+        // truncated list is how a live subscription gets duplicated or dropped.
+        return { outcome: 'refused', reason: 'unexpected_response', httpStatus: response.status };
       }
       page += 1;
     }
   }
 
-  /** Fetch every variation of a `variable` product, paginating the variations endpoint. */
+  /**
+   * Read every variation of a product, paginating the variations endpoint, and
+   * report what the read PROVED (#259).
+   *
+   * A truncated read is returned rather than thrown: the parent payload's own
+   * `variations` id list is usually a decisive check on it, so
+   * `resolveVariantSet` — not this loop — is where the two pieces of evidence
+   * meet. It is the caller's job to refuse; this one's is to say honestly how
+   * far it got.
+   */
   async function fetchAllVariations(
     auth: ConnectorAuth,
     productId: string,
-  ): Promise<WooVariation[]> {
+  ): Promise<WooVariationEnumeration> {
     const all: WooVariation[] = [];
     let page = 1;
     for (;;) {
@@ -843,23 +1048,29 @@ export function createWooCommerceProvider(
         throw validationError(`Unexpected WooCommerce variations payload: ${parsed.error.message}`);
       }
       all.push(...parsed.data);
-      const totalPages = totalPagesFromHeaders(response);
-      if (parsed.data.length === 0 || page >= totalPages) {
-        return all;
+      if (enumerationFinished(response, parsed.data.length, page)) {
+        return { variations: all, complete: true, pagesRead: page };
+      }
+      if (page >= MAX_ENUMERATION_PAGES) {
+        return { variations: all, complete: false, pagesRead: page };
       }
       page += 1;
     }
   }
 
   /**
-   * Fetch ONE page of published products (raw + parsed) + its total page count.
-   * Shared by `fetchProducts` (which normalizes each product) and `fetchInventory`
-   * (which reads stock only), so both page the same `/products` endpoint identically.
+   * Fetch ONE page of published products (raw + parsed) and say whether reading
+   * it FINISHED the catalogue enumeration.
+   *
+   * Shared by `fetchProducts` (which normalizes each product) and
+   * `fetchInventory` (which reads stock only), so both page the same `/products`
+   * endpoint identically — including the completeness rule, which is what stops
+   * the two disagreeing about where the catalogue ends.
    */
   async function fetchProductsPage(
     auth: ConnectorAuth,
     page: number,
-  ): Promise<{ products: WooProduct[]; totalPages: number }> {
+  ): Promise<{ products: WooProduct[]; complete: boolean }> {
     const params = new URLSearchParams({
       per_page: String(PAGE_LIMIT),
       page: String(page),
@@ -874,7 +1085,10 @@ export function createWooCommerceProvider(
     if (!parsed.success) {
       throw validationError(`Unexpected WooCommerce products payload: ${parsed.error.message}`);
     }
-    return { products: parsed.data, totalPages: totalPagesFromHeaders(response) };
+    return {
+      products: parsed.data,
+      complete: enumerationFinished(response, parsed.data.length, page),
+    };
   }
 
   async function verifyConnection(auth: ConnectorAuth): Promise<ShopIdentity> {
@@ -927,15 +1141,25 @@ export function createWooCommerceProvider(
 
     async fetchProducts(creds: ConnectorCredentials, cursor?: string) {
       const page = pageFromCursor(cursor);
-      const { products: rawProducts, totalPages } = await fetchProductsPage(creds, page);
+      const { products: rawProducts, complete } = await fetchProductsPage(creds, page);
       const products: NormalizedProduct[] = [];
       for (const product of rawProducts) {
-        const variations =
-          product.type === 'variable' ? await fetchAllVariations(creds, String(product.id)) : [];
-        products.push(normalizeParsed(product, creds.shopCurrency, variations));
+        const expansion = carriesVariationAxis(product)
+          ? await fetchAllVariations(creds, String(product.id))
+          : NO_VARIATION_EXPANSION;
+        products.push(normalizeParsed(product, creds.shopCurrency, expansion));
       }
-      const nextCursor = page < totalPages ? String(page + 1) : undefined;
-      return nextCursor ? { products, nextCursor } : { products };
+      // #259: `nextCursor` is the CATALOGUE's completeness, and `runBackfill`
+      // reaches `archiveUnseenSourcedListings` the moment it goes away. Absent
+      // proof the loop keeps going; at the page bound it REFUSES, which fails
+      // the run and archives nothing, rather than reporting an end it never saw.
+      if (complete) {
+        return { products };
+      }
+      if (page >= MAX_ENUMERATION_PAGES) {
+        throw unprovableEnumeration('product list', page);
+      }
+      return { products, nextCursor: String(page + 1) };
     },
 
     /**
@@ -961,7 +1185,10 @@ export function createWooCommerceProvider(
         return raw;
       }
       const product = parsed.data;
-      if (product.variations.length === 0 || (product.expandedVariations?.length ?? 0) > 0) {
+      if (
+        !carriesVariationAxis(product) ||
+        (product.expandedVariations?.variations.length ?? 0) > 0
+      ) {
         return raw;
       }
       const expandedVariations = await fetchAllVariations(auth, String(product.id));
@@ -988,9 +1215,13 @@ export function createWooCommerceProvider(
         throw validationError(`Unexpected WooCommerce orders payload: ${parsed.error.message}`);
       }
       const orders = parsed.data.map((order) => normalizeWooCommerceOrder(order, creds.shopCurrency));
-      const totalPages = totalPagesFromHeaders(response);
-      const nextCursor = page < totalPages ? String(page + 1) : undefined;
-      return nextCursor ? { orders, nextCursor } : { orders };
+      if (enumerationFinished(response, parsed.data.length, page)) {
+        return { orders };
+      }
+      if (page >= MAX_ENUMERATION_PAGES) {
+        throw unprovableEnumeration('order list', page);
+      }
+      return { orders, nextCursor: String(page + 1) };
     },
 
     normalizeOrder: normalizeWooCommerceOrder,
@@ -1010,14 +1241,18 @@ export function createWooCommerceProvider(
       const levels: NormalizedInventoryLevel[] = [];
       let page = 1;
       for (;;) {
-        const { products, totalPages } = await fetchProductsPage(auth, page);
+        const { products, complete } = await fetchProductsPage(auth, page);
         for (const product of products) {
-          if (product.type === 'variable') {
+          if (carriesVariationAxis(product)) {
             const parent: ParentStock = {
               tracked: product.manage_stock === true,
               quantity: product.stock_quantity ?? null,
             };
-            const variations = await fetchAllVariations(auth, String(product.id));
+            // A variations read that could not prove it finished simply reports
+            // FEWER levels: an item with no level is omitted (the Shopify
+            // semantics), so the variant keeps the stock it had rather than
+            // being told a number nobody established.
+            const { variations } = await fetchAllVariations(auth, String(product.id));
             for (const variation of variations) {
               const id = String(variation.id);
               if (!wanted.has(id)) {
@@ -1042,8 +1277,11 @@ export function createWooCommerceProvider(
             }
           }
         }
-        if (products.length === 0 || page >= totalPages) {
+        if (complete) {
           return levels;
+        }
+        if (page >= MAX_ENUMERATION_PAGES) {
+          throw unprovableEnumeration('inventory catalogue read', page);
         }
         page += 1;
       }
