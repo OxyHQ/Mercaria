@@ -190,6 +190,19 @@ function provenancePatch(): Record<string, unknown> | undefined {
   return call?.[1];
 }
 
+/**
+ * The provenance the CREATE path handed `createStoreProduct`, if any.
+ *
+ * #221: the push-in path had the pull path's create-then-stamp window, and the
+ * fix is the same — the four `source_*` columns and the initial status are
+ * arguments to the create, written by the listing's own insert. The update path
+ * still patches, so it still reads {@link provenancePatch}.
+ */
+function createdProvenance(): Record<string, unknown> | undefined {
+  const call = createStoreProduct.mock.calls[0];
+  return (call?.[2] as { source?: Record<string, unknown> } | undefined)?.source;
+}
+
 const productsBody = (products: IngestProduct[]): IngestProductsInput => ({ products });
 
 beforeEach(() => {
@@ -232,16 +245,20 @@ describe('ingestProducts — create path', () => {
     expect(input.variants[0].price).toEqual({ amount: 2500, currency: 'EUR' });
     expect(input.variants[0].inventory).toEqual({ tracked: true, available: 5 });
 
-    // Provenance + draft stamped on the new listing (autoPublish false). The old
-    // assertion read a `$set.source` SUB-DOCUMENT off a `Listing.updateOne`; the
-    // four fields are flat columns now, written through `updateListingColumns`.
-    expect(updateListingColumns).toHaveBeenCalledWith('listing-new', {
+    // #221: provenance + `draft` (autoPublish false) go INTO the create, so the
+    // listing's own insert writes them. They used to be a second statement, and
+    // a failure between the two left a listing no later push could match and
+    // whose handle blocked every re-import.
+    expect(createdProvenance()).toEqual({
       sourceConnectionId: CONNECTION_ID,
       sourceProvider: 'woocommerce',
       sourceExternalId: 'woo-1',
       sourceExternalUpdatedAt: new Date('2026-07-12T00:00:00Z'),
-      status: 'draft',
     });
+    expect(createStoreProduct.mock.calls[0][2]).toMatchObject({ status: 'draft' });
+    // Nothing patches the provenance afterwards on the create path — the removal
+    // of that second statement IS the fix, so its absence is the assertion.
+    expect(provenancePatch()).toBeUndefined();
 
     expect(result.results).toEqual([{ externalId: 'woo-1', action: 'created', listingId: 'listing-new' }]);
     expect(closedRun().status).toBe('completed');
@@ -257,7 +274,7 @@ describe('ingestProducts — create path', () => {
 
     await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
 
-    expect(provenancePatch()).not.toHaveProperty('status');
+    expect(createStoreProduct.mock.calls[0][2]).toMatchObject({ status: 'active' });
   });
 
   it('writes an explicit NULL when the platform reports no externalUpdatedAt', async () => {
@@ -274,7 +291,7 @@ describe('ingestProducts — create path', () => {
       productsBody([ingestProduct({ externalUpdatedAt: undefined })]),
     );
 
-    expect(provenancePatch()).toMatchObject({ sourceExternalUpdatedAt: null });
+    expect(createdProvenance()).toMatchObject({ sourceExternalUpdatedAt: null });
   });
 });
 

@@ -90,7 +90,13 @@ describe('the open defects #69 filed are surfaced, not hidden', () => {
     // warning about problems somebody fixed, which is the cry-wolf failure one
     // step further on — and it is the direction this list will drift, because
     // adding an entry is somebody's diligence and removing one is somebody
-    // remembering. #218, #219 and #220 left with their fixes; #221 stands.
+    // remembering. All four left with their fixes: #218, #219, #220 and now
+    // #221, whose imported listing carries its provenance from its own insert.
+    //
+    // The set is EMPTY, which is a state worth stating rather than deleting the
+    // case over: an empty open-issue set and a `describeChannel` that stopped
+    // reporting limitations at all look identical here, so the two `toContain`
+    // assertions in the sibling case above are what keep this one honest.
     const limitations = describeChannel('woocommerce').limitations;
     const byIssue = new Map(
       limitations
@@ -98,11 +104,14 @@ describe('the open defects #69 filed are surfaced, not hidden', () => {
         .map((limitation) => [limitation.openIssue, limitation]),
     );
 
-    expect([...byIssue.keys()].sort()).toEqual([221]);
+    expect([...byIssue.keys()].sort()).toEqual([]);
+    // The floor that stops the empty set above reading as a broken descriptor.
+    expect(limitations.length).toBeGreaterThan(0);
     for (const fixed of [
       'webhook_registration_not_atomic',
       'no_rate_limit_retry',
       'variable_product_collapsed_on_webhook',
+      'listing_stamp_not_atomic',
     ] as const) {
       expect(
         limitations.map((limitation) => limitation.code),

@@ -366,16 +366,60 @@ carries `variations` in the id shape the provider reads (a plugin that alters
 the REST response could change it), and whether the extra variations call
 completes inside the webhook job's lifetime for a product with many variations.
 
-### 8.4 An import is not atomic between creating a listing and stamping provenance (#221)
+### 8.4 An import is atomic between creating a listing and stamping provenance (#221 — FIXED)
 
-`createStoreProduct` and the `updateListingColumns` that writes the four
-`source_*` columns are separate statements. A failure in between leaves a listing
-with no provenance: no later sync can match it by external id, and the next
-attempt to import the same product fails on `listings_store_id_handle_key`.
-Observed while building the harness, triggered by an invalid `externalUpdatedAt`
-— the WooCommerce provider builds it as `new Date(\`${value}Z\`)`, which yields
-an Invalid Date for any timestamp that already carries a zone, and the invalid
-Date throws inside drizzle.
+Was: `createStoreProduct` and the `updateListingColumns` that wrote the four
+`source_*` columns were separate statements, so a failure in between left a
+listing with no provenance — no later sync could match it by external id, and
+the next attempt to import the same product failed on
+`listings_store_id_handle_key`, permanently. Observed while building the harness,
+triggered by an invalid `externalUpdatedAt`: the WooCommerce provider built it as
+`new Date(\`${value}Z\`)`, which yields an Invalid Date for any timestamp already
+carrying a zone, and the invalid Date throws inside drizzle.
+
+All of it is fixed, in four parts.
+
+1. The provenance, the initial `draft`/`active` status, the VARIANTS and their
+   stock are written by ONE transaction — `insertStoreProductWithin`, the
+   store-product mirror of `insertP2PListingWithin` — on BOTH import paths (the
+   pull `importProduct` and the push-in `upsertProduct`). A failure leaves no
+   listing rather than a stranded one, and no listing with nothing to sell:
+   the variants used to be inserted after the transaction committed, and
+   `convergeVariants` returns early on a listing with zero variants, so nothing
+   would ever have grown one.
+2. `listings_store_id_source_key_idx` is UNIQUE (migration `0070`, `post`), so
+   two concurrent deliveries for one external id can no longer both create. The
+   loser re-reads and converges; a `listings_store_id_handle_key` collision still
+   fails the product, deliberately.
+3. An unreadable provider timestamp OMITS the field, and a legitimately ZONED one
+   is read at its own offset rather than discarded — discarding it would erase
+   the stored freshness on every later sync (`connectors/timestamps.ts`).
+4. Shopify's `fx_rate_as_of` is validated and kept verbatim.
+
+`services/__tests__/connector-import-atomicity.realdb.test.ts` drives it end to
+end against a real server: a first run whose product carries an invalid
+timestamp leaves ZERO listings, the next run imports the same product
+successfully, and the same fixture WITHOUT the fault imports exactly one — the
+positive control that stops "zero listings" reading as a harness that ran
+nothing.
+
+**What a real store still settles:** nothing specific to this defect — the
+failure and the recovery are both properties of Mercaria's own write path. What
+a real store adds is the ordinary confirmation that a first backfill of a live
+catalogue reports no per-product failures at all, and — new with the unique
+index — that a webhook delivered DURING a backfill converges rather than failing
+that product. A `duplicate key … listings_store_id_source_key_idx` in the run
+log means the convergence is not working.
+
+**Before deploying the `post` migration, confirm no duplicate already exists**
+(the query is in the migration's own header). It fails closed if one does, and
+collapsing a duplicate is not mechanical — the two rows may carry different
+local edits.
+
+**One thing a real run should still watch for, and it is NOT #221:**
+`applyCollectionMapping` runs after the create, so an interrupted import can
+leave a listing with no connector collections — recoverable, because the listing
+now carries its provenance and the next sync re-applies the mapping.
 
 ### 8.5 Not a defect, worth knowing
 

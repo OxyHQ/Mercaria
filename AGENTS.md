@@ -3537,9 +3537,25 @@ CHECK the database would have refused all looked identical to a green suite.
   an earlier collapse self-heals on the next sync instead of being permanent. A
   variant the platform REMOVED is unsold (stock zero, tracking on) and never
   deleted, because a variant id cascades into carts, saves, offers and the
-  canonical links. **#221 stands**, and is in the runbook §8 with what a real run
-  should expect: the non-atomic create-then-stamp that strands a listing no later
-  sync can match.
+  canonical links. **#221 is FIXED**, and the fix is four things rather than
+  one. (1) An imported listing's four `source_*` columns, its `draft`/`active`
+  status and its VARIANTS' four `source_*` columns are all arguments to
+  `createStoreProduct`, written by `insertStoreProductWithin` — the store-product
+  mirror of `insertP2PListingWithin`, carrying the same two rulings: the variant
+  insert belongs INSIDE (a listing with no variant is not a state anything should
+  observe, and `convergeVariants` returns early on one, so nothing repairs it)
+  and `syncListingFacets` stays OUTSIDE (its outbox work must survive
+  independently). `stampVariantSources` is GONE; `stampVariantSource` stays for
+  #220's convergence. (2) `listings_store_id_source_key_idx` is UNIQUE
+  (migration `0070`, `post`), because the read-then-create the service performs
+  was a real race two deliveries could both win; the loser converges by
+  RE-READING and taking the update branch, matched by CONSTRAINT NAME so a
+  `listings_store_id_handle_key` collision still surfaces as the merchant
+  conflict it is. (3) `connectors/timestamps.ts` appends `Z` only to a value
+  carrying NO zone, then omits what is still unreadable — omitting a
+  legitimately-zoned value would ERASE the stored freshness, because
+  `buildSource` writes `?? null` on every sync. (4) Shopify's `fx_rate_as_of` is
+  VALIDATED and kept verbatim rather than rewritten.
 - **A fixed defect leaves `WOOCOMMERCE_OPEN_DEFECTS` and, unless something still
   produces it, leaves `CHANNEL_LIMITATION_CODES` too** — `channel-catalog.test.ts`
   asserts the EXACT open-issue set rather than containment, because a list that

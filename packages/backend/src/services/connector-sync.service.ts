@@ -115,6 +115,7 @@ import {
   type ListingImageRecord,
   type ListingOptionRecord,
   type ListingRecord,
+  type ListingSourceProvenance,
 } from '../db/catalog/listingRepository.js';
 import {
   findVariantBySourceInventoryItemId,
@@ -124,6 +125,7 @@ import {
   updateVariant as updateVariantColumns,
   type VariantOptionValueRecord,
   type VariantRecord,
+  type VariantSourceProvenance,
 } from '../db/catalog/variantRepository.js';
 import {
   findExternalRefByListingAndConnection,
@@ -812,7 +814,16 @@ function toVariantInput(
   return input;
 }
 
-/** Build the `CreateStoreProductInput` for a first-time import of `product`. */
+/**
+ * Build the `CreateStoreProductInput` for a first-time import of `product`.
+ *
+ * The `variants` map must stay ONE-TO-ONE with `product.variants` and in the
+ * same order. #221's variant provenance is carried POSITIONALLY beside this list
+ * (`buildVariantSources` walks the same array, and `resolveStoreVariants` zips
+ * the two), so a `.filter` or a `.sort` added here would attach each stamp to
+ * the wrong variant — and the failure is silent: the rows insert cleanly, and
+ * the next inventory sync updates the stock of a different variant.
+ */
 function toCreateInput(
   product: NormalizedProduct,
   categorySlug: string,
@@ -868,19 +879,15 @@ function toUpdatePatch(product: NormalizedProduct, overridden: Set<string>): Upd
  * The connector-provenance columns for a pulled listing.
  *
  * The four `source_*` fields are flat columns on `listings` rather than an
- * embedded sub-document, so this returns the column PATCH itself.
+ * embedded sub-document, so this returns the columns themselves — carried into
+ * the CREATE (#221) and applied as the PATCH on every later sync, from this one
+ * definition either way.
  * `sourceExternalUpdatedAt` is written explicitly NULL when the platform sent no
  * timestamp: the embedded version simply left the key out, which kept the
  * PREVIOUS sync's timestamp on a product whose source had stopped reporting one —
  * a newer-than check silently reading a value the platform no longer stands behind.
  */
-function buildSource(
-  conn: ConnectionRow,
-  product: NormalizedProduct,
-): Pick<
-  ListingRecord,
-  'sourceConnectionId' | 'sourceProvider' | 'sourceExternalId' | 'sourceExternalUpdatedAt'
-> {
+function buildSource(conn: ConnectionRow, product: NormalizedProduct): ListingSourceProvenance {
   return {
     sourceConnectionId: conn.id,
     sourceProvider: conn.provider,
@@ -929,48 +936,63 @@ export async function resolveInventoryLocationId(conn: ConnectionRow): Promise<s
 }
 
 /**
- * Stamp each freshly-created variant with the platform's variant + inventory-item
- * ids, matched to the normalized variants by POSITION. Create still preserves that
- * order: `resolveStoreVariants` numbers each variant by its index in the input,
- * `insertVariants` writes that number, and `findVariantsByListing` returns rows
- * `position asc` — so index `i` here is the same variant `product.variants[i]`
- * described. No-op — and no DB read — when the product carries no external variant
- * ids (e.g. the ingest path, or a platform that omits them), so callers that never
- * provide them are unaffected. Enables the inventory pull job + webhook to map a
- * platform `inventory_item_id` straight back to a Mercaria variant.
+ * The connector-provenance columns for each of a product's variants, POSITIONALLY
+ * aligned with `product.variants`.
  *
- * All FOUR provenance columns are written on every stamped variant, `null`
- * included. That is not extra caution, it is what the `$set: { source }` it
+ * This REPLACED `stampVariantSources`, which read the created variants back and
+ * UPDATED them after the create had already committed (#221). The alignment it
+ * relied on is the same one this uses — `resolveStoreVariants` numbers each
+ * variant by its index in the input and `insertVariants` writes that number — so
+ * nothing is less certain, one write disappears, and with it the window in which
+ * an imported variant existed unstamped. That window mattered: an unstamped
+ * variant is invisible to the inventory sync and to every later match, and
+ * `convergeVariants` cannot repair it, because a variant it CAN see is one it
+ * matches by SKU or option values rather than by provenance.
+ *
+ * All FOUR provenance columns are written on every variant, `null` included.
+ * That is not extra caution, it is what the `$set: { source }` it ultimately
  * replaces already did: assigning the whole sub-document dropped any key the new
  * one omitted. Writing the set also keeps the columns mutually consistent —
  * `findVariantBySourceInventoryItemId` matches on `(sourceConnectionId,
  * sourceExternalInventoryItemId)`, so a variant carrying only some of them is
  * exactly as unfindable as an unstamped one while LOOKING synced.
+ *
+ * A variant the platform gave NEITHER id for is stamped all-NULL rather than
+ * given the connection: it is unfindable by either key, so recording the
+ * connection would claim a link nothing can follow. That is also exactly what
+ * the ingest path — which supplies no external ids at all — has always produced,
+ * so that path is unaffected.
  */
-async function stampVariantSources(
+function buildVariantSources(
   conn: ConnectionRow,
-  listingId: string,
   product: NormalizedProduct,
-): Promise<void> {
-  const hasExternalIds = product.variants.some(
-    (v) => v.externalVariantId !== undefined || v.externalInventoryItemId !== undefined,
+): VariantSourceProvenance[] {
+  return product.variants.map((variant) =>
+    variant.externalVariantId === undefined && variant.externalInventoryItemId === undefined
+      ? {
+          sourceConnectionId: null,
+          sourceProvider: null,
+          sourceExternalVariantId: null,
+          sourceExternalInventoryItemId: null,
+        }
+      : {
+          sourceConnectionId: conn.id,
+          sourceProvider: conn.provider,
+          sourceExternalVariantId: variant.externalVariantId ?? null,
+          sourceExternalInventoryItemId: variant.externalInventoryItemId ?? null,
+        },
   );
-  if (!hasExternalIds) {
-    return;
-  }
-  const variants = await findVariantsByListing(listingId);
-  for (let i = 0; i < variants.length && i < product.variants.length; i += 1) {
-    await stampVariantSource(conn, listingId, variants[i].id, product.variants[i]);
-  }
 }
 
 /**
  * Stamp ONE variant with the platform's variant + inventory-item ids.
  *
- * Extracted from {@link stampVariantSources} because #220's convergence creates
- * a variant OUTSIDE the create path and it needs the same four columns written
- * the same way — an unstamped variant is invisible to the inventory sync and to
- * every later match, which is a variant that exists and never updates again.
+ * The single-variant counterpart of {@link buildVariantSources}, kept because
+ * #220's convergence creates a variant OUTSIDE the create path and it needs the
+ * same four columns written the same way — an unstamped variant is invisible to
+ * the inventory sync and to every later match, which is a variant that exists
+ * and never updates again. #221 folded the CREATE path's stamping into the
+ * insert itself, so this is now reached only from `convergeVariants`.
  * A normalized variant carrying neither id is a no-op, so the ingest path (which
  * supplies none) is unaffected.
  */
@@ -1263,7 +1285,9 @@ async function importProduct(
   product: NormalizedProduct,
   opts: ImportProductOptions,
 ): Promise<ImportOutcome> {
-  const existing = await findListingBySourceExternalId(
+  // `let` because the create branch may LOSE the provenance-unique race and fall
+  // through to the update branch with the row the winner wrote (#221).
+  let existing = await findListingBySourceExternalId(
     conn.storeId,
     conn.id,
     product.externalId,
@@ -1284,19 +1308,67 @@ async function importProduct(
       return 'skipped';
     }
 
-    const listingId = await createStoreProduct(
-      conn.storeId,
-      toCreateInput(product, opts.categorySlug, opts.priceRules),
-      { locationId: opts.importLocationId },
-    );
-    await updateListingColumns(listingId, {
-      ...buildSource(conn, product),
-      ...(opts.autoPublish ? {} : { status: 'draft' as const }),
-    });
-    await stampVariantSources(conn, listingId, product);
-    // A freshly-created listing has no local overrides yet.
-    await applyCollectionMapping(conn, listingId, product, new Set<string>());
-    return 'created';
+    // #221: the provenance and the initial status travel INTO the create, so
+    // they are written by the listing's own insert inside its own transaction.
+    // The two used to be a second statement, and a failure between them left a
+    // listing with no `source_external_id` — unmatchable by
+    // `findListingBySourceExternalId` forever, and still holding its handle, so
+    // every later sync of that product failed on `listings_store_id_handle_key`.
+    let createdListingId: string | undefined;
+    try {
+      createdListingId = await createStoreProduct(
+        conn.storeId,
+        toCreateInput(product, opts.categorySlug, opts.priceRules),
+        {
+          locationId: opts.importLocationId,
+          source: buildSource(conn, product),
+          status: opts.autoPublish ? 'active' : 'draft',
+          variantSources: buildVariantSources(conn, product),
+        },
+      );
+    } catch (err) {
+      // #221: `listings_store_id_source_key_idx` is UNIQUE, so the read above and
+      // this insert are no longer a read-then-write race. Losing it is ORDINARY —
+      // a webhook delivered while a backfill is running is two deliveries for one
+      // external id — so the loser RE-READS and converges through the update
+      // branch rather than failing the product.
+      //
+      // By CONSTRAINT NAME, off the driver error: a drizzle error's SQLSTATE is on
+      // `cause` and never `error.code`, and an unnamed check would swallow
+      // `listings_store_id_handle_key` too. That one must still surface — a handle
+      // collision between two genuinely different external products is a real
+      // merchant conflict, and suffixing it silently would hide it.
+      if (!isUniqueViolation(err, 'listings_store_id_source_key_idx')) {
+        throw err;
+      }
+      const raced = await findListingBySourceExternalId(
+        conn.storeId,
+        conn.id,
+        product.externalId,
+      );
+      // The constraint fired and the row is not there: something other than the
+      // race we can explain. Rethrow the ORIGINAL error rather than invent one.
+      if (!raced) {
+        throw err;
+      }
+      existing = raced;
+    }
+
+    if (createdListingId !== undefined) {
+      // `applyCollectionMapping` stays OUTSIDE the create, and the asymmetry is
+      // the point rather than an oversight: an unmapped COLLECTION is RECOVERABLE
+      // — the next sync finds the listing by its provenance and re-applies the
+      // mapping — whereas an unstamped LISTING can never be found again, and an
+      // unstamped VARIANT is invisible to the inventory sync and to every later
+      // match. Those two ride the create's own transaction now; a membership
+      // recompute gains nothing from it, and
+      // `recomputeAutomatedMembershipForListing` opens its own connection, which
+      // inside the transaction would wait on itself.
+      // A freshly-created listing has no local overrides yet.
+      await applyCollectionMapping(conn, createdListingId, product, new Set<string>());
+      return 'created';
+    }
+    // Fell through from the race: `existing` now names the row the winner wrote.
   }
 
   const listingId = existing.id;

@@ -79,12 +79,14 @@ function ok(body: unknown, headers: Record<string, string> = {}): WooCommerceHtt
 /**
  * A `*_gmt` timestamp in WooCommerce's own shape — ISO-8601 with NO zone suffix.
  *
- * This is load-bearing rather than cosmetic. The provider reads these fields as
- * `new Date(\`${value}Z\`)`, which is right for what WooCommerce publishes and
- * yields an INVALID DATE for anything already carrying a zone. An invalid date
- * then reaches drizzle and throws inside the per-product import. A fixture that
- * sent `…10:00:00Z` would be testing a shape WooCommerce never sends, and
- * failing for a reason no real store would produce.
+ * This is load-bearing rather than cosmetic. The provider appends `Z`, which is
+ * right for what WooCommerce publishes; a value already carrying a zone would
+ * produce `…+02:00Z`, which is not a date at all. Since #221 that is OMITTED
+ * rather than assigned as an invalid `Date` (which used to reach drizzle and
+ * throw inside the per-product import) — so a fixture sending `…10:00:00Z` would
+ * now silently lose `externalUpdatedAt` on every product instead of failing, and
+ * would be testing a shape WooCommerce never sends either way. The refusal
+ * itself is measured in `woocommerce-normalize.test.ts`, where it can be seen.
  */
 function gmt(iso: string): string {
   return iso.replace(/Z$/, '');

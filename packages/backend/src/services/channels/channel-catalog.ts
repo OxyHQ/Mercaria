@@ -102,16 +102,16 @@ export function providerForChannelType(
 }
 
 /**
- * The connector defects #69 filed that are still OPEN.
+ * The connector defects #69 filed that are still OPEN — and there are NONE.
  *
- * They are carried as DATA, per channel type, with the issue number attached,
+ * They were carried as DATA, per channel type, with the issue number attached,
  * because #87's whole point is one place a merchant reads before connecting —
  * and a wizard that walks somebody into a known defect without mentioning it is
- * worse than no wizard. Each summary says what the merchant will observe, not
- * what the code does wrong: "live updates will not arrive" is actionable and
+ * worse than no wizard. Each summary said what the merchant would observe, not
+ * what the code did wrong: "live updates will not arrive" is actionable and
  * "`registerWebhooks` discards its ids" is not.
  *
- * They leave when the issues close, and three have. #218: registration is now
+ * They leave when the issues close, and all four have. #218: registration is now
  * per-topic fault tolerant, reconciled against the platform's own subscription
  * list, and persists the ids, the secret and the refused topics in ONE write —
  * so a partial registration is disconnectable, retryable, and names the events
@@ -123,19 +123,19 @@ export function providerForChannelType(
  * webhook payload is COMPLETED before it is normalized, a payload that cannot be
  * completed is REFUSED rather than collapsed, and a variant the platform added
  * is created on the next sync — so the collapse is neither reachable nor
- * permanent.
+ * permanent. #221: an imported listing's provenance and initial status are
+ * written by the listing's OWN insert, so a failure leaves no listing rather
+ * than one no later sync can match and whose handle blocks every re-import.
  *
- * Nothing derives what remains, so nothing can silently stop reporting one.
+ * The EMPTY array stays rather than being deleted with its last member, and so
+ * does the call site below: this is the shape a fifth defect is filed into, and
+ * a merchant-facing warning that has to be re-invented is one that gets left out.
+ * `channel-catalog.test.ts` asserts the EXACT open-issue set, so an entry that
+ * outlived its fix fails the build — which is the direction this list drifts,
+ * because adding one is somebody's diligence and removing one is somebody
+ * remembering.
  */
-const WOOCOMMERCE_OPEN_DEFECTS: readonly ChannelLimitation[] = [
-  {
-    code: 'listing_stamp_not_atomic',
-    severity: 'degrades',
-    summary:
-      'If an import fails between creating a listing and recording where it came from, that listing is stranded: later syncs cannot match it and re-importing the same product fails on its handle. It has to be deleted by hand.',
-    openIssue: 221,
-  },
-];
+const WOOCOMMERCE_OPEN_DEFECTS: readonly ChannelLimitation[] = [];
 
 /**
  * The limitation every connector carries because of how `connections` is keyed.

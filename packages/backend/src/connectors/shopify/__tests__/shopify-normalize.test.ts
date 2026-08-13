@@ -157,3 +157,33 @@ describe('normalizeShopifyProduct', () => {
     ).toThrow();
   });
 });
+
+/**
+ * #221's timestamp refusal, on the Shopify side.
+ *
+ * Shopify publishes a full ISO-8601 instant, so the `Z`-appending trap that fired
+ * on WooCommerce does not exist here — but the refusal does, because the failure
+ * it prevents is a property of `new Date`, not of any one platform: unreadable
+ * text yields an INVALID `Date` that behaves like a `Date` until drizzle maps it
+ * to a `timestamptz` parameter and fails the whole product's import. A provider
+ * that only guarded the platform it had been bitten by would leave the other
+ * carrying the same defect.
+ */
+describe('normalizeShopifyProduct — provider timestamps (#221)', () => {
+  it('reads a well-formed `updated_at`', () => {
+    const product = normalizeShopifyProduct(singleVariantProduct, 'USD');
+    expect(product.externalUpdatedAt).toEqual(new Date('2026-07-10T12:00:00Z'));
+  });
+
+  it('OMITS `externalUpdatedAt` for text that is not a timestamp', () => {
+    const product = normalizeShopifyProduct(
+      { ...singleVariantProduct, updated_at: 'yesterday' },
+      'USD',
+    );
+
+    // The product still imports — one unreadable timestamp must not cost it.
+    expect(product.externalId).toBe('111');
+    expect(product.variants).toHaveLength(1);
+    expect(product.externalUpdatedAt).toBeUndefined();
+  });
+});

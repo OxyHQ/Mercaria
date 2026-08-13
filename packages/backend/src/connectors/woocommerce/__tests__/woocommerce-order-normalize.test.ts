@@ -213,3 +213,48 @@ describe('woocommerce fetchOrders', () => {
     expect(nextCursor).toBeUndefined();
   });
 });
+
+/**
+ * #221's timestamp trigger on the ORDER path.
+ *
+ * Same defect, same fix, different columns: `orders.source_external_updated_at`
+ * and `orders.created_at`. A zoned value is READ at its own offset rather than
+ * discarded — discarding it would null the provenance on every later sync (see
+ * `connectors/timestamps.ts`) — and only unreadable text is omitted.
+ */
+describe('normalizeWooCommerceOrder — provider timestamps (#221)', () => {
+  it('READS values that already carry a zone, at that zone', () => {
+    const order = normalizeWooCommerceOrder(
+      wooOrder({
+        date_created_gmt: '2026-07-15T10:00:00+02:00',
+        date_modified_gmt: '2026-07-15T11:00:00+02:00',
+      }),
+      'USD',
+    );
+
+    expect(order.createdAt).toEqual(new Date('2026-07-15T08:00:00Z'));
+    expect(order.externalUpdatedAt).toEqual(new Date('2026-07-15T09:00:00Z'));
+  });
+
+  it('OMITS both timestamps when the values are unreadable, and still imports the order', () => {
+    const order = normalizeWooCommerceOrder(
+      wooOrder({ date_created_gmt: 'not a date', date_modified_gmt: 'not a date' }),
+      'USD',
+    );
+
+    // The money is intact — one unreadable timestamp must not cost the order.
+    expect(order.externalId).toBe('727');
+    expect(order.totals.grandTotal.shop).toEqual({ amount: 4300, currency: 'EUR' });
+    expect(order.externalUpdatedAt).toBeUndefined();
+    expect(order.createdAt).toBeUndefined();
+  });
+
+  it('still reads zone-less GMT values as UTC', () => {
+    // The positive control beside the omission: without it, a normalizer that
+    // had stopped reading either field would pass the case above.
+    const order = normalizeWooCommerceOrder(wooOrder(), 'USD');
+
+    expect(order.createdAt).toEqual(new Date('2026-07-15T10:00:00Z'));
+    expect(order.externalUpdatedAt).toEqual(new Date('2026-07-15T11:00:00Z'));
+  });
+});

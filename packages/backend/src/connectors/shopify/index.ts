@@ -52,6 +52,7 @@ import {
   reconcileWebhookSubscriptions,
   type WebhookProbe,
 } from '../webhook-registration.js';
+import { parseProviderTimestamp } from '../timestamps.js';
 import { getShopifyCredentials } from './config.js';
 import { shopifyTransport, type ShopifyHttpResponse, type ShopifyTransport } from './http.js';
 
@@ -473,8 +474,13 @@ export function normalizeShopifyProduct(raw: unknown, shopCurrency: CurrencyCode
     imageUrls: product.images.map((img) => img.src),
     variants,
   };
-  if (product.updated_at) {
-    normalized.externalUpdatedAt = new Date(product.updated_at);
+  // Shopify publishes a full ISO-8601 instant with its own offset, so this needs
+  // no suffix — but it still needs the refusal: an unreadable timestamp must
+  // OMIT the field rather than assign an invalid `Date` that fails the whole
+  // product's import at the listing insert (#221).
+  const updatedAt = parseProviderTimestamp(product.updated_at);
+  if (updatedAt) {
+    normalized.externalUpdatedAt = updatedAt;
   }
   if (product.handle) {
     normalized.handle = product.handle;
@@ -661,7 +667,16 @@ export function normalizeShopifyOrder(raw: unknown, shopCurrency: CurrencyCode):
   }
 
   const { status, paymentStatus } = mapShopifyStatus(order.financial_status, order.fulfillment_status);
-  const asOf = order.updated_at ?? order.created_at ?? new Date().toISOString();
+  // `asOf` lands in `orders.fx_rate_as_of`, which is `text()` — so a malformed
+  // value would be STORED rather than refused, while an `FxRateSnapshot` is
+  // supposed to identify a conversion completely (#221). It is VALIDATED and not
+  // rewritten: a readable value is kept in the platform's own spelling, because
+  // an imported order keeps the source's economics verbatim, and only a value
+  // nothing can read falls through to the current time.
+  const asOf =
+    [order.updated_at, order.created_at].find(
+      (candidate) => parseProviderTimestamp(candidate) !== undefined,
+    ) ?? new Date().toISOString();
 
   const normalized: NormalizedOrder = {
     externalId: String(order.id),
@@ -673,8 +688,12 @@ export function normalizeShopifyOrder(raw: unknown, shopCurrency: CurrencyCode):
     totals,
   };
   if (order.name) normalized.externalNumber = order.name;
-  if (order.updated_at) normalized.externalUpdatedAt = new Date(order.updated_at);
-  if (order.created_at) normalized.createdAt = new Date(order.created_at);
+  // Unreadable timestamps are OMITTED rather than assigned invalid — see the
+  // product normalizer above and `connectors/timestamps.ts`.
+  const orderUpdatedAt = parseProviderTimestamp(order.updated_at);
+  if (orderUpdatedAt) normalized.externalUpdatedAt = orderUpdatedAt;
+  const orderCreatedAt = parseProviderTimestamp(order.created_at);
+  if (orderCreatedAt) normalized.createdAt = orderCreatedAt;
   const fxRate = deriveFxRate(totals.grandTotal, shopCurrency, presentmentCurrency, asOf);
   if (fxRate) normalized.fxRate = fxRate;
   const customer = mapShopifyCustomer(order.customer);

@@ -268,10 +268,44 @@ function stubListingsByExternalId(rows: Record<string, unknown>): void {
   );
 }
 
+/**
+ * A driver unique-violation as postgres.js surfaces one, for the ONE branch a
+ * real server cannot be made to produce on demand: losing the provenance-unique
+ * race (#221), which needs a concurrent writer between this service's read and
+ * its insert.
+ *
+ * A synthetic error proves the BRANCH is reachable and nothing about whether
+ * `isUniqueViolation` reads a real one correctly — the repo's own warning about
+ * a `{code:'23505'}` fixture. That half is proven against a REAL server in
+ * `connector-import-atomicity.realdb.test.ts`, which catches an actual refusal
+ * from `listings_store_id_source_key_idx` and asserts the same predicate. The
+ * two halves are deliberately in different files, each where it can be true.
+ */
+function uniqueViolation(constraintName: string): Error {
+  const cause = Object.assign(new Error('duplicate key value violates unique constraint'), {
+    code: '23505',
+    constraint_name: constraintName,
+  });
+  return Object.assign(new Error('Failed query'), { cause });
+}
+
 /** The `updateListingColumns` patch carrying the provenance columns, if any. */
 function provenancePatch(): Record<string, unknown> | undefined {
   const call = updateListingColumns.mock.calls.find(([, patch]) => 'sourceExternalId' in patch);
   return call?.[1];
+}
+
+/**
+ * The provenance the CREATE path handed `createStoreProduct`, if any.
+ *
+ * #221: a created listing's four `source_*` columns are written by the listing's
+ * own insert, so they are an ARGUMENT here rather than a later patch. That is
+ * the whole fix, which is why the create-path cases read this and the update
+ * path still reads {@link provenancePatch}.
+ */
+function createdProvenance(): Record<string, unknown> | undefined {
+  const call = createStoreProduct.mock.calls[0];
+  return (call?.[2] as { source?: Record<string, unknown> } | undefined)?.source;
 }
 
 beforeEach(() => {
@@ -315,19 +349,137 @@ describe('runBackfill — create path', () => {
     expect(input.category).toBe('home');
     expect(input.variants[0].price).toEqual({ amount: 1999, currency: 'USD' });
 
-    // Provenance stamped on the new listing. The old assertion read a
-    // `$set.source` sub-document off a `Listing.updateOne`; the four fields are
-    // flat columns now, written through `updateListingColumns`. `autoPublish` is
-    // true for this connection, so no `status` is forced.
-    expect(updateListingColumns).toHaveBeenCalledWith('listing-new', {
+    // #221: the provenance goes INTO the create, so the listing's own insert
+    // writes it. The old assertion read it off a second `updateListingColumns`
+    // statement, which is precisely the window that stranded a listing —
+    // unmatchable forever and still holding its handle. `autoPublish` is true
+    // for this connection, so the status is `active`.
+    expect(createdProvenance()).toEqual({
       sourceConnectionId: CONNECTION_ID,
       sourceProvider: 'shopify',
       sourceExternalId: 'shopify-1',
       sourceExternalUpdatedAt: new Date('2026-07-12T00:00:00Z'),
     });
+    expect(createStoreProduct.mock.calls[0][2]).toMatchObject({ status: 'active' });
+    // And NOTHING patches the provenance afterwards on the create path: a second
+    // statement is what this fix removed, so its absence is the assertion.
+    expect(provenancePatch()).toBeUndefined();
 
     expect(run.status).toBe('completed');
     expect(run.countsCreated).toBe(1);
+    expect(updateListing).not.toHaveBeenCalled();
+  });
+
+  it('holds a created listing as draft when the connection does not auto-publish', async () => {
+    findConnection.mockResolvedValue({ ...mockConnection(), syncSettingsAutoPublish: false });
+    findListingBySourceExternalId.mockResolvedValue(null);
+    createStoreProduct.mockResolvedValue('listing-new');
+    fetchProducts.mockResolvedValue({ products: [product()] });
+
+    await runBackfill(STORE_ID, CONNECTION_ID);
+
+    // #221: `draft` rides the same insert as the provenance. It used to be part
+    // of the same second statement, so the same failure published a listing the
+    // merchant had asked to hold back — or, more often, stranded it entirely.
+    expect(createStoreProduct.mock.calls[0][2]).toMatchObject({ status: 'draft' });
+    expect(provenancePatch()).toBeUndefined();
+  });
+
+  it('stamps every VARIANT with its provenance through the create', async () => {
+    findConnection.mockResolvedValue(mockConnection());
+    findListingBySourceExternalId.mockResolvedValue(null);
+    createStoreProduct.mockResolvedValue('listing-new');
+    fetchProducts.mockResolvedValue({
+      products: [
+        product({
+          variants: [
+            {
+              optionValues: [],
+              price: { amount: 1999, currency: 'USD' },
+              inventory: { tracked: true, available: 3 },
+              externalVariantId: 'v1',
+              externalInventoryItemId: 'inv1',
+            },
+            // A second variant the platform gave NO ids for: stamped all-NULL
+            // rather than given the connection, because it is unfindable by
+            // either key and recording the connection would claim a link
+            // nothing can follow.
+            {
+              optionValues: [],
+              price: { amount: 2999, currency: 'USD' },
+              inventory: { tracked: true, available: 1 },
+            },
+          ],
+        }),
+      ],
+    });
+
+    await runBackfill(STORE_ID, CONNECTION_ID);
+
+    // #221: `stampVariantSources` — a post-create UPDATE pass — is GONE, so this
+    // is an argument now. `updateVariantColumns` must not be reached on the
+    // create path at all; its absence is what says the pass was removed rather
+    // than merely duplicated.
+    expect(createStoreProduct.mock.calls[0][2]).toMatchObject({
+      variantSources: [
+        {
+          sourceConnectionId: CONNECTION_ID,
+          sourceProvider: 'shopify',
+          sourceExternalVariantId: 'v1',
+          sourceExternalInventoryItemId: 'inv1',
+        },
+        {
+          sourceConnectionId: null,
+          sourceProvider: null,
+          sourceExternalVariantId: null,
+          sourceExternalInventoryItemId: null,
+        },
+      ],
+    });
+    expect(updateVariantColumns).not.toHaveBeenCalled();
+  });
+
+  it('CONVERGES on the update path when the provenance unique refuses the create', async () => {
+    // The #221 retry-by-lookup, and the only test that reaches that catch: the
+    // service read null, another delivery created the row underneath it, and the
+    // insert lost `listings_store_id_source_key_idx`. The loser must re-read and
+    // converge rather than fail the product.
+    findConnection.mockResolvedValue(mockConnection());
+    const winner = listingRow('listing-winner');
+    // Null on the FIRST read (the create branch is entered) and the winner's row
+    // on the re-read inside the catch.
+    findListingBySourceExternalId
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(winner);
+    createStoreProduct.mockRejectedValue(
+      uniqueViolation('listings_store_id_source_key_idx'),
+    );
+    fetchProducts.mockResolvedValue({ products: [product()] });
+
+    const run = await runBackfill(STORE_ID, CONNECTION_ID);
+
+    expect(run.countsFailed).toBe(0);
+    expect(run.countsCreated).toBe(0);
+    expect(run.countsUpdated).toBe(1);
+    expect(updateListing).toHaveBeenCalledTimes(1);
+    expect(updateListing.mock.calls[0][0]).toBe('listing-winner');
+  });
+
+  it('does NOT swallow a HANDLE collision — that is a real merchant conflict', async () => {
+    // The discriminant on the catch above. Naming the constraint is what keeps
+    // `listings_store_id_handle_key` surfacing as a per-product failure: two
+    // genuinely different external products claiming one handle is a conflict a
+    // merchant has to see, and converging it would silently attach this product's
+    // updates to the other one's listing.
+    findConnection.mockResolvedValue(mockConnection());
+    findListingBySourceExternalId.mockResolvedValue(null);
+    createStoreProduct.mockRejectedValue(uniqueViolation('listings_store_id_handle_key'));
+    fetchProducts.mockResolvedValue({ products: [product()] });
+
+    const run = await runBackfill(STORE_ID, CONNECTION_ID);
+
+    expect(run.countsFailed).toBe(1);
+    expect(run.countsUpdated).toBe(0);
     expect(updateListing).not.toHaveBeenCalled();
   });
 
@@ -342,7 +494,7 @@ describe('runBackfill — create path', () => {
 
     await runBackfill(STORE_ID, CONNECTION_ID);
 
-    expect(provenancePatch()).toMatchObject({ sourceExternalUpdatedAt: null });
+    expect(createdProvenance()).toMatchObject({ sourceExternalUpdatedAt: null });
   });
 
   it('skips an inbound product that is an echo of our own push (loop prevention)', async () => {
