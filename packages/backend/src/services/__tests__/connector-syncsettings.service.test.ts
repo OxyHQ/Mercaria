@@ -271,7 +271,10 @@ function collectionProduct(): NormalizedProduct {
     options: [],
     imageUrls: ['https://cdn.shopify.com/img.jpg'],
     collectionRefs: ['ext-col-1'],
-    variants: [{ optionValues: [], price: { amount: 1999, currency: 'USD' }, inventory: { tracked: true, available: 3 } }],
+    variants: {
+      enumeration: 'complete',
+      variants: [{ optionValues: [], price: { amount: 1999, currency: 'USD' }, inventory: { tracked: true, available: 3 } }],
+    },
   };
 }
 

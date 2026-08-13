@@ -163,6 +163,46 @@ export interface NormalizedVariant {
 }
 
 /**
+ * Why a variant enumeration could NOT be proven complete (#259).
+ *
+ * Each member is a distinct piece of evidence a provider gathered, and the
+ * distinctions are the point: "the platform named three variations and handed us
+ * two" and "we read a full page and the site published no page count" lead an
+ * operator to opposite conclusions, and collapsing them into one "incomplete"
+ * makes the refusal unreadable in the sync run that records it.
+ */
+export type VariantEnumerationGap =
+  /** The payload named these variation ids and the read did not carry them. */
+  | { readonly kind: 'declared_not_fetched'; readonly missingIds: readonly string[] }
+  /** The read carried these variation ids and the payload never named them. */
+  | { readonly kind: 'fetched_not_declared'; readonly unexpectedIds: readonly string[] }
+  /** The read carried these variation ids more than once. */
+  | { readonly kind: 'duplicate_fetched'; readonly duplicateIds: readonly string[] }
+  /** Nothing proved the paged read reached the end (see the WooCommerce header rule). */
+  | { readonly kind: 'pagination_unprovable'; readonly pagesRead: number }
+  /** The product has a variation axis and the read carried no usable variation. */
+  | { readonly kind: 'declares_variants_and_carries_none'; readonly declared: number };
+
+/**
+ * A product's variants, together with what the provider could PROVE about them.
+ *
+ * The `incomplete` branch carries NO `variants` property, so a consumer cannot
+ * read an unproven enumeration as a variant list without writing the coercion
+ * out loud — and there is no coercion to write, because there is no array to
+ * reach for. That is what turns issue #259's rules 3, 4 and 11 into `tsc`
+ * errors: `convergeVariants` cannot reach its removal loop and the create path
+ * cannot build a `CreateStoreProductInput` without narrowing to `complete`
+ * first, and narrowing is exactly the decision each of them was getting wrong.
+ *
+ * The discriminant is a STRING rather than a boolean deliberately: this backend
+ * compiles with `strict: false`, and without `strictNullChecks` TypeScript does
+ * not narrow a union on the truthiness of a boolean-literal discriminant.
+ */
+export type VariantSet =
+  | { readonly enumeration: 'complete'; readonly variants: NormalizedVariant[] }
+  | { readonly enumeration: 'incomplete'; readonly gap: VariantEnumerationGap };
+
+/**
  * A platform-neutral product, the shape the sync service maps into
  * `CreateStoreProductInput`. `externalId` + `externalUpdatedAt` carry the
  * provenance used for upsert-by-external-key and newer-than checks.
@@ -200,8 +240,16 @@ export interface NormalizedProduct {
    * leaves it empty until the next backfill. Empty → the mapping is a no-op.
    */
   collectionRefs?: string[];
-  /** Concrete variants (always ≥ 1). */
-  variants: NormalizedVariant[];
+  /**
+   * The product's variants AND what the provider could prove about them (#259).
+   *
+   * A plain `NormalizedVariant[]` said "these are the variants" whether the
+   * provider had enumerated them or merely read whatever one truncated response
+   * carried — and `convergeVariants` then unsold every local variant the short
+   * read failed to mention. The union makes "we could not prove this" a value
+   * the write path has to handle rather than a fact nobody recorded.
+   */
+  variants: VariantSet;
   /** SEO overrides, when the platform exposes them. */
   seo?: { title?: string; description?: string };
 }
@@ -523,7 +571,13 @@ export interface ConnectorProvider {
    * variant in `shopCurrency` (the shop's validated native currency).
    *
    * PURE and SYNCHRONOUS. A payload that declares variations it does not carry
-   * is REFUSED rather than collapsed (#220) — see {@link expandWebhookProduct}.
+   * is never collapsed into one variant (#220) — see {@link expandWebhookProduct}.
+   * Since #259 it REPRESENTS that rather than throwing: the returned
+   * {@link VariantSet} carries the {@link VariantEnumerationGap} instead of a
+   * variant list, and `importProduct` is the one place that turns a gap into a
+   * bounded refusal. A throw is still the right answer for a payload this
+   * cannot MAP at all (an unparseable price, a missing one) — the gap describes
+   * a product the provider understood and could not finish reading.
    */
   normalizeProduct(raw: unknown, shopCurrency: CurrencyCode): NormalizedProduct;
 

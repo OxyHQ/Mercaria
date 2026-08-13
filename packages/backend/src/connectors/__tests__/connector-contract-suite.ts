@@ -66,9 +66,12 @@ import {
   updateListingColumns,
 } from '../../db/catalog/listingRepository.js';
 import {
+  findVariantOptionValues,
   findVariantsByListing,
   findVariantsBySourceConnection,
+  updateVariant as updateVariantColumns,
 } from '../../db/catalog/variantRepository.js';
+import { findLevelsByVariant } from '../../db/catalog/inventoryLevelRepository.js';
 import { orders as ordersTable } from '../../db/schema/orders.js';
 import {
   connectAndVerify,
@@ -82,7 +85,7 @@ import {
   syncOrders,
 } from '../../services/connector-sync.service.js';
 import type { ConnectorCapabilities, ConnectorProvider } from '../types.js';
-import type { ContractWorld } from './contract-world.js';
+import type { ContractProduct, ContractWorld } from './contract-world.js';
 
 /** What a provider package supplies to get every case below. */
 export interface ConnectorContractHarness {
@@ -143,6 +146,34 @@ export interface ConnectorContractHarness {
    * that silently stopped expanding.
    */
   readonly webhookExpansionPathFragment?: string;
+  /**
+   * Make the platform under-report `externalId`'s variations from now on — an
+   * otherwise perfect 2xx that carries fewer variants than the product has
+   * (#259) — or ABSENT when this platform cannot be made to.
+   *
+   * Declared like a capability and measured on BOTH branches, for the reason
+   * every other declaration here is. WooCommerce can: its variations endpoint
+   * pages, and the parent payload names the ids it is short of. Shopify cannot
+   * below a hundred variants: its product resource inlines them, publishes no
+   * manifest to be short against, and its only unprovable state is a product AT
+   * the inline cap — a fixture of a hundred variants would be measuring the
+   * catalogue cap rather than this rule, so that case lives in
+   * `shopify-normalize.test.ts` where it costs nothing.
+   */
+  truncateVariantEnumeration?(world: ContractWorld, externalId: string): void;
+  /**
+   * Make the platform stop publishing whatever proves its PRODUCT enumeration
+   * finished — a perfectly ordinary 200 whose pagination metadata is gone
+   * (#259) — or ABSENT when this platform's pagination cannot be made unprovable.
+   *
+   * WooCommerce can: `X-WP-TotalPages` is a response header, and WordPress
+   * caching and security plugins strip response headers as ordinary
+   * configuration. Shopify cannot: it signals a next page by PRESENCE of a
+   * `Link: rel="next"`, so removing it says "this was the last page", which is a
+   * statement rather than a silence. Both branches run the same backfill and the
+   * same assertions; only the WooCommerce one arms the fault first.
+   */
+  suppressEnumerationProof?(world: ContractWorld): void;
   /** Build the world every case starts from (fresh per case). */
   createWorld(): ContractWorld;
   /**
@@ -167,7 +198,10 @@ const REQUIRED_ENV: Readonly<Record<string, string>> = {
 interface ContractFixture {
   readonly storeId: string;
   readonly categorySlug: string;
+  /** The connection's TARGET location — where every connector write must land. */
   readonly locationId: string;
+  /** The store's DEFAULT location, which the connector must never write to. */
+  readonly defaultLocationId: string;
   readonly connection: ConnectionRow;
   readonly world: ContractWorld;
 }
@@ -293,10 +327,24 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
       );
       createdStoreIds.push(store.id);
 
-      const location = await insertLocation(store.id, {
+      // TWO locations, and the connection's target is deliberately NOT the
+      // default (#259 defect B). A fixture where the two coincide cannot see the
+      // failure it is supposed to gate: `updateVariant` routed every absolute
+      // stock set to the store DEFAULT while the connector stocked at its
+      // TARGET, so unselling a removed variant inserted a 0 beside the surviving
+      // stock, `recomputeVariantScalarFromLevels` summed them, and the variant
+      // stayed on sale — with the contract suite green throughout.
+      const defaultLocation = await insertLocation(store.id, {
         name: 'Default location',
         type: 'warehouse',
         isDefault: true,
+        isActive: true,
+        fulfillsOnlineOrders: true,
+      });
+      const location = await insertLocation(store.id, {
+        name: 'Connector target location',
+        type: 'warehouse',
+        isDefault: false,
         isActive: true,
         fulfillsOnlineOrders: true,
       });
@@ -327,6 +375,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         storeId: store.id,
         categorySlug: category.slug,
         locationId: location.id,
+        defaultLocationId: defaultLocation.id,
         // `updateSyncSettings` returns the row it wrote; the expect above proves it.
         connection: configured as ConnectionRow,
         world,
@@ -795,6 +844,13 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // which is a variant that exists and never updates.
         expect(added?.sourceConnectionId).toBe(fixture.connection.id);
         expect(added?.sourceExternalVariantId).toBe(`${source.externalId}-added`);
+        // #259 case 10: a genuinely NEW external id creates a variant and leaves
+        // every existing one exactly where it was. Creating is the easy half —
+        // the half that went wrong was creating one for a variant that already
+        // existed under another SKU, which shows up here as a lost id.
+        expect(after.filter((variant) => before.some((row) => row.id === variant.id))).toHaveLength(
+          before.length,
+        );
       });
 
       it('UNSELLS a variant the platform REMOVED, and never deletes it', async () => {
@@ -836,6 +892,20 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // Its SIBLING is untouched, so this is a removal and not a wipe.
         const survivor = after.find((variant) => variant.sku === multiVariant.variants[1].sku);
         expect(survivor?.inventoryAvailable).toBe(multiVariant.variants[1].available);
+
+        // #259 defect B, and the assertion the old single-location fixture could
+        // not make: the unsell has to land on the level the connector's stock
+        // actually lives in. Routed to the store DEFAULT it inserted a second
+        // level row at 0, `recomputeVariantScalarFromLevels` summed the two, and
+        // the variant stayed fully buyable while every scalar assertion above
+        // still read whatever the target held.
+        const orphanLevels = await findLevelsByVariant((orphan as NonNullable<typeof orphan>).id);
+        expect(orphanLevels.map((level) => level.locationId)).toEqual([fixture.locationId]);
+        expect(orphanLevels[0].available).toBe(0);
+        const survivorLevels = await findLevelsByVariant(
+          (survivor as NonNullable<typeof survivor>).id,
+        );
+        expect(survivorLevels.map((level) => level.locationId)).toEqual([fixture.locationId]);
       });
 
       it('is IDEMPOTENT — a re-run creates no second listing and no second variant', async () => {
@@ -867,6 +937,314 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // tallies as `updated`. That is a reporting nuance — the dashboard says
         // "2 updated" after a no-op reconcile — and not a data one.
       });
+    });
+
+    // --- #259: stable variant identity, and enumerations that were PROVEN ---
+
+    describe('variant identity', () => {
+      /** The fixture catalogue's multi-variant product, or a failed expectation. */
+      function multiVariant(fixture: ContractFixture): ContractProduct {
+        const source = fixture.world.products.find((product) => product.variants.length > 1);
+        expect(source, 'the fixture catalogue must carry a multi-variant product').toBeDefined();
+        return source as ContractProduct;
+      }
+
+      /** Rewrite `externalId`'s entry in the world — the merchant editing their shop. */
+      function editProduct(
+        fixture: ContractFixture,
+        externalId: string,
+        edit: (product: ContractProduct) => ContractProduct,
+      ): void {
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === externalId ? edit(product) : product,
+        );
+      }
+
+      /** The stored option tuple of one variant, in the platform's own shape. */
+      async function storedOptionValues(
+        variantId: string,
+      ): Promise<{ name: string; value: string }[]> {
+        const values = (await findVariantOptionValues([variantId])).get(variantId) ?? [];
+        return values.map((row) => ({ name: row.name, value: row.value }));
+      }
+
+      it('case 7: a changed SKU keeps the SAME local variant and renames it', async () => {
+        // The platform says this is the same variation; only its SKU moved. The
+        // old matcher keyed on the SKU, so it matched nothing, CREATED a second
+        // variant and unsold the original — taking its carts, saves, offers and
+        // order history out of circulation with it.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = multiVariant(fixture);
+        const listing = await importedListing(fixture, source.externalId);
+        const before = await findVariantsByListing(listing.id);
+        const renamed = source.variants[0];
+
+        editProduct(fixture, source.externalId, (product) => ({
+          ...product,
+          variants: product.variants.map((variant) =>
+            variant.externalVariantId === renamed.externalVariantId
+              ? { ...variant, sku: `${renamed.sku}-RENAMED` }
+              : variant,
+          ),
+        }));
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.countsFailed).toBe(0);
+        const after = await findVariantsByListing(listing.id);
+        expect(after.map((variant) => variant.id).sort()).toEqual(
+          before.map((variant) => variant.id).sort(),
+        );
+        const moved = after.find(
+          (variant) => variant.sourceExternalVariantId === renamed.externalVariantId,
+        );
+        expect(moved?.sku).toBe(`${renamed.sku}-RENAMED`);
+        // Still on sale: a rename is not a removal, and the removal loop must not
+        // have reached it.
+        expect(moved?.inventoryAvailable).toBe(renamed.available);
+      });
+
+      it('case 8: a changed option LABEL and VALUE keep the SAME local variant id', async () => {
+        // This case does NOT discriminate the new matcher from the old one, and
+        // saying so is the point: it leaves the SKU alone, so the pre-#259 SKU
+        // tier matched and preserved these ids for a reason that has nothing to
+        // do with the platform's variation id. What it measures is that the
+        // option values are genuinely PATCHED onto the surviving row rather than
+        // left stale. The evidence that identity comes from the source id is
+        // "cases 7 AND 8 together" below, which moves both legacy keys at once —
+        // and that case exists because a mutation removing the source-id tier
+        // left this one green.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = multiVariant(fixture);
+        const listing = await importedListing(fixture, source.externalId);
+        const before = await findVariantsByListing(listing.id);
+        const axis = source.optionNames[0];
+        expect(axis, 'the multi-variant fixture must carry an option axis').toBeDefined();
+
+        editProduct(fixture, source.externalId, (product) => ({
+          ...product,
+          optionNames: ['Talla'],
+          variants: product.variants.map((variant) => ({
+            ...variant,
+            optionValues: variant.optionValues.map((option) => ({
+              name: 'Talla',
+              value: `${option.value} (grande)`,
+            })),
+          })),
+        }));
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.countsFailed).toBe(0);
+        const after = await findVariantsByListing(listing.id);
+        // THE assertion of case 8: the local id is what carts, saves, offers,
+        // canonical links and order lines point at, and a relabelled option is
+        // not a different product.
+        expect(after.map((variant) => variant.id).sort()).toEqual(
+          before.map((variant) => variant.id).sort(),
+        );
+        const renamed = after.find(
+          (variant) => variant.sourceExternalVariantId === source.variants[0].externalVariantId,
+        );
+        expect(await storedOptionValues((renamed as NonNullable<typeof renamed>).id)).toEqual([
+          { name: 'Talla', value: `${source.variants[0].optionValues[0].value} (grande)` },
+        ]);
+      });
+
+      it('cases 7 AND 8 together: when BOTH legacy keys move, only the platform id still identifies it', async () => {
+        // Neither case above can measure that the SOURCE ID is the PRIMARY
+        // match, and that is a fact about them rather than a suspicion: with the
+        // source-id tier mutated away, a SKU rename is still resolved by the
+        // unchanged option tuple and an option rename by the unchanged SKU, so
+        // both stayed green. This is the shape where every legacy key moves at
+        // once — which is what a merchant does when they rebuild a size chart —
+        // and where matching on anything but the platform's own variation id
+        // creates a second variant and unsells a live one.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = multiVariant(fixture);
+        const listing = await importedListing(fixture, source.externalId);
+        const before = await findVariantsByListing(listing.id);
+        const moved = source.variants[0];
+
+        editProduct(fixture, source.externalId, (product) => ({
+          ...product,
+          optionNames: ['Talla'],
+          variants: product.variants.map((variant) => ({
+            ...variant,
+            sku: `${variant.sku}-REBUILT`,
+            optionValues: variant.optionValues.map((option) => ({
+              name: 'Talla',
+              value: `${option.value} (rebuilt)`,
+            })),
+          })),
+        }));
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.countsFailed).toBe(0);
+        const after = await findVariantsByListing(listing.id);
+        expect(after.map((variant) => variant.id).sort()).toEqual(
+          before.map((variant) => variant.id).sort(),
+        );
+        const kept = after.find(
+          (variant) => variant.sourceExternalVariantId === moved.externalVariantId,
+        );
+        expect(kept?.sku).toBe(`${moved.sku}-REBUILT`);
+        expect(await storedOptionValues((kept as NonNullable<typeof kept>).id)).toEqual([
+          { name: 'Talla', value: `${moved.optionValues[0].value} (rebuilt)` },
+        ]);
+        // And it is still SELLABLE: the removal loop must not have reached a
+        // variant the platform never stopped listing.
+        expect(kept?.inventoryAvailable).toBe(moved.available);
+      });
+
+      it('case 9: an AMBIGUOUS legacy match refuses the product and writes NOTHING', async () => {
+        // The pre-provenance state the SKU/tuple fallback exists for, with two
+        // rows it cannot tell apart. Picking one by map insertion order is what
+        // the old matcher did, and the loser was silently unsold.
+        //
+        // A duplicate SKU cannot be built here at all: `product_variants_sku_key`
+        // is unique table-wide, so the database already forbids that half of
+        // #259's case 9. The tuple has no such index, and is the reachable one.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = multiVariant(fixture);
+        const listing = await importedListing(fixture, source.externalId);
+        const before = await findVariantsByListing(listing.id);
+        const collidingTuple = source.variants[0].optionValues.map((option) => ({
+          name: option.name,
+          value: option.value,
+        }));
+
+        for (const variant of before) {
+          await updateVariantColumns(
+            listing.id,
+            variant.id,
+            {
+              sku: null,
+              sourceConnectionId: null,
+              sourceProvider: null,
+              sourceExternalVariantId: null,
+              sourceExternalInventoryItemId: null,
+            },
+            collidingTuple,
+          );
+        }
+
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.countsFailed).toBeGreaterThan(0);
+        const after = await findVariantsByListing(listing.id);
+        expect(after, 'an ambiguous match must create nothing').toHaveLength(before.length);
+        expect(after.map((variant) => variant.inventoryAvailable).sort()).toEqual(
+          before.map((variant) => variant.inventoryAvailable).sort(),
+        );
+        expect(after.map((variant) => variant.priceAmount).sort()).toEqual(
+          before.map((variant) => variant.priceAmount).sort(),
+        );
+      });
+
+      it('an UNAMBIGUOUS legacy row is matched and STAMPED — the control for case 9', async () => {
+        // The vacuity floor on the case above: the same unstamped, SKU-less
+        // fixture WITHOUT the collision has to converge, or "nothing was written"
+        // would be equally true of a fallback tier that matches nothing at all.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = multiVariant(fixture);
+        const listing = await importedListing(fixture, source.externalId);
+        const before = await findVariantsByListing(listing.id);
+
+        for (const variant of before) {
+          await updateVariantColumns(
+            listing.id,
+            variant.id,
+            {
+              sku: null,
+              sourceConnectionId: null,
+              sourceProvider: null,
+              sourceExternalVariantId: null,
+              sourceExternalInventoryItemId: null,
+            },
+            undefined,
+          );
+        }
+
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.countsFailed).toBe(0);
+        const after = await findVariantsByListing(listing.id);
+        expect(after.map((variant) => variant.id).sort()).toEqual(
+          before.map((variant) => variant.id).sort(),
+        );
+        // Re-stamped, which is what makes the fallback a one-time migration
+        // rather than the matcher this listing lives on forever.
+        expect(after.map((variant) => variant.sourceExternalVariantId).sort()).toEqual(
+          source.variants.map((variant) => variant.externalVariantId).sort(),
+        );
+      });
+
+      it(
+        harness.truncateVariantEnumeration === undefined
+          ? 'reports a PROVEN enumeration for the products this platform serves'
+          : 'case 12: an INCOMPLETE variation response changes no listing and no variant, on every retry',
+        async () => {
+          const fixture = await makeFixture();
+          await runBackfill(fixture.storeId, fixture.connection.id);
+          const source = multiVariant(fixture);
+          const listing = await importedListing(fixture, source.externalId);
+          const before = await findVariantsByListing(listing.id);
+
+          if (harness.truncateVariantEnumeration === undefined) {
+            // The measured half of the absent branch. Every case above rests on
+            // this platform's ordinary payload normalizing to a PROVEN
+            // enumeration; a provider that started reporting `incomplete` for
+            // everything would make them pass for the wrong reason, and one that
+            // could never report it would make case 12 unmeasurable rather than
+            // absent.
+            const provider = harness.createProvider(fixture.world);
+            const normalized = provider.normalizeProduct(
+              harness.webhookProductPayload(fixture.world, source.externalId),
+              harness.shopCurrency,
+            );
+            expect(normalized.variants.enumeration).toBe('complete');
+            return;
+          }
+
+          // The title moves TOO, so "no listing row changed" is a real assertion
+          // rather than one that would hold whatever the connector did.
+          editProduct(fixture, source.externalId, (product) => ({
+            ...product,
+            title: `${product.title} (renamed while truncated)`,
+          }));
+          harness.truncateVariantEnumeration(fixture.world, source.externalId);
+
+          const run = await runBackfill(fixture.storeId, fixture.connection.id);
+          const retry = await runBackfill(fixture.storeId, fixture.connection.id);
+
+          // The DAMAGE is asserted before the tally, deliberately. Asserting
+          // `countsFailed` first makes a run that quietly unsold everything fail
+          // on the count and never reach the assertions that would say so —
+          // measured, on the mutation that removes the refusal.
+          const after = await findVariantsByListing(listing.id);
+          expect(after.map((variant) => variant.id).sort()).toEqual(
+            before.map((variant) => variant.id).sort(),
+          );
+          expect(
+            after.map((variant) => variant.inventoryAvailable).sort(),
+            'an unproven enumeration must not unsell anything',
+          ).toEqual(before.map((variant) => variant.inventoryAvailable).sort());
+          const listingAfter = await importedListing(fixture, source.externalId);
+          expect(listingAfter.title, 'the listing row must not have moved either').toBe(
+            listing.title,
+          );
+          expect(listingAfter.status).toBe(listing.status);
+          // And the refusal is OBSERVABLE, which is the other half: a sync that
+          // changed nothing and reported success is indistinguishable from a
+          // quiet day.
+          expect(run.countsFailed).toBeGreaterThan(0);
+          expect(retry.countsFailed, 'a retry must converge on the same refusal').toBeGreaterThan(0);
+        },
+      );
     });
 
     // --- SCENARIO 5 / WooCommerce 3: pagination and rate limiting -----------
@@ -919,6 +1297,49 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
             );
             expect(listings.filter((row) => row.status === 'archived')).toHaveLength(0);
           }
+        },
+      );
+
+      it(
+        harness.suppressEnumerationProof === undefined
+          ? 'ARCHIVES nothing on a paged catalogue whose end the platform STATES'
+          : 'ARCHIVES nothing when the platform proves nothing about where its catalogue ENDS',
+        async () => {
+          // #259 defect A, and the reason it outranks the variant half: an
+          // enumeration that stops early does not merely import less. It reaches
+          // `archiveUnseenSourcedListings` with a complete-LOOKING seen-set and
+          // soft-archives every listing past the last page it read — the whole
+          // catalogue of a site behind a header-stripping plugin, on an entirely
+          // successful run.
+          //
+          // `pageSize = 1` is what makes the damage reachable at fixture scale:
+          // the failure needs a page the connector could wrongly believe was the
+          // last, and one product is such a page.
+          const world = harness.createWorld();
+          world.pageSize = 1;
+          const fixture = await makeFixture({ world });
+
+          // The production sequence, and the order matters: the catalogue is
+          // imported while the platform still says where it ends, and only THEN
+          // does the site start answering without that proof. Suppressing it
+          // from the first run would leave nothing to archive, and "nothing
+          // archived" would be true of the bug as well as of the fix.
+          const first = await runBackfill(fixture.storeId, fixture.connection.id);
+          expect(first.countsCreated).toBe(world.products.length);
+          harness.suppressEnumerationProof?.(fixture.world);
+
+          const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+          expect(run.status).toBe('completed');
+          const listings = await findListingsBySourceConnection(
+            fixture.storeId,
+            fixture.connection.id,
+          );
+          expect(
+            listings.filter((row) => row.status === 'archived'),
+            'a catalogue nobody proved they had finished reading must archive nothing',
+          ).toHaveLength(0);
+          expect(listings).toHaveLength(world.products.length);
         },
       );
 

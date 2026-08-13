@@ -567,6 +567,23 @@ export const productVariants = pgTable(
     index('product_variants_source_inventory_item_idx')
       .on(t.sourceConnectionId, t.sourceExternalInventoryItemId)
       .where(sql`${t.sourceExternalInventoryItemId} is not null`),
+    /**
+     * ONE local variant per external variation, per connection (#259).
+     *
+     * This is the identity `convergeVariants` matches on, and the constraint is
+     * what makes "at most one candidate" a fact rather than a hope: without it
+     * the ambiguity the service refuses would simply be a state the database
+     * allowed somebody to reach, and the position-matched stamping in
+     * `stampVariantSources` could quietly put one platform variation on two
+     * local rows — each of which then unsells the other on alternate syncs.
+     *
+     * The PROVIDER is deliberately not in the key. A connection determines its
+     * provider (`connections.provider`), so including it would be a third
+     * representation of one fact and two of the three could disagree.
+     */
+    uniqueIndex('product_variants_source_external_variant_key')
+      .on(t.sourceConnectionId, t.sourceExternalVariantId)
+      .where(sql`${t.sourceExternalVariantId} is not null`),
   ],
 );
 

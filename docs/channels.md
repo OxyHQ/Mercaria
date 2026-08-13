@@ -435,6 +435,17 @@ refusals: `Connection.webhookFailures` names each topic with its HTTP status and
 a classified reason, and `ChannelReadiness` reports the catalogue axis as
 `degraded` while any exist.
 
+**#259 is FIXED and adds no limitation code either** — and that is the decision
+rather than an omission. What it changes is when a sync may CONCLUDE something:
+an incomplete variation response and an unprovable catalogue enumeration are now
+refused instead of imported, and a variant is matched on the platform's own
+variation id rather than on a SKU a merchant is free to edit. None of that is a
+capability a channel does or does not have, so a code here would render copy
+about a gap no descriptor produces. What a merchant sees is the ordinary sync
+record: the refused product is counted `failed` on its `sync_runs` row with a
+message naming the gap kind and the ids, and a refused webhook fails its run with
+the same message as `error`.
+
 Runbook §8.5 is also surfaced, as copy rather than a limitation: a no-change
 resync tallies as `updated`, because the patch is built from every unpinned
 connector-managed field whether or not it changed.

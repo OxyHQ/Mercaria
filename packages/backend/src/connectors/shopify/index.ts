@@ -46,6 +46,7 @@ import type {
   PushProductResult,
   PushVariant,
   ShopIdentity,
+  VariantSet,
 } from '../types.js';
 import {
   classifyWebhookHttpStatus,
@@ -448,6 +449,31 @@ function normalizeVariant(
   return normalized;
 }
 
+/**
+ * How many variants Shopify's REST product resource inlines before it stops.
+ *
+ * The `products` endpoint embeds `variants` and caps that array at 100; a product
+ * with more is read through a separate paged resource this connector does not
+ * call. So a product arriving with exactly the cap is one whose variant list may
+ * be a PREFIX, and nothing in the payload distinguishes it from a product that
+ * genuinely has 100 — which is why the count itself has to be the signal.
+ */
+const REST_INLINE_VARIANT_LIMIT = 100;
+
+/**
+ * What Shopify's inline variant array PROVES (#259).
+ *
+ * Below the cap the array is the whole set. At or above it the read cannot say
+ * so, and asserting completeness there is how `convergeVariants` would unsell
+ * every variant past the hundredth on the next sync.
+ */
+function shopifyVariantSet(variants: NormalizedVariant[]): VariantSet {
+  if (variants.length >= REST_INLINE_VARIANT_LIMIT) {
+    return { enumeration: 'incomplete', gap: { kind: 'pagination_unprovable', pagesRead: 1 } };
+  }
+  return { enumeration: 'complete', variants };
+}
+
 /** PURE: map a raw Shopify product into a `NormalizedProduct` in `shopCurrency`. */
 export function normalizeShopifyProduct(raw: unknown, shopCurrency: CurrencyCode): NormalizedProduct {
   const parsed = shopifyProductSchema.safeParse(raw);
@@ -472,7 +498,7 @@ export function normalizeShopifyProduct(raw: unknown, shopCurrency: CurrencyCode
     description: product.body_html ?? '',
     options,
     imageUrls: product.images.map((img) => img.src),
-    variants,
+    variants: shopifyVariantSet(variants),
   };
   // Shopify publishes a full ISO-8601 instant with its own offset, so this needs
   // no suffix — but it still needs the refusal: an unreadable timestamp must

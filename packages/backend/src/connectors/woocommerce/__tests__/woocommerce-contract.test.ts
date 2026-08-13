@@ -56,6 +56,28 @@ import {
 /** The provider `getConnectorProvider` currently answers with. */
 let installed: ConnectorProvider | undefined;
 
+/**
+ * Product ids whose variations endpoint UNDER-REPORTS, per world (#259).
+ *
+ * It lives in the runner rather than in `ContractWorld` because it is
+ * WooCommerce vocabulary: what makes a variations response incomplete here is a
+ * page of `/products/{id}/variations` that ends without the parent's whole
+ * `variations` id list, and the world is deliberately provider-neutral. A
+ * `WeakMap` because the suite hands the knob a WORLD and the fake that has to
+ * honour it was built from that same world.
+ */
+const truncatedVariations = new WeakMap<ContractWorld, Set<string>>();
+
+/**
+ * Worlds whose `/products` responses carry NO `X-WP-TotalPages` (#259).
+ *
+ * A WordPress site behind a caching or security plugin that strips response
+ * headers answers exactly like this: a correct body, a 200, and nothing saying
+ * how many pages there are. It is a WooCommerce fault rather than a
+ * provider-neutral one, so the knob lives in the runner.
+ */
+const suppressedPageHeaders = new WeakSet<ContractWorld>();
+
 vi.mock('../../registry.js', () => ({
   getConnectorProvider: () => {
     if (!installed) {
@@ -92,9 +114,20 @@ function gmt(iso: string): string {
   return iso.replace(/Z$/, '');
 }
 
-/** True when a product needs WooCommerce's `variable` type (more than one variant). */
+/**
+ * True when a product needs WooCommerce's `variable` type — it has an option
+ * axis, whatever number of variations currently sit on it.
+ *
+ * The variant COUNT is deliberately not part of this, and #259 is what made that
+ * matter. Deleting a variation on a real WooCommerce site leaves the product
+ * `variable` with one variation; a fake that flipped it to `simple` at one
+ * variant republished the surviving variant under the PRODUCT's id instead of
+ * its own variation id, so the removal case measured an identity change no
+ * WooCommerce site produces — and passed only because the connector was matching
+ * on SKU.
+ */
 function isVariable(product: ContractProduct): boolean {
-  return product.optionNames.length > 0 && product.variants.length > 1;
+  return product.optionNames.length > 0;
 }
 
 /**
@@ -240,9 +273,12 @@ function createWooCommerceFake(world: ContractWorld): WooCommerceTransport {
     }
     if (path === `${API_PREFIX}/products`) {
       const page = pageOf(url, 'page');
-      return ok(pageSlice(world.products, page, world.pageSize).map(wooProductJson), {
-        'x-wp-totalpages': String(totalPages(world.products, world.pageSize)),
-      });
+      return ok(
+        pageSlice(world.products, page, world.pageSize).map(wooProductJson),
+        suppressedPageHeaders.has(world)
+          ? {}
+          : { 'x-wp-totalpages': String(totalPages(world.products, world.pageSize)) },
+      );
     }
     const variationsMatch = path.match(/^\/wp-json\/wc\/v3\/products\/([^/]+)\/variations$/);
     if (variationsMatch) {
@@ -250,8 +286,15 @@ function createWooCommerceFake(world: ContractWorld): WooCommerceTransport {
       if (!product) {
         return ok([], { 'x-wp-totalpages': '1' });
       }
+      // A truncated read is a perfectly ordinary 200 that stops short — a
+      // variations page a plugin dropped a row from, a cache serving a stale
+      // first page. The PARENT still declares every id, which is what the
+      // connector compares it against.
+      const served = truncatedVariations.get(world)?.has(product.externalId)
+        ? product.variants.slice(0, 1)
+        : product.variants;
       return ok(
-        product.variants.map((variant) => wooVariationJson(product, variant)),
+        served.map((variant) => wooVariationJson(product, variant)),
         { 'x-wp-totalpages': '1' },
       );
     }
@@ -349,6 +392,14 @@ describeConnectorContract({
   // A `product.*` delivery carries `variations` as IDS, so completing it means
   // fetching `/products/{id}/variations` (#220).
   webhookExpansionPathFragment: '/variations',
+  suppressEnumerationProof: (world) => {
+    suppressedPageHeaders.add(world);
+  },
+  truncateVariantEnumeration: (world, externalId) => {
+    const ids = truncatedVariations.get(world) ?? new Set<string>();
+    ids.add(externalId);
+    truncatedVariations.set(world, ids);
+  },
   createWorld: () => {
     const catalogue = contractCatalogue(uuidv7());
     return createContractWorld({

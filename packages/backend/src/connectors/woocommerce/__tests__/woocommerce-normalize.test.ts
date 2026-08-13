@@ -3,20 +3,23 @@
  * NormalizedProduct mapping. No network, no DB. Asserts: prices land in the shop's
  * NATIVE currency as integer minor units (decimal strings parsed without float
  * error), a simple product yields one option-less variant, a variable product's
- * embedded variations become variants with paired option values, sale prices map
+ * expanded variations become variants with paired option values, sale prices map
  * to `compareAtPrice`, image URLs pass through verbatim, and stock/tracking map
  * from WooCommerce's `manage_stock`/`stock_quantity`.
  *
- * It also carries #220's structural refusal, which nothing else can measure: the
- * webhook path EXPANDS a payload before it reaches here, so with that expansion
- * in place the guard is unreachable end to end — and a guard whose removal fails
- * no test is a guard that gets tidied away. It exists for the day somebody
- * simplifies the expansion seam, so its test has to reach the pure function
- * directly.
+ * It also carries the COMPLETENESS verdict, which nothing else can measure at
+ * this grain: the webhook path expands a payload before it reaches here and the
+ * sync service refuses an incomplete one before it writes, so end to end the
+ * gaps are unreachable — and a rule whose removal fails no test is a rule that
+ * gets tidied away. #220 put the first of them here (a payload declaring
+ * variations it does not carry); #259 added the other four, and turned all five
+ * from a THROW into a value the write path has to handle.
  */
 
 import { describe, it, expect } from 'vitest';
+import type { CurrencyCode } from '@mercaria/shared-types';
 import { normalizeWooCommerceProduct } from '../index.js';
+import type { NormalizedVariant, VariantEnumerationGap } from '../../types.js';
 
 /** A WooCommerce simple product on sale (regular 24.99 → sale/effective 19.99). */
 const simpleProduct = {
@@ -40,7 +43,34 @@ const simpleProduct = {
   categories: [{ id: 15 }, { id: 22 }],
 };
 
-/** A WooCommerce variable product with two variations over a Size option. */
+/** The two variations WooCommerce serves for the variable product below. */
+const expandedVariations = [
+  {
+    id: 3001,
+    price: '1000.00',
+    regular_price: '1000.00',
+    sale_price: '',
+    sku: 'TEE-S',
+    manage_stock: true,
+    stock_quantity: 5,
+    attributes: [{ name: 'Size', option: 'S' }],
+  },
+  {
+    id: 3002,
+    price: '1000.5',
+    regular_price: '1000.5',
+    sale_price: '',
+    manage_stock: false,
+    stock_quantity: null,
+    attributes: [{ name: 'Size', option: 'M' }],
+  },
+];
+
+/**
+ * A WooCommerce variable product with two variations over a Size option, as
+ * `fetchProducts` assembles it: the parent's own `variations` id list, plus the
+ * connector's expansion contract carrying what the variations read PROVED.
+ */
 const variableProduct = {
   id: '222',
   name: 'Classic Tee',
@@ -54,27 +84,8 @@ const variableProduct = {
   ],
   images: [{ src: 'https://shop.example.com/wp-content/uploads/tee.jpg' }],
   categories: [{ id: 7 }],
-  expandedVariations: [
-    {
-      id: 3001,
-      price: '1000.00',
-      regular_price: '1000.00',
-      sale_price: '',
-      sku: 'TEE-S',
-      manage_stock: true,
-      stock_quantity: 5,
-      attributes: [{ name: 'Size', option: 'S' }],
-    },
-    {
-      id: 3002,
-      price: '1000.5',
-      regular_price: '1000.5',
-      sale_price: '',
-      manage_stock: false,
-      stock_quantity: null,
-      attributes: [{ name: 'Size', option: 'M' }],
-    },
-  ],
+  variations: [3001, 3002],
+  expandedVariations: { variations: expandedVariations, complete: true, pagesRead: 1 },
 };
 
 /**
@@ -90,56 +101,158 @@ const unexpandedVariableProduct = {
   sale_price: '',
   manage_stock: false,
   stock_quantity: null,
-  variations: [3001, 3002],
   expandedVariations: undefined,
 };
 
+/** The gap `raw` normalizes to, or a failure naming what it produced instead. */
+function gapOf(raw: unknown, currency: CurrencyCode = 'USD'): VariantEnumerationGap {
+  const set = normalizeWooCommerceProduct(raw, currency).variants;
+  if (set.enumeration === 'complete') {
+    throw new Error(
+      `expected an INCOMPLETE variant set; got a complete one with ${set.variants.length} variants`,
+    );
+  }
+  return set.gap;
+}
+
+/** The variants `raw` normalizes to, or a failure naming the gap it produced. */
+function variantsOf(raw: unknown, currency: CurrencyCode = 'USD'): NormalizedVariant[] {
+  const set = normalizeWooCommerceProduct(raw, currency).variants;
+  if (set.enumeration === 'incomplete') {
+    throw new Error(`expected a COMPLETE variant set; got the gap ${set.gap.kind}`);
+  }
+  return set.variants;
+}
+
 describe('normalizeWooCommerceProduct — #220, an incomplete payload is REFUSED', () => {
   it('refuses a payload declaring variations it does not carry', () => {
-    // The measured shape from the issue: this used to produce ONE variant at
-    // 1000.00 (the cheapest variation's price), with `optionValues: []` and
+    // The measured shape from #220: this used to produce ONE variant at 1000.00
+    // (the cheapest variation's price), with `optionValues: []` and
     // `available: 0`, beside an option axis declaring two values — and
     // `importProduct` could not add the missing variants afterwards, so the
     // listing stayed wrong until somebody deleted it.
-    expect(() => normalizeWooCommerceProduct(unexpandedVariableProduct, 'USD')).toThrow(
-      /declares 2 variations and carries none/,
-    );
+    expect(gapOf(unexpandedVariableProduct)).toEqual({
+      kind: 'declares_variants_and_carries_none',
+      declared: 2,
+    });
   });
 
   it('refuses an EXPANSION that came back empty, not only an absent one', () => {
-    // `expandedVariations: []` is what a fetch that answered with nothing
-    // produces. Reading it as "no variations" would collapse the product exactly
-    // as an absent field does, so both spellings have to refuse.
-    expect(() =>
-      normalizeWooCommerceProduct(
-        { ...unexpandedVariableProduct, expandedVariations: [] },
-        'USD',
-      ),
-    ).toThrow(/declares 2 variations and carries none/);
+    // `variations: []` is what a fetch that answered with nothing produces.
+    // Reading it as "no variations" would collapse the product exactly as an
+    // absent expansion does, so both spellings have to refuse — and note the
+    // expansion says `complete: true`: the read finished, and what it finished
+    // reading was nothing.
+    expect(
+      gapOf({
+        ...unexpandedVariableProduct,
+        expandedVariations: { variations: [], complete: true, pagesRead: 1 },
+      }),
+    ).toEqual({ kind: 'declares_variants_and_carries_none', declared: 2 });
   });
 
   it('ACCEPTS a product that declares no variations at all', () => {
-    // The other side of the discriminant, and the reason the guard reads
-    // `product.variations` rather than `type === 'variable'`: a product WooCommerce
-    // publishes with an empty variation list is complete, and refusing it would
-    // make a simple product unimportable.
-    const product = normalizeWooCommerceProduct(simpleProduct, 'USD');
-    expect(product.variants).toHaveLength(1);
+    // The other side of the discriminant, and the reason it reads `type` AND
+    // `variations` rather than either alone: a product WooCommerce publishes
+    // with no variation axis is complete, and refusing it would make a simple
+    // product unimportable.
+    expect(variantsOf(simpleProduct)).toHaveLength(1);
   });
 
   it('ACCEPTS the same payload once its variations are expanded', () => {
-    // The positive control on the refusal: if this threw too, the guard would be
-    // refusing every variable product rather than the incomplete ones, and the
-    // case above would pass for the wrong reason.
-    const product = normalizeWooCommerceProduct(
-      { ...unexpandedVariableProduct, expandedVariations: variableProduct.expandedVariations },
-      'USD',
-    );
-    expect(product.variants).toHaveLength(2);
-    expect(product.variants.map((variant) => variant.optionValues)).toEqual([
+    // The positive control on the refusal: if this reported a gap too, the rule
+    // would be refusing every variable product rather than the incomplete ones,
+    // and the cases above would pass for the wrong reason.
+    const variants = variantsOf({
+      ...unexpandedVariableProduct,
+      expandedVariations: { variations: expandedVariations, complete: true, pagesRead: 1 },
+    });
+    expect(variants).toHaveLength(2);
+    expect(variants.map((variant) => variant.optionValues)).toEqual([
       [{ name: 'Size', value: 'S' }],
       [{ name: 'Size', value: 'M' }],
     ]);
+  });
+});
+
+describe('normalizeWooCommerceProduct — #259, the declared/fetched set comparison', () => {
+  it('case 1: a VARIABLE product with no variation ids and nothing fetched is refused', () => {
+    // The synthetic simple variant is GONE. A `variable` product whose
+    // `variations` list is empty used to fall through to `simpleVariant` and
+    // import as one option-less variant at the parent price; there is no honest
+    // variant list to build here, so there is none.
+    expect(
+      gapOf({ ...unexpandedVariableProduct, variations: [], expandedVariations: undefined }),
+    ).toEqual({ kind: 'declares_variants_and_carries_none', declared: 0 });
+  });
+
+  it('case 1b: a VARIABLE product with no variation ids ACCEPTS a PROVEN read', () => {
+    // Nothing declared means nothing is missing — but then the read is the only
+    // evidence there is, so it has to have proven it reached the end itself.
+    const variants = variantsOf({
+      ...unexpandedVariableProduct,
+      variations: [],
+      expandedVariations: { variations: expandedVariations, complete: true, pagesRead: 2 },
+    });
+    expect(variants).toHaveLength(2);
+  });
+
+  it('case 1c: a VARIABLE product with no variation ids REFUSES an unproven read', () => {
+    expect(
+      gapOf({
+        ...unexpandedVariableProduct,
+        variations: [],
+        expandedVariations: { variations: expandedVariations, complete: false, pagesRead: 4 },
+      }),
+    ).toEqual({ kind: 'pagination_unprovable', pagesRead: 4 });
+  });
+
+  it('case 2: declared [3001, 3002, 3003], fetched [3001, 3002] names the missing id', () => {
+    // The partial page. Before #259 this imported two variants and unsold every
+    // local variant the third id points at, on a response that was a perfectly
+    // ordinary 200.
+    expect(
+      gapOf({
+        ...variableProduct,
+        variations: [3001, 3002, 3003],
+      }),
+    ).toEqual({ kind: 'declared_not_fetched', missingIds: ['3003'] });
+  });
+
+  it('case 3: a DUPLICATE fetched id is refused, and is checked before the set comparison', () => {
+    // A duplicate makes the fetched list not a set, so neither the missing nor
+    // the unexpected comparison below it means anything — which is why it is
+    // decided first.
+    expect(
+      gapOf({
+        ...variableProduct,
+        expandedVariations: {
+          variations: [...expandedVariations, expandedVariations[0]],
+          complete: true,
+          pagesRead: 1,
+        },
+      }),
+    ).toEqual({ kind: 'duplicate_fetched', duplicateIds: ['3001'] });
+  });
+
+  it('case 4: an UNEXPECTED fetched id is refused', () => {
+    expect(
+      gapOf({
+        ...variableProduct,
+        variations: [3001],
+      }),
+    ).toEqual({ kind: 'fetched_not_declared', unexpectedIds: ['3002'] });
+  });
+
+  it('a matching declared/fetched set is COMPLETE whatever the paging said', () => {
+    // The decisive proof, and the reason the ordinary variable product costs no
+    // extra request: a set that matches the platform's own manifest was fully
+    // read however many pages it took.
+    const variants = variantsOf({
+      ...variableProduct,
+      expandedVariations: { variations: expandedVariations, complete: false, pagesRead: 3 },
+    });
+    expect(variants.map((variant) => variant.externalVariantId)).toEqual(['3001', '3002']);
   });
 });
 
@@ -156,8 +269,9 @@ describe('normalizeWooCommerceProduct', () => {
     expect(product.options).toEqual([]);
     expect(product.collectionRefs).toEqual(['15', '22']);
 
-    expect(product.variants).toHaveLength(1);
-    const variant = product.variants[0];
+    const variants = variantsOf(simpleProduct);
+    expect(variants).toHaveLength(1);
+    const variant = variants[0];
     expect(variant.optionValues).toEqual([]);
     // Native currency, integer minor units, exact decimal parse (19.99 → 1999).
     expect(variant.price).toEqual({ amount: 1999, currency: 'USD' });
@@ -177,8 +291,7 @@ describe('normalizeWooCommerceProduct', () => {
   });
 
   it('prices in the shop currency, not FAIR', () => {
-    const product = normalizeWooCommerceProduct(simpleProduct, 'EUR');
-    expect(product.variants[0].price).toEqual({ amount: 1999, currency: 'EUR' });
+    expect(variantsOf(simpleProduct, 'EUR')[0].price).toEqual({ amount: 1999, currency: 'EUR' });
   });
 
   it('maps a variable product: variations → variants with paired option values', () => {
@@ -188,27 +301,31 @@ describe('normalizeWooCommerceProduct', () => {
     expect(product.description).toBe('');
     // Only the variation attribute becomes a selectable option.
     expect(product.options).toEqual([{ name: 'Size', values: ['S', 'M'] }]);
-    expect(product.variants).toHaveLength(2);
 
-    expect(product.variants[0].optionValues).toEqual([{ name: 'Size', value: 'S' }]);
-    expect(product.variants[0].price).toEqual({ amount: 100000, currency: 'GBP' });
-    expect(product.variants[0].compareAtPrice).toBeUndefined();
-    expect(product.variants[0].sku).toBe('TEE-S');
-    expect(product.variants[0].externalVariantId).toBe('3001');
-    expect(product.variants[0].inventory).toEqual({ tracked: true, available: 5 });
+    const variants = variantsOf(variableProduct, 'GBP');
+    expect(variants).toHaveLength(2);
+
+    expect(variants[0].optionValues).toEqual([{ name: 'Size', value: 'S' }]);
+    expect(variants[0].price).toEqual({ amount: 100000, currency: 'GBP' });
+    expect(variants[0].compareAtPrice).toBeUndefined();
+    expect(variants[0].sku).toBe('TEE-S');
+    expect(variants[0].externalVariantId).toBe('3001');
+    expect(variants[0].inventory).toEqual({ tracked: true, available: 5 });
 
     // "1000.5" → 100050 minor units; untracked variation → available 0.
-    expect(product.variants[1].optionValues).toEqual([{ name: 'Size', value: 'M' }]);
-    expect(product.variants[1].price).toEqual({ amount: 100050, currency: 'GBP' });
-    expect(product.variants[1].inventory).toEqual({ tracked: false, available: 0 });
+    expect(variants[1].optionValues).toEqual([{ name: 'Size', value: 'M' }]);
+    expect(variants[1].price).toEqual({ amount: 100050, currency: 'GBP' });
+    expect(variants[1].inventory).toEqual({ tracked: false, available: 0 });
   });
 
   it('rounds sub-unit precision half-up and rejects malformed prices', () => {
-    const rounded = normalizeWooCommerceProduct(
-      { ...simpleProduct, price: '19.999', regular_price: '19.999', sale_price: '' },
-      'USD',
-    );
-    expect(rounded.variants[0].price.amount).toBe(2000);
+    const rounded = variantsOf({
+      ...simpleProduct,
+      price: '19.999',
+      regular_price: '19.999',
+      sale_price: '',
+    });
+    expect(rounded[0].price.amount).toBe(2000);
 
     expect(() =>
       normalizeWooCommerceProduct({ ...simpleProduct, price: 'not-a-price', sale_price: '' }, 'USD'),
@@ -283,14 +400,17 @@ describe('normalizeWooCommerceProduct — provider timestamps (#221)', () => {
   });
 
   it('OMITS `externalUpdatedAt` for text that is not a timestamp at all', () => {
-    const product = normalizeWooCommerceProduct(
-      { ...simpleProduct, date_modified_gmt: '0000-00-00 00:00:00' },
-      'USD',
-    );
+    const raw = { ...simpleProduct, date_modified_gmt: '0000-00-00 00:00:00' };
+    const product = normalizeWooCommerceProduct(raw, 'USD');
 
     // The product still imports — one unreadable timestamp must not cost it.
+    // Read through `variantsOf` because #259 made `variants` a union: the
+    // assertion is the same one and now also states the enumeration is
+    // COMPLETE, which is what "still imports" has meant since. `expect` is
+    // untyped, so `toHaveLength` on the union compiled cleanly and only the
+    // suite could catch it.
     expect(product.externalId).toBe('111');
-    expect(product.variants).toHaveLength(1);
+    expect(variantsOf(raw)).toHaveLength(1);
     expect(product.externalUpdatedAt).toBeUndefined();
   });
 

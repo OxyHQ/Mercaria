@@ -118,16 +118,19 @@ function normalizedProduct(overrides: Partial<NormalizedProduct> = {}): Normaliz
     options: [],
     imageUrls: ['https://cdn.example.test/atomicity-tee.jpg'],
     externalUpdatedAt: new Date('2026-08-01T10:00:00Z'),
-    variants: [
-      {
-        optionValues: [],
-        price: { amount: 1999, currency: 'GBP' },
-        inventory: { tracked: true, available: 4 },
-        sku: `ATOMIC-${uuidv7()}`,
-        externalVariantId: '2001',
-        externalInventoryItemId: '3001',
-      },
-    ],
+    variants: {
+      enumeration: 'complete',
+      variants: [
+        {
+          optionValues: [],
+          price: { amount: 1999, currency: 'GBP' },
+          inventory: { tracked: true, available: 4 },
+          sku: `ATOMIC-${uuidv7()}`,
+          externalVariantId: '2001',
+          externalInventoryItemId: '3001',
+        },
+      ],
+    },
     ...overrides,
   };
 }
@@ -567,14 +570,17 @@ describe('the connector PULL path strands nothing when a product fails (#221)', 
     installProviderYielding([
       {
         ...product,
-        variants: [
-          {
-            optionValues: [],
-            price: { amount: 1999, currency: 'GBP' },
-            inventory: { tracked: true, available: 4 },
-            sku: `ATOMIC-BARE-${uuidv7()}`,
-          },
-        ],
+        variants: {
+          enumeration: 'complete',
+          variants: [
+            {
+              optionValues: [],
+              price: { amount: 1999, currency: 'GBP' },
+              inventory: { tracked: true, available: 4 },
+              sku: `ATOMIC-BARE-${uuidv7()}`,
+            },
+          ],
+        },
       },
     ]);
 

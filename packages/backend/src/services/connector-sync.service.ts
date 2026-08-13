@@ -156,6 +156,7 @@ import type {
   PushFulfillment,
   PushProduct,
   PushVariant,
+  VariantEnumerationGap,
   WebhookEventKind,
 } from '../connectors/types.js';
 import { createOAuthState } from '../connectors/oauth-state.js';
@@ -164,7 +165,7 @@ import { getShopifyCredentials } from '../connectors/shopify/config.js';
 import { classifyShopifyWebhookTopic } from '../connectors/shopify/webhook.js';
 import { classifyWooCommerceWebhookTopic } from '../connectors/woocommerce/webhook.js';
 import { getIO } from '../socket.js';
-import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
+import { conflict, notFound, validationError, MercariaError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 /** Product-delete webhook payload (Shopify sends only `{ id }` on delete). */
@@ -788,6 +789,43 @@ async function decryptCredentials(
   return { ...(await decryptAuth(conn)), shopCurrency };
 }
 
+/** What the provider could not prove about a variant enumeration, in words. */
+function describeVariantEnumerationGap(gap: VariantEnumerationGap): string {
+  switch (gap.kind) {
+    case 'declared_not_fetched':
+      return `the platform declared variations ${gap.missingIds.join(', ')} and did not carry them`;
+    case 'fetched_not_declared':
+      return `the platform carried variations ${gap.unexpectedIds.join(', ')} it never declared`;
+    case 'duplicate_fetched':
+      return `the platform carried variations ${gap.duplicateIds.join(', ')} more than once`;
+    case 'pagination_unprovable':
+      return `${gap.pagesRead} page(s) were read and none of them proved the enumeration finished`;
+    case 'declares_variants_and_carries_none':
+      return `it declares ${gap.declared} variations and carries none`;
+  }
+}
+
+/**
+ * The bounded refusal a product whose variant enumeration is INCOMPLETE gets
+ * (#259).
+ *
+ * It names the gap KIND and the ids, because that is the whole of what the
+ * merchant-facing record carries: a refused product in a backfill lands as
+ * `counts.failed += 1` plus this message on the warn line, and a refused webhook
+ * fails its `sync_runs` row with this as `error`. A message that said only
+ * "incomplete" would leave an operator unable to tell a site that stopped
+ * publishing a page header from one whose plugin is serving a variation twice.
+ */
+function incompleteVariantSetError(
+  externalId: string,
+  gap: VariantEnumerationGap,
+): MercariaError {
+  return validationError(
+    `Connector product ${externalId} has an incomplete variant enumeration (${gap.kind}): ` +
+      `${describeVariantEnumerationGap(gap)} — refusing to create, update or unsell anything from it`,
+  );
+}
+
 /**
  * Map a normalized variant to the store-product variant input, applying the
  * connection's `priceRules` (markup + rounding) to the native `price` and
@@ -823,19 +861,29 @@ function toVariantInput(
  * the two), so a `.filter` or a `.sort` added here would attach each stamp to
  * the wrong variant — and the failure is silent: the rows insert cleanly, and
  * the next inventory sync updates the stock of a different variant.
+ *
+ * The narrowing above that map is the type doing the work (#259): a `VariantSet`
+ * whose `enumeration` is `incomplete` carries no variant array at all, so there
+ * is nothing here to map and no coercion available to write. `importProduct`
+ * refuses such a product before this is reached, which makes the throw
+ * unreachable through the sync paths — and this is why that refusal cannot be
+ * forgotten by a later caller rather than a comment asking them to remember it.
  */
 function toCreateInput(
   product: NormalizedProduct,
   categorySlug: string,
   priceRules: PriceRules | undefined,
 ): CreateStoreProductInput {
+  if (product.variants.enumeration === 'incomplete') {
+    throw incompleteVariantSetError(product.externalId, product.variants.gap);
+  }
   const input: CreateStoreProductInput = {
     title: product.title,
     description: product.description,
     category: categorySlug,
     imageFileIds: [...product.imageUrls],
     options: product.options.map((o) => ({ name: o.name, values: [...o.values] })),
-    variants: product.variants.map((v) => toVariantInput(v, priceRules)),
+    variants: product.variants.variants.map((v) => toVariantInput(v, priceRules)),
   };
   if (product.vendor) {
     input.vendor = product.vendor;
@@ -967,7 +1015,19 @@ function buildVariantSources(
   conn: ConnectionRow,
   product: NormalizedProduct,
 ): VariantSourceProvenance[] {
-  return product.variants.map((variant) =>
+  // #259 made `variants` a union, so this narrows on the discriminant rather
+  // than reading an array off it — never a cast, and never `.variants` on the
+  // union itself. It THROWS rather than returning an empty list because the
+  // caller ZIPS what comes back against the variant rows BY POSITION: an empty
+  // list would insert every variant unstamped, which is the exact state the
+  // header above says `convergeVariants` cannot repair. Unreachable through the
+  // sync paths — `importProduct` refuses an incomplete enumeration before the
+  // create branch — and that is what keeps the refusal from being something a
+  // later caller has to remember.
+  if (product.variants.enumeration === 'incomplete') {
+    throw incompleteVariantSetError(product.externalId, product.variants.gap);
+  }
+  return product.variants.variants.map((variant) =>
     variant.externalVariantId === undefined && variant.externalInventoryItemId === undefined
       ? {
           sourceConnectionId: null,
@@ -1095,34 +1155,306 @@ function variantMatchKey(optionValues: { name: string; value: string }[]): strin
 }
 
 /**
- * An existing variant plus the option-value tuple the re-price matcher keys on.
+ * An existing variant plus the option-value tuple the LEGACY matcher keys on.
  *
  * The two travel together because `optionValues` is a CHILD TABLE now rather than
  * an embedded array, so it is loaded once for the whole listing and re-attached
  * here — not re-queried per candidate while matching.
  */
-interface RepriceVariant {
+interface ExistingVariant {
   readonly variant: VariantRecord;
   readonly optionValues: VariantOptionValueRecord[];
 }
 
 /**
- * CONVERGE the variants of a re-synced listing onto the incoming normalized
- * product: re-price the ones that match, CREATE the ones the platform added, and
- * unsell the ones it removed.
+ * One listing's existing variants, indexed the three ways an incoming variant
+ * may resolve — each as a LIST rather than a first-insertion-wins entry.
  *
- * Each incoming variant is matched to an existing one by `sku` first, then by its
- * option-value tuple; the connection's `priceRules` (markup + rounding) are applied
- * to the incoming native `price`/`compareAtPrice`, and — ONLY when the result
- * DIFFERS from what is stored — the variant is updated through the catalog-write
- * funnel (`updateVariant`, which keeps the listing's denormalized price facets
- * consistent). Idempotent: a variant already at the target price is left untouched
- * (no write), so a re-sync of unchanged prices is a true no-op. An existing variant
- * is matched at most once.
+ * The lists are what make AMBIGUITY representable at all (#259 rule 8). The map
+ * this replaces held one candidate per key and dropped the rest, so two variants
+ * sharing a SKU or an option tuple silently resolved to whichever the read
+ * happened to return first — arbitrary, stable-looking, and wrong for one of
+ * them forever.
+ */
+interface ExistingVariantIndex {
+  /** Stamped for THIS connection, keyed on the platform's own variant id. */
+  readonly bySourceExternalId: Map<string, ExistingVariant[]>;
+  /** NOT stamped for this connection — the migration fallback, keyed on SKU. */
+  readonly legacyBySku: Map<string, ExistingVariant[]>;
+  /** NOT stamped for this connection — the migration fallback, keyed on the tuple. */
+  readonly legacyByOptionKey: Map<string, ExistingVariant[]>;
+}
+
+/** How ONE incoming variant resolved against the listing's existing rows. */
+type VariantMatch =
+  | {
+      readonly outcome: 'matched';
+      readonly existing: ExistingVariant;
+      readonly tier: 'source_id' | 'legacy';
+    }
+  | { readonly outcome: 'new' }
+  | {
+      readonly outcome: 'ambiguous';
+      readonly by: 'source_external_variant_id' | 'sku' | 'option_values';
+      readonly candidateIds: readonly string[];
+    };
+
+/** Append `candidate` to the list `key` addresses, creating the list when absent. */
+function pushCandidate(
+  index: Map<string, ExistingVariant[]>,
+  key: string,
+  candidate: ExistingVariant,
+): void {
+  const bucket = index.get(key);
+  if (bucket) {
+    bucket.push(candidate);
+  } else {
+    index.set(key, [candidate]);
+  }
+}
+
+/**
+ * Index a listing's existing variants for matching.
+ *
+ * A row already stamped with THIS connection's variant id is indexed under that
+ * id and under NOTHING else — the SKU and option-tuple maps are the migration
+ * fallback for rows the connector has never stamped, and a stamped row appearing
+ * in them is how an identified variant gets stolen by a SKU that moved to a
+ * different variation.
+ */
+function indexExistingVariants(
+  conn: ConnectionRow,
+  existingVariants: readonly VariantRecord[],
+  optionValuesByVariant: Map<string, VariantOptionValueRecord[]>,
+): ExistingVariantIndex {
+  const index: ExistingVariantIndex = {
+    bySourceExternalId: new Map<string, ExistingVariant[]>(),
+    legacyBySku: new Map<string, ExistingVariant[]>(),
+    legacyByOptionKey: new Map<string, ExistingVariant[]>(),
+  };
+  for (const variant of existingVariants) {
+    const candidate: ExistingVariant = {
+      variant,
+      optionValues: optionValuesByVariant.get(variant.id) ?? [],
+    };
+    const sourceExternalVariantId = variant.sourceExternalVariantId;
+    if (variant.sourceConnectionId === conn.id && sourceExternalVariantId) {
+      pushCandidate(index.bySourceExternalId, sourceExternalVariantId, candidate);
+      continue;
+    }
+    if (variant.sku) {
+      pushCandidate(index.legacyBySku, variant.sku, candidate);
+    }
+    pushCandidate(index.legacyByOptionKey, variantMatchKey(candidate.optionValues), candidate);
+  }
+  return index;
+}
+
+/**
+ * Resolve ONE incoming variant against the index — #259 rules 6, 7 and 8.
+ *
+ * The platform's own variant id comes FIRST and is exact. Only when it resolves
+ * nothing does the SKU / option-tuple fallback run, and only over rows this
+ * connection has never stamped: that is what carries a listing imported before
+ * variant provenance existed onto its stable identity, without ever letting a
+ * merchant's SKU edit re-point a variant that already has one.
+ *
+ * More than one candidate at any tier is AMBIGUOUS and is answered as such. The
+ * caller refuses the product — picking one would be a coin flip whose loser is
+ * unsold, and doing it by map insertion order made the coin flip invisible.
+ */
+function matchIncomingVariant(
+  incoming: NormalizedVariant,
+  index: ExistingVariantIndex,
+): VariantMatch {
+  if (incoming.externalVariantId !== undefined) {
+    const bySource = index.bySourceExternalId.get(incoming.externalVariantId) ?? [];
+    if (bySource.length === 1) {
+      return { outcome: 'matched', existing: bySource[0], tier: 'source_id' };
+    }
+    if (bySource.length > 1) {
+      return {
+        outcome: 'ambiguous',
+        by: 'source_external_variant_id',
+        candidateIds: bySource.map((candidate) => candidate.variant.id),
+      };
+    }
+  }
+  const bySku = incoming.sku ? (index.legacyBySku.get(incoming.sku) ?? []) : [];
+  if (bySku.length === 1) {
+    return { outcome: 'matched', existing: bySku[0], tier: 'legacy' };
+  }
+  if (bySku.length > 1) {
+    return {
+      outcome: 'ambiguous',
+      by: 'sku',
+      candidateIds: bySku.map((candidate) => candidate.variant.id),
+    };
+  }
+  const byOptions = index.legacyByOptionKey.get(variantMatchKey(incoming.optionValues)) ?? [];
+  if (byOptions.length === 1) {
+    return { outcome: 'matched', existing: byOptions[0], tier: 'legacy' };
+  }
+  if (byOptions.length > 1) {
+    return {
+      outcome: 'ambiguous',
+      by: 'option_values',
+      candidateIds: byOptions.map((candidate) => candidate.variant.id),
+    };
+  }
+  return { outcome: 'new' };
+}
+
+/** The bounded refusal an ambiguous match gets — observable, and it names the rows. */
+function ambiguousVariantMatchError(
+  externalId: string,
+  match: Extract<VariantMatch, { outcome: 'ambiguous' }>,
+): MercariaError {
+  return conflict(
+    `Connector product ${externalId}: ${match.candidateIds.length} existing variants share one ` +
+      `${match.by} (${match.candidateIds.join(', ')}) — refusing to pick one`,
+  );
+}
+
+/**
+ * Whether this variant's four provenance columns already say what the incoming
+ * variant says. A legacy row matched by SKU has none of them; a row whose
+ * platform inventory-item id moved has one that is stale.
+ */
+function sourceStampDiffers(
+  record: VariantRecord,
+  conn: ConnectionRow,
+  incoming: NormalizedVariant,
+): boolean {
+  if (incoming.externalVariantId === undefined && incoming.externalInventoryItemId === undefined) {
+    // Nothing to stamp — `stampVariantSource` is a no-op for such a variant, and
+    // saying so here keeps this from reporting a write that never happens.
+    return false;
+  }
+  return (
+    record.sourceConnectionId !== conn.id ||
+    record.sourceProvider !== conn.provider ||
+    record.sourceExternalVariantId !== (incoming.externalVariantId ?? null) ||
+    record.sourceExternalInventoryItemId !== (incoming.externalInventoryItemId ?? null)
+  );
+}
+
+/**
+ * Bring ONE matched existing variant onto the incoming one, PRESERVING its id —
+ * #259 rules 9 and 12.
+ *
+ * Its id is what `cart_items`, `product_save_*`, `offers`, the canonical variant
+ * links and every order line point at, so a platform-side rename has to become
+ * an UPDATE here. Writing nothing when nothing differs is what keeps a re-sync of
+ * an unchanged catalogue a true no-op.
+ *
+ * Returns true when anything was written.
+ */
+async function applyVariantUpdate(
+  conn: ConnectionRow,
+  listingId: string,
+  existing: ExistingVariant,
+  incoming: NormalizedVariant,
+  priceRules: PriceRules | undefined,
+): Promise<boolean> {
+  const record = existing.variant;
+  const patch: UpdateVariantInput = {};
+
+  const targetPrice = applyPriceRules(incoming.price, priceRules);
+  const targetCompareAt = incoming.compareAtPrice
+    ? applyPriceRules(incoming.compareAtPrice, priceRules)
+    : undefined;
+
+  // `price` was required on the Mongoose model and both of its columns are
+  // NULLABLE here, so a variant carrying no price at all is a case that did not
+  // exist before. NULL differs from every incoming amount, which prices it on
+  // the first re-sync rather than leaving it priceless — the same outcome the
+  // create path would have produced.
+  if (record.priceAmount !== targetPrice.amount || record.priceCurrency !== targetPrice.currency) {
+    patch.price = targetPrice;
+  }
+  // The two `compare_at_price` columns are NULL together — that is what
+  // `product_variants_compare_at_price_paired_check` guarantees — so the amount
+  // alone answers "is one stored", exactly as the embedded object's presence did.
+  const compareAtDiffers =
+    record.compareAtPriceAmount !== null
+      ? !targetCompareAt ||
+        record.compareAtPriceAmount !== targetCompareAt.amount ||
+        record.compareAtPriceCurrency !== targetCompareAt.currency
+      : targetCompareAt !== undefined;
+  if (compareAtDiffers) {
+    // A compare-at price dropped on the platform clears the stored one (`null`).
+    patch.compareAtPrice = targetCompareAt ?? null;
+  }
+
+  // A SKU the merchant changed on the platform RENAMES this variant; it does not
+  // describe a different one. Applied only while the platform still publishes a
+  // SKU: `UpdateVariantInput.sku` cannot express a CLEAR, so a variant whose SKU
+  // was removed upstream keeps the one it had rather than being stripped of it
+  // by a shape the funnel has no way to say.
+  //
+  // Two variants of one product SWAPPING SKUs is the case this cannot converge:
+  // `product_variants_sku_key` is unique table-wide, so whichever is written
+  // first collides and the product fails with the constraint named. That is a
+  // loud, recorded refusal rather than a silent divergence, and it is rare
+  // enough that a two-step rename is not worth the machinery.
+  if (incoming.sku !== undefined && incoming.sku !== record.sku) {
+    patch.sku = incoming.sku;
+  }
+
+  // Option LABELS and VALUES move too, and this is the edit the old matcher could
+  // not survive: it keyed on the tuple, so a rename matched nothing, created a
+  // second variant and unsold the original — issue #259's design point 9, with no
+  // incomplete response involved.
+  const incomingOptions = incoming.optionValues.map((o) => ({ name: o.name, value: o.value }));
+  if (variantMatchKey(existing.optionValues) !== variantMatchKey(incomingOptions)) {
+    patch.optionValues = incomingOptions;
+  }
+
+  const wrotePatch = Object.keys(patch).length > 0;
+  if (wrotePatch) {
+    await updateVariant(listingId, record.id, patch);
+  }
+  // A legacy row matched by SKU or tuple GAINS its provenance here, which is what
+  // makes the fallback a one-time migration rather than the permanent matcher.
+  const stampDiffers = sourceStampDiffers(record, conn, incoming);
+  if (stampDiffers) {
+    await stampVariantSource(conn, listingId, record.id, incoming);
+  }
+  return wrotePatch || stampDiffers;
+}
+
+/**
+ * CONVERGE the variants of a re-synced listing onto the incoming normalized
+ * product: bring the ones that match onto the platform's current terms, CREATE
+ * the ones the platform added, and unsell the ones it removed — preserving every
+ * local variant id through all three.
+ *
+ * ## Identity, in three tiers (#259)
+ *
+ * The platform's own variant id is the PRIMARY match, over rows this connection
+ * already stamped. SKU and the option-value tuple are a MIGRATION FALLBACK, and
+ * only for rows the connector has never stamped — a listing imported before
+ * variant provenance existed. Anything ambiguous at either tier REFUSES the
+ * product rather than choosing.
+ *
+ * Matching by SKU and tuple FIRST is what issue #259 was filed about: a merchant
+ * renaming a size on the platform matched nothing, so the sync created a second
+ * variant and unsold the historical one — with its carts, saves, offers and
+ * order history pointing at the row that had just been made unbuyable. Nothing
+ * about that response was incomplete; the identity rule was simply wrong.
+ *
+ * ## MATCH first, WRITE second
+ *
+ * Every incoming variant is resolved before anything is written. That is what
+ * makes an ambiguous legacy match fail CLOSED (#259 acceptance 3): the refusal
+ * lands with no variant created, re-priced or unsold, where a match-and-write
+ * loop would have converged the variants ahead of the ambiguous one and left the
+ * listing half-migrated with nothing saying so.
  *
  * ## What #220 added, and the two decisions in it
  *
- * An UNMATCHED INCOMING variant is now CREATED. It used to be skipped with the
+ * An UNMATCHED INCOMING variant is CREATED. It used to be skipped with the
  * comment "creation is a later phase", and that skip is what made #220
  * permanent: a variable product first seen through a webhook was created with
  * one wrong variant and no later sync could add the missing ones, so the listing
@@ -1149,10 +1481,18 @@ interface RepriceVariant {
  *    nothing. It is written ONCE: a variant already unsellable is skipped, so a
  *    re-sync does not write per removed variant forever.
  *
- * Neither is reachable from a FAILED or PARTIAL fetch: `runBackfill` throws out
- * of its page loop on a fetch failure, and the webhook path refuses an
- * unexpanded payload before any of this — the same posture
- * `archiveUnseenSourcedListings` takes at the product grain.
+ * The unsell is written at `locationId` — the connection's own target location,
+ * the one `importProduct` stocked the variant at. Routing it to the store
+ * DEFAULT instead is what made it inert wherever a merchant had configured a
+ * target: `recomputeVariantScalarFromLevels` SUMS the levels, so a zero inserted
+ * beside the target's surviving stock left the variant fully buyable while every
+ * test that shared one location for both reported a pass.
+ *
+ * Neither creation nor removal is reachable from a FAILED, PARTIAL or UNPROVEN
+ * fetch: `runBackfill` throws out of its page loop on a fetch failure, and
+ * `importProduct` refuses a product whose variant enumeration is `incomplete`
+ * before any of this — the same posture `archiveUnseenSourcedListings` takes at
+ * the product grain.
  *
  * RESPECTS `overriddenFields`: when the merchant has pinned `price` (the marker put
  * into `overridden` only under `respect_overrides`), the whole convergence is
@@ -1168,11 +1508,22 @@ async function convergeVariants(
   product: NormalizedProduct,
   overridden: Set<string>,
   priceRules: PriceRules | undefined,
+  locationId: string | undefined,
 ): Promise<boolean> {
   // A locally-edited price is pinned — never let a re-sync overwrite it.
   if (overridden.has('price')) {
     return false;
   }
+
+  // The removal loop below cannot tell "the platform removed this variant" from
+  // "we did not see it", so it may only run behind a PROVEN enumeration — and
+  // there is no way to read the incoming variants without narrowing to one,
+  // which is what makes that a property of the type rather than a rule to
+  // remember. `importProduct` refuses such a product before this is reached.
+  if (product.variants.enumeration === 'incomplete') {
+    throw incompleteVariantSetError(product.externalId, product.variants.gap);
+  }
+  const incomingVariants = product.variants.variants;
 
   const existingVariants = await findVariantsByListing(listingId);
   if (existingVariants.length === 0) {
@@ -1181,88 +1532,48 @@ async function convergeVariants(
   const optionValuesByVariant = await findVariantOptionValues(
     existingVariants.map((variant) => variant.id),
   );
+  const index = indexExistingVariants(conn, existingVariants, optionValuesByVariant);
 
-  // Index existing variants for matching: by SKU (exact) and by option-value key.
-  const bySku = new Map<string, RepriceVariant>();
-  const byOptionKey = new Map<string, RepriceVariant>();
-  for (const variant of existingVariants) {
-    const candidate: RepriceVariant = {
-      variant,
-      optionValues: optionValuesByVariant.get(variant.id) ?? [],
-    };
-    if (variant.sku && !bySku.has(variant.sku)) {
-      bySku.set(variant.sku, candidate);
+  // The element type EXCLUDES `ambiguous`, which is what carries "every
+  // ambiguity was refused above" into the write loop as a fact `tsc` checks
+  // rather than an ordering a reader has to trust.
+  const resolved: {
+    readonly incoming: NormalizedVariant;
+    readonly match: Exclude<VariantMatch, { outcome: 'ambiguous' }>;
+  }[] = [];
+  const consumed = new Set<string>();
+  for (const incoming of incomingVariants) {
+    const match = matchIncomingVariant(incoming, index);
+    if (match.outcome === 'ambiguous') {
+      throw ambiguousVariantMatchError(product.externalId, match);
     }
-    const key = variantMatchKey(candidate.optionValues);
-    if (!byOptionKey.has(key)) {
-      byOptionKey.set(key, candidate);
+    if (match.outcome === 'matched') {
+      if (consumed.has(match.existing.variant.id)) {
+        continue; // an existing variant maps to at most one incoming variant
+      }
+      consumed.add(match.existing.variant.id);
     }
+    resolved.push({ incoming, match });
   }
 
-  const consumed = new Set<string>();
   let changed = false;
-
-  for (const incoming of product.variants) {
-    const match =
-      (incoming.sku ? bySku.get(incoming.sku) : undefined) ??
-      byOptionKey.get(variantMatchKey(incoming.optionValues));
-    if (!match) {
-      // A variant ADDED on the platform. #220: creating it here is what makes a
-      // listing first seen through an incomplete webhook, or a product whose
-      // merchant added a size last week, converge on the next sync instead of
-      // staying wrong until somebody deletes and re-imports it.
-      const created = await addVariant(listingId, toVariantInput(incoming, priceRules));
+  for (const { incoming, match } of resolved) {
+    if (match.outcome === 'new') {
+      const created = await addVariant(listingId, toVariantInput(incoming, priceRules), {
+        locationId,
+      });
       await stampVariantSource(conn, listingId, created, incoming);
       changed = true;
       continue;
     }
-    const matchId = match.variant.id;
-    if (consumed.has(matchId)) {
-      continue; // an existing variant maps to at most one incoming variant
+    if (await applyVariantUpdate(conn, listingId, match.existing, incoming, priceRules)) {
+      changed = true;
     }
-    consumed.add(matchId);
-
-    const targetPrice = applyPriceRules(incoming.price, priceRules);
-    const targetCompareAt = incoming.compareAtPrice
-      ? applyPriceRules(incoming.compareAtPrice, priceRules)
-      : undefined;
-
-    // `price` was required on the Mongoose model and both of its columns are
-    // NULLABLE here, so a variant carrying no price at all is a case that did not
-    // exist before. NULL differs from every incoming amount, which prices it on
-    // the first re-sync rather than leaving it priceless — the same outcome the
-    // create path would have produced.
-    const priceDiffers =
-      match.variant.priceAmount !== targetPrice.amount ||
-      match.variant.priceCurrency !== targetPrice.currency;
-    // The two `compare_at_price` columns are NULL together — that is what
-    // `product_variants_compare_at_price_paired_check` guarantees — so the amount
-    // alone answers "is one stored", exactly as the embedded object's presence did.
-    const compareAtDiffers =
-      match.variant.compareAtPriceAmount !== null
-        ? !targetCompareAt ||
-          match.variant.compareAtPriceAmount !== targetCompareAt.amount ||
-          match.variant.compareAtPriceCurrency !== targetCompareAt.currency
-        : targetCompareAt !== undefined;
-
-    if (!priceDiffers && !compareAtDiffers) {
-      continue; // already in sync — idempotent no-op
-    }
-
-    const patch: UpdateVariantInput = {};
-    if (priceDiffers) {
-      patch.price = targetPrice;
-    }
-    if (compareAtDiffers) {
-      // A compare-at price dropped on the platform clears the stored one (`null`).
-      patch.compareAtPrice = targetCompareAt ?? null;
-    }
-    await updateVariant(listingId, matchId, patch);
-    changed = true;
   }
 
   // Variants the platform stopped listing — see this function's header for why
-  // they are unsold rather than deleted, and why the write happens once.
+  // they are unsold rather than deleted, why the write happens once, and why it
+  // is written at the connection's own location.
   for (const variant of existingVariants) {
     if (consumed.has(variant.id)) {
       continue;
@@ -1270,9 +1581,12 @@ async function convergeVariants(
     if (variant.inventoryTracked && variant.inventoryAvailable === 0) {
       continue; // already unsellable — a re-sync must not write per removed variant
     }
-    await updateVariant(listingId, variant.id, {
-      inventory: { tracked: true, available: 0 },
-    });
+    await updateVariant(
+      listingId,
+      variant.id,
+      { inventory: { tracked: true, available: 0 } },
+      { locationId },
+    );
     changed = true;
   }
 
@@ -1285,6 +1599,18 @@ async function importProduct(
   product: NormalizedProduct,
   opts: ImportProductOptions,
 ): Promise<ImportOutcome> {
+  // #259 acceptance 1: an enumeration nobody could PROVE complete writes
+  // NOTHING — not a listing field, not a variant, not an unsell. It is refused
+  // here, above both branches, because a 2xx that under-reports a product's
+  // variations is otherwise indistinguishable from a merchant deleting them, and
+  // the update branch would have patched the listing before the variant path
+  // ever looked. Both entry points reach this one line: `runBackfill` counts the
+  // refusal as `failed` and logs it against the external id, and a webhook fails
+  // its `sync_runs` row with this message as `error`.
+  if (product.variants.enumeration === 'incomplete') {
+    throw incompleteVariantSetError(product.externalId, product.variants.gap);
+  }
+
   // `let` because the create branch may LOSE the provenance-unique race and fall
   // through to the update branch with the row the winner wrote (#221).
   let existing = await findListingBySourceExternalId(
@@ -1383,8 +1709,17 @@ async function importProduct(
     await updateListing(listingId, patch, { kind: 'source' });
   }
   // #220: converge the variant SET, not just the prices — create what the
-  // platform added, unsell what it removed (respects a pinned `price`).
-  const repriced = await convergeVariants(conn, listingId, product, overridden, opts.priceRules);
+  // platform added, unsell what it removed (respects a pinned `price`). It is
+  // handed the same location the create path stocks at, so an unsell lands on
+  // the level the connector's stock actually lives in (#259).
+  const repriced = await convergeVariants(
+    conn,
+    listingId,
+    product,
+    overridden,
+    opts.priceRules,
+    opts.importLocationId,
+  );
   await applyCollectionMapping(conn, listingId, product, overridden);
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
   await updateListingColumns(listingId, buildSource(conn, product));

@@ -8,7 +8,18 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import type { CurrencyCode } from '@mercaria/shared-types';
 import { normalizeShopifyProduct } from '../index.js';
+import type { NormalizedVariant } from '../../types.js';
+
+/** The variants `raw` normalizes to, or a failure naming the gap it produced. */
+function variantsOf(raw: unknown, currency: CurrencyCode = 'USD'): NormalizedVariant[] {
+  const set = normalizeShopifyProduct(raw, currency).variants;
+  if (set.enumeration === 'incomplete') {
+    throw new Error(`expected a COMPLETE variant set; got the gap ${set.gap.kind}`);
+  }
+  return set.variants;
+}
 
 /** A Shopify single-variant product (the "Title / Default Title" placeholder). */
 const singleVariantProduct = {
@@ -93,15 +104,16 @@ describe('normalizeShopifyProduct', () => {
 
     // Placeholder options are dropped → a single variant with no option values.
     expect(product.options).toEqual([]);
-    expect(product.variants).toHaveLength(1);
-    expect(product.variants[0].optionValues).toEqual([]);
+    const variants = variantsOf(singleVariantProduct);
+    expect(variants).toHaveLength(1);
+    expect(variants[0].optionValues).toEqual([]);
 
     // Native currency, integer minor units, exact decimal parse (19.99 → 1999).
-    expect(product.variants[0].price).toEqual({ amount: 1999, currency: 'USD' });
-    expect(product.variants[0].compareAtPrice).toEqual({ amount: 2499, currency: 'USD' });
-    expect(product.variants[0].sku).toBe('COF-1KG');
-    expect(product.variants[0].barcode).toBe('0123456789012');
-    expect(product.variants[0].inventory).toEqual({ tracked: true, available: 42 });
+    expect(variants[0].price).toEqual({ amount: 1999, currency: 'USD' });
+    expect(variants[0].compareAtPrice).toEqual({ amount: 2499, currency: 'USD' });
+    expect(variants[0].sku).toBe('COF-1KG');
+    expect(variants[0].barcode).toBe('0123456789012');
+    expect(variants[0].inventory).toEqual({ tracked: true, available: 42 });
   });
 
   it('passes absolute image URLs through verbatim (no re-upload)', () => {
@@ -113,9 +125,9 @@ describe('normalizeShopifyProduct', () => {
   });
 
   it('prices in the shop currency, not FAIR', () => {
-    const product = normalizeShopifyProduct(singleVariantProduct, 'EUR');
-    expect(product.variants[0].price.currency).toBe('EUR');
-    expect(product.variants[0].price.amount).toBe(1999);
+    const [variant] = variantsOf(singleVariantProduct, 'EUR');
+    expect(variant.price.currency).toBe('EUR');
+    expect(variant.price.amount).toBe(1999);
   });
 
   it('maps real options, pairs option1..3, clamps negative stock, honours tracking', () => {
@@ -130,24 +142,25 @@ describe('normalizeShopifyProduct', () => {
       { name: 'Color', values: ['Black'] },
     ]);
 
-    expect(product.variants[0].optionValues).toEqual([
+    const variants = variantsOf(multiVariantProduct, 'GBP');
+    expect(variants[0].optionValues).toEqual([
       { name: 'Size', value: 'S' },
       { name: 'Color', value: 'Black' },
     ]);
-    expect(product.variants[0].price).toEqual({ amount: 100000, currency: 'GBP' });
-    expect(product.variants[0].inventory).toEqual({ tracked: true, available: 5 });
+    expect(variants[0].price).toEqual({ amount: 100000, currency: 'GBP' });
+    expect(variants[0].inventory).toEqual({ tracked: true, available: 5 });
 
     // "1000.5" → 100050 minor units; untracked; negative stock clamped to 0.
-    expect(product.variants[1].price).toEqual({ amount: 100050, currency: 'GBP' });
-    expect(product.variants[1].inventory).toEqual({ tracked: false, available: 0 });
+    expect(variants[1].price).toEqual({ amount: 100050, currency: 'GBP' });
+    expect(variants[1].inventory).toEqual({ tracked: false, available: 0 });
   });
 
   it('rounds sub-cent precision half-up and rejects malformed prices', () => {
-    const rounded = normalizeShopifyProduct(
-      { ...singleVariantProduct, variants: [{ ...singleVariantProduct.variants[0], price: '19.999' }] },
-      'USD',
-    );
-    expect(rounded.variants[0].price.amount).toBe(2000);
+    const rounded = variantsOf({
+      ...singleVariantProduct,
+      variants: [{ ...singleVariantProduct.variants[0], price: '19.999' }],
+    });
+    expect(rounded[0].price.amount).toBe(2000);
 
     expect(() =>
       normalizeShopifyProduct(
@@ -176,14 +189,58 @@ describe('normalizeShopifyProduct — provider timestamps (#221)', () => {
   });
 
   it('OMITS `externalUpdatedAt` for text that is not a timestamp', () => {
-    const product = normalizeShopifyProduct(
-      { ...singleVariantProduct, updated_at: 'yesterday' },
-      'USD',
-    );
+    const raw = { ...singleVariantProduct, updated_at: 'yesterday' };
+    const product = normalizeShopifyProduct(raw, 'USD');
 
     // The product still imports — one unreadable timestamp must not cost it.
+    // Read through `variantsOf` because #259 made `variants` a union: the
+    // assertion is the same one, and it now also states that the enumeration is
+    // COMPLETE, which is what "still imports" has meant since.
     expect(product.externalId).toBe('111');
-    expect(product.variants).toHaveLength(1);
+    expect(variantsOf(raw)).toHaveLength(1);
     expect(product.externalUpdatedAt).toBeUndefined();
+  });
+});
+
+describe('normalizeShopifyProduct — #259, the inline variant cap', () => {
+  /** `count` distinct Shopify variants over one Size option. */
+  function productWithVariants(count: number): unknown {
+    return {
+      ...multiVariantProduct,
+      options: [{ name: 'Size', values: Array.from({ length: count }, (_, i) => `S${i}`) }],
+      variants: Array.from({ length: count }, (_, i) => ({
+        id: 90000 + i,
+        price: '10.00',
+        compare_at_price: null,
+        sku: `SKU-${i}`,
+        barcode: null,
+        inventory_quantity: 1,
+        inventory_management: 'shopify',
+        option1: `S${i}`,
+        option2: null,
+        option3: null,
+      })),
+    };
+  }
+
+  it('reports a product AT the REST inline cap as an UNPROVEN enumeration', () => {
+    // Shopify's `products` resource embeds at most 100 variants and this
+    // connector reads no paged variant resource, so a product arriving with
+    // exactly 100 may be carrying a PREFIX. Nothing else in the payload says so,
+    // which is why the count itself has to be the signal: asserting completeness
+    // here is how `convergeVariants` would unsell every variant past the
+    // hundredth on the very next sync.
+    const set = normalizeShopifyProduct(productWithVariants(100), 'USD').variants;
+    expect(set.enumeration).toBe('incomplete');
+    expect(set.enumeration === 'incomplete' && set.gap).toEqual({
+      kind: 'pagination_unprovable',
+      pagesRead: 1,
+    });
+  });
+
+  it('reports a product BELOW the cap as complete — the positive control', () => {
+    // Without this the case above would also pass on a provider that called
+    // every product unprovable.
+    expect(variantsOf(productWithVariants(99))).toHaveLength(99);
   });
 });
