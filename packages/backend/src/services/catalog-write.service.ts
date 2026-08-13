@@ -23,10 +23,13 @@
  *    never leave the database now, and a listing with NO variants correctly
  *    clears its price range — see `recomputeListingFacets` for the empty-aggregate
  *    trap that makes the obvious single-statement form wrong.
- *  - **A listing and its images and options are created in ONE transaction.**
- *    Mongo wrote the document once, so the question did not arise; four tables
- *    make a half-created product possible, and it renders as a product page with
- *    no gallery and no size picker.
+ *  - **A listing, its images, options, VARIANTS and their stock are created in
+ *    ONE transaction.** Mongo wrote the document once, so the question did not
+ *    arise; six tables make a half-created product possible, and it renders as a
+ *    product page with no gallery, no size picker and nothing to buy. The
+ *    variants and levels joined that transaction with #221 — see
+ *    `createStoreProduct` for the failure that made a listing with no variants
+ *    an everyday outcome rather than a theoretical one.
  *  - **An absent SKU or barcode is written NULL, never `''`.** Both carry a
  *    PARTIAL unique index, and an empty string is a VALUE — the second variant
  *    saved without a SKU would collide with the first for real.
@@ -49,6 +52,7 @@ import {
   updateListingColumns,
   type ListingImageInput,
   type ListingRecord,
+  type ListingSourceProvenance,
 } from '../db/catalog/listingRepository.js';
 import { getDb } from '../db/postgres.js';
 import {
@@ -57,7 +61,7 @@ import {
   writeListingConditionEvidence,
   type ConditionActor,
 } from './condition/condition-write.service.js';
-import { resolveConditionInput } from './condition/condition-input.js';
+import { resolveConditionInput, type ResolvedConditionInput } from './condition/condition-input.js';
 import { narrowStoredCondition } from './condition/condition-projection.js';
 import {
   countVariants,
@@ -69,6 +73,7 @@ import {
   updateVariant as updateVariantColumns,
   type NewVariant,
   type OptionValueInput,
+  type VariantSourceProvenance,
 } from '../db/catalog/variantRepository.js';
 import { insertLevels, setLevelAvailable } from '../db/catalog/inventoryLevelRepository.js';
 import { findCategoryBySlug } from '../db/catalog/categoryRepository.js';
@@ -371,7 +376,10 @@ function variantTitleFromOptions(optionValues: OptionValueInput[]): string {
  * option-only payload would expand `options[].values` into the cartesian product
  * here — that path is not part of the current contract.)
  */
-function resolveStoreVariants(input: CreateStoreProductInput): NewVariant[] {
+function resolveStoreVariants(
+  input: CreateStoreProductInput,
+  variantSources: readonly VariantSourceProvenance[] | undefined,
+): NewVariant[] {
   if (input.variants.length === 0) {
     throw validationError('A store product must include at least one variant');
   }
@@ -396,27 +404,199 @@ function resolveStoreVariants(input: CreateStoreProductInput): NewVariant[] {
       variant.compareAtPriceAmount = v.compareAtPrice.amount;
       variant.compareAtPriceCurrency = v.compareAtPrice.currency;
     }
+    // #221: an imported variant's four `source_*` columns ride the SAME insert
+    // as the variant, aligned by POSITION with `input.variants` — which is the
+    // alignment the create path already guarantees, since this map IS what
+    // numbers them. The post-create `stampVariantSources` this replaces read
+    // the variants back and matched them by position anyway, so nothing is
+    // less certain and one write disappears.
+    const source = variantSources?.[position];
+    if (source) {
+      variant.sourceConnectionId = source.sourceConnectionId;
+      variant.sourceProvider = source.sourceProvider;
+      variant.sourceExternalVariantId = source.sourceExternalVariantId;
+      variant.sourceExternalInventoryItemId = source.sourceExternalInventoryItemId;
+    }
     return variant;
   });
 }
 
+/** Everything {@link insertStoreProductWithin} needs, resolved by its caller. */
+interface StoreProductInsert {
+  readonly storeId: string;
+  readonly input: CreateStoreProductInput;
+  /** Already numbered and already carrying their provenance. */
+  readonly variants: readonly NewVariant[];
+  readonly source: ListingSourceProvenance;
+  readonly status: 'active' | 'draft';
+  readonly stockLocationId: string;
+  readonly categoryId: string;
+  readonly categorySlugs: string[];
+  readonly resolvedCondition: ResolvedConditionInput;
+  readonly conditionColumns: ReturnType<typeof conditionColumnsFor>;
+  readonly conditionActor: ConditionActor;
+  readonly now: Date;
+}
+
+/**
+ * Write a store listing, its gallery, its options, its condition evidence, its
+ * VARIANTS and their stock — all inside the CALLER's transaction.
+ *
+ * The store-product mirror of {@link insertP2PListingWithin}, extracted for the
+ * same reason and recording the same two rulings.
+ *
+ * **The variant insert belongs INSIDE.** A listing with no variant is not a
+ * sellable state anything should observe, and until #221 it was an everyday
+ * outcome rather than a theoretical one: `insertVariants` ran after the
+ * transaction committed, so a SKU another product already held —
+ * `product_variants_sku_key` is unique over the whole table — left a listing
+ * with nothing to sell. That was invisible while the provenance was also
+ * written afterwards, because the leftover row carried no `source_connection_id`
+ * and every provenance-scoped read stepped over it. With the provenance now on
+ * the insert, the same leftover would be a fully-sourced product with nothing to
+ * sell, and `convergeVariants` returns early on a listing with zero variants —
+ * so nothing would ever grow one.
+ *
+ * **`syncListingFacets` deliberately stays OUTSIDE**, because it enqueues outbox
+ * work (#57's offer convergence, #58's match) whose whole point is that it
+ * survives independently — and `recomputeCollectionMembership` opens its own
+ * connection, so calling it inside would have the transaction wait on a writer
+ * waiting on it.
+ */
+async function insertStoreProductWithin(
+  tx: Parameters<typeof insertListing>[3],
+  spec: StoreProductInsert,
+): Promise<ListingRecord> {
+  const { input, variants, categoryId, categorySlugs, now } = spec;
+  // Multi-currency: variant prices are stored in their NATIVE currency exactly as
+  // given (no FAIR conversion) — the price already carries its `.currency`.
+  const first = variants[0];
+
+  await assertConditionAllowed(tx, {
+    resolved: spec.resolvedCondition,
+    categoryId,
+    categorySlugs,
+  });
+
+  const row = await insertListing(
+    {
+      ownerType: 'store',
+      oxyUserId: null,
+      storeId: spec.storeId,
+      title: input.title,
+      description: input.description,
+      ...spec.conditionColumns,
+      conditionSourceLabel: null,
+      status: spec.status,
+      categoryId,
+      categorySlugs,
+      tags: input.tags ?? [],
+      priceRangeMinAmount: first.priceAmount,
+      priceRangeMinCurrency: first.priceCurrency,
+      priceRangeMaxAmount: first.priceAmount,
+      priceRangeMaxCurrency: first.priceCurrency,
+      hasInventory: false,
+      variantCount: variants.length,
+      longitude: null,
+      latitude: null,
+      vendor: input.vendor ?? null,
+      productType: input.productType ?? null,
+      handle: input.handle ?? null,
+      seoTitle: input.seo?.title ?? null,
+      seoDescription: input.seo?.description ?? null,
+      ...spec.source,
+      overriddenFields: [],
+      rating: 0,
+      reviewCount: 0,
+      favoriteCount: 0,
+      publishedAt: now,
+    },
+    toListingImages(input.imageFileIds),
+    input.options.map((o, position) => ({ name: o.name, values: [...o.values], position })),
+    tx,
+  );
+
+  await writeListingConditionEvidence(tx, {
+    listingId: row.id,
+    actor: spec.conditionActor,
+    galleryFileIds: input.imageFileIds,
+    resolved: spec.resolvedCondition,
+    categoryId,
+    categorySlugs,
+    now,
+  });
+
+  const inserted = await insertVariants(row.id, variants, tx);
+
+  // Stock each store variant at the target location (connector import) or the
+  // store's default. The variant scalar `available` already equals the requested
+  // value and the single level row matches it, so the rollup is consistent.
+  await insertLevels(
+    inserted.map((variantRow, index) => ({
+      variantId: variantRow.id,
+      listingId: row.id,
+      locationId: spec.stockLocationId,
+      available: variants[index].inventoryAvailable,
+    })),
+    tx,
+  );
+
+  return row;
+}
+
 /**
  * Create a store product: the listing (`ownerType: 'store'`, with the supplied
- * selectable options) plus its variants, then increments the store's
- * `productCount`. Returns the new listing's id.
+ * selectable options) plus its variants and their stock, in ONE transaction,
+ * then increments the store's `productCount`. Returns the new listing's id.
  *
  * `opts.locationId` routes the initial stock to a specific location (the
  * connector import path passes the connection's resolved `targetLocationId`);
  * when omitted the stock lands at the store's default location, unchanged for
  * the merchant path.
+ *
+ * `opts.source` and `opts.status` exist so an IMPORTED listing is never
+ * observable without its provenance (#221). Both are written by the same
+ * `insertListing` call as everything else, inside the same transaction, so a
+ * failure produces NO listing rather than one that cannot be matched again: an
+ * unstamped listing is invisible to `findListingBySourceExternalId` AND still
+ * occupies `listings_store_id_handle_key`, so every later sync of that product
+ * fails on the handle unique, permanently. The connector paths used to create
+ * the listing and then patch both in a second statement, which is the window.
  */
 export async function createStoreProduct(
   storeId: string,
   input: CreateStoreProductInput,
-  opts: { locationId?: string; actorOxyUserId?: string } = {},
+  opts: {
+    locationId?: string;
+    actorOxyUserId?: string;
+    /**
+     * The four connector-provenance columns, all four or none — see
+     * {@link ListingSourceProvenance} for why a half-set is worse than nothing.
+     */
+    source?: ListingSourceProvenance;
+    /**
+     * The status the listing is CREATED with; `active` when unstated, which is
+     * every merchant path. A connector connection that does not auto-publish
+     * passes `draft` HERE rather than patching it afterwards. The set is the two
+     * a create may legitimately produce: `restricted` is a jury's to write and
+     * `archived` is a delisting, neither of which a create can mean.
+     */
+    status?: 'active' | 'draft';
+    /**
+     * Per-variant provenance, POSITIONALLY aligned with `input.variants`.
+     *
+     * `NewVariant` already carries the four columns and `insertVariants` already
+     * writes them, so this costs no schema change and removes the post-create
+     * stamping pass entirely (#221) — an imported variant is never observable
+     * unstamped either. A variant the platform gave no ids for is the all-NULL
+     * value; a SHORTER array leaves the remaining variants unstamped, which is
+     * what a caller supplying nothing already means.
+     */
+    variantSources?: readonly VariantSourceProvenance[];
+  } = {},
 ): Promise<string> {
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
-  const variants = resolveStoreVariants(input);
+  const variants = resolveStoreVariants(input, opts.variantSources);
 
   if (variants.length > config.catalog.maxVariantsPerProduct) {
     throw validationError(
@@ -446,81 +626,42 @@ export async function createStoreProduct(
     ? { kind: 'seller', oxyUserId: opts.actorOxyUserId }
     : { kind: 'source' };
 
-  // Multi-currency: variant prices are stored in their NATIVE currency exactly as
-  // given (no FAIR conversion) — the price already carries its `.currency`.
-  const first = variants[0];
-  const listing = await getDb().transaction(async (tx) => {
-    await assertConditionAllowed(tx, { resolved: resolvedCondition, categoryId, categorySlugs });
+  // A merchant-created product has no source, and the four columns are written
+  // explicitly NULL rather than left out: `insertListing` takes the whole column
+  // set, and stating the absence keeps this the one place the default lives.
+  const source: ListingSourceProvenance = opts.source ?? {
+    sourceConnectionId: null,
+    sourceProvider: null,
+    sourceExternalId: null,
+    sourceExternalUpdatedAt: null,
+  };
+  // Resolved BEFORE the transaction, deliberately: it is a READ, and a store with
+  // no location now fails before anything is written rather than after the
+  // listing and its variants have been committed without stock.
+  const stockLocationId = opts.locationId ?? (await resolveDefaultLocationId(storeId));
 
-    const row = await insertListing(
-      {
-        ownerType: 'store',
-        oxyUserId: null,
-        storeId,
-        title: input.title,
-        description: input.description,
-        ...conditionColumns,
-        conditionSourceLabel: null,
-        status: 'active',
-        categoryId,
-        categorySlugs,
-        tags: input.tags ?? [],
-        priceRangeMinAmount: first.priceAmount,
-        priceRangeMinCurrency: first.priceCurrency,
-        priceRangeMaxAmount: first.priceAmount,
-        priceRangeMaxCurrency: first.priceCurrency,
-        hasInventory: false,
-        variantCount: variants.length,
-        longitude: null,
-        latitude: null,
-        vendor: input.vendor ?? null,
-        productType: input.productType ?? null,
-        handle: input.handle ?? null,
-        seoTitle: input.seo?.title ?? null,
-        seoDescription: input.seo?.description ?? null,
-        sourceConnectionId: null,
-        sourceProvider: null,
-        sourceExternalId: null,
-        sourceExternalUpdatedAt: null,
-        overriddenFields: [],
-        rating: 0,
-        reviewCount: 0,
-        favoriteCount: 0,
-        publishedAt: now,
-      },
-      toListingImages(input.imageFileIds),
-      input.options.map((o, position) => ({ name: o.name, values: [...o.values], position })),
-      tx,
-    );
-
-    await writeListingConditionEvidence(tx, {
-      listingId: row.id,
-      actor: conditionActor,
-      galleryFileIds: input.imageFileIds,
-      resolved: resolvedCondition,
+  const listing = await getDb().transaction((tx) =>
+    insertStoreProductWithin(tx, {
+      storeId,
+      input,
+      variants,
+      source,
+      status: opts.status ?? 'active',
+      stockLocationId,
       categoryId,
       categorySlugs,
+      resolvedCondition,
+      conditionColumns,
+      conditionActor,
       now,
-    });
-
-    return row;
-  });
-
-  const inserted = await insertVariants(listing.id, variants);
-
-  // Stock each store variant at the target location (connector import) or the
-  // store's default. The variant scalar `available` already equals the requested
-  // value and the single level row matches it, so the rollup is consistent.
-  const stockLocationId = opts.locationId ?? (await resolveDefaultLocationId(storeId));
-  await insertLevels(
-    inserted.map((row, index) => ({
-      variantId: row.id,
-      listingId: listing.id,
-      locationId: stockLocationId,
-      available: variants[index].inventoryAvailable,
-    })),
+    }),
   );
 
+  // Everything below is a RECOMPUTE over what the transaction committed, and each
+  // is idempotent, so none of it belongs inside: `syncListingFacets` requests the
+  // #57 offer convergence and #58's match, and `recomputeCollectionMembership`
+  // opens its own connection — calling either inside would have the transaction
+  // wait on a writer that is waiting on it.
   await syncListingFacets(listing.id);
   await adjustStoreProductCount(storeId, 1);
   await recomputeCollectionMembership(listing.id);

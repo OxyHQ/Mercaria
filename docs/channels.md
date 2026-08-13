@@ -16,7 +16,7 @@ is what the rules ARE and why.
 ## The failure modes that shape it
 
 **A merchant walked into a known defect and did not know.** #69's connector
-contract suite filed four open defects (#218–#221) while proving what the
+contract suite filed four defects (#218–#221, all since fixed) while proving what the
 connectors do and do not do. The most consequential — #218, since FIXED — meant
 that connecting WooCommerce registered webhooks part-way, lost the signing secret
 with them, and left every delivery rejected forever. The channel worked; live
@@ -374,8 +374,46 @@ key pair genuinely are different things (#87 UX 2).
 
 ## Known defects a merchant is told about
 
-These are #69's, filed and still open. The catalog carries each with its issue
-number so onboarding does not walk a merchant into one silently.
+These are #69's. The catalog carries each OPEN one with its issue number so
+onboarding does not walk a merchant into it silently — and **all four are now
+fixed, so `WOOCOMMERCE_OPEN_DEFECTS` is empty.** The empty array and its call
+site stay: this is the shape a fifth defect is filed into, and a merchant-facing
+warning that has to be re-invented is one that gets left out.
+`channel-catalog.test.ts` asserts the EXACT open-issue set with a floor on the
+total limitation count beside it, so neither an entry that outlived its fix nor a
+descriptor that stopped reporting limitations at all can pass.
+
+**#221 is FIXED**, in four independent parts.
+
+1. **The create is atomic.** An imported listing's four `source_*` columns, its
+   initial `draft`/`active` status and its VARIANTS' four `source_*` columns are
+   arguments to `createStoreProduct`, written by `insertStoreProductWithin` —
+   one transaction covering the listing, its images, options, condition
+   evidence, variants and stock. A failure leaves NO listing rather than one no
+   later sync can match and whose handle blocks every re-import. The variants
+   had to join it: they used to be inserted after the transaction committed, so
+   a SKU another product already held left a listing with nothing to sell, and
+   `convergeVariants` returns early on a listing with zero variants, so nothing
+   would ever have grown one. `stampVariantSources` is deleted;
+   `stampVariantSource` remains for #220's convergence.
+2. **One listing per provenance key, enforced by the storage.** Migration `0070`
+   (`post`) promotes `listings_store_id_source_key_idx` to UNIQUE on the same
+   partial predicate. The service already assumed it —
+   `findListingBySourceExternalId` returns one row — while two concurrent
+   deliveries for one external id could both read null and both create. The
+   loser now RE-READS and converges through the update branch. It is matched by
+   CONSTRAINT NAME, so a `listings_store_id_handle_key` collision still fails
+   the product: two genuinely different external products claiming one handle is
+   a real merchant conflict, and no handle dedup was added.
+3. **The timestamp trigger.** `connectors/timestamps.ts` appends `Z` only to a
+   value carrying NO zone of its own, then omits what is still unreadable.
+   Omitting a legitimately-zoned value would be a data LOSS rather than caution:
+   `buildSource` writes `sourceExternalUpdatedAt: … ?? null`, so a field the
+   normalizer declines to read erases the stored freshness on every later sync.
+4. **`fx_rate_as_of` is validated, not rewritten** — a readable value keeps the
+   platform's own spelling, and only an unreadable one falls back to now.
+
+`listing_stamp_not_atomic` left `CHANNEL_LIMITATION_CODES` with the defect.
 
 **#220 is FIXED too** — a webhook payload is completed before it is normalized,
 one that cannot be completed is refused rather than collapsed, and a variant the
@@ -396,9 +434,6 @@ transaction. What a merchant sees instead of a blanket limitation is the actual
 refusals: `Connection.webhookFailures` names each topic with its HTTP status and
 a classified reason, and `ChannelReadiness` reports the catalogue axis as
 `degraded` while any exist.
-
-- **#221 — an import is not atomic between creating a listing and stamping its
-  provenance.** A failure in between strands a listing no later sync can match.
 
 Runbook §8.5 is also surfaced, as copy rather than a limitation: a no-change
 resync tallies as `updated`, because the patch is built from every unpinned
@@ -431,8 +466,10 @@ Each is a named contract rather than a stub that lies.
 - **A record-level error export for CONNECTORS** (#87 management 9). Feeds have
   one — #63's CSV, values excluded — and `sync_runs` carries counts plus a single
   error string with no per-record table behind it. Adding one is a connector
-  schema change and belongs with whichever issue fixes #221, which is the defect
-  that produces the errors worth exporting.
+  schema change and still owed. #221 was the defect that produced the errors
+  worth exporting and it is fixed, so the export is now about the ordinary
+  per-product failures a real catalogue produces (a malformed price, a SKU
+  colliding with an existing variant) rather than about a stranded listing.
 - **#84's linkage UI.** This domain READS the link and never writes one.
 
 ---

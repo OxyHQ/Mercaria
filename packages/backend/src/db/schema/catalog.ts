@@ -378,7 +378,16 @@ export const listings = pgTable(
       .on(t.storeId, t.handle)
       .where(sql`${t.handle} is not null`),
     // Connector upsert/lookup by provenance key, restricted to sourced listings.
-    index('listings_store_id_source_key_idx')
+    //
+    // UNIQUE since #221, and the promotion is the storage catching up with what
+    // the service layer already assumed: `findListingBySourceExternalId` returns
+    // ONE row and every writer relies on that. Without the constraint, two
+    // concurrent deliveries for one external id both read null and both create,
+    // and the loser of that race is a duplicate no read will ever surface.
+    // PARTIAL on the same predicate, because an unsourced listing has NULL here
+    // and Postgres would treat every one of them as distinct anyway — the
+    // partial keeps the index the size of the real set.
+    uniqueIndex('listings_store_id_source_key_idx')
       .on(t.storeId, t.sourceConnectionId, t.sourceExternalId)
       .where(sql`${t.sourceExternalId} is not null`),
   ],

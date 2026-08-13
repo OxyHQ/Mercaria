@@ -215,3 +215,95 @@ describe('normalizeWooCommerceProduct', () => {
     ).toThrow();
   });
 });
+
+/**
+ * #221's trigger, in the pure function where it originates.
+ *
+ * WooCommerce's `*_gmt` fields carry no zone, so the connector appends `Z`.
+ * Appending it to a value that already carries one produced an INVALID `Date`,
+ * which none of these assertions could distinguish from a real one — it only
+ * announced itself two layers down, where drizzle threw mapping it to a
+ * `timestamptz` parameter and failed that product's whole import.
+ *
+ * **Omitting the field is the LAST resort, not the first.** `buildSource`
+ * writes `sourceExternalUpdatedAt: … ?? null`, so a field the normalizer
+ * declines to read does not merely go missing from one sync — it ERASES the
+ * stored freshness on every sync, and the newer-than comparison the column
+ * exists for has nothing left to compare against. A zoned value is therefore
+ * READ at its own offset, and only genuinely unreadable text is omitted.
+ */
+describe('normalizeWooCommerceProduct — provider timestamps (#221)', () => {
+  it('reads a zone-less `date_modified_gmt` as UTC', () => {
+    const product = normalizeWooCommerceProduct(
+      { ...simpleProduct, date_modified_gmt: '2026-01-02T03:04:05' },
+      'USD',
+    );
+
+    expect(product.externalUpdatedAt).toEqual(new Date('2026-01-02T03:04:05Z'));
+  });
+
+  it('READS a value that already carries a zone, at that zone', () => {
+    // NOT omitted. `+02:00` names an unambiguous instant, and discarding it
+    // would null the column on every later sync — the erasure the module header
+    // describes. A zone inside a field named `_gmt` means a plugin or a proxy
+    // rewrote the response, and the instant is still exactly stated.
+    const product = normalizeWooCommerceProduct(
+      { ...simpleProduct, date_modified_gmt: '2026-01-02T03:04:05+02:00' },
+      'USD',
+    );
+
+    expect(product.externalUpdatedAt).toEqual(new Date('2026-01-02T01:04:05Z'));
+  });
+
+  it('READS an explicit `Z` without appending a second one', () => {
+    const product = normalizeWooCommerceProduct(
+      { ...simpleProduct, date_modified_gmt: '2026-01-02T03:04:05Z' },
+      'USD',
+    );
+
+    expect(product.externalUpdatedAt).toEqual(new Date('2026-01-02T03:04:05Z'));
+  });
+
+  it('reads a bare DATE as UTC midnight', () => {
+    // `2026-01-02` ends in `-02`, which a naive `/[+-]\d{2}$/` zone test reads as
+    // a `-02` offset — the reason `ZONED_TIMESTAMP` is anchored to a preceding
+    // `HH:MM`. Worth stating plainly: this assertion does NOT discriminate the
+    // anchoring, because ECMAScript parses a date-only ISO string as UTC either
+    // way, so both classifications land here. What it pins is the BEHAVIOUR —
+    // that a bare date survives at all rather than being omitted — and the
+    // discrimination is pinned by the zoned cases above, where a misclassified
+    // value produces `…+02:00Z` and no date at all.
+    const product = normalizeWooCommerceProduct(
+      { ...simpleProduct, date_modified_gmt: '2026-01-02' },
+      'USD',
+    );
+
+    expect(product.externalId).toBe('111');
+    expect(product.externalUpdatedAt).toEqual(new Date('2026-01-02T00:00:00Z'));
+  });
+
+  it('OMITS `externalUpdatedAt` for text that is not a timestamp at all', () => {
+    const product = normalizeWooCommerceProduct(
+      { ...simpleProduct, date_modified_gmt: '0000-00-00 00:00:00' },
+      'USD',
+    );
+
+    // The product still imports — one unreadable timestamp must not cost it.
+    expect(product.externalId).toBe('111');
+    expect(product.variants).toHaveLength(1);
+    expect(product.externalUpdatedAt).toBeUndefined();
+  });
+
+  it('falls back to `date_created_gmt` when the product was never modified', () => {
+    // The positive control on the fallback: without it, an unreadable
+    // `date_modified_gmt` and a missing one would be indistinguishable, and the
+    // omission case above would pass against a normalizer that had stopped
+    // reading either field.
+    const product = normalizeWooCommerceProduct(
+      { ...simpleProduct, date_modified_gmt: null, date_created_gmt: '2026-01-02T03:04:05' },
+      'USD',
+    );
+
+    expect(product.externalUpdatedAt).toEqual(new Date('2026-01-02T03:04:05Z'));
+  });
+});

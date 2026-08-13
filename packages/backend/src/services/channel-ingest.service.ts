@@ -45,6 +45,7 @@ import type {
   UpdateListingInput,
 } from '@mercaria/shared-types';
 import { CONNECTOR_PROVIDER_IDS, type SyncRunCounts } from '@mercaria/shared-types';
+import { isUniqueViolation } from '@oxyhq/db';
 import {
   findConnection,
   findConnectionByProvider,
@@ -56,7 +57,7 @@ import { finishSyncRun, insertSyncRun } from '../db/connectors/syncRunRepository
 import {
   findListingBySourceExternalId,
   updateListingColumns,
-  type ListingRecord,
+  type ListingSourceProvenance,
 } from '../db/catalog/listingRepository.js';
 import {
   findVariantByListingAndSku,
@@ -220,22 +221,17 @@ function toUpdatePatch(product: IngestProduct, overridden: Set<string>): UpdateL
   return patch;
 }
 
-/** Build the provenance `source` sub-document for an ingested listing (server-set). */
 /**
  * The connector-provenance columns for an ingested product.
  *
  * The four `source_*` columns are flat on `listings` rather than an embedded
- * object, so this returns the PATCH itself. `externalUpdatedAt` is explicitly
- * NULL when the platform did not send one: leaving the key out would keep a
- * previous ingest's timestamp on a product whose source stopped reporting it.
+ * object, so this returns the columns themselves — carried into the CREATE
+ * (#221) and applied as the PATCH on every later push, from this one definition
+ * either way. `externalUpdatedAt` is explicitly NULL when the platform did not
+ * send one: leaving the key out would keep a previous ingest's timestamp on a
+ * product whose source stopped reporting it.
  */
-function buildSource(
-  conn: ConnectionRow,
-  product: IngestProduct,
-): Pick<
-  ListingRecord,
-  'sourceConnectionId' | 'sourceProvider' | 'sourceExternalId' | 'sourceExternalUpdatedAt'
-> {
+function buildSource(conn: ConnectionRow, product: IngestProduct): ListingSourceProvenance {
   return {
     sourceConnectionId: conn.id,
     sourceProvider: conn.provider,
@@ -261,23 +257,66 @@ async function upsertProduct(
     importLocationId?: string;
   },
 ): Promise<{ action: UpsertOutcome; listingId: string }> {
-  const existing = await findListingBySourceExternalId(
+  // `let` because the create branch may LOSE the provenance-unique race and fall
+  // through to the update branch with the row the winner wrote (#221).
+  let existing = await findListingBySourceExternalId(
     conn.storeId,
     conn.id,
     product.externalId,
   );
 
   if (!existing) {
-    const listingId = await createStoreProduct(
-      conn.storeId,
-      toCreateInput(product, opts.categorySlug, opts.priceRules),
-      { locationId: opts.importLocationId },
-    );
-    await updateListingColumns(listingId, {
-      ...buildSource(conn, product),
-      ...(opts.autoPublish ? {} : { status: 'draft' as const }),
-    });
-    return { action: 'created', listingId };
+    // #221: the provenance and the initial status are written by the listing's
+    // OWN insert, in its own transaction — the push-in path had the identical
+    // create-then-stamp window the pull path did, and the same consequence: a
+    // listing with no `source_external_id` is unmatchable by
+    // `findListingBySourceExternalId` forever while still holding its handle, so
+    // every later push of that product fails on `listings_store_id_handle_key`.
+    let createdListingId: string | undefined;
+    try {
+      createdListingId = await createStoreProduct(
+        conn.storeId,
+        toCreateInput(product, opts.categorySlug, opts.priceRules),
+        {
+          locationId: opts.importLocationId,
+          source: buildSource(conn, product),
+          status: opts.autoPublish ? 'active' : 'draft',
+          // No `variantSources`, and that is structural rather than an omission:
+          // `IngestProductVariant` (`shared-types/src/integration.ts`) carries no
+          // external variant id and no inventory item id, so this wire DTO cannot
+          // express one. The push-in path matches variants by SKU throughout,
+          // consistently with that. It becomes available when the plugin sends
+          // those ids, not before.
+        },
+      );
+    } catch (err) {
+      // The provenance unique, by CONSTRAINT NAME off the driver error (a drizzle
+      // error's SQLSTATE is on `cause`, never `error.code`). Two plugin instances
+      // pushing one catalogue is the ordinary way to lose this race, so the loser
+      // RE-READS and converges through the update branch. A
+      // `listings_store_id_handle_key` violation is deliberately NOT caught here:
+      // two genuinely different external products claiming one handle is a real
+      // merchant conflict and must surface as a per-product failure.
+      if (!isUniqueViolation(err, 'listings_store_id_source_key_idx')) {
+        throw err;
+      }
+      const raced = await findListingBySourceExternalId(
+        conn.storeId,
+        conn.id,
+        product.externalId,
+      );
+      // The constraint fired and the row is not there: something other than the
+      // race we can explain. Rethrow the ORIGINAL error rather than invent one.
+      if (!raced) {
+        throw err;
+      }
+      existing = raced;
+    }
+
+    if (createdListingId !== undefined) {
+      return { action: 'created', listingId: createdListingId };
+    }
+    // Fell through from the race: `existing` now names the row the winner wrote.
   }
 
   const listingId = existing.id;

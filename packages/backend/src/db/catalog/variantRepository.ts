@@ -60,6 +60,28 @@ export interface NewVariant {
   sourceExternalInventoryItemId?: string | null;
 }
 
+/**
+ * The four connector-provenance columns of ONE variant, carried as one value.
+ *
+ * `ListingSourceProvenance`'s reasoning one level down, and the comment
+ * `stampVariantSources` used to carry before #221 folded it into the create:
+ * `findVariantBySourceInventoryItemId` matches on `(sourceConnectionId,
+ * sourceExternalInventoryItemId)`, so a variant holding only SOME of these is
+ * exactly as unfindable as an unstamped one while LOOKING synced. `Required`
+ * rather than the optional members `NewVariant` declares, so all four keys must
+ * be stated — a variant the platform gave no ids for is the all-NULL value,
+ * written out, rather than an absence somebody has to notice.
+ */
+export type VariantSourceProvenance = Required<
+  Pick<
+    NewVariant,
+    | 'sourceConnectionId'
+    | 'sourceProvider'
+    | 'sourceExternalVariantId'
+    | 'sourceExternalInventoryItemId'
+  >
+>;
+
 /** The columns a caller may patch on an existing variant. */
 export interface VariantPatch {
   title?: string;

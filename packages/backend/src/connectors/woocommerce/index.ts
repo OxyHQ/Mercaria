@@ -69,6 +69,7 @@ import {
   reconcileWebhookSubscriptions,
   type WebhookProbe,
 } from '../webhook-registration.js';
+import { parseZonelessUtcTimestamp } from '../timestamps.js';
 import { REGISTERED_WEBHOOK_TOPICS } from './webhook.js';
 import { wooCommerceTransport, type WooCommerceHttpResponse, type WooCommerceTransport } from './http.js';
 
@@ -76,6 +77,7 @@ import { wooCommerceTransport, type WooCommerceHttpResponse, type WooCommerceTra
 const PAGE_LIMIT = 100;
 /** The publish states of products the pull imports (drafts/private are skipped). */
 const PRODUCT_STATUS = 'publish';
+
 
 // --- WooCommerce response schemas (only the fields we consume; extras ignored) ---
 
@@ -375,10 +377,12 @@ function normalizeParsed(
     imageUrls: product.images.map((img) => img.src),
     variants,
   };
-  // WooCommerce GMT timestamps carry no offset — append `Z` to read them as UTC.
-  const updatedAt = product.date_modified_gmt ?? product.date_created_gmt;
-  if (updatedAt && updatedAt.trim() !== '') {
-    normalized.externalUpdatedAt = new Date(`${updatedAt}Z`);
+  // WooCommerce's `*_gmt` fields carry no zone; a value that carries one anyway
+  // is read AS its own offset rather than discarded (#221) — see
+  // `connectors/timestamps.ts` for why discarding it erases stored freshness.
+  const updatedAt = parseZonelessUtcTimestamp(product.date_modified_gmt ?? product.date_created_gmt);
+  if (updatedAt) {
+    normalized.externalUpdatedAt = updatedAt;
   }
   if (product.slug && product.slug.trim() !== '') {
     normalized.handle = product.slug;
@@ -665,13 +669,14 @@ export function normalizeWooCommerceOrder(raw: unknown, shopCurrency: CurrencyCo
   if (order.number != null && String(order.number).trim() !== '') {
     normalized.externalNumber = String(order.number);
   }
-  // WooCommerce GMT timestamps carry no offset — append `Z` to read them as UTC.
-  const updatedAt = order.date_modified_gmt ?? order.date_created_gmt;
-  if (updatedAt && updatedAt.trim() !== '') {
-    normalized.externalUpdatedAt = new Date(`${updatedAt}Z`);
+  // The `*_gmt` reading rule, on the order path — see `normalizeParsed` above.
+  const updatedAt = parseZonelessUtcTimestamp(order.date_modified_gmt ?? order.date_created_gmt);
+  if (updatedAt) {
+    normalized.externalUpdatedAt = updatedAt;
   }
-  if (order.date_created_gmt && order.date_created_gmt.trim() !== '') {
-    normalized.createdAt = new Date(`${order.date_created_gmt}Z`);
+  const createdAt = parseZonelessUtcTimestamp(order.date_created_gmt);
+  if (createdAt) {
+    normalized.createdAt = createdAt;
   }
   const customer = mapWooCustomer(order);
   if (customer) {

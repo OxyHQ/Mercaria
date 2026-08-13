@@ -241,6 +241,22 @@ export async function replaceListingOptions(
   );
 }
 
+/**
+ * The four connector-provenance columns, carried as ONE value.
+ *
+ * They are a SET rather than four independent fields because a listing carrying
+ * some of them is exactly as unfindable as one carrying none while LOOKING
+ * synced: `findListingBySourceExternalId` matches on `(storeId,
+ * sourceConnectionId, sourceExternalId)`, so a row missing either is invisible
+ * to every later sync and still occupies its handle. Requiring all four KEYS
+ * makes a half-set unrepresentable at the call site rather than something a
+ * reviewer has to notice.
+ */
+export type ListingSourceProvenance = Pick<
+  ListingRecord,
+  'sourceConnectionId' | 'sourceProvider' | 'sourceExternalId' | 'sourceExternalUpdatedAt'
+>;
+
 /** The columns a caller supplies when creating a listing. */
 export type NewListing = Omit<
   ListingRecord,
