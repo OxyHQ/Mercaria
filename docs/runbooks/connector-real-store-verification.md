@@ -296,6 +296,27 @@ platform REFUSED are persisted in ONE transaction, so:
   topic, its HTTP status and a classified reason, and `ChannelReadiness` reports
   the catalogue axis as `degraded` while any exist.
 
+**The four residual holes the first fix left, all closed now, because they change
+what you should see on a real store:**
+
+- **A refused LIST no longer erases the stored ids.** `registerWebhooks` returns
+  a discriminated result; the branch meaning "the platform's list could not be
+  read" carries NO subscription list at all, and the persisted ids are left
+  exactly as they were. Nothing was created and nothing deleted, so they are
+  still the best handle anyone has on that shop.
+- **A refused DELETE no longer drops the id of a subscription that is still
+  live.** An undeleted duplicate, the survivors of a blocked recreate and a
+  retired topic the platform would not remove are all persisted.
+- **`disconnect` reads the platform** and deletes the union of the stored ids and
+  every subscription live at this connection's EXACT delivery URL, best-effort
+  and never blocking the disconnect. A registration that threw between the
+  platform call and the database write is the case: it leaves subscriptions
+  Mercaria holds no id for, and trusting `webhookIds` walks past them.
+- **Shopify's `GET /webhooks.json` is paged** (`Link: rel="next"`) like every
+  other Shopify collection. Past the page limit a truncated list reads as "these
+  are all the subscriptions that exist", which produces duplicates and orphans on
+  exactly the shops with accumulated ones.
+
 **What a real store still settles, and what to record:**
 
 - that Shopify's `GET /webhooks.json` and WooCommerce's `GET /webhooks` return
@@ -308,7 +329,15 @@ platform REFUSED are persisted in ONE transaction, so:
   pass. **If a real Woo site rewrites the delivery URL it was given, the reconcile
   will not recognise its own subscriptions and will recreate them every
   registration** — the observable is `deletedWebhookIds` growing on every
-  reconnect with the topic set unchanged. Record it if you see it.
+  reconnect with the topic set unchanged. Record it if you see it. The SAME
+  rewrite would make `disconnect` leave every subscription behind, since it
+  matches on that URL too;
+- **two Mercaria stores connected to the SAME Shopify shop.** Shopify has one
+  app-wide delivery address, so both connections adopt the same subscriptions and
+  store the same ids — disconnecting either deletes them for both, until the
+  other's next reconnect recreates them. That is a property of Shopify's
+  app-secret verification rather than of the disconnect, and it was already true
+  of the stored ids; record whether a real pair of stores behaves as described.
 
 ### 8.2 WooCommerce rate-limit handling — FIXED (#219), with a stated limit
 
@@ -519,10 +548,13 @@ Ordered least to most drastic. Every step is reversible except the last.
    deletes the platform webhooks, marks the connection `disconnected` and clears
    all six credential columns in one statement. The row and every imported
    listing's provenance SURVIVE, so reconnecting resumes rather than
-   re-importing. **Check the platform's own webhook list afterwards** — since
-   #218 Mercaria holds an id for every subscription it created, but a connection
-   that last registered before that fix may still carry orphans, and the way to
-   clear those is to RECONNECT (which reconciles) before disconnecting.
+   re-importing. The disconnect deletes the union of the ids Mercaria stores and
+   every subscription the platform currently delivers to this connection's exact
+   delivery URL, so an orphan from a pre-#218 registration is cleared by the
+   disconnect itself and no longer needs a RECONNECT first. **Check the
+   platform's own webhook list afterwards anyway** — that read is best-effort and
+   is skipped when the platform will not answer it (an expired token, a 5xx), in
+   which case only the stored ids were deleted and the log line says so.
 4. **Stop the push-in surface for one merchant.** Revoke every channel key:
    `DELETE /admin/stores/{storeId}/channel-keys/{keyId}`. The plugin's next push
    gets 401; nothing already imported changes. Rotation is mint-then-revoke, in

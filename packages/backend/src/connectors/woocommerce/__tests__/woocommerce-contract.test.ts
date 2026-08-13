@@ -327,14 +327,20 @@ function createWooCommerceFake(world: ContractWorld): WooCommerceTransport {
       }
       // `GET /webhooks` — what the site actually holds, which is what #218's
       // reconciliation reads before it creates anything. WooCommerce paginates
-      // it like every other collection, so the page header is real.
+      // it like every other collection, so it is PAGED here rather than served
+      // whole: a fake that answers everything on one page cannot tell a
+      // connector that follows the pages from one that reads the first and
+      // concludes those are all the subscriptions that exist. The `secret` is
+      // deliberately absent — WooCommerce fixes it at creation and never
+      // discloses it again, which is the whole reason this provider recreates.
+      const page = pageOf(url, 'page');
       return ok(
-        world.webhooks.map((webhook) => ({
+        pageSlice(world.webhooks, page, world.pageSize).map((webhook) => ({
           id: webhook.id,
           topic: webhook.topic,
           delivery_url: webhook.deliveryUrl,
         })),
-        { 'x-wp-totalpages': '1' },
+        { 'x-wp-totalpages': String(totalPages(world.webhooks, world.pageSize)) },
       );
     }
     const webhookDeleteMatch = path.match(/^\/wp-json\/wc\/v3\/webhooks\/([^/]+)$/);
@@ -389,6 +395,7 @@ describeConnectorContract({
   capabilities: wooCommerceProvider.capabilities,
   webhookSecretStrategy: wooCommerceProvider.webhookSecretStrategy,
   webhookPathFragment: '/webhooks',
+  webhookDeletePathFragment: '/webhooks/',
   // A `product.*` delivery carries `variations` as IDS, so completing it means
   // fetching `/products/{id}/variations` (#220).
   webhookExpansionPathFragment: '/variations',

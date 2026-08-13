@@ -811,6 +811,19 @@ export function normalizeWooCommerceOrder(raw: unknown, shopCurrency: CurrencyCo
   return normalized;
 }
 
+/**
+ * The EXACT URL one connection's WooCommerce subscriptions deliver to.
+ *
+ * ONE spelling, read by `webhookDeliveryUrl` (which disconnect calls) and by
+ * `registerWebhooks` (which reconciles against it). Two copies of this string
+ * would let a reconcile and a disconnect disagree about which subscriptions
+ * belong to a connection, and the direction they disagree in is either "delete
+ * somebody else's" or "leave your own behind".
+ */
+function wooDeliveryUrl(params: { address: string; connectionId: string }): string {
+  return `${params.address.replace(/\/+$/, '')}/${encodeURIComponent(params.connectionId)}`;
+}
+
 /** The WooCommerce REST base for a site: `{site}/wp-json/wc/v3` (https-normalized). */
 function apiBase(shopDomain: string): string {
   const trimmed = shopDomain.trim().replace(/\/+$/, '');
@@ -1301,6 +1314,20 @@ export function createWooCommerceProvider(
     },
 
     /**
+     * A per-CONNECTION delivery URL so the ingress route
+     * (`POST /channels/webhooks/woocommerce/:connectionId`) resolves the exact
+     * connection, and thus its stored secret, for HMAC verification.
+     *
+     * It is also what SCOPES every reconcile and every disconnect: another
+     * connection's subscriptions carry another id in this URL and the comparison
+     * is EXACT, so they are never adopted and never deleted. Two sites connected
+     * to one Mercaria store, or one site connected twice, stay independent.
+     */
+    webhookDeliveryUrl(params: { address: string; connectionId: string }) {
+      return wooDeliveryUrl(params);
+    },
+
+    /**
      * Register every topic, tolerating each refusal separately (#218).
      *
      * `adoptExisting: false`, and that is forced rather than chosen: WooCommerce
@@ -1309,6 +1336,18 @@ export function createWooCommerceProvider(
      * secret this call does not hold — every delivery would 401 forever, which
      * is #218's worst half. Deleting first is what makes the secret persisted
      * beside these ids verify every one of them.
+     *
+     * ## When a delete is REFUSED, the new secret is still stored, on purpose
+     *
+     * That leaves a live subscription for the blocked topic signed with the
+     * PREVIOUS secret, whose deliveries 401. The alternative — keeping the old
+     * secret — 401s every topic this attempt successfully recreated instead, so
+     * both choices break something and only one CONVERGES: the merchant is
+     * already told the blocked topic failed (it is in `failures`), its id is
+     * retained so the next reconcile deletes it before recreating, and every
+     * other topic works in the meantime. Keeping the old secret would instead
+     * leave a shop whose registration succeeded verifying nothing, with the
+     * failure attached to no topic at all.
      */
     registerWebhooks(
       auth: ConnectorAuth,
@@ -1318,12 +1357,7 @@ export function createWooCommerceProvider(
         throw validationError('WooCommerce webhook registration requires a per-connection secret');
       }
       const secret = params.secret;
-      // A per-CONNECTION delivery URL so the ingress route resolves the exact
-      // connection (and thus its stored secret) for HMAC verification. It is
-      // also what scopes reconciliation: another connection's subscriptions
-      // carry another id in this URL and are compared EXACTLY, so they are
-      // never adopted and never deleted.
-      const deliveryUrl = `${params.address.replace(/\/+$/, '')}/${encodeURIComponent(params.connectionId)}`;
+      const deliveryUrl = wooDeliveryUrl(params);
       const headers = { ...authHeaders(auth), 'Content-Type': 'application/json' };
       return reconcileWebhookSubscriptions({
         topics: REGISTERED_WEBHOOK_TOPICS,

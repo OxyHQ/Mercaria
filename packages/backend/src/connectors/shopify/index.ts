@@ -932,44 +932,62 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
   const collectionIndexCache = new Map<string, { index: Map<string, string[]>; builtAt: number }>();
 
   /**
-   * `GET /webhooks.json`, as a PROBE rather than a throw.
+   * `GET /webhooks.json`, as a PROBE rather than a throw, following every page.
    *
    * The registration path needs the refusal as a value — it turns it into one
    * failure per desired topic — while `listWebhooks` on the provider interface
    * is an ordinary read that raises. One request builder, two callers, so the
    * two cannot answer differently about what the platform said.
+   *
+   * It PAGES for the same reason `products.json` and `orders.json` do, and the
+   * consequence of not doing so is worse here than a short catalogue: a
+   * truncated list is read as "these are all the subscriptions that exist", so
+   * every subscription past the page boundary is invisible — adopted by nobody,
+   * deleted by nobody, duplicated on the next create. That happens on exactly
+   * the shops this reconcile exists to rescue, since they are the ones carrying
+   * accumulated orphans. It cannot reuse {@link paginate}, which raises on a
+   * non-2xx: the whole point here is to answer with the refusal instead.
    */
   async function listShopifyWebhooks(
     auth: ConnectorAuth,
   ): Promise<WebhookProbe<PlatformWebhookSubscription[]>> {
-    let response: ShopifyHttpResponse;
-    try {
-      response = await transport.get(
-        `${apiBase(auth.shopDomain)}/webhooks.json?limit=${PAGE_LIMIT}`,
-        { 'X-Shopify-Access-Token': auth.accessToken, Accept: 'application/json' },
+    const all: PlatformWebhookSubscription[] = [];
+    let cursor: string | undefined;
+    do {
+      const params = new URLSearchParams({ limit: String(PAGE_LIMIT) });
+      if (cursor) {
+        params.set('page_info', cursor);
+      }
+      let response: ShopifyHttpResponse;
+      try {
+        response = await transport.get(
+          `${apiBase(auth.shopDomain)}/webhooks.json?${params.toString()}`,
+          { 'X-Shopify-Access-Token': auth.accessToken, Accept: 'application/json' },
+        );
+      } catch {
+        return { outcome: 'refused', reason: 'transport_error' };
+      }
+      if (response.status < 200 || response.status >= 300) {
+        return {
+          outcome: 'refused',
+          reason: classifyWebhookHttpStatus(response.status),
+          httpStatus: response.status,
+        };
+      }
+      const parsed = webhookListResponseSchema.safeParse(safeParseJson(response));
+      if (!parsed.success) {
+        return { outcome: 'refused', reason: 'unexpected_response', httpStatus: response.status };
+      }
+      all.push(
+        ...parsed.data.webhooks.map((webhook) => ({
+          id: String(webhook.id),
+          topic: webhook.topic,
+          deliveryUrl: webhook.address,
+        })),
       );
-    } catch {
-      return { outcome: 'refused', reason: 'transport_error' };
-    }
-    if (response.status < 200 || response.status >= 300) {
-      return {
-        outcome: 'refused',
-        reason: classifyWebhookHttpStatus(response.status),
-        httpStatus: response.status,
-      };
-    }
-    const parsed = webhookListResponseSchema.safeParse(safeParseJson(response));
-    if (!parsed.success) {
-      return { outcome: 'refused', reason: 'unexpected_response', httpStatus: response.status };
-    }
-    return {
-      outcome: 'ok',
-      value: parsed.data.webhooks.map((webhook) => ({
-        id: String(webhook.id),
-        topic: webhook.topic,
-        deliveryUrl: webhook.address,
-      })),
-    };
+      cursor = nextCursorFromLink(response.headers.link);
+    } while (cursor);
+    return { outcome: 'ok', value: all };
   }
 
   async function verifyConnection(auth: ConnectorAuth): Promise<ShopIdentity> {
@@ -1353,6 +1371,26 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
         }
         return probe.value;
       });
+    },
+
+    /**
+     * Shopify delivers every shop's events to ONE app-wide address, because the
+     * app secret verifies them and the `X-Shopify-Shop-Domain` header resolves
+     * the shop — there is no per-connection endpoint to build.
+     *
+     * The consequence, stated so a reader does not have to rediscover it: when
+     * two Mercaria stores connect the SAME Shopify shop, their subscriptions ARE
+     * each other's. Both reconciles adopt the same rows, both store the same
+     * ids, and a disconnect of either deletes the subscriptions the other is
+     * relying on until its next reconcile recreates them. That is already true
+     * of the ids Mercaria stores today — `adoptExisting: true` plus one shared
+     * address makes it unavoidable — so disconnect reading the platform's list
+     * widens nothing. Separating them needs a per-connection address, which
+     * Shopify's app-secret verification does not require and the ingress route
+     * does not mount.
+     */
+    webhookDeliveryUrl(params: { address: string }) {
+      return params.address;
     },
 
     /**

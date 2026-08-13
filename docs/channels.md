@@ -26,6 +26,22 @@ limitation is not silence: a refused topic is now RECORDED on the connection and
 served as `Connection.webhookFailures`, so the merchant is told which events will
 not arrive rather than told that a whole channel is degraded.
 
+**And the shape of the fix is what the rest of #218 turned out to be about: a
+subscription Mercaria holds no id for.** Making registration fault tolerant per
+topic was necessary and not sufficient, because the SET of ids Mercaria persists
+is a claim about a shop and every branch that shortened it left an orphan
+delivering to an endpoint nobody could clean up. So `registerWebhooks` now
+answers a discriminated result: a `reconciled` one names EVERY subscription live
+at this connection's exact delivery URL — created here, adopted, an undeleted
+duplicate, or the survivor of a delete the platform refused — while an `unknown`
+one, which is what a platform refusing to LIST produces, carries no subscription
+list at all and leaves the stored ids untouched. "I could not find out" written
+down as "there are none" is the same erasure in a different hand. `disconnect`
+reads the platform for the same reason rather than trusting `webhookIds`, and
+Shopify's subscription list is paged like every other Shopify collection, because
+a truncated list reads as "these are all that exist" on exactly the shops the
+convergence exists to rescue.
+
 **A client answered "can I sell yet" from provider flags.** The dashboard held a
 hard-coded `PROVIDERS` table with an `available` boolean per connector. It could
 not describe the product feed, could not describe the native catalogue, and had
@@ -434,6 +450,20 @@ transaction. What a merchant sees instead of a blanket limitation is the actual
 refusals: `Connection.webhookFailures` names each topic with its HTTP status and
 a classified reason, and `ChannelReadiness` reports the catalogue axis as
 `degraded` while any exist.
+
+The ids it persists are the platform's whole truth about Mercaria's delivery URL,
+not "what this attempt created": an undeleted duplicate, a blocked recreate's
+survivors and a retired topic that would not go are all named, because each is
+still delivering and its id is the only handle a later reconcile or the
+disconnect can remove it by. A `created`/`retained` marker on each is what keeps
+the WooCommerce secret honest — a fresh per-connection secret is stored only when
+something was actually created with it, so an attempt whose deletes were all
+refused leaves the envelope that still verifies every live delivery in place.
+When a delete IS refused on WooCommerce the new secret is still stored, and that
+is a choice between two broken states rather than a clean one: the blocked
+topic's subscription then 401s, the merchant is told (it is in `failures`), its
+id is retained so the next reconcile deletes it before recreating, and every
+other topic works meanwhile.
 
 **#259 is FIXED and adds no limitation code either** — and that is the decision
 rather than an omission. What it changes is when a sync may CONCLUDE something:

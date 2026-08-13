@@ -82,10 +82,27 @@ export interface PlatformWebhookSubscription {
   readonly deliveryUrl: string;
 }
 
-/** One subscription this connector holds after a registration. */
+/**
+ * One subscription that is LIVE at this connector's delivery URL when a
+ * registration finishes — whatever created it.
+ *
+ * `origin` is a STRING discriminant and it is not decoration: the caller mints a
+ * fresh `per_connection` secret before the attempt and may only store it once
+ * something was created WITH it. Reading "there are subscriptions" as "we
+ * created one" would replace the envelope that verifies whatever survived from
+ * an earlier registration with one that verifies nothing.
+ */
 export interface RegisteredWebhook {
   readonly id: string;
   readonly topic: string;
+  /**
+   * `created` — this attempt created it, signed with this attempt's secret.
+   * `retained` — it was already live at our delivery URL and is still there: an
+   * adopted subscription, an undeleted duplicate, or one a refused DELETE left
+   * behind. Mercaria must hold its id either way, because that id is the only
+   * thing a later reconcile or a disconnect can delete it by.
+   */
+  readonly origin: 'created' | 'retained';
 }
 
 /** One topic the platform would not subscribe, and why. */
@@ -97,19 +114,59 @@ export interface WebhookRegistrationFailure {
 }
 
 /**
- * What a registration attempt left behind — BOTH halves, always.
+ * A registration that READ the platform's subscription list and reconciled it.
  *
  * The two lists are not complementary views of one fact: a partial registration
  * has entries in each, and reporting only the successes is how #218's ids got
  * discarded while reporting only the failures would lose the subscriptions that
- * DO exist. `subscriptions` is what the caller persists and disconnect deletes
- * by; `failures` is what a merchant surface renders as "these events will not
+ * DO exist.
+ *
+ * `subscriptions` is the COMPLETE set of subscriptions live at this connector's
+ * delivery URL when the attempt finished — created here, adopted, or left behind
+ * by a delete the platform refused. That is exactly what disconnect must be able
+ * to delete and what the next reconcile must be able to converge, so an id is
+ * omitted from it only when the subscription is provably gone.
+ *
+ * `failures` is what a merchant surface renders as "these events will not
  * arrive".
  */
-export interface WebhookRegistrationResult {
+export interface WebhookReconciliation {
+  readonly outcome: 'reconciled';
   readonly subscriptions: readonly RegisteredWebhook[];
   readonly failures: readonly WebhookRegistrationFailure[];
 }
+
+/**
+ * A registration that could not READ the platform's subscription list, and
+ * therefore knows NOTHING about what is live.
+ *
+ * It carries no subscription list AT ALL, which is the point: an empty array is
+ * a claim ("there are none") and this branch has no claim to make. Nothing was
+ * created and nothing was deleted, so whatever the caller already holds is still
+ * the best description of the shop — and #218's first consequence was exactly
+ * this state being written down as "no subscriptions", after which disconnect
+ * deleted nothing and the orphans delivered forever.
+ *
+ * `failures` still names EVERY desired topic under the listing's own reason,
+ * because none of those events will arrive.
+ */
+export interface WebhookReconciliationUnknown {
+  readonly outcome: 'unknown';
+  readonly reason: ConnectorWebhookFailureReason;
+  /** The status the platform answered; absent when the call never reached it. */
+  readonly httpStatus?: number;
+  readonly failures: readonly WebhookRegistrationFailure[];
+}
+
+/**
+ * What a registration attempt left behind.
+ *
+ * A STRING discriminant, not a nullable list: this backend compiles with
+ * `strict: false`, so a caller holding the union would read `subscriptions` off
+ * the unknown branch and get `undefined` — which `?? []` then turns into the
+ * empty array this union exists to make unwritable.
+ */
+export type WebhookRegistrationResult = WebhookReconciliation | WebhookReconciliationUnknown;
 
 /** The external shop's identity, as reported by the platform. */
 export interface ShopIdentity {
@@ -641,25 +698,46 @@ export interface ConnectorProvider {
   listWebhooks(auth: ConnectorAuth): Promise<PlatformWebhookSubscription[]>;
 
   /**
-   * Register the provider's webhooks pointing at `address` (the public
-   * inbound-webhook base URL for the provider). The set of topics is the
-   * provider's own concern.
+   * The EXACT URL this provider's subscriptions for `connectionId` deliver to,
+   * built from `address` (the public inbound-webhook base URL for the provider).
+   *
+   * ONE authority, because THREE paths compare against it and two spellings of
+   * one URL can only ever disagree: registration reconciles against it,
+   * disconnect deletes every subscription sitting at it, and the ingress route
+   * is mounted where it points. It is a provider concern rather than a rule
+   * derived from {@link webhookSecretStrategy}, because "does the platform need
+   * a per-connection endpoint" and "does it need a per-connection secret" are
+   * different questions that happen to have the same answer today.
+   *
+   * It is compared EXACTLY and never by prefix — a WooCommerce connection's URL
+   * is another's base plus a different id, so a `startsWith` test turns one
+   * connection's reconcile into a cross-store deletion.
+   */
+  webhookDeliveryUrl(params: { address: string; connectionId: string }): string;
+
+  /**
+   * Register the provider's webhooks pointing at {@link webhookDeliveryUrl}.
+   * The set of topics is the provider's own concern.
    *
    * PER-TOPIC FAULT TOLERANT (#218), and that is the contract rather than an
-   * implementation detail: it returns every subscription that exists on the
-   * platform when it finishes — created here, or adopted from an earlier
-   * registration — AND every topic the platform refused, with the status and a
-   * classified {@link ConnectorWebhookFailureReason}. It never throws on a
-   * refused topic and never abandons a subscription it created, so a PARTIAL
-   * registration still leaves the caller able to persist the ids, disconnect
-   * cleanly, and retry without duplicating anything.
+   * implementation detail: it NEVER throws for anything the platform answers,
+   * and it reports what it knows in a discriminated {@link
+   * WebhookRegistrationResult}. When the platform's own list was read, it names
+   * every subscription live at the delivery URL — created here, adopted, or left
+   * behind by a refused delete — AND every topic the platform refused, with the
+   * status and a classified {@link ConnectorWebhookFailureReason}. When the list
+   * could NOT be read it says so and names no subscriptions at all, because
+   * nothing was created, nothing was deleted, and an empty list would be a claim
+   * about a shop it never saw.
+   *
+   * So a PARTIAL registration still leaves the caller able to persist the ids,
+   * disconnect cleanly, and retry without duplicating anything.
    *
    * `connectionId` + `secret` support `per_connection` webhook auth: a provider that
-   * cannot lean on one app-wide secret (WooCommerce) builds a per-connection delivery
-   * URL (`${address}/${connectionId}`) so the ingress route can resolve the exact
-   * connection, and sets `secret` as the platform webhook secret. `app_secret`
-   * providers (Shopify) ignore both — they deliver to the shared `address` and sign
-   * with the app secret.
+   * cannot lean on one app-wide secret (WooCommerce) delivers to a per-connection
+   * URL so the ingress route can resolve the exact connection, and sets `secret` as
+   * the platform webhook secret. `app_secret` providers (Shopify) ignore the secret
+   * — they sign with the app secret.
    */
   registerWebhooks(
     auth: ConnectorAuth,

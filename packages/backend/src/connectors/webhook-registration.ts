@@ -43,6 +43,12 @@
  * is also the honest merchant-facing answer, since none of those events will
  * arrive.
  *
+ * The result then says `outcome: 'unknown'` and carries NO subscription list.
+ * The distinction is the whole of #218's first consequence: "I could not find
+ * out what exists" and "nothing exists" are different facts, and writing the
+ * second down where the first was true is what erased the ids of subscriptions
+ * that were still delivering.
+ *
  * ## What it is best-effort about, stated rather than implied
  *
  * Deleting a DUPLICATE of an adopted topic, and deleting a subscription for a
@@ -52,11 +58,16 @@
  * recreate — is never best-effort: its failure is reported as that topic's
  * failure and no create follows it, because a create after a failed delete is
  * exactly how duplicates are born.
+ *
+ * Best-effort is about whether the reconcile PROCEEDS, never about whether the
+ * id is reported: an undeleted subscription is named in `subscriptions` in every
+ * one of those branches, because it is still live at our address.
  */
 
 import type { ConnectorWebhookFailureReason } from '@mercaria/shared-types';
 import type {
   PlatformWebhookSubscription,
+  RegisteredWebhook,
   WebhookRegistrationFailure,
   WebhookRegistrationResult,
 } from './types.js';
@@ -126,6 +137,17 @@ export function classifyWebhookHttpStatus(status: number): ConnectorWebhookFailu
  * a WooCommerce reconcile for connection A delete connection B's subscriptions,
  * since B's URL is A's base plus a different id — a cross-store deletion dressed
  * as tidying up.
+ *
+ * ## The one invariant every branch below upholds
+ *
+ * A subscription is left out of `subscriptions` ONLY when it is provably gone.
+ * Everything still live at `plan.deliveryUrl` when this returns is named, with
+ * `origin: 'retained'` if this attempt did not create it — an adopted topic, a
+ * duplicate the platform would not delete, the survivors of a blocked recreate,
+ * a retired topic that would not go. Every one of those is a subscription that
+ * keeps DELIVERING, and the platform's id is the only handle by which a later
+ * reconcile or a disconnect can remove it. Dropping one is #218's first
+ * consequence in miniature: an orphan nobody holds a handle for.
  */
 export async function reconcileWebhookSubscriptions(
   plan: WebhookRegistrationPlan,
@@ -133,14 +155,28 @@ export async function reconcileWebhookSubscriptions(
   const listed = await plan.list();
   if (listed.outcome === 'refused') {
     return {
-      subscriptions: [],
+      outcome: 'unknown',
+      reason: listed.reason,
+      ...(listed.httpStatus === undefined ? {} : { httpStatus: listed.httpStatus }),
       failures: plan.topics.map((topic) => failure(topic, listed.reason, listed.httpStatus)),
     };
   }
 
-  const ours = listed.value.filter(
-    (subscription) => subscription.deliveryUrl === plan.deliveryUrl,
-  );
+  // DEDUPLICATED BY ID, because one subscription listed twice is not the same
+  // fact as two subscriptions. A platform can repeat a row — page-number
+  // pagination over a list that shifted between requests is the way it happens —
+  // and the adopt branch would then keep `existing[0]` while `existing.slice(1)`
+  // DELETED that same id, leaving `subscriptions` naming a subscription that no
+  // longer exists and the topic with nothing live at all.
+  const ours: PlatformWebhookSubscription[] = [];
+  const seenIds = new Set<string>();
+  for (const subscription of listed.value) {
+    if (subscription.deliveryUrl !== plan.deliveryUrl || seenIds.has(subscription.id)) {
+      continue;
+    }
+    seenIds.add(subscription.id);
+    ours.push(subscription);
+  }
   const byTopic = new Map<string, PlatformWebhookSubscription[]>();
   for (const subscription of ours) {
     const bucket = byTopic.get(subscription.topic);
@@ -151,20 +187,25 @@ export async function reconcileWebhookSubscriptions(
     }
   }
 
-  const subscriptions: { id: string; topic: string }[] = [];
+  const subscriptions: RegisteredWebhook[] = [];
   const failures: WebhookRegistrationFailure[] = [];
 
   for (const topic of plan.topics) {
     const existing = byTopic.get(topic) ?? [];
 
     if (plan.adoptExisting && existing.length > 0) {
-      subscriptions.push({ id: existing[0].id, topic });
+      subscriptions.push({ id: existing[0].id, topic, origin: 'retained' });
       // Duplicates of a topic that already delivers correctly. Best-effort: the
       // event arrives either way, and every upsert on the receiving side is
       // idempotent, so a stubborn delete costs a repeated delivery and not a
-      // wrong one.
+      // wrong one — but the duplicate that SURVIVES is still delivering, so its
+      // id is retained rather than discarded. A discarded one is an orphan the
+      // next reconcile finds again and disconnect cannot reach at all.
       for (const duplicate of existing.slice(1)) {
-        await plan.remove(duplicate.id);
+        const removed = await plan.remove(duplicate.id);
+        if (removed.outcome === 'refused') {
+          subscriptions.push({ id: duplicate.id, topic, origin: 'retained' });
+        }
       }
       continue;
     }
@@ -173,9 +214,20 @@ export async function reconcileWebhookSubscriptions(
     // subscription behind means the topic delivers twice, once signed with a
     // secret this registration does not hold. A refusal therefore stops this
     // topic — creating anyway is how a duplicate is made.
-    const blocked = await removeAll(plan, existing);
-    if (blocked) {
-      failures.push(failure(topic, blocked.reason, blocked.httpStatus));
+    const removal = await removeAll(plan, existing);
+    if (removal.outcome === 'blocked') {
+      failures.push(failure(topic, removal.reason, removal.httpStatus));
+      // The subscriptions the platform would not delete are STILL DELIVERING,
+      // under the secret they were created with rather than this attempt's. On a
+      // `per_connection` provider that means those deliveries will 401 — which
+      // the merchant is told, because this topic is in `failures`. Retaining the
+      // ids is what makes it recoverable: it is what the next reconcile deletes
+      // before it recreates, and what disconnect deletes. Dropping them to keep
+      // the id list "clean" leaves a live subscription nobody holds a handle
+      // for, which is the state #218 is about.
+      for (const surviving of removal.surviving) {
+        subscriptions.push({ id: surviving.id, topic, origin: 'retained' });
+      }
       continue;
     }
 
@@ -184,37 +236,62 @@ export async function reconcileWebhookSubscriptions(
       failures.push(failure(topic, created.reason, created.httpStatus));
       continue;
     }
-    subscriptions.push({ id: created.value, topic });
+    subscriptions.push({ id: created.value, topic, origin: 'created' });
   }
 
   // Subscriptions pointing at OUR endpoint for a topic this connector no longer
   // wants — a previous version's topic set, or a rename. Best-effort for the
   // same reason the duplicates above are: nothing here decides whether a wanted
-  // event arrives.
+  // event arrives. One that will not go is retained for the same reason too.
   const wanted = new Set(plan.topics);
   for (const subscription of ours) {
     if (!wanted.has(subscription.topic)) {
-      await plan.remove(subscription.id);
+      const removed = await plan.remove(subscription.id);
+      if (removed.outcome === 'refused') {
+        subscriptions.push({
+          id: subscription.id,
+          topic: subscription.topic,
+          origin: 'retained',
+        });
+      }
     }
   }
 
-  return { subscriptions, failures };
+  return { outcome: 'reconciled', subscriptions, failures };
 }
 
-/** Delete every subscription in `existing`, stopping at the first refusal. */
+/**
+ * Delete every subscription in `existing`, stopping at the first refusal.
+ *
+ * A blocked removal reports the subscriptions that are STILL THERE — the one the
+ * platform refused plus every one after it, which was never attempted. The
+ * caller needs that set rather than a bare reason: they are live at our delivery
+ * URL, and an id nobody holds cannot be deleted later.
+ */
 async function removeAll(
   plan: WebhookRegistrationPlan,
   existing: readonly PlatformWebhookSubscription[],
-): Promise<{ reason: ConnectorWebhookFailureReason; httpStatus?: number } | undefined> {
-  for (const subscription of existing) {
-    const removed = await plan.remove(subscription.id);
+): Promise<
+  | { readonly outcome: 'removed' }
+  | {
+      readonly outcome: 'blocked';
+      readonly reason: ConnectorWebhookFailureReason;
+      readonly httpStatus?: number;
+      readonly surviving: readonly PlatformWebhookSubscription[];
+    }
+> {
+  for (let index = 0; index < existing.length; index += 1) {
+    const removed = await plan.remove(existing[index].id);
     if (removed.outcome === 'refused') {
-      return removed.httpStatus === undefined
-        ? { reason: removed.reason }
-        : { reason: removed.reason, httpStatus: removed.httpStatus };
+      return {
+        outcome: 'blocked',
+        reason: removed.reason,
+        ...(removed.httpStatus === undefined ? {} : { httpStatus: removed.httpStatus }),
+        surviving: existing.slice(index),
+      };
     }
   }
-  return undefined;
+  return { outcome: 'removed' };
 }
 
 /** Build one failure, omitting `httpStatus` when the call never reached the platform. */
