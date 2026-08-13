@@ -52,6 +52,7 @@ import {
   productVariants,
   stores,
 } from '../schema/index.js';
+import { deleteTestStores } from './store-teardown.js';
 
 /**
  * Traversal floors for `findSchemaInvariantViolations`. Fewer than this is a
@@ -98,7 +99,7 @@ afterAll(async () => {
   // purpose — so the listings go first and take their variants with them
   // (`product_variants.listing_id` DOES cascade).
   await db.delete(listings).where(eq(listings.storeId, storeId));
-  await db.delete(stores).where(eq(stores.id, storeId));
+  await deleteTestStores(db, [storeId]);
   await db.delete(moderationEnforcements).where(eq(moderationEnforcements.subjectId, OBJECT_ID));
   await closePostgres();
 });

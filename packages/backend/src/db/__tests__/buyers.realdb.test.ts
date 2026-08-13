@@ -51,7 +51,7 @@ import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { addresses, sellerProfiles, userPreferences } from '../schema/buyers.js';
 import { reviews } from '../schema/reviews.js';
 import { listings } from '../schema/catalog.js';
-import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import {
   deleteAddress,
   findAddressesByUser,
@@ -174,7 +174,7 @@ afterEach(async () => {
   for (const storeId of createdStoreIds.splice(0)) {
     // `listings.store_id` is RESTRICT, so any store listing goes first.
     await db.delete(listings).where(eq(listings.storeId, storeId));
-    await db.delete(stores).where(eq(stores.id, storeId));
+    await deleteTestStores(db, [storeId]);
   }
 });
 

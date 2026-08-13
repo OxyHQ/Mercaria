@@ -245,14 +245,22 @@ function decodeCursor(cursor: string): { priceAmount: number | null; id: string 
  *
  * One page is fetched with `limit + 1` so "is there more" is answered without a
  * second count query — the extra row is dropped and its existence IS the cursor.
+ *
+ * `db` is the house trailing-handle convention, here so a realdb file reading
+ * its OWN throwaway database asserts against the offers it seeded rather than
+ * against the shared one. It decides which DATABASE is read and never which
+ * rows — every filter stays in `ListOffersInput`. In production every caller
+ * takes the default.
  */
-export async function listOffers(input: ListOffersInput): Promise<OfferPage> {
+export async function listOffers(
+  input: ListOffersInput,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<OfferPage> {
   if ((input.canonicalVariantId ? 1 : 0) + (input.canonicalProductId ? 1 : 0) !== 1) {
     throw validationError('Provide exactly one of canonicalVariantId or canonicalProductId');
   }
 
   const now = input.now ?? new Date();
-  const db = getDb();
   const after = input.cursor ? decodeCursor(input.cursor) : undefined;
   if (input.cursor && !after) throw validationError('Malformed cursor');
 

@@ -50,6 +50,7 @@ import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { listings, productVariants } from '../../../db/schema/catalog.js';
 import { stores } from '../../../db/schema/stores.js';
+import { deleteTestStores } from '../../../db/__tests__/store-teardown.js';
 import { canonicalProducts, canonicalVariants } from '../../../db/schema/canonicalCatalog.js';
 import { nativeListingLinks } from '../../../db/schema/offers.js';
 import { favorites } from '../../../db/schema/buyers.js';
@@ -90,6 +91,18 @@ const RUN = uuidv7().slice(-12);
 const BUYER = `save-buyer-${RUN}`;
 const OTHER_BUYER = `save-other-${RUN}`;
 
+/**
+ * The advisory-lock key every realdb teardown that toggles a trigger takes
+ * before doing so — see the fuller note beside the identical constant in
+ * `curation-writes.realdb.test.ts`, the file this one collided with.
+ *
+ * Its VALUE means nothing and its SAMENESS is the whole mechanism; it is the
+ * number three policy-teardown files declare as `POLICY_TEARDOWN_LOCK`, because
+ * the hazard is the database-wide WINDOW rather than any particular table.
+ * Transaction-scoped, so a pooled connection cannot carry the release away.
+ */
+const TEARDOWN_TRIGGER_LOCK = 6_820_068;
+
 const createdStoreIds: string[] = [];
 const createdListingIds: string[] = [];
 const createdProductIds: string[] = [];
@@ -109,45 +122,60 @@ beforeAll(async () => {
 afterAll(async () => {
   // The append-only trigger is one of the properties under test, so teardown
   // goes around it — the escape `curation-writes.realdb.test.ts` uses for its
-  // own immutability trigger. Re-enabled immediately, so a sibling file running
-  // in parallel is never left without the guarantee.
-  await db.execute(
-    sql`alter table product_save_sources disable trigger product_save_sources_append_only`,
-  );
-  await db
-    .delete(productSaveSources)
-    .where(inArray(productSaveSources.listingId, safeIds(createdListingIds)));
-  await db.execute(
-    sql`alter table product_save_sources enable trigger product_save_sources_append_only`,
-  );
+  // own immutability trigger, now under the shared lock that escape needs. See
+  // TEARDOWN_TRIGGER_LOCK: "re-enabled immediately" is not what makes a
+  // database-wide statement safe.
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${TEARDOWN_TRIGGER_LOCK})`);
+    await tx.execute(
+      sql`alter table product_save_sources disable trigger product_save_sources_append_only`,
+    );
+    await tx
+      .delete(productSaveSources)
+      .where(inArray(productSaveSources.listingId, safeIds(createdListingIds)));
+    await tx.execute(
+      sql`alter table product_save_sources enable trigger product_save_sources_append_only`,
+    );
+  });
 
   await db.delete(productSaves).where(inArray(productSaves.oxyUserId, [BUYER, OTHER_BUYER]));
   if (createdMergeJobIds.length > 0) {
-    // The revision timeline is append-only by trigger, so teardown goes around
-    // it — the escape `curation-writes.realdb.test.ts` uses, re-enabled at once
-    // so a parallel sibling is never left without the guarantee.
-    await db.execute(sql`alter table catalog_revisions disable trigger catalog_revisions_append_only`);
-    await db.execute(
-      sql`delete from catalog_revisions where merge_job_id = any(${sql.param(createdMergeJobIds)}::text[])`,
-    );
-    await db.execute(sql`alter table catalog_revisions enable trigger catalog_revisions_append_only`);
-    // `catalog_merge_job_phases` is append-only too, and for a sharper reason: a
-    // resumed merge decides what to skip by reading these rows.
-    await db.execute(
-      sql`alter table catalog_merge_job_phases disable trigger catalog_merge_job_phases_append_only`,
-    );
-    await db.execute(
-      sql`delete from catalog_merge_job_phases where job_id = any(${sql.param(createdMergeJobIds)}::text[])`,
-    );
-    await db.execute(
-      sql`alter table catalog_merge_job_phases enable trigger catalog_merge_job_phases_append_only`,
-    );
-    await db.execute(
-      sql`delete from catalog_merge_conflicts where job_id = any(${sql.param(createdMergeJobIds)}::text[])`,
-    );
-    await db.execute(
-      sql`delete from catalog_merge_jobs where id = any(${sql.param(createdMergeJobIds)}::text[])`,
-    );
+    /**
+     * The revision timeline and the phase records are append-only by trigger, so
+     * teardown goes around them — inside the window {@link TEARDOWN_TRIGGER_LOCK}
+     * holds, because `curation-writes.realdb.test.ts` toggles these same two
+     * triggers and the two files together are the measured collision: its
+     * DELETE met `catalog_revisions_append_only` re-enabled by THIS teardown.
+     */
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${TEARDOWN_TRIGGER_LOCK})`);
+      await tx.execute(
+        sql`alter table catalog_revisions disable trigger catalog_revisions_append_only`,
+      );
+      await tx.execute(
+        sql`delete from catalog_revisions where merge_job_id = any(${sql.param(createdMergeJobIds)}::text[])`,
+      );
+      await tx.execute(
+        sql`alter table catalog_revisions enable trigger catalog_revisions_append_only`,
+      );
+      // `catalog_merge_job_phases` is append-only too, and for a sharper reason: a
+      // resumed merge decides what to skip by reading these rows.
+      await tx.execute(
+        sql`alter table catalog_merge_job_phases disable trigger catalog_merge_job_phases_append_only`,
+      );
+      await tx.execute(
+        sql`delete from catalog_merge_job_phases where job_id = any(${sql.param(createdMergeJobIds)}::text[])`,
+      );
+      await tx.execute(
+        sql`alter table catalog_merge_job_phases enable trigger catalog_merge_job_phases_append_only`,
+      );
+      await tx.execute(
+        sql`delete from catalog_merge_conflicts where job_id = any(${sql.param(createdMergeJobIds)}::text[])`,
+      );
+      await tx.execute(
+        sql`delete from catalog_merge_jobs where id = any(${sql.param(createdMergeJobIds)}::text[])`,
+      );
+    });
   }
   if (createdSplitJobIds.length > 0) {
     await db.execute(
@@ -162,7 +190,7 @@ afterAll(async () => {
     .delete(nativeListingLinks)
     .where(inArray(nativeListingLinks.listingId, safeIds(createdListingIds)));
   await db.delete(listings).where(inArray(listings.id, safeIds(createdListingIds)));
-  await db.delete(stores).where(inArray(stores.id, safeIds(createdStoreIds)));
+  await deleteTestStores(db, safeIds(createdStoreIds));
   await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
   // The merge mints a redirect hop and a former-name alias on the winner. Both
   // reference the product and both have to go before it does — their presence
@@ -757,11 +785,37 @@ describe('ACCEPTANCE 4: a merge rehomes saves automatically', () => {
       actorOxyUserId: `op-${RUN}`,
     });
     createdMergeJobIds.push(job.id);
+    // Backdate this job so it is the OLDEST due row, then take exactly ONE.
+    // `claimMergeJobs` orders by `available_at` across the WHOLE table with no
+    // filter, and the merge-job queue is global to the one throwaway database a
+    // run shares — so a batch of 25 had two failure modes, both read as flake:
+    // once more than 25 older rows are pending this job is the NEWEST and sits
+    // beyond the batch (measured: this file failed a full run on exactly that),
+    // and claiming 25 STEALS up to 24 rows belonging to whatever else is
+    // running, marking them `processing` under this lease so their real owners
+    // can never complete them. Backdating plus `batchSize: 1` fixes both —
+    // queue depth stops mattering and nothing else is touched. The precedent is
+    // `7f00a67` (#255) and `78e2f4b` (#231); looping over batches until the row
+    // turns up was tried there and is WORSE, because it drains the due queue.
+    //
+    // The epoch used here must stay DISTINCT from every other file that
+    // backdates `catalog_merge_jobs` — `curation-writes.realdb.test.ts` uses
+    // `to_timestamp(0)`, so this one uses `to_timestamp(1)`. `claimMergeJobs`
+    // orders by `available_at` with NO second column, so two files backdating to
+    // the same instant sit TIED, and `for update skip locked` then guarantees
+    // the two claims take DIFFERENT rows: each file steals the other's job, its
+    // own `toEqual([jobId])` fails, and the stolen row is left `processing`
+    // under a lease that will never complete it. Two files red, neither at
+    // fault. One second apart is enough, and both rows still sort before
+    // anything a sibling enqueues at `now`.
+    await db.execute(
+      sql`update catalog_merge_jobs set available_at = to_timestamp(1) where id = ${job.id}`,
+    );
     const claimed = await claimMergeJobs(
-      { leaseOwner: `worker-${RUN}`, leaseMs: 60_000, batchSize: 25 },
+      { leaseOwner: `worker-${RUN}`, leaseMs: 60_000, batchSize: 1 },
       db,
     );
-    expect(claimed.map((row) => row.id)).toContain(job.id);
+    expect(claimed.map((row) => row.id)).toEqual([job.id]);
     const result = await runMergeJob(job.id, `worker-${RUN}`);
     expect(result.blocked, 'the merge blocked on a conflict this fixture did not intend').toBe(false);
     expect(result.finalPhase).toBe('done');

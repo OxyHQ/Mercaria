@@ -25,6 +25,7 @@ import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
 import { offers } from '../../db/schema/offers.js';
 import { listings } from '../../db/schema/catalog.js';
 import { stores } from '../../db/schema/stores.js';
+import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { insertOffer } from '../../db/offers/offerRepository.js';
 import { readCanonicalProductPage } from '../product-page/product-page.service.js';
 import { resolveOfferSellers } from '../product-page/sellers.js';
@@ -61,7 +62,7 @@ afterAll(async () => {
   await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
   await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
   await db.delete(listings).where(inArray(listings.id, safeIds(createdListingIds)));
-  await db.delete(stores).where(inArray(stores.id, safeIds(createdStoreIds)));
+  await deleteTestStores(db, safeIds(createdStoreIds));
   await db.delete(storefronts).where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
   await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
   await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));

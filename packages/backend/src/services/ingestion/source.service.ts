@@ -26,7 +26,7 @@ import type {
   CatalogSourceSellerIdentity,
   CatalogSourceStatus,
 } from '@mercaria/shared-types';
-import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
+import { getDb, type Database, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { ensureCatalogSource } from '../../db/canonical/provenanceRepository.js';
 import {
   findCatalogSourceConfig,
@@ -141,11 +141,19 @@ export interface ConfigureIngestionSourceInput {
  * different acts by different people at different times, and an "activate on
  * create" parameter is how a source starts refreshing before its policy has
  * been read.
+ *
+ * `db` is the house trailing-handle convention, here so a realdb file can bring
+ * a source up inside its OWN throwaway database. It decides which DATABASE the
+ * configuration is written to and nothing else — there is no scoping predicate
+ * to add and none may be. In production every caller takes the default. It is
+ * typed `Database` rather than `DatabaseOrTransaction` because the body opens a
+ * transaction, and a `Transaction` cannot open a second one.
  */
 export async function configureIngestionSource(
   input: ConfigureIngestionSourceInput,
+  db: Database = getDb(),
 ): Promise<ResolvedIngestionSource> {
-  const configured = await getDb().transaction(async (tx) => {
+  const configured = await db.transaction(async (tx) => {
     const source = await ensureCatalogSource(tx, {
       kind: input.kind,
       name: input.name,
@@ -178,7 +186,7 @@ export async function configureIngestionSource(
     return source.id;
   });
 
-  const resolved = await resolveIngestionSource(configured);
+  const resolved = await resolveIngestionSource(configured, db);
   if (!resolved) throw new Error(`Source ${configured} vanished immediately after configuration.`);
   return resolved;
 }
@@ -215,12 +223,15 @@ export interface PublishPolicyInput {
  * audit history" — is that arrangement rather than a `suspended` flag, because
  * a flag would leave the question "what were we permitted to do last March"
  * unanswerable.
+ *
+ * `db` as on {@link configureIngestionSource}: which DATABASE, never which rows.
  */
 export async function publishIngestionSourcePolicy(
   input: PublishPolicyInput,
   now: Date = new Date(),
+  db: Database = getDb(),
 ): Promise<ResolvedIngestionSource> {
-  const existing = await resolveIngestionSource(input.sourceId);
+  const existing = await resolveIngestionSource(input.sourceId, db);
   if (!existing) throw notFound('Source is not configured for ingestion');
 
   // The CHECKs refuse these combinations at the row; refusing here names the
@@ -247,7 +258,7 @@ export async function publishIngestionSourcePolicy(
     );
   }
 
-  await getDb().transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     await publishSourcePolicy(tx, {
       sourceId: input.sourceId,
       mayDisplay: input.mayDisplay,
@@ -273,7 +284,7 @@ export async function publishIngestionSourcePolicy(
     await reprojectRights(tx, input.sourceId);
   });
 
-  const resolved = await resolveIngestionSource(input.sourceId);
+  const resolved = await resolveIngestionSource(input.sourceId, db);
   if (!resolved) throw new Error(`Source ${input.sourceId} vanished immediately after publication.`);
   return resolved;
 }
@@ -286,6 +297,8 @@ export async function publishIngestionSourcePolicy(
  * activation" rule turned into a refusal rather than a hope. Every other
  * transition is unconditional: pausing, revoking and returning to draft are all
  * ways of doing LESS, and none of them should ever be blocked.
+ *
+ * `db` as on {@link configureIngestionSource}: which DATABASE, never which rows.
  */
 export async function changeIngestionSourceStatus(
   input: {
@@ -295,8 +308,9 @@ export async function changeIngestionSourceStatus(
     reason: string;
   },
   now: Date = new Date(),
+  db: Database = getDb(),
 ): Promise<ResolvedIngestionSource> {
-  const existing = await resolveIngestionSource(input.sourceId);
+  const existing = await resolveIngestionSource(input.sourceId, db);
   if (!existing) throw notFound('Source is not configured for ingestion');
   if (input.status === 'active' && existing.policy === undefined) {
     throw validationError(
@@ -304,7 +318,7 @@ export async function changeIngestionSourceStatus(
     );
   }
 
-  await getDb().transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     await setCatalogSourceStatus(tx, {
       sourceId: input.sourceId,
       status: input.status,
@@ -315,7 +329,7 @@ export async function changeIngestionSourceStatus(
     await reprojectRights(tx, input.sourceId);
   });
 
-  const resolved = await resolveIngestionSource(input.sourceId);
+  const resolved = await resolveIngestionSource(input.sourceId, db);
   if (!resolved) throw new Error(`Source ${input.sourceId} vanished immediately after a status change.`);
   return resolved;
 }

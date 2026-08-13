@@ -22,6 +22,7 @@ import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { NATIVE_STORE_LINK_METHODS } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import {
   merchantDomains,
   merchants,
@@ -71,6 +72,10 @@ beforeAll(async () => {
 afterAll(async () => {
   // Children first; RESTRICT constraints make any wrong order loud, not silent.
   if (createdMerchantIds.length > 0) {
+    // By MERCHANT, because these merchants are about to go and a link RESTRICTs
+    // them. It is NOT the store side of the same problem: a link the backfill
+    // minted over one of these stores sits under ITS merchant and is invisible
+    // here, which is what `deleteTestStores` below covers.
     await db
       .delete(nativeStoreLinks)
       .where(inArray(nativeStoreLinks.merchantId, createdMerchantIds));
@@ -87,9 +92,7 @@ afterAll(async () => {
     // Aliases, domains and source links cascade with their merchants.
     await db.delete(merchants).where(inArray(merchants.id, createdMerchantIds));
   }
-  if (createdStoreIds.length > 0) {
-    await db.delete(stores).where(inArray(stores.id, createdStoreIds));
-  }
+  await deleteTestStores(db, createdStoreIds);
   await closePostgres();
 });
 

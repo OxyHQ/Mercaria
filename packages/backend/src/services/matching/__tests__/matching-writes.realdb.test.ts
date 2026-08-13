@@ -38,6 +38,7 @@ import {
   matchDecisionCandidates,
   matchDecisions,
   matchPolicyVersions,
+  matchQueue,
 } from '../../../db/schema/matching.js';
 import { categories, listings, productVariants } from '../../../db/schema/catalog.js';
 import {
@@ -791,6 +792,70 @@ describe('the triggers: a published policy and a recorded measurement are frozen
 });
 
 describe('the queue: leases, revisions and coalescing', () => {
+  /**
+   * The batch size the claims in this file used BEFORE the fix, and the number
+   * this regression seeds past.
+   *
+   * `7f00a67` (#255) established the shape for the offer-convergence queue and
+   * this is its equivalent for `match_queue`: the five claim sites fixed on this
+   * branch are correct by construction, and correct-by-construction is exactly
+   * what stops being true when somebody "simplifies" the backdate away.
+   */
+  const CLAIM_BATCH_SIZE = 50;
+
+  it('claims its OWN subject when older rows fill more than one claim batch', async () => {
+    // One variant backs every filler row: `match_queue_subject_key_unique` is on
+    // the KEY, and the shape CHECK only demands a variant, so the rows differ
+    // where it matters (their key and their `available_at`) and cost one listing
+    // rather than fifty-five. Their whole job is to be OLDER due rows.
+    const { variantId: fillerVariantId } = await makeNativeListing('claim-window-filler');
+    const older = Date.now() - 60 * 60 * 1000;
+    await db.insert(matchQueue).values(
+      Array.from({ length: CLAIM_BATCH_SIZE + 5 }, (_unused, index) => ({
+        id: uuidv7(),
+        subjectKind: 'native_variant' as const,
+        subjectKey: `native_variant:${fillerVariantId}#window-${RUN}-${String(index)}`,
+        productVariantId: fillerVariantId,
+        trigger: 'catalog_write' as const,
+        availableAt: new Date(older + index),
+      })),
+    );
+
+    // Enqueued NOW, so it is the NEWEST of the fifty-six and sits beyond a
+    // fifty-row window — which is the state a sibling file's queue depth
+    // produces, and the one the old `batchSize: 50` + `.find(...)` spelling
+    // could not see. It reported "no job for this subject" for a row sitting
+    // right there.
+    const { variantId } = await makeNativeListing('claim-window-subject');
+    const subjectKey = `native_variant:${variantId}`;
+    await enqueueMatch({
+      subjectKind: 'native_variant',
+      subjectKey,
+      sourceRecordId: null,
+      productVariantId: variantId,
+      trigger: 'catalog_write',
+    });
+
+    // The FIXED sequence, verbatim: backdate this subject so it is the oldest
+    // due row, then take exactly ONE. Queue depth stops mattering, and no row
+    // this file does not own is touched.
+    await db.execute(
+      sql`update match_queue set available_at = to_timestamp(0) where subject_key = ${subjectKey}`,
+    );
+    const [mine] = await claimMatchQueue({ leaseOwner: `owner-window-${RUN}`, batchSize: 1 });
+
+    expect(mine?.subjectKey, 'the claim took a row this test does not own').toBe(subjectKey);
+
+    // Remove the fillers NOW rather than at teardown. They are pending, due, and
+    // older than anything a sibling enqueues, so leaving fifty-five of them in a
+    // GLOBAL queue for the rest of the run would crowd out every claim that has
+    // not yet been fixed — this test would become the thing this branch exists
+    // to remove. Scoped to the keys it minted, so it takes nothing else.
+    await db
+      .delete(matchQueue)
+      .where(sql`${matchQueue.subjectKey} like ${`native_variant:${fillerVariantId}#window-%`}`);
+  });
+
   it('coalesces repeats into ONE row and bumps the requested revision', async () => {
     const { variantId } = await makeNativeListing('coalesce');
     const subjectKey = `native_variant:${variantId}`;
@@ -819,27 +884,27 @@ describe('the queue: leases, revisions and coalescing', () => {
       trigger: 'catalog_write',
     });
 
-    // Claim until THIS subject appears, rather than assuming one batch of fifty
-    // contains it (#66).
+    // Backdate THIS subject so it is the oldest due row, then take exactly ONE.
     //
     // `claimMatchQueue` is global and unscoped — `FOR UPDATE SKIP LOCKED` over
-    // whatever is pending — so a sibling realdb file with fifty of its own rows
-    // queued crowds this one out and `claimed.find(...)` is `undefined`. The
-    // failure lands on a file that did nothing wrong and reads as a broken
-    // revision pair, which is the shape that gets a suite marked flaky. Measured
-    // at four full-suite runs in six once #65's eBay file started running to
-    // completion; successive claims walk the queue, because a claimed row is no
-    // longer pending.
-    let mine: Awaited<ReturnType<typeof claimMatchQueue>>[number] | undefined;
-    for (let sweep = 0; sweep < 20 && mine === undefined; sweep += 1) {
-      const claimed = await claimMatchQueue({ leaseOwner: `owner-${RUN}`, batchSize: 50 });
-      // An empty claim means the queue is drained and this subject is genuinely
-      // absent, which is a real failure rather than contention.
-      if (claimed.length === 0) break;
-      mine = claimed.find((job) => job.subjectKey === subjectKey);
-    }
-    expect(mine).toBeDefined();
+    // whatever is pending, ordered by `available_at` — so a sibling realdb file
+    // with fifty of its own rows queued crowds this one out.
+    //
+    // The previous fix here CLAIMED REPEATEDLY until the subject turned up, and
+    // that is the workaround `7f00a67` (#255) measured and rejected: it drains
+    // the whole due queue into this file's lease, so every sibling's row is left
+    // `processing` under an owner that will never complete it — one file's
+    // failure turned into five. Backdating makes queue depth irrelevant without
+    // touching a single row this file does not own. `claimMatchQueue` itself is
+    // deliberately unchanged: oldest-first across the whole table with no filter
+    // is correct production behaviour for a shared queue.
+    await db.execute(
+      sql`update match_queue set available_at = to_timestamp(0) where subject_key = ${subjectKey}`,
+    );
+    const [mine] = await claimMatchQueue({ leaseOwner: `owner-${RUN}`, batchSize: 1 });
+    expect(mine, 'the backdated row must be the one this claim took').toBeDefined();
     if (!mine) throw new Error('unreachable');
+    expect(mine.subjectKey).toBe(subjectKey);
 
     // A request lands MID-RUN. Without the revision pair the completion below
     // would mark it `done` and the request would be lost.
@@ -892,7 +957,13 @@ describe('the queue: leases, revisions and coalescing', () => {
       productVariantId: variantId,
       trigger: 'catalog_write',
     });
-    const claimed = await claimMatchQueue({ leaseOwner: `holder-${RUN}`, batchSize: 50 });
+    // Backdated and taken ONE, for the reason the sibling case above states: a
+    // batch of fifty over a shared queue both misses its own row and steals
+    // everybody else's.
+    await db.execute(
+      sql`update match_queue set available_at = to_timestamp(0) where subject_key = ${subjectKey}`,
+    );
+    const claimed = await claimMatchQueue({ leaseOwner: `holder-${RUN}`, batchSize: 1 });
     const mine = claimed.find((job) => job.subjectKey === subjectKey);
     if (!mine) throw new Error('claim did not include the fixture row');
     expect(await completeMatchQueue(mine.id, `impostor-${RUN}`)).toBe(false);

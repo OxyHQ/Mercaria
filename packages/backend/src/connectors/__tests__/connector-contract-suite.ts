@@ -46,8 +46,7 @@ import type { ConnectorProviderId, CurrencyCode } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { categories, listings } from '../../db/schema/catalog.js';
 import { connections } from '../../db/schema/connectors.js';
-import { nativeStoreLinks } from '../../db/schema/merchants.js';
-import { stores } from '../../db/schema/stores.js';
+import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { insertCategory } from '../../db/catalog/categoryRepository.js';
 import { insertStore } from '../../db/stores/storeRepository.js';
 import { insertLocation } from '../../db/stores/locationRepository.js';
@@ -205,11 +204,10 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // `store_merchants` backfill stage does, over whatever stores are in the
         // database — and the suites share one, so a concurrent apply run can
         // attach a link to a store this file created between its last write and
-        // this teardown. Seen once, not reproduced; the delete is scoped to a
-        // store that is about to cease existing, so it can take nothing from
-        // anyone.
-        await db.delete(nativeStoreLinks).where(eq(nativeStoreLinks.storeId, storeId));
-        await db.delete(stores).where(eq(stores.id, storeId));
+        // this teardown. Reproduced since, on `store-linkage.realdb.test.ts`,
+        // and the clear now lives in `deleteTestStores` for every fixture that
+        // owns a store rather than in the two files that happened to hit it.
+        await deleteTestStores(db, [storeId]);
       }
       for (const categoryId of createdCategoryIds.splice(0)) {
         await db.delete(categories).where(eq(categories.id, categoryId));

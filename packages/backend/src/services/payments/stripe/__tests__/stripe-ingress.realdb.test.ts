@@ -1154,8 +1154,6 @@ describe('failure, dead-lettering and replay', () => {
 
 describe('the health surface', () => {
   it('counts outstanding work and reports the lag of the oldest', async () => {
-    const before = await stripeWebhookStats();
-
     const intentId = 'pi_stats';
     registerIntent(intentId, 'succeeded', 'payment-that-does-not-exist-for-stats');
     await deliver(
@@ -1171,17 +1169,28 @@ describe('the health surface', () => {
     const after = await stripeWebhookStats();
 
     /**
-     * Deltas, and INEQUALITIES rather than exact ones.
+     * SCOPED to the row this test owns, because a DELTA over a global aggregate
+     * cannot be made stable by loosening it.
      *
      * `providerEventStats` counts every `stripe` row in the database by design —
      * it is a queue depth, not a per-test figure — and these files share ONE
-     * throwaway database and run in PARALLEL. `stripe-webhook.integration.test.ts`
-     * stores its own unresolvable events at the same time, so `toBe(before + 1)`
-     * fails whenever the two overlap: measured here as `expected 4 to be 3`,
-     * which reads exactly like a double-count bug in the query and is not one.
+     * throwaway database and run in PARALLEL. The first failure was a sibling
+     * ADDING rows (`expected 4 to be 3`) and the fix was `toBe` → `>=`, which
+     * left the other direction open: a sibling DRAINING its own events between
+     * the two reads lowers the global count, measured on this branch as
+     * `expected 4 to be greater than or equal to 5`. A comparison that tolerates
+     * interference in both directions asserts nothing at all, so the delta is
+     * gone: what this test owns is `evt_stats`, and what it may assert is that
+     * the surface counts it.
+     *
+     * The floors that replace it are ones sibling traffic cannot lower: this
+     * file's own unprocessed row keeps each count at or above one whatever else
+     * drains.
      */
-    expect(after.pending).toBeGreaterThanOrEqual(before.pending + 1);
-    expect(after.failed).toBeGreaterThanOrEqual(before.failed + 1);
+    const [ownEvent] = await storedEvents('evt_stats');
+    expect(ownEvent?.status, 'this test owns evt_stats and left it unprocessed').toBe('failed');
+    expect(after.pending).toBeGreaterThanOrEqual(1);
+    expect(after.failed).toBeGreaterThanOrEqual(1);
     expect(after.oldestUnprocessedAt).not.toBeNull();
     expect(after.lagSeconds).toBeGreaterThanOrEqual(0);
 

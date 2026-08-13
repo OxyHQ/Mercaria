@@ -39,6 +39,7 @@ import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { declaredOfferCondition } from '../../services/condition/condition-mapping.service.js';
 import { listings, productVariants } from '../schema/catalog.js';
 import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import { merchants, storefronts } from '../schema/merchants.js';
 import { catalogSources, sourceRecords } from '../schema/provenance.js';
 import { canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog.js';
@@ -97,7 +98,7 @@ afterAll(async () => {
   // `listings.store_id` is RESTRICT — a listing outlives its store on purpose —
   // so the listings go first and take their variants with them.
   await db.delete(listings).where(inArray(listings.id, safeIds(createdListingIds)));
-  await db.delete(stores).where(inArray(stores.id, safeIds(createdStoreIds)));
+  await deleteTestStores(db, safeIds(createdStoreIds));
   await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
   await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
   await db.delete(storefronts).where(inArray(storefronts.id, safeIds(createdStorefrontIds)));

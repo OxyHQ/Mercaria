@@ -45,6 +45,7 @@ import { declaredOfferCondition } from '../../services/condition/condition-mappi
 import { gs1CheckDigit } from '../../services/canonical/identifiers.js';
 import { categories, listings, productVariants } from '../schema/catalog.js';
 import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import { merchants, storefronts } from '../schema/merchants.js';
 import { catalogSources, sourceRecords } from '../schema/provenance.js';
 import {
@@ -559,7 +560,7 @@ afterAll(async () => {
     .delete(canonicalAttributeValues)
     .where(inArray(canonicalAttributeValues.productId, safeIds(created.products)));
   await db.delete(listings).where(inArray(listings.id, safeIds(created.listings)));
-  await db.delete(stores).where(inArray(stores.id, safeIds(created.stores)));
+  await deleteTestStores(db, safeIds(created.stores));
   await db
     .delete(canonicalProductAliases)
     .where(inArray(canonicalProductAliases.productId, safeIds(created.products)));

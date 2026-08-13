@@ -47,8 +47,7 @@ vi.mock('@oxyhq/core/server', async () => {
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { categories, listings } from '../../db/schema/catalog.js';
 import { connections } from '../../db/schema/connectors.js';
-import { nativeStoreLinks } from '../../db/schema/merchants.js';
-import { stores } from '../../db/schema/stores.js';
+import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { insertCategory } from '../../db/catalog/categoryRepository.js';
 import { insertStore } from '../../db/stores/storeRepository.js';
 import { insertLocation } from '../../db/stores/locationRepository.js';
@@ -103,8 +102,7 @@ afterEach(async () => {
     await db.delete(connections).where(eq(connections.storeId, storeId));
     // See the same delete in `connector-contract-suite.ts`: #60's backfill stage
     // can attach a native store link to any store in the shared test database.
-    await db.delete(nativeStoreLinks).where(eq(nativeStoreLinks.storeId, storeId));
-    await db.delete(stores).where(eq(stores.id, storeId));
+    await deleteTestStores(db, [storeId]);
   }
   for (const categoryId of createdCategoryIds.splice(0)) {
     await db.delete(categories).where(eq(categories.id, categoryId));

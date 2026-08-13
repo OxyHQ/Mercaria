@@ -35,7 +35,8 @@ import { isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import type { CurrencyCode } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { listings } from '../schema/catalog.js';
-import { customers, locations, stores } from '../schema/stores.js';
+import { customers, locations } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import { orders, refunds } from '../schema/orders.js';
 import { discounts } from '../schema/merchandising.js';
 import { insertStore } from '../stores/storeRepository.js';
@@ -87,7 +88,7 @@ afterEach(async () => {
     await db.delete(discounts).where(eq(discounts.storeId, storeId));
     await db.delete(customers).where(eq(customers.storeId, storeId));
     await db.delete(locations).where(eq(locations.storeId, storeId));
-    await db.delete(stores).where(eq(stores.id, storeId));
+    await deleteTestStores(db, [storeId]);
   }
 });
 

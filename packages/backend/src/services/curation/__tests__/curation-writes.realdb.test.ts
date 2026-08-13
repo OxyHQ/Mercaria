@@ -66,6 +66,28 @@ const RUN = uuidv7().slice(-12);
 const OPERATOR = `op-${RUN}`;
 const SECOND_OPERATOR = `op2-${RUN}`;
 
+/**
+ * The advisory-lock key every realdb teardown that toggles a trigger takes
+ * before doing so.
+ *
+ * The VALUE means nothing and its SAMENESS is the whole mechanism: it is the
+ * number `offer-freshness.realdb.test.ts`, `price-alerts.realdb.test.ts` and
+ * `price-history.realdb.test.ts` declare as `POLICY_TEARDOWN_LOCK`, deliberately
+ * reused rather than forked, because the hazard is the WINDOW rather than the
+ * table — two files inside one at the same time is the failure, whichever
+ * triggers each of them is switching off.
+ *
+ * Taken as `pg_advisory_xact_lock` rather than the session-level
+ * `pg_advisory_lock`/`pg_advisory_unlock` pair those three use, which is the one
+ * deviation and it is deliberate: postgres.js POOLS, so a session-level unlock
+ * can land on a different connection from the lock, return false, and leak the
+ * lock until that connection closes. A transaction-scoped lock is the same lock
+ * in the same lock space — so it still interlocks with their session-level
+ * holds — and it is released by COMMIT or ROLLBACK, on the connection that took
+ * it, including when a statement in the window throws.
+ */
+const TEARDOWN_TRIGGER_LOCK = 6_820_068;
+
 const createdProductIds: string[] = [];
 const createdSourceIds: string[] = [];
 
@@ -95,36 +117,65 @@ afterEach(async () => {
         .where(eq(catalogSplitJobs.requestedByOxyUserId, OPERATOR))
     ).map((row) => row.id);
 
-    // The append-only trigger is one of the properties under test, so teardown
-    // has to go around it — the same escape `matching-writes.realdb.test.ts`
-    // uses for its own immutability triggers. Re-enabled immediately, so a
-    // sibling file running in parallel is never left without the guarantee.
-    await db.execute(sql`alter table catalog_revisions disable trigger catalog_revisions_append_only`);
-    await db
-      .delete(catalogRevisions)
-      .where(inArray(catalogRevisions.actorOxyUserId, [OPERATOR, SECOND_OPERATOR]));
-    await db.execute(sql`alter table catalog_revisions enable trigger catalog_revisions_append_only`);
-    if (splitIds.length > 0) {
-      await db.execute(
-        sql`alter table catalog_split_assignments disable trigger catalog_split_assignments_frozen`,
+    /**
+     * The append-only triggers are properties under test, so teardown has to go
+     * around them — and `alter table … disable trigger` is DATABASE-WIDE, so the
+     * window has to be held against every other file that opens one.
+     *
+     * The comment this replaces said the trigger was "re-enabled immediately, so
+     * a sibling file running in parallel is never left without the guarantee",
+     * and `product-saves.realdb.test.ts` carried the mirror image of it citing
+     * this file as precedent. That reasoning is wrong in the direction that
+     * makes it hard to notice: a small window does not make a database-wide
+     * statement safe, it makes the collision RARE. Measured on this branch —
+     * this exact teardown failed with `PostgresError: catalog_revisions is
+     * append-only` (23514) on its own DELETE, because the sibling re-enabled the
+     * trigger between this file's disable and its delete. Which files overlap is
+     * decided by vitest's size-ordered file list, so adding any test anywhere
+     * re-rolls it.
+     *
+     * So the whole window is taken under {@link TEARDOWN_TRIGGER_LOCK}, which is
+     * what the seven policy-teardown files already do for their own tables. Every
+     * trigger toggled here is covered, not only the two another file also
+     * toggles today: the rule is "toggling a trigger database-wide takes the
+     * lock", because the alternative is a per-trigger judgement that silently
+     * expires the day a second file starts toggling one of the others.
+     */
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${TEARDOWN_TRIGGER_LOCK})`);
+      await tx.execute(
+        sql`alter table catalog_revisions disable trigger catalog_revisions_append_only`,
       );
-      await db.delete(catalogSplitAssignments).where(inArray(catalogSplitAssignments.jobId, splitIds));
-      await db.execute(
-        sql`alter table catalog_split_assignments enable trigger catalog_split_assignments_frozen`,
+      await tx
+        .delete(catalogRevisions)
+        .where(inArray(catalogRevisions.actorOxyUserId, [OPERATOR, SECOND_OPERATOR]));
+      await tx.execute(
+        sql`alter table catalog_revisions enable trigger catalog_revisions_append_only`,
       );
-      await db.delete(catalogSplitJobs).where(inArray(catalogSplitJobs.id, splitIds));
-    }
-    if (jobIds.length > 0) {
-      await db.delete(catalogMergeConflicts).where(inArray(catalogMergeConflicts.jobId, jobIds));
-      await db.execute(
-        sql`alter table catalog_merge_job_phases disable trigger catalog_merge_job_phases_append_only`,
-      );
-      await db.delete(catalogMergeJobPhases).where(inArray(catalogMergeJobPhases.jobId, jobIds));
-      await db.execute(
-        sql`alter table catalog_merge_job_phases enable trigger catalog_merge_job_phases_append_only`,
-      );
-      await db.delete(catalogMergeJobs).where(inArray(catalogMergeJobs.id, jobIds));
-    }
+      if (splitIds.length > 0) {
+        await tx.execute(
+          sql`alter table catalog_split_assignments disable trigger catalog_split_assignments_frozen`,
+        );
+        await tx
+          .delete(catalogSplitAssignments)
+          .where(inArray(catalogSplitAssignments.jobId, splitIds));
+        await tx.execute(
+          sql`alter table catalog_split_assignments enable trigger catalog_split_assignments_frozen`,
+        );
+        await tx.delete(catalogSplitJobs).where(inArray(catalogSplitJobs.id, splitIds));
+      }
+      if (jobIds.length > 0) {
+        await tx.delete(catalogMergeConflicts).where(inArray(catalogMergeConflicts.jobId, jobIds));
+        await tx.execute(
+          sql`alter table catalog_merge_job_phases disable trigger catalog_merge_job_phases_append_only`,
+        );
+        await tx.delete(catalogMergeJobPhases).where(inArray(catalogMergeJobPhases.jobId, jobIds));
+        await tx.execute(
+          sql`alter table catalog_merge_job_phases enable trigger catalog_merge_job_phases_append_only`,
+        );
+        await tx.delete(catalogMergeJobs).where(inArray(catalogMergeJobs.id, jobIds));
+      }
+    });
     await db
       .delete(catalogEntitySuppressions)
       .where(eq(catalogEntitySuppressions.suppressedByOxyUserId, OPERATOR));
@@ -182,17 +233,41 @@ afterEach(async () => {
  * its own outcome instead of writing over somebody else's run. So a test that
  * ran a job without claiming it would exercise a path production never takes,
  * and would report `completed: false` for the right reason and the wrong test.
+ *
+ * Both helpers BACKDATE the row under test and then take exactly ONE. A claim
+ * orders by `available_at` across the whole table with no filter and the job
+ * queues are global to the one throwaway database a run shares, so a batch of
+ * 25 both missed its own row once 25 older ones were pending AND stole up to 24
+ * rows from whatever else was running. See `7f00a67` (#255) / `78e2f4b` (#231);
+ * the production claim is deliberately unchanged, because oldest-first over the
+ * whole table is correct for a shared queue.
+ */
+/**
+ * `to_timestamp(0)` is THIS FILE's backdate instant for `catalog_merge_jobs`,
+ * and it must stay distinct from every other file's.
+ *
+ * `claimMergeJobs` orders by `available_at` with no second column, so two files
+ * backdating to the same instant are TIED and `for update skip locked`
+ * guarantees their claims take DIFFERENT rows — each steals the other's job and
+ * both go red, neither at fault. `product-saves.realdb.test.ts` therefore uses
+ * `to_timestamp(1)`. A new file sharing this queue picks its own.
  */
 async function claimAndRunMerge(jobId: string, owner: string) {
-  const claimed = await claimMergeJobs({ leaseOwner: owner, batchSize: 25 });
-  expect(claimed.map((row) => row.id)).toContain(jobId);
+  await db.execute(
+    sql`update catalog_merge_jobs set available_at = to_timestamp(0) where id = ${jobId}`,
+  );
+  const claimed = await claimMergeJobs({ leaseOwner: owner, batchSize: 1 });
+  expect(claimed.map((row) => row.id)).toEqual([jobId]);
   return runMergeJob(jobId, owner);
 }
 
 /** The same, for a split. */
 async function claimAndRunSplit(jobId: string, owner: string) {
-  const claimed = await claimSplitJobs({ leaseOwner: owner, batchSize: 25 });
-  expect(claimed.map((row) => row.id)).toContain(jobId);
+  await db.execute(
+    sql`update catalog_split_jobs set available_at = to_timestamp(0) where id = ${jobId}`,
+  );
+  const claimed = await claimSplitJobs({ leaseOwner: owner, batchSize: 1 });
+  expect(claimed.map((row) => row.id)).toEqual([jobId]);
   return runSplitJob(jobId, owner);
 }
 

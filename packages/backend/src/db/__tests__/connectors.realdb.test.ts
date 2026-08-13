@@ -48,7 +48,7 @@ import {
   connections,
   connectionWebhookFailures,
 } from '../schema/connectors.js';
-import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import {
   disconnectConnection,
   findConnection,
@@ -122,8 +122,9 @@ afterEach(async () => {
     // `connections.store_id` and `channel_api_keys.store_id` both CASCADE, and
     // `sync_runs.connection_id` cascades from the connection — so dropping the
     // store is enough, and that it IS enough is itself worth relying on rather
-    // than deleting four tables by hand.
-    await db.delete(stores).where(eq(stores.id, storeId));
+    // than deleting four tables by hand. The canonical link a backfill pass may
+    // have attached is the one dependent that does NOT cascade.
+    await deleteTestStores(db, [storeId]);
   }
 });
 

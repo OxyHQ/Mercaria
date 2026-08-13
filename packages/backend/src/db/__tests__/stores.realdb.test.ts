@@ -30,7 +30,7 @@ import { isForeignKeyViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { inventoryLevels, listings, productVariants } from '../schema/catalog.js';
 import { draftOrders } from '../schema/pos.js';
-import { stores } from '../schema/stores.js';
+import { deleteTestStores } from './store-teardown.js';
 import {
   adjustStoreProductCount,
   findStoreById,
@@ -103,7 +103,7 @@ afterEach(async () => {
     // `listings.store_id` is RESTRICT, so the listings (and their cascading
     // variants and levels) go before the store does.
     await db.delete(listings).where(eq(listings.storeId, storeId));
-    await db.delete(stores).where(eq(stores.id, storeId));
+    await deleteTestStores(db, [storeId]);
   }
 });
 
