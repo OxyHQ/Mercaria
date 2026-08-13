@@ -16,10 +16,29 @@ import {
   type WebhookProbe,
   type WebhookRegistrationPlan,
 } from '../webhook-registration.js';
-import type { PlatformWebhookSubscription } from '../types.js';
+import type {
+  PlatformWebhookSubscription,
+  WebhookReconciliation,
+  WebhookRegistrationResult,
+} from '../types.js';
 
 const OURS = 'https://api.mercaria.test/channels/webhooks/shopify';
 const TOPICS = ['products/create', 'products/update', 'orders/create'] as const;
+
+/**
+ * Narrow a result to the branch that read the platform's list.
+ *
+ * A THROW rather than a cast: `subscriptions` does not exist on the other
+ * branch, so every case below is stating "the list was readable here" as part of
+ * its own premise instead of asserting against a shape TypeScript had to be told
+ * to believe in.
+ */
+function expectReconciled(result: WebhookRegistrationResult): WebhookReconciliation {
+  if (result.outcome !== 'reconciled') {
+    throw new Error(`expected a reconciled result, got outcome=${result.outcome}`);
+  }
+  return result;
+}
 
 /** A recording plan over an in-memory subscription set. */
 function makePlan(options: {
@@ -94,12 +113,17 @@ describe('reconcileWebhookSubscriptions', () => {
   it('creates every topic on an empty platform', async () => {
     const { plan, created, removed } = makePlan({ adoptExisting: true });
 
-    const result = await reconcileWebhookSubscriptions(plan);
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
 
     expect(created).toEqual([...TOPICS]);
     expect(removed).toEqual([]);
     expect(result.failures).toEqual([]);
     expect(result.subscriptions.map((subscription) => subscription.topic)).toEqual([...TOPICS]);
+    // Every one was made HERE, which is what lets the caller store the secret it
+    // passed in. A registration that created nothing must not replace it.
+    expect(result.subscriptions.every((subscription) => subscription.origin === 'created')).toBe(
+      true,
+    );
   });
 
   it('ADOPTS an existing subscription and deletes only its DUPLICATES', async () => {
@@ -111,11 +135,15 @@ describe('reconcileWebhookSubscriptions', () => {
       ],
     });
 
-    const result = await reconcileWebhookSubscriptions(plan);
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
 
     expect(created).toEqual(['products/update', 'orders/create']);
     expect(removed).toEqual(['dup']);
-    expect(result.subscriptions).toContainEqual({ id: 'keep', topic: 'products/create' });
+    expect(result.subscriptions).toContainEqual({
+      id: 'keep',
+      topic: 'products/create',
+      origin: 'retained',
+    });
     expect(result.failures).toEqual([]);
   });
 
@@ -129,7 +157,7 @@ describe('reconcileWebhookSubscriptions', () => {
       existing: [{ id: 'stale', topic: 'products/create', deliveryUrl: OURS }],
     });
 
-    const result = await reconcileWebhookSubscriptions(plan);
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
 
     expect(removed).toEqual(['stale']);
     expect(created).toEqual([...TOPICS]);
@@ -147,19 +175,129 @@ describe('reconcileWebhookSubscriptions', () => {
         id === 'stuck' ? { outcome: 'refused', reason: 'permission_denied', httpStatus: 403 } : undefined,
     });
 
-    const result = await reconcileWebhookSubscriptions(plan);
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
 
     expect(created).not.toContain('products/update');
     expect(result.failures).toEqual([
       { topic: 'products/update', reason: 'permission_denied', httpStatus: 403 },
     ]);
-    expect(result.subscriptions.map((subscription) => subscription.topic)).toEqual([
-      'products/create',
+    expect(result.subscriptions.map((subscription) => subscription.topic).sort()).toEqual([
       'orders/create',
+      'products/create',
+      'products/update',
     ]);
   });
 
-  it('reports every topic refused when the platform will not LIST', async () => {
+  it('RETAINS the id of a subscription the platform would not delete', async () => {
+    // #218 again, one layer down. `stuck` is still live at OUR delivery URL and
+    // still delivering — signed, on a `per_connection` platform, with a secret
+    // this attempt is about to replace. Dropping its id makes it an orphan
+    // nobody holds a handle for: the next reconcile finds it and disconnect
+    // cannot reach it at all. `everything-after` is the one the loop never even
+    // attempted, and it is live for the same reason.
+    const { plan } = makePlan({
+      adoptExisting: false,
+      existing: [
+        { id: 'stuck', topic: 'products/update', deliveryUrl: OURS },
+        { id: 'everything-after', topic: 'products/update', deliveryUrl: OURS },
+      ],
+      refuseRemove: (id) =>
+        id === 'stuck' ? { outcome: 'refused', reason: 'permission_denied', httpStatus: 403 } : undefined,
+    });
+
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
+
+    expect(result.subscriptions).toContainEqual({
+      id: 'stuck',
+      topic: 'products/update',
+      origin: 'retained',
+    });
+    expect(result.subscriptions).toContainEqual({
+      id: 'everything-after',
+      topic: 'products/update',
+      origin: 'retained',
+    });
+    // RETAINED, never `created`: nothing was made with this attempt's secret for
+    // this topic, so the caller must not read them as evidence to store one.
+    expect(
+      result.subscriptions
+        .filter((subscription) => subscription.topic === 'products/update')
+        .every((subscription) => subscription.origin === 'retained'),
+    ).toBe(true);
+  });
+
+  it('does not treat ONE subscription listed twice as a duplicate of itself', async () => {
+    // A platform may repeat a row — page-number pagination over a list that
+    // shifted between requests is the way it happens. Read naively the adopt
+    // branch keeps `existing[0]` and then DELETES `existing.slice(1)`, which is
+    // the same id: the topic ends with nothing live and `subscriptions` names a
+    // subscription that no longer exists, so the caller stores a dead id and the
+    // events stop arriving. One id is one subscription.
+    const { plan, created, removed } = makePlan({
+      adoptExisting: true,
+      existing: [
+        { id: 'listed-twice', topic: 'products/create', deliveryUrl: OURS },
+        { id: 'listed-twice', topic: 'products/create', deliveryUrl: OURS },
+      ],
+    });
+
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
+
+    expect(removed, 'the one live subscription must not be deleted as its own duplicate').toEqual(
+      [],
+    );
+    expect(created).toEqual(['products/update', 'orders/create']);
+    expect(result.subscriptions).toContainEqual({
+      id: 'listed-twice',
+      topic: 'products/create',
+      origin: 'retained',
+    });
+    expect(
+      result.subscriptions.filter((subscription) => subscription.id === 'listed-twice'),
+    ).toHaveLength(1);
+  });
+
+  it('RETAINS a DUPLICATE it could not delete, beside the one it adopted', async () => {
+    const { plan } = makePlan({
+      adoptExisting: true,
+      existing: [
+        { id: 'keep', topic: 'products/create', deliveryUrl: OURS },
+        { id: 'stubborn-dup', topic: 'products/create', deliveryUrl: OURS },
+      ],
+      refuseRemove: (id) =>
+        id === 'stubborn-dup' ? { outcome: 'refused', reason: 'rate_limited', httpStatus: 429 } : undefined,
+    });
+
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
+
+    // Best-effort is about whether the reconcile PROCEEDS — the topic still
+    // delivers, so it is no failure — never about whether the id is reported.
+    expect(result.failures).toEqual([]);
+    expect(result.subscriptions).toContainEqual({
+      id: 'stubborn-dup',
+      topic: 'products/create',
+      origin: 'retained',
+    });
+  });
+
+  it('RETAINS a RETIRED topic it could not delete', async () => {
+    const { plan } = makePlan({
+      adoptExisting: true,
+      existing: [{ id: 'retired', topic: 'products/retired-topic', deliveryUrl: OURS }],
+      refuseRemove: () => ({ outcome: 'refused', reason: 'platform_error', httpStatus: 500 }),
+    });
+
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
+
+    expect(result.failures).toEqual([]);
+    expect(result.subscriptions).toContainEqual({
+      id: 'retired',
+      topic: 'products/retired-topic',
+      origin: 'retained',
+    });
+  });
+
+  it('reports every topic refused when the platform will not LIST, and claims NO subscriptions', async () => {
     // Without the list there is no way to tell an existing subscription from an
     // absent one, so creating would duplicate every topic on precisely the shops
     // already broken. None of these events will arrive, and all of them say so.
@@ -171,10 +309,33 @@ describe('reconcileWebhookSubscriptions', () => {
     const result = await reconcileWebhookSubscriptions(plan);
 
     expect(created).toEqual([]);
-    expect(result.subscriptions).toEqual([]);
     expect(result.failures).toEqual(
       TOPICS.map((topic) => ({ topic, reason: 'permission_denied', httpStatus: 403 })),
     );
+    // The branch carries NO subscription list, which is the whole point: an
+    // empty array is the claim "there are none", and the caller writing that
+    // claim over a populated `webhook_ids` is #218's first consequence. There is
+    // nothing here for a `?? []` to turn into one.
+    expect(result.outcome).toBe('unknown');
+    expect('subscriptions' in result).toBe(false);
+    expect(result).toEqual({
+      outcome: 'unknown',
+      reason: 'permission_denied',
+      httpStatus: 403,
+      failures: TOPICS.map((topic) => ({ topic, reason: 'permission_denied', httpStatus: 403 })),
+    });
+  });
+
+  it('omits the LISTING status too when the list call never reached the platform', async () => {
+    const { plan } = makePlan({
+      adoptExisting: true,
+      listRefusal: { outcome: 'refused', reason: 'transport_error' },
+    });
+
+    const result = await reconcileWebhookSubscriptions(plan);
+
+    expect(result.outcome).toBe('unknown');
+    expect('httpStatus' in result).toBe(false);
   });
 
   it('carries a refusal with NO status when the call never reached the platform', async () => {
@@ -184,7 +345,7 @@ describe('reconcileWebhookSubscriptions', () => {
         topic === 'orders/create' ? { outcome: 'refused', reason: 'transport_error' } : undefined,
     });
 
-    const result = await reconcileWebhookSubscriptions(plan);
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
 
     // `httpStatus` ABSENT rather than zero: a transport error has no status, and
     // a zero is a status nobody answered.
@@ -202,7 +363,7 @@ describe('reconcileWebhookSubscriptions', () => {
     ];
     const { plan, removed } = makePlan({ adoptExisting: false, existing: [...foreign] });
 
-    const result = await reconcileWebhookSubscriptions(plan);
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
 
     expect(removed).toEqual([]);
     expect(result.subscriptions.map((subscription) => subscription.id)).not.toContain(
@@ -216,10 +377,13 @@ describe('reconcileWebhookSubscriptions', () => {
       existing: [{ id: 'retired', topic: 'products/retired-topic', deliveryUrl: OURS }],
     });
 
-    const result = await reconcileWebhookSubscriptions(plan);
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
 
     expect(removed).toEqual(['retired']);
     // Not a failure: nothing wanted it, so no event fails to arrive.
     expect(result.failures).toEqual([]);
+    // And gone from the list — a subscription is omitted only when it is
+    // provably deleted, which this one is.
+    expect(result.subscriptions.map((subscription) => subscription.id)).not.toContain('retired');
   });
 });

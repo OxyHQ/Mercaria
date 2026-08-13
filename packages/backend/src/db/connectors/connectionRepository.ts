@@ -435,10 +435,8 @@ export interface WebhookFailureRecord {
   readonly httpStatus?: number;
 }
 
-/** Everything ONE webhook registration attempt leaves behind. */
-export interface WebhookRegistrationRecord {
-  /** The subscriptions that exist on the platform after the attempt. */
-  readonly webhookIds: readonly string[];
+/** What every webhook-registration attempt leaves behind, whatever it learned. */
+interface WebhookRegistrationRecordBase {
   /**
    * The encrypted secret those subscriptions were registered with, for a
    * `per_connection` provider. ABSENT leaves the stored envelope untouched,
@@ -449,6 +447,35 @@ export interface WebhookRegistrationRecord {
   /** The topics the platform refused. Empty replaces whatever was recorded. */
   readonly failures: readonly WebhookFailureRecord[];
 }
+
+/** An attempt that READ the platform's list, so it knows what is live. */
+export interface WebhookRegistrationReconciled extends WebhookRegistrationRecordBase {
+  readonly outcome: 'reconciled';
+  /**
+   * Every subscription live at this connection's delivery URL after the attempt.
+   * It REPLACES the stored ids, so it must be the complete set rather than the
+   * ones this attempt happened to create.
+   */
+  readonly webhookIds: readonly string[];
+}
+
+/**
+ * An attempt that could not read the platform's list.
+ *
+ * It carries NO `webhookIds` property — not an empty array — so the erasure
+ * #218's first consequence describes cannot be written by accident. Nothing was
+ * created and nothing was deleted, so the ids already stored are still the best
+ * handle anyone has on that shop and are LEFT ALONE. The refused topics are
+ * still recorded, because none of those events will arrive.
+ */
+export interface WebhookRegistrationUnknown extends WebhookRegistrationRecordBase {
+  readonly outcome: 'unknown';
+}
+
+/** Everything ONE webhook registration attempt leaves behind. */
+export type WebhookRegistrationRecord =
+  | WebhookRegistrationReconciled
+  | WebhookRegistrationUnknown;
 
 /**
  * Record what ONE webhook-registration attempt left behind — ids, secret and
@@ -467,6 +494,12 @@ export interface WebhookRegistrationRecord {
  * topic)` means a merge would need an upsert-then-prune that says the same
  * thing less clearly.
  *
+ * The IDS are the one thing an attempt may not know, so `record` is a
+ * discriminated union: an attempt that could not read the platform's list
+ * replaces nothing, because "I could not find out" written down as "there are
+ * none" is precisely how #218 left a shop with live subscriptions and an empty
+ * `webhook_ids`.
+ *
  * @returns The updated row, so the connect response carries the ids that were
  *   just registered. The Mongoose path got that by assigning `conn.webhookIds`
  *   on the in-memory document after the write — a mutation whose only purpose
@@ -482,7 +515,10 @@ export async function recordConnectionWebhookRegistration(
     const [row] = await tx
       .update(connections)
       .set({
-        webhookIds: [...record.webhookIds],
+        // Only an attempt that READ the platform's list may replace the ids —
+        // see `WebhookRegistrationUnknown`. The unknown branch still runs the
+        // statement, because it writes the failures and returns the row.
+        ...(record.outcome === 'reconciled' ? { webhookIds: [...record.webhookIds] } : {}),
         ...(record.secret
           ? {
               webhookSecretCiphertext: record.secret.ciphertext,

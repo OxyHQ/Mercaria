@@ -78,6 +78,7 @@ import {
   findConnectionById,
   findConnectionByProvider,
   findConnectionCredentials,
+  findConnectionIdsByShopDomain,
   findConnectionsByStore,
   findConnectionWebhookFailures,
   findPullConnectionsToReconcile,
@@ -435,9 +436,16 @@ function generateWebhookSecret(): string {
  * the platform's own list, which is a superset of what Mercaria believes it
  * created and therefore the only thing that converges an already-orphaned shop.
  *
- * The secret is written only when at least one subscription was created with it:
- * an attempt that created none must not replace the envelope that still verifies
- * whatever survived.
+ * The ids it persists are therefore the platform's whole truth about our address
+ * — created here, adopted, or left behind by a delete the platform refused — and
+ * never only "what this attempt made". An attempt that could not READ that list
+ * writes NO ids at all rather than an empty set: the `unknown` branch is what
+ * stops "I could not find out" being stored as "there are none", which is the
+ * erasure that made a later disconnect delete nothing.
+ *
+ * The secret is written only when at least one subscription was CREATED with it
+ * (`origin`), never merely because subscriptions exist: an attempt that created
+ * none must not replace the envelope that still verifies whatever survived.
  *
  * Best-effort: a THROWN registration (a provider bug, a missing secret) logs and
  * leaves the connection working WITHOUT real-time sync — backfill and the
@@ -462,17 +470,34 @@ async function registerConnectionWebhooks(
       connectionId: conn.id,
       ...(secret !== undefined ? { secret } : {}),
     });
-    const created = result.subscriptions.length > 0;
+    const failures = result.failures.map((failure) => ({
+      topic: failure.topic,
+      reason: failure.reason,
+      ...(failure.httpStatus === undefined ? {} : { httpStatus: failure.httpStatus }),
+    }));
+    const created =
+      result.outcome === 'reconciled' &&
+      result.subscriptions.some((subscription) => subscription.origin === 'created');
     const updated = await recordConnectionWebhookRegistration(conn.id, {
-      webhookIds: result.subscriptions.map((subscription) => subscription.id),
+      ...(result.outcome === 'reconciled'
+        ? {
+            outcome: 'reconciled' as const,
+            webhookIds: result.subscriptions.map((subscription) => subscription.id),
+          }
+        : { outcome: 'unknown' as const }),
       ...(secret !== undefined && created ? { secret: encryptSecret(secret) } : {}),
-      failures: result.failures.map((failure) => ({
-        topic: failure.topic,
-        reason: failure.reason,
-        ...(failure.httpStatus === undefined ? {} : { httpStatus: failure.httpStatus }),
-      })),
+      failures,
     });
-    if (result.failures.length > 0) {
+    if (result.outcome === 'unknown') {
+      log.general.warn(
+        {
+          connectionId: conn.id,
+          reason: result.reason,
+          ...(result.httpStatus === undefined ? {} : { httpStatus: result.httpStatus }),
+        },
+        'Could not read the platform webhook list — the stored subscription ids are left as they were',
+      );
+    } else if (result.failures.length > 0) {
       // The topics, never the reason alone: "which events will not arrive" is
       // the operator's question, and the persisted rows are what a merchant
       // surface renders. The log line is for the incident, not for the merchant.
@@ -580,11 +605,14 @@ export async function connectAndVerify(
  * the shop currency), validate the currency is supported, encrypt the credential
  * pair, and upsert the `{ storeId, provider }` connection as a `pull` channel.
  *
- * No OAuth code exchange and no webhook registration — WooCommerce's pull-only
- * first cut relies on backfill + scheduled re-sync (real-time webhooks are not
- * built). A fresh connection defaults `products: 'off'`; the merchant enables
+ * No OAuth code exchange, and webhook registration is the SAME best-effort step
+ * the OAuth connect runs (below) rather than a WooCommerce-shaped variant of it.
+ * A fresh connection defaults `products: 'off'`; the merchant enables
  * `products: 'pull'` via `updateSyncSettings`, then `runBackfill` imports the
- * catalog — the SAME pull path Shopify uses.
+ * catalog — the SAME pull path Shopify uses. When registration is refused the
+ * channel still works on backfill plus the scheduled re-sync, which is what
+ * makes it best-effort; the refused topics are recorded and served to the
+ * merchant rather than silently dropped (#218).
  *
  * `storeId`/`providerId` are resolved server-side (route param + loaded store);
  * only the credentials come from the body, and they are validated + encrypted,
@@ -699,6 +727,49 @@ export async function updateSyncSettings(
  * `connectionRepository.disconnectConnection`: the `all three or none` CHECKs
  * refuse a partial clear, and `''` would pass them while leaving a connection
  * that reads as authorized and decrypts to nothing.
+ *
+ * ## What it deletes, and why `webhookIds` is not enough (#218)
+ *
+ * The set is the UNION of the stored ids and every subscription the platform
+ * currently delivers to this connection's EXACT delivery URL. Registration was
+ * taught to converge by reading the platform; disconnect has to be, for the same
+ * reason and against the same failure: a registration that threw between the
+ * platform call and the database write leaves live subscriptions Mercaria holds
+ * no id for, and a disconnect that trusts `webhookIds` walks straight past them
+ * and leaves permanent orphans delivering to an endpoint whose connection is
+ * gone. Reading the platform is also what makes an EMPTY `webhookIds` worth
+ * acting on, which is exactly the state the bug produced.
+ *
+ * Both halves are needed: the platform's list can be unreadable (an expired
+ * token, a 5xx, a revoked scope), in which case the stored ids are still deleted
+ * — and a stored id the platform no longer has is answered as an idempotent
+ * success by both providers.
+ *
+ * The URL comparison is the provider's `webhookDeliveryUrl` and is EXACT.
+ * WooCommerce's is per connection, so a prefix test would delete a sibling
+ * connection's subscriptions.
+ *
+ * ## The SHARED-ADDRESS guard, and why it is not "widens nothing"
+ *
+ * Shopify delivers every shop's events to ONE app-wide address, so two Mercaria
+ * stores connected to the SAME Shopify shop deliver to the same URL. In the
+ * ordinary case both have adopted the same rows and hold the same ids, so
+ * disconnecting either already deleted the other's — but NOT in the state #218
+ * exists to fix: if this connection's last registration answered `unknown` or
+ * threw, its `webhook_ids` is empty or stale, so the stored-id delete used to be
+ * a no-op while the platform sweep would delete the SIBLING's entire live set.
+ *
+ * That would be an outage rather than an inconvenience, because nothing puts it
+ * back: `registerConnectionWebhooks` is called from the two CONNECT paths and
+ * nowhere else, and `reconcileAllConnections` only enqueues catalogue backfills.
+ * The sibling would stay dark until a person reconnected it.
+ *
+ * So the platform-discovered half is skipped when ANOTHER live connection
+ * resolves to this exact delivery URL. The stored ids still go — they are this
+ * connection's own record. The test is asked of the PROVIDER, not of its id, so
+ * WooCommerce pays nothing for it: a sibling Woo connection's URL carries a
+ * different connection id, so the sweep still clears its orphans, which is the
+ * single-store case #218 is actually about.
  */
 export async function disconnect(
   storeId: string,
@@ -713,10 +784,60 @@ export async function disconnect(
   // Best-effort: remove the platform webhooks while we still hold the credentials.
   // `hasCredentials` answers "is it authorized" without reading the envelope; the
   // envelope itself is read inside `decryptAuth`, one line further down.
-  if (existing.webhookIds.length > 0 && existing.hasCredentials && existing.shopDomain) {
+  if (existing.hasCredentials && existing.shopDomain) {
     try {
       const provider = getConnectorProvider(existing.provider);
-      await provider.deleteWebhooks(await decryptAuth(existing), existing.webhookIds);
+      const auth = await decryptAuth(existing);
+      const doomed = new Set(existing.webhookIds);
+      const address = getWebhookAddress(existing.provider);
+      const deliveryUrl = provider.webhookDeliveryUrl({
+        address,
+        connectionId: existing.id,
+      });
+      // Does any OTHER live connection deliver to the exact URL this one does?
+      //
+      // Asked of the provider rather than of its id, so it costs WooCommerce
+      // nothing: a sibling Woo connection's URL carries a different connection
+      // id, so this is false and the platform sweep below still clears its
+      // orphans. It is true only where the address is genuinely SHARED, which
+      // today means two Mercaria stores connected to one Shopify shop.
+      const siblingIds = (
+        await findConnectionIdsByShopDomain(existing.provider, existing.shopDomain)
+      ).filter((id) => id !== existing.id);
+      const addressIsShared = siblingIds.some(
+        (siblingId) => provider.webhookDeliveryUrl({ address, connectionId: siblingId }) === deliveryUrl,
+      );
+      if (addressIsShared) {
+        // The stored ids still go — they are this connection's own record — but
+        // a PLATFORM-DISCOVERED subscription at a shared address may belong to
+        // the sibling, and there is no automatic re-registration to give it back:
+        // `registerConnectionWebhooks` runs on CONNECT and nowhere else, and the
+        // reconcile sweep only enqueues catalogue backfills. Deleting the whole
+        // set would take a shop this connection does not exclusively own dark
+        // until a human reconnects it.
+        log.general.warn(
+          { connectionId: existing.id, siblings: siblingIds.length },
+          'Webhook delivery address is shared with another connection — deleting only the ids this connection holds',
+        );
+      } else {
+        try {
+          for (const subscription of await provider.listWebhooks(auth)) {
+            if (subscription.deliveryUrl === deliveryUrl) {
+              doomed.add(subscription.id);
+            }
+          }
+        } catch (err) {
+          // An unreadable list is not a reason to delete nothing: the stored ids
+          // are still the best handle anyone has, and they are deleted below.
+          log.general.warn(
+            { err, connectionId: existing.id },
+            'Could not read the platform webhook list on disconnect — deleting only the ids Mercaria holds',
+          );
+        }
+      }
+      if (doomed.size > 0) {
+        await provider.deleteWebhooks(auth, [...doomed]);
+      }
     } catch (err) {
       log.general.warn(
         { err, connectionId: existing.id },

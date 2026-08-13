@@ -148,8 +148,14 @@ function installProviderYielding(products: NormalizedProduct[]): void {
     // No fake socket in this suite, so the registration path must not reach one.
     // #218 made a registration that subscribes nothing a first-class result
     // rather than a throw, which is exactly what an empty one is.
+    //
+    // `reconciled` and not `unknown`: the platform list below reads fine and is
+    // empty, so this attempt KNOWS nothing is live. `unknown` is the branch for
+    // a list that could not be read at all, and it carries no subscriptions —
+    // which would leave whatever ids were stored alone instead of writing none.
     listWebhooks: () => Promise.resolve([]),
-    registerWebhooks: () => Promise.resolve({ subscriptions: [], failures: [] }),
+    registerWebhooks: () =>
+      Promise.resolve({ outcome: 'reconciled' as const, subscriptions: [], failures: [] }),
     fetchProducts: () => Promise.resolve({ products }),
   };
 }

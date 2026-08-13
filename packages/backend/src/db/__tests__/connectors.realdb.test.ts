@@ -211,6 +211,7 @@ describe('the all-or-nothing credential CHECK', () => {
     const storeId = await makeStore();
     const conn = await makeConnection(storeId);
     await recordConnectionWebhookRegistration(conn.id, {
+      outcome: 'reconciled',
       webhookIds: ['wh-1', 'wh-2'],
       secret: ENVELOPE,
       failures: [],
@@ -271,6 +272,7 @@ describe('the webhook-registration record (#218)', () => {
     const conn = await makeConnection(storeId);
 
     const updated = await recordConnectionWebhookRegistration(conn.id, {
+      outcome: 'reconciled',
       webhookIds: ['wh-1', 'wh-2'],
       secret: ENVELOPE,
       failures: [
@@ -306,6 +308,7 @@ describe('the webhook-registration record (#218)', () => {
     const storeId = await makeStore();
     const conn = await makeConnection(storeId);
     await recordConnectionWebhookRegistration(conn.id, {
+      outcome: 'reconciled',
       webhookIds: [],
       failures: [
         { topic: 'orders/create', reason: 'permission_denied', httpStatus: 403 },
@@ -314,6 +317,7 @@ describe('the webhook-registration record (#218)', () => {
     });
 
     await recordConnectionWebhookRegistration(conn.id, {
+      outcome: 'reconciled',
       webhookIds: ['wh-1'],
       failures: [{ topic: 'orders/create', reason: 'rate_limited', httpStatus: 429 }],
     });
@@ -323,10 +327,40 @@ describe('the webhook-registration record (#218)', () => {
     expect(failures?.[0]).toMatchObject({ topic: 'orders/create', reason: 'rate_limited' });
   });
 
+  it('LEAVES the stored ids alone when the attempt could not read the platform list', async () => {
+    // #218's first consequence, at the statement that caused it. Nothing was
+    // created and nothing was deleted, so every id already stored still names a
+    // live subscription — and writing `[]` here is what made a later disconnect
+    // delete nothing and leave them delivering forever. The refused topics are
+    // still recorded, because none of those events will arrive.
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    await recordConnectionWebhookRegistration(conn.id, {
+      outcome: 'reconciled',
+      webhookIds: ['wh-live-1', 'wh-live-2'],
+      secret: ENVELOPE,
+      failures: [],
+    });
+
+    const updated = await recordConnectionWebhookRegistration(conn.id, {
+      outcome: 'unknown',
+      failures: [{ topic: 'orders/create', reason: 'permission_denied', httpStatus: 403 }],
+    });
+
+    expect(updated?.webhookIds).toEqual(['wh-live-1', 'wh-live-2']);
+    // The envelope that verifies those live subscriptions survives too — an
+    // attempt that created nothing has nothing to replace it with.
+    expect(await findConnectionWebhookSecret(conn.id, 'shopify')).toEqual(ENVELOPE);
+    const failures = (await findConnectionWebhookFailures([conn.id])).get(conn.id);
+    expect(failures).toHaveLength(1);
+    expect(failures?.[0]).toMatchObject({ topic: 'orders/create', reason: 'permission_denied' });
+  });
+
   it('is IDEMPOTENT — the same registration twice leaves one row per topic', async () => {
     const storeId = await makeStore();
     const conn = await makeConnection(storeId);
     const record = {
+      outcome: 'reconciled' as const,
       webhookIds: ['wh-1'],
       failures: [{ topic: 'orders/create', reason: 'permission_denied' as const, httpStatus: 403 }],
     };
@@ -395,10 +429,12 @@ describe('the webhook-registration record (#218)', () => {
     const other = await makeConnection(await makeStore());
 
     await recordConnectionWebhookRegistration(conn.id, {
+      outcome: 'reconciled',
       webhookIds: [],
       failures: [{ topic: 'orders/create', reason: 'permission_denied' }],
     });
     await recordConnectionWebhookRegistration(other.id, {
+      outcome: 'reconciled',
       webhookIds: [],
       failures: [{ topic: 'orders/create', reason: 'permission_denied' }],
     });
@@ -412,6 +448,7 @@ describe('the webhook-registration record (#218)', () => {
     const storeId = await makeStore();
     const conn = await makeConnection(storeId);
     await recordConnectionWebhookRegistration(conn.id, {
+      outcome: 'reconciled',
       webhookIds: ['wh-1'],
       failures: [{ topic: 'orders/create', reason: 'permission_denied', httpStatus: 403 }],
     });
@@ -498,6 +535,7 @@ describe('publicColumns on connections', () => {
     const storeId = await makeStore();
     const conn = await makeConnection(storeId);
     await recordConnectionWebhookRegistration(conn.id, {
+      outcome: 'reconciled',
       webhookIds: [],
       secret: ENVELOPE,
       failures: [],

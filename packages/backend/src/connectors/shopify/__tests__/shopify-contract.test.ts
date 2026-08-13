@@ -340,14 +340,19 @@ function createShopifyFake(world: ContractWorld): ShopifyTransport {
         return ok({ webhook: { id } });
       }
       // `GET /webhooks.json` — what the shop actually holds, which is what
-      // #218's reconciliation reads before it creates anything.
-      return ok({
-        webhooks: world.webhooks.map((webhook) => ({
-          id: webhook.id,
-          topic: webhook.topic,
-          address: webhook.deliveryUrl,
-        })),
-      });
+      // #218's reconciliation reads before it creates anything. PAGED with the
+      // same `Link: rel="next"` header every other Shopify collection carries:
+      // a fake that answered everything on one page could not tell a connector
+      // that follows the cursor from one that reads the first page and concludes
+      // those are all the subscriptions that exist.
+      return pagedResponse(
+        url,
+        'webhooks.json',
+        world.webhooks,
+        world.pageSize,
+        (webhook) => ({ id: webhook.id, topic: webhook.topic, address: webhook.deliveryUrl }),
+        'webhooks',
+      );
     }
     const webhookDeleteMatch = path.match(/^\/admin\/api\/[^/]+\/webhooks\/([^/]+)\.json$/);
     if (method === 'DELETE' && webhookDeleteMatch) {
@@ -404,6 +409,7 @@ describeConnectorContract({
   capabilities: shopifyProvider.capabilities,
   webhookSecretStrategy: shopifyProvider.webhookSecretStrategy,
   webhookPathFragment: '/webhooks.json',
+  webhookDeletePathFragment: '/webhooks/',
   createWorld: () => {
     const catalogue = contractCatalogue(uuidv7());
     return createContractWorld({
