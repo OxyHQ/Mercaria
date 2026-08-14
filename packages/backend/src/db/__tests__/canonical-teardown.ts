@@ -43,12 +43,53 @@
  * It is deliberately NOT a `catch` around the delete. A swallowed `23503` would
  * also hide a genuine children-first ordering mistake, which is the thing the
  * RESTRICT constraints are there to make loud.
+ *
+ * ## Deciding and deleting are ONE transaction, and the rows are LOCKED first
+ *
+ * Narrowing the delete is necessary and was not sufficient. Reading
+ * `match_decisions`, deleting the variants and deleting the products used to be
+ * three autocommitted statements, so a sibling's matcher could commit a citing
+ * decision in the gap between the read and either delete and the delete met the
+ * same `23503` the plan exists to avoid — a smaller window, not a closed one,
+ * and three green runs say nothing about a race whose measured frequency was
+ * one in four full runs.
+ *
+ * So the whole sequence runs inside `db.transaction(...)` and every canonical
+ * row it might delete is locked `FOR UPDATE` BEFORE `match_decisions` is read.
+ * That closes it in both directions, and neither direction is a convention:
+ *
+ * - A decision COMMITTED before the lock is acquired is visible to the plan
+ *   that follows it (READ COMMITTED reads the latest committed row), so it is
+ *   seen and its ids are retained.
+ * - A decision ATTEMPTED after the lock is held cannot commit first. Inserting a
+ *   `match_decisions` row takes `FOR KEY SHARE` on the canonical rows it cites,
+ *   which CONFLICTS with `FOR UPDATE` — so the sibling's insert waits, and when
+ *   this transaction commits having deleted the row the sibling's own insert is
+ *   the statement that fails, on its own foreign key. Nothing another file owns
+ *   is touched, which is the same posture as the retention rule above.
+ *
+ * ## The lock ORDER, and why a caller cannot influence it
+ *
+ * PRODUCTS first, then VARIANTS, each in ONE statement per table ordered by
+ * ascending `id`. Two concurrent teardowns therefore queue in the same order and
+ * cannot deadlock, and — because the order comes from an `ORDER BY` inside one
+ * statement rather than from iterating the caller's array — two callers naming
+ * the same ids in opposite orders still lock them in the same order. Locking the
+ * products FIRST also means the child discovery below cannot race: `FOR UPDATE`
+ * on a product conflicts with the `FOR KEY SHARE` an INSERT of a variant under
+ * it would take, so no variant can appear under one of these products between
+ * the discovery and the delete.
+ *
+ * `planCanonicalTeardown` is deliberately NOT exported. It is the decision half
+ * of one atomic operation, and a caller able to obtain a plan on the root
+ * connection can rebuild the exact check-then-delete sequence this transaction
+ * exists to remove.
  */
 
-import { inArray } from 'drizzle-orm';
+import { asc, inArray } from 'drizzle-orm';
 import { canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog.js';
 import { matchDecisions } from '../schema/matching.js';
-import type { Database } from '../postgres.js';
+import type { Database, Transaction } from '../postgres.js';
 
 /**
  * What a teardown may delete, and what a sibling has pinned.
@@ -78,7 +119,7 @@ export interface CanonicalTeardownPlan {
  * wrong.
  */
 async function pinMergeTargets(
-  db: Database,
+  db: Transaction,
   table: typeof canonicalVariants | typeof canonicalProducts,
   retained: Set<string>,
   universe: ReadonlySet<string>,
@@ -102,6 +143,33 @@ async function pinMergeTargets(
 }
 
 /**
+ * Take `FOR UPDATE` on every one of these rows that exists, in ascending id
+ * order, in ONE statement.
+ *
+ * One statement rather than a loop over the caller's array is what makes the
+ * order a property of this function instead of a property of whoever called it:
+ * two teardowns naming the same ids in opposite orders still acquire them
+ * ascending, so neither can be holding what the other is waiting for.
+ *
+ * A missing row is simply not locked. That is correct here — a row that is
+ * already gone cannot be deleted by this call and cannot be cited by anybody
+ * either.
+ */
+async function lockCanonicalRows(
+  tx: Transaction,
+  table: typeof canonicalVariants | typeof canonicalProducts,
+  ids: readonly string[],
+): Promise<void> {
+  if (ids.length === 0) return;
+  await tx
+    .select({ id: table.id })
+    .from(table)
+    .where(inArray(table.id, [...ids]))
+    .orderBy(asc(table.id))
+    .for('update');
+}
+
+/**
  * Partition a file's OWN canonical ids into what it may delete and what a
  * sibling's `match_decisions` row now pins.
  *
@@ -109,9 +177,14 @@ async function pinMergeTargets(
  * retained variant — `canonical_variants.product_id` would refuse the parent
  * delete either way, and discovering that as a second `23503` would leave the
  * teardown half done.
+ *
+ * Takes a TRANSACTION, and is private to this module: the answer is only true
+ * for as long as the locks taken before it are held, so a caller able to obtain
+ * one on the root connection would be holding a fact with no lifetime — which is
+ * exactly the check-then-delete sequence `deleteTestCanonicalRows` replaced.
  */
-export async function planCanonicalTeardown(
-  db: Database,
+async function planCanonicalTeardown(
+  db: Transaction,
   input: { variantIds: readonly string[]; productIds: readonly string[] },
 ): Promise<CanonicalTeardownPlan> {
   const variantIds = [...input.variantIds];
@@ -191,12 +264,13 @@ export async function planCanonicalTeardown(
 /**
  * Delete a file's OWN canonical rows, skipping exactly what a sibling pins.
  *
- * This is what a teardown calls. `planCanonicalTeardown` above is the decision;
- * this is the decision plus the two statements, in the one order that works —
- * `canonical_variants.product_id` is `ON DELETE RESTRICT`, so a product whose
- * variants are still present cannot go, and the parent-pinning rule above is
- * what keeps a retained variant from turning into a second `23503` on the
- * product.
+ * This is the WHOLE operation and the only entry point: the lock, the decision
+ * and the two statements, in ONE transaction and in the one delete order that
+ * works — `canonical_variants.product_id` is `ON DELETE RESTRICT`, so a product
+ * whose variants are still present cannot go, and the parent-pinning rule above
+ * is what keeps a retained variant from turning into a second `23503` on the
+ * product. See the header for the lock order and for why the plan is not
+ * separately obtainable.
  *
  * ## Why the variants are DISCOVERED and not only accepted
  *
@@ -234,30 +308,43 @@ export async function deleteTestCanonicalRows(
     };
   }
 
-  const discovered =
-    productIds.length === 0
-      ? []
-      : (
-          await db
-            .select({ id: canonicalVariants.id })
-            .from(canonicalVariants)
-            .where(inArray(canonicalVariants.productId, productIds))
-        ).map((row) => row.id);
+  return db.transaction(async (tx) => {
+    // PRODUCTS first. See the header: this order is fixed for every call, so two
+    // concurrent teardowns cannot hold what the other is waiting for.
+    await lockCanonicalRows(tx, canonicalProducts, productIds);
 
-  const plan = await planCanonicalTeardown(db, {
-    variantIds: [...new Set([...requested, ...discovered])],
-    productIds,
+    // Discovered AFTER that lock, deliberately. `FOR UPDATE` on a product
+    // conflicts with the `FOR KEY SHARE` an insert of a variant beneath it would
+    // take, so this read cannot miss a child that appears a moment later and
+    // then refuses the parent's delete.
+    const discovered =
+      productIds.length === 0
+        ? []
+        : (
+            await tx
+              .select({ id: canonicalVariants.id })
+              .from(canonicalVariants)
+              .where(inArray(canonicalVariants.productId, productIds))
+          ).map((row) => row.id);
+
+    const variantIds = [...new Set([...requested, ...discovered])];
+    await lockCanonicalRows(tx, canonicalVariants, variantIds);
+
+    // Only now is `match_decisions` read: every id it could name is already
+    // locked, so a citation that is not visible here cannot become visible
+    // before the deletes below commit.
+    const plan = await planCanonicalTeardown(tx, { variantIds, productIds });
+
+    if (plan.deletableVariantIds.length > 0) {
+      await tx
+        .delete(canonicalVariants)
+        .where(inArray(canonicalVariants.id, [...plan.deletableVariantIds]));
+    }
+    if (plan.deletableProductIds.length > 0) {
+      await tx
+        .delete(canonicalProducts)
+        .where(inArray(canonicalProducts.id, [...plan.deletableProductIds]));
+    }
+    return plan;
   });
-
-  if (plan.deletableVariantIds.length > 0) {
-    await db
-      .delete(canonicalVariants)
-      .where(inArray(canonicalVariants.id, [...plan.deletableVariantIds]));
-  }
-  if (plan.deletableProductIds.length > 0) {
-    await db
-      .delete(canonicalProducts)
-      .where(inArray(canonicalProducts.id, [...plan.deletableProductIds]));
-  }
-  return plan;
 }

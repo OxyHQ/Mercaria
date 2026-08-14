@@ -25,7 +25,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { log } from '../../lib/logger.js';
-import { deleteTestCanonicalRows, planCanonicalTeardown } from './canonical-teardown.js';
+import { deleteTestCanonicalRows } from './canonical-teardown.js';
 import { brands } from '../schema/organizations.js';
 import { categories } from '../schema/catalog.js';
 import { catalogSources, sourceRecords } from '../schema/provenance.js';
@@ -165,23 +165,6 @@ afterAll(async () => {
       .where(inArray(canonicalVariants.productId, createdProductIds.length ? createdProductIds : ['']))
   ).map((row) => row.id);
 
-  // A SIBLING file's matcher may have recorded a `match_decisions` row citing one
-  // of these ids — its retrieval is a trigram search over every canonical
-  // product, correctly global — and both citing columns are ON DELETE restrict.
-  // Those ids are therefore declined rather than deleted, and the sibling's row
-  // is never touched. See `canonical-teardown.ts` for why that direction, and for
-  // the consequence (a retained fixture outlives this file).
-  const plan = await planCanonicalTeardown(db, { variantIds, productIds: createdProductIds });
-  if (plan.retainedVariantIds.length > 0 || plan.retainedProductIds.length > 0) {
-    log.general.warn(
-      {
-        retainedVariantIds: plan.retainedVariantIds,
-        retainedProductIds: plan.retainedProductIds,
-      },
-      '[canonical-catalog fixtures] retained canonical rows a sibling match decision cites',
-    );
-  }
-
   if (variantIds.length > 0) {
     await db.delete(bundleComponents).where(inArray(bundleComponents.bundleVariantId, variantIds));
     await db.delete(productIdentifiers).where(inArray(productIdentifiers.variantId, variantIds));
@@ -214,14 +197,32 @@ afterAll(async () => {
     await db.delete(supplierEvents).where(inArray(supplierEvents.supplierId, createdSupplierIds));
     await db.delete(suppliers).where(inArray(suppliers.id, createdSupplierIds));
   }
-  if (plan.deletableVariantIds.length > 0) {
-    const deletable = [...plan.deletableVariantIds];
+  // A SIBLING file's matcher may have recorded a `match_decisions` row citing one
+  // of these ids — its retrieval is a trigram search over every canonical
+  // product, correctly global — and both citing columns are ON DELETE restrict.
+  // Those ids are declined rather than deleted, and the sibling's row is never
+  // touched. `deleteTestCanonicalRows` decides that inside its own transaction,
+  // with the rows locked, and REPORTS what it kept; see `canonical-teardown.ts`
+  // for why that direction and for the consequence (a retained fixture outlives
+  // this file).
+  //
+  // Neutralize this file's own tombstones first, so the self-referencing
+  // RESTRICT lets the rows go — on ALL of its ids, the shape
+  // `commerce-graph.realdb.test.ts`
+  // already uses, because the deletable subset is now decided inside the
+  // helper's transaction and there is no plan out here to scope this by. A row
+  // the helper then RETAINS is one a sibling already matched against, which the
+  // matcher's retrieval only does for a row that was `active` at the time
+  // (`postgres-candidate-source.ts` excludes `merged`), so restoring that state
+  // exposes nothing that was not already exposed. The two columns move together
+  // because `canonical_variants_merged_state_check` ties them.
+  if (variantIds.length > 0) {
     await db
       .update(canonicalVariants)
       .set({ status: 'active', mergedIntoId: null })
-      .where(inArray(canonicalVariants.id, deletable));
-    await deleteTestCanonicalRows(db, { variantIds: deletable });
+      .where(inArray(canonicalVariants.id, variantIds));
   }
+  const variantPlan = await deleteTestCanonicalRows(db, { variantIds });
   if (createdProductIds.length > 0) {
     await db
       .delete(productIdentifiers)
@@ -249,14 +250,19 @@ afterAll(async () => {
     await db
       .delete(reviewAggregates)
       .where(inArray(reviewAggregates.canonicalProductId, createdProductIds));
-    if (plan.deletableProductIds.length > 0) {
-      const deletable = [...plan.deletableProductIds];
-      await db
-        .update(canonicalProducts)
-        .set({ status: 'active', mergedIntoId: null })
-        .where(inArray(canonicalProducts.id, deletable));
-      await deleteTestCanonicalRows(db, { productIds: deletable });
-    }
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'active', mergedIntoId: null })
+      .where(inArray(canonicalProducts.id, createdProductIds));
+  }
+  const productPlan = await deleteTestCanonicalRows(db, { productIds: createdProductIds });
+  const retainedVariantIds = [...variantPlan.retainedVariantIds, ...productPlan.retainedVariantIds];
+  const retainedProductIds = [...variantPlan.retainedProductIds, ...productPlan.retainedProductIds];
+  if (retainedVariantIds.length > 0 || retainedProductIds.length > 0) {
+    log.general.warn(
+      { retainedVariantIds, retainedProductIds },
+      '[canonical-catalog fixtures] retained canonical rows a sibling match decision cites',
+    );
   }
   if (createdFamilyIds.length > 0) {
     await db
