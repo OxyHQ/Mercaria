@@ -295,7 +295,11 @@ export function deriveWebhookDelivery(
       headline: "Some updates will not arrive",
       detail:
         remedy ??
-        `Mercaria finished registering, but ${providerName} refused the events below. Registering again retries them.`,
+        // Every refusal here is one a retry could take (an unretryable one would
+        // have produced a `remedy`), and such a connection IS in the sweep's
+        // population — so the schedule can be promised rather than leaving the
+        // merchant to think the button is the only thing that will ever try.
+        `Mercaria finished registering, but ${providerName} refused the events below. It will retry them automatically; the button brings that forward.`,
       actionLabel: "Register webhooks again",
     };
   }
