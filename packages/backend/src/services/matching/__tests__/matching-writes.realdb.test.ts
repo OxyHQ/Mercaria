@@ -70,6 +70,7 @@ import { normalizeEntityName } from '../../canonical/normalization.js';
 import { variantSignature } from '../../canonical/variant-signature.js';
 import { gs1CheckDigit } from '../../canonical/identifiers.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
+import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
 
 let db: Database;
 
@@ -180,19 +181,58 @@ afterEach(async () => {
         .where(inArray(matchBenchmarkRuns.policyVersionId, policyIds))
     ).map((row) => row.id);
     if (runIds.length > 0) {
-      // The append-only trigger refuses UPDATE and DELETE from ordinary paths;
-      // teardown drops the session-level guard so the shared database does not
-      // accumulate a run per test run forever.
-      await db.execute(sql`alter table match_benchmark_categories disable trigger match_benchmark_categories_append_only`);
-      await db.execute(sql`alter table match_benchmark_runs disable trigger match_benchmark_runs_append_only`);
-      await db.delete(matchBenchmarkCategories).where(inArray(matchBenchmarkCategories.runId, runIds));
-      await db.delete(matchBenchmarkRuns).where(inArray(matchBenchmarkRuns.id, runIds));
-      await db.execute(sql`alter table match_benchmark_runs enable trigger match_benchmark_runs_append_only`);
-      await db.execute(sql`alter table match_benchmark_categories enable trigger match_benchmark_categories_append_only`);
+      /**
+       * Both benchmark triggers are declared BEFORE UPDATE OR DELETE, so a
+       * teardown DELETE really does reach them and really does need them off —
+       * unlike the three BEFORE UPDATE triggers `feed-import-writes` was able to
+       * stop toggling entirely.
+       *
+       * ONE window rather than two: the slices cite the run deleted below them,
+       * so the pair was already interleaved children-first and splitting it
+       * would mean holding the mutex twice over statements that never left it.
+       * The `match_policy_versions` window below is NOT merged in — that would
+       * pull a third table under ACCESS EXCLUSIVE for the whole of this one.
+       *
+       * `alter table … disable trigger` is DATABASE-WIDE, so the window is taken
+       * under the shared mutex and every statement is issued on that
+       * transaction's own handle. On the pool the DDL autocommits, so a throw
+       * before a re-enable would leave the trigger off for the rest of the run
+       * and every later file asserting it refuses a write would pass vacuously —
+       * including this file's own `refuses to edit or delete a recorded
+       * benchmark run`.
+       */
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table match_benchmark_categories disable trigger match_benchmark_categories_append_only`,
+        );
+        await tx.execute(
+          sql`alter table match_benchmark_runs disable trigger match_benchmark_runs_append_only`,
+        );
+        await tx
+          .delete(matchBenchmarkCategories)
+          .where(inArray(matchBenchmarkCategories.runId, runIds));
+        await tx.delete(matchBenchmarkRuns).where(inArray(matchBenchmarkRuns.id, runIds));
+        await tx.execute(
+          sql`alter table match_benchmark_runs enable trigger match_benchmark_runs_append_only`,
+        );
+        await tx.execute(
+          sql`alter table match_benchmark_categories enable trigger match_benchmark_categories_append_only`,
+        );
+      });
     }
-    await db.execute(sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`);
-    await db.delete(matchPolicyVersions).where(inArray(matchPolicyVersions.id, policyIds));
-    await db.execute(sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`);
+    // `match_policy_versions_immutable` refuses DELETE as well as UPDATE, so
+    // this one is a genuine window too — its own case above asserts a policy
+    // version `cannot be deleted`, which is exactly what a stranded disable
+    // would make pass vacuously.
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+      );
+      await tx.delete(matchPolicyVersions).where(inArray(matchPolicyVersions.id, policyIds));
+      await tx.execute(
+        sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+      );
+    });
   }
   if (brandIds.length > 0) {
     await db.delete(brands).where(inArray(brands.id, brandIds));

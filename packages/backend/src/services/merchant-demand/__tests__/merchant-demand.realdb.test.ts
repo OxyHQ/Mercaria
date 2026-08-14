@@ -80,6 +80,7 @@ import {
   setDoNotContact,
 } from '../acquisition.service.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
+import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
 
 let db: Database;
 
@@ -156,31 +157,46 @@ afterAll(async () => {
         where canonical_product_id = any(${sql.param(safeIds(createdProductIds))}::text[])`,
   );
 
-  // The three demand tables are append-only against UPDATE and PERMIT delete —
-  // that is the `analytics_events` posture and the reason the retention sweep
-  // works — so teardown needs no trigger escape here. The two acquisition
-  // records refuse DELETE as well, so those two do.
-  await db.execute(
-    sql`alter table merchant_acquisition_outreach disable trigger merchant_acquisition_outreach_append_only`,
-  );
-  await db.execute(
-    sql`alter table merchant_acquisition_audits disable trigger merchant_acquisition_audits_append_only`,
-  );
-  await db.execute(
-    sql`delete from merchant_acquisition_outreach where candidate_id in (
-      select id from merchant_acquisition_candidates
-      where merchant_id = any(${sql.param(safeIds(createdMerchantIds))}::text[])
-    )`,
-  );
-  await db
-    .delete(merchantAcquisitionAudits)
-    .where(inArray(merchantAcquisitionAudits.merchantId, safeIds(createdMerchantIds)));
-  await db.execute(
-    sql`alter table merchant_acquisition_outreach enable trigger merchant_acquisition_outreach_append_only`,
-  );
-  await db.execute(
-    sql`alter table merchant_acquisition_audits enable trigger merchant_acquisition_audits_append_only`,
-  );
+  /**
+   * The three demand tables are append-only against UPDATE and PERMIT delete —
+   * that is the `analytics_events` posture and the reason the retention sweep
+   * works — so teardown needs no trigger escape for them. The two acquisition
+   * records refuse DELETE as well, so those two do.
+   *
+   * `alter table … disable trigger` is DATABASE-WIDE, so both toggles are taken
+   * under the shared mutex and every statement here is issued on that
+   * transaction's own handle. On the pool the DDL autocommits, so a throw
+   * before a re-enable would leave the trigger off for the rest of the run and
+   * every later file asserting it refuses a write would pass vacuously.
+   *
+   * ONE window rather than two: the two tables are torn down in a fixed order
+   * — outreach cites a candidate row deleted below it — so the pair was already
+   * interleaved, and splitting it would mean holding the mutex twice over
+   * statements that never left it.
+   */
+  await withTriggerToggleLock(db, async (tx) => {
+    await tx.execute(
+      sql`alter table merchant_acquisition_outreach disable trigger merchant_acquisition_outreach_append_only`,
+    );
+    await tx.execute(
+      sql`alter table merchant_acquisition_audits disable trigger merchant_acquisition_audits_append_only`,
+    );
+    await tx.execute(
+      sql`delete from merchant_acquisition_outreach where candidate_id in (
+        select id from merchant_acquisition_candidates
+        where merchant_id = any(${sql.param(safeIds(createdMerchantIds))}::text[])
+      )`,
+    );
+    await tx
+      .delete(merchantAcquisitionAudits)
+      .where(inArray(merchantAcquisitionAudits.merchantId, safeIds(createdMerchantIds)));
+    await tx.execute(
+      sql`alter table merchant_acquisition_outreach enable trigger merchant_acquisition_outreach_append_only`,
+    );
+    await tx.execute(
+      sql`alter table merchant_acquisition_audits enable trigger merchant_acquisition_audits_append_only`,
+    );
+  });
 
   await db.execute(
     sql`delete from merchant_acquisition_contact_sources where candidate_id in (

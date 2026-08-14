@@ -20,7 +20,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { catalogSources } from '../../db/schema/provenance.js';
@@ -81,9 +81,26 @@ describe('feed importer schema properties (real server)', () => {
     // so the cycle costs nothing there; a teardown has to break it by hand, and
     // the order below is the only one that works: drop the citation, then the
     // reports, then the versions.
-    await db.execute(
-      sql`alter table feed_configuration_versions disable trigger feed_configuration_versions_immutable`,
-    );
+    //
+    // All three triggers over these tables — `feed_configuration_versions_immutable`,
+    // `feed_import_report_entries_append_only` and
+    // `feed_configurations_identity_frozen` — are declared BEFORE UPDATE, so no
+    // DELETE below ever reaches one and this teardown needs no window. The one
+    // statement that DOES reach a trigger is the UPDATE, and it moves only the
+    // lifecycle columns the freeze deliberately excludes (`status`,
+    // `validated_report_id`, `activated_at`, `activated_by_oxy_user_id`,
+    // `superseded_at`), so the comparison runs and finds nothing frozen changed.
+    //
+    // It used to open three windows, and `alter table … disable trigger` is
+    // DATABASE-WIDE: on the pool the DDL autocommits, so a throw before a
+    // re-enable left the trigger off for the rest of the run and every later
+    // file asserting it refuses a write passed vacuously. Measured before
+    // removing them, since a statement matching no rows is green whatever the
+    // trigger does — 7 versions updated, of which one was `active` and one
+    // `superseded`, so the trigger's `OLD.status = 'draft'` early return is not
+    // what cleared them; then 5 reports deleted, cascading into 1 report entry;
+    // 7 versions and 10 configurations deleted. Nothing raised.
+
     // Back to `draft` in the same statement: the activation CHECK refuses a
     // non-draft version with no validating report, which is the constraint
     // working — an activation whose justification vanished is exactly what it
@@ -98,30 +115,15 @@ describe('feed importer schema properties (real server)', () => {
         supersededAt: null,
       })
       .where(inArray(feedConfigurationVersions.configurationId, safe(createdConfigurationIds)));
-    await db.execute(
-      sql`alter table feed_import_report_entries disable trigger feed_import_report_entries_append_only`,
-    );
     await db
       .delete(feedImportReports)
       .where(inArray(feedImportReports.configurationId, safe(createdConfigurationIds)));
-    await db.execute(
-      sql`alter table feed_import_report_entries enable trigger feed_import_report_entries_append_only`,
-    );
     await db
       .delete(feedConfigurationVersions)
       .where(inArray(feedConfigurationVersions.configurationId, safe(createdConfigurationIds)));
-    await db.execute(
-      sql`alter table feed_configuration_versions enable trigger feed_configuration_versions_immutable`,
-    );
-    await db.execute(
-      sql`alter table feed_configurations disable trigger feed_configurations_identity_frozen`,
-    );
     await db
       .delete(feedConfigurations)
       .where(inArray(feedConfigurations.id, safe(createdConfigurationIds)));
-    await db.execute(
-      sql`alter table feed_configurations enable trigger feed_configurations_identity_frozen`,
-    );
     await db.delete(catalogSources).where(inArray(catalogSources.id, safe(createdSourceIds)));
     await closePostgres();
   });

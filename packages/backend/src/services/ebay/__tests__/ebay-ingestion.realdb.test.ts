@@ -78,6 +78,7 @@ import type { EbayTransport, EbayHttpResponse } from '../http.js';
 import type { EbayItem } from '../normalize.js';
 import { createEbayTokenProvider } from '../token.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
+import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
 
 /**
  * How long the matching group's `beforeAll` may wait for the GLOBAL
@@ -387,7 +388,8 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       }
 
       // Children first: every intra-graph key here is RESTRICT, and the rights
-      // trigger is DEFERRED so a half-torn-down source would raise at commit.
+      // keys are RESTRICT, so a wrong order raises a `23503`. (Not the rights
+      // trigger: it is `AFTER INSERT OR UPDATE` and a delete cannot fire it.)
       await db
         .delete(catalogSourceObjects)
         .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));
@@ -427,15 +429,32 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       await db
         .delete(catalogSourceConfigs)
         .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
-      await db.execute(
-        sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
-      );
-      await db
-        .delete(catalogSourcePolicies)
-        .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
-      await db.execute(
-        sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
-      );
+      /**
+       * A published rights version refuses DELETE unless it is still a draft,
+       * and every one this file publishes is active — so the row cannot go
+       * without the trigger off. `alter table … disable trigger` is
+       * DATABASE-WIDE, so the window is held under the shared mutex and issued
+       * on that transaction's own handle: on the pool the DDL autocommits, and
+       * a throw before the re-enable would leave the trigger off for the rest
+       * of the run, with every later file asserting it refuses a write passing
+       * vacuously.
+       *
+       * It is a window of its own rather than one spanning to the
+       * `match_policy_versions` toggle below, because everything between them
+       * is ordinary teardown that would otherwise sit under ACCESS EXCLUSIVE
+       * on two tables for no reason.
+       */
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
+        );
+        await tx
+          .delete(catalogSourcePolicies)
+          .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
+        await tx.execute(
+          sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+        );
+      });
       await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
       await db
         .delete(productIdentifiers)
@@ -450,15 +469,25 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       await db
         .delete(merchants)
         .where(inArray(merchants.id, safeIds([...createdMerchantIds, ...sellerMerchantIds])));
-      await db.execute(
-        sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
-      );
-      await db
-        .delete(matchPolicyVersions)
-        .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
-      await db.execute(
-        sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
-      );
+      /**
+       * `match_policy_versions_immutable` refuses every DELETE outright, so the
+       * policies this file publishes cannot be removed with it on. Same window
+       * shape and same reason as the rights one above: database-wide DDL, taken
+       * under the shared mutex, every statement on the transaction's own
+       * handle so the toggle rolls back with the delete rather than
+       * autocommitting ahead of it.
+       */
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+        );
+        await tx
+          .delete(matchPolicyVersions)
+          .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
+        await tx.execute(
+          sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+        );
+      });
     } finally {
       await closePostgres();
     }

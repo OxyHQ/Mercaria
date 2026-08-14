@@ -124,15 +124,17 @@ afterAll(async () => {
     .delete(priceSignalEvaluations)
     .where(inArray(priceSignalEvaluations.runId, safeIds(createdRunIds)));
   await db.delete(priceSignalRuns).where(inArray(priceSignalRuns.id, safeIds(createdRunIds)));
-  await db.execute(
-    sql`alter table price_signal_policy_versions disable trigger price_signal_policy_versions_immutable_once_serving`,
-  );
+  // `price_signal_policy_versions_immutable_once_serving` is declared BEFORE
+  // UPDATE, so a DELETE never reaches it and this teardown needs no window
+  // either — the same conclusion as the evaluations above, reached from the
+  // trigger's EVENT clause rather than from its body. It used to open one, and a
+  // `disable trigger` is DATABASE-WIDE: on the pool the DDL autocommits, so a
+  // throw before the re-enable left every later file asserting that trigger
+  // passing vacuously. Measured before removing it, since a delete matching no
+  // rows is green whatever the trigger does: 10 rows removed, nothing raised.
   await db
     .delete(priceSignalPolicyVersions)
     .where(inArray(priceSignalPolicyVersions.id, safeIds(createdPolicyIds)));
-  await db.execute(
-    sql`alter table price_signal_policy_versions enable trigger price_signal_policy_versions_immutable_once_serving`,
-  );
   await deleteTestCanonicalRows(db, {
     variantIds: createdVariantIds,
     productIds: createdProductIds,

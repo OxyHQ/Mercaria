@@ -32,6 +32,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, or, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
+import { withTriggerToggleLock } from './trigger-toggle-lock.js';
 import { brands, organizations } from '../schema/organizations.js';
 import { merchants } from '../schema/merchants.js';
 import { catalogSources } from '../schema/provenance.js';
@@ -118,11 +119,26 @@ afterAll(async () => {
     // The append-only trigger refuses DELETE on review rows, so it is disabled
     // for exactly this teardown statement — and the fact that it HAS to be is
     // itself the property `refuses UPDATE and DELETE` asserts below.
-    await db.execute(sql`alter table relationship_reviews disable trigger relationship_reviews_append_only`);
-    await db
-      .delete(relationshipReviews)
-      .where(inArray(relationshipReviews.relationshipId, relationshipIds));
-    await db.execute(sql`alter table relationship_reviews enable trigger relationship_reviews_append_only`);
+    //
+    // The window is taken under the shared trigger-toggle lock, on the
+    // transaction that lock opens. `alter table … disable trigger` is
+    // DATABASE-WIDE and every realdb file shares one server, so two files inside
+    // such a window at once leave one deleting against a trigger the other has
+    // just switched back on — and on the POOL the DDL autocommits, so a throw
+    // before the re-enable would leave this trigger off for the rest of the run
+    // and every later file asserting it refuses a write would pass vacuously.
+    // Inside the transaction the DDL rolls back with everything else.
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table relationship_reviews disable trigger relationship_reviews_append_only`,
+      );
+      await tx
+        .delete(relationshipReviews)
+        .where(inArray(relationshipReviews.relationshipId, relationshipIds));
+      await tx.execute(
+        sql`alter table relationship_reviews enable trigger relationship_reviews_append_only`,
+      );
+    });
     // `superseded_by_id` is a self-FK with RESTRICT; clear it before deleting.
     await db
       .update(commerceRelationships)
