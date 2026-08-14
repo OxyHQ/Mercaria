@@ -305,6 +305,22 @@ backoff over twelve attempts. The retryable half is derived by SUBTRACTION, so a
 reason added later is retryable by omission — the bounded cost of noise, rather
 than a channel dark for a reason nobody classified.
 
+**The merchant surface is `WebhookHealth` on the channel screen, and it renders
+even when nothing is refused.** Deliberately: the one state the derived population
+cannot see — a merchant deleting Mercaria's webhooks in the platform's own admin —
+shows no symptom at all, so a control that only appeared on a recorded failure
+could never be pressed for exactly the case it is the remedy for. The healthy copy
+says so rather than implying the panel is a problem report.
+
+Its state comes from `deriveWebhookDelivery` (`components/channels/channel-presentation.tsx`),
+which reads `webhookRegistration` BEFORE `webhookFailures`, and that order is
+load-bearing rather than stylistic. A registration that THROWS is caught before
+anything is recorded, so a connection can be `dead_letter` with an EMPTY refusal
+list — and a panel keyed on the refusals first renders that as healthy, which is
+the worst direction available. `connector-webhook-reregistration.service.test.ts`
+pins the premise (a thrown registration records nothing) so the ordering cannot
+quietly become arbitrary.
+
 ### Pause is TWO facts, and disconnect is a DECISION
 
 `fetch_paused_at` and `publication_paused_at` are separate columns because they

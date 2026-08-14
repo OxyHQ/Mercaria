@@ -347,8 +347,9 @@ about — stayed that way until a person re-authorized the channel. `#262` adds 
 two triggers and no second implementation: both drive the same
 `registerWebhooks` reconcile §8.1 describes.
 
-- **On demand:** `POST /admin/stores/:storeId/channels/:connectionId/webhooks/reregister`
-  behind `channels:write`. It validates synchronously (404 for a missing or
+- **On demand:** the "Register webhooks again" control on the dashboard's channel
+  screen, or `POST /admin/stores/:storeId/channels/:connectionId/webhooks/reregister`
+  directly, behind `channels:write`. It validates synchronously (404 for a missing or
   cross-store connection, 400 for a disconnected, push-in or credential-less one)
   and answers `202 {status: 'enqueued'}`; the outcome arrives on the connection
   itself. It stays available while the scheduled sweep is off.
