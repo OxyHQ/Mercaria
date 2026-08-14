@@ -34,6 +34,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
+import {
+  acquireReconciliationSweepSlot,
+  type ReconciliationSweepSlot,
+} from './reconciliation-sweep-slot.js';
 
 /** Unique per run, so parallel files and repeated runs never collide on an id. */
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -133,6 +137,7 @@ let nextOrderNumber: typeof import('../../../../db/orders/orderRepository.js').n
 let insertProviderAccount: typeof import('../../../../db/payments/providerAccountRepository.js').insertProviderAccount;
 let applyProviderAccountState: typeof import('../../../../db/payments/providerAccountRepository.js').applyProviderAccountState;
 let findProviderAccountByOwner: typeof import('../../../../db/payments/providerAccountRepository.js').findProviderAccountByOwner;
+let sweepSlot: ReconciliationSweepSlot | null = null;
 let reconciliationSchema: typeof import('../../../../db/schema/reconciliation.js');
 let ledgerSchema: typeof import('../../../../db/schema/ledger.js');
 let catalogSchema: typeof import('../../../../db/schema/catalog.js');
@@ -169,9 +174,20 @@ beforeAll(async () => {
   reconciliationSchema = await import('../../../../db/schema/reconciliation.js');
   ledgerSchema = await import('../../../../db/schema/ledger.js');
   catalogSchema = await import('../../../../db/schema/catalog.js');
+
+  // This file RESOLVES `payment_discrepancies` rows through real operator
+  // repairs and then asserts the resolution stands. `reconciliation.realdb.test.ts`
+  // drives a globally-scoped payable sweep whose recorder REOPENS a resolved row
+  // by design, so the two must not overlap — the observed failure is this file's
+  // `expected 'open' to be 'resolved'`, naming nothing about the cause. See
+  // `reconciliation-sweep-slot.ts`.
+  sweepSlot = await acquireReconciliationSweepSlot(db);
 }, 120_000);
 
 afterAll(async () => {
+  // Release BEFORE closing the pool — the lock is held on a connection reserved
+  // out of it.
+  if (sweepSlot) await sweepSlot.release();
   await closePostgres();
 });
 

@@ -29,15 +29,30 @@
  * subject — the cursor tests — the input comes entirely from the fake rail, so
  * there is nothing of anybody else's in it.
  *
+ * The LEDGER AUDIT was the gap in that rule (#260). `auditLedgerPage` runs two
+ * GLOBAL checks whenever its cursor is null, and the only thing bounding the
+ * worse of them — `auditOpenPayables`, an aggregate over the whole of
+ * `ledger_entries` — is the age buffer this file sets to ZERO below. So one
+ * `cursor: null` reported `merchant_payable_unexplained` for every unexplained
+ * open payable in the database and, because the recorder upserts and reopens,
+ * DESTROYED resolutions `repairs.realdb.test.ts` had just asserted. The payment
+ * scan is now aimed from a cursor floor so those checks do not run at all, and
+ * the one case whose subject IS the global sweep's silence holds the
+ * reconciliation-sweep slot for the file's whole run.
+ *
  * Every assertion is scoped to rows this file wrote, which is the stronger form
  * anyway: a count over a whole table passes for the wrong reason the moment a
  * fixture is added elsewhere.
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, lt, max } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import type { PaymentDiscrepancyKind } from '@mercaria/shared-types';
+import {
+  acquireReconciliationSweepSlot,
+  type ReconciliationSweepSlot,
+} from './reconciliation-sweep-slot.js';
 
 /** Unique per run, so parallel files and repeated runs never collide on an id. */
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -132,6 +147,7 @@ let collectPaymentMetrics: typeof import('../metrics.service.js').collectPayment
 let ledgerImbalanceAttempts: typeof import('../../../../db/payments/ledgerRepository.js').ledgerImbalanceAttempts;
 let findGlobalLedgerImbalances: typeof import('../../../../db/payments/ledgerRepository.js').findGlobalLedgerImbalances;
 let insertLedgerTransaction: typeof import('../../../../db/payments/ledgerRepository.js').insertLedgerTransaction;
+let findOpenMerchantPayables: typeof import('../../../../db/payments/ledgerRepository.js').findOpenMerchantPayables;
 let claimReconciliationRun: typeof import('../../../../db/payments/reconciliationCursorRepository.js').claimReconciliationRun;
 let releaseReconciliationRun: typeof import('../../../../db/payments/reconciliationCursorRepository.js').releaseReconciliationRun;
 let findPaymentById: typeof import('../../../../db/payments/paymentRepository.js').findPaymentById;
@@ -147,6 +163,7 @@ let insertProviderAccount: typeof import('../../../../db/payments/providerAccoun
 let findProviderAccountByOwner: typeof import('../../../../db/payments/providerAccountRepository.js').findProviderAccountByOwner;
 let explainOpenPayable: typeof import('../payable-explanations.js').explainOpenPayable;
 let applyProviderAccountState: typeof import('../../../../db/payments/providerAccountRepository.js').applyProviderAccountState;
+let sweepSlot: ReconciliationSweepSlot | null = null;
 let reconciliationSchema: typeof import('../../../../db/schema/reconciliation.js');
 let paymentSchema: typeof import('../../../../db/schema/payments.js');
 let catalogSchema: typeof import('../../../../db/schema/catalog.js');
@@ -179,7 +196,12 @@ beforeAll(async () => {
   ({ auditLedgerPage } = await import('../ledger-audit.job.js'));
   ({ runReconciliationJob } = await import('../runner.js'));
   ({ collectPaymentMetrics } = await import('../metrics.service.js'));
-  ({ ledgerImbalanceAttempts, findGlobalLedgerImbalances, insertLedgerTransaction } = await import(
+  ({
+    ledgerImbalanceAttempts,
+    findGlobalLedgerImbalances,
+    insertLedgerTransaction,
+    findOpenMerchantPayables,
+  } = await import(
     '../../../../db/payments/ledgerRepository.js'
   ));
   ({ findPaymentById } = await import('../../../../db/payments/paymentRepository.js'));
@@ -203,9 +225,20 @@ beforeAll(async () => {
   catalogSchema = await import('../../../../db/schema/catalog.js');
   orderSchema = await import('../../../../db/schema/orders.js');
   ledgerSchema = await import('../../../../db/schema/ledger.js');
+
+  // Held for this file's WHOLE run, after the pool exists. The zeroed age buffer
+  // above is what makes the ledger audit's payable check reach every open
+  // payable in the shared database, so for as long as this file may drive it,
+  // `payment_discrepancies` is exclusively ours — see
+  // `reconciliation-sweep-slot.ts` for the collision it prevents.
+  sweepSlot = await acquireReconciliationSweepSlot(db);
 }, 120_000);
 
 afterAll(async () => {
+  // Release BEFORE closing the pool: the lock is held on a connection reserved
+  // out of that pool, and ending the pool first would make the unlock the last
+  // thing to run against a closed client.
+  if (sweepSlot) await sweepSlot.release();
   await closePostgres();
 });
 
@@ -218,6 +251,28 @@ beforeEach(() => {
   api.listCalls.length = 0;
   api.unreadableIntents.clear();
 });
+
+/**
+ * The largest payment id STRICTLY BELOW `paymentId`, as a cursor to aim the
+ * ledger audit's payment scan at this file's own fixture.
+ *
+ * Computed against the fixture's own id rather than as a `max(id)` taken before
+ * it, because `@oxyhq/db`'s uuid v7 keys are NOT monotonic within a millisecond
+ * (~50% inversion measured): a floor minted moments earlier can sort ABOVE the
+ * row it is supposed to sit below, which would silently scan nothing. Comparing
+ * against the id that exists is exact and needs no monotonicity.
+ *
+ * `null` when the fixture is the smallest payment in the database — which is
+ * only reachable when this file runs alone, and then there is nothing older for
+ * the global checks to reach either.
+ */
+async function paymentFloorBelow(paymentId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ floor: max(paymentSchema.payments.id) })
+    .from(paymentSchema.payments)
+    .where(lt(paymentSchema.payments.id, paymentId));
+  return row?.floor ?? null;
+}
 
 /** A EUR `DualMoney` whose two sides are equal — no conversion in play. */
 function eur(amount: number) {
@@ -954,7 +1009,20 @@ describe('the ledger audit', () => {
       .where(eq(ledgerSchema.ledgerTransactions.paymentId, payment.id));
     expect(booked).toEqual([]);
 
-    await auditLedgerPage({ cursor: null, limit: 500 });
+    // AIMED, not driven from the beginning. `cursor: null` is what makes
+    // `auditLedgerPage` also run its two GLOBAL checks — the balance aggregate
+    // and, far worse, `auditOpenPayables`, which with the age buffer zeroed
+    // reports `merchant_payable_unexplained` for every unexplained open payable
+    // in the shared database and REOPENS any that another file has resolved. A
+    // cursor skips both and narrows the payment scan to payments newer than the
+    // floor, which is all this case is about.
+    const page = await auditLedgerPage({ cursor: await paymentFloorBelow(payment.id), limit: 500 });
+    // Without this the aim could be the vacuity: a floor at or above the fixture
+    // scans nothing and reports nothing, which is what a working suppression
+    // looks like from outside.
+    expect(page.scanned, 'the audit scanned no payment, so it proved nothing').toBeGreaterThanOrEqual(
+      1,
+    );
 
     const row = await oneDiscrepancy('ledger_transaction_missing', `${payment.id}:charge_succeeded`);
     expect(row.severity).toBe('critical');
@@ -1035,7 +1103,24 @@ describe('the ledger audit', () => {
     const explanation = await explainOpenPayable(db, orderId);
     expect(explanation).toContain('withheld');
 
-    // …so the audit says nothing about it.
+    // The positive control for the assertion below, and it is not optional: the
+    // claim is about what the audit does NOT write, so an audit that never saw
+    // this payable would satisfy it for entirely the wrong reason. This is the
+    // sweep's OWN candidate query, so the control and the measurement can fail
+    // for the same reasons.
+    const candidates = await findOpenMerchantPayables(db, {
+      settledBefore: new Date(),
+      limit: 500,
+    });
+    expect(
+      candidates.some((candidate) => candidate.orderId === orderId),
+      'the payable is not even a candidate, so "nothing reported" proves nothing',
+    ).toBe(true);
+
+    // …so the audit says nothing about it. This is the ONE case that must drive
+    // the global payable check rather than aim it — the subject IS the whole
+    // sweep's silence — which is why this file holds the reconciliation-sweep
+    // slot for its entire run. See `reconciliation-sweep-slot.ts`.
     await auditLedgerPage({ cursor: null, limit: 500 });
     const reported = await discrepancyRows('merchant_payable_unexplained', `${orderId}:EUR`);
     expect(reported).toEqual([]);
