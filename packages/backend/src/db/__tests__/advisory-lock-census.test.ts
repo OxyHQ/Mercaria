@@ -168,9 +168,11 @@ const MEASUREMENT_EXEMPTION_SITES = 1;
  * every later file asserting it refuses a write passes VACUOUSLY.
  *
  * Every entry here is #283's. They are listed rather than fixed because
- * wrapping a window of twenty-five statements in one transaction holds ACCESS
- * EXCLUSIVE on three tables for a whole teardown — a convoy in place of a leak,
- * which is a decision and not a mechanical edit.
+ * wrapping the largest of them — `awin-writes`'s, some 25 statements spanning a
+ * whole `afterAll` — in one transaction holds ACCESS EXCLUSIVE on three tables
+ * for a whole teardown, a convoy in place of a leak, which is a decision and
+ * not a mechanical edit. (Digits there, and words for the window COUNT below:
+ * the two twenty-fives are unrelated numbers about different things.)
  *
  * The COUNT is per file and EXACT, and the list's own length is asserted. That
  * is what makes it shrink-only: fixing a window fails the build until its entry
@@ -233,7 +235,7 @@ const UNLOCKED_TRIGGER_WINDOWS: ReadonlyArray<{
     file: 'services/ebay/__tests__/ebay-ingestion.realdb.test.ts',
     disables: 2,
     reason:
-      '#283 — `catalog_source_policies` and `match_policy_versions`. This is the one that makes `advisory-lock-handle.realdb.test.ts` decline to assert the trigger reads `O` before its window: a momentary `D` seen from elsewhere belongs to this file.',
+      '#283 — `catalog_source_policies` and `match_policy_versions`, both toggled on the pool. It used to be the reason `advisory-lock-handle.realdb.test.ts` declined to assert that trigger read `O` before its own window; that case now creates a trigger nothing else can reach, so this entry excuses only itself.',
   },
   {
     file: 'services/ingestion/__tests__/adapter-contract-suite.ts',

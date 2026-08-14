@@ -46,6 +46,37 @@ let db: Database;
 const PROBE_KEY = 900_000_000 + Math.floor(Math.random() * 45_000_000);
 const LEAK_KEY = PROBE_KEY + 45_000_000;
 
+/**
+ * A table and a trigger belonging to the rollback case ALONE, named per run.
+ *
+ * The rollback case has to establish three states — enabled, disabled inside
+ * the window, enabled again after the abort — and the first of those is only a
+ * measurement if nothing else can move it. Toggled against a SHARED trigger it
+ * is not: a sibling inside its own window makes `before` read `D`, and then
+ * `after === before` holds whether or not the rollback happened, while the
+ * positive control beside it (`insideWindow === 'D'`) passes for the same
+ * reason. Control and measurement degrade together, which is the one thing a
+ * control may not do.
+ *
+ * So the subject is created here and dropped here. The suffix is drawn per run
+ * because realdb files share one server: two runs of this file must not be able
+ * to name one object, and no other file can name this one at all.
+ *
+ * The table's key is a plain `integer` and deliberately NOT `serial` or
+ * `generated as identity`: `services/__tests__/draft-order-complete.realdb.test.ts`
+ * enumerates every sequence in the `public` schema and asserts an EXACT set of
+ * two, so a sequence created here would fail THAT file — intermittently, on
+ * whether the two happen to overlap, and naming nothing about this one. That is
+ * the only exact-set catalogue assertion these objects could reach; every other
+ * catalogue read in the suite is scoped by an explicit name list, and the
+ * benchmark's unscoped size report asserts nothing and runs against its own
+ * database.
+ */
+const PROBE_SUFFIX = `${Date.now().toString(36)}_${Math.floor(Math.random() * 1_000_000).toString(36)}`;
+const PROBE_TABLE = `advisory_lock_probe_${PROBE_SUFFIX}`;
+const PROBE_FUNCTION = `advisory_lock_probe_fn_${PROBE_SUFFIX}`;
+const PROBE_TRIGGER = `advisory_lock_probe_trg_${PROBE_SUFFIX}`;
+
 /** Locks held on one of this file's keys, across every backend. */
 async function locksHeld(key: number = PROBE_KEY): Promise<number> {
   const rows = await db.execute<{ held: string }>(
@@ -198,38 +229,66 @@ describe('a TRANSACTION-scoped advisory lock', () => {
     // trigger` is DDL, so on the pool it commits on its own and a throw before
     // the re-enable leaves it off for every other file in the run. Inside a
     // transaction it rolls back with everything else.
-    const TRIGGER_STATE = sql`select tgenabled as state from pg_trigger where tgname = 'catalog_source_policies_immutable'`;
+    //
+    // The subject is this file's OWN trigger, created two statements from here
+    // and dropped in the `finally` — see {@link PROBE_TRIGGER} for why an
+    // exclusive one is what makes the three assertions below measurements
+    // rather than a tautology. It also narrows the ACCESS EXCLUSIVE the window
+    // takes to a table nothing else reads.
+    const TRIGGER_STATE = sql`select tgenabled as state from pg_trigger where tgname = ${PROBE_TRIGGER}`;
     const enabled = async (): Promise<string> => {
       const [row] = await db.execute<{ state: string }>(TRIGGER_STATE);
       return row?.state ?? 'missing';
     };
-    const before = await enabled();
-    expect(before, 'the trigger this case measures is not installed').not.toBe('missing');
 
-    let insideWindow = 'unread';
-    await expect(
-      withTriggerToggleLock(db, async (tx) => {
-        await tx.execute(
-          sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
-        );
-        // The positive control on the MUTATION: read back inside the same
-        // transaction, which sees its own uncommitted DDL. Without it, a
-        // `disable` that silently did nothing would make the equality below
-        // pass by measuring a state that never moved.
-        const [row] = await tx.execute<{ state: string }>(TRIGGER_STATE);
-        insideWindow = row?.state ?? 'missing';
-        throw new Error('the teardown threw between disable and enable');
-      }),
-    ).rejects.toThrow('the teardown threw between disable and enable');
+    await db.execute(sql`create table ${sql.raw(PROBE_TABLE)} (id integer primary key)`);
+    try {
+      // A trigger has to DO something to be one, and raising is the cheapest
+      // thing that is unmistakably a trigger body. Nothing ever writes to the
+      // table, so it never fires: `tgenabled` is the whole of what is read.
+      await db.execute(sql`
+        create function ${sql.raw(PROBE_FUNCTION)}() returns trigger language plpgsql as $probe$
+        begin
+          raise exception 'advisory-lock probe trigger fired';
+        end;
+        $probe$
+      `);
+      await db.execute(
+        sql`create trigger ${sql.raw(PROBE_TRIGGER)} before update on ${sql.raw(PROBE_TABLE)} for each row execute function ${sql.raw(PROBE_FUNCTION)}()`,
+      );
 
-    expect(insideWindow, 'the disable inside the window did nothing').toBe('D');
-    expect(await enabled(), 'the aborted window left the trigger disabled database-wide').toBe(
-      before,
-    );
-    // `before` is deliberately NOT asserted to be `O`. `ebay-ingestion.realdb.test.ts`
-    // still toggles this same trigger on the POOL and outside the lock — a
-    // pre-existing gap this issue does not touch — so a momentary `D` observed
-    // from here belongs to that file, and asserting otherwise would make this
-    // case flaky on somebody else's defect rather than failing on its own.
+      // Asserted as `O` outright, which is available precisely because no
+      // sibling can reach this trigger. It is also the vacuity floor: a
+      // `create trigger` that silently did nothing reads `missing` here.
+      expect(await enabled(), 'the probe trigger was not created enabled').toBe('O');
+
+      let insideWindow = 'unread';
+      await expect(
+        withTriggerToggleLock(db, async (tx) => {
+          await tx.execute(
+            sql`alter table ${sql.raw(PROBE_TABLE)} disable trigger ${sql.raw(PROBE_TRIGGER)}`,
+          );
+          // The positive control on the MUTATION: read back inside the same
+          // transaction, which sees its own uncommitted DDL. Without it, a
+          // `disable` that silently did nothing would make the assertion below
+          // pass by measuring a state that never moved.
+          const [row] = await tx.execute<{ state: string }>(TRIGGER_STATE);
+          insideWindow = row?.state ?? 'missing';
+          throw new Error('the teardown threw between disable and enable');
+        }),
+      ).rejects.toThrow('the teardown threw between disable and enable');
+
+      expect(insideWindow, 'the disable inside the window did nothing').toBe('D');
+      expect(await enabled(), 'the aborted window left the trigger disabled database-wide').toBe(
+        'O',
+      );
+    } finally {
+      // Runs when the case FAILS too, which is the point: a stranded probe
+      // trigger is a `pg_trigger` row every later run of this file would have
+      // to tell apart from its own.
+      await db.execute(sql`drop trigger if exists ${sql.raw(PROBE_TRIGGER)} on ${sql.raw(PROBE_TABLE)}`);
+      await db.execute(sql`drop function if exists ${sql.raw(PROBE_FUNCTION)}()`);
+      await db.execute(sql`drop table if exists ${sql.raw(PROBE_TABLE)}`);
+    }
   }, 60_000);
 });

@@ -4,21 +4,20 @@
  *
  * ## The exception, stated rather than implied
  *
- * Eighteen files issue `alter table … disable trigger`. Nine of them take no
- * lock whatever — `referral-rewards`, `feed-import-writes`, `matching-writes`,
- * `merchant-demand`, `ebay-ingestion`, `price-signals`,
- * `offer-freshness-sweep`, `relationships`, `store-linkage` — and a tenth
- * window sits inside a file that DOES use this helper elsewhere:
- * `awin-writes.realdb.test.ts` opens an unlocked one on the POOL spanning most
- * of its `afterAll`, whose own comment records a `23503` in that region as a
- * measured failure mode.
+ * Not every teardown that opens such a window takes this lock yet. Which ones
+ * do not is #283's, and this header deliberately does not say: the SINGLE
+ * authority is `UNLOCKED_TRIGGER_WINDOWS` in
+ * `db/__tests__/advisory-lock-census.test.ts`, an exact-count exemption list
+ * whose own length is asserted, so the gap cannot widen and closing one means
+ * deleting an entry. That list is MEASURED, by running the rule with an empty
+ * list. The enumeration this header used to carry was counted by hand instead,
+ * and was wrong in both directions — which is what a second copy of a census is
+ * for, since nothing recomputes prose.
  *
- * Those are #283's, deliberately not this module's: wrapping a window of
- * twenty-five statements in one transaction holds ACCESS EXCLUSIVE on three
- * tables for a whole teardown, which trades a leak for a convoy and is a
- * decision rather than a mechanical edit. `advisory-lock-census.test.ts` holds
- * every one of them on an EXACT-COUNT exemption list citing #283, so the gap
- * cannot widen and closing it means deleting entries.
+ * They are exempted rather than fixed because the largest of them spans most of
+ * an `afterAll`: one transaction over that window holds ACCESS EXCLUSIVE on
+ * three tables for a whole teardown, which trades a leak for a convoy and is a
+ * decision rather than a mechanical edit.
  *
  * ## What it guards
  *
