@@ -353,93 +353,116 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
   }, 120_000);
 
   afterAll(async () => {
-    for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
-    // Release the global slot BEFORE the teardown reads and writes, so a sibling
-    // file waiting on it is unblocked by the earliest statement that can.
-    await releaseMatchPolicy();
-    await policySlot?.release();
-    policySlot = undefined;
-    for (const name of credentialEnvs) {
-      delete process.env[`${name}_ID`];
-      delete process.env[`${name}_SECRET`];
-    }
+    /**
+     * Two nested `finally`s, and both are load-bearing (#272).
+     *
+     * The INNER one keeps the early release early. This file releases the slot
+     * before its teardown reads and writes, so a sibling waiting on it is
+     * unblocked by the earliest statement that can — and `releaseMatchPolicy()`
+     * above it can throw, which would otherwise skip the release entirely.
+     *
+     * The OUTER one is what actually ends the hold. `reserved.release()` inside
+     * the mutex returns the connection to the pool and does NOT end the
+     * session: measured, the advisory lock is still held after a check-in and
+     * gone only after `sql.end()`. So an unlock that threw, or any `23503` in
+     * the teardown below, would abort this hook short of `closePostgres()` and
+     * strand the slot on a socket vitest keeps open for the next file in the
+     * worker — every other claimant then blocking its full 120 s `beforeAll`
+     * timeout, which is the cascade the mutex exists to remove.
+     */
+    try {
+      try {
+        for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
+        // Release the global slot BEFORE the teardown reads and writes, so a sibling
+        // file waiting on it is unblocked by the earliest statement that can.
+        await releaseMatchPolicy();
+      } finally {
+        await policySlot?.release();
+        policySlot = undefined;
+      }
+      for (const name of credentialEnvs) {
+        delete process.env[`${name}_ID`];
+        delete process.env[`${name}_SECRET`];
+      }
 
-    // Children first: every intra-graph key here is RESTRICT, and the rights
-    // trigger is DEFERRED so a half-torn-down source would raise at commit.
-    await db
-      .delete(catalogSourceObjects)
-      .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));
-    await db.delete(offers).where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
-    await db
-      .delete(catalogSourceRejections)
-      .where(inArray(catalogSourceRejections.sourceId, safeIds(createdSourceIds)));
-    await db
-      .delete(catalogSourceRuns)
-      .where(inArray(catalogSourceRuns.sourceId, safeIds(createdSourceIds)));
-    await db
-      .delete(ebayDiscoveryQueries)
-      .where(inArray(ebayDiscoveryQueries.sourceId, safeIds(createdSourceIds)));
-    await db
-      .delete(canonicalVariantSourceLinks)
-      .where(inArray(canonicalVariantSourceLinks.variantId, safeIds(createdVariantIds)));
-    await db
-      .delete(canonicalProductSourceLinks)
-      .where(inArray(canonicalProductSourceLinks.productId, safeIds(createdProductIds)));
-    await db
-      .delete(matchDecisions)
-      .where(inArray(matchDecisions.policyVersionId, safeIds(createdPolicyIds)));
-    const sellerRows = await db
-      .select({ merchantId: marketplaceSellerIdentities.merchantId })
-      .from(marketplaceSellerIdentities)
-      .where(inArray(marketplaceSellerIdentities.firstSourceId, safeIds(createdSourceIds)));
-    await db
-      .delete(marketplaceSellerIdentities)
-      .where(inArray(marketplaceSellerIdentities.firstSourceId, safeIds(createdSourceIds)));
-    const sellerMerchantIds = sellerRows.map((row) => row.merchantId);
-    await db
-      .delete(merchantSourceLinks)
-      .where(inArray(merchantSourceLinks.merchantId, safeIds(sellerMerchantIds)));
-    await db
-      .delete(sourceRecords)
-      .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
-    await db
-      .delete(catalogSourceConfigs)
-      .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
-    await db.execute(
-      sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
-    );
-    await db
-      .delete(catalogSourcePolicies)
-      .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
-    await db.execute(
-      sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
-    );
-    await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
-    await db
-      .delete(productIdentifiers)
-      .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
-    await db
-      .delete(canonicalVariants)
-      .where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
-    await db
-      .delete(canonicalProducts)
-      .where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
-    await db
-      .delete(storefronts)
-      .where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
-    await db
-      .delete(merchants)
-      .where(inArray(merchants.id, safeIds([...createdMerchantIds, ...sellerMerchantIds])));
-    await db.execute(
-      sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
-    );
-    await db
-      .delete(matchPolicyVersions)
-      .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
-    await db.execute(
-      sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
-    );
-    await closePostgres();
+      // Children first: every intra-graph key here is RESTRICT, and the rights
+      // trigger is DEFERRED so a half-torn-down source would raise at commit.
+      await db
+        .delete(catalogSourceObjects)
+        .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));
+      await db.delete(offers).where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
+      await db
+        .delete(catalogSourceRejections)
+        .where(inArray(catalogSourceRejections.sourceId, safeIds(createdSourceIds)));
+      await db
+        .delete(catalogSourceRuns)
+        .where(inArray(catalogSourceRuns.sourceId, safeIds(createdSourceIds)));
+      await db
+        .delete(ebayDiscoveryQueries)
+        .where(inArray(ebayDiscoveryQueries.sourceId, safeIds(createdSourceIds)));
+      await db
+        .delete(canonicalVariantSourceLinks)
+        .where(inArray(canonicalVariantSourceLinks.variantId, safeIds(createdVariantIds)));
+      await db
+        .delete(canonicalProductSourceLinks)
+        .where(inArray(canonicalProductSourceLinks.productId, safeIds(createdProductIds)));
+      await db
+        .delete(matchDecisions)
+        .where(inArray(matchDecisions.policyVersionId, safeIds(createdPolicyIds)));
+      const sellerRows = await db
+        .select({ merchantId: marketplaceSellerIdentities.merchantId })
+        .from(marketplaceSellerIdentities)
+        .where(inArray(marketplaceSellerIdentities.firstSourceId, safeIds(createdSourceIds)));
+      await db
+        .delete(marketplaceSellerIdentities)
+        .where(inArray(marketplaceSellerIdentities.firstSourceId, safeIds(createdSourceIds)));
+      const sellerMerchantIds = sellerRows.map((row) => row.merchantId);
+      await db
+        .delete(merchantSourceLinks)
+        .where(inArray(merchantSourceLinks.merchantId, safeIds(sellerMerchantIds)));
+      await db
+        .delete(sourceRecords)
+        .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
+      await db
+        .delete(catalogSourceConfigs)
+        .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
+      await db.execute(
+        sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
+      );
+      await db
+        .delete(catalogSourcePolicies)
+        .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
+      await db.execute(
+        sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+      );
+      await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
+      await db
+        .delete(productIdentifiers)
+        .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
+      await db
+        .delete(canonicalVariants)
+        .where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
+      await db
+        .delete(canonicalProducts)
+        .where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+      await db
+        .delete(storefronts)
+        .where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
+      await db
+        .delete(merchants)
+        .where(inArray(merchants.id, safeIds([...createdMerchantIds, ...sellerMerchantIds])));
+      await db.execute(
+        sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+      );
+      await db
+        .delete(matchPolicyVersions)
+        .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
+      await db.execute(
+        sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+      );
+    } finally {
+      await closePostgres();
+    }
   });
 
   /**

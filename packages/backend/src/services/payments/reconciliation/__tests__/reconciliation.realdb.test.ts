@@ -235,11 +235,24 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  // Release BEFORE closing the pool: the lock is held on a connection reserved
-  // out of that pool, and ending the pool first would make the unlock the last
-  // thing to run against a closed client.
-  if (sweepSlot) await sweepSlot.release();
-  await closePostgres();
+  /**
+   * Release BEFORE closing the pool: the lock is held on a connection reserved
+   * out of that pool, and ending the pool first would make the unlock the last
+   * thing to run against a closed client.
+   *
+   * NESTED, because `release()` can throw and `closePostgres` is what actually
+   * ends the hold. `reserved.release()` inside the mutex returns the connection
+   * to the pool and does NOT end the session — measured (#272): the advisory
+   * lock is still held after a check-in and gone only after `sql.end()`. So an
+   * unlock that threw would abort this hook one line short of the only
+   * statement that frees the slot, and the sibling waiting on it would block
+   * its whole `beforeAll` budget and fail having done nothing wrong.
+   */
+  try {
+    if (sweepSlot) await sweepSlot.release();
+  } finally {
+    await closePostgres();
+  }
 });
 
 beforeEach(() => {
