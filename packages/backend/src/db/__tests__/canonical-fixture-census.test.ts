@@ -58,6 +58,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { getTableConfig } from 'drizzle-orm/pg-core';
+import { getTableName } from 'drizzle-orm';
+import { sqlColumnName } from '@oxyhq/db';
+import { canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog.js';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -202,6 +206,36 @@ function scannedSources(): Map<string, string> {
   return sources;
 }
 
+/**
+ * The RESTRICT edges that run BETWEEN the two canonical tables.
+ *
+ * `planCanonicalTeardown` partitions exactly two tables, so the only edges that
+ * can make one of a file's own rows refuse the delete of ANOTHER of its own
+ * rows are the ones whose source AND target are both canonical. There are three
+ * and each has a rule in the planner: the parent link, and the two
+ * self-referencing merge pointers a retained tombstone pins.
+ *
+ * Pinned as an exact set on `merge-plan-census.test.ts`'s precedent. A fourth
+ * such edge is then not a schema change anybody can make quietly — it fails here
+ * until the planner is taught what to do with it, which is the point, because
+ * finding fewer edges by reading looks identical to there BEING fewer. Every
+ * other RESTRICT foreign key aimed at a canonical table comes from a table this
+ * helper does not partition, so it is the CALLER's children-first obligation and
+ * a different failure class.
+ *
+ * One table elsewhere has the same loser/winner SHAPE and is out of reach here:
+ * `catalog_merge_conflicts.loser_variant_id` / `.winner_variant_id`, two RESTRICT
+ * references to different variants from one row. It is safe today because both
+ * files that write it delete their conflict rows unconditionally by job id
+ * before calling the helper. A caller that ever scoped that cleanup by
+ * DELETABLE ids would reproduce this class outside any canonical partition.
+ */
+const CANONICAL_INTERNAL_RESTRICT_EDGES = [
+  'canonical_products.merged_into_id',
+  'canonical_variants.merged_into_id',
+  'canonical_variants.product_id',
+];
+
 describe('the canonical fixture census', () => {
   const sources = scannedSources();
 
@@ -287,6 +321,33 @@ describe('the canonical fixture census', () => {
       offenders,
       'a canonical fixture carries a literal normalizedName; the matcher looks that column up exactly across every row in the shared database, so a stable one is a standing candidate for every later sibling — scope it with a per-run token',
     ).toEqual([]);
+  });
+
+  it('pins the RESTRICT edges the teardown planner has to know about', () => {
+    const edges: string[] = [];
+    for (const table of [canonicalProducts, canonicalVariants]) {
+      const config = getTableConfig(table);
+      for (const foreignKey of config.foreignKeys) {
+        const reference = foreignKey.reference();
+        const target = getTableName(reference.foreignTable);
+        // Only an edge that stays INSIDE the partitioned pair can be split by it.
+        if (target !== 'canonical_products' && target !== 'canonical_variants') continue;
+        if (foreignKey.onDelete !== 'restrict') continue;
+        // `sqlColumnName`, not `column.name`: the casing is set on the drizzle
+        // INSTANCE, so `column.name` is the TypeScript key — it would compare
+        // consistently and name columns nobody can grep for. The trap
+        // `merge-plan-census.test.ts` records, met again here.
+        for (const column of reference.columns) edges.push(`${config.name}.${sqlColumnName(column)}`);
+      }
+    }
+
+    // Exact identity, never containment, and it is its own positive control: it
+    // can only pass by having FOUND all three in the schema, so a reflection
+    // that read nothing fails here rather than reporting a tidy empty set.
+    expect(
+      edges.sort(),
+      'a RESTRICT edge between the canonical tables is not covered by planCanonicalTeardown; a partition can put its two ends on opposite sides and the delete is then refused',
+    ).toEqual(CANONICAL_INTERNAL_RESTRICT_EDGES);
   });
 
   it('detects every spelling and nothing that merely looks like one', () => {
