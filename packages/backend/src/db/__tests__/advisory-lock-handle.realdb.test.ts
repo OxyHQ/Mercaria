@@ -61,6 +61,16 @@ const LEAK_KEY = PROBE_KEY + 45_000_000;
  * So the subject is created here and dropped here. The suffix is drawn per run
  * because realdb files share one server: two runs of this file must not be able
  * to name one object, and no other file can name this one at all.
+ *
+ * The table's key is a plain `integer` and deliberately NOT `serial` or
+ * `generated as identity`: `services/__tests__/draft-order-complete.realdb.test.ts`
+ * enumerates every sequence in the `public` schema and asserts an EXACT set of
+ * two, so a sequence created here would fail THAT file — intermittently, on
+ * whether the two happen to overlap, and naming nothing about this one. That is
+ * the only exact-set catalogue assertion these objects could reach; every other
+ * catalogue read in the suite is scoped by an explicit name list, and the
+ * benchmark's unscoped size report asserts nothing and runs against its own
+ * database.
  */
 const PROBE_SUFFIX = `${Date.now().toString(36)}_${Math.floor(Math.random() * 1_000_000).toString(36)}`;
 const PROBE_TABLE = `advisory_lock_probe_${PROBE_SUFFIX}`;
