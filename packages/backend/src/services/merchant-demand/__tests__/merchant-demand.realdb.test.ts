@@ -79,6 +79,7 @@ import {
   rescoreCandidate,
   setDoNotContact,
 } from '../acquisition.service.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -209,8 +210,10 @@ afterAll(async () => {
   await db.delete(offers).where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
   await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
   await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
-  await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
-  await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+  await deleteTestCanonicalRows(db, {
+    variantIds: createdVariantIds,
+    productIds: createdProductIds,
+  });
   await db.delete(storefronts).where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
   await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
   await closePostgres();

@@ -24,7 +24,7 @@ import {
   PRICE_SIGNAL_POLICY_KEY,
 } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
-import { canonicalProducts, canonicalVariants } from '../../db/schema/canonicalCatalog.js';
+import { canonicalProducts } from '../../db/schema/canonicalCatalog.js';
 import { merchants } from '../../db/schema/merchants.js';
 import {
   priceSignalEvaluations,
@@ -39,6 +39,7 @@ import {
 import { fileOrFindOpenPriceSignalFeedback } from '../../db/priceSignals/priceSignalFeedbackRepository.js';
 import { findVerifiedMerchantClaimant } from '../../db/priceSignals/priceSignalSubjectRepository.js';
 import { readMerchantCompetitiveness } from '../price-signals/competitiveness.service.js';
+import { deleteTestCanonicalRows } from '../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -132,8 +133,10 @@ afterAll(async () => {
   await db.execute(
     sql`alter table price_signal_policy_versions enable trigger price_signal_policy_versions_immutable_once_serving`,
   );
-  await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
-  await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+  await deleteTestCanonicalRows(db, {
+    variantIds: createdVariantIds,
+    productIds: createdProductIds,
+  });
   await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
   await closePostgres();
 });

@@ -41,7 +41,7 @@ import { canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog
 import { listings } from '../schema/catalog.js';
 import { matchDecisions } from '../schema/matching.js';
 import { normalizeEntityName } from '../../services/canonical/normalization.js';
-import { planCanonicalTeardown } from './canonical-teardown.js';
+import { deleteTestCanonicalRows, planCanonicalTeardown } from './canonical-teardown.js';
 
 /** Unique per run, so parallel files and repeated runs never collide on an id. */
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -106,7 +106,7 @@ beforeAll(async () => {
   const { insertVariants } = await import('../catalog/variantRepository.js');
   const variants = await insertVariants(
     listing.id,
-    [0, 1, 2].map((index) => ({
+    [0, 1, 2, 3, 4].map((index) => ({
       title: `Subject ${String(index)}`,
       priceAmount: 1_000,
       priceCurrency: 'EUR' as const,
@@ -294,5 +294,135 @@ describe('a sibling match decision pinning a canonical fixture', () => {
     // The VARIANT is not cited, so it stays deletable — the plan declines the
     // narrowest thing that is actually pinned.
     expect(plan.deletableVariantIds).toEqual([product.variantId]);
+  });
+});
+
+/**
+ * The function every fixture now calls — the plan PLUS the two statements.
+ *
+ * `planCanonicalTeardown` above is decided by the cases already in this file.
+ * What is left, and what twenty-four teardowns depend on, is that the deletes it
+ * issues really happen, really stop at the pinned rows, and really run in the
+ * one order `canonical_variants.product_id` (RESTRICT) permits.
+ */
+describe('deleteTestCanonicalRows', () => {
+  it('deletes the uncited rows and leaves exactly the pinned ones', async () => {
+    const pinned = await seedProductWithVariant('helper-pinned');
+    const free = await seedProductWithVariant('helper-free');
+    await citeVariant(pinned, 2);
+
+    const plan = await deleteTestCanonicalRows(db, {
+      variantIds: [pinned.variantId, free.variantId],
+      productIds: [pinned.productId, free.productId],
+    });
+
+    expect(plan.retainedVariantIds).toEqual([pinned.variantId]);
+    expect(plan.retainedProductIds).toEqual([pinned.productId]);
+
+    const variants = await db
+      .select({ id: canonicalVariants.id })
+      .from(canonicalVariants)
+      .where(inArray(canonicalVariants.id, [pinned.variantId, free.variantId]));
+    const products = await db
+      .select({ id: canonicalProducts.id })
+      .from(canonicalProducts)
+      .where(inArray(canonicalProducts.id, [pinned.productId, free.productId]));
+
+    // Both halves, because "it deleted nothing" and "it deleted everything" are
+    // the two ways this can be wrong and each satisfies one assertion alone.
+    expect(variants.map((row) => row.id)).toEqual([pinned.variantId]);
+    expect(products.map((row) => row.id)).toEqual([pinned.productId]);
+  });
+
+  it('discovers a variant the caller never recorded', async () => {
+    // Several fixtures mint a product through a repository that creates its
+    // default variant, so the file knows the product id and never sees the
+    // variant's. Passing product ids alone must still clear the children —
+    // `canonical_variants.product_id` is RESTRICT, so a missed child is a
+    // `23503` on the parent rather than a leftover row.
+    const orphaned = await seedProductWithVariant('helper-discovered');
+
+    const plan = await deleteTestCanonicalRows(db, { productIds: [orphaned.productId] });
+
+    expect(plan.deletableVariantIds).toEqual([orphaned.variantId]);
+    expect(plan.deletableProductIds).toEqual([orphaned.productId]);
+
+    const survivors = await db
+      .select({ id: canonicalVariants.id })
+      .from(canonicalVariants)
+      .where(eq(canonicalVariants.productId, orphaned.productId));
+    expect(survivors).toEqual([]);
+  });
+
+  it('retains a merge WINNER whose loser a sibling pinned', async () => {
+    // `canonical_products.merged_into_id` is a self-referencing ON DELETE
+    // RESTRICT. Measured against this server: deleting winner and loser in ONE
+    // statement succeeds, and deleting the winner ALONE with the loser present
+    // raises 23503 on `..._merged_into_id_fkey`. So a partition that retains the
+    // loser and frees the winner produces exactly that refusal — which is what
+    // this helper would do if it read `match_decisions` and nothing else.
+    const winner = await seedProductWithVariant('merge-winner');
+    const loser = await seedProductWithVariant('merge-loser');
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'merged', mergedIntoId: winner.productId })
+      .where(eq(canonicalProducts.id, loser.productId));
+    // A SIBLING cites the loser — an ordinary active row until the merge ran.
+    await citeVariant(loser, 3);
+
+    const plan = await deleteTestCanonicalRows(db, {
+      variantIds: [winner.variantId, loser.variantId],
+      productIds: [winner.productId, loser.productId],
+    });
+
+    // Both, and the winner only because the loser points at it.
+    expect([...plan.retainedProductIds].sort()).toEqual(
+      [winner.productId, loser.productId].sort(),
+    );
+    const survivors = await db
+      .select({ id: canonicalProducts.id })
+      .from(canonicalProducts)
+      .where(inArray(canonicalProducts.id, [winner.productId, loser.productId]));
+    expect(survivors).toHaveLength(2);
+  });
+
+  it('retains a merge winner one variant hop away', async () => {
+    // The same rule on `canonical_variants.merged_into_id`, and it has to run
+    // BEFORE the parent-pinning step: the winner variant's product is only
+    // reachable once the winner variant itself is retained.
+    const winner = await seedProductWithVariant('merge-variant-winner');
+    const loser = await seedProductWithVariant('merge-variant-loser');
+    await db
+      .update(canonicalVariants)
+      .set({ status: 'merged', mergedIntoId: winner.variantId })
+      .where(eq(canonicalVariants.id, loser.variantId));
+    await citeVariant(loser, 4);
+
+    const plan = await deleteTestCanonicalRows(db, {
+      variantIds: [winner.variantId, loser.variantId],
+      productIds: [winner.productId, loser.productId],
+    });
+
+    expect([...plan.retainedVariantIds].sort()).toEqual(
+      [winner.variantId, loser.variantId].sort(),
+    );
+    // …and the winner variant's PARENT with it, or the product delete meets a
+    // child it cannot remove.
+    expect([...plan.retainedProductIds].sort()).toEqual(
+      [winner.productId, loser.productId].sort(),
+    );
+  });
+
+  it('does nothing, and issues nothing, for an empty teardown', async () => {
+    // Every caller is a hook that may run before its fixtures exist. An empty
+    // input has to be a no-op rather than an `inArray(col, [])`, which drizzle
+    // renders as the literal `false` — correct, and a round trip per hook.
+    const plan = await deleteTestCanonicalRows(db, { productIds: [], variantIds: [] });
+    expect(plan).toEqual({
+      deletableVariantIds: [],
+      deletableProductIds: [],
+      retainedVariantIds: [],
+      retainedProductIds: [],
+    });
   });
 });

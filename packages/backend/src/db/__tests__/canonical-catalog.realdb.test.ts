@@ -25,7 +25,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { log } from '../../lib/logger.js';
-import { planCanonicalTeardown } from './canonical-teardown.js';
+import { deleteTestCanonicalRows, planCanonicalTeardown } from './canonical-teardown.js';
 import { brands } from '../schema/organizations.js';
 import { categories } from '../schema/catalog.js';
 import { catalogSources, sourceRecords } from '../schema/provenance.js';
@@ -220,7 +220,7 @@ afterAll(async () => {
       .update(canonicalVariants)
       .set({ status: 'active', mergedIntoId: null })
       .where(inArray(canonicalVariants.id, deletable));
-    await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, deletable));
+    await deleteTestCanonicalRows(db, { variantIds: deletable });
   }
   if (createdProductIds.length > 0) {
     await db
@@ -255,7 +255,7 @@ afterAll(async () => {
         .update(canonicalProducts)
         .set({ status: 'active', mergedIntoId: null })
         .where(inArray(canonicalProducts.id, deletable));
-      await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, deletable));
+      await deleteTestCanonicalRows(db, { productIds: deletable });
     }
   }
   if (createdFamilyIds.length > 0) {

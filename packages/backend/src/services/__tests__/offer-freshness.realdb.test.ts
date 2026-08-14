@@ -57,6 +57,7 @@ import {
   acquireActivePolicySlot,
   type ActivePolicySlot,
 } from '../ingestion/__tests__/active-policy-slot.js';
+import { deleteTestCanonicalRows } from '../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 let policySlot: ActivePolicySlot | undefined;
@@ -207,8 +208,10 @@ afterAll(async () => {
       await db.execute(sql`select pg_advisory_unlock(${POLICY_TEARDOWN_LOCK})`);
     }
     await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
-    await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+    await deleteTestCanonicalRows(db, {
+      variantIds: createdVariantIds,
+      productIds: createdProductIds,
+    });
     await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
   } finally {
     /**

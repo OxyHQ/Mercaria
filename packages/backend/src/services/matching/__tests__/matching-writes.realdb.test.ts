@@ -69,6 +69,7 @@ import { convergeNativeOffersForListing } from '../../offers/native-offer.servic
 import { normalizeEntityName } from '../../canonical/normalization.js';
 import { variantSignature } from '../../canonical/variant-signature.js';
 import { gs1CheckDigit } from '../../canonical/identifiers.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -124,6 +125,22 @@ afterEach(async () => {
     await db.delete(offers).where(inArray(offers.listingId, listingIds));
     await db.delete(listings).where(inArray(listings.id, listingIds));
   }
+  if (policyIds.length > 0) {
+    // BEFORE the canonical block, and scoped to the policy versions this file
+    // created. That it can only ever reach this file's OWN rows is a property
+    // of the SLOT, not of the key: a decision cites whichever policy was
+    // globally active when it was written, and this file holds the active-policy
+    // slot for its whole run (see `beforeAll`), so no sibling can be matching
+    // under this policy while these rows exist. If the slot were ever dropped
+    // here, this statement would become the same rejected direction as the one
+    // removed below. Most of its
+    // decisions cascade from the native listing deleted above; one whose subject
+    // is not a native variant does not, and would still be citing these
+    // canonical ids when the helper below reads them — making it retain rows
+    // this file owns and could perfectly well delete. That is the half the
+    // removed sibling-keyed delete was accidentally covering.
+    await db.delete(matchDecisions).where(inArray(matchDecisions.policyVersionId, policyIds));
+  }
   if (productIds.length > 0) {
     const variantIds = (
       await db
@@ -133,24 +150,29 @@ afterEach(async () => {
     ).map((row) => row.id);
     if (variantIds.length > 0) {
       await db
-        .delete(matchBlockedPairs)
-        .where(inArray(matchBlockedPairs.targetCanonicalVariantId, variantIds));
-      await db
-        .delete(matchDecisionCandidates)
-        .where(inArray(matchDecisionCandidates.canonicalVariantId, variantIds));
-      await db
-        .delete(matchDecisions)
-        .where(inArray(matchDecisions.matchedCanonicalVariantId, variantIds));
-      await db
         .delete(canonicalVariantAttributes)
         .where(inArray(canonicalVariantAttributes.variantId, variantIds));
-      await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, variantIds));
     }
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, productIds));
+    /**
+     * This used to clear `match_blocked_pairs`, `match_decision_candidates` and
+     * `match_decisions` keyed on its OWN variant ids, which sounds like scoping
+     * and is not: a row citing this file's variant belongs to whichever file
+     * WROTE it, and by the time a sibling's decision points here, that sibling
+     * may not have run its assertions yet. `canonical-teardown.ts` names that as
+     * the direction it rejects — it converts a loud teardown failure into a
+     * silent wrong answer somewhere else.
+     *
+     * Nothing is lost by dropping it. Both `match_blocked_pairs` and
+     * `match_decision_candidates` CASCADE from the canonical side, so being
+     * merely retrieved as a candidate pins nothing; and this file's OWN
+     * decisions cascade from the native listing deleted above (ADR 0002 D20).
+     * What is left is exactly a decision a SIBLING recorded, which the helper
+     * declines to delete around rather than through.
+     */
+    await deleteTestCanonicalRows(db, { productIds, variantIds });
   }
   if (policyIds.length > 0) {
     await db.delete(matchCategoryGates).where(inArray(matchCategoryGates.policyVersionId, policyIds));
-    await db.delete(matchDecisions).where(inArray(matchDecisions.policyVersionId, policyIds));
     const runIds = (
       await db
         .select({ id: matchBenchmarkRuns.id })

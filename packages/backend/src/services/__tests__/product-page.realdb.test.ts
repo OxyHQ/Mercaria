@@ -30,6 +30,7 @@ import { insertOffer } from '../../db/offers/offerRepository.js';
 import { readCanonicalProductPage } from '../product-page/product-page.service.js';
 import { resolveOfferSellers } from '../product-page/sellers.js';
 import { countActiveNativeListingsForCanonicalVariants } from '../../db/productPage/productPageRepository.js';
+import { deleteTestCanonicalRows } from '../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -64,8 +65,10 @@ afterAll(async () => {
   await db.delete(listings).where(inArray(listings.id, safeIds(createdListingIds)));
   await deleteTestStores(db, safeIds(createdStoreIds));
   await db.delete(storefronts).where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
-  await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
-  await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+  await deleteTestCanonicalRows(db, {
+    variantIds: createdVariantIds,
+    productIds: createdProductIds,
+  });
   await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
   await closePostgres();
 }, 60_000);

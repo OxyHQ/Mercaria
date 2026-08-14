@@ -62,6 +62,7 @@ import {
 import { insertNativeListingLink } from '../offers/nativeListingLinkRepository.js';
 import { convergeNativeOffersForListing } from '../../services/offers/native-offer.service.js';
 import { listOffers, recordExternalOffer } from '../../services/offers/offer.service.js';
+import { deleteTestCanonicalRows } from './canonical-teardown.js';
 
 let db: Database;
 
@@ -99,8 +100,10 @@ afterAll(async () => {
   // so the listings go first and take their variants with them.
   await db.delete(listings).where(inArray(listings.id, safeIds(createdListingIds)));
   await deleteTestStores(db, safeIds(createdStoreIds));
-  await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
-  await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+  await deleteTestCanonicalRows(db, {
+    variantIds: createdVariantIds,
+    productIds: createdProductIds,
+  });
   await db.delete(storefronts).where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
   await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
   await db.delete(sourceRecords).where(inArray(sourceRecords.id, safeIds(createdSourceRecordIds)));

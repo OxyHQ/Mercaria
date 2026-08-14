@@ -58,6 +58,7 @@ import { requestSplit, runSplitJob } from '../split.service.js';
 import { estimateMergeImpact } from '../impact.js';
 import { recordRevision, recordCompensation } from '../revision.js';
 import { suppressEntity, liftEntitySuppression } from '../correction.service.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -190,7 +191,7 @@ afterEach(async () => {
     await db.delete(productIdentifiers).where(inArray(productIdentifiers.productId, productIds));
     if (variantIds.length > 0) {
       await db.delete(productIdentifiers).where(inArray(productIdentifiers.variantId, variantIds));
-      await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, variantIds));
+      await deleteTestCanonicalRows(db, { variantIds });
     }
     await db
       .delete(canonicalProductSourceLinks)
@@ -216,7 +217,7 @@ afterEach(async () => {
       .update(canonicalProducts)
       .set({ status: 'active', mergedIntoId: null })
       .where(inArray(canonicalProducts.id, productIds));
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, productIds));
+    await deleteTestCanonicalRows(db, { productIds });
   }
   if (sourceIds.length > 0) {
     await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, sourceIds));

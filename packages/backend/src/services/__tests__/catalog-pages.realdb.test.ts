@@ -41,7 +41,6 @@ import { brands, brandAliases, brandSourceLinks, organizations } from '../../db/
 import {
   canonicalProductFamilies,
   canonicalProducts,
-  canonicalVariants,
 } from '../../db/schema/canonicalCatalog.js';
 import { commerceRelationships } from '../../db/schema/relationships.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
@@ -61,6 +60,7 @@ import {
   readProductFamilyProducts,
 } from '../catalog-pages/family-page.service.js';
 import { submitCatalogCorrection } from '../catalog-pages/correction.service.js';
+import { deleteTestCanonicalRows } from '../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -96,10 +96,7 @@ afterAll(async () => {
   // declared option axes gets a DEFAULT variant from `createCanonicalProduct`
   // itself, so a teardown keyed on the tracked ids leaves those behind and the
   // product delete fails on the foreign key. The real server caught it.
-  await db
-    .delete(canonicalVariants)
-    .where(inArray(canonicalVariants.productId, safeIds(createdProductIds)));
-  await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+  await deleteTestCanonicalRows(db, { productIds: createdProductIds });
   await db
     .delete(canonicalProductFamilies)
     .where(inArray(canonicalProductFamilies.id, safeIds(createdFamilyIds)));

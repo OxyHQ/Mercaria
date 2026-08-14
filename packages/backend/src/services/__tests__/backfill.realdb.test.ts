@@ -67,6 +67,7 @@ import { loadNativeVariantSubject } from '../matching/subject-loader.js';
 import { drainOfferOutbox } from '../offers/offer-outbox-dispatcher.js';
 import { createMatchPolicyVersion } from '../matching/match-policy.service.js';
 import { convergeNativeOffersForListing } from '../offers/native-offer.service.js';
+import { deleteTestCanonicalRows } from '../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -106,14 +107,28 @@ afterAll(async () => {
     await db.delete(orders).where(inArray(orders.id, createdOrderIds));
   }
   if (createdListingIds.length > 0) {
+    // BEFORE the canonical rows, and that order is load-bearing. The
+    // `provisional_products` stage writes `native_listing_links`, whose
+    // `canonical_variant_id` is RESTRICT while its `listing_id` is CASCADE
+    // (`schema/offers.ts`) — and `offers.canonical_variant_id` is a second
+    // RESTRICT released the same way. So deleting the listings is what frees
+    // the canonical rows below.
+    //
+    // #270 asked whether that order wants an assertion or a comment. A comment,
+    // because it is already self-enforcing: swapping the two blocks fails
+    // DETERMINISTICALLY with `23503` on
+    // `native_listing_links_canonical_variant_id_canonical_variants`, every
+    // run, with no sibling involved. An assertion would restate a constraint
+    // that already fires. What it is NOT is a `match_decisions` ordering —
+    // both `matchVariant` call sites here run before the mint stage, so this
+    // file's own decisions never cite its own canonical rows, and the helper
+    // below is for a SIBLING's decision rather than for anything this teardown
+    // controls.
     await db.delete(listings).where(inArray(listings.id, createdListingIds));
   }
-  if (createdProductIds.length > 0) {
-    await db
-      .delete(canonicalVariants)
-      .where(inArray(canonicalVariants.productId, createdProductIds));
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, createdProductIds));
-  }
+  // The variants are discovered from the product ids: this file mints them
+  // through the real stages and never sees their ids.
+  await deleteTestCanonicalRows(db, { productIds: createdProductIds });
   if (createdStoreIds.length > 0) {
     // Every store this file seeded was scanned by the whole-catalogue
     // `store_merchants` pass, so each may carry a link and a merchant this file

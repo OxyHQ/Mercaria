@@ -46,7 +46,7 @@
  */
 
 import { inArray } from 'drizzle-orm';
-import { canonicalVariants } from '../schema/canonicalCatalog.js';
+import { canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog.js';
 import { matchDecisions } from '../schema/matching.js';
 import type { Database } from '../postgres.js';
 
@@ -63,6 +63,42 @@ export interface CanonicalTeardownPlan {
   readonly deletableProductIds: readonly string[];
   readonly retainedVariantIds: readonly string[];
   readonly retainedProductIds: readonly string[];
+}
+
+/**
+ * Grow `retained` to cover the merge WINNER of every row already in it.
+ *
+ * Both canonical tables carry a self-referencing `merged_into_id` with
+ * `ON DELETE RESTRICT`, so a retained tombstone refuses its winner's delete.
+ * The caller's own id set bounds this: a winner nobody was going to delete
+ * needs no pinning.
+ *
+ * Written once and used for both tables — the two differ only in which table
+ * object they name, and a second copy is a second place for the fixpoint to be
+ * wrong.
+ */
+async function pinMergeTargets(
+  db: Database,
+  table: typeof canonicalVariants | typeof canonicalProducts,
+  retained: Set<string>,
+  universe: ReadonlySet<string>,
+): Promise<void> {
+  for (let guard = 0; guard <= universe.size; guard += 1) {
+    if (retained.size === 0) return;
+    const rows = await db
+      .select({ mergedIntoId: table.mergedIntoId })
+      .from(table)
+      .where(inArray(table.id, [...retained]));
+    let grew = false;
+    for (const row of rows) {
+      const winner = row.mergedIntoId;
+      if (winner === null) continue;
+      if (!universe.has(winner) || retained.has(winner)) continue;
+      retained.add(winner);
+      grew = true;
+    }
+    if (!grew) return;
+  }
 }
 
 /**
@@ -107,6 +143,28 @@ export async function planCanonicalTeardown(
     for (const row of rows) if (row.id !== null) citedProducts.add(row.id);
   }
 
+  // A retained TOMBSTONE pins whatever it was merged INTO.
+  //
+  // `canonical_variants.merged_into_id` and `canonical_products.merged_into_id`
+  // are self-referencing `ON DELETE RESTRICT`, so a loser still present refuses
+  // its winner's delete. Measured against a real server: deleting winner and
+  // loser in ONE statement succeeds — for a single DELETE the check settles at
+  // end-of-statement, at 2 rows and at 101, in either list order — while
+  // deleting the winner ALONE with the loser present raises `23503` on
+  // `..._merged_into_id_fkey`. The reverse is fine: a loser alone deletes
+  // cleanly.
+  //
+  // That is precisely what a partition can produce. A sibling cites the LOSER —
+  // which is an ordinary active row right up until the file's own merge runs —
+  // so the loser is retained, the uncited winner is not, and the winner's delete
+  // is refused. Before this helper existed the ids went out in one statement and
+  // the question never arose, which is why nothing in the estate reset these
+  // columns.
+  //
+  // A fixpoint rather than one hop, because a merge chain is representable; the
+  // set only grows and is bounded by the caller's own ids, so it terminates.
+  await pinMergeTargets(db, canonicalVariants, citedVariants, new Set(variantIds));
+
   // A retained VARIANT pins its parent too. Read the parentage rather than
   // assuming the caller knows it: the variants were discovered by product id, so
   // the mapping exists in the database and nowhere in the caller.
@@ -118,10 +176,88 @@ export async function planCanonicalTeardown(
     for (const parent of parents) citedProducts.add(parent.productId);
   }
 
+  // AFTER the parents, because a product pinned by a retained variant may itself
+  // be a tombstone whose winner is still in the deletable half.
+  await pinMergeTargets(db, canonicalProducts, citedProducts, new Set(productIds));
+
   return {
     deletableVariantIds: variantIds.filter((id) => !citedVariants.has(id)),
     deletableProductIds: productIds.filter((id) => !citedProducts.has(id)),
     retainedVariantIds: variantIds.filter((id) => citedVariants.has(id)),
     retainedProductIds: productIds.filter((id) => citedProducts.has(id)),
   };
+}
+
+/**
+ * Delete a file's OWN canonical rows, skipping exactly what a sibling pins.
+ *
+ * This is what a teardown calls. `planCanonicalTeardown` above is the decision;
+ * this is the decision plus the two statements, in the one order that works —
+ * `canonical_variants.product_id` is `ON DELETE RESTRICT`, so a product whose
+ * variants are still present cannot go, and the parent-pinning rule above is
+ * what keeps a retained variant from turning into a second `23503` on the
+ * product.
+ *
+ * ## Why the variants are DISCOVERED and not only accepted
+ *
+ * Callers pass what they recorded, and what they recorded is not always
+ * complete: several fixtures mint a product through a repository that creates
+ * its default variant, so the file knows the product id and never sees the
+ * variant's. `backfill.realdb.test.ts` deletes by `product_id` for exactly that
+ * reason. Reading the children back closes the gap for every caller instead of
+ * for the ones who remembered, and it costs one indexed statement in a hook.
+ *
+ * ## What a caller still owes
+ *
+ * Its own children first — offers, links, identifiers, attributes, source
+ * links, its OWN match decisions. Only the two RESTRICT-blocked statements are
+ * narrowed here, so any other broken ordering still raises, which is the point:
+ * a swallowed `23503` would hide a genuine children-first mistake.
+ *
+ * The returned plan names what was kept. Most callers ignore it — a retained
+ * row is inert in a database that is dropped at the end of the run — but it is
+ * returned rather than swallowed so a caller that wants to report or assert on
+ * it can, and so the gate can check the uncited ids really were deleted.
+ */
+export async function deleteTestCanonicalRows(
+  db: Database,
+  input: { readonly productIds?: readonly string[]; readonly variantIds?: readonly string[] },
+): Promise<CanonicalTeardownPlan> {
+  const productIds = [...new Set(input.productIds ?? [])];
+  const requested = [...new Set(input.variantIds ?? [])];
+  if (productIds.length === 0 && requested.length === 0) {
+    return {
+      deletableVariantIds: [],
+      deletableProductIds: [],
+      retainedVariantIds: [],
+      retainedProductIds: [],
+    };
+  }
+
+  const discovered =
+    productIds.length === 0
+      ? []
+      : (
+          await db
+            .select({ id: canonicalVariants.id })
+            .from(canonicalVariants)
+            .where(inArray(canonicalVariants.productId, productIds))
+        ).map((row) => row.id);
+
+  const plan = await planCanonicalTeardown(db, {
+    variantIds: [...new Set([...requested, ...discovered])],
+    productIds,
+  });
+
+  if (plan.deletableVariantIds.length > 0) {
+    await db
+      .delete(canonicalVariants)
+      .where(inArray(canonicalVariants.id, [...plan.deletableVariantIds]));
+  }
+  if (plan.deletableProductIds.length > 0) {
+    await db
+      .delete(canonicalProducts)
+      .where(inArray(canonicalProducts.id, [...plan.deletableProductIds]));
+  }
+  return plan;
 }

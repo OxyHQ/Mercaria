@@ -46,6 +46,7 @@ import {
   latestProductLastmod,
   listCanonicalProductSitemapPage,
 } from '../seo/seoRepository.js';
+import { deleteTestCanonicalRows } from './canonical-teardown.js';
 
 let db: Database;
 
@@ -74,7 +75,7 @@ afterAll(async () => {
       .delete(canonicalFieldProvenance)
       .where(inArray(canonicalFieldProvenance.productId, createdProductIds));
     await db.delete(canonicalImages).where(inArray(canonicalImages.productId, createdProductIds));
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, createdProductIds));
+    await deleteTestCanonicalRows(db, { productIds: createdProductIds });
   }
   if (createdRecordIds.length > 0) {
     await db.delete(sourceRecords).where(inArray(sourceRecords.id, createdRecordIds));

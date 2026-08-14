@@ -60,6 +60,7 @@ import {
 import { brands } from '../schema/organizations.js';
 import { offers } from '../schema/offers.js';
 import { runCanonicalSearch } from '../../services/search/canonical-search.service.js';
+import { deleteTestCanonicalRows } from './canonical-teardown.js';
 
 let db: Database;
 
@@ -564,8 +565,10 @@ afterAll(async () => {
   await db
     .delete(canonicalProductAliases)
     .where(inArray(canonicalProductAliases.productId, safeIds(created.products)));
-  await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(created.variants)));
-  await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(created.products)));
+  await deleteTestCanonicalRows(db, {
+    variantIds: created.variants,
+    productIds: created.products,
+  });
   await db
     .delete(canonicalProductFamilies)
     .where(inArray(canonicalProductFamilies.id, safeIds(created.families)));

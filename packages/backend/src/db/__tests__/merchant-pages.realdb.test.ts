@@ -56,6 +56,7 @@ import {
   getMerchantPage,
   resolveCatalogScope,
 } from '../../services/merchant-pages/merchant-page.service.js';
+import { deleteTestCanonicalRows } from './canonical-teardown.js';
 
 let db: Database;
 
@@ -102,8 +103,10 @@ afterAll(async () => {
   // own, which a delete by recorded link id never could. Links still go before
   // the merchants below, because `merchant_id` RESTRICTs them.
   await deleteTestStores(db, safeIds(created.stores));
-  await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(created.variants)));
-  await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(created.products)));
+  await deleteTestCanonicalRows(db, {
+    variantIds: created.variants,
+    productIds: created.products,
+  });
   await db.delete(storefronts).where(inArray(storefronts.id, safeIds(created.storefronts)));
   await db.delete(merchants).where(inArray(merchants.id, safeIds(created.merchants)));
   await db.delete(brands).where(inArray(brands.id, safeIds(created.brands)));
