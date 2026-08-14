@@ -846,6 +846,20 @@ One unified API (`packages/backend`) serves storefront, dashboard and POS.
 
 - `Listing`, with ownerType `user | store`, including `ProductVariant` child
   rows.
+- **`listings.published_at` is the FIRST activation, never the row's birthday**
+  (#261). NULL until a listing is `active`, stamped by the first transition to
+  it, never restamped and never cleared — `created_at` is where "when was the row
+  written" lives. `db/catalog/listingRepository.ts` is the only author: the three
+  statements that can write `listings.status` (`insertListing`,
+  `updateListingColumns`, `setListingStatusIfIn`) each derive it, the stamp is a
+  SQL `coalesce` rather than a read-then-write, and
+  `listing-publication-chokepoint.test.ts` fails the build on a fourth production
+  writer of that table. **No backfill, deliberately**: nothing distinguishes a
+  draft that was never published from one that was `active` and was returned to
+  `draft` by moderation's `request_changes`, so a pre-#261 draft may carry a
+  stamp. The feed-ordering change was accepted — every read ordering by the
+  column filters `status='active'`, and the two draft-showing screens order by
+  `created_at`.
 - `Location` plus `InventoryLevel` for multi-location inventory; the `$inc` guard
   is race-safe at the location grain.
 - `Collection`, manual plus automated rules, materialized into
@@ -913,6 +927,33 @@ in `oxy-infra`).
   `@oxyhq/db/testing`), created and dropped by
   `packages/backend/src/db/testDatabase.ts`, which shells out to the real
   `migrate.ts` entrypoint rather than composing `runMigrations` a second time.
+- **A test that widens a global bound widens it for every parallel file.**
+  `reconciliation.realdb.test.ts` sets
+  `PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS='0'` so a payable it just
+  booked is sweepable; that buffer is the ONLY thing bounding `auditOpenPayables`,
+  an aggregate over the whole of `ledger_entries`, so one
+  `auditLedgerPage({cursor:null})` reports `merchant_payable_unexplained` for
+  every unexplained open payable in the database — and `recordDiscrepancy`'s
+  upsert REOPENS the row `repairs.realdb.test.ts` had resolved, failing in the
+  victim as `expected 'open' to be 'resolved'` while naming nothing about the
+  cause. **The zeroed config value IS the missing scope, so no census over query
+  text sees anything wrong.** Aim with a cursor floor computed as
+  `max(id) where id < <fixture id>` — never a pre-taken `max(id)`, since
+  `@oxyhq/db`'s uuid v7 is not monotonic within a millisecond — else hold
+  `reconciliation-sweep-slot.ts` file-wide. Scoping the ASSERTIONS is not enough
+  when the call WRITES.
+- **A correctly-scoped teardown can still be blocked by a row a SIBLING minted.**
+  The matcher's retrieval is a trigram scan over every `canonical_products` row,
+  so a sibling's `runMatch` records a `match_decisions` row citing another file's
+  fixture, and both citing columns are `ON DELETE restrict` — measured once in
+  four full baseline runs. The owner DECLINES exactly the pinned ids
+  (`planCanonicalTeardown`) rather than deleting a sibling's row, which would
+  convert a loud teardown failure into a silent wrong answer and would
+  additionally have to clear `catalog_source_objects.last_match_decision_id` in a
+  third domain. **Never `catch` the `23503`** — that also hides a genuine
+  children-first mistake. The discriminator for this whole class is not which
+  column a teardown is scoped by, but whether a sibling has since referenced the
+  rows it owns.
 - **Legacy Mongo/Mongoose is GONE** (code removed post-cutover in PR #136; the
   `mercaria-production` database itself DROPPED on 2026-08-08): no `src/models/`,
   no `src/lib/db.ts`, no `mongoose` in `package.json`, no `MONGODB_URI` secret or
@@ -3509,7 +3550,8 @@ CHECK the database would have refused all looked identical to a green suite.
   Shopify store, no WooCommerce site and no WordPress plugin install has been
   exercised; nothing here may be read as evidence that one has.
 - Four defects found while building it were filed (#218, #219, #220, #221)
-  rather than fixed there. **#218 is FIXED:** `registerWebhooks` returns a
+  rather than fixed there, and fixing #218 turned up a FIFTH (#262). All five
+  are now fixed. **#218 is FIXED:** `registerWebhooks` returns a
   structured result (every subscription that exists, every topic REFUSED with its
   status and a classified reason), reconciles against the platform's OWN
   subscription list before creating anything — ADOPTING on Shopify, RECREATING on
@@ -3522,6 +3564,31 @@ CHECK the database would have refused all looked identical to a green suite.
   to the full runbook §3.2 string, gated by `shopify-scopes.test.ts` against both
   the registered topics and the endpoints each declared capability calls — the
   old `['read_products']` default WAS the configuration that triggered it.
+  **#262 supplied the trigger the "retryable" above assumes.**
+  `registerConnectionWebhooks` had two call sites, both on connect, so
+  "retryable" meant a person re-authorizing. There is now a 15-minute sweep over
+  a DERIVED population — refused topics whose reason a retry could fix, or an
+  empty `webhook_ids`, which is the only trace a registration that THREW leaves —
+  plus `POST /admin/stores/:storeId/channels/:connectionId/webhooks/reregister`
+  behind `channels:write`, which stays available while the sweep is off.
+  `CONNECTOR_WEBHOOK_REREGISTRATION_ENABLED` defaults ON: it gates the LOOP, and
+  the catalogue reconcile beside it calls the same platforms every six hours with
+  no lever at all. A re-registration REUSES the stored secret — Mercaria has no
+  previous-secret grace for a connection, so minting would 401 every delivery
+  already queued. `permission_denied` and `topic_not_supported` dead-letter on
+  the FIRST attempt; everything else backs off, capped, over twelve. **The sweep
+  does NOT make #218's shared-address disconnect guard redundant** — a sibling
+  whose live subscriptions were deleted has complete stored ids and no refusal,
+  so the derived population is blind to it by construction. The merchant surface
+  is `WebhookHealth` on the channel screen, and it renders even when nothing is
+  refused, deliberately: that same invisible state shows no symptom, so a control
+  appearing only on a recorded failure could never be pressed for it.
+  **`webhookRegistration` is the authority on whether Mercaria is still trying
+  and `webhookFailures` is a separate fact about which topics were refused — a
+  surface keying on the refusal list FIRST renders a dead-lettered channel as
+  healthy**, because a registration that throws is caught before
+  `recordConnectionWebhookRegistration` and writes no per-topic row at all. That
+  is pinned by a test, so teaching the throw path to record fails the build.
   **#219 is FIXED:** `createWooCommerceTransport` retries a 429 (`Retry-After`
   capped at 30s per wait, else an equal-jitter backoff, bounded by a 60s total
   budget and five retries) on every method including the registration POST, and
