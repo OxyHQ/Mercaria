@@ -107,12 +107,23 @@ afterAll(async () => {
     await db.delete(orders).where(inArray(orders.id, createdOrderIds));
   }
   if (createdListingIds.length > 0) {
-    // BEFORE the canonical rows, and that order is load-bearing rather than
-    // cosmetic: `match_decisions` CASCADEs from the native subject (ADR 0002
-    // D20), so deleting the listings is what takes THIS file's own decisions
-    // with them. Swap the two blocks and the canonical delete meets its own
-    // citing rows — which the helper below would then decline, leaving the
-    // fixtures behind silently instead of raising.
+    // BEFORE the canonical rows, and that order is load-bearing. The
+    // `provisional_products` stage writes `native_listing_links`, whose
+    // `canonical_variant_id` is RESTRICT while its `listing_id` is CASCADE
+    // (`schema/offers.ts`) — and `offers.canonical_variant_id` is a second
+    // RESTRICT released the same way. So deleting the listings is what frees
+    // the canonical rows below.
+    //
+    // #270 asked whether that order wants an assertion or a comment. A comment,
+    // because it is already self-enforcing: swapping the two blocks fails
+    // DETERMINISTICALLY with `23503` on
+    // `native_listing_links_canonical_variant_id_canonical_variants`, every
+    // run, with no sibling involved. An assertion would restate a constraint
+    // that already fires. What it is NOT is a `match_decisions` ordering —
+    // both `matchVariant` call sites here run before the mint stage, so this
+    // file's own decisions never cite its own canonical rows, and the helper
+    // below is for a SIBLING's decision rather than for anything this teardown
+    // controls.
     await db.delete(listings).where(inArray(listings.id, createdListingIds));
   }
   // The variants are discovered from the product ids: this file mints them

@@ -62,8 +62,18 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  */
 const DIRECT_CANONICAL_DELETE = /\.\s*delete\s*\(\s*canonical(Products|Variants)\s*\)/u;
 
-/** Inserting a canonical product — what puts a file in scope for the NAME rule. */
-const INSERTS_CANONICAL_PRODUCT = /\.\s*insert\s*\(\s*canonicalProducts\s*\)/u;
+/**
+ * Creating a canonical product — what puts a file in scope for the NAME rule.
+ *
+ * BOTH spellings, because a fixture built through the service is exactly as
+ * visible to the matcher as one built with a direct insert, and the direct
+ * spelling alone missed one:
+ * `services/procurement/__tests__/procurement-offer.service.realdb.test.ts`
+ * creates its product with `createCanonicalProduct(...)` and deletes nothing,
+ * so it was invisible to the delete rule AND to this one.
+ */
+const CREATES_CANONICAL_PRODUCT =
+  /\.\s*insert\s*\(\s*canonicalProducts\s*\)|createCanonicalProduct\s*\(/u;
 
 /**
  * A `normalizedName` set to a plain string literal.
@@ -73,6 +83,19 @@ const INSERTS_CANONICAL_PRODUCT = /\.\s*insert\s*\(\s*canonicalProducts\s*\)/u;
  * fixture is findable by a sibling. A template literal is accepted because that
  * is how a per-run token is spelled; the rule is not "no literal anywhere", it
  * is "this value must be able to differ between runs".
+ *
+ * ## What it cannot see, said out loud
+ *
+ * It reads the `normalizedName` a fixture WRITES. A literal `name:` handed to
+ * `createCanonicalProduct` is normalized by the service, so the stable value
+ * reaches the column without this pattern ever seeing it —
+ * `canonical-catalog.realdb.test.ts:1087` is the one instance, and it is
+ * acceptable there for a different reason: that file deletes its fixtures, so
+ * the row exists only while it runs rather than standing in every later
+ * sibling's retrieval. The rule that would close this properly is "a fixture
+ * that is never deleted must not carry a stable name", which needs the two
+ * halves joined; this is the checkable approximation, and the gap is named
+ * rather than left to be discovered.
  */
 const LITERAL_NORMALIZED_NAME = new RegExp(`${'normalized'}${'Name'}\\s*:\\s*['"]`, 'u');
 
@@ -233,7 +256,7 @@ describe('the canonical fixture census', () => {
 
   it('gives every canonical fixture a name that can differ between runs', () => {
     const inScope = [...sources].filter(
-      ([path, source]) => path !== THIS_CENSUS && INSERTS_CANONICAL_PRODUCT.test(source),
+      ([path, source]) => path !== THIS_CENSUS && CREATES_CANONICAL_PRODUCT.test(source),
     );
 
     // The floor that makes the zero below mean something. If nothing inserts a
@@ -300,8 +323,15 @@ describe('the canonical fixture census', () => {
     expect(LITERAL_NORMALIZED_NAME.test(`${name}: \`widget \${RUN}\`,`)).toBe(false);
     expect(LITERAL_NORMALIZED_NAME.test(`${name}: normalizeEntityName(label),`)).toBe(false);
 
-    expect(INSERTS_CANONICAL_PRODUCT.test(`await db.insert(${products}).values({});`)).toBe(true);
-    expect(INSERTS_CANONICAL_PRODUCT.test(`await db.insert(${products}Aliases).values({});`)).toBe(
+    expect(CREATES_CANONICAL_PRODUCT.test(`await db.insert(${products}).values({});`)).toBe(true);
+    expect(CREATES_CANONICAL_PRODUCT.test(`await db.insert(${products}Aliases).values({});`)).toBe(
+      false,
+    );
+    // The service spelling, which the direct pattern alone missed.
+    expect(CREATES_CANONICAL_PRODUCT.test('const p = await createCanonicalProduct({ name });')).toBe(
+      true,
+    );
+    expect(CREATES_CANONICAL_PRODUCT.test('await createCanonicalProductFamily({ name });')).toBe(
       false,
     );
   });

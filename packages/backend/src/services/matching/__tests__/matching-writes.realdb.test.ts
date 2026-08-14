@@ -127,7 +127,13 @@ afterEach(async () => {
   }
   if (policyIds.length > 0) {
     // BEFORE the canonical block, and scoped to the policy versions this file
-    // created, so it can only ever reach this file's OWN rows. Most of its
+    // created. That it can only ever reach this file's OWN rows is a property
+    // of the SLOT, not of the key: a decision cites whichever policy was
+    // globally active when it was written, and this file holds the active-policy
+    // slot for its whole run (see `beforeAll`), so no sibling can be matching
+    // under this policy while these rows exist. If the slot were ever dropped
+    // here, this statement would become the same rejected direction as the one
+    // removed below. Most of its
     // decisions cascade from the native listing deleted above; one whose subject
     // is not a native variant does not, and would still be citing these
     // canonical ids when the helper below reads them — making it retain rows
