@@ -125,6 +125,16 @@ afterEach(async () => {
     await db.delete(offers).where(inArray(offers.listingId, listingIds));
     await db.delete(listings).where(inArray(listings.id, listingIds));
   }
+  if (policyIds.length > 0) {
+    // BEFORE the canonical block, and scoped to the policy versions this file
+    // created, so it can only ever reach this file's OWN rows. Most of its
+    // decisions cascade from the native listing deleted above; one whose subject
+    // is not a native variant does not, and would still be citing these
+    // canonical ids when the helper below reads them — making it retain rows
+    // this file owns and could perfectly well delete. That is the half the
+    // removed sibling-keyed delete was accidentally covering.
+    await db.delete(matchDecisions).where(inArray(matchDecisions.policyVersionId, policyIds));
+  }
   if (productIds.length > 0) {
     const variantIds = (
       await db
@@ -157,7 +167,6 @@ afterEach(async () => {
   }
   if (policyIds.length > 0) {
     await db.delete(matchCategoryGates).where(inArray(matchCategoryGates.policyVersionId, policyIds));
-    await db.delete(matchDecisions).where(inArray(matchDecisions.policyVersionId, policyIds));
     const runIds = (
       await db
         .select({ id: matchBenchmarkRuns.id })
