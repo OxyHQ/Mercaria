@@ -336,13 +336,13 @@ describe('createStoreProduct writes provenance and status in the listing’s OWN
     // SALE — and asserting the status alone cannot tell that apart from a row
     // whose two publication facts disagree.
     //
-    // It is set even for a draft, and that is PRE-EXISTING and unchanged by this
-    // fix: the create always stamped it and the old second statement never
-    // cleared it, so `published_at` means "when the listing row was written" and
-    // never "when it went on sale". `status` is the only thing any catalogue read
-    // filters on. Asserted rather than corrected — narrowing it would change the
-    // keyset ordering of every listing that is later published.
-    expect(row.publishedAt).toBeInstanceOf(Date);
+    // #221 asserted a Date here and said so: the create always stamped the column
+    // and the old second statement never cleared it, so `published_at` meant "when
+    // the listing row was written". #261 narrowed it to the first activation, which
+    // is why this assertion INVERTED rather than drifting — it is the signal that
+    // issue described. A draft has never been on sale, so it has no publication
+    // instant, and `created_at` is where "when was the row written" lives.
+    expect(row.publishedAt).toBeNull();
   });
 
   it('leaves the four columns NULL and the status `active` for a MERCHANT create', async () => {
@@ -619,9 +619,9 @@ describe('the connector PULL path strands nothing when a product fails (#221)', 
     expect(row.status).toBe('draft');
     expect(row.sourceExternalId).toBe('woo-atomic-1');
     // Read in the SAME row — see the `createStoreProduct` case for why the two
-    // publication facts are asserted together, and why `published_at` being set
-    // on a draft is pre-existing rather than something this fix introduced.
-    expect(row.publishedAt).toBeInstanceOf(Date);
+    // publication facts are asserted together, and for why #261 inverted this from
+    // the Date #221 recorded.
+    expect(row.publishedAt).toBeNull();
   });
 
   it('a SECOND sync of an imported product updates it rather than colliding on its handle', async () => {

@@ -301,7 +301,9 @@ export async function insertP2PListingWithin(
       rating: 0,
       reviewCount: 0,
       favoriteCount: 0,
-      publishedAt: now,
+      // `published_at` is deliberately NOT stated: `insertListing` derives it from
+      // the status, which is the one authority for what that column means (#261).
+      // A P2P listing is born `active`, so it is stamped here as it always was.
     },
     toListingImages(input.imageFileIds),
     [],
@@ -509,7 +511,11 @@ async function insertStoreProductWithin(
       rating: 0,
       reviewCount: 0,
       favoriteCount: 0,
-      publishedAt: now,
+      // NOT stated, for the reason `insertP2PListingWithin` gives — and here it is
+      // the whole of #261: `spec.status` is `draft` for a connection that does not
+      // auto-publish, and stamping this alongside it made `published_at` mean "when
+      // the row was written". The derivation leaves it NULL until the listing is
+      // first activated.
     },
     toListingImages(input.imageFileIds),
     input.options.map((o, position) => ({ name: o.name, values: [...o.values], position })),
@@ -717,9 +723,10 @@ export async function updateListing(
       throw validationError(`Listing status '${patch.status}' cannot be set directly.`);
     }
     columns.status = patch.status;
-    if (patch.status === 'active' && !listing.publishedAt) {
-      columns.publishedAt = new Date();
-    }
+    // `published_at` is NOT set here. `updateListingColumns` derives it from the
+    // status in SQL, which is both the one authority for the column (#261) and
+    // race-free: the read-then-write this replaced let two concurrent activations
+    // each see an empty column and the later one win.
   }
   if (patch.category !== undefined) {
     const { categoryId, categorySlugs } = await resolveCategory(patch.category);
