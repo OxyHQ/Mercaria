@@ -31,14 +31,32 @@
  * cost of the alternative: the helper existed and TWO files of twenty-five used
  * it.
  *
+ * ## A file-level permission is not enough, so there is a SECOND, parsed rule
+ *
+ * "Which files may issue a bare canonical delete" is the coarsest thing a source
+ * scan can express, and it is coarser than the property: the three fixtures on
+ * the list below are permitted one because a bare delete IS the subject of an
+ * assertion, and the same permission would silently cover a careless one in
+ * their own `afterAll` — which is the exact cross-file pin the helper exists to
+ * survive. `canonical-teardown.realdb.test.ts` was that file until #279.
+ *
+ * So a second rule PARSES every scanned source with the TypeScript compiler,
+ * finds each `.delete(canonicalProducts|canonicalVariants)` call, and asks
+ * whether any enclosing call is a lifecycle hook. A delete inside `afterAll`
+ * fails the build wherever it appears; a delete inside an `it` does not. A regex
+ * cannot make that distinction at all — the two spellings are the same
+ * characters — which is why this one reads the syntax tree instead.
+ *
  * ## Two things this deliberately does not do
  *
- * It does NOT strip comments. The failure direction of scanning raw source is a
- * false POSITIVE — a comment quoting a delete fails the build loudly and is
- * corrected in one line — while comment stripping truncates at a `//` inside a
- * string literal and can hide a real statement, which is the direction that
- * costs something. The probes below are assembled from table names so this file
- * cannot become the offender it is looking for.
+ * The REGEX rule does NOT strip comments. The failure direction of scanning raw
+ * source is a false POSITIVE — a comment quoting a delete fails the build loudly
+ * and is corrected in one line — while comment stripping truncates at a `//`
+ * inside a string literal and can hide a real statement, which is the direction
+ * that costs something. The probes below are assembled from table names so this
+ * file cannot become the offender it is looking for. (The parsed rule is
+ * comment-blind by construction, which makes the two an independent pair rather
+ * than the same reading twice: a disagreement between them is itself a finding.)
  *
  * It scans TEST sources only. Production code deletes no canonical row on this
  * path at all; a merge RE-HOMES them (`services/curation/`), which is a
@@ -58,6 +76,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import ts from 'typescript';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { getTableName } from 'drizzle-orm';
 import { sqlColumnName } from '@oxyhq/db';
@@ -139,8 +158,8 @@ const PERMITTED: readonly { readonly file: string; readonly reason: string }[] =
     file: 'db/__tests__/canonical-teardown.realdb.test.ts',
     reason:
       "#270's own gate. It constructs a citing decision and issues the bare delete to prove the " +
-      'foreign key refuses it, and issues the narrowed one to prove an uncited id still proceeds — ' +
-      'both statements are what the file is about, and its teardown deletes the decision it owns first.',
+      'foreign key refuses it — that statement is what the file is about, and it sits inside the ' +
+      'assertion rather than in a hook. Its own teardown goes through the helper, since #279.',
   },
   {
     file: 'db/__tests__/canonical-teardown.ts',
@@ -157,11 +176,104 @@ const PERMITTED: readonly { readonly file: string; readonly reason: string }[] =
   },
 ];
 
-/** The two permitted FIXTURES — the helper and the gate are not fixtures. */
+/**
+ * The permitted FIXTURES — everything on the list but the helper itself.
+ *
+ * `canonical-teardown.realdb.test.ts` joined them in #279. It was left off
+ * deliberately when the list was written, on the reading that a file gating the
+ * teardown is not a fixture — and it owns canonical rows like any other, so its
+ * own `afterAll` was a victim of exactly the cross-file pin it exists to
+ * reproduce.
+ */
 const PERMITTED_FIXTURES = [
   'db/__tests__/canonical-catalog.realdb.test.ts',
+  'db/__tests__/canonical-teardown.realdb.test.ts',
   'db/__tests__/watchlists.realdb.test.ts',
 ];
+
+/**
+ * The calls a delete must not be nested inside.
+ *
+ * Setup hooks as well as teardown ones: a `beforeAll` that clears leftovers is
+ * the same unguarded statement wearing a different name, and it runs while every
+ * other file is at its busiest.
+ */
+const LIFECYCLE_HOOKS = ['afterAll', 'afterEach', 'beforeAll', 'beforeEach'];
+
+/**
+ * One parsed call this census cares about, and the hook it sits in if any.
+ *
+ * BOTH kinds come out of one walk, because the two questions are the same
+ * question asked in opposite directions: which canonical deletes run from a
+ * teardown (none may) and which teardowns reach the helper (every permitted
+ * fixture's must). Answering the second by searching the file for the helper's
+ * NAME is what a substring can do and it is not enough — measured: removing the
+ * call from `canonical-teardown.realdb.test.ts`'s `afterAll` left the census
+ * green, because the file's own test bodies still name it a dozen times.
+ */
+interface CanonicalCallSite {
+  readonly file: string;
+  readonly line: number;
+  readonly hook: string | null;
+  readonly kind: 'bare_delete' | 'helper_call';
+}
+
+/**
+ * Every direct canonical delete and every teardown-helper call in one source,
+ * read from the SYNTAX TREE.
+ *
+ * The enclosing hook is carried down the walk rather than looked up afterwards,
+ * so a call nested in a callback inside a hook — a `map`, a `Promise.all`, a
+ * local function — is still attributed to the hook that will run it.
+ */
+function canonicalCallSites(file: string, source: string): CanonicalCallSite[] {
+  const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const sites: CanonicalCallSite[] = [];
+
+  const isCanonicalDelete = (node: ts.Node): boolean => {
+    if (!ts.isCallExpression(node)) return false;
+    if (!ts.isPropertyAccessExpression(node.expression)) return false;
+    if (node.expression.name.text !== 'delete') return false;
+    const [argument] = node.arguments;
+    if (argument === undefined || !ts.isIdentifier(argument)) return false;
+    return argument.text === 'canonicalProducts' || argument.text === 'canonicalVariants';
+  };
+
+  const isHelperCall = (node: ts.Node): boolean =>
+    ts.isCallExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === 'deleteTestCanonicalRows';
+
+  const walk = (node: ts.Node, hook: string | null): void => {
+    let inside = hook;
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      LIFECYCLE_HOOKS.includes(node.expression.text)
+    ) {
+      inside = node.expression.text;
+    }
+    const kind = isCanonicalDelete(node)
+      ? 'bare_delete'
+      : isHelperCall(node)
+        ? 'helper_call'
+        : null;
+    if (kind !== null) {
+      sites.push({
+        file,
+        line: parsed.getLineAndCharacterOfPosition(node.getStart(parsed)).line + 1,
+        hook: inside,
+        kind,
+      });
+    }
+    ts.forEachChild(node, (child) => {
+      walk(child, inside);
+    });
+  };
+
+  walk(parsed, null);
+  return sites;
+}
 
 const TEARDOWN_HELPER = 'db/__tests__/canonical-teardown.ts';
 const THIS_CENSUS = 'db/__tests__/canonical-fixture-census.test.ts';
@@ -209,7 +321,7 @@ function scannedSources(): Map<string, string> {
 /**
  * The RESTRICT edges that run BETWEEN the two canonical tables.
  *
- * `planCanonicalTeardown` partitions exactly two tables, so the only edges that
+ * `deleteTestCanonicalRows` partitions exactly two tables, so the only edges that
  * can make one of a file's own rows refuse the delete of ANOTHER of its own
  * rows are the ones whose source AND target are both canonical. There are three
  * and each has a rule in the planner: the parent link, and the two
@@ -278,8 +390,10 @@ describe('the canonical fixture census', () => {
 
     // The permission is per FILE, which is the coarsest thing a source scan can
     // express: a fixture allowed a deliberate bare delete is thereby allowed a
-    // careless one in its teardown. So the two fixtures must still route their
-    // teardown through the helper — that is what keeps the permission narrow.
+    // careless one in its teardown. So every permitted fixture must still route
+    // its teardown through the helper — that, plus the parsed hook rule below,
+    // is what keeps the permission narrow.
+    expect(PERMITTED_FIXTURES).toHaveLength(3);
     for (const file of PERMITTED_FIXTURES) {
       expect(PERMITTED.map((entry) => entry.file)).toContain(file);
       expect(
@@ -287,6 +401,104 @@ describe('the canonical fixture census', () => {
         `${file} is permitted a bare canonical delete but no longer routes its teardown through the helper`,
       ).toContain('deleteTestCanonicalRows(');
     }
+  });
+
+  it('keeps every canonical delete OUT of a setup or teardown hook', () => {
+    const sites = [...sources].flatMap(([path, source]) => canonicalCallSites(path, source));
+    const deletes = sites.filter((site) => site.kind === 'bare_delete');
+
+    // The vacuity floor AND a second, comment-blind reading of the regex rule
+    // above: the parse can only name these four files by having found real
+    // `.delete(canonical…)` calls in them, so a parser that matched nothing —
+    // a moved directory, a `ScriptKind` that stopped applying — fails here
+    // instead of reporting a clean empty list of hook offenders below.
+    expect(
+      [...new Set(deletes.map((site) => site.file))].sort(),
+      'the parsed reading and the regex reading disagree about which files delete canonical rows',
+    ).toEqual(PERMITTED.map((entry) => entry.file));
+
+    const inHooks = deletes
+      .filter((site) => site.hook !== null)
+      .map((site) => `${site.file}:${String(site.line)} (${site.hook ?? ''})`)
+      .sort();
+
+    expect(
+      inHooks,
+      'a file deletes canonical rows directly from a lifecycle hook; the file-level permission covers a DELIBERATE delete inside an assertion, not a teardown — route the teardown through deleteTestCanonicalRows',
+    ).toEqual([]);
+  });
+
+  it('has every permitted fixture calling the helper FROM its teardown', () => {
+    // The other half, and the one a substring cannot answer: `PERMITTED_FIXTURES`
+    // above only proves the name appears somewhere in the file, which every one
+    // of them satisfies from its test bodies alone. This asserts the call is in
+    // the hook that actually runs at the end.
+    for (const file of PERMITTED_FIXTURES) {
+      const source = sources.get(file);
+      expect(source, `${file} is on the permission list but the walk never read it`).toBeDefined();
+      const teardownCalls = canonicalCallSites(file, source ?? '').filter(
+        (site) => site.kind === 'helper_call' && site.hook !== null,
+      );
+      expect(
+        teardownCalls.map((site) => site.hook),
+        `${file} is permitted a bare canonical delete but its teardown no longer calls deleteTestCanonicalRows`,
+      ).not.toEqual([]);
+    }
+  });
+
+  it('tells a teardown from an assertion, and a canonical table from its neighbours', () => {
+    // The mutation self-test for the parsed rule. The assertion above expects an
+    // empty list, which is also what a walk that stopped descending reports, so
+    // the detector is exercised here against literal buffers — assembled from
+    // table names, so this file never becomes the thing it scans for.
+    const variants = `canonical${'Variants'}`;
+    const products = `canonical${'Products'}`;
+
+    const hookSite = canonicalCallSites(
+      'probe.ts',
+      `afterAll(async () => { await db.delete(${variants}).where(x); });`,
+    );
+    expect(hookSite.map((site) => [site.kind, site.hook])).toEqual([['bare_delete', 'afterAll']]);
+
+    // The shape the permission exists FOR: the same statement as the subject of
+    // an assertion. It must NOT be attributed to a hook.
+    const assertionSite = canonicalCallSites(
+      'probe.ts',
+      `it('refuses', async () => { await expect(db.delete(${products}).where(x)).rejects.toThrow(); });`,
+    );
+    expect(assertionSite.map((site) => [site.kind, site.hook])).toEqual([['bare_delete', null]]);
+
+    // A hook that delegates: the attribution has to survive the callback, or the
+    // rule is defeated by one `Promise.all`.
+    const nested = canonicalCallSites(
+      'probe.ts',
+      `beforeAll(async () => { await Promise.all(ids.map(async (id) => db.delete(${variants}).where(x))); });`,
+    );
+    expect(nested.map((site) => [site.kind, site.hook])).toEqual([['bare_delete', 'beforeAll']]);
+
+    // The helper, and WHERE it is called from — the distinction the substring
+    // check cannot draw.
+    expect(
+      canonicalCallSites(
+        'probe.ts',
+        'afterAll(async () => deleteTestCanonicalRows(db, { productIds }));',
+      ).map((site) => [site.kind, site.hook]),
+    ).toEqual([['helper_call', 'afterAll']]);
+    expect(
+      canonicalCallSites(
+        'probe.ts',
+        "it('cleans up', async () => deleteTestCanonicalRows(db, { productIds }));",
+      ).map((site) => [site.kind, site.hook]),
+    ).toEqual([['helper_call', null]]);
+    // An IMPORT of the helper is not a call to it.
+    expect(
+      canonicalCallSites('probe.ts', "import { deleteTestCanonicalRows } from './canonical-teardown.js';"),
+    ).toEqual([]);
+
+    // A near miss: a sibling table.
+    expect(
+      canonicalCallSites('probe.ts', `afterAll(async () => db.delete(${variants}Attributes).where(x));`),
+    ).toEqual([]);
   });
 
   it('is used by every fixture that owns canonical rows', () => {
@@ -346,7 +558,7 @@ describe('the canonical fixture census', () => {
     // that read nothing fails here rather than reporting a tidy empty set.
     expect(
       edges.sort(),
-      'a RESTRICT edge between the canonical tables is not covered by planCanonicalTeardown; a partition can put its two ends on opposite sides and the delete is then refused',
+      'a RESTRICT edge between the canonical tables is not covered by deleteTestCanonicalRows; a partition can put its two ends on opposite sides and the delete is then refused',
     ).toEqual(CANONICAL_INTERNAL_RESTRICT_EDGES);
   });
 
