@@ -29,11 +29,17 @@
  *  - `sync_settings_target_location_id` is a real foreign key, so a bogus target
  *    is refused with SQLSTATE 23503 instead of stored as a dangling id;
  *  - the reconcile sweep's filter — a `where` no mocked test can inspect —
- *    selects exactly the connected, product-pulling `pull` connections.
+ *    selects exactly the connected, product-pulling `pull` connections;
+ *  - #262's re-registration POPULATION, which is derived rather than stored, so
+ *    every case differs from an eligible connection in exactly ONE fact and each
+ *    half of the predicate is genuinely load-bearing;
+ *  - #262's registration LEASE: one claimant at a time, an expired lease
+ *    reclaimable, an owner check that refuses a completion from a pass whose
+ *    claim was taken away, and a CHECK that makes half a lease unrepresentable.
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { CONNECTOR_WEBHOOK_FAILURE_REASONS } from '@mercaria/shared-types';
 import {
   constraintNameOf,
@@ -50,14 +56,19 @@ import {
 } from '../schema/connectors.js';
 import { deleteTestStores } from './store-teardown.js';
 import {
+  claimConnectionWebhookRegistration,
+  completeConnectionWebhookRegistration,
   disconnectConnection,
   findConnection,
   findConnectionCredentials,
   findConnectionIdsByShopDomain,
   findConnectionWebhookFailures,
   findConnectionWebhookSecret,
+  findConnectionsNeedingWebhookRegistration,
   findPullConnectionsToReconcile,
   recordConnectionWebhookRegistration,
+  releaseConnectionWebhookRegistration,
+  setConnectionPause,
   updateSyncSettings,
   upsertConnection,
 } from '../connectors/connectionRepository.js';
@@ -684,6 +695,325 @@ describe('the reconcile sweep filter', () => {
     // enqueue work for a shop that revoked the app.
     await disconnectConnection(storeId, conn.id, 'keep_listings');
     expect(await findConnectionIdsByShopDomain('shopify', domain)).toEqual([]);
+  });
+});
+
+describe('the webhook re-registration population (#262)', () => {
+  /**
+   * The state a registration LEFT BEHIND, written through the repository.
+   *
+   * Every case differs from the eligible row in exactly ONE fact, so each half of
+   * the predicate is genuinely load-bearing rather than incidentally satisfied.
+   */
+  async function withRegistration(
+    storeId: string,
+    record: Parameters<typeof recordConnectionWebhookRegistration>[1],
+  ) {
+    const conn = await makeConnection(storeId);
+    await recordConnectionWebhookRegistration(conn.id, record);
+    return conn;
+  }
+
+  it('finds a THROWN registration, which leaves no refusal to find', async () => {
+    // The half a failure-row scan cannot see. `registerConnectionWebhooks` catches
+    // a throw and writes NOTHING — no ids, no refusals — so `cardinality = 0` is
+    // the only trace, and without this half that connection is invisible to every
+    // surface and stays dark forever.
+    const thrownStore = await makeStore();
+    const healthyStore = await makeStore();
+    const thrown = await makeConnection(thrownStore);
+    const healthy = await withRegistration(healthyStore, {
+      outcome: 'reconciled',
+      webhookIds: ['wh-1', 'wh-2'],
+      failures: [],
+    });
+
+    const ids = (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map(
+      (row) => row.id,
+    );
+
+    expect(ids).toContain(thrown.id);
+    // The negative control, and the reason the ids half is not simply "every
+    // connection": a registration that landed is not swept.
+    expect(ids).not.toContain(healthy.id);
+  });
+
+  it('finds a RETRYABLE refusal and leaves an unretryable one to the merchant', async () => {
+    const retryStore = await makeStore();
+    const scopeStore = await makeStore();
+    const retryable = await withRegistration(retryStore, {
+      outcome: 'reconciled',
+      webhookIds: ['wh-1'],
+      failures: [{ topic: 'orders/create', reason: 'rate_limited', httpStatus: 429 }],
+    });
+    // A credential that answered 403 answers 403 again, so an automatic sweep
+    // spending attempts on it is noise that also delays the topics beside it. The
+    // remedy is the merchant widening the grant and pressing re-register.
+    const scopeRefused = await withRegistration(scopeStore, {
+      outcome: 'reconciled',
+      webhookIds: ['wh-1'],
+      failures: [{ topic: 'orders/create', reason: 'permission_denied', httpStatus: 403 }],
+    });
+
+    const ids = (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map(
+      (row) => row.id,
+    );
+
+    expect(ids).toContain(retryable.id);
+    expect(ids).not.toContain(scopeRefused.id);
+  });
+
+  it('finds a MIXED refusal — one topic the merchant must fix must not strand the rest', async () => {
+    const storeId = await makeStore();
+    const mixed = await withRegistration(storeId, {
+      outcome: 'reconciled',
+      webhookIds: ['wh-1'],
+      failures: [
+        { topic: 'orders/create', reason: 'permission_denied', httpStatus: 403 },
+        { topic: 'products/update', reason: 'platform_error', httpStatus: 503 },
+      ],
+    });
+
+    const ids = (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map(
+      (row) => row.id,
+    );
+
+    expect(ids).toContain(mixed.id);
+  });
+
+  it('leaves a FETCH-PAUSED channel alone — the merchant asked us to stop knocking', async () => {
+    const storeId = await makeStore();
+    const paused = await makeConnection(storeId);
+    await setConnectionPause(storeId, paused.id, 'fetch', true);
+
+    const ids = (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map(
+      (row) => row.id,
+    );
+
+    // The same rule `deriveChannelReadiness` applies: a paused connection's
+    // refusals do not degrade readiness either, and re-registering it would be the
+    // sweep working around a decision somebody made.
+    expect(ids).not.toContain(paused.id);
+    // The positive control for the pause being the ONLY difference.
+    await setConnectionPause(storeId, paused.id, 'fetch', false);
+    expect(
+      (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map((row) => row.id),
+    ).toContain(paused.id);
+  });
+
+  it('leaves a DEAD-LETTERED channel alone until something resets it', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const claimed = await claimConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-a',
+      leaseMs: 60_000,
+      countsAsAttempt: true,
+    });
+    expect(claimed, 'the premise: an unclaimed connection is claimable').not.toBeNull();
+    await releaseConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-a',
+      deadLettered: true,
+      nextAttemptAt: null,
+    });
+
+    expect(
+      (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map((row) => row.id),
+    ).not.toContain(conn.id);
+
+    // A RECONNECT resets it, which is what makes re-authorizing a channel the fix
+    // for the refusal that dead-lettered it in the first place.
+    await makeConnection(storeId);
+    expect(
+      (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map((row) => row.id),
+    ).toContain(conn.id);
+  });
+
+  it('excludes a connection whose BACKOFF has not come due, and includes it once it has', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const now = new Date();
+    await claimConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-a',
+      leaseMs: 60_000,
+      countsAsAttempt: true,
+      now,
+    });
+    const due = new Date(now.getTime() + 60 * 60 * 1_000);
+    await releaseConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-a',
+      deadLettered: false,
+      nextAttemptAt: due,
+      now,
+    });
+
+    const early = await findConnectionsNeedingWebhookRegistration({ limit: 500, now });
+    expect(early.map((row) => row.id)).not.toContain(conn.id);
+
+    const later = await findConnectionsNeedingWebhookRegistration({
+      limit: 500,
+      now: new Date(due.getTime() + 1_000),
+    });
+    expect(later.map((row) => row.id)).toContain(conn.id);
+  });
+});
+
+describe('the webhook re-registration LEASE (#262)', () => {
+  it('admits ONE claimant and refuses the second until the lease expires', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const now = new Date();
+
+    const first = await claimConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-a',
+      leaseMs: 60_000,
+      countsAsAttempt: true,
+      now,
+    });
+    const second = await claimConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-b',
+      leaseMs: 60_000,
+      countsAsAttempt: true,
+      now,
+    });
+
+    expect(first?.webhookRegistrationAttempts).toBe(1);
+    // The empty result IS the "already in flight" answer — the conditional-UPDATE
+    // device `setConnectionPause` uses, and the reason no read-then-write is
+    // needed. Two passes recreating one WooCommerce connection's subscriptions
+    // leaves the loser's secret stored over the winner's live ones.
+    expect(second).toBeNull();
+
+    // An EXPIRED lease is reclaimable, so a task that died mid-registration
+    // cannot strand a connection forever.
+    const reclaimed = await claimConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-b',
+      leaseMs: 60_000,
+      countsAsAttempt: true,
+      now: new Date(now.getTime() + 61_000),
+    });
+    expect(reclaimed?.webhookRegistrationAttempts).toBe(2);
+  });
+
+  it('refuses a completion or a release from a lease that is no longer owned', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    await claimConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-a',
+      leaseMs: 60_000,
+      countsAsAttempt: true,
+    });
+
+    // The owner check, which is what stops two tasks writing contradictory
+    // outcomes for one connection after a lease was reclaimed.
+    expect(await completeConnectionWebhookRegistration(conn.id, 'owner-b')).toBe(false);
+    expect(
+      await releaseConnectionWebhookRegistration({
+        connectionId: conn.id,
+        leaseOwner: 'owner-b',
+        deadLettered: true,
+        nextAttemptAt: null,
+      }),
+    ).toBe(false);
+    expect(await completeConnectionWebhookRegistration(conn.id, 'owner-a')).toBe(true);
+  });
+
+  it('a COMPLETION resets the budget and releases the lease', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    await claimConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-a',
+      leaseMs: 60_000,
+      countsAsAttempt: true,
+    });
+    await releaseConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-a',
+      deadLettered: false,
+      nextAttemptAt: new Date(Date.now() + 60_000),
+    });
+    const claimed = await claimConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-a',
+      leaseMs: 60_000,
+      countsAsAttempt: true,
+    });
+    expect(claimed?.webhookRegistrationAttempts).toBe(2);
+
+    expect(await completeConnectionWebhookRegistration(conn.id, 'owner-a')).toBe(true);
+
+    const after = await findConnection(storeId, conn.id);
+    // "Consecutive failures", not "times we have ever tried": a connection that
+    // breaks again months later gets the whole budget rather than the remains of
+    // an old one.
+    expect(after?.webhookRegistrationAttempts).toBe(0);
+    expect(after?.webhookRegistrationState).toBe('pending');
+    expect(after?.webhookRegistrationNextAttemptAt).toBeNull();
+    expect(after?.webhookRegistrationLeaseOwner).toBeNull();
+    expect(after?.webhookRegistrationLeaseUntil).toBeNull();
+  });
+
+  it('REFUSES half a lease — an owner with no deadline, or a deadline with no owner', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    // An owner with no deadline never expires, so a task that died holding it
+    // strands the connection; a deadline with no owner matches no owner check, so
+    // nothing can ever complete or release it. Either half alone reads as a live
+    // claim, which is why the CHECK is `in (0, 2)`.
+    //
+    // By NAME off the driver error, never a message substring: drizzle wraps the
+    // failure and prints the SQL, so a substring assertion would pass on ANY
+    // refusal — the reasoning the credential CHECKs above already record.
+    let ownerOnly: unknown;
+    try {
+      await db
+        .update(connections)
+        .set({ webhookRegistrationLeaseOwner: 'owner-a' })
+        .where(eq(connections.id, conn.id));
+    } catch (error) {
+      ownerOnly = error;
+    }
+    expect(isCheckViolation(ownerOnly, 'connections_webhook_registration_lease_check')).toBe(true);
+
+    let deadlineOnly: unknown;
+    try {
+      await db
+        .update(connections)
+        .set({ webhookRegistrationLeaseUntil: new Date() })
+        .where(eq(connections.id, conn.id));
+    } catch (error) {
+      deadlineOnly = error;
+    }
+    expect(isCheckViolation(deadlineOnly, 'connections_webhook_registration_lease_check')).toBe(
+      true,
+    );
+  });
+
+  it('REFUSES a registration state outside the closed set', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    // Raw SQL, because the column's TypeScript enum makes this unwritable through
+    // the repository — which is the point: the CHECK is what stops `psql`, a
+    // migration or a future service bug storing a state nothing can read.
+    let caught: unknown;
+    try {
+      await db.execute(
+        sql`update ${connections} set webhook_registration_state = 'retrying' where ${connections.id} = ${conn.id}`,
+      );
+    } catch (error) {
+      caught = error;
+    }
+    expect(isCheckViolation(caught, 'connections_webhook_registration_state_check')).toBe(true);
   });
 });
 

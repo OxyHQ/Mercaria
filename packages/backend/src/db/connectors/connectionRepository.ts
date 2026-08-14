@@ -61,7 +61,7 @@
  * constraint settles.
  */
 
-import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import { type SelectedRow } from '@oxyhq/db';
 import { publicColumns } from '@oxyhq/db/assert';
 import type {
@@ -71,6 +71,7 @@ import type {
   ConnectorProviderId,
   ConnectorWebhookFailureReason,
 } from '@mercaria/shared-types';
+import { CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
 import { connections, connectionWebhookFailures } from '../schema/connectors.js';
@@ -301,10 +302,16 @@ export async function findConnectionCredentials(
  * The stored per-connection inbound webhook secret, or `null`.
  *
  * The second protected read, and the same reasoning as
- * {@link findConnectionCredentials}. It is scoped by provider AND status because
- * its only caller is the public WooCommerce webhook ingress, which must answer
- * "is this delivery authentic" without ever telling the caller which of those
- * three conditions failed.
+ * {@link findConnectionCredentials}. It is scoped by provider AND status for its
+ * first caller, the public WooCommerce webhook ingress, which must answer "is
+ * this delivery authentic" without ever telling the caller which of those three
+ * conditions failed.
+ *
+ * #262 added a SECOND caller and the same scoping is what it wants: a
+ * re-registration REUSES the stored secret rather than minting a fresh one, so
+ * recreated subscriptions carry the secret the stored envelope already verifies
+ * and no delivery 401s during the swap. A connection that is not `connected`
+ * would not be re-registered anyway, so the narrowing costs it nothing.
  */
 export async function findConnectionWebhookSecret(
   connectionId: string,
@@ -356,6 +363,18 @@ export async function upsertConnection(
     mode: values.mode,
     status: values.status,
     connectedAt: values.connectedAt,
+    // A connect is a FRESH START for the #262 re-registration bookkeeping: new
+    // credentials, possibly a wider grant, and a registration attempt about to
+    // run inside this very connect. Carrying a `dead_letter` across it would
+    // leave the sweep ignoring a connection the merchant just re-authorized —
+    // which is the one case re-authorizing is the fix for. Clearing the lease can
+    // stomp a claim a concurrent sweep holds; that pass then fails its owner
+    // check and logs, which is exactly what an owner check is for.
+    webhookRegistrationState: 'pending' as const,
+    webhookRegistrationAttempts: 0,
+    webhookRegistrationNextAttemptAt: null,
+    webhookRegistrationLeaseOwner: null,
+    webhookRegistrationLeaseUntil: null,
     ...(values.credentials
       ? {
           credentialsCiphertext: values.credentials.ciphertext,
@@ -589,6 +608,233 @@ export async function findConnectionWebhookFailures(
 }
 
 /**
+ * The connections whose webhook registration did not finish (#262).
+ *
+ * ## The population is DERIVED, and both halves of it are needed
+ *
+ * A registration leaves one of four states behind, and two of them are unfinished
+ * work nothing re-runs:
+ *
+ *  - **Refused topics.** `connection_webhook_failures` carries a row per topic
+ *    the platform would not subscribe. An attempt that could not LIST the
+ *    platform's subscriptions lands here too — `reconcileWebhookSubscriptions`
+ *    reports EVERY desired topic refused under the listing's own reason — so the
+ *    `unknown` outcome the issue names is covered by this half rather than
+ *    needing a state column of its own.
+ *  - **No ids at all.** A registration that THREW (a provider bug, a missing
+ *    secret, an unreadable credential) is caught one frame up and writes NOTHING:
+ *    no ids, no refusals. `cardinality(webhook_ids) = 0` is the only trace it
+ *    leaves, and without this half that connection is invisible to every surface
+ *    and stays dark forever. `cardinality`, never `array_length`, which is NULL
+ *    on an empty array.
+ *
+ * Only a RETRYABLE reason qualifies a connection: a `permission_denied` is a
+ * grant only the merchant can widen and a `topic_not_supported` is an event the
+ * platform will never send, so an automatic sweep spending attempts on either is
+ * noise that also delays the topics beside it. A connection whose refusals are
+ * ALL unretryable is left to the on-demand path, which is what a merchant uses
+ * after widening the scope.
+ *
+ * ## What it deliberately does NOT find
+ *
+ * A connection whose stored ids the platform no longer has. Its `webhook_ids` is
+ * non-empty and nothing was refused, so no derivation over Mercaria's own rows
+ * can see it — only reading the platform can, i.e. re-registering everything on a
+ * schedule, which would knock at every merchant's shop every cycle about a state
+ * nobody has observed. That state is prevented at its source by the disconnect
+ * guard in `connector-sync.service.disconnect`, and the remedy for one that
+ * happened anyway is the on-demand re-registration a merchant can trigger.
+ *
+ * ## Why it is not `findPullConnectionsToReconcile`
+ *
+ * That sweep's population additionally requires `sync_settings_products` to pull,
+ * because it enqueues a catalogue backfill. Webhooks are registered at connect
+ * time for EVERY topic the provider declares, including orders and inventory, and
+ * a fresh connection defaults `products: 'off'` — so a connection selling through
+ * `orders: 'pull'` alone has webhooks and would never be swept. Extending that
+ * query would have looked right and covered a strict subset of the real
+ * population.
+ *
+ * `mode = 'pull'` is stated explicitly rather than left to the credential test:
+ * webhooks are registered by the two CONNECT paths and both write `pull`, while a
+ * `push_in` channel has the external client push to Mercaria and has nothing to
+ * subscribe. `fetch_paused_at IS NULL` is the same rule `deriveChannelReadiness`
+ * applies — a merchant who paused fetch asked Mercaria to stop knocking, and a
+ * paused connection's refusals do not degrade readiness either.
+ */
+export async function findConnectionsNeedingWebhookRegistration(
+  options: { limit: number; now?: Date },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<{ id: string; storeId: string }[]> {
+  const now = options.now ?? new Date();
+  return db
+    .select({ id: connections.id, storeId: connections.storeId })
+    .from(connections)
+    .where(
+      and(
+        eq(connections.status, 'connected'),
+        eq(connections.mode, 'pull'),
+        isNotNull(connections.credentialsCiphertext),
+        isNotNull(connections.shopDomain),
+        isNull(connections.fetchPausedAt),
+        eq(connections.webhookRegistrationState, 'pending'),
+        or(
+          isNull(connections.webhookRegistrationNextAttemptAt),
+          lte(connections.webhookRegistrationNextAttemptAt, now),
+        ),
+        // Not claimed, or claimed by a task whose lease has expired.
+        or(
+          isNull(connections.webhookRegistrationLeaseUntil),
+          lte(connections.webhookRegistrationLeaseUntil, now),
+        ),
+        or(
+          sql`cardinality(${connections.webhookIds}) = 0`,
+          sql`exists (
+            select 1
+            from ${connectionWebhookFailures}
+            where ${connectionWebhookFailures.connectionId} = ${connections.id}
+              and ${inArray(
+                connectionWebhookFailures.reason,
+                [...CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS],
+              )}
+          )`,
+        ),
+      ),
+    )
+    .orderBy(connections.webhookRegistrationNextAttemptAt, connections.createdAt)
+    .limit(options.limit);
+}
+
+/**
+ * Claim ONE connection's webhook registration, or `null` when somebody else holds
+ * it (#262).
+ *
+ * A conditional `UPDATE` whose predicate carries the CURRENT lease, so its empty
+ * `RETURNING` set IS the "already in flight" answer — the `setConnectionPause`
+ * device, and the reason no read-then-write is needed. An expired lease is
+ * reclaimable, so a task that died mid-registration cannot strand a connection.
+ *
+ * `countsAsAttempt` separates the two callers rather than being a preference. The
+ * SWEEP's attempt is what the budget bounds and what the backoff spaces out. An
+ * ON-DEMAND attempt is a person acting: it must be admissible on a connection the
+ * sweep has already given up on, so it neither reads the state nor spends from the
+ * budget — and if it SUCCEEDS the completion resets the counter and re-arms the
+ * loop, which is how "widen the scope, then press retry" gets the sweep back.
+ */
+export async function claimConnectionWebhookRegistration(
+  options: {
+    connectionId: string;
+    leaseOwner: string;
+    leaseMs: number;
+    countsAsAttempt: boolean;
+    now?: Date;
+  },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ConnectionRow | null> {
+  const now = options.now ?? new Date();
+  const [row] = await db
+    .update(connections)
+    .set({
+      webhookRegistrationLeaseOwner: options.leaseOwner,
+      webhookRegistrationLeaseUntil: new Date(now.getTime() + Math.max(1_000, options.leaseMs)),
+      ...(options.countsAsAttempt
+        ? {
+            webhookRegistrationAttempts: sql`${connections.webhookRegistrationAttempts} + 1`,
+          }
+        : {}),
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(connections.id, options.connectionId),
+        or(
+          isNull(connections.webhookRegistrationLeaseUntil),
+          lte(connections.webhookRegistrationLeaseUntil, now),
+        ),
+      ),
+    )
+    .returning(CONNECTION_COLUMNS);
+  return row ?? null;
+}
+
+/**
+ * Only the lease this pass currently owns matches — the `moderation_outboxes`
+ * owner check, so a pass whose lease expired and was reclaimed cannot write an
+ * outcome over the task that now holds the work.
+ */
+function ownedWebhookRegistrationLease(connectionId: string, leaseOwner: string, now: Date) {
+  return and(
+    eq(connections.id, connectionId),
+    eq(connections.webhookRegistrationLeaseOwner, leaseOwner),
+    gt(connections.webhookRegistrationLeaseUntil, now),
+  );
+}
+
+/**
+ * Record a registration that left NOTHING refused, and release the lease (#262).
+ *
+ * Resetting `attempts` to zero is what makes the counter mean "consecutive
+ * failures" rather than "times we have ever tried", so a connection that breaks
+ * again months later gets the full budget rather than the remains of an old one.
+ * `pending` is written unconditionally: a success supersedes a `dead_letter`, and
+ * that is the whole of what an on-demand retry has to accomplish.
+ */
+export async function completeConnectionWebhookRegistration(
+  connectionId: string,
+  leaseOwner: string,
+  now: Date = new Date(),
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const completed = await db
+    .update(connections)
+    .set({
+      webhookRegistrationState: 'pending',
+      webhookRegistrationAttempts: 0,
+      webhookRegistrationNextAttemptAt: null,
+      webhookRegistrationLeaseOwner: null,
+      webhookRegistrationLeaseUntil: null,
+      updatedAt: now,
+    })
+    .where(ownedWebhookRegistrationLease(connectionId, leaseOwner, now))
+    .returning({ id: connections.id });
+  return completed.length === 1;
+}
+
+/**
+ * Release a registration that did not finish — with backoff, or with a stop.
+ *
+ * `deadLettered` is the CALLER's decision, exactly as it is for the moderation
+ * outbox: only the service holding the provider's answer knows whether the
+ * refusal was one a retry could fix and how much of the budget is spent. This
+ * writes it, and a `dead_letter` leaves `nextAttemptAt` NULL because there is no
+ * next attempt to be due.
+ */
+export async function releaseConnectionWebhookRegistration(
+  options: {
+    connectionId: string;
+    leaseOwner: string;
+    deadLettered: boolean;
+    nextAttemptAt: Date | null;
+    now?: Date;
+  },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const now = options.now ?? new Date();
+  const released = await db
+    .update(connections)
+    .set({
+      webhookRegistrationState: options.deadLettered ? 'dead_letter' : 'pending',
+      webhookRegistrationNextAttemptAt: options.deadLettered ? null : options.nextAttemptAt,
+      webhookRegistrationLeaseOwner: null,
+      webhookRegistrationLeaseUntil: null,
+      updatedAt: now,
+    })
+    .where(ownedWebhookRegistrationLease(options.connectionId, options.leaseOwner, now))
+    .returning({ id: connections.id });
+  return released.length === 1;
+}
+
+/**
  * Mark a connection disconnected and drop everything that could still act on the
  * platform: both envelopes and the registered webhook ids.
  *
@@ -626,6 +872,16 @@ async function disconnectWithin(
       webhookSecretCiphertext: null,
       webhookSecretIv: null,
       webhookSecretTag: null,
+      // #262: there is nothing left to register, so the retry bookkeeping goes
+      // with the ids and the refusals. The LEASE half is the one that matters:
+      // leaving a live claim on a disconnected connection would make a reconnect
+      // unclaimable until it expired, and leaving a `dead_letter` would make the
+      // reconnect start out already given up on.
+      webhookRegistrationState: 'pending',
+      webhookRegistrationAttempts: 0,
+      webhookRegistrationNextAttemptAt: null,
+      webhookRegistrationLeaseOwner: null,
+      webhookRegistrationLeaseUntil: null,
       // #87 management 7: the merchant's decision about their listings is
       // recorded rather than inferred. Written with its instant in the same
       // statement, because `connections_disconnect_record_check` accepts the

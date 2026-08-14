@@ -127,6 +127,20 @@ export const REVIEW_CLASSIFICATION_CRON = '40 3 * * *';
  */
 export const CONNECTOR_RECONCILE_INTERVAL_MS = 6 * MS_PER_HOUR;
 
+/**
+ * Cadence of the connector webhook re-registration sweep (#262): every 15
+ * minutes, a bounded pass over the connections whose registration did not finish.
+ *
+ * Deliberately far finer than the six-hour catalogue reconcile beside it, and not
+ * folded into it. A connection with no real-time sync is a shop whose prices and
+ * stock stop tracking the platform BETWEEN scheduled pulls, so the useful cadence
+ * is minutes; and the retry is a capped exponential backoff, which a six-hour tick
+ * would flatten into "one attempt every six hours" for the whole budget. The
+ * population is derived and normally EMPTY, so a healthy deployment's pass is one
+ * indexed read.
+ */
+export const CONNECTOR_WEBHOOK_REGISTRATION_SWEEP_INTERVAL_MS = 15 * MS_PER_MINUTE;
+
 // --- Repeatable-job scheduler ids (colons allowed) --------------------------
 
 /**
@@ -141,6 +155,9 @@ export const SCHEDULER_REBUILD_REVIEW_AGGREGATES = 'maintenance:rebuild-review-a
 export const SCHEDULER_CLASSIFY_LEGACY_REVIEWS = 'maintenance:classify-legacy-reviews';
 /** Stable scheduler id for the periodic connector reconcile sweep (sync queue). */
 export const SCHEDULER_CONNECTION_RECONCILE = 'sync:connection-reconcile';
+/** Stable scheduler id for the #262 webhook re-registration sweep (sync queue). */
+export const SCHEDULER_CONNECTION_WEBHOOK_REGISTRATION =
+  'sync:connection-webhook-registration';
 
 // --- Job names (colons allowed) ---------------------------------------------
 
@@ -162,6 +179,10 @@ export const JOB_CLASSIFY_LEGACY_REVIEWS = 'classify-legacy-reviews';
 export const JOB_CONNECTION_BACKFILL = 'connection.backfill';
 /** Job name: periodic reconcile sweep — re-pull every connected pull catalog (repeatable). */
 export const JOB_CONNECTION_RECONCILE = 'connection.reconcile';
+/** Job name: re-register ONE connection's platform webhooks (#262). */
+export const JOB_CONNECTION_WEBHOOK_REREGISTER = 'connection.webhook-reregister';
+/** Job name: periodic sweep — re-register every unfinished registration (#262, repeatable). */
+export const JOB_CONNECTION_WEBHOOK_REGISTRATION_SWEEP = 'connection.webhook-registration-sweep';
 /** Job name: process one inbound platform webhook (product/order create/update/delete). */
 export const JOB_WEBHOOK_PROCESS = 'webhook.process';
 /** Job name: push a store listing OUT to its push/bidirectional connections. */

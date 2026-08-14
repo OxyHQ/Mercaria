@@ -17,16 +17,19 @@ import {
   SCHEDULER_REBUILD_REVIEW_AGGREGATES,
   SCHEDULER_CLASSIFY_LEGACY_REVIEWS,
   SCHEDULER_CONNECTION_RECONCILE,
+  SCHEDULER_CONNECTION_WEBHOOK_REGISTRATION,
   RESERVATION_SWEEP_INTERVAL_MS,
   AGGREGATE_SWEEP_CRON,
   SCOPED_AGGREGATE_SWEEP_CRON,
   REVIEW_CLASSIFICATION_CRON,
   CONNECTOR_RECONCILE_INTERVAL_MS,
+  CONNECTOR_WEBHOOK_REGISTRATION_SWEEP_INTERVAL_MS,
   JOB_EXPIRE_RESERVATIONS,
   JOB_RECOMPUTE_AGGREGATES_SWEEP,
   JOB_REBUILD_REVIEW_AGGREGATES,
   JOB_CLASSIFY_LEGACY_REVIEWS,
   JOB_CONNECTION_RECONCILE,
+  JOB_CONNECTION_WEBHOOK_REGISTRATION_SWEEP,
 } from './constants.js';
 import { log } from '../lib/logger.js';
 
@@ -78,6 +81,16 @@ export async function registerSchedules(): Promise<void> {
       { every: CONNECTOR_RECONCILE_INTERVAL_MS },
       { name: JOB_CONNECTION_RECONCILE, data: {} },
     );
+
+    // #262: re-register the webhooks of every connection whose registration did
+    // not finish. Registered UNCONDITIONALLY — the flag that decides whether it
+    // runs is read inside the sweep, so turning it back on takes effect on the
+    // next tick rather than needing the schedule re-registered.
+    await syncQueue.upsertJobScheduler(
+      SCHEDULER_CONNECTION_WEBHOOK_REGISTRATION,
+      { every: CONNECTOR_WEBHOOK_REGISTRATION_SWEEP_INTERVAL_MS },
+      { name: JOB_CONNECTION_WEBHOOK_REGISTRATION_SWEEP, data: {} },
+    );
   }
 
   log.general.info('Marketplace repeatable jobs registered');
@@ -103,5 +116,6 @@ export async function removeSchedules(): Promise<void> {
   const syncQueue = getSyncQueue();
   if (syncQueue) {
     await syncQueue.removeJobScheduler(SCHEDULER_CONNECTION_RECONCILE);
+    await syncQueue.removeJobScheduler(SCHEDULER_CONNECTION_WEBHOOK_REGISTRATION);
   }
 }

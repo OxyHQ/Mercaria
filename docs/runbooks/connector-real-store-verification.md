@@ -339,6 +339,52 @@ what you should see on a real store:**
   app-secret verification rather than of the disconnect, and it was already true
   of the stored ids; record whether a real pair of stores behaves as described.
 
+### 8.1b Re-registering webhooks without a reconnect — ADDED (#262)
+
+Everything §8.1 describes ran on CONNECT and nowhere else, so a shop left with a
+refused topic — or one whose registration Mercaria could not conclude anything
+about — stayed that way until a person re-authorized the channel. `#262` adds the
+two triggers and no second implementation: both drive the same
+`registerWebhooks` reconcile §8.1 describes.
+
+- **On demand:** `POST /admin/stores/:storeId/channels/:connectionId/webhooks/reregister`
+  behind `channels:write`. It validates synchronously (404 for a missing or
+  cross-store connection, 400 for a disconnected, push-in or credential-less one)
+  and answers `202 {status: 'enqueued'}`; the outcome arrives on the connection
+  itself. It stays available while the scheduled sweep is off.
+- **On a schedule:** every 15 minutes, a bounded pass over the connections whose
+  registration did not finish — refused topics a retry could take, or an empty
+  `webhookIds`, which is what a registration that THREW leaves behind. Gated by
+  `CONNECTOR_WEBHOOK_REREGISTRATION_ENABLED` (default ON; it gates the LOOP and
+  no stored fact).
+
+**What to expect on a real store, and what to record:**
+
+- **The secret is REUSED, not rotated.** On WooCommerce a re-registration
+  recreates each topic with the secret already stored, so no delivery 401s during
+  the swap. A CONNECT still mints a fresh one, which is the sub-second window
+  §8.1 already had — if a real Woo site shows failed deliveries around a
+  reconnect, record it: that is the gap a previous-secret grace would close, and
+  Mercaria has none for a connection.
+- **A scope refusal STOPS rather than retrying.** After W7 (a read-only key), the
+  connection reaches `webhookRegistration.state: 'dead_letter'` on the first
+  automatic attempt and is not swept again — a credential that answered 403
+  answers 403 again. Widen the key to **Read/Write** and press re-register: that
+  is the supported recovery, and it is what to verify rather than waiting.
+- **A retryable refusal backs off**, capped at six hours over twelve attempts
+  (roughly a day), and `webhookRegistration.nextAttemptAt` says when. Record the
+  reason a real host actually produces for a 429 or a 5xx.
+- **Two Mercaria stores on ONE Shopify shop** (the §8.1 pair): re-registering
+  either must leave the other's subscriptions live, because the app-secret
+  reconcile ADOPTS what is already at the shared address. Record whether a real
+  pair behaves as described — this is the one place the automated suite's fake
+  cannot testify about Shopify's own duplicate-topic rules.
+- **It does NOT detect a shop whose subscriptions were deleted on the platform.**
+  Its population is derived from Mercaria's own rows, and that shop has complete
+  stored ids and no refusal. The remedy is the on-demand button; if you delete a
+  subscription in the Shopify or WooCommerce admin during a run, expect nothing
+  to notice until you press it.
+
 ### 8.2 WooCommerce rate-limit handling — FIXED (#219), with a stated limit
 
 `woocommerce/http.ts` now wraps its raw layer in `createWooCommerceTransport`: a

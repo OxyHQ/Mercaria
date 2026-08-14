@@ -15,6 +15,7 @@ const handleRecomputeAggregates = vi.fn();
 const handleOrderEventNotification = vi.fn();
 const handleLowInventoryAlert = vi.fn();
 const handleConnectionBackfill = vi.fn();
+const handleConnectionWebhookReregister = vi.fn();
 const handleWebhookProcess = vi.fn();
 const handleProductPush = vi.fn();
 const handleOrderSync = vi.fn();
@@ -31,6 +32,8 @@ vi.mock('../handlers.js', () => ({
   handleOrderEventNotification: (...args: unknown[]) => handleOrderEventNotification(...args),
   handleLowInventoryAlert: (...args: unknown[]) => handleLowInventoryAlert(...args),
   handleConnectionBackfill: (...args: unknown[]) => handleConnectionBackfill(...args),
+  handleConnectionWebhookReregister: (...args: unknown[]) =>
+    handleConnectionWebhookReregister(...args),
   handleWebhookProcess: (...args: unknown[]) => handleWebhookProcess(...args),
   handleProductPush: (...args: unknown[]) => handleProductPush(...args),
   handleOrderSync: (...args: unknown[]) => handleOrderSync(...args),
@@ -43,6 +46,7 @@ import {
   enqueueOrderEvent,
   enqueueLowStockAlert,
   enqueueConnectionBackfill,
+  enqueueConnectionWebhookReregister,
   enqueueWebhookProcess,
   enqueueProductPush,
   enqueueOrderSync,
@@ -56,6 +60,7 @@ beforeEach(() => {
   handleOrderEventNotification.mockResolvedValue(undefined);
   handleLowInventoryAlert.mockResolvedValue(undefined);
   handleConnectionBackfill.mockResolvedValue(undefined);
+  handleConnectionWebhookReregister.mockResolvedValue(undefined);
   handleWebhookProcess.mockResolvedValue(undefined);
   handleProductPush.mockResolvedValue(undefined);
   handleOrderSync.mockResolvedValue(undefined);
@@ -135,6 +140,18 @@ describe('connector-sync producers — queue DISABLED runs the handler inline', 
     expect(handleConnectionBackfill).toHaveBeenCalledWith(payload);
   });
 
+  it('enqueueConnectionWebhookReregister runs the re-registration inline (no Redis)', async () => {
+    // #262: the inline fallback is what keeps a merchant's own "register webhooks
+    // again" available on a deployment with no Redis — and during the incident
+    // that turned the scheduled sweep off, which is the case the house rule about
+    // gating the loop and not the record exists for.
+    const payload = { storeId: 'store-1', connectionId: 'conn-1' };
+
+    await enqueueConnectionWebhookReregister(payload);
+
+    expect(handleConnectionWebhookReregister).toHaveBeenCalledWith(payload);
+  });
+
   it('enqueueWebhookProcess runs the webhook handler inline (no Redis)', async () => {
     const payload = { connectionId: 'conn-1', topic: 'products/update', payload: { id: 1 } };
     await enqueueWebhookProcess(payload);
@@ -188,6 +205,24 @@ describe('connector-sync producers — queue ENABLED enqueues and does NOT run i
     expect(data).toEqual(payload);
     // A sha256 hex jobId — deterministic, stable, and free of any ':'.
     expect(opts.jobId).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('enqueueConnectionWebhookReregister dedupes per CONNECTION with a hashed jobId', async () => {
+    const add = vi.fn().mockResolvedValue(undefined);
+    getSyncQueue.mockReturnValue({ add });
+    const payload = { storeId: 'store-1', connectionId: 'conn-1' };
+
+    await enqueueConnectionWebhookReregister(payload);
+    await enqueueConnectionWebhookReregister({ storeId: 'store-1', connectionId: 'conn-1' });
+
+    expect(handleConnectionWebhookReregister).not.toHaveBeenCalled();
+    const [name, data, opts] = add.mock.calls[0];
+    expect(name).toBe('connection.webhook-reregister');
+    expect(data).toEqual(payload);
+    expect(opts.jobId).toMatch(/^[0-9a-f]{64}$/);
+    // The SAME id for the same connection, which is what makes a merchant
+    // pressing the button twice one job rather than two concurrent recreations.
+    expect(add.mock.calls[1][2].jobId).toBe(opts.jobId);
   });
 
   it('enqueueWebhookProcess adds the webhook job with the topic + payload', async () => {

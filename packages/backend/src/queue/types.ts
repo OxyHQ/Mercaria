@@ -51,6 +51,27 @@ export interface ProductPushJob {
 export type ConnectionReconcileJob = Record<string, never>;
 
 /**
+ * Re-register ONE connection's platform webhooks (#262).
+ *
+ * Both ids travel and both are re-resolved server-side: `storeId` scopes the
+ * connection lookup, so a job payload naming another store's connection resolves
+ * to nothing rather than to that store's credentials. The handler takes the
+ * connection's registration LEASE, so two of these for one connection cannot
+ * recreate its subscriptions concurrently.
+ */
+export interface ConnectionWebhookReregisterJob {
+  storeId: string;
+  connectionId: string;
+}
+
+/**
+ * Periodic webhook re-registration sweep (#262, repeatable, scheduler-driven).
+ * Carries no payload — the handler derives the population itself from the
+ * connections whose registration did not finish.
+ */
+export type ConnectionWebhookRegistrationSweepJob = Record<string, never>;
+
+/**
  * Pull orders from a `pull` connection into Mercaria. `storeId` scopes the
  * connection lookup (a member of one store can never reach another's connection),
  * so both ids are carried and re-resolved server-side by the handler.
@@ -147,6 +168,8 @@ export type MarketplaceSyncJobName =
 export type MarketplaceSyncJobData =
   | ConnectionBackfillJob
   | ConnectionReconcileJob
+  | ConnectionWebhookReregisterJob
+  | ConnectionWebhookRegistrationSweepJob
   | WebhookProcessJob
   | ProductPushJob
   | OrderSyncJob

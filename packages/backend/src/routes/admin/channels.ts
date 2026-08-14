@@ -15,6 +15,7 @@ import {
   connectChannelHandler,
   connectKeyChannelHandler,
   patchChannelSettingsHandler,
+  reregisterChannelWebhooksHandler,
   syncChannelHandler,
   disconnectChannelHandler,
 } from '../../controllers/admin/channels-admin.controller.js';
@@ -142,6 +143,24 @@ router.post(
   requireStorePermission('channels:write'),
   validateId('connectionId'),
   syncChannelHandler,
+);
+
+/**
+ * #262: register this channel's platform webhooks again, without a reconnect.
+ *
+ * Rate-limited on the `channels` bucket rather than the general admin one, for
+ * `connect-key`'s reason: every call reaches the merchant's own platform, and this
+ * one deletes and recreates subscriptions on a `per_connection` provider. The
+ * connection's registration LEASE is what makes a burst safe rather than merely
+ * bounded — a second request while one is in flight finds the claim held and does
+ * nothing.
+ */
+router.post(
+  '/:connectionId/webhooks/reregister',
+  makeRateLimiter('channels'),
+  requireStorePermission('channels:write'),
+  validateId('connectionId'),
+  reregisterChannelWebhooksHandler,
 );
 
 /** #87 management 1 and 8: what happened while nobody was watching. */
