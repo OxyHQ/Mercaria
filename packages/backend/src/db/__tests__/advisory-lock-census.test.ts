@@ -1,6 +1,21 @@
 /**
- * Every Postgres advisory lock is issued on a handle whose kind matches the
- * lock's SCOPE.
+ * TWO rules about the same mutex, and neither can express the other.
+ *
+ * 1. **Every advisory lock is issued on a handle whose kind matches the lock's
+ *    SCOPE** — the table below.
+ * 2. **Every `alter table … disable trigger` runs inside a
+ *    `withTriggerToggleLock` callback, on that callback's own handle** — or is
+ *    named on an EXACT-COUNT exemption list citing #283.
+ *
+ * The second exists because the first is blind to the failure it cannot see: it
+ * asks which handle a lock was issued on, so a trigger window that takes NO
+ * lock at all is invisible to it. Ten files were in exactly that state under a
+ * green first rule, and the reason it matters is the same either way — the
+ * statement is DATABASE-WIDE, so two files inside a window at once leave one of
+ * them deleting against a trigger the other has re-enabled, and on the pool the
+ * DDL autocommits, so a throw before the re-enable leaves the trigger off for
+ * the rest of the run and every later file asserting it refuses a write passes
+ * VACUOUSLY.
  *
  * ## The mechanism, which belongs to no single file
  *
@@ -141,6 +156,102 @@ const TRANSACTION_ANCHOR = 'db/referrals/rewardRepository.ts';
  */
 const MEASUREMENT_EXEMPTION = 'db/__tests__/advisory-lock-handle.realdb.test.ts';
 const MEASUREMENT_EXEMPTION_SITES = 1;
+
+/**
+ * Files permitted to open a trigger-toggle window WITHOUT the lock, and how
+ * many such windows each is permitted.
+ *
+ * `alter table … disable trigger` is DATABASE-WIDE, so a file inside one while
+ * another file is inside its own leaves one of them deleting against a trigger
+ * the other has just re-enabled — and on the POOL the DDL autocommits, so a
+ * throw before the re-enable leaves the trigger off for the rest of the run and
+ * every later file asserting it refuses a write passes VACUOUSLY.
+ *
+ * Every entry here is #283's. They are listed rather than fixed because
+ * wrapping a window of twenty-five statements in one transaction holds ACCESS
+ * EXCLUSIVE on three tables for a whole teardown — a convoy in place of a leak,
+ * which is a decision and not a mechanical edit.
+ *
+ * The COUNT is per file and EXACT, and the list's own length is asserted. That
+ * is what makes it shrink-only: fixing a window fails the build until its entry
+ * is corrected or deleted, and adding one fails the build wherever it is added.
+ * Counts rather than line numbers, so an unrelated edit above a window cannot
+ * fail this gate spuriously.
+ */
+/**
+ * Ten files, twenty-five windows — MEASURED by the rule below with an empty
+ * list, not counted by hand.
+ *
+ * Two things a file-level "does it import the helper?" count gets wrong, both
+ * found that way: `offer-freshness-sweep.realdb.test.ts` mentions
+ * `alter table … disable trigger` only in PROSE, saying it does not do one, and
+ * `adapter-contract-suite.ts` has an unlocked `match_policy_versions` window
+ * sitting beside the `catalog_source_policies` one that IS locked. The unit is
+ * the statement, not the file.
+ */
+const EXPECTED_EXEMPTIONS = 10;
+
+const UNLOCKED_TRIGGER_WINDOWS: ReadonlyArray<{
+  readonly file: string;
+  readonly disables: number;
+  readonly reason: string;
+}> = [
+  {
+    file: 'db/__tests__/relationships.realdb.test.ts',
+    disables: 1,
+    reason: '#283 — `relationship_reviews_append_only`, toggled on the pool in one teardown.',
+  },
+  {
+    file: 'db/__tests__/store-linkage.realdb.test.ts',
+    disables: 1,
+    reason:
+      '#283 — `store_linkage_profile_adoptions_append_only`, toggled on the pool in one teardown.',
+  },
+  {
+    file: 'services/__tests__/awin-writes.realdb.test.ts',
+    disables: 4,
+    reason:
+      '#283 — the file uses the lock for its `catalog_source_policies` window and NOT for three `awin_*` triggers spanning most of its `afterAll` (~25 deletes between the disable and the last enable, whose own comment records a `23503` there as measured) nor for `match_policy_versions`. One transaction over that span holds ACCESS EXCLUSIVE on three tables for a whole teardown — a convoy in place of a leak, which is a decision rather than a mechanical wrap.',
+  },
+  {
+    file: 'services/__tests__/feed-import-writes.realdb.test.ts',
+    disables: 3,
+    reason: '#283 — three feed-configuration triggers toggled on the pool.',
+  },
+  {
+    file: 'services/__tests__/price-signals.realdb.test.ts',
+    disables: 1,
+    reason: '#283 — `price_signal_policy_versions_immutable_once_serving`, on the pool.',
+  },
+  {
+    file: 'services/__tests__/referral-rewards.realdb.test.ts',
+    disables: 7,
+    reason:
+      '#283 — the largest: seven windows over reward adjustments, rewards, rules, budgets, the ledger and fee snapshots.',
+  },
+  {
+    file: 'services/ebay/__tests__/ebay-ingestion.realdb.test.ts',
+    disables: 2,
+    reason:
+      '#283 — `catalog_source_policies` and `match_policy_versions`. This is the one that makes `advisory-lock-handle.realdb.test.ts` decline to assert the trigger reads `O` before its window: a momentary `D` seen from elsewhere belongs to this file.',
+  },
+  {
+    file: 'services/ingestion/__tests__/adapter-contract-suite.ts',
+    disables: 1,
+    reason:
+      '#283 — the `match_policy_versions` window, sitting beside the `catalog_source_policies` one this branch DID route through the lock. Proof that the unit is the statement and not the file.',
+  },
+  {
+    file: 'services/matching/__tests__/matching-writes.realdb.test.ts',
+    disables: 3,
+    reason: '#283 — two benchmark tables plus `match_policy_versions`, on the pool.',
+  },
+  {
+    file: 'services/merchant-demand/__tests__/merchant-demand.realdb.test.ts',
+    disables: 2,
+    reason: '#283 — two merchant-acquisition append-only triggers, on the pool.',
+  },
+];
 
 /** `{relative path → source}` for every `.ts` under `src/`. */
 function scannedSources(): Map<string, string> {
@@ -345,6 +456,70 @@ function advisorySites(file: string, source: string): AdvisorySite[] {
   return sites;
 }
 
+/**
+ * Opening a database-wide trigger window: `alter table … disable trigger`.
+ *
+ * The DISABLE is what the gate keys on rather than the matching `enable`. The
+ * disable is what opens the window and what a throw can strand; a re-enable
+ * without one is not a hazard, and counting both would double every window and
+ * make the exemption counts read as twice the problem.
+ */
+const DISABLES_TRIGGER = /\balter\s+table\b[\s\S]*?\bdisable\s+trigger\b/iu;
+
+interface TriggerWindowSite {
+  readonly line: number;
+  readonly handle: string | null;
+  readonly locked: boolean;
+}
+
+/**
+ * Every trigger-toggle window in one file, and whether the lock covers it.
+ *
+ * `locked` asks TWO things, and one alone is not enough: the statement is
+ * lexically inside a callback passed to `withTriggerToggleLock(…)`, AND it is
+ * issued on THAT callback's own handle. Inside the callback but issued on `db`
+ * is the failure wearing the fix's clothes — the DDL would autocommit on a
+ * pooled connection while the transaction beside it held a lock covering
+ * nothing.
+ *
+ * The enclosing-callback walk is the same shape as `slot-teardown-census.ts`'s
+ * enclosing-`try` walk, and it is lexical for the same reason: a window DEFINED
+ * inside the callback and INVOKED after it would read as protected either way,
+ * and no file in this repository does that.
+ */
+function triggerWindowSites(file: string, source: string): TriggerWindowSite[] {
+  const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const sites: TriggerWindowSite[] = [];
+
+  const lockedHandleFor = (node: ts.Node): string | null => {
+    for (let current: ts.Node | undefined = node; current; current = current.parent) {
+      if (!ts.isArrowFunction(current) && !ts.isFunctionExpression(current)) continue;
+      const call = current.parent;
+      if (call === undefined || !ts.isCallExpression(call)) continue;
+      if (call.expression.getText() !== 'withTriggerToggleLock') continue;
+      const [parameter] = current.parameters;
+      return parameter !== undefined && ts.isIdentifier(parameter.name)
+        ? parameter.name.text
+        : null;
+    }
+    return null;
+  };
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isTaggedTemplateExpression(node) && DISABLES_TRIGGER.test(node.template.getText())) {
+      const handle = handleFor(node);
+      sites.push({
+        line: parsed.getLineAndCharacterOfPosition(node.getStart(parsed)).line + 1,
+        handle,
+        locked: handle !== null && handle === lockedHandleFor(node),
+      });
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(parsed, visit);
+  return sites;
+}
+
 /** Files declaring a given numeric literal, comments and prose excluded. */
 function filesDeclaringNumber(sources: Map<string, string>, value: string): string[] {
   const found: string[] = [];
@@ -381,6 +556,16 @@ describe('the advisory-lock census', () => {
     if (found.length > 0) sites.set(file, found);
   }
   const allSites = [...sites].flatMap(([file, found]) => found.map((site) => ({ file, ...site })));
+  // The trigger-window pass is a SECOND walk over the same estate, narrowed by
+  // its own pre-filter. It cannot reuse `candidates`: a file can toggle a
+  // trigger without naming an advisory lock anywhere, which is exactly the
+  // population this rule exists to find.
+  const windows = new Map<string, TriggerWindowSite[]>();
+  for (const [file, source] of sources) {
+    if (!/disable\s+trigger/iu.test(source)) continue;
+    const found = triggerWindowSites(file, source);
+    if (found.length > 0) windows.set(file, found);
+  }
 
   it('walked a plausible source tree and found advisory-lock statements', () => {
     // The vacuity floor. A broken walk, a moved directory or an extension
@@ -475,6 +660,65 @@ describe('the advisory-lock census', () => {
     ]);
   });
 
+  it('takes the lock for every trigger-toggle window, or exempts it by name', () => {
+    // The half the handle rule CANNOT express. Everything above asks which
+    // handle a lock was issued on; nothing there can see a window that takes NO
+    // lock at all, which is how a ten-file gap sat under a green gate.
+    const offenders: string[] = [];
+    for (const [file, found] of windows) {
+      const unlocked = found.filter((site) => !site.locked);
+      if (unlocked.length === 0) continue;
+      const exemption = UNLOCKED_TRIGGER_WINDOWS.find((entry) => entry.file === file);
+      if (exemption === undefined) {
+        offenders.push(
+          `${file} — ${unlocked.length} unlocked window(s) at ${unlocked
+            .map((site) => site.line)
+            .join(', ')}`,
+        );
+        continue;
+      }
+      // An EXACT count, so an exemption cannot silently absorb a new window.
+      if (exemption.disables !== unlocked.length) {
+        offenders.push(
+          `${file} — exempted for ${exemption.disables} unlocked window(s), found ${unlocked.length} at ${unlocked
+            .map((site) => site.line)
+            .join(', ')}`,
+        );
+      }
+    }
+    expect(
+      offenders,
+      'a database-wide `alter table … disable trigger` runs outside `withTriggerToggleLock`. On the POOL that DDL autocommits, so a throw before the matching enable leaves the trigger off for the rest of the run and every later file asserting it refuses a write passes vacuously. Wrap the window in `withTriggerToggleLock(db, async (tx) => …)` and issue every statement on `tx`, or add the file to UNLOCKED_TRIGGER_WINDOWS with a reason.',
+    ).toEqual([]);
+  });
+
+  it('keeps the exemption list shrink-only and every entry live', () => {
+    // The list's OWN exact-count assertion. A floor would let it grow one
+    // individually-defensible line at a time, which is the gate switching
+    // itself off — and it has to fail on a STALE entry too, so #283 closing a
+    // window means deleting its entry rather than leaving one that excuses
+    // nothing.
+    expect(
+      UNLOCKED_TRIGGER_WINDOWS.length,
+      'the exemption list changed size — it may only SHRINK, as #283 closes windows',
+    ).toBe(EXPECTED_EXEMPTIONS);
+    expect(new Set(UNLOCKED_TRIGGER_WINDOWS.map((entry) => entry.file)).size).toBe(
+      EXPECTED_EXEMPTIONS,
+    );
+
+    const stale: string[] = [];
+    for (const entry of UNLOCKED_TRIGGER_WINDOWS) {
+      expect(sources.has(entry.file), `${entry.file} is exempted and does not exist`).toBe(true);
+      expect(entry.reason, `${entry.file}'s exemption states no reason`).toMatch(/#283/u);
+      const unlocked = (windows.get(entry.file) ?? []).filter((site) => !site.locked).length;
+      if (unlocked !== entry.disables) stale.push(`${entry.file}: ${unlocked} unlocked, exempted ${entry.disables}`);
+    }
+    expect(
+      stale,
+      'an exemption no longer matches what its file does — delete it if #283 closed the window, correct it otherwise',
+    ).toEqual([]);
+  });
+
   it('detects both broken shapes and clears both correct ones', () => {
     // The mutation self-test. The census above can only report zero offenders,
     // which is what a dead detector reports too — so every cell of the table in
@@ -554,6 +798,61 @@ describe('the advisory-lock census', () => {
       });
     `);
     expect(helper[0]?.compliant, "the helper's callback handle read as unsafe").toBe(true);
+  });
+
+  it('detects an unlocked trigger window and clears a locked one', () => {
+    // The mutation self-test for the SECOND rule. Like the first, it can only
+    // report zero offenders, which is what a dead detector reports too.
+    const probe = (body: string): TriggerWindowSite[] => triggerWindowSites('probe.ts', body);
+
+    const pooled = probe('await db.execute(sql`alter table x disable trigger t`);');
+    expect(pooled, 'a bare pooled trigger toggle was not detected').toHaveLength(1);
+    expect(pooled[0]?.locked, 'a pooled trigger toggle read as locked').toBe(false);
+
+    const locked = probe(`
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(sql\`alter table x disable trigger t\`);
+        await tx.delete(x);
+        await tx.execute(sql\`alter table x enable trigger t\`);
+      });
+    `);
+    expect(locked).toHaveLength(1);
+    expect(locked[0]?.locked, 'a window inside the helper read as unlocked').toBe(true);
+
+    // Inside the callback but issued on `db` — the failure wearing the fix's
+    // clothes. The DDL would autocommit on a pooled connection while the
+    // transaction beside it held a lock covering nothing, so requiring the
+    // callback's OWN handle is the load-bearing half of the rule.
+    const wrongHandle = probe(`
+      await withTriggerToggleLock(db, async (tx) => {
+        await db.execute(sql\`alter table x disable trigger t\`);
+      });
+    `);
+    expect(wrongHandle[0]?.locked, "a pooled toggle inside the callback read as locked").toBe(
+      false,
+    );
+
+    // A plain `db.transaction` is NOT the lock. It makes the DDL atomic and
+    // leaves the window racing every other file, which is the collision the key
+    // exists for.
+    const bareTransaction = probe(`
+      await db.transaction(async (tx) => {
+        await tx.execute(sql\`alter table x disable trigger t\`);
+      });
+    `);
+    expect(bareTransaction[0]?.locked, 'a bare transaction read as locked').toBe(false);
+
+    // `disable trigger all` is the same window (offer-freshness spells it that
+    // way), and an `enable` alone is NOT counted — counting both would double
+    // every window and make each exemption read as twice the problem.
+    expect(probe('await tx.execute(sql`alter table x disable trigger all`);')).toHaveLength(1);
+    expect(probe('await tx.execute(sql`alter table x enable trigger t`);')).toHaveLength(0);
+
+    // Prose, again. Every one of the ten exempted files documents what it
+    // toggles, and this census's own header names the statement repeatedly.
+    expect(probe('// await db.execute(sql`alter table x disable trigger t`);')).toHaveLength(0);
+    expect(probe('/** toggles `alter table x disable trigger t` */\nconst y = 1;')).toHaveLength(0);
+    expect(probe("const sqlText = 'alter table x disable trigger t';")).toHaveLength(0);
   });
 
   it('counts statements and not prose', () => {

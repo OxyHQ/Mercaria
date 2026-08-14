@@ -1,5 +1,24 @@
 /**
- * The one mutex every realdb teardown takes before toggling a trigger.
+ * The one mutex a realdb teardown takes before toggling a trigger — where one
+ * is taken at all. It is NOT yet true that every such teardown takes one.
+ *
+ * ## The exception, stated rather than implied
+ *
+ * Eighteen files issue `alter table … disable trigger`. Nine of them take no
+ * lock whatever — `referral-rewards`, `feed-import-writes`, `matching-writes`,
+ * `merchant-demand`, `ebay-ingestion`, `price-signals`,
+ * `offer-freshness-sweep`, `relationships`, `store-linkage` — and a tenth
+ * window sits inside a file that DOES use this helper elsewhere:
+ * `awin-writes.realdb.test.ts` opens an unlocked one on the POOL spanning most
+ * of its `afterAll`, whose own comment records a `23503` in that region as a
+ * measured failure mode.
+ *
+ * Those are #283's, deliberately not this module's: wrapping a window of
+ * twenty-five statements in one transaction holds ACCESS EXCLUSIVE on three
+ * tables for a whole teardown, which trades a leak for a convoy and is a
+ * decision rather than a mechanical edit. `advisory-lock-census.test.ts` holds
+ * every one of them on an EXACT-COUNT exemption list citing #283, so the gap
+ * cannot widen and closing it means deleting entries.
  *
  * ## What it guards
  *
