@@ -43,10 +43,27 @@
  * Every assertion is scoped to rows this file wrote, which is the stronger form
  * anyway: a count over a whole table passes for the wrong reason the moment a
  * fixture is added elsewhere.
+ *
+ * ## An unscoped METRIC is held to a scoped LOWER BOUND (#276)
+ *
+ * `collectPaymentMetrics` is an aggregate over whole tables by design — that is
+ * what the operator endpoint is for — so the metrics case cannot scope what it
+ * reads. It scopes what it CLAIMS instead: the count it asserts is a floor
+ * computed from the payments this run owns, never a difference between two
+ * readings. A difference is a claim about every other file's rows too, and one
+ * of them deleting a fixture between the two readings nets this file's own
+ * insert to zero.
+ *
+ * The one deliberate exception is `findGlobalLedgerImbalances`, whose subject IS
+ * the whole book: scoping it to this file's rows would leave it unable to
+ * report the imbalance it exists for. It is safe unscoped for a reason no other
+ * aggregate here has — no concurrent writer can produce one, because the
+ * repository refuses an unbalanced set before issuing SQL and a trigger refuses
+ * an edit afterwards.
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { and, eq, lt, max } from 'drizzle-orm';
+import { and, eq, like, lt, max } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import type { PaymentDiscrepancyKind } from '@mercaria/shared-types';
 import {
@@ -306,6 +323,48 @@ async function discrepancyRows(kind: PaymentDiscrepancyKind, correlationKey: str
         eq(reconciliationSchema.paymentDiscrepancies.correlationKey, correlationKey),
       ),
     );
+}
+
+/**
+ * Every discrepancy under one correlation key, whatever its KIND.
+ *
+ * The kind-less form, for the cases whose claim is that a sweep opened nothing
+ * at all for a movement: naming a kind there would only prove it opened nothing
+ * of the ONE kind that was guessed at.
+ */
+async function discrepancyRowsForKey(correlationKey: string) {
+  return await db
+    .select()
+    .from(reconciliationSchema.paymentDiscrepancies)
+    .where(eq(reconciliationSchema.paymentDiscrepancies.correlationKey, correlationKey));
+}
+
+/**
+ * How many `stripe`/`EUR`/`succeeded` payments THIS RUN owns.
+ *
+ * Every checkout group this file mints carries `RUN` — through `seedSeller`'s
+ * suffix or written in directly — so this is exactly the rows it created and
+ * nothing a sibling file wrote. It is the lower bound the metrics case holds
+ * `paymentCountsByStatus` to; see the comment there for why a lower bound and
+ * not a difference (#276).
+ *
+ * Deliberately a row read rather than a `count(*)`: the scoped set is a handful
+ * of rows, and reading them avoids the int8-comes-back-as-a-string trap that
+ * `CONVENTIONS.md` records for aggregates.
+ */
+async function ownSucceededStripeEurPayments(): Promise<number> {
+  const rows = await db
+    .select({ id: paymentSchema.payments.id })
+    .from(paymentSchema.payments)
+    .where(
+      and(
+        eq(paymentSchema.payments.provider, 'stripe'),
+        eq(paymentSchema.payments.presentmentCurrency, 'EUR'),
+        eq(paymentSchema.payments.status, 'succeeded'),
+        like(paymentSchema.payments.checkoutGroupId, `%${RUN}%`),
+      ),
+    );
+  return rows.length;
 }
 
 /** Exactly one discrepancy for that kind and key, or a failure naming what was found. */
@@ -883,9 +942,9 @@ describe('the provider-object sweep', () => {
     // A sweep that reported every movement it does not model would be a queue of
     // its own gaps. `stripe_fee` is the clearest case: it has no Mercaria row by
     // design, because the fee is booked from the charge's balance transaction.
-    const before = await db.select().from(reconciliationSchema.paymentDiscrepancies);
+    const feeTransactionId = `txn_fee_${RUN}${String(api.nextId++)}`;
     api.balanceTransactions.push({
-      id: `txn_fee_${RUN}${String(api.nextId++)}`,
+      id: feeTransactionId,
       object: 'balance_transaction',
       type: 'stripe_fee',
       amount: -30,
@@ -901,8 +960,43 @@ describe('the provider-object sweep', () => {
 
     expect(page.scanned).toBe(1);
     expect(page.discrepancies).toBe(0);
-    const after = await db.select().from(reconciliationSchema.paymentDiscrepancies);
-    expect(after).toHaveLength(before.length);
+
+    // …and it WROTE nothing, which the returned count on its own cannot
+    // establish. Scoped to the movement's own id rather than counting the table
+    // before and after: `payment_discrepancies` is shared with
+    // `repairs.realdb.test.ts` (the sweep slot serializes the two, which is why
+    // a whole-table count is not failing today), and a count over rows this
+    // file does not own is a claim about the wrong thing whatever the mutex
+    // says. A fee is keyed on the balance transaction's own id, since the
+    // movement carries no source object to key on.
+    expect(await discrepancyRowsForKey(feeTransactionId)).toEqual([]);
+
+    // The positive control, and it is not optional: the assertion above is an
+    // ABSENCE, so a query naming the wrong table or column answers it exactly
+    // as a correct one does. (The whole-table count it replaces had the same
+    // hole in the same place — a broken read gives `0` twice and compares
+    // equal.) So the same query, over the same table, for a movement in the
+    // same pass that the sweep DOES model.
+    const modelledTransferId = `tr_modelled_${RUN}${String(api.nextId++)}`;
+    api.balanceTransactions.push({
+      id: `txn_${modelledTransferId}`,
+      object: 'balance_transaction',
+      type: 'transfer',
+      amount: -1_500,
+      currency: 'eur',
+      source: { id: modelledTransferId, object: 'transfer', destination: 'acct_somebody' },
+    });
+
+    const second = await reconcileProviderObjectsPage({
+      cursor: null,
+      windowStartAt: new Date(Date.now() - 60_000),
+      limit: 10,
+    });
+    expect(second.scanned).toBe(2);
+    expect(second.discrepancies).toBe(1);
+    expect(await discrepancyRowsForKey(modelledTransferId)).toHaveLength(1);
+    // The fee was read a second time and still opened nothing.
+    expect(await discrepancyRowsForKey(feeTransactionId)).toEqual([]);
   });
 });
 
@@ -1149,12 +1243,13 @@ describe('the ledger audit', () => {
 });
 
 describe('metrics', () => {
-  it('moves under a seeded scenario and keeps the imbalance counter at zero', async () => {
+  it('reports at least the payments this run owns, and keeps the imbalance counter at zero', async () => {
     const before = await collectPaymentMetrics();
     // Metric 8's expected value is a CONSTANT. A non-zero reading is a posting
     // builder producing entries that do not balance, which means a money
     // movement has no accounting at all.
     expect(before.ledgerImbalanceAttempts).toBe(0);
+    const ownBefore = await ownSucceededStripeEurPayments();
 
     const seller = await seedSeller('metrics');
     const checkoutGroupId = `group-metrics-${seller.suffix}`;
@@ -1185,6 +1280,14 @@ describe('metrics', () => {
     });
 
     const after = await collectPaymentMetrics();
+    const ownAfter = await ownSucceededStripeEurPayments();
+
+    // The subject moved, measured where it CAN be measured — over the rows this
+    // run owns, which nobody else writes and nobody else deletes.
+    expect(ownAfter).toBe(ownBefore + 1);
+    // The non-zero floor for the two bounds below, stated rather than inferred:
+    // `metric >= 0` would hold against a metric that counts nothing at all.
+    expect(ownAfter).toBeGreaterThanOrEqual(1);
 
     const succeededBefore =
       before.payments.find(
@@ -1194,7 +1297,30 @@ describe('metrics', () => {
       after.payments.find(
         (row) => row.provider === 'stripe' && row.currency === 'EUR' && row.status === 'succeeded',
       )?.count ?? 0;
-    expect(succeededAfter).toBeGreaterThan(succeededBefore);
+
+    // A LOWER BOUND against this run's own rows, and NOT `succeededAfter >
+    // succeededBefore` — which is #276. `paymentCountsByStatus` is an unscoped
+    // aggregate over the whole `payments` table: correct for the operator
+    // endpoint it serves, and on the one database every realdb file writes in
+    // parallel a strict increase is a claim about THEIR rows as much as this
+    // file's. A sibling deleting a stripe/EUR/succeeded fixture between the two
+    // reads nets this file's own insert to zero, and it fails as
+    // `expected 6 to be greater than 6` — naming nothing about the cause.
+    //
+    // Nobody deletes rows keyed on this RUN, so foreign inserts and foreign
+    // deletions can move the global count in either direction and neither can
+    // take it below what this file is holding it to.
+    //
+    // What that gives up is STRICTNESS, and the reason it is still worth
+    // asserting is that the failure it exists to catch survives: a metric that
+    // cannot move is indistinguishable from one wired to nothing, and a metric
+    // wired to nothing reports no row for this triple, or one whose count is
+    // zero, or one grouped by something else — every one of which is short of
+    // `ownAfter` and fails here. Mutation-measured, all three. What it does NOT
+    // catch is a metric frozen at a constant at or above `ownAfter`, which is
+    // the price of the whole table being somebody else's as well as ours.
+    expect(succeededBefore).toBeGreaterThanOrEqual(ownBefore);
+    expect(succeededAfter).toBeGreaterThanOrEqual(ownAfter);
 
     // Still zero after a real charge, a real ledger transaction and a real
     // settlement have gone through.
