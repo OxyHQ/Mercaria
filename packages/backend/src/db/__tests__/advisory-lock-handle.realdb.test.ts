@@ -291,4 +291,45 @@ describe('a TRANSACTION-scoped advisory lock', () => {
       await db.execute(sql`drop table if exists ${sql.raw(PROBE_TABLE)}`);
     }
   }, 60_000);
+
+  it('refuses a nested window instead of blocking on a lock it already holds', async () => {
+    // The failure this replaces has no error and no log line: the inner call
+    // takes a SECOND connection out of the pool and asks for a transaction lock
+    // the outer one holds, which is two sessions — so Postgres sees no cycle,
+    // its deadlock detector never fires, and the hook runs to its timeout. The
+    // assertion is therefore that this REJECTS; a regression makes the case time
+    // out rather than fail, which is itself the symptom.
+    //
+    // `advisory-lock-census.test.ts` states the same rule lexically. Neither
+    // subsumes the other: that one fails the BUILD on nesting a reviewer could
+    // see, this one covers nesting that exists only at run time, when the inner
+    // window is opened by a helper whose caller already holds one.
+    await expect(
+      withTriggerToggleLock(db, async () => {
+        await withTriggerToggleLock(db, async (inner) => {
+          await inner.execute(sql`select 1`);
+        });
+      }),
+    ).rejects.toThrow(/already open on this call path/u);
+  }, 60_000);
+
+  it('allows two windows to run CONCURRENTLY, which is what the mutex is for', async () => {
+    // The control on the guard above, and the reason it is an async-context
+    // store rather than a flag: a flag cannot tell a nested window from a
+    // concurrent one and would refuse this, which is legitimate and serialized
+    // by the mutex exactly as intended. Both must succeed.
+    const order: string[] = [];
+    await Promise.all([
+      withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(sql`select 1`);
+        order.push('a');
+      }),
+      withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(sql`select 1`);
+        order.push('b');
+      }),
+    ]);
+    expect(order.sort()).toEqual(['a', 'b']);
+  }, 60_000);
+
 });

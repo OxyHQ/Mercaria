@@ -89,8 +89,29 @@
  * lock issued on the wrong kind of handle, in either direction.
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { sql } from 'drizzle-orm';
 import type { Database, Transaction } from '../postgres.js';
+
+/**
+ * Whether a window is already open on THIS async call path.
+ *
+ * `AsyncLocalStorage` and not a module-level flag, because the two shapes it has
+ * to tell apart look identical to one: a window awaited INSIDE another window's
+ * callback deadlocks — the inner call opens a SECOND pooled connection and asks
+ * for a transaction lock its own caller holds, so it is two sessions, Postgres
+ * sees no cycle, and it blocks until the hook times out — while two windows
+ * running CONCURRENTLY from one file are fine and are what the mutex is for.
+ * A flag rejects both. The async context distinguishes them exactly.
+ *
+ * This is the runtime half of a rule `advisory-lock-census.test.ts` also states
+ * lexically. Neither subsumes the other: the census catches the nesting a
+ * reviewer can see in one file and fails the BUILD, and this catches the nesting
+ * that only exists at run time — a window opened by a helper whose caller
+ * already holds one, which is exactly the shape `adapter-contract-suite.ts`
+ * would take, since several adapter test files invoke it.
+ */
+const OPEN_WINDOW = new AsyncLocalStorage<true>();
 
 /**
  * The lock key. Arbitrary and stable; see the header for why it lives in
@@ -110,8 +131,21 @@ export async function withTriggerToggleLock<T>(
   db: Database,
   window: (tx: Transaction) => Promise<T>,
 ): Promise<T> {
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(${TRIGGER_TOGGLE_LOCK_KEY})`);
-    return window(tx);
-  });
+  if (OPEN_WINDOW.getStore() !== undefined) {
+    // Would BLOCK, not fail: a second connection asking for a transaction lock
+    // this call path already holds is two sessions, so no deadlock is detected
+    // and the hook runs to its timeout. Naming it is the whole point.
+    throw new Error(
+      'withTriggerToggleLock is already open on this call path. A nested window opens a SECOND ' +
+        'connection and waits for the transaction lock its own caller holds, which blocks until ' +
+        'the hook times out rather than deadlocking. Close the outer window first, or move the ' +
+        'inner statements into it.',
+    );
+  }
+  return OPEN_WINDOW.run(true, () =>
+    db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${TRIGGER_TOGGLE_LOCK_KEY})`);
+      return window(tx);
+    }),
+  );
 }

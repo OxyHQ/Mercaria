@@ -90,9 +90,11 @@ beforeAll(async () => {
 afterAll(async () => {
   // Children first; the RESTRICT constraints make any wrong order loud, not
   // silent. Adoptions are append-only by TRIGGER, which refuses UPDATE and
-  // DELETE — so they are removed by cascading their request rather than
-  // directly, which is itself a check that the request→adoption reference is
-  // the RESTRICT the schema claims (a stray adoption would block the delete).
+  // DELETE alike, so they are deleted DIRECTLY with that trigger suspended for
+  // the one statement — see the window below. (This comment used to say they
+  // were removed by cascading their request, and that the cascade doubled as a
+  // check on the request→adoption RESTRICT. Neither has been true of the code
+  // beneath it.)
   if (createdMerchantIds.length > 0 || createdStoreIds.length > 0) {
     const requestIds = (
       await db

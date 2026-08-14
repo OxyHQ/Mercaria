@@ -388,7 +388,8 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       }
 
       // Children first: every intra-graph key here is RESTRICT, and the rights
-      // trigger is DEFERRED so a half-torn-down source would raise at commit.
+      // keys are RESTRICT, so a wrong order raises a `23503`. (Not the rights
+      // trigger: it is `AFTER INSERT OR UPDATE` and a delete cannot fire it.)
       await db
         .delete(catalogSourceObjects)
         .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));

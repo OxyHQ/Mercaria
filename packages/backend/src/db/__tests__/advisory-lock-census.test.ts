@@ -183,13 +183,23 @@ const MEASUREMENT_EXEMPTION_SITES = 1;
  * today, every one of them locked — measured by running this assertion against
  * an impossible floor and reading what it reports, not counted from a grep,
  * which is LINE-based and counts the prose three of those files carry about the
- * statement. Twenty is far enough below to survive a
- * teardown that legitimately stops needing an escape — several did in #283,
- * where a trigger with no DELETE event turned out not to need one — while
- * leaving a dead detector nowhere to hide. A commit lowering it must name the
- * windows that went and why.
+ * statement.
+ *
+ * Thirty rather than a comfortable twenty, and a FILE floor beside it. The
+ * deleted list asserted a non-zero unlocked count for each of ten named files,
+ * so a detector narrowing to a spelling three of them used failed three
+ * assertions; a single global floor with generous headroom replaces that with
+ * one number, and twenty would tolerate fourteen windows vanishing — more than
+ * every window this issue touched. Four windows and three files of headroom is
+ * enough for a teardown that legitimately stops needing an escape (five did in
+ * #283, where a trigger with no DELETE event turned out never to have guarded
+ * anything) and no more. A commit lowering either must name the windows that
+ * went and why.
  */
-const TRIGGER_WINDOW_FLOOR = 20;
+const TRIGGER_WINDOW_FLOOR = 30;
+
+/** Files carrying at least one window. Fifteen today; see the floor above. */
+const TRIGGER_WINDOW_FILE_FLOOR = 12;
 
 /**
  * The named anchor for a LOCKED window, on `SESSION_ANCHOR`'s reasoning and
@@ -281,6 +291,22 @@ function handleFor(tagged: ts.TaggedTemplateExpression): string | null {
 }
 
 /**
+ * The name of the function a call invokes, property access resolved.
+ *
+ * `helpers.withTriggerToggleLock(…)` and `withTriggerToggleLock(…)` name the
+ * same function, and this is written ONCE because the three walks below used to
+ * disagree: matching the property name in one place and the full expression text
+ * in another meant a qualified call could be counted as a window by one rule and
+ * reported as UNLOCKED by another — one correct window failing the build for a
+ * reason that is not about it.
+ */
+function calleeName(call: ts.CallExpression): string {
+  return ts.isPropertyAccessExpression(call.expression)
+    ? call.expression.name.text
+    : call.expression.getText();
+}
+
+/**
  * Identifiers this file binds to a RESERVED connection.
  *
  * The binding is `= await <anything>.reserve(…)`, which is the only way to take
@@ -328,10 +354,7 @@ function transactionNames(file: ts.SourceFile): Set<string> {
   const callbackOpeners = new Set(['transaction', 'withTriggerToggleLock']);
   const visit = (node: ts.Node): void => {
     if (ts.isCallExpression(node)) {
-      const callee = ts.isPropertyAccessExpression(node.expression)
-        ? node.expression.name.text
-        : node.expression.getText();
-      if (callbackOpeners.has(callee)) {
+      if (callbackOpeners.has(calleeName(node))) {
         for (const argument of node.arguments) {
           if (!ts.isArrowFunction(argument) && !ts.isFunctionExpression(argument)) continue;
           const [parameter] = argument.parameters;
@@ -421,7 +444,42 @@ interface TriggerWindowSite {
   readonly line: number;
   readonly handle: string | null;
   readonly locked: boolean;
+  /** `<table>/<trigger>`, as written. `null` when the statement cannot be read. */
+  readonly toggles: string | null;
+  /** Whether the SAME window re-enables what this statement disabled. */
+  readonly reEnabled: boolean;
 }
+
+/**
+ * The table and trigger a toggle names, as WRITTEN.
+ *
+ * Compared as text and not resolved: two statements in one window either spell
+ * the same table and trigger or they do not, and the interpolated spellings
+ * (`${sql.raw(PROBE_TABLE)}`) pair with each other exactly as literal ones do.
+ *
+ * The captures exclude backticks and quotes deliberately. `\S+` swallows the
+ * template's own closing backtick, so a disable written inline and its enable
+ * written across three lines capture DIFFERENT tokens for one trigger and fail
+ * to pair — a false positive on correct code, which is the direction that gets
+ * a gate deleted.
+ */
+const TOGGLE_SUBJECT =
+  /\balter\s+table\s+(?<table>[^\s`'"]+)\s+(?<action>disable|enable)\s+trigger\s+(?<trigger>[^\s`'";]+)/iu;
+
+/**
+ * The ONE file allowed to disable a trigger and never re-enable it, and it must
+ * do so EXACTLY once.
+ *
+ * `advisory-lock-handle.realdb.test.ts` disables its own probe trigger and then
+ * THROWS, because what it measures is that the ROLLBACK restores it — an
+ * `enable` there would destroy the measurement by making the assertion pass
+ * whether or not the transaction rolled anything back. Same reasoning, and the
+ * same exact-count shape, as `MEASUREMENT_EXEMPTION` above: zero would mean the
+ * measurement stopped exercising the case, and two would mean a second site was
+ * absorbed.
+ */
+const UNPAIRED_DISABLE_EXEMPTION = MEASUREMENT_EXEMPTION;
+const UNPAIRED_DISABLE_SITES = 1;
 
 /**
  * Every trigger-toggle window in one file, and whether the lock covers it.
@@ -442,27 +500,61 @@ function triggerWindowSites(file: string, source: string): TriggerWindowSite[] {
   const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   const sites: TriggerWindowSite[] = [];
 
-  const lockedHandleFor = (node: ts.Node): string | null => {
+  /** The callback of the `withTriggerToggleLock(…)` this node sits inside. */
+  const enclosingWindow = (node: ts.Node): ts.ArrowFunction | ts.FunctionExpression | null => {
     for (let current: ts.Node | undefined = node; current; current = current.parent) {
       if (!ts.isArrowFunction(current) && !ts.isFunctionExpression(current)) continue;
       const call = current.parent;
       if (call === undefined || !ts.isCallExpression(call)) continue;
-      if (call.expression.getText() !== 'withTriggerToggleLock') continue;
-      const [parameter] = current.parameters;
-      return parameter !== undefined && ts.isIdentifier(parameter.name)
-        ? parameter.name.text
-        : null;
+      if (calleeName(call) !== 'withTriggerToggleLock') continue;
+      return current;
     }
     return null;
+  };
+
+  const handleOf = (window: ts.ArrowFunction | ts.FunctionExpression | null): string | null => {
+    const parameter = window?.parameters[0];
+    return parameter !== undefined && ts.isIdentifier(parameter.name) ? parameter.name.text : null;
+  };
+
+  /**
+   * Every `<table>/<trigger>` this window ENABLES.
+   *
+   * Collected from the whole callback rather than from the statements after the
+   * disable: a window that re-enables before it deletes would be a different
+   * bug, and one this rule is not about — what it asks is whether the window
+   * COMMITS with the trigger off.
+   */
+  const enabledWithin = (window: ts.ArrowFunction | ts.FunctionExpression): Set<string> => {
+    const enabled = new Set<string>();
+    const walk = (node: ts.Node): void => {
+      if (ts.isTaggedTemplateExpression(node)) {
+        const match = TOGGLE_SUBJECT.exec(node.template.getText());
+        if (match?.groups?.action?.toLowerCase() === 'enable') {
+          enabled.add(`${match.groups.table}/${match.groups.trigger}`);
+        }
+      }
+      ts.forEachChild(node, walk);
+    };
+    ts.forEachChild(window, walk);
+    return enabled;
   };
 
   const visit = (node: ts.Node): void => {
     if (ts.isTaggedTemplateExpression(node) && DISABLES_TRIGGER.test(node.template.getText())) {
       const handle = handleFor(node);
+      const window = enclosingWindow(node);
+      const subject = TOGGLE_SUBJECT.exec(node.template.getText())?.groups;
+      const toggles =
+        subject?.table !== undefined && subject.trigger !== undefined
+          ? `${subject.table}/${subject.trigger}`
+          : null;
       sites.push({
         line: parsed.getLineAndCharacterOfPosition(node.getStart(parsed)).line + 1,
         handle,
-        locked: handle !== null && handle === lockedHandleFor(node),
+        locked: handle !== null && handle === handleOf(window),
+        toggles,
+        reEnabled: window !== null && toggles !== null && enabledWithin(window).has(toggles),
       });
     }
     ts.forEachChild(node, visit);
@@ -481,11 +573,15 @@ interface WindowCallSite {
 /**
  * Taking a session slot, or reserving a connection, from inside a window.
  *
- * Both mutexes are acquired in a `beforeAll` and every window runs in an
- * `afterAll`, so the estate's lock ORDER is one-way today. A window that took a
- * slot would be the edge that closes the cycle.
+ * The estate's lock ORDER is one-way today: in every file that does both, the
+ * slot is acquired strictly before any window opens. Stated as the ordering
+ * property and not as hook names, because the hook names are already wrong —
+ * `matching-writes.realdb.test.ts` takes its slot in `beforeAll` and opens its
+ * windows in `afterEach`, which preserves the order while contradicting the
+ * tidier sentence. A window that took a slot would be the edge that closes the
+ * cycle.
  */
-const SLOT_ACQUISITION = /acquire\w*Slot|\.reserve\s*\(/u;
+const SLOT_ACQUISITION = /acquire\w*Slot\s*\(|\$client\.reserve\s*\(|\bsql\.reserve\s*\(/u;
 
 /**
  * Every `withTriggerToggleLock` call in one file, and the three shapes around it
@@ -511,16 +607,24 @@ const SLOT_ACQUISITION = /acquire\w*Slot|\.reserve\s*\(/u;
  * Zero instances today, over 27 call sites — which is why the mutation self-test
  * below is the load-bearing half: a detector with nothing to find reports the
  * same clean estate as one that stopped working.
+ *
+ * What it does NOT see, stated rather than implied: `takesSlotInside` reads the
+ * SOURCE TEXT of the callback argument, so a window whose callback is a named
+ * function (`withTriggerToggleLock(db, teardownWindow)`) or which delegates to a
+ * helper that reserves is invisible to it. `insideWindow` is lexical for the
+ * same reason and misses a window opened by a function its CALLER wrapped —
+ * `adapter-contract-suite.ts`'s two windows run from several adapter test files.
+ * The nesting half is covered at RUNTIME instead, by the helper itself:
+ * `withTriggerToggleLock` throws a named error on re-entry rather than blocking
+ * forever on a lock its own caller holds. The slot half has no runtime
+ * counterpart and is a stated limit of this scan, not a covered case.
  */
 function windowCallSites(file: string, source: string): WindowCallSite[] {
   const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   const sites: WindowCallSite[] = [];
 
   const isCallOf = (node: ts.Node, name: string): boolean =>
-    ts.isCallExpression(node) &&
-    (ts.isPropertyAccessExpression(node.expression)
-      ? node.expression.name.text
-      : node.expression.getText()) === name;
+    ts.isCallExpression(node) && calleeName(node) === name;
 
   const enclosedBy = (node: ts.Node, name: string): boolean => {
     for (let current: ts.Node | undefined = node.parent; current; current = current.parent) {
@@ -546,9 +650,10 @@ function windowCallSites(file: string, source: string): WindowCallSite[] {
 }
 
 /**
- * Floor on the window CALL SITES found. Twenty-seven today across seventeen
- * files; the count is lower than the window count because a call may carry more
- * than one disable — two children-first tables torn down together share one
+ * Floor on the window CALL SITES found. Twenty-seven today across FIFTEEN
+ * files — the same fifteen the window floor counts, measured the same way. The
+ * call count is lower than the window count because a call may carry more than
+ * one disable: two children-first tables torn down together share one
  * acquisition rather than taking the mutex twice.
  */
 const WINDOW_CALL_SITE_FLOOR = 15;
@@ -599,6 +704,13 @@ describe('the advisory-lock census', () => {
     const found = triggerWindowSites(file, source);
     if (found.length > 0) windows.set(file, found);
   }
+  // The call-site walk is a THIRD pass, hoisted here beside the other two so a
+  // second consumer does not re-parse the same files a fourth time.
+  const calls = [...sources].flatMap(([file, source]) =>
+    source.includes('withTriggerToggleLock')
+      ? windowCallSites(file, source).map((site) => ({ file, ...site }))
+      : [],
+  );
 
   it('walked a plausible source tree and found advisory-lock statements', () => {
     // The vacuity floor. A broken walk, a moved directory or an extension
@@ -719,6 +831,40 @@ describe('the advisory-lock census', () => {
     ).toEqual([]);
   });
 
+  it('re-enables in the same window everything it disables', () => {
+    // The rule the other two cannot express, and #283's own failure surviving
+    // its fix: locking a window says nothing about whether it CLOSES. Drop the
+    // matching `enable` and the transaction COMMITS with the trigger off — every
+    // other assertion here passes, the window count is unchanged, and the
+    // trigger is off database-wide for the rest of the run. This branch
+    // restructured twenty-five windows, including two merges and one three-way
+    // split, which is exactly the edit that loses an enable.
+    const offenders: string[] = [];
+    for (const [file, found] of windows) {
+      if (file === UNPAIRED_DISABLE_EXEMPTION) continue;
+      for (const site of found) {
+        if (site.reEnabled) continue;
+        offenders.push(
+          `${file}:${site.line} — disables ${site.toggles ?? 'an unreadable subject'} and never enables it in the same window`,
+        );
+      }
+    }
+    expect(
+      offenders,
+      'a window disables a trigger and commits without re-enabling it, which leaves it off database-wide for the rest of the run — the failure the lock exists to prevent, arriving through the front door. Add the matching `alter table … enable trigger …` on the same handle, inside the same callback.',
+    ).toEqual([]);
+
+    // The deliberate offender, as an EXACT count in both directions. Zero means
+    // the rollback measurement stopped exercising the case it exists for.
+    const deliberate = (windows.get(UNPAIRED_DISABLE_EXEMPTION) ?? []).filter(
+      (site) => !site.reEnabled,
+    );
+    expect(
+      deliberate.length,
+      `${UNPAIRED_DISABLE_EXEMPTION} must disable-without-enabling exactly ${UNPAIRED_DISABLE_SITES} time(s) — that window throws on purpose, because what it measures is the ROLLBACK restoring the trigger`,
+    ).toBe(UNPAIRED_DISABLE_SITES);
+  });
+
   it('found trigger windows to police, and cleared the one it was written against', () => {
     // The vacuity floor for the SECOND rule, and it exists because deleting the
     // exemption list deleted the floor nobody had noticed was one: ten entries
@@ -730,6 +876,13 @@ describe('the advisory-lock census', () => {
       all.length,
       'no trigger-toggle window was found at all — the detector or the walk stopped working',
     ).toBeGreaterThanOrEqual(TRIGGER_WINDOW_FLOOR);
+    // A count alone can be met by one file carrying every window, so the file
+    // spread is asserted too: a detector narrowing to a spelling a few files
+    // share drops the file count first.
+    expect(
+      windows.size,
+      'the windows found are spread over too few files — a detector narrowed to one spelling reports exactly this',
+    ).toBeGreaterThanOrEqual(TRIGGER_WINDOW_FILE_FLOOR);
     // And the anchor, which pins that the detector cleared the specific window
     // it was written against. Retirement condition at the constant.
     const anchored = all.filter((site) => site.file === TRIGGER_WINDOW_ANCHOR);
@@ -742,17 +895,25 @@ describe('the advisory-lock census', () => {
     // red test. See `windowCallSites` for the three shapes and why the helper's
     // "the lock is the first statement" guarantee is a property of the call site
     // too.
-    const calls = [...sources].flatMap(([file, source]) =>
-      source.includes('withTriggerToggleLock')
-        ? windowCallSites(file, source).map((site) => ({ file, ...site }))
-        : [],
-    );
     expect(
       calls.length,
       'no `withTriggerToggleLock` call was found at all — the detector or the walk stopped working',
     ).toBeGreaterThanOrEqual(WINDOW_CALL_SITE_FLOOR);
 
+    // The measurement file drives the nested shape against a real server, to
+    // prove the helper THROWS a named error rather than blocking to the hook
+    // timeout. An exact count in both directions, like the other two exemptions
+    // here: zero means that measurement stopped exercising the case.
+    const deliberate = calls.filter(
+      (site) => site.file === MEASUREMENT_EXEMPTION && site.insideWindow,
+    );
+    expect(
+      deliberate.length,
+      `${MEASUREMENT_EXEMPTION} must nest a window exactly ${MEASUREMENT_EXEMPTION_SITES} time(s) — that is where the runtime guard is measured`,
+    ).toBe(MEASUREMENT_EXEMPTION_SITES);
+
     const offenders = calls
+      .filter((site) => !(site.file === MEASUREMENT_EXEMPTION && site.insideWindow))
       .filter((site) => site.insideTransaction || site.insideWindow || site.takesSlotInside)
       .map(
         (site) =>

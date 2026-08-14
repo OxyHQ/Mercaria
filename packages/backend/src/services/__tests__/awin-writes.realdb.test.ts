@@ -166,8 +166,11 @@ afterAll(async () => {
     for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
 
     // Children first, and #66's tables before the sources they point at: every
-    // intra-graph key is RESTRICT and the rights trigger is DEFERRED, so a
-    // half-torn-down source raises at commit.
+    // intra-graph key is RESTRICT, so a wrong order raises a `23503` rather
+    // than deleting silently. NOT because of the rights constraint, which this
+    // comment used to cite: `mercaria_catalog_source_rights_agree` is
+    // `AFTER INSERT OR UPDATE`, so nothing a delete-only teardown does can fire
+    // it, deferred or not.
     //
     // Each append-only trigger is switched off around ITS OWN delete and around
     // nothing else. `alter table … disable trigger` is DATABASE-WIDE and every
@@ -267,9 +270,11 @@ afterAll(async () => {
       .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
     // The rights policy, under the same lock and for the same reason as the two
     // `awin_*` windows above. The `catalog_sources` delete below it stays
-    // OUTSIDE: `mercaria_catalog_source_rights_agree` is DEFERRED and fires at
-    // COMMIT, so pulling the source into this transaction would make it settle
-    // against a source whose policy the same transaction has just removed.
+    // OUTSIDE because the window is kept to the statement that needs the
+    // trigger off, not because the rights constraint would object: the three
+    // `*_rights_agree` triggers are `AFTER INSERT OR UPDATE` (their function
+    // dereferences `NEW`), so a teardown that only DELETES never fires one at
+    // all — deferred or otherwise.
     await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(
         sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
