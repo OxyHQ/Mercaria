@@ -29,6 +29,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
+import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
 import {
   catalogEntitySuppressions,
   catalogMergeConflicts,
@@ -66,28 +67,6 @@ let db: Database;
 const RUN = uuidv7().slice(-12);
 const OPERATOR = `op-${RUN}`;
 const SECOND_OPERATOR = `op2-${RUN}`;
-
-/**
- * The advisory-lock key every realdb teardown that toggles a trigger takes
- * before doing so.
- *
- * The VALUE means nothing and its SAMENESS is the whole mechanism: it is the
- * number `offer-freshness.realdb.test.ts`, `price-alerts.realdb.test.ts` and
- * `price-history.realdb.test.ts` declare as `POLICY_TEARDOWN_LOCK`, deliberately
- * reused rather than forked, because the hazard is the WINDOW rather than the
- * table — two files inside one at the same time is the failure, whichever
- * triggers each of them is switching off.
- *
- * Taken as `pg_advisory_xact_lock` rather than the session-level
- * `pg_advisory_lock`/`pg_advisory_unlock` pair those three use, which is the one
- * deviation and it is deliberate: postgres.js POOLS, so a session-level unlock
- * can land on a different connection from the lock, return false, and leak the
- * lock until that connection closes. A transaction-scoped lock is the same lock
- * in the same lock space — so it still interlocks with their session-level
- * holds — and it is released by COMMIT or ROLLBACK, on the connection that took
- * it, including when a statement in the window throws.
- */
-const TEARDOWN_TRIGGER_LOCK = 6_820_068;
 
 const createdProductIds: string[] = [];
 const createdSourceIds: string[] = [];
@@ -135,15 +114,15 @@ afterEach(async () => {
      * decided by vitest's size-ordered file list, so adding any test anywhere
      * re-rolls it.
      *
-     * So the whole window is taken under {@link TEARDOWN_TRIGGER_LOCK}, which is
-     * what the seven policy-teardown files already do for their own tables. Every
+     * So the whole window is taken under `withTriggerToggleLock`, which is what
+     * every realdb teardown toggling a trigger now goes through — the key lives
+     * in that one module (#275). Every
      * trigger toggled here is covered, not only the two another file also
      * toggles today: the rule is "toggling a trigger database-wide takes the
      * lock", because the alternative is a per-trigger judgement that silently
      * expires the day a second file starts toggling one of the others.
      */
-    await db.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(${TEARDOWN_TRIGGER_LOCK})`);
+    await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(
         sql`alter table catalog_revisions disable trigger catalog_revisions_append_only`,
       );

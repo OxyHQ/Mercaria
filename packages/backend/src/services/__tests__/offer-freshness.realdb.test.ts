@@ -17,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
+import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
 import {
   catalogSourceConfigs,
@@ -71,18 +72,6 @@ const createdMerchantIds: string[] = [];
 const createdProductIds: string[] = [];
 const createdVariantIds: string[] = [];
 const registeredProviders: string[] = [];
-
-/**
- * The advisory-lock key every realdb teardown that toggles a policy trigger
- * takes before doing so.
- *
- * `alter table … disable trigger` is database-wide, so two files inside that
- * window at once leave one of them deleting against a trigger the other has
- * re-enabled. An arbitrary constant, shared by
- * `ingestion-writes.realdb.test.ts` and `adapter-contract-suite.ts` — its VALUE
- * means nothing and its SAMENESS is the whole mechanism.
- */
-const POLICY_TEARDOWN_LOCK = 6_820_068;
 
 function safeIds(ids: readonly string[]): string[] {
   return ids.length === 0 ? ['__none__'] : [...ids];
@@ -183,30 +172,31 @@ afterAll(async () => {
      * the same trigger interleave, and the second file's delete meets a trigger
      * the first has just switched back on — measured, as a teardown failure
      * naming a trigger the test had disabled two statements earlier. So the whole
-     * window is taken under a SESSION ADVISORY LOCK on
-     * {@link POLICY_TEARDOWN_LOCK}, which every file doing this uses: the lock is
-     * what makes "disable, delete, enable" atomic with respect to the other
-     * files, and it costs one round trip.
+     * window is taken under the shared trigger-toggle lock, which every file
+     * doing this uses: the lock is what makes "disable, delete, enable" atomic
+     * with respect to the other files, and it costs one round trip.
+     *
+     * Transaction-scoped since #275. The session-level pair it replaces was
+     * issued through the POOL, so postgres.js could serve the unlock from a
+     * different backend, get `false` back and leak the lock — and nobody read
+     * that boolean. Two tables here, one contiguous window, one hook.
      */
-    await db.execute(sql`select pg_advisory_lock(${POLICY_TEARDOWN_LOCK})`);
-    try {
-      await db.execute(sql`alter table catalog_source_freshness_policies disable trigger all`);
-      await db
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(sql`alter table catalog_source_freshness_policies disable trigger all`);
+      await tx
         .delete(catalogSourceFreshnessPolicies)
         .where(inArray(catalogSourceFreshnessPolicies.sourceId, safeIds(createdSourceIds)));
-      await db.execute(sql`alter table catalog_source_freshness_policies enable trigger all`);
-      await db.execute(
+      await tx.execute(sql`alter table catalog_source_freshness_policies enable trigger all`);
+      await tx.execute(
         sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
       );
-      await db
+      await tx
         .delete(catalogSourcePolicies)
         .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
-      await db.execute(
+      await tx.execute(
         sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
       );
-    } finally {
-      await db.execute(sql`select pg_advisory_unlock(${POLICY_TEARDOWN_LOCK})`);
-    }
+    });
     await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
     await deleteTestCanonicalRows(db, {
       variantIds: createdVariantIds,

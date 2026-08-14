@@ -36,6 +36,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
+import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import { CATALOG_SOURCE_STATUSES, type CatalogSourceStatus } from '@mercaria/shared-types';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
 import {
@@ -84,30 +85,26 @@ afterAll(async () => {
     .delete(catalogSourceConfigs)
     .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
   /**
-   * The disable/delete/enable window is taken under a SESSION ADVISORY
-   * LOCK (#68).
+   * The disable/delete/enable window is taken under the shared trigger-toggle
+   * lock (#68), transaction-scoped since #275 — see `withTriggerToggleLock`.
    *
-   * `alter table … disable trigger` is DATABASE-WIDE and every realdb file
-   * shares one server, so two files inside this window at once leave one of
-   * them deleting against a trigger the other has just re-enabled —
-   * measured, as a teardown failure naming a trigger the test had disabled
-   * two statements earlier. The key's VALUE means nothing; its SAMENESS
-   * across every file that does this is the whole mechanism.
+   * It used to be a session-level `pg_advisory_lock` issued through `db`, and
+   * postgres.js pools: the unlock could be served by a different backend, return
+   * false and leak the lock. The window begins and ends inside this hook, so a
+   * transaction can hold it, and the DDL now rolls back with the delete instead
+   * of leaving the trigger disabled database-wide when one throws.
    */
-  await db.execute(sql`select pg_advisory_lock(6820068)`);
-  try {
-    await db.execute(
+  await withTriggerToggleLock(db, async (tx) => {
+    await tx.execute(
       sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
     );
-    await db
+    await tx
       .delete(catalogSourcePolicies)
       .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
-    await db.execute(
+    await tx.execute(
       sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
     );
-  } finally {
-    await db.execute(sql`select pg_advisory_unlock(6820068)`);
-  }
+  });
   await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
   await closePostgres();
 });
