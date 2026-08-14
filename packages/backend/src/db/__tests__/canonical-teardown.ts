@@ -46,7 +46,7 @@
  */
 
 import { inArray } from 'drizzle-orm';
-import { canonicalVariants } from '../schema/canonicalCatalog.js';
+import { canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog.js';
 import { matchDecisions } from '../schema/matching.js';
 import type { Database } from '../postgres.js';
 
@@ -124,4 +124,78 @@ export async function planCanonicalTeardown(
     retainedVariantIds: variantIds.filter((id) => citedVariants.has(id)),
     retainedProductIds: productIds.filter((id) => citedProducts.has(id)),
   };
+}
+
+/**
+ * Delete a file's OWN canonical rows, skipping exactly what a sibling pins.
+ *
+ * This is what a teardown calls. `planCanonicalTeardown` above is the decision;
+ * this is the decision plus the two statements, in the one order that works —
+ * `canonical_variants.product_id` is `ON DELETE RESTRICT`, so a product whose
+ * variants are still present cannot go, and the parent-pinning rule above is
+ * what keeps a retained variant from turning into a second `23503` on the
+ * product.
+ *
+ * ## Why the variants are DISCOVERED and not only accepted
+ *
+ * Callers pass what they recorded, and what they recorded is not always
+ * complete: several fixtures mint a product through a repository that creates
+ * its default variant, so the file knows the product id and never sees the
+ * variant's. `backfill.realdb.test.ts` deletes by `product_id` for exactly that
+ * reason. Reading the children back closes the gap for every caller instead of
+ * for the ones who remembered, and it costs one indexed statement in a hook.
+ *
+ * ## What a caller still owes
+ *
+ * Its own children first — offers, links, identifiers, attributes, source
+ * links, its OWN match decisions. Only the two RESTRICT-blocked statements are
+ * narrowed here, so any other broken ordering still raises, which is the point:
+ * a swallowed `23503` would hide a genuine children-first mistake.
+ *
+ * The returned plan names what was kept. Most callers ignore it — a retained
+ * row is inert in a database that is dropped at the end of the run — but it is
+ * returned rather than swallowed so a caller that wants to report or assert on
+ * it can, and so the gate can check the uncited ids really were deleted.
+ */
+export async function deleteTestCanonicalRows(
+  db: Database,
+  input: { readonly productIds?: readonly string[]; readonly variantIds?: readonly string[] },
+): Promise<CanonicalTeardownPlan> {
+  const productIds = [...new Set(input.productIds ?? [])];
+  const requested = [...new Set(input.variantIds ?? [])];
+  if (productIds.length === 0 && requested.length === 0) {
+    return {
+      deletableVariantIds: [],
+      deletableProductIds: [],
+      retainedVariantIds: [],
+      retainedProductIds: [],
+    };
+  }
+
+  const discovered =
+    productIds.length === 0
+      ? []
+      : (
+          await db
+            .select({ id: canonicalVariants.id })
+            .from(canonicalVariants)
+            .where(inArray(canonicalVariants.productId, productIds))
+        ).map((row) => row.id);
+
+  const plan = await planCanonicalTeardown(db, {
+    variantIds: [...new Set([...requested, ...discovered])],
+    productIds,
+  });
+
+  if (plan.deletableVariantIds.length > 0) {
+    await db
+      .delete(canonicalVariants)
+      .where(inArray(canonicalVariants.id, [...plan.deletableVariantIds]));
+  }
+  if (plan.deletableProductIds.length > 0) {
+    await db
+      .delete(canonicalProducts)
+      .where(inArray(canonicalProducts.id, [...plan.deletableProductIds]));
+  }
+  return plan;
 }

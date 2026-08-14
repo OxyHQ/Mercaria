@@ -59,6 +59,7 @@ import {
   listingConditionPhotos,
   listingConditionRevisions,
 } from '../schema/condition.js';
+import { deleteTestCanonicalRows } from './canonical-teardown.js';
 
 let db: Database;
 
@@ -98,7 +99,7 @@ afterAll(async () => {
     // insert must go first — and an offer this file created that is still here
     // would fail the delete loudly rather than leaking.
     await db.delete(offers).where(inArray(offers.canonicalVariantId, createdVariantIds));
-    await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, createdVariantIds));
+    await deleteTestCanonicalRows(db, { variantIds: createdVariantIds });
   }
   if (createdMerchantIds.length > 0) {
     await db.delete(merchants).where(inArray(merchants.id, createdMerchantIds));
@@ -129,9 +130,7 @@ afterAll(async () => {
   if (createdImageIds.length > 0) {
     await db.delete(canonicalImages).where(inArray(canonicalImages.id, createdImageIds));
   }
-  if (createdProductIds.length > 0) {
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, createdProductIds));
-  }
+  await deleteTestCanonicalRows(db, { productIds: createdProductIds });
   if (createdSourceRecordIds.length > 0) {
     await db.delete(sourceRecords).where(inArray(sourceRecords.id, createdSourceRecordIds));
   }

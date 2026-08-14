@@ -67,6 +67,7 @@ import { loadNativeVariantSubject } from '../matching/subject-loader.js';
 import { drainOfferOutbox } from '../offers/offer-outbox-dispatcher.js';
 import { createMatchPolicyVersion } from '../matching/match-policy.service.js';
 import { convergeNativeOffersForListing } from '../offers/native-offer.service.js';
+import { deleteTestCanonicalRows } from '../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -106,14 +107,17 @@ afterAll(async () => {
     await db.delete(orders).where(inArray(orders.id, createdOrderIds));
   }
   if (createdListingIds.length > 0) {
+    // BEFORE the canonical rows, and that order is load-bearing rather than
+    // cosmetic: `match_decisions` CASCADEs from the native subject (ADR 0002
+    // D20), so deleting the listings is what takes THIS file's own decisions
+    // with them. Swap the two blocks and the canonical delete meets its own
+    // citing rows — which the helper below would then decline, leaving the
+    // fixtures behind silently instead of raising.
     await db.delete(listings).where(inArray(listings.id, createdListingIds));
   }
-  if (createdProductIds.length > 0) {
-    await db
-      .delete(canonicalVariants)
-      .where(inArray(canonicalVariants.productId, createdProductIds));
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, createdProductIds));
-  }
+  // The variants are discovered from the product ids: this file mints them
+  // through the real stages and never sees their ids.
+  await deleteTestCanonicalRows(db, { productIds: createdProductIds });
   if (createdStoreIds.length > 0) {
     // Every store this file seeded was scanned by the whole-catalogue
     // `store_merchants` pass, so each may carry a link and a merchant this file

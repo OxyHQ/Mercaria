@@ -77,6 +77,7 @@ import { createEbayBrowseAdapter } from '../../ingestion/adapters/ebay.js';
 import type { EbayTransport, EbayHttpResponse } from '../http.js';
 import type { EbayItem } from '../normalize.js';
 import { createEbayTokenProvider } from '../token.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 
 /**
  * How long the matching group's `beforeAll` may wait for the GLOBAL
@@ -439,12 +440,10 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       await db
         .delete(productIdentifiers)
         .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
-      await db
-        .delete(canonicalVariants)
-        .where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
-      await db
-        .delete(canonicalProducts)
-        .where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+      await deleteTestCanonicalRows(db, {
+        variantIds: createdVariantIds,
+        productIds: createdProductIds,
+      });
       await db
         .delete(storefronts)
         .where(inArray(storefronts.id, safeIds(createdStorefrontIds)));

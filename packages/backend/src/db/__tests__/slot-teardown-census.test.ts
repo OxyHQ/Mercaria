@@ -291,7 +291,7 @@ describe('the slot teardown census', () => {
           } finally {
             await policySlot?.release();
           }
-          await db.delete(canonicalProducts);
+          await db.delete(someTable);
         } finally {
           await closePostgres();
         }

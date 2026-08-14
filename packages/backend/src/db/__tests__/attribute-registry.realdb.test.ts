@@ -27,8 +27,6 @@ import {
 } from '../schema/attributeRegistry.js';
 import {
   canonicalAttributeValues,
-  canonicalProducts,
-  canonicalVariants,
 } from '../schema/canonicalCatalog.js';
 import {
   draftAttributeDefinition,
@@ -39,6 +37,7 @@ import {
 import { applyAttributeObservation } from '../../services/attributes/attribute-observation.service.js';
 import { enqueueAttributeReindex } from '../attributes/attributeOpsRepository.js';
 import { createCanonicalProduct } from '../../services/canonical/canonical-product.service.js';
+import { deleteTestCanonicalRows } from './canonical-teardown.js';
 
 let db: Database;
 
@@ -73,12 +72,9 @@ afterAll(async () => {
       .delete(canonicalAttributeValues)
       .where(inArray(canonicalAttributeValues.attributeKey, createdKeys));
   }
-  if (createdProductIds.length > 0) {
-    await db
-      .delete(canonicalVariants)
-      .where(inArray(canonicalVariants.productId, createdProductIds));
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, createdProductIds));
-  }
+  // The variants are discovered from the product ids, and a sibling's match
+  // decision can pin either — see `canonical-teardown.ts`.
+  await deleteTestCanonicalRows(db, { productIds: createdProductIds });
   if (createdKeys.length > 0) {
     const definitionIds = (
       await db

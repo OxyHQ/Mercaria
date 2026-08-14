@@ -41,7 +41,7 @@ import { canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog
 import { listings } from '../schema/catalog.js';
 import { matchDecisions } from '../schema/matching.js';
 import { normalizeEntityName } from '../../services/canonical/normalization.js';
-import { planCanonicalTeardown } from './canonical-teardown.js';
+import { deleteTestCanonicalRows, planCanonicalTeardown } from './canonical-teardown.js';
 
 /** Unique per run, so parallel files and repeated runs never collide on an id. */
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -294,5 +294,76 @@ describe('a sibling match decision pinning a canonical fixture', () => {
     // The VARIANT is not cited, so it stays deletable — the plan declines the
     // narrowest thing that is actually pinned.
     expect(plan.deletableVariantIds).toEqual([product.variantId]);
+  });
+});
+
+/**
+ * The function every fixture now calls — the plan PLUS the two statements.
+ *
+ * `planCanonicalTeardown` above is decided by the cases already in this file.
+ * What is left, and what twenty-four teardowns depend on, is that the deletes it
+ * issues really happen, really stop at the pinned rows, and really run in the
+ * one order `canonical_variants.product_id` (RESTRICT) permits.
+ */
+describe('deleteTestCanonicalRows', () => {
+  it('deletes the uncited rows and leaves exactly the pinned ones', async () => {
+    const pinned = await seedProductWithVariant('helper-pinned');
+    const free = await seedProductWithVariant('helper-free');
+    await citeVariant(pinned, 2);
+
+    const plan = await deleteTestCanonicalRows(db, {
+      variantIds: [pinned.variantId, free.variantId],
+      productIds: [pinned.productId, free.productId],
+    });
+
+    expect(plan.retainedVariantIds).toEqual([pinned.variantId]);
+    expect(plan.retainedProductIds).toEqual([pinned.productId]);
+
+    const variants = await db
+      .select({ id: canonicalVariants.id })
+      .from(canonicalVariants)
+      .where(inArray(canonicalVariants.id, [pinned.variantId, free.variantId]));
+    const products = await db
+      .select({ id: canonicalProducts.id })
+      .from(canonicalProducts)
+      .where(inArray(canonicalProducts.id, [pinned.productId, free.productId]));
+
+    // Both halves, because "it deleted nothing" and "it deleted everything" are
+    // the two ways this can be wrong and each satisfies one assertion alone.
+    expect(variants.map((row) => row.id)).toEqual([pinned.variantId]);
+    expect(products.map((row) => row.id)).toEqual([pinned.productId]);
+  });
+
+  it('discovers a variant the caller never recorded', async () => {
+    // Several fixtures mint a product through a repository that creates its
+    // default variant, so the file knows the product id and never sees the
+    // variant's. Passing product ids alone must still clear the children —
+    // `canonical_variants.product_id` is RESTRICT, so a missed child is a
+    // `23503` on the parent rather than a leftover row.
+    const orphaned = await seedProductWithVariant('helper-discovered');
+
+    const plan = await deleteTestCanonicalRows(db, { productIds: [orphaned.productId] });
+
+    expect(plan.deletableVariantIds).toEqual([orphaned.variantId]);
+    expect(plan.deletableProductIds).toEqual([orphaned.productId]);
+
+    const survivors = await db
+      .select({ id: canonicalVariants.id })
+      .from(canonicalVariants)
+      .where(eq(canonicalVariants.productId, orphaned.productId));
+    expect(survivors).toEqual([]);
+  });
+
+  it('does nothing, and issues nothing, for an empty teardown', async () => {
+    // Every caller is a hook that may run before its fixtures exist. An empty
+    // input has to be a no-op rather than an `inArray(col, [])`, which drizzle
+    // renders as the literal `false` — correct, and a round trip per hook.
+    const plan = await deleteTestCanonicalRows(db, { productIds: [], variantIds: [] });
+    expect(plan).toEqual({
+      deletableVariantIds: [],
+      deletableProductIds: [],
+      retainedVariantIds: [],
+      retainedProductIds: [],
+    });
   });
 });

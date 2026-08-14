@@ -61,6 +61,7 @@ import {
 } from '../reviews/reviewEligibilityRepository.js';
 import { recordTargetMigration } from '../reviews/reviewMigrationRepository.js';
 import { rebuildScopedAggregate } from '../../services/reviews/review-aggregate.service.js';
+import { deleteTestCanonicalRows } from './canonical-teardown.js';
 
 let db: Database;
 
@@ -143,9 +144,9 @@ afterAll(async () => {
       ).flatMap((row) => (row.id ? [row.id] : [])),
     );
     const deletableProductIds = createdProductIds.filter((id) => !stillReferenced.has(id));
-    if (deletableProductIds.length > 0) {
-      await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, deletableProductIds));
-    }
+    // The `reviews` filter above is this file's OWN pin; a sibling's match
+    // decision is a second, different one, and only the helper can see it.
+    await deleteTestCanonicalRows(db, { productIds: deletableProductIds });
   }
   if (createdMerchantIds.length > 0) {
     await db.delete(merchants).where(inArray(merchants.id, createdMerchantIds));

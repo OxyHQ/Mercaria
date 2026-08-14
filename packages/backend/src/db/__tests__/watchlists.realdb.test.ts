@@ -54,6 +54,7 @@ import {
   markWatchlistItemsAmbiguousAfterSplit,
 } from '../watchlists/watchlistItemRepository.js';
 import { insertWatchlistSnapshot } from '../watchlists/watchlistSnapshotRepository.js';
+import { deleteTestCanonicalRows } from './canonical-teardown.js';
 
 let db: Database;
 
@@ -75,12 +76,8 @@ afterAll(async () => {
     // cleanup, which is itself the retention property under test.
     await db.delete(watchlists).where(inArray(watchlists.id, createdWatchlistIds));
   }
-  if (createdVariantIds.length > 0) {
-    await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, createdVariantIds));
-  }
-  if (createdProductIds.length > 0) {
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, createdProductIds));
-  }
+  await deleteTestCanonicalRows(db, { variantIds: createdVariantIds });
+  await deleteTestCanonicalRows(db, { productIds: createdProductIds });
   await closePostgres();
 });
 

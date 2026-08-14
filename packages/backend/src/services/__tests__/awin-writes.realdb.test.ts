@@ -91,6 +91,7 @@ import {
 } from '../../db/awin/awinNetworkLeaseRepository.js';
 import { registerAwinAdvertiserSource } from '../awin/source-binding.service.js';
 import { changeAwinAdvertiserActivation, recordAwinSample } from '../awin/activation.service.js';
+import { deleteTestCanonicalRows } from '../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 let policySlot: ActivePolicySlot | undefined;
@@ -247,12 +248,10 @@ afterAll(async () => {
   await db
     .delete(productIdentifiers)
     .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
-  await db
-    .delete(canonicalVariants)
-    .where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
-  await db
-    .delete(canonicalProducts)
-    .where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+  await deleteTestCanonicalRows(db, {
+    variantIds: createdVariantIds,
+    productIds: createdProductIds,
+  });
   await db.delete(storefronts).where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
   await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
 

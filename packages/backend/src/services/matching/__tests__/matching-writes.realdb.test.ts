@@ -69,6 +69,7 @@ import { convergeNativeOffersForListing } from '../../offers/native-offer.servic
 import { normalizeEntityName } from '../../canonical/normalization.js';
 import { variantSignature } from '../../canonical/variant-signature.js';
 import { gs1CheckDigit } from '../../canonical/identifiers.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -133,20 +134,26 @@ afterEach(async () => {
     ).map((row) => row.id);
     if (variantIds.length > 0) {
       await db
-        .delete(matchBlockedPairs)
-        .where(inArray(matchBlockedPairs.targetCanonicalVariantId, variantIds));
-      await db
-        .delete(matchDecisionCandidates)
-        .where(inArray(matchDecisionCandidates.canonicalVariantId, variantIds));
-      await db
-        .delete(matchDecisions)
-        .where(inArray(matchDecisions.matchedCanonicalVariantId, variantIds));
-      await db
         .delete(canonicalVariantAttributes)
         .where(inArray(canonicalVariantAttributes.variantId, variantIds));
-      await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, variantIds));
     }
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, productIds));
+    /**
+     * This used to clear `match_blocked_pairs`, `match_decision_candidates` and
+     * `match_decisions` keyed on its OWN variant ids, which sounds like scoping
+     * and is not: a row citing this file's variant belongs to whichever file
+     * WROTE it, and by the time a sibling's decision points here, that sibling
+     * may not have run its assertions yet. `canonical-teardown.ts` names that as
+     * the direction it rejects — it converts a loud teardown failure into a
+     * silent wrong answer somewhere else.
+     *
+     * Nothing is lost by dropping it. Both `match_blocked_pairs` and
+     * `match_decision_candidates` CASCADE from the canonical side, so being
+     * merely retrieved as a candidate pins nothing; and this file's OWN
+     * decisions cascade from the native listing deleted above (ADR 0002 D20).
+     * What is left is exactly a decision a SIBLING recorded, which the helper
+     * declines to delete around rather than through.
+     */
+    await deleteTestCanonicalRows(db, { productIds, variantIds });
   }
   if (policyIds.length > 0) {
     await db.delete(matchCategoryGates).where(inArray(matchCategoryGates.policyVersionId, policyIds));

@@ -83,6 +83,7 @@ import { claimMergeJobs } from '../../../db/curation/jobRepository.js';
 import { requestMerge, runMergeJob } from '../../curation/merge.service.js';
 import { runFavoriteMigrationPage } from '../save-migration.service.js';
 import { PRODUCT_SAVE_MIGRATION_VERSION } from '../mapping-version.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -191,7 +192,7 @@ afterAll(async () => {
     .where(inArray(nativeListingLinks.listingId, safeIds(createdListingIds)));
   await db.delete(listings).where(inArray(listings.id, safeIds(createdListingIds)));
   await deleteTestStores(db, safeIds(createdStoreIds));
-  await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
+  await deleteTestCanonicalRows(db, { variantIds: createdVariantIds });
   // The merge mints a redirect hop and a former-name alias on the winner. Both
   // reference the product and both have to go before it does — their presence
   // here is the merge working, not a leak.
@@ -216,7 +217,7 @@ afterAll(async () => {
     .update(canonicalProducts)
     .set({ status: 'active', mergedIntoId: null })
     .where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
-  await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+  await deleteTestCanonicalRows(db, { productIds: createdProductIds });
   await closePostgres();
 });
 

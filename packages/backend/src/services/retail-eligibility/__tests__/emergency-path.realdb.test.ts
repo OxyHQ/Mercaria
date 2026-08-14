@@ -59,11 +59,39 @@ import {
 
 let db: Database;
 
+/**
+ * Unique to this run, and load-bearing rather than tidy.
+ *
+ * The matcher's candidate retrieval is a trigram and exact-name search over
+ * EVERY `canonical_products` row (`postgres-candidate-source.ts`), correctly
+ * global for production — so a fixture with a STABLE `normalized_name` is a
+ * standing attractor for every later sibling's retrieval, in every run, and
+ * this file's fixtures outlive it (see the teardown note below). Naming them
+ * per run makes them ordinary per-run rows instead. Measured by #270: this was
+ * the one canonical fixture in the estate with a literal name, and
+ * `canonical-fixture-census.test.ts` now fails the build on a second.
+ */
+const RUN = uuidv7().slice(-12);
+
 beforeAll(async () => {
   db = await connectPostgres();
 }, 120_000);
 
 afterAll(async () => {
+  /**
+   * Deliberately no teardown, and the reason is worth stating rather than
+   * leaving as an omission.
+   *
+   * The fixtures here are a whole procurement chain — supplier, account,
+   * approved agreement, procurement offer, policy version, category rule,
+   * market capability, verified evidence, suppressions and the decisions they
+   * produced — and every intra-graph key in it is RESTRICT. Unwinding it in a
+   * hook would be a second, untested implementation of an order this file
+   * exists to say nothing about. The rows are inert: the database is a
+   * throwaway that the suite drops at the end of the run, and since #270 every
+   * name they carry is scoped by RUN, so nothing here is a stable candidate a
+   * sibling's matcher can keep finding.
+   */
   await closePostgres();
 });
 
@@ -140,8 +168,8 @@ async function makeEligibleCombination(): Promise<{
     .insert(brands)
     .values({
       slug: `emergency-path-brand-${uuidv7()}`,
-      name: 'Emergency Path Brand',
-      normalizedName: 'emergency path brand',
+      name: `Emergency Path Brand ${RUN}`,
+      normalizedName: `emergency path brand ${RUN}`,
     })
     .returning();
   if (!brand) throw new Error('fixture brand was not created');
@@ -149,8 +177,8 @@ async function makeEligibleCombination(): Promise<{
     .insert(canonicalProducts)
     .values({
       slug: `emergency-path-${uuidv7()}`,
-      name: 'Emergency path widget',
-      normalizedName: 'emergency path widget',
+      name: `Emergency path widget ${RUN}`,
+      normalizedName: `emergency path widget ${RUN}`,
       brandId: brand.id,
     })
     .returning();

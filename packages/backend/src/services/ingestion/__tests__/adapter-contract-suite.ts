@@ -73,6 +73,7 @@ import {
   publishIngestionSourcePolicy,
 } from '../source.service.js';
 import type { AdapterRecord, CatalogSourceAdapter, CatalogSourceFetchError } from '../adapter.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 
 /** One page of a scenario, in framework terms. */
 export interface ContractPage {
@@ -327,12 +328,10 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       await db
         .delete(productIdentifiers)
         .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
-      await db
-        .delete(canonicalVariants)
-        .where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
-      await db
-        .delete(canonicalProducts)
-        .where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+      await deleteTestCanonicalRows(db, {
+        variantIds: createdVariantIds,
+        productIds: createdProductIds,
+      });
       await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
       // The policy version goes LAST, and only if nothing still cites it.
       //

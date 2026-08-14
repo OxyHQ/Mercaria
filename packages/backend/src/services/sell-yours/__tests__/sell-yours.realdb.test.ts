@@ -46,6 +46,7 @@ import {
 } from '../../../db/sellYours/matchAssertionRepository.js';
 import { patchSellerDraft, startSellerDraft } from '../draft.service.js';
 import { publishSellerDraft } from '../publish.service.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 
 let db: Database;
 
@@ -84,10 +85,7 @@ afterEach(async () => {
     // deleted out from under the configurations that define it — so the
     // children go first. The listings above are already gone, which is what
     // released the `native_listing_links` rows pointing at these variants.
-    await db
-      .delete(canonicalVariants)
-      .where(inArray(canonicalVariants.productId, productIds));
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, productIds));
+    await deleteTestCanonicalRows(db, { productIds });
   }
 });
 
