@@ -21,6 +21,7 @@ vi.mock('../../../services/connector-sync.service.js', () => ({
   connectWithApiKey: vi.fn().mockResolvedValue({ _id: '2'.repeat(24), status: 'connected' }),
   updateSyncSettings: vi.fn(),
   requestBackfill: vi.fn().mockResolvedValue(undefined),
+  requestWebhookReregistration: vi.fn().mockResolvedValue(undefined),
   disconnect: vi.fn(),
   toConnectionDTOWithWebhookFailures: vi.fn().mockResolvedValue({ id: '2'.repeat(24) }),
 }));
@@ -98,6 +99,11 @@ describe('channels router authz — staff lack channels:write', () => {
   it('403s staff on disconnect', async () => {
     expect(await call(`/${CONNECTION_ID}`, 'DELETE', 'staff')).toBe(403);
   });
+  it('403s staff on webhook re-registration (#262)', async () => {
+    // It makes outbound calls with the store's platform credential, so it belongs
+    // to whoever may configure integrations — not to the shop floor.
+    expect(await call(`/${CONNECTION_ID}/webhooks/reregister`, 'POST', 'staff')).toBe(403);
+  });
 });
 
 describe('channels router authz — admins pass the guard', () => {
@@ -118,6 +124,17 @@ describe('channels router authz — admins pass the guard', () => {
         consumerSecret: 'cs_y',
       }),
     ).toBe(200);
+  });
+  it('lets an admin re-register webhooks, and the route is MOUNTED (202, #262)', async () => {
+    // Route ORDER is load-bearing on this router: every literal segment must be
+    // declared before `/:connectionId`, and `webhooks/reregister` sits UNDER the
+    // parameter. A 404 here means the merchant's only remedy for a refused topic
+    // is unreachable from the product — which is the sentence #262 opens by
+    // complaining about, and a gap no dashboard typecheck could see.
+    expect(await call(`/${CONNECTION_ID}/webhooks/reregister`, 'POST', 'admin')).toBe(202);
+  });
+  it('validates the connectionId even for an admin (400 on a malformed id, #262)', async () => {
+    expect(await call('/not-an-id/webhooks/reregister', 'POST', 'admin')).toBe(400);
   });
   it('validates the connect-key body (400 on a non-https site URL even for admin)', async () => {
     expect(

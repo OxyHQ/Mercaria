@@ -39,6 +39,7 @@ import {
   fetchChannelRuns,
   fetchChannelSummary,
   pauseChannel,
+  reregisterChannelWebhooks,
   startChannelOnboarding,
   type AdvanceChannelOnboardingInput,
   type ConnectKeyInput,
@@ -246,6 +247,28 @@ export function usePauseChannel(storeId: string) {
       scope: ChannelPauseScope;
       paused: boolean;
     }) => pauseChannel(storeId, input.connectionId, { scope: input.scope, paused: input.paused }),
+    onSuccess: () => invalidateChannelSurface(queryClient, storeId),
+  });
+}
+
+/**
+ * Register a connection's platform webhooks again, without a reconnect (#262).
+ *
+ * Invalidates the whole channel surface rather than just the connections list: a
+ * successful registration clears `connection_webhook_failures`, which is one of
+ * the inputs `ChannelReadiness` derives its `degraded` catalogue axis from — so
+ * the readiness banner has to be re-read or the merchant fixes the problem and is
+ * still told they have one.
+ *
+ * The server answers 202 and the registration happens on the sync queue, so the
+ * connection this invalidation re-reads may still show the old refusals for a
+ * moment. That is honest rather than awkward: the alternative is a client
+ * pretending to know an outcome only the platform can give it.
+ */
+export function useReregisterChannelWebhooks(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (connectionId: string) => reregisterChannelWebhooks(storeId, connectionId),
     onSuccess: () => invalidateChannelSurface(queryClient, storeId),
   });
 }

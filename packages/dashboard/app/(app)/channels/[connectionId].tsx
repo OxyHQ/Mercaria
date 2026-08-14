@@ -11,6 +11,7 @@ import {
   Check,
   Trash2,
   Plus,
+  RadioTower,
   TriangleAlert,
 } from "lucide-react-native";
 import type {
@@ -20,6 +21,7 @@ import type {
   ChannelReconciliationSummary,
   Connection,
   ConnectionStatus,
+  ConnectorWebhookFailureReason,
   GenerateChannelApiKeyResult,
   SyncResourceDirection,
 } from "@mercaria/shared-types";
@@ -53,6 +55,7 @@ import {
   useDisconnectChannelWithPolicy,
   useGenerateChannelKey,
   usePauseChannel,
+  useReregisterChannelWebhooks,
   useRevokeChannelKey,
 } from "@/lib/hooks/use-channels";
 
@@ -68,6 +71,24 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
   connected: "Connected",
   error: "Needs attention",
   disconnected: "Disconnected",
+};
+
+/**
+ * What a merchant can DO about each refusal (#218's reason codes, #262's screen).
+ *
+ * The remedies genuinely differ, which is why the reason is a closed set rather
+ * than a sentence: the first two need the merchant to change something on the
+ * platform before a retry can work, and the rest are worth simply retrying. The
+ * copy says which, because "permission_denied" on its own tells a merchant
+ * nothing they can act on.
+ */
+const WEBHOOK_FAILURE_REASON_LABEL: Record<ConnectorWebhookFailureReason, string> = {
+  permission_denied: "the app or key lacks permission",
+  topic_not_supported: "this platform will not send it",
+  rate_limited: "the platform was throttling",
+  platform_error: "the platform failed",
+  unexpected_response: "the platform answered unexpectedly",
+  transport_error: "the platform could not be reached",
 };
 
 const DIRECTIONS: readonly SyncResourceDirection[] = ["off", "pull", "push", "bidirectional"];
@@ -160,6 +181,7 @@ function ChannelSettingsBody({
       {connection.mode === "push_in" ? (
         <ChannelApiKeys storeId={storeId} connection={connection} />
       ) : null}
+      <WebhookHealth storeId={storeId} connection={connection} />
       <PauseControls storeId={storeId} connection={connection} />
       <SyncHistory storeId={storeId} connection={connection} />
       <Reconciliation storeId={storeId} connection={connection} />
@@ -349,6 +371,122 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
           ))}
         </View>
       )}
+    </View>
+  );
+}
+
+/**
+ * Real-time sync, and the one control that repairs it (#262).
+ *
+ * ## Why this panel exists at all
+ *
+ * #218 recorded the topics a platform REFUSED on the connection and degraded the
+ * catalogue axis of `ChannelReadiness` while any existed, and nothing rendered
+ * either — so a merchant saw "needs attention" with no way to find out what or to
+ * do anything about it. #262 added the endpoint; this is the half that makes it
+ * reachable.
+ *
+ * ## It renders even when nothing is wrong, deliberately
+ *
+ * The tempting version shows the panel only on a refusal, and it would leave the
+ * ONE case automatic recovery cannot detect with no remedy either: a merchant who
+ * deleted Mercaria's webhooks in the Shopify or WooCommerce admin has complete
+ * stored ids and no refusal, so the sweep's derived population is blind to it by
+ * construction. Re-registering is exactly the repair, and a button that only
+ * appears once something is already recorded as broken could never be pressed for
+ * it. Hence the healthy state says what it holds and offers the same action.
+ *
+ * ## The three unhealthy states are NOT one state with a counter
+ *
+ * `dead_letter` means automatic retries have stopped, and pressing retry against
+ * an unchanged platform will simply fail again — so its copy sends the merchant to
+ * fix the cause FIRST. A `pending` registration with attempts spent is being
+ * retried on a schedule, so its copy says when. Refusals with no registration
+ * record yet are a connect-time refusal the sweep has not reached, which reads as
+ * the second case and must not read as the first.
+ */
+function WebhookHealth({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const { colors } = useColorScheme();
+  const reregister = useReregisterChannelWebhooks(storeId);
+
+  // The endpoint refuses a channel with no credential to authenticate with and a
+  // push-in channel that has nothing to subscribe, so the control is ABSENT for
+  // both rather than present and answering 400. A disconnected channel has no
+  // real-time sync to talk about at all.
+  if (connection.mode !== "pull" || connection.status !== "connected") {
+    return null;
+  }
+
+  const failures = connection.webhookFailures ?? [];
+  const registration = connection.webhookRegistration;
+  const stopped = registration?.state === "dead_letter";
+
+  const retry = () => {
+    reregister.mutate(connection.id, {
+      onSuccess: () => toast.success("Registering webhooks again"),
+      onError: () => toast.error("Couldn't start webhook registration"),
+    });
+  };
+
+  return (
+    <View className="mt-8 gap-3">
+      <Text className="text-sm font-semibold text-muted-foreground">Real-time updates</Text>
+      <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+        <View className="flex-row items-start gap-2">
+          {/*
+            `colors.primary` for BOTH refusal states, because `useColorScheme`
+            exposes no destructive token and inventing one here would be a second
+            palette. The severity distinction is carried by the COPY, which is
+            where a merchant can act on it — a redder triangle does not tell
+            anybody to widen a permission.
+          */}
+          {failures.length > 0 ? (
+            <TriangleAlert size={15} color={colors.primary} />
+          ) : (
+            <RadioTower size={15} color={colors.mutedForeground} />
+          )}
+          <View className="flex-1 gap-1">
+            <Text className="text-sm font-medium text-foreground">
+              {failures.length === 0
+                ? "Changes arrive as they happen"
+                : stopped
+                  ? "Some changes aren't arriving, and retries have stopped"
+                  : "Some changes aren't arriving"}
+            </Text>
+            <Text className="text-xs text-muted-foreground">
+              {failures.length === 0
+                ? `${PROVIDER_NAME[connection.provider]} notifies Mercaria of ${connection.webhookIds.length} kinds of change. Register again if you removed Mercaria's webhooks on ${PROVIDER_NAME[connection.provider]} — nothing here can detect that.`
+                : stopped
+                  ? `Mercaria stopped retrying after ${registration?.attempts ?? 0} attempts. Fix the cause on ${PROVIDER_NAME[connection.provider]} first — usually a missing permission — then register again.`
+                  : registration?.nextAttemptAt
+                    ? `Mercaria is retrying automatically; the next attempt is ${formatWhen(registration.nextAttemptAt, "due shortly")}. You can register again now instead.`
+                    : "Mercaria will retry automatically. You can register again now instead."}
+            </Text>
+          </View>
+        </View>
+
+        {failures.length > 0 ? (
+          <View className="gap-1 rounded-xl bg-muted/40 p-3">
+            {failures.map((failure) => (
+              <Text key={failure.topic} className="text-xs text-muted-foreground">
+                <Text className="text-xs font-medium text-foreground">{failure.topic}</Text>
+                {` — ${WEBHOOK_FAILURE_REASON_LABEL[failure.reason]}`}
+                {failure.httpStatus === undefined ? "" : ` (HTTP ${failure.httpStatus})`}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={retry}
+          isLoading={reregister.isPending}
+          className="self-start"
+        >
+          <Text className="text-sm font-medium text-foreground">Register webhooks again</Text>
+        </Button>
+      </View>
     </View>
   );
 }
