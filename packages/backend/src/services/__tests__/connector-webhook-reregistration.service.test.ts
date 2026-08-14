@@ -387,6 +387,32 @@ describe('#262 re-registration — where the retry stops', () => {
     expect(releaseConnectionWebhookRegistration).toHaveBeenCalledTimes(1);
   });
 
+  it('DEAD-LETTERS a repeatedly-THROWING registration having recorded NO refusal', async () => {
+    // The premise the dashboard's `deriveWebhookDelivery` ordering rests on, and
+    // it is the reason that ordering is not a preference: a throw is caught before
+    // `recordConnectionWebhookRegistration` is reached, so it writes no ids AND no
+    // per-topic rows. Once the budget drains, the connection is `dead_letter`
+    // while `webhookFailures` is EMPTY — so a client keying its headline on the
+    // refusal list renders a channel Mercaria has given up on as healthy.
+    claimConnectionWebhookRegistration.mockResolvedValue(connection(12));
+    registerWebhooks.mockRejectedValue(new Error('provider exploded'));
+
+    const outcome = await reregisterConnectionWebhooks('store-1', 'conn-1', {
+      countsAsAttempt: true,
+    });
+
+    expect(outcome).toBe('dead_lettered');
+    expect(
+      releaseConnectionWebhookRegistration.mock.calls[0][0],
+    ).toEqual(expect.objectContaining({ deadLettered: true }));
+    // The half that makes the state ambiguous to a client: nothing was recorded,
+    // so there is no topic to name and no refusal row to key a headline on.
+    expect(
+      recordConnectionWebhookRegistration,
+      'a thrown registration must write nothing at all',
+    ).not.toHaveBeenCalled();
+  });
+
   it('RELEASES the lease when the CREDENTIAL will not resolve', async () => {
     // The credential read is inside the lease on purpose: an envelope that will
     // not decrypt is a real failure the backoff and the budget must see, not an
