@@ -239,138 +239,155 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
     }, 120_000);
 
     afterAll(async () => {
-      for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
-
-      // Children first: every intra-graph key here is RESTRICT, and the rights
-      // trigger is DEFERRED so a half-torn-down source would raise at commit.
-      // The OBJECTS go before the offers they point at: `offer_id` is a
-      // RESTRICT foreign key, which is the whole reason an offer is retired and
-      // never deleted in production.
-      await db
-        .delete(catalogSourceObjects)
-        .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));
-      await db
-        .delete(offers)
-        .where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
-      await db
-        .delete(catalogSourceRejections)
-        .where(inArray(catalogSourceRejections.sourceId, safeIds(createdSourceIds)));
-      await db
-        .delete(catalogSourceRuns)
-        .where(inArray(catalogSourceRuns.sourceId, safeIds(createdSourceIds)));
-      await db
-        .delete(canonicalVariantSourceLinks)
-        .where(inArray(canonicalVariantSourceLinks.variantId, safeIds(createdVariantIds)));
-      await db
-        .delete(canonicalProductSourceLinks)
-        .where(inArray(canonicalProductSourceLinks.productId, safeIds(createdProductIds)));
-      // #68's baseline and quarantine rows go FIRST: a clean run adopts its
-      // distribution as the source's baseline, and both tables reference the
-      // registry row the teardown is about to remove.
-      await db
-        .delete(catalogSourceRunQuarantines)
-        .where(inArray(catalogSourceRunQuarantines.sourceId, safeIds(createdSourceIds)));
-      await db
-        .delete(catalogSourceDistributions)
-        .where(inArray(catalogSourceDistributions.sourceId, safeIds(createdSourceIds)));
-      // Scoped to THIS file's own observations rather than to a policy version.
-      //
-      // Since #63 added a second contract runner, two files share one active
-      // policy (see `ensureMatchPolicy`), so "every decision under this policy"
-      // reaches into a run in progress — and it fails loudly, because that run's
-      // `catalog_source_objects` still cite the decisions it would delete. The
-      // source records ARE file-scoped, so they are the right handle.
-      const ownRecordIds = (
-        await db
-          .select({ id: sourceRecords.id })
-          .from(sourceRecords)
-          .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)))
-      ).map((row) => row.id);
-      await db
-        .delete(matchDecisions)
-        .where(inArray(matchDecisions.sourceRecordId, safeIds(ownRecordIds)));
-      await db
-        .delete(sourceRecords)
-        .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
-      // The policies must go before the configs, and the configs before the
-      // registry rows — but the rights trigger compares them, so the config is
-      // removed FIRST: with no config the trigger returns early and a source
-      // with orphaned rights is no longer a contradiction.
-      await db
-        .delete(catalogSourceConfigs)
-        .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
       /**
-       * The disable/delete/enable window is taken under a SESSION ADVISORY
-       * LOCK (#68).
+       * The whole teardown, inside the region that closes the pool (#272).
        *
-       * `alter table … disable trigger` is DATABASE-WIDE and every realdb file
-       * shares one server, so two files inside this window at once leave one of
-       * them deleting against a trigger the other has just re-enabled —
-       * measured, as a teardown failure naming a trigger the test had disabled
-       * two statements earlier. The key's VALUE means nothing; its SAMENESS
-       * across every file that does this is the whole mechanism.
-       */
-      await db.execute(sql`select pg_advisory_lock(6820068)`);
-      try {
-        await db.execute(
-          sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
-        );
-        await db
-          .delete(catalogSourcePolicies)
-          .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
-        await db.execute(
-          sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
-        );
-      } finally {
-        await db.execute(sql`select pg_advisory_unlock(6820068)`);
-      }
-      await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
-      await db
-        .delete(productIdentifiers)
-        .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
-      await deleteTestCanonicalRows(db, {
-        variantIds: createdVariantIds,
-        productIds: createdProductIds,
-      });
-      await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
-      // The policy version goes LAST, and only if nothing still cites it.
-      //
-      // Another contract file may have BORROWED it (see `ensureMatchPolicy`),
-      // and its decisions are not this file's to delete — so a policy with
-      // surviving references is left alone rather than removed out from under a
-      // run in progress. The database is a throwaway per suite run, so the cost
-      // of leaving it is nothing; the cost of removing it is the other file's
-      // teardown failing on a foreign key.
-      const stillCited = (
-        await db
-          .select({ id: matchDecisions.id })
-          .from(matchDecisions)
-          .where(inArray(matchDecisions.policyVersionId, safeIds(createdPolicyIds)))
-          .limit(1)
-      ).length;
-      if (stillCited === 0) {
-        await db.execute(
-          sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
-        );
-        await db
-          .delete(matchPolicyVersions)
-          .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
-        await db.execute(
-          sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
-        );
-      }
-      /**
-       * NESTED, because `release()` can throw and `closePostgres` is what
-       * actually ends the hold — see `active-policy-slot.ts` and #272. A
-       * check-in returns the connection to the pool without ending the session,
-       * so an unlock that threw here would strand the slot for every other
-       * claimant, on a socket vitest reuses for the next file in the worker.
-       * Three contract files run this suite, so the stranding would be theirs.
+       * The release was already nested. What was NOT protected was everything
+       * above it: a `23503` anywhere in the deletes below — a measured failure
+       * mode in this suite (#270) — aborts the hook before the release and before
+       * `closePostgres()`, which is the only thing that ends a session-level
+       * advisory lock. The slot then stays held on a socket vitest reuses for the
+       * next file in the worker, and every other claimant blocks its full
+       * `beforeAll` budget on a file that did nothing wrong.
+       *
+       * `slot-teardown-census.test.ts` requires this `try` to be the hook's FIRST
+       * statement, so the protected region cannot silently shrink again.
        */
       try {
-        await policySlot?.release();
+        for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
+
+        // Children first: every intra-graph key here is RESTRICT, and the rights
+        // trigger is DEFERRED so a half-torn-down source would raise at commit.
+        // The OBJECTS go before the offers they point at: `offer_id` is a
+        // RESTRICT foreign key, which is the whole reason an offer is retired and
+        // never deleted in production.
+        await db
+          .delete(catalogSourceObjects)
+          .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));
+        await db
+          .delete(offers)
+          .where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
+        await db
+          .delete(catalogSourceRejections)
+          .where(inArray(catalogSourceRejections.sourceId, safeIds(createdSourceIds)));
+        await db
+          .delete(catalogSourceRuns)
+          .where(inArray(catalogSourceRuns.sourceId, safeIds(createdSourceIds)));
+        await db
+          .delete(canonicalVariantSourceLinks)
+          .where(inArray(canonicalVariantSourceLinks.variantId, safeIds(createdVariantIds)));
+        await db
+          .delete(canonicalProductSourceLinks)
+          .where(inArray(canonicalProductSourceLinks.productId, safeIds(createdProductIds)));
+        // #68's baseline and quarantine rows go FIRST: a clean run adopts its
+        // distribution as the source's baseline, and both tables reference the
+        // registry row the teardown is about to remove.
+        await db
+          .delete(catalogSourceRunQuarantines)
+          .where(inArray(catalogSourceRunQuarantines.sourceId, safeIds(createdSourceIds)));
+        await db
+          .delete(catalogSourceDistributions)
+          .where(inArray(catalogSourceDistributions.sourceId, safeIds(createdSourceIds)));
+        // Scoped to THIS file's own observations rather than to a policy version.
+        //
+        // Since #63 added a second contract runner, two files share one active
+        // policy (see `ensureMatchPolicy`), so "every decision under this policy"
+        // reaches into a run in progress — and it fails loudly, because that run's
+        // `catalog_source_objects` still cite the decisions it would delete. The
+        // source records ARE file-scoped, so they are the right handle.
+        const ownRecordIds = (
+          await db
+            .select({ id: sourceRecords.id })
+            .from(sourceRecords)
+            .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)))
+        ).map((row) => row.id);
+        await db
+          .delete(matchDecisions)
+          .where(inArray(matchDecisions.sourceRecordId, safeIds(ownRecordIds)));
+        await db
+          .delete(sourceRecords)
+          .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
+        // The policies must go before the configs, and the configs before the
+        // registry rows — but the rights trigger compares them, so the config is
+        // removed FIRST: with no config the trigger returns early and a source
+        // with orphaned rights is no longer a contradiction.
+        await db
+          .delete(catalogSourceConfigs)
+          .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
+        /**
+         * The disable/delete/enable window is taken under a SESSION ADVISORY
+         * LOCK (#68).
+         *
+         * `alter table … disable trigger` is DATABASE-WIDE and every realdb file
+         * shares one server, so two files inside this window at once leave one of
+         * them deleting against a trigger the other has just re-enabled —
+         * measured, as a teardown failure naming a trigger the test had disabled
+         * two statements earlier. The key's VALUE means nothing; its SAMENESS
+         * across every file that does this is the whole mechanism.
+         */
+        await db.execute(sql`select pg_advisory_lock(6820068)`);
+        try {
+          await db.execute(
+            sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
+          );
+          await db
+            .delete(catalogSourcePolicies)
+            .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
+          await db.execute(
+            sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+          );
+        } finally {
+          await db.execute(sql`select pg_advisory_unlock(6820068)`);
+        }
+        await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
+        await db
+          .delete(productIdentifiers)
+          .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
+        await deleteTestCanonicalRows(db, {
+          variantIds: createdVariantIds,
+          productIds: createdProductIds,
+        });
+        await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
+        // The policy version goes LAST, and only if nothing still cites it.
+        //
+        // Another contract file may have BORROWED it (see `ensureMatchPolicy`),
+        // and its decisions are not this file's to delete — so a policy with
+        // surviving references is left alone rather than removed out from under a
+        // run in progress. The database is a throwaway per suite run, so the cost
+        // of leaving it is nothing; the cost of removing it is the other file's
+        // teardown failing on a foreign key.
+        const stillCited = (
+          await db
+            .select({ id: matchDecisions.id })
+            .from(matchDecisions)
+            .where(inArray(matchDecisions.policyVersionId, safeIds(createdPolicyIds)))
+            .limit(1)
+        ).length;
+        if (stillCited === 0) {
+          await db.execute(
+            sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+          );
+          await db
+            .delete(matchPolicyVersions)
+            .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
+          await db.execute(
+            sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+          );
+        }
+        /**
+         * NESTED, because `release()` can throw and `closePostgres` is what
+         * actually ends the hold — see `active-policy-slot.ts` and #272. A
+         * check-in returns the connection to the pool without ending the session,
+         * so an unlock that threw here would strand the slot for every other
+         * claimant, on a socket vitest reuses for the next file in the worker.
+         * Three contract files run this suite, so the stranding would be theirs.
+         */
       } finally {
-        await closePostgres();
+        try {
+          await policySlot?.release();
+        } finally {
+          await closePostgres();
+        }
       }
     });
 

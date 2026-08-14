@@ -124,8 +124,15 @@ function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//gu, '').replace(/\/\/[^\n]*/gu, '');
 }
 
-/** Does any call inside this node close the pool? */
-function closesThePool(node: ts.Node): boolean {
+/**
+ * A call to `closePostgres` anywhere in this node's subtree.
+ *
+ * Used ONLY to find the outermost protecting region, where "the pool is closed
+ * somewhere in here" is the right question — `awin-writes` and
+ * `adapter-contract-suite` close it through a nested `try`, so a directness
+ * requirement would reject the shape this file asks them to adopt.
+ */
+function closesSomewhere(node: ts.Node): boolean {
   let found = false;
   const visit = (child: ts.Node): void => {
     if (found) return;
@@ -139,6 +146,28 @@ function closesThePool(node: ts.Node): boolean {
   return found;
 }
 
+/**
+ * A `closePostgres` call that is a TOP-LEVEL statement of this block.
+ *
+ * Used for the region that protects a RELEASE, where the subtree question is
+ * too weak: a call buried in an `if`, a `catch` handler or a loop is reached on
+ * some paths and not others, and the subtree walk cannot tell the difference —
+ * it would report `finally { if (rare) await closePostgres(); }` as protection.
+ * Every holder spells this as one bare statement, so requiring it costs nothing
+ * and closes the gap.
+ */
+function closesDirectly(block: ts.Block): boolean {
+  return block.statements.some((statement) => {
+    if (!ts.isExpressionStatement(statement)) return false;
+    const expression = ts.isAwaitExpression(statement.expression)
+      ? statement.expression.expression
+      : statement.expression;
+    return (
+      ts.isCallExpression(expression) && expression.expression.getText().endsWith(CLOSES_THE_POOL)
+    );
+  });
+}
+
 /** Is `node` a descendant of `ancestor`? */
 function isWithin(node: ts.Node, ancestor: ts.Node): boolean {
   for (let current: ts.Node | undefined = node; current; current = current.parent) {
@@ -148,19 +177,60 @@ function isWithin(node: ts.Node, ancestor: ts.Node): boolean {
 }
 
 /**
- * A `<something>.release()` call, and whether it is protected.
+ * The nearest enclosing function, or `undefined` at the top level.
  *
- * PROTECTED means: some ancestor `try/finally` has this call inside its TRY
- * block and closes the pool in its FINALLY. Transitive on purpose —
- * `ebay-ingestion.realdb.test.ts` releases inside an inner `finally` (so that a
- * throwing `releaseMatchPolicy()` above it cannot skip the early release), and
- * that inner block is itself inside the outer `try` whose `finally` closes the
+ * `isWithin` is lexical, not control-flow aware, so a release DEFINED inside a
+ * try and INVOKED after it reads as protected:
+ *
+ * ```ts
+ * try { deferred = async () => { await slot.release(); }; }
+ * finally { await closePostgres(); }
+ * await deferred();   // runs after the pool is already closed
+ * ```
+ *
+ * Requiring the release and its protecting `try` to sit in the SAME function
+ * rejects that, and no holder is affected: every one of them releases directly
+ * in the hook body.
+ */
+function enclosingFunction(node: ts.Node): ts.Node | undefined {
+  for (let current: ts.Node | undefined = node.parent; current; current = current.parent) {
+    if (
+      ts.isArrowFunction(current) ||
+      ts.isFunctionExpression(current) ||
+      ts.isFunctionDeclaration(current) ||
+      ts.isMethodDeclaration(current)
+    ) {
+      return current;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * A `<something>.release()` call, and what protects it.
+ *
+ * `protectedByFinally` means: some ancestor `try` has this call inside its TRY
+ * block or its CATCH clause, sits in the same function, and closes the pool as
+ * a direct statement of its FINALLY. Transitive on the try side, because
+ * `ebay-ingestion.realdb.test.ts` releases inside an INNER `finally` — so that
+ * a throwing `releaseMatchPolicy()` above it cannot skip the early release —
+ * and that block is itself inside the outer `try` whose `finally` closes the
  * pool. Requiring the release to sit directly in a try block would fail that
- * file for being more careful than the rule.
+ * file for being more careful than the rule. The catch clause is included for
+ * the opposite reason: `try {…} catch { await slot.release(); } finally {
+ * await closePostgres(); }` is safe, and rejecting it was why nobody could
+ * write the natural `try/catch/finally`.
+ *
+ * `outermostProtectingIsFirst` is the wider property, and it is the one the
+ * census docblock always claimed: everything in the hook runs inside a region
+ * that closes the pool, so a `23503` in the teardown cannot abort short of it.
+ * `null` when there is no protecting region at all, or when it is not a direct
+ * statement of a hook body — the shapes the offender list already reports.
  */
 interface ReleaseSite {
   readonly line: number;
   readonly protectedByFinally: boolean;
+  readonly outermostProtectingIsFirst: boolean | null;
 }
 
 function releaseSites(file: string, source: string): ReleaseSite[] {
@@ -174,19 +244,36 @@ function releaseSites(file: string, source: string): ReleaseSite[] {
         ts.isElementAccessExpression(node.expression)) &&
       node.expression.getText().endsWith('.release')
     ) {
+      const home = enclosingFunction(node);
       let protectedByFinally = false;
+      let outermost: ts.TryStatement | undefined;
       for (let current: ts.Node | undefined = node; current; current = current.parent) {
         if (!ts.isTryStatement(current)) continue;
         if (!current.finallyBlock) continue;
-        if (!isWithin(node, current.tryBlock)) continue;
-        if (closesThePool(current.finallyBlock)) {
-          protectedByFinally = true;
-          break;
-        }
+        if (closesSomewhere(current.finallyBlock)) outermost = current;
+        if (protectedByFinally) continue;
+        const inGuardedRegion =
+          isWithin(node, current.tryBlock) ||
+          (current.catchClause !== undefined && isWithin(node, current.catchClause));
+        if (!inGuardedRegion) continue;
+        if (enclosingFunction(current) !== home) continue;
+        if (closesDirectly(current.finallyBlock)) protectedByFinally = true;
       }
+
+      let outermostProtectingIsFirst: boolean | null = null;
+      if (outermost !== undefined) {
+        const block = outermost.parent;
+        const isHookBody =
+          ts.isBlock(block) &&
+          block.parent !== undefined &&
+          (ts.isArrowFunction(block.parent) || ts.isFunctionExpression(block.parent));
+        outermostProtectingIsFirst = isHookBody ? block.statements[0] === outermost : null;
+      }
+
       sites.push({
         line: parsed.getLineAndCharacterOfPosition(node.getStart(parsed)).line + 1,
         protectedByFinally,
+        outermostProtectingIsFirst,
       });
     }
     ts.forEachChild(node, visit);
@@ -239,6 +326,31 @@ describe('the slot teardown census', () => {
     expect(
       offenders,
       'a slot release can abort before closePostgres(); returning the reserved connection does NOT end the hold, so nest it: try { await slot.release() } finally { await closePostgres() }',
+    ).toEqual([]);
+  });
+
+  it('runs the WHOLE teardown inside the region that closes the pool', () => {
+    // The wider property, and the one this file's header always claimed: "a
+    // holder whose pg_advisory_unlock throws — OR WHOSE TEARDOWN RAISES A 23503
+    // BEFORE IT GETS THERE — aborts its hook one statement short". The
+    // assertion above only checks the release; it says nothing about what runs
+    // above the `try`, and in two holders that was the entire teardown (35
+    // statements in awin-writes, 21 in adapter-contract-suite). A `23503` on the
+    // canonical deletes is a measured failure mode in this suite (#270), so the
+    // unprotected region was not hypothetical.
+    //
+    // The rule is that the OUTERMOST protecting `try` is the hook's FIRST
+    // statement. Five holders already satisfied it; the two that did not are
+    // exactly the two whose teardown sat above it.
+    const offenders: string[] = [];
+    for (const file of holders) {
+      for (const site of releaseSites(file, sources.get(file) ?? '')) {
+        if (site.outermostProtectingIsFirst === false) offenders.push(`${file}:${site.line}`);
+      }
+    }
+    expect(
+      offenders,
+      'statements run before the region that closes the pool; a 23503 there strands the slot, so wrap the whole hook: try { …teardown… } finally { try { await slot.release() } finally { await closePostgres() } }',
     ).toEqual([]);
   });
 
@@ -328,6 +440,107 @@ describe('the slot teardown census', () => {
       });
     `);
     expect(inverted[0]?.protectedByFinally, 'releasing after the close read as safe').toBe(false);
+
+    // A CONDITIONAL close is not protection. The subtree walk cannot tell a
+    // statement from one buried in an `if`, so `closesDirectly` is what rejects
+    // this — and without it the census would have reported a hook that closes
+    // the pool on some paths as fully protected.
+    const conditional = probe(`
+      afterAll(async () => {
+        try {
+          await policySlot?.release();
+        } finally {
+          if (rare) {
+            await closePostgres();
+          }
+        }
+      });
+    `);
+    expect(conditional[0]?.protectedByFinally, 'a conditional close read as safe').toBe(false);
+
+    // A release DEFINED inside the try and INVOKED after it. Lexically it sits
+    // in the try block, so the containment check alone reports it protected;
+    // dynamically it runs once the pool is already closed.
+    const deferred = probe(`
+      afterAll(async () => {
+        let run;
+        try {
+          run = async () => { await policySlot?.release(); };
+        } finally {
+          await closePostgres();
+        }
+        await run();
+      });
+    `);
+    expect(deferred[0]?.protectedByFinally, 'a deferred release read as safe').toBe(false);
+
+    // A release in a CATCH whose finally closes IS safe, and rejecting it was
+    // why nobody could write the natural try/catch/finally.
+    const caught = probe(`
+      afterAll(async () => {
+        try {
+          await teardown();
+        } catch (error) {
+          await policySlot?.release();
+        } finally {
+          await closePostgres();
+        }
+      });
+    `);
+    expect(caught[0]?.protectedByFinally, 'a release in a catch read as unsafe').toBe(true);
+  });
+
+  it('detects a teardown that runs before the protecting region', () => {
+    const probe = (body: string): ReleaseSite[] => releaseSites('probe.ts', body);
+
+    // The shape the two holders had: everything above a correctly nested
+    // release, so a throw in the teardown never reaches the close.
+    const above = probe(`
+      afterAll(async () => {
+        await db.delete(someTable).where(x);
+        try {
+          await policySlot?.release();
+        } finally {
+          await closePostgres();
+        }
+      });
+    `);
+    expect(above[0]?.protectedByFinally, 'the release itself is still nested').toBe(true);
+    expect(above[0]?.outermostProtectingIsFirst, 'statements above the region read as safe').toBe(
+      false,
+    );
+
+    // The shape they now have, and `ebay-ingestion`'s: the whole hook inside a
+    // region whose finally closes the pool through a nested try. The outer
+    // finally closes only in its SUBTREE, which is why that side of the rule
+    // asks the weaker question.
+    const wrapped = probe(`
+      afterAll(async () => {
+        try {
+          await db.delete(someTable).where(x);
+        } finally {
+          try {
+            await policySlot?.release();
+          } finally {
+            await closePostgres();
+          }
+        }
+      });
+    `);
+    expect(wrapped[0]?.protectedByFinally).toBe(true);
+    expect(wrapped[0]?.outermostProtectingIsFirst, 'the wrapped shape read as unsafe').toBe(true);
+
+    // No protecting region at all reports `null` rather than `false`: that file
+    // is already named by the offender list above, and reporting it twice would
+    // make one defect look like two.
+    const bare = probe(`
+      afterAll(async () => {
+        await policySlot?.release();
+        await closePostgres();
+      });
+    `);
+    expect(bare[0]?.protectedByFinally).toBe(false);
+    expect(bare[0]?.outermostProtectingIsFirst).toBeNull();
   });
 
   it('does not mistake an unrelated call for a slot release', () => {
