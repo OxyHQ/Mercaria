@@ -24,6 +24,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
+import { log } from '../../lib/logger.js';
+import { planCanonicalTeardown } from './canonical-teardown.js';
 import { brands } from '../schema/organizations.js';
 import { categories } from '../schema/catalog.js';
 import { catalogSources, sourceRecords } from '../schema/provenance.js';
@@ -163,6 +165,23 @@ afterAll(async () => {
       .where(inArray(canonicalVariants.productId, createdProductIds.length ? createdProductIds : ['']))
   ).map((row) => row.id);
 
+  // A SIBLING file's matcher may have recorded a `match_decisions` row citing one
+  // of these ids — its retrieval is a trigram search over every canonical
+  // product, correctly global — and both citing columns are ON DELETE restrict.
+  // Those ids are therefore declined rather than deleted, and the sibling's row
+  // is never touched. See `canonical-teardown.ts` for why that direction, and for
+  // the consequence (a retained fixture outlives this file).
+  const plan = await planCanonicalTeardown(db, { variantIds, productIds: createdProductIds });
+  if (plan.retainedVariantIds.length > 0 || plan.retainedProductIds.length > 0) {
+    log.general.warn(
+      {
+        retainedVariantIds: plan.retainedVariantIds,
+        retainedProductIds: plan.retainedProductIds,
+      },
+      '[canonical-catalog fixtures] retained canonical rows a sibling match decision cites',
+    );
+  }
+
   if (variantIds.length > 0) {
     await db.delete(bundleComponents).where(inArray(bundleComponents.bundleVariantId, variantIds));
     await db.delete(productIdentifiers).where(inArray(productIdentifiers.variantId, variantIds));
@@ -195,12 +214,13 @@ afterAll(async () => {
     await db.delete(supplierEvents).where(inArray(supplierEvents.supplierId, createdSupplierIds));
     await db.delete(suppliers).where(inArray(suppliers.id, createdSupplierIds));
   }
-  if (variantIds.length > 0) {
+  if (plan.deletableVariantIds.length > 0) {
+    const deletable = [...plan.deletableVariantIds];
     await db
       .update(canonicalVariants)
       .set({ status: 'active', mergedIntoId: null })
-      .where(inArray(canonicalVariants.id, variantIds));
-    await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, variantIds));
+      .where(inArray(canonicalVariants.id, deletable));
+    await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, deletable));
   }
   if (createdProductIds.length > 0) {
     await db
@@ -229,11 +249,14 @@ afterAll(async () => {
     await db
       .delete(reviewAggregates)
       .where(inArray(reviewAggregates.canonicalProductId, createdProductIds));
-    await db
-      .update(canonicalProducts)
-      .set({ status: 'active', mergedIntoId: null })
-      .where(inArray(canonicalProducts.id, createdProductIds));
-    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, createdProductIds));
+    if (plan.deletableProductIds.length > 0) {
+      const deletable = [...plan.deletableProductIds];
+      await db
+        .update(canonicalProducts)
+        .set({ status: 'active', mergedIntoId: null })
+        .where(inArray(canonicalProducts.id, deletable));
+      await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, deletable));
+    }
   }
   if (createdFamilyIds.length > 0) {
     await db
