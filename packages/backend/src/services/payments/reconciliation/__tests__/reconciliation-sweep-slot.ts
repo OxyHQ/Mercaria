@@ -54,8 +54,45 @@
  * finding — the claim is about what the sweep does not write, so a sweep that
  * never looked would pass it vacuously.
  *
- * `reconciliation-sweep-slot.test.ts` fails the build if a third realdb file
- * starts writing or reading `payment_discrepancies` without taking this lock.
+ * ## The gate is keyed on the TABLE, not on the sweep — and THREE files drive one
+ *
+ * `reconciliation-sweep-slot.test.ts` fails the build if a realdb file starts
+ * writing or reading `payment_discrepancies` without taking this lock. That is
+ * the whole rule, and it is why the gate legitimately finds TWO holders while
+ * three files drive a globally-widened sweep. Stating the third here rather than
+ * leaving it to be inferred: a guard held by some claimants and skipped by
+ * others is worse than no guard, so the exemption needs a reason and a trigger.
+ *
+ * `stripe/__tests__/account.service.realdb.test.ts:611` and `:625` and
+ * `stripe/__tests__/stripe-ingress.realdb.test.ts:988` call
+ * `reconcileStaleAccounts({ staleAfterMs: -1, … })`. That is the SAME widened
+ * shape as the defect this lock exists for: `account-reconciler.ts:102` computes
+ * `staleBefore = new Date(Date.now() - staleAfterMs)`, so a NEGATIVE age is
+ * `now + 1 ms` and `findStaleProviderAccounts` selects EVERY stripe
+ * `provider_accounts` row in the database, including a sibling file's.
+ *
+ * They still need no lock, for two measured reasons:
+ *
+ * 1. `account-reconciler.ts` contains ZERO `reportDiscrepancy(` calls. Reporting
+ *    lives one layer up, in the #50 wrapper `reconcileAccountReadiness`
+ *    (`account-readiness.job.ts`, 2 calls), and no realdb file drives that.
+ * 2. A foreign row's sync THROWS before it can write. `syncAccountRow` is
+ *    `retrieveStripeAccount` then `applyAccountSnapshot` — the read first, the
+ *    write second — and both files' fakes throw
+ *    `No fake account registered for <id>` for an id they did not register. The
+ *    catch at `account-reconciler.ts:129-139` is `failed += 1`, an IN-MEMORY
+ *    `observations.push` and a log line: no database write at all. So they burn
+ *    a counter over foreign rows and mutate none of them.
+ *
+ * **The trigger that would change that**, either half of it:
+ *
+ * - a realdb file driving `reconcileAccountReadiness` (or `runReconciliationJob`,
+ *   which dispatches to it) — that path DOES report, so it becomes a toucher and
+ *   must hold this lock; or
+ * - a fake that ANSWERS for an id it did not register. `syncAccountRow` would
+ *   then reach `applyAccountSnapshot` and apply Stripe state to another file's
+ *   account row — a write the two reasons above currently rule out, and the one
+ *   that would make these files claimants rather than bystanders.
  */
 
 import type { Database } from '../../../../db/postgres.js';
