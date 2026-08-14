@@ -23,6 +23,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import type { CurrencyCode } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, getDb, type Database } from '../../db/postgres.js';
+import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import {
   referralAttributions,
   referralCampaignBudgets,
@@ -173,23 +174,48 @@ afterAll(async () => {
     ...trackedPartnerIds,
   ];
 
-  // Append-only tables are dropped by DISABLING their triggers for the
-  // statement, exactly as the sibling realdb files do: the trigger is the
-  // production guarantee, and a fixture that could not clean up would leave the
-  // shared database growing between runs.
+  /**
+   * Seven append-only guards stand between this fixture and its own rows —
+   * every one of them `BEFORE UPDATE OR DELETE`, so a teardown DELETE fires it
+   * — and each is switched off inside `withTriggerToggleLock`, on the
+   * callback's own `tx`.
+   *
+   * The trigger is the production guarantee and a fixture that could not clean
+   * up would leave the shared database growing between runs, so the window has
+   * to exist. What it must not be is a window on the POOL: `alter table …
+   * disable trigger` is DATABASE-WIDE and one throwaway database serves the
+   * whole suite, so two files inside a window at once leave one of them
+   * deleting against a trigger the other has just switched back on — and pooled
+   * DDL AUTOCOMMITS, so a throw between the disable and the enable strands the
+   * trigger off for the rest of the run, after which every later file asserting
+   * it refuses a write passes VACUOUSLY. Inside the transaction the DDL rolls
+   * back with everything else and the lock is released by the commit or the
+   * abort.
+   *
+   * The windows are as narrow as the ordering allows — only the disables, the
+   * deletes that need them and the matching enables are inside, and every
+   * select and every unguarded delete stays outside on `db`, in the order it
+   * was already in. Two pairs share ONE window, because each is a children-first
+   * delete over its own parent and a second window there buys nothing but a
+   * second round trip on a mutex the whole suite queues on: the adjustments and
+   * the rewards they hang off here, the ledger entries and their transactions
+   * below.
+   */
   if (rewardIds.length > 0) {
-    await db.execute(
-      sql`alter table referral_reward_adjustments disable trigger referral_reward_adjustments_append_only`,
-    );
-    await db
-      .delete(referralRewardAdjustments)
-      .where(inArray(referralRewardAdjustments.rewardId, rewardIds));
-    await db.execute(
-      sql`alter table referral_reward_adjustments enable trigger referral_reward_adjustments_append_only`,
-    );
-    await db.execute(sql`alter table referral_rewards disable trigger referral_rewards_frozen`);
-    await db.delete(referralRewards).where(inArray(referralRewards.id, rewardIds));
-    await db.execute(sql`alter table referral_rewards enable trigger referral_rewards_frozen`);
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table referral_reward_adjustments disable trigger referral_reward_adjustments_append_only`,
+      );
+      await tx
+        .delete(referralRewardAdjustments)
+        .where(inArray(referralRewardAdjustments.rewardId, rewardIds));
+      await tx.execute(
+        sql`alter table referral_reward_adjustments enable trigger referral_reward_adjustments_append_only`,
+      );
+      await tx.execute(sql`alter table referral_rewards disable trigger referral_rewards_frozen`);
+      await tx.delete(referralRewards).where(inArray(referralRewards.id, rewardIds));
+      await tx.execute(sql`alter table referral_rewards enable trigger referral_rewards_frozen`);
+    });
   }
   if (eventSubjectIds.length > 0) {
     await db.delete(referralEvents).where(inArray(referralEvents.subjectId, eventSubjectIds));
@@ -207,22 +233,33 @@ afterAll(async () => {
     await db.delete(referralCodes).where(inArray(referralCodes.id, codeIds));
   }
   if (ruleVersionIds.length > 0) {
-    await db.execute(
-      sql`alter table referral_reward_rules disable trigger referral_reward_rules_immutable_once_active`,
-    );
-    await db.delete(referralRewardRules).where(inArray(referralRewardRules.id, ruleVersionIds));
-    await db.execute(
-      sql`alter table referral_reward_rules enable trigger referral_reward_rules_immutable_once_active`,
-    );
+    // A rule version that ever left `draft` refuses its own DELETE. Its own
+    // window: the events, conversions, attributions, touches and codes above
+    // are deleted between this and the rewards, and pulling them under ACCESS
+    // EXCLUSIVE would widen the hold for nothing.
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table referral_reward_rules disable trigger referral_reward_rules_immutable_once_active`,
+      );
+      await tx.delete(referralRewardRules).where(inArray(referralRewardRules.id, ruleVersionIds));
+      await tx.execute(
+        sql`alter table referral_reward_rules enable trigger referral_reward_rules_immutable_once_active`,
+      );
+    });
   }
   if (budgetIds.length > 0) {
-    await db.execute(
-      sql`alter table referral_campaign_budgets disable trigger referral_campaign_budgets_guard`,
-    );
-    await db.delete(referralCampaignBudgets).where(inArray(referralCampaignBudgets.id, budgetIds));
-    await db.execute(
-      sql`alter table referral_campaign_budgets enable trigger referral_campaign_budgets_guard`,
-    );
+    // And the budgets keep their own, though they sit next to the rules: the
+    // two guards protect unrelated tables and either branch can be the only one
+    // taken, so one window would lock a table this run may not be touching.
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table referral_campaign_budgets disable trigger referral_campaign_budgets_guard`,
+      );
+      await tx.delete(referralCampaignBudgets).where(inArray(referralCampaignBudgets.id, budgetIds));
+      await tx.execute(
+        sql`alter table referral_campaign_budgets enable trigger referral_campaign_budgets_guard`,
+      );
+    });
   }
   if (trackedPartnerIds.length > 0) {
     await db.delete(referralPartners).where(inArray(referralPartners.id, trackedPartnerIds));
@@ -238,27 +275,37 @@ afterAll(async () => {
         .where(inArray(ledgerTransactions.paymentId, trackedPaymentIds))
     ).map((row) => row.id);
     if (txIds.length > 0) {
-      await db.execute(sql`alter table ledger_entries disable trigger ledger_entries_append_only`);
-      await db.delete(ledgerEntries).where(inArray(ledgerEntries.transactionId, txIds));
-      await db.execute(sql`alter table ledger_entries enable trigger ledger_entries_append_only`);
-      await db.execute(
-        sql`alter table ledger_transactions disable trigger ledger_transactions_append_only`,
-      );
-      await db.delete(ledgerTransactions).where(inArray(ledgerTransactions.id, txIds));
-      await db.execute(
-        sql`alter table ledger_transactions enable trigger ledger_transactions_append_only`,
-      );
+      // The second shared window: entries name their transaction, so the two
+      // deletes are one children-first pair. The `payments` delete below stays
+      // outside — nothing guards it, and the transactions naming those payments
+      // are already gone by the time this commits.
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(sql`alter table ledger_entries disable trigger ledger_entries_append_only`);
+        await tx.delete(ledgerEntries).where(inArray(ledgerEntries.transactionId, txIds));
+        await tx.execute(sql`alter table ledger_entries enable trigger ledger_entries_append_only`);
+        await tx.execute(
+          sql`alter table ledger_transactions disable trigger ledger_transactions_append_only`,
+        );
+        await tx.delete(ledgerTransactions).where(inArray(ledgerTransactions.id, txIds));
+        await tx.execute(
+          sql`alter table ledger_transactions enable trigger ledger_transactions_append_only`,
+        );
+      });
     }
     await db.delete(payments).where(inArray(payments.id, trackedPaymentIds));
   }
   if (trackedOrderIds.length > 0) {
-    await db.execute(
-      sql`alter table order_fee_snapshots disable trigger order_fee_snapshots_append_only`,
-    );
-    await db.delete(orderFeeSnapshots).where(inArray(orderFeeSnapshots.orderId, trackedOrderIds));
-    await db.execute(
-      sql`alter table order_fee_snapshots enable trigger order_fee_snapshots_append_only`,
-    );
+    // The last one, alone: the `payments` delete above is between it and the
+    // ledger window, and it shares no parent with anything.
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table order_fee_snapshots disable trigger order_fee_snapshots_append_only`,
+      );
+      await tx.delete(orderFeeSnapshots).where(inArray(orderFeeSnapshots.orderId, trackedOrderIds));
+      await tx.execute(
+        sql`alter table order_fee_snapshots enable trigger order_fee_snapshots_append_only`,
+      );
+    });
   }
   await closePostgres();
 });

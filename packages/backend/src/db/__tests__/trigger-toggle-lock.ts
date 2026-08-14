@@ -1,23 +1,33 @@
 /**
- * The one mutex a realdb teardown takes before toggling a trigger — where one
- * is taken at all. It is NOT yet true that every such teardown takes one.
+ * The one mutex every realdb teardown takes before toggling a trigger.
  *
- * ## The exception, stated rather than implied
+ * That sentence is enforced rather than promised, and this header is not where
+ * it is checked: `db/__tests__/advisory-lock-census.test.ts` fails the build on
+ * an `alter table … disable trigger` outside a `withTriggerToggleLock` callback
+ * — or inside one but issued on `db`, which is the failure wearing the fix's
+ * clothes — with no exemption available. It was NOT true when this module
+ * landed (#275): ten files carried twenty-five windows taking no lock at all,
+ * enumerated in an exact-count list here until #283 closed the last of them.
+ * Nothing recomputes prose, which is why the claim above is a restatement of a
+ * gate and not a fact this file asserts.
  *
- * Not every teardown that opens such a window takes this lock yet. Which ones
- * do not is #283's, and this header deliberately does not say: the SINGLE
- * authority is `UNLOCKED_TRIGGER_WINDOWS` in
- * `db/__tests__/advisory-lock-census.test.ts`, an exact-count exemption list
- * whose own length is asserted, so the gap cannot widen and closing one means
- * deleting an entry. That list is MEASURED, by running the rule with an empty
- * list. The enumeration this header used to carry was counted by hand instead,
- * and was wrong in both directions — which is what a second copy of a census is
- * for, since nothing recomputes prose.
+ * ## A window is as narrow as it can be
  *
- * They are exempted rather than fixed because the largest of them spans most of
- * an `afterAll`: one transaction over that window holds ACCESS EXCLUSIVE on
- * three tables for a whole teardown, which trades a leak for a convoy and is a
- * decision rather than a mechanical edit.
+ * The transaction holds ACCESS EXCLUSIVE on every table it disables a trigger
+ * on, and this mutex serializes it against every other trigger window in the
+ * suite — so the callback carries the disable, the statements that genuinely
+ * need that trigger off, and the matching enable, and nothing else. #283's
+ * largest offender bracketed some 25 statements across three tables for most of
+ * an `afterAll`; wrapping that span whole would have traded a leak for a
+ * convoy. It is three one-statement windows now, with the unrelated deletes
+ * between them running on the pool in the order they always did.
+ *
+ * The narrowest window is NO window, and five of the twenty-five turned out to
+ * be that: a trigger declared `before update` cannot fire on a delete, so a
+ * teardown that only deletes needs no escape and the toggle was deleted rather
+ * than locked. Establish which events a trigger actually has — and, since a
+ * delete matching zero rows passes whatever the trigger does, that the
+ * statement it brackets affects rows — before deciding a window is load-bearing.
  *
  * ## What it guards
  *

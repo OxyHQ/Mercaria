@@ -38,6 +38,7 @@ import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { stores } from '../schema/stores.js';
 import { deleteTestStores } from './store-teardown.js';
+import { withTriggerToggleLock } from './trigger-toggle-lock.js';
 import { merchants, nativeStoreLinks } from '../schema/merchants.js';
 import { merchantClaims, merchantClaimScopes } from '../schema/merchantClaims.js';
 import {
@@ -105,22 +106,30 @@ afterAll(async () => {
         .delete(storeLinkageOfferOverlaps)
         .where(inArray(storeLinkageOfferOverlaps.requestId, requestIds));
       // The adoption table's append-only TRIGGER refuses a DELETE, which is the
-      // property under test — so teardown suspends it for the one statement
-      // that has to clean up, and re-enables it in a `finally`. Suspending it is
-      // safe here and nowhere else: this table belongs to this file alone, and
-      // the database is a throwaway created for this run.
-      await db.execute(
-        sql`alter table store_linkage_profile_adoptions disable trigger store_linkage_profile_adoptions_append_only`,
-      );
-      try {
-        await db
+      // property under test — so teardown suspends it for the one statement that
+      // has to clean up, under the shared trigger-toggle lock and on the
+      // transaction that lock opens.
+      //
+      // The comment this replaces said suspending it was "safe here and nowhere
+      // else: this table belongs to this file alone". That is the reasoning #283
+      // contradicts: `alter table … disable trigger` is DATABASE-WIDE, so who
+      // owns the TABLE decides nothing — every realdb file shares one server, and
+      // two files inside such a window at once leave one deleting against a
+      // trigger the other has just re-enabled. The `finally` that re-enabled it
+      // went with the fix rather than beside it: inside the transaction an
+      // aborted window rolls the DDL back by itself, and a second mechanism for
+      // one fact is a way for the two to disagree.
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table store_linkage_profile_adoptions disable trigger store_linkage_profile_adoptions_append_only`,
+        );
+        await tx
           .delete(storeLinkageProfileAdoptions)
           .where(inArray(storeLinkageProfileAdoptions.requestId, requestIds));
-      } finally {
-        await db.execute(
+        await tx.execute(
           sql`alter table store_linkage_profile_adoptions enable trigger store_linkage_profile_adoptions_append_only`,
         );
-      }
+      });
       await db
         .delete(storeLinkageCandidates)
         .where(inArray(storeLinkageCandidates.requestId, requestIds));

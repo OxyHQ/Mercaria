@@ -365,15 +365,22 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
             .limit(1)
         ).length;
         if (stillCited === 0) {
-          await db.execute(
-            sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
-          );
-          await db
-            .delete(matchPolicyVersions)
-            .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
-          await db.execute(
-            sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
-          );
+          // Under the SAME lock as the `catalog_source_policies` window above,
+          // and for the same reason: `alter table … disable trigger` is
+          // DATABASE-WIDE, so this window and that one are two windows and not
+          // one file. The unit the census counts is the STATEMENT — this one sat
+          // beside a locked sibling and was the proof of it.
+          await withTriggerToggleLock(db, async (tx) => {
+            await tx.execute(
+              sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+            );
+            await tx
+              .delete(matchPolicyVersions)
+              .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
+            await tx.execute(
+              sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+            );
+          });
         }
         /**
          * NESTED, because `release()` can throw and `closePostgres` is what

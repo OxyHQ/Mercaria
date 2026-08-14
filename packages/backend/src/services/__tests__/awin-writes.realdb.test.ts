@@ -168,31 +168,55 @@ afterAll(async () => {
     // Children first, and #66's tables before the sources they point at: every
     // intra-graph key is RESTRICT and the rights trigger is DEFERRED, so a
     // half-torn-down source raises at commit.
-    await db.execute(
-      sql`alter table awin_advertiser_quality disable trigger awin_advertiser_quality_append_only`,
-    );
-    await db.execute(sql`alter table awin_link_samples disable trigger awin_link_samples_append_only`);
-    await db.execute(sql`alter table awin_advertisers disable trigger awin_advertisers_identity_frozen`);
-    await db
-      .delete(awinAdvertiserQuality)
-      .where(inArray(awinAdvertiserQuality.advertiserRowId, safeIds(createdAdvertiserIds)));
+    //
+    // Each append-only trigger is switched off around ITS OWN delete and around
+    // nothing else. `alter table … disable trigger` is DATABASE-WIDE and every
+    // realdb file shares one server, so the window is taken under the shared
+    // trigger-toggle lock and every statement in it is issued on that
+    // transaction's handle: on the POOL the DDL autocommits, so a throw before
+    // the matching enable leaves the trigger off for the rest of the run and
+    // every later file asserting it refuses a write passes VACUOUSLY. See
+    // `withTriggerToggleLock`. One statement per window, because the
+    // transaction holds ACCESS EXCLUSIVE on the table it disables a trigger on
+    // and serializes against every other trigger window in the suite.
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table awin_advertiser_quality disable trigger awin_advertiser_quality_append_only`,
+      );
+      await tx
+        .delete(awinAdvertiserQuality)
+        .where(inArray(awinAdvertiserQuality.advertiserRowId, safeIds(createdAdvertiserIds)));
+      await tx.execute(
+        sql`alter table awin_advertiser_quality enable trigger awin_advertiser_quality_append_only`,
+      );
+    });
     // The advertiser's pointer at its sample goes first: it has no foreign key
     // (see `ID_COLUMNS_WITHOUT_FOREIGN_KEY`) but the CHECK still demands one
-    // whenever the activation is `active`, so the activation is stood down first.
+    // whenever the activation is `active`, so the activation is stood down
+    // first. It opens no window of its own, and neither does the advertiser
+    // DELETE further down: `awin_advertisers_identity_frozen` is `BEFORE UPDATE`
+    // and raises only when `account_id` or `advertiser_id` moves, this statement
+    // writes neither, and a trigger with no DELETE event cannot fire on a
+    // delete. Nothing references `awin_advertisers` with `on delete set null`,
+    // so no delete elsewhere turns into an UPDATE of this table either.
     await db
       .update(awinAdvertisers)
       .set({ activation: 'candidate', activatingSampleId: null })
       .where(inArray(awinAdvertisers.id, safeIds(createdAdvertiserIds)));
-    await db
-      .delete(awinLinkSamples)
-      .where(inArray(awinLinkSamples.advertiserRowId, safeIds(createdAdvertiserIds)));
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table awin_link_samples disable trigger awin_link_samples_append_only`,
+      );
+      await tx
+        .delete(awinLinkSamples)
+        .where(inArray(awinLinkSamples.advertiserRowId, safeIds(createdAdvertiserIds)));
+      await tx.execute(
+        sql`alter table awin_link_samples enable trigger awin_link_samples_append_only`,
+      );
+    });
     await db
       .delete(awinFeeds)
       .where(inArray(awinFeeds.advertiserRowId, safeIds(createdAdvertiserIds)));
-    await db.execute(
-      sql`alter table awin_advertiser_quality enable trigger awin_advertiser_quality_append_only`,
-    );
-    await db.execute(sql`alter table awin_link_samples enable trigger awin_link_samples_append_only`);
 
     await db
       .delete(catalogSourceObjects)
@@ -233,7 +257,6 @@ afterAll(async () => {
     await db
       .delete(awinAdvertisers)
       .where(inArray(awinAdvertisers.id, safeIds(createdAdvertiserIds)));
-    await db.execute(sql`alter table awin_advertisers enable trigger awin_advertisers_identity_frozen`);
     await db
       .delete(awinNetworkLeases)
       .where(inArray(awinNetworkLeases.accountId, safeIds(createdAccountIds)));
@@ -242,13 +265,11 @@ afterAll(async () => {
     await db
       .delete(catalogSourceConfigs)
       .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
-    // The disable/delete/enable window is taken under the shared trigger-toggle
-    // lock: `alter table … disable trigger` is DATABASE-WIDE and every realdb
-    // file shares one server, so two files inside this window at once leave one
-    // of them deleting against a trigger the other has just re-enabled. It is
-    // transaction-scoped since #275 — the session-level pair it replaces was
-    // issued through the POOL, so its unlock could land on another backend,
-    // return false and leak the lock. See `withTriggerToggleLock`.
+    // The rights policy, under the same lock and for the same reason as the two
+    // `awin_*` windows above. The `catalog_sources` delete below it stays
+    // OUTSIDE: `mercaria_catalog_source_rights_agree` is DEFERRED and fires at
+    // COMMIT, so pulling the source into this transaction would make it settle
+    // against a source whose policy the same transaction has just removed.
     await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(
         sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
@@ -279,15 +300,20 @@ afterAll(async () => {
         .limit(1)
     ).length;
     if (stillCited === 0) {
-      await db.execute(
-        sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
-      );
-      await db
-        .delete(matchPolicyVersions)
-        .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
-      await db.execute(
-        sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
-      );
+      // The fourth window, under the same lock. The citation check stays
+      // outside it: it reads `match_decisions`, which this transaction must not
+      // hold a lock on while every other teardown queues behind it.
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+        );
+        await tx
+          .delete(matchPolicyVersions)
+          .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
+        await tx.execute(
+          sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+        );
+      });
     }
     /**
      * NESTED, because `release()` can throw and `closePostgres` is what actually

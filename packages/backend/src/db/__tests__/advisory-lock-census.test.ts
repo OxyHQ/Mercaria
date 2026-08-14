@@ -1,11 +1,14 @@
 /**
- * TWO rules about the same mutex, and neither can express the other.
+ * THREE rules about the same mutex, and none can express another.
  *
  * 1. **Every advisory lock is issued on a handle whose kind matches the lock's
  *    SCOPE** — the table below.
  * 2. **Every `alter table … disable trigger` runs inside a
- *    `withTriggerToggleLock` callback, on that callback's own handle** — or is
- *    named on an EXACT-COUNT exemption list citing #283.
+ *    `withTriggerToggleLock` callback, on that callback's own handle.** No
+ *    exemption, and there is no list to add one to.
+ * 3. **No window is opened from inside another transaction, another window, or
+ *    while taking a session slot** — the three call-site shapes that turn a
+ *    queue into a cycle. See {@link windowCallSites}.
  *
  * The second exists because the first is blind to the failure it cannot see: it
  * asks which handle a lock was issued on, so a trigger window that takes NO
@@ -16,6 +19,13 @@
  * DDL autocommits, so a throw before the re-enable leaves the trigger off for
  * the rest of the run and every later file asserting it refuses a write passes
  * VACUOUSLY.
+ *
+ * Those ten files carried twenty-five windows and an exact-count exemption
+ * entry each. #283 closed all twenty-five, five of them by DELETING the
+ * toggle rather than locking it — a `before update` trigger cannot fire on a
+ * delete, so those windows had never guarded anything and the narrowest window
+ * is no window. The list went with the last entry: an empty allow-list plus the
+ * code that reads it is a mechanism nothing exercises, which reads as coverage.
  *
  * ## The mechanism, which belongs to no single file
  *
@@ -158,102 +168,41 @@ const MEASUREMENT_EXEMPTION = 'db/__tests__/advisory-lock-handle.realdb.test.ts'
 const MEASUREMENT_EXEMPTION_SITES = 1;
 
 /**
- * Files permitted to open a trigger-toggle window WITHOUT the lock, and how
- * many such windows each is permitted.
+ * Floor on the trigger windows FOUND, and the reason it had to be written.
  *
- * `alter table … disable trigger` is DATABASE-WIDE, so a file inside one while
- * another file is inside its own leaves one of them deleting against a trigger
- * the other has just re-enabled — and on the POOL the DDL autocommits, so a
- * throw before the re-enable leaves the trigger off for the rest of the run and
- * every later file asserting it refuses a write passes VACUOUSLY.
+ * There is no exemption list any more: #283 closed all twenty-five windows, so
+ * the rule below is absolute and a file cannot opt out of it. That is the
+ * strongest state this gate has been in and it removed a floor nobody had
+ * noticed was one — every exemption entry asserted a NON-ZERO unlocked count
+ * for its file, so a detector that stopped matching `alter table … disable
+ * trigger` used to fail ten of those assertions at once. With the list gone the
+ * same regression would report zero offenders over zero windows, which is
+ * exactly what a clean estate reports.
  *
- * Every entry here is #283's. They are listed rather than fixed because
- * wrapping the largest of them — `awin-writes`'s, some 25 statements spanning a
- * whole `afterAll` — in one transaction holds ACCESS EXCLUSIVE on three tables
- * for a whole teardown, a convoy in place of a leak, which is a decision and
- * not a mechanical edit. (Digits there, and words for the window COUNT below:
- * the two twenty-fives are unrelated numbers about different things.)
- *
- * The COUNT is per file and EXACT, and the list's own length is asserted. That
- * is what makes it shrink-only: fixing a window fails the build until its entry
- * is corrected or deleted, and adding one fails the build wherever it is added.
- * Counts rather than line numbers, so an unrelated edit above a window cannot
- * fail this gate spuriously.
+ * So the count is asserted directly. THIRTY-FOUR windows in fifteen files
+ * today, every one of them locked — measured by running this assertion against
+ * an impossible floor and reading what it reports, not counted from a grep,
+ * which is LINE-based and counts the prose three of those files carry about the
+ * statement. Twenty is far enough below to survive a
+ * teardown that legitimately stops needing an escape — several did in #283,
+ * where a trigger with no DELETE event turned out not to need one — while
+ * leaving a dead detector nowhere to hide. A commit lowering it must name the
+ * windows that went and why.
  */
-/**
- * Ten files, twenty-five windows — MEASURED by the rule below with an empty
- * list, not counted by hand.
- *
- * Two things a file-level "does it import the helper?" count gets wrong, both
- * found that way: `offer-freshness-sweep.realdb.test.ts` mentions
- * `alter table … disable trigger` only in PROSE, saying it does not do one, and
- * `adapter-contract-suite.ts` has an unlocked `match_policy_versions` window
- * sitting beside the `catalog_source_policies` one that IS locked. The unit is
- * the statement, not the file.
- */
-const EXPECTED_EXEMPTIONS = 10;
+const TRIGGER_WINDOW_FLOOR = 20;
 
-const UNLOCKED_TRIGGER_WINDOWS: ReadonlyArray<{
-  readonly file: string;
-  readonly disables: number;
-  readonly reason: string;
-}> = [
-  {
-    file: 'db/__tests__/relationships.realdb.test.ts',
-    disables: 1,
-    reason: '#283 — `relationship_reviews_append_only`, toggled on the pool in one teardown.',
-  },
-  {
-    file: 'db/__tests__/store-linkage.realdb.test.ts',
-    disables: 1,
-    reason:
-      '#283 — `store_linkage_profile_adoptions_append_only`, toggled on the pool in one teardown.',
-  },
-  {
-    file: 'services/__tests__/awin-writes.realdb.test.ts',
-    disables: 4,
-    reason:
-      '#283 — the file uses the lock for its `catalog_source_policies` window and NOT for three `awin_*` triggers spanning most of its `afterAll` (~25 deletes between the disable and the last enable, whose own comment records a `23503` there as measured) nor for `match_policy_versions`. One transaction over that span holds ACCESS EXCLUSIVE on three tables for a whole teardown — a convoy in place of a leak, which is a decision rather than a mechanical wrap.',
-  },
-  {
-    file: 'services/__tests__/feed-import-writes.realdb.test.ts',
-    disables: 3,
-    reason: '#283 — three feed-configuration triggers toggled on the pool.',
-  },
-  {
-    file: 'services/__tests__/price-signals.realdb.test.ts',
-    disables: 1,
-    reason: '#283 — `price_signal_policy_versions_immutable_once_serving`, on the pool.',
-  },
-  {
-    file: 'services/__tests__/referral-rewards.realdb.test.ts',
-    disables: 7,
-    reason:
-      '#283 — the largest: seven windows over reward adjustments, rewards, rules, budgets, the ledger and fee snapshots.',
-  },
-  {
-    file: 'services/ebay/__tests__/ebay-ingestion.realdb.test.ts',
-    disables: 2,
-    reason:
-      '#283 — `catalog_source_policies` and `match_policy_versions`, both toggled on the pool. It used to be the reason `advisory-lock-handle.realdb.test.ts` declined to assert that trigger read `O` before its own window; that case now creates a trigger nothing else can reach, so this entry excuses only itself.',
-  },
-  {
-    file: 'services/ingestion/__tests__/adapter-contract-suite.ts',
-    disables: 1,
-    reason:
-      '#283 — the `match_policy_versions` window, sitting beside the `catalog_source_policies` one this branch DID route through the lock. Proof that the unit is the statement and not the file.',
-  },
-  {
-    file: 'services/matching/__tests__/matching-writes.realdb.test.ts',
-    disables: 3,
-    reason: '#283 — two benchmark tables plus `match_policy_versions`, on the pool.',
-  },
-  {
-    file: 'services/merchant-demand/__tests__/merchant-demand.realdb.test.ts',
-    disables: 2,
-    reason: '#283 — two merchant-acquisition append-only triggers, on the pool.',
-  },
-];
+/**
+ * The named anchor for a LOCKED window, on `SESSION_ANCHOR`'s reasoning and
+ * with the longest shelf life available: `advisory-lock-handle.realdb.test.ts`
+ * opens its window on a trigger it CREATES two statements earlier and drops in
+ * a `finally`, so no port, no cutover and no teardown rewrite can invalidate
+ * it — it measures the helper itself, and retires with the helper.
+ *
+ * A floor on the count says the detector saw something. This says it cleared
+ * the specific window it was written against rather than something else that
+ * happened to match.
+ */
+const TRIGGER_WINDOW_ANCHOR = 'db/__tests__/advisory-lock-handle.realdb.test.ts';
 
 /** `{relative path → source}` for every `.ts` under `src/`. */
 function scannedSources(): Map<string, string> {
@@ -522,6 +471,88 @@ function triggerWindowSites(file: string, source: string): TriggerWindowSite[] {
   return sites;
 }
 
+interface WindowCallSite {
+  readonly line: number;
+  readonly insideTransaction: boolean;
+  readonly insideWindow: boolean;
+  readonly takesSlotInside: boolean;
+}
+
+/**
+ * Taking a session slot, or reserving a connection, from inside a window.
+ *
+ * Both mutexes are acquired in a `beforeAll` and every window runs in an
+ * `afterAll`, so the estate's lock ORDER is one-way today. A window that took a
+ * slot would be the edge that closes the cycle.
+ */
+const SLOT_ACQUISITION = /acquire\w*Slot|\.reserve\s*\(/u;
+
+/**
+ * Every `withTriggerToggleLock` call in one file, and the three shapes around it
+ * that would DEADLOCK rather than fail.
+ *
+ * The helper takes the mutex as its transaction's FIRST statement, so a waiter
+ * holds no table locks while it queues and two teardowns queue rather than
+ * cycle. That reasoning is a property of the CALL SITE as much as of the helper,
+ * and all three ways to break it are invisible to every rule above:
+ *
+ * - **inside another transaction** — the outer one already holds row locks on
+ *   whatever it has written, and goes on holding them while the inner waits for
+ *   the mutex. A second teardown holding the mutex and waiting for ACCESS
+ *   EXCLUSIVE on one of those tables completes the cycle. Postgres would break
+ *   it with a `40P01`, so this one at least fails loudly.
+ * - **inside another window** — the inner call opens a SECOND pooled connection
+ *   and asks for a transaction lock its own caller holds. Nothing detects that:
+ *   it is two sessions, so it is not re-entrancy, and the deadlock detector sees
+ *   one waiter and no cycle. It HANGS to the hook timeout.
+ * - **a session slot taken inside a window** — reverses the estate's one-way
+ *   order between this mutex and the two file-scoped slot mutexes.
+ *
+ * Zero instances today, over 27 call sites — which is why the mutation self-test
+ * below is the load-bearing half: a detector with nothing to find reports the
+ * same clean estate as one that stopped working.
+ */
+function windowCallSites(file: string, source: string): WindowCallSite[] {
+  const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const sites: WindowCallSite[] = [];
+
+  const isCallOf = (node: ts.Node, name: string): boolean =>
+    ts.isCallExpression(node) &&
+    (ts.isPropertyAccessExpression(node.expression)
+      ? node.expression.name.text
+      : node.expression.getText()) === name;
+
+  const enclosedBy = (node: ts.Node, name: string): boolean => {
+    for (let current: ts.Node | undefined = node.parent; current; current = current.parent) {
+      if (isCallOf(current, name)) return true;
+    }
+    return false;
+  };
+
+  const visit = (node: ts.Node): void => {
+    if (isCallOf(node, 'withTriggerToggleLock')) {
+      const callback = ts.isCallExpression(node) ? node.arguments[1] : undefined;
+      sites.push({
+        line: parsed.getLineAndCharacterOfPosition(node.getStart(parsed)).line + 1,
+        insideTransaction: enclosedBy(node, 'transaction'),
+        insideWindow: enclosedBy(node, 'withTriggerToggleLock'),
+        takesSlotInside: callback !== undefined && SLOT_ACQUISITION.test(callback.getText()),
+      });
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(parsed, visit);
+  return sites;
+}
+
+/**
+ * Floor on the window CALL SITES found. Twenty-seven today across seventeen
+ * files; the count is lower than the window count because a call may carry more
+ * than one disable — two children-first tables torn down together share one
+ * acquisition rather than taking the mutex twice.
+ */
+const WINDOW_CALL_SITE_FLOOR = 15;
+
 /** Files declaring a given numeric literal, comments and prose excluded. */
 function filesDeclaringNumber(sources: Map<string, string>, value: string): string[] {
   const found: string[] = [];
@@ -662,63 +693,131 @@ describe('the advisory-lock census', () => {
     ]);
   });
 
-  it('takes the lock for every trigger-toggle window, or exempts it by name', () => {
+  it('takes the lock for every trigger-toggle window, with no exemption', () => {
     // The half the handle rule CANNOT express. Everything above asks which
     // handle a lock was issued on; nothing there can see a window that takes NO
     // lock at all, which is how a ten-file gap sat under a green gate.
+    //
+    // There is no opt-out. The list that used to sit here carried ten entries
+    // and an exact length so it could only shrink; #283 shrank it to nothing,
+    // and an empty list plus the machinery to read it is a mechanism no test
+    // exercises — so the mechanism went with the last entry. Re-introducing one
+    // is a visible act rather than a line appended to an array.
     const offenders: string[] = [];
     for (const [file, found] of windows) {
       const unlocked = found.filter((site) => !site.locked);
       if (unlocked.length === 0) continue;
-      const exemption = UNLOCKED_TRIGGER_WINDOWS.find((entry) => entry.file === file);
-      if (exemption === undefined) {
-        offenders.push(
-          `${file} — ${unlocked.length} unlocked window(s) at ${unlocked
-            .map((site) => site.line)
-            .join(', ')}`,
-        );
-        continue;
-      }
-      // An EXACT count, so an exemption cannot silently absorb a new window.
-      if (exemption.disables !== unlocked.length) {
-        offenders.push(
-          `${file} — exempted for ${exemption.disables} unlocked window(s), found ${unlocked.length} at ${unlocked
-            .map((site) => site.line)
-            .join(', ')}`,
-        );
-      }
+      offenders.push(
+        `${file} — ${unlocked.length} unlocked window(s) at ${unlocked
+          .map((site) => site.line)
+          .join(', ')}`,
+      );
     }
     expect(
       offenders,
-      'a database-wide `alter table … disable trigger` runs outside `withTriggerToggleLock`. On the POOL that DDL autocommits, so a throw before the matching enable leaves the trigger off for the rest of the run and every later file asserting it refuses a write passes vacuously. Wrap the window in `withTriggerToggleLock(db, async (tx) => …)` and issue every statement on `tx`, or add the file to UNLOCKED_TRIGGER_WINDOWS with a reason.',
+      'a database-wide `alter table … disable trigger` runs outside `withTriggerToggleLock`. On the POOL that DDL autocommits, so a throw before the matching enable leaves the trigger off for the rest of the run and every later file asserting it refuses a write passes vacuously. Wrap the window in `withTriggerToggleLock(db, async (tx) => …)` and issue every statement on `tx` — and before you do, check whether the trigger has an event the window can even fire: several of #283\'s turned out to be `before update` triggers bracketing a delete, and the narrowest window is no window.',
     ).toEqual([]);
   });
 
-  it('keeps the exemption list shrink-only and every entry live', () => {
-    // The list's OWN exact-count assertion. A floor would let it grow one
-    // individually-defensible line at a time, which is the gate switching
-    // itself off — and it has to fail on a STALE entry too, so #283 closing a
-    // window means deleting its entry rather than leaving one that excuses
-    // nothing.
+  it('found trigger windows to police, and cleared the one it was written against', () => {
+    // The vacuity floor for the SECOND rule, and it exists because deleting the
+    // exemption list deleted the floor nobody had noticed was one: ten entries
+    // each asserting a non-zero unlocked count meant a detector that stopped
+    // matching failed loudly. Without them, "zero offenders" is what a dead
+    // detector and a clean estate both report.
+    const all = [...windows].flatMap(([file, found]) => found.map((site) => ({ file, ...site })));
     expect(
-      UNLOCKED_TRIGGER_WINDOWS.length,
-      'the exemption list changed size — it may only SHRINK, as #283 closes windows',
-    ).toBe(EXPECTED_EXEMPTIONS);
-    expect(new Set(UNLOCKED_TRIGGER_WINDOWS.map((entry) => entry.file)).size).toBe(
-      EXPECTED_EXEMPTIONS,
+      all.length,
+      'no trigger-toggle window was found at all — the detector or the walk stopped working',
+    ).toBeGreaterThanOrEqual(TRIGGER_WINDOW_FLOOR);
+    // And the anchor, which pins that the detector cleared the specific window
+    // it was written against. Retirement condition at the constant.
+    const anchored = all.filter((site) => site.file === TRIGGER_WINDOW_ANCHOR);
+    expect(anchored.length, `${TRIGGER_WINDOW_ANCHOR} no longer opens a trigger window`).toBe(1);
+    expect(anchored[0]?.locked, `${TRIGGER_WINDOW_ANCHOR}'s own window read as unlocked`).toBe(true);
+  });
+
+  it('opens no trigger window from inside a transaction, a window or a slot', () => {
+    // The third rule, and the only one whose failure is a HANG rather than a
+    // red test. See `windowCallSites` for the three shapes and why the helper's
+    // "the lock is the first statement" guarantee is a property of the call site
+    // too.
+    const calls = [...sources].flatMap(([file, source]) =>
+      source.includes('withTriggerToggleLock')
+        ? windowCallSites(file, source).map((site) => ({ file, ...site }))
+        : [],
+    );
+    expect(
+      calls.length,
+      'no `withTriggerToggleLock` call was found at all — the detector or the walk stopped working',
+    ).toBeGreaterThanOrEqual(WINDOW_CALL_SITE_FLOOR);
+
+    const offenders = calls
+      .filter((site) => site.insideTransaction || site.insideWindow || site.takesSlotInside)
+      .map(
+        (site) =>
+          `${site.file}:${site.line} — ${
+            site.insideWindow
+              ? 'nested inside another window; the inner call opens a SECOND connection and waits for a lock its own caller holds, which hangs to the hook timeout rather than deadlocking'
+              : site.insideTransaction
+                ? 'opened inside another transaction, which holds its row locks while this one queues for the mutex'
+                : 'takes a session slot inside the window, reversing the one-way order between this mutex and the two file-scoped slot mutexes'
+          }`,
+      );
+    expect(
+      offenders,
+      'a trigger-toggle window is opened from a place that can deadlock. The mutex is the transaction\'s FIRST statement precisely so a waiter holds no table locks while it queues — hoist the window out of the enclosing transaction, or take the slot before the window rather than inside it.',
+    ).toEqual([]);
+  });
+
+  it('detects all three deadlock shapes and clears the correct one', () => {
+    // The mutation self-test, and here it is the whole of the evidence: the rule
+    // above has ZERO instances to find, so a detector that stopped working
+    // reports exactly what a healthy estate reports.
+    const probe = (body: string): WindowCallSite[] => windowCallSites('probe.ts', body);
+
+    const nested = probe(
+      'await db.transaction(async (outer) => { await outer.insert(t); await withTriggerToggleLock(db, async (tx) => { await tx.execute(sql`x`); }); });',
+    );
+    expect(nested.at(-1)?.insideTransaction, 'a window inside a transaction read as safe').toBe(
+      true,
     );
 
-    const stale: string[] = [];
-    for (const entry of UNLOCKED_TRIGGER_WINDOWS) {
-      expect(sources.has(entry.file), `${entry.file} is exempted and does not exist`).toBe(true);
-      expect(entry.reason, `${entry.file}'s exemption states no reason`).toMatch(/#283/u);
-      const unlocked = (windows.get(entry.file) ?? []).filter((site) => !site.locked).length;
-      if (unlocked !== entry.disables) stale.push(`${entry.file}: ${unlocked} unlocked, exempted ${entry.disables}`);
-    }
+    const inWindow = probe(
+      'await withTriggerToggleLock(db, async (a) => { await withTriggerToggleLock(db, async (b) => { await b.execute(sql`x`); }); });',
+    );
+    expect(inWindow.some((site) => site.insideWindow), 'a nested window read as safe').toBe(true);
+
+    // The slot name here is FICTIONAL, and deliberately. `slot-teardown-census`
+    // detects a holder with a regex over comment-stripped source, so it reads a
+    // real `= await acquireActivePolicySlot(` inside a string literal as a
+    // genuine acquisition — measured: this file was reported as a holder that
+    // never releases, which is a file with no slot meeting that census's holder
+    // floor. Its false positives are loud by design, so the fix belongs here.
+    // `SLOT_ACQUISITION` matches on the SHAPE (`acquire…Slot`), so a fictional
+    // name exercises it exactly as a real one would.
+    const slot = probe(
+      'await withTriggerToggleLock(db, async (tx) => { const s = await acquireFictionalSlot(db); await tx.execute(sql`x`); });',
+    );
+    expect(slot[0]?.takesSlotInside, 'a slot taken inside a window read as safe').toBe(true);
+
+    // The other alternative in the same pattern, which is how the two
+    // file-scoped mutexes actually take their connection.
+    const reserved = probe(
+      'await withTriggerToggleLock(db, async (tx) => { const c = await db.$client.reserve(); await tx.execute(sql`x`); });',
+    );
+    expect(reserved[0]?.takesSlotInside, 'a reserve() inside a window read as safe').toBe(true);
+
+    // The control, in the same currency: the shape every teardown in this
+    // repository uses must clear all three.
+    const clean = probe(
+      'await withTriggerToggleLock(db, async (tx) => { await tx.execute(sql`alter table x disable trigger t`); });',
+    );
+    expect(clean).toHaveLength(1);
     expect(
-      stale,
-      'an exemption no longer matches what its file does — delete it if #283 closed the window, correct it otherwise',
-    ).toEqual([]);
+      clean[0]?.insideTransaction || clean[0]?.insideWindow || clean[0]?.takesSlotInside,
+      'the ordinary teardown shape read as a deadlock',
+    ).toBe(false);
   });
 
   it('detects both broken shapes and clears both correct ones', () => {
