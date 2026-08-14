@@ -51,6 +51,7 @@ import { insertCategory } from '../../db/catalog/categoryRepository.js';
 import { insertStore } from '../../db/stores/storeRepository.js';
 import { insertLocation } from '../../db/stores/locationRepository.js';
 import {
+  claimConnectionWebhookRegistration,
   findConnection,
   findConnectionCredentials,
   findConnectionsByStore,
@@ -58,6 +59,7 @@ import {
   findConnectionWebhookFailures,
   findConnectionWebhookSecret,
   recordConnectionWebhookRegistration,
+  releaseConnectionWebhookRegistration,
   updateSyncSettings as updateSyncSettingsColumns,
   type ConnectionRow,
 } from '../../db/connectors/connectionRepository.js';
@@ -1257,30 +1259,87 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         }
       });
 
-      it('the LEASE stops two re-registrations of one connection at once', async () => {
-        // The hazard is not a wasted call. On a `per_connection` provider both
-        // passes delete and recreate every topic, and whichever finishes LAST
-        // stores its secret over the other's while the other's subscriptions are
-        // the live ones — every delivery 401s from then on, permanently and
-        // silently. The realistic racer is a merchant pressing retry while the
-        // scheduled sweep is mid-flight on the same connection.
+      it('an UNCLAIMED pass registers NOTHING and never knocks at the platform', async () => {
+        // The hazard the lease exists for is not a wasted call. On a
+        // `per_connection` provider two passes each delete and recreate every
+        // topic, and whichever finishes LAST stores its secret over the other's
+        // while the other's subscriptions are the live ones — every delivery 401s
+        // from then on, permanently and silently. The realistic racer is a
+        // merchant pressing retry while the scheduled sweep is mid-flight.
+        //
+        // ## Why this HOLDS the lease instead of racing two passes
+        //
+        // It used to be two `reregisterConnectionWebhooks` calls under
+        // `Promise.all`, which is the vacuous shape `~/Oxy/AGENTS.md` names:
+        // `Promise.all` does not make statements interleave, postgres.js pipelines
+        // onto one connection, and whether the second pass reaches its claim
+        // BEFORE the first releases is a fact about the machine. It overlapped on
+        // a 32-core box and serialized on CI, where the second pass claimed
+        // legitimately after the first had finished — so zero refusals was the
+        // correct answer to what the test actually asked, and the local green had
+        // meant nothing.
+        //
+        // No race is needed, because the claim is a conditional UPDATE whose
+        // empty `RETURNING` set IS the refusal rather than a `SKIP LOCKED` queue.
+        // Holding the lease through the repository's own claim STATES the
+        // precondition instead of hoping for it.
         const fixture = await makeFixture();
+        const held = await claimConnectionWebhookRegistration({
+          connectionId: fixture.connection.id,
+          leaseOwner: 'contract-suite-holder',
+          leaseMs: 60_000,
+          countsAsAttempt: true,
+        });
+        expect(held, 'the premise: the lease was free and is now HELD').not.toBeNull();
 
-        const outcomes = await Promise.all([
-          reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
-            countsAsAttempt: true,
-          }),
-          reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
-            countsAsAttempt: false,
-          }),
-        ]);
+        const callsBefore = fixture.world.calls.length;
+        const subscriptionsBefore = fixture.world.webhooks.map((webhook) => webhook.id).sort();
 
+        const refused = await reregisterConnectionWebhooks(
+          fixture.storeId,
+          fixture.connection.id,
+          { countsAsAttempt: true },
+        );
+
+        expect(refused).toBe('not_claimed');
+        // THE property, and the one the returned enum alone does not establish: a
+        // pass that could not claim must not have touched the merchant's platform
+        // at all. Counting the fake's own request log is what says so.
         expect(
-          outcomes.filter((outcome) => outcome === 'not_claimed'),
-          'exactly one of two concurrent passes may hold the claim',
-        ).toHaveLength(1);
-        // And the one that DID run left the shop consistent: one subscription per
-        // topic, and every id recorded.
+          fixture.world.calls.length,
+          'an unclaimed pass must not call the platform',
+        ).toBe(callsBefore);
+        expect(fixture.world.webhooks.map((webhook) => webhook.id).sort()).toEqual(
+          subscriptionsBefore,
+        );
+
+        // THE POSITIVE CONTROL, in the same currency as the measurement: release
+        // the lease and the SAME call does knock. Without it a fake transport that
+        // had stopped being reachable at all would satisfy every assertion above —
+        // "it did not call the platform" is also what a broken harness reports.
+        expect(
+          await releaseConnectionWebhookRegistration({
+            connectionId: fixture.connection.id,
+            leaseOwner: 'contract-suite-holder',
+            deadLettered: false,
+            nextAttemptAt: null,
+          }),
+          'the premise: the held lease was released by its owner',
+        ).toBe(true);
+
+        const allowed = await reregisterConnectionWebhooks(
+          fixture.storeId,
+          fixture.connection.id,
+          { countsAsAttempt: true },
+        );
+
+        expect(allowed).toBe('registered');
+        expect(
+          fixture.world.calls.length,
+          'the control: a CLAIMED pass does reach the platform',
+        ).toBeGreaterThan(callsBefore);
+        // And it left the shop consistent: one subscription per topic, every id
+        // recorded.
         const topics = fixture.world.webhooks.map((webhook) => webhook.topic);
         expect(new Set(topics).size).toBe(topics.length);
         const stored = await findConnection(fixture.storeId, fixture.connection.id);
