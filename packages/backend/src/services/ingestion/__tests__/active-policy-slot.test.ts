@@ -386,9 +386,13 @@ describe('the global active-matching-policy slot', () => {
   });
 
   it('fires on EVERY detected call shape, and on none of their near misses', () => {
-    // Eleven of the sixteen call detectors match no file today, so the census
-    // above cannot prove they work — a pattern that stopped matching would read
-    // exactly like a well-behaved estate. Each is exercised against a real
+    // MOST of the call detectors match no file today, so the census above
+    // cannot prove they work — a pattern that stopped matching would read
+    // exactly like a well-behaved estate. Deliberately not "N of the sixteen":
+    // the header says why a count here is a number nothing recomputes, and this
+    // comment proved it by shipping one that was wrong on the day it landed
+    // (eleven, measured thirteen). The floor below is the assertion that keeps
+    // the probes and the detectors in step. Each is exercised against a real
     // call, against the same call wrapped across lines (the house spelling for
     // a long one, which a line-based detector would read as clean), and against
     // the same identifier with a suffix, so a broken pattern and an over-broad

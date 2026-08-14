@@ -185,10 +185,21 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  // Release BEFORE closing the pool — the lock is held on a connection reserved
-  // out of it.
-  if (sweepSlot) await sweepSlot.release();
-  await closePostgres();
+  /**
+   * Release BEFORE closing the pool — the lock is held on a connection reserved
+   * out of it.
+   *
+   * NESTED, because `release()` can throw and `closePostgres` is what actually
+   * ends the hold: a check-in returns the connection to the pool without ending
+   * the session, so the advisory lock survives it (measured, #272). An unlock
+   * that threw would otherwise leave the slot held on a socket vitest keeps
+   * open for the next file in the worker.
+   */
+  try {
+    if (sweepSlot) await sweepSlot.release();
+  } finally {
+    await closePostgres();
+  }
 });
 
 beforeEach(() => {

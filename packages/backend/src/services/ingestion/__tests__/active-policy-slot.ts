@@ -75,11 +75,13 @@ export async function acquireActivePolicySlot(db: Database): Promise<ActivePolic
          * So the hold ends at `closePostgres()` (postgres.js `sql.end()`) or at
          * process exit, and NOTHING ELSE. A caller whose `pg_advisory_unlock`
          * throws must still reach `closePostgres()` — which is why every holder
-         * releases inside a `finally` that is itself nested inside one, rather
-         * than trusting this line.
+         * releases inside a `try` whose `finally` closes the pool, rather than
+         * trusting this line. `slot-teardown-census.test.ts` fails the build on
+         * a holder that does not.
          *
          * `payments/reconciliation/__tests__/reconciliation-sweep-slot.ts`
-         * carries the same wrong sentence and the same shape.
+         * carried the same wrong sentence and the same shape; #272 corrected it
+         * there and nested every remaining holder.
          */
         reserved.release();
       }

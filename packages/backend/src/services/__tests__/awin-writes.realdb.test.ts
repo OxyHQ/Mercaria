@@ -274,8 +274,18 @@ afterAll(async () => {
       sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
     );
   }
-  await policySlot?.release();
-  await closePostgres();
+  /**
+   * NESTED, because `release()` can throw and `closePostgres` is what actually
+   * ends the hold — see `active-policy-slot.ts` and #272. A check-in returns
+   * the connection to the pool without ending the session, so an unlock that
+   * threw here would strand the slot on a socket vitest reuses for the next
+   * file in the worker.
+   */
+  try {
+    await policySlot?.release();
+  } finally {
+    await closePostgres();
+  }
 }, 120_000);
 
 

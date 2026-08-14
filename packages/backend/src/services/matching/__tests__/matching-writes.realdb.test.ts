@@ -94,8 +94,21 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await policySlot?.release();
-  await closePostgres();
+  /**
+   * NESTED, because `release()` can throw and `closePostgres` is what actually
+   * ends the hold. `reserved.release()` inside the mutex returns the connection
+   * to the pool and does NOT end the session — measured (#272): the advisory
+   * lock is still held after a check-in and gone only after `sql.end()`. So an
+   * unlock that threw would abort this hook one line short of the only
+   * statement that frees the slot, and every other claimant would then block
+   * its full 120 s `beforeAll` timeout on a socket vitest keeps open for the
+   * next file in the worker.
+   */
+  try {
+    await policySlot?.release();
+  } finally {
+    await closePostgres();
+  }
 });
 
 afterEach(async () => {
