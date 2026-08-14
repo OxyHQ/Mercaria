@@ -229,6 +229,16 @@ async function seedListing(input: {
  * So this file never touches the global active policy. It drives the real
  * pipeline with the policy INJECTED, which is also the stronger test: the
  * outcome no longer depends on which file happened to activate a policy first.
+ *
+ * That is why it takes no `acquireActivePolicySlot`, and #266 asked whether it
+ * should: `createMatchPolicyVersion` hardcodes `status: 'draft'`
+ * (`matching/match-policy.service.ts:71`), the unique index is partial on
+ * `active`, and `evaluateMatch`/`applyMatchOutcome` take the policy as an
+ * ARGUMENT rather than looking one up — so there is nothing here to serialize.
+ * Taking the slot would fail the census in
+ * `services/ingestion/__tests__/active-policy-slot.test.ts`, deliberately: a
+ * holder that reaches no active policy is a file serializing for a reason
+ * nobody can derive, which is the same folklore the census exists to remove.
  */
 let matchPolicy: Awaited<ReturnType<typeof createMatchPolicyVersion>> | undefined;
 

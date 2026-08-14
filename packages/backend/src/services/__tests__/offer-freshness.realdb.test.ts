@@ -53,8 +53,13 @@ import { readProductOfferSummary } from '../offer-freshness/product-summary.js';
 import { resolveSourceFreshnessPolicy } from '../offer-freshness/policy.js';
 import { requestPriorityRefresh } from '../offer-freshness/refresh-scheduler.js';
 import { recordSourceDistribution } from '../../db/offerFreshness/sourceDistributionRepository.js';
+import {
+  acquireActivePolicySlot,
+  type ActivePolicySlot,
+} from '../ingestion/__tests__/active-policy-slot.js';
 
 let db: Database;
+let policySlot: ActivePolicySlot | undefined;
 
 /** Unique to this run, so parallel files cannot collide on a shared database. */
 const RUN = uuidv7().slice(-12);
@@ -108,82 +113,136 @@ async function rejectionMessage(run: () => Promise<unknown>): Promise<string> {
 
 beforeAll(async () => {
   db = await connectPostgres();
+  /**
+   * Held for the WHOLE file, and across teardown — see the `finally` below for
+   * what that costs and why it is paid. Three of the four other claimants do
+   * the same; `ebay-ingestion.realdb.test.ts` deliberately releases at the top
+   * of its own `afterAll`.
+   *
+   * This file drives real ingestion pages, and `runIngestionPage` reaches
+   * `runMatch`, which reads the globally active policy BEFORE it loads its
+   * subject (`matching/match.service.ts:341`). Today the two page-driving cases
+   * publish their source with `mayStore: false`, so the subject loader answers
+   * `null` and no decision is ever written — but `bringUpSource` DEFAULTS
+   * `mayStore` to true, so that immunity is one added case away from being
+   * false, silently and in the direction that mints a `match_decisions` row
+   * against whichever sibling's policy happened to be active.
+   *
+   * The slot is what makes it not depend on that. See
+   * `services/ingestion/__tests__/active-policy-slot.ts` for the mutex and
+   * `active-policy-slot.test.ts` for the census that keeps the membership
+   * derivable instead of folklore.
+   */
+  policySlot = await acquireActivePolicySlot(db);
 }, 120_000);
 
 afterAll(async () => {
-  for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
-  await db.delete(offerRefreshTasks).where(inArray(offerRefreshTasks.sourceId, safeIds(createdSourceIds)));
-  await db
-    .delete(catalogSourceRefreshLeases)
-    .where(inArray(catalogSourceRefreshLeases.sourceId, safeIds(createdSourceIds)));
-  await db
-    .delete(catalogSourceRunQuarantines)
-    .where(inArray(catalogSourceRunQuarantines.sourceId, safeIds(createdSourceIds)));
-  await db
-    .delete(catalogSourceDistributions)
-    .where(inArray(catalogSourceDistributions.sourceId, safeIds(createdSourceIds)));
-  await db
-    .delete(catalogSourceObjects)
-    .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));
-  await db.delete(offers).where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
-  await db
-    .delete(catalogSourceRuns)
-    .where(inArray(catalogSourceRuns.sourceId, safeIds(createdSourceIds)));
-  // The matcher ran over these observations (with no active policy it decides
-  // nothing, but the anomaly cases drive whole pages), so its decisions hold a
-  // reference to every source record. They go first.
-  // `sql.param`, never a bare array: a bare array renders as a ROW CONSTRUCTOR
-  // (`($1, $2, …)`), which Postgres refuses to cast to `text[]` — the trap
-  // `~/Oxy/AGENTS.md` §"Drizzle `sql` templates" names, and one `tsc` cannot see.
-  await db.execute(
-    sql`delete from match_decisions where source_record_id in (
-      select id from source_records
-      where source_id = any(${sql.param(safeIds(createdSourceIds))}::text[])
-    )`,
-  );
-  await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
-  await db
-    .delete(catalogSourceConfigs)
-    .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
-  /**
-   * Both policy tables freeze a published version with a trigger, and neither
-   * permits deleting one — which is the point of the freeze, and why a teardown
-   * has to switch the triggers off.
-   *
-   * `alter table … disable trigger` is DATABASE-WIDE, and this suite shares one
-   * server with every other realdb file. Two files disabling and re-enabling
-   * the same trigger interleave, and the second file's delete meets a trigger
-   * the first has just switched back on — measured, as a teardown failure
-   * naming a trigger the test had disabled two statements earlier. So the whole
-   * window is taken under a SESSION ADVISORY LOCK on
-   * {@link POLICY_TEARDOWN_LOCK}, which every file doing this uses: the lock is
-   * what makes "disable, delete, enable" atomic with respect to the other
-   * files, and it costs one round trip.
-   */
-  await db.execute(sql`select pg_advisory_lock(${POLICY_TEARDOWN_LOCK})`);
   try {
-    await db.execute(sql`alter table catalog_source_freshness_policies disable trigger all`);
+    for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
+    await db.delete(offerRefreshTasks).where(inArray(offerRefreshTasks.sourceId, safeIds(createdSourceIds)));
     await db
-      .delete(catalogSourceFreshnessPolicies)
-      .where(inArray(catalogSourceFreshnessPolicies.sourceId, safeIds(createdSourceIds)));
-    await db.execute(sql`alter table catalog_source_freshness_policies enable trigger all`);
-    await db.execute(
-      sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
-    );
+      .delete(catalogSourceRefreshLeases)
+      .where(inArray(catalogSourceRefreshLeases.sourceId, safeIds(createdSourceIds)));
     await db
-      .delete(catalogSourcePolicies)
-      .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
+      .delete(catalogSourceRunQuarantines)
+      .where(inArray(catalogSourceRunQuarantines.sourceId, safeIds(createdSourceIds)));
+    await db
+      .delete(catalogSourceDistributions)
+      .where(inArray(catalogSourceDistributions.sourceId, safeIds(createdSourceIds)));
+    await db
+      .delete(catalogSourceObjects)
+      .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));
+    await db.delete(offers).where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
+    await db
+      .delete(catalogSourceRuns)
+      .where(inArray(catalogSourceRuns.sourceId, safeIds(createdSourceIds)));
+    // The matcher ran over these observations — it decides nothing, because the
+    // page-driving cases store no payload, but it runs — so its decisions hold a
+    // reference to every source record. They go first.
+    // `sql.param`, never a bare array: a bare array renders as a ROW CONSTRUCTOR
+    // (`($1, $2, …)`), which Postgres refuses to cast to `text[]` — the trap
+    // `~/Oxy/AGENTS.md` §"Drizzle `sql` templates" names, and one `tsc` cannot see.
     await db.execute(
-      sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+      sql`delete from match_decisions where source_record_id in (
+        select id from source_records
+        where source_id = any(${sql.param(safeIds(createdSourceIds))}::text[])
+      )`,
     );
+    await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
+    await db
+      .delete(catalogSourceConfigs)
+      .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
+    /**
+     * Both policy tables freeze a published version with a trigger, and neither
+     * permits deleting one — which is the point of the freeze, and why a teardown
+     * has to switch the triggers off.
+     *
+     * `alter table … disable trigger` is DATABASE-WIDE, and this suite shares one
+     * server with every other realdb file. Two files disabling and re-enabling
+     * the same trigger interleave, and the second file's delete meets a trigger
+     * the first has just switched back on — measured, as a teardown failure
+     * naming a trigger the test had disabled two statements earlier. So the whole
+     * window is taken under a SESSION ADVISORY LOCK on
+     * {@link POLICY_TEARDOWN_LOCK}, which every file doing this uses: the lock is
+     * what makes "disable, delete, enable" atomic with respect to the other
+     * files, and it costs one round trip.
+     */
+    await db.execute(sql`select pg_advisory_lock(${POLICY_TEARDOWN_LOCK})`);
+    try {
+      await db.execute(sql`alter table catalog_source_freshness_policies disable trigger all`);
+      await db
+        .delete(catalogSourceFreshnessPolicies)
+        .where(inArray(catalogSourceFreshnessPolicies.sourceId, safeIds(createdSourceIds)));
+      await db.execute(sql`alter table catalog_source_freshness_policies enable trigger all`);
+      await db.execute(
+        sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
+      );
+      await db
+        .delete(catalogSourcePolicies)
+        .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
+      await db.execute(
+        sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+      );
+    } finally {
+      await db.execute(sql`select pg_advisory_unlock(${POLICY_TEARDOWN_LOCK})`);
+    }
+    await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
+    await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
+    await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
+    await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
   } finally {
-    await db.execute(sql`select pg_advisory_unlock(${POLICY_TEARDOWN_LOCK})`);
+    /**
+     * ALWAYS, and before `closePostgres`.
+     *
+     * Before, because the slot is held on a connection RESERVED out of this
+     * pool — closing the pool first would take the release with it. Always,
+     * because the teardown above can throw: a `23503` on the canonical deletes
+     * is a measured failure mode in this suite (#270), and an aborted hook
+     * would leave a session-level advisory lock held on a socket vitest keeps
+     * open for the next file in the worker. Every other claimant then blocks
+     * its full 120s `beforeAll` timeout and fails — one teardown error becoming
+     * a run-wide cascade on files that did nothing wrong, which is the exact
+     * signature this mutex exists to remove.
+     *
+     * `ebay-ingestion.realdb.test.ts` releases at the TOP of its own `afterAll`
+     * instead. This file keeps the hold across teardown — no sibling should be
+     * matching while these canonical rows are being deleted — and pays for it
+     * with the `finally`.
+     *
+     * NESTED, because `release()` can throw and `closePostgres` is what
+     * actually ends the hold. `reserved.release()` inside the mutex returns the
+     * connection to the pool and does NOT end the session — measured: the lock
+     * is still held after a check-in and gone only after `sql.end()`. So an
+     * unlock that throws would abort this block one line short of the only
+     * statement that frees the slot, reaching the cascade this `finally` was
+     * added to prevent.
+     */
+    try {
+      await policySlot?.release();
+    } finally {
+      await closePostgres();
+    }
   }
-  await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
-  await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, safeIds(createdVariantIds)));
-  await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, safeIds(createdProductIds)));
-  await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
-  await closePostgres();
 });
 
 /** One canonical product plus its one variant — what an offer must point at. */
@@ -261,11 +320,18 @@ const FULL_RIGHTS = {
  * `mayStore` is a knob because it decides whether the MATCHER can see anything:
  * `may_store` off means the observation is recorded with no payload, so #58's
  * subject loader returns `null` and no `match_decisions` row is written at all
- * (#62 states that consequence explicitly). Every case in this file that drives
- * a real page turns it OFF — none of them is about matching, and staying out of
- * the match-decision graph keeps this file clear of
- * `match_policy_versions_active_key`, the GLOBAL one-active-policy slot that
- * `~/Oxy/AGENTS.md` names as a shared resource between parallel realdb files.
+ * (#62 states that consequence explicitly). Both cases in this file that drive a
+ * real page turn it OFF — neither is about matching, and staying out of the
+ * match-decision graph is what keeps them from minting a decision against
+ * another file's canonical fixture.
+ *
+ * It is NOT what keeps this file clear of the global one-active-policy slot, and
+ * that distinction cost a wrong comment: `runMatch` reads the active policy
+ * BEFORE it loads its subject (`matching/match.service.ts:341`), so this file
+ * reads it on every page whatever `mayStore` says. The DEFAULT here is `true`,
+ * so a page-driving case added without thinking about it would mint decisions.
+ * The file therefore holds `acquireActivePolicySlot` for its whole run — see
+ * `beforeAll` — and this knob is about the decision graph, not the slot.
  */
 async function bringUpSource(
   label: string,
@@ -696,8 +762,11 @@ describe('acceptance 6 — anomaly fixtures quarantine bad output BEFORE publica
    * assertion passed through a path the test was not about. One run against a
    * pre-seeded baseline is the shape that measures what it claims to.
    *
-   * The matcher is deliberately left with no active policy: `runMatch` then
-   * answers `null`, the object stays observed and no offer is written. That is
+   * The matcher decides nothing here, and the reason is `mayStore: false`
+   * below rather than the absence of an active policy — an earlier comment said
+   * the latter, which this file cannot guarantee and does not need. With no
+   * payload stored, #58's subject loader answers `null`, `runMatch` returns with
+   * no decision, the object stays observed and no offer is written. That is
    * exactly the surface these cases need — what is under test is whether the
    * page's output reaches `advanceObject` AT ALL, and a matcher verdict would
    * only add a second reason for it not to.
