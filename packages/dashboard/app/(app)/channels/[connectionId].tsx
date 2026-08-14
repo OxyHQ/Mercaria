@@ -21,7 +21,6 @@ import type {
   ChannelReconciliationSummary,
   Connection,
   ConnectionStatus,
-  ConnectorWebhookFailureReason,
   GenerateChannelApiKeyResult,
   SyncResourceDirection,
 } from "@mercaria/shared-types";
@@ -45,7 +44,11 @@ import {
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
-import { formatWhen } from "@/components/channels/channel-presentation";
+import {
+  WEBHOOK_FAILURE_REASON_COPY,
+  deriveWebhookDelivery,
+  formatWhen,
+} from "@/components/channels/channel-presentation";
 import {
   useChannels,
   useUpdateChannelSettings,
@@ -71,24 +74,6 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
   connected: "Connected",
   error: "Needs attention",
   disconnected: "Disconnected",
-};
-
-/**
- * What a merchant can DO about each refusal (#218's reason codes, #262's screen).
- *
- * The remedies genuinely differ, which is why the reason is a closed set rather
- * than a sentence: the first two need the merchant to change something on the
- * platform before a retry can work, and the rest are worth simply retrying. The
- * copy says which, because "permission_denied" on its own tells a merchant
- * nothing they can act on.
- */
-const WEBHOOK_FAILURE_REASON_LABEL: Record<ConnectorWebhookFailureReason, string> = {
-  permission_denied: "the app or key lacks permission",
-  topic_not_supported: "this platform will not send it",
-  rate_limited: "the platform was throttling",
-  platform_error: "the platform failed",
-  unexpected_response: "the platform answered unexpectedly",
-  transport_error: "the platform could not be reached",
 };
 
 const DIRECTIONS: readonly SyncResourceDirection[] = ["off", "pull", "push", "bidirectional"];
@@ -396,30 +381,32 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
  * appears once something is already recorded as broken could never be pressed for
  * it. Hence the healthy state says what it holds and offers the same action.
  *
- * ## The three unhealthy states are NOT one state with a counter
+ * ## The state comes from `deriveWebhookDelivery`, not from the refusal list
  *
- * `dead_letter` means automatic retries have stopped, and pressing retry against
- * an unchanged platform will simply fail again — so its copy sends the merchant to
- * fix the cause FIRST. A `pending` registration with attempts spent is being
- * retried on a schedule, so its copy says when. Refusals with no registration
- * record yet are a connect-time refusal the sweep has not reached, which reads as
- * the second case and must not read as the first.
+ * `webhookRegistration` is the authority on whether Mercaria is still trying and
+ * `webhookFailures` is a separate fact about which topics were refused, so the
+ * derivation reads them in that order. Reading the refusals first renders a
+ * channel Mercaria has GIVEN UP on as healthy whenever the failure went
+ * unrecorded — see the note on `deriveWebhookDelivery` for the case that
+ * produces exactly that.
  */
 function WebhookHealth({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { colors } = useColorScheme();
   const reregister = useReregisterChannelWebhooks(storeId);
 
-  // The endpoint refuses a channel with no credential to authenticate with and a
-  // push-in channel that has nothing to subscribe, so the control is ABSENT for
-  // both rather than present and answering 400. A disconnected channel has no
-  // real-time sync to talk about at all.
+  // Two of the endpoint's three refusals, kept as an ABSENT control rather than a
+  // button that answers 400: a push-in channel has nothing to subscribe and a
+  // disconnected one has no real-time sync to talk about. The third — a
+  // connection whose stored credential will not resolve — is NOT checkable here,
+  // because the DTO carries no credential-presence fact by design, so it stays a
+  // 400 surfaced through this panel's own error toast.
   if (connection.mode !== "pull" || connection.status !== "connected") {
     return null;
   }
 
+  const providerName = PROVIDER_NAME[connection.provider];
+  const delivery = deriveWebhookDelivery(connection, providerName);
   const failures = connection.webhookFailures ?? [];
-  const registration = connection.webhookRegistration;
-  const stopped = registration?.state === "dead_letter";
 
   const retry = () => {
     reregister.mutate(connection.id, {
@@ -433,45 +420,37 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
       <Text className="text-sm font-semibold text-muted-foreground">Real-time updates</Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         <View className="flex-row items-start gap-2">
-          {/*
-            `colors.primary` for BOTH refusal states, because `useColorScheme`
-            exposes no destructive token and inventing one here would be a second
-            palette. The severity distinction is carried by the COPY, which is
-            where a merchant can act on it — a redder triangle does not tell
-            anybody to widen a permission.
-          */}
-          {failures.length > 0 ? (
-            <TriangleAlert size={15} color={colors.primary} />
-          ) : (
-            <RadioTower size={15} color={colors.mutedForeground} />
-          )}
+          <View className="pt-0.5">
+            {/*
+              `ChannelLimitationRow`'s convention: `useColorScheme` exposes no
+              destructive token, so the severity is carried by the ICON and the
+              copy rather than by a colour this palette does not have. A redder
+              triangle would not tell anybody to widen a permission anyway.
+            */}
+            {delivery.state === "healthy" ? (
+              <RadioTower size={15} color={colors.mutedForeground} />
+            ) : (
+              <TriangleAlert size={15} color={colors.mutedForeground} />
+            )}
+          </View>
           <View className="flex-1 gap-1">
-            <Text className="text-sm font-medium text-foreground">
-              {failures.length === 0
-                ? "Changes arrive as they happen"
-                : stopped
-                  ? "Some changes aren't arriving, and retries have stopped"
-                  : "Some changes aren't arriving"}
-            </Text>
-            <Text className="text-xs text-muted-foreground">
-              {failures.length === 0
-                ? `${PROVIDER_NAME[connection.provider]} notifies Mercaria of ${connection.webhookIds.length} kinds of change. Register again if you removed Mercaria's webhooks on ${PROVIDER_NAME[connection.provider]} — nothing here can detect that.`
-                : stopped
-                  ? `Mercaria stopped retrying after ${registration?.attempts ?? 0} attempts. Fix the cause on ${PROVIDER_NAME[connection.provider]} first — usually a missing permission — then register again.`
-                  : registration?.nextAttemptAt
-                    ? `Mercaria is retrying automatically; the next attempt is ${formatWhen(registration.nextAttemptAt, "due shortly")}. You can register again now instead.`
-                    : "Mercaria will retry automatically. You can register again now instead."}
-            </Text>
+            <Text className="text-sm font-medium text-foreground">{delivery.headline}</Text>
+            <Text className="text-xs text-muted-foreground">{delivery.detail}</Text>
           </View>
         </View>
 
+        {/*
+          The TOPICS, named. "Which events will not arrive" is the merchant's
+          actual question, and `webhookIds` cannot answer it — only this list can.
+        */}
         {failures.length > 0 ? (
           <View className="gap-1 rounded-xl bg-muted/40 p-3">
             {failures.map((failure) => (
               <Text key={failure.topic} className="text-xs text-muted-foreground">
                 <Text className="text-xs font-medium text-foreground">{failure.topic}</Text>
-                {` — ${WEBHOOK_FAILURE_REASON_LABEL[failure.reason]}`}
+                {` — ${WEBHOOK_FAILURE_REASON_COPY[failure.reason]}`}
                 {failure.httpStatus === undefined ? "" : ` (HTTP ${failure.httpStatus})`}
+                {` · last checked ${formatWhen(failure.recordedAt, "recently")}`}
               </Text>
             ))}
           </View>
@@ -484,7 +463,7 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
           isLoading={reregister.isPending}
           className="self-start"
         >
-          <Text className="text-sm font-medium text-foreground">Register webhooks again</Text>
+          <Text className="text-sm font-medium text-foreground">{delivery.actionLabel}</Text>
         </Button>
       </View>
     </View>
