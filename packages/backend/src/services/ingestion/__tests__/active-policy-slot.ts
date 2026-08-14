@@ -61,8 +61,26 @@ export async function acquireActivePolicySlot(db: Database): Promise<ActivePolic
       try {
         await reserved`select pg_advisory_unlock(${ACTIVE_POLICY_LOCK_KEY})`;
       } finally {
-        // Returning the connection ends the session's hold even if the unlock
-        // itself failed, so a broken release cannot strand every other file.
+        /**
+         * Returning the connection to the pool. It does NOT end the hold.
+         *
+         * This comment used to claim the opposite — that a check-in ends the
+         * session, so a broken unlock could not strand anybody. Measured against
+         * a real server and it is false: `reserve()` checks a connection OUT of
+         * the pool and `release()` checks it back IN, without closing the
+         * socket, and a session-level advisory lock survives that. Locks held
+         * after `pg_advisory_lock`: 1. After `release()` without unlocking: 1.
+         * After `sql.end()`: 0.
+         *
+         * So the hold ends at `closePostgres()` (postgres.js `sql.end()`) or at
+         * process exit, and NOTHING ELSE. A caller whose `pg_advisory_unlock`
+         * throws must still reach `closePostgres()` — which is why every holder
+         * releases inside a `finally` that is itself nested inside one, rather
+         * than trusting this line.
+         *
+         * `payments/reconciliation/__tests__/reconciliation-sweep-slot.ts`
+         * carries the same wrong sentence and the same shape.
+         */
         reserved.release();
       }
     },
