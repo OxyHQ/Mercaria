@@ -30,6 +30,7 @@ import {
   CHANNEL_DISCONNECT_POLICIES,
   CONNECTOR_PROVIDER_IDS,
   CONNECTOR_WEBHOOK_FAILURE_REASONS,
+  CONNECTOR_WEBHOOK_REGISTRATION_STATES,
   type ConnectionMode,
   type ConnectionStatus,
   type SyncResourceDirection,
@@ -176,6 +177,57 @@ export const connections = pgTable(
 
     /** Platform-assigned webhook ids — opaque foreign keys, scalar, never joined. */
     webhookIds: text().array().notNull().default(sql`'{}'::text[]`),
+
+    /**
+     * Where AUTOMATIC webhook re-registration stands for this connection (#262).
+     *
+     * Five columns rather than a child table, because this is one fixed set of
+     * scalars per connection and never a repeated record —
+     * `CONVENTIONS.md` §"Arrays and objects" sends the repeated case to a table
+     * (`connection_webhook_failures` is that case) and this one to columns. It
+     * also buys the two properties a separate table would have to remember: a
+     * disconnect clears the lease in the SAME statement that clears the
+     * credentials, so a disconnected connection cannot carry a live claim, and a
+     * reconnect resets the whole set in the upsert that establishes it.
+     *
+     * What is NOT here is the NEED for re-registration. That is DERIVED — refused
+     * topics in `connection_webhook_failures`, or an empty `webhook_ids` where a
+     * registration threw before writing anything — and `ChannelReadiness` already
+     * reads the same derivation as `degraded`. A stored "needs re-registration"
+     * boolean would be a second representation of it, and the place two
+     * representations must not disagree is a sweep deciding whether to call a
+     * merchant's platform.
+     */
+    webhookRegistrationState: text({ enum: asEnumValues(CONNECTOR_WEBHOOK_REGISTRATION_STATES) })
+      .notNull()
+      .default('pending'),
+    /**
+     * Consecutive automatic attempts spent. Incremented by the CLAIM, reset to
+     * zero by a registration that left nothing refused — so it counts what the
+     * loop has spent rather than how often a person pressed the button, and an
+     * on-demand attempt neither increments nor exhausts it.
+     */
+    webhookRegistrationAttempts: integer().notNull().default(0),
+    /**
+     * When the next automatic attempt becomes due. NULL means "now" — a
+     * connection that has never failed is due the moment it needs work, and
+     * writing a past instant instead would be a second spelling of the same fact.
+     */
+    webhookRegistrationNextAttemptAt: timestamptz(),
+    /**
+     * The lease, and it is load-bearing rather than tidy (#262).
+     *
+     * Two passes registering ONE connection concurrently is not a wasted call on
+     * a `per_connection` provider — it is a broken channel. WooCommerce fixes a
+     * webhook's secret at creation, so A and B each delete and recreate every
+     * topic, and whichever finishes LAST stores its secret over the other's while
+     * the other's subscriptions are the live ones. Every delivery then 401s,
+     * permanently and silently. The realistic racer is a merchant pressing
+     * "retry" while the scheduled sweep is mid-flight on the same connection.
+     */
+    webhookRegistrationLeaseOwner: text(),
+    webhookRegistrationLeaseUntil: timestamptz(),
+
     connectedAt: timestamptz().notNull(),
     lastSyncAt: timestamptz(),
 
@@ -257,6 +309,23 @@ export const connections = pgTable(
     check(
       'connections_webhook_secret_complete_check',
       sql`num_nonnulls(${t.webhookSecretCiphertext}, ${t.webhookSecretIv}, ${t.webhookSecretTag}) in (0, 3)`,
+    ),
+    checkOneOf(
+      'connections_webhook_registration_state_check',
+      t.webhookRegistrationState,
+      CONNECTOR_WEBHOOK_REGISTRATION_STATES,
+    ),
+    // A lease is an owner AND a deadline. An owner with no deadline never
+    // expires, so a task that died holding it strands the connection forever; a
+    // deadline with no owner matches no owner check, so nothing can ever
+    // complete or release it. Either half alone reads as a live claim.
+    check(
+      'connections_webhook_registration_lease_check',
+      sql`num_nonnulls(${t.webhookRegistrationLeaseOwner}, ${t.webhookRegistrationLeaseUntil}) in (0, 2)`,
+    ),
+    check(
+      'connections_webhook_registration_attempts_check',
+      sql`${t.webhookRegistrationAttempts} >= 0`,
     ),
     uniqueIndex('connections_store_id_provider_key').on(t.storeId, t.provider),
   ],

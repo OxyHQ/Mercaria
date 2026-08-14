@@ -29,6 +29,7 @@ import type {
   OrderEvent,
   LowInventoryAlertJob,
   ConnectionBackfillJob,
+  ConnectionWebhookReregisterJob,
   WebhookProcessJob,
   ProductPushJob,
   OrderSyncJob,
@@ -405,6 +406,39 @@ export async function handleConnectionBackfill(job: ConnectionBackfillJob): Prom
 export async function handleConnectionReconcile(): Promise<void> {
   const { reconcileAllConnections } = await import('../services/connector-sync.service.js');
   await reconcileAllConnections();
+}
+
+/**
+ * Re-register ONE connection's platform webhooks (#262) — the merchant's own
+ * trigger, and the job the sweep's per-connection work shares.
+ *
+ * `storeId` scopes the connection lookup inside the service, so a payload naming
+ * another store's connection resolves to nothing. Delegates by dynamic import for
+ * the same cycle-breaking reason as {@link handleConnectionBackfill}.
+ */
+export async function handleConnectionWebhookReregister(
+  job: ConnectionWebhookReregisterJob,
+): Promise<void> {
+  const { reregisterConnectionWebhooks } = await import('../services/connector-sync.service.js');
+  // `countsAsAttempt: false` — this is a person acting, so it must be admissible
+  // on a connection the sweep has given up on and must not spend from the
+  // automatic budget. A SUCCESS resets that budget and re-arms the sweep.
+  await reregisterConnectionWebhooks(job.storeId, job.connectionId, { countsAsAttempt: false });
+}
+
+/**
+ * Periodic webhook re-registration sweep (#262) — the trigger #218's "self-healing
+ * on the next reconcile" was relying on and which did not exist.
+ *
+ * Repeatable, no payload: the service derives its own population from the
+ * connections whose registration did not finish. Delegates by dynamic import —
+ * same cycle-breaking reason as {@link handleConnectionBackfill}.
+ */
+export async function handleConnectionWebhookRegistrationSweep(): Promise<void> {
+  const { sweepConnectionWebhookRegistrations } = await import(
+    '../services/connector-sync.service.js'
+  );
+  await sweepConnectionWebhookRegistrations();
 }
 
 /**

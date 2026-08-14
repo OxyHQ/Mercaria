@@ -18,6 +18,7 @@ import {
   connectWithApiKey,
   updateSyncSettings,
   requestBackfill,
+  requestWebhookReregistration,
   disconnect,
   toConnectionDTOWithWebhookFailures,
 } from '../../services/connector-sync.service.js';
@@ -126,6 +127,40 @@ export async function syncChannelHandler(req: Request, res: Response): Promise<v
   } catch (err) {
     log.general.error({ err, connectionId: req.params.connectionId }, 'Failed to run channel sync');
     respondWithError(res, err, 'Failed to run channel sync');
+  }
+}
+
+/**
+ * POST /admin/stores/:storeId/channels/:connectionId/webhooks/reregister — ask the
+ * platform for this channel's real-time subscriptions again (#262).
+ *
+ * The remedy for a registration the platform partially refused, or one Mercaria
+ * could not conclude anything about, WITHOUT disconnecting and reconnecting the
+ * channel — which is what a merchant had to do before, and which costs them the
+ * OAuth round trip or a fresh API key for a problem that is usually a scope they
+ * have since widened.
+ *
+ * Validates synchronously (404 for a missing or cross-store connection, 400 for a
+ * disconnected, push-in or credential-less one) and then ENQUEUES, exactly like
+ * `sync`: the work is a handful of calls to somebody else's platform and does not
+ * belong inside the request. The outcome arrives on the connection itself —
+ * `webhookFailures` names the topics that still will not arrive and
+ * `webhookRegistration` says whether Mercaria is still retrying.
+ */
+export async function reregisterChannelWebhooksHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const connectionId = routeParam(req, 'connectionId');
+    await requestWebhookReregistration(storeId(req), connectionId);
+    sendSuccess(res, { status: 'enqueued', connectionId }, 202);
+  } catch (err) {
+    log.general.error(
+      { err, connectionId: req.params.connectionId },
+      'Failed to request channel webhook re-registration',
+    );
+    respondWithError(res, err, 'Failed to request webhook registration');
   }
 }
 

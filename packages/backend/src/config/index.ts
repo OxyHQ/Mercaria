@@ -3010,7 +3010,48 @@ export interface AppConfig {
   readonly retail: MercariaRetailConfig;
   readonly retailReconciliation: RetailReconciliationConfig;
   readonly merchantBilling: MerchantBillingConfig;
+  readonly connectors: ConnectorsConfig;
   readonly postgres: PostgresConfig;
+}
+
+/**
+ * External-platform connectors: the #262 webhook re-registration sweep.
+ *
+ * ONE lever, and it is an INCIDENT lever rather than a rollout one, so it
+ * defaults ON. Three things decide that:
+ *
+ *  - It gates the SWEEP and nothing else. The refused topics, the empty
+ *    `webhook_ids` a thrown registration leaves, the attempt counter and the
+ *    on-demand re-registration a merchant triggers all work with it off — which
+ *    is what the rule asks for, because bringing one channel up by hand is the
+ *    supported path during the incident that turned the sweep off.
+ *  - Its sibling in the same domain has no lever at all.
+ *    `reconcileAllConnections` re-pulls every connected catalogue from the same
+ *    two platforms every six hours, unconditionally, whenever Redis is
+ *    configured. A lever defaulting OFF would make the remedy for a broken
+ *    channel strictly more timid than the routine sweep beside it.
+ *  - Shipped off, #262 is not fixed. #218 relies on "self-healing on the next
+ *    reconcile" and this sweep IS that reconcile; a feature nobody switches on is
+ *    the state the issue describes, with an extra variable in front of it.
+ *
+ * What an incident actually wants from it is "stop knocking at Shopify", which is
+ * exactly what turning it off does — leaving every stored fact and the merchant's
+ * own retry button intact.
+ */
+export interface ConnectorsConfig {
+  /** Whether the scheduled webhook re-registration sweep RUNS. */
+  readonly webhookReregistrationEnabled: boolean;
+  /** How many connections one sweep pass claims. */
+  readonly webhookReregistrationBatchSize: number;
+  /**
+   * How long a claim is held before another task may reclaim it.
+   *
+   * Generous relative to a registration, which is a handful of platform calls: a
+   * lease that expires mid-flight lets a second pass recreate subscriptions the
+   * first is still creating, and on a `per_connection` provider that is the
+   * secret-swap race the lease exists to prevent.
+   */
+  readonly webhookReregistrationLeaseMs: number;
 }
 
 /**
@@ -3657,6 +3698,11 @@ export const config: AppConfig = Object.freeze({
     ...(process.env.MERCHANT_BILLING_RETURN_URL?.trim()
       ? { returnUrl: process.env.MERCHANT_BILLING_RETURN_URL.trim() }
       : {}),
+  }),
+  connectors: Object.freeze({
+    webhookReregistrationEnabled: boolEnv('CONNECTOR_WEBHOOK_REREGISTRATION_ENABLED', true),
+    webhookReregistrationBatchSize: intEnv('CONNECTOR_WEBHOOK_REREGISTRATION_BATCH_SIZE', 10),
+    webhookReregistrationLeaseMs: intEnv('CONNECTOR_WEBHOOK_REREGISTRATION_LEASE_MS', 120_000),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

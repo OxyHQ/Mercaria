@@ -15,6 +15,7 @@ import {
   JOB_ORDER_EVENT_NOTIFICATION,
   JOB_LOW_INVENTORY_ALERT,
   JOB_CONNECTION_BACKFILL,
+  JOB_CONNECTION_WEBHOOK_REREGISTER,
   JOB_WEBHOOK_PROCESS,
   JOB_PRODUCT_PUSH,
   JOB_ORDER_SYNC,
@@ -26,6 +27,7 @@ import {
   handleOrderEventNotification,
   handleLowInventoryAlert,
   handleConnectionBackfill,
+  handleConnectionWebhookReregister,
   handleWebhookProcess,
   handleProductPush,
   handleOrderSync,
@@ -38,6 +40,7 @@ import type {
   OrderEventNotificationJob,
   LowInventoryAlertJob,
   ConnectionBackfillJob,
+  ConnectionWebhookReregisterJob,
   WebhookProcessJob,
   ProductPushJob,
   OrderSyncJob,
@@ -117,6 +120,33 @@ export async function enqueueConnectionBackfill(data: ConnectionBackfillJob): Pr
   }
   await queue.add(JOB_CONNECTION_BACKFILL, data, {
     jobId: hashJobId(JOB_CONNECTION_BACKFILL, data.connectionId),
+  });
+}
+
+/**
+ * Enqueue a webhook re-registration for one connection (#262). Falls back to
+ * running it INLINE when the sync queue is disabled (no Redis), which is what
+ * keeps a merchant's own "register webhooks again" available on a deployment with
+ * no Redis and during the incident that turned the scheduled sweep off.
+ *
+ * A stable, hashed `jobId` per CONNECTION dedupes an overlapping request — a
+ * merchant pressing the button twice enqueues one job. The connection's
+ * registration LEASE is the durable half of the same property: it holds across
+ * tasks and across a Redis that forgot, where a `jobId` only dedupes what is still
+ * pending or active.
+ */
+export async function enqueueConnectionWebhookReregister(
+  data: ConnectionWebhookReregisterJob,
+): Promise<void> {
+  const queue = getSyncQueue();
+  if (!queue) {
+    await runInline(JOB_CONNECTION_WEBHOOK_REREGISTER, () =>
+      handleConnectionWebhookReregister(data),
+    );
+    return;
+  }
+  await queue.add(JOB_CONNECTION_WEBHOOK_REREGISTER, data, {
+    jobId: hashJobId(JOB_CONNECTION_WEBHOOK_REREGISTER, data.connectionId),
   });
 }
 

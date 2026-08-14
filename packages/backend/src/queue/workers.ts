@@ -28,6 +28,8 @@ import {
   JOB_CLASSIFY_LEGACY_REVIEWS,
   JOB_CONNECTION_BACKFILL,
   JOB_CONNECTION_RECONCILE,
+  JOB_CONNECTION_WEBHOOK_REREGISTER,
+  JOB_CONNECTION_WEBHOOK_REGISTRATION_SWEEP,
   JOB_WEBHOOK_PROCESS,
   JOB_PRODUCT_PUSH,
   JOB_ORDER_SYNC,
@@ -44,6 +46,8 @@ import {
   handleAggregateSweep,
   handleConnectionBackfill,
   handleConnectionReconcile,
+  handleConnectionWebhookRegistrationSweep,
+  handleConnectionWebhookReregister,
   handleWebhookProcess,
   handleProductPush,
   handleOrderSync,
@@ -61,6 +65,7 @@ import type {
   OrderEventNotificationJob,
   LowInventoryAlertJob,
   ConnectionBackfillJob,
+  ConnectionWebhookReregisterJob,
   WebhookProcessJob,
   ProductPushJob,
   OrderSyncJob,
@@ -119,6 +124,13 @@ async function processSyncJob(job: Job<MarketplaceSyncJobData>): Promise<void> {
     case JOB_CONNECTION_RECONCILE:
       // Repeatable sweep — no payload; the handler resolves connections itself.
       await handleConnectionReconcile();
+      return;
+    case JOB_CONNECTION_WEBHOOK_REREGISTER:
+      await handleConnectionWebhookReregister(job.data as ConnectionWebhookReregisterJob);
+      return;
+    case JOB_CONNECTION_WEBHOOK_REGISTRATION_SWEEP:
+      // Repeatable sweep (#262) — no payload; the handler derives its population.
+      await handleConnectionWebhookRegistrationSweep();
       return;
     case JOB_WEBHOOK_PROCESS:
       await handleWebhookProcess(job.data as WebhookProcessJob);

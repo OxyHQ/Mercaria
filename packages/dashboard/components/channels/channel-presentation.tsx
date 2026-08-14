@@ -20,7 +20,11 @@ import type {
   ChannelLimitation,
   ChannelReadinessBlocker,
   ChannelTypeId,
+  Connection,
+  ConnectionWebhookFailure,
+  ConnectorWebhookFailureReason,
 } from "@mercaria/shared-types";
+import { CONNECTOR_WEBHOOK_UNRETRYABLE_FAILURE_REASONS } from "@mercaria/shared-types";
 import { Text, useColorScheme } from "@mercaria/ui";
 
 /**
@@ -149,4 +153,172 @@ export function formatWhen(iso: string | undefined, absent: string): string {
   const when = new Date(iso);
   if (Number.isNaN(when.getTime())) return absent;
   return when.toLocaleString();
+}
+
+/**
+ * Why one topic was refused, in words a merchant can act on (#218's reasons).
+ *
+ * A `Record` over the closed tuple for `READINESS_BLOCKER_COPY`'s reason: a
+ * reason added server-side then fails `tsc` here rather than falling through to
+ * a generic sentence. Each says what HAPPENED; what to DO about it is
+ * {@link deriveWebhookDelivery}'s remedy, because the answer depends on whether
+ * any retry could ever fix it rather than on the individual topic.
+ */
+export const WEBHOOK_FAILURE_REASON_COPY: Record<ConnectorWebhookFailureReason, string> = {
+  permission_denied: "the connection's permissions do not cover it",
+  rate_limited: "the platform was rate-limiting",
+  topic_not_supported: "the platform does not offer it",
+  platform_error: "the platform returned an error",
+  unexpected_response: "the platform's reply could not be read",
+  transport_error: "the platform could not be reached",
+};
+
+/** The five things a merchant's real-time sync can be doing (#262). */
+export interface WebhookDeliveryPresentation {
+  readonly state: "healthy" | "unregistered" | "retrying" | "refused" | "stopped";
+  readonly headline: string;
+  readonly detail: string;
+  /** What the button says — "try now" while Mercaria is already retrying. */
+  readonly actionLabel: string;
+}
+
+/**
+ * Is this a refusal no number of retries can fix?
+ *
+ * Read from the shared tuple rather than re-listed, so the dashboard cannot
+ * disagree with the sweep about which refusals are worth retrying. The local
+ * annotation widens the const tuple's element type without an `as`.
+ */
+function isUnretryable(reason: ConnectorWebhookFailureReason): boolean {
+  const unretryable: readonly ConnectorWebhookFailureReason[] =
+    CONNECTOR_WEBHOOK_UNRETRYABLE_FAILURE_REASONS;
+  return unretryable.includes(reason);
+}
+
+/**
+ * What the merchant has to change before a retry can succeed.
+ *
+ * Named from the refusals ACTUALLY recorded rather than guessed at: a
+ * `permission_denied` is a grant only they can widen and a `topic_not_supported`
+ * is an event the platform will never send, so telling somebody to "check your
+ * permissions" for the second wastes their afternoon on a setting that is fine.
+ */
+function remedyFor(
+  failures: readonly ConnectionWebhookFailure[],
+  providerName: string,
+): string | undefined {
+  const reasons = new Set(failures.map((failure) => failure.reason).filter(isUnretryable));
+  const sentences: string[] = [];
+  if (reasons.has("permission_denied")) {
+    sentences.push(
+      `Mercaria's permissions in ${providerName} do not cover every event — widen them there, then register again.`,
+    );
+  }
+  if (reasons.has("topic_not_supported")) {
+    sentences.push(
+      `${providerName} does not offer some of these events at all, so registering again cannot make them arrive.`,
+    );
+  }
+  return sentences.length > 0 ? sentences.join(" ") : undefined;
+}
+
+/**
+ * What to tell a merchant about their channel's real-time updates, and what the
+ * button should say (#262).
+ *
+ * The ORDER of these checks is load-bearing. `webhookRegistration` is the
+ * authority on whether Mercaria is still trying, and `webhookFailures` is a
+ * separate fact about which topics were refused — so keying the headline on the
+ * refusals first renders a channel Mercaria has GIVEN UP on as healthy whenever
+ * the failure went unrecorded, which is exactly what a credential that will not
+ * decrypt produces: the registration is answered `retryable` with no per-topic
+ * row to show, the attempt budget drains, and the connection dead-letters
+ * carrying no refusals at all.
+ *
+ * The three unhealthy states are not one state with a counter, because the next
+ * action differs. `stopped` means the automatic retries are over and pressing
+ * the button against an unchanged platform will simply fail again. `retrying`
+ * means Mercaria is already handling it and the button only brings it forward.
+ * `refused` means the registration FINISHED and some topics were still refused —
+ * nothing is scheduled, so neither of the other two sentences is true of it.
+ */
+export function deriveWebhookDelivery(
+  connection: Connection,
+  providerName: string,
+  now: Date = new Date(),
+): WebhookDeliveryPresentation {
+  const failures = connection.webhookFailures ?? [];
+  const registration = connection.webhookRegistration;
+  const remedy = remedyFor(failures, providerName);
+
+  if (registration?.state === "dead_letter") {
+    // No failures recorded means the registration never got far enough to name a
+    // topic — a credential Mercaria could not resolve is the case that produces
+    // it, and reconnecting is the only thing that fixes that one.
+    const cause =
+      remedy ??
+      (failures.length > 0
+        ? `The last attempts could not reach ${providerName}. Register again once it is reachable.`
+        : `Mercaria could not complete the registration. Reconnect the channel if this keeps happening.`);
+    return {
+      state: "stopped",
+      headline: "Some updates aren't arriving, and Mercaria has stopped retrying",
+      detail: `Mercaria stopped after ${registration.attempts} ${
+        registration.attempts === 1 ? "attempt" : "attempts"
+      }. ${cause}`,
+      actionLabel: "Register webhooks again",
+    };
+  }
+
+  if (registration) {
+    // `nextAttemptAt` is absent on a claim that is in flight right now, and can
+    // be in the PAST for one that is due — printing a past timestamp beside
+    // "the next attempt is" reads as a stuck queue, so both say "due now".
+    const scheduled = registration.nextAttemptAt;
+    const due =
+      scheduled !== undefined && new Date(scheduled).getTime() > now.getTime()
+        ? formatWhen(scheduled, "due now")
+        : "due now";
+    return {
+      state: "retrying",
+      headline: "Some updates aren't arriving yet",
+      detail: `Mercaria is retrying automatically — the next attempt is ${due}. ${
+        remedy ?? "You can bring that forward now instead."
+      }`,
+      actionLabel: "Try now",
+    };
+  }
+
+  if (failures.length > 0) {
+    return {
+      state: "refused",
+      headline: "Some updates will not arrive",
+      detail:
+        remedy ??
+        // Every refusal here is one a retry could take (an unretryable one would
+        // have produced a `remedy`), and such a connection IS in the sweep's
+        // population — so the schedule can be promised rather than leaving the
+        // merchant to think the button is the only thing that will ever try.
+        `Mercaria finished registering, but ${providerName} refused the events below. It will retry them automatically; the button brings that forward.`,
+      actionLabel: "Register webhooks again",
+    };
+  }
+
+  if (connection.webhookIds.length === 0) {
+    return {
+      state: "unregistered",
+      headline: "Real-time updates aren't registered yet",
+      detail: `Mercaria registers these automatically for a connected ${providerName} channel. You can register them now instead of waiting.`,
+      actionLabel: "Register webhooks",
+    };
+  }
+
+  return {
+    state: "healthy",
+    headline: "Changes arrive as they happen",
+    detail: `${providerName} is sending Mercaria ${connection.webhookIds.length} ${
+      connection.webhookIds.length === 1 ? "kind" : "kinds"
+    } of update. If you removed Mercaria's webhooks in ${providerName}, register them again — nothing here can detect that.`,
+    actionLabel: "Register webhooks again",
+  };
 }

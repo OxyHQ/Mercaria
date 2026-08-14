@@ -11,6 +11,7 @@ import {
   Check,
   Trash2,
   Plus,
+  RadioTower,
   TriangleAlert,
 } from "lucide-react-native";
 import type {
@@ -43,7 +44,11 @@ import {
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
-import { formatWhen } from "@/components/channels/channel-presentation";
+import {
+  WEBHOOK_FAILURE_REASON_COPY,
+  deriveWebhookDelivery,
+  formatWhen,
+} from "@/components/channels/channel-presentation";
 import {
   useChannels,
   useUpdateChannelSettings,
@@ -53,6 +58,7 @@ import {
   useDisconnectChannelWithPolicy,
   useGenerateChannelKey,
   usePauseChannel,
+  useReregisterChannelWebhooks,
   useRevokeChannelKey,
 } from "@/lib/hooks/use-channels";
 
@@ -160,6 +166,7 @@ function ChannelSettingsBody({
       {connection.mode === "push_in" ? (
         <ChannelApiKeys storeId={storeId} connection={connection} />
       ) : null}
+      <WebhookHealth storeId={storeId} connection={connection} />
       <PauseControls storeId={storeId} connection={connection} />
       <SyncHistory storeId={storeId} connection={connection} />
       <Reconciliation storeId={storeId} connection={connection} />
@@ -349,6 +356,116 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
           ))}
         </View>
       )}
+    </View>
+  );
+}
+
+/**
+ * Real-time sync, and the one control that repairs it (#262).
+ *
+ * ## Why this panel exists at all
+ *
+ * #218 recorded the topics a platform REFUSED on the connection and degraded the
+ * catalogue axis of `ChannelReadiness` while any existed, and nothing rendered
+ * either — so a merchant saw "needs attention" with no way to find out what or to
+ * do anything about it. #262 added the endpoint; this is the half that makes it
+ * reachable.
+ *
+ * ## It renders even when nothing is wrong, deliberately
+ *
+ * The tempting version shows the panel only on a refusal, and it would leave the
+ * ONE case automatic recovery cannot detect with no remedy either: a merchant who
+ * deleted Mercaria's webhooks in the Shopify or WooCommerce admin has complete
+ * stored ids and no refusal, so the sweep's derived population is blind to it by
+ * construction. Re-registering is exactly the repair, and a button that only
+ * appears once something is already recorded as broken could never be pressed for
+ * it. Hence the healthy state says what it holds and offers the same action.
+ *
+ * ## The state comes from `deriveWebhookDelivery`, not from the refusal list
+ *
+ * `webhookRegistration` is the authority on whether Mercaria is still trying and
+ * `webhookFailures` is a separate fact about which topics were refused, so the
+ * derivation reads them in that order. Reading the refusals first renders a
+ * channel Mercaria has GIVEN UP on as healthy whenever the failure went
+ * unrecorded — see the note on `deriveWebhookDelivery` for the case that
+ * produces exactly that.
+ */
+function WebhookHealth({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const { colors } = useColorScheme();
+  const reregister = useReregisterChannelWebhooks(storeId);
+
+  // Two of the endpoint's three refusals, kept as an ABSENT control rather than a
+  // button that answers 400: a push-in channel has nothing to subscribe and a
+  // disconnected one has no real-time sync to talk about. The third — a
+  // connection whose stored credential will not resolve — is NOT checkable here,
+  // because the DTO carries no credential-presence fact by design, so it stays a
+  // 400 surfaced through this panel's own error toast.
+  if (connection.mode !== "pull" || connection.status !== "connected") {
+    return null;
+  }
+
+  const providerName = PROVIDER_NAME[connection.provider];
+  const delivery = deriveWebhookDelivery(connection, providerName);
+  const failures = connection.webhookFailures ?? [];
+
+  const retry = () => {
+    reregister.mutate(connection.id, {
+      onSuccess: () => toast.success("Registering webhooks again"),
+      onError: () => toast.error("Couldn't start webhook registration"),
+    });
+  };
+
+  return (
+    <View className="mt-8 gap-3">
+      <Text className="text-sm font-semibold text-muted-foreground">Real-time updates</Text>
+      <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+        <View className="flex-row items-start gap-2">
+          <View className="pt-0.5">
+            {/*
+              `ChannelLimitationRow`'s convention: `useColorScheme` exposes no
+              destructive token, so the severity is carried by the ICON and the
+              copy rather than by a colour this palette does not have. A redder
+              triangle would not tell anybody to widen a permission anyway.
+            */}
+            {delivery.state === "healthy" ? (
+              <RadioTower size={15} color={colors.mutedForeground} />
+            ) : (
+              <TriangleAlert size={15} color={colors.mutedForeground} />
+            )}
+          </View>
+          <View className="flex-1 gap-1">
+            <Text className="text-sm font-medium text-foreground">{delivery.headline}</Text>
+            <Text className="text-xs text-muted-foreground">{delivery.detail}</Text>
+          </View>
+        </View>
+
+        {/*
+          The TOPICS, named. "Which events will not arrive" is the merchant's
+          actual question, and `webhookIds` cannot answer it — only this list can.
+        */}
+        {failures.length > 0 ? (
+          <View className="gap-1 rounded-xl bg-muted/40 p-3">
+            {failures.map((failure) => (
+              <Text key={failure.topic} className="text-xs text-muted-foreground">
+                <Text className="text-xs font-medium text-foreground">{failure.topic}</Text>
+                {` — ${WEBHOOK_FAILURE_REASON_COPY[failure.reason]}`}
+                {failure.httpStatus === undefined ? "" : ` (HTTP ${failure.httpStatus})`}
+                {` · last checked ${formatWhen(failure.recordedAt, "recently")}`}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={retry}
+          isLoading={reregister.isPending}
+          className="self-start"
+        >
+          <Text className="text-sm font-medium text-foreground">{delivery.actionLabel}</Text>
+        </Button>
+      </View>
     </View>
   );
 }

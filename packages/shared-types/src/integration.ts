@@ -109,6 +109,74 @@ export const CONNECTOR_WEBHOOK_FAILURE_REASONS = [
 export type ConnectorWebhookFailureReason = (typeof CONNECTOR_WEBHOOK_FAILURE_REASONS)[number];
 
 /**
+ * The refusals no number of retries can fix (#262).
+ *
+ * Both are the vocabulary's own words, quoted from the doc comment above: a
+ * `permission_denied` is "a scope or an API key the merchant must widen" and a
+ * `topic_not_supported` is "a platform that will never send that event". A
+ * credential that answered 403 answers 403 again, so an automatic sweep spending
+ * attempts on either is knocking at a door only a person can open — and the
+ * remedy it needs is the merchant re-registering on demand AFTER widening the
+ * grant, which is exactly what {@link CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS}
+ * must not pre-empt by burning the attempt budget first.
+ */
+export const CONNECTOR_WEBHOOK_UNRETRYABLE_FAILURE_REASONS = [
+  'permission_denied',
+  'topic_not_supported',
+] as const satisfies readonly ConnectorWebhookFailureReason[];
+
+/**
+ * The refusals an automatic re-registration may retry — derived by SUBTRACTION.
+ *
+ * The direction of the derivation is the decision. A reason added to the
+ * vocabulary later becomes RETRYABLE by omission, which costs at most the
+ * bounded attempt budget of noise; the opposite default would leave a channel
+ * dark until a human noticed, for a reason nobody had classified. The two lists
+ * are asserted to partition the vocabulary, so neither can drift into covering
+ * a reason twice or none.
+ */
+export const CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS: readonly ConnectorWebhookFailureReason[] =
+  CONNECTOR_WEBHOOK_FAILURE_REASONS.filter(
+    (reason) =>
+      !(CONNECTOR_WEBHOOK_UNRETRYABLE_FAILURE_REASONS as readonly string[]).includes(reason),
+  );
+
+/**
+ * Where automatic webhook re-registration stands for one connection (#262).
+ *
+ * `pending` covers both "nothing is wrong" and "a retry is scheduled" — the two
+ * are told apart by `attempts` and `nextAttemptAt`, not by a third state, because
+ * "due" is a fact about the clock and a stored value for it would go stale the
+ * moment it passed.
+ *
+ * `dead_letter` is the visible give-up: either the attempt budget is spent or the
+ * platform refused for a reason no retry can fix. It is stored rather than derived
+ * because only the code holding the provider's answer knows which of those two it
+ * is, and the merchant's next action ("widen the scope, then press retry") is the
+ * same either way.
+ */
+export const CONNECTOR_WEBHOOK_REGISTRATION_STATES = ['pending', 'dead_letter'] as const;
+
+export type ConnectorWebhookRegistrationState =
+  (typeof CONNECTOR_WEBHOOK_REGISTRATION_STATES)[number];
+
+/**
+ * What automatic re-registration has tried for this connection (#262).
+ *
+ * Carries NO provider error text. A refusal names topics and reasons through
+ * {@link ConnectionWebhookFailure}; the free-form message a thrown registration
+ * produces stays in the server log, because a provider's error string is the one
+ * place a credential or a signed URL could ride out to a merchant response.
+ */
+export interface ConnectionWebhookRegistration {
+  readonly state: ConnectorWebhookRegistrationState;
+  /** Consecutive AUTOMATIC attempts spent; a success resets it to zero. */
+  readonly attempts: number;
+  /** ISO-8601 time the next automatic attempt becomes due, when one is scheduled. */
+  readonly nextAttemptAt?: string;
+}
+
+/**
  * One webhook topic the platform would NOT subscribe, recorded on the connection.
  *
  * The record exists because the alternative is silence: before #218 a refused
@@ -171,6 +239,16 @@ export interface Connection {
    * that will NOT arrive, which is the one thing `webhookIds` cannot say.
    */
   webhookFailures?: ConnectionWebhookFailure[];
+  /**
+   * Where automatic re-registration stands (#262).
+   *
+   * Omitted in the ordinary state — nothing tried, nothing scheduled, nothing
+   * given up on — so a healthy connection serializes exactly as it did and an
+   * older client reading no field behaves exactly as it did. Present, it is what
+   * tells a merchant whether the refused topics beside it are still being retried
+   * or whether Mercaria has stopped and is waiting for them.
+   */
+  webhookRegistration?: ConnectionWebhookRegistration;
   /** ISO-8601 time the connection was established. */
   connectedAt: string;
   /** ISO-8601 time of the most recent completed sync, when any. */

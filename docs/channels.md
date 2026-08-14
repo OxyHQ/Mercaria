@@ -251,6 +251,76 @@ Domain containment goes through #83's `domainIsCoveredBy`, label-wise, so
 `notacme.com` is never covered by `acme.com`. A hand-written `endsWith` here
 would admit exactly that.
 
+### Webhook registration has a TRIGGER, and its population is derived (#262)
+
+`registerWebhooks` was already the reconciling path — it reads the platform's own
+subscription list, adopts on Shopify, recreates on WooCommerce, and converges a
+shop carrying orphans. What #218 left missing was anything that RE-RAN it: its
+two call sites were both on connect, so "self-healing on the next reconcile" meant
+a person re-authorizing the channel. #262 adds the trigger and no second
+implementation, because two paths establishing one connection's webhook state
+could disagree and the disagreement would be invisible until a merchant noticed
+their prices had stopped moving.
+
+**The population is DERIVED**, from the same rows `ChannelReadiness` already reads
+as `degraded`: refused topics a retry could take, or an EMPTY `webhookIds`, which
+is the only trace a registration that THREW leaves — it writes no ids and no
+refusals. A stored "needs re-registration" flag would be a second representation
+of a fact the refusal rows already carry.
+
+**What it cannot see is stated rather than papered over.** A connection whose
+stored ids the platform no longer has shows neither symptom, so no derivation over
+Mercaria's own rows finds it; only re-registering everything on a schedule would,
+which would knock at every merchant's shop every cycle about a state nobody has
+observed. That is also why #218's shared-address guard in `disconnect` is still
+load-bearing rather than merely delaying the problem — a sibling robbed that way
+is exactly the invisible case. The remedy is the on-demand button.
+
+**Only the retry BOOKKEEPING is stored** — five columns on `connections`: a
+`pending | dead_letter` state, the consecutive automatic attempts, when the next
+one is due, and the lease pair. A disconnect clears them in the statement that
+clears the credentials and a reconnect resets them in the upsert that establishes
+it, so a dead-lettered connection cannot survive a re-authorization and a
+disconnected one cannot carry a live claim.
+
+**The lease is not tidiness.** WooCommerce fixes a webhook's secret at creation,
+so two passes recreating one connection's topics leave whichever finished LAST
+storing its secret over the other's live subscriptions — every delivery 401s from
+then on, permanently and silently. The realistic racer is a merchant pressing
+re-register while the sweep is mid-flight, so the on-demand path takes the same
+claim and answers `not_claimed` rather than bypassing it.
+
+**A re-registration REUSES the stored secret rather than rotating it.** Mercaria
+holds no previous-secret grace for a connection the way it does for Stripe and
+CrowdSource, so minting a fresh one would 401 every delivery already queued under
+the old one until the swap landed. Recreating with the same secret leaves the
+stored envelope verifying survivors and recreations alike. The CONNECT path still
+mints, which is the window #218 already had and the one a grace column would
+close.
+
+**A scope refusal STOPS.** `permission_denied` and `topic_not_supported` are the
+two the vocabulary itself says no retry can fix, so they dead-letter on the first
+attempt instead of spending the budget; everything else gets a capped exponential
+backoff over twelve attempts. The retryable half is derived by SUBTRACTION, so a
+reason added later is retryable by omission — the bounded cost of noise, rather
+than a channel dark for a reason nobody classified.
+
+**The merchant surface is `WebhookHealth` on the channel screen, and it renders
+even when nothing is refused.** Deliberately: the one state the derived population
+cannot see — a merchant deleting Mercaria's webhooks in the platform's own admin —
+shows no symptom at all, so a control that only appeared on a recorded failure
+could never be pressed for exactly the case it is the remedy for. The healthy copy
+says so rather than implying the panel is a problem report.
+
+Its state comes from `deriveWebhookDelivery` (`components/channels/channel-presentation.tsx`),
+which reads `webhookRegistration` BEFORE `webhookFailures`, and that order is
+load-bearing rather than stylistic. A registration that THROWS is caught before
+anything is recorded, so a connection can be `dead_letter` with an EMPTY refusal
+list — and a panel keyed on the refusals first renders that as healthy, which is
+the worst direction available. `connector-webhook-reregistration.service.test.ts`
+pins the premise (a thrown registration records nothing) so the ordering cannot
+quietly become arbitrary.
+
 ### Pause is TWO facts, and disconnect is a DECISION
 
 `fetch_paused_at` and `publication_paused_at` are separate columns because they
@@ -332,6 +402,7 @@ products come from is not a shop-floor act.
 | `GET /audit` | who changed what |
 | `GET /:connectionId/runs` | the sync history |
 | `GET /:connectionId/reconciliation` | what is already indexed, and the overlaps |
+| `POST /:connectionId/webhooks/reregister` | register the platform webhooks again, without a reconnect (#262) |
 | `POST /:connectionId/pause` | pause or resume ONE scope |
 | `POST /:connectionId/disconnect` | disconnect with an explicit policy |
 | `DELETE /:connectionId` | the v1 disconnect — `keep_listings`, see below |

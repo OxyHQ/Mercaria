@@ -50,14 +50,16 @@
  *    `Record`.
  */
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type {
   AddressSnapshot,
   ChannelDisconnectPolicy,
   Connection as ConnectionDTO,
   ConnectionWebhookFailure,
+  ConnectionWebhookRegistration,
   ConnectorProviderId,
+  ConnectorWebhookFailureReason,
   CreateStoreProductInput,
   CreateStoreProductVariantInput,
   CurrencyCode,
@@ -70,9 +72,15 @@ import type {
   UpdateListingInput,
   UpdateSyncSettingsInput,
 } from '@mercaria/shared-types';
-import { ALL_CURRENCY_CODES, ALL_LISTING_STATUSES } from '@mercaria/shared-types';
+import {
+  ALL_CURRENCY_CODES,
+  ALL_LISTING_STATUSES,
+  CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS,
+} from '@mercaria/shared-types';
 import { isForeignKeyViolation, isUniqueViolation } from '@oxyhq/db';
 import {
+  claimConnectionWebhookRegistration,
+  completeConnectionWebhookRegistration,
   disconnectConnection,
   findConnection,
   findConnectionById,
@@ -80,12 +88,15 @@ import {
   findConnectionCredentials,
   findConnectionIdsByShopDomain,
   findConnectionsByStore,
+  findConnectionsNeedingWebhookRegistration,
   findConnectionWebhookFailures,
+  findConnectionWebhookSecret,
   findPullConnectionsToReconcile,
   findPushConnections,
   markConnectionError,
   markConnectionSynced,
   recordConnectionWebhookRegistration,
+  releaseConnectionWebhookRegistration,
   touchConnectionLastSync,
   updateSyncSettings as updateSyncSettingsColumns,
   upsertConnection,
@@ -159,7 +170,9 @@ import type {
   PushVariant,
   VariantEnumerationGap,
   WebhookEventKind,
+  WebhookRegistrationResult,
 } from '../connectors/types.js';
+import { config } from '../config/index.js';
 import { createOAuthState } from '../connectors/oauth-state.js';
 import { getOAuthRedirectUri, getWebhookAddress } from '../connectors/config.js';
 import { getShopifyCredentials } from '../connectors/shopify/config.js';
@@ -319,7 +332,37 @@ export function toConnectionDTO(
   if (webhookFailures.length > 0) {
     dto.webhookFailures = webhookFailures.map((failure) => ({ ...failure }));
   }
+  // #262: whether those refused topics are still being retried, or whether
+  // Mercaria has stopped and is waiting for the merchant. Omitted in the ordinary
+  // state — nothing tried, nothing scheduled, nothing given up on — so a healthy
+  // connection serializes exactly as it did and an older client behaves exactly as
+  // it did. No provider error text: a refusal names topics and reasons, and the
+  // free-form message a thrown registration produces stays in the log.
+  const registration = toWebhookRegistrationDTO(conn);
+  if (registration) {
+    dto.webhookRegistration = registration;
+  }
   return dto;
+}
+
+/** The #262 retry state, or `undefined` when there is nothing to report. */
+function toWebhookRegistrationDTO(
+  conn: ConnectionRow,
+): ConnectionWebhookRegistration | undefined {
+  if (
+    conn.webhookRegistrationState === 'pending' &&
+    conn.webhookRegistrationAttempts === 0 &&
+    conn.webhookRegistrationNextAttemptAt === null
+  ) {
+    return undefined;
+  }
+  return {
+    state: conn.webhookRegistrationState,
+    attempts: conn.webhookRegistrationAttempts,
+    ...(conn.webhookRegistrationNextAttemptAt
+      ? { nextAttemptAt: conn.webhookRegistrationNextAttemptAt.toISOString() }
+      : {}),
+  };
 }
 
 /** Map a `sync_runs` row to its wire DTO — the four tally columns re-nested. */
@@ -412,12 +455,73 @@ function generateWebhookSecret(): string {
 }
 
 /**
+ * Where a registration attempt's per-connection secret comes from (#262).
+ *
+ * - **`mint`** — a fresh secret, which is what a CONNECT wants: there may be no
+ *   stored envelope at all, and rotating on a re-authorization is hygiene.
+ * - **`reuse_stored`** — the secret already stored, falling back to a fresh one
+ *   when none is. This is what a RE-REGISTRATION wants, and it removes a window
+ *   rather than saving a call. A `per_connection` provider recreates every topic,
+ *   so a fresh secret makes every delivery that WooCommerce had already queued
+ *   under the old one 401 until the swap lands, and Mercaria has no
+ *   previous-secret grace for a connection the way it does for Stripe and
+ *   CrowdSource. Recreating with the SAME secret leaves the stored envelope
+ *   verifying survivors and recreations alike, so nothing 401s at all.
+ *
+ * The residual gap is named rather than closed: the CONNECT path still mints, so
+ * a reconnect keeps the sub-second window #218 already had. Closing it needs a
+ * `previous` envelope plus a grace deadline on the connection and a change to the
+ * inbound verification — a separate change, and one this path no longer needs.
+ */
+type WebhookSecretPolicy = 'mint' | 'reuse_stored';
+
+/**
+ * What one registration attempt concluded, in the terms the RETRY has to act on.
+ *
+ * A STRING discriminant, because this backend compiles with `strict: false` and
+ * without `strictNullChecks` TypeScript does not narrow a union on a
+ * boolean-literal one — a caller testing `!attempt.registered` would be left
+ * holding the whole union.
+ *
+ *  - **`registered`** — the platform's list was read and nothing is refused.
+ *    There is no work left, so the attempt counter resets.
+ *  - **`retryable`** — something is refused that a later attempt could take, the
+ *    platform's list was unreadable for a reason that may pass, or the attempt
+ *    threw. An unclassified throw counts as retryable for the moderation
+ *    outbox's reason: assuming a defect is permanent is how a recoverable outage
+ *    becomes work nobody ever retries.
+ *  - **`terminal`** — every remaining refusal is one no retry can fix. Spending
+ *    the budget on it would delay nothing but itself and knock at a door only the
+ *    merchant can open.
+ */
+type WebhookRegistrationDisposition = 'registered' | 'retryable' | 'terminal';
+
+/** One registration attempt: the row it left behind, and what to do next. */
+interface WebhookRegistrationAttempt {
+  readonly connection: ConnectionRow;
+  readonly disposition: WebhookRegistrationDisposition;
+}
+
+/** Whether an automatic retry could ever take a topic refused for `reason`. */
+function isRetryableWebhookFailure(reason: ConnectorWebhookFailureReason): boolean {
+  return (CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS as readonly string[]).includes(reason);
+}
+
+/**
  * Register the provider's webhooks for a connection and persist EVERYTHING the
  * attempt left behind — the ids, the secret they were registered with, and the
- * topics the platform refused — in one write (#218).
+ * topics the platform refused — in one write (#218), reporting what the RETRY
+ * should do next (#262).
  *
- * For a `per_connection` provider (WooCommerce) a fresh secret is minted, passed
- * to the provider (which sets it on every webhook it creates) and stored
+ * This is the ONE implementation, and every caller reaches it: both connect paths,
+ * the scheduled sweep and the merchant's own re-register. #262 added the callers
+ * and the bookkeeping around them and nothing here — two paths establishing one
+ * connection's webhook state could disagree, and the disagreement would surface as
+ * a shop whose events silently stop arriving.
+ *
+ * For a `per_connection` provider (WooCommerce) the secret is resolved by
+ * {@link WebhookSecretPolicy} — minted on a connect, REUSED on a re-registration —
+ * passed to the provider (which sets it on every webhook it creates) and stored
  * ENCRYPTED for inbound verification; `app_secret` providers (Shopify) verify
  * with the app secret and store nothing here.
  *
@@ -449,22 +553,29 @@ function generateWebhookSecret(): string {
  *
  * Best-effort: a THROWN registration (a provider bug, a missing secret) logs and
  * leaves the connection working WITHOUT real-time sync — backfill and the
- * scheduled re-sync still apply, and it never fails the connect.
+ * scheduled re-sync still apply, and it never fails the connect. It is also the
+ * ONE branch that writes nothing at all, which is why #262's derived population
+ * has to read an empty `webhook_ids` as well as the refused topics: a throw leaves
+ * no refusal to find.
  *
- * @returns The connection carrying the ids that were just registered, or the one
- *   it was given when nothing was written. The caller serializes this into the
- *   connect response, so returning the refreshed row is what keeps the response
- *   in step with the database — the Mongoose path assigned `conn.webhookIds` on
- *   the in-memory document for exactly that reason.
+ * @returns The connection carrying the ids that were just registered (or the one
+ *   it was given when nothing was written), and what the retry should do next. The
+ *   connect paths serialize the connection into their response, so returning the
+ *   refreshed row is what keeps the response in step with the database — the
+ *   Mongoose path assigned `conn.webhookIds` on the in-memory document for exactly
+ *   that reason.
  */
-async function registerConnectionWebhooks(
+async function attemptWebhookRegistration(
   conn: ConnectionRow,
   auth: ConnectorAuth,
-): Promise<ConnectionRow> {
+  secretPolicy: WebhookSecretPolicy,
+): Promise<WebhookRegistrationAttempt> {
   const provider = getConnectorProvider(conn.provider);
   try {
     const secret =
-      provider.webhookSecretStrategy === 'per_connection' ? generateWebhookSecret() : undefined;
+      provider.webhookSecretStrategy === 'per_connection'
+        ? await resolveWebhookSecret(conn, secretPolicy)
+        : undefined;
     const result = await provider.registerWebhooks(auth, {
       address: getWebhookAddress(conn.provider),
       connectionId: conn.id,
@@ -510,14 +621,323 @@ async function registerConnectionWebhooks(
         'Connector webhook registration was refused for some topics',
       );
     }
-    return updated ?? conn;
+    return { connection: updated ?? conn, disposition: dispositionOf(result) };
   } catch (err) {
     log.general.warn(
       { err, connectionId: conn.id },
       'Failed to register connector webhooks (real-time sync disabled for this connection)',
     );
-    return conn;
+    // NOTHING was written — not the ids, not the refusals — so the only trace is
+    // an empty `webhook_ids`, which is exactly the half of #262's derived
+    // population that exists for this branch. `retryable` because the error is
+    // unclassified: treating an unclassified defect as permanent is how a
+    // recoverable outage becomes a channel nobody ever retries.
+    return { connection: conn, disposition: 'retryable' };
   }
+}
+
+/**
+ * The secret a `per_connection` registration will create its subscriptions with.
+ *
+ * `reuse_stored` falls back to a fresh secret when there is no envelope, which is
+ * the ordinary state for the branch #262 exists to recover: a registration that
+ * threw stored nothing at all.
+ */
+async function resolveWebhookSecret(
+  conn: ConnectionRow,
+  policy: WebhookSecretPolicy,
+): Promise<string> {
+  if (policy === 'mint') {
+    return generateWebhookSecret();
+  }
+  const envelope = await findConnectionWebhookSecret(conn.id, conn.provider);
+  return envelope ? decryptSecret(envelope) : generateWebhookSecret();
+}
+
+/**
+ * Classify what the provider answered, in the terms the retry acts on.
+ *
+ * An `unknown` outcome is classified on the LISTING's own reason rather than being
+ * retryable by default: a revoked credential answers 403 to the list every time,
+ * and spending the budget on it is the same noise as spending it on a refused
+ * topic for the same reason.
+ */
+function dispositionOf(result: WebhookRegistrationResult): WebhookRegistrationDisposition {
+  if (result.outcome === 'unknown') {
+    return isRetryableWebhookFailure(result.reason) ? 'retryable' : 'terminal';
+  }
+  if (result.failures.length === 0) {
+    return 'registered';
+  }
+  return result.failures.some((failure) => isRetryableWebhookFailure(failure.reason))
+    ? 'retryable'
+    : 'terminal';
+}
+
+/**
+ * The CONNECT path's registration: mint a fresh secret, ignore the disposition.
+ *
+ * A connect stays best-effort — a refused registration leaves the connection
+ * working on backfill plus the scheduled re-sync and never fails the connect —
+ * and it deliberately writes NONE of the #262 retry bookkeeping, because
+ * `upsertConnection` has just reset it and the connect holds no lease to write an
+ * outcome against. The sweep picks the refusal up on its next tick with a full
+ * attempt budget, which is the right budget for a registration nobody has retried
+ * yet.
+ */
+async function registerConnectionWebhooks(
+  conn: ConnectionRow,
+  auth: ConnectorAuth,
+): Promise<ConnectionRow> {
+  const attempt = await attemptWebhookRegistration(conn, auth, 'mint');
+  return attempt.connection;
+}
+
+/**
+ * Automatic attempts after which a retryable refusal is treated as permanent.
+ *
+ * With the backoff below that is roughly a day of trying: enough to absorb a
+ * platform outage, and short enough that a channel with no real-time sync reaches
+ * a VISIBLE `dead_letter` while somebody could still connect it to the week it
+ * happened. Shorter than the moderation outbox's twenty-five because the artefact
+ * differs — an undelivered abuse report has nowhere else to go, whereas a
+ * connection that cannot subscribe still syncs on the scheduled re-pull and its
+ * merchant is already told which events will not arrive.
+ */
+const MAX_WEBHOOK_REGISTRATION_ATTEMPTS = 12;
+
+/** Base and ceiling of the re-registration backoff. */
+const WEBHOOK_REGISTRATION_BACKOFF_BASE_MS = 60_000;
+const WEBHOOK_REGISTRATION_MAX_BACKOFF_MS = 6 * 60 * 60 * 1_000;
+
+/** Capped exponential backoff, the `moderation_outboxes` curve at a coarser base. */
+function webhookRegistrationNextAttemptAt(attempts: number, now: Date): Date {
+  const exponent = Math.max(0, Math.min(attempts - 1, 20));
+  return new Date(
+    now.getTime() +
+      Math.min(
+        WEBHOOK_REGISTRATION_BACKOFF_BASE_MS * 2 ** exponent,
+        WEBHOOK_REGISTRATION_MAX_BACKOFF_MS,
+      ),
+  );
+}
+
+/** What one re-registration run concluded, for the log and for the sweep's tally. */
+export type WebhookReregistrationOutcome =
+  | 'registered'
+  | 'retry_scheduled'
+  | 'dead_lettered'
+  | 'not_claimed'
+  | 'not_registerable';
+
+/**
+ * Re-register ONE connection's webhooks (#262) — the whole of the missing trigger.
+ *
+ * `registerConnectionWebhooks` was already the RECONCILING path: it calls
+ * `provider.registerWebhooks`, which every provider implements through
+ * `reconcileWebhookSubscriptions` — adopting on Shopify, recreating on WooCommerce,
+ * converging a shop that is already carrying orphans. #262 is not a second
+ * implementation of any of that, and deliberately is not: two paths establishing
+ * one connection's webhook state could disagree, and the disagreement would be
+ * invisible until a merchant noticed their prices had stopped moving. What this
+ * adds is the CLAIM, the outcome bookkeeping and the callers.
+ *
+ * The lease is taken FIRST and released last, and it is the reason this function
+ * exists rather than the sweep calling the registration directly. Two passes
+ * registering one connection concurrently — a merchant pressing retry while the
+ * sweep is mid-flight is the realistic case — delete and recreate every topic
+ * twice on a `per_connection` provider, and the pass that finishes LAST stores its
+ * secret over the other's while the other's subscriptions are the live ones. Every
+ * delivery then 401s, permanently, with nothing in the data saying why.
+ *
+ * @param countsAsAttempt `true` for the sweep, whose attempts the budget bounds;
+ *   `false` for a merchant's own request, which must be admissible on a connection
+ *   the sweep has given up on and must not spend from a budget it does not own.
+ */
+export async function reregisterConnectionWebhooks(
+  storeId: string,
+  connectionId: string,
+  options: { countsAsAttempt: boolean; now?: Date },
+): Promise<WebhookReregistrationOutcome> {
+  const now = options.now ?? new Date();
+  const existing = await findConnection(storeId, connectionId);
+  if (!existing) {
+    throw notFound('Connection not found');
+  }
+  // The same three preconditions `decryptAuth` and the two connect paths carry.
+  // Answered as an OUTCOME rather than thrown, because the sweep reaches this
+  // through a population that already excluded them and a merchant reaching it is
+  // answered by `requestWebhookReregistration`'s own refusal.
+  if (existing.mode !== 'pull' || !existing.hasCredentials || !existing.shopDomain) {
+    return 'not_registerable';
+  }
+
+  const leaseOwner = `connector-webhooks:${process.pid}:${randomUUID()}`;
+  const claimed = await claimConnectionWebhookRegistration({
+    connectionId,
+    leaseOwner,
+    leaseMs: config.connectors.webhookReregistrationLeaseMs,
+    countsAsAttempt: options.countsAsAttempt,
+    now,
+  });
+  if (!claimed) {
+    // Somebody else holds a live claim. Not an error and not a retry: the pass
+    // that holds it is doing exactly this work.
+    log.general.debug(
+      { connectionId },
+      'Webhook re-registration is already in flight for this connection',
+    );
+    return 'not_claimed';
+  }
+
+  const attempt = await attemptRegistrationFor(claimed);
+  if (attempt.disposition === 'registered') {
+    const completed = await completeConnectionWebhookRegistration(connectionId, leaseOwner);
+    if (!completed) {
+      // The lease expired and was reclaimed, or a reconnect reset it. The work
+      // itself landed — the ids and the refusals are written by the registration's
+      // own transaction — so this is bookkeeping the owner check correctly refused.
+      log.general.warn(
+        { connectionId },
+        'Webhook re-registration succeeded but its lease was no longer owned',
+      );
+    }
+    return 'registered';
+  }
+
+  // `claimed.webhookRegistrationAttempts` already includes this attempt for the
+  // sweep (the claim incremented it) and is the untouched stored count for an
+  // on-demand run — so an exhausted connection gets exactly ONE hand-driven
+  // attempt and does not re-arm the loop unless it succeeds.
+  const deadLettered =
+    attempt.disposition === 'terminal' ||
+    claimed.webhookRegistrationAttempts >= MAX_WEBHOOK_REGISTRATION_ATTEMPTS;
+  await releaseConnectionWebhookRegistration({
+    connectionId,
+    leaseOwner,
+    deadLettered,
+    nextAttemptAt: deadLettered
+      ? null
+      : webhookRegistrationNextAttemptAt(claimed.webhookRegistrationAttempts, now),
+    now,
+  });
+  if (deadLettered) {
+    log.general.warn(
+      {
+        connectionId,
+        attempts: claimed.webhookRegistrationAttempts,
+        disposition: attempt.disposition,
+      },
+      'Webhook re-registration has stopped retrying — the refused topics need a merchant or an operator',
+    );
+  }
+  return deadLettered ? 'dead_lettered' : 'retry_scheduled';
+}
+
+/**
+ * Resolve the credential and run the registration, REUSING the stored secret.
+ *
+ * Split out so the credential read and the throw it can produce are inside the
+ * lease: a connection whose envelope will not decrypt is a real re-registration
+ * failure that the backoff and the attempt budget must see, not an exception that
+ * escapes past the release and strands the claim until it expires.
+ */
+async function attemptRegistrationFor(conn: ConnectionRow): Promise<WebhookRegistrationAttempt> {
+  try {
+    const auth = await decryptAuth(conn);
+    return await attemptWebhookRegistration(conn, auth, 'reuse_stored');
+  } catch (err) {
+    log.general.warn(
+      { err, connectionId: conn.id },
+      'Could not resolve a credential to re-register connector webhooks',
+    );
+    return { connection: conn, disposition: 'retryable' };
+  }
+}
+
+/**
+ * The merchant's own trigger: validate synchronously, then ENQUEUE (#262).
+ *
+ * The `requestBackfill` shape, for the same reason — a registration is a handful
+ * of platform calls whose latency belongs to somebody else, so the caller gets a
+ * proper 404/400 and the work goes to the sync queue. The producer's inline
+ * fallback keeps it working without Redis, which is also what keeps this available
+ * during the incident that turned the scheduled sweep off.
+ */
+export async function requestWebhookReregistration(
+  storeId: string,
+  connectionId: string,
+): Promise<void> {
+  const conn = await findConnection(storeId, connectionId);
+  if (!conn) {
+    throw notFound('Connection not found');
+  }
+  if (conn.status !== 'connected') {
+    throw validationError('Webhooks can only be registered for a connected channel');
+  }
+  if (conn.mode !== 'pull') {
+    throw validationError('Webhook registration is only supported for pull connections');
+  }
+  if (!conn.hasCredentials || !conn.shopDomain) {
+    throw validationError('Connection has no stored credentials — reconnect the channel first');
+  }
+  const { enqueueConnectionWebhookReregister } = await import('../queue/producers.js');
+  await enqueueConnectionWebhookReregister({ storeId, connectionId });
+}
+
+/**
+ * The scheduled sweep: re-register every connection whose registration did not
+ * finish (#262).
+ *
+ * The population is DERIVED — see
+ * `findConnectionsNeedingWebhookRegistration`, which states what it finds and what
+ * it deliberately cannot. This function's own share is bounded and gated: one
+ * batch per pass, one claim per connection, and a flag that stops the LOOP while
+ * leaving every stored fact and the merchant's own retry available.
+ *
+ * A connection whose run throws is logged and skipped rather than aborting the
+ * sweep over the rest — the `reconcileAllConnections` posture, and the reason a
+ * single unreachable shop cannot stop every other merchant's channel recovering.
+ */
+export async function sweepConnectionWebhookRegistrations(): Promise<void> {
+  if (!config.connectors.webhookReregistrationEnabled) {
+    // The LOOP is gated and nothing else: the refusals stay recorded, the attempt
+    // counters stay where they are, and turning it back on drains the backlog.
+    log.general.debug('Connector webhook re-registration sweep is disabled');
+    return;
+  }
+
+  const candidates = await findConnectionsNeedingWebhookRegistration({
+    limit: config.connectors.webhookReregistrationBatchSize,
+  });
+  if (candidates.length === 0) {
+    return;
+  }
+
+  const tally: Record<WebhookReregistrationOutcome, number> = {
+    registered: 0,
+    retry_scheduled: 0,
+    dead_lettered: 0,
+    not_claimed: 0,
+    not_registerable: 0,
+  };
+  for (const candidate of candidates) {
+    try {
+      const outcome = await reregisterConnectionWebhooks(candidate.storeId, candidate.id, {
+        countsAsAttempt: true,
+      });
+      tally[outcome] += 1;
+    } catch (err) {
+      log.general.warn(
+        { err, connectionId: candidate.id },
+        'Webhook re-registration sweep: failed to re-register connection',
+      );
+    }
+  }
+  log.general.info(
+    { scanned: candidates.length, ...tally },
+    'Connector webhook re-registration sweep complete',
+  );
 }
 
 /**
@@ -759,10 +1179,15 @@ export async function updateSyncSettings(
  * threw, its `webhook_ids` is empty or stale, so the stored-id delete used to be
  * a no-op while the platform sweep would delete the SIBLING's entire live set.
  *
- * That would be an outage rather than an inconvenience, because nothing puts it
- * back: `registerConnectionWebhooks` is called from the two CONNECT paths and
- * nowhere else, and `reconcileAllConnections` only enqueues catalogue backfills.
- * The sibling would stay dark until a person reconnected it.
+ * That would be an outage rather than an inconvenience, and #262's
+ * re-registration sweep does NOT make it recoverable — which is the part worth
+ * reading, because it is the opposite of what "there is a re-registration path
+ * now" suggests. That sweep's population is DERIVED from refused topics and an
+ * empty `webhook_ids`, and a sibling whose live subscriptions were deleted out
+ * from under it shows NEITHER: its stored ids look complete and its last
+ * registration refused nothing. It is invisible to the sweep by construction, so
+ * this guard is still what prevents the state rather than merely delaying it, and
+ * the remedy for one that happened anyway is a person pressing re-register.
  *
  * So the platform-discovered half is skipped when ANOTHER live connection
  * resolves to this exact delivery URL. The stored ids still go — they are this
@@ -810,11 +1235,11 @@ export async function disconnect(
       if (addressIsShared) {
         // The stored ids still go — they are this connection's own record — but
         // a PLATFORM-DISCOVERED subscription at a shared address may belong to
-        // the sibling, and there is no automatic re-registration to give it back:
-        // `registerConnectionWebhooks` runs on CONNECT and nowhere else, and the
-        // reconcile sweep only enqueues catalogue backfills. Deleting the whole
-        // set would take a shop this connection does not exclusively own dark
-        // until a human reconnects it.
+        // the sibling, and #262's sweep would not give it back: that population is
+        // derived from refused topics and an empty `webhook_ids`, and a sibling
+        // robbed this way has neither. Deleting the whole set would take a shop
+        // this connection does not exclusively own dark until a person
+        // re-registered it by hand.
         log.general.warn(
           { connectionId: existing.id, siblings: siblingIds.length },
           'Webhook delivery address is shared with another connection — deleting only the ids this connection holds',

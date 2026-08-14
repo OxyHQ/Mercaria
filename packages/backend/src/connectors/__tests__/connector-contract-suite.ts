@@ -51,12 +51,15 @@ import { insertCategory } from '../../db/catalog/categoryRepository.js';
 import { insertStore } from '../../db/stores/storeRepository.js';
 import { insertLocation } from '../../db/stores/locationRepository.js';
 import {
+  claimConnectionWebhookRegistration,
   findConnection,
   findConnectionCredentials,
   findConnectionsByStore,
+  findConnectionsNeedingWebhookRegistration,
   findConnectionWebhookFailures,
   findConnectionWebhookSecret,
   recordConnectionWebhookRegistration,
+  releaseConnectionWebhookRegistration,
   updateSyncSettings as updateSyncSettingsColumns,
   type ConnectionRow,
 } from '../../db/connectors/connectionRepository.js';
@@ -82,9 +85,11 @@ import {
   processConnectorWebhook,
   pushListingToChannels,
   pushOrderFulfillment,
+  reregisterConnectionWebhooks,
   runBackfill,
   syncInventory,
   syncOrders,
+  toConnectionDTOWithWebhookFailures,
 } from '../../services/connector-sync.service.js';
 import type { ConnectorCapabilities, ConnectorProvider } from '../types.js';
 import type { ContractProduct, ContractWorld } from './contract-world.js';
@@ -1019,6 +1024,350 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         );
         expect(failures?.length).toBeGreaterThan(0);
         expect(failures?.every((failure) => failure.reason === 'platform_error')).toBe(true);
+      });
+    });
+
+    // --- #262: the trigger that re-runs a registration ----------------------
+
+    describe('webhook RE-registration', () => {
+      /** The delivery URL this provider's subscriptions carry for `connectionId`. */
+      function deliveryUrlFor(connectionId: string): string {
+        const address = `https://api.mercaria.test/channels/webhooks/${harness.providerId}`;
+        return harness.webhookSecretStrategy === 'per_connection'
+          ? `${address}/${encodeURIComponent(connectionId)}`
+          : address;
+      }
+
+      /**
+       * Connect a fixture and leave ONE topic refused, the way a real shop is
+       * left when a scope is too narrow at connect time.
+       *
+       * The registration is reset first so both reconcile modes issue the CREATE
+       * the fault is waiting for — an `app_secret` provider otherwise adopts what
+       * is already there and never creates anything.
+       */
+      async function leaveOneTopicRefused(
+        fixture: ContractFixture,
+        status: number,
+      ): Promise<string> {
+        fixture.world.webhooks.splice(0, fixture.world.webhooks.length);
+        fixture.world.deletedWebhookIds.splice(0, fixture.world.deletedWebhookIds.length);
+        await recordConnectionWebhookRegistration(fixture.connection.id, {
+          outcome: 'reconciled',
+          webhookIds: [],
+          failures: [],
+        });
+        fixture.world.fail(harness.webhookPathFragment, status, 1, {}, 'POST');
+        await connectStore(fixture.storeId);
+        const failures = (await findConnectionWebhookFailures([fixture.connection.id])).get(
+          fixture.connection.id,
+        );
+        expect(failures, 'the premise: a topic really was refused').toHaveLength(1);
+        return (failures ?? [])[0].topic;
+      }
+
+      it('RE-REGISTERS a refused topic with no reconnect, and CLEARS the refusal', async () => {
+        // #262 in one case. Before it, `registerConnectionWebhooks` had exactly
+        // two call sites, both on CONNECT, so a shop left in this state stayed in
+        // it until a person re-authorized the channel — which for Shopify is the
+        // whole OAuth round trip and for WooCommerce a fresh API key, for a
+        // problem that is usually a scope they have since widened.
+        const fixture = await makeFixture();
+        const refusedTopic = await leaveOneTopicRefused(fixture, 500);
+        expect(fixture.world.webhooks.map((webhook) => webhook.topic)).not.toContain(refusedTopic);
+
+        const outcome = await reregisterConnectionWebhooks(
+          fixture.storeId,
+          fixture.connection.id,
+          { countsAsAttempt: true },
+        );
+
+        expect(outcome).toBe('registered');
+        // The refused topic is now live, exactly once, and the connection holds
+        // the platform's WHOLE set rather than only what this attempt made.
+        expect(fixture.world.webhooks.map((webhook) => webhook.topic)).toContain(refusedTopic);
+        const topics = fixture.world.webhooks.map((webhook) => webhook.topic);
+        expect(new Set(topics).size, 'a re-registration must not add a second set').toBe(
+          topics.length,
+        );
+        const stored = await findConnection(fixture.storeId, fixture.connection.id);
+        expect([...(stored?.webhookIds ?? [])].sort()).toEqual(
+          fixture.world.webhooks.map((webhook) => webhook.id).sort(),
+        );
+        expect(await findConnectionWebhookFailures([fixture.connection.id])).toEqual(new Map());
+        // And the retry bookkeeping is back to the ordinary state, so the DTO
+        // says nothing about it at all.
+        expect(
+          (await toConnectionDTOWithWebhookFailures(stored as ConnectionRow)).webhookRegistration,
+        ).toBeUndefined();
+      });
+
+      it('the derived POPULATION finds it, and a healthy connection is not in it', async () => {
+        // The population is derived rather than stored, so it needs BOTH a
+        // positive and a negative control — and the assertions are CONTAINMENT
+        // rather than equality, because one throwaway database is shared by the
+        // whole run and a sibling file's connection is legitimately in the set.
+        const healthy = await makeFixture();
+        const broken = await makeFixture({ world: harness.createWorld() });
+        await leaveOneTopicRefused(broken, 500);
+
+        const ids = (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map(
+          (row) => row.id,
+        );
+
+        expect(ids).toContain(broken.connection.id);
+        // The negative control this file OWNS. Without it a population that
+        // returned every connection in the database would pass the line above.
+        expect(ids).not.toContain(healthy.connection.id);
+      });
+
+      it('a scope refusal STOPS retrying and says so, and drops out of the population', async () => {
+        // The visible give-up. A credential that answered 403 answers 403 again,
+        // so the honest outcome is a `dead_letter` a merchant can see beside the
+        // topics that will not arrive — not twelve attempts nobody reads.
+        const fixture = await makeFixture();
+        const refusedTopic = await leaveOneTopicRefused(fixture, 403);
+        // The platform goes on refusing that topic, which is what a too-narrow
+        // grant does.
+        fixture.world.fail(harness.webhookPathFragment, 403, 99, {}, 'POST');
+
+        const outcome = await reregisterConnectionWebhooks(
+          fixture.storeId,
+          fixture.connection.id,
+          { countsAsAttempt: true },
+        );
+
+        expect(outcome).toBe('dead_lettered');
+        const stored = await findConnection(fixture.storeId, fixture.connection.id);
+        const dto = await toConnectionDTOWithWebhookFailures(stored as ConnectionRow);
+        expect(dto.webhookRegistration?.state).toBe('dead_letter');
+        expect(dto.webhookRegistration?.nextAttemptAt).toBeUndefined();
+        expect(dto.webhookFailures?.map((failure) => failure.topic)).toContain(refusedTopic);
+        const ids = (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map(
+          (row) => row.id,
+        );
+        expect(ids, 'a dead-lettered connection must not be swept again').not.toContain(
+          fixture.connection.id,
+        );
+      });
+
+      it('REUSES the stored webhook secret rather than rotating it', async () => {
+        // The whole reason a re-registration does not mint. A `per_connection`
+        // platform fixes a webhook's secret AT CREATION and never discloses it
+        // again, and Mercaria holds no previous-secret grace for a connection —
+        // so a fresh secret makes every delivery already queued under the old one
+        // 401 until the swap lands. Recreating with the SAME secret leaves the
+        // stored envelope verifying survivors and recreations alike.
+        const fixture = await makeFixture();
+        const before = await findConnectionWebhookSecret(
+          fixture.connection.id,
+          harness.providerId,
+        );
+        if (harness.webhookSecretStrategy !== 'per_connection') {
+          // An `app_secret` provider mints none and must go on storing none, so a
+          // provider that changed strategy cannot report the same green.
+          expect(before).toBeNull();
+          await reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
+            countsAsAttempt: true,
+          });
+          expect(
+            await findConnectionWebhookSecret(fixture.connection.id, harness.providerId),
+          ).toBeNull();
+          expect(fixture.world.webhooks.every((webhook) => webhook.secret === undefined)).toBe(
+            true,
+          );
+          return;
+        }
+
+        expect(before, 'the premise: a stored secret to reuse').not.toBeNull();
+        const secret = decryptSecret(before as NonNullable<typeof before>);
+
+        await reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
+          countsAsAttempt: true,
+        });
+
+        // Every live subscription — including the ones this attempt recreated —
+        // carries the secret the stored envelope still decrypts to.
+        expect(fixture.world.webhooks.length).toBeGreaterThan(0);
+        for (const webhook of fixture.world.webhooks) {
+          expect(
+            webhook.secret,
+            `${webhook.topic} was recreated with a secret the stored envelope does not verify`,
+          ).toBe(secret);
+        }
+        const after = await findConnectionWebhookSecret(fixture.connection.id, harness.providerId);
+        expect(decryptSecret(after as NonNullable<typeof after>)).toBe(secret);
+      });
+
+      it("LEAVES a sibling connection's subscriptions alone at a SHARED delivery address", async () => {
+        // #218's disconnect guard exists because Shopify delivers every shop's
+        // events to ONE app-wide address, so a second Mercaria store on the same
+        // shop resolves to the same URL. A re-registration has to be safe there in
+        // a way a disconnect is not, and the reason is the reconcile MODE rather
+        // than a guard: an `app_secret` provider ADOPTS what is already at the
+        // address, and every Mercaria connection wants the same topic set, so the
+        // sibling's rows are kept and both connections end up holding them.
+        //
+        // "It should be safe because it is idempotent" is how the original defect
+        // got in, so it is measured rather than reasoned about.
+        const fixture = await makeFixture();
+        const suffix = uuidv7();
+        const siblingStore = await insertStore(
+          {
+            handle: `connector-reregister-sibling-${suffix}`,
+            name: 'Sibling store on the same shop',
+            description: '',
+            brandColor: '#123456',
+            defaultCurrency: 'FAIR',
+          },
+          [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
+        );
+        createdStoreIds.push(siblingStore.id);
+        const siblingConnection = await connectStore(siblingStore.id);
+        const siblingBefore = await findConnection(siblingStore.id, siblingConnection.id);
+        expect(siblingBefore?.webhookIds.length, 'the premise: the sibling holds ids').toBeGreaterThan(
+          0,
+        );
+        const addressIsShared =
+          deliveryUrlFor(siblingConnection.id) === deliveryUrlFor(fixture.connection.id);
+        expect(
+          addressIsShared,
+          'the shared-address branch belongs to the app-wide-address providers',
+        ).toBe(harness.webhookSecretStrategy !== 'per_connection');
+        fixture.world.deletedWebhookIds.splice(0, fixture.world.deletedWebhookIds.length);
+
+        await reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
+          countsAsAttempt: true,
+        });
+
+        if (addressIsShared) {
+          // Not one of the sibling's subscriptions was deleted, and every one is
+          // still live for the topic it serves.
+          for (const id of siblingBefore?.webhookIds ?? []) {
+            expect(fixture.world.deletedWebhookIds).not.toContain(id);
+            expect(fixture.world.webhooks.map((webhook) => webhook.id)).toContain(id);
+          }
+        } else {
+          // A `per_connection` provider's sibling is at a DIFFERENT URL, so the
+          // exact-URL comparison never reaches it — the wall is the same one that
+          // stops a cross-store deletion.
+          const siblingUrl = deliveryUrlFor(siblingConnection.id);
+          expect(
+            fixture.world.webhooks.some((webhook) => webhook.deliveryUrl === siblingUrl),
+            "the sibling's own subscriptions must survive untouched",
+          ).toBe(true);
+        }
+      });
+
+      it('an UNCLAIMED pass registers NOTHING and never knocks at the platform', async () => {
+        // The hazard the lease exists for is not a wasted call. On a
+        // `per_connection` provider two passes each delete and recreate every
+        // topic, and whichever finishes LAST stores its secret over the other's
+        // while the other's subscriptions are the live ones — every delivery 401s
+        // from then on, permanently and silently. The realistic racer is a
+        // merchant pressing retry while the scheduled sweep is mid-flight.
+        //
+        // ## Why this HOLDS the lease instead of racing two passes
+        //
+        // It used to be two `reregisterConnectionWebhooks` calls under
+        // `Promise.all`, which is the vacuous shape `~/Oxy/AGENTS.md` names:
+        // `Promise.all` does not make statements interleave, postgres.js pipelines
+        // onto one connection, and whether the second pass reaches its claim
+        // BEFORE the first releases is a fact about the machine. It overlapped on
+        // a 32-core box and serialized on CI, where the second pass claimed
+        // legitimately after the first had finished — so zero refusals was the
+        // correct answer to what the test actually asked, and the local green had
+        // meant nothing.
+        //
+        // No race is needed, because the claim is a conditional UPDATE whose
+        // empty `RETURNING` set IS the refusal rather than a `SKIP LOCKED` queue.
+        // Holding the lease through the repository's own claim STATES the
+        // precondition instead of hoping for it.
+        const fixture = await makeFixture();
+        const held = await claimConnectionWebhookRegistration({
+          connectionId: fixture.connection.id,
+          leaseOwner: 'contract-suite-holder',
+          leaseMs: 60_000,
+          countsAsAttempt: true,
+        });
+        expect(held, 'the premise: the lease was free and is now HELD').not.toBeNull();
+
+        const callsBefore = fixture.world.calls.length;
+        const subscriptionsBefore = fixture.world.webhooks.map((webhook) => webhook.id).sort();
+
+        const refused = await reregisterConnectionWebhooks(
+          fixture.storeId,
+          fixture.connection.id,
+          { countsAsAttempt: true },
+        );
+
+        expect(refused).toBe('not_claimed');
+        // THE property, and the one the returned enum alone does not establish: a
+        // pass that could not claim must not have touched the merchant's platform
+        // at all. Counting the fake's own request log is what says so.
+        expect(
+          fixture.world.calls.length,
+          'an unclaimed pass must not call the platform',
+        ).toBe(callsBefore);
+        expect(fixture.world.webhooks.map((webhook) => webhook.id).sort()).toEqual(
+          subscriptionsBefore,
+        );
+
+        // THE POSITIVE CONTROL, in the same currency as the measurement: release
+        // the lease and the SAME call does knock. Without it a fake transport that
+        // had stopped being reachable at all would satisfy every assertion above —
+        // "it did not call the platform" is also what a broken harness reports.
+        expect(
+          await releaseConnectionWebhookRegistration({
+            connectionId: fixture.connection.id,
+            leaseOwner: 'contract-suite-holder',
+            deadLettered: false,
+            nextAttemptAt: null,
+          }),
+          'the premise: the held lease was released by its owner',
+        ).toBe(true);
+
+        const allowed = await reregisterConnectionWebhooks(
+          fixture.storeId,
+          fixture.connection.id,
+          { countsAsAttempt: true },
+        );
+
+        expect(allowed).toBe('registered');
+        expect(
+          fixture.world.calls.length,
+          'the control: a CLAIMED pass does reach the platform',
+        ).toBeGreaterThan(callsBefore);
+        // And it left the shop consistent: one subscription per topic, every id
+        // recorded.
+        const topics = fixture.world.webhooks.map((webhook) => webhook.topic);
+        expect(new Set(topics).size).toBe(topics.length);
+        const stored = await findConnection(fixture.storeId, fixture.connection.id);
+        expect([...(stored?.webhookIds ?? [])].sort()).toEqual(
+          fixture.world.webhooks.map((webhook) => webhook.id).sort(),
+        );
+      });
+
+      it('a DISCONNECTED channel is never re-registered', async () => {
+        const fixture = await makeFixture();
+        await disconnect(fixture.storeId, fixture.connection.id, 'keep_listings');
+        fixture.world.webhooks.splice(0, fixture.world.webhooks.length);
+
+        const outcome = await reregisterConnectionWebhooks(
+          fixture.storeId,
+          fixture.connection.id,
+          { countsAsAttempt: true },
+        );
+
+        // The credentials are gone, so there is nothing to authenticate with —
+        // and re-subscribing a channel a merchant disconnected would be the
+        // sweep undoing their decision.
+        expect(outcome).toBe('not_registerable');
+        expect(fixture.world.webhooks).toEqual([]);
+        const ids = (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map(
+          (row) => row.id,
+        );
+        expect(ids).not.toContain(fixture.connection.id);
       });
     });
 

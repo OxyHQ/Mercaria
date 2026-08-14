@@ -104,6 +104,32 @@ export async function syncChannel(storeId: string, connectionId: string): Promis
   return unwrap(data);
 }
 
+/**
+ * Result of `POST .../channels/:connectionId/webhooks/reregister` — the server
+ * ENQUEUED the work (202) rather than doing it in the request (#262).
+ *
+ * There is nothing to report but that, deliberately: the outcome lands on the
+ * CONNECTION (`webhookFailures`, `webhookRegistration`), which the channels query
+ * re-reads, so a result carrying a verdict here would be a second answer to what
+ * that DTO already gives — and it would be the wrong one, since a registration is
+ * a handful of calls to somebody else's platform and has not happened yet.
+ */
+export interface ReregisterWebhooksResult {
+  status: "enqueued";
+  connectionId: string;
+}
+
+/** POST to register a connection's platform webhooks again, without a reconnect (#262). */
+export async function reregisterChannelWebhooks(
+  storeId: string,
+  connectionId: string,
+): Promise<ReregisterWebhooksResult> {
+  const { data } = await apiClient.post<ApiResponse<ReregisterWebhooksResult>>(
+    `${base(storeId)}/${connectionId}/webhooks/reregister`,
+  );
+  return unwrap(data);
+}
+
 /** DELETE (disconnect) a connection. */
 export async function disconnectChannel(
   storeId: string,
