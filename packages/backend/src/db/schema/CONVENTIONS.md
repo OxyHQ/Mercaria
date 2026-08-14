@@ -262,6 +262,44 @@ the row it came from, which makes an ASC page never advance and a DESC page skip
 rows silently. Mercaria's catalogue, order-history and review feeds are all
 keyset-paginated. Do not "fix" this per cursor.
 
+### `listings.published_at` is the FIRST activation, not the row's birthday (#261)
+
+NULL until the listing is `active`, stamped by the first transition to it, never
+restamped and never cleared. `created_at` already holds "when was the row
+written", and two representations of one fact can disagree — which is what the
+column was until #261, because every create stamped it including one the caller
+immediately made `draft`.
+
+`db/catalog/listingRepository.ts` is its only author: the three statements that
+can write `listings.status` — `insertListing`, `updateListingColumns`,
+`setListingStatusIfIn` — each derive it, so no service states it and none can
+forget. `listing-publication-chokepoint.test.ts` fails the build if a FOURTH
+writer of that table appears in production source, because a
+`.set({ status: 'active' })` elsewhere would leave a listing on sale with no
+publication instant, silently: every catalogue read filters `status`, so it would
+surface only as a listing missing from the tail of a newest-first feed. The stamp
+is a SQL `coalesce`, not a read-then-write, so two concurrent activations cannot
+each decide the column is empty.
+
+**No backfill, deliberately, and the reason is not cost.** Nothing in the schema
+tells a draft that was never published from one that WAS active and was returned
+to `draft` — which is exactly what moderation's `request_changes` does — so
+nulling today's drafts would erase real publication instants, unrecoverably. A
+row written before #261 may therefore be a draft carrying a stamp; a new one may
+not.
+
+**The ordering change was accepted.** `published_at` is the sort key of every
+newest-first feed and of six indexes, so a listing created as a draft and
+published later now takes its feed position from the publish moment. Every read
+that orders by it filters `status = 'active'` (browse, search, the store page,
+the seller's public page, the shelves), so a NULL row is not in those sets at
+all; the two management screens that DO show drafts order by `created_at`
+(`findListingsPageForSeller`, `findStoreListingsPageForAdmin`) and are untouched.
+The one read that spans every status is `findSellerFirstPublishedAt` — "seller
+since" — which now answers `null` for a seller who has only ever held drafts,
+and whose docblock already states that `null` is a real answer the caller renders
+nothing for.
+
 ## Foreign keys
 
 Every relation gets a real constraint with an **explicitly decided `ON DELETE`**.

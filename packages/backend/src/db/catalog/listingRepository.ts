@@ -27,6 +27,36 @@
  * the head of "newest first". `NEWEST_FIRST` states `desc nulls last`
  * explicitly, which matches the index and matches Mongo (a descending Mongo
  * sort puts missing values last).
+ *
+ * ## `published_at` means the FIRST activation, and this module is its only author
+ *
+ * Exactly three statements in this repository can write `listings.status` —
+ * {@link insertListing}, {@link updateListingColumns} and
+ * {@link setListingStatusIfIn} — and all three derive `published_at` from the
+ * status they are writing, so no caller states it and no caller can forget it.
+ * `listing-publication-chokepoint.test.ts` fails the build if a fourth appears
+ * outside this file.
+ *
+ * The rule, in full: a create whose resulting status is not `active` leaves the
+ * column NULL; the FIRST transition to `active` stamps it; nothing ever restamps
+ * it and nothing ever clears it. So `published_at` answers "when did this first
+ * go on sale", `created_at` answers "when was the row written", and neither is a
+ * second representation of the other (#261).
+ *
+ * Two details are load-bearing. The stamp is a SQL `coalesce` rather than a
+ * read-then-write, so two concurrent activations cannot both decide the column is
+ * empty and the earlier instant wins. And the instant is bound as an ISO string
+ * with an explicit `::timestamptz` cast, because interpolating a value into a raw
+ * `sql` template binds it WITHOUT the column's mapper and a `mode: 'date'`
+ * timestamptz then reaches postgres.js as a JavaScript `Date`, which throws
+ * `ERR_INVALID_ARG_TYPE` (the same trap `searchListingsKeyset` documents on the
+ * read side).
+ *
+ * Rows written before #261 keep their create-time stamp, deliberately: nothing in
+ * the schema tells a draft that was never published from one that WAS active and
+ * was returned to `draft` (which is exactly what moderation's `request_changes`
+ * does), so nulling them would erase a real past publication instant with no way
+ * back. A historic draft may therefore carry a stamp; a new one may not.
  */
 
 import {
@@ -257,12 +287,39 @@ export type ListingSourceProvenance = Pick<
   'sourceConnectionId' | 'sourceProvider' | 'sourceExternalId' | 'sourceExternalUpdatedAt'
 >;
 
-/** The columns a caller supplies when creating a listing. */
+/**
+ * The columns a caller supplies when creating a listing.
+ *
+ * `publishedAt` is OPTIONAL and derived from `status` when omitted — see the
+ * module header. A caller that states one wins, which is what lets a fixture
+ * write a specific instant or reproduce a pre-#261 row.
+ */
 export type NewListing = Omit<
   ListingRecord,
-  'id' | 'createdAt' | 'updatedAt' | 'geo' | 'searchVector'
+  'id' | 'createdAt' | 'updatedAt' | 'geo' | 'searchVector' | 'publishedAt'
 > &
-  Partial<Pick<ListingRecord, 'id'>>;
+  Partial<Pick<ListingRecord, 'id' | 'publishedAt'>>;
+
+/**
+ * `published_at` for a NEW listing: the create instant when it lands `active`,
+ * NULL otherwise. See the module header for why the column means this.
+ */
+function publishedAtForCreate(status: ListingRecord['status']): Date | null {
+  return status === 'active' ? new Date() : null;
+}
+
+/**
+ * `published_at` under a status WRITE: stamp the first activation, never restamp.
+ *
+ * `undefined` for any other status, which leaves the column untouched — a
+ * restriction, a return to `draft` and an archive all preserve the instant the
+ * listing first went on sale. See the module header for the `coalesce` and the
+ * explicit cast.
+ */
+function firstActivationPublishedAt(next: ListingRecord['status']): SQL | undefined {
+  if (next !== 'active') return undefined;
+  return sql`coalesce(${listings.publishedAt}, ${new Date().toISOString()}::timestamptz)`;
+}
 
 /**
  * Create a listing with its images and options, atomically.
@@ -276,24 +333,39 @@ export async function insertListing(
   options: readonly ListingOptionInput[],
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ListingRecord> {
+  const row = {
+    ...values,
+    publishedAt:
+      values.publishedAt === undefined ? publishedAtForCreate(values.status) : values.publishedAt,
+  };
   const run = async (tx: DatabaseOrTransaction): Promise<ListingRecord> => {
-    const [row] = await tx.insert(listings).values(values).returning();
-    await replaceListingImages(row.id, images, tx);
-    await replaceListingOptions(row.id, options, tx);
-    return row;
+    const [inserted] = await tx.insert(listings).values(row).returning();
+    await replaceListingImages(inserted.id, images, tx);
+    await replaceListingOptions(inserted.id, options, tx);
+    return inserted;
   };
   return 'transaction' in db ? db.transaction(run) : run(db);
 }
 
-/** Patch a listing's own columns. Returns `null` when there is no such listing. */
+/**
+ * Patch a listing's own columns. Returns `null` when there is no such listing.
+ *
+ * A patch that moves the status to `active` stamps `published_at` if it is still
+ * NULL — see the module header. An explicit `publishedAt` in the patch wins, so a
+ * caller can still write one deliberately.
+ */
 export async function updateListingColumns(
   listingId: string,
   patch: Partial<ListingRecord>,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ListingRecord | null> {
+  const stamp =
+    patch.status !== undefined && patch.publishedAt === undefined
+      ? firstActivationPublishedAt(patch.status)
+      : undefined;
   const [row] = await db
     .update(listings)
-    .set({ ...patch, updatedAt: new Date() })
+    .set({ ...patch, ...(stamp ? { publishedAt: stamp } : {}), updatedAt: new Date() })
     .where(eq(listings.id, listingId))
     .returning();
   return row ?? null;
@@ -612,6 +684,13 @@ export async function countActiveSellerListings(
  * nothing rather than a substitute date — a lazily-created `seller_profiles`
  * row dates the moment somebody opened a screen, which is a fact about their
  * browsing and not about their selling.
+ *
+ * This is the ONE read that spans non-active listings and still reads
+ * `published_at`, so #261 sharpened it: a seller holding nothing but drafts now
+ * answers `null` where the old create-time stamp answered with the date they
+ * first opened the composer. That is the column's meaning arriving here rather
+ * than a regression — they have not started selling — and `null` was already the
+ * documented answer the projection omits.
  */
 export async function findSellerFirstPublishedAt(
   oxyUserId: string,
@@ -900,6 +979,11 @@ export async function searchListingsKeyset(
  * the caller's "the listing was neither restricted nor awaiting changes" branch
  * is written against that distinction.
  *
+ * A move to `active` stamps `published_at` if it is still NULL, which is what
+ * makes a moderation `restore` targeting `active` — the enforcement recorded no
+ * previous status, so the listing may never have been published — the first
+ * activation it actually is. See the module header.
+ *
  * @returns `true` when this call made the change, `false` when the guard refused.
  */
 export async function setListingStatusIfIn(
@@ -908,9 +992,10 @@ export async function setListingStatusIfIn(
   allowedCurrent: readonly ListingRecord['status'][],
   db: DatabaseOrTransaction = getDb(),
 ): Promise<boolean> {
+  const stamp = firstActivationPublishedAt(next);
   const rows = await db
     .update(listings)
-    .set({ status: next, updatedAt: new Date() })
+    .set({ status: next, ...(stamp ? { publishedAt: stamp } : {}), updatedAt: new Date() })
     .where(
       and(
         eq(listings.id, listingId),

@@ -192,9 +192,8 @@ reputation verdict on a page that has just refused to show anything else.
 
 ## Listings: what is public, and stable paging
 
-`activeSellerListingsWhere` is written once and shared by the page, the count and
-the "seller since" read, so the three cannot disagree about what "public" means.
-Three conjuncts:
+`activeSellerListingsWhere` is written once and shared by the page and the count,
+so the two cannot disagree about what "public" means. Three conjuncts:
 
 - `owner_type = 'user'` — #92 acceptance 4. A seller page must never show a
   store's stock as a person's own inventory merely because that person operates
@@ -219,6 +218,14 @@ row.
 
 `limit + 1` is fetched; the extra row is dropped and its existence IS the
 cursor, so there is no second count query.
+
+**"Seller since" is deliberately NOT scoped to the active set.**
+`findSellerFirstPublishedAt` is `min(published_at)` across every status, because a
+seller whose first three items all sold has not become newer. Since #261 that
+column holds the FIRST ACTIVATION rather than the row's creation, so a seller
+holding nothing but drafts answers `null` — they have not started selling — and
+`sellerSince` is omitted from the projection rather than rendered as a substitute
+date.
 
 **The listings route runs the same access gate as the profile route.** That is
 the point rather than an inefficiency: a client that skipped the profile call
