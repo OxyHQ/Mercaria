@@ -43,6 +43,18 @@
  * It scans TEST sources only. Production code deletes no canonical row on this
  * path at all; a merge RE-HOMES them (`services/curation/`), which is a
  * different operation with its own census (`merge-plan-census.test.ts`).
+ *
+ * ## The spellings it does not match, measured as absent rather than assumed
+ *
+ * Both detectors read a drizzle table SYMBOL in a statement builder, so four
+ * shapes would slip past: a raw `sql` delete or a `truncate`, an aliased import
+ * (`import { canonicalProducts as products }`), a namespace-qualified access
+ * (`schema.canonicalProducts`), and — for the name rule — a quoted key or a
+ * literal bound to a variable first. Grepped at this revision: nobody spells any
+ * of them, and no repository or service exports a canonical delete at all, so
+ * the delete surface really is these test files. That is a latent gap, not a
+ * live one, and it is written down because a reader who assumes the regex is
+ * exhaustive will eventually add the fifth shape.
  */
 
 import { describe, expect, it } from 'vitest';

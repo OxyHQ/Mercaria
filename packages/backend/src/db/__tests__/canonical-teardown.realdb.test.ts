@@ -106,7 +106,7 @@ beforeAll(async () => {
   const { insertVariants } = await import('../catalog/variantRepository.js');
   const variants = await insertVariants(
     listing.id,
-    [0, 1, 2].map((index) => ({
+    [0, 1, 2, 3, 4].map((index) => ({
       title: `Subject ${String(index)}`,
       priceAmount: 1_000,
       priceCurrency: 'EUR' as const,
@@ -352,6 +352,65 @@ describe('deleteTestCanonicalRows', () => {
       .from(canonicalVariants)
       .where(eq(canonicalVariants.productId, orphaned.productId));
     expect(survivors).toEqual([]);
+  });
+
+  it('retains a merge WINNER whose loser a sibling pinned', async () => {
+    // `canonical_products.merged_into_id` is a self-referencing ON DELETE
+    // RESTRICT. Measured against this server: deleting winner and loser in ONE
+    // statement succeeds, and deleting the winner ALONE with the loser present
+    // raises 23503 on `..._merged_into_id_fkey`. So a partition that retains the
+    // loser and frees the winner produces exactly that refusal — which is what
+    // this helper would do if it read `match_decisions` and nothing else.
+    const winner = await seedProductWithVariant('merge-winner');
+    const loser = await seedProductWithVariant('merge-loser');
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'merged', mergedIntoId: winner.productId })
+      .where(eq(canonicalProducts.id, loser.productId));
+    // A SIBLING cites the loser — an ordinary active row until the merge ran.
+    await citeVariant(loser, 3);
+
+    const plan = await deleteTestCanonicalRows(db, {
+      variantIds: [winner.variantId, loser.variantId],
+      productIds: [winner.productId, loser.productId],
+    });
+
+    // Both, and the winner only because the loser points at it.
+    expect([...plan.retainedProductIds].sort()).toEqual(
+      [winner.productId, loser.productId].sort(),
+    );
+    const survivors = await db
+      .select({ id: canonicalProducts.id })
+      .from(canonicalProducts)
+      .where(inArray(canonicalProducts.id, [winner.productId, loser.productId]));
+    expect(survivors).toHaveLength(2);
+  });
+
+  it('retains a merge winner one variant hop away', async () => {
+    // The same rule on `canonical_variants.merged_into_id`, and it has to run
+    // BEFORE the parent-pinning step: the winner variant's product is only
+    // reachable once the winner variant itself is retained.
+    const winner = await seedProductWithVariant('merge-variant-winner');
+    const loser = await seedProductWithVariant('merge-variant-loser');
+    await db
+      .update(canonicalVariants)
+      .set({ status: 'merged', mergedIntoId: winner.variantId })
+      .where(eq(canonicalVariants.id, loser.variantId));
+    await citeVariant(loser, 4);
+
+    const plan = await deleteTestCanonicalRows(db, {
+      variantIds: [winner.variantId, loser.variantId],
+      productIds: [winner.productId, loser.productId],
+    });
+
+    expect([...plan.retainedVariantIds].sort()).toEqual(
+      [winner.variantId, loser.variantId].sort(),
+    );
+    // …and the winner variant's PARENT with it, or the product delete meets a
+    // child it cannot remove.
+    expect([...plan.retainedProductIds].sort()).toEqual(
+      [winner.productId, loser.productId].sort(),
+    );
   });
 
   it('does nothing, and issues nothing, for an empty teardown', async () => {

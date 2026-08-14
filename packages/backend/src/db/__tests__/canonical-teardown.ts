@@ -66,6 +66,42 @@ export interface CanonicalTeardownPlan {
 }
 
 /**
+ * Grow `retained` to cover the merge WINNER of every row already in it.
+ *
+ * Both canonical tables carry a self-referencing `merged_into_id` with
+ * `ON DELETE RESTRICT`, so a retained tombstone refuses its winner's delete.
+ * The caller's own id set bounds this: a winner nobody was going to delete
+ * needs no pinning.
+ *
+ * Written once and used for both tables — the two differ only in which table
+ * object they name, and a second copy is a second place for the fixpoint to be
+ * wrong.
+ */
+async function pinMergeTargets(
+  db: Database,
+  table: typeof canonicalVariants | typeof canonicalProducts,
+  retained: Set<string>,
+  universe: ReadonlySet<string>,
+): Promise<void> {
+  for (let guard = 0; guard <= universe.size; guard += 1) {
+    if (retained.size === 0) return;
+    const rows = await db
+      .select({ mergedIntoId: table.mergedIntoId })
+      .from(table)
+      .where(inArray(table.id, [...retained]));
+    let grew = false;
+    for (const row of rows) {
+      const winner = row.mergedIntoId;
+      if (winner === null) continue;
+      if (!universe.has(winner) || retained.has(winner)) continue;
+      retained.add(winner);
+      grew = true;
+    }
+    if (!grew) return;
+  }
+}
+
+/**
  * Partition a file's OWN canonical ids into what it may delete and what a
  * sibling's `match_decisions` row now pins.
  *
@@ -107,6 +143,28 @@ export async function planCanonicalTeardown(
     for (const row of rows) if (row.id !== null) citedProducts.add(row.id);
   }
 
+  // A retained TOMBSTONE pins whatever it was merged INTO.
+  //
+  // `canonical_variants.merged_into_id` and `canonical_products.merged_into_id`
+  // are self-referencing `ON DELETE RESTRICT`, so a loser still present refuses
+  // its winner's delete. Measured against a real server: deleting winner and
+  // loser in ONE statement succeeds — for a single DELETE the check settles at
+  // end-of-statement, at 2 rows and at 101, in either list order — while
+  // deleting the winner ALONE with the loser present raises `23503` on
+  // `..._merged_into_id_fkey`. The reverse is fine: a loser alone deletes
+  // cleanly.
+  //
+  // That is precisely what a partition can produce. A sibling cites the LOSER —
+  // which is an ordinary active row right up until the file's own merge runs —
+  // so the loser is retained, the uncited winner is not, and the winner's delete
+  // is refused. Before this helper existed the ids went out in one statement and
+  // the question never arose, which is why nothing in the estate reset these
+  // columns.
+  //
+  // A fixpoint rather than one hop, because a merge chain is representable; the
+  // set only grows and is bounded by the caller's own ids, so it terminates.
+  await pinMergeTargets(db, canonicalVariants, citedVariants, new Set(variantIds));
+
   // A retained VARIANT pins its parent too. Read the parentage rather than
   // assuming the caller knows it: the variants were discovered by product id, so
   // the mapping exists in the database and nowhere in the caller.
@@ -117,6 +175,10 @@ export async function planCanonicalTeardown(
       .where(inArray(canonicalVariants.id, [...citedVariants]));
     for (const parent of parents) citedProducts.add(parent.productId);
   }
+
+  // AFTER the parents, because a product pinned by a retained variant may itself
+  // be a tombstone whose winner is still in the deletable half.
+  await pinMergeTargets(db, canonicalProducts, citedProducts, new Set(productIds));
 
   return {
     deletableVariantIds: variantIds.filter((id) => !citedVariants.has(id)),
