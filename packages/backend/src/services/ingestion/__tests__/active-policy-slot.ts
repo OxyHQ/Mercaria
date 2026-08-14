@@ -59,7 +59,27 @@ export async function acquireActivePolicySlot(db: Database): Promise<ActivePolic
   return {
     async release(): Promise<void> {
       try {
-        await reserved`select pg_advisory_unlock(${ACTIVE_POLICY_LOCK_KEY})`;
+        /**
+         * The boolean is READ, and a `false` is a defect (#275).
+         *
+         * `pg_advisory_unlock` returns false when the session issuing it does
+         * not hold the lock — which is exactly what happens when the unlock is
+         * served by a different backend from the lock, the failure this whole
+         * module exists to avoid. Six other files discarded that boolean and
+         * were silently leaking the lock until their pool closed. Reading it is
+         * what turns the next instance into a loud failure rather than a
+         * sibling file blocking its whole `beforeAll` budget.
+         */
+        const [row] = await reserved<
+          { released: boolean }[]
+        >`select pg_advisory_unlock(${ACTIVE_POLICY_LOCK_KEY}) as released`;
+        if (row?.released !== true) {
+          throw new Error(
+            `pg_advisory_unlock(${ACTIVE_POLICY_LOCK_KEY}) returned ${String(
+              row?.released,
+            )}: the unlock did not run on the session that took the lock, so the slot is held until the pool closes`,
+          );
+        }
       } finally {
         /**
          * Returning the connection to the pool. It does NOT end the hold.

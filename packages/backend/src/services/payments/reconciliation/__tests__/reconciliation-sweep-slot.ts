@@ -132,7 +132,24 @@ export async function acquireReconciliationSweepSlot(
   return {
     async release(): Promise<void> {
       try {
-        await reserved`select pg_advisory_unlock(${RECONCILIATION_SWEEP_LOCK_KEY})`;
+        /**
+         * The boolean is READ, and a `false` is a defect (#275) —
+         * `active-policy-slot.ts` carries the full reasoning for the same
+         * mechanism. In short: `pg_advisory_unlock` returns false when the
+         * session issuing it does not hold the lock, which is precisely what a
+         * pooled unlock produces, and discarding it is why the six files #275
+         * fixed were leaking silently.
+         */
+        const [row] = await reserved<
+          { released: boolean }[]
+        >`select pg_advisory_unlock(${RECONCILIATION_SWEEP_LOCK_KEY}) as released`;
+        if (row?.released !== true) {
+          throw new Error(
+            `pg_advisory_unlock(${RECONCILIATION_SWEEP_LOCK_KEY}) returned ${String(
+              row?.released,
+            )}: the unlock did not run on the session that took the lock, so the slot is held until the pool closes`,
+          );
+        }
       } finally {
         /**
          * Returning the connection to the pool. It does NOT end the hold.

@@ -31,6 +31,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { AWIN_FEED_COLUMNS, AWIN_MAPPING_VERSION } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
+import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import { acquireActivePolicySlot, type ActivePolicySlot } from '../ingestion/__tests__/active-policy-slot.js';
 import { insertMatchPolicyVersion } from '../../db/matching/matchPolicyRepository.js';
 import { matchDecisions, matchPolicyVersions } from '../../db/schema/matching.js';
@@ -241,24 +242,24 @@ afterAll(async () => {
     await db
       .delete(catalogSourceConfigs)
       .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
-    // The disable/delete/enable window is taken under a SESSION ADVISORY LOCK:
-    // `alter table … disable trigger` is DATABASE-WIDE and every realdb file
-    // shares one server, so two files inside this window at once leave one of them
-    // deleting against a trigger the other has just re-enabled.
-    await db.execute(sql`select pg_advisory_lock(6820068)`);
-    try {
-      await db.execute(
+    // The disable/delete/enable window is taken under the shared trigger-toggle
+    // lock: `alter table … disable trigger` is DATABASE-WIDE and every realdb
+    // file shares one server, so two files inside this window at once leave one
+    // of them deleting against a trigger the other has just re-enabled. It is
+    // transaction-scoped since #275 — the session-level pair it replaces was
+    // issued through the POOL, so its unlock could land on another backend,
+    // return false and leak the lock. See `withTriggerToggleLock`.
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
         sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
       );
-      await db
+      await tx
         .delete(catalogSourcePolicies)
         .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
-      await db.execute(
+      await tx.execute(
         sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
       );
-    } finally {
-      await db.execute(sql`select pg_advisory_unlock(6820068)`);
-    }
+    });
     await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
     await db
       .delete(productIdentifiers)

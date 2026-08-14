@@ -48,6 +48,7 @@ vi.hoisted(() => {
 
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
+import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
 import { listings, productVariants } from '../../../db/schema/catalog.js';
 import { stores } from '../../../db/schema/stores.js';
 import { deleteTestStores } from '../../../db/__tests__/store-teardown.js';
@@ -92,18 +93,6 @@ const RUN = uuidv7().slice(-12);
 const BUYER = `save-buyer-${RUN}`;
 const OTHER_BUYER = `save-other-${RUN}`;
 
-/**
- * The advisory-lock key every realdb teardown that toggles a trigger takes
- * before doing so — see the fuller note beside the identical constant in
- * `curation-writes.realdb.test.ts`, the file this one collided with.
- *
- * Its VALUE means nothing and its SAMENESS is the whole mechanism; it is the
- * number three policy-teardown files declare as `POLICY_TEARDOWN_LOCK`, because
- * the hazard is the database-wide WINDOW rather than any particular table.
- * Transaction-scoped, so a pooled connection cannot carry the release away.
- */
-const TEARDOWN_TRIGGER_LOCK = 6_820_068;
-
 const createdStoreIds: string[] = [];
 const createdListingIds: string[] = [];
 const createdProductIds: string[] = [];
@@ -124,10 +113,9 @@ afterAll(async () => {
   // The append-only trigger is one of the properties under test, so teardown
   // goes around it — the escape `curation-writes.realdb.test.ts` uses for its
   // own immutability trigger, now under the shared lock that escape needs. See
-  // TEARDOWN_TRIGGER_LOCK: "re-enabled immediately" is not what makes a
+  // `withTriggerToggleLock`: "re-enabled immediately" is not what makes a
   // database-wide statement safe.
-  await db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(${TEARDOWN_TRIGGER_LOCK})`);
+  await withTriggerToggleLock(db, async (tx) => {
     await tx.execute(
       sql`alter table product_save_sources disable trigger product_save_sources_append_only`,
     );
@@ -143,13 +131,12 @@ afterAll(async () => {
   if (createdMergeJobIds.length > 0) {
     /**
      * The revision timeline and the phase records are append-only by trigger, so
-     * teardown goes around them — inside the window {@link TEARDOWN_TRIGGER_LOCK}
+     * teardown goes around them — inside the window `withTriggerToggleLock`
      * holds, because `curation-writes.realdb.test.ts` toggles these same two
      * triggers and the two files together are the measured collision: its
      * DELETE met `catalog_revisions_append_only` re-enabled by THIS teardown.
      */
-    await db.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(${TEARDOWN_TRIGGER_LOCK})`);
+    await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(
         sql`alter table catalog_revisions disable trigger catalog_revisions_append_only`,
       );

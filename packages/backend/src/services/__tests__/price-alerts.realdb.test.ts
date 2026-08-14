@@ -18,6 +18,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { PRICE_ALERT_POLICY_VERSION } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
+import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
 import { catalogSourceConfigs, catalogSourcePolicies } from '../../db/schema/ingestion.js';
 import { offers } from '../../db/schema/offers.js';
@@ -78,9 +79,6 @@ const createdMerchantIds: string[] = [];
 const createdProductIds: string[] = [];
 const createdVariantIds: string[] = [];
 
-/** The shared advisory-lock key every teardown that toggles a policy trigger takes. */
-const POLICY_TEARDOWN_LOCK = 6_820_068;
-
 function safeIds(ids: readonly string[]): string[] {
   return ids.length === 0 ? ['__none__'] : [...ids];
 }
@@ -139,20 +137,17 @@ afterAll(async () => {
   await db
     .delete(catalogSourceConfigs)
     .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
-  await db.execute(sql`select pg_advisory_lock(${POLICY_TEARDOWN_LOCK})`);
-  try {
-    await db.execute(
+  await withTriggerToggleLock(db, async (tx) => {
+    await tx.execute(
       sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
     );
-    await db
+    await tx
       .delete(catalogSourcePolicies)
       .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
-    await db.execute(
+    await tx.execute(
       sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
     );
-  } finally {
-    await db.execute(sql`select pg_advisory_unlock(${POLICY_TEARDOWN_LOCK})`);
-  }
+  });
   await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
   await deleteTestCanonicalRows(db, {
     variantIds: createdVariantIds,
