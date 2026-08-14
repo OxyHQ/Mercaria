@@ -54,9 +54,28 @@ const REALDB_FILE_FLOOR = 60;
 /**
  * Assembled from fragments so this file's own prose cannot match them.
  *
- * Each names a way to reach `payment_discrepancies`: the two recorder entry
- * points, the reader a victim asserts through, and the audit page whose
- * `cursor: null` branch runs the two global checks.
+ * Each names a way to reach `payment_discrepancies` — DIRECTLY (the two
+ * recorder entry points, and the reader a victim asserts through) or by
+ * DISPATCH (a sweep entry point whose job modules record).
+ *
+ * The dispatch half is the one worth reading. `runner.ts` itself contains no
+ * `reportDiscrepancy(` call at all: it reaches the table only by calling the
+ * four job modules, which between them hold sixteen (open-payments 3,
+ * provider-objects 8, account-readiness 2, ledger-audit 3). So a realdb file
+ * driving `runReconciliationJob(` writes discrepancy rows — including
+ * `auditLedgerPage`'s `cursor: null` global checks — without spelling any
+ * direct recorder call, and a gate naming only the direct ones would stay green
+ * while an unslotted third claimant joined. That gap was real: this file's own
+ * driver passes today only INCIDENTALLY, because it happens to spell
+ * `auditLedgerPage(` as well.
+ *
+ * Four of these match no realdb file today, which is deliberate: they exist for
+ * the file nobody has written yet, and the mutation self-test below is what
+ * keeps them from being decoration.
+ *
+ * `reconcileOnePayment(` is deliberately ABSENT — it is aimed at one payment id
+ * by construction, so it cannot collide with a sibling's rows, and detecting it
+ * would force a future well-behaved file to serialize for nothing.
  */
 const DISCREPANCY_CALLS: readonly RegExp[] = [
   new RegExp(`${'report'}${'Discrepancy'}\\s*\\(`, 'u'),
@@ -64,6 +83,10 @@ const DISCREPANCY_CALLS: readonly RegExp[] = [
   new RegExp(`${'find'}${'DiscrepancyById'}\\s*\\(`, 'u'),
   new RegExp(`${'close'}${'Discrepancy'}\\s*\\(`, 'u'),
   new RegExp(`${'audit'}${'LedgerPage'}\\s*\\(`, 'u'),
+  new RegExp(`${'run'}${'ReconciliationJob'}\\s*\\(`, 'u'),
+  new RegExp(`${'reconcile'}${'OpenPaymentsPage'}\\s*\\(`, 'u'),
+  new RegExp(`${'reconcile'}${'ProviderObjectsPage'}\\s*\\(`, 'u'),
+  new RegExp(`${'reconcile'}${'AccountReadiness'}\\s*\\(`, 'u'),
 ];
 
 /** Taking the mutex. */
@@ -131,5 +154,37 @@ describe('the reconciliation sweep slot', () => {
     // reach nothing.
     const nearMiss = `const ${'report'}${'DiscrepancyCount'} = 3;`;
     expect(touchesDiscrepancies(nearMiss)).toBe(false);
+  });
+
+  it('fires on EVERY detected call shape, and on none of their near misses', () => {
+    // Four of the nine detectors match no realdb file today, so the census
+    // above cannot prove they work — a pattern that stopped matching would read
+    // exactly like a well-behaved estate. Each one is exercised here against a
+    // real call and against the same identifier with a suffix, so a broken
+    // pattern and an over-broad one both fail rather than reading as clean.
+    const names: readonly string[] = [
+      `${'report'}${'Discrepancy'}`,
+      `${'record'}${'Discrepancy'}`,
+      `${'find'}${'DiscrepancyById'}`,
+      `${'close'}${'Discrepancy'}`,
+      `${'audit'}${'LedgerPage'}`,
+      `${'run'}${'ReconciliationJob'}`,
+      `${'reconcile'}${'OpenPaymentsPage'}`,
+      `${'reconcile'}${'ProviderObjectsPage'}`,
+      `${'reconcile'}${'AccountReadiness'}`,
+    ];
+
+    // The floor: as many probes as detectors, so dropping a detector without
+    // dropping its probe leaves this list longer than the patterns it exercises.
+    expect(names).toHaveLength(DISCREPANCY_CALLS.length);
+
+    for (const name of names) {
+      expect(touchesDiscrepancies(`await ${name}(db, { limit: 500 });`), name).toBe(true);
+      // The house spelling breaks a long call across lines; a line-based
+      // detector would read that as clean.
+      expect(touchesDiscrepancies(`await ${name}\n  (db);`), `${name} (wrapped)`).toBe(true);
+      expect(touchesDiscrepancies(`const ${name}Count = 3;`), `${name} (near miss)`).toBe(false);
+      expect(holdsSlot(`await ${name}(db);`), `${name} (not the slot)`).toBe(false);
+    }
   });
 });
