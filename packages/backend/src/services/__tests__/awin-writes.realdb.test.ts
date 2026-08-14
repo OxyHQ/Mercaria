@@ -147,143 +147,160 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
-
-  // Children first, and #66's tables before the sources they point at: every
-  // intra-graph key is RESTRICT and the rights trigger is DEFERRED, so a
-  // half-torn-down source raises at commit.
-  await db.execute(
-    sql`alter table awin_advertiser_quality disable trigger awin_advertiser_quality_append_only`,
-  );
-  await db.execute(sql`alter table awin_link_samples disable trigger awin_link_samples_append_only`);
-  await db.execute(sql`alter table awin_advertisers disable trigger awin_advertisers_identity_frozen`);
-  await db
-    .delete(awinAdvertiserQuality)
-    .where(inArray(awinAdvertiserQuality.advertiserRowId, safeIds(createdAdvertiserIds)));
-  // The advertiser's pointer at its sample goes first: it has no foreign key
-  // (see `ID_COLUMNS_WITHOUT_FOREIGN_KEY`) but the CHECK still demands one
-  // whenever the activation is `active`, so the activation is stood down first.
-  await db
-    .update(awinAdvertisers)
-    .set({ activation: 'candidate', activatingSampleId: null })
-    .where(inArray(awinAdvertisers.id, safeIds(createdAdvertiserIds)));
-  await db
-    .delete(awinLinkSamples)
-    .where(inArray(awinLinkSamples.advertiserRowId, safeIds(createdAdvertiserIds)));
-  await db
-    .delete(awinFeeds)
-    .where(inArray(awinFeeds.advertiserRowId, safeIds(createdAdvertiserIds)));
-  await db.execute(
-    sql`alter table awin_advertiser_quality enable trigger awin_advertiser_quality_append_only`,
-  );
-  await db.execute(sql`alter table awin_link_samples enable trigger awin_link_samples_append_only`);
-
-  await db
-    .delete(catalogSourceObjects)
-    .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));
-  await db.delete(offers).where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
-  await db
-    .delete(catalogSourceRejections)
-    .where(inArray(catalogSourceRejections.sourceId, safeIds(createdSourceIds)));
-  await db
-    .delete(catalogSourceRuns)
-    .where(inArray(catalogSourceRuns.sourceId, safeIds(createdSourceIds)));
-  await db
-    .delete(canonicalVariantSourceLinks)
-    .where(inArray(canonicalVariantSourceLinks.variantId, safeIds(createdVariantIds)));
-  await db
-    .delete(canonicalProductSourceLinks)
-    .where(inArray(canonicalProductSourceLinks.productId, safeIds(createdProductIds)));
-  await db
-    .delete(catalogSourceRunQuarantines)
-    .where(inArray(catalogSourceRunQuarantines.sourceId, safeIds(createdSourceIds)));
-  await db
-    .delete(catalogSourceDistributions)
-    .where(inArray(catalogSourceDistributions.sourceId, safeIds(createdSourceIds)));
-
-  const ownRecordIds = (
-    await db
-      .select({ id: sourceRecords.id })
-      .from(sourceRecords)
-      .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)))
-  ).map((row) => row.id);
-  await db
-    .delete(matchDecisions)
-    .where(inArray(matchDecisions.sourceRecordId, safeIds(ownRecordIds)));
-  await db
-    .delete(sourceRecords)
-    .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
-
-  await db
-    .delete(awinAdvertisers)
-    .where(inArray(awinAdvertisers.id, safeIds(createdAdvertiserIds)));
-  await db.execute(sql`alter table awin_advertisers enable trigger awin_advertisers_identity_frozen`);
-  await db
-    .delete(awinNetworkLeases)
-    .where(inArray(awinNetworkLeases.accountId, safeIds(createdAccountIds)));
-  await db.delete(awinAccounts).where(inArray(awinAccounts.id, safeIds(createdAccountIds)));
-
-  await db
-    .delete(catalogSourceConfigs)
-    .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
-  // The disable/delete/enable window is taken under a SESSION ADVISORY LOCK:
-  // `alter table … disable trigger` is DATABASE-WIDE and every realdb file
-  // shares one server, so two files inside this window at once leave one of them
-  // deleting against a trigger the other has just re-enabled.
-  await db.execute(sql`select pg_advisory_lock(6820068)`);
-  try {
-    await db.execute(
-      sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
-    );
-    await db
-      .delete(catalogSourcePolicies)
-      .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
-    await db.execute(
-      sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
-    );
-  } finally {
-    await db.execute(sql`select pg_advisory_unlock(6820068)`);
-  }
-  await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
-  await db
-    .delete(productIdentifiers)
-    .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
-  await deleteTestCanonicalRows(db, {
-    variantIds: createdVariantIds,
-    productIds: createdProductIds,
-  });
-  await db.delete(storefronts).where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
-  await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
-
-  const stillCited = (
-    await db
-      .select({ id: matchDecisions.id })
-      .from(matchDecisions)
-      .where(inArray(matchDecisions.policyVersionId, safeIds(createdPolicyIds)))
-      .limit(1)
-  ).length;
-  if (stillCited === 0) {
-    await db.execute(
-      sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
-    );
-    await db
-      .delete(matchPolicyVersions)
-      .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
-    await db.execute(
-      sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
-    );
-  }
   /**
-   * NESTED, because `release()` can throw and `closePostgres` is what actually
-   * ends the hold — see `active-policy-slot.ts` and #272. A check-in returns
-   * the connection to the pool without ending the session, so an unlock that
-   * threw here would strand the slot on a socket vitest reuses for the next
-   * file in the worker.
+   * The whole teardown, inside the region that closes the pool (#272).
+   *
+   * The release was already nested. What was NOT protected was everything
+   * above it: a `23503` anywhere in the deletes below — a measured failure
+   * mode in this suite (#270) — aborts the hook before the release and before
+   * `closePostgres()`, which is the only thing that ends a session-level
+   * advisory lock. The slot then stays held on a socket vitest reuses for the
+   * next file in the worker, and every other claimant blocks its full
+   * `beforeAll` budget on a file that did nothing wrong.
+   *
+   * `slot-teardown-census.test.ts` requires this `try` to be the hook's FIRST
+   * statement, so the protected region cannot silently shrink again.
    */
   try {
-    await policySlot?.release();
+    for (const provider of registeredProviders) unregisterCatalogSourceAdapter(provider);
+
+    // Children first, and #66's tables before the sources they point at: every
+    // intra-graph key is RESTRICT and the rights trigger is DEFERRED, so a
+    // half-torn-down source raises at commit.
+    await db.execute(
+      sql`alter table awin_advertiser_quality disable trigger awin_advertiser_quality_append_only`,
+    );
+    await db.execute(sql`alter table awin_link_samples disable trigger awin_link_samples_append_only`);
+    await db.execute(sql`alter table awin_advertisers disable trigger awin_advertisers_identity_frozen`);
+    await db
+      .delete(awinAdvertiserQuality)
+      .where(inArray(awinAdvertiserQuality.advertiserRowId, safeIds(createdAdvertiserIds)));
+    // The advertiser's pointer at its sample goes first: it has no foreign key
+    // (see `ID_COLUMNS_WITHOUT_FOREIGN_KEY`) but the CHECK still demands one
+    // whenever the activation is `active`, so the activation is stood down first.
+    await db
+      .update(awinAdvertisers)
+      .set({ activation: 'candidate', activatingSampleId: null })
+      .where(inArray(awinAdvertisers.id, safeIds(createdAdvertiserIds)));
+    await db
+      .delete(awinLinkSamples)
+      .where(inArray(awinLinkSamples.advertiserRowId, safeIds(createdAdvertiserIds)));
+    await db
+      .delete(awinFeeds)
+      .where(inArray(awinFeeds.advertiserRowId, safeIds(createdAdvertiserIds)));
+    await db.execute(
+      sql`alter table awin_advertiser_quality enable trigger awin_advertiser_quality_append_only`,
+    );
+    await db.execute(sql`alter table awin_link_samples enable trigger awin_link_samples_append_only`);
+
+    await db
+      .delete(catalogSourceObjects)
+      .where(inArray(catalogSourceObjects.sourceId, safeIds(createdSourceIds)));
+    await db.delete(offers).where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
+    await db
+      .delete(catalogSourceRejections)
+      .where(inArray(catalogSourceRejections.sourceId, safeIds(createdSourceIds)));
+    await db
+      .delete(catalogSourceRuns)
+      .where(inArray(catalogSourceRuns.sourceId, safeIds(createdSourceIds)));
+    await db
+      .delete(canonicalVariantSourceLinks)
+      .where(inArray(canonicalVariantSourceLinks.variantId, safeIds(createdVariantIds)));
+    await db
+      .delete(canonicalProductSourceLinks)
+      .where(inArray(canonicalProductSourceLinks.productId, safeIds(createdProductIds)));
+    await db
+      .delete(catalogSourceRunQuarantines)
+      .where(inArray(catalogSourceRunQuarantines.sourceId, safeIds(createdSourceIds)));
+    await db
+      .delete(catalogSourceDistributions)
+      .where(inArray(catalogSourceDistributions.sourceId, safeIds(createdSourceIds)));
+
+    const ownRecordIds = (
+      await db
+        .select({ id: sourceRecords.id })
+        .from(sourceRecords)
+        .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)))
+    ).map((row) => row.id);
+    await db
+      .delete(matchDecisions)
+      .where(inArray(matchDecisions.sourceRecordId, safeIds(ownRecordIds)));
+    await db
+      .delete(sourceRecords)
+      .where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
+
+    await db
+      .delete(awinAdvertisers)
+      .where(inArray(awinAdvertisers.id, safeIds(createdAdvertiserIds)));
+    await db.execute(sql`alter table awin_advertisers enable trigger awin_advertisers_identity_frozen`);
+    await db
+      .delete(awinNetworkLeases)
+      .where(inArray(awinNetworkLeases.accountId, safeIds(createdAccountIds)));
+    await db.delete(awinAccounts).where(inArray(awinAccounts.id, safeIds(createdAccountIds)));
+
+    await db
+      .delete(catalogSourceConfigs)
+      .where(inArray(catalogSourceConfigs.sourceId, safeIds(createdSourceIds)));
+    // The disable/delete/enable window is taken under a SESSION ADVISORY LOCK:
+    // `alter table … disable trigger` is DATABASE-WIDE and every realdb file
+    // shares one server, so two files inside this window at once leave one of them
+    // deleting against a trigger the other has just re-enabled.
+    await db.execute(sql`select pg_advisory_lock(6820068)`);
+    try {
+      await db.execute(
+        sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
+      );
+      await db
+        .delete(catalogSourcePolicies)
+        .where(inArray(catalogSourcePolicies.sourceId, safeIds(createdSourceIds)));
+      await db.execute(
+        sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+      );
+    } finally {
+      await db.execute(sql`select pg_advisory_unlock(6820068)`);
+    }
+    await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
+    await db
+      .delete(productIdentifiers)
+      .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
+    await deleteTestCanonicalRows(db, {
+      variantIds: createdVariantIds,
+      productIds: createdProductIds,
+    });
+    await db.delete(storefronts).where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
+    await db.delete(merchants).where(inArray(merchants.id, safeIds(createdMerchantIds)));
+
+    const stillCited = (
+      await db
+        .select({ id: matchDecisions.id })
+        .from(matchDecisions)
+        .where(inArray(matchDecisions.policyVersionId, safeIds(createdPolicyIds)))
+        .limit(1)
+    ).length;
+    if (stillCited === 0) {
+      await db.execute(
+        sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+      );
+      await db
+        .delete(matchPolicyVersions)
+        .where(inArray(matchPolicyVersions.id, safeIds(createdPolicyIds)));
+      await db.execute(
+        sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+      );
+    }
+    /**
+     * NESTED, because `release()` can throw and `closePostgres` is what actually
+     * ends the hold — see `active-policy-slot.ts` and #272. A check-in returns
+     * the connection to the pool without ending the session, so an unlock that
+     * threw here would strand the slot on a socket vitest reuses for the next
+     * file in the worker.
+     */
   } finally {
-    await closePostgres();
+    try {
+      await policySlot?.release();
+    } finally {
+      await closePostgres();
+    }
   }
 }, 120_000);
 
