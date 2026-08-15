@@ -60,7 +60,7 @@ URLs from the public internet).
 |---|---|---|
 | `CONNECTOR_ENCRYPTION_KEY` | `openssl rand -hex 32` | AES-256-GCM for stored credentials + channel keys. Rotating it makes every stored credential undecryptable. |
 | `CONNECTOR_OAUTH_STATE_SECRET` | `openssl rand -hex 32` | Signs the OAuth `state` (CSRF). |
-| `CONNECTOR_OAUTH_REDIRECT_BASE_URL` | the PUBLIC base of the API | Both the callback and the webhook address are built from this one value. |
+| `CONNECTOR_OAUTH_REDIRECT_BASE_URL` | the PUBLIC base of the API | Both the callback and the webhook address are built from this one value. **Changing it after a shop is connected orphans that shop's subscriptions** — see the note below. |
 | `CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL` | the dashboard channels screen | Optional; without it the callback renders a plain success page. |
 | `CONNECTOR_DEFAULT_CATEGORY_SLUG` | an EXISTING category slug | Every imported product is filed here. A slug that does not exist fails the backfill with a clear error. |
 | `SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET` | from the Partner app (§3) | The secret also verifies every inbound webhook HMAC. |
@@ -70,6 +70,50 @@ URLs from the public internet).
 Secrets go through the documented path only: GitHub Actions repo secret → SSM
 `/oxy/mercaria/*` → the ECS task definition. Never a literal in a workflow, a
 task definition, or this file.
+
+### 2.1 The delivery base URL is not a setting you may change quietly (#295)
+
+Every live subscription carries the address it was created with. Change
+`CONNECTOR_OAUTH_REDIRECT_BASE_URL` while shops are connected and, in order:
+deliveries start failing against a hostname that no longer serves; WooCommerce
+disables those subscriptions ITSELF after more than five failures
+(`includes/class-wc-webhook.php`, `failed_delivery()`) and they stay disabled
+once the address is fixed; Shopify removes its own after enough consecutive
+failures and tells Mercaria nothing.
+
+Nothing on the Mercaria side goes red while that happens. The REGISTRATION
+succeeded, so `webhookFailures` is empty and the channel screen reads healthy —
+what failed was DELIVERY, days later, on the platform's side.
+
+**This rig is the likeliest place to hit it**, because a cloudflared quick
+tunnel's hostname is ephemeral by design. It is also a planned production event:
+a domain migration, a move between environments, a preview deployment expiring.
+
+Since #295 the recovery is automatic and bounded rather than manual:
+
+- the six-hourly catalogue reconcile enqueues a webhook AUDIT per connection,
+  which reads each shop's live subscriptions and compares them against the ids
+  Mercaria stored;
+- a stored id that is missing, delivering to an address this deployment no
+  longer serves, or disabled by the platform drives one re-registration, which
+  deletes the displaced subscriptions and recreates every topic at the new
+  address;
+- so a merchant's site is left with ONE set rather than two.
+
+Two things it deliberately will NOT do, and both matter here:
+
+- a connection already in `dead_letter` is reported and never restarted — press
+  `POST /admin/stores/:storeId/channels/:connectionId/webhooks/reregister`
+  (§ the webhook health section) rather than waiting;
+- a subscription at a foreign address that Mercaria holds no id for is never
+  touched. If you point this rig at a tunnel, tear it down, and stand up a new
+  one WITHOUT the ids in `connections.webhook_ids` (a fresh database, say), the
+  old site's subscriptions are nobody's to delete and you remove them by hand in
+  WooCommerce → Settings → Advanced → Webhooks.
+
+If you are changing the base URL on purpose, the fastest path is still to press
+the re-register endpoint for each connected channel rather than to wait up to
+six hours for the audit.
 
 ---
 

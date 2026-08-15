@@ -3670,6 +3670,60 @@ CHECK the database would have refused all looked identical to a green suite.
   Retention is 30 days — the only `connectors.ts` table bounded by TRAFFIC — and
   expiry costs the DETAIL, never the tally or the summary. `syncOrders` and
   `syncInventory` were still recording nothing per record until #303.
+- **A change of DELIVERY BASE URL is what #262's derived population cannot see,
+  and #295 closes it with a READ rather than a wider query.** `webhook_ids` is
+  full and nothing was refused, so no derivation over Mercaria's own rows can
+  find a shop whose subscriptions the platform disabled — WooCommerce disables
+  one itself past five failed deliveries (`class-wc-webhook.php`
+  `failed_delivery()`), and they stay disabled once the address is fixed. It is
+  quiet in BOTH directions: the REGISTRATION succeeded, so `webhookFailures` is
+  empty, and what failed was DELIVERY, days later, on the platform's side.
+  - **ADOPTION: `reconcileWebhookSubscriptions` takes `ownedSubscriptionIds` —
+    the already-stored `webhook_ids` — as a second, disjoint ownership channel
+    used for REMOVAL only.** The delivery URL answers "is this live at the
+    address we serve" and cannot answer "did we create it", and after the base
+    moves those stop being the same question. A displaced subscription is
+    deleted BEFORE any topic is created (so "no second set" is true at every
+    instant) and NEVER adopted on either reconcile mode — adopting one satisfies
+    a topic with something that delivers nowhere and reports a healthy channel
+    forever. Its removal is BEST-EFFORT, unlike the delete before a recreate: it
+    cannot double-deliver, so a platform that will not remove it must not also
+    stop the topic being registered, and its id is RETAINED. **An in-place `PUT`
+    that re-pointed the row is the tempting repair and is the SAME bet
+    `adoptExisting: false` already refuses** — the stored envelope is not
+    PROVABLY the secret that subscription carries.
+  - **DETECTION is `auditConnectionWebhooks`, and NO new schedule.** One bounded
+    job per connection enqueued by the EXISTING six-hourly
+    `connection.reconcile` sweep, beside the per-connection backfill it already
+    enqueues (`queue/scheduler.ts` is untouched). Its population is
+    `findConnectionsToAuditWebhooks` — deliberately NOT
+    `findPullConnectionsToReconcile` (that one requires product pull, and an
+    orders-only connection has webhooks) and deliberately carrying NONE of
+    `findConnectionsNeedingWebhookRegistration`'s state predicates, since a
+    registration Mercaria believes finished is exactly the case.
+  - **Only a stored id the platform CONTRADICTS triggers a repair**, which is
+    what makes running it on every connection every six hours affordable rather
+    than a re-registration schedule wearing a detector's name. An EMPTY
+    `webhook_ids` is not a finding (that is #262's own population — one state,
+    one owner); an UNREADABLE list is not a finding (a re-registration fails at
+    the same call and spends an attempt saying so); and a `dead_letter`
+    connection is REPORTED and never restarted, because a detector must not undo
+    a deliberate stop from outside.
+  - **`status` is the trigger and `failure_count` is EVIDENCE.** Both are
+    optional on `PlatformWebhookSubscription` and ABSENT means "this platform
+    does not say", never "disabled" — Shopify's REST webhook object publishes
+    neither, and reading silence as unhealthy would put every Shopify connection
+    through a delete-and-recreate every six hours. `failure_count` decides
+    nothing on purpose: re-registering does not fix whatever is refusing the
+    deliveries, and a recreate over a transient blip churns a merchant's
+    subscriptions and their secret. WooCommerce serves it as a STRING, so the
+    schema coerces.
+  - **CLEANUP is bounded by the ID, and the bound is the point.** Orphans
+    Mercaria holds an id for are deleted by the repair; one it never recorded is
+    LEFT ALONE, deliberately and visibly — a URL under a base nobody here serves
+    says only that some Mercaria is at that hostname (a staging deployment, a
+    sibling environment), and deleting on that evidence is the cross-deployment
+    form of the prefix bug the exact-URL comparison exists to prevent.
 - **A fixed defect leaves `WOOCOMMERCE_OPEN_DEFECTS` and, unless something still
   produces it, leaves `CHANNEL_LIMITATION_CODES` too** — `channel-catalog.test.ts`
   asserts the EXACT open-issue set rather than containment, because a list that

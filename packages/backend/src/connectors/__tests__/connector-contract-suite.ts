@@ -80,6 +80,7 @@ import { listSyncRunsForConnection } from '../../db/connectors/syncRunRepository
 import { orders as ordersTable } from '../../db/schema/orders.js';
 import { decryptSecret } from '../../lib/connector-crypto.js';
 import {
+  auditConnectionWebhooks,
   connectAndVerify,
   connectWithApiKey,
   disconnect,
@@ -153,6 +154,22 @@ export interface ConnectorContractHarness {
    * first passed for WooCommerce and failed for Shopify.
    */
   readonly webhookDeletePathFragment: string;
+  /**
+   * Whether this platform publishes a subscription's own health — its `status`
+   * and its failed-delivery count — in the list Mercaria reads (#295).
+   *
+   * Declared like a capability and measured on BOTH branches, because it decides
+   * what a shop can be told about a subscription that DIED on the platform's
+   * side. WooCommerce publishes both and disables a subscription itself past
+   * five failures, so an audit can see it. Shopify's REST webhook object
+   * publishes neither, so a subscription failing there is invisible until
+   * Shopify removes it — and the audit is then reduced to noticing that a stored
+   * id is gone or points somewhere we no longer serve.
+   *
+   * A suite that ran only the first branch would report the same green for a
+   * provider that silently stopped reading a status it does publish.
+   */
+  readonly publishesSubscriptionHealth: boolean;
   /**
    * The URL fragment the provider fetches to COMPLETE a webhook payload (#220),
    * or ABSENT when this platform's deliveries are self-contained.
@@ -648,6 +665,8 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           id: 'wh-stubborn-duplicate',
           topic: original.topic,
           deliveryUrl: deliveryUrlFor(fixture.connection.id),
+          status: 'active' as const,
+          failureCount: 0,
         };
         fixture.world.webhooks.push(duplicate);
         fixture.world.fail(harness.webhookDeletePathFragment, 403, 99, {}, 'DELETE');
@@ -785,6 +804,8 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           id: 'wh-someone-else',
           topic: harness.topics.productUpsert,
           deliveryUrl: `https://api.mercaria.test/channels/webhooks/${harness.providerId}/some-other-connection`,
+          status: 'active' as const,
+          failureCount: 0,
         };
         fixture.world.webhooks.push(foreign);
 
@@ -829,6 +850,8 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           id: 'wh-orphan',
           topic: harness.topics.productUpsert,
           deliveryUrl: deliveryUrlFor(fixture.connection.id),
+          status: 'active' as const,
+          failureCount: 0,
         };
         fixture.world.webhooks.push(orphan);
         const stored = await findConnection(fixture.storeId, fixture.connection.id);
@@ -884,6 +907,8 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           id: 'wh-shared-address-orphan',
           topic: harness.topics.productUpsert,
           deliveryUrl: deliveryUrlFor(fixture.connection.id),
+          status: 'active' as const,
+          failureCount: 0,
         };
         fixture.world.webhooks.push(orphan);
         const stored = await findConnection(fixture.storeId, fixture.connection.id);
@@ -1000,6 +1025,8 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           id: 'wh-throws-duplicate',
           topic: fixture.world.webhooks[0].topic,
           deliveryUrl: deliveryUrlFor(fixture.connection.id),
+          status: 'active',
+          failureCount: 0,
         });
         fixture.world.fail(harness.webhookPathFragment, 500, 99, {}, 'POST');
         fixture.world.fail(harness.webhookDeletePathFragment, 500, 99, {}, 'DELETE');
@@ -1374,6 +1401,292 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           (row) => row.id,
         );
         expect(ids).not.toContain(fixture.connection.id);
+      });
+    });
+
+    // --- #295: the delivery address moved, and nothing noticed --------------
+
+    describe('webhook AUDIT after a delivery-address change', () => {
+      /** The delivery URL this provider's subscriptions carry for `connectionId`. */
+      function deliveryUrlFor(connectionId: string): string {
+        const address = `https://api.mercaria.test/channels/webhooks/${harness.providerId}`;
+        return harness.webhookSecretStrategy === 'per_connection'
+          ? `${address}/${encodeURIComponent(connectionId)}`
+          : address;
+      }
+
+      /** The base this deployment is moved TO, mid-case. */
+      const MOVED_BASE = 'https://api-moved.mercaria.test';
+
+      /**
+       * Move `CONNECTOR_OAUTH_REDIRECT_BASE_URL` and return the address the
+       * connection's subscriptions OUGHT to carry afterwards.
+       *
+       * The env var and nothing else, because that is the whole of the real
+       * trigger: a domain migration, a move between environments, a preview
+       * deployment expiring. `afterAll` restores it — `REQUIRED_ENV` is captured
+       * and put back by the suite's own hooks.
+       */
+      function moveDeliveryBase(connectionId: string): string {
+        process.env.CONNECTOR_OAUTH_REDIRECT_BASE_URL = MOVED_BASE;
+        const address = `${MOVED_BASE}/channels/webhooks/${harness.providerId}`;
+        return harness.webhookSecretStrategy === 'per_connection'
+          ? `${address}/${encodeURIComponent(connectionId)}`
+          : address;
+      }
+
+      afterEach(() => {
+        process.env.CONNECTOR_OAUTH_REDIRECT_BASE_URL =
+          REQUIRED_ENV.CONNECTOR_OAUTH_REDIRECT_BASE_URL;
+      });
+
+      it('#295: the base URL moves, deliveries fail, and the audit leaves ONE live set', async () => {
+        // The issue's own test, in its own order: register, change the delivery
+        // base URL, drive six deliveries, then let the scheduled reconcile do
+        // what it does. Before #295 every step succeeded and reported success —
+        // the registration had worked, so `webhookFailures` was empty; what
+        // failed was DELIVERY, days later, on the platform's side.
+        const fixture = await makeFixture();
+        const original = fixture.world.webhooks.map((webhook) => ({ ...webhook }));
+        expect(original.length, 'the premise: subscriptions to orphan').toBeGreaterThan(0);
+        const oldUrl = deliveryUrlFor(fixture.connection.id);
+        expect(original.every((webhook) => webhook.deliveryUrl === oldUrl)).toBe(true);
+
+        const newUrl = moveDeliveryBase(fixture.connection.id);
+        expect(newUrl, 'the premise: the address really moved').not.toBe(oldUrl);
+        // SIX, because the platform disables at MORE than five (#295's citation
+        // of `failed_delivery()`), so five would leave every subscription alive
+        // and this case would measure the address change alone.
+        fixture.world.deliverWebhookEvents(6, newUrl);
+        if (harness.publishesSubscriptionHealth) {
+          expect(
+            fixture.world.webhooks.every((webhook) => webhook.status === 'disabled'),
+            'the premise: the platform disabled them itself',
+          ).toBe(true);
+        }
+
+        const audit = await auditConnectionWebhooks(fixture.storeId, fixture.connection.id);
+
+        expect(audit.outcome).toBe('repair_requested');
+        expect(audit.findings).toContain('delivery_address_moved');
+        expect(audit.repair).toBe('registered');
+        // NO SECOND SET — the whole of the issue's assertion. Counted by TOPIC,
+        // because a count of subscriptions is satisfied by a shop holding two of
+        // one topic and none of another.
+        const topics = fixture.world.webhooks.map((webhook) => webhook.topic);
+        expect(new Set(topics).size, 'a base-URL change must not leave a second set').toBe(
+          topics.length,
+        );
+        expect([...topics].sort()).toEqual(original.map((webhook) => webhook.topic).sort());
+        // And every one of them is USABLE: live, at the address this deployment
+        // now serves, and delivering.
+        for (const webhook of fixture.world.webhooks) {
+          expect(webhook.deliveryUrl).toBe(newUrl);
+          expect(webhook.status).toBe('active');
+          expect(webhook.failureCount).toBe(0);
+        }
+        // The orphans are GONE from the merchant's site rather than merely
+        // ignored — decision three, and the reason the id is worth keeping.
+        for (const webhook of original) {
+          expect(fixture.world.deletedWebhookIds).toContain(webhook.id);
+          expect(fixture.world.webhooks.map((live) => live.id)).not.toContain(webhook.id);
+        }
+        // Mercaria holds the platform's whole truth about its own address, so a
+        // disconnect can still reach every one of them.
+        const stored = await findConnection(fixture.storeId, fixture.connection.id);
+        expect([...(stored?.webhookIds ?? [])].sort()).toEqual(
+          fixture.world.webhooks.map((webhook) => webhook.id).sort(),
+        );
+        // A SECOND audit is a no-op, which is what makes running this on every
+        // connection every six hours affordable rather than a re-registration
+        // schedule wearing a detector's name.
+        const again = await auditConnectionWebhooks(fixture.storeId, fixture.connection.id);
+        expect(again.outcome).toBe('healthy');
+      });
+
+      it('leaves a HEALTHY connection completely alone — no calls, no attempt spent', async () => {
+        // The negative control, and it carries the property that makes the
+        // detector affordable. Without it every assertion in the case above is
+        // also satisfied by an audit that simply re-registers everything it is
+        // pointed at, which is precisely what
+        // `findConnectionsNeedingWebhookRegistration` refuses to become.
+        const fixture = await makeFixture();
+        const before = fixture.world.webhooks.map((webhook) => webhook.id).sort();
+        expect(before.length).toBeGreaterThan(0);
+        const callsBefore = fixture.world.calls.length;
+        const storedBefore = await findConnection(fixture.storeId, fixture.connection.id);
+
+        const audit = await auditConnectionWebhooks(fixture.storeId, fixture.connection.id);
+
+        expect(audit.outcome).toBe('healthy');
+        expect(audit.findings).toEqual([]);
+        expect(fixture.world.deletedWebhookIds).toEqual([]);
+        expect(fixture.world.webhooks.map((webhook) => webhook.id).sort()).toEqual(before);
+        // It DID knock — one list read — so "nothing changed" cannot be a fake
+        // that stopped answering. The floor is on the delta, because the
+        // fixture's own connect already filled the log.
+        expect(
+          fixture.world.calls.length,
+          'the audit must actually read the platform',
+        ).toBeGreaterThan(callsBefore);
+        const storedAfter = await findConnection(fixture.storeId, fixture.connection.id);
+        expect(storedAfter?.webhookRegistrationAttempts).toBe(
+          storedBefore?.webhookRegistrationAttempts,
+        );
+      });
+
+      it('reads the platform HEALTH of a subscription at the RIGHT address, or says it cannot', async () => {
+        // The second, independent detector: the address never moved, Mercaria
+        // was simply unreachable for long enough that the platform gave up. It
+        // is what `status` and `failure_count` are read for, and BOTH branches
+        // run — a platform that publishes neither must not be reported as
+        // healthy on the strength of a field nobody answered.
+        const fixture = await makeFixture();
+        expect(fixture.world.webhooks.length).toBeGreaterThan(0);
+        // No served address at all: every delivery fails where it stands.
+        fixture.world.deliverWebhookEvents(6);
+
+        const audit = await auditConnectionWebhooks(fixture.storeId, fixture.connection.id);
+
+        if (!harness.publishesSubscriptionHealth) {
+          // Shopify publishes no status, so this is INVISIBLE — stated as an
+          // assertion rather than left out, so a platform that grows one and is
+          // not read fails here.
+          expect(audit.outcome).toBe('healthy');
+          expect(audit.maxFailureCount, 'no health published, so none reported').toBeUndefined();
+          return;
+        }
+        expect(audit.outcome).toBe('repair_requested');
+        expect(audit.findings).toEqual(['subscription_disabled']);
+        expect(audit.repair).toBe('registered');
+        // The failure count is REPORTED as evidence beside the verdict — it is
+        // what tells an operator this was a delivery problem rather than
+        // somebody deleting subscriptions.
+        expect(audit.maxFailureCount).toBe(6);
+        for (const webhook of fixture.world.webhooks) {
+          expect(webhook.status).toBe('active');
+          expect(webhook.failureCount).toBe(0);
+        }
+      });
+
+      it('does NOT restart a connection that has stopped retrying', async () => {
+        // A `dead_letter` is #262's deliberate end to the automatic loop. A
+        // detector firing into it every six hours would undo that stop from
+        // outside, and the remedy #262 built is the merchant's own button.
+        const fixture = await makeFixture();
+        const before = fixture.world.webhooks.map((webhook) => webhook.id).sort();
+        const newUrl = moveDeliveryBase(fixture.connection.id);
+        fixture.world.deliverWebhookEvents(6, newUrl);
+        const leaseOwner = 'contract-suite-dead-letter';
+        expect(
+          await claimConnectionWebhookRegistration({
+            connectionId: fixture.connection.id,
+            leaseOwner,
+            leaseMs: 60_000,
+            countsAsAttempt: false,
+          }),
+          'the premise: the lease was claimable',
+        ).not.toBeNull();
+        expect(
+          await releaseConnectionWebhookRegistration({
+            connectionId: fixture.connection.id,
+            leaseOwner,
+            deadLettered: true,
+            nextAttemptAt: null,
+          }),
+        ).toBe(true);
+
+        const audit = await auditConnectionWebhooks(fixture.storeId, fixture.connection.id);
+
+        expect(audit.outcome).toBe('repair_withheld');
+        expect(audit.findings).toContain('delivery_address_moved');
+        expect(audit.repair, 'no repair may have run').toBeUndefined();
+        // Nothing on the merchant's site moved, and the orphans are still there
+        // for the merchant's own re-registration to converge.
+        expect(fixture.world.webhooks.map((webhook) => webhook.id).sort()).toEqual(before);
+        expect(fixture.world.deletedWebhookIds).toEqual([]);
+      });
+
+      it('concludes NOTHING when the platform will not say what it holds', async () => {
+        // An unreadable list is not evidence of a dead subscription, and a
+        // re-registration would fail at the same call and spend an attempt
+        // discovering it. A revoked credential answers this way every time.
+        const fixture = await makeFixture();
+        const before = fixture.world.webhooks.map((webhook) => webhook.id).sort();
+        const storedBefore = await findConnection(fixture.storeId, fixture.connection.id);
+        fixture.world.fail(harness.webhookPathFragment, 403, 99, {}, 'GET');
+
+        const audit = await auditConnectionWebhooks(fixture.storeId, fixture.connection.id);
+
+        expect(audit.outcome).toBe('unreadable');
+        expect(audit.findings).toEqual([]);
+        expect(fixture.world.webhooks.map((webhook) => webhook.id).sort()).toEqual(before);
+        expect(fixture.world.deletedWebhookIds).toEqual([]);
+        const storedAfter = await findConnection(fixture.storeId, fixture.connection.id);
+        expect(storedAfter?.webhookRegistrationAttempts).toBe(
+          storedBefore?.webhookRegistrationAttempts,
+        );
+      });
+
+      it('leaves an EMPTY registration to the sweep that owns it', async () => {
+        // One state, one owner. An empty `webhook_ids` IS
+        // `findConnectionsNeedingWebhookRegistration`'s own population, and this
+        // detector reporting it too would give it a second, racing owner.
+        const fixture = await makeFixture();
+        await recordConnectionWebhookRegistration(fixture.connection.id, {
+          outcome: 'reconciled',
+          webhookIds: [],
+          failures: [],
+        });
+        const callsBefore = fixture.world.calls.length;
+
+        const audit = await auditConnectionWebhooks(fixture.storeId, fixture.connection.id);
+
+        expect(audit.outcome).toBe('nothing_registered');
+        // And it never knocked — the platform has nothing to say about a
+        // connection Mercaria holds no id for.
+        expect(fixture.world.calls.length).toBe(callsBefore);
+        // The control: the sweep's population DOES claim it.
+        const ids = (await findConnectionsNeedingWebhookRegistration({ limit: 500 })).map(
+          (row) => row.id,
+        );
+        expect(ids).toContain(fixture.connection.id);
+      });
+
+      it('never touches a subscription at a foreign address it holds NO id for', async () => {
+        // The bound on decision three, and the reason ownership is an ID rather
+        // than a URL shape. This one sits under a base this deployment does not
+        // serve and Mercaria never recorded it — a sibling environment, a
+        // staging deployment, another app. Deleting it on the strength of its
+        // hostname is the cross-deployment form of the prefix bug the exact
+        // comparison exists to prevent.
+        const fixture = await makeFixture();
+        const stranger = {
+          id: 'wh-another-deployment',
+          topic: harness.topics.productUpsert,
+          deliveryUrl: `${MOVED_BASE}/channels/webhooks/${harness.providerId}/some-other-connection`,
+          status: 'active' as const,
+          failureCount: 0,
+        };
+        fixture.world.webhooks.push(stranger);
+        const stored = await findConnection(fixture.storeId, fixture.connection.id);
+        expect(
+          stored?.webhookIds,
+          'the premise: Mercaria must NOT hold this id',
+        ).not.toContain(stranger.id);
+
+        // Re-register for real, which is the path that would delete it.
+        const outcome = await reregisterConnectionWebhooks(
+          fixture.storeId,
+          fixture.connection.id,
+          { countsAsAttempt: false },
+        );
+
+        expect(outcome).toBe('registered');
+        expect(fixture.world.deletedWebhookIds).not.toContain(stranger.id);
+        expect(fixture.world.webhooks).toContainEqual(stranger);
+        const after = await findConnection(fixture.storeId, fixture.connection.id);
+        expect(after?.webhookIds).not.toContain(stranger.id);
       });
     });
 

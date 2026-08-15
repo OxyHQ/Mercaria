@@ -16,6 +16,7 @@ import {
   JOB_LOW_INVENTORY_ALERT,
   JOB_CONNECTION_BACKFILL,
   JOB_CONNECTION_WEBHOOK_REREGISTER,
+  JOB_CONNECTION_WEBHOOK_AUDIT,
   JOB_WEBHOOK_PROCESS,
   JOB_PRODUCT_PUSH,
   JOB_ORDER_SYNC,
@@ -28,6 +29,7 @@ import {
   handleLowInventoryAlert,
   handleConnectionBackfill,
   handleConnectionWebhookReregister,
+  handleConnectionWebhookAudit,
   handleWebhookProcess,
   handleProductPush,
   handleOrderSync,
@@ -41,6 +43,7 @@ import type {
   LowInventoryAlertJob,
   ConnectionBackfillJob,
   ConnectionWebhookReregisterJob,
+  ConnectionWebhookAuditJob,
   WebhookProcessJob,
   ProductPushJob,
   OrderSyncJob,
@@ -147,6 +150,30 @@ export async function enqueueConnectionWebhookReregister(
   }
   await queue.add(JOB_CONNECTION_WEBHOOK_REREGISTER, data, {
     jobId: hashJobId(JOB_CONNECTION_WEBHOOK_REREGISTER, data.connectionId),
+  });
+}
+
+/**
+ * Enqueue a webhook AUDIT for one connection (#295), from the six-hourly
+ * catalogue reconcile.
+ *
+ * The inline fallback matters more here than for its siblings: without Redis
+ * there is no scheduler and therefore no reconcile sweep at all, so this branch
+ * is what keeps a hand-driven reconcile auditing rather than silently skipping.
+ *
+ * A stable hashed `jobId` per CONNECTION, so an audit still pending when the next
+ * reconcile comes round is one job rather than two knocks at one shop.
+ */
+export async function enqueueConnectionWebhookAudit(
+  data: ConnectionWebhookAuditJob,
+): Promise<void> {
+  const queue = getSyncQueue();
+  if (!queue) {
+    await runInline(JOB_CONNECTION_WEBHOOK_AUDIT, () => handleConnectionWebhookAudit(data));
+    return;
+  }
+  await queue.add(JOB_CONNECTION_WEBHOOK_AUDIT, data, {
+    jobId: hashJobId(JOB_CONNECTION_WEBHOOK_AUDIT, data.connectionId),
   });
 }
 

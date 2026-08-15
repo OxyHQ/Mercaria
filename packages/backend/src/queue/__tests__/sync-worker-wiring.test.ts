@@ -31,6 +31,7 @@ const handleConnectionBackfill = vi.fn();
 const handleConnectionReconcile = vi.fn();
 const handleConnectionWebhookReregister = vi.fn();
 const handleConnectionWebhookRegistrationSweep = vi.fn();
+const handleConnectionWebhookAudit = vi.fn();
 const upsertJobScheduler = vi.fn();
 
 /** Every processor `startWorkers` hands to a `Worker`, keyed by queue name. */
@@ -80,6 +81,7 @@ vi.mock('../handlers.js', () => ({
     handleConnectionWebhookReregister(...a),
   handleConnectionWebhookRegistrationSweep: (...a: unknown[]) =>
     handleConnectionWebhookRegistrationSweep(...a),
+  handleConnectionWebhookAudit: (...a: unknown[]) => handleConnectionWebhookAudit(...a),
   handleWebhookProcess: vi.fn(),
   handleProductPush: vi.fn(),
   handleOrderSync: vi.fn(),
@@ -96,6 +98,7 @@ import {
   CONNECTOR_WEBHOOK_REGISTRATION_SWEEP_INTERVAL_MS,
   JOB_CONNECTION_RECONCILE,
   JOB_CONNECTION_WEBHOOK_REGISTRATION_SWEEP,
+  JOB_CONNECTION_WEBHOOK_AUDIT,
   JOB_CONNECTION_WEBHOOK_REREGISTER,
   MARKETPLACE_SYNC_QUEUE,
   SCHEDULER_CONNECTION_RECONCILE,
@@ -176,5 +179,32 @@ describe('the sync worker dispatches the #262 jobs', () => {
       storeId: 'store-2',
       connectionId: 'conn-2',
     });
+  });
+
+  it('reaches the #295 AUDIT handler with BOTH ids, and registers NO schedule for it', async () => {
+    // The audit is a per-connection job on the EXISTING six-hourly reconcile's
+    // cadence, not a sweep of its own. Two halves, and the second is the one a
+    // reviewer would want checked: a dispatch case nothing exercises is a queue
+    // job whose handler is never reached, and the mocked handler table here
+    // would have gone on passing without it.
+    await syncProcessor()({
+      name: JOB_CONNECTION_WEBHOOK_AUDIT,
+      data: { storeId: 'store-3', connectionId: 'conn-3' },
+    });
+
+    expect(handleConnectionWebhookAudit).toHaveBeenCalledWith({
+      storeId: 'store-3',
+      connectionId: 'conn-3',
+    });
+    // NO NEW SCHEDULE. Asserted against the scheduler calls this file already
+    // captured, so the floor is the two registrations above having been seen —
+    // "nothing was registered for it" is also what a harness that captured
+    // nothing reports.
+    const scheduled = upsertJobScheduler.mock.calls;
+    expect(scheduled.length, 'the floor: this harness did capture schedules').toBeGreaterThan(0);
+    expect(
+      scheduled.some((call) => JSON.stringify(call).includes(JOB_CONNECTION_WEBHOOK_AUDIT)),
+      'the audit must ride the existing reconcile, never its own repeatable job',
+    ).toBe(false);
   });
 });

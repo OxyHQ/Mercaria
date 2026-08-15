@@ -322,6 +322,10 @@ function createWooCommerceFake(world: ContractWorld): WooCommerceTransport {
           topic: parsed?.topic ?? 'unknown',
           deliveryUrl: parsed?.delivery_url ?? '',
           ...(parsed?.secret ? { secret: parsed.secret } : {}),
+          // WooCommerce creates a subscription `active` with no failures behind
+          // it, and moves both itself from there (#295).
+          status: 'active',
+          failureCount: 0,
         });
         return ok({ id });
       }
@@ -339,6 +343,13 @@ function createWooCommerceFake(world: ContractWorld): WooCommerceTransport {
           id: webhook.id,
           topic: webhook.topic,
           delivery_url: webhook.deliveryUrl,
+          // The two fields WooCommerce publishes and Shopify does not (#295).
+          // `failure_count` is a STRING here because that is what the WooCommerce
+          // REST API answers — it serializes the meta value verbatim — so a
+          // provider parsing it as a number without coercing would fail against a
+          // real site while passing against a tidier fake.
+          status: webhook.status,
+          failure_count: String(webhook.failureCount),
         })),
         { 'x-wp-totalpages': String(totalPages(world.webhooks, world.pageSize)) },
       );
@@ -396,6 +407,9 @@ describeConnectorContract({
   webhookSecretStrategy: wooCommerceProvider.webhookSecretStrategy,
   webhookPathFragment: '/webhooks',
   webhookDeletePathFragment: '/webhooks/',
+  // WooCommerce publishes `status` and `failure_count` on every subscription,
+  // and disables one itself past five failed deliveries (#295).
+  publishesSubscriptionHealth: true,
   // A `product.*` delivery carries `variations` as IDS, so completing it means
   // fetching `/products/{id}/variations` (#220).
   webhookExpansionPathFragment: '/variations',

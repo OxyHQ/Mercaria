@@ -49,6 +49,26 @@
  * second down where the first was true is what erased the ids of subscriptions
  * that were still delivering.
  *
+ * ## Two ways a subscription is OURS, and only one of them delivers (#295)
+ *
+ * The delivery URL answers "is this live at the address we serve". It cannot
+ * answer "did we create it", and after `CONNECTOR_OAUTH_REDIRECT_BASE_URL`
+ * changes — a domain migration, a move between environments, a preview
+ * deployment expiring — those stop being the same question: every subscription
+ * this connection created is at an address nobody serves, invisible to an exact
+ * comparison, and each later reconcile makes a second full set beside it. The
+ * merchant's site accumulates dead subscriptions their platform has already
+ * disabled, and every Mercaria-side signal stays green, because the REGISTRATION
+ * succeeded — what failed was DELIVERY, days later, on the platform's side.
+ *
+ * `ownedSubscriptionIds` is the second channel, and it is used for REMOVAL only:
+ * a displaced subscription is deleted and its topic created afresh, never
+ * adopted or moved. Adoption on WooCommerce is unavailable for the reason it is
+ * unavailable everywhere else here — the secret is fixed at creation and never
+ * disclosed again, so the envelope Mercaria holds is not PROVABLY the one that
+ * subscription carries — and an in-place address update would inherit exactly
+ * that risk while looking like the gentler option.
+ *
  * ## What it is best-effort about, stated rather than implied
  *
  * Deleting a DUPLICATE of an adopted topic, and deleting a subscription for a
@@ -96,6 +116,25 @@ export interface WebhookRegistrationPlan {
   readonly deliveryUrl: string;
   /** Whether an existing subscription at {@link deliveryUrl} may be kept. */
   readonly adoptExisting: boolean;
+  /**
+   * The subscription ids Mercaria has RECORDED for this connection (#295).
+   *
+   * The second, disjoint ownership channel, and the only one that survives a
+   * change of delivery address. `deliveryUrl` answers "is this live at the
+   * address we serve"; this answers "did we create it", and after the base URL
+   * moves those stop being the same question — the subscriptions this connection
+   * created are all at an address nobody serves, invisible to an exact-URL
+   * comparison, and every reconcile from then on makes a second full set beside
+   * them.
+   *
+   * It is ids rather than a URL SHAPE because an id in `webhook_ids` was put
+   * there by a registration on THIS connection, while a URL under some other
+   * base says only that somebody's Mercaria is at that hostname — a staging
+   * deployment, a sibling environment. Deleting on that evidence is the
+   * cross-deployment version of the prefix bug the exact comparison exists to
+   * prevent.
+   */
+  readonly ownedSubscriptionIds: readonly string[];
   /** Every subscription the platform currently holds for this shop. */
   list(): Promise<WebhookProbe<PlatformWebhookSubscription[]>>;
   /** Create one subscription for `topic`; resolves to the platform's id. */
@@ -148,6 +187,11 @@ export function classifyWebhookHttpStatus(status: number): ConnectorWebhookFailu
  * keeps DELIVERING, and the platform's id is the only handle by which a later
  * reconcile or a disconnect can remove it. Dropping one is #218's first
  * consequence in miniature: an orphan nobody holds a handle for.
+ *
+ * A DISPLACED subscription the platform would not delete is named for the same
+ * reason and not the same one: it delivers nowhere, so nothing depends on it —
+ * but Mercaria still holds the only id it can ever be deleted by, and forgetting
+ * that id is what makes it permanent.
  */
 export async function reconcileWebhookSubscriptions(
   plan: WebhookRegistrationPlan,
@@ -168,15 +212,60 @@ export async function reconcileWebhookSubscriptions(
   // and the adopt branch would then keep `existing[0]` while `existing.slice(1)`
   // DELETED that same id, leaving `subscriptions` naming a subscription that no
   // longer exists and the topic with nothing live at all.
+  //
+  // TWO buckets, because a subscription can be ours in two different ways and
+  // only one of them is a thing that delivers. `ours` is live at the address we
+  // serve; `displaced` is one we created that the address moved away from (#295).
+  const owned = new Set(plan.ownedSubscriptionIds);
   const ours: PlatformWebhookSubscription[] = [];
+  const displaced: PlatformWebhookSubscription[] = [];
   const seenIds = new Set<string>();
   for (const subscription of listed.value) {
-    if (subscription.deliveryUrl !== plan.deliveryUrl || seenIds.has(subscription.id)) {
+    if (seenIds.has(subscription.id)) {
       continue;
     }
-    seenIds.add(subscription.id);
-    ours.push(subscription);
+    if (subscription.deliveryUrl === plan.deliveryUrl) {
+      seenIds.add(subscription.id);
+      ours.push(subscription);
+      continue;
+    }
+    if (owned.has(subscription.id)) {
+      seenIds.add(subscription.id);
+      displaced.push(subscription);
+    }
   }
+
+  const subscriptions: RegisteredWebhook[] = [];
+  const failures: WebhookRegistrationFailure[] = [];
+
+  // DISPLACED FIRST, before a single topic is created, so "a base URL change
+  // must not leave a second set" is true at every instant rather than true once
+  // the loop below finishes. Nothing is lost by going first: a subscription at an
+  // address this deployment does not serve delivers nowhere, so removing it
+  // withdraws no coverage that existed.
+  //
+  // It is NEVER adopted, on either reconcile mode. Adoption means "this one is
+  // still good"; one pointing at a hostname nobody answers satisfies a topic
+  // with something that delivers nothing, and the registration would report a
+  // healthy channel forever.
+  //
+  // BEST-EFFORT, unlike the delete before a recreate: that one is load-bearing
+  // because leaving a same-address subscription behind means the topic delivers
+  // TWICE, once under a secret this attempt does not hold. A displaced one
+  // cannot double-deliver, so a platform that will not remove it must not also
+  // stop the topic being registered. Its id is RETAINED, because Mercaria holds
+  // the only handle by which a later reconcile or a disconnect can reach it.
+  for (const subscription of displaced) {
+    const removed = await plan.remove(subscription.id);
+    if (removed.outcome === 'refused') {
+      subscriptions.push({
+        id: subscription.id,
+        topic: subscription.topic,
+        origin: 'retained',
+      });
+    }
+  }
+
   const byTopic = new Map<string, PlatformWebhookSubscription[]>();
   for (const subscription of ours) {
     const bucket = byTopic.get(subscription.topic);
@@ -186,9 +275,6 @@ export async function reconcileWebhookSubscriptions(
       byTopic.set(subscription.topic, [subscription]);
     }
   }
-
-  const subscriptions: RegisteredWebhook[] = [];
-  const failures: WebhookRegistrationFailure[] = [];
 
   for (const topic of plan.topics) {
     const existing = byTopic.get(topic) ?? [];

@@ -947,12 +947,30 @@ function pageFromCursor(cursor: string | undefined): number {
 /** A `POST /webhooks` response — only the created subscription's id is consumed. */
 const webhookCreateResponseSchema = z.object({ id: z.union([z.number(), z.string()]) });
 
-/** `GET /webhooks` — every subscription this site currently holds. */
+/**
+ * `GET /webhooks` — every subscription this site currently holds.
+ *
+ * `status` and `failure_count` are #295's evidence, and both are read
+ * DEFENSIVELY. WooCommerce core publishes `active | paused | disabled` and
+ * increments `failure_count` on every failed delivery, disabling the
+ * subscription itself past five (`includes/class-wc-webhook.php`,
+ * `failed_delivery()`) — but a site running an old core, a fork or a REST
+ * filter can answer with something else, and `.catch(undefined)` is what makes
+ * an unrecognised value read as "this site did not say".
+ *
+ * That direction is deliberate and it is the safe-failing one: an unreadable
+ * status delays a repair by one reconcile, where reading it as `disabled` would
+ * put every subscription on every WooCommerce site through a delete-and-recreate
+ * every six hours — and on a `per_connection` platform that rotates the secret
+ * with them.
+ */
 const webhookListResponseSchema = z.array(
   z.object({
     id: z.union([z.number(), z.string()]),
     topic: z.string(),
     delivery_url: z.string().default(''),
+    status: z.enum(['active', 'paused', 'disabled']).optional().catch(undefined),
+    failure_count: z.coerce.number().int().nonnegative().optional().catch(undefined),
   }),
 );
 
@@ -1018,6 +1036,12 @@ export function createWooCommerceProvider(
           id: String(webhook.id),
           topic: webhook.topic,
           deliveryUrl: webhook.delivery_url,
+          // Both OMITTED rather than defaulted when the site published nothing
+          // this schema recognises — `status: 'active'` would be a claim about a
+          // subscription nobody asked, and `failureCount: 0` would report a
+          // healthy delivery record that was never read.
+          ...(webhook.status === undefined ? {} : { status: webhook.status }),
+          ...(webhook.failure_count === undefined ? {} : { failureCount: webhook.failure_count }),
         })),
       );
       if (enumerationFinished(response, parsed.data.length, page)) {
@@ -1348,10 +1372,29 @@ export function createWooCommerceProvider(
      * other topic works in the meantime. Keeping the old secret would instead
      * leave a shop whose registration succeeded verifying nothing, with the
      * failure attached to no topic at all.
+     *
+     * ## A DISPLACED subscription is deleted, never moved (#295)
+     *
+     * `ownedSubscriptionIds` names the subscriptions this connection created,
+     * and after a base-URL change they are all at an address nobody serves —
+     * disabled by WooCommerce itself past five failed deliveries, and staying
+     * disabled once the address is fixed. `PUT /webhooks/{id}` could point one
+     * back at the new URL and re-enable it, which is the tempting repair and is
+     * the SAME bet `adoptExisting: false` already refuses: the secret Mercaria
+     * holds is only PROVABLY the one a subscription carries when this code
+     * created it with that secret, and nothing in a stored envelope says which
+     * registration wrote it. Getting that bet wrong produces a subscription that
+     * 401s on every delivery, permanently and silently. Deleting and creating
+     * afresh costs one extra call and cannot.
      */
     registerWebhooks(
       auth: ConnectorAuth,
-      params: { address: string; connectionId: string; secret?: string },
+      params: {
+        address: string;
+        connectionId: string;
+        secret?: string;
+        ownedSubscriptionIds: readonly string[];
+      },
     ) {
       if (!params.secret) {
         throw validationError('WooCommerce webhook registration requires a per-connection secret');
@@ -1363,6 +1406,7 @@ export function createWooCommerceProvider(
         topics: REGISTERED_WEBHOOK_TOPICS,
         deliveryUrl,
         adoptExisting: false,
+        ownedSubscriptionIds: params.ownedSubscriptionIds,
         list: () => listWooCommerceWebhooks(auth),
         create: async (topic) => {
           let response: WooCommerceHttpResponse;

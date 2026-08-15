@@ -183,6 +183,8 @@ export const JOB_CONNECTION_RECONCILE = 'connection.reconcile';
 export const JOB_CONNECTION_WEBHOOK_REREGISTER = 'connection.webhook-reregister';
 /** Job name: periodic sweep — re-register every unfinished registration (#262, repeatable). */
 export const JOB_CONNECTION_WEBHOOK_REGISTRATION_SWEEP = 'connection.webhook-registration-sweep';
+/** Job name: audit ONE connection's live webhook subscriptions (#295). */
+export const JOB_CONNECTION_WEBHOOK_AUDIT = 'connection.webhook-audit';
 /** Job name: process one inbound platform webhook (product/order create/update/delete). */
 export const JOB_WEBHOOK_PROCESS = 'webhook.process';
 /** Job name: push a store listing OUT to its push/bidirectional connections. */

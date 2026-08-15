@@ -67,6 +67,17 @@ export type WebhookEventKind =
   | 'inventory_update';
 
 /**
+ * What a platform says about a subscription's own health (#295).
+ *
+ * WooCommerce publishes exactly these three and DISABLES a subscription itself
+ * once it has counted more than five failed deliveries
+ * (`includes/class-wc-webhook.php`, `failed_delivery()`). That is the state
+ * a delivery-address change leaves behind, and it stays that way after the
+ * address is fixed — so it is a fact Mercaria has to be able to read.
+ */
+export type WebhookSubscriptionStatus = 'active' | 'paused' | 'disabled';
+
+/**
  * One webhook subscription as the PLATFORM currently holds it.
  *
  * `deliveryUrl` is the whole point: it is what tells a subscription Mercaria's
@@ -80,6 +91,29 @@ export interface PlatformWebhookSubscription {
   readonly topic: string;
   /** Where the platform delivers it. */
   readonly deliveryUrl: string;
+  /**
+   * The platform's own view of whether it is still delivering — ABSENT when the
+   * platform publishes none (Shopify's REST webhook object has no such field).
+   *
+   * Absent means "this platform does not say", never "disabled": reading silence
+   * as unhealthy would make every Shopify connection look broken and put every
+   * one of them through a delete-and-recreate on a schedule. The direction is
+   * deliberate and it is the safe-failing one — an unreadable status delays a
+   * repair and can never cause a fleet-wide re-registration.
+   */
+  readonly status?: WebhookSubscriptionStatus;
+  /**
+   * Consecutive delivery failures the platform has counted, when it publishes
+   * one.
+   *
+   * EVIDENCE, never a trigger. It is the only thing that says deliveries are
+   * failing RIGHT NOW, before the platform gives up — but re-registering does
+   * not fix whatever is refusing the deliveries, and a delete-and-recreate every
+   * six hours over a transient blip would churn a merchant's subscriptions and,
+   * on a `per_connection` platform, their secret with them. So it is reported
+   * beside the verdict and decides nothing.
+   */
+  readonly failureCount?: number;
 }
 
 /**
@@ -738,10 +772,22 @@ export interface ConnectorProvider {
    * URL so the ingress route can resolve the exact connection, and sets `secret` as
    * the platform webhook secret. `app_secret` providers (Shopify) ignore the secret
    * — they sign with the app secret.
+   *
+   * `ownedSubscriptionIds` is what Mercaria has RECORDED for this connection, and
+   * it is the only ownership evidence that survives a change of delivery address
+   * (#295). Every provider passes it straight through to
+   * `reconcileWebhookSubscriptions`, which uses it to REMOVE a subscription this
+   * connection created at an address the deployment no longer serves — never to
+   * adopt one.
    */
   registerWebhooks(
     auth: ConnectorAuth,
-    params: { address: string; connectionId: string; secret?: string },
+    params: {
+      address: string;
+      connectionId: string;
+      secret?: string;
+      ownedSubscriptionIds: readonly string[];
+    },
   ): Promise<WebhookRegistrationResult>;
 
   /**
