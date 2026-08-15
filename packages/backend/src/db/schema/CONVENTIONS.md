@@ -5435,3 +5435,56 @@ no readiness column and no activation verdict anywhere in the file.
 - **Serialization is the settings row's lock, not a lease table.** Two observers
   reading the same previous state would both write a transition; the writer takes
   `FOR UPDATE` on a row that must exist for any observation to be recorded.
+## Saved shopping agents (#97)
+
+Eight tables: `shopping_agents`, `shopping_agent_lines`,
+`shopping_agent_triggers`, `shopping_agent_evaluations`,
+`shopping_agent_findings`, `shopping_agent_finding_lines`,
+`shopping_agent_notifications`, `shopping_agent_audits`.
+
+- **The ABSENCE is the enforcement.** No column in any of the eight names an
+  order, a cart, a checkout object, a payment method, a card, a merchant
+  message or a merchant's terms, and `shopping-agent-isolation.test.ts` walks
+  the real drizzle tables and fails the build if one appears. That is #97
+  acceptance 9 ("no code path from an agent to autonomous checkout or payment")
+  as a fact about the schema. `shopping_agents.terms_version` is MERCARIA's own
+  agent terms and is the one deliberate near-miss — accepting a MERCHANT's
+  terms is a forbidden action, which is why the gate's pattern names
+  `merchant_terms` rather than `terms`.
+- **Two jsonb columns, and the register entry is the argument for each.**
+  `shopping_agents.constraint_set` is #94's own bounded (32 constraints, two
+  levels), closed-vocabulary document, re-validated against the LIVE registry
+  on every evaluation — so a definition retired since the agent was saved
+  refuses the evaluation rather than being read under new meaning. Flattening
+  it into columns would be a second, weaker copy of #94's language.
+  `shopping_agent_findings.record_refs` is #96's per-finding citation table,
+  and it is stored because a generated summary may cite only the refs THAT
+  finding minted. Everything else — the selected plan, the constraint outcomes,
+  the versions — is a real column or the `shopping_agent_finding_lines` child
+  table.
+- **`cardinality(col) >= 1`, never `array_length(col, 1) >= 1`.** Measured on
+  this schema: with the latter, an empty `trigger_sources` array is ADMITTED,
+  because `array_length` is NULL on `{}` and a CHECK rejects only FALSE. Both
+  non-emptiness CHECKs here read `cardinality`.
+- **`ranking_policy_version` is NOT NULL with NO default.** An empty string is
+  a real state ("no comparison ran") and a NULL is not; a DEFAULT would make a
+  writer that FORGOT the version indistinguishable from one that had none to
+  give, which is the column a finding's reproducibility rests on. Migration
+  `0005` dropped every empty-string default in this schema and
+  `schema.realdb.test.ts` refuses a new one — it caught this.
+- **Three append-only triggers, and DELETE is deliberately PERMITTED** on all
+  three tables (`analytics_events` and `offer_price_snapshots`' posture):
+  erasing one account's agents is a scoped DELETE that cascades, and a trigger
+  refusing it would make the erasure fail silently. The ONE update a finding
+  admits is `lifecycle` moving off `current`, checked by comparing the whole
+  tuple with the lifecycle normalised — one comparison, so a column added later
+  is covered without anybody extending a list.
+- **`mercaria_shopping_agent_notification_requires_qualified` is a TRIGGER
+  because the invariant is CROSS-ROW** and a CHECK may not contain a subquery.
+  It fires on INSERT only: a notification's own lifecycle legitimately updates,
+  and the fact it reads — the finding's `outcome` — is immutable by the trigger
+  above.
+- **Nothing is keyed on `canonical_product_id` alone.** The fan-out index is
+  `(canonical_product_id, agent_id)` on `shopping_agent_lines`, composite for
+  #79's reason: no route, repository function or operator handle asks who is
+  watching a product.

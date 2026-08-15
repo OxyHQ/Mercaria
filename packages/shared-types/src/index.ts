@@ -540,3 +540,16 @@ export * from './commercial-presentation';
 // guest readiness may not be inferred from native — so `guest is a stronger
 // native` is not expressible in the vocabulary.
 export * from './merchant-activation';
+// Saved shopping-agent jobs (#97). LAST, and downstream of everything a saved
+// objective is evaluated against: `./constraint` (the authoritative stored
+// input), `./comparison-basket` (the deterministic solver that answers it),
+// `./offer-ranking`, `./condition` and `./money`. It defines no vocabulary any
+// of them owns — an agent's channel policy, price basis and condition segments
+// are the ones the solver already reads, so a saved objective cannot become a
+// second, quieter definition of what a plan costs. Its job-kind tuple is
+// DISJOINT from a list of sixteen forbidden ACTIONS, and no type here has a
+// field that could hold an order, a payment method, a merchant message or a
+// merchant's terms, which is what makes "this issue does not authorize
+// autonomous purchases" a property of the shapes rather than a rule somebody
+// follows.
+export * from './shopping-agent';

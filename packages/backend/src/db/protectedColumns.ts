@@ -398,6 +398,19 @@ export const PROTECTED_COLUMNS = {
   watchlist_items: ['note'],
 
   /**
+   * A saved shopping agent's PRIVATE description (#97 privacy 3 and 5).
+   *
+   * `watchlist_items.note` one domain over, and one thing more: this domain
+   * composes a SUMMARY PACKAGE for a model provider, and #97 privacy 5 says
+   * private notes may never reach one. The evaluation reads the agent WHOLE —
+   * it needs the kind, the target, the currency and the policy on every row —
+   * so a `select()` plus a spread is all it would take. The owner's own
+   * projection names the column explicitly, which is what the registry's opt-in
+   * is for.
+   */
+  shopping_agents: ['description'],
+
+  /**
    * The two actor identifiers on #127's request trail, for the reason
    * `buyer_request_events` carries the same pair: the trail is attached to every
    * request and is serialized whole to a buyer AND to an operator from one

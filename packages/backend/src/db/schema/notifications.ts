@@ -46,6 +46,11 @@ export const NOTIFICATION_TYPES = [
   // a merchant losing its operator silently is the failure this prevents.
   'merchant_claim_contested',
   'merchant_claim_revoked',
+  // A saved shopping agent (#97) observed something its owner asked to be told
+  // about. Deliberately NOT `price_alert`: an alert answers one price question
+  // and an agent answers a saved OBJECTIVE, so a client that renders them
+  // identically has decided to, rather than been unable to tell them apart.
+  'shopping_agent_finding',
 ] as const;
 
 /**

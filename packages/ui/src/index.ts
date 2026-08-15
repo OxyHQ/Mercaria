@@ -73,6 +73,39 @@ export {
 } from "./lib/price-signal-labels";
 
 // ---------------------------------------------------------------------------
+// Saved shopping agents (#97) — the reader-facing copy for what an agent
+// watches, what one look concluded, why a stored observation is still on screen
+// and why somebody was or was not told. Same split as the three above; the one
+// thing it adds is a sentence per SUMMARY SOURCE, because a deterministic
+// summary is the normal case and a surface that only spoke up when a model had
+// been involved would make the ordinary one look degraded.
+// ---------------------------------------------------------------------------
+export {
+  SHOPPING_AGENT_CHANNEL_POLICY_LABELS,
+  SHOPPING_AGENT_COMPLETENESS_LABELS,
+  SHOPPING_AGENT_DELIVERY_FAILURE_TEXT,
+  SHOPPING_AGENT_FRESHNESS_LABELS,
+  SHOPPING_AGENT_INCOMPLETE_REASON_TEXT,
+  SHOPPING_AGENT_JOB_EXPLANATIONS,
+  SHOPPING_AGENT_JOB_LABELS,
+  SHOPPING_AGENT_LIFECYCLE_EXPLANATIONS,
+  SHOPPING_AGENT_LIFECYCLE_LABELS,
+  SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABELS,
+  SHOPPING_AGENT_NOTIFICATION_STATE_LABELS,
+  SHOPPING_AGENT_OBSERVATION_DISCLAIMER,
+  SHOPPING_AGENT_OPTIMALITY_LABELS,
+  SHOPPING_AGENT_OUTCOME_EXPLANATIONS,
+  SHOPPING_AGENT_OUTCOME_LABELS,
+  SHOPPING_AGENT_PRICE_BASIS_LABELS,
+  SHOPPING_AGENT_STATE_LABELS,
+  SHOPPING_AGENT_SUMMARY_SOURCE_TEXT,
+  SHOPPING_AGENT_SUPPRESSION_REASON_TEXT,
+  SHOPPING_AGENT_TRIGGER_SOURCE_LABELS,
+  shoppingAgentJobExplanation,
+  shoppingAgentJobLabel,
+} from "./lib/shopping-agent-labels";
+
+// ---------------------------------------------------------------------------
 // Commercial disclosures (#129) — the reader-facing copy for who is selling,
 // who is paid and what rights come with the purchase. Same split again: the
 // disclosure KEY is what a placed order's role snapshot pins and what the
@@ -252,6 +285,18 @@ export {
   PriceAlertCard,
   type PriceAlertCardProps,
 } from "./components/marketplace/PriceAlertCard";
+// One saved shopping agent (#97) and one of its appended observations. Two
+// components rather than one, because a superseded finding is still rendered
+// under an agent that has since moved on — the card says what is being watched,
+// the finding card says what was seen and when it stopped being true.
+export {
+  ShoppingAgentCard,
+  type ShoppingAgentCardProps,
+} from "./components/marketplace/ShoppingAgentCard";
+export {
+  ShoppingAgentFindingCard,
+  type ShoppingAgentFindingCardProps,
+} from "./components/marketplace/ShoppingAgentFindingCard";
 export {
   ProductGallery,
   type ProductGalleryImage,

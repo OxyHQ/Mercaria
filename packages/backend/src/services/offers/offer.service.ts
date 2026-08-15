@@ -61,6 +61,7 @@ import { recordOfferPriceObservation } from '../price-history/record.service.js'
 // event. A REPOSITORY and not a service: this write path decides nothing about
 // alerts, it only records that this product is worth looking at again.
 import { requestPriceAlertEvaluation } from '../../db/priceAlerts/priceAlertEvaluationRepository.js';
+import { requestShoppingAgentTrigger } from '../../db/shoppingAgents/shoppingAgentTriggerRepository.js';
 
 /** The seller key shape `checkout.service` and the payments seam already share. */
 function sellerKeyForListing(row: { ownerType: string; storeId: string | null; oxyUserId: string | null }): string | null {
@@ -547,6 +548,12 @@ export async function recordExternalOffer(
    * repository's own docblock.
    */
   await requestPriceAlertEvaluation(row.canonicalVariantId, db, now);
+  // #97's saved agents, beside #79's alerts and gated the same way: the first
+  // statement is one indexed `exists`, so a product nobody watches writes no
+  // row. Both run in the CALLER's transaction — a queue row that committed for
+  // an offer write that rolled back would wake an agent about a price that
+  // never existed.
+  await requestShoppingAgentTrigger(row.canonicalVariantId, db, now);
 
   return row.id;
 }

@@ -258,6 +258,36 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'A historical provenance stamp, not a live pointer. See the comment above and ' +
       "`merge-plan.ts`'s `alerts` phase.",
   },
+  // #97's saved shopping agents. An Oxy id like every other row in this block;
+  // it is also, with `description`, the WHOLE of what this domain stores about a
+  // person, which is what makes #97 privacy rule 6 resolve to a single scoped
+  // DELETE that cascades into the lines, findings, notifications and audits.
+  { column: 'shopping_agents.oxy_user_id', reason: OXY_ACCOUNT },
+  // #97's merge PROVENANCE stamp — which product an agent was rehomed OFF.
+  // `price_alerts.rehomed_from_canonical_product_id` exactly, for its reason: a
+  // historical statement about where the agent used to point, and a constraint
+  // on it would tie a shopper's own record to the continued existence of a
+  // tombstone somebody may later prune. The columns that decide what an agent
+  // WATCHES all carry real references, on `shopping_agent_lines`.
+  {
+    column: 'shopping_agents.rehomed_from_canonical_product_id',
+    reason:
+      'A historical provenance stamp, not a live pointer. See the comment above and ' +
+      "`merge-plan.ts`'s `agents` phase.",
+  },
+  // #97's finding names the agent LINE it covered, and deliberately does not
+  // constrain it: a finding is an immutable observation and its line may be
+  // edited away or re-ordered afterwards, so a foreign key would either block
+  // the edit or delete the record of what was seen. The finding's own
+  // `canonical_product_id` DOES carry one, because that is the subject rather
+  // than the shopper's arrangement of it.
+  {
+    column: 'shopping_agent_finding_lines.line_id',
+    reason:
+      'The agent line a finding covered, recorded as it stood. An edit to the agent must ' +
+      'neither be blocked by nor destroy an observation already made.',
+  },
+  { column: 'shopping_agent_audits.actor_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'product_saves.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'push_tokens.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'refunds.processed_by_oxy_user_id', reason: OXY_ACCOUNT },

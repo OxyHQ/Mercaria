@@ -105,6 +105,12 @@ import {
   marketplaceSellerIdentities,
 } from '../../db/schema/ingestion.js';
 import { locationPublications } from '../../db/schema/pickup.js';
+import {
+  shoppingAgentFindingLines,
+  shoppingAgentLines,
+  shoppingAgents,
+  shoppingAgentTriggers,
+} from '../../db/schema/shoppingAgents.js';
 
 /**
  * What the merge does with one referencing column.
@@ -389,6 +395,55 @@ const PRODUCT_SAVE_AGGREGATE_NOTE =
   "winner's is REBUILT from the rehomed saves rather than summed with it (#59 merge invariant " +
   '6). Adding the two would double-count every buyer who saved both, and a count has no rows ' +
   'beside it to catch that with.';
+
+const SHOPPING_AGENT_LINE_PRODUCT_NOTE =
+  "#97's agent LINE — one thing a shopper's standing instruction watches. REPOINTED " +
+  'unconditionally: nothing is unique on this column (`shopping_agent_lines_position_key` spans ' +
+  '(agent, position) and the fan-out index is deliberately not unique), so there is no collision ' +
+  'to guard against. The failure it prevents is the quietest one in the domain — a line left on a ' +
+  'tombstone matches no offer, so the agent goes on evaluating and never qualifies, and the ' +
+  'shopper is told nothing at all. "Nothing qualified" is exactly what a CORRECT evaluation of a ' +
+  'product nobody sells looks like, so the silence is indistinguishable from an agent that is ' +
+  'working, and the only person who could notice is the one who stopped hearing from it.';
+
+const SHOPPING_AGENT_LINE_VARIANT_NOTE =
+  "#97's optional exact CONFIGURATION on an agent line — the `price_alerts` and `product_saves` " +
+  'disposition, for their reason. Unconditional: nothing is unique on this column, and after a ' +
+  'merge that IS the same configuration. Narrowed to a tombstone variant the line would match no ' +
+  'offer and the objective would become permanently unsatisfiable, with the agent still enabled ' +
+  'and still reporting that it ran.';
+
+const SHOPPING_AGENT_LINE_MERCHANT_NOTE =
+  "#97's optional merchant NARROWING on an agent line. Unconditional, for the reason the " +
+  'saved-product preference and the alert scope beside it are: a shopper who narrowed a line to a ' +
+  'merchant meant the BUSINESS, which after a merge trades under the surviving identity. Left on ' +
+  'a tombstone the narrowing would match no offer, and the agent would evaluate on its own ' +
+  'schedule forever without ever qualifying.';
+
+const SHOPPING_AGENT_SPLIT_TARGET_NOTE =
+  "The other candidate of a split #97's agent is still waiting on an answer about — " +
+  '`price_alerts.split_target_canonical_product_id` exactly, and repointed for its reason: a ' +
+  'shopper asked to choose between a product and a TOMBSTONE is being offered a dead identity, ' +
+  'and the winner is what that candidate has become.';
+
+const SHOPPING_AGENT_TRIGGER_NOTE =
+  "#97's fan-out QUEUE row — one standing request to look at ONE canonical product, and " +
+  '`shopping_agent_triggers_subject_key` is UNIQUE on this column. RETAINED by the tombstone, the ' +
+  '`price_alert_evaluations` disposition for its reason: repointing it would collide with the ' +
+  "winner's own row outright, and it would say nothing the winner does not already have. Leaving " +
+  'it costs one claim that fans out to zero agents — after this phase the loser has no lines — ' +
+  'and then reads `done` forever. What the WINNER needs is a FRESH request, and the `agents` ' +
+  "phase runner enqueues one after the move rather than trying to carry the loser's across.";
+
+const SHOPPING_AGENT_FINDING_LINE_NOTE =
+  "#97's finding LINE — the immutable record of what one plan selected about THIS product at one " +
+  'moment, under a named policy version and a named input digest. RETAINED by the tombstone, the ' +
+  '`price_alert_triggers` disposition and its reasoning: a finding is what was OBSERVED, and ' +
+  'repointing it would rewrite the observation to be about a product the plan never priced — ' +
+  'which is also why the table refuses UPDATE by trigger, so the move could not land even if it ' +
+  'were the right answer. Its foreign key is RESTRICT and a tombstone is a live row, so nothing ' +
+  'is orphaned, and a reader still resolves the product through `merged_into_id`, which is one ' +
+  'hop by construction (ADR 0002 D16).';
 
 /**
  * The plan, per mergeable entity.
@@ -687,6 +742,12 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         'for its reason, with one of its own: a preference stranded on a tombstone matches no ' +
         'offer, and an item that matches no offer leaves the basket total — so the failure ' +
         'shows up as a number quietly going down rather than as anything anybody would look at.',
+    },
+    {
+      column: shoppingAgentLines.merchantId,
+      phase: 'agents',
+      disposition: 'repoint',
+      note: SHOPPING_AGENT_LINE_MERCHANT_NOTE,
     },
   ],
 
@@ -1040,6 +1101,30 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       disposition: 'retained_by_tombstone',
       note: SELL_YOURS_ASSERTION_NOTE,
     },
+    {
+      column: shoppingAgentLines.canonicalProductId,
+      phase: 'agents',
+      disposition: 'repoint',
+      note: SHOPPING_AGENT_LINE_PRODUCT_NOTE,
+    },
+    {
+      column: shoppingAgents.splitTargetCanonicalProductId,
+      phase: 'agents',
+      disposition: 'repoint',
+      note: SHOPPING_AGENT_SPLIT_TARGET_NOTE,
+    },
+    {
+      column: shoppingAgentTriggers.canonicalProductId,
+      phase: 'agents',
+      disposition: 'retained_by_tombstone',
+      note: SHOPPING_AGENT_TRIGGER_NOTE,
+    },
+    {
+      column: shoppingAgentFindingLines.canonicalProductId,
+      phase: 'agents',
+      disposition: 'retained_by_tombstone',
+      note: SHOPPING_AGENT_FINDING_LINE_NOTE,
+    },
   ],
 
   canonical_variant: [
@@ -1291,6 +1376,12 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'children',
       disposition: 'retained_by_tombstone',
       note: SELL_YOURS_ASSERTION_NOTE,
+    },
+    {
+      column: shoppingAgentLines.canonicalVariantId,
+      phase: 'agents',
+      disposition: 'repoint',
+      note: SHOPPING_AGENT_LINE_VARIANT_NOTE,
     },
   ],
 };

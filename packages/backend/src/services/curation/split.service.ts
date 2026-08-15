@@ -78,6 +78,7 @@ import { reassignRowById } from '../../db/curation/rehomeRepository.js';
 import { markProductSavesAmbiguousAfterSplit } from '../../db/productSaves/productSaveRepository.js';
 import { markPriceAlertsAmbiguousAfterSplit } from '../../db/priceAlerts/priceAlertRepository.js';
 import { markWatchlistItemsAmbiguousAfterSplit } from '../../db/watchlists/watchlistItemRepository.js';
+import { markShoppingAgentsAmbiguousAfterSplit } from '../../db/shoppingAgents/shoppingAgentRepository.js';
 import type { CatalogSplitJobRow } from '../../db/schema/curation.js';
 import {
   canonicalAttributeValues,
@@ -533,6 +534,52 @@ async function runAlertsPhase(
 }
 
 /**
+ * `agents` — #97, and the strongest form of the refusal `saves` and `alerts`
+ * already make.
+ *
+ * A split divides one identity into two and nothing in the data says which of
+ * them a person meant, so every agent watching the source is MARKED for the
+ * shopper to resolve — and BLOCKED while it waits, which is what
+ * `shopping_agents_ambiguity_blocked_check` makes unavoidable rather than
+ * remembered.
+ *
+ * The escalation across the three phases is the whole argument for blocking
+ * rather than leaving it live: a save on the wrong side of a split shows a
+ * shopper the wrong page the next time they happen to look; an alert on the
+ * wrong side notifies them ONCE about a product they may never have been
+ * watching; and an AGENT on the wrong side goes on doing that, on its own
+ * schedule, for as long as nobody looks. Only the last one keeps acting, so it
+ * is the only one where waiting for an answer costs less than guessing.
+ *
+ * Only a canonical PRODUCT split marks anything, for `runSavesPhase`'s reason: a
+ * variant split moves rows between two configurations of the SAME product, so an
+ * agent's subject is unchanged and there is no question to ask.
+ *
+ * Idempotent by predicate rather than by a phase record: the marking only
+ * touches `resolved` agents, so a resumed job re-runs it as a no-op AND an agent
+ * already made ambiguous by an EARLIER split keeps naming that earlier job —
+ * retargeting an unanswered question at a newer one destroys the pair of
+ * candidates the shopper was being asked about.
+ */
+async function runAgentsPhase(
+  job: CatalogSplitJobRow,
+  db: DatabaseOrTransaction,
+): Promise<SplitPhaseOutcome> {
+  if (job.entityType !== 'canonical_product') {
+    return { rowsAffected: 0, targetEntityId: job.targetEntityId };
+  }
+  const marked = await markShoppingAgentsAmbiguousAfterSplit(
+    {
+      sourceCanonicalProductId: job.sourceEntityId,
+      splitJobId: job.id,
+      targetCanonicalProductId: job.targetEntityId,
+    },
+    db,
+  );
+  return { rowsAffected: marked, targetEntityId: job.targetEntityId };
+}
+
+/**
  * `verify` — assigned versus applied (#59 split invariant 5).
  *
  * Every assignment must have reached a terminal state. A pending one means the
@@ -570,6 +617,8 @@ async function runSplitPhase(
       return runSavesPhase(job, db);
     case 'alerts':
       return runAlertsPhase(job, db);
+    case 'agents':
+      return runAgentsPhase(job, db);
     case 'redirects':
       // Deliberately nothing. The source keeps its slug and its URL, and the
       // destination has a new one nothing has ever linked to — so there is no
