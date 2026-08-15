@@ -168,6 +168,12 @@ const FUTURE_DATED_FIXTURES: readonly FutureDatedFixture[] = [
       'A timestamp round-tripped through projectConnection/projectSyncRun and asserted equal to itself; the redactor performs no date comparison.',
   },
   {
+    file: 'src/connectors/shopify/__tests__/shopify-scopes.test.ts',
+    date: '2026-08-15',
+    reason:
+      "A ScopeProvenance row's `checked` date, recording when the Shopify documentation page it cites was read. The file reads no clock at all, and nothing reads `checked` — only `provenance.kind` and `provenance.settledBy` are ever consulted — so re-pinning it to the past would falsify the record without removing any comparison.",
+  },
+  {
     file: 'src/db/__tests__/seo.realdb.test.ts',
     date: '2027-01-01',
     reason: 'Stored review/selection timestamps, ordered against each other and not against now.',
@@ -371,7 +377,7 @@ describe('test fixtures carry no unexplained future date', () => {
  * The register's size, stated separately so a diff that adds an entry has to
  * touch this line too.
  */
-const FUTURE_DATED_FIXTURE_COUNT = 24;
+const FUTURE_DATED_FIXTURE_COUNT = 25;
 
 describe('the census can actually see what it claims to', () => {
   // Probe dates are assembled from parts so this file's own controls cannot be
