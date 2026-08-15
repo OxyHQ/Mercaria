@@ -447,7 +447,7 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     // distinguishes "accepted" from "accepted and then misread".
     const response = await ingest(`/${connection.id}/products`, key, {
       products: [
-        pushProduct(namespace, { externalUpdatedAt: '2026-08-15T05:38:08+02:00' }),
+        pushProduct(namespace, { externalUpdatedAt: '2026-02-15T05:38:08+02:00' }),
       ],
     });
 
@@ -458,7 +458,7 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     // CONVERTED, not re-labelled: 05:38:08+02:00 is 03:38:08Z. Swapping the
     // offset for a `Z` would store 05:38:08Z and pass a mere "it was accepted"
     // assertion while silently moving the platform's own clock by two hours.
-    expect(imported.sourceExternalUpdatedAt?.toISOString()).toBe('2026-08-15T03:38:08.000Z');
+    expect(imported.sourceExternalUpdatedAt?.toISOString()).toBe('2026-02-15T03:38:08.000Z');
   });
 
   it('REFUSES a zoneless timestamp, which has no unambiguous instant (#290)', async () => {
@@ -471,7 +471,7 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     // shift every stored instant by whatever the server's offset happens to be,
     // which is a defect that only appears once and only in production.
     const response = await ingest(`/${connection.id}/products`, key, {
-      products: [pushProduct(uuidv7(), { externalUpdatedAt: '2026-08-15T05:38:08' })],
+      products: [pushProduct(uuidv7(), { externalUpdatedAt: '2026-02-15T05:38:08' })],
     });
 
     expect(response.status).toBe(400);
