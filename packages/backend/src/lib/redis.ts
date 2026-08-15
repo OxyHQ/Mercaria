@@ -22,7 +22,40 @@ function throttledErrorLog(label: string, err: Error) {
   }
 }
 
-function parseRedisUrl(): { host: string; port: number; password?: string; username?: string; tls?: object } | null {
+/**
+ * Read the database index out of a Redis URL's path (`redis://host:6379/9`).
+ *
+ * Returns `undefined` for a URL that names none, and `null` for one that names
+ * something unusable. The two are different answers because the failure this
+ * exists to prevent is silent and PERMISSIVE: an index is how an operator
+ * isolates one service's keyspace on a shared Redis, so parsing it cleanly and
+ * discarding it hands them isolation they believe in and do not have, with
+ * nothing in a log or a health check to say otherwise.
+ *
+ * A malformed index is therefore refused rather than defaulted. Landing on db 0
+ * is the exact harm; falling back to no Redis at all costs an in-memory rate
+ * limiter and inline jobs, both correct, and it is loud.
+ *
+ * The upper bound is deliberately NOT checked here — `databases` is a
+ * server-side setting, so any ceiling this file picked would be a guess about
+ * somebody else's config, and Redis rejects an out-of-range `SELECT` itself.
+ */
+function parseRedisDbIndex(pathname: string): number | undefined | null {
+  const raw = pathname.replace(/^\//, '');
+  if (raw === '') return undefined;
+  if (!/^\d+$/.test(raw)) return null;
+  const db = Number(raw);
+  return Number.isSafeInteger(db) ? db : null;
+}
+
+function parseRedisUrl(): {
+  host: string;
+  port: number;
+  password?: string;
+  username?: string;
+  db?: number;
+  tls?: object;
+} | null {
   const url = process.env.REDIS_URL;
   if (!url) return null;
 
@@ -33,11 +66,19 @@ function parseRedisUrl(): { host: string; port: number; password?: string; usern
       const caCert = process.env.REDIS_CA_CERT || process.env.CA_CERT;
       tls = caCert ? { ca: caCert } : {};
     }
+    const db = parseRedisDbIndex(parsed.pathname);
+    if (db === null) {
+      log.general.warn(
+        'REDIS_URL carries a database index that is not a non-negative integer — refusing the URL rather than silently using db 0',
+      );
+      return null;
+    }
     return {
       host: parsed.hostname,
       port: parseInt(parsed.port || '6379', 10),
       password: parsed.password || undefined,
       username: parsed.username || undefined,
+      db,
       tls,
     };
   } catch {

@@ -44,6 +44,14 @@ export function getQueueConnection(): ConnectionOptions {
   if (config.username) {
     options.username = config.username;
   }
+  // `!== undefined` rather than a truthiness test: db 0 is a real index an
+  // operator can name, and it is the one value a truthy guard would drop —
+  // which would be harmless today and wrong the moment the default moves.
+  // This function rebuilds the options field by field rather than spreading,
+  // so a field added to the shared config is dropped here unless it is named.
+  if (config.db !== undefined) {
+    options.db = config.db;
+  }
   if (config.tls) {
     options.tls = config.tls;
   }
