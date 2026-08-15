@@ -1277,6 +1277,42 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
       return { externalId: String(parsed.data.product.id) };
     },
 
+    /**
+     * Page the shop's orders.
+     *
+     * ## This reaches back 60 DAYS and no further, and a truncated import is
+     * indistinguishable from a complete one
+     *
+     * "Only the last 60 days' worth of orders from a store are accessible from
+     * the Order resource by default" — Shopify's Order reference. Reaching
+     * further needs `read_all_orders` BESIDE `read_orders`, and this connector
+     * does not request it (`config.ts` `DEFAULT_SCOPES`).
+     *
+     * So the run reaches `completed`, the tallies are internally consistent, and
+     * every imported order is correct. The only thing wrong is what is absent,
+     * and nothing in the evidence says so — which for a merchant onboarding an
+     * established shop is silently missing history at exactly the moment they
+     * are deciding whether to trust the integration. `created=0` here also means
+     * "no orders in 60 days", never "no orders".
+     *
+     * ## `read_all_orders` must NOT be added to the default scope set
+     *
+     * It is granted only on Shopify's written approval (Partner dashboard → app
+     * → API access → request, with a justification, reviewed by Shopify). If it
+     * is requested WITHOUT that approval, Shopify refuses the WHOLE grant rather
+     * than narrowing it — so adding it to `DEFAULT_SCOPES` would break every
+     * connect, for every deployment, until an approval landed. It is an operator
+     * decision recorded per app, never a code default.
+     *
+     * ## Why the bound is not a field on the connection
+     *
+     * A surface that wants to say "orders before <date> were not imported" can
+     * DERIVE it: `Connection.scopes` already carries what Shopify granted, so
+     * the absence of `read_all_orders` is the whole of the fact and a stored
+     * copy could only disagree with it. Rendering that is a dashboard change and
+     * is not made here; what is fixed here is that the bound is written down
+     * where the call is made instead of being inferable only from a scope list.
+     */
     async fetchOrders(creds: ConnectorCredentials, cursor?: string) {
       const params = new URLSearchParams({ limit: String(PAGE_LIMIT) });
       // Shopify forbids combining any filter with `page_info`; `status=any` is only

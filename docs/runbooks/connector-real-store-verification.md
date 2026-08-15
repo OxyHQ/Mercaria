@@ -89,7 +89,7 @@ version pinned at the code constant `API_VERSION`, currently **`2025-10`**):
 | `GET /smart_collections.json` | the collection index | `read_products` |
 | `GET /collections/{id}/products.json` | the collection index | `read_products` |
 | `POST /products.json`, `PUT /products/{id}.json` | `pushProduct` | `write_products` |
-| `GET /orders.json` | `fetchOrders` | `read_orders` |
+| `GET /orders.json` | `fetchOrders` | `read_orders` — **reaches back 60 days only**, see §3.2 |
 | `GET /inventory_levels.json` | `fetchInventory` | `read_inventory` (Shopify also gates the location join on `read_locations` — confirm in the Partner scope picker) |
 | `GET /orders/{id}/fulfillment_orders.json` | `pushFulfillment` | `read_merchant_managed_fulfillment_orders` |
 | `POST /fulfillments.json` | `pushFulfillment` | `write_merchant_managed_fulfillment_orders` |
@@ -122,6 +122,33 @@ supported choice, and the consequence is now visible rather than silent:** the
 topics Shopify refuses are recorded on the connection and reported as
 `webhookFailures`, and `ChannelReadiness` reads the catalogue axis as
 `degraded`.
+
+#### `read_all_orders` is absent, and the order import is bounded to 60 days
+
+That string carries `read_orders` and NOT `read_all_orders`, so
+`GET /orders.json` reaches back **60 days and no further** — Shopify's Order
+reference: *"Only the last 60 days' worth of orders from a store are accessible
+from the Order resource by default."*
+
+**A truncated order import is indistinguishable from a complete one.** The run
+reaches `completed`, the tallies are internally consistent, every imported order
+is correct, and nothing in the evidence says what is missing. When reading S7,
+`created=0` means *no orders in the last 60 days*, never *no orders* — which is
+why `drive.ts` records exactly that as S7's `wouldReadIfAbsent`.
+
+**Do not add `read_all_orders` to the scope string to work around this.** Shopify
+grants it only on written approval for a specific app (Partner dashboard → app →
+API access → request access, with a justification, reviewed by Shopify — a real
+delay), and if it is requested WITHOUT that approval Shopify refuses the **whole
+grant** rather than narrowing it. So an unapproved app that asks for it cannot
+connect at all, and the failure looks like a broken connector rather than a scope
+problem. It is an operator decision recorded against an approved app — set
+`SHOPIFY_SCOPES` explicitly on that deployment — never a code default
+(`shopify/config.ts` says so at `DEFAULT_SCOPES`, which is where somebody would
+otherwise add it).
+
+For a run seeded per §4.1 this bound changes nothing: the test orders are placed
+during the run. It matters for a real merchant onboarding an established shop.
 
 ### 3.3 The webhook topics the connector registers
 

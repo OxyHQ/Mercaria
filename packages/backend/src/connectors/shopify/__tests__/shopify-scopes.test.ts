@@ -94,6 +94,27 @@ describe('the Shopify default scopes cover what the connector actually calls', (
     }
   });
 
+  it('never requests read_all_orders, whatever the justification table says (#287)', () => {
+    // The case below already refuses a scope nothing calls, so this looks
+    // redundant — it is not, and the difference is the failure it survives.
+    // Somebody who decides the connector "needs" full order history fixes that
+    // case by adding `read_all_orders` to ENDPOINT_SCOPES, which is the natural
+    // move and makes the generic gate go green. This one still fails, because
+    // the objection is not "nothing calls it".
+    //
+    // Shopify grants `read_all_orders` only on written approval for a specific
+    // app and refuses the WHOLE grant rather than narrowing it when an
+    // unapproved scope is requested — so this in the DEFAULT breaks every
+    // connect on every deployment, and the symptom is a connector that cannot
+    // connect rather than anything naming a scope. It is an operator decision
+    // per approved app (`SHOPIFY_SCOPES` set explicitly there), never a default.
+    //
+    // The cost of its absence is real and is documented rather than fixed here:
+    // `GET /orders.json` reaches back 60 days only, and a truncated import is
+    // indistinguishable from a complete one (`index.ts` `fetchOrders`).
+    expect(SHOPIFY_DEFAULT_SCOPES).not.toContain('read_all_orders');
+  });
+
   it('requests NOTHING it cannot point at an endpoint or a topic', () => {
     // The other direction, and the one that keeps this honest: a default asking
     // for `write_orders` or `read_customers` is a merchant granting Mercaria
