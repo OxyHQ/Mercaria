@@ -199,7 +199,12 @@ describe('the migrated schema', () => {
     // audit tables must all outlive the data they are about — a retention that
     // deleted the record of what the retention WAS, or of why a deletion did
     // NOT happen, would answer the only question an auditor asks with silence.
-    expect(EXPIRY_TARGETS).toHaveLength(32);
+    // #303 adds ONE, the first from `connectors.ts`: the per-record reasons a
+    // sync refused, which is the only table there bounded by TRAFFIC rather
+    // than by a merchant's channels. Its two neighbours are deliberately never
+    // swept — `connections` and `sync_runs` are the activity log the dashboard
+    // reads, and the tally and summary on the run are what survive a swept page.
+    expect(EXPIRY_TARGETS).toHaveLength(33);
   });
 });
 
