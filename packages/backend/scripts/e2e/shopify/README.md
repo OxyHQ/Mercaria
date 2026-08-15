@@ -11,21 +11,27 @@ directory may be read as evidence that it is.
 
 ---
 
-## BLOCKER — read before doing anything else
+## The API version — the retired pin is fixed, the wire shapes are still owed
 
-`API_VERSION` in `connectors/shopify/index.ts` is pinned at **`2024-10`**, which
-Shopify stopped serving as itself around **2025-10-16**.
+`API_VERSION` in `connectors/shopify/index.ts` is pinned at **`2025-10`**. It was
+`2024-10`, which Shopify stopped serving as itself around **2025-10-16**, so
+`preflight.ts` refused every run (§5) and no run could have said which version it
+measured.
 
 An unsupported version does **not** 404. Shopify "falls forward and responds
 using the oldest accessible stable version"
 ([versioning](https://shopify.dev/docs/api/usage/versioning)), so every request
-succeeds, every scenario can pass, and the evidence names a version the wire
-never served. `preflight.ts` therefore **refuses to pass** until the pin is
-fixed.
+succeeds and the evidence names a version the wire never served.
 
-Fixing the pin is not a one-character edit — it is the wire-shape question this
-whole exercise exists to answer, and it must be done and re-verified rather than
-assumed:
+**`2025-10` is the version the fall-forward was already reaching**, which is the
+whole reason it was chosen: it changes nothing on the wire and makes the pin
+state what Shopify has been serving. It is therefore also the accessible version
+with the LEAST time left on it — `accessibleUntil` in `preflight.ts` derives the
+deadline from Shopify's quarterly cadence and refuses a run past it.
+
+**What is still owed, and was NOT settled by that bump:** which version this
+connector should sit on for real. That is a question about observed responses,
+and there is no store to observe (#69 acceptance 7, #286):
 
 - REST product/variant endpoints are **deprecated but still present** in the
   current version, and REST is legacy as of 2024-10-01. A custom app on REST may
@@ -33,8 +39,9 @@ assumed:
 - Anything above 100 variants requires the GraphQL product APIs. The connector
   is REST-only (no GraphQL call exists anywhere in it).
 
-So the pin should move to a currently-served version, and the S2/S3/S4 wire
-shapes re-checked against it, before a run is treated as evidence.
+So moving the pin FORWARD of `2025-10` changes what the wire returns for exactly
+the products, variants and orders the connector parses, and belongs with the
+first real run — S2/S3/S4 re-checked against it — rather than ahead of one.
 
 **The pin is now read back rather than trusted**, in two places, because a pin
 nobody verifies is a comment:

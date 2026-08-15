@@ -40,6 +40,21 @@ const SCOPES_ENV = 'SHOPIFY_SCOPES';
  * not grant at install can only be added by re-authorizing — so withholding
  * them turns a settings toggle into a reconnect. A merchant who wants a
  * narrower grant sets `SHOPIFY_SCOPES` explicitly.
+ *
+ * ## `read_all_orders` is ABSENT on purpose — do not add it (#287)
+ *
+ * `read_orders` alone bounds `GET /orders.json` to the last 60 DAYS (Shopify's
+ * Order reference: "Only the last 60 days' worth of orders from a store are
+ * accessible from the Order resource by default"). The bound is stated at the
+ * call site in `index.ts` `fetchOrders`, because a truncated import reaches
+ * `completed` with consistent tallies and looks exactly like a complete one.
+ *
+ * Reaching further needs `read_all_orders`, and adding it HERE is the one edit
+ * that breaks every connect on every deployment: Shopify grants it only on
+ * written approval per app, and refuses the WHOLE grant rather than narrowing
+ * it when an unapproved scope is requested. So it is an operator decision
+ * recorded against a specific approved app — set `SHOPIFY_SCOPES` explicitly on
+ * that deployment — and never a code default.
  */
 const DEFAULT_SCOPES = [
   'read_products',

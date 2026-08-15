@@ -82,9 +82,9 @@ of pushed products on a timestamp format, the second is why nobody found out.
 
 | # | What |
 |---|---|
-| #286 | The Shopify Admin API pin is out of support and Shopify falls forward silently. Read-back landed; the pin itself needs the real run |
+| #286 | The Shopify Admin API pin is out of support and Shopify falls forward silently. Read-back landed; pin moved `2024-10` → `2025-10`, the version the fall-forward already reached, so no wire shape changed. Moving FORWARD of that is a real wire change and still needs the real run |
 | #287 | `read_orders` alone truncates the order import to 60 days, undocumented |
-| #288 | The scope test asserts `read_locations` from its own table |
+| #288 | The scope test asserts `read_locations` from its own table — circularity FIXED (each row cites an endpoint checked against the provider source, and the unconfirmed set is pinned exactly); whether `read_locations` is needed is still open, and runbook §3.1 carries the one-connect experiment that settles it |
 | #289 | vitest discovered only `src/**`, so the evidence redactors were unprotected — FIXED |
 | #290 | The ingest schema rejects every RFC-3339 **offset** timestamp; 0 of 124 products accepted |
 | #291 | A pushed price change never reaches an already-imported listing |
