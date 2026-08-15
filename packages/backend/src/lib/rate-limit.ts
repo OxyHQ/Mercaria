@@ -33,6 +33,13 @@ export type RateLimitScope =
   // accounts sell here and what they sell. Sharing the shop page's budget would
   // mean a crawler either exhausts shopping for everyone or is not bounded.
   | 'sellers'
+  // Nearby discovery (#93). Its own bucket (`rl:nearby:`) rather than sharing
+  // `'listings'`, because the abuse is a different shape: the route is keyed on
+  // a POSITION, so an unmetered surface is a way to sweep a grid of coordinates
+  // and enumerate a merchant's whole branch network and its stock levels.
+  // Sharing the catalogue budget would mean a crawler either exhausts shopping
+  // for everyone or is not bounded at all.
+  | 'nearby'
   | 'cart'
   | 'checkout'
   | 'orders'

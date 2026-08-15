@@ -282,6 +282,55 @@ function resolveSupplierPreflightEnabled(): boolean {
  * key would mean accepting authenticated-feed configurations that can never
  * fetch, and reporting each failure as a source outage.
  */
+/**
+ * `STORE_PICKUP_ENABLED`, subject to the half-configuration rule (#93).
+ *
+ * The key is demanded UP FRONT rather than at the counter, because the
+ * alternative is a deployment that happily takes collection orders all week and
+ * discovers on the first handover that it cannot derive the code the buyer was
+ * told to bring. A collection that cannot be verified is not a degraded
+ * collection — #93 readiness condition 8 makes verification a precondition of
+ * guest pickup, and an unverifiable handover at a counter is exactly the
+ * situation `PICKUP_IDENTITY_REQUIREMENTS` exists to stop being the default.
+ *
+ * Staying OFF is safe in the way it is for supplier preflight: nothing is
+ * silently permitted. `resolvePickupForCheckout` refuses every pickup naming
+ * `store_pickup_disabled` — the same refusal SHAPE the pre-#93 seam gave, so no
+ * client learned anything new from the lever being off — and placed collections
+ * are untouched, because no lever in this domain gates a durable record.
+ */
+function resolveStorePickupEnabled(): boolean {
+  if (!boolEnv('STORE_PICKUP_ENABLED', false)) return false;
+
+  if ((process.env.PICKUP_COLLECTION_CODE_KEY?.trim() ?? '') !== '') return true;
+
+  log.general.error(
+    { missing: ['PICKUP_COLLECTION_CODE_KEY'] },
+    '[Pickup] STORE_PICKUP_ENABLED is set but the collection-code key is missing; staying ' +
+      'OFF. Placed collections, their codes and the portal are untouched.',
+  );
+  return false;
+}
+
+/**
+ * `GUEST_STORE_PICKUP_ENABLED`, which additionally requires store pickup.
+ *
+ * A guest lever that outlived the capability it modifies would be a switch
+ * somebody could read as "guests may collect" on a deployment where nobody may.
+ * The dependency is one-way and stated: turning store pickup off turns guest
+ * pickup off with it, and turning guest pickup off leaves authenticated
+ * collection working, which is the direction #93 operations rule 10 needs.
+ */
+function resolveGuestStorePickupEnabled(): boolean {
+  if (!boolEnv('GUEST_STORE_PICKUP_ENABLED', false)) return false;
+  if (resolveStorePickupEnabled()) return true;
+
+  log.general.warn(
+    '[Pickup] GUEST_STORE_PICKUP_ENABLED is set while store pickup is off; staying OFF.',
+  );
+  return false;
+}
+
 function resolveFeedImportEnabled(): boolean {
   if (!boolEnv('FEED_IMPORT_ENABLED', false)) return false;
 
@@ -2968,6 +3017,66 @@ export interface RetailServiceRequestsConfig {
   readonly reconcileGraceMs: number;
 }
 
+/**
+ * Location publication, nearby discovery and collection (#93).
+ *
+ * FOUR independent levers, and #93 operations rule 9 asks for exactly that —
+ * "independent feature flags for nearby browse, store pickup, guest pickup and
+ * P2P guest pickup". Three of the four are here. The fourth is deliberately
+ * ABSENT and its absence is a stronger guarantee than a switch defaulting off:
+ * guest P2P checkout is refused at group construction by
+ * `assertGuestSellerTypesAllowed` (ADR 0003 D18), #105 states outright that
+ * "there is deliberately no flag for it", and `derivePickupEligibility` refuses
+ * a `user` seller for EVERY actor. A dormant switch reads as a decision already
+ * taken; #112 owns the reversal and its evidence.
+ *
+ * NONE of the four gates a durable record. `order_pickups`, the collection
+ * credential, its event trail and the portal all keep working with every lever
+ * off, which is #93 operations rule 10 — "rollback new guest pickup while
+ * preserving existing order access, collection, cancellation and refund" — and
+ * `pickup-isolation.test.ts` fails the build if a collection, portal or refund
+ * path starts reading `config.pickup`.
+ */
+export interface PickupConfig {
+  /** `NEARBY_DISCOVERY_ENABLED` — mounts `/nearby`. Default false. */
+  readonly nearbyEnabled: boolean;
+  /**
+   * `STORE_PICKUP_ENABLED` — may a checkout resolve a pickup destination.
+   *
+   * Default false, and subject to the half-configuration rule: without
+   * {@link collectionCodeKey} a collection code cannot be derived, so a
+   * deployment could take pickup orders it can never hand over.
+   */
+  readonly storePickupEnabled: boolean;
+  /** `GUEST_STORE_PICKUP_ENABLED` — may a GUEST collect. Default false. */
+  readonly guestPickupEnabled: boolean;
+  /** `P2P_LOCAL_DISCOVERY_ENABLED` — the coarse P2P proximity surface. Default false. */
+  readonly p2pLocalDiscoveryEnabled: boolean;
+  /**
+   * `GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT` — #93 readiness condition 6.
+   *
+   * Default FALSE, and the default is the honest one rather than the lax one.
+   * #108 ships the guest portal with an EMPTY transport registry and nothing
+   * sends; a buyer nonetheless reaches their order through the confirmation
+   * grant the return screen PULLS. Demanding a transport unconditionally would
+   * therefore make guest collection unreachable on every deployment that exists,
+   * which is not what "readiness" means. A deployment that has wired mail turns
+   * this on and gets the strict reading.
+   */
+  readonly guestPickupRequiresNotificationTransport: boolean;
+  /**
+   * `PICKUP_COLLECTION_CODE_KEY` — the HMAC key collection codes are derived
+   * under. 64 hex characters.
+   *
+   * There is no stored code, hash or ciphertext anywhere in the domain: the code
+   * is `HMAC(key, orderId:version)`, so this key is what makes a code
+   * re-derivable for the buyer who asks again and verifiable at a counter. Its
+   * rotation invalidates every outstanding code at once, which is a blunt
+   * instrument and the right one for a credential leak.
+   */
+  readonly collectionCodeKey: string;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -3011,6 +3120,7 @@ export interface AppConfig {
   readonly retailReconciliation: RetailReconciliationConfig;
   readonly merchantBilling: MerchantBillingConfig;
   readonly connectors: ConnectorsConfig;
+  readonly pickup: PickupConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -3703,6 +3813,17 @@ export const config: AppConfig = Object.freeze({
     webhookReregistrationEnabled: boolEnv('CONNECTOR_WEBHOOK_REREGISTRATION_ENABLED', true),
     webhookReregistrationBatchSize: intEnv('CONNECTOR_WEBHOOK_REREGISTRATION_BATCH_SIZE', 10),
     webhookReregistrationLeaseMs: intEnv('CONNECTOR_WEBHOOK_REREGISTRATION_LEASE_MS', 120_000),
+  }),
+  pickup: Object.freeze({
+    nearbyEnabled: boolEnv('NEARBY_DISCOVERY_ENABLED', false),
+    storePickupEnabled: resolveStorePickupEnabled(),
+    guestPickupEnabled: resolveGuestStorePickupEnabled(),
+    p2pLocalDiscoveryEnabled: boolEnv('P2P_LOCAL_DISCOVERY_ENABLED', false),
+    guestPickupRequiresNotificationTransport: boolEnv(
+      'GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT',
+      false,
+    ),
+    collectionCodeKey: strEnv('PICKUP_COLLECTION_CODE_KEY', ''),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

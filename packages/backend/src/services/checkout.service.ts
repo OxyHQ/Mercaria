@@ -108,7 +108,6 @@ import { cartOwnerForActor } from './cart-owner.js';
 import type { NormalizedCheckoutAddress } from './checkout/contact.js';
 import {
   resolveCheckoutContract,
-  type ResolvedCheckoutContract,
   type ShippingFulfilment,
 } from './checkout/destination.js';
 import {
@@ -150,6 +149,11 @@ import {
 } from './checkout/retail.js';
 import { insertRetailProcurementIntents } from '../db/retailCheckout/retailCheckoutRepository.js';
 import { recordRetailFulfilmentPlan } from './retail-fulfilment/order-role.service.js';
+import {
+  resolvePickupForCheckout,
+  type ResolvedPickup,
+} from './pickup/checkout-gate.js';
+import { insertOrderPickup } from '../db/pickup/orderPickupRepository.js';
 import { addMoney, multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
 import { uuidv7, isUniqueViolation } from '@oxyhq/db';
@@ -174,6 +178,15 @@ const IDEMPOTENCY_KEY_PREFIX = 'checkout:';
 interface Reservation {
   variantId: string;
   qty: number;
+  /**
+   * Where the units were taken from, when the buyer chose a collection point.
+   *
+   * Carried rather than re-resolved, because `release` with no location routes
+   * to the store's DEFAULT location — so a rolled-back collection would return
+   * units to a different branch from the one it took them from, silently, and
+   * the shelf the buyer was standing next to would stay short.
+   */
+  locationId?: string;
 }
 
 /**
@@ -278,7 +291,7 @@ function firstImageUrl(images: ListingImageRecord[]): string | undefined {
 async function rollbackReservations(reserved: Reservation[]): Promise<void> {
   for (const r of reserved) {
     try {
-      await release(r.variantId, r.qty);
+      await release(r.variantId, r.qty, r.locationId);
     } catch (relErr) {
       log.general.warn(
         { err: relErr, variantId: r.variantId },
@@ -376,6 +389,7 @@ function buildItems(
   presentmentCurrency: CurrencyCode,
   rates: FxRates,
   conditionNotesByListing: ReadonlyMap<string, string>,
+  pickupLocationId: string | undefined,
 ): NewOrderItem[] {
   return group.lines.map(({ cartItem, listing, variant, images, optionValues }, index) => {
     const shopUnit = convert(nativeUnitPrice(variant), shopCurrency, rates);
@@ -401,6 +415,15 @@ function buildItems(
       conditionKey: narrowStoredCondition(listing.condition),
       conditionAssertion: listing.conditionAssertion,
     };
+    // The line remembers WHERE its units were taken from, and for a collection
+    // that is the location the buyer chose. It is what `transition('paid')`
+    // commits against and what a refund restocks against — both already read
+    // `item.locationId` — so setting it here is the whole of what makes a
+    // collection's stock movements land at the right branch rather than at the
+    // store's default one. A delivery leaves it absent, exactly as before.
+    if (pickupLocationId !== undefined) {
+      item.locationId = pickupLocationId;
+    }
     const conditionNotes = conditionNotesByListing.get(listing.id);
     if (conditionNotes !== undefined) {
       item.conditionNotes = conditionNotes;
@@ -483,19 +506,55 @@ async function incrementDiscountUsage(codes: string[]): Promise<void> {
 }
 
 /**
- * Narrow a resolved contract to its shipping case.
+ * The address snapshot a COLLECTION order carries (#93 pickup rule 4).
  *
- * The eligibility gate has already refused every pickup, so reaching this with
- * one means a future #93 implementation stopped refusing without supplying a
- * snapshot. A `throw` rather than a cast is what turns that into a loud 5xx
- * instead of an order carrying a fabricated street.
+ * Composed from the merchant's own PUBLICATION, never from `locations.address`
+ * and never from anything the buyer typed — so #105's invariant survives
+ * exactly as written: `destination.ts` still produces no
+ * `NormalizedCheckoutAddress` for a pickup, and nothing anywhere fabricates a
+ * street for a collection. What the order records is the already-public place
+ * the goods are, which is the same thing the POS path has snapshotted since the
+ * Mongo port (`buildPickupSnapshot` in `draft-order.service`).
+ *
+ * The recipient is the literal word `Collection` and NEVER a person's name.
+ * That is not a gap: `NormalizedCheckoutContact` carries no name field at all
+ * (#105 takes an email and an optional phone and nothing else), reading one off
+ * an Oxy profile is what contact rule 5 forbids, and a collection has no
+ * carrier to address. The merchant learns who the buyer is through the order's
+ * own buyer projection, which #106 already scopes — not through a shipping
+ * label this domain would otherwise have put a name on.
+ *
+ * A published location with no street is the ORDINARY case, not a degraded one:
+ * a merchant may publish a city and nothing else. `line1` and `postalCode` are
+ * NOT NULL on the order's snapshot, so the display name stands in for the
+ * street and an absent postal code is recorded as an empty marker rather than
+ * as a plausible-looking invented one.
  */
-function requireShippingFulfilment(contract: ResolvedCheckoutContract): ShippingFulfilment {
-  if (contract.fulfilment.kind !== 'shipping') {
-    throw conflict('This delivery option cannot be completed yet.');
-  }
-  return contract.fulfilment;
+function snapshotPickupAddress(pickup: ResolvedPickup): AddressSnapshot {
+  const snapshot: AddressSnapshot = {
+    recipientName: PICKUP_RECIPIENT_FALLBACK,
+    line1: pickup.publicLine1 ?? pickup.displayName,
+    city: pickup.publicCity ?? pickup.displayName,
+    postalCode: pickup.publicPostalCode ?? PICKUP_UNPUBLISHED_MARKER,
+    country: pickup.publicCountry,
+    label: pickup.displayName,
+  };
+  if (pickup.publicLine2 !== null) snapshot.line2 = pickup.publicLine2;
+  if (pickup.publicRegion !== null) snapshot.region = pickup.publicRegion;
+  return snapshot;
 }
+
+/** What a collection order's recipient is called. Never a person — see above. */
+const PICKUP_RECIPIENT_FALLBACK = 'Collection';
+/**
+ * What stands in for a postal code the merchant chose not to publish.
+ *
+ * A dash rather than an empty string or a plausible-looking code: the column is
+ * NOT NULL, the value is never used for delivery (nothing ships), and it has to
+ * be visibly NOT a postal code so a label printer or an export cannot be read as
+ * having one.
+ */
+const PICKUP_UNPUBLISHED_MARKER = '-';
 
 /**
  * The contact row a guest order must reference.
@@ -955,12 +1014,46 @@ export async function checkout(
     groups: eligibilityGroups,
   });
 
-  // The gate above throws for a pickup destination, so anything past it is a
-  // shipping one. The narrowing is a `throw` rather than a cast: a future
-  // pickup implementation that forgot to produce a snapshot would fail loudly
-  // here instead of writing an order with a fabricated address.
-  const shippingFulfilment: ShippingFulfilment = requireShippingFulfilment(contract);
-  const shippingAddressSnapshot = snapshotAddress(shippingFulfilment.address);
+  // 4d-quater. The COLLECTION point (#93), if this is one. Still before the
+  // reservation loop and for the identical reason: it is the last eligibility
+  // question that needs no stock — publication, pickup switches, operator
+  // restriction, the store, the listing, the units on THAT shelf, the location's
+  // own freshness interval, its opening hours and (for a guest) the three
+  // rollout levers — and answering it after the loop would mean a refused
+  // collection had taken units off a shelf.
+  //
+  // It resolves the SNAPSHOT the orders carry as well as refusing, which is why
+  // it runs here rather than beside the pure gate above: the snapshot is read
+  // from the publication and every order in the group shares it.
+  const pickup: ResolvedPickup | undefined =
+    contract.fulfilment.kind === 'pickup'
+      ? await resolvePickupForCheckout({
+          locationId: contract.fulfilment.locationId,
+          actor,
+          lines: [...groups.entries()].flatMap(([sellerKey, group]) =>
+            group.lines.map((line) => ({
+              sellerKey,
+              sellerType: group.sellerType,
+              variantId: line.cartItem.variantId,
+              quantity: line.cartItem.quantity,
+            })),
+          ),
+          at: new Date(),
+        })
+      : undefined;
+
+  // Past the two gates there are exactly two shapes, and the `else` is a
+  // `throw` rather than a cast: a third fulfilment kind added without a
+  // snapshot would fail loudly here instead of writing an order with a
+  // fabricated address.
+  const shippingFulfilment: ShippingFulfilment | undefined =
+    contract.fulfilment.kind === 'shipping' ? contract.fulfilment : undefined;
+  if (!pickup && !shippingFulfilment) {
+    throw conflict('This delivery option cannot be completed yet.');
+  }
+  const shippingAddressSnapshot = pickup
+    ? snapshotPickupAddress(pickup)
+    : snapshotAddress((shippingFulfilment as ShippingFulfilment).address);
 
   // 4d-ter. The guest-checkout ROLLOUT kill switches and the #85 merchant
   // activation seam (#107). Still before the reservation loop, for the reason
@@ -1045,12 +1138,24 @@ export async function checkout(
   // is no supplier `InventoryLevel` to decrement and no reservation row to
   // write. The residual oversell risk that leaves is exactly the
   // procurement-failure risk D4 already prices at "compensating refund".
+  //
+  // A COLLECTION reserves at the EXACT location the buyer chose (#93 pickup
+  // rule 3, acceptance 3), through the SAME `reserve` every other checkout
+  // uses: its guarded `UPDATE … WHERE available >= qty` against the matching
+  // `inventory_levels` row has been race-safe at the location grain since the
+  // Mongo port, so the whole of the change #93 needed here is passing an id
+  // that was already an optional parameter. A DELIVERY keeps routing to the
+  // store's default location exactly as before.
   const reserved: Reservation[] = [];
   try {
     for (const group of groups.values()) {
       for (const line of group.lines) {
-        await reserve(line.cartItem.variantId, line.cartItem.quantity);
-        reserved.push({ variantId: line.cartItem.variantId, qty: line.cartItem.quantity });
+        await reserve(line.cartItem.variantId, line.cartItem.quantity, pickup?.locationId);
+        reserved.push({
+          variantId: line.cartItem.variantId,
+          qty: line.cartItem.quantity,
+          ...(pickup === undefined ? {} : { locationId: pickup.locationId }),
+        });
       }
     }
   } catch (err) {
@@ -1209,6 +1314,7 @@ export async function checkout(
         presentmentCurrency,
         rates,
         conditionNotesByListing,
+        pickup?.locationId,
       );
       // grandTotal = (subtotal − discount + tax) from pricing, plus flat shipping,
       // added on each of the shop + presentment sides. Both sides are asserted
@@ -1309,7 +1415,38 @@ export async function checkout(
       // order is not a degraded record, it is a charge with no lines. A guest
       // checkout hands a transaction down instead, so the contact row above
       // joins that same atom — see `placeOrders`.
-      rows.push(tx ? await insertOrder(doc, tx) : await insertOrder(doc));
+      const placed = tx ? await insertOrder(doc, tx) : await insertOrder(doc);
+      rows.push(placed);
+
+      // The collection snapshot, in the SAME atom as the order it belongs to
+      // (#93 pickup rule 4). A converging idempotency replay discards this
+      // attempt's group, so a pickup row committed outside the order's
+      // transaction would be a collection for an order that never existed —
+      // the `guest_checkouts` reasoning exactly. `insertOrderPickup` is
+      // `ON CONFLICT DO NOTHING` plus a read, so the replay that DOES find its
+      // order finds the snapshot the buyer agreed to rather than a fresh one
+      // read off a profile the merchant may have edited since.
+      if (pickup) {
+        await insertOrderPickup(
+          {
+            orderId: placed.id,
+            locationId: pickup.locationId,
+            publicationId: pickup.publicationId,
+            displayName: pickup.displayName,
+            publicLine1: pickup.publicLine1,
+            publicLine2: pickup.publicLine2,
+            publicCity: pickup.publicCity,
+            publicRegion: pickup.publicRegion,
+            publicPostalCode: pickup.publicPostalCode,
+            publicCountry: pickup.publicCountry,
+            timezone: pickup.timezone,
+            pickupInstructions: pickup.pickupInstructions,
+            identityRequirement: pickup.identityRequirement,
+            paymentRequirement: pickup.paymentRequirement,
+          },
+          tx ?? undefined,
+        );
+      }
     }
 
     // The ONE `platform` order, and its procurement intents (ADR 0004 D5).
@@ -1374,12 +1511,13 @@ export async function checkout(
     // Oxy branch writes no extra row and keeps its existing per-order
     // transactions. Both run the SAME `placeOrders` body — the fork is a
     // transaction boundary, not a second checkout (ADR 0003 I9).
-    // A transaction is taken for a GUEST checkout (its contact row) and for a
-    // RETAIL one (its procurement intents). Both are the same reason wearing
-    // two names: a row the orders reference, or that references them, which has
-    // no valid existence without them.
+    // A transaction is taken for a GUEST checkout (its contact row), for a
+    // RETAIL one (its procurement intents) and for a COLLECTION (its pickup
+    // snapshot). All three are the same reason wearing three names: a row the
+    // orders reference, or that references them, which has no valid existence
+    // without them.
     created =
-      actor.kind === 'guest' || (retailPlan && retailPlan.lines.length > 0)
+      actor.kind === 'guest' || (retailPlan && retailPlan.lines.length > 0) || pickup !== undefined
         ? await getDb().transaction(async (tx) => placeOrders(tx))
         : await placeOrders(null);
   } catch (err) {

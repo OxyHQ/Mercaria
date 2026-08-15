@@ -196,9 +196,10 @@ export function awardComparisonLabels(
     });
   }
 
-  // `best_nearby_pickup` — never awarded today, because no collection point is
-  // published (`seams.ts`). It is written out rather than omitted so #93 needs
-  // to fill one function body and nothing here.
+  // `best_nearby_pickup` — awarded since #93, to the offer whose nearest
+  // PUBLISHED collection point holding it is closest to a viewer who shared a
+  // location. Unknown for every offer when nobody shared one, which is the
+  // ordinary case, and an unknown distance can never win a `selectMinimum`.
   const nearest = selectMinimum(entries, (entry) => entry.candidate.facts.pickupDistanceMetres);
   const nearestMetres = nearest?.candidate.facts.pickupDistanceMetres;
   if (nearest !== undefined && nearestMetres !== undefined) {

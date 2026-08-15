@@ -145,9 +145,10 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
       'lands and a carrier event exists to describe.',
   },
   order_ready_for_pickup: {
-    trigger: null,
-    note: '#93. Pickup is representable and fails closed at checkout ' +
-      '(`assertPickupLocationEligible` refuses every pickup), so no order can reach this state.',
+    trigger: 'services/pickup/collection.service.ts (markPickupReady)',
+    note: '#93. Enqueued when a shop marks a collection ready, guest-origin orders only. Keyed ' +
+      'on the PICKUP state rather than an order status: a collection never becomes `shipped`, ' +
+      'and #93 pickup rule 12 keeps the handover’s states apart from the payment’s.',
   },
   return_request_updated: {
     trigger: 'services/buyer-requests/return-decision.service.ts',
@@ -269,6 +270,13 @@ const LIFECYCLE_MESSAGE_KINDS: Partial<Record<string, GuestPortalMessageKind>> =
   delivered: 'order_delivered',
   cancelled: 'order_cancelled',
   refunded: 'refund_completed',
+  // #93. NOT an `orders.status` — a collection's operational state lives on
+  // `order_pickups` precisely so it is not conflated with payment state — so
+  // the key here is the PICKUP state, passed by
+  // `services/pickup/collection.service.ts` rather than by the order
+  // transition. The map is keyed on a plain string for exactly this reason:
+  // it says "which lifecycle fact owes a message", not "which order status".
+  ready_for_pickup: 'order_ready_for_pickup',
 };
 
 /**

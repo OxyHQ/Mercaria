@@ -58,6 +58,7 @@ import {
   requestStepUpLink,
 } from '../services/guest-portal/recovery.service.js';
 import { grantHasScope } from '../services/guest-portal/scopes.js';
+import { getCollectionHandler } from '../controllers/collection-code.controller.js';
 import {
   claimGuestCheckoutGroup,
   previewGuestClaim,
@@ -702,6 +703,33 @@ router.use(
     next();
   },
   retailServiceRequestRouter,
+);
+
+/**
+ * The collection snapshot and its code, for a PORTAL credential (#93).
+ *
+ * The SAME handler the authenticated `/orders/:id/collection` mount uses —
+ * #93 verification rule 9, and ADR 0003 I9's reasoning one domain over: there
+ * is nothing guest-shaped below the subject resolution, so a second handler
+ * would be a second place the authorization could be got wrong.
+ *
+ * Registered AFTER the buyer-request mount above and on a more specific path,
+ * so it is matched by its own handler. The same redundant group comparison
+ * runs, for the same reason: a wrong `:groupId` is a 404 here rather than
+ * reaching the service.
+ */
+router.get(
+  '/:groupId/orders/:id/collection',
+  makeRateLimiter('guest-portal'),
+  requirePortalSession,
+  (req, res, next) => {
+    if (req.portalGrant?.checkoutGroupId !== req.params.groupId) {
+      sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+      return;
+    }
+    next();
+  },
+  handle(getCollectionHandler, 'Failed to load the collection'),
 );
 
 /**

@@ -43,6 +43,8 @@ import { findCurrentRelationships } from '../../db/commerce-graph/relationshipRe
 import { findAggregatesForTargets } from '../../db/reviews/reviewAggregateRepository.js';
 import { convertOfferMoney, composeComparisonTotal } from './money.js';
 import { resolveOfferTaxInclusion, resolvePickupProximity } from './seams.js';
+import { findNearestPickupDistanceByVariant } from '../../db/pickup/nearbyRepository.js';
+import { MAX_NEARBY_RADIUS_METRES } from '../pickup/geo.js';
 
 /**
  * Statuses that WITHDRAW a merchant or storefront from comparison (rule 10).
@@ -74,6 +76,20 @@ export interface RankingFactContext {
   readonly offerSourceIds: ReadonlyMap<string, string>;
   readonly viewerLatitude?: number;
   readonly viewerLongitude?: number;
+  /**
+   * Offer id → metres to the nearest published collection point holding it
+   * (#93, closing the `resolvePickupProximity` seam).
+   *
+   * Resolved ONCE per page in one statement rather than per offer: a
+   * per-offer query would be an N+1 on the hottest comparison read there is,
+   * and `buildOfferRankingFacts` has to stay pure given this context so
+   * `selectEligibleOffers` can build facts only for the offers it admits.
+   *
+   * EMPTY when the viewer shared no location, when nothing is published near
+   * them, or when every offer is external — and the seam reports all three as
+   * "no data", which awards no label and contributes no score.
+   */
+  readonly pickupDistancesByOfferId: ReadonlyMap<string, number>;
   readonly now: Date;
 }
 
@@ -163,6 +179,33 @@ export async function buildRankingFactContext(input: {
     }
   }
 
+  // #93's collection points, in ONE statement for the whole page. Only NATIVE
+  // offers can have one — an external offer names no Mercaria variant, so there
+  // is no shelf to measure to — and a viewer who shared no location skips the
+  // read entirely rather than spending it to build an empty map.
+  const pickupDistancesByOfferId = new Map<string, number>();
+  if (input.viewerLatitude !== undefined && input.viewerLongitude !== undefined) {
+    const variantByOffer = new Map<string, string>();
+    for (const offer of input.offers) {
+      if (offer.productVariantId) variantByOffer.set(offer.id, offer.productVariantId);
+    }
+    if (variantByOffer.size > 0) {
+      const byVariant = await findNearestPickupDistanceByVariant(
+        {
+          variantIds: [...new Set(variantByOffer.values())],
+          latitude: input.viewerLatitude,
+          longitude: input.viewerLongitude,
+          radiusMetres: MAX_NEARBY_RADIUS_METRES,
+        },
+        db,
+      );
+      for (const [offerId, variantId] of variantByOffer) {
+        const metres = byVariant.get(variantId);
+        if (metres !== undefined) pickupDistancesByOfferId.set(offerId, metres);
+      }
+    }
+  }
+
   const brandId = await resolveSubjectBrandId(canonicalVariantIds, db);
   const relationships = new Map<string, OfferRelationshipStanding>();
   if (brandId !== null) {
@@ -195,6 +238,7 @@ export async function buildRankingFactContext(input: {
     relationships,
     brandResolved: brandId !== null,
     merchantRatings,
+    pickupDistancesByOfferId,
     offerSourceIds,
     ...(input.viewerLatitude === undefined ? {} : { viewerLatitude: input.viewerLatitude }),
     ...(input.viewerLongitude === undefined ? {} : { viewerLongitude: input.viewerLongitude }),
@@ -248,6 +292,7 @@ export function buildOfferRankingFacts(offer: Offer, context: RankingFactContext
     pickupAvailable: offer.delivery.pickup === 'available',
     ...(context.viewerLatitude === undefined ? {} : { viewerLatitude: context.viewerLatitude }),
     ...(context.viewerLongitude === undefined ? {} : { viewerLongitude: context.viewerLongitude }),
+    distancesByOfferId: context.pickupDistancesByOfferId,
   });
 
   const condition: ItemConditionKey | undefined =

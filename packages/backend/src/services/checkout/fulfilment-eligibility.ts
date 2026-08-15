@@ -28,25 +28,28 @@
  * order shipping for nothing. {@link resolveShippingCostMinor} refuses instead,
  * so an unpriced method is a refusal and never a discount.
  *
- * ## Pickup fails CLOSED, and that is the whole of the #93 seam
+ * ## Pickup MOVED, and it did not become a clause in this file
  *
  * #105 eligibility rule 9 asks for pickup locations to be revalidated for
- * freshness, inventory and publication "through #93". #93 is not built: there
- * is no publication state, no pickup-specific inventory view and no per-location
- * hours anywhere in this schema. So {@link assertPickupLocationEligible} refuses
- * every pickup, naming the seller, rather than admitting a collection nobody
- * validated — an order a buyer is told to collect from a warehouse that never
- * offered collection is worse than an honest "not available here".
+ * freshness, inventory and publication "through #93". #93 landed and supplies
+ * all three, and the validation lives in `services/pickup/checkout-gate.ts`
+ * rather than here for a reason worth stating: it is ASYNCHRONOUS (it reads a
+ * publication, a schedule and a stock level per line) and it RESOLVES a
+ * snapshot as well as refusing, while everything in this module is a pure
+ * in-memory decision over facts the caller already holds. Mixing them would
+ * have made a function whose name says "assert" perform four reads and return
+ * a value.
  *
- * The refusal is deliberately NOT a schema-level removal of `pickup` from the
- * destination union: the contract is what #93 fills in, and a contract that has
- * to be widened again is a contract two clients will disagree about. What #93
- * replaces is the body of ONE function, named below.
+ * What is unchanged is the SHAPE the buyer sees: the same `CheckoutRefusal`
+ * naming the same seller keys, raised in the same position in
+ * `checkout.service` — before any stock is reserved and before any payment
+ * exists. The clean cut is that `assertPickupLocationEligible` is GONE rather
+ * than left as an alias; `checkout.service` calls
+ * `resolvePickupForCheckout` directly.
  */
 
 import type { ShippingMethod } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
-import { validationError } from '../../lib/errors/error-codes.js';
 import { checkoutRefusal } from './refusal.js';
 import type { ResolvedFulfilment } from './destination.js';
 
@@ -104,30 +107,6 @@ export function resolveShippingCostMinor(method: ShippingMethod): number {
 }
 
 /**
- * The #93 seam.
- *
- * Today it refuses, because there is nothing to validate against — see the
- * module docblock. When #93 lands, THIS function grows a real body (resolve the
- * location, assert it belongs to the seller, assert it is published for
- * collection, assert it is fresh, assert the lines are collectable there) and
- * nothing else in the checkout path changes: the contract, the snapshot and the
- * refusal shape are all already in place around it.
- */
-export function assertPickupLocationEligible(
-  locationId: string,
-  groups: readonly EligibilitySellerGroup[],
-): never {
-  if (locationId.length === 0) {
-    throw validationError('A pickup destination needs a location.');
-  }
-  throw checkoutRefusal(
-    'destination_incomplete',
-    `Collection in person is not available yet for ${describeSellers(groups)}. ` +
-      'Choose a delivery address instead.',
-  );
-}
-
-/**
  * Revalidate the resolved destination against every selected seller.
  *
  * The per-seller half. Today the only seller-specific dimension Mercaria can
@@ -156,8 +135,26 @@ export function assertSellerGroupsAcceptDestination(input: {
   fulfilment: ResolvedFulfilment;
   groups: readonly EligibilitySellerGroup[];
 }): void {
+  // A COLLECTION has no postal destination and no shippable method, so the
+  // three checks below are all about a delivery this checkout is not making.
+  // `resolvePickupForCheckout` (#93) is what validates it, and it runs
+  // immediately after this gate in `checkout.service` — kept separate because
+  // it reads the database and this function does not.
+  //
+  // The one thing worth asserting here is the MIRROR of the mismatch check at
+  // the end: a buyer who chose collection for the whole order must not also
+  // have chosen a postal method for one seller, or honouring either half alone
+  // would be guessing.
   if (input.fulfilment.kind === 'pickup') {
-    assertPickupLocationEligible(input.fulfilment.locationId, input.groups);
+    const posted = input.groups.filter((group) => group.shippingMethod !== 'pickup');
+    if (posted.length > 0) {
+      throw checkoutRefusal(
+        'destination_incomplete',
+        `A delivery option was chosen for ${describeSellers(posted)} but this order is for ` +
+          'collection. Choose collection for the whole order, or a delivery address for them.',
+      );
+    }
+    return;
   }
 
   assertDestinationCountrySupported(input.fulfilment.address.country);

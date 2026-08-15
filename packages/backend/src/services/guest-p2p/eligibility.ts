@@ -277,12 +277,22 @@ function evaluateFromFacts(
         : { criterion, outcome: 'satisfied' };
 
     case 'fulfilment_method_permitted':
-      // The #93 branch, and the one #112 asks be explicit: a collection has no
+      // #93 CLOSED this, and the outcome moved from `unevaluable` to `refused`.
+      //
+      // #112 wrote it as `unevaluable`/owner #93 because a collection had no
       // publication state, no freshness and no per-location hours anywhere in
-      // this schema, so there is nothing to check it against. Never a silent
-      // pass — `unevaluable` blocks, exactly as `assertPickupLocationEligible`
-      // refuses at checkout.
-      if (facts.context.fulfilment === 'pickup') return blocked(criterion, '#93');
+      // the schema, so there was nothing to check it against. #93 supplies all
+      // three — and supplies them for a STORE's `locations` row. A collection
+      // from an individual has no publication and cannot acquire one, and
+      // `derivePickupEligibility` refuses a `user` seller for EVERY actor, so
+      // the honest answer is now "no" rather than "we cannot tell".
+      //
+      // Both outcomes block, so no guest checkout changes; what changes is what
+      // an operator trace says, and "we cannot tell" would now be false. The
+      // fact is stated here rather than imported: this module reads no
+      // repository and answers from the criterion's own context, and a P2P
+      // group's seller being a person is the whole of what decides it.
+      if (facts.context.fulfilment === 'pickup') return { criterion, outcome: 'refused' };
       return verdictOf(criterion, scope.fulfilmentMethods.includes(facts.context.shippingMethod));
 
     case 'value_within_cap':

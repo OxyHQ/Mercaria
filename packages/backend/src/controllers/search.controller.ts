@@ -63,6 +63,9 @@ interface SearchQueryInput {
   officialChannelOnly?: 'true' | 'false';
   merchantIds?: string[];
   attributes?: { key: string; value?: string; minNumber?: number; maxNumber?: number }[];
+  nearLatitude?: number;
+  nearLongitude?: number;
+  nearRadiusMetres?: number;
   limit?: number;
   cursor?: string;
 }
@@ -88,6 +91,19 @@ export function toSearchFilters(query: SearchQueryInput): SearchFilters {
     ...(query.officialChannelOnly === 'true' ? { officialChannelOnly: true } : {}),
     ...(query.merchantIds === undefined ? {} : { merchantIds: query.merchantIds }),
     ...(query.attributes === undefined ? {} : { attributes: query.attributes }),
+    // Both halves or neither — the schema refuses a lone latitude, so this
+    // guard is a type narrowing rather than a second validation.
+    ...(query.nearLatitude === undefined || query.nearLongitude === undefined
+      ? {}
+      : {
+          nearby: {
+            latitude: query.nearLatitude,
+            longitude: query.nearLongitude,
+            ...(query.nearRadiusMetres === undefined
+              ? {}
+              : { radiusMetres: query.nearRadiusMetres }),
+          },
+        }),
   };
 }
 

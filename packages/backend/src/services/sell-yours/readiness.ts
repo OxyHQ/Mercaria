@@ -107,13 +107,21 @@ export function deriveSellerDraftReadiness(facts: SellerReadinessFacts): SellerD
   if (draft.quantity < 1) blockReasons.push('quantity_invalid');
 
   /**
-   * #93 owns pickup, and until it lands `offered` is refused rather than
-   * published.
+   * `offered` stays refused AFTER #93, and the reason changed rather than
+   * expiring.
    *
-   * The `role_email` device: the value is representable so the gap is legible,
-   * and publishing a listing whose collection nothing honours would be worse
-   * than saying so. #105's `assertPickupLocationEligible` refuses every pickup
-   * at checkout for the same reason and against the same missing facts.
+   * #93 landed collection, but it landed it for STORE locations: a publication
+   * hangs off a `locations` row a store owns, and `derivePickupEligibility`
+   * refuses a `user` seller for every actor. What #93 gives a P2P seller is
+   * coarse local DISCOVERY — an area, not a collection promise — and the two
+   * are kept apart deliberately (#93 P2P rules 6 and 8, acceptance 13), because
+   * a person's home is not a shop front with published hours.
+   *
+   * So this stays the `role_email` device: the value is representable so the
+   * gap is legible, and publishing a listing whose collection nothing honours
+   * would be worse than saying so. What would close it is a P2P handover model
+   * — meetup safety, evidence, value and category limits — which #112's
+   * decision document names and does not grant.
    */
   if (draft.pickup === 'offered') blockReasons.push('pickup_not_supported');
 

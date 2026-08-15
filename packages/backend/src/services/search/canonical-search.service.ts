@@ -54,6 +54,8 @@ import {
 } from '@mercaria/shared-types';
 import type { CanonicalAliasKind } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
+import { findCanonicalProductsWithNearbyCollection } from '../../db/pickup/nearbyRepository.js';
+import { clampNearbyRadius } from '../pickup/geo.js';
 import {
   findBrandAliasCandidates,
   findBrandIdsByNormalizedName,
@@ -385,6 +387,7 @@ function countRequestedFilters(filters: SearchFilters): number {
   if (filters.officialChannelOnly === true) count += 1;
   if (filters.merchantIds !== undefined && filters.merchantIds.length > 0) count += 1;
   if (filters.attributes !== undefined && filters.attributes.length > 0) count += 1;
+  if (filters.nearby !== undefined) count += 1;
   return count;
 }
 
@@ -554,6 +557,24 @@ export async function runCanonicalSearch(
     now,
   });
 
+  // #93's nearby membership, for the WINDOW rather than for the whole candidate
+  // set: one `ST_DWithin` over at most a few dozen products, and the products
+  // nobody is going to see cost nothing. It is a MEMBERSHIP test and never an
+  // ordering — see `SearchNearbyFilter`.
+  const nearby = request.filters.nearby;
+  const nearbyProductIds =
+    nearby === undefined
+      ? undefined
+      : await findCanonicalProductsWithNearbyCollection(
+          {
+            canonicalProductIds: windowProductRows.map((row) => row.id),
+            latitude: nearby.latitude,
+            longitude: nearby.longitude,
+            radiusMetres: clampNearbyRadius(nearby.radiusMetres),
+          },
+          db,
+        );
+
   const offerFiltered = hasOfferSideFilter(request.filters);
   const page: typeof window = [];
   // `considered` counts every candidate the loop WALKED PAST, including the
@@ -563,6 +584,13 @@ export async function runCanonicalSearch(
   let considered = 0;
   for (const entry of window) {
     considered += 1;
+    // A nearby filter narrows to PRODUCTS, so a brand, family, merchant or
+    // storefront result is untouched by it: "collectable near me" is not a
+    // property a brand has, and dropping brand results would answer a narrower
+    // question than the shopper asked.
+    if (entry.candidate.kind === 'product' && nearbyProductIds !== undefined) {
+      if (!nearbyProductIds.has(entry.candidate.id)) continue;
+    }
     if (entry.candidate.kind === 'product' && offerFiltered) {
       const context = offerContexts.byProductId.get(entry.candidate.id);
       // An offer-side filter is a request to narrow, so a product with no

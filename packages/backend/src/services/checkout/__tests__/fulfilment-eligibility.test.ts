@@ -14,7 +14,6 @@ import type { CommerceActor } from '../../commerce-actor.js';
 import { assertGuestP2PCheckoutAllowed } from '../../guest-p2p/gate.js';
 import type { ResolvedFulfilment } from '../destination.js';
 import {
-  assertPickupLocationEligible,
   assertSellerGroupsAcceptDestination,
   resolveShippingCostMinor,
   type EligibilitySellerGroup,
@@ -90,26 +89,52 @@ describe('the guest P2P gate is no longer this module\'s (#112)', () => {
   });
 });
 
-describe('pickup fails CLOSED until #93', () => {
-  it('refuses every pickup destination, naming the sellers', () => {
-    expect(() => assertPickupLocationEligible('loc-1', [group()])).toThrow(/store:store-A/);
-    expect(() => assertPickupLocationEligible('loc-1', [group()])).toThrow(/not available yet/);
-  });
+describe('a collection destination (#93)', () => {
+  const PICKUP = {
+    kind: 'pickup',
+    locationId: 'loc-1',
+    pickupContact: { displayEmail: 'a@b.co', normalizedEmail: 'a@b.co' },
+  } as const;
 
-  it('refuses through the whole gate too, so no caller can skip it', () => {
+  it('passes this gate, because the LOCATION is validated by #93 not here', () => {
+    // The pure gate answers only the questions it can answer without a
+    // database. `resolvePickupForCheckout` runs immediately after it in
+    // `checkout.service` and is where publication, freshness, hours and
+    // collectable stock are decided.
     expect(() =>
       assertSellerGroupsAcceptDestination({
-        fulfilment: {
-          kind: 'pickup',
-          locationId: 'loc-1',
-          pickupContact: {
-            displayEmail: 'a@b.co',
-            normalizedEmail: 'a@b.co',
-          },
-        },
-        groups: [group()],
+        fulfilment: PICKUP,
+        groups: [group({ shippingMethod: 'pickup' })],
       }),
-    ).toThrow(/not available yet/);
+    ).not.toThrow();
+  });
+
+  it('refuses a delivery method chosen for one seller of a collection order', () => {
+    try {
+      assertSellerGroupsAcceptDestination({
+        fulfilment: PICKUP,
+        groups: [
+          group({ shippingMethod: 'pickup' }),
+          group({ sellerKey: 'store:store-B', shippingMethod: 'standard' }),
+        ],
+      });
+      expect.unreachable('a postal method alongside a collection must be refused');
+    } catch (err) {
+      const message = (err as Error).message;
+      expect(message).toContain('store:store-B');
+      expect(message).not.toContain('store:store-A');
+    }
+  });
+
+  it('never reaches the country allow-list, which is about deliveries', () => {
+    // A collection has no postal destination, so a market restriction on
+    // DELIVERY must not silently refuse somebody collecting in person.
+    expect(() =>
+      assertSellerGroupsAcceptDestination({
+        fulfilment: PICKUP,
+        groups: [group({ shippingMethod: 'pickup' })],
+      }),
+    ).not.toThrow();
   });
 });
 

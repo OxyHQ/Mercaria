@@ -48,6 +48,14 @@ export * from './store';
 // Location DTOs (Location, LocationType, LocationAddress, Create/UpdateLocationInput).
 export * from './location';
 
+// Location-aware inventory, nearby discovery and pickup (#93). Separate from
+// `./location` on purpose: that file is the STORE-ADMIN inventory location — an
+// operational address staff work at — and this one is what a merchant chooses
+// to publish about it, which is a different object with a different audience.
+// Carries the two prohibitions stated as values: the forbidden geocode
+// provenances, and a P2P area that has cell INDICES and no coordinate field.
+export * from './pickup';
+
 // Collection DTOs (Collection, CollectionType, CollectionSortOrder, CollectionRule, …).
 export * from './collection';
 

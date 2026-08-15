@@ -1620,4 +1620,13 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // than values, so there is nothing else about anybody in either.
   { column: 'channel_onboarding_sessions.started_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'channel_audit_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── Location publication and collection (#93) ─────────────────────────────
+  // The whole of what this domain stores about a PERSON: three staff/operator
+  // ids. There is no buyer column anywhere in the eight tables — a collection
+  // names an order, and who bought it is the order's own fact under #106's
+  // scoping. `pickup_collection_events.actor_oxy_user_id` is the member of
+  // staff at the counter, never the customer in front of them.
+  { column: 'location_publications.restricted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'location_publication_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'pickup_collection_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
 ];

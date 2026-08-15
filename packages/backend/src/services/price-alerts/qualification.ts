@@ -220,10 +220,18 @@ export function qualifyAlert(input: {
   const { alert } = input;
 
   if (alert.proximityScope !== 'any') {
-    // #93 publishes no collection points and #74's `resolvePickupProximity`
-    // refuses every request, so an alert scoped this way could never be
-    // satisfied. Blocking by NAME is what makes the seam readable in a trace
-    // rather than looking like "no offer was cheap enough".
+    // STILL blocked after #93, and the reason changed rather than expiring.
+    //
+    // #93 publishes collection points and closed #74's `resolvePickupProximity`,
+    // so "there is nothing to be near" is no longer true. What an alert scoped
+    // this way would need is an ORIGIN to be near, and `price_alerts` has no
+    // latitude, longitude or cell column — deliberately: an alert is durable and
+    // evaluated by a background loop, so storing a buyer's position here would
+    // be exactly the standing record of where somebody lives that #93's
+    // request-local coarsening exists to avoid.
+    //
+    // Blocking by NAME is what keeps the seam readable in a trace rather than
+    // looking like "no offer was cheap enough".
     return { outcome: 'blocked', reasons: ['proximity_scope_unsupported'] };
   }
 

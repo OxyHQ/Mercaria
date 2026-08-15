@@ -296,11 +296,21 @@ function applyCommerceConstraint(
       return 'retrieval_filter';
     }
     case 'proximity':
-      // #70's request contract has NO proximity parameter, deliberately: #93
-      // supplies no pickup publication or collectable-inventory state, so there
-      // is nothing to filter against. Reported as unenforceable, which refuses
-      // the plan — the alternative is a distance requirement that changes
-      // nothing and reads as a working filter.
+      // STILL unenforceable after #93, and the reason changed rather than
+      // expiring — which is worth stating, because the old reason is now false.
+      //
+      // #93 landed collection points and gave #70 a real `nearLatitude` /
+      // `nearLongitude` membership filter, so "there is nothing to filter
+      // against" no longer holds. What is missing is the ORIGIN: an intent
+      // request carries TEXT and deliberately carries no latitude, longitude or
+      // address (#95 safety rule 6), so a "near me" read from a sentence has no
+      // position to resolve it against and nothing to put in that filter.
+      //
+      // Reported as unenforceable, which refuses the plan. The alternative is a
+      // distance requirement that filters nothing and reads as a working one.
+      // Closing it needs a decision about whether an intent request may carry a
+      // coarse origin at all, which is #95's privacy posture and not #93's to
+      // take.
       return 'unenforceable';
   }
 }
