@@ -106,6 +106,7 @@ import {
   finishSyncRun,
   insertSyncRun,
   type SyncRunRecord,
+  type SyncRunRecordFailure,
 } from '../db/connectors/syncRunRepository.js';
 import {
   findOrderById,
@@ -2315,6 +2316,8 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
   // fails to import is still counted as "seen" (it exists on the platform) and is
   // never mistakenly archived.
   const seenExternalIds = new Set<string>();
+  /** Products this run refused, named on the run row rather than only logged (#294). */
+  const recordFailures: SyncRunRecordFailure[] = [];
 
   try {
     let cursor: string | undefined;
@@ -2333,6 +2336,12 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
           counts[outcome] += 1;
         } catch (err) {
           counts.failed += 1;
+          // #294: the tally alone made a refused product invisible — measured on
+          // a 124-product store where one 110-variation product was refused whole
+          // and the run still read `completed`. The THROWN value travels to
+          // `finishSyncRun`, which is the only writer of that column and the only
+          // place a merchant-facing message is composed.
+          recordFailures.push({ externalId: product.externalId, failure: err });
           log.general.warn(
             { err, connectionId: conn.id, externalId: product.externalId },
             'Failed to import connector product',
@@ -2356,11 +2365,18 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
     // `products/delete` webhook path which also records an archive as `updated`.
     counts.updated += archived;
 
-    const completed = await finishSyncRun(run.id, { status: 'completed', counts });
+    const completed = await finishSyncRun(run.id, {
+      status: 'completed',
+      counts,
+      recordFailures,
+    });
     await markConnectionSynced(conn.id);
     emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'completed', counts });
     return completed;
   } catch (err) {
+    // No `recordFailures` here, deliberately: the whole-run failure is why the
+    // run stopped, so the products it never reached are its consequence and
+    // `finishSyncRun` would discard them anyway.
     const failed = await finishSyncRun(run.id, {
       status: 'failed',
       counts,

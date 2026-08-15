@@ -79,7 +79,11 @@ import {
   revokeChannelApiKey,
   touchChannelApiKeyLastUsed,
 } from '../connectors/channelApiKeyRepository.js';
-import { finishSyncRun, insertSyncRun } from '../connectors/syncRunRepository.js';
+import {
+  findLatestSyncRunPerConnection,
+  finishSyncRun,
+  insertSyncRun,
+} from '../connectors/syncRunRepository.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 import { insertLocation } from '../stores/locationRepository.js';
 import { insertStore } from '../stores/storeRepository.js';
@@ -1174,5 +1178,106 @@ describe('sync_runs', () => {
     // assigned `error` only when set, so a retried run kept the earlier message
     // on a document that now says `completed`.
     expect(reclosed.error).toBeNull();
+  });
+
+  it('NAMES the records a completed run refused, grouped by reason (#294)', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    const closed = await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 8, updated: 0, skipped: 0, failed: 3 },
+      recordFailures: [
+        { externalId: 'woo-11', failure: validationError('A product may have at most 100 variants') },
+        { externalId: 'woo-12', failure: validationError('A product may have at most 100 variants') },
+        { externalId: 'woo-13', failure: validationError('Two products claim one handle') },
+      ],
+    });
+
+    // `completed`, because eight products ARE there. What changed is that the
+    // run no longer leaves the tally as the only trace of the other three.
+    expect(closed.status).toBe('completed');
+    expect(closed.error).toContain('3 records did not land');
+    // Grouped by REASON: one sentence carries both products the ceiling refused,
+    // rather than repeating it and spending the budget on the sentence instead
+    // of the ids.
+    expect(closed.error).toContain('woo-11, woo-12 — A product may have at most 100 variants');
+    expect(closed.error).toContain('woo-13 — Two products claim one handle');
+  });
+
+  it('lets a whole-run failure WIN over the per-record summary (#294)', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    const closed = await finishSyncRun(opened.id, {
+      status: 'failed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
+      failure: validationError('shopify credentials rejected'),
+      recordFailures: [{ externalId: 'woo-11', failure: validationError('a per-record reason') }],
+    });
+
+    // The run stopped for ONE reason and the records it never reached are its
+    // consequence, so reporting both would present a symptom as a second finding.
+    expect(closed.error).toBe('shopify credentials rejected');
+  });
+
+  it('closes a run with NO summary when nothing was refused', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    // The vacuity floor for the two cases above: an empty list must leave the
+    // column NULL, or "the run names what it refused" would be indistinguishable
+    // from "the run always writes something".
+    const closed = await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 4, updated: 0, skipped: 0, failed: 0 },
+      recordFailures: [],
+    });
+
+    expect(closed.error).toBeNull();
+  });
+
+  it('reads the LATEST run per connection with rows present', async () => {
+    // This is the case that had no coverage, and its absence is why the reader
+    // was broken: `findLatestSyncRunPerConnection` returns early on an empty id
+    // list, so every existing exercise of it answered before the query was ever
+    // built. With rows it threw at BUILD time for any non-empty list, taking
+    // `deriveChannelReadiness` and the channel summary down with it on any store
+    // that had a live connection.
+    const storeId = await makeStore();
+    const connA = await makeConnection(storeId);
+    const connB = await upsertConnection(storeId, 'woocommerce', {
+      mode: 'push_in',
+      status: 'connected',
+      connectedAt: new Date(),
+    });
+
+    const older = await insertSyncRun(connA.id, 'backfill');
+    await finishSyncRun(older.id, {
+      status: 'completed',
+      counts: { created: 1, updated: 0, skipped: 0, failed: 0 },
+    });
+    const newer = await insertSyncRun(connA.id, 'order_sync');
+    await finishSyncRun(newer.id, {
+      status: 'completed',
+      counts: { created: 2, updated: 0, skipped: 0, failed: 0 },
+    });
+    const onlyB = await insertSyncRun(connB.id, 'ingest');
+    await finishSyncRun(onlyB.id, {
+      status: 'completed',
+      counts: { created: 3, updated: 0, skipped: 0, failed: 0 },
+    });
+
+    const latest = await findLatestSyncRunPerConnection([connA.id, connB.id]);
+
+    // The NEWER of A's two, which is also what makes this more than a smoke
+    // test: it pins the `row_number()` ordering the channel list reads.
+    expect(latest.get(connA.id)?.id).toBe(newer.id);
+    expect(latest.get(connA.id)?.countsCreated).toBe(2);
+    expect(latest.get(connB.id)?.id).toBe(onlyB.id);
+    expect(latest.size).toBe(2);
   });
 });

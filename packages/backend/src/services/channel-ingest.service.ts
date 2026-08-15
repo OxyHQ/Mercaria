@@ -53,7 +53,11 @@ import {
   upsertConnection,
   type ConnectionRow,
 } from '../db/connectors/connectionRepository.js';
-import { finishSyncRun, insertSyncRun } from '../db/connectors/syncRunRepository.js';
+import {
+  finishSyncRun,
+  insertSyncRun,
+  type SyncRunRecordFailure,
+} from '../db/connectors/syncRunRepository.js';
 import {
   findListingBySourceExternalId,
   updateListingColumns,
@@ -385,6 +389,11 @@ export async function ingestProducts(
 
   const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   const results: IngestProductResult[] = [];
+  // Named on the RUN as well as in the response (#294). The response reaches
+  // whoever made this request; the run row is what the merchant reads afterwards
+  // on the channel screen, and a plugin pushing on a schedule has nobody looking
+  // at either response when a product starts being refused.
+  const recordFailures: SyncRunRecordFailure[] = [];
   const run = await insertSyncRun(conn.id, 'ingest');
 
   for (const product of input.products) {
@@ -400,6 +409,7 @@ export async function ingestProducts(
       results.push({ externalId: product.externalId, action, listingId });
     } catch (err) {
       counts.failed += 1;
+      recordFailures.push({ externalId: product.externalId, failure: err });
       results.push({
         // The SAME defect `sync_runs.error` had, on a different carriage: this
         // string is returned in the ingest response the plugin shows a merchant,
@@ -416,7 +426,7 @@ export async function ingestProducts(
     }
   }
 
-  await finalizeRun(run.id, counts);
+  await finalizeRun(run.id, counts, recordFailures);
   await touchConnectionLastSync(conn.id);
   return { results };
 }
@@ -511,6 +521,8 @@ export async function ingestInventory(
 
   const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   const results: IngestInventoryResultItem[] = [];
+  /** Items this run could not apply, named on the run row as well (#294). */
+  const recordFailures: SyncRunRecordFailure[] = [];
   const run = await insertSyncRun(conn.id, 'inventory_sync');
 
   for (const item of input.items) {
@@ -528,20 +540,30 @@ export async function ingestInventory(
         // merchant acts on is the per-item `action`, which says exactly which of
         // "we found none" and "we found several" this was.
         counts.failed += 1;
-        results.push({
-          externalId: item.externalId,
-          action: 'ambiguous',
-          // Through the same bound as every other merchant-facing string here
-          // (#292). Not `merchantFacingFailureMessage`: this is a composed
-          // sentence rather than a thrown value, and that door would classify a
-          // plain string as unrecognised and replace it wholesale. The part that
-          // needs the ceiling is the CANDIDATE LIST, not the `sku` the schema
-          // caps at 120 — one uuid per variant sharing the SKU, bounded only by
-          // `maxVariantsPerProduct` (100 by default, ≈3,900 characters).
-          error: boundMerchantFacingMessage(
+        // Through the same bound as every other merchant-facing string here
+        // (#292). Not `merchantFacingFailureMessage`: this is a composed
+        // sentence rather than a thrown value, and that door would classify a
+        // plain string as unrecognised and replace it wholesale. The part that
+        // needs the ceiling is the CANDIDATE LIST, not the `sku` the schema
+        // caps at 120 — one uuid per variant sharing the SKU, bounded only by
+        // `maxVariantsPerProduct` (100 by default, ≈3,900 characters).
+        //
+        // Carried as a `MercariaError` because it now travels to TWO carriages:
+        // the response below and the run row, whose only classifier is
+        // `merchantFacingFailureMessage`. That door keeps one of ours intact and
+        // replaces a bare string wholesale, so the wrapper is what makes the two
+        // provably the same sentence rather than two compositions that can drift.
+        const ambiguity = conflict(
+          boundMerchantFacingMessage(
             `${mapping.candidateIds.length} variants of this product share SKU ` +
               `${mapping.sku} (${mapping.candidateIds.join(', ')}) — refusing to pick one`,
           ),
+        );
+        recordFailures.push({ externalId: item.externalId, failure: ambiguity });
+        results.push({
+          externalId: item.externalId,
+          action: 'ambiguous',
+          error: ambiguity.message,
         });
         continue;
       }
@@ -550,6 +572,7 @@ export async function ingestInventory(
       results.push({ externalId: item.externalId, action: 'updated', variantId: mapping.variantId });
     } catch (err) {
       counts.failed += 1;
+      recordFailures.push({ externalId: item.externalId, failure: err });
       results.push({
         externalId: item.externalId,
         action: 'failed',
@@ -562,7 +585,7 @@ export async function ingestInventory(
     }
   }
 
-  await finalizeRun(run.id, counts);
+  await finalizeRun(run.id, counts, recordFailures);
   await touchConnectionLastSync(conn.id);
   return { results };
 }
@@ -571,11 +594,22 @@ export async function ingestInventory(
  * Persist a run's final tallies. The run is `failed` ONLY when every record failed
  * (a total wipeout); any partial success is a `completed` run whose `counts.failed`
  * records the misses — the dashboard reads both.
+ *
+ * #294: `counts.failed` is a TALLY DELTA and nothing more, so the records that
+ * missed travel with it and `finishSyncRun` names them on the run. Passing them on
+ * a `failed` run too is deliberate and costs nothing: that branch has no
+ * whole-run `failure` to be overridden by, since a total wipeout here IS its
+ * per-record failures rather than something that happened above them.
  */
-async function finalizeRun(runId: string, counts: SyncRunCounts): Promise<void> {
+async function finalizeRun(
+  runId: string,
+  counts: SyncRunCounts,
+  recordFailures: readonly SyncRunRecordFailure[],
+): Promise<void> {
   const anySucceeded = counts.created + counts.updated + counts.skipped > 0;
   await finishSyncRun(runId, {
     status: !anySucceeded && counts.failed > 0 ? 'failed' : 'completed',
     counts,
+    recordFailures,
   });
 }

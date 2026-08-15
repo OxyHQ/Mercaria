@@ -44,6 +44,7 @@ vi.mock('@oxyhq/core/server', async () => {
   return { ...actual, getRequiredOxyUserId: () => OWNER_USER };
 });
 
+import { config } from '../../config/index.js';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { categories, listings } from '../../db/schema/catalog.js';
 import { connections } from '../../db/schema/connectors.js';
@@ -54,6 +55,8 @@ import { insertLocation } from '../../db/stores/locationRepository.js';
 import { findListingsBySourceConnection } from '../../db/catalog/listingRepository.js';
 import { findVariantsByListing } from '../../db/catalog/variantRepository.js';
 import { upsertConnection } from '../../db/connectors/connectionRepository.js';
+import { listSyncRunsForConnection } from '../../db/connectors/syncRunRepository.js';
+import { deriveChannelReadiness } from '../channels/channel-readiness.js';
 import { connectPushIn } from '../channel-ingest.service.js';
 import { generateKey, listKeys, revokeKey } from '../channel-key.service.js';
 import channelIngestRouter from '../../routes/channels-ingest.js';
@@ -354,6 +357,67 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     expect(zeroVariant.inventoryTracked).toBe(true);
     expect(zeroVariant.inventoryAvailable).toBe(0);
     expect(trackedZero.hasInventory).toBe(false);
+  });
+
+  it('NAMES the product a run refused, and degrades the channel rather than reading clean (#294)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    // The REAL ceiling through the REAL path. Refusing is correct and stays —
+    // a silently truncated variant set is #259's catalogue failure — so what is
+    // under test is what a merchant can observe about the omission. Measured on
+    // a live 124-product store: one 110-variation product refused whole, the run
+    // `completed`, `created=123`, `failed=1`, and the product simply gone.
+    const overCeiling = config.catalog.maxVariantsPerProduct + 1;
+    const response = await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(`${namespace}-ok`),
+        pushProduct(`${namespace}-huge`, {
+          variants: Array.from({ length: overCeiling }, (_, index) => ({
+            sku: `PUSH-${namespace}-${index}`,
+            price: { amount: 1500, currency: 'GBP' },
+            optionValues: [{ name: 'Variation', value: `v${index}` }],
+          })),
+        }),
+      ],
+    });
+
+    const results = JSON.parse(response.text).data.results;
+    expect(results[0].action).toBe('created');
+    expect(results[1].action).toBe('failed');
+
+    // The run still says `completed`, and that is deliberate: 1 of 2 products IS
+    // there, and calling the run failed would make a one-product refusal
+    // indistinguishable from a credentials outage. What changed is that the run
+    // now says WHICH product and WHY, instead of leaving a tally delta as the
+    // only trace.
+    const [run] = await listSyncRunsForConnection(connection.id, 1);
+    expect(run.status).toBe('completed');
+    expect(run.countsFailed).toBe(1);
+    expect(run.error).toContain(`woo-${namespace}-huge`);
+    expect(run.error).toContain(`at most ${config.catalog.maxVariantsPerProduct} variants`);
+
+    // And the channel stops reading healthy. Both surfaces matter: the run row is
+    // what somebody finds when they go looking, this is what tells them to.
+    const degraded = await deriveChannelReadiness(storeId);
+    expect(degraded.catalog.state).toBe('degraded');
+
+    // THE CONTROL. `catalogState` also degrades on "no successful sync", so
+    // without a store whose run refused NOTHING the assertion above would pass
+    // against a channel that is degraded for an unrelated reason — and would go
+    // on passing if the record-miss input were deleted.
+    const cleanStoreId = await makeStore();
+    const cleanConnection = await connectPushIn(cleanStoreId, 'woocommerce', {});
+    const clean = await generateKey(cleanStoreId, { label: 'plugin' }, OWNER_USER);
+    await ingest(`/${cleanConnection.id}/products`, clean.key, {
+      products: [pushProduct(`${namespace}-clean`)],
+    });
+    const [cleanRun] = await listSyncRunsForConnection(cleanConnection.id, 1);
+    expect(cleanRun.countsFailed).toBe(0);
+    expect(cleanRun.error).toBeNull();
+    expect((await deriveChannelReadiness(cleanStoreId)).catalog.state).toBe('healthy');
   });
 
   it('ISOLATES a bad product and still reports one result per product, in order', async () => {

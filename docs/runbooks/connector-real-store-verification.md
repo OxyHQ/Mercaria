@@ -666,10 +666,14 @@ scenario) or a refused one.
 variation count** on the backend, and record the value you ran with. It is
 `intEnv`, so this is one environment variable and no code change.
 
-Without that, the run reports `completed` with `failed=1` and the product simply
-never appears — **which looks like a pagination failure and is not one.** That
-silent-omission behaviour is a defect in its own right and is tracked as #294;
-this section is only about making the scenario executable.
+Without that, the run still reports `completed` with `failed=1` and the product
+never appears — **which looks like a pagination failure and is not one.** Since
+#294 the run also NAMES it: `sync_runs.error` carries the refused product's
+external id and the reason, the dashboard renders that line on the run, and the
+channel's catalogue axis reads `degraded` rather than healthy until a run
+refuses nothing. So the omission is legible without reading a tally delta — but
+the product is still not imported, and raising the limit is still what makes
+this scenario executable.
 
 ### 8.1c A delivery URL on an EPHEMERAL hostname is its own hazard
 
