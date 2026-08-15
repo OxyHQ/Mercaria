@@ -215,16 +215,42 @@ jobs:
         env:
           SYNC_DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SYNC_REDIS_URL: ${{ secrets.REDIS_URL }}
-          SYNC_SERVICE_SECRET: ${{ secrets.SERVICE_SECRET }}
           SYNC_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           SYNC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           SYNC_VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
         run: |
           # Derived from the LIVE task definition (oxy-mercaria:3, the revision
           # service `mercaria` runs), not from a plan: these are the parameters
-          # the container actually reads as `secrets`.
+          # the container actually reads as `secrets` — MINUS SERVICE_SECRET.
+          #
+          # SERVICE_SECRET is RETIRED (#164). No code reads it: the middleware
+          # that did is deleted, and it had no mounted route before that. It is
+          # off this list so a deploy stops re-writing a live credential nothing
+          # consumes — which is a narrower change than it looks, and the order
+          # is what keeps it safe:
+          #
+          #   1. (this PR) the app stops reading it and the sync stops writing
+          #      it. /oxy/mercaria/SERVICE_SECRET KEEPS its current value and
+          #      oxy-mercaria:3 keeps injecting it into an env var nobody reads.
+          #      Nothing can fail.
+          #   2. (oxy-infra) drop the SERVICE_SECRET entry from Mercaria's task
+          #      definition in terraform-uswest2/app-services.tf, apply, roll
+          #      out. Only now does the container stop naming the parameter.
+          #   3. (after that rollout) delete the SSM parameter and the GitHub
+          #      repo secret, and rotate the value anywhere else it was pasted.
+          #
+          # Doing 3 before 2 is an OUTAGE, not a cleanup: a task definition that
+          # names a parameter which no longer exists fails at task START with
+          # ResourceInitializationError, and it fails on the next scale-up or
+          # deploy rather than immediately, so the tasks running now keep
+          # serving while the deployment that discovers it looks unrelated.
+          #
+          # Do NOT re-add SERVICE_SECRET here to "match the live task
+          # definition" — until step 2 lands, the live task definition naming it
+          # is exactly the state being retired. src/db/__tests__/deployWorkflow.test.ts
+          # pins this list.
           SHARED_SECRETS="REDIS_URL"
-          APP_SECRETS="DATABASE_URL SERVICE_SECRET VAPID_PRIVATE_KEY VAPID_PUBLIC_KEY VAPID_SUBJECT"
+          APP_SECRETS="DATABASE_URL VAPID_PRIVATE_KEY VAPID_PUBLIC_KEY VAPID_SUBJECT"
 
           # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are deliberately absent,
           # though oxy-mercaria:3 reads both from /oxy/_shared/. Mercaria

@@ -144,8 +144,10 @@ the admin HTTP surface and nothing else on the WooCommerce list; without it
 every row carries `admin surface not exercised`. Measured: `api.oxy.so` is
 reachable, but `POST /session/device/register` answers **401** — device
 registration needs an already-authenticated user, so a device pair cannot be
-minted from nothing, and `SERVICE_SECRET` does not help because `/admin` uses
-`authenticateToken`, not `authenticateTokenOrApiKey`.
+minted from nothing. There is no shared-secret way round it: the
+`SERVICE_SECRET` path that once existed reached no route (`/admin` runs
+`authenticateToken`) and was deleted whole in #164, so a real Oxy bearer token
+is the only thing that opens this surface.
 
 **B. A Shopify Partner account and development store.** All free; no phone, no
 legal entity, no review delay. Full numbered procedure, including what to seed:

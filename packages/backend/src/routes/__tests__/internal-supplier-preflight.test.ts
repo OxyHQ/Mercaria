@@ -50,10 +50,7 @@ vi.mock('../../middleware/auth.js', () => {
   return {
     authenticateToken: pass,
     oxyClient: {},
-    authenticateTokenOrApiKey: pass,
     optionalAuth: pass,
-    oxyServiceAuth: pass,
-    requireScope: () => pass,
   };
 });
 vi.mock('../../lib/rate-limit.js', () => {

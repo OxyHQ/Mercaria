@@ -158,14 +158,30 @@ describe('the deploy workflow and the migrator agree', () => {
 describe('the deploy workflow syncs an explicit allowlist, never the whole context', () => {
   /**
    * Every parameter the LIVE task definition (oxy-mercaria:3) reads as a
-   * `secret`, minus AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY: those live under
-   * /oxy/_shared/, this repo holds neither, and the repos that do own them
-   * (OxyHQServices, Syra) are what write them.
+   * `secret`, minus two exclusions that are NOT the same kind of thing.
+   *
+   * AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY live under /oxy/_shared/, this
+   * repo holds neither, and the repos that do own them (OxyHQServices, Syra)
+   * are what write them.
+   *
+   * SERVICE_SECRET is RETIRED (#164) and is the one entry a future reader is
+   * likely to "fix" back in, because the live task definition DOES still name
+   * it — measured on oxy-mercaria:3, 2026-08-16. That is the state being
+   * retired, not a gap: no Mercaria code reads the variable any more, so the
+   * sync would be re-writing a live credential nothing consumes. The task
+   * definition entry is removed in oxy-infra
+   * (terraform-uswest2/app-services.tf), and the SSM parameter and the GitHub
+   * repo secret are deleted only AFTER that rollout — deleting the parameter
+   * while a task definition still names it fails every task at START with
+   * ResourceInitializationError. Re-adding it here would restore the sync, not
+   * the safety.
+   *
+   * So this list is "what this repo OWNS and still consumes", which is what the
+   * sync step is for, and no longer a mirror of the live revision.
    */
   const EXPECTED_ALLOWLIST = [
     'DATABASE_URL',
     'REDIS_URL',
-    'SERVICE_SECRET',
     'VAPID_PRIVATE_KEY',
     'VAPID_PUBLIC_KEY',
     'VAPID_SUBJECT',

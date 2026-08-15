@@ -1,16 +1,46 @@
-import crypto from 'crypto';
+/**
+ * Mercaria's HTTP authentication surface — three exports, all composed from
+ * `@oxyhq/core/server`, and NOTHING locally implemented (#164).
+ *
+ * There is deliberately no Mercaria service principal, no shared-secret bearer
+ * path, no local scope check and no synthetic user. What used to be here was
+ * `authenticateTokenOrApiKey`: a constant-time compare against `SERVICE_SECRET`
+ * that, on a match, set `req.userId = 'system'` and a `serviceApp` naming an
+ * application id (`internal`) no Oxy Console grant could describe. It had ZERO
+ * mounted routes — every `/internal/*` router runs `authenticateToken` plus one
+ * of the `*_OPERATOR_OXY_USER_IDS` allow-lists — so it authorized nothing that
+ * anybody could reach; it was one `router.use(...)` away from authorizing
+ * everything, outside grant audit, with rotation and revocation local to a
+ * deployment.
+ *
+ * Beside it stood `authenticateTelegramBot`, which was worse and had no Telegram
+ * integration behind it: it compared a second shared secret and then took the
+ * acting user's id from a REQUEST HEADER (`x-oxy-user-id`), so possession of one
+ * environment variable impersonated any Oxy account. Also unmounted. Also gone.
+ *
+ * How a real Oxy-to-Oxy service caller is authenticated when one arrives (#156,
+ * #158): mount `oxyClient.serviceAuth(...)` from `@oxyhq/core` on the route that
+ * needs it, against a credential issued to a registered Application, and read
+ * the principal off the SDK's own `OxyAuthRequest`. There is deliberately no
+ * pre-exported, unmounted service-auth middleware sitting here for somebody to
+ * reach for — an auth primitive with no route is a primitive nothing exercises.
+ *
+ * A provider webhook is NOT this. Stripe, Shopify, WooCommerce, CrowdSource and
+ * supplier callbacks each verify their own signature on their own raw-body
+ * mount, and none of them may be satisfied by an Oxy credential (or the reverse)
+ * merely because it arrives as a bearer-shaped string.
+ *
+ * `__tests__/service-auth-retirement.test.ts` fails the build if any of it
+ * returns.
+ */
+
 import { Request, Response, NextFunction } from 'express';
 import { OxyServices } from '@oxyhq/core';
 import {
   createOptionalOxyAuth,
   createOxyAuthMiddleware,
-  OXY_SERVICE_ENVIRONMENTS,
   type OxyRequestUser,
-  type OxyServiceAppContext,
-  type OxyServiceEnvironment,
 } from '@oxyhq/core/server';
-import { log } from '../lib/logger.js';
-import { getClientIp } from '../lib/net-utils.js';
 
 // Initialize Oxy client
 const OXY_API_URL = process.env.OXY_API_URL || 'https://api.oxy.so';
@@ -18,31 +48,32 @@ export const oxyClient = new OxyServices({
   baseURL: OXY_API_URL,
 });
 
-// The internal service-secret caller is not a registered application credential, so
-// it has no environment of its own — it reports the one this process runs in, which
-// is the test/live segregation `OxyServiceAppContext.environment` expresses. Matched
-// against the SDK's own union so the two cannot drift.
-const SERVICE_ENVIRONMENT: OxyServiceEnvironment =
-  OXY_SERVICE_ENVIRONMENTS.find((env) => env === process.env.NODE_ENV) ?? 'development';
+/**
+ * Whether the SDK's per-request auth tracing is on.
+ *
+ * It was hardcoded `true`. The SDK never logs a token — it logs `token: <bool>`
+ * — but it does emit a line per request carrying the resolved user id and
+ * session id, which in production is a session identifier in the log stream for
+ * every authenticated call, for nobody's benefit. Following the environment is
+ * what #164 asks for; it is not a kill switch, so there is no variable.
+ */
+const AUTH_DEBUG = process.env.NODE_ENV !== 'production';
 
-// Extend Express Request for API keys and service tokens
+// Extend Express Request with what the Oxy middlewares populate.
+//
+// Only the USER-principal fields are declared. `apiKey` (a scope bag nothing
+// ever wrote), `serviceApp` (written only by the deleted secret path, and
+// already declared by the SDK's own `OxyAuthRequest` for code that mounts real
+// service auth) and `workspace` (never read or written anywhere) were all
+// removed with #164: a global augmentation is what makes a field reachable off a
+// plain `Request`, so declaring one nothing populates is how `req.serviceApp`
+// reads as a principal a route may trust.
 declare global {
   namespace Express {
     interface Request {
       userId?: string;
       accessToken?: string;
       user?: OxyRequestUser | null;
-      apiKey?: {
-        id: string;
-        appId: string;
-        userId: string;
-        scopes: string[];
-      };
-      serviceApp?: OxyServiceAppContext;
-      workspace?: {
-        id: string | null;
-        role?: 'owner' | 'admin' | 'member';
-      };
     }
   }
 }
@@ -51,19 +82,24 @@ declare global {
  * Oxy authentication middleware (official @oxyhq/core/server)
  * Validates JWT tokens (including service tokens) and sets req.userId, req.user, req.accessToken
  */
-export const authenticateToken = createOxyAuthMiddleware(oxyClient, { auth: { debug: true } });
+export const authenticateToken = createOxyAuthMiddleware(oxyClient, {
+  auth: { debug: AUTH_DEBUG },
+});
 
 /**
- * Service-only auth — rejects anything that isn't a service token.
- * Use for internal-only endpoints (e.g., /internal/trigger).
+ * Optional auth — attaches the Oxy user when a token verifies, and continues
+ * without one otherwise.
+ *
+ * Measured against the SDK rather than assumed: `createOptionalOxyAuth` passes
+ * `optional: true`, and on that path a token that fails to decode OR fails
+ * session validation sets `userId`/`user` to `null` and calls `next()`. So this
+ * middleware DOES downgrade a bad credential to anonymous. The stricter rule —
+ * ADR 0003 D2's "a presented `Bearer` that did not verify is a 401, never a
+ * downgrade" — is `resolveCommerceActor`'s own, applied after this runs by
+ * re-reading the `Authorization` header. Do not restate it here; a route that
+ * needs it mounts that middleware.
  */
-export const oxyServiceAuth = oxyClient.serviceAuth({ debug: true });
-
-/**
- * Optional auth - attaches user if token present, doesn't block if absent
- * Tries bot auth first (Telegram), then Oxy JWT auth
- */
-const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, { auth: { debug: true } });
+const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, { auth: { debug: AUTH_DEBUG } });
 
 export function optionalAuth(
   req: Request,
@@ -72,145 +108,4 @@ export function optionalAuth(
 ): void {
   // Uses @oxyhq/core/server optional auth — attaches user if valid, continues if not.
   oxyOptionalAuth(req, res, next);
-}
-
-/**
- * Accepts Oxy JWT tokens and the internal service secret.
- */
-export function authenticateTokenOrApiKey(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  // Already authenticated (e.g., by channel bot pre-middleware)
-  if (req.user) {
-    return next();
-  }
-
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ')
-    ? authHeader.substring(7)
-    : null;
-
-  if (!token) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
-  }
-
-  // Internal service auth (server-to-server calls using the shared service secret)
-  const serviceSecret = process.env.SERVICE_SECRET;
-  if (serviceSecret && token.length === serviceSecret.length &&
-      crypto.timingSafeEqual(Buffer.from(token), Buffer.from(serviceSecret))) {
-    req.userId = 'system';
-    req.user = { id: 'system' };
-    req.serviceApp = {
-      appId: 'internal',
-      appName: 'internal',
-      credentialId: 'service-secret',
-      scopes: ['internal'],
-      environment: SERVICE_ENVIRONMENT,
-    };
-    return next();
-  }
-
-  // Oxy JWT auth
-  authenticateToken(req, res, next);
-}
-
-/**
- * Check if API key has a specific scope
- */
-export function requireScope(scope: string) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    // Session users have all scopes
-    if (req.user && !req.apiKey) {
-      return next();
-    }
-
-    if (req.apiKey?.scopes.includes(scope)) {
-      return next();
-    }
-
-    res.status(403).json({
-      error: 'Insufficient permissions',
-      required_scope: scope
-    });
-  };
-}
-
-/**
- * Authenticate internal Telegram bot requests
- * The bot is a trusted server component that can act on behalf of linked users
- *
- * Security layers:
- * 1. Verifies bot secret matches server-side secret
- * 2. Validates user ID is provided
- * 3. Uses constant-time comparison to prevent timing attacks
- * 4. Logs authentication attempts for audit trail
- */
-export async function authenticateTelegramBot(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  const startTime = Date.now();
-
-  try {
-    const botSecret = req.headers['x-telegram-bot-secret'] as string;
-    const oxyUserId = req.headers['x-oxy-user-id'] as string;
-    const telegramId = req.headers['x-telegram-id'] as string;
-
-    // Verify bot secret is configured
-    const expectedSecret = process.env.TELEGRAM_BOT_SECRET;
-    if (!expectedSecret) {
-      log.auth.error('TELEGRAM_BOT_SECRET not configured');
-      res.status(500).json({ error: 'Bot authentication not configured' });
-      return;
-    }
-
-    // Verify secret provided
-    if (!botSecret) {
-      log.auth.warn({ ip: getClientIp(req) }, 'Missing bot secret');
-      res.status(401).json({ error: 'Bot authentication required' });
-      return;
-    }
-
-    // Use crypto.timingSafeEqual to prevent timing attacks
-    const expectedBuffer = Buffer.from(expectedSecret);
-    const providedBuffer = Buffer.from(botSecret);
-
-    if (expectedBuffer.length !== providedBuffer.length) {
-      log.auth.warn({ ip: getClientIp(req) }, 'Invalid bot secret length');
-      res.status(401).json({ error: 'Invalid bot authentication' });
-      return;
-    }
-
-    const crypto = await import('crypto');
-    if (!crypto.timingSafeEqual(expectedBuffer, providedBuffer)) {
-      log.auth.warn({ ip: getClientIp(req) }, 'Invalid bot secret');
-      res.status(401).json({ error: 'Invalid bot authentication' });
-      return;
-    }
-
-    // Verify telegram ID is provided
-    if (!telegramId) {
-      log.auth.warn('Missing telegram ID in bot request');
-      res.status(400).json({ error: 'Telegram ID required for bot requests' });
-      return;
-    }
-
-    // Log successful auth for audit trail
-    const duration = Date.now() - startTime;
-    log.auth.info({ telegramId, oxyUserId: oxyUserId || 'unknown', ip: getClientIp(req), endpoint: req.path, durationMs: duration }, 'Telegram bot authenticated');
-
-    // Set user context if provided - the bot is acting on behalf of this user
-    if (oxyUserId) {
-      req.userId = oxyUserId;
-      req.user = { id: oxyUserId };
-    }
-    next();
-  } catch (error) {
-    log.auth.error({ err: error }, 'Bot authentication error');
-    res.status(500).json({ error: 'Authentication failed' });
-  }
 }
