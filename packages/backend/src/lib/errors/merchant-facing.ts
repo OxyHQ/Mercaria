@@ -59,7 +59,8 @@
  * improvement, never a repair.
  */
 
-import { constraintNameOf, sqlStateOf } from '@oxyhq/db';
+import { constraintNameOf, isUniqueViolation, sqlStateOf } from '@oxyhq/db';
+import type { SyncRecordFailureReason } from '@mercaria/shared-types';
 import { isMercariaError } from './error-codes.js';
 import { sanitizeMessage } from './sanitize.js';
 
@@ -143,23 +144,47 @@ export function boundMerchantFacingMessage(message: string): string {
 }
 
 /**
- * The merchant-facing message for a thrown value.
+ * A thrown value, classified once: the code a row stores and the sentence a
+ * merchant reads, from ONE pass over the same evidence.
  *
- * Never returns the empty string: a blank `sync_runs.error` beside
- * `status = 'failed'` reads as "no reason was recorded", which is what an unwritten
- * column already means, so the two would be indistinguishable.
+ * #303 needed a machine-readable reason beside the message, and the way that
+ * goes wrong is two classifiers: a `switch` composing the string and a second
+ * one deriving the code, which agree on the day they are written and diverge on
+ * the day somebody adds a branch to one of them. Returning both from one
+ * function makes them the same decision rather than two decisions that match.
+ *
+ * The branches are the three this module always had, split once: a unique
+ * violation is told apart from any other database refusal because the two lead a
+ * merchant to different places — a duplicate is normally two deliveries of one
+ * record racing and resolves itself, and anything else is a rule that will keep
+ * refusing. The MESSAGE is unchanged by that split; `RECOGNISED_CONSTRAINTS`
+ * already phrased the duplicates it knows a remedy for.
  */
-export function merchantFacingFailureMessage(err: unknown): string {
+export interface MerchantFacingFailure {
+  reasonCode: SyncRecordFailureReason;
+  message: string;
+}
+
+export function classifyMerchantFacingFailure(err: unknown): MerchantFacingFailure {
   if (isMercariaError(err)) {
     const bounded = boundMerchantFacingMessage(err.message);
-    return bounded.length > 0 ? bounded : UNCLASSIFIED_FAILURE_MESSAGE;
+    // A `MercariaError` whose message scrubs to nothing is still OURS, and
+    // reporting it as `unclassified` would say the opposite. It keeps the code
+    // and borrows the fallback SENTENCE, which is the only one available.
+    return {
+      reasonCode: 'refused_by_rule',
+      message: bounded.length > 0 ? bounded : UNCLASSIFIED_FAILURE_MESSAGE,
+    };
   }
 
   const constraint = constraintNameOf(err);
   const sqlState = sqlStateOf(err);
   if (constraint !== undefined || sqlState !== undefined) {
+    const reasonCode: SyncRecordFailureReason = isUniqueViolation(err)
+      ? 'duplicate_record'
+      : 'database_refused';
     const remedy = constraint !== undefined ? RECOGNISED_CONSTRAINTS[constraint] : undefined;
-    if (remedy !== undefined) return remedy;
+    if (remedy !== undefined) return { reasonCode, message: remedy };
     // No entry: name the rule and the code, and stop. A constraint name and a
     // SQLSTATE are both structural — neither is a value the statement carried — and
     // they are the two handles that make the server log line findable from the
@@ -168,11 +193,28 @@ export function merchantFacingFailureMessage(err: unknown): string {
       constraint !== undefined ? `rule ${constraint}` : undefined,
       sqlState !== undefined ? `code ${sqlState}` : undefined,
     ].filter((part): part is string => part !== undefined);
-    return boundMerchantFacingMessage(
-      `The database refused this write (${handles.join(', ')}). ` +
-        'The details are in Mercaria’s server log.',
-    );
+    return {
+      reasonCode,
+      message: boundMerchantFacingMessage(
+        `The database refused this write (${handles.join(', ')}). ` +
+          'The details are in Mercaria’s server log.',
+      ),
+    };
   }
 
-  return UNCLASSIFIED_FAILURE_MESSAGE;
+  return { reasonCode: 'unclassified', message: UNCLASSIFIED_FAILURE_MESSAGE };
+}
+
+/**
+ * The merchant-facing message for a thrown value.
+ *
+ * Never returns the empty string: a blank `sync_runs.error` beside
+ * `status = 'failed'` reads as "no reason was recorded", which is what an unwritten
+ * column already means, so the two would be indistinguishable.
+ *
+ * It DELEGATES rather than repeating the branches, which is what makes "the code
+ * and the sentence cannot disagree" a fact about the call graph.
+ */
+export function merchantFacingFailureMessage(err: unknown): string {
+  return classifyMerchantFacingFailure(err).message;
 }

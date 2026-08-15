@@ -19,6 +19,7 @@ import type {
   GenerateChannelApiKeyInput,
   GenerateChannelApiKeyResult,
   SyncRun,
+  SyncRunRecordFailurePage,
   UpdateSyncSettingsInput,
 } from "@mercaria/shared-types";
 import apiClient from "./client";
@@ -216,6 +217,24 @@ export async function fetchChannelReadiness(storeId: string): Promise<ChannelRea
 export async function fetchChannelRuns(storeId: string, connectionId: string): Promise<SyncRun[]> {
   const { data } = await apiClient.get<ApiResponse<SyncRun[]>>(
     `${base(storeId)}/${connectionId}/runs`,
+  );
+  return unwrap(data);
+}
+
+/**
+ * GET which records ONE run refused, and why (#303).
+ *
+ * A separate call from the history rather than a field on it: fifty runs each
+ * carrying up to two hundred reasons is a payload nobody asked for, and the
+ * trigger a merchant acts on — `counts.failed` — is already on the run.
+ */
+export async function fetchChannelRunRecordFailures(
+  storeId: string,
+  connectionId: string,
+  runId: string,
+): Promise<SyncRunRecordFailurePage> {
+  const { data } = await apiClient.get<ApiResponse<SyncRunRecordFailurePage>>(
+    `${base(storeId)}/${connectionId}/runs/${runId}/record-failures`,
   );
   return unwrap(data);
 }

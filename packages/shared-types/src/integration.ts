@@ -371,8 +371,119 @@ export interface SyncRun {
    * report that reads as clean while a product is missing (#294). Render it
    * whenever it is present; keying on `status === 'failed'` hides the case it
    * was added for.
+   *
+   * It is a SUMMARY and is elided — three reasons, three records each — so a run
+   * that refused a hundred products names nine of them here. The complete,
+   * durable list is `SyncRecordFailure` (#303), fetched per run.
    */
   error?: string;
+}
+
+/**
+ * What KIND of thing a refused record was (#303).
+ *
+ * Stored rather than derived from `SyncRunKind`, and the reason is a rail that
+ * would be silently wrong: `inventory_sync` is the kind of BOTH the pull
+ * (`syncInventory`, whose unit is a platform inventory ITEM id) and the push
+ * (`ingestInventory`, whose unit is the PRODUCT external id it resolves a
+ * listing by). Deriving the subject from the kind would tell a merchant to
+ * search their product list for an inventory-item id on one of those two.
+ */
+export type SyncRecordSubjectType = 'product' | 'order' | 'inventory_item';
+
+export const SYNC_RECORD_SUBJECT_TYPES: readonly SyncRecordSubjectType[] = [
+  'product',
+  'order',
+  'inventory_item',
+];
+
+/**
+ * Why ONE record did not land — the classified code (#303).
+ *
+ * Four members, derived by ONE function from the same evidence that composes the
+ * merchant-facing message, so the code and the sentence beside it cannot
+ * disagree. Deliberately NOT `MercariaErrorCode`: that vocabulary is the HTTP
+ * envelope's and grows with every feature, so a connector row would end up
+ * carrying `GUEST_CART_DISABLED`.
+ *
+ *  - `refused_by_rule` — one of Mercaria's own rules refused the record (a
+ *    validation refusal, a conflict, the variant ceiling, an ambiguous SKU). The
+ *    detail is the sentence that rule composed, and it usually names a remedy.
+ *  - `duplicate_record` — a unique violation (SQLSTATE 23505). Normally two
+ *    deliveries of one record racing, or a platform publishing one id twice.
+ *  - `database_refused` — any other refusal the database named (a constraint or
+ *    a SQLSTATE is present, and neither is data).
+ *  - `unclassified` — nothing about the failure could be classified. The full
+ *    error is in Mercaria's server log; it is deliberately not published, because
+ *    the value it would publish is `err.message`, which for a driver failure is
+ *    the failing statement plus its bound parameters (#292).
+ */
+export type SyncRecordFailureReason =
+  | 'refused_by_rule'
+  | 'duplicate_record'
+  | 'database_refused'
+  | 'unclassified';
+
+export const SYNC_RECORD_FAILURE_REASONS: readonly SyncRecordFailureReason[] = [
+  'refused_by_rule',
+  'duplicate_record',
+  'database_refused',
+  'unclassified',
+];
+
+/**
+ * One record a run could not process, durably (#303).
+ *
+ * `sync_runs.counts.failed` is a tally and `sync_runs.error` is an elided
+ * summary; this is the row that says WHICH record and WHY, one per record, for
+ * as long as the retention window holds it.
+ *
+ * `detail` is composed by the SAME classifier that writes `sync_runs.error`, so
+ * a raw driver statement can no more reach this field than it can reach that one
+ * — there is exactly one composer of a merchant-facing failure string.
+ */
+export interface SyncRecordFailure {
+  /** Stable row id. */
+  id: string;
+  /** What kind of record this was. */
+  subjectType: SyncRecordSubjectType;
+  /**
+   * The external platform's own id for the record — what a merchant searches by.
+   *
+   * Absent when the platform published none, which is a real state rather than a
+   * gap in the report.
+   */
+  externalId?: string;
+  /** The classified reason. */
+  reason: SyncRecordFailureReason;
+  /** The bounded, scrubbed sentence. Never a driver statement (#292). */
+  detail: string;
+  /** ISO-8601 time the failure was recorded. */
+  at: string;
+}
+
+/**
+ * One run's per-record failures, and what the list does NOT say.
+ *
+ * `failedCount` is the run's own tally and `failures` is what is still stored,
+ * and the two legitimately differ: a whole-run failure counts one without naming
+ * a record, a run may refuse more records than one page stores, and the rows
+ * expire while the run row does not. Reporting the tally beside the list is what
+ * stops a shorter list reading as a smaller problem.
+ */
+export interface SyncRunRecordFailurePage {
+  /** The run these belong to. */
+  runId: string;
+  /** `SyncRun.counts.failed` — what the run itself tallied. */
+  failedCount: number;
+  /** The per-record reasons still stored, oldest first (the order they were met). */
+  failures: SyncRecordFailure[];
+  /**
+   * True when the page was cut by its own limit rather than by retention or by
+   * the run's write cap — the two elisions have different remedies and reading
+   * one as the other sends somebody to the wrong place.
+   */
+  limitReached: boolean;
 }
 
 /**

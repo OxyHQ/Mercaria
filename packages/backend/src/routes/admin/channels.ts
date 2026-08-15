@@ -30,6 +30,7 @@ import {
   listChannelAuditHandler,
   listChannelCatalogHandler,
   listChannelOnboardingHandler,
+  listChannelRunRecordFailuresHandler,
   listChannelRunsHandler,
   listChannelSummaryHandler,
   pauseChannelHandler,
@@ -169,6 +170,22 @@ router.get(
   requireStorePermission('channels:write'),
   validateId('connectionId'),
   listChannelRunsHandler,
+);
+
+/**
+ * #303: which records that run refused, and why.
+ *
+ * The same `channels:write` permission the history itself is behind — this is
+ * the history at a finer grain and carries nothing the run row does not already
+ * imply. `validateId` on BOTH params: the run id reaches a scoped lookup, so a
+ * malformed one must be refused before it becomes a query.
+ */
+router.get(
+  '/:connectionId/runs/:runId/record-failures',
+  requireStorePermission('channels:write'),
+  validateId('connectionId'),
+  validateId('runId'),
+  listChannelRunRecordFailuresHandler,
 );
 
 /**

@@ -5146,3 +5146,65 @@ objects" reaches by elimination rather than a choice between equals.
   will not arrive" is a fact about live subscriptions, and a disconnected
   connection has none — `status = 'disconnected'` already says nothing arrives,
   and leaving the rows would report a narrower problem that is no longer the one.
+
+## Per-record connector sync failures (#303)
+
+`sync_run_record_failures`, in `schema/connectors.ts` beside `sync_runs`. WHICH
+record a connector run refused, and why — durably, one row per record.
+
+- **Why a table rather than more of `sync_runs.error`.**
+  `catalog_source_rejections` (#62) is the precedent and the argument is the same
+  one domain over: a `failed` counter says a run dropped eleven products; only
+  these rows say all eleven broke the same rule, which is what tells a systemic
+  refusal from a bad afternoon. #294's summary on `sync_runs.error` is elided at
+  three reasons with three ids each, so a run of `0/0/0/100` names nine products
+  and loses ninety-one. That column is deliberately NOT widened further: it is
+  ONE column for a whole run, and a run that is `completed` with one failure has
+  no honest place to put a growing list. The summary stays, composed from the
+  same input by the same classifier inside the same transaction, so the two
+  cannot disagree.
+- **`subject_type` is STORED and is not derivable from `sync_runs.kind`.** That
+  column reads `inventory_sync` for BOTH the pull (`syncInventory`, whose unit is
+  a platform inventory ITEM id) and the push (`ingestInventory`, whose unit is
+  the PRODUCT external id it resolves a listing by). One kind, two subjects — so
+  a derivation would be silently wrong on exactly one of them, and would tell a
+  merchant to search their product list for an inventory-item id.
+- **`ordinal` exists because BOTH halves of the obvious ordering key are
+  degenerate here.** Every row of a run is written by ONE multi-row insert, so
+  they share `created_at` to the millisecond, and `@oxyhq/db`'s uuid v7 primary
+  key is not monotonic within a millisecond. Ordering on `(created_at, id)`
+  returns a run's refusals SHUFFLED — measured on this table's own first suite
+  run, where the write cap's "first 200 we met" came back starting at record 79
+  and a two-row case came back inverted. It is also a PAGING bug, not only a
+  cosmetic one: two reads of one page disagree.
+  `sync_run_record_failures_run_ordinal_key` is UNIQUE so two rows cannot claim
+  one position, which in turn forces the writer to REPLACE a run's rows rather
+  than append — `finishSyncRun` overwrites `error` outright on a re-close
+  (explicitly to NULL when nothing was refused), and without the delete a second
+  close throws 23505 instead of converging.
+- **`external_id` is NULLABLE and the NULL is the point.** A platform that
+  published no id for a record still refused one, and dropping the row would take
+  the reason with it — `catalog_source_rejections.external_id` is nullable for
+  the same reason. The writer maps `''` and whitespace to NULL, so "absent" has
+  ONE spelling; `sync_run_record_failures_external_id_shape_check` refuses the
+  empty string a second writer or `psql` would leave.
+- **`detail` is NOT NULL** because its composer never returns an empty string. A
+  blank detail beside a reason code reads as "no reason was recorded", which an
+  ABSENT ROW already means, so the two would be indistinguishable. Its ceiling
+  must be at least `MERCHANT_FACING_MESSAGE_MAX_LENGTH` — an IMPLICATION, not an
+  equality, since shortening the composed message is harmless while a column
+  narrower than the composer would refuse a legitimate detail, and a run that
+  refused a product would then fail to record that it had.
+- **ONE parent, deliberately.** The precedent carries `source_id` beside `run_id`
+  because its diagnosis read is per-SOURCE across runs. The question here is
+  per-RUN, the merchant's own handle is the CONNECTION, and `sync_runs` already
+  carries it on an index that serves exactly that lookup — so a second connection
+  column would be a second representation of one fact with nothing asking for it.
+- **The one table in `connectors.ts` with a retention deadline**, and it is the
+  only one bounded by TRAFFIC rather than by a merchant's channels: a platform
+  publishing a field Mercaria refuses writes one row per product per run,
+  forever. `connections` and `sync_runs` are the activity log the dashboard reads
+  and must NEVER be swept. Expiring a page costs the DETAIL and never the SIGNAL
+  — the tally and the summary live on the run row, which nothing here sweeps.
+  `sync_run_record_failures_expiry_idx` is required by
+  `findUnsupportedExpiryColumns` and matters here more than anywhere in the file.

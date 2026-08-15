@@ -488,6 +488,14 @@ describe('the registry the sweeper runs over', () => {
       'search_intent_sessions',
       'search_intent_turns',
       'supplier_provider_events',
+      // #303's ONE, and it is the only `connectors.ts` table here — which is
+      // the argument for it. `connections` and `sync_runs` are bounded by a
+      // merchant's channels and their cadence, and they are the activity log
+      // the dashboard reads; this one is bounded by TRAFFIC, because a platform
+      // publishing a field Mercaria refuses writes one row per product per run
+      // forever. Sweeping it costs the per-record DETAIL and never the signal:
+      // the tally and the summary stay on the run row, which is never swept.
+      'sync_run_record_failures',
       // #81's ONE, and the three it leaves out are the point: a watchlist and
       // its items are a person's own data, removed when THEY remove them, and a
       // snapshot's LINES cascade with the snapshot — so a line can never

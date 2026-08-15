@@ -64,6 +64,9 @@ export const queryKeys = {
   channelAudit: (storeId: string) => ["stores", storeId, "channel-audit"] as const,
   channelRuns: (storeId: string, connectionId: string) =>
     ["stores", storeId, "channels", connectionId, "runs"] as const,
+  /** WHICH records one run refused, and why (#303) — fetched only on demand. */
+  channelRunRecordFailures: (storeId: string, connectionId: string, runId: string) =>
+    ["stores", storeId, "channels", connectionId, "runs", runId, "record-failures"] as const,
   channelReconciliation: (storeId: string, connectionId: string) =>
     ["stores", storeId, "channels", connectionId, "reconciliation"] as const,
   channelOnboarding: (storeId: string) => ["stores", storeId, "channel-onboarding"] as const,

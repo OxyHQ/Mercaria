@@ -22,7 +22,10 @@ import type {
   Connection,
   ConnectionStatus,
   GenerateChannelApiKeyResult,
+  SyncRecordFailure,
+  SyncRecordFailureReason,
   SyncResourceDirection,
+  SyncRun,
 } from "@mercaria/shared-types";
 import { CHANNEL_DISCONNECT_POLICIES } from "@mercaria/shared-types";
 import {
@@ -54,6 +57,7 @@ import {
   useUpdateChannelSettings,
   useChannelKeys,
   useChannelReconciliation,
+  useChannelRunRecordFailures,
   useChannelRuns,
   useDisconnectChannelWithPolicy,
   useGenerateChannelKey,
@@ -277,6 +281,101 @@ function DirectionField({
 }
 
 /**
+ * What each classified reason MEANS, in a merchant's own terms (#303).
+ *
+ * The copy lives here rather than on the row for the reason #90 keeps condition
+ * labels out of the database: the stored KEY is what has to stay stable, and a
+ * sentence somebody rewrites next month must not require a migration. The stored
+ * `detail` is the specific half and is rendered beside it.
+ */
+const RECORD_FAILURE_REASON_COPY: Record<SyncRecordFailureReason, string> = {
+  refused_by_rule: "Refused by a Mercaria rule",
+  duplicate_record: "Duplicate of a record already imported",
+  database_refused: "The database refused the write",
+  unclassified: "Unrecognised failure",
+};
+
+/** What KIND of record a refusal was about, so a merchant searches the right list. */
+const RECORD_SUBJECT_COPY: Record<SyncRecordFailure["subjectType"], string> = {
+  product: "Product",
+  order: "Order",
+  inventory_item: "Inventory item",
+};
+
+/**
+ * The records ONE run refused, on demand (#303).
+ *
+ * `failedCount` is rendered beside the list rather than instead of it, because
+ * the two legitimately differ: a whole-run failure counts one without naming a
+ * record, a run may refuse more records than one page stores, and the rows are
+ * swept at thirty days while the run row is kept forever. A shorter list must
+ * not read as a smaller problem.
+ */
+function RunRecordFailures({
+  storeId,
+  connectionId,
+  run,
+}: {
+  storeId: string;
+  connectionId: string;
+  run: SyncRun;
+}) {
+  const [open, setOpen] = useState(false);
+  const failures = useChannelRunRecordFailures(storeId, connectionId, run.id, open);
+
+  if (!open) {
+    return (
+      <Pressable className="mt-2 self-start" onPress={() => setOpen(true)}>
+        <Text className="text-xs font-semibold text-primary">
+          Show which {run.counts.failed === 1 ? "record" : "records"} did not land
+        </Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View className="mt-2 gap-2 rounded-xl bg-muted p-3">
+      {failures.isPending ? (
+        <Text className="text-xs text-muted-foreground">Loading…</Text>
+      ) : failures.isError ? (
+        <Text className="text-xs text-muted-foreground">
+          Couldn&rsquo;t load the records this sync refused.
+        </Text>
+      ) : (failures.data?.failures ?? []).length === 0 ? (
+        // Not "nothing failed" — the run's own tally says otherwise. A run that
+        // failed as a whole records no per-record rows, and rows older than the
+        // retention window are gone, so this says what is KNOWN rather than
+        // contradicting the count above it.
+        <Text className="text-xs text-muted-foreground">
+          No per-record reasons are stored for this sync.
+        </Text>
+      ) : (
+        <View className="gap-2">
+          {(failures.data?.failures ?? []).map((failure) => (
+            <View key={failure.id}>
+              <Text className="text-xs font-semibold text-foreground">
+                {RECORD_SUBJECT_COPY[failure.subjectType]}
+                {failure.externalId ? ` ${failure.externalId}` : ""} &middot;{" "}
+                {RECORD_FAILURE_REASON_COPY[failure.reason]}
+              </Text>
+              <Text className="text-xs text-muted-foreground">{failure.detail}</Text>
+            </View>
+          ))}
+          {failures.data && failures.data.failures.length < failures.data.failedCount ? (
+            <Text className="text-[11px] text-muted-foreground">
+              Showing {failures.data.failures.length} of {failures.data.failedCount}.
+            </Text>
+          ) : null}
+        </View>
+      )}
+      <Pressable className="self-start" onPress={() => setOpen(false)}>
+        <Text className="text-xs font-semibold text-primary">Hide</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/**
  * The real run history (#87 management 8).
  *
  * The placeholder this replaces said a per-run history was "a follow-up — the
@@ -351,6 +450,20 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
               ) : null}
               {run.error ? (
                 <Text className="mt-1 text-xs text-destructive">{run.error}</Text>
+              ) : null}
+              {/*
+                The summary above is elided at three reasons with three ids each
+                (#294), so a run that refused a hundred products names nine of
+                them. This is where the rest live (#303) — behind a press, since
+                a history page that fetched every run's reasons up front would
+                download all of them to render a control most people never open.
+              */}
+              {run.counts.failed > 0 ? (
+                <RunRecordFailures
+                  storeId={storeId}
+                  connectionId={connection.id}
+                  run={run}
+                />
               ) : null}
             </View>
           ))}

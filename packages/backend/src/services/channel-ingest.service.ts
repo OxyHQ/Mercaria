@@ -560,7 +560,11 @@ export async function ingestProducts(
       results.push({ externalId: product.externalId, action, listingId });
     } catch (err) {
       counts.failed += 1;
-      recordFailures.push({ externalId: product.externalId, failure: err });
+      recordFailures.push({
+        subjectType: 'product',
+        externalId: product.externalId,
+        failure: err,
+      });
       results.push({
         // The SAME defect `sync_runs.error` had, on a different carriage: this
         // string is returned in the ingest response the plugin shows a merchant,
@@ -710,7 +714,16 @@ export async function ingestInventory(
               `${mapping.sku} (${mapping.candidateIds.join(', ')}) — refusing to pick one`,
           ),
         );
-        recordFailures.push({ externalId: item.externalId, failure: ambiguity });
+        // `product`, not `inventory_item`: this rail's `externalId` is the
+        // PRODUCT's platform id — `resolveInventoryVariant` looks a LISTING up
+        // by it — and the SKU narrows within that listing. Only the PULL
+        // inventory sync names a platform inventory item, which is why the
+        // subject cannot be derived from the run's `inventory_sync` kind (#303).
+        recordFailures.push({
+          subjectType: 'product',
+          externalId: item.externalId,
+          failure: ambiguity,
+        });
         results.push({
           externalId: item.externalId,
           action: 'ambiguous',
@@ -723,7 +736,11 @@ export async function ingestInventory(
       results.push({ externalId: item.externalId, action: 'updated', variantId: mapping.variantId });
     } catch (err) {
       counts.failed += 1;
-      recordFailures.push({ externalId: item.externalId, failure: err });
+      recordFailures.push({
+        subjectType: 'product',
+        externalId: item.externalId,
+        failure: err,
+      });
       results.push({
         externalId: item.externalId,
         action: 'failed',

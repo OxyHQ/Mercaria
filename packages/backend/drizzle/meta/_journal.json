@@ -526,6 +526,13 @@
       "when": 1786817268595,
       "tag": "0074_tricky_hiroim",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1786823687484,
+      "tag": "0075_yummy_omega_sentinel",
+      "breakpoints": true
     }
   ]
 }

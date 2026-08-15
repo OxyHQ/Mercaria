@@ -549,6 +549,45 @@ record: the refused product is counted `failed` on its `sync_runs` row with a
 message naming the gap kind and the ids, and a refused webhook fails its run with
 the same message as `error`.
 
+### A per-record failure has a durable reason (#303)
+
+A run is `failed` only when NOTHING succeeded, so the commonest shape — a mostly
+successful sync with a handful of refused products — records `completed`. #294
+gave that run a SUMMARY in `sync_runs.error`, and the summary is deliberately
+elided at three reasons with three ids each, so a run of `0/0/0/100` names nine
+products.
+
+`sync_run_record_failures` is the per-record residual behind it —
+`catalog_source_rejections` (#62) one domain over — carrying the subject KIND,
+the platform's own external id, a classified reason code
+(`refused_by_rule | duplicate_record | database_refused | unclassified`) and a
+bounded detail. `sync_runs.error` is unchanged and is NOT widened further: it is
+one column for a whole run, and a `completed` run with one failure has no honest
+place to put a growing list.
+
+Both are composed from ONE input by ONE classifier
+(`classifyMerchantFacingFailure`) inside ONE transaction with the run's close, so
+the at-a-glance line and the full list cannot disagree — and a raw driver
+statement can no more reach a row than it can reach that column (#292). Retention
+is 30 days: this is the only table in `connectors.ts` bounded by TRAFFIC rather
+than by a merchant's channels, and expiring a page costs the DETAIL while the
+tally and the summary stay on the run.
+
+The merchant reads it at
+`GET /admin/stores/:storeId/channels/:connectionId/runs/:runId/record-failures`,
+behind the same `channels:write` the history is behind — a separate call rather
+than a field on the run list, because fifty runs times two hundred reasons is a
+payload nobody asked for and a per-run query is an N+1. The page reports the
+run's own `failedCount` beside the list, and the two legitimately differ: a
+whole-run failure counts one without naming a record, a run may refuse more than
+one page stores, and rows expire while the run does not.
+
+**All three rails report.** #294 covered the push ingest and the pull backfill;
+#303 added `syncOrders` and `syncInventory`, which until then did
+`counts.failed += 1` plus a `log.general.warn` and passed no failures at all — so
+an order sync that refused eleven orders recorded `completed`, a tally of eleven
+and a NULL `error`.
+
 Runbook §8.5 is also surfaced, as copy rather than a limitation: a no-change
 resync tallies as `updated`, because the patch is built from every unpinned
 connector-managed field whether or not it changed.
@@ -577,13 +616,15 @@ Each is a named contract rather than a stub that lies.
   own platform differences, and an upload lives on one task's disk
   (`feed_uploads.status='missing'` is a real state), so a URL feed is the path
   this issue gives screens to.
-- **A record-level error export for CONNECTORS** (#87 management 9). Feeds have
-  one — #63's CSV, values excluded — and `sync_runs` carries counts plus a single
-  error string with no per-record table behind it. Adding one is a connector
-  schema change and still owed. #221 was the defect that produced the errors
-  worth exporting and it is fixed, so the export is now about the ordinary
-  per-product failures a real catalogue produces (a malformed price, a SKU
-  colliding with an existing variant) rather than about a stranded listing.
+- **A record-level error EXPORT for CONNECTORS** (#87 management 9). The
+  per-record TABLE this entry said was owed now exists — #303's
+  `sync_run_record_failures`, read at
+  `GET .../channels/:connectionId/runs/:runId/record-failures` — so what is left
+  is the DOWNLOAD, in #63's CSV shape with values excluded. Formatting the rows
+  this endpoint already serves is the whole of it. #221 was the defect that
+  produced the errors worth exporting and it is fixed, so the export is about the
+  ordinary per-product failures a real catalogue produces (a malformed price, a
+  SKU colliding with an existing variant) rather than about a stranded listing.
 - **#84's linkage UI.** This domain READS the link and never writes one.
 
 ---

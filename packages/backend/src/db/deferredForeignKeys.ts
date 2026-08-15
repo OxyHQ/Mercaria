@@ -1257,6 +1257,16 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'reference — and for `missing_external_id` the column is legitimately NULL, because the ' +
       'record had none.',
   },
+  {
+    column: 'sync_run_record_failures.external_id',
+    reason:
+      "A CONNECTED PLATFORM's own id for the record a sync refused (#303) — Shopify's, " +
+      "WooCommerce's — so it is a foreign key space, exactly as `listings.source_external_id` " +
+      'is. And it is `catalog_source_rejections.external_id`\'s argument one domain over: the ' +
+      'record was refused, so there is no listing, variant or order row for it to reference, ' +
+      'which is the whole reason a row exists here. NULL is a real state — the platform ' +
+      'published no id — and the writer maps an empty string to it so "absent" has one spelling.',
+  },
 
   // ── #68, offer freshness and catalogue health ─────────────────────────────
   //
