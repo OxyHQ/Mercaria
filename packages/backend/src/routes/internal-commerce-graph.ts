@@ -27,7 +27,14 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
-import { validateBody, validateQuery } from '../middleware/validate.js';
+import { validateBody, validateId, validateQuery } from '../middleware/validate.js';
+import { holdStoreActivationSchema } from '../middleware/merchant-activation-schemas.js';
+import {
+  getActivationTraceHandler,
+  holdActivationHandler,
+  observeActivationHandler,
+  releaseActivationHoldHandler,
+} from '../controllers/merchant-activation.controller.js';
 import {
   nativeStoreLinkCreateSchema,
   nativeStoreLinkRevokeSchema,
@@ -404,5 +411,38 @@ router.post(
   validateBody(compensateRevisionSchema),
   compensateRevisionHandler,
 );
+
+/**
+ * Merchant activation (#85), on this SAME allow-list rather than a seventh.
+ *
+ * The power is the one this gate already carries: deciding whether a merchant
+ * may operate. #83 verifies the claim, #84 joins the merchant to a store, and
+ * holding that store's checkout while a risk or moderation question is open is
+ * the same decision one step later, over the same graph, by the same people. A
+ * seventh list would be a seventh thing to keep in step with this one.
+ *
+ * The route set is CLOSED and there is deliberately no "activate this store",
+ * no "set this capability" and no "mark this requirement satisfied" — every one
+ * would be a way to grant a capability the derivation refuses, which is exactly
+ * what #85 acceptance 2 asks to be impossible. The one write that is not a hold
+ * DRIVES the existing idempotent observation.
+ */
+
+/** GET — one store's activation state, its hold detail and its transition trail. */
+router.get('/activation/:storeId', validateId('storeId'), getActivationTraceHandler);
+
+/** POST — hold a store's checkout. The reason is mandatory and audited. */
+router.post(
+  '/activation/:storeId/hold',
+  validateId('storeId'),
+  validateBody(holdStoreActivationSchema),
+  holdActivationHandler,
+);
+
+/** DELETE — release it. Attributable, and recorded as its own transition. */
+router.delete('/activation/:storeId/hold', validateId('storeId'), releaseActivationHoldHandler);
+
+/** POST — re-derive now and append whatever moved. Adds no way to change anything. */
+router.post('/activation/:storeId/observe', validateId('storeId'), observeActivationHandler);
 
 export default router;

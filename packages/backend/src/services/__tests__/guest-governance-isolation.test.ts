@@ -360,15 +360,21 @@ describe('the registers are complete and self-consistent (#111)', () => {
     }
   });
 
-  it('the two gates blocked by an unbuilt dependency SAY SO', () => {
+  it('the ONE gate blocked by an unbuilt dependency SAYS SO', () => {
     // Honesty rule: a gate that cannot be satisfied on any deployment today
     // must name what blocks it, or somebody signs it off to make the dashboard
-    // green. Mercaria has no outbound mail transport and no #85 activation
-    // state, and both are recorded rather than quietly satisfiable.
+    // green. Mercaria still has no outbound mail transport, and that is
+    // recorded rather than quietly satisfiable.
+    //
+    // It was TWO until #85 landed: `merchant_readiness_includes_guest` named
+    // the missing activation state, which now exists and is readable at
+    // /admin/stores/:storeId/activation. What remains of that gate is an
+    // operational act — telling pilot merchants in writing — so it moved to
+    // `operational_verification` rather than keeping a `blockedBy` it could no
+    // longer name. An EXACT list rather than a floor, deliberately: a register
+    // whose blocked set only ever grows is one nobody trusts, and a gate that
+    // becomes satisfiable must be able to leave it.
     const blocked = GUEST_LAUNCH_GATE_REGISTER.filter((entry) => entry.blockedBy !== undefined);
-    expect(blocked.map((entry) => entry.gate).sort()).toEqual([
-      'merchant_readiness_includes_guest',
-      'transactional_sender_authenticated',
-    ]);
+    expect(blocked.map((entry) => entry.gate).sort()).toEqual(['transactional_sender_authenticated']);
   });
 });

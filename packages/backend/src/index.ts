@@ -350,6 +350,20 @@ connectPostgres()
           log.general.error({ err }, 'Buyer-request reconciler import failed'),
         );
 
+      // Merchant activation observation (#85). Most activation transitions have
+      // NO actor and no hook: Stripe restricts an account, a connector stops
+      // delivering, a jury restricts a catalogue — and not one of those domains
+      // knows this one exists. So the only way such a transition gets audited is
+      // somebody looking, which is what this does. The LOOP is gated by
+      // `MERCHANT_ACTIVATION_OBSERVATION_ENABLED`; with it off every transition a
+      // merchant or an operator causes is still recorded by the write that
+      // caused it, and the verdict itself is unaffected because it is DERIVED.
+      import('./services/merchant-activation/transitions.service.js')
+        .then(({ startMerchantActivationObserver }) => startMerchantActivationObserver())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Merchant activation observer import failed'),
+        );
+
       // The same job for a `mercaria_retail` order (#127), plus the delay
       // notice. A retail request's refund goes back on Mercaria's own timeline
       // and the RAIL answers whenever it answers; without this a buyer whose

@@ -48,6 +48,7 @@ import type { ShippingMethod } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import type { CommerceActor, GuestActor } from '../commerce-actor.js';
+import { readGuestSellerActivation } from '../merchant-activation/guest-activation.js';
 import { checkoutRefusal } from './refusal.js';
 import type { EligibilitySellerGroup } from './fulfilment-eligibility.js';
 
@@ -77,46 +78,27 @@ export function guestCheckoutPlatform(actor: GuestActor): GuestCheckoutPlatform 
 }
 
 /**
- * What #85 will answer about one seller, and what it answers today.
+ * The #85 seam, CLOSED.
  *
- * `activated` is unrepresentable on purpose. #85 owns merchant activation
- * readiness, no table records it, and a member meaning "yes" would be a value
- * this version could return — which is exactly the stub that lies. So the union
- * has the two answers that are TRUE today, and #85's author adds the third
- * beside a repository read.
+ * This file shipped `GuestSellerActivation` with two members and no `activated`,
+ * so `GUEST_SELLER_ACTIVATION_REQUIRED=true` refused every guest checkout by
+ * name until #85 supplied the state. #85 landed; the union, the read and the
+ * verdict now live in `services/merchant-activation/guest-activation.ts`, beside
+ * the derivation that answers them, and this file re-exports the type so nothing
+ * that imported it from here had to move.
+ *
+ * A clean cut rather than a compat shim: the old two-member union is GONE, the
+ * old `readGuestSellerActivation` is GONE, and the gate below now awaits the
+ * real answer. What did NOT change is everything around it — the four kill
+ * switches, the refusal shape, the reason code and the ordering — which is what
+ * the seam existed to make true.
+ *
+ * The same thing happened to the pickup seam beside it: #93's
+ * `assertPickupLocationEligible` refused unconditionally until the facts
+ * existed, and #93 replaced its body without touching a caller. Two seams, two
+ * fillings, no caller edited either time — which is the shape a seam is for.
  */
-export type GuestSellerActivation =
-  /**
-   * No activation state exists for this seller because none exists for anyone:
-   * #85 has not landed. Whether that refuses a checkout is
-   * `GUEST_SELLER_ACTIVATION_REQUIRED`'s decision, not this function's.
-   */
-  | { readonly state: 'unrecorded' }
-  /** An operator has withdrawn this seller from guest checkout by hand. */
-  | { readonly state: 'blocked_by_operator' };
-
-/**
- * The #85 seam — the ONE function that decides whether a seller may sell to a
- * guest, beyond what payment readiness already decided.
- *
- * Today it can only report `unrecorded` or an operator's explicit block, and
- * both facts are read from configuration rather than from a table, because
- * there is no table: #85 is what creates one. When it lands, THIS function
- * grows a repository read and nothing else in the checkout path changes — the
- * gate below, the refusal shape and the reason code are already in place around
- * it — the way #93's pickup seam was held and then filled: that one was a
- * function that refused unconditionally until the facts existed, and #93
- * replaced its body without touching a caller.
- *
- * The property that makes it a seam rather than a stub: there is no input and
- * no configuration that makes it return "activated", so a deployment cannot
- * accidentally satisfy #85's requirement before #85 exists.
- */
-export function readGuestSellerActivation(sellerKey: string): GuestSellerActivation {
-  return config.guest.checkoutRollout.blockedSellerKeys.includes(sellerKey)
-    ? { state: 'blocked_by_operator' }
-    : { state: 'unrecorded' };
-}
+export type { GuestSellerActivation } from '../merchant-activation/guest-activation.js';
 
 /**
  * Refuse a guest checkout an operator has switched off — BEFORE anything is
@@ -132,12 +114,12 @@ export function readGuestSellerActivation(sellerKey: string): GuestSellerActivat
  * change). Only the first failing dimension is reported, because a buyer acts
  * on one remedy at a time.
  */
-export function assertGuestCheckoutRolloutAllowed(input: {
+export async function assertGuestCheckoutRolloutAllowed(input: {
   actor: CommerceActor;
   /** The resolved destination's ISO-3166 alpha-2 country, already upper-cased. */
   destinationCountry: string;
   groups: readonly EligibilitySellerGroup[];
-}): void {
+}): Promise<void> {
   if (input.actor.kind !== 'guest') return;
   const rollout = config.guest.checkoutRollout;
 
@@ -150,8 +132,12 @@ export function assertGuestCheckoutRolloutAllowed(input: {
     refuse('market', { market: input.destinationCountry });
   }
 
+  // Read straight off the block list rather than through
+  // `readGuestSellerActivation`: this is the KILL SWITCH dimension, it is
+  // synchronous, and it must refuse before the activation read is even attempted
+  // — an operator withdrawing a merchant at 3am should not wait on eleven tables.
   const blockedSellers = input.groups
-    .filter((group) => readGuestSellerActivation(group.sellerKey).state === 'blocked_by_operator')
+    .filter((group) => rollout.blockedSellerKeys.includes(group.sellerKey))
     .map((group) => group.sellerKey);
   if (blockedSellers.length > 0) {
     refuse('merchant', { sellerKeys: blockedSellers.sort() });
@@ -164,18 +150,28 @@ export function assertGuestCheckoutRolloutAllowed(input: {
     refuse('fulfilment', { methods: blockedMethods });
   }
 
-  assertGuestSellersActivated(input.groups);
+  await assertGuestSellersActivated(input.groups);
 }
 
 /**
  * The #85 gate proper: with `GUEST_SELLER_ACTIVATION_REQUIRED` on, a seller
- * with no activation record cannot sell to a guest.
+ * whose guest conjunction does not hold cannot sell to a guest.
  *
- * Since `readGuestSellerActivation` cannot return "activated" until #85 lands,
- * turning the flag on today refuses EVERY guest checkout — by name, in a
- * message that says why. That is the fail-closed direction and it is the whole
- * value of shipping the lever before the feature: a deployment cannot decide it
- * is enforcing merchant activation and quietly be enforcing nothing.
+ * ## The flag still decides whether the question is ASKED
+ *
+ * OFF by default, which is ADR 0006 G14's decision and not an omission: guest
+ * eligibility is the intersection of the gates that already exist, and
+ * defaulting this on would refuse a checkout the ADR says is eligible. The
+ * early return is also what keeps the default path free of a database read —
+ * a deployment that has not opted in pays nothing for this gate existing.
+ *
+ * ## What changed when #85 landed, and what did not
+ *
+ * Before: no configuration could produce `activated`, so turning the flag on
+ * refused EVERY guest checkout. Now the answer is the guest requirement set,
+ * derived per seller. The reason code, the message, the position in the gate
+ * order and the fail-closed direction are all unchanged — a seller Mercaria
+ * cannot answer for is `not_activated`, never a soft yes.
  *
  * A separate function from the four levers above because it is a different KIND
  * of refusal — a policy this deployment has chosen to enforce, not an incident
@@ -183,19 +179,33 @@ export function assertGuestCheckoutRolloutAllowed(input: {
  * `seller_not_payment_ready` has one: the remedy is a merchant action, and a
  * merchant sent to the wrong screen stays stuck.
  */
-function assertGuestSellersActivated(groups: readonly EligibilitySellerGroup[]): void {
+async function assertGuestSellersActivated(
+  groups: readonly EligibilitySellerGroup[],
+): Promise<void> {
   if (!config.guest.checkoutRollout.sellerActivationRequired) return;
 
-  const unactivated = groups
-    .filter((group) => readGuestSellerActivation(group.sellerKey).state !== 'blocked_by_operator')
-    .map((group) => group.sellerKey)
+  const verdicts = await Promise.all(
+    groups.map(async (group) => ({
+      sellerKey: group.sellerKey,
+      activation: await readGuestSellerActivation(group.sellerKey),
+    })),
+  );
+  const unactivated = verdicts
+    .filter((verdict) => verdict.activation.state === 'not_activated')
+    .map((verdict) => verdict.sellerKey)
     .sort();
   if (unactivated.length === 0) return;
 
   log.guest.warn(
-    { sellerKeys: unactivated },
-    '[Guest] GUEST_SELLER_ACTIVATION_REQUIRED is on and no seller carries an activation record ' +
-      '(#85 has not landed), so every guest checkout is refused',
+    {
+      sellerKeys: unactivated,
+      reasons: verdicts
+        .filter((verdict) => verdict.activation.state === 'not_activated')
+        .map((verdict) =>
+          verdict.activation.state === 'not_activated' ? verdict.activation.reason : 'unknown',
+        ),
+    },
+    '[Guest] GUEST_SELLER_ACTIVATION_REQUIRED is on and a seller is not activated for guest checkout',
   );
   throw checkoutRefusal(
     'guest_seller_not_activated',

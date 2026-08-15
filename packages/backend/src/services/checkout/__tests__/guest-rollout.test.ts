@@ -63,12 +63,12 @@ describe('the levers are empty by default', () => {
     expect(configured.sellerActivationRequired).toBe(false);
   });
 
-  it('admits a guest checkout on either platform, in any market', () => {
+  it('admits a guest checkout on either platform, in any market', async () => {
     for (const actor of [GUEST_WEB, GUEST_NATIVE]) {
       for (const destinationCountry of ['ES', 'FR', 'US']) {
-        expect(() =>
+        await expect(
           rollout.assertGuestCheckoutRolloutAllowed({ actor, destinationCountry, groups: GROUPS }),
-        ).not.toThrow();
+        ).resolves.toBeUndefined();
       }
     }
   });
@@ -81,33 +81,42 @@ describe('the platform is derived from the credential carriage, not from a claim
   });
 });
 
-describe('the #85 seam cannot report a seller as activated', () => {
+describe('the #85 gate is not consulted while its flag is off', () => {
   /**
-   * The property that makes it a seam rather than a stub, and it is a claim
-   * about the TYPE as much as about this call: `GuestSellerActivation` has no
-   * `activated` member, so there is no input, no configuration and no code path
-   * by which this version reports #85's requirement as satisfied. A deployment
-   * cannot decide it is enforcing merchant activation and quietly enforce
-   * nothing.
+   * #85 closed the seam, so `readGuestSellerActivation` can now answer
+   * `activated` — and it reaches eleven tables to do it. This case pins the
+   * property that survived: with `GUEST_SELLER_ACTIVATION_REQUIRED` off, which
+   * is the default ADR 0006 G14 chose, the gate returns before the activation
+   * read is attempted, so a deployment that has not opted in pays nothing for
+   * the gate existing.
+   *
+   * It is asserted by BEHAVIOUR rather than by a spy: this file's whole point
+   * is that nothing is configured, and there is no database in this process at
+   * all — so a call that DID reach the derivation would reject, and the
+   * `.resolves` below is what catches it.
    */
-  it('answers unrecorded for every seller while #85 is unbuilt', () => {
-    for (const group of GROUPS) {
-      expect(rollout.readGuestSellerActivation(group.sellerKey)).toEqual({ state: 'unrecorded' });
-    }
+  it('completes without touching the derivation', async () => {
+    await expect(
+      rollout.assertGuestCheckoutRolloutAllowed({
+        actor: GUEST_WEB,
+        destinationCountry: 'ES',
+        groups: GROUPS,
+      }),
+    ).resolves.toBeUndefined();
   });
 });
 
 describe('the gate is guest-only', () => {
-  it('does not run for an Oxy buyer', () => {
+  it('does not run for an Oxy buyer', async () => {
     // Vacuously true with no lever set, which is why the LEVERS file asserts
     // the same thing with every switch thrown — this case exists so a future
     // change that made the gate actor-blind fails in both files.
-    expect(() =>
+    await expect(
       rollout.assertGuestCheckoutRolloutAllowed({
         actor: OXY,
         destinationCountry: 'ES',
         groups: GROUPS,
       }),
-    ).not.toThrow();
+    ).resolves.toBeUndefined();
   });
 });

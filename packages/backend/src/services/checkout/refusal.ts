@@ -90,6 +90,23 @@ export const CHECKOUT_REFUSAL_REASONS = [
    * the operator trace, where the reader is already authorized.
    */
   'retail_line_ineligible',
+  /**
+   * #85: this seller may not currently sell. ONE reason for three levers — an
+   * unaccepted marketplace fee schedule, the merchant's own pause and an
+   * operator's safety hold — the `guest_rollout_blocked` decision applied to the
+   * authenticated path. A buyer cannot act on which of the three fired, and a
+   * client able to vary one input at a time could read out whether a particular
+   * merchant is under an operator hold, which is a moderation fact about
+   * somebody else's business.
+   *
+   * Deliberately NOT `seller_not_payment_ready`: one seller cannot be PAID, the
+   * other has not been ACTIVATED, and the remedies are different screens. It is
+   * also not `guest_seller_not_activated`, which is the same word about the
+   * GUEST conjunction — collapsing them would make "authenticated checkout is
+   * off for this store" and "guest checkout is off for this store"
+   * indistinguishable in every metric that reads either.
+   */
+  'seller_not_activated',
 ] as const;
 
 /** One of {@link CHECKOUT_REFUSAL_REASONS}. */

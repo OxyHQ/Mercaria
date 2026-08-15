@@ -155,6 +155,24 @@ vi.mock('../payments/guest-correlation.js', () => ({
   findGuestCheckoutIdForGroup: () => Promise.resolve(undefined),
 }));
 
+// The merchant ACTIVATION settings row (#85), pinned to "unwritten" — a store
+// that has decided nothing, which is what every fixture in this suite is. With
+// the fee mock below pinning "no applicable schedule", the whole activation gate
+// is a no-op here and every expectation is unchanged. Stubbed at the REPOSITORY
+// rather than at the gate deliberately: mocking the gate itself would make this
+// suite unable to notice if the gate started refusing.
+vi.mock('../../db/merchantActivation/activationSettingsRepository.js', () => ({
+  readMerchantActivationSettings: () =>
+    Promise.resolve({
+      exists: false,
+      nativeCheckoutIntent: 'enabled',
+      guestCheckoutIntent: 'enabled',
+      supportEmail: null,
+      supportUrl: null,
+      platformHeld: false,
+    }),
+}));
+
 // The fee context (#88), pinned to "no active schedule" — the zero-fee
 // configuration this suite's expectations were written against. Only the
 // schedule LOAD is stubbed; selection and the snapshot plan run for real.

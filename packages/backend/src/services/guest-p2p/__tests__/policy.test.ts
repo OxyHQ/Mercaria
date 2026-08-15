@@ -55,6 +55,9 @@ function bestCaseFacts(overrides: Partial<GuestP2PFacts> = {}): GuestP2PFacts {
     trustTier: known('trusted'),
     completedSales: known(50),
     sellerPayoutCountry: known('ES'),
+    // #85 shipped the P2P acceptance surface, so this is now a fact a record
+    // CAN satisfy. The best case accepts; the case below un-accepts it.
+    sellerPoliciesAccepted: known(true),
     listingActive: true,
     listingRestricted: false,
     categorySlugs: ['books'],
@@ -154,10 +157,18 @@ describe('the best case is still not eligible, and the reasons are the honest on
     expect(outcomeOf(bestCaseFacts(), 'messaging_available')).toBe('refused');
   });
 
-  it('cannot evaluate policy acceptance, and says #85 owes it', () => {
-    const entry = eligibility.criteria.find((c) => c.criterion === 'policies_accepted');
-    expect(entry?.outcome).toBe('unevaluable');
-    if (entry?.outcome === 'unevaluable') expect(entry.owner).toBe('#85');
+  it('evaluates policy acceptance now that #85 supplies it, and refuses without one', () => {
+    // CLOSED: the criterion was `unevaluable`/`#85` until #85 shipped
+    // `POST /seller/activation/policies`. It is now answered from
+    // `merchant_activation_policy_acceptances` with `owner_type = 'user'`.
+    expect(outcomeOf(bestCaseFacts(), 'policies_accepted')).toBe('satisfied');
+    expect(
+      outcomeOf(bestCaseFacts({ sellerPoliciesAccepted: known(false) }), 'policies_accepted'),
+    ).toBe('refused');
+    // An acceptance is not a licence: #112's verdict is a recorded no-go and the
+    // three criteria below still refuse, so a seller who accepts everything
+    // still cannot sell to a guest.
+    expect(eligibility.verdict).not.toBe('eligible');
   });
 
   it('refuses on the empty category allow-list — an unchosen cohort admits nothing', () => {
@@ -295,18 +306,54 @@ describe('the record-backed criteria refuse what the record says', () => {
 });
 
 describe('the verdict severity: ineligible beats unknown beats eligible', () => {
-  it('reports `unknown` when nothing is refused but something is unanswered', () => {
-    // Every refusal the best case carries is removed by hand, leaving only the
-    // #85 gap — which is the shape a verdict of `unknown` describes.
-    const facts = bestCaseFacts({
-      categorySlugs: ['books'],
-    });
-    const criteria = deriveGuestP2PEligibility(facts).criteria.filter(
+  it('no criterion is unevaluable by AVAILABILITY any more — only an unknown fact is', () => {
+    // This case has now outlived its premise TWICE, which is the point of
+    // re-deriving it rather than editing the citation. #112 wrote it as "one is
+    // unevaluable and names #85"; #85 closed `policies_accepted`, so it became
+    // "one is unevaluable and names #93" against the pickup context; #93 then
+    // shipped and moved `fulfilment_method_permitted` from `unevaluable` to
+    // `refused`, because a collection from an individual has no publication and
+    // cannot acquire one — "no" rather than "we cannot tell".
+    //
+    // So the honest claim today is the ABSENCE: with both seams filled, no
+    // criterion is unevaluable by its registry availability, in EITHER
+    // fulfilment context. The only route left is an unknown FACT.
+    for (const fulfilment of ['shipping', 'pickup'] as const) {
+      const facts = bestCaseFacts({
+        context: {
+          ...CONTEXT,
+          fulfilment,
+          shippingMethod: fulfilment === 'pickup' ? 'pickup' : CONTEXT.shippingMethod,
+        },
+      });
+      const eligibility = deriveGuestP2PEligibility(facts);
+      expect(
+        eligibility.criteria.filter((entry) => entry.outcome === 'unevaluable'),
+        `a criterion is unevaluable for ${fulfilment} — re-derive the citation`,
+      ).toEqual([]);
+      // Every criterion is still ANSWERED, which is what stops the assertion
+      // above passing against a derivation that returned nothing at all.
+      expect(eligibility.criteria.length).toBe(GUEST_P2P_CRITERIA.length);
+      // Both seams BLOCK either way, so nothing about the verdict moved.
+      expect(eligibility.verdict).toBe('ineligible');
+    }
+  });
+
+  it('an unknown FACT is the one remaining route to unevaluable, and it names its owner', () => {
+    // The positive control for the case above: without it, a derivation that
+    // could never answer `unevaluable` at all would pass, and the absence would
+    // be measuring nothing.
+    // `payoutReady` unknown is the deployment's gap — a rail that is off cannot
+    // answer whether anybody is ready for it — and it is the fact `facts.ts`
+    // marks `deployment` rather than blaming a seller who has done nothing.
+    const facts = bestCaseFacts({ payoutReady: unknown('deployment') });
+    const unevaluable = deriveGuestP2PEligibility(facts).criteria.filter(
       (entry) => entry.outcome === 'unevaluable',
     );
-    expect(criteria.length).toBeGreaterThan(0);
-    // With refusals present the verdict is the harsher one, which is the rule.
-    expect(deriveGuestP2PEligibility(facts).verdict).toBe('ineligible');
+    expect(unevaluable.map((entry) => entry.criterion)).toEqual(['stripe_payout_ready']);
+    for (const entry of unevaluable) {
+      if (entry.outcome === 'unevaluable') expect(entry.owner).toBe('deployment');
+    }
   });
 
   it('never answers `eligible` today, for any facts a record could produce', () => {

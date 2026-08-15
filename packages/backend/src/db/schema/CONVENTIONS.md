@@ -5357,3 +5357,81 @@ and `listing_local_discovery`. Full reference: `docs/pickup.md`.
   `location_publication_events.actor` and `pickup_collection_events.actor` —
   every one a member of STAFF or an operator. Who bought a collection order is
   the order's own fact, under #106's scoping.
+---
+
+## Merchant activation (#85)
+
+`merchant_activation_settings`, `merchant_activation_policy_acceptances` and
+`merchant_activation_capability_events`. What is NOT here is the point: there is
+no readiness column and no activation verdict anywhere in the file.
+
+- **The verdict is DERIVED and never stored** — the `deriveNativeCheckoutEligibility`
+  (#57) divergence, taken for the reason `deriveChannelReadiness` (#87) took it.
+  Its inputs sit on eleven tables in eight domains, and a stored verdict would be
+  a twelfth representation that goes stale the instant Stripe restricts a seller.
+  What these three tables hold is what somebody DECIDED, plus what the derivation
+  was OBSERVED to say.
+- **The only foreign key the domain owns is `stores`.** A column on `connections`,
+  `provider_accounts` or `fee_schedules` would be a second answer to a question
+  those tables already answer.
+- **Two intent columns rather than one tri-state**, because #85 readiness-change
+  rule 9 is "disabling guest checkout does not disable authenticated checkout
+  unless its own requirements also fail" — one column could not express "guest
+  paused, native running" without a value meaning the same as two flags.
+- **The hold is `num_nonnulls(reason, actor, instant) in (0, 3)`**, not three
+  pairwise implications: the pairwise spelling is SATISFIED by two of three being
+  present, which is exactly the row that leaves a store held with nobody named.
+  It is unreachable from the merchant surface structurally —
+  `updateMerchantCheckoutIntents` has no hold parameter to pass — and a scanned
+  gate asserts the merchant request schema and patch type carry no hold field.
+- **The support contact lives here rather than on `stores`** because clearing it
+  WITHDRAWS a capability, and `stores` has twenty unrelated writers and no
+  trigger. Every write that reaches these columns goes through the one repository
+  that also records a capability observation. It is deliberately NOT in
+  `PROTECTED_COLUMNS`: this is the contact a merchant PUBLISHES, the opposite of
+  `guest_checkouts.email_ciphertext`, and treating it as a secret would make it
+  unrenderable on the one page it exists to appear on.
+- **A settings row is created by a WRITE and never by a read.** An absent row is
+  the defaults (`enabled`, `enabled`, no hold, no contact), which is exactly what
+  "this merchant has decided nothing" means — and a checkout reads this, so a
+  read that minted a row would write on a path that must not write (#104's T10).
+- **`merchant_activation_policy_acceptances` is `fee_schedule_acceptances` one
+  domain over**, including its POLYMORPHIC owner and for its reason: half the
+  owners are Oxy accounts whose key space is not in this database. That is what
+  lets an individual seller accept #112's P2P policy without a store and without
+  `store:manage`. Append-only against UPDATE **and** DELETE by trigger —
+  withdrawing consent is publishing a NEW policy version, which leaves every
+  prior acceptance legible.
+- **The policy VERSION is a code constant** (`MERCHANT_ACTIVATION_POLICIES`), the
+  #126 consumer-rights-terms decision: a version pointer is only as durable as
+  the code that can still resolve it, and a table would let somebody publish a
+  responsibilities version no shipped terms document contains — which would then
+  be snapshotted onto acceptance rows as what those sellers agreed to.
+- **ONE capability table, not a current-state row beside a history one.** "What is
+  it now" is the LATEST row, read with `distinct on` over
+  `merchant_activation_capability_events_latest_idx`. A second table holding the
+  current value would be derivable from this one and could therefore disagree
+  with it. The index tie-breaks on `id desc` because one observation writes
+  several rows in one statement and `@oxyhq/db`'s uuid v7 is not monotonic within
+  a millisecond.
+- **It is a RECORDING and never an authority.** Nothing that decides anything
+  reads it — a cached `granted` survives exactly the restriction that should have
+  withdrawn it (`price_signal_evaluations`' rule) — and a scanned gate fails the
+  build if a derivation, a gate or a projection starts selecting from it.
+- **Four CHECKs carry the trail's honesty**: `previous <> next` (a transition that
+  changed nothing is not one), the actor BICONDITIONAL (`system` names nobody and
+  everything else must, so a sweep's finding can never be attributed to whoever
+  triggered it), `granted` implies an empty `unmet`, and `unmet` is containment-
+  CHECKed against `MERCHANT_ACTIVATION_REQUIREMENT_KEYS` — a `text[]` with an
+  element CHECK rather than jsonb, so an operator note, a buyer's email or a
+  moderation finding has no shape to arrive in.
+- **The trail is append-only against UPDATE and PERMITS DELETE**, which inverts
+  `analytics_events`' reasoning rather than copying it. `analytics_events` permits
+  DELETE because erasure on a schedule IS its policy; this table holds no personal
+  data at all — a store id, a capability and an actor — so it has no retention
+  deadline to serve and nothing to trade the guarantee for. What the DELETE
+  permission is for is the `ON DELETE cascade` from `stores`: a merchant leaving
+  takes its own audit with it.
+- **Serialization is the settings row's lock, not a lease table.** Two observers
+  reading the same previous state would both write a transition; the writer takes
+  `FOR UPDATE` on a row that must exist for any observation to be recorded.

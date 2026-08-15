@@ -352,12 +352,20 @@ export * from './merchantPlans';
 // credential column on a session, which is what makes "credentials are collected
 // only through the provider's own flow" a property of the schema.
 export * from './channels';
-// Location publication, nearby discovery and collection (#93) is last, and it
-// is downstream of everything it touches without adding a column to any of
-// them: `./stores` (the operational `locations` it publishes and the store that
-// owns them), `./catalog` (the listing a P2P seller opts into local discovery
-// for), `./orders` (the order a collection belongs to). The operational
-// location and its `inventory_levels` stay exactly what they were — this is the
-// PUBLIC face of a place plus everything a handover needs, which is why it is a
-// separate publication row rather than nine more columns on `locations`.
+// Location publication, nearby discovery and collection (#93) is downstream of
+// everything it touches without adding a column to any of them: `./stores` (the
+// operational `locations` it publishes and the store that owns them),
+// `./catalog` (the listing a P2P seller opts into local discovery for),
+// `./orders` (the order a collection belongs to). The operational location and
+// its `inventory_levels` stay exactly what they were — this is the PUBLIC face
+// of a place plus everything a handover needs, which is why it is a separate
+// publication row rather than nine more columns on `locations`.
 export * from './pickup';
+// Merchant activation readiness (#85) is the last export, and it references only
+// `./stores`. That short list IS the design: activation reads eleven tables in
+// eight domains and stores a verdict for none of them, so the only foreign key
+// it owns is the store whose switches, support contact and audit trail these
+// three tables hold. A column on `connections`, `provider_accounts` or
+// `fee_schedules` would be a second answer to a question those tables already
+// answer.
+export * from './merchantActivation';
