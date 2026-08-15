@@ -63,8 +63,17 @@ import { shopifyTransport, type ShopifyHttpResponse, type ShopifyTransport } fro
  * reported rather than quoted by any Mercaria FX provider.
  */
 const PROVIDER_ID = 'shopify';
-/** The pinned Shopify Admin API version. */
-const API_VERSION = '2024-10';
+/**
+ * The pinned Shopify Admin API version.
+ *
+ * Exported for `scripts/e2e/shopify/preflight.ts`, which refuses a real-store
+ * verification run whose pinned version Shopify no longer serves AS ITSELF. It
+ * has to read THIS constant rather than restate it: an unsupported version does
+ * not 404 — Shopify falls forward to the oldest accessible stable version — so a
+ * preflight carrying its own copy would go on reporting the version it was
+ * written with, which is the answer that check exists to prevent.
+ */
+export const API_VERSION = '2024-10';
 /** Max products per page (Shopify's REST ceiling). */
 const PAGE_LIMIT = 250;
 /**

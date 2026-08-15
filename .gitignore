@@ -57,6 +57,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+# The #69 real-store verification template. `.env*` above would swallow it, and
+# `!.env.example` un-ignores only that exact name — so the template needs its own
+# negation while `.env.e2e` (the filled-in copy) stays ignored.
+!.env.e2e.example
 
 # vercel
 .vercel

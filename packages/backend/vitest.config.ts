@@ -4,7 +4,20 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.test.ts'],
+    /**
+     * `scripts/**` is here as well as `src/**`, and that is deliberate rather
+     * than convenient: the #69 evidence harness carries the redaction controls,
+     * and a redactor that is proven only when somebody points a custom config at
+     * it is proven but NOT protected — a regression in it ships silently, and
+     * what it protects is credentials in an artefact meant to be pasted into an
+     * issue. These cases read no database, so they cost the globalSetup nothing
+     * they were not already paying.
+     */
+    include: [
+      'src/**/__tests__/**/*.test.ts',
+      'src/**/*.test.ts',
+      'scripts/**/__tests__/**/*.test.ts',
+    ],
     /**
      * ONE real database.
      *
