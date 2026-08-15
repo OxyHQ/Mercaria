@@ -303,6 +303,49 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     expect(variants[0].inventoryAvailable).toBe(9);
   });
 
+  it('ACCEPTS an RFC-3339 offset timestamp and stores the converted instant (#290)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    // An OFFSET, deliberately — a test sending `Z` passes with or without the
+    // fix, which is exactly why nothing caught this. `+02:00` is also not the
+    // same instant as the same digits with a `Z`, so the assertion below
+    // distinguishes "accepted" from "accepted and then misread".
+    const response = await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(namespace, { externalUpdatedAt: '2026-08-15T05:38:08+02:00' }),
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.text).data.results[0].action).toBe('created');
+
+    const [imported] = await findListingsBySourceConnection(storeId, connection.id);
+    // CONVERTED, not re-labelled: 05:38:08+02:00 is 03:38:08Z. Swapping the
+    // offset for a `Z` would store 05:38:08Z and pass a mere "it was accepted"
+    // assertion while silently moving the platform's own clock by two hours.
+    expect(imported.sourceExternalUpdatedAt?.toISOString()).toBe('2026-08-15T03:38:08.000Z');
+  });
+
+  it('REFUSES a zoneless timestamp, which has no unambiguous instant (#290)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+
+    // The half of the widening that must NOT happen. RFC 3339 requires a zone,
+    // and `new Date` reads a zoneless datetime as LOCAL — so admitting one would
+    // shift every stored instant by whatever the server's offset happens to be,
+    // which is a defect that only appears once and only in production.
+    const response = await ingest(`/${connection.id}/products`, key, {
+      products: [pushProduct(uuidv7(), { externalUpdatedAt: '2026-08-15T05:38:08' })],
+    });
+
+    expect(response.status).toBe(400);
+    expect(await findListingsBySourceConnection(storeId, connection.id)).toHaveLength(0);
+  });
+
   it('reads an ABSENT inventory key as UNTRACKED, never as tracked at zero (#293)', async () => {
     const storeId = await makeStore();
     const connection = await connectPushIn(storeId, 'woocommerce', {});

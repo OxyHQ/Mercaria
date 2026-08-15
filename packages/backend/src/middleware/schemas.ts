@@ -423,8 +423,14 @@ export const createDiscountSchema = z.object({
   customerEligibility: discountCustomerEligibilitySchema.optional(),
   usageLimits: discountUsageLimitsSchema.optional(),
   combinesWith: discountCombinesWithSchema.optional(),
-  startsAt: z.string().datetime().optional(),
-  endsAt: z.string().datetime().optional(),
+  // RFC 3339 with an offset, for the reason `ingestProductSchema`'s
+  // `externalUpdatedAt` states at length (#290): a bare `.datetime()` refuses a
+  // valid offset timestamp, and `discount.service` reads both of these with
+  // `new Date`, which converts the offset rather than reinterpreting it. A
+  // zoneless value stays refused — the window a discount is live for must not
+  // depend on the server's timezone.
+  startsAt: z.string().datetime({ offset: true }).optional(),
+  endsAt: z.string().datetime({ offset: true }).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -900,8 +906,12 @@ const salesReportIntervalSchema = z.enum(['day', 'week', 'month']);
  */
 export const salesReportQuerySchema = z
   .object({
-    from: z.string().datetime().optional(),
-    to: z.string().datetime().optional(),
+    // Offset accepted, for `externalUpdatedAt`'s reason (#290). `resolveRange`
+    // reads these with `Date.parse`, which converts an offset correctly and
+    // already falls back to the default window on anything unreadable — so
+    // widening here only stops a valid timestamp being answered with a 400.
+    from: z.string().datetime({ offset: true }).optional(),
+    to: z.string().datetime({ offset: true }).optional(),
     interval: salesReportIntervalSchema.optional(),
   })
   .passthrough();
@@ -912,8 +922,9 @@ export const salesReportQuerySchema = z
  */
 export const topProductsQuerySchema = z
   .object({
-    from: z.string().datetime().optional(),
-    to: z.string().datetime().optional(),
+    // The same widening and the same reader as `salesReportQuerySchema` (#290).
+    from: z.string().datetime({ offset: true }).optional(),
+    to: z.string().datetime({ offset: true }).optional(),
     limit: z.coerce.number().int().positive().optional(),
   })
   .passthrough();
@@ -1191,7 +1202,32 @@ const ingestVariantSchema = z.object({
 /** One ingested product (`IngestProduct`). */
 const ingestProductSchema = z.object({
   externalId: z.string().trim().min(1).max(255),
-  externalUpdatedAt: z.string().datetime().optional(),
+  /**
+   * The platform's own `updated_at`, as RFC 3339 — `Z` or a numeric offset.
+   *
+   * `{ offset: true }` is load-bearing and its absence was a total, silent
+   * outage on this rail. On zod 3 a bare `.datetime()` accepts ONLY a `Z`
+   * suffix, so `2026-08-15T05:38:08+00:00` — valid RFC 3339, and what PHP's
+   * `DateTime::format('c')` emits, along with most date libraries by default —
+   * was refused. Measured by running the WooCommerce plugin's own mapper over a
+   * live 124-product catalogue against this schema: 0 of 124 products accepted
+   * on plugin 1.0.0, 124 of 124 once it emitted `Z` (#290).
+   *
+   * What made it invisible rather than merely wrong is the INVENTORY payload,
+   * which carries no timestamp and so validated under both spellings: "Test
+   * connection" succeeded, the plugin reported healthy, stock flowed, and no
+   * product ever arrived. Fixing the plugin removed that symptom and not this
+   * defect — the next client to emit an offset hits the same wall the same way.
+   *
+   * A zoneless value stays REFUSED, which is the half worth keeping: RFC 3339
+   * requires a zone, `new Date` reads a zoneless datetime as LOCAL time, and
+   * admitting one would silently shift every stored instant by the server's
+   * offset. Every shape this now accepts is one `new Date` CONVERTS to the
+   * correct UTC instant — measured, including that `+02` (hour-only, which
+   * `new Date` cannot parse at all) is rejected here rather than reaching the
+   * column as an invalid date.
+   */
+  externalUpdatedAt: z.string().datetime({ offset: true }).optional(),
   title: z.string().trim().min(1).max(300),
   description: z.string().max(50_000).optional(),
   images: z
