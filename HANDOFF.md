@@ -46,6 +46,59 @@ Repo: `OxyHQ/mercaria-woocommerce` (private). To ship:
 Full procedure, scope table, evidence template, enablement checklist and
 rollback: **`docs/runbooks/connector-real-store-verification.md`**.
 
+### 5.0 Status as of 2026-08-15 — WooCommerce RUN, Shopify NOT
+
+**WooCommerce has now run against a real store.** A disposable WordPress 7.0.4 /
+WooCommerce 11.0.1 / PHP 8.3.33 site (124 products, one with 110 variations,
+EUR, `manage_stock: 'parent'` variations, 2 orders) was provisioned behind a
+public HTTPS hostname and driven by the real service layer against real
+Postgres and real Redis. Provisioning is reproducible from
+`packages/backend/scripts/e2e/woocommerce/`.
+
+| Scenario | Verdict |
+|---|---|
+| W1 connect, W2 backfill, W3 pagination, W5 orders, W6 native currency, W9 header-stripped host | **PASSED** |
+| W8 (>100 variations) | **FAILED** — #294 |
+| W4, W7, X1–X3 | NOT RUN — need a person in the WooCommerce admin (§5.4) |
+| plugin 3 (push), 4 (replay), 5 (rotate/revoke), 6 (cross-store), 8 (plugin half) | **PASSED** — 3 as 7 of 8, the 8th refused by #296 |
+| plugin 7 | HALF PASSED — merchant half, with a positive control; server half needs the admin route |
+| plugin 1, 2 | NOT RUN — both are properties of the admin HTTP mint response, so both need an Oxy bearer |
+| plugin 8, server half | **N/A**, not unmeasured — the ingest route is synchronous (a 1-product push returns `results[0].action` in the same response). The queueing on this rail lives in the **plugin** (WP-Cron, chunks of 100), not the server, which ingests a bounded batch inline. #69 scenario 8's "queue-backed ingestion" is satisfied by the plugin half; the pull rail's BullMQ queues are a different mechanism and were proven separately |
+
+Every WooCommerce row was driven through the service layer, so **Mercaria's own
+admin HTTP auth was not exercised** — that needs a real Oxy bearer token and is
+labelled per row in the evidence, not once in a preamble.
+
+**Shopify: nothing has run.** No Partner account, no development store, no app.
+Acceptance criterion 7 of #69 is **not met**, and the sentence at the top of
+this file stays until a Shopify backfill and webhook cycle has completed against
+a real store.
+
+### 5.0b Defects found by the real run
+
+Eleven, all measured rather than reasoned except one half labelled as inference.
+The two to read together are **#290** and **plugin#4**: the first rejected 100%
+of pushed products on a timestamp format, the second is why nobody found out.
+
+| # | What |
+|---|---|
+| #286 | The Shopify Admin API pin is out of support and Shopify falls forward silently. Read-back landed; the pin itself needs the real run |
+| #287 | `read_orders` alone truncates the order import to 60 days, undocumented |
+| #288 | The scope test asserts `read_locations` from its own table |
+| #289 | vitest discovered only `src/**`, so the evidence redactors were unprotected — FIXED |
+| #290 | The ingest schema rejects every RFC-3339 **offset** timestamp; 0 of 124 products accepted |
+| #291 | A pushed price change never reaches an already-imported listing |
+| #292 | Pull-then-push on one store collides on `listings_store_id_handle_key` |
+| #293 | An absent `inventory` key is read as `tracked: true, available: 0` |
+| #294 | A >100-variant product is refused whole and the run still reports `completed` |
+| #295 | A change of delivery base URL orphans WooCommerce webhooks; the reconcile cannot adopt them back |
+| #296 | `sku` and `barcode` are unique across the WHOLE table, so two merchants cannot list one GTIN |
+| #297 | `webhook_registration_state` has no success value |
+| plugin #1 | Parent-managed variations each push the parent's pool (125 sellable where 75 exist) |
+| plugin #2 | Disconnect left the Channel API Key in `wp_options` — FIXED |
+| plugin #3 | A third-party response body is echoed into a redirect URL |
+| plugin #4 | The backfill reports success when every product failed |
+
 ### 5.1 Now AUTOMATED (CI, every push)
 
 Four suites drive the REAL providers (URL building, pagination, zod schemas,
@@ -79,6 +132,49 @@ minting/rotation/revocation, cross-store and cross-connection rejection, and
 - [ ] A WooCommerce pull from a real WordPress site (> 100 products, `manage_stock: 'parent'` variations).
 - [ ] A real WordPress plugin install pushing its catalogue and stock in.
 - [ ] Evidence recorded for each, redacted, per the runbook.
+
+### 5.4 What a HUMAN must do, exactly
+
+Everything automatable is automated. What remains needs either a credential
+nobody can mint or a person clicking in somebody else's admin UI.
+
+**A. An Oxy bearer token + its account id.** Any account — the store and the
+owner membership are seeded locally, since Oxy ids carry no foreign key. It buys
+the admin HTTP surface and nothing else on the WooCommerce list; without it
+every row carries `admin surface not exercised`. Measured: `api.oxy.so` is
+reachable, but `POST /session/device/register` answers **401** — device
+registration needs an already-authenticated user, so a device pair cannot be
+minted from nothing, and `SERVICE_SECRET` does not help because `/admin` uses
+`authenticateToken`, not `authenticateTokenOrApiKey`.
+
+**B. A Shopify Partner account and development store.** All free; no phone, no
+legal entity, no review delay. Full numbered procedure, including what to seed:
+`packages/backend/scripts/e2e/shopify/README.md`. Two steps are irreversible or
+refusable and are called out there: **app distribution cannot be changed after
+selection** (and public distribution additionally requires GraphQL, which this
+connector is not), and requesting **`read_all_orders`** makes Shopify refuse the
+**entire** grant rather than narrowing it.
+
+**C. Seven clicks in the WooCommerce admin**, for W4, W7 and X1–X3. Tell the
+operator **before and after each step** — a sync runs between them and an
+un-flagged edit makes the run unattributable.
+
+1. Products → open any published product → change its **title** → Update.
+2. Products → a DIFFERENT product → **Move to Trash**.
+3. WooCommerce → Settings → Advanced → REST API → **Add key**, permissions
+   **Read** (do not revoke the existing key), and hand the key/secret over
+   through the token file, never a message.
+4. Set that same key to **Read/Write** and say so, to verify #262's recovery.
+5. Products → Add new → **Variable product**, an attribute with 3+ values used
+   for variations, generate them, give each its own price and stock → Publish.
+   Do **not** ask for a sync — the `product.created` webhook must do it.
+6. Same product → Variations → add one more attribute value and save the new
+   variation with its own price → Update.
+7. Same product → Variations → **remove one** → Update. It must survive at zero
+   stock, never disappear.
+
+**Do not touch the 110-variation product** — it is #294's subject and its
+failure is the control. Flag any edit made outside these steps.
 
 ### 5.3 Defects found while building the suites (filed, referencing #69)
 

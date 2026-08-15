@@ -202,6 +202,164 @@ Repo: `OxyHQ/mercaria-woocommerce` (private).
    `{base}/channels/ingest/{connectionId}/products` and `/inventory` with
    `Authorization: Bearer mck_…`.
 
+The plugin's header declares `WC tested up to: 9.4` while the reference stack
+runs WooCommerce 11.0.1. It does not block activation — record it in the
+evidence rather than leaving it to be discovered later.
+
+**The plugin cannot reach a loopback backend, and it fails before the request
+leaves WordPress.** `wp_http_validate_url()` refuses `127.0.0.1`, `localhost`,
+`172.17.x` and the LAN address, so the Mercaria API must be on a public
+hostname (a second cloudflared quick tunnel is enough) before any push
+scenario can run. Two configuration facts fail the whole batch loudly rather
+than per product: the store needs a **default location** (Test connection posts
+an inventory item and `resolveDefaultLocationId` throws without one), and
+`CONNECTOR_DEFAULT_CATEGORY_SLUG` must name a slug that exists, because it
+throws *before* the per-product loop.
+
+### 4.4 Measured facts about the reference stack
+
+Everything below was measured on 2026-08-15 against WordPress **7.0.4**,
+WooCommerce **11.0.1**, PHP **8.3.33**, MariaDB 11.4.12, WC REST **`wc/v3`**.
+Re-measure rather than quote: these are properties of images that move.
+
+**The site's public origin lives in the DATABASE OPTIONS.** It is carried by
+WordPress's `home` and `siteurl` options. There are **no `WP_HOME` /
+`WP_SITEURL` constants** — looking for them finds nothing, and that is correct
+rather than a misconfiguration. Verify with `wp option get home` /
+`wp option get siteurl`, never by reading a compose file:
+
+```sh
+wp eval 'foreach (["WP_HOME","WP_SITEURL","DISABLE_WP_CRON"] as $c) {
+  printf("%s: %s\n", $c, defined($c) ? var_export(constant($c), true) : "(UNDEFINED)"); }'
+```
+
+This is worth stating because `wordpress:7.0.4-php8.3-apache` **ignores
+`WORDPRESS_CONFIG_EXTRA` entirely** — its entrypoint contains zero occurrences
+of the variable:
+
+```sh
+docker run --rm --entrypoint sh <image> -c \
+  'grep -c WORDPRESS_CONFIG_EXTRA /usr/local/bin/docker-entrypoint.sh'   # 0
+```
+
+Any block passed through it is silently dropped. The provisioning scripts
+passed one defining those constants, and the site worked anyway — for entirely
+different reasons than the file claimed, which is the class of defect that
+survives review because everything is green. The origin came from the options
+(a belt-and-braces fallback turned out to be the only strap), and HTTPS behind
+the tunnel worked because the **image** ships its own `HTTP_X_FORWARDED_PROTO`
+check in `wp-config.php`. Without that check `is_ssl()` is false and
+WooCommerce refuses key/secret Basic auth outright — so it is load-bearing, and
+it is somebody else's code.
+
+**WooCommerce's current release hard-requires WordPress ≥ 6.9** and refuses to
+install below it. Provision from a WordPress 7.x image; a 6.8 image installs
+WordPress fine and then fails at the WooCommerce step.
+
+**The catalogue figures are a SNAPSHOT, not an invariant.** As measured
+2026-08-15T05:50Z: 124 products, 2 variable products, 110 variations on the
+largest one, 116 variations total, 2 orders, currency EUR. `verify.sh` asserts
+only floors and bounds (`products > 100`, `max variations > 100`,
+`variable >= 2`, `orders >= 2`), deliberately — a sibling seeding into the site
+keeps it passing, and only something dropping *below* a floor fails it. So a
+later reader finding different counts should treat that as expected drift and
+re-take them with `./verify.sh`, which prints the whole table, rather than
+chasing a discrepancy.
+
+**Verify a SKU namespace with `?sku=` or a client-side filter, NEVER `?search=`.**
+WooCommerce's `search` parameter matches the post title, excerpt and content —
+not the SKU. So `?search=MERCPUSH` answers `X-WP-Total: 0` against a site
+holding eight `MERCPUSH-*` products whose *names* are "Mercaria Push Item 01"…,
+and it answers 0 whether or not they exist. It cannot distinguish "no such
+products" from "this parameter does not look there".
+
+Measured on this stack, one minute apart, same credential:
+
+```
+search=MERCPUSH            X-WP-Total = 0     <- false zero
+search=Mercaria%20Push     X-WP-Total = 8
+sku=MERCPUSH-SIMPLE-01     X-WP-Total = 1
+per_page=1                 X-WP-Total = 132
+```
+
+Use `?sku=<exact>` for one, or `?per_page=100&_fields=sku` and filter the prefix
+client-side for a set. This cost a false "the fixture was never seeded"
+conclusion during #69, and it will cost the next person the same one.
+
+**The barcode column had never been exercised before #69, in either
+direction — zero of the original 124 products carried a GTIN.** Any earlier
+claim to cover barcode handling was covering an empty field. The push fixture
+now carries one per product, and the first measurement of that path is worth
+recording:
+
+```
+WooCommerce                          Mercaria stored
+MERCPUSH-SIMPLE-01  0290000000081 -> 0290000000081
+MERCPUSH-SIMPLE-02  0290000000098 -> 0290000000098
+variants carrying a barcode: 7 of 7, byte-identical
+```
+
+**The LEADING ZERO survives**, carried as text end to end from
+`WC_Product::get_global_unique_id()` into the `barcode` column with no numeric
+coercion. A coercion would have produced `290000000081` — a different and
+*valid-looking* GTIN, silently, with nothing downstream to flag it. That matters
+because `product_variants_barcode_key` is globally unique (#296), so a mangled
+GTIN would collide against the wrong product rather than failing cleanly.
+
+Fixture GTINs are EAN-13 in GS1's **`029`** restricted-distribution prefix,
+which is never assigned to a real product, so they cannot collide with a genuine
+one. Check digits are computed and independently re-verified — a hand-typed bad
+check digit makes a barcode-rejection test pass for the wrong reason.
+
+**Take the webhook baseline BEFORE connecting anything, because it cannot be
+taken afterwards.** As measured 2026-08-15T06:13:01Z, the site had **zero**
+registered webhooks and exactly one REST key. That matters for §8.1's "two
+Mercaria stores on one shop" case: on WooCommerce the reconcile matches on the
+**per-connection delivery URL**, so two Mercaria stores should end up with two
+independent subscription sets even when they share one consumer key (the
+webhook secret is per subscription and fixed at creation). If instead a second
+connection's registration deletes or adopts the first's, *that* is the
+observable — and it is only legible against an empty start.
+
+**WP-Cron is left ON**, which is deliberate: a real merchant site runs it, and
+the WordPress plugin debounces its whole push path through
+`wp_schedule_single_event`, so disabling it would replace the mechanism under
+test with a hand-driven substitute. But enabled is not the same as firing
+promptly — WP-Cron is request-driven and nobody browses this site, so an event
+may sit until an HTTP request arrives. Either spawn it by hitting a page, or
+drive it with `wp cron event run --due-now`, and **say in the evidence which**:
+"the hook fired" and "I ran it by hand" are different observables.
+
+**The tunnel hostname is random and not guaranteed to persist.** Read it at the
+moment of use — from `~/.config/oxy/tokens/mercaria-woo-e2e.json` (`.siteUrl`)
+or `wp option get home` — and never cache it in a note.
+
+A stored Mercaria connection holds the site URL **as typed**, and rotation
+breaks it hard:
+
+- the old hostname stops serving and the connector's https-only,
+  `safeFetch`-guarded transport fails at the **network/SSRF layer** — expect a
+  connection/DNS-shaped error, not a 404, not a redirect, and nothing
+  resembling "site moved";
+- **nothing re-discovers it.** `up.sh` refreshes the credential file and the
+  WordPress options; it cannot reach a connection row in Mercaria's database.
+  Every sync fails until somebody re-points the connection;
+- a plain re-run of `up.sh` does **not** rotate the hostname: it probes the
+  recorded tunnel and reuses a live one, minting a new hostname only when that
+  probe fails. Rotation requires cloudflared dying, a host reboot, or `down.sh`;
+- if a stable hostname is needed, that is a **named** Cloudflare tunnel and an
+  account — a different provisioning task.
+
+**One trap when a tunnel is first opened**, worth about thirty minutes: a fresh
+`*.trycloudflare.com` record is not yet visible to resolvers other than
+Cloudflare's own when `cloudflared` prints it, and `trycloudflare.com`'s SOA
+sets an 1800-second **negative** TTL. Any resolver asked inside that window
+caches NXDOMAIN, so the site becomes unresolvable from that machine while
+serving perfectly from everywhere else — and every retry confirms the wrong
+diagnosis. Wait for `dig +short @1.1.1.1 <host>` to answer *before* letting
+`getent`, `curl` or the app touch it. If it is already poisoned, restart the
+tunnel for a new hostname rather than waiting the TTL out.
+
 ---
 
 ## 5. Recording evidence
@@ -259,8 +417,8 @@ catalogue, a real leaky bucket, a real fulfillment order — is only here.
 | W5 | Order import where configured | Enable order pull, sync | One Mercaria order per Woo order, single-currency `DualMoney` |
 | W6 | Native currency preservation | Inspect an imported variant | The site's currency, never FAIR |
 | W7 | Invalid / insufficient permission | Re-connect with a READ-ONLY key, then sync and check webhooks | The sync still works; webhook registration is REFUSED per topic. `webhookIds` is empty AND `webhookFailures` names every topic with its status and reason (§8.1) — record them verbatim. `GET .../channels/readiness` reports `catalog.state: degraded` |
-| W8 | A product with MORE THAN 100 variations | Create (or find) a variable product with > 100 variations, then backfill | Every variation imports — the variations endpoint is paged, so a second page is fetched. Record the number of `/variations` requests and whether each page carried `X-WP-TotalPages`. A product refused as `declared_not_fetched` means the site's `variations` id list and the variations endpoint disagree: record BOTH, since only a real site settles whether WooCommerce publishes the full id list at that size (§8.3) |
-| W9 | A site that strips `X-WP-TotalPages` | Put the site behind a caching/security plugin that removes response headers (or confirm one already does), then backfill | Every product still imports and NOTHING is archived. Mercaria pages on until an EMPTY page instead of trusting a missing header, so expect exactly one extra `/products` request at the end; record the request count and confirm `counts` shows no archives. A run that archived listings here is the #259 catalogue failure and must be reported (§8.3) |
+| W8 | A product with MORE THAN 100 variations | **Raise `MAX_VARIANTS_PER_PRODUCT` first — see §7.2.** Create (or find) a variable product with > 100 variations, then backfill | Every variation imports — the variations endpoint is paged, so a second page is fetched. Record the number of `/variations` requests and whether each page carried `X-WP-TotalPages`. A product refused as `declared_not_fetched` means the site's `variations` id list and the variations endpoint disagree: record BOTH, since only a real site settles whether WooCommerce publishes the full id list at that size (§8.3) |
+| W9 | A site that strips `X-WP-TotalPages` | The reference stack does NOT strip it by default, so this needs a deliberate step — see §7.1 below — then backfill | Every product still imports and NOTHING is archived. Mercaria pages on until an EMPTY page instead of trusting a missing header, so expect exactly one extra `/products` request at the end; record the request count and confirm `counts` shows no archives. A run that archived listings here is the #259 catalogue failure and must be reported (§8.3) |
 
 Also verify, because §8.3 fixed it and only a real store settles the wire shape:
 **create a NEW variable product in WooCommerce and let the `product.created`
@@ -269,6 +427,41 @@ own price with its own option values and stock. Then **add a variation on the
 site and re-sync**: expect the new variant to appear. Then **delete one and
 re-sync**: expect it to survive at zero stock rather than disappear. Record what
 you see, including the webhook run's tallies.
+
+---
+
+### 7.1 Running W9 — how to get a header-stripping host
+
+The reference stack does not strip `X-WP-TotalPages`: it is present on
+`/wc/v3/products` and on `/products/{id}/variations`, and it survives the
+cloudflared edge. W9 therefore needs the stripping turned on deliberately:
+
+```sh
+packages/backend/scripts/e2e/woocommerce/w9-header-strip.sh on    # then run the backfill
+packages/backend/scripts/e2e/woocommerce/w9-header-strip.sh off   # afterwards
+```
+
+Leave it OFF outside a W9 run, and tell whoever drives the backfill which run
+was the stripped one. Every `/wc/v3` response carries
+`X-Mercaria-E2E-Header-Strip: on|off` in **both** modes, so a run can be
+attributed after the fact. The header's ABSENCE is a third state — the
+mechanism is not installed — and is not the same as `off`.
+
+**`X-WP-Total` is deliberately left intact, and `/wp/v2` is untouched.** W9 asks
+for two observations, and the first — every product still imports — needs an
+independent oracle for the true count. Stripping both would leave the
+measurement and its subject reading the same absent source, which is a check
+that cannot fail.
+
+Measured while stripped: `/wc/v3` loses the header while `/wp/v2` keeps it, the
+body is intact (`per_page=100` gives 100 + 24 + 0 of 124), and **a page past the
+end answers HTTP 200 with an empty array rather than 400** — so #259's "finish
+on a usable header or an EMPTY page" rule is genuinely reachable on a real site.
+Had WooCommerce answered `rest_invalid_param` there, the empty-page terminator
+would be unreachable and W9 could not pass at all.
+
+**The observation that decides W9 is that NOTHING was archived.** A run that
+archived listings is the #259 catalogue failure and must be reported.
 
 ---
 
@@ -385,6 +578,68 @@ two triggers and no second implementation: both drive the same
   stored ids and no refusal. The remedy is the on-demand button; if you delete a
   subscription in the Shopify or WooCommerce admin during a run, expect nothing
   to notice until you press it.
+
+### 7.2 W8 has never been runnable at default configuration
+
+`packages/backend/src/config/index.ts:3160`:
+
+```ts
+maxVariantsPerProduct: intEnv('MAX_VARIANTS_PER_PRODUCT', 100),
+```
+
+**W8 asks for more than 100 variations on one product, and the backend refuses
+any product with more than 100 variants** — whole, not truncated
+(`services/catalog-write.service.ts:607` and `:885`). The requirement and the
+limit are the same round number, which is the tell: the scenario and the
+constant were each written from "100" without either author reading the other,
+so this row has never been runnable as specified. Any previous attempt would
+have produced either a product at exactly 100 (satisfying the limit and not the
+scenario) or a refused one.
+
+**Before running W8, raise `MAX_VARIANTS_PER_PRODUCT` above the product's
+variation count** on the backend, and record the value you ran with. It is
+`intEnv`, so this is one environment variable and no code change.
+
+Without that, the run reports `completed` with `failed=1` and the product simply
+never appears — **which looks like a pagination failure and is not one.** That
+silent-omission behaviour is a defect in its own right and is tracked as #294;
+this section is only about making the scenario executable.
+
+### 8.1c A delivery URL on an EPHEMERAL hostname is its own hazard
+
+Measured on the reference stack: WooCommerce auto-disables a subscription after
+more than five failed deliveries. Verbatim from the installed 11.0.1,
+`includes/class-wc-webhook.php` `failed_delivery()`:
+
+```php
+if ( $failures > apply_filters( 'woocommerce_max_webhook_delivery_failures', 5 ) ) {
+    $this->set_status( 'disabled' );
+}
+```
+
+So if the backend's delivery hostname changes underneath a stored subscription —
+a quick tunnel rotating, a preview deployment expiring, a domain migration —
+three things happen in order and none of them is loud:
+
+1. deliveries fail against a hostname that no longer serves;
+2. after six, **WooCommerce disables the subscriptions itself**, and they stay
+   disabled after the URL is fixed;
+3. re-registration does **not** repair it. #218/#262's reconcile matches on the
+   **exact delivery URL**, so the new URL is not recognised as its own: it
+   creates a second full set and leaves the first set disabled and orphaned.
+
+This is §8.1's "`deletedWebhookIds` growing on every reconnect with the topic set
+unchanged" arriving through a door that section does not describe — not a site
+rewriting the URL it was given, but the URL legitimately changing underneath a
+stored subscription.
+
+It is quiet in both directions, which is what makes it worth writing down:
+Mercaria sees no deliveries, and *"no events happened"* is indistinguishable
+from *"the subscriptions are dead"* without going and reading `status` and
+`failure_count` on the platform. Read those before concluding that nothing
+fired.
+
+Tracked as #295.
 
 ### 8.2 WooCommerce rate-limit handling — FIXED (#219), with a stated limit
 

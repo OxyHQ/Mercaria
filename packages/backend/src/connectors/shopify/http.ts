@@ -36,6 +36,7 @@ import {
   SsrfRejection,
   UpstreamError,
 } from '@oxyhq/core/server';
+import { log } from '../../lib/logger.js';
 
 /** A normalized HTTP response (status + headers + fully-buffered text body). */
 export interface ShopifyHttpResponse {
@@ -236,6 +237,30 @@ function hostOf(url: string): string {
   }
 }
 
+/**
+ * The API version Shopify last reported SERVING, per shop host.
+ *
+ * Module level rather than per transport instance: the question is a fact about
+ * the deployment ("is this connector's pin still being honoured"), and a caller
+ * asking it has no way to reach whichever transport happened to make the call.
+ */
+const servedApiVersions = new Map<string, string>();
+
+/** Mismatches already warned about, keyed host|requested|served. */
+const apiVersionMismatchesWarned = new Set<string>();
+
+/**
+ * What Shopify last said it SERVED for `shopHost`, or `null` if nothing has
+ * been observed yet.
+ *
+ * `null` is "no call has been made", never "the pin is fine" — the two are
+ * different and a caller that conflates them reports a healthy version for a
+ * deployment that has not spoken to Shopify at all.
+ */
+export function lastServedShopifyApiVersion(shopHost: string): string | null {
+  return servedApiVersions.get(shopHost) ?? null;
+}
+
 /** Parse `Retry-After` (fractional seconds) to ms; undefined when absent/non-numeric (→ backoff). */
 function retryAfterMs(headers: Record<string, string | undefined>): number | undefined {
   const raw = headers[RETRY_AFTER_HEADER];
@@ -314,9 +339,60 @@ export function createShopifyTransport(
     earliestNextCallAt.set(host, now() + delayMs);
   }
 
+  /**
+   * Record which API version Shopify ACTUALLY used, and warn once when it is
+   * not the one that was asked for.
+   *
+   * Shopify does not fail a request for an unsupported version — it "falls
+   * forward and responds using the oldest accessible stable version", and says
+   * so only in `X-Shopify-API-Version`. So a pin nobody reads back is a comment:
+   * every call succeeds, every response parses, and the shapes being normalized
+   * are a version nobody chose. Shopify's own guidance is this exact check —
+   * "if it differs from what you requested, your app is targeting an
+   * inaccessible version".
+   *
+   * It compares the version in the REQUEST URL against the served header rather
+   * than against a shared constant, so there is no second copy of the pin to
+   * drift, and the comparison is between what was genuinely asked and what
+   * genuinely answered.
+   *
+   * Deliberately NON-BLOCKING: it records and warns and never throws. A
+   * merchant's sync failing because Shopify retired a version is worse than the
+   * mismatch it would be reporting, and the fall-forward response is usually
+   * perfectly serviceable. Warned once per (host, requested, served) so a
+   * catalogue backfill cannot turn one configuration fact into thousands of
+   * log lines.
+   */
+  function noteServedApiVersion(url: string, headers: Record<string, string>): void {
+    const served = headers['x-shopify-api-version'];
+    if (!served) return;
+
+    const requested = /\/admin\/api\/([^/]+)\//.exec(url)?.[1];
+    if (!requested) return;
+
+    servedApiVersions.set(hostOf(url), served);
+    if (requested === served) return;
+
+    const key = `${hostOf(url)}|${requested}|${served}`;
+    if (apiVersionMismatchesWarned.has(key)) return;
+    apiVersionMismatchesWarned.add(key);
+    log.general.warn(
+      {
+        shopHost: hostOf(url),
+        requestedApiVersion: requested,
+        servedApiVersion: served,
+      },
+      'Shopify served a DIFFERENT Admin API version than this connector requested. ' +
+        'The pinned version is no longer accessible and Shopify has fallen forward, ' +
+        'so responses are being normalized against a version nobody selected. ' +
+        'Update API_VERSION in connectors/shopify/index.ts and re-verify the shapes.',
+    );
+  }
+
   /** Run one logical request through the throttle + 429-retry loop. */
   async function execute(
     host: string,
+    url: string,
     call: () => Promise<ShopifyHttpResponse>,
   ): Promise<ShopifyHttpResponse> {
     let attempt = 0;
@@ -324,6 +400,7 @@ export function createShopifyTransport(
       await respectThrottle(host);
       const response = await call();
       updateThrottle(host, response.headers);
+      noteServedApiVersion(url, response.headers);
       if (response.status !== 429 || attempt >= maxRetries) {
         return response;
       }
@@ -334,16 +411,16 @@ export function createShopifyTransport(
 
   return {
     get(url, headers) {
-      return execute(hostOf(url), () => raw.get(url, headers));
+      return execute(hostOf(url), url, () => raw.get(url, headers));
     },
     post(url, headers, body) {
-      return execute(hostOf(url), () => raw.post(url, headers, body));
+      return execute(hostOf(url), url, () => raw.post(url, headers, body));
     },
     put(url, headers, body) {
-      return execute(hostOf(url), () => raw.put(url, headers, body));
+      return execute(hostOf(url), url, () => raw.put(url, headers, body));
     },
     del(url, headers) {
-      return execute(hostOf(url), () => raw.del(url, headers));
+      return execute(hostOf(url), url, () => raw.del(url, headers));
     },
   };
 }
