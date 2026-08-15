@@ -948,6 +948,17 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   },
   { column: 'referral_touches.oxy_user_id', reason: OXY_ACCOUNT },
   {
+    column: 'referral_program_controls.program_id',
+    reason:
+      'The same stable program identity referral_programs.program_id carries. There is no ' +
+      'single-column unique to point at — referral_programs is keyed (program_id, version) — ' +
+      'and that is the POINT of this table (#143): the two operator levers live on the ' +
+      'identity every version shares, so pulling one during an incident cannot edit a ' +
+      'published version’s terms, which an attribution has pinned (ADR 0005 D19). The ' +
+      'service validates the id against a real program before writing.',
+  },
+  { column: 'referral_program_controls.updated_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
     column: 'referral_attributions.program_id',
     reason:
       'The same stable program identity referral_programs.program_id carries, denormalized ' +

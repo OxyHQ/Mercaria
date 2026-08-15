@@ -978,3 +978,76 @@ export const referralEvents = pgTable(
     index('referral_events_subject_idx').on(t.subjectType, t.subjectId, t.createdAt),
   ],
 );
+
+/**
+ * `referral_program_controls` — the two operator levers on one program (#143
+ * link rule 8: "Let program operators disable redirect, attribution or both
+ * independently").
+ *
+ * ## Why a separate table rather than two columns on `referral_programs`
+ *
+ * A `referral_programs` row is a VERSION, and its terms are what an attribution
+ * pins (ADR 0005 D19). An operational switch living on that row would be a
+ * mutable field inside an otherwise frozen record, and flipping it during an
+ * incident would edit the terms somebody was attributed under. So the levers
+ * live on the STABLE `program_id` — the identity every version shares — and the
+ * versioned terms stay untouched.
+ *
+ * `program_id` therefore carries NO foreign key: `referral_programs`' unique is
+ * `(program_id, version)`, so there is no single-column target to point at.
+ * Deliberate, and the same reading as every `ID_COLUMNS_WITHOUT_FOREIGN_KEY`
+ * entry — the id is validated by the service against a real program before a
+ * row is written.
+ *
+ * ## Absence means BOTH ENABLED
+ *
+ * A program nobody has intervened on has no row here, and both levers read
+ * true. The inverse would make every freshly published program silently
+ * unusable until an operator discovered a table they had never heard of, and
+ * the domain is already bounded twice over — by `REFERRALS_ENABLED` and by the
+ * program's own status.
+ *
+ * ## What each lever stops, and what it deliberately does not
+ *
+ * `redirect_enabled = false` stops `GET /r/:token` resolving for this
+ * program's links. A code typed at checkout still attributes, because that is a
+ * different instrument reaching a different surface — which is what
+ * "independently" means.
+ *
+ * `attribution_enabled = false` stops NEW attributions and **still records the
+ * touch**. That is ADR 0005 D18's "gating loops and gates, never records" and
+ * the house rule it restates: an effect that did not happen must stay
+ * distinguishable from one that never arrived. Conversions against attributions
+ * that already exist are untouched — a lever is prospective (D16/D18), never
+ * retroactive.
+ */
+export const referralProgramControls = pgTable(
+  'referral_program_controls',
+  {
+    id: generatedId(),
+    /** The STABLE program identity, not a version row's id. */
+    programId: text().notNull(),
+    redirectEnabled: boolean().notNull().default(true),
+    attributionEnabled: boolean().notNull().default(true),
+    /** Mandatory actor — the `payment_repairs` and `referral_events` posture. */
+    updatedByOxyUserId: text().notNull(),
+    /** Why, in the operator's own words. Bounded like every stored reason here. */
+    reason: text().notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check(
+      'referral_program_controls_identity_check',
+      sql`length(${t.programId}) > 0 and length(${t.updatedByOxyUserId}) > 0`,
+    ),
+    check(
+      'referral_program_controls_reason_check',
+      sql`length(${t.reason}) > 0 and length(${t.reason}) <= ${sql.raw(String(MAX_REASON_LENGTH))}`,
+    ),
+    // ONE controls row per program: two rows could disagree about whether a
+    // lever is down, and an incident is exactly when nobody can afford to find
+    // out which one the reader picked.
+    uniqueIndex('referral_program_controls_program_id_key').on(t.programId),
+  ],
+);

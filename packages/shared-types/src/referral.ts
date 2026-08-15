@@ -479,6 +479,8 @@ export type ReferralEventAction =
   | 'program_resumed'
   | 'program_ended'
   | 'program_retired'
+  // #143: the two operator levers (redirect / attribution) on one program.
+  | 'program_controls_set'
   | 'partner_applied'
   | 'partner_invited'
   | 'partner_approved'
@@ -519,6 +521,7 @@ export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
   'program_resumed',
   'program_ended',
   'program_retired',
+  'program_controls_set',
   'partner_applied',
   'partner_invited',
   'partner_approved',

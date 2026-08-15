@@ -139,7 +139,23 @@ export type RateLimitScope =
   // lookup, and the PREVIEW half is unauthenticated and keyed on a merchant id,
   // so an unmetered surface is a way to walk the merchant id space and learn
   // roughly how much demand Mercaria carries for each of them.
-  | 'merchant-demand';
+  | 'merchant-demand'
+  // The public referral redirect (#143). Its own bucket (`rl:referral-redirect:`)
+  // and deliberately a GENEROUS one, for the reason `seo` has its own: a
+  // partner's link is pasted into a feed and fetched by every unfurler that
+  // sees it, then followed by everybody who clicks, and metering that on the
+  // general budget would make one popular post spend the allowance shoppers
+  // need. Nothing behind it writes commerce state — the heaviest write is one
+  // click counter — and the click CEILING on the link row is the bound that
+  // actually protects a partner's campaign, which a per-IP limiter cannot be.
+  | 'referral-redirect'
+  // Binding carried evidence or a typed code (#143). Keyed on the ACTOR rather
+  // than the IP, so a guest is bucketed per SESSION — and a much smaller
+  // budget than the redirect, because #143 code rule 5 asks for repeated code
+  // guessing and enumeration to be prevented, and a code is a short string
+  // somebody can iterate. Separate from the redirect so a crawl storm cannot
+  // exhaust the allowance a real buyer needs to type the code they were given.
+  | 'referral-bind';
 
 /** The shared, prefixed Redis store for a scope, or `undefined` without Redis. */
 function scopeStore(scope: RateLimitScope): RedisStore | undefined {

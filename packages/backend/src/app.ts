@@ -92,6 +92,9 @@ import internalAwinRouter from './routes/internal-awin.js';
 import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
+import referralRedirectRouter from './routes/referral-redirect.js';
+import referralsRouter from './routes/referrals.js';
+import internalReferralsRouter from './routes/internal-referrals.js';
 import guestSessionRouter from './routes/guest-session.js';
 import guestOrdersRouter from './routes/guest-orders.js';
 import analyticsRouter from './routes/analytics.js';
@@ -319,6 +322,25 @@ export function createApp(): express.Express {
   // native store at all. Not gated on any flag — a merchant page that cannot
   // say "claim this" is a dead end for the one person entitled to fix it.
   app.use('/merchant-claims', merchantClaimsRouter);
+  /**
+   * The referral edge (#143), gated by `REFERRALS_ENABLED`.
+   *
+   * The MOUNT and nothing else. Programs, partners, codes, links, touches,
+   * attributions and conversions already written are untouched by this lever —
+   * ADR 0005 D18's "gating loops and gates, never records" — and the operator
+   * surface below stays mounted while it is off, because the evidence has to be
+   * readable during the incident that turned it off.
+   *
+   * `/r` is deliberately its own short prefix rather than a path under
+   * `/referrals`: it is what a partner pastes into a post (ADR 0005 D3's
+   * `mercaria.co/r/<token>`), and it is the ONLY route here that a stranger
+   * reaches. The outbound external-offer redirect (#37/#67) is a different
+   * route that does not exist yet, and this one must not become it.
+   */
+  if (config.referrals.enabled) {
+    app.use('/r', referralRedirectRouter);
+    app.use('/referrals', referralsRouter);
+  }
   // Merchant → native store linkage (#84), where a verified claim ends. Also
   // outside `/admin`, and for a sharper reason than the claim surface has:
   // `loadStore` resolves `:storeId` from the PATH, while a linkage request
@@ -734,6 +756,16 @@ export function createApp(): express.Express {
   // vetted for. Empty = not mounted, 404 — see middleware/guest-operator-authz.ts.
   if (config.guest.operatorSurfaceEnabled) {
     app.use('/internal/guest-commerce', internalGuestCommerceRouter);
+  }
+  // The referral operator surface (#143), on a SEVENTH allow-list. Pausing a
+  // program's attribution stops partners earning and the trace says which
+  // partner was credited for which subject; an operator vetted to repair a
+  // payment or trace a cart merge has been vetted for neither. Empty = not
+  // mounted, 404 — see middleware/referral-operator-authz.ts. Deliberately NOT
+  // gated on `REFERRALS_ENABLED`: turning that off is exactly when somebody
+  // needs to read why.
+  if (config.referrals.operatorSurfaceEnabled) {
+    app.use('/internal/referrals', internalReferralsRouter);
   }
   // Client analytics ingestion (#77). Mounted UNCONDITIONALLY, unlike the guest
   // and Stripe routes above: a deployment that collects nothing answers 202 and

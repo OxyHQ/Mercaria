@@ -45,6 +45,7 @@ import {
   claimLinkClick,
   findCodeByCode,
   findCodeById,
+  findLinkById,
   findLinkByToken,
   type ReferralCodeRow,
 } from '../../db/referrals/instrumentRepository.js';
@@ -78,41 +79,129 @@ export interface LinkResolution {
 }
 
 /**
- * Resolve a signed link token and register the click as a touch.
+ * A link resolved to its live facts, with NOTHING written.
  *
- * Order matters and is deliberate: signature first (stateless, refuses
- * garbage before any read), then the ROW's lifecycle (the authority), then the
- * click-limit claim (one statement), then the program gate, then the touch.
+ * Split out for #143's redirect (`redirect.service.ts`), which must answer
+ * "where does this go, and may it go there" for a request that has no subject
+ * to attribute — an anonymous click. ADR 0003 T10 forbids minting a session
+ * merely to have somewhere to write, so the redirect resolves, hands the
+ * evidence to the browser in a purpose-specific carrier, and the touch is
+ * written later against the real subject.
  */
-export async function resolveLinkAndRegisterTouch(
+export interface ResolvedReferralLink {
+  linkId: string;
+  code: ReferralCodeRow;
+  version: ReferralProgramRow;
+  destination: ReferralDestination;
+  destinationPath: string;
+  disclosureRequired: boolean;
+  campaignRef?: string;
+  contentKey?: string;
+}
+
+/**
+ * Resolve a signed link token against its row, writing nothing.
+ *
+ * Order matters and is deliberate: signature first (stateless, refuses garbage
+ * before any read), then the ROW's lifecycle (the authority — a revoked link
+ * must die immediately whatever its token says), then the code, then the
+ * program gate.
+ *
+ * The click-limit CLAIM is deliberately not here: it is a write, and only the
+ * caller knows whether this request has earned one (a scanner has not).
+ */
+export async function resolveReferralLink(
+  db: DatabaseOrTransaction,
   token: string,
-  context: TouchContext,
-): Promise<LinkResolution> {
+  at: Date,
+): Promise<ResolvedReferralLink> {
   const claims = verifyReferralLinkToken(token);
-  const at = context.at ?? new Date();
+  const link = await findLinkByToken(db, token);
+  if (!link || link.id !== claims.linkId || link.codeId !== claims.codeId) {
+    // A verified signature over ids that resolve to nothing: a link from a
+    // database this deployment does not serve, or a revoked-and-swept row.
+    throw notFound('Referral link not found');
+  }
+  if (link.status !== 'active') {
+    throw conflict(`The referral link is ${link.status}`);
+  }
+  if (link.expiresAt !== null && link.expiresAt.getTime() <= at.getTime()) {
+    throw conflict('The referral link has expired');
+  }
+
+  const code = await findCodeById(db, link.codeId);
+  if (!code) throw notFound('Referral code not found');
+  const { version } = await requireTouchable(db, code, at);
+
+  const destination: ReferralDestination =
+    link.destinationType !== null
+      ? { destinationType: link.destinationType, destinationRef: link.destinationRef ?? undefined }
+      : code.destinationType !== null
+        ? { destinationType: code.destinationType, destinationRef: code.destinationRef ?? undefined }
+        : { destinationType: 'home' };
+
+  return {
+    linkId: link.id,
+    code,
+    version,
+    destination,
+    destinationPath: referralDestinationPath(destination),
+    disclosureRequired: link.disclosureRequired,
+    campaignRef: link.campaignRef ?? code.campaignRef ?? undefined,
+    contentKey: link.contentKey ?? code.contentKey ?? undefined,
+  };
+}
+
+/**
+ * Claim one click against a link's ceiling.
+ *
+ * `false` means the ceiling is reached (or the row left `active` between the
+ * resolve and here). Separated from {@link resolveReferralLink} so a
+ * non-organic request can be redirected WITHOUT spending a partner's budget —
+ * a scanner that burned a limited link's last click would cost the partner the
+ * campaign, silently.
+ */
+export async function claimReferralLinkClick(
+  db: DatabaseOrTransaction,
+  linkId: string,
+): Promise<boolean> {
+  const claimed = await claimLinkClick(db, linkId);
+  return claimed !== undefined;
+}
+
+/**
+ * Register a link touch for a click that has ALREADY been resolved and claimed
+ * — #143's deferred binding, where the click happened while the visitor was
+ * anonymous and a subject appeared later.
+ *
+ * The lifecycle is re-checked here rather than trusted from the carrier: a link
+ * revoked between the click and the bind must not produce a touch, and the
+ * carrier is signed evidence of a click, never a licence to write one.
+ */
+export async function registerLinkTouch(input: {
+  linkId: string;
+  codeId: string;
+  /** The CLICK instant, from the signed carrier — never the bind's clock. */
+  occurredAt: Date;
+  context: TouchContext;
+}): Promise<{ touch: ReferralTouchRow; disclosureRequired: boolean; version: ReferralProgramRow }> {
   const db = getDb();
   return await db.transaction(async (tx) => {
-    const link = await findLinkByToken(tx, token);
-    if (!link || link.id !== claims.linkId || link.codeId !== claims.codeId) {
-      // A verified signature over ids that resolve to nothing: a link from a
-      // database this deployment does not serve, or a revoked-and-swept row.
-      throw notFound('Referral link not found');
-    }
-    if (link.expiresAt !== null && link.expiresAt.getTime() <= at.getTime()) {
-      throw conflict('The referral link has expired');
-    }
-    const claimed = await claimLinkClick(tx, link.id);
-    if (!claimed) {
-      throw conflict(`The referral link is ${link.status === 'active' ? 'at its click limit' : link.status}`);
-    }
+    const link = await findLinkById(tx, input.linkId);
+    if (!link || link.codeId !== input.codeId) throw notFound('Referral link not found');
+    if (link.status !== 'active') throw conflict(`The referral link is ${link.status}`);
 
     const code = await findCodeById(tx, link.codeId);
     if (!code) throw notFound('Referral code not found');
+    // The program gate reads the clock at BIND time: a program retired between
+    // the click and the bind registers nothing, which is D18's prospective
+    // gating rather than a grandfathered click.
+    const at = input.context.at ?? new Date();
     const { version } = await requireTouchable(tx, code, at);
 
     const destination: ReferralDestination =
-      claimed.destinationType !== null
-        ? { destinationType: claimed.destinationType, destinationRef: claimed.destinationRef ?? undefined }
+      link.destinationType !== null
+        ? { destinationType: link.destinationType, destinationRef: link.destinationRef ?? undefined }
         : code.destinationType !== null
           ? { destinationType: code.destinationType, destinationRef: code.destinationRef ?? undefined }
           : { destinationType: 'home' };
@@ -120,19 +209,58 @@ export async function resolveLinkAndRegisterTouch(
     const touch = await writeTouch(tx, {
       version,
       code,
-      linkId: claimed.id,
+      linkId: link.id,
       touchKind: 'link_click',
       destination,
+      context: input.context,
+      // The CLICK is when the touch happened. Stamping the bind's clock would
+      // let a browser holding a carrier for four weeks re-anchor a 30-day
+      // window every time it presented one — #143 web rule 7, in the one place
+      // it could actually go wrong.
+      at: input.occurredAt,
+      campaignRef: link.campaignRef ?? code.campaignRef ?? undefined,
+      contentKey: link.contentKey ?? code.contentKey ?? undefined,
+    });
+    return { touch, disclosureRequired: link.disclosureRequired, version };
+  });
+}
+
+/**
+ * Resolve a signed link token and register the click as a touch, in one
+ * transaction — the path for a click whose request ALREADY carries a subject
+ * (a signed-in shopper, or a native client presenting its guest credential).
+ *
+ * Nothing is deferred in that case: there is a subject, so the evidence lands
+ * where ADR 0005 D6 says it should immediately and no carrier is needed.
+ */
+export async function resolveLinkAndRegisterTouch(
+  token: string,
+  context: TouchContext,
+): Promise<LinkResolution> {
+  const at = context.at ?? new Date();
+  const db = getDb();
+  return await db.transaction(async (tx) => {
+    const resolved = await resolveReferralLink(tx, token, at);
+    if (!(await claimReferralLinkClick(tx, resolved.linkId))) {
+      throw conflict('The referral link is at its click limit');
+    }
+
+    const touch = await writeTouch(tx, {
+      version: resolved.version,
+      code: resolved.code,
+      linkId: resolved.linkId,
+      touchKind: 'link_click',
+      destination: resolved.destination,
       context,
       at,
-      campaignRef: claimed.campaignRef ?? code.campaignRef ?? undefined,
-      contentKey: claimed.contentKey ?? code.contentKey ?? undefined,
+      campaignRef: resolved.campaignRef,
+      contentKey: resolved.contentKey,
     });
 
     return {
-      destinationPath: referralDestinationPath(destination),
+      destinationPath: resolved.destinationPath,
       touch,
-      disclosureRequired: claimed.disclosureRequired,
+      disclosureRequired: resolved.disclosureRequired,
     };
   });
 }
