@@ -26,10 +26,10 @@
 
 import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { constraintNameOf, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
-import { inventoryLevels, listings } from '../schema/catalog.js';
+import { inventoryLevels, listings, productVariants } from '../schema/catalog.js';
 import { collections, listingCollections } from '../schema/merchandising.js';
 import { favorites } from '../schema/buyers.js';
 import { deleteTestStores } from './store-teardown.js';
@@ -49,6 +49,7 @@ import {
   deleteVariant,
   findVariantBySourceInventoryItemId,
   findVariantsByListing,
+  findVariantsByListingAndSku,
   insertVariants,
   recomputeVariantRollup,
   reserveVariantScalar,
@@ -1187,5 +1188,183 @@ describe("migration 0071's collapse of pre-existing violators", () => {
       const sibling = await findVariantBySourceInventoryItemId('conn-2', 'item-3001', tx);
       expect(sibling?.id).toBe('d');
     });
+  });
+});
+
+/**
+ * #296 — a merchant SKU and a seller's observed barcode are unique at NO grain.
+ *
+ * The genesis migration carried `product_variants_sku_key` and
+ * `product_variants_barcode_key`, both UNIQUE over the whole table, ported
+ * straight from Mongo's `sparse: true, unique: true`. The barcode one made the
+ * premise the canonical catalogue rests on unreachable — two merchants selling
+ * one trade item share a GTIN by definition, so the second merchant to list a
+ * product simply could not list it. The SKU one refused a catalogue Shopify
+ * permits outright.
+ *
+ * Every case here writes through `insertVariants`, the repository the whole
+ * catalogue funnels through, and reads the rows BACK: a case that only asserted
+ * "no error was thrown" would pass identically against a writer that quietly
+ * stored NULL for both columns, which is the same green a working index would
+ * have produced for the row it refused.
+ */
+describe('SKU and barcode identity (#296)', () => {
+  const SHARED_SKU = 'SHARED-SKU';
+  const SHARED_BARCODE = '5901234123457';
+
+  /** One variant carrying the shared SKU and the shared barcode. */
+  function sharedIdentityVariant(title: string) {
+    return {
+      title,
+      sku: SHARED_SKU,
+      barcode: SHARED_BARCODE,
+      optionValues: [],
+      priceAmount: 1000,
+      priceCurrency: 'FAIR' as const,
+      inventoryTracked: true,
+      inventoryAvailable: 1,
+      position: 0,
+    };
+  }
+
+  /** Read the two identity columns back off the stored rows. */
+  async function storedIdentity(variantIds: readonly string[]) {
+    const rows = await db
+      .select({ id: productVariants.id, sku: productVariants.sku, barcode: productVariants.barcode })
+      .from(productVariants)
+      .where(inArray(productVariants.id, [...variantIds]));
+    return rows;
+  }
+
+  it('lets TWO STORES list one trade item — the whole premise of the comparison surface', async () => {
+    // The case the issue is named for. Under the dropped barcode unique the
+    // second store's insert raised 23505 and its product could not exist, so
+    // "several merchants offering one product" — what `offers`, the canonical
+    // graph and every price comparison are FOR — was a state the storage forbade.
+    const firstStore = await makeStore();
+    const secondStore = await makeStore();
+    const [first] = await insertVariants(await makeListing(firstStore), [
+      sharedIdentityVariant('First merchant'),
+    ]);
+    const [second] = await insertVariants(await makeListing(secondStore), [
+      sharedIdentityVariant('Second merchant'),
+    ]);
+
+    const stored = await storedIdentity([first.id, second.id]);
+    expect(stored).toHaveLength(2);
+    // BOTH columns, read back: the vacuity floor. `insertVariants` writes NULL
+    // for an empty string, so a fixture that lost its values would otherwise
+    // report this property from two rows that assert no identity at all.
+    expect(stored.every((row) => row.sku === SHARED_SKU)).toBe(true);
+    expect(stored.every((row) => row.barcode === SHARED_BARCODE)).toBe(true);
+  });
+
+  it('lets ONE STORE list one trade item twice, in two listings', async () => {
+    // A store re-listing the same item — a second condition, a second
+    // fulfilment arrangement, a duplicate a merchant will merge later. The
+    // table-wide unique refused this too, and a per-store one would have as well.
+    const storeId = await makeStore();
+    const [first] = await insertVariants(await makeListing(storeId), [
+      sharedIdentityVariant('Listing A'),
+    ]);
+    const [second] = await insertVariants(await makeListing(storeId), [
+      sharedIdentityVariant('Listing B'),
+    ]);
+
+    const stored = await storedIdentity([first.id, second.id]);
+    expect(stored).toHaveLength(2);
+    expect(stored.every((row) => row.sku === SHARED_SKU)).toBe(true);
+    expect(stored.every((row) => row.barcode === SHARED_BARCODE)).toBe(true);
+  });
+
+  it('lets ONE LISTING carry two variants sharing a SKU — the Shopify catalogue', async () => {
+    // Why the SKU index was NOT narrowed to `(listing_id, sku)`. Shopify
+    // enforces no SKU uniqueness at all, so one product legitimately carries two
+    // variants with one SKU and a connector has to import it; WooCommerce
+    // enforces it site-wide. The platforms disagree, and a constraint that has
+    // to be wrong sometimes is worse than one that does not exist.
+    //
+    // This is also the state `matchIncomingVariant` and `resolveInventoryVariant`
+    // refuse to guess between — the check the index was standing in for, moved
+    // to where it can name what it found.
+    const listingId = await makeListing(await makeStore());
+    const written = await insertVariants(listingId, [
+      sharedIdentityVariant('Small'),
+      { ...sharedIdentityVariant('Large'), position: 1 },
+    ]);
+
+    const stored = await storedIdentity(written.map((row) => row.id));
+    expect(stored).toHaveLength(2);
+    expect(stored.every((row) => row.sku === SHARED_SKU)).toBe(true);
+
+    // And the reader that used to be able to assume one answer now returns both,
+    // which is what makes the refusal above possible rather than merely intended.
+    const candidates = await findVariantsByListingAndSku(listingId, SHARED_SKU);
+    expect(candidates.map((row) => row.id).sort()).toEqual(
+      written.map((row) => row.id).sort(),
+    );
+  });
+
+  it('writes an EMPTY sku and barcode as NULL, and lets many NULLs coexist', async () => {
+    // `nullIfEmpty` (`db/catalog/variantRepository.ts`), pinned against a real
+    // server for the first time — and the drop is why it needed to be.
+    //
+    // `schema.realdb.test.ts` used to carry a "permits many NULL skus" case
+    // beside the SKU unique. It inserted rows with the `sku` key ABSENT, so it
+    // exercised the INDEX's NULL-distinctness and never `nullIfEmpty` at all;
+    // once the index went, that case would have asserted nothing about anything.
+    // This is the half of it that was always real, moved to the repository that
+    // owns the rule and made to go through it.
+    //
+    // The rule OUTLIVED the constraint that made it urgent, and got worse rather
+    // than moot. Under the unique, `''` was a VALUE and the second unlabelled
+    // variant collided loudly. With no unique, `''` is a SKU that every
+    // unlabelled variant SHARES — so `findVariantsByListingAndSku` would report a
+    // whole listing as ambiguous, and the barcode readers would take it for an
+    // identifier the seller never asserted.
+    const listingId = await makeListing(await makeStore());
+    const written = await insertVariants(listingId, [
+      { ...sharedIdentityVariant('Empty'), sku: '', barcode: '' },
+      { ...sharedIdentityVariant('Absent'), sku: undefined, barcode: undefined, position: 1 },
+    ]);
+
+    const stored = await storedIdentity(written.map((row) => row.id));
+    expect(stored).toHaveLength(2);
+    // NULL and not `''` — asserted with `toBeNull`, because `expect('').toBeFalsy()`
+    // would pass against exactly the value this refuses to store.
+    expect(stored.every((row) => row.sku === null)).toBe(true);
+    expect(stored.every((row) => row.barcode === null)).toBe(true);
+
+    // And both coexist, which is the surviving half of the retired case: two
+    // unlabelled variants of one listing are the ordinary state, and `''` would
+    // have made them two variants sharing a SKU.
+    const candidates = await findVariantsByListingAndSku(listingId, '');
+    expect(candidates).toHaveLength(0);
+  });
+
+  it('has neither index in the DATABASE, and CAN see one that is there', async () => {
+    // The one thing a functional test can never detect — the mirror of the #259
+    // case above. Every case here would pass unchanged against a schema file that
+    // dropped the declarations while the migration left the indexes standing,
+    // because these fixtures are small enough that a stale index refuses nothing
+    // they happen to write.
+    //
+    // The POSITIVE CONTROL is in the same statement: `absent` and `present` come
+    // from one scan of `pg_indexes`, so "we found no such index" cannot be what a
+    // query reading nothing at all reports.
+    const rows = await db.execute<{ indexname: string }>(
+      sql`select indexname from pg_indexes
+          where tablename = 'product_variants'
+            and indexname in (
+              'product_variants_sku_key',
+              'product_variants_barcode_key',
+              'product_variants_source_external_variant_key'
+            )`,
+    );
+    const found = rows.map((row) => row.indexname);
+
+    expect(found).not.toContain('product_variants_sku_key');
+    expect(found).not.toContain('product_variants_barcode_key');
+    expect(found).toContain('product_variants_source_external_variant_key');
   });
 });

@@ -76,6 +76,7 @@ import {
   updateVariant as updateVariantColumns,
 } from '../../db/catalog/variantRepository.js';
 import { findLevelsByVariant } from '../../db/catalog/inventoryLevelRepository.js';
+import { listSyncRunsForConnection } from '../../db/connectors/syncRunRepository.js';
 import { orders as ordersTable } from '../../db/schema/orders.js';
 import { decryptSecret } from '../../lib/connector-crypto.js';
 import {
@@ -1794,14 +1795,15 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         expect(kept?.inventoryAvailable).toBe(moved.available);
       });
 
-      it('case 9: an AMBIGUOUS legacy match refuses the product and writes NOTHING', async () => {
+      it('case 9: an AMBIGUOUS legacy match on the option TUPLE refuses the product and writes NOTHING', async () => {
         // The pre-provenance state the SKU/tuple fallback exists for, with two
         // rows it cannot tell apart. Picking one by map insertion order is what
         // the old matcher did, and the loser was silently unsold.
         //
-        // A duplicate SKU cannot be built here at all: `product_variants_sku_key`
-        // is unique table-wide, so the database already forbids that half of
-        // #259's case 9. The tuple has no such index, and is the reachable one.
+        // This is the TUPLE half. The SKU half is the case below, reachable
+        // since #296 dropped `product_variants_sku_key` — until then the
+        // database refused that state outright and this comment recorded it as
+        // unbuildable.
         const fixture = await makeFixture();
         await runBackfill(fixture.storeId, fixture.connection.id);
         const source = multiVariant(fixture);
@@ -1835,6 +1837,81 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         expect(after.map((variant) => variant.inventoryAvailable).sort()).toEqual(
           before.map((variant) => variant.inventoryAvailable).sort(),
         );
+        expect(after.map((variant) => variant.priceAmount).sort()).toEqual(
+          before.map((variant) => variant.priceAmount).sort(),
+        );
+      });
+
+      it('case 9: an AMBIGUOUS legacy match on a shared SKU refuses the product and NAMES its candidates', async () => {
+        // The half #259 could not build. `product_variants_sku_key` was a unique
+        // index over the WHOLE table, so two variants sharing a SKU was a state
+        // the database refused and this branch of `matchIncomingVariant` was
+        // dead code. #296 dropped it — a SKU is unique at no grain Mercaria can
+        // enforce, and one Shopify product carrying two variants with one SKU is
+        // an ordinary catalogue rather than a corruption — so the refusal is now
+        // reachable and is what stands between that catalogue and an arbitrary
+        // row being picked.
+        //
+        // Driven through the product WEBHOOK rather than a backfill on purpose:
+        // `runBackfill` catches a per-product failure and only LOGS the message,
+        // while `runWebhookUnit` records it on the `sync_runs` row — so the
+        // refusal can be read back rather than inferred from a counter that
+        // would look the same for any failure at all.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = multiVariant(fixture);
+        const listing = await importedListing(fixture, source.externalId);
+        const before = await findVariantsByListing(listing.id);
+        expect(before.length, 'the collision needs two rows to be between').toBeGreaterThan(1);
+        const sharedSku = source.variants[0].sku;
+        expect(sharedSku, 'the fixture multi-variant product must carry a SKU').toBeTruthy();
+
+        // Both rows carry the SKU the incoming first variant carries, and
+        // NEITHER carries provenance — so the exact source-id tier misses and
+        // the SKU tier is what answers. Option values are left ALONE, which is
+        // what keeps the tuple tier from being the thing that refuses: without
+        // that this case would pass identically with the SKU tier deleted.
+        for (const variant of before) {
+          await updateVariantColumns(
+            listing.id,
+            variant.id,
+            {
+              sku: sharedSku,
+              sourceConnectionId: null,
+              sourceProvider: null,
+              sourceExternalVariantId: null,
+              sourceExternalInventoryItemId: null,
+            },
+            undefined,
+          );
+        }
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productUpsert,
+          payload: harness.webhookProductPayload(fixture.world, source.externalId),
+        });
+
+        const [run] = await listSyncRunsForConnection(fixture.connection.id, 1);
+        expect(run?.kind).toBe('webhook');
+        expect(run?.status).toBe('failed');
+        // It NAMES what it found — the field it matched on and EVERY candidate
+        // row — so whoever reads it can see which two the catalogue cannot tell
+        // apart. A refusal saying only "ambiguous" would leave them looking.
+        expect(run?.error).toContain('sku');
+        for (const variant of before) {
+          expect(run?.error).toContain(variant.id);
+        }
+
+        // And it wrote NOTHING, which is the half a failed counter cannot show:
+        // the matching pass resolves every incoming variant BEFORE the write
+        // loop, so one ambiguity refuses the product rather than half-applying it.
+        const after = await findVariantsByListing(listing.id);
+        expect(after.map((variant) => variant.id).sort()).toEqual(
+          before.map((variant) => variant.id).sort(),
+        );
+        expect(after.every((variant) => variant.sku === sharedSku)).toBe(true);
+        expect(after.every((variant) => variant.sourceExternalVariantId === null)).toBe(true);
         expect(after.map((variant) => variant.priceAmount).sort()).toEqual(
           before.map((variant) => variant.priceAmount).sort(),
         );

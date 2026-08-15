@@ -30,9 +30,11 @@
  *    variants and levels joined that transaction with #221 — see
  *    `createStoreProduct` for the failure that made a listing with no variants
  *    an everyday outcome rather than a theoretical one.
- *  - **An absent SKU or barcode is written NULL, never `''`.** Both carry a
- *    PARTIAL unique index, and an empty string is a VALUE — the second variant
- *    saved without a SKU would collide with the first for real.
+ *  - **An absent SKU or barcode is written NULL, never `''`.** Both carried a
+ *    partial unique index until #296 dropped them, and the rule outlived the
+ *    constraint: an empty string is a VALUE where NULL is an absence, so `''`
+ *    is now a SKU every unlabelled variant shares rather than a collision — see
+ *    `insertVariants` for what that breaks.
  */
 
 import type {
@@ -43,9 +45,11 @@ import type {
   UpdateListingInput,
 } from '@mercaria/shared-types';
 import { SELLER_SETTABLE_LISTING_STATUSES } from '@mercaria/shared-types';
+import { isUniqueViolation } from '@oxyhq/db';
 import {
   findListingById,
   findListingChildren,
+  findListingHandleOwner,
   insertListing,
   recomputeListingFacets,
   replaceListingImages,
@@ -441,6 +445,79 @@ interface StoreProductInsert {
 }
 
 /**
+ * Turn a `listings_store_id_handle_key` violation into a refusal that NAMES the
+ * incumbent, or hand the original error back untouched (#292).
+ *
+ * A handle collision is reachable by three routes nobody had covered, and every
+ * one of them surfaced as a bare `23505` — or, through the connector rails, as the
+ * drizzle statement dump `lib/errors/merchant-facing.ts` documents:
+ *
+ *  1. A re-sync or re-push that MOVES a handle onto one another listing of the
+ *     same store already holds. One store, one connection, no second rail needed:
+ *     both rails' `toUpdatePatch` set `patch.handle`, which reaches
+ *     `updateListingColumns` — a plain `UPDATE … RETURNING` with no `onConflict`
+ *     and, until now, no `catch` anywhere on that path.
+ *  2. A merchant-created product colliding with an incoming slug.
+ *     `createStoreProductSchema` accepts `handle` and the create writes all four
+ *     `source_*` columns NULL, so there is no provenance row for a later sync to
+ *     converge onto and the collision is PERMANENT rather than self-healing.
+ *  3. Two connections of DIFFERENT providers on one store.
+ *     `connections_store_id_provider_key` bars a second connection of the SAME
+ *     provider and nothing else.
+ *
+ * The refusal is composed here rather than in either rail because
+ * {@link createStoreProduct} and {@link updateListing} are the only two writers of
+ * `listings.handle` in the repository — the P2P create writes it `null` and no
+ * other statement sets the column — so these two cover the merchant path, the pull
+ * rail and the push rail from one place.
+ *
+ * **The isolation posture is unchanged, deliberately.** The push rail refuses to
+ * catch this constraint at CREATE so that two genuinely different external
+ * products claiming one handle surface as a per-product failure rather than being
+ * silently suffixed, and that reasoning stands. What changes is that the
+ * per-product failure now says what it found: classify, rethrow, and the existing
+ * per-product `catch` isolates it exactly as before.
+ *
+ * It names the connection WITHOUT calling it "another" one. `updateListing` is not
+ * told which connection is syncing, so a message asserting the incumbent belongs
+ * to a DIFFERENT channel would be a guess — and on route 1, where the incumbent is
+ * a sibling of the same connection, it would be a false one. Naming it is true
+ * either way.
+ */
+async function asNamedHandleCollision(
+  err: unknown,
+  storeId: string,
+  handle: string | null | undefined,
+): Promise<unknown> {
+  if (handle == null || !isUniqueViolation(err, 'listings_store_id_handle_key')) {
+    return err;
+  }
+  const incumbent = await findListingHandleOwner(storeId, handle);
+  if (!incumbent) {
+    // The index fired and the holder is not there — it was deleted, or its handle
+    // moved, between the refusal and this read. Say only what was observed:
+    // inventing an incumbent would be worse than the raw error, because it would
+    // send somebody looking for a product that does not exist.
+    return conflict(
+      `The URL handle “${handle}” is already used by another product in this store. ` +
+        'That product could not be read back — it may have just changed. Retrying will ' +
+        'say which.',
+    );
+  }
+  const owner = incumbent.sourceConnectionId
+    ? `imported as “${incumbent.sourceExternalId}” from the ${incumbent.sourceProvider} ` +
+      `channel ${incumbent.sourceShopDomain ?? '(no shop domain recorded)'} ` +
+      `(connection ${incumbent.sourceConnectionId})`
+    : 'created directly in Mercaria, with no channel provenance — so no sync will ever ' +
+      'reconcile the two';
+  return conflict(
+    `The URL handle “${handle}” is already held by listing ${incumbent.listingId} ` +
+      `(${incumbent.status}), ${owner}. Change the handle on one of the two products; ` +
+      'Mercaria will not pick between them.',
+  );
+}
+
+/**
  * Write a store listing, its gallery, its options, its condition evidence, its
  * VARIANTS and their stock — all inside the CALLER's transaction.
  *
@@ -450,14 +527,21 @@ interface StoreProductInsert {
  * **The variant insert belongs INSIDE.** A listing with no variant is not a
  * sellable state anything should observe, and until #221 it was an everyday
  * outcome rather than a theoretical one: `insertVariants` ran after the
- * transaction committed, so a SKU another product already held —
- * `product_variants_sku_key` is unique over the whole table — left a listing
- * with nothing to sell. That was invisible while the provenance was also
- * written afterwards, because the leftover row carried no `source_connection_id`
- * and every provenance-scoped read stepped over it. With the provenance now on
- * the insert, the same leftover would be a fully-sourced product with nothing to
+ * transaction committed, so ANY refusal of the variant statement left a listing
+ * with nothing to sell. That was invisible while the provenance was also written
+ * afterwards, because the leftover row carried no `source_connection_id` and
+ * every provenance-scoped read stepped over it. With the provenance now on the
+ * insert, the same leftover would be a fully-sourced product with nothing to
  * sell, and `convergeVariants` returns early on a listing with zero variants —
  * so nothing would ever grow one.
+ *
+ * The refusal that made it an EVERYDAY outcome was
+ * `product_variants_sku_key`, a table-wide unique on `sku` — dropped by #296,
+ * because a SKU is unique at no grain Mercaria can enforce. What remains is
+ * rarer and none of it is theoretical: the currency and paired-money CHECKs, the
+ * money ceiling, `product_variants_source_external_variant_key`, and the
+ * condition gate `assertConditionAllowed` runs below. Each is a statement that
+ * can refuse AFTER the listing row exists, which is the whole property.
  *
  * **`syncListingFacets` deliberately stays OUTSIDE**, because it enqueues outbox
  * work (#57's offer convergence, #58's match) whose whole point is that it
@@ -646,22 +730,31 @@ export async function createStoreProduct(
   // listing and its variants have been committed without stock.
   const stockLocationId = opts.locationId ?? (await resolveDefaultLocationId(storeId));
 
-  const listing = await getDb().transaction((tx) =>
-    insertStoreProductWithin(tx, {
-      storeId,
-      input,
-      variants,
-      source,
-      status: opts.status ?? 'active',
-      stockLocationId,
-      categoryId,
-      categorySlugs,
-      resolvedCondition,
-      conditionColumns,
-      conditionActor,
-      now,
-    }),
-  );
+  let listing: ListingRecord;
+  try {
+    listing = await getDb().transaction((tx) =>
+      insertStoreProductWithin(tx, {
+        storeId,
+        input,
+        variants,
+        source,
+        status: opts.status ?? 'active',
+        stockLocationId,
+        categoryId,
+        categorySlugs,
+        resolvedCondition,
+        conditionColumns,
+        conditionActor,
+        now,
+      }),
+    );
+  } catch (err) {
+    // The incumbent is read AFTER the transaction has rolled back, on a fresh
+    // connection: one failed statement aborts the whole transaction (`25P02`), so
+    // a lookup issued from inside the callback would fail with THAT instead of
+    // reporting the real cause. Everything else is rethrown untouched (#292).
+    throw await asNamedHandleCollision(err, storeId, input.handle);
+  }
 
   // Everything below is a RECOMPUTE over what the transaction committed, and each
   // is idempotent, so none of it belongs inside: `syncListingFacets` requests the
@@ -774,45 +867,53 @@ export async function updateListing(
       (image) => image.fileId,
     );
 
-  await getDb().transaction(async (tx) => {
-    if (resolvedCondition && conditionColumns) {
-      await assertConditionAllowed(tx, {
-        resolved: resolvedCondition,
-        categoryId: columns.categoryId ?? listing.categoryId,
-        categorySlugs: columns.categorySlugs ?? listing.categorySlugs,
-      });
-      Object.assign(columns, conditionColumns);
-      // A seller-declared correction clears any source wording: the label
-      // belonged to a claim the source made, and the CHECK forbids one beside a
-      // `seller_declared` row.
-      if (resolvedCondition.assertion !== 'source_declared') {
-        columns.conditionSourceLabel = null;
+  try {
+    await getDb().transaction(async (tx) => {
+      if (resolvedCondition && conditionColumns) {
+        await assertConditionAllowed(tx, {
+          resolved: resolvedCondition,
+          categoryId: columns.categoryId ?? listing.categoryId,
+          categorySlugs: columns.categorySlugs ?? listing.categorySlugs,
+        });
+        Object.assign(columns, conditionColumns);
+        // A seller-declared correction clears any source wording: the label
+        // belonged to a claim the source made, and the CHECK forbids one beside a
+        // `seller_declared` row.
+        if (resolvedCondition.assertion !== 'source_declared') {
+          columns.conditionSourceLabel = null;
+        }
       }
-    }
 
-    if (Object.keys(columns).length > 0) {
-      await updateListingColumns(listingId, columns, tx);
-    }
-    if (patch.imageFileIds !== undefined) {
-      await replaceListingImages(listingId, toListingImages(patch.imageFileIds), tx);
-    }
+      if (Object.keys(columns).length > 0) {
+        await updateListingColumns(listingId, columns, tx);
+      }
+      if (patch.imageFileIds !== undefined) {
+        await replaceListingImages(listingId, toListingImages(patch.imageFileIds), tx);
+      }
 
-    if (resolvedCondition) {
-      await writeListingConditionEvidence(tx, {
-        listingId,
-        actor,
-        galleryFileIds,
-        resolved: resolvedCondition,
-        categoryId: columns.categoryId ?? listing.categoryId,
-        categorySlugs: columns.categorySlugs ?? listing.categorySlugs,
-        previous: {
-          key: narrowStoredCondition(listing.condition),
-          assertion: listing.conditionAssertion,
-        },
-        now,
-      });
-    }
-  });
+      if (resolvedCondition) {
+        await writeListingConditionEvidence(tx, {
+          listingId,
+          actor,
+          galleryFileIds,
+          resolved: resolvedCondition,
+          categoryId: columns.categoryId ?? listing.categoryId,
+          categorySlugs: columns.categorySlugs ?? listing.categorySlugs,
+          previous: {
+            key: narrowStoredCondition(listing.condition),
+            assertion: listing.conditionAssertion,
+          },
+          now,
+        });
+      }
+    });
+  } catch (err) {
+    // Route 1 of the three `asNamedHandleCollision` enumerates, and the one that
+    // had no `catch` on it at all: `columns.handle` reaches `updateListingColumns`
+    // as a plain `UPDATE … RETURNING`. The incumbent lookup runs outside the
+    // rolled-back transaction, for the reason `createStoreProduct` states (#292).
+    throw await asNamedHandleCollision(err, listing.storeId, columns.handle);
+  }
 
   // P2P price/quantity updates flow through the single variant, stored in its
   // NATIVE currency. Both target the FIRST variant by position, which is the one

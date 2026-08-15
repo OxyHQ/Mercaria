@@ -522,9 +522,9 @@ export const productVariants = pgTable(
       .notNull()
       .references(() => listings.id, { onDelete: 'cascade' }),
     title: text().notNull().default('Default Title'),
-    /** Sparse-unique in Mongo. Must be written NULL when absent, never `''`. */
+    /** Sparse-unique in Mongo, unique at NO grain here (#296). NULL when absent, never `''`. */
     sku: text(),
-    /** Sparse-unique in Mongo. Must be written NULL when absent, never `''`. */
+    /** Sparse-unique in Mongo, unique at NO grain here (#296). NULL when absent, never `''`. */
     barcode: text(),
     ...optionalMoney('price'),
     ...optionalMoney('compareAtPrice'),
@@ -560,8 +560,46 @@ export const productVariants = pgTable(
     ),
     index('product_variants_listing_id_position_idx').on(t.listingId, t.position),
     index('product_variants_listing_id_available_idx').on(t.listingId, t.inventoryAvailable),
-    uniqueIndex('product_variants_sku_key').on(t.sku).where(sql`${t.sku} is not null`),
-    uniqueIndex('product_variants_barcode_key').on(t.barcode).where(sql`${t.barcode} is not null`),
+    /**
+     * NEITHER `sku` NOR `barcode` carries a unique index, at any scope (#296).
+     *
+     * Both had one — table-wide and partial — from the genesis migration, ported
+     * straight from Mongo's `sparse: true, unique: true`. Both were an AMBIGUITY
+     * CHECK wearing a constraint's clothes, and both were wrong about what the
+     * column means.
+     *
+     * `barcode` is one seller's OBSERVATION of a trade-item identifier on one
+     * listing, and two merchants selling one trade item share a GTIN by
+     * definition — which is the premise the canonical catalogue, the offer model
+     * and the whole comparison surface rest on. A table-wide unique made that
+     * premise unreachable: the second merchant to list a product could not list
+     * it. GTIN identity belongs to `product_identifiers`, where
+     * `product_identifiers_canonical_active_key` is the collision gate and
+     * answers a second claimant with `disputed` plus a review item instead of a
+     * raw 23505.
+     *
+     * `sku` is a merchant's own code and is unique at NO grain Mercaria can
+     * enforce without refusing real data. Shopify enforces no SKU uniqueness at
+     * all, so one product legitimately carries two variants sharing a SKU;
+     * WooCommerce enforces it site-wide. The platforms disagree and a connector
+     * has to import both. It is deliberately NOT narrowed to `(listing_id, sku)`
+     * either — that is exactly the shape Shopify permits, and narrowing would
+     * keep half of #259's ambiguity handling permanently dead. This is the
+     * ruling `product_identifiers` already records one table over for MPN: a
+     * database constraint that has to be wrong sometimes is worse than one that
+     * does not exist.
+     *
+     * What the SKU index was standing in for IS a real check, and it now lives
+     * in the two places that can name what they found rather than in an index
+     * that could only refuse the write: `matchIncomingVariant` (the connector
+     * PULL rail) and `resolveInventoryVariant` (the push rail) both refuse to
+     * pick between several candidates.
+     *
+     * No replacement plain index either. The one `sku` predicate in the tree is
+     * `findVariantsByListingAndSku`, which leads with `listing_id` and rides
+     * `product_variants_listing_id_position_idx`; `barcode` is never a predicate
+     * anywhere — it is only ever selected by row id.
+     */
     // Map a connector `inventory_item_id` back to its Mercaria variant for the
     // inventory pull job and the `inventory_levels/update` webhook.
     index('product_variants_source_inventory_item_idx')

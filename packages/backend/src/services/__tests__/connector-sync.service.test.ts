@@ -31,6 +31,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ALL_LISTING_STATUSES, type SyncRunCounts } from '@mercaria/shared-types';
 import type { NormalizedProduct } from '../../connectors/types.js';
+import { validationError } from '../../lib/errors/error-codes.js';
+import { merchantFacingFailureMessage } from '../../lib/errors/merchant-facing.js';
 
 const findConnection = vi.fn();
 const markConnectionSynced = vi.fn();
@@ -171,7 +173,7 @@ function openedRun(connectionId: string, kind: string) {
  */
 function finishedRun(
   runId: string,
-  outcome: { status: string; counts: SyncRunCounts; error?: string },
+  outcome: { status: string; counts: SyncRunCounts; failure?: unknown },
 ) {
   return {
     ...openedRun(CONNECTION_ID, 'backfill'),
@@ -182,7 +184,12 @@ function finishedRun(
     countsSkipped: outcome.counts.skipped,
     countsFailed: outcome.counts.failed,
     finishedAt: new Date(),
-    error: outcome.error ?? null,
+    // The REAL classifier, because this row stands for what `finishSyncRun`
+    // writes and that function composes the message itself (#292). Spelling it
+    // `outcome.failure` as a string here would make the mock a second, kinder
+    // implementation of the one rule the column has.
+    error:
+      outcome.failure === undefined ? null : merchantFacingFailureMessage(outcome.failure),
   };
 }
 
@@ -320,7 +327,7 @@ beforeEach(() => {
     Promise.resolve(openedRun(connectionId, kind)),
   );
   finishSyncRun.mockImplementation(
-    (runId: string, outcome: { status: string; counts: SyncRunCounts; error?: string }) =>
+    (runId: string, outcome: { status: string; counts: SyncRunCounts; failure?: unknown }) =>
       Promise.resolve(finishedRun(runId, outcome)),
   );
   markConnectionSynced.mockResolvedValue(undefined);
@@ -597,7 +604,11 @@ describe('runBackfill — paging + guards', () => {
   it('records a failed run (does not throw) when a page fetch fails mid-run', async () => {
     findConnection.mockResolvedValue(mockConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
-    fetchProducts.mockRejectedValue(new Error('shopify 500'));
+    // What the provider ACTUALLY throws: every connector transport raises a
+    // `validationError`, and a bare `Error` here would make this case assert that
+    // an unclassified message reaches the merchant — which is the thing #292
+    // stopped.
+    fetchProducts.mockRejectedValue(validationError('shopify 500'));
 
     const run = await runBackfill(STORE_ID, CONNECTION_ID);
 

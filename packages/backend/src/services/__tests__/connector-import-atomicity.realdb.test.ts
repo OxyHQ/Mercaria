@@ -429,16 +429,27 @@ describe('createStoreProduct writes provenance and status in the listing’s OWN
 
   it('leaves NO listing behind when a VARIANT is refused', async () => {
     // The gap #221's fix exposed rather than created, and the reason the variants
-    // and their stock joined the create's transaction. `product_variants_sku_key`
-    // is unique over the WHOLE table, so a SKU another product already holds is
-    // the everyday failure — and it lands AFTER the listing row. While the
-    // provenance was written afterwards too, the leftover carried no
-    // `source_connection_id` and every provenance-scoped read stepped over it;
-    // with the provenance now on the insert, the same leftover would be a fully
-    // sourced product with nothing to sell, which the push-in path never grows a
-    // variant for.
+    // and their stock joined the create's transaction. The refusal has to land
+    // AFTER the listing row and BEFORE the commit, or this case measures the
+    // listing insert rather than the variant one.
+    //
+    // The provocation used to be a duplicate SKU, and #296 removed it: a SKU is
+    // unique at no grain now, so `product_variants_sku_key` no longer exists to
+    // refuse anything. `product_variants_source_external_variant_key` —
+    // `UNIQUE(source_connection_id, source_external_variant_id)`, #259's variant
+    // identity — is the successor and is a better fit for what this file is
+    // about: it is the connector's own key, and the two listings below differ in
+    // `sourceExternalId` precisely so the LISTING insert succeeds and the
+    // VARIANT insert is what fails. Two platform products claiming one variation
+    // id is what a bad normalizer or a re-keyed catalogue produces.
+    //
+    // While the provenance was written after the transaction too, the leftover
+    // carried no `source_connection_id` and every provenance-scoped read stepped
+    // over it; with the provenance now on the insert, the same leftover would be
+    // a fully sourced product with nothing to sell, which the push-in path never
+    // grows a variant for.
     const fixture = await makePullFixture();
-    const sku = `ATOMIC-SHARED-${uuidv7()}`;
+    const sharedVariationId = `atomic-variation-${uuidv7()}`;
     const product = (title: string, handle: string) => ({
       title,
       description: '',
@@ -451,25 +462,48 @@ describe('createStoreProduct writes provenance and status in the listing’s OWN
           optionValues: [],
           price: { amount: 500, currency: 'GBP' as const },
           inventory: { tracked: true, available: 1 },
-          sku,
+        },
+      ],
+    });
+    const importedAs = (externalId: string) => ({
+      locationId: fixture.locationId,
+      source: {
+        sourceConnectionId: fixture.connection.id,
+        sourceProvider: 'woocommerce' as const,
+        sourceExternalId: externalId,
+        sourceExternalUpdatedAt: null,
+      },
+      variantSources: [
+        {
+          sourceConnectionId: fixture.connection.id,
+          sourceProvider: 'woocommerce' as const,
+          sourceExternalVariantId: sharedVariationId,
+          sourceExternalInventoryItemId: null,
         },
       ],
     });
 
-    await createStoreProduct(fixture.storeId, product('First', 'first-product'), {
-      locationId: fixture.locationId,
-    });
+    await createStoreProduct(
+      fixture.storeId,
+      product('First', `first-product-${sharedVariationId}`),
+      importedAs(`atomic-product-a-${sharedVariationId}`),
+    );
 
     let caught: unknown;
     try {
-      await createStoreProduct(fixture.storeId, product('Second', 'second-product'), {
-        locationId: fixture.locationId,
-      });
+      await createStoreProduct(
+        fixture.storeId,
+        product('Second', `second-product-${sharedVariationId}`),
+        importedAs(`atomic-product-b-${sharedVariationId}`),
+      );
     } catch (error) {
       caught = error;
     }
 
-    expect(isUniqueViolation(caught, 'product_variants_sku_key')).toBe(true);
+    // By CONSTRAINT NAME, not by "some unique failed": a `listings_*` collision
+    // would refuse the listing insert instead and this case would pass while
+    // measuring nothing about the variant.
+    expect(isUniqueViolation(caught, 'product_variants_source_external_variant_key')).toBe(true);
     // ONE listing, not two: the second create left nothing at all.
     const rows = await listingsOf(fixture.storeId);
     expect(rows).toHaveLength(1);

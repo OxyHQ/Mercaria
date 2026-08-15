@@ -255,10 +255,9 @@ export function createContractWorld(init: {
  * variant on sale (a compare-at price) and one that is not, tracked stock at two
  * different levels, and more than one image.
  *
- * NOTHING reads this directly — {@link contractCatalogue} namespaces it first.
- * `product_variants_sku_key` is a unique index over the WHOLE table rather than
- * per store, so two cases importing the same fixture SKU collide, and the second
- * one fails inside `createStoreProduct` where it reads as a connector bug.
+ * NOTHING reads this directly — {@link contractCatalogue} namespaces its
+ * platform-side identifiers first, so no assertion a case makes can resolve
+ * against a neighbour's fixture in the shared database.
  */
 const PRODUCT_TEMPLATES: readonly ContractProduct[] = [
   {
@@ -383,13 +382,29 @@ const ORDER_TEMPLATES: readonly ContractOrder[] = [
 ];
 
 /**
- * The templates above with every externally-visible identifier namespaced.
+ * The templates above with every PLATFORM-SIDE identifier namespaced.
  *
- * A case's world has to be unique across the whole DATABASE, not just its own
- * store: `product_variants_sku_key` is table-wide, and a shared test database
- * carries every other suite's rows. Product, variant, inventory-item and order
- * ids are namespaced too, so nothing a case asserts can accidentally resolve
- * against a neighbour's fixture.
+ * One throwaway database serves the whole suite and vitest runs its files in
+ * parallel workers, so a case's world has to be distinguishable from every
+ * neighbour's. Product, variant, inventory-item and order ids are exactly what a
+ * row is looked up BY — `findListingBySourceExternalId`,
+ * `product_variants_source_external_variant_key`, the order provenance key — so
+ * two worlds sharing one would let an assertion resolve against somebody else's
+ * fixture.
+ *
+ * SKUs are deliberately NOT namespaced, and that is #296 rather than an
+ * oversight. The only reason they ever were is that `product_variants_sku_key`
+ * was a unique index over the WHOLE table, so two cases importing the same
+ * fixture SKU collided and the second failed inside `createStoreProduct`, where
+ * it read as a connector bug. That index is gone: a SKU is unique at no grain
+ * now, and the one thing that reads a variant by SKU
+ * (`findVariantsByListingAndSku`) is scoped to a single listing.
+ *
+ * The evidence that the namespacing tracked the INDEX and not any cross-case
+ * read is `barcode` in the templates above. It was never namespaced at all,
+ * under a unique that was equally table-wide — and nobody noticed, because
+ * WooCommerce publishes no barcode, so only one runner ever wrote one and its
+ * `afterEach` cleared it between cases.
  */
 export function contractCatalogue(namespace: string): {
   products: ContractProduct[];
@@ -404,7 +419,6 @@ export function contractCatalogue(namespace: string): {
         ...variant,
         externalVariantId: id(variant.externalVariantId),
         externalInventoryItemId: id(variant.externalInventoryItemId),
-        ...(variant.sku ? { sku: id(variant.sku) } : {}),
       })),
     })),
     orders: ORDER_TEMPLATES.map((order) => ({
@@ -414,7 +428,6 @@ export function contractCatalogue(namespace: string): {
         ...line,
         externalProductId: id(line.externalProductId),
         externalVariantId: id(line.externalVariantId),
-        ...(line.sku ? { sku: id(line.sku) } : {}),
       })),
     })),
   };

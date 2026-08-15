@@ -1,0 +1,49 @@
+-- oxy:deploy-phase=post
+--
+-- #296: `product_variants.sku` and `.barcode` stop being unique, at any scope.
+--
+-- `post`, and the reason is a READ rather than a write. "Does this break a write
+-- the previous image performs" answers NO here — a drop widens what is
+-- permitted, so every write the serving image makes still succeeds — and that
+-- question is not sufficient, because the serving image also READS this
+-- property, and OMITS a check because of it. `resolveInventoryVariant` calls
+-- `findVariantByListingAndSku` and takes the row it gets with no ambiguity
+-- check; that was safe only while the index guaranteed there was at most one.
+-- The refusal that replaces the guarantee exists in the ARRIVING image alone.
+--
+-- So applied `pre` this opens a window: the index is gone while the OLD image is
+-- still serving, its `insertVariants` accepts two same-SKU variants into one
+-- listing, and its `resolveInventoryVariant` then lands an absolute stock set on
+-- whichever row Postgres returns first. A wrong-variant inventory write, with no
+-- error, during our own deploy — and both the duplicate row and the wrong stock
+-- OUTLIVE it. Under `post` the new image carrying the refusal in the reader is
+-- live before the index goes, so the window does not exist; the cost is that for
+-- the length of the rollout a merchant pushing a duplicate SKU keeps getting the
+-- refusal they already get today. Bounded status quo against permanent silent
+-- corruption.
+--
+-- This is `migrate.ts`'s own rule ("anything that takes something away … applied
+-- early it is an outage on the image still serving"), and it does not conflict
+-- with AGENTS.md's breaks-a-write test: that test is written about a CHECK being
+-- NARROWED, where the only consumer of the constraint is the writer it refuses.
+-- An index a reader leans on has a second consumer, and this is it.
+--
+-- WHY BOTH GO. `barcode` is one seller's OBSERVATION of a trade-item identifier
+-- on one listing; two merchants selling one trade item share a GTIN by
+-- definition, which is the premise the canonical catalogue and the whole
+-- comparison surface rest on, and a table-wide unique made it unreachable.
+-- GTIN identity lives in `product_identifiers`, whose
+-- `product_identifiers_canonical_active_key` is the real collision gate and
+-- answers a second claimant with `disputed` plus a review item rather than a raw
+-- 23505. `sku` is a merchant's own code, unique at no grain Mercaria can enforce
+-- without refusing real data: Shopify enforces no SKU uniqueness at all and
+-- WooCommerce enforces it site-wide, and a connector imports both. Neither is
+-- replaced by a narrower index — see `db/schema/catalog.ts` for the full
+-- reasoning, and `db/schema/CONVENTIONS.md` for where it sits among the other
+-- identity decisions.
+--
+-- Nothing hand-written lives below, so a regeneration reproduces this file
+-- exactly; re-apply THIS HEADER after one.
+
+DROP INDEX "product_variants_sku_key";--> statement-breakpoint
+DROP INDEX "product_variants_barcode_key";

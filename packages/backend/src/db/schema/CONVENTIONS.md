@@ -347,6 +347,59 @@ the ONLY thing standing between an enforcement retry and a double takedown.
 from the removal it supersedes, and dropping it means an accepted appeal can
 never relist the item.
 
+### And a ported unique can be WRONG — `product_variants.sku`/`.barcode` (#296)
+
+The mapping above is mechanical in one direction only. A Mongo sparse-unique
+carried across faithfully still has to be asked whether the property it asserts
+is TRUE of the domain, and for these two it was not. Both were dropped by
+migration `0073` (`post`) and NEITHER is replaced at any scope.
+
+- **`barcode`** is one seller's OBSERVATION of a trade-item identifier on one
+  listing. Two merchants selling one trade item share a GTIN *by definition* —
+  which is the premise `offers`, the canonical graph and every price comparison
+  rest on — so a table-wide unique made the second merchant to list a product
+  unable to list it at all. Identity for a GTIN belongs to `product_identifiers`,
+  whose `product_identifiers_canonical_active_key` is the real collision gate and
+  answers a second claimant with `disputed` plus a review item rather than a raw
+  23505.
+- **`sku`** is a merchant's own code and is unique at no grain Mercaria can
+  enforce without refusing real data: Shopify enforces no SKU uniqueness at all
+  (one product legitimately carries two variants sharing a SKU), WooCommerce
+  enforces it site-wide, and a connector imports both. Deliberately NOT narrowed
+  to `(listing_id, sku)` either — that is exactly the shape Shopify permits. This
+  is `product_identifiers`' own ruling about MPN, one table over: **a database
+  constraint that has to be wrong sometimes is worse than one that does not
+  exist.**
+
+What the SKU index was actually doing was standing in for an AMBIGUITY CHECK,
+and an index can only refuse the write — it can never say what it found. The
+check now lives in the two places that can: `matchIncomingVariant` (the connector
+pull rail) and `resolveInventoryVariant` (the push rail) each refuse to pick
+between several candidates and name them. The rule to carry forward is the
+question, not the outcome: **before porting a unique, ask what a legitimate
+second row looks like.** If one exists, the constraint is a check in the wrong
+layer.
+
+`nullIfEmpty` on both columns survives the drop and its reason changed rather
+than disappearing — see `insertVariants`.
+
+**And the deploy phase is `post`, which the breaks-a-write test gets wrong.**
+That test — "does any statement here break a write the previously serving image
+performs" — answers NO for a dropped unique, because a drop widens what is
+permitted. It is not sufficient, and the reason generalises beyond this issue:
+**an index has two consumers, and the second one is a READER that omits a check
+because the index exists.** `resolveInventoryVariant` took the single row
+`findVariantByListingAndSku` returned and never asked whether there was more than
+one; that was safe only while the index guaranteed it. Applied `pre`, the drop
+lands while the OLD image is still serving, so it accepts a duplicate-SKU pair
+and then writes an absolute stock set to an arbitrary one of them — silently, and
+the bad row and the bad quantity both outlive the deploy. `post` puts the new
+image's refusal in front of the drop and costs only the rollout's worth of
+today's behaviour. `migrate.ts`'s own definition says the same thing in one line
+("anything that takes something away … applied early it is an outage on the image
+still serving"); when the two authorities disagree, compare the FAILURES rather
+than the diffs.
+
 ## Arrays and objects
 
 - A scalar array (tags, search terms) → a native `type[]`, with a GIN index
@@ -378,10 +431,13 @@ They are deliberately NOT encoded as CHECK constraints: a CHECK would reject
 existing production rows during the backfill and convert a silent normalization
 into a 500.
 
-The one to audit hardest is anything a UNIQUE constraint depends on — a SKU or a
-store handle that Mongoose lowercased on write is unique case-insensitively
-today and will not be once the normalization is gone. Either the call site
-normalizes, or the index is on `lower(col)`. Decide per column; do not assume.
+The one to audit hardest is anything a UNIQUE constraint depends on — a store
+handle or a connector provenance key that Mongoose lowercased on write is unique
+case-insensitively today and will not be once the normalization is gone. Either
+the call site normalizes, or the index is on `lower(col)`. Decide per column; do
+not assume. (`sku` was the first example this paragraph used, and it stopped
+being one when #296 dropped its unique — the audit is only owed where a
+constraint reads the normalized value.)
 
 `select: false` likewise does not survive — see the next section.
 
@@ -3548,6 +3604,7 @@ add a row when a gate lands, and do not list one that does not run yet.
 | The sales report buckets across a month boundary and sums only the store's shop currency | `src/db/__tests__/commerce.realdb.test.ts` | yes |
 | Both sequences format (`MRC-%06d` / `RMA-%06d`) and ascend independently, and no third one exists | `src/db/__tests__/commerce.realdb.test.ts`, `src/services/__tests__/draft-order-complete.realdb.test.ts` | yes |
 | The generated `search_vector` stems and case-folds TAGS, and keeps its GIN index across the column rewrite | `src/db/__tests__/catalog.realdb.test.ts` | yes |
+| Two STORES, two listings of one store, and two variants of ONE listing may each carry the same SKU and the same barcode — read BACK off the stored rows, so a writer that quietly nulled both could not pass — and neither dropped index is in `pg_indexes`, with a surviving sibling as the positive control (#296) | `src/db/__tests__/catalog.realdb.test.ts` | yes |
 | EXACTLY ONE purchase order survives two concurrent claims on one idempotency key, with one line set and one birth event | `src/db/procurement/__tests__/procurement.realdb.test.ts` | yes |
 | The procurement triggers hold: PO lines refuse UPDATE/DELETE, identity columns are immutable, money/destination freeze after `draft` — and both triggers EXIST in the catalogue (vacuity guard) | `src/db/procurement/__tests__/procurement.realdb.test.ts` | yes |
 | A pasted secret fails `credential_reference`'s path CHECK; one platform account maps to one Mercaria row; `(supplier, version)` is unique; an incomplete approval is refused by CHECK | `src/db/procurement/__tests__/procurement.realdb.test.ts` | yes |
@@ -3677,7 +3734,10 @@ mechanised yet. What was checked, and what each check is actually worth:
   independently checkable figures are the point: a test asserting only "a row
   came back" passes against a latitude/longitude swap. `ST_GeometryType` and
   `ST_SRID` are asserted too, since the typmod cannot be declared;
-- a partial unique index permits four NULL SKUs and rejects a duplicate value;
+- a partial unique index permits many NULL handles and rejects a duplicate
+  value — measured on `listings_store_id_handle_key` since #296 dropped the SKU
+  one this used to read, and #296's own case asserts the two dropped indexes are
+  ABSENT from `pg_indexes` with a still-present sibling as the positive control;
 - `UNIQUE(decision_id, revision, action)` rejects a replay AND permits a later
   revision's `restore`, which is the half that matters — a key without
   `revision` would pass the first assertion and fail the second;

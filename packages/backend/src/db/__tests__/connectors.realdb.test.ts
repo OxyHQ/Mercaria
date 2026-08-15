@@ -80,6 +80,7 @@ import {
   touchChannelApiKeyLastUsed,
 } from '../connectors/channelApiKeyRepository.js';
 import { finishSyncRun, insertSyncRun } from '../connectors/syncRunRepository.js';
+import { validationError } from '../../lib/errors/error-codes.js';
 import { insertLocation } from '../stores/locationRepository.js';
 import { insertStore } from '../stores/storeRepository.js';
 
@@ -1135,10 +1136,13 @@ describe('sync_runs', () => {
     // exist.
     expect(opened.startedAt).toBeInstanceOf(Date);
 
+    // A THROWN VALUE, not a message (#292). A `MercariaError` is one this
+    // repository composed, so `finishSyncRun`'s classifier keeps it verbatim —
+    // which is what makes the round-trip below still a round-trip.
     const closed = await finishSyncRun(opened.id, {
       status: 'failed',
       counts: { created: 1, updated: 2, skipped: 3, failed: 4 },
-      error: 'shopify 500',
+      failure: validationError('shopify 500'),
     });
 
     expect(closed.id).toBe(opened.id);
@@ -1159,7 +1163,7 @@ describe('sync_runs', () => {
     await finishSyncRun(opened.id, {
       status: 'failed',
       counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
-      error: 'transient',
+      failure: validationError('transient'),
     });
     const reclosed = await finishSyncRun(opened.id, {
       status: 'completed',

@@ -354,24 +354,49 @@ describe('the generated geography point', () => {
 });
 
 describe('partial unique indexes', () => {
-  it('permits many NULL skus and rejects a duplicate value', async () => {
-    for (let n = 0; n < 3; n += 1) {
-      await db.insert(productVariants).values({ id: uuidv7(), listingId: OBJECT_ID });
-    }
+  it('permits many NULL handles and rejects a duplicate value', async () => {
+    // This was `product_variants_sku_key` until #296 dropped it — a SKU is
+    // unique at no grain Mercaria can enforce without refusing real data, and
+    // the barcode unique went with it. The property being measured is the
+    // PARTIAL UNIQUE's, not the SKU's, so it moved to the nearest index that
+    // both survives and is load-bearing: `listings_store_id_handle_key` is what
+    // makes a stranded listing block its own re-import (#221) and what the
+    // push-in path surfaces as a genuine merchant conflict.
+    //
+    // The retired half was the DUPLICATE REJECTION, and what replaced it is not
+    // another index: it is a reader that refuses to guess. `matchIncomingVariant`
+    // (connector pull) and `resolveInventoryVariant` (push) each return every
+    // candidate and name them rather than taking one, which is the check the
+    // index was standing in for and could never perform.
+    //
+    // The other half — a nullable column holding many NULLs at once — did NOT
+    // move here, because it does not belong to an index at all once the index is
+    // gone. It is now `catalog.realdb.test.ts`'s `nullIfEmpty` case, which is
+    // where it becomes a real assertion: the version that stood here wrote rows
+    // with the `sku` key ABSENT, so it never passed a value through
+    // `nullIfEmpty` and after the drop would have asserted nothing whatever.
+    const nullHandles = await db
+      .select({ id: listings.id })
+      .from(listings)
+      .where(and(eq(listings.storeId, storeId), isNull(listings.handle)));
+    // Both listings this file created, neither of which states a handle.
+    expect(nullHandles).toHaveLength(2);
 
-    const nullSkus = await db
-      .select({ id: productVariants.id })
-      .from(productVariants)
-      .where(and(eq(productVariants.listingId, OBJECT_ID), isNull(productVariants.sku)));
-    // Three written here plus the big-amount variant, which carries no sku.
-    expect(nullSkus).toHaveLength(4);
-
-    const sku = `SKU-${storeId.slice(0, 8)}`;
-    await db.insert(productVariants).values({ id: uuidv7(), listingId: OBJECT_ID, sku });
+    const handle = `handle-${storeId.slice(0, 8)}`;
+    const withHandle = {
+      ownerType: 'store' as const,
+      storeId,
+      title: 'Handled listing',
+      description: 'carries a handle',
+      condition: 'new' as const,
+      conditionAssertion: 'seller_declared' as const,
+      handle,
+    };
+    await db.insert(listings).values({ id: uuidv7(), ...withHandle });
     // An empty string would NOT behave this way — it is a VALUE and collides for
     // real, which is why a sparse-unique column must be written NULL.
     await expectRefused(
-      () => db.insert(productVariants).values({ id: uuidv7(), listingId: OBJECT_ID, sku }),
+      () => db.insert(listings).values({ id: uuidv7(), ...withHandle }),
       'unique',
     );
   });

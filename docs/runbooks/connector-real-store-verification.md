@@ -302,9 +302,17 @@ variants carrying a barcode: 7 of 7, byte-identical
 **The LEADING ZERO survives**, carried as text end to end from
 `WC_Product::get_global_unique_id()` into the `barcode` column with no numeric
 coercion. A coercion would have produced `290000000081` — a different and
-*valid-looking* GTIN, silently, with nothing downstream to flag it. That matters
-because `product_variants_barcode_key` is globally unique (#296), so a mangled
-GTIN would collide against the wrong product rather than failing cleanly.
+*valid-looking* GTIN, silently, with nothing downstream to flag it.
+
+That matters MORE since #296, not less. This paragraph used to say the risk was
+`product_variants_barcode_key` colliding against the wrong product; that index is
+gone — a barcode is one seller's OBSERVATION of a trade item and several sellers
+naming one is the ordinary case, so nothing about the column is unique any more.
+A mangled GTIN therefore no longer collides with anything at all: it is stored,
+and it is matched against `product_identifiers` as an assertion about whatever
+OTHER trade item happens to carry the mangled value. The failure moved from a
+loud 23505 to a silent wrong match, which is what makes the byte-identical
+assertion above the check that matters.
 
 Fixture GTINs are EAN-13 in GS1's **`029`** restricted-distribution prefix,
 which is never assigned to a real product, so they cannot collide with a genuine
@@ -370,7 +378,10 @@ For every scenario below, record in a private document (not this repo):
 - the observable named in the table — a count, a status, a row id, a
   `sync_runs` id and its four tallies;
 - for a failure: the `sync_runs.error` string and the correlating log line, with
-  any identifier truncated to its last four characters.
+  any identifier truncated to its last four characters. Since #292 that string is
+  CLASSIFIED and bounded — a refusal Mercaria composed, or the rule and SQLSTATE a
+  write broke — and never the failing statement or its bound parameters, which is
+  what the log line carries. A `sync_runs.error` holding SQL is itself a finding.
 
 Do NOT record: access tokens, consumer keys/secrets, channel keys, webhook
 secrets, buyer emails, buyer addresses, or a full API response body.
@@ -766,7 +777,8 @@ All of it is fixed, in four parts.
 2. `listings_store_id_source_key_idx` is UNIQUE (migration `0070`, `post`), so
    two concurrent deliveries for one external id can no longer both create. The
    loser re-reads and converges; a `listings_store_id_handle_key` collision still
-   fails the product, deliberately.
+   fails the product, deliberately — naming the incumbent listing and the
+   connection holding the handle since #292.
 3. An unreadable provider timestamp OMITS the field, and a legitimately ZONED one
    is read at its own offset rather than discarded — discarding it would erase
    the stored freshness on every later sync (`connectors/timestamps.ts`).

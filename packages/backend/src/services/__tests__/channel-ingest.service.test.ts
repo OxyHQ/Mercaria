@@ -43,7 +43,7 @@ const insertSyncRun = vi.fn();
 const finishSyncRun = vi.fn();
 const findListingBySourceExternalId = vi.fn();
 const updateListingColumns = vi.fn();
-const findVariantByListingAndSku = vi.fn();
+const findVariantsByListingAndSku = vi.fn();
 const findVariantsByListing = vi.fn();
 const createStoreProduct = vi.fn();
 const updateListing = vi.fn();
@@ -68,7 +68,7 @@ vi.mock('../../db/catalog/listingRepository.js', () => ({
   updateListingColumns: (...args: unknown[]) => updateListingColumns(...args),
 }));
 vi.mock('../../db/catalog/variantRepository.js', () => ({
-  findVariantByListingAndSku: (...args: unknown[]) => findVariantByListingAndSku(...args),
+  findVariantsByListingAndSku: (...args: unknown[]) => findVariantsByListingAndSku(...args),
   findVariantsByListing: (...args: unknown[]) => findVariantsByListing(...args),
 }));
 vi.mock('../catalog-write.service.js', () => ({
@@ -97,6 +97,8 @@ import {
   ingestProducts,
   isKnownConnectorProvider,
 } from '../channel-ingest.service.js';
+import { conflict } from '../../lib/errors/error-codes.js';
+import { MERCHANT_FACING_MESSAGE_MAX_LENGTH } from '../../lib/errors/merchant-facing.js';
 
 const STORE_ID = 'store-1';
 const CONNECTION_ID = 'conn-1';
@@ -376,7 +378,11 @@ describe('ingestProducts — idempotency + failure isolation', () => {
     findConnection.mockResolvedValue(pushInConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct
-      .mockRejectedValueOnce(new Error('duplicate handle'))
+      // A `MercariaError`, because that is what `createStoreProduct` throws — a
+      // handle collision now arrives as the named refusal `asNamedHandleCollision`
+      // composes (#292). A bare `Error` here would assert that an unclassified
+      // upstream message reaches the merchant, which it deliberately no longer does.
+      .mockRejectedValueOnce(conflict('duplicate handle'))
       .mockResolvedValueOnce('listing-ok');
 
     const result = await ingestProducts(
@@ -496,7 +502,7 @@ describe('ingestInventory', () => {
   it('maps a multi-variant listing by SKU', async () => {
     findConnection.mockResolvedValue(pushInConnection());
     findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
-    findVariantByListingAndSku.mockResolvedValue({ id: 'var-2', listingId: 'listing-1' });
+    findVariantsByListingAndSku.mockResolvedValue([{ id: 'var-2', listingId: 'listing-1' }]);
 
     await ingestInventory(
       STORE_ID,
@@ -504,7 +510,7 @@ describe('ingestInventory', () => {
       inventoryBody([{ externalId: 'woo-1', sku: 'SKU-2', available: 3 }]),
     );
 
-    expect(findVariantByListingAndSku).toHaveBeenCalledWith('listing-1', 'SKU-2');
+    expect(findVariantsByListingAndSku).toHaveBeenCalledWith('listing-1', 'SKU-2');
     expect(setAvailable).toHaveBeenCalledWith('var-2', 'listing-1', 'loc-1', 3);
     expect(findVariantsByListing).not.toHaveBeenCalled();
   });
@@ -512,7 +518,7 @@ describe('ingestInventory', () => {
   it('skips an item whose SKU matches no variant of the mapped listing', async () => {
     findConnection.mockResolvedValue(pushInConnection());
     findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
-    findVariantByListingAndSku.mockResolvedValue(null);
+    findVariantsByListingAndSku.mockResolvedValue([]);
 
     const result = await ingestInventory(
       STORE_ID,
@@ -538,6 +544,75 @@ describe('ingestInventory', () => {
     expect(result.results[0]).toEqual({ externalId: 'missing', action: 'skipped' });
   });
 
+  it('REFUSES an item whose SKU matches several variants, and says so distinguishably', async () => {
+    // #296. `product_variants_sku_key` used to make this state unreachable, so
+    // the SKU lookup could take the first row `.limit(1)` returned and be right
+    // by construction. With the index gone the same code would set one arbitrary
+    // variant's stock from another variant's count — silently, and only on the
+    // catalogues the constraint used to refuse outright.
+    findConnection.mockResolvedValue(pushInConnection());
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
+    findVariantsByListingAndSku.mockResolvedValue([
+      { id: 'var-a', listingId: 'listing-1' },
+      { id: 'var-b', listingId: 'listing-1' },
+    ]);
+
+    const result = await ingestInventory(
+      STORE_ID,
+      CONNECTION_ID,
+      inventoryBody([{ externalId: 'woo-1', sku: 'SHARED', available: 3 }]),
+    );
+
+    expect(setAvailable).not.toHaveBeenCalled();
+    // Its own action, NOT `skipped`: "we could not find it" and "we found
+    // several and will not guess" send a merchant to opposite places.
+    expect(result.results[0].action).toBe('ambiguous');
+    // And it names them, so the merchant can go and de-duplicate exactly those.
+    expect(result.results[0].error).toContain('SHARED');
+    expect(result.results[0].error).toContain('var-a');
+    expect(result.results[0].error).toContain('var-b');
+    // Counted as a failure rather than a skip — nothing was applied and a person
+    // has to act — which is also what makes an all-ambiguous run report `failed`.
+    expect(closedRun()).toEqual({
+      status: 'failed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
+    });
+  });
+
+  it('bounds the ambiguous message, which is unbounded in its CANDIDATE list', async () => {
+    // The `sku` is capped at 120 by `ingestInventorySchema`; the candidate list is
+    // not capped by anything but `maxVariantsPerProduct`, which defaults to 100.
+    // So this is a shape a merchant can legitimately have — one listing whose
+    // variants all carry one SKU — and it composes ~3,900 characters straight into
+    // the ingest response, nearly four times the 1065-character `sync_runs` rows
+    // #292 exists to stop.
+    const candidates = Array.from({ length: 100 }, (_, i) => ({
+      id: `01a0041c-8a6c-79f0-9770-57acecb7${String(i).padStart(4, '0')}`,
+      listingId: 'listing-1',
+    }));
+    findConnection.mockResolvedValue(pushInConnection());
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
+    findVariantsByListingAndSku.mockResolvedValue(candidates);
+
+    const result = await ingestInventory(
+      STORE_ID,
+      CONNECTION_ID,
+      inventoryBody([{ externalId: 'woo-1', sku: 'SHARED', available: 3 }]),
+    );
+
+    const message = result.results[0].error as string;
+    // POSITIVE CONTROL: the unbounded composition really would have been enormous,
+    // so the ceiling below is measuring a cut rather than a short message.
+    expect(candidates.map((c) => c.id).join(', ').length).toBeGreaterThan(3000);
+    expect(result.results[0].action).toBe('ambiguous');
+    expect(message.length).toBe(MERCHANT_FACING_MESSAGE_MAX_LENGTH);
+    expect(message.endsWith('…')).toBe(true);
+    // Still useful after the cut: the count and the SKU lead the sentence, so the
+    // merchant learns what happened even when the id list is truncated.
+    expect(message).toContain('100 variants');
+    expect(message).toContain('SHARED');
+  });
+
   it('skips a multi-variant listing when no SKU disambiguates it', async () => {
     findConnection.mockResolvedValue(pushInConnection());
     findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
@@ -553,6 +628,10 @@ describe('ingestInventory', () => {
     );
 
     expect(setAvailable).not.toHaveBeenCalled();
+    // `skipped` and deliberately NOT `ambiguous`, which is the case above. This
+    // item named a product and said nothing about which of its variants it
+    // meant, so the merchant's fix is to send a SKU; `ambiguous` says the
+    // CATALOGUE cannot tell two rows apart, whose fix is to de-duplicate it.
     expect(result.results[0].action).toBe('skipped');
   });
 });

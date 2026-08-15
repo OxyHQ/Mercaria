@@ -491,7 +491,9 @@ descriptor that stopped reporting limitations at all can pass.
    loser now RE-READS and converges through the update branch. It is matched by
    CONSTRAINT NAME, so a `listings_store_id_handle_key` collision still fails
    the product: two genuinely different external products claiming one handle is
-   a real merchant conflict, and no handle dedup was added.
+   a real merchant conflict, and no handle dedup was added. Since #292 that
+   failure NAMES the incumbent listing and the connection holding the handle
+   (`asNamedHandleCollision`) instead of surfacing as a bare `23505`.
 3. **The timestamp trigger.** `connectors/timestamps.ts` appends `Z` only to a
    value carrying NO zone of its own, then omits what is still unreadable.
    Omitting a legitimately-zoned value would be a data LOSS rather than caution:

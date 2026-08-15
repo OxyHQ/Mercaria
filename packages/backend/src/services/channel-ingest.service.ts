@@ -60,8 +60,8 @@ import {
   type ListingSourceProvenance,
 } from '../db/catalog/listingRepository.js';
 import {
-  findVariantByListingAndSku,
   findVariantsByListing,
+  findVariantsByListingAndSku,
 } from '../db/catalog/variantRepository.js';
 import { createStoreProduct, updateListing } from './catalog-write.service.js';
 import { setAvailable } from './inventory.service.js';
@@ -73,6 +73,10 @@ import {
 } from './connector-sync.service.js';
 import { applyPriceRules, type PriceRules } from '../utils/money.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
+import {
+  boundMerchantFacingMessage,
+  merchantFacingFailureMessage,
+} from '../lib/errors/merchant-facing.js';
 import { log } from '../lib/logger.js';
 
 /** True when a raw route param is one of the known connector provider ids. */
@@ -296,7 +300,10 @@ async function upsertProduct(
       // RE-READS and converges through the update branch. A
       // `listings_store_id_handle_key` violation is deliberately NOT caught here:
       // two genuinely different external products claiming one handle is a real
-      // merchant conflict and must surface as a per-product failure.
+      // merchant conflict and must surface as a per-product failure. It is
+      // CLASSIFIED one layer down — `createStoreProduct` rethrows it as a refusal
+      // naming the incumbent (#292) — so what arrives here is a `MercariaError`
+      // rather than a raw `23505`, and the isolation below is unchanged.
       if (!isUniqueViolation(err, 'listings_store_id_source_key_idx')) {
         throw err;
       }
@@ -373,9 +380,13 @@ export async function ingestProducts(
     } catch (err) {
       counts.failed += 1;
       results.push({
+        // The SAME defect `sync_runs.error` had, on a different carriage: this
+        // string is returned in the ingest response the plugin shows a merchant,
+        // and `err.message` for a drizzle failure is the statement plus its bound
+        // parameters. One classifier for both, so the two cannot diverge (#292).
         externalId: product.externalId,
         action: 'failed',
-        error: err instanceof Error ? err.message : 'Ingest failed',
+        error: merchantFacingFailureMessage(err),
       });
       log.general.warn(
         { err, connectionId, externalId: product.externalId },
@@ -389,32 +400,74 @@ export async function ingestProducts(
   return { results };
 }
 
-/** Resolve the variant an inventory item maps to, or null when unmappable. */
+/**
+ * The variant an inventory item maps to, or WHY it maps to none.
+ *
+ * A STRING discriminant rather than a nullable row or a boolean flag: this
+ * backend compiles with `strict: false`, so TypeScript does not narrow a union
+ * on the truthiness of a boolean-literal member and the caller would be handed
+ * the whole thing — the finding #68 and #110 each hit on their first typecheck.
+ */
+type InventoryVariantResolution =
+  | { readonly outcome: 'mapped'; readonly listingId: string; readonly variantId: string }
+  | { readonly outcome: 'unmapped' }
+  | {
+      readonly outcome: 'ambiguous';
+      readonly sku: string;
+      readonly candidateIds: readonly string[];
+    };
+
+/** Resolve the variant an inventory item maps to. */
 async function resolveInventoryVariant(
   conn: ConnectionRow,
   item: { externalId: string; sku?: string },
-): Promise<{ listingId: string; variantId: string } | null> {
+): Promise<InventoryVariantResolution> {
   const listing = await findListingBySourceExternalId(
     conn.storeId,
     conn.id,
     item.externalId,
   );
   if (!listing) {
-    return null;
+    return { outcome: 'unmapped' };
   }
   const listingId = listing.id;
 
   if (item.sku) {
-    const variant = await findVariantByListingAndSku(listingId, item.sku);
-    return variant ? { listingId, variantId: variant.id } : null;
+    const candidates = await findVariantsByListingAndSku(listingId, item.sku);
+    if (candidates.length === 1) {
+      return { outcome: 'mapped', listingId, variantId: candidates[0].id };
+    }
+    if (candidates.length > 1) {
+      // #296. A SKU is unique at no grain the database enforces, so several rows
+      // of one listing can carry it — the shape Shopify permits and this rail
+      // imports. Until the ambiguity was representable, `findVariantByListingAndSku`
+      // took the first row `.limit(1)` returned: an arbitrary variant's stock set
+      // from another variant's count, with nothing anywhere saying a choice had
+      // been made. Refusing is what the PULL rail's `matchIncomingVariant` has
+      // always done (`ambiguousVariantMatchError`) and what the no-SKU branch
+      // below does.
+      return {
+        outcome: 'ambiguous',
+        sku: item.sku,
+        candidateIds: candidates.map((candidate) => candidate.id),
+      };
+    }
+    return { outcome: 'unmapped' };
   }
 
   // No SKU: only unambiguous for a single-variant product.
+  //
+  // Several variants here is deliberately NOT `ambiguous`, and the difference is
+  // the merchant's REMEDY rather than tidiness. This item named a product and
+  // said nothing about which of its variants it meant, so the fix is to send a
+  // SKU. `ambiguous` says the CATALOGUE cannot tell two rows apart, and its fix
+  // is to de-duplicate that catalogue. Reporting the first as the second sends
+  // somebody to repair a catalogue that is fine.
   const variants = await findVariantsByListing(listingId);
   if (variants.length !== 1) {
-    return null;
+    return { outcome: 'unmapped' };
   }
-  return { listingId, variantId: variants[0].id };
+  return { outcome: 'mapped', listingId, variantId: variants[0].id };
 }
 
 /**
@@ -422,7 +475,9 @@ async function resolveInventoryVariant(
  * to a connector-sourced listing's variant (by `externalId`, disambiguated by
  * `sku` for multi-variant products) and sets its `available` at the connection's
  * target location (falling back to the store default) through the race-safe
- * inventory service. An unmappable item is skipped; a per-item failure is isolated.
+ * inventory service. An unmappable item is skipped, an item whose SKU matches
+ * SEVERAL variants of the mapped listing is reported `ambiguous` and applied to
+ * none of them, and a per-item failure is isolated.
  * Records a `SyncRun` (`inventory_sync`).
  */
 export async function ingestInventory(
@@ -440,9 +495,33 @@ export async function ingestInventory(
   for (const item of input.items) {
     try {
       const mapping = await resolveInventoryVariant(conn, item);
-      if (!mapping) {
+      if (mapping.outcome === 'unmapped') {
         counts.skipped += 1;
         results.push({ externalId: item.externalId, action: 'skipped' });
+        continue;
+      }
+      if (mapping.outcome === 'ambiguous') {
+        // Counted as FAILED and not as skipped: nothing was applied and a person
+        // has to act. `SyncRunCounts` has four buckets and a fifth would be a
+        // `sync_runs` column plus every dashboard that reads one; what the
+        // merchant acts on is the per-item `action`, which says exactly which of
+        // "we found none" and "we found several" this was.
+        counts.failed += 1;
+        results.push({
+          externalId: item.externalId,
+          action: 'ambiguous',
+          // Through the same bound as every other merchant-facing string here
+          // (#292). Not `merchantFacingFailureMessage`: this is a composed
+          // sentence rather than a thrown value, and that door would classify a
+          // plain string as unrecognised and replace it wholesale. The part that
+          // needs the ceiling is the CANDIDATE LIST, not the `sku` the schema
+          // caps at 120 — one uuid per variant sharing the SKU, bounded only by
+          // `maxVariantsPerProduct` (100 by default, ≈3,900 characters).
+          error: boundMerchantFacingMessage(
+            `${mapping.candidateIds.length} variants of this product share SKU ` +
+              `${mapping.sku} (${mapping.candidateIds.join(', ')}) — refusing to pick one`,
+          ),
+        });
         continue;
       }
       await setAvailable(mapping.variantId, mapping.listingId, locationId, item.available);
@@ -453,7 +532,7 @@ export async function ingestInventory(
       results.push({
         externalId: item.externalId,
         action: 'failed',
-        error: err instanceof Error ? err.message : 'Inventory ingest failed',
+        error: merchantFacingFailureMessage(err),
       });
       log.general.warn(
         { err, connectionId, externalId: item.externalId },
