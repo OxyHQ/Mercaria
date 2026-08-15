@@ -342,7 +342,16 @@ export interface SyncRun {
   startedAt: string;
   /** ISO-8601 time the run finished, when it has. */
   finishedAt?: string;
-  /** Failure message when `status === 'failed'`. */
+  /**
+   * Why the run did not fully land.
+   *
+   * On a `failed` run this is the failure that stopped it. On a `completed` one
+   * it is present exactly when `counts.failed > 0`, naming the records that were
+   * refused and why — because `completed` beside a non-zero tally is otherwise a
+   * report that reads as clean while a product is missing (#294). Render it
+   * whenever it is present; keying on `status === 'failed'` hides the case it
+   * was added for.
+   */
   error?: string;
 }
 
@@ -401,7 +410,13 @@ export interface IngestProductVariant {
   sku?: string;
   /** Barcode (UPC/EAN/ISBN…). */
   barcode?: string;
-  /** Inventory snapshot; `available` defaults to 0 when omitted. */
+  /**
+   * Inventory snapshot. PRESENT means the client is asserting a tracked stock
+   * figure — including `{ available: 0 }`, which means tracked and sold out.
+   * ABSENT means the client does not track stock for this variant, and the
+   * variant is stored UNTRACKED (sellable, no quantity counted) rather than at
+   * zero — an omission is not an assertion that nothing is for sale (#293).
+   */
   inventory?: { available: number };
 }
 

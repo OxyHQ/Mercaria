@@ -44,6 +44,7 @@ vi.mock('@oxyhq/core/server', async () => {
   return { ...actual, getRequiredOxyUserId: () => OWNER_USER };
 });
 
+import { config } from '../../config/index.js';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { categories, listings } from '../../db/schema/catalog.js';
 import { connections } from '../../db/schema/connectors.js';
@@ -54,6 +55,8 @@ import { insertLocation } from '../../db/stores/locationRepository.js';
 import { findListingsBySourceConnection } from '../../db/catalog/listingRepository.js';
 import { findVariantsByListing } from '../../db/catalog/variantRepository.js';
 import { upsertConnection } from '../../db/connectors/connectionRepository.js';
+import { listSyncRunsForConnection } from '../../db/connectors/syncRunRepository.js';
+import { deriveChannelReadiness } from '../channels/channel-readiness.js';
 import { connectPushIn } from '../channel-ingest.service.js';
 import { generateKey, listKeys, revokeKey } from '../channel-key.service.js';
 import channelIngestRouter from '../../routes/channels-ingest.js';
@@ -298,6 +301,298 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     const imported = await findListingsBySourceConnection(storeId, connection.id);
     const variants = await findVariantsByListing(imported[0].id);
     expect(variants[0].inventoryAvailable).toBe(9);
+  });
+
+  it('PROPAGATES a pushed price change to an already-imported listing (#291)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    await ingest(`/${connection.id}/products`, key, { products: [pushProduct(namespace)] });
+
+    // The SAME product, at a new price and with a compare-at that did not exist
+    // before — which is what a merchant editing their WooCommerce shop produces.
+    // A repeat push of a known `externalId` takes the UPDATE branch, and that
+    // branch reached no variant at all: stock kept arriving through the inventory
+    // endpoint while the price silently never moved.
+    const second = await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(namespace, {
+          variants: [
+            {
+              sku: `PUSH-${namespace}`,
+              price: { amount: 1900, currency: 'GBP' },
+              compareAtPrice: { amount: 2400, currency: 'GBP' },
+              inventory: { available: 4 },
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(JSON.parse(second.text).data.results[0].action).toBe('updated');
+    const [imported] = await findListingsBySourceConnection(storeId, connection.id);
+    const [variant] = await findVariantsByListing(imported.id);
+    expect(variant.priceAmount).toBe(1900);
+    expect(variant.compareAtPriceAmount).toBe(2400);
+    // The listing's own facet follows, because the write goes through the
+    // catalog funnel rather than straight at the column.
+    expect(imported.priceRangeMinAmount).toBe(1900);
+  });
+
+  it('NEVER creates or removes a variant from a push, whose list may be partial (#291)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(namespace, {
+          variants: [
+            {
+              sku: `PUSH-${namespace}-A`,
+              price: { amount: 1000, currency: 'GBP' },
+              optionValues: [{ name: 'Size', value: 'S' }],
+            },
+            {
+              sku: `PUSH-${namespace}-B`,
+              price: { amount: 2000, currency: 'GBP' },
+              optionValues: [{ name: 'Size', value: 'M' }],
+            },
+          ],
+        }),
+      ],
+    });
+
+    // A push naming ONE of the two, plus a SKU nothing matches. `IngestProduct`
+    // carries no completeness signal, so the omission of B is not evidence that
+    // B was delisted (#259), and the unmatched SKU is indistinguishable from B
+    // having been RENAMED — this rail matches on SKU alone, since the wire DTO
+    // has no external variant id.
+    await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(namespace, {
+          variants: [
+            {
+              sku: `PUSH-${namespace}-A`,
+              price: { amount: 1100, currency: 'GBP' },
+              optionValues: [{ name: 'Size', value: 'S' }],
+            },
+            {
+              sku: `PUSH-${namespace}-NEW`,
+              price: { amount: 3000, currency: 'GBP' },
+              optionValues: [{ name: 'Size', value: 'L' }],
+            },
+          ],
+        }),
+      ],
+    });
+
+    const [imported] = await findListingsBySourceConnection(storeId, connection.id);
+    const variants = await findVariantsByListing(imported.id);
+    // Still exactly two: nothing created for the unmatched SKU, nothing removed
+    // or unsold for the variant this push did not mention.
+    expect(variants).toHaveLength(2);
+    expect(variants.map((v) => v.sku).sort()).toEqual([
+      `PUSH-${namespace}-A`,
+      `PUSH-${namespace}-B`,
+    ]);
+    // The one it NAMED and matched moved; the one it did not is untouched, at
+    // the price and the stock the first push gave it.
+    expect(variants.find((v) => v.sku === `PUSH-${namespace}-A`).priceAmount).toBe(1100);
+    expect(variants.find((v) => v.sku === `PUSH-${namespace}-B`).priceAmount).toBe(2000);
+  });
+
+  it('does NOT overwrite a price the merchant pinned locally (#291)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    await ingest(`/${connection.id}/products`, key, { products: [pushProduct(namespace)] });
+    const [created] = await findListingsBySourceConnection(storeId, connection.id);
+    await db
+      .update(listings)
+      .set({ overriddenFields: ['price'] })
+      .where(eq(listings.id, created.id));
+
+    await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(namespace, {
+          variants: [
+            { sku: `PUSH-${namespace}`, price: { amount: 9900, currency: 'GBP' }, inventory: { available: 4 } },
+          ],
+        }),
+      ],
+    });
+
+    // The pull rail's converger returns on this same flag. Propagating a price is
+    // a fix for a channel that could not update one; it is not permission to
+    // overwrite a number the merchant deliberately set.
+    const [variant] = await findVariantsByListing(created.id);
+    expect(variant.priceAmount).toBe(1500);
+  });
+
+  it('ACCEPTS an RFC-3339 offset timestamp and stores the converted instant (#290)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    // An OFFSET, deliberately — a test sending `Z` passes with or without the
+    // fix, which is exactly why nothing caught this. `+02:00` is also not the
+    // same instant as the same digits with a `Z`, so the assertion below
+    // distinguishes "accepted" from "accepted and then misread".
+    const response = await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(namespace, { externalUpdatedAt: '2026-02-15T05:38:08+02:00' }),
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.text).data.results[0].action).toBe('created');
+
+    const [imported] = await findListingsBySourceConnection(storeId, connection.id);
+    // CONVERTED, not re-labelled: 05:38:08+02:00 is 03:38:08Z. Swapping the
+    // offset for a `Z` would store 05:38:08Z and pass a mere "it was accepted"
+    // assertion while silently moving the platform's own clock by two hours.
+    expect(imported.sourceExternalUpdatedAt?.toISOString()).toBe('2026-02-15T03:38:08.000Z');
+  });
+
+  it('REFUSES a zoneless timestamp, which has no unambiguous instant (#290)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+
+    // The half of the widening that must NOT happen. RFC 3339 requires a zone,
+    // and `new Date` reads a zoneless datetime as LOCAL — so admitting one would
+    // shift every stored instant by whatever the server's offset happens to be,
+    // which is a defect that only appears once and only in production.
+    const response = await ingest(`/${connection.id}/products`, key, {
+      products: [pushProduct(uuidv7(), { externalUpdatedAt: '2026-02-15T05:38:08' })],
+    });
+
+    expect(response.status).toBe(400);
+    expect(await findListingsBySourceConnection(storeId, connection.id)).toHaveLength(0);
+  });
+
+  it('reads an ABSENT inventory key as UNTRACKED, never as tracked at zero (#293)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    const response = await ingest(`/${connection.id}/products`, key, {
+      products: [
+        // A WooCommerce store whose GLOBAL stock management is off. The plugin
+        // asserts no stock figure on ANY product and pushes no inventory items
+        // either, so nothing downstream could correct a wrong reading of the
+        // absence — which is why reading it as zero cost the whole catalogue.
+        pushProduct(`${namespace}-untracked`, {
+          variants: [{ sku: `PUSH-${namespace}-U`, price: { amount: 1500, currency: 'GBP' } }],
+        }),
+        // The positive control, and the reason absence had to become its own
+        // value rather than a smaller default: a client that MEANS tracked and
+        // sold out still has a way to say so, and the two must not collapse.
+        pushProduct(`${namespace}-zero`, {
+          variants: [
+            {
+              sku: `PUSH-${namespace}-Z`,
+              price: { amount: 1500, currency: 'GBP' },
+              inventory: { available: 0 },
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(JSON.parse(response.text).data.results.map((r: { action: string }) => r.action)).toEqual([
+      'created',
+      'created',
+    ]);
+
+    const imported = await findListingsBySourceConnection(storeId, connection.id);
+    const untracked = imported.find((row) => row.sourceExternalId === `woo-${namespace}-untracked`);
+    const trackedZero = imported.find((row) => row.sourceExternalId === `woo-${namespace}-zero`);
+    // Both listings resolved: a `find` that matched nothing would make every
+    // assertion below read a property of `undefined` under `strict: false`.
+    expect([untracked?.id, trackedZero?.id].filter(Boolean)).toHaveLength(2);
+
+    const [untrackedVariant] = await findVariantsByListing(untracked.id);
+    expect(untrackedVariant.inventoryTracked).toBe(false);
+    // The symptom a merchant actually sees, and the reason the column assertion
+    // above is not enough on its own: `has_inventory` is
+    // `bool_or(not tracked or available > 0)`, so tracked-at-zero delists the
+    // whole listing while untracked stays on sale.
+    expect(untracked.hasInventory).toBe(true);
+
+    const [zeroVariant] = await findVariantsByListing(trackedZero.id);
+    expect(zeroVariant.inventoryTracked).toBe(true);
+    expect(zeroVariant.inventoryAvailable).toBe(0);
+    expect(trackedZero.hasInventory).toBe(false);
+  });
+
+  it('NAMES the product a run refused, and degrades the channel rather than reading clean (#294)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    // The REAL ceiling through the REAL path. Refusing is correct and stays —
+    // a silently truncated variant set is #259's catalogue failure — so what is
+    // under test is what a merchant can observe about the omission. Measured on
+    // a live 124-product store: one 110-variation product refused whole, the run
+    // `completed`, `created=123`, `failed=1`, and the product simply gone.
+    const overCeiling = config.catalog.maxVariantsPerProduct + 1;
+    const response = await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(`${namespace}-ok`),
+        pushProduct(`${namespace}-huge`, {
+          variants: Array.from({ length: overCeiling }, (_, index) => ({
+            sku: `PUSH-${namespace}-${index}`,
+            price: { amount: 1500, currency: 'GBP' },
+            optionValues: [{ name: 'Variation', value: `v${index}` }],
+          })),
+        }),
+      ],
+    });
+
+    const results = JSON.parse(response.text).data.results;
+    expect(results[0].action).toBe('created');
+    expect(results[1].action).toBe('failed');
+
+    // The run still says `completed`, and that is deliberate: 1 of 2 products IS
+    // there, and calling the run failed would make a one-product refusal
+    // indistinguishable from a credentials outage. What changed is that the run
+    // now says WHICH product and WHY, instead of leaving a tally delta as the
+    // only trace.
+    const [run] = await listSyncRunsForConnection(connection.id, 1);
+    expect(run.status).toBe('completed');
+    expect(run.countsFailed).toBe(1);
+    expect(run.error).toContain(`woo-${namespace}-huge`);
+    expect(run.error).toContain(`at most ${config.catalog.maxVariantsPerProduct} variants`);
+
+    // And the channel stops reading healthy. Both surfaces matter: the run row is
+    // what somebody finds when they go looking, this is what tells them to.
+    const degraded = await deriveChannelReadiness(storeId);
+    expect(degraded.catalog.state).toBe('degraded');
+
+    // THE CONTROL. `catalogState` also degrades on "no successful sync", so
+    // without a store whose run refused NOTHING the assertion above would pass
+    // against a channel that is degraded for an unrelated reason — and would go
+    // on passing if the record-miss input were deleted.
+    const cleanStoreId = await makeStore();
+    const cleanConnection = await connectPushIn(cleanStoreId, 'woocommerce', {});
+    const clean = await generateKey(cleanStoreId, { label: 'plugin' }, OWNER_USER);
+    await ingest(`/${cleanConnection.id}/products`, clean.key, {
+      products: [pushProduct(`${namespace}-clean`)],
+    });
+    const [cleanRun] = await listSyncRunsForConnection(cleanConnection.id, 1);
+    expect(cleanRun.countsFailed).toBe(0);
+    expect(cleanRun.error).toBeNull();
+    expect((await deriveChannelReadiness(cleanStoreId)).catalog.state).toBe('healthy');
   });
 
   it('ISOLATES a bad product and still reports one result per product, in order', async () => {

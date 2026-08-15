@@ -38,10 +38,13 @@
  * screens disagree about which run was last.
  */
 
-import { desc, eq, inArray, sql } from 'drizzle-orm';
+import { desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import type { SyncRunCounts, SyncRunKind, SyncRunStatus } from '@mercaria/shared-types';
-import { merchantFacingFailureMessage } from '../../lib/errors/merchant-facing.js';
+import {
+  boundMerchantFacingMessage,
+  merchantFacingFailureMessage,
+} from '../../lib/errors/merchant-facing.js';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { syncRuns } from '../schema/connectors.js';
 
@@ -71,6 +74,90 @@ export interface SyncRunOutcome {
   status: Extract<SyncRunStatus, 'completed' | 'failed'>;
   counts: SyncRunCounts;
   failure?: unknown;
+  /**
+   * The records this run could not process, when the run itself did not fail.
+   *
+   * `counts.failed` alone is a TALLY DELTA: on a 124-product catalogue a merchant
+   * has to notice that 123 landed out of 124, and on a large one nothing is
+   * visible at all. Measured on the #69 verification store, a variable product
+   * with 110 variations was refused whole by `maxVariantsPerProduct` and the run
+   * still read `completed`, `created=123`, `failed=1` — the product simply gone,
+   * with the merchant's own site showing it perfectly (#294).
+   *
+   * Refusing that product is CORRECT — a silently truncated variant set is #259's
+   * catalogue failure — so what is fixed is the report, not the ceiling.
+   */
+  recordFailures?: readonly SyncRunRecordFailure[];
+}
+
+/** One record a run could not process. */
+export interface SyncRunRecordFailure {
+  /** The external platform's own id for the record — what a merchant searches by. */
+  externalId: string;
+  /**
+   * The THROWN value, never a message: {@link finishSyncRun} classifies it, for
+   * the reason {@link SyncRunOutcome.failure} gives. A caller that pre-formatted
+   * one would be a second writer of that column.
+   */
+  failure: unknown;
+}
+
+/** How many DISTINCT reasons a summary names before reporting a residual. */
+const SUMMARY_MAX_REASONS = 3;
+
+/** How many records a summary names PER reason before reporting a residual. */
+const SUMMARY_MAX_RECORDS_PER_REASON = 3;
+
+/** Ceiling on ONE external id, so a pathological id cannot eat the whole budget. */
+const SUMMARY_MAX_EXTERNAL_ID_LENGTH = 80;
+
+/**
+ * Compose the merchant-facing summary of a run's per-record failures.
+ *
+ * Grouped by REASON rather than listed per record, because the shape this exists
+ * for is systemic: every product one rule refuses fails the same way, so listing
+ * them one per line spends the whole budget repeating a sentence instead of
+ * naming the products it applies to. Groups keep INSERTION order, so one input
+ * always composes one string — a summary that reordered between two runs over the
+ * same failures would read as a change nobody made.
+ *
+ * The counts come first and every elision states its own RESIDUAL, so the
+ * `boundMerchantFacingMessage` ceiling can only ever cut the tail: how many did
+ * not land, and the first reason, survive any truncation.
+ */
+function summarizeRecordFailures(
+  failures: readonly SyncRunRecordFailure[],
+  totalFailed: number,
+): string | null {
+  if (failures.length === 0) return null;
+
+  const byReason = new Map<string, string[]>();
+  for (const failure of failures) {
+    const reason = merchantFacingFailureMessage(failure.failure);
+    const id =
+      failure.externalId.length > SUMMARY_MAX_EXTERNAL_ID_LENGTH
+        ? `${failure.externalId.slice(0, SUMMARY_MAX_EXTERNAL_ID_LENGTH - 1)}…`
+        : failure.externalId;
+    const named = byReason.get(reason);
+    if (named) named.push(id);
+    else byReason.set(reason, [id]);
+  }
+
+  const groups = [...byReason.entries()];
+  const sentences = groups.slice(0, SUMMARY_MAX_REASONS).map(([reason, ids]) => {
+    const shown = ids.slice(0, SUMMARY_MAX_RECORDS_PER_REASON);
+    const unnamed = ids.length - shown.length;
+    return `${shown.join(', ')}${unnamed > 0 ? ` and ${unnamed} more` : ''} — ${reason}`;
+  });
+  const unnamedReasons = groups.length - sentences.length;
+
+  return boundMerchantFacingMessage(
+    `${totalFailed} record${totalFailed === 1 ? '' : 's'} did not land. ` +
+      sentences.join(' ') +
+      (unnamedReasons > 0
+        ? ` And ${unnamedReasons} further reason${unnamedReasons === 1 ? '' : 's'}.`
+        : ''),
+  );
 }
 
 /**
@@ -107,6 +194,21 @@ export async function insertSyncRun(
  * one — so a `varchar(n)` would read as though it enforced something it cannot
  * express.
  *
+ * ## `error` is no longer only a `failed` run's field (#294)
+ *
+ * A run that processed most of its records and refused some is `completed` — the
+ * products that DID land are real, and calling that a failed run would make a
+ * transient one-product refusal indistinguishable from a credentials outage. But
+ * `completed` with a `failed` tally and no message is exactly the report that says
+ * it went fine: a merchant has to spot a count delta to learn a product is
+ * missing, and nothing anywhere names which one or why. So a `completed` run now
+ * carries the same field the failed one does, composed from
+ * {@link SyncRunOutcome.recordFailures}.
+ *
+ * The whole-run `failure` still WINS when both are present: it is the reason the
+ * run stopped, so the records it did not reach are its consequence rather than a
+ * second finding.
+ *
  * @returns The stored row, so the caller can serialize what was actually
  *   persisted rather than the object it was holding — the two diverged silently
  *   under Mongoose whenever a `save()` was skipped on an error path.
@@ -133,7 +235,10 @@ export async function finishSyncRun(
       // that legitimately caught a thrown `''`, `0` or `null` still gets a
       // classified message, because those are failures somebody threw and saying
       // so is the classifier's job.
-      error: outcome.failure === undefined ? null : merchantFacingFailureMessage(outcome.failure),
+      error:
+        outcome.failure !== undefined
+          ? merchantFacingFailureMessage(outcome.failure)
+          : summarizeRecordFailures(outcome.recordFailures ?? [], outcome.counts.failed),
       updatedAt: new Date(),
     })
     .where(eq(syncRuns.id, runId))
@@ -182,9 +287,18 @@ export async function findLatestSyncRunPerConnection(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<Map<string, SyncRunRecord>> {
   if (connectionIds.length === 0) return new Map();
+  // The columns are SPREAD rather than nested under a `run:` key. Selecting a
+  // whole TABLE into a field of a subquery and then re-selecting that subquery
+  // throws at query-BUILD time — `Your "run->id" field references a column
+  // "sync_runs"."id", but the table "sync_runs" is not part of the query` — for
+  // every non-empty id list, so the early return above was the only path that
+  // worked and both readers (`deriveChannelReadiness`, `channel-summary.service`)
+  // failed on any store with a live connection. It survived because nothing ever
+  // called this with rows: the empty-list branch answers before the builder runs,
+  // which is exactly the shape of a test that proves nothing.
   const ranked = db
     .select({
-      run: syncRuns,
+      ...getTableColumns(syncRuns),
       rank: sql<number>`row_number() over (partition by ${syncRuns.connectionId} order by ${syncRuns.startedAt} desc, ${syncRuns.id} desc)`.as(
         'rank',
       ),
@@ -194,5 +308,5 @@ export async function findLatestSyncRunPerConnection(
     .as('ranked');
 
   const rows = await db.select().from(ranked).where(eq(ranked.rank, 1));
-  return new Map(rows.map((row) => [row.run.connectionId, row.run]));
+  return new Map(rows.map((row) => [row.connectionId, row]));
 }

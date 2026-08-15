@@ -110,9 +110,20 @@ const CONNECTION_ID = 'conn-1';
  * status the service computed live in `finishSyncRun`'s argument — what the old
  * tests read off the document they had watched the service mutate.
  */
-function closedRun(): { status: string; counts: SyncRunCounts } {
+function closedRun(): {
+  status: string;
+  counts: SyncRunCounts;
+  recordFailures?: readonly { externalId: string; failure: unknown }[];
+} {
   const call = finishSyncRun.mock.calls[0] as
-    | [string, { status: string; counts: SyncRunCounts }]
+    | [
+        string,
+        {
+          status: string;
+          counts: SyncRunCounts;
+          recordFailures?: readonly { externalId: string; failure: unknown }[];
+        },
+      ]
     | undefined;
   if (!call) {
     throw new Error('the run was never closed');
@@ -221,6 +232,13 @@ beforeEach(() => {
   // No price rules on these fixtures — both columns NULL means no transform.
   toPriceRules.mockReturnValue(undefined);
   setAvailable.mockResolvedValue(undefined);
+  // The real repository answers an ARRAY, always — this is a mocked drizzle read
+  // and `vi.fn()` answers `undefined`, which is a shape the database cannot
+  // produce. Defaulted here rather than per test because #291's price
+  // convergence made the update path read it too, so a case that says nothing
+  // about variants would otherwise fail on a value no server returns.
+  findVariantsByListing.mockResolvedValue([]);
+  findVariantsByListingAndSku.mockResolvedValue([]);
 });
 
 describe('isKnownConnectorProvider', () => {
@@ -573,10 +591,19 @@ describe('ingestInventory', () => {
     expect(result.results[0].error).toContain('var-b');
     // Counted as a failure rather than a skip — nothing was applied and a person
     // has to act — which is also what makes an all-ambiguous run report `failed`.
-    expect(closedRun()).toEqual({
-      status: 'failed',
-      counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
-    });
+    expect(closedRun().status).toBe('failed');
+    expect(closedRun().counts).toEqual({ created: 0, updated: 0, skipped: 0, failed: 1 });
+    // #294: the item reaches the RUN too, not only this caller's response. The
+    // response is seen by whoever made the request; a plugin pushing on a
+    // schedule has nobody reading one, and the run row is where the merchant
+    // finds out afterwards. Carried as the same `MercariaError` the response
+    // rendered, so `finishSyncRun` composes the identical sentence rather than a
+    // second one that can drift.
+    expect(closedRun().recordFailures).toHaveLength(1);
+    expect(closedRun().recordFailures[0].externalId).toBe('woo-1');
+    expect((closedRun().recordFailures[0].failure as Error).message).toBe(
+      result.results[0].error,
+    );
   });
 
   it('bounds the ambiguous message, which is unbounded in its CANDIDATE list', async () => {

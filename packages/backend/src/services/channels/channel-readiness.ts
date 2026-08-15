@@ -96,6 +96,14 @@ export async function deriveChannelReadiness(storeId: string): Promise<ChannelRe
     live.map((connection) => connection.id),
   );
   const anyWebhookRefused = [...webhookFailures.values()].some((topics) => topics.length > 0);
+  // #294: the same shape one step further in. A run that imported 123 of 124
+  // products is `completed`, so both lines above read it as a clean success while
+  // a product the merchant can see on their own site is simply missing here. The
+  // tally is the only trace, and on a large catalogue it is not one anybody
+  // notices. `degraded` and not `blocked`, for the reason `catalogState` gives:
+  // the other 123 are real. It clears itself on the next run that refuses
+  // nothing, which is what makes it safe to raise on a transient miss.
+  const anyRecordMissed = [...latestRuns.values()].some((run) => run.countsFailed > 0);
   const lastSuccessfulSyncAt = successes
     .map((run) => run.finishedAt ?? run.startedAt)
     .sort((a, b) => b.getTime() - a.getTime())[0];
@@ -143,7 +151,7 @@ export async function deriveChannelReadiness(storeId: string): Promise<ChannelRe
     catalog: {
       state: catalogState(
         connectedChannelTypes.length,
-        anyRunFailed || anyWebhookRefused,
+        anyRunFailed || anyWebhookRefused || anyRecordMissed,
         successes.length,
       ),
       connectedChannelTypes,
