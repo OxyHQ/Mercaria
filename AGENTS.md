@@ -5548,7 +5548,9 @@ somebody lives that request-local coarsening exists to avoid).
   `lib/pickup-labels.ts` + `NearbyLocationCard` + `PickupCollectionPanel`, the
   storefront's `components/nearby/` + `app/(app)/nearby.tsx` + the pickup
   branches of checkout, the order detail and the guest portal, and the
-  dashboard's `PickupDeskCard`. Thirteen of the fourteen client rules are met.
+  dashboard's `PickupDeskCard`. Twelve of the fourteen client rules are met
+  outright; rule 6 gets two of its three sorts and rule 7 gets the shared
+  component without the two list surfaces (both below).
   - **BROWSE and BUY are two modes of ONE component** (#93 client rule 7). The
     product page mounts `NearbyAvailability` WITHOUT `withCheckoutEligibility` —
     nearby rule 12, a page view must not spend per-location eligibility work —
@@ -5580,6 +5582,10 @@ somebody lives that request-local coarsening exists to avoid).
     `best_nearby_pickup` is still never awarded on the product page because
     `/p/:handle` accepts no viewer coordinate — closing #74's seam gave the
     ranking a distance it can use and no surface that passes one.
+  - **Rule 7's component is SHARED but `/search` and the watchlists do not mount
+    it.** Both are LISTS, and a nearby section per row is one request per row
+    against an endpoint keyed on a position. The request shape is what stopped
+    it, not the component.
   - **The native permission prompt is unexercised.** `useNearbyOrigin` answers
     `unsupported` on native (no location dependency is installed) and the manual
     picker is a complete path without it, so the feature works — but nothing has
