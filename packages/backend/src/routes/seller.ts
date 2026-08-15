@@ -10,6 +10,11 @@ import {
   orderListQuerySchema,
 } from '../middleware/schemas.js';
 import { onboardingLinkSchema } from '../middleware/payments-schemas.js';
+import { acceptActivationPolicySchema } from '../middleware/merchant-activation-schemas.js';
+import {
+  acceptSellerPolicyHandler,
+  getSellerActivationPoliciesHandler,
+} from '../controllers/merchant-activation.controller.js';
 import { getMyProfile, updateMyProfile } from '../controllers/seller-profile.controller.js';
 import {
   createSellerOnboardingLinkHandler,
@@ -90,6 +95,30 @@ router.patch('/me', makeRateLimiter('stores'), validateBody(sellerPrefsSchema), 
 // owner from `getRequiredOxyUserId`, so the surface can only ever act on the
 // caller's own account. Link minting carries the same dedicated meter the store
 // route uses, for the same reason: it reaches Stripe.
+/**
+ * The INDIVIDUAL seller's activation policies (#85, closing #112's one
+ * `unevaluable` criterion).
+ *
+ * On `/seller` rather than under `/admin/stores/:storeId` because the owner is a
+ * PERSON: #88 shipped fee acceptance behind `store:manage` and recorded the P2P
+ * surface as #85's precisely because somebody selling a bicycle has no store and
+ * no permission to hold. The acceptance row is the same table the store half
+ * writes, with `owner_type = 'user'` — one vocabulary, two owners, which is the
+ * `provider_accounts` shape.
+ *
+ * Accepting one does NOT make guest P2P checkout available: #112's decision is
+ * a recorded no-go and `GuestP2PAuthorization` has no member meaning yes. What
+ * it changes is that the criterion is answerable, which is what the decision
+ * document said it was waiting for.
+ */
+router.get('/activation/policies', makeRateLimiter('stores'), getSellerActivationPoliciesHandler);
+router.post(
+  '/activation/policies',
+  makeRateLimiter('stores'),
+  validateBody(acceptActivationPolicySchema),
+  acceptSellerPolicyHandler,
+);
+
 router.get('/payments/account', getSellerPaymentAccountHandler);
 router.post(
   '/payments/account/onboarding-link',

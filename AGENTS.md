@@ -5559,3 +5559,113 @@ somebody lives that request-local coarsening exists to avoid).
   no such member), **#111** (the guest rollout review), **#112** (guest P2P), the
   storefront screens above, and a place-name gazetteer, which
   `GET /nearby/places` answers around rather than with.
+## Merchant activation readiness and native-checkout onboarding (#85)
+
+`services/merchant-activation/` (9 modules) + `db/merchantActivation/`
+(3 repositories) + `db/schema/merchantActivation.ts` (3 tables), plus
+`/admin/stores/:storeId/activation*` (merchant, `store:manage`),
+`/seller/activation/policies` (individual seller) and
+`/internal/commerce-graph/activation/*` (operator). Full reference:
+**`docs/merchant-activation.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"Merchant activation (#85)".
+
+- **The verdict is DERIVED and never stored** — the `deriveNativeCheckoutEligibility`
+  (#57) divergence, for `deriveChannelReadiness` (#87)'s reason: the inputs sit
+  on ELEVEN tables in eight domains, and a stored verdict would be a twelfth
+  representation going stale the instant Stripe restricts a seller. What IS
+  stored is what somebody DECIDED (a policy accepted, a checkout paused, an
+  operator's hold) plus what the derivation was OBSERVED to say.
+- **Two DISJOINT registries, because guest is not a stronger native.** #85 says
+  it twice, and the guest registry's first member is `native_checkout_ready` —
+  so guest is narrower by CONTAINMENT rather than by an extra threshold on
+  somebody else's verdict. `requirements.ts` is a `Record` over the key union, so
+  a requirement published and never evaluated fails `tsc`.
+- **`unevaluable` is Mercaria's gap and NAMES its owner** (#112's vocabulary);
+  `unsatisfied` is the merchant's. Both withhold, and they route to different
+  places — one is a build somebody owes, the other a form to fill in. Exactly one
+  is `unevaluable` today: `guest_transactional_contact_operational`, owner #108,
+  which is why guest checkout reads **`ineligible`** rather than `disabled` on
+  every deployment. `ineligible` beats `disabled` beats `paused`.
+- **`paused` means the merchant's own switch is the WHOLE of what is wrong.**
+  Otherwise a merchant reads "paused" while a Stripe restriction is the real
+  cause and un-pausing changes nothing.
+- **Ten capabilities, each naming its dependencies, and TWO carry `null`.** A
+  store is not an individual seller, so the P2P pair is `not_applicable` — an
+  empty list would grant them, a full list would withhold them forever with no
+  remedy. `refund_and_return_operations` deliberately does NOT depend on the
+  checkout requirements (readiness-change rule 3: yesterday's order stays
+  refundable), and `deriveCapabilities` THROWS on an unevaluated dependency
+  (#74's `rankOffers` rule).
+- **The onboarding flow has NO progress record**, which is what makes "resume on
+  another client" true: progress IS the authoritative state, so there is nothing
+  to reconcile — and acceptance 5's three no-duplicate guarantees are already
+  indexes in #84, #87 and #46. A census asserts every requirement is covered by
+  exactly one step OR named in `STEPLESS_REQUIREMENTS` **with a reason**.
+- **The checkout gate is NARROW and runs at 4f-bis.** Three things — an operator
+  hold, the merchant's own pause, and #88's deferred fee ACCEPTANCE gate — and
+  nothing else: refusing on a connector's bad night would take a working store
+  off sale. It sits immediately after checkout's own `selectFeeSchedule` because
+  the acceptance that matters is of the schedule THIS order will snapshot;
+  selecting again would be a second selection that could answer differently. It
+  reads two rows per store and calls the SAME pure predicates the full registry
+  calls. A deployment with no active schedule is unaffected (#88's honest zero).
+- **ONE new refusal reason, `seller_not_activated`**, for all three levers — the
+  `guest_rollout_blocked` decision on the authenticated path, because a client
+  varying one input at a time could otherwise read out whether a merchant is
+  under an operator HOLD, which is a moderation fact about somebody else.
+  Deliberately not `seller_not_payment_ready` (cannot be PAID vs has not been
+  ACTIVATED) and not `guest_seller_not_activated` (the same word about the GUEST
+  conjunction).
+- **#107's `#85` seam is CLOSED.** `GuestSellerActivation` gains `activated`, and
+  it means the guest CONJUNCTION holds — there is still no column anybody can set
+  to it, which is ADR 0006 G14's "no per-merchant opt-in list" surviving intact.
+  `GUEST_SELLER_ACTIVATION_REQUIRED` still decides whether the question is asked
+  and still defaults OFF; the early return keeps the default path free of a
+  database read. A `user:` seller answers `not_activated`, always.
+- **#112's `policies_accepted` criterion is CLOSED** by
+  `POST /seller/activation/policies`, whose row carries `owner_type = 'user'` —
+  the polymorphic owner is what lets somebody with no store and no `store:manage`
+  accept. Accepting it does NOT make guest P2P available: #112's decision is a
+  recorded no-go and `GuestP2PAuthorization` still has no member meaning yes.
+- **Policies are a CODE CONSTANT** (`MERCHANT_ACTIVATION_POLICIES`), the #126
+  terms decision. Bumping a version schedules a re-acceptance; withdrawing
+  consent is a NEW version, never an UPDATE — the table is append-only against
+  UPDATE *and* DELETE.
+- **Transitions are OBSERVED, not hooked.** Stripe restricting an account, a
+  connector failing and a jury restricting a catalogue are all activation
+  transitions with no actor, and none of those domains knows this one exists —
+  eight callers that must all remember is seven ways to have an unaudited
+  transition. Every merchant/operator write observes in the same request; the
+  rest is the sweep (`system`, actor NULL, a biconditional CHECK). The
+  observation runs AFTER the write commits: calling it inside deadlocks against
+  the settings row the write already locked (#59's merge-runner failure), and a
+  crash between the two loses an AUDIT ROW and never a decision.
+- **The operator surface is the SAME `CATALOG_OPERATOR_OXY_USER_IDS` list**
+  #54/#55/#83/#84 use — deciding whether a merchant may operate is that gate's
+  power one step later. The route set is CLOSED: no "activate this store", no
+  "set this capability", no "mark this requirement satisfied". A trace opens from
+  a STORE ID and nothing else. The merchant sees THAT a hold exists and never its
+  REASON, which is an operator's note about a moderation finding.
+- Env: `MERCHANT_ACTIVATION_TEST_ORDER_REQUIRED` (default false — there is no
+  launch plan requiring a test order, and blocking by default would make the
+  requirement refuse the very order that satisfies it; it is always DERIVED and
+  always reported), `MERCHANT_ACTIVATION_OBSERVATION_ENABLED` (the sweep LOOP)
+  and its tunables. **Neither gates a durable record and neither gates a
+  surface**, and there is deliberately no `MERCHANT_ACTIVATION_ENABLED`:
+  activation is a derivation over state eight other domains own, so a flag would
+  not stop those facts being true, only stop anybody being told.
+- Migration `0076` (`pre`): three tables, two append-only trigger pairs, and one
+  WIDENING of `analytics_events_reason_code_check`.
+- Seams, each failing closed: **#108** (the transport — the one `unevaluable`),
+  **#111** (a positive rollout cohort, the storefront affordance, the guest
+  analytics events; `guest_cohort_enabled` reads the block list ADR 0006 G14
+  already decided on rather than claiming a cohort model that does not exist),
+  **#93** (pickup is excluded from the guest fulfilment set at the SOURCE, so it
+  cannot satisfy a requirement with a path that refuses at checkout), the TEN
+  test-order scenarios (eight need an external account or an unbuilt capability;
+  `test_order_completed` is the derivable half), and #88's schedule-change
+  NOTIFICATIONS and downloadable breakdowns.
+- **Acceptance 1 is NOT met and `docs/merchant-activation.md` says so**: no
+  Stripe account, no connected store and no real connector install has been
+  exercised — #69's own acceptance 7, still open. Nothing here may be read as
+  evidence that one has.

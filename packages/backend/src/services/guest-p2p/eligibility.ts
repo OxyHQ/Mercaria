@@ -115,6 +115,17 @@ export interface GuestP2PFacts {
   readonly completedSales: GuestP2PSignal<number>;
   /** The connected account's country — the seller's market, as Stripe holds it. */
   readonly sellerPayoutCountry: GuestP2PSignal<string>;
+  /**
+   * Whether this seller has accepted the CURRENT P2P return, cancellation and
+   * dispute policy — #85's acceptance surface, which is what closes the one
+   * criterion #112 could not evaluate.
+   *
+   * A `GuestP2PSignal` rather than a bare boolean because "no acceptance row"
+   * and "accepted an older version" are both answerable facts while "this
+   * deployment publishes no such policy" would not be — and the discipline of
+   * this file is that an absent input names its owner rather than defaulting.
+   */
+  readonly sellerPoliciesAccepted: GuestP2PSignal<boolean>;
   /** `listings.status === 'active'`. */
   readonly listingActive: boolean;
   /** `listings.status === 'restricted'` — what a CrowdSource enforcement writes. */
@@ -322,6 +333,15 @@ function evaluateFromFacts(
       return facts.sellerPayoutCountry.known === 'no'
         ? blocked(criterion, facts.sellerPayoutCountry.owner)
         : verdictOf(criterion, facts.sellerPayoutCountry.value === facts.context.destinationCountry);
+
+    case 'policies_accepted':
+      // #85 supplies the acceptance; #112 decides what it is worth. An absent
+      // acceptance is the SELLER's gap and blocks, which is the same answer the
+      // criterion gave before #85 existed — what changed is that a seller can
+      // now do something about it.
+      return facts.sellerPoliciesAccepted.known === 'no'
+        ? blocked(criterion, facts.sellerPoliciesAccepted.owner)
+        : verdictOf(criterion, facts.sellerPoliciesAccepted.value);
 
     case 'no_mixed_store_and_p2p_payment':
       return verdictOf(criterion, !facts.context.checkoutContainsNonP2PSeller);

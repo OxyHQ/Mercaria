@@ -527,3 +527,11 @@ export * from './merchant-plan';
 // common field, so a surface must switch on the mode and cannot put
 // `Sold by Mercaria` on somebody else's sale.
 export * from './commercial-presentation';
+// Merchant activation readiness and native-checkout onboarding (#85). LAST,
+// because it reads almost everything above it: #46's payment readiness, #55/#83
+// claiming, #84 linkage, #87 channel readiness, #88's fee schedules, #105-#110's
+// guest surfaces and #112's P2P decision. Its two requirement registries are
+// DISJOINT — native and guest ask different questions, and #85 says twice that
+// guest readiness may not be inferred from native — so `guest is a stronger
+// native` is not expressible in the vocabulary.
+export * from './merchant-activation';

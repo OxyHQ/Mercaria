@@ -375,7 +375,7 @@ permitted-with-a-warning, because every stage's gates exist to be exercised at
 that stage — jumping from internal testing to broad rollout satisfies stage 3's
 gates without ever having run a canary.
 
-### Two gates are BLOCKED and say so
+### ONE gate is BLOCKED and says so
 
 `transactional_sender_authenticated` — Mercaria has no outbound mail transport
 at all. #108's registry is empty and every attempt fails
@@ -383,12 +383,18 @@ at all. #108's registry is empty and every attempt fails
 `order_portal_delivery_success` and `guest_recovery_success_rate` read zero, and
 the second carries a `seam` field saying why.
 
-`merchant_readiness_includes_guest` — `GuestSellerActivation` has no `activated`
-member until #85 lands.
-
 A gate that cannot be satisfied on any deployment today must NAME what blocks
 it, or somebody signs it off to make the dashboard green. A test asserts exactly
-these two carry a `blockedBy`.
+this one carries a `blockedBy` — an EXACT list rather than a floor, because a
+register whose blocked set only ever grows is one nobody trusts.
+
+It was TWO until #85 landed. `merchant_readiness_includes_guest` named the
+missing activation state, and `GuestSellerActivation` now has its `activated`
+member: the guest conjunction is derived per seller and the merchant reads it at
+`/admin/stores/:storeId/activation` (`docs/merchant-activation.md`). What remains
+of that gate is an operational act — telling pilot merchants, in writing, before
+the orders arrive — so it moved to `operational_verification` rather than keeping
+a `blockedBy` it could no longer name.
 
 ---
 
@@ -479,6 +485,7 @@ than defaulted.
 7. Record sign-offs and request the stage advance. The gate refuses with the
    exact list of unsatisfied gates, and the refusal is recorded.
 
-**Two gates cannot be satisfied today** — the transactional sender and merchant
-readiness — so stage 1 is unreachable until an outbound mail transport exists
-and #85 lands. That is stated in the register rather than left to be discovered.
+**One gate cannot be satisfied today** — the transactional sender — so stage 1
+is unreachable until an outbound mail transport exists. That is stated in the
+register rather than left to be discovered. It was two until #85 supplied the
+activation state `merchant_readiness_includes_guest` was waiting on.

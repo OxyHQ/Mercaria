@@ -142,13 +142,12 @@ interface GuestP2PCriterionEntry {
  * Every criterion, with the sentence it implements and where its answer comes
  * from.
  *
- * The `availability` field is the honest part. Four criteria cannot be answered
+ * The `availability` field is the honest part. THREE criteria cannot be answered
  * from anything Mercaria holds, and each names the issue that owes it rather
- * than being quietly dropped or quietly passed:
+ * than being quietly dropped or quietly passed. `policies_accepted` was a
+ * fourth until #85 shipped the P2P acceptance surface; it is now `evaluated`
+ * and still blocks a seller who has not accepted:
  *
- * - `policies_accepted` — there is no P2P acceptance surface. #88 shipped fee
- *   acceptance for STORES behind `store:manage` and recorded the P2P surface as
- *   #85's; a person selling a bicycle has no store and no permission to hold.
  * - `messaging_available` — #110's post-purchase threads exist and the SELLER
  *   half is store-scoped (`requireStorePermission` on every merchant route), so
  *   a P2P seller has no surface on which to answer a buyer. Not merely unknown:
@@ -164,9 +163,19 @@ interface GuestP2PCriterionEntry {
  *   (`checkout-schema.test.ts`). The restriction has nothing to restrict, which
  *   is `nothing_to_restrict` and NOT a criterion somebody satisfied.
  *
- * `fulfilment_method_permitted` is `evaluated` and still lands on `unevaluable`
- * for a pickup destination — #93 owns every meetup fact and there is nothing to
- * check a collection against. That is the not-applicable branch that BLOCKS.
+ * `fulfilment_method_permitted` was a FIFTH, landing on `unevaluable` for a
+ * pickup destination because #93 owned every meetup fact and there was nothing
+ * to check a collection against. #93 SHIPPED, and the outcome moved to
+ * `refused`: a collection from an individual has no publication and cannot
+ * acquire one, so the honest answer is now "no" rather than "we cannot tell"
+ * (`eligibility.ts` states it at the branch). Both block, so no checkout
+ * changed — what changed is what an operator trace says.
+ *
+ * With #85 and #93 both landed, NO criterion is `unevaluable` by its
+ * availability any more. The only route left is an unknown FACT — a rail that
+ * is off, an Oxy Trust tier nobody scored, a seller with no profile row — and
+ * `facts.ts` names the party who would supply each. That is the shape a verdict
+ * of `unknown` describes today.
  */
 const GUEST_P2P_CRITERION_REGISTRY: Readonly<Record<GuestP2PCriterion, GuestP2PCriterionEntry>> = {
   stripe_payout_ready: {
@@ -207,7 +216,13 @@ const GUEST_P2P_CRITERION_REGISTRY: Readonly<Record<GuestP2PCriterion, GuestP2PC
   policies_accepted: {
     kind: 'seller',
     requirement: 'Return, cancellation and dispute policy accepted.',
-    availability: { state: 'input_missing', owner: '#85' },
+    // CLOSED by #85. The acceptance surface is `POST /seller/activation/policies`
+    // and the row is `merchant_activation_policy_acceptances` with
+    // `owner_type = 'user'` — a person selling a bicycle has no store, which is
+    // exactly why #88 recorded this as #85's rather than widening its own
+    // store-scoped acceptance. An unaccepted policy still BLOCKS; what changed
+    // is that the seller can now do something about it.
+    availability: { state: 'evaluated' },
   },
   messaging_available: {
     kind: 'seller',

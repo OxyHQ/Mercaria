@@ -42,6 +42,8 @@ import {
 import { readSellerTrust } from '../sellers/seller-trust.js';
 import { readSellerOxyUser } from '../sellers/viewer-oxy-client.js';
 import { deriveSellerVisibility } from '../sellers/seller-visibility.js';
+import { MERCHANT_ACTIVATION_POLICIES } from '@mercaria/shared-types';
+import { findPolicyAcceptance } from '../../db/merchantActivation/policyAcceptanceRepository.js';
 import { GUEST_P2P_BOUNDED_SCOPE } from './policy.js';
 import { known, unknown, type GuestP2PCheckoutContext, type GuestP2PFacts } from './eligibility.js';
 
@@ -80,7 +82,7 @@ export async function readGuestP2PFacts(input: {
   const sellerOxyUserId = listing.oxyUserId;
   const sellerKey = `user:${sellerOxyUserId}`;
 
-  const [readiness, account, variants, details, photoCount, profiles, oxyUser, trust] =
+  const [readiness, account, variants, details, photoCount, profiles, oxyUser, trust, policyAcceptance] =
     await Promise.all([
       readSellerPaymentReadiness([sellerKey]),
       findSellerAccount({ ownerType: 'user', ownerId: sellerOxyUserId }),
@@ -94,6 +96,16 @@ export async function readGuestP2PFacts(input: {
       // questions).
       readSellerOxyUser(sellerOxyUserId, null),
       readSellerTrust(sellerOxyUserId),
+      // #85's P2P acceptance surface, which closes the one criterion #112 could
+      // not evaluate. The CURRENT published version and no other: accepting v1
+      // of a policy Mercaria has since replaced is not consent to v2, and a
+      // lookup that ignored the version would read it as though it were.
+      findPolicyAcceptance(getDb(), {
+        policyKey: 'p2p_returns_cancellation_dispute',
+        policyVersion: MERCHANT_ACTIVATION_POLICIES.p2p_returns_cancellation_dispute.version,
+        ownerType: 'user',
+        ownerId: sellerOxyUserId,
+      }),
     ]);
 
   return {
@@ -119,6 +131,11 @@ export async function readGuestP2PFacts(input: {
     // about a person. No account yet ⇒ nothing to read, and the seller supplies
     // it by onboarding — which `stripe_payout_ready` already reports on.
     sellerPayoutCountry: account ? known(account.country) : unknown('seller'),
+    // A missing acceptance is a KNOWN false rather than an unknown: the policy
+    // is published, the surface exists and the seller has not used it. Reporting
+    // it `unknown` would name a party who owes an input when the party who owes
+    // one is the seller, and the criterion already blocks either way.
+    sellerPoliciesAccepted: known(policyAcceptance !== undefined),
     listingActive: listing.status === 'active',
     listingRestricted: listing.status === 'restricted',
     categorySlugs: listing.categorySlugs,

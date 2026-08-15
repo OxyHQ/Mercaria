@@ -1691,19 +1691,21 @@ export interface GuestCheckoutRolloutConfig {
    */
   readonly blockedFulfilmentMethods: readonly string[];
   /**
-   * `GUEST_SELLER_ACTIVATION_REQUIRED` — the #85 seam, default FALSE.
+   * `GUEST_SELLER_ACTIVATION_REQUIRED` — the #85 gate, default FALSE.
    *
-   * #85 owns merchant activation readiness and has not landed, so no seller
-   * carries an activation record and nothing can invent one. Turning this ON
-   * therefore refuses EVERY guest checkout, by name, until #85 supplies the
-   * state — which is the fail-closed direction and the whole point of shipping
-   * the lever now: the seam cannot be satisfied by accident, and the day #85
-   * lands its author changes one function body rather than discovering that
-   * guest checkout had been quietly ignoring merchant activation all along.
+   * #85 LANDED, so `readGuestSellerActivation` now answers the guest
+   * conjunction per seller (`services/merchant-activation/guest-activation.ts`)
+   * instead of being unable to report anybody as activated. What this flag
+   * decides is whether the question is ASKED at all; the early return is also
+   * what keeps the default path free of a database read.
    *
    * OFF by default because that is ADR 0006 G14's decision, not an omission:
-   * at launch there is no per-merchant guest activation concept, and defaulting
-   * this on would refuse a checkout the ADR says is eligible.
+   * guest eligibility is the intersection of the gates that already exist, and
+   * defaulting this on would refuse a checkout the ADR says is eligible. There
+   * is still no per-merchant guest OPT-IN list, and `activated` is still not a
+   * value anybody can set — it is a conjunction over eleven tables, which is
+   * what stops it becoming a second, drifting answer to what `onboarding_state`
+   * already answers.
    */
   readonly sellerActivationRequired: boolean;
   /**
@@ -2975,6 +2977,47 @@ export interface PrintfulConfig {
  * THREE levers and none of them gates a durable record. See the value block at
  * the bottom of this file for what each one stops.
  */
+/**
+ * Merchant activation readiness (#85).
+ *
+ * TWO variables and neither gates a durable record, which is what a scanned gate
+ * enforces: a policy acceptance, a pause switch, an operator hold and the whole
+ * capability trail are stored whatever these say. The merchant and operator
+ * surfaces are mounted unconditionally too — the evidence has to be readable
+ * during the incident that turned something off, and there is nothing here worth
+ * withdrawing a merchant's own readiness screen for.
+ *
+ * There is deliberately no `MERCHANT_ACTIVATION_ENABLED`. Activation is a
+ * derivation over state eight other domains already own; a flag switching it off
+ * would not stop those facts being true, it would only stop anybody being told.
+ */
+export interface MerchantActivationConfig {
+  /**
+   * `MERCHANT_ACTIVATION_TEST_ORDER_REQUIRED` — whether #85 state 12 BLOCKS.
+   *
+   * Default FALSE, and that is a decision rather than a timid default: there is
+   * no launch plan in this repository requiring a test order, and making it
+   * blocking by default would mean no merchant could ever take a first one —
+   * the requirement would refuse the very order that satisfies it. It is always
+   * DERIVED and always reported, on the dashboard and in the operator trace;
+   * this decides only whether the answer withholds a capability.
+   */
+  readonly testOrderRequired: boolean;
+  /**
+   * `MERCHANT_ACTIVATION_OBSERVATION_ENABLED` — the sweep LOOP, never a row.
+   *
+   * Most activation transitions have no actor at all: Stripe restricts an
+   * account, a connector stops delivering, a jury restricts a catalogue. Nothing
+   * in those domains knows this one exists, so the only way a transition gets
+   * audited is somebody looking — which is what the sweep does. With it off,
+   * transitions are still recorded at every point a merchant or an operator
+   * acts, and the derivation itself is unaffected, because it is derived.
+   */
+  readonly observationEnabled: boolean;
+  readonly observationIntervalMs: number;
+  readonly observationBatchSize: number;
+}
+
 export interface BuyerRequestsConfig {
   /** Gates the buyer-facing WRITE paths. Reads and decisions stay open. */
   readonly requestsEnabled: boolean;
@@ -3109,6 +3152,7 @@ export interface AppConfig {
   readonly payments: PaymentsConfig;
   readonly guest: GuestConfig;
   readonly referrals: ReferralsConfig;
+  readonly merchantActivation: MerchantActivationConfig;
   readonly buyerRequests: BuyerRequestsConfig;
   readonly retailService: RetailServiceRequestsConfig;
   readonly analytics: AnalyticsConfig;
@@ -3698,6 +3742,16 @@ export const config: AppConfig = Object.freeze({
    * is still advanced by the merchant and operator surfaces, so turning the
    * timer off during an incident cannot make a refund unfinishable.
    */
+  /**
+   * #85. Neither lever gates a durable record and neither gates a surface —
+   * see {@link MerchantActivationConfig} for why there is no third.
+   */
+  merchantActivation: Object.freeze({
+    testOrderRequired: boolEnv('MERCHANT_ACTIVATION_TEST_ORDER_REQUIRED', false),
+    observationEnabled: boolEnv('MERCHANT_ACTIVATION_OBSERVATION_ENABLED', false),
+    observationIntervalMs: intEnv('MERCHANT_ACTIVATION_OBSERVATION_INTERVAL_MS', 15 * MINUTE_MS),
+    observationBatchSize: intEnv('MERCHANT_ACTIVATION_OBSERVATION_BATCH_SIZE', 100),
+  }),
   buyerRequests: Object.freeze({
     requestsEnabled: boolEnv('BUYER_REQUESTS_ENABLED', true),
     reconcilerEnabled: boolEnv('BUYER_REQUEST_RECONCILER_ENABLED', true),

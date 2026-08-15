@@ -1008,25 +1008,35 @@ paths learns to read `config.guest`. **`STRIPE_ENABLED=false` is NOT a guest
 rollback lever**: it kills the rail for everyone and unmounts the webhook
 routes, stranding verified events.
 
-### The #85 seam, and why it fails closed
+### The #85 gate, CLOSED
 
 `readGuestSellerActivation` is the ONE function that decides whether a seller
-may sell to a guest beyond what payment readiness already decided.
-`GuestSellerActivation` has **no `activated` member** — there is no input, no
-configuration and no code path by which this version reports #85's requirement
-as satisfied — so `GUEST_SELLER_ACTIVATION_REQUIRED=true` refuses EVERY guest
-checkout, by name, under its own reason code (`guest_seller_not_activated`,
-separate from `seller_not_payment_ready` because one seller cannot be PAID and
-the other has not ACCEPTED, and a merchant sent to the wrong screen stays
-stuck). That is the fail-closed direction and the whole value of shipping the
-lever now: a deployment cannot believe it is enforcing merchant activation while
-enforcing nothing.
+may sell to a guest beyond what payment readiness already decided. It shipped as
+a SEAM — `GuestSellerActivation` had no `activated` member, so
+`GUEST_SELLER_ACTIVATION_REQUIRED=true` refused EVERY guest checkout by name
+until #85 supplied the state.
 
-The flag defaults OFF because that is ADR 0006 G14's decision rather than an
-omission — guest eligibility at launch is the intersection of the gates that
-already exist ("a store payment-ready for Oxy buyers is payment-ready for
-guests"), and a separate per-merchant guest opt-in list would be a second,
-drifting answer to the question `onboarding_state` already answers.
+**#85 landed.** The union has its third member, the read lives in
+`services/merchant-activation/guest-activation.ts`, and `activated` means the
+GUEST CONJUNCTION holds — payment readiness plus the twelve facts #85 guest 2–14
+name (`docs/merchant-activation.md`). Nothing else in the checkout path moved:
+the four kill switches, the refusal shape, the reason code and the position in
+the gate order are unchanged. `guest_seller_not_activated` stays separate from
+`seller_not_payment_ready` because one seller cannot be PAID and the other has
+not been ACTIVATED, and a merchant sent to the wrong screen stays stuck.
+
+The flag still decides whether the question is ASKED, and still defaults OFF
+because that is ADR 0006 G14's decision rather than an omission — guest
+eligibility at launch is the intersection of the gates that already exist, and a
+separate per-merchant guest OPT-IN list would be a second, drifting answer to the
+question `onboarding_state` already answers. That survives: there is no column
+anybody can set to `activated`, and the early return keeps the default path free
+of a database read.
+
+#85 additionally added `seller_not_activated` — the AUTHENTICATED path's own
+reason code, for an operator hold, a merchant's own pause and an unaccepted fee
+schedule. It is deliberately not this one: "guest checkout is off for this store"
+and "this store is not selling at all" are different facts.
 
 ### What a guest still cannot do
 
@@ -1048,7 +1058,7 @@ GUEST_CHECKOUT_BLOCKED_PLATFORMS=            # web,native — EMPTY = nothing bl
 GUEST_CHECKOUT_BLOCKED_MARKETS=              # ISO-3166 alpha-2
 GUEST_CHECKOUT_BLOCKED_SELLER_KEYS=          # store:<id>,user:<id> — case-sensitive
 GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS=   # standard,express,pickup
-GUEST_SELLER_ACTIVATION_REQUIRED=false       # the #85 seam; true refuses EVERY guest checkout
+GUEST_SELLER_ACTIVATION_REQUIRED=false       # the #85 gate; true enforces the guest conjunction per seller
 ```
 
 ### What has NOT been verified
@@ -1335,10 +1345,18 @@ posting's residual — all of it on a full refund, pro-rata on a partial one.
 
 POS and connector-imported orders carry NO snapshot (no explicitly selected
 channel policy exists for them yet — an absent snapshot reads as zero fee,
-exactly like a pre-#88 order). The P2P seller acceptance surface, merchant
-notifications of future schedule changes, downloadable breakdowns and the
-checkout-time acceptance GATE belong to merchant activation (#85); the snapshot
-already records the accepted terms version when one exists.
+exactly like a pre-#88 order).
+
+**#85 landed two of the four items this section deferred to it.** The
+checkout-time acceptance GATE runs at step 4f-bis of `checkout.service`, over the
+schedule checkout itself selected, refusing under `seller_not_activated` — and a
+deployment with no active schedule is unaffected, because no applicable schedule
+is this domain's honest zero. The P2P seller acceptance surface is
+`POST /seller/activation/policies`, whose row carries `owner_type = 'user'`
+(`docs/merchant-activation.md`). Schedule-change NOTIFICATIONS and downloadable
+breakdowns are still owed: the acceptance state and its `current` flag are
+derived and visible the moment a version is bumped, but PUSHING a message needs
+the outbound transport #108 owns.
 
 ---
 
@@ -2056,7 +2074,7 @@ GUEST_CHECKOUT_BLOCKED_PLATFORMS=             # the four guest kill switches (#1
 GUEST_CHECKOUT_BLOCKED_MARKETS=               # every one EMPTY = nothing blocked
 GUEST_CHECKOUT_BLOCKED_SELLER_KEYS=
 GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS=
-GUEST_SELLER_ACTIVATION_REQUIRED=false        # the #85 seam; true refuses EVERY guest checkout
+GUEST_SELLER_ACTIVATION_REQUIRED=false        # the #85 gate; true enforces the guest conjunction per seller
 ```
 
 `PAYMENT_RECONCILIATION_*` values bound WORK rather than correctness, which is

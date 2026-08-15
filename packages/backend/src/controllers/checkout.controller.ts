@@ -108,6 +108,11 @@ const REFUSAL_REASON_TO_ANALYTICS: Record<CheckoutRefusalReason, AnalyticsReason
   // Mercaria can source, and counting it as a destination failure would tell a
   // merchant-facing metric that addresses are failing validation.
   retail_line_ineligible: 'retail_line_ineligible',
+  // #85. An ELIGIBILITY outcome, not a destination one: a seller whose fee terms
+  // are unaccepted or whose checkout is paused is a fact about the PARTIES, and
+  // counting it as a destination failure would tell a merchant-facing metric
+  // that addresses are failing validation.
+  seller_not_activated: 'seller_not_activated',
 };
 
 /**

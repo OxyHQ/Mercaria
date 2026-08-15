@@ -66,7 +66,7 @@ number nobody else can re-derive.
 | 4 | Cancellation and refund rate | Trailing 90 days, P2P orders | **No**, and structurally so: `orderHasRefundPath` returns false for every P2P order (`services/buyer-requests/refund-bridge.ts`) — `code-verified` | The rate is not merely unmeasured; the event it measures cannot occur | The P2P refund path (item 10) |
 | 5 | Seller response time | Trailing 90 days of `support_messages` on P2P orders | **No**, and structurally so: the merchant side of #110 is store-scoped (`requireStorePermission`) — `code-verified` | A P2P seller has no surface to respond on, so a response time would measure nothing | A P2P seller order surface |
 | 6 | Buyer–seller support and messaging volume | Trailing 90 days | **No**, same cause as item 5 | — | Same as item 5 |
-| 7 | Pickup and meetup safety incidents | Any | **No**, and structurally so: pickup fails closed at checkout (`assertPickupLocationEligible`) and #93 has no implementation — `code-verified` | There have been no meetups because there can be none | #93 |
+| 7 | Pickup and meetup safety incidents | Any | **No**, and structurally so — see the note below the table: #93 has since SHIPPED, and a P2P collection is now refused rather than unmodelled — `code-verified` | There have been no meetups because there can be none | #93 |
 | 8 | Payment dispute and chargeback liability under #43 | n/a — a decision, not a measurement | **Half.** #43 is CLOSED: it is ADR 0001, and the general model is decided | ADR 0001 D1 makes Mercaria merchant of record, D7 debits the platform balance and reverses the seller's transfer, and separate charges and transfers makes Mercaria responsible for a connected account's negative balance (ADR 0001 fact 2). So the loss on an individual payee already lands on Mercaria — and nothing models a reserve, a delayed payout or an exposure limit for one. That is the decision's OUTPUT, not its absence | A P2P-specific amendment: reserves or payout delay for individual payees, and an accepted exposure limit |
 | 9 | Seller onboarding and payment-readiness coverage | Point-in-time count of `provider_accounts` where `owner_type='user'` and `onboarding_state='ready'`, over sellers with active listings | **No.** See §The queries not run | The verdict itself is available per seller (`readSellerPaymentReadiness`) and is a criterion in the policy; what is missing is the COVERAGE figure a cohort would be drawn from | The named query, run against production |
 | 10 | Condition-evidence quality from #90 and #91 | Point-in-time distribution of `listings.condition_assertion` and evidential photo counts over P2P listings | **Partly.** #90 landed and the inputs exist per listing (`condition_assertion`, `listing_condition_details`, `listing_condition_photos`); #91 (seller-facing refinement) is **not merged** — open PR #236 | Without #91 a seller has no UI to refine a `migrated_binary` condition or attach actual-item photos, so a distribution measured today reports the absence of a feature rather than the quality of sellers' disclosures | #91, then a distribution over a period in which sellers could actually act |
@@ -125,11 +125,15 @@ measurement in the table came back favourable, these would still block.
    cannot see, accept or reject a cancellation, a return or a support thread on
    their own sale. #112 seller eligibility 9 ("messaging availability") is
    therefore not unknown; it is false.
-3. **Pickup is unavailable and unmodelled.** `assertPickupLocationEligible`
-   refuses every collection because there is no publication state, no
-   pickup-specific inventory view and no per-location hours in this schema. All
-   ten of #112's "Pickup and meetup safety" requirements are #93's, and #93 has
-   no implementation and no open pull request.
+3. **Pickup is unavailable to a P2P seller, and #93 SHIPPING is what made that
+   a decision rather than a gap.** When this document was written
+   `assertPickupLocationEligible` refused every collection because no
+   publication state, pickup inventory view or opening hours existed anywhere in
+   the schema. #93 supplies all three — for a STORE's `locations` row. An
+   individual has no publication and cannot acquire one, so
+   `derivePickupEligibility` refuses a `user` seller for every actor. The
+   finding is unchanged and its EVIDENCE is stronger: it was "we cannot tell",
+   it is now "no".
 4. **A mixed cart shares one charge, and the liability model already assigns
    the loss to Mercaria.** A Mercaria checkout opens ONE PaymentIntent per
    checkout group covering every seller order in it (ADR 0001 D3/D4). #112
@@ -209,19 +213,12 @@ availability. The summary that matters for this decision:
   market/currency/fulfilment, both category questions, condition evidence and
   normalization, actual-item photos, value cap, quantity, domestic-only, and the
   mixed-payment question.
-- **One is unevaluable and names #85**: return, cancellation and dispute policy
-  acceptance. #88 shipped fee acceptance for STORES behind `store:manage`; a
-  private individual has no store and no permission to hold, and the P2P
-  acceptance surface is recorded as #85's.
-- **Two are refused because the capability does not exist**: messaging
-  availability and "no required buyer capability that exists only for
-  authenticated Oxy users" (findings 1 and 2).
-- **One is vacuous and says so**: no negotiation or offer messaging — Mercaria
-  implements none, and `checkoutSchema` is `.strict()` and refuses every money
-  field, so there is nothing to restrict.
-- **One lands on `unevaluable` for a pickup destination and names #93**: the
-  fulfilment-method criterion. This is the not-applicable branch #112 asks be
-  explicit rather than a silent pass, and it BLOCKS.
+- **One WAS unevaluable and named #85; #85 has since CLOSED it.** Return,
+  cancellation and dispute policy acceptance is now
+  `POST /seller/activation/policies`, and the criterion is `evaluated` — a
+  seller who has not accepted is REFUSED rather than unanswerable. That changes
+  the criterion's state and NOT this decision: the two findings below are facts
+  about this repository, both still hold, and the verdict is still no-go.
 
 The bounded scope those criteria are evaluated against
 (`GUEST_P2P_BOUNDED_SCOPE`) is a code constant, not a table and not an
@@ -244,9 +241,12 @@ location, bounded retention of precise coordinates, and whether guest pickup is
 excluded from a first pilot — is a decision that needs #93's data model to
 exist first.
 
-What this issue does instead of inventing one: the fulfilment criterion answers
-`unevaluable` with owner `#93` for a pickup destination, and blocks. A guest
-P2P pilot could not include pickup even if it were authorized.
+What this issue does instead of inventing one: the fulfilment criterion refuses
+a pickup destination, and blocks. It answered `unevaluable` with owner `#93`
+until #93 shipped; a collection from an individual has no publication and cannot
+acquire one, so the honest answer moved from "we cannot tell" to "no". Both
+block, so nothing about this decision changed — a guest P2P pilot could not
+include pickup even if it were authorized.
 
 ## Disputes, returns and evidence
 

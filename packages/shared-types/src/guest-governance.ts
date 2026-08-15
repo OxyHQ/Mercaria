@@ -1843,12 +1843,20 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     gate: 'merchant_readiness_includes_guest',
     title: 'Merchant readiness explicitly includes guest checkout',
     discipline: 'operations',
-    evidenceKind: 'external_dependency',
+    // `external_dependency` until #85 landed, because no activation state
+    // existed for a gate to read. It exists now, so what remains is an
+    // OPERATIONAL act — telling pilot merchants, in writing, before the orders
+    // arrive — which is a person's verification rather than a build somebody
+    // owes. Leaving it `external_dependency` with no `blockedBy` would be a gate
+    // claiming a dependency it can no longer name.
+    evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_2_pilot_merchants',
     criterion:
       'A merchant-facing statement that guest orders will arrive, and an activation state a gate ' +
-      'can read.',
-    blockedBy: '#85 (GuestSellerActivation has no `activated` member until it lands)',
+      'can read. #85 SUPPLIED the second half: `GuestSellerActivation` has its `activated` ' +
+      'member, the guest conjunction is derived per seller, and the merchant reads it at ' +
+      '/admin/stores/:storeId/activation. What remains is the OPERATIONAL half this gate is ' +
+      'about — telling pilot merchants, in writing, before the orders arrive.',
   },
   {
     gate: 'support_runbooks_staffed',

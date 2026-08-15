@@ -594,6 +594,15 @@ export const ANALYTICS_REASON_CODES = [
   'abuse_cooldown',
   'abuse_verification_required',
   'abuse_manual_review',
+  // #85's activation gate. ONE code for four levers (an unaccepted fee
+  // schedule, an unaccepted responsibilities policy, a merchant's own pause and
+  // an operator's safety hold), the `guest_rollout_blocked` decision applied to
+  // the authenticated path — a buyer cannot act on which of the four fired, and
+  // a client able to vary one input at a time could read out whether a
+  // particular merchant is under an operator hold, which is a moderation fact.
+  // It is deliberately NOT `seller_not_payment_ready`: one seller cannot be
+  // PAID, the other has not ACCEPTED, and the remedies are different screens.
+  'seller_not_activated',
   // The honest fallback. Present so a new refusal is recorded as UNCLASSIFIED
   // rather than squeezed into a code that means something else.
   'other',

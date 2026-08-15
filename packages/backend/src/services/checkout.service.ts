@@ -128,6 +128,7 @@ import { calculateTotals, type PricingLine, type PricingResult } from './pricing
 import { normalizeDiscountCode } from './discount.service.js';
 import { getRates, convert, toDualMoney, pairRate } from './fx.service.js';
 import { assertSellerGroupsPaymentReady } from './payments/provider-account.service.js';
+import { assertSellerGroupsActivated } from './merchant-activation/checkout-gate.js';
 import {
   assertCheckoutCurrencyEligible,
   openCheckoutPayment,
@@ -1067,7 +1068,7 @@ export async function checkout(
   //
   // A complete no-op for an Oxy buyer, and on any deployment that has
   // configured no lever, which is the default.
-  assertGuestCheckoutRolloutAllowed({
+  await assertGuestCheckoutRolloutAllowed({
     actor,
     destinationCountry: shippingFulfilment.address.country,
     groups: eligibilityGroups,
@@ -1090,13 +1091,42 @@ export async function checkout(
   // the same reasoning as 4c–4e. No schedule matching is a fine answer (the
   // zero-fee configuration), so only the throw matters here.
   const feeContext = await loadFeeScheduleContext();
-  for (const group of groups.values()) {
-    selectFeeSchedule({
+  const selectedSchedules = new Map<string, { scheduleKey: string; version: number }>();
+  for (const [sellerKey, group] of groups.entries()) {
+    const schedule = selectFeeSchedule({
       schedules: feeContext.schedules,
       facts: { sellerType: group.sellerType, currency: cart.currency },
       at: feeContext.at,
     });
+    if (schedule) {
+      selectedSchedules.set(sellerKey, {
+        scheduleKey: schedule.scheduleKey,
+        version: schedule.version,
+      });
+    }
   }
+
+  // 4f-bis. The merchant ACTIVATION gate (#85), and with it #88's deferred fee
+  // ACCEPTANCE gate.
+  //
+  // Here rather than beside the payment-readiness gate at 4b, because it needs
+  // the schedule selection immediately above: the acceptance that matters is of
+  // the schedule THIS order will snapshot, in the presentment currency it will
+  // snapshot it in, and selecting again would be a second selection that could
+  // answer differently. Still before the reservation loop, which is the property
+  // 4c–4f all share.
+  //
+  // Deliberately NARROW: an operator's hold, the merchant's own pause and an
+  // unaccepted fee schedule, and nothing else. Whether a store has a healthy
+  // connector or a completed test order is an ONBOARDING question, and refusing
+  // a checkout on it would take a working store off sale because its sync had a
+  // bad night. See `checkout-gate.ts`.
+  await assertSellerGroupsActivated(
+    [...groups.keys()].map((sellerKey) => {
+      const feeSchedule = selectedSchedules.get(sellerKey);
+      return feeSchedule ? { sellerKey, feeSchedule } : { sellerKey };
+    }),
+  );
 
   // 4g. Price, gate and LOCK the retail half (#123, ADR 0004 D4 step 1).
   //

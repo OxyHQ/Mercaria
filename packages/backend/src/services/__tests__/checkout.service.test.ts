@@ -176,6 +176,25 @@ vi.mock('../fees/order-fees.service.js', async (importOriginal) => {
   };
 });
 
+// The merchant ACTIVATION settings row (#85), pinned to "unwritten" — a store
+// that has decided nothing, which is what every pre-#85 fixture in this suite
+// is. The gate's other input is the fee schedule, and the mock above pins that
+// to "none applicable", so the whole activation gate is a no-op here and the
+// behaviours below are unchanged. It is stubbed at the REPOSITORY rather than at
+// the gate deliberately: mocking the gate itself would make this suite unable to
+// notice if the gate started refusing.
+vi.mock('../../db/merchantActivation/activationSettingsRepository.js', () => ({
+  readMerchantActivationSettings: () =>
+    Promise.resolve({
+      exists: false,
+      nativeCheckoutIntent: 'enabled',
+      guestCheckoutIntent: 'enabled',
+      supportEmail: null,
+      supportUrl: null,
+      platformHeld: false,
+    }),
+}));
+
 import { checkout } from '../checkout.service.js';
 import { isMercariaError, outOfStock } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';

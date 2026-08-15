@@ -1629,4 +1629,19 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'location_publications.restricted_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'location_publication_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'pickup_collection_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── Merchant activation (#85) ──────────────────────────────────────────────
+  // The operator who held a store's checkout, the store member (or individual
+  // seller) who accepted a policy, and the actor on a capability transition.
+  { column: 'merchant_activation_settings.platform_held_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_activation_policy_acceptances.accepted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'merchant_activation_capability_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'merchant_activation_policy_acceptances.owner_id',
+    reason:
+      "`provider_accounts`' polymorphic owner, one domain over and for its reason: half the " +
+      'owners are STORES in this database and half are Oxy ACCOUNTS whose key space is not, so ' +
+      'no single foreign key could be correct for both. It is what lets an individual seller ' +
+      'accept the P2P policy #112 named — a person selling a bicycle has no store to hang one ' +
+      'off. `owner_type` is CHECK-restricted to the same two values the pair uses.',
+  },
 ];

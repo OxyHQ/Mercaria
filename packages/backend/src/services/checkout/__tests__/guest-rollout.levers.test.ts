@@ -45,10 +45,17 @@ const BLOCKED_METHOD_GROUP: EligibilitySellerGroup = {
 
 let rollout: typeof import('../guest-rollout.js');
 
-/** The reason a call refused with, or `undefined` when it did not refuse. */
-function refusalReasonOf(run: () => void): string | undefined {
+/**
+ * The reason a call refused with, or `undefined` when it did not refuse.
+ *
+ * ASYNC since #85 closed the activation seam: the gate now awaits a per-seller
+ * verdict. A synchronous helper would have gone on passing here — a rejected
+ * promise nobody awaits throws nowhere — so every case in this file would have
+ * reported "did not refuse" whatever the levers said.
+ */
+async function refusalReasonOf(run: () => Promise<void>): Promise<string | undefined> {
   try {
-    run();
+    await run();
     return undefined;
   } catch (error: unknown) {
     return isCheckoutRefusal(error) ? error.reason : 'unclassified';
@@ -56,9 +63,9 @@ function refusalReasonOf(run: () => void): string | undefined {
 }
 
 /** The message a call refused with. */
-function refusalMessageOf(run: () => void): string {
+async function refusalMessageOf(run: () => Promise<void>): Promise<string> {
   try {
-    run();
+    await run();
     return '';
   } catch (error: unknown) {
     return error instanceof Error ? error.message : String(error);
@@ -80,9 +87,9 @@ beforeAll(async () => {
 });
 
 describe('each dimension refuses independently', () => {
-  it('blocks the named PLATFORM and leaves the other one open', () => {
+  it('blocks the named PLATFORM and leaves the other one open', async () => {
     expect(
-      refusalReasonOf(() =>
+      await refusalReasonOf(async () =>
         rollout.assertGuestCheckoutRolloutAllowed({
           actor: GUEST_NATIVE,
           destinationCountry: 'ES',
@@ -91,7 +98,7 @@ describe('each dimension refuses independently', () => {
       ),
     ).toBe('guest_rollout_blocked');
     expect(
-      refusalReasonOf(() =>
+      await refusalReasonOf(async () =>
         rollout.assertGuestCheckoutRolloutAllowed({
           actor: GUEST_WEB,
           destinationCountry: 'ES',
@@ -101,10 +108,10 @@ describe('each dimension refuses independently', () => {
     ).toBeUndefined();
   });
 
-  it('blocks the named MARKETS, case-insensitively, and leaves the rest open', () => {
+  it('blocks the named MARKETS, case-insensitively, and leaves the rest open', async () => {
     for (const country of ['FR', 'PT']) {
       expect(
-        refusalReasonOf(() =>
+        await refusalReasonOf(async () =>
           rollout.assertGuestCheckoutRolloutAllowed({
             actor: GUEST_WEB,
             destinationCountry: country,
@@ -115,7 +122,7 @@ describe('each dimension refuses independently', () => {
       ).toBe('guest_rollout_blocked');
     }
     expect(
-      refusalReasonOf(() =>
+      await refusalReasonOf(async () =>
         rollout.assertGuestCheckoutRolloutAllowed({
           actor: GUEST_WEB,
           destinationCountry: 'ES',
@@ -125,16 +132,13 @@ describe('each dimension refuses independently', () => {
     ).toBeUndefined();
   });
 
-  it('blocks the named MERCHANT, byte for byte, and leaves its neighbours open', () => {
-    expect(rollout.readGuestSellerActivation('store:Blocked')).toEqual({
-      state: 'blocked_by_operator',
-    });
+  it('blocks the named MERCHANT, byte for byte, and leaves its neighbours open', async () => {
     // The same key in another case is a DIFFERENT seller. Folding case here
-    // would make one lever entry silently withdraw two merchants.
-    expect(rollout.readGuestSellerActivation('store:blocked')).toEqual({ state: 'unrecorded' });
-
+    // would make one lever entry silently withdraw two merchants — so the
+    // NEIGHBOUR case is the assertion that matters, and it is the second one
+    // below: `store:open` shares the file with `store:Blocked` and is untouched.
     expect(
-      refusalReasonOf(() =>
+      await refusalReasonOf(async () =>
         rollout.assertGuestCheckoutRolloutAllowed({
           actor: GUEST_WEB,
           destinationCountry: 'ES',
@@ -142,11 +146,23 @@ describe('each dimension refuses independently', () => {
         }),
       ),
     ).toBe('guest_rollout_blocked');
+
+    // `store:blocked` differs from the lever entry only in case, so it is a
+    // seller nobody withdrew and its checkout goes through.
+    expect(
+      await refusalReasonOf(async () =>
+        rollout.assertGuestCheckoutRolloutAllowed({
+          actor: GUEST_WEB,
+          destinationCountry: 'ES',
+          groups: [{ sellerKey: 'store:blocked', sellerType: 'store', shippingMethod: 'standard' }],
+        }),
+      ),
+    ).toBeUndefined();
   });
 
-  it('blocks the named FULFILMENT method and leaves the others open', () => {
+  it('blocks the named FULFILMENT method and leaves the others open', async () => {
     expect(
-      refusalReasonOf(() =>
+      await refusalReasonOf(async () =>
         rollout.assertGuestCheckoutRolloutAllowed({
           actor: GUEST_WEB,
           destinationCountry: 'ES',
@@ -158,44 +174,46 @@ describe('each dimension refuses independently', () => {
 });
 
 describe('what the levers cannot reach', () => {
-  it('never refuses an AUTHENTICATED checkout, whatever is switched off', () => {
+  it('never refuses an AUTHENTICATED checkout, whatever is switched off', async () => {
     // Every dimension at once, including the blocked platform's transport —
     // which an Oxy actor does not even have. A guest rollback that took
     // authenticated checkout down with it would be an outage wearing a
     // rollout's name.
-    expect(() =>
-      rollout.assertGuestCheckoutRolloutAllowed({
-        actor: OXY,
-        destinationCountry: 'FR',
-        groups: [BLOCKED_SELLER_GROUP, BLOCKED_METHOD_GROUP],
-      }),
-    ).not.toThrow();
+    expect(
+      await refusalReasonOf(async () =>
+        rollout.assertGuestCheckoutRolloutAllowed({
+          actor: OXY,
+          destinationCountry: 'FR',
+          groups: [BLOCKED_SELLER_GROUP, BLOCKED_METHOD_GROUP],
+        }),
+      ),
+    ).toBeUndefined();
   });
 
-  it('refuses without naming the dimension that fired', () => {
+  it('refuses without naming the dimension that fired', async () => {
     const messages = [
-      refusalMessageOf(() =>
+      await refusalMessageOf(async () =>
         rollout.assertGuestCheckoutRolloutAllowed({
           actor: GUEST_NATIVE,
           destinationCountry: 'ES',
           groups: [OPEN_GROUP],
         }),
       ),
-      refusalMessageOf(() =>
+      await refusalMessageOf(async () =>
         rollout.assertGuestCheckoutRolloutAllowed({
           actor: GUEST_WEB,
           destinationCountry: 'FR',
           groups: [OPEN_GROUP],
         }),
       ),
-      refusalMessageOf(() =>
+      await refusalMessageOf(async () =>
         rollout.assertGuestCheckoutRolloutAllowed({
           actor: GUEST_WEB,
           destinationCountry: 'ES',
           groups: [BLOCKED_SELLER_GROUP],
         }),
       ),
-      refusalMessageOf(() =>
+      await refusalMessageOf(async () =>
         rollout.assertGuestCheckoutRolloutAllowed({
           actor: GUEST_WEB,
           destinationCountry: 'ES',

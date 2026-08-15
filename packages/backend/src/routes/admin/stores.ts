@@ -32,6 +32,7 @@ import channelKeysRouter from './channel-keys.js';
 import paymentsRouter from './payments.js';
 import feedsRouter from './feeds.js';
 import feesRouter from './fees.js';
+import merchantActivationRouter from './merchant-activation.js';
 import planRouter from './plan.js';
 import analyticsRouter from './analytics.js';
 
@@ -101,6 +102,12 @@ router.use('/:storeId/payments', paymentsRouter);
 // acceptance and fee/net preview. Beside `/payments` and not inside it — the
 // fee is a COMMERCIAL agreement with Mercaria, not a property of any rail.
 router.use('/:storeId/fees', feesRouter);
+// Merchant activation readiness (#85), behind `store:manage` — the same
+// permission fees and payment onboarding use, because accepting the
+// responsibilities that come with taking orders is the same kind of binding
+// commercial act. Deliberately NOT under `/channels`: a channel is where a
+// catalogue comes from, and activation is whether this business may sell.
+router.use('/:storeId/activation', merchantActivationRouter);
 // The store's own plan, entitlements and optional subscription billing (#89).
 // Beside `/fees` and not inside it: a marketplace fee is what Mercaria takes
 // from a SALE, and a plan is what a merchant pays Mercaria for TOOLING. They are
