@@ -3,16 +3,18 @@
  *
  * THIN, like every other controller here: each handler unpacks a schema-verified
  * body, stamps the authenticated operator as the ACTOR, and delegates every
- * decision to `services/canonical/`. Nothing in this file decides identity,
- * resolves a conflict or picks a merge winner.
+ * decision to `services/canonical/`. Nothing in this file decides identity or
+ * resolves a conflict.
  *
- * The merge endpoints DO ship here, unlike #54's, and the difference is worth
- * naming: #54 deferred them because the merge OPERATION it would have exposed
- * was #59's, defined by ADR 0002 D16 to write a `catalog_revisions` row. #56's
- * merges write their own durable audit — the tombstone, the repointed children
- * and the append-only redirect history this issue requires (family rule 7,
- * acceptance 5) — so they are complete without that table. #59's ledger is
- * additive over them, not a precondition.
+ * **There is no merge handler here.** #56 shipped three, on the reasoning that
+ * their own tombstone-plus-redirect audit made them complete without #59's
+ * `catalog_revisions` ledger. #59 then landed the census-complete rehoming plan
+ * and showed the reasoning was wrong in a way no test could see: those merges
+ * moved a strict SUBSET of the columns referencing a merged entity, so the
+ * loser's variants, images, attribute values, saves, alerts and match rows
+ * stayed on a tombstone and every page went on rendering. All three were
+ * deleted (#36 completion criterion 4); a merge is
+ * `POST /internal/commerce-graph/merge-jobs`.
  */
 
 import type { Request, Response } from 'express';
@@ -22,16 +24,12 @@ import type {
   SourceLinkMethod,
 } from '@mercaria/shared-types';
 import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
-import {
-  createProductFamily,
-  mergeProductFamilies,
-} from '../services/canonical/product-family.service.js';
+import { createProductFamily } from '../services/canonical/product-family.service.js';
 import {
   applyProductSourceObservation,
   createCanonicalProduct,
-  mergeCanonicalProducts,
 } from '../services/canonical/canonical-product.service.js';
-import { createVariant, mergeVariants } from '../services/canonical/canonical-variant.service.js';
+import { createVariant } from '../services/canonical/canonical-variant.service.js';
 import {
   assignIdentifier,
   correctIdentifier,
@@ -270,50 +268,3 @@ export async function correctIdentifierHandler(req: Request, res: Response): Pro
   }
 }
 
-
-/** POST /internal/canonical-catalog/product-families/:winnerId/merge */
-export async function mergeProductFamiliesHandler(req: Request, res: Response): Promise<void> {
-  try {
-    const body = req.body as { loserId: string; reason: string };
-    const result = await mergeProductFamilies({
-      winnerId: routeParam(req, 'winnerId'),
-      loserId: body.loserId,
-      note: body.reason,
-      actorOxyUserId: catalogOperatorId(req),
-    });
-    sendSuccess(res, result);
-  } catch (error) {
-    respondWithError(res, error, 'Merging the product families failed');
-  }
-}
-
-/** POST /internal/canonical-catalog/products/:winnerId/merge */
-export async function mergeCanonicalProductsHandler(req: Request, res: Response): Promise<void> {
-  try {
-    const body = req.body as { loserId: string; reason: string };
-    const result = await mergeCanonicalProducts({
-      winnerId: routeParam(req, 'winnerId'),
-      loserId: body.loserId,
-      note: body.reason,
-      actorOxyUserId: catalogOperatorId(req),
-    });
-    sendSuccess(res, result);
-  } catch (error) {
-    respondWithError(res, error, 'Merging the canonical products failed');
-  }
-}
-
-/** POST /internal/canonical-catalog/variants/:winnerId/merge */
-export async function mergeCanonicalVariantsHandler(req: Request, res: Response): Promise<void> {
-  try {
-    const body = req.body as { loserId: string };
-    const result = await mergeVariants({
-      winnerId: routeParam(req, 'winnerId'),
-      loserId: body.loserId,
-      actorOxyUserId: catalogOperatorId(req),
-    });
-    sendSuccess(res, result);
-  } catch (error) {
-    respondWithError(res, error, 'Merging the canonical variants failed');
-  }
-}

@@ -133,7 +133,16 @@ afterAll(async () => {
   );
 });
 
-/** Every path the surface exposes, with a method and a minimal valid body. */
+/**
+ * Every path the surface exposes, with a method and a minimal valid body.
+ *
+ * The three MERGE paths were removed with the handlers behind them (#36
+ * completion criterion 4): `/product-families/:winnerId/merge`,
+ * `/products/:winnerId/merge` and `/variants/:winnerId/merge` performed a
+ * single-transaction merge outside #59's conflict gate and census-complete
+ * rehoming plan. `internal-commerce-graph.test.ts` covers the merge-job routes
+ * that replaced them, on the SAME operator allow-list.
+ */
 const PATHS: readonly { method: 'POST'; path: string; body: unknown }[] = [
   // `/attribute-definitions` was HERE until #94, which made a definition a
   // versioned record with a lifecycle and moved the whole registry to
@@ -146,18 +155,8 @@ const PATHS: readonly { method: 'POST'; path: string; body: unknown }[] = [
   },
   {
     method: 'POST',
-    path: '/internal/canonical-catalog/product-families/f1/merge',
-    body: { loserId: 'f2', reason: 'A reason long enough to satisfy the schema.' },
-  },
-  {
-    method: 'POST',
     path: '/internal/canonical-catalog/products',
     body: { name: 'iPhone 16 Pro' },
-  },
-  {
-    method: 'POST',
-    path: '/internal/canonical-catalog/products/p1/merge',
-    body: { loserId: 'p2', reason: 'A reason long enough to satisfy the schema.' },
   },
   {
     method: 'POST',
@@ -174,11 +173,6 @@ const PATHS: readonly { method: 'POST'; path: string; body: unknown }[] = [
       method: 'connector_declared',
       matchRule: 'test.rule',
     },
-  },
-  {
-    method: 'POST',
-    path: '/internal/canonical-catalog/variants/v1/merge',
-    body: { loserId: 'v2', reason: 'A reason long enough to satisfy the schema.' },
   },
   {
     method: 'POST',

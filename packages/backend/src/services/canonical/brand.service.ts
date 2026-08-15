@@ -8,10 +8,12 @@
  *
  * ## The identity rules, and where each is enforced
  *
- * - **A matching name never merges** (#53 rule 1): nothing in this file calls
- *   {@link mergeBrands} — candidate search and alias resolution only RETURN
- *   candidates. A merge happens exclusively through an explicit call naming
- *   both ids and an actor.
+ * - **A matching name never merges** (#53 rule 1): this file cannot merge at
+ *   all — candidate search and alias resolution only RETURN candidates, and
+ *   #56's direct `mergeBrands` was retired with the rest of the pre-#59 merges
+ *   (#36 completion criterion 4). A merge is a curation JOB
+ *   (`POST /internal/commerce-graph/merge-jobs`), which names both ids, an
+ *   actor, an impact estimate and a conflict decision per collision.
  * - **Canonical data is never overwritten by a lower-confidence source**
  *   (rule 5): {@link applyBrandSourceObservation} compares the incoming
  *   observation's confidence (NULL = deterministic/human = highest, ADR 0002
@@ -55,10 +57,6 @@ import {
   listBrandAliases,
   listBrandsPage,
   listBrandSourceLinks,
-  markBrandMerged,
-  repointBrandAliases,
-  repointBrandSourceLinks,
-  retargetBrandTombstones,
   searchBrandsByNameSimilarity,
   updateBrand as updateBrandRow,
   type BrandRow,
@@ -174,7 +172,7 @@ export interface UpdateBrandInput {
   description?: string;
   websiteUrl?: string;
   logoFileId?: string;
-  /** `merged` is refused — a merge is {@link mergeBrands}, never a field write. */
+  /** `merged` is refused — a merge is a #59 curation job, never a field write. */
   status?: 'active' | 'inactive' | 'suppressed';
   actorOxyUserId: string;
 }
@@ -533,86 +531,6 @@ export async function findBrandIdsBySourceObject(
     finalIds.add((await resolveBrandRow(db, row)).id);
   }
   return [...finalIds].sort();
-}
-
-export interface MergeBrandsInput {
-  winnerId: string;
-  loserId: string;
-  /** Merges are operator decisions; the actor is mandatory, not decorative. */
-  actorOxyUserId: string;
-}
-
-export interface MergeBrandsResult {
-  /** `false` when the loser was already merged — the idempotent re-run. */
-  merged: boolean;
-  winnerId: string;
-  loserId: string;
-}
-
-/**
- * The operator merge (ADR 0002 D16), one transaction: repoint children, stamp
- * the tombstone (CAS — a concurrent duplicate merge loses and no-ops), flatten
- * every chain through the loser, keep the loser's name findable as a
- * `former_name` alias on the winner, and union the loser's domain observations
- * into the winner. The loser's slug is never reused because the row never goes
- * away.
- */
-export async function mergeBrands(input: MergeBrandsInput): Promise<MergeBrandsResult> {
-  if (input.winnerId === input.loserId) {
-    throw validationError('mergeBrands: a brand cannot be merged into itself.');
-  }
-  return getDb().transaction(async (tx) => {
-    const loser = await findBrandById(tx, input.loserId);
-    if (!loser) throw notFound(`Brand ${input.loserId} does not exist.`);
-    const winnerRow = await findBrandById(tx, input.winnerId);
-    if (!winnerRow) throw notFound(`Brand ${input.winnerId} does not exist.`);
-
-    if (loser.status === 'merged') {
-      // Re-running a merge is a no-op (D22); the stored redirect is the answer.
-      return { merged: false, winnerId: loser.mergedIntoId ?? input.winnerId, loserId: loser.id };
-    }
-
-    const winner = await resolveBrandRow(tx, winnerRow);
-    if (winner.id === loser.id) {
-      throw validationError('mergeBrands: the winner resolves to the loser — refusing a cycle.');
-    }
-
-    // The CAS comes FIRST: a concurrent duplicate merge loses here and walks
-    // away having written nothing at all — not with half its repoints in.
-    const stamped = await markBrandMerged(tx, loser.id, winner.id);
-    if (!stamped) {
-      return { merged: false, winnerId: winner.id, loserId: loser.id };
-    }
-
-    await repointBrandAliases(tx, loser.id, winner.id);
-    await repointBrandSourceLinks(tx, loser.id, winner.id);
-
-    // Flatten: tombstones that pointed at the loser now point at the winner.
-    await retargetBrandTombstones(tx, loser.id, winner.id);
-
-    await insertBrandAlias(tx, {
-      brandId: winner.id,
-      alias: loser.name,
-      kind: 'former_name',
-      createdByOxyUserId: input.actorOxyUserId,
-    });
-
-    const mergedDomains = [
-      ...new Set([...winner.observedDomains, ...loser.observedDomains]),
-    ].sort();
-    const lastSeenAt =
-      loser.lastSeenAt && (!winner.lastSeenAt || loser.lastSeenAt > winner.lastSeenAt)
-        ? loser.lastSeenAt
-        : winner.lastSeenAt;
-    await updateBrandRow(tx, winner.id, {
-      observedDomains: mergedDomains,
-      firstSeenAt: loser.firstSeenAt < winner.firstSeenAt ? loser.firstSeenAt : winner.firstSeenAt,
-      lastSeenAt,
-      lastReviewedAt: new Date(),
-    });
-
-    return { merged: true, winnerId: winner.id, loserId: loser.id };
-  });
 }
 
 /** Build the safe freshness projection from the entity's active links. */

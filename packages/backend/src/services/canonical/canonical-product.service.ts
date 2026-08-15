@@ -49,19 +49,12 @@ import {
   findCanonicalProductsByNormalizedName,
   insertCanonicalProduct,
   insertCanonicalProductAlias,
-  insertCanonicalProductRedirect,
   insertCanonicalProductSourceLink,
   listCanonicalProductAliases,
-  listCanonicalProductRedirects,
   listCanonicalProductSourceLinks,
   listCanonicalProductsPage,
   listProductsForBrand,
-  markCanonicalProductMerged,
-  repointCanonicalProductAliases,
-  repointCanonicalProductSourceLinks,
-  retargetProductTombstones,
   searchCanonicalProductsByNameSimilarity,
-  findProductTombstonesPointingAt,
   updateCanonicalProduct as updateProductRow,
   type CanonicalProductRow,
 } from '../../db/canonical/canonicalProductRepository.js';
@@ -70,7 +63,6 @@ import {
   refreshFamilyProductCount,
 } from '../../db/canonical/productFamilyRepository.js';
 import {
-  countVariantsForProduct,
   findCanonicalVariantById,
 } from '../../db/canonical/canonicalVariantRepository.js';
 import {
@@ -82,7 +74,6 @@ import {
 } from '../../db/canonical/attributeRepository.js';
 import {
   listIdentifiersForProduct,
-  repointProductIdentifiers,
 } from '../../db/canonical/productIdentifierRepository.js';
 import {
   findCatalogSourceById,
@@ -91,9 +82,6 @@ import {
   recordSourceObservation,
 } from '../../db/canonical/provenanceRepository.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
-import { rehomeReviewsForProductMerge } from '../reviews/review-migration.service.js';
-import { rebuildScopedAggregate } from '../reviews/review-aggregate.service.js';
-import { log } from '../../lib/logger.js';
 import { contentHashOf, type JsonValue } from './content-hash.js';
 import { normalizeAliasLookup, normalizeEntityName, slugFromName } from './normalization.js';
 import { normalizeAttributeKey } from './variant-signature.js';
@@ -256,7 +244,7 @@ export interface UpdateCanonicalProductInput {
   modelYear?: number;
   modelCode?: string;
   searchTokens?: string[];
-  /** `merged` is refused — a merge is {@link mergeCanonicalProducts}, never a field write. */
+  /** `merged` is refused — a merge is a #59 curation job, never a field write. */
   status?: Exclude<CanonicalProductRow['status'], 'merged'>;
   actorOxyUserId: string;
 }
@@ -788,200 +776,6 @@ export async function searchCanonicalProductCandidates(
   return [...byId.values()]
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
     .slice(0, limit);
-}
-
-export interface MergeCanonicalProductsInput {
-  winnerId: string;
-  loserId: string;
-  actorOxyUserId: string;
-  note?: string;
-}
-
-export interface MergeCanonicalProductsResult {
-  /** `false` when the loser was already merged — the idempotent re-run. */
-  merged: boolean;
-  winnerId: string;
-  loserId: string;
-  /** Redirect rows appended by this merge, the flattened hops included. */
-  redirectsRecorded: number;
-  /** Product reviews moved onto the winner (#76 migration rule 4). */
-  reviewsRehomed: number;
-  /**
-   * Reviews left on the tombstone because their author already reviewed the
-   * winner. A merge must not delete one of a buyer's two genuine reviews, so
-   * these wait for an explicit operator assignment (#76 migration rule 5).
-   */
-  reviewsNeedingAssignment: string[];
-}
-
-/**
- * The operator merge (ADR 0002 D16), one transaction.
- *
- * The redirect HISTORY is the part `merged_into_id` cannot provide: flattening
- * overwrites that column, so without an appended row the intermediate hop is
- * lost. Each retargeted tombstone therefore gets its own `flatten` row beside
- * the merge's own.
- */
-export async function mergeCanonicalProducts(
-  input: MergeCanonicalProductsInput,
-): Promise<MergeCanonicalProductsResult> {
-  if (input.winnerId === input.loserId) {
-    throw validationError('mergeCanonicalProducts: a product cannot be merged into itself.');
-  }
-  if (input.actorOxyUserId.trim().length === 0) {
-    throw validationError('mergeCanonicalProducts: an actor is required.');
-  }
-
-  const result = await getDb().transaction(async (tx) => {
-    const loser = await findCanonicalProductById(tx, input.loserId);
-    if (!loser) throw notFound(`Canonical product ${input.loserId} does not exist.`);
-    const winnerRow = await findCanonicalProductById(tx, input.winnerId);
-    if (!winnerRow) throw notFound(`Canonical product ${input.winnerId} does not exist.`);
-
-    if (loser.status === 'merged') {
-      return {
-        merged: false,
-        winnerId: loser.mergedIntoId ?? input.winnerId,
-        loserId: loser.id,
-        redirectsRecorded: 0,
-        reviewsRehomed: 0,
-        reviewsNeedingAssignment: [],
-      };
-    }
-    const winner = await resolveProductRow(tx, winnerRow);
-    if (winner.id === loser.id) {
-      throw validationError(
-        'mergeCanonicalProducts: the winner resolves to the loser — refusing a cycle.',
-      );
-    }
-
-    // The CAS comes FIRST: a concurrent duplicate merge loses here and walks
-    // away having written nothing at all.
-    const stamped = await markCanonicalProductMerged(tx, loser.id, winner.id);
-    if (!stamped) {
-      return {
-        merged: false,
-        winnerId: winner.id,
-        loserId: loser.id,
-        redirectsRecorded: 0,
-        reviewsRehomed: 0,
-        reviewsNeedingAssignment: [],
-      };
-    }
-
-    // Capture the tombstones BEFORE flattening overwrites their pointers.
-    const affected = await findProductTombstonesPointingAt(tx, loser.id);
-
-    await repointCanonicalProductAliases(tx, loser.id, winner.id);
-    await repointCanonicalProductSourceLinks(tx, loser.id, winner.id);
-    await repointProductIdentifiers(tx, loser.id, winner.id);
-    await retargetProductTombstones(tx, loser.id, winner.id);
-
-    let redirectsRecorded = 0;
-    const merge = await insertCanonicalProductRedirect(tx, {
-      fromId: loser.id,
-      toId: winner.id,
-      reason: 'merge',
-      actorOxyUserId: input.actorOxyUserId,
-      ...(input.note === undefined ? {} : { note: input.note }),
-    });
-    if (merge) redirectsRecorded += 1;
-    for (const tombstone of affected) {
-      if (tombstone.id === winner.id) continue;
-      const flattened = await insertCanonicalProductRedirect(tx, {
-        fromId: tombstone.id,
-        toId: winner.id,
-        reason: 'flatten',
-        actorOxyUserId: input.actorOxyUserId,
-      });
-      if (flattened) redirectsRecorded += 1;
-    }
-
-    await insertCanonicalProductAlias(tx, {
-      productId: winner.id,
-      alias: loser.name,
-      kind: 'former_name',
-      createdByOxyUserId: input.actorOxyUserId,
-    });
-
-    const lastSeenAt =
-      loser.lastSeenAt && (!winner.lastSeenAt || loser.lastSeenAt > winner.lastSeenAt)
-        ? loser.lastSeenAt
-        : winner.lastSeenAt;
-    await updateProductRow(tx, winner.id, {
-      firstSeenAt: loser.firstSeenAt < winner.firstSeenAt ? loser.firstSeenAt : winner.firstSeenAt,
-      lastSeenAt,
-      lastReviewedAt: new Date(),
-      variantCount: await countVariantsForProduct(tx, winner.id),
-    });
-    for (const familyId of new Set(
-      [loser.familyId, winner.familyId].filter((id): id is string => id !== null),
-    )) {
-      await refreshFamilyProductCount(tx, familyId, await countProductsForFamily(tx, familyId));
-    }
-
-    /**
-     * #76 migration rule 4: a product merge rehomes the loser's PRODUCT reviews
-     * onto the winner and rebuilds the aggregates.
-     *
-     * Inside this transaction, so a failed merge leaves every review exactly
-     * where it was — and BEFORE the commit, so the append-only migration rows
-     * that record where each review came from cannot end up on the other side of
-     * a rollback from the move they describe. The aggregates are rebuilt after
-     * the commit (below): a rebuild inside would derive from rows nobody else
-     * can see yet.
-     */
-    const rehome = await rehomeReviewsForProductMerge(tx, loser.id, winner.id);
-    if (rehome.collisions.length > 0) {
-      // A buyer who legitimately reviewed BOTH products keeps both. The loser's
-      // tombstone still resolves through `merged_into_id`, so nothing is lost;
-      // which of the two survives on the winner is an operator decision (#76
-      // migration rule 5's split assignment, used in the other direction).
-      log.general.info(
-        { winnerId: winner.id, loserId: loser.id, collisions: rehome.collisions.length },
-        'Product merge left duplicate-author reviews on the tombstone for explicit assignment',
-      );
-    }
-
-    return {
-      merged: true,
-      winnerId: winner.id,
-      loserId: loser.id,
-      redirectsRecorded,
-      reviewsRehomed: rehome.rehomed,
-      reviewsNeedingAssignment: rehome.collisions,
-    };
-  });
-
-  if (result.merged) {
-    // Outside the transaction, and both of them: the loser's aggregate must go
-    // to zero and the winner's must absorb what moved. Idempotent, so the sweep
-    // re-deriving them later changes nothing.
-    for (const productId of [result.loserId, result.winnerId]) {
-      try {
-        await rebuildScopedAggregate('product', productId);
-      } catch (err) {
-        log.general.warn(
-          { err, productId },
-          'Aggregate rebuild after a product merge failed (the sweep will re-derive it)',
-        );
-      }
-    }
-  }
-
-  return result;
-}
-
-/** Every redirect hop recorded from a product id — the history a merge preserves. */
-export async function listProductRedirectHistory(
-  productId: string,
-): Promise<{ toId: string; reason: string; createdAt: string }[]> {
-  const rows = await listCanonicalProductRedirects(getDb(), productId);
-  return rows.map((row) => ({
-    toId: row.toId,
-    reason: row.reason,
-    createdAt: row.createdAt.toISOString(),
-  }));
 }
 
 /** Every live product of one brand — the reverse lookup #72's brand page reads. */

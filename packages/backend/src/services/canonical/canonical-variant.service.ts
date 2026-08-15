@@ -46,19 +46,14 @@ import {
   listBundleComponents,
   listVariantAttributes,
   listVariantsForProduct,
-  markCanonicalVariantMerged,
-  repointCanonicalVariantAliases,
-  repointCanonicalVariantSourceLinks,
   replaceBundleComponents,
   replaceVariantAttributes,
-  retargetVariantTombstones,
   updateCanonicalVariant,
   type CanonicalVariantAttributeRow,
   type CanonicalVariantRow,
   type VariantAttributeInput,
 } from '../../db/canonical/canonicalVariantRepository.js';
 import { findActiveAttributeDefinitionsByKeys } from '../../db/attributes/definitionRepository.js';
-import { repointVariantIdentifiers } from '../../db/canonical/productIdentifierRepository.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import {
   normalizeAttributeKey,
@@ -399,81 +394,6 @@ export async function findVariantIdsByOption(
       ? `${quantity.baseMagnitude}${quantity.baseUnit}`
       : normalizeOptionValue(value.trim());
   return findVariantIdsByAttributeValue(getDb(), attributeKey, normalizedValue);
-}
-
-export interface MergeVariantsInput {
-  winnerId: string;
-  loserId: string;
-  /** Merges are operator decisions; the actor is mandatory, not decorative. */
-  actorOxyUserId: string;
-}
-
-export interface MergeVariantsResult {
-  /** `false` when the loser was already merged — the idempotent re-run. */
-  merged: boolean;
-  winnerId: string;
-  loserId: string;
-}
-
-/**
- * Merge one variant into another (ADR 0002 D16).
- *
- * The CAS comes FIRST, so a concurrent duplicate merge loses and walks away
- * having written nothing at all — not with half its repoints in.
- */
-export async function mergeVariants(input: MergeVariantsInput): Promise<MergeVariantsResult> {
-  if (input.winnerId === input.loserId) {
-    throw validationError('mergeVariants: a variant cannot be merged into itself.');
-  }
-  if (input.actorOxyUserId.trim().length === 0) {
-    throw validationError('mergeVariants: an actor is required.');
-  }
-
-  return getDb().transaction(async (tx) => {
-    const loser = await findCanonicalVariantById(tx, input.loserId);
-    if (!loser) throw notFound(`Canonical variant ${input.loserId} does not exist.`);
-    const winnerRow = await findCanonicalVariantById(tx, input.winnerId);
-    if (!winnerRow) throw notFound(`Canonical variant ${input.winnerId} does not exist.`);
-
-    if (loser.status === 'merged') {
-      return { merged: false, winnerId: loser.mergedIntoId ?? input.winnerId, loserId: loser.id };
-    }
-    const winner = await resolveVariantRow(tx, winnerRow);
-    if (winner.id === loser.id) {
-      throw validationError('mergeVariants: the winner resolves to the loser — refusing a cycle.');
-    }
-
-    const stamped = await markCanonicalVariantMerged(tx, loser.id, winner.id);
-    if (!stamped) return { merged: false, winnerId: winner.id, loserId: loser.id };
-
-    await repointCanonicalVariantAliases(tx, loser.id, winner.id);
-    await repointCanonicalVariantSourceLinks(tx, loser.id, winner.id);
-    await repointVariantIdentifiers(tx, loser.id, winner.id);
-    await retargetVariantTombstones(tx, loser.id, winner.id);
-
-    if (loser.name !== null && loser.name.trim().length > 0) {
-      await insertCanonicalVariantAlias(tx, {
-        variantId: winner.id,
-        alias: loser.name,
-        kind: 'former_name',
-        createdByOxyUserId: input.actorOxyUserId,
-      });
-    }
-
-    // The loser's assignments go with it: the tombstone keeps its identity while
-    // its option set stops competing for the winner's product signature space.
-    await updateCanonicalVariant(tx, winner.id, { lastReviewedAt: new Date() });
-    await updateCanonicalProduct(tx, loser.productId, {
-      variantCount: await countVariantsForProduct(tx, loser.productId),
-    });
-    if (winner.productId !== loser.productId) {
-      await updateCanonicalProduct(tx, winner.productId, {
-        variantCount: await countVariantsForProduct(tx, winner.productId),
-      });
-    }
-
-    return { merged: true, winnerId: winner.id, loserId: loser.id };
-  });
 }
 
 export interface SetBundleComponentsInput {

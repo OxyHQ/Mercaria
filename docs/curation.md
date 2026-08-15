@@ -368,7 +368,7 @@ scheduled — the inversion the payment and moderation outboxes already record.
 
 ---
 
-## Seams left to their owners, and the one known gap
+## Seams left to their owners, and what the retirement left behind
 
 **Deferred, with the contract already published:**
 
@@ -386,14 +386,90 @@ scheduled — the inversion the payment and moderation outboxes already record.
 - **The operator UI.** This is the API and the invariants; the console is
   #59's front-end counterpart.
 
-**Known gap, stated rather than hidden:** the pre-#59 direct merge endpoints on
-`/internal/canonical-catalog` (`mergeCanonicalProducts`, `mergeVariants`,
-`mergeBrands`, `mergeOrganizations`, `mergeProductFamilies`, shipped by #53/#56)
-still perform a single-transaction merge that does **not** go through this
-domain's conflict gate, its census-complete rehoming plan, its impact estimate
-or its audit timeline. They remain reachable by an operator on the same
-allow-list. Routing them through a curation job changes their response shape
-from a synchronous result to a job id, which is a breaking change to their
-callers and their tests; it belongs in the same change as the operator console
-that consumes the job shape. Until then, the merge an operator should use is
-`POST /internal/commerce-graph/merge-jobs`.
+## The pre-#59 direct merges are GONE (#36 completion criterion 4)
+
+This section used to record a known gap: five pre-#59 merges shipped by #53/#56
+that ran in one transaction outside this domain's conflict gate, its
+census-complete rehoming plan, its impact estimate and its audit timeline. They
+were retired as a clean cut. Nothing is aliased, nothing is `@deprecated`, and
+there is no compatibility route.
+
+**What was removed**, and what a reader should know it was:
+
+| Retired | Reachable how |
+|---|---|
+| `POST /internal/canonical-catalog/product-families/:winnerId/merge` → `mergeProductFamilies` | operator route |
+| `POST /internal/canonical-catalog/products/:winnerId/merge` → `mergeCanonicalProducts` | operator route |
+| `POST /internal/canonical-catalog/variants/:winnerId/merge` → `mergeVariants` | operator route |
+| `mergeBrands` | service only — **never routed**, callable from any backend module |
+| `mergeOrganizations` | service only — **never routed**, callable from any backend module |
+
+The last two are the reason a deletion was the right answer rather than a
+mount-level guard: three of the five were reachable over HTTP and two were one
+`router.post` from being. `canonicalMergeSchema` went with them, and so did
+`rehomeReviewsForProductMerge` plus the `rehomeProductReviews` /
+`findRehomeCollisions` repository pair, whose only caller was
+`mergeCanonicalProducts`.
+
+**The argument for deletion is not tidiness — those merges were INCOMPLETE.**
+`merge-plan.ts` declares every column referencing each mergeable entity and
+`merge-plan-census.test.ts` walks the schema to prove the list is exhaustive.
+The direct merges moved a strict SUBSET of it: aliases, source links,
+identifiers, redirects and (for products) reviews. They did not move the loser's
+`canonical_variants`, `canonical_images`, `canonical_attribute_values`,
+`canonical_field_provenance`, `product_saves`, `price_alerts`,
+`watchlist_items`, `match_decisions` or `match_blocked_pairs`. A merge run
+through one left those rows on a tombstone with every page still rendering,
+which is exactly the invisible damage this domain exists to prevent.
+
+The merge an operator uses is `POST /internal/commerce-graph/merge-jobs`, on the
+SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list, covering all seven mergeable
+entity types.
+
+### The one behaviour the retirement did not carry over
+
+`mergeCanonicalProducts` handled ONE case this domain does not:
+`reviews_author_scope_target_key` is `(author_oxy_user_id, scope, target_key)`
+where `target_key` is a GENERATED column over `canonical_product_id`, so a buyer
+who reviewed BOTH merged products has two rows that collide the moment the
+loser's is repointed. The direct merge read the collisions first, left them on
+the tombstone and reported them for an explicit operator assignment (#76
+migration rule 5).
+
+`merge-plan.ts` gives `reviews.canonical_product_id` the disposition `repoint`,
+which `applyRehomeTarget` executes as an unguarded
+`update … set … where … = <loser>` — so that pair raises `23505` and the
+`reviews` phase fails. **That is loud, resumable and leaves nothing half-done**
+(each phase is its own transaction), and it is not a regression this retirement
+introduced: the job path has always behaved that way. It is recorded here rather
+than fixed because the fix is a disposition change with its own realdb case —
+`repoint_if_absent` with `uniqueWith: [reviews.author_oxy_user_id, reviews.scope]`,
+which is exact for a product review because `reviews_target_shape_check` forces
+every other `target_key` component to be empty at that scope. Filed as a #59
+follow-up.
+
+### The statement layer beneath it is now uncalled, and is listed rather than left invisible
+
+The retirement stopped at the SERVICE boundary. `db/canonical/*Repository.ts`
+still exports the per-entity merge STATEMENTS the deleted services composed, and
+they now have zero callers — #59 writes the same rows from `merge.service.ts`'s
+`redirects` phase and `applyRehomeTarget`'s generic UPDATE instead:
+
+`markBrandMerged`, `repointBrandAliases`, `repointBrandSourceLinks`,
+`retargetBrandTombstones`, `markOrganizationMerged`, `repointOrganizationAliases`,
+`repointOrganizationSourceLinks`, `retargetOrganizationTombstones`,
+`markCanonicalProductMerged`, `repointCanonicalProductAliases`,
+`repointCanonicalProductSourceLinks`, `retargetProductTombstones`,
+`findProductTombstonesPointingAt`, `insertCanonicalProductRedirect`,
+`markCanonicalVariantMerged`, `repointCanonicalVariantAliases`,
+`repointCanonicalVariantSourceLinks`, `retargetVariantTombstones`,
+`markFamilyMerged`, `repointProductFamilyAliases`,
+`repointProductFamilySourceLinks`, `retargetFamilyTombstones`,
+`findFamilyTombstonesPointingAt`, `insertProductFamilyRedirect`,
+`repointProductIdentifiers`, `repointVariantIdentifiers`.
+
+They are named here because a dead export nobody can find is how the next
+reader re-composes the merge this issue removed. Collapsing them into #59's
+inline spelling is a curation refactor with its own reviewer, not part of making
+the unsafe path unreachable — which it already is, since nothing routes to them
+and no service composes them.

@@ -99,7 +99,7 @@ const FAVORITE_REFERENCE = /favorite\.service|favoriteRepository|db\/buyers\/fav
  * projection is #76's to build; the backfill must not repoint a review.
  */
 const REVIEW_WRITE_REFERENCE =
-  /services\/reviews\/|review\.service|reviewRepository|review-migration|rehomeReviews|review_target_migrations/;
+  /services\/reviews\/|review\.service|reviewRepository|review-migration|assignReviewToCanonicalProduct|review_target_migrations/;
 
 /**
  * PRODUCT-LEVEL COLLECTIONS — issue existing-catalog rule 7: "existing product
@@ -214,7 +214,12 @@ describe('the backfill cannot reach the domains it must not', () => {
     );
     expect(FAVORITE_REFERENCE.test("import { addFavorite } from '../favorite.service.js';")).toBe(true);
     expect(
-      REVIEW_WRITE_REFERENCE.test("import { rehomeReviewsForProductMerge } from '../reviews/review-migration.service.js';"),
+      // The known-positive is `assignReviewOnSplit`, chosen because it is the
+      // review write RETIRED LAST: it is #76 migration rule 5's operator path,
+      // which #59's split job drives and nothing supersedes. Repoint this the
+      // day that function moves — a control naming code that no longer exists
+      // keeps passing for the wrong reason.
+      REVIEW_WRITE_REFERENCE.test("import { assignReviewOnSplit } from '../reviews/review-migration.service.js';"),
     ).toBe(true);
     expect(COLLECTION_REFERENCE.test('const ids = listing.collectionIds;')).toBe(true);
     expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test("provider: 'oxy_pay'")).toBe(true);

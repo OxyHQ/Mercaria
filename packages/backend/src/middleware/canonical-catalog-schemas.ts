@@ -203,18 +203,6 @@ export const identifierCorrectSchema = z
   .strict();
 
 /**
- * Every merge endpoint's body. The reason is mandatory and long enough to be a
- * sentence — a merge is irreversible in the sense that matters (the loser's slug
- * is never reused), so an audit trail that says only "merged" is not one.
- */
-export const canonicalMergeSchema = z
-  .object({
-    loserId: idSchema,
-    reason: z.string().trim().min(10).max(2_000),
-  })
-  .strict();
-
-/**
  * `GET /canonical-products/lookup` — exactly ONE criterion, refused otherwise.
  *
  * A combined lookup would silently AND or OR them, and the two readings return

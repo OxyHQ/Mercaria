@@ -27,7 +27,6 @@ import type {
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
-  findFamilyTombstonesPointingAt,
   findProductFamiliesByIds,
   findProductFamiliesByNormalizedName,
   findProductFamilyById,
@@ -35,26 +34,15 @@ import {
   findProductFamilyIdsByNormalizedAlias,
   insertProductFamily,
   insertProductFamilyAlias,
-  insertProductFamilyRedirect,
   insertProductFamilySourceLink,
   listProductFamiliesPage,
   listProductFamilyAliases,
-  listProductFamilyRedirects,
   listProductFamilySourceLinks,
-  markFamilyMerged,
-  refreshFamilyProductCount,
-  repointProductFamilyAliases,
-  repointProductFamilySourceLinks,
-  retargetFamilyTombstones,
   searchProductFamiliesByNameSimilarity,
   updateProductFamily as updateFamilyRow,
   type ProductFamilyRow,
 } from '../../db/canonical/productFamilyRepository.js';
 import {
-  countProductsForFamily,
-  listProductsForFamily,
-  updateCanonicalProduct as updateCanonicalProductRow,
-  type CanonicalProductRow,
 } from '../../db/canonical/canonicalProductRepository.js';
 import { recordFieldProvenance } from '../../db/canonical/attributeRepository.js';
 import {
@@ -423,143 +411,6 @@ export async function searchProductFamilyCandidates(
   return [...byId.values()]
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
     .slice(0, limit);
-}
-
-export interface MergeProductFamiliesInput {
-  winnerId: string;
-  loserId: string;
-  actorOxyUserId: string;
-  note?: string;
-}
-
-export interface MergeProductFamiliesResult {
-  merged: boolean;
-  winnerId: string;
-  loserId: string;
-  redirectsRecorded: number;
-  /** Products moved from the loser to the winner. */
-  productsRepointed: number;
-}
-
-/**
- * The operator merge (ADR 0002 D16), one transaction.
- *
- * A family merge additionally repoints the loser's PRODUCTS, because a family is
- * a container: leaving them on a tombstone would make them unreachable from any
- * navigation that starts at a live family.
- */
-export async function mergeProductFamilies(
-  input: MergeProductFamiliesInput,
-): Promise<MergeProductFamiliesResult> {
-  if (input.winnerId === input.loserId) {
-    throw validationError('mergeProductFamilies: a family cannot be merged into itself.');
-  }
-  if (input.actorOxyUserId.trim().length === 0) {
-    throw validationError('mergeProductFamilies: an actor is required.');
-  }
-
-  return getDb().transaction(async (tx) => {
-    const loser = await findProductFamilyById(tx, input.loserId);
-    if (!loser) throw notFound(`Product family ${input.loserId} does not exist.`);
-    const winnerRow = await findProductFamilyById(tx, input.winnerId);
-    if (!winnerRow) throw notFound(`Product family ${input.winnerId} does not exist.`);
-
-    if (loser.status === 'merged') {
-      return {
-        merged: false,
-        winnerId: loser.mergedIntoId ?? input.winnerId,
-        loserId: loser.id,
-        redirectsRecorded: 0,
-        productsRepointed: 0,
-      };
-    }
-    const winner = await resolveFamilyRow(tx, winnerRow);
-    if (winner.id === loser.id) {
-      throw validationError(
-        'mergeProductFamilies: the winner resolves to the loser — refusing a cycle.',
-      );
-    }
-
-    const stamped = await markFamilyMerged(tx, loser.id, winner.id);
-    if (!stamped) {
-      return {
-        merged: false,
-        winnerId: winner.id,
-        loserId: loser.id,
-        redirectsRecorded: 0,
-        productsRepointed: 0,
-      };
-    }
-
-    // Captured BEFORE flattening overwrites their pointers.
-    const affected = await findFamilyTombstonesPointingAt(tx, loser.id);
-    const products: CanonicalProductRow[] = await listProductsForFamily(tx, loser.id);
-
-    await repointProductFamilyAliases(tx, loser.id, winner.id);
-    await repointProductFamilySourceLinks(tx, loser.id, winner.id);
-    await retargetFamilyTombstones(tx, loser.id, winner.id);
-
-    let redirectsRecorded = 0;
-    const merge = await insertProductFamilyRedirect(tx, {
-      fromId: loser.id,
-      toId: winner.id,
-      reason: 'merge',
-      actorOxyUserId: input.actorOxyUserId,
-      ...(input.note === undefined ? {} : { note: input.note }),
-    });
-    if (merge) redirectsRecorded += 1;
-    for (const tombstone of affected) {
-      if (tombstone.id === winner.id) continue;
-      const flattened = await insertProductFamilyRedirect(tx, {
-        fromId: tombstone.id,
-        toId: winner.id,
-        reason: 'flatten',
-        actorOxyUserId: input.actorOxyUserId,
-      });
-      if (flattened) redirectsRecorded += 1;
-    }
-
-    await insertProductFamilyAlias(tx, {
-      familyId: winner.id,
-      alias: loser.name,
-      kind: 'former_name',
-      createdByOxyUserId: input.actorOxyUserId,
-    });
-
-    // The products move with the line they belong to: a family is a container,
-    // and leaving them on a tombstone would make them unreachable from any
-    // navigation that starts at a live family.
-    for (const product of products) {
-      await updateCanonicalProductRow(tx, product.id, { familyId: winner.id });
-    }
-
-    await refreshFamilyProductCount(tx, winner.id, await countProductsForFamily(tx, winner.id));
-    await refreshFamilyProductCount(tx, loser.id, await countProductsForFamily(tx, loser.id));
-    await updateFamilyRow(tx, winner.id, {
-      firstSeenAt: loser.firstSeenAt < winner.firstSeenAt ? loser.firstSeenAt : winner.firstSeenAt,
-      lastReviewedAt: new Date(),
-    });
-
-    return {
-      merged: true,
-      winnerId: winner.id,
-      loserId: loser.id,
-      redirectsRecorded,
-      productsRepointed: products.length,
-    };
-  });
-}
-
-/** Every redirect hop recorded from a family id. */
-export async function listFamilyRedirectHistory(
-  familyId: string,
-): Promise<{ toId: string; reason: string; createdAt: string }[]> {
-  const rows = await listProductFamilyRedirects(getDb(), familyId);
-  return rows.map((row) => ({
-    toId: row.toId,
-    reason: row.reason,
-    createdAt: row.createdAt.toISOString(),
-  }));
 }
 
 async function familyFreshness(

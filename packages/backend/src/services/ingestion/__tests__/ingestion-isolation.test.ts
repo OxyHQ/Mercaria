@@ -82,7 +82,7 @@ const RANKING_REFERENCE = /rankOffers|offerRanking|services\/ranking\//;
 const REDIRECT_REFERENCE = /outboundRedirect|redirect\.service|buildAffiliateUrl|services\/outbound\//;
 
 /** #59's curation tooling. Corrections are its job, not an ingestion run's. */
-const CURATION_REFERENCE = /services\/curation\/|catalogMergeJob|mergeCanonicalProducts/;
+const CURATION_REFERENCE = /services\/curation\/|catalogMergeJob|requestMerge|applyRehomeTarget/;
 
 /** Anything an adapter may not reach. */
 const ADAPTER_FORBIDDEN: readonly { name: string; pattern: RegExp }[] = [

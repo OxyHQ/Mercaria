@@ -828,11 +828,19 @@ either state.
   `CURATION_JOB_BATCH_SIZE`, `CURATION_JOB_POLL_INTERVAL_MS`. Operator surface
   is `/internal/commerce-graph/*` behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
   allow-list #54/#55/#56/#57/#83 use.
-- **Known gap, stated in `docs/curation.md`:** the pre-#59 direct merge
-  endpoints on `/internal/canonical-catalog` (#53/#56's `mergeCanonicalProducts`
-  and siblings) still merge in one transaction WITHOUT the conflict gate, the
-  census-complete plan, the impact estimate or the timeline. The merge an
-  operator should use is `POST /internal/commerce-graph/merge-jobs`.
+- **This domain is the ONLY way to merge, and that is now structural.** #53/#56's
+  five pre-#59 direct merges are DELETED (#36 completion criterion 4) — three
+  routes on `/internal/canonical-catalog` plus the never-routed `mergeBrands`
+  and `mergeOrganizations`, a clean cut with no alias and no compat route. They
+  were not merely unaudited, they were INCOMPLETE: each moved a strict SUBSET of
+  what `merge-plan.ts` declares, leaving the loser's variants, images, attribute
+  values, provenance, saves, alerts, watchlist items and match rows on a
+  tombstone while every page went on rendering. `merge-plan-census.test.ts` is
+  what makes that comparison checkable rather than a matter of opinion. Full
+  ledger of what went and the ONE behaviour that did not carry over — the
+  duplicate-author review collision, which the direct merge degraded and the
+  job's unguarded `repoint` answers with `23505` — is `docs/curation.md`
+  §"The pre-#59 direct merges are GONE".
 
 ## Shipping: Moovo, not ready
 

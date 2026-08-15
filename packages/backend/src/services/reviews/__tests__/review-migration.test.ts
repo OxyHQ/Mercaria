@@ -24,8 +24,6 @@ const classifyReview = vi.fn();
 const markReviewAmbiguous = vi.fn();
 const findUnclassifiedLegacyReviews = vi.fn();
 const findAmbiguousReviews = vi.fn();
-const findRehomeCollisions = vi.fn();
-const rehomeProductReviews = vi.fn();
 const assignReviewToCanonicalProduct = vi.fn();
 const recordTargetMigration = vi.fn();
 const findMerchantIdForStore = vi.fn();
@@ -37,8 +35,6 @@ vi.mock('../../../db/reviews/reviewRepository.js', () => ({
   markReviewAmbiguous: (...args: unknown[]) => markReviewAmbiguous(...args),
   findUnclassifiedLegacyReviews: (...args: unknown[]) => findUnclassifiedLegacyReviews(...args),
   findAmbiguousReviews: (...args: unknown[]) => findAmbiguousReviews(...args),
-  findRehomeCollisions: (...args: unknown[]) => findRehomeCollisions(...args),
-  rehomeProductReviews: (...args: unknown[]) => rehomeProductReviews(...args),
   assignReviewToCanonicalProduct: (...args: unknown[]) => assignReviewToCanonicalProduct(...args),
 }));
 
@@ -71,7 +67,6 @@ const TX = { __tx: 'review-migration-test' } as unknown as DatabaseOrTransaction
 import {
   assignReviewOnSplit,
   classifyLegacyReviews,
-  rehomeReviewsForProductMerge,
 } from '../review-migration.service.js';
 import type { DatabaseOrTransaction } from '../../../db/postgres.js';
 import { isMercariaError } from '../../../lib/errors/error-codes.js';
@@ -258,64 +253,14 @@ describe('classifyLegacyReviews — the decision table', () => {
   });
 });
 
-describe('rehomeReviewsForProductMerge — #76 migration rule 4', () => {
-  it('moves the loser`s reviews and records where each came from', async () => {
-    findRehomeCollisions.mockResolvedValue([]);
-    rehomeProductReviews.mockResolvedValue([
-      { id: 'r1', authorOxyUserId: 'buyer-1' },
-      { id: 'r2', authorOxyUserId: 'buyer-2' },
-    ]);
-
-    const report = await rehomeReviewsForProductMerge(TX, 'loser', 'winner');
-
-    expect(report.rehomed).toBe(2);
-    expect(recordTargetMigration).toHaveBeenCalledTimes(2);
-    expect(recordTargetMigration).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'rehome_merge',
-        fromTargetRef: 'loser',
-        toTargetRef: 'winner',
-      }),
-      TX,
-    );
-  });
-
-  it('leaves a duplicate-author review on the tombstone rather than deleting one', async () => {
-    // A buyer who bought BOTH merged products wrote two genuine reviews. The
-    // unique index would refuse the second on the winner, and a merge must not
-    // resolve that by throwing one away.
-    findRehomeCollisions.mockResolvedValue([{ id: 'r1', authorOxyUserId: 'buyer-1' }]);
-    rehomeProductReviews.mockResolvedValue([
-      { id: 'r1', authorOxyUserId: 'buyer-1' },
-      { id: 'r2', authorOxyUserId: 'buyer-2' },
-    ]);
-
-    const report = await rehomeReviewsForProductMerge(TX, 'loser', 'winner');
-
-    expect(report.rehomed).toBe(1);
-    expect(report.collisions).toEqual(['r1']);
-    // Only the moved review gets an audit row; the collision did not move.
-    expect(recordTargetMigration).toHaveBeenCalledTimes(1);
-  });
-
-  it('reads collisions BEFORE moving anything', async () => {
-    // Order matters: the unique index would abort the whole merge over one
-    // duplicate author if the update ran first.
-    const order: string[] = [];
-    findRehomeCollisions.mockImplementation(() => {
-      order.push('collisions');
-      return Promise.resolve([]);
-    });
-    rehomeProductReviews.mockImplementation(() => {
-      order.push('rehome');
-      return Promise.resolve([]);
-    });
-
-    await rehomeReviewsForProductMerge(TX, 'loser', 'winner');
-
-    expect(order).toEqual(['collisions', 'rehome']);
-  });
-});
+/**
+ * The `rehomeReviewsForProductMerge` block was DELETED with the function, whose
+ * only caller was #56's direct `mergeCanonicalProducts` (#36 completion
+ * criterion 4). #76 migration rule 4 still holds and is enforced one domain
+ * over: `services/curation/merge-plan.ts` moves `reviews.canonical_product_id`
+ * in the `reviews` phase and `merge-plan-census.test.ts` fails the build if that
+ * column ever loses its disposition.
+ */
 
 describe('assignReviewOnSplit — #76 migration rule 5', () => {
   it('moves ONE review and records the OPERATOR who decided', async () => {

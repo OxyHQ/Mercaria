@@ -45,11 +45,16 @@
  * ## The scope is written HERE and by the classification job, never edited
  *
  * {@link classifyReview} and {@link markReviewAmbiguous} are the only writers of
- * `scope`/`classification_state` on an existing row, {@link rehomeProductReviews}
- * the only writer that moves a scoped target, and every one of them is paired
- * with an append-only `review_target_migrations` row by the service above. A
- * review's scope is never a function of what the caller passed in a PATCH,
- * because no PATCH exists.
+ * `scope`/`classification_state` on an existing row,
+ * {@link assignReviewToCanonicalProduct} the only writer that moves a scoped
+ * target from this module, and each is paired with an append-only
+ * `review_target_migrations` row by the service above. A review's scope is never
+ * a function of what the caller passed in a PATCH, because no PATCH exists.
+ *
+ * A MERGE moves `canonical_product_id` through #59's own plan
+ * (`merge-plan.ts`, phase `reviews`) rather than through this module — #56's
+ * direct merge, and the `rehomeProductReviews` pair it called, were retired with
+ * the endpoints (#36 completion criterion 4).
  */
 
 import { and, asc, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
@@ -684,68 +689,6 @@ export async function markReviewAmbiguous(
     .where(and(eq(reviews.id, reviewId), eq(reviews.classificationState, 'unclassified')))
     .returning({ id: reviews.id });
   return rows.length > 0;
-}
-
-/**
- * Move every `product` review from one canonical product to another — what a
- * product MERGE owes the review domain.
- *
- * Returns the moved rows so the caller can append one `review_target_migrations`
- * row per review IN THE SAME TRANSACTION. A merge that repointed reviews without
- * recording where they came from would make the loser's rating unexplainable
- * forever, which is the failure `canonical_product_redirects` exists to prevent
- * one table over.
- *
- * Reviews are moved whatever their moderation status: a hidden review that
- * becomes visible again after an appeal must be on the surviving product, and
- * the aggregate rebuild counts only published rows anyway.
- */
-export async function rehomeProductReviews(
-  fromCanonicalProductId: string,
-  toCanonicalProductId: string,
-  db: DatabaseOrTransaction = getDb(),
-): Promise<{ id: string; authorOxyUserId: string }[]> {
-  return db
-    .update(reviews)
-    .set({ canonicalProductId: toCanonicalProductId, updatedAt: new Date() })
-    .where(
-      and(eq(reviews.scope, 'product'), eq(reviews.canonicalProductId, fromCanonicalProductId)),
-    )
-    .returning({ id: reviews.id, authorOxyUserId: reviews.authorOxyUserId });
-}
-
-/**
- * Reviews the rehome could not move because the author already has one on the
- * winner — read BEFORE the update, since `reviews_author_scope_target_key` would
- * otherwise fail the whole statement and abort the merge.
- *
- * A buyer who bought both merged products legitimately wrote two reviews, and a
- * merge must not delete one of them. They stay on the LOSER's tombstone, which
- * still resolves through `merged_into_id`, and are reported so the merge can
- * record them as needing an explicit operator decision.
- */
-export async function findRehomeCollisions(
-  fromCanonicalProductId: string,
-  toCanonicalProductId: string,
-  db: DatabaseOrTransaction = getDb(),
-): Promise<{ id: string; authorOxyUserId: string }[]> {
-  const winners = db
-    .select({ authorOxyUserId: reviews.authorOxyUserId })
-    .from(reviews)
-    .where(
-      and(eq(reviews.scope, 'product'), eq(reviews.canonicalProductId, toCanonicalProductId)),
-    );
-
-  return db
-    .select({ id: reviews.id, authorOxyUserId: reviews.authorOxyUserId })
-    .from(reviews)
-    .where(
-      and(
-        eq(reviews.scope, 'product'),
-        eq(reviews.canonicalProductId, fromCanonicalProductId),
-        inArray(reviews.authorOxyUserId, winners),
-      ),
-    );
 }
 
 /**
