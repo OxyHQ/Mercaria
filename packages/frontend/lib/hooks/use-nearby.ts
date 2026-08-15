@@ -215,6 +215,8 @@ function cellKey(origin: NearbyOrigin): string {
 export function useOrderCollection(orderId: string | undefined) {
   return useQuery<CollectionView>({
     queryKey: queryKeys.collection.byOrder(orderId ?? ''),
+    // Non-null inside `queryFn`: `enabled` below is what guarantees it — the
+    // same arrangement `useNearbyAvailability` above uses for its origin.
     queryFn: () => fetchOrderCollection(orderId as string),
     enabled: orderId !== undefined && orderId !== '',
     retry: false,
@@ -243,6 +245,7 @@ export function useGuestOrderCollection(input: {
   const { checkoutGroupId, orderId } = input;
   return useQuery<CollectionView>({
     queryKey: queryKeys.collection.byGuestOrder(checkoutGroupId ?? '', orderId ?? ''),
+    // Both non-null inside `queryFn`, guaranteed by `enabled` below.
     queryFn: () =>
       fetchGuestOrderCollection({
         checkoutGroupId: checkoutGroupId as string,

@@ -105,7 +105,7 @@ export function NearbyAvailability({
    * from ever re-running — the freshness line would then freeze at whatever it
    * first rendered, which is the one thing this surface must not do.
    */
-  const now = nearby.dataUpdatedAt === 0 ? 0 : nearby.dataUpdatedAt;
+  const now = nearby.dataUpdatedAt;
 
   const ordered = useMemo(() => {
     // `nearest` returns the array UNTOUCHED: the server ordered it, and
