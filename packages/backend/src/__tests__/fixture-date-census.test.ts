@@ -61,10 +61,21 @@
  *
  * A literal dated in the PAST is not examined at all. It cannot start failing
  * on its own, because nothing moves toward it.
+ *
+ * ## A second, unrelated gate lives here
+ *
+ * The last block asserts that no `.ts` source carries a raw NUL byte (#312).
+ * It sits in this file because this file is where the defect was — the
+ * register's key separator was committed as a literal NUL rather than the
+ * escape `\0` — and because the failure is one a census cannot see about
+ * itself: `grep` reports every symbol in a NUL-carrying file as ABSENT, so the
+ * repo's own census file became the one file a census could not grep, and two
+ * production sources were binary to `git diff` with nobody the wiser.
  */
 
 import { describe, it, expect } from 'vitest';
-import { readdirSync, statSync, readFileSync } from 'node:fs';
+import { readdirSync, statSync, readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 /** `packages/backend`, from `packages/backend/src/__tests__/`. */
@@ -94,6 +105,27 @@ type FutureDatedFixture = {
   readonly date: string;
   readonly reason: string;
 };
+
+/**
+ * The one place a (file, date) pair becomes a lookup key.
+ *
+ * The separator is NUL because it is the one byte that can appear in neither a
+ * POSIX path nor an ISO date, so no two distinct pairs can collide on one key.
+ * It is written as the ESCAPE `\0` and must never be pasted in as a raw byte:
+ * a raw NUL makes `grep` treat the whole file as binary and report every symbol
+ * in it as ABSENT — exit 1, no output, indistinguishable from a clean miss —
+ * which is what made the repo's own census file the one file a census could not
+ * grep (#312). The escape produces the identical byte at runtime, so the
+ * register excuses exactly what it excused before.
+ *
+ * It is a FUNCTION rather than eleven identical template literals because the
+ * two sides of every comparison must agree: the register lookup and the
+ * staleness check building the separator differently would not fail loudly —
+ * the gate would simply stop matching and report CLEAN.
+ */
+function censusKey(file: string, date: string): string {
+  return `${file}\0${date}`;
+}
 
 const FUTURE_DATED_FIXTURES: readonly FutureDatedFixture[] = [
   // ── An injected clock: the code under test takes `now` as an argument ──────
@@ -295,6 +327,56 @@ function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/**
+ * Every `.ts` file under one root — an AFFIRMATIVE extension list, and NO
+ * exclusion beyond the build outputs.
+ *
+ * Deliberately wider than {@link collectScannedFiles}: the NUL gate below must
+ * see production sources (two of them carried one) and it must see THIS file,
+ * which the date scan excludes. An exclusion list is how a scan like this goes
+ * quietly blind, and here there is nothing an exclusion could be for.
+ */
+function collectTypeScriptFiles(root: string): string[] {
+  const found: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules' || entry === 'dist') continue;
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (full.endsWith('.ts')) found.push(full);
+    }
+  };
+  try {
+    if (statSync(root).isDirectory()) walk(root);
+  } catch {
+    // A missing root is reported by the file floor below, not by a throw here.
+  }
+  return found.sort();
+}
+
+type NulByteFinding = { readonly file: string; readonly offset: number };
+
+/**
+ * Files carrying a raw NUL byte, with the offset of the first one.
+ *
+ * Read as BYTES, never as text, and deliberately not through `grep`: grep is
+ * exactly the tool that cannot answer this question. It treats a NUL-containing
+ * file as binary and answers with exit 1 and no output — the same answer it
+ * gives for a file that genuinely does not match — so a NUL-blind scan reports
+ * CLEAN, which is the failure direction that matters.
+ */
+function nulBytesIn(files: readonly string[]): NulByteFinding[] {
+  const findings: NulByteFinding[] = [];
+  for (const file of files) {
+    const offset = readFileSync(file).indexOf(0);
+    if (offset !== -1) findings.push({ file, offset });
+  }
+  return findings;
+}
+
 const SCANNED_FILES = collectScannedFiles();
 const ALL_LITERALS = SCANNED_FILES.flatMap((file) =>
   dateLiteralsIn(file, readFileSync(join(PACKAGE_ROOT, file), 'utf8')),
@@ -307,6 +389,16 @@ const ALL_LITERALS = SCANNED_FILES.flatMap((file) =>
  */
 const SCANNED_FILE_FLOOR = 300;
 const DATE_LITERAL_FLOOR = 300;
+
+const TYPESCRIPT_FILES = SCANNED_ROOTS.flatMap((root) =>
+  collectTypeScriptFiles(join(PACKAGE_ROOT, root)),
+);
+
+/**
+ * Measured on the tree this landed against: 1,699 `.ts` files. Set well below,
+ * because the assertion it carries is "the walk read something".
+ */
+const TYPESCRIPT_FILE_FLOOR = 1000;
 
 describe('test fixtures carry no unexplained future date', () => {
   it('scanned a real tree and found real literals', () => {
@@ -324,10 +416,10 @@ describe('test fixtures carry no unexplained future date', () => {
 
   it('flags no fixture dated today or later that is not explained', () => {
     const today = todayUtc();
-    const registered = new Set(FUTURE_DATED_FIXTURES.map((e) => `${e.file} ${e.date}`));
+    const registered = new Set(FUTURE_DATED_FIXTURES.map((e) => censusKey(e.file, e.date)));
 
     const offenders = ALL_LITERALS.filter((l) => l.date >= today)
-      .filter((l) => !registered.has(`${l.file} ${l.date}`))
+      .filter((l) => !registered.has(censusKey(l.file, l.date)))
       .map((l) => `${l.file}:${l.line} — ${l.date}`);
 
     expect(
@@ -339,9 +431,9 @@ describe('test fixtures carry no unexplained future date', () => {
   it('carries no register entry whose fixture has gone', () => {
     // Without this, an entry outlives the literal it excuses and the register
     // becomes a list of permissions for code nobody can find.
-    const present = new Set(ALL_LITERALS.map((l) => `${l.file} ${l.date}`));
+    const present = new Set(ALL_LITERALS.map((l) => censusKey(l.file, l.date)));
     const stale = FUTURE_DATED_FIXTURES.filter(
-      (e) => !present.has(`${e.file} ${e.date}`),
+      (e) => !present.has(censusKey(e.file, e.date)),
     ).map((e) => `${e.file} — ${e.date}`);
 
     expect(
@@ -364,7 +456,7 @@ describe('test fixtures carry no unexplained future date', () => {
       );
     }
 
-    const keys = FUTURE_DATED_FIXTURES.map((e) => `${e.file} ${e.date}`);
+    const keys = FUTURE_DATED_FIXTURES.map((e) => censusKey(e.file, e.date));
     expect(new Set(keys).size, 'a (file, date) pair is registered twice').toBe(keys.length);
   });
 
@@ -420,12 +512,12 @@ describe('the census can actually see what it claims to', () => {
     // from the date alone, one file's explanation would silently excuse every
     // other file's literal of the same date — and 2027-01-01 is registered by
     // four different files today.
-    const registered = new Set(FUTURE_DATED_FIXTURES.map((e) => `${e.file} ${e.date}`));
+    const registered = new Set(FUTURE_DATED_FIXTURES.map((e) => censusKey(e.file, e.date)));
     const sample = FUTURE_DATED_FIXTURES[0];
 
-    expect(registered.has(`${sample.file} ${sample.date}`)).toBe(true);
-    expect(registered.has(`some/other/file.test.ts ${sample.date}`)).toBe(false);
-    expect(registered.has(`${sample.file} ${future}`)).toBe(false);
+    expect(registered.has(censusKey(sample.file, sample.date))).toBe(true);
+    expect(registered.has(censusKey('some/other/file.test.ts', sample.date))).toBe(false);
+    expect(registered.has(censusKey(sample.file, future))).toBe(false);
   });
 
   it('would report an unregistered future literal as an offender', () => {
@@ -433,13 +525,70 @@ describe('the census can actually see what it claims to', () => {
     // detector that classifies nothing reports.
     const literals = dateLiteralsIn('unregistered.test.ts', `const x = '${future}';`);
     const today = todayUtc();
-    const registered = new Set(FUTURE_DATED_FIXTURES.map((e) => `${e.file} ${e.date}`));
+    const registered = new Set(FUTURE_DATED_FIXTURES.map((e) => censusKey(e.file, e.date)));
 
     const offenders = literals
       .filter((l) => l.date >= today)
-      .filter((l) => !registered.has(`${l.file} ${l.date}`));
+      .filter((l) => !registered.has(censusKey(l.file, l.date)));
 
     expect(offenders).toHaveLength(1);
     expect(offenders[0]?.date).toBe(future);
+  });
+});
+
+describe('no TypeScript source carries a raw NUL byte', () => {
+  it('scanned a real tree, including the file the defect was in', () => {
+    // The vacuity floor. A moved directory, a wrong root or a broken extension
+    // filter all produce an empty scan, and an empty scan reports exactly what
+    // a clean tree reports.
+    expect(
+      TYPESCRIPT_FILES.length,
+      'the walk read almost nothing — did the layout move?',
+    ).toBeGreaterThan(TYPESCRIPT_FILE_FLOOR);
+
+    // A named known-positive rather than a count alone: this file is the one
+    // #312 was about, and the date scan deliberately excludes it, so a NUL gate
+    // that inherited that exclusion would be blind to its own subject.
+    expect(
+      TYPESCRIPT_FILES,
+      'the scan cannot see the file the defect was in — the exclusion came back',
+    ).toContain(__filename);
+  });
+
+  it('finds no NUL byte in any of them', () => {
+    expect(
+      nulBytesIn(TYPESCRIPT_FILES).map((f) => `${f.file}:${f.offset}`),
+      'a TypeScript source carries a raw NUL byte. `grep` reports every symbol in such a file as ABSENT (exit 1, no output) because it treats it as binary, and git — whose binary detection reads only the first 8000 bytes — either hides the diff entirely or, worse, shows it as ordinary text so nothing in review signals it. Write the byte as the escape `\\0` / `\\u0000`; the runtime value is identical.',
+    ).toEqual([]);
+  });
+
+  it('would report a NUL byte that is really there', () => {
+    // The mutation self-test, run against a real tree through the SAME walk and
+    // the SAME reader. A scanner blind to NUL bytes reports CLEAN, which is
+    // indistinguishable from the answer above, so the detector has to be shown
+    // failing on a file that actually contains one.
+    const probeRoot = mkdtempSync(join(tmpdir(), 'nul-byte-census-'));
+    try {
+      const clean = join(probeRoot, 'clean.ts');
+      const dirty = join(probeRoot, 'dirty.ts');
+      writeFileSync(clean, 'export const CLEAN = 1;\n');
+      // Assembled from an explicit byte VALUE, never from source text: an
+      // escape sequence written here would be the very thing under test, and a
+      // toolchain that interpreted it either way would make the probe agree
+      // with whichever answer it already held.
+      writeFileSync(
+        dirty,
+        Buffer.concat([Buffer.from('export const DIRTY = "a'), Buffer.from([0]), Buffer.from('b";\n')]),
+      );
+
+      const probes = collectTypeScriptFiles(probeRoot);
+      expect(probes, 'the probe walk read the wrong tree').toEqual([clean, dirty]);
+
+      const findings = nulBytesIn(probes);
+      expect(findings.map((f) => f.file)).toEqual([dirty]);
+      expect(findings[0]?.offset, 'the offset is not the one that was written').toBe(23);
+    } finally {
+      rmSync(probeRoot, { recursive: true, force: true });
+    }
   });
 });
