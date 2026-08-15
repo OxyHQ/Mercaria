@@ -43,9 +43,11 @@ import { track } from "../../../lib/analytics";
 import { Button, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useCheckoutPaymentStatus } from "@/lib/hooks/use-checkout";
+import { usePortalConfirmation } from "@/lib/hooks/use-guest-portal";
 
 function CheckoutReturnBody() {
   const router = useRouter();
+  const portalConfirmation = usePortalConfirmation();
   const { isAuthenticated } = useOxy();
   const { checkoutGroupId } = useLocalSearchParams<{ checkoutGroupId?: string }>();
   // `enabled` is unconditionally true here: arriving on this route IS the
@@ -74,10 +76,36 @@ function CheckoutReturnBody() {
     track('guest_payment_action_required');
   }, [checkoutGroupId]);
 
-  const leave = () =>
-    router.replace(
-      (isAuthenticated ? "/orders" : "/") as Parameters<typeof router.replace>[0],
-    );
+  /**
+   * Where the buyer goes from here.
+   *
+   * A guest lands on the SECURE ORDER PORTAL (#93 client rule 12, #108) rather
+   * than the storefront: they have just paid, and the storefront can tell them
+   * nothing about the order. The confirmation grant is minted here because this
+   * is the first moment there is a client to hand one to — see
+   * `docs/guest-portal.md` on why it is PULLED and never pushed.
+   *
+   * `onSettled`, so a mint that fails still lands on the portal, which has its
+   * own recovery path where the storefront has none.
+   */
+  const leave = () => {
+    if (isAuthenticated) {
+      router.replace("/orders" as Parameters<typeof router.replace>[0]);
+      return;
+    }
+    if (!checkoutGroupId) {
+      router.replace("/" as Parameters<typeof router.replace>[0]);
+      return;
+    }
+    const group = checkoutGroupId;
+    const toPortal = () =>
+      router.replace(
+        `/guest-orders/portal?group=${encodeURIComponent(group)}` as Parameters<
+          typeof router.replace
+        >[0],
+      );
+    portalConfirmation.mutate(group, { onSettled: toPortal });
+  };
 
   if (!checkoutGroupId) {
     return (

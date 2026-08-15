@@ -5544,14 +5544,61 @@ somebody lives that request-local coarsening exists to avoid).
     the subtle one, because a closure has to span the 7-day open horizon, so the
     fix was moving the injected CLOCK back a week rather than extending the
     closure forward.
-- **The STOREFRONT half is the data layer only, and that is stated rather than
-  implied.** `lib/api/nearby.ts` and `lib/hooks/use-nearby.ts` exist and are
-  typed; there is NO screen, no permission prompt, no manual-location entry box
-  and no nearby component, so #93's fourteen "client experience" rules are NOT
-  met and must not be read as met. What the hook does carry is the one property
-  a later screen could get wrong: `queryKeys.nearby.availability` is keyed on the
-  COARSE CELL and never on the coordinate, because a React Query key is held in
-  memory and read out by every devtools panel.
+- **The CLIENT half is built** (`docs/pickup.md` §16): `@mercaria/ui`'s
+  `lib/pickup-labels.ts` + `NearbyLocationCard` + `PickupCollectionPanel`, the
+  storefront's `components/nearby/` + `app/(app)/nearby.tsx` + the pickup
+  branches of checkout, the order detail and the guest portal, and the
+  dashboard's `PickupDeskCard`. Thirteen of the fourteen client rules are met.
+  - **BROWSE and BUY are two modes of ONE component** (#93 client rule 7). The
+    product page mounts `NearbyAvailability` WITHOUT `withCheckoutEligibility` —
+    nearby rule 12, a page view must not spend per-location eligibility work —
+    and `/nearby` mounts the same component with it, which is why only that
+    screen offers "Collect here". A browse surface offering one would be a
+    promise made without the answer.
+  - **`describeBuyerPickupBlock` is where §2's "the buyer never sees a reason"
+    is actually held.** `checkoutEligibility` is the one place block reasons
+    reach a client, so the collapse to ONE sentence is a pure function in
+    `@mercaria/ui` rather than each screen's discretion; the per-reason copy is
+    exported beside it and is MERCHANT-facing. Sign-in is offered only when
+    EVERY reason is guest-specific, or client rule 10's "optional benefit"
+    becomes an account prompt in front of a shop that would refuse an account
+    holder too.
+  - **The city picker sits BESIDE the device control, and a refusal REMOVES that
+    control rather than leaving one that re-prompts.** Both halves are the
+    anti-dark-pattern decision; offering the manual path only after a denial
+    makes a shopper decline a prompt to discover it exists.
+  - **The buyer's coordinate never leaves the screen** — no param, no store, no
+    analytics, and `queryKeys.nearby.availability` is keyed on the COARSE CELL
+    because a React Query key is read out by every devtools panel. `?pickup=`
+    and `?pickupName=` carry a merchant's own PUBLISHED shop front, which client
+    rule 14 does not cover and which has to survive a reload and a bank redirect
+    (rule 11).
+  - **Client rule 6's "best overall" is NOT met, deliberately.** Nearest (the
+    server's own order, rendered untouched) and lowest price are both FACTS; a
+    blend of the two composed on a client is a second, unversioned ranking
+    authority. The nearby endpoint applies no #74 policy at all, and
+    `best_nearby_pickup` is still never awarded on the product page because
+    `/p/:handle` accepts no viewer coordinate — closing #74's seam gave the
+    ranking a distance it can use and no surface that passes one.
+  - **The native permission prompt is unexercised.** `useNearbyOrigin` answers
+    `unsupported` on native (no location dependency is installed) and the manual
+    picker is a complete path without it, so the feature works — but nothing has
+    been verified against a real iOS or Android dialog.
+- **WALL 6 could not see a route built in a HELPER, and now can.** It read the
+  argument of `router.push`/`router.replace`, so a screen composing its href in
+  a `buildHref` function handed it a variable and the gate skipped it silently —
+  which is how `/p/...`, the most-linked route in the storefront, was never
+  gated. `returnedRouteTargets` closes it, scoped to the `app/`/`components/`
+  entries because the `lib/` ones are API clients whose template literals are
+  SERVER paths. Mutation-tested by renaming `app/(app)/nearby.tsx`: four
+  assertions go red, and the restore is byte-identical.
+- **A new storefront screen owes the SEO route map a decision.**
+  `seo-routes.test.ts` fails the build on a screen in neither the public
+  registry nor `NON_PUBLIC_SCREENS`, and `seo-robots.test.ts` then requires the
+  static `packages/frontend/public/robots.txt` to agree with
+  `SEO_ROBOTS_DISALLOWED_PATHS` EXACTLY, order included — two artefacts, one
+  list. `/nearby` is not public: its whole content depends on an origin a
+  crawler does not have, so it is one page per canonical entity per POSITION.
 - Deferred with named seams, none of them a stub that lies: **#85** (the
   activation state, reusing #107's lever), **#110** (buyer cancellation of a
   collection order stays `pickup_not_supported`, which is #110's own decision and

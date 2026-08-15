@@ -28,9 +28,12 @@ import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ItemConditionKey, NearbyPlaceSuggestion, NearbyResponse } from '@mercaria/shared-types';
 import {
+  fetchGuestOrderCollection,
   fetchNearby,
   fetchNearbyPlaces,
+  fetchOrderCollection,
   placeOrigin,
+  type CollectionView,
   type NearbyOrigin,
 } from '../api/nearby';
 import { queryKeys } from './query-keys';
@@ -193,4 +196,59 @@ export function useNearbyPlaces(params: {
 function cellKey(origin: NearbyOrigin): string {
   const precision = 0.1;
   return `${Math.floor(origin.latitude / precision)}:${Math.floor(origin.longitude / precision)}`;
+}
+
+/**
+ * The buyer's own collection view — the snapshot and, when there is one, the
+ * code (#93 client rule 13).
+ *
+ * A SEPARATE query from the order itself, on purpose. An order DTO is cached,
+ * logged and forwarded into support tooling; a collection code carried inside
+ * one would follow it into all three, which is why the server publishes it on
+ * its own authorized route rather than as a field. Keeping the two apart on the
+ * client is what makes that server decision hold end to end.
+ *
+ * `retry: false` because the failure that matters here is an authorization one,
+ * and retrying a 403 three times only delays telling somebody they are looking
+ * at an order that is not theirs.
+ */
+export function useOrderCollection(orderId: string | undefined) {
+  return useQuery<CollectionView>({
+    queryKey: queryKeys.collection.byOrder(orderId ?? ''),
+    queryFn: () => fetchOrderCollection(orderId as string),
+    enabled: orderId !== undefined && orderId !== '',
+    retry: false,
+  });
+}
+
+/**
+ * The SAME view through a guest portal credential (#108).
+ *
+ * The server handler is one function — #93 verification rule 9, guest and
+ * authenticated buyers use one collection mechanism — so this differs only in
+ * the path and the credential that carries it. It is a distinct hook rather
+ * than a parameterised one because the two have different ENABLEMENT: an
+ * account read needs an order id, and a portal read needs the checkout group
+ * whose grant authorized it.
+ *
+ * Deliberately gated on NO feature flag. #93 operations rule 10 and acceptance
+ * 12: pausing guest pickup must leave existing collection, portal, cancellation
+ * and refund flows working, so a buyer who already paid can always reach the
+ * code for the order they hold.
+ */
+export function useGuestOrderCollection(input: {
+  checkoutGroupId: string | undefined;
+  orderId: string | undefined;
+}) {
+  const { checkoutGroupId, orderId } = input;
+  return useQuery<CollectionView>({
+    queryKey: queryKeys.collection.byGuestOrder(checkoutGroupId ?? '', orderId ?? ''),
+    queryFn: () =>
+      fetchGuestOrderCollection({
+        checkoutGroupId: checkoutGroupId as string,
+        orderId: orderId as string,
+      }),
+    enabled: Boolean(checkoutGroupId) && Boolean(orderId),
+    retry: false,
+  });
 }

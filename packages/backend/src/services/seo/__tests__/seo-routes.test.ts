@@ -74,6 +74,12 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   // projection of one at all.
   'app/(app)/watchlists/index.tsx',
   'app/(app)/watchlists/[watchlistId].tsx',
+  // Collect in person (#93) — the results depend entirely on an origin the
+  // shopper supplies, so there is one page per canonical entity per POSITION
+  // and a crawler has no position. Everything it shows is reachable from the
+  // product page that links to it, which is where the indexable content is.
+  // Correspondingly in `SEO_ROBOTS_DISALLOWED_PATHS`.
+  'app/(app)/nearby.tsx',
   'app/(app)/checkout/index.tsx',
   'app/(app)/checkout/return.tsx',
   // The "Sell yours" flow (#91) — an authenticated draft-in-progress, reached

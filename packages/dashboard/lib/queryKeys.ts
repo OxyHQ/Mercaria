@@ -26,6 +26,17 @@ export const queryKeys = {
     refunds: (storeId: string, orderId: string) =>
       ["stores", storeId, "orders", orderId, "refunds"] as const,
     stats: (storeId: string) => ["stores", storeId, "orders", "stats"] as const,
+    /**
+     * One order's collection and its audited trail (#93).
+     *
+     * Its own key rather than a slice of `detail`, because the two are
+     * separately authorized: reading an order needs `orders:read` and every
+     * action on the desk needs `orders:fulfill`, so a member of staff who may
+     * see an order and not work the counter gets one of these and not the
+     * other.
+     */
+    pickup: (storeId: string, orderId: string) =>
+      ["stores", storeId, "orders", orderId, "pickup"] as const,
   },
   reports: {
     summary: (storeId: string) => ["stores", storeId, "reports", "summary"] as const,

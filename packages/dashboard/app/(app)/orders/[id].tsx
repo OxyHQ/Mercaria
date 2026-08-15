@@ -20,6 +20,7 @@ import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
+import { PickupDeskCard } from "@/components/orders/PickupDeskCard";
 import {
   useOrder,
   usePatchOrderStatus,
@@ -94,6 +95,14 @@ function OrderContent({ storeId, order }: { storeId: string; order: MerchantOrde
       <TotalsCard order={order} />
       <ShippingAddressCard order={order} />
       <StatusHistoryCard order={order} />
+      {/*
+        The collection desk (#93). Renders only for a collection order — the
+        card returns null on the 404 a delivery order answers with — and it is
+        seated ABOVE fulfilment because a parcel handed across a counter was
+        never shipped: the two are different fulfilment paths and the desk is
+        the one that applies here.
+      */}
+      <PickupDeskCard storeId={storeId} orderId={order.id} />
       <RefundsCard storeId={storeId} order={order} />
       <FulfillmentCard storeId={storeId} order={order} />
     </View>

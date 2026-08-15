@@ -10,6 +10,7 @@ import type {
 import { OfferLabelBadge, Text } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
+import { NearbyAvailability } from '@/components/nearby/NearbyAvailability';
 import { BrandChannels } from '@/components/product/BrandChannels';
 import { OfferGroups } from '@/components/product/OfferGroups';
 import { PriceHistoryPanel } from '@/components/product/PriceHistoryPanel';
@@ -166,6 +167,29 @@ export default function CanonicalProductPageScreen() {
             {addToCart.error.message}
           </Text>
         ) : null}
+
+        {/*
+          Collection (#93), seated after "who sells it" and before "what it used
+          to cost": the shopper has just decided WHAT to buy and the next real
+          question is whether they can have it today.
+
+          Browse mode — no `withCheckoutEligibility` — so a signed-out shopper
+          sees which shops have it with no account wall and the server spends no
+          per-location eligibility work on a page view (#93 nearby rules 11 and
+          12, client rule 9). Choosing a place happens at checkout, which is
+          where the verdict is asked for and re-validated.
+        */}
+        <NearbyAvailability
+          canonicalProductId={page.product.id}
+          {...(selectedVariantId === undefined ? {} : { canonicalVariantId: selectedVariantId })}
+          onSeeCollectionOptions={() =>
+            router.push(
+              buildNearbyHref(page.product.id, selectedVariantId) as Parameters<
+                typeof router.push
+              >[0],
+            )
+          }
+        />
 
         <PriceHistoryPanel
           canonicalProductId={page.product.id}
@@ -362,6 +386,19 @@ function buildHref(
   if (intent !== undefined) query.set('intent', intent);
   const suffix = query.toString();
   return `/p/${encodeURIComponent(handle)}${suffix === '' ? '' : `?${suffix}`}`;
+}
+
+/**
+ * The collection screen for this product, and the selected variant when there
+ * is one (#93).
+ *
+ * The CANONICAL ids travel, never the shopper's position: an origin is granted
+ * per screen to a question a person asked, and `/nearby` asks for its own.
+ */
+function buildNearbyHref(canonicalProductId: string, variant: string | undefined): string {
+  const query = new URLSearchParams({ product: canonicalProductId });
+  if (variant !== undefined && variant !== '') query.set('variant', variant);
+  return `/nearby?${query.toString()}`;
 }
 
 /** A query parameter is a string; only a real intent survives it. */

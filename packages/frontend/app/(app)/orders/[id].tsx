@@ -11,6 +11,7 @@ import type {
 import {
   Button,
   CommercialDisclosure,
+  PickupCollectionPanel,
   PriceDisplay,
   SectionHeader,
   Text,
@@ -21,6 +22,7 @@ import {
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { toast } from "@oxyhq/bloom/toast";
 import { useOrder, useCancelOrder } from "@/lib/hooks/use-orders";
+import { useOrderCollection } from "@/lib/hooks/use-nearby";
 
 /** Order statuses from which a buyer may still cancel (mirrors the backend graph). */
 const BUYER_CANCELLABLE: ReadonlySet<OrderStatus> = new Set<OrderStatus>([
@@ -214,6 +216,15 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
   const router = useRouter();
   const { data: order, isLoading, isError } = useOrder(orderId);
   const cancel = useCancelOrder();
+  /**
+   * The collection, when this order has one.
+   *
+   * A separate query on purpose — see `useOrderCollection`. A 404 here is the
+   * ordinary answer for a delivered order rather than an error worth showing,
+   * so the panel simply does not render and nothing apologises for the absence
+   * of a thing the buyer never asked for.
+   */
+  const collection = useOrderCollection(orderId);
 
   const onCancel = () => {
     cancel.mutate(orderId, {
@@ -271,6 +282,21 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
           distinction to report.
         */}
         {order.retail ? <RetailProgressCard retail={order.retail} /> : null}
+
+        {/*
+          Collection (#93 client rule 13). This screen is an AUTHORIZED order
+          surface, which is the only place a code may be rendered — and the code
+          is fetched by its own call against its own route rather than read off
+          the order DTO, so it is never in the cache, the log or the support
+          export that DTO ends up in. `collection.data` is absent for a
+          delivered order, which renders nothing at all.
+        */}
+        {collection.data === undefined ? null : (
+          <PickupCollectionPanel
+            pickup={collection.data.pickup}
+            {...(collection.data.code === undefined ? {} : { code: collection.data.code })}
+          />
+        )}
 
         <ItemsCard items={order.items} />
         <TotalsCard order={order} />

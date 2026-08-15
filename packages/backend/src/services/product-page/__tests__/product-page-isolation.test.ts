@@ -98,7 +98,19 @@ const STOREFRONT_PATHS = [
  * how a gate starts crying wolf at whoever edits it next, and a gate that cries
  * wolf is the one somebody deletes.
  */
-const NAVIGATION_PATHS = [...STOREFRONT_PATHS, 'app/(app)/products/[id].tsx'];
+const NAVIGATION_PATHS = [
+  ...STOREFRONT_PATHS,
+  'app/(app)/products/[id].tsx',
+  // #93's collection surfaces. They join the ROUTE gate and nothing else, for
+  // the reason above: the product page links to `/nearby`, `/nearby` links to
+  // `/checkout`, and both compose a merchant link — four literal targets that
+  // `typedRoutes` accepts however wrong they are. They are deliberately NOT in
+  // `STOREFRONT_PATHS`, so the five walls about #71's page do not start firing
+  // at whoever edits a pickup screen.
+  'app/(app)/nearby.tsx',
+  'components/nearby/NearbyAvailability.tsx',
+  'components/nearby/NearbyOriginControl.tsx',
+];
 
 function storefrontSources(): { relative: string; source: string }[] {
   return STOREFRONT_PATHS.map((relative) => ({
@@ -363,13 +375,49 @@ function navigationTargets(): { relative: string; target: string }[] {
   return found;
 }
 
+/**
+ * Every route-shaped string a HELPER in these files returns.
+ *
+ * `navigationTargets` above reads the argument of `router.push`/`router.replace`
+ * and therefore only ever sees a target written inline. A screen that composes
+ * its href in a `buildHref`-style function — which #71's own page has always
+ * done for `/p/...`, and #93's does for `/nearby` — hands `router.push` a
+ * variable, and the whole gate silently skipped it. That is the hole this
+ * closes: the two most-linked routes in the storefront were the two the route
+ * gate could not see.
+ *
+ * Scoped to the `app/` and `components/` entries only. The `lib/` ones are API
+ * clients whose template literals are SERVER paths (`/offer-comparison`,
+ * `/product-saves/...`), which are not app routes and must not be resolved as
+ * though they were.
+ */
+function returnedRouteTargets(): { relative: string; target: string }[] {
+  const found: { relative: string; target: string }[] = [];
+  for (const relative of NAVIGATION_PATHS) {
+    if (relative.startsWith('lib/')) continue;
+    const source = withoutComments(readFileSync(join(STOREFRONT_ROOT, relative), 'utf8'));
+    for (const match of source.matchAll(/return\s+`(\/[^`]*)`/gu)) {
+      const raw = match[1];
+      if (raw === undefined) continue;
+      // Take the literal head, stop at the first interpolation, and drop any
+      // query: a query is not a route segment, and an interpolated segment is
+      // a value no static check can know.
+      const literalHead = raw.split('${')[0] ?? '';
+      const path = literalHead.split('?')[0] ?? '';
+      const interpolatedSegment = raw.includes('${') && !literalHead.includes('?');
+      found.push({ relative, target: interpolatedSegment ? `${path}\${x}` : path });
+    }
+  }
+  return found;
+}
+
 describe('WALL 6: every route this page navigates to exists', () => {
   it('resolves every literal navigation target against the real app tree', () => {
     const routes = existingRoutes();
     // Floors on BOTH sides: an empty route list would pass nothing, and an
     // empty target list would pass vacuously.
     expect(routes.length, 'the app tree walk found nothing').toBeGreaterThanOrEqual(15);
-    const targets = navigationTargets();
+    const targets = [...navigationTargets(), ...returnedRouteTargets()];
     expect(targets.length, 'no navigation target was extracted').toBeGreaterThanOrEqual(6);
 
     for (const { relative, target } of targets) {
@@ -381,8 +429,31 @@ describe('WALL 6: every route this page navigates to exists', () => {
     }
   });
 
+  it('#93: the composed-href extractor sees the routes `router.push` hides', () => {
+    const composed = returnedRouteTargets();
+    // A floor, so a refactor that stops these helpers being found fails HERE
+    // rather than making the extractor silently measure nothing.
+    expect(composed.length, 'no composed href was extracted').toBeGreaterThanOrEqual(2);
+    const targets = composed.map((entry) => entry.target);
+    // The two the inline extractor cannot see, named so a rename is a failure
+    // rather than a quiet loss of coverage.
+    expect(targets).toContain('/p/${x}');
+    expect(targets).toContain('/nearby');
+    const routes = existingRoutes();
+    for (const { relative, target } of composed) {
+      expect(
+        routeExists(target, routes),
+        `${relative} composes ${target}, which is not a screen`,
+      ).toBe(true);
+    }
+  });
+
   it('the resolver actually resolves — the mutation self-test', () => {
     const routes = existingRoutes();
+    // #93's own screen, and the negative control that it is not simply
+    // matching everything under `/nearby`.
+    expect(routeExists('/nearby', routes)).toBe(true);
+    expect(routeExists('/nearby/definitely-not-a-route-xyz', routes)).toBe(false);
     expect(routeExists('/settings/feedback', routes)).toBe(true);
     expect(routeExists('/products/${id}', routes)).toBe(true);
     expect(routeExists('/sellers/${oxyUserId}', routes)).toBe(true);

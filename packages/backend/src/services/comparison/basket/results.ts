@@ -31,11 +31,18 @@
  *
  * ## `best_nearby_pickup` is in the vocabulary and is never produced
  *
- * #93 publishes no collection points and #74's `resolvePickupProximity` refuses
- * every distance, so the result is always refused with
- * `pickup_data_unavailable`. Keeping it in the tuple is what makes the seam
- * visible: a result kind that is simply missing is a feature nobody notices is
- * absent.
+ * Still never produced — but #93 SHIPPED, so the reason changed and the old
+ * sentence ("#93 publishes no collection points") is now false. Collection
+ * points are published and `resolvePickupProximity` answers real distances; what
+ * a basket comparison does not have is a VIEWER POSITION. `BasketRequest`
+ * carries no coordinate and deliberately should not: an origin belongs to a
+ * request a shopper knowingly made from where they are standing, and a basket
+ * plan is composed from a saved list. So every item resolves
+ * `viewer_location_absent` and the result is refused with
+ * `pickup_data_unavailable`, exactly as before.
+ *
+ * Keeping it in the tuple is what makes the seam visible: a result kind that is
+ * simply missing is a feature nobody notices is absent.
  */
 
 import {

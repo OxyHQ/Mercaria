@@ -14,6 +14,7 @@ export { cn } from "./lib/cn";
 export { useColorScheme } from "./lib/useColorScheme";
 export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 export {
+  formatDistance,
   formatMoney,
   formatReviewCount,
   formatSourceMoney,
@@ -410,3 +411,43 @@ export {
   CommercialDisclosure,
   type CommercialDisclosureProps,
 } from "./components/marketplace/CommercialDisclosure";
+
+// ---------------------------------------------------------------------------
+// Location publication, nearby discovery and collection (#93) — the copy and
+// the two renderers all three apps could need.
+//
+// Same split as every taxonomy above: the KEYS are `@mercaria/shared-types`
+// unions that columns, CHECKs and wire contracts carry, and the sentences are
+// here so a wording change touches no stored value. Every map is exhaustive
+// over its union, so a member added to `pickup.ts` fails THIS package's
+// typecheck rather than rendering a blank chip at a collection counter.
+//
+// `PICKUP_BLOCK_REASON_TEXT` is the one export here a storefront must not
+// render: it is merchant-facing, and `describeBuyerPickupBlock` beside it is
+// what a buyer-facing surface calls instead (`docs/pickup.md` §2).
+// ---------------------------------------------------------------------------
+export {
+  LOCATION_AVAILABILITY_EXPLANATIONS,
+  LOCATION_AVAILABILITY_TEXT,
+  ORDER_PICKUP_STATE_EXPLANATIONS,
+  ORDER_PICKUP_STATE_TEXT,
+  PICKUP_BLOCK_REASON_TEXT,
+  PICKUP_DISTANCE_BAND_TEXT,
+  PICKUP_IDENTITY_REQUIREMENT_TEXT,
+  PICKUP_PAYMENT_REQUIREMENT_TEXT,
+  describeBuyerPickupBlock,
+  describeOpenState,
+  describeStockConfirmed,
+  formatOpeningMinute,
+  formatPublicAddress,
+  formatWeekday,
+  type BuyerPickupBlockCopy,
+} from "./lib/pickup-labels";
+export {
+  NearbyLocationCard,
+  type NearbyLocationCardProps,
+} from "./components/marketplace/NearbyLocationCard";
+export {
+  PickupCollectionPanel,
+  type PickupCollectionPanelProps,
+} from "./components/marketplace/PickupCollectionPanel";

@@ -51,7 +51,16 @@ const RESULT_KIND_DEFINITION: Readonly<Record<BasketResultKind, string>> = {
   fewest_merchants: "The plan that spreads your basket across the fewest separate checkouts.",
   best_native_plan: "The items you can buy directly on Mercaria, in one cart.",
   official_channel_plan: "Every item from a brand's verified official channel.",
-  best_nearby_pickup: "Collection points are not published yet, so this cannot be planned.",
+  // #93 published collection points, so the old sentence ("collection points
+  // are not published yet") became FALSE on that merge — the comment-sweep
+  // hazard, in reader-facing copy. The result is still never produced, but for
+  // a DIFFERENT reason, and stating the expired one would send a shopper to
+  // look for a feature nobody is missing: a basket comparison request carries
+  // no viewer position, so `resolvePickupProximity` answers
+  // `viewer_location_absent` for every item. Nearby collection is answered on
+  // the product page instead, where a shopper has chosen to share an origin.
+  best_nearby_pickup:
+    "Not planned here — a basket comparison has no location to measure from. Check collection on a product's own page.",
   used_or_refurbished_value: "Every item second-hand or refurbished.",
   partial_coverage: "Some items could not be planned. The rest are shown with the reasons.",
 };
