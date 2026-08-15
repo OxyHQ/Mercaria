@@ -132,9 +132,11 @@ export async function connectPushIn(
 
   // ONE upsert on `UNIQUE(store_id, provider)`: two plugin instances registering
   // the same site at once merge into one row rather than racing an insert. The
-  // mode CLASH above still needs its own read — it is a policy refusal, not a
-  // conflict resolution, and an upsert would silently hijack the other mode's
-  // connection instead of rejecting.
+  // mode CLASH above is NOT what enforces the refusal — `upsertConnection`'s
+  // conditional write is (#302), because this read and that write are not one
+  // statement and two concurrent connects both see "no row". It is kept so all
+  // three connect paths state the policy where a reader of that path can see it;
+  // on the other two it additionally refuses before an outbound call.
   return upsertConnection(storeId, provider, {
     mode: 'push_in',
     status: 'connected',

@@ -10,8 +10,11 @@
  * The upsert is ONE statement on `UNIQUE(store_id, provider)` now rather than a
  * `findOneAndUpdate` filter plus an update document, so the assertions read the
  * repository call's `(storeId, provider, values)` arguments. The read that
- * remains is the MODE-CLASH check, which is a policy refusal and could not be
- * folded into the upsert without silently hijacking a push-in connection.
+ * remains is the MODE-CLASH check — an EARLY refusal, so a clash is answered
+ * before `verifyConnection` reaches the merchant's site. Since #302 the refusal
+ * itself is enforced by `upsertConnection`'s conditional write, which a mocked
+ * repository cannot express; `connection-mode.realdb.test.ts` is where that
+ * lives.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -150,9 +153,9 @@ describe('connectWithApiKey', () => {
     await expect(
       connectWithApiKey(STORE, 'woocommerce', { shopDomain: SITE, ...KEYS }),
     ).rejects.toThrow();
+    // Why the read is still here after #302 moved the refusal into the write:
+    // it refuses BEFORE `verifyConnection` calls the merchant's site.
     expect(verifyConnection).not.toHaveBeenCalled();
-    // The clash is why this path still READS before it upserts: an upsert alone
-    // would have taken the push-in connection over.
     expect(upsertConnection).not.toHaveBeenCalled();
   });
 

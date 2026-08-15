@@ -3653,6 +3653,26 @@ CHECK the database would have refused all looked identical to a green suite.
   only ever grows is a wizard warning about problems somebody solved.
   `no_rate_limit_retry` is the one that stayed: #219 made it capability-DERIVED
   rather than unproduceable.
+- **A connect may not rewrite a connection's MODE, and the refusal is a
+  CONDITIONAL WRITE rather than a guard (#302).** `UNIQUE(store_id, provider)`
+  means a "second connection" in the other mode is a mode change on the existing
+  row, and `mode` sat in `upsertConnection`'s `onConflictDoUpdate` `set` — so an
+  OAuth pull connect silently flipped a merchant's `push_in` row, invisibly: the
+  id does not move, `listings.source_connection_id` still resolves, and the only
+  symptom is the plugin's next push 400ing on `requirePushInConnection` with no
+  run recorded. Two of the three connect paths read the row first; **all three
+  read outside a transaction, so two concurrent connects both see "no row" and
+  the loser's upsert flips it anyway** — which is why the rule is `setWhere:
+  eq(connections.mode, values.mode)` on the conflict branch, whose empty
+  `RETURNING` set IS the refusal and which a FOURTH connect path inherits without
+  knowing it exists. The pre-reads are kept as EARLY refusals only (before
+  `exchangeCode` burns a one-time code, before `verifyConnection` calls the
+  merchant's site) and can never admit what the write refuses. **There is
+  deliberately NO supported mode SWITCH**: `disconnectConnection` keeps the row
+  and never touches `mode`, nothing in `src/` deletes a connection, and a
+  merchant moving from the plugin to the pull connector has no self-service path
+  — stated so, because the channel keys, webhook secret and `source_*`
+  provenance bound to a `push_in` row each need a decision that is its own issue.
 
 ## Supplier-fulfilled retail fulfilment and the Moovo boundary (#126, ADR 0004 D2.6/D2.7/D2.8/D9.4/D9.6/D9.9)
 

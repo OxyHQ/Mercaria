@@ -948,12 +948,26 @@ export async function sweepConnectionWebhookRegistrations(): Promise<void> {
  * from a request body. After persisting, registers the platform's product
  * webhooks (best-effort) and — when product pull is already enabled for this
  * connection — enqueues an initial backfill. Returns the persisted connection.
+ *
+ * Refuses to hijack an existing connection created in a different mode (e.g. a
+ * WooCommerce push-in link from the WordPress plugin), like the API-key connect
+ * below. The AUTHORITY for that refusal is `upsertConnection`'s conditional
+ * write, not this read — two concurrent connects would both read "no row". What
+ * the read buys is the refusal arriving BEFORE `exchangeCode`, which consumes a
+ * one-time authorization code and leaves a granted access token on the platform
+ * that Mercaria then stores nowhere. It can only ever refuse EARLIER than the
+ * write, never admit what the write refuses.
  */
 export async function connectAndVerify(
   storeId: string,
   providerId: ConnectorProviderId,
   params: { code: string; shopDomain: string; redirectUri: string },
 ): Promise<ConnectionRow> {
+  const existing = await findConnectionByProvider(storeId, providerId);
+  if (existing && existing.mode !== 'pull') {
+    throw conflict('A connection already exists for this provider in a different mode');
+  }
+
   const provider = getConnectorProvider(providerId);
   const result = await provider.exchangeCode({
     shopDomain: params.shopDomain,
@@ -1038,7 +1052,9 @@ export async function connectAndVerify(
  * `storeId`/`providerId` are resolved server-side (route param + loaded store);
  * only the credentials come from the body, and they are validated + encrypted,
  * never spread into the document. Refuses to hijack an existing connection created
- * in a different mode (e.g. a WooCommerce push-in link from the WordPress plugin).
+ * in a different mode (e.g. a WooCommerce push-in link from the WordPress plugin)
+ * — the read below refuses before `verifyConnection` calls the merchant's site,
+ * and `upsertConnection`'s conditional write is what actually enforces it (#302).
  */
 export async function connectWithApiKey(
   storeId: string,
