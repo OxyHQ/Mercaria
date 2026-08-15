@@ -86,6 +86,7 @@ import {
 import { guestOrderClaimOutbox } from './schema/guestClaims';
 import { merchantDemandSnapshots } from './schema/merchantDemand';
 import { catalogSourceRejections } from './schema/ingestion';
+import { syncRunRecordFailures } from './schema/connectors';
 import {
   feedImportReportEntries,
   feedImportReports,
@@ -256,6 +257,28 @@ const ANALYTICS_SALT_RETENTION_SECONDS = 45 * 24 * 60 * 60;
  * the fact that records were rejected.
  */
 const CATALOG_SOURCE_REJECTION_RETENTION_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * `SYNC_RUN_RECORD_FAILURE_RETENTION_SECONDS` — 30 days, and the figure is the
+ * one above for the same reason rather than by coincidence (#303).
+ *
+ * `sync_run_record_failures` is the connector domain's residual, and it is the
+ * ONE table in `connectors.ts` bounded by TRAFFIC: a platform publishing a field
+ * Mercaria refuses writes one row per product per run, forever. `connections` is
+ * bounded by a merchant's channels and `sync_runs` by their cadence, and both
+ * are the activity log the dashboard reads — neither may ever be swept.
+ *
+ * Thirty days is chosen against what a merchant DOES with these rows. They come
+ * looking when a product stops appearing on their storefront, which is days to
+ * weeks, and what they need is the last few runs of that channel rather than
+ * last quarter's. Longer would not answer a different question; it would keep a
+ * catalogue's worth of refusals per broken feed.
+ *
+ * Deleting the detail never deletes the SIGNAL: `counts_failed` and the summary
+ * in `sync_runs.error` are on the run row, which nothing here sweeps, so an
+ * expired page still shows that records were refused and roughly why.
+ */
+const SYNC_RUN_RECORD_FAILURE_RETENTION_SECONDS = 30 * 24 * 60 * 60;
 
 /**
  * `GUEST_SECURITY_EVIDENCE_RETENTION_SECONDS` — 90 days past a counting
@@ -527,6 +550,18 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'retention: configs, policies, objects and runs are bounded by the catalogue and are ' +
       'the audit history a rights suspension must not delete.',
   },
+  {
+    table: syncRunRecordFailures,
+    column: syncRunRecordFailures.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'One record a CONNECTOR sync run refused, 30 days later (#303). The deadline is stamped ' +
+      'at write time so this registry needs no filter. It is the only `connectors.ts` table ' +
+      'with a retention, because it is the only one bounded by traffic rather than by a ' +
+      'merchant’s channels: `connections` and `sync_runs` are the activity log the dashboard ' +
+      'reads and must never be swept. Expiring these rows costs the per-record detail and ' +
+      'never the signal — the tally and the summary stay on the run.',
+  },
   // The supplier order orchestration (#124). TWO entries, and the two omissions
   // beside them are the point: `supplier_order_attempts`,
   // `purchase_order_line_outcomes`, `purchase_order_tracking_events`,
@@ -719,6 +754,7 @@ export const RETENTION_SECONDS = {
   referralTouchEvidenceMargin: REFERRAL_TOUCH_EVIDENCE_MARGIN_SECONDS,
   analyticsSalt: ANALYTICS_SALT_RETENTION_SECONDS,
   catalogSourceRejection: CATALOG_SOURCE_REJECTION_RETENTION_SECONDS,
+  syncRunRecordFailure: SYNC_RUN_RECORD_FAILURE_RETENTION_SECONDS,
   guestRecoveryAttempt: GUEST_RECOVERY_ATTEMPT_RETENTION_SECONDS,
   guestPortalMessage: GUEST_PORTAL_MESSAGE_RETENTION_SECONDS,
   guestClaimOutbox: GUEST_CLAIM_OUTBOX_RETENTION_SECONDS,

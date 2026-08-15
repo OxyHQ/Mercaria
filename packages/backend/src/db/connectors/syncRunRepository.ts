@@ -38,15 +38,21 @@
  * screens disagree about which run was last.
  */
 
-import { desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import type { SyncRunCounts, SyncRunKind, SyncRunStatus } from '@mercaria/shared-types';
+import type {
+  SyncRecordSubjectType,
+  SyncRunCounts,
+  SyncRunKind,
+  SyncRunStatus,
+} from '@mercaria/shared-types';
 import {
   boundMerchantFacingMessage,
   merchantFacingFailureMessage,
 } from '../../lib/errors/merchant-facing.js';
-import { getDb, type DatabaseOrTransaction } from '../postgres.js';
+import { getDb, type Database, type DatabaseOrTransaction } from '../postgres.js';
 import { syncRuns } from '../schema/connectors.js';
+import { insertSyncRunRecordFailures } from './syncRunRecordFailureRepository.js';
 
 /** One row of `sync_runs`. */
 export type SyncRunRecord = InferSelectModel<typeof syncRuns>;
@@ -86,12 +92,27 @@ export interface SyncRunOutcome {
    *
    * Refusing that product is CORRECT — a silently truncated variant set is #259's
    * catalogue failure — so what is fixed is the report, not the ceiling.
+   *
+   * #303: this input now feeds TWO things — the elided summary on
+   * `sync_runs.error` and the durable per-record rows — composed by one
+   * classifier inside one transaction, so the at-a-glance line and the full list
+   * cannot disagree.
    */
   recordFailures?: readonly SyncRunRecordFailure[];
 }
 
 /** One record a run could not process. */
 export interface SyncRunRecordFailure {
+  /**
+   * What kind of record this was (#303).
+   *
+   * REQUIRED, so every call site states one and a new rail cannot acquire a
+   * subject by default. It is not derivable from `sync_runs.kind`: that column
+   * says `inventory_sync` for both the PULL (whose unit is a platform inventory
+   * item id) and the PUSH (whose unit is the product external id it resolves a
+   * listing by), so a derivation would be silently wrong on exactly one of them.
+   */
+  subjectType: SyncRecordSubjectType;
   /** The external platform's own id for the record — what a merchant searches by. */
   externalId: string;
   /**
@@ -209,6 +230,26 @@ export async function insertSyncRun(
  * run stopped, so the records it did not reach are its consequence rather than a
  * second finding.
  *
+ * ## The summary and the per-record rows commit TOGETHER (#303)
+ *
+ * The summary above is deliberately elided — three reasons, three ids each — so
+ * a run of `0/0/0/100` names nine products and loses ninety-one. #303's durable
+ * answer is `sync_run_record_failures`, and it is written HERE, inside one
+ * transaction with the close, from the SAME `recordFailures` input and through
+ * the same classifier.
+ *
+ * One transaction rather than two statements, because the alternative state is a
+ * run whose `error` names three products beside a table holding none, and the
+ * merchant surface would then show "no per-record reasons" under a summary
+ * naming products. The evidence cannot fail the close on its own account: the
+ * writer normalizes every field to what its CHECK accepts (`''` becomes NULL, a
+ * long id and a long detail are cut), so what is left is an infrastructure
+ * failure — where the run genuinely did not close and retrying is right, and
+ * where the UPDATE alone would already have thrown.
+ *
+ * A run that FAILED whole passes no `recordFailures` (see the call sites), so
+ * this writes nothing on that branch, matching the `error` precedence above.
+ *
  * @returns The stored row, so the caller can serialize what was actually
  *   persisted rather than the object it was holding — the two diverged silently
  *   under Mongoose whenever a `save()` was skipped on an error path.
@@ -216,34 +257,44 @@ export async function insertSyncRun(
 export async function finishSyncRun(
   runId: string,
   outcome: SyncRunOutcome,
-  db: DatabaseOrTransaction = getDb(),
+  db: Database = getDb(),
 ): Promise<SyncRunRecord> {
-  const [row] = await db
-    .update(syncRuns)
-    .set({
-      status: outcome.status,
-      countsCreated: outcome.counts.created,
-      countsUpdated: outcome.counts.updated,
-      countsSkipped: outcome.counts.skipped,
-      countsFailed: outcome.counts.failed,
-      finishedAt: new Date(),
-      // Explicitly `null` on success: a run that failed, was retried and then
-      // succeeded must not keep the earlier message, which the Mongoose path's
-      // "assign only when set" left standing on the reused document.
-      //
-      // `undefined` — not "falsy" — is what means "there was no failure". A caller
-      // that legitimately caught a thrown `''`, `0` or `null` still gets a
-      // classified message, because those are failures somebody threw and saying
-      // so is the classifier's job.
-      error:
-        outcome.failure !== undefined
-          ? merchantFacingFailureMessage(outcome.failure)
-          : summarizeRecordFailures(outcome.recordFailures ?? [], outcome.counts.failed),
-      updatedAt: new Date(),
-    })
-    .where(eq(syncRuns.id, runId))
-    .returning();
-  return row;
+  const now = new Date();
+  const recordFailures = outcome.recordFailures ?? [];
+  // The whole-run failure WINS over the summary, and it wins over the rows for
+  // the same reason: the records this run never reached are its consequence, not
+  // a hundred separate findings.
+  const perRecord = outcome.failure !== undefined ? [] : recordFailures;
+
+  return await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(syncRuns)
+      .set({
+        status: outcome.status,
+        countsCreated: outcome.counts.created,
+        countsUpdated: outcome.counts.updated,
+        countsSkipped: outcome.counts.skipped,
+        countsFailed: outcome.counts.failed,
+        finishedAt: now,
+        // Explicitly `null` on success: a run that failed, was retried and then
+        // succeeded must not keep the earlier message, which the Mongoose path's
+        // "assign only when set" left standing on the reused document.
+        //
+        // `undefined` — not "falsy" — is what means "there was no failure". A caller
+        // that legitimately caught a thrown `''`, `0` or `null` still gets a
+        // classified message, because those are failures somebody threw and saying
+        // so is the classifier's job.
+        error:
+          outcome.failure !== undefined
+            ? merchantFacingFailureMessage(outcome.failure)
+            : summarizeRecordFailures(recordFailures, outcome.counts.failed),
+        updatedAt: now,
+      })
+      .where(eq(syncRuns.id, runId))
+      .returning();
+    await insertSyncRunRecordFailures(tx, runId, perRecord, now);
+    return row;
+  });
 }
 
 /**
@@ -271,6 +322,29 @@ export async function listSyncRunsForConnection(
     .where(eq(syncRuns.connectionId, connectionId))
     .orderBy(desc(syncRuns.startedAt), desc(syncRuns.id))
     .limit(limit);
+}
+
+/**
+ * ONE run, scoped to the connection it must belong to (#303).
+ *
+ * The scope is in the WHERE rather than checked after the read, and that is the
+ * security property: the per-record failures hang off a run id a client
+ * supplies, so a run belonging to another store's connection has to resolve to
+ * nothing here rather than be fetched and then judged. Reading first and
+ * comparing afterwards is the same rule spelled so that a later `return` before
+ * the comparison is a cross-store disclosure.
+ */
+export async function findSyncRunForConnection(
+  connectionId: string,
+  runId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<SyncRunRecord | undefined> {
+  const [row] = await db
+    .select()
+    .from(syncRuns)
+    .where(and(eq(syncRuns.id, runId), eq(syncRuns.connectionId, connectionId)))
+    .limit(1);
+  return row;
 }
 
 /**

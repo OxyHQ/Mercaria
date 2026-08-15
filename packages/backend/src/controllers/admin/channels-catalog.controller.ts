@@ -35,7 +35,10 @@ import {
 import { deriveChannelReadiness } from '../../services/channels/channel-readiness.js';
 import { reconcileChannel } from '../../services/channels/channel-reconciliation.service.js';
 import { listStoreChannels } from '../../services/channels/channel-summary.service.js';
-import { toSyncRunDTO } from '../../services/connector-sync.service.js';
+import {
+  readSyncRunRecordFailures,
+  toSyncRunDTO,
+} from '../../services/connector-sync.service.js';
 import { sendSuccess } from '../../utils/api-response.js';
 import { routeParam } from '../../utils/request.js';
 
@@ -112,6 +115,34 @@ export async function listChannelRunsHandler(req: Request, res: Response): Promi
   } catch (err) {
     log.general.error({ err }, 'Failed to list channel runs');
     respondWithError(res, err, 'Failed to load the sync history');
+  }
+}
+
+/**
+ * GET /admin/stores/:storeId/channels/:connectionId/runs/:runId/record-failures
+ * — WHICH records that run refused, and why (#303).
+ *
+ * A separate call from the run list on purpose: fifty runs each carrying up to
+ * two hundred reasons is a payload nobody asked for, and fetching them per
+ * listed run is the N+1 #70 made unrepresentable in its own domain. The client's
+ * trigger is `counts.failed`, which the list already carries.
+ *
+ * Two scopes, both required. This asserts the CONNECTION belongs to the store;
+ * the service resolves the RUN scoped to that connection, so a run id from
+ * another store answers 404 rather than somebody else's refused products.
+ */
+export async function listChannelRunRecordFailuresHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const connectionId = routeParam(req, 'connectionId');
+    const runId = routeParam(req, 'runId');
+    await assertConnectionBelongsToStore(req, connectionId);
+    sendSuccess(res, await readSyncRunRecordFailures(connectionId, runId));
+  } catch (err) {
+    log.general.error({ err }, 'Failed to list a run’s record failures');
+    respondWithError(res, err, 'Failed to load the records this sync refused');
   }
 }
 

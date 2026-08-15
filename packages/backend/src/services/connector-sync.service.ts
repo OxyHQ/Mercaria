@@ -65,8 +65,10 @@ import type {
   CurrencyCode,
   Money,
   SyncProgressEvent,
+  SyncRecordFailure,
   SyncRunCounts,
   SyncRun as SyncRunDTO,
+  SyncRunRecordFailurePage,
   SyncResourceDirection,
   SyncSettings as SyncSettingsDTO,
   UpdateListingInput,
@@ -104,10 +106,16 @@ import {
 } from '../db/connectors/connectionRepository.js';
 import {
   finishSyncRun,
+  findSyncRunForConnection,
   insertSyncRun,
   type SyncRunRecord,
   type SyncRunRecordFailure,
 } from '../db/connectors/syncRunRepository.js';
+import {
+  listSyncRunRecordFailures,
+  SYNC_RUN_RECORD_FAILURE_MAX_ROWS,
+  type SyncRunRecordFailureRow,
+} from '../db/connectors/syncRunRecordFailureRepository.js';
 import {
   findOrderById,
   findOrderBySourceExternalId,
@@ -393,6 +401,64 @@ export function toSyncRunDTO(run: SyncRunRecord): SyncRunDTO {
     dto.error = run.error;
   }
   return dto;
+}
+
+/**
+ * How many per-record reasons ONE page of the merchant read carries.
+ *
+ * Equal to the writer's own cap, so the two elisions cannot compound: a run
+ * never stores more than this, so a full page means the LIST was cut here and
+ * nowhere else, and a short page means the run stored fewer — which is either
+ * retention or the write cap, and the run's own `failedCount` beside it is what
+ * distinguishes those from "that is all there was".
+ */
+export const RECORD_FAILURE_PAGE_LIMIT = SYNC_RUN_RECORD_FAILURE_MAX_ROWS;
+
+/** Map a `sync_run_record_failures` row to its wire DTO. */
+function toSyncRecordFailureDTO(row: SyncRunRecordFailureRow): SyncRecordFailure {
+  const dto: SyncRecordFailure = {
+    id: row.id,
+    subjectType: row.subjectType,
+    reason: row.reasonCode,
+    detail: row.detail,
+    at: row.createdAt.toISOString(),
+  };
+  // Absent rather than empty: the platform published no id, and `''` would read
+  // as an id nobody can search for.
+  if (row.externalId) {
+    dto.externalId = row.externalId;
+  }
+  return dto;
+}
+
+/**
+ * One run's per-record failures, for the channel screen (#303).
+ *
+ * A SEPARATE call rather than a field on the run list, and the reason is the
+ * shape of the list: fifty runs each carrying up to two hundred reasons is a
+ * payload nobody asked for and a per-run query is the N+1 #70 made
+ * unrepresentable in its own domain. The trigger a client keys on is the run's
+ * own `counts.failed`, which the list already carries.
+ *
+ * The run is resolved SCOPED to the connection, so a run id belonging to another
+ * store's connection is a 404 and never somebody else's failures. The caller has
+ * already established that the CONNECTION belongs to the store.
+ */
+export async function readSyncRunRecordFailures(
+  connectionId: string,
+  runId: string,
+): Promise<SyncRunRecordFailurePage> {
+  const run = await findSyncRunForConnection(connectionId, runId);
+  if (!run) {
+    throw notFound('Sync run not found');
+  }
+  const rows = await listSyncRunRecordFailures(runId, RECORD_FAILURE_PAGE_LIMIT);
+  return {
+    runId: run.id,
+    failedCount: run.countsFailed,
+    failures: rows.map(toSyncRecordFailureDTO),
+    limitReached: rows.length >= RECORD_FAILURE_PAGE_LIMIT,
+  };
 }
 
 /**
@@ -2362,7 +2428,11 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
           // and the run still read `completed`. The THROWN value travels to
           // `finishSyncRun`, which is the only writer of that column and the only
           // place a merchant-facing message is composed.
-          recordFailures.push({ externalId: product.externalId, failure: err });
+          recordFailures.push({
+            subjectType: 'product',
+            externalId: product.externalId,
+            failure: err,
+          });
           log.general.warn(
             { err, connectionId: conn.id, externalId: product.externalId },
             'Failed to import connector product',
@@ -3038,6 +3108,15 @@ export async function syncOrders(storeId: string, connectionId: string): Promise
 
   const run = await insertSyncRun(runConnectionId, 'order_sync');
   const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  /**
+   * Orders this run refused, named on the run rather than only logged (#303).
+   *
+   * #294 gave the backfill this and left the two rails beside it untouched, so
+   * an order sync that refused eleven orders recorded `completed`, a tally of
+   * eleven and a NULL `error` — the exact report #303 is about, on a rail its
+   * text does not name.
+   */
+  const recordFailures: SyncRunRecordFailure[] = [];
   emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'started', counts });
 
   try {
@@ -3050,6 +3129,11 @@ export async function syncOrders(storeId: string, connectionId: string): Promise
           counts[outcome] += 1;
         } catch (err) {
           counts.failed += 1;
+          recordFailures.push({
+            subjectType: 'order',
+            externalId: order.externalId,
+            failure: err,
+          });
           log.general.warn(
             { err, connectionId: runConnectionId, externalId: order.externalId },
             'Failed to import connector order',
@@ -3060,7 +3144,11 @@ export async function syncOrders(storeId: string, connectionId: string): Promise
       emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'running', counts });
     } while (cursor);
 
-    const completed = await finishSyncRun(run.id, { status: 'completed', counts });
+    const completed = await finishSyncRun(run.id, {
+      status: 'completed',
+      counts,
+      recordFailures,
+    });
     await markConnectionSynced(runConnectionId);
     emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'completed', counts });
     return completed;
@@ -3126,6 +3214,15 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
 
   const run = await insertSyncRun(runConnectionId, 'inventory_sync');
   const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
+  /**
+   * Levels this run could not apply (#303) — the second rail #294 left behind.
+   *
+   * `inventory_item`, and this is the pair that makes the subject a stored fact
+   * rather than a derivation: `sync_runs.kind` is `inventory_sync` here AND on
+   * the PUSH rail, whose unit is a product's external id. One kind, two
+   * subjects.
+   */
+  const recordFailures: SyncRunRecordFailure[] = [];
   emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'started', counts });
 
   try {
@@ -3157,6 +3254,11 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
           counts.updated += 1;
         } catch (err) {
           counts.failed += 1;
+          recordFailures.push({
+            subjectType: 'inventory_item',
+            externalId: level.externalInventoryItemId,
+            failure: err,
+          });
           log.general.warn(
             { err, connectionId: runConnectionId, externalInventoryItemId: level.externalInventoryItemId },
             'Failed to apply connector inventory level',
@@ -3166,7 +3268,11 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
       }
     }
 
-    const completed = await finishSyncRun(run.id, { status: 'completed', counts });
+    const completed = await finishSyncRun(run.id, {
+      status: 'completed',
+      counts,
+      recordFailures,
+    });
     await markConnectionSynced(runConnectionId);
     emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'completed', counts });
     return completed;

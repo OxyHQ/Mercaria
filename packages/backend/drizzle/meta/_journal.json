@@ -526,6 +526,13 @@
       "when": 1786817268595,
       "tag": "0074_tricky_hiroim",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1786821711492,
+      "tag": "0075_green_santa_claus",
+      "breakpoints": true
     }
   ]
 }

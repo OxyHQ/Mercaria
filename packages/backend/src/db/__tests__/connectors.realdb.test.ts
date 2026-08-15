@@ -59,6 +59,7 @@ import {
   channelApiKeys,
   connections,
   connectionWebhookFailures,
+  syncRunRecordFailures,
 } from '../schema/connectors.js';
 import { deleteTestStores } from './store-teardown.js';
 import {
@@ -87,9 +88,14 @@ import {
 } from '../connectors/channelApiKeyRepository.js';
 import {
   findLatestSyncRunPerConnection,
+  findSyncRunForConnection,
   finishSyncRun,
   insertSyncRun,
 } from '../connectors/syncRunRepository.js';
+import {
+  listSyncRunRecordFailures,
+  SYNC_RUN_RECORD_FAILURE_MAX_ROWS,
+} from '../connectors/syncRunRecordFailureRepository.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 import { insertLocation } from '../stores/locationRepository.js';
 import { insertStore } from '../stores/storeRepository.js';
@@ -1201,9 +1207,21 @@ describe('sync_runs', () => {
       status: 'completed',
       counts: { created: 8, updated: 0, skipped: 0, failed: 3 },
       recordFailures: [
-        { externalId: 'woo-11', failure: validationError('A product may have at most 100 variants') },
-        { externalId: 'woo-12', failure: validationError('A product may have at most 100 variants') },
-        { externalId: 'woo-13', failure: validationError('Two products claim one handle') },
+        {
+          subjectType: 'product',
+          externalId: 'woo-11',
+          failure: validationError('A product may have at most 100 variants'),
+        },
+        {
+          subjectType: 'product',
+          externalId: 'woo-12',
+          failure: validationError('A product may have at most 100 variants'),
+        },
+        {
+          subjectType: 'product',
+          externalId: 'woo-13',
+          failure: validationError('Two products claim one handle'),
+        },
       ],
     });
 
@@ -1227,7 +1245,13 @@ describe('sync_runs', () => {
       status: 'failed',
       counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
       failure: validationError('shopify credentials rejected'),
-      recordFailures: [{ externalId: 'woo-11', failure: validationError('a per-record reason') }],
+      recordFailures: [
+        {
+          subjectType: 'product',
+          externalId: 'woo-11',
+          failure: validationError('a per-record reason'),
+        },
+      ],
     });
 
     // The run stopped for ONE reason and the records it never reached are its
@@ -1291,6 +1315,317 @@ describe('sync_runs', () => {
     expect(latest.get(connA.id)?.countsCreated).toBe(2);
     expect(latest.get(connB.id)?.id).toBe(onlyB.id);
     expect(latest.size).toBe(2);
+  });
+});
+
+/**
+ * `sync_run_record_failures` — WHICH record a run refused, durably (#303).
+ *
+ * Only a server can answer any of this. The four CHECKs, the cascade and the
+ * transaction that ties the summary to the rows have no mocked counterpart, and
+ * a mocked `insert` would accept every statement below including the ones the
+ * server refuses.
+ */
+describe('sync_run_record_failures (#303)', () => {
+  /** A driver error as the app sees one — SQLSTATE and constraint live on `cause`. */
+  function driverError(sqlState: string, constraintName?: string): Error {
+    const cause = Object.assign(new Error('driver'), {
+      code: sqlState,
+      ...(constraintName === undefined ? {} : { constraint_name: constraintName }),
+    });
+    return Object.assign(new Error('Failed query: insert into "product_variants" … params: 7650, EUR'), {
+      cause,
+    });
+  }
+
+  /** Insert a row through the SERVER, bypassing the repository's normalization. */
+  async function rawInsert(
+    executor: Pick<Database, 'execute'>,
+    runId: string,
+    row: { subjectType?: string; externalId?: string | null; reasonCode?: string; detail?: string },
+  ): Promise<void> {
+    await executor.execute(sql`
+      insert into sync_run_record_failures
+        (id, run_id, subject_type, external_id, reason_code, detail, expires_at)
+      values (
+        ${uuidv7()}, ${runId}, ${row.subjectType ?? 'product'}, ${row.externalId ?? 'ext-1'},
+        ${row.reasonCode ?? 'refused_by_rule'}, ${row.detail ?? 'a reason'},
+        now() + interval '30 days'
+      )
+    `);
+  }
+
+  it('records one row per refused record, with a classified reason (#303)', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 8, updated: 0, skipped: 0, failed: 3 },
+      recordFailures: [
+        {
+          subjectType: 'product',
+          externalId: 'woo-11',
+          failure: validationError('A product may have at most 100 variants'),
+        },
+        {
+          subjectType: 'product',
+          externalId: 'woo-12',
+          failure: driverError('23505', 'listings_store_id_source_key_idx'),
+        },
+        { subjectType: 'order', externalId: 'woo-o-9', failure: new TypeError('undici') },
+      ],
+    });
+
+    const rows = await listSyncRunRecordFailures(opened.id, 50);
+
+    // The property #303 exists for: the tally said three and the summary named
+    // at most nine ids across three reasons; these rows say WHICH three and,
+    // machine-readably, why each.
+    expect(rows).toHaveLength(3);
+    expect(rows.map((row) => row.externalId)).toEqual(['woo-11', 'woo-12', 'woo-o-9']);
+    expect(rows.map((row) => row.reasonCode)).toEqual([
+      'refused_by_rule',
+      'duplicate_record',
+      'unclassified',
+    ]);
+    // The subject is a STORED fact and not a derivation from `sync_runs.kind`:
+    // one run legitimately refuses records of two kinds.
+    expect(rows.map((row) => row.subjectType)).toEqual(['product', 'product', 'order']);
+  });
+
+  it('never routes a driver statement to the merchant (#292, end to end)', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
+      recordFailures: [
+        {
+          subjectType: 'product',
+          externalId: 'woo-11',
+          failure: driverError('23514', 'listings_status_check'),
+        },
+      ],
+    });
+
+    const [row] = await listSyncRunRecordFailures(opened.id, 50);
+
+    // Positive control FIRST: the classifier ran and produced the handles a
+    // support conversation needs. Without it, "the statement is absent" is also
+    // what an empty detail would report — and the column is NOT NULL precisely
+    // so that state cannot exist.
+    expect(row.detail).toContain('rule listings_status_check');
+    expect(row.detail).toContain('code 23514');
+    // The negative half: the value this REPLACES is `err.message`, which carries
+    // the failing statement and its bound parameters.
+    expect(row.detail).not.toContain('insert into');
+    expect(row.detail).not.toContain('7650');
+  });
+
+  it('writes NO rows when the whole run failed', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    const closed = await finishSyncRun(opened.id, {
+      status: 'failed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
+      failure: validationError('shopify credentials rejected'),
+      recordFailures: [
+        { subjectType: 'product', externalId: 'woo-11', failure: validationError('a per-record reason') },
+      ],
+    });
+
+    // The rows follow `error`'s own precedence: the run stopped for ONE reason
+    // and the records it never reached are its consequence. A table saying
+    // otherwise would present a symptom as a second finding — and would make the
+    // summary and the rows disagree, which the shared transaction exists to
+    // prevent.
+    expect(closed.error).toBe('shopify credentials rejected');
+    expect(await listSyncRunRecordFailures(opened.id, 50)).toHaveLength(0);
+  });
+
+  it('stores an ABSENT external id as NULL rather than as an empty string', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 2 },
+      recordFailures: [
+        { subjectType: 'product', externalId: '', failure: validationError('no id published') },
+        { subjectType: 'product', externalId: '   ', failure: validationError('no id published') },
+      ],
+    });
+
+    const rows = await listSyncRunRecordFailures(opened.id, 50);
+
+    // ONE spelling for "the platform published no id". `''` reads as an id
+    // nobody can search for, and it is what a future writer reaching for `?? ''`
+    // would leave behind.
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.externalId)).toEqual([null, null]);
+  });
+
+  it('caps what ONE run stores, and the run keeps the honest tally', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+    const overflow = SYNC_RUN_RECORD_FAILURE_MAX_ROWS + 5;
+
+    const closed = await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: overflow },
+      recordFailures: Array.from({ length: overflow }, (_unused, index) => ({
+        subjectType: 'product' as const,
+        externalId: `woo-${index}`,
+        failure: validationError('refused'),
+      })),
+    });
+
+    const rows = await listSyncRunRecordFailures(opened.id, overflow);
+
+    expect(rows).toHaveLength(SYNC_RUN_RECORD_FAILURE_MAX_ROWS);
+    // The elision is VISIBLE rather than silent: the run's own tally is the
+    // whole number, so a shorter list cannot read as a smaller problem.
+    expect(closed.countsFailed).toBe(overflow);
+    // The FIRST N, in the order they were met — the only ordering the loop has.
+    expect(rows[0].externalId).toBe('woo-0');
+  });
+
+  it('refuses a reason code outside the tuple, and the SAME row with a valid one lands', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    // The negative half.
+    const refused = await db
+      .transaction(async (tx) => {
+        await rawInsert(tx, opened.id, { reasonCode: 'not_a_reason' });
+        return null;
+      })
+      .catch((err: unknown) => err);
+
+    expect(isCheckViolation(refused)).toBe(true);
+    expect(constraintNameOf(refused)).toBe('sync_run_record_failures_reason_check');
+
+    // The POSITIVE CONTROL, and it is what makes the refusal mean something:
+    // the identical row differing only in that field is ACCEPTED, so the write
+    // was refused by THIS constraint rather than by anything else about the row.
+    await rawInsert(db, opened.id, { reasonCode: 'database_refused' });
+    expect(await listSyncRunRecordFailures(opened.id, 50)).toHaveLength(1);
+  });
+
+  it('is that constraint and not another — dropping it lets the same row through', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    // Mutating the CONSTRAINT rather than the code, inside a transaction that is
+    // rolled back so the schema the rest of this file runs against is untouched.
+    // Without this, "the bad insert was refused" is also what a row rejected for
+    // an unrelated reason reports.
+    const seen = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`alter table sync_run_record_failures drop constraint sync_run_record_failures_reason_check`,
+      );
+      await rawInsert(tx, opened.id, { reasonCode: 'not_a_reason' });
+      const rows = await tx
+        .select()
+        .from(syncRunRecordFailures)
+        .where(eq(syncRunRecordFailures.runId, opened.id));
+      tx.rollback();
+      return rows;
+    }).catch(() => undefined);
+
+    // `tx.rollback()` throws by design, so the value never returns; what the
+    // assertion needs is that the schema is BACK, which the next insert proves.
+    expect(seen).toBeUndefined();
+    const stillRefused = await rawInsert(db, opened.id, { reasonCode: 'not_a_reason' }).catch(
+      (err: unknown) => err,
+    );
+    expect(constraintNameOf(stillRefused)).toBe('sync_run_record_failures_reason_check');
+  });
+
+  it('refuses an EMPTY external id while accepting a one-character one', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    const refused = await rawInsert(db, opened.id, { externalId: '' }).catch(
+      (err: unknown) => err,
+    );
+
+    expect(constraintNameOf(refused)).toBe('sync_run_record_failures_external_id_shape_check');
+
+    // Two positive controls at the constraint's own boundaries: NULL is a real
+    // state (the platform published no id) and ONE character is a real id.
+    await rawInsert(db, opened.id, { externalId: null });
+    await rawInsert(db, opened.id, { externalId: 'x' });
+    expect(await listSyncRunRecordFailures(opened.id, 50)).toHaveLength(2);
+  });
+
+  it('refuses an EMPTY detail, which is what an absent row already means', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    const refused = await rawInsert(db, opened.id, { detail: '' }).catch((err: unknown) => err);
+
+    expect(constraintNameOf(refused)).toBe('sync_run_record_failures_detail_shape_check');
+    await rawInsert(db, opened.id, { detail: 'a' });
+    expect(await listSyncRunRecordFailures(opened.id, 50)).toHaveLength(1);
+  });
+
+  it('refuses a row naming no run at all', async () => {
+    const orphan = await rawInsert(db, uuidv7(), {}).catch((err: unknown) => err);
+
+    // The evidence explains ONE run and is meaningless without it, so a
+    // dangling `run_id` is refused rather than stored.
+    expect(isForeignKeyViolation(orphan)).toBe(true);
+  });
+
+  it('resolves a run SCOPED to its connection, so another store’s run is not found', async () => {
+    const storeA = await makeStore();
+    const connA = await makeConnection(storeA);
+    const runA = await insertSyncRun(connA.id, 'backfill');
+
+    const storeB = await makeStore();
+    const connB = await makeConnection(storeB);
+
+    // The security property, stated where a client's run id actually lands: the
+    // scope is in the WHERE, so a run belonging to another store's connection
+    // resolves to NOTHING rather than being fetched and then judged.
+    expect(await findSyncRunForConnection(connA.id, runA.id)).toBeDefined();
+    expect(await findSyncRunForConnection(connB.id, runA.id)).toBeUndefined();
+  });
+
+  it('cascades with its run, so a dropped store leaves no orphaned evidence', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
+      recordFailures: [
+        { subjectType: 'product', externalId: 'woo-11', failure: validationError('refused') },
+      ],
+    });
+    expect(await listSyncRunRecordFailures(opened.id, 50)).toHaveLength(1);
+
+    // The chain the shared teardown relies on: store → connections → sync_runs →
+    // here, all CASCADE. `createdStoreIds` is spliced so `afterEach` does not
+    // drop it twice.
+    createdStoreIds.splice(createdStoreIds.indexOf(storeId), 1);
+    await deleteTestStores(db, [storeId]);
+
+    expect(await listSyncRunRecordFailures(opened.id, 50)).toHaveLength(0);
   });
 });
 

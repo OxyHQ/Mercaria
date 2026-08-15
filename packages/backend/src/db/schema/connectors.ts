@@ -1,6 +1,6 @@
 /**
  * External commerce-platform integration: `connections`, `sync_runs`,
- * `channel_api_keys`.
+ * `sync_run_record_failures`, `channel_api_keys`.
  *
  * Lands before `catalog.ts` in the dependency order because a listing's
  * connector provenance points HERE — `listings.source_connection_id` and
@@ -31,6 +31,8 @@ import {
   CONNECTOR_PROVIDER_IDS,
   CONNECTOR_WEBHOOK_FAILURE_REASONS,
   CONNECTOR_WEBHOOK_REGISTRATION_STATES,
+  SYNC_RECORD_FAILURE_REASONS,
+  SYNC_RECORD_SUBJECT_TYPES,
   type ConnectionMode,
   type ConnectionStatus,
   type SyncResourceDirection,
@@ -413,6 +415,133 @@ export const syncRuns = pgTable(
     checkOneOf('sync_runs_kind_check', t.kind, SYNC_RUN_KINDS),
     checkOneOf('sync_runs_status_check', t.status, SYNC_RUN_STATUSES),
     index('sync_runs_connection_id_started_at_idx').on(t.connectionId, t.startedAt.desc()),
+  ],
+);
+
+/**
+ * Ceiling on ONE external id, so a pathological platform id cannot fill the
+ * column. Generous: the longest id any connector here publishes is a Shopify
+ * GraphQL gid, well under this.
+ */
+export const SYNC_RECORD_FAILURE_EXTERNAL_ID_MAX_LENGTH = 200;
+
+/**
+ * Ceiling on the stored `detail`.
+ *
+ * It must be at least `MERCHANT_FACING_MESSAGE_MAX_LENGTH`, the composer's own
+ * bound — a column narrower than the composer would refuse a legitimate message,
+ * and a run that refused a product would then fail to record that it had. The
+ * relation is an IMPLICATION rather than an equality (the composer may shorten
+ * without touching the column) and `sync-run-record-failure.test.ts` asserts it.
+ * The writer slices to this length as well, so a CHECK violation is not a shape
+ * a Mercaria write can produce; the CHECK bounds `psql` and any second writer.
+ */
+export const SYNC_RECORD_FAILURE_DETAIL_MAX_LENGTH = 500;
+
+/**
+ * `sync_run_record_failures` — WHICH record a run refused, and why (#303).
+ *
+ * ### Why a table and not more of `sync_runs.error`
+ *
+ * `catalog_source_rejections` (#62) is the precedent, and it is the same
+ * argument one domain over: a `failed` counter says a run dropped eleven
+ * products; it cannot say that all eleven broke the same rule, which is what
+ * tells a systemic refusal from a bad afternoon. #294 added a SUMMARY to
+ * `sync_runs.error` and that summary is deliberately elided — three reasons,
+ * three ids each — so a run of `0/0/0/100` names nine products and loses
+ * ninety-one. Widening it further was refused for the reason #303 gives: it is
+ * ONE column for a whole run, and a run that is `completed` with one failure has
+ * no honest place to put a growing list.
+ *
+ * The summary is NOT replaced. It stays the at-a-glance line on a run, composed
+ * from the same input as these rows, so the two cannot disagree.
+ *
+ * ### The one table here with a retention deadline
+ *
+ * `connections` is bounded by the merchant's channels and `sync_runs` by their
+ * cadence. This one is bounded by TRAFFIC: a platform publishing a field
+ * Mercaria refuses writes one row per product per run, forever. `expires_at`
+ * plus an `expiryTargets.ts` entry is what stops that, and it is the reason this
+ * is a separate table rather than a column on `sync_runs` — the runs must NOT be
+ * swept, and a table with two retention rules has one of them wrong.
+ *
+ * Expiry costs DETAIL and never the SIGNAL: `counts_failed` and the summary live
+ * on the run row, which nothing here sweeps, so an expired page still leaves a
+ * merchant able to see that records were refused and roughly why.
+ *
+ * ### One parent, deliberately
+ *
+ * The precedent carries `source_id` beside `run_id` because its diagnosis read
+ * is per-SOURCE across runs. The question here is per-RUN, the merchant's own
+ * handle is the CONNECTION, and `sync_runs` already carries it on an index that
+ * serves exactly that lookup — so a second connection column would be a second
+ * representation of one fact with nothing asking for it.
+ */
+export const syncRunRecordFailures = pgTable(
+  'sync_run_record_failures',
+  {
+    id: generatedId(),
+    /**
+     * Cascade: the evidence explains ONE run and is meaningless without it.
+     * Nothing in `src/` deletes a run, so this describes what should happen if
+     * that ever changes — the posture the rest of this file takes.
+     */
+    runId: text()
+      .notNull()
+      .references(() => syncRuns.id, { onDelete: 'cascade' }),
+    /** `product` | `order` | `inventory_item`; see the shared-types docblock. */
+    subjectType: text({ enum: asEnumValues(SYNC_RECORD_SUBJECT_TYPES) }).notNull(),
+    /**
+     * NULLABLE, and the NULL is the point: a platform that published no id for a
+     * record still refused one, and dropping the row would take the reason with
+     * it. `catalog_source_rejections.external_id` is nullable for the same
+     * reason. The writer maps an empty string to NULL, so "" and "absent" cannot
+     * both exist as the same fact spelled two ways.
+     */
+    externalId: text(),
+    reasonCode: text({ enum: asEnumValues(SYNC_RECORD_FAILURE_REASONS) }).notNull(),
+    /**
+     * The bounded, scrubbed sentence, composed by `merchant-facing.ts` — the ONE
+     * composer of a merchant-visible failure string (#292). NOT NULL because
+     * that composer never returns an empty string: a blank detail beside a reason
+     * code would read as "no reason was recorded", which an absent ROW already
+     * means, so the two would be indistinguishable.
+     */
+    detail: text().notNull(),
+    /** The retention deadline. Swept by `expiryTargets.ts`; see the docblock. */
+    expiresAt: timestamptz().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    checkOneOf(
+      'sync_run_record_failures_subject_type_check',
+      t.subjectType,
+      SYNC_RECORD_SUBJECT_TYPES,
+    ),
+    checkOneOf('sync_run_record_failures_reason_check', t.reasonCode, SYNC_RECORD_FAILURE_REASONS),
+    /**
+     * An id is either absent or REAL. `''` is neither, and it is what a
+     * hand-written insert or a future writer reaching for `?? ''` would leave —
+     * a row that claims to name a record and names nothing.
+     */
+    check(
+      'sync_run_record_failures_external_id_shape_check',
+      sql`${t.externalId} is null or (length(${t.externalId}) between 1 and ${sql.raw(String(SYNC_RECORD_FAILURE_EXTERNAL_ID_MAX_LENGTH))})`,
+    ),
+    check(
+      'sync_run_record_failures_detail_shape_check',
+      sql`length(${t.detail}) between 1 and ${sql.raw(String(SYNC_RECORD_FAILURE_DETAIL_MAX_LENGTH))}`,
+    ),
+    /** The merchant read: this run's refusals, in the order they were met. */
+    index('sync_run_record_failures_run_idx').on(t.runId, t.createdAt, t.id),
+    /**
+     * The EXPIRY SWEEP's own leading btree. `findUnsupportedExpiryColumns` fails
+     * the build without it, and the reason it does applies here more than
+     * anywhere in this file: the sweep is `delete … where expires_at <= now()`,
+     * so an unindexed deadline turns retention into a sequential scan of the one
+     * table here that grows with a broken feed's traffic.
+     */
+    index('sync_run_record_failures_expiry_idx').on(t.expiresAt),
   ],
 );
 
