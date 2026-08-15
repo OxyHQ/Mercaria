@@ -8,7 +8,7 @@ Code:
 
 | Path | Role |
 |---|---|
-| `@mercaria/shared-types` `merchant-activation.ts` | The whole vocabulary: two requirement registries, ten capabilities, fourteen onboarding steps, three policies. |
+| `@mercaria/shared-types` `merchant-activation.ts` | The whole vocabulary: three requirement registries, ten capabilities, fourteen onboarding steps, three policies. |
 | `services/merchant-activation/requirements.ts` | The derivation. PURE. |
 | `services/merchant-activation/capabilities.ts` | Requirements → capabilities. PURE. |
 | `services/merchant-activation/onboarding.ts` | Requirements → the resumable flow. PURE. |
@@ -49,7 +49,7 @@ took it. What IS stored is what somebody DECIDED — a policy accepted, a checko
 paused, an operator's hold — plus the append-only record of what the derivation
 was OBSERVED to say, which is a recording and never an authority.
 
-## Two registries, because guest is not a stronger native
+## Three registries, because guest is not a stronger native — and a mode is not a checkout
 
 #85 says it twice ("Readiness must distinguish general native checkout from
 guest checkout", "Guest readiness cannot be inferred simply from Stripe account
@@ -57,6 +57,18 @@ readiness"). `MERCHANT_ACTIVATION_REQUIREMENTS` (15) and
 `GUEST_ACTIVATION_REQUIREMENTS` (15) are DISJOINT, asserted by a test, and the
 guest registry's first member is `native_checkout_ready` — so guest is narrower
 by CONTAINMENT rather than by an extra threshold on somebody else's verdict.
+
+`FULFILMENT_MODE_REQUIREMENTS` (2) is the third, and it is disjoint from both.
+Its members withhold a CAPABILITY without withholding a checkout, which neither
+of the others can express: a member of either enters its conjunction, so
+`pickup_fulfilment_available` in the native registry would report
+`nativeCheckout: disabled` for every store on a deployment that has not turned
+collection on. A mode is not a precondition of selling; it is a precondition of
+selling THAT WAY, and `shipping_checkout` and `pickup_checkout` are the two
+capabilities that say so. The composer derives all three and hands the two
+CONJUNCTION registries to the state functions and ALL THREE to
+`deriveCapabilities` — so the exclusion is which list you pass, not a list of
+exceptions somebody maintains.
 
 Every member is answered: `requirements.ts` is a `Record` over the key union, so
 a requirement published and never evaluated fails `tsc` rather than reading
@@ -70,11 +82,17 @@ exactly like one that always passes (#112's census device).
 NAMES whose gap it is. It routes differently from `unsatisfied`: one is a build
 somebody owes, the other is a form the merchant has not filled in. Both withhold.
 
-Today exactly one requirement is `unevaluable` in a normal deployment —
-`guest_transactional_contact_operational`, owner `#108`, because Mercaria has no
-outbound mail transport and `hasGuestMessageTransport()` answers false. A guest
-who cannot be told their order number, cannot recover access and cannot be sent a
-return label is a guest whose purchase a store cannot support.
+Today exactly one requirement is `unevaluable` **inside the two conjunctions** in
+a normal deployment — `guest_transactional_contact_operational`, owner `#108`,
+because Mercaria has no outbound mail transport and `hasGuestMessageTransport()`
+answers false. A guest who cannot be told their order number, cannot recover
+access and cannot be sent a return label is a guest whose purchase a store cannot
+support. That is the one that makes guest checkout read `ineligible`.
+
+`pickup_fulfilment_available` is also `unevaluable` on a deployment with
+`STORE_PICKUP_ENABLED` off (the default), owner `deployment` — but it is in the
+third registry, so it withholds `pickup_checkout` and reaches neither checkout
+state. Which is the whole reason that registry exists.
 
 ## `enabled | paused | disabled | ineligible`
 
@@ -311,10 +329,29 @@ image writes is broken by it.
 - **#111** — a positive rollout cohort, the storefront affordance, and the guest
   analytics events. `guest_cohort_enabled` reads the block list ADR 0006 G14
   already decided on rather than claiming a cohort model that does not exist.
-- **#93** — pickup. `pickup_checkout` depends on
-  `guest_fulfilment_deterministic`, which excludes `pickup` at the source
-  because `assertPickupLocationEligible` refuses every pickup; counting it would
-  satisfy the requirement with a path that cannot complete a checkout.
+- **#93** — pickup. **CLOSED.** `pickup_checkout` depends on
+  `pickup_fulfilment_available`, a member of the third registry
+  (`FULFILMENT_MODE_REQUIREMENTS`), which reads #93's two levers and this store's
+  own publications through #93's own `locationCollectionBlockers`. Pickup is in
+  the guest fulfilment set on the same three conjuncts.
+
+  It depended on `guest_fulfilment_deterministic` until then, and that is worth
+  keeping written down because the answer was inverted in BOTH directions at
+  once: that requirement asks whether the guest-eligible method set is non-empty,
+  which is satisfied by `standard`/`express` alone — so the capability read
+  `granted` for every store on every deployment, including deployments with
+  `STORE_PICKUP_ENABLED` off, and `withheld` for a store whose only remaining
+  guest method was collection. `shipping_checkout` named the same requirement and
+  so could never disagree with it; it now names
+  `shipping_fulfilment_available`, and a case in `capabilities.test.ts` asserts
+  the two capabilities DISAGREE in both directions, which no shared dependency
+  can satisfy.
+
+  Neither requirement is in the native or guest registry, and that is the point
+  of a third one: a member of either enters its conjunction, so
+  `pickup_fulfilment_available` in the native list would report
+  `nativeCheckout: disabled` for every store on a deployment that has not turned
+  collection on — the default, and a far worse answer than the one it fixes.
 - **The ten TEST ORDERS #85 lists** — authenticated card, guest card, an express
   method, shipping, pickup, a payment failure, a refund request, transactional
   email, a guest feature pause and a mixed cart. Not modelled, because eight of

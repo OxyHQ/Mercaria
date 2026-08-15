@@ -24,6 +24,7 @@
  */
 
 import type {
+  FulfilmentModeRequirement,
   GuestActivationRequirement,
   MerchantActivationOutcome,
   MerchantActivationRequirement,
@@ -31,6 +32,7 @@ import type {
   MerchantActivationRequirementResult,
 } from '@mercaria/shared-types';
 import {
+  FULFILMENT_MODE_REQUIREMENTS,
   GUEST_ACTIVATION_REQUIREMENTS,
   MERCHANT_ACTIVATION_REQUIREMENTS,
 } from '@mercaria/shared-types';
@@ -222,10 +224,16 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
     f.guest.inlineDestinationEnabled ? OK : no('guest_inline_destination_disabled'),
 
   // At least one method must be BOTH priceable by this deployment and not
-  // withdrawn from guests. Pickup is deliberately not counted: #93 publishes no
-  // collection state and `assertPickupLocationEligible` refuses every pickup,
-  // so counting it would satisfy the requirement with a path that cannot
-  // complete a checkout.
+  // withdrawn from guests. `facts.ts` composes that set, and pickup is now IN
+  // it whenever #93's two levers are on and this store published somewhere to
+  // collect from — it was struck out unconditionally on a premise #93 retired,
+  // and the exclusion had become circular under
+  // `GUEST_SELLER_ACTIVATION_REQUIRED`.
+  //
+  // This answers "is there any guest-eligible method at all" and deliberately
+  // says nothing about WHICH: the two capabilities that name one mode read
+  // `FULFILMENT_MODE_REQUIREMENTS` instead, because a set that is non-empty for
+  // two different reasons cannot tell them apart.
   guest_fulfilment_deterministic: (f) =>
     f.guest.fulfilmentMethods.length > 0 ? OK : no('guest_fulfilment_method_blocked'),
 
@@ -236,8 +244,16 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   // what makes the guarantee visible on the dashboard instead of implicit.
   guest_merchant_order_access: () => OK,
 
+  // #110's buyer WRITE mount, switched off deployment-wide. The reason names
+  // THAT, and the owner is the deployment: #110 shipped, so pointing a merchant
+  // at it would send them to wait for something that already exists. It read
+  // `pickup_not_supported`/`#110` until this fix — a reason belonging to an
+  // unrelated condition, on the merchant's own dashboard, as the stated cause
+  // of their guest checkout being `ineligible`.
   guest_support_and_returns_available: (f) =>
-    f.guest.buyerRequestsEnabled ? OK : cannotAnswer('pickup_not_supported', '#110'),
+    f.guest.buyerRequestsEnabled
+      ? OK
+      : cannotAnswer('guest_support_requests_disabled', 'deployment'),
 
   // The one that FAILS CLOSED and is not a merchant's fault. Mercaria has no
   // outbound mail transport: #108's registry is empty and every send fails
@@ -276,6 +292,32 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
     f.guest.sellerBlockedByOperator ? no('guest_seller_blocked_by_operator') : OK,
 
   guest_checkout_not_paused: (f) => deriveGuestCheckoutNotPaused(f.settings),
+
+  /* ── Fulfilment modes ───────────────────────────────────────────────────── */
+
+  // Deployment configuration, so `unevaluable` and owner `deployment`: a
+  // merchant cannot make this deployment able to price a parcel. Moovo owns
+  // per-store shipping serviceability (#155/#160) and this repository holds
+  // only the seam, so the honest fact available is whether ANY method that puts
+  // goods in transit can be priced at all.
+  shipping_fulfilment_available: (f) =>
+    f.fulfilment.shippingMethods.length > 0
+      ? OK
+      : cannotAnswer('no_priceable_shipping_method', 'deployment'),
+
+  // The one that used to measure nothing about itself. Two facts, in the order
+  // a merchant can act on them: the deployment lever first (nothing they can
+  // do), then their own publications (a screen they have).
+  //
+  // The store-level half is the LOCATION half of #93's conjunction and no more
+  // — stock, opening hours and the listing belong to a request about one item
+  // and are answered by `derivePickupEligibility` when one arrives. So this
+  // says "this store has somewhere a shopper could collect from", which is the
+  // onboarding question #85 asks, and never "this can be collected now".
+  pickup_fulfilment_available: (f) => {
+    if (!f.fulfilment.storePickupEnabled) return cannotAnswer('store_pickup_disabled', 'deployment');
+    return f.fulfilment.collectableLocationCount > 0 ? OK : no('no_collectable_pickup_location');
+  },
 };
 
 /** Whether an optional prose column carries something. */
@@ -315,6 +357,23 @@ export function deriveGuestRequirements(
   facts: MerchantActivationFacts,
 ): readonly MerchantActivationRequirementResult[] {
   return GUEST_ACTIVATION_REQUIREMENTS.map((requirement) => ({
+    requirement,
+    outcome: DERIVATIONS[requirement](facts),
+  }));
+}
+
+/**
+ * Derive every FULFILMENT-MODE requirement.
+ *
+ * A third call rather than a third slice of one, because the composer must be
+ * able to keep these out of the two CONJUNCTIONS while feeding them to the
+ * capability derivation. Splitting the registries is what makes that a matter
+ * of which list you pass rather than of an exclusion somebody maintains.
+ */
+export function deriveFulfilmentModeRequirements(
+  facts: MerchantActivationFacts,
+): readonly MerchantActivationRequirementResult[] {
+  return FULFILMENT_MODE_REQUIREMENTS.map((requirement) => ({
     requirement,
     outcome: DERIVATIONS[requirement](facts),
   }));
@@ -362,5 +421,14 @@ export function guestKeys(
 ): readonly GuestActivationRequirement[] {
   return keys.filter((key): key is GuestActivationRequirement =>
     (GUEST_ACTIVATION_REQUIREMENTS as readonly string[]).includes(key),
+  );
+}
+
+/** Narrow a mixed result list to the fulfilment-mode registry's members. */
+export function fulfilmentKeys(
+  keys: readonly MerchantActivationRequirementKey[],
+): readonly FulfilmentModeRequirement[] {
+  return keys.filter((key): key is FulfilmentModeRequirement =>
+    (FULFILMENT_MODE_REQUIREMENTS as readonly string[]).includes(key),
   );
 }

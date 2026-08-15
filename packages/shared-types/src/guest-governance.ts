@@ -637,19 +637,23 @@ export interface GuestSecuritySignalDefinition {
  * This is a REGISTER, not a set of new levers. Nine flags and five block lists
  * already exist across #103–#110 and ADR 0006, and adding a tenth answer to a
  * question one of them already answers is the specific mistake this file was
- * written to avoid. Four entries answer `null`, and each states why the absence
- * is a decision:
+ * written to avoid. THREE entries answer `null`, and each states why the
+ * absence is a decision:
  *
  *  - the ORDER PORTAL, because #108 decided no lever may gate a portal READ and
  *    `guest-portal-isolation.test.ts` fails the build if one starts to;
- *  - guest PICKUP, because #105's `assertPickupLocationEligible` refuses every
- *    pickup unconditionally until #93 — a flag over a refusal is a flag over
- *    nothing;
  *  - guest P2P, because ADR 0003 D18 refuses it at group construction with no
  *    flag, deliberately, until #112;
  *  - the Stripe CLIENT PATH, because ADR 0006 G2 puts both actor kinds on one
  *    component and a guest-only path lever would be a second answer to
  *    `STRIPE_ENABLED`.
+ *
+ * Guest PICKUP was a fourth until #93 landed, and the correction is the reason
+ * this register is worth keeping accurate: `null` here does not mean "nobody
+ * built a flag", it means "there is nothing to flip". `GUEST_STORE_PICKUP_ENABLED`
+ * now exists, so an operator reading this during an incident and finding
+ * STRUCTURAL would have gone looking for a broader lever — taking the guest
+ * cart or guest checkout down to withdraw one fulfilment mode.
  */
 export const GUEST_FEATURE_GATES = [
   'session_issuance',
@@ -1735,14 +1739,19 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
   {
     gate: 'pickup',
     title: 'Guest pickup',
-    lever: null,
-    scopes: [],
+    lever: 'GUEST_STORE_PICKUP_ENABLED',
+    scopes: ['environment'],
     whenOff:
-      'STRUCTURAL: #105 assertPickupLocationEligible refuses EVERY pickup until #93 supplies ' +
-      'publication, freshness and collectable-inventory state. A flag over an unconditional ' +
-      'refusal is a flag over nothing.',
+      'Guest collection is refused with guest_pickup_disabled; AUTHENTICATED collection, the guest ' +
+      'cart and the guest checkout are untouched. Note the ONE-WAY dependency an incident must ' +
+      'not be surprised by: STORE_PICKUP_ENABLED off takes guest pickup with it, and this lever ' +
+      'cannot turn collection on by itself. Neither gates a durable record — a placed collection ' +
+      'order, its code and its desk trail survive both being off (#93 operations rule 10).',
     affectsPlacedOrders: false,
-    rollbackOrder: 99,
+    // Narrowing WHICH fulfilment modes are offered, without stopping a checkout
+    // — the same shape as `payment_methods`, hence the same position. A tie is
+    // levers that may be pulled together.
+    rollbackOrder: 4,
   },
   {
     gate: 'p2p',

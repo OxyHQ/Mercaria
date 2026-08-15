@@ -16,13 +16,21 @@ import {
 } from '@mercaria/shared-types';
 import { capabilityDependencies, deriveCapabilities } from '../capabilities.js';
 import { deriveOnboarding, STEPLESS_REQUIREMENTS, stepRequirements } from '../onboarding.js';
-import { deriveGuestRequirements, deriveNativeRequirements } from '../requirements.js';
+import {
+  deriveFulfilmentModeRequirements,
+  deriveGuestRequirements,
+  deriveNativeRequirements,
+} from '../requirements.js';
 import { activationFacts } from './facts-fixture.js';
 
 /** Every requirement result for a store with nothing wrong with it. */
 function allResults(override: Parameters<typeof activationFacts>[0] = {}) {
   const facts = activationFacts(override);
-  return [...deriveNativeRequirements(facts), ...deriveGuestRequirements(facts)];
+  return [
+    ...deriveNativeRequirements(facts),
+    ...deriveGuestRequirements(facts),
+    ...deriveFulfilmentModeRequirements(facts),
+  ];
 }
 
 /** Which requirements are blocking, for a given override. */
@@ -125,6 +133,101 @@ describe('capabilities on a ready store', () => {
     // into the derivation must fail the first comparison rather than quietly
     // widening what is granted.
     expect(() => deriveCapabilities([], [])).toThrow(/depends on unevaluated requirements/);
+  });
+});
+
+/**
+ * The two capabilities that name ONE fulfilment mode.
+ *
+ * They shared `guest_fulfilment_deterministic` until this file's cases were
+ * written — one requirement, answering "is the guest-eligible method set
+ * non-empty", handed to two capabilities that ask different questions. Every
+ * case below is therefore a WRONG-ANSWER case rather than a right-answer one:
+ * each fixture is chosen so the shared-dependency wiring returns the OPPOSITE
+ * of what it asserts, because a case that only pins the correct branch passes
+ * against both wirings whenever the fixture happens to satisfy both.
+ */
+describe('a capability that names a fulfilment mode measures THAT mode', () => {
+  /** Read one capability's state and unmet list for an override. */
+  function capability(
+    name: 'shipping_checkout' | 'pickup_checkout',
+    override: Parameters<typeof activationFacts>[0],
+  ) {
+    const results = deriveCapabilities(allResults(override), blocking(override));
+    const found = results.find((result) => result.capability === name);
+    expect(found, `${name} was not derived`).toBeDefined();
+    return found;
+  }
+
+  it('WITHHOLDS pickup on a deployment that does not offer collection', () => {
+    // The live wrong answer: `STORE_PICKUP_ENABLED` is off by DEFAULT, and with
+    // shipping rates configured the shared dependency was satisfied — so this
+    // read `granted` for every store on every deployment. The guest set is left
+    // non-empty here on purpose, because that is precisely what used to carry
+    // the capability.
+    const override = { fulfilment: { storePickupEnabled: false } };
+    expect(activationFacts(override).guest.fulfilmentMethods.length).toBeGreaterThan(0);
+
+    const pickup = capability('pickup_checkout', override);
+    expect(pickup?.state).toBe('withheld');
+    expect(pickup?.unmet).toEqual(['pickup_fulfilment_available']);
+  });
+
+  it('WITHHOLDS pickup when the deployment offers it and this store published nowhere', () => {
+    // The other half of "granted for every store": a deployment lever alone
+    // cannot make this a fact about THIS shop.
+    const pickup = capability('pickup_checkout', { fulfilment: { collectableLocationCount: 0 } });
+    expect(pickup?.state).toBe('withheld');
+    expect(pickup?.unmet).toEqual(['pickup_fulfilment_available']);
+  });
+
+  it('GRANTS pickup to a store whose only remaining guest method is collection', () => {
+    // The inverse wrong answer, and the one that costs a merchant a sale: with
+    // both shipping methods withdrawn from guests the shared dependency was
+    // UNSATISFIED, so a shop with an open collection desk read `withheld`.
+    const override = {
+      guest: { fulfilmentMethods: [] },
+      fulfilment: { shippingMethods: [] },
+    };
+    expect(activationFacts(override).guest.fulfilmentMethods).toEqual([]);
+
+    expect(capability('pickup_checkout', override)?.state).toBe('granted');
+  });
+
+  it('makes the two answers DISAGREE, in both directions', () => {
+    // The assertion the shared wiring cannot satisfy at all. One dependency
+    // means one answer, so under it these two capabilities are equal on every
+    // input — and a suite that never asks them to differ measures nothing about
+    // which mode either one names.
+    const pickupOnly = { guest: { fulfilmentMethods: [] }, fulfilment: { shippingMethods: [] } };
+    expect(capability('pickup_checkout', pickupOnly)?.state).toBe('granted');
+    expect(capability('shipping_checkout', pickupOnly)?.state).toBe('withheld');
+
+    const shippingOnly = { fulfilment: { storePickupEnabled: false } };
+    expect(capability('pickup_checkout', shippingOnly)?.state).toBe('withheld');
+    expect(capability('shipping_checkout', shippingOnly)?.state).toBe('granted');
+  });
+
+  it('keeps a mode requirement OUT of both checkout conjunctions', () => {
+    // The reason these live in a third registry. A member of the native one
+    // would read `nativeCheckout: disabled` for every store on a deployment
+    // with collection off — which is the default, and a far worse answer than
+    // the one it would have fixed.
+    const override = { fulfilment: { storePickupEnabled: false } };
+    const facts = activationFacts(override);
+    const nativeKeysDerived = deriveNativeRequirements(facts).map((result) => result.requirement);
+    const guestKeysDerived = deriveGuestRequirements(facts).map((result) => result.requirement);
+
+    expect(nativeKeysDerived).not.toContain('pickup_fulfilment_available');
+    expect(guestKeysDerived).not.toContain('pickup_fulfilment_available');
+    // The vacuity floor: an empty derivation would satisfy both lines above.
+    expect(nativeKeysDerived.length).toBeGreaterThan(10);
+    expect(guestKeysDerived.length).toBeGreaterThan(10);
+    // And it IS derived — by the third registry, which is what reaches the
+    // capability map. "Excluded" must not read as "never answered".
+    expect(deriveFulfilmentModeRequirements(facts).map((result) => result.requirement)).toContain(
+      'pickup_fulfilment_available',
+    );
   });
 });
 

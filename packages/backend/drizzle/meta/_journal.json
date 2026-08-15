@@ -561,6 +561,13 @@
       "when": 1786833692481,
       "tag": "0079_purple_dust",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1786835564471,
+      "tag": "0080_open_sauron",
+      "breakpoints": true
     }
   ]
 }

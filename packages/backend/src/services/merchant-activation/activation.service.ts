@@ -37,8 +37,10 @@ import { readMerchantActivationFacts, type MerchantActivationFacts } from './fac
 import { deriveOnboarding } from './onboarding.js';
 import {
   blockingRequirements,
+  deriveFulfilmentModeRequirements,
   deriveGuestRequirements,
   deriveNativeRequirements,
+  fulfilmentKeys,
   guestKeys,
   hasUnevaluable,
   nativeKeys,
@@ -66,8 +68,10 @@ export interface DerivedMerchantActivation {
   readonly facts: MerchantActivationFacts;
   readonly native: readonly MerchantActivationRequirementResult[];
   readonly guest: readonly MerchantActivationRequirementResult[];
+  readonly fulfilment: readonly MerchantActivationRequirementResult[];
   readonly nativeBlocking: readonly MerchantActivationRequirementKey[];
   readonly guestBlocking: readonly MerchantActivationRequirementKey[];
+  readonly fulfilmentBlocking: readonly MerchantActivationRequirementKey[];
   readonly capabilities: readonly MerchantCapabilityResult[];
   readonly nativeState: MerchantCheckoutState;
   readonly guestState: GuestCheckoutState;
@@ -101,15 +105,27 @@ export async function deriveMerchantActivation(
   const guest = deriveGuestRequirements(facts);
   const guestBlocking = blockingRequirements(guest, advisory);
 
-  const all = [...native, ...guest];
-  const allBlocking = [...nativeBlocking, ...guestBlocking];
+  // The third registry is derived here and enters NEITHER conjunction, which is
+  // the whole reason it is a separate registry rather than two more members of
+  // the native one. `pickup_fulfilment_available` is unsatisfied on every
+  // deployment that has not turned collection on — the default — so a member of
+  // the native list would read `nativeCheckout: disabled` for every store in the
+  // world. It still reaches `deriveCapabilities`, which is what lets it withhold
+  // the ONE capability that names it.
+  const fulfilment = deriveFulfilmentModeRequirements(facts);
+  const fulfilmentBlocking = blockingRequirements(fulfilment, advisory);
+
+  const all = [...native, ...guest, ...fulfilment];
+  const allBlocking = [...nativeBlocking, ...guestBlocking, ...fulfilmentBlocking];
 
   return {
     facts,
     native,
     guest,
+    fulfilment,
     nativeBlocking,
     guestBlocking,
+    fulfilmentBlocking,
     capabilities: deriveCapabilities(all, allBlocking),
     nativeState: nativeCheckoutState(nativeBlocking),
     guestState: guestCheckoutState(guest, guestBlocking, advisory),
@@ -154,11 +170,15 @@ export function projectActivationState(derived: DerivedMerchantActivation): Merc
       requirements: derived.guest,
       unmet: guestKeys(derived.guestBlocking),
     },
+    fulfilment: {
+      requirements: derived.fulfilment,
+      unmet: fulfilmentKeys(derived.fulfilmentBlocking),
+    },
     capabilities: derived.capabilities,
     support: projectSupport(facts),
     onboarding: deriveOnboarding(
-      [...derived.native, ...derived.guest],
-      [...derived.nativeBlocking, ...derived.guestBlocking],
+      [...derived.native, ...derived.guest, ...derived.fulfilment],
+      [...derived.nativeBlocking, ...derived.guestBlocking, ...derived.fulfilmentBlocking],
     ),
     policies: projectPolicies(facts),
     intents: {

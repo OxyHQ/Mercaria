@@ -71,14 +71,22 @@ const CAPABILITY_DEPENDENCIES: Readonly<
     'guest_cohort_enabled',
     'guest_checkout_not_paused',
   ],
-  // Shipping needs a priceable method AND somebody able to sell, because a
-  // shipping capability nobody can check out through is not a capability.
-  shipping_checkout: ['guest_fulfilment_deterministic', 'native_checkout_not_paused'],
-  // #93 publishes no collection state and every pickup is refused at checkout,
-  // so this is withheld for every store on every deployment today. It is a real
-  // dependency rather than a hardcoded `false`: the day #93 lands, the
-  // requirement's derivation changes and this needs no edit.
-  pickup_checkout: ['guest_fulfilment_deterministic', 'native_checkout_not_paused'],
+  // Shipping needs a priceable shipping method AND somebody able to sell,
+  // because a shipping capability nobody can check out through is not a
+  // capability.
+  shipping_checkout: ['shipping_fulfilment_available', 'native_checkout_not_paused'],
+  // The same shape, over the OTHER mode's own requirement.
+  //
+  // Both used to name `guest_fulfilment_deterministic`, which is a fact about
+  // the set of guest-eligible methods being non-empty — one answer, handed to
+  // two capabilities that ask different questions, so neither of them measured
+  // itself. On a default deployment (`STORE_PICKUP_ENABLED` off, shipping rates
+  // configured) it read GRANTED for every store on earth, and with the two
+  // shipping methods withdrawn from guests it read WITHHELD for a store whose
+  // collection desk was open — the answer inverted in both directions at once.
+  // A dependency naming pickup is what makes the day #93's levers move a day
+  // this changes.
+  pickup_checkout: ['pickup_fulfilment_available', 'native_checkout_not_paused'],
   presentment_currency_selection: ['market_currency_supported'],
   card_payment_rail: ['payment_provider_ready'],
   // Deliberately NOT dependent on the checkout requirements. #85
