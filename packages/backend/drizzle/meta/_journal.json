@@ -568,6 +568,13 @@
       "when": 1786835564471,
       "tag": "0080_open_sauron",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1786841475179,
+      "tag": "0081_faithful_misty_knight",
+      "breakpoints": true
     }
   ]
 }

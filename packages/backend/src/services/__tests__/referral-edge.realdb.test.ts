@@ -416,6 +416,7 @@ describe('a click by a request that ALREADY has a subject resolves completely', 
       programId: link.programId,
       redirectEnabled: true,
       attributionEnabled: false,
+      payoutEnabled: true,
       actorOxyUserId: OPERATOR,
       reason: 'incident drill',
     });
@@ -526,6 +527,7 @@ describe('the two operator levers are independent (#143 link rule 8)', () => {
       programId: link.programId,
       redirectEnabled: false,
       attributionEnabled: true,
+      payoutEnabled: true,
       actorOxyUserId: OPERATOR,
       reason: 'incident drill',
     });
@@ -553,6 +555,7 @@ describe('the two operator levers are independent (#143 link rule 8)', () => {
       programId: link.programId,
       redirectEnabled: true,
       attributionEnabled: false,
+      payoutEnabled: true,
       actorOxyUserId: OPERATOR,
       reason: 'incident drill',
     });
@@ -575,6 +578,7 @@ describe('the two operator levers are independent (#143 link rule 8)', () => {
       programId: link.programId,
       redirectEnabled: false,
       attributionEnabled: false,
+      payoutEnabled: true,
       actorOxyUserId: OPERATOR,
       reason: 'suspected abuse, pending review',
     });

@@ -1056,6 +1056,24 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   },
   { column: 'referral_campaign_budgets.created_by_oxy_user_id', reason: OXY_ACCOUNT },
 
+  // ── The referral earnings ledger (#145, ADR 0005) ─────────────────────────
+  {
+    column: 'referral_payout_batches.program_id',
+    reason:
+      'The stable program identity once more — a batch is scoped to the program whose payout ' +
+      'lever gates it, not to one of its version rows.',
+  },
+  {
+    column: 'referral_payout_batches.created_by_oxy_user_id',
+    reason:
+      'An Oxy operator id, OR the literal `system` when the construction loop opened the ' +
+      'batch. That second case is what makes the four-eyes CHECK beside it real rather than ' +
+      'trivially satisfied, and it is not an account id anybody holds.',
+  },
+  { column: 'referral_payout_batches.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_payout_batches.cancelled_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_earning_discrepancies.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+
   // ── Offers (#57, ADR 0002 D18) ────────────────────────────────────────────
   {
     column: 'offers.external_offer_id',

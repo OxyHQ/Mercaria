@@ -117,6 +117,11 @@ export * from './referrals';
 // FOLLOW `referrals`: a reward references a conversion, an attribution, a
 // partner and a program version, so every one of its parents is above it.
 export * from './referralRewards';
+// The referral EARNINGS ledger (#145, ADR 0005 "Ledger representability")
+// FOLLOWS `referralRewards` and `ledger` both: a posting references a reward,
+// an adjustment and the `ledger_transactions` row it booked, and a payout batch
+// item references a reward. `ledger` is far above, beside `payments`.
+export * from './referralEarnings';
 // Offers (#57, ADR 0002 D18) come last of the graph layers because they sit
 // downstream of ALL of them: an offer references a canonical variant (#56), a
 // merchant and a storefront (#54), a source record (#53), and — for the native

@@ -190,6 +190,12 @@ export * from './referral-reward';
 // signals and redirect inputs that may never influence attribution.
 export * from './referral-attribution';
 
+// The referral EARNINGS ledger (#145, ADR 0005 "Ledger representability") — the
+// two referral accounts and the disjoint set of accounts a referral posting may
+// never name, payout batches, the derived payability verdict and the derived
+// partner balance.
+export * from './referral-earnings';
+
 // Marketplace fee vocabulary (#88): commercial modes, fee schedule value sets
 // and the merchant-facing schedule/acceptance/preview/snapshot DTOs.
 export * from './fees';

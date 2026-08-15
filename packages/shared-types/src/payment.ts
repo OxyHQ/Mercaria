@@ -329,6 +329,28 @@ export const DISPUTE_OUTCOMES: readonly DisputeOutcome[] = ['won', 'lost'];
  * | `procurement_expense` | debit | goods or fulfilment cost was incurred for a retail order |
  * | `customer_adjustment` | credit | a positive cost variance is owed back to a buyer and not yet refunded |
  * | `subscription_revenue` | credit | Mercaria's merchant subscription revenue was reduced (a correction) |
+ * | `referral_expense` | debit | the referral program cost Mercaria something — a reward accrued or a bounty granted |
+ * | `referral_payable` | credit | what Mercaria owes a referral partner was reduced, settled, or clawed back |
+ *
+ * ## The two referral accounts (ADR 0005 "Ledger representability", landed by #145)
+ *
+ * They book in THIS ledger through THIS repository, under the same three-layer
+ * balance enforcement and the same sign convention. A parallel referral ledger
+ * would split `provider_clearing` across two books the moment a payout moved
+ * real platform money, and there would then be no single place where "did the
+ * platform balance actually go down by what we paid" is a question you can ask.
+ *
+ * `referral_payable` may go NEGATIVE, and that is ADR 0005 R7 rather than a
+ * defect: a reward already paid is never un-paid, so a later reversal debits the
+ * partner's balance past zero and future accruals offset it first. Nothing in
+ * the schema forbids it, deliberately — a constraint refusing a negative payable
+ * would refuse exactly the clawback the ADR requires.
+ *
+ * `referral_expense` is where a `fixed_budget` acquisition bounty lands, which is
+ * the whole of "reserve it from a separate Mercaria marketing-budget account"
+ * (#145 zero-profit retail protection 4): a marketing expense of Mercaria's,
+ * booked against `provider_clearing` when it is paid, touching no retail cost
+ * account and no buyer amount in any code path.
  *
  * ## `subscription_revenue` is its own account, and that is acceptance 6
  *
@@ -405,7 +427,9 @@ export type LedgerAccount =
   | 'platform_funds'
   | 'procurement_expense'
   | 'customer_adjustment'
-  | 'subscription_revenue';
+  | 'subscription_revenue'
+  | 'referral_expense'
+  | 'referral_payable';
 
 /** {@link LedgerAccount} as the tuple the column types and CHECKs read. */
 export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
@@ -425,6 +449,10 @@ export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
   'customer_adjustment',
   // #89's one addition — see the note above.
   'subscription_revenue',
+  // ADR 0005's two, landed by #145 with the posting builders that write them
+  // (`services/referrals/earnings/ledger-postings.ts`).
+  'referral_expense',
+  'referral_payable',
 ];
 
 /**
@@ -473,11 +501,26 @@ export const RETAIL_FORBIDDEN_ACCOUNTS: readonly LedgerAccount[] = [
  * storefront, no connected account and no order on this marketplace (ADR 0004
  * D2.2/D6.8), so filing its deposit under a seller kind would put a wholesale
  * balance into the key space every payable query reads.
+ *
+ * `referral_partner` is #145's, for `referral_payable`, and it is a FOURTH kind
+ * for exactly the reason `supplier` is a third. A `referral_partners` row is
+ * identified by its own `(owner_type, owner_id)` pair, which is already `store`
+ * or `user` — so reusing those would file a partner's referral earnings under
+ * the SAME key a seller's sales payable uses, and one owner key would then mean
+ * two unrelated economic relationships. The id carried here is the
+ * `referral_partners.id`, which is what a payout batch pays and what the
+ * partner's balance is derived over.
  */
-export type LedgerOwnerType = 'store' | 'user' | 'supplier';
+export type LedgerOwnerType = 'store' | 'user' | 'supplier' | 'referral_partner';
 
 /** {@link LedgerOwnerType} as the tuple the column types and CHECKs read. */
-export const LEDGER_OWNER_TYPES: readonly LedgerOwnerType[] = ['store', 'user', 'supplier'];
+export const LEDGER_OWNER_TYPES: readonly LedgerOwnerType[] = [
+  'store',
+  'user',
+  'supplier',
+  // #145's one addition — see the note above.
+  'referral_partner',
+];
 
 /**
  * What a ledger transaction records. One kind per row in ADR 0001's
@@ -511,6 +554,22 @@ export const LEDGER_OWNER_TYPES: readonly LedgerOwnerType[] = ['store', 'user', 
  * cancellation at period end with no proration, so a credit is an operator
  * decision that books through `adjustment` — the existing mechanism, rather than
  * a kind nothing would write.
+ *
+ * ## The four referral kinds (ADR 0005 "Ledger representability", landed by #145)
+ *
+ * ADR 0005's table has SIX rows and three of them are the identical posting —
+ * debit `referral_payable`, credit `referral_expense` — differing only in what
+ * the reward was worth before and whether it had been paid. So they are ONE kind,
+ * `referral_reward_reversed`, and the discrimination lives where it already is:
+ * `referral_reward_adjustments.recovery_state` says `offset_against_balance` or
+ * `partner_liability`, which is the R7 distinction, recorded once. A second kind
+ * would give the machine two ways to say one thing and let the two disagree.
+ *
+ * `referral_payout` and `referral_recovery` are the two directions of money
+ * actually crossing the platform balance, and both name a partner rather than a
+ * payment, an order, a refund or a dispute — so every correlation column on the
+ * transaction is NULL and the `referral_ledger_postings` row that booked it is
+ * what points back (the `subscription_invoice_paid` shape).
  */
 export type LedgerTransactionKind =
   | 'charge_succeeded'
@@ -525,7 +584,11 @@ export type LedgerTransactionKind =
   | 'prefund_top_up'
   | 'procurement_settled'
   | 'retail_variance'
-  | 'supplier_credit';
+  | 'supplier_credit'
+  | 'referral_reward_accrued'
+  | 'referral_reward_reversed'
+  | 'referral_payout'
+  | 'referral_recovery';
 
 /** {@link LedgerTransactionKind} as the tuple the column types and CHECKs read. */
 export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
@@ -544,6 +607,11 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
   'procurement_settled',
   'retail_variance',
   'supplier_credit',
+  // ADR 0005's four, landed by #145 — see the note below.
+  'referral_reward_accrued',
+  'referral_reward_reversed',
+  'referral_payout',
+  'referral_recovery',
 ];
 
 /**

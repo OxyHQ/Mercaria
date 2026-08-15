@@ -1029,6 +1029,18 @@ export const referralProgramControls = pgTable(
     programId: text().notNull(),
     redirectEnabled: boolean().notNull().default(true),
     attributionEnabled: boolean().notNull().default(true),
+    /**
+     * #145's lever, and the THIRD independent one: may a payout batch for this
+     * program be built and settled?
+     *
+     * It is ADR 0005 D18's "program suspension stops new vesting/payout where
+     * policy says so but preserves history" at the grain the ADR states it —
+     * and it is deliberately NOT what program TERMINATION uses: D18 says a
+     * terminated program's existing rewards run their ordinary lifecycle to
+     * payout, including the final sub-minimum batch. This is the incident
+     * lever, so it withholds rather than voids, exactly like every D15 gate.
+     */
+    payoutEnabled: boolean().notNull().default(true),
     /** Mandatory actor — the `payment_repairs` and `referral_events` posture. */
     updatedByOxyUserId: text().notNull(),
     /** Why, in the operator's own words. Bounded like every stored reason here. */

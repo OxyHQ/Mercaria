@@ -22,7 +22,7 @@
  * than a hope.
  */
 
-import { and, asc, desc, eq, gte, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 import type {
   CurrencyCode,
   ReferralFundingSourceId,
@@ -399,6 +399,157 @@ export async function appendRewardAdjustment(
     .where(eq(referralRewards.id, input.rewardId));
 
   return { adjustment: inserted, created: true };
+}
+
+/**
+ * Move one reward from a known state to another, or refuse (#145).
+ *
+ * A compare-and-swap, never a read-then-write: two vesting sweeps, an operator
+ * freezing a reward and a settlement can all reach one row at once, and the
+ * predicate is what makes exactly one of them win. The empty result IS the
+ * refusal — the caller reads `undefined` and records nothing, which is how a
+ * repeat converges rather than writing a second transition.
+ *
+ * The companion timestamp is set in the SAME statement as the state, because
+ * `referral_rewards_state_times_check` refuses a `vested` row with no
+ * `vested_at` and a `paid` row with no `paid_at`. Writing them apart would fail
+ * the first half of the pair on every transition.
+ *
+ * `frozen_from_state` is cleared on every move OUT of `frozen`, for the same
+ * reason `appendRewardAdjustment` clears it when voiding: the CHECK is a
+ * biconditional, so leaving it behind refuses the write with `23514` and the
+ * thing that had to happen is the thing that fails.
+ */
+export async function setRewardState(
+  db: DatabaseOrTransaction,
+  input: {
+    rewardId: string;
+    expected: readonly ReferralRewardState[];
+    to: ReferralRewardState;
+    at: Date;
+    /** Required when moving INTO `frozen`; ignored otherwise. */
+    frozenFromState?: 'held' | 'vested';
+    /**
+     * The new hold deadline, when a freeze that stopped the clock is being
+     * lifted (ADR 0005 D12: vesting needs N elapsed UNFROZEN days).
+     *
+     * `mercaria_referral_reward_frozen` pins this column against any move except
+     * FORWARD — #145 widened it by `CREATE OR REPLACE` rather than adding a
+     * second trigger, and the direction is what makes the widening safe: a
+     * backwards move is what would vest a reward early.
+     */
+    holdUntilAt?: Date;
+  },
+): Promise<ReferralRewardRow | undefined> {
+  const [row] = await db
+    .update(referralRewards)
+    .set({
+      state: input.to,
+      frozenFromState: input.to === 'frozen' ? (input.frozenFromState ?? null) : null,
+      ...(input.holdUntilAt ? { holdUntilAt: input.holdUntilAt } : {}),
+      ...(input.to === 'frozen' ? { frozenAt: input.at } : {}),
+      ...(input.to === 'vested' ? { vestedAt: input.at } : {}),
+      ...(input.to === 'paid' ? { paidAt: input.at } : {}),
+      ...(input.to === 'voided' ? { voidedAt: input.at } : {}),
+    })
+    .where(
+      and(
+        eq(referralRewards.id, input.rewardId),
+        inArray(referralRewards.state, [...input.expected]),
+      ),
+    )
+    .returning();
+  return row;
+}
+
+/**
+ * Rewards whose hold has elapsed and which are still `held` — the vesting
+ * sweep's page.
+ *
+ * Ordered by `hold_until_at` so the oldest obligation vests first, and keyset
+ * paged on it rather than on the id: `@oxyhq/db`'s uuid v7 is not monotonic
+ * within a millisecond, and a batch insert of several rewards shares an instant.
+ *
+ * `partnerId` NARROWS the page to one partner. The loop never passes it; the
+ * operator surface does, because "this partner's holds elapsed and the loop is
+ * off" is a real question with an idempotent answer — and because a sweep that
+ * can only run over the whole fleet is one a realdb fixture cannot drive without
+ * writing to a sibling file's rows.
+ */
+export async function listRewardsDueToVest(
+  db: DatabaseOrTransaction,
+  input: { at: Date; limit: number; afterHoldUntilAt?: Date; partnerId?: string },
+): Promise<ReferralRewardRow[]> {
+  return await db
+    .select()
+    .from(referralRewards)
+    .where(
+      and(
+        eq(referralRewards.state, 'held'),
+        lte(referralRewards.holdUntilAt, input.at),
+        ...(input.afterHoldUntilAt ? [gt(referralRewards.holdUntilAt, input.afterHoldUntilAt)] : []),
+        ...(input.partnerId ? [eq(referralRewards.partnerId, input.partnerId)] : []),
+      ),
+    )
+    .orderBy(asc(referralRewards.holdUntilAt), asc(referralRewards.id))
+    .limit(input.limit);
+}
+
+/**
+ * One partner's rewards in one state and currency — the payout batch builder's
+ * candidate set.
+ *
+ * Ordered oldest-accrual-first, so a batch that hits its page bound pays the
+ * longest-waiting rewards rather than an arbitrary slice.
+ */
+export async function listRewardsInState(
+  db: DatabaseOrTransaction,
+  input: {
+    partnerId: string;
+    currency: CurrencyCode;
+    states: readonly ReferralRewardState[];
+    limit: number;
+  },
+): Promise<ReferralRewardRow[]> {
+  if (input.states.length === 0) return [];
+  return await db
+    .select()
+    .from(referralRewards)
+    .where(
+      and(
+        eq(referralRewards.partnerId, input.partnerId),
+        eq(referralRewards.currency, input.currency),
+        inArray(referralRewards.state, [...input.states]),
+      ),
+    )
+    .orderBy(asc(referralRewards.accruedAt), asc(referralRewards.id))
+    .limit(input.limit);
+}
+
+/**
+ * Every reward of one partner in a set of states, regardless of currency — the
+ * freeze and unfreeze sweeps' population (ADR 0005 D18/R8).
+ *
+ * A suspension is a fact about the PARTNER, so it reaches every currency they
+ * have earned in; the per-currency reads above exist because a payout is
+ * per-currency and a balance is per-currency, which a freeze is not.
+ */
+export async function listPartnerRewardsInStates(
+  db: DatabaseOrTransaction,
+  input: { partnerId: string; states: readonly ReferralRewardState[]; limit: number },
+): Promise<ReferralRewardRow[]> {
+  if (input.states.length === 0) return [];
+  return await db
+    .select()
+    .from(referralRewards)
+    .where(
+      and(
+        eq(referralRewards.partnerId, input.partnerId),
+        inArray(referralRewards.state, [...input.states]),
+      ),
+    )
+    .orderBy(asc(referralRewards.accruedAt), asc(referralRewards.id))
+    .limit(input.limit);
 }
 
 /** One reward's adjustments, oldest first — the append-only trail as recorded. */

@@ -471,6 +471,30 @@ connectPostgres()
       // the procurement domain. `RETAIL_RECONCILIATION_ENABLED` gates this LOOP
       // and nothing durable: an operator reconciling an order by hand still
       // writes its revision, raises its exceptions and books what it recognizes.
+      // The referral EARNINGS loops (#145, ADR 0005): vest what has served its
+      // hold, build and settle payout batches, and reconcile the reward rows
+      // against the ledger. Three levers, and NOT ONE gates a durable record —
+      // the accrual books its posting inside #144's own transaction with no flag
+      // in the path, holds keep elapsing, and turning any of these back on
+      // drains whatever accumulated. The settlement loop settles nothing until
+      // #146 registers a payout rail; every attempt fails `rail_not_configured`
+      // with the batch intact and its claims held.
+      import('./services/referrals/earnings/dispatchers.js')
+        .then(
+          ({
+            startReferralVestingDispatcher,
+            startReferralPayoutDispatcher,
+            startReferralReconciliationDispatcher,
+          }) => {
+            startReferralVestingDispatcher();
+            startReferralPayoutDispatcher();
+            startReferralReconciliationDispatcher();
+          },
+        )
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Referral earnings dispatcher import failed'),
+        );
+
       import('./services/retail-reconciliation/runner.js')
         .then(({ startRetailReconciliationSweep }) => startRetailReconciliationSweep())
         .catch((err: unknown) =>

@@ -448,7 +448,8 @@ export type ReferralEventSubjectType =
   | 'attribution'
   | 'conversion'
   | 'reward_rule'
-  | 'reward';
+  | 'reward'
+  | 'payout_batch';
 
 /** {@link ReferralEventSubjectType} as a tuple. */
 export const REFERRAL_EVENT_SUBJECT_TYPES: readonly ReferralEventSubjectType[] = [
@@ -463,6 +464,10 @@ export const REFERRAL_EVENT_SUBJECT_TYPES: readonly ReferralEventSubjectType[] =
   // answering it should not have to know which table the answer lives beside.
   'reward_rule',
   'reward',
+  // #145's one subject. A payout batch is a record an operator traces and an
+  // actor approves, retries and cancels, so it belongs on the trail every other
+  // referral decision is already on.
+  'payout_batch',
 ];
 
 /**
@@ -511,7 +516,24 @@ export type ReferralEventAction =
   | 'reward_accrued'
   | 'reward_accrual_refused'
   | 'reward_reversed'
-  | 'reward_voided';
+  | 'reward_voided'
+  // #145: the earnings ledger. `reward_vested` and `reward_payout_settled` are
+  // the two lifecycle steps #144 declared a column for and never wrote; the
+  // freeze pair is ADR 0005 R3/R8's pause; and the payout verbs are the batch's
+  // own, each attributable to the operator who performed it.
+  | 'reward_vested'
+  | 'reward_frozen'
+  | 'reward_unfrozen'
+  | 'reward_payout_settled'
+  | 'reward_clawback_recorded'
+  | 'payout_batch_opened'
+  | 'payout_batch_approved'
+  | 'payout_batch_settled'
+  | 'payout_batch_failed'
+  | 'payout_batch_cancelled'
+  | 'partner_recovery_recorded'
+  | 'earnings_discrepancy_recorded'
+  | 'earnings_discrepancy_resolved';
 
 /** {@link ReferralEventAction} as a tuple. */
 export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
@@ -558,6 +580,20 @@ export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
   'reward_accrual_refused',
   'reward_reversed',
   'reward_voided',
+  // #145 — see the note above.
+  'reward_vested',
+  'reward_frozen',
+  'reward_unfrozen',
+  'reward_payout_settled',
+  'reward_clawback_recorded',
+  'payout_batch_opened',
+  'payout_batch_approved',
+  'payout_batch_settled',
+  'payout_batch_failed',
+  'payout_batch_cancelled',
+  'partner_recovery_recorded',
+  'earnings_discrepancy_recorded',
+  'earnings_discrepancy_resolved',
 ];
 
 /** Who performed an audited referral action. */

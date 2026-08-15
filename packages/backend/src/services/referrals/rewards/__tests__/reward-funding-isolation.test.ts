@@ -1,6 +1,6 @@
 /**
  * The walls around referral reward funding (#144 "Pricing and fee isolation",
- * ADR 0005 I1–I5).
+ * ADR 0005 I1–I5), and — since #145 — around the earnings ledger built on it.
  *
  * Static scans, following `fee-ranking-isolation.test.ts`: each wall names what
  * must be unreachable, is applied to a real file set with an anti-vacuity
@@ -33,7 +33,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REWARDS_DIR = join(HERE, '..');
 const REFERRAL_SERVICES_DIR = join(HERE, '..', '..');
 const REFERRAL_DB_DIR = join(HERE, '..', '..', '..', '..', 'db', 'referrals');
+const REFERRAL_EARNINGS_DB_DIR = join(HERE, '..', '..', '..', '..', 'db', 'referralEarnings');
+const EARNINGS_DIR = join(HERE, '..', '..', 'earnings');
 const LEDGER_SEAM = join(REFERRAL_DB_DIR, 'commissionBaseRepository.ts');
+/** #145's read: a partner's balance, derived from `ledger_entries` and nothing else. */
+const BALANCE_SEAM = join(REFERRAL_EARNINGS_DB_DIR, 'partnerBalanceRepository.ts');
+/** #145's ONE writer. Everything else in the domain reaches the ledger through it. */
+const POSTING_SEAM = join(EARNINGS_DIR, 'posting.service.ts');
+/** The three files the payment wall exempts, and no others. */
+const PAYMENT_SEAMS = [LEDGER_SEAM, BALANCE_SEAM, POSTING_SEAM];
 
 /** Every `.ts` under a directory, excluding its own tests. */
 function sourceFiles(dir: string): string[] {
@@ -64,20 +72,42 @@ function code(path: string): string {
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
+/**
+ * Source with comments AND type-only imports stripped.
+ *
+ * Used by the payment wall alone, and the narrowing is real rather than
+ * convenient: `import type { LedgerEntryInput } from '…/ledgerRepository.js'`
+ * is ERASED at compile time — it cannot call anything, cannot move money and
+ * cannot be turned into a call without becoming a value import, which this
+ * still catches. A posting builder has to name the shape it emits, and refusing
+ * that would push the shape into a duplicate type the two could disagree about.
+ *
+ * The mutation self-test below asserts a VALUE import of the very same module
+ * still fires, which is what stops this becoming a hole.
+ */
+function valueImports(path: string): string {
+  return code(path).replace(/import\s+type\s+\{[\s\S]*?\}\s+from\s+['"][^'"]*['"];?/g, '');
+}
+
 interface Wall {
   name: string;
   files: string[];
   pattern: RegExp;
   /** A source that genuinely contains what the pattern forbids. */
   probe: string;
+  /** Scan VALUE imports only — see {@link valueImports}. */
+  valueImportsOnly?: boolean;
 }
 
 const REWARD_FILES = sourceFiles(REWARDS_DIR);
 const REFERRAL_SERVICE_FILES = sourceFiles(REFERRAL_SERVICES_DIR);
-const REFERRAL_DB_FILES = sourceFiles(REFERRAL_DB_DIR);
-/** Everything in the domain EXCEPT the one named ledger seam. */
+const REFERRAL_DB_FILES = [
+  ...sourceFiles(REFERRAL_DB_DIR),
+  ...sourceFiles(REFERRAL_EARNINGS_DB_DIR),
+];
+/** Everything in the domain EXCEPT the three named payment seams. */
 const NON_SEAM_FILES = [...REFERRAL_SERVICE_FILES, ...REFERRAL_DB_FILES].filter(
-  (path) => path !== LEDGER_SEAM,
+  (path) => !PAYMENT_SEAMS.includes(path),
 );
 
 const WALLS: Wall[] = [
@@ -140,8 +170,9 @@ const WALLS: Wall[] = [
     // learn what Mercaria EARNED; it may not reach the payment service, the
     // adapter, the refund path or the order linkage — every one of which can
     // move money or change an order.
-    name: 'the payment domain, from any file but the named ledger seam',
+    name: 'the payment domain, from any file but the three named seams',
     files: NON_SEAM_FILES,
+    valueImportsOnly: true,
     pattern:
       /from\s+['"][^'"]*(services\/payments|\.\.\/payments\/|db\/payments|schema\/payments|schema\/ledger|order-linkage|refund\.service)[^'"]*['"]/,
     probe: "import { paymentService } from '../../payments/payment.service.js';",
@@ -172,18 +203,28 @@ describe('referral reward funding isolation (static)', () => {
     // below passes, which is exactly what a BROKEN scan produces.
     expect(REWARD_FILES.length).toBeGreaterThanOrEqual(6);
     expect(REFERRAL_SERVICE_FILES.length).toBeGreaterThanOrEqual(12);
-    expect(REFERRAL_DB_FILES.length).toBeGreaterThanOrEqual(10);
-    expect(NON_SEAM_FILES.length).toBeGreaterThanOrEqual(20);
-    // …and the seam is genuinely excluded from the set, rather than the filter
-    // having matched nothing.
-    expect([...REFERRAL_DB_FILES]).toContain(LEDGER_SEAM);
-    expect(NON_SEAM_FILES).not.toContain(LEDGER_SEAM);
+    expect(REFERRAL_DB_FILES.length).toBeGreaterThanOrEqual(14);
+    expect(NON_SEAM_FILES.length).toBeGreaterThanOrEqual(24);
+    // …#145's own modules are genuinely in the scanned set, so the walls below
+    // are measuring them rather than a directory that failed to traverse.
+    expect(sourceFiles(EARNINGS_DIR).length).toBeGreaterThanOrEqual(8);
+    expect(REFERRAL_SERVICE_FILES).toContain(POSTING_SEAM);
+    // …and every seam is genuinely excluded from the non-seam set, rather than
+    // the filter having matched nothing.
+    for (const seam of PAYMENT_SEAMS) {
+      expect([...REFERRAL_SERVICE_FILES, ...REFERRAL_DB_FILES]).toContain(seam);
+      expect(NON_SEAM_FILES).not.toContain(seam);
+    }
   });
 
   for (const wall of WALLS) {
     it(`does not reach ${wall.name}`, () => {
       const offenders = wall.files.filter((path) => {
-        const source = wall.name.includes('OxyPay') ? readFileSync(path, 'utf8') : code(path);
+        const source = wall.name.includes('OxyPay')
+          ? readFileSync(path, 'utf8')
+          : wall.valueImportsOnly === true
+            ? valueImports(path)
+            : code(path);
         return wall.pattern.test(source);
       });
       expect(offenders.map((path) => path.split('/').pop())).toEqual([]);
@@ -194,21 +235,56 @@ describe('referral reward funding isolation (static)', () => {
     });
   }
 
-  it('reads the ledger from exactly ONE file, and that file only reads', () => {
-    const ledgerImporters = [...REFERRAL_SERVICE_FILES, ...REFERRAL_DB_FILES].filter((path) =>
-      /from\s+['"][^'"]*schema\/ledger[^'"]*['"]/.test(code(path)),
-    );
-    expect(ledgerImporters).toEqual([LEDGER_SEAM]);
+  it('reads the ledger SCHEMA from exactly two files, and both only read', () => {
+    const ledgerImporters = [...REFERRAL_SERVICE_FILES, ...REFERRAL_DB_FILES]
+      .filter((path) => /from\s+['"][^'"]*schema\/ledger[^'"]*['"]/.test(code(path)))
+      .sort();
+    // An EXACT set. #145 added the balance read and nothing else; a third file
+    // reaching the ledger tables directly fails HERE.
+    expect(ledgerImporters).toEqual([BALANCE_SEAM, LEDGER_SEAM].sort());
 
-    const seam = code(LEDGER_SEAM);
-    // No write of any kind. A referral domain that could POST to the ledger
-    // would be #145's earnings ledger arriving without its reconciliation
-    // sweep, which ADR 0005 says ships WITH it.
-    for (const writer of ['.insert(', '.update(', '.delete(', 'insertLedgerTransaction']) {
-      expect(seam.includes(writer), `the ledger seam calls ${writer}`).toBe(false);
+    for (const seam of [LEDGER_SEAM, BALANCE_SEAM]) {
+      const source = code(seam);
+      for (const writer of ['.insert(', '.update(', '.delete(', 'insertLedgerTransaction']) {
+        expect(source.includes(writer), `${seam} calls ${writer}`).toBe(false);
+      }
     }
     // The mutation self-test: the same scan against a seeded positive fires.
     expect('await db.insert(ledgerEntries)'.includes('.insert(')).toBe(true);
+  });
+
+  it('strips only TYPE imports from the payment wall, never value ones', () => {
+    // The mutation self-test on the narrowing itself. A type import of the
+    // ledger repository is erased and passes; the SAME module imported as a
+    // value still fires, which is what keeps `posting.service.ts` a seam rather
+    // than an ordinary file.
+    const typeOnly = "import type { LedgerEntryInput } from '../../../db/payments/ledgerRepository.js';\n";
+    const value = "import { insertLedgerTransaction } from '../../../db/payments/ledgerRepository.js';\n";
+    const wall = WALLS.find((candidate) => candidate.valueImportsOnly === true);
+    expect(wall).toBeDefined();
+    if (!wall) return;
+    expect(wall.pattern.test(typeOnly.replace(/import\s+type\s+\{[\s\S]*?\}\s+from\s+['"][^'"]*['"];?/g, ''))).toBe(false);
+    expect(wall.pattern.test(value)).toBe(true);
+  });
+
+  it('WRITES the ledger from exactly ONE file (#145)', () => {
+    // The exemption #144's version of this file refused, granted by #145 with
+    // its reconciliation sweep in the same change. An EXACT set: a second writer
+    // is a build failure, not a review comment.
+    const writers = [...REFERRAL_SERVICE_FILES, ...REFERRAL_DB_FILES].filter((path) =>
+      /insertLedgerTransaction/.test(code(path)),
+    );
+    expect(writers).toEqual([POSTING_SEAM]);
+
+    // …and the writer books through the posting BUILDERS rather than composing
+    // entries itself, so the account boundary it asserts is the one it writes.
+    const posting = code(POSTING_SEAM);
+    expect(posting.includes('assertReferralPosting')).toBe(true);
+    for (const forbidden of ['retail_cost_recovery', 'procurement_expense', 'commission_revenue']) {
+      expect(posting.includes(forbidden), `the writer names ${forbidden}`).toBe(false);
+    }
+    // The mutation self-test: the same scan against a seeded positive fires.
+    expect("account: 'retail_cost_recovery',".includes('retail_cost_recovery')).toBe(true);
   });
 
   it('never reads an order, a listing or a variant to compute a base', () => {
@@ -218,8 +294,8 @@ describe('referral reward funding isolation (static)', () => {
     // value is only reachable by reading the thing that holds it.
     const pattern =
       /from\s+['"][^'"]*(db\/orders|schema\/orders|db\/catalog|schema\/catalog|orderRepository)[^'"]*['"]/;
-    const offenders = [...REWARD_FILES, ...REFERRAL_DB_FILES].filter((path) =>
-      pattern.test(code(path)),
+    const offenders = [...REWARD_FILES, ...REFERRAL_DB_FILES, ...sourceFiles(EARNINGS_DIR)].filter(
+      (path) => pattern.test(code(path)),
     );
     expect(offenders.map((path) => path.split('/').pop())).toEqual([]);
     expect(pattern.test("import { findOrder } from '../../../db/orders/orderRepository.js';")).toBe(
