@@ -2211,7 +2211,9 @@ async function importProduct(
       // `cause` and never `error.code`, and an unnamed check would swallow
       // `listings_store_id_handle_key` too. That one must still surface — a handle
       // collision between two genuinely different external products is a real
-      // merchant conflict, and suffixing it silently would hide it.
+      // merchant conflict, and suffixing it silently would hide it. Since #292 it
+      // surfaces NAMED: `createStoreProduct` classifies it into a refusal carrying
+      // the incumbent listing and the connection holding the handle.
       if (!isUniqueViolation(err, 'listings_store_id_source_key_idx')) {
         throw err;
       }
@@ -2362,7 +2364,7 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
     const failed = await finishSyncRun(run.id, {
       status: 'failed',
       counts,
-      error: err instanceof Error ? err.message : 'Backfill failed',
+      failure: err,
     });
     await markConnectionError(conn.id);
     emitSyncProgress(conn.storeId, { connectionId, kind: 'backfill', phase: 'failed', counts });
@@ -2554,7 +2556,7 @@ async function runWebhookUnit(conn: ConnectionRow, topic: string, work: WebhookW
     await finishSyncRun(run.id, {
       status: 'failed',
       counts,
-      error: err instanceof Error ? err.message : 'Webhook processing failed',
+      failure: err,
     });
     emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'failed', counts });
     log.general.error({ err, connectionId, topic }, 'Failed to process connector webhook');
@@ -3029,7 +3031,7 @@ export async function syncOrders(storeId: string, connectionId: string): Promise
     const failed = await finishSyncRun(run.id, {
       status: 'failed',
       counts,
-      error: err instanceof Error ? err.message : 'Order sync failed',
+      failure: err,
     });
     await markConnectionError(runConnectionId);
     emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'failed', counts });
@@ -3135,7 +3137,7 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
     const failed = await finishSyncRun(run.id, {
       status: 'failed',
       counts,
-      error: err instanceof Error ? err.message : 'Inventory sync failed',
+      failure: err,
     });
     await markConnectionError(runConnectionId);
     emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'failed', counts });
@@ -3324,7 +3326,7 @@ async function pushListingToConnection(
     await finishSyncRun(run.id, {
       status: 'failed',
       counts,
-      error: err instanceof Error ? err.message : 'Product push failed',
+      failure: err,
     });
     emitSyncProgress(conn.storeId, { connectionId, kind: 'product_push', phase: 'failed', counts });
     log.general.error(
@@ -3443,7 +3445,7 @@ export async function pushOrderFulfillment(orderId: string): Promise<void> {
     await finishSyncRun(run.id, {
       status: 'failed',
       counts,
-      error: err instanceof Error ? err.message : 'Fulfillment push failed',
+      failure: err,
     });
     emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'failed', counts });
     log.general.error(

@@ -3641,7 +3641,8 @@ CHECK the database would have refused all looked identical to a green suite.
   was a real race two deliveries could both win; the loser converges by
   RE-READING and taking the update branch, matched by CONSTRAINT NAME so a
   `listings_store_id_handle_key` collision still surfaces as the merchant
-  conflict it is. (3) `connectors/timestamps.ts` appends `Z` only to a value
+  conflict it is — NAMED since #292, carrying the incumbent listing and the
+  connection holding the handle. (3) `connectors/timestamps.ts` appends `Z` only to a value
   carrying NO zone, then omits what is still unreadable — omitting a
   legitimately-zoned value would ERASE the stored freshness, because
   `buildSource` writes `?? null` on every sync. (4) Shopify's `fx_rate_as_of` is

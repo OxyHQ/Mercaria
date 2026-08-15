@@ -41,17 +41,36 @@
 import { desc, eq, inArray, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import type { SyncRunCounts, SyncRunKind, SyncRunStatus } from '@mercaria/shared-types';
+import { merchantFacingFailureMessage } from '../../lib/errors/merchant-facing.js';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { syncRuns } from '../schema/connectors.js';
 
 /** One row of `sync_runs`. */
 export type SyncRunRecord = InferSelectModel<typeof syncRuns>;
 
-/** How a run ended, as the caller reports it. */
+/**
+ * How a run ended, as the caller reports it.
+ *
+ * `failure` is the THROWN VALUE, not a message, and that is the whole of #292's
+ * second half. It used to be `error?: string`, which every one of the seven call
+ * sites filled with `err instanceof Error ? err.message : '…'` — and for a drizzle
+ * failure that message is the failing statement plus its bound parameters,
+ * published verbatim onto the merchant's channel screen by `toSyncRunDTO`.
+ * Measured on the #69 verification database: thirteen rows of 1065 characters
+ * carrying a connection id, a provider, a SKU and a price, none of them naming the
+ * constraint that refused the write.
+ *
+ * Taking the value rather than a string moves the classification INSIDE
+ * {@link finishSyncRun}, the only writer of that column — so "check every writer"
+ * is answered by there being one, and a caller cannot forget the step because
+ * there is no longer a step for them to take. The RENAME is what makes that a
+ * compile error rather than a convention: a call site still passing `error:` does
+ * not build.
+ */
 export interface SyncRunOutcome {
   status: Extract<SyncRunStatus, 'completed' | 'failed'>;
   counts: SyncRunCounts;
-  error?: string;
+  failure?: unknown;
 }
 
 /**
@@ -76,6 +95,18 @@ export async function insertSyncRun(
 /**
  * Close a run with its final tallies.
  *
+ * The message is composed HERE from `outcome.failure` — see {@link SyncRunOutcome}
+ * — and the bound is in CODE rather than in the schema, deliberately. `error` is a
+ * plain unbounded `text()` and stays one, for three reasons. A length CHECK fails
+ * by REFUSING the write, so a run that failed would then fail to record that it
+ * failed — a worse outcome than the one the bound prevents. The truncation is a
+ * composition decision (which end survives, what marks the cut) and so belongs
+ * with the composition; a second bound in the schema would be a second
+ * representation of one rule. And the property that actually matters is not length
+ * — a 200-character fragment of raw SQL is exactly as wrong as a 1065-character
+ * one — so a `varchar(n)` would read as though it enforced something it cannot
+ * express.
+ *
  * @returns The stored row, so the caller can serialize what was actually
  *   persisted rather than the object it was holding — the two diverged silently
  *   under Mongoose whenever a `save()` was skipped on an error path.
@@ -97,7 +128,12 @@ export async function finishSyncRun(
       // Explicitly `null` on success: a run that failed, was retried and then
       // succeeded must not keep the earlier message, which the Mongoose path's
       // "assign only when set" left standing on the reused document.
-      error: outcome.error ?? null,
+      //
+      // `undefined` — not "falsy" — is what means "there was no failure". A caller
+      // that legitimately caught a thrown `''`, `0` or `null` still gets a
+      // classified message, because those are failures somebody threw and saying
+      // so is the classifier's job.
+      error: outcome.failure === undefined ? null : merchantFacingFailureMessage(outcome.failure),
       updatedAt: new Date(),
     })
     .where(eq(syncRuns.id, runId))

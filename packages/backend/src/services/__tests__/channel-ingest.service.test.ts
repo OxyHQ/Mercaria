@@ -97,6 +97,8 @@ import {
   ingestProducts,
   isKnownConnectorProvider,
 } from '../channel-ingest.service.js';
+import { conflict } from '../../lib/errors/error-codes.js';
+import { MERCHANT_FACING_MESSAGE_MAX_LENGTH } from '../../lib/errors/merchant-facing.js';
 
 const STORE_ID = 'store-1';
 const CONNECTION_ID = 'conn-1';
@@ -376,7 +378,11 @@ describe('ingestProducts — idempotency + failure isolation', () => {
     findConnection.mockResolvedValue(pushInConnection());
     findListingBySourceExternalId.mockResolvedValue(null);
     createStoreProduct
-      .mockRejectedValueOnce(new Error('duplicate handle'))
+      // A `MercariaError`, because that is what `createStoreProduct` throws — a
+      // handle collision now arrives as the named refusal `asNamedHandleCollision`
+      // composes (#292). A bare `Error` here would assert that an unclassified
+      // upstream message reaches the merchant, which it deliberately no longer does.
+      .mockRejectedValueOnce(conflict('duplicate handle'))
       .mockResolvedValueOnce('listing-ok');
 
     const result = await ingestProducts(
@@ -571,6 +577,40 @@ describe('ingestInventory', () => {
       status: 'failed',
       counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
     });
+  });
+
+  it('bounds the ambiguous message, which is unbounded in its CANDIDATE list', async () => {
+    // The `sku` is capped at 120 by `ingestInventorySchema`; the candidate list is
+    // not capped by anything but `maxVariantsPerProduct`, which defaults to 100.
+    // So this is a shape a merchant can legitimately have — one listing whose
+    // variants all carry one SKU — and it composes ~3,900 characters straight into
+    // the ingest response, nearly four times the 1065-character `sync_runs` rows
+    // #292 exists to stop.
+    const candidates = Array.from({ length: 100 }, (_, i) => ({
+      id: `01a0041c-8a6c-79f0-9770-57acecb7${String(i).padStart(4, '0')}`,
+      listingId: 'listing-1',
+    }));
+    findConnection.mockResolvedValue(pushInConnection());
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
+    findVariantsByListingAndSku.mockResolvedValue(candidates);
+
+    const result = await ingestInventory(
+      STORE_ID,
+      CONNECTION_ID,
+      inventoryBody([{ externalId: 'woo-1', sku: 'SHARED', available: 3 }]),
+    );
+
+    const message = result.results[0].error as string;
+    // POSITIVE CONTROL: the unbounded composition really would have been enormous,
+    // so the ceiling below is measuring a cut rather than a short message.
+    expect(candidates.map((c) => c.id).join(', ').length).toBeGreaterThan(3000);
+    expect(result.results[0].action).toBe('ambiguous');
+    expect(message.length).toBe(MERCHANT_FACING_MESSAGE_MAX_LENGTH);
+    expect(message.endsWith('…')).toBe(true);
+    // Still useful after the cut: the count and the SKU lead the sentence, so the
+    // merchant learns what happened even when the id list is truncated.
+    expect(message).toContain('100 variants');
+    expect(message).toContain('SHARED');
   });
 
   it('skips a multi-variant listing when no SKU disambiguates it', async () => {

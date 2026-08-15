@@ -86,6 +86,7 @@ import type {
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { listingImages, listingOptions, listings, productVariants } from '../schema/catalog.js';
+import { connections } from '../schema/connectors.js';
 import { listingCollections } from '../schema/merchandising.js';
 
 /** One row of `listings` — no children joined. */
@@ -1030,6 +1031,56 @@ export async function findListingBySourceExternalId(
         eq(listings.sourceExternalId, externalId),
       ),
     )
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Who already holds `handle` in this store — the refusal a collision on
+ * `listings_store_id_handle_key` needs in order to name what it found (#292).
+ *
+ * The provenance is JOINED rather than fetched separately because it is the whole
+ * point of the read: an incumbent with a `source_connection_id` was imported and
+ * the merchant's remedy is on that channel, while one without was created by hand
+ * in Mercaria — which is the case with no provenance for any later sync to
+ * converge onto, so its collision is permanent. Two statements would make a
+ * partly-answered refusal ("something holds it, we could not say what") a
+ * reachable state on the one path that exists to say what.
+ *
+ * A LEFT join, not an inner one: the merchant-created case has no `connections`
+ * row to match, and it is both the commonest of the three routes and the one
+ * least likely to be reproduced by whoever reads the message, so an inner join
+ * would drop exactly the half that most needs explaining.
+ *
+ * `shop_domain` is the merchant's OWN shop as they typed it into that channel, and
+ * `listings_store_id_handle_key` is per STORE — so both sides of every collision
+ * this can report belong to the caller's own store, and there is no shape here
+ * that could name another tenant's connection.
+ */
+export async function findListingHandleOwner(
+  storeId: string,
+  handle: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<{
+  listingId: string;
+  status: ListingRecord['status'];
+  sourceConnectionId: string | null;
+  sourceProvider: string | null;
+  sourceExternalId: string | null;
+  sourceShopDomain: string | null;
+} | null> {
+  const [row] = await db
+    .select({
+      listingId: listings.id,
+      status: listings.status,
+      sourceConnectionId: listings.sourceConnectionId,
+      sourceProvider: listings.sourceProvider,
+      sourceExternalId: listings.sourceExternalId,
+      sourceShopDomain: connections.shopDomain,
+    })
+    .from(listings)
+    .leftJoin(connections, eq(connections.id, listings.sourceConnectionId))
+    .where(and(eq(listings.storeId, storeId), eq(listings.handle, handle)))
     .limit(1);
   return row ?? null;
 }

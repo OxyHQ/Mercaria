@@ -378,7 +378,10 @@ For every scenario below, record in a private document (not this repo):
 - the observable named in the table — a count, a status, a row id, a
   `sync_runs` id and its four tallies;
 - for a failure: the `sync_runs.error` string and the correlating log line, with
-  any identifier truncated to its last four characters.
+  any identifier truncated to its last four characters. Since #292 that string is
+  CLASSIFIED and bounded — a refusal Mercaria composed, or the rule and SQLSTATE a
+  write broke — and never the failing statement or its bound parameters, which is
+  what the log line carries. A `sync_runs.error` holding SQL is itself a finding.
 
 Do NOT record: access tokens, consumer keys/secrets, channel keys, webhook
 secrets, buyer emails, buyer addresses, or a full API response body.
@@ -774,7 +777,8 @@ All of it is fixed, in four parts.
 2. `listings_store_id_source_key_idx` is UNIQUE (migration `0070`, `post`), so
    two concurrent deliveries for one external id can no longer both create. The
    loser re-reads and converges; a `listings_store_id_handle_key` collision still
-   fails the product, deliberately.
+   fails the product, deliberately — naming the incumbent listing and the
+   connection holding the handle since #292.
 3. An unreadable provider timestamp OMITS the field, and a legitimately ZONED one
    is read at its own offset rather than discarded — discarding it would erase
    the stored freshness on every later sync (`connectors/timestamps.ts`).

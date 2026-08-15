@@ -73,6 +73,10 @@ import {
 } from './connector-sync.service.js';
 import { applyPriceRules, type PriceRules } from '../utils/money.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
+import {
+  boundMerchantFacingMessage,
+  merchantFacingFailureMessage,
+} from '../lib/errors/merchant-facing.js';
 import { log } from '../lib/logger.js';
 
 /** True when a raw route param is one of the known connector provider ids. */
@@ -296,7 +300,10 @@ async function upsertProduct(
       // RE-READS and converges through the update branch. A
       // `listings_store_id_handle_key` violation is deliberately NOT caught here:
       // two genuinely different external products claiming one handle is a real
-      // merchant conflict and must surface as a per-product failure.
+      // merchant conflict and must surface as a per-product failure. It is
+      // CLASSIFIED one layer down — `createStoreProduct` rethrows it as a refusal
+      // naming the incumbent (#292) — so what arrives here is a `MercariaError`
+      // rather than a raw `23505`, and the isolation below is unchanged.
       if (!isUniqueViolation(err, 'listings_store_id_source_key_idx')) {
         throw err;
       }
@@ -373,9 +380,13 @@ export async function ingestProducts(
     } catch (err) {
       counts.failed += 1;
       results.push({
+        // The SAME defect `sync_runs.error` had, on a different carriage: this
+        // string is returned in the ingest response the plugin shows a merchant,
+        // and `err.message` for a drizzle failure is the statement plus its bound
+        // parameters. One classifier for both, so the two cannot diverge (#292).
         externalId: product.externalId,
         action: 'failed',
-        error: err instanceof Error ? err.message : 'Ingest failed',
+        error: merchantFacingFailureMessage(err),
       });
       log.general.warn(
         { err, connectionId, externalId: product.externalId },
@@ -499,9 +510,17 @@ export async function ingestInventory(
         results.push({
           externalId: item.externalId,
           action: 'ambiguous',
-          error:
+          // Through the same bound as every other merchant-facing string here
+          // (#292). Not `merchantFacingFailureMessage`: this is a composed
+          // sentence rather than a thrown value, and that door would classify a
+          // plain string as unrecognised and replace it wholesale. The part that
+          // needs the ceiling is the CANDIDATE LIST, not the `sku` the schema
+          // caps at 120 — one uuid per variant sharing the SKU, bounded only by
+          // `maxVariantsPerProduct` (100 by default, ≈3,900 characters).
+          error: boundMerchantFacingMessage(
             `${mapping.candidateIds.length} variants of this product share SKU ` +
-            `${mapping.sku} (${mapping.candidateIds.join(', ')}) — refusing to pick one`,
+              `${mapping.sku} (${mapping.candidateIds.join(', ')}) — refusing to pick one`,
+          ),
         });
         continue;
       }
@@ -513,7 +532,7 @@ export async function ingestInventory(
       results.push({
         externalId: item.externalId,
         action: 'failed',
-        error: err instanceof Error ? err.message : 'Inventory ingest failed',
+        error: merchantFacingFailureMessage(err),
       });
       log.general.warn(
         { err, connectionId, externalId: item.externalId },
