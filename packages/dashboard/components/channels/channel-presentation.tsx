@@ -270,7 +270,18 @@ export function deriveWebhookDelivery(
     };
   }
 
-  if (registration) {
+  // Mid-retry is `pending` WITH something spent or scheduled — not merely "a
+  // registration object is present" (#297). Before the state had a success
+  // value the server hid the field in the ordinary case, so presence alone was
+  // a usable proxy for "something is wrong"; now that a healthy connection
+  // reports `registered` and a fresh one reports `pending` with nothing spent,
+  // that proxy would render both as "Mercaria is retrying automatically". A
+  // channel nobody has registered yet falls through to the `webhookIds` branch,
+  // which says so plainly and offers the button that starts it.
+  if (
+    registration?.state === "pending" &&
+    (registration.attempts > 0 || registration.nextAttemptAt !== undefined)
+  ) {
     // `nextAttemptAt` is absent on a claim that is in flight right now, and can
     // be in the PAST for one that is due — printing a past timestamp beside
     // "the next attempt is" reads as a stuck queue, so both say "due now".

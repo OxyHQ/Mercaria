@@ -144,18 +144,38 @@ export const CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS: readonly ConnectorWebh
 /**
  * Where automatic webhook re-registration stands for one connection (#262).
  *
- * `pending` covers both "nothing is wrong" and "a retry is scheduled" — the two
- * are told apart by `attempts` and `nextAttemptAt`, not by a third state, because
- * "due" is a fact about the clock and a stored value for it would go stale the
- * moment it passed.
+ * `pending` is work OUTSTANDING — never attempted, or a retry is scheduled. The
+ * two are told apart by `attempts` and `nextAttemptAt`, not by a fourth state,
+ * because "due" is a fact about the clock and a stored value for it would go
+ * stale the moment it passed.
+ *
+ * `registered` is the success (#297). Until it existed a successful registration
+ * wrote `pending`, so one value carried both "never tried" and "completed" and
+ * nothing in it told them apart. That was harmless only because
+ * `findConnectionsNeedingWebhookRegistration` never swept on the state alone —
+ * it also requires empty `webhook_ids` or a retryable failure. The column was a
+ * broken suspender and that predicate the only belt, and the cost of the belt
+ * slipping is not a wasted call: on WooCommerce a re-registration RECREATES
+ * rather than adopts (the secret is fixed at creation, #218), so a sweep over
+ * healthy connections would add a full set of subscriptions to every connected
+ * merchant's site every fifteen minutes.
  *
  * `dead_letter` is the visible give-up: either the attempt budget is spent or the
  * platform refused for a reason no retry can fix. It is stored rather than derived
  * because only the code holding the provider's answer knows which of those two it
  * is, and the merchant's next action ("widen the scope, then press retry") is the
  * same either way.
+ *
+ * What none of the three can say is whether those subscriptions are still LIVE on
+ * the platform — a merchant, or a sibling connection sharing the address, can
+ * delete them and nothing here observes it. `registered` means Mercaria completed
+ * a registration and recorded the ids, which is what the sweep already believes.
  */
-export const CONNECTOR_WEBHOOK_REGISTRATION_STATES = ['pending', 'dead_letter'] as const;
+export const CONNECTOR_WEBHOOK_REGISTRATION_STATES = [
+  'pending',
+  'registered',
+  'dead_letter',
+] as const;
 
 export type ConnectorWebhookRegistrationState =
   (typeof CONNECTOR_WEBHOOK_REGISTRATION_STATES)[number];

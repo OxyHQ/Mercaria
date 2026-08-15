@@ -39,8 +39,14 @@
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { eq, sql } from 'drizzle-orm';
-import { CONNECTOR_WEBHOOK_FAILURE_REASONS } from '@mercaria/shared-types';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { eq, inArray, sql } from 'drizzle-orm';
+import {
+  CONNECTOR_WEBHOOK_FAILURE_REASONS,
+  CONNECTOR_WEBHOOK_REGISTRATION_STATES,
+} from '@mercaria/shared-types';
 import {
   constraintNameOf,
   isCheckViolation,
@@ -960,7 +966,13 @@ describe('the webhook re-registration LEASE (#262)', () => {
     // breaks again months later gets the whole budget rather than the remains of
     // an old one.
     expect(after?.webhookRegistrationAttempts).toBe(0);
-    expect(after?.webhookRegistrationState).toBe('pending');
+    // #297: `registered`, not `pending`. This assertion pinned the bug — a
+    // completion wrote the same value a connection nobody had tried carries, so
+    // the column could not say a registration had SUCCEEDED. Note the row here
+    // reached completion from a `dead_letter`-eligible history (two spent
+    // attempts), which is the other half of what this writes: a success
+    // supersedes a stop, and that is what an on-demand retry exists to do.
+    expect(after?.webhookRegistrationState).toBe('registered');
     expect(after?.webhookRegistrationNextAttemptAt).toBeNull();
     expect(after?.webhookRegistrationLeaseOwner).toBeNull();
     expect(after?.webhookRegistrationLeaseUntil).toBeNull();
@@ -1279,5 +1291,219 @@ describe('sync_runs', () => {
     expect(latest.get(connA.id)?.countsCreated).toBe(2);
     expect(latest.get(connB.id)?.id).toBe(onlyB.id);
     expect(latest.size).toBe(2);
+  });
+});
+
+/**
+ * `webhook_registration_state` has a SUCCESS value, and the migration that added
+ * it reclassifies only the rows whose success the old vocabulary could not
+ * record (#297).
+ *
+ * Only a server can answer any of this: a CHECK that had been dropped, or a
+ * widening that never applied, is invisible to every mocked repository, and the
+ * backfill is a statement in a `.sql` file that no unit test executes.
+ */
+describe('the webhook registration SUCCESS state (#297)', () => {
+  /**
+   * The backfill statement AS SHIPPED, read out of the migration rather than
+   * restated here.
+   *
+   * A copy of the predicate in this file would be a second description that
+   * drifts, and it would keep passing after a regeneration silently dropped the
+   * hand-written UPDATE — which is exactly the failure the migration's own header
+   * warns about. Reading the file means the test goes red when the statement is
+   * gone, naming it.
+   */
+  function backfillStatement(): string {
+    const migration = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'drizzle', '0074_tricky_hiroim.sql'),
+      'utf8',
+    );
+    const statement = migration
+      .split('--> statement-breakpoint')
+      .map((part) => part.trim())
+      .find((part) => part.startsWith('UPDATE "connections"'));
+    if (!statement) {
+      throw new Error(
+        'The #297 backfill UPDATE is missing from 0074_tricky_hiroim.sql — a regeneration ' +
+          'drops hand-written statements, and this is the one that has to be re-applied.',
+      );
+    }
+    return statement;
+  }
+
+  it('REFUSES a state outside the tuple, and accepts all three of it', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    // The mutation test on the constraint itself. `succeeded` is the plausible
+    // synonym somebody reaches for, which is the point: the CHECK is what makes
+    // the vocabulary closed, and without it a typo becomes a state no reader
+    // handles and every `switch` falls through.
+    await expect(
+      db
+        .update(connections)
+        .set({ webhookRegistrationState: sql`'succeeded'` })
+        .where(eq(connections.id, conn.id)),
+    ).rejects.toThrow();
+
+    // The control has to travel the SAME path as the refusal, or it controls for
+    // the wrong thing: the rejection above goes through a raw `sql` fragment, so
+    // a control written with the typed setter would leave "drizzle refused it"
+    // and "the CHECK refused it" indistinguishable. This sends a VALID value
+    // through the identical raw path, which isolates the difference to the value.
+    await db
+      .update(connections)
+      .set({ webhookRegistrationState: sql`'registered'` })
+      .where(eq(connections.id, conn.id));
+    const [viaSql] = await db
+      .select({ state: connections.webhookRegistrationState })
+      .from(connections)
+      .where(eq(connections.id, conn.id));
+    expect(viaSql?.state, 'the raw path itself works — only the VALUE was refused').toBe(
+      'registered',
+    );
+
+    // ...and every member of the tuple really is accepted, so the rejection is
+    // the CHECK discriminating rather than the UPDATE failing for some unrelated
+    // reason.
+    for (const state of CONNECTOR_WEBHOOK_REGISTRATION_STATES) {
+      await db
+        .update(connections)
+        .set({ webhookRegistrationState: state })
+        .where(eq(connections.id, conn.id));
+      const [row] = await db
+        .select({ state: connections.webhookRegistrationState })
+        .from(connections)
+        .where(eq(connections.id, conn.id));
+      expect(row?.state).toBe(state);
+    }
+  });
+
+  it('BACKFILLS only the rows carrying evidence of a success, and leaves the rest', async () => {
+    // Four shapes, one per branch of the predicate. All four start `pending`,
+    // which is the ambiguity the migration exists to resolve.
+    //
+    // ONE STORE EACH, and that is not incidental: `upsertConnection` conflicts
+    // on `UNIQUE(store_id, provider)`, so four `makeConnection(sameStore)` calls
+    // return four handles to ONE row whose last write wins. Written that way
+    // first, and this case failed correctly — the row it read was the fourth
+    // fixture, which the backfill is supposed to refuse.
+    const evidenced = await makeConnection(await makeStore());
+    const noIds = await makeConnection(await makeStore());
+    const midBackoff = await makeConnection(await makeStore());
+    const refused = await makeConnection(await makeStore());
+
+    await db
+      .update(connections)
+      .set({ webhookIds: ['wh-1', 'wh-2'], webhookRegistrationState: 'pending' })
+      .where(eq(connections.id, evidenced.id));
+
+    // Never reconciled: a registration that THREW writes no ids at all, and that
+    // emptiness is the only trace it leaves.
+    await db
+      .update(connections)
+      .set({ webhookIds: [], webhookRegistrationState: 'pending' })
+      .where(eq(connections.id, noIds.id));
+
+    // Has ids, but a retry is scheduled — work is outstanding.
+    await db
+      .update(connections)
+      .set({
+        webhookIds: ['wh-1'],
+        webhookRegistrationState: 'pending',
+        webhookRegistrationAttempts: 1,
+        webhookRegistrationNextAttemptAt: new Date(Date.now() + 60_000),
+      })
+      .where(eq(connections.id, midBackoff.id));
+
+    // Has ids and nothing scheduled, but the platform refused a topic — a
+    // reconciled attempt is not the same thing as a complete one.
+    await db
+      .update(connections)
+      .set({ webhookIds: ['wh-1'], webhookRegistrationState: 'pending' })
+      .where(eq(connections.id, refused.id));
+    await db.insert(connectionWebhookFailures).values({
+      connectionId: refused.id,
+      topic: 'products/update',
+      reason: 'permission_denied',
+    });
+
+    await db.execute(sql.raw(backfillStatement()));
+
+    const states = new Map(
+      (
+        await db
+          .select({ id: connections.id, state: connections.webhookRegistrationState })
+          .from(connections)
+          .where(inArray(connections.id, [evidenced.id, noIds.id, midBackoff.id, refused.id]))
+      ).map((row) => [row.id, row.state]),
+    );
+    // The read must have seen all four, or "unchanged" below is what a missing
+    // row also reports.
+    expect(states.size, 'the read did not see every fixture').toBe(4);
+
+    expect(states.get(evidenced.id)).toBe('registered');
+    // The three the backfill must NOT touch. Asserting each separately rather
+    // than "nothing else moved" — a predicate that reclassified all four would
+    // satisfy a count, and each of these is a different reason to refuse.
+    expect(states.get(noIds.id)).toBe('pending');
+    expect(states.get(midBackoff.id)).toBe('pending');
+    expect(states.get(refused.id)).toBe('pending');
+  });
+
+  it('is IDEMPOTENT, and never moves a dead_letter', async () => {
+    const storeId = await makeStore();
+    const stopped = await makeConnection(storeId);
+
+    // A connection that gave up but has ids and no outstanding retry otherwise
+    // matches every other clause. Only `state = 'pending'` keeps the backfill off
+    // it — and turning a deliberate stop into a success would tell a merchant
+    // their channel is healthy while nothing is being delivered.
+    await db
+      .update(connections)
+      .set({ webhookIds: ['wh-1'], webhookRegistrationState: 'dead_letter' })
+      .where(eq(connections.id, stopped.id));
+
+    await db.execute(sql.raw(backfillStatement()));
+    await db.execute(sql.raw(backfillStatement()));
+
+    const [row] = await db
+      .select({ state: connections.webhookRegistrationState })
+      .from(connections)
+      .where(eq(connections.id, stopped.id));
+    expect(row?.state).toBe('dead_letter');
+  });
+
+  it('EXCLUDES a completed registration from the sweep', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+
+    // Built the way the system builds it: a claim, then a completion. What this
+    // pins is that a success leaves the sweep's population — but note honestly
+    // what it CANNOT distinguish, because the compound predicate excludes this
+    // row too (it has ids and no retryable failure). That is the belt working as
+    // designed, and it is why the state predicate is not independently
+    // observable here for any row the system can actually produce.
+    await db
+      .update(connections)
+      .set({ webhookIds: ['wh-1', 'wh-2'] })
+      .where(eq(connections.id, conn.id));
+    await claimConnectionWebhookRegistration({
+      connectionId: conn.id,
+      leaseOwner: 'owner-a',
+      leaseMs: 60_000,
+      countsAsAttempt: true,
+    });
+    expect(await completeConnectionWebhookRegistration(conn.id, 'owner-a')).toBe(true);
+
+    const due = await findConnectionsNeedingWebhookRegistration({ limit: 50 });
+    expect(due.map((row) => row.id)).not.toContain(conn.id);
+
+    const [row] = await db
+      .select({ state: connections.webhookRegistrationState })
+      .from(connections)
+      .where(eq(connections.id, conn.id));
+    expect(row?.state).toBe('registered');
   });
 });
