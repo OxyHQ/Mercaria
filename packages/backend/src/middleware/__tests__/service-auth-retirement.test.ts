@@ -120,6 +120,22 @@ describe('the legacy service-auth surface is gone and stays gone (#164)', () => 
     }
   });
 
+  it('the exemption list is EXACTLY two files', () => {
+    // An exemption list is how this gate would switch itself off, one defensible
+    // line at a time: the cheapest way to green a re-added `SERVICE_SECRET` is
+    // not to delete it, it is to add the offending file here. An exact count —
+    // not a ceiling — makes that a decision somebody has to argue for in review
+    // rather than a line that slips through with the change it excuses.
+    //
+    // Two is the whole justified set: a file may sit here ONLY because its own
+    // prose must name the retired identifiers to explain the prohibition. Any
+    // other file naming them is the thing this gate exists to catch.
+    expect([...SELF_DOCUMENTING].sort()).toEqual([
+      'packages/backend/src/middleware/__tests__/service-auth-retirement.test.ts',
+      'packages/backend/src/middleware/auth.ts',
+    ]);
+  });
+
   it('no source reads the retired shared secrets', () => {
     const offenders = sources.filter((path) => SERVICE_SECRET_REFERENCE.test(readCode(path)));
     expect(
