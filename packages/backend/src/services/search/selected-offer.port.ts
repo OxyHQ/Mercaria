@@ -21,12 +21,36 @@
  * offers on a product, and it names no offer. A shopper sees "from 1,199 €" and
  * a link to the comparison; nothing claims one seller is the right one.
  *
- * ## Registration
+ * ## Registration — NOTHING registers a selector today (#230)
  *
  * ONE function, the `registerProcurementPaymentAuthorizationReader` /
- * `registerGuestMessageTransport` shape. #74 calls
- * {@link registerSearchOfferSelector} at composition time with an implementation
- * that reads its own policy version, and nothing else in #70 changes.
+ * `registerGuestMessageTransport` shape. #74 has shipped and does NOT call
+ * {@link registerSearchOfferSelector}; there is no production call site
+ * anywhere, and `selected-offer-port.test.ts` fails the build if that stops
+ * being true without this header changing with it.
+ *
+ * This module was written expecting #74 to fill the seam as shaped, and it did
+ * not turn out that way. The measured reason, so nobody re-derives it:
+ *
+ * - `rankOfferComparison` — #74's published entry point, and the ONE function a
+ *   discovery surface may call — is `async` and does its own four reads per
+ *   subject (`listOffers`, `getRates`, `buildRankingFactContext`,
+ *   `resolveRankingPolicy`). It also FETCHES the offers it ranks rather than
+ *   accepting the ones a caller already holds. A selector here is synchronous
+ *   and is HANDED its offers, so the two cannot be composed as they stand.
+ * - The gap is not incidental. `SearchSelectedOffer.rankingPolicyVersion` has to
+ *   name the version the choice was made under, and `resolveRankingPolicy` is a
+ *   READ keyed on the comparison SUBJECT because the canary rollout buckets on
+ *   it. Stamping `BUILTIN_RANKING_POLICY` synchronously instead would attribute
+ *   an ordering to weights the rollout never consulted — exactly what #74
+ *   refuses to do for `/offers`, and for the same reason.
+ *
+ * So filling this seam is a change to the port's SHAPE, not a registration
+ * somebody forgot. It also needs product decisions search has not made: which
+ * `OfferComparisonIntent` a query ranks under, which experience, and whether a
+ * search result should recommend a seller at all. Nothing consumes
+ * `selectedOffer` today — no storefront screen and no analytics envelope reads
+ * it — so there is no consumer waiting on the answer either.
  *
  * The selector receives PROJECTED offers — already freshness-assessed, already
  * narrowed to what a comparison would show — so it cannot select something a
@@ -55,9 +79,15 @@ export interface SearchOfferSelectionInput {
 /**
  * A selector: given one product's current offers, which one leads.
  *
- * Synchronous and pure by contract. A selector that had to read is a selector
- * that can block a search page, and #74's own inputs (its policy version, its
- * weights) are things it holds, not things it fetches per product.
+ * Synchronous and pure by contract, because a selector that had to read is a
+ * selector that can block a search page.
+ *
+ * That contract was written on the assumption that #74's inputs — its policy
+ * version, its weights — would be things a selector HOLDS rather than things it
+ * fetches per product. #74 shipped otherwise: its policy is resolved by a read
+ * keyed on each comparison subject. The assumption is left stated rather than
+ * quietly relaxed, because it is the thing to revisit first if this seam is ever
+ * filled (#230).
  *
  * Returning `undefined` is legitimate and means "no offer should lead here" —
  * a selector may decline, and the result then renders exactly as it does today.

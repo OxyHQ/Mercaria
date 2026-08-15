@@ -4109,8 +4109,12 @@ conditions.
 - Seams left, each failing closed: **#93** (`resolvePickupProximity` refuses, so
   `best_nearby_pickup` is never awarded), **a tax-inclusion column**
   (`resolveOfferTaxInclusion` answers `unknown` — guessing from the market is how
-  a 21% error enters a total), **#70** (canonical search consumes
-  `rankOfferComparison`; nothing here reaches into search), **#84** (a native
+  a 21% error enters a total), **#70** (canonical search does NOT consume
+  `rankOfferComparison` and `registerSearchOfferSelector` has no call site —
+  #230: a search selector is sync and is handed its offers, `rankOfferComparison`
+  is async, fetches its own and resolves its policy per subject, so filling the
+  seam is a port-SHAPE change plus an undecided intent; nothing here reaches into
+  search either way), **#84** (a native
   offer names no merchant, so its seller rating is unknown — neutral, which
   prevents a hidden native preference AND a hidden native penalty), **#111** (the
   experiment arm).

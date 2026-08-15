@@ -396,8 +396,14 @@ Each is a named contract that fails closed, not a stub:
 
 - **#93** — `resolvePickupProximity`. Until collection points are published,
   `best_nearby_pickup` is never awarded and the signal is always unknown.
-- **#70** — canonical search consumes `rankOfferComparison`. It is the published
-  entry point; nothing in this domain reaches into search.
+- **#70** — canonical search does NOT consume `rankOfferComparison` today, and
+  `registerSearchOfferSelector` has no production call site (#230). The two
+  cannot be composed as they stand: a search selector is synchronous and is
+  handed its offers, while `rankOfferComparison` is `async`, fetches the offers
+  it ranks, and resolves its policy by a read keyed on each comparison subject.
+  Filling the seam is a change to #70's port shape plus a product decision about
+  which intent a query ranks under; `selected-offer.port.ts` carries the detail.
+  Nothing in this domain reaches into search in either case.
 - **#84** — a NATIVE offer names no merchant, so its seller rating is unknown to
   this domain until native stores are linked to merchants. Unknown is neutral,
   which is what prevents both a hidden native preference and a hidden native
