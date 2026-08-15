@@ -52,7 +52,7 @@ Reference: shop.app's live DOM (captured and mapped node‑for‑node in
 - `packages/backend/src/lib/mock-products.ts` + a **public** `GET /feed` endpoint (no auth)
   returns a discriminated `Feed.sections[]`: `{ kind: 'products' | 'merchants' | 'categories' | 'category-pills', … }`.
 - Frontend `useFeed()` (TanStack Query) → `app/(app)/index.tsx` maps the sections.
-- Shared DTOs in `packages/shared-types` (`ProductSummary`, `MerchantSummary`,
+- Shared DTOs in `packages/shared-types` (`ProductSummary`, `StoreSummary`,
   `ProductThumbnail`, `Category`, `CategoryTile`, `Money`, `Shelf`, `Feed`).
 
 ### Why the images kept showing blank — and the fix

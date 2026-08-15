@@ -121,7 +121,7 @@ export async function findStoreByHandle(
 /**
  * Several stores by id, WITHOUT members.
  *
- * The batch read hydration uses to build a `MerchantSummary`, which needs the
+ * The batch read hydration uses to build a `StoreSummary`, which needs the
  * store's public face and never its membership. Keeping members off this path
  * is not an optimization detail: it is what stops a storefront response from
  * carrying the list of Oxy accounts that can act for the shop.

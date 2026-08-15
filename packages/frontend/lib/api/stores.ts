@@ -2,7 +2,7 @@ import type {
   ApiResponse,
   Collection,
   Listing,
-  MerchantSummary,
+  StoreSummary,
   Pagination,
 } from '@mercaria/shared-types';
 import apiClient from './client';
@@ -16,7 +16,7 @@ import apiClient from './client';
 
 /** Public store detail: the merchant summary + first page of listings. */
 export interface StoreDetailResponse {
-  store: MerchantSummary;
+  store: StoreSummary;
   listings: Listing[];
   pagination: Pagination;
 }

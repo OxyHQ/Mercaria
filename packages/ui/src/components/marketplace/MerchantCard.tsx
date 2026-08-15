@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Star } from "lucide-react-native";
 import { Text } from "../ui/text";
 import { formatReviewCount } from "../../lib/format";
-import type { MerchantSummary } from "@mercaria/shared-types";
+import type { StoreSummary } from "@mercaria/shared-types";
 
 /** Fixed card height (px) — the carousel sizes the slot width, the card the height. */
 const CARD_HEIGHT = 397;
@@ -36,7 +36,7 @@ const TONE_DARK = "#111111";
 const GRADIENT_LOCATIONS = [0.2, 0.8] as const;
 
 export interface MerchantCardProps {
-  merchant: MerchantSummary;
+  merchant: StoreSummary;
   onPressMerchant?: (handle: string) => void;
   onPressProduct?: (id: string) => void;
 }

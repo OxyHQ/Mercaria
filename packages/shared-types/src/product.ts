@@ -3,7 +3,7 @@
  *
  * A `Feed` is an ordered list of `sections`, each discriminated by `kind`:
  * `'products'` sections hold a row of `ProductSummary` cards, `'merchants'`
- * sections hold a row of `MerchantSummary` (shop) cards, and `'categories'`
+ * sections hold a row of `StoreSummary` (shop) cards, and `'categories'`
  * sections hold a row of `Category` cards (each card a header + 2×2 subcategory
  * grid). These are the canonical server-serialized shapes consumed directly by
  * the frontend home screen.
@@ -47,11 +47,29 @@ export interface ProductThumbnail {
 /** Text/foreground tone to use over a merchant's cover/brand color. */
 export type TextTone = 'light' | 'dark';
 
-/** A merchant (shop) as summarized for the home feed's merchant carousel. */
-export interface MerchantSummary {
-  /** Stable merchant id. */
+/**
+ * A native Mercaria STORE as summarized for the home feed's shop carousel.
+ *
+ * Named `MerchantSummary` until #36/#38 re-homed it, which ADR 0002's entity
+ * glossary assigned to #70–#73. The word `Merchant` is reserved for the
+ * CANONICAL seller identity in `./merchant` — `merchants` the table, `Merchant`
+ * the DTO — and the ADR resolves exactly this collision by moving whichever
+ * side does not own the bare word (its `CanonicalProduct` row states the rule).
+ * Here the canonical side took `Merchant`, and D4 names the native thing "the
+ * existing native `Store`", so this is the side that moved.
+ *
+ * It is NOT `Store` (`./store`, the admin-facing shape with members and
+ * permissions) and NOT `Merchant`. It is the public browse/feed CARD.
+ *
+ * The wire contract is untouched: the section that carries these is still
+ * `MerchantFeedSection` with `kind: 'merchants'` and a `merchants` field,
+ * because a shipped client reads those strings and a type name is compile-time
+ * only. Retiring the wire spelling is a versioned change of its own.
+ */
+export interface StoreSummary {
+  /** Stable store id. */
   id: string;
-  /** Merchant handle (without leading @), used to build the `/m/<handle>` route. */
+  /** Store handle (without leading @), used to build the `/m/<handle>` route. */
   handle: string;
   /** Display name of the shop. */
   name: string;
@@ -127,7 +145,7 @@ export interface MerchantFeedSection {
   /** Human-readable section heading. */
   title: string;
   /** Ordered merchants in this section. */
-  merchants: MerchantSummary[];
+  merchants: StoreSummary[];
 }
 
 /** A home-feed section holding a row of category cards (each card brings its own header). */

@@ -118,14 +118,27 @@ const RELATIONSHIP_WRITE =
 /**
  * The home-feed card projection of a NATIVE STORE (ADR 0002, entity glossary).
  *
- * Named `MerchantSummary` and about a STORE, which is exactly the confusion
- * #73's title forbids. The ADR assigns re-homing it to #70–#73 and it is still
- * un-rehomed — see `docs/merchant-pages.md` for why #73 did not perform a
- * twenty-file cross-package rename it has no numbered requirement for. What
- * this gate holds instead is the half that matters: no merchant-page surface
- * can render a native store's card as "the merchant".
+ * #73 shipped this gate while the DTO was still called `MerchantSummary` — a
+ * store card wearing the word the ADR reserves for the canonical seller
+ * identity, which is exactly the confusion #73's title forbids. #36/#38 then
+ * performed the re-homing the ADR assigned to #70–#73 and it is now
+ * `StoreSummary`.
+ *
+ * The wall did not move with the name: no merchant-page surface may render a
+ * native store's card as "the merchant", whatever that card's type is called.
+ * BOTH spellings are matched, so reverting the rename in one file cannot walk
+ * around it, and a merchant-page module that reaches for the retired name is
+ * caught by the same assertion.
+ *
+ * Matching an absence is only meaningful if the subject EXISTS, so
+ * `the native-store card DTO exists to be excluded` below is this detector's
+ * vacuity floor: delete or rename `StoreSummary` and the floor fails HERE
+ * rather than leaving 17 files trivially clean.
  */
-const NATIVE_STORE_CARD_DTO = /\bMerchantSummary\b/;
+const NATIVE_STORE_CARD_DTO = /\bStoreSummary\b|\bMerchantSummary\b/;
+
+/** Where the DTO is declared — read by the vacuity floor, not by the wall. */
+const NATIVE_STORE_CARD_DECLARATION = 'shared-types/src/product.ts';
 
 function read(relative: string): string {
   const source = readFileSync(join(PACKAGES_ROOT, relative), 'utf8');
@@ -238,12 +251,30 @@ describe('the merchant page cannot reach payment, location or ranking', () => {
     }
   });
 
+  /**
+   * The vacuity floor for the wall below.
+   *
+   * "No file imports it" is also what a deleted type looks like, so the subject
+   * is proven present — under its CURRENT name — before the absence is asserted.
+   */
+  it('the native-store card DTO exists to be excluded', () => {
+    const declaration = read(NATIVE_STORE_CARD_DECLARATION);
+    expect(
+      /export interface StoreSummary\b/.test(declaration),
+      `${NATIVE_STORE_CARD_DECLARATION} no longer declares StoreSummary — the wall below is ` +
+        'measuring the absence of nothing. Repoint NATIVE_STORE_CARD_DTO at wherever it went.',
+    ).toBe(true);
+    // …and that the wall's own pattern can see it, so a broken regex fails here.
+    expect(NATIVE_STORE_CARD_DTO.test(declaration)).toBe(true);
+  });
+
   it('renders no native-store card DTO as the merchant', () => {
     for (const relative of [...BACKEND_PATHS, ...FRONTEND_PATHS]) {
       const code = stripComments(read(relative));
       expect(
         NATIVE_STORE_CARD_DTO.test(code),
-        `${relative} imports MerchantSummary, which is a home-feed card for a native STORE`,
+        `${relative} imports the native-store home-feed card DTO (StoreSummary, or its retired ` +
+          'name MerchantSummary), which is a card for a native STORE and not the merchant',
       ).toBe(false);
     }
   });
@@ -351,8 +382,14 @@ describe('the detectors actually detect — the mutation self-test', () => {
     expect(RELATIONSHIP_WRITE.test('await listMerchantBrandRelationships({ merchantId })')).toBe(
       false,
     );
+    expect(NATIVE_STORE_CARD_DTO.test('import type { StoreSummary } from "x"')).toBe(true);
+    // The RETIRED spelling still trips it, so reverting the #36/#38 rename in
+    // one file cannot walk around the wall.
     expect(NATIVE_STORE_CARD_DTO.test('import type { MerchantSummary } from "x"')).toBe(true);
     expect(NATIVE_STORE_CARD_DTO.test('const summary = page.offerMix;')).toBe(false);
+    // `Merchant` and `Store` alone are ordinary words in this domain — the
+    // detector must not fire on the canonical DTO or the admin-facing one.
+    expect(NATIVE_STORE_CARD_DTO.test('import type { Merchant, Store } from "x"')).toBe(false);
   });
 
   it('the comment stripper does not eat code', () => {

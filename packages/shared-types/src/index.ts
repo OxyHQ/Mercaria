@@ -33,7 +33,9 @@ export * from './condition';
 // Listing domain entity, enums and request payloads.
 export * from './listing';
 
-// Product/merchant browse/feed DTOs (ProductSummary, MerchantSummary, FeedSection, Feed).
+// Product/store browse/feed DTOs (ProductSummary, StoreSummary, FeedSection, Feed).
+// `StoreSummary` was `MerchantSummary` until #36/#38 — the word `Merchant` is
+// reserved for `./merchant`'s canonical entity (ADR 0002, entity glossary).
 export * from './product';
 
 // Tax DTOs (TaxRate, TaxLine, TaxRegion, TaxSettings, Create/UpdateTaxRateInput, …).
@@ -139,8 +141,9 @@ export * from './provenance';
 export * from './organization';
 
 // Canonical merchant/storefront graph DTOs (Merchant, Storefront, NativeStoreLink, …)
-// — issue #54, ADR 0002. NOT the same thing as MerchantSummary in `./product`,
-// which is a native-store feed card projection.
+// — issue #54, ADR 0002. NOT the same thing as StoreSummary in `./product`,
+// which is a native-store feed card projection and is named for what it is
+// since #36/#38.
 export * from './merchant';
 
 // Merchant claiming — the flow that moves `merchants.claim_state` (#83, epic

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useOxy } from '@oxyhq/services';
-import type { MerchantSummary } from '@mercaria/shared-types';
+import type { StoreSummary } from '@mercaria/shared-types';
 import { ensureStoreFollowKind, STORE_FOLLOW_KIND, storeFollowUri } from '../follow-graph';
 import { queryKeys } from './query-keys';
 
@@ -18,7 +18,7 @@ import { queryKeys } from './query-keys';
  * target, and the caller renders no follow control rather than one that would
  * fail on press.
  */
-export function useStoreFollowTarget(store: MerchantSummary) {
+export function useStoreFollowTarget(store: StoreSummary) {
   const { oxyServices, canUsePrivateApi } = useOxy();
 
   return useQuery<string>({

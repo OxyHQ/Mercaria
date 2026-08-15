@@ -94,6 +94,22 @@ home-feed card projections of native listings and stores. #70–#73 will re-home
 them; until then they keep their names and nothing imports them as canonical
 types.
 
+> **Amendment, 2026-08-16 (#36/#38).** The re-homing above was performed.
+> `MerchantSummary` is now **`StoreSummary`** and `toMerchantSummary` is
+> `toStoreSummary`; `ProductSummary` keeps its name. The replacement is not
+> written anywhere above, so it was derived from this glossary: the `Merchant`
+> row reserves the bare word for the canonical seller identity, D4 names the
+> native side "the existing native `Store`", and the `Product` row states the
+> tie-break — the side that does NOT own the bare word is the side that moves.
+> For products that was the canonical side (`CanonicalProduct`), which is why
+> `ProductSummary` is already unambiguous; for merchants the canonical side
+> holds `Merchant`, so the native store card moved instead. The decision above
+> is unchanged; only the pending action it named is now done.
+>
+> The WIRE contract was deliberately left alone: `MerchantFeedSection` still
+> discriminates on `kind: 'merchants'` with a `merchants` field, because shipped
+> clients read those strings while a type name is compile-time only.
+
 ## The graph at a glance
 
 ```mermaid

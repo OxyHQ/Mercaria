@@ -17,7 +17,7 @@ import {
   formatReviewCount,
   type ProductSummary,
 } from "@mercaria/ui";
-import type { Listing, MerchantSummary } from "@mercaria/shared-types";
+import type { Listing, StoreSummary } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
@@ -103,7 +103,7 @@ function toProductSummary(listing: Listing, brand: string): ProductSummary {
  */
 const STORE_RATING_LABEL = REVIEW_SCOPE_LABELS.merchant;
 
-function glassStyle(store: MerchantSummary) {
+function glassStyle(store: StoreSummary) {
   return { backgroundColor: `${store.brandColor}${GLASS_ALPHA}` } as const;
 }
 
@@ -120,7 +120,7 @@ function CollectionPill({
   imageUrl?: string;
   active: boolean;
   toneColor: string;
-  store: MerchantSummary;
+  store: StoreSummary;
   onPress: () => void;
 }) {
   return (
@@ -191,7 +191,7 @@ function GridSkeleton() {
 }
 
 /** Body of the store page — only rendered once `store` is present. */
-function StoreBody({ handle, store }: { handle: string; store: MerchantSummary }) {
+function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
   const router = useRouter();
   const toneColor = store.textTone === "light" ? TONE_LIGHT : TONE_DARK;
   // Scoped shadcn theme tokens derived from the store's palette. Applied to the

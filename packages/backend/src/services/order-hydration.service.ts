@@ -51,7 +51,7 @@ import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { resolveOrderCommercialPresentations } from './commercial-presentation/order-commercial.service.js';
 import { readRetailOrderExperience } from './commercial-presentation/retail-order.service.js';
 import { orderBuyerOf } from './orders/order-buyer.js';
-import { resolveMedia, toMerchantSummary } from './catalog-hydration.service.js';
+import { resolveMedia, toStoreSummary } from './catalog-hydration.service.js';
 
 /**
  * The four columns of a `DualMoney`, reassembled.
@@ -555,7 +555,7 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
       dto.storeId = storeId;
       const store = storeById.get(storeId);
       if (store) {
-        dto.store = toMerchantSummary(store, []);
+        dto.store = toStoreSummary(store, []);
       }
     }
 
@@ -721,7 +721,7 @@ export async function summarizeOrders(orders: OrderRecord[]): Promise<OrderSumma
     } else if (order.sellerType === 'store' && order.storeId) {
       const store = storeById.get(order.storeId);
       if (store) {
-        summary.store = toMerchantSummary(store, []);
+        summary.store = toStoreSummary(store, []);
       }
     }
 

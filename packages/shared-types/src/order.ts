@@ -28,7 +28,7 @@ import type {
 } from './payment';
 import type { CommercialPresentation, RetailOrderExperience } from './commercial-presentation';
 import type { Seller } from './seller';
-import type { MerchantSummary } from './product';
+import type { StoreSummary } from './product';
 import type { Timestamps } from './common';
 import type { DiscountAllocation } from './discount';
 import type { TaxLine } from './tax';
@@ -257,11 +257,11 @@ export interface AddressSnapshot {
 
 /**
  * The seller identity attached to an order, discriminated by `type`: a P2P order
- * carries a `Seller`, a store order carries a `MerchantSummary`.
+ * carries a `Seller`, a store order carries a `StoreSummary`.
  */
 export type OrderSellerMini =
   | { type: 'user'; seller: Seller }
-  | { type: 'store'; store: MerchantSummary };
+  | { type: 'store'; store: StoreSummary };
 
 /** A single entry in an order's status history (audit trail of transitions). */
 export interface OrderStatusEvent {
@@ -359,7 +359,7 @@ export interface Order extends Timestamps {
   /** Hydrated P2P seller identity, for `sellerType: 'user'`. */
   seller?: Seller;
   /** Hydrated store identity, for `sellerType: 'store'`. */
-  store?: MerchantSummary;
+  store?: StoreSummary;
   /** Immutable line item snapshots. */
   items: OrderItem[];
   /** Immutable shipping destination snapshot. */
@@ -444,7 +444,7 @@ export interface OrderSummary {
   /** Hydrated P2P seller identity, for `sellerType: 'user'`. */
   seller?: Seller;
   /** Hydrated store identity, for `sellerType: 'store'`. */
-  store?: MerchantSummary;
+  store?: StoreSummary;
   /**
    * Who sold it (#129). Present on a summary as well as on the full order,
    * because an order LIST is a purchase surface too: a row reading only a total

@@ -10,12 +10,14 @@
  * (D4) — the operational store keeps its members, permissions, inventory and
  * orders untouched.
  *
- * ## Not `MerchantSummary`
+ * ## Not `StoreSummary`
  *
- * `MerchantSummary` in `./product` is a home-feed card projection of a NATIVE
+ * `StoreSummary` in `./product` is a home-feed card projection of a NATIVE
  * store and predates the canonical graph (ADR 0002, entity glossary). Nothing
- * may import it as a canonical type, and nothing here replaces it — #70–#73
- * re-home it.
+ * may import it as a canonical type and nothing here replaces it. It was called
+ * `MerchantSummary` until #36/#38 performed the re-homing the ADR assigned to
+ * #70–#73; the rename is what makes "not a canonical type" readable from the
+ * name rather than only from this paragraph.
  *
  * ## Value sets shared with the rest of the graph
  *

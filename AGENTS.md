@@ -5378,13 +5378,22 @@ domain is a projection, the #92 shape taken for the #57 reason.
   mutation-tests Q25 by dropping the index in a rolled-back transaction. The
   exploratory floor in `workload.test.ts` came DOWN from 5 to 4 with the
   promotion named — a floor that could never drop would forbid the improvement.
-- **Known gap, stated rather than quietly narrowed: `MerchantSummary` is still
-  un-rehomed.** ADR 0002's glossary assigns re-homing that home-feed card DTO
-  for a native STORE to #70–#73; #70 did not and #73 did not, because it is a
-  twenty-file cross-package rename in a batch of fourteen parallel branches with
-  no numbered requirement behind it. What #73 holds instead is the half that
-  matters: the isolation gate fails the build if any merchant-page surface, in
-  either package, imports it. The rename remains owed.
+- **`MerchantSummary` is now `StoreSummary`** (#36/#38 did the re-homing ADR 0002's
+  glossary assigned to #70–#73 and neither performed). The ADR spells no
+  replacement, so it was DERIVED from the glossary and the derivation is written
+  down in `docs/merchant-pages.md`: the bare word `Merchant` is reserved for the
+  canonical seller identity, D4 calls the native side "the existing native
+  `Store`", and the `Product` row states the tie-break — the side that does NOT
+  own the bare word moves. **`ProductSummary` is deliberately NOT renamed**, by
+  that same rule: the canonical product side already moved
+  (`CanonicalProduct`). **The WIRE contract is untouched** —
+  `MerchantFeedSection`, `kind: 'merchants'`, the `merchants` field and
+  `@mercaria/ui`'s `MerchantCard`/`MerchantCarousel` keep their names, because a
+  type name is compile-time only and those strings are read by shipped clients.
+  #73's isolation gate did not move with the name: it matches BOTH spellings, so
+  a partial revert cannot walk around it, and it gained a vacuity floor
+  asserting the DTO still EXISTS under its current name — "nobody imports it" is
+  also what a deleted type looks like.
 - Seams: **#67/#37** (`resolveChannelOutbound` refuses unconditionally and its
   refusal branch has no `url` property), **#74** (ranking — a scanned gate both
   ways), **#84** (the linkage flow; this page only READS `native_store_links`),

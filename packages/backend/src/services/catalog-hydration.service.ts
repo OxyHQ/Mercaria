@@ -42,7 +42,7 @@ import type {
   ProductThumbnail,
   CommercialPresentation,
   ProductVariantDTO,
-  MerchantSummary,
+  StoreSummary,
   Seller,
 } from '@mercaria/shared-types';
 import {
@@ -238,7 +238,7 @@ function toSeller(
 }
 
 /**
- * Build the PUBLIC `MerchantSummary` projection of a store. `products` are a few
+ * Build the PUBLIC `StoreSummary` projection of a store. `products` are a few
  * `ProductThumbnail`s drawn from the store's listings' images. Exported for the
  * feed's "Worth the hype" shelf.
  *
@@ -246,11 +246,11 @@ function toSeller(
  * play; a thumbnail is the FIRST image, and a listing with none renders an empty
  * URL exactly as it did before.
  */
-export function toMerchantSummary(
+export function toStoreSummary(
   store: StoreRow,
   featuredListings: ListingRecord[],
   imagesByListing: Map<string, ListingImageRecord[]> = new Map(),
-): MerchantSummary {
+): StoreSummary {
   const products: ProductThumbnail[] = featuredListings
     .slice(0, config.feed.storeCardThumbnails)
     .map((listing) => {
@@ -262,7 +262,7 @@ export function toMerchantSummary(
       };
     });
 
-  const summary: MerchantSummary = {
+  const summary: StoreSummary = {
     id: store.id,
     handle: store.handle,
     name: store.name,
@@ -576,7 +576,7 @@ export async function hydrateListings(
     } else if (listing.ownerType === 'store' && listing.storeId) {
       const store = storeById.get(listing.storeId);
       if (store) {
-        dto.store = toMerchantSummary(
+        dto.store = toStoreSummary(
           store,
           listingsByStore.get(listing.storeId) ?? [listing],
           children.images,

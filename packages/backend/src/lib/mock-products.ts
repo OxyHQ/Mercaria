@@ -6,7 +6,7 @@
  *
  * The feed is an ordered list of discriminated `FeedSection`s: `'products'`
  * sections hold a row of `ProductSummary` cards, and `'merchants'` sections hold
- * a row of `MerchantSummary` (shop) cards. Typed strictly against the shared
+ * a row of `StoreSummary` (shop) cards. Typed strictly against the shared
  * `@mercaria/shared-types` contract so the feed endpoint exercises those DTOs
  * end to end.
  *
@@ -26,7 +26,7 @@ import type {
   CategoryFeedSection,
   CategoryPillsFeedSection,
   ProductSummary,
-  MerchantSummary,
+  StoreSummary,
   Category,
   CategoryPill,
 } from '@mercaria/shared-types';
@@ -216,7 +216,7 @@ const ON_SALE_PRODUCTS: ProductSummary[] = [
  * reads as a tasteful brand wash under the text + thumbnails. `textTone` is set
  * per color (darker washes → `'light'` text; lighter washes → `'dark'` text).
  */
-const WORTH_THE_HYPE_MERCHANTS: MerchantSummary[] = [
+const WORTH_THE_HYPE_MERCHANTS: StoreSummary[] = [
   {
     id: 'mer-1',
     handle: 'palomawool',
