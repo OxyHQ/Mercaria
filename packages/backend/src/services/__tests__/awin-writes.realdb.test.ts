@@ -180,7 +180,7 @@ afterAll(async () => {
     // the matching enable leaves the trigger off for the rest of the run and
     // every later file asserting it refuses a write passes VACUOUSLY. See
     // `withTriggerToggleLock`. One statement per window, because the
-    // transaction holds ACCESS EXCLUSIVE on the table it disables a trigger on
+    // transaction holds ShareRowExclusive on the table it disables a trigger on
     // and serializes against every other trigger window in the suite.
     await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(

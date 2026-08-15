@@ -233,7 +233,7 @@ describe('a TRANSACTION-scoped advisory lock', () => {
     // The subject is this file's OWN trigger, created two statements from here
     // and dropped in the `finally` — see {@link PROBE_TRIGGER} for why an
     // exclusive one is what makes the three assertions below measurements
-    // rather than a tautology. It also narrows the ACCESS EXCLUSIVE the window
+    // rather than a tautology. It also narrows the ShareRowExclusive the window
     // takes to a table nothing else reads.
     const TRIGGER_STATE = sql`select tgenabled as state from pg_trigger where tgname = ${PROBE_TRIGGER}`;
     const enabled = async (): Promise<string> => {

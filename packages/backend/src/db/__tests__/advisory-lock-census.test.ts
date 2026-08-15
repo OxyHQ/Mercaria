@@ -448,6 +448,15 @@ interface TriggerWindowSite {
   readonly toggles: string | null;
   /** Whether the SAME window re-enables what this statement disabled. */
   readonly reEnabled: boolean;
+  /**
+   * Identity of the enclosing `withTriggerToggleLock` callback, so two disables
+   * can be told to be in ONE window rather than in two. The callback's start
+   * offset; `null` when the statement is in no window at all (which rule 2
+   * already fails it for).
+   */
+  readonly windowStart: number | null;
+  /** The TABLE this statement names, as written. `null` when unreadable. */
+  readonly table: string | null;
 }
 
 /**
@@ -555,6 +564,8 @@ function triggerWindowSites(file: string, source: string): TriggerWindowSite[] {
         locked: handle !== null && handle === handleOf(window),
         toggles,
         reEnabled: window !== null && toggles !== null && enabledWithin(window).has(toggles),
+        windowStart: window === null ? null : window.getStart(parsed),
+        table: subject?.table ?? null,
       });
     }
     ts.forEachChild(node, visit);
@@ -829,6 +840,116 @@ describe('the advisory-lock census', () => {
       offenders,
       'a database-wide `alter table … disable trigger` runs outside `withTriggerToggleLock`. On the POOL that DDL autocommits, so a throw before the matching enable leaves the trigger off for the rest of the run and every later file asserting it refuses a write passes vacuously. Wrap the window in `withTriggerToggleLock(db, async (tx) => …)` and issue every statement on `tx` — and before you do, check whether the trigger has an event the window can even fire: several of #283\'s turned out to be `before update` triggers bracketing a delete, and the narrowest window is no window.',
     ).toEqual([]);
+  });
+
+  it('opens no window over more than ONE table', () => {
+    // RULE 4 (#301), and it is the half rules 1-3 cannot express: all three ask
+    // about the LOCK, and this one is about how many TABLE locks the window
+    // holds at once.
+    //
+    // `alter table … disable trigger` takes ShareRowExclusive — not ACCESS
+    // EXCLUSIVE, which is what this repository said until #301 measured it off a
+    // real `pg_locks` wait and off CI's own `40P01` detail. ShareRowExclusive
+    // does NOT conflict with AccessShare, so a plain reader is not the
+    // counterparty and never was; it conflicts with RowExclusive, which is what
+    // every ordinary INSERT/UPDATE/DELETE holds. So a window holding one
+    // table's lock while acquiring a second's deadlocks against any writer that
+    // takes the two in the opposite order — and the shared mutex CANNOT prevent
+    // it, because the mutex serialises window against window and this
+    // counterparty is a plain write from any sibling file. Measured: it killed
+    // a `Deploy to AWS` run on `main` (merge 9c1d430) on `ledger_entries` ->
+    // `ledger_transactions` against `insertLedgerTransaction`.
+    //
+    // The rule is "one table", not "the writer's order", deliberately. Ordering
+    // is correct only until somebody adds a writer with the opposite one, and
+    // both orders already exist here: `insertLedgerTransaction` writes parent
+    // then child (the foreign key forces it) while `applyRewardAdjustment`
+    // writes child then parent. With one disable per window the transaction
+    // holds exactly ONE strong lock, and every other lock it takes is
+    // RowExclusive, which never conflicts with another RowExclusive — so no
+    // cycle can form, whatever any writer does later.
+    const offenders: string[] = [];
+    let windowsExamined = 0;
+    for (const [file, found] of windows) {
+      const byWindow = new Map<number, TriggerWindowSite[]>();
+      for (const site of found) {
+        if (site.windowStart === null) continue;
+        const group = byWindow.get(site.windowStart) ?? [];
+        group.push(site);
+        byWindow.set(site.windowStart, group);
+      }
+      for (const group of byWindow.values()) {
+        windowsExamined++;
+        const tables = new Set(group.map((site) => site.table ?? '<unreadable>'));
+        if (tables.size > 1) {
+          offenders.push(
+            `${file}:${group[0]?.line} — one window over ${tables.size} tables (${[...tables].join(', ')})`,
+          );
+        }
+      }
+    }
+
+    // The floor is what separates "no window holds two tables" from "the
+    // grouping stopped working" — a parser that lost `windowStart` reports the
+    // same empty list a clean estate does.
+    expect(
+      windowsExamined,
+      'the one-table rule grouped no windows at all, so its empty offender list measures nothing',
+    ).toBeGreaterThanOrEqual(TRIGGER_WINDOW_FLOOR - 4);
+
+    expect(
+      offenders,
+      'a `withTriggerToggleLock` window disables triggers on more than one table. `alter table … disable trigger` takes ShareRowExclusive, which conflicts with the RowExclusive an ordinary INSERT/UPDATE/DELETE holds — so holding one table\'s lock while acquiring another\'s deadlocks (40P01) against any writer taking the pair the other way round, and the shared mutex cannot prevent it because it serialises windows against windows while the counterparty is a plain writer. Split it: one `withTriggerToggleLock` call per table, keeping the DELETES children-first where a foreign key requires it. Do NOT instead reorder the disables to match the current writer — both orders already exist in this repository, so that is a bet rather than a fix.',
+    ).toEqual([]);
+  });
+
+  it('detects a two-table window and clears two one-table windows', () => {
+    // The mutation self-test for RULE 4. Like the others it can only report an
+    // empty list, which is what a dead detector reports too.
+    const probe = (body: string): TriggerWindowSite[] => triggerWindowSites('probe.ts', body);
+    const windowCount = (sites: TriggerWindowSite[]): number =>
+      new Set(sites.filter((site) => site.windowStart !== null).map((site) => site.windowStart))
+        .size;
+
+    // The shape that cost the deploy: ONE window, two tables.
+    const merged = probe(`
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(sql\`alter table ledger_entries disable trigger a\`);
+        await tx.execute(sql\`alter table ledger_transactions disable trigger b\`);
+      });
+    `);
+    expect(merged, 'the two disables were not detected').toHaveLength(2);
+    expect(windowCount(merged), 'two disables in one callback read as two windows').toBe(1);
+    expect(
+      new Set(merged.map((site) => site.table)).size,
+      'the two tables were not told apart',
+    ).toBe(2);
+
+    // The fix: two windows, one table each.
+    const split = probe(`
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(sql\`alter table ledger_entries disable trigger a\`);
+      });
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(sql\`alter table ledger_transactions disable trigger b\`);
+      });
+    `);
+    expect(windowCount(split), 'two separate calls read as one window').toBe(2);
+    for (const site of split) {
+      expect(site.windowStart, 'a split window lost its identity').not.toBeNull();
+    }
+
+    // Two disables of the SAME table in one window are not an offence — the
+    // second acquires no new lock. `offer-freshness` spells one `disable
+    // trigger all`, and a window may legitimately name its table twice.
+    const sameTable = probe(`
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(sql\`alter table x disable trigger a\`);
+        await tx.execute(sql\`alter table x disable trigger b\`);
+      });
+    `);
+    expect(windowCount(sameTable)).toBe(1);
+    expect(new Set(sameTable.map((site) => site.table)).size).toBe(1);
   });
 
   it('re-enables in the same window everything it disables', () => {
