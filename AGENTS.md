@@ -5598,6 +5598,15 @@ somebody lives that request-local coarsening exists to avoid).
   entries because the `lib/` ones are API clients whose template literals are
   SERVER paths. Mutation-tested by renaming `app/(app)/nearby.tsx`: four
   assertions go red, and the restore is byte-identical.
+- **An interpolated QUERY STRING made the same gate pass vacuously**, and
+  widening it is what exposed that. `routeExists` reads any segment containing
+  `${` as a WILDCARD, so `/guest-orders/portal?group=${id}` was one segment
+  `portal?group=${id}` that matched ANY two-segment route — deleting the portal
+  screen left the target resolving happily. `routePathOf` cuts the query, and
+  cuts it only at a `?` in the LITERAL head: a `?` after the first `${` is
+  inside a ternary, and cutting there truncates a real segment mid-expression
+  (the control caught that on its first run). Any future route gate in this repo
+  owes both halves — strip the query, and do not strip inside an interpolation.
 - **A new storefront screen owes the SEO route map a decision.**
   `seo-routes.test.ts` fails the build on a screen in neither the public
   registry nor `NON_PUBLIC_SCREENS`, and `seo-robots.test.ts` then requires the
