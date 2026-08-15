@@ -104,6 +104,7 @@ import {
   catalogSourceConfigs,
   marketplaceSellerIdentities,
 } from '../../db/schema/ingestion.js';
+import { locationPublications } from '../../db/schema/pickup.js';
 
 /**
  * What the merge does with one referencing column.
@@ -740,6 +741,19 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         "#87's connection wizard, the channel half. It moves WITH the merchant column above — " +
         'the pair names one binding, and repointing one without the other would leave a session ' +
         'claiming a storefront that belongs to a different merchant.',
+    },
+    {
+      column: locationPublications.storefrontId,
+      phase: 'children',
+      disposition: 'repoint',
+      note:
+        "#93's shop front, pointed at the CHANNEL it is a branch of. It follows the survivor " +
+        'for the `catalog_source_configs` reason one entry up: a published location naming a ' +
+        'tombstoned storefront would keep appearing in nearby results with a channel card ' +
+        'nobody can open. No unique spans it, and the column is nullable — a merchant who never ' +
+        'named a storefront is unaffected either way. Note what is NOT here: the MERCHANT half ' +
+        "of #93 publication field 2 is not a column at all — #84's `native_store_links` answers " +
+        'it, so a merchant merge rehomes it through that table and never through this one.',
     },
   ],
 

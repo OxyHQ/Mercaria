@@ -61,6 +61,8 @@ import offersRouter from './routes/offers.js';
 import retailOffersRouter from './routes/retail-offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
 import searchRouter from './routes/search.js';
+import nearbyRouter from './routes/nearby.js';
+import internalPickupRouter from './routes/internal-pickup.js';
 import internalSearchRouter from './routes/internal-search.js';
 import productPageRouter from './routes/product-page.js';
 import searchIntentRouter from './routes/search-intent.js';
@@ -476,6 +478,32 @@ export function createApp(): express.Express {
    */
   if (config.canonicalRollout.publicRoutesEnabled) {
     app.use('/product-page', productPageRouter);
+  }
+
+  /**
+   * Nearby discovery (#93), behind its OWN read lever.
+   *
+   * `NEARBY_DISCOVERY_ENABLED` gates the MOUNT and nothing durable: a
+   * publication, its hours, its closures and every collection already placed
+   * are untouched by it, and the merchant surface that composes them stays
+   * mounted under `/admin` regardless. What the lever withdraws is the buyer's
+   * ability to ASK where something is — which is the half that can be wrong in
+   * public, exactly as `PRICE_HISTORY_PUBLIC_READS_ENABLED` above gates a chart
+   * and never an observation.
+   *
+   * A 404 rather than an empty answer, for the same reason `/search` 404s while
+   * its lever is off: "nothing is collectable near you" and "this deployment
+   * does not offer collection" are different facts and a shopper acts
+   * differently on each.
+   */
+  if (config.pickup.nearbyEnabled) {
+    app.use('/nearby', nearbyRouter);
+  }
+  // …and #93's operator surface, on the SAME catalogue allow-list. Mounted
+  // whatever the nearby lever says: the evidence has to be readable during the
+  // incident that turned discovery off.
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/pickup', internalPickupRouter);
   }
 
   /**

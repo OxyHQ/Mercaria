@@ -397,7 +397,13 @@ describe('what a guest checkout is refused', () => {
     expect(body.message).toMatch(/Oxy account/);
   });
 
-  it('refuses pickup — the #93 seam fails CLOSED', async () => {
+  it('refuses pickup while STORE_PICKUP_ENABLED is off (#93), naming the seller', async () => {
+    // #93 landed and pickup is REACHABLE; what makes it refuse here is the
+    // deployment lever, which is off by default and off in this suite. The
+    // refusal is the same shape it was when the seam failed closed
+    // unconditionally — a `destination_incomplete` naming the seller keys —
+    // which is exactly what #105 built the contract around, so no client had
+    // to change.
     const cookie = await guestCartWithOneItem();
     const res = await guestCheckout(cookie, {
       destination: {
@@ -409,9 +415,13 @@ describe('what a guest checkout is refused', () => {
     });
     expect(res.status).toBe(409);
     const body = (await res.json()) as { message: string };
-    expect(body.message).toMatch(/not available yet/);
-    // Seller-SPECIFIC, so the buyer knows which seller to deselect.
+    expect(body.message).toMatch(/not available/);
+    // Seller-SPECIFIC, so the buyer knows which seller to deselect. It says
+    // nothing about WHY — a per-reason answer would let a client map the
+    // switchboard and read out a merchant's stock position one request at a
+    // time.
     expect(body.message).toContain(`store:${storeId}`);
+    expect(body.message).not.toMatch(/paused|stock|restricted|disabled/i);
   });
 
   it('refuses an invalid country and an invalid postal code by FIELD, never by value', async () => {

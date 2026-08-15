@@ -5378,3 +5378,184 @@ domain is a projection, the #92 shape taken for the #57 reason.
   refusal branch has no `url` property), **#74** (ranking — a scanned gate both
   ways), **#84** (the linkage flow; this page only READS `native_store_links`),
   **#71** (the product page a card links to).
+
+## Location publication, nearby discovery and collection (#93)
+
+`services/pickup/` (9 modules) + `db/pickup/` (5 repositories) +
+`db/schema/pickup.ts` (8 tables) + `/nearby`, the publication and desk halves of
+`/admin/stores/:storeId/{locations,orders}`, `/seller/listings/:id/local-discovery`
+and `/internal/pickup/*`. Full reference: **`docs/pickup.md`**; schema
+decisions: `db/schema/CONVENTIONS.md` §"Location publication and collection
+(#93)". It REUSES the existing `Location`, `InventoryLevel` and POS domains and
+adds no column to either — this is the PUBLIC face of a place plus everything a
+handover needs.
+
+It CLOSES four named seams and each was a fail-closed refusal: #105's
+`assertPickupLocationEligible` (a clean cut — the function is GONE, not aliased),
+#74's `resolvePickupProximity`, #108's `order_ready_for_pickup` message kind, and
+#70's nearby filter, which was UNREPRESENTABLE and is now a contract change to
+`SearchFilters`.
+
+**Closing a seam means sweeping the COMMENTS that cited it, and that is where
+the work was.** Six modules stated as fact that pickup was refused at checkout;
+after #93 every one of those sentences was false, and a false sentence in a
+comment is the one thing no gate catches. Three needed a real re-decision rather
+than a re-word: #110's `pickup_not_supported` is no longer an unreachable branch
+but its refusal STANDS (a buyer-driven cancellation would release a reservation
+while a collection hold nobody has modelled stayed behind — #110's call, not
+#93's); #91's sell-yours `offered` stays refused because #93 published a STORE's
+shop front and a person has no publication to acquire; and **#112's
+`fulfilment_method_permitted` moved from `unevaluable`/owner-#93 to `refused`** —
+both block, so no checkout changes, but an operator trace no longer reports a
+missing capability that has since arrived. Two seams that LOOK closable are not,
+and their reasons changed rather than expiring: #95's proximity intent has no
+ORIGIN (a request carries text and deliberately no coordinate) and #79's
+`nearby_pickup` has nowhere to STORE one (`price_alerts` has no cell column, on
+purpose — a durable alert holding a position is the standing record of where
+somebody lives that request-local coarsening exists to avoid).
+
+- **A separate publication row, with every address field OPTIONAL.**
+  `locations` holds the address a pallet is delivered to; a publication holds
+  what a merchant will have a stranger read, and "the city and nothing else" is a
+  complete answer. Widening `locations` would have made the first naive
+  `select().from(locations)` on a public route disclose a stockroom's street. It
+  also makes the default right: a store with no publication row is not
+  discoverable, which is the state every existing store is in.
+- **The verdict is DERIVED and never stored** — the
+  `deriveNativeCheckoutEligibility` divergence, over six tables in four domains
+  this one does not own, so a moderation restriction stops a collection in the
+  statement that applies it. `eligibility.ts` imports no repository and no
+  configuration (#121's posture). The buyer never sees a REASON: given three
+  published shop fronts, a per-reason answer lets a client read out a merchant's
+  stock position one request at a time (`guest_rollout_blocked`'s reasoning).
+- **Mercaria calls NO geocoding provider.** All three
+  `LOCATION_GEOCODE_PROVENANCES` are merchant or operator acts;
+  `LOCATION_FORBIDDEN_GEOCODE_PROVENANCES` names six prohibitions as VALUES,
+  disjoint by a test, and the two worth reading are a position inferred from
+  where BUYERS were or where parcels went. The consequence is stated: a merchant
+  with no map pin cannot be discovered at all, and publishing without one is
+  REFUSED rather than silently useless.
+- **The coordinate CHECK refuses the NULL ISLAND.** `(0, 0)` is a real point in
+  the Gulf of Guinea and is what every failed import writes, so a range check
+  admits the commonest bad value there is and sorts it first for everybody in
+  West Africa. Greenwich and Quito still pass — the refusal is the PAIR, and the
+  realdb suite carries that fixture because a CHECK refusing either half alone
+  would be refusing a merchant.
+- **Freshness is the LOCATION's own declared interval, NOT NULL with no
+  default** — #68's prohibition on a deployment-wide TTL, at the grain that
+  varies. Pinned by a fixture pair with ONE age, TWO intervals and opposite
+  verdicts; a shared TTL passes any single-interval fixture set.
+- **A shopper's coordinate lives inside one function call.** It reaches PostGIS
+  and is gone; what leaves is a COARSE CELL (0.1° ≈ 11 km) and distances rounded
+  OUTWARD. Coarsening is not politeness — three exact distances to three public
+  shop fronts solve for the shopper's position. The cell function is SHARED with
+  P2P discovery, so a change to the cell size cannot apply to one and miss the
+  other.
+- **The manual fallback needs no gazetteer.** `GET /nearby/places` answers with
+  the cities among published locations that actually hold the item, composed from
+  the SAME `where` as the results — so a city offered there always yields
+  something, and selecting one hands back a CELL CENTRE, so that path never sees
+  a precise coordinate at all.
+- **A collection reserves at the EXACT branch, through the EXISTING
+  `reserve(variantId, qty, locationId)`** — race-safe at the location grain since
+  the Mongo port, so the whole change was passing an id that was already a
+  parameter. Three companions and none optional: `order_items.location_id`
+  carries the branch (so `transition('paid')` commits and a refund restocks
+  there), the rollback RELEASES at the same location (`release` with none routes
+  to the DEFAULT, which would move stock between branches silently), and the
+  snapshot commits in the orders' transaction.
+- **The order's address snapshot comes from the PUBLICATION**, and the recipient
+  is the literal word `Collection` — never a person. #105's invariant is
+  unchanged: `destination.ts` still produces no address, and nothing fabricates a
+  street from anything a buyer typed. The POS path has snapshotted the location
+  this way since the Mongo port.
+- **The collection code is DERIVED and never stored** —
+  `HMAC(PICKUP_COLLECTION_CODE_KEY, orderId:version)` in a ten-character alphabet
+  with `I`, `L`, `O` and `U` removed. A buyer can be shown it again, a rotation
+  is `version + 1` and invalidates every copy at once with no grace window, and a
+  dump discloses nothing. It is not the portal token (no `mg*` prefix, no
+  resolver) and nothing looks an order up BY code — validation takes the order id
+  the route already authorized.
+- **The desk moves NO money and NO stock, and that is a scanned gate.** The units
+  were committed when the order was PAID. Cancelling a collection does not cancel
+  the order or refund anything; the order's STATUS is not moved either (#93
+  pickup rule 12), and `shipped` was not reused because a parcel handed across a
+  counter was never shipped. Every transition is a CAS — mutation-tested, and
+  removing the predicate turns exactly the three acceptance-14 cases red.
+- **Guest readiness reuses #107's `GUEST_SELLER_ACTIVATION_REQUIRED` rather than
+  a parallel lever** — "is this merchant activated for guest checkout" already
+  has one answer. `GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT` defaults OFF, and
+  that is the honest default rather than the lax one: #108 ships with an EMPTY
+  transport registry, a buyer reaches their order through the PULLED confirmation
+  grant, and demanding a transport unconditionally would make guest collection
+  unreachable on every deployment that exists.
+- **A P2P seller's precise position is UNREPRESENTABLE** —
+  `listing_local_discovery` stores cell INDICES and has no coordinate column, so
+  the rule holds for serializers nobody has written and for `psql`. The write
+  accepts a precise pair because a client that rounds badly would otherwise be
+  the only thing between a seller's home and a public response; the server rounds
+  and has nowhere to put the original.
+- **Store guest pickup can never become P2P guest pickup** (acceptance 13).
+  `derivePickupEligibility` refuses a `user` seller for EVERY actor, and
+  `assertGuestSellerTypesAllowed` refuses a guest at group construction. #93 asks
+  for four rollout flags; the fourth is deliberately ABSENT, which is stronger
+  than one defaulting off — a dormant switch reads as a decision already taken,
+  and #112 owns the reversal.
+- Env: `NEARBY_DISCOVERY_ENABLED`, `STORE_PICKUP_ENABLED` (requires
+  `PICKUP_COLLECTION_CODE_KEY` — the half-configuration rule),
+  `GUEST_STORE_PICKUP_ENABLED` (additionally requires store pickup, one-way),
+  `P2P_LOCAL_DISCOVERY_ENABLED`, `GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT`.
+  **No lever gates a durable record** — a scanned gate. Operator surface on the
+  SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list, mounted while the nearby lever
+  is off: the evidence has to be readable during the incident that turned
+  discovery off. READ plus ONE write, and there is no "set this position", no
+  "publish this location" and no route returning a code.
+- **The GiST index over `geo_point` is asserted to EXIST, because no functional
+  test could ever miss its absence.** Every `ST_DWithin` case returns the same
+  rows against a sequential scan — just slower, which is invisible at fixture
+  scale and catastrophic at catalogue scale. `pickup.realdb.test.ts` reads
+  `pg_indexes` for that ONE index name, asserts the row count FIRST (so "I found
+  no index" cannot be what a pass looks like) and asserts `USING gist`
+  specifically — a btree over a `geography` column is created without complaint
+  and cannot serve the operator at all. Mutation-tested by renaming the index in
+  the migration: exactly that test goes red and all 39 functional cases stay
+  GREEN, which is the whole argument for having it.
+- **The realdb suite caught a real driver bug on its first run.**
+  `coalesce(${column}, ${date})` in a `sql` template throws in postgres.js before
+  the server sees the statement — the documented bare-`Date` trap — and `tsc`
+  accepts it while a mocked update binds nothing. Fixed with
+  `${iso}::timestamptz`.
+- **A new realdb file owes four house fixtures, and all four fired here.** Two
+  append-only trails and a shared server make this file the shape every one of
+  them is aimed at.
+  - **ONE TABLE PER `withTriggerToggleLock` WINDOW**, with every statement on
+    `tx`. The transaction is what makes a throw safe (on the pool the DDL
+    autocommits, so a throw before the re-enable leaves the trigger off for the
+    rest of the run and every later file asserting it refuses a write passes
+    vacuously) — but the one-table rule is a SEPARATE property the mutex cannot
+    provide: `DISABLE TRIGGER` takes ShareRowExclusive, whose counterparty is an
+    ordinary writer holding RowExclusive, and the mutex only serialises window
+    against window. This file's first version held both tables in one window and
+    `cd6e8fd`'s census caught it. Split, never reorder to match a writer.
+  - **Stores go through `deleteTestStores`, canonical rows through
+    `deleteTestCanonicalRows`**, which DECLINE exactly the ids a sibling's
+    `match_decisions` pins rather than deleting somebody else's row.
+  - **No fixture may carry a date the real clock is still travelling toward** —
+    the subtle one, because a closure has to span the 7-day open horizon, so the
+    fix was moving the injected CLOCK back a week rather than extending the
+    closure forward.
+- **The STOREFRONT half is the data layer only, and that is stated rather than
+  implied.** `lib/api/nearby.ts` and `lib/hooks/use-nearby.ts` exist and are
+  typed; there is NO screen, no permission prompt, no manual-location entry box
+  and no nearby component, so #93's fourteen "client experience" rules are NOT
+  met and must not be read as met. What the hook does carry is the one property
+  a later screen could get wrong: `queryKeys.nearby.availability` is keyed on the
+  COARSE CELL and never on the coordinate, because a React Query key is held in
+  memory and read out by every devtools panel.
+- Deferred with named seams, none of them a stub that lies: **#85** (the
+  activation state, reusing #107's lever), **#110** (buyer cancellation of a
+  collection order stays `pickup_not_supported`, which is #110's own decision and
+  still fails closed), **#116** (a `mercaria_retail` collection — `OfferKind` has
+  no such member), **#111** (the guest rollout review), **#112** (guest P2P), the
+  storefront screens above, and a place-name gazetteer, which
+  `GET /nearby/places` answers around rather than with.

@@ -1,19 +1,24 @@
 /**
- * The two facts #74 ranks on that nothing in Mercaria publishes yet.
+ * The facts #74 ranks on that come from outside the ranking domain.
  *
- * Both are NAMED contracts that fail closed rather than stubs that lie: each
- * returns "no data", the signal that reads it reports `no_provider`, the label
- * that depends on it is never awarded, and the offer's score is a mean over the
- * signals that ARE known — so an unbuilt seam neither helps nor hurts anybody's
- * position. That is the whole reason the unknown branch of
- * `RankingSignalOutcome` carries no weight: a seam nobody has filled in cannot
- * quietly become a zero score against every offer.
+ * ONE of the two is still unbuilt (`resolveOfferTaxInclusion`) and is a NAMED
+ * contract that fails closed rather than a stub that lies: it returns "no
+ * data", the signal reports `no_provider`, and the offer's score is a mean over
+ * the signals that ARE known — so an unbuilt seam neither helps nor hurts
+ * anybody's position. That is the whole reason the unknown branch of
+ * `RankingSignalOutcome` carries no weight.
+ *
+ * The other, {@link resolvePickupProximity}, was CLOSED by #93 and is the shape
+ * worth reading: it is still a pure, synchronous function, because the DISTANCE
+ * is resolved once per page by `buildRankingFactContext` in ONE batched
+ * statement and handed in. A seam that grew a database read here would have put
+ * an N+1 on the hottest comparison surface there is, and `buildOfferRankingFacts`
+ * would have stopped being pure given its context — which is what lets
+ * `selectEligibleOffers` build facts only for the offers it admits.
  *
  * Neither is a registry with a `register…` function, and that is deliberate. A
  * registry would be a place a test-only provider could be installed in
- * production (#62's fixture-adapter reasoning), and both of these are single
- * facts a single owning issue supplies from a table it will create — one
- * function body each, replaced in the change that creates the table.
+ * production (#62's fixture-adapter reasoning).
  */
 
 import type { OfferTaxInclusion } from '@mercaria/shared-types';
@@ -22,17 +27,16 @@ import type { OfferTaxInclusion } from '@mercaria/shared-types';
  * How far a buyer is from an offer's collection point (#74 ranking input 10,
  * label `best_nearby_pickup`).
  *
- * ALWAYS unavailable today, and the reason is #93's rather than an omission
- * here: pickup fails closed at checkout because no publication, freshness or
- * collectable-inventory state exists for a collection point, so there is no
- * location to measure a distance TO. `assertPickupLocationEligible` refuses
- * every pickup for the same reason.
+ * CLOSED by #93. The distance is the shortest road-agnostic distance from the
+ * viewer to a PUBLISHED location that currently holds a collectable unit of
+ * this offer's native variant, resolved in one batched statement per page by
+ * `buildRankingFactContext` and handed in through {@link distancesByOfferId}.
  *
- * #93 replaces this function's body. The contract it must satisfy: given an
- * offer's pickup availability and the viewer's coarse location, answer a
- * distance in METRES or say why not — and never invent one from a merchant's
- * registered address, because a merchant's office is not where the item is
- * collected from.
+ * What it is NOT, and the contract this seam always carried: it is never
+ * derived from a merchant's registered address. A merchant's office is not
+ * where the item is collected from, and `location_publications` — the only
+ * source consulted — carries a position a merchant deliberately published for
+ * exactly this purpose.
  */
 export interface PickupProximityRequest {
   readonly offerId: string;
@@ -41,6 +45,16 @@ export interface PickupProximityRequest {
   /** The viewer's coarse location, when they enabled it. */
   readonly viewerLatitude?: number;
   readonly viewerLongitude?: number;
+  /**
+   * Offer id → metres, from the page's fact context.
+   *
+   * An EMPTY map is the honest answer for a deployment with no published
+   * collection points, for a variant nobody stocks near the viewer, and for a
+   * comparison whose offers are all external — and all three produce
+   * `pickup_locations_not_published`, which awards no label and contributes no
+   * score.
+   */
+  readonly distancesByOfferId: ReadonlyMap<string, number>;
 }
 
 export type PickupProximity =
@@ -50,16 +64,27 @@ export type PickupProximity =
 /**
  * Answer a pickup distance, or say why there is none.
  *
- * The viewer-location branch is checked FIRST and answered honestly even though
- * the next line refuses everything anyway: a shopper who has not shared a
- * location should be told that, not told the feature does not exist, and the
- * distinction is what makes the reason code useful the day #93 lands.
+ * The viewer-location branch is checked FIRST, because a shopper who has not
+ * shared a location should be told that rather than told the feature does not
+ * exist — and because the map is EMPTY in that case anyway, so the two would
+ * otherwise be indistinguishable.
+ *
+ * `pickupAvailable` is consulted but is not sufficient on its own: #57's
+ * three-state says what a SOURCE claimed about collection, and a claim in a
+ * feed is not a published Mercaria collection point with stock on its shelf. An
+ * offer whose source says nothing about pickup still gets a distance when
+ * Mercaria's own publication says it can be collected — which is the case that
+ * matters, since every native offer is in it.
  */
 export function resolvePickupProximity(request: PickupProximityRequest): PickupProximity {
   if (request.viewerLatitude === undefined || request.viewerLongitude === undefined) {
     return { known: false, reason: 'viewer_location_absent' };
   }
-  return { known: false, reason: 'pickup_locations_not_published' };
+  const metres = request.distancesByOfferId.get(request.offerId);
+  if (metres === undefined) {
+    return { known: false, reason: 'pickup_locations_not_published' };
+  }
+  return { known: true, metres };
 }
 
 /**

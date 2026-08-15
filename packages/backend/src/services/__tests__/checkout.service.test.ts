@@ -568,8 +568,12 @@ describe('checkout.service.checkout — reservation rollback', () => {
 
     // Only the first (succeeded) line is released; the failing line is not.
     expect(release).toHaveBeenCalledTimes(1);
-    expect(release).toHaveBeenCalledWith(V1, 2);
-    expect(release).not.toHaveBeenCalledWith(V2, 5);
+    // The third argument is the LOCATION, and `undefined` is asserted rather
+    // than elided: a delivery routes to the store's default location, and a
+    // rollback that released at a location the reservation was not taken at
+    // would move stock between branches silently (#93).
+    expect(release).toHaveBeenCalledWith(V1, 2, undefined);
+    expect(release).not.toHaveBeenCalledWith(V2, 5, undefined);
     expect(insertOrder).not.toHaveBeenCalled();
   });
 });
@@ -808,7 +812,7 @@ describe('checkout.service.checkout — per-seller (sellerKeys) subset', () => {
 
     // Only store-A's single line is reserved + ordered.
     expect(reserve).toHaveBeenCalledTimes(1);
-    expect(reserve).toHaveBeenCalledWith(V1, 1);
+    expect(reserve).toHaveBeenCalledWith(V1, 1, undefined);
     expect(insertOrder).toHaveBeenCalledTimes(1);
     expect((insertOrder.mock.calls[0][0] as { storeId: string }).storeId).toBe('store-A');
     expect(result.orders).toHaveLength(1);

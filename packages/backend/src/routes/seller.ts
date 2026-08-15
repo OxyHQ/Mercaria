@@ -33,6 +33,11 @@ import {
   startDraft,
 } from '../controllers/sell-yours.controller.js';
 import {
+  getLocalDiscoveryHandler,
+  putLocalDiscoveryHandler,
+} from '../controllers/seller-local-discovery.controller.js';
+import { setLocalDiscoverySchema } from '../middleware/pickup-schemas.js';
+import {
   patchSellerDraftSchema,
   sellerDraftPreviewQuerySchema,
   sellerMatchCandidateQuerySchema,
@@ -165,6 +170,23 @@ if (config.sellYours.enabled) {
     publishDraft,
   );
 }
+// Local discovery (#93 P2P) — a coarse AREA, opted into per listing. The write
+// accepts a precise position and the server rounds it to a cell before storing;
+// `listing_local_discovery` has no coordinate column, so nothing here can
+// persist a seller's home.
+router.get(
+  '/listings/:id/local-discovery',
+  makeRateLimiter('listings'),
+  validateId('id'),
+  getLocalDiscoveryHandler,
+);
+router.put(
+  '/listings/:id/local-discovery',
+  makeRateLimiter('listings'),
+  validateId('id'),
+  validateBody(setLocalDiscoverySchema),
+  putLocalDiscoveryHandler,
+);
 
 // Seller orders (incoming P2P orders + fulfilment).
 router.get('/orders', makeRateLimiter('orders'), validateQuery(orderListQuerySchema), listSellerOrders);

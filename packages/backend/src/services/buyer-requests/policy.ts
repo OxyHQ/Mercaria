@@ -151,12 +151,19 @@ export function resolveCancellationEligibility(
     return { verdict: 'ineligible', reason: 'external_order' };
   }
   if (facts.shippingMethod === 'pickup') {
-    // Unreachable today — `assertPickupLocationEligible` (#105) refuses every
-    // pickup at checkout, so no pickup order exists to cancel. The branch is
-    // kept rather than deleted for the `role_email` reason: #93 makes it
-    // reachable, and a cancellation that quietly took the `release` path would
-    // release a reservation while a collectable-inventory hold nobody modelled
-    // stayed behind.
+    // REACHABLE since #93, and the refusal stands rather than being relaxed
+    // with it. The branch used to be unreachable because checkout refused every
+    // pickup; #93 landed collection, so pickup orders now exist and a buyer
+    // holding one arrives here.
+    //
+    // It still answers `pickup_not_supported`, which is #110's decision and not
+    // #93's to overturn: a cancellation that took the `release` path would
+    // release a reservation while the collectable-inventory hold nobody has
+    // modelled stayed behind. The merchant-side path is real and unaffected —
+    // `POST …/pickup/cancel` withdraws the handover, and the existing
+    // order-cancel path returns the money and the units. Closing this needs
+    // #110 to decide what a buyer-driven cancellation does to a collection
+    // hold, which is a decision about inventory rather than about pickup.
     return { verdict: 'ineligible', reason: 'pickup_not_supported' };
   }
   if (dispatchedAt(facts) !== null) {

@@ -248,4 +248,26 @@ export const queryKeys = {
     ["seller-drafts", draftId, params?.currency ?? "", params?.market ?? ""] as const,
   sellerMatchCandidates: (params: { identifier?: string; q?: string }) =>
     ["seller-drafts", "candidates", params.identifier ?? "", params.q ?? ""] as const,
+  /**
+   * Nearby availability and its manual fallback (#93).
+   *
+   * The AVAILABILITY key carries a COARSE CELL and never a coordinate — the
+   * caller passes `cellKey(origin)`, not `origin`. That is a privacy property
+   * rather than a cache-tuning one: a React Query key is held in memory, is
+   * serialized by every devtools panel and is exactly the kind of place a
+   * precise position ends up being read out of. Two shoppers at opposite ends
+   * of one district therefore share an entry, which is the same coarsening the
+   * server applies to what it returns.
+   *
+   * `null` is the no-origin state and is a real key, so a screen that has not
+   * been granted location does not silently share a cache entry with one that
+   * has.
+   */
+  nearby: {
+    all: ["nearby"] as const,
+    availability: (subject: string, cell: string | null) =>
+      ["nearby", "availability", subject, cell ?? ""] as const,
+    places: (subject: string, term: string) =>
+      ["nearby", "places", subject, term] as const,
+  },
 } as const;

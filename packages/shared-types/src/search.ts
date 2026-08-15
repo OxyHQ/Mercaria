@@ -224,19 +224,39 @@ export interface SearchAttributeFilter {
 }
 
 /**
+ * Restrict results to products collectable near a point (#70 filter 10, #93).
+ *
+ * A CONTRACT CHANGE rather than a parameter that was always accepted and
+ * ignored: until #93 there was no publication, freshness or collectable-
+ * inventory state to filter on, so the field did not exist at all — a
+ * parameter that silently changed nothing would have read as a working
+ * feature. It exists now because there is a real answer behind it.
+ *
+ * It is a MEMBERSHIP filter and never an ordering. Search orders by relevance
+ * through #70's stage bands; a distance here would be a second ordering key no
+ * ranking policy asked for, and `GET /nearby` is the surface that answers
+ * "which of these is closest" properly, with hours, an address and an
+ * eligibility verdict beside each one.
+ *
+ * The coordinate is used to run one `ST_DWithin` and is then gone: nothing
+ * stores it, no analytics event carries it (#77's schema has no column that
+ * could), and the only place it appears in a log is as a COARSE CELL.
+ */
+export interface SearchNearbyFilter {
+  readonly latitude: number;
+  readonly longitude: number;
+  /** Clamped server-side to the servable range; absent takes the default. */
+  readonly radiusMetres?: number;
+}
+
+/**
  * The structured filters a search may carry (#70 "Filters").
  *
- * Two of #70's ten are deliberately ABSENT rather than accepted and ignored:
- *
- * - **Nearby / pickup (#70 filter 10)** has no field, because #93 supplies no
- *   collectable-inventory or publication state to filter on and a parameter
- *   that silently changed nothing would read as a working feature. The native
- *   listing search keeps its own `near` filter, which is a fact about a LISTING
- *   and not about a canonical product.
- * - **A free-form seller NAME** has no field either; `merchantIds` names
- *   merchants by id, resolved from a merchant result or a merchant page. A name
- *   filter would be a second, weaker spelling of the merchant search that is
- *   already a result kind here.
+ * ONE of #70's ten is deliberately ABSENT rather than accepted and ignored:
+ * a free-form seller NAME has no field, because `merchantIds` names merchants
+ * by id, resolved from a merchant result or a merchant page. A name filter
+ * would be a second, weaker spelling of the merchant search that is already a
+ * result kind here.
  */
 export interface SearchFilters {
   /** Category slugs. A product matches if its category is any of them. */
@@ -261,6 +281,8 @@ export interface SearchFilters {
   /** Merchant ids (#70 filter 8). */
   readonly merchantIds?: readonly string[];
   readonly attributes?: readonly SearchAttributeFilter[];
+  /** Collectable near a point (#70 filter 10, closed by #93). */
+  readonly nearby?: SearchNearbyFilter;
 }
 
 /* -------------------------------------------------------------------------- */

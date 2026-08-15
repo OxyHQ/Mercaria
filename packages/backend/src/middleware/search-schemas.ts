@@ -144,6 +144,13 @@ export const searchQuerySchema = z
     officialChannelOnly: z.enum(['true', 'false']).optional(),
     merchantIds: idList.optional(),
     attributes: attributeList.optional(),
+    // #93's nearby membership filter. The three arrive as separate query
+    // parameters rather than as one packed string, so a client cannot supply a
+    // latitude without a longitude and have the pair silently ignored — the
+    // refinement below refuses the half-supplied case by name.
+    nearLatitude: z.coerce.number().min(-90).max(90).optional(),
+    nearLongitude: z.coerce.number().min(-180).max(180).optional(),
+    nearRadiusMetres: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().min(1).max(SEARCH_PAGE_LIMIT_MAX).optional(),
     cursor: z.string().trim().min(1).max(256).optional(),
   })
@@ -163,6 +170,20 @@ export const searchQuerySchema = z
       query.priceMax === undefined ||
       query.priceMin <= query.priceMax,
     { message: 'priceMin must not exceed priceMax', path: ['priceMin'] },
+  )
+  .refine(
+    (query) => (query.nearLatitude === undefined) === (query.nearLongitude === undefined),
+    {
+      message: 'nearLatitude and nearLongitude must be given together',
+      path: ['nearLatitude'],
+    },
+  )
+  .refine(
+    (query) => query.nearRadiusMetres === undefined || query.nearLatitude !== undefined,
+    {
+      message: 'nearRadiusMetres needs a nearLatitude and nearLongitude to measure from',
+      path: ['nearRadiusMetres'],
+    },
   );
 
 /**

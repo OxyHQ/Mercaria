@@ -28,6 +28,19 @@ import {
   receiveReturn,
   refundReturn,
 } from '../../controllers/buyer-requests.controller.js';
+import {
+  cancelPickupHandler,
+  collectPickupHandler,
+  getOrderPickupHandler,
+  markPickupReadyHandler,
+  rotateCollectionCodeHandler,
+} from '../../controllers/admin/pickup-admin.controller.js';
+import {
+  cancelPickupSchema,
+  collectPickupSchema,
+  markPickupReadySchema,
+  rotateCollectionCodeSchema,
+} from '../../middleware/pickup-schemas.js';
 
 /**
  * Store orders sub-router, mounted at `/admin/stores/:storeId/orders`.
@@ -45,6 +58,50 @@ const router = Router({ mergeParams: true });
 router.get('/', requireStorePermission('orders:read'), validateQuery(orderListQuerySchema), listStoreOrders);
 router.get('/stats', requireStorePermission('stats:read'), getStoreStats);
 router.get('/:id', requireStorePermission('orders:read'), validateId('id'), getStoreOrder);
+
+/**
+ * The COLLECTION desk (#93).
+ *
+ * `orders:fulfill` throughout: marking a parcel ready and handing it over IS
+ * fulfilling, and #93 operations rule 4 asks for the existing permissions
+ * rather than a new one. Reading the collection needs only `orders:read`,
+ * because a shop assistant looking up where a parcel is should not need the
+ * authority to hand it over.
+ *
+ * There is deliberately no route that returns the CURRENT code to a merchant.
+ * A code is the buyer's; a desk verifies one by having it presented. Rotation
+ * returns the NEW code because the shop is the party that has to tell the
+ * customer it changed.
+ */
+router.get('/:id/pickup', requireStorePermission('orders:read'), validateId('id'), getOrderPickupHandler);
+router.post(
+  '/:id/pickup/ready',
+  requireStorePermission('orders:fulfill'),
+  validateId('id'),
+  validateBody(markPickupReadySchema),
+  markPickupReadyHandler,
+);
+router.post(
+  '/:id/pickup/collect',
+  requireStorePermission('orders:fulfill'),
+  validateId('id'),
+  validateBody(collectPickupSchema),
+  collectPickupHandler,
+);
+router.post(
+  '/:id/pickup/cancel',
+  requireStorePermission('orders:fulfill'),
+  validateId('id'),
+  validateBody(cancelPickupSchema),
+  cancelPickupHandler,
+);
+router.post(
+  '/:id/pickup/rotate-code',
+  requireStorePermission('orders:fulfill'),
+  validateId('id'),
+  validateBody(rotateCollectionCodeSchema),
+  rotateCollectionCodeHandler,
+);
 router.patch(
   '/:id/status',
   requireStorePermission('orders:fulfill'),

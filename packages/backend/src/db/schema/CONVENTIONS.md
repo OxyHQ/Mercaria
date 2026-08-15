@@ -5232,3 +5232,128 @@ record a connector run refused, and why — durably, one row per record.
   — the tally and the summary live on the run row, which nothing here sweeps.
   `sync_run_record_failures_expiry_idx` is required by
   `findUnsupportedExpiryColumns` and matters here more than anywhere in the file.
+
+## Location publication and collection (#93)
+
+Eight tables — `location_publications` and its three children
+(`location_opening_hours`, `location_closures`, `location_publication_events`),
+`order_pickups`, `pickup_collection_credentials`, `pickup_collection_events`
+and `listing_local_discovery`. Full reference: `docs/pickup.md`.
+
+- **A separate publication row rather than columns on `locations`, and the
+  address fields are ALL nullable.** `locations` holds the address a pallet is
+  delivered to and the name a warehouse manager gave a building; a publication
+  holds what a merchant is willing to have a stranger read, and "the city and
+  nothing else" is a complete, common answer. Widening `locations` would have
+  made the two the same nine columns, so the first naive
+  `select().from(locations)` on a public route would disclose a stockroom's
+  street and the phone of whoever signs for deliveries. It also makes the
+  default right: a store with no publication row is not discoverable, which is
+  the state every existing store is in.
+- **No `discoverable` and no `pickup_eligible` column.** The inputs sit on
+  `location_publications`, `locations`, `stores`, `listings`, `inventory_levels`
+  and `provider_accounts` — six tables in four domains — so the verdict is
+  DERIVED at read time (#57's `deriveNativeCheckoutEligibility` divergence).
+  That is what makes a moderation restriction stop a collection in the statement
+  that applies it.
+- **`geo_point` is GENERATED from `latitude`/`longitude`**, so nothing can write
+  a point that disagrees with the numbers a merchant can see and correct.
+  `ST_SetSRID` and the geometry→geography cast are both IMMUTABLE, which a
+  STORED generated column requires; drizzle-kit cannot emit the `(Point,4326)`
+  typmod, so the schema test asserts the stored value's type and SRID against
+  REAL ROWS instead.
+- **The coordinate CHECK refuses the NULL ISLAND, and that is the clause worth
+  reading.** `(0, 0)` is a real point in the Gulf of Guinea and is what every
+  failed import writes, so a range check alone admits the single commonest bad
+  value there is and sorts it first for everybody in West Africa. Greenwich and
+  Quito are still accepted — the refusal is the PAIR — and the realdb suite
+  carries that fixture, because a CHECK that refused either half alone would be
+  refusing a merchant.
+- **`stock_confirmation_interval_seconds` is NOT NULL with NO DEFAULT.** A
+  default would be the deployment-wide freshness TTL #68 forbids, arriving
+  through the back door: every merchant who never touched the field would
+  silently share one number. Requiring it puts the claim at the grain that
+  actually varies — a till writes through in seconds and a nightly connector run
+  does not.
+- **`location_opening_hours` is a row per INTERVAL, not per weekday.** A shop
+  that closes for lunch has two intervals on a Tuesday and an `opens`/`closes`
+  pair per day cannot say so. Minutes from LOCAL midnight against the
+  publication's own `timezone`: a `time` column carries no zone and a
+  `timestamptz` carries a date, and what a shop publishes is neither.
+- **`location_closures` uses `date`, not `timestamptz`.** A closure is expressed
+  in the shop's own calendar ("we are shut on the 6th"); storing an instant would
+  make the meaning depend on which zone read it back.
+- **A merchant PAUSE and an operator RESTRICTION are different column pairs.**
+  One is a shop closing its collection desk for an afternoon, the other is
+  Mercaria withdrawing a place — and a merchant must not be able to lift the
+  second by un-pausing the first. Each carries its reason by CHECK, because a
+  paused location with no stated reason is the state nobody can act on.
+- **`order_pickups` holds the snapshot AND the state in one table, and only the
+  snapshot is frozen.** Splitting them would mean a two-table join on the
+  hottest read in the domain (a counter scanning today's collections) and a
+  snapshot with no state is not a thing anything reads. The trigger freezes the
+  fourteen copied columns and leaves `state` and its four instants free, because
+  moving those is the whole point.
+- **The address on `order_pickups` is copied from the PUBLICATION, never from
+  `locations`.** A buyer's order therefore cannot carry a street the merchant
+  chose to withhold, and #105's "nothing fabricates a street for a collection"
+  survives — `destination.ts` still produces no address at all.
+- **`order_pickups.location_id` and `.publication_id` are RESTRICT.** A merchant
+  deleting a location out from under a live collection would leave an order
+  pointing at nowhere and a person standing outside a door — the `connections`
+  precedent, where a live pointer blocks the delete rather than cascading
+  through it.
+- **The state/instant CHECKs are biconditional in one direction and one-way in
+  the other.** `collected` ⇔ `collected_at` and `pickup_cancelled` ⇔
+  (`cancelled_at` ∧ `cancel_reason`); but `ready_at` only implies
+  `ready_for_pickup`, NOT the reverse — a collected order was ready first, so the
+  instant SURVIVES the transition, and `markCollected` coalesces one in for a
+  shop that hands over without pressing "ready".
+- **`pickup_collection_credentials` holds a rotation COUNTER and no credential.**
+  The code is `HMAC(PICKUP_COLLECTION_CODE_KEY, order_id || ':' || version)`, so
+  an authorized surface can re-derive it for the buyer as often as they ask, a
+  counter verifies by re-deriving and comparing in constant time, a rotation is
+  `version + 1`, and a database dump contains nothing that opens anything.
+  #122's `request_fingerprint` is the same device; this goes one step further by
+  keeping no digest either, because nothing ever looks an order up BY code. The
+  realdb suite asserts the absence against `information_schema`, not against the
+  file.
+- **`(version > 1) = (rotated_at is not null)` is a CHECK**, because "when did
+  the code the customer is holding stop working" is the only question a failed
+  collection asks.
+- **`location_publication_events` and `pickup_collection_events` are APPEND-ONLY
+  against UPDATE *and* DELETE.** The half that matters is the REFUSAL record: a
+  person turned away at a counter is what a support call is about, and a trail
+  that kept only successes could not answer it.
+  `pickup_collection_events_override_reason_check` makes the audited fallback's
+  reason mandatory at the row, since a second caller added later would forget it.
+- **`pickup_collection_events.store_id` is denormalized**, so a store's own trail
+  is one indexed predicate and a query for it cannot widen to a sibling's orders
+  by forgetting a join condition (#93 merchant rule 5).
+- **`location_publication_events.kind` has NO CHECK, deliberately.** The trail is
+  a RECORDING and a newly editable field should not need a migration before it
+  can be audited; the value space is small and greppable and nothing branches on
+  it. Contrast `pickup_collection_events.kind`, which IS closed — a desk action
+  is a capability, and one nobody implemented must not be recordable.
+- **`listing_local_discovery` stores CELL INDICES and has no coordinate column.**
+  A precise position is not something the row withholds — it is something the row
+  cannot hold, so #93 P2P rule 5 is true of every serializer anybody writes,
+  including ones nobody has written, and true of a `psql` session. The range
+  CHECK is written against the row's OWN `cell_precision_degrees`, so it stays
+  true if the precision ever changes.
+- **`enabled` is a column and the row is the opt-in.** A seller who turns local
+  discovery off keeps their area, so "off" and "never asked" stay
+  distinguishable — and turning it back on is one switch rather than re-entering
+  a place.
+- **`location_publications.storefront_id` is a column and the MERCHANT is not.**
+  #84's `native_store_links` already answers "which merchant operates this
+  store", with an active-per-store partial unique behind it, and a second copy on
+  every publication is a second answer a revoked link would leave stale. A
+  storefront is not derivable that way — a merchant may operate several — so it
+  is stored, nullable, and its merge disposition is `repoint` in
+  `merge-plan.ts`.
+- **Three Oxy id columns and no buyer column anywhere.** The whole of what these
+  eight tables store about a person is `location_publications.restricted_by`,
+  `location_publication_events.actor` and `pickup_collection_events.actor` —
+  every one a member of STAFF or an operator. Who bought a collection order is
+  the order's own fact, under #106's scoping.

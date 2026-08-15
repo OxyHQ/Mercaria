@@ -104,7 +104,9 @@ export type GuestSellerActivation =
  * there is no table: #85 is what creates one. When it lands, THIS function
  * grows a repository read and nothing else in the checkout path changes — the
  * gate below, the refusal shape and the reason code are already in place around
- * it, the way `assertPickupLocationEligible` holds #93's place.
+ * it — the way #93's pickup seam was held and then filled: that one was a
+ * function that refused unconditionally until the facts existed, and #93
+ * replaced its body without touching a caller.
  *
  * The property that makes it a seam rather than a stub: there is no input and
  * no configuration that makes it return "activated", so a deployment cannot

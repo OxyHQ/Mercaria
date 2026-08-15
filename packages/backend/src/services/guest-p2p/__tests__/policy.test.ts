@@ -171,15 +171,6 @@ describe('the best case is still not eligible, and the reasons are the honest on
 });
 
 describe('unknown never passes, and it is not a refusal either', () => {
-  it('blocks a pickup destination and names #93 (the not-applicable branch)', () => {
-    const facts = bestCaseFacts({ context: { ...CONTEXT, fulfilment: 'pickup' } });
-    const entry = deriveGuestP2PEligibility(facts).criteria.find(
-      (c) => c.criterion === 'fulfilment_method_permitted',
-    );
-    expect(entry?.outcome).toBe('unevaluable');
-    if (entry?.outcome === 'unevaluable') expect(entry.owner).toBe('#93');
-  });
-
   it('blocks a rail that is off rather than blaming the seller', () => {
     const facts = bestCaseFacts({ payoutReady: unknown('deployment') });
     const entry = deriveGuestP2PEligibility(facts).criteria.find(
@@ -218,6 +209,25 @@ describe('unknown never passes, and it is not a refusal either', () => {
 });
 
 describe('the record-backed criteria refuse what the record says', () => {
+  it('REFUSES a pickup destination — #93 landed, so it is no longer unevaluable', () => {
+    // This case used to sit in the `unevaluable` block naming #93 as the owner,
+    // because a collection had no publication, freshness or hours to check
+    // against. #93 supplies all three, and supplies them for a STORE's
+    // `locations` row: an individual has no publication and cannot acquire one,
+    // and `derivePickupEligibility` refuses a `user` seller for every actor.
+    //
+    // So the answer moved from "we cannot tell" to "no". Both block, which is
+    // why no guest checkout changes; what changes is that an operator trace no
+    // longer reports a missing capability that has since arrived.
+    const facts = bestCaseFacts({ context: { ...CONTEXT, fulfilment: 'pickup' } });
+    const entry = deriveGuestP2PEligibility(facts).criteria.find(
+      (c) => c.criterion === 'fulfilment_method_permitted',
+    );
+    expect(entry?.outcome).toBe('refused');
+    // The whole verdict still blocks, which is the property that matters.
+    expect(deriveGuestP2PEligibility(facts).verdict).toBe('ineligible');
+  });
+
   it('refuses a restricted listing (a CrowdSource enforcement)', () => {
     const facts = bestCaseFacts({ listingActive: false, listingRestricted: true });
     expect(outcomeOf(facts, 'no_active_restriction')).toBe('refused');

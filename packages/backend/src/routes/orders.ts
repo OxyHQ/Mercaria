@@ -11,6 +11,7 @@ import {
 } from '../controllers/orders.controller.js';
 import buyerRequestRouter from './buyer-requests.js';
 import retailServiceRequestRouter from './retail-service-requests.js';
+import { getCollectionHandler } from '../controllers/collection-code.controller.js';
 
 /**
  * Buyer orders API — the authenticated buyer's own orders.
@@ -27,6 +28,12 @@ router.get('/', makeRateLimiter('orders'), validateQuery(orderListQuerySchema), 
 router.get('/:id', makeRateLimiter('orders'), validateId('id'), getMyOrder);
 router.post('/:id/cancel', makeRateLimiter('orders'), validateId('id'), cancelMyOrder);
 router.post('/:id/mock-pay', makeRateLimiter('orders'), validateId('id'), mockPayMyOrder);
+
+// The collection snapshot and its code (#93), on its own route rather than as a
+// field of the order: a code carried inside an order DTO follows it into logs,
+// client caches and support tools. The SAME handler serves the guest portal —
+// #93 verification rule 9, one collection mechanism for both actor kinds.
+router.get('/:id/collection', makeRateLimiter('orders'), validateId('id'), getCollectionHandler);
 
 /**
  * #110's buyer-request surface, for an authenticated buyer.
