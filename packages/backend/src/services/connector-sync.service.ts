@@ -1939,11 +1939,13 @@ async function applyVariantUpdate(
   // was removed upstream keeps the one it had rather than being stripped of it
   // by a shape the funnel has no way to say.
   //
-  // Two variants of one product SWAPPING SKUs is the case this cannot converge:
-  // `product_variants_sku_key` is unique table-wide, so whichever is written
-  // first collides and the product fails with the constraint named. That is a
-  // loud, recorded refusal rather than a silent divergence, and it is rare
-  // enough that a two-step rename is not worth the machinery.
+  // Two variants of one product SWAPPING SKUs now converges, and #296 is what
+  // changed: with `product_variants_sku_key` gone there is no constraint for the
+  // half-applied state to trip, so the first variant takes the second's SKU, the
+  // two share it for the length of the loop, and the second takes the first's.
+  // Nothing here needs a two-step rename, because nothing matched on the SKU to
+  // begin with — `matchIncomingVariant` pairs these rows by
+  // `source_external_variant_id`, which a SKU edit does not touch.
   if (incoming.sku !== undefined && incoming.sku !== record.sku) {
     patch.sku = incoming.sku;
   }

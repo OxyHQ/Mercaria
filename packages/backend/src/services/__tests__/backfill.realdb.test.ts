@@ -25,10 +25,19 @@
  * ## Scoping, because this database is SHARED
  *
  * One throwaway database serves the whole suite and vitest runs files in
- * parallel workers, so every id, handle, title and barcode this file writes
- * carries the per-run suffix, every assertion is scoped to rows this file
- * created, and teardown deletes exactly what it made. Global counts are never
- * asserted.
+ * parallel workers, so every id, handle and title this file writes carries the
+ * per-run suffix, every assertion is scoped to rows this file created, and
+ * teardown deletes exactly what it made. Global counts are never asserted.
+ *
+ * The one thing that CANNOT carry a suffix is the BARCODE. A GTIN is a check
+ * digit over its own digits, so any suffix makes it invalid and the identifier
+ * stage stops recognising it — which is the whole point of writing one. It is
+ * shared rather than scoped, and that is safe since #296 dropped
+ * `product_variants_barcode_key`: a barcode is an OBSERVATION rather than an
+ * identity, several sellers naming one trade item is the ordinary case, and
+ * `product_identifiers` is where a collision is decided. The GTIN below was
+ * un-suffixed before #296 too, under a unique that was table-wide — which
+ * worked only because no sibling happened to write the same one.
  */
 
 /**

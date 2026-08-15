@@ -487,9 +487,15 @@ export interface IngestInventoryInput {
  * Outcome of a single inventory update:
  *  - `'updated'` — stock was set on the mapped variant.
  *  - `'skipped'` — no listing/variant mapped from `externalId`(+`sku`).
+ *  - `'ambiguous'` — SEVERAL variants of the mapped listing carry that `sku`, so
+ *    nothing was set and `error` names them. A SKU is unique at no grain
+ *    Mercaria enforces (#296 — the platforms disagree about whether it should
+ *    be), so this is a catalogue the merchant has to de-duplicate. Deliberately
+ *    not folded into `'skipped'`: "we could not find it" and "we found several
+ *    and will not guess" lead a merchant to opposite actions.
  *  - `'failed'`  — the update errored (`error` explains why).
  */
-export type IngestInventoryAction = 'updated' | 'skipped' | 'failed';
+export type IngestInventoryAction = 'updated' | 'skipped' | 'ambiguous' | 'failed';
 
 /** Per-item result of an inventory ingest (one entry per input item, in order). */
 export interface IngestInventoryResultItem {
@@ -497,7 +503,7 @@ export interface IngestInventoryResultItem {
   action: IngestInventoryAction;
   /** The variant whose stock was set, when mapped. */
   variantId?: string;
-  /** Failure detail when `action === 'failed'`. */
+  /** Detail when `action` is `'failed'` or `'ambiguous'`. */
   error?: string;
 }
 

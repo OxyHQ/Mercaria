@@ -146,7 +146,12 @@ async function makeStore(): Promise<string> {
   return store.id;
 }
 
-/** One product in the plugin's own wire shape, namespaced so SKUs stay unique. */
+/**
+ * One product in the plugin's own wire shape, namespaced so a case's rows stay
+ * its own in the shared database. Not because a SKU has to be unique — since
+ * #296 it is unique at no grain — but because `external_id` is what a case looks
+ * its listing up by.
+ */
 function pushProduct(namespace: string, overrides: Record<string, unknown> = {}) {
   return {
     externalId: `woo-${namespace}`,
@@ -301,14 +306,25 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
     const namespace = uuidv7();
 
-    // Two products sharing one SKU: `product_variants_sku_key` refuses the second,
-    // which is exactly the shape a merchant's own catalogue produces by accident.
+    // Two genuinely different external products claiming ONE handle:
+    // `listings_store_id_handle_key` refuses the second, and `upsertProduct`
+    // deliberately does NOT catch that unique (it catches only the provenance
+    // one), so it surfaces as the per-product failure a merchant conflict should
+    // be. That is exactly the shape a merchant's own catalogue produces by
+    // accident.
+    //
+    // It used to be two products sharing one SKU. #296 dropped
+    // `product_variants_sku_key` — a SKU is unique at no grain Mercaria can
+    // enforce — so that no longer refuses anything, and it never was a merchant
+    // conflict: it was Mercaria refusing a catalogue Shopify permits.
+    // BOTH carry it: `listings_store_id_handle_key` is partial on
+    // `handle is not null`, and `pushProduct` states none by default — so
+    // colliding needs the handle written twice, not once.
+    const sharedHandle = `push-collision-${namespace}`;
     const response = await ingest(`/${connection.id}/products`, key, {
       products: [
-        pushProduct(namespace),
-        { ...pushProduct(`${namespace}-b`), variants: [
-          { sku: `PUSH-${namespace}`, price: { amount: 100, currency: 'GBP' }, inventory: { available: 1 } },
-        ] },
+        pushProduct(namespace, { handle: sharedHandle }),
+        pushProduct(`${namespace}-b`, { handle: sharedHandle }),
       ],
     });
 

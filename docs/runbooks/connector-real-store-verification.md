@@ -302,9 +302,17 @@ variants carrying a barcode: 7 of 7, byte-identical
 **The LEADING ZERO survives**, carried as text end to end from
 `WC_Product::get_global_unique_id()` into the `barcode` column with no numeric
 coercion. A coercion would have produced `290000000081` — a different and
-*valid-looking* GTIN, silently, with nothing downstream to flag it. That matters
-because `product_variants_barcode_key` is globally unique (#296), so a mangled
-GTIN would collide against the wrong product rather than failing cleanly.
+*valid-looking* GTIN, silently, with nothing downstream to flag it.
+
+That matters MORE since #296, not less. This paragraph used to say the risk was
+`product_variants_barcode_key` colliding against the wrong product; that index is
+gone — a barcode is one seller's OBSERVATION of a trade item and several sellers
+naming one is the ordinary case, so nothing about the column is unique any more.
+A mangled GTIN therefore no longer collides with anything at all: it is stored,
+and it is matched against `product_identifiers` as an assertion about whatever
+OTHER trade item happens to carry the mangled value. The failure moved from a
+loud 23505 to a silent wrong match, which is what makes the byte-identical
+assertion above the check that matters.
 
 Fixture GTINs are EAN-13 in GS1's **`029`** restricted-distribution prefix,
 which is never assigned to a real product, so they cannot collide with a genuine

@@ -30,9 +30,11 @@
  *    variants and levels joined that transaction with #221 — see
  *    `createStoreProduct` for the failure that made a listing with no variants
  *    an everyday outcome rather than a theoretical one.
- *  - **An absent SKU or barcode is written NULL, never `''`.** Both carry a
- *    PARTIAL unique index, and an empty string is a VALUE — the second variant
- *    saved without a SKU would collide with the first for real.
+ *  - **An absent SKU or barcode is written NULL, never `''`.** Both carried a
+ *    partial unique index until #296 dropped them, and the rule outlived the
+ *    constraint: an empty string is a VALUE where NULL is an absence, so `''`
+ *    is now a SKU every unlabelled variant shares rather than a collision — see
+ *    `insertVariants` for what that breaks.
  */
 
 import type {
@@ -450,14 +452,21 @@ interface StoreProductInsert {
  * **The variant insert belongs INSIDE.** A listing with no variant is not a
  * sellable state anything should observe, and until #221 it was an everyday
  * outcome rather than a theoretical one: `insertVariants` ran after the
- * transaction committed, so a SKU another product already held —
- * `product_variants_sku_key` is unique over the whole table — left a listing
- * with nothing to sell. That was invisible while the provenance was also
- * written afterwards, because the leftover row carried no `source_connection_id`
- * and every provenance-scoped read stepped over it. With the provenance now on
- * the insert, the same leftover would be a fully-sourced product with nothing to
+ * transaction committed, so ANY refusal of the variant statement left a listing
+ * with nothing to sell. That was invisible while the provenance was also written
+ * afterwards, because the leftover row carried no `source_connection_id` and
+ * every provenance-scoped read stepped over it. With the provenance now on the
+ * insert, the same leftover would be a fully-sourced product with nothing to
  * sell, and `convergeVariants` returns early on a listing with zero variants —
  * so nothing would ever grow one.
+ *
+ * The refusal that made it an EVERYDAY outcome was
+ * `product_variants_sku_key`, a table-wide unique on `sku` — dropped by #296,
+ * because a SKU is unique at no grain Mercaria can enforce. What remains is
+ * rarer and none of it is theoretical: the currency and paired-money CHECKs, the
+ * money ceiling, `product_variants_source_external_variant_key`, and the
+ * condition gate `assertConditionAllowed` runs below. Each is a statement that
+ * can refuse AFTER the listing row exists, which is the whole property.
  *
  * **`syncListingFacets` deliberately stays OUTSIDE**, because it enqueues outbox
  * work (#57's offer convergence, #58's match) whose whole point is that it

@@ -860,6 +860,23 @@ One unified API (`packages/backend`) serves storefront, dashboard and POS.
   stamp. The feed-ordering change was accepted — every read ordering by the
   column filters `status='active'`, and the two draft-showing screens order by
   `created_at`.
+- **`product_variants.sku` and `.barcode` are unique at NO grain** (#296).
+  Both carried a table-wide partial unique from the genesis migration, ported
+  from Mongo's `sparse: true, unique: true`, and both were an AMBIGUITY CHECK
+  wearing a constraint's clothes. A `barcode` is one seller's OBSERVATION of a
+  trade item, and two merchants selling one trade item share a GTIN by
+  definition — so the unique made the premise `offers` and every price
+  comparison rest on unreachable; GTIN identity is `product_identifiers`'
+  collision gate, which answers `disputed` plus a review item rather than a raw
+  23505. A `sku` is a merchant's own code: Shopify enforces no uniqueness at all
+  and WooCommerce enforces it site-wide, so it is NOT narrowed to
+  `(listing_id, sku)` either — the `product_identifiers` MPN ruling, that a
+  constraint which has to be wrong sometimes is worse than none. The check they
+  were standing in for now lives where it can NAME what it found:
+  `matchIncomingVariant` (pull) and `resolveInventoryVariant` (push) each refuse
+  to pick between candidates, and the push rail reports its own `ambiguous`
+  action rather than `skipped` — "we could not find it" and "we found several
+  and will not guess" send a merchant to opposite places.
 - `Location` plus `InventoryLevel` for multi-location inventory; the `$inc` guard
   is race-safe at the location grain.
 - `Collection`, manual plus automated rules, materialized into
@@ -3523,10 +3540,16 @@ CHECK the database would have refused all looked identical to a green suite.
   adapters (which a flag registers at boot), so adding a mutable
   `registerConnectorProvider` would put a production seam in place purely for a
   test's convenience.
-- **The catalogue is NAMESPACED per world.** `product_variants_sku_key` is unique
-  over the whole table rather than per store, so a shared fixture SKU collides
-  across cases and fails inside `createStoreProduct` where it reads as a connector
-  bug. `contractCatalogue(namespace)` is the only way to build one.
+- **The catalogue is NAMESPACED per world, and SKUs are not part of it.**
+  `contractCatalogue(namespace)` is the only way to build one, and it namespaces
+  the PLATFORM-SIDE ids — product, variant, inventory item, order — because those
+  are what a row is looked up by. SKUs were namespaced too until #296, purely
+  because `product_variants_sku_key` was table-wide; with that index gone nothing
+  reads a variant by SKU except a listing-scoped query, so the namespacing was
+  removed rather than left as a rule with no reason. The evidence it tracked the
+  INDEX and not a cross-case read is `barcode`, which was never namespaced at all
+  under an equally table-wide unique and went unnoticed because WooCommerce
+  publishes none.
 - **The fault schedule is mutation-tested by the suite itself.** Every "archives
   nothing" case rests on a fault actually reaching the provider; a fault matching
   no URL would make each of them pass by measuring a healthy run. The Shopify

@@ -256,10 +256,15 @@ function nullIfEmpty(value: string | null | undefined): string | null {
 /**
  * Insert variants and their option values, atomically.
  *
- * A `sku` or `barcode` a caller left empty is written NULL and never `''`: both
- * columns carry a PARTIAL unique index, and an empty string is a VALUE — the
- * second variant saved without a SKU would collide with the first for real,
- * which is the trap `CONVENTIONS.md` names by name.
+ * A `sku` or `barcode` a caller left empty is written NULL and never `''`, and
+ * the reason OUTLIVED the constraint that first made it urgent. Both columns
+ * carried a partial unique until #296, so `''` — a VALUE, where NULL is an
+ * absence — made the second variant saved without a SKU collide with the first
+ * for real. With the uniques gone it fails the other way and more quietly: `''`
+ * is a SKU every unlabelled variant shares, so
+ * {@link findVariantsByListingAndSku} would report a listing's whole set as
+ * ambiguous, and the barcode readers (`provisional-products`, the review target
+ * resolver) would take it for an identifier the seller never asserted.
  */
 export async function insertVariants(
   listingId: string,
@@ -492,18 +497,30 @@ export async function findVariantsBySourceConnection(
     );
 }
 
-/** One variant of a listing by SKU — the connector's inventory disambiguation. */
-export async function findVariantByListingAndSku(
+/**
+ * EVERY variant of a listing carrying this SKU — the connector's inventory
+ * disambiguation.
+ *
+ * Plural and UNBOUNDED since #296 dropped `product_variants_sku_key`. A SKU is
+ * unique at no grain this database enforces, so "the variant with this SKU" is a
+ * question the table cannot answer, and a `.limit(1)` would hand the caller an
+ * arbitrary row with no way to tell that it was arbitrary — silently, on exactly
+ * the catalogue the constraint used to refuse outright. Which of several is
+ * meant is the CALLER's decision, and both connector rails refuse to make it.
+ *
+ * Ordered by position then id so a refusal that names its candidates names them
+ * in the same order twice.
+ */
+export async function findVariantsByListingAndSku(
   listingId: string,
   sku: string,
   db: DatabaseOrTransaction = getDb(),
-): Promise<VariantRecord | null> {
-  const [row] = await db
+): Promise<VariantRecord[]> {
+  return db
     .select()
     .from(productVariants)
     .where(and(eq(productVariants.listingId, listingId), eq(productVariants.sku, sku)))
-    .limit(1);
-  return row ?? null;
+    .orderBy(asc(productVariants.position), asc(productVariants.id));
 }
 
 /**

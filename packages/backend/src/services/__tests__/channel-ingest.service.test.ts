@@ -43,7 +43,7 @@ const insertSyncRun = vi.fn();
 const finishSyncRun = vi.fn();
 const findListingBySourceExternalId = vi.fn();
 const updateListingColumns = vi.fn();
-const findVariantByListingAndSku = vi.fn();
+const findVariantsByListingAndSku = vi.fn();
 const findVariantsByListing = vi.fn();
 const createStoreProduct = vi.fn();
 const updateListing = vi.fn();
@@ -68,7 +68,7 @@ vi.mock('../../db/catalog/listingRepository.js', () => ({
   updateListingColumns: (...args: unknown[]) => updateListingColumns(...args),
 }));
 vi.mock('../../db/catalog/variantRepository.js', () => ({
-  findVariantByListingAndSku: (...args: unknown[]) => findVariantByListingAndSku(...args),
+  findVariantsByListingAndSku: (...args: unknown[]) => findVariantsByListingAndSku(...args),
   findVariantsByListing: (...args: unknown[]) => findVariantsByListing(...args),
 }));
 vi.mock('../catalog-write.service.js', () => ({
@@ -496,7 +496,7 @@ describe('ingestInventory', () => {
   it('maps a multi-variant listing by SKU', async () => {
     findConnection.mockResolvedValue(pushInConnection());
     findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
-    findVariantByListingAndSku.mockResolvedValue({ id: 'var-2', listingId: 'listing-1' });
+    findVariantsByListingAndSku.mockResolvedValue([{ id: 'var-2', listingId: 'listing-1' }]);
 
     await ingestInventory(
       STORE_ID,
@@ -504,7 +504,7 @@ describe('ingestInventory', () => {
       inventoryBody([{ externalId: 'woo-1', sku: 'SKU-2', available: 3 }]),
     );
 
-    expect(findVariantByListingAndSku).toHaveBeenCalledWith('listing-1', 'SKU-2');
+    expect(findVariantsByListingAndSku).toHaveBeenCalledWith('listing-1', 'SKU-2');
     expect(setAvailable).toHaveBeenCalledWith('var-2', 'listing-1', 'loc-1', 3);
     expect(findVariantsByListing).not.toHaveBeenCalled();
   });
@@ -512,7 +512,7 @@ describe('ingestInventory', () => {
   it('skips an item whose SKU matches no variant of the mapped listing', async () => {
     findConnection.mockResolvedValue(pushInConnection());
     findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
-    findVariantByListingAndSku.mockResolvedValue(null);
+    findVariantsByListingAndSku.mockResolvedValue([]);
 
     const result = await ingestInventory(
       STORE_ID,
@@ -538,6 +538,41 @@ describe('ingestInventory', () => {
     expect(result.results[0]).toEqual({ externalId: 'missing', action: 'skipped' });
   });
 
+  it('REFUSES an item whose SKU matches several variants, and says so distinguishably', async () => {
+    // #296. `product_variants_sku_key` used to make this state unreachable, so
+    // the SKU lookup could take the first row `.limit(1)` returned and be right
+    // by construction. With the index gone the same code would set one arbitrary
+    // variant's stock from another variant's count — silently, and only on the
+    // catalogues the constraint used to refuse outright.
+    findConnection.mockResolvedValue(pushInConnection());
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
+    findVariantsByListingAndSku.mockResolvedValue([
+      { id: 'var-a', listingId: 'listing-1' },
+      { id: 'var-b', listingId: 'listing-1' },
+    ]);
+
+    const result = await ingestInventory(
+      STORE_ID,
+      CONNECTION_ID,
+      inventoryBody([{ externalId: 'woo-1', sku: 'SHARED', available: 3 }]),
+    );
+
+    expect(setAvailable).not.toHaveBeenCalled();
+    // Its own action, NOT `skipped`: "we could not find it" and "we found
+    // several and will not guess" send a merchant to opposite places.
+    expect(result.results[0].action).toBe('ambiguous');
+    // And it names them, so the merchant can go and de-duplicate exactly those.
+    expect(result.results[0].error).toContain('SHARED');
+    expect(result.results[0].error).toContain('var-a');
+    expect(result.results[0].error).toContain('var-b');
+    // Counted as a failure rather than a skip — nothing was applied and a person
+    // has to act — which is also what makes an all-ambiguous run report `failed`.
+    expect(closedRun()).toEqual({
+      status: 'failed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
+    });
+  });
+
   it('skips a multi-variant listing when no SKU disambiguates it', async () => {
     findConnection.mockResolvedValue(pushInConnection());
     findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('listing-1'));
@@ -553,6 +588,10 @@ describe('ingestInventory', () => {
     );
 
     expect(setAvailable).not.toHaveBeenCalled();
+    // `skipped` and deliberately NOT `ambiguous`, which is the case above. This
+    // item named a product and said nothing about which of its variants it
+    // meant, so the merchant's fix is to send a SKU; `ambiguous` says the
+    // CATALOGUE cannot tell two rows apart, whose fix is to de-duplicate it.
     expect(result.results[0].action).toBe('skipped');
   });
 });
