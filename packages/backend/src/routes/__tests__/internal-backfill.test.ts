@@ -59,13 +59,6 @@ vi.mock('../../middleware/auth.js', () => ({
     next();
   },
   oxyClient: {},
-  authenticateTokenOrApiKey: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
   optionalAuth: (
     _req: express.Request,
     _res: express.Response,
@@ -73,17 +66,6 @@ vi.mock('../../middleware/auth.js', () => ({
   ) => {
     next();
   },
-  oxyServiceAuth: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
-  requireScope: () =>
-    (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-      next();
-    },
 }));
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
