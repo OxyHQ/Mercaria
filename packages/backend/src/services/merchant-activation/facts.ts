@@ -38,10 +38,12 @@ import {
   readMerchantActivationSettings,
   type MerchantActivationSettingsFacts,
 } from '../../db/merchantActivation/activationSettingsRepository.js';
+import { listStorePickupLocations } from '../../db/pickup/nearbyRepository.js';
 import { orders } from '../../db/schema/orders.js';
 import { storeMembers } from '../../db/schema/stores.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
 import { deriveChannelReadiness } from '../channels/channel-readiness.js';
+import { locationCollectionBlockers } from '../pickup/eligibility.js';
 import { findApplicableSchedule } from '../fees/order-fees.service.js';
 import { isSellerPaymentReady } from '../payments/provider-account.service.js';
 import { hasGuestMessageTransport } from '../guest-portal/transport.js';
@@ -64,6 +66,42 @@ export interface ActivationPolicyFact {
   readonly acceptedAt: Date;
   /** Whether the accepted version is the one currently published. */
   readonly current: boolean;
+}
+
+/**
+ * The per-mode half — what each fulfilment mode needs, asked one mode at a time.
+ *
+ * Both capabilities that name a mode (`shipping_checkout`, `pickup_checkout`)
+ * read only from here. That is the correction: they used to share
+ * `guest_fulfilment_deterministic`, which answers "is there at least one
+ * priceable, unblocked method" and therefore answers the SAME thing for both —
+ * so `pickup_checkout` was granted on every deployment with a shipping rate
+ * configured, including every deployment with `STORE_PICKUP_ENABLED` off, and
+ * withheld from a store whose only remaining method was collection.
+ */
+export interface ActivationFulfilmentFacts {
+  /**
+   * Priceable methods that put goods in transit — everything but `pickup`.
+   *
+   * A deployment fact and not a store one, and stated as such: Moovo owns
+   * per-store shipping serviceability (#155/#160) and this repository holds
+   * only the seam, so the strongest thing that can honestly be said here is
+   * whether a shipping method can be priced at all.
+   */
+  readonly shippingMethods: readonly string[];
+  /** `STORE_PICKUP_ENABLED` — whether a checkout may resolve a collection at all. */
+  readonly storePickupEnabled: boolean;
+  /** `GUEST_STORE_PICKUP_ENABLED`, which additionally requires the store lever. */
+  readonly guestPickupEnabled: boolean;
+  /**
+   * How many of THIS store's publications a shopper could collect from.
+   *
+   * Derived through #93's own `locationCollectionBlockers`, so this domain
+   * holds no second spelling of what "collectable" means. It is the location
+   * half only — a count above zero says the store has somewhere to collect
+   * from, never that any particular item can be collected now.
+   */
+  readonly collectableLocationCount: number;
 }
 
 /** The guest half, which #85 insists is asked separately. */
@@ -100,6 +138,7 @@ export interface MerchantActivationFacts {
   readonly completedOrderCount: number;
   readonly refundPermissionAssigned: boolean;
   readonly buyerDataPermissionAssigned: boolean;
+  readonly fulfilment: ActivationFulfilmentFacts;
   readonly guest: ActivationGuestFacts;
   /**
    * Whether the NATIVE conjunction holds — the one fact the guest registry's
@@ -134,16 +173,25 @@ export async function readMerchantActivationFacts(
   if (!store) return null;
 
   const sellerKey = `store:${storeId}`;
-  const [settings, link, channelReadiness, paymentsReady, acceptanceRows, completedOrderCount, memberPermissions] =
-    await Promise.all([
-      readMerchantActivationSettings(storeId),
-      findActiveLinkByStore(getDb(), storeId),
-      deriveChannelReadiness(storeId),
-      isSellerPaymentReady(sellerKey),
-      listPolicyAcceptancesForOwner({ ownerType: 'store', ownerId: storeId }),
-      countCompletedOrders(storeId),
-      readStorePermissionCoverage(storeId),
-    ]);
+  const [
+    settings,
+    link,
+    channelReadiness,
+    paymentsReady,
+    acceptanceRows,
+    completedOrderCount,
+    memberPermissions,
+    pickupLocations,
+  ] = await Promise.all([
+    readMerchantActivationSettings(storeId),
+    findActiveLinkByStore(getDb(), storeId),
+    deriveChannelReadiness(storeId),
+    isSellerPaymentReady(sellerKey),
+    listPolicyAcceptancesForOwner({ ownerType: 'store', ownerId: storeId }),
+    countCompletedOrders(storeId),
+    readStorePermissionCoverage(storeId),
+    listStorePickupLocations(storeId),
+  ]);
 
   const merchant = link ? await findMerchantById(getDb(), link.merchantId) : undefined;
 
@@ -167,13 +215,21 @@ export async function readMerchantActivationFacts(
     .filter(([, rate]) => typeof rate === 'number' && Number.isFinite(rate) && rate >= 0)
     .map(([method]) => method);
   const rollout = config.guest.checkoutRollout;
-  // Pickup is excluded from the guest fulfilment set at the source rather than
-  // filtered later: #93 publishes no collection state and every pickup is
-  // refused at checkout, so counting it here would satisfy a requirement with a
-  // path that cannot complete a purchase.
-  const guestFulfilmentMethods = priceableMethods.filter(
-    (method) => method !== 'pickup' && !rollout.blockedFulfilmentMethods.includes(method),
-  );
+  const pickup = config.pickup;
+  const collectableLocationCount = pickupLocations.filter(
+    (location) => locationCollectionBlockers(location).length === 0,
+  ).length;
+  const fulfilment: ActivationFulfilmentFacts = {
+    shippingMethods: priceableMethods.filter((method) => method !== PICKUP_METHOD),
+    storePickupEnabled: pickup.storePickupEnabled,
+    guestPickupEnabled: pickup.guestPickupEnabled,
+    collectableLocationCount,
+  };
+  const guestFulfilmentMethods = deriveGuestFulfilmentMethods({
+    priceableMethods,
+    blockedFulfilmentMethods: rollout.blockedFulfilmentMethods,
+    fulfilment,
+  });
 
   return {
     store: {
@@ -208,6 +264,7 @@ export async function readMerchantActivationFacts(
     completedOrderCount,
     refundPermissionAssigned: memberPermissions.refunds,
     buyerDataPermissionAssigned: memberPermissions.buyerData,
+    fulfilment,
     guest: {
       commerceEnabled: config.guest.enabled,
       cartEnabled: config.guest.cartEnabled,
@@ -222,6 +279,50 @@ export async function readMerchantActivationFacts(
       buyerRequestsEnabled: config.buyerRequests.requestsEnabled,
     },
   };
+}
+
+/** The one fulfilment method that is a COLLECTION rather than a carriage. */
+const PICKUP_METHOD = 'pickup';
+
+/**
+ * Which fulfilment methods a GUEST of this store may actually be offered.
+ *
+ * Pure and exported so it can be exercised over every combination, because the
+ * defect it replaces was a wrong ANSWER rather than a crash and only a case
+ * asserting the wrong answer is not returned can catch its return.
+ *
+ * Pickup used to be struck out unconditionally, on the premise that "#93
+ * publishes no collection state and every pickup is refused at checkout". #93
+ * landed: `assertPickupLocationEligible` is gone and `resolvePickupForCheckout`
+ * refuses only what the levers and the publications say to refuse. So the
+ * exclusion became a wrong answer in the direction that costs a merchant a
+ * sale — and, with `GUEST_SELLER_ACTIVATION_REQUIRED` on, a CIRCULAR one: a
+ * store whose only guest-capable fulfilment is collection read
+ * `guest_fulfilment_method_blocked`, which withheld its guest activation, which
+ * `derivePickupEligibility` then read back as `guest_seller_not_activated`.
+ *
+ * The three pickup conjuncts are what #93's own guest branch requires of a
+ * DEPLOYMENT and a STORE. The per-REQUEST half — this item's stock, this
+ * location's opening hours, the listing's status — is not answerable about a
+ * store and is not answered here; `derivePickupEligibility` owns it and runs
+ * when an actual collection is proposed.
+ */
+export function deriveGuestFulfilmentMethods(input: {
+  priceableMethods: readonly string[];
+  blockedFulfilmentMethods: readonly string[];
+  fulfilment: ActivationFulfilmentFacts;
+}): readonly string[] {
+  const { fulfilment } = input;
+  const guestPickupAvailable =
+    fulfilment.storePickupEnabled &&
+    fulfilment.guestPickupEnabled &&
+    fulfilment.collectableLocationCount > 0;
+
+  return input.priceableMethods.filter(
+    (method) =>
+      (method !== PICKUP_METHOD || guestPickupAvailable) &&
+      !input.blockedFulfilmentMethods.includes(method),
+  );
 }
 
 /**

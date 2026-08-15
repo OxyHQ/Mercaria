@@ -100,6 +100,10 @@ export const STEPLESS_REQUIREMENTS: Readonly<
   guest_transactional_contact_operational: 'A named seam (#108). No transport is registered.',
   guest_no_active_restriction: 'An operator decision, like the hold above.',
   guest_cohort_enabled: 'An operator decision (#111 owns a positive cohort model).',
+  shipping_fulfilment_available:
+    'Deployment configuration — whether a shipping method can be priced at all. Moovo (#155/#160) owns per-store serviceability.',
+  pickup_fulfilment_available:
+    'Collection is OPTIONAL, so it is not a step on the way to activation: a store that ships and never publishes a location is fully activated and must not be shown an unfinished flow. Publishing one is #93’s own screen.',
 };
 
 /** Derive the whole flow. */

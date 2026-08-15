@@ -221,12 +221,17 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     }
   });
 
-  it('the four STRUCTURAL gates name no lever, and every other names one', () => {
+  it('the three STRUCTURAL gates name no lever, and every other names one', () => {
     const structural = GUEST_FEATURE_GATE_REGISTER.filter((gate) => gate.lever === null);
+    // EXACT rather than containment: this list may only shrink by somebody
+    // building the lever, and `pickup` leaving it is exactly that — #93 shipped
+    // `GUEST_STORE_PICKUP_ENABLED` and the register went on saying STRUCTURAL,
+    // which is what an operator reads during an incident to decide what to
+    // flip. Reading `null` there sends them to a broader lever: taking the
+    // guest cart or guest checkout down to withdraw one fulfilment mode.
     expect(structural.map((gate) => gate.gate).sort()).toEqual([
       'order_portal',
       'p2p',
-      'pickup',
       'stripe_client_path',
     ]);
     for (const gate of structural) {
@@ -236,7 +241,36 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     }
     for (const gate of GUEST_FEATURE_GATE_REGISTER.filter((entry) => entry.lever !== null)) {
       expect(gate.lever).toMatch(/^[A-Z][A-Z0-9_]+$/);
+      // And the converse of the rule above: a gate that names a lever must not
+      // ALSO claim there is nothing to flip.
+      expect(gate.whenOff).not.toContain('STRUCTURAL');
     }
+  });
+
+  it('every lever the register names is one the backend actually reads', () => {
+    // The check whose absence let `pickup` rot. A register entry is only worth
+    // reading during an incident if the string in it is a variable this service
+    // consults — and the failure mode runs both ways: a gate naming a lever
+    // that does not exist sends an operator to set nothing, and a gate naming
+    // none while one exists sends them to a bigger hammer.
+    const configSource = readFileSync(join(SRC_ROOT, 'config/index.ts'), 'utf8');
+    // The floor: a config module that failed to read would make every
+    // assertion below pass by matching an empty string.
+    expect(configSource.length).toBeGreaterThan(10_000);
+    expect(configSource).toContain('GUEST_STORE_PICKUP_ENABLED');
+
+    const named = GUEST_FEATURE_GATE_REGISTER.flatMap((gate) => (gate.lever ? [gate.lever] : []));
+    expect(named.length).toBeGreaterThan(5);
+    for (const lever of named) {
+      expect(configSource.includes(lever), `${lever} is named by a gate and read by nothing`).toBe(
+        true,
+      );
+    }
+
+    // And the specific pairing #93 owes, asserted by name so a future edit that
+    // re-empties it fails HERE rather than in an incident.
+    const pickup = GUEST_FEATURE_GATE_REGISTER.find((gate) => gate.gate === 'pickup');
+    expect(pickup?.lever).toBe('GUEST_STORE_PICKUP_ENABLED');
   });
 
   it('the rollback order is defined for every gate', () => {

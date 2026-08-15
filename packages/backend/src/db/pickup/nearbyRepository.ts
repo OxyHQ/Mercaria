@@ -43,7 +43,14 @@
  */
 
 import { sql } from 'drizzle-orm';
-import type { ItemConditionKey, LocationInventorySource, PickupIdentityRequirement, PickupPaymentRequirement } from '@mercaria/shared-types';
+import type {
+  ItemConditionKey,
+  LocationInventorySource,
+  LocationPublicationState,
+  PickupIdentityRequirement,
+  PickupPaymentRequirement,
+} from '@mercaria/shared-types';
+import { LOCATION_PUBLICATION_STATES } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 
 /** One candidate location, exactly as the SQL projects it. */
@@ -395,6 +402,69 @@ export async function findPickupCandidate(
     stockConfirmedAt: new Date(String(row.stock_confirmed_at)),
     stockConfirmationIntervalSeconds: Number(row.stock_confirmation_interval_seconds),
   };
+}
+
+/** One of a store's publications, as `locationCollectionBlockers` reads it. */
+export interface StorePickupLocationRow {
+  locationId: string;
+  publicationState: LocationPublicationState;
+  pickupOffered: boolean;
+  pickupPaused: boolean;
+  restricted: boolean;
+  geocoded: boolean;
+  locationActive: boolean;
+  storeActive: boolean;
+}
+
+/**
+ * Every publication one STORE owns, projected onto the location half of #93's
+ * collection conjunction.
+ *
+ * It sits beside `findPickupCandidate` deliberately: the seven boolean
+ * expressions below are the SAME seven that read applies, and two SQL spellings
+ * of "is this location paused" would be two answers. Neither predicate is
+ * applied here — every publication comes back, whatever state it is in — so the
+ * caller derives with `locationCollectionBlockers` rather than trusting a
+ * `where` clause somebody would have to keep in step with it. #85's activation
+ * facts are the only reader; it counts the ones with no blockers.
+ *
+ * No address column is selected. This answers whether a store has somewhere to
+ * collect from, and the street belongs to the shopper-facing publication read.
+ */
+export async function listStorePickupLocations(
+  storeId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<StorePickupLocationRow[]> {
+  const rows = await db.execute(sql`
+    select
+      p.location_id                    as location_id,
+      p.publication_state              as publication_state,
+      p.pickup_offered                 as pickup_offered,
+      (p.pickup_paused_at is not null) as pickup_paused,
+      (p.restricted_at is not null)    as restricted,
+      (p.geo_point is not null)        as geocoded,
+      loc.is_active                    as location_active,
+      (st.status = 'active')           as store_active
+    from location_publications p
+    join locations loc on loc.id = p.location_id
+    join stores st on st.id = p.store_id
+    where p.store_id = ${storeId}
+  `);
+
+  return rows.map((row) => ({
+    locationId: String(row.location_id),
+    // Narrowed by LOOKUP rather than by a cast, and an unrecognised value falls
+    // back to the state that BLOCKS. The column carries a CHECK so the fallback
+    // is unreachable today; if that ever changes, it fails closed.
+    publicationState:
+      LOCATION_PUBLICATION_STATES.find((state) => state === String(row.publication_state)) ?? 'draft',
+    pickupOffered: Boolean(row.pickup_offered),
+    pickupPaused: Boolean(row.pickup_paused),
+    restricted: Boolean(row.restricted),
+    geocoded: Boolean(row.geocoded),
+    locationActive: Boolean(row.location_active),
+    storeActive: Boolean(row.store_active),
+  }));
 }
 
 /**

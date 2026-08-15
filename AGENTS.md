@@ -4637,7 +4637,10 @@ credential. Full reference: **`docs/buyer-requests.md`**; schema decisions:
   Unreachable for a guest (guest P2P checkout is refused until #112), reachable
   for an authenticated buyer of a P2P order, and recorded as
   `refund_path_unavailable` rather than silently never happening.
-- Seams: #93 (pickup — `pickup_not_supported` is a real unreachable branch),
+- Seams: #93 (pickup — `pickup_not_supported` is REACHABLE since #93 landed and
+  its refusal STANDS, which is #110's own decision and not #93's: a buyer-driven
+  cancellation would release a reservation while a collection hold nobody has
+  modelled stayed behind),
   #112 (guest P2P, and the P2P refund path that must land with it), #111
   (retention), #102 (the privacy review that could enable contact correction),
   Oxy service credentials (evidence digests), Moovo (return shipping).
@@ -5654,17 +5657,50 @@ somebody lives that request-local coarsening exists to avoid).
   surface**, and there is deliberately no `MERCHANT_ACTIVATION_ENABLED`:
   activation is a derivation over state eight other domains own, so a flag would
   not stop those facts being true, only stop anybody being told.
-- Migration `0076` (`pre`): three tables, two append-only trigger pairs, and one
-  WIDENING of `analytics_events_reason_code_check`.
-- Seams, each failing closed: **#108** (the transport — the one `unevaluable`),
+- **A THIRD registry, `FULFILMENT_MODE_REQUIREMENTS`, and it is what makes a
+  mode capability measure its own mode.** `shipping_checkout` and
+  `pickup_checkout` both named `guest_fulfilment_deterministic` — one answer
+  ("the guest-eligible method set is non-empty") handed to two capabilities that
+  ask different questions, so neither measured itself: `pickup_checkout` read
+  GRANTED for every store on every deployment with a shipping rate configured
+  (including every deployment with `STORE_PICKUP_ENABLED` off, the default) and
+  WITHHELD for a store whose only remaining guest method was collection. The two
+  new requirements could not go in either existing registry, because a member of
+  one enters its CONJUNCTION: `pickup_fulfilment_available` there would read
+  `nativeCheckout: disabled` for every store on a default deployment. So they are
+  a registry of their own, excluded from both conjunctions BY CONSTRUCTION
+  (the composer passes lists, not an exclusion somebody maintains) and still fed
+  to `deriveCapabilities`. `MerchantActivationState.fulfilment` carries them; the
+  DTO has no third checkout `state`, because `nativeCheckout.state` answers that.
+- **A refusal names its OWN condition, and this domain is the merchant's own
+  dashboard.** `guest_support_and_returns_available` answered
+  `pickup_not_supported`/`#110` for `BUYER_REQUESTS_ENABLED=false`; it is now
+  `guest_support_requests_disabled`/`deployment`, and `pickup_not_supported` left
+  `MERCHANT_ACTIVATION_BLOCK_REASONS` entirely (it stays #110's and #91's, where
+  it is still emitted). The one-code-for-many-dimensions rule
+  (`guest_rollout_blocked`, `retail_line_ineligible`, `p2p_seller_excluded`) is
+  for BUYER-facing refusals where a client varying one input reads out somebody
+  else's state; behind `store:manage`, telling an owner the wrong cause of their
+  own problem is a wrong answer, which is why this vocabulary is thirty-odd codes.
+- Migration `0077` (`pre`): three tables, two append-only trigger pairs, and one
+  WIDENING of `analytics_events_reason_code_check`. `0080` (`pre`) widens
+  `merchant_activation_capability_events_unmet_check` by the two mode keys.
+- Seams, each failing closed: **#108** (the transport — the one `unevaluable`
+  inside the two CONJUNCTIONS, so guest checkout reads `ineligible`),
   **#111** (a positive rollout cohort, the storefront affordance, the guest
   analytics events; `guest_cohort_enabled` reads the block list ADR 0006 G14
   already decided on rather than claiming a cohort model that does not exist),
-  **#93** (pickup is excluded from the guest fulfilment set at the SOURCE, so it
-  cannot satisfy a requirement with a path that refuses at checkout), the TEN
+  the TEN
   test-order scenarios (eight need an external account or an unbuilt capability;
   `test_order_completed` is the derivable half), and #88's schedule-change
-  NOTIFICATIONS and downloadable breakdowns.
+  NOTIFICATIONS and downloadable breakdowns. **#93's seam is CLOSED**: pickup is
+  in the guest fulfilment set whenever both #93 levers are on and the store has a
+  collectable publication, and `pickup_fulfilment_available` reads
+  `locationCollectionBlockers` — #93's OWN function — so this domain holds no
+  second spelling of what "collectable" means. The exclusion was not merely
+  stale, it was CIRCULAR under `GUEST_SELLER_ACTIVATION_REQUIRED`: an empty set
+  withheld guest activation, which `derivePickupEligibility` read back as
+  `guest_seller_not_activated`.
 - **Acceptance 1 is NOT met and `docs/merchant-activation.md` says so**: no
   Stripe account, no connected store and no real connector install has been
   exercised — #69's own acceptance 7, still open. Nothing here may be read as

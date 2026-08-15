@@ -31,6 +31,7 @@ const READY_CHANNELS: ChannelReadiness = {
 export interface ActivationFactsOverride {
   store?: Partial<MerchantActivationFacts['store']>;
   settings?: Partial<MerchantActivationFacts['settings']>;
+  fulfilment?: Partial<MerchantActivationFacts['fulfilment']>;
   guest?: Partial<MerchantActivationFacts['guest']>;
   channelReadiness?: ChannelReadiness;
   merchant?: MerchantActivationFacts['merchant'];
@@ -102,6 +103,17 @@ export function activationFacts(override: ActivationFactsOverride = {}): Merchan
     completedOrderCount: override.completedOrderCount ?? 3,
     refundPermissionAssigned: override.refundPermissionAssigned ?? true,
     buyerDataPermissionAssigned: override.buyerDataPermissionAssigned ?? true,
+    // The BEST case, like every other field here: collection is on, and this
+    // store has somewhere to collect from. A base that left pickup off would
+    // make `pickup_checkout` withheld in the census below, which is the
+    // permissive direction for a test — the inversion would be invisible.
+    fulfilment: {
+      shippingMethods: ['standard', 'express'],
+      storePickupEnabled: true,
+      guestPickupEnabled: true,
+      collectableLocationCount: 1,
+      ...override.fulfilment,
+    },
     guest: {
       commerceEnabled: true,
       cartEnabled: true,
@@ -110,7 +122,10 @@ export function activationFacts(override: ActivationFactsOverride = {}): Merchan
       paymentMethods: ['card'],
       markets: ['ES', 'FR'],
       blockedMarkets: [],
-      fulfilmentMethods: ['standard', 'express'],
+      // Coherent with the `fulfilment` block above, which is what the real
+      // composer would produce: collection is on and this store has a desk, so
+      // the guest set carries it too.
+      fulfilmentMethods: ['standard', 'express', 'pickup'],
       sellerBlockedByOperator: false,
       transactionalTransportConfigured: true,
       buyerRequestsEnabled: true,

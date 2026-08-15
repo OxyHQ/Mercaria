@@ -148,23 +148,54 @@ export const GUEST_ACTIVATION_REQUIREMENTS = [
 /** One of {@link GUEST_ACTIVATION_REQUIREMENTS}. */
 export type GuestActivationRequirement = (typeof GUEST_ACTIVATION_REQUIREMENTS)[number];
 
-/** Either registry's key. The two tuples are disjoint, asserted by a test. */
+/**
+ * What a store must satisfy before ONE fulfilment mode may be used — the third
+ * registry, and the one that withholds a CAPABILITY without withholding
+ * checkout.
+ *
+ * It exists because the other two cannot express this shape. A member of either
+ * of them enters its conjunction, so a pickup requirement in the native
+ * registry would make every store on a deployment with `STORE_PICKUP_ENABLED`
+ * off (the default) read `nativeCheckout: disabled` — a far worse answer than
+ * the one it was added to fix. A mode is not a precondition of selling; it is a
+ * precondition of selling THAT WAY, and `shipping_checkout` / `pickup_checkout`
+ * are exactly the two capabilities that say so.
+ *
+ * So these are DERIVED and REPORTED like every other requirement, they name
+ * their reason like every other requirement, and they are excluded from both
+ * conjunctions by CONSTRUCTION rather than by a hand-maintained exclusion list:
+ * `activation.service.ts` composes the blocking sets per registry, and this
+ * tuple is a registry.
+ */
+export const FULFILMENT_MODE_REQUIREMENTS = [
+  /** This deployment can price at least one method that puts goods in transit. */
+  'shipping_fulfilment_available',
+  /** This deployment offers collection AND this store published somewhere to collect from. */
+  'pickup_fulfilment_available',
+] as const;
+
+/** One of {@link FULFILMENT_MODE_REQUIREMENTS}. */
+export type FulfilmentModeRequirement = (typeof FULFILMENT_MODE_REQUIREMENTS)[number];
+
+/** Any registry's key. The three tuples are disjoint, asserted by a test. */
 export type MerchantActivationRequirementKey =
   | MerchantActivationRequirement
-  | GuestActivationRequirement;
+  | GuestActivationRequirement
+  | FulfilmentModeRequirement;
 
 /**
- * Both registries as one tuple, in native-then-guest order.
+ * Every registry as one tuple, in native-then-guest-then-mode order.
  *
- * It exists for the two consumers that need the SET rather than either half:
+ * It exists for the two consumers that need the SET rather than any one half:
  * the `merchant_activation_capability_events.unmet` element CHECK (so an audit
  * row can hold a requirement key and nothing else), and the disjointness test.
- * Derived by concatenation rather than written out, so a member added to either
+ * Derived by concatenation rather than written out, so a member added to any
  * registry cannot be forgotten here.
  */
 export const MERCHANT_ACTIVATION_REQUIREMENT_KEYS = [
   ...MERCHANT_ACTIVATION_REQUIREMENTS,
   ...GUEST_ACTIVATION_REQUIREMENTS,
+  ...FULFILMENT_MODE_REQUIREMENTS,
 ] as const;
 
 /**
@@ -222,10 +253,30 @@ export const MERCHANT_ACTIVATION_BLOCK_REASONS = [
   'guest_seller_blocked_by_operator',
   'guest_fulfilment_method_blocked',
   'guest_buyer_data_permission_unassigned',
+  // Fulfilment modes. Each names ONE mode, because the two capabilities that
+  // read them name one mode each — a shared reason would be a shared answer,
+  // which is the defect these replaced.
+  'no_priceable_shipping_method',
+  'store_pickup_disabled',
+  'no_collectable_pickup_location',
   // Capabilities this deployment does not have at all — every one is a NAMED
   // seam whose owner is recorded beside it, never a merchant's fault.
   'transactional_transport_unconfigured',
-  'pickup_not_supported',
+  /**
+   * #110's buyer-request mount is switched off in this deployment.
+   *
+   * Its own code, and that is the point. It replaced `pickup_not_supported`,
+   * which described a DIFFERENT condition entirely (#93 had published no
+   * collection state) and reached the merchant's own dashboard as the stated
+   * cause of a guest checkout being ineligible. A merchant told the wrong cause
+   * of their own problem is a wrong answer, not a privacy measure: the
+   * one-code-for-many-dimensions rule (`guest_rollout_blocked`,
+   * `retail_line_ineligible`, `p2p_seller_excluded`) exists for BUYER-facing
+   * refusals where a client varying one input at a time reads out somebody
+   * else's state, and this reader is the store owner asking about their own
+   * store behind `store:manage`.
+   */
+  'guest_support_requests_disabled',
   'p2p_activation_unavailable',
 ] as const;
 
@@ -563,6 +614,18 @@ export interface MerchantActivationState {
     readonly state: GuestCheckoutState;
     readonly requirements: readonly MerchantActivationRequirementResult[];
     readonly unmet: readonly GuestActivationRequirement[];
+  };
+  /**
+   * The per-mode registry, which has requirements and NO checkout state.
+   *
+   * There is deliberately no `state` beside these. A mode does not decide
+   * whether this store may sell — it decides which of `shipping_checkout` and
+   * `pickup_checkout` is granted — and a third checkout word here would be a
+   * second answer to a question `nativeCheckout.state` already answers.
+   */
+  readonly fulfilment: {
+    readonly requirements: readonly MerchantActivationRequirementResult[];
+    readonly unmet: readonly FulfilmentModeRequirement[];
   };
   readonly capabilities: readonly MerchantCapabilityResult[];
   readonly support: MerchantActivationSupport;

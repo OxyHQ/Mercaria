@@ -101,18 +101,24 @@ export interface PickupLevers {
 }
 
 /**
- * Whether a location may appear in a public nearby answer for one variant.
+ * The blockers that belong to the LOCATION alone — no inventory, no clock.
  *
- * Deliberately actor-free: #93 nearby rule 11 says browsing nearby availability
- * must not require signing in, and rule 12 asks for actor-specific checkout
- * eligibility to be a SEPARATE request. Keeping the two derivations apart is
- * what makes that possible without an anonymous caller getting a different set
- * of locations from a signed-in one.
+ * Extracted because a SECOND caller needs exactly this half and cannot supply
+ * the other one: #85's `pickup_checkout` capability asks whether a STORE is set
+ * up for collection at all, and a store-level question has no variant whose
+ * stock it could read and no line whose opening hours it could check. Reading
+ * these seven clauses off a second time in that domain would be two spellings
+ * of one rule, and the direction they would drift in is the permissive one.
+ *
+ * What it deliberately does NOT answer is what makes it safe to expose: a
+ * location clearing every clause here can still refuse a real collection
+ * (nothing in stock, a stale count, closed for the next twelve hours), so the
+ * set it admits is a strict SUPERSET of `derivePickupEligibility`'s. A caller
+ * may use it to say "this store has somewhere a shopper could collect from"
+ * and never to say "this can be collected now".
  */
-export function deriveLocationDiscoverability(
-  location: PickupLocationFacts,
-  inventory: PickupInventoryFacts,
-  at: Date,
+export function locationCollectionBlockers(
+  location: Omit<PickupLocationFacts, 'schedule'>,
 ): readonly PickupBlockReason[] {
   const reasons: PickupBlockReason[] = [];
 
@@ -126,6 +132,26 @@ export function deriveLocationDiscoverability(
   if (!location.geocoded) reasons.push('location_not_geocoded');
   if (!location.pickupOffered) reasons.push('pickup_not_offered');
   if (location.pickupPaused) reasons.push('pickup_paused');
+
+  return reasons;
+}
+
+/**
+ * Whether a location may appear in a public nearby answer for one variant.
+ *
+ * Deliberately actor-free: #93 nearby rule 11 says browsing nearby availability
+ * must not require signing in, and rule 12 asks for actor-specific checkout
+ * eligibility to be a SEPARATE request. Keeping the two derivations apart is
+ * what makes that possible without an anonymous caller getting a different set
+ * of locations from a signed-in one.
+ */
+export function deriveLocationDiscoverability(
+  location: PickupLocationFacts,
+  inventory: PickupInventoryFacts,
+  at: Date,
+): readonly PickupBlockReason[] {
+  const reasons: PickupBlockReason[] = [...locationCollectionBlockers(location)];
+
   if (!inventory.listingActive) reasons.push('listing_unavailable');
   if (inventory.availableQuantity <= 0) reasons.push('no_collectable_stock');
   if (isStockStale(inventory, at)) reasons.push('inventory_stale');
