@@ -30,6 +30,7 @@ import type {
   LowInventoryAlertJob,
   ConnectionBackfillJob,
   ConnectionWebhookReregisterJob,
+  ConnectionWebhookAuditJob,
   WebhookProcessJob,
   ProductPushJob,
   OrderSyncJob,
@@ -424,6 +425,23 @@ export async function handleConnectionWebhookReregister(
   // on a connection the sweep has given up on and must not spend from the
   // automatic budget. A SUCCESS resets that budget and re-arms the sweep.
   await reregisterConnectionWebhooks(job.storeId, job.connectionId, { countsAsAttempt: false });
+}
+
+/**
+ * Audit ONE connection's live webhook subscriptions (#295).
+ *
+ * Enqueued per connection by the six-hourly catalogue reconcile.
+ * `auditConnectionWebhooks` never throws for anything a platform answers, so a
+ * shop that is simply unreachable does not turn into a failed, retried job;
+ * `storeId` scopes the lookup for the same reason its siblings carry it.
+ * Delegates by dynamic import — same cycle-breaking reason as
+ * {@link handleConnectionBackfill}.
+ */
+export async function handleConnectionWebhookAudit(
+  job: ConnectionWebhookAuditJob,
+): Promise<void> {
+  const { auditConnectionWebhooks } = await import('../services/connector-sync.service.js');
+  await auditConnectionWebhooks(job.storeId, job.connectionId);
 }
 
 /**

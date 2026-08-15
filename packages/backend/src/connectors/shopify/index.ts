@@ -1470,8 +1470,18 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
      * Shopify's secret is the APP secret, so a subscription an earlier
      * registration created still verifies — hence `adoptExisting: true`, which
      * also means a reconnect costs one `GET` rather than twelve calls.
+     *
+     * Adoption still means "at the address we serve, right now", and a
+     * subscription this app created at a base URL the deployment has since left
+     * is not that (#295) — it delivers to a hostname that answers nothing, and
+     * Shopify removes it after enough consecutive failures without ever telling
+     * Mercaria. `ownedSubscriptionIds` is how the reconcile recognises those and
+     * takes them out; the app-wide secret is why replacing one costs nothing.
      */
-    registerWebhooks(auth: ConnectorAuth, params: { address: string }) {
+    registerWebhooks(
+      auth: ConnectorAuth,
+      params: { address: string; ownedSubscriptionIds: readonly string[] },
+    ) {
       const headers = {
         'X-Shopify-Access-Token': auth.accessToken,
         'Content-Type': 'application/json',
@@ -1481,6 +1491,7 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
         topics: SHOPIFY_WEBHOOK_TOPICS,
         deliveryUrl: params.address,
         adoptExisting: true,
+        ownedSubscriptionIds: params.ownedSubscriptionIds,
         list: () => listShopifyWebhooks(auth),
         create: async (topic) => {
           let response: ShopifyHttpResponse;

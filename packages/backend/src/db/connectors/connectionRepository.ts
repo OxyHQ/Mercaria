@@ -691,15 +691,21 @@ export async function findConnectionWebhookFailures(
  * failure it produces on WooCommerce is a full set of subscriptions RECREATED on
  * every merchant's site every cycle (#218).
  *
- * ## What it deliberately does NOT find
+ * ## What it deliberately does NOT find, and who does (#295)
  *
- * A connection whose stored ids the platform no longer has. Its `webhook_ids` is
- * non-empty and nothing was refused, so no derivation over Mercaria's own rows
- * can see it — only reading the platform can, i.e. re-registering everything on a
- * schedule, which would knock at every merchant's shop every cycle about a state
- * nobody has observed. That state is prevented at its source by the disconnect
- * guard in `connector-sync.service.disconnect`, and the remedy for one that
- * happened anyway is the on-demand re-registration a merchant can trigger.
+ * A connection whose stored ids the platform no longer honours — deleted,
+ * disabled after too many failed deliveries, or left pointing at a delivery
+ * address this deployment stopped serving. Its `webhook_ids` is non-empty and
+ * nothing was refused, so NO derivation over Mercaria's own rows can see it:
+ * only reading the platform can.
+ *
+ * This query is therefore still right to have no third disjunct, and the answer
+ * is not to widen it. `auditConnectionWebhooks` READS each connection's live
+ * subscriptions on the existing six-hourly catalogue reconcile and, when it finds
+ * evidence, drives the same `reregisterConnectionWebhooks` this sweep drives. A
+ * detector that runs on evidence is not the same thing as re-registering
+ * everything on a schedule, which would knock at every merchant's shop every
+ * cycle about a state nobody has observed.
  *
  * ## Why it is not `findPullConnectionsToReconcile`
  *
@@ -761,6 +767,44 @@ export async function findConnectionsNeedingWebhookRegistration(
     )
     .orderBy(connections.webhookRegistrationNextAttemptAt, connections.createdAt)
     .limit(options.limit);
+}
+
+/**
+ * Every connection whose live webhook subscriptions are worth READING (#295).
+ *
+ * The population the six-hourly catalogue reconcile audits. Deliberately the
+ * same four preconditions {@link findConnectionsNeedingWebhookRegistration}
+ * opens with and NONE of its registration-state predicates: this asks "can we
+ * ask the platform what it holds", where that one asks "is there registration
+ * work outstanding". A connection whose registration Mercaria believes finished
+ * is exactly the one #295 is about, so filtering on the state would reproduce
+ * the blind spot in the detector built to close it.
+ *
+ * It is not `findPullConnectionsToReconcile` for the reason stated there: that
+ * population additionally requires product pull, and a connection selling
+ * through `orders: 'pull'` alone has webhooks and would never be audited.
+ *
+ * UNBOUNDED, like the reconcile sweep beside it, because the caller enqueues one
+ * bounded job per connection rather than doing the work itself.
+ */
+export async function findConnectionsToAuditWebhooks(
+  db: DatabaseOrTransaction = getDb(),
+): Promise<{ id: string; storeId: string }[]> {
+  return db
+    .select({ id: connections.id, storeId: connections.storeId })
+    .from(connections)
+    .where(
+      and(
+        eq(connections.status, 'connected'),
+        eq(connections.mode, 'pull'),
+        isNotNull(connections.credentialsCiphertext),
+        isNotNull(connections.shopDomain),
+        // A merchant who paused fetch asked Mercaria to stop knocking, and an
+        // audit is a knock.
+        isNull(connections.fetchPausedAt),
+      ),
+    )
+    .orderBy(connections.createdAt);
 }
 
 /**

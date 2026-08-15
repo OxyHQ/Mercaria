@@ -72,6 +72,23 @@ export interface ConnectionWebhookReregisterJob {
 export type ConnectionWebhookRegistrationSweepJob = Record<string, never>;
 
 /**
+ * AUDIT one connection's live webhook subscriptions against what Mercaria
+ * recorded (#295), and re-register when the platform contradicts it.
+ *
+ * One job per connection, enqueued by the EXISTING six-hourly catalogue
+ * reconcile rather than by a schedule of its own — the audit is one `GET` per
+ * shop, and doing every connection inside the reconcile job would make one job's
+ * duration a function of how many merchants have connected.
+ *
+ * Both ids travel and both are re-resolved server-side, exactly as
+ * {@link ConnectionWebhookReregisterJob} does and for the same reason.
+ */
+export interface ConnectionWebhookAuditJob {
+  storeId: string;
+  connectionId: string;
+}
+
+/**
  * Pull orders from a `pull` connection into Mercaria. `storeId` scopes the
  * connection lookup (a member of one store can never reach another's connection),
  * so both ids are carried and re-resolved server-side by the handler.
@@ -170,6 +187,7 @@ export type MarketplaceSyncJobData =
   | ConnectionReconcileJob
   | ConnectionWebhookReregisterJob
   | ConnectionWebhookRegistrationSweepJob
+  | ConnectionWebhookAuditJob
   | WebhookProcessJob
   | ProductPushJob
   | OrderSyncJob

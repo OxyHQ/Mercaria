@@ -23,6 +23,8 @@ import type {
 } from '../types.js';
 
 const OURS = 'https://api.mercaria.test/channels/webhooks/shopify';
+/** The base this deployment served BEFORE somebody moved it (#295). */
+const MOVED_FROM = 'https://api-preview.mercaria.test/channels/webhooks';
 const TOPICS = ['products/create', 'products/update', 'orders/create'] as const;
 
 /**
@@ -44,6 +46,8 @@ function expectReconciled(result: WebhookRegistrationResult): WebhookReconciliat
 function makePlan(options: {
   existing?: PlatformWebhookSubscription[];
   adoptExisting: boolean;
+  /** Ids Mercaria has recorded for this connection (#295). */
+  owned?: readonly string[];
   listRefusal?: Extract<WebhookProbe<never>, { outcome: 'refused' }>;
   refuseCreate?: (topic: string) => Extract<WebhookProbe<never>, { outcome: 'refused' }> | undefined;
   refuseRemove?: (id: string) => Extract<WebhookProbe<never>, { outcome: 'refused' }> | undefined;
@@ -60,6 +64,7 @@ function makePlan(options: {
     topics: TOPICS,
     deliveryUrl: OURS,
     adoptExisting: options.adoptExisting,
+    ownedSubscriptionIds: options.owned ?? [],
     list: () =>
       Promise.resolve(
         options.listRefusal ? options.listRefusal : { outcome: 'ok', value: [...existing] },
@@ -369,6 +374,95 @@ describe('reconcileWebhookSubscriptions', () => {
     expect(result.subscriptions.map((subscription) => subscription.id)).not.toContain(
       'other-connection',
     );
+  });
+
+  it('REMOVES a subscription of ours the delivery address moved away from (#295)', async () => {
+    // The base URL changed — a domain migration, an environment move, an expired
+    // preview deployment. `moved` is a subscription THIS connection created, now
+    // pointing at a hostname this deployment no longer serves. It matches no
+    // topic (the comparison is exact and must stay exact), so before #295 it was
+    // simply invisible: every topic was created again and the merchant's site
+    // kept a second, dead set forever.
+    //
+    // The id is the evidence, and it is the only evidence there is: a URL under
+    // a base nobody serves says nothing about who created it, while an id in
+    // `webhook_ids` was put there by a registration on THIS connection.
+    const { plan, created, removed } = makePlan({
+      adoptExisting: false,
+      owned: ['moved'],
+      existing: [{ id: 'moved', topic: 'products/create', deliveryUrl: `${MOVED_FROM}/shopify` }],
+    });
+
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
+
+    expect(removed, 'the displaced subscription is ours and must go').toEqual(['moved']);
+    expect(created).toEqual([...TOPICS]);
+    expect(result.subscriptions.map((subscription) => subscription.id)).not.toContain('moved');
+    // Not a failure: nothing about the wanted topics failed to arrive.
+    expect(result.failures).toEqual([]);
+  });
+
+  it('does NOT adopt a displaced subscription, on either reconcile mode', async () => {
+    // The adopt branch is where this would go wrong quietly. An `app_secret`
+    // provider may keep a subscription at OUR address; keeping one at an address
+    // nobody serves would satisfy the topic with something that delivers
+    // nowhere, and the reconcile would report a healthy registration forever.
+    const { plan, created, removed } = makePlan({
+      adoptExisting: true,
+      owned: ['moved'],
+      existing: [{ id: 'moved', topic: 'products/create', deliveryUrl: `${MOVED_FROM}/shopify` }],
+    });
+
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
+
+    expect(removed).toEqual(['moved']);
+    expect(created, 'the topic must be created afresh at the address we serve').toEqual([...TOPICS]);
+    expect(result.subscriptions.map((subscription) => subscription.id)).not.toContain('moved');
+  });
+
+  it('RETAINS a displaced subscription it could not delete', async () => {
+    // The #218 invariant one address over: the platform still holds it, Mercaria
+    // still holds the only handle, and dropping the id makes it unreachable by
+    // the next reconcile AND by disconnect. It is no failure — it delivers
+    // nowhere, so no wanted event is lost — and the topic is created regardless,
+    // which is why the removal is best-effort where a same-address delete is not.
+    const { plan, created } = makePlan({
+      adoptExisting: false,
+      owned: ['stubborn'],
+      existing: [{ id: 'stubborn', topic: 'products/create', deliveryUrl: `${MOVED_FROM}/shopify` }],
+      refuseRemove: (id) =>
+        id === 'stubborn' ? { outcome: 'refused', reason: 'platform_error', httpStatus: 500 } : undefined,
+    });
+
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
+
+    expect(created).toEqual([...TOPICS]);
+    expect(result.failures).toEqual([]);
+    expect(result.subscriptions).toContainEqual({
+      id: 'stubborn',
+      topic: 'products/create',
+      origin: 'retained',
+    });
+  });
+
+  it('leaves a subscription at a foreign address that Mercaria holds NO id for', async () => {
+    // The other half of the id rule, and the reason it is an id rather than a
+    // URL shape. This one sits under a base nobody here serves — a sibling
+    // deployment, a staging environment, another app entirely — and nothing
+    // says it is Mercaria's. Deleting it would be exactly the cross-deployment
+    // deletion the exact-URL comparison exists to prevent.
+    const { plan, removed } = makePlan({
+      adoptExisting: false,
+      owned: [],
+      existing: [
+        { id: 'not-ours', topic: 'products/create', deliveryUrl: `${MOVED_FROM}/shopify` },
+      ],
+    });
+
+    const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
+
+    expect(removed).toEqual([]);
+    expect(result.subscriptions.map((subscription) => subscription.id)).not.toContain('not-ours');
   });
 
   it('deletes a subscription of OURS for a topic this connector no longer wants', async () => {

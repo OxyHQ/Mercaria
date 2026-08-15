@@ -91,6 +91,7 @@ import {
   findConnectionIdsByShopDomain,
   findConnectionsByStore,
   findConnectionsNeedingWebhookRegistration,
+  findConnectionsToAuditWebhooks,
   findConnectionWebhookFailures,
   findConnectionWebhookSecret,
   findPullConnectionsToReconcile,
@@ -174,6 +175,7 @@ import type {
   NormalizedOrder,
   NormalizedProduct,
   NormalizedVariant,
+  PlatformWebhookSubscription,
   PushFulfillment,
   PushProduct,
   PushVariant,
@@ -651,6 +653,11 @@ async function attemptWebhookRegistration(
     const result = await provider.registerWebhooks(auth, {
       address: getWebhookAddress(conn.provider),
       connectionId: conn.id,
+      // The ids Mercaria has recorded, so the reconcile can recognise a
+      // subscription of ours that the delivery ADDRESS moved away from (#295).
+      // `conn.webhookIds` and never a re-read: the row is the one the caller
+      // claimed, and the reconcile is about to overwrite exactly this column.
+      ownedSubscriptionIds: conn.webhookIds,
       ...(secret !== undefined ? { secret } : {}),
     });
     const failures = result.failures.map((failure) => ({
@@ -925,6 +932,191 @@ async function attemptRegistrationFor(conn: ConnectionRow): Promise<WebhookRegis
     );
     return { connection: conn, disposition: 'retryable' };
   }
+}
+
+/**
+ * One thing an audit found wrong with a subscription Mercaria created (#295).
+ *
+ * Each names a DIFFERENT fact about the same stored id, and they are kept apart
+ * because they arise differently even though the remedy is one: a subscription
+ * the platform no longer lists was deleted by somebody, one delivering
+ * elsewhere is what a change of `CONNECTOR_OAUTH_REDIRECT_BASE_URL` leaves, and
+ * one the platform disabled is what too many failed deliveries produce. An
+ * operator reading a log line needs to know which.
+ */
+export type ConnectionWebhookAuditFinding =
+  /** A stored id the platform no longer lists at all. */
+  | 'subscription_missing'
+  /** A stored id delivering to an address this deployment no longer serves. */
+  | 'delivery_address_moved'
+  /** A stored id at the right address that the platform has stopped delivering. */
+  | 'subscription_disabled';
+
+/** What one audit concluded, and what it did about it. */
+export type ConnectionWebhookAuditOutcome =
+  /** Every stored id is live, at the address we serve, and delivering. */
+  | 'healthy'
+  /** Not a connection with webhooks to audit (mode, credentials, shop domain). */
+  | 'not_registerable'
+  /** No ids recorded — #262's own population, and NOT this detector's business. */
+  | 'nothing_registered'
+  /** The platform would not say what it holds, so nothing was concluded. */
+  | 'unreadable'
+  /** Findings, and a re-registration was driven. */
+  | 'repair_requested'
+  /** Findings, and the connection had already stopped retrying. */
+  | 'repair_withheld';
+
+/** The whole of what one audit observed — returned so a caller can assert on it. */
+export interface ConnectionWebhookAudit {
+  readonly outcome: ConnectionWebhookAuditOutcome;
+  /** Deduplicated and sorted, so two runs over one shop read identically. */
+  readonly findings: readonly ConnectionWebhookAuditFinding[];
+  /**
+   * The highest consecutive-failure count the platform published for any
+   * subscription of ours, when it publishes one at all.
+   *
+   * EVIDENCE and never a trigger — see `PlatformWebhookSubscription.failureCount`
+   * for why a re-registration keyed on it would churn every merchant's
+   * subscriptions over a blip it cannot fix.
+   */
+  readonly maxFailureCount?: number;
+  /** What the re-registration concluded, when one ran. */
+  readonly repair?: WebhookReregistrationOutcome;
+}
+
+/**
+ * AUDIT one connection's live webhook subscriptions against what Mercaria
+ * believes it registered, and drive a repair when they disagree (#295).
+ *
+ * ## The blind spot this exists to close
+ *
+ * #262's sweep derives its population from Mercaria's own rows: an empty
+ * `webhook_ids`, or a topic the platform refused. A subscription that registered
+ * CLEANLY and was later killed on the platform's side is invisible to it by
+ * construction, and there is no derivation over local rows that could see it —
+ * `webhook_ids` is full and nothing was refused. The commonest way it happens is
+ * a change of `CONNECTOR_OAUTH_REDIRECT_BASE_URL`: deliveries start failing
+ * against a hostname that no longer serves, WooCommerce disables the
+ * subscriptions itself past five failures, and they stay disabled after the
+ * address is fixed. It is quiet in BOTH directions — Mercaria sees no
+ * deliveries, and "no events happened" is indistinguishable from "the
+ * subscriptions are dead" without asking the platform.
+ *
+ * ## Evidence, never a schedule of re-registrations
+ *
+ * The ONLY repair trigger is a stored id the platform contradicts. A shop whose
+ * subscriptions are all live, at the address we serve and delivering is left
+ * completely alone — no delete, no create, no attempt spent — which is what
+ * makes running this on every connection every six hours affordable, and what
+ * stops it becoming the "re-register everything on a schedule" that
+ * `findConnectionsNeedingWebhookRegistration` refuses to be.
+ *
+ * ## The three things it deliberately does not treat as evidence
+ *
+ * An EMPTY `webhook_ids` is not a finding here: it is #262's own population, and
+ * reporting it would give one state two owners. An UNREADABLE list is not a
+ * finding: a re-registration would fail at the same list call and spend an
+ * attempt saying so. And a subscription at a foreign address that Mercaria holds
+ * no id for is not visible as ours at all — see `webhook-registration.ts` for
+ * why the evidence is an id rather than a URL shape.
+ *
+ * ## A `dead_letter` is a stop, and a detector must not restart it
+ *
+ * #262 dead-letters a connection whose refusals a retry cannot fix, and that is
+ * a deliberate end to the automatic loop. Firing a repair into it every six
+ * hours would undo the stop from outside; the finding is logged and the remedy
+ * is the merchant's own re-registration button, which is what #262 built it for.
+ *
+ * Best-effort throughout: this NEVER throws, because it runs beside a catalogue
+ * reconcile and a webhook audit must not be able to fail one.
+ */
+export async function auditConnectionWebhooks(
+  storeId: string,
+  connectionId: string,
+): Promise<ConnectionWebhookAudit> {
+  const conn = await findConnection(storeId, connectionId);
+  if (!conn) {
+    throw notFound('Connection not found');
+  }
+  if (conn.mode !== 'pull' || !conn.hasCredentials || !conn.shopDomain) {
+    return { outcome: 'not_registerable', findings: [] };
+  }
+  if (conn.webhookIds.length === 0) {
+    return { outcome: 'nothing_registered', findings: [] };
+  }
+
+  const provider = getConnectorProvider(conn.provider);
+  let live: PlatformWebhookSubscription[];
+  try {
+    const auth = await decryptAuth(conn);
+    live = [...(await provider.listWebhooks(auth))];
+  } catch (err) {
+    // Reported rather than repaired: a re-registration reads the same list and
+    // would spend an attempt discovering the same thing. It is also what a
+    // revoked credential answers every time.
+    log.general.warn(
+      { err, connectionId: conn.id },
+      'Could not read the platform webhook list to audit this connection',
+    );
+    return { outcome: 'unreadable', findings: [] };
+  }
+
+  const expectedUrl = provider.webhookDeliveryUrl({
+    address: getWebhookAddress(conn.provider),
+    connectionId: conn.id,
+  });
+  const byId = new Map(live.map((subscription) => [subscription.id, subscription]));
+  const findings = new Set<ConnectionWebhookAuditFinding>();
+  let maxFailureCount: number | undefined;
+  for (const id of conn.webhookIds) {
+    const subscription = byId.get(id);
+    if (!subscription) {
+      findings.add('subscription_missing');
+      continue;
+    }
+    if (subscription.deliveryUrl !== expectedUrl) {
+      findings.add('delivery_address_moved');
+      continue;
+    }
+    // ABSENT is not unhealthy — a platform that publishes no status has said
+    // nothing, and only a platform that says `disabled`/`paused` has said it
+    // stopped. Reading silence the other way would put every Shopify connection
+    // through a re-registration every six hours.
+    if (subscription.status === 'disabled' || subscription.status === 'paused') {
+      findings.add('subscription_disabled');
+    }
+    if (subscription.failureCount !== undefined) {
+      maxFailureCount = Math.max(maxFailureCount ?? 0, subscription.failureCount);
+    }
+  }
+
+  const observed = [...findings].sort();
+  const failureEvidence = maxFailureCount === undefined ? {} : { maxFailureCount };
+  if (observed.length === 0) {
+    return { outcome: 'healthy', findings: [], ...failureEvidence };
+  }
+
+  if (conn.webhookRegistrationState === 'dead_letter') {
+    log.general.warn(
+      { connectionId: conn.id, findings: observed, ...failureEvidence },
+      'Webhook audit found dead subscriptions on a connection that has stopped retrying',
+    );
+    return { outcome: 'repair_withheld', findings: observed, ...failureEvidence };
+  }
+
+  log.general.warn(
+    { connectionId: conn.id, findings: observed, ...failureEvidence },
+    'Webhook audit found subscriptions the platform no longer honours — re-registering',
+  );
+  // `countsAsAttempt: true` — this is the AUTOMATIC loop, so its attempts are
+  // what the budget bounds. A shop that cannot be repaired must reach the same
+  // visible `dead_letter` the sweep reaches rather than being retried every six
+  // hours forever; a merchant pressing the button still gets their own attempt.
+  const repair = await reregisterConnectionWebhooks(storeId, connectionId, {
+    countsAsAttempt: true,
+  });
+  return { outcome: 'repair_requested', findings: observed, repair, ...failureEvidence };
 }
 
 /**
@@ -2584,6 +2776,19 @@ async function archiveUnseenSourcedListings(
  * eligible connection so each runs as its own retryable, deduped job; failing to
  * enqueue one connection is logged and never aborts the sweep over the rest.
  *
+ * It ALSO enqueues a webhook AUDIT per connection (#295), and that is why the
+ * catalogue re-pull is only half of what "safety net for missed webhooks" means:
+ * re-pulling recovers the DATA a dead subscription never delivered, and nothing
+ * before #295 noticed the subscription was dead. The two populations are
+ * different — a connection with product pull off has webhooks and no catalogue
+ * to re-pull — so they are read separately rather than one filtered from the
+ * other.
+ *
+ * TWO enqueues rather than one audit inline, because an audit is a platform call
+ * per shop: doing them here would make this job's duration a function of how
+ * many merchants have connected, and one unreachable site would hold up every
+ * other merchant's reconcile.
+ *
  * Runs only under Redis (the scheduler is Redis-only). The producer's inline
  * fallback keeps this correct if ever called without Redis, but the scheduler never
  * registers it there — so without Redis there is simply no periodic sweep.
@@ -2594,7 +2799,9 @@ export async function reconcileAllConnections(): Promise<void> {
   // can be every connection in the system.
   const connections = await findPullConnectionsToReconcile();
 
-  const { enqueueConnectionBackfill } = await import('../queue/producers.js');
+  const { enqueueConnectionBackfill, enqueueConnectionWebhookAudit } = await import(
+    '../queue/producers.js'
+  );
   for (const conn of connections) {
     try {
       await enqueueConnectionBackfill({ storeId: conn.storeId, connectionId: conn.id });
@@ -2605,9 +2812,22 @@ export async function reconcileAllConnections(): Promise<void> {
       );
     }
   }
+
+  const auditable = await findConnectionsToAuditWebhooks();
+  for (const conn of auditable) {
+    try {
+      await enqueueConnectionWebhookAudit({ storeId: conn.storeId, connectionId: conn.id });
+    } catch (err) {
+      log.general.warn(
+        { err, connectionId: conn.id },
+        'Reconcile sweep: failed to enqueue webhook audit for connection',
+      );
+    }
+  }
+
   log.general.info(
-    { count: connections.length },
-    'Connector reconcile sweep enqueued per-connection backfills',
+    { count: connections.length, audited: auditable.length },
+    'Connector reconcile sweep enqueued per-connection backfills and webhook audits',
   );
 }
 
