@@ -395,6 +395,20 @@ export const MOOVO_UNAVAILABLE_REASONS = [
   'provider_refused',
   /** Moovo did not answer within the caller's bound. */
   'provider_unreachable',
+  /**
+   * A WRITE failed after the request had left Mercaria, so Moovo may hold a
+   * transport Mercaria never heard about (#156 error policy 6, item 8).
+   *
+   * Deliberately NOT folded into `provider_unreachable`, which is the whole
+   * point of the member. Both are "no answer", and they license opposite next
+   * actions: an unreachable provider may be asked again, and an ambiguous one
+   * may NOT — asking again is how one paid order becomes two collections at a
+   * supplier's door. #124 reached the same place with `afterWrite`, and the
+   * rule there is the rule here: anything that cannot be told apart is
+   * ambiguous, because reading an unknown as "nothing was written" is the
+   * assumption that costs money.
+   */
+  'provider_outcome_ambiguous',
 ] as const;
 export type MoovoUnavailableReason = (typeof MOOVO_UNAVAILABLE_REASONS)[number];
 
