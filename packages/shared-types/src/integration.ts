@@ -401,7 +401,13 @@ export interface IngestProductVariant {
   sku?: string;
   /** Barcode (UPC/EAN/ISBN…). */
   barcode?: string;
-  /** Inventory snapshot; `available` defaults to 0 when omitted. */
+  /**
+   * Inventory snapshot. PRESENT means the client is asserting a tracked stock
+   * figure — including `{ available: 0 }`, which means tracked and sold out.
+   * ABSENT means the client does not track stock for this variant, and the
+   * variant is stored UNTRACKED (sellable, no quantity counted) rather than at
+   * zero — an omission is not an assertion that nothing is for sale (#293).
+   */
   inventory?: { available: number };
 }
 

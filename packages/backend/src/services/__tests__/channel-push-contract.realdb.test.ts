@@ -300,6 +300,62 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     expect(variants[0].inventoryAvailable).toBe(9);
   });
 
+  it('reads an ABSENT inventory key as UNTRACKED, never as tracked at zero (#293)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    const response = await ingest(`/${connection.id}/products`, key, {
+      products: [
+        // A WooCommerce store whose GLOBAL stock management is off. The plugin
+        // asserts no stock figure on ANY product and pushes no inventory items
+        // either, so nothing downstream could correct a wrong reading of the
+        // absence — which is why reading it as zero cost the whole catalogue.
+        pushProduct(`${namespace}-untracked`, {
+          variants: [{ sku: `PUSH-${namespace}-U`, price: { amount: 1500, currency: 'GBP' } }],
+        }),
+        // The positive control, and the reason absence had to become its own
+        // value rather than a smaller default: a client that MEANS tracked and
+        // sold out still has a way to say so, and the two must not collapse.
+        pushProduct(`${namespace}-zero`, {
+          variants: [
+            {
+              sku: `PUSH-${namespace}-Z`,
+              price: { amount: 1500, currency: 'GBP' },
+              inventory: { available: 0 },
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(JSON.parse(response.text).data.results.map((r: { action: string }) => r.action)).toEqual([
+      'created',
+      'created',
+    ]);
+
+    const imported = await findListingsBySourceConnection(storeId, connection.id);
+    const untracked = imported.find((row) => row.sourceExternalId === `woo-${namespace}-untracked`);
+    const trackedZero = imported.find((row) => row.sourceExternalId === `woo-${namespace}-zero`);
+    // Both listings resolved: a `find` that matched nothing would make every
+    // assertion below read a property of `undefined` under `strict: false`.
+    expect([untracked?.id, trackedZero?.id].filter(Boolean)).toHaveLength(2);
+
+    const [untrackedVariant] = await findVariantsByListing(untracked.id);
+    expect(untrackedVariant.inventoryTracked).toBe(false);
+    // The symptom a merchant actually sees, and the reason the column assertion
+    // above is not enough on its own: `has_inventory` is
+    // `bool_or(not tracked or available > 0)`, so tracked-at-zero delists the
+    // whole listing while untracked stays on sale.
+    expect(untracked.hasInventory).toBe(true);
+
+    const [zeroVariant] = await findVariantsByListing(trackedZero.id);
+    expect(zeroVariant.inventoryTracked).toBe(true);
+    expect(zeroVariant.inventoryAvailable).toBe(0);
+    expect(trackedZero.hasInventory).toBe(false);
+  });
+
   it('ISOLATES a bad product and still reports one result per product, in order', async () => {
     const storeId = await makeStore();
     const connection = await connectPushIn(storeId, 'woocommerce', {});

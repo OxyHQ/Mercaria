@@ -136,6 +136,24 @@ export async function connectPushIn(
 /**
  * Map an ingested variant to the store-product variant input, applying the
  * connection's `priceRules` (markup + rounding) to the native `price`/`compareAtPrice`.
+ *
+ * An ABSENT `inventory` key means the client declined to assert a stock figure,
+ * and the only honest reading of that is `tracked: false` — which every stock
+ * reader already understands as "sellable, quantity not counted"
+ * (`catalog-hydration`'s `!tracked || available > 0`, `native-offer.service`'s
+ * `in_stock`, `listingRepository`'s `not tracked or available > 0`, and the cart
+ * clamping only when tracked). It is also exactly what the PULL rail persists for
+ * such a variant, since `connector-sync.service`'s `toVariantInput` carries the
+ * platform's own `tracked` flag through (#293).
+ *
+ * `?? 0` on the whole pair was the bug: absence became `tracked: true,
+ * available: 0`, which is a POSITIVE assertion that nothing is for sale. The
+ * WooCommerce plugin omits the key for every product whenever the store's global
+ * stock management is off — `WC_Product::managing_stock()` short-circuits on that
+ * option — and emits no inventory items either, so nothing downstream could
+ * correct it and an entire catalogue landed unsellable behind a run reporting
+ * success. A client that genuinely means "tracked, and none left" still says so
+ * by sending `inventory: { available: 0 }`.
  */
 function toVariantInput(
   variant: IngestProductVariant,
@@ -144,7 +162,10 @@ function toVariantInput(
   const input: CreateStoreProductVariantInput = {
     optionValues: (variant.optionValues ?? []).map((o) => ({ name: o.name, value: o.value })),
     price: applyPriceRules({ amount: variant.price.amount, currency: variant.price.currency }, priceRules),
-    inventory: { tracked: true, available: variant.inventory?.available ?? 0 },
+    inventory:
+      variant.inventory === undefined
+        ? { tracked: false, available: 0 }
+        : { tracked: true, available: variant.inventory.available },
   };
   if (variant.compareAtPrice) {
     input.compareAtPrice = applyPriceRules(
