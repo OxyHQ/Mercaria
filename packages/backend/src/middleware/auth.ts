@@ -8,9 +8,10 @@
  * that, on a match, set `req.userId = 'system'` and a `serviceApp` naming an
  * application id (`internal`) no Oxy Console grant could describe. It had ZERO
  * mounted routes — every `/internal/*` router runs `authenticateToken` plus one
- * of the six operator allow-lists — so it authorized nothing that anybody could
- * reach; it was one `router.use(...)` away from authorizing everything, outside
- * grant audit, with rotation and revocation local to a deployment.
+ * of the `*_OPERATOR_OXY_USER_IDS` allow-lists — so it authorized nothing that
+ * anybody could reach; it was one `router.use(...)` away from authorizing
+ * everything, outside grant audit, with rotation and revocation local to a
+ * deployment.
  *
  * Beside it stood `authenticateTelegramBot`, which was worse and had no Telegram
  * integration behind it: it compared a second shared secret and then took the

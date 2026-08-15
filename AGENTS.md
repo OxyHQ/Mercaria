@@ -1024,8 +1024,10 @@ nothing populated, and the `apiKey`/`serviceApp`/`workspace` Express
 augmentations.
 
 - **All of it was UNMOUNTED, and that is the point rather than a reprieve.**
-  Every `/internal/*` router runs `authenticateToken` plus one of the six
-  operator allow-lists, so no route reached any of it — which is exactly why no
+  Every `/internal/*` router runs `authenticateToken` plus one of the
+  `*_OPERATOR_OXY_USER_IDS` allow-lists (measured 2026-08-16: EIGHT of them, not
+  the six the #122-era prose above still says — count them, never quote a
+  number), so no route reached any of it — which is exactly why no
   behavioural test could defend the removal and why it had to go: each was one
   `router.use(...)` from authorizing everything, outside grant audit, with
   rotation and revocation local to a deployment.
