@@ -468,14 +468,46 @@ function resolveCrowdSourceEnabled(): boolean {
 function resolveReferralsEnabled(): boolean {
   if (!boolEnv('REFERRALS_ENABLED', false)) return false;
 
-  if ((process.env.REFERRAL_LINK_TOKEN_SECRET?.trim() ?? '') !== '') return true;
+  const missing: string[] = [];
+  if ((process.env.REFERRAL_LINK_TOKEN_SECRET?.trim() ?? '') === '') {
+    missing.push('REFERRAL_LINK_TOKEN_SECRET');
+  }
+  // #143 adds the SECOND key to the half-configuration rule. A deployment that
+  // can mint links but cannot sign the state carrier would redirect every
+  // anonymous click and then throw when it tried to hand the browser its
+  // evidence — a program that appears to work and attributes nobody.
+  if ((process.env.REFERRAL_STATE_SECRET?.trim() ?? '') === '') {
+    missing.push('REFERRAL_STATE_SECRET');
+  }
+  if (missing.length === 0) return true;
 
   log.general.error(
-    { missing: ['REFERRAL_LINK_TOKEN_SECRET'] },
+    { missing },
     '[Referrals] REFERRALS_ENABLED is set but the integration is incomplete; staying OFF. ' +
       'Durable referral records are unaffected.',
   );
   return false;
+}
+
+/**
+ * `REFERRAL_OPERATOR_OXY_USER_IDS` → the referral operator allow-list (#143
+ * link rule 8, privacy rule 4).
+ *
+ * A SEVENTH list, for a power none of the six holds: pausing a partner's
+ * ability to earn, and reading the attribution trace behind one. The payments
+ * list is about a store's money, the guest list about a buyer's support
+ * question, the analytics list about measurement — and an operator vetted for
+ * any of those has not thereby been vetted to switch off somebody's income.
+ *
+ * Empty means `/internal/referrals` is not mounted at all — 404, never a 401
+ * that would advertise it. #147's dashboards and #148's fraud surface inherit
+ * THIS list rather than adding an eighth.
+ */
+function resolveReferralOperatorIds(): readonly string[] {
+  return strEnv('REFERRAL_OPERATOR_OXY_USER_IDS', '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id !== '');
 }
 
 /**
@@ -2497,6 +2529,31 @@ export interface ReferralsConfig {
    * signing with an empty key.
    */
   readonly linkTokenSecret?: string;
+  /**
+   * HMAC key for the referral STATE carrier (#143) — the short-lived,
+   * purpose-specific credential a browser holds between a click and the moment
+   * there is a subject to attribute.
+   *
+   * A SECOND key rather than the link token's, because the two are opposite in
+   * kind: a link token is published by a partner and is public by design, while
+   * this one is minted by the server and its forgery would let anybody credit
+   * any partner with any purchase. One key for both would make a leak of the
+   * public half a mint for the private one.
+   */
+  readonly stateSecret?: string;
+  /**
+   * The origin `GET /r/:token` composes its destination on.
+   *
+   * Validated against `lib/allowed-origins.ts` at the first redirect rather
+   * than silently accepted: this value plus an allow-listed relative path IS
+   * the redirect target, so an unlisted origin here would make the route an
+   * open redirect.
+   */
+  readonly redirectBaseUrl: string;
+  /** `REFERRAL_OPERATOR_OXY_USER_IDS` — the SEVENTH allow-list. */
+  readonly operatorOxyUserIds: readonly string[];
+  /** Derived: empty list means `/internal/referrals` is not mounted at all. */
+  readonly operatorSurfaceEnabled: boolean;
 }
 
 /**
@@ -3724,6 +3781,16 @@ export const config: AppConfig = Object.freeze({
     ...(process.env.REFERRAL_LINK_TOKEN_SECRET?.trim()
       ? { linkTokenSecret: process.env.REFERRAL_LINK_TOKEN_SECRET.trim() }
       : {}),
+    ...(process.env.REFERRAL_STATE_SECRET?.trim()
+      ? { stateSecret: process.env.REFERRAL_STATE_SECRET.trim() }
+      : {}),
+    // Defaults to the storefront, which is where every referral destination
+    // template resolves. NOT defaulted to `WEB_URL`: that variable widens
+    // `ALLOWED_ORIGINS` for CORS, and a redirect target is a stronger claim
+    // than a readable response.
+    redirectBaseUrl: strEnv('REFERRAL_REDIRECT_BASE_URL', 'https://mercaria.co'),
+    operatorOxyUserIds: Object.freeze(resolveReferralOperatorIds()),
+    operatorSurfaceEnabled: resolveReferralOperatorIds().length > 0,
   }),
   /**
    * Buyer post-purchase requests — cancellations, returns and support (#110).

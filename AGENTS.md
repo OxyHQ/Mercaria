@@ -5669,3 +5669,118 @@ somebody lives that request-local coarsening exists to avoid).
   Stripe account, no connected store and no real connector install has been
   exercised — #69's own acceptance 7, still open. Nothing here may be read as
   evidence that one has.
+## The referral attribution edge (#143, ADR 0005 D3–D6 / A1–A4)
+
+`services/referrals/{traffic,referral-state,redirect.service,binding.service,controls.service}.ts`
++ `db/referrals/programControlRepository.ts` + `db/schema/referrals.ts`
+(`referral_program_controls`) + `GET /r/:token`, `/referrals/*` and
+`/internal/referrals/*`. Full reference: **`docs/referral-attribution.md`**.
+#142 shipped the MODEL with **no HTTP surface at all**; this is the edge a
+stranger reaches.
+
+- **The design turns on two rules that together forbid both shortcuts.**
+  ADR 0005 D6 stores a guest touch against #103's checkout scope; ADR 0003 T10
+  says a page view never mints one. A link click by a stranger IS a page view,
+  so the click's EVIDENCE travels with the browser and the TOUCH is written at
+  the first moment there is a subject. An anonymous click writes no row, a
+  crawler writes no row, and a real shopper's touch lands on the very session
+  D6 names. Deferring is not a workaround for the conflict — it is the only
+  reading under which both rules hold.
+- **The destination cannot come from the request, as a SHAPE.** Nothing on the
+  path accepts a URL: the target is a configured origin that must be in
+  `lib/allowed-origins.ts` plus a relative path from #142's closed four-member
+  template. The route reads NO query parameter, so "arbitrary campaign
+  injector" is inexpressible rather than filtered, and `campaignRef`/
+  `contentKey` go on the TOUCH and never into the URL. Hostnames compare
+  EXACTLY (a suffix test admits `mercaria.co.evil.example`) and the URL is
+  built with `new URL`, because concatenation admits `//evil.example`.
+- **302 + `no-store` + `Referrer-Policy: no-referrer`, and the alternatives are
+  wrong.** A `301`/`308` is permanently cacheable, so a browser that stopped
+  asking would keep following a REVOKED link, stop spending the click ceiling,
+  and make the operator lever inert.
+- **Every refusal is the same 404** — unknown token, forged signature, expired,
+  revoked, ceiling spent, redirect lever down. A distinguishable answer
+  enumerates which programs exist and which are paused.
+- **The classifier reads three self-declared headers and CANNOT become a
+  fingerprint**: `User-Agent`, the fetch-metadata purpose headers, and #77's
+  existing `ANALYTICS_INTERNAL_TRAFFIC_TOKEN` (reused — two ways to say "this
+  is us" would disagree about staff traffic). No IP, no TLS fingerprint, no
+  `Accept-Language`, no stored state; the signature takes headers and returns a
+  value. A crawler that LIES is classified `organic`, which is the safe
+  direction — the answer to it is D17's velocity thresholds (#148), not
+  behavioural inference. A classification NEVER changes the destination, or the
+  redirect would be cloaking; it decides only whether a click is claimed and
+  evidence produced. A non-organic click spends NO click against the partner's
+  ceiling.
+- **The carrier is `mrf_`, stateless, and authorizes nothing.** Its payload is
+  `{linkId, codeId, clickedAt, exp, nonce}` — no user id, session id, order id
+  or scope list, so there is nothing an authorization check could read (ADR
+  0005 A1 as a property of the type). Its key is `REFERRAL_STATE_SECRET`, a
+  SECOND key: the link token is published by a partner and public by design,
+  and one key for both would make a leak of the public half a mint for the
+  private one. The window anchor is INSIDE the signature, so presenting it
+  again cannot extend the window. `clickedAt` is epoch SECONDS and truncation
+  rounds DOWN — a carried click can only look older, never jump ahead of a code
+  typed in the same second.
+- **`touchActorFor` is the one subject translation**, a `switch` over
+  `CommerceActor`, which has no common `id` field — so `pending` is an ordinary
+  answer and an anonymous visitor cannot acquire a subject.
+- **A click that ALREADY has a subject is resolved completely at click time**,
+  through the same `attributeRecordedTouch` every bind uses — two places
+  deciding whether a recorded touch becomes a winner would be two answers to
+  the attribution lever. The first shape of that branch recorded the touch and
+  STOPPED, which is silently wrong: no carrier is issued when a subject is
+  present, so `/referrals/bind` would have nothing to present and a signed-in
+  buyer's click would sit unattributed forever with every gate green. Found by
+  re-reading the branch, not by a failing test; now mutation-verified.
+- **Session rotation is structural, not a merge rule**: #103 swaps `token_hash`
+  IN PLACE, so the `guest_sessions` ROW id an attribution names never moves.
+- **Two operator levers, independent, on a table keyed by the STABLE
+  `program_id`** — never on the version row, whose terms an attribution has
+  pinned (D19). Absence means BOTH ENABLED. `redirect_enabled=false` stops the
+  link while a typed code still attributes; `attribution_enabled=false` stops
+  new winners and **still records the touch** (D18: gate loops, never records).
+- **`REFERRAL_OPERATOR_OXY_USER_IDS` is its own allow-list**, distinct from the
+  payments, catalog, guest, analytics, retail and procurement ones, because the
+  power is: pausing attribution stops partners EARNING. #147 and #148 inherit
+  it rather than adding another. THREE routes and the set is CLOSED — no
+  "attribute this subject to that partner", no "create a touch", no "extend
+  this window", no delete; the trace opens from an attribution id and nothing
+  else. Mounted while the levers are down and `REFERRALS_ENABLED` is off.
+- **Mercaria operates NO consent framework** — no CMP, no stored record, no
+  jurisdiction table. `consentMode` is a client DECLARATION, recorded verbatim
+  and acted on in exactly one way: `denied` writes no carrier. Web declares at
+  BIND time because a top-level navigation can set no header and the route
+  takes no query; native may declare at click time.
+- **Six scanned walls** (`referral-attribution-isolation.test.ts`, vacuity floor
+  + mutation self-test both directions): no payment rail, no ranking, none of
+  the fourteen `REFERRAL_FORBIDDEN_IDENTITY_SIGNALS`, no guest-session
+  issuance, no commerce write path, no analytics emission — plus "only
+  `redirect.service.ts` may construct a `URL`". It caught a REAL false positive
+  on its first run: `body.redirectEnabled` (the lever, a boolean) tripped the
+  request-derived-destination detector, so the pattern gained a `\b` and both
+  directions are pinned.
+- **A merge does NOT rehome a standing attribution**, and that is stated rather
+  than quietly narrowed. #142's `recordSubjectMerge` keeps history on its own
+  reference and resolves only NEW touches through the redirect, which its own
+  realdb file pins. WITH a post-merge touch — the normal course for a merchant
+  referral, which converts at activation (D11) — the partner keeps credit on
+  the survivor; WITHOUT one the pre-merge row stays `active` on the retired
+  reference and is unreachable by resolution. `correctAttribution` is the
+  existing audited repair; changing the merge to supersede would redefine
+  semantics #142 ships and tests.
+- Env: `REFERRALS_ENABLED` (the MOUNT of `/r` and `/referrals`, never a record)
+  requires BOTH `REFERRAL_LINK_TOKEN_SECRET` and `REFERRAL_STATE_SECRET`, plus
+  `REFERRAL_REDIRECT_BASE_URL` and `REFERRAL_OPERATOR_OXY_USER_IDS`.
+- Seams, each failing closed: **verified universal links / App Links** (the
+  frontend declares no `associatedDomains`, no `intentFilters` and no Apple
+  Team ID, and none exists without a signed app-store build — so Mercaria
+  serves NO association file and a link opens in the browser, which is native
+  rule 7's fallback; a fabricated one would claim a verification that is not
+  real and a custom scheme is what native rule 9 excludes),
+  **deferred deep linking** (`ReferralDeferredDeepLinkSupport` has ONE member,
+  the `GuestP2PAuthorization` device — `GuestSellerActivation` was the same
+  device until #324 supplied #85's capability and added `activated` in the same
+  change, which is how this one should end too), **a consent
+  framework**, and **the client surfaces** (#147 — every endpoint they need
+  exists and nothing consumes them yet).

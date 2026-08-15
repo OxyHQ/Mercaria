@@ -182,6 +182,11 @@ export * from './referral';
 // disjoint set of things that may never fund a reward (#144, ADR 0005).
 export * from './referral-reward';
 
+// The referral ATTRIBUTION EDGE (#143) — redirect dispositions, the binding
+// vocabulary, the client-safe state view, and the disjoint sets of identity
+// signals and redirect inputs that may never influence attribution.
+export * from './referral-attribution';
+
 // Marketplace fee vocabulary (#88): commercial modes, fee schedule value sets
 // and the merchant-facing schedule/acceptance/preview/snapshot DTOs.
 export * from './fees';
