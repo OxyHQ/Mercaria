@@ -232,6 +232,13 @@ beforeEach(() => {
   // No price rules on these fixtures — both columns NULL means no transform.
   toPriceRules.mockReturnValue(undefined);
   setAvailable.mockResolvedValue(undefined);
+  // The real repository answers an ARRAY, always — this is a mocked drizzle read
+  // and `vi.fn()` answers `undefined`, which is a shape the database cannot
+  // produce. Defaulted here rather than per test because #291's price
+  // convergence made the update path read it too, so a case that says nothing
+  // about variants would otherwise fail on a value no server returns.
+  findVariantsByListing.mockResolvedValue([]);
+  findVariantsByListingAndSku.mockResolvedValue([]);
 });
 
 describe('isKnownConnectorProvider', () => {

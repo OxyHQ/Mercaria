@@ -58,7 +58,7 @@ Postgres and real Redis. Provisioning is reproducible from
 | Scenario | Verdict |
 |---|---|
 | W1 connect, W2 backfill, W3 pagination, W5 orders, W6 native currency, W9 header-stripped host | **PASSED** |
-| W8 (>100 variations) | **FAILED** — #294 |
+| W8 (>100 variations) | **FAILED** — #294. Still fails: the ceiling is deliberate and unchanged, and the row needs `MAX_VARIANTS_PER_PRODUCT` raised above the product's variation count (runbook §7.2). What #294 fixed is that the omission is no longer silent |
 | W4, W7, X1–X3 | NOT RUN — need a person in the WooCommerce admin (§5.4) |
 | plugin 3 (push), 4 (replay), 5 (rotate/revoke), 6 (cross-store), 8 (plugin half) | **PASSED** — 3 as 7 of 8, the 8th refused by #296 |
 | plugin 7 | HALF PASSED — merchant half, with a positive control; server half needs the admin route |
@@ -86,11 +86,11 @@ of pushed products on a timestamp format, the second is why nobody found out.
 | #287 | `read_orders` alone truncates the order import to 60 days, undocumented |
 | #288 | The scope test asserts `read_locations` from its own table — circularity FIXED (each row cites an endpoint checked against the provider source, and the unconfirmed set is pinned exactly); whether `read_locations` is needed is still open, and runbook §3.1 carries the one-connect experiment that settles it |
 | #289 | vitest discovered only `src/**`, so the evidence redactors were unprotected — FIXED |
-| #290 | The ingest schema rejects every RFC-3339 **offset** timestamp; 0 of 124 products accepted |
-| #291 | A pushed price change never reaches an already-imported listing |
+| #290 | The ingest schema rejects every RFC-3339 **offset** timestamp; 0 of 124 products accepted — FIXED |
+| #291 | A pushed price change never reaches an already-imported listing — FIXED for the variants a push NAMES and matches; creating and removing still need the completeness signal the wire DTO does not carry |
 | #292 | Pull-then-push on one store collides on `listings_store_id_handle_key` |
-| #293 | An absent `inventory` key is read as `tracked: true, available: 0` |
-| #294 | A >100-variant product is refused whole and the run still reports `completed` |
+| #293 | An absent `inventory` key is read as `tracked: true, available: 0` — FIXED |
+| #294 | A >100-variant product is refused whole and the run still reports `completed` — REPORTING FIXED (the run names the product and the reason, and the channel reads `degraded`); the ceiling is unchanged and correct, so the product is still not imported |
 | #295 | A change of delivery base URL orphans WooCommerce webhooks; the reconcile cannot adopt them back |
 | #296 | `sku` and `barcode` are unique across the WHOLE table, so two merchants cannot list one GTIN |
 | #297 | `webhook_registration_state` has no success value |

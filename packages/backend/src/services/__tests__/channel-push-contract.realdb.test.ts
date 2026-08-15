@@ -303,6 +303,138 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     expect(variants[0].inventoryAvailable).toBe(9);
   });
 
+  it('PROPAGATES a pushed price change to an already-imported listing (#291)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    await ingest(`/${connection.id}/products`, key, { products: [pushProduct(namespace)] });
+
+    // The SAME product, at a new price and with a compare-at that did not exist
+    // before — which is what a merchant editing their WooCommerce shop produces.
+    // A repeat push of a known `externalId` takes the UPDATE branch, and that
+    // branch reached no variant at all: stock kept arriving through the inventory
+    // endpoint while the price silently never moved.
+    const second = await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(namespace, {
+          variants: [
+            {
+              sku: `PUSH-${namespace}`,
+              price: { amount: 1900, currency: 'GBP' },
+              compareAtPrice: { amount: 2400, currency: 'GBP' },
+              inventory: { available: 4 },
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(JSON.parse(second.text).data.results[0].action).toBe('updated');
+    const [imported] = await findListingsBySourceConnection(storeId, connection.id);
+    const [variant] = await findVariantsByListing(imported.id);
+    expect(variant.priceAmount).toBe(1900);
+    expect(variant.compareAtPriceAmount).toBe(2400);
+    // The listing's own facet follows, because the write goes through the
+    // catalog funnel rather than straight at the column.
+    expect(imported.priceRangeMinAmount).toBe(1900);
+  });
+
+  it('NEVER creates or removes a variant from a push, whose list may be partial (#291)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(namespace, {
+          variants: [
+            {
+              sku: `PUSH-${namespace}-A`,
+              price: { amount: 1000, currency: 'GBP' },
+              optionValues: [{ name: 'Size', value: 'S' }],
+            },
+            {
+              sku: `PUSH-${namespace}-B`,
+              price: { amount: 2000, currency: 'GBP' },
+              optionValues: [{ name: 'Size', value: 'M' }],
+            },
+          ],
+        }),
+      ],
+    });
+
+    // A push naming ONE of the two, plus a SKU nothing matches. `IngestProduct`
+    // carries no completeness signal, so the omission of B is not evidence that
+    // B was delisted (#259), and the unmatched SKU is indistinguishable from B
+    // having been RENAMED — this rail matches on SKU alone, since the wire DTO
+    // has no external variant id.
+    await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(namespace, {
+          variants: [
+            {
+              sku: `PUSH-${namespace}-A`,
+              price: { amount: 1100, currency: 'GBP' },
+              optionValues: [{ name: 'Size', value: 'S' }],
+            },
+            {
+              sku: `PUSH-${namespace}-NEW`,
+              price: { amount: 3000, currency: 'GBP' },
+              optionValues: [{ name: 'Size', value: 'L' }],
+            },
+          ],
+        }),
+      ],
+    });
+
+    const [imported] = await findListingsBySourceConnection(storeId, connection.id);
+    const variants = await findVariantsByListing(imported.id);
+    // Still exactly two: nothing created for the unmatched SKU, nothing removed
+    // or unsold for the variant this push did not mention.
+    expect(variants).toHaveLength(2);
+    expect(variants.map((v) => v.sku).sort()).toEqual([
+      `PUSH-${namespace}-A`,
+      `PUSH-${namespace}-B`,
+    ]);
+    // The one it NAMED and matched moved; the one it did not is untouched, at
+    // the price and the stock the first push gave it.
+    expect(variants.find((v) => v.sku === `PUSH-${namespace}-A`).priceAmount).toBe(1100);
+    expect(variants.find((v) => v.sku === `PUSH-${namespace}-B`).priceAmount).toBe(2000);
+  });
+
+  it('does NOT overwrite a price the merchant pinned locally (#291)', async () => {
+    const storeId = await makeStore();
+    const connection = await connectPushIn(storeId, 'woocommerce', {});
+    const { key } = await generateKey(storeId, { label: 'plugin' }, OWNER_USER);
+    const namespace = uuidv7();
+
+    await ingest(`/${connection.id}/products`, key, { products: [pushProduct(namespace)] });
+    const [created] = await findListingsBySourceConnection(storeId, connection.id);
+    await db
+      .update(listings)
+      .set({ overriddenFields: ['price'] })
+      .where(eq(listings.id, created.id));
+
+    await ingest(`/${connection.id}/products`, key, {
+      products: [
+        pushProduct(namespace, {
+          variants: [
+            { sku: `PUSH-${namespace}`, price: { amount: 9900, currency: 'GBP' }, inventory: { available: 4 } },
+          ],
+        }),
+      ],
+    });
+
+    // The pull rail's converger returns on this same flag. Propagating a price is
+    // a fix for a channel that could not update one; it is not permission to
+    // overwrite a number the merchant deliberately set.
+    const [variant] = await findVariantsByListing(created.id);
+    expect(variant.priceAmount).toBe(1500);
+  });
+
   it('ACCEPTS an RFC-3339 offset timestamp and stores the converted instant (#290)', async () => {
     const storeId = await makeStore();
     const connection = await connectPushIn(storeId, 'woocommerce', {});

@@ -66,8 +66,14 @@ import {
 import {
   findVariantsByListing,
   findVariantsByListingAndSku,
+  type VariantRecord,
 } from '../db/catalog/variantRepository.js';
-import { createStoreProduct, updateListing } from './catalog-write.service.js';
+import {
+  createStoreProduct,
+  updateListing,
+  updateVariant,
+  type UpdateVariantInput,
+} from './catalog-write.service.js';
 import { setAvailable } from './inventory.service.js';
 import {
   resolveImportCategorySlug,
@@ -220,9 +226,20 @@ function toCreateInput(
  * connector-managed field pinned in `overridden`. Managed fields are exactly the
  * platform-owned ones — `title`, `description`, `images` (→ `imageFileIds`),
  * `vendor`, `productType`, `handle`, `seo` — mirroring the pull re-sync merge.
- * Native Mercaria fields are never part of the patch. Variant price/stock changes
- * arrive through re-ingesting the product (create replaces variants) or the
- * inventory-ingest endpoint; this refreshes listing fields only.
+ * Native Mercaria fields are never part of the patch.
+ *
+ * This carries NO variant field and cannot: `updateListing`'s own variant writer
+ * is guarded by `listing.ownerType === 'user'` AND by `patch.price`/`patch.quantity`
+ * being set, and a pushed product is a STORE listing whose patch sets neither, so
+ * that branch is doubly unreachable from here. Variant prices are converged
+ * separately by {@link convergePushedVariantPrices}; stock arrives through the
+ * inventory-ingest endpoint.
+ *
+ * The sentence this replaces said price and stock changes "arrive through
+ * re-ingesting the product (create replaces variants)", which described a path
+ * that cannot execute — a repeat push of a known `externalId` takes the UPDATE
+ * branch, not the create one — and was the reason a reader concluded the
+ * behaviour was deliberate and moved on (#291).
  */
 function toUpdatePatch(product: IngestProduct, overridden: Set<string>): UpdateListingInput {
   const patch: UpdateListingInput = {};
@@ -269,6 +286,126 @@ function buildSource(conn: ConnectionRow, product: IngestProduct): ListingSource
       ? new Date(product.externalUpdatedAt)
       : null,
   };
+}
+
+/**
+ * Apply a re-pushed product's prices to the variants it NAMES, and to no others.
+ *
+ * ## Why this is not `convergeVariants` (#291)
+ *
+ * The pull rail's converger creates variants the platform added and UNSELLS the
+ * ones it stopped listing, and it may do the second only behind a proven complete
+ * enumeration — #259's rule, because "the half I read did not mention it" is not
+ * evidence about the half it did not read. `IngestProduct` carries no such signal,
+ * and inventing one is a change to a PUBLISHED contract that third-party clients
+ * already build against. So this does the part that needs no declaration at all:
+ * it only ever writes a variant the push explicitly sent AND Mercaria already
+ * has. Nothing is created, nothing is removed, nothing is unsold, and a variant
+ * the push did not mention is untouched — so a partial variant list is safe here
+ * by construction rather than by a caller's promise.
+ *
+ * ## Matching is by SKU, and that is why nothing is CREATED
+ *
+ * The pull rail pairs rows by `source_external_variant_id`, which a SKU edit does
+ * not touch. This wire DTO carries no external variant id — stated where
+ * `createStoreProduct` is called with no `variantSources` — so a SKU is all there
+ * is to match on, and a merchant RENAMING a variant's SKU is indistinguishable
+ * from adding a new one. Creating on an unmatched SKU would therefore duplicate a
+ * renamed variant and strand the original, silently. Refusing to create is the
+ * honest reading of an identity we cannot establish.
+ *
+ * An AMBIGUOUS SKU — several variants of one listing carrying it, which #296 made
+ * representable — writes to none of them, exactly as `resolveInventoryVariant`
+ * refuses on the same shape one endpoint over.
+ *
+ * @returns whether any variant was written.
+ */
+async function convergePushedVariantPrices(
+  listingId: string,
+  product: IngestProduct,
+  priceRules: PriceRules | undefined,
+  overridden: Set<string>,
+): Promise<boolean> {
+  // A locally-edited price is pinned — the pull rail's converger returns on the
+  // same flag, and a push must not overwrite what a merchant deliberately set.
+  if (overridden.has('price')) {
+    return false;
+  }
+
+  const existing = await findVariantsByListing(listingId);
+  if (existing.length === 0) {
+    return false;
+  }
+
+  let changed = false;
+  for (const incoming of product.variants) {
+    const matched = matchPushedVariant(existing, product.variants, incoming);
+    if (!matched) {
+      continue;
+    }
+
+    const patch: UpdateVariantInput = {};
+    const targetPrice = applyPriceRules(
+      { amount: incoming.price.amount, currency: incoming.price.currency },
+      priceRules,
+    );
+    if (
+      matched.priceAmount !== targetPrice.amount ||
+      matched.priceCurrency !== targetPrice.currency
+    ) {
+      patch.price = targetPrice;
+    }
+
+    const targetCompareAt = incoming.compareAtPrice
+      ? applyPriceRules(
+          { amount: incoming.compareAtPrice.amount, currency: incoming.compareAtPrice.currency },
+          priceRules,
+        )
+      : undefined;
+    // The two `compare_at_price` columns are NULL together —
+    // `product_variants_compare_at_price_paired_check` guarantees it — so the
+    // amount alone answers "is one stored". A compare-at dropped on the platform
+    // CLEARS the stored one, which is the pull rail's reading too.
+    const compareAtDiffers =
+      matched.compareAtPriceAmount !== null
+        ? !targetCompareAt ||
+          matched.compareAtPriceAmount !== targetCompareAt.amount ||
+          matched.compareAtPriceCurrency !== targetCompareAt.currency
+        : targetCompareAt !== undefined;
+    if (compareAtDiffers) {
+      patch.compareAtPrice = targetCompareAt ?? null;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      continue;
+    }
+    // Through the catalog funnel, so the listing's `priceRange` facet and its
+    // offer convergence follow the write rather than being recomputed here.
+    await updateVariant(listingId, matched.id, patch);
+    changed = true;
+  }
+  return changed;
+}
+
+/**
+ * The stored variant a pushed one names, or `undefined` when nothing unambiguous
+ * does — an unmatched SKU, an ambiguous one, or a no-SKU variant on a product
+ * that has more than one.
+ *
+ * The no-SKU rule is `resolveInventoryVariant`'s, for its reason: a variant that
+ * names no SKU has said nothing about WHICH of several it means, and only a
+ * one-to-one product leaves nothing to guess.
+ */
+function matchPushedVariant(
+  existing: readonly VariantRecord[],
+  incomingAll: readonly IngestProductVariant[],
+  incoming: IngestProductVariant,
+): VariantRecord | undefined {
+  if (!incoming.sku) {
+    return existing.length === 1 && incomingAll.length === 1 ? existing[0] : undefined;
+  }
+  const candidates = existing.filter((variant) => variant.sku === incoming.sku);
+  return candidates.length === 1 ? candidates[0] : undefined;
 }
 
 /** The outcome of upserting a single ingested product. */
@@ -356,17 +493,29 @@ async function upsertProduct(
     ? new Set(existing.overriddenFields)
     : new Set<string>();
   const patch = toUpdatePatch(product, overridden);
-  const changed = Object.keys(patch).length > 0;
-  if (changed) {
+  const listingChanged = Object.keys(patch).length > 0;
+  if (listingChanged) {
     // #90: a connector sync is a SOURCE assertion, not a seller's. It carries no
     // account, so `writeListingConditionEvidence` refuses any condition that needs
     // photographs rather than attributing them to nobody — and a connector patch
     // never carries one today.
     await updateListing(listingId, patch, { kind: 'source' });
   }
+  // #291: the listing patch cannot reach a variant, so a price change on the
+  // merchant's own site had NO path to an already-imported product — stock kept
+  // arriving through the inventory endpoint while the price silently never moved.
+  // Counted toward `updated` because a price that changed IS a change to this
+  // product, and reporting `skipped` for it would put the defect back in the
+  // report after taking it out of the write.
+  const variantsChanged = await convergePushedVariantPrices(
+    listingId,
+    product,
+    opts.priceRules,
+    overridden,
+  );
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
   await updateListingColumns(listingId, buildSource(conn, product));
-  return { action: changed ? 'updated' : 'skipped', listingId };
+  return { action: listingChanged || variantsChanged ? 'updated' : 'skipped', listingId };
 }
 
 /**
