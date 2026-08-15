@@ -5,6 +5,9 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Offer } from '@mercaria/shared-types';
 import {
   registerSearchOfferSelector,
@@ -80,6 +83,134 @@ describe('the #74 offer-selection seam', () => {
     }));
     expect(selectSearchOffer({ canonicalProductId: 'p1', offers: [fakeOffer('o1')] })?.offerId).toBe(
       'second',
+    );
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* The seam's DOCUMENTED state matches its real one (#230)                    */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The port's header states that nothing registers a selector. This is what
+ * keeps that sentence true.
+ *
+ * The defect #230 records is not a missing feature — the seam fails closed and
+ * serves a shopper correctly. It is that the header USED to assert a call that
+ * never happened, and a comment is the one artefact nothing ever recomputes: no
+ * consumer trips over it, no type-check contradicts it, so a false one survives
+ * until somebody believes it.
+ *
+ * So this asserts the ABSENCE, and the absence is only meaningful with a
+ * positive control beside it — "no call site" is also what a broken walk
+ * reports. Both are below.
+ *
+ * ## When this goes red, it is doing its job
+ *
+ * A failure here means somebody wired the seam, which is a legitimate thing to
+ * do. The remedy is not to delete the assertion: it is to rewrite the port's
+ * "## Registration" section and `docs/search.md` to describe the call that now
+ * happens, and then to replace this census with one that pins the registration
+ * instead. The `/brands/${id}` assertion in `product-page-isolation.test.ts` is
+ * the same device — a check that exists to notice a roadmap step, carrying its
+ * own instructions for the person it fires on.
+ */
+const BACKEND_SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+/**
+ * A CALL, never the definition.
+ *
+ * The lookbehind is what separates `registerSearchOfferSelector(next)` from
+ * `export function registerSearchOfferSelector(`, which lives in the port
+ * itself and must not count as its own consumer.
+ */
+const REGISTRATION_CALL = /(?<!function\s)\bregisterSearchOfferSelector\s*\(/;
+
+/** Strip comments: the port DOCUMENTS the registration it does not perform. */
+function withoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+/** Every production `.ts` under the backend — tests excluded, they register freely. */
+function productionSources(): { relative: string; source: string }[] {
+  const found: { relative: string; source: string }[] = [];
+  const walk = (directory: string): void => {
+    for (const entry of readdirSync(directory)) {
+      const absolute = join(directory, entry);
+      if (statSync(absolute).isDirectory()) {
+        if (entry === '__tests__') continue;
+        walk(absolute);
+        continue;
+      }
+      if (!entry.endsWith('.ts')) continue;
+      found.push({
+        relative: relative(BACKEND_SRC, absolute),
+        source: readFileSync(absolute, 'utf8'),
+      });
+    }
+  };
+  walk(BACKEND_SRC);
+  return found;
+}
+
+describe('#230: the seam is UNFILLED, and the port header says so', () => {
+  it('no production module registers a selector', () => {
+    const files = productionSources();
+    // Vacuity floor on the walk itself: a rename or a broken recursion would
+    // otherwise report the same clean zero a healthy repository does.
+    expect(files.length, 'the backend source walk found too few files').toBeGreaterThanOrEqual(300);
+
+    const callers = files
+      .filter((file) => REGISTRATION_CALL.test(withoutComments(file.source)))
+      .map((file) => file.relative);
+
+    expect(
+      callers,
+      `${callers.join(', ')} registers a search offer selector. If the seam has been ` +
+        'filled deliberately, rewrite the "## Registration" section of ' +
+        'selected-offer.port.ts and the seam entry in docs/search.md to describe the ' +
+        'call that now happens, and replace this census with one that pins it.',
+    ).toEqual([]);
+  });
+
+  it('the walk can SEE the port — the positive control', () => {
+    // The measurement's own currency: the file holding the definition must be
+    // among the files scanned, or "zero callers" is blindness rather than
+    // absence. Asserted on the DEFINITION, which is the one occurrence that is
+    // certainly there while the seam is unfilled.
+    const port = productionSources().find(
+      (file) => file.relative === join('services', 'search', 'selected-offer.port.ts'),
+    );
+    expect(port, 'the walk never reached selected-offer.port.ts').toBeDefined();
+    expect(withoutComments(port?.source ?? '')).toContain(
+      'export function registerSearchOfferSelector',
+    );
+  });
+
+  it('the detector tells a CALL from the DEFINITION — the mutation self-test', () => {
+    // A pattern that matched the definition would fire on the port itself and
+    // report a caller that does not exist; one that matched neither would pass
+    // the census above vacuously forever.
+    expect(REGISTRATION_CALL.test('registerSearchOfferSelector(buildRankingSelector());')).toBe(
+      true,
+    );
+    expect(REGISTRATION_CALL.test('  registerSearchOfferSelector((input) => undefined);')).toBe(
+      true,
+    );
+    expect(
+      REGISTRATION_CALL.test('export function registerSearchOfferSelector(next: T): void {'),
+    ).toBe(false);
+    expect(REGISTRATION_CALL.test('import { selectSearchOffer } from "./port.js";')).toBe(false);
+  });
+
+  it('the comment stripper does not hide a registration from the census', () => {
+    // The stripper is the one component that could make the census vacuous, so
+    // it gets its own control in both directions.
+    expect(withoutComments('registerSearchOfferSelector(x);')).toContain(
+      'registerSearchOfferSelector(',
+    );
+    expect(withoutComments('/** #74 calls registerSearchOfferSelector(x) */')).not.toContain(
+      'registerSearchOfferSelector(',
     );
   });
 });

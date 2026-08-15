@@ -544,7 +544,17 @@ Filters on the wire: `kinds`, `categories`, `brandIds`, `market`,
 Each is a named contract that fails closed, never a stub that lies.
 
 - **#74 — offer selection.** `registerSearchOfferSelector`; the default returns
-  `undefined` and every product result carries no lead offer.
+  `undefined` and every product result carries no lead offer. #74 has shipped
+  and does NOT register one (#230), because the two cannot be composed as they
+  stand: a selector here is synchronous and is handed its offers, while
+  `rankOfferComparison` is `async`, fetches the offers it ranks, and resolves its
+  policy by a read keyed on each comparison subject — so
+  `SearchSelectedOffer.rankingPolicyVersion` cannot be filled without one, and
+  stamping the built-in version instead would attribute an ordering to weights
+  the rollout never consulted. Filling the seam is a change to the port's SHAPE
+  plus a product decision search has not made. A census in
+  `selected-offer-port.test.ts` fails the build if a registration appears
+  without this text changing with it.
 - **#71 — the canonical product page.** A result carries the slug and the
   matched variant; the page itself is #71's.
 - **#93 — nearby and pickup.** No parameter exists to accept, so the filter is

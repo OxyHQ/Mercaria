@@ -1,4 +1,5 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import type { ProductPageBrandChannel } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
 
@@ -55,6 +56,8 @@ function ChannelList({
   explanation: string;
   channels: readonly ProductPageBrandChannel[];
 }) {
+  const router = useRouter();
+
   if (channels.length === 0) return null;
 
   return (
@@ -64,21 +67,34 @@ function ChannelList({
       </Text>
       <Text className="text-caption text-text-secondary">{explanation}</Text>
       {/*
-        NAMED, not linked, for the reason `OfferRow` states: there is no
-        `/merchants/:slug` route in this app yet (#84/#73), and a link to a
-        route that does not resolve is worse than the name — `typedRoutes` is
-        INERT here, so nothing would catch it before a shopper did.
+        LINKED as of #252, for the reason `OfferRow` states: #73 shipped
+        `/merchants/[idOrSlug]`, so the route these channels were named rather
+        than linked for now exists. A verified channel is exactly the identity a
+        shopper wants to look up before spending, and `merchantSlug` is the
+        stable handle that survives a merge.
+
+        The badge context does NOT travel with the link, deliberately. This card
+        says "the brand verified this channel"; the merchant page says what #55
+        currently holds about that merchant, re-derived on its own read. Passing
+        the standing along as a parameter would let a page assert a badge from a
+        caller's word rather than from the relationship (#55's public read never
+        trusts `status` alone).
       */}
       {channels.map((channel) => (
-        <View
+        <Pressable
           key={`${channel.merchantId}:${channel.storefrontId ?? 'all'}`}
+          accessibilityRole="link"
+          accessibilityLabel={`Visit ${channel.merchantName}`}
+          onPress={() =>
+            router.push(`/merchants/${channel.merchantSlug}` as Parameters<typeof router.push>[0])
+          }
           className="rounded-radius-28 border border-border-secondary p-space-12"
         >
           <Text className="text-bodyTitleSmall text-text">{channel.merchantName}</Text>
           {channel.storefrontName ? (
             <Text className="text-caption text-text-secondary">{channel.storefrontName}</Text>
           ) : null}
-        </View>
+        </Pressable>
       ))}
     </View>
   );

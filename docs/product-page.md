@@ -288,10 +288,26 @@ not have.
 
 ## Links that are NAMED rather than followed
 
-The brand, the product family and every merchant identity are rendered as TEXT.
-There is no `/brands/:id`, `/product-families/:id` or `/merchants/:slug` route in
-the storefront yet (#72, #73 and #84 own those pages), and #71 asks to link an
-identity "to its public page **when available**".
+The brand and the product family are rendered as TEXT. There is no
+`/product-families/:id` route in the storefront yet (#84 owns that page), and
+#71 asks to link an identity "to its public page **when available**".
+`/brands/[handle]` DOES resolve now that #72 shipped it, and the page still does
+not link there — its `brand` is a vendor LABEL (the store or seller name), not
+the canonical brand entity, so linking needs a canonical brand handle on the
+product projection rather than a route swap.
+
+A MERCHANT is linked, as of #252. `/merchants/[idOrSlug]` shipped with #73, so
+the one reason these identities were named rather than followed expired for
+merchants — and the page already linked every other seller kind
+(`/stores/:handle`, `/sellers/:oxyUserId`), which left an external merchant as
+the only seller a shopper could not navigate to. Both places the page names a
+merchant follow it: the offer row's seller line and each of a brand's verified
+channels. The handle is the `slug` rather than the id, because `merchants.slug`
+is `not null` and unique FOREVER and a merged tombstone keeps its slug and
+redirects (ADR 0002 D12), so a link taken today survives a merge tomorrow. The
+verified-channel standing does NOT travel with the link: the merchant page
+re-derives what #55 currently holds, rather than asserting a badge from a
+caller's word.
 
 A dead link is worse than the name, because nothing would catch it:
 `typedRoutes` is ON in this app and INERT on this expo-router major, so
