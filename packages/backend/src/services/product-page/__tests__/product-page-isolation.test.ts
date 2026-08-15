@@ -98,7 +98,25 @@ const STOREFRONT_PATHS = [
  * how a gate starts crying wolf at whoever edits it next, and a gate that cries
  * wolf is the one somebody deletes.
  */
-const NAVIGATION_PATHS = [...STOREFRONT_PATHS, 'app/(app)/products/[id].tsx'];
+const NAVIGATION_PATHS = [
+  ...STOREFRONT_PATHS,
+  'app/(app)/products/[id].tsx',
+  // #93's collection surfaces. They join the ROUTE gate and nothing else, for
+  // the reason above: the product page links to `/nearby`, `/nearby` links to
+  // `/checkout`, and both compose a merchant link — four literal targets that
+  // `typedRoutes` accepts however wrong they are. They are deliberately NOT in
+  // `STOREFRONT_PATHS`, so the five walls about #71's page do not start firing
+  // at whoever edits a pickup screen.
+  'app/(app)/nearby.tsx',
+  'components/nearby/NearbyAvailability.tsx',
+  'components/nearby/NearbyOriginControl.tsx',
+  // The two checkout screens, on the same terms as the listing page above: #93
+  // added exactly one navigation target to each — a guest leaving checkout now
+  // goes to #108's portal rather than the storefront — and that link is held to
+  // the route gate and to nothing else.
+  'app/(app)/checkout/index.tsx',
+  'app/(app)/checkout/return.tsx',
+];
 
 function storefrontSources(): { relative: string; source: string }[] {
   return STOREFRONT_PATHS.map((relative) => ({
@@ -345,6 +363,27 @@ function routeExists(target: string, routes: readonly string[]): boolean {
   });
 }
 
+/**
+ * Reduce a written target to the PATH a route pattern could match.
+ *
+ * Two things have to come off, and the second one is why this exists: a QUERY
+ * STRING is not a path segment, and an interpolation inside one turns the whole
+ * tail into a `${`-bearing segment that `routeExists` treats as a WILDCARD — so
+ * `/guest-orders/portal?group=${id}` matched any two-segment route and the gate
+ * passed vacuously. Found by mutation-testing the widened gate: deleting
+ * `guest-orders/portal.tsx` left the target resolving happily.
+ *
+ * An interpolation in the PATH stays, because a value nobody can check
+ * statically is exactly what `[param]` matches.
+ */
+function routePathOf(target: string): string {
+  const literalHead = target.split('${')[0] ?? '';
+  // Cut ONLY at a `?` in the literal head. A `?` after the first `${` is inside
+  // an interpolation — somebody's ternary — and cutting there truncates a real
+  // path segment mid-expression, which this function's own control caught.
+  return literalHead.includes('?') ? (literalHead.split('?')[0] ?? '') : target;
+}
+
 /** Every literal `router.push`/`router.replace` target in the page's files. */
 function navigationTargets(): { relative: string; target: string }[] {
   const found: { relative: string; target: string }[] = [];
@@ -357,7 +396,43 @@ function navigationTargets(): { relative: string; target: string }[] {
     for (const match of source.matchAll(/router\.(?:push|replace)\(\s*[`'"]([^`'"]+)[`'"]/gu)) {
       const target = match[1];
       if (target === undefined || !target.startsWith('/')) continue;
-      found.push({ relative: file.relative, target });
+      found.push({ relative: file.relative, target: routePathOf(target) });
+    }
+  }
+  return found;
+}
+
+/**
+ * Every route-shaped string a HELPER in these files returns.
+ *
+ * `navigationTargets` above reads the argument of `router.push`/`router.replace`
+ * and therefore only ever sees a target written inline. A screen that composes
+ * its href in a `buildHref`-style function — which #71's own page has always
+ * done for `/p/...`, and #93's does for `/nearby` — hands `router.push` a
+ * variable, and the whole gate silently skipped it. That is the hole this
+ * closes: the two most-linked routes in the storefront were the two the route
+ * gate could not see.
+ *
+ * Scoped to the `app/` and `components/` entries only. The `lib/` ones are API
+ * clients whose template literals are SERVER paths (`/offer-comparison`,
+ * `/product-saves/...`), which are not app routes and must not be resolved as
+ * though they were.
+ */
+function returnedRouteTargets(): { relative: string; target: string }[] {
+  const found: { relative: string; target: string }[] = [];
+  for (const relative of NAVIGATION_PATHS) {
+    if (relative.startsWith('lib/')) continue;
+    const source = withoutComments(readFileSync(join(STOREFRONT_ROOT, relative), 'utf8'));
+    for (const match of source.matchAll(/return\s+`(\/[^`]*)`/gu)) {
+      const raw = match[1];
+      if (raw === undefined) continue;
+      // Take the literal head, stop at the first interpolation, and drop any
+      // query: a query is not a route segment, and an interpolated segment is
+      // a value no static check can know.
+      const literalHead = raw.split('${')[0] ?? '';
+      const path = literalHead.split('?')[0] ?? '';
+      const interpolatedSegment = raw.includes('${') && !literalHead.includes('?');
+      found.push({ relative, target: interpolatedSegment ? `${path}\${x}` : path });
     }
   }
   return found;
@@ -369,7 +444,7 @@ describe('WALL 6: every route this page navigates to exists', () => {
     // Floors on BOTH sides: an empty route list would pass nothing, and an
     // empty target list would pass vacuously.
     expect(routes.length, 'the app tree walk found nothing').toBeGreaterThanOrEqual(15);
-    const targets = navigationTargets();
+    const targets = [...navigationTargets(), ...returnedRouteTargets()];
     expect(targets.length, 'no navigation target was extracted').toBeGreaterThanOrEqual(6);
 
     for (const { relative, target } of targets) {
@@ -381,8 +456,53 @@ describe('WALL 6: every route this page navigates to exists', () => {
     }
   });
 
+  it('#93: the composed-href extractor sees the routes `router.push` hides', () => {
+    const composed = returnedRouteTargets();
+    // A floor, so a refactor that stops these helpers being found fails HERE
+    // rather than making the extractor silently measure nothing.
+    expect(composed.length, 'no composed href was extracted').toBeGreaterThanOrEqual(2);
+    const targets = composed.map((entry) => entry.target);
+    // The two the inline extractor cannot see, named so a rename is a failure
+    // rather than a quiet loss of coverage.
+    expect(targets).toContain('/p/${x}');
+    expect(targets).toContain('/nearby');
+    const routes = existingRoutes();
+    for (const { relative, target } of composed) {
+      expect(
+        routeExists(target, routes),
+        `${relative} composes ${target}, which is not a screen`,
+      ).toBe(true);
+    }
+  });
+
+  it('a query string is stripped before resolving — the vacuity fix', () => {
+    // Each of these USED to resolve against anything, because the `${` in the
+    // query made the last segment a wildcard.
+    expect(routePathOf('/guest-orders/portal?group=${id}')).toBe('/guest-orders/portal');
+    expect(routePathOf('/checkout?${query.toString()}')).toBe('/checkout');
+    expect(routePathOf('/orders/${id}')).toBe('/orders/${id}');
+    // The `?` here is inside a ternary, not a query separator, so nothing is
+    // cut — and `routeExists` then reads the interpolated tail as a wildcard
+    // segment, which is what makes it match `/p/[handle]`.
+    const ternary = '/p/${handle}${suffix === "" ? "" : "?x"}';
+    expect(routePathOf(ternary)).toBe(ternary);
+    expect(routeExists(routePathOf(ternary), existingRoutes())).toBe(true);
+    const routes = existingRoutes();
+    expect(routeExists(routePathOf('/guest-orders/portal?group=${id}'), routes)).toBe(true);
+    expect(routeExists(routePathOf('/guest-orders/nope-xyz?group=${id}'), routes)).toBe(false);
+  });
+
   it('the resolver actually resolves — the mutation self-test', () => {
     const routes = existingRoutes();
+    // #93's own screen, and the negative control that it is not simply
+    // matching everything under `/nearby`.
+    expect(routeExists('/nearby', routes)).toBe(true);
+    expect(routeExists('/nearby/definitely-not-a-route-xyz', routes)).toBe(false);
+    // The destination #93 sends a guest to when they leave checkout. It is a
+    // real screen (#108) and the reason the old "send them to the storefront"
+    // branch was removed, so a rename must fail here rather than under the
+    // thumb of somebody who has just paid.
+    expect(routeExists('/guest-orders/portal', routes)).toBe(true);
     expect(routeExists('/settings/feedback', routes)).toBe(true);
     expect(routeExists('/products/${id}', routes)).toBe(true);
     expect(routeExists('/sellers/${oxyUserId}', routes)).toBe(true);

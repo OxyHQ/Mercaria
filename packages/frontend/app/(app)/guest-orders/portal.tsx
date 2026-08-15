@@ -44,7 +44,7 @@ import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import Head from "expo-router/head";
 import { Link, useLocalSearchParams } from "expo-router";
-import { Button, SectionHeader, Text } from "@mercaria/ui";
+import { Button, PickupCollectionPanel, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import {
   useGuestPortalSession,
@@ -53,6 +53,7 @@ import {
   useMagicLinkExchange,
   usePortalSignOut,
 } from "@/lib/hooks/use-guest-portal";
+import { useGuestOrderCollection } from "@/lib/hooks/use-nearby";
 
 /** The prefix an exchange token carries. Anything else is not one. */
 const EXCHANGE_PREFIX = "mgx_";
@@ -147,12 +148,18 @@ function PortalBody() {
       <SectionHeader title="Your order" />
 
       {canReadOrders ? (
-        <FullView loading={view.isPending} failed={view.isError} orders={view.data?.orders} />
+        <FullView
+          loading={view.isPending}
+          failed={view.isError}
+          orders={view.data?.orders}
+          checkoutGroupId={group}
+        />
       ) : (
         <BoundedView
           loading={status.isPending}
           failed={status.isError}
           entries={status.data?.orders}
+          checkoutGroupId={group}
         />
       )}
 
@@ -188,6 +195,7 @@ function FullView(props: {
   loading: boolean;
   failed: boolean;
   orders: { id: string; orderNumber: string; status: string }[] | undefined;
+  checkoutGroupId: string | undefined;
 }) {
   if (props.loading) {
     return <Text className="text-sm text-muted-foreground">Loading your order.</Text>;
@@ -205,9 +213,47 @@ function FullView(props: {
         <View key={order.id} className="gap-1">
           <Text className="text-sm font-semibold text-foreground">{order.orderNumber}</Text>
           <Text className="text-sm text-muted-foreground">{order.status}</Text>
+          {props.checkoutGroupId === undefined ? null : (
+            <GuestOrderCollection checkoutGroupId={props.checkoutGroupId} orderId={order.id} />
+          )}
         </View>
       ))}
     </View>
+  );
+}
+
+/**
+ * One order's collection, inside the portal (#93 client rule 13).
+ *
+ * A child component because each order needs its OWN query and a hook cannot be
+ * called in a loop — and because the collection read is deliberately separate
+ * from the order read, so the code is never a field of a cached order DTO.
+ *
+ * Rendered on BOTH portal views, including the bounded one a just-paid device
+ * holds. That is the point rather than an oversight: #93 client rule 13 says
+ * the code is shown inside an authorized order surface, and #93 pickup rule 13
+ * says a guest must not have to claim the order into Oxy to collect it. The
+ * server agrees — the collection route requires a portal session and a matching
+ * group, and no scope beyond it — so demanding a proven inbox here would be the
+ * client inventing a gate the whole design refuses.
+ *
+ * An order with no collection renders NOTHING. A delivered order having no
+ * pickup is the ordinary case, not a failure worth apologising for.
+ */
+function GuestOrderCollection({
+  checkoutGroupId,
+  orderId,
+}: {
+  checkoutGroupId: string;
+  orderId: string;
+}) {
+  const collection = useGuestOrderCollection({ checkoutGroupId, orderId });
+  if (collection.data === undefined) return null;
+  return (
+    <PickupCollectionPanel
+      pickup={collection.data.pickup}
+      {...(collection.data.code === undefined ? {} : { code: collection.data.code })}
+    />
   );
 }
 
@@ -221,6 +267,7 @@ function BoundedView(props: {
   loading: boolean;
   failed: boolean;
   entries: { id: string; orderNumber: string; status: string; sellerLabel: string }[] | undefined;
+  checkoutGroupId: string | undefined;
 }) {
   if (props.loading) {
     return <Text className="text-sm text-muted-foreground">Loading your order.</Text>;
@@ -240,6 +287,9 @@ function BoundedView(props: {
           <Text className="text-sm text-muted-foreground">
             {entry.sellerLabel} · {entry.status}
           </Text>
+          {props.checkoutGroupId === undefined ? null : (
+            <GuestOrderCollection checkoutGroupId={props.checkoutGroupId} orderId={entry.id} />
+          )}
         </View>
       ))}
       <Text className="text-sm text-muted-foreground">

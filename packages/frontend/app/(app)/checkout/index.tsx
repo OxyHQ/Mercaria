@@ -37,6 +37,7 @@ import { toast } from "@oxyhq/bloom/toast";
 import { useCart } from "@/lib/hooks/use-cart";
 import { useAddresses } from "@/lib/hooks/use-addresses";
 import { useCheckout, useCheckoutPaymentStatus } from "@/lib/hooks/use-checkout";
+import { usePortalConfirmation } from "@/lib/hooks/use-guest-portal";
 import { CardPaymentStep } from "@/components/payment/CardPaymentStep";
 
 /** The stable seller-group key, matching the backend (`store:<id>` / `user:<id>`). */
@@ -374,7 +375,11 @@ function PaymentStep({
 
 function CheckoutBody() {
   const router = useRouter();
-  const { seller } = useLocalSearchParams<{ seller?: string }>();
+  const { seller, pickup, pickupName } = useLocalSearchParams<{
+    seller?: string;
+    pickup?: string;
+    pickupName?: string;
+  }>();
   const { isAuthenticated } = useOxy();
   const { data: cart, isLoading: cartLoading } = useCart();
   // Saved addresses are an ACCOUNT feature, and `useAddresses` is already
@@ -383,9 +388,22 @@ function CheckoutBody() {
   // (#105 frontend rule 6).
   const { data: addresses, isLoading: addressesLoading } = useAddresses();
   const checkout = useCheckout();
+  // #108's PULLED confirmation grant, minted when a guest leaves checkout so
+  // the portal they are sent to can already read the order.
+  const portalConfirmation = usePortalConfirmation();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [usingInlineAddress, setUsingInlineAddress] = useState(false);
+  /**
+   * Whether the buyer has stepped back from the collection they arrived with.
+   *
+   * The CHOICE is the `?pickup=` parameter the collection screen set, and it
+   * stays in the URL so a reload keeps it (#93 client rule 11). This is the one
+   * bit of state the checkout adds on top: "I changed my mind, deliver it" —
+   * held here rather than by rewriting the URL, because a shopper who then
+   * presses back should land on the collection they were looking at.
+   */
+  const [pickupDeclined, setPickupDeclined] = useState(false);
   const [discountCode, setDiscountCode] = useState("");
   /**
    * The typed destination and contact.
@@ -440,8 +458,22 @@ function CheckoutBody() {
   // A saved address is used when the buyer HAS one and has not chosen to type a
   // different one. Everyone else — every guest, and any signed-in buyer with an
   // empty address book — types one inline, through the same form.
+  /**
+   * The collection point this checkout is for, or `undefined` for delivery.
+   *
+   * A location ID and nothing else decides it — the display name beside it in
+   * the URL is for the buyer to read and is never sent: the server resolves the
+   * shop from the id and re-validates it against this actor and every line in
+   * the group before a unit is reserved (`docs/pickup.md` §8).
+   */
+  const pickupLocationId = pickupDeclined ? undefined : pickup;
+  const collecting = pickupLocationId !== undefined;
+  // A collection needs NO shipping address, so the saved-address path is not
+  // just unnecessary — selecting one would be the invented street #105 actor
+  // rule 5 forbids. The inline form renders instead, which is where the contact
+  // a collection genuinely does need is collected.
   const usingSavedAddress =
-    isAuthenticated && !usingInlineAddress && effectiveAddressId !== undefined;
+    !collecting && isAuthenticated && !usingInlineAddress && effectiveAddressId !== undefined;
 
   if (cartLoading && !cart) {
     return (
@@ -483,9 +515,33 @@ function CheckoutBody() {
    * secure guest order experience rather than an authenticated-only order
    * route" rule failing closed while #108 builds the portal that replaces this.
    */
-  const leaveCheckout = (orderId: string | undefined) => {
+  const leaveCheckout = (orderId: string | undefined, checkoutGroupId: string | undefined) => {
     if (!isAuthenticated) {
-      router.replace("/" as Parameters<typeof router.replace>[0]);
+      // #93 client rule 12 and #108: a guest goes to the SECURE ORDER PORTAL,
+      // not to the storefront. The comment this replaces said the homepage was
+      // "failing closed while #108 builds the portal that replaces this" — #108
+      // shipped, so that sentence expired and leaving it would strand every
+      // guest on a page that says nothing about the order they just paid for.
+      //
+      // The grant is PULLED here rather than pushed by the payment path
+      // (docs/guest-portal.md): a credential minted inside a webhook handler is
+      // a credential minted into a log, so it is minted at the first moment
+      // there is a client to hand it to — which is this one.
+      if (checkoutGroupId === undefined) {
+        router.replace("/" as Parameters<typeof router.replace>[0]);
+        return;
+      }
+      const toPortal = () =>
+        router.replace(
+          `/guest-orders/portal?group=${encodeURIComponent(checkoutGroupId)}` as Parameters<
+            typeof router.replace
+          >[0],
+        );
+      // `onSettled`, so a failure to mint still lands on the portal: that
+      // screen has its own "find your order" recovery, and the storefront has
+      // none. Failing to a screen that can recover beats failing to one that
+      // cannot.
+      portalConfirmation.mutate(checkoutGroupId, { onSettled: toPortal });
       return;
     }
     router.replace(
@@ -495,6 +551,15 @@ function CheckoutBody() {
 
   /** The destination this press will send, or `null` when it is incomplete. */
   const buildDestination = (): CheckoutDestination | null => {
+    if (collecting && pickupLocationId !== undefined) {
+      // Its OWN contact, for both actor kinds: the person collecting is not
+      // necessarily the person who paid, and a collection never reads an email
+      // off an Oxy profile (#105 contact rule 5). Nothing invents an address —
+      // `PickupDestination` has no field for one.
+      const pickupContact = cleanContact(draft.contact);
+      if (pickupContact.email.length === 0) return null;
+      return { type: "pickup", locationId: pickupLocationId, pickupContact };
+    }
     if (usingSavedAddress && effectiveAddressId) {
       return { type: "saved_address", addressId: effectiveAddressId };
     }
@@ -511,7 +576,11 @@ function CheckoutBody() {
   const onPlaceOrder = () => {
     const destination = buildDestination();
     if (!destination) {
-      setFormError("Fill in your email and delivery address to continue.");
+      setFormError(
+        collecting
+          ? "Enter the email address your collection details should go to."
+          : "Fill in your email and delivery address to continue.",
+      );
       return;
     }
     // A guest MUST supply contact; a signed-in buyer may, and it is sent when
@@ -549,7 +618,7 @@ function CheckoutBody() {
           if (!result.payment) {
             idempotencyKey.current = null;
             toast.success("Order placed");
-            leaveCheckout(first?.id);
+            leaveCheckout(first?.id, result.checkoutGroupId);
             return;
           }
           setPaymentError(null);
@@ -595,7 +664,7 @@ function CheckoutBody() {
               ? "Your order is reserved. You can pay for it from your orders."
               : "Your order is reserved for a short while. Check out again to pay for it.",
           );
-          leaveCheckout(placed.firstOrderId);
+          leaveCheckout(placed.firstOrderId, placed.checkoutGroupId);
         }}
         onFailed={(message) => {
           setSheetDone(false);
@@ -603,7 +672,7 @@ function CheckoutBody() {
         }}
         onDone={() => {
           setPlaced(null);
-          leaveCheckout(placed.firstOrderId);
+          leaveCheckout(placed.firstOrderId, placed.checkoutGroupId);
         }}
       />
     );
@@ -658,11 +727,17 @@ function CheckoutBody() {
         {usingSavedAddress ? null : (
           <View className="gap-3">
             <Text className="text-sm font-semibold text-foreground">
-              {isAuthenticated ? "Deliver to" : "Continue as guest"}
+              {collecting
+                ? "Collect in person"
+                : isAuthenticated
+                  ? "Deliver to"
+                  : "Continue as guest"}
             </Text>
             {isAuthenticated ? null : (
               <Text className="text-sm text-muted-foreground">
-                No account needed. Tell us where it goes and how to reach you about this order.
+                {collecting
+                  ? "No account needed. Tell us how to reach you about this collection — we will not ask for an address you do not need."
+                  : "No account needed. Tell us where it goes and how to reach you about this order."}
               </Text>
             )}
             <View className="rounded-2xl border border-border bg-card p-4">
@@ -670,6 +745,13 @@ function CheckoutBody() {
                 draft={draft}
                 onChange={setDraft}
                 canSaveToAddressBook={isAuthenticated}
+                pickupLocations={
+                  pickup === undefined
+                    ? []
+                    : [{ id: pickup, name: pickupName ?? "the shop you chose" }]
+                }
+                {...(pickupLocationId === undefined ? {} : { pickupLocationId })}
+                onChangePickupLocation={(next) => setPickupDeclined(next === undefined)}
               />
             </View>
           </View>

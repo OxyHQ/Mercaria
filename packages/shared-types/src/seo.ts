@@ -599,6 +599,12 @@ export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
   '/guest-orders/',
   '/forgot-password',
   '/reset-password',
+  // Collect in person (#93): one page per canonical entity PER POSITION, whose
+  // whole content depends on an origin the shopper supplies and a crawler does
+  // not have. Every result it could show is already reachable from the
+  // product page it is entered from, so a crawlable one is budget spent on an
+  // infinite family of thin duplicates.
+  '/nearby',
   // The outbound affiliate redirect (#37) — a crawler following one would spend
   // Mercaria's crawl budget on somebody else's site and burn an affiliate click.
   '/out/',

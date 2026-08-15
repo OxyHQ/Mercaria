@@ -6,6 +6,12 @@ import type {
   OrderStatus,
   Refund,
   CreateRefundInput,
+  CancelPickupInput,
+  CollectPickupInput,
+  MarkPickupReadyInput,
+  OrderPickup,
+  PickupCollectionCode,
+  PickupCollectionEvent,
 } from "@mercaria/shared-types";
 import apiClient from "./client";
 import { unwrap } from "./unwrap";
@@ -61,4 +67,107 @@ export async function createRefund(
 export async function fetchOrderRefunds(storeId: string, id: string): Promise<Refund[]> {
   const { data } = await apiClient.get<ApiResponse<Refund[]>>(`${base(storeId)}/${id}/refunds`);
   return unwrap(data);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  The collection desk (#93)                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One order's collection, as a member of staff sees it.
+ *
+ * There is deliberately NO field carrying the buyer's current code, because
+ * there is no route that returns one (`routes/admin/orders.ts`): a code is the
+ * buyer's, and a desk verifies one by having it presented. Keeping the client
+ * type free of it is what stops somebody adding a "show the code" button and
+ * discovering the endpoint does not exist only after designing the screen.
+ */
+export interface OrderPickupDesk {
+  readonly pickup: OrderPickup;
+  readonly events: readonly PickupCollectionEvent[];
+}
+
+const pickupBase = (storeId: string, orderId: string) =>
+  `${base(storeId)}/${orderId}/pickup`;
+
+/** GET the collection snapshot and its audited trail. 404s on a delivery order. */
+export async function fetchOrderPickup(
+  storeId: string,
+  orderId: string,
+): Promise<OrderPickupDesk> {
+  const { data } = await apiClient.get<ApiResponse<OrderPickupDesk>>(
+    pickupBase(storeId, orderId),
+  );
+  return unwrap(data);
+}
+
+/** POST … /pickup/ready — the parcel is on the shelf behind the counter. */
+export async function markPickupReady(
+  storeId: string,
+  orderId: string,
+  input: MarkPickupReadyInput,
+): Promise<OrderPickup> {
+  const { data } = await apiClient.post<ApiResponse<{ pickup: OrderPickup }>>(
+    `${pickupBase(storeId, orderId)}/ready`,
+    input,
+  );
+  return unwrap(data).pickup;
+}
+
+/**
+ * POST … /pickup/collect — the handover happened.
+ *
+ * Takes the code the person PRESENTED, or an `override` with a reason. The
+ * override is the audited fallback #93 verification rule 7 asks for: a code
+ * that will not scan must not strand a customer at a counter, and the record of
+ * who waved it through is what makes that safe rather than a hole.
+ */
+export async function collectPickup(
+  storeId: string,
+  orderId: string,
+  input: CollectPickupInput,
+): Promise<OrderPickup> {
+  const { data } = await apiClient.post<ApiResponse<{ pickup: OrderPickup }>>(
+    `${pickupBase(storeId, orderId)}/collect`,
+    input,
+  );
+  return unwrap(data).pickup;
+}
+
+/**
+ * POST … /pickup/cancel — withdraw the handover.
+ *
+ * This moves NO money and NO stock (`docs/pickup.md` §10). The units were
+ * committed when the order was paid, and refunding is the separate,
+ * money-moving decision on the order itself.
+ */
+export async function cancelPickup(
+  storeId: string,
+  orderId: string,
+  input: CancelPickupInput,
+): Promise<OrderPickup> {
+  const { data } = await apiClient.post<ApiResponse<{ pickup: OrderPickup }>>(
+    `${pickupBase(storeId, orderId)}/cancel`,
+    input,
+  );
+  return unwrap(data).pickup;
+}
+
+/**
+ * POST … /pickup/rotate-code — invalidate every outstanding copy at once.
+ *
+ * The ONE call that returns a code, and it returns the NEW one because the shop
+ * is the party that has to tell the customer it changed. There is no grace
+ * window: the previous code stops working immediately.
+ */
+export async function rotateCollectionCode(
+  storeId: string,
+  orderId: string,
+  reason: string,
+): Promise<PickupCollectionCode> {
+  const { data } = await apiClient.post<ApiResponse<{ code: PickupCollectionCode }>>(
+    `${pickupBase(storeId, orderId)}/rotate-code`,
+    { reason },
+  );
+  return unwrap(data).code;
 }

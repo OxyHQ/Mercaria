@@ -284,4 +284,22 @@ export const queryKeys = {
     places: (subject: string, term: string) =>
       ["nearby", "places", subject, term] as const,
   },
+  /**
+   * An order's collection snapshot and its code (#93).
+   *
+   * Keyed on the ORDER and, for the guest path, on the checkout group whose
+   * portal credential authorized the read — never on the credential itself. A
+   * React Query key is held in memory and printed by every devtools panel, so a
+   * key carrying a bearer token would put one on a screen somebody screenshots.
+   *
+   * Separate from `orders.detail` deliberately: the code is fetched by its own
+   * call against its own authorized route, so it is never a field of a cached
+   * order DTO that support tooling and logs forward on.
+   */
+  collection: {
+    all: ["collection"] as const,
+    byOrder: (orderId: string) => ["collection", "order", orderId] as const,
+    byGuestOrder: (checkoutGroupId: string, orderId: string) =>
+      ["collection", "guest", checkoutGroupId, orderId] as const,
+  },
 } as const;

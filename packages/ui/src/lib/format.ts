@@ -58,6 +58,30 @@ export function formatSourceMoney(money: OfferMoney): string | null {
 /** Threshold above which review counts are abbreviated with a "K" suffix. */
 const THOUSAND = 1000;
 
+/** Metres in a kilometre — the point the distance unit changes. */
+const METRES_PER_KM = 1000;
+
+/**
+ * Format a coarse distance in metres (#93 nearby rule 5).
+ *
+ * Every figure that reaches this function has ALREADY been coarsened by the
+ * server — `coarsenMetres` rounds OUTWARD to 100 m below 10 km and to 1 km
+ * above, because three exact distances from an unknown position to three
+ * published shop fronts solve for that position. So this is a display helper
+ * and never a precision decision: it must not round further (that would
+ * understate a walk) and it must not add precision the number does not have.
+ *
+ * Lifted out of `OfferLabelBadge`'s private `basisText`, where it was the only
+ * distance code in the package, so #93's location surfaces and #74's
+ * `best_nearby_pickup` badge cannot drift into two different renderings of one
+ * metre count.
+ */
+export function formatDistance(metres: number): string {
+  return metres < METRES_PER_KM
+    ? `${Math.round(metres)} m`
+    : `${(metres / METRES_PER_KM).toFixed(1)} km`;
+}
+
 /**
  * Format a review count, abbreviating thousands with a single-decimal "K"
  * (e.g. `349` → `"349"`, `10300` → `"10.3K"`, `1000` → `"1K"`).

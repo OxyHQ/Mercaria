@@ -184,13 +184,13 @@ dead end wearing a search box is impossible.
 Selecting one hands back a CELL CENTRE as the next request's origin, so the
 fallback path never sees a precise coordinate at all.
 
-This is the SERVER half of #93 acceptance 5 ("denied location permission has a
-functional manual-location fallback"), answered without an outbound call. The
-criterion is **not met end to end**: there is no screen, no permission prompt and
-no entry box, so nothing a person can use denies a permission or types a city.
-The endpoint, its hook and its typed client are what a screen would call, and
-`docs/pickup.md` says so rather than letting a green backend suite read as a
-shipped feature.
+This answers #93 acceptance 5 ("denied location permission has a functional
+manual-location fallback") without an outbound call, and it is now met **end to
+end**: `components/nearby/NearbyOriginControl.tsx` is the entry box, and §18
+below describes the screen around it. The city list is offered BESIDE the
+device-location control rather than after a refusal, so a shopper who never
+wants to share a position does not have to decline a prompt to find out that
+typing a city works.
 
 The match is a PREFIX on the city and on the postal code, deliberately not a
 trigram similarity: a fuzzy match would offer a shopper a city they did not type,
@@ -499,7 +499,125 @@ un-pausing their own shop. Placed collections are untouched by either — see
 
 ---
 
-## 16. What #93 asked for and did not get
+---
+
+## 16. The client half
+
+`packages/ui` (`lib/pickup-labels.ts`, `NearbyLocationCard`,
+`PickupCollectionPanel`), `packages/frontend`
+(`components/nearby/`, `app/(app)/nearby.tsx`, and the pickup branches of
+checkout, the order detail and the guest portal) and `packages/dashboard`
+(`components/orders/PickupDeskCard.tsx`).
+
+### The three surfaces, and why there are three
+
+| Surface | Asks the server for | Why |
+|---|---|---|
+| Product page — `NearbyAvailability` in BROWSE mode | availability only | #93 nearby rule 12: a page view must not spend per-location eligibility work, and a shopper reading about a product has not decided to buy it here |
+| `/nearby` — the same component with `withCheckoutEligibility` | availability AND the actor verdict | this is the surface that HAS decided, so it may offer "Collect here" |
+| Checkout | nothing new | the choice arrives as `?pickup=<locationId>` and the SERVER re-validates it against the actor and every line in the group |
+
+`NearbyAvailability` is the ONE component #93 client rule 7 asks for. It takes a
+canonical subject and nothing about the page it is on, so a third surface mounts
+it rather than growing a fourth rendering of the same idea.
+
+### What a buyer is never told
+
+`checkoutEligibility` is the one place `PickupBlockReason`s reach a client, and
+`describeBuyerPickupBlock` (`@mercaria/ui`) collapses them to ONE sentence before
+anything renders them — §2's rule, held in a pure function rather than in each
+screen's discretion. The full per-reason copy exists, is exported, and is
+merchant-facing: the dashboard reads it about the reader's own shop.
+
+The one branch on the reasons is whether signing in would change the answer. It
+is offered only when EVERY reason is guest-specific, so #93 client rule 10's
+"optional benefit, not a condition" cannot become an account prompt in front of
+a shop that would refuse an account holder too.
+
+### Permission, and the refusal that is not a dark pattern
+
+Nothing is asked for on mount: `useNearbyOrigin` exposes `requestDeviceOrigin`
+and a control calls it. There is no `watchPosition`, no subscription and no
+background read anywhere, so #93 location-input rule 3 is the ABSENCE of those
+calls rather than a setting.
+
+The city picker sits BESIDE the device control from the start rather than
+appearing after a refusal, and a refusal REMOVES the device control instead of
+leaving a button that re-prompts. Both are deliberate: a shopper who never wants
+to share a position should not have to decline a prompt to discover that typing
+a city works, and asking again is the pattern the rule exists to prevent.
+
+### What is in a URL, and what is not
+
+The buyer's coordinate lives in one component's state for as long as the screen
+is open. It is never a route param, never in a store, never in an analytics call
+and never in a React Query key — the key carries the COARSE cell (`use-nearby.ts`).
+
+`?pickup=` and `?pickupName=` carry a merchant's own published shop front, which
+#93 client rule 14 does not cover: it is public, it is the merchant's rather
+than the buyer's, and it authorizes nothing. It is in the URL because the choice
+has to survive a reload and a bank redirect, which is client rule 11.
+
+### The collection code
+
+Rendered by `PickupCollectionPanel` on the buyer's order detail and in the guest
+portal, fetched by its own call against its own authorized route — never a field
+of an order DTO, which is logged, cached and forwarded into support tooling.
+
+It is shown on BOTH portal views, including the bounded one a just-paid device
+holds. That is #93 pickup rule 13 (a guest must not have to claim the order into
+Oxy to collect it) and it matches the server, whose collection route requires a
+portal session and a matching group and no scope beyond it.
+
+It is TEXT and not a QR image, deliberately: the alphabet was already chosen to
+be read off a phone screen and spoken aloud, so a shopper with a cracked screen
+or a screen reader can still complete a handover, and no app needs a QR
+generator dependency to show one.
+
+### Merchant desk
+
+`PickupDeskCard` renders only for a collection order — the 404 a delivery order
+answers with makes it return `null` — and carries mark-ready, collect-by-code,
+the audited override, rotate and cancel, plus the trail. It shows NO buyer
+identity: `OrderPickup` has no field for one, so #93 merchant rule 2 and
+acceptance 11 are properties of the type. There is no "show the customer's code"
+control, because no route returns one.
+
+### What is NOT met, and why
+
+- **#93 client rule 6's "best overall" sort.** The nearby list offers two orders
+  — nearest (the server's own, rendered untouched) and lowest price — and both
+  are facts. A "best overall" would be a weighted blend of distance and price
+  composed on the client, which is a SECOND, unversioned ranking authority of
+  exactly the kind #74's policy versions exist to be the only home for. The
+  nearby endpoint applies no #74 policy at all: it is a proximity read over
+  locations, not a comparison over offers, so there is no published ranking to
+  reuse here. Closing this means either a ranked nearby endpoint under a policy
+  version, or a `nearest` member on `OfferComparisonIntent` plus a viewer
+  position on the product-page read — `/p/:handle` accepts no coordinate today,
+  which is why `best_nearby_pickup` is still never awarded on that page even
+  though #93 closed `resolvePickupProximity`.
+- **The device-location prompt on NATIVE.** `useNearbyOrigin` answers
+  `unsupported` there and has since #93's server half: the native apps carry no
+  location dependency, and adding one is a config-plugin change plus a
+  store-listing permission disclosure. The manual place picker is a COMPLETE
+  path without it, and the refusal copy says "this app cannot read a device
+  location" rather than a generic failure — so the feature is usable on native,
+  and it is the browser that exercises the permission path. Nothing here has
+  been verified against a real iOS or Android permission dialog.
+- **Sorting applies to the LOADED page.** `/nearby` is keyset-paginated and the
+  hook reads one page; when a next cursor exists the screen says so rather than
+  claiming a comparison it did not make. Paging is not wired.
+
+### Where a shopper cannot reach this
+
+`/search` and the watchlists were named in #93 client rule 7 as surfaces that
+could reuse the component. Neither mounts it: a search result page and a
+watchlist are LISTS, and a nearby section per row is one request per row against
+an endpoint keyed on a position. The component is reusable and the two screens
+are where it would go; the request shape is what stopped it, not the component.
+
+## 17. What #93 asked for and did not get
 
 Stated rather than quietly narrowed.
 
@@ -521,7 +639,7 @@ Stated rather than quietly narrowed.
 
 ---
 
-## 17. Production-readiness checklist
+## 18. Production-readiness checklist
 
 - [ ] `PICKUP_COLLECTION_CODE_KEY` provisioned (64 hex) in SSM, and in the
       deploy workflow's explicit secret allow-list **in the same change** as the

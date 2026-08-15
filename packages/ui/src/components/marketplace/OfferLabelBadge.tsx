@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import type { OfferLabelAward } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
-import { formatMoney } from "../../lib/format";
+import { formatDistance, formatMoney } from "../../lib/format";
 import { explainOfferLabel, offerLabelText } from "../../lib/offer-labels";
 
 export interface OfferLabelBadgeProps {
@@ -72,10 +72,8 @@ function basisText(award: OfferLabelAward): string | undefined {
   if (award.days !== undefined) {
     return award.days === 1 ? "1 day" : `${award.days} days`;
   }
-  if (award.metres !== undefined) {
-    return award.metres < 1_000
-      ? `${Math.round(award.metres)} m`
-      : `${(award.metres / 1_000).toFixed(1)} km`;
-  }
+  // Shared with #93's location surfaces since that issue's client half: one
+  // metre count must not render two ways depending on which screen shows it.
+  if (award.metres !== undefined) return formatDistance(award.metres);
   return undefined;
 }

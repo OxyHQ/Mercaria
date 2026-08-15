@@ -33,6 +33,7 @@ Disallow: /shopping-agents
 Disallow: /guest-orders/
 Disallow: /forgot-password
 Disallow: /reset-password
+Disallow: /nearby
 Disallow: /out/
 Disallow: /internal/
 
