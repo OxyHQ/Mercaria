@@ -347,6 +347,14 @@ function createShopifyFake(world: ContractWorld): ShopifyTransport {
           id,
           topic: parsed?.webhook.topic ?? 'unknown',
           deliveryUrl: parsed?.webhook.address ?? '',
+          // Tracked in the world so a case can drive failed deliveries against
+          // Shopify too, and DELIBERATELY not serialized below: Shopify's REST
+          // webhook object publishes neither a status nor a failure count, so
+          // Mercaria cannot learn from Shopify that a subscription died. That
+          // asymmetry is measured rather than skipped — see the harness's
+          // `publishesSubscriptionHealth`.
+          status: 'active',
+          failureCount: 0,
         });
         return ok({ webhook: { id } });
       }
@@ -421,6 +429,11 @@ describeConnectorContract({
   webhookSecretStrategy: shopifyProvider.webhookSecretStrategy,
   webhookPathFragment: '/webhooks.json',
   webhookDeletePathFragment: '/webhooks/',
+  // Shopify's REST webhook object carries neither a status nor a failure count,
+  // so a subscription Shopify stopped delivering is invisible to Mercaria until
+  // Shopify removes it (#295). Declared rather than skipped, so the case runs
+  // its own branch and would fail if this platform grew one and nobody read it.
+  publishesSubscriptionHealth: false,
   createWorld: () => {
     const catalogue = contractCatalogue(uuidv7());
     return createContractWorld({

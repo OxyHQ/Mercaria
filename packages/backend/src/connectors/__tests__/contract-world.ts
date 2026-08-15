@@ -130,12 +130,34 @@ export interface ContractCall {
   readonly status: number;
 }
 
-/** A webhook subscription the connector created on the fake platform. */
+/**
+ * Failed deliveries a platform tolerates before disabling a subscription itself.
+ *
+ * WooCommerce's own number, and the reason the fake needs to model this at all:
+ * `includes/class-wc-webhook.php` `failed_delivery()` disables at
+ * `$failures > apply_filters( 'woocommerce_max_webhook_delivery_failures', 5 )`,
+ * so the SIXTH failure is the one that kills it. Measured against the
+ * WooCommerce 11.0.1 on the #69 test site.
+ */
+export const WEBHOOK_DELIVERY_FAILURE_LIMIT = 5;
+
+/**
+ * A webhook subscription the connector created on the fake platform.
+ *
+ * `status` and `failureCount` are MUTABLE where everything else here is not,
+ * because they are the two things a platform changes about a subscription
+ * WITHOUT being asked (#295) — and being changed by nobody Mercaria can see is
+ * the whole property under test.
+ */
 export interface ContractWebhook {
   readonly id: string;
   readonly topic: string;
   readonly deliveryUrl: string;
   readonly secret?: string;
+  /** What the platform would report; a fresh subscription is delivering. */
+  status: 'active' | 'paused' | 'disabled';
+  /** Consecutive failed deliveries the platform has counted. */
+  failureCount: number;
 }
 
 /** The mutable state of one fake shop, plus everything a case needs to assert against. */
@@ -187,6 +209,25 @@ export interface ContractWorld {
   record(call: ContractCall): void;
   /** How many requests the fake answered whose URL contains `pathFragment`. */
   callsMatching(pathFragment: string): ContractCall[];
+  /**
+   * Fire `times` events at every live subscription and let the platform react
+   * the way a real one does (#295).
+   *
+   * A delivery SUCCEEDS only where the subscription points at
+   * `servedDeliveryUrl` — so `undefined` models a Mercaria that is answering
+   * nowhere, and a changed base URL models itself: the address in the
+   * subscription is simply no longer the address being served. Past
+   * {@link WEBHOOK_DELIVERY_FAILURE_LIMIT} failures the platform disables the
+   * subscription ITSELF, with nothing telling Mercaria it did.
+   *
+   * It is the one mutation here that no connector call causes, which is the
+   * point: every other change to this world is something the code under test
+   * asked for, and this is the class of state change the code under test cannot
+   * see happen. Nothing models a RESET on a successful delivery, deliberately —
+   * a fake asserting semantics nobody measured against a real site would be
+   * making a claim about WooCommerce rather than exercising Mercaria.
+   */
+  deliverWebhookEvents(times: number, servedDeliveryUrl?: string): void;
 }
 
 /** Build a fake shop holding `products`, reporting `shopCurrency`. */
@@ -242,6 +283,19 @@ export function createContractWorld(init: {
     },
     callsMatching(pathFragment) {
       return calls.filter((call) => call.url.includes(pathFragment));
+    },
+    deliverWebhookEvents(times, servedDeliveryUrl) {
+      for (let attempt = 0; attempt < times; attempt += 1) {
+        for (const webhook of webhooks) {
+          if (webhook.status !== 'active' || webhook.deliveryUrl === servedDeliveryUrl) {
+            continue;
+          }
+          webhook.failureCount += 1;
+          if (webhook.failureCount > WEBHOOK_DELIVERY_FAILURE_LIMIT) {
+            webhook.status = 'disabled';
+          }
+        }
+      }
     },
   };
 }
