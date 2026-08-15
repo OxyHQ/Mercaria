@@ -1443,11 +1443,13 @@ function describeVariantEnumerationGap(gap: VariantEnumerationGap): string {
  * The bounded refusal a product whose variant enumeration is INCOMPLETE gets
  * (#259).
  *
- * It names the gap KIND and the ids, because that is the whole of what the
- * merchant-facing record carries: a refused product in a backfill lands as
- * `counts.failed += 1` plus this message on the warn line, and a refused webhook
- * fails its `sync_runs` row with this as `error`. A message that said only
- * "incomplete" would leave an operator unable to tell a site that stopped
+ * It names the gap KIND and the ids, because that is what every merchant-facing
+ * carriage of this refusal shows. A refused product in a backfill lands as
+ * `counts.failed += 1`, this message on the warn line, this message in the run's
+ * `sync_runs.error` summary (#294) and a durable `sync_run_record_failures` row
+ * carrying it as `detail` under reason `refused_by_rule` (#303); a refused
+ * webhook fails its `sync_runs` row with this as `error`. A message that said
+ * only "incomplete" would leave an operator unable to tell a site that stopped
  * publishing a page header from one whose plugin is serving a variation twice.
  */
 function incompleteVariantSetError(

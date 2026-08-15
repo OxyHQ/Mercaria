@@ -247,8 +247,13 @@ export async function insertSyncRun(
  * failure — where the run genuinely did not close and retrying is right, and
  * where the UPDATE alone would already have thrown.
  *
- * A run that FAILED whole passes no `recordFailures` (see the call sites), so
- * this writes nothing on that branch, matching the `error` precedence above.
+ * The discriminant for writing rows is the whole-run `failure`, NOT the status,
+ * and the two genuinely differ: the push rail marks a run `failed` when every
+ * record failed while passing no whole-run failure at all, because a total
+ * wipeout there IS its per-record failures. So `0/0/0/100` on that rail — the
+ * shape #303 measured, which recorded a NULL `error` and nothing else — gets one
+ * row per refused product. A run stopped by something ABOVE its records passes a
+ * `failure` and gets none, matching the `error` precedence above.
  *
  * @returns The stored row, so the caller can serialize what was actually
  *   persisted rather than the object it was holding — the two diverged silently
