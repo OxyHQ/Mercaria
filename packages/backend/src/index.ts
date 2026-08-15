@@ -444,6 +444,23 @@ connectPostgres()
           log.general.error({ err }, 'Retail procurement port registration failed'),
         );
 
+      // Install Mercaria's Moovo logistics client (#156).
+      //
+      // A no-op on every deployment today, and visibly so: `MOOVO_ENABLED`
+      // defaults false, and even switched on the client is NOT registered while
+      // no transport exists — it logs the blockers instead. That is the honest
+      // state rather than a hidden one, because registering a port that refuses
+      // every call would make `chooseFulfilmentMode` select Mode A and strand
+      // paid orders that would otherwise fall back to Mode B.
+      //
+      // A misconfiguration THROWS inside the promise and is logged as an ERROR
+      // rather than taking the process down: the API serves a whole marketplace
+      // and Moovo booking is unreachable in either case, so failing to boot
+      // would convert a wrong variable into an outage of everything else.
+      import('./services/moovo/register.js')
+        .then(({ registerMoovoClient }) => registerMoovoClient())
+        .catch((err: unknown) => log.general.error({ err }, 'Moovo client registration failed'));
+
       // Reconcile retail orders against their supplier and provider evidence,
       // and pay what the equation says is owed back (#128, ADR 0004 D7/D8). On
       // EVERY task, leased on its own `reconciliation_cursors` row.

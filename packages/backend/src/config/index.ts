@@ -89,6 +89,19 @@ function boolEnv(name: string, fallback: boolean): boolean {
   return ['1', 'true', 'yes', 'on'].includes(raw.trim().toLowerCase());
 }
 
+/**
+ * Read `MOOVO_ENVIRONMENT`, refusing anything not in the closed set.
+ *
+ * Returns `null` for unset and for unrecognised alike; the caller that cares
+ * (`assertMoovoClientConfigured`) re-reads the raw variable to say which. There
+ * is deliberately no fallback member — see the field's own docblock.
+ */
+function readMoovoEnvironment(): MoovoEnvironment | null {
+  const raw = strEnv('MOOVO_ENVIRONMENT', '');
+  const match = MOOVO_ENVIRONMENTS.find((environment) => environment === raw.toLowerCase());
+  return match ?? null;
+}
+
 const MINUTE_MS = 60_000;
 
 /** The FX rate provider strategy. */
@@ -3078,6 +3091,68 @@ export interface PrintfulConfig {
   readonly baseUrl: string;
 }
 
+/** The environments a Moovo deployment can be addressed in. A closed set. */
+export const MOOVO_ENVIRONMENTS = ['development', 'staging', 'production'] as const;
+export type MoovoEnvironment = (typeof MOOVO_ENVIRONMENTS)[number];
+
+/**
+ * Mercaria's Moovo service client (#156).
+ *
+ * **There is deliberately NO client id or client secret variable, and adding
+ * one today would be a security regression rather than progress.** #156 item 5
+ * asks that they come from the deployment secret manager, and they will — but
+ * `@oxyhq/core` cannot yet mint a token bound to another application's
+ * audience (`OxyHQ/oxy#878`, open): `getServiceToken()` POSTs `{apiKey,
+ * apiSecret}` and every token it returns carries the hardcoded `oxy-api`
+ * audience. A credential configured now could therefore only be used to send a
+ * WRONG-AUDIENCE token to Moovo, which is the confused-deputy shape audience
+ * binding exists to prevent. The variables arrive with the transport that can
+ * use them correctly.
+ *
+ * `resourceApplicationId` is NOT that credential — it names the Moovo Oxy
+ * Application a token must be minted FOR, and it is the value the whole
+ * integration is audience-bound to. It is required whenever the client is
+ * enabled precisely so that "which Moovo are we talking to" can never be
+ * implicit.
+ */
+export interface MoovoConfig {
+  /**
+   * `MOOVO_ENABLED` — may the Moovo logistics client be registered at all.
+   *
+   * It gates a REGISTRATION and never a durable record: nothing in the
+   * retail-fulfilment domain is stored, withheld or erased on account of it.
+   * With it on and no transport registered the client is still not installed,
+   * because a registered port makes `chooseFulfilmentMode` choose Mode A —
+   * see `services/moovo/transport.ts`.
+   */
+  readonly enabled: boolean;
+  /** `MOOVO_BASE_URL` — the Moovo API root. HTTPS, and validated at registration. */
+  readonly baseUrl: string;
+  /** `MOOVO_RESOURCE_APPLICATION_ID` — the Moovo Oxy Application a token is bound to. */
+  readonly resourceApplicationId: string;
+  /**
+   * `MOOVO_ENVIRONMENT` — which Moovo deployment.
+   *
+   * `null` when unset OR unrecognised, and the two are told apart at
+   * registration rather than here: reading a typo as a default is how a
+   * production deployment quietly addresses a rehearsal, and THROWING at module
+   * load would take the whole API down over a variable that matters only when
+   * `enabled` is true. So the value fails closed and the refusal is raised by
+   * `assertMoovoClientConfigured`, where it can name what was wrong.
+   */
+  readonly environment: MoovoEnvironment | null;
+  /** `MOOVO_SCOPES` — the grants requested, comma-separated. Empty means none were declared. */
+  readonly scopes: readonly string[];
+  /** `MOOVO_TIMEOUT_MS` — the bound on ONE attempt. */
+  readonly timeoutMs: number;
+  /** `MOOVO_MAX_ATTEMPTS` — attempts for a retryable failure, INCLUDING the first. */
+  readonly maxAttempts: number;
+  /** `MOOVO_RETRY_BASE_DELAY_MS` — the first backoff step; later steps double with equal jitter. */
+  readonly retryBaseDelayMs: number;
+  /** `MOOVO_RETRY_MAX_DELAY_MS` — ceiling on any single wait, including a published `Retry-After`. */
+  readonly retryMaxDelayMs: number;
+}
+
 /**
  * Buyer post-purchase requests — cancellations, returns and support (#110).
  *
@@ -3249,6 +3324,7 @@ export interface AppConfig {
   readonly ebay: EbayConfig;
   readonly awin: AwinConfig;
   readonly printful: PrintfulConfig;
+  readonly moovo: MoovoConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly cart: CartConfig;
@@ -3630,6 +3706,30 @@ export const config: AppConfig = Object.freeze({
   printful: Object.freeze({
     enabled: boolEnv('PRINTFUL_ENABLED', false),
     baseUrl: strEnv('PRINTFUL_BASE_URL', PRINTFUL_BASE_URL),
+  }),
+  moovo: Object.freeze({
+    enabled: boolEnv('MOOVO_ENABLED', false),
+    // No default host. A default would make "which Moovo" implicit, and the one
+    // value it could sensibly default to is production's.
+    baseUrl: strEnv('MOOVO_BASE_URL', ''),
+    resourceApplicationId: strEnv('MOOVO_RESOURCE_APPLICATION_ID', ''),
+    // Unrecognised values are NOT coerced to a default here — `readMoovoEnvironment`
+    // refuses them, because silently reading a typo as `development` would point
+    // a production deployment at a rehearsal (the #65 `EBAY_ENVIRONMENT` rule,
+    // with the safe direction pointing the other way: there, anything
+    // unrecognised falls back to `sandbox`; here there is no safe fallback,
+    // since either mistake sends real parcels to the wrong system).
+    environment: readMoovoEnvironment(),
+    scopes: Object.freeze(
+      strEnv('MOOVO_SCOPES', '')
+        .split(',')
+        .map((scope) => scope.trim())
+        .filter((scope) => scope !== ''),
+    ),
+    timeoutMs: intEnv('MOOVO_TIMEOUT_MS', 10_000),
+    maxAttempts: intEnv('MOOVO_MAX_ATTEMPTS', 3),
+    retryBaseDelayMs: intEnv('MOOVO_RETRY_BASE_DELAY_MS', 250),
+    retryMaxDelayMs: intEnv('MOOVO_RETRY_MAX_DELAY_MS', 5_000),
   }),
   matching: Object.freeze({
     pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),
