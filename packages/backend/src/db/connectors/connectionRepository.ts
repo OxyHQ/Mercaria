@@ -72,6 +72,7 @@ import type {
   ConnectorWebhookFailureReason,
 } from '@mercaria/shared-types';
 import { CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS } from '@mercaria/shared-types';
+import { conflict } from '../../lib/errors/error-codes.js';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
 import { connections, connectionWebhookFailures } from '../schema/connectors.js';
@@ -352,6 +353,39 @@ export async function findConnectionWebhookSecret(
  * refresh. `scopes` defaults to the empty array on INSERT only (the column's own
  * DDL default), so an omitted `scopes` on a reconnect leaves the previous grant
  * standing, which is what `$set` without the key did.
+ *
+ * ## The mode is not one of those fields, and the refusal lives HERE (#302)
+ *
+ * `UNIQUE(store_id, provider)` means a store holds at most one connection per
+ * platform, so a "second connection" in another mode is a mode change on the
+ * existing row. `mode` was in the conflict `set` like everything else, which made
+ * an OAuth pull connect silently rewrite a `push_in` row: the connection id does
+ * not move, so `listings.source_connection_id` still resolves and nothing looks
+ * broken — and then every subsequent plugin push 400s on
+ * `requirePushInConnection`, with no run recorded and nothing on the channel
+ * screen saying a mode was rewritten.
+ *
+ * Two of the three connect paths read the row first and refused; the third did
+ * not. But a pre-read is not the fix, because all three read outside any
+ * transaction: two concurrent connects both see "no row", both upsert, and the
+ * loser's `onConflictDoUpdate` flips the mode anyway. So the rule is expressed
+ * as a CONDITIONAL WRITE — `setWhere` on the conflict branch — which no caller
+ * can forget and which a FOURTH connect path inherits without knowing it exists.
+ *
+ * **Zero rows back is unambiguous.** An INSERT either inserts (one row) or
+ * conflicts; on conflict, `DO UPDATE … WHERE` returns the row when the predicate
+ * holds and nothing when it does not. So an empty `RETURNING` set can only mean
+ * the stored mode differs from the one being written — the `moderation_events`
+ * claim device, used to REFUSE rather than to converge.
+ *
+ * There is deliberately NO supported mode SWITCH. `push_in` connections carry
+ * minted channel keys bound to them, a per-connection webhook secret and the
+ * `source_*` provenance on every listing they imported; deciding what happens to
+ * each of those is a feature with its own issue, not a branch in an upsert. A
+ * merchant who wants to move from the plugin to the pull connector cannot do it
+ * themselves today — {@link disconnectConnection} keeps the row and never touches
+ * `mode`, and nothing in `src/` deletes a connection — and this refusal makes
+ * that visible at the connect instead of at the merchant's next push.
  */
 export async function upsertConnection(
   storeId: string,
@@ -394,8 +428,19 @@ export async function upsertConnection(
     .onConflictDoUpdate({
       target: [connections.storeId, connections.provider],
       set: { ...assignments, updatedAt: new Date() },
+      // Unqualified in the emitted SQL this would be ambiguous; drizzle renders
+      // `"connections"."mode"`, which in an `ON CONFLICT DO UPDATE … WHERE` is
+      // the EXISTING row's value (`excluded.mode` would be the proposed one).
+      // So: update only the row that is already in the mode being written.
+      setWhere: eq(connections.mode, values.mode),
     })
     .returning(CONNECTION_COLUMNS);
+  if (!row) {
+    // The same sentence the three callers' early refusals raise, so a merchant
+    // cannot tell which layer stopped them — and must not, since the two answer
+    // the same question at two moments.
+    throw conflict('A connection already exists for this provider in a different mode');
+  }
   return row;
 }
 
