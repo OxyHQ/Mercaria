@@ -51,8 +51,19 @@ vi.mock('../../registry.js', () => ({
 
 /** The shop the fake serves. `*.myshopify.com` — the transport's host allowlist is real. */
 const SHOP_DOMAIN = 'contract-suite.myshopify.com';
-/** The pinned Admin API version, mirrored from the provider so a bump breaks loudly here. */
-const API_PREFIX = '/admin/api/2024-10';
+/**
+ * The pinned Admin API version, mirrored from the provider so a bump breaks
+ * loudly here.
+ *
+ * Deliberately a LITERAL rather than an import of `API_VERSION`. The world this
+ * suite serves is a fake wire whose JSON shapes were written against one
+ * version; importing the constant would let a version bump slide through green
+ * while the fixtures still describe the version before it, which is the reverse
+ * of what this file is for. Updating it is the prompt to ask whether the shapes
+ * below were re-checked — for the `2024-10` → `2025-10` bump they were not, and
+ * could not be: no store exists to observe (#69 acceptance 7, #286).
+ */
+const API_PREFIX = '/admin/api/2025-10';
 
 /** A 200 with a JSON body and optional headers. */
 function ok(body: unknown, headers: Record<string, string> = {}): ShopifyHttpResponse {

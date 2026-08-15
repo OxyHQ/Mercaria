@@ -1,5 +1,5 @@
 /**
- * Shopify connector provider (REST Admin API `2024-10`).
+ * Shopify connector provider (REST Admin API `2025-10`).
  *
  * OAuth: `buildAuthorizeUrl` → merchant authorizes → the public callback calls
  * `exchangeCode` (POST `/admin/oauth/access_token`) to obtain the access token,
@@ -72,8 +72,34 @@ const PROVIDER_ID = 'shopify';
  * not 404 — Shopify falls forward to the oldest accessible stable version — so a
  * preflight carrying its own copy would go on reporting the version it was
  * written with, which is the answer that check exists to prevent.
+ *
+ * ## Why `2025-10` and not something newer
+ *
+ * It was `2024-10`, retired around 2025-10-16, so Shopify was already falling
+ * forward — to `2025-10`, the oldest accessible stable version. This bump
+ * therefore changes NOTHING on the wire; it makes the declaration match what
+ * Shopify has been serving all along. That is the whole of what could be
+ * established without a store: the shapes normalized below are already this
+ * version's, so pinning it asserts nothing new, while pinning `2026-07` (the
+ * newest stable) would move three versions forward and change what the wire
+ * returns for exactly the products, variants and orders this file parses.
+ *
+ * That move is #286's remaining open scope and belongs WITH the first real-store
+ * run (#69 acceptance 7), which is still unmet — no Shopify store, no Partner
+ * app, no observed response. The REST product/variant endpoints are deprecated
+ * but present, with a hard 100-variant-per-product ceiling above which GraphQL
+ * is mandatory and this connector has no GraphQL call at all, so which version
+ * to sit on is a question about real responses rather than about a constant.
+ *
+ * The cost of the conservative choice, stated rather than buried: `2025-10` is
+ * the version accessible for the SHORTEST remaining time, so this pin goes stale
+ * soonest. Nothing here restates that deadline — `accessibleUntil` in
+ * `scripts/e2e/shopify/preflight.ts` DERIVES it from Shopify's quarterly cadence
+ * and refuses a verification run past it, and `http.ts` warns once per shop when
+ * the served version differs from the requested one. A second copy of the date
+ * would be a second authority that could disagree with both.
  */
-export const API_VERSION = '2024-10';
+export const API_VERSION = '2025-10';
 /** Max products per page (Shopify's REST ceiling). */
 const PAGE_LIMIT = 250;
 /**

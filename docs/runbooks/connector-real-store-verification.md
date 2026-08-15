@@ -78,7 +78,7 @@ task definition, or this file.
 ### 3.1 Every endpoint the connector calls
 
 Derived from `packages/backend/src/connectors/shopify/index.ts` (Admin API
-version pinned at the code constant `API_VERSION`, currently **`2024-10`**):
+version pinned at the code constant `API_VERSION`, currently **`2025-10`**):
 
 | Endpoint | Called by | Scope it needs |
 |---|---|---|
