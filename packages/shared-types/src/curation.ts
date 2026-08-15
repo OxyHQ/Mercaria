@@ -486,6 +486,7 @@ export type CatalogMergePhase =
   | 'reviews'
   | 'saves'
   | 'alerts'
+  | 'agents'
   | 'redirects'
   | 'rollups'
   | 'verify'
@@ -509,6 +510,14 @@ export const CATALOG_MERGE_PHASES: readonly CatalogMergePhase[] = [
   // independent phases has to be SOME order — and before `rollups`, because
   // nothing a counter derives from moves here.
   'alerts',
+  // #97's saved shopping agents. A third rehoming phase beside `saves` and
+  // `alerts` rather than a line inside either, for #80's reason: an operator
+  // reading a phase trail has to be able to tell which of the three a job was
+  // in the middle of, and an agent is a live standing instruction where a save
+  // is a preference and an alert is one condition. It runs after `alerts`
+  // because the three are independent and independence still needs SOME order,
+  // and before `rollups`, because nothing a counter derives from moves here.
+  'agents',
   'redirects',
   'rollups',
   'verify',
@@ -550,6 +559,7 @@ export type CatalogSplitPhase =
   | 'assignments'
   | 'saves'
   | 'alerts'
+  | 'agents'
   | 'redirects'
   | 'rollups'
   | 'verify'
@@ -561,6 +571,12 @@ export const CATALOG_SPLIT_PHASES: readonly CatalogSplitPhase[] = [
   'assignments',
   'saves',
   'alerts',
+  // #97, and the strongest form of the same refusal: an ambiguous SAVE shows a
+  // shopper the wrong page, an ambiguous ALERT actively notifies them about a
+  // product they may not have meant, and an ambiguous AGENT goes on doing that
+  // on its own schedule for as long as nobody looks. So a split BLOCKS every
+  // agent of the source and never picks a side.
+  'agents',
   'redirects',
   'rollups',
   'verify',

@@ -70,9 +70,11 @@ import internalSearchIntentRouter from './routes/internal-search-intent.js';
 import priceHistoryRouter from './routes/price-history.js';
 import internalPriceHistoryRouter from './routes/internal-price-history.js';
 import priceAlertsRouter from './routes/price-alerts.js';
+import shoppingAgentsRouter from './routes/shopping-agents.js';
 import seoRouter from './routes/seo.js';
 import internalSeoRouter from './routes/internal-seo.js';
 import internalPriceAlertsRouter from './routes/internal-price-alerts.js';
+import internalShoppingAgentsRouter from './routes/internal-shopping-agents.js';
 import priceSignalsRouter from './routes/price-signals.js';
 import merchantCompetitivenessRouter from './routes/merchant-competitiveness.js';
 import internalPriceSignalsRouter from './routes/internal-price-signals.js';
@@ -554,6 +556,11 @@ export function createApp(): express.Express {
   if (config.priceAlerts.enabled) {
     app.use('/price-alerts', priceAlertsRouter);
   }
+  if (config.shoppingAgents.enabled) {
+    // #97. The MOUNT is gated and the ROWS never are: an agent already saved
+    // stays saved, keeps being evaluated and comes back when the flag does.
+    app.use('/shopping-agents', shoppingAgentsRouter);
+  }
   /**
    * Trustworthy price signals (#82), behind their OWN read lever.
    *
@@ -686,6 +693,10 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/price-alerts', internalPriceAlertsRouter);
+    // #97's aggregates. Deliberately NOT gated on `SHOPPING_AGENTS_ENABLED`:
+    // the queue lag has to be readable during the incident that turned the
+    // shopper surface off.
+    app.use('/internal/shopping-agents', internalShoppingAgentsRouter);
   }
   /**
    * The external ingestion framework's operator surface (#62), on the SAME

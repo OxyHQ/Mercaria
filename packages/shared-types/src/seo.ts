@@ -595,6 +595,7 @@ export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
   '/watchlists',
   '/notifications',
   '/price-alerts',
+  '/shopping-agents',
   '/guest-orders/',
   '/forgot-password',
   '/reset-password',

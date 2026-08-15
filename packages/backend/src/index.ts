@@ -235,6 +235,29 @@ connectPostgres()
         .catch((err: unknown) =>
           log.general.error({ err }, 'Price-alert delivery dispatcher import failed'),
         );
+      // #97's three loops, and they are three because they stop
+      // independently. The TRIGGER wakes the agents watching a product that
+      // moved; the EVALUATOR asks #96 what the saved objective now costs and
+      // appends a finding; the DELIVERY sends what qualified. Every one of them
+      // gates a LOOP and none gates a row, so turning any off loses nothing and
+      // turning it back on drains the backlog.
+      import('./services/shopping-agents/trigger-dispatcher.js')
+        .then(({ startShoppingAgentTriggerDispatcher }) => startShoppingAgentTriggerDispatcher())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Shopping-agent trigger dispatcher import failed'),
+        );
+      import('./services/shopping-agents/evaluation-dispatcher.js')
+        .then(({ startShoppingAgentEvaluationDispatcher }) =>
+          startShoppingAgentEvaluationDispatcher(),
+        )
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Shopping-agent evaluation dispatcher import failed'),
+        );
+      import('./services/shopping-agents/delivery-dispatcher.js')
+        .then(({ startShoppingAgentDeliveryDispatcher }) => startShoppingAgentDeliveryDispatcher())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Shopping-agent delivery dispatcher import failed'),
+        );
       // Measure how often a trustworthy price signal can be made (#82).
       // `PRICE_SIGNALS_ENABLED` gates the LOOP and nothing durable: a policy
       // version is still publishable and activatable with it off, a merchant

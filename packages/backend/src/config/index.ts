@@ -2216,6 +2216,56 @@ export interface PriceAlertsConfig {
 }
 
 /**
+ * Saved shopping agents (#97).
+ *
+ * FOUR independent levers, and the last is #97 cost rule 10 and evaluation
+ * rule 10's "global kill switch that can stop evaluation or notification
+ * INDEPENDENTLY". With agents enabled, triggers running and notifications OFF,
+ * catalogue events keep enqueueing, agents keep being evaluated and findings
+ * keep being appended; nothing is delivered and nothing is lost, so flipping it
+ * back drains the backlog.
+ *
+ * NOT ONE of the four gates a durable record. `shopping-agent-isolation.test.ts`
+ * fails the build if the finding writer, either enqueue or the notification
+ * writer learns to read one.
+ */
+export interface ShoppingAgentsConfig {
+  /** `SHOPPING_AGENTS_ENABLED` — is the shopper surface mounted at all. */
+  readonly enabled: boolean;
+  /** `SHOPPING_AGENT_TRIGGER_ENABLED` — does the product fan-out run. The LOOP. */
+  readonly triggerEnabled: boolean;
+  /** `SHOPPING_AGENT_EVALUATION_ENABLED` — does the evaluator run. The LOOP. */
+  readonly evaluationEnabled: boolean;
+  /** `SHOPPING_AGENT_NOTIFICATIONS_ENABLED` — the kill switch. The LOOP. */
+  readonly notificationsEnabled: boolean;
+  /** #97 cost rule 9: how many non-deleted agents one account may hold. */
+  readonly maxActivePerUser: number;
+  /** #97 cost rule 9: how many an account may create per window. */
+  readonly createRateLimit: number;
+  readonly createRateWindowMs: number;
+  readonly triggerBatchSize: number;
+  readonly triggerPollIntervalMs: number;
+  readonly triggerLeaseMs: number;
+  /** #97 cost rule 8: how many agents ONE product's fan-out may wake at once. */
+  readonly triggerFanOutLimit: number;
+  readonly evaluationBatchSize: number;
+  readonly evaluationPollIntervalMs: number;
+  readonly evaluationLeaseMs: number;
+  readonly evaluationMaxBackoffMs: number;
+  /** #97 cost rule 10: after this many failures an agent's queue row dead-letters. */
+  readonly evaluationMaxAttempts: number;
+  readonly notificationBatchSize: number;
+  readonly notificationPollIntervalMs: number;
+  readonly notificationLeaseMs: number;
+  readonly notificationMaxBackoffMs: number;
+  readonly notificationMaxAttempts: number;
+  /** #97 cost rule 4: the wall-clock budget ONE summary provider call may take. */
+  readonly summaryDeadlineMs: number;
+  /** How many findings a shopper's own history read returns. */
+  readonly findingPageSize: number;
+}
+
+/**
  * Trustworthy price signals (#82).
  *
  * Note what is NOT here, deliberately: not one threshold, floor or window that
@@ -3192,6 +3242,7 @@ export interface AppConfig {
   readonly searchIntent: SearchIntentConfig;
   readonly priceHistory: PriceHistoryConfig;
   readonly priceAlerts: PriceAlertsConfig;
+  readonly shoppingAgents: ShoppingAgentsConfig;
   readonly priceSignals: PriceSignalsConfig;
   readonly seo: SeoConfig;
   readonly feedImport: FeedImportConfig;
@@ -3476,6 +3527,42 @@ export const config: AppConfig = Object.freeze({
     notificationMaxBackoffMs: intEnv('PRICE_ALERT_NOTIFICATION_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
     notificationMaxAttempts: intEnv('PRICE_ALERT_NOTIFICATION_MAX_ATTEMPTS', 8),
     traceLimit: intEnv('PRICE_ALERT_TRACE_LIMIT', 100),
+  }),
+
+  shoppingAgents: Object.freeze({
+    enabled: boolEnv('SHOPPING_AGENTS_ENABLED', false),
+    triggerEnabled: boolEnv('SHOPPING_AGENT_TRIGGER_ENABLED', false),
+    evaluationEnabled: boolEnv('SHOPPING_AGENT_EVALUATION_ENABLED', false),
+    // Default TRUE, unlike the three above: it is an INCIDENT lever, and an
+    // incident lever that ships in the off position is a feature nobody notices
+    // is missing. The three above are rollout levers and default off.
+    notificationsEnabled: boolEnv('SHOPPING_AGENT_NOTIFICATIONS_ENABLED', true),
+    maxActivePerUser: intEnv('SHOPPING_AGENT_MAX_ACTIVE_PER_USER', 50),
+    createRateLimit: intEnv('SHOPPING_AGENT_CREATE_RATE_LIMIT', 30),
+    createRateWindowMs: intEnv('SHOPPING_AGENT_CREATE_RATE_WINDOW_MS', 60 * 60 * 1_000),
+    triggerBatchSize: intEnv('SHOPPING_AGENT_TRIGGER_BATCH_SIZE', 20),
+    triggerPollIntervalMs: intEnv('SHOPPING_AGENT_TRIGGER_POLL_INTERVAL_MS', 15_000),
+    triggerLeaseMs: intEnv('SHOPPING_AGENT_TRIGGER_LEASE_MS', 120_000),
+    // #97 cost rule 8 — "prevent one popular product or user from starving
+    // other jobs". One fan-out wakes at most this many agents and the rest are
+    // reached by the NEXT claim, because the trigger row converges rather than
+    // being consumed.
+    triggerFanOutLimit: intEnv('SHOPPING_AGENT_TRIGGER_FAN_OUT_LIMIT', 200),
+    evaluationBatchSize: intEnv('SHOPPING_AGENT_EVALUATION_BATCH_SIZE', 10),
+    evaluationPollIntervalMs: intEnv('SHOPPING_AGENT_EVALUATION_POLL_INTERVAL_MS', 15_000),
+    evaluationLeaseMs: intEnv('SHOPPING_AGENT_EVALUATION_LEASE_MS', 180_000),
+    evaluationMaxBackoffMs: intEnv('SHOPPING_AGENT_EVALUATION_MAX_BACKOFF_MS', 60 * 60 * 1_000),
+    evaluationMaxAttempts: intEnv('SHOPPING_AGENT_EVALUATION_MAX_ATTEMPTS', 8),
+    notificationBatchSize: intEnv('SHOPPING_AGENT_NOTIFICATION_BATCH_SIZE', 50),
+    notificationPollIntervalMs: intEnv('SHOPPING_AGENT_NOTIFICATION_POLL_INTERVAL_MS', 10_000),
+    notificationLeaseMs: intEnv('SHOPPING_AGENT_NOTIFICATION_LEASE_MS', 60_000),
+    notificationMaxBackoffMs: intEnv(
+      'SHOPPING_AGENT_NOTIFICATION_MAX_BACKOFF_MS',
+      6 * 60 * 60 * 1_000,
+    ),
+    notificationMaxAttempts: intEnv('SHOPPING_AGENT_NOTIFICATION_MAX_ATTEMPTS', 8),
+    summaryDeadlineMs: intEnv('SHOPPING_AGENT_SUMMARY_DEADLINE_MS', 2_500),
+    findingPageSize: intEnv('SHOPPING_AGENT_FINDING_PAGE_SIZE', 50),
   }),
   priceSignals: Object.freeze({
     enabled: boolEnv('PRICE_SIGNALS_ENABLED', false),

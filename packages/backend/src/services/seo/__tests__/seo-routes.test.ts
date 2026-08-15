@@ -51,6 +51,12 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/reset-password.tsx',
   'app/(app)/notifications.tsx',
   'app/(app)/price-alerts.tsx',
+  // Saved shopping agents (#97) — one account's own standing instructions and
+  // the timeline of what they observed. Account-private by construction: every
+  // route behind it is owner-scoped in the statement, so a crawler would see
+  // a sign-in page and an indexed one would advertise a surface nobody
+  // anonymous can reach.
+  'app/(app)/shopping-agents.tsx',
   'app/(app)/cart.tsx',
   'app/(app)/saved.tsx',
   // Internal search (#70/#95) — infinite, thin and duplicative of the browse

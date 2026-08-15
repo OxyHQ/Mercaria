@@ -44,6 +44,20 @@ export const queryKeys = {
       ["price-alerts", "suggestion", canonicalProductId, currency] as const,
   },
   /**
+   * Saved shopping agents (#97).
+   *
+   * `detail` and `findings` sit UNDER the `all` prefix rather than beside it,
+   * because every write in the domain changes both — pausing an agent changes
+   * its row, and asking for one look appends to its timeline — so one
+   * invalidation of the prefix is the whole story. Two sibling namespaces would
+   * make a pause leave a stale timeline open on screen.
+   */
+  shoppingAgents: {
+    all: ["shopping-agents"] as const,
+    detail: (agentId: string) => ["shopping-agents", "detail", agentId] as const,
+    findings: (agentId: string) => ["shopping-agents", "findings", agentId] as const,
+  },
+  /**
    * The guest order PORTAL (#108). Its own namespace rather than a branch of
    * `orders`, because the two are reached with different credentials and a
    * shared key would let a sign-out clear one buyer's cache and not the other's.

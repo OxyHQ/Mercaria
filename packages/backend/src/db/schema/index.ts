@@ -369,3 +369,14 @@ export * from './pickup';
 // `fee_schedules` would be a second answer to a question those tables already
 // answer.
 export * from './merchantActivation';
+// Saved shopping-agent jobs (#97) are the last export and are downstream of
+// nearly everything above: an agent's LINES name `canonical_products` and
+// `canonical_variants`, a finding cites the `offers` #74 ranked and the
+// `merchants` behind them, and a delivery record names the `notifications` row
+// it produced. That direction is the domain's shape — it reads the catalogue,
+// the comparison and the notification feed and writes to none of them, so
+// nothing here can change what a shopper is shown, what a source published or
+// what anything costs. There is no column in any of its eight tables for an
+// order, a cart, a checkout group, a payment method or a merchant's terms,
+// which is what makes "an agent cannot buy anything" a fact about the schema.
+export * from './shoppingAgents';

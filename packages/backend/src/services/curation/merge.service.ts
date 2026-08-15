@@ -63,6 +63,8 @@ import {
 import { applyRehomeTarget } from '../../db/curation/rehomeRepository.js';
 import { stampPriceAlertRehoming } from '../../db/priceAlerts/priceAlertRepository.js';
 import { requestPriceAlertEvaluationForProduct } from '../../db/priceAlerts/priceAlertEvaluationRepository.js';
+import { stampShoppingAgentRehoming } from '../../db/shoppingAgents/shoppingAgentRepository.js';
+import { requestShoppingAgentTriggerForProduct } from '../../db/shoppingAgents/shoppingAgentTriggerRepository.js';
 import type { CatalogMergeJobRow } from '../../db/schema/curation.js';
 import { estimateMergeImpact, impactColumnValues } from './impact.js';
 import { CURATED_ENTITIES } from './entity-registry.js';
@@ -434,6 +436,47 @@ async function runAlertsPhase(
 }
 
 /**
+ * `agents` — #97's saved shopping agents, `alerts` one domain over and for the
+ * same three reasons.
+ *
+ * The plan's targets move the columns exactly as every other phase's do; what
+ * this adds is the PROVENANCE stamp, which has to run FIRST and be scoped to the
+ * LOSER. `applyRehomeTarget` sets a column to the WINNER's id and knows nothing
+ * about where a row came from, so a stamp applied afterwards would have to find
+ * "the agents that just moved" — which is indistinguishable from the agents that
+ * were always there.
+ *
+ * Only a canonical-product merge stamps: an agent's `rehomed_from` names the
+ * product its lines were watching, and a variant or merchant merge changes a
+ * NARROWING rather than the subject. The stamp is idempotent by predicate —
+ * after the move no line points at the loser — so `verify` re-running the plan
+ * targets is unaffected.
+ */
+async function runAgentsPhase(
+  job: CatalogMergeJobRow,
+  db: DatabaseOrTransaction,
+): Promise<PhaseOutcome> {
+  if (job.entityType === 'canonical_product') {
+    await stampShoppingAgentRehoming({ canonicalProductId: job.loserId, now: new Date() }, db);
+  }
+  let moved = 0;
+  for (const target of targetsForPhase(job.entityType, 'agents')) {
+    moved += await applyRehomeTarget(target, job.loserId, job.winnerId, db);
+  }
+  if (moved > 0) {
+    // The agents that just moved have never been evaluated against the WINNER's
+    // offers. The loser's own trigger row stays with the tombstone (see the
+    // plan's note), so without this the rehomed agents would wait for the next
+    // time a seller happened to change a price on the winner — which for a
+    // standing objective is a wait with no upper bound and no symptom. The
+    // enqueue CONVERGES on one row per product, so a merge that moved four
+    // hundred lines still owes exactly one fan-out.
+    await requestShoppingAgentTriggerForProduct(job.winnerId, db);
+  }
+  return { rowsAffected: moved };
+}
+
+/**
  * `redirects` — mint the alias, flatten the chain and stamp the tombstone.
  *
  * The ORDER inside is load-bearing: the tombstones pointing at the loser are
@@ -575,6 +618,7 @@ async function runPhase(
   if (phase === 'awaiting_resolution') return runResolutionPhase(job, db);
   if (REHOMING_PHASES.includes(phase)) return runRehomingPhase(job, phase, db);
   if (phase === 'alerts') return runAlertsPhase(job, db);
+  if (phase === 'agents') return runAgentsPhase(job, db);
   if (phase === 'redirects') return runRedirectPhase(job, db);
   if (phase === 'rollups') {
     return { rowsAffected: await rebuildEntityRollups(job.entityType, job.loserId, job.winnerId, db) };
