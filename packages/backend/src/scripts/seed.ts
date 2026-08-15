@@ -40,9 +40,19 @@
  */
 
 import { uuidv7 } from '@oxyhq/db';
-import type { CreateStoreProductInput, DualMoney, Money } from '@mercaria/shared-types';
+import { sql } from 'drizzle-orm';
+import {
+  CONDITION_DISCLOSURE_KINDS,
+  conditionEvidencePolicy,
+} from '@mercaria/shared-types';
+import type {
+  CreateStoreProductInput,
+  DualMoney,
+  ListingConditionInput,
+  Money,
+} from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../db/postgres.js';
-import { categories, listings } from '../db/schema/catalog.js';
+import { categories, listings, LISTING_OWNER_TYPES } from '../db/schema/catalog.js';
 import { STORE_PERMISSIONS, stores } from '../db/schema/stores.js';
 import { orders, refunds } from '../db/schema/orders.js';
 import { draftOrders } from '../db/schema/pos.js';
@@ -224,6 +234,17 @@ const IMG = {
   nililotanBalletFlat: 'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/C06_WRTW_12550_L142_BALLETFLAT_BLACK_4a_ad6ed509-d285-441c-858a-d1aac216a16d.jpg?width=256',
   lakeKimono: 'https://cdn.shopify.com/s/files/1/0505/6125/files/LAKE_Webcrop_Spring2025_KimonoSet_Fog_1200x1800_469e4421-1758-44c8-a953-905daec8b878.jpg?width=384',
   huhaBikini: 'https://cdn.shopify.com/s/files/1/0053/2244/0790/files/HUHA-Ecomm-1594-WebRes.jpg?width=384',
+  // A SECOND gallery entry for each P2P item, and what it is NOT is worth
+  // stating. #90 requires two seller-owned photographs before a used listing may
+  // be published, and this repository holds exactly one real asset per P2P item
+  // (`lib/mock-products.ts` has the same two and no more). A fixture cannot
+  // invent a second ANGLE without inventing a CDN path that may 404, so these
+  // are a second rendition of the item's own photograph at a different width:
+  // two distinct file ids for one real item, which is what the evidence gate
+  // counts. A real listing's second photo shows the wear its disclosure names,
+  // and these deliberately do not pretend to.
+  lakeKimonoSecondView: 'https://cdn.shopify.com/s/files/1/0505/6125/files/LAKE_Webcrop_Spring2025_KimonoSet_Fog_1200x1800_469e4421-1758-44c8-a953-905daec8b878.jpg?width=768',
+  huhaBikiniSecondView: 'https://cdn.shopify.com/s/files/1/0053/2244/0790/files/HUHA-Ecomm-1594-WebRes.jpg?width=768',
 } as const;
 
 /** The single option axis name for the multi-variant beauty product. */
@@ -531,14 +552,42 @@ const STORES: StoreSpec[] = [
   },
 ];
 
-/** P2P (secondhand) listing specs. `price` is a MAJOR-unit FAIR (⊜) value. */
+/**
+ * P2P (secondhand) listing specs. `price` is a MAJOR-unit FAIR (⊜) value.
+ *
+ * ## Why each one states a full #90 condition rather than the v1 `used`
+ *
+ * The seed used to send `condition: 'used'`, the v1 binary spelling, and that
+ * cannot publish a secondhand listing at all — not for want of one more
+ * photograph, but structurally. `used` resolves to `used_good`
+ * (`LEGACY_BINARY_CONDITION_TARGET`), whose evidence policy wants two
+ * seller-owned photographs AND an affirmative defect acknowledgement AND a
+ * disclosure, while `resolveConditionInput` documents that a v1 client has no
+ * field for any of the last two and therefore acknowledges nothing. So the v1
+ * spelling can satisfy the photo count and still be refused, which is exactly
+ * what it did once the images were doubled.
+ *
+ * `CreateP2PListingInput` says `itemCondition` is "required of any client that
+ * can express it", and a fixture in this repository is such a client. Each spec
+ * therefore says what the item actually is, in the taxonomy's own terms — which
+ * is also what makes the P2P half of a dev database exercise #90 rather than
+ * merely exist.
+ */
 interface P2PSpec {
   title: string;
   description: string;
   categorySlug: string;
-  image: string;
+  /**
+   * The gallery, which is ALSO the condition evidence: the condition write
+   * draws its photo rows from the listing's own `imageFileIds` and there is
+   * deliberately no second upload channel (`condition-write.service.ts`). So
+   * the length of this array is what the evidence gate counts.
+   */
+  images: readonly string[];
   price: number;
   available: number;
+  /** What the seller asserts about this exact unit (#90). */
+  condition: ListingConditionInput;
 }
 
 const P2P_LISTINGS: P2PSpec[] = [
@@ -546,17 +595,39 @@ const P2P_LISTINGS: P2PSpec[] = [
     title: 'LAKE DreamModal Kimono Set (preloved)',
     description: 'Worn twice, freshly laundered. Size M.',
     categorySlug: 'dresses',
-    image: IMG.lakeKimono,
+    images: [IMG.lakeKimono, IMG.lakeKimonoSecondView],
     price: 65,
     available: 1,
+    condition: {
+      key: 'used_like_new',
+      defectsAcknowledged: true,
+      // `cosmetic_wear` is one of `CONDITION_DISCLOSURE_KINDS` and carries a
+      // severity instead of a mandatory note — the honest shape for an item
+      // whose only fault is having been worn.
+      details: [{ kind: 'cosmetic_wear', severity: 'light' }],
+      photoAnnotations: [
+        { fileId: IMG.lakeKimonoSecondView, showsDefect: true, detailIndex: 0 },
+      ],
+    },
   },
   {
     title: 'huha High Rise Bikini',
     description: 'New without tags, never worn. Size S.',
     categorySlug: 'shirts',
-    image: IMG.huhaBikini,
+    images: [IMG.huhaBikini, IMG.huhaBikiniSecondView],
     price: 18,
     available: 1,
+    condition: {
+      // NOT `new`, which would need no evidence at all: `new` is retail stock,
+      // and an unworn garment somebody is reselling without its tags is the
+      // case `used_like_new` exists for. Reading it as `new` is the claim #90
+      // asks a seller to back with photographs of the actual item.
+      key: 'used_like_new',
+      defectsAcknowledged: true,
+      // `missing_accessory` is in `CONDITION_DETAIL_KINDS_REQUIRING_NOTE`, so
+      // the note is not decoration — a write without it is a 400.
+      details: [{ kind: 'missing_accessory', note: 'Original tags removed; never worn.' }],
+    },
   },
 ];
 
@@ -1146,9 +1217,9 @@ async function seedP2P(counts: SeedCounts): Promise<void> {
       title: spec.title,
       description: spec.description,
       price: fair(spec.price),
-      condition: 'used',
+      itemCondition: spec.condition,
       category: spec.categorySlug,
-      imageFileIds: [spec.image],
+      imageFileIds: [...spec.images],
       tags: ['secondhand', spec.categorySlug],
       quantity: spec.available,
     });
@@ -1157,11 +1228,143 @@ async function seedP2P(counts: SeedCounts): Promise<void> {
   }
 }
 
+/**
+ * Refuse a P2P fixture the #90 evidence gate would refuse — BEFORE the database
+ * is opened, so nothing at all is written.
+ *
+ * This is the half of #307 that matters. A seed that aborts partway leaves
+ * stores, store listings and a taxonomy behind and no `owner_type = 'user'`
+ * half, which is a database that LOOKS seeded: the storefront renders, and
+ * anybody exercising a P2P path gets an empty result with no reason to suspect
+ * the fixture rather than their own code.
+ *
+ * It reads `conditionEvidencePolicy` — the SAME table `assertConditionEvidence`
+ * reads — rather than restating what each key requires, so tightening a policy
+ * tightens both at once and a new taxonomy key is a compile error in one place.
+ * What it cannot know is a requirement the GATE grows that the policy table does
+ * not describe; that one is caught by {@link assertEveryListingHalfWasSeeded},
+ * one stage later and with rows already written, which is why both exist.
+ */
+function assertP2PFixturesCanPublish(): void {
+  const refusals: string[] = [];
+
+  for (const spec of P2P_LISTINGS) {
+    const policy = conditionEvidencePolicy(spec.condition.key);
+    const details = spec.condition.details ?? [];
+
+    if (policy.requiresItemPhotos && spec.images.length < policy.minimumItemPhotos) {
+      refusals.push(
+        `${spec.title}: \`${spec.condition.key}\` needs ${policy.minimumItemPhotos} ` +
+          `photograph(s) of the actual item and this fixture supplies ${spec.images.length}`,
+      );
+    }
+
+    if (policy.requiresDefectAcknowledgement) {
+      if (spec.condition.defectsAcknowledged !== true) {
+        refusals.push(
+          `${spec.title}: \`${spec.condition.key}\` needs \`defectsAcknowledged: true\``,
+        );
+      }
+      if (!details.some((detail) => CONDITION_DISCLOSURE_KINDS.includes(detail.kind))) {
+        refusals.push(
+          `${spec.title}: \`${spec.condition.key}\` needs a disclosure detail — one of ` +
+            `${CONDITION_DISCLOSURE_KINDS.join(', ')}`,
+        );
+      }
+    }
+
+    if (
+      policy.requiresRefurbisherAttribution &&
+      !details.some((detail) => detail.kind === 'repair_or_refurbishment')
+    ) {
+      refusals.push(
+        `${spec.title}: \`${spec.condition.key}\` must name who refurbished it, as a ` +
+          '`repair_or_refurbishment` detail',
+      );
+    }
+  }
+
+  if (refusals.length > 0) {
+    throw new Error(
+      'The P2P fixtures cannot be published under the #90 condition-evidence policy, so the ' +
+        'seed is refusing before it writes anything rather than aborting halfway and leaving a ' +
+        `database that looks seeded:\n  - ${refusals.join('\n  - ')}`,
+    );
+  }
+}
+
+/**
+ * Refuse a run that produced no listings of some owner type.
+ *
+ * The vacuity floor, and it reads the DATABASE rather than the counters: a
+ * counter is incremented by the same loop that did the writing, so comparing it
+ * against itself is a check that cannot fail. Driven off `LISTING_OWNER_TYPES`
+ * rather than a hand-written pair, so "both halves" stays true if the tuple ever
+ * grows — a third owner type the seed does not produce fails here, loudly,
+ * instead of being silently unchecked.
+ */
+async function assertEveryListingHalfWasSeeded(db: Database): Promise<void> {
+  const rows = await db
+    .select({ ownerType: listings.ownerType, seeded: sql<string>`count(*)` })
+    .from(listings)
+    .groupBy(listings.ownerType);
+
+  // `count()` comes back from postgres.js as a STRING.
+  const seeded = new Map(rows.map((row) => [row.ownerType, Number(row.seeded)]));
+  const empty = LISTING_OWNER_TYPES.filter((ownerType) => (seeded.get(ownerType) ?? 0) === 0);
+
+  if (empty.length > 0) {
+    throw new Error(
+      `The seed finished with no listings of owner type: ${empty.join(', ')}. Every declared ` +
+        'owner type must be represented, or a dev database is missing a whole half of the ' +
+        `catalogue while looking seeded (found ${JSON.stringify(Object.fromEntries(seeded))}).`,
+    );
+  }
+}
+
+/**
+ * Log what actually landed, after a failure.
+ *
+ * A seed writes through services that each commit their own transaction, so
+ * there is no outer transaction to roll back and a failed run genuinely leaves
+ * rows. Saying which ones is the difference between a database somebody can
+ * reason about and one that merely looks populated. Its own failure is logged
+ * and swallowed deliberately: this runs on an error path and must never replace
+ * the error that got here.
+ */
+async function reportSeedResidual(db: Database): Promise<void> {
+  try {
+    const rows = await db
+      .select({ ownerType: listings.ownerType, seeded: sql<string>`count(*)` })
+      .from(listings)
+      .groupBy(listings.ownerType);
+
+    const byOwnerType = Object.fromEntries(
+      LISTING_OWNER_TYPES.map((ownerType) => [
+        ownerType,
+        Number(rows.find((row) => row.ownerType === ownerType)?.seeded ?? 0),
+      ]),
+    );
+
+    log.general.error(
+      { listingsByOwnerType: byOwnerType },
+      'Seed residual — these rows are COMMITTED and the database is partially seeded. Fix the ' +
+        'cause and re-run; the seed clears the marketplace tables before it writes.',
+    );
+  } catch (err) {
+    log.general.error({ err }, 'Could not read the seed residual');
+  }
+}
+
 async function seed(): Promise<void> {
   if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
     log.general.error('Refusing to seed in production without ALLOW_PROD_SEED=true');
     process.exit(1);
   }
+
+  // Before the database is opened, so a fixture the domain rules refuse costs
+  // nothing and leaves nothing.
+  assertP2PFixturesCanPublish();
 
   const db = await connectPostgres();
 
@@ -1188,13 +1391,22 @@ async function seed(): Promise<void> {
     reviews: 0,
   };
 
-  await seedCategories(counts);
-  for (const storeSpec of STORES) {
-    await seedStore(storeSpec, counts);
-  }
-  await seedP2P(counts);
+  try {
+    await seedCategories(counts);
+    for (const storeSpec of STORES) {
+      await seedStore(storeSpec, counts);
+    }
+    await seedP2P(counts);
 
-  log.general.info(counts, 'Mercaria catalog seed complete');
+    await assertEveryListingHalfWasSeeded(db);
+
+    log.general.info(counts, 'Mercaria catalog seed complete');
+  } catch (err) {
+    // Report before rethrowing, so the operator learns what is COMMITTED rather
+    // than only what threw. The rethrow is what keeps the exit code non-zero.
+    await reportSeedResidual(db);
+    throw err;
+  }
 }
 
 seed()
