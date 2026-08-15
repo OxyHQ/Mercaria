@@ -242,9 +242,15 @@ afterAll(async () => {
 
   // Append-only triggers refuse an ordinary DELETE, so teardown disables them
   // for the length of its own transaction. `SET LOCAL session_replication_role`
-  // is scoped to the transaction and needs no ACCESS EXCLUSIVE lock, unlike
-  // `ALTER TABLE … DISABLE TRIGGER`, which would build a lock convoy against
-  // every sibling test file reading these tables.
+  // is scoped to the transaction and takes no TABLE lock at all, unlike
+  // `ALTER TABLE … DISABLE TRIGGER`, which takes ShareRowExclusive on each
+  // table it names. That conflicts with the RowExclusive an ordinary WRITER
+  // holds — not with a reader, since ShareRowExclusive and AccessShare do not
+  // conflict — so what it queues behind is sibling files WRITING these tables,
+  // and holding two of those at once is the #301 deadlock. The cost of this
+  // spelling, stated rather than hidden: `replica` also silences FOREIGN KEY
+  // triggers, so a children-first mistake in this teardown fails silently here
+  // where `ALTER TABLE` would still raise `23503`.
   await db.transaction(async (tx) => {
     await tx.execute(sql`set local session_replication_role = replica`);
     if (threadIds.length > 0) {

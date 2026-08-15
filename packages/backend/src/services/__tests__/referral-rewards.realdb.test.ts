@@ -195,11 +195,27 @@ afterAll(async () => {
    * The windows are as narrow as the ordering allows — only the disables, the
    * deletes that need them and the matching enables are inside, and every
    * select and every unguarded delete stays outside on `db`, in the order it
-   * was already in. Two pairs share ONE window, because each is a children-first
-   * delete over its own parent and a second window there buys nothing but a
-   * second round trip on a mutex the whole suite queues on: the adjustments and
-   * the rewards they hang off here, the ledger entries and their transactions
-   * below.
+   * was already in.
+   *
+   * ONE TABLE PER WINDOW (#301), which is what the two pairs here used to
+   * violate. `alter table … disable trigger` takes ShareRowExclusive — NOT
+   * ACCESS EXCLUSIVE, measured — and ShareRowExclusive conflicts with the
+   * RowExclusive an ordinary INSERT holds. So a window holding `ledger_entries`
+   * while asking for `ledger_transactions` deadlocked (40P01) against
+   * `insertLedgerTransaction`, which takes them the other way round because the
+   * foreign key forces the parent first. **The shared mutex cannot prevent
+   * that**: it serialises window against window, and this counterparty is a
+   * plain ledger write from any sibling file. It killed a `Deploy to AWS` run
+   * on `main` (merge 9c1d430) and re-ran green, which is exactly how a lock
+   * cycle presents.
+   *
+   * Splitting is what makes the cycle UNBUILDABLE rather than a bet on writer
+   * order: with a single disable per window the transaction holds exactly one
+   * STRONG lock, and every other lock it takes is RowExclusive, which never
+   * conflicts with another RowExclusive. Matching the writer's order instead
+   * would have been correct only until somebody added a writer with the
+   * opposite one — and the adjustments pair below is precisely that case, since
+   * `applyRewardAdjustment` writes the CHILD then the parent.
    */
   if (rewardIds.length > 0) {
     await withTriggerToggleLock(db, async (tx) => {
@@ -212,6 +228,8 @@ afterAll(async () => {
       await tx.execute(
         sql`alter table referral_reward_adjustments enable trigger referral_reward_adjustments_append_only`,
       );
+    });
+    await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(sql`alter table referral_rewards disable trigger referral_rewards_frozen`);
       await tx.delete(referralRewards).where(inArray(referralRewards.id, rewardIds));
       await tx.execute(sql`alter table referral_rewards enable trigger referral_rewards_frozen`);
@@ -275,14 +293,20 @@ afterAll(async () => {
         .where(inArray(ledgerTransactions.paymentId, trackedPaymentIds))
     ).map((row) => row.id);
     if (txIds.length > 0) {
-      // The second shared window: entries name their transaction, so the two
-      // deletes are one children-first pair. The `payments` delete below stays
-      // outside — nothing guards it, and the transactions naming those payments
-      // are already gone by the time this commits.
+      // The window that cost a deploy (#301): entries and their transactions,
+      // one table each. The deletes stay children-first because the foreign key
+      // requires it; what changed is that the transaction no longer holds
+      // `ledger_entries`'s ShareRowExclusive while acquiring
+      // `ledger_transactions`'s, which is the half `insertLedgerTransaction`
+      // deadlocks against. The `payments` delete below stays outside — nothing
+      // guards it, and the transactions naming those payments are already gone
+      // by the time this commits.
       await withTriggerToggleLock(db, async (tx) => {
         await tx.execute(sql`alter table ledger_entries disable trigger ledger_entries_append_only`);
         await tx.delete(ledgerEntries).where(inArray(ledgerEntries.transactionId, txIds));
         await tx.execute(sql`alter table ledger_entries enable trigger ledger_entries_append_only`);
+      });
+      await withTriggerToggleLock(db, async (tx) => {
         await tx.execute(
           sql`alter table ledger_transactions disable trigger ledger_transactions_append_only`,
         );

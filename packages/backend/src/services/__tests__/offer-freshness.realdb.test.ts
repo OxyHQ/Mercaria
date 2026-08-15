@@ -181,12 +181,21 @@ afterAll(async () => {
      * different backend, get `false` back and leak the lock — and nobody read
      * that boolean. Two tables here, one contiguous window, one hook.
      */
+    // ONE TABLE PER WINDOW (#301). `alter table … disable trigger` takes
+    // ShareRowExclusive, which conflicts with an ordinary writer's RowExclusive,
+    // so holding one table's lock while acquiring another's is a deadlock (40P01)
+    // waiting for a writer that takes the pair the other way round — and the
+    // shared mutex only serialises windows against windows, never against that
+    // writer. Two windows cost one more round trip on the mutex and make the
+    // cycle unbuildable.
     await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(sql`alter table catalog_source_freshness_policies disable trigger all`);
       await tx
         .delete(catalogSourceFreshnessPolicies)
         .where(inArray(catalogSourceFreshnessPolicies.sourceId, safeIds(createdSourceIds)));
       await tx.execute(sql`alter table catalog_source_freshness_policies enable trigger all`);
+    });
+    await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(
         sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
       );

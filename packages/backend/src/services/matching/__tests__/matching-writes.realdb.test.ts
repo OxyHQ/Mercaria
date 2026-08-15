@@ -187,14 +187,24 @@ afterEach(async () => {
        * unlike the three BEFORE UPDATE triggers `feed-import-writes` was able to
        * stop toggling entirely.
        *
-       * ONE window rather than two: the slices cite the run deleted below them,
-       * so the pair was already interleaved children-first and splitting it
-       * would mean holding the mutex twice over statements that never left it.
-       * The `match_policy_versions` window below is NOT merged in — that would
-       * pull a third table under ACCESS EXCLUSIVE for the whole of this one.
+       * TWO windows, one table each (#301). This was one window holding both
+       * tables, and that is the deadlock shape: `alter table … disable trigger`
+       * takes ShareRowExclusive, which CONFLICTS WITH RowExclusive — so a window
+       * holding `match_benchmark_categories` while asking for
+       * `match_benchmark_runs` deadlocks against `recordBenchmarkRun`, which
+       * takes them the other way round because the foreign key forces the run
+       * before its slices. The shared mutex cannot prevent it: it serialises
+       * window against window, and the counterparty here is an ordinary INSERT.
+       * One table per window means the transaction never holds one table's lock
+       * while acquiring another's, which is what makes the cycle unbuildable
+       * rather than merely unlikely — a property that survives a future writer
+       * choosing a different order, where matching the current one would not.
        *
-       * `alter table … disable trigger` is DATABASE-WIDE, so the window is taken
-       * under the shared mutex and every statement is issued on that
+       * The categories go first because they cite the run: children before
+       * parents is still what the foreign key requires of the DELETES.
+       *
+       * `alter table … disable trigger` is DATABASE-WIDE, so each window is
+       * taken under the shared mutex and every statement is issued on that
        * transaction's own handle. On the pool the DDL autocommits, so a throw
        * before a re-enable would leave the trigger off for the rest of the run
        * and every later file asserting it refuses a write would pass vacuously —
@@ -205,18 +215,20 @@ afterEach(async () => {
         await tx.execute(
           sql`alter table match_benchmark_categories disable trigger match_benchmark_categories_append_only`,
         );
-        await tx.execute(
-          sql`alter table match_benchmark_runs disable trigger match_benchmark_runs_append_only`,
-        );
         await tx
           .delete(matchBenchmarkCategories)
           .where(inArray(matchBenchmarkCategories.runId, runIds));
+        await tx.execute(
+          sql`alter table match_benchmark_categories enable trigger match_benchmark_categories_append_only`,
+        );
+      });
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table match_benchmark_runs disable trigger match_benchmark_runs_append_only`,
+        );
         await tx.delete(matchBenchmarkRuns).where(inArray(matchBenchmarkRuns.id, runIds));
         await tx.execute(
           sql`alter table match_benchmark_runs enable trigger match_benchmark_runs_append_only`,
-        );
-        await tx.execute(
-          sql`alter table match_benchmark_categories enable trigger match_benchmark_categories_append_only`,
         );
       });
     }

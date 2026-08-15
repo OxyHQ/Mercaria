@@ -959,6 +959,26 @@ in `oxy-infra`).
   `@oxyhq/db`'s uuid v7 is not monotonic within a millisecond — else hold
   `reconciliation-sweep-slot.ts` file-wide. Scoping the ASSERTIONS is not enough
   when the call WRITES.
+- **A trigger-toggle window may name exactly ONE table, and the mutex is not
+  what makes that safe.** `ALTER TABLE … DISABLE TRIGGER` takes
+  **ShareRowExclusive** (measured off `pg_locks` and off CI's `40P01` detail —
+  NOT the `ACCESS EXCLUSIVE` this file claimed until #301). It does NOT conflict
+  with `AccessShare`, so a reader is never the counterparty; it DOES conflict
+  with `RowExclusive`, so **an ordinary INSERT is** — and `withTriggerToggleLock`
+  serialises window against window, so it cannot see that party at all. A window
+  holding one table's lock while acquiring a second's deadlocks against any
+  writer taking the pair the other way round: measured, `ledger_entries` →
+  `ledger_transactions` against `insertLedgerTransaction`, which killed a
+  `Deploy to AWS` on `main` (9c1d430) and re-ran green. **Fix by splitting, never
+  by matching the writer's order** — both orders already exist here
+  (`insertLedgerTransaction` parent-then-child because the FK forces it,
+  `applyRewardAdjustment` child-then-parent), so an ordering rule is a bet, while
+  one disable per window leaves exactly one STRONG lock and every other lock
+  `RowExclusive`, which never conflicts with another `RowExclusive`. Gated with
+  no exemption by `advisory-lock-census.test.ts` rule 4. **The unforced suite
+  cannot measure this**: 0 failures in 30 runs at base, 8/10 once a load
+  generator holds the writer between its two INSERTs — a green A/B here means
+  the window never opened.
 - **A correctly-scoped teardown can still be blocked by a row a SIBLING minted.**
   The matcher's retrieval is a trigram scan over every `canonical_products` row,
   so a sibling's `runMatch` records a `match_decisions` row citing another file's
@@ -3375,9 +3395,14 @@ one as the other retires a healthy catalogue.**
   sibling deletes it in its own teardown. Still REJECTED, for the original
   reason: borrowing whichever policy is already active, which makes a file's
   outcomes depend on which sibling ran first. Also measured and worse than
-  either: `ALTER TABLE … DISABLE TRIGGER` to free the slot takes an ACCESS
-  EXCLUSIVE lock on the table `runMatch` reads on every match, so it builds a
-  lock convoy rather than a queue. **The failures are harness-dependent** —
+  either: `ALTER TABLE … DISABLE TRIGGER` to free the slot takes a
+  **ShareRowExclusive** lock (NOT `ACCESS EXCLUSIVE` — corrected under #301,
+  measured off a real `pg_locks` wait and off CI's own `40P01` detail) on a
+  table every match writes, so it queues behind writers. `ShareRowExclusive`
+  does **not** conflict with `AccessShare`, so a plain `runMatch` READ is not
+  what it blocks and never was; **the counterparty is an ordinary
+  INSERT/UPDATE/DELETE**, which is why the mutex — which serialises window
+  against window — cannot prevent it. **The failures are harness-dependent** —
   reproducible locally on several worker counts, and NOT reproduced on GitHub's
   runner, whose scheduling differs; the defect is a fixture skipping a queue its
   three siblings use, which is worth fixing whether or not CI happens to expose

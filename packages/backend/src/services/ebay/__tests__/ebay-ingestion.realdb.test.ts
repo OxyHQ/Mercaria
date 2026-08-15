@@ -441,7 +441,7 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
        *
        * It is a window of its own rather than one spanning to the
        * `match_policy_versions` toggle below, because everything between them
-       * is ordinary teardown that would otherwise sit under ACCESS EXCLUSIVE
+       * is ordinary teardown that would otherwise sit under ShareRowExclusive
        * on two tables for no reason.
        */
       await withTriggerToggleLock(db, async (tx) => {
@@ -503,7 +503,7 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
    * every other file wait out this one's duration, and with a per-test timeout
    * shorter than a file both sides go red. Freeing it with
    * `ALTER TABLE … DISABLE TRIGGER` builds a lock convoy rather than a queue:
-   * that is an ACCESS EXCLUSIVE lock on the table `runMatch` reads on every
+   * that is a ShareRowExclusive lock on a table every match WRITES on every
    * match. Both were measured, and both took ninety seconds to say so.
    *
    * So the slot is taken ONCE, by this group's `beforeAll`, and handed straight
@@ -601,7 +601,7 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
    * TERMS and deliberately permits the LIFECYCLE — its own comment says "a
    * policy can be activated and later retired without any of its terms moving
    * underneath the outcomes it produced". Freeing it with the `ALTER` was tried
-   * and is much worse: that takes an ACCESS EXCLUSIVE lock on the table
+   * and is much worse: that takes a ShareRowExclusive lock on the table
    * `runMatch` reads on every match, so it builds a lock convoy rather than a
    * queue and BOTH sides time out.
    */

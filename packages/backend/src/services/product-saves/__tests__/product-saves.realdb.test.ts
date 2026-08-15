@@ -136,6 +136,14 @@ afterAll(async () => {
      * triggers and the two files together are the measured collision: its
      * DELETE met `catalog_revisions_append_only` re-enabled by THIS teardown.
      */
+    // ONE TABLE PER WINDOW (#301): `alter table … disable trigger` takes
+    // ShareRowExclusive, and holding one table's while acquiring another's
+    // deadlocks against any writer taking the pair the other way round — a
+    // counterparty the shared mutex cannot see, since it serialises windows
+    // against windows and this one is an ordinary INSERT. With a single disable
+    // per window the transaction holds exactly one STRONG lock; everything else
+    // it takes is RowExclusive, which never conflicts with another RowExclusive,
+    // so no cycle can form.
     await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(
         sql`alter table catalog_revisions disable trigger catalog_revisions_append_only`,
@@ -146,6 +154,8 @@ afterAll(async () => {
       await tx.execute(
         sql`alter table catalog_revisions enable trigger catalog_revisions_append_only`,
       );
+    });
+    await withTriggerToggleLock(db, async (tx) => {
       // `catalog_merge_job_phases` is append-only too, and for a sharper reason: a
       // resumed merge decides what to skip by reading these rows.
       await tx.execute(

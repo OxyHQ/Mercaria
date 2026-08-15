@@ -174,12 +174,18 @@ afterAll(async () => {
    * interleaved, and splitting it would mean holding the mutex twice over
    * statements that never left it.
    */
+  // ONE TABLE PER WINDOW (#301). `alter table … disable trigger` takes
+  // ShareRowExclusive, which conflicts with the RowExclusive an ordinary
+  // INSERT/UPDATE/DELETE holds — so a window holding one table's lock while
+  // acquiring another's can deadlock (40P01) against any writer that takes the
+  // two in the opposite order, and the shared mutex cannot see that counterparty
+  // because it serialises windows against windows. These two tables have no
+  // foreign key between them, so no writer order is even forced; splitting is
+  // what makes the cycle unbuildable rather than a bet on nobody writing them
+  // the other way round.
   await withTriggerToggleLock(db, async (tx) => {
     await tx.execute(
       sql`alter table merchant_acquisition_outreach disable trigger merchant_acquisition_outreach_append_only`,
-    );
-    await tx.execute(
-      sql`alter table merchant_acquisition_audits disable trigger merchant_acquisition_audits_append_only`,
     );
     await tx.execute(
       sql`delete from merchant_acquisition_outreach where candidate_id in (
@@ -187,12 +193,17 @@ afterAll(async () => {
         where merchant_id = any(${sql.param(safeIds(createdMerchantIds))}::text[])
       )`,
     );
-    await tx
-      .delete(merchantAcquisitionAudits)
-      .where(inArray(merchantAcquisitionAudits.merchantId, safeIds(createdMerchantIds)));
     await tx.execute(
       sql`alter table merchant_acquisition_outreach enable trigger merchant_acquisition_outreach_append_only`,
     );
+  });
+  await withTriggerToggleLock(db, async (tx) => {
+    await tx.execute(
+      sql`alter table merchant_acquisition_audits disable trigger merchant_acquisition_audits_append_only`,
+    );
+    await tx
+      .delete(merchantAcquisitionAudits)
+      .where(inArray(merchantAcquisitionAudits.merchantId, safeIds(createdMerchantIds)));
     await tx.execute(
       sql`alter table merchant_acquisition_audits enable trigger merchant_acquisition_audits_append_only`,
     );

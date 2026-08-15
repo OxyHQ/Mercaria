@@ -122,6 +122,17 @@ afterEach(async () => {
      * lock", because the alternative is a per-trigger judgement that silently
      * expires the day a second file starts toggling one of the others.
      */
+    // ONE TABLE PER WINDOW (#301). This was one window over three tables.
+    // `alter table … disable trigger` takes ShareRowExclusive, which conflicts
+    // with the RowExclusive an ordinary INSERT/UPDATE/DELETE holds — so a window
+    // holding one table's lock while acquiring the next one's deadlocks (40P01)
+    // against any writer taking them in the opposite order, and the shared mutex
+    // cannot prevent it because it serialises windows against windows and the
+    // counterparty is a plain writer. With one disable per window the
+    // transaction holds exactly one STRONG lock; every other lock it takes is
+    // RowExclusive, which never conflicts with another RowExclusive, so no cycle
+    // can form. The unguarded deletes keep their existing position relative to
+    // the trigger they follow.
     await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(
         sql`alter table catalog_revisions disable trigger catalog_revisions_append_only`,
@@ -132,7 +143,9 @@ afterEach(async () => {
       await tx.execute(
         sql`alter table catalog_revisions enable trigger catalog_revisions_append_only`,
       );
-      if (splitIds.length > 0) {
+    });
+    if (splitIds.length > 0) {
+      await withTriggerToggleLock(db, async (tx) => {
         await tx.execute(
           sql`alter table catalog_split_assignments disable trigger catalog_split_assignments_frozen`,
         );
@@ -143,8 +156,10 @@ afterEach(async () => {
           sql`alter table catalog_split_assignments enable trigger catalog_split_assignments_frozen`,
         );
         await tx.delete(catalogSplitJobs).where(inArray(catalogSplitJobs.id, splitIds));
-      }
-      if (jobIds.length > 0) {
+      });
+    }
+    if (jobIds.length > 0) {
+      await withTriggerToggleLock(db, async (tx) => {
         await tx.delete(catalogMergeConflicts).where(inArray(catalogMergeConflicts.jobId, jobIds));
         await tx.execute(
           sql`alter table catalog_merge_job_phases disable trigger catalog_merge_job_phases_append_only`,
@@ -154,8 +169,8 @@ afterEach(async () => {
           sql`alter table catalog_merge_job_phases enable trigger catalog_merge_job_phases_append_only`,
         );
         await tx.delete(catalogMergeJobs).where(inArray(catalogMergeJobs.id, jobIds));
-      }
-    });
+      });
+    }
     await db
       .delete(catalogEntitySuppressions)
       .where(eq(catalogEntitySuppressions.suppressedByOxyUserId, OPERATOR));

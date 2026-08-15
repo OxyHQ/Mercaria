@@ -11,15 +11,38 @@
  * Nothing recomputes prose, which is why the claim above is a restatement of a
  * gate and not a fact this file asserts.
  *
- * ## A window is as narrow as it can be
+ * ## A window is as narrow as it can be, and covers exactly ONE table
  *
- * The transaction holds ACCESS EXCLUSIVE on every table it disables a trigger
- * on, and this mutex serializes it against every other trigger window in the
- * suite — so the callback carries the disable, the statements that genuinely
- * need that trigger off, and the matching enable, and nothing else. #283's
- * largest offender bracketed some 25 statements across three tables for most of
- * an `afterAll`; wrapping that span whole would have traded a leak for a
- * convoy. It is three one-statement windows now, with the unrelated deletes
+ * The transaction holds **ShareRowExclusive** on every table it disables a
+ * trigger on — not ACCESS EXCLUSIVE, which is what this header said until #301
+ * measured it off a real `pg_locks` wait and off CI's own `40P01` detail. The
+ * difference decides who the counterparty is: ShareRowExclusive does NOT
+ * conflict with AccessShare, so a plain READER is never blocked by a window,
+ * and it DOES conflict with RowExclusive, which every ordinary
+ * INSERT/UPDATE/DELETE holds.
+ *
+ * That is why this mutex is not sufficient on its own. It serializes window
+ * against window; it says nothing about a window against an ordinary WRITER,
+ * and a window holding one table's lock while acquiring a second's deadlocks
+ * (`40P01`) against any writer taking that pair the other way round. Measured:
+ * a `Deploy to AWS` run on `main` (merge 9c1d430) died on `ledger_entries` ->
+ * `ledger_transactions` against `insertLedgerTransaction`, whose order the
+ * foreign key forces, and re-ran green.
+ *
+ * So a callback carries the disable, the statements that genuinely need that
+ * trigger off, the matching enable, and **statements naming at most one
+ * table** — `advisory-lock-census.test.ts` fails the build otherwise, with no
+ * exemption. With a single disable per window the transaction holds exactly one
+ * STRONG lock and every other lock it takes is RowExclusive, which never
+ * conflicts with another RowExclusive, so the cycle is unbuildable rather than
+ * unlikely. Reordering the disables to match the current writer was rejected:
+ * both orders already exist here (`insertLedgerTransaction` writes parent then
+ * child, `applyRewardAdjustment` writes child then parent), so an ordering rule
+ * is a bet on nobody adding the other one.
+ *
+ * #283's largest offender bracketed some 25 statements across three tables for
+ * most of an `afterAll`; wrapping that span whole would have traded a leak for
+ * a deadlock. It is three one-statement windows now, with the unrelated deletes
  * between them running on the pool in the order they always did.
  *
  * The narrowest window is NO window, and five of the twenty-five turned out to
