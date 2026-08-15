@@ -3647,6 +3647,29 @@ CHECK the database would have refused all looked identical to a green suite.
   legitimately-zoned value would ERASE the stored freshness, because
   `buildSource` writes `?? null` on every sync. (4) Shopify's `fx_rate_as_of` is
   VALIDATED and kept verbatim rather than rewritten.
+- **A per-record sync failure has a DURABLE reason (#303), and the summary is
+  not the reason.** A run is `failed` only when NOTHING succeeded, so the
+  commonest shape — mostly successful, a handful refused — records `completed`.
+  #294 gave that run a summary in `sync_runs.error`, elided at three reasons with
+  three ids each; `sync_run_record_failures` is the per-record residual behind it
+  (`catalog_source_rejections`' argument one domain over), carrying the subject
+  KIND, the external id, a classified reason code and a bounded detail. Both are
+  composed from ONE input by ONE classifier (`classifyMerchantFacingFailure`,
+  which `merchantFacingFailureMessage` now delegates to) inside ONE transaction
+  with the close, so the at-a-glance line and the full list cannot disagree, and
+  a raw driver statement can no more reach a row than it can reach that column
+  (#292). **`sync_runs.error` is NOT widened further** — one column for a whole
+  run. **`subject_type` is stored, not derived from `sync_runs.kind`**: that
+  column says `inventory_sync` for both the pull (an inventory ITEM) and the push
+  (a PRODUCT), so a derivation is silently wrong on one of them. **`ordinal` is
+  stored because both halves of `(created_at, id)` are degenerate here** — one
+  multi-row insert shares an instant and uuid v7 is not monotonic within a
+  millisecond, so the read came back SHUFFLED and paging was unstable; the
+  `(run_id, ordinal)` unique then forces the writer to REPLACE a run's rows,
+  which is what makes closing a run twice converge instead of throwing 23505.
+  Retention is 30 days — the only `connectors.ts` table bounded by TRAFFIC — and
+  expiry costs the DETAIL, never the tally or the summary. `syncOrders` and
+  `syncInventory` were still recording nothing per record until #303.
 - **A fixed defect leaves `WOOCOMMERCE_OPEN_DEFECTS` and, unless something still
   produces it, leaves `CHANNEL_LIMITATION_CODES` too** — `channel-catalog.test.ts`
   asserts the EXACT open-issue set rather than containment, because a list that

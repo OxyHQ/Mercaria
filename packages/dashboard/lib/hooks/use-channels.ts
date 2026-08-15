@@ -14,6 +14,7 @@ import type {
   ConnectorProviderId,
   GenerateChannelApiKeyInput,
   SyncRun,
+  SyncRunRecordFailurePage,
   UpdateSyncSettingsInput,
 } from "@mercaria/shared-types";
 import {
@@ -36,6 +37,7 @@ import {
   fetchChannelOnboardingSession,
   fetchChannelReadiness,
   fetchChannelReconciliation,
+  fetchChannelRunRecordFailures,
   fetchChannelRuns,
   fetchChannelSummary,
   pauseChannel,
@@ -217,6 +219,26 @@ export function useChannelRuns(storeId: string, connectionId: string) {
     queryKey: queryKeys.channelRuns(storeId, connectionId),
     queryFn: () => fetchChannelRuns(storeId, connectionId),
     enabled: Boolean(storeId) && Boolean(connectionId),
+  });
+}
+
+/**
+ * WHICH records one run refused, and why (#303).
+ *
+ * `enabled` is the caller's, so nothing is fetched until a merchant opens one
+ * run: a history page carrying fifty of these would download every reason for
+ * every run to render a control most people never press.
+ */
+export function useChannelRunRecordFailures(
+  storeId: string,
+  connectionId: string,
+  runId: string,
+  enabled: boolean,
+) {
+  return useQuery<SyncRunRecordFailurePage>({
+    queryKey: queryKeys.channelRunRecordFailures(storeId, connectionId, runId),
+    queryFn: () => fetchChannelRunRecordFailures(storeId, connectionId, runId),
+    enabled: enabled && Boolean(storeId) && Boolean(connectionId) && Boolean(runId),
   });
 }
 
