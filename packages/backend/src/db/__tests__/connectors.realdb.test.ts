@@ -1338,17 +1338,37 @@ describe('sync_run_record_failures (#303)', () => {
     });
   }
 
-  /** Insert a row through the SERVER, bypassing the repository's normalization. */
+  /**
+   * Insert a row through the SERVER, bypassing the repository's normalization.
+   *
+   * The repository normalizes every field to what its CHECK accepts, which is
+   * deliberate — it is what lets the run's close and its evidence share a
+   * transaction — and it also means the service can no longer produce the rows
+   * these constraints exist to refuse. So the constraints are exercised from
+   * where a second writer or `psql` would reach them.
+   *
+   * `ordinal` defaults to a fresh value per call because `(run_id, ordinal)` is
+   * UNIQUE: a fixed one would make the SECOND positive control in a test fail on
+   * the index rather than on what it is measuring.
+   */
+  let nextRawOrdinal = 0;
   async function rawInsert(
     executor: Pick<Database, 'execute'>,
     runId: string,
-    row: { subjectType?: string; externalId?: string | null; reasonCode?: string; detail?: string },
+    row: {
+      ordinal?: number;
+      subjectType?: string;
+      externalId?: string | null;
+      reasonCode?: string;
+      detail?: string;
+    },
   ): Promise<void> {
     await executor.execute(sql`
       insert into sync_run_record_failures
-        (id, run_id, subject_type, external_id, reason_code, detail, expires_at)
+        (id, run_id, ordinal, subject_type, external_id, reason_code, detail, expires_at)
       values (
-        ${uuidv7()}, ${runId}, ${row.subjectType ?? 'product'}, ${row.externalId ?? 'ext-1'},
+        ${uuidv7()}, ${runId}, ${row.ordinal ?? nextRawOrdinal++},
+        ${row.subjectType ?? 'product'}, ${row.externalId ?? 'ext-1'},
         ${row.reasonCode ?? 'refused_by_rule'}, ${row.detail ?? 'a reason'},
         now() + interval '30 days'
       )
@@ -1494,8 +1514,87 @@ describe('sync_run_record_failures (#303)', () => {
     // The elision is VISIBLE rather than silent: the run's own tally is the
     // whole number, so a shorter list cannot read as a smaller problem.
     expect(closed.countsFailed).toBe(overflow);
-    // The FIRST N, in the order they were met — the only ordering the loop has.
-    expect(rows[0].externalId).toBe('woo-0');
+    // The FIRST N, in the order they were met. This assertion is why `ordinal`
+    // exists: on `(created_at, id)` it FAILED, returning `woo-79` first, because
+    // one multi-row insert shares an instant and a uuid v7 is not monotonic
+    // inside a millisecond.
+    expect(rows.map((row) => row.externalId)).toEqual(
+      Array.from({ length: SYNC_RUN_RECORD_FAILURE_MAX_ROWS }, (_u, index) => `woo-${index}`),
+    );
+    expect(rows.map((row) => row.ordinal)).toEqual(
+      Array.from({ length: SYNC_RUN_RECORD_FAILURE_MAX_ROWS }, (_u, index) => index),
+    );
+  });
+
+  it('REPLACES a run’s rows when the run is closed again', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 1 },
+      recordFailures: [
+        { subjectType: 'product', externalId: 'woo-first', failure: validationError('transient') },
+      ],
+    });
+    const reclosed = await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 1, updated: 0, skipped: 0, failed: 0 },
+      recordFailures: [],
+    });
+
+    // `error` is written to NULL on a re-close, so the rows have to follow it
+    // exactly: appending would leave a run whose summary mentions nothing beside
+    // evidence from a superseded attempt, and skipping the delete on an EMPTY
+    // list is precisely the case that produces it.
+    expect(reclosed.error).toBeNull();
+    expect(await listSyncRunRecordFailures(opened.id, 50)).toHaveLength(0);
+  });
+
+  it('re-closes onto the SAME ordinals without colliding on the unique', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    const failures = [
+      { subjectType: 'product' as const, externalId: 'woo-1', failure: validationError('refused') },
+      { subjectType: 'product' as const, externalId: 'woo-2', failure: validationError('refused') },
+    ];
+    await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 2 },
+      recordFailures: failures,
+    });
+    // The second close writes ordinals 0 and 1 again. Without the DELETE this is
+    // a 23505 on `(run_id, ordinal)` — which would make closing a run twice fail
+    // outright, and closing a run twice is what the retry path above does.
+    await finishSyncRun(opened.id, {
+      status: 'completed',
+      counts: { created: 0, updated: 0, skipped: 0, failed: 2 },
+      recordFailures: failures,
+    });
+
+    const rows = await listSyncRunRecordFailures(opened.id, 50);
+    expect(rows.map((row) => row.externalId)).toEqual(['woo-1', 'woo-2']);
+  });
+
+  it('refuses two rows claiming ONE position in a run', async () => {
+    const storeId = await makeStore();
+    const conn = await makeConnection(storeId);
+    const opened = await insertSyncRun(conn.id, 'backfill');
+
+    await rawInsert(db, opened.id, { ordinal: 7 });
+    const collided = await rawInsert(db, opened.id, { ordinal: 7 }).catch((err: unknown) => err);
+
+    expect(isUniqueViolation(collided)).toBe(true);
+    expect(constraintNameOf(collided)).toBe('sync_run_record_failures_run_ordinal_key');
+
+    // The positive control the refusal needs: the SAME position in a DIFFERENT
+    // run is fine, so the index is scoped to the run rather than global.
+    const other = await insertSyncRun(conn.id, 'backfill');
+    await rawInsert(db, other.id, { ordinal: 7 });
+    expect(await listSyncRunRecordFailures(other.id, 50)).toHaveLength(1);
   });
 
   it('refuses a reason code outside the tuple, and the SAME row with a valid one lands', async () => {

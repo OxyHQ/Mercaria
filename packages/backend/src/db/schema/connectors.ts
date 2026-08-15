@@ -489,6 +489,19 @@ export const syncRunRecordFailures = pgTable(
     runId: text()
       .notNull()
       .references(() => syncRuns.id, { onDelete: 'cascade' }),
+    /**
+     * This record's zero-based position in the run — the order it was MET.
+     *
+     * A stored fact rather than an ordering derived from the row's own id or
+     * timestamp, and the difference is not theoretical: every row of one run is
+     * written by ONE multi-row insert, so they share `created_at` to the
+     * millisecond, and `@oxyhq/db`'s uuid v7 primary key is NOT monotonic within
+     * a millisecond (~50% inversion). Ordering by `(created_at, id)` therefore
+     * returns a run's refusals SHUFFLED — measured, on the first run of this
+     * table's own suite — which makes "the first 200 we met" mean nothing and
+     * makes two reads of one page disagree.
+     */
+    ordinal: integer().notNull(),
     /** `product` | `order` | `inventory_item`; see the shared-types docblock. */
     subjectType: text({ enum: asEnumValues(SYNC_RECORD_SUBJECT_TYPES) }).notNull(),
     /**
@@ -532,8 +545,18 @@ export const syncRunRecordFailures = pgTable(
       'sync_run_record_failures_detail_shape_check',
       sql`length(${t.detail}) between 1 and ${sql.raw(String(SYNC_RECORD_FAILURE_DETAIL_MAX_LENGTH))}`,
     ),
-    /** The merchant read: this run's refusals, in the order they were met. */
-    index('sync_run_record_failures_run_idx').on(t.runId, t.createdAt, t.id),
+    check('sync_run_record_failures_ordinal_check', sql`${t.ordinal} >= 0`),
+    /**
+     * The merchant read — this run's refusals in the order they were met — AND
+     * the property that makes that order well defined.
+     *
+     * UNIQUE rather than a plain index: two positions cannot collide, so the
+     * ordering is TOTAL and stable across reads, and a partially-written second
+     * pass over one run cannot interleave with the first. The writer replaces a
+     * run's rows wholesale inside the transaction that rewrites its summary, so
+     * a re-close converges rather than colliding.
+     */
+    uniqueIndex('sync_run_record_failures_run_ordinal_key').on(t.runId, t.ordinal),
     /**
      * The EXPIRY SWEEP's own leading btree. `findUnsupportedExpiryColumns` fails
      * the build without it, and the reason it does applies here more than

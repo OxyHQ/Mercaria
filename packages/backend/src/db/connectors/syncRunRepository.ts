@@ -52,7 +52,7 @@ import {
 } from '../../lib/errors/merchant-facing.js';
 import { getDb, type Database, type DatabaseOrTransaction } from '../postgres.js';
 import { syncRuns } from '../schema/connectors.js';
-import { insertSyncRunRecordFailures } from './syncRunRecordFailureRepository.js';
+import { replaceSyncRunRecordFailures } from './syncRunRecordFailureRepository.js';
 
 /** One row of `sync_runs`. */
 export type SyncRunRecord = InferSelectModel<typeof syncRuns>;
@@ -292,7 +292,11 @@ export async function finishSyncRun(
       })
       .where(eq(syncRuns.id, runId))
       .returning();
-    await insertSyncRunRecordFailures(tx, runId, perRecord, now);
+    // REPLACE, not append: `error` above is overwritten outright on a re-close
+    // (explicitly to NULL when nothing was refused), and the rows have to follow
+    // it exactly or a re-closed run carries a superseded attempt's refusals
+    // beside a summary that no longer mentions them.
+    await replaceSyncRunRecordFailures(tx, runId, perRecord, now);
     return row;
   });
 }

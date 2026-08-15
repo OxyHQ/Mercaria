@@ -1,5 +1,5 @@
 {
-  "id": "fbe2d0d9-692a-4c2f-bcbb-988c44d3838c",
+  "id": "42b162d5-2349-4435-b80c-01e8370f0f58",
   "prevId": "2b40da28-2079-41ef-8421-4b6099de50b8",
   "version": "7",
   "dialect": "postgresql",
@@ -1649,6 +1649,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "subject_type": {
           "name": "subject_type",
           "type": "text",
@@ -1688,8 +1694,8 @@
         }
       },
       "indexes": {
-        "sync_run_record_failures_run_idx": {
-          "name": "sync_run_record_failures_run_idx",
+        "sync_run_record_failures_run_ordinal_key": {
+          "name": "sync_run_record_failures_run_ordinal_key",
           "columns": [
             {
               "expression": "run_id",
@@ -1698,19 +1704,13 @@
               "nulls": "last"
             },
             {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
+              "expression": "ordinal",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1765,6 +1765,10 @@
         "sync_run_record_failures_detail_shape_check": {
           "name": "sync_run_record_failures_detail_shape_check",
           "value": "length(\"sync_run_record_failures\".\"detail\") between 1 and 500"
+        },
+        "sync_run_record_failures_ordinal_check": {
+          "name": "sync_run_record_failures_ordinal_check",
+          "value": "\"sync_run_record_failures\".\"ordinal\" >= 0"
         }
       },
       "isRLSEnabled": false
