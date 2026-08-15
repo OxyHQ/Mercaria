@@ -399,6 +399,9 @@ describe('WALL 6: every route this page navigates to exists', () => {
     // ships next.
     expect(routeExists('/merchants\u0000-impossible/${slug}', routes)).toBe(false);
     expect(routeExists('/definitely-not-a-route-xyz', routes)).toBe(false);
+    // The real merchants route RESOLVES, which is what #252 turned into a link
+    // — the positive half of the control replaced above.
+    expect(routeExists('/merchants/${slug}', routes)).toBe(true);
     // `/brands/[handle]` USED to be in that list and now resolves, because #72
     // built it. That is this assertion doing its job rather than a regression:
     // it exists to notice exactly this, and the comment above says what to do
@@ -409,6 +412,32 @@ describe('WALL 6: every route this page navigates to exists', () => {
     // than a route swap. Tracked separately; flipping this to `true` without
     // that handle would only mean the route resolves.
     expect(routeExists('/brands/${id}', routes)).toBe(true);
+  });
+
+  it('#252: the page LINKS a merchant to the merchant page', () => {
+    // The decision, pinned. #71 named every merchant as text for one recorded
+    // reason — the route did not exist — and #73 shipped
+    // `app/(app)/merchants/[idOrSlug].tsx`, so the reason expired and #252 made
+    // it a link. Without this assertion the link is one refactor from silently
+    // reverting to text, and nothing would notice: a name renders perfectly.
+    //
+    // Asserted on BOTH places the page names a merchant, because they were
+    // deferred together and a fix to one is not a fix to the other.
+    const byFile = new Map<string, string[]>();
+    for (const { relative, target } of navigationTargets()) {
+      byFile.set(relative, [...(byFile.get(relative) ?? []), target]);
+    }
+    for (const owner of ['components/product/OfferRow.tsx', 'components/product/BrandChannels.tsx']) {
+      const targets = byFile.get(owner) ?? [];
+      // A floor on what was extracted, so a file this walk stopped reading
+      // fails here rather than passing by naming no targets at all.
+      expect(targets.length, `no navigation target extracted from ${owner}`).toBeGreaterThan(0);
+      expect(
+        targets.some((target) => target.startsWith('/merchants/')),
+        `${owner} names a merchant but navigates nowhere for it; #252 decided ` +
+          'that identity links to /merchants/[idOrSlug]',
+      ).toBe(true);
+    }
   });
 });
 

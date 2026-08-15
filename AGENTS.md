@@ -4544,8 +4544,15 @@ at request time from the reads that measurement covers.
   comparison counts eligible OFFERS against ACTIVE NATIVE LISTINGS read through
   `native_listing_links`: a DIFFERENT route, because measuring one table twice
   is a check that cannot fail. #71 adds NO lever of its own.
-- **A brand, a family and every merchant are NAMED and not linked**, because
-  those storefront routes do not exist yet (#72/#73/#84) and `typedRoutes` is ON
+- **A brand and a family are NAMED and not linked; a MERCHANT is LINKED** to
+  `/merchants/[idOrSlug]` as of #252, in both places the page names one (the
+  offer row's seller and a brand's verified channels), by its `slug` — `not
+  null`, unique forever, and kept by a merged tombstone (D12). Everything here
+  was named rather than linked for ONE reason, that the storefront route did not
+  exist, and #73 shipped the merchant page, so that reason expired for merchants
+  and not for the other two: `/brands/[handle]` now resolves but the page's
+  `brand` is a vendor LABEL rather than the canonical entity, so linking it needs
+  a canonical handle on the projection. `typedRoutes` is ON
   and INERT here — a dead `router.push` compiles, ships and fails under a
   shopper's thumb. This issue proved it by shipping one (`/settings/support`),
   so WALL 6 of the isolation test now walks the real `app/` tree and fails the
@@ -4569,8 +4576,9 @@ at request time from the reads that measurement covers.
   control is a one-way idempotent SAVE, because a toggle over an unknown state
   un-saves on the first press), **#75** (public routes, the HTTP 301,
   `rel=canonical`, structured data; `/products/:id` is untouched, which is
-  acceptance 7), **#111** (the storefront analytics client), **#73** (the brand
-  page this links to).
+  acceptance 7), **#111** (the storefront analytics client), **#72** (the BRAND
+  page — it has shipped and this page still does not link it, for the vendor-label
+  reason above; #73's merchant page is no longer a seam, it is linked, see #252).
 ## Product and variant price alerts (#79)
 
 `services/price-alerts/` (10 modules) + `db/priceAlerts/` (5 repositories) +

@@ -140,15 +140,34 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
     return (
       <View className="gap-space-2">
         {/*
-          NAMED, not linked: the storefront has no `/merchants/:slug` route yet
-          (#84/#73 own it). #71 asks to link an identity "to its public page
-          when available", and `typedRoutes` is INERT in this expo-router major,
-          so a dead push would compile, ship and fail under a shopper's thumb.
-          `product-page-isolation.test.ts` walks the real `app/` tree, so
-          whoever adds the page can make this a link and be told at once if the
-          path is wrong.
+          LINKED as of #252, and only the merchant NAME is the link.
+
+          This was NAMED rather than linked for one recorded reason — the
+          storefront had no `/merchants/:slug` route — and #73 shipped
+          `app/(app)/merchants/[idOrSlug].tsx`, so the reason has expired. Every
+          other seller kind on this row already links (`/stores/:handle`,
+          `/sellers/:oxyUserId`); leaving the merchant as the one seller a
+          shopper cannot navigate to would be an asymmetry with nothing behind
+          it.
+
+          The SLUG rather than the id: `merchants.slug` is `not null` and unique
+          FOREVER, and a merged tombstone keeps its slug and redirects (ADR 0002
+          D12), so a link taken today survives a merge tomorrow.
+
+          The storefront line below stays TEXT. It names the channel, and a
+          channel is not a merchant page — `/merchants/:idOrSlug` would resolve
+          the operator, which for a marketplace offer is somebody other than the
+          seller this row is about.
         */}
-        <Text className="text-bodyTitleSmall text-text">{seller.name}</Text>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={`Visit ${seller.name}`}
+          onPress={() =>
+            router.push(`/merchants/${seller.slug}` as Parameters<typeof router.push>[0])
+          }
+        >
+          <Text className="text-bodyTitleSmall text-text">{seller.name}</Text>
+        </Pressable>
         {seller.storefront ? (
           <Text className="text-caption text-text-secondary">
             {seller.marketplaceSeller
