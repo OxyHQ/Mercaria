@@ -159,11 +159,21 @@ describe('the dev seed runs to completion against an empty migrated database', (
     //
     // The photo count is a SECOND statement rather than a correlated subquery,
     // and that is not a style preference. Drizzle renders a column object inside
-    // a `sql` template in the SELECT LIST as a BARE `"id"` — so
-    // `where p.listing_id = ${listings.id}` emits `p.listing_id = "id"`, which
-    // binds to the SUBQUERY's own `id` and silently answers 0 for every row.
-    // It reads correctly, it raises nothing, and the number it returns is
-    // exactly the number a genuinely photo-less listing would produce.
+    // a `sql` template in the SELECT LIST of a SINGLE-TABLE query as a BARE
+    // `"id"` — so `where p.listing_id = ${listings.id}` emits
+    // `p.listing_id = "id"`, which binds to the SUBQUERY's own `id` and
+    // silently answers 0 for every row. It reads correctly, it raises nothing,
+    // and the number it returns is exactly the number a genuinely photo-less
+    // listing would produce.
+    //
+    // #313 measured the mechanism this comment first stated too broadly: the
+    // rewrite is `buildSelection`'s, and it applies only when `isSingleTable`
+    // is true — so a JOIN would have hidden it and a `.where()` is never
+    // affected. `qualified()` from `@oxyhq/db` is the one-call alternative to
+    // the second statement; both are correct and the second statement stays,
+    // because it is what was measured against this fixture. Full reasoning and
+    // the gate: `db/schema/CONVENTIONS.md` §Naming and
+    // `db/__tests__/sql-column-binding.test.ts`.
     const p2p = await db
       .select({
         id: listings.id,

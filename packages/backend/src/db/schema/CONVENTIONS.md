@@ -64,18 +64,42 @@ property.
 > `@oxyhq/db`, or interpolate the Column itself into `sql` and let drizzle
 > render it.
 
-> **Trap, second guise — the one that costs data, not a crash:** a drizzle column
-> interpolated into `sql` renders **bare** when its table is not in that
-> statement's `FROM`. In a correlated subquery,
-> `where ${orderItems.orderId} = ${orders.id}` renders
-> `where "order_id" = "id"` — both names then resolve against the SUBQUERY's own
-> table, the predicate compares two of its columns to each other, and the query
-> returns `[]` **with no error at all**. This shipped in a sibling Oxy port:
-> follow counts read zero on every public profile until a test caught it.
-> Mercaria's per-store aggregates, review counts and inventory rollups are full
-> of the same shape. Qualify every correlated reference with `qualified(column)`
-> from `@oxyhq/db`, and treat "a correlated subquery returned nothing" as a bug
-> in the SQL until proven otherwise.
+> **Trap, second guise — the one that costs data, not a crash (#313):** a drizzle
+> column interpolated into `sql` renders **bare** when the template sits in a
+> SELECTION position of a SINGLE-TABLE statement. In a correlated subquery there,
+> `sql`(select count(*) from order_items oi where oi.order_id = ${orders.id})``
+> renders `oi.order_id = "id"` — the bare name resolves against the SUBQUERY's
+> own table, the predicate compares two of ITS columns to each other, and the
+> query returns 0/`[]` **with no error at all**. Measured against a real server:
+> an independent raw-SQL control confirmed four rows existed, the query returned
+> 0 for every row, and `qualified()` returned 4. Qualify every correlated
+> reference with `qualified(column)` from `@oxyhq/db`, and treat "a correlated
+> subquery returned nothing" as a bug in the SQL until proven otherwise.
+>
+> **The mechanism is narrower and nastier than "the table is not in the `FROM`",
+> which is what this note said until #313 measured it.** `PgDialect.buildSelection`
+> rewrites every `PgColumn` chunk to a bare `sql.identifier` when `isSingleTable`
+> is true, and nothing else in the dialect touches a user-supplied template. Two
+> consequences, both counter-intuitive, and the old wording got both backwards:
+>
+> - **A JOIN hides it.** With a join `isSingleTable` is false, no rewrite
+>   happens, and the identical template renders `"orders"."id"` and is correct.
+>   The bug is a property of the template PLUS the query it lands in, so adding
+>   or removing an unrelated join silently changes the answer. "The table is in
+>   the `FROM`" is therefore no reassurance — in the failing case it always is.
+> - **A `WHERE` clause is never rewritten**, because `buildSelection` is not
+>   involved. There are 37 correlated column references in `.where()` in this
+>   repository and every one is fine. The affected positions are exactly
+>   `.select({...})` / `.selectDistinct` / `.selectDistinctOn` fields and
+>   `.returning({...})` (insert always; update unless it has a `from`).
+>
+> `db/__tests__/sql-column-binding.test.ts` is the gate: an AST census over
+> `src/` that fails the build on a selection-position template interpolating a
+> real drizzle column into a nested `select … from`. It carries a positive
+> control per import style, negative controls for the safe shapes, and floors
+> proving each half of the conjunction is detectable on real code. It also pins
+> the drizzle BEHAVIOUR, so if a future version qualifies these chunks the gate
+> announces that it can be retired rather than going on guarding nothing.
 >
 > Related: `${col} <> all(${jsArray})` binds a TUPLE, not an array, and Postgres
 > raises `op ANY/ALL (array) requires array on right side`. Use `inArray` /
