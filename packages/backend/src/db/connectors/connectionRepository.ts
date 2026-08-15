@@ -680,6 +680,17 @@ export async function findConnectionWebhookFailures(
  * ALL unretryable is left to the on-demand path, which is what a merchant uses
  * after widening the scope.
  *
+ * ## The compound predicate STAYS, now that the state can say `registered`
+ *
+ * #297 gave the column a success value, so `state = 'pending'` now excludes a
+ * completed registration on its own — and that is exactly the reasoning to
+ * resist. A state is a stored verdict and `webhook_ids` is the fact it was
+ * derived from; keeping the fact authoritative is what makes a wrong or stale
+ * verdict cost nothing. Dropping either half would leave the sweep resting on a
+ * single value, which is the shape #297 found here in the first place, and the
+ * failure it produces on WooCommerce is a full set of subscriptions RECREATED on
+ * every merchant's site every cycle (#218).
+ *
  * ## What it deliberately does NOT find
  *
  * A connection whose stored ids the platform no longer has. Its `webhook_ids` is
@@ -722,6 +733,8 @@ export async function findConnectionsNeedingWebhookRegistration(
         isNotNull(connections.credentialsCiphertext),
         isNotNull(connections.shopDomain),
         isNull(connections.fetchPausedAt),
+        // `pending` is the only state with work outstanding: `registered` is a
+        // completed registration (#297) and `dead_letter` is a deliberate stop.
         eq(connections.webhookRegistrationState, 'pending'),
         or(
           isNull(connections.webhookRegistrationNextAttemptAt),
@@ -821,8 +834,14 @@ function ownedWebhookRegistrationLease(connectionId: string, leaseOwner: string,
  * Resetting `attempts` to zero is what makes the counter mean "consecutive
  * failures" rather than "times we have ever tried", so a connection that breaks
  * again months later gets the full budget rather than the remains of an old one.
- * `pending` is written unconditionally: a success supersedes a `dead_letter`, and
- * that is the whole of what an on-demand retry has to accomplish.
+ * `registered` is written unconditionally: a success supersedes a `dead_letter`,
+ * and that is the whole of what an on-demand retry has to accomplish.
+ *
+ * This is the ONE writer of `registered` (#297). It runs only where the service
+ * saw `disposition === 'registered'` — an attempt that reconciled against the
+ * platform and left nothing refused — so the value cannot be reached by a
+ * partial outcome. Before #297 it wrote `pending`, which is how a healthy
+ * connection came to read as "never attempted".
  */
 export async function completeConnectionWebhookRegistration(
   connectionId: string,
@@ -833,7 +852,7 @@ export async function completeConnectionWebhookRegistration(
   const completed = await db
     .update(connections)
     .set({
-      webhookRegistrationState: 'pending',
+      webhookRegistrationState: 'registered',
       webhookRegistrationAttempts: 0,
       webhookRegistrationNextAttemptAt: null,
       webhookRegistrationLeaseOwner: null,

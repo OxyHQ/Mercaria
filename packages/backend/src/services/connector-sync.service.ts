@@ -333,30 +333,35 @@ export function toConnectionDTO(
   if (webhookFailures.length > 0) {
     dto.webhookFailures = webhookFailures.map((failure) => ({ ...failure }));
   }
-  // #262: whether those refused topics are still being retried, or whether
-  // Mercaria has stopped and is waiting for the merchant. Omitted in the ordinary
-  // state — nothing tried, nothing scheduled, nothing given up on — so a healthy
-  // connection serializes exactly as it did and an older client behaves exactly as
-  // it did. No provider error text: a refusal names topics and reasons, and the
-  // free-form message a thrown registration produces stays in the log.
-  const registration = toWebhookRegistrationDTO(conn);
-  if (registration) {
-    dto.webhookRegistration = registration;
-  }
+  // #262: where the registration stands — and since #297 that includes the
+  // SUCCESS, so it is always present rather than omitted in the healthy case. The
+  // field stays optional on the wire: a client that ignores it behaves as it did,
+  // and one that reads it now gets `registered` where it previously got silence
+  // and had to infer health from the absence of a field. No provider error text:
+  // a refusal names topics and reasons, and the free-form message a thrown
+  // registration produces stays in the log.
+  dto.webhookRegistration = toWebhookRegistrationDTO(conn);
   return dto;
 }
 
-/** The #262 retry state, or `undefined` when there is nothing to report. */
-function toWebhookRegistrationDTO(
-  conn: ConnectionRow,
-): ConnectionWebhookRegistration | undefined {
-  if (
-    conn.webhookRegistrationState === 'pending' &&
-    conn.webhookRegistrationAttempts === 0 &&
-    conn.webhookRegistrationNextAttemptAt === null
-  ) {
-    return undefined;
-  }
+/**
+ * The #262 registration state, always.
+ *
+ * It used to return `undefined` for `pending` with nothing attempted and nothing
+ * scheduled, which was the only way a HEALTHY connection avoided serializing as
+ * "pending" — a successful registration wrote that value, so the state could not
+ * be shown without the special case denying it. #297 gave the column a success
+ * value, so the reason is gone and the case goes with it: the DTO now reports the
+ * stored fact and the client decides what to say about it.
+ *
+ * The judgement that lived here moved to the dashboard's `deriveWebhookDelivery`,
+ * which is where it belongs — "is Mercaria mid-retry" is a sentence about a
+ * merchant's channel, not a property of the row. Note the two are NOT the same
+ * predicate any more: this used to hide a never-attempted connection too, and
+ * that one now renders through the `webhook_ids` branch as "not registered yet",
+ * which is what it actually is.
+ */
+function toWebhookRegistrationDTO(conn: ConnectionRow): ConnectionWebhookRegistration {
   return {
     state: conn.webhookRegistrationState,
     attempts: conn.webhookRegistrationAttempts,

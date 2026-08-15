@@ -1096,11 +1096,16 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           fixture.world.webhooks.map((webhook) => webhook.id).sort(),
         );
         expect(await findConnectionWebhookFailures([fixture.connection.id])).toEqual(new Map());
-        // And the retry bookkeeping is back to the ordinary state, so the DTO
-        // says nothing about it at all.
+        // And the DTO SAYS SO (#297). This used to assert `undefined`, because a
+        // successful registration wrote `pending` and the serializer's only way
+        // to stop a healthy connection reading as "never attempted" was to omit
+        // the field. The state now has a success value, so the honest assertion
+        // is the positive one — and it is strictly stronger: `undefined` was
+        // also what a connection nobody had ever tried produced, so the old
+        // assertion held for the case this one exists to distinguish.
         expect(
           (await toConnectionDTOWithWebhookFailures(stored as ConnectionRow)).webhookRegistration,
-        ).toBeUndefined();
+        ).toEqual({ state: 'registered', attempts: 0 });
       });
 
       it('the derived POPULATION finds it, and a healthy connection is not in it', async () => {
