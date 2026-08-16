@@ -57,7 +57,6 @@
  */
 
 import type { DeferredForeignKey } from '@oxyhq/db/assert';
-import { catalogExternalMappings } from './schema/catalogExternalMappings.js';
 
 /**
  * Relations decided but not yet expressible — each one owes a `.references()`.
@@ -76,30 +75,6 @@ import { catalogExternalMappings } from './schema/catalogExternalMappings.js';
  * different decision about a different row.
  */
 export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [
-  // #367 Workstream 11. `catalog_external_mappings.reviewed_product_type_definition_id`
-  // records WHICH published product-type version an operator was reviewing when
-  // they proposed a mapping — provenance, never the resolution target (the
-  // mapping targets the stable KEY, and no foreign key onto a key is possible:
-  // the one-published-per-key index is PARTIAL and Postgres refuses a foreign
-  // key onto one).
-  //
-  // This column CAN carry a real constraint, because it names a row by its
-  // opaque primary key. It does not yet only because `product_type_definitions`
-  // (ADR 0007 D5, merge-order step 3) is not on this branch's base. Deferred
-  // rather than permanent for exactly that reason: this gate fails the build the
-  // moment that table appears in the barrel, which is what stops "we will add
-  // the constraint later" from becoming a condition nobody revisits.
-  {
-    table: catalogExternalMappings,
-    column: catalogExternalMappings.reviewedProductTypeDefinitionId,
-    parentTable: 'product_type_definitions',
-    parentColumn: 'id',
-    onDelete: 'restrict',
-    reason:
-      'A mapping cites the product-type version it was reviewed against as evidence; the ' +
-      'version must not be deletable out from under that record, and a cascade would erase ' +
-      'the provenance rather than the pointer.',
-  },
 ];
 
 /** Oxy owns identity; there is no `users` table and there must never be one. */

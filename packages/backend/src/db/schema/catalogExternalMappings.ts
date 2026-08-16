@@ -107,6 +107,7 @@ import {
   UNIT_FAMILIES,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
+import { productTypeDefinitions } from './productTypes';
 import { catalogSources, sourceRecords } from './provenance';
 
 /** `^[a-z][a-z0-9_]*$` — the `attribute_definitions.key` shape, reused verbatim. */
@@ -201,13 +202,21 @@ export const catalogExternalMappings = pgTable(
      * actually asks. Saying out loud that it is never applied is what stops the
      * two becoming a second answer to one question.
      *
-     * No `.references()` on this branch because `product_type_definitions` does
-     * not exist on its base — registered in `DEFERRED_FOREIGN_KEYS`, which fails
-     * the build the moment that table appears, so the constraint cannot stay
-     * deferred by nobody revisiting it. Unlike the KEY columns above, this one
-     * CAN carry a foreign key: it names a row by its opaque primary key.
+     * A REAL foreign key, `restrict`. It was `DEFERRED_FOREIGN_KEYS`' only entry
+     * while `product_type_definitions` (ADR 0007 D5) was not on this branch's
+     * base; that gate failed the build the moment the table appeared on the
+     * rebase, which is exactly what stops "we will add the constraint later"
+     * becoming a condition nobody revisits.
+     *
+     * `restrict` rather than `cascade`: a version named as the evidence for an
+     * approval must not be deletable out from under that record, and a cascade
+     * would erase the provenance instead of refusing the delete. Unlike the KEY
+     * columns above this one CAN be constrained at all, because it names a row
+     * by its opaque primary key rather than by a key with no unique to point at.
      */
-    reviewedProductTypeDefinitionId: text(),
+    reviewedProductTypeDefinitionId: text().references(() => productTypeDefinitions.id, {
+      onDelete: 'restrict',
+    }),
 
     // ── The transformation: a REFERENCE, never a rule ────────────────────────
     transformRule: text({ enum: asEnumValues(CATALOG_EXTERNAL_TRANSFORM_RULES) })

@@ -468,15 +468,22 @@ export * from './catalogLocalization';
 // `verified` mean two things.
 export * from './compatibility';
 // External taxonomy, attribute and value mappings (#367 Workstream 11) are the
-// last export, and this module imports exactly `./columns` and `./provenance` —
-// the `catalog_sources` a mapping is scoped to and the `source_records` that
-// evidence it. Nothing else.
+// last export, and this module imports exactly `./columns`, `./provenance` and
+// `./productTypes` — the `catalog_sources` a mapping is scoped to, the
+// `source_records` that evidence it, and the product-type VERSION a mapping
+// records having been reviewed against. Nothing else.
+//
+// `./productTypes` arrived on the rebase, not in the original design: that
+// column was `DEFERRED_FOREIGN_KEYS`' only entry, and the id-column gate failed
+// the build the moment the table landed. Adding it here is what the deferral was
+// for.
 //
 // It does NOT import `./catalog`, and that is the correction #411 warns about
 // rather than a coincidence: an earlier revision carried a `category` dimension
 // with a real foreign key onto `categories`, and when that dimension went back
 // to the taxonomy module the import went with it while this comment did not.
-// Verified against the module's own import list, not remembered.
+// Both halves of this list are verified against the module's own imports, not
+// remembered — which is the only way the sentence stays true.
 //
 // It also does NOT reference `attribute_definitions`, deliberately: an
 // attribute's identity is `(key, version)` and each row is ONE version, so an

@@ -509,35 +509,19 @@ migration. The cases, so they are not re-derived:
 
 Stated rather than quietly skipped:
 
-- **`SCHEMA_TABLE_COUNT`** in `db/__tests__/schema-conventions.test.ts`. It is
-  401 on `main` as of the taxonomy merge and this branch adds five tables, but
-  the number must be **counted empirically from the barrel's `PgTable` exports on
-  the rebased branch** rather than arrived at by arithmetic — that is ADR 0007
-  D11 item 6, and the reason is that tables MOVE between files in a batch like
-  this one, so a sum over PR descriptions misses them.
-- **The migration.** No `.sql` was generated: the slot is handed out one branch
-  at a time. The paste procedure, in order:
-  1. `bun run build:shared-types` BEFORE `db:generate` — drizzle-kit renders
-     every closed-value-set CHECK from the BUILT package, so a stale `dist/`
-     silently narrows a sibling's tuple back in a diff that looks plausible.
-  2. READ the regenerated file for statements nobody intended.
-  3. Append the statement region of `catalogExternalMappings.pending.sql` —
-     everything from the first `-- oxy:handwritten-begin=` on — below the
-     generated output, under the file's single `-- oxy:deploy-phase=pre` marker.
-  4. Verify the paste changed nothing: strip comments, markers and breakpoints
-     from both versions and compare byte-for-byte. That is what catches a
-     function body mangled by the annotation, which reading the file will not.
-     **The stripper has its own trap**: if it tracks `$$` before deciding whether
-     a line is a comment, a header comment that merely mentions `$$` flips the
-     quote state, every later comment reads as body text, and the compare reports
-     DIFFERS on a file whose SQL is untouched. Skip `--` lines outside a
-     dollar-quote without reading their `$$`.
-  5. `grep -c '^-- oxy:handwritten-begin='` → 5, `-end=` → 5,
-     `'^CREATE TRIGGER '` → 7, `'^-- oxy:deploy-phase='` → 1.
+- **Nothing.** `SCHEMA_TABLE_COUNT` is 426, counted empirically by the gate's own
+  barrel traversal on the rebased branch rather than by adding five to `main`'s
+  421 — ADR 0007 D11 item 6, because tables MOVE between files in a batch like
+  this one and a sum over PR descriptions misses them.
+- **Nothing.** The migration is `0094_dizzy_makkari.sql` (`pre`, additive: five
+  tables, five trigger functions, seven triggers), and the realdb suite is
+  `external-mappings.realdb.test.ts`.
 - **A row in `docs/index.mdx`.** A shared append target across the parallel
   #367 branches and not in this one's territory; one line,
   `| External mappings (#367 W11) | [catalog-external-mappings.md](catalog-external-mappings.md) |`.
-- **The realdb suite**, per §"What the realdb suite must cover".
+- **Nothing.** The realdb suite landed with the migration; §"What the realdb
+  suite must cover" is retained as the reasoning behind each case rather than as
+  a list of work owed.
 - **Nothing, for the category dimension.** The consolidation is filed as
   [#410](https://github.com/OxyHQ/Mercaria/issues/410) and is not owed by this
   branch. The test that decides which state is correct is anchored to `main`
