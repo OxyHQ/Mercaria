@@ -6369,10 +6369,12 @@ pay nobody and this closes it.
 **`docs/referral-dashboards.md`**. **NO new tables and NO migration** — the whole
 domain is a projection, the #92/#73 shape.
 
-Six partner-safe projections had existed since #142 with ZERO consumers, and the
-four instrument services and seven program-lifecycle services were mounted on NO
-route at all: a partner could enrol, accept terms and complete the tax
-questionnaire, and then had no way to see a link, a number or a payout.
+Six partner-safe projections had existed since #142 and NO HTTP surface served
+any of them — four were built by `read.service.ts`, which no route mounted, one
+had a producer with no caller, and `ReferralRewardPartnerView` had no producer
+at ALL. The four instrument services and seven program-lifecycle services were
+mounted on no route either: a partner could enrol, accept terms and complete the
+tax questionnaire, and then had no way to see a link, a number or a payout.
 
 - **The owner is a PARAMETER and #147 adds no third mount.** Nothing in the
   domain reads a partner id off a request — not a route parameter, not a query

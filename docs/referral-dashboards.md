@@ -14,10 +14,12 @@ could supply: a disclosure floor, and a statement of what every figure means.
 
 ## What #146 left behind, and what #147 is
 
-Six partner-safe projections had existed since #142 with **zero consumers**:
-`ReferralProgramPartnerView`, `ReferralCodePartnerView`,
-`ReferralLinkPartnerView`, `ReferralAttributionPartnerView`,
-`ReferralRewardPartnerView` and `ReferralPayoutBatchPartnerView`. Four services
+Six partner-safe projections had existed since #142 and **no HTTP surface**
+served any of them: `ReferralProgramPartnerView`, `ReferralCodePartnerView`,
+`ReferralLinkPartnerView` and `ReferralAttributionPartnerView` were BUILT by
+`read.service.ts`, which no route mounted; `ReferralPayoutBatchPartnerView` had
+a producer with no caller; and `ReferralRewardPartnerView` had **no producer at
+all** — the interface existed and nothing constructed it. Four services
 that create, retire and revoke instruments were mounted on **no HTTP route at
 all**, and so were all seven program-lifecycle services. A partner could enrol,
 accept terms and complete a tax questionnaire, and then had no way to see a
