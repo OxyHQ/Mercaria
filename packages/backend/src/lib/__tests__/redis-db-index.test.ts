@@ -33,10 +33,11 @@ function withUrl(url: string | undefined) {
 }
 
 /**
- * The two CLIENT getters cache their ioredis instance in a module-level
- * singleton, so only they need a fresh module graph. Kept to the three cases
- * that build a real client: every reset re-registers the module graph's process
- * listeners, and a dozen of them trips Node's max-listeners warning.
+ * The two CLIENT getters (`getRedisClient` and `getSocketAdapterClients`) cache
+ * their ioredis instances in module-level singletons, so only they need a fresh
+ * module graph. Kept to the two cases that build a real client: every reset
+ * re-registers the module graph's process listeners, and a dozen of them trips
+ * Node's max-listeners warning.
  */
 async function loadClientsWith(url: string) {
   vi.resetModules();
@@ -133,19 +134,31 @@ describe('REDIS_URL database index', () => {
       expect(getQueueConnection()).not.toHaveProperty('db');
     });
 
-    it.each([
-      ['getRedisClient', (m: typeof import('../redis.js')) => m.getRedisClient()],
-      ['getRedisSubClient', (m: typeof import('../redis.js')) => m.getRedisSubClient()],
-    ])('%s connects on the index', async (_label, build) => {
-      // The real ioredis instance, because the shared config reaching it is the
-      // claim — reading it off the config object would prove only that the
+    it('every ioredis client connects on the index', async () => {
+      // The real ioredis instances, because the shared config reaching them is
+      // the claim — reading it off the config object would prove only that the
       // object has the field. Port 1 never accepts, and `disconnect()` stops
       // the retry loop synchronously without the `quit()` round trip a
       // never-connected client cannot complete.
+      //
+      // All three come from ONE module load: each `loadClientsWith` re-registers
+      // the module graph's process listeners, and enough of them trips Node's
+      // max-listeners warning.
       const redis = await loadClientsWith('redis://127.0.0.1:1/9');
-      const client = build(redis);
-      expect(client?.options.db).toBe(9);
-      client?.disconnect();
+
+      const shared = redis.getRedisClient();
+      expect(shared?.options.db).toBe(9);
+
+      // The Socket.IO pair is built from the same parsed config, the subscriber
+      // by `.duplicate()` — so this also pins that duplicating carries the index
+      // rather than falling back to ioredis's default of 0.
+      const adapter = redis.getSocketAdapterClients();
+      expect(adapter?.pubClient.options.db).toBe(9);
+      expect(adapter?.subClient.options.db).toBe(9);
+
+      shared?.disconnect();
+      adapter?.pubClient.disconnect();
+      adapter?.subClient.disconnect();
     });
 
     it('an ioredis client carries NO explicit index when the URL names none', async () => {

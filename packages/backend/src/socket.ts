@@ -2,7 +2,7 @@ import { Server, type Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import http from 'http';
 import { isLiveEntityId } from '@oxyhq/db';
-import { getRedisClient, getRedisSubClient } from './lib/redis.js';
+import { getSocketAdapterClients } from './lib/redis.js';
 import { oxyClient } from './middleware/auth.js';
 import { findStoreMember } from './db/stores/storeRepository.js';
 import { log } from './lib/logger.js';
@@ -46,7 +46,7 @@ export async function authorizeAndJoinStore(
 }
 
 export function initSocket(server: http.Server) {
-  // Hold the instance in a local const so the async adapter callback below
+  // Hold the instance in a local const so the adapter attachment below
   // references a provably-defined server (no module-level non-null assertion).
   const socketServer = new Server(server, {
     cors: {
@@ -58,18 +58,27 @@ export function initSocket(server: http.Server) {
   });
   io = socketServer;
 
-  // Attach Redis adapter for horizontal scaling
-  const pubClient = getRedisClient();
-  const subClient = getRedisSubClient();
-  if (pubClient && subClient) {
-    Promise.all([pubClient.connect(), subClient.connect()])
-      .then(() => {
-        socketServer.adapter(createAdapter(pubClient, subClient));
-        log.general.info('Socket.IO Redis adapter attached');
-      })
-      .catch((err) => {
-        log.general.warn({ err }, 'Socket.IO Redis adapter failed — using in-memory');
-      });
+  // Attach the Redis adapter for horizontal scaling.
+  //
+  // SYNCHRONOUS, and deliberately so. `createAdapter` needs two ioredis clients
+  // and NOT two CONNECTED ones — it issues `psubscribe`/`subscribe` in its own
+  // constructor and ioredis queues those until the socket is up. Attaching here
+  // means there is no window in which the server accepts connections without a
+  // fan-out, and no rejected promise for a `.catch` to swallow.
+  //
+  // The previous shape awaited `pubClient.connect()`, which ioredis rejects for
+  // an already-connecting client (it connects in its constructor), so the
+  // adapter was NEVER attached on any boot: each ECS task kept an isolated
+  // in-memory adapter and roughly half of every `notification` emit reached
+  // nobody (#364). Do not reintroduce a `connect()` here.
+  const adapterClients = getSocketAdapterClients();
+  if (adapterClients) {
+    socketServer.adapter(createAdapter(adapterClients.pubClient, adapterClients.subClient));
+    log.general.info('Socket.IO Redis adapter attached');
+  } else {
+    // REDIS_URL is unset or unusable. One task, one in-memory adapter — correct
+    // for a single-task deployment and a real fan-out gap on a scaled one.
+    log.general.warn('Socket.IO Redis adapter not configured — using in-memory (single-task only)');
   }
 
   // Authenticate EVERY connection: validates the Oxy session from
