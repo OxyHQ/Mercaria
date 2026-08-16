@@ -45,9 +45,18 @@ export default function BrandPageScreen() {
 
   // The redirect a merge or an alias produced. `replace`, never `push`: the old
   // handle is not a place a reader should be able to go BACK to.
-  const redirectTo = brand?.redirect === undefined ? undefined : brand.canonicalPath;
+  //
+  // The SLUG travels, never `canonicalPath`. The server composes that path from
+  // this screen's own route (`/brands/${slug}`), so consuming it would make the
+  // API the authority on the client's route table — an arrangement in which
+  // moving this file breaks navigation at runtime and nothing at build time.
+  // `canonicalPath` stays what it is below: a URL for `rel=canonical` and the
+  // structured data, which is a different question from where to navigate.
+  const redirectTo = brand?.redirect === undefined ? undefined : brand.slug;
   useEffect(() => {
-    if (redirectTo !== undefined) router.replace(redirectTo);
+    if (redirectTo !== undefined) {
+      router.replace({ pathname: '/brands/[handle]', params: { handle: redirectTo } });
+    }
   }, [redirectTo, router]);
 
   if (isLoading) {

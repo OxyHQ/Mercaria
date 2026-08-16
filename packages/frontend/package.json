@@ -14,7 +14,7 @@
     "build:production": "NODE_ENV=production bun x expo export --platform web --clear",
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun ../../scripts/generate-router-types.mjs && tsc --noEmit"
   },
   "dependencies": {
     "@expo/html-elements": "^0.13.8",

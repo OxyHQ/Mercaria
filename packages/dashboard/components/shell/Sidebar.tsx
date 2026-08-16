@@ -39,15 +39,17 @@ export function Sidebar() {
         key: item.key,
         label: item.label,
         icon: item.icon,
-        href: item.href,
         active: isNavItemActive(item, pathname),
       })),
     [can, pathname],
   );
 
+  // The route comes from NAV_ITEMS, not from the row that was pressed: the
+  // shared item is presentational and carries none (see `AppSidebarItem`).
   const handleSelect = useCallback(
     (item: AppSidebarItem) => {
-      router.push(item.href as never);
+      const destination = NAV_ITEMS.find((navItem) => navItem.key === item.key);
+      if (destination !== undefined) router.push(destination.href);
     },
     [router],
   );

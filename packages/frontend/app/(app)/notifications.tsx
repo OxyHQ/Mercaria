@@ -97,15 +97,14 @@ export default function NotificationsScreen() {
     }
   };
 
+  // Pressing a notification marks it read and navigates NOWHERE. See
+  // `useNotificationSetup` for why a server-supplied destination is not
+  // followed, and what would bring deep-linking back.
   const handleNotificationPress = useCallback((notification: Notification) => {
     if (notification.status !== 'read') {
       markAsRead.mutate(notification._id);
     }
-    // If the notification carries an in-app route, deep-link to it.
-    if (notification.route) {
-      router.push(notification.route as Parameters<typeof router.push>[0]);
-    }
-  }, [markAsRead, router]);
+  }, [markAsRead]);
 
   const notifications = data?.notifications || [];
   const unreadCount = data?.unreadCount || 0;

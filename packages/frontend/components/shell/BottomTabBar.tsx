@@ -225,7 +225,7 @@ export function BottomTabBar() {
   const handlePress = useCallback(
     (item: NavItem) => {
       triggerHaptic();
-      if (item.available) router.push(item.href as Parameters<typeof router.push>[0]);
+      if (item.available) router.push(item.href);
     },
     [router],
   );

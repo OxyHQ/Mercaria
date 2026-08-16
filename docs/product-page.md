@@ -309,21 +309,24 @@ verified-channel standing does NOT travel with the link: the merchant page
 re-derives what #55 currently holds, rather than asserting a badge from a
 caller's word.
 
-A dead link is worse than the name, because nothing would catch it:
-`typedRoutes` is ON in this app and INERT on this expo-router major, so
-`router.push('/merchants/apple')` type-checks, ships, and fails under a
-shopper's thumb as "This screen does not exist". This issue proved it — a
-"Report a problem" control shipped pointing at `/settings/support`, which is not
-a screen.
+A dead link used to be worse than the name, because nothing caught it:
+`typedRoutes` was ON but inert, so `router.push('/merchants/apple')`
+type-checked, shipped, and failed under a shopper's thumb as "This screen does
+not exist". This issue proved it — a "Report a problem" control shipped pointing
+at `/settings/support`, which is not a screen. **#330 closed the mechanism**:
+`.expo/types/router.d.ts` is generated inside every app's `typecheck`, so the
+compiler now rejects a route that does not exist.
 
-`product-page-isolation.test.ts` WALL 6 is the gate: it walks the real `app/`
-tree (with `(group)` segments transparent, `index` as the directory and
-`[param]` matching anything), extracts every literal `router.push`/`replace`
-target from the files this issue owns, and fails the build on one that does not
-resolve. Floors on both sides — an empty route list or an empty target list
-fails rather than passes — and it is mutation-tested by restoring the dead link
-that started it. When #72/#73/#84 land their pages, whoever turns these back
-into links is told at once if the path is wrong.
+WALL 6 used to be that gate — it walked the real `app/` tree and resolved every
+literal `router.push`/`replace` target from this issue's files. #330 retired the
+resolution half: generating `.expo/types/router.d.ts` before `tsc` makes the
+COMPILER answer route existence, across all three apps rather than this page's
+twenty files, and without a resolver of our own to get wrong (WALL 6's own two
+bugs both failed permissive — a `buildHref` helper was invisible to it, and an
+interpolated query string read as a wildcard). What the compiler cannot check is
+that it was given the union, which is
+`src/__tests__/typed-routes-armed.test.ts`. WALL 6 keeps the question that was
+never about route existence: whether the page LINKS a merchant at all (#252).
 
 Reporting the PRODUCT DATA goes to feedback rather than to abuse reporting, and
 the vocabulary is the reason: `ABUSE_REPORTED_TYPES` is
@@ -341,10 +344,11 @@ listing page itself is otherwise untouched (#71 acceptance 7). #75 owns the full
 public-route migration; this is what makes the comparison reachable in the
 meantime.
 
-That one link is scanned by WALL 6 and by NOTHING else in the gate: putting a
-file this issue does not own through the other five walls is how a gate starts
-firing at whoever edits it next, and a gate that cries wolf is the one somebody
-deletes.
+That one link is checked by the COMPILER like every other, and by WALL 6 for
+the separate question of whether the page links a merchant at all (#252) — and
+by NOTHING else in the gate: putting a file this issue does not own through the
+other five walls is how a gate starts firing at whoever edits it next, and a
+gate that cries wolf is the one somebody deletes.
 
 ## Four requirements answered by a statement rather than a control
 

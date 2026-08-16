@@ -233,7 +233,7 @@ export default function MerchantScreen() {
           router.push(
             `/settings/general?claimMerchant=${encodeURIComponent(
               page.merchant.id,
-            )}` as Parameters<typeof router.push>[0],
+            )}`,
           )
         }
       />
@@ -272,7 +272,7 @@ export default function MerchantScreen() {
               router.push(
                 `/stores/${encodeURIComponent(
                   page.nativeStore?.handle ?? "",
-                )}` as Parameters<typeof router.push>[0],
+                )}`,
               )
             }
             className="rounded-2xl border border-border p-4"
@@ -317,9 +317,7 @@ export default function MerchantScreen() {
                 <MerchantProductCard
                   entry={entry}
                   onPress={(canonicalProductId) =>
-                    router.push(
-                      `/products/${canonicalProductId}` as Parameters<typeof router.push>[0],
-                    )
+                    router.push(`/products/${canonicalProductId}`)
                   }
                 />
               </View>

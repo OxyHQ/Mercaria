@@ -169,9 +169,12 @@ export function publicRoute(id: PublicRouteId): PublicRoute {
  * Does a storefront screen render this route today?
  *
  * Read before composing any LINK — a breadcrumb, a structured-data `item`, a
- * sitemap URL. `typedRoutes` is inert on this expo-router major (`~/Oxy/AGENTS.md`),
- * so nothing else would catch a link into a route that has not shipped, and the
- * failure lands under a shopper's thumb as "This screen does not exist".
+ * sitemap URL. #330 armed `typedRoutes`, so the COMPILER now catches a client
+ * `router.push` into a route that does not exist — but none of the links this
+ * guards is one. They are URL strings this service composes for a crawler, and
+ * no route union reaches a string built on the server, so `routeIsLive` remains
+ * the only thing standing between a breadcrumb and "This screen does not
+ * exist".
  */
 export function routeIsLive(id: PublicRouteId): boolean {
   return publicRoute(id).availability === 'live';

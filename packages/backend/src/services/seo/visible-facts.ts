@@ -164,10 +164,11 @@ export function productPageFacts(
   /**
    * The brand crumb appears only once the brand PAGE exists.
    *
-   * `typedRoutes` is inert on this expo-router major, so a breadcrumb pointing
-   * at `/brands/:slug` before #72 ships is a link that renders, is emitted into
-   * `BreadcrumbList` and answers "This screen does not exist" — to a shopper and
-   * to a crawler. The brand NAME still travels (`brandName`, and schema.org's
+   * A breadcrumb is composed HERE, on the server, so #330's typed-route union
+   * cannot see it — that check covers a client `router.push` and nothing else.
+   * A crumb pointing at `/brands/:slug` before #72 ships is a link that renders,
+   * is emitted into `BreadcrumbList` and answers "This screen does not exist" —
+   * to a shopper and to a crawler. Hence `routeIsLive`. The brand NAME still travels (`brandName`, and schema.org's
    * `Brand` node), because naming a brand is a fact about the product and
    * linking to it is a claim about the site.
    */

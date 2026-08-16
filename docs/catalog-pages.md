@@ -81,10 +81,11 @@ know of none" from "this part did not load".
 
 #73 owns merchant and storefront pages. The two domains meet at exactly one
 edge: the channel list links to `/merchants/{slug}`. **That route is #73's and
-is a named cross-issue seam** — `typedRoutes` is ON but INERT in this repo, so
-`tsc` will not catch a mismatch and it surfaces only as "This screen does not
-exist". Dropping the link instead would fail #72 official-channel rule 3
-outright.
+is a named cross-issue seam**. It used to be one `tsc` could not check —
+`typedRoutes` was ON but inert, so a mismatch surfaced only as "This screen does
+not exist" — until #330 generated the route union before the typecheck; a wrong
+route here is now a build failure. Dropping the link instead would fail #72
+official-channel rule 3 outright.
 
 ---
 

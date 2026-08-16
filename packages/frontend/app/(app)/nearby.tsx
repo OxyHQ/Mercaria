@@ -88,7 +88,7 @@ export default function NearbyScreen() {
             pickup: result.location.locationId,
             pickupName: result.location.displayName,
           });
-          router.push(`/checkout?${query.toString()}` as Parameters<typeof router.push>[0]);
+          router.push(`/checkout?${query.toString()}`);
         },
         onError: (cause: Error) => setError(cause.message),
       },

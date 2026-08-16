@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
 import {
   Store as StoreIcon,
@@ -26,7 +26,7 @@ interface SettingsItem {
   label: string;
   description: string;
   icon: LucideIcon;
-  href: string;
+  href: RoutePath;
   permission: StorePermission;
 }
 
@@ -133,7 +133,7 @@ function SettingsList() {
         return (
           <Pressable
             key={item.key}
-            onPress={() => router.push(item.href as never)}
+            onPress={() => router.push(item.href)}
             className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-4 active:opacity-80 web:hover:border-primary"
           >
             <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">

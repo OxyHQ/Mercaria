@@ -2,7 +2,7 @@ import React from "react";
 import { View, Pressable } from "react-native";
 import { Text } from "@mercaria/ui";
 import { BaseSidebar } from "@/components/base-sidebar";
-import { useRouter, usePathname } from "expo-router";
+import { useRouter, usePathname, type RoutePath } from "expo-router";
 import { useTranslation } from "@/hooks/useTranslation";
 import {
   User,
@@ -16,7 +16,12 @@ import {
 
 interface SettingsSection {
   id: string;
-  route: string;
+  /**
+   * `RoutePath` rather than `string`, so the literals in `SECTIONS` below are
+   * checked against the real route tree where they are written. Renaming or
+   * deleting a settings screen fails the build here (#330).
+   */
+  route: RoutePath;
   icon: LucideIcon;
   labelKey: string;
 }
@@ -43,7 +48,7 @@ export const SettingsSidebar = React.memo(function SettingsSidebar() {
   }, [pathname]);
 
   const handleSelect = (section: SettingsSection) => {
-    router.push(section.route as Parameters<typeof router.push>[0]);
+    router.push(section.route);
   };
 
   const handleBack = () => {

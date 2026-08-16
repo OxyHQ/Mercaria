@@ -344,7 +344,7 @@ export default function SellerScreen() {
                     <ProductCard
                       product={product}
                       onPress={(id) =>
-                        router.push(`/products/${id}` as Parameters<typeof router.push>[0])
+                        router.push(`/products/${id}`)
                       }
                     />
                   </View>

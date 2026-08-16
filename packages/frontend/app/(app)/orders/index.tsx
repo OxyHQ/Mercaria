@@ -111,7 +111,7 @@ function OrdersBody() {
               key={order.id}
               order={order}
               onPress={() =>
-                router.push(`/orders/${order.id}` as Parameters<typeof router.push>[0])
+                router.push(`/orders/${order.id}`)
               }
             />
           ))}

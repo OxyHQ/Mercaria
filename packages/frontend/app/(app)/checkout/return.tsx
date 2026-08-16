@@ -90,20 +90,16 @@ function CheckoutReturnBody() {
    */
   const leave = () => {
     if (isAuthenticated) {
-      router.replace("/orders" as Parameters<typeof router.replace>[0]);
+      router.replace("/orders");
       return;
     }
     if (!checkoutGroupId) {
-      router.replace("/" as Parameters<typeof router.replace>[0]);
+      router.replace("/");
       return;
     }
     const group = checkoutGroupId;
     const toPortal = () =>
-      router.replace(
-        `/guest-orders/portal?group=${encodeURIComponent(group)}` as Parameters<
-          typeof router.replace
-        >[0],
-      );
+      router.replace(`/guest-orders/portal?group=${encodeURIComponent(group)}`);
     portalConfirmation.mutate(group, { onSettled: toPortal });
   };
 

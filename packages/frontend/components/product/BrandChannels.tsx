@@ -86,7 +86,7 @@ function ChannelList({
           accessibilityRole="link"
           accessibilityLabel={`Visit ${channel.merchantName}`}
           onPress={() =>
-            router.push(`/merchants/${channel.merchantSlug}` as Parameters<typeof router.push>[0])
+            router.push(`/merchants/${channel.merchantSlug}`)
           }
           className="rounded-radius-28 border border-border-secondary p-space-12"
         >
