@@ -29,8 +29,9 @@ const DISPLAY_FRACTION_DIGITS = 2;
  * place bidi isolation can be applied ONCE instead of per screen.
  *
  * Each of these emits a token whose characters have MIXED or purely NEUTRAL
- * bidirectional classes — a currency symbol (`ET`), digits (`EN`), a separating
- * space (`WS`), a Latin currency code or unit (`L`) — and every one is
+ * bidirectional classes — a currency symbol (`ET`, or `ON` for FAIR's `U+229C`),
+ * digits (`EN`), a separating space (`WS`), a Latin currency code or unit (`L`),
+ * a decimal point (`CS`), a sign (`ES`) — and every one is
  * interpolated into localized prose by its callers (`Delivery ${cost}`,
  * `${magnitude} lower than before`, `Lowest in this window: ${…}`). Dropped into
  * an Arabic sentence with no strong character to anchor them, those tokens

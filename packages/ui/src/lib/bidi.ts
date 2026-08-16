@@ -7,8 +7,9 @@
  * The storefront ships an Arabic bundle and mirrors its layout (#396/#397). In
  * an RTL paragraph the Unicode Bidirectional Algorithm resolves every NEUTRAL
  * character from its surroundings, and a formatted price is mostly neutrals: a
- * currency symbol is `ET` (European Terminator), a space is `WS`, and the
- * digits are `EN` rather than a strong `L`. So `$148.00` dropped into Arabic
+ * currency symbol is `ET` (European Terminator) for `$`, `EUR` and `GBP` but
+ * `ON` (Other Neutral) for FAIR's `U+229C`, a space is `WS`, and the digits are
+ * `EN` rather than a strong `L`. So `$148.00` dropped into Arabic
  * text has no strong left-to-right character to anchor it, and the symbol
  * migrates to the far side of the number — the shopper is shown `148.00$`, or
  * worse, the symbol lands against the neighbouring word entirely. The same
