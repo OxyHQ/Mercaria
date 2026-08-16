@@ -444,3 +444,13 @@ export * from './productTypes';
 // slot, which is what makes ADR 0007 D3's two prohibitions properties of the
 // schema rather than rules somebody follows.
 export * from './navigation';
+// ADR 0007 D4's catalog localization family (#367), and its short import list
+// is the design: it references `./catalog`, `./attributeRegistry` and
+// `./productTypes` and nothing else, because a localization is a facet of a
+// concept somebody else owns and may never become a second answer to what that
+// concept IS. It localizes a product-type VERSION rather than a key — D5 freezes
+// a published version's meaning and a translation is of a meaning — and
+// `attribute_labels` stays where #94 put it, adopted as this family's fourth
+// text member rather than copied into a fifth table, which is the whole reason a
+// polymorphic localization table was refused.
+export * from './catalogLocalization';

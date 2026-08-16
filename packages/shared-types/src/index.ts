@@ -632,3 +632,11 @@ export * from './product-type';
 // what makes "nothing in navigation may write to `categories`" (ADR 0007 D3) a
 // property of the shapes rather than a rule somebody follows.
 export * from './navigation';
+// Catalog localization (ADR 0007 D4, #367). It defines no vocabulary any
+// catalog domain owns: a localization names an entity's id and a locale and
+// carries text, so nothing here can say what a category IS. Its two fallback
+// policies are derived from a field's CLASS and from nothing a caller supplies,
+// which is what makes "legal and seller-authored text never falls back across
+// markets" a property of the field rather than a discipline every reader has to
+// remember.
+export * from './catalog-localization';

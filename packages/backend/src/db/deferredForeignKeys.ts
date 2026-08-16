@@ -1881,4 +1881,13 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // that question with a NULL.
   { column: 'navigation_trees.published_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'navigation_node_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── ADR 0007 D4's localization family ─────────────────────────────────────
+  // Four reviewer identities. A localization's `reviewed_by_oxy_user_id` is the
+  // person who settled the text, and it is what `<table>_reviewed_audit_check`
+  // requires before a row may claim `reviewed` or `approved` — which is why the
+  // column exists at all rather than a bare boolean.
+  { column: 'category_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'product_type_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'attribute_value_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'category_localized_slugs.issued_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];
