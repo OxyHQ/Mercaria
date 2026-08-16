@@ -36,8 +36,9 @@
  * caller decides to do with them.
  */
 
-import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, like, lt, or, sql } from 'drizzle-orm';
 import type {
+  ReferralRewardRefusalReason,
   ReferralRiskSignalFacts,
   ReferralRiskSubjectType,
 } from '@mercaria/shared-types';
@@ -49,6 +50,7 @@ import { findPartnerById } from '../../../db/referrals/partnerRepository.js';
 import {
   referralAttributions,
   referralConversions,
+  referralEvents,
   referralTouches,
 } from '../../../db/schema/referrals.js';
 import { referralEnforcementActions } from '../../../db/schema/referralIntegrity.js';
@@ -85,10 +87,86 @@ const SIGNAL_RETENTION_DAYS = REFERRAL_RETENTION_POLICY.risk_signal.sweptAfterDa
 const REVERSED_CONVERSION_STATES = ['reversed'] as const;
 
 /**
+ * The accrual refusals `repeated_cap_attempt` counts.
+ *
+ * TYPED as `ReferralRewardRefusalReason`, so renaming either member in
+ * `@mercaria/shared-types` fails `tsc` here rather than silently making this
+ * counter read zero forever — which is the failure this producer exists to
+ * avoid, one level up.
+ *
+ * The other eleven refusal reasons are deliberately excluded: a conversion
+ * refused for `zero_base` or `rule_not_active` is a partner whose cohort or
+ * whose programme did not qualify, and counting those as "repeatedly probing a
+ * cap" would report the honest referrer of unprofitable orders as a fraud
+ * signal. #148's kind is `repeated_cap_attempt`, and a cap is what these two
+ * name.
+ */
+const CAP_REFUSAL_REASONS: readonly ReferralRewardRefusalReason[] = [
+  'cap_reached',
+  'budget_exhausted',
+];
+
+/**
+ * The evidence kind `click_to_conversion_pattern` may be measured over.
+ *
+ * ONLY `link_click`, and this is the single most load-bearing decision in the
+ * four producers. `code_entry_at_checkout` is a partner's code typed INTO the
+ * checkout form, so the interval between that evidence and the conversion is
+ * seconds BY CONSTRUCTION — measuring it would fire
+ * `click_to_conversion_pattern` on every honest checkout-code redemption there
+ * has ever been, and the signal's own comment ("a conversion in under five
+ * seconds of the click is not somebody reading a product page") is false of it.
+ * `code_entry_in_app` is excluded for the same reason with less margin.
+ *
+ * The consequence is stated rather than hidden: a partner who promotes ONLY by
+ * code has no measurement here at all, and gets no signal rather than a clean
+ * one — `undefined`, never a reassuring number.
+ */
+const CLICK_EVIDENCE_KIND = 'link_click';
+
+/**
  * Measure one partner over the trailing window.
  *
- * Four bounded aggregates, all scoped to the partner: this is not a sweep and
- * it does not scan the table. Every one of them counts rows this domain wrote.
+ * Six bounded reads, all scoped to the partner: this is not a sweep and it does
+ * not scan a table. Every one counts rows Mercaria's own commerce wrote.
+ *
+ * ## Which facts this supplies, and which are still nobody's
+ *
+ * Supplied: `touchesInWindow`, `conversionsInWindow`, `refundRateBps`,
+ * `priorConfirmedEnforcementCount`, and — added here —
+ * `medianClickToConversionSeconds` and `capRefusalCount`.
+ *
+ * NOT supplied, and each for a reason rather than an omission. `undefined`
+ * reaches `deriveRiskSignals`, which emits nothing for it, so an absence is a
+ * SILENCE rather than a clean bill — which is the whole reason these are worth
+ * writing down rather than leaving as a gap somebody fills by guessing:
+ *
+ *  - `declaredRelatedParty` and `merchantMembershipOverlap` — both are ALREADY
+ *    DERIVED, in `collectSelfReferralFacts` beside this file, as
+ *    `relatedPartyDeclared` and `partnerHoldsReferredStoreMembership`. Adding a
+ *    second derivation here is the "two spellings of one rule" defect, and the
+ *    two would disagree the first time either read changed. Closing them means
+ *    EXTRACTING the shared reads (`holdsStoreMembership` and the application
+ *    lookup) into helpers both callers use — a refactor of a live attribution
+ *    gate, which is its own change rather than a producer.
+ *  - `referredAccountAgeDays` — the referred Oxy account's creation date. #164
+ *    deleted Mercaria's service principal and WALL 6 of
+ *    `referral-integrity-isolation.test.ts` forbids an outbound HTTP call, so
+ *    it needs a port plus a credential that does not exist.
+ *  - `disputeRateBps`, `providerAdverseOutcomeCount`,
+ *    `sharedPayoutBeneficiaryPartnerCount` — all three read the PAYMENT domain
+ *    (`provider_accounts` lives in `db/schema/payments.ts`), which WALL 2
+ *    forbids importing. The shape they want is #146's: a port in
+ *    `services/referrals/earnings/` registered from a module outside both
+ *    walled domains, as `partner-readiness.port.ts` is.
+ *  - `marketOutsideProgramScope` — the fact as SPECIFIED is not representable.
+ *    `ReferralRiskSignalFacts` calls it "the conversion's market"; neither a
+ *    touch nor a conversion carries one (#149 relies on exactly this — a
+ *    market-scoped stop is refused at publish for the same reason). Only the
+ *    INSTRUMENT does, and deriving from `referral_codes.market` would answer a
+ *    different question under the same name.
+ *  - `sourceEventInconsistent` — no relationship exists between a referral
+ *    partner and a #62/#65 source event to aggregate over.
  */
 export async function collectRiskSignalFacts(
   db: DatabaseOrTransaction,
@@ -138,19 +216,75 @@ export async function collectRiskSignalFacts(
       ),
     );
 
+  // `click_to_conversion_pattern` — the median gap between the winning EVIDENCE
+  // and its conversion, over link clicks only (see `CLICK_EVIDENCE_KIND`).
+  // `evidence_occurred_at` is already on the attribution, so this needs no join
+  // to `referral_touches` and measures exactly the touch that won.
+  const [clickRow] = await db
+    .select({
+      sampled: sql<string>`count(*)`,
+      medianSeconds: sql<
+        string | null
+      >`percentile_cont(0.5) within group (order by extract(epoch from (${referralConversions.occurredAt} - ${referralAttributions.evidenceOccurredAt})))`,
+    })
+    .from(referralConversions)
+    .innerJoin(referralAttributions, eq(referralConversions.attributionId, referralAttributions.id))
+    .where(
+      and(
+        eq(referralAttributions.partnerId, input.partnerId),
+        eq(referralAttributions.evidenceTouchKind, CLICK_EVIDENCE_KIND),
+        gte(referralConversions.occurredAt, windowStart),
+        lt(referralConversions.occurredAt, input.at),
+      ),
+    );
+
+  // `repeated_cap_attempt` — accruals this partner's conversions were refused
+  // for hitting a cap or exhausting a budget. The refusal REASON CODE is not a
+  // column: `reward.service.ts` writes it as the `<code>: <detail>` prefix of
+  // `referral_events.reason`, so this matches that prefix. A `refusal_reason`
+  // column would be the honest fix and belongs to the reward domain rather than
+  // here — stated in the PR rather than worked around silently.
+  const [capRow] = await db
+    .select({ total: sql<string>`count(*)` })
+    .from(referralEvents)
+    .innerJoin(referralConversions, eq(referralConversions.id, referralEvents.subjectId))
+    .innerJoin(referralAttributions, eq(referralConversions.attributionId, referralAttributions.id))
+    .where(
+      and(
+        eq(referralEvents.subjectType, 'conversion'),
+        eq(referralEvents.action, 'reward_accrual_refused'),
+        or(...CAP_REFUSAL_REASONS.map((reason) => like(referralEvents.reason, `${reason}: %`))),
+        eq(referralAttributions.partnerId, input.partnerId),
+        gte(referralEvents.createdAt, windowStart),
+        lt(referralEvents.createdAt, input.at),
+      ),
+    );
+
   // postgres.js decodes `count(*)` (an int8) as a STRING, and drizzle types it
   // `number`. `Number(...)` at the boundary, once, rather than at each use —
   // a missed coercion here is arithmetic on a string, which concatenates
-  // silently and reports a velocity of "0500".
+  // silently and reports a velocity of "0500". `percentile_cont` over an
+  // `extract(epoch …)` returns NUMERIC, which postgres.js decodes as a string
+  // too, so the same rule applies with more force: it is compared against a
+  // threshold rather than only reported.
   const touches = Number(touchRow?.total ?? 0);
   const conversions = Number(conversionRow?.total ?? 0);
   const reversed = Number(conversionRow?.reversed ?? 0);
   const priorEnforcement = Number(priorRow?.total ?? 0);
+  const clicksSampled = Number(clickRow?.sampled ?? 0);
 
   const facts: ReferralRiskSignalFacts = {
     touchesInWindow: touches,
     conversionsInWindow: conversions,
     priorConfirmedEnforcementCount: priorEnforcement,
+    // A COUNT of refusals is a measurement at zero — we counted and found none,
+    // exactly as `conversionsInWindow: 0` is — so it is always supplied. The
+    // median below is not: a partner with no link-click conversions in the
+    // window has nothing to take a median OF.
+    capRefusalCount: Number(capRow?.total ?? 0),
+    ...(clicksSampled > 0 && clickRow?.medianSeconds != null
+      ? { medianClickToConversionSeconds: Number(clickRow.medianSeconds) }
+      : {}),
   };
   // A rate over zero conversions is UNDEFINED, not zero — see the docblock.
   // Left off the object entirely rather than set to 0, because `undefined`
