@@ -69,6 +69,7 @@ import {
   writeListingConditionEvidence,
   type ConditionActor,
 } from './condition/condition-write.service.js';
+import { mergePins, pinnedByEdit } from './catalog-field-pins.js';
 import { resolveConditionInput, type ResolvedConditionInput } from './condition/condition-input.js';
 import { narrowStoredCondition } from './condition/condition-projection.js';
 import {
@@ -784,6 +785,44 @@ export async function createStoreProduct(
  * category). Price/quantity for P2P listings flow through the listing's single
  * variant. Recomputes facets afterwards. Returns nothing; callers re-hydrate the
  * listing for the response.
+ *
+ * ## A HUMAN edit of a SOURCED listing pins the field it changed (#416)
+ *
+ * This is the write side of `listings.overriddenFields`, which four production
+ * read sites have always consulted and nothing ever wrote — so the dashboard's
+ * "Keep my local edits" switch selected between an empty set and an empty set,
+ * and a merchant could toggle it, save it, watch it persist and never change
+ * anything. The vocabulary and the change detection are
+ * `catalog-field-pins.ts`; the two conditions are here because only this
+ * function knows them:
+ *
+ *  - **The actor must be a person.** This funnel is shared: `importProduct` and
+ *    `ingestProducts` both reach it with `{kind: 'source'}` to apply the
+ *    platform's own values. Pinning on every write would pin each field the
+ *    FIRST time a connector wrote it and freeze the catalogue against the source
+ *    forever — the exact inversion of the feature. `ConditionActor` already
+ *    carries the human/machine distinction (it renders
+ *    `listing_condition_revisions_actor_identity_check`), so this reads the one
+ *    that exists rather than adding a parameter that could disagree with it.
+ *  - **The listing must have a source.** With no `sourceConnectionId` there is
+ *    no re-sync to be protected from, and writing pins onto every P2P listing
+ *    would change what a non-empty `overriddenFields` MEANS for every reader of
+ *    the column.
+ *
+ * ### Unpinning
+ *
+ * A pin is never removed here, and at the FIELD grain there is deliberately no
+ * way to remove one — that needs the per-field control this issue argued
+ * against, and inventing an implicit rule ("re-saving the platform's value
+ * unpins it") would require storing the platform's value per field, which
+ * nothing does. What exists instead is the switch itself: `connector_wins`
+ * renders every pin inert without deleting any, so the escape is one control a
+ * merchant already has, it is reversible in both directions, and flipping back
+ * restores exactly the pins they had. The end state is bounded — seven keys, and
+ * all seven pinned means "this product is mine now" — rather than an unbounded
+ * set nobody can reason about. The set is also SERVED (`Listing.overriddenFields`
+ * on the admin hydration path) so a merchant can see which fields stopped
+ * tracking, which is what turns this from a silent trap into a visible state.
  */
 export async function updateListing(
   listingId: string,
@@ -796,6 +835,9 @@ export async function updateListing(
   }
 
   const columns: Partial<ListingRecord> = {};
+
+  const pinsApply =
+    (actor.kind === 'seller' || actor.kind === 'operator') && listing.sourceConnectionId !== null;
 
   if (patch.title !== undefined) columns.title = patch.title;
   if (patch.description !== undefined) columns.description = patch.description;
@@ -872,11 +914,41 @@ export async function updateListing(
   // images must still be gated against the images that are actually there —
   // reading only the patch would let a seller move to `used_poor` with no
   // photographs by simply omitting them.
-  const galleryFileIds =
-    patch.imageFileIds ??
-    ((await findListingChildren([listingId])).images.get(listingId) ?? []).map(
-      (image) => image.fileId,
+  //
+  // The STORED gallery is ALSO what an `images` pin is decided against, so it is
+  // read whenever pins apply even though the patch carries its own. Scoped that
+  // tightly on purpose: `toUpdatePatch` always sends `imageFileIds`, so reading
+  // it unconditionally would add a query per product to every backfill page —
+  // and a connector never pins, so it never needs one.
+  const storedImageFileIds =
+    patch.imageFileIds === undefined || pinsApply
+      ? ((await findListingChildren([listingId])).images.get(listingId) ?? []).map(
+          (image) => image.fileId,
+        )
+      : [];
+  const galleryFileIds = patch.imageFileIds ?? storedImageFileIds;
+
+  if (pinsApply) {
+    const pins = mergePins(
+      listing.overriddenFields,
+      pinnedByEdit(
+        {
+          title: listing.title,
+          description: listing.description,
+          vendor: listing.vendor,
+          productType: listing.productType,
+          handle: listing.handle,
+          seoTitle: listing.seoTitle,
+          seoDescription: listing.seoDescription,
+          imageFileIds: storedImageFileIds,
+        },
+        patch,
+      ),
     );
+    if (pins) {
+      columns.overriddenFields = pins;
+    }
+  }
 
   try {
     await getDb().transaction(async (tx) => {

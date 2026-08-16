@@ -9,6 +9,7 @@
  */
 
 import type { Request, Response } from 'express';
+import { getRequiredOxyUserId } from '@oxyhq/core/server';
 import type {
   CreateStoreProductInput,
   CreateStoreProductVariantInput,
@@ -149,11 +150,17 @@ export async function patchProduct(req: Request, res: Response): Promise<void> {
   try {
     const listing = await loadStoreProduct(req);
     const listingId = listing.id;
-    await updateListing(
-      listingId,
-      req.body as UpdateListingInput,
-      req.userId ? { kind: 'seller', oxyUserId: req.userId } : { kind: 'source' },
-    );
+    // `loadStore` 401s on a request with no `req.userId`, so the old
+    // `req.userId ? … : {kind: 'source'}` fallback was unreachable — but since
+    // #416 that branch would mean "a merchant edit that silently does not pin
+    // the field it changed", which is a fail-open in the direction that loses
+    // the merchant's work. `getRequiredOxyUserId` throws instead, so the
+    // unreachable case stays unreachable by construction rather than by a
+    // reading of another middleware.
+    await updateListing(listingId, req.body as UpdateListingInput, {
+      kind: 'seller',
+      oxyUserId: getRequiredOxyUserId(req),
+    });
     await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto);
