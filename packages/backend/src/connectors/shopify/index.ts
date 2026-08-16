@@ -1,5 +1,5 @@
 /**
- * Shopify connector provider (REST Admin API `2025-10`).
+ * Shopify connector provider (REST Admin API `2026-07`).
  *
  * OAuth: `buildAuthorizeUrl` → merchant authorizes → the public callback calls
  * `exchangeCode` (POST `/admin/oauth/access_token`) to obtain the access token,
@@ -73,33 +73,109 @@ const PROVIDER_ID = 'shopify';
  * preflight carrying its own copy would go on reporting the version it was
  * written with, which is the answer that check exists to prevent.
  *
- * ## Why `2025-10` and not something newer
+ * ## Why `2026-07`
  *
- * It was `2024-10`, retired around 2025-10-16, so Shopify was already falling
- * forward — to `2025-10`, the oldest accessible stable version. This bump
- * therefore changes NOTHING on the wire; it makes the declaration match what
- * Shopify has been serving all along. That is the whole of what could be
- * established without a store: the shapes normalized below are already this
- * version's, so pinning it asserts nothing new, while pinning `2026-07` (the
- * newest stable) would move three versions forward and change what the wire
- * returns for exactly the products, variants and orders this file parses.
+ * It is the newest stable version, and the Shopify Partner app's own Webhooks
+ * API version is set to it. That agreement is the point: REST responses and
+ * webhook payloads go through the SAME normalizers below, so a split between
+ * the two would feed one function two shapes and is strictly worse than either
+ * version chosen consistently.
  *
- * That move is #286's remaining open scope and belongs WITH the first real-store
- * run (#69 acceptance 7), which is still unmet — no Shopify store, no Partner
- * app, no observed response. The REST product/variant endpoints are deprecated
- * but present, with a hard 100-variant-per-product ceiling above which GraphQL
- * is mandatory and this connector has no GraphQL call at all, so which version
- * to sit on is a question about real responses rather than about a constant.
+ * The predecessors: `2024-10` retired around 2025-10-16 and Shopify fell forward
+ * to `2025-10`, which the pin was moved to so the declaration matched the wire.
+ * `2025-10` stops being served as itself on **2026-10-16 15:00 UTC**, so it was
+ * also the accessible version with the least time left; `2026-07` runs to
+ * 2027-07-16. Both dates are Shopify's published schedule, read from
+ * https://shopify.dev/docs/api/usage/versioning — nothing here restates them as
+ * a constant, because `accessibleUntil` in `scripts/e2e/shopify/preflight.ts`
+ * DERIVES the deadline from the quarterly cadence and refuses a verification run
+ * past it, and `http.ts` warns once per shop when the served version differs
+ * from the requested one.
  *
- * The cost of the conservative choice, stated rather than buried: `2025-10` is
- * the version accessible for the SHORTEST remaining time, so this pin goes stale
- * soonest. Nothing here restates that deadline — `accessibleUntil` in
- * `scripts/e2e/shopify/preflight.ts` DERIVES it from Shopify's quarterly cadence
- * and refuses a verification run past it, and `http.ts` warns once per shop when
- * the served version differs from the requested one. A second copy of the date
- * would be a second authority that could disagree with both.
+ * ## What was checked before moving, and what could NOT be established
+ *
+ * READ, from Shopify's CURRENT REST reference — which self-reports
+ * `api_version: 2026-07` on every page: every endpoint this connector calls is
+ * documented, with every field the zod schemas below REQUIRE — `shop` (id,
+ * myshopify_domain, currency), `product` (id, title, body_html, handle, vendor,
+ * product_type, updated_at, options, images, variants), `product-variant` (id,
+ * price, compare_at_price, sku, barcode, inventory_item_id, inventory_quantity,
+ * inventory_management, option1/2/3), `collect`, `smartcollection`, `order`
+ * (including every `*_set` money set), `inventorylevel` (inventory_item_id,
+ * available, and the 50-id cap {@link INVENTORY_ITEMS_PER_REQUEST} mirrors),
+ * `fulfillmentorder` (id, status, line_items with fulfillable_quantity),
+ * `fulfillment` (POST with line_items_by_fulfillment_order) and `webhook` (id,
+ * address, topic, plus all six topics in {@link SHOPIFY_WEBHOOK_TOPICS}). The
+ * rate-limit contract `http.ts` implements is unchanged — bucket 40, leak
+ * 2/second on standard, `X-Shopify-Shop-Api-Call-Limit: 32/40`, HTTP 429 with a
+ * fractional `Retry-After` in seconds — and so is pagination: `Link` with
+ * `rel="next"`, a `page_info` cursor and a `limit` ceiling of 250
+ * ({@link PAGE_LIMIT}). No schema below was widened to accommodate this move,
+ * which is the load-bearing half of that sentence: a schema loosened to make a
+ * bump pass is how a renamed field gets stored as if it were complete.
+ *
+ * **That reference route RESOLVES its version rather than echoing it, and the
+ * control matters because the naive check cannot fail.** An ACCESSIBLE version
+ * renders itself (`2025-10`→2025-10, `2026-04`→2026-04) while an INACCESSIBLE
+ * one falls back to latest (`2019-04`, `2025-01`, `2099-01` all render 2026-07),
+ * and an invented resource under a valid version hard-404s. **That is the DOCS
+ * SITE and it is the OPPOSITE of the API**, which falls FORWARD to the OLDEST
+ * accessible stable version — do not read one as evidence about the other; a
+ * retired pin gets the oldest accessible version on the wire, never the latest.
+ * So a page that loaded IS evidence the resource is documented in the version
+ * asked for, and says nothing about what a retired pin would be served. One
+ * residual degeneracy, stated rather than smoothed: for `2026-07` specifically
+ * "rendered == requested" is weak, since 2026-07 is also the fallback target —
+ * but both readings collapse to "2026-07 is the latest accessible version",
+ * which the published schedule and `/latest/` corroborate.
+ *
+ * That is what makes a genuine version DIFF possible, and one was taken on the
+ * highest-risk resource: `product-variant` at `2025-10` and at `2026-07` carry
+ * IDENTICAL field lists — all eleven the schemas below require — and both state
+ * "Each product can have a maximum of three options and a maximum of 100
+ * variants". The nested shapes the schemas actually parse were walked
+ * explicitly rather than taken from a field-name list: a money set is
+ * `{shop_money:{amount,currency_code}, presentment_money:{…}}`, an order line
+ * carries id/product_id/variant_id/title/name/variant_title/sku/quantity/price/
+ * price_set, and a product image carries `src` plus `variant_ids`.
+ *
+ * INFERRED rather than read version-scoped: the rate-limit and pagination pages
+ * carry NO version segment (`/docs/api/admin-rest/usage/*`), so "unchanged in
+ * 2026-07" is an inference from an unversioned page, not an observation of one.
+ *
+ * NOT ESTABLISHED, and none of it is a formality:
+ *
+ *  - **No real store has answered.** #69 acceptance 7 is still unmet — no
+ *    Partner app, no dev store, no observed response. All of the above is
+ *    Shopify's documentation of its own API, and documentation is a statement of
+ *    intent rather than a measurement of the wire.
+ *  - **Only `product-variant` was DIFFED across the two versions**; the other
+ *    nine resources were read at `2026-07` alone.
+ *  - **The per-version release notes are unreachable** —
+ *    `/docs/api/release-notes/{version}` 404s for every version after `2025-01`,
+ *    with `2025-01` returning real content as the control (that URL family
+ *    validates where the reference family falls back). So a field that changed
+ *    MEANING, or became nullable while keeping its name, is invisible here.
+ *
+ * **The measurement that WOULD settle it is already built and needs a shop.**
+ * `http.ts` compares `X-Shopify-API-Version` against the version in the request
+ * URL and warns once per shop when they differ; `scripts/e2e/shopify/preflight.ts`
+ * probes the configured shop directly and REFUSES a run on a measured mismatch.
+ * Both are inert until the first real connect (#69 acceptance 7), so a
+ * `2025-10`-vs-`2026-07` diff of REAL responses is owed rather than done. Until
+ * then the honest statement about this pin is that it matches the Partner app's
+ * webhook version and contradicts nothing Shopify publishes for `2026-07` — not
+ * that it has been verified against `2026-07`'s BEHAVIOUR.
+ *
+ * The REST product/variant endpoints remain deprecated-but-present, "deprecated
+ * as of REST API 2024-04", with the ceiling intact: "Each product can have a
+ * maximum of three options and a maximum of 100 variants." Shopify has announced
+ * NO sunset date for custom apps on REST that stay under it, and this connector
+ * has no GraphQL call anywhere, so that ceiling — not the version — is the thing
+ * that would force a rewrite. `config.maxVariantsPerProduct` defaults to the
+ * same 100 and is what refuses a product above it today.
  */
-export const API_VERSION = '2025-10';
+export const API_VERSION = '2026-07';
 /** Max products per page (Shopify's REST ceiling). */
 const PAGE_LIMIT = 250;
 /**

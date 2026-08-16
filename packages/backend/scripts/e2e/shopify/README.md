@@ -11,37 +11,91 @@ directory may be read as evidence that it is.
 
 ---
 
-## The API version — the retired pin is fixed, the wire shapes are still owed
+## The API version — pinned at `2026-07`, and what that pin rests on
 
-`API_VERSION` in `connectors/shopify/index.ts` is pinned at **`2025-10`**. It was
-`2024-10`, which Shopify stopped serving as itself around **2025-10-16**, so
-`preflight.ts` refused every run (§5) and no run could have said which version it
-measured.
+`API_VERSION` in `connectors/shopify/index.ts` is pinned at **`2026-07`**, the
+newest stable version. The history: `2024-10` retired around 2025-10-16 and
+Shopify fell forward to `2025-10`, so the pin was moved there to match the wire;
+`2025-10` itself stops being served as itself on **2026-10-16 15:00 UTC**.
 
 An unsupported version does **not** 404. Shopify "falls forward and responds
 using the oldest accessible stable version"
 ([versioning](https://shopify.dev/docs/api/usage/versioning)), so every request
-succeeds and the evidence names a version the wire never served.
+succeeds and the evidence names a version the wire never served. That is why
+`preflight.ts` refuses a run past `accessibleUntil` (§5) and why `http.ts` reads
+the served version back.
 
-**`2025-10` is the version the fall-forward was already reaching**, which is the
-whole reason it was chosen: it changes nothing on the wire and makes the pin
-state what Shopify has been serving. It is therefore also the accessible version
-with the LEAST time left on it — `accessibleUntil` in `preflight.ts` derives the
-deadline from Shopify's quarterly cadence and refuses a run past it.
+**Why `2026-07` rather than a quieter step:** the Shopify Partner app's Webhooks
+API version is set to `2026-07`, and REST responses and webhook payloads go
+through the same normalizers. A split between the two feeds one function two
+shapes, which is worse than either version chosen consistently.
 
-**What is still owed, and was NOT settled by that bump:** which version this
-connector should sit on for real. That is a question about observed responses,
-and there is no store to observe (#69 acceptance 7, #286):
+**What was checked before the move**, endpoint by endpoint and field by field,
+against Shopify's CURRENT REST reference — which self-reports
+`api_version: 2026-07` on every page: every endpoint in §3.1 of the runbook is
+documented, and every field the connector's zod schemas REQUIRE is still there.
+The rate-limit contract is unchanged (bucket 40, leak 2/second standard,
+`X-Shopify-Shop-Api-Call-Limit: 32/40`, 429 with a fractional `Retry-After`),
+and so is pagination (`Link` `rel="next"`, `page_info`, `limit` ≤ 250). **No zod
+schema was widened to make the bump pass.**
 
-- REST product/variant endpoints are **deprecated but still present** in the
-  current version, and REST is legacy as of 2024-10-01. A custom app on REST may
-  keep using them **while it needs no more than 100 variants per product**.
-- Anything above 100 variants requires the GraphQL product APIs. The connector
-  is REST-only (no GraphQL call exists anywhere in it).
+**The reference route RESOLVES its version rather than echoing it, and that
+control is what makes the sweep mean anything** — the naive version of this
+check cannot fail. Measured: an ACCESSIBLE version renders itself
+(`2025-10`→2025-10, `2026-04`→2026-04); an INACCESSIBLE one falls back to latest
+(`2019-04`, `2025-01`, `2099-01` all render `2026-07`); an invented resource
+under a valid version hard-404s. One residual degeneracy, stated rather than
+smoothed: for `2026-07` itself "rendered == requested" is weak, since it is also
+the fallback target — but both readings collapse to "2026-07 is the latest
+accessible version", which the schedule and `/latest/` corroborate.
 
-So moving the pin FORWARD of `2025-10` changes what the wire returns for exactly
-the products, variants and orders the connector parses, and belongs with the
-first real run — S2/S3/S4 re-checked against it — rather than ahead of one.
+**So a real version DIFF was possible and one was taken**, on the highest-risk
+resource: `product-variant` at `2025-10` and at `2026-07` carry IDENTICAL field
+lists and both state the 100-variant ceiling. The nested shapes the zod schemas
+actually parse were walked rather than inferred from field names — money set
+`{shop_money:{amount,currency_code}, presentment_money:{…}}`, the order line's
+ten keys, and a product image's `src` and `variant_ids`.
+
+**Inferred rather than read version-scoped:** the rate-limit and pagination
+pages carry NO version segment (`/docs/api/admin-rest/usage/*`), so "unchanged
+in 2026-07" is an inference from an unversioned page.
+
+**What is still NOT established, and none of it is a formality:**
+
+- **No real store has answered.** #69 acceptance 7 remains unmet. The above is
+  Shopify documenting its own API — a statement of intent, not a measurement of
+  the wire. S2/S3/S4 still owe a re-check against a live shop.
+- **Only `product-variant` was diffed across the two versions**; the other nine
+  resources were read at `2026-07` alone.
+- **The per-version release notes are unreachable**:
+  `/docs/api/release-notes/{version}` 404s for every version after `2025-01`,
+  with `2025-01` returning real content as the control (that URL family
+  validates where the reference family falls back). A field that changed
+  MEANING, or became nullable while keeping its name, is invisible here.
+
+Two smaller observations worth carrying, neither load-bearing: the `order`
+resource's example URLs read `/admin/api/latest/…` while its header reports
+`api_version: 2026-07` (a page-authoring quirk, not a version signal), and the
+deprecation notices visible at `2026-07` sit on fields the connector does not
+consume — `cart_token`/`checkout_token` on the order, `county_taxes` and
+`auto_configure_tax_inclusivity` on the shop.
+
+**The measurement that WOULD settle it is already built and needs a shop.**
+`preflight.ts` §5 probes the configured shop and refuses a run on a measured
+mismatch; `http.ts` warns once per shop when the served version differs from the
+requested one. Both are inert until the first real connect — so the honest
+statement about this pin today is that it matches the Partner app's webhook
+version and contradicts nothing Shopify currently publishes, **not** that it has
+been verified against `2026-07`'s behaviour.
+
+The ceiling is unchanged and is the real constraint, not the version: REST
+product/variant endpoints are **deprecated but present** ("deprecated as of REST
+API 2024-04"), REST is legacy as of 2024-10-01, and "Each product can have a
+maximum of three options and a maximum of 100 variants." Shopify has announced
+**no sunset date** for custom apps on REST that stay under it. Above it the
+GraphQL product APIs are mandatory and this connector has no GraphQL call
+anywhere — so a store needing >100 variants on one product is what forces a
+rewrite, whatever the pin says.
 
 **The pin is now read back rather than trusted**, in two places, because a pin
 nobody verifies is a comment:

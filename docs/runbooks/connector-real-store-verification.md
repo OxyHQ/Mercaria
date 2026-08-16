@@ -122,7 +122,26 @@ six hours for the audit.
 ### 3.1 Every endpoint the connector calls
 
 Derived from `packages/backend/src/connectors/shopify/index.ts` (Admin API
-version pinned at the code constant `API_VERSION`, currently **`2025-10`**):
+version pinned at the code constant `API_VERSION`, currently **`2026-07`**,
+matching the Partner app's Webhooks API version so REST responses and webhook
+payloads cannot reach the same normalizers in two shapes):
+
+**One thing this run OWES that no earlier one did (#286).** The pin moved
+`2025-10` → `2026-07` against Shopify's documentation, and documentation is a
+statement of intent rather than a measurement of the wire. Only
+`product-variant` was diffed between the two versions (identical); the other
+nine resources were read at `2026-07` alone, and the per-version release notes
+are unreachable, so **a field that changed MEANING while keeping its name would
+be invisible to everything done so far.** While running S2/S3/S4, capture one
+real `products.json`, `orders.json` and `inventory_levels.json` response body
+and record any field the connector parses that is absent, newly null, or
+differently shaped from `index.ts`'s zod schemas. A parse refusal is the loud
+case and needs no special watching; the quiet case is a field that still
+arrives and no longer means the same thing.
+
+Preflight §5 reads the SERVED version back before anything else runs and
+refuses on a measured mismatch, so a run that starts has already established
+that `2026-07` is what the shop answers with.
 
 | Endpoint | Called by | Scope it needs |
 |---|---|---|
