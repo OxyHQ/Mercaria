@@ -21,7 +21,6 @@ placeholder.
 - `app/(app)/index.tsx` — home (placeholder)
 - `app/(app)/notifications.tsx` — notification feed
 - `app/(app)/settings/*` — settings area
-- `app/(app)/forgot-password.tsx`, `reset-password.tsx` — auth helpers
 
 ## Development
 

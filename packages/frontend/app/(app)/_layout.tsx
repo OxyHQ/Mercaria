@@ -40,8 +40,6 @@ export default function AppLayout() {
         <Stack.Screen name="settings/addresses" />
         <Stack.Screen name="settings/feedback" />
         <Stack.Screen name="notifications" />
-        <Stack.Screen name="forgot-password" />
-        <Stack.Screen name="reset-password" />
       </Stack>
     );
 

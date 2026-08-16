@@ -602,8 +602,6 @@ export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
   // would advertise a surface whose whole content is somebody's money.
   '/referral-partner',
   '/guest-orders/',
-  '/forgot-password',
-  '/reset-password',
   // Collect in person (#93): one page per canonical entity PER POSITION, whose
   // whole content depends on an origin the shopper supplies and a crawler does
   // not have. Every result it could show is already reachable from the

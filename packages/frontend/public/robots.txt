@@ -32,8 +32,6 @@ Disallow: /price-alerts
 Disallow: /shopping-agents
 Disallow: /referral-partner
 Disallow: /guest-orders/
-Disallow: /forgot-password
-Disallow: /reset-password
 Disallow: /nearby
 Disallow: /out/
 Disallow: /internal/
