@@ -179,5 +179,9 @@ statement against these tables is an unqualified DELETE) and
 - **Localization (step 2).** `locale` is a plain `text` column on
   `category_aliases` and on the redirect's slug subject. It is the seam the
   localization family attaches to; nothing here resolves a fallback.
-- **`category_product_type_scopes`**, which ADR 0007 assigns to D5 (step 3).
+- **The product-type ↔ category scope table**, under D5's name
+  `product_type_category_scopes`, owned by the product-type domain (step 3)
+  because the row is frozen with the published version. ADR 0007 names it
+  twice — `category_product_type_scopes` in D2's list, the D5 name in D5 —
+  and the D5 name is the correct one; the D2 spelling is an error in the ADR.
 - **Any HTTP surface.** This step is schema, repository and gates only.
