@@ -25,6 +25,7 @@
     "typecheck:ui": "bun run --filter @mercaria/ui typecheck",
     "lint": "bun run --filter '*' lint",
     "validate:no-mongo": "bun ./scripts/validate-no-mongo.mjs && bun ./scripts/test-validate-no-mongo.mjs",
+    "validate:agents-md": "bun ./scripts/check-agents-md-size.mjs && bun ./scripts/test-check-agents-md-size.mjs",
     "android": "bun run --filter @mercaria/frontend android",
     "ios": "bun run --filter @mercaria/frontend ios",
     "web": "bun run --filter @mercaria/frontend web",

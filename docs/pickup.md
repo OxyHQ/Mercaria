@@ -654,3 +654,18 @@ Stated rather than quietly narrowed.
 - [ ] PostGIS present on the target database (a privileged role installs it once;
       `db/migrate.ts` ensures it and fails with a privilege message rather than
       an unknown-type one).
+
+## Teardown and the trigger-toggle window
+
+This suite's fixtures share the test database with every other realdb file, so
+two rules from `docs/postgres-testing-and-migrations.md` bite here directly:
+
+- **A trigger-toggle window may name exactly ONE table.** The first version of
+  this file's teardown held two in one window and `cd6e8fd`'s census caught it.
+  `DISABLE TRIGGER` takes ShareRowExclusive, whose counterparty is an ordinary
+  writer holding RowExclusive, and `withTriggerToggleLock` only serialises window
+  against window — so it cannot see that party. **Split, never reorder to match a
+  writer.**
+- **Stores go through `deleteTestStores` and canonical rows through
+  `deleteTestCanonicalRows`**, which DECLINE exactly the ids a sibling's
+  `match_decisions` pins rather than deleting somebody else's row.

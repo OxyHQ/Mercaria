@@ -732,3 +732,17 @@ Each is a NAMED contract, not a stub that lies.
 - **Bulk re-mapping of already-observed offers** after an `AWIN_MAPPING_VERSION`
   bump. The version is stamped on every import, which is what makes the sweep
   expressible when somebody needs it.
+
+## What this source added to #63, and what it deliberately did not reuse
+
+#63 was EXTENDED, never forked, in exactly two places, both generic:
+`BuildStageInput.observe` (watch each record as it is mapped, in the ONE pass
+that reads the feed — it returns `void`, the `recordAnalyticsEvent` device, so a
+slow observer cannot join the critical path) and the `no_records_mapped` refusal
+reason. Everything else is CALLED: `buildFeedStage`, `readFeedStagePage`,
+`feedCompletionVerdict`, `mayReportCompleteEnumeration`, `openFeedStream`,
+`FeedImportRefusal`.
+
+#63's CONFIGURATION surface — `resolve.ts`, `configuration.service.ts`,
+`report.service.ts`, `preview.service.ts` — is NOT reused, and a scanned gate
+says so: it reads a merchant-facing table an Awin advertiser has no row in.

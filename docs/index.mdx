@@ -1,26 +1,116 @@
 # Mercaria
 
-A buy/sell marketplace by [Oxy](https://oxy.so) — for new items from shops and
+A buy/sell marketplace by [Oxy](https://oxy.so) — new items from shops and
 secondhand items from people (eBay / Wallapop style).
 
-This documentation covers the **base shell**. The marketplace domain (listings,
-buy/sell, shops, search) is built on top of it — see `HANDOFF.md` in the repo
-root for the deferred work.
+`AGENTS.md` in the repo root carries ONLY rules — the things that break silently
+if you get them wrong — and is bounded at 12 KB by
+`scripts/check-agents-md-size.mjs`. **This directory carries everything else**: per-domain design, rationale, model inventories, runbooks and
+per-issue notes. `packages/backend/src/db/schema/CONVENTIONS.md` binds every
+schema decision. `HANDOFF.md` holds deferred work.
 
 ## Architecture
 
-- `packages/frontend/` — Expo app (React Native + Web), expo-router, NativeWind 5
-- `packages/backend/` — Express backend API (TypeScript, PostgreSQL via drizzle-orm, Socket.IO)
+- `packages/frontend/` · `packages/dashboard/` · `packages/pos/` — Expo apps
+  (React Native + Web), expo-router, NativeWind
+- `packages/ui/` — shared components, consumed from source with no dist
+- `packages/backend/` — Express API (TypeScript, PostgreSQL via drizzle-orm +
+  `@oxyhq/db`, Socket.IO)
+- `packages/shared-types/` — DTOs and every closed value set
 
 Auth and SSO are handled entirely by the Oxy SDK (`@oxyhq/core`,
-`@oxyhq/services`). The backend uses `@oxyhq/core/server`
-middleware. See the repo `AGENTS.md` for the full conventions.
+`@oxyhq/services`); the backend uses `@oxyhq/core/server` middleware, and there
+is no Mercaria service principal — see [auth.md](auth.md).
 
 ## Local development
 
 ```bash
 bun install
 cp packages/backend/.env.example packages/backend/.env
-bun run dev:api    # Express API on :3001
-bun run dev:app    # Expo app
+docker compose -f docker-compose.postgres.yml up -d   # Postgres on :5435
+bun run dev:backend    # Express API on :3001
+bun run dev:frontend   # storefront (also dev:dashboard, dev:pos)
 ```
+
+The full command list is in `AGENTS.md`.
+
+## Binding decisions (ADRs)
+
+| ADR | Subject |
+|---|---|
+| [0001](adr/0001-stripe-connect-architecture.md) | Stripe Connect, the ledger, commission as a residual |
+| [0002](adr/0002-canonical-commerce-graph.md) | The canonical commerce graph |
+| [0003](adr/0003-commerce-actor-guest-identity.md) | `CommerceActor` and guest identity |
+| [0004](adr/0004-mercaria-retail-dropship.md) | Mercaria-retail and dropship |
+| [0005](adr/0005-referral-program.md) | The referral program |
+| [0006](adr/0006-stripe-guest-checkout.md) | Stripe guest checkout |
+
+## Platform
+
+| Area | Doc |
+|---|---|
+| Auth, and why there is no service principal (#164) | [auth.md](auth.md) |
+| Currency and money | [currency.md](currency.md) |
+| Backend domain model, pricing engine, POS | [domain-model.md](domain-model.md) |
+| The patterns every domain here follows | [house-invariants.md](house-invariants.md) |
+| Postgres: shared-test-database traps, migration rebase protocol | [postgres-testing-and-migrations.md](postgres-testing-and-migrations.md) |
+| Deploy topology and the launch handoff | [deploy.md](deploy.md) |
+| Graph query benchmarks and the indexes they justified (#61) | [performance/](performance/) |
+| Runbooks | [runbooks/](runbooks/) |
+
+## Money
+
+| Area | Doc |
+|---|---|
+| Payments, ledger, Stripe, fees (#88), retail on the card rail (#123), guest checkout (#107) | [payments.md](payments.md) |
+| Referrals: attribution (#143) · earnings (#145) · enrollment (#146) · dashboards (#147) · integrity (#148) · pilots (#149) · rewards | [referral-attribution.md](referral-attribution.md) · [referral-earnings.md](referral-earnings.md) · [referral-enrollment.md](referral-enrollment.md) · [referral-dashboards.md](referral-dashboards.md) · [referral-integrity.md](referral-integrity.md) · [referral-pilots.md](referral-pilots.md) · [referral-rewards.md](referral-rewards.md) |
+| Affiliate outbound redirects and commission (#67) | [affiliate-outbound.md](affiliate-outbound.md) |
+
+## The catalogue graph
+
+| Area | Doc |
+|---|---|
+| Relationships (#55), offers (#57), matching (#58) | [commerce-graph.md](commerce-graph.md) |
+| Curation (#59) · backfill (#60) · ingestion framework (#62) | [curation.md](curation.md) · [backfill.md](backfill.md) · [ingestion.md](ingestion.md) |
+| Feed importer (#63) · eBay (#65) · Awin (#66) · offer freshness (#68) | [feed-importer.md](feed-importer.md) · [catalog-sources/](catalog-sources/) · [offer-freshness.md](offer-freshness.md) |
+| Attributes (#94) · condition (#90) · reviews (#76) | [attributes.md](attributes.md) · [condition.md](condition.md) · [reviews.md](reviews.md) |
+
+## Discovery and the shopper
+
+| Area | Doc |
+|---|---|
+| Search (#70) · NL intent (#95) · ranking (#74) · product page (#71) · catalogue pages · SEO | [search.md](search.md) · [search-intent.md](search-intent.md) · [offer-ranking.md](offer-ranking.md) · [product-page.md](product-page.md) · [catalog-pages.md](catalog-pages.md) · [seo.md](seo.md) |
+| Price history (#78) · alerts (#79) · signals (#82) · watchlists (#81) · comparison basket | [price-history.md](price-history.md) · [price-alerts.md](price-alerts.md) · [price-signals.md](price-signals.md) · [watchlists.md](watchlists.md) · [comparison-basket.md](comparison-basket.md) |
+| Product saves (#80) · saved shopping agents (#97) | [product-saves.md](product-saves.md) · [shopping-agents.md](shopping-agents.md) |
+| Location publication, nearby discovery and collection (#93) | [pickup.md](pickup.md) |
+
+## Sellers and merchants
+
+| Area | Doc |
+|---|---|
+| Merchant claiming (#83) · merchant pages (#73) · seller profiles (#92) · sell yours | [merchant-claims.md](merchant-claims.md) · [merchant-pages.md](merchant-pages.md) · [seller-profiles.md](seller-profiles.md) · [sell-yours.md](sell-yours.md) |
+| Activation readiness (#85) · demand · plans · commercial presentation | [merchant-activation.md](merchant-activation.md) · [merchant-demand.md](merchant-demand.md) · [merchant-plans.md](merchant-plans.md) · [commercial-presentation.md](commercial-presentation.md) |
+| Sales channels and connectors (#87, #218–#221, #262) · the #69 contract suite | [channels.md](channels.md) · [connector-verification.md](connector-verification.md) |
+
+## Buyers, guests and orders
+
+| Area | Doc |
+|---|---|
+| Guest sessions/cart/checkout (#103–#105) · orders and buyers (#106) · portal (#108) · claims (#109) · P2P decision (#112) · governance (#111) | [guest-commerce.md](guest-commerce.md) · [orders-buyers.md](orders-buyers.md) · [guest-portal.md](guest-portal.md) · [guest-claims.md](guest-claims.md) · [guest-p2p/](guest-p2p/) · [guest-governance.md](guest-governance.md) |
+| Buyer post-purchase requests (#110) | [buyer-requests.md](buyer-requests.md) |
+| Moderation · discovery analytics (#77) | [moderation.md](moderation.md) · [analytics.md](analytics.md) |
+
+## Mercaria-retail
+
+| Area | Doc |
+|---|---|
+| Pricing (#120) · eligibility (#121) · preflight (#122) | [retail-pricing.md](retail-pricing.md) · [retail-eligibility.md](retail-eligibility.md) · [supplier-preflight.md](supplier-preflight.md) |
+| Purchase orders (#124) · Printful and the pilot (#125) | [purchase-orders.md](purchase-orders.md) · [retail-pilot.md](retail-pilot.md), [suppliers/printful.md](suppliers/printful.md) |
+| Fulfilment (#126) · reconciliation · service requests · the Moovo client (#156) | [retail-fulfilment.md](retail-fulfilment.md) · [retail-reconciliation.md](retail-reconciliation.md) · [retail-service-requests.md](retail-service-requests.md) · [moovo/service-client.md](moovo/service-client.md) |
+
+## Recorded reviews
+
+| Review | Doc |
+|---|---|
+| Analytics privacy and retention | [reviews/2026-08-16-analytics-privacy-retention-review.md](reviews/2026-08-16-analytics-privacy-retention-review.md) |
+| Guest commerce M8 | [reviews/2026-08-16-guest-commerce-m8-review.md](reviews/2026-08-16-guest-commerce-m8-review.md) |

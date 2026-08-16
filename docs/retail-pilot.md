@@ -190,3 +190,10 @@ switch, checked before this gate is reached).
   this domain's publication bound is expressed as a checkout gate rather than as
   an offer filter.
 - **A rollout bucketer** for the `percentage` audience rung, per the note above.
+
+## The seam that makes a Printful item sellable
+
+The procurement-offer projection is NOT built: Printful source records do not yet
+become `procurement_offers`, so no Printful item is sellable at all.
+`retail_pilot_skus.procurement_offer_id` is nullable precisely so a SKU can be
+allow-listed before the offer it names exists.
