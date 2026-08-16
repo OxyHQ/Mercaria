@@ -38,8 +38,8 @@
  *    and no offer ref, so nothing can describe an unpurchasable product as
  *    purchasable (product-comparison rule 8).
  *  - {@link BasketPickupResolution} has no branch carrying a distance, because
- *    #93 publishes no collection points; `best_nearby_pickup` is therefore
- *    unreachable rather than guarded against.
+ *    a basket request carries no viewer position; `best_nearby_pickup` is
+ *    therefore unreachable rather than guarded against.
  *
  * ## What may never enter a recommendation
  *
@@ -960,13 +960,14 @@ export const BASKET_OBJECTIVES: readonly BasketObjective[] = [
 ];
 
 /**
- * A shopper asking for nearby pickup — and the whole of what #93 permits this
- * domain to represent.
+ * A shopper asking for nearby pickup — and the whole of what this domain
+ * represents about it.
  *
- * NO coordinates, NO radius and NO collection point, because #93 publishes
- * none and #74's `resolvePickupProximity` refuses every distance. Inventing a
- * radius here would be inventing #93's data model; carrying a bare request is
- * what lets the solver answer honestly that it cannot serve one.
+ * NO coordinates, NO radius and NO collection point. Not because #93 publishes
+ * none — it has shipped, and `resolvePickupProximity` answers real distances —
+ * but because a basket has no ORIGIN to measure from: a plan is composed from a
+ * saved list, not from where the shopper is standing. Carrying a bare request
+ * is what lets the solver answer honestly that it cannot serve one.
  */
 export interface BasketPickupPreference {
   readonly requested: true;
@@ -1187,8 +1188,8 @@ export interface BasketPlan {
 /**
  * The eight named alternatives the issue asks for (§"Result types").
  *
- * `best_nearby_pickup` is in the tuple and is never produced: #93 publishes no
- * collection points, so the result is always reported as
+ * `best_nearby_pickup` is in the tuple and is never produced: a basket request
+ * carries no viewer position, so the result is always reported as
  * {@link BasketResultRefusal} with `pickup_data_unavailable`. Keeping it in the
  * vocabulary is what makes the seam visible — a result kind that is missing
  * from the tuple is a feature nobody notices is absent.

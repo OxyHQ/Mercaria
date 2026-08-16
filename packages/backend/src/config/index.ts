@@ -1759,8 +1759,9 @@ export interface GuestCheckoutRolloutConfig {
    * `pickup`.
    *
    * The fulfilment-path dimension. `pickup` is already refused for every actor
-   * by the #93 seam, so blocking it changes nothing today; it is on the list
-   * because the lever must exist before the path does, not after.
+   * while `STORE_PICKUP_ENABLED` is off, so blocking it changes nothing in a
+   * default deployment; it is on the list because the lever must exist before
+   * the path does, not after.
    */
   readonly blockedFulfilmentMethods: readonly string[];
   /**

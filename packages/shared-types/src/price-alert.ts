@@ -160,12 +160,16 @@ export const PRICE_ALERT_SELLER_SCOPES: readonly PriceAlertSellerScope[] = [
  * "nearby").
  *
  * `nearby_pickup` is REPRESENTABLE and NOT AVAILABLE — the `role_email` device
- * from #83. #74's `resolvePickupProximity` refuses every request because #93
- * publishes no collection points, so an alert scoped this way could never fire;
- * the write schema therefore refuses the value by NAME rather than accepting a
+ * from #83. STILL blocked after #93, and the reason changed rather than
+ * expiring: collection points are published and `resolvePickupProximity`
+ * answers real distances, but an alert scoped this way needs an ORIGIN to be
+ * near, and `price_alerts` has no latitude, longitude or cell column —
+ * deliberately, because an alert is durable and evaluated by a background loop,
+ * so storing a buyer's position here would be the standing record of where
+ * somebody lives that #93's request-local coarsening exists to avoid. The write
+ * schema therefore refuses the value by NAME rather than accepting a
  * subscription that is silently dead. The value stays in the tuple so that the
- * column, the CHECK and the evaluator's block reason all exist for it, and
- * turning it on is #93 registering a proximity source and one line here.
+ * column, the CHECK and the evaluator's block reason all exist for it.
  */
 export type PriceAlertProximityScope = 'any' | 'nearby_pickup';
 

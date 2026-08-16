@@ -89,9 +89,9 @@ reads as coverage.
 shopper can act on. The one worth reading is `unsupported_by_retrieval` — a
 requirement Mercaria understood COMPLETELY and cannot enforce, which is a
 different failure from not having understood it. A nearby request is exactly
-that: #70's request contract has no proximity parameter because #93 supplies no
-pickup publication or collectable-inventory state, so "cerca de mí" is reported
-rather than accepted-and-ignored. A filter that silently changed nothing would
+that: #93 landed pickup publication and gave #70 a `nearby` filter, but an
+intent request carries TEXT and no ORIGIN to measure from, so "cerca de mí" is
+reported rather than accepted-and-ignored. A filter that silently changed nothing would
 read as a working feature.
 
 ### Hard constraints are never silently weakened during retrieval

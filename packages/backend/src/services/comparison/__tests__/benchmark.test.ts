@@ -524,7 +524,8 @@ describe('scenario 8 — used and refurbished constraints', () => {
 
 describe('scenario 9 — nearby pickup', () => {
   it('is ALWAYS refused, with or without a preference, and says why', () => {
-    // #93 publishes no collection points; a plan claiming one would be the only
+    // A basket request carries no viewer position, so every item resolves
+    // `viewer_location_absent`; a plan claiming a distance would be the only
     // fabricated fact in the domain. It is refused whether or not the shopper
     // asked, so "we cannot do this" is distinguishable from "you did not ask".
     for (const request of [

@@ -521,11 +521,11 @@ enforcement:
 
 - **No `boost`, `pin`, `promote`, `sponsored` or `sort`.** A request able to name
   a weight would be a ranking surface a caller controls.
-- **No `near` / `lat` / `lng` / `radius`.** #93 supplies no collectable
-  inventory or pickup publication state, so a proximity filter would accept a
-  parameter and change nothing. The native listing search keeps its own `near` —
-  that filter is a fact about a LISTING, which has coordinates, and not about a
-  canonical product, which does not.
+- **No `near` / `lat` / `lng` / `radius`.** Not because #93 supplies no pickup
+  state — it has landed — but because proximity is not a fact about a CANONICAL
+  PRODUCT. The native listing search keeps its own `near`: that filter is a fact
+  about a LISTING, which has coordinates, and not about a canonical product,
+  which does not.
 - **No `includeStale`.** `GET /offers` has one because an operator investigating
   a lapsed offer needs to see it; a discovery surface has no such caller, and a
   parameter that could put an expired price on a search page is exactly what

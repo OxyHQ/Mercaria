@@ -310,11 +310,12 @@ export type SellerMatchGateOutcome =
  * What the seller says about collection (#91 seller-owned field 8).
  *
  * `offered` is REPRESENTABLE and REFUSED at publication under
- * `pickup_not_supported`, the `role_email` device: #93 owns pickup publication,
- * freshness and collectable inventory, and #105's `assertPickupLocationEligible`
- * already refuses every pickup for the same reason. Modelling it as
- * unrepresentable would hide the gap; accepting it and publishing a listing
- * whose pickup nothing honours would be worse.
+ * `pickup_not_supported`, the `role_email` device. #93 has since landed pickup
+ * publication, freshness and collectable inventory, so the refusal rests on a
+ * LEVER rather than on missing facts: `STORE_PICKUP_ENABLED` defaults off and
+ * `resolvePickupForCheckout` refuses every pickup naming `store_pickup_disabled`.
+ * Modelling it as unrepresentable would hide the gap; accepting it and
+ * publishing a listing whose pickup nothing honours would be worse.
  */
 export type SellerPickupAvailability = 'not_offered' | 'offered';
 

@@ -7,10 +7,11 @@
  *
  *  - **No schema carries `proximityScope: 'nearby_pickup'`.** The value is in
  *    the tuple, the column and the CHECK, and the ENUM below is a NARROWER
- *    subset — the `role_email` device from #83. #74's `resolvePickupProximity`
- *    refuses every request because #93 publishes no collection points, so an
- *    alert scoped that way could never fire, and accepting a subscription that
- *    is silently dead is worse than refusing it by name.
+ *    subset — the `role_email` device from #83. Still blocked after #93, for a
+ *    reason that CHANGED rather than expiring: an alert scoped that way needs an
+ *    ORIGIN to be near and `price_alerts` stores no position, deliberately (see
+ *    `qualification.ts`). Accepting a subscription that is silently dead is
+ *    worse than refusing it by name.
  *  - **No schema carries an email ADDRESS.** `emailOptIn` is a boolean; where
  *    the address would come from is #79's open question and this domain stores
  *    none (`transport.ts`). A field able to carry one would be the first half

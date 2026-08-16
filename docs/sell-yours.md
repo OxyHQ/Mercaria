@@ -255,10 +255,11 @@ tie a publication's success to a projection's.
   call about condition reason codes). A write-only encrypted column with no
   reviewer carries every risk of holding somebody's serial number and none of the
   benefit.
-- **Collection is representable and refused** (`pickup_not_supported`). #93 owns
-  pickup publication, freshness and collectable inventory, and #105's
-  `assertPickupLocationEligible` already refuses every pickup at checkout against
-  the same missing facts. Publishing a listing whose collection nothing honours
+- **Collection is representable and refused** (`pickup_not_supported`). #93 has
+  since landed publication, freshness and collectable inventory, so the refusal
+  no longer rests on missing facts — it rests on a LEVER: `STORE_PICKUP_ENABLED`
+  defaults off, and `resolvePickupForCheckout` refuses every pickup naming
+  `store_pickup_disabled`. Publishing a listing whose collection nothing honours
   would be worse than saying so.
 - **#82's price signals are a named seam that fails closed.**
   `registerSellerPriceSignalProvider` is called by nothing, and the default

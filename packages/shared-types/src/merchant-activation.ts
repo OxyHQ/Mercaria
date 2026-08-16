@@ -40,8 +40,8 @@
  *
  * `satisfied | unsatisfied | unevaluable`, the #112 vocabulary. `unevaluable`
  * is never a soft yes: it means Mercaria cannot answer the question in this
- * deployment at all (no transactional transport exists, #93 publishes no pickup
- * state), which routes differently from a merchant who has simply not finished
+ * deployment at all (no transactional transport exists), which routes
+ * differently from a merchant who has simply not finished
  * — one is a build to do, the other is a form to fill in — and BOTH withhold
  * the capability.
  *

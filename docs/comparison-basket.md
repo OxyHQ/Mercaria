@@ -493,10 +493,11 @@ lever being off.
 Each is a named contract that fails closed, not a stub that lies:
 
 - **#93 (pickup and distance)** — `BasketPickupPreference` is `{ requested:
-  true }` and carries no coordinates and no radius, because #93 owns that data
-  model and publishes none. `best_nearby_pickup` is refused whether or not the
-  shopper asked, so "we cannot do this" stays distinguishable from "you did not
-  ask".
+  true }` and carries no coordinates and no radius. Not because #93 publishes
+  none — it has shipped — but because a basket has no ORIGIN to measure from: a
+  plan is composed from a saved list, not from where the shopper is standing.
+  `best_nearby_pickup` is refused whether or not the shopper asked, so "we
+  cannot do this" stays distinguishable from "you did not ask".
 - **An offer-side TAX-INCLUSION column** — #74's `resolveOfferTaxInclusion` is
   one function body, and `cheapest_known_total` becomes reachable the day it is
   replaced.
