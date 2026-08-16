@@ -124,6 +124,7 @@ CREATE INDEX "product_type_fields_layout_idx" ON "product_type_fields" USING btr
 CREATE INDEX "product_type_fields_attribute_idx" ON "product_type_fields" USING btree ("attribute_key","attribute_definition_version");
 
 --> statement-breakpoint
+-- oxy:handwritten-begin=mercaria_product_type_definition_immutable
 -- A published product-type VERSION is frozen (ADR 0007 D5), by the mechanism
 -- `fee_schedules_immutable_once_active` (#88) and
 -- `attribute_definitions_immutable_once_published` (#94) already use. Third use,
@@ -191,8 +192,11 @@ $$ LANGUAGE plpgsql;--> statement-breakpoint
 DROP TRIGGER IF EXISTS product_type_definitions_immutable_once_published ON "product_type_definitions";--> statement-breakpoint
 CREATE TRIGGER product_type_definitions_immutable_once_published
   BEFORE UPDATE OR DELETE ON "product_type_definitions"
-  FOR EACH ROW EXECUTE FUNCTION mercaria_product_type_definition_immutable();--> statement-breakpoint
+  FOR EACH ROW EXECUTE FUNCTION mercaria_product_type_definition_immutable();
+-- oxy:handwritten-end=mercaria_product_type_definition_immutable
+--> statement-breakpoint
 
+-- oxy:handwritten-begin=mercaria_product_type_child_frozen
 -- The CHILDREN of a published version are frozen too, and for the same reason:
 -- a schema whose field list, groups or category eligibility could change after
 -- publication is not a version, it is a mutable document wearing a version
@@ -238,8 +242,11 @@ CREATE TRIGGER product_type_category_scopes_frozen
 DROP TRIGGER IF EXISTS product_type_fields_frozen ON "product_type_fields";--> statement-breakpoint
 CREATE TRIGGER product_type_fields_frozen
   BEFORE INSERT OR UPDATE OR DELETE ON "product_type_fields"
-  FOR EACH ROW EXECUTE FUNCTION mercaria_product_type_child_frozen();--> statement-breakpoint
+  FOR EACH ROW EXECUTE FUNCTION mercaria_product_type_child_frozen();
+-- oxy:handwritten-end=mercaria_product_type_child_frozen
+--> statement-breakpoint
 
+-- oxy:handwritten-begin=mercaria_product_type_field_citation
 -- The two CROSS-ROW rules on `product_type_fields`. Both are triggers rather
 -- than CHECKs because a CHECK may not contain a subquery, and both are here
 -- rather than in a service because a rule that lives only in a service is one
@@ -309,3 +316,4 @@ DROP TRIGGER IF EXISTS product_type_fields_citation ON "product_type_fields";-->
 CREATE TRIGGER product_type_fields_citation
   BEFORE INSERT OR UPDATE ON "product_type_fields"
   FOR EACH ROW EXECUTE FUNCTION mercaria_product_type_field_citation();
+-- oxy:handwritten-end=mercaria_product_type_field_citation
