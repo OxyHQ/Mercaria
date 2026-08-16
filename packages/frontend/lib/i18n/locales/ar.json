@@ -1,0 +1,156 @@
+{
+  "common": {
+    "or": "أو",
+    "loading": "جارٍ التحميل...",
+    "error": "خطأ",
+    "success": "تم بنجاح",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "save": "حفظ",
+    "saving": "جارٍ الحفظ...",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "close": "إغلاق",
+    "back": "رجوع",
+    "create": "إنشاء",
+    "search": "بحث...",
+    "comingSoon": "قريبًا!",
+    "noResults": "لا توجد نتائج",
+    "user": "المستخدم",
+    "done": "تم",
+    "tryAgain": "إعادة المحاولة",
+    "processing": "جارٍ المعالجة..."
+  },
+  "home": {
+    "title": "Mercaria",
+    "emptyTitle": "Mercaria قريبًا",
+    "emptySubtitle": "اشترِ وبِع المنتجات الجديدة والمستعملة — ستظهر الإعلانات هنا."
+  },
+  "nav": {
+    "home": "الرئيسية",
+    "settings": "الإعدادات"
+  },
+  "login": {
+    "title": "تسجيل الدخول أو إنشاء حساب",
+    "subtitle": "للمتابعة إلى Mercaria",
+    "emailPlaceholder": "البريد الإلكتروني",
+    "passwordPlaceholder": "كلمة المرور",
+    "forgotPassword": "هل نسيت كلمة المرور؟",
+    "signInButton": "تسجيل الدخول",
+    "signingIn": "جارٍ تسجيل الدخول...",
+    "footerText": "ليس لديك حساب؟",
+    "footerLink": "إنشاء حساب",
+    "termsPrefix": "بالمتابعة، فإنك توافق على اتفاقيات Mercaria، بما في ذلك ",
+    "termsOfService": "شروط الخدمة",
+    "termsAnd": " و",
+    "privacyPolicy": "سياسة الخصوصية"
+  },
+  "register": {
+    "title": "إنشاء حساب Oxy",
+    "subtitle": "سجّل لتبدأ استخدام Mercaria",
+    "firstNamePlaceholder": "الاسم الأول",
+    "lastNamePlaceholder": "اسم العائلة (اختياري)",
+    "emailPlaceholder": "البريد الإلكتروني",
+    "passwordPlaceholder": "كلمة المرور (8 أحرف على الأقل)",
+    "confirmPasswordPlaceholder": "تأكيد كلمة المرور",
+    "createAccountButton": "متابعة",
+    "creatingAccount": "جارٍ إنشاء الحساب...",
+    "footerText": "لديك حساب بالفعل؟",
+    "footerLink": "تسجيل الدخول",
+    "termsPrefix": "بالمتابعة، فإنك توافق على اتفاقيات Oxy، بما في ذلك ",
+    "termsOfService": "شروط الخدمة",
+    "termsAnd": " و",
+    "privacyPolicy": "سياسة الخصوصية"
+  },
+  "errors": {
+    "passwordRequired": "يرجى إدخال كلمة المرور",
+    "loginFailed": "تعذّر تسجيل الدخول",
+    "loginError": "خطأ في تسجيل الدخول",
+    "failedToLogin": "تعذّر تسجيل الدخول. يرجى المحاولة مرة أخرى.",
+    "registrationError": "خطأ في إنشاء الحساب",
+    "registrationFailed": "تعذّر إنشاء الحساب",
+    "failedToRegister": "تعذّر إكمال التسجيل. يرجى المحاولة مرة أخرى."
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "subtitle": "إدارة تفضيلاتك في Mercaria",
+    "account": {
+      "title": "إعدادات الحساب",
+      "description": "إدارة حسابك"
+    },
+    "appLanguage": {
+      "title": "لغة التطبيق",
+      "description": "غيّر لغة عرض التطبيق"
+    },
+    "appearance": {
+      "title": "المظهر",
+      "description": "اختر نظام الألوان الذي تفضّله",
+      "light": "فاتح",
+      "dark": "داكن",
+      "system": "حسب النظام"
+    },
+    "accentColor": {
+      "title": "لون التطبيق"
+    },
+    "sections": {
+      "account": "الحساب",
+      "general": "عام",
+      "orders": "الطلبات",
+      "addresses": "العناوين",
+      "feedback": "الملاحظات",
+      "watchlists": "قوائم المتابعة",
+      "shoppingAgents": "مساعدو التسوّق",
+      "referralPartner": "برنامج الإحالة"
+    }
+  },
+  "sidebar": {
+    "account": "الحساب",
+    "settings": "الإعدادات",
+    "logOut": "تسجيل الخروج",
+    "termsOfService": "شروط الخدمة",
+    "privacyPolicy": "سياسة الخصوصية"
+  },
+  "feedback": {
+    "title": "إرسال ملاحظات",
+    "subtitle": "ساعدنا في تحسين Mercaria",
+    "typeQuestion": "ما نوع الملاحظات؟",
+    "bugReport": "الإبلاغ عن خلل",
+    "bugDescription": "هناك شيء معطّل أو لا يعمل",
+    "featureRequest": "اقتراح ميزة",
+    "featureDescription": "اقترح ميزة جديدة",
+    "improvement": "تحسين",
+    "improvementDescription": "طوّر ميزة موجودة",
+    "other": "أخرى",
+    "otherDescription": "ملاحظات أو تعليقات عامة",
+    "rateExperience": "كيف تقيّم تجربتك؟ (اختياري)",
+    "veryPoor": "سيئة جدًا",
+    "poor": "سيئة",
+    "average": "متوسطة",
+    "good": "جيدة",
+    "excellent": "ممتازة",
+    "yourFeedback": "ملاحظاتك",
+    "bugPlaceholder": "صف الخلل الذي واجهته. ماذا حدث؟ وما الذي كنت تتوقعه؟",
+    "featurePlaceholder": "صف الميزة التي تودّ رؤيتها. كيف ستفيدك؟",
+    "improvementPlaceholder": "ما الذي تودّ أن نحسّنه؟ وكيف يمكننا جعله أفضل؟",
+    "otherPlaceholder": "شاركنا أفكارك...",
+    "characterCount": "{{count}}/1000 حرف",
+    "submitButton": "إرسال الملاحظات",
+    "submitting": "جارٍ الإرسال...",
+    "footerText": "ملاحظاتك تساعدنا على تحسين Mercaria. شكرًا لأنك خصّصت وقتًا لمشاركتها.",
+    "selectType": "يرجى اختيار نوع الملاحظات",
+    "enterMessage": "يرجى كتابة ملاحظاتك",
+    "moreDetails": "يرجى تقديم تفاصيل أكثر (10 أحرف على الأقل)",
+    "thankYou": "شكرًا على ملاحظاتك!",
+    "submitFailed": "تعذّر إرسال الملاحظات"
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "subtitle": "إدارة تفضيلات الإشعارات",
+    "pushNotifications": "الإشعارات الفورية",
+    "pushDescription": "استقبل تنبيهات بالرسائل الجديدة والتحديثات",
+    "permissionDenied": "الإشعارات محظورة. فعّلها من إعدادات جهازك لتصلك الإشعارات الفورية."
+  },
+  "welcome": {
+    "appName": "Mercaria"
+  }
+}

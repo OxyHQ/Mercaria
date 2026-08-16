@@ -1,0 +1,156 @@
+{
+  "common": {
+    "or": "または",
+    "loading": "読み込み中…",
+    "error": "エラー",
+    "success": "完了しました",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "save": "保存",
+    "saving": "保存中…",
+    "delete": "削除",
+    "edit": "編集",
+    "close": "閉じる",
+    "back": "戻る",
+    "create": "作成",
+    "search": "検索…",
+    "comingSoon": "近日公開！",
+    "noResults": "結果が見つかりません",
+    "user": "ユーザー",
+    "done": "完了",
+    "tryAgain": "再試行",
+    "processing": "処理中…"
+  },
+  "home": {
+    "title": "Mercaria",
+    "emptyTitle": "Mercaria は近日公開",
+    "emptySubtitle": "新品も中古も、売って買える。出品はここに表示されます。"
+  },
+  "nav": {
+    "home": "ホーム",
+    "settings": "設定"
+  },
+  "login": {
+    "title": "ログインまたは新規登録",
+    "subtitle": "Mercaria を続けるには",
+    "emailPlaceholder": "メールアドレス",
+    "passwordPlaceholder": "パスワード",
+    "forgotPassword": "パスワードをお忘れですか？",
+    "signInButton": "ログイン",
+    "signingIn": "ログインしています…",
+    "footerText": "アカウントをお持ちでないですか？",
+    "footerLink": "新規登録",
+    "termsPrefix": "続行すると、以下に同意したものとみなされます：Mercaria の",
+    "termsOfService": "利用規約",
+    "termsAnd": "および",
+    "privacyPolicy": "プライバシーポリシー"
+  },
+  "register": {
+    "title": "Oxy アカウントを作成",
+    "subtitle": "登録して Mercaria を使い始めましょう",
+    "firstNamePlaceholder": "名",
+    "lastNamePlaceholder": "姓（任意）",
+    "emailPlaceholder": "メールアドレス",
+    "passwordPlaceholder": "パスワード（8 文字以上）",
+    "confirmPasswordPlaceholder": "パスワードを再入力",
+    "createAccountButton": "続ける",
+    "creatingAccount": "アカウントを作成しています…",
+    "footerText": "すでにアカウントをお持ちですか？",
+    "footerLink": "ログイン",
+    "termsPrefix": "続行すると、以下に同意したものとみなされます：Oxy の",
+    "termsOfService": "利用規約",
+    "termsAnd": "および",
+    "privacyPolicy": "プライバシーポリシー"
+  },
+  "errors": {
+    "passwordRequired": "パスワードを入力してください",
+    "loginFailed": "ログインできませんでした",
+    "loginError": "ログインエラー",
+    "failedToLogin": "ログインできませんでした。もう一度お試しください。",
+    "registrationError": "登録エラー",
+    "registrationFailed": "登録できませんでした",
+    "failedToRegister": "登録できませんでした。もう一度お試しください。"
+  },
+  "settings": {
+    "title": "設定",
+    "subtitle": "Mercaria の設定を管理します",
+    "account": {
+      "title": "アカウント設定",
+      "description": "アカウントを管理します"
+    },
+    "appLanguage": {
+      "title": "アプリの言語",
+      "description": "アプリの表示言語を変更します"
+    },
+    "appearance": {
+      "title": "外観",
+      "description": "お好みの配色を選択します",
+      "light": "ライト",
+      "dark": "ダーク",
+      "system": "システムに合わせる"
+    },
+    "accentColor": {
+      "title": "アプリのカラー"
+    },
+    "sections": {
+      "account": "アカウント",
+      "general": "一般",
+      "orders": "注文",
+      "addresses": "住所",
+      "feedback": "フィードバック",
+      "watchlists": "ウォッチリスト",
+      "shoppingAgents": "ショッピングアシスタント",
+      "referralPartner": "紹介プログラム"
+    }
+  },
+  "sidebar": {
+    "account": "アカウント",
+    "settings": "設定",
+    "logOut": "ログアウト",
+    "termsOfService": "利用規約",
+    "privacyPolicy": "プライバシーポリシー"
+  },
+  "feedback": {
+    "title": "フィードバックを送る",
+    "subtitle": "Mercaria の改善にご協力ください",
+    "typeQuestion": "どの種類のフィードバックですか？",
+    "bugReport": "不具合の報告",
+    "bugDescription": "壊れている、または動作しない",
+    "featureRequest": "機能のリクエスト",
+    "featureDescription": "新しい機能を提案する",
+    "improvement": "改善の提案",
+    "improvementDescription": "既存の機能をより良くする",
+    "other": "その他",
+    "otherDescription": "全般的なご意見・ご感想",
+    "rateExperience": "今回の体験を評価してください（任意）",
+    "veryPoor": "とても悪い",
+    "poor": "悪い",
+    "average": "ふつう",
+    "good": "良い",
+    "excellent": "とても良い",
+    "yourFeedback": "フィードバックの内容",
+    "bugPlaceholder": "発生した不具合をご記入ください。何が起きましたか？どうなると思っていましたか？",
+    "featurePlaceholder": "ご希望の機能をご記入ください。どのように役立ちますか？",
+    "improvementPlaceholder": "どこを改善してほしいですか？どうすればもっと良くなりますか？",
+    "otherPlaceholder": "ご意見をお聞かせください…",
+    "characterCount": "{{count}}/1000 文字",
+    "submitButton": "フィードバックを送信",
+    "submitting": "送信中…",
+    "footerText": "いただいたフィードバックは Mercaria の改善に役立てます。お時間をいただきありがとうございます。",
+    "selectType": "フィードバックの種類を選択してください",
+    "enterMessage": "フィードバックの内容を入力してください",
+    "moreDetails": "もう少し詳しくご記入ください（10 文字以上）",
+    "thankYou": "フィードバックをありがとうございます！",
+    "submitFailed": "フィードバックを送信できませんでした"
+  },
+  "notifications": {
+    "title": "通知",
+    "subtitle": "通知の設定を管理します",
+    "pushNotifications": "プッシュ通知",
+    "pushDescription": "新着メッセージや更新のお知らせを受け取ります",
+    "permissionDenied": "通知がブロックされています。プッシュ通知を受け取るには、デバイスの設定で有効にしてください。"
+  },
+  "welcome": {
+    "appName": "Mercaria"
+  }
+}

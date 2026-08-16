@@ -1,0 +1,156 @@
+{
+  "common": {
+    "or": "ODER",
+    "loading": "Wird geladen...",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "cancel": "Abbrechen",
+    "confirm": "Bestätigen",
+    "save": "Speichern",
+    "saving": "Wird gespeichert...",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "back": "Zurück",
+    "create": "Erstellen",
+    "search": "Suchen...",
+    "comingSoon": "Demnächst verfügbar!",
+    "noResults": "Keine Ergebnisse gefunden",
+    "user": "Nutzer",
+    "done": "Fertig",
+    "tryAgain": "Erneut versuchen",
+    "processing": "Wird verarbeitet..."
+  },
+  "home": {
+    "title": "Mercaria",
+    "emptyTitle": "Mercaria kommt bald",
+    "emptySubtitle": "Kaufe und verkaufe Neues und Gebrauchtes — Anzeigen erscheinen hier."
+  },
+  "nav": {
+    "home": "Start",
+    "settings": "Einstellungen"
+  },
+  "login": {
+    "title": "Anmelden oder registrieren",
+    "subtitle": "um bei Mercaria fortzufahren",
+    "emailPlaceholder": "E-Mail",
+    "passwordPlaceholder": "Passwort",
+    "forgotPassword": "Passwort vergessen?",
+    "signInButton": "Anmelden",
+    "signingIn": "Anmeldung läuft...",
+    "footerText": "Noch kein Konto?",
+    "footerLink": "Registrieren",
+    "termsPrefix": "Wenn du fortfährst, akzeptierst du die ",
+    "termsOfService": "Nutzungsbedingungen von Mercaria",
+    "termsAnd": " und die ",
+    "privacyPolicy": "Datenschutzerklärung"
+  },
+  "register": {
+    "title": "Oxy-Konto erstellen",
+    "subtitle": "Registriere dich, um mit Mercaria zu starten",
+    "firstNamePlaceholder": "Vorname",
+    "lastNamePlaceholder": "Nachname (optional)",
+    "emailPlaceholder": "E-Mail",
+    "passwordPlaceholder": "Passwort (mind. 8 Zeichen)",
+    "confirmPasswordPlaceholder": "Passwort bestätigen",
+    "createAccountButton": "Weiter",
+    "creatingAccount": "Konto wird erstellt...",
+    "footerText": "Du hast bereits ein Konto?",
+    "footerLink": "Anmelden",
+    "termsPrefix": "Wenn du fortfährst, akzeptierst du die ",
+    "termsOfService": "Nutzungsbedingungen von Oxy",
+    "termsAnd": " und die ",
+    "privacyPolicy": "Datenschutzerklärung"
+  },
+  "errors": {
+    "passwordRequired": "Bitte gib dein Passwort ein",
+    "loginFailed": "Anmeldung fehlgeschlagen",
+    "loginError": "Anmeldefehler",
+    "failedToLogin": "Anmeldung nicht möglich. Bitte versuche es erneut.",
+    "registrationError": "Registrierungsfehler",
+    "registrationFailed": "Registrierung fehlgeschlagen",
+    "failedToRegister": "Registrierung nicht möglich. Bitte versuche es erneut."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "subtitle": "Verwalte deine Mercaria-Einstellungen",
+    "account": {
+      "title": "Kontoeinstellungen",
+      "description": "Verwalte dein Konto"
+    },
+    "appLanguage": {
+      "title": "App-Sprache",
+      "description": "Ändere die Anzeigesprache der App"
+    },
+    "appearance": {
+      "title": "Darstellung",
+      "description": "Wähle dein bevorzugtes Farbschema",
+      "light": "Hell",
+      "dark": "Dunkel",
+      "system": "System"
+    },
+    "accentColor": {
+      "title": "App-Farbe"
+    },
+    "sections": {
+      "account": "Konto",
+      "general": "Allgemein",
+      "orders": "Bestellungen",
+      "addresses": "Adressen",
+      "feedback": "Feedback",
+      "watchlists": "Merklisten",
+      "shoppingAgents": "Einkaufsassistenten",
+      "referralPartner": "Empfehlungsprogramm"
+    }
+  },
+  "sidebar": {
+    "account": "Konto",
+    "settings": "Einstellungen",
+    "logOut": "Abmelden",
+    "termsOfService": "Nutzungsbedingungen",
+    "privacyPolicy": "Datenschutzerklärung"
+  },
+  "feedback": {
+    "title": "Feedback senden",
+    "subtitle": "Hilf uns, Mercaria besser zu machen",
+    "typeQuestion": "Um welche Art von Feedback geht es?",
+    "bugReport": "Fehler melden",
+    "bugDescription": "Etwas ist kaputt oder funktioniert nicht",
+    "featureRequest": "Funktionswunsch",
+    "featureDescription": "Schlage eine neue Funktion vor",
+    "improvement": "Verbesserung",
+    "improvementDescription": "Bestehende Funktionen verbessern",
+    "other": "Sonstiges",
+    "otherDescription": "Allgemeines Feedback oder Anmerkungen",
+    "rateExperience": "Wie bewertest du deine Erfahrung? (Optional)",
+    "veryPoor": "Sehr schlecht",
+    "poor": "Schlecht",
+    "average": "Durchschnittlich",
+    "good": "Gut",
+    "excellent": "Ausgezeichnet",
+    "yourFeedback": "Dein Feedback",
+    "bugPlaceholder": "Beschreibe den Fehler. Was ist passiert? Was hättest du erwartet?",
+    "featurePlaceholder": "Beschreibe die gewünschte Funktion. Wie würde sie dir helfen?",
+    "improvementPlaceholder": "Was sollen wir verbessern? Wie könnten wir es besser machen?",
+    "otherPlaceholder": "Teile uns deine Gedanken mit...",
+    "characterCount": "{{count}}/1000 Zeichen",
+    "submitButton": "Feedback senden",
+    "submitting": "Wird gesendet...",
+    "footerText": "Dein Feedback hilft uns, Mercaria zu verbessern. Danke, dass du dir die Zeit nimmst.",
+    "selectType": "Bitte wähle eine Feedback-Art",
+    "enterMessage": "Bitte gib dein Feedback ein",
+    "moreDetails": "Bitte gib mehr Details an (mindestens 10 Zeichen)",
+    "thankYou": "Danke für dein Feedback!",
+    "submitFailed": "Feedback konnte nicht gesendet werden"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "subtitle": "Verwalte deine Benachrichtigungseinstellungen",
+    "pushNotifications": "Push-Benachrichtigungen",
+    "pushDescription": "Erhalte Hinweise zu neuen Nachrichten und Updates",
+    "permissionDenied": "Benachrichtigungen sind blockiert. Aktiviere sie in den Einstellungen deines Geräts, um Push-Benachrichtigungen zu erhalten."
+  },
+  "welcome": {
+    "appName": "Mercaria"
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "common": {
+    "or": "OU",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "success": "Sucesso",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "save": "Salvar",
+    "saving": "Salvando...",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "close": "Fechar",
+    "back": "Voltar",
+    "create": "Criar",
+    "search": "Buscar...",
+    "comingSoon": "Em breve!",
+    "noResults": "Nenhum resultado encontrado",
+    "user": "Usuário",
+    "done": "Concluído",
+    "tryAgain": "Tentar de novo",
+    "processing": "Processando..."
+  },
+  "home": {
+    "title": "Mercaria",
+    "emptyTitle": "O Mercaria chega em breve",
+    "emptySubtitle": "Compre e venda itens novos e usados — os anúncios vão aparecer aqui."
+  },
+  "nav": {
+    "home": "Início",
+    "settings": "Configurações"
+  },
+  "login": {
+    "title": "Entrar ou criar conta",
+    "subtitle": "para continuar no Mercaria",
+    "emailPlaceholder": "E-mail",
+    "passwordPlaceholder": "Senha",
+    "forgotPassword": "Esqueceu a senha?",
+    "signInButton": "Entrar",
+    "signingIn": "Entrando...",
+    "footerText": "Ainda não tem uma conta?",
+    "footerLink": "Criar conta",
+    "termsPrefix": "Ao continuar, você concorda com os ",
+    "termsOfService": "Termos de Serviço do Mercaria",
+    "termsAnd": " e a ",
+    "privacyPolicy": "Política de Privacidade"
+  },
+  "register": {
+    "title": "Criar conta Oxy",
+    "subtitle": "Cadastre-se para começar a usar o Mercaria",
+    "firstNamePlaceholder": "Nome",
+    "lastNamePlaceholder": "Sobrenome (opcional)",
+    "emailPlaceholder": "E-mail",
+    "passwordPlaceholder": "Senha (mín. 8 caracteres)",
+    "confirmPasswordPlaceholder": "Confirmar senha",
+    "createAccountButton": "Continuar",
+    "creatingAccount": "Criando conta...",
+    "footerText": "Já tem uma conta?",
+    "footerLink": "Entrar",
+    "termsPrefix": "Ao continuar, você concorda com os ",
+    "termsOfService": "Termos de Serviço da Oxy",
+    "termsAnd": " e a ",
+    "privacyPolicy": "Política de Privacidade"
+  },
+  "errors": {
+    "passwordRequired": "Digite sua senha",
+    "loginFailed": "Falha ao entrar",
+    "loginError": "Erro ao entrar",
+    "failedToLogin": "Não foi possível entrar. Tente de novo.",
+    "registrationError": "Erro no cadastro",
+    "registrationFailed": "Falha no cadastro",
+    "failedToRegister": "Não foi possível criar a conta. Tente de novo."
+  },
+  "settings": {
+    "title": "Configurações",
+    "subtitle": "Gerencie suas preferências do Mercaria",
+    "account": {
+      "title": "Configurações da conta",
+      "description": "Gerencie sua conta"
+    },
+    "appLanguage": {
+      "title": "Idioma do app",
+      "description": "Altere o idioma de exibição do app"
+    },
+    "appearance": {
+      "title": "Aparência",
+      "description": "Escolha seu esquema de cores preferido",
+      "light": "Claro",
+      "dark": "Escuro",
+      "system": "Sistema"
+    },
+    "accentColor": {
+      "title": "Cor do app"
+    },
+    "sections": {
+      "account": "Conta",
+      "general": "Geral",
+      "orders": "Pedidos",
+      "addresses": "Endereços",
+      "feedback": "Feedback",
+      "watchlists": "Listas de interesse",
+      "shoppingAgents": "Assistentes de compra",
+      "referralPartner": "Programa de indicação"
+    }
+  },
+  "sidebar": {
+    "account": "Conta",
+    "settings": "Configurações",
+    "logOut": "Sair",
+    "termsOfService": "Termos de Serviço",
+    "privacyPolicy": "Política de Privacidade"
+  },
+  "feedback": {
+    "title": "Enviar feedback",
+    "subtitle": "Ajude a melhorar o Mercaria",
+    "typeQuestion": "Que tipo de feedback?",
+    "bugReport": "Relatar problema",
+    "bugDescription": "Algo quebrou ou não está funcionando",
+    "featureRequest": "Sugestão de recurso",
+    "featureDescription": "Sugira um novo recurso",
+    "improvement": "Melhoria",
+    "improvementDescription": "Aprimore algo que já existe",
+    "other": "Outro",
+    "otherDescription": "Comentários gerais",
+    "rateExperience": "Como você avalia sua experiência? (Opcional)",
+    "veryPoor": "Muito ruim",
+    "poor": "Ruim",
+    "average": "Regular",
+    "good": "Boa",
+    "excellent": "Excelente",
+    "yourFeedback": "Seu feedback",
+    "bugPlaceholder": "Descreva o problema que você encontrou. O que aconteceu? O que você esperava que acontecesse?",
+    "featurePlaceholder": "Descreva o recurso que você gostaria de ver. Como ele te ajudaria?",
+    "improvementPlaceholder": "O que você gostaria que a gente melhorasse? Como podemos fazer melhor?",
+    "otherPlaceholder": "Compartilhe suas ideias com a gente...",
+    "characterCount": "{{count}}/1000 caracteres",
+    "submitButton": "Enviar feedback",
+    "submitting": "Enviando...",
+    "footerText": "Seu feedback nos ajuda a melhorar o Mercaria. Obrigado por dedicar um tempo para compartilhar.",
+    "selectType": "Selecione um tipo de feedback",
+    "enterMessage": "Escreva sua mensagem de feedback",
+    "moreDetails": "Dê mais detalhes (pelo menos 10 caracteres)",
+    "thankYou": "Obrigado pelo seu feedback!",
+    "submitFailed": "Não foi possível enviar o feedback"
+  },
+  "notifications": {
+    "title": "Notificações",
+    "subtitle": "Gerencie suas preferências de notificação",
+    "pushNotifications": "Notificações push",
+    "pushDescription": "Receba alertas sobre novas mensagens e atualizações",
+    "permissionDenied": "As notificações estão bloqueadas. Ative-as nas configurações do seu dispositivo para receber notificações push."
+  },
+  "welcome": {
+    "appName": "Mercaria"
+  }
+}
