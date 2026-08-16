@@ -608,6 +608,16 @@ export async function hydrateListings(
       if (source) {
         dto.source = source;
       }
+      // #416: which fields stopped tracking the platform, on the same gate and
+      // for the same reason as the provenance beside it — it is the store
+      // owner's integration detail. A pin is written by an ordinary edit and
+      // removed by nothing, so a merchant who cannot SEE the set has no way to
+      // tell a field that is deliberately theirs from one the sync is quietly
+      // skipping. Emitted only when non-empty: `[]` is the overwhelmingly common
+      // state and means exactly what its absence does.
+      if (listing.overriddenFields.length > 0) {
+        dto.overriddenFields = [...listing.overriddenFields];
+      }
     }
 
     return dto;

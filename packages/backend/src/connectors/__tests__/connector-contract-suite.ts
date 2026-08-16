@@ -85,6 +85,7 @@ import {
   orderTaxLines,
 } from '../../db/schema/orders.js';
 import { decryptSecret } from '../../lib/connector-crypto.js';
+import { updateListing } from '../../services/catalog-write.service.js';
 import {
   auditConnectionWebhooks,
   connectAndVerify,
@@ -302,6 +303,12 @@ const REQUIRED_ENV: Readonly<Record<string, string>> = {
 /** Everything one case works against: a store with a category, a location and a connection. */
 interface ContractFixture {
   readonly storeId: string;
+  /**
+   * The store OWNER's Oxy id — what a case needs to drive a real merchant edit
+   * through `updateListing` with a `seller` actor, rather than manufacturing its
+   * result with `updateListingColumns` (#416).
+   */
+  readonly ownerOxyUserId: string;
   readonly categorySlug: string;
   /** The connection's TARGET location — where every connector write must land. */
   readonly locationId: string;
@@ -420,6 +427,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
       world?: ContractWorld;
     }): Promise<ContractFixture> {
       const suffix = uuidv7();
+      const ownerOxyUserId = `owner-${suffix}`;
       const store = await insertStore(
         {
           handle: `connector-contract-${suffix}`,
@@ -428,7 +436,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           brandColor: '#123456',
           defaultCurrency: 'FAIR',
         },
-        [{ oxyUserId: `owner-${suffix}`, role: 'owner', permissions: ['store:manage'] }],
+        [{ oxyUserId: ownerOxyUserId, role: 'owner', permissions: ['store:manage'] }],
       );
       createdStoreIds.push(store.id);
 
@@ -479,6 +487,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
 
       return {
         storeId: store.id,
+        ownerOxyUserId,
         categorySlug: category.slug,
         locationId: location.id,
         defaultLocationId: defaultLocation.id,
@@ -1828,19 +1837,39 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         }
       });
 
-      it('a LOCALLY OVERRIDDEN field survives a resync, and an unpinned one does not', async () => {
-        const fixture = await makeFixture({ conflictPolicy: 'respect_overrides' });
+      /**
+       * #416: the MERCHANT EDIT is what pins, and the switch is what decides.
+       *
+       * Both legs are asserted from ONE helper because the leg that used to
+       * exist — "a pinned field survives" — passed against a state production
+       * could not reach. `overriddenFields` was written `[]` by both of its two
+       * writers and appended to by nothing, so a case that manufactured the pin
+       * with `updateListingColumns` was measuring the READ side against a value
+       * no merchant could ever produce. Driving the real edit path is what makes
+       * it a test of the feature.
+       *
+       * And one leg alone still measures nothing. Before #416 the connector
+       * overwrote the merchant's title under BOTH policies, so a case asserting
+       * only `connector_wins` was green before the fix and green after it. The
+       * two legs differing is the whole claim.
+       */
+      async function resyncOverMerchantEdit(
+        conflictPolicy: 'respect_overrides' | 'connector_wins',
+      ) {
+        const fixture = await makeFixture({ conflictPolicy });
         await runBackfill(fixture.storeId, fixture.connection.id);
         const source = fixture.world.products[0];
-        const listing = await importedListing(fixture, source.externalId);
+        const imported = await importedListing(fixture, source.externalId);
 
-        // The merchant edited the title and the price in Mercaria. `price` is the
-        // interesting pin: it guards the VARIANT re-price, which is a different
-        // code path from the listing-field merge.
-        await updateListingColumns(listing.id, {
-          title: 'Merchant wrote this title',
-          overriddenFields: ['title', 'price'],
-        });
+        // The merchant edits the title in Mercaria — through the funnel their own
+        // PATCH takes, with the actor that route supplies. `description` is sent
+        // UNCHANGED beside it, exactly as the dashboard's product screen sends
+        // it on every save: it must not be pinned by having been mentioned.
+        await updateListing(
+          imported.id,
+          { title: 'Merchant wrote this title', description: imported.description },
+          { kind: 'seller', oxyUserId: fixture.ownerOxyUserId },
+        );
 
         fixture.world.products = fixture.world.products.map((product) =>
           product.externalId === source.externalId
@@ -1848,6 +1877,92 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
                 ...product,
                 title: 'Platform wrote this title',
                 description: 'Platform wrote this description',
+              }
+            : product,
+        );
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        return importedListing(fixture, source.externalId);
+      }
+
+      it('a field the MERCHANT edited survives a resync under respect_overrides', async () => {
+        const after = await resyncOverMerchantEdit('respect_overrides');
+
+        expect(after.overriddenFields, 'the edit must have pinned the field it changed').toContain(
+          'title',
+        );
+        expect(after.title, 'the merchant’s own edit must survive the resync').toBe(
+          'Merchant wrote this title',
+        );
+        expect(
+          after.overriddenFields,
+          'a field merely RESENT unchanged must not be pinned — the dashboard sends ' +
+            'description on every save',
+        ).not.toContain('description');
+        expect(after.description, 'an UNPINNED field must still track the platform').toBe(
+          'Platform wrote this description',
+        );
+      });
+
+      it('the same edit is OVERWRITTEN under connector_wins', async () => {
+        const after = await resyncOverMerchantEdit('connector_wins');
+
+        // The pin is still WRITTEN — the policy decides whether it is honoured,
+        // not whether it is recorded, which is what lets a merchant flip the
+        // switch back and get their pins returned rather than re-made.
+        expect(after.overriddenFields, 'the pin is recorded whatever the policy says').toContain(
+          'title',
+        );
+        expect(after.title, 'connector_wins means the channel always wins').toBe(
+          'Platform wrote this title',
+        );
+        expect(after.description).toBe('Platform wrote this description');
+      });
+
+      it('a CONNECTOR write never pins, however many times it runs', async () => {
+        // The funnel is shared: `importProduct` reaches `updateListing` too. If
+        // the pin were written on every edit rather than every HUMAN edit, the
+        // first sync would pin each field it wrote and freeze the catalogue
+        // against its own source forever — the feature, inverted.
+        const fixture = await makeFixture({ conflictPolicy: 'respect_overrides' });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId
+            ? { ...product, title: 'Platform revised this title' }
+            : product,
+        );
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        const after = await importedListing(fixture, source.externalId);
+        expect(after.overriddenFields, 'a connector sync must pin nothing').toEqual([]);
+        expect(after.title, 'and must therefore keep tracking the platform').toBe(
+          'Platform revised this title',
+        );
+      });
+
+      it('a pinned PRICE survives a resync, and the pin is read-side only', async () => {
+        // `price` guards the VARIANT re-price, a different code path from the
+        // listing-field merge — so the READ side still needs covering. It is
+        // manufactured deliberately and stays that way: #416 argued `price` out
+        // of the pinnable set (the key stops the whole variant convergence, not
+        // one field, and a store product's price never passes through
+        // `updateListing` at all), so there is no merchant edit that produces
+        // this state and nothing to convert this case to.
+        // `catalog-field-pins.test.ts` holds the other half — that `price` is
+        // named as deliberately unpinned rather than forgotten.
+        const fixture = await makeFixture({ conflictPolicy: 'respect_overrides' });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const listing = await importedListing(fixture, source.externalId);
+
+        await updateListingColumns(listing.id, { overriddenFields: ['price'] });
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId
+            ? {
+                ...product,
                 variants: product.variants.map((variant) => ({ ...variant, price: '99.00' })),
               }
             : product,
@@ -1855,12 +1970,10 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
 
         await runBackfill(fixture.storeId, fixture.connection.id);
 
-        const after = await importedListing(fixture, source.externalId);
-        expect(after.title, 'a pinned title must survive').toBe('Merchant wrote this title');
-        expect(after.description, 'an UNPINNED field must still track the platform').toBe(
-          'Platform wrote this description',
+        const variants = await findVariantsByListing(listing.id);
+        expect(variants.length, 'the price assertion below is vacuous with no variants').toBeGreaterThan(
+          0,
         );
-        const variants = await findVariantsByListing(after.id);
         for (const variant of variants) {
           expect(variant.priceAmount, 'a pinned price must survive').not.toBe(9900);
         }
@@ -3033,6 +3146,17 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // decides it. `archiveUnseenSourcedListings` has always respected that
         // under `respect_overrides`; the webhook path reaches the same rule in
         // the same place rather than restating it.
+        //
+        // The pin is manufactured deliberately and STAYS manufactured (#416).
+        // `status` is the one read key argued OUT of the pinnable set: an
+        // imported product lands as a `draft` when the connection does not
+        // auto-publish, so the merchant reviewing it and setting `active` is the
+        // intended workflow — and pinning there would make the ordinary act of
+        // publishing the thing that stops the platform ever unpublishing it
+        // again. There is therefore no merchant edit that reaches this state,
+        // and this case covers the read path that WOULD honour one if a later
+        // decision (#390) supplies a writer. `catalog-field-pins.test.ts` is
+        // what stops `status` being merely forgotten rather than excluded.
         const fixture = await makeFixture({ conflictPolicy: 'respect_overrides' });
         await runBackfill(fixture.storeId, fixture.connection.id);
         const source = fixture.world.products[0];

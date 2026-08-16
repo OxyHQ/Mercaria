@@ -432,6 +432,10 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     // The pull rail's converger returns on this same flag. Propagating a price is
     // a fix for a channel that could not update one; it is not permission to
     // overwrite a number the merchant deliberately set.
+    //
+    // The pin stays MANUFACTURED here (#416): `price` is one of the three read
+    // keys a merchant edit deliberately does not write, so there is no edit path
+    // to drive this through. See `catalog-field-pins.ts`.
     const [variant] = await findVariantsByListing(created.id);
     expect(variant.priceAmount).toBe(1500);
   });

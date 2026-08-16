@@ -817,24 +817,39 @@ needs to know WHO archived the listing, and:
   `archived_by`, no `status_source` and no status-history table; the only durable
   record of a status decision is `moderation_enforcements`, which covers
   moderation and nothing else.
-- **`listings.overriddenFields` — the mechanism that would carry it — has NO
-  production writer.** `catalog-write.service` sets it to `[]` on create (two
-  sites) and nothing anywhere appends to it; every non-empty value in the
-  repository is a test fixture. It is READ in four places
-  (`connector-sync.service`'s two `status` pin checks and its field merge,
-  `channel-ingest.service`'s), so those guards consult a column that is empty in
-  production and are inert today.
+- **`listings.overriddenFields` — the mechanism that would carry it — does not
+  pin `status`, deliberately.** Until #416 it had no production writer at all:
+  `catalog-write.service` set it to `[]` on create (two sites), nothing appended,
+  and every non-empty value in the repository was a test fixture, so all four
+  read sites consulted a column that was empty in production and were inert.
+  #416 wrote it — a HUMAN edit of a connector-sourced listing now pins the field
+  it changed — but over exactly the SEVEN keys the field merge consults
+  (`title`, `description`, `images`, `vendor`, `productType`, `handle`, `seo`).
+  `status` is one of three keys named as an explicit exclusion in
+  `services/catalog-field-pins.ts`, and the reason is this issue's own: an
+  imported product lands as a `draft` when the connection does not auto-publish,
+  so the merchant reviewing it and setting `active` is the INTENDED workflow, and
+  pinning there would make the ordinary act of publishing the thing that stops
+  the platform ever unpublishing that product again.
 
 That last point also corrects #390's own diagnosis, which said the fix was
 blocked on `syncSettingsConflictPolicy` being unreachable from any client. It is
 reachable now — #395 added it to the dashboard channel screen — and
 **reachability is not sufficient**: `respect_overrides` asks which fields the
-merchant pinned, and nothing pins any. A restore gated on that policy would read
-an empty set and republish every archived listing regardless of who archived it,
-which is the failure it was supposed to prevent, wearing a setting's name. (The
-switch #395 shipped is labelled "a field you edited in Mercaria is never
-overwritten by a later sync", which is a promise nothing currently keeps, for the
-same reason. `autoPublish` beside it is NOT new — it has been settable since #9.)
+merchant pinned, and no merchant edit pins `status`. A restore gated on that
+policy would read a set that never contains `status` and republish every archived
+listing regardless of who archived it, which is the failure it was supposed to
+prevent, wearing a setting's name. (The switch #395 shipped is labelled "a field
+you edited in Mercaria is never overwritten by a later sync". #416 made that
+promise true for the seven merchandising fields; it says nothing about status,
+which is not a field a merchant edits in that sense. `autoPublish` beside it is
+NOT new — it has been settable since #9.)
+
+So #416 changed what #390 has to decide, without deciding it: the write
+mechanism now exists and `status` is excluded by an argued, gated decision rather
+than by nobody having built the writer. Pinning `status` on a merchant status
+edit is the wrong shape for the reason above; the provenance change below is
+still the answer.
 
 So closing #390 is a provenance change, not a heuristic: record the actor and
 cause on a status write, then let the connector restore only what it archived
