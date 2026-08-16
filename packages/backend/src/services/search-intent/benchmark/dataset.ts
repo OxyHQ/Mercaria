@@ -312,9 +312,9 @@ const CASES: readonly IntentBenchmarkCase[] = [
     locale: 'es-ES',
     registry: 'laptops',
     query: 'portatil usado cerca de mi',
-    // Nearby is UNDERSTOOD and cannot be enforced (#93 supplies no pickup
-    // state), so it is reported. A filter that silently changed nothing would
-    // read as a working feature.
+    // Nearby is UNDERSTOOD and cannot be enforced (an intent request carries
+    // no ORIGIN to measure from), so it is reported. A filter that silently
+    // changed nothing would read as a working feature.
     expect: { conditionGroups: ['used'], nearby: true, unresolvedKinds: ['unsupported_by_retrieval'] },
   },
   {

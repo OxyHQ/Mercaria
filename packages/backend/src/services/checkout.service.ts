@@ -987,10 +987,11 @@ export async function checkout(
   // shelf. Nothing about the cart's CONTENTS appears in any refusal it raises,
   // so a rejection leaks no inventory (#105 acceptance 4).
   //
-  // It also carries two refusals that are not about geography: the pickup seam
-  // (#93, which fails CLOSED) and a per-seller shipping selection this
-  // deployment cannot price — an unpriced method is refused rather than shipped
-  // for nothing.
+  // It also carries two refusals that are not about geography: a collection
+  // chosen for only part of the order (#93's validation itself is
+  // `resolvePickupForCheckout`, which runs immediately after this gate) and a
+  // per-seller shipping selection this deployment cannot price — an unpriced
+  // method is refused rather than shipped for nothing.
   const eligibilityGroups = [...groups.entries()].map(([sellerKey, group]) => ({
     sellerKey,
     sellerType: group.sellerType,

@@ -479,7 +479,7 @@ Everything below is unfinished work, not a suggestion.
   `returns:request` and `support:write` are granted; nothing consumes them yet.
 - **#111 (rollout)** — the three payment-notification thresholds, and the
   retention coordination.
-- **#93 (pickup)** — `order_ready_for_pickup` cannot fire because
-  `assertPickupLocationEligible` refuses every pickup at checkout.
+- **#93 (pickup) — CLOSED.** `order_ready_for_pickup` fires from
+  `markPickupReady`; the kind was dark only while nothing could reach the state.
 - **`contact_change:request`** — see Scopes above. Defined, ungrantable, and
   #110's to build.

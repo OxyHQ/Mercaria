@@ -20,10 +20,10 @@
  *
  * ## The pickup preference carries no coordinates
  *
- * `pickup: true` and nothing else. #93 owns the data model for collection
- * points and publishes none, so a radius or a position here would be inventing
- * it — and a comparison surface has no business holding a position accurate
- * enough to identify a home (#74's rule for the same field, one domain over).
+ * `pickup: true` and nothing else. Not because #93 publishes no collection
+ * points — it has landed — but because a comparison surface has no business
+ * holding a position accurate enough to identify a home (#74's rule for the
+ * same field, one domain over).
  */
 
 import { z } from 'zod';

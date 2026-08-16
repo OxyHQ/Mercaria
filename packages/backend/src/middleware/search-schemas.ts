@@ -12,11 +12,11 @@
  *   the relevance policy's, and a request able to name a weight would be a
  *   ranking surface a caller controls. `SEARCH_FORBIDDEN_RELEVANCE_SIGNALS`
  *   states the prohibition as a value; this states it as an absence.
- * - **No `near`, `lat`, `lng` or `radius`.** #93 supplies no collectable
- *   inventory or pickup publication state, so a proximity filter here would
- *   accept a parameter and change nothing. The native listing search keeps its
- *   own `near` — that filter is a fact about a LISTING, which has coordinates,
- *   and not about a canonical product, which does not.
+ * - **No `near`, `lat`, `lng` or `radius`.** Not because #93 supplies no pickup
+ *   state — it has landed — but because proximity is not a fact about a
+ *   CANONICAL PRODUCT. The native listing search keeps its own `near`: that
+ *   filter is a fact about a LISTING, which has coordinates, and not about a
+ *   canonical product, which does not.
  * - **No raw price without a currency.** `price` is an object whose `currency`
  *   is required, so an amount cannot reach the service without the unit it is
  *   in — #70's "never compare raw money amounts across currencies" held by the

@@ -165,14 +165,15 @@ display default lives in `user-preference.service`, where the policy is stated.
 | `verified_relationship` | the subject resolves to no brand | `no_comparable_basis` |
 | `pickup_proximity` | no viewer location, or no collection point | `viewer_location_absent` / `no_provider` |
 
-Two of those are NAMED SEAMS that fail closed rather than stubs that lie
-(`services/ranking/seams.ts`):
+One of those is still a NAMED SEAM that fails closed rather than a stub that
+lies; the other closed when #93 landed (`services/ranking/seams.ts`):
 
-- **`resolvePickupProximity`** always answers unavailable. #93 publishes no
-  collection points, so there is no location to measure a distance TO —
-  `assertPickupLocationEligible` refuses every pickup for the same reason. It
-  still distinguishes "you have not shared a location" from "we have no
-  collection point", because only one of those is something a shopper can fix.
+- **`resolvePickupProximity`** answers a real distance since #93 landed, and is
+  no longer a seam. It still distinguishes "you have not shared a location" from
+  "we have no collection point", because only one of those is something a
+  shopper can fix. `best_nearby_pickup` is nonetheless never awarded, because no
+  comparison surface accepts a viewer coordinate to measure from — a SURFACE gap
+  rather than a missing capability.
 - **`resolveOfferTaxInclusion`** always answers `unknown`. `offers` has no tax
   column and no adapter publishes one. Guessing from the market would be the
   worst available answer: a Spanish feed usually quotes tax-inclusive and a US
@@ -394,8 +395,9 @@ The emitter is the ONLY analytics module the comparison surface may import.
 
 Each is a named contract that fails closed, not a stub:
 
-- **#93** — `resolvePickupProximity`. Until collection points are published,
-  `best_nearby_pickup` is never awarded and the signal is always unknown.
+- **#93 — CLOSED.** `resolvePickupProximity` answers real distances.
+  `best_nearby_pickup` is still never awarded, now because no comparison surface
+  accepts a viewer coordinate to measure from.
 - **#70** — canonical search does NOT consume `rankOfferComparison` today, and
   `registerSearchOfferSelector` has no production call site (#230). The two
   cannot be composed as they stand: a search selector is synchronous and is

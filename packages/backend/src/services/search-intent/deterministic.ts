@@ -655,9 +655,11 @@ export function interpretDeterministically(
   if (channel.nativeOnly !== undefined) consumed.push(channel.nativeOnly.phrase);
   if (channel.nearby !== undefined) {
     consumed.push(channel.nearby.phrase);
-    // #93 supplies no pickup publication or collectable-inventory state, so
-    // #70's request contract has no proximity parameter at all. Reported, and
-    // deliberately not accepted-and-ignored, which would read as a filter.
+    // #93 landed pickup publication and gave #70 a `nearby` filter, so "there
+    // is nothing to filter against" no longer holds. What is missing is the
+    // ORIGIN: an intent request carries TEXT and no coordinate (see
+    // `filters.ts`). Reported, and deliberately not accepted-and-ignored,
+    // which would read as a filter.
     unresolved.push({
       kind: 'unsupported_by_retrieval',
       phrase: boundedPhrase(channel.nearby.phrase),

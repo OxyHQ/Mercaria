@@ -542,9 +542,12 @@ seller shipped between the request and the completion.
 ## Seams left, each a named contract
 
 - **#93 (pickup)** — `pickup_not_supported` is a real branch that is unreachable
-  today, because `assertPickupLocationEligible` refuses every pickup at
-  checkout. It is kept rather than deleted so a cancellation cannot quietly take
-  the `release` path and leave a collectable-inventory hold nobody modelled.
+  in a default deployment, because `STORE_PICKUP_ENABLED` defaults off and
+  `resolvePickupForCheckout` refuses every pickup naming `store_pickup_disabled`.
+  Since #93 landed that is a LEVER rather than a missing capability, so enabling
+  it makes the branch reachable. It is kept rather than deleted so a cancellation
+  cannot quietly take the `release` path and leave a collectable-inventory hold
+  nobody modelled.
 - **#112 (guest P2P)** — the reason `refund_path_unavailable` is unreachable for
   a guest. When guest P2P lands, a P2P refund path has to land with it.
 - **#111 (retention)** — support rule 10. Buyer requests are commercial records

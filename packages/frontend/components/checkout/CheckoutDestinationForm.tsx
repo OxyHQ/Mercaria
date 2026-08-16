@@ -67,11 +67,12 @@ export interface CheckoutDestinationFormProps {
   /**
    * Collection points this checkout could use.
    *
-   * EMPTY today, and the shipping fields are what render as a result. Pickup
-   * locations are #93's to supply, and the server refuses a pickup destination
-   * until they exist — so offering the choice before then would be a dead end a
-   * buyer could walk into. When #93 lands, this prop carries real locations and
-   * the chooser below appears with no other change here.
+   * Supplied by the checkout screen since #93 landed collection: a store's
+   * published, collectable locations for the sellers in this group. Empty is
+   * still an ordinary answer — a seller with no published shop front, or a
+   * deployment with `STORE_PICKUP_ENABLED` off — and the shipping fields are
+   * what render then, so the chooser appears exactly when there is somewhere
+   * to choose.
    */
   pickupLocations?: readonly { id: string; name: string }[];
   /** The chosen collection point, when the buyer picked one. */

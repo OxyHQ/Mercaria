@@ -89,7 +89,13 @@ const REASON_TEXT: Readonly<Record<BasketReasonCode, string>> = {
   objective_requires_native_offer: "Not available to buy on Mercaria",
   objective_requires_official_channel: "Not sold by a verified official channel",
   objective_requires_used_offer: "No second-hand or refurbished offer",
-  pickup_data_unavailable: "Collection points are not published yet",
+  // #93 published collection points, so the old sentence ("Collection points
+  // are not published yet") became FALSE on that merge — the same expiry the
+  // `best_nearby_pickup` definition above was corrected for, in a second
+  // string the first sweep did not reach. A basket comparison carries no
+  // viewer position, so this reason means Mercaria has nowhere to measure
+  // FROM, not that there is nothing to measure TO.
+  pickup_data_unavailable: "No location to measure collection from",
   offer_no_longer_eligible: "This offer is no longer available",
   offer_price_changed: "The price has changed since this plan was calculated",
 };

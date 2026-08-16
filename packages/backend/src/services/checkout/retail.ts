@@ -254,10 +254,15 @@ export interface RetailCheckoutPlan<TLine> {
  * The fulfilment method #121 is asked about.
  *
  * `pickup` has no retail meaning — a supplier ships to the buyer's address and
- * there is nothing to collect from — and the #93 seam refuses every pickup for
- * every actor anyway, so a retail line can only ever reach here on a shipping
- * method. Mapping it explicitly rather than casting is what makes that a
- * compile-time fact instead of a coincidence a future #93 would break.
+ * there is nothing to collect from. Mapping it explicitly rather than casting
+ * is what keeps that a compile-time fact instead of a coincidence.
+ *
+ * What makes a retail line reach here on a shipping method is NO LONGER the #93
+ * seam, which is filled: `assertSellerGroupsAcceptDestination` now accepts an
+ * all-collection order and delegates to `resolvePickupForCheckout`. It is that
+ * `MERCARIA_RETAIL_ENABLED` and `STORE_PICKUP_ENABLED` both default off, so the
+ * combination has no deployment. That is a LEVER pair rather than a structural
+ * bar, which is exactly why the `pickup` branch below throws.
  */
 function retailFulfilmentMethod(method: ShippingMethod): RetailFulfilmentMethod {
   switch (method) {
@@ -266,10 +271,10 @@ function retailFulfilmentMethod(method: ShippingMethod): RetailFulfilmentMethod 
     case 'express':
       return 'expedited_delivery';
     case 'pickup':
-      // Unreachable while `assertSellerGroupsAcceptDestination` refuses pickup.
-      // A throw rather than a fallback: a #93 implementation that started
-      // permitting pickup would fail loudly here rather than quietly telling
-      // #121 that a supplier ships parcels a buyer is going to collect.
+      // Unreachable only while retail and store pickup are not both enabled.
+      // A throw rather than a fallback: a deployment that turned both on would
+      // fail loudly here rather than quietly telling #121 that a supplier ships
+      // parcels a buyer is going to collect.
       throw checkoutRefusal(
         'retail_line_ineligible',
         'This item cannot be collected in person. Choose delivery, or remove it to continue.',

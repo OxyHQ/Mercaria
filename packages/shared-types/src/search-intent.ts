@@ -516,11 +516,12 @@ export interface IntentCommercePreferences {
   /**
    * Whether the shopper asked for something NEARBY.
    *
-   * Reported and never enforced: #70's request contract has no proximity
-   * parameter because #93 supplies no collectable-inventory or pickup
-   * publication state, so a nearby requirement is reported as
-   * `unsupported_by_retrieval` and the shopper is told. Accepting it and
-   * changing nothing would read as a working filter.
+   * Reported and never enforced. #93 landed pickup publication and gave #70 a
+   * real `nearby` filter, so "there is nothing to filter against" no longer
+   * holds; what is missing is the ORIGIN, because an intent request carries
+   * TEXT and deliberately carries no coordinate. So a nearby requirement is
+   * still reported as `unsupported_by_retrieval` and the shopper is told.
+   * Accepting it and changing nothing would read as a working filter.
    */
   readonly nearby?: boolean;
 }

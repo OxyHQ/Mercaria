@@ -375,9 +375,10 @@ Each is a named contract that fails closed, not a stub that lies:
   branch carries a MERCARIA path by type, so nothing here can ever become a
   merchant URL or a composed tracking URL, whatever fills it in. **#67 is closed
   on GitHub and unbuilt in this repository** — see the seam section above.
-- **#41** — "Sell yours" and nearby/pickup offers. `best_nearby_pickup` is never
-  awarded because #93 publishes no collection point, so the group would always
-  be empty; the control is ABSENT rather than rendered as a button that opens
+- **#41** — "Sell yours" and nearby/pickup offers. #93 publishes collection
+  points now, and `best_nearby_pickup` is still never awarded because this page
+  accepts no viewer coordinate to measure from, so the group would always be
+  empty; the control is ABSENT rather than rendered as a button that opens
   nothing.
 - **#79 / #39** — price alerts. #80's `ProductSavePriceAlert` seam still has one
   branch and it is the unsupported one.

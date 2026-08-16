@@ -442,9 +442,10 @@ export interface OfferRankingFacts {
   readonly relationship?: OfferRelationshipStanding;
   /**
    * Metres to the nearest collection point. Absent whenever it is not known —
-   * which is always today, because #93 publishes no collection points and the
-   * seam that would supply them refuses rather than inventing a merchant's
-   * registered address.
+   * which is always today, because no comparison surface accepts a viewer
+   * coordinate to measure FROM. #93 publishes the collection points and
+   * `resolvePickupProximity` answers real distances once given an origin, so
+   * this is a SURFACE gap rather than a missing capability.
    */
   readonly pickupDistanceMetres?: number;
   /** Whether Mercaria can sell this offer itself — a LABEL input, never a score input. */

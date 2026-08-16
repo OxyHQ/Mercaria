@@ -295,7 +295,7 @@ for the same reason it applies to a ledger entry.
 | **#108** | `guest_order_access_grants`, magic links, transactional mail, the portal ROUTE | `GuestOrderPortalGrant`'s contract, the grant branch of `authorizeOrderAccess`, `resolveGuestPortalSubject` (returns `null`), `GuestOrderPortalView` and `buildGuestOrderPortalView`, `setGuestCheckoutVerificationStage`'s timestamp, and #107's durable `guest_portal_initialization` row (keyed on the checkout GROUP, carrying `{checkoutGroupId, guestCheckoutId, orderIds}`) |
 | **#109** | The claim service — the ONLY writer of `claimed_by_oxy_user_id` | The columns, the CHECK, the trigger's two permitted transitions, the claim-aware reads, the review-eligibility guard that becomes one comparison |
 | **#110** | Guest cancellations, returns, support | The claimant's own cancel path (an Oxy account acting on its own order) |
-| **#93** | Pickup validation | `assertPickupLocationEligible`, now refusing with a bounded reason |
+| **#93** | LANDED — pickup validation is `resolvePickupForCheckout` | The bounded refusal shape, now naming `store_pickup_disabled` while `STORE_PICKUP_ENABLED` defaults off |
 | **#112** | Guest P2P | The refusal, with reason `p2p_seller_excluded` |
 
 **Nothing above is a stub that lies.** `resolveGuestPortalSubject` returns
