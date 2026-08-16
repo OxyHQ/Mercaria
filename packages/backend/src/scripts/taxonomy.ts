@@ -9,23 +9,108 @@
  * happened to open, and the disagreement would surface as products filed under a
  * slug the storefront does not render.
  *
- * The shape mirrors `lib/mock-products.ts`'s `SHOP_CATEGORIES` and the pill
- * imagery the storefront reads: seven top-level categories, each with four child
- * tiles, thirty-five rows in total.
+ * Seven of the eight top-level entries mirror `lib/mock-products.ts`'s
+ * `SHOP_CATEGORIES` and the pill imagery the storefront reads, each with four
+ * child tiles. The eighth is the internal holding pen described below.
  */
 
 function categoryAsset(file: string): string {
   return `https://shopify-assets.shopifycdn.com/shop-assets/static_uploads/shop-categories/${file}.png?width=640`;
 }
 
+/**
+ * Whether a category is a shelf a shopper browses or an internal holding pen.
+ *
+ * ## The `is_active` mechanism this rests on, because the next reader should not
+ * have to re-derive it
+ *
+ * Every SHOPPER-VISIBLE read of `categories` filters `is_active`:
+ * `findActiveCategories` (the `GET /categories` browse tree and
+ * `feed.service`'s shelves) and `findActiveCategoryBySlug` (the single-category
+ * read). Every WRITE and GUARD path ignores it: `findCategoryBySlug` (the
+ * catalogue write resolver, which materializes `listings.category_slugs`),
+ * `categorySlugExists` (the connector's `CONNECTOR_DEFAULT_CATEGORY_SLUG`
+ * guard) and `findCategoryById`.
+ *
+ * So an INACTIVE category is one a product can be filed under and a shopper can
+ * never browse into. That is exactly what a default import destination needs to
+ * be, and it is a property of those five functions rather than a convention —
+ * changing any of them to filter differently is what would break it.
+ *
+ * ## Why this is a discriminated union rather than an `isActive` flag
+ *
+ * A flag would leave `{ isActive: false, pillImage: …, children: […] }`
+ * representable and meaningless. An internal category has no pill image and no
+ * child tiles because nothing renders it, and the union is what makes that
+ * unstatable rather than merely unstated.
+ *
+ * A STRING discriminant, not a boolean: this package compiles with
+ * `strict: false`, so without `strictNullChecks` TypeScript does not narrow a
+ * union on the truthiness of a boolean-literal discriminant.
+ */
+export type TaxonomyCategory =
+  | {
+      readonly listing: 'shopper_facing';
+      readonly name: string;
+      readonly slug: string;
+      readonly pillImage: string;
+      readonly children: readonly { name: string; slug: string; image: string }[];
+    }
+  | {
+      readonly listing: 'internal_only';
+      readonly name: string;
+      readonly slug: string;
+    };
+
+/**
+ * The slug a connector files an imported product under until somebody
+ * categorises it — the value `CONNECTOR_DEFAULT_CATEGORY_SLUG` names.
+ *
+ * ## Why it exists at all, rather than pointing the connector at `home`
+ *
+ * Whatever slug the connector defaults to, EVERY product from EVERY connected
+ * store lands there. Pointing it at a real shelf costs one irreversible bit on
+ * the first import: "a human filed this under Home" and "nobody has looked at
+ * this yet" become the same state, and that distinction is the entire input to
+ * re-categorisation. It also puts a whole third-party catalogue on a shelf
+ * shoppers browse, which this taxonomy — fashion, beauty, home, fitness, baby,
+ * food — has no correct answer for when the store sells electronics.
+ *
+ * ## Why it is NOT called `uncategorized`
+ *
+ * That word is already taken in this codebase, for the opposite state.
+ * `listings.category_id` and `seller_drafts.category_id` are both `restrict`
+ * specifically so a delete cannot "promote an orphaned listing into
+ * uncategorized, which is a real and different state" — meaning NO category at
+ * all — and `sell-yours`'s publication gate treats that as a missing category
+ * and blocks on it.
+ *
+ * A listing filed here carries a category id and a non-empty `category_slugs`,
+ * so it PASSES that gate. Naming it `uncategorized` would give one word two
+ * meanings, and the collision lands exactly on a check whose whole job is to
+ * refuse the other one. `imported` says what is true instead: it arrived from a
+ * connected store and no human has filed it.
+ */
+export const IMPORT_HOLDING_CATEGORY_SLUG = 'imported';
+
+/**
+ * How many `categories` rows the taxonomy describes.
+ *
+ * Lives beside the data because it is a property OF the data. It is what
+ * `provision-taxonomy.ts` measures its own counters against, so a walk that
+ * silently skipped a branch of the union cannot report success.
+ */
+export function taxonomySize(): number {
+  return TAXONOMY.reduce(
+    (total, entry) => total + 1 + (entry.listing === 'shopper_facing' ? entry.children.length : 0),
+    0,
+  );
+}
+
 /** Top-level categories + their child tiles, mirroring `SHOP_CATEGORIES`/pills. */
-export const TAXONOMY: {
-  name: string;
-  slug: string;
-  pillImage: string;
-  children: { name: string; slug: string; image: string }[];
-}[] = [
+export const TAXONOMY: readonly TaxonomyCategory[] = [
   {
+    listing: 'shopper_facing',
     name: 'Women',
     slug: 'women',
     pillImage: categoryAsset('20260326_1_L1_womenswear_pill'),
@@ -37,6 +122,7 @@ export const TAXONOMY: {
     ],
   },
   {
+    listing: 'shopper_facing',
     name: 'Men',
     slug: 'men',
     pillImage: categoryAsset('20260326_2_L1_menswear_pill'),
@@ -48,6 +134,7 @@ export const TAXONOMY: {
     ],
   },
   {
+    listing: 'shopper_facing',
     name: 'Beauty',
     slug: 'beauty',
     pillImage: categoryAsset('20260326_5_L1_beauty_pill'),
@@ -59,6 +146,7 @@ export const TAXONOMY: {
     ],
   },
   {
+    listing: 'shopper_facing',
     name: 'Home',
     slug: 'home',
     pillImage: categoryAsset('20260326_6_L1_home_pill'),
@@ -70,6 +158,7 @@ export const TAXONOMY: {
     ],
   },
   {
+    listing: 'shopper_facing',
     name: 'Fitness & nutrition',
     slug: 'fitness-nutrition',
     pillImage: categoryAsset('20260326_69_L1_fitness_nutrition_pill'),
@@ -81,6 +170,7 @@ export const TAXONOMY: {
     ],
   },
   {
+    listing: 'shopper_facing',
     name: 'Baby & toddler',
     slug: 'baby-toddler',
     pillImage: categoryAsset('20260326_209_L1_baby_toddler_pill'),
@@ -92,6 +182,7 @@ export const TAXONOMY: {
     ],
   },
   {
+    listing: 'shopper_facing',
     name: 'Food & drinks',
     slug: 'food-drinks',
     pillImage: categoryAsset('20260326_251_L1_food_drinks_pill'),
@@ -101,5 +192,10 @@ export const TAXONOMY: {
       { name: 'Candy & chocolate', slug: 'candy-chocolate', image: categoryAsset('20260417_254_L2_food_drinks_candy_chocolate') },
       { name: 'Snacks', slug: 'snacks', image: categoryAsset('20260326_255_L2_food_drinks_snacks') },
     ],
+  },
+  {
+    listing: 'internal_only',
+    name: 'Imported',
+    slug: IMPORT_HOLDING_CATEGORY_SLUG,
   },
 ];

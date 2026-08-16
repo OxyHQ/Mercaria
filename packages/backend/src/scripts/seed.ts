@@ -639,6 +639,23 @@ interface SeedCounts {
 /** The seeded taxonomy: every category slug mapped to its row id. */
 async function seedCategories(counts: SeedCounts): Promise<void> {
   for (const [topIndex, top] of TAXONOMY.entries()) {
+    // The internal holding pen is seeded INACTIVE, exactly as production has it,
+    // so a developer's `CONNECTOR_DEFAULT_CATEGORY_SLUG` resolves and the
+    // category still never appears in the browse tree. Seeding it active would
+    // make the one environment anybody tests in disagree with production about
+    // the property the category exists for.
+    if (top.listing === 'internal_only') {
+      await insertCategory({
+        name: top.name,
+        slug: top.slug,
+        ancestorSlugs: [],
+        position: topIndex,
+        isActive: false,
+      });
+      counts.categories += 1;
+      continue;
+    }
+
     const parent = await insertCategory({
       name: top.name,
       slug: top.slug,

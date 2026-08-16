@@ -95,6 +95,17 @@ export interface NewCategory {
   imageUrl?: string | null;
   imageFileId?: string | null;
   position?: number;
+  /**
+   * Whether the category appears in the shopper-visible tree — the column
+   * `findActiveCategories` and `findActiveCategoryBySlug` filter on, and that
+   * `findCategoryBySlug`, `findCategoryById` and `categorySlugExists`
+   * deliberately ignore.
+   *
+   * Defaults to true, matching the column default. It is passed explicitly for
+   * the import holding category, which must be resolvable by a write and
+   * unreachable by a browse (see `scripts/taxonomy.ts`).
+   */
+  isActive?: boolean;
 }
 
 /** Create a category. Used by the seed script; no request path writes the taxonomy. */
@@ -112,6 +123,7 @@ export async function insertCategory(
       imageUrl: values.imageUrl ?? null,
       imageFileId: values.imageFileId ?? null,
       position: values.position ?? 0,
+      isActive: values.isActive ?? true,
     })
     .returning();
   return row;
