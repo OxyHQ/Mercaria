@@ -104,6 +104,15 @@ export function shopifyProductJson(product: ContractProduct): Record<string, unk
     product_type: product.productType ?? null,
     handle: product.handle ?? null,
     updated_at: product.updatedAt ?? null,
+    // #379: Shopify publishes the product's publication state on the product
+    // resource itself, so ONE rendering serves `products.json` and a `products/*`
+    // delivery — which is why the connector reads one schema for both.
+    //
+    // `draft` for the world's unpublished products rather than `archived`: both
+    // are unpublished and the connector maps them identically, and `draft` is
+    // the one that would still be MISSED by a connector that read `status` but
+    // only compared it against `archived`.
+    status: product.published === false ? 'draft' : 'active',
     options: shopifyOptions(product),
     images: product.imageUrls.map((src) => ({ src })),
     variants: product.variants.map((variant) => ({
@@ -552,21 +561,13 @@ describeConnectorContract({
   // Shopify removes it (#295). Declared rather than skipped, so the case runs
   // its own branch and would fail if this platform grew one and nobody read it.
   publishesSubscriptionHealth: false,
-  // Shopify products DO carry `status` (`active`/`draft`/`archived`) — this
-  // connector does not read it. `shopifyProductSchema` parses no such field and
-  // `fetchProducts` sends no status filter, so NEITHER path here distinguishes a
-  // published product from a draft one, and Mercaria is told nothing when a
-  // merchant unpublishes.
-  //
-  // So this is `false` as a statement about the connector rather than about
-  // Shopify, and #377 deliberately did not change it: unlike WooCommerce, whose
-  // two paths enforced DIFFERENT rules, Shopify's two paths agree — and teaching
-  // it to read `status` would change which products a live connection imports,
-  // which is a separate decision with its own issue rather than a correction
-  // that rides along. Declared rather than skipped so the branch is measured,
-  // and so the day somebody adds the field this case is what says the sync
-  // service was never taught to act on it.
-  reportsPublishState: false,
+  // #379 is the separate decision #377 named here: Shopify products carry
+  // `status` (`active`/`draft`/`archived`), `shopifyProductSchema` now parses it
+  // and `normalizeShopifyProduct` derives `publishState` as the complement of
+  // `active`. Both paths read it, because `fetchProducts` still sends no status
+  // filter — so unlike WooCommerce the PULL is not what withholds a draft, and
+  // the connector is told about one either way.
+  reportsPublishState: true,
   // Shopify publishes `barcode` on every variant and the provider maps it (#381).
   reportsVariantBarcode: true,
   // Shopify publishes `value_type` on every `discount_applications` entry, so an

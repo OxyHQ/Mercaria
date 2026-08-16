@@ -67,6 +67,7 @@ import {
   findListingBySourceExternalId,
   findListingChildren,
   findListingsBySourceConnection,
+  setListingStatusIfIn,
   updateListingColumns,
 } from '../../db/catalog/listingRepository.js';
 import {
@@ -2964,6 +2965,104 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         });
 
         expect((await importedListing(fixture, source.externalId)).status).toBe('active');
+      });
+
+      it('the BACKFILL never puts an unpublished product on sale, whatever the pull returns', async () => {
+        // #379. #377 closed the WEBHOOK; the PULL reached `importProduct`, which
+        // consulted no publish state and created the listing from `autoPublish`
+        // alone. That was invisible while the only provider reporting a publish
+        // state ALSO filtered its pull server-side — an unpublished WooCommerce
+        // product never reaches the importer, so nothing there had to check.
+        // Shopify sends no status filter, so it does.
+        //
+        // The assertion is the OUTCOME rather than the mechanism, because the
+        // two providers reach it differently and both are correct: one never
+        // returns the product, the other returns it and the importer refuses it.
+        // A provider that reports no publish state at all publishes it, which is
+        // the branch that would catch one that stopped reading a status it does
+        // send.
+        const fixture = await makeFixture({ autoPublish: true });
+        const source = fixture.world.products[0];
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId ? { ...product, published: false } : product,
+        );
+
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.status).toBe('completed');
+        expect(run.countsFailed).toBe(0);
+        const listing = await findListingBySourceExternalId(
+          fixture.storeId,
+          fixture.connection.id,
+          source.externalId,
+        );
+        if (!harness.reportsPublishState) {
+          expect(listing?.status).toBe('active');
+          return;
+        }
+        // NO listing at all, rather than one created `archived`. Nothing was
+        // ever sold through it, so there is no order history or provenance to
+        // preserve — and creating a row nobody can buy would put a product the
+        // merchant never launched into their archive. It is also what keeps
+        // `createStoreProduct`'s status set free of `archived`.
+        expect(listing).toBeNull();
+      });
+
+      it('the BACKFILL archives an already-imported listing the shop has unpublished', async () => {
+        // #379, the other half: no webhook is involved, so a connection whose
+        // deliveries are failing still converges on the next scheduled sync.
+        //
+        // Again the mechanism differs and the outcome does not: for a pull that
+        // filters, the product goes unseen and `archiveUnseenSourcedListings`
+        // reaches it; for one that does not, the product is returned, is
+        // therefore SEEN — so the unseen sweep will never touch it — and
+        // `importProduct` is the only thing that can.
+        const fixture = await makeFixture({ autoPublish: true });
+        const source = fixture.world.products[0];
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        expect((await importedListing(fixture, source.externalId)).status).toBe('active');
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId ? { ...product, published: false } : product,
+        );
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.countsFailed).toBe(0);
+        expect((await importedListing(fixture, source.externalId)).status).toBe(
+          harness.reportsPublishState ? 'archived' : 'active',
+        );
+      });
+
+      it('an unpublish never archives a RESTRICTED listing, so a moderation restore still works', async () => {
+        // #379. Archiving is a soft-delete everywhere else here; against a
+        // moderation restriction it is a ONE-WAY DOOR.
+        // `enforcement.service.restoreSubject` restores only from
+        // `['restricted', 'draft']`, so a restricted listing moved to `archived`
+        // can never be relisted by an accepted appeal — the restore is refused
+        // and reports that the listing was never restricted in the first place.
+        //
+        // A merchant unpublishing upstream must not be able to end a jury's
+        // decision, and the two facts do not conflict: the listing is already
+        // off sale, which is what the unpublish was asking for.
+        const fixture = await makeFixture({ autoPublish: true });
+        const source = fixture.world.products[0];
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const listing = await importedListing(fixture, source.externalId);
+        await updateListingColumns(listing.id, { status: 'restricted' });
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId ? { ...product, published: false } : product,
+        );
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productUpsert,
+          payload: harness.webhookProductPayload(fixture.world, source.externalId),
+        });
+
+        expect((await importedListing(fixture, source.externalId)).status).toBe('restricted');
+        // And the restore an appeal would run still succeeds — the property the
+        // status assertion above exists to protect, asserted rather than implied.
+        expect(await setListingStatusIfIn(listing.id, 'active', ['restricted', 'draft'])).toBe(true);
       });
 
       it('imports EVERY variant of a MULTI-VARIANT product first seen through a webhook', async () => {

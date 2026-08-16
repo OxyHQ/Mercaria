@@ -2699,6 +2699,41 @@ async function importProduct(
   product: NormalizedProduct,
   opts: ImportProductOptions,
 ): Promise<ImportOutcome> {
+  // #379: a product the platform does not publish is never merged in as if it
+  // were on sale, whichever path delivered it. #377 closed this for the
+  // WooCommerce WEBHOOK; the PULL reached `importProduct` and consulted no
+  // publish state at all, so a provider whose pull does NOT filter server-side —
+  // Shopify, which sends no status parameter — carried drafts and archived
+  // products straight into `status: autoPublish ? 'active' : 'draft'`.
+  //
+  // It sits ABOVE the incomplete-enumeration refusal deliberately: knowing a
+  // product is unpublished does not require knowing its variants, and refusing
+  // it here would fail a product #377 archives today.
+  //
+  // ARCHIVE, matching #377 rather than diverging from it. Their argument —
+  // an unpublished product is filtered out of the pull, so `draft` is a state
+  // the next reconcile overwrites — does NOT transfer to Shopify, whose pull
+  // filters nothing; the reason to agree with them is that the shared
+  // `publishState` vocabulary is binary and a THIRD member carried solely so
+  // Shopify could say `draft` would be a second vocabulary for one fact, which
+  // is worth more than the distinction it would buy. Recorded in
+  // `docs/channels.md`.
+  //
+  // A product that was NEVER imported is `skipped` rather than created as
+  // archived: there is no order history or provenance to preserve, so a row
+  // nobody can sell is a row nobody needs. That is also what makes this need no
+  // widening of `createStoreProduct`, whose status set deliberately excludes
+  // `archived`.
+  if (product.publishState === 'unpublished') {
+    const archived = await archiveSourcedListing(conn, product.externalId, {
+      respectStatusOverride: opts.respectOverrides,
+      // A moderation restriction outranks a merchant unpublishing upstream —
+      // see `archiveSourcedListing`.
+      sparePendingModeration: true,
+    });
+    return archived ? 'updated' : 'skipped';
+  }
+
   // #259 acceptance 1: an enumeration nobody could PROVE complete writes
   // NOTHING — not a listing field, not a variant, not an unsell. It is refused
   // here, above both branches, because a 2xx that under-reports a product's
@@ -2990,7 +3025,9 @@ export async function requestBackfill(storeId: string, connectionId: string): Pr
 async function archiveSourcedListing(
   conn: ConnectionRow,
   externalId: string,
-  opts: { respectStatusOverride: boolean } = { respectStatusOverride: false },
+  opts: { respectStatusOverride: boolean; sparePendingModeration?: boolean } = {
+    respectStatusOverride: false,
+  },
 ): Promise<boolean> {
   const listing = await findListingBySourceExternalId(conn.storeId, conn.id, externalId);
   if (!listing) {
@@ -3008,6 +3045,24 @@ async function archiveSourcedListing(
   // and turning that into a refusal would be a behaviour change to a path
   // neither #377 nor #381 is about.
   if (opts.respectStatusOverride && listing.overriddenFields.includes('status')) {
+    return false;
+  }
+  // An UNPUBLISH may not archive a listing a jury has restricted, and this is a
+  // moderation escape rather than a wrong status (#379).
+  //
+  // `restoreSubject` in `services/moderation/enforcement.service.ts` restores
+  // only from `['restricted', 'draft']`, so a restricted listing moved to
+  // `archived` can never be relisted by an accepted appeal — the restore is
+  // refused and reports that the listing was never restricted. Archiving is a
+  // soft-delete everywhere else here; against a restriction it is a one-way
+  // door.
+  //
+  // Scoped to the UNPUBLISH callers by an opt-in, because the `product_delete`
+  // caller passes neither flag and its behaviour is deliberately unchanged: a
+  // product DELETED upstream is gone whatever Mercaria was deciding about it.
+  // That path predates #377 and #379 both, and narrowing it is a separate
+  // decision.
+  if (opts.sparePendingModeration && listing.status === 'restricted') {
     return false;
   }
   return setListingStatusIfIn(listing.id, 'archived', ALL_LISTING_STATUSES);
@@ -3318,39 +3373,20 @@ async function handleProductWebhook(
   const expanded = await provider.expandWebhookProduct(await decryptAuth(conn), payload);
   const product = provider.normalizeProduct(expanded, conn.shopCurrency);
 
-  // #377: a product the platform has moved OUT of publish is archived here, and
-  // is never merged into the listing as if it were still for sale.
+  // #377's unpublish branch USED to sit here, archiving before the import call
+  // below. It moved INTO `importProduct` (#379) rather than being duplicated:
+  // the pull reaches that function without passing through here, so leaving the
+  // rule on this path alone would have meant two implementations of one
+  // decision, differing in exactly the way #377 exists to stop — one path
+  // enforcing a rule the other does not.
   //
-  // ARCHIVE rather than `draft`, because the backfill already archives exactly
-  // this product and a draft would not survive it. An unpublished WooCommerce
-  // product is filtered out of the pull (`status=publish`), so it is "unseen" by
-  // the very next backfill and `archiveUnseenSourcedListings` archives it —
-  // meaning `draft` is not a second policy, it is a state the next scheduled
-  // reconcile overwrites. Choosing it would leave the two paths disagreeing
-  // about one event, which is the defect this closes rather than a variation on
-  // it. It also matches the `product_delete` branch above: from Mercaria's side
-  // an unpublish and a delete are the same observable fact — the product is no
-  // longer in the catalogue this connection publishes — and archiving is a
-  // SOFT-delete either way, so order history and provenance survive and the
-  // merchant can restore it.
-  //
-  // A provider that reports no publish state (`undefined`) archives nothing.
-  //
-  // The check sits AFTER the expansion rather than before it, so an unpublished
-  // variable product still costs one `/variations` call it does not use. That is
-  // deliberate: reading the state off the raw payload would mean normalizing
-  // twice, and the only case it would buy is an expansion that THROWS — where
-  // the webhook fails, nothing is written, and the listing waits for the
-  // backfill exactly as it does today. No behaviour regresses by leaving it
-  // here, and the publish rule stays in the normalizer where both paths read it.
-  if (product.publishState === 'unpublished') {
-    const archived = await archiveSourcedListing(conn, product.externalId, {
-      respectStatusOverride: conn.syncSettingsConflictPolicy === 'respect_overrides',
-    });
-    counts[archived ? 'updated' : 'skipped'] += 1;
-    return;
-  }
-
+  // Everything #377 established is unchanged and now applies to both paths: an
+  // unpublished product is ARCHIVED rather than drafted (a soft-delete, matching
+  // the `product_delete` branch above, so order history and provenance survive),
+  // a provider reporting no publish state archives nothing, and the verdict is
+  // read AFTER expansion from the normalizer both paths share. What this costs
+  // is one category and one location lookup on a webhook that will archive — two
+  // reads, against a rule that can no longer drift.
   const categorySlug = await resolveImportCategorySlug();
   const outcome = await importProduct(conn, product, {
     categorySlug,
