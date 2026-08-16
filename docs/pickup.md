@@ -363,10 +363,13 @@ figure beside it would claim a precision that does not exist.
 
 #93 P2P rules 6 and 8, and acceptance 13. The type carries no location, no hours,
 no instructions and no eligibility verdict. `derivePickupEligibility` refuses a
-`user` seller **for every actor**, and `assertGuestSellerTypesAllowed` refuses a
-guest at group construction (ADR 0003 D18). So store guest pickup being on cannot
-make P2P guest pickup reachable, and there is no flag that would — #112 owns any
-reversal and its evidence.
+`user` seller **for every actor**, and `services/guest-p2p/gate.ts`'s
+`assertGuestP2PCheckoutAllowed` refuses a guest at group construction (ADR 0003
+D18) — #112's decision, not #105's `assertGuestSellerTypesAllowed`, which #112
+deleted from `fulfilment-eligibility.ts`: the seller type is decided in exactly
+one place now. So store guest pickup being on cannot make P2P guest pickup
+reachable, and there is no flag that would — #112's `GuestP2PAuthorization` has
+no member meaning yes.
 
 ---
 
@@ -669,3 +672,26 @@ two rules from `docs/postgres-testing-and-migrations.md` bite here directly:
 - **Stores go through `deleteTestStores` and canonical rows through
   `deleteTestCanonicalRows`**, which DECLINE exactly the ids a sibling's
   `match_decisions` pins rather than deleting somebody else's row.
+- **The GiST index over `location_publications.geo_point` is asserted to EXIST**
+  (`pickup.realdb.test.ts`, `'is covered by a GiST index, which no functional
+  test could miss the absence of'`) — no functional case could ever catch its
+  absence, since `ST_DWithin` returns the same rows against a sequential scan,
+  just slower, invisible at fixture scale and catastrophic at catalogue scale.
+  The assertion reads `pg_indexes`, asserts the row count FIRST (so "found no
+  index" cannot be what a pass looks like), and asserts `USING gist`
+  specifically — a plain btree over a `geography` column is created without
+  complaint and cannot serve the operator. Mutation-tested by renaming the index
+  in the migration: exactly that test goes red and all other functional cases
+  stay green, which is the whole argument for having it — this repo's worked
+  example of "an index is the one thing a functional test can never detect the
+  absence of."
+- **No fixture may carry a date the real clock is still travelling toward** —
+  the direction opposite `docs/postgres-testing-and-migrations.md`'s "write
+  fixture instants relative to now" rule, and the subtler one: a fixture date
+  the wall clock has not yet REACHED passes today and fails on the day it
+  arrives, for whoever happens to be running the suite then. Measured in
+  `services/pickup/__tests__/eligibility.test.ts`'s closure test, where a
+  closure has to span the whole 7-day open horizon: rather than extending the
+  closure's end date forward from the real `now`, the fix moved the injected
+  CLOCK itself back a week, so both the closure and the horizon it spans sit
+  safely in the past.

@@ -180,6 +180,13 @@ this issue ships is the part that is true whatever the outcome:
   check out (`CartGroup.guestCheckout`), with one reason code and the sign-in
   remedy, and the storefront renders it in place of the checkout button. The
   whole-cart button then places only the groups the caller may actually place.
+  **The one-reason-code rule is BUYER-FACING ONLY.** `p2p_seller_excluded`
+  covers every criterion and every future dimension so a client cannot vary
+  one input at a time and read out the switchboard (`guest_rollout_blocked`'s
+  and `retail_line_ineligible`'s reasoning) — it names the offending seller
+  KEYS and nothing about the cart's contents. The operator trace above is the
+  other half: it is NOT collapsed, and shows every one of the twenty
+  criteria's own outcome for a listing.
 - **An operator surface**, read-only, on the existing
   `GUEST_OPERATOR_OXY_USER_IDS` allow-list: the published policy, and a trace
   from a LISTING id showing every criterion's outcome. There is no route that

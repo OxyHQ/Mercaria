@@ -50,7 +50,7 @@ import { MercariaError } from '../../lib/errors/error-codes.js';
  * outcomes.
  */
 export const CHECKOUT_REFUSAL_REASONS = [
-  /** ADR 0003 D18: a guest may not buy from an individual seller (#112 owns any reversal). */
+  /** ADR 0003 D18: a guest may not buy from an individual seller — #112 evaluated the reversal and it is no-go. */
   'p2p_seller_excluded',
   /** The deployment does not serve the destination country at all. */
   'market_not_supported',

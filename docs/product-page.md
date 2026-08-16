@@ -378,8 +378,11 @@ Each is a named contract that fails closed, not a stub that lies:
   accepts no viewer coordinate to measure from, so the group would always be
   empty; the control is ABSENT rather than rendered as a button that opens
   nothing.
-- **#79 / #39** — price alerts. #80's `ProductSavePriceAlert` seam still has one
-  branch and it is the unsupported one.
+- **#79 (epic #39) — CLOSED.** Price alerts shipped and closed #80's
+  `ProductSavePriceAlert` seam: it now has BOTH branches (`supported: true`
+  gated on `PRICE_ALERTS_ENABLED`), so the saved-list affordance exists. This
+  page still has no "watch this price" control of its own — that entry point is
+  #71's own seam, not #79's.
 - **#80** — a per-product save READ. `/product-saves` publishes a save context
   for a LISTING and none for a canonical product, so the page's save control is
   a one-way idempotent SAVE rather than a toggle: a toggle built on an unknown

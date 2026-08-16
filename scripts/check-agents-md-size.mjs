@@ -87,10 +87,6 @@ function assertScanSawSomething(paths) {
   }
 }
 
-export function budgetFor(path) {
-  return path === "AGENTS.md" ? ROOT_BUDGET_BYTES : NESTED_BUDGET_BYTES;
-}
-
 export function issueHeadings(contents) {
   return contents
     .split("\n")

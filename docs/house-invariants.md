@@ -49,6 +49,15 @@
   (`*-isolation.test.ts`): ranking may not read fees or referrals, the payment
   domain may not read procurement, a claim path may not reach referrals, and so
   on. It scans RAW source (comments included) with a file-count floor.
+- **Closing a seam means sweeping the COMMENTS that cited it — that is where the
+  work is.** #93 closed four named seams; six modules elsewhere stated as fact
+  that pickup was refused at checkout, and after landing every one of those
+  sentences was false. A false sentence in a comment is the one thing no gate
+  catches: `tsc` and the test suite are both blind to prose. Grep every symbol,
+  issue number and claim the closed seam's code cited BEFORE it closed, in
+  comments and docs as well as code, and re-decide rather than re-word each one
+  — some need a genuine new decision (a refusal that stands for a DIFFERENT
+  reason now), not just updated wording.
 
 ## Raw-body mounts
 

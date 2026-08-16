@@ -13,7 +13,9 @@ schema decision. `HANDOFF.md` holds deferred work.
 
 - `packages/frontend/` · `packages/dashboard/` · `packages/pos/` — Expo apps
   (React Native + Web), expo-router, NativeWind
-- `packages/ui/` — shared components, consumed from source with no dist
+- `packages/ui/` — shared components, consumed from source with no dist. Built
+  on `@oxyhq/bloom` (Oxy's cross-app UI primitives) plus `@mercaria/ui`'s own
+  marketplace-specific components; do not duplicate what Bloom already provides.
 - `packages/backend/` — Express API (TypeScript, PostgreSQL via drizzle-orm +
   `@oxyhq/db`, Socket.IO)
 - `packages/shared-types/` — DTOs and every closed value set

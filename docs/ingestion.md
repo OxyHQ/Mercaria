@@ -451,11 +451,23 @@ global switch and the one an incident actually needs.
 ## Tests
 
 - **`services/ingestion/__tests__/adapter-contract-suite.ts`** — the REUSABLE
-  suite, all thirteen cases the issue lists. #63, #65 and #66 each call
+  suite, all thirteen cases the issue lists. #63 and #66 each call
   `describeCatalogSourceAdapterContract` with a harness that materialises a
   SCENARIO in their own transport and get every case for free. The scenario is
   stated in framework terms rather than HTTP fixtures, so it fits an adapter
   that speaks anything.
+
+  **#65 deliberately does NOT**, and that is a property of eBay rather than a
+  shortcut — closing the gap is the one repair this section forbids. The shared
+  suite assumes one framework page is one provider call (cases 2 and 3 assert
+  exact `fetch_count`/`fetched`/`unchanged` counters, but an eBay pass is
+  DISCOVERY then VERIFICATION and makes more framework pages than it has
+  scenario pages, by design), and case 4 asserts a provider-published
+  `sourceUpdatedAt`, which the Browse API does not publish for an item —
+  satisfying it would mean INVENTING a provider timestamp. #65's own
+  `ebay-ingestion.realdb.test.ts` covers all thirteen concerns case by case
+  instead, against the same tables, through the real adapter over a fake
+  transport.
 
   #63's runner added two harness fields, and both are the scenario staying in
   FRAMEWORK terms rather than quietly meaning "HTTP". `pageSize` exists because a
@@ -497,13 +509,18 @@ Each is a NAMED contract that fails closed, never a stub that lies.
   NOTHING and report a clean run; and `match_policy_versions_active_key`'s
   contention became fatal the moment a SECOND contract runner existed, because
   the suite's wait for the slot outlives vitest's own per-test timeout.
-- **#65 / #66 — the remaining adapters.** Neither is registered. A deployment can
-  configure such a source, review its policy and see every run refuse for want of
-  an adapter, which is a seam that fails closed and reports why.
-  `catalog_source_configs.provider` carries a SHAPE check and not a value check
-  for that reason (`offers.provider`'s decision): gating the durable
-  configuration on Mercaria having shipped an adapter would invert "gate the
-  loop, never the record".
+- **#65 / #66 — LANDED.** eBay Browse and the Awin retailer-network source are
+  both registered adapters now (`EBAY_ENABLED`, `AWIN_ENABLED`) — see
+  `docs/catalog-sources/ebay-browse.md` and `docs/catalog-sources/awin.md`. A
+  deployment that leaves either flag off still configures the source, reviews
+  its policy and sees every run refuse for want of an adapter — the seam that
+  fails closed and reports why is exercised by an off flag rather than by
+  "no adapter exists" now. `catalog_source_configs.provider` still carries a
+  SHAPE check and not a value check for the general case
+  (`offers.provider`'s decision): gating the durable configuration on Mercaria
+  having shipped an adapter would invert "gate the loop, never the record", and
+  a deployment can still configure a source for a provider with NO adapter at
+  all.
 - **#37 — the outbound/affiliate redirect.** The routing metadata is modelled
   and `destination_url` stays the ORIGINAL; nothing here composes a tracked URL.
 - **#59 — the review UI and corrections.** This framework routes to the queue

@@ -66,6 +66,16 @@ point can be traced to an immutable offer observation" — is true at EVERY
 instant rather than true until a sweep runs. A source whose agreement requires
 deletion takes its chart with it, which is what the agreement says.
 
+**`offer_id` CASCADEs too, and that is the one direction this domain gives
+ground on.** #57 chose CASCADE from the NATIVE side — `listings` and
+`product_variants` onto `offers` — because a seller deleting their listing is
+an existing flow the graph must not block. A RESTRICT here put this table in
+front of that flow: measured, `offers.realdb.test.ts`'s "deleting the listing
+takes its offers with it" failed on `23503` the moment one observation existed.
+Nothing meaningful is lost — an observation explains an OFFER's terms, and an
+offer that no longer exists has no terms to explain — and retirement, the
+ordinary way an offer leaves, is a status transition that touches nothing here.
+
 ---
 
 ## The write path: only an OBSERVATION writes an observation
@@ -304,10 +314,11 @@ against. Two gates, because the static one catches a declared field and the
 runtime one catches a field a serializer spread in.
 
 The same file holds four more walls: no FairCoin or OxyPay spelling (raw source,
-copy included), no price alert or subscription (#79's, and #80's
-`ProductSavePriceAlert` seam stays unsupported), no ranking module (#74's, and
-the reverse direction too — a discovery module may not reach price history), and
-no payment rail (a display conversion is not a way to pay).
+copy included), no price alert or subscription (#79's — this domain still
+imports none of it, though #79 has since shipped and closed #80's
+`ProductSavePriceAlert` seam), no ranking module (#74's, and the reverse
+direction too — a discovery module may not reach price history), and no payment
+rail (a display conversion is not a way to pay).
 
 ---
 
@@ -404,11 +415,14 @@ durable record is never gated; the derived answer is.
 
 Each is a NAMED contract, never a stub that lies.
 
-- **#79 — price alerts.** Nothing here reads or writes an alert, no module may
-  import one, and #80's `ProductSavePriceAlert` seam still has ONE branch and it
-  is the unsupported one. The rule #68 records — an old price cannot fire a new
-  alert after the offer becomes stale — is already true of anything obtained
-  through `mayAppearInComparison`.
+- **#79 — price alerts: SHIPPED (as its own domain), and this section is now
+  stale about scope only.** Nothing here reads or writes an alert and no module
+  in this domain may import one (`price-history-isolation.test.ts`); #79 closed
+  #80's `ProductSavePriceAlert` seam separately (both branches now exist,
+  gated on `PRICE_ALERTS_ENABLED`). The rule #68 records — an old price cannot
+  fire a new alert after the offer becomes stale — is already true of anything
+  obtained through `mayAppearInComparison`, which is what #79's own evaluator
+  re-runs immediately before triggering.
 - **#116 — the `mercaria_retail` offer kind.** The measure exists and is
   provably empty; closing the seam is adding a member to `OfferKind`.
 - **#74 — ranking.** A scanned gate, both ways.

@@ -459,12 +459,16 @@ Each is a NAMED contract that fails closed, never a stub that lies.
   that has not integrated a supplier runs this whole domain and refuses every
   sale from it.
 
-  `authorizeSupplierFulfilment` refuses UNCONDITIONALLY — #122 states it
-  outright ("a quote is not a PurchaseOrder and cannot independently authorize
-  supplier fulfilment"). `authorized: true` requires a `purchaseOrderId`, which
-  only `db/procurement/purchaseOrderRepository.ts` mints, which
-  `supplier-preflight-isolation.test.ts` forbids this domain from importing. The
-  ONE line #124 replaces is that `return`.
+  `authorizeSupplierFulfilment` **MOVED**, to
+  `services/supplier-orders/fulfilment-authorization.ts` — #124 landed it there
+  rather than here, and that is the load-bearing half: #122 states outright ("a
+  quote is not a PurchaseOrder and cannot independently authorize supplier
+  fulfilment") that this domain must never answer `authorized: true`, so #124
+  did not relax `supplier-preflight-isolation.test.ts`'s wall forbidding this
+  domain from importing `purchase_orders`. It moved the FUNCTION to where it can
+  read the row that does authorize. `services/supplier-preflight/checkout-contract.ts`
+  now has no function that could answer `authorized: true` at all — the
+  property is structural rather than a refusal somebody could relax.
 - **#117 (authorization and capture sequence).** The quote's validity and its
   reservation expiry are what #117's sequence reads;
   `SupplierPreflightCheckoutRefusal` already carries `quote_expired` and

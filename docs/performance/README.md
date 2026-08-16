@@ -19,8 +19,17 @@ The benchmark is opt-in and deliberately **not** in CI — seeding a hundred
 thousand products on every commit is a long job that tells nobody anything. What
 CI runs instead is
 `packages/backend/src/db/__tests__/graph-plan-regression.realdb.test.ts`, which
-drives the same workload table against a small seed and fails the build when a
-read stops using the index it was measured on.
+drives the same workload table against a `ci` scale, in its own throwaway
+database (the generator truncates, and the shared one carries every other
+realdb test's fixtures), and fails the build when a read stops using the index
+it was measured on — mutation-tested by dropping an index inside a transaction
+and confirming the gate goes red naming the shape.
+
+**Do not shrink the `ci` scale.** The property under test is a PLANNER
+decision — whether Postgres still prefers the index over a heap scan — and a
+gate that fires because a table became too small for an index to win is a gate
+whoever hits it next disables, for a reason that is about statistics rather
+than about the schema.
 
 ```sh
 # One-time: a scratch database with the extensions, migrated.

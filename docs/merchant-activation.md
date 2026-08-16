@@ -335,6 +335,13 @@ image writes is broken by it.
   own publications through #93's own `locationCollectionBlockers`. Pickup is in
   the guest fulfilment set on the same three conjuncts.
 
+  The exclusion it replaced was not merely stale, it was CIRCULAR under
+  `GUEST_SELLER_ACTIVATION_REQUIRED`: a store whose only guest-capable
+  fulfilment was collection read `guest_fulfilment_method_blocked`, which
+  withheld its guest activation, which `derivePickupEligibility` then read
+  BACK as `guest_seller_not_activated` — two refusals citing each other with
+  nothing underneath.
+
   It depended on `guest_fulfilment_deterministic` until then, and that is worth
   keeping written down because the answer was inverted in BOTH directions at
   once: that requirement asks whether the guest-eligible method set is non-empty,

@@ -531,6 +531,15 @@ things failed. The row is append-only and names the operator who took it.
 "activate anyway" parameter; an advertiser whose sample failed is re-sampled
 after the feed or the mapping changes.
 
+Activation reads the NEWEST sample, never any passing one — a sample taken
+before the advertiser's last feed change is evidence about a feed that no
+longer exists, and reading the newest is what makes re-sampling after a
+regression meaningful: a FAILED sample newer than a passed one blocks
+activation, which is the point. **Resuming a `paused` advertiser goes back to
+`sampling`, never straight to `active`** — whatever caused the pause may have
+been a deep-link regression, and the sample is what tells that apart from an
+unrelated incident.
+
 ### Per-advertiser exceptions and opt-out
 
 Everything an advertiser-specific exception could need already exists per

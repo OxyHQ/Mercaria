@@ -525,3 +525,42 @@ Each is a named contract that fails closed, never a stub that lies.
 - **#94's attribute registry.** eBay's `localizedAspects` are localized in both
   name and value, so they are carried as option assignments for #58 to score and
   are NOT claimed as registry values, which need a stable key and a unit.
+
+## 15. This domain defines no freshness rule of its own — a scanned wall
+
+`ebay-isolation.test.ts` scans for a SIXTH thing beside the five URL/redirect
+walls: a local content TTL, a local staleness derivation, a local outage-grace
+window or a local retirement decision. #68 owns how long an offer is worth
+showing (a per-source policy, its derivation, its outage grace) and #62 owns
+what may retire one; #65 consumes both and defines neither.
+
+The gate exists because the tempting bug is a LOCAL one: this domain knows eBay
+prices move hourly, so a private `EBAY_OFFER_TTL_SECONDS` or an `isStale(offer)`
+helper reads as diligence rather than as a second authority. A second TTL does
+not announce itself — it silently wins wherever it is consulted, and the
+source's own reviewed rights policy stops meaning anything. The allowance is
+narrowed to exactly one file, `token.ts`, whose lifetime is the OAuth ACCESS
+TOKEN's — a credential's expiry, not content freshness — never to a pattern
+another file could reuse. Both floor and mutation self-test: the scan asserts
+at least 18 files scanned, and each detector is proven against a literal it
+must catch.
+
+## 16. Two `ingest.service.ts` bugs this suite caught, neither visible to a mocked test
+
+Both are in #62's shared framework, exposed because this is the first REAL
+adapter — the fixture adapter's fixed-past timestamps hid them.
+
+1. **A page's `now` was captured before the adapter ran.** Any adapter stamping
+   the real read instant produced `observedAt > now` and violated
+   `catalog_source_objects_seen_order_check` and `offers_confirmed_order_check`
+   on every record. Fixed by clamping the record's `observedAt` to the page
+   clock (`max(now, observedAt)`), which preserves an earlier observation
+   exactly and caps only the physically impossible direction — the same fix
+   `docs/feed-importer.md` §"Two framework bugs" describes for #63.
+2. **A record counted `stored` that then failed while matching was ALSO counted
+   `rejected`.** `catalog_source_runs_intake_total_check` is the equality
+   `fetched = stored + unchanged + rejected + quarantined`, so double-counting
+   one record refuses the WHOLE run row — one bad downstream record took the
+   entire page's bookkeeping with it. A post-intake failure is now isolated,
+   caught and logged rather than rethrown; the object stays `observed` and the
+   next pass retries it.
