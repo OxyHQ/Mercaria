@@ -91,6 +91,13 @@ export const REFERRAL_FORBIDDEN_LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
   'procurement_expense',
   'customer_adjustment',
   'subscription_revenue',
+  // #67's two. An affiliate conversion is somebody else's sale on somebody
+  // else's site, so a referral reward can never be funded from one THROUGH THE
+  // LEDGER — #144's `affiliate` funding source reads a RECONCILED commission
+  // record, not these accounts, and no referral posting builder takes a
+  // parameter that could name either.
+  'affiliate_receivable',
+  'affiliate_commission_revenue',
 ];
 
 /**
@@ -123,6 +130,12 @@ export const REFERRAL_FORBIDDEN_LEDGER_ACCOUNT_LABELS: Record<string, string> = 
   subscription_revenue:
     'recognized subscription revenue, which — like commission — funds a reward through #144’s ' +
     '`subscription` source and is never reduced by one',
+  affiliate_receivable:
+    'what an affiliate network owes Mercaria for a conversion on somebody else’s site — an ' +
+    'asset awaiting settlement, and never a source a reward is drawn from',
+  affiliate_commission_revenue:
+    'reconciled affiliate commission, which — like commission and subscription revenue — funds ' +
+    'a reward through #144’s `affiliate` source and is never reduced by one',
 };
 
 /**

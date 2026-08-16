@@ -1362,86 +1362,110 @@ describe('the allow-list is a bare hostname, attributably revoked, and re-approv
   });
 
   /**
-   * MEASURED DEFECT — the shape CHECK's regex has `.` where a literal dot was
-   * meant, so it admits four of the shapes its own docblock says it refuses.
+   * The shape CHECK refuses a path, a port, userinfo and a SINGLE LABEL.
    *
-   * ## Cause
+   * ## This test was a characterization test, and it did its job
    *
-   * `db/schema/affiliateOutbound.ts` writes the predicate inside a JS TEMPLATE
-   * LITERAL:
+   * It shipped asserting the OPPOSITE — that all four shapes were ADMITTED —
+   * because they were. `db/schema/affiliateOutbound.ts` wrote the predicate
+   * inside a tagged TEMPLATE LITERAL as `(\.[a-z0-9]…)`, and `\.` is not a
+   * recognised JavaScript escape, so the backslash was cooked away before
+   * drizzle ever saw the string. What reached Postgres was `(.[a-z0-9]…)`,
+   * where `.` matches ANY character.
    *
-   *     sql`${t.host} ~ '^[a-z0-9]…(\.[a-z0-9]…)+$'`
+   * Nothing in the build could see it: `tsc` type-checks a template literal,
+   * drizzle-kit renders whatever string it is handed, and the migration applies
+   * cleanly. Only a real server, asked for a REFUSAL, could.
    *
-   * `\.` is not a recognised escape sequence, so JavaScript drops the backslash
-   * BEFORE drizzle ever sees the string, and what reaches Postgres — verbatim,
-   * in the generated migration — is `(.[a-z0-9]…)+`, where `.` matches ANY
-   * character. Measured on the live server: `example.test/deals`,
-   * `example.test:443`, `user:pass@example.test` and `localhost` are all
-   * ACCEPTED, while the intended `\\.` form refuses all four. Nothing in the
-   * build can see it: `tsc` type-checks a template literal, drizzle-kit renders
-   * whatever string it is handed, and the migration applies cleanly.
+   * Its stated retirement condition was "when the fix lands this goes RED".
+   * It did, and this is the promotion: the four cases now assert the REFUSAL
+   * they always belonged to.
    *
-   * ## What it costs
+   * ## Why `localhost` is the one that mattered
    *
-   * Three of the four are stored-but-dead: `admitOutboundDestination` compares a
-   * parsed `URL.hostname`, which can never contain `/`, `:` or `@`, so such a
-   * row matches nothing and the failure direction is closed — but an operator
-   * who types `example.com:443` gets a row that LOOKS approved and a button
-   * that stays silently dead.
+   * Three of the four were stored-but-dead: `admitOutboundDestination` compares
+   * a parsed `URL.hostname`, which can never contain `/`, `:` or `@`, so such a
+   * row matched nothing and the failure direction was closed — though an
+   * operator typing `example.com:443` still got a row that LOOKED approved and
+   * a button that stayed silently dead.
    *
-   * `localhost` is the reachable one, and it is the reason the dot-separated
-   * tail was required in the first place: a single-label internal name
-   * (`localhost`, a container name, an intranet host) can be approved and then
-   * matched exactly by a feed row pointing at `https://localhost/…`. That is
-   * the class of destination the bare-hostname rule exists to make
-   * unrepresentable.
+   * `localhost` was REACHABLE. A single-label internal name — `localhost`, a
+   * container name, an intranet host — could be approved and then matched
+   * EXACTLY by a feed row pointing at `https://localhost/…`. That is the class
+   * of destination the dot-separated-tail rule exists to make unrepresentable,
+   * in a domain whose whole premise is that an open redirect is unrepresentable
+   * rather than checked.
    *
-   * ## Fix, and the retirement condition for THIS TEST
+   * ## The fix is `[.]`, not `\\.`
    *
-   * One character in the schema — `\.` becomes `\\.` — plus a regenerated
-   * migration. **When that lands this test goes RED**, which is the signal to
-   * delete it and move its four cases back into the test above, where they
-   * belong. It is written as an assertion of the CURRENT behaviour rather than
-   * omitted, because a silently missing case is indistinguishable from a case
-   * nobody thought of, and it pins the ROOT CAUSE (the unescaped dot in
-   * `pg_get_constraintdef`) as well as the symptom, so it cannot go on passing
-   * for some other reason.
+   * Both are correct today. A character class cannot be re-broken by an
+   * escaping layer at all, while `\\.` is one careless "simplification" away
+   * from becoming `\.` again — the identical defect, returning silently, with
+   * every gate still green.
    */
-  it('MEASURED DEFECT — the shape CHECK admits a path, a port, userinfo and a single label', async () => {
-    const source = await bringUpSource('host-shape-defect');
+  it('the shape CHECK refuses a path, a port, userinfo and a single label', async () => {
+    const source = await bringUpSource('host-shape-strict');
     const base = {
       catalogSourceId: source.sourceId,
       kind: 'merchant_site' as const,
-      reason: 'outbound realdb suite: the measured host-shape defect',
+      reason: 'outbound realdb suite: host shape',
       approvedByOxyUserId: OPERATOR,
     };
 
-    // The ROOT CAUSE, read off the live constraint rather than inferred: an
-    // unescaped `(.` where `(\.` was written in the TypeScript source.
+    // The predicate itself, read off the LIVE constraint rather than inferred
+    // from the source — which is the only reading that could have caught the
+    // original defect, since the source and the shipped SQL disagreed.
     const [definition] = await db.execute<{ def: string }>(
       sql`select pg_get_constraintdef(oid) as def from pg_constraint
           where conname = 'affiliate_outbound_hosts_shape_check'`,
     );
-    expect(definition?.def).toContain('(.[a-z0-9]');
-    expect(definition?.def).not.toContain('(\\.[a-z0-9]');
+    /*
+     * A positive control on the OTHER conjunct of the same CHECK.
+     *
+     * `length(host)` is independent of the regex under test, so it proves the
+     * constraint was actually READ rather than an empty row returned — where
+     * `host ~` would disappear along with the very thing being asserted.
+     *
+     * The floor is not decoration. The tempting spelling is the negative
+     * assertion alone (`not.toContain('(.[a-z0-9]')`), and that goes GREEN on a
+     * missing row: it would have reported the `localhost` defect fixed while it
+     * was still shipping. "X is absent" is also what a scan that read nothing
+     * reports.
+     *
+     * `pg_get_constraintdef` renders bare column names, so the table name never
+     * appears in `def` — an earlier floor asserting it failed on every server.
+     * That failure was in the SAFE direction; this one cannot fail either way.
+     */
+    expect(definition?.def).toContain('length(host)');
+    expect(definition?.def).toContain('([.][a-z0-9]');
+    // ...and the cooked-away spelling must be gone. Without this the character
+    // class could be reverted and only the four cases below would notice.
+    expect(definition?.def).not.toContain('(.[a-z0-9]');
 
-    // And the symptom. Each of these SHOULD be refused and is not.
-    const admitted = [
+    // And the behaviour. Each of these MUST be refused.
+    const refused = [
       { label: 'path', host: `example-${RUN}.test/deals` },
       { label: 'port', host: `example-${RUN}.test:443` },
       { label: 'userinfo', host: `user:pass@example-${RUN}.test` },
       { label: 'single label', host: `localhost${RUN}` },
     ] as const;
 
-    for (const testCase of admitted) {
-      const [row] = await db
-        .insert(schema.affiliateOutboundHosts)
-        .values({ ...base, host: testCase.host })
-        .returning({ host: schema.affiliateOutboundHosts.host });
-      expect(row?.host, `the ${testCase.label} host is currently admitted`).toBe(
-        testCase.host.toLowerCase(),
+    for (const testCase of refused) {
+      const message = await rejectionMessage(() =>
+        db.insert(schema.affiliateOutboundHosts).values({ ...base, host: testCase.host }),
+      );
+      expect(message, `the ${testCase.label} host must be refused`).toContain(
+        'affiliate_outbound_hosts_shape_check',
       );
     }
+
+    // The vacuity floor: a predicate refusing EVERYTHING would pass every
+    // assertion above. A real host is still admitted.
+    const [ok] = await db
+      .insert(schema.affiliateOutboundHosts)
+      .values({ ...base, host: `shop-${RUN}.example.test` })
+      .returning({ host: schema.affiliateOutboundHosts.host });
+    expect(ok?.host).toBe(`shop-${RUN}.example.test`);
   });
 
   it('the revocation biconditional refuses a half-filled revocation', async () => {
