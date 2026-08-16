@@ -11,6 +11,16 @@
  *      connect time (so the `storeId` written cannot be forged).
  *
  * Server-to-server by design — there is no browser CORS involved.
+ *
+ * Once the connection exists it is LINKED back onto the wizard session the signed
+ * `state` names, which is the only moment anything can: the merchant's browser is
+ * at the platform for the whole connect and answers into a different tab, so no
+ * client ever holds this connection. See the step 3 comment below.
+ *
+ * The success redirect is a single CONFIGURED url plus `?connected=<provider>`
+ * and stays that way. Nothing a caller supplied composes it — a tampered `state`
+ * is answered 400 and never a redirect derived from an unverified parameter — and
+ * the wizard session id rides inside the SIGNED payload for exactly that reason.
  */
 
 import { Router, type Request, type Response } from 'express';
@@ -20,6 +30,8 @@ import { verifyOAuthState } from '../connectors/oauth-state.js';
 import { getOAuthRedirectUri, getOAuthSuccessRedirectUrl } from '../connectors/config.js';
 import { verifyShopifyOAuthCallback } from '../connectors/shopify/callback.js';
 import { connectAndVerify } from '../services/connector-sync.service.js';
+import { channelTypeForConnection } from '../services/channels/channel-catalog.js';
+import { recordOAuthConnectionOnSession } from '../services/channels/channel-onboarding.service.js';
 import { routeParam } from '../utils/request.js';
 import { isMercariaError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
@@ -74,11 +86,49 @@ router.get('/:provider/callback', makeRateLimiter('channels'), async (req, res) 
       return;
     }
 
-    await connectAndVerify(claims.storeId, provider, {
+    const connection = await connectAndVerify(claims.storeId, provider, {
       code,
       shopDomain: claims.shopDomain,
       redirectUri: getOAuthRedirectUri(provider),
     });
+
+    // 3. Link it back onto the wizard the merchant started from, when the signed
+    //    state named one. This is the ONLY place it can happen: the browser is at
+    //    the platform for the whole of the connect, and on web it answers into a
+    //    DIFFERENT tab from the one holding the wizard — so nothing on the client
+    //    ever sees this connection. Without it the session's `connectionId` stays
+    //    NULL, the wizard re-renders its connect step forever and activation
+    //    reports `connection_not_connected` against a channel that is connected.
+    //
+    //    Wrapped, and deliberately: the connection is already created, verified
+    //    and stored, and the authorization code is spent. Failing the callback
+    //    here would report a failure for a connect that SUCCEEDED, and re-running
+    //    it is not possible. The merchant's remedy is the one they already have —
+    //    reopen the wizard — so the cost of the catch is a slower path to the same
+    //    place, and the cost of no catch is a working connection reported broken.
+    if (claims.onboardingSessionId !== undefined) {
+      const sessionId = claims.onboardingSessionId;
+      try {
+        const link = await recordOAuthConnectionOnSession({
+          storeId: claims.storeId,
+          sessionId,
+          connectionId: connection.id,
+          actorOxyUserId: claims.userId,
+          channelType: channelTypeForConnection(connection),
+        });
+        if (link.outcome === 'skipped') {
+          log.general.warn(
+            { provider, sessionId, reason: link.reason },
+            'Connected, but the onboarding session was not updated',
+          );
+        }
+      } catch (err) {
+        log.general.error(
+          { err, provider, sessionId },
+          'Connected, but failed to update the onboarding session',
+        );
+      }
+    }
 
     const successRedirect = getOAuthSuccessRedirectUrl();
     if (successRedirect) {

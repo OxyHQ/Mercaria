@@ -186,6 +186,7 @@ import type {
 } from '../connectors/types.js';
 import { config } from '../config/index.js';
 import { createOAuthState } from '../connectors/oauth-state.js';
+import { assertOnboardingSessionAcceptsConnect } from './channels/channel-onboarding.service.js';
 import { getOAuthRedirectUri, getWebhookAddress } from '../connectors/config.js';
 import { getShopifyCredentials } from '../connectors/shopify/config.js';
 import { classifyShopifyWebhookTopic } from '../connectors/shopify/webhook.js';
@@ -496,25 +497,42 @@ function resolveAuthorizeScopes(providerId: ConnectorProviderId): string[] {
 
 /**
  * Build the platform authorize URL to redirect the merchant to. Mints a signed
- * `state` bound to `{ storeId, provider, userId, shopDomain }` that the public
- * callback re-validates. `storeId`/`userId` are resolved server-side (never from
- * a request body).
+ * `state` bound to `{ storeId, provider, userId, shopDomain }` — plus the wizard
+ * session, when the connect was started from one — that the public callback
+ * re-validates. `storeId`/`userId` are resolved server-side (never from a request
+ * body).
+ *
+ * `onboardingSessionId` is the ONE claim that comes from the client, and it is
+ * checked against this store BEFORE it is signed, so the callback acts on a
+ * session a member of this store demonstrably chose. It is not the security
+ * boundary — the store scope on the callback's own patch is — but it is what puts
+ * a refusal in the request the merchant is watching rather than leaving the
+ * wizard to stall silently after the platform answers.
  */
-export function buildConnectAuthorizeUrl(params: {
+export async function buildConnectAuthorizeUrl(params: {
   storeId: string;
   providerId: ConnectorProviderId;
   userId: string;
   shopDomain: string;
-}): string {
+  onboardingSessionId?: string;
+}): Promise<string> {
   const provider = getConnectorProvider(params.providerId);
   if (provider.credentialStrategy !== 'oauth') {
     throw validationError(`Provider ${params.providerId} does not support OAuth connect`);
+  }
+  if (params.onboardingSessionId !== undefined) {
+    await assertOnboardingSessionAcceptsConnect({
+      storeId: params.storeId,
+      sessionId: params.onboardingSessionId,
+      providerId: params.providerId,
+    });
   }
   const state = createOAuthState({
     storeId: params.storeId,
     provider: params.providerId,
     userId: params.userId,
     shopDomain: params.shopDomain,
+    onboardingSessionId: params.onboardingSessionId,
   });
   return provider.buildAuthorizeUrl({
     shopDomain: params.shopDomain,

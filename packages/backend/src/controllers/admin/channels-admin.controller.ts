@@ -58,12 +58,16 @@ export async function connectChannelHandler(req: Request, res: Response): Promis
     if (!isImplementedProvider(provider)) {
       throw notFound(`Connector provider not available: ${provider}`);
     }
-    const { shopDomain } = req.body as { shopDomain: string };
-    const authorizeUrl = buildConnectAuthorizeUrl({
+    const { shopDomain, onboardingSessionId } = req.body as {
+      shopDomain: string;
+      onboardingSessionId?: string;
+    };
+    const authorizeUrl = await buildConnectAuthorizeUrl({
       storeId: storeId(req),
       providerId: provider,
       userId: getRequiredOxyUserId(req),
       shopDomain,
+      onboardingSessionId,
     });
     sendSuccess(res, { authorizeUrl });
   } catch (err) {

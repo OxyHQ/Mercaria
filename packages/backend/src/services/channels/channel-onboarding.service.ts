@@ -35,6 +35,7 @@ import type {
   ChannelOnboardingStep,
   ChannelPreviewCounts,
   ChannelTypeId,
+  ConnectorProviderId,
   SyncSettings,
 } from '@mercaria/shared-types';
 import { channelSupportsDirection } from '@mercaria/shared-types';
@@ -49,7 +50,11 @@ import {
   type ChannelOnboardingSessionRow,
 } from '../../db/channels/channelOnboardingRepository.js';
 import { recordChannelAuditEvent } from '../../db/channels/channelAuditRepository.js';
-import { activationBlockingLimitations, describeChannel } from './channel-catalog.js';
+import {
+  activationBlockingLimitations,
+  channelTypeForConnection,
+  describeChannel,
+} from './channel-catalog.js';
 import { resolveChannelBinding } from './channel-binding.js';
 
 /** The session projection. Names every field — there is no spread anywhere here. */
@@ -226,6 +231,105 @@ export async function advanceChannelOnboarding(input: {
   }
 
   return await project(patched);
+}
+
+/**
+ * Refuse, at MINT time, a wizard session an OAuth connect must not be bound to.
+ *
+ * The callback is a public route acting on claims it verified, so by the time it
+ * patches, a bad session id is silent: `patchChannelOnboardingSession` is scoped
+ * to the store and to `in_progress`, matches nothing, and the merchant watches
+ * the same stall this whole path exists to remove. Checking here puts the refusal
+ * in the request the merchant is looking at, BEFORE they are sent to the
+ * platform and before a one-time code is spent.
+ *
+ * It is NOT the security boundary and must not be mistaken for one — the store
+ * scope on the patch is. A member who forges another store's session id is
+ * refused by that predicate whether or not this function ran.
+ *
+ * The channel type is compared through `channelTypeForConnection`, the same
+ * mapping the rest of the surface reads, rather than by assuming the channel is
+ * named after the provider.
+ */
+export async function assertOnboardingSessionAcceptsConnect(input: {
+  storeId: string;
+  sessionId: string;
+  providerId: ConnectorProviderId;
+}): Promise<void> {
+  const row = await findChannelOnboardingSession(input.storeId, input.sessionId);
+  if (!row) throw notFound('Onboarding session not found');
+  if (row.state !== 'in_progress') {
+    throw conflict('This onboarding session has already finished.');
+  }
+  // An OAuth connect always produces a `pull` connection (`connectAndVerify`),
+  // so that is the mode the resulting channel type is derived under.
+  const expected = channelTypeForConnection({ provider: input.providerId, mode: 'pull' });
+  if (row.channelType !== expected) {
+    throw validationError('This onboarding session is for a different channel.');
+  }
+}
+
+/**
+ * Link the connection an OAuth callback just created onto the wizard session the
+ * merchant started from.
+ *
+ * The connect leaves the browser, so nothing on the client can do this: the tab
+ * that started the flow never sees the connection, and on web the platform
+ * answers into a DIFFERENT tab. Without it a Shopify session's `connectionId`
+ * stays NULL forever, `deriveActivationBlockers` reports
+ * `connection_not_connected` against a connection that is `connected`, and the
+ * wizard is unfinishable however many times it is reloaded.
+ *
+ * A session that is GONE or already finished is reported rather than thrown. By
+ * the time this runs the connection exists, the credentials are stored and the
+ * one-time code is spent, so a merchant who abandoned the wizard or activated it
+ * on another device must not be told their authorized connect failed — and there
+ * is no retry that would help. The outcome is RETURNED so the caller can log
+ * which happened: "the id named nothing" and "the merchant finished the wizard
+ * elsewhere" send an operator to opposite places.
+ *
+ * A DATABASE failure still propagates, because swallowing one here would make
+ * every future caller inherit a silence none of them asked for. Not failing the
+ * callback on it is the CALLER's decision and is taken there, where the reason
+ * (the connection already exists) is visible.
+ *
+ * A STRING discriminant, because this backend compiles with `strict: false`: a
+ * caller testing `!result.linked` on a boolean one would be left holding the
+ * whole union.
+ */
+export type OnboardingConnectionLinkOutcome =
+  | { outcome: 'linked' }
+  | { outcome: 'skipped'; reason: 'session_not_found' | 'session_not_live' };
+
+export async function recordOAuthConnectionOnSession(input: {
+  storeId: string;
+  sessionId: string;
+  connectionId: string;
+  actorOxyUserId: string;
+  channelType: ChannelTypeId;
+}): Promise<OnboardingConnectionLinkOutcome> {
+  const existing = await findChannelOnboardingSession(input.storeId, input.sessionId);
+  if (!existing) return { outcome: 'skipped', reason: 'session_not_found' };
+
+  // The patch's own CAS on `in_progress` is what decides, not the read above —
+  // the merchant's own tab can activate or abandon between the two statements,
+  // and the read exists only to tell the two skips apart in the log.
+  const patched = await patchChannelOnboardingSession(input.storeId, input.sessionId, {
+    step: 'configure',
+    connectionId: input.connectionId,
+  });
+  if (!patched) return { outcome: 'skipped', reason: 'session_not_live' };
+
+  await recordChannelAuditEvent({
+    storeId: input.storeId,
+    action: 'settings_updated',
+    actorOxyUserId: input.actorOxyUserId,
+    channelType: input.channelType,
+    connectionId: input.connectionId,
+    changedFields: ['step', 'connectionId'],
+  });
+
+  return { outcome: 'linked' };
 }
 
 /**

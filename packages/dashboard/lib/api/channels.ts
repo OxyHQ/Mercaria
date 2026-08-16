@@ -44,11 +44,17 @@ export async function fetchChannels(storeId: string): Promise<Connection[]> {
  * POST to begin an OAuth connect for `provider`. The server validates the
  * `*.myshopify.com` shop domain and returns the platform authorize URL the
  * dashboard opens in a browser to complete authorization.
+ *
+ * `onboardingSessionId` names the wizard this connect was started from, when it
+ * was. The server checks it against the store and signs it into the OAuth
+ * `state`, so the callback — which is the only thing that ever sees the resulting
+ * connection — can link it back onto that session. Omitted from the plain
+ * channels screen, which has no wizard to update.
  */
 export async function connectChannel(
   storeId: string,
   provider: ConnectorProviderId,
-  input: { shopDomain: string },
+  input: { shopDomain: string; onboardingSessionId?: string },
 ): Promise<{ authorizeUrl: string }> {
   const { data } = await apiClient.post<ApiResponse<{ authorizeUrl: string }>>(
     `${base(storeId)}/${provider}/connect`,

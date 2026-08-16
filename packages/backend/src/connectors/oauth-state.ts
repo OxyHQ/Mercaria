@@ -11,6 +11,20 @@
  * without a shared cache. It is NOT single-use — binding the flow to the browser
  * session would additionally defeat a replay/login-CSRF within the token's short
  * window; that hardening is deferred to the deploy phase (see HANDOFF).
+ *
+ * ## `onboardingSessionId` rides HERE, and that is the whole point
+ *
+ * The connection is created by the CALLBACK, out of band, so the wizard session
+ * the merchant started from has to survive the round trip to the platform. The
+ * signed payload is the only carrier that can: it is minted server-side from an
+ * authenticated request, echoed back opaquely, and re-verified before anything
+ * is written — so the callback acts on a session id it PROVED was chosen by a
+ * member of that store, rather than on one a caller supplied to a public route.
+ *
+ * The alternative — composing the success redirect out of it — is refused by
+ * `routes/channels-oauth.ts`: that endpoint answers 400 to a tampered `state`
+ * and never a redirect derived from an unverified parameter, and the session id
+ * must not become the exception that reopens it.
  */
 
 import { createHmac, randomBytes } from 'node:crypto';
@@ -33,6 +47,18 @@ const statePayloadSchema = z.object({
   userId: z.string().min(1),
   /** The external shop host the flow is for. */
   shopDomain: z.string().min(1),
+  /**
+   * The wizard session the merchant started this connect from, when there was
+   * one.
+   *
+   * OPTIONAL, and it must stay optional: a state minted by the previous image is
+   * still in flight through the platform during a rollout, and the merchant
+   * holding it has already left for Shopify. Requiring the field would turn every
+   * one of those callbacks into a 400 for a connect that was authorized — a
+   * refusal the merchant can do nothing about, on a code that is single-use. It is
+   * also legitimately absent for a connect started outside the wizard.
+   */
+  onboardingSessionId: z.string().min(1).optional(),
   /** Random per-flow nonce. */
   nonce: z.string().min(1),
   /** Expiry (epoch ms). */
@@ -45,6 +71,7 @@ export interface OAuthStateClaims {
   provider: ConnectorProviderId;
   userId: string;
   shopDomain: string;
+  onboardingSessionId?: string;
 }
 
 /** base64url-encode a UTF-8 string. */
@@ -66,12 +93,14 @@ export function createOAuthState(params: {
   provider: ConnectorProviderId;
   userId: string;
   shopDomain: string;
+  onboardingSessionId?: string;
 }): string {
   const payload = {
     storeId: params.storeId,
     provider: params.provider,
     userId: params.userId,
     shopDomain: params.shopDomain,
+    onboardingSessionId: params.onboardingSessionId,
     nonce: randomBytes(16).toString('hex'),
     exp: Date.now() + STATE_TTL_MS,
   };
@@ -114,5 +143,6 @@ export function verifyOAuthState(token: string): OAuthStateClaims {
     provider: parsed.data.provider as ConnectorProviderId,
     userId: parsed.data.userId,
     shopDomain: parsed.data.shopDomain,
+    onboardingSessionId: parsed.data.onboardingSessionId,
   };
 }
