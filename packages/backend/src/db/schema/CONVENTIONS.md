@@ -5571,3 +5571,85 @@ exactly when a payout was being built over one of them.
   permanent financial record: what Mercaria owed, what it paid and why it
   changed. #145 acceptance 6 — a feature rollback cannot erase an already-earned
   or already-paid record — is the same statement from the other side.
+
+## Affiliate outbound redirects and commission (#67)
+
+`affiliateOutbound.ts` — six tables, one migration (`0080`, `pre`). #57 stores an
+offer's destination and #62 decides whether it may be linked to at all; this is
+what happens when somebody presses the button, and what a network says about it
+weeks later.
+
+- **`affiliate_outbound_hosts` is the only table here that DECIDES anything**,
+  and it is the destination allow-list — issue requirement 2, "resolve only an
+  allowlisted source, storefront and destination". A host, approved by an
+  operator, scoped to ONE catalog source, revocable, attributable. It is a TABLE
+  rather than a config value because which shops a source sells changes without
+  a deploy; the affiliate networks' OWN redirectors are the opposite case and
+  are a CODE constant, for #66's reason — a configurable set would make "which
+  hosts may Mercaria redirect to" answerable per deployment, which is the shape
+  an open redirect eventually takes. An EMPTY table permits the network
+  redirectors and nothing else, which is the correct starting state.
+- **`host` is a bare lower-case hostname and a CHECK says so**: no scheme, no
+  path, no port, no userinfo, no wildcard. A stored `*.example.com` would make
+  the admission code INTERPRET the row, and an allow-list that needs
+  interpreting is one whose meaning can drift from what the operator who typed
+  it believed. Comparison at redirect time is EXACT against a parsed
+  `URL.hostname` — never `endsWith`, under which `example.com.evil.test`
+  matches, which is the one host shape the table exists for.
+- **The click row has NO foreign key at all**, and every id on it is a recorded
+  VALUE. The `watchlist_snapshot_items.selected_offer_id` ruling applied to a
+  whole row, for two reasons rather than one: `offers` CASCADEs from `listings`,
+  so a real key would let a seller's deletion destroy commercial history a
+  network reports against weeks later; and #59's merge repoints live references,
+  which would attribute a past click to whichever product won a merge that
+  happened afterwards.
+- **There is no actor column anywhere in the six tables** — no Oxy id, no guest
+  session, no pseudonymous id, no IP, no user agent. #67's click requirement 5
+  offers a signed-in id "when permitted and needed" or a pseudonymous session
+  id; the answer taken is NEITHER, because every metric the issue names is a
+  COUNT or a SUM over offers, merchants, sources and markets, so a per-person
+  handle on a commercial record retained for accounting buys nothing and is a
+  correlation key. `consent_mode` is still recorded: the lawful basis for the
+  measurement is a fact about the request even when the measurement names
+  nobody. The two operator stamps on the allow-list are the deliberate
+  exception, and a gate walks the real tables to keep it at two.
+- **Two biconditionals, never one over their conjunction.**
+  `affiliate_outbound_clicks_outcome_shape_check` ties `disposition` to
+  `refusal_reason` AND to `destination_host` separately, because the single
+  predicate is SATISFIED by a row that is neither — both sides evaluate false —
+  which admits exactly the row it exists to refuse. Measured twice already in
+  this schema (#108's portal grants, #126's delivery promises); written the long
+  way here from the start.
+- **`affiliate_report_runs` carries the vacuity floor as a CHECK**, scoped to a
+  COMPLETED run: `seen` must EQUAL the five outcome counters summed (#60's
+  device). A `running` row's counters are still moving and a `failed` one
+  legitimately read part of a page, so only a run claiming it finished must
+  account for everything it saw.
+- **Dedup is `UNIQUE(network, network_transaction_id)`** and the upsert is
+  `ON CONFLICT … DO UPDATE … RETURNING`. A re-poll of an overlapping window is
+  the NORMAL case — windows are chunked to 31 days and re-polled to catch
+  corrections — so "already seen" is an answer the index gives, never an error a
+  catch interprets. `network_transaction_id` is a FOREIGN service's key and is
+  registered in `ID_COLUMNS_WITHOUT_FOREIGN_KEY` beside every other one.
+- **Observations and postings are append-only against UPDATE *and* DELETE;
+  clicks refuse UPDATE and PERMIT DELETE.** The inversion is deliberate.
+  Acceptance 4 ("reversed commissions update reporting without deleting
+  history") IS that pair of refusals on the money side, and a posting that could
+  be deleted would let somebody unwind money outside the ledger's own reversing-
+  transaction rule. A click is telemetry whose retention IS erasure on a
+  schedule (`analytics_events`' posture), so a trigger refusing DELETE would
+  make the shared expiry sweep fail SILENTLY on every row it is obliged to
+  remove.
+- **`affiliate_commission_postings` is a TABLE, not a column pair**, because one
+  transaction produces several balanced movements over its life — an accrual, a
+  reversal, a settlement. `UNIQUE(transaction_id, kind, revision)` claimed with
+  `ON CONFLICT DO NOTHING RETURNING` in the SAME transaction as the ledger write
+  is the idempotency; `revision` is in the key because a network may approve,
+  reverse and approve again, and the second accrual is a DIFFERENT posting that
+  would otherwise be swallowed as a duplicate.
+- **Two ledger accounts and three transaction kinds were ADDED**, widening two
+  CHECKs. `affiliate_commission_revenue` is #89 acceptance 6's third figure
+  (subscription, marketplace fee and affiliate commission report separately) and
+  `affiliate_receivable` is its debit-normal counterpart — the money a network
+  has agreed it owes and not yet paid, which exists because commission is earned
+  and settled weeks apart.

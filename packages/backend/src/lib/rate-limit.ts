@@ -155,7 +155,16 @@ export type RateLimitScope =
   // guessing and enumeration to be prevented, and a code is a short string
   // somebody can iterate. Separate from the redirect so a crawl storm cannot
   // exhaust the allowance a real buyer needs to type the code they were given.
-  | 'referral-bind';
+  | 'referral-bind'
+  // The affiliate outbound redirect (#67). Its own bucket (`rl:outbound:`)
+  // rather than the catalogue's, because the abuse is a different shape: an
+  // unmetered redirect is a way to spend a merchant's affiliate call quota and
+  // to fill the click table, so sharing `listings` would mean a crawler either
+  // exhausts shopping for everyone or is not bounded at all. Generous for the
+  // `referral-redirect` reason — one shared product page is unfurled and
+  // clicked in bursts by real people — and the real bound on a poisoned link is
+  // the destination allow-list, which a limiter cannot be.
+  | 'outbound';
 
 /** The shared, prefixed Redis store for a scope, or `undefined` without Redis. */
 function scopeStore(scope: RateLimitScope): RedisStore | undefined {

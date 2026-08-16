@@ -1281,9 +1281,10 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
         .select()
         .from(offers)
         .where(eq(offers.canonicalVariantId, canonical.variantId));
-      // #57's rule: `destination_url` stays the ORIGINAL and #37 composes the
-      // tracked address at redirect time, so a routing failure degrades to the
-      // plain link instead of a dead one.
+      // #57's rule: `destination_url` stays the ORIGINAL. #67's redirect hands
+      // over eBay's OWN attributed URL when there is one and this plain link
+      // otherwise — verbatim either way, because composing or mutating an EPN
+      // link is what `EBAY_FORBIDDEN_LINK_OPERATIONS` forbids.
       expect(offer?.destinationUrl).toBe('https://www.ebay.es/itm/v1|af|0');
       expect(offer?.affiliateTrackingTemplate).toBe(
         'https://www.ebay.es/itm/v1|af|0?campid=5338000000',

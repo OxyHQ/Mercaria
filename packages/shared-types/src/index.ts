@@ -435,6 +435,18 @@ export * from './ebay';
 // may never establish about a retailer (disjoint from every fact this domain
 // can record, so #55 stays the only route to a badge).
 export * from './awin';
+// Affiliate outbound redirects, click records and commission reconciliation
+// (#67, part of #37). Follows `./offer`, `./ebay` and `./awin`: it SPENDS what
+// they store rather than adding to it — the destination is the provider's own
+// URL, unmodified, and nothing here composes one. Three vocabularies that must
+// not collapse into each other: where a buyer may be sent (a token with no
+// destination member, and a closed set of admitted hosts), what is recorded
+// about having sent them (an allow-list of typed facts, disjoint from the
+// identifying ones a request carries), and what a network later reports about
+// money (the network's own five states, of which only two may reach the
+// ledger). Deliberately carries no click-to-conversion rate, because a report
+// is revisable for weeks and a click is not.
+export * from './affiliate-outbound';
 // Supplier-fulfilled Mercaria-retail fulfilment (#126). Downstream of
 // `./retail-checkout` and `./supplier-order`: it names the fulfilment intent a
 // frozen procurement intent becomes and the destination a purchase order's

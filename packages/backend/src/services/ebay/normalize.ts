@@ -313,8 +313,9 @@ export function normalizeEbayItem(input: {
   });
   /**
    * The offer's stored destination is the ORIGINAL page whenever eBay published
-   * one (#57's rule: `destination_url` stays the original and #37 composes the
-   * tracked address at redirect time, so a routing failure degrades to the plain
+   * one (#57's rule: `destination_url` stays the ORIGINAL, and #67's redirect
+   * hands over eBay's own attributed URL when there is one and this plain link
+   * otherwise — verbatim either way, so a routing bug degrades to the plain
    * link instead of a dead one).
    *
    * When eBay published ONLY the attributed URL, that is the only address for
