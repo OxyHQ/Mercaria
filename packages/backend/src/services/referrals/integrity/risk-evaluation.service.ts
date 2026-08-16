@@ -51,6 +51,7 @@ import {
   referralAttributions,
   referralConversions,
   referralEvents,
+  referralPartners,
   referralTouches,
 } from '../../../db/schema/referrals.js';
 import { referralEnforcementActions } from '../../../db/schema/referralIntegrity.js';
@@ -59,6 +60,9 @@ import {
   type NewReferralRiskSignal,
   type ReferralRiskSignalRow,
 } from '../../../db/referralIntegrity/riskSignalRepository.js';
+import {
+  readReferralRiskPaymentFacts,
+} from './payment-facts.port.js';
 import {
   deriveRiskSignals,
   REFERRAL_RISK_THRESHOLD_DEFAULTS,
@@ -110,7 +114,7 @@ const CAP_REFUSAL_REASONS: readonly ReferralRewardRefusalReason[] = [
  * The evidence kind `click_to_conversion_pattern` may be measured over.
  *
  * ONLY `link_click`, and this is the single most load-bearing decision in the
- * four producers. `code_entry_at_checkout` is a partner's code typed INTO the
+ * two producers. `code_entry_at_checkout` is a partner's code typed INTO the
  * checkout form, so the interval between that evidence and the conversion is
  * seconds BY CONSTRUCTION — measuring it would fire
  * `click_to_conversion_pattern` on every honest checkout-code redemption there
@@ -156,7 +160,10 @@ const CLICK_EVIDENCE_KIND = 'link_click';
  *  - `disputeRateBps`, `providerAdverseOutcomeCount`,
  *    `sharedPayoutBeneficiaryPartnerCount` — all three read the PAYMENT domain
  *    (`provider_accounts` lives in `db/schema/payments.ts`), which WALL 2
- *    forbids importing. The shape they want is #146's: a port in
+ *    forbids importing. **The SEAM now exists** — `payment-facts.port.ts`, read
+ *    above — and NOTHING registers a reader, so all three stay absent on every
+ *    deployment. What is owed is the join's three queries, not another port.
+ *    The shape it wants is #146's: a port in
  *    `services/referrals/earnings/` registered from a module outside both
  *    walled domains, as `partner-readiness.port.ts` is.
  *  - `marketOutsideProgramScope` — the fact as SPECIFIED is not representable.
@@ -260,6 +267,29 @@ export async function collectRiskSignalFacts(
       ),
     );
 
+  // Who the partner IS. The port's subject carries the OWNER rather than only
+  // the partner id, because the join resolves a connected account by
+  // (ownerType, ownerId) — #146's `referralPayoutAccountOwner` — and passing
+  // the id alone would make the join look the partner up a second time through
+  // a repository the referral domain would then have to hand it.
+  const [partnerOwner = { ownerType: 'user' as const, ownerId: '' }] = await db
+    .select({ ownerType: referralPartners.ownerType, ownerId: referralPartners.ownerId })
+    .from(referralPartners)
+    .where(eq(referralPartners.id, input.partnerId))
+    .limit(1);
+
+  // The PAYMENT-domain facts, through #344's port. Unregistered — which is
+  // every deployment today — this answers `{}`, so the three facts stay absent
+  // and `deriveRiskSignals` emits nothing for them. See the port for why its
+  // default is silence where `partner-readiness.port.ts`' is refusal.
+  const paymentFacts = await readReferralRiskPaymentFacts({
+    partnerId: input.partnerId,
+    ownerType: partnerOwner.ownerType,
+    ownerId: partnerOwner.ownerId,
+    windowStart,
+    windowEnd: input.at,
+  });
+
   // postgres.js decodes `count(*)` (an int8) as a STRING, and drizzle types it
   // `number`. `Number(...)` at the boundary, once, rather than at each use —
   // a missed coercion here is arithmetic on a string, which concatenates
@@ -282,6 +312,10 @@ export async function collectRiskSignalFacts(
     // median below is not: a partner with no link-click conversions in the
     // window has nothing to take a median OF.
     capRefusalCount: Number(capRow?.total ?? 0),
+    // Absent on every deployment until #344's join is registered. Spread
+    // rather than assigned, so an unregistered read adds NO keys at all and
+    // cannot make `disputeRateBps: undefined` look like a field somebody set.
+    ...paymentFacts,
     ...(clicksSampled > 0 && clickRow?.medianSeconds != null
       ? { medianClickToConversionSeconds: Number(clickRow.medianSeconds) }
       : {}),
