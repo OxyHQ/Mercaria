@@ -903,9 +903,10 @@ One unified API (`packages/backend`) serves storefront, dashboard and POS.
 **Pricing engine** (`pricing.service.calculateTotals`): subtotal, then discounts,
 then taxes, then shipping, then grand total, with exact half-even reconciliation.
 
-**Store permissions:** 17 perms (`STORE_PERMISSIONS` in
-`db/schema/stores.ts`, includes `channels:write`). Role matrix: `owner` gets
-17/17, `admin` gets 16/17 (no `store:manage`), `staff` gets 9/17 operational.
+**Store permissions:** 18 perms (`STORE_PERMISSIONS` in
+`db/schema/stores.ts`, includes `channels:write` and `analytics:read`). Role
+matrix: `owner` gets 18/18, `admin` gets 17/18 (no `store:manage`), `staff` gets
+9/18 operational.
 **`store:manage` is the one permission an `admin` does not hold**, which is why
 the payment-onboarding routes use it rather than `settings:write`. Every buyer
 id, seller id and `oxy_user_id` is a foreign SERVICE's primary key (Oxy owns
