@@ -17,15 +17,30 @@
  *  - AGREEMENT between the two. The entities a pull connector's members reach
  *    must be exactly the entities its coverage reports as carried, so a policy
  *    that outlived its code cannot stay green.
- *  - A MEASUREMENT against production code for the one claim neither of those
- *    covers: `partial` says collection membership arrives, and the only proof is
- *    running the real normalizers.
+ *  - MEASUREMENTS against production code for the claims none of those cover.
+ *    `partial` says collection membership arrives and `partial_arrival` says a
+ *    redeemed discount's code and a rate's tax arrive on the order; the only
+ *    proof of either is running the real normalizers.
+ *  - PROBES for the record each entry says is never created — by writer name
+ *    over the import path, keyed on those modules' REAL exports, and against the
+ *    real drizzle columns for the rule, which has nowhere to land.
  *  - VACUITY FLOORS on every population, and a MUTATION SELF-TEST proving each
  *    comparison bites in both directions.
+ *
+ * The last two bullets read as they do because of what a caveat now PROMISES. A
+ * merchant is told the breakdown arrives on each imported order and that "the
+ * rule behind them is not created in Mercaria, so you cannot edit or reuse it
+ * here". Both halves were true only because of how one mapping function happens
+ * to be written; a claim of that kind, on a screen, about what somebody may do
+ * with money, is exactly the sort this file exists to stop going stale in
+ * silence. The columns and the normalizers are where each half becomes a fact
+ * about the system rather than about today's code.
  */
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { getTableColumns } from 'drizzle-orm';
+import { sqlColumnName } from '@oxyhq/db';
 import { describe, expect, it } from 'vitest';
 import {
   CHANNEL_ENTITY_ABSENCE_REASONS,
@@ -41,9 +56,22 @@ import {
   PROVIDER_ENTITY_MEMBERS,
   PROVIDER_NON_ENTITY_MEMBERS,
 } from '../channel-entity-coverage.js';
+import { orderAppliedDiscounts, orderTaxLines } from '../../../db/schema/orders.js';
 import { shopifyProvider } from '../../../connectors/shopify/index.js';
 import { wooCommerceProvider } from '../../../connectors/woocommerce/index.js';
 import type { ConnectorProvider } from '../../../connectors/types.js';
+// TYPE-ONLY, and every one is erased. They exist so the forbidden-writer map
+// below is keyed on the real exports of the modules that can create these
+// records, rather than on remembered spellings — see
+// `RECORD_WRITERS_THE_IMPORT_MUST_NOT_CALL`.
+import type * as collectionService from '../../collection.service.js';
+import type * as customerService from '../../customer.service.js';
+import type * as discountService from '../../discount.service.js';
+import type * as taxService from '../../tax.service.js';
+import type * as customerRepository from '../../../db/stores/customerRepository.js';
+import type * as discountRepository from '../../../db/merchandising/discountRepository.js';
+import type * as refundRepository from '../../../db/orders/refundRepository.js';
+import type * as taxRateRepository from '../../../db/stores/taxRateRepository.js';
 
 /** The channel types whose coverage a provider's members can testify about. */
 const PROVIDER_BACKED: ReadonlyArray<{ channelType: ChannelTypeId; provider: ConnectorProvider }> =
@@ -319,6 +347,88 @@ function orderImportSource(): { readonly lines: readonly string[]; readonly code
   return { lines, code: lines.join('\n') };
 }
 
+/**
+ * The exports of every module that can CREATE one of the records the coverage
+ * says an imported order never creates.
+ *
+ * Type-only, so it is erased at runtime and buys the one thing a source probe
+ * cannot buy for itself: the map below is keyed on this union, so a writer that
+ * is renamed or deleted fails `tsc` HERE instead of sitting in the list matching
+ * nothing. That is not hypothetical. This probe used to look for `createRefund`,
+ * which names no writer in this repository at all — the only `createRefund*` is
+ * `createRefundSchema`, a zod schema in `middleware/schemas.ts` — so one of its
+ * three tokens could never have fired, and an inert probe reads exactly like a
+ * passing one.
+ */
+type RecordWriterExport =
+  | keyof typeof collectionService
+  | keyof typeof customerService
+  | keyof typeof customerRepository
+  | keyof typeof discountService
+  | keyof typeof discountRepository
+  | keyof typeof refundRepository
+  | keyof typeof taxService
+  | keyof typeof taxRateRepository;
+
+/**
+ * Every writer the import path must not call, paired with the claim it falsifies.
+ *
+ * `Partial`, because these are a SUBSET of those modules' exports — and the
+ * excess-property check under `satisfies` is what refuses a key that is not one
+ * of them.
+ */
+const RECORD_WRITERS_THE_IMPORT_MUST_NOT_CALL = {
+  // `discounts` — the caveat says the rule "is not created in Mercaria".
+  createDiscount: 'discounts',
+  insertDiscount: 'discounts',
+  redeemDiscountCode: 'discounts',
+  // `tax_rates` — same caveat, same promise.
+  createTaxRate: 'tax_rates',
+  insertTaxRate: 'tax_rates',
+  // `customers` — "no Mercaria customer record is created from them".
+  upsertOnPaid: 'customers',
+  createCustomer: 'customers',
+  resolveOrCreate: 'customers',
+  insertCustomer: 'customers',
+  // `refunds` — "no Mercaria refund record is created".
+  insertRefund: 'refunds',
+  // `collections` — `partial` says membership arrives and no collection is made.
+  createCollection: 'collections',
+} as const satisfies Partial<Record<RecordWriterExport, ChannelSyncEntity>>;
+
+/**
+ * Column-name segments that would mean the discount or tax RULE is being stored.
+ *
+ * The two breakdown tables hold one discount's APPLICATION to one order — a
+ * code, a title, an amount. What makes the merchant-facing caveat true is that
+ * the rule's own terms have nowhere to land: no scope, no usage limit, no
+ * combinability, no validity window, no jurisdiction, and no pointer at a
+ * Mercaria `discounts` or `tax_rates` row. A column is how that changes, and a
+ * column arrives in a migration written by somebody who never opened this file.
+ */
+const RULE_SHAPED_COLUMN_SEGMENTS: readonly string[] = [
+  'usage',
+  'limit',
+  'combin',
+  'scope',
+  'starts',
+  'ends',
+  'expires',
+  'applies',
+  'minimum',
+  'jurisdiction',
+];
+
+/** The SQL column names of one drizzle table — `sqlColumnName`, never `.name` (#354). */
+function sqlColumnNames(table: Parameters<typeof getTableColumns>[0]): readonly string[] {
+  return Object.values(getTableColumns(table)).map((column) => sqlColumnName(column));
+}
+
+/** A Shopify `*_set` money field, in the currency the fixtures below price in. */
+function shopMoney(amount: string) {
+  return { shop_money: { amount, currency_code: 'EUR' } };
+}
+
 describe('#380 entity coverage — the never_synced claims are probed, not trusted', () => {
   /**
    * The gap the provider census does NOT close, closed here.
@@ -385,45 +495,227 @@ describe('#380 entity coverage — the never_synced claims are probed, not trust
       ).toBe(writesBreakdown ? 'partial_arrival' : 'never_synced');
     }
 
-    // `collections`: the DEGREE, which the member census cannot see since #395
-    // mapped `fetchCollections` onto the entity. `partial` claims a product
-    // joins collections the merchant already made and that no collection is
-    // created; the second half is what stops being true silently, because
-    // creating one is a small change inside a function that already resolves
-    // collection ids.
-    expect(
-      lines.filter((line) => line.includes('createCollection')),
-      'the connector import path now creates a Mercaria collection. ' +
-        'CHANNEL_ENTITY_POLICY.collections is `partial` precisely because it does not — ' +
-        'if platform collections now appear in Mercaria, that entry must become `synced` ' +
-        'and its caveat copy must go, because the screen currently tells a merchant to ' +
-        'make the collection themselves first.',
-    ).toEqual([]);
-
-    // `customers` and `refunds`: absences, so each is paired with a positive
-    // control below proving the scan can see a token of that shape at all.
-    for (const forbidden of ['upsertOnPaid', 'customerId', 'createRefund'] as const) {
+    // The RECORD half, for every entity whose entry says none is created. It
+    // covers `collections` — `partial` claims a product joins collections the
+    // merchant already made and that no collection is CREATED, and creating one
+    // is a small change inside a function that already resolves collection ids —
+    // as well as `customers` and `refunds`, and now `discounts` and `tax_rates`,
+    // whose caveat tells a merchant the rule is not created here.
+    //
+    // Absences, so each is paired with a positive control below proving the scan
+    // can see a token of that shape at all. The map itself is keyed on the real
+    // exports of the modules that own these writers, so a name that no longer
+    // exists is a `tsc` failure rather than a check that quietly stops firing.
+    for (const [writer, entity] of Object.entries(RECORD_WRITERS_THE_IMPORT_MUST_NOT_CALL)) {
       expect(
-        lines.filter((line) => line.includes(forbidden)),
-        `the connector import path now references ${forbidden}. CHANNEL_ENTITY_POLICY says ` +
-          'no customer and no refund record is created from an imported order; if one now is, ' +
-          'the coverage is telling merchants the opposite of what happens.',
+        lines.filter((line) => line.includes(writer)),
+        `the connector import path now references ${writer}. CHANNEL_ENTITY_POLICY.${entity} ` +
+          'says no such Mercaria record is created from an imported order; if one now is, the ' +
+          "coverage on a merchant's screen says the opposite of what happens.",
       ).toEqual([]);
     }
+
+    // `customerId` is kept as a token in its own right rather than as a writer:
+    // it is a FIELD name, so it catches the order document growing a pointer to
+    // a Mercaria customer without any of the writers above being called.
+    expect(
+      lines.filter((line) => line.includes('customerId')),
+      'the connector import path now references customerId. An imported order carries the ' +
+        "buyer's name and address and links to no Mercaria customer record.",
+    ).toEqual([]);
+  });
+
+  it('the forbidden-writer map defends every entity that claims no record is created', () => {
+    // `tsc` already refuses a key that is not a real export. What it cannot check
+    // is the other direction — an entity whose entry makes that claim and that no
+    // writer in the map defends, which is how a claim silently stops being probed.
+    const defended = new Set<string>(Object.values(RECORD_WRITERS_THE_IMPORT_MUST_NOT_CALL));
+    for (const entity of [
+      'discounts',
+      'tax_rates',
+      'customers',
+      'refunds',
+      'collections',
+    ] as const) {
+      expect(defended.has(entity), `nothing in the map defends ${entity}'s claim`).toBe(true);
+    }
+    // The floor: an empty map would satisfy the loop in the probe above.
+    expect(Object.keys(RECORD_WRITERS_THE_IMPORT_MUST_NOT_CALL).length).toBeGreaterThanOrEqual(10);
   });
 
   it('the absence checks can SEE what they are looking for', () => {
     // A negative control needs its own vacuity floor: "X is absent" is also what
-    // a scan that read nothing reports. These three tokens are known-present in
-    // the same file and of the same shape as the three forbidden ones.
+    // a scan that read nothing reports. Each of these is known-present in the
+    // same file AND of the same shape as the forbidden tokens it controls for.
+    // `toAppliedDiscounts`/`toOrderTaxLines` earn their place specifically: the
+    // sharpest way this probe could go blind is by failing to see discount- and
+    // tax-spelled identifiers in a file that is full of them.
     const { lines } = orderImportSource();
-    for (const present of ['buyerOxyUserId', 'insertOrder', 'shippingAddress'] as const) {
+    for (const present of [
+      'buyerOxyUserId',
+      'insertOrder',
+      'shippingAddress',
+      'toAppliedDiscounts',
+      'toOrderTaxLines',
+    ] as const) {
       expect(
         lines.filter((line) => line.includes(present)).length,
         `${present} is known-present; a zero here means the scan is blind, not that the ` +
           'forbidden tokens are absent.',
       ).toBeGreaterThan(0);
     }
+  });
+
+  it('the imported breakdown has nowhere to store a discount or tax RULE', () => {
+    // The structural half of the caveat a merchant now reads: "the rule behind
+    // them is not created in Mercaria, so you cannot edit or reuse it here."
+    //
+    // Nothing enforced that. It is true because of how `buildExternalOrderDoc`
+    // and its two mappers happen to be written today, and it is a promise about
+    // what a merchant can and cannot do, on a screen. Here it becomes a property
+    // of the schema instead: the tables hold one discount's APPLICATION to one
+    // order, and the rule's own terms have no column to arrive in.
+    const tables = [
+      { table: 'order_applied_discounts', columns: sqlColumnNames(orderAppliedDiscounts) },
+      { table: 'order_tax_lines', columns: sqlColumnNames(orderTaxLines) },
+    ];
+
+    for (const { table, columns } of tables) {
+      // The floor: a traversal that returned nothing passes every check below.
+      expect(columns.length, `${table} has no columns — did the traversal break?`).toBeGreaterThan(
+        5,
+      );
+      for (const column of columns) {
+        // SQL identifiers, or this gate is comparing against the TypeScript
+        // property name and its tokens can never match (#354).
+        expect(column, `${table}.${column} is not a SQL identifier`).toMatch(/^[a-z][a-z0-9_]*$/);
+      }
+
+      expect(
+        columns.filter((column) =>
+          RULE_SHAPED_COLUMN_SEGMENTS.some((segment) => column.includes(segment)),
+        ),
+        `${table} grew a column describing the discount or tax RULE rather than its ` +
+          "application to one order. The channel screen tells a merchant the rule is not " +
+          'created in Mercaria and cannot be edited or reused here; if it now is, that caveat ' +
+          'is what has to change.',
+      ).toEqual([]);
+
+      expect(
+        columns.filter((column) => column === 'mercaria_discount_id' || column === 'tax_rate_id'),
+        `${table} now points at a Mercaria discount or tax rate, which would mean the record ` +
+          'is being created after all.',
+      ).toEqual([]);
+    }
+
+    // And the application's OWN fields are present, so the refusals above are
+    // rejecting a shape rather than reporting two empty tables.
+    expect(sqlColumnNames(orderAppliedDiscounts)).toContain('code');
+    expect(sqlColumnNames(orderAppliedDiscounts)).toContain('discount_id');
+    expect(sqlColumnNames(orderTaxLines)).toContain('rate_bps');
+  });
+
+  it('both connectors really do carry a discount and tax breakdown onto an order', () => {
+    // The ARRIVAL half of `partial_arrival`, measured rather than read off the
+    // source. The bidirectional binding above compares what the import WRITES
+    // against what the policy CLAIMS — but both sides are satisfied by
+    // `toAppliedDiscounts` mapping an array that is always empty, because
+    // neither provider populates `NormalizedOrder.discounts`. Running the real
+    // normalizers is what rules that out, and it is the device this file already
+    // uses one describe block down for `collections`.
+    const shopifyOrder = shopifyProvider.normalizeOrder(
+      {
+        id: 5001,
+        name: '#1001',
+        currency: 'EUR',
+        presentment_currency: 'EUR',
+        financial_status: 'paid',
+        fulfillment_status: null,
+        subtotal_price_set: shopMoney('40.00'),
+        total_tax_set: shopMoney('8.40'),
+        total_discounts_set: shopMoney('4.00'),
+        total_shipping_price_set: shopMoney('5.00'),
+        total_price_set: shopMoney('49.40'),
+        line_items: [
+          {
+            id: 'l1',
+            title: 'A product',
+            variant_title: null,
+            quantity: 1,
+            price_set: shopMoney('40.00'),
+            // Shopify states a discount's MONEY only in the per-line
+            // allocations, which point back at the application by index.
+            discount_allocations: [
+              { amount_set: shopMoney('4.00'), discount_application_index: 0 },
+            ],
+          },
+        ],
+        discount_applications: [
+          {
+            type: 'discount_code',
+            title: null,
+            code: 'CONTRACT10',
+            value_type: 'percentage',
+            target_type: 'line_item',
+          },
+        ],
+        tax_lines: [{ title: 'VAT', price_set: shopMoney('8.40'), rate: 0.21 }],
+        shipping_lines: [{ title: 'Express (2 days)', code: 'EXPRESS', discount_allocations: [] }],
+      },
+      'EUR',
+    );
+    expect(
+      shopifyOrder.discounts.map((discount) => discount.code),
+      'Shopify stopped carrying a redeemed discount code onto an imported order, so the ' +
+        'channel screen promises a merchant lines that no longer arrive.',
+    ).toEqual(['CONTRACT10']);
+    expect(shopifyOrder.discounts[0]?.amount.amount).toBe(400);
+    expect(shopifyOrder.taxLines.map((line) => line.name)).toEqual(['VAT']);
+
+    const wooOrder = wooCommerceProvider.normalizeOrder(
+      {
+        id: 6001,
+        number: '6001',
+        status: 'completed',
+        currency: 'EUR',
+        date_created: '2026-01-01T00:00:00',
+        total: '49.40',
+        total_tax: '8.40',
+        discount_total: '4.00',
+        shipping_total: '5.00',
+        line_items: [
+          {
+            id: 'l1',
+            name: 'A product',
+            quantity: 1,
+            subtotal: '40.00',
+            total: '40.00',
+            meta_data: [],
+          },
+        ],
+        coupon_lines: [{ id: 900, code: 'contract10', discount: '4.00', discount_tax: '0.00' }],
+        tax_lines: [
+          {
+            id: 800,
+            rate_code: 'VAT',
+            label: 'VAT',
+            rate_percent: 21,
+            tax_total: '8.40',
+            shipping_tax_total: '0.00',
+          },
+        ],
+        shipping_lines: [
+          { id: 700, method_title: 'Flat rate', method_id: 'flat_rate', total: '5.00' },
+        ],
+        refunds: [],
+      },
+      'EUR',
+    );
+    expect(
+      wooOrder.discounts.map((discount) => discount.code),
+      'WooCommerce stopped carrying an order coupon onto an imported order.',
+    ).toEqual(['contract10']);
+    expect(wooOrder.taxLines.map((line) => line.name)).toEqual(['VAT']);
   });
 });
 
