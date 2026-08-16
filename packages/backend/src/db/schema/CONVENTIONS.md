@@ -5830,7 +5830,7 @@ partner allow-list is a table rather than a comma-separated variable.
 ## The universal taxonomy (#367 step 1)
 
 `catalog.ts`'s `categories`, WIDENED — plus `taxonomy.ts`
-(`category_aliases`, `category_redirects`, `category_external_mappings`).
+(`category_aliases`, `category_redirects`).
 Binding architecture: ADR 0007 D1/D2/D11/D13.
 
 **There is ONE category table and there will not be a second** (D2). A parallel
@@ -5901,8 +5901,7 @@ failure the epic is written against. `categories` gained seven columns instead.
 - **THREE biconditional CHECKs on the redirect subject, not one over their
   conjunction.** The single spelling is SATISFIED by a `category_id` row carrying
   a locale and no slug, because both sides evaluate false — the exact row the
-  discriminant exists to forbid. `category_external_mappings` carries the same
-  pair for its reviewer and its review instant.
+  discriminant exists to forbid.
 - **Both redirect subjects are PARTIAL uniques.** Postgres treats NULLs as
   distinct, so a plain unique over the nullable subject columns admits any number
   of rows.
@@ -5912,12 +5911,11 @@ failure the epic is written against. `categories` gained seven columns instead.
   the second one would make the taxonomy unable to record something true. The
   ambiguity is the reader's; `findCategoriesByAlias` returns a list. There is no
   `is_primary`/`preferred` column, so an alias cannot claim to be the name.
-- **`category_external_mappings` carries two uniques answering two questions**:
-  `(source_id, external_key, version)` makes "versioned" real, and the partial
-  `(source_id, external_key) WHERE valid_to IS NULL` makes "one current answer"
-  real. `confidence` is NULL for a mapping that was STATED rather than inferred —
-  imputing 1.0 would make an operator's mapping indistinguishable from a matcher
-  that was very sure.
+- **There is no `category_external_mappings`, deliberately.** An earlier draft
+  carried one; `(source, external key) → category` is one dimension of
+  Workstream 11's `catalog_external_mappings` and is owned there, because two
+  tables answering the identical question is what this epic exists to remove.
+  Recorded rather than dropped silently, so the old spelling resolves.
 - **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed,
   so none of them earns an entry in the register above. ADR 0007 D14 permits
   exactly three uses and none of them is here.

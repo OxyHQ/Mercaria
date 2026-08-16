@@ -1,0 +1,28 @@
+-- oxy:deploy-phase=post
+--
+-- #367 follow-up: `category_external_mappings` is withdrawn from the taxonomy
+-- module. `(source, external key) -> category` is one dimension of Workstream
+-- 11's `catalog_external_mappings`, and two tables answering the identical
+-- question is what this epic exists to remove.
+--
+-- ## Why `post` and not `pre`
+--
+-- The previously serving image carries `openCategoryExternalMapping`, which
+-- writes this table. Dropping it breaks that write, which is the test that
+-- decides the phase — so this may only run once the image that no longer has
+-- that function is live.
+--
+-- The write has no CALLER outside its own test, so nothing a user or a job did
+-- can be in these rows: the table has existed for one deploy and no route,
+-- service or worker ever reached it. That is why the drop is a drop and not an
+-- export-then-drop.
+--
+-- ## `CASCADE` is drizzle-kit's, and it is doing nothing here
+--
+-- Nothing references this table. The two foreign keys point OUT of it, at
+-- `catalog_sources` and `categories`, and both survive. `CASCADE` would matter
+-- only if something pointed IN; verified against the generated snapshot before
+-- landing, and stated here because a `DROP ... CASCADE` nobody has checked is
+-- how a dependent view or constraint disappears silently.
+
+DROP TABLE "category_external_mappings" CASCADE;

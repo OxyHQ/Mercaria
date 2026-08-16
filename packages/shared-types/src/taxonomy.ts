@@ -136,37 +136,6 @@ export const CATEGORY_REDIRECT_REASONS: readonly CategoryRedirectReason[] = [
 ];
 
 /**
- * `category_external_mappings.review_state` — the ingestion framework's posture
- * (ADR 0007 D2): an unmapped external key goes to REVIEW, never to a guess.
- *
- * `unreviewed` is not a soft yes. A mapping only carries authority once somebody
- * approved it, and `superseded` exists so a corrected mapping keeps the one it
- * replaced rather than overwriting it.
- */
-export type CategoryMappingReviewState = 'unreviewed' | 'approved' | 'rejected' | 'superseded';
-
-/** The tuple `category_external_mappings_review_state_check` is rendered from. */
-export const CATEGORY_MAPPING_REVIEW_STATES: readonly CategoryMappingReviewState[] = [
-  'unreviewed',
-  'approved',
-  'rejected',
-  'superseded',
-];
-
-/**
- * The review states that record a DECISION a person took, and therefore the ones
- * a reviewer id and a review instant are required beside.
- *
- * `unreviewed` has had no decision and `superseded` is a consequence of another
- * mapping being opened, which the system does — so demanding a reviewer for
- * either would force one to be invented.
- */
-export const CATEGORY_MAPPING_DECIDED_STATES: readonly CategoryMappingReviewState[] = [
-  'approved',
-  'rejected',
-];
-
-/**
  * The shape of a category `key` — lowercase segments joined by dots
  * (`electronics.phones.smartphones`).
  *
@@ -282,19 +251,4 @@ export interface CategoryAlias {
   /** Service-maintained normalization of `alias`, for lookup. */
   normalizedAlias: string;
   kind: CategoryAliasKind;
-}
-
-/** One external taxonomy's key, mapped to a Mercaria category. */
-export interface CategoryExternalMapping {
-  id: string;
-  sourceId: string;
-  externalKey: string;
-  categoryId: string;
-  /** Monotonic per `(source_id, external_key)`; only one row is live. */
-  version: number;
-  /** `[0, 1]`, or absent when the mapping was stated rather than inferred. */
-  confidence: number | null;
-  reviewState: CategoryMappingReviewState;
-  validFrom: string;
-  validTo: string | null;
 }

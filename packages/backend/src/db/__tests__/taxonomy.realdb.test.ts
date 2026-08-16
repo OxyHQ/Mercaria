@@ -26,12 +26,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { categories, listings } from '../schema/catalog.js';
-import {
-  categoryAliases,
-  categoryExternalMappings,
-  categoryRedirects,
-} from '../schema/taxonomy.js';
-import { catalogSources } from '../schema/provenance.js';
+import { categoryAliases, categoryRedirects } from '../schema/taxonomy.js';
 import {
   findCategoryAncestors,
   findCategoryBreadcrumb,
@@ -44,7 +39,6 @@ import {
   insertCategoryRedirect,
   mergeCategory,
   moveCategory,
-  openCategoryExternalMapping,
   resolveCategoryRedirect,
   setCategoryLifecycle,
   updateCategoryPresentation,
@@ -58,7 +52,6 @@ const RUN = uuidv7().slice(-12).replace(/\W/gu, '');
 
 const createdCategoryIds: string[] = [];
 const createdListingIds: string[] = [];
-const createdSourceIds: string[] = [];
 
 /** A key and a slug this file owns. Lowercase, so it clears the key CHECK. */
 function handle(name: string): string {
@@ -107,14 +100,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (db) {
-    // `category_external_mappings` and `category_aliases` first: the mapping is
-    // `restrict` onto both `categories` and `catalog_sources`, and an alias
-    // would cascade anyway but is cheaper to name.
-    if (createdSourceIds.length > 0) {
-      await db
-        .delete(categoryExternalMappings)
-        .where(inArray(categoryExternalMappings.sourceId, createdSourceIds));
-    }
+    // Aliases first. They would CASCADE with their category anyway, but naming
+    // them is cheaper than a cascade and states the order this teardown relies on.
     if (createdCategoryIds.length > 0) {
       await db
         .delete(categoryAliases)
@@ -151,9 +138,6 @@ afterAll(async () => {
       await db.delete(categories).where(inArray(categories.id, createdCategoryIds));
     }
 
-    if (createdSourceIds.length > 0) {
-      await db.delete(catalogSources).where(inArray(catalogSources.id, createdSourceIds));
-    }
     await closePostgres();
   }
 });
@@ -616,7 +600,7 @@ describe('selectability: a structural node takes no product (ADR 0007 D2)', () =
   });
 });
 
-describe('aliases and external mappings (ADR 0007 D1/D2)', () => {
+describe('aliases (ADR 0007 D1/D2)', () => {
   it('permits one alias under several categories and refuses a duplicate under one', async () => {
     const first = await makeCategory('alias-first');
     const second = await makeCategory('alias-second');
@@ -658,66 +642,6 @@ describe('aliases and external mappings (ADR 0007 D1/D2)', () => {
         normalizedAlias: `blank-${RUN}`,
         kind: 'synonym',
       }),
-    ).rejects.toSatisfy(isCheckViolation);
-  });
-
-  it('supersedes an external mapping rather than replacing it', async () => {
-    const [source] = await db
-      .insert(catalogSources)
-      .values({
-        kind: 'affiliate_network',
-        name: `Taxonomy source ${RUN}`,
-        mayDisplay: true,
-        mayStore: true,
-        attributionRequired: false,
-      })
-      .returning();
-    createdSourceIds.push(source.id);
-
-    const first = await makeCategory('mapping-first');
-    const second = await makeCategory('mapping-second');
-    const externalKey = `ext-${RUN}`;
-
-    const v1 = await openCategoryExternalMapping({
-      sourceId: source.id,
-      externalKey,
-      categoryId: first,
-    });
-    expect(v1.version).toBe(1);
-    expect(v1.validTo).toBeNull();
-
-    const v2 = await openCategoryExternalMapping({
-      sourceId: source.id,
-      externalKey,
-      categoryId: second,
-      confidence: 0.9,
-    });
-    expect(v2.version).toBe(2);
-
-    const rows = await db
-      .select()
-      .from(categoryExternalMappings)
-      .where(eq(categoryExternalMappings.sourceId, source.id));
-    expect(rows).toHaveLength(2);
-    const closed = rows.find((row) => row.version === 1);
-    expect(closed?.reviewState).toBe('superseded');
-    expect(closed?.validTo).not.toBeNull();
-
-    // A decision needs BOTH a reviewer and an instant, and each is its own
-    // biconditional — a single CHECK over their conjunction admits either half
-    // alone.
-    await expect(
-      db
-        .update(categoryExternalMappings)
-        .set({ reviewState: 'approved' })
-        .where(eq(categoryExternalMappings.id, v2.id)),
-    ).rejects.toSatisfy(isCheckViolation);
-
-    await expect(
-      db
-        .update(categoryExternalMappings)
-        .set({ reviewState: 'approved', reviewedAt: new Date() })
-        .where(eq(categoryExternalMappings.id, v2.id)),
     ).rejects.toSatisfy(isCheckViolation);
   });
 });

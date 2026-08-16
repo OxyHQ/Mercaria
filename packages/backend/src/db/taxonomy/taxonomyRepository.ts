@@ -4,9 +4,8 @@
  *
  * ## What "single write chokepoint" means here, and what enforces it
  *
- * Every INSERT and UPDATE against `categories`, `category_aliases`,
- * `category_redirects` and `category_external_mappings` in production source is
- * issued from this module. `db/__tests__/taxonomy-write-chokepoint.test.ts`
+ * Every INSERT and UPDATE against `categories`, `category_aliases` and
+ * `category_redirects` in production source is issued from this module. `db/__tests__/taxonomy-write-chokepoint.test.ts`
  * fails the build on a second writer, for the reason
  * `listing-publication-chokepoint.test.ts` exists one table over: three of this
  * module's invariants are DERIVATIONS rather than constraints — `is_active` from
@@ -42,18 +41,13 @@ import {
   type CategoryAliasKind,
   type CategoryBreadcrumbStep,
   type CategoryLifecycle,
-  type CategoryMappingReviewState,
   type CategoryRedirectReason,
   type CategoryRedirectResolution,
   type TaxonomyCategory,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction, type Transaction } from '../postgres.js';
 import { categories } from '../schema/catalog.js';
-import {
-  categoryAliases,
-  categoryExternalMappings,
-  categoryRedirects,
-} from '../schema/taxonomy.js';
+import { categoryAliases, categoryRedirects } from '../schema/taxonomy.js';
 
 /** One row of `categories`. */
 export type CategoryRow = InferSelectModel<typeof categories>;
@@ -61,8 +55,6 @@ export type CategoryRow = InferSelectModel<typeof categories>;
 export type CategoryAliasRow = InferSelectModel<typeof categoryAliases>;
 /** One row of `category_redirects`. */
 export type CategoryRedirectRow = InferSelectModel<typeof categoryRedirects>;
-/** One row of `category_external_mappings`. */
-export type CategoryExternalMappingRow = InferSelectModel<typeof categoryExternalMappings>;
 
 /**
  * How far `resolveCategoryRedirect` follows a chain before answering
@@ -401,72 +393,6 @@ export async function insertCategoryRedirect(
   return row;
 }
 
-/** What a new external mapping says. */
-export interface NewCategoryExternalMapping {
-  sourceId: string;
-  externalKey: string;
-  categoryId: string;
-  confidence?: number | null;
-  reviewState?: CategoryMappingReviewState;
-  reviewedByOxyUserId?: string | null;
-  reviewedAt?: Date | null;
-}
-
-/**
- * Open a mapping for `(source_id, external_key)`, closing whatever was current.
- *
- * Closing and opening happen in one transaction because the partial unique
- * permits exactly one row with a NULL `valid_to`: an open that ran without its
- * close would be refused by the index, and a close that ran without its open
- * would leave the external key mapped to nothing. The new version is the closed
- * one's plus one, so a version number is never reused.
- */
-export async function openCategoryExternalMapping(
-  values: NewCategoryExternalMapping,
-  db: DatabaseOrTransaction = getDb(),
-): Promise<CategoryExternalMappingRow> {
-  const run = async (tx: DatabaseOrTransaction): Promise<CategoryExternalMappingRow> => {
-    const closedAt = new Date();
-    const [current] = await tx
-      .select()
-      .from(categoryExternalMappings)
-      .where(
-        and(
-          eq(categoryExternalMappings.sourceId, values.sourceId),
-          eq(categoryExternalMappings.externalKey, values.externalKey),
-          isNull(categoryExternalMappings.validTo),
-        ),
-      )
-      .limit(1);
-
-    if (current) {
-      await tx
-        .update(categoryExternalMappings)
-        .set({ validTo: closedAt, reviewState: 'superseded' })
-        .where(eq(categoryExternalMappings.id, current.id));
-    }
-
-    const [row] = await tx
-      .insert(categoryExternalMappings)
-      .values({
-        sourceId: values.sourceId,
-        externalKey: values.externalKey,
-        categoryId: values.categoryId,
-        version: (current?.version ?? 0) + 1,
-        confidence: values.confidence ?? null,
-        reviewState: values.reviewState ?? 'unreviewed',
-        reviewedByOxyUserId: values.reviewedByOxyUserId ?? null,
-        reviewedAt: values.reviewedAt ?? null,
-        validFrom: closedAt,
-      })
-      .returning();
-    if (!row) throw new Error('openCategoryExternalMapping returned no row.');
-    return row;
-  };
-
-  return isTransaction(db) ? run(db) : (db as ReturnType<typeof getDb>).transaction(run);
-}
-
 // ─── Reads ─────────────────────────────────────────────────────────────────
 
 /** One category by its stable machine key — the D1 identity lookup. */
@@ -632,26 +558,6 @@ export async function findCategoriesByAlias(
     .where(
       and(eq(categoryAliases.locale, locale), eq(categoryAliases.normalizedAlias, normalizedAlias)),
     );
-}
-
-/** The one open mapping for an external key, whatever its review state. */
-export async function findCurrentCategoryExternalMapping(
-  sourceId: string,
-  externalKey: string,
-  db: DatabaseOrTransaction = getDb(),
-): Promise<CategoryExternalMappingRow | null> {
-  const [row] = await db
-    .select()
-    .from(categoryExternalMappings)
-    .where(
-      and(
-        eq(categoryExternalMappings.sourceId, sourceId),
-        eq(categoryExternalMappings.externalKey, externalKey),
-        isNull(categoryExternalMappings.validTo),
-      ),
-    )
-    .limit(1);
-  return row ?? null;
 }
 
 // ─── Internals ─────────────────────────────────────────────────────────────

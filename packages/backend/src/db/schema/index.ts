@@ -27,6 +27,13 @@
 export * from './stores';
 export * from './connectors';
 export * from './catalog';
+// The TAXONOMY module (#367, ADR 0007 D1/D2) follows `catalog` immediately,
+// because `categories` is its only dependency — `category_aliases` and
+// `category_redirects` reference nothing else. It sat after `provenance` while
+// this module also owned `category_external_mappings`; that table moved to
+// Workstream 11 and the dependency went with it. `categories` itself stays in
+// `catalog` — D2 extends the one category table in place.
+export * from './taxonomy';
 // The condition domain (#90) follows `catalog`: every one of its listing-side
 // tables references `listings`, and `condition_category_policies` references
 // `categories`. It PRECEDES `offers`, whose mapping provenance column is a real
@@ -69,12 +76,6 @@ export * from './notifications';
 // source-link tables reference `source_records`. `canonicalSupport.ts` is
 // schema support like `columns.ts` and is deliberately NOT exported here.
 export * from './provenance';
-// The TAXONOMY module (#367, ADR 0007 D1/D2) sits here and not beside
-// `catalog`, because `category_external_mappings` references `catalog_sources`
-// while its two siblings reference only `categories`. `categories` itself stays
-// in `catalog` — D2 extends the one category table in place rather than adding a
-// second one, so there is nothing to move.
-export * from './taxonomy';
 export * from './organizations';
 export * from './merchants';
 // The versioned attribute REGISTRY (#94) precedes the canonical product layer:

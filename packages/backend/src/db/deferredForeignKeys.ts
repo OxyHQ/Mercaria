@@ -1330,11 +1330,6 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // thing a Mercaria foreign key can never point at.
   { column: 'catalog_source_configs.status_changed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'catalog_source_policies.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
-  // #367's taxonomy mapping reviewer. It sits with the catalog-source stamps
-  // rather than with `categories.image_file_id` because it is an Oxy ACCOUNT,
-  // not a media file — and because the row it stamps is a mapping FROM one of
-  // these sources, reviewed on the same surface.
-  { column: 'category_external_mappings.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'catalog_source_runs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
   {
     column: 'catalog_source_objects.external_id',

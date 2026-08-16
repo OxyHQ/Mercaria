@@ -14,7 +14,7 @@ identity established here and on nothing else in the epic.
 | | |
 |---|---|
 | `categories` (extended in place) | `packages/backend/src/db/schema/catalog.ts` |
-| `category_aliases`, `category_redirects`, `category_external_mappings` | `packages/backend/src/db/schema/taxonomy.ts` |
+| `category_aliases`, `category_redirects` | `packages/backend/src/db/schema/taxonomy.ts` |
 | The single write chokepoint | `packages/backend/src/db/taxonomy/taxonomyRepository.ts` |
 | The v1 reads, retained | `packages/backend/src/db/catalog/categoryRepository.ts` |
 | Vocabularies and DTOs | `packages/shared-types/src/taxonomy.ts` |
@@ -144,17 +144,24 @@ constraint refusing the second one would make the taxonomy unable to record
 something true. `findCategoriesByAlias` returns a list; resolving the ambiguity
 is the caller's.
 
-## External mappings go to review, never to a guess
+## External category mappings are NOT here
 
-`category_external_mappings` is `(source_id, external_key) → category_id`,
-versioned, with two uniques answering two questions: `(source_id, external_key,
-version)` makes "versioned" real, and the partial `(source_id, external_key)
-WHERE valid_to IS NULL` makes "one current answer" real. `review_state`'s
-`unreviewed` is not a soft yes.
+`(source, external key) → category` is one dimension of Workstream 11's
+**`catalog_external_mappings`**, one row per `(source, dimension, external key)`
+with a discriminated target, and it is owned by that branch. The ADR amendment
+recording the decision lands in that PR together with the table, so there is no
+interval in which the decision exists and its migration does not.
 
-`confidence` is NULL for a mapping that was **stated** rather than inferred —
-imputing 1.0 would make an operator's mapping indistinguishable from a matcher
-that was very sure.
+Named here for the one reason a removed thing earns a mention: **an earlier
+draft of this domain carried a `category_external_mappings`**, and somebody
+grepping for that spelling should get an answer rather than silence. It was
+withdrawn because two tables answering the identical question is precisely what
+this epic exists to remove, and because a single table across all six dimensions
+carries governance — supersession, provenance, a two-operator fan-out approval,
+idempotent resumable reprocessing — that a category-only variant would not.
+
+`categories.id` is what that table's FK points at, so nothing about the identity
+D2 asks for changes; only the file it lives in.
 
 ## The write chokepoint, and why it needs a gate
 

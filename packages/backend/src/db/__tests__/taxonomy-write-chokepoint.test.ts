@@ -1,5 +1,5 @@
 /**
- * `categories` and its three satellite tables are written by
+ * `categories` and its two satellite tables are written by
  * `db/taxonomy/taxonomyRepository.ts` and by two named exceptions, and by
  * nothing else.
  *
@@ -52,12 +52,7 @@ import { fileURLToPath } from 'node:url';
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** The tables whose writers are being counted, assembled from rather than quoted. */
-const TABLES = [
-  'categories',
-  'category_aliases',
-  'category_redirects',
-  'category_external_mappings',
-] as const;
+const TABLES = ['categories', 'category_aliases', 'category_redirects'] as const;
 
 /**
  * A drizzle or raw write against any of them.
@@ -202,7 +197,7 @@ describe('the taxonomy write census', () => {
       'await tx\n  .update(categoryRedirects)\n  .set({ reason: "merged" });',
       'await db.delete(categoryAliases).where(eq(categoryAliases.id, id));',
       'await db.execute(sql`update categories as d set ancestor_slugs = x`);',
-      'await db.execute(sql`insert into category_external_mappings (id) values (1)`);',
+      'await db.execute(sql`insert into category_aliases (id) values (1)`);',
       'await db.execute(sql`delete from category_redirects where id = $1`);',
     ]) {
       expect(TAXONOMY_WRITE.test(positive), `probe missed: ${positive}`).toBe(true);
