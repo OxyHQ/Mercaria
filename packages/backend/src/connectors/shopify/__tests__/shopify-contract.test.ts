@@ -60,10 +60,21 @@ const SHOP_DOMAIN = 'contract-suite.myshopify.com';
  * version; importing the constant would let a version bump slide through green
  * while the fixtures still describe the version before it, which is the reverse
  * of what this file is for. Updating it is the prompt to ask whether the shapes
- * below were re-checked — for the `2024-10` → `2025-10` bump they were not, and
- * could not be: no store exists to observe (#69 acceptance 7, #286).
+ * below were re-checked.
+ *
+ * For `2024-10` → `2025-10` they were not, and could not be. For `2025-10` →
+ * `2026-07` they were checked against Shopify's CURRENT REST reference — every
+ * field these fixtures emit is documented as present, and nothing here was
+ * reshaped to make the bump pass.
+ *
+ * The bound on that claim is recorded on `API_VERSION` itself: only
+ * `product-variant` was DIFFED between `2025-10` and `2026-07` (identical), the
+ * other resources were read at `2026-07` alone, and no store exists to observe
+ * (#69 acceptance 7, #286) — so nothing here has met the wire. A field that
+ * changed MEANING while keeping its name is exactly what neither the reference
+ * nor these fixtures can catch.
  */
-const API_PREFIX = '/admin/api/2025-10';
+const API_PREFIX = '/admin/api/2026-07';
 
 /** A 200 with a JSON body and optional headers. */
 function ok(body: unknown, headers: Record<string, string> = {}): ShopifyHttpResponse {

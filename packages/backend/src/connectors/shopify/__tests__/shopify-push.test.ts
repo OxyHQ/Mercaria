@@ -107,7 +107,7 @@ describe('shopify pushProduct — CREATE (no externalId)', () => {
     expect(created.calls).toHaveLength(1);
     const call = created.calls[0];
     expect(call.method).toBe('post');
-    expect(call.url).toBe('https://acme.myshopify.com/admin/api/2025-10/products.json');
+    expect(call.url).toBe('https://acme.myshopify.com/admin/api/2026-07/products.json');
     expect(call.headers['X-Shopify-Access-Token']).toBe('shpat_test');
 
     const sent = JSON.parse(call.body ?? '{}').product;
@@ -162,7 +162,7 @@ describe('shopify pushProduct — UPDATE (with externalId)', () => {
     expect(transport.calls).toHaveLength(1);
     expect(transport.calls[0].method).toBe('put');
     expect(transport.calls[0].url).toBe(
-      'https://acme.myshopify.com/admin/api/2025-10/products/555.json',
+      'https://acme.myshopify.com/admin/api/2026-07/products/555.json',
     );
     expect(JSON.parse(transport.calls[0].body ?? '{}').product.status).toBe('draft');
   });
