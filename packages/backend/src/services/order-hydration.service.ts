@@ -29,8 +29,8 @@ import type {
   PaymentInfo,
   AddressSnapshot,
   OrderStatusEvent,
-  DiscountAllocation,
-  TaxLine,
+  OrderDiscountAllocation,
+  OrderTaxLine,
 } from '@mercaria/shared-types';
 import type {
   OrderAppliedDiscountRow,
@@ -171,15 +171,22 @@ export function toOrderItemDTO(item: OrderItemRecord): OrderItem {
   return dto;
 }
 
-/** Map a persisted discount allocation to the `DiscountAllocation` DTO. */
-function toDiscountAllocation(allocation: OrderAppliedDiscountRow): DiscountAllocation {
-  const dto: DiscountAllocation = {
+/** Map a persisted discount allocation to the `OrderDiscountAllocation` DTO. */
+function toDiscountAllocation(allocation: OrderAppliedDiscountRow): OrderDiscountAllocation {
+  const dto: OrderDiscountAllocation = {
     discountId: allocation.discountId,
     title: allocation.title,
-    valueType: allocation.valueType,
     amount: { amount: allocation.amountAmount, currency: allocation.amountCurrency },
     target: allocation.target,
   };
+  // OMITTED rather than serialized as null. The column is nullable only because
+  // an imported order's source may not state a value type (#378), and `null` in
+  // a field a client reads as `DiscountValueType | undefined` is a third state
+  // nobody declared. `tsc` will not catch this one — the backend compiles with
+  // `strict: false`, so `null` is assignable to the optional field.
+  if (allocation.valueType !== null) {
+    dto.valueType = allocation.valueType;
+  }
   if (allocation.code) {
     dto.code = allocation.code;
   }
@@ -191,13 +198,17 @@ function toDiscountAllocation(allocation: OrderAppliedDiscountRow): DiscountAllo
   return dto;
 }
 
-/** Map a persisted tax line to the `TaxLine` DTO. */
-function toTaxLine(line: OrderTaxLineRow): TaxLine {
-  return {
+/** Map a persisted tax line to the `OrderTaxLine` DTO. */
+function toTaxLine(line: OrderTaxLineRow): OrderTaxLine {
+  const dto: OrderTaxLine = {
     name: line.name,
-    rateBps: line.rateBps,
     amount: { amount: line.amountAmount, currency: line.amountCurrency },
   };
+  // Omitted rather than null — see `toDiscountAllocation`.
+  if (line.rateBps !== null) {
+    dto.rateBps = line.rateBps;
+  }
+  return dto;
 }
 
 /** Map the snapshotted shipping address columns to the `AddressSnapshot` DTO. */

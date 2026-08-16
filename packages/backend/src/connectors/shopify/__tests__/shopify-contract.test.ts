@@ -133,8 +133,46 @@ function moneySet(amount: string, currency: string): Record<string, unknown> {
   };
 }
 
-/** Render one order as Shopify's REST `orders.json` entry. */
+/**
+ * Split a MAJOR-unit amount into `parts` shares that sum back to it exactly.
+ *
+ * Cent arithmetic, and the remainder lands on the LAST share — so `4.00` over
+ * two lines is `2.00` + `2.00` and `4.01` is `2.00` + `2.01`, never a pair that
+ * quietly loses a cent. Both contract harnesses run a two-decimal currency
+ * (`EUR` here, `GBP` next door), which is what makes cents the right unit.
+ */
+function splitMajor(amount: string, parts: number): string[] {
+  const totalCents = Math.round(Number(amount) * 100);
+  const share = Math.trunc(totalCents / parts);
+  return Array.from({ length: parts }, (_, index) =>
+    ((index === parts - 1 ? totalCents - share * (parts - 1) : share) / 100).toFixed(2),
+  );
+}
+
+/**
+ * Render one order as Shopify's REST `orders.json` entry.
+ *
+ * The discount shape is the one that makes #378 non-trivial: a
+ * `discount_applications` entry carries the RULE (`value` + `value_type`) and
+ * never the money, and the money lives in the `discount_allocations` on each
+ * line item (or shipping line) pointing back at it by index. A reader that
+ * expects an amount on the application finds none.
+ */
 export function shopifyOrderJson(order: ContractOrder, currency: string): Record<string, unknown> {
+  // Every discount keeps its index in `discount_applications`, because that
+  // index is the only thing tying an allocation to the discount that made it.
+  const itemDiscounts = order.discounts
+    .map((discount, index) => ({ discount, index }))
+    .filter((entry) => entry.discount.targetsShipping !== true);
+  const shippingDiscounts = order.discounts
+    .map((discount, index) => ({ discount, index }))
+    .filter((entry) => entry.discount.targetsShipping === true);
+  const lineCount = order.lines.length > 0 ? order.lines.length : 1;
+  // Each item discount spread across every line, exactly as Shopify spreads an
+  // order-level discount with `allocation_method: across`.
+  const itemShares = new Map(
+    itemDiscounts.map((entry) => [entry.index, splitMajor(entry.discount.amount, lineCount)]),
+  );
   return {
     id: order.externalId,
     name: order.number,
@@ -166,7 +204,39 @@ export function shopifyOrderJson(order: ContractOrder, currency: string): Record
       sku: line.sku ?? null,
       quantity: line.quantity,
       price_set: moneySet(line.unitPrice, currency),
+      discount_allocations: itemDiscounts.map((entry) => ({
+        amount_set: moneySet(itemShares.get(entry.index)?.[index] ?? '0.00', currency),
+        discount_application_index: entry.index,
+      })),
     })),
+    discount_applications: order.discounts.map((discount) => ({
+      type: discount.code === undefined ? 'automatic' : 'discount_code',
+      // Shopify sets `title` on an automatic/manual discount and `code` on a
+      // redeemed one; it does not send both.
+      title: discount.code === undefined ? discount.title : null,
+      code: discount.code ?? null,
+      value_type: discount.valueType ?? null,
+      target_type: discount.targetsShipping === true ? 'shipping_line' : 'line_item',
+    })),
+    // Shopify's `rate` is a FRACTION, so basis points divided by 10,000.
+    tax_lines: order.taxLines.map((line) => ({
+      title: line.name,
+      price_set: moneySet(line.amount, currency),
+      rate: line.rateBps === undefined ? null : line.rateBps / 10_000,
+    })),
+    shipping_lines:
+      order.shippingLabel === undefined && shippingDiscounts.length === 0
+        ? []
+        : [
+            {
+              title: order.shippingLabel ?? 'Shipping',
+              code: 'STANDARD',
+              discount_allocations: shippingDiscounts.map((entry) => ({
+                amount_set: moneySet(entry.discount.amount, currency),
+                discount_application_index: entry.index,
+              })),
+            },
+          ],
     shipping_address: order.shippingAddress
       ? {
           name: order.shippingAddress.name,
@@ -499,6 +569,9 @@ describeConnectorContract({
   reportsPublishState: false,
   // Shopify publishes `barcode` on every variant and the provider maps it (#381).
   reportsVariantBarcode: true,
+  // Shopify publishes `value_type` on every `discount_applications` entry, so an
+  // imported Shopify discount carries the platform's own value type.
+  publishesDiscountValueType: true,
   createWorld: () => {
     const catalogue = contractCatalogue(uuidv7());
     return createContractWorld({

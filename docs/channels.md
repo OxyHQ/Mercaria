@@ -633,6 +633,88 @@ Runbook §8.5 is also surfaced, as copy rather than a limitation: a no-change
 resync tallies as `updated`, because the patch is built from every unpinned
 connector-managed field whether or not it changed.
 
+### An imported order carries its discount, tax and shipping BREAKDOWN (#378)
+
+A merchant with a live Shopify store reported that "discounts are not syncing".
+The totals always reconciled — `total_discounts_set` and the tax total were read
+and carried from the first version — but `appliedDiscounts` and `taxLines` were
+the literals `[]` on every imported order from both providers, and the coupon
+CODE was never carried at all. Underneath, neither provider's zod schema even
+named the fields: Shopify's `discount_applications` / `tax_lines` /
+`shipping_lines` and WooCommerce's `coupon_lines` / `tax_lines` /
+`shipping_lines` were absent, so a merchant saw a discount total with nothing
+saying which coupon produced it. `shippingMethod`/`shippingLabel` were the
+literals `'standard'`/`'Shipping'`.
+
+**Shopify states a discount's MONEY only in the per-line allocations.** A
+`discount_applications` entry carries the RULE — `value` plus `value_type`, e.g.
+"10" and "percentage" — and never an amount; the money lives in the
+`discount_allocations` on each line item and shipping line, pointing back at the
+application by INDEX. So the amount is the sum of those allocations, which is
+arithmetic over what the platform published rather than a re-pricing. It reads
+`discount_applications` rather than `discount_codes` because the first covers
+automatic and manual discounts too.
+
+#### Two decisions, and both cut against tidying the data
+
+**A breakdown that does not reconcile with its own total is recorded as it
+arrived.** Nothing scales a line to fit, invents a balancing line, drops the
+lines that overflow, or refuses the import. This is not a defensive edge case:
+Shopify leaves a shipping-targeted discount OUT of `total_discounts`, so any
+free-shipping code makes the sum of the breakdown EXCEED the carried discount
+total, routinely and correctly. Both figures are the platform's own statements
+and Mercaria carries each verbatim — the rule the currency contract already
+states for an imported order's amounts, applied one level down. There is
+deliberately no warning logged on a mismatch either, because a log that fires on
+healthy data is a log people learn to ignore.
+
+**The breakdown is written on a FIRST import and never backfilled.** A re-sync
+still refreshes only `status`, `paymentStatus` and `source`. An order's totals
+are frozen at import (`insertOrder` is their only writer) and a platform order
+stays editable afterwards — a Shopify order edit, a WooCommerce admin changing a
+coupon — so a breakdown taken from today's payload written beside totals frozen
+from then would be one financial record whose halves come from two different
+moments, which is worse than an absent breakdown. Nothing reads these rows for
+money (`refund.service` computes against the order's lines and totals), so an
+older order keeps reconciling exactly as it always has and loses only the
+display. Re-importing an order with fresh totals MOVES its money and is a
+separate decision for its own issue.
+
+#### Unknown is stored as absence, never as a plausible default
+
+`order_applied_discounts.value_type` and `order_tax_lines.rate_bps` became
+NULLABLE (migration `0087`, `pre` — both widen, and the serving image writes a
+value into each on every row it creates). The value-type CHECK is untouched and
+stays exactly as tight as `discounts_value_type_check`; the tuple was
+deliberately NOT widened with an "unknown" member, because that member would
+also become creatable on the `discounts` table.
+
+A WooCommerce order coupon line is a CODE and an AMOUNT — the coupon's own
+`discount_type` is not part of the order payload — so an imported WooCommerce
+discount carries NO value type where a Shopify one carries the platform's own.
+`publishesDiscountValueType` on the contract harness declares that per provider
+and the suite measures BOTH branches, because asserting the ABSENCE is the only
+thing that stops somebody defaulting it to `fixed_amount` later: a false snapshot
+of another shop's discount, which no other check here would notice. Closing the
+gap means reading a real store's `coupon_lines[].meta_data` to learn the shape
+WooCommerce actually publishes there rather than guessing at one — see the
+runbook.
+
+Two more places the same rule bites. The shipping METHOD stays `standard` and
+only the LABEL carries the platform's text: `SHIPPING_METHODS` is Mercaria's
+closed `standard|express|pickup` set, no platform publishes a value from it, and
+the guess that lands on `pickup` changes how an order is fulfilled. And every
+allocation is `target: 'order'` — `targetLineIndex` is an index into Mercaria's
+OWN lines and neither platform states that mapping, so a line target would risk
+attributing a discount to the wrong item, and it is the only shape a shipping
+discount can take at all.
+
+**WooCommerce `fee_lines` is deliberately not read.** A fee ADDS to the order
+total and Mercaria's order model has no slot for one; reading it into
+`appliedDiscounts` would record an addition as a reduction, and a negative fee
+(which some plugins use to express a discount) is still a fee, so telling the two
+apart would be a guess. The fee is already inside the carried `total`.
+
 ---
 
 ## What is deferred, and to whom

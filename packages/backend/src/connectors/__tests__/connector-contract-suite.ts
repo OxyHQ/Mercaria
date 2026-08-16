@@ -40,7 +40,7 @@
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import type { ConnectorProviderId, CurrencyCode } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
@@ -77,7 +77,11 @@ import {
 } from '../../db/catalog/variantRepository.js';
 import { findLevelsByVariant } from '../../db/catalog/inventoryLevelRepository.js';
 import { listSyncRunsForConnection } from '../../db/connectors/syncRunRepository.js';
-import { orders as ordersTable } from '../../db/schema/orders.js';
+import {
+  orderAppliedDiscounts,
+  orders as ordersTable,
+  orderTaxLines,
+} from '../../db/schema/orders.js';
 import { decryptSecret } from '../../lib/connector-crypto.js';
 import {
   auditConnectionWebhooks,
@@ -94,7 +98,12 @@ import {
   toConnectionDTOWithWebhookFailures,
 } from '../../services/connector-sync.service.js';
 import type { ConnectorCapabilities, ConnectorProvider } from '../types.js';
-import type { ContractProduct, ContractVariant, ContractWorld } from './contract-world.js';
+import type {
+  ContractOrder,
+  ContractProduct,
+  ContractVariant,
+  ContractWorld,
+} from './contract-world.js';
 
 /** What a provider package supplies to get every case below. */
 export interface ConnectorContractHarness {
@@ -217,6 +226,18 @@ export interface ConnectorContractHarness {
    * the sync path learning to re-sync it fails here.
    */
   readonly reportsVariantBarcode: boolean;
+  /**
+   * Whether this platform states a discount's VALUE TYPE on an order (#378).
+   *
+   * Declared like a capability and measured on BOTH branches. Shopify publishes
+   * `value_type` on every `discount_applications` entry; a WooCommerce order
+   * coupon line is a code and an amount, and the coupon's own type is not part
+   * of the order payload. So a WooCommerce import must store NO value type
+   * rather than a plausible one, and asserting that ABSENCE is the only thing
+   * that stops somebody defaulting it to `fixed_amount` later — a false snapshot
+   * of another shop's discount, which no other check here would notice.
+   */
+  readonly publishesDiscountValueType: boolean;
   /**
    * The URL fragment the provider fetches to COMPLETE a webhook payload (#220),
    * or ABSENT when this platform's deliveries are self-contained.
@@ -2609,6 +2630,190 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         });
 
         expect(await importedOrders(fixture.connection.id)).toHaveLength(0);
+      });
+    });
+
+    // --- #378: the discount, tax and shipping BREAKDOWN --------------------
+
+    describe('the order discount, tax and shipping breakdown', () => {
+      /** The world's order that carries a breakdown, or a failed expectation. */
+      function orderWithBreakdown(fixture: ContractFixture): ContractOrder {
+        const source = fixture.world.orders.find((order) => order.discounts.length > 0);
+        expect(source, 'the fixture order book must carry an order with a discount').toBeDefined();
+        return source as ContractOrder;
+      }
+
+      /** The persisted order row for one external id, or a failed expectation. */
+      async function importedOrder(fixture: ContractFixture, externalId: string) {
+        const rows = await importedOrders(fixture.connection.id);
+        const row = rows.find((order) => order.sourceExternalId === externalId);
+        expect(row, `no order was imported for external id ${externalId}`).toBeDefined();
+        return row as NonNullable<typeof row>;
+      }
+
+      /** The persisted breakdown rows of one order, in their stored position order. */
+      async function breakdownOf(orderId: string) {
+        const [discounts, taxLines] = await Promise.all([
+          db
+            .select()
+            .from(orderAppliedDiscounts)
+            .where(eq(orderAppliedDiscounts.orderId, orderId))
+            .orderBy(asc(orderAppliedDiscounts.position)),
+          db
+            .select()
+            .from(orderTaxLines)
+            .where(eq(orderTaxLines.orderId, orderId))
+            .orderBy(asc(orderTaxLines.position)),
+        ]);
+        return { discounts, taxLines };
+      }
+
+      /** The twenty totals columns, as the row stores them. */
+      function totalsOf(order: Awaited<ReturnType<typeof importedOrder>>) {
+        return {
+          subtotal: [order.totalsSubtotalShopAmount, order.totalsSubtotalPresentmentAmount],
+          discountTotal: [
+            order.totalsDiscountTotalShopAmount,
+            order.totalsDiscountTotalPresentmentAmount,
+          ],
+          tax: [order.totalsTaxShopAmount, order.totalsTaxPresentmentAmount],
+          shipping: [order.totalsShippingShopAmount, order.totalsShippingPresentmentAmount],
+          grandTotal: [order.totalsGrandTotalShopAmount, order.totalsGrandTotalPresentmentAmount],
+        };
+      }
+
+      it('IMPORTS the per-discount and per-rate breakdown, and the shipping LABEL', async () => {
+        const fixture = await makeFixture();
+        const source = orderWithBreakdown(fixture);
+
+        await syncOrders(fixture.storeId, fixture.connection.id);
+
+        const order = await importedOrder(fixture, source.externalId);
+        const { discounts, taxLines } = await breakdownOf(order.id);
+
+        // ONE row per discount the platform published, carrying the CODE — which
+        // is the merchant's actual complaint: an imported order showed a
+        // discount total with nothing saying which coupon produced it.
+        expect(discounts).toHaveLength(1);
+        expect(discounts[0].code).toBe('CONTRACT10');
+        expect(discounts[0].amountAmount).toBe(400);
+        expect(discounts[0].amountCurrency).toBe(harness.shopCurrency);
+        // Order-targeted, because Mercaria's `targetLineIndex` is an index into
+        // ITS OWN lines and no platform states that mapping.
+        expect(discounts[0].target).toBe('order');
+        expect(discounts[0].targetLineIndex).toBeNull();
+        // Provenance on the SOURCE platform, never a Mercaria discount id (which
+        // is a bare `generatedId()` and carries no colon).
+        expect(discounts[0].discountId.startsWith(`ext:${harness.providerId}:`)).toBe(true);
+        // BOTH branches measured — see `publishesDiscountValueType`. The absent
+        // branch is the load-bearing one: it is what refuses a default.
+        expect(discounts[0].valueType).toBe(
+          harness.publishesDiscountValueType ? 'fixed_amount' : null,
+        );
+
+        // TWO rates, each with its own amount — a breakdown that copied the tax
+        // total into one line would pass a one-rate assertion. The second states
+        // no rate, and NULL is what "the platform did not say" has to look like:
+        // a zero there would claim a 0% rate collected 0.32.
+        expect(taxLines.map((line) => [line.name, line.rateBps, line.amountAmount])).toEqual([
+          ['VAT', 800, 128],
+          ['City tax', null, 32],
+        ]);
+        expect(taxLines.every((line) => line.amountCurrency === harness.shopCurrency)).toBe(true);
+
+        // The platform's own shipping text, and the METHOD deliberately left on
+        // `standard`: `SHIPPING_METHODS` is a closed Mercaria set and mapping
+        // carrier text onto `express`/`pickup` would be a guess.
+        expect(order.shippingLabel).toBe('Express (2 days)');
+        expect(order.shippingMethod).toBe('standard');
+      });
+
+      it('leaves an order the platform did NOT itemize with no breakdown rows', async () => {
+        const fixture = await makeFixture();
+        // The first two fixture orders publish a tax TOTAL and itemize nothing,
+        // which is an ordinary platform state. The control that the import reads
+        // what a platform published rather than manufacturing lines from a total.
+        const bare = fixture.world.orders.filter(
+          (order) => order.discounts.length === 0 && order.taxLines.length === 0,
+        );
+        expect(bare.length, 'the fixture order book must carry an un-itemized order').toBeGreaterThan(0);
+
+        await syncOrders(fixture.storeId, fixture.connection.id);
+
+        for (const source of bare) {
+          const order = await importedOrder(fixture, source.externalId);
+          const { discounts, taxLines } = await breakdownOf(order.id);
+          expect(discounts).toHaveLength(0);
+          expect(taxLines).toHaveLength(0);
+          // Non-zero tax with no tax line: the total is still the platform's.
+          expect(order.totalsTaxShopAmount).toBeGreaterThan(0);
+          expect(order.shippingLabel).toBe('Shipping');
+        }
+      });
+
+      it('records a breakdown that does NOT reconcile with its own total, uncorrected', async () => {
+        const fixture = await makeFixture();
+        const source = orderWithBreakdown(fixture);
+        // A SECOND discount, applied to the shipping line, with the order's
+        // `discountTotal` left exactly where it was. This is not a contrived
+        // fixture: Shopify leaves a shipping-targeted discount out of
+        // `total_discounts`, so any free-shipping code produces precisely this.
+        fixture.world.orders = fixture.world.orders.map((order) =>
+          order.externalId === source.externalId
+            ? {
+                ...order,
+                discounts: [
+                  ...order.discounts,
+                  { code: 'FREESHIP', title: 'FREESHIP', amount: '5.00', targetsShipping: true },
+                ],
+              }
+            : order,
+        );
+
+        await syncOrders(fixture.storeId, fixture.connection.id);
+
+        const order = await importedOrder(fixture, source.externalId);
+        const { discounts } = await breakdownOf(order.id);
+
+        // BOTH lines are stored at the amounts the platform published, and the
+        // carried total is unchanged. Nothing was scaled to fit, nothing was
+        // dropped for overflowing, and no balancing row was invented — the sum
+        // exceeding the total IS the record.
+        expect(discounts.map((row) => row.amountAmount)).toEqual([400, 500]);
+        expect(discounts.map((row) => row.code)).toEqual(['CONTRACT10', 'FREESHIP']);
+        expect(order.totalsDiscountTotalShopAmount).toBe(400);
+      });
+
+      it('moves NO money — every total is the platform’s own, and a re-sync changes none', async () => {
+        // The guard the whole change is measured against, and the ONE case here
+        // that is deliberately green on both revisions: #378 adds a breakdown
+        // BESIDE totals that already reconciled, so if it ever moves one of them
+        // this is what says so.
+        const fixture = await makeFixture();
+        const source = orderWithBreakdown(fixture);
+
+        await syncOrders(fixture.storeId, fixture.connection.id);
+        const first = await importedOrder(fixture, source.externalId);
+
+        // The platform's own figures, in minor units, on BOTH sides of every
+        // `DualMoney` — Mercaria FX never re-prices an imported order.
+        expect(totalsOf(first)).toEqual({
+          subtotal: [2899, 2899],
+          discountTotal: [400, 400],
+          tax: [160, 160],
+          shipping: [500, 500],
+          grandTotal: [3159, 3159],
+        });
+
+        await syncOrders(fixture.storeId, fixture.connection.id);
+        const second = await importedOrder(fixture, source.externalId);
+        expect(totalsOf(second)).toEqual(totalsOf(first));
+
+        // And the re-sync did not duplicate the breakdown either: it is written
+        // on a first import and never backfilled or rewritten afterwards.
+        const { discounts, taxLines } = await breakdownOf(second.id);
+        expect(discounts).toHaveLength(1);
+        expect(taxLines).toHaveLength(2);
       });
     });
 

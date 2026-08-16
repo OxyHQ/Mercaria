@@ -21,6 +21,7 @@ import {
   CURRENCY_PRECISION,
   type AddressSnapshot,
   type CurrencyCode,
+  type DiscountValueType,
   type DualMoney,
   type ExternalCollection,
   type FxRateSnapshot,
@@ -37,7 +38,9 @@ import type {
   NormalizedInventoryLevel,
   NormalizedOrder,
   NormalizedOrderCustomer,
+  NormalizedOrderDiscount,
   NormalizedOrderLine,
+  NormalizedOrderTaxLine,
   NormalizedProduct,
   NormalizedVariant,
   PlatformWebhookSubscription,
@@ -432,6 +435,48 @@ const shopifyMoneySetSchema = z.object({
   presentment_money: shopifyMoneyBagSchema.optional(),
 });
 
+/**
+ * How much ONE `discount_applications` entry took off ONE line (or shipping
+ * line). Shopify states the money a discount removed HERE and nowhere else: a
+ * `discount_applications` entry carries `value` + `value_type` (the RULE, e.g.
+ * "10" + "percentage") and never the amount, so the amount is the sum of the
+ * allocations pointing back at it by index.
+ */
+const shopifyDiscountAllocationSchema = z.object({
+  amount: z.string().nullable().optional(),
+  amount_set: shopifyMoneySetSchema.optional(),
+  discount_application_index: z.number().nullable().optional(),
+});
+
+/** One discount APPLIED to a Shopify order (a code, an automatic rule, a manual one). */
+const shopifyDiscountApplicationSchema = z.object({
+  /** `discount_code` | `manual` | `script` | `automatic`. */
+  type: z.string().nullable().optional(),
+  title: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  /** Set only on a `discount_code` application — the code the buyer typed. */
+  code: z.string().nullable().optional(),
+  /** `fixed_amount` | `percentage`. Anything else is left UNSTATED rather than guessed. */
+  value_type: z.string().nullable().optional(),
+  /** `line_item` | `shipping_line`. */
+  target_type: z.string().nullable().optional(),
+});
+
+/** One tax rate's contribution to a Shopify order. `rate` is a FRACTION (0.08 = 8%). */
+const shopifyOrderTaxLineSchema = z.object({
+  title: z.string().nullable().optional(),
+  price: z.string().nullable().optional(),
+  price_set: shopifyMoneySetSchema.optional(),
+  rate: z.union([z.number(), z.string()]).nullable().optional(),
+});
+
+/** One shipping method on a Shopify order — the source of the human shipping LABEL. */
+const shopifyShippingLineSchema = z.object({
+  title: z.string().nullable().optional(),
+  code: z.string().nullable().optional(),
+  discount_allocations: z.array(shopifyDiscountAllocationSchema).default([]),
+});
+
 const shopifyOrderLineSchema = z.object({
   id: z.union([z.number(), z.string()]).optional(),
   product_id: z.union([z.number(), z.string()]).nullable().optional(),
@@ -443,6 +488,7 @@ const shopifyOrderLineSchema = z.object({
   quantity: z.number().default(1),
   price: z.string().optional(),
   price_set: shopifyMoneySetSchema.optional(),
+  discount_allocations: z.array(shopifyDiscountAllocationSchema).default([]),
 });
 
 const shopifyOrderAddressSchema = z.object({
@@ -487,6 +533,9 @@ const shopifyOrderSchema = z.object({
     .nullable()
     .optional(),
   line_items: z.array(shopifyOrderLineSchema).default([]),
+  discount_applications: z.array(shopifyDiscountApplicationSchema).default([]),
+  tax_lines: z.array(shopifyOrderTaxLineSchema).default([]),
+  shipping_lines: z.array(shopifyShippingLineSchema).default([]),
   shipping_address: shopifyOrderAddressSchema.nullable().optional(),
 });
 
@@ -789,6 +838,109 @@ function mapShopifyCustomer(raw: ShopifyOrder['customer']): NormalizedOrderCusto
   return Object.keys(customer).length > 0 ? customer : undefined;
 }
 
+/**
+ * The SHOP side of a money set as a single-currency `Money`.
+ *
+ * Asking `dualMoneyFromSet` for shop→shop is what makes it read `shop_money` and
+ * nothing else, so the breakdown lines and the totals parse the platform's
+ * decimals through ONE function rather than two spellings that could diverge.
+ */
+function shopMoneyFromSet(
+  set: ShopifyMoneySet | undefined,
+  fallbackAmount: string | null | undefined,
+  shopCurrency: CurrencyCode,
+): Money {
+  return dualMoneyFromSet(set, fallbackAmount, shopCurrency, shopCurrency).shop;
+}
+
+/**
+ * Shopify's `value_type`, mapped onto Mercaria's `DiscountValueType`, or ABSENT.
+ *
+ * Only the two values Shopify documents are mapped. A third one Shopify adds
+ * later must arrive as "unstated" rather than as whichever member looked
+ * closest — see `OrderDiscountAllocation.valueType`.
+ */
+function shopifyDiscountValueType(raw: string | null | undefined): DiscountValueType | undefined {
+  if (raw === 'percentage' || raw === 'fixed_amount') {
+    return raw;
+  }
+  return undefined;
+}
+
+/**
+ * The per-discount breakdown of a Shopify order, in SHOP currency.
+ *
+ * The list is `discount_applications` — which covers automatic and manual
+ * discounts as well as codes, where `discount_codes` covers only codes — and
+ * each application's MONEY is the sum of every allocation that points back at it
+ * by index, across line items AND shipping lines. Summing the platform's own
+ * allocations is not re-pricing; there is nowhere else Shopify states the amount.
+ *
+ * A shipping-targeted discount is INCLUDED even though Shopify leaves it out of
+ * `total_discounts`, so a free-shipping code makes the breakdown exceed the
+ * carried discount total. That mismatch is the platform's and is recorded, never
+ * corrected (`NormalizedOrder.discounts`).
+ */
+function shopifyDiscountBreakdown(
+  order: ShopifyOrder,
+  shopCurrency: CurrencyCode,
+): NormalizedOrderDiscount[] {
+  const allocated = new Map<number, number>();
+  const allocations = [
+    ...order.line_items.flatMap((item) => item.discount_allocations),
+    ...order.shipping_lines.flatMap((line) => line.discount_allocations),
+  ];
+  for (const allocation of allocations) {
+    const index = allocation.discount_application_index;
+    if (index === null || index === undefined) {
+      continue;
+    }
+    const money = shopMoneyFromSet(allocation.amount_set, allocation.amount, shopCurrency);
+    allocated.set(index, (allocated.get(index) ?? 0) + money.amount);
+  }
+
+  return order.discount_applications.map((application, index) => {
+    const discount: NormalizedOrderDiscount = {
+      externalId: `ext:${PROVIDER_ID}:discount_application:${index}`,
+      title: application.title ?? application.code ?? application.description ?? 'Discount',
+      amount: { amount: allocated.get(index) ?? 0, currency: shopCurrency },
+    };
+    if (application.code) {
+      discount.code = application.code;
+    }
+    const valueType = shopifyDiscountValueType(application.value_type);
+    if (valueType) {
+      discount.valueType = valueType;
+    }
+    return discount;
+  });
+}
+
+/**
+ * The per-rate tax breakdown of a Shopify order, in SHOP currency.
+ *
+ * Shopify publishes `rate` as a FRACTION (`0.08`), which is basis points times
+ * 10,000. A rate that is missing or unreadable is left ABSENT: a line claiming
+ * zero basis points beside a non-zero amount is a worse record than one that
+ * says the rate is unknown.
+ */
+function shopifyTaxBreakdown(
+  order: ShopifyOrder,
+  shopCurrency: CurrencyCode,
+): NormalizedOrderTaxLine[] {
+  return order.tax_lines.map((line, index) => {
+    const taxLine: NormalizedOrderTaxLine = {
+      name: line.title ?? `Tax ${index + 1}`,
+      amount: shopMoneyFromSet(line.price_set, line.price, shopCurrency),
+    };
+    const rate = typeof line.rate === 'string' ? Number(line.rate) : line.rate;
+    if (typeof rate === 'number' && Number.isFinite(rate) && rate >= 0) {
+      taxLine.rateBps = Math.round(rate * 10_000);
+    }
+    return taxLine;
+  });
+}
+
 /** PURE: map a raw Shopify order into a `NormalizedOrder` priced in `shopCurrency`. */
 export function normalizeShopifyOrder(raw: unknown, shopCurrency: CurrencyCode): NormalizedOrder {
   const parsed = shopifyOrderSchema.safeParse(raw);
@@ -851,8 +1003,15 @@ export function normalizeShopifyOrder(raw: unknown, shopCurrency: CurrencyCode):
     presentmentCurrency,
     lines,
     totals,
+    discounts: shopifyDiscountBreakdown(order, shopCurrency),
+    taxLines: shopifyTaxBreakdown(order, shopCurrency),
   };
   if (order.name) normalized.externalNumber = order.name;
+  // The buyer-facing name of the method they chose. Shopify's `code` is the
+  // carrier's own identifier and `title` is what the buyer saw; the first
+  // shipping line is the one the order shipped under.
+  const shippingLabel = order.shipping_lines[0]?.title ?? order.shipping_lines[0]?.code;
+  if (shippingLabel) normalized.shippingLabel = shippingLabel;
   // Unreadable timestamps are OMITTED rather than assigned invalid — see the
   // product normalizer above and `connectors/timestamps.ts`.
   const orderUpdatedAt = parseProviderTimestamp(order.updated_at);

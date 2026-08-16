@@ -743,11 +743,19 @@ export const orderAppliedDiscounts = pgTable(
     code: text(),
     title: text().notNull(),
     /**
-     * The discount's `valueType`. Free-form `String` in Mongo, but its only
-     * producer copies `discount.valueType`, which is itself a closed set — so the
-     * CHECK here is a tightening, and a deliberate one.
+     * The discount's `valueType`, or NULL when the SOURCE never stated one.
+     *
+     * The CHECK stays exactly as tight as `discounts_value_type_check` — the
+     * tuple is not widened, because a Mercaria discount must still be one of the
+     * four. What changed (#378) is that a second producer arrived: a connector
+     * import, which reads somebody else's order. A platform that reports the
+     * money a coupon removed without reporting whether the coupon was a
+     * percentage or a fixed amount leaves this genuinely unknown, and NULL is
+     * how this schema says unknown — a default would be a false snapshot of
+     * another shop's discount, and `in (...)` over NULL is NULL, which a CHECK
+     * accepts, so the constraint still refuses every value outside the tuple.
      */
-    valueType: text({ enum: asEnumValues(DISCOUNT_VALUE_TYPES) }).notNull(),
+    valueType: text({ enum: asEnumValues(DISCOUNT_VALUE_TYPES) }),
     ...money('amount'),
     target: text({ enum: asEnumValues(DISCOUNT_ALLOCATION_TARGETS) }).notNull(),
     /** Which line, when `target = 'line'` — an INDEX into the order's own lines. */
@@ -777,8 +785,16 @@ export const orderTaxLines = pgTable(
       .notNull()
       .references(() => orders.id, { onDelete: 'cascade' }),
     name: text().notNull(),
-    /** Basis points — 800 = 8%. */
-    rateBps: integer().notNull(),
+    /**
+     * Basis points — 800 = 8% — or NULL when the SOURCE never stated a rate.
+     *
+     * `order_applied_discounts.value_type`'s reasoning applied to tax (#378): a
+     * platform can report what a rate collected without reporting the rate, and
+     * a line claiming zero basis points beside a non-zero amount is a worse
+     * record than one that says the rate is unknown. Mercaria's own pricing
+     * engine always writes it, because it read the `TaxRate` row.
+     */
+    rateBps: integer(),
     ...money('amount'),
     position: integer().notNull().default(0),
     createdAt: createdAt(),
