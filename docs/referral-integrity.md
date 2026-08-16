@@ -412,6 +412,13 @@ Stated rather than stubbed. Each is a named seam that fails closed.
    two branches are both live and `risk-thresholds.ts`'s rule that only one of
    them reports per window means what it says.
 
+   **One of the eight is produced by a STOPGAP.** `repeated_cap_attempt` counts
+   accrual refusals by matching a `<code>: <detail>` prefix on the free-text
+   `referral_events.reason`, because the reason code is not a column. A change to
+   the reason SENTENCE makes the counter read zero — and zero is a measurement
+   here, so it would report a clean partner rather than an unmeasured one. The
+   honest fix is a `refusal_reason` column in the reward domain: **#431**.
+
    **No producer (6)**, and NOT because nobody has got to them — each is
    blocked on something specific, which is why this list names the blocker
    rather than inviting somebody to write the aggregate:
@@ -448,7 +455,7 @@ Stated rather than stubbed. Each is a named seam that fails closed.
      at publish for exactly that reason. Only the INSTRUMENT has a market
      (`referral_codes.market`, `referral_links.market`), and deriving from it
      answers a different question under the same name. Changing the spec is a
-     decision about #149 as well.
+     decision about #149 as well — **#432** carries the three options.
    - `source_event_inconsistency` — no relationship exists between a referral
      partner and a #62/#65 source event to aggregate over.
 

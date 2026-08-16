@@ -289,7 +289,8 @@ export async function collectRiskSignalFacts(
   // column: `reward.service.ts` writes it as the `<code>: <detail>` prefix of
   // `referral_events.reason`, so this matches that prefix. A `refusal_reason`
   // column would be the honest fix and belongs to the reward domain rather than
-  // here — stated in the PR rather than worked around silently.
+  // here — filed as #431 rather than worked around silently, because a stopgap
+  // survives by nobody writing down that it was one.
   const [capRow] = await db
     .select({ total: sql<string>`count(*)` })
     .from(referralEvents)
