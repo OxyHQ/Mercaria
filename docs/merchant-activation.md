@@ -366,3 +366,11 @@ image writes is broken by it.
 - **Downloadable fee breakdowns** (#88's fourth deferred item). `/fees/preview`
   already returns the arithmetic; a file is a rendering decision with no server
   work behind it.
+
+## Where the non-checkout capabilities live
+
+Fulfilment capabilities are a registry of their own, excluded from both
+conjunctions BY CONSTRUCTION — the composer passes lists rather than an exclusion
+somebody maintains — and are still fed to `deriveCapabilities`.
+`MerchantActivationState.fulfilment` carries them. The DTO has no third checkout
+`state`, because `nativeCheckout.state` already answers that question.

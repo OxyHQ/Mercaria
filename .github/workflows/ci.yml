@@ -62,6 +62,15 @@ jobs:
       - name: Guard against MongoDB returning
         run: bun run validate:no-mongo
 
+      # AGENTS.md is loaded into EVERY agent session, so its size is paid on
+      # every task forever. It reached 478 KB by accretion — ~100 lines of
+      # per-issue design notes appended by each feature PR, none of them wrong
+      # on its own and none visible except in the sum. That is the shape a gate
+      # catches and a convention does not. Costs a second; reads the tracked
+      # file listing and nothing else.
+      - name: Guard the AGENTS.md budget
+        run: bun run validate:agents-md
+
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
 
