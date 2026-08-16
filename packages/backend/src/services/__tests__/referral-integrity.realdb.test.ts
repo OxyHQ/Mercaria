@@ -40,7 +40,11 @@ import {
 } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
-import { referralEvents, referralPartners } from '../../db/schema/referrals.js';
+import {
+  referralEvents,
+  referralPartnerApplications,
+  referralPartners,
+} from '../../db/schema/referrals.js';
 import {
   referralConductPolicies,
   referralDisclosureRequirements,
@@ -56,6 +60,8 @@ import {
 } from '../referrals/integrity/enforcement.service.js';
 import { decideAppeal, openEnforcementAppeal } from '../referrals/integrity/appeal.service.js';
 import { evaluatePartnerRisk } from '../referrals/integrity/risk-evaluation.service.js';
+import { collectSelfReferralFacts } from '../referrals/integrity/self-referral.service.js';
+import { findPartnerById } from '../../db/referrals/partnerRepository.js';
 
 const TAG = uuidv7().slice(-8);
 const OPERATOR_A = `op-a-${TAG}`;
@@ -169,6 +175,11 @@ afterAll(async () => {
     await db
       .delete(referralEvents)
       .where(inArray(referralEvents.subjectId, trackedPartnerIds));
+    // This file now writes applications (the self-referral revision cases), so
+    // its teardown is a writer of that table too.
+    await db
+      .delete(referralPartnerApplications)
+      .where(inArray(referralPartnerApplications.partnerId, trackedPartnerIds));
     await db.delete(referralPartners).where(inArray(referralPartners.id, trackedPartnerIds));
   }
 
@@ -706,6 +717,89 @@ describe('risk signals are observations, and they expire', () => {
       }),
       /manual_kind_check|recorded_by_check/,
     );
+  });
+});
+
+describe('the self-referral read takes the LATEST application revision', () => {
+  /**
+   * One application revision.
+   *
+   * `withdrawn` for the superseded one and `draft` for the current one, which is
+   * the realistic reapplication shape AND the only pair that stays out of three
+   * unrelated CHECKs: `referral_partner_applications_live_key` permits one LIVE
+   * row per partner, while the consent, submission and decision CHECKs exempt
+   * exactly `draft` and `withdrawn`. Reaching for `approved` here would drag a
+   * submitter, two consent instants and a decision into a case about ORDERING.
+   *
+   * The read under test filters on no state at all, so the pair exercises it
+   * exactly as `approved` would.
+   */
+  async function seedRevision(input: {
+    partnerId: string;
+    revision: number;
+    state: 'withdrawn' | 'draft';
+    disclosure: string | null;
+  }): Promise<void> {
+    await db.insert(referralPartnerApplications).values({
+      partnerId: input.partnerId,
+      revision: input.revision,
+      state: input.state,
+      enrollmentMode: 'open_application',
+      promotionMethods: ['website'],
+      audienceBand: 'under_1k',
+      // The biconditional CHECK: `has_related_party` iff a disclosure is present.
+      hasRelatedParty: input.disclosure !== null,
+      relatedPartyDisclosure: input.disclosure,
+    });
+  }
+
+  async function relatedPartyDeclaredFor(partnerId: string): Promise<boolean | undefined> {
+    const partner = await findPartnerById(db, partnerId);
+    if (!partner) throw new Error('fixture partner missing');
+    const facts = await collectSelfReferralFacts(db, {
+      partner,
+      subject: { subjectKind: 'oxy_user', oxyUserId: `subject-${TAG}` },
+    });
+    return facts.relatedPartyDeclared;
+  }
+
+  it('reads a disclosure ADDED on the newest revision', async () => {
+    // The case where an unordered `limit 1` differs from the correct answer:
+    // revision 1 is physically first and carries NO disclosure, so a planner
+    // returning insertion order answers `false` where the truth is `true`.
+    const partnerId = await approvedPartner('rev-added');
+    await seedRevision({ partnerId, revision: 1, state: 'withdrawn', disclosure: null });
+    await seedRevision({
+      partnerId,
+      revision: 2,
+      state: 'draft',
+      disclosure: 'My brother owns the referred store.',
+    });
+
+    expect(await relatedPartyDeclaredFor(partnerId)).toBe(true);
+  });
+
+  it('reads a disclosure REMOVED on the newest revision as withdrawn', async () => {
+    // The other direction, and the one that matters for fairness: a partner who
+    // disclosed and then corrected the application must not have the superseded
+    // statement held against them forever.
+    const partnerId = await approvedPartner('rev-removed');
+    await seedRevision({
+      partnerId,
+      revision: 1,
+      state: 'withdrawn',
+      disclosure: 'An earlier disclosure, since corrected.',
+    });
+    await seedRevision({ partnerId, revision: 2, state: 'draft', disclosure: null });
+
+    expect(await relatedPartyDeclaredFor(partnerId)).toBe(false);
+  });
+
+  it('is NOT ESTABLISHED for a partner who filed no application', async () => {
+    // `undefined`, never `false` — an invited partner was never asked, and
+    // `assessSelfReferral` must not read silence as a denial.
+    const partnerId = await approvedPartner('rev-none');
+    expect(await relatedPartyDeclaredFor(partnerId)).toBeUndefined();
   });
 });
 
