@@ -414,3 +414,11 @@ export * from './merchantActivation';
 // order, a cart, a checkout group, a payment method or a merchant's terms,
 // which is what makes "an agent cannot buy anything" a fact about the schema.
 export * from './shoppingAgents';
+// Versioned product types (#367, ADR 0007 D5) are downstream of `./catalog`
+// (the `categories` a version is scoped to) and `./attributeRegistry` (the
+// definition version every field CITES). They add no column to either, and no
+// table here holds a value type, a unit family or a validation rule — #94 is the
+// one registry and this is the authoring contract composed over it, which is
+// what makes "two descriptions of one attribute" unrepresentable rather than
+// merely discouraged.
+export * from './productTypes';

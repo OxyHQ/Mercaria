@@ -1867,4 +1867,11 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'gate compares a touch against, and the version is the attribution rule the pilot ' +
       'published.',
   },
+  // ── #367's versioned product types (ADR 0007 D5) ──────────────────────────
+  // Two operator identities on a product-type VERSION: who drafted it and who
+  // published it. The second is the audit half of "publish a new version
+  // instead of editing this one" — from publication the row is frozen by
+  // trigger, so the account named here is the last one that could change it.
+  { column: 'product_type_definitions.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'product_type_definitions.published_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];
