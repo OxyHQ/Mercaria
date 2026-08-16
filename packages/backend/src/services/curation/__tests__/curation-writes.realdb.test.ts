@@ -49,7 +49,7 @@ import {
   productIdentifiers,
 } from '../../../db/schema/canonicalCatalog.js';
 import { catalogSources, sourceRecords } from '../../../db/schema/provenance.js';
-import { reviewAggregates } from '../../../db/schema/reviews.js';
+import { reviewAggregates, reviewTargetMigrations, reviews } from '../../../db/schema/reviews.js';
 import { productSaveAggregates } from '../../../db/schema/productSaves.js';
 import { normalizeEntityName } from '../../canonical/normalization.js';
 import { variantSignature } from '../../canonical/variant-signature.js';
@@ -70,6 +70,7 @@ const SECOND_OPERATOR = `op2-${RUN}`;
 
 const createdProductIds: string[] = [];
 const createdSourceIds: string[] = [];
+const createdReviewIds: string[] = [];
 
 beforeAll(async () => {
   db = await connectPostgres();
@@ -82,6 +83,7 @@ afterAll(async () => {
 afterEach(async () => {
   const productIds = createdProductIds.splice(0);
   const sourceIds = createdSourceIds.splice(0);
+  const reviewIds = createdReviewIds.splice(0);
 
   if (productIds.length > 0) {
     const jobIds = (
@@ -194,6 +196,25 @@ afterEach(async () => {
     await db
       .delete(canonicalProductRedirects)
       .where(inArray(canonicalProductRedirects.fromId, productIds));
+    if (reviewIds.length > 0) {
+      // The migration log RESTRICTS the review it names and is append-only by
+      // trigger, so teardown goes around the trigger — one table per window
+      // (#301), and the reviews themselves are deleted OUTSIDE it, because
+      // `reviews` has no trigger to toggle and holding a second strong lock is
+      // exactly what the one-table rule forbids.
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table review_target_migrations disable trigger mercaria_review_target_migration_append_only`,
+        );
+        await tx
+          .delete(reviewTargetMigrations)
+          .where(inArray(reviewTargetMigrations.reviewId, reviewIds));
+        await tx.execute(
+          sql`alter table review_target_migrations enable trigger mercaria_review_target_migration_append_only`,
+        );
+      });
+      await db.delete(reviews).where(inArray(reviews.id, reviewIds));
+    }
     // The `rollups` phase re-derives #76's aggregates, which RESTRICT the
     // product they describe — so teardown has to clear them before the product.
     // Their presence here is the merge working, not a leak.
@@ -367,6 +388,35 @@ async function seedSourceRecord(label: string): Promise<string> {
   return recordId;
 }
 
+/**
+ * One buyer's `product`-scope review of one canonical product.
+ *
+ * `classification_state: 'native'` is not decoration:
+ * `reviews_classification_consistency_check` ties it to the scope both ways, so
+ * the default `unclassified` would refuse a scoped row outright.
+ */
+async function seedProductReview(
+  productId: string,
+  authorOxyUserId: string,
+  rating: number,
+): Promise<string> {
+  const rows = await db
+    .insert(reviews)
+    .values({
+      authorOxyUserId,
+      targetType: 'canonical_product',
+      scope: 'product',
+      classificationState: 'native',
+      canonicalProductId: productId,
+      rating,
+    })
+    .returning({ id: reviews.id });
+  const reviewId = rows[0]?.id;
+  if (!reviewId) throw new Error('failed to seed a review');
+  createdReviewIds.push(reviewId);
+  return reviewId;
+}
+
 describe('acceptance 1: a duplicate merge preserves everything and redirects the old URL', () => {
   it('rehomes source links, mints a former-name alias and tombstones the loser', async () => {
     const loser = await seedProduct('loser-a');
@@ -536,6 +586,157 @@ describe('COLLISIONS: a merge that would violate a unique blocks instead of half
         actorOxyUserId: OPERATOR,
       }),
     ).rejects.toThrow(/tombstone/i);
+  });
+});
+
+describe('#333: a merge whose two products share ONE reviewer', () => {
+  /**
+   * `reviews_author_scope_target_key` is `(author_oxy_user_id, scope,
+   * target_key)` and `target_key` is GENERATED over `canonical_product_id`, so a
+   * buyer who reviewed both sides holds two rows that become one key the moment
+   * the loser's is repointed. With the plan's original unguarded `repoint` the
+   * `reviews` phase raised 23505 and the whole job went `failed`.
+   *
+   * Both remaining reviews are asserted, not just the moved one: "the merge
+   * completed" and "nobody's review was destroyed" are different claims and a
+   * fix that deleted the collision would satisfy the first.
+   */
+  it('completes, moves what can move, and RETAINS the collision on the tombstone', async () => {
+    const loser = await seedProduct('review-s');
+    const winner = await seedProduct('review-t');
+    const bothSides = `buyer-both-${RUN}`;
+    const loserOnly = `buyer-loser-${RUN}`;
+
+    const colliding = await seedProductReview(loser.productId, bothSides, 2);
+    const incumbent = await seedProductReview(winner.productId, bothSides, 5);
+    const movable = await seedProductReview(loser.productId, loserOnly, 4);
+
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'one buyer reviewed both',
+      actorOxyUserId: OPERATOR,
+    });
+    const result = await claimAndRunMerge(job.id, `lease-s-${RUN}`);
+    expect(result.blocked).toBe(false);
+    expect(result.completed).toBe(true);
+
+    const after = await db
+      .select({ id: reviews.id, productId: reviews.canonicalProductId })
+      .from(reviews)
+      .where(inArray(reviews.id, [colliding, incumbent, movable]));
+    // NOTHING was deleted. Acceptance 2 begins here: a fix that resolved the
+    // collision by removing a row would pass every assertion below it.
+    expect(after).toHaveLength(3);
+    const targetOf = new Map(after.map((row) => [row.id, row.productId]));
+    // The winner's own review is untouched — a merge never writes the surviving
+    // side of a collision, which is `applyConflictResolution`'s rule too.
+    expect(targetOf.get(incumbent)).toBe(winner.productId);
+    // The review with no counterpart followed the identity.
+    expect(targetOf.get(movable)).toBe(winner.productId);
+    // …and the collision stayed, which is what there was to decide.
+    expect(targetOf.get(colliding)).toBe(loser.productId);
+
+    // The disposition is RECORDED, in #76's own log, under the action #76
+    // published for exactly this and nothing wrote until now. `from` and `to`
+    // are both the loser because that is what happened: the merge considered
+    // this review and left its target where it was.
+    const recorded = await db
+      .select({
+        action: reviewTargetMigrations.action,
+        fromTargetRef: reviewTargetMigrations.fromTargetRef,
+        toTargetRef: reviewTargetMigrations.toTargetRef,
+        reason: reviewTargetMigrations.reason,
+        actorKind: reviewTargetMigrations.actorKind,
+      })
+      .from(reviewTargetMigrations)
+      .where(inArray(reviewTargetMigrations.reviewId, [colliding, incumbent, movable]));
+    expect(recorded).toEqual([
+      {
+        action: 'rehome_merge',
+        fromTargetRef: loser.productId,
+        toTargetRef: loser.productId,
+        reason: 'merge_collision_author_already_reviewed_winner',
+        actorKind: 'migration',
+      },
+    ]);
+
+    // Both aggregates are DERIVABLE and were re-derived from what each side now
+    // holds — #76's authority, never summed across the two. The seeded reviews
+    // are unverified, so they land in the unverified pair by construction.
+    const aggregates = await db
+      .select({
+        productId: reviewAggregates.canonicalProductId,
+        unverifiedRating: reviewAggregates.unverifiedRating,
+        unverifiedCount: reviewAggregates.unverifiedCount,
+      })
+      .from(reviewAggregates)
+      .where(inArray(reviewAggregates.canonicalProductId, [loser.productId, winner.productId]));
+    const aggregateOf = new Map(aggregates.map((row) => [row.productId, row]));
+    // The winner: the incumbent 5 and the moved 4.
+    expect(aggregateOf.get(winner.productId)?.unverifiedCount).toBe(2);
+    expect(aggregateOf.get(winner.productId)?.unverifiedRating).toBeCloseTo(4.5, 5);
+    // The tombstone: exactly the review left behind, so the retained rating is
+    // still counted somewhere rather than vanishing from the graph.
+    expect(aggregateOf.get(loser.productId)?.unverifiedCount).toBe(1);
+    expect(aggregateOf.get(loser.productId)?.unverifiedRating).toBeCloseTo(2, 5);
+  });
+
+  it('is idempotent: a re-run moves nothing and writes no second record', async () => {
+    const loser = await seedProduct('review-u');
+    const winner = await seedProduct('review-v');
+    const bothSides = `buyer-both2-${RUN}`;
+    const colliding = await seedProductReview(loser.productId, bothSides, 3);
+    await seedProductReview(winner.productId, bothSides, 4);
+
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'replay of a collision',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-u-${RUN}`)).completed).toBe(true);
+
+    /**
+     * The re-run that resumability actually produces: a phase CLAIMED but never
+     * STAMPED is re-run whole. Re-running the job with every phase record intact
+     * would skip the `reviews` body entirely and assert nothing about it, so the
+     * record is removed — one table per trigger window (#301).
+     */
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table catalog_merge_job_phases disable trigger catalog_merge_job_phases_append_only`,
+      );
+      await tx
+        .delete(catalogMergeJobPhases)
+        .where(and(eq(catalogMergeJobPhases.jobId, job.id), eq(catalogMergeJobPhases.phase, 'reviews')));
+      await tx.execute(
+        sql`alter table catalog_merge_job_phases enable trigger catalog_merge_job_phases_append_only`,
+      );
+    });
+    // `completed_at` goes with the status: `catalog_merge_jobs_completion_check`
+    // ties the two, so a job re-opened without clearing it is unrepresentable.
+    await db
+      .update(catalogMergeJobs)
+      .set({ status: 'pending', phase: 'reviews', completedAt: null })
+      .where(eq(catalogMergeJobs.id, job.id));
+    expect((await claimAndRunMerge(job.id, `lease-u2-${RUN}`)).completed).toBe(true);
+
+    const still = await db
+      .select({ productId: reviews.canonicalProductId })
+      .from(reviews)
+      .where(eq(reviews.id, colliding));
+    expect(still[0]?.productId).toBe(loser.productId);
+
+    // ONE record, not two: `UNIQUE(review_id, action, coalesce(to_target_ref,''))`
+    // converges the replay rather than growing the log.
+    const records = await db
+      .select({ id: reviewTargetMigrations.id })
+      .from(reviewTargetMigrations)
+      .where(eq(reviewTargetMigrations.reviewId, colliding));
+    expect(records).toHaveLength(1);
   });
 });
 

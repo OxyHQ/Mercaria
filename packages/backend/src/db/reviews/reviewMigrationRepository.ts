@@ -29,13 +29,14 @@
 
 import { and, desc, eq } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type {
   ReviewScope,
   ReviewTargetMigrationAction,
   ReviewTargetType,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import { reviewTargetMigrations } from '../schema/reviews.js';
+import { reviews, reviewTargetMigrations } from '../schema/reviews.js';
 
 /** One row of `review_target_migrations`. */
 export type ReviewTargetMigrationRecord = InferSelectModel<typeof reviewTargetMigrations>;
@@ -100,6 +101,83 @@ export async function findMigrationsForReview(
     .from(reviewTargetMigrations)
     .where(eq(reviewTargetMigrations.reviewId, reviewId))
     .orderBy(desc(reviewTargetMigrations.at));
+}
+
+/**
+ * The reason code a merge writes when it leaves a review where it was — a
+ * stable short code, so what an operator matches on is not a sentence somebody
+ * reworded.
+ */
+const MERGE_COLLISION_RETAINED_REASON = 'merge_collision_author_already_reviewed_winner';
+
+/**
+ * The review scopes whose target IS a mergeable entity, and the column each one
+ * keeps it in.
+ *
+ * A map over exactly those two rather than a `switch` with a default: the other
+ * three scopes name a listing, an Oxy account and an order line, none of which
+ * `MERGEABLE_ENTITY_TYPES` contains, so a third member here would be a merge of
+ * something that cannot be merged. `Partial<Record<ReviewScope, …>>` is what
+ * makes a mistyped key fail `tsc` while still permitting the subset.
+ */
+const MERGEABLE_REVIEW_TARGETS = {
+  product: { column: reviews.canonicalProductId, targetType: 'canonical_product' },
+  merchant: { column: reviews.merchantId, targetType: 'merchant' },
+} as const satisfies Partial<
+  Record<ReviewScope, { column: AnyPgColumn; targetType: ReviewTargetType }>
+>;
+
+/** The scopes {@link recordReviewsRetainedByMerge} can be asked about. */
+export type MergeableReviewScope = keyof typeof MERGEABLE_REVIEW_TARGETS;
+
+/**
+ * Record every review a merge LEFT on the tombstone, and return how many (#333).
+ *
+ * Called AFTER the rehoming statement, deliberately: `repoint_if_absent` moves
+ * everything that can move, so what is still pointing at the loser IS the
+ * collided set — a post-hoc observation of what happened rather than a
+ * prediction of what will. Running it before the move would report a retention
+ * for any row a later bug then moved anyway, which is the direction that lies.
+ *
+ * `from` and `to` are both the LOSER because that is the decision: the merge
+ * considered this review and left its target where it was. `actorKind` is
+ * `migration` and not `operator` even though a person requested the merge —
+ * nobody CHOSE this review's disposition, the guard did, and #76 migration rule
+ * 5's explicit operator assignment is a later, separately attributable act that
+ * must stay distinguishable from it.
+ */
+export async function recordReviewsRetainedByMerge(
+  scope: MergeableReviewScope,
+  loserId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<number> {
+  const { column, targetType } = MERGEABLE_REVIEW_TARGETS[scope];
+  const retained = await db
+    .select({ id: reviews.id })
+    .from(reviews)
+    .where(and(eq(column, loserId), eq(reviews.scope, scope)));
+  if (retained.length === 0) return 0;
+
+  const written = await db
+    .insert(reviewTargetMigrations)
+    .values(
+      retained.map((row) => ({
+        reviewId: row.id,
+        action: 'rehome_merge' as const,
+        fromScope: scope,
+        fromTargetType: targetType,
+        fromTargetRef: loserId,
+        toScope: scope,
+        toTargetType: targetType,
+        toTargetRef: loserId,
+        reason: MERGE_COLLISION_RETAINED_REASON,
+        actorKind: 'migration' as const,
+        at: new Date(),
+      })),
+    )
+    .onConflictDoNothing()
+    .returning({ id: reviewTargetMigrations.id });
+  return written.length;
 }
 
 /** Every review a given action moved onto one destination — a merge's receipt. */

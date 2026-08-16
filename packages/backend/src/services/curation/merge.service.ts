@@ -65,6 +65,7 @@ import { stampPriceAlertRehoming } from '../../db/priceAlerts/priceAlertReposito
 import { requestPriceAlertEvaluationForProduct } from '../../db/priceAlerts/priceAlertEvaluationRepository.js';
 import { stampShoppingAgentRehoming } from '../../db/shoppingAgents/shoppingAgentRepository.js';
 import { requestShoppingAgentTriggerForProduct } from '../../db/shoppingAgents/shoppingAgentTriggerRepository.js';
+import { recordReviewsRetainedByMerge } from '../../db/reviews/reviewMigrationRepository.js';
 import type { CatalogMergeJobRow } from '../../db/schema/curation.js';
 import { estimateMergeImpact, impactColumnValues } from './impact.js';
 import { CURATED_ENTITIES } from './entity-registry.js';
@@ -86,7 +87,10 @@ const REHOMING_PHASES: readonly CatalogMergePhase[] = [
   'source_links',
   'offers',
   'relationships',
-  'reviews',
+  // `reviews` is deliberately NOT here (#333): it moves plan targets like the
+  // rest and then RECORDS what the guard left behind, which no plan entry can
+  // express. See {@link runReviewsPhase}.
+  //
   // #80's product saves. An ordinary rehoming phase and not bespoke logic: the
   // three columns it moves are declared in `merge-plan.ts` like every other, so
   // the census still forces a decision when a fourth appears.
@@ -477,6 +481,45 @@ async function runAgentsPhase(
 }
 
 /**
+ * `reviews` — #76's rows, and the ONE thing the generic rehomer cannot say.
+ *
+ * The plan's targets move the columns exactly as every other phase's do; what
+ * this adds is the RECORD of what was left behind. `reviews.canonical_product_id`
+ * and `reviews.merchant_id` are `repoint_if_absent` because
+ * `reviews_author_scope_target_key` collides when one buyer reviewed both sides
+ * (#333) — and a review that stays on a tombstone is invisible from then on,
+ * indistinguishable from one nothing ever considered. So the disposition is
+ * appended to `review_target_migrations` under `rehome_merge`, the action #76
+ * published for exactly this and which nothing wrote until now.
+ *
+ * AFTER the move, and both halves of that matter. After, because what is still
+ * pointing at the loser once `repoint_if_absent` has run IS the collided set, so
+ * the record is an observation rather than a prediction — the opposite of the
+ * `alerts` stamp, which must run first because it names where a row CAME from.
+ * And only the two scopes whose target is a mergeable entity: the other three
+ * name a listing, an Oxy account and an order line, and a merge of any of those
+ * does not exist.
+ *
+ * Idempotent by the log's own `UNIQUE(review_id, action, coalesce(to_target_ref,
+ * ''))`, so a phase re-run after a crash writes nothing new — and `verify`,
+ * which re-runs the plan targets and not this, is unaffected either way.
+ */
+async function runReviewsPhase(
+  job: CatalogMergeJobRow,
+  db: DatabaseOrTransaction,
+): Promise<PhaseOutcome> {
+  let moved = 0;
+  for (const target of targetsForPhase(job.entityType, 'reviews')) {
+    moved += await applyRehomeTarget(target, job.loserId, job.winnerId, db);
+  }
+  if (job.entityType === 'canonical_product' || job.entityType === 'merchant') {
+    const scope = job.entityType === 'canonical_product' ? 'product' : 'merchant';
+    await recordReviewsRetainedByMerge(scope, job.loserId, db);
+  }
+  return { rowsAffected: moved };
+}
+
+/**
  * `redirects` — mint the alias, flatten the chain and stamp the tombstone.
  *
  * The ORDER inside is load-bearing: the tombstones pointing at the loser are
@@ -617,6 +660,7 @@ async function runPhase(
   if (phase === 'plan') return runPlanPhase(job, db);
   if (phase === 'awaiting_resolution') return runResolutionPhase(job, db);
   if (REHOMING_PHASES.includes(phase)) return runRehomingPhase(job, phase, db);
+  if (phase === 'reviews') return runReviewsPhase(job, db);
   if (phase === 'alerts') return runAlertsPhase(job, db);
   if (phase === 'agents') return runAgentsPhase(job, db);
   if (phase === 'redirects') return runRedirectPhase(job, db);

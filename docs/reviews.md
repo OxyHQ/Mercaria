@@ -232,13 +232,24 @@ a review never has two rebuild paths writing two tables from two queries.
 
 ### Merges and splits
 
-A canonical product MERGE rehomes the loser's product reviews onto the winner
-inside the merge's own transaction, appends one `review_target_migrations` row
-per review, and rebuilds BOTH aggregates after the commit. A buyer who
-legitimately reviewed both products keeps both: the collision is read FIRST and
-excluded (the unique index would otherwise abort the whole merge), the review
-stays on the tombstone — which still resolves through `merged_into_id` — and it
-is reported as needing an explicit decision.
+A canonical product or MERCHANT merge rehomes the loser's reviews onto the
+winner inside the `reviews` phase's own transaction and rebuilds BOTH aggregates
+after the commit. Since #333 the mechanism is #59's, not this domain's:
+`merge-plan.ts` gives both `reviews` columns `repoint_if_absent` guarded on
+`[author_oxy_user_id, scope]`, so the ONE UPDATE excludes the collision in its
+own predicate rather than a service reading it first — which is what
+`rehomeReviewsForProductMerge` used to do before #36's retirement deleted it
+with its only caller.
+
+A buyer who legitimately reviewed both sides keeps BOTH. Their review stays on
+the tombstone, which still resolves through `merged_into_id`, and the merge
+APPENDS a `review_target_migrations` row for it under `rehome_merge` with `from`
+and `to` both the loser — `actor_kind: 'migration'`, because the guard decided
+it and not a person. Reviews that MOVE get no row: their provenance is already
+answered by the tombstone chain, and a log dominated by routine moves buries
+exactly the rows an operator needs. The full reasoning, including why refusal
+through #59's conflict gate was rejected, is `docs/curation.md`
+§"The behaviour the retirement did not carry over, and how it came back (#333)".
 
 A SPLIT cannot be inferred, so `assignReviewOnSplit` takes ONE review and ONE
 destination from a named operator and records who decided.
