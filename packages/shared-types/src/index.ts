@@ -617,3 +617,8 @@ export * from './merchant-activation';
 // autonomous purchases" a property of the shapes rather than a rule somebody
 // follows.
 export * from './shopping-agent';
+// Versioned product types (#367, ADR 0007 D5). Downstream of
+// `./attribute-registry`, whose `RESERVED_OFFER_FACT_KEYS` it reads rather than
+// restates — a product-type field cites an attribute version and describes none
+// of its meaning, so the two can never disagree about what a value is.
+export * from './product-type';

@@ -119,8 +119,18 @@ New tables, each owned by the taxonomy module:
 - `category_external_mappings` — `(source_id, external_key) → category_id`,
   versioned, with confidence, review state and validity dates (D11 of the
   ingestion framework's posture: unmapped goes to review, never to a guess).
-- `category_product_type_scopes` — which product types may be used under which
-  category (D5).
+
+**Which product types may be used under which category is
+`product_type_category_scopes`, and it is owned by the PRODUCT-TYPE domain**
+(D5), not by the taxonomy module. An earlier draft of this decision named it
+`category_product_type_scopes` and listed it above; that was one table with two
+names and two owners, and the ambiguity is corrected here rather than left for
+whoever implements second. The ownership is not a coin toss: a product type
+version is immutable once published, and its category eligibility is part of what
+that version MEANS. Owned by taxonomy, the scope rows would sit outside the
+version's freeze, so publishing a version could not freeze its own eligibility —
+and the hole would be exactly where somebody later widens a published version's
+scope, which is the one edit the immutability guarantee exists to refuse.
 
 **Hierarchy strategy: materialized path of ids** (`ancestor_ids text[]` + GIN),
 not a closure table and not a bare recursive CTE. Reasoning: the shape is
