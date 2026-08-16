@@ -57,6 +57,7 @@
  */
 
 import type { DeferredForeignKey } from '@oxyhq/db/assert';
+import { catalogExternalMappings } from './schema/catalogExternalMappings.js';
 
 /**
  * Relations decided but not yet expressible — each one owes a `.references()`.
@@ -74,7 +75,32 @@ import type { DeferredForeignKey } from '@oxyhq/db/assert';
  * columns stay permanently unconstrained below — they are snapshots, a
  * different decision about a different row.
  */
-export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [];
+export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [
+  // #367 Workstream 11. `catalog_external_mappings.reviewed_product_type_definition_id`
+  // records WHICH published product-type version an operator was reviewing when
+  // they proposed a mapping — provenance, never the resolution target (the
+  // mapping targets the stable KEY, and no foreign key onto a key is possible:
+  // the one-published-per-key index is PARTIAL and Postgres refuses a foreign
+  // key onto one).
+  //
+  // This column CAN carry a real constraint, because it names a row by its
+  // opaque primary key. It does not yet only because `product_type_definitions`
+  // (ADR 0007 D5, merge-order step 3) is not on this branch's base. Deferred
+  // rather than permanent for exactly that reason: this gate fails the build the
+  // moment that table appears in the barrel, which is what stops "we will add
+  // the constraint later" from becoming a condition nobody revisits.
+  {
+    table: catalogExternalMappings,
+    column: catalogExternalMappings.reviewedProductTypeDefinitionId,
+    parentTable: 'product_type_definitions',
+    parentColumn: 'id',
+    onDelete: 'restrict',
+    reason:
+      'A mapping cites the product-type version it was reviewed against as evidence; the ' +
+      'version must not be deletable out from under that record, and a cascade would erase ' +
+      'the provenance rather than the pointer.',
+  },
+];
 
 /** Oxy owns identity; there is no `users` table and there must never be one. */
 const OXY_ACCOUNT = 'An Oxy account id. Oxy owns identity over HTTP; there is no users table.';
@@ -1903,4 +1929,17 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'automotive_fitments.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'automotive_fitments.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'compatibility_claims.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── #367 Workstream 11: external taxonomy, attribute and value mappings ───
+  // Six operator identities. Every one names the person who proposed, reviewed,
+  // approved, fanned out, settled or requested — which is what makes a mapping a
+  // reviewed DECISION rather than a row somebody found in a feed. The fan-out
+  // approver is the load-bearing one: `catalog_external_mappings_fan_out_four_eyes_check`
+  // compares it against `approved_by_oxy_user_id`, so a NULL there would make the
+  // four-eyes rule satisfiable by nobody.
+  { column: 'catalog_external_mappings.proposed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_external_mappings.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_external_mappings.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_external_mappings.fan_out_approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_external_mapping_reviews.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_external_mapping_runs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];

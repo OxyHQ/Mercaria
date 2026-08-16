@@ -6114,3 +6114,111 @@ them.)
   `deferredForeignKeys.ts` as `OXY_ACCOUNT`: Oxy owns identity, and both sit on
   rows whose purpose is to answer "who decided this", which an erasable actor
   column would answer with a NULL.
+## External taxonomy, attribute and value mappings (#367 Workstream 11)
+
+`catalog_external_mappings` + `catalog_external_mapping_reviews` +
+`catalog_external_token_observations` + `catalog_external_mapping_runs` +
+`catalog_external_mapping_run_items` (5 tables). Full reference:
+**`docs/catalog-external-mappings.md`**; binding decisions are ADR 0007 D1
+(identity is an id and a stable machine key, never a name), D13 and D14.
+
+- **ONE table for FIVE dimensions** — product type, attribute, controlled value,
+  unit, size system — discriminated by
+  `catalog_external_mappings_target_shape_check` (the `navigation_nodes` device,
+  D3). Five tables would be five copies of the versioning, confidence, review,
+  validity, fan-out and reprocessing machinery, and the copy that drifted would
+  be the one nobody read. The CHECK's **`else false` branch is load-bearing**: a
+  sixth dimension added to the shared-types tuple with no branch here fails every
+  write loudly rather than admitting a row with no target.
+- **CATEGORY is deliberately NOT one of them.** ADR 0007 D2 assigns
+  `category_external_mappings` to the taxonomy module and that table exists. A
+  `category` member here would be a second table answering one question, so the
+  isolation gate fails the build on the tuple member OR on any column matching
+  `/category/i`. Consolidating the two is an ADR amendment plus a move migration
+  in ONE pull request, never an amendment now and a migration later.
+- **Every target is a stable machine KEY and carries NO foreign key, by DESIGN
+  rather than by timing.** `product_type_definitions` and `attribute_definitions`
+  have no unique constraint on `key` alone and will not get one, because the
+  one-live-version index is PARTIAL (`WHERE lifecycle = 'published'` /
+  `= 'active'`) — Postgres refuses a foreign key onto a partial unique index, and
+  the house rule additionally forbids one onto a `uniqueIndex()`. Each row is ONE
+  version, so an id-valued target would bind a reviewed decision to a version
+  that will be deprecated. What makes a key target safe is that `key` is frozen
+  from INSERT by a trigger on both registries, and resolution reads the single
+  live version through the registry's own reader — never an `ORDER BY … LIMIT 1`,
+  which is a query with a bug in it the moment two rows exist.
+- **Which version a mapping was REVIEWED against is a separate provenance
+  column** (`reviewed_product_type_definition_id`), CHECK-confined to
+  `product_type` rows, frozen by the immutability trigger, and **never applied**.
+  It names a row by its opaque primary key, so unlike the key columns it CAN
+  carry a foreign key: it is the sole `DEFERRED_FOREIGN_KEYS` entry, and that
+  gate fails the build the moment `product_type_definitions` lands. Stating in
+  the schema, the DTO and the doc that it is never the resolution target is what
+  keeps the key and the id from becoming two answers to one question.
+- **A silent one-to-many is refused by an INDEX.**
+  `catalog_external_mappings_live_primary_key` is a partial unique over
+  `(source, dimension, normalized key)` `WHERE state = 'approved' AND valid_to IS
+  NULL AND fan_out_approved_at IS NULL`, so a second live target needs a recorded
+  fan-out approval — priced at a second operator by
+  `..._fan_out_four_eyes_check`. **That CHECK must keep its
+  `approved_by_oxy_user_id is not null` conjunct**: `x <> NULL` is NULL and a
+  CHECK rejects only FALSE, so the obvious spelling admits a fan-out on a mapping
+  nobody approved. Same family as `array_length` on an empty array; this schema
+  has now been bitten by that shape twice.
+- **`external_key_normalized` is a STORED GENERATED column** on all three
+  token-bearing tables (the `attribute_value_aliases.normalized_alias` device).
+  Two consequences. (1) A `BEFORE UPDATE` trigger must compare `external_key`,
+  never the generated column — it is computed AFTER the trigger, so `NEW.<col>`
+  is NULL and the comparison raises on every update. (2) **There is no TypeScript
+  normalizer, deliberately**: `lower(btrim(x))` and `x.trim().toLowerCase()` are
+  NOT the same function (`btrim` strips ASCII spaces only; `lower` follows the
+  database collation), so every lookup compares the indexed column against
+  `lower(btrim($1))` and Postgres is the single authority on both sides. Getting
+  this wrong is a lookup miss nobody can reproduce.
+- **Resolution state is TWO biconditionals, never one over their conjunction.**
+  `catalog_external_token_observations` states `resolved` and `unresolved`
+  separately: the single spelling is SATISFIED by an `unresolved` row carrying a
+  mapping id, because both sides evaluate false. #126 and #81 each hit it.
+- **A run's counters SUM to `scanned` by EQUALITY** (#60's vacuity floor), and
+  `catalog_external_mapping_run_items` carries the evidence beside the tally so
+  the two can be compared — a counter that only agrees with itself measures
+  nothing. `UNIQUE(run_id, subject_key)` with `ON CONFLICT DO NOTHING` is what
+  makes a run idempotent AND resumable at once; `DO UPDATE` would let a resumed
+  page double its own counters.
+- **`cardinality()`, never `array_length()`**, on every array CHECK here.
+- **No `jsonb` column**, so ADR 0007 D14's permitted-JSONB register is unchanged.
+- **Every foreign key is `restrict`** except `run_items → runs` (`cascade`: an
+  item is meaningless without its run, and a run is never deleted). The domain
+  issues no DELETE and three triggers refuse one.
+- **`supersedes_mapping_id` is a SELF reference**, which drizzle-kit emits
+  correctly. The one it silently drops from both the migration and the snapshot
+  is a CIRCULAR reference between two tables — measured on #66.
+- **The hand-written trigger SQL is wrapped in NAMED marker blocks** — FIVE for
+  seven triggers, because `mercaria_catalog_external_no_delete` is one function
+  mounted on three tables and a marker name may not repeat in a file. Separators
+  are `--> statement-breakpoint` on each complete statement's terminating `;`,
+  which for a function is the `$$;` closing the body. **A separator inside a
+  `$$ … $$` body halves the function** — that is the failure mode that matters.
+  An un-separated paste applies fine (`sql.raw` reaches postgres.js as a
+  parameterless `unsafe`, which uses the simple protocol and accepts multiple
+  commands), so the separators are robustness rather than correctness.
+- **EVERY trigger whose body enumerates columns needs a DECLARED PARTITION, and
+  both here have one.** A hand-maintained column list beside a real table has
+  nothing measuring the two against each other, so the trigger enforces whatever
+  somebody last remembered to type and looks identical either way. The census
+  declares each column frozen by the trigger or mutable WITH A REASON and
+  asserts the union is exactly the table's column set — so a column added later
+  fails the build until somebody decides which it is, and a declaration naming a
+  column that no longer exists fails as a stale entry.
+
+  Found by mutation-testing: deleting a target column from
+  `mercaria_catalog_external_mapping_freeze` changed nothing. The census then
+  immediately caught two columns — `evidence_source_record_id` and
+  `proposed_by_oxy_user_id` — editable after approval, which would have let the
+  record of a decision be repointed away from what was decided on. Audit columns
+  are where this bites: the target columns get attention because they are what
+  the feature is about.
+
+  `mercaria_catalog_external_review_subject_frozen` has the same shape and the
+  same census. Any third such trigger in this schema should get one before it
+  ships, not after.

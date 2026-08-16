@@ -454,8 +454,8 @@ export * from './navigation';
 // text member rather than copied into a fifth table, which is the whole reason a
 // polymorphic localization table was refused.
 export * from './catalogLocalization';
-// Compatibility and automotive fitment (#367 step 8, ADR 0007 D8) is the last
-// export and points only at `./canonicalCatalog` and `./provenance`. That short
+// Compatibility and automotive fitment (#367 step 8, ADR 0007 D8) points
+// only at `./canonicalCatalog` and `./provenance`. That short
 // list is the design: "does this fit" is a relationship between two catalogue
 // identities plus its provenance, and NOTHING here references `./catalog` —
 // there is no import of `listing_options` or `product_variant_option_values`
@@ -467,3 +467,26 @@ export * from './catalogLocalization';
 // authority over neither product, so sharing that vocabulary would make
 // `verified` mean two things.
 export * from './compatibility';
+// External taxonomy, attribute and value mappings (#367 Workstream 11) are the
+// last export, and this module imports exactly `./columns` and `./provenance` —
+// the `catalog_sources` a mapping is scoped to and the `source_records` that
+// evidence it. Nothing else.
+//
+// It does NOT import `./catalog`, and that is the correction #411 warns about
+// rather than a coincidence: an earlier revision carried a `category` dimension
+// with a real foreign key onto `categories`, and when that dimension went back
+// to the taxonomy module the import went with it while this comment did not.
+// Verified against the module's own import list, not remembered.
+//
+// It also does NOT reference `attribute_definitions`, deliberately: an
+// attribute's identity is `(key, version)` and each row is ONE version, so an
+// id-valued target would bind a reviewed governance decision to a version that
+// will be deprecated — and there is no unique on `key` alone to point at
+// anyway, because the one-live-version index is PARTIAL. The target is a stable
+// machine KEY resolved against the active version at read time, which is the
+// choice #94's own `attribute_source_mappings.attribute_key` already made.
+//
+// Nothing here writes to any table above it, and no module in the domain can
+// reach a canonical write service or the matcher — so an external mapping can
+// never mint a canonical entity, which is what keeps source records idempotent.
+export * from './catalogExternalMappings';
