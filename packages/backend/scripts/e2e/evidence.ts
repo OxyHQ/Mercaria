@@ -37,7 +37,6 @@ import {
   assertNoSecrets,
   redactErrorText,
   redactIdentifier,
-  redactUrl,
   selfTest,
   SecretRegistry,
   type ScanReport,

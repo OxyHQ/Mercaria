@@ -276,7 +276,30 @@ async function seedOffers(
         priceAmount: row.price,
         priceCurrency: 'EUR',
         availability: 'in_stock' as const,
-        condition: 'new' as const,
+        /**
+         * The seed OBSERVED no condition, so it claims none.
+         *
+         * `unmapped` plus `unknown` is the one #90 combination that asserts
+         * nothing about the goods: `offers_condition_unmapped_shape_check`
+         * requires exactly `condition = 'unknown'` and a NULL confidence, which
+         * is what a row nobody read a label for looks like. The tempting
+         * alternative — the `new` / `declared` pair `services/graph-benchmark/`
+         * carries — is a FIRST-PARTY declaration, and these rows are
+         * `kind: 'external'` from `provider: 'bench-feed'`, so it would claim a
+         * seller stated a condition on an offer no seller ever touched.
+         * `offers_condition_declared_shape_check` cannot catch that, because
+         * `declared` requires precisely the three NULLs this seed already has.
+         *
+         * It costs the measurement nothing: no statement below reads
+         * `condition`, and it enters `offers_commercial_key` as a constant, so
+         * the per-variant seller cap is unchanged either way. The graph
+         * benchmark cannot make the same choice — it VARIES condition as one
+         * leg of the (merchant, storefront, condition) decomposition that
+         * satisfies `offers_active_commercial_key` by construction, and only
+         * `declared` may sit beside a key with no source label.
+         */
+        condition: 'unknown' as const,
+        conditionMappingState: 'unmapped' as const,
         // NULL, never the empty-string sentinel: `offers_country_check` is
         // `~ '^[A-Z]{2}$'`, which passes on NULL and refuses `''` outright.
         country: row.country === '' ? null : row.country,

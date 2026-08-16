@@ -11,7 +11,14 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    // The PACKAGE root, not `./src`, because `include` reaches `scripts/**` too
+    // and `rootDir` is a constraint on every file in the program: with `./src`
+    // this configuration reports ten TS6059s and typechecks nothing under
+    // `scripts/`. Nothing emits from `tsc` here — `typecheck` is `tsc --noEmit`
+    // and `build` is esbuild (`build.ts`), which computes its own base from its
+    // three entry points — so `outDir` and `rootDir` describe no artefact
+    // anybody ships and widening the second changes no output.
+    "rootDir": ".",
     "declaration": false,
     "sourceMap": false,
     "types": ["node"],
@@ -23,6 +30,14 @@
   // root postinstall). Declaration files are exempt from `rootDir`, so no path
   // alias is needed here and the package's compiled `src/**` is not pulled into
   // this program. The runtime build inlines it via esbuild (see build.ts).
-  "include": ["src/**/*"],
+  //
+  // `scripts/**` is here as well as `src/**`, and it is the whole of #374: with
+  // `src` alone, `tsc --noEmit` honoured that `include` and a green CI said
+  // NOTHING about any file under `scripts/` — which is the structural reason
+  // #299's divergent second copy of the Shopify admin client could sit there for
+  // months. `scripts/` holds the #69 real-store E2E driver, the graph benchmark
+  // and the offer load benchmark; a driver whose job is to report whether an
+  // integration works is exactly where an unnoticed type error is expensive.
+  "include": ["src/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"]
 }
