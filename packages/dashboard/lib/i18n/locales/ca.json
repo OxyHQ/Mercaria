@@ -1,1 +1,1227 @@
-{}
+{
+  "auth": {
+    "signInAction": "Inicia la sessió",
+    "signInBody": "Inicia la sessió amb el teu compte d'Oxy per gestionar la teva botiga: productes, comandes, inventari, clients, descomptes i informes.",
+    "signInTitle": "Mercaria Dashboard"
+  },
+  "channels": {
+    "addChannel": "Afegeix un canal",
+    "andJoin": " i ",
+    "availability": {
+      "notConfigured": "Aquí no es configura",
+      "notImplemented": "Encara no disponible"
+    },
+    "badge": {
+      "comparisonOnly": "Només per comparar",
+      "sellsOnMercaria": "Ven a Mercaria"
+    },
+    "collectionMapping": {
+      "body": "Tria a quina col·lecció de Mercaria s'importa cadascuna de les %{many} d'aquest canal. Els productes d'una %{one} sense assignar s'importen igualment: simplement no arriben a cap col·lecció.",
+      "channelNoun": "%{noun} del canal",
+      "dontMap": "No assignis aquesta",
+      "fixMapping": "Corregeix l'assignació",
+      "loadFailed": "No s'han pogut carregar les col·leccions d'aquest canal.",
+      "map": "Assigna",
+      "noManualCollections": "Aquesta botiga encara no té col·leccions manuals. Crea'n una primer: una col·lecció automàtica s'omple amb les seves pròpies regles i no pot rebre l'assignació d'un canal.",
+      "noun": {
+        "category": {
+          "plural": "categories",
+          "singular": "categoria"
+        },
+        "collection": {
+          "plural": "col·leccions",
+          "singular": "col·lecció"
+        }
+      },
+      "pickBody": "Només es poden assignar col·leccions manuals. Una col·lecció automàtica decideix el seu contingut a partir de les seves regles.",
+      "pickTitle": "Assigna a una col·lecció de Mercaria",
+      "productsOnChannel": {
+        "one": "%{count} producte al canal",
+        "other": "%{count} productes al canal"
+      },
+      "removeMapping": "Elimina aquesta assignació",
+      "state": {
+        "externalMissing": "Això ja no existeix al canal, així que no s'hi assignarà res. Elimina l'assignació o torna a crear-ho al canal.",
+        "targetAutomated": "Aquesta col·lecció de Mercaria s'omple amb les seves pròpies regles, així que l'assignació d'un canal s'afegiria i s'eliminaria a cada sincronització. Tria una col·lecció manual.",
+        "targetMissing": "La col·lecció de Mercaria s'ha suprimit. Els productes es continuen important; simplement no arriben a cap col·lecció. Tria'n una altra."
+      },
+      "title": "Assignació de col·leccions",
+      "unavailable": {
+        "disconnected": "Aquest canal està desconnectat, així que no se'n poden llegir les col·leccions. Torna'l a connectar per triar de la llista real.",
+        "platformUnavailable": "Ara mateix no s'ha pogut contactar amb el canal, així que no es mostren les seves col·leccions. L'assignació que ja tens no es veu afectada.",
+        "pushInConnection": "Aquest canal publica cap a Mercaria, així que Mercaria no té credencials per llegir-ne les col·leccions. A sota es mostra l'assignació que ja tens i encara la pots editar."
+      }
+    },
+    "connect": "Connecta",
+    "coverage": {
+      "doesNotSyncHeading": "No sincronitza",
+      "doesNotSyncLabel": "No sincronitza: ",
+      "nothing": "res",
+      "partial": "%{direction} — %{caveat}",
+      "syncsHeading": "Sincronitza",
+      "syncsLabel": "Sincronitza: "
+    },
+    "direction": {
+      "bothWays": "en tots dos sentits",
+      "pull": "la teva plataforma → Mercaria",
+      "push": "Mercaria → la teva plataforma"
+    },
+    "disconnect": {
+      "action": "Desconnecta el canal",
+      "confirmAction": "Desconnecta",
+      "confirmTitle": "Vols desconnectar %{provider}?",
+      "intro": "Tria què passa amb els productes que ha importat aquest canal (opció triada: %{policy}). L'historial de preus i tot el que hagi importat un altre canal no es toquen mai.",
+      "policy": {
+        "archiveListings": "Arxiva",
+        "keepListings": "Conserva els productes",
+        "unpublishListings": "Deixa de publicar"
+      },
+      "policyHelp": {
+        "archiveListings": "Deixa de sincronitzar i arxiva els productes d'aquest canal. Els productes venuts i els moderats no es toquen.",
+        "keepListings": "Deixa de sincronitzar i conserva cada producte tal com està: continua a la venda i ara el pots editar a Mercaria.",
+        "unpublishListings": "Deixa de sincronitzar i retira de la venda els productes d'aquest canal, conservant-los com a esborranys que pots tornar a publicar."
+      },
+      "productsChanged": {
+        "one": "%{count} producte modificat",
+        "other": "%{count} productes modificats"
+      },
+      "recordsKept": {
+        "one": "%{count} registre de preu conservat",
+        "other": "%{count} registres de preu conservats"
+      },
+      "title": "Desconnexió"
+    },
+    "documentTitle": "Canals de venda | Mercaria Dashboard",
+    "empty": {
+      "body": "Connecta una botiga o un feed de productes a sota per portar-hi un catàleg existent.",
+      "title": "Només el teu catàleg de Mercaria"
+    },
+    "entity": {
+      "collections": "Col·leccions",
+      "customers": "Clients",
+      "discounts": "Descomptes",
+      "giftCards": "Targetes regal",
+      "inventory": "Estoc",
+      "orders": "Comandes",
+      "productReviews": "Valoracions",
+      "products": "Productes",
+      "refunds": "Reemborsaments",
+      "shippingRates": "Tarifes de lliurament",
+      "taxRates": "Tipus impositius"
+    },
+    "entityAbsence": {
+      "channelNotImplemented": "Mercaria encara no té cap connector per a aquesta plataforma.",
+      "channelTransportsProductsOnly": "Un feed de productes és un fitxer de productes i no transporta res més.",
+      "importedOnlyAsPartOfAnOrder": "No s'importa cap llista. El que apareix prové només de les comandes que sí que s'importen.",
+      "nativeCatalogIsNotASync": "No s'importa res: aquest catàleg l'edites a Mercaria.",
+      "notBuiltForThisChannel": "Mercaria no intercanvia això amb la teva plataforma.",
+      "notModelledByMercaria": "Mercaria no té cap registre d'aquest tipus on això pugui arribar.",
+      "ownedByAnotherSystem": "Es gestiona en un altre lloc de Mercaria en comptes d'importar-se de la teva plataforma."
+    },
+    "entityCaveat": {
+      "breakdownOnlyOnImportedOrders": "Cada comanda importada mostra les línies que se li van cobrar, així que els totals quadren. La regla que hi ha al darrere no es crea a Mercaria, de manera que aquí no la pots editar ni reutilitzar.",
+      "membershipOnlyThroughAMapping": "Les col·leccions de la teva plataforma no es creen a Mercaria. Els productes s'afegeixen a les col·leccions de Mercaria a les quals els assignis."
+    },
+    "history": {
+      "counts": "%{created} creats · %{updated} actualitzats · %{skipped} omesos · %{failed} fallits",
+      "empty": "Encara no hi ha sincronitzacions",
+      "loadFailed": "No s'ha pogut carregar l'historial",
+      "title": "Historial de sincronitzacions",
+      "updatedNote": "«Actualitzats» compta tots els productes examinats, no només els que havien canviat."
+    },
+    "import": {
+      "blockedDirection": "Posa Productes a «Importa» o «Ambdós» a dalt i desa: en desar comença la primera importació.",
+      "blockedDisconnected": "Torna a connectar aquest canal abans d'importar: la credencial desada es va esborrar en desconnectar-lo.",
+      "body": "Torna a llegir tots els productes i actualitza el que hagi canviat. Es pot executar més d'una vegada sense problema.",
+      "bodyPaused": "Torna a llegir tots els productes i actualitza el que hagi canviat. La importació està en pausa per a les sincronitzacions programades, però aquesta s'executa ara.",
+      "heading": "Importa productes de %{provider}",
+      "now": "Sincronitza ara",
+      "title": "Importació"
+    },
+    "keys": {
+      "apiKeySubject": "la clau API",
+      "body": "Enganxa una clau (i l'id de connexió d'aquest canal) al plugin de Mercaria del teu lloc WordPress. Les claus no caduquen: revoca'n una quan vulguis per tallar-ne l'accés.",
+      "connectionId": "Id de connexió",
+      "connectionIdSubject": "l'id de connexió",
+      "copied": "S'ha copiat %{label}",
+      "copyAccessibility": "Copia %{label}",
+      "copyNow": "Copia aquesta clau ara: no la podràs tornar a veure.",
+      "empty": "Encara no hi ha claus. Genera'n una per connectar el plugin.",
+      "generate": "Genera una clau",
+      "generateBody": "Crea una clau de llarga durada per a aquest canal. Posa-li un nom perquè la puguis reconèixer més endavant (per exemple, el lloc on es fa servir).",
+      "generateTitle": "Genera una clau API",
+      "heading": "Credencials de llarga durada del plugin",
+      "labelField": "Etiqueta",
+      "labelPlaceholder": "Plugin de WordPress",
+      "lastUsed": "Últim ús %{when}",
+      "loadFailed": "No s'han pogut carregar les claus API.",
+      "loading": "S'estan carregant les claus…",
+      "neverUsed": "No s'ha fet servir mai",
+      "revoke": "Revoca",
+      "revokeConfirmBody": "Qualsevol plugin que faci servir «%{label}» deixarà de sincronitzar immediatament. Això no es pot desfer: hauries de generar una clau nova.",
+      "revokeConfirmTitle": "Vols revocar aquesta clau?",
+      "title": "Claus API"
+    },
+    "lastRunCounts": "Última execució — %{created} creats, %{updated} actualitzats, %{skipped} omesos, %{failed} fallits",
+    "lastSynced": "Última sincronització %{when}",
+    "limitation": {
+      "knownIssue": "Problema conegut #%{issue} — s'hi està treballant"
+    },
+    "loadFailed": "No s'han pogut carregar els canals",
+    "never": "mai",
+    "neverSynced": "Mai sincronitzat",
+    "nextScheduled": " · següent %{when}",
+    "orderHorizon": {
+      "bounded": {
+        "one": "Només s'importen les comandes de l'últim %{count} dia. Les comandes fetes abans del %{before} no es van importar mai i no arribaran més endavant: és un límit del que la teva plataforma deixa llegir a Mercaria, no una sincronització endarrerida.",
+        "other": "Només s'importen les comandes dels últims %{count} dies. Les comandes fetes abans del %{before} no es van importar mai i no arribaran més endavant: és un límit del que la teva plataforma deixa llegir a Mercaria, no una sincronització endarrerida."
+      },
+      "notSynced": "En aquest canal no s'intercanvien comandes en cap dels dos sentits.",
+      "unknown": "Mercaria no pot saber fins a quan enrere arriben les comandes d'aquesta connexió."
+    },
+    "pause": {
+      "importing": "Atura la importació",
+      "importingHint": "Deixa de llegir de la plataforma. El que ja s'ha importat continua a la venda.",
+      "publishing": "Atura la publicació",
+      "publishingHint": "Continua important, però evita que els productes d'aquest canal arribin als compradors.",
+      "title": "Pausa"
+    },
+    "pausedScopes": "En pausa: %{scopes}",
+    "readiness": {
+      "cardPaymentsOff": "Els pagaments amb targeta estan desactivats en aquest desplegament",
+      "catalog": "Catàleg",
+      "catalogDetail": "%{channels} · %{sync}",
+      "channelCount": {
+        "one": "%{count} canal",
+        "other": "%{count} canals"
+      },
+      "lastSynced": "última sincronització %{when}",
+      "neverSynced": "mai sincronitzat",
+      "noChannelConnected": "Cap canal connectat",
+      "notReady": "Encara no véns a Mercaria",
+      "payouts": "Liquidacions",
+      "payoutsNotSetUp": "Sense configurar",
+      "payoutsSetUp": "Configurades",
+      "ready": "A punt per vendre a Mercaria"
+    },
+    "readinessBlocker": {
+      "noConnectedChannel": "Encara no hi ha res que subministri un catàleg: connecta un canal o afegeix un producte.",
+      "noNativeCheckoutChannel": "Els canals que tens connectats mostren productes per comparar, però no poden vendre a través del pagament de Mercaria. Connecta una botiga o afegeix productes directament.",
+      "noPublishableListing": "Cap producte actiu: els compradors no tenen res per afegir a la cistella.",
+      "noSuccessfulSync": "Hi ha un canal connectat, però encara no ha completat cap sincronització.",
+      "paymentsNotReady": "Les liquidacions no estan configurades, així que no es poden acceptar comandes."
+    },
+    "recently": "fa poc",
+    "reconciliation": {
+      "alreadyIndexed": "Ja indexat",
+      "awaitingReview": "Pendent de revisió",
+      "awaitingReviewNote": {
+        "one": "%{count} producte no s'ha pogut associar automàticament i està en cua perquè una persona el confirmi.",
+        "other": "%{count} productes no s'han pogut associar automàticament i estan en cua perquè una persona els confirmi."
+      },
+      "body": "No se suprimeix ni es fusiona res. Quan el mateix producte apareix dues vegades, Mercaria mostra el producte de la teva botiga com a principal i conserva intacte l'historial de preus de l'altre.",
+      "fromThisStore": "D'aquesta botiga",
+      "gap": {
+        "channelHasNoDomain": "Aquest canal no té cap adreça web amb la qual comparar.",
+        "merchantNotClaimed": "Aquesta botiga no està vinculada a cap comerciant verificat, així que encara no hi ha res amb què comparar.",
+        "storeNotLinked": "Aquesta botiga no està vinculada a cap perfil de comerciant, així que encara no hi ha res amb què comparar.",
+        "storefrontNotMatched": "Mercaria no havia indexat mai aquesta botiga concreta, així que no hi ha res amb què comparar."
+      },
+      "sameProductTwice": "El mateix producte, dues vegades",
+      "title": "Associació del teu catàleg existent"
+    },
+    "runFailures": {
+      "hide": "Amaga",
+      "line": "%{subject}%{externalId} · %{reason}",
+      "loadFailed": "No s'han pogut carregar els registres que aquesta sincronització ha rebutjat.",
+      "none": "En aquesta sincronització no s'ha desat cap motiu per registre.",
+      "reason": {
+        "databaseRefused": "La base de dades ha rebutjat l'escriptura",
+        "duplicateRecord": "Duplicat d'un registre ja importat",
+        "refusedByRule": "Rebutjat per una regla de Mercaria",
+        "unclassified": "Error no reconegut"
+      },
+      "show": {
+        "one": "Mostra quin registre no ha arribat",
+        "other": "Mostra quins registres no han arribat"
+      },
+      "showing": "Se'n mostren %{shown} de %{total}.",
+      "subject": {
+        "inventoryItem": "Article d'inventari",
+        "order": "Comanda",
+        "product": "Producte"
+      }
+    },
+    "scope": {
+      "title": "Què transporta aquest canal"
+    },
+    "settings": {
+      "autoPublish": "Publicació automàtica",
+      "autoPublishHint": "Publica immediatament els productes importats. Si està desactivat, arriben com a esborranys per revisar.",
+      "documentTitle": "Configuració del canal | Mercaria Dashboard",
+      "inventoryHint": "Nivells d'estoc a la ubicació que sincronitzes.",
+      "inventoryLabel": "Inventari",
+      "keepLocalEdits": "Conserva les meves edicions locals",
+      "keepLocalEditsHint": "Si està activat, cap sincronització posterior no sobreescriu un camp que hagis editat a Mercaria. Si està desactivat, sempre guanya el canal.",
+      "neverSyncedYet": "Aquest canal encara no s'ha sincronitzat.",
+      "notFound": "No s'ha trobat el canal",
+      "notFoundBody": "Pot ser que aquesta connexió s'hagi desconnectat.",
+      "ordersHint": "Comandes fetes al canal extern.",
+      "productsHint": "El catàleg de productes (títols, imatges, preus, variants).",
+      "providerTitle": "Configuració de %{provider}",
+      "save": "Desa la configuració",
+      "syncDirections": "Sentits de sincronització",
+      "title": "Configuració del canal"
+    },
+    "state": {
+      "connected": "Connectat",
+      "needsAttention": "Requereix atenció",
+      "notConnected": "No connectat",
+      "paused": "En pausa"
+    },
+    "status": {
+      "disconnected": "Desconnectat"
+    },
+    "subtitle": "Totes les vies per les quals els teus productes arriben a Mercaria: botigues connectades, feeds de productes i el teu propi catàleg",
+    "syncDirection": {
+      "both": "Ambdós",
+      "off": "Desactivat",
+      "pull": "Importa",
+      "push": "Publica"
+    },
+    "title": "Canals de venda",
+    "toast": {
+      "alreadyInThatState": "Ja es troba en aquest estat",
+      "cancelFailed": "No s'ha pogut cancel·lar",
+      "channelActivated": "Canal activat",
+      "collectionMappingSaveFailed": "No s'ha pogut desar l'assignació",
+      "collectionMappingSaved": "Assignació de col·leccions desada",
+      "consumerKeyAndSecretRequired": "Introdueix la clau i el secret de consumidor",
+      "disconnectFailed": "No s'ha pogut desconnectar el canal",
+      "disconnected": "Desconnectat — %{products}, %{records}",
+      "importStartFailed": "No s'ha pogut iniciar la importació",
+      "importStarted": "Importació iniciada: apareixerà a l'historial de sota",
+      "invalidShopifyDomain": "Introdueix un domini *.myshopify.com vàlid",
+      "keyCreateFailed": "No s'ha pogut crear la clau",
+      "keyGenerateFailed": "No s'ha pogut generar la clau",
+      "keyGenerated": "Clau API generada",
+      "keyLabelRequired": "Posa una etiqueta a la clau",
+      "keyRevokeFailed": "No s'ha pogut revocar la clau",
+      "keyRevoked": "Clau API revocada",
+      "notReadyToActivate": "Encara no es pot activar: consulta els motius de sota",
+      "pauseFailed": "No s'ha pogut canviar l'estat de pausa",
+      "paused": "En pausa",
+      "previewSaveFailed": "No s'ha pogut desar la vista prèvia",
+      "resumed": "Reprès",
+      "settingsSaveFailed": "No s'ha pogut desar la configuració del canal",
+      "settingsSaved": "Configuració del canal desada",
+      "shopifyConnectFailed": "No s'ha pogut iniciar la connexió amb Shopify",
+      "siteUrlMustBeHttps": "Introdueix l'URL del teu lloc començant per https://",
+      "startConnectFailed": "No s'ha pogut iniciar la connexió amb %{name}",
+      "webhooksRegisterFailed": "No s'ha pogut iniciar el registre dels webhooks",
+      "webhooksRegistering": "S'estan tornant a registrar els webhooks",
+      "wooConnectFailed": "No s'ha pogut connectar: comprova l'URL del lloc i les claus API",
+      "wooConnected": "WooCommerce connectat"
+    },
+    "type": {
+      "etsy": "Etsy",
+      "magento": "Magento",
+      "native": "Catàleg de Mercaria",
+      "prestashop": "PrestaShop",
+      "productFeed": "Feed de productes",
+      "shopify": "Shopify",
+      "woocommerce": "WooCommerce",
+      "woocommercePlugin": "Plugin de WooCommerce"
+    },
+    "unscheduled": "sense programar",
+    "webhookFailureReason": {
+      "permissionDenied": "els permisos de la connexió no ho cobreixen",
+      "platformError": "la plataforma ha retornat un error",
+      "rateLimited": "la plataforma estava limitant les peticions",
+      "topicNotSupported": "la plataforma no ho ofereix",
+      "transportError": "no s'ha pogut contactar amb la plataforma",
+      "unexpectedResponse": "no s'ha pogut llegir la resposta de la plataforma"
+    },
+    "webhooks": {
+      "bringForward": "Si vols, pots avançar-ho ara.",
+      "causeIncomplete": "Mercaria no ha pogut completar el registre. Torna a connectar el canal si continua passant.",
+      "causeUnreachable": "Els últims intents no han pogut contactar amb %{provider}. Torna a registrar-los quan hi hagi connexió.",
+      "dueNow": "ara mateix",
+      "failureDetail": " — %{reason}%{http} · última comprovació %{when}",
+      "healthyDetail": {
+        "one": "%{provider} envia a Mercaria %{count} tipus d'actualització. Si has eliminat els webhooks de Mercaria a %{provider}, torna'ls a registrar: res d'aquí no ho pot detectar.",
+        "other": "%{provider} envia a Mercaria %{count} tipus d'actualització. Si has eliminat els webhooks de Mercaria a %{provider}, torna'ls a registrar: res d'aquí no ho pot detectar."
+      },
+      "healthyHeadline": "Els canvis arriben a l'instant",
+      "httpStatus": " (HTTP %{status})",
+      "refusedDetail": "Mercaria ha acabat el registre, però %{provider} ha rebutjat els esdeveniments de sota. Ho tornarà a intentar automàticament; el botó ho avança.",
+      "refusedHeadline": "Algunes actualitzacions no arribaran",
+      "register": "Registra els webhooks",
+      "registerAgain": "Torna a registrar els webhooks",
+      "remedyPermissionDenied": "Els permisos de Mercaria a %{provider} no cobreixen tots els esdeveniments: amplia'ls allà i torna a registrar-los.",
+      "remedyTopicNotSupported": "%{provider} no ofereix alguns d'aquests esdeveniments, així que tornar-los a registrar no farà que arribin.",
+      "retryingDetail": "Mercaria ho torna a intentar automàticament: el pròxim intent és %{due}. %{remedy}",
+      "retryingHeadline": "Algunes actualitzacions encara no arriben",
+      "stoppedDetail": {
+        "one": "Mercaria s'ha aturat després de %{count} intent. %{cause}",
+        "other": "Mercaria s'ha aturat després de %{count} intents. %{cause}"
+      },
+      "stoppedHeadline": "Algunes actualitzacions no arriben i Mercaria ha deixat d'intentar-ho",
+      "title": "Actualitzacions en temps real",
+      "tryNow": "Prova-ho ara",
+      "unregisteredDetail": "Mercaria els registra automàticament per a un canal de %{provider} connectat. Els pots registrar ara en comptes d'esperar.",
+      "unregisteredHeadline": "Les actualitzacions en temps real encara no estan registrades"
+    },
+    "wizard": {
+      "activateChannel": "Activa el canal",
+      "activeConnectionBody": "Aquest canal està actiu. Ara tria què vols importar: no se sincronitza res fins que ho facis.",
+      "activeFeedBody": "Aquest canal està actiu. Pots canviar-ne la configuració quan vulguis des de Canals de venda.",
+      "allSet": "Tot a punt",
+      "backToChannels": "Torna als canals",
+      "beforeYouActivate": "Abans de poder activar-lo",
+      "beforeYouStart": "Abans de començar",
+      "blocker": {
+        "channelLimitation": "Aquest canal encara no es pot activar.",
+        "connectionNotConnected": "Primer acaba la connexió.",
+        "noPreview": "Fes primer una vista prèvia per veure què s'importarà.",
+        "previewAllInvalid": "Cap dels registres que ha llegit la vista prèvia era vàlid. Corregeix l'assignació i torna-ho a provar.",
+        "previewScannedNothing": "La vista prèvia no ha llegit cap registre. Comprova que el feed o la botiga tinguin productes: una assignació que no coincideix amb res té el mateix aspecte que un catàleg buit.",
+        "unsupportedDirection": "La configuració de sincronització demana un sentit que aquest canal no admet. Ajusta-la i torna-ho a provar."
+      },
+      "canAndCannot": "Què pot fer i què no pot fer aquest canal",
+      "chooseWhatToImport": "Tria què vols importar",
+      "connectedTitle": "%{channel} connectat",
+      "documentTitle": "Connecta un canal | Mercaria Dashboard",
+      "everythingChecksOut": "Tot és correcte. En activar-lo comença la primera sincronització.",
+      "feed": {
+        "body": "Un feed de productes es configura a la seva pròpia pantalla, on assignes les columnes del fitxer als camps de Mercaria i en veus una vista prèvia abans que res es publiqui.",
+        "create": "Crea un feed",
+        "title": "Configura el teu feed"
+      },
+      "merchantLinked": "Aquesta botiga està vinculada a un comerciant verificat, així que tot el que Mercaria ja hagi indexat de la teva botiga es conciliarà en comptes de duplicar-se.",
+      "merchantNotLinked": "Aquesta botiga encara no està vinculada a cap comerciant verificat. La connexió funciona igualment; l'únic és que Mercaria no compararà els teus productes amb res del que ja hagi indexat de la teva botiga.",
+      "notFound": "No s'ha trobat l'assistent",
+      "notFoundBody": "Pot ser que ja s'hagi completat.",
+      "notSetUpYet": " (encara sense configurar)",
+      "plugin": {
+        "body": "Instal·la el plugin de Mercaria al teu lloc WordPress i enganxa la clau de sota a la seva configuració. El plugin envia els teus productes i el teu estoc a Mercaria a mesura que canvien.",
+        "createKey": "Crea una clau de canal",
+        "keyHeading": "La teva clau de canal — copia-la ara",
+        "keyNote": "És l'única vegada que es mostra. Si la perds, revoca-la i genera'n una de nova.",
+        "title": "Connecta el plugin de Mercaria"
+      },
+      "preview": {
+        "body": "Fes una mostra limitada abans d'activar-lo, per veure què s'importarà i quant caldrà revisar.",
+        "duplicate": "Duplicats",
+        "invalid": "No vàlids",
+        "matched": "Coincidents",
+        "rerun": "Torna a fer la vista prèvia",
+        "run": "Fes una vista prèvia",
+        "scanned": "Llegits",
+        "title": "Vista prèvia",
+        "toReview": "Per revisar"
+      },
+      "shopify": {
+        "authNote": "L'autorització es fa a Shopify. Mercaria no veu mai la teva contrasenya de Shopify, i el testimoni d'accés que rep es desa xifrat.",
+        "continue": "Continua a Shopify",
+        "domainLabel": "Domini de la botiga",
+        "domainPlaceholder": "la-teva-botiga.myshopify.com",
+        "openAgain": "Torna a obrir Shopify",
+        "title": "Autoritza Mercaria a Shopify",
+        "waitingBody": "Acaba l'autorització a la pestanya que s'acaba d'obrir. Aquesta pàgina s'actualitza sola: no cal que la tornis a carregar ni que tornis a aquest pas.",
+        "waitingTitle": "S'està esperant Shopify"
+      },
+      "step": {
+        "activate": "Activació",
+        "configure": "Sincronització",
+        "connect": "Connexió",
+        "map": "Assignació",
+        "preview": "Vista prèvia",
+        "scope": "Botiga",
+        "selectChannel": "Canal"
+      },
+      "title": "Connecta %{channel}",
+      "woo": {
+        "body": "WooCommerce → Configuració → Avançat → API REST. Amb accés de lectura n'hi ha prou per importar el teu catàleg.",
+        "connect": "Connecta WooCommerce",
+        "consumerKeyLabel": "Clau de consumidor",
+        "consumerKeyPlaceholder": "ck_...",
+        "consumerSecretLabel": "Secret de consumidor",
+        "consumerSecretPlaceholder": "cs_...",
+        "siteUrlLabel": "URL del lloc",
+        "siteUrlPlaceholder": "https://la-teva-botiga.com",
+        "title": "Enganxa la teva clau API de WooCommerce"
+      },
+      "youWillNeed": "Necessitaràs"
+    },
+    "yourChannels": "Els teus canals"
+  },
+  "collections": {
+    "create": {
+      "dialogTitle": "Col·lecció nova",
+      "error": "No s'ha pogut crear la col·lecció",
+      "success": "Col·lecció creada",
+      "titlePlaceholder": "Bàsics d'estiu",
+      "titleRequired": "El títol és obligatori",
+      "typeAutomated": "Automàtica",
+      "typeManual": "Manual"
+    },
+    "deleteError": "No s'ha pogut suprimir la col·lecció",
+    "deleted": "Col·lecció suprimida",
+    "documentTitle": "Col·leccions | Mercaria Dashboard",
+    "empty": {
+      "body": "Crea'n una per organitzar el teu catàleg.",
+      "title": "Encara no hi ha col·leccions"
+    },
+    "loadError": "No s'han pogut carregar les col·leccions",
+    "productCount": {
+      "one": "%{count} producte",
+      "other": "%{count} productes"
+    },
+    "rowMeta": "%{type} · %{items} · %{state}",
+    "ruleCount": {
+      "one": "%{count} regla",
+      "other": "%{count} regles"
+    },
+    "state": {
+      "draft": "esborrany",
+      "published": "publicada"
+    },
+    "subtitle": "Agrupa productes per presentar-los a la botiga",
+    "type": {
+      "automated": "automàtica",
+      "manual": "manual"
+    }
+  },
+  "common": {
+    "all": "Tot",
+    "back": "Enrere",
+    "cancel": "Cancel·la",
+    "create": "Crea",
+    "description": "Descripció",
+    "done": "Fet",
+    "loading": "S'està carregant…",
+    "name": "Nom",
+    "new": "Nou",
+    "noAccess": "Sense accés",
+    "noAccessBody": "No tens permís per veure aquesta àrea de la botiga activa.",
+    "none": "Cap",
+    "pageOf": "Pàgina %{current} de %{total}",
+    "pleaseTryAgain": "Torna-ho a provar.",
+    "retry": "Torna-ho a provar",
+    "save": "Desa",
+    "somethingWentWrong": "Alguna cosa ha anat malament",
+    "status": "Estat",
+    "title": "Títol",
+    "type": "Tipus",
+    "unknown": "Desconegut"
+  },
+  "customers": {
+    "detail": {
+      "documentTitle": "Client | Mercaria Dashboard",
+      "lifetimeSpend": "Despesa total",
+      "loadError": "No s'ha pogut carregar el client",
+      "noOrders": "Encara no hi ha comandes.",
+      "orders": "Comandes",
+      "subtitle": "Detall del client",
+      "title": "Client"
+    },
+    "documentTitle": "Clients | Mercaria Dashboard",
+    "empty": {
+      "body": "Els clients apareixen aquí després de la seva primera comanda.",
+      "title": "Cap client"
+    },
+    "fallbackName": "Client",
+    "loadError": "No s'han pogut carregar els clients",
+    "orderCount": {
+      "one": "%{count} comanda",
+      "other": "%{count} comandes"
+    },
+    "searchPlaceholder": "Cerca clients…",
+    "subtitle": "Persones que compren a la teva botiga",
+    "walkIn": "Client de pas"
+  },
+  "discounts": {
+    "create": {
+      "amountOffLabel": "Import de descompte (⊜)",
+      "codeLabel": "Codi",
+      "codePlaceholder": "PRIMAVERA20",
+      "codeRequired": "Introdueix un codi de descompte",
+      "dialogTitle": "Descompte nou",
+      "error": "No s'ha pogut crear el descompte",
+      "invalidAmount": "Introdueix un import vàlid",
+      "invalidPercentage": "Introdueix un percentatge vàlid",
+      "methodAutomatic": "Automàtic",
+      "methodCode": "Codi",
+      "methodLabel": "Mètode",
+      "percentOffLabel": "Percentatge de descompte",
+      "success": "Descompte creat",
+      "titlePlaceholder": "Rebaixes de primavera",
+      "titleRequired": "El títol és obligatori",
+      "valueTypeFixed": "Fix (⊜)",
+      "valueTypeLabel": "Tipus de valor",
+      "valueTypePercentage": "Percentatge"
+    },
+    "deleteError": "No s'ha pogut suprimir el descompte",
+    "deleted": "Descompte suprimit",
+    "documentTitle": "Descomptes | Mercaria Dashboard",
+    "empty": {
+      "body": "Crea un descompte amb codi o automàtic.",
+      "title": "Encara no hi ha descomptes"
+    },
+    "fixedAmountOff": "Import fix de descompte",
+    "loadError": "No s'han pogut carregar els descomptes",
+    "methodAutomatic": "automàtic",
+    "methodCode": "codi",
+    "percentOff": "%{percent}% de descompte",
+    "rowMeta": "%{method} · %{value} · %{state}",
+    "state": {
+      "active": "actiu",
+      "inactive": "inactiu"
+    },
+    "subtitle": "Codis i promocions automàtiques"
+  },
+  "errors": {
+    "boundaryBody": "S'ha produït un error inesperat. Pots tornar-ho a provar i, si el problema continua, el nostre equip ja n'està informat.",
+    "notFoundAction": "Ves al tauler",
+    "notFoundBody": "Aquesta pantalla no existeix.",
+    "notFoundDocumentTitle": "404 - No s'ha trobat | Mercaria Dashboard",
+    "notFoundHeading": "Vaja!"
+  },
+  "feeds": {
+    "detail": {
+      "activateMappingFirst": "Primer activa una assignació",
+      "documentTitle": "Feed de productes | Mercaria Dashboard",
+      "identityColumns": "Columnes d'identitat: %{columns} — fixes durant tota la vida d'aquest feed.",
+      "neverRead": "Aquest feed encara no s'ha llegit.",
+      "notFound": "No s'ha trobat el feed",
+      "notFoundBody": "Pot ser que s'hagi eliminat.",
+      "readSchedule": "Última lectura %{last} · següent %{next}",
+      "recentRuns": "Execucions recents",
+      "runCounts": "%{fetched} llegits · %{stored} desats · %{unchanged} sense canvis · %{rejected} rebutjats · %{listed} publicats · %{retired} retirats",
+      "syncNow": "Sincronitza ara",
+      "title": "Feed de productes"
+    },
+    "draft": {
+      "columnPlaceholder": "el nom de la teva columna",
+      "columnsLabel": "Assigna les teves columnes",
+      "deliveryDelta": "Només el que ha canviat",
+      "deliveryHint": "No hi ha cap valor per defecte, i és a posta. Si el fitxer llista tot el que véns, un producte que hi falti és un producte que has deixat de vendre i Mercaria el retirarà. Si només llista canvis, un producte absent no vol dir res i Mercaria el deixarà tal com està. Equivocar-se aquí retira un catàleg sa o manté a la venda productes esgotats.",
+      "deliveryLabel": "Què conté aquest fitxer?",
+      "deliverySnapshot": "Tot el que venc",
+      "formatLabel": "Format",
+      "requiredSuffix": " (obligatori)",
+      "save": "Desa l'assignació",
+      "title": "Assignació nova",
+      "urlHint": "Només HTTPS. Mercaria ho desa de manera privada i només te'n mostra l'amfitrió: un URL de feed sovint conté una clau d'accés.",
+      "urlLabel": "URL del feed",
+      "urlPlaceholder": "https://example.com/products.csv"
+    },
+    "never": "mai",
+    "new": {
+      "create": "Crea el feed",
+      "documentTitle": "Feed de productes nou | Mercaria Dashboard",
+      "identityColumnsHint": "Separades per comes, fins a quatre. Després no es poden canviar: són la manera com Mercaria reconeix el mateix producte d'un fitxer al següent, així que canviar-les semblaria que has substituït tot el catàleg. Si necessites columnes diferents, crea un feed nou.",
+      "identityColumnsLabel": "Columnes que identifiquen cada producte",
+      "identityColumnsPlaceholder": "id, sku",
+      "nameLabel": "Nom del feed",
+      "namePlaceholder": "Catàleg principal",
+      "sourceNameHint": "Com apareix aquest feed als registres de catàleg de Mercaria.",
+      "sourceNameLabel": "Nom de la font",
+      "sourceNamePlaceholder": "Catàleg d'Acme Supplies",
+      "subtitle": "Un fitxer CSV, TSV, XML, JSON o JSONL que Mercaria llegeix de manera programada",
+      "title": "Feed de productes nou"
+    },
+    "reports": {
+      "counts": "%{scanned} llegits · %{valid} vàlids · %{invalid} requereixen atenció",
+      "note": "L'informe descarregable indica el número de fila i què hi havia malament, mai els valors, perquè el fitxer ja el tens tu.",
+      "title": "Informes"
+    },
+    "toast": {
+      "checkFailed": "No s'ha pogut comprovar el feed",
+      "checked": "S'han comprovat %{scanned} registres — %{invalid} requereixen atenció",
+      "createFailed": "No s'ha pogut crear el feed",
+      "created": "Feed creat",
+      "deliveryModeRequired": "Tria si el fitxer és una instantània completa o només canvis",
+      "identityColumnsRequired": "Indica com a mínim una columna que identifiqui cada producte",
+      "mappingActivateFailed": "No s'ha pogut activar l'assignació",
+      "mappingActivated": "Assignació activada",
+      "mappingSaveFailed": "No s'ha pogut desar l'assignació",
+      "mappingSaved": "Assignació desada: fes-ne una vista prèvia abans d'activar-la",
+      "nameRequired": "Posa un nom al feed",
+      "previewFailed": "No s'ha pogut previsualitzar el feed",
+      "sourceNameTooShort": "El nom de la font ha de tenir com a mínim 3 caràcters",
+      "syncStartFailed": "No s'ha pogut iniciar la sincronització",
+      "syncStarted": "Sincronització iniciada",
+      "titleMappingRequired": "Assigna una columna al títol del producte",
+      "urlMustBeHttps": "L'URL del feed ha de començar per https://"
+    },
+    "unscheduled": "sense programar",
+    "versions": {
+      "activate": "Activa",
+      "checkItFirst": "Comprova-ho primer",
+      "checkWholeFeed": "Comprova tot el feed",
+      "deliveryChangesOnly": "només canvis",
+      "deliveryFullSnapshot": "instantània completa",
+      "empty": "Encara no hi ha cap assignació",
+      "emptyBody": "Descriu el teu fitxer a sota i assigna'n les columnes als camps de Mercaria.",
+      "fetchedOverHttps": " · obtingut per HTTPS",
+      "preview": "Vista prèvia",
+      "previewCounts": "%{scanned} llegits · %{valid} vàlids · %{invalid} no vàlids · %{matched} coincidents · %{created} nous · %{review} per revisar",
+      "previewReadNothing": "La vista prèvia no ha llegit res. Un resultat buit i una assignació que no coincideix amb cap fila són idèntics: comprova el fitxer i el camí dels registres abans d'activar-la.",
+      "suggestedColumns": "Columnes suggerides: %{columns}",
+      "summary": "%{format} · %{delivery}%{fetch}",
+      "title": "Assignacions",
+      "uploaded": " · pujat",
+      "version": "Versió %{version}"
+    }
+  },
+  "home": {
+    "documentTitle": "Tauler | Mercaria",
+    "inventory": {
+      "lowStock": {
+        "one": "%{count} variant amb seguiment és al llindar d'estoc baix o per sota.",
+        "other": "%{count} variants amb seguiment són al llindar d'estoc baix o per sota."
+      },
+      "noneLow": "Cap variant amb seguiment no té l'estoc baix.",
+      "title": "Inventari"
+    },
+    "orderStatus": {
+      "cancelled": "Cancel·lada",
+      "delivered": "Lliurada",
+      "paid": "Pagada",
+      "partiallyRefunded": "Reemborsada parcialment",
+      "pendingPayment": "Pagament pendent",
+      "processing": "En procés",
+      "refunded": "Reemborsada",
+      "shipped": "Enviada"
+    },
+    "reportsError": "No s'han pogut carregar els informes",
+    "sales": {
+      "empty": "Encara no hi ha vendes en aquest període.",
+      "title": "Vendes (últim període)"
+    },
+    "stats": {
+      "averageOrder": "Comanda mitjana",
+      "paidOrders": "Comandes pagades",
+      "refunds": "Reemborsaments",
+      "revenue": "Ingressos"
+    },
+    "statusBreakdown": {
+      "empty": "Encara no hi ha comandes.",
+      "title": "Comandes per estat"
+    },
+    "subtitle": "La teva botiga d'un cop d'ull",
+    "topProducts": {
+      "empty": "Encara no hi ha vendes.",
+      "title": "Productes més venuts",
+      "unitsSold": {
+        "one": "%{count} venut",
+        "other": "%{count} venuts"
+      }
+    }
+  },
+  "nav": {
+    "channels": "Canals de venda",
+    "collapseSidebar": "Redueix la barra lateral",
+    "collections": "Col·leccions",
+    "customers": "Clients",
+    "dashboard": "Tauler",
+    "discounts": "Descomptes",
+    "expandSidebar": "Amplia la barra lateral",
+    "orders": "Comandes",
+    "products": "Productes",
+    "settings": "Configuració"
+  },
+  "orders": {
+    "detail": {
+      "documentTitle": "Comanda | Mercaria Dashboard",
+      "fulfilment": "Preparació",
+      "history": "Historial",
+      "itemVariantQuantity": "%{variant} · ×%{quantity}",
+      "items": "Articles",
+      "loadFailed": "No s'ha pogut carregar la comanda",
+      "markedCancelled": "Comanda marcada com a cancel·lada",
+      "markedDelivered": "Comanda marcada com a lliurada",
+      "markedProcessing": "Comanda marcada com a en procés",
+      "markedShipped": "Comanda marcada com a enviada",
+      "refund": "Reemborsa",
+      "refundFallbackLabel": "Reemborsament",
+      "refunds": "Reemborsaments",
+      "shipTo": "Enviament a",
+      "subtitle": "Detall de la comanda",
+      "title": "Comanda",
+      "trackingLabel": "Número de seguiment (opcional)",
+      "trackingPlaceholder": "1Z…",
+      "updateFailed": "No s'ha pogut actualitzar la comanda"
+    },
+    "documentTitle": "Comandes | Mercaria Dashboard",
+    "empty": {
+      "body": "Les comandes apareixeran aquí quan els clients comprin.",
+      "title": "Cap comanda"
+    },
+    "loadFailed": "No s'han pogut carregar les comandes",
+    "pickup": {
+      "cancelAccessibilityLabel": "Motiu de la cancel·lació d'aquesta recollida",
+      "cancelCollection": "Cancel·la la recollida",
+      "cancelLabel": "Cancel·la aquesta recollida: motiu",
+      "cancelNote": "Això retira el lliurament i revoca el codi. No cancel·la la comanda ni reemborsa res: fes-ho a la comanda mateixa si has de tornar diners al client.",
+      "cancelPlaceholder": "Estoc malmès al magatzem",
+      "checkCodeAndHandOver": "Comprova el codi i lliura",
+      "codeAccessibilityLabel": "Codi de recollida que ha presentat el client",
+      "codeLabel": "Codi que ha presentat el client",
+      "codePlaceholder": "ABCD234567",
+      "event": {
+        "codeRejected": "Codi rebutjat",
+        "codeRevoked": "Codi revocat",
+        "codeRotated": "Codi renovat",
+        "codeValidated": "Codi acceptat",
+        "collected": "Lliurada",
+        "collectionRefused": "Lliurament rebutjat",
+        "fallbackOverride": "Lliurada sense codi vàlid",
+        "markedReady": "Marcada com a preparada",
+        "pickupCancelled": "Recollida cancel·lada"
+      },
+      "handOverWithOverride": "Lliura sense codi vàlid",
+      "markReady": "Marca com a preparada per recollir",
+      "overrideAccessibilityLabel": "Motiu del lliurament sense un codi vàlid",
+      "overrideLabel": "Lliurament sense un codi vàlid: motiu",
+      "overrideNote": "Es registra al teu compte, amb el motiu, al registre de sota.",
+      "overridePlaceholder": "El codi no s'escanejava; s'ha comprovat el DNI en persona",
+      "rotate": "Emet un codi nou",
+      "rotateAccessibilityLabel": "Motiu de l'emissió d'un codi de recollida nou",
+      "rotateLabel": "Emet un codi nou: motiu",
+      "rotatePlaceholder": "El client diu que el codi s'ha filtrat",
+      "rotatedCodeNote": "Llegeix-l'hi al client. El codi anterior ja no funciona.",
+      "title": "Recollida",
+      "toast": {
+        "cancelled": "Recollida cancel·lada",
+        "codeIssued": "S'ha emès un codi nou",
+        "collected": "Recollida registrada",
+        "collectedWithOverride": "Recollida registrada sense codi vàlid",
+        "markedReady": "Marcada com a preparada per recollir"
+      },
+      "trail": "Registre de la recollida",
+      "trailEmpty": "Encara no ha passat res al taulell."
+    },
+    "refund": {
+      "dialogTitle": "Reemborsa la comanda",
+      "failed": "No s'ha pogut tramitar el reemborsament",
+      "itemMax": "%{variant} · màx. %{quantity}",
+      "processed": "Reemborsament tramitat",
+      "quantityRequired": "Introdueix una quantitat per reemborsar",
+      "reasonLabel": "Motiu (opcional)",
+      "reasonPlaceholder": "Per què es reemborsa?",
+      "submit": "Tramita el reemborsament"
+    },
+    "refundState": {
+      "canceled": "Cancel·lat",
+      "failed": "Fallit",
+      "pending": "En camí",
+      "succeeded": "Completat"
+    },
+    "row": {
+      "itemsPlacedOn": {
+        "one": "%{count} article · %{date}",
+        "other": "%{count} articles · %{date}"
+      }
+    },
+    "status": {
+      "cancelled": "Cancel·lada",
+      "delivered": "Lliurada",
+      "paid": "Pagada",
+      "partiallyRefunded": "Reemb. parcial",
+      "pendingPayment": "Pendent",
+      "processing": "En procés",
+      "refunded": "Reemborsada",
+      "shipped": "Enviada"
+    },
+    "subtitle": "Prepara i fes el seguiment de les teves vendes",
+    "title": "Comandes",
+    "totals": {
+      "discounts": "Descomptes",
+      "heading": "Totals",
+      "shipping": "Enviament",
+      "subtotal": "Subtotal",
+      "tax": "Impostos",
+      "total": "Total"
+    }
+  },
+  "products": {
+    "addProduct": "Afegeix un producte",
+    "detail": {
+      "archive": "Arxiva",
+      "archiveFailed": "No s'ha pogut arxivar el producte",
+      "archived": "Producte arxivat",
+      "channelSettings": "Configuració del canal",
+      "documentTitle": "Producte | Mercaria Dashboard",
+      "loadFailed": "No s'ha pogut carregar el producte",
+      "restrictedNotice": "Aquest producte està restringit a l'espera d'una decisió de moderació i no es pot tornar a publicar des d'aquí.",
+      "saveChanges": "Desa els canvis",
+      "saveFailed": "No s'ha pogut desar el producte",
+      "saved": "Producte desat",
+      "title": "Producte",
+      "variantCount": {
+        "one": "%{count} variant",
+        "other": "%{count} variants"
+      }
+    },
+    "documentTitle": "Productes | Mercaria Dashboard",
+    "empty": {
+      "action": "Afegeix el teu primer producte",
+      "title": "Encara no hi ha productes"
+    },
+    "loadFailed": "No s'han pogut carregar els productes",
+    "new": {
+      "addVariant": "Afegeix una variant",
+      "categoryLabel": "Categoria (slug)",
+      "categoryPlaceholder": "electronica",
+      "categoryRequired": "La categoria és obligatòria",
+      "createFailed": "No s'ha pogut crear el producte",
+      "created": "Producte creat",
+      "descriptionPlaceholder": "Descriu el producte",
+      "documentTitle": "Producte nou | Mercaria Dashboard",
+      "optionNameLabel": "Nom de l'opció (opcional, p. ex. Talla)",
+      "optionNamePlaceholder": "Talla",
+      "optionValueLabel": "Valor de %{option}",
+      "optionValuePlaceholder": "M",
+      "optionsHeading": "Opcions i variants",
+      "skuLabel": "SKU (opcional)",
+      "skuPlaceholder": "SKU-123",
+      "submit": "Crea el producte",
+      "subtitle": "Afegeix un producte al teu catàleg",
+      "title": "Producte nou",
+      "titlePlaceholder": "Nom del producte",
+      "titleRequired": "El títol és obligatori",
+      "variantIndex": "Variant %{index}",
+      "variantPriceInvalid": "Cada variant necessita un preu vàlid",
+      "vendorLabel": "Proveïdor / marca",
+      "vendorPlaceholder": "Acme"
+    },
+    "priceLabel": "Preu (⊜)",
+    "row": {
+      "variantsInStock": {
+        "one": "%{count} variant · %{stock} en estoc",
+        "other": "%{count} variants · %{stock} en estoc"
+      }
+    },
+    "searchPlaceholder": "Cerca productes en aquesta pàgina…",
+    "status": {
+      "active": "Actiu",
+      "archived": "Arxivat",
+      "draft": "Esborrany",
+      "restricted": "Restringit",
+      "sold": "Venut"
+    },
+    "stockLabel": "Estoc",
+    "subtitle": "El catàleg de la teva botiga",
+    "title": "Productes",
+    "variants": {
+      "add": "Afegeix",
+      "addFailed": "No s'ha pogut afegir la variant",
+      "added": "Variant afegida",
+      "available": "Disponible",
+      "heading": "Variants i inventari",
+      "inventoryUpdateFailed": "No s'ha pogut actualitzar l'inventari",
+      "inventoryUpdated": "Inventari actualitzat",
+      "priceInvalid": "Introdueix un preu vàlid",
+      "removeFailed": "No s'ha pogut eliminar la variant",
+      "removeVariant": "Elimina la variant",
+      "removed": "Variant eliminada",
+      "saveVariant": "Desa la variant",
+      "set": "Estableix",
+      "updateFailed": "No s'ha pogut actualitzar la variant",
+      "updated": "Variant actualitzada",
+      "valuePlaceholder": "valor"
+    }
+  },
+  "settings": {
+    "documentTitle": "Configuració | Mercaria Dashboard",
+    "language": {
+      "description": "L'idioma en què es mostra aquest tauler. Es desa en aquest dispositiu; no canvia el que veuen els teus clients.",
+      "title": "Idioma"
+    },
+    "locations": {
+      "createFailed": "No s'ha pogut crear la ubicació",
+      "created": "Ubicació creada",
+      "defaultFlag": " · predeterminada",
+      "deleteFailed": "No s'ha pogut suprimir la ubicació",
+      "deleted": "Ubicació suprimida",
+      "documentTitle": "Ubicacions | Mercaria Dashboard",
+      "inactiveFlag": " · inactiva",
+      "loadFailed": "No s'han pogut carregar les ubicacions",
+      "namePlaceholder": "Magatzem principal",
+      "nameRequired": "El nom és obligatori",
+      "newTitle": "Ubicació nova",
+      "subtitle": "On tens l'inventari",
+      "title": "Ubicacions",
+      "types": {
+        "popUp": "Pop-up",
+        "retail": "Botiga",
+        "virtual": "Virtual",
+        "warehouse": "Magatzem"
+      }
+    },
+    "members": {
+      "addFailed": "No s'ha pogut afegir el membre",
+      "addMember": "Afegeix un membre",
+      "added": "Membre afegit",
+      "documentTitle": "Membres | Mercaria Dashboard",
+      "explicitPermissions": {
+        "one": "%{count} permís explícit concedit",
+        "other": "%{count} permisos explícits concedits"
+      },
+      "invite": "Convida",
+      "inviteTitle": "Convida un membre",
+      "joinedOn": "S'hi va incorporar el %{date}",
+      "loadFailed": "No s'han pogut carregar els membres",
+      "oxyUserIdLabel": "Id d'usuari d'Oxy",
+      "oxyUserIdPlaceholder": "id d'usuari d'Oxy",
+      "oxyUserIdRequired": "Introdueix l'id d'usuari d'Oxy del membre",
+      "removeFailed": "No s'ha pogut eliminar el membre",
+      "removed": "Membre eliminat",
+      "roleLabel": "Rol",
+      "roleUpdateFailed": "No s'ha pogut actualitzar el membre",
+      "roleUpdated": "Rol actualitzat",
+      "roles": {
+        "admin": "Administrador",
+        "owner": "Propietari",
+        "staff": "Personal"
+      },
+      "subtitle": "Qui pot gestionar aquesta botiga",
+      "title": "Membres i rols"
+    },
+    "payments": {
+      "beingReviewed": "En revisió",
+      "documentTitle": "Pagaments i liquidacions | Mercaria Dashboard",
+      "dueBy": "Data límit",
+      "itemCount": {
+        "one": "%{count} element",
+        "other": "%{count} elements"
+      },
+      "loadFailed": "No s'ha pogut carregar la configuració de pagaments",
+      "neededNow": "Necessari ara",
+      "onboardingUnavailable": "La configuració de les liquidacions encara no està disponible en aquest desplegament de Mercaria.",
+      "openFailed": "No s'ha pogut obrir la configuració de les liquidacions",
+      "outstandingTitle": "Pendent amb Stripe",
+      "paidOutIn": "Moneda de liquidació",
+      "payoutsTitle": "Liquidacions",
+      "quoteToSupport": "Cita això al servei d'assistència de Mercaria si necessites ajuda.",
+      "registeredIn": "Registrat a",
+      "reportedByStripe": "Informat per Stripe",
+      "requirementsNote": "Stripe guarda aquestes dades i és l'únic lloc on es poden completar. Mercaria no les veu mai.",
+      "schedule": "Freqüència",
+      "scheduleWithDelay": {
+        "one": "%{interval}, després de %{count} dia",
+        "other": "%{interval}, després de %{count} dies"
+      },
+      "states": {
+        "actionRequired": {
+          "action": "Continua la configuració",
+          "body": "Stripe necessita més informació abans de poder pagar-te. Fins que no ho tingui tot, els compradors no poden finalitzar la compra amb els teus productes.",
+          "heading": "Encara falten algunes dades"
+        },
+        "disabled": {
+          "body": "Stripe ha tancat aquest compte connectat, o bé se n'ha eliminat la connexió amb Mercaria. Els compradors no poden finalitzar la compra amb els teus productes. Contacta amb el servei d'assistència de Mercaria perquè ho revisin.",
+          "heading": "Aquest compte ja no es pot fer servir"
+        },
+        "notConnected": {
+          "action": "Configura les liquidacions",
+          "body": "Els teus productes es veuen i pots fer servir la resta de Mercaria, però els compradors encara no hi poden finalitzar la compra. Configurar les liquidacions només et portarà uns minuts.",
+          "heading": "Encara sense configurar"
+        },
+        "ready": {
+          "action": "Gestiona les dades de liquidació",
+          "body": "Els compradors poden finalitzar la compra amb els teus productes, i Stripe transfereix el teu saldo al teu banc.",
+          "heading": "A punt per cobrar"
+        },
+        "restricted": {
+          "action": "Resol-ho ara",
+          "body": "Alguna cosa que Stripe va demanar ja ha vençut, així que ha aturat les liquidacions i els compradors no poden finalitzar la compra amb els teus productes. Completar-ho restableix totes dues coses.",
+          "heading": "Les liquidacions estan aturades"
+        },
+        "underReview": {
+          "body": "Stripe té el que havia demanat i ho està revisant. No has de fer res: normalment triga un dia o dos. Els compradors no poden finalitzar la compra amb els teus productes fins que acabi.",
+          "heading": "En revisió"
+        }
+      },
+      "subtitle": "Com cobres les comandes fetes a Mercaria",
+      "title": "Pagaments i liquidacions"
+    },
+    "plan": {
+      "alwaysIncludedBody": "Mantenir el teu catàleg, rebre i preparar comandes, fer reemborsaments, consultar els teus registres de vendes i de liquidacions i exportar les teves dades són gratuïts per a totes les botigues de Mercaria i mai no formen part d'un pla. Res d'aquesta pàgina no ho pot canviar, i cap pla no afecta com es troben ni com es classifiquen els teus productes.",
+      "alwaysIncludedTitle": "Sempre inclòs",
+      "cancelFailed": "No s'ha pogut cancel·lar. Torna-ho a provar.",
+      "cancelPlan": "Cancel·la el pla",
+      "capabilityWithLimit": "%{name} · fins a %{limit}",
+      "choosePlan": "Tria %{plan}",
+      "documentTitle": "Pla i facturació | Mercaria Dashboard",
+      "endsOn": "Acaba el %{date}.",
+      "free": "Gratuït",
+      "graceEndsOn": "Els extres d'aquest pla s'aturen el %{date} si el pagament no es fa efectiu.",
+      "loadFailed": "No s'ha pogut carregar el teu pla",
+      "manageBilling": "Gestiona la facturació",
+      "noExtras": "En aquesta botiga no hi ha cap extra de pla actiu.",
+      "noPaidPlans": "Encara no hi ha plans de pagament disponibles. Quan n'hi hagi, aquí hi trobaràs tot el que inclouen amb el seu preu abans d'acceptar res.",
+      "notOnPaidPlan": "No tens cap pla de pagament. Tot el que hi ha a dalt està inclòs.",
+      "paidPlansTitle": "Plans de pagament",
+      "portalFailed": "No s'ha pogut obrir la facturació. Torna-ho a provar.",
+      "pricePerMonth": "%{price} · al mes",
+      "pricePerYear": "%{price} · a l'any",
+      "renewsOn": "Es renova el %{date}.",
+      "statuses": {
+        "active": {
+          "body": "El teu pla es renova automàticament. El pots cancel·lar quan vulguis i el conserves fins al final del període que has pagat.",
+          "heading": "Actiu"
+        },
+        "cancelled": {
+          "body": "Conserves els extres d'aquest pla fins a la data de sota. No canvia res més.",
+          "heading": "Es cancel·la al final del període"
+        },
+        "expired": {
+          "body": "Els extres d'aquest pla ja no estan actius. Tot el que s'inclou de manera gratuïta continua igual.",
+          "heading": "Finalitzat"
+        },
+        "pastDue": {
+          "body": "El teu catàleg, les comandes, els reemborsaments i els registres no es veuen afectats i continuaran així. Només afecta els extres d'aquest pla, i només a partir de la data de sota.",
+          "heading": "No hem pogut cobrar l'últim pagament"
+        },
+        "paused": {
+          "body": "Els extres d'aquest pla no estan actius mentre està en pausa.",
+          "heading": "En pausa"
+        },
+        "trialing": {
+          "body": "Tens accés complet als extres d'aquest pla fins que acabi la prova.",
+          "heading": "Prova en curs"
+        }
+      },
+      "subtitle": "Què obté la teva botiga i què en pagues",
+      "title": "Pla i facturació",
+      "trialNotice": {
+        "one": "Inclou una prova de %{count} dia.",
+        "other": "Inclou una prova de %{count} dies."
+      },
+      "upgradeFailed": "No s'ha pogut iniciar la millora del pla. Torna-ho a provar.",
+      "usageIncluded": "inclòs",
+      "usageNoLimit": "%{used} utilitzats · sense límit",
+      "usageOfLimit": "%{used} de %{limit} utilitzats"
+    },
+    "policies": {
+      "documentTitle": "Polítiques | Mercaria Dashboard",
+      "loadFailed": "No s'ha pogut carregar la configuració",
+      "lowStockAlerts": "Alertes d'estoc baix",
+      "notifications": "Notificacions",
+      "orderEmails": "Correus de comanda",
+      "privacyPolicyLabel": "Política de privadesa",
+      "privacyPolicyPlaceholder": "La teva política de privadesa…",
+      "refundPolicyLabel": "Política de reemborsaments",
+      "refundPolicyPlaceholder": "La teva política de reemborsaments…",
+      "returnWindowLabel": "Termini de devolució (dies)",
+      "saveFailed": "No s'ha pogut desar la configuració",
+      "saveSettings": "Desa la configuració",
+      "saved": "Configuració desada",
+      "subtitle": "Regles i alertes de tota la botiga",
+      "termsLabel": "Condicions del servei",
+      "termsPlaceholder": "Les teves condicions del servei…",
+      "title": "Polítiques i notificacions"
+    },
+    "sections": {
+      "channels": {
+        "description": "Connecta Shopify i altres botigues per sincronitzar",
+        "label": "Canals de venda"
+      },
+      "locations": {
+        "description": "On tens l'inventari",
+        "label": "Ubicacions"
+      },
+      "members": {
+        "description": "Convida i edita rols i permisos",
+        "label": "Membres i rols"
+      },
+      "payments": {
+        "description": "Cobra les comandes fetes a Mercaria",
+        "label": "Pagaments i liquidacions"
+      },
+      "plan": {
+        "description": "Què obté la teva botiga i què en pagues",
+        "label": "Pla i facturació"
+      },
+      "policies": {
+        "description": "Devolucions, reemborsaments/privadesa/condicions, alertes",
+        "label": "Polítiques i notificacions"
+      },
+      "profile": {
+        "description": "Nom, identificador, color de marca, estat",
+        "label": "Perfil de la botiga"
+      },
+      "tax": {
+        "description": "Tipus impositius i comportament dels impostos",
+        "label": "Impostos"
+      }
+    },
+    "store": {
+      "brandColorLabel": "Color de marca",
+      "documentTitle": "Perfil de la botiga | Mercaria Dashboard",
+      "loadFailed": "No s'ha pogut carregar la botiga",
+      "nameLabel": "Nom de la botiga",
+      "nameRequired": "El nom de la botiga és obligatori",
+      "saveChanges": "Desa els canvis",
+      "title": "Perfil de la botiga",
+      "updateFailed": "No s'ha pogut actualitzar la botiga",
+      "updated": "Botiga actualitzada"
+    },
+    "subtitle": "Configura la teva botiga",
+    "tax": {
+      "active": "actiu",
+      "countryLabel": "País (ISO-2)",
+      "countryPlaceholder": "US",
+      "createFailed": "No s'ha pogut crear el tipus",
+      "created": "Tipus impositiu creat",
+      "deleteFailed": "No s'ha pogut suprimir el tipus",
+      "deleted": "Tipus impositiu suprimit",
+      "documentTitle": "Impostos | Mercaria Dashboard",
+      "emptyBody": "Afegeix un tipus per cobrar impostos en finalitzar la compra.",
+      "emptyTitle": "Cap tipus impositiu",
+      "inactive": "inactiu",
+      "invalidRate": "Introdueix un tipus vàlid",
+      "loadFailed": "No s'han pogut carregar els tipus impositius",
+      "namePlaceholder": "IVA general",
+      "nameRequired": "El nom és obligatori",
+      "newRate": "Tipus nou",
+      "newRateTitle": "Tipus impositiu nou",
+      "rateLabel": "Tipus (%)",
+      "regionLabel": "Regió",
+      "regionPlaceholder": "CA",
+      "subtitle": "Tipus impositius aplicats en finalitzar la compra",
+      "title": "Impostos"
+    },
+    "title": "Configuració"
+  },
+  "stores": {
+    "create": {
+      "descriptionPlaceholder": "Què véns?",
+      "dialogTitle": "Crea una botiga",
+      "error": "No s'ha pogut crear la botiga",
+      "nameLabel": "Nom de la botiga",
+      "namePlaceholder": "Acme Supply Co.",
+      "nameRequired": "El nom de la botiga és obligatori",
+      "success": "Botiga creada"
+    },
+    "createStore": "Crea la botiga",
+    "documentTitle": "Botigues | Mercaria Dashboard",
+    "empty": {
+      "body": "Crea la teva primera botiga per començar a vendre a Mercaria.",
+      "title": "Encara no hi ha botigues"
+    },
+    "loadError": "No s'han pogut carregar les teves botigues",
+    "newStore": "Botiga nova",
+    "selectStore": "Selecciona una botiga",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} producte",
+      "other": "@%{handle} · %{count} productes"
+    },
+    "subtitle": "Tria una botiga per gestionar-la",
+    "switch": "Canvia de botiga",
+    "title": "Les teves botigues"
+  }
+}

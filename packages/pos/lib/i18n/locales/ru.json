@@ -1,1 +1,186 @@
-{}
+{
+  "auth": {
+    "appName": "Mercaria POS",
+    "signIn": "Войти",
+    "signInBody": "Войдите с аккаунтом Oxy, чтобы открыть кассу — пробивайте продажи в зале, привязывайте клиентов и принимайте оплату."
+  },
+  "cart": {
+    "addCustomer": "Добавить клиента",
+    "clear": "Очистить",
+    "clearCart": "Очистить корзину",
+    "customerAttached": "Привязан к этой продаже",
+    "decreaseQuantity": "Уменьшить количество",
+    "discountCodePlaceholder": "Код скидки",
+    "documentTitle": "Корзина | Mercaria POS",
+    "emptyBody": "Нажимайте на товары, чтобы добавить их в продажу.",
+    "emptyTitle": "Корзина пуста",
+    "increaseQuantity": "Увеличить количество",
+    "itemCount": {
+      "one": "%{count} товар",
+      "other": "%{count} товаров"
+    },
+    "removeItem": "Удалить товар",
+    "subtotal": "Промежуточный итог",
+    "title": "Корзина"
+  },
+  "catalog": {
+    "add": "Добавить",
+    "availableCount": {
+      "one": "Доступно: %{count}",
+      "other": "Доступно: %{count}"
+    },
+    "chooseVariant": "Выберите вариант",
+    "codePlaceholder": "Отсканируйте или введите SKU / штрихкод",
+    "emptyBody": "Ничего не найдено по вашему запросу.",
+    "emptyTitle": "Нет товаров",
+    "inStockCount": {
+      "one": "В наличии: %{count}",
+      "other": "В наличии: %{count}"
+    },
+    "loadFailed": "Не удалось загрузить каталог",
+    "lookupFailed": "Поиск не удался",
+    "noProductForCode": "Товар с таким кодом не найден",
+    "outOfStock": "Нет в наличии",
+    "searchPlaceholder": "Поиск по каталогу",
+    "soldOut": "Распродано"
+  },
+  "charge": {
+    "action": "Оплатить",
+    "customer": "Клиент",
+    "documentTitle": "Оплата | Mercaria POS",
+    "expectedTotal": "Ожидаемый итог",
+    "failed": "Не удалось принять оплату",
+    "finalTotalNote": "Итоговая сумма (скидки и налог) рассчитывается при проведении продажи.",
+    "subtitle": "Проверьте и проведите продажу",
+    "tender": "Способ оплаты",
+    "tenderCard": "Карта",
+    "tenderCash": "Наличные",
+    "title": "Оплата"
+  },
+  "common": {
+    "all": "Все",
+    "name": "Имя",
+    "next": "Далее",
+    "noAccess": "Нет доступа",
+    "noAccessBody": "У вас нет прав на просмотр этого раздела для выбранного магазина.",
+    "optional": "Необязательно",
+    "pleaseTryAgain": "Попробуйте ещё раз.",
+    "previous": "Назад",
+    "retry": "Попробовать снова",
+    "somethingWentWrong": "Что-то пошло не так"
+  },
+  "customer": {
+    "addAndAttach": "Добавить и привязать",
+    "addFailed": "Не удалось добавить клиента",
+    "added": "Клиент добавлен",
+    "documentTitle": "Клиент | Mercaria POS",
+    "email": "Эл. почта",
+    "emailPlaceholder": "ivan@example.com",
+    "fallbackName": "Клиент",
+    "loadFailed": "Не удалось загрузить клиентов",
+    "namePlaceholder": "Иван Иванов",
+    "noMatches": "Клиенты не найдены.",
+    "phone": "Телефон",
+    "phonePlaceholder": "+7 900 000 00 00",
+    "quickAdd": "Быстрое добавление",
+    "quickAddEmpty": "Укажите имя, эл. почту или телефон",
+    "searchPlaceholder": "Поиск клиентов",
+    "subtitle": "Привяжите клиента или продолжите без него",
+    "title": "Клиент",
+    "walkIn": "Без клиента",
+    "walkInOption": "Продажа без клиента"
+  },
+  "errors": {
+    "noRegisterAccessBody": "У вас нет прав на работу с кассой для выбранного магазина.",
+    "notFoundAction": "Перейти к кассе",
+    "notFoundBody": "Такого экрана не существует.",
+    "notFoundDocumentTitle": "404 — Страница не найдена | Mercaria POS",
+    "notFoundHeading": "Упс!",
+    "unexpectedBody": "Произошла непредвиденная ошибка. Попробуйте ещё раз — если проблема повторится, наша команда уже уведомлена."
+  },
+  "locations": {
+    "type": {
+      "popUp": "Поп-ап",
+      "retail": "Розничная точка",
+      "virtual": "Виртуальная",
+      "warehouse": "Склад"
+    }
+  },
+  "nav": {
+    "collapseSidebar": "Свернуть боковую панель",
+    "expandSidebar": "Развернуть боковую панель",
+    "register": "Касса",
+    "sales": "Продажи",
+    "selectStore": "Выберите магазин",
+    "switchStore": "Сменить магазин"
+  },
+  "orders": {
+    "channel": {
+      "draft": "Черновик",
+      "pos": "Точка продаж",
+      "storefront": "Витрина"
+    },
+    "status": {
+      "cancelled": "Отменён",
+      "delivered": "Доставлен",
+      "paid": "Оплачен",
+      "partiallyRefunded": "Частично возвращён",
+      "pendingPayment": "Ожидает оплаты",
+      "processing": "В обработке",
+      "refunded": "Возвращён",
+      "shipped": "Отправлен"
+    }
+  },
+  "receipt": {
+    "channelAndStatus": "%{channel} · %{status}",
+    "discount": "Скидка",
+    "documentTitle": "Чек | Mercaria POS",
+    "loadFailed": "Не удалось загрузить чек",
+    "loadFailedBody": "Возможно, заказ недоступен.",
+    "newSale": "Новая продажа",
+    "orderNumber": "Заказ %{number}",
+    "paymentRecorded": "Оплата зафиксирована",
+    "saleComplete": "Продажа завершена",
+    "subtotal": "Промежуточный итог",
+    "tax": "Налог",
+    "title": "Чек",
+    "total": "Итого"
+  },
+  "register": {
+    "documentTitle": "Касса | Mercaria POS",
+    "reviewCart": "К корзине",
+    "reviewCartWithCount": {
+      "one": "%{count} товар · К корзине",
+      "other": "%{count} товаров · К корзине"
+    }
+  },
+  "sales": {
+    "documentTitle": "Продажи | Mercaria POS",
+    "emptyBody": "Завершённые продажи появятся здесь.",
+    "emptyTitle": "Продаж пока нет",
+    "loadFailed": "Не удалось загрузить продажи",
+    "orderLabel": "Заказ %{number}",
+    "pageNumber": "Страница %{page}",
+    "rowMeta": "%{when} · %{status}",
+    "subtitle": "Последние заказы"
+  },
+  "storeSetup": {
+    "changeStore": "Сменить магазин",
+    "chooseRegisterSubtitle": "Выберите локацию, с которой эта касса списывает остатки",
+    "chooseRegisterTitle": "Выберите кассу",
+    "chooseStoreSubtitle": "Выберите магазин, для которого продаёте",
+    "chooseStoreTitle": "Выберите магазин",
+    "defaultLocation": "По умолчанию",
+    "documentTitle": "Настройка магазина | Mercaria POS",
+    "locationsLoadFailed": "Не удалось загрузить локации",
+    "noLocationsBody": "Сначала создайте локацию в панели управления, затем вернитесь сюда, чтобы открыть кассу.",
+    "noLocationsTitle": "Нет локаций",
+    "noStoresBody": "Сначала создайте магазин в панели управления Mercaria, затем вернитесь сюда, чтобы открыть кассу.",
+    "noStoresTitle": "Магазинов пока нет",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} товар",
+      "other": "@%{handle} · %{count} товаров"
+    },
+    "storesLoadFailed": "Не удалось загрузить ваши магазины"
+  }
+}

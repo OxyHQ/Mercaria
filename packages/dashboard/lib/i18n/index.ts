@@ -39,7 +39,7 @@ const i18n = createAppI18n(bundles);
 /** Which locales this app has copy for — what the language picker offers. */
 export const DASHBOARD_LOCALES = shippedLocales(bundles);
 
-export const { useI18nStore, useTranslation } = createI18nStore({
+export const { useTranslation } = createI18nStore({
   i18n,
   persistKey: 'mercaria-dashboard-i18n',
 });

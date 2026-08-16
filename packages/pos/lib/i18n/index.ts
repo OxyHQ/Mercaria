@@ -1,4 +1,4 @@
-import { createAppI18n, createI18nStore, shippedLocales } from '@mercaria/ui';
+import { createAppI18n, createI18nStore } from '@mercaria/ui';
 import bn from './locales/bn.json';
 import ca from './locales/ca.json';
 import de from './locales/de.json';
@@ -38,10 +38,11 @@ const bundles = {
 
 const i18n = createAppI18n(bundles);
 
-/** Which locales this app has copy for — what a language picker may offer. */
-export const POS_LOCALES = shippedLocales(bundles);
-
-export const { useI18nStore, useTranslation } = createI18nStore({
+// There is deliberately no `POS_LOCALES` export and no language picker: the
+// till follows the device, and the POS has no settings surface to put one on.
+// A picker arrives with the screen that hosts it, reading `shippedLocales`
+// exactly as the dashboard's does.
+export const { useTranslation } = createI18nStore({
   i18n,
   // Distinct from the dashboard's and the storefront's: three Mercaria apps can
   // sit on one device, and a cashier's till language is not the merchant's

@@ -22,7 +22,9 @@
  *
  *   A. NO HARDCODED USER-FACING STRING in the migrated surface — JSX text, a
  *      string in a JSX child expression, a user-facing JSX attribute, a
- *      user-facing object property, or an `Alert.alert` argument.
+ *      user-facing object property, or an argument to one of a short NAMED list
+ *      of calls that carry copy through a plain function (`Alert.alert`,
+ *      `toast.*`, `useRailTooltip`).
  *
  *   B. BUNDLE PARITY — every non-`en` bundle has exactly `en`'s key set (missing
  *      AND extra), and every value carries exactly `en`'s `%{placeholders}`. A
@@ -95,6 +97,10 @@ const APPS = [
     // would otherwise hide behind the other app's count.
     minimumTranslatedPositions: 300,
     minimumKeys: 300,
+    // Part B compares every sibling bundle against `en`, so with the siblings
+    // gone it compares nothing and reports clean. Eleven of the registry's
+    // twelve locales; `ar` waits on the layout mirroring (#434).
+    minimumLocales: 11,
   },
   {
     name: "pos",
@@ -102,6 +108,7 @@ const APPS = [
     locales: "packages/pos/lib/i18n/locales",
     minimumTranslatedPositions: 60,
     minimumKeys: 60,
+    minimumLocales: 11,
   },
 ];
 
@@ -163,8 +170,23 @@ const USER_FACING_OBJECT_PROPERTIES = new Set([
   "title",
 ]);
 
-/** Functions whose string arguments are shown to a person. */
-const ALERT_CALLEES = new Set(["Alert.alert", "Alert.prompt"]);
+/**
+ * Calls whose string arguments are shown to a person.
+ *
+ * The three shapes in this surface that carry copy through a plain function
+ * rather than through a prop: a native alert, a toast, and the sidebar rail's
+ * hover tooltip. Deliberately a short, named list — "any call taking a string"
+ * would flag every `fetch`, every query key and every `router.push`.
+ */
+const USER_FACING_CALLEES = new Set([
+  "Alert.alert",
+  "Alert.prompt",
+  "toast.error",
+  "toast.info",
+  "toast.success",
+  "toast.warning",
+  "useRailTooltip",
+]);
 
 /** Below this, the file listing is broken — and a broken listing reports a clean tree. */
 const MINIMUM_SOURCE_FILES = fixtureFloors ? 1 : 60;
@@ -241,7 +263,13 @@ function literalText(node) {
   return null;
 }
 
-/** `t(...)`, `t.call(...)` is not supported and is not used. */
+/**
+ * A translation call: the bare `t(...)` every screen uses, or a `.t(...)` on
+ * something (`i18n.t(...)`). Matched by the callee's NAME rather than by
+ * resolving it — this is a syntactic guard, and the cost of the loose match is
+ * that a variable called `t` holding something else would read as translated.
+ * Nothing in either app has one, and part C is what keeps the far end honest.
+ */
 const isTranslateCall = (node) =>
   ts.isCallExpression(node)
   && ((ts.isIdentifier(node.expression) && node.expression.text === "t")
@@ -399,9 +427,13 @@ export function analyseSource(relativePath, text, knownKeys) {
       inspectUserFacing(node.initializer, `property:${node.name.text}`);
     }
 
-    // A. `Alert.alert("Deleted", "The product is gone.")`
-    if (ts.isCallExpression(node) && ALERT_CALLEES.has(calleeName(node) ?? "")) {
-      for (const argument of node.arguments) inspectUserFacing(argument, "alert-argument");
+    // A. `Alert.alert("Deleted", "The product is gone.")`, `toast.error("…")`,
+    // `useRailTooltip("Expand sidebar")`
+    {
+      const callee = ts.isCallExpression(node) ? calleeName(node) : null;
+      if (callee !== null && USER_FACING_CALLEES.has(callee)) {
+        for (const argument of node.arguments) inspectUserFacing(argument, `call:${callee}`);
+      }
     }
 
     ts.forEachChild(node, visit);
@@ -545,6 +577,8 @@ const CONTROL_MUST_FIND = [
   { id: "attribute-expression", source: 'const A = () => <Input placeholder={"Search products"} />;' },
   { id: "object-property", source: 'export const NAV = [{ key: "a", label: "Register" }];' },
   { id: "alert-argument", source: 'Alert.alert("Deleted", "The product is gone.");' },
+  { id: "toast-argument", source: 'toast.error("Could not save the product.");' },
+  { id: "tooltip-argument", source: 'const tip = useRailTooltip("Expand sidebar");' },
 ];
 
 /**
@@ -561,6 +595,9 @@ const CONTROL_MUST_NOT_FIND = [
   'const A = () => <Input placeholder={t("products.searchPlaceholder")} />;',
   'export const NAV = [{ key: "a", label: "nav.register" }];',
   'Alert.alert(t("products.deleted"), t("products.deletedBody"));',
+  'toast.error(error.message);',
+  'const tip = useRailTooltip(t("nav.register"));',
+  'const response = await fetch("/api/products", { method: "POST" });',
 ];
 
 /**
@@ -658,6 +695,14 @@ for (const app of APPS) {
   if (!english) {
     failures.push(`${app.name}: ${englishPath} is missing — every other locale falls back to it`);
     continue;
+  }
+
+  if (flatByLocale.size < floorFor(app.minimumLocales)) {
+    failures.push(
+      `${app.name} has ${flatByLocale.size} locale bundles, below the `
+      + `${floorFor(app.minimumLocales)} floor — the parity check below compares every sibling `
+      + "against en.json, so with the siblings missing it compares nothing and reports clean",
+    );
   }
 
   if (english.size < floorFor(app.minimumKeys)) {

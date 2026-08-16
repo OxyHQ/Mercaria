@@ -1,1 +1,186 @@
-{}
+{
+  "auth": {
+    "appName": "Mercaria POS",
+    "signIn": "登录",
+    "signInBody": "使用你的 Oxy 账户登录，开启收银台 —— 结算线下销售、关联客户并收款。"
+  },
+  "cart": {
+    "addCustomer": "添加客户",
+    "clear": "清空",
+    "clearCart": "清空购物车",
+    "customerAttached": "已关联到本次销售",
+    "decreaseQuantity": "减少数量",
+    "discountCodePlaceholder": "折扣码",
+    "documentTitle": "购物车 | Mercaria POS",
+    "emptyBody": "点按商品即可加入本次销售。",
+    "emptyTitle": "购物车为空",
+    "increaseQuantity": "增加数量",
+    "itemCount": {
+      "one": "%{count} 件商品",
+      "other": "%{count} 件商品"
+    },
+    "removeItem": "移除商品",
+    "subtotal": "小计",
+    "title": "购物车"
+  },
+  "catalog": {
+    "add": "添加",
+    "availableCount": {
+      "one": "可售 %{count} 件",
+      "other": "可售 %{count} 件"
+    },
+    "chooseVariant": "选择变体",
+    "codePlaceholder": "扫描或输入 SKU / 条形码",
+    "emptyBody": "没有符合搜索条件的商品。",
+    "emptyTitle": "无商品",
+    "inStockCount": {
+      "one": "库存 %{count} 件",
+      "other": "库存 %{count} 件"
+    },
+    "loadFailed": "无法加载商品目录",
+    "lookupFailed": "查找失败",
+    "noProductForCode": "没有与该编码对应的商品",
+    "outOfStock": "缺货",
+    "searchPlaceholder": "搜索商品目录",
+    "soldOut": "已售罄"
+  },
+  "charge": {
+    "action": "收款",
+    "customer": "客户",
+    "documentTitle": "收款 | Mercaria POS",
+    "expectedTotal": "预计总计",
+    "failed": "收款失败",
+    "finalTotalNote": "最终总计（含折扣与税费）在完成销售时计算。",
+    "subtitle": "核对并完成本次销售",
+    "tender": "付款方式",
+    "tenderCard": "银行卡",
+    "tenderCash": "现金",
+    "title": "收款"
+  },
+  "common": {
+    "all": "全部",
+    "name": "名称",
+    "next": "下一页",
+    "noAccess": "无访问权限",
+    "noAccessBody": "你没有权限查看当前店铺的这个区域。",
+    "optional": "选填",
+    "pleaseTryAgain": "请重试。",
+    "previous": "上一页",
+    "retry": "重试",
+    "somethingWentWrong": "出了点问题"
+  },
+  "customer": {
+    "addAndAttach": "添加并关联",
+    "addFailed": "无法添加客户",
+    "added": "客户已添加",
+    "documentTitle": "客户 | Mercaria POS",
+    "email": "电子邮箱",
+    "emailPlaceholder": "jane@example.com",
+    "fallbackName": "客户",
+    "loadFailed": "无法加载客户",
+    "namePlaceholder": "张三",
+    "noMatches": "没有匹配的客户。",
+    "phone": "电话",
+    "phonePlaceholder": "+1 555 0100",
+    "quickAdd": "快速添加",
+    "quickAddEmpty": "请输入姓名、邮箱或电话",
+    "searchPlaceholder": "搜索客户",
+    "subtitle": "关联一位客户，或按散客处理",
+    "title": "客户",
+    "walkIn": "散客",
+    "walkInOption": "散客（不关联客户）"
+  },
+  "errors": {
+    "noRegisterAccessBody": "你没有权限使用当前店铺的收银台。",
+    "notFoundAction": "前往收银台",
+    "notFoundBody": "该页面不存在。",
+    "notFoundDocumentTitle": "404 - 页面未找到 | Mercaria POS",
+    "notFoundHeading": "哎呀！",
+    "unexpectedBody": "发生了意外错误。你可以重试；如果问题持续出现，我们的团队已收到通知。"
+  },
+  "locations": {
+    "type": {
+      "popUp": "快闪店",
+      "retail": "零售店",
+      "virtual": "虚拟",
+      "warehouse": "仓库"
+    }
+  },
+  "nav": {
+    "collapseSidebar": "收起侧边栏",
+    "expandSidebar": "展开侧边栏",
+    "register": "收银",
+    "sales": "销售记录",
+    "selectStore": "选择店铺",
+    "switchStore": "切换店铺"
+  },
+  "orders": {
+    "channel": {
+      "draft": "草稿",
+      "pos": "POS",
+      "storefront": "网店"
+    },
+    "status": {
+      "cancelled": "已取消",
+      "delivered": "已送达",
+      "paid": "已付款",
+      "partiallyRefunded": "部分退款",
+      "pendingPayment": "待付款",
+      "processing": "处理中",
+      "refunded": "已退款",
+      "shipped": "已发货"
+    }
+  },
+  "receipt": {
+    "channelAndStatus": "%{channel} · %{status}",
+    "discount": "折扣",
+    "documentTitle": "收据 | Mercaria POS",
+    "loadFailed": "无法加载收据",
+    "loadFailedBody": "该订单可能不可用。",
+    "newSale": "新建销售",
+    "orderNumber": "订单 %{number}",
+    "paymentRecorded": "已记录付款",
+    "saleComplete": "销售完成",
+    "subtotal": "小计",
+    "tax": "税费",
+    "title": "收据",
+    "total": "总计"
+  },
+  "register": {
+    "documentTitle": "收银 | Mercaria POS",
+    "reviewCart": "查看购物车",
+    "reviewCartWithCount": {
+      "one": "%{count} 件商品 · 查看购物车",
+      "other": "%{count} 件商品 · 查看购物车"
+    }
+  },
+  "sales": {
+    "documentTitle": "销售记录 | Mercaria POS",
+    "emptyBody": "已完成的销售会显示在这里。",
+    "emptyTitle": "暂无销售记录",
+    "loadFailed": "无法加载销售记录",
+    "orderLabel": "订单 %{number}",
+    "pageNumber": "第 %{page} 页",
+    "rowMeta": "%{when} · %{status}",
+    "subtitle": "近期订单"
+  },
+  "storeSetup": {
+    "changeStore": "更换店铺",
+    "chooseRegisterSubtitle": "选择这台收银台扣减库存的地点",
+    "chooseRegisterTitle": "选择收银台",
+    "chooseStoreSubtitle": "选择你要销售的店铺",
+    "chooseStoreTitle": "选择店铺",
+    "defaultLocation": "默认",
+    "documentTitle": "店铺设置 | Mercaria POS",
+    "locationsLoadFailed": "无法加载地点",
+    "noLocationsBody": "请先在 Dashboard 中创建一个地点，然后回到这里开启收银台。",
+    "noLocationsTitle": "暂无地点",
+    "noStoresBody": "请先在 Mercaria Dashboard 中创建店铺，然后回到这里开启收银台。",
+    "noStoresTitle": "暂无店铺",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} 件商品",
+      "other": "@%{handle} · %{count} 件商品"
+    },
+    "storesLoadFailed": "无法加载你的店铺"
+  }
+}

@@ -30,7 +30,7 @@ export interface CreateI18nStoreOptions {
  */
 
 /**
- * One app's locale store and the hook its screens call.
+ * One app's locale store, and the ONE hook its screens call.
  *
  * The hook is deliberately NOT suspenseful and touches no promise: it reads a
  * zustand slice and calls a synchronous `i18n.t`. A provider that suspended at
@@ -87,5 +87,11 @@ export function createI18nStore({ i18n, persistKey }: CreateI18nStoreOptions) {
     return { t, locale, setLocale };
   }
 
-  return { useI18nStore, useTranslation };
+  // Only the hook is returned. The store itself is an implementation detail —
+  // `useTranslation` already exposes the locale and the setter, which is
+  // everything a screen needs, and a second exported handle onto the same state
+  // is a way for one to be read outside React while the other is memoised
+  // around it. A caller that genuinely needs `getState()` adds it in the change
+  // that has one.
+  return { useTranslation };
 }

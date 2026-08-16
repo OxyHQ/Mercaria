@@ -1,1 +1,186 @@
-{}
+{
+  "auth": {
+    "appName": "Mercaria POS",
+    "signInBody": "Oxyアカウントでサインインしてレジを開きます。対面での販売、顧客の紐付け、会計ができます。",
+    "signIn": "サインイン"
+  },
+  "cart": {
+    "addCustomer": "顧客を追加",
+    "clear": "クリア",
+    "clearCart": "カートを空にする",
+    "customerAttached": "この販売に紐付け済み",
+    "decreaseQuantity": "数量を減らす",
+    "discountCodePlaceholder": "割引コード",
+    "documentTitle": "カート | Mercaria POS",
+    "emptyBody": "商品をタップして販売に追加します。",
+    "emptyTitle": "カートは空です",
+    "increaseQuantity": "数量を増やす",
+    "itemCount": {
+      "one": "%{count}点",
+      "other": "%{count}点"
+    },
+    "removeItem": "商品を削除",
+    "subtotal": "小計",
+    "title": "カート"
+  },
+  "catalog": {
+    "add": "追加",
+    "availableCount": {
+      "one": "残り%{count}点",
+      "other": "残り%{count}点"
+    },
+    "chooseVariant": "バリエーションを選択",
+    "codePlaceholder": "SKU／バーコードをスキャンまたは入力",
+    "emptyBody": "検索条件に一致する商品がありません。",
+    "emptyTitle": "商品がありません",
+    "inStockCount": {
+      "one": "在庫%{count}点",
+      "other": "在庫%{count}点"
+    },
+    "loadFailed": "カタログを読み込めませんでした",
+    "lookupFailed": "検索に失敗しました",
+    "noProductForCode": "このコードに該当する商品がありません",
+    "outOfStock": "在庫切れ",
+    "searchPlaceholder": "カタログを検索",
+    "soldOut": "売り切れ"
+  },
+  "charge": {
+    "action": "会計",
+    "customer": "顧客",
+    "documentTitle": "会計 | Mercaria POS",
+    "expectedTotal": "合計（予定）",
+    "failed": "会計に失敗しました",
+    "finalTotalNote": "最終的な合計（割引・税金）は販売の確定時に計算されます。",
+    "subtitle": "内容を確認して販売を確定します",
+    "tender": "支払方法",
+    "tenderCard": "カード",
+    "tenderCash": "現金",
+    "title": "会計"
+  },
+  "common": {
+    "all": "すべて",
+    "name": "名前",
+    "next": "次へ",
+    "noAccess": "アクセス権限がありません",
+    "noAccessBody": "現在のストアでこの画面を表示する権限がありません。",
+    "optional": "任意",
+    "pleaseTryAgain": "もう一度お試しください。",
+    "previous": "前へ",
+    "retry": "再試行",
+    "somethingWentWrong": "問題が発生しました"
+  },
+  "customer": {
+    "addAndAttach": "追加して紐付け",
+    "addFailed": "顧客を追加できませんでした",
+    "added": "顧客を追加しました",
+    "documentTitle": "顧客 | Mercaria POS",
+    "email": "メールアドレス",
+    "emailPlaceholder": "yamada@example.com",
+    "fallbackName": "顧客",
+    "loadFailed": "顧客を読み込めませんでした",
+    "namePlaceholder": "山田 太郎",
+    "noMatches": "一致する顧客がいません。",
+    "phone": "電話番号",
+    "phonePlaceholder": "090 1234 5678",
+    "quickAdd": "クイック追加",
+    "quickAddEmpty": "名前、メールアドレス、電話番号のいずれかを入力してください",
+    "searchPlaceholder": "顧客を検索",
+    "subtitle": "顧客を紐付けるか、顧客なしのまま進めます",
+    "title": "顧客",
+    "walkIn": "顧客なし",
+    "walkInOption": "顧客なし（ウォークイン）"
+  },
+  "errors": {
+    "noRegisterAccessBody": "現在のストアでレジを使用する権限がありません。",
+    "notFoundAction": "レジへ移動",
+    "notFoundBody": "この画面は存在しません。",
+    "notFoundDocumentTitle": "404 - ページが見つかりません | Mercaria POS",
+    "notFoundHeading": "ページが見つかりません",
+    "unexpectedBody": "予期しないエラーが発生しました。もう一度お試しください。問題が解決しない場合も、担当チームに通知済みです。"
+  },
+  "locations": {
+    "type": {
+      "popUp": "ポップアップ",
+      "retail": "店舗",
+      "virtual": "バーチャル",
+      "warehouse": "倉庫"
+    }
+  },
+  "nav": {
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "expandSidebar": "サイドバーを展開",
+    "register": "レジ",
+    "sales": "売上",
+    "selectStore": "ストアを選択",
+    "switchStore": "ストアを切り替え"
+  },
+  "orders": {
+    "channel": {
+      "draft": "下書き",
+      "pos": "POS",
+      "storefront": "ストアフロント"
+    },
+    "status": {
+      "cancelled": "キャンセル済み",
+      "delivered": "配達済み",
+      "paid": "支払い済み",
+      "partiallyRefunded": "一部返金済み",
+      "pendingPayment": "支払い待ち",
+      "processing": "処理中",
+      "refunded": "返金済み",
+      "shipped": "発送済み"
+    }
+  },
+  "receipt": {
+    "channelAndStatus": "%{channel} · %{status}",
+    "discount": "割引",
+    "documentTitle": "レシート | Mercaria POS",
+    "loadFailed": "レシートを読み込めませんでした",
+    "loadFailedBody": "この注文は利用できない可能性があります。",
+    "newSale": "新規販売",
+    "orderNumber": "注文 %{number}",
+    "paymentRecorded": "支払いを記録しました",
+    "saleComplete": "販売が完了しました",
+    "subtotal": "小計",
+    "tax": "税金",
+    "title": "レシート",
+    "total": "合計"
+  },
+  "register": {
+    "documentTitle": "レジ | Mercaria POS",
+    "reviewCart": "カートを確認",
+    "reviewCartWithCount": {
+      "one": "%{count}点 · カートを確認",
+      "other": "%{count}点 · カートを確認"
+    }
+  },
+  "sales": {
+    "documentTitle": "売上 | Mercaria POS",
+    "emptyBody": "完了した販売がここに表示されます。",
+    "emptyTitle": "販売がまだありません",
+    "loadFailed": "売上を読み込めませんでした",
+    "orderLabel": "注文 %{number}",
+    "pageNumber": "%{page}ページ",
+    "rowMeta": "%{when} · %{status}",
+    "subtitle": "最近の注文"
+  },
+  "storeSetup": {
+    "changeStore": "ストアを変更",
+    "chooseRegisterSubtitle": "このレジが在庫を引き当てるロケーションを選択してください",
+    "chooseRegisterTitle": "レジを選択",
+    "chooseStoreSubtitle": "販売するストアを選択してください",
+    "chooseStoreTitle": "ストアを選択",
+    "defaultLocation": "デフォルト",
+    "documentTitle": "ストア設定 | Mercaria POS",
+    "locationsLoadFailed": "ロケーションを読み込めませんでした",
+    "noLocationsBody": "先にダッシュボードでロケーションを作成し、この画面に戻ってレジを開いてください。",
+    "noLocationsTitle": "ロケーションがありません",
+    "noStoresBody": "先にMercariaダッシュボードでストアを作成し、この画面に戻ってレジを開いてください。",
+    "noStoresTitle": "ストアがまだありません",
+    "storeMeta": {
+      "one": "@%{handle} · %{count}商品",
+      "other": "@%{handle} · %{count}商品"
+    },
+    "storesLoadFailed": "ストアを読み込めませんでした"
+  }
+}

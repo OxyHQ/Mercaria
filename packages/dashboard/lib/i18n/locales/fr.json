@@ -1,1 +1,1227 @@
-{}
+{
+  "auth": {
+    "signInAction": "Se connecter",
+    "signInBody": "Connectez-vous avec votre compte Oxy pour gérer votre boutique — produits, commandes, stock, clients, réductions et rapports.",
+    "signInTitle": "Mercaria Dashboard"
+  },
+  "channels": {
+    "addChannel": "Ajouter un canal",
+    "andJoin": " et ",
+    "availability": {
+      "notConfigured": "Non configuré ici",
+      "notImplemented": "Pas encore disponible"
+    },
+    "badge": {
+      "comparisonOnly": "Comparaison uniquement",
+      "sellsOnMercaria": "Vend sur Mercaria"
+    },
+    "collectionMapping": {
+      "body": "Choisissez dans quelle collection Mercaria chacune des %{many} de ce canal est importée. Les produits d’une %{one} sans correspondance sont quand même importés — ils n’arrivent simplement dans aucune collection.",
+      "channelNoun": "%{noun} du canal",
+      "dontMap": "Ne pas associer celle-ci",
+      "fixMapping": "Corriger la correspondance",
+      "loadFailed": "Impossible de charger les collections de ce canal.",
+      "map": "Associer",
+      "noManualCollections": "Cette boutique n’a pas encore de collection manuelle. Créez-en une d’abord — une collection automatisée se remplit à partir de ses propres règles et ne peut pas recevoir de correspondance de canal.",
+      "noun": {
+        "category": {
+          "plural": "catégories",
+          "singular": "catégorie"
+        },
+        "collection": {
+          "plural": "collections",
+          "singular": "collection"
+        }
+      },
+      "pickBody": "Seules les collections manuelles peuvent être associées. Une collection automatisée détermine son contenu à partir de ses propres règles.",
+      "pickTitle": "Associer à une collection Mercaria",
+      "productsOnChannel": {
+        "one": "%{count} produit sur le canal",
+        "other": "%{count} produits sur le canal"
+      },
+      "removeMapping": "Supprimer cette correspondance",
+      "state": {
+        "externalMissing": "Cet élément n’existe plus sur le canal : plus rien ne sera associé par son intermédiaire. Supprimez la correspondance, ou recréez-le sur le canal.",
+        "targetAutomated": "Cette collection Mercaria se remplit à partir de ses propres règles : une correspondance de canal y serait ajoutée puis retirée à chaque synchronisation. Choisissez plutôt une collection manuelle.",
+        "targetMissing": "La collection Mercaria a été supprimée. Les produits continuent d’être importés ; ils n’arrivent simplement dans aucune collection. Choisissez-en une autre."
+      },
+      "title": "Correspondance des collections",
+      "unavailable": {
+        "disconnected": "Ce canal est déconnecté : ses collections ne peuvent pas être lues. Reconnectez-le pour choisir dans la liste réelle.",
+        "platformUnavailable": "Le canal n’a pas pu être joint pour l’instant, ses collections ne sont donc pas affichées. Votre correspondance existante n’est pas modifiée.",
+        "pushInConnection": "Ce canal envoie vers Mercaria, qui ne détient donc aucun identifiant pour relire ses collections. Votre correspondance existante est affichée ci-dessous et reste modifiable."
+      }
+    },
+    "connect": "Connecter",
+    "coverage": {
+      "doesNotSyncHeading": "Ne synchronise pas",
+      "doesNotSyncLabel": "Ne synchronise pas : ",
+      "nothing": "rien",
+      "partial": "%{direction} — %{caveat}",
+      "syncsHeading": "Synchronise",
+      "syncsLabel": "Synchronise : "
+    },
+    "direction": {
+      "bothWays": "dans les deux sens",
+      "pull": "votre plateforme → Mercaria",
+      "push": "Mercaria → votre plateforme"
+    },
+    "disconnect": {
+      "action": "Déconnecter le canal",
+      "confirmAction": "Déconnecter",
+      "confirmTitle": "Déconnecter %{provider} ?",
+      "intro": "Choisissez ce qu’il advient des produits importés par ce canal : %{policy}. Votre historique de prix et tout ce qu’un autre canal a importé ne sont jamais touchés.",
+      "policy": {
+        "archiveListings": "Archiver",
+        "keepListings": "Conserver les produits",
+        "unpublishListings": "Dépublier"
+      },
+      "policyHelp": {
+        "archiveListings": "Arrêter la synchronisation et archiver les produits de ce canal. Les produits vendus et modérés ne sont pas touchés.",
+        "keepListings": "Arrêter la synchronisation et laisser chaque produit exactement tel quel — toujours en vente, et désormais à vous de le modifier dans Mercaria.",
+        "unpublishListings": "Arrêter la synchronisation et retirer de la vente les produits de ce canal, en les conservant comme brouillons que vous pourrez republier."
+      },
+      "productsChanged": {
+        "one": "%{count} produit modifié",
+        "other": "%{count} produits modifiés"
+      },
+      "recordsKept": {
+        "one": "%{count} enregistrement de prix conservé",
+        "other": "%{count} enregistrements de prix conservés"
+      },
+      "title": "Déconnexion"
+    },
+    "documentTitle": "Canaux de vente | Mercaria Dashboard",
+    "empty": {
+      "body": "Connectez une boutique ou un flux de produits ci-dessous pour importer un catalogue existant.",
+      "title": "Uniquement votre catalogue Mercaria"
+    },
+    "entity": {
+      "collections": "Collections",
+      "customers": "Clients",
+      "discounts": "Réductions",
+      "giftCards": "Cartes cadeaux",
+      "inventory": "Stock",
+      "orders": "Commandes",
+      "productReviews": "Avis",
+      "products": "Produits",
+      "refunds": "Remboursements",
+      "shippingRates": "Tarifs de livraison",
+      "taxRates": "Taux de taxe"
+    },
+    "entityAbsence": {
+      "channelNotImplemented": "Mercaria n’a pas encore de connecteur pour cette plateforme.",
+      "channelTransportsProductsOnly": "Un flux de produits est un fichier de produits et ne transporte rien d’autre.",
+      "importedOnlyAsPartOfAnOrder": "Aucune liste n’est importée. Ce qui apparaît provient uniquement des commandes qui le sont.",
+      "nativeCatalogIsNotASync": "Rien n’est importé — vous modifiez ce catalogue dans Mercaria.",
+      "notBuiltForThisChannel": "Mercaria n’échange pas cela avec votre plateforme.",
+      "notModelledByMercaria": "Mercaria n’a aucun enregistrement de ce type dans lequel cela pourrait arriver.",
+      "ownedByAnotherSystem": "Géré ailleurs dans Mercaria plutôt qu’importé depuis votre plateforme."
+    },
+    "entityCaveat": {
+      "breakdownOnlyOnImportedOrders": "Chaque commande importée affiche les lignes qui lui ont été facturées, de sorte que les totaux sont justes. La règle qui les produit n’est pas créée dans Mercaria : vous ne pouvez donc ni la modifier ni la réutiliser ici.",
+      "membershipOnlyThroughAMapping": "Les collections de votre plateforme ne sont pas créées dans Mercaria. Les produits rejoignent les collections Mercaria auxquelles vous les associez."
+    },
+    "history": {
+      "counts": "%{created} créés · %{updated} mis à jour · %{skipped} ignorés · %{failed} en échec",
+      "empty": "Aucune synchronisation pour l’instant",
+      "loadFailed": "Impossible de charger l’historique",
+      "title": "Historique des synchronisations",
+      "updatedNote": "« Mis à jour » compte tous les produits examinés, pas seulement ceux qui différaient."
+    },
+    "import": {
+      "blockedDirection": "Réglez Produits sur Importer ou Les deux ci-dessus, puis enregistrez — l’enregistrement lance la première importation de lui-même.",
+      "blockedDisconnected": "Reconnectez ce canal avant d’importer — son identifiant enregistré a été effacé lors de la déconnexion.",
+      "body": "Relit tous les produits et met à jour ce qui a changé. Peut être lancé plusieurs fois sans risque.",
+      "bodyPaused": "Relit tous les produits et met à jour ce qui a changé. L’importation est en pause pour les synchronisations planifiées, mais celle-ci s’exécute maintenant.",
+      "heading": "Importer les produits depuis %{provider}",
+      "now": "Synchroniser maintenant",
+      "title": "Importation"
+    },
+    "keys": {
+      "apiKeySubject": "la clé API",
+      "body": "Collez une clé (et l’identifiant de connexion de ce canal) dans le plugin Mercaria de votre site WordPress. Les clés n’expirent pas — révoquez-en une à tout moment pour couper l’accès.",
+      "connectionId": "Identifiant de connexion",
+      "connectionIdSubject": "l’identifiant de connexion",
+      "copied": "Copié dans le presse-papiers : %{label}",
+      "copyAccessibility": "Copier %{label}",
+      "copyNow": "Copiez cette clé maintenant — vous ne pourrez plus la revoir ensuite.",
+      "empty": "Aucune clé pour l’instant. Générez-en une pour connecter le plugin.",
+      "generate": "Générer une clé",
+      "generateBody": "Créez une clé de longue durée pour ce canal. Donnez-lui un nom afin de la reconnaître plus tard (par ex. le site sur lequel elle est utilisée).",
+      "generateTitle": "Générer une clé API",
+      "heading": "Identifiants de longue durée pour le plugin",
+      "labelField": "Libellé",
+      "labelPlaceholder": "Plugin WordPress",
+      "lastUsed": "Dernière utilisation %{when}",
+      "loadFailed": "Impossible de charger les clés API.",
+      "loading": "Chargement des clés…",
+      "neverUsed": "Jamais utilisée",
+      "revoke": "Révoquer",
+      "revokeConfirmBody": "Tout plugin utilisant « %{label} » cessera immédiatement de se synchroniser. Cette action est irréversible — il vous faudrait générer une nouvelle clé.",
+      "revokeConfirmTitle": "Révoquer cette clé ?",
+      "title": "Clés API"
+    },
+    "lastRunCounts": "Dernière exécution — %{created} créés, %{updated} mis à jour, %{skipped} ignorés, %{failed} en échec",
+    "lastSynced": "Dernière synchronisation %{when}",
+    "limitation": {
+      "knownIssue": "Problème connu #%{issue} — en cours de résolution"
+    },
+    "loadFailed": "Impossible de charger les canaux",
+    "never": "jamais",
+    "neverSynced": "Jamais synchronisé",
+    "nextScheduled": " · prochaine %{when}",
+    "orderHorizon": {
+      "bounded": {
+        "one": "Seul %{count} jour de commandes est importé. Les commandes passées avant le %{before} n’ont jamais été importées et n’arriveront pas plus tard — c’est une limite de ce que votre plateforme autorise Mercaria à lire, pas une synchronisation en retard.",
+        "other": "Seuls les %{count} derniers jours de commandes sont importés. Les commandes passées avant le %{before} n’ont jamais été importées et n’arriveront pas plus tard — c’est une limite de ce que votre plateforme autorise Mercaria à lire, pas une synchronisation en retard."
+      },
+      "notSynced": "Les commandes ne sont échangées sur ce canal dans aucun des deux sens.",
+      "unknown": "Mercaria ne peut pas déterminer jusqu’où remontent les commandes de cette connexion."
+    },
+    "pause": {
+      "importing": "Mettre l’importation en pause",
+      "importingHint": "Arrête la lecture depuis la plateforme. Ce qui est déjà importé reste en vente.",
+      "publishing": "Mettre la publication en pause",
+      "publishingHint": "Continue d’importer, mais empêche les produits de ce canal d’atteindre les acheteurs.",
+      "title": "Pause"
+    },
+    "pausedScopes": "En pause : %{scopes}",
+    "readiness": {
+      "cardPaymentsOff": "Les paiements par carte sont désactivés sur ce déploiement",
+      "catalog": "Catalogue",
+      "catalogDetail": "%{channels} · %{sync}",
+      "channelCount": {
+        "one": "%{count} canal",
+        "other": "%{count} canaux"
+      },
+      "lastSynced": "dernière synchronisation %{when}",
+      "neverSynced": "jamais synchronisé",
+      "noChannelConnected": "Aucun canal connecté",
+      "notReady": "Pas encore en vente sur Mercaria",
+      "payouts": "Versements",
+      "payoutsNotSetUp": "Non configurés",
+      "payoutsSetUp": "Configurés",
+      "ready": "Prêt à vendre sur Mercaria"
+    },
+    "readinessBlocker": {
+      "noConnectedChannel": "Rien n’alimente encore de catalogue — connectez un canal ou ajoutez un produit.",
+      "noNativeCheckoutChannel": "Vos canaux connectés répertorient des produits à titre de comparaison mais ne peuvent pas vendre via le paiement Mercaria. Connectez une boutique, ou ajoutez des produits directement.",
+      "noPublishableListing": "Aucun produit actif — les acheteurs n’ont rien à ajouter au panier.",
+      "noSuccessfulSync": "Un canal est connecté mais n’a pas encore terminé de synchronisation.",
+      "paymentsNotReady": "Les versements ne sont pas configurés, les commandes ne peuvent donc pas être prises."
+    },
+    "recently": "récemment",
+    "reconciliation": {
+      "alreadyIndexed": "Déjà indexé",
+      "awaitingReview": "En attente de vérification",
+      "awaitingReviewNote": {
+        "one": "%{count} produit n’a pas pu être associé automatiquement et attend la confirmation d’une personne.",
+        "other": "%{count} produits n’ont pas pu être associés automatiquement et attendent la confirmation d’une personne."
+      },
+      "body": "Rien n’est supprimé ni fusionné. Lorsqu’un même produit apparaît deux fois, Mercaria affiche l’annonce de votre propre boutique comme principale et conserve intact l’historique de prix de l’autre.",
+      "fromThisStore": "De cette boutique",
+      "gap": {
+        "channelHasNoDomain": "Ce canal n’a aucune adresse web à laquelle se comparer.",
+        "merchantNotClaimed": "Cette boutique n’est pas liée à un marchand vérifié, il n’y a donc encore rien à quoi la comparer.",
+        "storeNotLinked": "Cette boutique n’est pas liée à un profil marchand, il n’y a donc encore rien à quoi la comparer.",
+        "storefrontNotMatched": "Mercaria n’a jamais indexé cette boutique exacte, il n’y a donc rien à quoi la comparer."
+      },
+      "sameProductTwice": "Même produit, deux fois",
+      "title": "Rapprochement de votre catalogue existant"
+    },
+    "runFailures": {
+      "hide": "Masquer",
+      "line": "%{subject}%{externalId} · %{reason}",
+      "loadFailed": "Impossible de charger les enregistrements que cette synchronisation a refusés.",
+      "none": "Aucune raison par enregistrement n’est conservée pour cette synchronisation.",
+      "reason": {
+        "databaseRefused": "La base de données a refusé l’écriture",
+        "duplicateRecord": "Doublon d’un enregistrement déjà importé",
+        "refusedByRule": "Refusé par une règle Mercaria",
+        "unclassified": "Échec non reconnu"
+      },
+      "show": {
+        "one": "Voir l’enregistrement qui n’est pas arrivé",
+        "other": "Voir les enregistrements qui ne sont pas arrivés"
+      },
+      "showing": "Affichage de %{shown} sur %{total}.",
+      "subject": {
+        "inventoryItem": "Article de stock",
+        "order": "Commande",
+        "product": "Produit"
+      }
+    },
+    "scope": {
+      "title": "Ce que ce canal transporte"
+    },
+    "settings": {
+      "autoPublish": "Publication automatique",
+      "autoPublishHint": "Publier immédiatement les produits importés. Si désactivé, ils arrivent en brouillon pour vérification.",
+      "documentTitle": "Paramètres du canal | Mercaria Dashboard",
+      "inventoryHint": "Les niveaux de stock de votre emplacement synchronisé.",
+      "inventoryLabel": "Inventaire",
+      "keepLocalEdits": "Conserver mes modifications locales",
+      "keepLocalEditsHint": "Si activé, un champ que vous avez modifié dans Mercaria n’est jamais écrasé par une synchronisation ultérieure. Si désactivé, le canal l’emporte toujours.",
+      "neverSyncedYet": "Ce canal ne s’est pas encore synchronisé.",
+      "notFound": "Canal introuvable",
+      "notFoundBody": "Cette connexion a peut-être été déconnectée.",
+      "ordersHint": "Les commandes passées sur le canal externe.",
+      "productsHint": "Le catalogue de produits (titres, images, prix, variantes).",
+      "providerTitle": "Paramètres %{provider}",
+      "save": "Enregistrer les paramètres",
+      "syncDirections": "Sens de synchronisation",
+      "title": "Paramètres du canal"
+    },
+    "state": {
+      "connected": "Connecté",
+      "needsAttention": "Nécessite une action",
+      "notConnected": "Non connecté",
+      "paused": "En pause"
+    },
+    "status": {
+      "disconnected": "Déconnecté"
+    },
+    "subtitle": "Toutes les façons dont vos produits arrivent sur Mercaria — boutiques connectées, flux de produits et votre propre catalogue",
+    "syncDirection": {
+      "both": "Les deux",
+      "off": "Désactivé",
+      "pull": "Importer",
+      "push": "Exporter"
+    },
+    "title": "Canaux de vente",
+    "toast": {
+      "alreadyInThatState": "Déjà dans cet état",
+      "cancelFailed": "Annulation impossible",
+      "channelActivated": "Canal activé",
+      "collectionMappingSaveFailed": "Impossible d’enregistrer la correspondance",
+      "collectionMappingSaved": "Correspondance des collections enregistrée",
+      "consumerKeyAndSecretRequired": "Saisissez la clé client et la clé secrète",
+      "disconnectFailed": "Impossible de déconnecter le canal",
+      "disconnected": "Déconnecté — %{products}, %{records}",
+      "importStartFailed": "Impossible de démarrer l’importation",
+      "importStarted": "Importation démarrée — elle apparaîtra dans l’historique ci-dessous",
+      "invalidShopifyDomain": "Saisissez un domaine *.myshopify.com valide",
+      "keyCreateFailed": "Impossible de créer la clé",
+      "keyGenerateFailed": "Impossible de générer la clé",
+      "keyGenerated": "Clé API générée",
+      "keyLabelRequired": "Donnez un libellé à la clé",
+      "keyRevokeFailed": "Impossible de révoquer la clé",
+      "keyRevoked": "Clé API révoquée",
+      "notReadyToActivate": "Pas encore prêt à activer — voyez les raisons ci-dessous",
+      "pauseFailed": "Impossible de modifier l’état de pause",
+      "paused": "En pause",
+      "previewSaveFailed": "Impossible d’enregistrer l’aperçu",
+      "resumed": "Reprise",
+      "settingsSaveFailed": "Impossible d’enregistrer les paramètres du canal",
+      "settingsSaved": "Paramètres du canal enregistrés",
+      "shopifyConnectFailed": "Impossible de démarrer la connexion Shopify",
+      "siteUrlMustBeHttps": "Saisissez l’URL de votre site en commençant par https://",
+      "startConnectFailed": "Impossible de démarrer la connexion à %{name}",
+      "webhooksRegisterFailed": "Impossible de démarrer l’enregistrement des webhooks",
+      "webhooksRegistering": "Nouvel enregistrement des webhooks en cours",
+      "wooConnectFailed": "Connexion impossible — vérifiez l’URL du site et les clés API",
+      "wooConnected": "WooCommerce connecté"
+    },
+    "type": {
+      "etsy": "Etsy",
+      "magento": "Magento",
+      "native": "Catalogue Mercaria",
+      "prestashop": "PrestaShop",
+      "productFeed": "Flux de produits",
+      "shopify": "Shopify",
+      "woocommerce": "WooCommerce",
+      "woocommercePlugin": "Plugin WooCommerce"
+    },
+    "unscheduled": "non planifiée",
+    "webhookFailureReason": {
+      "permissionDenied": "les autorisations de la connexion ne le couvrent pas",
+      "platformError": "la plateforme a renvoyé une erreur",
+      "rateLimited": "la plateforme limitait le débit",
+      "topicNotSupported": "la plateforme ne le propose pas",
+      "transportError": "la plateforme n’a pas pu être jointe",
+      "unexpectedResponse": "la réponse de la plateforme n’a pas pu être lue"
+    },
+    "webhooks": {
+      "bringForward": "Vous pouvez l’anticiper dès maintenant.",
+      "causeIncomplete": "Mercaria n’a pas pu terminer l’enregistrement. Reconnectez le canal si cela se reproduit.",
+      "causeUnreachable": "Les dernières tentatives n’ont pas pu joindre %{provider}. Enregistrez-les à nouveau une fois qu’il sera joignable.",
+      "dueNow": "maintenant",
+      "failureDetail": " — %{reason}%{http} · dernière vérification %{when}",
+      "healthyDetail": {
+        "one": "%{provider} envoie à Mercaria %{count} type de mise à jour. Si vous avez supprimé les webhooks de Mercaria dans %{provider}, enregistrez-les à nouveau — rien ici ne peut le détecter.",
+        "other": "%{provider} envoie à Mercaria %{count} types de mise à jour. Si vous avez supprimé les webhooks de Mercaria dans %{provider}, enregistrez-les à nouveau — rien ici ne peut le détecter."
+      },
+      "healthyHeadline": "Les changements arrivent en temps réel",
+      "httpStatus": " (HTTP %{status})",
+      "refusedDetail": "Mercaria a terminé l’enregistrement, mais %{provider} a refusé les événements ci-dessous. Ils seront réessayés automatiquement ; le bouton permet d’anticiper.",
+      "refusedHeadline": "Certaines mises à jour n’arriveront pas",
+      "register": "Enregistrer les webhooks",
+      "registerAgain": "Enregistrer à nouveau les webhooks",
+      "remedyPermissionDenied": "Les autorisations de Mercaria dans %{provider} ne couvrent pas tous les événements — élargissez-les là-bas, puis enregistrez à nouveau.",
+      "remedyTopicNotSupported": "%{provider} ne propose pas du tout certains de ces événements ; les enregistrer à nouveau ne les fera donc pas arriver.",
+      "retryingDetail": "Mercaria réessaie automatiquement — la prochaine tentative est %{due}. %{remedy}",
+      "retryingHeadline": "Certaines mises à jour n’arrivent pas encore",
+      "stoppedDetail": {
+        "one": "Mercaria s’est arrêté après %{count} tentative. %{cause}",
+        "other": "Mercaria s’est arrêté après %{count} tentatives. %{cause}"
+      },
+      "stoppedHeadline": "Certaines mises à jour n’arrivent pas, et Mercaria a cessé de réessayer",
+      "title": "Mises à jour en temps réel",
+      "tryNow": "Essayer maintenant",
+      "unregisteredDetail": "Mercaria les enregistre automatiquement pour un canal %{provider} connecté. Vous pouvez les enregistrer maintenant plutôt que d’attendre.",
+      "unregisteredHeadline": "Les mises à jour en temps réel ne sont pas encore enregistrées"
+    },
+    "wizard": {
+      "activateChannel": "Activer le canal",
+      "activeConnectionBody": "Ce canal est actif. Choisissez maintenant ce qu’il faut importer — rien ne se synchronise tant que vous ne l’avez pas fait.",
+      "activeFeedBody": "Ce canal est actif. Vous pouvez modifier ses paramètres à tout moment depuis Canaux de vente.",
+      "allSet": "Tout est prêt",
+      "backToChannels": "Retour aux canaux",
+      "beforeYouActivate": "Avant de pouvoir activer",
+      "beforeYouStart": "Avant de commencer",
+      "blocker": {
+        "channelLimitation": "Ce canal ne peut pas encore être activé.",
+        "connectionNotConnected": "Terminez d’abord la connexion.",
+        "noPreview": "Lancez d’abord un aperçu, pour voir ce qui sera importé.",
+        "previewAllInvalid": "Tous les enregistrements lus par l’aperçu étaient invalides. Corrigez la correspondance et réessayez.",
+        "previewScannedNothing": "L’aperçu n’a lu aucun enregistrement. Vérifiez que le flux ou la boutique contient des produits — une correspondance qui ne trouve rien ressemble exactement à un catalogue vide.",
+        "unsupportedDirection": "Les paramètres de synchronisation demandent un sens que ce canal ne prend pas en charge. Modifiez-les et réessayez."
+      },
+      "canAndCannot": "Ce que ce canal peut et ne peut pas faire",
+      "chooseWhatToImport": "Choisissez ce qu’il faut importer",
+      "connectedTitle": "%{channel} connecté",
+      "documentTitle": "Connecter un canal | Mercaria Dashboard",
+      "everythingChecksOut": "Tout est en ordre. L’activation lance la première synchronisation.",
+      "feed": {
+        "body": "Un flux de produits se configure sur son propre écran, où vous faites correspondre les colonnes du fichier aux champs de Mercaria et prévisualisez le résultat avant toute mise en ligne.",
+        "create": "Créer un flux",
+        "title": "Configurez votre flux"
+      },
+      "merchantLinked": "Cette boutique est liée à un marchand vérifié : tout ce que Mercaria a déjà indexé pour votre boutique sera rapproché plutôt que dupliqué.",
+      "merchantNotLinked": "Cette boutique n’est pas encore liée à un marchand vérifié. La connexion fonctionne quand même ; Mercaria ne rapprochera simplement pas vos produits de ce qu’il a déjà indexé pour votre boutique.",
+      "notFound": "Assistant introuvable",
+      "notFoundBody": "Il a peut-être déjà été terminé.",
+      "notSetUpYet": " (pas encore configuré)",
+      "plugin": {
+        "body": "Installez le plugin Mercaria sur votre site WordPress, puis collez la clé ci-dessous dans ses réglages. Le plugin envoie vos produits et votre stock à Mercaria au fil des changements.",
+        "createKey": "Créer une clé de canal",
+        "keyHeading": "Votre clé de canal — copiez-la maintenant",
+        "keyNote": "C’est la seule fois où elle est affichée. Si vous la perdez, révoquez-la et générez-en une nouvelle.",
+        "title": "Connecter le plugin Mercaria"
+      },
+      "preview": {
+        "body": "Lancez un échantillon limité avant d’activer, pour voir ce qui sera importé et ce qui demandera une vérification.",
+        "duplicate": "Doublons",
+        "invalid": "Invalides",
+        "matched": "Associés",
+        "rerun": "Relancer l’aperçu",
+        "run": "Lancer l’aperçu",
+        "scanned": "Analysés",
+        "title": "Aperçu",
+        "toReview": "À vérifier"
+      },
+      "shopify": {
+        "authNote": "L’autorisation se fait sur Shopify. Mercaria ne voit jamais votre mot de passe Shopify, et le jeton d’accès qu’il reçoit est stocké chiffré.",
+        "continue": "Continuer vers Shopify",
+        "domainLabel": "Domaine de la boutique",
+        "domainPlaceholder": "votre-boutique.myshopify.com",
+        "openAgain": "Rouvrir Shopify",
+        "title": "Autoriser Mercaria sur Shopify",
+        "waitingBody": "Terminez l’autorisation dans l’onglet qui vient de s’ouvrir. Cette page se met à jour toute seule — inutile de la recharger ou de revenir à cette étape.",
+        "waitingTitle": "En attente de Shopify"
+      },
+      "step": {
+        "activate": "Activation",
+        "configure": "Synchronisation",
+        "connect": "Connexion",
+        "map": "Correspondances",
+        "preview": "Aperçu",
+        "scope": "Boutique",
+        "selectChannel": "Canal"
+      },
+      "title": "Connecter %{channel}",
+      "woo": {
+        "body": "WooCommerce → Réglages → Avancé → API REST. Un accès en lecture suffit pour importer votre catalogue.",
+        "connect": "Connecter WooCommerce",
+        "consumerKeyLabel": "Clé client",
+        "consumerKeyPlaceholder": "ck_...",
+        "consumerSecretLabel": "Clé secrète client",
+        "consumerSecretPlaceholder": "cs_...",
+        "siteUrlLabel": "URL du site",
+        "siteUrlPlaceholder": "https://votre-boutique.com",
+        "title": "Collez votre clé API WooCommerce"
+      },
+      "youWillNeed": "Il vous faudra"
+    },
+    "yourChannels": "Vos canaux"
+  },
+  "collections": {
+    "create": {
+      "dialogTitle": "Nouvelle collection",
+      "error": "Impossible de créer la collection",
+      "success": "Collection créée",
+      "titlePlaceholder": "Essentiels de l’été",
+      "titleRequired": "Le titre est obligatoire",
+      "typeAutomated": "Automatisée",
+      "typeManual": "Manuelle"
+    },
+    "deleteError": "Impossible de supprimer la collection",
+    "deleted": "Collection supprimée",
+    "documentTitle": "Collections | Mercaria Dashboard",
+    "empty": {
+      "body": "Créez-en une pour organiser votre catalogue.",
+      "title": "Aucune collection pour l’instant"
+    },
+    "loadError": "Impossible de charger les collections",
+    "productCount": {
+      "one": "%{count} produit",
+      "other": "%{count} produits"
+    },
+    "rowMeta": "%{type} · %{items} · %{state}",
+    "ruleCount": {
+      "one": "%{count} règle",
+      "other": "%{count} règles"
+    },
+    "state": {
+      "draft": "brouillon",
+      "published": "publiée"
+    },
+    "subtitle": "Regroupez des produits pour la mise en avant",
+    "type": {
+      "automated": "automatisée",
+      "manual": "manuelle"
+    }
+  },
+  "common": {
+    "all": "Tous",
+    "back": "Retour",
+    "cancel": "Annuler",
+    "create": "Créer",
+    "description": "Description",
+    "done": "Terminé",
+    "loading": "Chargement…",
+    "name": "Nom",
+    "new": "Nouveau",
+    "noAccess": "Accès refusé",
+    "noAccessBody": "Vous n’avez pas l’autorisation de consulter cette zone pour la boutique active.",
+    "none": "Aucun",
+    "pageOf": "Page %{current} sur %{total}",
+    "pleaseTryAgain": "Veuillez réessayer.",
+    "retry": "Réessayer",
+    "save": "Enregistrer",
+    "somethingWentWrong": "Une erreur est survenue",
+    "status": "Statut",
+    "title": "Titre",
+    "type": "Type",
+    "unknown": "Inconnu"
+  },
+  "customers": {
+    "detail": {
+      "documentTitle": "Client | Mercaria Dashboard",
+      "lifetimeSpend": "Dépenses totales",
+      "loadError": "Impossible de charger le client",
+      "noOrders": "Aucune commande pour l’instant.",
+      "orders": "Commandes",
+      "subtitle": "Détail du client",
+      "title": "Client"
+    },
+    "documentTitle": "Clients | Mercaria Dashboard",
+    "empty": {
+      "body": "Les clients apparaissent ici après leur première commande.",
+      "title": "Aucun client"
+    },
+    "fallbackName": "Client",
+    "loadError": "Impossible de charger les clients",
+    "orderCount": {
+      "one": "%{count} commande",
+      "other": "%{count} commandes"
+    },
+    "searchPlaceholder": "Rechercher des clients…",
+    "subtitle": "Les personnes qui achètent dans votre boutique",
+    "walkIn": "Client de passage"
+  },
+  "discounts": {
+    "create": {
+      "amountOffLabel": "Montant de la réduction (⊜)",
+      "codeLabel": "Code",
+      "codePlaceholder": "PRINTEMPS20",
+      "codeRequired": "Saisissez un code de réduction",
+      "dialogTitle": "Nouvelle réduction",
+      "error": "Impossible de créer la réduction",
+      "invalidAmount": "Saisissez un montant valide",
+      "invalidPercentage": "Saisissez un pourcentage valide",
+      "methodAutomatic": "Automatique",
+      "methodCode": "Code",
+      "methodLabel": "Méthode",
+      "percentOffLabel": "Pourcentage de réduction",
+      "success": "Réduction créée",
+      "titlePlaceholder": "Soldes de printemps",
+      "titleRequired": "Le titre est obligatoire",
+      "valueTypeFixed": "Fixe (⊜)",
+      "valueTypeLabel": "Type de valeur",
+      "valueTypePercentage": "Pourcentage"
+    },
+    "deleteError": "Impossible de supprimer la réduction",
+    "deleted": "Réduction supprimée",
+    "documentTitle": "Réductions | Mercaria Dashboard",
+    "empty": {
+      "body": "Créez un code ou une réduction automatique.",
+      "title": "Aucune réduction pour l’instant"
+    },
+    "fixedAmountOff": "Montant fixe de réduction",
+    "loadError": "Impossible de charger les réductions",
+    "methodAutomatic": "automatique",
+    "methodCode": "code",
+    "percentOff": "%{percent} % de réduction",
+    "rowMeta": "%{method} · %{value} · %{state}",
+    "state": {
+      "active": "active",
+      "inactive": "inactive"
+    },
+    "subtitle": "Codes et promotions automatiques"
+  },
+  "errors": {
+    "boundaryBody": "Une erreur inattendue est survenue. Vous pouvez réessayer ; si le problème persiste, notre équipe en a été informée.",
+    "notFoundAction": "Aller au tableau de bord",
+    "notFoundBody": "Cet écran n’existe pas.",
+    "notFoundDocumentTitle": "404 - Introuvable | Mercaria Dashboard",
+    "notFoundHeading": "Oups !"
+  },
+  "feeds": {
+    "detail": {
+      "activateMappingFirst": "Activez d’abord une correspondance",
+      "documentTitle": "Flux de produits | Mercaria Dashboard",
+      "identityColumns": "Colonnes d’identité : %{columns} — figées pour toute la durée de vie de ce flux.",
+      "neverRead": "Ce flux n’a pas encore été lu.",
+      "notFound": "Flux introuvable",
+      "notFoundBody": "Il a peut-être été supprimé.",
+      "readSchedule": "Dernière lecture %{last} · prochaine %{next}",
+      "recentRuns": "Exécutions récentes",
+      "runCounts": "%{fetched} lus · %{stored} enregistrés · %{unchanged} inchangés · %{rejected} rejetés · %{listed} mis en vente · %{retired} retirés",
+      "syncNow": "Synchroniser maintenant",
+      "title": "Flux de produits"
+    },
+    "draft": {
+      "columnPlaceholder": "nom de votre colonne",
+      "columnsLabel": "Faites correspondre vos colonnes",
+      "deliveryDelta": "Seulement ce qui a changé",
+      "deliveryHint": "Il n’y a volontairement pas de valeur par défaut. Si le fichier répertorie tout ce que vous vendez, un produit qui en est absent est un produit que vous ne vendez plus et Mercaria le retirera de la vente. S’il ne répertorie que les changements, un produit absent ne signifie rien et Mercaria n’y touchera pas. Se tromper ici retire de la vente un catalogue en bonne santé ou laisse en vente des produits épuisés.",
+      "deliveryLabel": "Que contient ce fichier ?",
+      "deliverySnapshot": "Tout ce que je vends",
+      "formatLabel": "Format",
+      "requiredSuffix": " (obligatoire)",
+      "save": "Enregistrer la correspondance",
+      "title": "Nouvelle correspondance",
+      "urlHint": "HTTPS uniquement. Mercaria conserve cette URL de façon privée et ne vous en montre jamais que l’hôte — une URL de flux contient souvent une clé d’accès.",
+      "urlLabel": "URL du flux",
+      "urlPlaceholder": "https://example.com/products.csv"
+    },
+    "never": "jamais",
+    "new": {
+      "create": "Créer le flux",
+      "documentTitle": "Nouveau flux de produits | Mercaria Dashboard",
+      "identityColumnsHint": "Séparées par des virgules, quatre au maximum. Elles ne pourront pas être modifiées ensuite : c’est ainsi que Mercaria reconnaît un même produit d’un fichier au suivant, et les changer reviendrait à remplacer tout votre catalogue. S’il vous faut d’autres colonnes, créez un nouveau flux.",
+      "identityColumnsLabel": "Colonnes qui identifient chaque produit",
+      "identityColumnsPlaceholder": "id, sku",
+      "nameLabel": "Nom du flux",
+      "namePlaceholder": "Catalogue principal",
+      "sourceNameHint": "Comment ce flux apparaît dans les enregistrements de catalogue de Mercaria.",
+      "sourceNameLabel": "Nom de la source",
+      "sourceNamePlaceholder": "Catalogue Acme Supplies",
+      "subtitle": "Un fichier CSV, TSV, XML, JSON ou JSONL que Mercaria lit selon une planification",
+      "title": "Nouveau flux de produits"
+    },
+    "reports": {
+      "counts": "%{scanned} lus · %{valid} valides · %{invalid} à corriger",
+      "note": "Le rapport téléchargeable indique le numéro de ligne et ce qui n’allait pas — jamais les valeurs, puisque vous avez déjà le fichier.",
+      "title": "Rapports"
+    },
+    "toast": {
+      "checkFailed": "Impossible de vérifier le flux",
+      "checked": "%{scanned} enregistrements vérifiés — %{invalid} à corriger",
+      "createFailed": "Impossible de créer le flux",
+      "created": "Flux créé",
+      "deliveryModeRequired": "Indiquez si le fichier est un instantané complet ou seulement des changements",
+      "identityColumnsRequired": "Nommez au moins une colonne qui identifie chaque produit",
+      "mappingActivateFailed": "Impossible d’activer la correspondance",
+      "mappingActivated": "Correspondance activée",
+      "mappingSaveFailed": "Impossible d’enregistrer la correspondance",
+      "mappingSaved": "Correspondance enregistrée — prévisualisez-la avant de l’activer",
+      "nameRequired": "Donnez un nom au flux",
+      "previewFailed": "Impossible de prévisualiser le flux",
+      "sourceNameTooShort": "Le nom de la source doit comporter au moins 3 caractères",
+      "syncStartFailed": "Impossible de démarrer la synchronisation",
+      "syncStarted": "Synchronisation démarrée",
+      "titleMappingRequired": "Faites correspondre une colonne au titre du produit",
+      "urlMustBeHttps": "L’URL du flux doit commencer par https://"
+    },
+    "unscheduled": "non planifiée",
+    "versions": {
+      "activate": "Activer",
+      "checkItFirst": "Vérifiez-la d’abord",
+      "checkWholeFeed": "Vérifier tout le flux",
+      "deliveryChangesOnly": "changements uniquement",
+      "deliveryFullSnapshot": "instantané complet",
+      "empty": "Aucune correspondance pour l’instant",
+      "emptyBody": "Décrivez votre fichier ci-dessous et faites correspondre ses colonnes aux champs de Mercaria.",
+      "fetchedOverHttps": " · récupéré via HTTPS",
+      "preview": "Aperçu",
+      "previewCounts": "%{scanned} lus · %{valid} valides · %{invalid} invalides · %{matched} associés · %{created} nouveaux · %{review} à vérifier",
+      "previewReadNothing": "L’aperçu n’a rien lu. Un résultat vide et une correspondance qui ne trouve aucune ligne sont indiscernables — vérifiez le fichier et le chemin des enregistrements avant d’activer.",
+      "suggestedColumns": "Colonnes suggérées : %{columns}",
+      "summary": "%{format} · %{delivery}%{fetch}",
+      "title": "Correspondances",
+      "uploaded": " · téléversé",
+      "version": "Version %{version}"
+    }
+  },
+  "home": {
+    "documentTitle": "Tableau de bord | Mercaria",
+    "inventory": {
+      "lowStock": {
+        "one": "%{count} variante suivie est au seuil de stock faible ou en dessous.",
+        "other": "%{count} variantes suivies sont au seuil de stock faible ou en dessous."
+      },
+      "noneLow": "Aucune variante suivie n’est en stock faible.",
+      "title": "Inventaire"
+    },
+    "orderStatus": {
+      "cancelled": "Annulée",
+      "delivered": "Livrée",
+      "paid": "Payée",
+      "partiallyRefunded": "Partiellement remboursée",
+      "pendingPayment": "En attente de paiement",
+      "processing": "En traitement",
+      "refunded": "Remboursée",
+      "shipped": "Expédiée"
+    },
+    "reportsError": "Impossible de charger les rapports",
+    "sales": {
+      "empty": "Aucune vente sur cette période pour l’instant.",
+      "title": "Ventes (période précédente)"
+    },
+    "stats": {
+      "averageOrder": "Panier moyen",
+      "paidOrders": "Commandes payées",
+      "refunds": "Remboursements",
+      "revenue": "Chiffre d’affaires"
+    },
+    "statusBreakdown": {
+      "empty": "Aucune commande pour l’instant.",
+      "title": "Commandes par statut"
+    },
+    "subtitle": "Votre boutique en un coup d’œil",
+    "topProducts": {
+      "empty": "Aucune vente pour l’instant.",
+      "title": "Meilleures ventes",
+      "unitsSold": {
+        "one": "%{count} vendu",
+        "other": "%{count} vendus"
+      }
+    }
+  },
+  "nav": {
+    "channels": "Canaux de vente",
+    "collapseSidebar": "Réduire le menu latéral",
+    "collections": "Collections",
+    "customers": "Clients",
+    "dashboard": "Tableau de bord",
+    "discounts": "Réductions",
+    "expandSidebar": "Déployer le menu latéral",
+    "orders": "Commandes",
+    "products": "Produits",
+    "settings": "Paramètres"
+  },
+  "orders": {
+    "detail": {
+      "documentTitle": "Commande | Mercaria Dashboard",
+      "fulfilment": "Traitement",
+      "history": "Historique",
+      "itemVariantQuantity": "%{variant} · ×%{quantity}",
+      "items": "Articles",
+      "loadFailed": "Impossible de charger la commande",
+      "markedCancelled": "Commande marquée annulée",
+      "markedDelivered": "Commande marquée livrée",
+      "markedProcessing": "Commande marquée en traitement",
+      "markedShipped": "Commande marquée expédiée",
+      "refund": "Rembourser",
+      "refundFallbackLabel": "Remboursement",
+      "refunds": "Remboursements",
+      "shipTo": "Livrer à",
+      "subtitle": "Détail de la commande",
+      "title": "Commande",
+      "trackingLabel": "Numéro de suivi (facultatif)",
+      "trackingPlaceholder": "1Z…",
+      "updateFailed": "Impossible de mettre à jour la commande"
+    },
+    "documentTitle": "Commandes | Mercaria Dashboard",
+    "empty": {
+      "body": "Les commandes apparaîtront ici dès que des clients achèteront.",
+      "title": "Aucune commande"
+    },
+    "loadFailed": "Impossible de charger les commandes",
+    "pickup": {
+      "cancelAccessibilityLabel": "Motif de l’annulation de ce retrait",
+      "cancelCollection": "Annuler le retrait",
+      "cancelLabel": "Annuler ce retrait — motif",
+      "cancelNote": "Cela retire la remise et révoque le code. La commande n’est pas annulée et rien n’est remboursé — faites-le sur la commande elle-même si vous devez de l’argent au client.",
+      "cancelPlaceholder": "Stock endommagé dans la réserve",
+      "checkCodeAndHandOver": "Vérifier le code et remettre",
+      "codeAccessibilityLabel": "Code de retrait présenté par le client",
+      "codeLabel": "Code présenté par le client",
+      "codePlaceholder": "ABCD234567",
+      "event": {
+        "codeRejected": "Code refusé",
+        "codeRevoked": "Code révoqué",
+        "codeRotated": "Code renouvelé",
+        "codeValidated": "Code accepté",
+        "collected": "Remis",
+        "collectionRefused": "Remise refusée",
+        "fallbackOverride": "Remis avec dérogation",
+        "markedReady": "Marqué prêt",
+        "pickupCancelled": "Retrait annulé"
+      },
+      "handOverWithOverride": "Remettre avec dérogation",
+      "markReady": "Marquer prêt pour le retrait",
+      "overrideAccessibilityLabel": "Motif de la remise sans code valide",
+      "overrideLabel": "Remettre sans code valide — motif",
+      "overrideNote": "Enregistré sur votre compte, avec le motif, dans l’historique ci-dessous.",
+      "overridePlaceholder": "Le code ne passait pas ; pièce d’identité vérifiée sur place",
+      "rotate": "Émettre un nouveau code",
+      "rotateAccessibilityLabel": "Motif de l’émission d’un nouveau code de retrait",
+      "rotateLabel": "Émettre un nouveau code — motif",
+      "rotatePlaceholder": "Le client indique que le code a fuité",
+      "rotatedCodeNote": "Lisez-le au client. Le code précédent ne fonctionne plus.",
+      "title": "Retrait",
+      "toast": {
+        "cancelled": "Retrait annulé",
+        "codeIssued": "Nouveau code émis",
+        "collected": "Retrait enregistré",
+        "collectedWithOverride": "Retrait enregistré avec dérogation",
+        "markedReady": "Marqué prêt pour le retrait"
+      },
+      "trail": "Historique du retrait",
+      "trailEmpty": "Rien ne s’est encore passé au comptoir."
+    },
+    "refund": {
+      "dialogTitle": "Rembourser la commande",
+      "failed": "Impossible de traiter le remboursement",
+      "itemMax": "%{variant} · max. %{quantity}",
+      "processed": "Remboursement effectué",
+      "quantityRequired": "Saisissez une quantité à rembourser",
+      "reasonLabel": "Motif (facultatif)",
+      "reasonPlaceholder": "Pourquoi ce remboursement ?",
+      "submit": "Effectuer le remboursement"
+    },
+    "refundState": {
+      "canceled": "Annulé",
+      "failed": "Échec",
+      "pending": "En cours",
+      "succeeded": "Effectué"
+    },
+    "row": {
+      "itemsPlacedOn": {
+        "one": "%{count} article · %{date}",
+        "other": "%{count} articles · %{date}"
+      }
+    },
+    "status": {
+      "cancelled": "Annulée",
+      "delivered": "Livrée",
+      "paid": "Payée",
+      "partiallyRefunded": "Part. remboursée",
+      "pendingPayment": "En attente",
+      "processing": "En traitement",
+      "refunded": "Remboursée",
+      "shipped": "Expédiée"
+    },
+    "subtitle": "Traitez et suivez vos ventes",
+    "title": "Commandes",
+    "totals": {
+      "discounts": "Réductions",
+      "heading": "Totaux",
+      "shipping": "Livraison",
+      "subtotal": "Sous-total",
+      "tax": "Taxes",
+      "total": "Total"
+    }
+  },
+  "products": {
+    "addProduct": "Ajouter un produit",
+    "detail": {
+      "archive": "Archiver",
+      "archiveFailed": "Impossible d’archiver le produit",
+      "archived": "Produit archivé",
+      "channelSettings": "Paramètres du canal",
+      "documentTitle": "Produit | Mercaria Dashboard",
+      "loadFailed": "Impossible de charger le produit",
+      "restrictedNotice": "Ce produit est restreint dans l’attente d’une décision de modération et ne peut pas être republié depuis cet écran.",
+      "saveChanges": "Enregistrer les modifications",
+      "saveFailed": "Impossible d’enregistrer le produit",
+      "saved": "Produit enregistré",
+      "title": "Produit",
+      "variantCount": {
+        "one": "%{count} variante",
+        "other": "%{count} variantes"
+      }
+    },
+    "documentTitle": "Produits | Mercaria Dashboard",
+    "empty": {
+      "action": "Ajouter votre premier produit",
+      "title": "Aucun produit pour l’instant"
+    },
+    "loadFailed": "Impossible de charger les produits",
+    "new": {
+      "addVariant": "Ajouter une variante",
+      "categoryLabel": "Catégorie (slug)",
+      "categoryPlaceholder": "electronique",
+      "categoryRequired": "La catégorie est obligatoire",
+      "createFailed": "Impossible de créer le produit",
+      "created": "Produit créé",
+      "descriptionPlaceholder": "Décrivez le produit",
+      "documentTitle": "Nouveau produit | Mercaria Dashboard",
+      "optionNameLabel": "Nom de l’option (facultatif, par ex. Taille)",
+      "optionNamePlaceholder": "Taille",
+      "optionValueLabel": "Valeur de %{option}",
+      "optionValuePlaceholder": "M",
+      "optionsHeading": "Options et variantes",
+      "skuLabel": "SKU (facultatif)",
+      "skuPlaceholder": "SKU-123",
+      "submit": "Créer le produit",
+      "subtitle": "Ajoutez un produit à votre catalogue",
+      "title": "Nouveau produit",
+      "titlePlaceholder": "Nom du produit",
+      "titleRequired": "Le titre est obligatoire",
+      "variantIndex": "Variante %{index}",
+      "variantPriceInvalid": "Chaque variante doit avoir un prix valide",
+      "vendorLabel": "Fournisseur / marque",
+      "vendorPlaceholder": "Acme"
+    },
+    "priceLabel": "Prix (⊜)",
+    "row": {
+      "variantsInStock": {
+        "one": "%{count} variante · %{stock} en stock",
+        "other": "%{count} variantes · %{stock} en stock"
+      }
+    },
+    "searchPlaceholder": "Rechercher des produits sur cette page…",
+    "status": {
+      "active": "Actif",
+      "archived": "Archivé",
+      "draft": "Brouillon",
+      "restricted": "Restreint",
+      "sold": "Vendu"
+    },
+    "stockLabel": "Stock",
+    "subtitle": "Le catalogue de votre boutique",
+    "title": "Produits",
+    "variants": {
+      "add": "Ajouter",
+      "addFailed": "Impossible d’ajouter la variante",
+      "added": "Variante ajoutée",
+      "available": "Disponible",
+      "heading": "Variantes et stock",
+      "inventoryUpdateFailed": "Impossible de mettre à jour le stock",
+      "inventoryUpdated": "Stock mis à jour",
+      "priceInvalid": "Saisissez un prix valide",
+      "removeFailed": "Impossible de supprimer la variante",
+      "removeVariant": "Supprimer la variante",
+      "removed": "Variante supprimée",
+      "saveVariant": "Enregistrer la variante",
+      "set": "Définir",
+      "updateFailed": "Impossible de mettre à jour la variante",
+      "updated": "Variante mise à jour",
+      "valuePlaceholder": "valeur"
+    }
+  },
+  "settings": {
+    "documentTitle": "Paramètres | Mercaria Dashboard",
+    "language": {
+      "description": "La langue d’affichage de ce tableau de bord. Enregistrée sur cet appareil ; elle ne change rien à ce que voient vos clients.",
+      "title": "Langue"
+    },
+    "locations": {
+      "createFailed": "Impossible de créer l’emplacement",
+      "created": "Emplacement créé",
+      "defaultFlag": " · par défaut",
+      "deleteFailed": "Impossible de supprimer l’emplacement",
+      "deleted": "Emplacement supprimé",
+      "documentTitle": "Emplacements | Mercaria Dashboard",
+      "inactiveFlag": " · inactif",
+      "loadFailed": "Impossible de charger les emplacements",
+      "namePlaceholder": "Entrepôt principal",
+      "nameRequired": "Le nom est obligatoire",
+      "newTitle": "Nouvel emplacement",
+      "subtitle": "Où vous stockez votre inventaire",
+      "title": "Emplacements",
+      "types": {
+        "popUp": "Boutique éphémère",
+        "retail": "Commerce de détail",
+        "virtual": "Virtuel",
+        "warehouse": "Entrepôt"
+      }
+    },
+    "members": {
+      "addFailed": "Impossible d’ajouter le membre",
+      "addMember": "Ajouter un membre",
+      "added": "Membre ajouté",
+      "documentTitle": "Membres | Mercaria Dashboard",
+      "explicitPermissions": {
+        "one": "%{count} autorisation explicite accordée",
+        "other": "%{count} autorisations explicites accordées"
+      },
+      "invite": "Inviter",
+      "inviteTitle": "Inviter un membre",
+      "joinedOn": "A rejoint le %{date}",
+      "loadFailed": "Impossible de charger les membres",
+      "oxyUserIdLabel": "Identifiant utilisateur Oxy",
+      "oxyUserIdPlaceholder": "identifiant utilisateur oxy",
+      "oxyUserIdRequired": "Saisissez l’identifiant utilisateur Oxy du membre",
+      "removeFailed": "Impossible de supprimer le membre",
+      "removed": "Membre supprimé",
+      "roleLabel": "Rôle",
+      "roleUpdateFailed": "Impossible de mettre à jour le membre",
+      "roleUpdated": "Rôle mis à jour",
+      "roles": {
+        "admin": "Administrateur",
+        "owner": "Propriétaire",
+        "staff": "Employé"
+      },
+      "subtitle": "Qui peut gérer cette boutique",
+      "title": "Membres et rôles"
+    },
+    "payments": {
+      "beingReviewed": "En cours d’examen",
+      "documentTitle": "Paiements et versements | Mercaria Dashboard",
+      "dueBy": "Échéance",
+      "itemCount": {
+        "one": "%{count} élément",
+        "other": "%{count} éléments"
+      },
+      "loadFailed": "Impossible de charger les paramètres de paiement",
+      "neededNow": "Requis maintenant",
+      "onboardingUnavailable": "La configuration des versements n’est pas encore disponible sur ce déploiement Mercaria.",
+      "openFailed": "Impossible d’ouvrir la configuration des versements",
+      "outstandingTitle": "En attente chez Stripe",
+      "paidOutIn": "Versé en",
+      "payoutsTitle": "Versements",
+      "quoteToSupport": "Communiquez cette référence au support Mercaria si vous avez besoin d’aide.",
+      "registeredIn": "Enregistré en",
+      "reportedByStripe": "Signalé par Stripe",
+      "requirementsNote": "Stripe détient ces informations et est le seul endroit où les compléter. Mercaria ne les voit jamais.",
+      "schedule": "Fréquence",
+      "scheduleWithDelay": {
+        "one": "%{interval}, après %{count} jour",
+        "other": "%{interval}, après %{count} jours"
+      },
+      "states": {
+        "actionRequired": {
+          "action": "Poursuivre la configuration",
+          "body": "Stripe a besoin de plus d’informations avant de pouvoir vous verser vos fonds. Tant qu’il n’a pas tout, les acheteurs ne peuvent pas régler vos annonces.",
+          "heading": "Quelques informations manquent encore"
+        },
+        "disabled": {
+          "body": "Stripe a fermé ce compte connecté, ou sa connexion à Mercaria a été supprimée. Les acheteurs ne peuvent pas régler vos annonces. Contactez le support Mercaria pour faire le point.",
+          "heading": "Ce compte ne peut plus être utilisé"
+        },
+        "notConnected": {
+          "action": "Configurer les versements",
+          "body": "Vos annonces sont visibles et vous pouvez utiliser toutes les autres parties de Mercaria, mais les acheteurs ne peuvent pas encore les régler. Configurer les versements ne prend que quelques minutes.",
+          "heading": "Pas encore configuré"
+        },
+        "ready": {
+          "action": "Gérer les informations de versement",
+          "body": "Les acheteurs peuvent régler vos annonces, et Stripe verse votre solde sur votre compte bancaire.",
+          "heading": "Prêt à être payé"
+        },
+        "restricted": {
+          "action": "Résoudre maintenant",
+          "body": "Un élément demandé par Stripe est désormais en retard : les versements sont suspendus et les acheteurs ne peuvent pas régler vos annonces. Le fournir rétablit les deux.",
+          "heading": "Les versements sont suspendus"
+        },
+        "underReview": {
+          "body": "Stripe a reçu ce qu’il demandait et l’examine. Vous n’avez rien à faire — cela prend généralement un jour ou deux. Les acheteurs ne peuvent pas régler vos annonces tant que ce n’est pas terminé.",
+          "heading": "En cours d’examen"
+        }
+      },
+      "subtitle": "Comment vous êtes payé pour les commandes passées sur Mercaria",
+      "title": "Paiements et versements"
+    },
+    "plan": {
+      "alwaysIncludedBody": "Tenir votre catalogue à jour, recevoir et traiter les commandes, émettre des remboursements, consulter vos propres relevés de ventes et de versements et exporter vos données sont gratuits pour toute boutique Mercaria et ne font jamais partie d’un forfait. Rien sur cette page ne peut changer cela, et aucun forfait n’influe sur la façon dont vos annonces sont trouvées ou classées.",
+      "alwaysIncludedTitle": "Toujours inclus",
+      "cancelFailed": "Annulation impossible. Veuillez réessayer.",
+      "cancelPlan": "Annuler le forfait",
+      "capabilityWithLimit": "%{name} · jusqu’à %{limit}",
+      "choosePlan": "Choisir %{plan}",
+      "documentTitle": "Forfait et facturation | Mercaria Dashboard",
+      "endsOn": "Se termine le %{date}.",
+      "free": "Gratuit",
+      "graceEndsOn": "Les options de ce forfait s’arrêtent le %{date} si le paiement n’aboutit pas.",
+      "loadFailed": "Impossible de charger votre forfait",
+      "manageBilling": "Gérer la facturation",
+      "noExtras": "Aucune option de forfait n’est active sur cette boutique.",
+      "noPaidPlans": "Aucun forfait payant n’est disponible pour le moment. Lorsqu’il y en aura, tout ce qu’ils comprennent sera indiqué ici avec son prix avant que vous n’acceptiez quoi que ce soit.",
+      "notOnPaidPlan": "Vous n’êtes sur aucun forfait payant. Tout ce qui est indiqué ci-dessus est inclus.",
+      "paidPlansTitle": "Forfaits payants",
+      "portalFailed": "Impossible d’ouvrir la facturation. Veuillez réessayer.",
+      "pricePerMonth": "%{price} · par mois",
+      "pricePerYear": "%{price} · par an",
+      "renewsOn": "Se renouvelle le %{date}.",
+      "statuses": {
+        "active": {
+          "body": "Votre forfait se renouvelle automatiquement. Vous pouvez l’annuler à tout moment et le conserver jusqu’à la fin de la période que vous avez payée.",
+          "heading": "Actif"
+        },
+        "cancelled": {
+          "body": "Vous conservez les options de ce forfait jusqu’à la date ci-dessous. Rien d’autre ne change.",
+          "heading": "Annulé à la fin de la période"
+        },
+        "expired": {
+          "body": "Les options de ce forfait ne sont plus actives. Tout ce qui est inclus gratuitement reste inchangé.",
+          "heading": "Terminé"
+        },
+        "pastDue": {
+          "body": "Votre catalogue, vos commandes, vos remboursements et vos relevés ne sont pas affectés et le resteront. Seules les options de ce forfait sont concernées, et seulement après la date ci-dessous.",
+          "heading": "Nous n’avons pas pu encaisser le dernier paiement"
+        },
+        "paused": {
+          "body": "Les options de ce forfait ne sont pas actives tant qu’il est suspendu.",
+          "heading": "Suspendu"
+        },
+        "trialing": {
+          "body": "Vous avez accès à toutes les options de ce forfait jusqu’à la fin de l’essai.",
+          "heading": "Essai en cours"
+        }
+      },
+      "subtitle": "Ce que votre boutique obtient, et ce que vous payez pour cela",
+      "title": "Forfait et facturation",
+      "trialNotice": {
+        "one": "Comprend un essai de %{count} jour.",
+        "other": "Comprend un essai de %{count} jours."
+      },
+      "upgradeFailed": "Impossible de démarrer la mise à niveau. Veuillez réessayer.",
+      "usageIncluded": "inclus",
+      "usageNoLimit": "%{used} utilisés · sans limite",
+      "usageOfLimit": "%{used} sur %{limit} utilisés"
+    },
+    "policies": {
+      "documentTitle": "Politiques | Mercaria Dashboard",
+      "loadFailed": "Impossible de charger les paramètres",
+      "lowStockAlerts": "Alertes de stock faible",
+      "notifications": "Notifications",
+      "orderEmails": "E-mails de commande",
+      "privacyPolicyLabel": "Politique de confidentialité",
+      "privacyPolicyPlaceholder": "Votre politique de confidentialité…",
+      "refundPolicyLabel": "Politique de remboursement",
+      "refundPolicyPlaceholder": "Votre politique de remboursement…",
+      "returnWindowLabel": "Délai de retour (jours)",
+      "saveFailed": "Impossible d’enregistrer les paramètres",
+      "saveSettings": "Enregistrer les paramètres",
+      "saved": "Paramètres enregistrés",
+      "subtitle": "Règles et alertes valables pour toute la boutique",
+      "termsLabel": "Conditions générales",
+      "termsPlaceholder": "Vos conditions générales…",
+      "title": "Politiques et notifications"
+    },
+    "sections": {
+      "channels": {
+        "description": "Connectez Shopify et d’autres boutiques pour synchroniser",
+        "label": "Canaux de vente"
+      },
+      "locations": {
+        "description": "Où vous stockez votre inventaire",
+        "label": "Emplacements"
+      },
+      "members": {
+        "description": "Invitations, rôles et autorisations",
+        "label": "Membres et rôles"
+      },
+      "payments": {
+        "description": "Être payé pour les commandes passées sur Mercaria",
+        "label": "Paiements et versements"
+      },
+      "plan": {
+        "description": "Ce que votre boutique obtient, et ce que vous payez pour cela",
+        "label": "Forfait et facturation"
+      },
+      "policies": {
+        "description": "Retours, remboursement/confidentialité/conditions, alertes",
+        "label": "Politiques et notifications"
+      },
+      "profile": {
+        "description": "Nom, identifiant, couleur de marque, statut",
+        "label": "Profil de la boutique"
+      },
+      "tax": {
+        "description": "Taux de taxe et traitement des taxes",
+        "label": "Taxes"
+      }
+    },
+    "store": {
+      "brandColorLabel": "Couleur de marque",
+      "documentTitle": "Profil de la boutique | Mercaria Dashboard",
+      "loadFailed": "Impossible de charger la boutique",
+      "nameLabel": "Nom de la boutique",
+      "nameRequired": "Le nom de la boutique est obligatoire",
+      "saveChanges": "Enregistrer les modifications",
+      "title": "Profil de la boutique",
+      "updateFailed": "Impossible de mettre à jour la boutique",
+      "updated": "Boutique mise à jour"
+    },
+    "subtitle": "Configurez votre boutique",
+    "tax": {
+      "active": "actif",
+      "countryLabel": "Pays (ISO-2)",
+      "countryPlaceholder": "US",
+      "createFailed": "Impossible de créer le taux",
+      "created": "Taux de taxe créé",
+      "deleteFailed": "Impossible de supprimer le taux",
+      "deleted": "Taux de taxe supprimé",
+      "documentTitle": "Taxes | Mercaria Dashboard",
+      "emptyBody": "Ajoutez un taux pour appliquer une taxe au paiement.",
+      "emptyTitle": "Aucun taux de taxe",
+      "inactive": "inactif",
+      "invalidRate": "Saisissez un taux valide",
+      "loadFailed": "Impossible de charger les taux de taxe",
+      "namePlaceholder": "Taxe de vente US",
+      "nameRequired": "Le nom est obligatoire",
+      "newRate": "Nouveau taux",
+      "newRateTitle": "Nouveau taux de taxe",
+      "rateLabel": "Taux (%)",
+      "regionLabel": "Région",
+      "regionPlaceholder": "CA",
+      "subtitle": "Taux de taxe appliqués au paiement",
+      "title": "Taxes"
+    },
+    "title": "Paramètres"
+  },
+  "stores": {
+    "create": {
+      "descriptionPlaceholder": "Que vendez-vous ?",
+      "dialogTitle": "Créer une boutique",
+      "error": "Impossible de créer la boutique",
+      "nameLabel": "Nom de la boutique",
+      "namePlaceholder": "Acme Supply Co.",
+      "nameRequired": "Le nom de la boutique est obligatoire",
+      "success": "Boutique créée"
+    },
+    "createStore": "Créer une boutique",
+    "documentTitle": "Boutiques | Mercaria Dashboard",
+    "empty": {
+      "body": "Créez votre première boutique pour commencer à vendre sur Mercaria.",
+      "title": "Aucune boutique pour l’instant"
+    },
+    "loadError": "Impossible de charger vos boutiques",
+    "newStore": "Nouvelle boutique",
+    "selectStore": "Sélectionner une boutique",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} produit",
+      "other": "@%{handle} · %{count} produits"
+    },
+    "subtitle": "Choisissez une boutique à gérer",
+    "switch": "Changer de boutique",
+    "title": "Vos boutiques"
+  }
+}

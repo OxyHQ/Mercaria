@@ -1,1 +1,186 @@
-{}
+{
+  "auth": {
+    "appName": "Mercaria POS",
+    "signIn": "Iniciar sesión",
+    "signInBody": "Inicia sesión con tu cuenta de Oxy para abrir la caja: registra ventas presenciales, asocia clientes y cobra."
+  },
+  "cart": {
+    "addCustomer": "Añadir cliente",
+    "clear": "Vaciar",
+    "clearCart": "Vaciar el carrito",
+    "customerAttached": "Asociado a esta venta",
+    "decreaseQuantity": "Reducir cantidad",
+    "discountCodePlaceholder": "Código de descuento",
+    "documentTitle": "Carrito | Mercaria POS",
+    "emptyBody": "Toca los productos para añadirlos a la venta.",
+    "emptyTitle": "El carrito está vacío",
+    "increaseQuantity": "Aumentar cantidad",
+    "itemCount": {
+      "one": "%{count} artículo",
+      "other": "%{count} artículos"
+    },
+    "removeItem": "Quitar artículo",
+    "subtotal": "Subtotal",
+    "title": "Carrito"
+  },
+  "catalog": {
+    "add": "Añadir",
+    "availableCount": {
+      "one": "%{count} disponible",
+      "other": "%{count} disponibles"
+    },
+    "chooseVariant": "Elige una variante",
+    "codePlaceholder": "Escanea o escribe el SKU o el código de barras",
+    "emptyBody": "No hay resultados para tu búsqueda.",
+    "emptyTitle": "Sin productos",
+    "inStockCount": {
+      "one": "%{count} en stock",
+      "other": "%{count} en stock"
+    },
+    "loadFailed": "No se ha podido cargar el catálogo",
+    "lookupFailed": "La búsqueda ha fallado",
+    "noProductForCode": "Ningún producto con ese código",
+    "outOfStock": "Sin existencias",
+    "searchPlaceholder": "Buscar en el catálogo",
+    "soldOut": "Agotado"
+  },
+  "charge": {
+    "action": "Cobrar",
+    "customer": "Cliente",
+    "documentTitle": "Cobro | Mercaria POS",
+    "expectedTotal": "Total previsto",
+    "failed": "El cobro ha fallado",
+    "finalTotalNote": "El total final (descuentos e impuestos) se calcula al cerrar la venta.",
+    "subtitle": "Revisa y cierra la venta",
+    "tender": "Forma de pago",
+    "tenderCard": "Tarjeta",
+    "tenderCash": "Efectivo",
+    "title": "Cobro"
+  },
+  "common": {
+    "all": "Todos",
+    "name": "Nombre",
+    "next": "Siguiente",
+    "noAccess": "Sin acceso",
+    "noAccessBody": "No tienes permiso para ver esta sección en la tienda activa.",
+    "optional": "Opcional",
+    "pleaseTryAgain": "Inténtalo de nuevo.",
+    "previous": "Anterior",
+    "retry": "Reintentar",
+    "somethingWentWrong": "Algo ha salido mal"
+  },
+  "customer": {
+    "addAndAttach": "Añadir y asociar",
+    "addFailed": "No se ha podido añadir el cliente",
+    "added": "Cliente añadido",
+    "documentTitle": "Cliente | Mercaria POS",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "ana@ejemplo.com",
+    "fallbackName": "Cliente",
+    "loadFailed": "No se han podido cargar los clientes",
+    "namePlaceholder": "Ana García",
+    "noMatches": "Ningún cliente coincide.",
+    "phone": "Teléfono",
+    "phonePlaceholder": "+34 600 000 000",
+    "quickAdd": "Alta rápida",
+    "quickAddEmpty": "Introduce un nombre, un correo o un teléfono",
+    "searchPlaceholder": "Buscar clientes",
+    "subtitle": "Asocia un cliente o déjala como venta ocasional",
+    "title": "Cliente",
+    "walkIn": "Cliente ocasional",
+    "walkInOption": "Cliente ocasional (sin cliente asociado)"
+  },
+  "errors": {
+    "noRegisterAccessBody": "No tienes permiso para usar la caja en la tienda activa.",
+    "notFoundAction": "Ir a la caja",
+    "notFoundBody": "Esta pantalla no existe.",
+    "notFoundDocumentTitle": "404 - No encontrado | Mercaria POS",
+    "notFoundHeading": "¡Vaya!",
+    "unexpectedBody": "Se ha producido un error inesperado. Puedes volver a intentarlo y, si el problema continúa, nuestro equipo ya ha sido avisado."
+  },
+  "locations": {
+    "type": {
+      "popUp": "Pop-up",
+      "retail": "Tienda física",
+      "virtual": "Virtual",
+      "warehouse": "Almacén"
+    }
+  },
+  "nav": {
+    "collapseSidebar": "Contraer la barra lateral",
+    "expandSidebar": "Expandir la barra lateral",
+    "register": "Caja",
+    "sales": "Ventas",
+    "selectStore": "Selecciona una tienda",
+    "switchStore": "Cambiar de tienda"
+  },
+  "orders": {
+    "channel": {
+      "draft": "Borrador",
+      "pos": "Punto de venta",
+      "storefront": "Tienda online"
+    },
+    "status": {
+      "cancelled": "Cancelado",
+      "delivered": "Entregado",
+      "paid": "Pagado",
+      "partiallyRefunded": "Reembolsado parcialmente",
+      "pendingPayment": "Pago pendiente",
+      "processing": "En proceso",
+      "refunded": "Reembolsado",
+      "shipped": "Enviado"
+    }
+  },
+  "receipt": {
+    "channelAndStatus": "%{channel} · %{status}",
+    "discount": "Descuento",
+    "documentTitle": "Recibo | Mercaria POS",
+    "loadFailed": "No se ha podido cargar el recibo",
+    "loadFailedBody": "Puede que el pedido no esté disponible.",
+    "newSale": "Nueva venta",
+    "orderNumber": "Pedido %{number}",
+    "paymentRecorded": "Pago registrado",
+    "saleComplete": "Venta completada",
+    "subtotal": "Subtotal",
+    "tax": "Impuestos",
+    "title": "Recibo",
+    "total": "Total"
+  },
+  "register": {
+    "documentTitle": "Caja | Mercaria POS",
+    "reviewCart": "Revisar el carrito",
+    "reviewCartWithCount": {
+      "one": "%{count} artículo · Revisar el carrito",
+      "other": "%{count} artículos · Revisar el carrito"
+    }
+  },
+  "sales": {
+    "documentTitle": "Ventas | Mercaria POS",
+    "emptyBody": "Las ventas completadas aparecerán aquí.",
+    "emptyTitle": "Aún no hay ventas",
+    "loadFailed": "No se han podido cargar las ventas",
+    "orderLabel": "Pedido %{number}",
+    "pageNumber": "Página %{page}",
+    "rowMeta": "%{when} · %{status}",
+    "subtitle": "Pedidos recientes"
+  },
+  "storeSetup": {
+    "changeStore": "Cambiar de tienda",
+    "chooseRegisterSubtitle": "Elige la ubicación de la que esta caja descuenta existencias",
+    "chooseRegisterTitle": "Elige una caja",
+    "chooseStoreSubtitle": "Elige la tienda para la que vas a vender",
+    "chooseStoreTitle": "Elige una tienda",
+    "defaultLocation": "Predeterminada",
+    "documentTitle": "Configuración de la tienda | Mercaria POS",
+    "locationsLoadFailed": "No se han podido cargar las ubicaciones",
+    "noLocationsBody": "Crea primero una ubicación en Mercaria Dashboard y vuelve aquí para abrir la caja.",
+    "noLocationsTitle": "Sin ubicaciones",
+    "noStoresBody": "Crea primero una tienda en Mercaria Dashboard y vuelve aquí para abrir la caja.",
+    "noStoresTitle": "Aún no hay tiendas",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} producto",
+      "other": "@%{handle} · %{count} productos"
+    },
+    "storesLoadFailed": "No se han podido cargar tus tiendas"
+  }
+}

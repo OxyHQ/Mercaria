@@ -25,12 +25,12 @@
       "noManualCollections": "This store has no manual collections yet. Create one first — an automated collection fills itself from its own rules and cannot receive a channel mapping.",
       "noun": {
         "category": {
-          "many": "categories",
-          "one": "category"
+          "plural": "categories",
+          "singular": "category"
         },
         "collection": {
-          "many": "collections",
-          "one": "collection"
+          "plural": "collections",
+          "singular": "collection"
         }
       },
       "pickBody": "Only manual collections can be mapped. An automated collection decides its own membership from its rules.",

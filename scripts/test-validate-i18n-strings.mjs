@@ -204,7 +204,25 @@ const cases = [
         'export const D = () => Alert.alert("Deleted", "The sale is gone.");\n',
     }),
     expectExit: 1,
-    expectOutput: "alert-argument",
+    expectOutput: "call:Alert.alert",
+  },
+  {
+    name: "a reintroduced toast message fails",
+    files: migratedTree({
+      "packages/dashboard/components/regressed.tsx":
+        'export const T = () => toast.error("Could not save the product.");\n',
+    }),
+    expectExit: 1,
+    expectOutput: "call:toast.error",
+  },
+  {
+    name: "a reintroduced rail tooltip fails",
+    files: migratedTree({
+      "packages/pos/components/regressed.tsx":
+        'export const U = () => useRailTooltip("Expand sidebar");\n',
+    }),
+    expectExit: 1,
+    expectOutput: "call:useRailTooltip",
   },
   {
     name: "a plural built by concatenating an s fails",
@@ -256,7 +274,9 @@ const cases = [
         + 'export const routes = { orders: "/orders", settings: "/settings/store" };\n'
         + 'export const perms = ["store:manage", "orders:read"] as const;\n'
         + 'export const q = ["stores", id, "products"] as const;\n'
-        + 'export const providers = { shopify: "shopify", woocommerce: "woocommerce" };\n',
+        + 'export const providers = { shopify: "shopify", woocommerce: "woocommerce" };\n'
+        + 'export const load = () => fetch("/api/products", { method: "POST" });\n'
+        + "export const V = () => toast.error(error.message);\n",
     }),
     expectExit: 0,
     expectOutput: "i18n string guard passed",

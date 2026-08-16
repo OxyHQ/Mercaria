@@ -117,7 +117,11 @@ checks, and the third is the one worth understanding.
 
 - **A. No hardcoded user-facing string** in `packages/dashboard` or
   `packages/pos` — JSX text, a string in a JSX child expression, a user-facing
-  JSX attribute, a user-facing object property, an `Alert.alert` argument.
+  JSX attribute, a user-facing object property, and an argument to one of a
+  short named list of calls that carry copy through a plain function
+  (`Alert.alert`, `toast.*`, `useRailTooltip`). Named rather than "any call
+  taking a string", which would flag every `fetch`, query key and
+  `router.push`.
 - **B. Bundle parity** — every non-`en` bundle carries exactly `en`'s key set
   (missing AND extra) with exactly `en`'s placeholders. A missing key falls back
   to the ENGLISH string, so the screen looks translated in review and is not; a
@@ -133,6 +137,19 @@ Tailwind class and permission string in the tree. Because the migrated code
 stores keys in those maps, writing English back into one leaves
 `orders.status.paid` referenced by nothing — and C fails naming it. That is the
 mutation the guard was tested on.
+
+Part C reads EVERY string literal in the app, not only `t()` arguments, and that
+is what makes the rule-3 map pattern checkable: the keys in
+`ORDER_STATUS_LABEL_KEYS` are literals even though the call site is the dynamic
+`t(ORDER_STATUS_LABEL_KEYS[status])`. Rename one side of that pair and the other
+side's key is referenced by nothing.
+
+The consequence is that a key BUILT at runtime — `` t(`orders.status.${s}`) ``
+— is effectively **refused**: no literal names those leaves, so part C reports
+every one of them as dead copy and the build goes red. That is the right
+outcome (it pushes you to a literal map, which is greppable and which the
+exhaustive `Record` type-checks) but it is a refusal rather than a diagnosis,
+so it is worth knowing before you hit it. Neither app has one today.
 
 There is deliberately **no exception list**, which is the one place this guard
 differs from its siblings in `scripts/`. A string here is either COPY, in which
@@ -153,9 +170,12 @@ anyone leaves the guard switched on.
 
 Stated so nobody reads a green run as more than it is:
 
-- A string passed to a plain function (`useRailTooltip("Expand sidebar")`) is not
-  in a position the analyser decides. Those were extracted by hand.
-- A string composed at runtime from parts the analyser cannot follow.
+- A string passed to a plain function that is NOT in `USER_FACING_CALLEES`. The
+  list covers what this surface actually uses; a new helper that renders its
+  string argument joins it, and until it does its copy is invisible here.
+- An English SENTENCE assembled at runtime out of variables the analyser cannot
+  follow back to a literal. (A runtime-built KEY is a different case and is
+  refused — see above.)
 - Whether a TRANSLATION is any good. Parity says a key exists in `de.json`; it
   says nothing about whether the German is right.
 - `packages/frontend`, which is out of scope entirely (#435).

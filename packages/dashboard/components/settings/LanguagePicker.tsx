@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, View } from "react-native";
 import { Check, Languages } from "lucide-react-native";
-import { LOCALE_ENDONYMS, Text, useColorScheme } from "@mercaria/ui";
+import { cn, LOCALE_ENDONYMS, Text, useColorScheme } from "@mercaria/ui";
 import { DASHBOARD_LOCALES, useTranslation } from "@/lib/i18n";
 
 /**
@@ -39,8 +39,13 @@ export function LanguagePicker() {
       <Text className="text-xs text-muted-foreground">{t("settings.language.description")}</Text>
 
       <View className="mt-2 overflow-hidden rounded-2xl border border-border bg-surface">
-        {DASHBOARD_LOCALES.map((option) => {
+        {DASHBOARD_LOCALES.map((option, index) => {
           const selected = (option.split("-")[0] ?? "").toLowerCase() === activeLanguage;
+          // The separator is decided here rather than with a `last:` variant:
+          // nothing else in this repository uses one, react-native-css does not
+          // implement it, and the failure would be a stray border on the last
+          // row that renders correctly on web and wrongly on a device.
+          const lastRow = index === DASHBOARD_LOCALES.length - 1;
           return (
             <Pressable
               key={option}
@@ -48,7 +53,10 @@ export function LanguagePicker() {
               accessibilityRole="radio"
               accessibilityState={{ selected }}
               accessibilityLabel={LOCALE_ENDONYMS[option]}
-              className="flex-row items-center justify-between border-b border-border px-4 py-3 last:border-b-0 active:opacity-80"
+              className={cn(
+                "flex-row items-center justify-between px-4 py-3 active:opacity-80",
+                !lastRow && "border-b border-border",
+              )}
             >
               <Text className="text-sm text-foreground">{LOCALE_ENDONYMS[option]}</Text>
               {selected ? <Check size={16} color={colors.primary} /> : null}

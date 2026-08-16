@@ -1,1 +1,1227 @@
-{}
+{
+  "auth": {
+    "signInAction": "Entrar",
+    "signInBody": "Entre com sua conta Oxy para gerenciar sua loja — produtos, pedidos, estoque, clientes, descontos e relatórios.",
+    "signInTitle": "Mercaria Dashboard"
+  },
+  "channels": {
+    "addChannel": "Adicionar um canal",
+    "andJoin": " e ",
+    "availability": {
+      "notConfigured": "Não configurado aqui",
+      "notImplemented": "Ainda não disponível"
+    },
+    "badge": {
+      "comparisonOnly": "Apenas comparação",
+      "sellsOnMercaria": "Vende na Mercaria"
+    },
+    "collectionMapping": {
+      "body": "Escolha para qual coleção da Mercaria cada uma das %{many} deste canal é importada. Produtos em uma %{one} sem mapeamento continuam sendo importados — só não entram em nenhuma coleção.",
+      "channelNoun": "%{noun} do canal",
+      "dontMap": "Não mapear esta",
+      "fixMapping": "Corrigir mapeamento",
+      "loadFailed": "Não foi possível carregar as coleções deste canal.",
+      "map": "Mapear",
+      "noManualCollections": "Esta loja ainda não tem coleções manuais. Crie uma primeiro — uma coleção automática se preenche a partir das próprias regras e não pode receber um mapeamento de canal.",
+      "noun": {
+        "category": {
+          "plural": "categorias",
+          "singular": "categoria"
+        },
+        "collection": {
+          "plural": "coleções",
+          "singular": "coleção"
+        }
+      },
+      "pickBody": "Só é possível mapear coleções manuais. Uma coleção automática decide o que contém a partir das próprias regras.",
+      "pickTitle": "Mapear para uma coleção da Mercaria",
+      "productsOnChannel": {
+        "one": "%{count} produto no canal",
+        "other": "%{count} produtos no canal"
+      },
+      "removeMapping": "Remover este mapeamento",
+      "state": {
+        "externalMissing": "Isto não existe mais no canal, então nada será mapeado por ele. Remova o mapeamento ou recrie-o no canal.",
+        "targetAutomated": "Essa coleção da Mercaria se preenche a partir das próprias regras, então um mapeamento de canal seria adicionado e removido a cada sincronização. Escolha uma coleção manual.",
+        "targetMissing": "A coleção da Mercaria foi excluída. Os produtos continuam sendo importados; só não entram em nenhuma coleção. Escolha outra."
+      },
+      "title": "Mapeamento de coleções",
+      "unavailable": {
+        "disconnected": "Este canal está desconectado, então não é possível ler as coleções dele. Reconecte-o para escolher na lista atualizada.",
+        "platformUnavailable": "Não foi possível acessar o canal agora, então as coleções dele não são exibidas. Seu mapeamento atual não é afetado.",
+        "pushInConnection": "Este canal envia dados para a Mercaria, então a Mercaria não guarda credenciais para ler as coleções dele de volta. Seu mapeamento atual aparece abaixo e ainda pode ser editado."
+      }
+    },
+    "connect": "Conectar",
+    "coverage": {
+      "doesNotSyncHeading": "Não sincroniza",
+      "doesNotSyncLabel": "Não sincroniza: ",
+      "nothing": "nada",
+      "partial": "%{direction} — %{caveat}",
+      "syncsHeading": "Sincroniza",
+      "syncsLabel": "Sincroniza: "
+    },
+    "direction": {
+      "bothWays": "nos dois sentidos",
+      "pull": "sua plataforma → Mercaria",
+      "push": "Mercaria → sua plataforma"
+    },
+    "disconnect": {
+      "action": "Desconectar canal",
+      "confirmAction": "Desconectar",
+      "confirmTitle": "Desconectar %{provider}?",
+      "intro": "Escolha o que acontece com os produtos que este canal importou (%{policy}). Seu histórico de preços e o que outro canal importou nunca são alterados.",
+      "policy": {
+        "archiveListings": "Arquivar",
+        "keepListings": "Manter produtos",
+        "unpublishListings": "Despublicar"
+      },
+      "policyHelp": {
+        "archiveListings": "Parar de sincronizar e arquivar os produtos deste canal. Produtos vendidos e sob moderação não são alterados.",
+        "keepListings": "Parar de sincronizar e deixar cada produto exatamente como está — ainda à venda e agora seu para editar na Mercaria.",
+        "unpublishListings": "Parar de sincronizar e tirar os produtos deste canal de venda, mantendo-os como rascunhos que você pode republicar."
+      },
+      "productsChanged": {
+        "one": "%{count} produto alterado",
+        "other": "%{count} produtos alterados"
+      },
+      "recordsKept": {
+        "one": "%{count} registro de preço mantido",
+        "other": "%{count} registros de preço mantidos"
+      },
+      "title": "Desconectar"
+    },
+    "documentTitle": "Canais de venda | Mercaria Dashboard",
+    "empty": {
+      "body": "Conecte uma loja ou um feed de produtos abaixo para trazer um catálogo já existente.",
+      "title": "Apenas o seu catálogo da Mercaria"
+    },
+    "entity": {
+      "collections": "Coleções",
+      "customers": "Clientes",
+      "discounts": "Descontos",
+      "giftCards": "Vales-presente",
+      "inventory": "Estoque",
+      "orders": "Pedidos",
+      "productReviews": "Avaliações",
+      "products": "Produtos",
+      "refunds": "Reembolsos",
+      "shippingRates": "Taxas de entrega",
+      "taxRates": "Alíquotas de imposto"
+    },
+    "entityAbsence": {
+      "channelNotImplemented": "A Mercaria ainda não tem um conector para esta plataforma.",
+      "channelTransportsProductsOnly": "Um feed de produtos é um arquivo de produtos e não carrega mais nada.",
+      "importedOnlyAsPartOfAnOrder": "Nenhuma lista é importada. O que aparece vem apenas dos pedidos que são importados.",
+      "nativeCatalogIsNotASync": "Nada é importado — você edita este catálogo na Mercaria.",
+      "notBuiltForThisChannel": "A Mercaria não troca isto com a sua plataforma.",
+      "notModelledByMercaria": "A Mercaria não tem um registro desse tipo para onde isto pudesse chegar.",
+      "ownedByAnotherSystem": "Tratado em outra parte da Mercaria, em vez de importado da sua plataforma."
+    },
+    "entityCaveat": {
+      "breakdownOnlyOnImportedOrders": "Cada pedido importado mostra as linhas que foram cobradas, então os totais fecham. A regra por trás delas não é criada na Mercaria, então você não pode editá-la nem reutilizá-la aqui.",
+      "membershipOnlyThroughAMapping": "As coleções da sua plataforma não são criadas na Mercaria. Os produtos entram nas coleções da Mercaria para as quais você os mapear."
+    },
+    "history": {
+      "counts": "%{created} criados · %{updated} atualizados · %{skipped} ignorados · %{failed} com falha",
+      "empty": "Nenhuma sincronização ainda",
+      "loadFailed": "Não foi possível carregar o histórico",
+      "title": "Histórico de sincronizações",
+      "updatedNote": "“Atualizados” conta todos os produtos examinados, não só os que estavam diferentes."
+    },
+    "import": {
+      "blockedDirection": "Defina Produtos como Importar ou Ambos acima e salve — salvar já inicia a primeira importação.",
+      "blockedDisconnected": "Reconecte este canal antes de importar — a credencial guardada foi apagada quando ele foi desconectado.",
+      "body": "Lê todos os produtos de novo e atualiza o que mudou. Pode ser executado mais de uma vez sem risco.",
+      "bodyPaused": "Lê todos os produtos de novo e atualiza o que mudou. A importação está pausada para as sincronizações agendadas, mas esta é executada agora.",
+      "heading": "Importar produtos de %{provider}",
+      "now": "Sincronizar agora",
+      "title": "Importar"
+    },
+    "keys": {
+      "apiKeySubject": "chave de API",
+      "body": "Cole uma chave (e o ID de conexão deste canal) no plugin da Mercaria no seu site WordPress. As chaves não expiram — revogue uma a qualquer momento para cortar o acesso.",
+      "connectionId": "ID da conexão",
+      "connectionIdSubject": "ID da conexão",
+      "copied": "Copiado: %{label}",
+      "copyAccessibility": "Copiar %{label}",
+      "copyNow": "Copie esta chave agora — você não poderá vê-la de novo.",
+      "empty": "Nenhuma chave ainda. Gere uma para conectar o plugin.",
+      "generate": "Gerar chave",
+      "generateBody": "Crie uma chave de longa duração para este canal. Dê um nome para reconhecê-la depois (por exemplo, o site em que ela é usada).",
+      "generateTitle": "Gerar chave de API",
+      "heading": "Credenciais de longa duração do plugin",
+      "labelField": "Rótulo",
+      "labelPlaceholder": "Plugin do WordPress",
+      "lastUsed": "Último uso %{when}",
+      "loadFailed": "Não foi possível carregar as chaves de API.",
+      "loading": "Carregando chaves…",
+      "neverUsed": "Nunca usada",
+      "revoke": "Revogar",
+      "revokeConfirmBody": "Qualquer plugin que use “%{label}” vai parar de sincronizar imediatamente. Isso não pode ser desfeito — você teria que gerar uma nova chave.",
+      "revokeConfirmTitle": "Revogar esta chave?",
+      "title": "Chaves de API"
+    },
+    "lastRunCounts": "Última execução — %{created} criados, %{updated} atualizados, %{skipped} ignorados, %{failed} com falha",
+    "lastSynced": "Última sincronização %{when}",
+    "limitation": {
+      "knownIssue": "Problema conhecido #%{issue} — em andamento"
+    },
+    "loadFailed": "Não foi possível carregar os canais",
+    "never": "nunca",
+    "neverSynced": "Nunca sincronizado",
+    "nextScheduled": " · próxima %{when}",
+    "orderHorizon": {
+      "bounded": {
+        "one": "Apenas o último %{count} dia de pedidos é importado. Pedidos feitos antes de %{before} nunca foram importados e não vão chegar depois — este é um limite do que a sua plataforma deixa a Mercaria ler, não uma sincronização atrasada.",
+        "other": "Apenas os últimos %{count} dias de pedidos são importados. Pedidos feitos antes de %{before} nunca foram importados e não vão chegar depois — este é um limite do que a sua plataforma deixa a Mercaria ler, não uma sincronização atrasada."
+      },
+      "notSynced": "Pedidos não são trocados neste canal, em nenhum sentido.",
+      "unknown": "A Mercaria não consegue saber até quando vão os pedidos desta conexão."
+    },
+    "pause": {
+      "importing": "Pausar importação",
+      "importingHint": "Parar de ler da plataforma. O que já foi importado continua à venda.",
+      "publishing": "Pausar publicação",
+      "publishingHint": "Continuar importando, mas impedir que os produtos deste canal cheguem aos compradores.",
+      "title": "Pausar"
+    },
+    "pausedScopes": "Pausado: %{scopes}",
+    "readiness": {
+      "cardPaymentsOff": "Os pagamentos com cartão estão desativados nesta instalação",
+      "catalog": "Catálogo",
+      "catalogDetail": "%{channels} · %{sync}",
+      "channelCount": {
+        "one": "%{count} canal",
+        "other": "%{count} canais"
+      },
+      "lastSynced": "última sincronização %{when}",
+      "neverSynced": "nunca sincronizado",
+      "noChannelConnected": "Nenhum canal conectado",
+      "notReady": "Ainda não está vendendo na Mercaria",
+      "payouts": "Repasses",
+      "payoutsNotSetUp": "Não configurado",
+      "payoutsSetUp": "Configurado",
+      "ready": "Pronto para vender na Mercaria"
+    },
+    "readinessBlocker": {
+      "noConnectedChannel": "Nada está fornecendo um catálogo ainda — conecte um canal ou adicione um produto.",
+      "noNativeCheckoutChannel": "Seus canais conectados listam produtos para comparação, mas não vendem pelo checkout da Mercaria. Conecte uma loja ou adicione produtos diretamente.",
+      "noPublishableListing": "Nenhum produto ativo — os compradores não têm o que adicionar ao carrinho.",
+      "noSuccessfulSync": "Um canal está conectado, mas ainda não concluiu uma sincronização.",
+      "paymentsNotReady": "Os repasses não estão configurados, então não é possível receber pedidos."
+    },
+    "recently": "recentemente",
+    "reconciliation": {
+      "alreadyIndexed": "Já indexado",
+      "awaitingReview": "Aguardando revisão",
+      "awaitingReviewNote": {
+        "one": "%{count} produto não pôde ser correspondido automaticamente e está na fila para uma pessoa confirmar.",
+        "other": "%{count} produtos não puderam ser correspondidos automaticamente e estão na fila para uma pessoa confirmar."
+      },
+      "body": "Nada é excluído nem mesclado. Quando o mesmo produto aparece duas vezes, a Mercaria mostra o anúncio da sua própria loja como o principal e mantém intacto o histórico de preços do outro.",
+      "fromThisStore": "Desta loja",
+      "gap": {
+        "channelHasNoDomain": "Este canal não tem um endereço na web para comparar.",
+        "merchantNotClaimed": "Esta loja não está vinculada a um lojista verificado, então ainda não há com o que comparar.",
+        "storeNotLinked": "Esta loja não está vinculada a um perfil de lojista, então ainda não há com o que comparar.",
+        "storefrontNotMatched": "A Mercaria nunca indexou exatamente esta loja, então não há com o que comparar."
+      },
+      "sameProductTwice": "Mesmo produto, duas vezes",
+      "title": "Correspondência com o seu catálogo atual"
+    },
+    "runFailures": {
+      "hide": "Ocultar",
+      "line": "%{subject}%{externalId} · %{reason}",
+      "loadFailed": "Não foi possível carregar os registros que esta sincronização recusou.",
+      "none": "Nenhum motivo por registro foi guardado para esta sincronização.",
+      "reason": {
+        "databaseRefused": "O banco de dados recusou a gravação",
+        "duplicateRecord": "Duplicata de um registro já importado",
+        "refusedByRule": "Recusado por uma regra da Mercaria",
+        "unclassified": "Falha não identificada"
+      },
+      "show": {
+        "one": "Ver qual registro não entrou",
+        "other": "Ver quais registros não entraram"
+      },
+      "showing": "Mostrando %{shown} de %{total}.",
+      "subject": {
+        "inventoryItem": "Item de estoque",
+        "order": "Pedido",
+        "product": "Produto"
+      }
+    },
+    "scope": {
+      "title": "O que este canal transporta"
+    },
+    "settings": {
+      "autoPublish": "Publicação automática",
+      "autoPublishHint": "Publicar imediatamente os produtos importados. Quando desativado, eles entram como rascunhos para revisão.",
+      "documentTitle": "Configurações do canal | Mercaria Dashboard",
+      "inventoryHint": "Níveis de estoque no local sincronizado.",
+      "inventoryLabel": "Estoque",
+      "keepLocalEdits": "Manter minhas edições locais",
+      "keepLocalEditsHint": "Quando ativado, um campo que você editou na Mercaria nunca é sobrescrito por uma sincronização posterior. Quando desativado, o canal sempre prevalece.",
+      "neverSyncedYet": "Este canal ainda não sincronizou.",
+      "notFound": "Canal não encontrado",
+      "notFoundBody": "Esta conexão pode ter sido desconectada.",
+      "ordersHint": "Pedidos feitos no canal externo.",
+      "productsHint": "O catálogo de produtos (títulos, imagens, preços, variantes).",
+      "providerTitle": "Configurações de %{provider}",
+      "save": "Salvar configurações",
+      "syncDirections": "Sentidos da sincronização",
+      "title": "Configurações do canal"
+    },
+    "state": {
+      "connected": "Conectado",
+      "needsAttention": "Precisa de atenção",
+      "notConnected": "Não conectado",
+      "paused": "Pausado"
+    },
+    "status": {
+      "disconnected": "Desconectado"
+    },
+    "subtitle": "Todas as formas de seus produtos chegarem à Mercaria — lojas conectadas, feeds de produtos e seu próprio catálogo",
+    "syncDirection": {
+      "both": "Ambos",
+      "off": "Desativado",
+      "pull": "Importar",
+      "push": "Enviar"
+    },
+    "title": "Canais de venda",
+    "toast": {
+      "alreadyInThatState": "Já está nesse estado",
+      "cancelFailed": "Não foi possível cancelar",
+      "channelActivated": "Canal ativado",
+      "collectionMappingSaveFailed": "Não foi possível salvar o mapeamento",
+      "collectionMappingSaved": "Mapeamento de coleções salvo",
+      "consumerKeyAndSecretRequired": "Informe a chave e o segredo do consumidor",
+      "disconnectFailed": "Não foi possível desconectar o canal",
+      "disconnected": "Desconectado — %{products}, %{records}",
+      "importStartFailed": "Não foi possível iniciar a importação",
+      "importStarted": "Importação iniciada — ela vai aparecer no histórico abaixo",
+      "invalidShopifyDomain": "Informe um domínio *.myshopify.com válido",
+      "keyCreateFailed": "Não foi possível criar a chave",
+      "keyGenerateFailed": "Não foi possível gerar a chave",
+      "keyGenerated": "Chave de API gerada",
+      "keyLabelRequired": "Dê um rótulo à chave",
+      "keyRevokeFailed": "Não foi possível revogar a chave",
+      "keyRevoked": "Chave de API revogada",
+      "notReadyToActivate": "Ainda não está pronto para ativar — veja os motivos abaixo",
+      "pauseFailed": "Não foi possível alterar o estado de pausa",
+      "paused": "Pausado",
+      "previewSaveFailed": "Não foi possível salvar a prévia",
+      "resumed": "Retomado",
+      "settingsSaveFailed": "Não foi possível salvar as configurações do canal",
+      "settingsSaved": "Configurações do canal salvas",
+      "shopifyConnectFailed": "Não foi possível iniciar a conexão com o Shopify",
+      "siteUrlMustBeHttps": "Informe a URL do seu site começando com https://",
+      "startConnectFailed": "Não foi possível iniciar a conexão com %{name}",
+      "webhooksRegisterFailed": "Não foi possível iniciar o registro dos webhooks",
+      "webhooksRegistering": "Registrando os webhooks de novo",
+      "wooConnectFailed": "Não foi possível conectar — verifique a URL do site e as chaves de API",
+      "wooConnected": "WooCommerce conectado"
+    },
+    "type": {
+      "etsy": "Etsy",
+      "magento": "Magento",
+      "native": "Catálogo da Mercaria",
+      "prestashop": "PrestaShop",
+      "productFeed": "Feed de produtos",
+      "shopify": "Shopify",
+      "woocommerce": "WooCommerce",
+      "woocommercePlugin": "Plugin do WooCommerce"
+    },
+    "unscheduled": "sem agendamento",
+    "webhookFailureReason": {
+      "permissionDenied": "as permissões da conexão não cobrem isso",
+      "platformError": "a plataforma retornou um erro",
+      "rateLimited": "a plataforma estava limitando as requisições",
+      "topicNotSupported": "a plataforma não oferece isso",
+      "transportError": "não foi possível acessar a plataforma",
+      "unexpectedResponse": "não foi possível ler a resposta da plataforma"
+    },
+    "webhooks": {
+      "bringForward": "Você pode antecipar isso agora.",
+      "causeIncomplete": "A Mercaria não conseguiu concluir o registro. Reconecte o canal se isso continuar acontecendo.",
+      "causeUnreachable": "As últimas tentativas não conseguiram acessar %{provider}. Registre de novo quando estiver acessível.",
+      "dueNow": "agora",
+      "failureDetail": " — %{reason}%{http} · última verificação %{when}",
+      "healthyDetail": {
+        "one": "%{provider} está enviando %{count} tipo de atualização para a Mercaria. Se você removeu os webhooks da Mercaria em %{provider}, registre-os de novo — nada aqui consegue detectar isso.",
+        "other": "%{provider} está enviando %{count} tipos de atualização para a Mercaria. Se você removeu os webhooks da Mercaria em %{provider}, registre-os de novo — nada aqui consegue detectar isso."
+      },
+      "healthyHeadline": "As mudanças chegam na hora em que acontecem",
+      "httpStatus": " (HTTP %{status})",
+      "refusedDetail": "A Mercaria concluiu o registro, mas %{provider} recusou os eventos abaixo. Ela vai tentar de novo automaticamente; o botão antecipa isso.",
+      "refusedHeadline": "Algumas atualizações não vão chegar",
+      "register": "Registrar webhooks",
+      "registerAgain": "Registrar webhooks de novo",
+      "remedyPermissionDenied": "As permissões da Mercaria em %{provider} não cobrem todos os eventos — amplie-as lá e registre de novo.",
+      "remedyTopicNotSupported": "%{provider} não oferece alguns desses eventos, então registrar de novo não faz com que eles cheguem.",
+      "retryingDetail": "A Mercaria está tentando de novo automaticamente — a próxima tentativa é %{due}. %{remedy}",
+      "retryingHeadline": "Algumas atualizações ainda não estão chegando",
+      "stoppedDetail": {
+        "one": "A Mercaria parou depois de %{count} tentativa. %{cause}",
+        "other": "A Mercaria parou depois de %{count} tentativas. %{cause}"
+      },
+      "stoppedHeadline": "Algumas atualizações não estão chegando, e a Mercaria parou de tentar",
+      "title": "Atualizações em tempo real",
+      "tryNow": "Tentar agora",
+      "unregisteredDetail": "A Mercaria registra isso automaticamente para um canal %{provider} conectado. Você pode registrar agora em vez de esperar.",
+      "unregisteredHeadline": "As atualizações em tempo real ainda não estão registradas"
+    },
+    "wizard": {
+      "activateChannel": "Ativar canal",
+      "activeConnectionBody": "Este canal está ativo. Escolha o que importar em seguida — nada sincroniza até você escolher.",
+      "activeFeedBody": "Este canal está ativo. Você pode mudar as configurações dele quando quiser em Canais de venda.",
+      "allSet": "Tudo pronto",
+      "backToChannels": "Voltar aos canais",
+      "beforeYouActivate": "Antes de ativar",
+      "beforeYouStart": "Antes de começar",
+      "blocker": {
+        "channelLimitation": "Este canal ainda não pode ser ativado.",
+        "connectionNotConnected": "Conclua a conexão primeiro.",
+        "noPreview": "Rode uma prévia primeiro, para ver o que será importado.",
+        "previewAllInvalid": "Todos os registros lidos na prévia eram inválidos. Corrija o mapeamento e tente de novo.",
+        "previewScannedNothing": "A prévia não leu nenhum registro. Verifique se o feed ou a loja tem produtos — um mapeamento que não corresponde a nada parece igual a um catálogo vazio.",
+        "unsupportedDirection": "As configurações de sincronização pedem um sentido que este canal não suporta. Ajuste-as e tente de novo."
+      },
+      "canAndCannot": "O que este canal faz e o que não faz",
+      "chooseWhatToImport": "Escolha o que importar",
+      "connectedTitle": "%{channel} conectado",
+      "documentTitle": "Conectar um canal | Mercaria Dashboard",
+      "everythingChecksOut": "Está tudo certo. Ativar inicia a primeira sincronização.",
+      "feed": {
+        "body": "Um feed de produtos é configurado em uma tela própria, onde você mapeia as colunas do arquivo para os campos da Mercaria e vê uma prévia do resultado antes de qualquer coisa entrar no ar.",
+        "create": "Criar um feed",
+        "title": "Configure seu feed"
+      },
+      "merchantLinked": "Esta loja está vinculada a um lojista verificado, então tudo o que a Mercaria já indexou da sua loja será reconciliado em vez de duplicado.",
+      "merchantNotLinked": "Esta loja ainda não está vinculada a um lojista verificado. A conexão funciona mesmo assim; a Mercaria só não vai comparar seus produtos com o que já indexou da sua loja.",
+      "notFound": "Assistente não encontrado",
+      "notFoundBody": "Ele pode já ter sido concluído.",
+      "notSetUpYet": " (ainda não configurado)",
+      "plugin": {
+        "body": "Instale o plugin da Mercaria no seu site WordPress e cole a chave abaixo nas configurações dele. O plugin envia seus produtos e seu estoque para a Mercaria conforme eles mudam.",
+        "createKey": "Criar uma chave do canal",
+        "keyHeading": "Sua chave do canal — copie agora",
+        "keyNote": "Esta é a única vez em que ela é exibida. Se você perdê-la, revogue-a e gere uma nova.",
+        "title": "Conectar o plugin da Mercaria"
+      },
+      "preview": {
+        "body": "Rode uma amostra limitada antes de ativar, para ver o que será importado e quanto precisa de revisão.",
+        "duplicate": "Duplicados",
+        "invalid": "Inválidos",
+        "matched": "Correspondidos",
+        "rerun": "Rodar a prévia de novo",
+        "run": "Rodar prévia",
+        "scanned": "Lidos",
+        "title": "Prévia",
+        "toReview": "Para revisar"
+      },
+      "shopify": {
+        "authNote": "A autorização acontece no Shopify. A Mercaria nunca vê sua senha do Shopify, e o token de acesso que ela recebe é armazenado criptografado.",
+        "continue": "Continuar no Shopify",
+        "domainLabel": "Domínio da loja",
+        "domainPlaceholder": "sua-loja.myshopify.com",
+        "openAgain": "Abrir o Shopify de novo",
+        "title": "Autorizar a Mercaria no Shopify",
+        "waitingBody": "Conclua a autorização na aba que acabou de abrir. Esta página se atualiza sozinha — você não precisa recarregá-la nem voltar a esta etapa.",
+        "waitingTitle": "Aguardando o Shopify"
+      },
+      "step": {
+        "activate": "Ativar",
+        "configure": "Sincronização",
+        "connect": "Conectar",
+        "map": "Mapeamento",
+        "preview": "Prévia",
+        "scope": "Loja",
+        "selectChannel": "Canal"
+      },
+      "title": "Conectar %{channel}",
+      "woo": {
+        "body": "WooCommerce → Configurações → Avançado → REST API. O acesso de leitura já basta para importar seu catálogo.",
+        "connect": "Conectar o WooCommerce",
+        "consumerKeyLabel": "Chave do consumidor",
+        "consumerKeyPlaceholder": "ck_...",
+        "consumerSecretLabel": "Segredo do consumidor",
+        "consumerSecretPlaceholder": "cs_...",
+        "siteUrlLabel": "URL do site",
+        "siteUrlPlaceholder": "https://sua-loja.com",
+        "title": "Cole sua chave de API do WooCommerce"
+      },
+      "youWillNeed": "Você vai precisar de"
+    },
+    "yourChannels": "Seus canais"
+  },
+  "collections": {
+    "create": {
+      "dialogTitle": "Nova coleção",
+      "error": "Não foi possível criar a coleção",
+      "success": "Coleção criada",
+      "titlePlaceholder": "Essenciais de verão",
+      "titleRequired": "O título é obrigatório",
+      "typeAutomated": "Automática",
+      "typeManual": "Manual"
+    },
+    "deleteError": "Não foi possível excluir a coleção",
+    "deleted": "Coleção excluída",
+    "documentTitle": "Coleções | Mercaria Dashboard",
+    "empty": {
+      "body": "Crie uma para organizar seu catálogo.",
+      "title": "Nenhuma coleção ainda"
+    },
+    "loadError": "Não foi possível carregar as coleções",
+    "productCount": {
+      "one": "%{count} produto",
+      "other": "%{count} produtos"
+    },
+    "rowMeta": "%{type} · %{items} · %{state}",
+    "ruleCount": {
+      "one": "%{count} regra",
+      "other": "%{count} regras"
+    },
+    "state": {
+      "draft": "rascunho",
+      "published": "publicada"
+    },
+    "subtitle": "Agrupe produtos para o merchandising",
+    "type": {
+      "automated": "automática",
+      "manual": "manual"
+    }
+  },
+  "common": {
+    "all": "Todos",
+    "back": "Voltar",
+    "cancel": "Cancelar",
+    "create": "Criar",
+    "description": "Descrição",
+    "done": "Concluído",
+    "loading": "Carregando…",
+    "name": "Nome",
+    "new": "Novo",
+    "noAccess": "Sem acesso",
+    "noAccessBody": "Você não tem permissão para ver esta área na loja ativa.",
+    "none": "Nenhum",
+    "pageOf": "Página %{current} de %{total}",
+    "pleaseTryAgain": "Tente novamente.",
+    "retry": "Tentar novamente",
+    "save": "Salvar",
+    "somethingWentWrong": "Algo deu errado",
+    "status": "Status",
+    "title": "Título",
+    "type": "Tipo",
+    "unknown": "Desconhecido"
+  },
+  "customers": {
+    "detail": {
+      "documentTitle": "Cliente | Mercaria Dashboard",
+      "lifetimeSpend": "Total gasto",
+      "loadError": "Não foi possível carregar o cliente",
+      "noOrders": "Nenhum pedido ainda.",
+      "orders": "Pedidos",
+      "subtitle": "Detalhes do cliente",
+      "title": "Cliente"
+    },
+    "documentTitle": "Clientes | Mercaria Dashboard",
+    "empty": {
+      "body": "Os clientes aparecem aqui depois do primeiro pedido.",
+      "title": "Nenhum cliente"
+    },
+    "fallbackName": "Cliente",
+    "loadError": "Não foi possível carregar os clientes",
+    "orderCount": {
+      "one": "%{count} pedido",
+      "other": "%{count} pedidos"
+    },
+    "searchPlaceholder": "Buscar clientes…",
+    "subtitle": "Pessoas que compram na sua loja",
+    "walkIn": "Cliente avulso"
+  },
+  "discounts": {
+    "create": {
+      "amountOffLabel": "Valor de desconto (⊜)",
+      "codeLabel": "Código",
+      "codePlaceholder": "PROMO20",
+      "codeRequired": "Informe um código de desconto",
+      "dialogTitle": "Novo desconto",
+      "error": "Não foi possível criar o desconto",
+      "invalidAmount": "Informe um valor válido",
+      "invalidPercentage": "Informe uma porcentagem válida",
+      "methodAutomatic": "Automático",
+      "methodCode": "Código",
+      "methodLabel": "Método",
+      "percentOffLabel": "Porcentagem de desconto",
+      "success": "Desconto criado",
+      "titlePlaceholder": "Promoção de primavera",
+      "titleRequired": "O título é obrigatório",
+      "valueTypeFixed": "Fixo (⊜)",
+      "valueTypeLabel": "Tipo de valor",
+      "valueTypePercentage": "Porcentagem"
+    },
+    "deleteError": "Não foi possível excluir o desconto",
+    "deleted": "Desconto excluído",
+    "documentTitle": "Descontos | Mercaria Dashboard",
+    "empty": {
+      "body": "Crie um desconto por código ou automático.",
+      "title": "Nenhum desconto ainda"
+    },
+    "fixedAmountOff": "Valor fixo de desconto",
+    "loadError": "Não foi possível carregar os descontos",
+    "methodAutomatic": "automático",
+    "methodCode": "código",
+    "percentOff": "%{percent}% de desconto",
+    "rowMeta": "%{method} · %{value} · %{state}",
+    "state": {
+      "active": "ativo",
+      "inactive": "inativo"
+    },
+    "subtitle": "Códigos e promoções automáticas"
+  },
+  "errors": {
+    "boundaryBody": "Ocorreu um erro inesperado. Você pode tentar novamente e, se o problema continuar, nossa equipe já foi avisada.",
+    "notFoundAction": "Ir para o painel",
+    "notFoundBody": "Esta tela não existe.",
+    "notFoundDocumentTitle": "404 - Não encontrado | Mercaria Dashboard",
+    "notFoundHeading": "Ops!"
+  },
+  "feeds": {
+    "detail": {
+      "activateMappingFirst": "Ative um mapeamento primeiro",
+      "documentTitle": "Feed de produtos | Mercaria Dashboard",
+      "identityColumns": "Colunas de identidade: %{columns} — fixas por toda a vida deste feed.",
+      "neverRead": "Este feed ainda não foi lido.",
+      "notFound": "Feed não encontrado",
+      "notFoundBody": "Ele pode ter sido removido.",
+      "readSchedule": "Última leitura %{last} · próxima %{next}",
+      "recentRuns": "Execuções recentes",
+      "runCounts": "%{fetched} lidos · %{stored} armazenados · %{unchanged} sem mudança · %{rejected} recusados · %{listed} publicados · %{retired} retirados",
+      "syncNow": "Sincronizar agora",
+      "title": "Feed de produtos"
+    },
+    "draft": {
+      "columnPlaceholder": "nome da sua coluna",
+      "columnsLabel": "Mapeie suas colunas",
+      "deliveryDelta": "Apenas o que mudou",
+      "deliveryHint": "Não existe padrão, de propósito. Se o arquivo lista tudo o que você vende, um produto ausente é um produto que você parou de vender e a Mercaria vai tirá-lo do ar. Se ele lista apenas mudanças, um produto ausente não significa nada e a Mercaria não vai mexer nele. Errar aqui ou tira do ar um catálogo saudável ou mantém à venda produtos esgotados.",
+      "deliveryLabel": "O que este arquivo contém?",
+      "deliverySnapshot": "Tudo o que eu vendo",
+      "formatLabel": "Formato",
+      "requiredSuffix": " (obrigatório)",
+      "save": "Salvar mapeamento",
+      "title": "Novo mapeamento",
+      "urlHint": "Somente HTTPS. A Mercaria guarda isto de forma privada e só mostra o host para você — a URL de um feed costuma carregar uma chave de acesso.",
+      "urlLabel": "URL do feed",
+      "urlPlaceholder": "https://exemplo.com/produtos.csv"
+    },
+    "never": "nunca",
+    "new": {
+      "create": "Criar feed",
+      "documentTitle": "Novo feed de produtos | Mercaria Dashboard",
+      "identityColumnsHint": "Separadas por vírgula, até quatro. Elas não podem ser alteradas depois: é assim que a Mercaria reconhece o mesmo produto de um arquivo para o outro, então mudá-las pareceria que você trocou o catálogo inteiro. Se precisar de outras colunas, crie um novo feed.",
+      "identityColumnsLabel": "Colunas que identificam cada produto",
+      "identityColumnsPlaceholder": "id, sku",
+      "nameLabel": "Nome do feed",
+      "namePlaceholder": "Catálogo principal",
+      "sourceNameHint": "Como este feed aparece nos registros de catálogo da própria Mercaria.",
+      "sourceNameLabel": "Nome da fonte",
+      "sourceNamePlaceholder": "Catálogo da Acme Suprimentos",
+      "subtitle": "Um arquivo CSV, TSV, XML, JSON ou JSONL que a Mercaria lê periodicamente",
+      "title": "Novo feed de produtos"
+    },
+    "reports": {
+      "counts": "%{scanned} lidos · %{valid} válidos · %{invalid} precisam de atenção",
+      "note": "O relatório para download traz o número da linha e o que estava errado nela — nunca os valores, já que você já tem o arquivo.",
+      "title": "Relatórios"
+    },
+    "toast": {
+      "checkFailed": "Não foi possível verificar o feed",
+      "checked": "%{scanned} registros verificados — %{invalid} precisam de atenção",
+      "createFailed": "Não foi possível criar o feed",
+      "created": "Feed criado",
+      "deliveryModeRequired": "Escolha se o arquivo traz o catálogo completo ou apenas as mudanças",
+      "identityColumnsRequired": "Informe pelo menos uma coluna que identifique cada produto",
+      "mappingActivateFailed": "Não foi possível ativar o mapeamento",
+      "mappingActivated": "Mapeamento ativado",
+      "mappingSaveFailed": "Não foi possível salvar o mapeamento",
+      "mappingSaved": "Mapeamento salvo — veja a prévia antes de ativar",
+      "nameRequired": "Dê um nome ao feed",
+      "previewFailed": "Não foi possível gerar a prévia do feed",
+      "sourceNameTooShort": "O nome da fonte precisa de pelo menos 3 caracteres",
+      "syncStartFailed": "Não foi possível iniciar a sincronização",
+      "syncStarted": "Sincronização iniciada",
+      "titleMappingRequired": "Mapeie uma coluna para o título do produto",
+      "urlMustBeHttps": "A URL do feed precisa começar com https://"
+    },
+    "unscheduled": "sem agendamento",
+    "versions": {
+      "activate": "Ativar",
+      "checkItFirst": "Verifique antes",
+      "checkWholeFeed": "Verificar o feed inteiro",
+      "deliveryChangesOnly": "apenas mudanças",
+      "deliveryFullSnapshot": "catálogo completo",
+      "empty": "Nenhum mapeamento ainda",
+      "emptyBody": "Descreva seu arquivo abaixo e mapeie as colunas dele para os campos da Mercaria.",
+      "fetchedOverHttps": " · obtido por HTTPS",
+      "preview": "Prévia",
+      "previewCounts": "%{scanned} lidos · %{valid} válidos · %{invalid} inválidos · %{matched} correspondidos · %{created} novos · %{review} para revisar",
+      "previewReadNothing": "A prévia não leu nada. Um resultado vazio e um mapeamento que não corresponde a nenhuma linha parecem idênticos — verifique o arquivo e o caminho dos registros antes de ativar.",
+      "suggestedColumns": "Colunas sugeridas: %{columns}",
+      "summary": "%{format} · %{delivery}%{fetch}",
+      "title": "Mapeamentos",
+      "uploaded": " · enviado",
+      "version": "Versão %{version}"
+    }
+  },
+  "home": {
+    "documentTitle": "Painel | Mercaria",
+    "inventory": {
+      "lowStock": {
+        "one": "%{count} variante monitorada está no limite de estoque baixo ou abaixo dele.",
+        "other": "%{count} variantes monitoradas estão no limite de estoque baixo ou abaixo dele."
+      },
+      "noneLow": "Nenhuma variante monitorada está com estoque baixo.",
+      "title": "Estoque"
+    },
+    "orderStatus": {
+      "cancelled": "Cancelado",
+      "delivered": "Entregue",
+      "paid": "Pago",
+      "partiallyRefunded": "Reembolsado parcialmente",
+      "pendingPayment": "Pagamento pendente",
+      "processing": "Em processamento",
+      "refunded": "Reembolsado",
+      "shipped": "Enviado"
+    },
+    "reportsError": "Não foi possível carregar os relatórios",
+    "sales": {
+      "empty": "Nenhuma venda neste período ainda.",
+      "title": "Vendas (último período)"
+    },
+    "stats": {
+      "averageOrder": "Ticket médio",
+      "paidOrders": "Pedidos pagos",
+      "refunds": "Reembolsos",
+      "revenue": "Receita"
+    },
+    "statusBreakdown": {
+      "empty": "Nenhum pedido ainda.",
+      "title": "Pedidos por status"
+    },
+    "subtitle": "Sua loja num relance",
+    "topProducts": {
+      "empty": "Nenhuma venda ainda.",
+      "title": "Produtos mais vendidos",
+      "unitsSold": {
+        "one": "%{count} vendido",
+        "other": "%{count} vendidos"
+      }
+    }
+  },
+  "nav": {
+    "channels": "Canais de venda",
+    "collapseSidebar": "Recolher barra lateral",
+    "collections": "Coleções",
+    "customers": "Clientes",
+    "dashboard": "Painel",
+    "discounts": "Descontos",
+    "expandSidebar": "Expandir barra lateral",
+    "orders": "Pedidos",
+    "products": "Produtos",
+    "settings": "Configurações"
+  },
+  "orders": {
+    "detail": {
+      "documentTitle": "Pedido | Mercaria Dashboard",
+      "fulfilment": "Processamento",
+      "history": "Histórico",
+      "itemVariantQuantity": "%{variant} · ×%{quantity}",
+      "items": "Itens",
+      "loadFailed": "Não foi possível carregar o pedido",
+      "markedCancelled": "Pedido marcado como cancelado",
+      "markedDelivered": "Pedido marcado como entregue",
+      "markedProcessing": "Pedido marcado como em processamento",
+      "markedShipped": "Pedido marcado como enviado",
+      "refund": "Reembolsar",
+      "refundFallbackLabel": "Reembolso",
+      "refunds": "Reembolsos",
+      "shipTo": "Enviar para",
+      "subtitle": "Detalhes do pedido",
+      "title": "Pedido",
+      "trackingLabel": "Código de rastreamento (opcional)",
+      "trackingPlaceholder": "1Z…",
+      "updateFailed": "Não foi possível atualizar o pedido"
+    },
+    "documentTitle": "Pedidos | Mercaria Dashboard",
+    "empty": {
+      "body": "Os pedidos aparecerão aqui quando os clientes comprarem.",
+      "title": "Nenhum pedido"
+    },
+    "loadFailed": "Não foi possível carregar os pedidos",
+    "pickup": {
+      "cancelAccessibilityLabel": "Motivo para cancelar esta retirada",
+      "cancelCollection": "Cancelar retirada",
+      "cancelLabel": "Cancelar esta retirada — motivo",
+      "cancelNote": "Isso cancela a entrega e revoga o código. Não cancela o pedido nem reembolsa nada — faça isso no próprio pedido se o cliente tiver valor a receber.",
+      "cancelPlaceholder": "Produto danificado no estoque",
+      "checkCodeAndHandOver": "Conferir código e entregar",
+      "codeAccessibilityLabel": "Código de retirada que o cliente apresentou",
+      "codeLabel": "Código que o cliente apresentou",
+      "codePlaceholder": "ABCD234567",
+      "event": {
+        "codeRejected": "Código recusado",
+        "codeRevoked": "Código revogado",
+        "codeRotated": "Código substituído",
+        "codeValidated": "Código aceito",
+        "collected": "Entregue",
+        "collectionRefused": "Entrega recusada",
+        "fallbackOverride": "Entregue com liberação manual",
+        "markedReady": "Marcado como pronto",
+        "pickupCancelled": "Retirada cancelada"
+      },
+      "handOverWithOverride": "Entregar com liberação manual",
+      "markReady": "Marcar como pronto para retirada",
+      "overrideAccessibilityLabel": "Motivo para entregar sem um código válido",
+      "overrideLabel": "Entregar sem um código válido — motivo",
+      "overrideNote": "Fica registrado na sua conta, com o motivo, no histórico abaixo.",
+      "overridePlaceholder": "O código não foi lido; documento conferido presencialmente",
+      "rotate": "Emitir um novo código",
+      "rotateAccessibilityLabel": "Motivo para emitir um novo código de retirada",
+      "rotateLabel": "Emitir um novo código — motivo",
+      "rotatePlaceholder": "O cliente diz que o código vazou",
+      "rotatedCodeNote": "Leia isto para o cliente. O código anterior não funciona mais.",
+      "title": "Retirada",
+      "toast": {
+        "cancelled": "Retirada cancelada",
+        "codeIssued": "Novo código emitido",
+        "collected": "Retirada registrada",
+        "collectedWithOverride": "Retirada registrada com liberação manual",
+        "markedReady": "Marcado como pronto para retirada"
+      },
+      "trail": "Histórico da retirada",
+      "trailEmpty": "Ainda não aconteceu nada no balcão."
+    },
+    "refund": {
+      "dialogTitle": "Reembolsar pedido",
+      "failed": "Não foi possível processar o reembolso",
+      "itemMax": "%{variant} · máx. %{quantity}",
+      "processed": "Reembolso processado",
+      "quantityRequired": "Informe uma quantidade para reembolsar",
+      "reasonLabel": "Motivo (opcional)",
+      "reasonPlaceholder": "Por que este reembolso está sendo feito?",
+      "submit": "Processar reembolso"
+    },
+    "refundState": {
+      "canceled": "Cancelado",
+      "failed": "Falhou",
+      "pending": "A caminho",
+      "succeeded": "Concluído"
+    },
+    "row": {
+      "itemsPlacedOn": {
+        "one": "%{count} item · %{date}",
+        "other": "%{count} itens · %{date}"
+      }
+    },
+    "status": {
+      "cancelled": "Cancelado",
+      "delivered": "Entregue",
+      "paid": "Pago",
+      "partiallyRefunded": "Reemb. parcial",
+      "pendingPayment": "Pendente",
+      "processing": "Processando",
+      "refunded": "Reembolsado",
+      "shipped": "Enviado"
+    },
+    "subtitle": "Processe e acompanhe suas vendas",
+    "title": "Pedidos",
+    "totals": {
+      "discounts": "Descontos",
+      "heading": "Totais",
+      "shipping": "Frete",
+      "subtotal": "Subtotal",
+      "tax": "Impostos",
+      "total": "Total"
+    }
+  },
+  "products": {
+    "addProduct": "Adicionar produto",
+    "detail": {
+      "archive": "Arquivar",
+      "archiveFailed": "Não foi possível arquivar o produto",
+      "archived": "Produto arquivado",
+      "channelSettings": "Configurações do canal",
+      "documentTitle": "Produto | Mercaria Dashboard",
+      "loadFailed": "Não foi possível carregar o produto",
+      "restrictedNotice": "Este produto está restrito à espera de uma decisão de moderação e não pode ser republicado por aqui.",
+      "saveChanges": "Salvar alterações",
+      "saveFailed": "Não foi possível salvar o produto",
+      "saved": "Produto salvo",
+      "title": "Produto",
+      "variantCount": {
+        "one": "%{count} variante",
+        "other": "%{count} variantes"
+      }
+    },
+    "documentTitle": "Produtos | Mercaria Dashboard",
+    "empty": {
+      "action": "Adicione seu primeiro produto",
+      "title": "Nenhum produto ainda"
+    },
+    "loadFailed": "Não foi possível carregar os produtos",
+    "new": {
+      "addVariant": "Adicionar variante",
+      "categoryLabel": "Categoria (slug)",
+      "categoryPlaceholder": "electronics",
+      "categoryRequired": "A categoria é obrigatória",
+      "createFailed": "Não foi possível criar o produto",
+      "created": "Produto criado",
+      "descriptionPlaceholder": "Descreva o produto",
+      "documentTitle": "Novo produto | Mercaria Dashboard",
+      "optionNameLabel": "Nome da opção (opcional, ex.: Tamanho)",
+      "optionNamePlaceholder": "Tamanho",
+      "optionValueLabel": "Valor de %{option}",
+      "optionValuePlaceholder": "M",
+      "optionsHeading": "Opções e variantes",
+      "skuLabel": "SKU (opcional)",
+      "skuPlaceholder": "SKU-123",
+      "submit": "Criar produto",
+      "subtitle": "Adicione um produto ao seu catálogo",
+      "title": "Novo produto",
+      "titlePlaceholder": "Nome do produto",
+      "titleRequired": "O título é obrigatório",
+      "variantIndex": "Variante %{index}",
+      "variantPriceInvalid": "Cada variante precisa de um preço válido",
+      "vendorLabel": "Fornecedor / marca",
+      "vendorPlaceholder": "Acme"
+    },
+    "priceLabel": "Preço (⊜)",
+    "row": {
+      "variantsInStock": {
+        "one": "%{count} variante · %{stock} em estoque",
+        "other": "%{count} variantes · %{stock} em estoque"
+      }
+    },
+    "searchPlaceholder": "Buscar produtos nesta página…",
+    "status": {
+      "active": "Ativo",
+      "archived": "Arquivado",
+      "draft": "Rascunho",
+      "restricted": "Restrito",
+      "sold": "Vendido"
+    },
+    "stockLabel": "Estoque",
+    "subtitle": "O catálogo da sua loja",
+    "title": "Produtos",
+    "variants": {
+      "add": "Adicionar",
+      "addFailed": "Não foi possível adicionar a variante",
+      "added": "Variante adicionada",
+      "available": "Disponível",
+      "heading": "Variantes e estoque",
+      "inventoryUpdateFailed": "Não foi possível atualizar o estoque",
+      "inventoryUpdated": "Estoque atualizado",
+      "priceInvalid": "Informe um preço válido",
+      "removeFailed": "Não foi possível remover a variante",
+      "removeVariant": "Remover variante",
+      "removed": "Variante removida",
+      "saveVariant": "Salvar variante",
+      "set": "Definir",
+      "updateFailed": "Não foi possível atualizar a variante",
+      "updated": "Variante atualizada",
+      "valuePlaceholder": "valor"
+    }
+  },
+  "settings": {
+    "documentTitle": "Configurações | Mercaria Dashboard",
+    "language": {
+      "description": "O idioma em que este painel é exibido. Salvo neste dispositivo; não muda o que seus clientes veem.",
+      "title": "Idioma"
+    },
+    "locations": {
+      "createFailed": "Não foi possível criar o local",
+      "created": "Local criado",
+      "defaultFlag": " · padrão",
+      "deleteFailed": "Não foi possível excluir o local",
+      "deleted": "Local excluído",
+      "documentTitle": "Locais | Mercaria Dashboard",
+      "inactiveFlag": " · inativo",
+      "loadFailed": "Não foi possível carregar os locais",
+      "namePlaceholder": "Depósito principal",
+      "nameRequired": "O nome é obrigatório",
+      "newTitle": "Novo local",
+      "subtitle": "Onde você mantém o estoque",
+      "title": "Locais",
+      "types": {
+        "popUp": "Pop-up",
+        "retail": "Varejo",
+        "virtual": "Virtual",
+        "warehouse": "Depósito"
+      }
+    },
+    "members": {
+      "addFailed": "Não foi possível adicionar o membro",
+      "addMember": "Adicionar membro",
+      "added": "Membro adicionado",
+      "documentTitle": "Membros | Mercaria Dashboard",
+      "explicitPermissions": {
+        "one": "%{count} permissão específica concedida",
+        "other": "%{count} permissões específicas concedidas"
+      },
+      "invite": "Convidar",
+      "inviteTitle": "Convidar membro",
+      "joinedOn": "Entrou em %{date}",
+      "loadFailed": "Não foi possível carregar os membros",
+      "oxyUserIdLabel": "ID de usuário Oxy",
+      "oxyUserIdPlaceholder": "ID de usuário Oxy",
+      "oxyUserIdRequired": "Informe o ID de usuário Oxy do membro",
+      "removeFailed": "Não foi possível remover o membro",
+      "removed": "Membro removido",
+      "roleLabel": "Função",
+      "roleUpdateFailed": "Não foi possível atualizar o membro",
+      "roleUpdated": "Função atualizada",
+      "roles": {
+        "admin": "Administrador",
+        "owner": "Proprietário",
+        "staff": "Funcionário"
+      },
+      "subtitle": "Quem pode gerenciar esta loja",
+      "title": "Membros e funções"
+    },
+    "payments": {
+      "beingReviewed": "Em análise",
+      "documentTitle": "Pagamentos e repasses | Mercaria Dashboard",
+      "dueBy": "Prazo",
+      "itemCount": {
+        "one": "%{count} item",
+        "other": "%{count} itens"
+      },
+      "loadFailed": "Não foi possível carregar as configurações de pagamento",
+      "neededNow": "Necessário agora",
+      "onboardingUnavailable": "A configuração de repasses ainda não está disponível nesta instalação da Mercaria.",
+      "openFailed": "Não foi possível abrir a configuração de repasses",
+      "outstandingTitle": "Pendências com a Stripe",
+      "paidOutIn": "Repasse em",
+      "payoutsTitle": "Repasses",
+      "quoteToSupport": "Informe isto ao suporte da Mercaria se precisar de ajuda.",
+      "registeredIn": "Registrado em",
+      "reportedByStripe": "Informado pela Stripe",
+      "requirementsNote": "A Stripe guarda esses dados e é o único lugar onde eles podem ser preenchidos. A Mercaria nunca os vê.",
+      "schedule": "Frequência",
+      "scheduleWithDelay": {
+        "one": "%{interval}, após %{count} dia",
+        "other": "%{interval}, após %{count} dias"
+      },
+      "states": {
+        "actionRequired": {
+          "action": "Continuar configuração",
+          "body": "A Stripe precisa de mais informações antes de poder repassar seus valores. Enquanto ela não tiver tudo, os compradores não conseguem finalizar a compra dos seus anúncios.",
+          "heading": "Ainda faltam alguns dados"
+        },
+        "disabled": {
+          "body": "A Stripe encerrou esta conta conectada, ou a conexão dela com a Mercaria foi removida. Os compradores não conseguem finalizar a compra dos seus anúncios. Fale com o suporte da Mercaria para verificar.",
+          "heading": "Esta conta não pode mais ser usada"
+        },
+        "notConnected": {
+          "action": "Configurar repasses",
+          "body": "Seus anúncios estão visíveis e você pode usar todo o resto da Mercaria, mas os compradores ainda não conseguem finalizar a compra deles. Configurar os repasses leva alguns minutos.",
+          "heading": "Ainda não configurado"
+        },
+        "ready": {
+          "action": "Gerenciar dados de repasse",
+          "body": "Os compradores conseguem finalizar a compra dos seus anúncios, e a Stripe repassa seu saldo para o seu banco.",
+          "heading": "Pronto para receber"
+        },
+        "restricted": {
+          "action": "Resolver agora",
+          "body": "Algo que a Stripe pediu está atrasado, então ela pausou os repasses e os compradores não conseguem finalizar a compra dos seus anúncios. Concluir isso restabelece os dois.",
+          "heading": "Os repasses estão pausados"
+        },
+        "underReview": {
+          "body": "A Stripe recebeu o que pediu e está analisando. Não há nada a fazer da sua parte — isso costuma levar um ou dois dias. Os compradores não conseguem finalizar a compra dos seus anúncios até isso terminar.",
+          "heading": "Em análise"
+        }
+      },
+      "subtitle": "Como você recebe pelos pedidos feitos na Mercaria",
+      "title": "Pagamentos e repasses"
+    },
+    "plan": {
+      "alwaysIncludedBody": "Manter seu catálogo, receber e processar pedidos, emitir reembolsos, consultar seus próprios registros de vendas e de repasses e exportar seus dados são gratuitos para toda loja da Mercaria e nunca fazem parte de um plano. Nada nesta página muda isso, e nenhum plano afeta como seus anúncios são encontrados ou classificados.",
+      "alwaysIncludedTitle": "Sempre incluído",
+      "cancelFailed": "Não foi possível cancelar. Tente novamente.",
+      "cancelPlan": "Cancelar plano",
+      "capabilityWithLimit": "%{name} · até %{limit}",
+      "choosePlan": "Escolher %{plan}",
+      "documentTitle": "Plano e cobrança | Mercaria Dashboard",
+      "endsOn": "Termina em %{date}.",
+      "free": "Grátis",
+      "graceEndsOn": "Os extras deste plano param em %{date} se o pagamento não for aprovado.",
+      "loadFailed": "Não foi possível carregar seu plano",
+      "manageBilling": "Gerenciar cobrança",
+      "noExtras": "Nenhum extra de plano está ativo nesta loja.",
+      "noPaidPlans": "Ainda não há planos pagos disponíveis. Quando houver, tudo o que eles incluem será listado aqui com o preço antes de você aceitar qualquer coisa.",
+      "notOnPaidPlan": "Você não está em um plano pago. Tudo o que está listado acima já vem incluído.",
+      "paidPlansTitle": "Planos pagos",
+      "portalFailed": "Não foi possível abrir a cobrança. Tente novamente.",
+      "pricePerMonth": "%{price} · por mês",
+      "pricePerYear": "%{price} · por ano",
+      "renewsOn": "Renova em %{date}.",
+      "statuses": {
+        "active": {
+          "body": "Seu plano é renovado automaticamente. Você pode cancelar quando quiser e mantê-lo até o fim do período que já pagou.",
+          "heading": "Ativo"
+        },
+        "cancelled": {
+          "body": "Você mantém os extras deste plano até a data abaixo. Nada mais muda.",
+          "heading": "Cancela no fim do período"
+        },
+        "expired": {
+          "body": "Os extras deste plano não estão mais ativos. Tudo o que é incluído gratuitamente continua igual.",
+          "heading": "Encerrado"
+        },
+        "pastDue": {
+          "body": "Seu catálogo, seus pedidos, seus reembolsos e seus registros não são afetados e vão continuar assim. Só os extras deste plano são afetados, e apenas depois da data abaixo.",
+          "heading": "Não conseguimos receber o último pagamento"
+        },
+        "paused": {
+          "body": "Os extras deste plano não ficam ativos enquanto ele está pausado.",
+          "heading": "Pausado"
+        },
+        "trialing": {
+          "body": "Você tem acesso completo aos extras deste plano até o fim do período de teste.",
+          "heading": "Teste em andamento"
+        }
+      },
+      "subtitle": "O que sua loja recebe e quanto você paga por isso",
+      "title": "Plano e cobrança",
+      "trialNotice": {
+        "one": "Inclui %{count} dia de teste.",
+        "other": "Inclui %{count} dias de teste."
+      },
+      "upgradeFailed": "Não foi possível iniciar o upgrade. Tente novamente.",
+      "usageIncluded": "incluído",
+      "usageNoLimit": "%{used} usados · sem limite",
+      "usageOfLimit": "%{used} de %{limit} usados"
+    },
+    "policies": {
+      "documentTitle": "Políticas | Mercaria Dashboard",
+      "loadFailed": "Não foi possível carregar as configurações",
+      "lowStockAlerts": "Alertas de estoque baixo",
+      "notifications": "Notificações",
+      "orderEmails": "E-mails de pedidos",
+      "privacyPolicyLabel": "Política de privacidade",
+      "privacyPolicyPlaceholder": "Sua política de privacidade…",
+      "refundPolicyLabel": "Política de reembolso",
+      "refundPolicyPlaceholder": "Sua política de reembolso…",
+      "returnWindowLabel": "Prazo de devolução (dias)",
+      "saveFailed": "Não foi possível salvar as configurações",
+      "saveSettings": "Salvar configurações",
+      "saved": "Configurações salvas",
+      "subtitle": "Regras e alertas de toda a loja",
+      "termsLabel": "Termos de serviço",
+      "termsPlaceholder": "Seus termos de serviço…",
+      "title": "Políticas e notificações"
+    },
+    "sections": {
+      "channels": {
+        "description": "Conecte o Shopify e outras lojas para sincronizar",
+        "label": "Canais de venda"
+      },
+      "locations": {
+        "description": "Onde você mantém o estoque",
+        "label": "Locais"
+      },
+      "members": {
+        "description": "Convide pessoas, edite funções e permissões",
+        "label": "Membros e funções"
+      },
+      "payments": {
+        "description": "Receba pelos pedidos feitos na Mercaria",
+        "label": "Pagamentos e repasses"
+      },
+      "plan": {
+        "description": "O que sua loja recebe e quanto você paga por isso",
+        "label": "Plano e cobrança"
+      },
+      "policies": {
+        "description": "Devoluções, reembolso/privacidade/termos, alertas",
+        "label": "Políticas e notificações"
+      },
+      "profile": {
+        "description": "Nome, identificador, cor da marca, status",
+        "label": "Perfil da loja"
+      },
+      "tax": {
+        "description": "Alíquotas e comportamento dos impostos",
+        "label": "Impostos"
+      }
+    },
+    "store": {
+      "brandColorLabel": "Cor da marca",
+      "documentTitle": "Perfil da loja | Mercaria Dashboard",
+      "loadFailed": "Não foi possível carregar a loja",
+      "nameLabel": "Nome da loja",
+      "nameRequired": "O nome da loja é obrigatório",
+      "saveChanges": "Salvar alterações",
+      "title": "Perfil da loja",
+      "updateFailed": "Não foi possível atualizar a loja",
+      "updated": "Loja atualizada"
+    },
+    "subtitle": "Configure sua loja",
+    "tax": {
+      "active": "ativa",
+      "countryLabel": "País (ISO-2)",
+      "countryPlaceholder": "US",
+      "createFailed": "Não foi possível criar a alíquota",
+      "created": "Alíquota criada",
+      "deleteFailed": "Não foi possível excluir a alíquota",
+      "deleted": "Alíquota excluída",
+      "documentTitle": "Impostos | Mercaria Dashboard",
+      "emptyBody": "Adicione uma alíquota para cobrar imposto no checkout.",
+      "emptyTitle": "Nenhuma alíquota de imposto",
+      "inactive": "inativa",
+      "invalidRate": "Informe uma alíquota válida",
+      "loadFailed": "Não foi possível carregar as alíquotas de imposto",
+      "namePlaceholder": "Imposto sobre vendas",
+      "nameRequired": "O nome é obrigatório",
+      "newRate": "Nova alíquota",
+      "newRateTitle": "Nova alíquota de imposto",
+      "rateLabel": "Alíquota (%)",
+      "regionLabel": "Região",
+      "regionPlaceholder": "CA",
+      "subtitle": "Alíquotas aplicadas no checkout",
+      "title": "Impostos"
+    },
+    "title": "Configurações"
+  },
+  "stores": {
+    "create": {
+      "descriptionPlaceholder": "O que você vende?",
+      "dialogTitle": "Criar uma loja",
+      "error": "Não foi possível criar a loja",
+      "nameLabel": "Nome da loja",
+      "namePlaceholder": "Acme Suprimentos Ltda.",
+      "nameRequired": "O nome da loja é obrigatório",
+      "success": "Loja criada"
+    },
+    "createStore": "Criar loja",
+    "documentTitle": "Lojas | Mercaria Dashboard",
+    "empty": {
+      "body": "Crie sua primeira loja para começar a vender na Mercaria.",
+      "title": "Nenhuma loja ainda"
+    },
+    "loadError": "Não foi possível carregar suas lojas",
+    "newStore": "Nova loja",
+    "selectStore": "Selecionar loja",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} produto",
+      "other": "@%{handle} · %{count} produtos"
+    },
+    "subtitle": "Escolha uma loja para gerenciar",
+    "switch": "Trocar de loja",
+    "title": "Suas lojas"
+  }
+}
