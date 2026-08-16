@@ -42,9 +42,11 @@ import { sql } from 'drizzle-orm';
 import type { Database } from '../../db/postgres.js';
 import { brands } from '../../db/schema/organizations.js';
 import {
+  canonicalAttributeValues,
   canonicalProductAliases,
   canonicalProductFamilies,
   canonicalProducts,
+  canonicalVariantAttributes,
   canonicalVariants,
   productIdentifiers,
 } from '../../db/schema/canonicalCatalog.js';
@@ -317,6 +319,8 @@ export interface SeededGraph {
   readonly knownMerchantName: string;
   readonly matchPolicyVersionId: string;
   readonly backfillRunId: string;
+  /** A real category id, so a facet scope names one that carries products. */
+  readonly facetCategoryId: string;
   readonly market: string;
   readonly offersPerVariant: FanOut;
   readonly variantsPerProduct: FanOut;
@@ -348,6 +352,21 @@ const MARKETS = ['ES', 'FR', 'DE', 'IT', 'PT'] as const;
 /** Conditions the seed uses — the third axis of `offers_active_commercial_key`. */
 const CONDITIONS = ['new', 'used_good', 'refurbished_seller', 'open_box'] as const;
 const CATEGORY_COUNT = 24;
+/**
+ * The attribute vocabulary the facet shapes measure (#367 Workstream 10).
+ *
+ * Exported as CONSTANTS rather than transcribed into `workload.ts`, for the
+ * reason that file states about readers: a fixture spelled twice drifts
+ * silently, and a facet aggregate whose key matches nothing returns zero rows —
+ * which trips the row floor rather than reporting a fast query, but only
+ * because the floor is there.
+ */
+export const BENCH_PRODUCT_ATTRIBUTE_KEY = 'bench_material';
+export const BENCH_PRODUCT_NUMERIC_KEY = 'bench_weight';
+export const BENCH_VARIANT_ATTRIBUTE_KEY = 'bench_colour';
+/** Distinct values per facet — enough that a bucket aggregate is a real one. */
+const BENCH_MATERIALS = ['leather', 'canvas', 'nylon', 'suede', 'rubber', 'mesh'] as const;
+const BENCH_COLOURS = ['black', 'white', 'red', 'blue', 'green', 'grey', 'navy', 'olive'] as const;
 /** Singleton parents the workload cites by id. Named so the plan and the seed agree. */
 const POLICY_VERSION_ID = 'bx-policy-0';
 const BACKFILL_RUN_ID = 'bx-run-0';
@@ -381,6 +400,10 @@ const BATCH = 1_000;
 
 /** The tables the generator owns and truncates. Order is irrelevant to CASCADE. */
 const SEEDED_TABLES = [
+  // The facet aggregates' population (#367 Workstream 10). Ahead of the
+  // entities they hang off, though CASCADE makes the order irrelevant.
+  'canonical_attribute_values',
+  'canonical_variant_attributes',
   'catalog_backfill_records',
   'catalog_backfill_runs',
   'match_decisions',
@@ -515,6 +538,10 @@ function buildSeedPlan(scale: BenchmarkScale): SeedPlan {
       knownMerchantName: merchantName(0),
       matchPolicyVersionId: POLICY_VERSION_ID,
       backfillRunId: BACKFILL_RUN_ID,
+      // Category 0, which carries every product whose index is 0 mod 24 — about
+      // a twenty-fourth of the catalogue, which is what a facet rail over one
+      // category actually aggregates.
+      facetCategoryId: 'bx-cat-0',
       market: 'ES',
       offersPerVariant: summarizeFanOut(offersPerVariant),
       variantsPerProduct: summarizeFanOut(variantsPerProduct),
@@ -992,6 +1019,74 @@ export async function seedGraph(
     (batch) => db.insert(catalogBackfillRecords).values([...batch]).then(() => undefined),
   );
 
+  // ---- Attribute values, at BOTH grains (#367 Workstream 10) ---------------
+  //
+  // The facet aggregates read `canonical_attribute_values` at product grain and
+  // the UNION of it with `canonical_variant_attributes` at variant grain, and
+  // #61's generator seeded neither — so a facet shape appended to the workload
+  // would have returned zero rows and tripped its own vacuity floor. Seeding
+  // them is what makes the measurement one; it perturbs no existing shape,
+  // because no shape before Q28 reads either table.
+  log(`  product attribute values ${String(scale.products)}…`);
+  await insertBatched(
+    Array.from({ length: scale.products }, (_, index) => ({
+      id: `bx-cav-m-${String(index)}`,
+      productId: `bx-prod-${String(index)}`,
+      attributeKey: BENCH_PRODUCT_ATTRIBUTE_KEY,
+      // The DISPLAY value differs from the normalized one on every third row,
+      // so `listObservedValueLabels` has commercial spellings to report — the
+      // colour-family case, at product grain.
+      sourceDisplayValue:
+        index % 3 === 0
+          ? `Full-grain ${BENCH_MATERIALS[index % BENCH_MATERIALS.length] ?? 'leather'}`
+          : (BENCH_MATERIALS[index % BENCH_MATERIALS.length] ?? 'leather'),
+      normalizedText: BENCH_MATERIALS[index % BENCH_MATERIALS.length] ?? 'leather',
+      normalizationState: 'normalized' as const,
+      selectionState: 'selected' as const,
+      sourceRecordId: `bx-sr-${String(index % sourceRecordCount(scale))}`,
+      observedAt: at(-1),
+    })),
+    (batch) => db.insert(canonicalAttributeValues).values([...batch]).then(() => undefined),
+  );
+
+  // A numeric spec on every FIFTH product, so the range aggregate has a real
+  // span AND the unknown count has a real population.
+  //
+  // Five rather than two, and the stride is load bearing: a category holds every
+  // product whose index is `0 mod 24`, so a spec on every SECOND product covers
+  // every product of every category — `countProductsWithoutAttribute` then
+  // returns ZERO rows and its shape reports a vacuous measurement. Measured: the
+  // plan gate went red on Q32 the first time this ran, which is the row floor
+  // doing its job. Five is coprime with 24, so a category's coverage is partial.
+  await insertBatched(
+    Array.from({ length: Math.floor(scale.products / 5) }, (_, index) => ({
+      id: `bx-cav-w-${String(index)}`,
+      productId: `bx-prod-${String(index * 5)}`,
+      attributeKey: BENCH_PRODUCT_NUMERIC_KEY,
+      sourceDisplayValue: `${String(200 + ((index * 17) % 4_000))} g`,
+      normalizedNumber: 200 + ((index * 17) % 4_000),
+      normalizedUnit: 'g',
+      normalizationState: 'normalized' as const,
+      selectionState: 'selected' as const,
+      sourceRecordId: `bx-sr-${String(index % sourceRecordCount(scale))}`,
+      observedAt: at(-1),
+    })),
+    (batch) => db.insert(canonicalAttributeValues).values([...batch]).then(() => undefined),
+  );
+
+  log(`  variant axis assignments ${String(variantIds.length)}…`);
+  await insertBatched(
+    variantIds.map((id, index) => ({
+      id: `bx-vaa-${String(index)}`,
+      variantId: id,
+      attributeKey: BENCH_VARIANT_ATTRIBUTE_KEY,
+      displayValue: BENCH_COLOURS[index % BENCH_COLOURS.length] ?? 'black',
+      normalizedValue: BENCH_COLOURS[index % BENCH_COLOURS.length] ?? 'black',
+      normalizationState: 'normalized' as const,
+    })),
+    (batch) => db.insert(canonicalVariantAttributes).values([...batch]).then(() => undefined),
+  );
+
   // ---- Geo listings --------------------------------------------------------
   // The generator's ONE use of the PRNG, and it is created here rather than at
   // the top so its sequence cannot depend on how many rows an earlier section
@@ -1053,6 +1148,9 @@ export function rowCountFloors(scale: BenchmarkScale): Map<string, number> {
     ['match_decisions', scale.matchDecisions],
     ['catalog_backfill_records', scale.backfillRecords],
     ['listings', scale.geoListings],
+    // #367 Workstream 10: the facet aggregates' own population. Floored against
+    // the SCALE, never against what the generator wrote — that would be circular.
+    ['canonical_attribute_values', scale.products + Math.floor(scale.products / 5)],
     ['source_records', sourceRecordCount(scale)],
   ]);
 }

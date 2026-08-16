@@ -60,9 +60,24 @@ import {
   listMerchantCatalogProductIds,
   listMerchantOfferIds,
 } from '../../db/merchantPages/merchantCatalogRepository.js';
+import {
+  countFacetMatchedProducts,
+  countOfferAvailabilityBuckets,
+  countProductAttributeBuckets,
+  countProductsWithAttribute,
+  countVariantAttributeBuckets,
+  findFacetCategoryScope,
+  NO_FACET_REQUIREMENTS,
+  type FacetQueryContext,
+} from '../../db/facets/facetRepository.js';
 import { escapeLikePattern } from '../search/normalize.js';
 import { offers } from '../../db/schema/offers.js';
 import { canonicalVariants } from '../../db/schema/canonicalCatalog.js';
+import {
+  BENCH_PRODUCT_ATTRIBUTE_KEY,
+  BENCH_PRODUCT_NUMERIC_KEY,
+  BENCH_VARIANT_ATTRIBUTE_KEY,
+} from './dataset.js';
 import type { SeededGraph } from './dataset.js';
 import type { ShapeExpectation } from './measure.js';
 
@@ -108,6 +123,22 @@ export interface ExploratoryShape {
 
 /** How many rows a page-shaped read asks for. The API's own default. */
 const PAGE = 20;
+
+/**
+ * The facet shapes' shared scope: one category, unfiltered, at a fixed instant.
+ *
+ * A function rather than a constant because `graph` is only known at run time,
+ * and a fixed `now` because every offer predicate in the domain is time-bounded
+ * — a clock read per shape would make two runs of the same shape measure two
+ * slightly different predicates.
+ */
+function facetContext(graph: SeededGraph): FacetQueryContext {
+  return {
+    scope: { kind: 'categories', categoryIds: [graph.facetCategoryId] },
+    requirements: NO_FACET_REQUIREMENTS,
+    now: new Date('2026-01-01T00:00:00.000Z'),
+  };
+}
 
 export const WORKLOAD_SHAPES: readonly WorkloadShape[] = [
   {
@@ -546,6 +577,162 @@ export const WORKLOAD_SHAPES: readonly WorkloadShape[] = [
         limit: PAGE,
         now: new Date('2026-01-01T00:00:00.000Z'),
       }),
+  },
+  {
+    id: 'Q28',
+    workloadItem: 10,
+    title: 'Facets — product-grain bucket counts over a whole category (#367 WS10)',
+    reader: 'db/facets/facetRepository.ts::countProductAttributeBuckets',
+    /**
+     * The unfiltered first load of a filter rail: one `group by` over every
+     * selected product-grain value in a category, counting DISTINCT PRODUCTS.
+     *
+     * `canonical_products_category_id_idx` is required because the scope is what
+     * bounds the aggregate — without it the statement reads the whole attribute
+     * table for one category's rail, which is the shape a stored facet
+     * projection would have been proposed to fix. `Seq Scan` is NOT forbidden:
+     * the join's inner side is `canonical_attribute_values` and at 6,000 rows
+     * the planner may legitimately hash the lot, which is a fact about
+     * statistics rather than about the schema.
+     */
+    expectation: {
+      minRowsReturned: 1,
+      requireIndexes: ['canonical_products_category_id_idx'],
+    },
+    run: (db, graph) =>
+      countProductAttributeBuckets(db, facetContext(graph), [BENCH_PRODUCT_ATTRIBUTE_KEY]),
+  },
+  {
+    id: 'Q29',
+    workloadItem: 10,
+    title: 'Facets — variant-grain bucket counts, the UNION of both variant tables',
+    reader: 'db/facets/facetRepository.ts::countVariantAttributeBuckets',
+    /**
+     * The most expensive read the rail issues: a `LATERAL` union over the
+     * registry values and the axis assignments of every active variant in a
+     * category, grouped to distinct products.
+     *
+     * NO required index and no forbidden node, deliberately. The lateral's own
+     * scans are keyed on `variant_id` and are served by
+     * `canonical_variant_attrs_key_unique` and
+     * `canonical_attribute_values_variant_selected_key`, but which of the two
+     * the planner reaches for depends on how much of each table the category
+     * touches — pinning one would make this gate fail for a reason about the
+     * seed. What it is here to catch is the amplification growing: this is the
+     * read a projection would be justified by, if one ever is.
+     */
+    expectation: { minRowsReturned: 1 },
+    run: (db, graph) =>
+      countVariantAttributeBuckets(db, facetContext(graph), [BENCH_VARIANT_ATTRIBUTE_KEY]),
+  },
+  {
+    id: 'Q30',
+    workloadItem: 10,
+    title: 'Facets — the offer aggregate, every requirement on ONE offer (same-offer)',
+    reader: 'db/facets/facetRepository.ts::countOfferAvailabilityBuckets',
+    /**
+     * The scope index is pinned and the OFFERS index deliberately is not.
+     *
+     * Measured: the planner serves this from `offers_variant_country_idx`
+     * (`canonical_variant_id, country, price_amount` where `status = 'active'`)
+     * rather than from `offers_variant_comparison_idx`
+     * (`canonical_variant_id, price_amount, id`, same predicate) — correctly,
+     * since the aggregate reads no price and the narrower leading pair is
+     * enough. Both are keyed on the same column with the same partial
+     * predicate, so which one wins is STATISTICS, and pinning either name would
+     * be a gate that fails for a reason about the seed rather than about the
+     * schema. #70 records the identical decision for its exact-name shape.
+     *
+     * The first draft of this shape pinned `offers_variant_comparison_idx` and
+     * the gate went red naming the index it actually chose, which is the gate
+     * working. What is pinned instead is the bound that is load bearing: the
+     * category scope, without which the aggregate reads the whole offer table
+     * for one category's rail.
+     */
+    expectation: {
+      minRowsReturned: 1,
+      requireIndexes: ['canonical_products_category_id_idx'],
+    },
+    run: (db, graph) => countOfferAvailabilityBuckets(db, facetContext(graph)),
+  },
+  {
+    id: 'Q31',
+    workloadItem: 10,
+    title: 'Facets — the full nested conjunction: same-variant ⊗ same-offer',
+    reader: 'db/facets/facetRepository.ts::countFacetMatchedProducts',
+    /**
+     * THE statement the two semantics live in — one `exists` over
+     * `canonical_variants` carrying the variant requirement, with the offer
+     * `exists` INSIDE it keyed on that same variant.
+     *
+     * It is measured because the correct statement is the more expensive one:
+     * the naive version is two independent semi-joins the planner can hash
+     * separately, and the correct one correlates them. If the nesting ever
+     * became the reason a rail is slow, this is the number somebody would need
+     * before proposing to loosen it — and the answer would have to be a
+     * projection, never a wrong count.
+     */
+    expectation: {
+      minRowsReturned: 1,
+      requireIndexes: ['canonical_products_category_id_idx'],
+    },
+    run: (db, graph) =>
+      countFacetMatchedProducts(db, {
+        ...facetContext(graph),
+        requirements: {
+          ...NO_FACET_REQUIREMENTS,
+          variant: [{ key: BENCH_VARIANT_ATTRIBUTE_KEY, values: ['black'] }],
+          offer: { availability: ['in_stock'] },
+        },
+      }),
+  },
+  {
+    id: 'Q32',
+    workloadItem: 10,
+    title: 'Facets — the presence count behind every facet’s unknown figure',
+    reader: 'db/facets/facetRepository.ts::countProductsWithAttribute',
+    /**
+     * Every facet reports an unknown figure, so this runs on every load — and
+     * measuring it is what CAUGHT the read it replaced.
+     *
+     * The first version asked the negative question directly, as two
+     * `NOT EXISTS` over a `CROSS JOIN UNNEST` of the key list. This shape
+     * measured it at **1,621 ms p95, 763,336 rows scanned and 2.25 million
+     * buffers** at `small`, against single-digit milliseconds for every other
+     * facet aggregate. Asking which products HAVE a value and subtracting is the
+     * same fact and an ordinary lateral; the numbers are in `docs/facets.md`.
+     *
+     * The numeric key is used because only a fifth of the seeded products carry
+     * one, so both sides of the subtraction have a real population — a key every
+     * product had would meet the row floor while measuring an unknown count that
+     * is always zero.
+     */
+    expectation: {
+      minRowsReturned: 1,
+      requireIndexes: ['canonical_products_category_id_idx'],
+    },
+    run: (db, graph) =>
+      countProductsWithAttribute(db, facetContext(graph), [BENCH_PRODUCT_NUMERIC_KEY]),
+  },
+  {
+    id: 'Q33',
+    workloadItem: 10,
+    title: 'Facets — the category subtree, off the materialized path (ADR 0007 D2)',
+    reader: 'db/facets/facetRepository.ts::findFacetCategoryScope',
+    /**
+     * ADR 0007 D2 adopted `ancestor_ids text[]` plus GIN "provisional on a
+     * benchmark", and named the descendants read as one of the shapes #61's
+     * harness should gain. This is that shape.
+     *
+     * No index is REQUIRED and that is the measurement rather than a gap: the
+     * seeded taxonomy is 24 rows, and a GIN index on a 24-row table is one no
+     * planner will choose. What the shape records is the cost, so the ADR's
+     * amendment condition — "if the materialized path loses to a recursive CTE
+     * at a realistic scale" — has a number to be judged against when a real
+     * taxonomy exists.
+     */
+    expectation: { minRowsReturned: 1 },
+    run: (db, graph) => findFacetCategoryScope(db, graph.facetCategoryId, true),
   },
 ];
 
