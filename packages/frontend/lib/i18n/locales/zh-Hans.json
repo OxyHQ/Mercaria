@@ -1,0 +1,156 @@
+{
+  "common": {
+    "or": "或",
+    "loading": "加载中…",
+    "error": "错误",
+    "success": "成功",
+    "cancel": "取消",
+    "confirm": "确认",
+    "save": "保存",
+    "saving": "保存中…",
+    "delete": "删除",
+    "edit": "编辑",
+    "close": "关闭",
+    "back": "返回",
+    "create": "创建",
+    "search": "搜索…",
+    "comingSoon": "敬请期待！",
+    "noResults": "未找到结果",
+    "user": "用户",
+    "done": "完成",
+    "tryAgain": "重试",
+    "processing": "处理中…"
+  },
+  "home": {
+    "title": "Mercaria",
+    "emptyTitle": "Mercaria 即将上线",
+    "emptySubtitle": "买卖全新与二手好物 —— 商品将在这里展示。"
+  },
+  "nav": {
+    "home": "首页",
+    "settings": "设置"
+  },
+  "login": {
+    "title": "登录或注册",
+    "subtitle": "以继续使用 Mercaria",
+    "emailPlaceholder": "电子邮箱",
+    "passwordPlaceholder": "密码",
+    "forgotPassword": "忘记密码？",
+    "signInButton": "登录",
+    "signingIn": "正在登录…",
+    "footerText": "还没有账号？",
+    "footerLink": "注册",
+    "termsPrefix": "继续即表示你同意 Mercaria 的",
+    "termsOfService": "服务条款",
+    "termsAnd": "和",
+    "privacyPolicy": "隐私政策"
+  },
+  "register": {
+    "title": "创建 Oxy 账号",
+    "subtitle": "注册后即可开始使用 Mercaria",
+    "firstNamePlaceholder": "名字",
+    "lastNamePlaceholder": "姓氏（选填）",
+    "emailPlaceholder": "电子邮箱",
+    "passwordPlaceholder": "密码（至少 8 个字符）",
+    "confirmPasswordPlaceholder": "确认密码",
+    "createAccountButton": "继续",
+    "creatingAccount": "正在创建账号…",
+    "footerText": "已有账号？",
+    "footerLink": "登录",
+    "termsPrefix": "继续即表示你同意 Oxy 的",
+    "termsOfService": "服务条款",
+    "termsAnd": "和",
+    "privacyPolicy": "隐私政策"
+  },
+  "errors": {
+    "passwordRequired": "请输入密码",
+    "loginFailed": "登录失败",
+    "loginError": "登录出错",
+    "failedToLogin": "无法登录，请重试。",
+    "registrationError": "注册出错",
+    "registrationFailed": "注册失败",
+    "failedToRegister": "无法完成注册，请重试。"
+  },
+  "settings": {
+    "title": "设置",
+    "subtitle": "管理你的 Mercaria 偏好设置",
+    "account": {
+      "title": "账号设置",
+      "description": "管理你的账号"
+    },
+    "appLanguage": {
+      "title": "应用语言",
+      "description": "更改应用的显示语言"
+    },
+    "appearance": {
+      "title": "外观",
+      "description": "选择你偏好的配色方案",
+      "light": "浅色",
+      "dark": "深色",
+      "system": "跟随系统"
+    },
+    "accentColor": {
+      "title": "应用主题色"
+    },
+    "sections": {
+      "account": "账号",
+      "general": "通用",
+      "orders": "订单",
+      "addresses": "收货地址",
+      "feedback": "意见反馈",
+      "watchlists": "关注清单",
+      "shoppingAgents": "购物助手",
+      "referralPartner": "推荐伙伴"
+    }
+  },
+  "sidebar": {
+    "account": "账号",
+    "settings": "设置",
+    "logOut": "退出登录",
+    "termsOfService": "服务条款",
+    "privacyPolicy": "隐私政策"
+  },
+  "feedback": {
+    "title": "发送反馈",
+    "subtitle": "帮助我们改进 Mercaria",
+    "typeQuestion": "这是哪类反馈？",
+    "bugReport": "问题反馈",
+    "bugDescription": "有功能出错或无法使用",
+    "featureRequest": "功能建议",
+    "featureDescription": "建议一项新功能",
+    "improvement": "改进建议",
+    "improvementDescription": "优化现有功能",
+    "other": "其他",
+    "otherDescription": "一般反馈或意见",
+    "rateExperience": "你如何评价这次体验？（选填）",
+    "veryPoor": "很差",
+    "poor": "较差",
+    "average": "一般",
+    "good": "不错",
+    "excellent": "很棒",
+    "yourFeedback": "你的反馈",
+    "bugPlaceholder": "描述你遇到的问题。发生了什么？你期待的结果是什么？",
+    "featurePlaceholder": "描述你希望看到的功能。它会给你带来什么帮助？",
+    "improvementPlaceholder": "你希望我们改进什么？我们可以怎样做得更好？",
+    "otherPlaceholder": "把你的想法告诉我们…",
+    "characterCount": "{{count}}/1000 个字符",
+    "submitButton": "提交反馈",
+    "submitting": "提交中…",
+    "footerText": "你的反馈能帮助我们改进 Mercaria。感谢你抽出时间与我们分享。",
+    "selectType": "请选择反馈类型",
+    "enterMessage": "请填写反馈内容",
+    "moreDetails": "请提供更多细节（至少 10 个字符）",
+    "thankYou": "感谢你的反馈！",
+    "submitFailed": "反馈提交失败"
+  },
+  "notifications": {
+    "title": "通知",
+    "subtitle": "管理你的通知偏好设置",
+    "pushNotifications": "推送通知",
+    "pushDescription": "接收新消息和更新提醒",
+    "permissionDenied": "通知已被屏蔽。请在设备设置中开启，以接收推送通知。"
+  },
+  "welcome": {
+    "appName": "Mercaria"
+  }
+}

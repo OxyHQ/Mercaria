@@ -1,0 +1,156 @@
+{
+  "common": {
+    "or": "या",
+    "loading": "लोड हो रहा है...",
+    "error": "त्रुटि",
+    "success": "सफल",
+    "cancel": "रद्द करें",
+    "confirm": "पुष्टि करें",
+    "save": "सेव करें",
+    "saving": "सेव हो रहा है...",
+    "delete": "हटाएँ",
+    "edit": "एडिट करें",
+    "close": "बंद करें",
+    "back": "वापस",
+    "create": "बनाएँ",
+    "search": "खोजें...",
+    "comingSoon": "जल्द आ रहा है!",
+    "noResults": "कोई नतीजा नहीं मिला",
+    "user": "उपयोगकर्ता",
+    "done": "हो गया",
+    "tryAgain": "फिर से कोशिश करें",
+    "processing": "प्रोसेस हो रहा है..."
+  },
+  "home": {
+    "title": "Mercaria",
+    "emptyTitle": "Mercaria जल्द आ रहा है",
+    "emptySubtitle": "नए और सेकंड-हैंड सामान खरीदें और बेचें — लिस्टिंग यहाँ दिखेंगी।"
+  },
+  "nav": {
+    "home": "होम",
+    "settings": "सेटिंग्स"
+  },
+  "login": {
+    "title": "साइन इन या साइन अप करें",
+    "subtitle": "Mercaria पर आगे बढ़ने के लिए",
+    "emailPlaceholder": "ईमेल",
+    "passwordPlaceholder": "पासवर्ड",
+    "forgotPassword": "पासवर्ड भूल गए?",
+    "signInButton": "साइन इन करें",
+    "signingIn": "साइन इन हो रहा है...",
+    "footerText": "खाता नहीं है?",
+    "footerLink": "साइन अप करें",
+    "termsPrefix": "आगे बढ़ने पर आप Mercaria की इन शर्तों से सहमत होते हैं: ",
+    "termsOfService": "सेवा की शर्तें",
+    "termsAnd": " और ",
+    "privacyPolicy": "गोपनीयता नीति"
+  },
+  "register": {
+    "title": "Oxy खाता बनाएँ",
+    "subtitle": "Mercaria शुरू करने के लिए साइन अप करें",
+    "firstNamePlaceholder": "पहला नाम",
+    "lastNamePlaceholder": "उपनाम (वैकल्पिक)",
+    "emailPlaceholder": "ईमेल",
+    "passwordPlaceholder": "पासवर्ड (कम से कम 8 अक्षर)",
+    "confirmPasswordPlaceholder": "पासवर्ड की पुष्टि करें",
+    "createAccountButton": "आगे बढ़ें",
+    "creatingAccount": "खाता बनाया जा रहा है...",
+    "footerText": "पहले से खाता है?",
+    "footerLink": "साइन इन करें",
+    "termsPrefix": "आगे बढ़ने पर आप Oxy की इन शर्तों से सहमत होते हैं: ",
+    "termsOfService": "सेवा की शर्तें",
+    "termsAnd": " और ",
+    "privacyPolicy": "गोपनीयता नीति"
+  },
+  "errors": {
+    "passwordRequired": "कृपया अपना पासवर्ड डालें",
+    "loginFailed": "लॉगिन नहीं हो सका",
+    "loginError": "लॉगिन में गड़बड़ी",
+    "failedToLogin": "लॉगिन नहीं हो सका। कृपया फिर से कोशिश करें।",
+    "registrationError": "रजिस्ट्रेशन में गड़बड़ी",
+    "registrationFailed": "रजिस्ट्रेशन नहीं हो सका",
+    "failedToRegister": "रजिस्ट्रेशन पूरा नहीं हो सका। कृपया फिर से कोशिश करें।"
+  },
+  "settings": {
+    "title": "सेटिंग्स",
+    "subtitle": "अपनी Mercaria प्राथमिकताएँ मैनेज करें",
+    "account": {
+      "title": "खाता सेटिंग्स",
+      "description": "अपना खाता मैनेज करें"
+    },
+    "appLanguage": {
+      "title": "ऐप की भाषा",
+      "description": "ऐप में दिखने वाली भाषा बदलें"
+    },
+    "appearance": {
+      "title": "दिखावट",
+      "description": "अपनी पसंद की रंग योजना चुनें",
+      "light": "लाइट",
+      "dark": "डार्क",
+      "system": "सिस्टम के अनुसार"
+    },
+    "accentColor": {
+      "title": "ऐप का रंग"
+    },
+    "sections": {
+      "account": "खाता",
+      "general": "सामान्य",
+      "orders": "ऑर्डर",
+      "addresses": "पते",
+      "feedback": "फ़ीडबैक",
+      "watchlists": "वॉचलिस्ट",
+      "shoppingAgents": "शॉपिंग एजेंट",
+      "referralPartner": "रेफ़रल पार्टनर"
+    }
+  },
+  "sidebar": {
+    "account": "खाता",
+    "settings": "सेटिंग्स",
+    "logOut": "लॉग आउट",
+    "termsOfService": "सेवा की शर्तें",
+    "privacyPolicy": "गोपनीयता नीति"
+  },
+  "feedback": {
+    "title": "फ़ीडबैक भेजें",
+    "subtitle": "Mercaria को बेहतर बनाने में हमारी मदद करें",
+    "typeQuestion": "किस तरह का फ़ीडबैक है?",
+    "bugReport": "समस्या की रिपोर्ट",
+    "bugDescription": "कुछ काम नहीं कर रहा या टूटा हुआ है",
+    "featureRequest": "नई सुविधा का अनुरोध",
+    "featureDescription": "कोई नई सुविधा सुझाएँ",
+    "improvement": "सुधार",
+    "improvementDescription": "मौजूदा सुविधा को बेहतर बनाएँ",
+    "other": "अन्य",
+    "otherDescription": "सामान्य राय या टिप्पणी",
+    "rateExperience": "आप अपने अनुभव को कैसे आँकेंगे? (वैकल्पिक)",
+    "veryPoor": "बहुत खराब",
+    "poor": "खराब",
+    "average": "ठीक-ठाक",
+    "good": "अच्छा",
+    "excellent": "बहुत बढ़िया",
+    "yourFeedback": "आपका फ़ीडबैक",
+    "bugPlaceholder": "आपको जो समस्या आई उसे बताएँ। क्या हुआ? आप क्या होने की उम्मीद कर रहे थे?",
+    "featurePlaceholder": "आप जो सुविधा चाहते हैं उसे बताएँ। यह आपके किस काम आएगी?",
+    "improvementPlaceholder": "आप क्या बेहतर करवाना चाहते हैं? हम इसे कैसे और अच्छा बना सकते हैं?",
+    "otherPlaceholder": "अपने विचार हमारे साथ साझा करें...",
+    "characterCount": "{{count}}/1000 अक्षर",
+    "submitButton": "फ़ीडबैक भेजें",
+    "submitting": "भेजा जा रहा है...",
+    "footerText": "आपका फ़ीडबैक Mercaria को बेहतर बनाने में मदद करता है। समय निकालकर अपनी बात साझा करने के लिए धन्यवाद।",
+    "selectType": "कृपया फ़ीडबैक का प्रकार चुनें",
+    "enterMessage": "कृपया अपना फ़ीडबैक लिखें",
+    "moreDetails": "कृपया थोड़ा और विस्तार से बताएँ (कम से कम 10 अक्षर)",
+    "thankYou": "आपके फ़ीडबैक के लिए धन्यवाद!",
+    "submitFailed": "फ़ीडबैक नहीं भेजा जा सका"
+  },
+  "notifications": {
+    "title": "सूचनाएँ",
+    "subtitle": "अपनी सूचना प्राथमिकताएँ मैनेज करें",
+    "pushNotifications": "पुश सूचनाएँ",
+    "pushDescription": "नए संदेशों और अपडेट के अलर्ट पाएँ",
+    "permissionDenied": "सूचनाएँ ब्लॉक हैं। पुश सूचनाएँ पाने के लिए इन्हें अपने डिवाइस की सेटिंग्स में चालू करें।"
+  },
+  "welcome": {
+    "appName": "Mercaria"
+  }
+}

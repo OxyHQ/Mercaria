@@ -8,13 +8,28 @@ const SUPPORTED_LOCALES = [
   { code: 'en-GB', label: 'English (UK)', nativeLabel: 'English (UK)' },
   { code: 'es-ES', label: 'Spanish', nativeLabel: 'Español' },
   { code: 'es-MX', label: 'Spanish (Mexico)', nativeLabel: 'Español (México)' },
+  { code: 'ca-ES', label: 'Catalan', nativeLabel: 'Català' },
+  { code: 'zh-Hans', label: 'Chinese (Simplified)', nativeLabel: '简体中文' },
+  { code: 'hi-IN', label: 'Hindi', nativeLabel: 'हिन्दी' },
+  { code: 'fr-FR', label: 'French', nativeLabel: 'Français' },
+  { code: 'ar-SA', label: 'Arabic', nativeLabel: 'العربية' },
+  { code: 'bn-BD', label: 'Bengali', nativeLabel: 'বাংলা' },
+  { code: 'pt-BR', label: 'Portuguese (Brazil)', nativeLabel: 'Português (Brasil)' },
+  { code: 'ru-RU', label: 'Russian', nativeLabel: 'Русский' },
+  { code: 'ja-JP', label: 'Japanese', nativeLabel: '日本語' },
+  { code: 'de-DE', label: 'German', nativeLabel: 'Deutsch' },
 ];
 
 export function LanguageSelector() {
   const { locale, changeLocale, t } = useTranslation();
 
   const getCurrentLocaleLabel = () => {
-    const current = SUPPORTED_LOCALES.find((l) => l.code === locale);
+    // A device locale such as fr-CA has no entry of its own; fall back to the
+    // base language so the trigger never mislabels the language actually in use.
+    const baseLanguage = locale.split('-')[0];
+    const current =
+      SUPPORTED_LOCALES.find((l) => l.code === locale) ??
+      SUPPORTED_LOCALES.find((l) => l.code.split('-')[0] === baseLanguage);
     return current?.nativeLabel || SUPPORTED_LOCALES[0].nativeLabel;
   };
 

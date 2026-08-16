@@ -1,0 +1,156 @@
+{
+  "common": {
+    "or": "অথবা",
+    "loading": "লোড হচ্ছে...",
+    "error": "ত্রুটি",
+    "success": "সফল",
+    "cancel": "বাতিল",
+    "confirm": "নিশ্চিত করুন",
+    "save": "সেভ করুন",
+    "saving": "সেভ হচ্ছে...",
+    "delete": "মুছুন",
+    "edit": "এডিট করুন",
+    "close": "বন্ধ করুন",
+    "back": "ফিরে যান",
+    "create": "তৈরি করুন",
+    "search": "খুঁজুন...",
+    "comingSoon": "শীঘ্রই আসছে!",
+    "noResults": "কোনো ফলাফল পাওয়া যায়নি",
+    "user": "ব্যবহারকারী",
+    "done": "হয়ে গেছে",
+    "tryAgain": "আবার চেষ্টা করুন",
+    "processing": "প্রক্রিয়া চলছে..."
+  },
+  "home": {
+    "title": "Mercaria",
+    "emptyTitle": "Mercaria শীঘ্রই আসছে",
+    "emptySubtitle": "নতুন ও সেকেন্ড-হ্যান্ড জিনিস কিনুন ও বিক্রি করুন — বিজ্ঞাপনগুলো এখানে দেখা যাবে।"
+  },
+  "nav": {
+    "home": "হোম",
+    "settings": "সেটিংস"
+  },
+  "login": {
+    "title": "সাইন ইন বা সাইন আপ করুন",
+    "subtitle": "Mercaria-তে এগিয়ে যেতে",
+    "emailPlaceholder": "ইমেল",
+    "passwordPlaceholder": "পাসওয়ার্ড",
+    "forgotPassword": "পাসওয়ার্ড ভুলে গেছেন?",
+    "signInButton": "সাইন ইন করুন",
+    "signingIn": "সাইন ইন হচ্ছে...",
+    "footerText": "অ্যাকাউন্ট নেই?",
+    "footerLink": "সাইন আপ করুন",
+    "termsPrefix": "এগিয়ে গেলে আপনি Mercaria-র এই শর্তগুলোতে সম্মত হচ্ছেন: ",
+    "termsOfService": "পরিষেবার শর্তাবলি",
+    "termsAnd": " এবং ",
+    "privacyPolicy": "গোপনীয়তা নীতি"
+  },
+  "register": {
+    "title": "Oxy অ্যাকাউন্ট তৈরি করুন",
+    "subtitle": "Mercaria শুরু করতে সাইন আপ করুন",
+    "firstNamePlaceholder": "নামের প্রথম অংশ",
+    "lastNamePlaceholder": "নামের শেষ অংশ (ঐচ্ছিক)",
+    "emailPlaceholder": "ইমেল",
+    "passwordPlaceholder": "পাসওয়ার্ড (কমপক্ষে 8 অক্ষর)",
+    "confirmPasswordPlaceholder": "পাসওয়ার্ড নিশ্চিত করুন",
+    "createAccountButton": "এগিয়ে যান",
+    "creatingAccount": "অ্যাকাউন্ট তৈরি হচ্ছে...",
+    "footerText": "আগে থেকেই অ্যাকাউন্ট আছে?",
+    "footerLink": "সাইন ইন করুন",
+    "termsPrefix": "এগিয়ে গেলে আপনি Oxy-র এই শর্তগুলোতে সম্মত হচ্ছেন: ",
+    "termsOfService": "পরিষেবার শর্তাবলি",
+    "termsAnd": " এবং ",
+    "privacyPolicy": "গোপনীয়তা নীতি"
+  },
+  "errors": {
+    "passwordRequired": "আপনার পাসওয়ার্ড লিখুন",
+    "loginFailed": "সাইন ইন করা যায়নি",
+    "loginError": "সাইন ইনে সমস্যা",
+    "failedToLogin": "সাইন ইন করা যায়নি। আবার চেষ্টা করুন।",
+    "registrationError": "রেজিস্ট্রেশনে সমস্যা",
+    "registrationFailed": "রেজিস্ট্রেশন করা যায়নি",
+    "failedToRegister": "রেজিস্ট্রেশন সম্পূর্ণ করা যায়নি। আবার চেষ্টা করুন।"
+  },
+  "settings": {
+    "title": "সেটিংস",
+    "subtitle": "আপনার Mercaria পছন্দগুলো পরিচালনা করুন",
+    "account": {
+      "title": "অ্যাকাউন্ট সেটিংস",
+      "description": "আপনার অ্যাকাউন্ট পরিচালনা করুন"
+    },
+    "appLanguage": {
+      "title": "অ্যাপের ভাষা",
+      "description": "অ্যাপে যে ভাষা দেখানো হয় তা বদলান"
+    },
+    "appearance": {
+      "title": "চেহারা",
+      "description": "আপনার পছন্দের রঙের ধরন বেছে নিন",
+      "light": "উজ্জ্বল",
+      "dark": "গাঢ়",
+      "system": "সিস্টেম অনুযায়ী"
+    },
+    "accentColor": {
+      "title": "অ্যাপের রঙ"
+    },
+    "sections": {
+      "account": "অ্যাকাউন্ট",
+      "general": "সাধারণ",
+      "orders": "অর্ডার",
+      "addresses": "ঠিকানা",
+      "feedback": "মতামত",
+      "watchlists": "নজর তালিকা",
+      "shoppingAgents": "শপিং সহকারী",
+      "referralPartner": "রেফারেল পার্টনার"
+    }
+  },
+  "sidebar": {
+    "account": "অ্যাকাউন্ট",
+    "settings": "সেটিংস",
+    "logOut": "লগ আউট",
+    "termsOfService": "পরিষেবার শর্তাবলি",
+    "privacyPolicy": "গোপনীয়তা নীতি"
+  },
+  "feedback": {
+    "title": "মতামত পাঠান",
+    "subtitle": "Mercaria-কে আরও ভালো করতে সাহায্য করুন",
+    "typeQuestion": "কী ধরনের মতামত?",
+    "bugReport": "সমস্যার রিপোর্ট",
+    "bugDescription": "কিছু নষ্ট হয়ে গেছে বা কাজ করছে না",
+    "featureRequest": "নতুন ফিচারের অনুরোধ",
+    "featureDescription": "নতুন কোনো ফিচারের পরামর্শ দিন",
+    "improvement": "উন্নতির পরামর্শ",
+    "improvementDescription": "বিদ্যমান কোনো কিছু আরও ভালো করুন",
+    "other": "অন্যান্য",
+    "otherDescription": "সাধারণ মতামত বা মন্তব্য",
+    "rateExperience": "আপনার অভিজ্ঞতা কেমন ছিল? (ঐচ্ছিক)",
+    "veryPoor": "খুব খারাপ",
+    "poor": "খারাপ",
+    "average": "মোটামুটি",
+    "good": "ভালো",
+    "excellent": "দুর্দান্ত",
+    "yourFeedback": "আপনার মতামত",
+    "bugPlaceholder": "আপনি যে সমস্যায় পড়েছেন তা লিখুন। কী ঘটেছিল? আপনি কী আশা করেছিলেন?",
+    "featurePlaceholder": "আপনি যে ফিচারটি চান তা লিখুন। এটি আপনার কী কাজে লাগবে?",
+    "improvementPlaceholder": "আমরা কী উন্নত করলে ভালো হয়? কীভাবে আরও ভালো করা যায়?",
+    "otherPlaceholder": "আপনার ভাবনা আমাদের সঙ্গে ভাগ করুন...",
+    "characterCount": "{{count}}/1000 অক্ষর",
+    "submitButton": "মতামত পাঠান",
+    "submitting": "পাঠানো হচ্ছে...",
+    "footerText": "আপনার মতামত Mercaria-কে আরও ভালো করতে সাহায্য করে। সময় নিয়ে তা জানানোর জন্য ধন্যবাদ।",
+    "selectType": "মতামতের ধরন বেছে নিন",
+    "enterMessage": "আপনার মতামত লিখুন",
+    "moreDetails": "আরেকটু বিস্তারিত লিখুন (কমপক্ষে 10 অক্ষর)",
+    "thankYou": "আপনার মতামতের জন্য ধন্যবাদ!",
+    "submitFailed": "মতামত পাঠানো যায়নি"
+  },
+  "notifications": {
+    "title": "বিজ্ঞপ্তি",
+    "subtitle": "আপনার বিজ্ঞপ্তির পছন্দগুলো পরিচালনা করুন",
+    "pushNotifications": "পুশ বিজ্ঞপ্তি",
+    "pushDescription": "নতুন বার্তা ও আপডেটের খবর পান",
+    "permissionDenied": "বিজ্ঞপ্তি বন্ধ করা আছে। পুশ বিজ্ঞপ্তি পেতে আপনার ডিভাইসের সেটিংসে এটি চালু করুন।"
+  },
+  "welcome": {
+    "appName": "Mercaria"
+  }
+}

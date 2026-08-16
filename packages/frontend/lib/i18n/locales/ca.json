@@ -1,0 +1,156 @@
+{
+  "common": {
+    "or": "O",
+    "loading": "Carregant...",
+    "error": "Error",
+    "success": "Fet",
+    "cancel": "Cancel·la",
+    "confirm": "Confirma",
+    "save": "Desa",
+    "saving": "Desant...",
+    "delete": "Elimina",
+    "edit": "Edita",
+    "close": "Tanca",
+    "back": "Enrere",
+    "create": "Crea",
+    "search": "Cerca...",
+    "comingSoon": "Molt aviat!",
+    "noResults": "No s'ha trobat cap resultat",
+    "user": "Usuari",
+    "done": "Fet",
+    "tryAgain": "Torna-ho a provar",
+    "processing": "Processant..."
+  },
+  "home": {
+    "title": "Mercaria",
+    "emptyTitle": "Mercaria arriba molt aviat",
+    "emptySubtitle": "Compra i ven articles nous i de segona mà — els anuncis apareixeran aquí."
+  },
+  "nav": {
+    "home": "Inici",
+    "settings": "Configuració"
+  },
+  "login": {
+    "title": "Inicia la sessió o registra't",
+    "subtitle": "per continuar a Mercaria",
+    "emailPlaceholder": "Correu electrònic",
+    "passwordPlaceholder": "Contrasenya",
+    "forgotPassword": "Has oblidat la contrasenya?",
+    "signInButton": "Inicia la sessió",
+    "signingIn": "Iniciant la sessió...",
+    "footerText": "No tens cap compte?",
+    "footerLink": "Registra't",
+    "termsPrefix": "En continuar, acceptes els ",
+    "termsOfService": "Termes del servei de Mercaria",
+    "termsAnd": " i la ",
+    "privacyPolicy": "Política de privadesa"
+  },
+  "register": {
+    "title": "Crea un compte d'Oxy",
+    "subtitle": "Registra't per començar amb Mercaria",
+    "firstNamePlaceholder": "Nom",
+    "lastNamePlaceholder": "Cognom (opcional)",
+    "emailPlaceholder": "Correu electrònic",
+    "passwordPlaceholder": "Contrasenya (mín. 8 caràcters)",
+    "confirmPasswordPlaceholder": "Confirma la contrasenya",
+    "createAccountButton": "Continua",
+    "creatingAccount": "Creant el compte...",
+    "footerText": "Ja tens un compte?",
+    "footerLink": "Inicia la sessió",
+    "termsPrefix": "En continuar, acceptes els ",
+    "termsOfService": "Termes del servei d'Oxy",
+    "termsAnd": " i la ",
+    "privacyPolicy": "Política de privadesa"
+  },
+  "errors": {
+    "passwordRequired": "Introdueix la teva contrasenya",
+    "loginFailed": "No s'ha pogut iniciar la sessió",
+    "loginError": "Error d'inici de sessió",
+    "failedToLogin": "No s'ha pogut iniciar la sessió. Torna-ho a provar.",
+    "registrationError": "Error de registre",
+    "registrationFailed": "El registre ha fallat",
+    "failedToRegister": "No s'ha pogut completar el registre. Torna-ho a provar."
+  },
+  "settings": {
+    "title": "Configuració",
+    "subtitle": "Gestiona les teves preferències de Mercaria",
+    "account": {
+      "title": "Configuració del compte",
+      "description": "Gestiona el teu compte"
+    },
+    "appLanguage": {
+      "title": "Idioma de l'aplicació",
+      "description": "Canvia l'idioma en què es mostra l'aplicació"
+    },
+    "appearance": {
+      "title": "Aparença",
+      "description": "Tria la teva combinació de colors preferida",
+      "light": "Clar",
+      "dark": "Fosc",
+      "system": "Sistema"
+    },
+    "accentColor": {
+      "title": "Color de l'aplicació"
+    },
+    "sections": {
+      "account": "Compte",
+      "general": "General",
+      "orders": "Comandes",
+      "addresses": "Adreces",
+      "feedback": "Comentaris",
+      "watchlists": "Llistes de seguiment",
+      "shoppingAgents": "Agents de compra",
+      "referralPartner": "Programa de recomanació"
+    }
+  },
+  "sidebar": {
+    "account": "Compte",
+    "settings": "Configuració",
+    "logOut": "Tanca la sessió",
+    "termsOfService": "Termes del servei",
+    "privacyPolicy": "Política de privadesa"
+  },
+  "feedback": {
+    "title": "Envia comentaris",
+    "subtitle": "Ajuda'ns a millorar Mercaria",
+    "typeQuestion": "Quin tipus de comentari?",
+    "bugReport": "Informe d'error",
+    "bugDescription": "Alguna cosa està trencada o no funciona",
+    "featureRequest": "Petició de funció",
+    "featureDescription": "Suggereix una funció nova",
+    "improvement": "Millora",
+    "improvementDescription": "Millora una funcionalitat existent",
+    "other": "Altres",
+    "otherDescription": "Comentaris o observacions generals",
+    "rateExperience": "Com valores la teva experiència? (Opcional)",
+    "veryPoor": "Molt dolenta",
+    "poor": "Dolenta",
+    "average": "Normal",
+    "good": "Bona",
+    "excellent": "Excel·lent",
+    "yourFeedback": "El teu comentari",
+    "bugPlaceholder": "Descriu l'error que has trobat. Què ha passat? Què esperaves que passés?",
+    "featurePlaceholder": "Descriu la funció que t'agradaria veure. En què t'ajudaria?",
+    "improvementPlaceholder": "Què t'agradaria que milloréssim? Com ho podríem fer millor?",
+    "otherPlaceholder": "Comparteix les teves idees amb nosaltres...",
+    "characterCount": "{{count}}/1000 caràcters",
+    "submitButton": "Envia el comentari",
+    "submitting": "Enviant...",
+    "footerText": "Els teus comentaris ens ajuden a millorar Mercaria. Gràcies per dedicar-hi el teu temps.",
+    "selectType": "Selecciona un tipus de comentari",
+    "enterMessage": "Escriu el teu comentari",
+    "moreDetails": "Dona'ns més detalls (com a mínim 10 caràcters)",
+    "thankYou": "Gràcies pels teus comentaris!",
+    "submitFailed": "No s'ha pogut enviar el comentari"
+  },
+  "notifications": {
+    "title": "Notificacions",
+    "subtitle": "Gestiona les teves preferències de notificació",
+    "pushNotifications": "Notificacions push",
+    "pushDescription": "Rep avisos sobre missatges nous i actualitzacions",
+    "permissionDenied": "Les notificacions estan bloquejades. Activa-les a la configuració del dispositiu per rebre notificacions push."
+  },
+  "welcome": {
+    "appName": "Mercaria"
+  }
+}

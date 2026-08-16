@@ -1,0 +1,156 @@
+{
+  "common": {
+    "or": "ИЛИ",
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "success": "Готово",
+    "cancel": "Отмена",
+    "confirm": "Подтвердить",
+    "save": "Сохранить",
+    "saving": "Сохранение...",
+    "delete": "Удалить",
+    "edit": "Изменить",
+    "close": "Закрыть",
+    "back": "Назад",
+    "create": "Создать",
+    "search": "Поиск...",
+    "comingSoon": "Скоро!",
+    "noResults": "Ничего не найдено",
+    "user": "Пользователь",
+    "done": "Готово",
+    "tryAgain": "Повторить",
+    "processing": "Обработка..."
+  },
+  "home": {
+    "title": "Mercaria",
+    "emptyTitle": "Mercaria скоро откроется",
+    "emptySubtitle": "Покупайте и продавайте новые вещи и товары с рук — объявления появятся здесь."
+  },
+  "nav": {
+    "home": "Главная",
+    "settings": "Настройки"
+  },
+  "login": {
+    "title": "Вход или регистрация",
+    "subtitle": "чтобы продолжить в Mercaria",
+    "emailPlaceholder": "Эл. почта",
+    "passwordPlaceholder": "Пароль",
+    "forgotPassword": "Забыли пароль?",
+    "signInButton": "Войти",
+    "signingIn": "Выполняется вход...",
+    "footerText": "Нет аккаунта?",
+    "footerLink": "Зарегистрироваться",
+    "termsPrefix": "Продолжая, вы принимаете ",
+    "termsOfService": "Условия использования Mercaria",
+    "termsAnd": " и ",
+    "privacyPolicy": "Политику конфиденциальности"
+  },
+  "register": {
+    "title": "Создать аккаунт Oxy",
+    "subtitle": "Зарегистрируйтесь, чтобы начать пользоваться Mercaria",
+    "firstNamePlaceholder": "Имя",
+    "lastNamePlaceholder": "Фамилия (необязательно)",
+    "emailPlaceholder": "Эл. почта",
+    "passwordPlaceholder": "Пароль (не менее 8 символов)",
+    "confirmPasswordPlaceholder": "Подтвердите пароль",
+    "createAccountButton": "Продолжить",
+    "creatingAccount": "Создание аккаунта...",
+    "footerText": "Уже есть аккаунт?",
+    "footerLink": "Войти",
+    "termsPrefix": "Продолжая, вы принимаете ",
+    "termsOfService": "Условия использования Oxy",
+    "termsAnd": " и ",
+    "privacyPolicy": "Политику конфиденциальности"
+  },
+  "errors": {
+    "passwordRequired": "Введите пароль",
+    "loginFailed": "Не удалось войти",
+    "loginError": "Ошибка входа",
+    "failedToLogin": "Не удалось войти. Попробуйте ещё раз.",
+    "registrationError": "Ошибка регистрации",
+    "registrationFailed": "Регистрация не удалась",
+    "failedToRegister": "Не удалось зарегистрироваться. Попробуйте ещё раз."
+  },
+  "settings": {
+    "title": "Настройки",
+    "subtitle": "Управляйте настройками Mercaria",
+    "account": {
+      "title": "Настройки аккаунта",
+      "description": "Управление аккаунтом"
+    },
+    "appLanguage": {
+      "title": "Язык приложения",
+      "description": "Измените язык интерфейса"
+    },
+    "appearance": {
+      "title": "Оформление",
+      "description": "Выберите подходящую цветовую схему",
+      "light": "Светлая",
+      "dark": "Тёмная",
+      "system": "Как в системе"
+    },
+    "accentColor": {
+      "title": "Цвет приложения"
+    },
+    "sections": {
+      "account": "Аккаунт",
+      "general": "Основные",
+      "orders": "Заказы",
+      "addresses": "Адреса",
+      "feedback": "Отзывы",
+      "watchlists": "Списки отслеживания",
+      "shoppingAgents": "Помощники по покупкам",
+      "referralPartner": "Реферальная программа"
+    }
+  },
+  "sidebar": {
+    "account": "Аккаунт",
+    "settings": "Настройки",
+    "logOut": "Выйти",
+    "termsOfService": "Условия использования",
+    "privacyPolicy": "Политика конфиденциальности"
+  },
+  "feedback": {
+    "title": "Отправить отзыв",
+    "subtitle": "Помогите нам сделать Mercaria лучше",
+    "typeQuestion": "Какой это отзыв?",
+    "bugReport": "Сообщение об ошибке",
+    "bugDescription": "Что-то сломалось или не работает",
+    "featureRequest": "Предложение функции",
+    "featureDescription": "Предложите новую возможность",
+    "improvement": "Улучшение",
+    "improvementDescription": "Улучшить то, что уже есть",
+    "other": "Другое",
+    "otherDescription": "Общие замечания или комментарии",
+    "rateExperience": "Как вы оцениваете свой опыт? (Необязательно)",
+    "veryPoor": "Очень плохо",
+    "poor": "Плохо",
+    "average": "Нормально",
+    "good": "Хорошо",
+    "excellent": "Отлично",
+    "yourFeedback": "Ваш отзыв",
+    "bugPlaceholder": "Опишите ошибку, с которой вы столкнулись. Что произошло? Чего вы ожидали?",
+    "featurePlaceholder": "Опишите функцию, которую хотели бы увидеть. Чем она была бы вам полезна?",
+    "improvementPlaceholder": "Что мы могли бы улучшить? Как сделать это лучше?",
+    "otherPlaceholder": "Поделитесь с нами своими мыслями...",
+    "characterCount": "{{count}}/1000 символов",
+    "submitButton": "Отправить отзыв",
+    "submitting": "Отправка...",
+    "footerText": "Ваши отзывы помогают нам улучшать Mercaria. Спасибо, что нашли время поделиться ими.",
+    "selectType": "Выберите тип отзыва",
+    "enterMessage": "Напишите текст отзыва",
+    "moreDetails": "Опишите подробнее (не менее 10 символов)",
+    "thankYou": "Спасибо за ваш отзыв!",
+    "submitFailed": "Не удалось отправить отзыв"
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "subtitle": "Управляйте настройками уведомлений",
+    "pushNotifications": "Push-уведомления",
+    "pushDescription": "Получайте оповещения о новых сообщениях и обновлениях",
+    "permissionDenied": "Уведомления заблокированы. Включите их в настройках устройства, чтобы получать push-уведомления."
+  },
+  "welcome": {
+    "appName": "Mercaria"
+  }
+}
