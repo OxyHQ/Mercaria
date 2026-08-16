@@ -184,12 +184,18 @@ export interface NewOrderStatusEvent {
   note?: string;
 }
 
-/** One discount's contribution as a caller supplies it (SHOP-currency `Money`). */
+/**
+ * One discount's contribution as a caller supplies it (SHOP-currency `Money`).
+ *
+ * `valueType` is OPTIONAL because the column is nullable: Mercaria's pricing
+ * engine always states one, a connector import states it only when the source
+ * platform did (#378).
+ */
 export interface NewOrderAppliedDiscount {
   discountId: string;
   code?: string;
   title: string;
-  valueType: OrderAppliedDiscountRow['valueType'];
+  valueType?: NonNullable<OrderAppliedDiscountRow['valueType']>;
   amount: Money;
   target: 'order' | 'line';
   targetLineIndex?: number;
@@ -198,7 +204,8 @@ export interface NewOrderAppliedDiscount {
 /** One applied tax rate's contribution as a caller supplies it. */
 export interface NewOrderTaxLine {
   name: string;
-  rateBps: number;
+  /** Absent when the source never stated a rate — never defaulted to zero (#378). */
+  rateBps?: number;
   amount: Money;
 }
 
@@ -1271,7 +1278,7 @@ async function insertOrderChildren(
         discountId: allocation.discountId,
         code: allocation.code ?? null,
         title: allocation.title,
-        valueType: allocation.valueType,
+        valueType: allocation.valueType ?? null,
         amountAmount: allocation.amount.amount,
         amountCurrency: allocation.amount.currency,
         target: allocation.target,
@@ -1286,7 +1293,7 @@ async function insertOrderChildren(
       input.taxLines.map((line, position) => ({
         orderId,
         name: line.name,
-        rateBps: line.rateBps,
+        rateBps: line.rateBps ?? null,
         amountAmount: line.amount.amount,
         amountCurrency: line.amount.currency,
         position,

@@ -30,7 +30,7 @@ import type { CommercialPresentation, RetailOrderExperience } from './commercial
 import type { Seller } from './seller';
 import type { StoreSummary } from './product';
 import type { Timestamps } from './common';
-import type { DiscountAllocation } from './discount';
+import type { DiscountAllocation, DiscountValueType } from './discount';
 import type { TaxLine } from './tax';
 import type { ConnectorProviderId } from './integration';
 import type { OrderItemConditionSnapshot } from './condition';
@@ -292,6 +292,39 @@ export interface OrderStatusEvent {
 }
 
 /**
+ * One discount's contribution to a PLACED order.
+ *
+ * Identical to a `DiscountAllocation` except that `valueType` is OPTIONAL, and
+ * that is the whole difference between a discount Mercaria applied and one it
+ * imported. Mercaria's own pricing engine knows the value type because it read
+ * the `Discount` row; a connector reads somebody else's order, and a platform
+ * that reports the money a coupon removed without reporting whether the coupon
+ * was a percentage or a fixed amount leaves the field genuinely unknown.
+ * Recording `fixed_amount` there would be a false snapshot of somebody else's
+ * shop, so it is stored as ABSENT — never as a default and never as zero.
+ *
+ * `DiscountAllocation` is assignable to this, so the pricing engine, checkout
+ * and draft orders are unaffected; only the connector import can produce a row
+ * without a value type.
+ */
+export interface OrderDiscountAllocation extends Omit<DiscountAllocation, 'valueType'> {
+  /** The discount's value type at apply time; absent when the source never stated one. */
+  valueType?: DiscountValueType;
+}
+
+/**
+ * One tax rate's contribution to a PLACED order — a `TaxLine` whose `rateBps` is
+ * OPTIONAL, for the reason `OrderDiscountAllocation.valueType` is: a platform
+ * can report the tax a rate collected without reporting the rate itself, and a
+ * line claiming "0 bps produced 4.00" is a worse record than one that says the
+ * rate is unknown.
+ */
+export interface OrderTaxLine extends Omit<TaxLine, 'rateBps'> {
+  /** The rate in basis points at apply time; absent when the source never stated one. */
+  rateBps?: number;
+}
+
+/**
  * A placed order — one seller's portion of a checkout. `seller` (P2P) or `store`
  * (store) is hydrated for display; `checkoutGroupId` ties together the sibling
  * orders created from the same multi-seller cart.
@@ -389,12 +422,12 @@ export interface Order extends Timestamps {
    * Per-discount breakdown of every reduction applied (empty when none). Amounts
    * are in the order's SHOP currency (the merchant accounting / refund basis).
    */
-  appliedDiscounts?: DiscountAllocation[];
+  appliedDiscounts?: OrderDiscountAllocation[];
   /**
    * Per-rate tax breakdown (empty when none). Amounts are in the order's SHOP
    * currency (the merchant accounting / refund basis).
    */
-  taxLines?: TaxLine[];
+  taxLines?: OrderTaxLine[];
   /** Current lifecycle status. */
   status: OrderStatus;
   /** Audit trail of every status transition. */

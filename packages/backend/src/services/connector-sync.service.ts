@@ -125,8 +125,10 @@ import {
   nextOrderNumber,
   updateOrderFromSource,
   type NewOrder,
+  type NewOrderAppliedDiscount,
   type NewOrderItem,
   type NewOrderSource,
+  type NewOrderTaxLine,
 } from '../db/orders/orderRepository.js';
 import {
   findListingById,
@@ -3323,6 +3325,41 @@ function toOrderItems(conn: ConnectionRow, order: NormalizedOrder): NewOrderItem
 }
 
 /**
+ * Map the platform's per-discount breakdown to persisted allocations.
+ *
+ * Every allocation is `target: 'order'`. Mercaria's target set is
+ * `'order' | 'line'` and `targetLineIndex` is an index into THIS order's own
+ * lines, so a line target would mean re-deriving Mercaria's line ordering from
+ * the platform's allocation records — a mapping neither platform states, whose
+ * failure mode is a discount silently attributed to the wrong item. An
+ * order-targeted allocation says what the platform actually published: this
+ * discount removed this much from this order. It is also the only shape a
+ * SHIPPING discount can take, since Mercaria has no shipping target.
+ *
+ * `valueType` is written only when the platform stated one — never defaulted
+ * (see `OrderDiscountAllocation`).
+ */
+function toAppliedDiscounts(order: NormalizedOrder): NewOrderAppliedDiscount[] {
+  return order.discounts.map((discount) => ({
+    discountId: discount.externalId,
+    title: discount.title,
+    amount: discount.amount,
+    target: 'order' as const,
+    ...(discount.code === undefined ? {} : { code: discount.code }),
+    ...(discount.valueType === undefined ? {} : { valueType: discount.valueType }),
+  }));
+}
+
+/** Map the platform's per-rate tax breakdown to persisted tax lines, verbatim. */
+function toOrderTaxLines(order: NormalizedOrder): NewOrderTaxLine[] {
+  return order.taxLines.map((line) => ({
+    name: line.name,
+    amount: line.amount,
+    ...(line.rateBps === undefined ? {} : { rateBps: line.rateBps }),
+  }));
+}
+
+/**
  * Build the full persisted order document for a first-time import of an external
  * order. Store order (`sellerType: 'store'`), stamped with `source` provenance; the
  * buyer id is synthetic (an external order has no Oxy user), the payment provider is
@@ -3357,8 +3394,14 @@ function buildExternalOrderDoc(
       order.shippingAddress,
       order.customer?.name ?? 'External customer',
     ),
+    // The METHOD stays `standard` and the LABEL carries the platform's own text.
+    // `SHIPPING_METHODS` is Mercaria's closed set (`standard|express|pickup`) and
+    // no platform publishes a value from it — mapping "Express (2 days)" or
+    // "Recogida en tienda" onto a member would be a guess about somebody else's
+    // shop, and the one that lands on `pickup` changes how the order is
+    // fulfilled. The label is the part a merchant reads.
     shippingMethod: 'standard',
-    shippingLabel: 'Shipping',
+    shippingLabel: order.shippingLabel ?? 'Shipping',
     shippingCost: order.totals.shipping,
     totals: {
       subtotal: order.totals.subtotal,
@@ -3367,8 +3410,8 @@ function buildExternalOrderDoc(
       tax: order.totals.tax,
       grandTotal: order.totals.grandTotal,
     },
-    appliedDiscounts: [],
-    taxLines: [],
+    appliedDiscounts: toAppliedDiscounts(order),
+    taxLines: toOrderTaxLines(order),
     status: order.status,
     // A connector import is the SYSTEM: the transition happened on another
     // platform and Mercaria is recording it, so there is no Mercaria actor to
@@ -3405,6 +3448,20 @@ async function upsertExternalOrder(conn: ConnectionRow, order: NormalizedOrder):
   const existing = await findOrderBySourceExternalId(conn.storeId, connectionId, order.externalId);
 
   if (existing) {
+    // A re-sync still refreshes only the three mutable fields, and the discount
+    // and tax BREAKDOWN is deliberately not among them — it is carried on a
+    // first import and never backfilled onto an order that already exists.
+    //
+    // An order's totals are frozen at import (`insertOrder` is their only
+    // writer). A platform order is editable afterwards — Shopify order edits,
+    // a WooCommerce admin changing a coupon — so a breakdown taken from TODAY's
+    // payload and written beside totals frozen from THEN would be one financial
+    // record whose halves come from two different moments, which is worse than
+    // an absent breakdown. Nothing reads these rows for money either
+    // (`refund.service` computes against the order's lines and totals), so an
+    // older order keeps reconciling exactly as it always has and only loses the
+    // display. Re-importing an order with fresh totals is a different act,
+    // because it MOVES an order's money, and it belongs to its own issue.
     const changed = existing.status !== order.status;
     await updateOrderFromSource(existing.id, {
       status: order.status,

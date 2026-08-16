@@ -95,6 +95,43 @@ export interface ContractOrderLine {
   readonly unitPrice: string;
 }
 
+/**
+ * One discount the fake platform applied to an order, in MAJOR units.
+ *
+ * `valueType` is OPTIONAL because the two platforms differ on whether they say:
+ * Shopify publishes `value_type` on every discount application, and a
+ * WooCommerce order coupon line is a code and an amount. A harness renders what
+ * its own platform would carry and drops the rest, so a case can assert the
+ * DIFFERENCE rather than a lowest common denominator.
+ */
+export interface ContractOrderDiscount {
+  /** The code the buyer redeemed; absent for an automatic discount. */
+  readonly code?: string;
+  /** The discount's display title on the platform. */
+  readonly title: string;
+  /** The platform's own value type, when the platform states one. */
+  readonly valueType?: 'fixed_amount' | 'percentage';
+  /** Money removed, in MAJOR units. */
+  readonly amount: string;
+  /**
+   * The platform applied this to the SHIPPING line rather than to the items.
+   *
+   * Shopify leaves such a discount OUT of `total_discounts`, so an order
+   * carrying one has a breakdown that legitimately exceeds its own carried
+   * discount total — the mismatch case, arriving the way it actually arrives.
+   */
+  readonly targetsShipping?: boolean;
+}
+
+/** One tax rate's contribution on the fake platform, in MAJOR units. */
+export interface ContractOrderTaxLine {
+  readonly name: string;
+  /** The rate in BASIS POINTS (800 = 8%); absent when the platform states none. */
+  readonly rateBps?: number;
+  /** The tax this rate collected, in MAJOR units. */
+  readonly amount: string;
+}
+
 /** An order on the fake platform, with every money in MAJOR units. */
 export interface ContractOrder {
   readonly externalId: string;
@@ -111,6 +148,12 @@ export interface ContractOrder {
   readonly tax: string;
   readonly shipping: string;
   readonly grandTotal: string;
+  /** The per-discount breakdown the platform publishes; empty when it publishes none. */
+  readonly discounts: readonly ContractOrderDiscount[];
+  /** The per-rate tax breakdown the platform publishes. */
+  readonly taxLines: readonly ContractOrderTaxLine[];
+  /** The platform's own name for the shipping method, when it names one. */
+  readonly shippingLabel?: string;
   readonly customer?: {
     readonly externalId: string;
     readonly email: string;
@@ -383,7 +426,15 @@ const PRODUCT_TEMPLATES: readonly ContractProduct[] = [
   },
 ];
 
-/** The order-book template. Two orders, so a per-order case can NAME one. */
+/**
+ * The order-book template. Three orders, so a per-order case can NAME one.
+ *
+ * The first two carry NO breakdown, which is not laziness: a platform reporting
+ * a tax total and itemizing nothing is the ordinary case, and keeping them as
+ * they were is what makes every pre-existing order assertion in the suite
+ * unchanged evidence that #378 is additive. The third is the one with a
+ * discount, two tax rates and a named shipping method.
+ */
 const ORDER_TEMPLATES: readonly ContractOrder[] = [
   {
     externalId: '5001',
@@ -408,6 +459,8 @@ const ORDER_TEMPLATES: readonly ContractOrder[] = [
     tax: '4.00',
     shipping: '5.00',
     grandTotal: '48.98',
+    discounts: [],
+    taxLines: [],
     customer: {
       externalId: '9001',
       email: 'buyer@example.test',
@@ -445,6 +498,75 @@ const ORDER_TEMPLATES: readonly ContractOrder[] = [
     tax: '0.90',
     shipping: '3.00',
     grandTotal: '12.90',
+    discounts: [],
+    taxLines: [],
+  },
+  {
+    externalId: '5003',
+    number: '#1003',
+    createdAt: '2026-08-05T09:00:00Z',
+    updatedAt: '2026-08-05T09:00:00Z',
+    financialStatus: 'paid',
+    fulfillmentStatus: null,
+    // TWO lines, so a Shopify discount is spread across two allocations and the
+    // provider has to SUM them. Shopify states a discount's money only in the
+    // per-line allocations, so a single-line order cannot tell "sums the
+    // allocations" apart from "reads the first one".
+    lines: [
+      {
+        externalProductId: '1001',
+        externalVariantId: '2001',
+        title: 'Contract tee',
+        variantTitle: 'S',
+        sku: 'TEE-S',
+        quantity: 1,
+        unitPrice: '19.99',
+      },
+      {
+        externalProductId: '1002',
+        externalVariantId: '2003',
+        title: 'Contract mug',
+        variantTitle: '',
+        sku: 'MUG',
+        quantity: 1,
+        unitPrice: '9.00',
+      },
+    ],
+    subtotal: '28.99',
+    discountTotal: '4.00',
+    tax: '1.60',
+    shipping: '5.00',
+    // 28.99 - 4.00 + 1.60 + 5.00. The breakdown below RECONCILES with each of
+    // these; the case that does not is arranged per-test, because a mismatch is
+    // a platform's arithmetic rather than a permanent property of a shop.
+    grandTotal: '31.59',
+    discounts: [
+      { code: 'CONTRACT10', title: 'CONTRACT10', valueType: 'fixed_amount', amount: '4.00' },
+    ],
+    // TWO rates summing to the carried tax total, so the breakdown cannot be
+    // satisfied by copying the total into one line.
+    // The second rate states NO percentage, which both platforms genuinely do —
+    // WooCommerce added `rate_percent` in 3.7 and older sites omit it, and
+    // Shopify's `rate` is not guaranteed on every line. It must land as NULL and
+    // never as a zero claiming a 0% rate collected 0.32.
+    taxLines: [
+      { name: 'VAT', rateBps: 800, amount: '1.28' },
+      { name: 'City tax', amount: '0.32' },
+    ],
+    shippingLabel: 'Express (2 days)',
+    customer: {
+      externalId: '9002',
+      email: 'second@example.test',
+      firstName: 'Grace',
+      lastName: 'Hopper',
+    },
+    shippingAddress: {
+      name: 'Grace Hopper',
+      line1: '2 Compiler Row',
+      city: 'London',
+      postalCode: 'W1A 2BB',
+      countryCode: 'GB',
+    },
   },
 ];
 

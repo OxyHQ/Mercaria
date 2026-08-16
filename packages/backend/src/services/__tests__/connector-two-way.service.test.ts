@@ -389,6 +389,19 @@ function normalizedOrder(): NormalizedOrder {
       shipping: { shop: { amount: 0, currency: 'USD' }, presentment: { amount: 0, currency: 'EUR' } },
       grandTotal: { shop: { amount: 3900, currency: 'USD' }, presentment: { amount: 3510, currency: 'EUR' } },
     },
+    // The breakdown lines are SINGLE-currency SHOP amounts while the totals
+    // above are `DualMoney` — the contract this fixture exists to exercise.
+    discounts: [
+      {
+        externalId: 'ext:shopify:discount_application:0',
+        code: 'WELCOME5',
+        title: 'WELCOME5',
+        valueType: 'fixed_amount',
+        amount: { amount: 500, currency: 'USD' },
+      },
+    ],
+    taxLines: [{ name: 'State Tax', rateBps: 1000, amount: { amount: 400, currency: 'USD' } }],
+    shippingLabel: 'Standard Shipping',
     customer: { externalId: '7', email: 'buyer@example.com', name: 'Ada Lovelace' },
     shippingAddress: {
       recipientName: 'Ada Lovelace',

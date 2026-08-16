@@ -60,7 +60,9 @@ import type {
   NormalizedInventoryLevel,
   NormalizedOrder,
   NormalizedOrderCustomer,
+  NormalizedOrderDiscount,
   NormalizedOrderLine,
+  NormalizedOrderTaxLine,
   NormalizedProduct,
   NormalizedVariant,
   PlatformWebhookSubscription,
@@ -76,6 +78,8 @@ import { parseZonelessUtcTimestamp } from '../timestamps.js';
 import { REGISTERED_WEBHOOK_TOPICS } from './webhook.js';
 import { wooCommerceTransport, type WooCommerceHttpResponse, type WooCommerceTransport } from './http.js';
 
+/** This provider's id — one spelling, read by the provider object and by order provenance. */
+const PROVIDER_ID = 'woocommerce';
 /** Max products/variations/orders per page (the value the pull requests). */
 const PAGE_LIMIT = 100;
 /** The publish states of products the pull imports (drafts/private are skipped). */
@@ -596,6 +600,47 @@ const wooOrderAddressSchema = z.object({
 /** One refund entry on an order (its presence marks a partial/full refund). */
 const wooRefundSchema = z.object({ total: z.string().nullable().optional() });
 
+/**
+ * One coupon applied to a WooCommerce order.
+ *
+ * `discount` is EX-TAX, which is what `discount_total` is too, so the breakdown
+ * and the carried discount total are the same basis. `discount_tax` is
+ * deliberately NOT added into it: folding the tax a coupon removed into the
+ * discount line would make the breakdown overshoot the total it explains.
+ *
+ * WooCommerce does NOT report the coupon's TYPE here — an order coupon line is
+ * a code and an amount — so an imported WooCommerce discount carries no
+ * `valueType`. That is a real gap, and closing it means reading a real store's
+ * `meta_data` to learn the shape WooCommerce actually publishes there rather
+ * than guessing at one (`docs/runbooks/connector-real-store-verification.md`).
+ */
+const wooCouponLineSchema = z.object({
+  id: z.union([z.number(), z.string()]).nullable().optional(),
+  code: z.string().nullable().optional(),
+  discount: z.string().nullable().optional(),
+});
+
+/**
+ * One tax rate's contribution to a WooCommerce order. `rate_percent` is a
+ * PERCENTAGE (`21` = 21%), and WooCommerce splits a rate's take between the
+ * items (`tax_total`) and the shipping (`shipping_tax_total`) — the order's
+ * `total_tax` is the sum of BOTH, so the breakdown adds both to stay on the same
+ * basis as the total it explains.
+ */
+const wooTaxLineSchema = z.object({
+  label: z.string().nullable().optional(),
+  rate_code: z.string().nullable().optional(),
+  rate_percent: z.union([z.number(), z.string()]).nullable().optional(),
+  tax_total: z.string().nullable().optional(),
+  shipping_tax_total: z.string().nullable().optional(),
+});
+
+/** One shipping method on a WooCommerce order — the source of the human shipping LABEL. */
+const wooShippingLineSchema = z.object({
+  method_title: z.string().nullable().optional(),
+  method_id: z.string().nullable().optional(),
+});
+
 /** A WooCommerce order (`GET /orders`). */
 const wooOrderSchema = z.object({
   id: z.union([z.number(), z.string()]),
@@ -612,6 +657,16 @@ const wooOrderSchema = z.object({
   billing: wooOrderAddressSchema.nullable().optional(),
   shipping: wooOrderAddressSchema.nullable().optional(),
   line_items: z.array(wooOrderLineSchema).default([]),
+  // `fee_lines` is deliberately NOT read. A WooCommerce fee ADDS to the order
+  // total, and Mercaria's order model has no slot for one — the five totals are
+  // subtotal, discount, tax, shipping and grand total. Reading a fee into
+  // `appliedDiscounts` would record an addition as a reduction, which is worse
+  // than not carrying it; and a negative fee (which some plugins use to express
+  // a discount) is still a fee, so telling the two apart would be a guess about
+  // somebody else's shop. The fee is already inside the carried `total`.
+  coupon_lines: z.array(wooCouponLineSchema).default([]),
+  tax_lines: z.array(wooTaxLineSchema).default([]),
+  shipping_lines: z.array(wooShippingLineSchema).default([]),
   refunds: z.array(wooRefundSchema).default([]),
 });
 
@@ -713,6 +768,61 @@ function toOrderLine(line: WooOrderLine, currency: CurrencyCode): NormalizedOrde
   return result;
 }
 
+/** A WooCommerce decimal field that may be null/blank, in minor units of `currency`. */
+function wooMinor(value: string | null | undefined, currency: CurrencyCode): number {
+  const raw = value?.trim();
+  return decimalStringToMinor(raw !== undefined && raw !== '' ? raw : '0', currency);
+}
+
+/**
+ * The per-coupon breakdown of a WooCommerce order, in SHOP currency — carried
+ * verbatim, with no `valueType` (see `wooCouponLineSchema`) and no reconciliation
+ * against `discount_total` (see `NormalizedOrder.discounts`).
+ */
+function wooDiscountBreakdown(order: WooOrder, currency: CurrencyCode): NormalizedOrderDiscount[] {
+  return order.coupon_lines.map((coupon, index) => {
+    const code = coupon.code?.trim();
+    const discount: NormalizedOrderDiscount = {
+      // The coupon LINE's own id when WooCommerce gives one, else the position:
+      // provenance on the source platform, never a Mercaria discount id.
+      externalId: `ext:${PROVIDER_ID}:coupon:${coupon.id != null ? String(coupon.id) : String(index)}`,
+      title: code !== undefined && code !== '' ? code : `Coupon ${index + 1}`,
+      amount: { amount: wooMinor(coupon.discount, currency), currency },
+    };
+    if (code !== undefined && code !== '') {
+      discount.code = code;
+    }
+    return discount;
+  });
+}
+
+/**
+ * The per-rate tax breakdown of a WooCommerce order, in SHOP currency.
+ *
+ * `rate_percent` is a percentage, so basis points are it times 100. It is
+ * ABSENT on older WooCommerce versions, and an absent rate stays absent rather
+ * than becoming a zero that claims a 0% rate collected the money.
+ */
+function wooTaxBreakdown(order: WooOrder, currency: CurrencyCode): NormalizedOrderTaxLine[] {
+  return order.tax_lines.map((line, index) => {
+    const label = line.label?.trim() ?? '';
+    const rateCode = line.rate_code?.trim() ?? '';
+    const taxLine: NormalizedOrderTaxLine = {
+      name: label !== '' ? label : rateCode !== '' ? rateCode : `Tax ${index + 1}`,
+      amount: {
+        amount: wooMinor(line.tax_total, currency) + wooMinor(line.shipping_tax_total, currency),
+        currency,
+      },
+    };
+    const percent =
+      typeof line.rate_percent === 'string' ? Number(line.rate_percent) : line.rate_percent;
+    if (typeof percent === 'number' && Number.isFinite(percent) && percent >= 0) {
+      taxLine.rateBps = Math.round(percent * 100);
+    }
+    return taxLine;
+  });
+}
+
 /** Map the order's customer (skips the guest `customer_id: 0`), when present. */
 function mapWooCustomer(order: WooOrder): NormalizedOrderCustomer | undefined {
   const customer: NormalizedOrderCustomer = {};
@@ -810,9 +920,21 @@ export function normalizeWooCommerceOrder(raw: unknown, shopCurrency: CurrencyCo
     presentmentCurrency: currency,
     lines,
     totals,
+    discounts: wooDiscountBreakdown(order, currency),
+    taxLines: wooTaxBreakdown(order, currency),
   };
   if (order.number != null && String(order.number).trim() !== '') {
     normalized.externalNumber = String(order.number);
+  }
+  // `method_title` is what the buyer chose ("Flat rate"); `method_id` is the
+  // WooCommerce shipping-method slug behind it.
+  const shippingLabel = (
+    order.shipping_lines[0]?.method_title ??
+    order.shipping_lines[0]?.method_id ??
+    ''
+  ).trim();
+  if (shippingLabel !== '') {
+    normalized.shippingLabel = shippingLabel;
   }
   // The `*_gmt` reading rule, on the order path — see `normalizeParsed` above.
   const updatedAt = parseZonelessUtcTimestamp(order.date_modified_gmt ?? order.date_created_gmt);
@@ -1166,7 +1288,7 @@ export function createWooCommerceProvider(
   }
 
   return {
-    id: 'woocommerce',
+    id: PROVIDER_ID,
     credentialStrategy: 'api_key',
     // WooCommerce signs webhooks with a per-webhook `secret` (not one app-wide secret),
     // so a fresh secret is minted per connection and set on every webhook (see

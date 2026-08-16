@@ -1,0 +1,22 @@
+-- oxy:deploy-phase=pre
+--
+-- #378: an imported order's discount and tax BREAKDOWN.
+--
+-- Both statements WIDEN. The serving image writes a value into each column on
+-- every row it creates (Mercaria's pricing engine reads the `Discount` and
+-- `TaxRate` rows, so it always knows both), so neither breaks a write the
+-- previous image performs — which is what puts them in `pre` rather than `post`.
+--
+-- What they admit is the connector import: a platform can report the money a
+-- coupon removed without reporting whether the coupon was a percentage or a
+-- fixed amount, and can report what a tax rate collected without reporting the
+-- rate. NULL is how this schema says unknown. The alternative was a default,
+-- which would be a false snapshot of somebody else's shop stored as fact.
+--
+-- The value-type CHECK is untouched and stays exactly as tight as
+-- `discounts_value_type_check`: `in (...)` over NULL is NULL, which a CHECK
+-- accepts, so every non-null value outside `DISCOUNT_VALUE_TYPES` is still
+-- refused. The tuple was deliberately NOT widened with an "unknown" member,
+-- because that member would also become creatable on the `discounts` table.
+ALTER TABLE "order_applied_discounts" ALTER COLUMN "value_type" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "order_tax_lines" ALTER COLUMN "rate_bps" DROP NOT NULL;

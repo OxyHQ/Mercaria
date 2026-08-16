@@ -18,6 +18,7 @@ import type {
   ConnectorProviderId,
   ConnectorWebhookFailureReason,
   CurrencyCode,
+  DiscountValueType,
   DualMoney,
   FxRateSnapshot,
   Money,
@@ -508,6 +509,52 @@ export interface NormalizedOrderLine {
   sku?: string;
 }
 
+/**
+ * ONE discount the source platform reported against an order.
+ *
+ * `amount` is a SINGLE-currency SHOP `Money`, not a `DualMoney`, because that is
+ * what `Order.appliedDiscounts` is by contract (AGENTS.md §Currency: the
+ * breakdown lines are the merchant accounting and refund basis while the totals
+ * are `DualMoney`). Widening one into the other is the mistake this comment
+ * exists to prevent.
+ *
+ * Everything here is the platform's own statement, carried verbatim. Nothing is
+ * scaled, reconciled against the order's discount total, or defaulted — see
+ * `NormalizedOrder.discounts`.
+ */
+export interface NormalizedOrderDiscount {
+  /**
+   * Provenance on the SOURCE platform, `ext:<provider>:<what the platform gave>`.
+   *
+   * It lands in `order_applied_discounts.discount_id`, which carries no foreign
+   * key precisely because it is historical provenance. The `ext:` prefix is what
+   * makes it unmistakable for a Mercaria discount id, which is a bare
+   * `generatedId()` and contains no colon.
+   */
+  externalId: string;
+  /** The code the buyer redeemed, when the platform reports one. */
+  code?: string;
+  /** The discount's display title on the platform. */
+  title: string;
+  /** The platform's own value type — ABSENT when the platform does not state one. */
+  valueType?: DiscountValueType;
+  /** The money this discount removed, in the SHOP currency. */
+  amount: Money;
+}
+
+/**
+ * ONE tax rate's contribution the source platform reported. `amount` is a
+ * SINGLE-currency SHOP `Money`, for `NormalizedOrderDiscount`'s reason.
+ */
+export interface NormalizedOrderTaxLine {
+  /** The rate's name/label on the platform. */
+  name: string;
+  /** The rate in basis points — ABSENT when the platform does not state one. */
+  rateBps?: number;
+  /** The tax this rate collected, in the SHOP currency. */
+  amount: Money;
+}
+
 /** The buyer/customer attached to a pulled order, when the platform provides one. */
 export interface NormalizedOrderCustomer {
   /** The platform's customer id, when provided. */
@@ -555,6 +602,34 @@ export interface NormalizedOrder {
     shipping: DualMoney;
     grandTotal: DualMoney;
   };
+  /**
+   * The per-discount breakdown the platform published, in SHOP currency. Empty
+   * when the platform reported none.
+   *
+   * ## It is NOT reconciled against `totals.discountTotal`, deliberately
+   *
+   * Both are the platform's own statements and Mercaria carries each verbatim
+   * (AGENTS.md §Currency: "external connector orders keep the source platform's
+   * amounts verbatim"). They can legitimately disagree — Shopify's
+   * `total_discounts` excludes a discount that targeted a shipping line, so any
+   * free-shipping code makes the sum of the breakdown EXCEED the carried total —
+   * so nothing here scales a line to fit, invents a balancing line, drops the
+   * lines that overflow, or refuses the import. A mismatch is the platform's
+   * arithmetic and it is stored as it arrived.
+   */
+  discounts: NormalizedOrderDiscount[];
+  /** The per-rate tax breakdown the platform published, in SHOP currency. */
+  taxLines: NormalizedOrderTaxLine[];
+  /**
+   * The platform's own name for the shipping method the buyer chose (e.g.
+   * `Express (2 days)`), when it names one.
+   *
+   * It is a LABEL and never a method: `Order.shipping.method` is Mercaria's
+   * closed `SHIPPING_METHODS` set, and mapping arbitrary carrier text onto
+   * `express`/`pickup` would be a guess about somebody else's shop with no way
+   * to be right.
+   */
+  shippingLabel?: string;
   /** The buyer/customer, when the platform provides one. */
   customer?: NormalizedOrderCustomer;
   /** The shipping destination, when the platform provides a usable address. */

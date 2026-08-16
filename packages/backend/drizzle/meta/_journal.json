@@ -610,6 +610,13 @@
       "when": 1786857026018,
       "tag": "0086_clever_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1786885897899,
+      "tag": "0087_eager_black_panther",
+      "breakpoints": true
     }
   ]
 }

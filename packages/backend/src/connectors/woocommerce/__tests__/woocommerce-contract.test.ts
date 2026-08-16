@@ -241,6 +241,32 @@ function wooOrderJson(order: ContractOrder, currency: string): Record<string, un
       sku: line.sku ?? null,
       meta_data: [],
     })),
+    // A WooCommerce order coupon line is a CODE and an AMOUNT: the coupon's own
+    // type is not part of the order payload, which is why an imported
+    // WooCommerce discount carries no `valueType` where a Shopify one does.
+    // `discount` is ex-tax, matching `discount_total`.
+    coupon_lines: order.discounts.map((discount, index) => ({
+      id: 900 + index,
+      code: discount.code ?? discount.title,
+      discount: discount.amount,
+      discount_tax: '0.00',
+    })),
+    // WooCommerce splits a rate's take between the items and the shipping, and
+    // `total_tax` is the sum of both. The fixture states one figure per rate, so
+    // it renders as the item half with a zero shipping half.
+    tax_lines: order.taxLines.map((line, index) => ({
+      id: 800 + index,
+      rate_code: line.name.toUpperCase().replace(/\s+/g, '-'),
+      label: line.name,
+      // `rate_percent` is a PERCENTAGE, so basis points divided by 100.
+      rate_percent: line.rateBps === undefined ? null : line.rateBps / 100,
+      tax_total: line.amount,
+      shipping_tax_total: '0.00',
+    })),
+    shipping_lines:
+      order.shippingLabel === undefined
+        ? []
+        : [{ id: 700, method_title: order.shippingLabel, method_id: 'flat_rate', total: order.shipping }],
     refunds: [],
   };
 }
@@ -432,6 +458,10 @@ describeConnectorContract({
   // none and its normalizer produces none — there is nothing here to re-sync
   // (#381). The suite measures that branch rather than skipping it.
   reportsVariantBarcode: false,
+  // A WooCommerce order coupon line is a CODE and an AMOUNT — the coupon's own
+  // `discount_type` is not part of the order payload — so an imported
+  // WooCommerce discount must carry NO value type rather than a plausible one.
+  publishesDiscountValueType: false,
   // A `product.*` delivery carries `variations` as IDS, so completing it means
   // fetching `/products/{id}/variations` (#220).
   webhookExpansionPathFragment: '/variations',
