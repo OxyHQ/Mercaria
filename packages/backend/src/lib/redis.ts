@@ -210,6 +210,52 @@ export function withRedisTimeout<T>(promise: Promise<T>, ms = REDIS_TIMEOUT_MS):
 }
 
 /**
+ * What the health snapshot may say about Redis.
+ *
+ * THREE values, where the field it feeds had two, because "nobody configured
+ * Redis" and "Redis is down" are different operational facts that call for
+ * opposite responses — and the old two-value field could express only the
+ * first. `getRedisClient()` returns non-null the moment `REDIS_URL` parses and
+ * STAYS non-null after `retryStrategy` gives up for good, so an existence test
+ * reported `connected` for a permanently dead client and `unavailable` could
+ * only ever mean "unset or unparseable".
+ */
+export type RedisHealth = 'connected' | 'unreachable' | 'not_configured';
+
+/**
+ * Whether Redis answers a command right now.
+ *
+ * A real round trip, not a `client !== null` flag — the `checkPostgresHealth`
+ * contract, applied to the other store this task opens: it NEVER THROWS,
+ * because an unreachable dependency is a health RESULT rather than an error.
+ *
+ * Bounded TWICE, and the outer bound is a tightening rather than the guarantee:
+ * this client already carries `commandTimeout: 2000`, which fires even for a
+ * command sitting on the offline queue, so a Redis that accepts a socket and
+ * then says nothing rejects at 2s on its own. `withRedisTimeout` brings that to
+ * 1s, which matters because the ALB allows 5s per check and `/health` has other
+ * work to do inside it — but removing it leaves the probe bounded, which is
+ * measured: mutating the call away leaves every case here green at ~2s.
+ * `Promise.race` subscribes to the ping either way, so a late rejection is
+ * absorbed rather than surfacing as an unhandled rejection.
+ *
+ * `not_configured` is a legitimate, deliberate deployment — rate limiting falls
+ * back to an in-memory bucket and queued jobs run inline — which is exactly why
+ * it must not read the same as an outage.
+ */
+export async function checkRedisHealth(): Promise<RedisHealth> {
+  const instance = getRedisClient();
+  if (!instance) return 'not_configured';
+  try {
+    await withRedisTimeout(instance.ping());
+    return 'connected';
+  } catch (error) {
+    log.general.warn({ err: error }, 'Redis health check failed');
+    return 'unreachable';
+  }
+}
+
+/**
  * Close all Redis connections. Call during graceful shutdown.
  */
 export async function closeRedis(): Promise<void> {

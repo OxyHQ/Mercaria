@@ -22,11 +22,28 @@
  * BEHIND its database (an old image mid-rollout, whose journal is a prefix of
  * what is applied) still reads as ready, because a `pre` migration is by
  * definition compatible with the image still serving.
+ *
+ * ## Redis is REPORTED here and does NOT decide `status`
+ *
+ * Measured against the live target group (`oxy-mercaria`, 2026-08-16): the ALB
+ * health-checks **`GET /`** on this router — not `/ready` — with matcher
+ * `200-399`, a 5s timeout and an unhealthy threshold of 3. This handler answers
+ * **503 when `status` is `degraded`**, so `status` is what decides whether a
+ * task stays in rotation.
+ *
+ * Redis is optional by construction throughout this service: `getRedisClient()`
+ * answers `null` with no `REDIS_URL` and everything keeps working, rate limiting
+ * falls back to an in-memory bucket, queued jobs run inline, and `lib/redis.ts`
+ * deliberately STOPS reconnecting past `MAX_RETRIES` because that is correct for
+ * a cache. Feeding it into `status` would therefore take every task out of the
+ * load balancer 90 seconds into a Redis blip — a total outage caused by a
+ * dependency this codebase treats as losable. So the field tells the truth and
+ * `status` stays a function of Postgres alone.
  */
 
 import { Router } from 'express';
 import { assertMigrationsCurrent, checkPostgresHealth } from '../db/postgres.js';
-import { getRedisClient } from '../lib/redis.js';
+import { checkRedisHealth, type RedisHealth } from '../lib/redis.js';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
 
@@ -82,7 +99,7 @@ interface HealthSnapshot {
   timestamp: string;
   uptime: number;
   postgres: 'connected' | 'unavailable';
-  redis: 'connected' | 'unavailable';
+  redis: RedisHealth;
   memory: {
     rss: number;
     heapUsed: number;
@@ -150,8 +167,10 @@ async function getHealthSnapshot(): Promise<HealthSnapshot> {
   const postgresConnected = await checkPostgresHealth();
 
   const mem = process.memoryUsage();
-  const redis = getRedisClient();
-  const [webhooks, discrepancies] = await Promise.all([
+  // `checkRedisHealth` is a real `PING` under the same contract, and it rides
+  // the existing Promise.all so it adds no wall-clock time to the common case.
+  const [redis, webhooks, discrepancies] = await Promise.all([
+    checkRedisHealth(),
     getWebhookHealth(),
     getReconciliationHealth(),
   ]);
@@ -161,7 +180,7 @@ async function getHealthSnapshot(): Promise<HealthSnapshot> {
     timestamp: new Date().toISOString(),
     uptime: Math.round(process.uptime()),
     postgres: postgresConnected ? 'connected' : 'unavailable',
-    redis: redis ? 'connected' : 'unavailable',
+    redis,
     memory: {
       rss: Math.round(mem.rss / 1024 / 1024),       // MB
       heapUsed: Math.round(mem.heapUsed / 1024 / 1024), // MB
