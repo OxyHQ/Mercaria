@@ -22,7 +22,7 @@ export default [
      * A second block existing purely to turn it off would be a rule with no
      * subject.
      */
-    files: ["src/**/*.ts", "scripts/**/*.ts"],
+    files: ["src/**/*.ts", "scripts/**/*.ts", "build.ts"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",

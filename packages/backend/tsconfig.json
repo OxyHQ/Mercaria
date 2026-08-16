@@ -38,6 +38,15 @@
   // months. `scripts/` holds the #69 real-store E2E driver, the graph benchmark
   // and the offer load benchmark; a driver whose job is to report whether an
   // integration works is exactly where an unnoticed type error is expensive.
-  "include": ["src/**/*", "scripts/**/*"],
+  //
+  // `build.ts` is named individually, and it is the one package-root file that
+  // earns it: it PRODUCES the production image's `dist/`, so ungated it is the
+  // only file here whose type error could ship a broken artefact — a stronger
+  // claim than anything under `scripts/`. `drizzle.config.ts` and the three
+  // `vitest*.ts` are deliberately still out: they configure dev-time tools that
+  // fail loudly and locally when they are wrong, so the argument does not reach
+  // them. It costs two files (`build.ts` plus `esbuild`'s own `main.d.ts`, and
+  // esbuild is already a dependency), measured with `--listFiles`: 3326 → 3328.
+  "include": ["src/**/*", "scripts/**/*", "build.ts"],
   "exclude": ["node_modules", "dist"]
 }

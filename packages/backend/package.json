@@ -9,7 +9,7 @@
     "dev": "bun --watch src/index.ts",
     "build": "bun build.ts",
     "start": "node dist/index.js",
-    "lint": "eslint src scripts",
+    "lint": "eslint src scripts build.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
