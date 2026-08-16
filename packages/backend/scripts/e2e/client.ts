@@ -164,6 +164,24 @@ function safeParse(text: string): unknown {
  * rather than a guess, because "it was still running" and "it finished and we
  * missed it" are different facts.
  *
+ * `lastReadError` is the same distinction one level down, and it exists because
+ * `listRuns` never throws: a 401, a 429 or a dropped socket answers `body:
+ * null`, which `Array.isArray` turns into an empty candidate list — byte for
+ * byte what "the run has not appeared yet" looks like. Without it a caller that
+ * exhausts its budget cannot tell a worker that never started from an API that
+ * refused every poll, and will report the first while the second is true. It is
+ * cleared on a settled run (the reads that mattered succeeded) and carries the
+ * LAST failure otherwise, since an intermittent refusal that later succeeded is
+ * not what the caller is being warned about.
+ *
+ * `pollIntervalMs` is a parameter rather than a constant because the two
+ * drivers chose differently and both were right: the WooCommerce runner drives
+ * a local site and wants the tighter loop, the Shopify driver waits up to
+ * thirty minutes against a real merchant's production API, where 500 ms is
+ * 1,800 requests per rate-limit window instead of 300. Defaulted to the
+ * WooCommerce runner's own value, so adopting the parameter changed nothing
+ * for it.
+ *
  * `kind` is REQUIRED rather than optional, and that is the whole point of the
  * fix. Optional would leave the ORIGINAL bug as the default: a caller who
  * forgets it gets `runs[0]` back, wrong the moment a webhook lands mid-backfill,
@@ -179,22 +197,25 @@ export async function waitForTerminalRun(
   since: number,
   budgetMs: number,
   kind: SyncRunKind,
-): Promise<{ run: SyncRun | null; settledAfterMs: number | null }> {
+  pollIntervalMs = 500,
+): Promise<{ run: SyncRun | null; settledAfterMs: number | null; lastReadError: string | null }> {
   const deadline = Date.now() + budgetMs;
   let latest: SyncRun | null = null;
+  let lastReadError: string | null = null;
 
   while (Date.now() < deadline) {
     const response = await client.listRuns(connectionId);
+    lastReadError = response.ok ? null : response.error;
     const runs = Array.isArray(response.body) ? response.body : [];
     const candidates = runs.filter(
       (run) => run.kind === kind && Date.parse(run.startedAt) >= since - 1000,
     );
     latest = candidates[0] ?? null;
     if (latest && (latest.status === 'completed' || latest.status === 'failed')) {
-      return { run: latest, settledAfterMs: Date.now() - since };
+      return { run: latest, settledAfterMs: Date.now() - since, lastReadError: null };
     }
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
 
-  return { run: latest, settledAfterMs: null };
+  return { run: latest, settledAfterMs: null, lastReadError };
 }
