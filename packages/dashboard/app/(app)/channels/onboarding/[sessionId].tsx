@@ -117,15 +117,31 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
   );
 
   if (current.state === "activated") {
+    // A connected channel imports NOTHING until a resource is set to pull — every
+    // direction defaults to `off` — so this panel used to end the flow by naming
+    // the settings screen in prose and handing the merchant back to the index. It
+    // now takes them there. Feed sessions have no connection to point at and keep
+    // the old destination.
+    const settingsHref =
+      current.connectionId === undefined
+        ? ("/channels" as const)
+        : ({
+            pathname: "/channels/[connectionId]" as const,
+            params: { connectionId: current.connectionId },
+          } as const);
     return (
       <Screen title={`${CHANNEL_TYPE_NAME[current.channelType]} connected`}>
         <View className="items-center justify-center rounded-2xl border border-border bg-surface py-12">
           <Text className="text-base font-semibold text-foreground">All set</Text>
           <Text className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-            This channel is active. You can change its settings any time from Sales channels.
+            {current.connectionId === undefined
+              ? "This channel is active. You can change its settings any time from Sales channels."
+              : "This channel is active. Choose what to import next — nothing syncs until you do."}
           </Text>
-          <Button className="mt-4" onPress={() => router.replace("/channels")}>
-            <Text className="font-semibold text-primary-foreground">Back to channels</Text>
+          <Button className="mt-4" onPress={() => router.replace(settingsHref)}>
+            <Text className="font-semibold text-primary-foreground">
+              {current.connectionId === undefined ? "Back to channels" : "Choose what to import"}
+            </Text>
           </Button>
         </View>
       </Screen>

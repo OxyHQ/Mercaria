@@ -663,6 +663,88 @@ describe('sync settings', () => {
     // 404, so a member of one store can never patch another store's connection.
     expect(await updateSyncSettings(other, conn.id, { products: 'pull' })).toBeNull();
   });
+
+  /**
+   * The previous directions returned beside the new ones are what decides whether a
+   * save STARTS an import (`connector-sync.service.updateSyncSettings`), and they
+   * are the one part of that decision no mock can measure: a mocked `update`
+   * returns whatever the test hands it, so it would pass just as happily against a
+   * statement returning the NEW value twice — which reads as "nothing changed" and
+   * imports nothing, the exact defect this exists to prevent.
+   *
+   * It rests on Postgres evaluating an `UPDATE … FROM connections previous` against
+   * the pre-update snapshot. That is a property of the server, so it is asserted
+   * against one.
+   */
+  describe('the previous directions returned beside the new ones', () => {
+    it('reports the value from BEFORE the write, not the one just written', async () => {
+      const storeId = await makeStore();
+      const conn = await makeConnection(storeId);
+
+      const updated = await updateSyncSettings(storeId, conn.id, { products: 'pull' });
+
+      expect(updated?.syncSettingsProducts).toBe('pull');
+      // The whole point: `off` is the column default this write replaced. A
+      // statement returning the new row twice would say `pull` here.
+      expect(updated?.previousSyncSettingsProducts).toBe('off');
+    });
+
+    it('reports a column the patch did not name as UNCHANGED', async () => {
+      // The partial-patch control, and the direction that matters most: a save
+      // touching only a location must not read as having turned products on, or
+      // every unrelated settings save re-imports the whole catalogue.
+      const storeId = await makeStore();
+      const conn = await makeConnection(storeId);
+      await updateSyncSettings(storeId, conn.id, { products: 'pull' });
+
+      const updated = await updateSyncSettings(storeId, conn.id, { orders: 'pull' });
+
+      expect(updated?.syncSettingsProducts).toBe('pull');
+      expect(updated?.previousSyncSettingsProducts).toBe('pull');
+      expect(updated?.previousSyncSettingsOrders).toBe('off');
+    });
+
+    it('carries all three resources independently through one write', async () => {
+      const storeId = await makeStore();
+      const conn = await makeConnection(storeId);
+      await updateSyncSettings(storeId, conn.id, { inventory: 'pull' });
+
+      const updated = await updateSyncSettings(storeId, conn.id, {
+        products: 'pull',
+        inventory: 'pull',
+        orders: 'push',
+      });
+
+      expect(updated?.previousSyncSettingsProducts).toBe('off');
+      expect(updated?.previousSyncSettingsInventory).toBe('pull');
+      expect(updated?.previousSyncSettingsOrders).toBe('off');
+    });
+
+    it('updates exactly ONE row, so the self-join cannot multiply a store’s connections', async () => {
+      // `UNIQUE(store_id, provider)` means a second connection needs a second
+      // provider. Without the `previous.id = connections.id` join predicate the
+      // FROM would be an unrestricted cross join and this write would touch both.
+      const storeId = await makeStore();
+      const shopify = await makeConnection(storeId);
+      const woo = await upsertConnection(storeId, 'woocommerce', {
+        mode: 'pull',
+        status: 'connected',
+        connectedAt: new Date(),
+        credentials: ENVELOPE,
+        shopDomain: `shop-${uuidv7()}.example.com`,
+        shopCurrency: 'EUR',
+        scopes: [],
+      });
+
+      await updateSyncSettings(storeId, shopify.id, { products: 'pull' });
+
+      const [untouched] = await db
+        .select({ products: connections.syncSettingsProducts })
+        .from(connections)
+        .where(eq(connections.id, woo.id));
+      expect(untouched.products).toBe('off');
+    });
+  });
 });
 
 describe('the reconcile sweep filter', () => {

@@ -97,9 +97,31 @@ export async function updateChannelSettings(
   return unwrap(data);
 }
 
-/** POST to trigger a backfill sync; resolves with the resulting `SyncRun`. */
-export async function syncChannel(storeId: string, connectionId: string): Promise<SyncRun> {
-  const { data } = await apiClient.post<ApiResponse<SyncRun>>(
+/**
+ * Result of `POST .../channels/:connectionId/sync` — the server ENQUEUED the
+ * backfill (202) rather than running it in the request.
+ *
+ * It was typed `Promise<SyncRun>`, which the endpoint has never returned: the
+ * handler answers `{ status, connectionId }` because a catalogue backfill is
+ * pages of somebody else's platform and cannot be held open by an HTTP request
+ * (`connector-queue-boundary.test.ts` is the property). Nothing consumed the
+ * declared type, so the lie was invisible — and the first screen to render
+ * `run.counts` off it would have read `undefined`.
+ *
+ * `ReregisterWebhooksResult`'s shape and its reasoning, one endpoint over: the
+ * outcome lands on the RUNS list, which the channels query re-reads.
+ */
+export interface SyncChannelResult {
+  status: "enqueued";
+  connectionId: string;
+}
+
+/** POST to enqueue a backfill for a connection. */
+export async function syncChannel(
+  storeId: string,
+  connectionId: string,
+): Promise<SyncChannelResult> {
+  const { data } = await apiClient.post<ApiResponse<SyncChannelResult>>(
     `${base(storeId)}/${connectionId}/sync`,
   );
   return unwrap(data);
