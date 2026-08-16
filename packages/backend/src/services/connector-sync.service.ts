@@ -1950,6 +1950,15 @@ function toCreateInput(
  * native Mercaria fields (category, condition, tags, collections, status) are
  * NEVER touched by a re-sync. Variant-level price/stock re-sync is a later phase
  * (Fase 2); this refreshes the listing fields only.
+ *
+ * `status`'s absence is the KNOWN GAP #390 names: a listing this connector
+ * archived stays archived when the merchant republishes the product upstream.
+ * Writing it here would also reactivate a listing the merchant archived in
+ * Mercaria on purpose, and nothing stored can tell those two apart — there is no
+ * status provenance, and `overriddenFields` (which the `overridden` set above
+ * comes from) has no production writer at all, so `respect_overrides` would
+ * consult an empty set. `docs/channels.md` §"A product republished upstream does
+ * NOT come back" carries the evidence and what closing it needs.
  */
 function toUpdatePatch(product: NormalizedProduct, overridden: Set<string>): UpdateListingInput {
   const patch: UpdateListingInput = {};
