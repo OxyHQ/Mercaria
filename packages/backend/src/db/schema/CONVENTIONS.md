@@ -618,6 +618,17 @@ untouched while the operator reads a success line.
 
 ### A `DROP … CASCADE` nobody has checked is how a dependent object disappears
 
+**INBOUND references are what `CASCADE` acts on. The table's OWN outbound
+foreign keys are irrelevant to it and survive with their targets — reporting
+those instead is the check that looks done and measures nothing.**
+
+That sentence first, because the wrong query is the easier one to write: the
+outbound keys are declared right there on the table you are looking at, and the
+inbound ones are scattered across every other table in the schema. A reader who
+takes the snippet below and not the rule above will check the wrong direction
+and find nothing, which is indistinguishable from checking the right direction
+and finding nothing.
+
 `drizzle-kit generate` writes `DROP TABLE "x" CASCADE;` for every removed table.
 It writes `CASCADE` **unconditionally** — it is not a claim that nothing depends
 on the table, and it will silently take a foreign key, a view or a constraint
@@ -632,10 +643,6 @@ references and state in the migration header what you found:**
                  for fk in (tbl.get('foreignKeys') or {}).values()
                  if fk.get('tableTo') == '<the table being dropped>']
 ```
-
-Inbound references are the ones `CASCADE` acts on. The table's OWN outbound
-foreign keys are irrelevant to it and survive with their targets — reporting
-those instead is the check that looks done and measures nothing.
 
 ### Verifying a DROP needs a positive control, like every other census
 
