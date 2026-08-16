@@ -454,8 +454,10 @@ which is `product_saves`' answer one domain over, and #76 migration rule 5's own
   a `product`-scoped row has `canonical_product_id` set and every other target
   column NULL, so its `target_key` is that id and five empty strings. Guarding
   on the author and the scope therefore names precisely the winner rows the
-  index would collide with — and no wider, which `retail_suppressions` records
-  as the direction that fails safely-looking and dangerously.
+  index would collide with — and no wider, which is what
+  `retail_suppressions` records as the dangerous direction: a guard wider than
+  the index it guards refuses to move a row that could have moved, and that
+  refusal looks exactly like the guard working.
 - **REFUSAL was considered and rejected.** A seventh `conflict_gated` kind is
   the shape this domain uses when "which side survives is a judgement", and it
   does not fit: `applyConflictResolution`'s branches all retire, revoke or unset,
