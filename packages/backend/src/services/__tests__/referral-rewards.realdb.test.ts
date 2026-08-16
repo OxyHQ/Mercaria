@@ -52,6 +52,7 @@ import {
 } from '../referrals/conversion.service.js';
 import { insertOrder, nextOrderNumber, type NewOrder } from '../../db/orders/orderRepository.js';
 import { notApplicableFeeSnapshot } from '../fees/order-fees.service.js';
+import { collectRiskSignalFacts } from '../referrals/integrity/risk-evaluation.service.js';
 import { createProgramDraft, publishProgram } from '../referrals/program.service.js';
 import { applyAsPartner, approvePartner } from '../referrals/partner.service.js';
 import { issueCode } from '../referrals/instrument.service.js';
@@ -785,6 +786,11 @@ describe('case 1: percentage marketplace-commission reward', () => {
       );
     expect(events).toHaveLength(1);
     expect(events[0].reason).toContain('funding_source_unavailable');
+    // #431: the CODE is a column, and this assertion is over the ENTRYPOINT
+    // rather than over a fixture — `accrueRewardForConversion` is what wrote
+    // this row. The prose above and the column below carry the same fact, and
+    // the column is the one #148's `repeated_cap_attempt` counts.
+    expect(events[0].rewardRefusalReason).toBe('funding_source_unavailable');
   });
 });
 
@@ -1292,6 +1298,29 @@ describe('case 7: rounding and caps', () => {
         fundingRecordRef: await makePaymentWithCommission(1_000),
       }),
     ).toEqual({ outcome: 'refused', reason: 'cap_reached' });
+
+    // #431, end to end and through both PRODUCTION paths: the real accrual
+    // wrote the code into `reward_refusal_reason`, and the real risk producer
+    // counts it from there. Nothing here appends an event or spells a query a
+    // second time — a fixture on either side would leave the two halves able to
+    // agree with each other while disagreeing with production.
+    const refusalEvents = await db
+      .select()
+      .from(referralEvents)
+      .where(
+        and(
+          eq(referralEvents.subjectId, third.conversionId),
+          eq(referralEvents.action, 'reward_accrual_refused'),
+        ),
+      );
+    expect(refusalEvents).toHaveLength(1);
+    expect(refusalEvents[0].rewardRefusalReason).toBe('cap_reached');
+
+    const facts = await collectRiskSignalFacts(db, {
+      partnerId: partner.id,
+      at: new Date(Date.now() + 1_000),
+    });
+    expect(facts.capRefusalCount).toBe(1);
   });
 
   it('refuses a reward larger than its funding at the ROW, not only in the service', async () => {

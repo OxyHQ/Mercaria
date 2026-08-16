@@ -412,12 +412,21 @@ Stated rather than stubbed. Each is a named seam that fails closed.
    two branches are both live and `risk-thresholds.ts`'s rule that only one of
    them reports per window means what it says.
 
-   **One of the eight is produced by a STOPGAP.** `repeated_cap_attempt` counts
+   **The stopgap under `repeated_cap_attempt` is GONE (#431).** It counted
    accrual refusals by matching a `<code>: <detail>` prefix on the free-text
-   `referral_events.reason`, because the reason code is not a column. A change to
-   the reason SENTENCE makes the counter read zero — and zero is a measurement
-   here, so it would report a clean partner rather than an unmeasured one. The
-   honest fix is a `refusal_reason` column in the reward domain: **#431**.
+   `referral_events.reason`, so any change to the reason SENTENCE — a separator,
+   a leading space, a wrapper prefixing context — made the counter read zero.
+   Zero is a MEASUREMENT here, because `capRefusalCount` is always supplied, so
+   a broken counter reported a clean partner rather than an unmeasured one.
+
+   The code is now `referral_events.reward_refusal_reason`, a column over
+   `REFERRAL_REWARD_REFUSAL_REASONS` with three CHECKs: the value set, a code
+   only on a `reward_accrual_refused` row, and — the half that makes the zero
+   honest — every such row NAMING its code. The prose keeps its prefix as COPY,
+   composed from the same value one expression away in `refuse()`, so changing
+   it now breaks nothing. Migrations `0095` (`pre`, column + backfill + the two
+   null-tolerant CHECKs) and `0096` (`post`, the rollout-window backfill + the
+   presence CHECK, which the previous image's writes violate).
 
    **No producer (6)**, and NOT because nobody has got to them — each is
    blocked on something specific, which is why this list names the blocker

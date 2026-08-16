@@ -39,7 +39,7 @@
  * caller decides to do with them.
  */
 
-import { and, eq, gte, inArray, like, lt, or, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import type {
   ReferralConversionSource,
   ReferralRewardRefusalReason,
@@ -101,7 +101,9 @@ const REVERSED_CONVERSION_STATES = ['reversed'] as const;
  * TYPED as `ReferralRewardRefusalReason`, so renaming either member in
  * `@mercaria/shared-types` fails `tsc` here rather than silently making this
  * counter read zero forever — which is the failure this producer exists to
- * avoid, one level up.
+ * avoid, one level up. Since #431 the same tuple also renders
+ * `referral_events_reward_refusal_reason_check`, so a rename is one change in
+ * one place plus the migration that CHECK always needs.
  *
  * The other eleven refusal reasons are deliberately excluded: a conversion
  * refused for `zero_base` or `rule_not_active` is a partner whose cohort or
@@ -285,12 +287,20 @@ export async function collectRiskSignalFacts(
     );
 
   // `repeated_cap_attempt` — accruals this partner's conversions were refused
-  // for hitting a cap or exhausting a budget. The refusal REASON CODE is not a
-  // column: `reward.service.ts` writes it as the `<code>: <detail>` prefix of
-  // `referral_events.reason`, so this matches that prefix. A `refusal_reason`
-  // column would be the honest fix and belongs to the reward domain rather than
-  // here — filed as #431 rather than worked around silently, because a stopgap
-  // survives by nobody writing down that it was one.
+  // for hitting a cap or exhausting a budget.
+  //
+  // Over `referral_events.reward_refusal_reason`, a CLOSED value set, and #431
+  // is the change that made it one. It used to match the `<code>: <detail>`
+  // prefix `reward.service.ts` writes into the free-text `reason`, so a
+  // separator, a leading space or a wrapper adding context ahead of the code
+  // made this read ZERO — and zero is a measurement here, because
+  // `capRefusalCount` is always supplied, so the signal would have reported a
+  // clean partner rather than an unmeasured one.
+  //
+  // The `action` predicate is kept although
+  // `referral_events_reward_refusal_scope_check` already implies it: the CHECK
+  // says a code implies a reward-accrual refusal TODAY, and the day the scope
+  // widens to another refusal action this count stays what it claims to be.
   const [capRow] = await db
     .select({ total: sql<string>`count(*)` })
     .from(referralEvents)
@@ -300,7 +310,7 @@ export async function collectRiskSignalFacts(
       and(
         eq(referralEvents.subjectType, 'conversion'),
         eq(referralEvents.action, 'reward_accrual_refused'),
-        or(...CAP_REFUSAL_REASONS.map((reason) => like(referralEvents.reason, `${reason}: %`))),
+        inArray(referralEvents.rewardRefusalReason, [...CAP_REFUSAL_REASONS]),
         eq(referralAttributions.partnerId, input.partnerId),
         gte(referralEvents.createdAt, windowStart),
         lt(referralEvents.createdAt, input.at),

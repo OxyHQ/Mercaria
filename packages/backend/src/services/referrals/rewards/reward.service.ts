@@ -151,6 +151,13 @@ export async function accrueRewardForConversion(
     const existing = await findRewardByConversion(tx, conversion.id);
     if (existing) return { outcome: 'accrued', reward: existing, created: false };
 
+    // Every refusal writes its code TWICE and the two cannot disagree: once in
+    // `reward_refusal_reason`, which is what #148's `repeated_cap_attempt`
+    // counts, and once as the prose prefix a person reads in the audit trail.
+    // Both come from the ONE `reason` parameter, one expression apart. Before
+    // #431 the prefix was the only copy and the counter matched it with a
+    // `LIKE`, so the sentence's shape was load-bearing for a fraud signal; it is
+    // now COPY, and changing it breaks nothing.
     const refuse = async (
       reason: ReferralRewardRefusalReason,
       detail: string,
@@ -161,6 +168,7 @@ export async function accrueRewardForConversion(
         action: 'reward_accrual_refused',
         actorKind: 'system',
         reason: `${reason}: ${detail}`,
+        rewardRefusalReason: reason,
       });
       return { outcome: 'refused', reason };
     };
