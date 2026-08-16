@@ -52,8 +52,10 @@ bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
   strips types, so `expo export` bundles code `tsc` rejects.
 - **`typedRoutes` is armed** — `scripts/generate-router-types.mjs` runs inside
   each app's `typecheck` and `typed-routes-armed.test.ts` fails the build if it
-  stops. The product-page isolation gate also WALKS the real `app/` tree and
-  fails on a literal navigation target that does not resolve.
+  stops, so a literal navigation target that is not a real route fails `tsc`.
+  The product-page isolation gate's route-resolution wall was RETIRED for this
+  (#330) — it read only `router.push`'s literal argument, missing routes built
+  through a helper — and now checks only WHICH identity a page links (#252).
 
 ## Money
 
