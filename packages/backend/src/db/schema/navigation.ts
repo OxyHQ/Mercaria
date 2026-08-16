@@ -35,8 +35,15 @@
  *
  * ## What is a trigger and why
  *
- * A CHECK cannot read another row, so four things are triggers and their bodies
- * live in `navigation.pending.sql` until the migration slot is handed over:
+ * A CHECK cannot read another row, so four things are triggers. Their bodies
+ * live in migration `0090_sad_black_panther.sql`, each inside its own
+ * `-- oxy:handwritten-begin=mercaria_navigation_*` marker pair — nine of them,
+ * so a regeneration that drops one fails `migration-handwritten-markers.test.ts`
+ * rather than silently enforcing nothing. (This said `navigation.pending.sql`
+ * until #367 step 8: that file was the staging area while ADR 0007 D11
+ * serialized the migration slot, and it was deleted with the migration that
+ * carried its statements. A comment naming a file that no longer exists is
+ * gated by nothing, which is why it outlived the file by three merges.)
  *
  *  - **cycle, cross-tree parenting and depth refusal** on `navigation_nodes` —
  *    all three need the parent chain, and the depth bound needs its length.
