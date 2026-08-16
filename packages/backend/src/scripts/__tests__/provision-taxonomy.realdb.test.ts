@@ -38,7 +38,12 @@ import * as schema from '../../db/schema/index.js';
 import type { Database } from '../../db/postgres.js';
 import { categories } from '../../db/schema/catalog.js';
 import { createMercariaTestDatabase, dropMercariaTestDatabase } from '../../db/testDatabase.js';
-import { TAXONOMY } from '../taxonomy.js';
+import {
+  categorySlugExists,
+  findActiveCategories,
+  findCategoryBySlug,
+} from '../../db/catalog/categoryRepository.js';
+import { IMPORT_HOLDING_CATEGORY_SLUG, TAXONOMY } from '../taxonomy.js';
 
 /** `packages/backend` — where the script's own relative imports resolve from. */
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -50,8 +55,19 @@ const ADMIN_URL =
   process.env['DATABASE_URL'] ??
   'postgres://mercaria:mercaria@127.0.0.1:5435/mercaria_dev';
 
-/** The rows the taxonomy describes: every top-level category plus its children. */
-const EXPECTED_ROWS = TAXONOMY.reduce((total, top) => total + 1 + top.children.length, 0);
+/**
+ * The rows the taxonomy describes, counted HERE rather than by importing
+ * `taxonomySize`. The script measures its own counters against that function, so
+ * a test reusing it would check one derivation against itself; this is the
+ * independent second count.
+ */
+const EXPECTED_ROWS = TAXONOMY.reduce(
+  (total, entry) => total + 1 + (entry.listing === 'shopper_facing' ? entry.children.length : 0),
+  0,
+);
+
+/** The shopper-facing entries — the only ones with children or imagery. */
+const SHOPPER_FACING = TAXONOMY.filter((entry) => entry.listing === 'shopper_facing');
 
 let databaseUrl: string;
 let client: postgres.Sql;
@@ -171,7 +187,7 @@ describe('provision-taxonomy installs the taxonomy into an empty database', () =
   it('parents every child on its top-level category, with the ancestor slug set', () => {
     const bySlug = new Map(afterFirstRun.map((row) => [row.slug, row]));
 
-    for (const top of TAXONOMY) {
+    for (const top of SHOPPER_FACING) {
       const parent = bySlug.get(top.slug);
       expect(parent, `top-level category "${top.slug}" is missing`).toBeDefined();
       if (!parent) continue;
@@ -186,6 +202,50 @@ describe('provision-taxonomy installs the taxonomy into an empty database', () =
         expect(row.ancestorSlugs).toEqual([top.slug]);
       }
     }
+  });
+});
+
+describe('the import holding category is reachable by a write and never by a browse', () => {
+  it('is stored INACTIVE, top-level, with no imagery and no children', () => {
+    const row = afterFirstRun.find((r) => r.slug === IMPORT_HOLDING_CATEGORY_SLUG);
+    expect(row, `"${IMPORT_HOLDING_CATEGORY_SLUG}" was not created`).toBeDefined();
+    if (!row) return;
+
+    expect(row.isActive, 'an ACTIVE holding category is on a shelf shoppers browse').toBe(false);
+    expect(row.parentId).toBeNull();
+    expect(row.imageUrl).toBeNull();
+    expect(afterFirstRun.filter((r) => r.parentId === row.id)).toHaveLength(0);
+  });
+
+  it('satisfies the connector guard, which is the whole reason it exists', async () => {
+    // `categorySlugExists` is what `resolveImportCategorySlug` calls before a
+    // connector backfill will import anything. This is the production function,
+    // not a re-spelling of its query.
+    await expect(categorySlugExists(IMPORT_HOLDING_CATEGORY_SLUG, db)).resolves.toBe(true);
+  });
+
+  it('resolves for a catalogue WRITE despite being inactive', async () => {
+    // `findCategoryBySlug` is `catalog-write.service`'s resolver, and it reads
+    // `is_active`-blind on purpose. If this ever starts filtering, an imported
+    // product has nowhere to be filed and the connector breaks.
+    const resolved = await findCategoryBySlug(IMPORT_HOLDING_CATEGORY_SLUG, db);
+    expect(resolved, 'the catalogue write resolver could not see the holding category').not.toBeNull();
+  });
+
+  it('is ABSENT from the shopper-visible tree, which the browse route serves', async () => {
+    // The load-bearing case. `findActiveCategories` is what `GET /categories`
+    // and `feed.service` read, so this is the assertion that would fail if
+    // somebody made the category active or taught that reader to ignore
+    // `is_active`.
+    const active = await findActiveCategories(db);
+
+    // Vacuity floor first: an empty result satisfies "the holding category is
+    // not in it" without measuring anything, and an empty result is exactly
+    // what a broken read returns.
+    expect(active.length, 'the active tree is empty — this case would pass vacuously').toBe(
+      EXPECTED_ROWS - 1,
+    );
+    expect(active.map((c) => c.slug)).not.toContain(IMPORT_HOLDING_CATEGORY_SLUG);
   });
 });
 

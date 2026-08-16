@@ -57,7 +57,7 @@ import {
   type CategoryRecord,
 } from '../db/catalog/categoryRepository.js';
 import { log } from '../lib/logger.js';
-import { TAXONOMY } from './taxonomy.js';
+import { TAXONOMY, taxonomySize } from './taxonomy.js';
 
 /** What this run did to the taxonomy. */
 interface ProvisionCounts {
@@ -83,17 +83,31 @@ interface DesiredCategory {
   slug: string;
   parentId: string | null;
   ancestorSlugs: string[];
-  imageUrl: string;
+  imageUrl: string | null;
   position: number;
+  /** See `divergences` for why this is compared in ONE direction only. */
+  isActive: boolean;
 }
 
 /**
  * Compare an existing row against what the taxonomy says it should be.
  *
- * Only the columns this script would have written are compared. `is_active` is
- * deliberately excluded: deactivating a category is a legitimate operator
- * decision about the storefront, and reporting it as a divergence would make
- * every later run of this script exit non-zero over a state somebody chose.
+ * ## `is_active` is compared in ONE direction, and the asymmetry is the point
+ *
+ * A category the taxonomy publishes (`shopper_facing`) may legitimately be
+ * DEACTIVATED — taking Beauty off the storefront for a season is an operator's
+ * decision, and reporting it here would make every later run of this script exit
+ * non-zero over a state somebody chose. So that direction is not compared.
+ *
+ * The reverse is not symmetrical. An `internal_only` category that has been
+ * ACTIVATED is on a shelf shoppers browse, which is the one thing its whole
+ * reason for existing is to avoid — a third-party catalogue filed under
+ * `imported` would become a public category. That is reported, and the run exits
+ * non-zero, because it is exactly the "something looks wrong" this script stops
+ * for.
+ *
+ * Nothing is REWRITTEN either way. The script's only statement against
+ * `categories` remains an INSERT.
  */
 function divergences(existing: CategoryRecord, desired: DesiredCategory): Divergence[] {
   const found: Divergence[] = [];
@@ -106,8 +120,12 @@ function divergences(existing: CategoryRecord, desired: DesiredCategory): Diverg
   compare('name', desired.name, existing.name);
   compare('parentId', desired.parentId ?? '(top level)', existing.parentId ?? '(top level)');
   compare('ancestorSlugs', desired.ancestorSlugs.join(','), existing.ancestorSlugs.join(','));
-  compare('imageUrl', desired.imageUrl, existing.imageUrl ?? '(none)');
+  compare('imageUrl', desired.imageUrl ?? '(none)', existing.imageUrl ?? '(none)');
   compare('position', String(desired.position), String(existing.position));
+
+  if (!desired.isActive && existing.isActive) {
+    compare('isActive', 'false (internal only)', 'true (visible to shoppers)');
+  }
   return found;
 }
 
@@ -131,6 +149,7 @@ async function ensureCategory(
       ancestorSlugs: desired.ancestorSlugs,
       imageUrl: desired.imageUrl,
       position: desired.position,
+      isActive: desired.isActive,
     });
     counts.created += 1;
     log.general.info({ slug: desired.slug, id: created.id }, 'Created category');
@@ -161,6 +180,26 @@ async function provisionTaxonomy(): Promise<{
   const found: Divergence[] = [];
 
   for (const [topIndex, top] of TAXONOMY.entries()) {
+    // An internal-only category is a top-level row with no imagery, no children
+    // and `is_active = false`. The `switch` is the compiler forcing the two
+    // shapes apart rather than a branch somebody could forget to add.
+    if (top.listing === 'internal_only') {
+      await ensureCategory(
+        {
+          name: top.name,
+          slug: top.slug,
+          parentId: null,
+          ancestorSlugs: [],
+          imageUrl: null,
+          position: topIndex,
+          isActive: false,
+        },
+        counts,
+        found,
+      );
+      continue;
+    }
+
     const parent = await ensureCategory(
       {
         name: top.name,
@@ -169,6 +208,7 @@ async function provisionTaxonomy(): Promise<{
         ancestorSlugs: [],
         imageUrl: top.pillImage,
         position: topIndex,
+        isActive: true,
       },
       counts,
       found,
@@ -183,6 +223,7 @@ async function provisionTaxonomy(): Promise<{
           ancestorSlugs: [top.slug],
           imageUrl: child.image,
           position: childIndex,
+          isActive: true,
         },
         counts,
         found,
@@ -191,11 +232,6 @@ async function provisionTaxonomy(): Promise<{
   }
 
   return { counts, found };
-}
-
-/** The number of rows the taxonomy describes — the census this run is measured against. */
-function taxonomySize(): number {
-  return TAXONOMY.reduce((total, top) => total + 1 + top.children.length, 0);
 }
 
 async function main(): Promise<void> {
