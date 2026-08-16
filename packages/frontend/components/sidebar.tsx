@@ -203,7 +203,7 @@ const MainSidebar = React.memo(function MainSidebar() {
           </View>
         </Pressable>
         {isLargeScreen && (
-          <View className="ml-auto">
+          <View className="ms-auto">
             <Pressable
               onPress={toggleSidebarCollapsed}
               accessibilityLabel="Collapse sidebar"

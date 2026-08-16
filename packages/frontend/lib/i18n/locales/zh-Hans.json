@@ -80,7 +80,8 @@
     },
     "appLanguage": {
       "title": "应用语言",
-      "description": "更改应用的显示语言"
+      "description": "更改应用的显示语言",
+      "restartRequired": "请重启应用以应用新的布局方向。"
     },
     "appearance": {
       "title": "外观",

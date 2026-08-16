@@ -119,7 +119,7 @@ export function MerchantCard({
           </Pressable>
 
           {/* Name + rating, bottom-left of the store zone. */}
-          <View className="absolute bottom-0 left-0">
+          <View className="absolute bottom-0 start-0">
             <Text
               numberOfLines={1}
               className="text-sm font-bold"

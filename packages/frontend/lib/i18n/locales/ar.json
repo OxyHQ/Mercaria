@@ -80,7 +80,8 @@
     },
     "appLanguage": {
       "title": "لغة التطبيق",
-      "description": "غيّر لغة عرض التطبيق"
+      "description": "غيّر لغة عرض التطبيق",
+      "restartRequired": "أعد تشغيل التطبيق لتطبيق اتجاه التخطيط الجديد."
     },
     "appearance": {
       "title": "المظهر",

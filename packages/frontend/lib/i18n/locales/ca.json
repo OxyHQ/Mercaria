@@ -80,7 +80,8 @@
     },
     "appLanguage": {
       "title": "Idioma de l'aplicació",
-      "description": "Canvia l'idioma en què es mostra l'aplicació"
+      "description": "Canvia l'idioma en què es mostra l'aplicació",
+      "restartRequired": "Reinicia l'aplicació per aplicar la nova direcció del disseny."
     },
     "appearance": {
       "title": "Aparença",

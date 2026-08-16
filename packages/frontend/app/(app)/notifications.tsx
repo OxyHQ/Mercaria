@@ -117,7 +117,7 @@ export default function NotificationsScreen() {
       <View className="px-6 py-6 border-b border-border">
         <View className="flex-row items-center justify-between mb-4">
           <Pressable onPress={() => router.back()} className="flex-row items-center">
-            <ArrowLeft size={16} className="text-muted-foreground mr-2" />
+            <ArrowLeft size={16} className="text-muted-foreground me-2" />
             <Text className="text-sm text-muted-foreground">{t('common.back')}</Text>
           </Pressable>
           <Pressable onPress={() => setShowSettings(s => !s)} className="p-2">

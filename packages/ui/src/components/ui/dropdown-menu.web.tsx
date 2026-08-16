@@ -120,13 +120,13 @@ const DropdownMenuSubTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       "flex w-full select-none items-center font-sans text-foreground hover:bg-muted cursor-pointer rounded-lg gap-2 text-sm p-2 outline-none data-[state=open]:bg-muted [&_svg:not([class*='text-'])]:text-muted-foreground [&:focus_svg:not([class*='text-'])]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-      inset && "pl-8",
+      inset && "ps-8",
       className
     )}
     {...props}
   >
     {children}
-    <ChevronRightIcon className="ml-auto h-4 w-4" />
+    <ChevronRightIcon className="ms-auto h-4 w-4" />
   </DropdownMenuPrimitive.SubTrigger>
 ));
 DropdownMenuSubTrigger.displayName =
@@ -207,7 +207,7 @@ const DropdownMenuItem = React.forwardRef<
       }}
       className={cn(
         "flex w-full select-none items-center font-sans text-foreground hover:bg-muted cursor-pointer rounded-lg gap-2 text-sm p-2 outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg:not([class*='text-'])]:text-muted-foreground [&:focus_svg:not([class*='text-'])]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        inset && "pl-8",
+        inset && "ps-8",
         destructive &&
           "text-destructive hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 [&_svg]:!text-destructive",
         className
@@ -255,13 +255,13 @@ const DropdownMenuCheckboxItem = React.forwardRef<
         }
       }}
       className={cn(
-        "relative flex w-full select-none items-center font-sans text-foreground hover:bg-muted cursor-pointer rounded-lg gap-2 text-sm p-2 pr-8 outline-none [&:focus_svg:not([class*='text-'])]:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative flex w-full select-none items-center font-sans text-foreground hover:bg-muted cursor-pointer rounded-lg gap-2 text-sm p-2 pe-8 outline-none [&:focus_svg:not([class*='text-'])]:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       checked={typeof value === "boolean" ? value : value !== "off"}
       {...props}
     >
-      <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+      <span className="absolute end-2 flex h-3.5 w-3.5 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
           <CheckIcon className="h-4 w-4" />
         </DropdownMenuPrimitive.ItemIndicator>
@@ -283,7 +283,7 @@ const DropdownMenuLabel = React.forwardRef<
     ref={ref}
     className={cn(
       "text-muted-foreground px-1.5 py-1 text-xs font-medium",
-      inset && "pl-8",
+      inset && "ps-8",
       className
     )}
     {...props}
@@ -310,7 +310,7 @@ export const ItemIcon = React.forwardRef<
 >(({ className, ios, androidIconName, children, ...props }, ref) => {
   const IconComponent = ios?.name ? SF_SYMBOL_MAP[ios.name] : null;
   return (
-    <span ref={ref} className={cn("flex shrink-0 items-center mr-2 text-muted-foreground", className)} {...props}>
+    <span ref={ref} className={cn("flex shrink-0 items-center me-2 text-muted-foreground", className)} {...props}>
       {IconComponent ? <IconComponent size={16} /> : children}
     </span>
   );

@@ -92,7 +92,7 @@ const DialogContent = React.forwardRef<
         >
           {shouldShowClose && (
             <Pressable
-              className="absolute right-4 top-4 z-10 rounded-sm opacity-70 active:opacity-100"
+              className="absolute end-4 top-4 z-10 rounded-sm opacity-70 active:opacity-100"
               onPress={() => onOpenChange?.(false)}
             >
               <X size={16} className="text-muted-foreground" />

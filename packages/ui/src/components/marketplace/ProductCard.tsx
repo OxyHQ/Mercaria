@@ -87,7 +87,7 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
         {onSale ? (
           <View
             pointerEvents="none"
-            className="absolute left-3 top-3 rounded-full bg-black/75 px-1.5 py-0.5"
+            className="absolute start-3 top-3 rounded-full bg-black/75 px-1.5 py-0.5"
           >
             <Text
               className="text-[10px] font-bold"
@@ -105,7 +105,7 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
           accessibilityLabel="Add to saved items"
           onPress={handleToggleSave}
           hitSlop={8}
-          className="absolute bottom-3 right-3 overflow-hidden rounded-full"
+          className="absolute bottom-3 end-3 overflow-hidden rounded-full"
         >
           {isNativePlatform ? (
             <BlurView
@@ -136,7 +136,7 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
         accessibilityRole="link"
         accessibilityLabel={product.title}
         onPress={() => onPress?.(product.id)}
-        className="flex flex-col pl-1 leading-4"
+        className="flex flex-col ps-1 leading-4"
       >
         <Text numberOfLines={1} className="text-xs text-muted-foreground">
           {product.brand}

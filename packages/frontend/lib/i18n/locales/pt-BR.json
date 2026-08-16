@@ -80,7 +80,8 @@
     },
     "appLanguage": {
       "title": "Idioma do app",
-      "description": "Altere o idioma de exibição do app"
+      "description": "Altere o idioma de exibição do app",
+      "restartRequired": "Reinicie o aplicativo para aplicar a nova direção do layout."
     },
     "appearance": {
       "title": "Aparência",
